@@ -18,6 +18,7 @@ import (
 	"golang.org/x/time/rate"
 
 	"tippani/internal/auth"
+	"tippani/internal/i18n"
 	"tippani/internal/metadata"
 	"tippani/internal/olog"
 	"tippani/internal/store"
@@ -84,6 +85,12 @@ type Server struct {
 	// backupMu serializes backup/restore (backup_handlers.go) — concurrent runs
 	// would race on the backups dir and the swap. TryLock → 409 when busy.
 	backupMu sync.Mutex
+
+	// locales caches the parsed contents of <DataDir>/Locales, re-read when a file
+	// there changes. Not a sync.Once like internal/changelog's: those bytes are
+	// embedded and cannot move, these are edited under a running server and design
+	// §4's promise is "drop it in and it appears". See internal/i18n.
+	locales i18n.Overrides
 }
 
 func New(st *store.Store, static fs.FS, dataDir string, cookieSecure, trustedProxy bool) *Server {
@@ -130,6 +137,12 @@ func (s *Server) Handler() http.Handler {
 	// Version handshake for independently-updated clients (mobile/), before any
 	// credential exists — see capabilities_handler.go.
 	mux.HandleFunc("GET /capabilities", s.handleCapabilities)
+
+	// The words the interface is in. PUBLIC, and it has to be: the login screen
+	// and the first-run screen render before a session exists, and they are the
+	// two screens a reader who does not read English meets first. See
+	// locale_handlers.go for the whole argument.
+	mux.HandleFunc("GET /locales", s.handleLocales)
 
 	mux.HandleFunc("GET /auth/status", s.handleStatus)
 	mux.HandleFunc("POST /auth/signup", s.handleSignup)

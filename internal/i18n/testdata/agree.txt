@@ -1,0 +1,23 @@
+﻿# 1  a comment, and the file opens with a byte-order mark
+_name = Fixture
+_fallback = en
+   
+  spaced.key   =   spaced value  
+equals.value = a = b = c
+# 7  the next line has no equals sign at all
+this line is mangled
+ = 9 a value with no key
+empty.value =
+tab.key	=	value after a tab
+crlf.key = written with CRLF
+cr.key = written with a lone CRhash.inside = a value # with a hash in it
+   # 15  an indented comment
+dupe.key = first
+dupe.key = second wins
+nbsp.value = kept 
+_dir = ltr
+unicode.value = বাংলা — éàü
+was.filled = value
+was.filled =
+=
+trailing.no.newline = last line has no newline

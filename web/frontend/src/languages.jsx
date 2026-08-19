@@ -23,6 +23,16 @@
 // It is a leaf: React and nothing else. The quote cards, the board covers, the
 // board form and Settings all read it, and those live on four different levels
 // of the import graph.
+//
+// THE TEN STARTER NAMES BELOW ARE DATA AND ARE NOT KEYED. A starter's `name` is
+// what a board form writes into a quote's `languages`, and its folded form is the
+// key the languageMarks preference is stored under — translate it and every mark
+// and every proverb board stops matching. The app's own answer to a reader who
+// wants to see বাংলা is already here and is per-reader rather than
+// per-language: the rename in Settings → Languages, which changes the display
+// name and never the stored one.
+
+import { t } from './i18n.js'
 
 // STARTER_LANGUAGES — the ten most spoken, each with FOUR glyphs from its own
 // script, and the first is the default the board cover draws.
@@ -266,7 +276,7 @@ export function LanguageMark({ languages, size = 20, ring = 'var(--card)', class
     <span
       className={className}
       title={name}
-      aria-label={name ? `in ${name}` : undefined}
+      aria-label={name ? t('common.language-mark.aria', { name }) : undefined}
       style={{
         display: 'inline-flex',
         alignItems: 'center',

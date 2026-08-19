@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { json, errText } from './api.js'
+import { t } from './i18n.js'
 import { toast } from './ui.jsx'
 
 // What acting on some rows actually DOES — the network half of the action
@@ -20,17 +21,23 @@ import { toast } from './ui.jsx'
 // sends when you have picked one thing — so there is no second code path to
 // keep in step, which is the whole point.
 
-// KIND_ROUTES maps a kind to its endpoints and to the word a reader types. The
-// bulk vocabulary and the URLs differ by one word — a standalone quote is
-// `/quotes`, a film is a "title" — and this is the one place that has to know.
+// KIND_ROUTES maps a kind to its endpoints, to the word a reader TYPES, and to
+// the word the interface COUNTS with. The bulk vocabulary and the URLs differ by
+// one word — a standalone quote is `/quotes`, a film is a "title" — and this is
+// the one place that has to know.
+//
+// `noun` AND `unit` BOTH EXIST, AND THAT IS NOT REDUNDANCY. `noun` composes the
+// confirmation phrase the SERVER checks byte for byte, so it stays English in
+// every language or the control becomes unusable. `unit` is the locale key the
+// counted nouns come from, and is the half that gets translated.
 export const KIND_ROUTES = {
-  annotation: { bulk: '/annotations/bulk', del: '/annotations/bulk/delete', noun: ['highlight', 'highlights'] },
-  dialogue: { bulk: '/dialogues/bulk', del: '/dialogues/bulk/delete', noun: ['film line', 'film lines'] },
-  quote: { bulk: '/quotes/bulk', del: '/quotes/bulk/delete', noun: ['quote', 'quotes'] },
+  annotation: { bulk: '/annotations/bulk', del: '/annotations/bulk/delete', noun: ['highlight', 'highlights'], unit: 'unit.highlight' },
+  dialogue: { bulk: '/dialogues/bulk', del: '/dialogues/bulk/delete', noun: ['film line', 'film lines'], unit: 'unit.dialogue' },
+  quote: { bulk: '/quotes/bulk', del: '/quotes/bulk/delete', noun: ['quote', 'quotes'], unit: 'unit.quote' },
   // A work carries its quotes into the bin with it, which is why the phrase and
   // the dialog say so rather than just naming a count.
-  book: { bulk: '/books/bulk', del: '/books/bulk/delete', status: '/books/bulk/status', noun: ['book', 'books'] },
-  movie: { bulk: '/movies/bulk', del: '/movies/bulk/delete', status: '/movies/bulk/status', noun: ['title', 'titles'] },
+  book: { bulk: '/books/bulk', del: '/books/bulk/delete', status: '/books/bulk/status', noun: ['book', 'books'], unit: 'unit.book' },
+  movie: { bulk: '/movies/bulk', del: '/movies/bulk/delete', status: '/movies/bulk/status', noun: ['title', 'titles'], unit: 'unit.title' },
 }
 
 // REVIEW_BULK_KIND crosses from the SCHEDULE's vocabulary to this file's.
@@ -53,6 +60,11 @@ export const REVIEW_BULK_KIND = {
 // deletePhrase has to match the server's, exactly, because the server is where
 // it is checked. Duplicated on purpose rather than fetched: a client that cannot
 // compose the phrase cannot show it, and showing it is the whole affordance.
+//
+// AND IT IS THEREFORE NOT TRANSLATED. It is the one user-facing string in this
+// file still assembled from English literals, because the check is in Go: a
+// Bengali prompt over an English comparison is a control nobody can satisfy.
+// Translating it means translating both sides in one change.
 export function deletePhrase(kind, n) {
   const pair = KIND_ROUTES[kind]?.noun || ['item', 'items']
   return `delete ${n} ${n === 1 ? pair[0] : pair[1]}`
@@ -62,8 +74,8 @@ export function deletePhrase(kind, n) {
 // toasts with it, and getting the singular from one place is what stops
 // "deleted 1 books".
 export function countedNoun(kind, n) {
-  const pair = KIND_ROUTES[kind]?.noun || ['item', 'items']
-  return `${n} ${n === 1 ? pair[0] : pair[1]}`
+  const unit = KIND_ROUTES[kind]?.unit || 'unit.item'
+  return t('common.count.phrase', { n, noun: t(unit, { count: n }) })
 }
 
 // FILL_CHUNK matches the server's per-call cap. A selection larger than this is
@@ -84,7 +96,7 @@ export function useBulkOps({ kind, ids = [], onDone }) {
     setBusy(true)
     const r = await json('POST', routes.bulk, { ids, ...body })
     setBusy(false)
-    if (!r.ok) return toast(errText(r, 'could not apply'))
+    if (!r.ok) return toast(errText(r, t('error.apply.generic')))
     toast(said)
     onDone?.()
   }
@@ -94,7 +106,7 @@ export function useBulkOps({ kind, ids = [], onDone }) {
     setBusy(true)
     const r = await json('POST', routes.status, { ids, status })
     setBusy(false)
-    if (!r.ok) return toast(errText(r, 'could not apply'))
+    if (!r.ok) return toast(errText(r, t('error.apply.generic')))
     toast(said)
     onDone?.()
   }
@@ -111,7 +123,7 @@ export function useBulkOps({ kind, ids = [], onDone }) {
       const r = await json('POST', '/metadata/fill', { [key]: ids.slice(i, i + FILL_CHUNK) })
       if (!r.ok) {
         setBusy(false)
-        return toast(errText(r, 'could not fill'))
+        return toast(errText(r, t('error.fill.generic')))
       }
       // The FIELD count is what the toast reports, not the work count: "filled 3
       // books" over a selection of forty reads as a failure, while "filled 7
@@ -122,7 +134,11 @@ export function useBulkOps({ kind, ids = [], onDone }) {
     setBusy(false)
     // "Nothing was missing" is the good case and has to read like one, or people
     // learn to distrust the button.
-    toast(fields === 0 ? (failed ? 'nothing could be fetched' : 'nothing was missing') : `filled ${fields} fields`)
+    toast(
+      fields === 0
+        ? t(failed ? 'common.selection.fill.toast.none-fetched' : 'common.selection.fill.toast.nothing-missing')
+        : t('common.selection.fill.toast.filled', { count: fields, n: fields }),
+    )
     onDone?.()
   }
 
@@ -137,16 +153,16 @@ export function useBulkOps({ kind, ids = [], onDone }) {
     setBusy(true)
     const r = await json('POST', routes.del, { ids, confirm: deletePhrase(kind, count) })
     setBusy(false)
-    if (!r.ok) return toast(errText(r, 'could not delete'))
+    if (!r.ok) return toast(errText(r, t('error.delete.generic')))
     const trashID = r.data?.trash_id
     toast(
-      `deleted ${count}`,
+      t('common.toast.deleted', { count, n: count }),
       trashID
         ? {
-            label: 'Undo',
+            label: t('common.action.undo.label'),
             onClick: async () => {
               const u = await json('POST', `/trash/${trashID}/restore`)
-              toast(u.ok ? 'restored' : errText(u, 'could not undo'))
+              toast(u.ok ? t('common.toast.restored.label') : errText(u, t('error.undo.generic')))
               onDone?.()
             },
           }
@@ -183,31 +199,35 @@ export function useBulkOps({ kind, ids = [], onDone }) {
 
 // BULK_WORK_FIELDS / BULK_QUOTE_FIELDS — what may be set, per kind.
 // `kinds` names the record kinds that have the column; absent means all of them.
+// `label` IS A GETTER, HERE AND BELOW. Every render site reads `f.label`, and
+// none of them is in this file, so a getter is what lets the copy resolve at
+// render time — after a locale has been applied, and again when it changes —
+// without any caller having to know a translation happened.
 export const BULK_WORK_FIELDS = [
-  { key: 'author', label: 'Author', kinds: ['book'] },
-  { key: 'translator', label: 'Translator', kinds: ['book'] },
-  { key: 'editor', label: 'Editor', kinds: ['book'] },
-  { key: 'director', label: 'Director', kinds: ['movie'] },
-  { key: 'media_type', label: 'Type', kinds: ['movie'], options: [['movie', 'Film'], ['show', 'Show'], ['game', 'Game']] },
-  { key: 'published_year', label: 'Year', kinds: ['book'], number: true },
-  { key: 'release_year', label: 'Year', kinds: ['movie'], number: true },
-  { key: 'series', label: 'Series' },
-  { key: 'series_index', label: 'Series #', number: true },
-  { key: 'description', label: 'Description', long: true },
+  { key: 'author', get label() { return t('common.field.author.label') }, kinds: ['book'] },
+  { key: 'translator', get label() { return t('common.field.translator.label') }, kinds: ['book'] },
+  { key: 'editor', get label() { return t('common.field.editor.label') }, kinds: ['book'] },
+  { key: 'director', get label() { return t('common.field.director.label') }, kinds: ['movie'] },
+  { key: 'media_type', get label() { return t('common.field.media-type.label') }, kinds: ['movie'], get options() { return [['movie', t('vocab.kind.movie.label')], ['show', t('vocab.kind.show.label')], ['game', t('vocab.kind.game.label')]] } },
+  { key: 'published_year', get label() { return t('common.field.year.label') }, kinds: ['book'], number: true },
+  { key: 'release_year', get label() { return t('common.field.year.label') }, kinds: ['movie'], number: true },
+  { key: 'series', get label() { return t('common.field.series.label') } },
+  { key: 'series_index', get label() { return t('common.field.series-no.label') }, number: true },
+  { key: 'description', get label() { return t('common.field.description.label') }, long: true },
 ]
 
 export const BULK_QUOTE_FIELDS = [
-  { key: 'note', label: 'Note', long: true },
-  { key: 'chapter_no', label: 'Chapter #', kinds: ['annotation'], number: true },
-  { key: 'chapter', label: 'Chapter name', kinds: ['annotation'] },
-  { key: 'location', label: 'Location', kinds: ['annotation'] },
-  { key: 'character', label: 'Character', kinds: ['dialogue'] },
-  { key: 'actor', label: 'Actor', kinds: ['dialogue'] },
-  { key: 'timestamp', label: 'Timestamp', kinds: ['dialogue'] },
-  { key: 'speaker', label: 'Speaker', kinds: ['quote'] },
-  { key: 'occasion', label: 'Occasion', kinds: ['quote'] },
-  { key: 'place', label: 'Place', kinds: ['quote'] },
-  { key: 'medium', label: 'Medium', kinds: ['quote'] },
+  { key: 'note', get label() { return t('common.field.note.label') }, long: true },
+  { key: 'chapter_no', get label() { return t('common.field.chapter-no.label') }, kinds: ['annotation'], number: true },
+  { key: 'chapter', get label() { return t('common.field.chapter-name.label') }, kinds: ['annotation'] },
+  { key: 'location', get label() { return t('common.field.location.label') }, kinds: ['annotation'] },
+  { key: 'character', get label() { return t('common.field.character.label') }, kinds: ['dialogue'] },
+  { key: 'actor', get label() { return t('common.field.actor.label') }, kinds: ['dialogue'] },
+  { key: 'timestamp', get label() { return t('common.field.timestamp.label') }, kinds: ['dialogue'] },
+  { key: 'speaker', get label() { return t('common.field.speaker.label') }, kinds: ['quote'] },
+  { key: 'occasion', get label() { return t('common.field.occasion.label') }, kinds: ['quote'] },
+  { key: 'place', get label() { return t('common.field.place.label') }, kinds: ['quote'] },
+  { key: 'medium', get label() { return t('common.field.medium.label') }, kinds: ['quote'] },
 ]
 
 export function bulkFieldsFor(kind) {
@@ -238,7 +258,7 @@ export function overwriteWarning(rows, key) {
     // One sentence, five words or fewer per the house rule where it can be —
     // this one cannot, and it is a warning rather than a label.
     text: seen.size === 1
-      ? `overwrites ${present.length} that already say “${[...seen][0]}”`
-      : `overwrites ${present.length}, with ${seen.size} different values`,
+      ? t('common.selection.edit.overwrite.same', { count: present.length, n: present.length, value: [...seen][0] })
+      : t('common.selection.edit.overwrite.differ', { count: present.length, n: present.length, distinct: seen.size }),
   }
 }

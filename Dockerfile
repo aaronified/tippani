@@ -47,6 +47,18 @@ WORKDIR /src/web/frontend
 COPY web/frontend/package.json web/frontend/package-lock.json ./
 RUN npm ci
 COPY web/frontend/ ./
+# THE LOCALE FILES ARE OUTSIDE THIS STAGE'S COPY, and the build fails without
+# them. internal/i18n/en.txt and bn.txt are the canonical copy for BOTH sides of
+# the app: the Go binary embeds them and src/i18n.js imports the same bytes with
+# Vite's `?raw`. They live in a Go package because //go:embed cannot reach outside
+# its own directory and Vite can reach anywhere — so the one file goes where the
+# constrained side can see it, and there is nothing to keep in step.
+#
+# Copied SEPARATELY rather than by widening the COPY above: this stage should get
+# the frontend tree plus exactly the two assets it reaches out of it, so a build
+# that starts depending on something else in the repository fails here instead of
+# quietly succeeding.
+COPY internal/i18n/*.txt /src/internal/i18n/
 RUN npm run build   # -> /src/web/dist
 # The bundle is what the whole image exists to serve, so a build that "succeeded"
 # without emitting one must not become an image. index.html is written last, so

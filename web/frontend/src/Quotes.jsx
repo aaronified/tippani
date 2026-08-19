@@ -16,6 +16,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { LanguageMark } from './languages.jsx'
 import { json, errText, downloadPost } from './api.js'
+import { t } from './i18n.js'
 import { AnnotationCard, fmtDate } from './Library.jsx'
 import { CreditFaces, DEFAULT_CREDIT_SEPS, PersonModal, PersonName, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
 import { ShareDialog, copyQuote, quoteShare } from './share.jsx'
@@ -81,19 +82,23 @@ function StarterProverbs({ onDone, boardID }) {
     setMsg('')
     const r = await json('POST', '/quotes/starters', { language, board_id: boardID ?? null })
     setBusy('')
-    if (!r.ok) return setMsg(errText(r, 'could not add them'))
+    if (!r.ok) return setMsg(errText(r, t('error.add.starters')))
     // `skipped` is the honest half: asking twice reports nothing added rather than
     // implying it wrote a second copy.
-    setMsg(r.data.added > 0 ? `added ${r.data.added}` : 'already there')
+    setMsg(
+      r.data.added > 0
+        ? t('quotes.starter.added.label', { n: r.data.added, count: r.data.added })
+        : t('quotes.starter.already.label'),
+    )
     await onDone()
   }
 
   if (!offers || offers.length === 0) return null
   return (
     <div className="starter-proverbs">
-      <MonoLabel className="block">start with a curated set</MonoLabel>
+      <MonoLabel className="block">{t('quotes.starter.title')}</MonoLabel>
       <p className="microcopy" style={{ margin: '4px 0 10px' }}>
-        Ten each, unattributed, with an English translation where the words are not in English.
+        {t('quotes.starter.body')}
       </p>
       <div className="flex flex-wrap items-center gap-2">
         {offers.map((o) => (
@@ -103,7 +108,9 @@ function StarterProverbs({ onDone, boardID }) {
             disabled={!!busy}
             onClick={() => take(o.language)}
           >
-            {busy === o.language ? 'Adding…' : `Add ${o.count} ${o.language}`}
+            {busy === o.language
+              ? t('quotes.starter.take.busy')
+              : t('quotes.starter.take.label', { n: o.count, count: o.count, name: o.language })}
           </GhostButton>
         ))}
         {msg && <MonoLabel style={{ color: 'var(--soft)' }}>{msg}</MonoLabel>}
@@ -280,12 +287,12 @@ export function UtteranceForm({ initial, onSubmit, onCancel, submitLabel, tagSug
   // annotation, which may legally be a bare note about a page, because there is
   // no page here to be about.
   const missing = !quote.trim()
-    ? 'Write the quote'
+    ? t('error.validate.quote-required')
     : occasionDate && !isPartialDate(occasionDate)
-      ? 'Check the date'
+      ? t('error.validate.date')
       : ''
   // Joins the dialog's header ✓ when there is one — see FormHostContext.
-  const host = useFormHost(busy ? 'Saving…' : missing)
+  const host = useFormHost(busy ? t('common.action.save.busy') : missing)
 
   async function submit(e) {
     e.preventDefault()
@@ -328,51 +335,88 @@ export function UtteranceForm({ initial, onSubmit, onCancel, submitLabel, tagSug
   return (
     <form id={host?.formId} onSubmit={submit} className="ann-form space-y-3">
       <label className="block">
-        <MonoLabel className="mb-1.5 block">Quote</MonoLabel>
+        <MonoLabel className="mb-1.5 block">{t('common.field.quote.label')}</MonoLabel>
         <textarea className="tp-input" rows="3" value={quote} onChange={(e) => setQuote(e.target.value)} />
       </label>
       <label className="block">
-        <MonoLabel className="mb-1.5 block">Note</MonoLabel>
+        <MonoLabel className="mb-1.5 block">{t('common.field.note.label')}</MonoLabel>
         <textarea className="tp-input" rows="2" value={note} onChange={(e) => setNote(e.target.value)} />
       </label>
       <div className="cl-grid">
-        <Field label="Speaker" nameCase placeholder="who said it" value={speaker} onChange={(e) => setSpeaker(e.target.value)} />
-        <Field label="Occasion" placeholder="a speech, a letter…" value={occasion} onChange={(e) => setOccasion(e.target.value)} />
+        <Field
+          label={t('common.field.speaker.label')}
+          nameCase
+          placeholder={t('common.field.speaker.placeholder')}
+          value={speaker}
+          onChange={(e) => setSpeaker(e.target.value)}
+        />
+        <Field
+          label={t('common.field.occasion.label')}
+          placeholder={t('common.field.occasion.placeholder')}
+          value={occasion}
+          onChange={(e) => setOccasion(e.target.value)}
+        />
       </div>
       <div className="cl-grid">
         {/* A year alone is a complete answer, so this is a partial date rather
             than a date picker — see the field's own note. */}
-        <PartialDateField label="When" value={occasionDate} onChange={setOccasionDate} />
-        <Field label="Place" placeholder="where" value={place} onChange={(e) => setPlace(e.target.value)} />
+        <PartialDateField label={t('quotes.form.when.label')} value={occasionDate} onChange={setOccasionDate} />
+        <Field
+          label={t('common.field.place.label')}
+          placeholder={t('common.field.place.placeholder')}
+          value={place}
+          onChange={(e) => setPlace(e.target.value)}
+        />
       </div>
-      <Field label="Medium" placeholder="radio, speech, letter…" value={medium} onChange={(e) => setMedium(e.target.value)} />
+      <Field
+        label={t('common.field.medium.label')}
+        placeholder={t('common.field.medium.placeholder')}
+        value={medium}
+        onChange={(e) => setMedium(e.target.value)}
+      />
       <label className="block">
-        <MonoLabel className="mb-1 block">Kind</MonoLabel>
+        <MonoLabel className="mb-1 block">{t('quotes.form.kind.label')}</MonoLabel>
         {/* The board, not the "kind". 0036 made the three fixed kinds into
             shelves the reader owns, so this is where a quote is filed rather
             than what it is — and it is the one field that has to be here,
             because a PUT without it moves the quote. */}
         {boards.length > 0 && (
           <Select
-            ariaLabel="Board"
+            ariaLabel={t('common.field.board.label')}
             value={boardID == null ? '' : String(boardID)}
             onChange={(v) => setBoardID(v === '' ? null : Number(v))}
             options={boards.map((b) => [String(b.id), b.name])}
           />
         )}
       </label>
-      <Field label="Language" placeholder="Bengali, Hindi…" value={language} onChange={(e) => setLanguage(e.target.value)} />
-      <Field label="Translation" placeholder="what it says in English" value={translation} onChange={(e) => setTranslation(e.target.value)} />
+      <Field
+        label={t('common.field.language.label')}
+        placeholder={t('common.field.language.placeholder')}
+        value={language}
+        onChange={(e) => setLanguage(e.target.value)}
+      />
+      <Field
+        label={t('common.field.translation.label')}
+        placeholder={t('common.field.translation.placeholder')}
+        value={translation}
+        onChange={(e) => setTranslation(e.target.value)}
+      />
       <label className="block">
-        <MonoLabel className="mb-1.5 block">Tags</MonoLabel>
-        <TokenInput value={tags} onChange={setTags} suggestions={tagSuggestions} placeholder="add a tag…" ariaLabel="Tags" />
+        <MonoLabel className="mb-1.5 block">{t('common.field.tags.label')}</MonoLabel>
+        <TokenInput
+          value={tags}
+          onChange={setTags}
+          suggestions={tagSuggestions}
+          placeholder={t('common.field.tags.placeholder')}
+          ariaLabel={t('common.field.tags.label')}
+        />
       </label>
       <div className="block">
-        <MonoLabel className="mb-1.5 block">Sticker</MonoLabel>
+        <MonoLabel className="mb-1.5 block">{t('common.field.sticker.label')}</MonoLabel>
         <StickerPicker value={stickerId} onChange={setStickerId} stickers={stickers} reload={reloadStickers} />
       </div>
       <div className="flex flex-wrap items-center gap-3 pt-1">
-        <MonoLabel>colour</MonoLabel>
+        <MonoLabel>{t('common.mono.colour.label')}</MonoLabel>
         <ColorSwatches value={color} onChange={setColor} />
         {/* Hosted in a dialog, yes and no live together in its header. Inline
             there is no header, so the footer stays. See FormHostContext. */}
@@ -380,7 +424,7 @@ export function UtteranceForm({ initial, onSubmit, onCancel, submitLabel, tagSug
           <div className="ml-auto flex gap-2">
             {onCancel && (
               <GhostButton type="button" onClick={onCancel}>
-                Cancel
+                {t('common.action.cancel.label')}
               </GhostButton>
             )}
             <button className={PRIMARY} disabled={busy || !!missing} title={missing || undefined}>
@@ -409,14 +453,19 @@ export function utteranceYear(u) {
 // piles by. The residual bucket matters more here than on the other two screens:
 // a proverb has no speaker, no medium and no date, so it lands in the catch-all
 // of every one of these, which is why the label says what is missing.
-const GROUP_OPTIONS = [
-  ['none', 'Quotes'],
-  ['speaker', 'Speaker'],
-  ['medium', 'Medium'],
-  ['place', 'Place'],
-  ['decade', 'Decade'],
+const groupOptions = () => [
+  ['none', t('quotes.group.none.label')],
+  ['speaker', t('quotes.group.speaker.label')],
+  ['medium', t('quotes.group.medium.label')],
+  ['place', t('quotes.group.place.label')],
+  ['decade', t('quotes.group.decade.label')],
 ]
-const GROUP_RESIDUAL = { medium: 'No medium', place: 'No place', language: 'No language' }
+// The catch-all heading per dimension, as KEYS — resolved at grouping time.
+const GROUP_RESIDUAL = {
+  medium: 'quotes.group.residual.medium.label',
+  place: 'quotes.group.residual.place.label',
+  language: 'quotes.group.residual.language.label',
+}
 
 // The per-language sections on a proverb board (0037) — what the request called
 // subfolders, and it is a GROUPING rather than a folder for a reason worth
@@ -429,8 +478,8 @@ const GROUP_RESIDUAL = { medium: 'No medium', place: 'No place', language: 'No l
 // on a board of speeches it is empty on every row, which would be a section
 // called "No language" holding the entire board.
 export function groupOptionsFor(board) {
-  if (board?.kind !== 'proverb') return GROUP_OPTIONS
-  return [...GROUP_OPTIONS, ['language', 'Language']]
+  if (board?.kind !== 'proverb') return groupOptions()
+  return [...groupOptions(), ['language', t('quotes.group.language.label')]]
 }
 
 // THE THREE BOARDS (0035). One page, three boards — not three nav tabs: a phone's
@@ -464,20 +513,20 @@ export function groupUtterances(list, dim, seps) {
   return groupWorks(list, workDim, {
     credit: (u) => u.speaker,
     splitCredit: true,
-    creditResidual: 'No speaker',
+    creditResidual: t('quotes.group.residual.speaker.label'),
     year: utteranceYear,
     // medium and place are literal column names, so the accessor is the dim.
     facet: (u, d) => u[d],
-    facetResidual: (d) => GROUP_RESIDUAL[d] || 'None',
+    facetResidual: (d) => t(GROUP_RESIDUAL[d] || 'quotes.group.residual.none.label'),
     seps,
   })
 }
 
-const SORT_OPTIONS = [
-  ['recent', 'Recent'],
-  ['speaker', 'Speaker'],
-  ['occasion', 'Occasion'],
-  ['said', 'When said'],
+const sortOptions = () => [
+  ['recent', t('quotes.sort.recent.label')],
+  ['speaker', t('quotes.sort.speaker.label')],
+  ['occasion', t('quotes.sort.occasion.label')],
+  ['said', t('quotes.sort.said.label')],
 ]
 
 // QuotesPage renders on the same scaffold as the Library and the Catalogue,
@@ -581,7 +630,7 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
     })
   }, [])
 
-  const tagMap = useMemo(() => Object.fromEntries(tags.map((t) => [t.name, t])), [tags])
+  const tagMap = useMemo(() => Object.fromEntries(tags.map((row) => [row.name, row])), [tags])
   const stickerMap = useMemo(() => Object.fromEntries(stickers.map((s) => [s.id, s])), [stickers])
 
   // THE BOARD PARTITIONS FIRST, and every list derived from it follows — the
@@ -663,7 +712,7 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
 
   async function save(id, fields) {
     const r = await json('PUT', `/quotes/${id}`, fields)
-    if (!r.ok) return errText(r, 'could not save')
+    if (!r.ok) return errText(r, t('error.save.generic'))
     setEditingId(null)
     await load()
     return null
@@ -673,7 +722,7 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
   async function patch(u, fields) {
     const r = await json('PUT', `/quotes/${u.id}`, { ...utteranceState(u), ...fields })
     if (!r.ok) {
-      setError(errText(r, 'could not save'))
+      setError(errText(r, t('error.save.generic')))
       return false
     }
     setError('')
@@ -681,7 +730,7 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
     return true
   }
   async function remove(u) {
-    if (!confirm('Delete this quote?')) return
+    if (!confirm(t('quotes.delete.confirm'))) return
     const r = await deleteWithUndo(`/quotes/${u.id}`, { reload: load })
     if (r.ok) load()
     else setError(errText(r))
@@ -750,7 +799,7 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
   // The colour swatch doubles as its own off switch: there is no "no colour" to
   // pick, so tapping the chosen one clears it.
   const colourFilter = (
-    <ColorSwatches value={color} onChange={(c) => setColor(c === color ? '' : c)} ariaLabel="Filter by category" />
+    <ColorSwatches value={color} onChange={(c) => setColor(c === color ? '' : c)} ariaLabel={t('quotes.filters.colour.aria')} />
   )
   // A Toggle rather than a Select: three boards is a segmented control, and the one
   // you are on should be readable without opening anything. Changing board clears
@@ -759,14 +808,14 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
   // looks like a bug.
 
   const selects = [
-    tags.length > 0 && ['tag', 'Filter by tag', tag, setTag, [['', 'all tags'], ...tags.map((t) => [t.name, t.name])]],
-    speakers.length > 0 && ['speaker', 'Filter by speaker', speaker, setSpeaker, [['', 'all speakers'], ...speakers.map((n) => [n, n])]],
-    mediums.length > 0 && ['medium', 'Filter by medium', medium, setMedium, [['', 'all media'], ...mediums.map((m) => [m, m])]],
-    languages.length > 1 && ['language', 'Filter by language', language, setLanguage, [['', 'all languages'], ...languages.map((l) => [l, l])]],
+    tags.length > 0 && ['tag', t('common.filters.tag.aria'), tag, setTag, [['', t('common.filters.tag.all.label')], ...tags.map((row) => [row.name, row.name])]],
+    speakers.length > 0 && ['speaker', t('quotes.filters.speaker.aria'), speaker, setSpeaker, [['', t('quotes.filters.speaker.all.label')], ...speakers.map((n) => [n, n])]],
+    mediums.length > 0 && ['medium', t('quotes.filters.medium.aria'), medium, setMedium, [['', t('quotes.filters.medium.all.label')], ...mediums.map((m) => [m, m])]],
+    languages.length > 1 && ['language', t('quotes.filters.language.aria'), language, setLanguage, [['', t('quotes.filters.language.all.label')], ...languages.map((l) => [l, l])]],
   ].filter(Boolean)
 
   const groupSelect = (
-    <Select ariaLabel="Group by" value={groupable} onChange={setGroupBy} options={groupOptionsFor(openBoard)} />
+    <Select ariaLabel={t('common.filters.group.aria')} value={groupable} onChange={setGroupBy} options={groupOptionsFor(openBoard)} />
   )
 
   // Above the scaffold rather than inside it: the grid slot does not render when a
@@ -790,7 +839,7 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
       {!mobile && (
         <div className="mb-3">
           <GhostButton icon={<IconBack />} onClick={onClose}>
-            All boards
+            {t('quotes.board.back.label')}
           </GhostButton>
         </div>
       )}
@@ -798,16 +847,23 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
       <WorkListScaffold
       mobile={mobile}
       onBack={onClose}
-      title={isAll ? 'All quotes' : openBoard?.name || 'Quotes'}
-      counts={rows ? `${board.length} ${board.length === 1 ? 'quote' : 'quotes'}${openBoard?.description ? ' · ' + openBoard.description : ''}` : ''}
+      title={isAll ? t('quotes.board.all.label') : openBoard?.name || t('nav.tab.quotes.label')}
+      counts={rows
+        ? t(openBoard?.description ? 'quotes.board.counts-described' : 'quotes.board.counts', {
+            n: board.length,
+            noun: t('unit.quote', { count: board.length }),
+            description: openBoard?.description,
+          })
+        : ''}
       error={error}
       onExport={() => setExporting(true)}
       loaded={rows != null}
       hasItems={!!(rows && board.length > 0)}
       shownCount={shown.length}
-      emptyText={'nothing on this board yet — the ＋ in the top bar saves a line from anywhere'}
-      noMatchText="no quotes match these filters"
-      noun="quote"
+      emptyText={t('quotes.board.empty')}
+      noMatchText={t('quotes.board.nomatch')}
+      noun={t('unit.quote.one')}
+      nounPlural={t('unit.quote.other')}
       fav={favOnly}
       setFav={setFavOnly}
       tagged={tagged}
@@ -816,11 +872,11 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
       setNoted={setNoted}
       sort={sort}
       setSort={setSort}
-      sortOptions={SORT_OPTIONS}
+      sortOptions={sortOptions()}
       leading={colourFilter}
       leadingMobile={
         <div>
-          <MonoLabel className="mb-2 block">colour</MonoLabel>
+          <MonoLabel className="mb-2 block">{t('common.mono.colour.label')}</MonoLabel>
           {colourFilter}
         </div>
       }
@@ -830,7 +886,7 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
             <Select key={key} ariaLabel={label} value={value} onChange={onChange} options={options} />
           ))}
           <label className="flex items-center gap-2">
-            <MonoLabel>group</MonoLabel>
+            <MonoLabel>{t('common.mono.group.label')}</MonoLabel>
             {groupSelect}
           </label>
         </>
@@ -839,12 +895,12 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
         <>
           {selects.map(([key, label, value, onChange, options]) => (
             <div key={key}>
-              <MonoLabel className="mb-2 block">{key}</MonoLabel>
+              <MonoLabel className="mb-2 block">{t(`common.mono.${key}.label`)}</MonoLabel>
               <Select ariaLabel={label} value={value} onChange={onChange} options={options} />
             </div>
           ))}
           <div>
-            <MonoLabel className="mb-2 block">group</MonoLabel>
+            <MonoLabel className="mb-2 block">{t('common.mono.group.label')}</MonoLabel>
             {groupSelect}
           </div>
         </>
@@ -863,9 +919,9 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
       exportDialog={
         <ConfirmDialog
           open={exporting}
-          title="Export quotes"
-          body={<>{shown.length} quote{shown.length === 1 ? '' : 's'} in view will be exported as a single Markdown file (re-importable into Tippani).</>}
-          confirmLabel="Export"
+          title={t('quotes.export.confirm.title')}
+          body={t('quotes.export.confirm.body', { count: shown.length, n: shown.length })}
+          confirmLabel={t('common.action.export.label')}
           onCancel={() => setExporting(false)}
           onConfirm={async () => {
             setExporting(false)
@@ -907,8 +963,8 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
             const u = movingQuote
             setMovingQuote(null)
             const r = await json('POST', '/quotes/bulk', { ids: [u.id], board_id: target })
-            if (!r.ok) return toast(errText(r, 'could not move'))
-            toast('moved')
+            if (!r.ok) return toast(errText(r, t('error.move.generic')))
+            toast(t('quotes.toast.moved'))
             await load()
           }}
           onClose={() => setMovingQuote(null)}
@@ -927,7 +983,8 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
                 <GroupHeading
                   label={g.label}
                   count={g.items.length}
-                  noun="quote"
+                  noun={t('unit.quote.one')}
+                  nounPlural={t('unit.quote.other')}
                   person={isSpeaker ? speakerMap[g.label] : null}
                   onOpenPerson={isSpeaker ? () => setPerson({ kind: 'speaker', name: g.label }) : undefined}
                 />

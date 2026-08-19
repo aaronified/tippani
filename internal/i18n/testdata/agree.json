@@ -1,0 +1,28 @@
+{
+  "bad": [
+    8,
+    9,
+    23
+  ],
+  "empty": [
+    "empty.value",
+    "was.filled"
+  ],
+  "keys": {
+    "cr.key": "written with a lone CR",
+    "crlf.key": "written with CRLF",
+    "dupe.key": "second wins",
+    "equals.value": "a = b = c",
+    "hash.inside": "a value # with a hash in it",
+    "nbsp.value": " kept ",
+    "spaced.key": "spaced value",
+    "tab.key": "value after a tab",
+    "trailing.no.newline": "last line has no newline",
+    "unicode.value": "বাংলা — éàü"
+  },
+  "reserved": {
+    "_dir": "ltr",
+    "_fallback": "en",
+    "_name": "Fixture"
+  }
+}

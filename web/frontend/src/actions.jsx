@@ -14,6 +14,7 @@ import {
   IconShare,
   IconTag,
 } from './ui.jsx'
+import { t } from './i18n.js'
 
 // One list of the things you can do to a quote.
 //
@@ -56,7 +57,8 @@ export const KINDS = ['book', 'movie', 'annotation', 'dialogue', 'quote']
 // bulk bar's delete phrase uses (KIND_ROUTES in bulkOps.jsx) — a menu that says
 // "film" over a control whose confirmation says "title" is two names for one
 // thing on two surfaces that open from each other.
-const subjectOf = (kind) => (kind === 'book' ? 'this book' : kind === 'movie' ? 'this title' : 'this quote')
+const subjectOf = (kind) =>
+  t(kind === 'book' ? 'common.subject.book.label' : kind === 'movie' ? 'common.subject.movie.label' : 'common.subject.quote.label')
 
 // actionsFor lists what can be done to one item, in the order a surface should
 // show them. Filtering by `ctx` happens here so no caller has to remember which
@@ -77,10 +79,10 @@ export function actionsFor(kind, item, ctx = {}) {
   const all = [
     {
       id: 'copy',
-      label: 'Copy',
+      label: t('common.action.copy.label'),
       where: ROW,
       icon: <IconCopy />,
-      tooltip: `Copy ${subject}`,
+      tooltip: t('common.action.copy.tip', { subject }),
       // A work has no words to put on the clipboard — its quotes do, one level
       // down — and no share card of its own. Both were "available" on a book
       // for as long as this list was quote-only, and both would have thrown the
@@ -90,19 +92,19 @@ export function actionsFor(kind, item, ctx = {}) {
     },
     {
       id: 'share',
-      label: 'Share',
+      label: t('common.action.share.label'),
       where: ROW,
       icon: <IconShare />,
-      tooltip: `Share ${subject}`,
+      tooltip: t('common.action.share.tip', { subject }),
       available: !isWork && !!ctx.share,
       run: () => ctx.share(item),
     },
     {
       id: 'fill',
-      label: 'Fill gaps',
+      label: t('common.action.fill.label'),
       where: OVERFLOW,
       icon: <IconMetadata />,
-      tooltip: 'Fill the empty fields',
+      tooltip: t('common.action.fill.tip'),
       // Fetch what is MISSING and touch nothing else — the same guarantee the
       // bulk version gives, which is what makes it safe to be one menu item
       // rather than a console with a diff table.
@@ -111,10 +113,10 @@ export function actionsFor(kind, item, ctx = {}) {
     },
     {
       id: 'practise',
-      label: 'Practise',
+      label: t('common.action.practise.label'),
       where: OVERFLOW,
       icon: <IconQuiz />,
-      tooltip: `Quiz me on ${subject}`,
+      tooltip: t('common.action.practise.tip', { subject }),
       // A THEMED ROUND OVER ONE WORK. The endpoint takes a single book or movie
       // id (review_theme.go), which is why this is `single` rather than absent
       // from the bulk list: "practise these forty books" is not this action
@@ -132,19 +134,19 @@ export function actionsFor(kind, item, ctx = {}) {
       // Names the ACTION and flips, exactly as the bar's does. The card wears
       // the matching mark since 1.14.2, so the menu that changes it and the
       // glyph that reports it are the same drawing.
-      label: ctx.excluded ? 'Add to quiz' : 'Skip in quiz',
+      label: t(ctx.excluded ? 'common.action.review.add.label' : 'common.action.review.skip.label'),
       where: OVERFLOW,
       icon: ctx.excluded ? <IconQuiz /> : <IconQuizSkip />,
-      tooltip: ctx.excluded ? 'Put it back in the quiz' : 'Keep it out of the quiz',
+      tooltip: t(ctx.excluded ? 'common.action.review.add.tip' : 'common.action.review.skip.tip'),
       available: !!ctx.setReview,
       run: () => ctx.setReview(item, !!ctx.excluded),
     },
     {
       id: 'edit',
-      label: 'Edit',
+      label: t('common.action.edit.label'),
       where: OVERFLOW,
       icon: <IconEdit />,
-      tooltip: `Edit ${subject}`,
+      tooltip: t('common.action.edit.tip', { subject }),
       // The one action that genuinely does not generalise to a selection: editing
       // forty quotes at once is a bulk FIELD change, which is a different act with
       // a different form, not this action applied N times.
@@ -159,10 +161,10 @@ export function actionsFor(kind, item, ctx = {}) {
       // The card's own ♥ is the other half — that one is a toggle and shows the
       // state — and the two are the same pair as a board's Hide/Show beside
       // Settings' eye: different widget, different rule.
-      label: ctx.favourited ? 'Unfavourite' : 'Favourite',
+      label: t(ctx.favourited ? 'common.action.favourite.menu.off.label' : 'common.action.favourite.menu.on.label'),
       where: OVERFLOW,
       icon: <IconHeart />,
-      tooltip: `Favourite ${subject}`,
+      tooltip: t('common.action.favourite.tip', { subject }),
       // HERE BECAUSE OF THE PHONE, not for symmetry. The ♥ is drawn on the card
       // on a pointer device, where hovering reveals the action row; a thumb
       // reaches this list first, and favouriting is the single most common thing
@@ -181,10 +183,10 @@ export function actionsFor(kind, item, ctx = {}) {
     },
     {
       id: 'board',
-      label: 'Move to board',
+      label: t('common.action.board.label'),
       where: OVERFLOW,
       icon: <IconMoveTo />,
-      tooltip: 'File it on another board',
+      tooltip: t('common.action.board.tip'),
       // Moving a quote between boards was reachable only by opening the edit form
       // and changing one select in it — which is the whole form, and a full-state
       // PUT, for a move. The bulk bar has the same action, and the registry's
@@ -199,10 +201,10 @@ export function actionsFor(kind, item, ctx = {}) {
     },
     {
       id: 'delete',
-      label: 'Delete',
+      label: t('common.action.delete.label'),
       where: OVERFLOW,
       icon: <IconDelete />,
-      tooltip: `Delete ${subject}`,
+      tooltip: t('common.action.delete.tip', { subject }),
       danger: true,
       available: !!ctx.remove,
       run: () => ctx.remove(item),
@@ -277,7 +279,7 @@ export function bulkActionsFor(kind, items, ctx = {}) {
     // ---- a selection of quotes ---------------------------------------------
     {
       id: 'colour',
-      label: 'Colour',
+      label: t('common.action.colour.label'),
       where: ROW,
       icon: <IconPalette />,
       form: BULK_COLOUR,
@@ -289,7 +291,7 @@ export function bulkActionsFor(kind, items, ctx = {}) {
     },
     {
       id: 'add-tags',
-      label: 'Add tags',
+      label: t('common.action.add-tags.label'),
       // Behind the ⋯ because it is the one quote action that needs a KEYBOARD.
       // Standing open in the row, its text field was the widest thing in a strip
       // that has to fit on a phone, and it was open on every selection whether or
@@ -309,7 +311,7 @@ export function bulkActionsFor(kind, items, ctx = {}) {
     },
     {
       id: 'sticker',
-      label: 'Seal',
+      label: t('common.action.seal.label'),
       where: OVERFLOW,
       icon: <IconSeal />,
       form: BULK_STICKER,
@@ -320,7 +322,7 @@ export function bulkActionsFor(kind, items, ctx = {}) {
     },
     {
       id: 'favourite',
-      label: 'Favourite',
+      label: t('common.action.favourite.menu.on.label'),
       where: ROW,
       icon: <IconHeart />,
       form: BULK_NONE,
@@ -330,7 +332,7 @@ export function bulkActionsFor(kind, items, ctx = {}) {
     // ---- a selection of works ----------------------------------------------
     {
       id: 'fill',
-      label: 'Fill gaps',
+      label: t('common.action.fill.label'),
       where: ROW,
       icon: <IconMetadata />,
       form: BULK_NONE,
@@ -341,7 +343,7 @@ export function bulkActionsFor(kind, items, ctx = {}) {
     },
     {
       id: 'shelf',
-      label: 'Shelf',
+      label: t('common.action.shelf.label'),
       where: ROW,
       icon: <IconMoveTo />,
       form: BULK_SHELF,
@@ -350,7 +352,7 @@ export function bulkActionsFor(kind, items, ctx = {}) {
     },
     {
       id: 'board',
-      label: 'Move to board',
+      label: t('common.action.board.label'),
       where: OVERFLOW,
       icon: <IconMoveTo />,
       form: BULK_BOARD,
@@ -364,7 +366,7 @@ export function bulkActionsFor(kind, items, ctx = {}) {
     },
     {
       id: 'anthology',
-      label: 'Add to anthology',
+      label: t('common.action.anthology.label'),
       where: OVERFLOW,
       icon: <IconAnthology />,
       form: BULK_ANTHOLOGY,
@@ -381,7 +383,7 @@ export function bulkActionsFor(kind, items, ctx = {}) {
     },
     {
       id: 'set-fields',
-      label: isWork ? 'Set fields' : null,
+      label: isWork ? t('common.action.set-fields.label') : null,
       where: OVERFLOW,
       icon: <IconDetails />,
       form: BULK_FIELDS,
@@ -399,7 +401,7 @@ export function bulkActionsFor(kind, items, ctx = {}) {
       //
       // THE PICTURE FLIPS WITH IT, which stopped being optional the moment the
       // bar became glyphs: a label carries state and a fixed glyph does not.
-      label: ctx.excluded ? 'Add to quiz' : 'Skip in quiz',
+      label: t(ctx.excluded ? 'common.action.review.add.label' : 'common.action.review.skip.label'),
       where: ROW,
       icon: ctx.excluded ? <IconQuiz /> : <IconQuizSkip />,
       form: BULK_NONE,
@@ -408,7 +410,7 @@ export function bulkActionsFor(kind, items, ctx = {}) {
     },
     {
       id: 'edit',
-      label: 'Edit',
+      label: t('common.action.edit.label'),
       where: OVERFLOW,
       icon: <IconEdit />,
       form: BULK_NONE,
@@ -422,7 +424,7 @@ export function bulkActionsFor(kind, items, ctx = {}) {
     },
     {
       id: 'delete',
-      label: 'Delete',
+      label: t('common.action.delete.label'),
       where: OVERFLOW,
       icon: <IconDelete />,
       form: BULK_CONFIRM,

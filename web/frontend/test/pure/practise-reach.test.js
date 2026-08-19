@@ -17,17 +17,24 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { value } from '../locale-file.js'
 
 const SRC = process.env.TIPPANI_SRC || join(process.cwd(), 'src')
 const read = (f) => readFileSync(join(SRC, f), 'utf8')
 
+// The fourth column is the key namespace the screen's own words live under — `book`
+// for the Library's work page, `film` for the Catalogue's. The label used to be the
+// English in the source and the assertion matched it; it is a key now, so the
+// assertion matches the key and the WORDS are checked once, below, against
+// internal/i18n/en.txt. That split is the point: this file is about a control
+// existing at both widths, and a copy edit should never look like a missing button.
 const SCREENS = [
-  ['Library.jsx', 'book', 'book'],
-  ['Movies.jsx', 'movie', 'movie'],
+  ['Library.jsx', 'book', 'book', 'book'],
+  ['Movies.jsx', 'movie', 'movie', 'film'],
 ]
 
 describe('every work-detail screen can start a themed round', () => {
-  for (const [file, themeKey, noun] of SCREENS) {
+  for (const [file, themeKey, noun, place] of SCREENS) {
     const src = read(file)
 
     it(`${file} takes the hook`, () => {
@@ -48,10 +55,19 @@ describe('every work-detail screen can start a themed round', () => {
     // to only the hero row is missing on a phone entirely — the same gap that
     // left work-details with no Search until 1.15.3.
     it(`${file} offers it on desktop and on a phone`, () => {
-      const inMenu = /label: 'Practise this (book|title)'/.test(src)
-      const inHero = /ariaLabel="Practise this (book|title)"/.test(src)
+      const inMenu = src.includes(`label: t('${place}.practise.menu.label')`)
+      const inHero = src.includes(`ariaLabel={t('${place}.practise.aria')}`)
       expect(inMenu, `${file}: missing from the phone's ⋯ menu`).toBe(true)
       expect(inHero, `${file}: missing from the desktop hero row`).toBe(true)
+    })
+
+    it(`${place}.practise.* says what the control does`, () => {
+      // The words, once, in the file that holds them. A key with nothing written
+      // for it renders "Aria" or "Label" — which is a button that exists at both
+      // widths and still teaches nobody anything.
+      for (const role of ['aria', 'menu.label', 'tip']) {
+        expect(value(`${place}.practise.${role}`), `${place}.practise.${role}`).toMatch(/^(Practise|Quiz me on) /)
+      }
     })
   }
 })

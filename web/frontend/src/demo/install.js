@@ -850,6 +850,10 @@ export function route(method, path, params, body) {
   switch (true) {
     case path === '/auth/me': return [200, USER]
     case path === '/auth/status': return [200, { needs_onboarding: false }]
+    // The words the interface is in. A static host has no data/Locales, so the
+    // honest answer is the two languages that ship in the box and no added files
+    // — which is also exactly what a fresh self-hosted instance answers.
+    case path === '/locales': return [200, { builtin: ['en', 'bn'], files: {} }]
     case path === '/admin/update/check':
       return [200, { current: 'demo', image: 'ghcr.io/aaronified/tippani', socket: false, can_self_update: false, update_available: false, guided_command: 'docker compose up -d --pull always --force-recreate' }]
     // The demo has no backend, so a missed case here shows an empty dialog on the

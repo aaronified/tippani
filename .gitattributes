@@ -58,3 +58,15 @@
 *.yml  text eol=lf
 *.yaml text eol=lf
 *.svg  text eol=lf
+# Locale files (internal/i18n/*.txt, data/Locales/*.txt) are text a translator
+# edits, on whatever machine they have. Named for the same reason as the types
+# above: the parser normalises CRLF and lone CR itself, but the committed bytes
+# should not depend on git's guess about a file full of Bengali.
+*.txt  text eol=lf
+
+# THE ONE FILE THAT MUST KEEP ITS CARRIAGE RETURNS. The parser fixture contains a
+# CRLF line and a lone-CR line on purpose, because "a file edited on Windows
+# parses the same as one edited on Linux" is a promise with no test unless the
+# test data actually holds those bytes. `text=auto eol=lf` above would rewrite
+# them to LF on commit and the two assertions would pass vacuously for ever.
+internal/i18n/testdata/agree.txt -text

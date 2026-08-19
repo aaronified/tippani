@@ -36,6 +36,7 @@ import {
   statusFilter,
   wishFilter,
 } from './works.jsx'
+import { t } from './i18n.js'
 import {
   byLastRead,
   bySeries,
@@ -121,9 +122,17 @@ export default function Library({ openId, onOpen, onClose, onOpenMovie, creditSe
   return <BookList onOpen={onOpen} onOpenMovie={onOpenMovie} creditSeparators={creditSeparators} dataNonce={dataNonce} />
 }
 
-function plural(n, word) {
-  return `${n} ${word}${n === 1 ? '' : 's'}`
-}
+// The five group-by dimensions. A function, not a table: it is read at render.
+const groupOptions = () => [
+  ['none', t('library.group.none.label')],
+  ['series', t('library.group.series.label')],
+  ['author', t('library.group.author.label')],
+  ['decade', t('library.group.decade.label')],
+  ['genre', t('library.group.genre.label')],
+]
+
+// countOf is "3 books" / "1 quote", from the shared unit table.
+const countOf = (n, unit) => t('common.count.phrase', { n, noun: t(unit, { count: n }) })
 
 // Title-case every word: "science FICTION" → "Science Fiction".
 function titleCase(s) {
@@ -172,7 +181,7 @@ function bookState(b) {
 // transition and the read log have to move together. Returns an error string.
 async function setBookStatus(id, body) {
   const r = await json('PUT', `/books/${id}/status`, body)
-  return r.ok ? '' : errText(r, 'could not save')
+  return r.ok ? '' : errText(r, t('error.save.generic'))
 }
 
 // BookGrid is the cover-tile board, shared by the flat list and each group.
@@ -343,8 +352,8 @@ function BookList({ onOpen, onOpenMovie, creditSeparators, dataNonce }) {
   const wishChip = (
     <FilterChip
       active={wishFolder}
-      label="Fold wishlist"
-      tooltip="Fold the unquoted into one tile"
+      label={t('library.filters.fold-wishlist.label')}
+      tooltip={t('library.filters.fold-wishlist.tip')}
       onClick={() => setWishFolder((v) => !v)}
     />
   )
@@ -355,7 +364,7 @@ function BookList({ onOpen, onOpenMovie, creditSeparators, dataNonce }) {
         : groupWorks(shown, groupBy, {
             credit: (b) => b.author,
             splitCredit: true,
-            creditResidual: 'Unknown author',
+            creditResidual: t('library.group.residual.author.label'),
             year: (b) => b.published_year,
             genres: bookGenres,
             series: (b) => b.series,
@@ -370,16 +379,21 @@ function BookList({ onOpen, onOpenMovie, creditSeparators, dataNonce }) {
   return (
     <WorkListScaffold
       mobile={mobile}
-      title="Books"
-      counts={books ? `${plural(books.length, 'book')} · ${plural(quoteTotal, 'quote')}` : ''}
+      title={t('nav.tab.library.label')}
+      counts={books
+        ? t('library.header.counts', {
+            a: t('common.count.phrase', { n: books.length, noun: t('unit.book', { count: books.length }) }),
+            b: t('common.count.phrase', { n: quoteTotal, noun: t('unit.quote', { count: quoteTotal }) }),
+          })
+        : ''}
       error={error}
       onExport={() => setExporting(true)}
-      headerAside={<MonoLabel className="hidden sm:inline">lookup: ISBN or title</MonoLabel>}
+      headerAside={<MonoLabel className="hidden sm:inline">{t('library.header.lookup.label')}</MonoLabel>}
       loaded={books != null}
       hasItems={!!(books && books.length > 0)}
       shownCount={shown.length}
-      emptyText="no books yet — the ＋ in the top bar adds one, or imports a file of highlights"
-      noMatchText="no books match these filters"
+      emptyText={t('library.board.empty')}
+      noMatchText={t('library.board.nomatch')}
       genres={genres}
       genre={genre}
       setGenre={setGenre}
@@ -394,23 +408,30 @@ function BookList({ onOpen, onOpenMovie, creditSeparators, dataNonce }) {
       states={states}
       setStates={setStates}
       kind="book"
-      noun="book"
+      noun={t('unit.book.one')}
+      nounPlural={t('unit.book.other')}
       seriesNames={seriesNames}
       series={series}
       setSeries={setSeries}
       sort={sort}
       setSort={setSort}
-      sortOptions={[['recent', 'Recent'], ['title', 'Title'], ['author', 'Author'], ['series', 'Series'], ['read', 'Last read']]}
+      sortOptions={[
+        ['recent', t('library.sort.recent.label')],
+        ['title', t('library.sort.title.label')],
+        ['author', t('library.sort.author.label')],
+        ['series', t('library.sort.series.label')],
+        ['read', t('library.sort.read.label')],
+      ]}
       trailing={
         <>
           {wishChip}
           <label className="flex items-center gap-2">
-            <MonoLabel>group</MonoLabel>
+            <MonoLabel>{t('common.mono.group.label')}</MonoLabel>
             <Select
-              ariaLabel="Group by"
+              ariaLabel={t('common.filters.group.aria')}
               value={groupBy}
               onChange={setGroupBy}
-              options={[['none', 'Books'], ['series', 'Series'], ['author', 'Author'], ['decade', 'Decade'], ['genre', 'Genre']]}
+              options={groupOptions()}
             />
           </label>
         </>
@@ -421,10 +442,10 @@ function BookList({ onOpen, onOpenMovie, creditSeparators, dataNonce }) {
           <div>
             <MonoLabel className="mb-2 block">group</MonoLabel>
             <Select
-              ariaLabel="Group by"
+              ariaLabel={t('common.filters.group.aria')}
               value={groupBy}
               onChange={setGroupBy}
-              options={[['none', 'Books'], ['series', 'Series'], ['author', 'Author'], ['decade', 'Decade'], ['genre', 'Genre']]}
+              options={groupOptions()}
             />
           </div>
         </>
@@ -433,14 +454,17 @@ function BookList({ onOpen, onOpenMovie, creditSeparators, dataNonce }) {
       exportDialog={
         <ConfirmDialog
           open={exporting}
-          title="Export library"
+          title={t('library.export.confirm.title')}
           body={
             <>
-              {plural(shown.length, 'book')} · {plural(shown.reduce((n, b) => n + (b.annotation_count || 0), 0), 'quote')} in view will
+              {t('library.export.confirm.body', {
+                a: countOf(shown.length, 'unit.book'),
+                b: countOf(shown.reduce((n, b) => n + (b.annotation_count || 0), 0), 'unit.quote'),
+              })}
               be exported as a single Markdown file (re-importable into Tippani).
             </>
           }
-          confirmLabel="Export"
+          confirmLabel={t('common.action.export.label')}
           onCancel={() => setExporting(false)}
           onConfirm={async () => {
             setExporting(false)
@@ -457,7 +481,7 @@ function BookList({ onOpen, onOpenMovie, creditSeparators, dataNonce }) {
             <EditWorkModal
               kind="books"
               id={editWork}
-              title="Edit book"
+              title={t('book.form.edit.title')}
               onDone={() => {
                 setEditWork(null)
                 afterBulk()
@@ -482,7 +506,8 @@ function BookList({ onOpen, onOpenMovie, creditSeparators, dataNonce }) {
                 <GroupHeading
                   label={g.label}
                   count={g.items.length}
-                  noun="book"
+                  noun={t('unit.book.one')}
+                  nounPlural={t('unit.book.other')}
                   person={isAuthor ? authors.map[g.label] : null}
                   onOpenPerson={isAuthor ? () => setPerson({ kind: 'author', name: g.label }) : undefined}
                 />
@@ -520,8 +545,8 @@ function BookList({ onOpen, onOpenMovie, creditSeparators, dataNonce }) {
 
 // isIsbn detects a 10- or 13-digit ISBN (hyphens/spaces allowed, trailing X ok).
 export function isIsbn(s) {
-  const t = s.replace(/[-\s]/g, '')
-  return /^(\d{9}[\dXx]|\d{13})$/.test(t)
+  const bare = s.replace(/[-\s]/g, '')
+  return /^(\d{9}[\dXx]|\d{13})$/.test(bare)
 }
 
 // ManualTab — hand-entry for a book. `title` and `busy` are OWNED BY THE HOST,
@@ -541,14 +566,14 @@ export function ManualTab({ onAdded, formId, title, setTitle, onBusy }) {
 
   async function submit(e) {
     e.preventDefault()
-    if (!title.trim()) return setError('title is required')
+    if (!title.trim()) return setError(t('error.validate.title-required.lower'))
     // parseYearInput reads "380 BCE" and "c. 1500" as well as "1719", because
     // that is what the field shows when it rests. A bare Number() would read
     // every one of those as NaN and erase the year on save.
     let publishedYear, publishedCirca
     if (year.trim()) {
       const parsed = parseYearInput(year)
-      if (!parsed.year) return setError('year must be a year')
+      if (!parsed.year) return setError(t('error.validate.year'))
       publishedYear = parsed.year
       publishedCirca = parsed.circa
     }
@@ -563,22 +588,22 @@ export function ManualTab({ onAdded, formId, title, setTitle, onBusy }) {
     })
     onBusy?.(false)
     if (r.ok) onAdded(r.data) // hand back the created book (capture targets it)
-    else setError(errText(r, 'could not add book'))
+    else setError(errText(r, t('error.add.book')))
   }
 
   return (
     <form id={formId} onSubmit={submit} className="space-y-3">
-      <Field label="Title" nameCase value={title} autoFocus onChange={(e) => setTitle(e.target.value)} />
-      <Field label="Author" nameCase value={author} onChange={(e) => setAuthor(e.target.value)} />
+      <Field label={t('common.field.title.label')} nameCase value={title} autoFocus onChange={(e) => setTitle(e.target.value)} />
+      <Field label={t('common.field.author.label')} nameCase value={author} onChange={(e) => setAuthor(e.target.value)} />
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Year" inputMode="numeric" value={year} maxLength={4} onChange={(e) => setYear(e.target.value.replace(/\D/g, '').slice(0, 4))} />
-        <Field label="ISBN" value={isbn} onChange={(e) => setIsbn(e.target.value)} />
+        <Field label={t('common.field.year.label')} inputMode="numeric" value={year} maxLength={4} onChange={(e) => setYear(e.target.value.replace(/\D/g, '').slice(0, 4))} />
+        <Field label={t('common.field.isbn.label')} value={isbn} onChange={(e) => setIsbn(e.target.value)} />
       </div>
       <ErrorText>{error}</ErrorText>
       {/* Title is the one must-fill field. The ✓ in the popup header stays greyed
           until it has one rather than accepting the press and answering with an
           error; this line says why, because a disabled icon cannot. */}
-      {!title.trim() && <p className="microcopy" style={{ color: 'var(--faint)' }}>A title is required to save.</p>}
+      {!title.trim() && <p className="microcopy" style={{ color: 'var(--faint)' }}>{t('book.form.missing.hint')}</p>}
     </form>
   )
 }
@@ -659,7 +684,7 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce 
     const r = await json('PUT', `/books/${id}/status`, body)
     setShelfBusy(false)
     if (r.ok) setBook(r.data)
-    else setError(errText(r, 'could not save'))
+    else setError(errText(r, t('error.save.generic')))
   }
 
   // pick routes the state the user chose. Starting to read checks the soft cap
@@ -708,7 +733,7 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce 
     const r = await json('PUT', `/books/${id}/status`, { status: book.status, ...patch })
     setShelfBusy(false)
     if (r.ok) setBook(r.data)
-    else setError(errText(r, 'could not save'))
+    else setError(errText(r, t('error.save.generic')))
   }
 
   async function remove() {
@@ -716,7 +741,7 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce 
     // No reload on the Undo: this view closes on a successful delete, so the book
     // coming back has to be found again from the shelf. The toast still offers it,
     // and Settings → The bin is the other way in.
-    const r = await deleteWithUndo(`/books/${id}`, { label: 'book deleted' })
+    const r = await deleteWithUndo(`/books/${id}`, { label: t('book.toast.deleted') })
     if (r.ok) onClose()
     else setError(errText(r))
   }
@@ -726,7 +751,7 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce 
   async function patch(fields) {
     const r = await json('PUT', `/books/${id}`, { ...bookState(book), ...fields })
     if (r.ok) setBook(r.data)
-    else setError(errText(r, 'could not save'))
+    else setError(errText(r, t('error.save.generic')))
   }
 
   // Meta parts: each author is a clickable PersonName (opens the metadata
@@ -763,14 +788,14 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce 
   const metaParts = book
     ? [
         ...credited('author', book.author, authorMap),
-        roleCredits('translator', 'tr.', book.translator, translatorMap),
-        roleCredits('editor', 'ed.', book.editor, editorMap),
+        roleCredits('translator', t('book.credit.translator.label'), book.translator, translatorMap),
+        roleCredits('editor', t('book.credit.editor.label'), book.editor, editorMap),
         formatYear(book.published_year, book.published_circa) || null,
         seriesLabel(book) || null,
       ].filter(Boolean)
     : []
 
-  const detailTitle = book ? (book.title || 'Untitled') : ''
+  const detailTitle = book ? (book.title || t('book.title.fallback')) : ''
   const detailAuthor = book && book.author ? book.author : ''
 
   return (
@@ -782,12 +807,12 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce 
           meta={detailAuthor}
           actions={
             <>
-              <IconButton icon={<IconFilter />} label="Filter"
-            ariaLabel="Filter annotations" onClick={() => setMobileFilter(true)} />
+              <IconButton icon={<IconFilter />} label={t('common.action.filter.label')}
+            ariaLabel={t('book.filter.aria')} onClick={() => setMobileFilter(true)} />
               {/* The shell's one Add surface, opened on Capture with this book
                   already the target — not a second add form of its own. */}
-              <IconButton icon={<IconPlus />} label="Capture"
-            ariaLabel="Capture a quote" onClick={() => onAdd?.('quote', { type: 'book', id })} />
+              <IconButton icon={<IconPlus />} label={t('common.action.capture.label')}
+            ariaLabel={t('book.capture.aria')} onClick={() => onAdd?.('quote', { type: 'book', id })} />
               <MoreMenu
                 items={[
                   {
@@ -795,7 +820,7 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce 
                     label: moveLabel('book', book?.status || '', ACTIVE_STATUS.book),
                     onClick: () => pick(ACTIVE_STATUS.book),
                   },
-                  ...(DEMO ? [] : [{ icon: <IconExport />, label: 'Export .md', onClick: () => { if (book) window.location.href = `/api/books/${book.id}/export` } }]),
+                  ...(DEMO ? [] : [{ icon: <IconExport />, label: t('book.export.label'), onClick: () => { if (book) window.location.href = `/api/books/${book.id}/export` } }]),
                   // SEARCH, ON A PHONE ONLY BECAUSE THAT IS WHERE IT IS MISSING.
                   // The top bar's Search already lands scoped to whatever you are
                   // looking at — searchScope reads the open work — so the
@@ -804,11 +829,11 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce 
                   // where "find another line like this" is the obvious next thing
                   // with no way to ask it. Desktop needs no entry here: the bar is
                   // still up there.
-                  { icon: <IconSearch />, label: 'Search', onClick: () => onSearch?.() },
-                  { icon: <IconQuiz />, label: 'Practise this book', onClick: () => book && practise({ book: book.id, label: book.title }) },
-                  { icon: <IconDetails />, label: 'Details', onClick: () => setEditing(true) },
-                  { icon: <IconHelp size={24} />, label: 'What’s on this screen', onClick: () => setHelpOpen(true) },
-                  { icon: <IconDelete />, label: 'Delete', onClick: remove, danger: true },
+                  { icon: <IconSearch />, label: t('nav.tab.search.label'), onClick: () => onSearch?.() },
+                  { icon: <IconQuiz />, label: t('book.practise.menu.label'), onClick: () => book && practise({ book: book.id, label: book.title }) },
+                  { icon: <IconDetails />, label: t('common.work.details.title'), onClick: () => setEditing(true) },
+                  { icon: <IconHelp size={24} />, label: t('shell.help.menu.label'), onClick: () => setHelpOpen(true) },
+                  { icon: <IconDelete />, label: t('common.action.delete.label'), onClick: remove, danger: true },
                 ]}
               />
             </>
@@ -852,7 +877,7 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce 
             // count is past the description on a desktop and inside the filter
             // sheet on a phone, which is a scroll away on the page whose entire
             // subject is how much you have kept out of this book.
-            counts={<HeroCounts counts={quoteStats} noun={['quote', 'quotes']} />}
+            counts={<HeroCounts counts={quoteStats} noun={[t('unit.quote.one'), t('unit.quote.other')]} />}
             favorite={book.favorite}
             onFavorite={(v) => patch({ favorite: v })}
             // Shelf state, beside the hearts: the state chip (its popover holds
@@ -892,23 +917,23 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce 
                   {!DEMO && (
                     <IconButton
                         icon={<IconExport />}
-                        label="Export"
-            ariaLabel="Export as Markdown"
+                        label={t('common.action.export.label')}
+            ariaLabel={t('book.export.aria')}
                         onClick={() => (window.location.href = `/api/books/${book.id}/export`)}
-                      tooltip="Export as Markdown"
+                      tooltip={t('book.export.tip')}
                     />
                   )}
-                  <IconButton icon={<IconQuiz />} label="Practise"
-            ariaLabel="Practise this book" onClick={() => practise({ book: book.id, label: book.title })} tooltip="Quiz me on this book" />
-                  <IconButton icon={<IconDetails />} label="Details"
-            ariaLabel="Details" onClick={() => setEditing(true)} tooltip="Details and metadata" />
+                  <IconButton icon={<IconQuiz />} label={t('common.action.practise.label')}
+            ariaLabel={t('book.practise.aria')} onClick={() => practise({ book: book.id, label: book.title })} tooltip={t('book.practise.tip')} />
+                  <IconButton icon={<IconDetails />} label={t('common.work.details.title')}
+            ariaLabel={t('common.work.details.title')} onClick={() => setEditing(true)} tooltip={t('book.details.tip')} />
                   <IconButton
                       icon={<IconDelete />}
-                      label="Delete"
-            ariaLabel="Delete this book"
+                      label={t('common.action.delete.label')}
+            ariaLabel={t('book.delete.aria')}
                       onClick={remove}
                       danger
-                    tooltip="Delete this book"
+                    tooltip={t('book.delete.tip')}
                   />
                 </>
               )
@@ -930,9 +955,10 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce 
         open={!!capPool}
         items={(capPool || []).map((b) => ({ id: b.id, title: b.title, meta: [b.author, formatYear(b.published_year, b.published_circa) || null].filter(Boolean).join(' · ') }))}
         cap={SHELF_CAPS.book}
-        noun="book"
-        verb="reading"
-        pastLabel="Mark as read"
+        noun={t('unit.book.one')}
+        nounPlural={t('unit.book.other')}
+        verb={t('common.shelf.reading.book.label')}
+        pastLabel={t('book.shelf.cap.past.label')}
         busyId={capBusyId}
         error={capError}
         onRelease={releaseReading}
@@ -942,7 +968,13 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce 
       <ShelfDateDialog
         open={!!pending}
         title={pending ? moveLabel('book', book?.status || '', pending.status) : ''}
-        label={pending?.status === ACTIVE_STATUS.book ? 'Started' : pending?.status === 'abandoned' ? 'Gave up' : 'Finished'}
+        label={t(
+          pending?.status === ACTIVE_STATUS.book
+            ? 'book.shelf.started.label'
+            : pending?.status === 'abandoned'
+              ? 'book.shelf.abandoned.label'
+              : 'book.shelf.finished.label',
+        )}
         value={pending?.date || ''}
         onChange={(v) => setPending((p) => (p ? { ...p, date: v } : p))}
         onCancel={() => setPending(null)}
@@ -1044,14 +1076,14 @@ export function EditBook({ book, onSaved, onCancel }) {
 
   async function submit(e) {
     e.preventDefault()
-    if (!title.trim()) return setError('title is required')
+    if (!title.trim()) return setError(t('error.validate.title-required.lower'))
     // parseYearInput reads "380 BCE" and "c. 1500" as well as "1719", because
     // that is what the field shows when it rests. A bare Number() would read
     // every one of those as NaN and erase the year on save.
     let publishedYear, publishedCirca
     if (year.trim()) {
       const parsed = parseYearInput(year)
-      if (!parsed.year) return setError('year must be a year')
+      if (!parsed.year) return setError(t('error.validate.year'))
       publishedYear = parsed.year
       publishedCirca = parsed.circa
     }
@@ -1080,7 +1112,7 @@ export function EditBook({ book, onSaved, onCancel }) {
     })
     setBusy(false)
     if (r.ok) onSaved()
-    else setError(errText(r, 'could not save'))
+    else setError(errText(r, t('error.save.generic')))
   }
 
   return (
@@ -1125,33 +1157,33 @@ export function EditBook({ book, onSaved, onCancel }) {
         />
       )}
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Title" nameCase value={title} onChange={(e) => setTitle(e.target.value)} />
-        <Field label="Author" nameCase value={author} onChange={(e) => setAuthor(e.target.value)} />
+        <Field label={t('common.field.title.label')} nameCase value={title} onChange={(e) => setTitle(e.target.value)} />
+        <Field label={t('common.field.author.label')} nameCase value={author} onChange={(e) => setAuthor(e.target.value)} />
         {/* Below the author, above the identifiers: they are credits, and they
             belong with the credit rather than filed among the catalogue numbers.
             Both split on the same separators the author line uses. */}
-        <Field label="Translator" nameCase placeholder="whose English this is" value={translator} onChange={(e) => setTranslator(e.target.value)} />
-        <Field label="Editor" nameCase placeholder="who chose what is in it" value={editor} onChange={(e) => setEditor(e.target.value)} />
-        <Field label="ISBN" value={isbn} onChange={(e) => setIsbn(e.target.value)} />
-        <Field label="ASIN" value={asin} onChange={(e) => setAsin(e.target.value)} />
-        <Field label="Year" inputMode="numeric" value={year} maxLength={4} onChange={(e) => setYear(e.target.value.replace(/\D/g, '').slice(0, 4))} />
+        <Field label={t('common.field.translator.label')} nameCase placeholder={t('book.form.translator.placeholder')} value={translator} onChange={(e) => setTranslator(e.target.value)} />
+        <Field label={t('common.field.editor.label')} nameCase placeholder={t('book.form.editor.placeholder')} value={editor} onChange={(e) => setEditor(e.target.value)} />
+        <Field label={t('common.field.isbn.label')} value={isbn} onChange={(e) => setIsbn(e.target.value)} />
+        <Field label={t('common.field.asin.label')} value={asin} onChange={(e) => setAsin(e.target.value)} />
+        <Field label={t('common.field.year.label')} inputMode="numeric" value={year} maxLength={4} onChange={(e) => setYear(e.target.value.replace(/\D/g, '').slice(0, 4))} />
       </div>
       <label className="block">
-        <MonoLabel className="mb-1.5 block">Genres</MonoLabel>
-        <TokenInput value={genres} onChange={setGenres} suggestions={genreSuggestions} placeholder="add a genre…" ariaLabel="Genres" transform={titleCaseGenre} />
+        <MonoLabel className="mb-1.5 block">{t('common.field.genres.label')}</MonoLabel>
+        <TokenInput value={genres} onChange={setGenres} suggestions={genreSuggestions} placeholder={t('common.field.genres.placeholder')} ariaLabel={t('common.field.genres.label')} transform={titleCaseGenre} />
       </label>
       <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
-        <Field label="Series" nameCase placeholder="e.g. Discworld" value={series} onChange={(e) => setSeries(e.target.value)} />
+        <Field label={t('common.field.series.label')} nameCase placeholder={t('book.form.series.placeholder')} value={series} onChange={(e) => setSeries(e.target.value)} />
         <Field
-          label="Series #"
+          label={t('common.field.series-no.label')}
           inputMode="decimal"
-          placeholder="e.g. 5"
+          placeholder={t('book.form.series-no.placeholder')}
           value={seriesIndex}
           onChange={(e) => setSeriesIndex(e.target.value)}
         />
       </div>
       <label className="block">
-        <MonoLabel className="mb-1.5 block">Description</MonoLabel>
+        <MonoLabel className="mb-1.5 block">{t('common.field.description.label')}</MonoLabel>
         <textarea className="tp-input" rows="4" value={description} onChange={(e) => setDescription(e.target.value)} />
       </label>
       <ErrorText>{error}</ErrorText>
@@ -1228,7 +1260,7 @@ function ActionRow({ acts, a, color, onColor, patch, actionsAlwaysVisible }) {
           cluster to a second line before it splits or squeezes them. (Six of
           them since 1.7.1, collapsing to a single trigger below a 330px card.) */}
       <span className={'card-colors shrink-0' + (actionsAlwaysVisible ? ' is-visible' : '')}>
-        <ColorSwatches value={color} onChange={onColor} ariaLabel="Colour category" collapsible />
+        <ColorSwatches value={color} onChange={onColor} ariaLabel={t('common.colour.category.aria')} collapsible />
       </span>
       <span className="ml-auto flex items-center">
         <QuoteActions actions={atOverflow(acts)} />
@@ -1278,10 +1310,14 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
   // which is why the test is against undefined rather than falsiness.
   const metaLine =
     meta === undefined
-      ? [chapterLabel(a) && `CH. ${chapterLabel(a)}`, a.location && `P.${a.location}`, d].filter(Boolean).join(' · ')
+      ? [
+          chapterLabel(a) && t('common.locator.chapter.label', { name: chapterLabel(a) }),
+          a.location && t('common.locator.page.short.label', { n: a.location }),
+          d,
+        ].filter(Boolean).join(' · ')
       : meta
   const editForm = (
-    <Form initial={a} onSubmit={(fields) => save(a.id, fields)} onCancel={() => setEditingId(null)} submitLabel="Save" tagSuggestions={tagSuggestions} stickers={stickers} reloadStickers={reloadStickers} />
+    <Form initial={a} onSubmit={(fields) => save(a.id, fields)} onCancel={() => setEditingId(null)} submitLabel={t('common.action.save.label')} tagSuggestions={tagSuggestions} stickers={stickers} reloadStickers={reloadStickers} />
   )
   // Right-click, long-press or Shift+F10 anywhere on the card opens the SAME list
   // the row and the ⋯ render (actions.jsx), so the gesture can never offer
@@ -1362,12 +1398,12 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
            one you find by looking. */
         <PickMark
           picked={picked}
-          label="this quote"
+          label={t('common.quote.pick.label')}
           onChange={() => selection.toggle(a.id, selectKind)}
         />
       )}
       {!editInline && (
-        <FormModal open={editing} onClose={() => setEditingId(null)} title="Edit quote">
+        <FormModal open={editing} onClose={() => setEditingId(null)} title={t('common.quote.edit.title')}>
           {editForm}
         </FormModal>
       )}
@@ -1411,9 +1447,9 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
           {a.tags && a.tags.length > 0 && (
             <div className="flex flex-wrap gap-2 pt-1">
               {a.tags.map((name) => {
-                const t = tagMap[name]
+                const tag = tagMap[name]
                 return (
-                  <TagChip key={name} color={t?.color} style={t?.style}>
+                  <TagChip key={name} color={tag?.color} style={tag?.style}>
                     {name}
                   </TagChip>
                 )
@@ -1428,11 +1464,11 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
 }
 
 const TABLE_COLS = [
-  { key: 'quote', label: 'Quote' },
-  { key: 'chapter', label: 'Chapter' },
-  { key: 'location', label: 'Location' },
-  { key: 'date', label: 'Date' },
-  { key: 'favorite', label: '♥' },
+  { key: 'quote', get label() { return t('book.table.quote.label') } },
+  { key: 'chapter', get label() { return t('book.table.chapter.label') } },
+  { key: 'location', get label() { return t('book.table.location.label') } },
+  { key: 'date', get label() { return t('book.table.date.label') } },
+  { key: 'favorite', get label() { return t('book.table.favourite.label') } },
 ]
 
 function AnnotationTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSort, editingId, setEditingId, save, remove, onCopy, onShare }) {
@@ -1445,7 +1481,7 @@ function AnnotationTable({ rows, tagMap, stickers = [], reloadStickers, sort, on
           <tr>
             {TABLE_COLS.map((c) => (
               <th key={c.key} className="sortable" onClick={() => onSort(c.key)} aria-sort={sort.col === c.key ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
-                <Tooltip label="Sort by this column" side="bottom">
+                <Tooltip label={t('book.table.sort.tip')} side="bottom">
                   {c.label}
                   {arrow(c.key)}
                 </Tooltip>
@@ -1462,9 +1498,9 @@ function AnnotationTable({ rows, tagMap, stickers = [], reloadStickers, sort, on
                 {a.tags && a.tags.length > 0 && (
                   <div className="mt-1.5 flex flex-wrap gap-1.5">
                     {a.tags.map((name) => {
-                      const t = tagMap[name]
+                      const tag = tagMap[name]
                       return (
-                        <TagChip key={name} color={t?.color} style={t?.style}>
+                        <TagChip key={name} color={tag?.color} style={tag?.style}>
                           {name}
                         </TagChip>
                       )
@@ -1478,7 +1514,8 @@ function AnnotationTable({ rows, tagMap, stickers = [], reloadStickers, sort, on
               <td className="col-center">{a.favorite ? '♥' : '—'}</td>
               <td className="col-actions">
                 <TableActions
-                  noun="quote"
+                  noun={t('unit.quote.one')}
+                  nounPlural={t('unit.quote.other')}
                   onCopy={onCopy && (() => onCopy(a))}
                   onShare={onShare && (() => onShare(a))}
                   onEdit={() => setEditingId(a.id)}
@@ -1489,9 +1526,9 @@ function AnnotationTable({ rows, tagMap, stickers = [], reloadStickers, sort, on
           ))}
         </tbody>
       </table>
-      <FormModal open={!!editingRow} onClose={() => setEditingId(null)} title="Edit quote">
+      <FormModal open={!!editingRow} onClose={() => setEditingId(null)} title={t('common.quote.edit.title')}>
         {editingRow && (
-          <AnnotationForm initial={editingRow} onSubmit={(fields) => save(editingRow.id, fields)} onCancel={() => setEditingId(null)} submitLabel="Save" tagSuggestions={Object.keys(tagMap)} stickers={stickers} reloadStickers={reloadStickers} />
+          <AnnotationForm initial={editingRow} onSubmit={(fields) => save(editingRow.id, fields)} onCancel={() => setEditingId(null)} submitLabel={t('common.action.save.label')} tagSuggestions={Object.keys(tagMap)} stickers={stickers} reloadStickers={reloadStickers} />
         )}
       </FormModal>
     </div>
@@ -1565,7 +1602,7 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
   const { stickers, reload: reloadStickers } = useStickers()
   const filtering = Boolean(color || tag || fav)
   // Chips take colour + style from the tag object (name-keyed map).
-  const tagMap = useMemo(() => Object.fromEntries(tags.map((t) => [t.name, t])), [tags])
+  const tagMap = useMemo(() => Object.fromEntries(tags.map((row) => [row.name, row])), [tags])
   // Attached stickers resolve id → image for the card seal.
   const stickerMap = useMemo(() => Object.fromEntries(stickers.map((s) => [s.id, s])), [stickers])
 
@@ -1684,7 +1721,7 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
 
   async function save(id, fields) {
     const r = await json('PUT', `/annotations/${id}`, fields)
-    if (!r.ok) return errText(r, 'could not save annotation')
+    if (!r.ok) return errText(r, t('error.save.annotation'))
     setEditingId(null)
     load()
     loadTags()
@@ -1692,10 +1729,10 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
   }
 
   async function remove(a) {
-    if (!confirm('Delete this annotation?')) return
+    if (!confirm(t('book.quotes.delete.confirm'))) return
     const r = await deleteWithUndo(`/annotations/${a.id}`, { reload: load })
     if (r.ok) {
-      setTotal((t) => (t == null ? t : t - 1))
+      setTotal((n) => (n == null ? n : n - 1))
       // The hero's counts go down with it, subtracting what THIS row contributed
       // rather than only the total — see minusQuote. Without it the hero sits one
       // ahead of the toolbar for as long as a filter is on.
@@ -1711,7 +1748,7 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
   async function patch(a, fields) {
     const r = await json('PUT', `/annotations/${a.id}`, { ...annotationState(a), ...fields })
     if (!r.ok) {
-      setError(errText(r, 'could not save annotation'))
+      setError(errText(r, t('error.save.annotation')))
       return false
     }
     setError('')
@@ -1744,8 +1781,8 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
   const countsLabel = !items
     ? ''
     : filtering && total != null
-      ? `${plural(total, 'quote')} · ${items.length} shown`
-      : plural(items.length, 'quote')
+      ? t('book.quotes.counts.shown', { a: countOf(total, 'unit.quote'), n: items.length })
+      : countOf(items.length, 'unit.quote')
 
   return (
     <div className="space-y-4">
@@ -1753,7 +1790,7 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
         <MobileSheet
           open={mobileFilterOpen}
           onClose={() => onMobileFilterOpen?.(false)}
-          title="Filter annotations"
+          title={t('book.quotes.filter.title')}
           footer={
             <SheetFooter
               count={countsLabel}
@@ -1771,17 +1808,17 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
               <div>
                 <MonoLabel className="mb-2 block">tag</MonoLabel>
                 <Select
-                  ariaLabel="Filter by tag"
+                  ariaLabel={t('common.filters.tag.aria')}
                   value={tag}
                   onChange={setTag}
-                  options={[['', 'all tags'], ...tags.map((t) => [t.name, t.name])]}
+                  options={[['', t('common.filters.tag.all.label')], ...tags.map((row) => [row.name, row.name])]}
                 />
               </div>
             )}
             <div>
               <MonoLabel className="mb-2 block">show only</MonoLabel>
               <div className="flex flex-wrap items-center gap-2">
-                <button onClick={() => setFav(!fav)} className={filterChipClass(fav)} title="Only favourites">
+                <button onClick={() => setFav(!fav)} className={filterChipClass(fav)} title={t('common.favourite.filter.tip')}>
                   ♥ favourites
                 </button>
               </div>
@@ -1795,17 +1832,17 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
       )}
       {!mobile && (
         <div className="flex flex-wrap items-center gap-3">
-          <MonoLabel>filter</MonoLabel>
+          <MonoLabel>{t('book.quotes.filter.label')}</MonoLabel>
           <ColorSwatches value={color} onChange={(c) => setColor(c === color ? '' : c)} />
           {tags.length > 0 && (
             <Select
-              ariaLabel="Filter by tag"
+              ariaLabel={t('common.filters.tag.aria')}
               value={tag}
               onChange={setTag}
-              options={[['', 'all tags'], ...tags.map((t) => [t.name, t.name])]}
+              options={[['', t('common.filters.tag.all.label')], ...tags.map((row) => [row.name, row.name])]}
             />
           )}
-          <button onClick={() => setFav(!fav)} className={filterChipClass(fav)} title="Only favourites">
+          <button onClick={() => setFav(!fav)} className={filterChipClass(fav)} title={t('common.favourite.filter.tip')}>
             ♥ favourites
           </button>
           <span className="ml-auto flex items-center gap-3 view-toggle-row">
@@ -1815,7 +1852,7 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
                 this book as the target — the shell's ＋ knows which page it is
                 on. This is the desktop route to it; the phone's is the ＋ in the
                 detail bar above. */}
-            <GhostButton onClick={() => onAdd?.('quote', { type: 'book', id: bookId })}>＋ Capture a quote</GhostButton>
+            <GhostButton onClick={() => onAdd?.('quote', { type: 'book', id: bookId })}>{t('book.quotes.capture.label')}</GhostButton>
           </span>
         </div>
       )}
@@ -1824,7 +1861,7 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
 
       {items && items.length === 0 && (
         <EmptyState>
-          {filtering ? 'no annotations match the filters' : 'no annotations yet — the ＋ in the bar above captures your first'}
+          {t(filtering ? 'book.quotes.nomatch' : 'book.quotes.empty')}
         </EmptyState>
       )}
       {selection.open && (
@@ -1939,10 +1976,10 @@ export function AnnotationForm({ initial, onSubmit, onCancel, submitLabel, tagSu
   // The must-fill rule, stated once: the guard below and the greyed-out button
   // read the same value, so the button is never pressable in a state the
   // handler would refuse.
-  const missing = !quote.trim() && !note.trim() ? 'Write a quote or a note' : ''
+  const missing = !quote.trim() && !note.trim() ? t('error.validate.quote-or-note') : ''
   // Joins the dialog's header ✓ when there is one, and tells it why it cannot
   // save yet. Null when this form is rendered inline.
-  const host = useFormHost(busy ? 'Saving…' : missing)
+  const host = useFormHost(busy ? t('common.action.save.busy') : missing)
 
   async function submit(e) {
     e.preventDefault()
@@ -1982,11 +2019,11 @@ export function AnnotationForm({ initial, onSubmit, onCancel, submitLabel, tagSu
   return (
     <form id={host?.formId} onSubmit={submit} className="ann-form space-y-3">
       <label className="block">
-        <MonoLabel className="mb-1.5 block">Quote</MonoLabel>
+        <MonoLabel className="mb-1.5 block">{t('common.field.quote.label')}</MonoLabel>
         <textarea className="tp-input" rows="3" value={quote} onChange={(e) => setQuote(e.target.value)} />
       </label>
       <label className="block">
-        <MonoLabel className="mb-1.5 block">Note</MonoLabel>
+        <MonoLabel className="mb-1.5 block">{t('common.field.note.label')}</MonoLabel>
         <textarea className="tp-input" rows="2" value={note} onChange={(e) => setNote(e.target.value)} />
       </label>
       {/* Number, then name, then where on the page — the order somebody reads a
@@ -1994,23 +2031,23 @@ export function AnnotationForm({ initial, onSubmit, onCancel, submitLabel, tagSu
           book fills the first, an essay collection the second. The number box takes
           a decimal, because 12.5 is where an interlude goes. */}
       <div className="cl-grid">
-        <Field label="Chapter #" inputMode="decimal" placeholder="e.g. 7" value={chapterNo}
+        <Field label={t('common.field.chapter-no.label')} inputMode="decimal" placeholder={t('book.quote.form.chapter-no.placeholder')} value={chapterNo}
                onChange={(e) => setChapterNo(e.target.value.replace(/[^\d.]/g, '').slice(0, 7))} />
-        <Field label="Chapter name" value={chapter} onChange={(e) => setChapter(e.target.value)} />
+        <Field label={t('common.field.chapter-name.label')} value={chapter} onChange={(e) => setChapter(e.target.value)} />
       </div>
       <div className="cl-grid">
-        <Field label="Location" placeholder="e.g. 1042" value={location} onChange={(e) => setLocation(e.target.value)} />
+        <Field label={t('common.field.location.label')} placeholder={t('book.quote.form.location.placeholder')} value={location} onChange={(e) => setLocation(e.target.value)} />
       </div>
       <label className="block">
-        <MonoLabel className="mb-1.5 block">Tags</MonoLabel>
-        <TokenInput value={tags} onChange={setTags} suggestions={tagSuggestions} placeholder="add a tag…" ariaLabel="Tags" />
+        <MonoLabel className="mb-1.5 block">{t('common.field.tags.label')}</MonoLabel>
+        <TokenInput value={tags} onChange={setTags} suggestions={tagSuggestions} placeholder={t('common.field.tags.placeholder')} ariaLabel={t('common.field.tags.label')} />
       </label>
       <div className="block">
-        <MonoLabel className="mb-1.5 block">Sticker</MonoLabel>
+        <MonoLabel className="mb-1.5 block">{t('common.field.sticker.label')}</MonoLabel>
         <StickerPicker value={stickerId} onChange={setStickerId} stickers={stickers} reload={reloadStickers} />
       </div>
       <div className="flex flex-wrap items-center gap-3 pt-1">
-        <MonoLabel>colour</MonoLabel>
+        <MonoLabel>{t('common.mono.colour.label')}</MonoLabel>
         <ColorSwatches value={color} onChange={setColor} />
         {/* Hosted in a dialog, yes and no live together in its header — see
             FormHostContext. Inline (the search modal's editor, the capture
@@ -2019,7 +2056,7 @@ export function AnnotationForm({ initial, onSubmit, onCancel, submitLabel, tagSu
           <div className="ml-auto flex gap-2">
             {onCancel && (
               <GhostButton type="button" onClick={onCancel}>
-                Cancel
+                {t('common.action.cancel.label')}
               </GhostButton>
             )}
             <button className={PRIMARY} disabled={busy || !!missing} title={missing || undefined}>

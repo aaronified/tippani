@@ -8,6 +8,7 @@ import { isGestureClip } from "./gestures.jsx";
 import { groupedShortcuts, withShortcut } from "./keys.js";
 // Cover/Placeholder resolve stored cover/poster paths to the local /covers URL.
 import { coverImgURL } from "./api.js";
+import { t, tNodes } from "./i18n.js";
 
 // ErrorBoundary — a render error anywhere below unmounts only to this fallback
 // instead of white-screening the whole app (there was no boundary before, so
@@ -34,10 +35,12 @@ export class ErrorBoundary extends Component {
         style={{ maxWidth: 560, margin: "0 auto", padding: "48px 20px", textAlign: "center" }}
       >
         <p className="display-title" style={{ fontSize: 22, marginBottom: 8 }}>
-          Something broke on this screen
+          {t("shell.error.boundary.title")}
         </p>
         <p className="microcopy" style={{ marginBottom: 16 }}>
-          {this.props.label ? this.props.label + " — " : ""}the rest of the app is fine.
+          {this.props.label
+            ? t("shell.error.boundary.named.body", { name: this.props.label })
+            : t("shell.error.boundary.body")}
         </p>
         <pre
           style={{
@@ -54,7 +57,7 @@ export class ErrorBoundary extends Component {
           className="tp-btn tp-btn-primary tactile"
           onClick={() => window.location.reload()}
         >
-          Reload
+          {t("common.action.reload.label")}
         </button>
       </div>
     );
@@ -77,7 +80,7 @@ export class ErrorBoundary extends Component {
 // palette test pins the stylesheet against.
 export const ANNOTATION_COLORS = CATEGORY_SLOTS;
 export const ANNOTATION_HEX = Object.fromEntries(
-  CATEGORY_SLOTS.map((t, i) => [t, CATEGORY_DEFAULT_HEX[i]]),
+  CATEGORY_SLOTS.map((tok, i) => [tok, CATEGORY_DEFAULT_HEX[i]]),
 );
 export const TAG_STYLES = ["sticker", "banner", "flyout", "tape", "reel"];
 
@@ -371,11 +374,11 @@ export function BulkBar({ n, onClear, children }) {
         borderRadius: 9,
       }}
     >
-      <MonoLabel style={{ color: "var(--accent-ui)" }}>{n} selected</MonoLabel>
+      <MonoLabel style={{ color: "var(--accent-ui)" }}>{t("common.selection.count", { count: n, n })}</MonoLabel>
       {children}
       <FieldIconButton
         icon={<IconClose />}
-        ariaLabel="Clear the selection"
+        ariaLabel={t("common.selection.clear.aria")}
         onClick={onClear}
         wrapClassName="ml-auto"
       />
@@ -530,7 +533,14 @@ export function NameInput({ onChange, ...rest }) {
 // the string the user chose — 'YYYY' | 'YYYY-MM' | 'YYYY-MM-DD' — which is also
 // what the server validates and what sorts correctly as text.
 
-const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+// Keys rather than words, resolved at draw time: this table is built at import,
+// before the language is known. The order IS the calendar and never changes.
+const MONTH_KEYS = [
+  "common.month.jan.label", "common.month.feb.label", "common.month.mar.label",
+  "common.month.apr.label", "common.month.may.label", "common.month.jun.label",
+  "common.month.jul.label", "common.month.aug.label", "common.month.sep.label",
+  "common.month.oct.label", "common.month.nov.label", "common.month.dec.label",
+];
 
 // isPartialDate mirrors normalizePartialDate on the server: the three shapes,
 // plus a real calendar's bounds so a typed "2019-13" is caught before saving.
@@ -549,8 +559,8 @@ export function formatPartialDate(v) {
   if (!v) return "";
   const [y, m, d] = v.split("-").map(Number);
   if (!m) return String(y);
-  if (!d) return `${MONTH_NAMES[m - 1]} ${y}`;
-  return `${d} ${MONTH_NAMES[m - 1]} ${y}`;
+  if (!d) return t("common.date.month-year.label", { month: t(MONTH_KEYS[m - 1]), year: y });
+  return t("common.date.full.label", { day: d, month: t(MONTH_KEYS[m - 1]), year: y });
 }
 
 // todayPartial is the full date today, the default every date prompt opens with.
@@ -606,13 +616,13 @@ function DatePicker({ value, onPick, onClose, granularity = "day" }) {
   const head = (title, onPrev, onNext, onUp) => (
     <div className="mb-1.5 flex items-center gap-1">
       {onPrev && (
-        <Tooltip label="Show earlier dates">
-          <button type="button" className="tp-btn tp-btn-ghost" style={{ padding: "2px 8px" }} onClick={onPrev} aria-label="Previous">
+        <Tooltip label={t("common.date.picker.prev.tip")}>
+          <button type="button" className="tp-btn tp-btn-ghost" style={{ padding: "2px 8px" }} onClick={onPrev} aria-label={t("common.date.picker.prev.aria")}>
             ‹
           </button>
         </Tooltip>
       )}
-      <Tooltip label={onUp ? "Go back a level" : null} className="flex-1">
+      <Tooltip label={onUp ? t("common.date.picker.up.tip") : null} className="flex-1">
         <button
           type="button"
           className="mono-label"
@@ -623,8 +633,8 @@ function DatePicker({ value, onPick, onClose, granularity = "day" }) {
         </button>
       </Tooltip>
       {onNext && (
-        <Tooltip label="Show later dates">
-          <button type="button" className="tp-btn tp-btn-ghost" style={{ padding: "2px 8px" }} onClick={onNext} aria-label="Next">
+        <Tooltip label={t("common.date.picker.next.tip")}>
+          <button type="button" className="tp-btn tp-btn-ghost" style={{ padding: "2px 8px" }} onClick={onNext} aria-label={t("common.date.picker.next.aria")}>
             ›
           </button>
         </Tooltip>
@@ -632,10 +642,10 @@ function DatePicker({ value, onPick, onClose, granularity = "day" }) {
     </div>
   );
   return (
-    <div className="hand-card hc-r2 date-picker" role="dialog" aria-label="Pick a date">
+    <div className="hand-card hc-r2 date-picker" role="dialog" aria-label={t("common.date.picker.aria")}>
       {view === "year" && (
         <>
-          {head(`${yearPage}–${yearPage + 11}`, () => setYearPage((p) => p - 12), () => setYearPage((p) => p + 12))}
+          {head(t("common.date.picker.year-range.title", { a: yearPage, b: yearPage + 11 }), () => setYearPage((p) => p - 12), () => setYearPage((p) => p + 12))}
           <div className="date-grid" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
             {Array.from({ length: 12 }, (_, i) => yearPage + i).map((y) =>
               cell(y, y === parsed[0], () => {
@@ -651,8 +661,8 @@ function DatePicker({ value, onPick, onClose, granularity = "day" }) {
         <>
           {head(String(year), () => setYear((y) => y - 1), () => setYear((y) => y + 1), () => setView("year"))}
           <div className="date-grid" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
-            {MONTH_NAMES.map((name, i) =>
-              cell(name, year === parsed[0] && i + 1 === parsed[1], () => {
+            {MONTH_KEYS.map((monthKey, i) =>
+              cell(t(monthKey), year === parsed[0] && i + 1 === parsed[1], () => {
                 setMonth(i + 1);
                 if (granularity === "month") return pick(`${year}-${String(i + 1).padStart(2, "0")}`);
                 setView("day");
@@ -661,13 +671,13 @@ function DatePicker({ value, onPick, onClose, granularity = "day" }) {
           </div>
           {/* The whole point of the control: stop here and keep just the year. */}
           <button type="button" className="date-coarse" onClick={() => pick(String(year))}>
-            Just {year}
+            {t("common.date.picker.just-year.label", { year })}
           </button>
         </>
       )}
       {view === "day" && (
         <>
-          {head(`${MONTH_NAMES[(month || 1) - 1]} ${year}`, null, null, () => setView("month"))}
+          {head(t("common.date.month-year.label", { month: t(MONTH_KEYS[(month || 1) - 1]), year }), null, null, () => setView("month"))}
           <div className="date-grid" style={{ gridTemplateColumns: "repeat(7, 1fr)" }}>
             {Array.from({ length: daysInMonth(year, month || 1) }, (_, i) => i + 1).map((d) =>
               cell(
@@ -682,7 +692,7 @@ function DatePicker({ value, onPick, onClose, granularity = "day" }) {
             className="date-coarse"
             onClick={() => pick(`${year}-${String(month || 1).padStart(2, "0")}`)}
           >
-            Just {MONTH_NAMES[(month || 1) - 1]} {year}
+            {t("common.date.picker.just-month.label", { month: t(MONTH_KEYS[(month || 1) - 1]), year })}
           </button>
         </>
       )}
@@ -713,7 +723,7 @@ export function PartialDateField({
   const { popRef, style } = useAnchoredPosition(open, ref, { minHeight: 240 });
   useDismiss(open, () => setOpen(false), [ref, popRef]);
   const bad = !!value && !isPartialDate(value);
-  const ph = placeholder || (granularity === "year" ? "e.g. 1920" : "YYYY, YYYY-MM or YYYY-MM-DD");
+  const ph = placeholder || t(granularity === "year" ? "common.field.year.placeholder" : "common.field.date.placeholder");
   return (
     <label className={"tp-field " + className}>
       {label && <MonoLabel>{label}</MonoLabel>}
@@ -730,12 +740,12 @@ export function PartialDateField({
           onChange={(e) => onChange(e.target.value.replace(/[^\d-]/g, "").slice(0, 10))}
           style={bad ? { borderColor: "var(--error)" } : undefined}
         />
-        <Tooltip label="Pick a date" className="shrink-0">
+        <Tooltip label={t("common.date.pick.tip")} className="shrink-0">
           <button
             type="button"
             className="tp-btn tp-btn-ghost tactile"
             style={{ padding: "6px 9px", flex: "none" }}
-            aria-label={`Pick ${label || "a date"}`}
+            aria-label={t("common.date.pick.aria", { field: label || t("common.date.pick.field.fallback") })}
             aria-expanded={open}
             onClick={() => setOpen((o) => !o)}
           >
@@ -751,7 +761,7 @@ export function PartialDateField({
       </span>
       {(bad || hint) && (
         <span style={{ display: "block", marginTop: 5, fontSize: 12, lineHeight: 1.4, color: bad ? "var(--error)" : "var(--faint)" }}>
-          {bad ? "needs to be YYYY, YYYY-MM or YYYY-MM-DD" : hint}
+          {bad ? t("error.validate.partial-date") : hint}
         </span>
       )}
     </label>
@@ -898,7 +908,7 @@ export function FavBadge() {
   const wob = useMemo(() => randWobble(13, 0), []);
   return (
     <span
-      aria-label="Favourite"
+      aria-label={t("common.favourite.badge.aria")}
       className="absolute right-1.5 top-1.5"
       style={{
         ...wob,
@@ -929,18 +939,22 @@ export function FavBadge() {
 //   abandoned  given up on
 //   completed  read/watched to the end
 export const SHELF_BLUE = "#7FA6C9";
+//
+// `book` and `movie` hold KEYS. The two in-progress spellings share one pair of
+// keys because they are one shelf state under two stored words, and a second key
+// saying "Reading" again is a second place for it to drift.
 export const SHELF_META = {
-  wishlist: { color: "var(--faint)", book: "Wishlist", movie: "Wishlist" },
-  reading: { color: SHELF_BLUE, book: "Reading", movie: "Watching" },
-  watching: { color: SHELF_BLUE, book: "Reading", movie: "Watching" },
+  wishlist: { color: "var(--faint)", book: "common.shelf.wishlist.book.label", movie: "common.shelf.wishlist.film.label" },
+  reading: { color: SHELF_BLUE, book: "common.shelf.reading.book.label", movie: "common.shelf.reading.film.label" },
+  watching: { color: SHELF_BLUE, book: "common.shelf.reading.book.label", movie: "common.shelf.reading.film.label" },
   // A game is played. Same blue as the other two in-progress words, because the
   // colour means "in flight" rather than "a film"; the word is what differs.
   // Both sides read "Playing" — a game only ever lives on the catalogue side, so
   // there is no book wording for it to fall back to.
-  playing: { color: SHELF_BLUE, book: "Playing", movie: "Playing" },
-  paused: { color: "var(--amber)", book: "Paused", movie: "Paused" },
-  abandoned: { color: "var(--error)", book: "Abandoned", movie: "Abandoned" },
-  completed: { color: "var(--ok)", book: "Completed", movie: "Completed" },
+  playing: { color: SHELF_BLUE, book: "common.shelf.playing.book.label", movie: "common.shelf.playing.film.label" },
+  paused: { color: "var(--amber)", book: "common.shelf.paused.book.label", movie: "common.shelf.paused.film.label" },
+  abandoned: { color: "var(--error)", book: "common.shelf.abandoned.book.label", movie: "common.shelf.abandoned.film.label" },
+  completed: { color: "var(--ok)", book: "common.shelf.completed.book.label", movie: "common.shelf.completed.film.label" },
 };
 
 // IN_FLIGHT_STATES are the shelf states that mean "started, not finished" — the
@@ -951,7 +965,7 @@ export const IN_FLIGHT_STATES = new Set(["reading", "watching", "playing"]);
 // shelfLabel is the word one side uses for a state ('reading' vs 'watching').
 export function shelfLabel(state, kind = "book") {
   const m = SHELF_META[state];
-  return m ? (kind === "movie" ? m.movie : m.book) : "";
+  return m ? t(kind === "movie" ? m.movie : m.book) : "";
 }
 
 // StatusBar — the shelf state as a colour bar directly UNDER a cover or poster,
@@ -975,7 +989,11 @@ export function StatusBar({ state, progress = 0, radius = 0, title }) {
   // looks completed the moment you start it.
   const inFlight = IN_FLIGHT_STATES.has(state);
   const pct = inFlight ? Math.max(0, Math.min(100, progress)) : 100;
-  const label = title || `${shelfLabel(state)}${inFlight && pct > 0 ? ` — ${pct}%` : ""}`;
+  const label =
+    title ||
+    (inFlight && pct > 0
+      ? t("common.shelf.progress.label", { name: shelfLabel(state), percent: pct })
+      : shelfLabel(state));
   return (
     <div
       role="img"
@@ -1015,7 +1033,7 @@ export function StatusBar({ state, progress = 0, radius = 0, title }) {
 export function ReadingBadge({ kind = "book", stacked = false }) {
   const wob = useMemo(() => randWobble(11, 0), []);
   const isBook = kind !== "movie";
-  const label = isBook ? "Currently reading" : "Currently watching";
+  const label = t(isBook ? "common.reading-badge.book.aria" : "common.reading-badge.film.aria");
   return (
     <span
       aria-label={label}
@@ -1085,7 +1103,7 @@ export function Hearts({ value, onChange }) {
   const wob = useMemo(() => randWobble(9, 1), []);
   const { play, animClass, onAnimationEnd } = usePlayful("anim-heart", 3);
   return (
-    <Tooltip label={value ? "Remove from favourites" : "Add to favourites"}>
+    <Tooltip label={t(value ? "common.action.favourite.off.label" : "common.action.favourite.on.label")}>
       <button
         type="button"
         className={`heart ${animClass}${value ? " on" : ""}`}
@@ -1200,7 +1218,7 @@ export function ExpandableDescription({ text, style, lines = 3, className = "" }
         {text}
       </p>
       {canToggle && (
-        <Tooltip label={open ? "Show less" : "Show the whole description"} side="bottom" className="flex w-full justify-center">
+        <Tooltip label={t(open ? "common.action.show-less.label" : "common.clamp.description.more.tip")} side="bottom" className="flex w-full justify-center">
           <ClampMore open={open} />
         </Tooltip>
       )}
@@ -1283,7 +1301,7 @@ export function ExpandableText({ text, lines = 5, style, className = "", open: o
         {text}
       </p>
       {canToggle && (
-        <Tooltip label={open ? "Show less" : "Show the full text"} side="bottom" className="flex w-full justify-center">
+        <Tooltip label={t(open ? "common.action.show-less.label" : "common.clamp.text.more.tip")} side="bottom" className="flex w-full justify-center">
           <ClampMore open={open} />
         </Tooltip>
       )}
@@ -1329,9 +1347,9 @@ export function mulberry32(seed) {
   let a = (seed >>> 0) || 1;
   return function () {
     a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    let x = Math.imul(a ^ (a >>> 15), 1 | a);
+    x = (x + Math.imul(x ^ (x >>> 7), 61 | x)) ^ x;
+    return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
   };
 }
 
@@ -1516,10 +1534,10 @@ export function Masonry({ columns = 2, gap = 24, seed = 1, pinnedCount = 0, lock
         const colOf = new Array(n);
         const colH0 = Array(cols).fill(0);
         for (const i of placeOrder) {
-          let t = 0;
-          for (let c = 1; c < cols; c++) if (colH0[c] < colH0[t]) t = c;
-          colOf[i] = t;
-          colH0[t] += hr[i] + gap;
+          let shortest = 0;
+          for (let c = 1; c < cols; c++) if (colH0[c] < colH0[shortest]) shortest = c;
+          colOf[i] = shortest;
+          colH0[shortest] += hr[i] + gap;
         }
         assign = { order: placeOrder, colOf };
         assignRef.current = assign;
@@ -1528,9 +1546,9 @@ export function Masonry({ columns = 2, gap = 24, seed = 1, pinnedCount = 0, lock
       const colH = Array(cols).fill(0);
       const next = new Array(n);
       for (const i of assign.order) {
-        const t = assign.colOf[i];
-        next[i] = { col: t, top: colH[t] };
-        colH[t] += h[i] + gap;
+        const col = assign.colOf[i];
+        next[i] = { col, top: colH[col] };
+        colH[col] += h[i] + gap;
       }
       setPos((prev) =>
         prev.length === n && prev.every((p, i) => p.col === next[i].col && p.top === next[i].top) ? prev : next,
@@ -1790,7 +1808,7 @@ export function TokenInput({
   value = [],
   onChange,
   suggestions = [],
-  placeholder = "add…",
+  placeholder,
   ariaLabel,
   transform,
   nameCase = false,
@@ -1800,7 +1818,7 @@ export function TokenInput({
   const [hi, setHi] = useState(0);
   const boxRef = useRef(null);
   const inputRef = useRef(null);
-  const norm = (t) => (transform ? transform(t) : t);
+  const norm = (tok) => (transform ? transform(tok) : tok);
   // `nameCase` capitalises the DRAFT rather than the committed token, which is
   // what lets the override work: a transform applied on commit could never be
   // disagreed with, because by then there is nothing left to type into.
@@ -1835,7 +1853,7 @@ export function TokenInput({
         if (p && !cleaned.includes(p)) cleaned.push(p);
     const same =
       cleaned.length === value.length &&
-      cleaned.every((t, i) => t === value[i]);
+      cleaned.every((tok, i) => tok === value[i]);
     if (!same) onChange(cleaned);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]);
@@ -1868,15 +1886,15 @@ export function TokenInput({
         className="tp-input token-field"
         onClick={() => inputRef.current && inputRef.current.focus()}
       >
-        {value.map((t, i) => (
-          <span key={t} className="token-pill">
-            {t}
-            <Tooltip label={`Remove ${t}`}>
+        {value.map((tok, i) => (
+          <span key={tok} className="token-pill">
+            {tok}
+            <Tooltip label={t("common.action.remove.aria", { name: tok })}>
               <button
                 type="button"
                 className="token-x"
                 onClick={() => removeAt(i)}
-                aria-label={`Remove ${t}`}
+                aria-label={t("common.action.remove.aria", { name: tok })}
               >
                 ×
               </button>
@@ -1887,7 +1905,7 @@ export function TokenInput({
           ref={inputRef}
           className="token-entry"
           value={text}
-          placeholder={value.length ? "" : placeholder}
+          placeholder={value.length ? "" : placeholder || t("common.field.token.placeholder")}
           aria-label={ariaLabel}
           autoComplete="off"
           onChange={(e) => {
@@ -1980,7 +1998,7 @@ export function Select({
   onChange,
   options,
   ariaLabel,
-  placeholder = "Select…",
+  placeholder,
   className = "",
   width,
   // Same caller and same reason as ColorSwatches' `disabled`: the selection bar
@@ -1994,7 +2012,7 @@ export function Select({
   const panelRef = useRef(null);
   const thumbRef = useRef(null);
   const idx = options.findIndex(([v]) => v === value);
-  const label = idx >= 0 ? options[idx][1] : placeholder;
+  const label = idx >= 0 ? options[idx][1] : placeholder || t("common.field.select.placeholder");
   // The textured thumb is grab-and-slide here exactly as it is in Toggle, only
   // down the panel instead of along the row. Live drag state sits in a ref so a
   // move never re-renders, and the listener identities ride on the record so a
@@ -2235,7 +2253,7 @@ export function ConfirmDialog({
   open,
   title,
   body,
-  confirmLabel = "Confirm",
+  confirmLabel,
   // Greyed until the dialog's own condition is met — a typed confirmation phrase,
   // for the one action that asks for one. The button says so first rather than
   // refusing after the click, which is the rule every Save in this app follows.
@@ -2279,8 +2297,8 @@ export function ConfirmDialog({
           </div>
         )}
         <div className="flex justify-end gap-2">
-          <GhostButton onClick={onCancel}>Cancel</GhostButton>
-          <StickerButton onClick={onConfirm} disabled={confirmDisabled}>{confirmLabel}</StickerButton>
+          <GhostButton onClick={onCancel}>{t("common.action.cancel.label")}</GhostButton>
+          <StickerButton onClick={onConfirm} disabled={confirmDisabled}>{confirmLabel || t("common.action.confirm.label")}</StickerButton>
         </div>
       </div>
     </div>
@@ -2406,8 +2424,8 @@ export function FormModal({ open, onClose, title, maxWidth = 560, children }) {
       icon={<IconCheck />}
       type="submit"
       form={formId}
-      ariaLabel="Save"
-      tooltip={blocked || "Save"}
+      ariaLabel={t("common.action.save.label")}
+      tooltip={blocked || t("common.action.save.label")}
       disabled={!!blocked}
       style={{ width: 34, height: 34, padding: 0, flexShrink: 0 }}
       wrapClassName="shrink-0"
@@ -2446,8 +2464,8 @@ export function FormModal({ open, onClose, title, maxWidth = 560, children }) {
           {save}
           <IconButton
             icon={<IconClose />}
-            ariaLabel="Close"
-            tooltip="Close without saving"
+            ariaLabel={t("common.action.close.label")}
+            tooltip={t("common.form.close.tip")}
             onClick={onClose}
             style={{ width: 34, height: 34, padding: 0, flexShrink: 0 }}
             wrapClassName="shrink-0"
@@ -2957,7 +2975,7 @@ function InfoPopover({ anchor, title, pinned = true, onHold, onLeave, onClose, c
         >
           {body}
           <button type="button" className="info-pop-close tp-btn tp-btn-ghost tactile" onClick={onClose}>
-            Got it
+            {t("common.action.got-it.label")}
           </button>
         </div>
       </div>,
@@ -3023,13 +3041,13 @@ export function InfoDot({ text, title }) {
   const [pinned, setPinned] = useState(false);
   const btn = useRef(null);
   const closeTimer = useRef(null);
-  const heading = title || "About this";
+  const heading = title || t("common.info.default.title");
   // Named dots announce as "More information: ISBN" — the button's job, not its
   // payload, which a screen reader gets from the popover once it opens. Dots
   // with no title fall back to reading the text, as they always did, because
   // "More information: About this" tells nobody anything.
   const label = title
-    ? `More information: ${title}`
+    ? t("common.info.dot.aria", { name: title })
     : typeof text === "string"
       ? text
       : heading;
@@ -3147,9 +3165,9 @@ export function Kbd({ keys }) {
   if (!keys) return null;
   return (
     <span className="kbd-legend" aria-hidden="true">
-      {String(keys).split(" then ").map((k, i) => (
+      {String(keys).split(` ${t("common.kbd.then.label")} `).map((k, i) => (
         <Fragment key={k + i}>
-          {i > 0 && <span className="kbd-then">then</span>}
+          {i > 0 && <span className="kbd-then">{t("common.kbd.then.label")}</span>}
           <kbd className="kbd">{k}</kbd>
         </Fragment>
       ))}
@@ -3177,16 +3195,15 @@ export function ShortcutSheet({ open, onClose, omit }) {
   if (useIsMobileScreen()) return null;
   if (!open) return null;
   return (
-    <HelpSheet open={open} title="Keyboard shortcuts" onClose={onClose}>
+    <HelpSheet open={open} title={t("shell.shortcuts.title")} onClose={onClose}>
       <p className="microcopy" style={{ marginBottom: 14 }}>
-        Every one of these is also written on the button that does the same thing, so you
-        never have to memorise one to find it. Keys do nothing while you are typing.
+        {t("shell.shortcuts.intro.prose")}
       </p>
       <p className="microcopy" style={{ marginBottom: 14 }}>
-        A quiz card answers to the keys for the kind of question it is asking. In{' '}
-        <strong>Practice</strong> the same keys need <kbd className="kbd">Shift</kbd> — the daily
-        deck is your schedule and its grades are permanent, so the mode with lower stakes is the
-        one that costs an extra finger.
+        {tNodes("shell.shortcuts.practice.prose", {
+          mode: <strong>{t("quiz.practice.label")}</strong>,
+          key: <kbd className="kbd">{t("vocab.key.shift.label")}</kbd>,
+        })}
       </p>
       {groupedShortcuts(omit).map((g) => (
         <div key={g.group} style={{ marginBottom: 16 }}>
@@ -3201,7 +3218,7 @@ export function ShortcutSheet({ open, onClose, omit }) {
                   <Kbd keys={it.keys} />
                   {it.practiceKeys && (
                     <>
-                      <span className="kbd-then">practice</span>
+                      <span className="kbd-then">{t("common.kbd.practice.label")}</span>
                       <Kbd keys={it.practiceKeys} />
                     </>
                   )}
@@ -3215,7 +3232,7 @@ export function ShortcutSheet({ open, onClose, omit }) {
   );
 }
 
-export function HelpSheet({ open, title = "Help", wide = false, onClose, children }) {
+export function HelpSheet({ open, title, wide = false, onClose, children }) {
   const mobile = useIsMobileScreen();
   useBodyScrollLock(open);
   useEffect(() => {
@@ -3227,7 +3244,7 @@ export function HelpSheet({ open, title = "Help", wide = false, onClose, childre
   if (!open) return null;
   if (mobile) {
     return createPortal(
-      <MobileSheet open={open} onClose={onClose} title={title}>
+      <MobileSheet open={open} onClose={onClose} title={title || t("common.help.sheet.title")}>
         <div className="help-sheet-body">{children}</div>
       </MobileSheet>,
       document.body,
@@ -3243,7 +3260,7 @@ export function HelpSheet({ open, title = "Help", wide = false, onClose, childre
       <div
         role="dialog"
         aria-modal="true"
-        aria-label={title}
+        aria-label={title || t("common.help.sheet.title")}
         className="hand-card hc-r2 w-full"
         // The guide needs room for a rail AND a readable measure beside it; the
         // flat list keeps the 520 it was designed at.
@@ -3251,11 +3268,11 @@ export function HelpSheet({ open, title = "Help", wide = false, onClose, childre
       >
         <div className="mb-3 flex items-center gap-3">
           <h2 className="display-title flex-1" style={{ fontSize: 19 }}>
-            {title}
+            {title || t("common.help.sheet.title")}
           </h2>
           <IconButton
             icon={<IconClose />}
-            ariaLabel="Close"
+            ariaLabel={t("common.action.close.label")}
             onClick={onClose}
             style={{ width: 34, height: 34, padding: 0, flexShrink: 0 }}
           />
@@ -3342,7 +3359,7 @@ function HelpRow({ e }) {
         {e.asset && !clip && <div className="help-row-asset">{e.asset}</div>}
         {e.more && (
           <details className="help-more">
-            <summary>more</summary>
+            <summary>{t("common.help.more.label")}</summary>
             <div className="help-more-body">{e.more}</div>
           </details>
         )}
@@ -3364,7 +3381,7 @@ function HelpRow({ e }) {
 // the browser does the scrolling and the back button undoes it.
 function HelpRail({ sections, active, railRef }) {
   return (
-    <nav className="help-rail" aria-label="Help sections" ref={railRef}>
+    <nav className="help-rail" aria-label={t("common.help.rail.aria")} ref={railRef}>
       {sections.map((sec) => (
         <a
           key={sec.id}
@@ -3453,13 +3470,13 @@ export function HelpButton({ title, entries = [], sections = null, active, side 
   const pill = variant === "pill";
   return (
     <>
-      <Tooltip label={`What's on this screen — ${title}`} side={side} className={open ? "is-open" : ""}>
+      <Tooltip label={t("common.help.button.tip", { name: title })} side={side} className={open ? "is-open" : ""}>
         <button
           type="button"
           className={
             (pill ? "topbar-add-btn tactile icon-only" : "help-btn tactile") + (open ? " is-open" : "")
           }
-          aria-label={`Help for ${title}`}
+          aria-label={t("common.help.button.aria", { name: title })}
           aria-expanded={open}
           onClick={() => setOpen(true)}
         >
@@ -3483,7 +3500,7 @@ export function InlineField({
   label,
   value = "",
   display,
-  placeholder = "not set",
+  placeholder,
   hint,
   multiline = false,
   inputMode,
@@ -3581,7 +3598,7 @@ export function InlineField({
         {!editing && !disabled && (
           <FieldIconButton
             icon={<IconEdit />}
-            ariaLabel={editLabel || `Edit ${String(label).toLowerCase()}`}
+            ariaLabel={editLabel || t("common.action.edit.field.aria", { field: String(label).toLowerCase() })}
             onClick={() => setEditing(true)}
           />
         )}
@@ -3589,15 +3606,15 @@ export function InlineField({
           <>
             <FieldIconButton
               icon={<IconCheck />}
-              ariaLabel={`Save ${String(label).toLowerCase()}`}
+              ariaLabel={t("common.action.save.field.aria", { field: String(label).toLowerCase() })}
               disabled={busy}
               onClick={commit}
-              tooltip="Save"
+              tooltip={t("common.action.save.label")}
               ok
             />
             <FieldIconButton
               icon={<IconClose />}
-              ariaLabel="Cancel"
+              ariaLabel={t("common.action.cancel.label")}
               disabled={busy}
               onClick={cancel}
             />
@@ -3637,7 +3654,7 @@ export function InlineField({
         </div>
       ) : (
         <div className={"inline-field-value" + (filled ? "" : " is-empty")}>
-          {filled ? display || String(value) : placeholder}
+          {filled ? display || String(value) : placeholder || t("common.field.inline.placeholder")}
         </div>
       )}
     </div>
@@ -3648,20 +3665,21 @@ export function InlineField({
 
 // STATUS_META — the three repetition statuses (renamed for clarity) plus the
 // unseen state, each with its dot colour. Mirrors recallStatus() on the server.
+// `label` holds a key, resolved where the dot is drawn.
 export const STATUS_META = {
-  remembered: { label: "Remembered", color: "var(--ok)", filled: true },
-  forgetting: { label: "Forgetting", color: "var(--amber)", filled: true },
-  "probably-forgotten": { label: "Probably forgotten", color: "var(--error)", filled: true },
-  unseen: { label: "Not yet reviewed", color: "var(--faint)", filled: false },
+  remembered: { label: "common.status.remembered.label", color: "var(--ok)", filled: true },
+  forgetting: { label: "common.status.forgetting.label", color: "var(--amber)", filled: true },
+  "probably-forgotten": { label: "common.status.probably-forgotten.label", color: "var(--error)", filled: true },
+  unseen: { label: "common.status.unseen.label", color: "var(--faint)", filled: false },
 };
 
 // fmtHalfLife renders a memory half-life (days) compactly: hours under a day,
 // then days, weeks, months. (Also used by the Stats page Memory card.)
 export function fmtHalfLife(h) {
-  if (h < 1) return `${Math.max(1, Math.round(h * 24))}h`;
-  if (h < 14) return `${Math.round(h)}d`;
-  if (h < 60) return `${Math.round(h / 7)}w`;
-  return `${Math.round(h / 30)}mo`;
+  if (h < 1) return t("common.half-life.hours.label", { n: Math.max(1, Math.round(h * 24)) });
+  if (h < 14) return t("common.half-life.days.label", { n: Math.round(h) });
+  if (h < 60) return t("common.half-life.weeks.label", { n: Math.round(h / 7) });
+  return t("common.half-life.months.label", { n: Math.round(h / 30) });
 }
 
 // Server constants mirrored from internal/httpapi/review_handlers.go: the
@@ -3674,8 +3692,8 @@ const NEW_ITEM_DAYS = 7;
 // (normalised to an ISO instant); NaN input yields the fallback.
 function utcDays(ts, fallback) {
   if (!ts) return fallback;
-  const t = Date.parse(String(ts).replace(" ", "T") + "Z");
-  return Number.isNaN(t) ? fallback : (Date.now() - t) / 86400000;
+  const ms = Date.parse(String(ts).replace(" ", "T") + "Z");
+  return Number.isNaN(ms) ? fallback : (Date.now() - ms) / 86400000;
 }
 
 // reviewStatus derives a quote's repetition status from the fields the list
@@ -3694,9 +3712,13 @@ export function reviewStatus(item = {}) {
   // and not yet in the Daily Quiz — unless a recorded lapse says otherwise.
   if (last_result !== "forgot" && utcDays(created_at, Infinity) < NEW_ITEM_DAYS) {
     const meta = STATUS_META.remembered;
-    return { key: "remembered", ...meta, tip: `${meta.label} · added this week` };
+    return {
+      key: "remembered",
+      ...meta,
+      tip: t("common.status.tip", { name: t(meta.label), detail: t("common.status.new.detail") }),
+    };
   }
-  if (!reviewed) return { key: "unseen", ...STATUS_META.unseen, tip: "Not yet reviewed" };
+  if (!reviewed) return { key: "unseen", ...STATUS_META.unseen, tip: t(STATUS_META.unseen.label) };
   const h = Math.max(Number(stability) || MIN_HALF_LIFE, MIN_HALF_LIFE);
   const elapsed = utcDays(last_reviewed_at, 0);
   const p = Math.pow(2, -elapsed / h);
@@ -3712,8 +3734,11 @@ export function reviewStatus(item = {}) {
   // Five words is the house ceiling for a label, so the dot names the state
   // and the ONE number that matters at that moment: how long it keeps if it is
   // holding, or that it is already owed a look if it is not.
-  const due = elapsed >= h ? "due now" : `half-life ${fmtHalfLife(h)}`;
-  return { key, ...meta, tip: `${meta.label} · ${due}` };
+  const due =
+    elapsed >= h
+      ? t("common.status.due.detail")
+      : t("common.status.half-life.detail", { span: fmtHalfLife(h) });
+  return { key, ...meta, tip: t("common.status.tip", { name: t(meta.label), detail: due }) };
 }
 
 // ReviewDot — the coloured repetition-status dot shown on every quote/dialogue
@@ -3767,8 +3792,8 @@ export function skipReason(item = {}, parent = "") {
   // book_title beside movie_title — but then this line is `book_x || movie_x`,
   // and dropping one of the two is a mark that is right on books and silently
   // absent on films, on a screen where nothing looks wrong either way.
-  if (item.work_review_excluded) return `Skipped with its ${parent || "work"}`;
-  return "Not in the quiz";
+  if (item.work_review_excluded) return t("common.quiz-skip.with-work.label", { kind: parent || t("unit.work.one") });
+  return t("common.quiz-skip.alone.label");
 }
 
 // QuizSkipMark — the struck flash card, on any row the quiz will not draw.
@@ -3805,10 +3830,10 @@ export function QuizSkipMark({ item, parent = "", side = "top", quiet = false })
 // ---- placeholders & film-strip pieces (§6) ----
 
 // Placeholder — diagonal stripes + mono COVER/POSTER label, 2:3.
-export function Placeholder({ kind = "COVER", className = "", style }) {
+export function Placeholder({ kind, className = "", style }) {
   return (
     <span className={"ph " + className} aria-hidden="true" style={style}>
-      <span className="mono-label ph-label">{kind}</span>
+      <span className="mono-label ph-label">{kind === undefined ? t("common.badge.cover") : kind}</span>
     </span>
   );
 }
@@ -3823,10 +3848,10 @@ export function Sprockets({ count = 9 }) {
   );
 }
 
-export function EdgeRow({ left = "TIPPANI · SAFETY FILM", code }) {
+export function EdgeRow({ left, code }) {
   return (
     <div className="edge-row" aria-hidden="true">
-      <span>{left}</span>
+      <span>{left || t("common.filmstrip.edge.label")}</span>
       {code != null && <span>{code} ▸</span>}
     </div>
   );
@@ -3861,13 +3886,13 @@ const chipClass = "tp-chip";
 // migration cannot arrive with no dot class and render as an unstyled circle.
 // The class names follow the tokens by construction; index.css declares one
 // .dot-<token> per slot.
-const colorDotClass = Object.fromEntries(CATEGORY_SLOTS.map((t) => [t, "dot-" + t]));
+const colorDotClass = Object.fromEntries(CATEGORY_SLOTS.map((tok) => [tok, "dot-" + tok]));
 
 // splitCommas turns a comma-separated input value into a trimmed string array.
 export function splitCommas(s) {
   return String(s)
     .split(",")
-    .map((t) => t.trim())
+    .map((part) => part.trim())
     .filter(Boolean);
 }
 
@@ -4006,19 +4031,19 @@ export function Lightbox({ path, title, onClose }) {
       className="lightbox"
       role="dialog"
       aria-modal="true"
-      aria-label={title ? `Cover of ${title}` : "Cover"}
+      aria-label={title ? t("common.cover.alt", { title }) : t("common.cover.lightbox.untitled.aria")}
       onClick={onClose}
     >
       {/* The shared cross, not a hand-rolled one. This drew its own at
           strokeWidth 2 against the set's 1.85 — the same divergence the nav had,
           in the one control that sits over a full-bleed image where a heavier
           stroke is least noticeable and least excusable. */}
-      <button type="button" className="lightbox-close" aria-label="Close" onClick={onClose}>
+      <button type="button" className="lightbox-close" aria-label={t("common.action.close.label")} onClick={onClose}>
         <IconClose />
       </button>
       <img
         src={coverImgURL(path)}
-        alt={title ? `Cover of ${title}` : ""}
+        alt={title ? t("common.cover.alt", { title }) : ""}
         className="lightbox-img"
         onClick={(e) => e.stopPropagation()}
       />
@@ -4039,7 +4064,7 @@ export function Cover({ path, title, large = false, hero = false, zoomable = fal
       const img = (
         <img
           src={coverImgURL(path)}
-          alt={title ? `Cover of ${title}` : ""}
+          alt={title ? t("common.cover.alt", { title }) : ""}
           className="block w-full rounded-md object-cover"
           style={{
             aspectRatio: "2 / 3",
@@ -4050,11 +4075,11 @@ export function Cover({ path, title, large = false, hero = false, zoomable = fal
       if (!zoomable) return img;
       return (
         <>
-          <Tooltip label="See this cover full screen" className="block w-full">
+          <Tooltip label={t("common.cover.zoom.tip")} className="block w-full">
             <button
               type="button"
               className="cover-zoom-btn"
-              aria-label={title ? `View cover of ${title} full screen` : "View cover full screen"}
+              aria-label={title ? t("common.cover.zoom.aria", { title }) : t("common.cover.zoom.untitled.aria")}
               onClick={() => setZoom(true)}
             >
               {img}
@@ -4064,21 +4089,21 @@ export function Cover({ path, title, large = false, hero = false, zoomable = fal
         </>
       );
     }
-    return <Placeholder kind="COVER" className="w-full" />;
+    return <Placeholder kind={t("common.badge.cover")} className="w-full" />;
   }
   const size = large ? "h-36 w-24" : "h-14 w-10";
   if (path) {
     return (
       <img
         src={coverImgURL(path)}
-        alt={title ? `Cover of ${title}` : ""}
+        alt={title ? t("common.cover.alt", { title }) : ""}
         className={size + " shrink-0 rounded-md object-cover"}
         style={{ border: "1px solid var(--ink-border)" }}
       />
     );
   }
   return (
-    <Placeholder kind={large ? "COVER" : ""} className={size + " shrink-0"} />
+    <Placeholder kind={large ? t("common.badge.cover") : ""} className={size + " shrink-0"} />
   );
 }
 
@@ -4125,26 +4150,26 @@ export function ViewIcon({ kind }) {
 export function ViewToggle({ value, onChange }) {
   return (
     <Toggle
-      ariaLabel="View"
+      ariaLabel={t("common.view.toggle.aria")}
       value={value}
       onChange={onChange}
       options={[
         [
           "tiles",
           <>
-            <ViewIcon kind="tiles" /> Tiles
+            <ViewIcon kind="tiles" /> {t("common.view.tiles.label")}
           </>,
         ],
         [
           "list",
           <>
-            <ViewIcon kind="list" /> List
+            <ViewIcon kind="list" /> {t("common.view.list.label")}
           </>,
         ],
         [
           "table",
           <>
-            <ViewIcon kind="table" /> Table
+            <ViewIcon kind="table" /> {t("common.view.table.label")}
           </>,
         ],
       ]}
@@ -4193,7 +4218,7 @@ export function SortableTh({ col, label, sort, onSort, className = "" }) {
           : "none"
       }
     >
-      <Tooltip label="Sort by this column" side="bottom">
+      <Tooltip label={t("common.table.sort.tip")} side="bottom">
         <span>
           {label}
           {arrow}
@@ -4278,10 +4303,10 @@ export function GenreFilter({ genres, value, onChange }) {
   if (!genres || genres.length === 0) return null;
   return (
     <Select
-      ariaLabel="Filter by genre"
+      ariaLabel={t("common.filters.genre.aria")}
       value={value}
       onChange={onChange}
-      options={[["", "All genres"], ...genres.map((g) => [g, g])]}
+      options={[["", t("common.filters.genre.all.label")], ...genres.map((g) => [g, g])]}
     />
   );
 }
@@ -4352,7 +4377,17 @@ export function byLastRead(a, b) {
 export function formatYear(year, circa = false) {
   const y = Number(year);
   if (!y) return ""; // 0, null, undefined, NaN — all "no year recorded"
-  return (circa ? "c. " : "") + (y < 0 ? `${-y} BCE` : String(y));
+  // FOUR MESSAGES RATHER THAN A PREFIX PLUS A SUFFIX: "c." and "BCE" are words
+  // that a language may want on the other side of the number, or joined to it,
+  // and a concatenation here would take that choice away.
+  const key = circa
+    ? y < 0
+      ? "common.year.circa.bce.label"
+      : "common.year.circa.ce.label"
+    : y < 0
+      ? "common.year.bce.label"
+      : "common.year.ce.label";
+  return t(key, { year: y < 0 ? -y : y });
 }
 
 // parseYearInput — the inverse of formatYear, and deliberately forgiving.
@@ -4423,7 +4458,7 @@ export function FavoriteStar({ value, onChange }) {
 // picked in it (see useSelection). Six live dots over an empty selection is a
 // control whose every outcome is an error from the server, and greying a row of
 // dots is the only way a radiogroup can say so.
-export function ColorSwatches({ value, onChange, ariaLabel = "Colour", showAll = false, collapsible = false, mini = false, disabled = false }) {
+export function ColorSwatches({ value, onChange, ariaLabel, showAll = false, collapsible = false, mini = false, disabled = false }) {
   const ref = useRef(null);
   const offered = showAll
     ? ANNOTATION_COLORS
@@ -4450,12 +4485,12 @@ export function ColorSwatches({ value, onChange, ariaLabel = "Colour", showAll =
     <span
       ref={ref}
       role="radiogroup"
-      aria-label={ariaLabel}
+      aria-label={ariaLabel || t("common.field.colour.label")}
       onKeyDown={onKey}
       className="flex items-center gap-1.5"
     >
       {offered.map((c, i) => (
-        <Tooltip key={c} label={`Pick ${categoryName(c)}`}>
+        <Tooltip key={c} label={t("common.colour.pick.tip", { name: categoryName(c) })}>
           <button
             type="button"
             role="radio"
@@ -4539,7 +4574,7 @@ function ColorMenu({ value, offered, onChange, ariaLabel, disabled = false, fram
 
   return (
     <span className="cs-menu-wrap" ref={box}>
-      <Tooltip label={value ? `Colour: ${categoryName(value)}` : "Pick a colour"}>
+      <Tooltip label={value ? t("common.colour.current.tip", { name: categoryName(value) }) : t("common.colour.pick.empty.tip")}>
         <button
           type="button"
           className={"cs-menu-btn" + (framed ? " cs-menu-btn-framed tp-btn tp-btn-ghost tactile" : "")}
@@ -5085,24 +5120,29 @@ function IconSrcUnknown() { return <svg {...srcStroke}><circle cx="12" cy="12" r
 // SOURCE_META — slug → {name, Icon}. Slugs mirror the Go side exactly:
 // metadata.BookCandidate.Source is "google" | "openlibrary" | "amazon";
 // movie candidates carry "tmdb" | "tvdb".
+// `name` holds a key. The values are proper nouns and are marked DO NOT
+// TRANSLATE in the locale file — keying them is what makes that a property of the
+// string rather than a hope about whoever opens the file.
 export const SOURCE_META = {
-  google: { name: "Google Books", Icon: IconSrcGoogle },
-  openlibrary: { name: "Open Library", Icon: IconSrcOpenLibrary },
-  amazon: { name: "Amazon", Icon: IconSrcAmazon },
-  tmdb: { name: "TMDB", Icon: IconSrcTMDB },
-  tvdb: { name: "TheTVDB", Icon: IconSrcTVDB },
+  google: { name: "vocab.source.google.label", Icon: IconSrcGoogle },
+  openlibrary: { name: "vocab.source.openlibrary.label", Icon: IconSrcOpenLibrary },
+  amazon: { name: "vocab.source.amazon.label", Icon: IconSrcAmazon },
+  tmdb: { name: "vocab.source.tmdb.label", Icon: IconSrcTMDB },
+  tvdb: { name: "vocab.source.tvdb.label", Icon: IconSrcTVDB },
 };
 
 // SourceIcon — the pill replacement, labelled the way InfoDot is: a tooltip for
 // a pointer and a real aria-label for assistive tech. `detail` appends the
 // supplier's id ("TMDB · #603") to the label without costing any row width.
 export function SourceIcon({ source, detail, side = "top" }) {
-  const meta = SOURCE_META[source] || { name: source || "unknown source", Icon: IconSrcUnknown };
-  const label = detail ? `${meta.name} · ${detail}` : meta.name;
+  const meta = SOURCE_META[source];
+  const Icon = meta ? meta.Icon : IconSrcUnknown;
+  const name = meta ? t(meta.name) : source || t("vocab.source.unknown.label");
+  const label = detail ? t("common.source.detail.tip", { name, detail }) : name;
   return (
     <Tooltip label={label} side={side}>
-      <span tabIndex={0} className="src-mark" aria-label={`Source: ${label}`}>
-        <meta.Icon />
+      <span tabIndex={0} className="src-mark" aria-label={t("common.source.aria", { name: label })}>
+        <Icon />
       </span>
     </Tooltip>
   );
@@ -5222,7 +5262,7 @@ export function ActionMenu({ open, items = [], anchorRef, at = null, onClose, re
 // building it as a Select meant a dropdown with a placeholder pretending to be a
 // value the selection does not have. The default is still the ⋯, so every card row
 // is untouched.
-export function MoreMenu({ items, icon, label, ariaLabel = "More actions", tooltip, disabled = false }) {
+export function MoreMenu({ items, icon, label, ariaLabel, tooltip, disabled = false }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
   return (
@@ -5234,7 +5274,7 @@ export function MoreMenu({ items, icon, label, ariaLabel = "More actions", toolt
       <IconButton
         icon={icon || <IconMore />}
         label={label}
-        ariaLabel={ariaLabel}
+        ariaLabel={ariaLabel || t("common.more.aria")}
         tooltip={tooltip}
         disabled={disabled}
         onClick={() => setOpen((o) => !o)}
@@ -5520,7 +5560,7 @@ export function useCardMenu(items = [], { onLongPress } = {}) {
 //
 // `label` completes "Select …" / "Deselect …", so the announcement names what is
 // being picked rather than saying "checkbox" forty times down a board.
-export function PickMark({ picked, onChange, label = "this" }) {
+export function PickMark({ picked, onChange, label }) {
   return (
     <label
       className="card-pick"
@@ -5531,7 +5571,7 @@ export function PickMark({ picked, onChange, label = "this" }) {
       <input
         type="checkbox"
         checked={picked}
-        aria-label={`${picked ? "Deselect" : "Select"} ${label}`}
+        aria-label={t(picked ? "common.action.deselect.aria" : "common.action.select.aria", { name: label || t("common.select.target.fallback") })}
         onChange={onChange}
       />
       <span className="card-pick-mark" aria-hidden="true">
@@ -5560,14 +5600,15 @@ export function PickMark({ picked, onChange, label = "this" }) {
 // The SET is still the same set, and that part does have to stay in step: a
 // table row offers copy, share, edit and delete because that is what the card
 // beside it offers, just laid flat in a cell that has the width for it.
-export function TableActions({ onCopy, onShare, onPractise, onEdit, onDelete, noun = "row" }) {
+export function TableActions({ onCopy, onShare, onPractise, onEdit, onDelete, noun }) {
+  const what = noun || t("unit.row.one")
   return (
     <span className="flex items-center justify-end gap-1">
-      {onCopy && <FieldIconButton icon={<IconCopy />} ariaLabel="Copy" onClick={onCopy} tooltip={`Copy this ${noun}`} />}
-      {onPractise && <FieldIconButton icon={<IconQuiz />} ariaLabel="Practise" onClick={onPractise} tooltip={`Quiz me on this ${noun}`} />}
-      {onShare && <FieldIconButton icon={<IconShare />} ariaLabel="Share" onClick={onShare} tooltip={`Share this ${noun}`} />}
-      {onEdit && <FieldIconButton icon={<IconEdit />} ariaLabel="Edit" onClick={onEdit} tooltip={`Edit this ${noun}`} />}
-      {onDelete && <FieldIconButton icon={<IconDelete />} ariaLabel="Delete" onClick={onDelete} tooltip={`Delete this ${noun}`} danger />}
+      {onCopy && <FieldIconButton icon={<IconCopy />} ariaLabel={t("common.action.copy.label")} onClick={onCopy} tooltip={t("common.action.copy.row.tip", { noun: what })} />}
+      {onPractise && <FieldIconButton icon={<IconQuiz />} ariaLabel={t("common.action.practise.label")} onClick={onPractise} tooltip={t("common.action.practise.row.tip", { noun: what })} />}
+      {onShare && <FieldIconButton icon={<IconShare />} ariaLabel={t("common.action.share.label")} onClick={onShare} tooltip={t("common.action.share.row.tip", { noun: what })} />}
+      {onEdit && <FieldIconButton icon={<IconEdit />} ariaLabel={t("common.action.edit.label")} onClick={onEdit} tooltip={t("common.action.edit.row.tip", { noun: what })} />}
+      {onDelete && <FieldIconButton icon={<IconDelete />} ariaLabel={t("common.action.delete.label")} onClick={onDelete} tooltip={t("common.action.delete.row.tip", { noun: what })} danger />}
     </span>
   )
 }
@@ -5588,14 +5629,15 @@ export function TableActions({ onCopy, onShare, onPractise, onEdit, onDelete, no
 // the rule is two-line rather than one: a window over content closes with a ×,
 // a full-screen sheet goes back with an arrow. Two affordances for two things,
 // instead of five for one.
-export function CloseButton({ onClick, label = "Close", tooltip, disabled = false, className = "" }) {
+export function CloseButton({ onClick, label, tooltip, disabled = false, className = "" }) {
+  const word = label || t("common.action.close.label")
   return (
     <FieldIconButton
       icon={<IconClose />}
-      ariaLabel={label}
+      ariaLabel={word}
       onClick={onClick}
       disabled={disabled}
-      tooltip={tooltip || `${label} this window`}
+      tooltip={tooltip || t("common.action.close.window.tip", { name: word })}
       className={className}
     />
   )
@@ -5677,8 +5719,8 @@ export function MobileSheet({ open, onClose, title, actions, children, footer, d
     <div className="mobile-sheet" onClick={dismissOnScrim ? onClose : undefined}>
       <div className="mobile-sheet-card" onClick={(e) => e.stopPropagation()}>
         <div className="mobile-sheet-header">
-          <Tooltip label="Close this sheet" side="bottom" className="shrink-0">
-            <button type="button" className="mobile-sheet-close" onClick={onClose} aria-label="Close">
+          <Tooltip label={t("common.sheet.close.tip")} side="bottom" className="shrink-0">
+            <button type="button" className="mobile-sheet-close" onClick={onClose} aria-label={t("common.action.close.label")}>
               <IconBack />
             </button>
           </Tooltip>
@@ -5701,11 +5743,11 @@ export function SheetFooter({ count, onReset, onDone }) {
   return (
     <>
       {onReset && (
-        <FieldIconButton icon={<IconRevert />} ariaLabel="Reset every filter" onClick={onReset} />
+        <FieldIconButton icon={<IconRevert />} ariaLabel={t("common.filters.reset.aria")} onClick={onReset} />
       )}
       {count != null && <span className="microcopy">{count}</span>}
       <button type="button" className="tp-btn tp-btn-primary ml-auto" style={{ minWidth: 110 }} onClick={onDone}>
-        Done
+        {t("common.action.done.label")}
       </button>
     </>
   )
@@ -5722,7 +5764,7 @@ export function ProgressBar({ value, max, label }) {
   const indeterminate = !(max > 0)
   const pct = indeterminate ? 0 : Math.min(100, Math.round((value / max) * 100))
   return (
-    <div role="progressbar" aria-valuemin={0} aria-valuemax={max || undefined} aria-valuenow={indeterminate ? undefined : value} aria-label={label || 'progress'}>
+    <div role="progressbar" aria-valuemin={0} aria-valuemax={max || undefined} aria-valuenow={indeterminate ? undefined : value} aria-label={label || t("common.progress.aria")}>
       <div className="progress-track">
         {indeterminate
           ? <div className="progress-fill progress-indeterminate" />
@@ -5855,10 +5897,10 @@ function HintBubble({ msg, rect, side }) {
 }
 
 export function ToastHost() {
-  const [t, setT] = useState({ msg: "", action: null, n: 0 })
+  const [pill, setPill] = useState({ msg: "", action: null, n: 0 })
   const [h, setH] = useState({ msg: "", n: 0, rect: null, side: "top", sticky: false, token: 0 })
   useEffect(() => {
-    toastSink = (msg, action) => setT((s) => ({ msg, action: action || null, n: s.n + 1 }))
+    toastSink = (msg, action) => setPill((s) => ({ msg, action: action || null, n: s.n + 1 }))
     hintSink = (m) =>
       setH((s) => {
         // Returning `s` itself, not a copy, when the close is stale or the bubble
@@ -5870,10 +5912,10 @@ export function ToastHost() {
     return () => { toastSink = null; hintSink = null }
   }, [])
   useEffect(() => {
-    if (!t.msg) return
-    const id = setTimeout(() => setT((s) => ({ ...s, msg: "" })), t.action ? TOAST_ACTION_MS : TOAST_MS)
+    if (!pill.msg) return
+    const id = setTimeout(() => setPill((s) => ({ ...s, msg: "" })), pill.action ? TOAST_ACTION_MS : TOAST_MS)
     return () => clearTimeout(id)
-  }, [t])
+  }, [pill])
   useEffect(() => {
     // EVERY BUBBLE GETS A TIMER HERE, which is the change. The long-press toast
     // always had one; a hovered label was left to its opener on the reasoning
@@ -5891,23 +5933,23 @@ export function ToastHost() {
   }, [h])
   return (
     <>
-      {t.msg && (
+      {pill.msg && (
         // role="status" for the message, with the action as a real button inside
         // it: a polite live region announces the text, and the button is reachable
         // by keyboard for as long as the pill is up. Dismissing on click is the
         // point — the offer is taken, so the pill has nothing left to say.
-        <div className="toast" key={t.n} role="status">
-          {t.msg}
-          {t.action && (
+        <div className="toast" key={pill.n} role="status">
+          {pill.msg}
+          {pill.action && (
             <button
               type="button"
               className="toast-action"
               onClick={() => {
-                setT((s) => ({ ...s, msg: "" }))
-                t.action.onClick()
+                setPill((s) => ({ ...s, msg: "" }))
+                pill.action.onClick()
               }}
             >
-              {t.action.label}
+              {pill.action.label}
             </button>
           )}
         </div>

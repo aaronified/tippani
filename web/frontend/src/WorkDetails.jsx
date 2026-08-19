@@ -22,6 +22,7 @@
 // overwriting an author you typed by hand is, so the second one asks first.
 import { useEffect, useMemo, useState } from 'react'
 import { coverImgURL, errText, json } from './api.js'
+import { t } from './i18n.js'
 import { BookLookupPicker, CoverControls, CoverPreview, MovieLookupPicker, hiResPoster, idNum } from './CoverPicker.jsx'
 import {
   ErrorText,
@@ -56,35 +57,45 @@ import {
 // went when it came off the hero.
 
 const BOOK_FIELDS = [
-  { key: 'title', label: 'Title', nameCase: true },
-  { key: 'author', label: 'Author', nameCase: true, hint: 'Multiple authors can share one line — Settings decides which separators split them into distinct people.' },
+  { key: 'title', get label() { return t('common.field.title.label') }, nameCase: true },
+  {
+    key: 'author',
+    get label() { return t('common.field.author.label') },
+    nameCase: true,
+    get hint() { return t('book.field.author.info') },
+  },
   {
     key: 'translator',
-    label: 'Translator',
+    get label() { return t('common.field.translator.label') },
     nameCase: true,
-    hint: 'Who brought it into this language. They get a portrait and a page like an author does, and they appear on this book’s own page — but never on the Library board or on a quote, where one credit is the whole point of the line.',
+    get hint() { return t('book.field.translator.info') },
   },
   {
     key: 'editor',
-    label: 'Editor',
+    get label() { return t('common.field.editor.label') },
     nameCase: true,
-    hint: 'Who chose what is in it — the credit an anthology or a collected edition is often bought for. Same separators as the author line.',
+    get hint() { return t('book.field.editor.info') },
   },
-  { key: 'published_year', label: 'Year', kind: 'year', circaKey: 'published_circa' },
-  { key: 'series', label: 'Series', nameCase: true, hint: 'The series or franchise this book belongs to. Books group by it in the Library, and sort by the number below.' },
-  { key: 'series_index', label: 'Series #', kind: 'number' },
+  { key: 'published_year', get label() { return t('common.field.year.label') }, kind: 'year', circaKey: 'published_circa' },
+  {
+    key: 'series',
+    get label() { return t('common.field.series.label') },
+    nameCase: true,
+    get hint() { return t('book.field.series.info') },
+  },
+  { key: 'series_index', get label() { return t('common.field.series-no.label') }, kind: 'number' },
   {
     key: 'isbn',
-    label: 'ISBN',
-    hint: 'Ten digits or thirteen, hyphens and all — an older book’s ten-digit ISBN is kept as its thirteen-digit form. Only used to look the book up: a better cover or description comes from a match on it.',
+    get label() { return t('common.field.isbn.label') },
+    get hint() { return t('book.field.isbn.info') },
   },
   {
     key: 'asin',
-    label: 'ASIN',
-    hint: 'Amazon’s own identifier, on the product page of anything you bought or read on a Kindle. A cover can be fetched from it with no key or cookie at all.',
+    get label() { return t('common.field.asin.label') },
+    get hint() { return t('book.field.asin.info') },
   },
-  { key: 'genres', label: 'Genres', kind: 'tokens' },
-  { key: 'description', label: 'Description', kind: 'long' },
+  { key: 'genres', get label() { return t('common.field.genres.label') }, kind: 'tokens' },
+  { key: 'description', get label() { return t('common.field.description.label') }, kind: 'long' },
 ]
 
 // MEDIA_LABELS — the words that change with the MEDIUM rather than with the kind.
@@ -98,21 +109,40 @@ const BOOK_FIELDS = [
 // A game credits a STUDIO (0040 puts the developer in `director`, the same
 // column a show's creator uses) and its franchise is a SERIES, not a Collection,
 // which is a word films use.
+// The values are KEYS, resolved by labelFor at render time.
 const MEDIA_LABELS = {
-  show: { director: 'Creator' },
-  game: { director: 'Studio', series: 'Series', series_index: 'Series #' },
+  show: { director: 'common.field.creator.label' },
+  game: {
+    director: 'common.field.studio.label',
+    series: 'common.field.series.label',
+    series_index: 'common.field.series-no.label',
+  },
 }
 
 // The three things a Catalogue row can be, and what each is called. One list, so
 // the display and the picker cannot offer different sets — which is how a game
 // came to read as a Film with no way to correct it.
-export const MEDIA_TYPES = [['movie', 'Film'], ['show', 'Show'], ['game', 'Game']]
+// A [key, label] pair whose LABEL resolves when it is read. The pair shape every
+// caller destructures is unchanged, and nothing resolves at module scope — which
+// is what a plain table of words would have done, before a locale was applied.
+function labelPair(key, labelKey) {
+  const row = [key, '']
+  Object.defineProperty(row, 1, { get: () => t(labelKey), enumerable: true, configurable: true })
+  return row
+}
+
+export const MEDIA_TYPES = [
+  labelPair('movie', 'vocab.kind.movie.label'),
+  labelPair('show', 'vocab.kind.show.label'),
+  labelPair('game', 'vocab.kind.game.label'),
+]
 
 // labelFor is the one place a spec's label is resolved. Both call sites go
 // through it, so a medium cannot be handled on one screen and missed on the
 // other — which is exactly how Director survived on a game.
 export function labelFor(spec, mediaType) {
-  return MEDIA_LABELS[mediaType]?.[spec.key] || spec.label
+  const key = MEDIA_LABELS[mediaType]?.[spec.key]
+  return key ? t(key) : spec.label
 }
 
 // specsFor drops the fields a medium has no use for.
@@ -127,55 +157,69 @@ export function specsFor(specs, mediaType) {
 }
 
 export const MOVIE_FIELDS = [
-  { key: 'title', label: 'Title', nameCase: true },
-  { key: 'media_type', label: 'Type', kind: 'mediaType', hint: 'A show’s dialogue carries a season and episode; a film’s and a game’s do not. Changing this does not move any lines you have already saved.' },
-  { key: 'director', label: 'Director', nameCase: true },
+  { key: 'title', get label() { return t('common.field.title.label') }, nameCase: true },
+  {
+    key: 'media_type',
+    get label() { return t('common.field.media-type.label') },
+    kind: 'mediaType',
+    get hint() { return t('film.field.media-type.info') },
+  },
+  { key: 'director', get label() { return t('common.field.director.label') }, nameCase: true },
   {
     key: 'publisher',
-    label: 'Publisher',
+    get label() { return t('common.field.publisher.label') },
     nameCase: true,
     media: ['game'],
-    hint: 'Who put the game out, as against the studio above, who made it. They are usually two different companies — Electronic Arts published Mass Effect and BioWare developed it — and a fetch used to collapse them into one field, so a game added before 1.17.0 may credit its publisher as its studio. Re-fetching it under “Fetch metadata” separates the two.',
+    get hint() { return t('film.field.publisher.info') },
   },
-  { key: 'release_year', label: 'Year', kind: 'year', circaKey: 'release_circa' },
-  { key: 'series', label: 'Collection', nameCase: true, hint: 'The franchise this title belongs to — the film side of a book’s series.' },
-  { key: 'series_index', label: 'Collection #', kind: 'number' },
+  { key: 'release_year', get label() { return t('common.field.year.label') }, kind: 'year', circaKey: 'release_circa' },
+  {
+    key: 'series',
+    get label() { return t('common.field.collection.label') },
+    nameCase: true,
+    get hint() { return t('film.field.series.info') },
+  },
+  { key: 'series_index', get label() { return t('common.field.collection-no.label') }, kind: 'number' },
   {
     key: 'tmdb_id',
-    label: 'TMDB id',
+    get label() { return t('film.field.tmdb-id.label') },
+    sourceKey: 'vocab.source.tmdb.label',
     kind: 'id',
     media: ['movie', 'show'],
-    hint: 'The Movie Database’s id for this title — the number in its URL. Picking a match under “Fetch metadata” sets it, and you can also type it: a title search cannot tell two films of the same name apart, and an id can. Once it is set, every later search fetches that exact record first. Clear it by emptying the field.',
+    get hint() { return t('film.field.tmdb-id.info') },
     href: (it) => `https://www.themoviedb.org/${(it.media_type || 'movie') === 'show' ? 'tv' : 'movie'}/${it.tmdb_id}`,
   },
   {
     key: 'tvdb_id',
-    label: 'TheTVDB id',
+    get label() { return t('film.field.tvdb-id.label') },
+    sourceKey: 'vocab.source.tvdb.label',
     kind: 'id',
     media: ['movie', 'show'],
-    hint: 'TheTVDB’s id, typed or fetched the same way. Optional — it usually has better coverage for long-running shows, so it is worth filling in when TMDB has a show only half-catalogued.',
+    get hint() { return t('film.field.tvdb-id.info') },
     // The dereferrer resolves a bare numeric id to the right series/movie page.
     href: (it) => `https://thetvdb.com/dereferrer/${(it.media_type || 'movie') === 'show' ? 'series' : 'movie'}/${it.tvdb_id}`,
   },
   {
     key: 'imdb_id',
-    label: 'IMDb id',
+    get label() { return t('film.field.imdb-id.label') },
+    sourceKey: 'vocab.source.imdb.label',
     media: ['movie', 'show'],
-    hint: 'IMDb’s id for this title — the ttNNNNNNN in its URL. Nothing is fetched with it: IMDb has no public API, so this is the one id that is only ever carried, not used. It is here because it is the id you are most likely to have to hand, and because it names one title exactly. Paste the whole URL if that is easier.',
+    get hint() { return t('film.field.imdb-id.info') },
     href: (it) => `https://www.imdb.com/title/${it.imdb_id}/`,
   },
   {
     key: 'igdb_id',
-    label: 'IGDB id',
+    get label() { return t('film.field.igdb-id.label') },
+    sourceKey: 'vocab.source.igdb.label',
     kind: 'id',
     media: ['game'],
     // NO href. IGDB addresses its pages by SLUG and this is the numeric id, so a
     // link built from it would 404 — and a link that goes nowhere is worse than
     // no link, because it invites the one click that proves it broken.
-    hint: 'IGDB’s id for this game — the database the games lookup runs on. Picking a match under “Fetch metadata” sets it, and you can type it: two games can share a title and an id cannot. Once it is set, every later search fetches that exact record first. Clear it by emptying the field.',
+    get hint() { return t('film.field.igdb-id.info') },
   },
-  { key: 'genres', label: 'Genres', kind: 'tokens' },
-  { key: 'description', label: 'Description', kind: 'long' },
+  { key: 'genres', get label() { return t('common.field.genres.label') }, kind: 'tokens' },
+  { key: 'description', get label() { return t('common.field.description.label') }, kind: 'long' },
 ]
 
 // fullState mirrors bookState / movieState on the pages: PUT is full-state, so a
@@ -299,7 +343,7 @@ export function WorkDetails({ open, onClose, kind, item, onChanged, onDelete }) 
     const r = await json('PUT', `/${path}/${item.id}`, { ...fullState(kind, item), ...patch })
     setBusy('')
     if (!r.ok) {
-      setError(errText(r, 'could not save'))
+      setError(errText(r, t('error.save.generic')))
       return false
     }
     onChanged?.(r.data)
@@ -329,7 +373,7 @@ export function WorkDetails({ open, onClose, kind, item, onChanged, onDelete }) 
         : { [spec.key]: next })
     }
     if ('title' in patch && !String(patch.title).trim()) {
-      setError('a title is required')
+      setError(t('error.validate.title-required'))
       return
     }
     if (!Object.keys(patch).length) return
@@ -338,14 +382,14 @@ export function WorkDetails({ open, onClose, kind, item, onChanged, onDelete }) 
       // failed save must leave what you typed on the screen.
       closeAll()
       const n = entries.length
-      toast(n === 1 ? '1 field saved' : `${n} fields saved`)
+      toast(t('common.work.fields-saved.toast', { count: n, n }))
     }
   }
 
   async function saveField(spec, draft) {
     const next = coerce(spec, draft)
     if (spec.key === 'title' && !String(next).trim()) {
-      setError('a title is required')
+      setError(t('error.validate.title-required'))
       return false
     }
     // A year writes two columns (the year and whether it is an estimate), so
@@ -354,7 +398,7 @@ export function WorkDetails({ open, onClose, kind, item, onChanged, onDelete }) 
     const patch =
       next && typeof next === 'object' && !Array.isArray(next) ? next : { [spec.key]: next }
     const ok = await save(patch)
-    if (ok) toast(`${spec.label.toLowerCase()} saved`)
+    if (ok) toast(t('common.work.field-saved.toast', { field: spec.label.toLowerCase() }))
     return ok
   }
 
@@ -417,7 +461,7 @@ export function WorkDetails({ open, onClose, kind, item, onChanged, onDelete }) 
     if (artUrl) {
       rows.push({
         key: '__cover',
-        label: kind === 'book' ? 'Cover' : 'Poster',
+        label: t(kind === 'book' ? 'common.field.cover.label' : 'common.field.poster.label'),
         art: true,
         current: currentArt ? coverImgURL(currentArt) : '',
         next: artUrl,
@@ -442,7 +486,7 @@ export function WorkDetails({ open, onClose, kind, item, onChanged, onDelete }) 
       else patch[r.key] = r.next
     }
     if (await save(patch, 'merge')) {
-      toast(`${chosen.length} ${chosen.length === 1 ? 'field' : 'fields'} updated`)
+      toast(t('common.work.merge.toast', { count: chosen.length, n: chosen.length }))
       setMerge(null)
       setView('fields')
     }
@@ -460,14 +504,16 @@ export function WorkDetails({ open, onClose, kind, item, onChanged, onDelete }) 
       media_type: c.media_type || item.media_type || 'movie',
     })
     setBusy('')
-    if (!r.ok) return setError(errText(r, 'could not sync from the source'))
+    if (!r.ok) return setError(errText(r, t('error.sync.source')))
     onChanged?.(r.data)
-    toast('re-synced from source')
+    toast(t('common.work.resync.toast'))
     setMerge(null)
     setView('fields')
   }
 
-  const title = view === 'merge' ? 'Choose what to keep' : view === 'lookup' ? 'Fetch metadata' : 'Details'
+  const title = t(
+    view === 'merge' ? 'common.work.merge.title' : view === 'lookup' ? 'common.work.lookup.title' : 'common.work.details.title',
+  )
 
   return (
     <FormModal open={open} onClose={onClose} title={title} maxWidth={620}>
@@ -495,14 +541,11 @@ export function WorkDetails({ open, onClose, kind, item, onChanged, onDelete }) 
           <div className="flex items-center gap-2">
             <FieldIconButton
               icon={<IconBack />}
-              ariaLabel="Back to the fields"
+              ariaLabel={t('common.work.lookup.back.aria')}
               onClick={() => setView('fields')}
             />
-            <MonoLabel>pick the closest match</MonoLabel>
-            <InfoDot
-              title="Fetch metadata"
-              text="Nothing is applied yet. Choosing a match opens a comparison of what you have against what it offers, and you tick the fields worth taking."
-            />
+            <MonoLabel>{t('common.work.lookup.pick.label')}</MonoLabel>
+            <InfoDot title={t('common.work.lookup.info.title')} text={t('common.work.lookup.info.body')} />
           </div>
           {kind === 'book' ? (
             <BookLookupPicker
@@ -555,7 +598,7 @@ function FieldList({ kind, item, specs, mediaType, busy, genreSuggestions, onSav
   // on a desktop dialog, and greys with its reason on it like every other ✓.
   // "Nothing to save" is inside the five-word rule.
   const unsaved = useUnsavedFields()
-  const host = useFormHost(unsaved.count ? '' : 'Nothing to save')
+  const host = useFormHost(unsaved.count ? '' : t('common.work.details.nothing-to-save.hint'))
   async function submit(e) {
     e.preventDefault()
     if (!unsaved.count) return
@@ -587,19 +630,17 @@ function FieldList({ kind, item, specs, mediaType, busy, genreSuggestions, onSav
       <div className="flex flex-wrap items-center gap-2">
         <GhostButton type="button" onClick={onFetch} disabled={!!busy}>
           <IconMetadata />
-          <span>Fetch metadata</span>
+          <span>{t('common.work.fetch.label')}</span>
         </GhostButton>
         <InfoDot
-          title="Fetch metadata"
-          text={kind === 'book'
-            ? 'Searches Google Books, Open Library and Amazon for this book, then lets you compare each field against what you already have and take only what you want.'
-            : 'Searches TMDB and TheTVDB, then compares each field with what you have. From there you can take single fields, or re-sync everything — poster, cast, genres and details — from that source.'}
+          title={t('common.work.lookup.info.title')}
+          text={t(kind === 'book' ? 'book.fetch.info.body' : 'film.fetch.info.body')}
         />
         <span className="flex-1" />
         {onDelete && (
           <FieldIconButton
             icon={<IconDelete />}
-            ariaLabel={`Delete this ${kind === 'book' ? 'book' : 'title'}`}
+            ariaLabel={t('common.work.delete.aria', { noun: t(kind === 'book' ? 'unit.book.one' : 'unit.title.one') })}
             onClick={onDelete}
             danger
           />
@@ -624,12 +665,16 @@ function FieldList({ kind, item, specs, mediaType, busy, genreSuggestions, onSav
                 busy={!!busy}
                 inputMode="numeric"
                 maxLength={12}
-                placeholder="type an id, or fetch metadata"
+                placeholder={t('common.work.id.placeholder')}
                 onSave={(d) => onSaveField(spec, d)}
                 display={spec.href && value ? (
-                  <Tooltip label={`Open on ${label.replace(/ id$/, '')}`}>
+                  /* THE SOURCE NAME COMES FROM THE SPEC, not from the label. It
+                     used to be `label.replace(/ id$/, '')`, which is an English
+                     rule about an English label and strips nothing at all once the
+                     label is in another language. */
+                  <Tooltip label={t('common.work.id.open.tip', { source: t(spec.sourceKey) })}>
                     <a href={spec.href(item)} target="_blank" rel="noopener noreferrer" className="tp-link">
-                      #{value} ↗
+                      {t('common.work.id.display.label', { n: value })}
                     </a>
                   </Tooltip>
                 ) : undefined}
@@ -648,7 +693,7 @@ function FieldList({ kind, item, specs, mediaType, busy, genreSuggestions, onSav
                 busy={!!busy}
                 onSave={(d) => onSaveField(spec, d)}
                 input={({ value: v, onChange }) => (
-                  <TokenInput value={v} onChange={onChange} suggestions={genreSuggestions} placeholder="add a genre…" ariaLabel={label} transform={titleCaseGenre} />
+                  <TokenInput value={v} onChange={onChange} suggestions={genreSuggestions} placeholder={t('common.field.genres.placeholder')} ariaLabel={label} transform={titleCaseGenre} />
                 )}
               />
             )
@@ -666,7 +711,7 @@ function FieldList({ kind, item, specs, mediaType, busy, genreSuggestions, onSav
                 // picker below offered no way to say otherwise. Naming the
                 // options once, in a table, is what stops a fourth medium
                 // landing in the same hole.
-                display={MEDIA_TYPES.find(([k]) => k === value)?.[1] || 'Film'}
+                display={MEDIA_TYPES.find(([k]) => k === value)?.[1] || t('vocab.kind.movie.label')}
                 hint={spec.hint}
                 busy={!!busy}
                 onSave={(d) => onSaveField(spec, d)}
@@ -742,36 +787,33 @@ function MergeScreen({ kind, rows, candidate, busy, onBack, onApply, onResync })
       <div className="flex items-center gap-2">
         <FieldIconButton
           icon={<IconBack />}
-          ariaLabel="Back to the matches"
+          ariaLabel={t('common.work.merge.back.aria')}
           onClick={onBack}
         />
         <MonoLabel>{sourceLabel}</MonoLabel>
-        <InfoDot
-          title="Choose what to keep"
-          text="Fields you have nothing in are ticked for you — filling a blank costs nothing. Anything already filled starts unticked, so a match can never quietly overwrite something you typed."
-        />
+        <InfoDot title={t('common.work.merge.info.title')} text={t('common.work.merge.info.body')} />
         <span className="flex-1" />
         <FieldIconButton
           icon={<IconCheck />}
-          ariaLabel="Take every field"
+          ariaLabel={t('common.work.merge.all.aria')}
           onClick={() => setAll(true)}
-          tooltip="Take everything"
+          tooltip={t('common.work.merge.all.tip')}
         />
         <FieldIconButton
           icon={<IconClose />}
-          ariaLabel="Take no fields"
+          ariaLabel={t('common.work.merge.none.aria')}
           onClick={() => setAll(false)}
-          tooltip="Take nothing"
+          tooltip={t('common.work.merge.none.tip')}
         />
       </div>
 
       {state.length === 0 && (
-        <p className="microcopy">this match agrees with everything you already have — nothing to change.</p>
+        <p className="microcopy">{t('common.work.merge.empty')}</p>
       )}
 
       <div className="merge-list">
         {state.map((r) => (
-          <Tooltip key={r.key} label="Take this field">
+          <Tooltip key={r.key} label={t('common.work.merge.row.tip')}>
             <button
               type="button"
               className={'merge-row' + (r.take ? ' is-taken' : '')}
@@ -784,11 +826,11 @@ function MergeScreen({ kind, rows, candidate, busy, onBack, onApply, onResync })
                 {r.art ? (
                   <span className="merge-art">
                     <span className="merge-art-side">
-                      <MonoLabel>yours</MonoLabel>
-                      {r.current ? <CoverPreview url={r.current} label="" className="w-16" /> : <Placeholder kind="NONE" className="w-16" />}
+                      <MonoLabel>{t('common.work.merge.yours.label')}</MonoLabel>
+                      {r.current ? <CoverPreview url={r.current} label="" className="w-16" /> : <Placeholder kind={t('common.badge.none')} className="w-16" />}
                     </span>
                     <span className="merge-art-side">
-                      <MonoLabel style={{ color: 'var(--accent-ui)' }}>theirs</MonoLabel>
+                      <MonoLabel style={{ color: 'var(--accent-ui)' }}>{t('common.work.merge.theirs.label')}</MonoLabel>
                       <CoverPreview url={r.next} label="" className="w-16" />
                     </span>
                   </span>
@@ -797,7 +839,7 @@ function MergeScreen({ kind, rows, candidate, busy, onBack, onApply, onResync })
                     {/* blank(), not a truthiness test: an unset year is 0, and
                         "0" is not what "you have nothing here" looks like. */}
                     <span className="merge-old">
-                      {blank(r.current, r.spec?.kind) ? 'nothing yet' : fmtVal(r.current)}
+                      {blank(r.current, r.spec?.kind) ? t('common.work.merge.blank.label') : fmtVal(r.current)}
                     </span>
                     <span className="merge-new">{fmtVal(r.next)}</span>
                   </>
@@ -810,17 +852,16 @@ function MergeScreen({ kind, rows, candidate, busy, onBack, onApply, onResync })
 
       <div className="flex flex-wrap items-center gap-2 pt-1">
         <StickerButton type="button" disabled={!!busy || chosen === 0} onClick={() => onApply(state)}>
-          {busy === 'merge' ? 'Applying…' : `Take ${chosen} ${chosen === 1 ? 'field' : 'fields'}`}
+          {busy === 'merge'
+            ? t('common.action.apply.busy')
+            : t('common.work.merge.take', { count: chosen, n: chosen })}
         </StickerButton>
         {onResync && (
           <>
             <GhostButton type="button" disabled={!!busy} onClick={onResync}>
-              {busy === 'resync' ? 'Re-syncing…' : 'Re-sync everything'}
+              {t(busy === 'resync' ? 'common.work.resync.busy' : 'common.work.resync.label')}
             </GhostButton>
-            <InfoDot
-              title="Re-sync everything"
-              text="Pulls the whole record from this source — poster, cast, genres, director and details — replacing what is stored. The cast is the reason to reach for it: a search result does not carry one, so ticking fields above can never fill it."
-            />
+            <InfoDot title={t('common.work.resync.info.title')} text={t('common.work.resync.info.body')} />
           </>
         )}
       </div>

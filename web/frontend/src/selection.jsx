@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { t } from './i18n.js'
 
 // A selection is a sentence you are in the middle of saying.
 //
@@ -233,7 +234,7 @@ export function selectionMenuItems(selection, id, kind) {
   const items = [
     {
       id: 'select',
-      label: selection.isSelected(id) ? 'Deselect' : 'Select',
+      label: t(selection.isSelected(id) ? 'common.selection.menu.deselect.label' : 'common.selection.menu.select.label'),
       onClick: () => selection.toggle(id, kind),
     },
   ]
@@ -242,8 +243,12 @@ export function selectionMenuItems(selection, id, kind) {
   if (selection.total > 1) {
     items.push(
       selection.allSelected
-        ? { id: 'deselect-all', label: 'Deselect all', onClick: () => selection.deselectAll() }
-        : { id: 'select-all', label: `Select all ${selection.total}`, onClick: () => selection.selectAll(kind) },
+        ? { id: 'deselect-all', label: t('common.selection.menu.deselect-all.label'), onClick: () => selection.deselectAll() }
+        : {
+            id: 'select-all',
+            label: t('common.selection.menu.select-all.label', { count: selection.total, n: selection.total }),
+            onClick: () => selection.selectAll(kind),
+          },
     )
   }
   return items

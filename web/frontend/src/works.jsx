@@ -5,6 +5,7 @@
 // import cycle — this layer is free to import from both).
 import { useState } from 'react'
 import { DEMO, coverImgURL, errText, json } from './api.js'
+import { t } from './i18n.js'
 import { CreditFaces, PersonPortrait, splitCredits } from './people.jsx'
 import {
   ConfirmDialog,
@@ -117,15 +118,15 @@ export function capKeyFor(kind, item) {
 // add form, the edit form and the detail header, because a fourth media type is
 // four places to forget rather than one.
 export function creditNounFor(mediaType) {
-  if (mediaType === 'game') return 'Studio'
-  if (mediaType === 'show') return 'Creator'
-  return 'Director'
+  if (mediaType === 'game') return t('common.field.studio.label')
+  if (mediaType === 'show') return t('common.field.creator.label')
+  return t('common.field.director.label')
 }
 
 export function creditLabelFor(mediaType) {
-  if (mediaType === 'game') return 'STUDIO'
-  if (mediaType === 'show') return 'CREATED BY'
-  return 'DIR.'
+  if (mediaType === 'game') return t('common.badge.studio')
+  if (mediaType === 'show') return t('common.badge.created-by')
+  return t('common.badge.director')
 }
 
 // personKindFor is the people-console kind a work's primary credit belongs to.
@@ -179,8 +180,8 @@ export function groupWorks(list, dim, opts = {}) {
     facet = () => '',
     splitCredit = false,
     seps,
-    creditResidual = 'Unknown',
-    facetResidual = () => 'None',
+    creditResidual = t('common.group.unknown-credit.label'),
+    facetResidual = () => t('common.group.none.label'),
     sortMembers,
   } = opts
   const map = new Map()
@@ -196,7 +197,7 @@ export function groupWorks(list, dim, opts = {}) {
     if (dim === 'series') {
       const s = series(it)
       if (s) add(s, s, it)
-      else add('~none', 'No series', it, { residual: true })
+      else add('~none', t('common.group.no-series.label'), it, { residual: true })
     } else if (dim === 'author') {
       const c = credit(it)
       const names = splitCredit ? splitCredits(c, seps) : c ? [c] : []
@@ -204,12 +205,12 @@ export function groupWorks(list, dim, opts = {}) {
       else add('~none', creditResidual, it, { residual: true })
     } else if (dim === 'decade') {
       const d = decadeOf(year(it))
-      if (d != null) add(String(d), `${d}s`, it, { order: d })
-      else add('~none', 'Unknown year', it, { residual: true })
+      if (d != null) add(String(d), t('common.group.decade.label', { year: d }), it, { order: d })
+      else add('~none', t('common.group.unknown-year.label'), it, { residual: true })
     } else if (dim === 'genre') {
       const gs = genres(it)
       if (gs.length) gs.forEach((g) => add(g, g, it))
-      else add('~none', 'No genre', it, { residual: true })
+      else add('~none', t('common.group.no-genre.label'), it, { residual: true })
     } else {
       // Caller-defined facet — one value per item, sorted alphabetically by the
       // fall-through at the bottom, with its own residual label.
@@ -273,20 +274,23 @@ export function statusFilter(list, states) {
 // `items` are the works holding the shelf ({id, title, meta}); `noun` is what
 // they are ("book"), `verb` the state they are in ("reading"), `pastLabel` the
 // settle-it action ("Mark as read").
-export function InProgressCapDialog({ open, items, cap, noun, verb, pastLabel, onRelease, onProceed, onCancel, busyId, error }) {
+//
+// `nounPlural` follows the pattern `creditNounPlural` below already sets: a
+// caller that names the noun should name its plural, because appending an s is an
+// English rule and not a fact about nouns. The s stays as the fallback until
+// every call site passes one.
+export function InProgressCapDialog({ open, items, cap, noun, nounPlural = `${noun}s`, verb, pastLabel, onRelease, onProceed, onCancel, busyId, error }) {
   return (
     <ConfirmDialog
       open={open}
-      title={`Already ${verb} ${items.length}`}
-      confirmLabel="Start it anyway"
+      title={t('common.work.cap.confirm.title', { verb, n: items.length })}
+      confirmLabel={t('common.work.cap.confirm.action.label')}
       onCancel={onCancel}
       onConfirm={onProceed}
       body={
         <>
           <p>
-            {`The shelf holds ${cap} ${noun}${cap === 1 ? '' : 's'} at a time, to keep it worth glancing at. Settle one
-              below — that marks it finished today, and you can correct the date on its own page — or start this one too
-              and let the shelf run long.`}
+            {t('common.work.cap.confirm.body', { n: cap, count: cap, noun: cap === 1 ? noun : nounPlural })}
           </p>
           <ul className="mt-3 space-y-1">
             {items.map((it) => (
@@ -307,7 +311,7 @@ export function InProgressCapDialog({ open, items, cap, noun, verb, pastLabel, o
                   disabled={busyId === it.id}
                   onClick={() => onRelease(it)}
                 >
-                  {busyId === it.id ? 'saving…' : pastLabel}
+                  {busyId === it.id ? t('common.action.save.busy') : pastLabel}
                 </button>
               </li>
             ))}
@@ -324,12 +328,12 @@ export function InProgressCapDialog({ open, items, cap, noun, verb, pastLabel, o
 // because that is almost always the answer, and the picker is there for the times
 // it is not (a book you finished last month, or one you only know you read "in
 // 2019" — see PartialDateField).
-export function ShelfDateDialog({ open, title, label, value, onChange, onConfirm, onCancel, confirmLabel = 'Save', error }) {
+export function ShelfDateDialog({ open, title, label, value, onChange, onConfirm, onCancel, confirmLabel, error }) {
   return (
     <ConfirmDialog
       open={open}
       title={title}
-      confirmLabel={confirmLabel}
+      confirmLabel={confirmLabel || t('common.action.save.label')}
       onCancel={onCancel}
       onConfirm={onConfirm}
       body={
@@ -338,7 +342,7 @@ export function ShelfDateDialog({ open, title, label, value, onChange, onConfirm
             label={label}
             value={value}
             onChange={onChange}
-            hint="as precise as you actually know — a year on its own is fine"
+            hint={t('common.work.shelf-date.hint')}
           />
           <ErrorText>{error}</ErrorText>
         </>
@@ -375,11 +379,11 @@ export function positionLabel(pos) {
     // Episode first: it is the finer of the two, and the thing you are actually
     // on. The season follows as the coarser context, and only when there is a
     // run to place it in.
-    const episode = `E${ofTotal(pos.pos || 0, pos.pos_total)}`
+    const episode = t('common.position.episode.label', { a: ofTotal(pos.pos || 0, pos.pos_total) })
     if (!pos.season_total) return episode
-    return `${episode} · S${ofTotal(pos.season || 1, pos.season_total)}`
+    return t('common.position.episode-season.label', { a: episode, b: ofTotal(pos.season || 1, pos.season_total) })
   }
-  return `p. ${pos.pos || 0} of ${pos.pos_total}`
+  return t('common.position.page.label', { a: pos.pos || 0, b: pos.pos_total })
 }
 
 // ShelfProgress — the track under a work's state chip on its detail. Any
@@ -468,32 +472,32 @@ function ProgressEditor({ kind, unit, status, progress, pos, busy, onSave }) {
   )
   return (
     <div style={{ padding: '4px 6px 8px' }}>
-      <MonoLabel className="mb-1.5 block">progress</MonoLabel>
+      <MonoLabel className="mb-1.5 block">{t('common.progress.editor.title')}</MonoLabel>
       {unit !== '' && (
         <div className="mb-2">
           <Toggle
-            ariaLabel="Progress unit"
+            ariaLabel={t('common.progress.unit.aria')}
             value={mode}
             onChange={setMode}
-            options={[['pct', '%'], ['unit', episodes ? 'episodes' : 'pages']]}
+            options={[['pct', t('common.progress.unit.percent.label')], ['unit', t(episodes ? 'common.progress.unit.episodes.label' : 'common.progress.unit.pages.label')]]}
           />
         </div>
       )}
       {mode === 'pct' ? (
         <div className="flex items-center gap-2">
-          {field('%', pct, setPct, 3)}
+          {field(t('common.progress.unit.percent.label'), pct, setPct, 3)}
         </div>
       ) : (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-          {episodes && field('season', season, setSeason, 3)}
-          {episodes && field('of', seasonTotal, setSeasonTotal, 3)}
-          {field(episodes ? 'episode' : 'page', at, setAt, 5)}
-          {field('of', total, setTotal, 5)}
+          {episodes && field(t('common.progress.field.season.label'), season, setSeason, 3)}
+          {episodes && field(t('common.progress.field.of.label'), seasonTotal, setSeasonTotal, 3)}
+          {field(t(episodes ? 'common.progress.field.episode.label' : 'common.progress.field.page.label'), at, setAt, 5)}
+          {field(t('common.progress.field.of.label'), total, setTotal, 5)}
         </div>
       )}
       {missingTotal && (
         <span style={{ display: 'block', marginTop: 5, fontSize: 12, color: 'var(--error)' }}>
-          {episodes ? 'how many episodes in this season?' : 'how many pages in the book?'}
+          {t(episodes ? 'error.validate.episodes-total' : 'error.validate.pages-total')}
         </span>
       )}
       <div className="mt-2 flex items-center gap-2">
@@ -502,7 +506,7 @@ function ProgressEditor({ kind, unit, status, progress, pos, busy, onSave }) {
         </span>
         <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 11, color: 'var(--faint)' }}>{preview}%</span>
         <button type="button" className="tp-chip tp-chip-btn" disabled={busy || missingTotal} onClick={save}>
-          set
+          {t('common.action.set.label')}
         </button>
       </div>
     </div>
@@ -531,7 +535,6 @@ export function ReadLog({ kind, workId, reads = [], onChanged }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const path = kind === 'movie' ? 'movies' : 'books'
-  const noun = kind === 'movie' ? 'watch' : 'read'
 
   async function run(method, url, body) {
     setBusy(true)
@@ -539,7 +542,7 @@ export function ReadLog({ kind, workId, reads = [], onChanged }) {
     const r = await json(method, url, body)
     setBusy(false)
     if (!r.ok) {
-      setError(errText(r, `could not save this ${noun}`))
+      setError(errText(r, t(kind === 'movie' ? 'error.save.watch' : 'error.save.read')))
       return false
     }
     setEditing(null)
@@ -564,22 +567,19 @@ export function ReadLog({ kind, workId, reads = [], onChanged }) {
             ) : (
               <>
                 <span>
-                  {formatPartialDate(r.started_at) || 'unknown'}
-                  {' – '}
-                  {r.outcome === 'open' ? (
-                    <span className="read-open">still going</span>
-                  ) : (
-                    <>
-                      {formatPartialDate(r.finished_at) || 'unknown'}
-                      {r.outcome === 'abandoned' && <span className="read-open"> (abandoned)</span>}
-                    </>
-                  )}
+                  {r.outcome === 'open'
+                    ? t('common.read-log.range.open.label', { a: formatPartialDate(r.started_at) || t('common.read-log.unknown.label') })
+                    : t('common.read-log.range.label', {
+                        a: formatPartialDate(r.started_at) || t('common.read-log.unknown.label'),
+                        b: formatPartialDate(r.finished_at) || t('common.read-log.unknown.label'),
+                      })}
+                  {r.outcome === 'abandoned' && <span className="read-open">{t('common.read-log.abandoned.label')}</span>}
                 </span>
                 {r.outcome === 'open' ? (
-                  <span className="read-hint">set above</span>
+                  <span className="read-hint">{t('common.read-log.open.hint')}</span>
                 ) : (
                   <button type="button" className="read-edit" onClick={() => setEditing(r.id)}>
-                    edit
+                    {t('common.read-log.edit.label')}
                   </button>
                 )}
               </>
@@ -596,7 +596,7 @@ export function ReadLog({ kind, workId, reads = [], onChanged }) {
         />
       ) : (
         <button type="button" className="read-add" onClick={() => setEditing('new')}>
-          {kind === 'movie' ? 'add a past watch' : 'add a past read'}
+          {t(kind === 'movie' ? 'common.read-log.add.film.label' : 'common.read-log.add.book.label')}
         </button>
       )}
       {error && <p className="tp-error">{error}</p>}
@@ -620,24 +620,24 @@ function ReadForm({ initial, busy, onCancel, onSave, onDelete }) {
         className="tp-input read-date"
         value={started}
         onChange={(e) => setStarted(e.target.value)}
-        placeholder="2009 or 2009-06-14"
-        aria-label="Started"
+        placeholder={t('common.read-log.started.placeholder')}
+        aria-label={t('common.field.started.label')}
       />
       <input
         className="tp-input read-date"
         value={finished}
         onChange={(e) => setFinished(e.target.value)}
-        placeholder="2009-06"
-        aria-label="Finished"
+        placeholder={t('common.read-log.finished.placeholder')}
+        aria-label={t('common.field.finished.label')}
       />
       <select
         className="tp-input read-outcome"
         value={outcome}
         onChange={(e) => setOutcome(e.target.value)}
-        aria-label="Outcome"
+        aria-label={t('common.field.outcome.label')}
       >
-        <option value="finished">finished</option>
-        <option value="abandoned">abandoned</option>
+        <option value="finished">{t('common.read-log.outcome.finished.label')}</option>
+        <option value="abandoned">{t('common.read-log.outcome.abandoned.label')}</option>
       </select>
       <button
         type="button"
@@ -645,14 +645,14 @@ function ReadForm({ initial, busy, onCancel, onSave, onDelete }) {
         disabled={busy}
         onClick={() => onSave({ started_at: started.trim(), finished_at: finished.trim(), outcome })}
       >
-        save
+        {t('common.read-log.save.label')}
       </button>
       <button type="button" className="read-edit" disabled={busy} onClick={onCancel}>
-        cancel
+        {t('common.read-log.cancel.label')}
       </button>
       {onDelete && (
         <button type="button" className="read-edit read-danger" disabled={busy} onClick={onDelete}>
-          delete
+          {t('common.read-log.delete.label')}
         </button>
       )}
     </span>
@@ -682,7 +682,7 @@ export function ShelfControl({ kind, item = {}, status, progress = 0, pos, reads
   // overwhelmingly common case, marking it as being read now.)
   if (!state) {
     return (
-      <StateTag state="" label="Shelve">
+      <StateTag state="" label={t('common.shelf.shelve.label')}>
         {(close) => transitionItems(kind, status, moves, busy, close, onSelect)}
       </StateTag>
     )
@@ -693,12 +693,11 @@ export function ShelfControl({ kind, item = {}, status, progress = 0, pos, reads
   // quoted from can go on a shelf without first being marked up.
   if (state === 'wishlist') {
     return (
-      <StateTag state="wishlist" label="Wishlist" tip="Why this is on the wishlist">
+      <StateTag state="wishlist" label={t('common.shelf.wishlist.book.label')} tip={t('common.shelf.wishlist.tip')}>
         {(close) => (
           <>
             <p style={{ padding: '4px 6px 8px', fontSize: 13, lineHeight: 1.5, color: 'var(--soft)' }}>
-              On the wishlist because nothing is quoted from it yet — automatic, and it clears itself the moment you add a
-              quote. Putting it on a shelf below is a separate thing.
+              {t('common.shelf.wishlist.explainer.prose')}
             </p>
             {transitionItems(kind, status, moves, busy, close, onSelect)}
           </>
@@ -708,7 +707,7 @@ export function ShelfControl({ kind, item = {}, status, progress = 0, pos, reads
   }
   return (
     <>
-      <StateTag state={state} label={shelfLabel(state, kind)} tip="Change the shelf state">
+      <StateTag state={state} label={shelfLabel(state, kind)} tip={t('common.shelf.change.tip')}>
         {(close) => (
           <>
             {status === active && (
@@ -730,7 +729,7 @@ export function ShelfControl({ kind, item = {}, status, progress = 0, pos, reads
           Recording that you read a book in 2009 is the whole point of editing
           history, and gating the way in on the history already existing made it
           impossible for exactly the books it matters for. */}
-      <StateTag state={state} label={`×${finished}`} tip="Open the read log">
+      <StateTag state={state} label={t('common.shelf.reads.label', { n: finished })} tip={t('common.shelf.read-log.tip')}>
         <ReadLog kind={kind} workId={item.id} reads={reads} onChanged={onReadsChanged} />
       </StateTag>
       {/* Any in-progress work shows its track, in its own units.
@@ -792,26 +791,26 @@ export function moveLabel(kind, from, to) {
   const book = kind === 'book'
   switch (to) {
     case 'playing':
-      if (from === 'completed') return 'Play it again'
-      if (from === 'paused') return 'Carry on playing'
-      return 'Mark as playing'
+      if (from === 'completed') return t('common.shelf.move.playing.again.label')
+      if (from === 'paused') return t('common.shelf.move.playing.resume.label')
+      return t('common.shelf.move.playing.start.label')
     case 'reading':
     case 'watching':
-      if (from === 'completed') return book ? 'Read it again' : 'Watch it again'
-      if (from === 'paused') return book ? 'Pick it back up' : 'Carry on watching'
-      return book ? 'Mark as reading' : 'Mark as watching'
+      if (from === 'completed') return t(book ? 'common.shelf.move.reading.again.book.label' : 'common.shelf.move.reading.again.film.label')
+      if (from === 'paused') return t(book ? 'common.shelf.move.reading.resume.book.label' : 'common.shelf.move.reading.resume.film.label')
+      return t(book ? 'common.shelf.move.reading.start.book.label' : 'common.shelf.move.reading.start.film.label')
     case 'paused':
-      return 'Pause it'
+      return t('common.shelf.move.paused.label')
     case 'abandoned':
-      return book ? 'Give up on it' : 'Give up on it'
+      return t('common.shelf.move.abandoned.label')
     case 'completed':
       // The finished word follows what you DID with it, so a game reads
       // "Mark as played" where a film reads "Mark as watched". `from` carries
       // that: only a game is ever moved to completed from 'playing'.
-      if (from === 'playing') return 'Mark as played'
-      return book ? 'Mark as read' : 'Mark as watched'
+      if (from === 'playing') return t('common.shelf.move.completed.played.label')
+      return t(book ? 'common.shelf.move.completed.book.label' : 'common.shelf.move.completed.film.label')
     default:
-      return 'Clear the shelf tag'
+      return t('common.shelf.move.clear.label')
   }
 }
 
@@ -832,11 +831,11 @@ export function WorkCard({ kind, item, index = 0, onOpen, people = {}, seps, sel
   const image = coverPath ? (
     <img
       src={coverImgURL(coverPath)}
-      alt={`${isBook ? 'Cover' : 'Poster'} of ${item.title}`}
+      alt={t(isBook ? 'common.cover.alt' : 'common.poster.alt', { title: item.title })}
       className="block aspect-[2/3] w-full object-cover"
     />
   ) : (
-    <Placeholder kind={isBook ? 'COVER' : 'POSTER'} className={isBook ? 'w-full rounded-none border-0' : 'w-full'} />
+    <Placeholder kind={t(isBook ? 'common.badge.cover' : 'common.badge.poster')} className={isBook ? 'w-full rounded-none border-0' : 'w-full'} />
   )
   // ONE TILE FOR BOTH, and it is a HandCard.
   //
@@ -976,10 +975,10 @@ export function WorkCard({ kind, item, index = 0, onOpen, people = {}, seps, sel
       )}
       <div className="mt-0.5 flex items-center gap-2">
         {isBook ? (
-          <MonoLabel style={{ color: 'var(--accent-ui)' }}>{`${count} quote${count === 1 ? '' : 's'}`}</MonoLabel>
+          <MonoLabel style={{ color: 'var(--accent-ui)' }}>{t('common.work-card.count.quote', { count, n: count })}</MonoLabel>
         ) : (
           <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 12, color: 'var(--amber)' }}>
-            {count} dialogue{count === 1 ? '' : 's'}
+            {t('common.work-card.count.dialogue', { count, n: count })}
           </span>
         )}
         {/* IN THE COUNT ROW, NOT OVER THE ARTWORK. Every other mark this tile
@@ -1002,16 +1001,15 @@ export function WorkCard({ kind, item, index = 0, onOpen, people = {}, seps, sel
   const confirm = (
     <ConfirmDialog
       open={asking}
-      title={`Delete ${item.title}?`}
+      title={t('common.work.delete.confirm.title', { title: item.title })}
       body={
         <p className="microcopy">
           {count > 0
-            ? `It goes to the bin with the ${count} quote${count === 1 ? '' : 's'} saved from it — one entry, put back together or not at all. `
-            : 'It goes to the bin and can be put back. '}
-          The toast offers an Undo.
+            ? t('common.work.delete.confirm.body', { count, n: count })
+            : t('common.work.delete.confirm.body.empty')}
         </p>
       }
-      confirmLabel="Delete it"
+      confirmLabel={t('common.work.delete.confirm.action.label')}
       onConfirm={() => {
         setAsking(false)
         ops.remove()
@@ -1093,7 +1091,7 @@ export function WishlistFolder({ kind = 'book', items = [], onOpen }) {
       type="button"
       onClick={onOpen}
       className="cover-tile block w-full text-left"
-      title={`The ${n} you have nothing from yet`}
+      title={t('common.wishlist-folder.tip', { n })}
     >
       <HandCard variant={0} className="relative overflow-hidden cover-lift">
         <span className="wish-collage" aria-hidden="true">
@@ -1106,22 +1104,22 @@ export function WishlistFolder({ kind = 'book', items = [], onOpen }) {
         {/* The word, over the collage. Without it a quartet of covers is just four
             covers at quarter size, and the one thing this tile has to say is what
             it is. */}
-        <span className="wish-folder-tag tp-scrim-deep">Wishlist</span>
+        <span className="wish-folder-tag tp-scrim-deep">{t('common.shelf.wishlist.book.label')}</span>
       </HandCard>
       <p className="mt-2.5 truncate" style={{ fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontWeight: 600, fontSize: 15.5, color: 'var(--ink)' }}>
-        Wishlist
+        {t('common.shelf.wishlist.book.label')}
       </p>
       <div className="flex items-center gap-1.5">
         <p className="min-w-0 truncate text-[13px]" style={{ color: 'var(--soft)' }}>
-          nothing quoted yet
+          {t('common.wishlist-folder.subtitle.label')}
         </p>
       </div>
       <div className="mt-0.5 flex items-center gap-2">
         {isBook ? (
-          <MonoLabel style={{ color: 'var(--accent-ui)' }}>{`${n} book${n === 1 ? '' : 's'}`}</MonoLabel>
+          <MonoLabel style={{ color: 'var(--accent-ui)' }}>{t('common.count.phrase', { n, noun: t('unit.book', { count: n }) })}</MonoLabel>
         ) : (
           <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 12, color: 'var(--amber)' }}>
-            {n} title{n === 1 ? '' : 's'}
+            {t('common.count.phrase', { n, noun: t('unit.title', { count: n }) })}
           </span>
         )}
       </div>
@@ -1134,12 +1132,17 @@ export function WishlistFolder({ kind = 'book', items = [], onOpen }) {
 // and shows by collection), so the two boards read identically; `noun` is what
 // the count is counting, and `person` turns an author/director heading into a
 // portrait chip that opens their panel.
-export function GroupHeading({ label, count, noun = 'item', person, onOpenPerson }) {
+export function GroupHeading({ label, count, noun, nounPlural, person, onOpenPerson }) {
+  const one = noun || t('unit.item.one')
+  // The plural of a caller-supplied noun, with the English s as the fallback the
+  // call sites have always relied on. Passing `nounPlural` is how a language that
+  // does not form plurals that way gets the right word.
+  const many = nounPlural || (noun ? `${noun}s` : t('unit.item.other'))
   return (
     <div className="mb-4 flex items-center gap-3">
       {person && <PersonPortrait person={person} size={34} />}
       {onOpenPerson ? (
-        <Tooltip label="Open this person's details" className="min-w-0">
+        <Tooltip label={t('common.person.open.tip')} className="min-w-0">
           <button
             type="button"
             className="display-title truncate"
@@ -1155,7 +1158,7 @@ export function GroupHeading({ label, count, noun = 'item', person, onOpenPerson
         </h3>
       )}
       <MonoLabel style={{ color: 'var(--accent-ui)' }}>
-        {count} {noun}{count === 1 ? '' : 's'}
+        {t('common.count.phrase', { n: count, noun: count === 1 ? one : many })}
       </MonoLabel>
       <span className="h-px flex-1" style={{ background: 'var(--line)' }} />
     </div>
@@ -1177,13 +1180,13 @@ export function MobileDetailBar({ onClose, title, meta, actions }) {
   return (
     <div className="mobile-sticky-bar">
       <div className="mobile-detail-bar">
-        <Tooltip label="Back to the list" side="bottom" className="shrink-0">
+        <Tooltip label={t('common.detail.back.tip')} side="bottom" className="shrink-0">
           <button
             type="button"
             className="tp-btn tp-btn-ghost tactile flex items-center justify-center rounded-full"
             style={{ width: 44, height: 44, padding: 0, flexShrink: 0 }}
             onClick={onClose}
-            aria-label="Back"
+            aria-label={t('common.action.back.label')}
           >
             <IconBack />
           </button>
@@ -1272,14 +1275,17 @@ export function minusQuote(stats, q) {
 // because there is no page class to inherit: the Catalogue's credit line sets amber
 // inline, and a terracotta total under an amber credit reads as two unrelated
 // systems on one card.
-export function HeroCounts({ counts, noun = ['quote', 'quotes'], tone = 'accent' }) {
+export function HeroCounts({ counts, noun, tone = 'accent' }) {
   if (!counts) return null // still loading: no count is better than a wrong one
+  const pair = noun || [t('unit.quote.one'), t('unit.quote.other')]
   const { total = 0, favourites = 0, noted = 0, tagged = 0 } = counts
   const parts = [
-    total === 0 ? `no ${noun[1]} yet` : `${total} ${total === 1 ? noun[0] : noun[1]}`,
-    favourites > 0 && `${favourites} favourite${favourites === 1 ? '' : 's'}`,
-    noted > 0 && `${noted} noted`,
-    tagged > 0 && `${tagged} tagged`,
+    total === 0
+      ? t('common.hero.counts.empty.label', { noun: pair[1] })
+      : t('common.count.phrase', { n: total, noun: total === 1 ? pair[0] : pair[1] }),
+    favourites > 0 && t('common.hero.counts.favourites', { count: favourites, n: favourites }),
+    noted > 0 && t('common.hero.counts.noted.label', { n: noted }),
+    tagged > 0 && t('common.hero.counts.tagged.label', { n: tagged }),
   ].filter(Boolean)
   return (
     <div className={`hero-counts${tone === 'amber' ? ' hero-counts-amber' : ''}`}>
@@ -1480,14 +1486,17 @@ export function WorkListScaffold({
   // the catalogue has two once it contains a game, because a game is played and
   // a film is watched and both are movies-table rows.
   activeStates = [ACTIVE_STATUS[kind]],
-  noun = 'book', // what a row is, for the "show only" chip tooltips
+  noun = t('unit.book.one'), // what a row is, for the "show only" chip tooltips
+  // Its plural, compared against the default the way seriesNounPlural below is:
+  // a caller that renames the noun keeps the English s until it passes one.
+  nounPlural = noun === t('unit.book.one') ? t('unit.book.other') : `${noun}s`,
   // Books group into a "series"; films and shows into a "collection" — the same
   // movies.series column, but "series" already means a TV show on that page.
-  seriesNoun = 'series',
+  seriesNoun = t('common.filters.series.noun.one'),
   // Carried separately because "series" is its own plural: appending an s gave
   // the books filter "all seriess". Defaults to the regular English form, so
   // "collection" still needs no call-site change.
-  seriesNounPlural = seriesNoun === 'series' ? 'series' : `${seriesNoun}s`,
+  seriesNounPlural = seriesNoun === t('common.filters.series.noun.one') ? t('common.filters.series.noun.other') : `${seriesNoun}s`,
   seriesNames = [],
   series,
   setSeries,
@@ -1499,8 +1508,8 @@ export function WorkListScaffold({
   creditNames = [],
   credit,
   setCredit,
-  creditNoun = 'actor',
-  creditNounPlural = `${creditNoun}s`,
+  creditNoun = t('common.filters.credit.noun.one'),
+  creditNounPlural = creditNoun === t('common.filters.credit.noun.one') ? t('common.filters.credit.noun.other') : `${creditNoun}s`,
   sort,
   setSort,
   sortOptions = [],
@@ -1535,23 +1544,23 @@ export function WorkListScaffold({
   const onlyChips = (
     <>
       {setFav && (
-        <Tooltip label="Show only favourites">
+        <Tooltip label={t('common.filters.favourites.tip')}>
           <button onClick={() => setFav(!fav)} className={filterChipClass(fav)}>
-            ♥ favourites
+            {t('common.filters.favourites.label')}
           </button>
         </Tooltip>
       )}
       {setTagged && (
-        <Tooltip label={`Only tagged ${noun}s`}>
+        <Tooltip label={t('common.filters.tagged.tip', { noun: nounPlural })}>
           <button onClick={() => setTagged(!tagged)} className={filterChipClass(tagged)}>
-            tagged
+            {t('common.filters.tagged.label')}
           </button>
         </Tooltip>
       )}
       {setNoted && (
-        <Tooltip label={`Only ${noun}s with notes`}>
+        <Tooltip label={t('common.filters.noted.tip', { noun: nounPlural })}>
           <button onClick={() => setNoted(!noted)} className={filterChipClass(noted)}>
-            has notes
+            {t('common.filters.noted.label')}
           </button>
         </Tooltip>
       )}
@@ -1562,9 +1571,9 @@ export function WorkListScaffold({
   // those (wishlist), or hide them to see just what you have actually quoted
   // (annotated). Same chip-triplet shape as the Catalogue's movie/show control.
   const wishChips = [
-    ['', 'all', `Every ${noun}`],
-    ['wishlist', 'wishlist', `Only unquoted ${noun}s`],
-    ['annotated', 'annotated', `Hide unquoted ${noun}s`],
+    ['', t('common.filters.wish.all.label'), t('common.filters.wish.all.tip', { noun })],
+    ['wishlist', t('common.filters.wish.only.label'), t('common.filters.wish.only.tip', { noun: nounPlural })],
+    ['annotated', t('common.filters.wish.annotated.label'), t('common.filters.wish.annotated.tip', { noun: nounPlural })],
   ].map(([k, label, hint]) => (
     <Tooltip key={k || 'all'} label={hint}>
       <button className={filterChipClass(wish === k)} onClick={() => setWish(k)}>
@@ -1578,8 +1587,8 @@ export function WorkListScaffold({
   // row carries its bar colour, so the control and the board teach each other.
   const stateSelect = (
     <MultiSelect
-      ariaLabel="Filter by shelf state"
-      allLabel="any state"
+      ariaLabel={t('common.filters.shelf.aria')}
+      allLabel={t('common.filters.shelf.all.label')}
       values={states}
       onChange={setStates}
       options={[
@@ -1588,37 +1597,39 @@ export function WorkListScaffold({
         // options rather than one merged row because they are separate stored
         // values — merging them would filter to neither.
         ...activeStates.map((s) => [s, shelfLabel(s, kind), SHELF_META[s].color]),
-        ['paused', 'Paused', SHELF_META.paused.color],
-        ['abandoned', 'Abandoned', SHELF_META.abandoned.color],
-        ['completed', 'Completed', SHELF_META.completed.color],
-        ['none', 'No shelf tag', 'transparent'],
+        // The three settled states read the same on both sides, so the book
+        // spelling is the only one there is to draw.
+        ['paused', t(SHELF_META.paused.book), SHELF_META.paused.color],
+        ['abandoned', t(SHELF_META.abandoned.book), SHELF_META.abandoned.color],
+        ['completed', t(SHELF_META.completed.book), SHELF_META.completed.color],
+        ['none', t('common.filters.shelf.none.label'), 'transparent'],
       ]}
     />
   )
   const seriesSelect = hasSeries && (
     <Select
-      ariaLabel={`Filter by ${seriesNoun}`}
+      ariaLabel={t('common.filters.by.aria', { field: seriesNoun })}
       value={series}
       onChange={setSeries}
-      options={[['', `all ${seriesNounPlural}`], ...seriesNames.map((s) => [s, s])]}
+      options={[['', t('common.filters.all.label', { field: seriesNounPlural })], ...seriesNames.map((s) => [s, s])]}
     />
   )
   const creditSelect = hasCredit && (
     <Select
-      ariaLabel={`Filter by ${creditNoun}`}
+      ariaLabel={t('common.filters.by.aria', { field: creditNoun })}
       value={credit}
       onChange={setCredit}
-      options={[['', `all ${creditNounPlural}`], ...creditNames.map((n) => [n, n])]}
+      options={[['', t('common.filters.all.label', { field: creditNounPlural })], ...creditNames.map((n) => [n, n])]}
     />
   )
-  const sortSelect = hasSort && <Select ariaLabel="Sort" value={sort} onChange={setSort} options={sortOptions} />
+  const sortSelect = hasSort && <Select ariaLabel={t('common.filters.sort.aria')} value={sort} onChange={setSort} options={sortOptions} />
   // The same two controls whichever bar draws them, so a board and a book put
   // Filters and Export in the same place under the same thumb.
   const mobileActions = (
     <>
-      <IconButton icon={<IconFilter />} label="Filters"
-        ariaLabel="Filters" onClick={() => setMobileFilter((o) => !o)} />
-      {!DEMO && <MoreMenu items={[{ icon: <IconExport />, label: 'Export', onClick: onExport }]} />}
+      <IconButton icon={<IconFilter />} label={t('common.filters.label')}
+        ariaLabel={t('common.filters.label')} onClick={() => setMobileFilter((o) => !o)} />
+      {!DEMO && <MoreMenu items={[{ icon: <IconExport />, label: t('common.action.export.label'), onClick: onExport }]} />}
     </>
   )
 
@@ -1648,8 +1659,8 @@ export function WorkListScaffold({
                   survivor of the whole-collection export it replaced, and it
                   contradicted the dialog directly above the button you press. */}
               {!mobile && !DEMO && (
-                <IconButton icon={<IconExport />} label="Export"
-            ariaLabel="Export" onClick={onExport} tooltip="Export what is shown" />
+                <IconButton icon={<IconExport />} label={t('common.action.export.label')}
+            ariaLabel={t('common.action.export.label')} onClick={onExport} tooltip={t('common.action.export.shown.tip')} />
               )}
             </>
           }
@@ -1671,7 +1682,7 @@ export function WorkListScaffold({
             {trailing}
             {hasSort && (
               <label className="flex items-center gap-2">
-                <MonoLabel>sort</MonoLabel>
+                <MonoLabel>{t('common.filters.sort.label')}</MonoLabel>
                 {sortSelect}
               </label>
             )}
@@ -1683,10 +1694,10 @@ export function WorkListScaffold({
         <MobileSheet
           open={mobileFilter}
           onClose={() => setMobileFilter(false)}
-          title="Filters"
+          title={t('common.filters.label')}
           footer={
             <SheetFooter
-              count={loaded ? `${shownCount} shown` : ''}
+              count={loaded ? t('common.filters.shown.label', { n: shownCount }) : ''}
               onReset={onReset}
               onDone={() => setMobileFilter(false)}
             />
@@ -1695,7 +1706,7 @@ export function WorkListScaffold({
           <div className="space-y-5">
             {hasGenre && (
               <div>
-                <MonoLabel className="mb-2 block">genre</MonoLabel>
+                <MonoLabel className="mb-2 block">{t('common.filters.genre.label')}</MonoLabel>
                 {/* The same GenreFilter the desktop row uses — one select over every
                     genre. The sheet reached that shape first (1.4.0), because a
                     measured chip strip inside a full-width section always collapsed
@@ -1706,17 +1717,17 @@ export function WorkListScaffold({
             {leadingMobile}
             {hasWish && (
               <div>
-                <MonoLabel className="mb-2 block">wishlist</MonoLabel>
+                <MonoLabel className="mb-2 block">{t('common.filters.wish.label')}</MonoLabel>
                 <div className="flex flex-wrap items-center gap-2">{wishChips}</div>
               </div>
             )}
             <div>
-              <MonoLabel className="mb-2 block">show only</MonoLabel>
+              <MonoLabel className="mb-2 block">{t('common.filters.only.label')}</MonoLabel>
               <div className="flex flex-wrap items-center gap-2">{onlyChips}</div>
             </div>
             {hasStates && (
               <div>
-                <MonoLabel className="mb-2 block">shelf</MonoLabel>
+                <MonoLabel className="mb-2 block">{t('common.filters.shelf.label')}</MonoLabel>
                 {stateSelect}
               </div>
             )}
@@ -1735,7 +1746,7 @@ export function WorkListScaffold({
             {trailingMobile}
             {hasSort && (
               <div>
-                <MonoLabel className="mb-2 block">sort</MonoLabel>
+                <MonoLabel className="mb-2 block">{t('common.filters.sort.label')}</MonoLabel>
                 {sortSelect}
               </div>
             )}

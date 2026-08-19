@@ -18,6 +18,8 @@ import StatsPage from './StatsPage.jsx'
 import Settings from './Settings.jsx'
 import BinPage from './BinPage.jsx'
 import { applyColors, applyTheme } from './theme.js'
+import { applyLocale, useLocale } from './i18n.js'
+import { LanguagePicker } from './locale.jsx'
 import {
   BOTTOM_TABS,
   CONTENT_TABS,
@@ -66,6 +68,7 @@ import {
 import { takeSearchSeed } from './facets.js'
 import { Profile } from './Account.jsx'
 import { PageHelp } from './help.jsx'
+import { t, tNodes } from './i18n.js'
 import { PASSPHRASE_MAX, PASSWORD_MAX, PASSWORD_MIN, passwordProblem, sniffArchiveKey } from './secret.js'
 import { FeatureTour } from './tour.jsx'
 
@@ -93,6 +96,12 @@ const DRAWER_SHORTCUTS = {
 }
 
 export default function App() {
+  // ONE SUBSCRIPTION FOR THE WHOLE TREE, which is what lets t() stay a plain
+  // function at every other call site. App owns every screen, so a bump here
+  // re-renders all of them; a migration that had to add a hook per component is a
+  // migration nobody finishes. The two pickers subscribe as well, because their
+  // own coverage numbers change without App having any other reason to move.
+  useLocale()
   const [user, setUser] = useState(null)
   const [needsOnboarding, setNeedsOnboarding] = useState(false)
   // The kept server-side backup archive, reported by /auth/status only while
@@ -125,6 +134,11 @@ export default function App() {
     if (user) {
       applyTheme(user.preferences || {})
       applyColors(user.preferences || {})
+      // The ACCOUNT is the authority on the language once there is a session, and
+      // this is what carries the choice to the reader's other devices. applyLocale
+      // writes the device-local mirror as a side effect, so the next boot's
+      // pre-session screens open in the same language rather than in the default.
+      applyLocale(user.preferences?.locale || '')
       // And the one review preference a themed round cannot be handed as a prop.
       // Same effect on purpose: it runs on login and on every Settings save, so
       // there is no second place that has to remember to keep it current.
@@ -165,14 +179,16 @@ export default function App() {
       <div className="scene-bg" aria-hidden="true" />
       {DEMO && (
         <div className="demo-ribbon" role="note">
-          Demo · dummy data, read-only · rougher than the real thing — <a href="https://github.com/aaronified/tippani">the self-hosted app is more polished →</a>
+          {tNodes('shell.demo.ribbon.prose', {
+            link: <a href="https://github.com/aaronified/tippani">{t('shell.demo.ribbon.link.label')}</a>,
+          })}
           {' · '}
           {/* Relative, and deliberately not routed through the SPA, so it
               resolves under the Pages subpath without knowing what that subpath
               is. `../` because the demo now lives one level down at /demo/ —
               the site root is the landing page, which is the only page a search
               engine can read (this one is an empty div until JS runs). */}
-          <a href="../roadmap.html">roadmap →</a>
+          <a href="../roadmap.html">{t('shell.demo.roadmap.link.label')}</a>
         </div>
       )}
       {/* A render error in any screen unmounts to a visible fallback, never a
@@ -214,11 +230,11 @@ function CredentialForm({ header, action, cta, microcopy, film = false, onSucces
       if (r.ok) {
         const me = await refreshMe()
         if (me) {
-          if (action === '/auth/login') toast(`welcome back, ${me.username || 'reader'}`)
+          if (action === '/auth/login') toast(t('shell.login.toast.welcome', { name: me.username || t('shell.login.reader.fallback') }))
           return onSuccess(me)
         }
       }
-      setError((await r.json().catch(() => ({}))).error || 'something went wrong')
+      setError((await r.json().catch(() => ({}))).error || t('error.generic'))
     } finally {
       setBusy(false)
     }
@@ -226,9 +242,9 @@ function CredentialForm({ header, action, cta, microcopy, film = false, onSucces
 
   const Primary = film ? FilmButton : StickerButton
   const missing = !username.trim()
-    ? 'Enter your username'
+    ? t('error.validate.username-required')
     : !password
-      ? 'Enter your password'
+      ? t('error.validate.password-required')
       : signup
         ? passwordProblem(password)
         : ''
@@ -236,15 +252,15 @@ function CredentialForm({ header, action, cta, microcopy, film = false, onSucces
     <form onSubmit={submit} className="hand-card w-full max-w-sm px-8 py-9">
       <div className="mb-7 text-center">{header}</div>
       <Field
-        label="Username"
-        placeholder="username"
+        label={t('common.field.username.label')}
+        placeholder={t('common.field.username.placeholder')}
         value={username}
         autoComplete="username"
         onChange={(e) => setUsername(e.target.value)}
       />
       <Field
-        label="Password"
-        placeholder={signup ? `password (${PASSWORD_MIN}–${PASSWORD_MAX})` : 'password'}
+        label={t('common.field.password.label')}
+        placeholder={signup ? t('shell.login.password.range.placeholder', { a: PASSWORD_MIN, b: PASSWORD_MAX }) : t('common.field.password.placeholder')}
         type="password"
         value={password}
         autoComplete={signup ? 'new-password' : 'current-password'}
@@ -261,7 +277,7 @@ function CredentialForm({ header, action, cta, microcopy, film = false, onSucces
       <Primary className="mt-4 w-full" disabled={busy || !!missing} title={missing || undefined}>
         {cta}
       </Primary>
-      {missing && password.length > 0 && <p className="microcopy mt-2 text-center">{missing}.</p>}
+      {missing && password.length > 0 && <p className="microcopy mt-2 text-center">{t('common.form.reason.sentence', { reason: missing })}</p>}
       {microcopy && <p className="microcopy mt-5 text-center">{microcopy}</p>}
     </form>
   )
@@ -313,11 +329,11 @@ export function Onboarding({ onDone, backup }) {
   }
 
   const missing = !target
-    ? source === 'file' ? 'Choose a backup file' : 'No backup on this server'
+    ? t(source === 'file' ? 'error.validate.backup-file-required' : 'error.validate.backup-absent')
     : key === 'passphrase'
-      ? passphrase ? '' : 'Enter the archive\u2019s passphrase'
+      ? passphrase ? '' : t('error.validate.archive-passphrase-required')
       : key === 'password'
-        ? password ? '' : 'Enter the password it was sealed with'
+        ? password ? '' : t('error.validate.archive-password-required')
         : '' // pre-1.4.1 plain archive: no key, and nothing here to lose
 
   const creds = () => (key === 'passphrase' ? { passphrase } : key === 'password' ? { password } : {})
@@ -342,9 +358,9 @@ export function Onboarding({ onDone, backup }) {
       }
       if (!r.ok) {
         setPhase('idle')
-        return setError((r.data && r.data.error) || 'restore failed')
+        return setError((r.data && r.data.error) || t('error.restore.failed'))
       }
-      toast('restored · log in again')
+      toast(t('shell.restore.toast.done'))
       // Reload → /auth/status now reports onboarding closed → the login screen.
       setTimeout(() => window.location.reload(), 1200)
     } catch {
@@ -354,46 +370,56 @@ export function Onboarding({ onDone, backup }) {
     }
   }
 
-  const busyLabel = phase === 'uploading' ? `Uploading… ${pct}%` : phase === 'restoring' ? 'Applying…' : ''
+  const busyLabel = phase === 'uploading' ? t('shell.restore.uploading.busy', { percent: pct }) : phase === 'restoring' ? t('common.action.apply.busy') : ''
 
   return (
     <main
       className="flex min-h-screen flex-col items-center justify-center gap-4 px-4 py-10"
       data-screen-label="onboarding"
     >
+      {/* THE LANGUAGE, FIRST, and before the account form rather than after it.
+          This is the first screen anybody ever sees and there is no session yet to
+          hold a preference, so if it is not asked here the operator's first act is
+          creating an admin account in a language they may not read. The choice is
+          device-local until the account exists; Settings then carries it onto the
+          account (design §4). */}
+      <div className="hand-card w-full max-w-sm px-8 py-6">
+        <LanguagePicker titleKey="onboarding.language.title" width={230} />
+      </div>
       <CredentialForm
         header={
           <>
             <img src="/mark.svg" alt="" width="46" height="46" className="mx-auto mb-3" />
-            <h1 className="display-title text-2xl">Welcome to tippani</h1>
+            <h1 className="display-title text-2xl">{t('shell.onboarding.title')}</h1>
             <p className="mt-1 text-sm" style={{ color: 'var(--soft)' }}>
-              This first account becomes the admin.
+              {t('shell.onboarding.subtitle.prose')}
             </p>
           </>
         }
         action="/auth/signup"
-        cta="Create admin account"
-        microcopy="onboarding closes once a user exists"
+        cta={t('shell.onboarding.cta.label')}
+        microcopy={t('shell.onboarding.microcopy.prose')}
         onSuccess={onDone}
       />
       {/* One restore, two sources — the kept archive or a file off another box. */}
       <div className="hand-card w-full max-w-sm px-8 py-6">
-        <p className="mono-label mb-2 text-center">or restore a backup</p>
+        <p className="mono-label mb-2 text-center">{t('shell.restore.title')}</p>
         <p className="mb-3 text-sm" style={{ color: 'var(--soft)' }}>
-          Loads everything in it — accounts, libraries and settings — then you log in with the credentials
-          from that backup.
+          {t('shell.restore.what.prose')}
         </p>
         <Toggle
-          ariaLabel="Restore from"
+          ariaLabel={t('shell.restore.source.aria')}
           value={source}
           onChange={(v) => { setSource(v); setError('') }}
-          options={[['server', 'This server'], ['file', 'A file']]}
+          options={[['server', t('shell.restore.source.server.label')], ['file', t('shell.restore.source.file.label')]]}
         />
         {source === 'server' && (
           <p className="microcopy mt-2">
             {backup
-              ? <>archive from <b>{new Date(backup.created).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</b></>
-              : 'nothing in this server\u2019s backups folder'}
+              ? tNodes('shell.restore.server.dated.prose', {
+                  date: <b>{new Date(backup.created).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</b>,
+                })
+              : t('shell.restore.server.empty.prose')}
           </p>
         )}
         {source === 'file' && (
@@ -402,12 +428,12 @@ export function Onboarding({ onDone, backup }) {
               ref={fileRef}
               type="file"
               accept=".tpbk,.tar.gz,.tgz,application/gzip,application/octet-stream"
-              aria-label="Choose a backup file to restore"
+              aria-label={t('shell.restore.file.aria')}
               className="hidden"
               onChange={(e) => chooseFile(e.target.files?.[0] || null)}
             />
             <GhostButton className="mt-3 w-full" onClick={() => fileRef.current?.click()} disabled={phase !== 'idle'}>
-              {file ? file.name : 'Choose backup file…'}
+              {file ? file.name : t('shell.restore.file.choose.label')}
             </GhostButton>
           </>
         )}
@@ -415,8 +441,8 @@ export function Onboarding({ onDone, backup }) {
         {key === 'passphrase' && (
           <div className="mt-3">
             <Field
-              label="Passphrase"
-              placeholder="the archive’s passphrase"
+              label={t('common.field.passphrase.label')}
+              placeholder={t('shell.restore.passphrase.placeholder')}
               type="password"
               value={passphrase}
               maxLength={PASSPHRASE_MAX}
@@ -427,8 +453,8 @@ export function Onboarding({ onDone, backup }) {
         {key === 'password' && (
           <div className="mt-3">
             <Field
-              label={target?.account ? `Password for ‘${target.account}’` : 'Password'}
-              placeholder="the password it was sealed with"
+              label={target?.account ? t('shell.restore.password.named.label', { name: target.account }) : t('common.field.password.label')}
+              placeholder={t('shell.restore.password.placeholder')}
               type="password"
               value={password}
               autoComplete="current-password"
@@ -440,19 +466,17 @@ export function Onboarding({ onDone, backup }) {
                 not care which one sealed the archive. There is no session here to
                 say whose password this is, so the field asks plainly. */}
             <p className="microcopy">
-              {target?.recoverable
-                ? 'If this server made the archive, its recovery key opens it and any password of that account will do.'
-                : 'The password that account had when the archive was made.'}
+              {t(target?.recoverable ? 'shell.restore.password.recoverable.prose' : 'shell.restore.password.era.prose')}
             </p>
           </div>
         )}
         {key === 'none' && target && (
-          <p className="microcopy mt-2">this archive predates 1.4.1 and carries no key</p>
+          <p className="microcopy mt-2">{t('shell.restore.unkeyed.prose')}</p>
         )}
         <GhostButton className="mt-3 w-full" onClick={restore} disabled={!!missing || phase !== 'idle'} title={missing || undefined}>
-          {busyLabel || 'Restore'}
+          {busyLabel || t('common.action.restore.label')}
         </GhostButton>
-        {missing && <p className="microcopy mt-2 text-center">{missing}.</p>}
+        {missing && <p className="microcopy mt-2 text-center">{t('common.form.reason.sentence', { reason: missing })}</p>}
         <div className="mt-2">
           <ErrorText>{error}</ErrorText>
         </div>
@@ -497,8 +521,8 @@ export function Login({ onLogin }) {
               </>
             }
             action="/auth/login"
-            cta="Sign in"
-            microcopy="locked out? an admin can reset your password"
+            cta={t('shell.login.cta.label')}
+            microcopy={t('shell.login.microcopy.prose')}
             onSuccess={onLogin}
           />
         </div>
@@ -529,8 +553,8 @@ export function Login({ onLogin }) {
 function tabOptions(rows) {
   return rows.map(([key, label, tip]) => [
     key,
-    <><NavIcon name={key} /> <span className="tab-label">{label}</span></>,
-    tip,
+    <><NavIcon name={key} /> <span className="tab-label">{t(label)}</span></>,
+    t(tip),
   ])
 }
 
@@ -544,9 +568,9 @@ function tabOptions(rows) {
 function DesktopNav({ tab, onChange, sections }) {
   return (
     <div className="topbar-nav-group">
-      <Toggle className="nav-toggle" ariaLabel="Primary" value={tab} onChange={onChange} options={tabOptions(visibleTabs(CONTENT_TABS, sections))} />
+      <Toggle className="nav-toggle" ariaLabel={t('shell.nav.primary.aria')} value={tab} onChange={onChange} options={tabOptions(visibleTabs(CONTENT_TABS, sections))} />
       <span className="nav-divider" aria-hidden="true" />
-      <Toggle className="nav-toggle" ariaLabel="Tools" value={tab} onChange={onChange} options={tabOptions(visibleTabs(UTILITY_TABS, sections))} />
+      <Toggle className="nav-toggle" ariaLabel={t('shell.nav.tools.aria')} value={tab} onChange={onChange} options={tabOptions(visibleTabs(UTILITY_TABS, sections))} />
     </div>
   )
 }
@@ -601,8 +625,8 @@ function useIconOnlyNav() {
 // standing between the chip and that screen. One tap, and nothing to learn.
 function AccountChip({ user, onOpen }) {
   return (
-    <Tooltip label="Your profile" side="bottom" className="shrink-0">
-      <button className="user-chip" data-tour="account" aria-label={`Profile — ${user.username}`} onClick={onOpen}>
+    <Tooltip label={t('shell.account.chip.tip')} side="bottom" className="shrink-0">
+      <button className="user-chip" data-tour="account" aria-label={t('shell.account.chip.aria', { name: user.username })} onClick={onOpen}>
         <UserAvatar user={user} />
       </button>
     </Tooltip>
@@ -623,10 +647,10 @@ function AccountOverlay({ user, onUser, onClose, logout }) {
   const body = <Profile user={user} onUser={onUser} logout={logout} />
   if (mobile) {
     return (
-      <div className="account-page" role="dialog" aria-label="Profile">
+      <div className="account-page" role="dialog" aria-label={t('nav.tab.profile.label')}>
         <header className="account-page-bar">
-          <Tooltip label="Close and go back" side="bottom"><button type="button" className="mobile-topbar-btn" onClick={onClose} aria-label="Back"><IconBack /></button></Tooltip>
-          <span className="account-page-title">Profile</span>
+          <Tooltip label={t('shell.account.back.tip')} side="bottom"><button type="button" className="mobile-topbar-btn" onClick={onClose} aria-label={t('common.action.back.label')}><IconBack /></button></Tooltip>
+          <span className="account-page-title">{t('nav.tab.profile.label')}</span>
           {/* This page covers the shell bar, so it carries its own "?" — the one
               screen that still does. */}
           <span className="ml-auto"><PageHelp screen="profile" /></span>
@@ -644,11 +668,11 @@ function AccountOverlay({ user, onUser, onClose, logout }) {
           it is also the dialog most likely to be opened by accident and noticed.
           .account-modal keeps only what is genuinely its own: the width cap and
           the overflow clip. */}
-      <div className="hand-card account-modal" role="dialog" aria-label="Profile" onMouseDown={(e) => e.stopPropagation()}>
+      <div className="hand-card account-modal" role="dialog" aria-label={t('nav.tab.profile.label')} onMouseDown={(e) => e.stopPropagation()}>
         <div className="account-modal-bar">
-          <h2 className="account-modal-title">Profile</h2>
+          <h2 className="account-modal-title">{t('nav.tab.profile.label')}</h2>
           <PageHelp screen="profile" />
-          <CloseButton onClick={onClose} tooltip="Close this panel" />
+          <CloseButton onClick={onClose} tooltip={t('shell.account.panel.close.tip')} />
         </div>
         <div className="account-modal-body">{body}</div>
       </div>
@@ -757,19 +781,19 @@ function Drawer({ open, onClose, tab, selectTab, onSearch, onAdd, onAccount, use
     if (key === 'quotes' && stats) return <span className="drawer-badge">{stats.quotes}</span>
     if (key === 'tags' && stats) return <span className="drawer-badge">{stats.tags}</span>
     if (key === 'metadata' && metaIssues !== null) {
-      return <span className="drawer-badge">{metaIssues > 0 ? `${metaIssues} ${metaIssues === 1 ? 'issue' : 'issues'}` : 'all clear'}</span>
+      return <span className="drawer-badge">{metaIssues > 0 ? t('common.count.phrase', { n: metaIssues, noun: t('unit.issue', { count: metaIssues }) }) : t('shell.drawer.metadata.clear.label')}</span>
     }
-    if (key === 'stats' && streak > 0) return <span className="drawer-badge">{streak}-day streak</span>
-    if (key === 'settings') return <span className="drawer-badge">v{user.version || 'dev'}</span>
+    if (key === 'stats' && streak > 0) return <span className="drawer-badge">{t('shell.drawer.stats.streak.label', { n: streak })}</span>
+    if (key === 'settings') return <span className="drawer-badge">{t('shell.drawer.settings.version.label', { version: user.version || 'dev' })}</span>
     return null
   }
 
   return (
     <>
-      <button type="button" className="drawer-scrim" aria-label="Close menu" onClick={onClose} />
+      <button type="button" className="drawer-scrim" aria-label={t('shell.drawer.close.aria')} onClick={onClose} />
       <nav
         className="drawer"
-        aria-label="Primary"
+        aria-label={t('shell.nav.primary.aria')}
         onPointerDown={onSwipeStart}
         onPointerMove={onSwipeMove}
         onPointerUp={onSwipeEnd}
@@ -782,7 +806,7 @@ function Drawer({ open, onClose, tab, selectTab, onSearch, onAdd, onAccount, use
               tippani
             </p>
             <p className="bengali" style={{ fontSize: 11.5, color: 'var(--amber)' }} aria-hidden="true">
-              টিপ্পনী · a marginal annotation
+              {t('shell.drawer.tagline.label')}
             </p>
           </div>
         </div>
@@ -796,8 +820,8 @@ function Drawer({ open, onClose, tab, selectTab, onSearch, onAdd, onAccount, use
             onClick={() => { onAdd(); onClose() }}
           >
             <IconPlus />
-            Add
-            <span className="drawer-badge">work · quote · import</span>
+            {t('common.action.add.label')}
+            <span className="drawer-badge">{t('shell.drawer.add.badge.label')}</span>
           </button>
           {pendingImport > 0 && (
             <button
@@ -806,31 +830,31 @@ function Drawer({ open, onClose, tab, selectTab, onSearch, onAdd, onAccount, use
               onClick={() => { selectTab('staging'); onClose() }}
             >
               <NavIcon name="import" />
-              Pending import
+              {t('shell.drawer.pending.label')}
               <span className="drawer-badge" style={{ color: 'var(--accent-ui)' }}>{pendingImport}</span>
             </button>
           )}
-          {visibleTabs(DRAWER_TABS, sections).map((t, i) =>
-            t === null ? (
+          {visibleTabs(DRAWER_TABS, sections).map((row, i) =>
+            row === null ? (
               <div key={`div-${i}`} className="drawer-divider" aria-hidden="true" />
             ) : (
               <button
-                key={t[0]}
+                key={row[0]}
                 type="button"
-                className={'drawer-item' + (tab === t[0] ? ' active' : '')}
-                aria-current={tab === t[0] ? 'page' : undefined}
+                className={'drawer-item' + (tab === row[0] ? ' active' : '')}
+                aria-current={tab === row[0] ? 'page' : undefined}
                 // Search is the one row with more to it than a destination: it
                 // drops any scope the top bar's context-aware Search left behind.
-                onClick={() => { if (t[0] === 'search' && onSearch) onSearch(); else selectTab(t[0]); onClose() }}
+                onClick={() => { if (row[0] === 'search' && onSearch) onSearch(); else selectTab(row[0]); onClose() }}
               >
-                <NavIcon name={t[0]} />
-                {t[1]}
-                {badge(t[0])}
+                <NavIcon name={row[0]} />
+                {t(row[1])}
+                {badge(row[0])}
                 {/* The legend, on the row that does the same thing. This is the
                     drawer's whole job — it is the one surface that lists every
                     destination — so it is the natural place to learn that G-then-L
                     exists without having gone looking for a shortcut sheet. */}
-                <Kbd keys={shortcutFor(DRAWER_SHORTCUTS[t[0]])} />
+                <Kbd keys={shortcutFor(DRAWER_SHORTCUTS[row[0]])} />
               </button>
             ),
           )}
@@ -849,11 +873,11 @@ function Drawer({ open, onClose, tab, selectTab, onSearch, onAdd, onAccount, use
           <div className="min-w-0 flex-1">
             <p style={{ fontSize: 13.5, fontWeight: 600 }}>{user.username}</p>
             <p className="mono-label" style={{ fontSize: 9 }}>
-              {user.is_admin ? 'admin · self-hosted' : 'self-hosted'}
+              {t(user.is_admin ? 'shell.drawer.role.admin.label' : 'shell.drawer.role.user.label')}
             </p>
           </div>
           <button type="button" className="tp-link" onClick={logout}>
-            log out
+            {t('shell.drawer.logout.label')}
           </button>
         </div>
         {/* Version → changelog (ABS-style corner). The update link only appears
@@ -862,7 +886,7 @@ function Drawer({ open, onClose, tab, selectTab, onSearch, onAdd, onAccount, use
           className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 px-4 pb-3 pt-2"
           style={{ borderTop: '1px solid var(--line)' }}
         >
-          <Tooltip label="Release notes on GitHub" side="top">
+          <Tooltip label={t('shell.drawer.changelog.tip')} side="top">
             <a
               href={user.releases_url || 'https://github.com/aaronified/tippani/releases'}
               target="_blank"
@@ -870,7 +894,7 @@ function Drawer({ open, onClose, tab, selectTab, onSearch, onAdd, onAccount, use
               className="mono-label"
               style={{ fontSize: 10, letterSpacing: '.04em', color: 'var(--faint)' }}
             >
-              v{user.version || 'dev'} · changelog ↗
+              {t('shell.drawer.changelog.label', { version: user.version || 'dev' })}
             </a>
           </Tooltip>
           {update?.update_available && update.notes_url && (
@@ -880,9 +904,9 @@ function Drawer({ open, onClose, tab, selectTab, onSearch, onAdd, onAccount, use
               rel="noopener noreferrer"
               className="mono-label"
               style={{ fontSize: 10, fontWeight: 700, color: 'var(--accent-ui)' }}
-              title={`Update to ${update.latest}`}
+              title={t('shell.drawer.update.tip', { version: update.latest })}
             >
-              ↑ update to {update.latest}
+              {t('shell.drawer.update.label', { version: update.latest })}
             </a>
           )}
         </div>
@@ -919,18 +943,18 @@ function MobileBottomNav({ tab, selectTab, hidden, sections }) {
   return (
     <nav
       className={'mobile-bottom-nav' + (away ? ' is-away' : '')}
-      aria-label="Quick navigation"
+      aria-label={t('shell.nav.quick.aria')}
       onFocus={() => setFocused(true)}
       onBlur={() => setFocused(false)}
     >
       {visibleTabs(BOTTOM_TABS, sections).map(([key, label, tip]) => {
         const active = tab === key
         return (
-          <Tooltip key={key} label={tip} side="top">
+          <Tooltip key={key} label={t(tip)} side="top">
             <button
               type="button"
               className={'mobile-bottom-nav-btn' + (active ? ' active' : '')}
-              aria-label={label}
+              aria-label={t(label)}
               aria-current={active ? 'page' : undefined}
               onClick={() => selectTab(key)}
             >
@@ -1032,8 +1056,8 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
   })
   useEffect(() => {
     if (DEMO || user.preferences?.tour) return
-    const t = setTimeout(() => setTourState({ step: 0 }), 800)
-    return () => clearTimeout(t)
+    const id = setTimeout(() => setTourState({ step: 0 }), 800)
+    return () => clearTimeout(id)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const refreshStats = () => {
@@ -1140,7 +1164,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
     const path = statePath(nextTab, nextDetail)
     if (path !== window.location.pathname) window.history.pushState({}, '', path)
   }
-  function selectTab(t) { go(t, null) }
+  function selectTab(key) { go(key, null) }
   function openBook(id) { go('library', { type: 'book', id }) }
   function openMovie(id) { go('movies', { type: 'movie', id }) }
 
@@ -1266,13 +1290,13 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
   // whichever book happens to share the number. A positive list rather than an
   // exclusion, so the next detail type cannot inherit the bug by default.
   const addFor = detail?.type === 'book' || detail?.type === 'movie' ? { type: detail.type, id: detail.id } : null
-  const addLabel = addKind === 'quote' ? 'Capture a quote' : addKind === 'film' ? 'Add a film or show' : 'Add or import'
+  const addLabel = t(addKind === 'quote' ? 'shell.add.quote.label' : addKind === 'film' ? 'shell.add.film.label' : 'shell.add.work.label')
 
   return (
     <div className={'min-h-screen' + (!detail ? ' has-mobile-topbar' : '')}>
       <header className="topbar">
         <div className="topbar-inner">
-          <Tooltip shortcut="go-home" label="Go home to today's review" side="bottom" className="shrink-0">
+          <Tooltip shortcut="go-home" label={t('nav.bottom.home.aria')} side="bottom" className="shrink-0">
             <button type="button" className="brand" onClick={() => selectTab('home')}>
               {/* the mark matches the 28px nav tab icons so the row reads level */}
               <img src={dark ? '/mark-dark.svg' : '/mark.svg'} alt="" width="28" height="28" />
@@ -1280,7 +1304,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
               {brandDot}
             </button>
           </Tooltip>
-          <nav ref={navRef} aria-label="Primary" className={'topbar-nav' + (navIconOnly ? ' icon-only' : '')}>
+          <nav ref={navRef} aria-label={t('shell.nav.primary.aria')} className={'topbar-nav' + (navIconOnly ? ' icon-only' : '')}>
             <DesktopNav tab={tab} onChange={selectTab} sections={sections} />
           </nav>
           {/* Add · Search · Help · chip — the same four, in the same order, as the
@@ -1293,7 +1317,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
             <Tooltip
               side="bottom"
               className="shrink-0"
-              label={pendingImport > 0 ? `${pendingImport} imports awaiting review` : addLabel}
+              label={pendingImport > 0 ? t('shell.add.pending.tip', { n: pendingImport }) : addLabel}
             >
               <button
                 type="button"
@@ -1303,7 +1327,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
                 onClick={() => openAdd(addKind, addFor)}
               >
                 <IconPlus />
-                <span>Add</span>
+                <span>{t('common.action.add.label')}</span>
                 {importBadge}
               </button>
             </Tooltip>
@@ -1313,7 +1337,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
                 no separate top-bar pill.) */}
             <Tooltip
               shortcut="search"
-              label={globalSearch ? 'Searching everything' : 'Search'}
+              label={t(globalSearch ? 'shell.search.global.tip' : 'nav.tab.search.label')}
               side="bottom"
               className="shrink-0"
               onContextMenu={toggleGlobalSearch}
@@ -1324,7 +1348,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
                 data-tour="search"
                 data-global={globalSearch ? 'on' : undefined}
                 onClick={openSearch}
-                aria-label={globalSearch ? 'Search everything' : 'Search'}
+                aria-label={t(globalSearch ? 'shell.search.global.aria' : 'nav.tab.search.label')}
               >
                 {globalSearch ? <IconSearchGlobe /> : <IconSearch />}
               </button>
@@ -1345,12 +1369,12 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
             (inside the page) takes over the top edge instead. */}
         {!detail && (
           <header className="mobile-topbar">
-            <Tooltip label="Open the navigation menu" side="bottom" className="shrink-0">
-              <button type="button" className="mobile-topbar-btn" aria-label="Menu" onClick={() => setDrawerOpen(true)}>
+            <Tooltip label={t('shell.drawer.open.tip')} side="bottom" className="shrink-0">
+              <button type="button" className="mobile-topbar-btn" aria-label={t('shell.drawer.open.aria')} onClick={() => setDrawerOpen(true)}>
                 <IconMenu />
               </button>
             </Tooltip>
-            <Tooltip shortcut="go-home" label="Go home to today's review" side="bottom" className="min-w-0">
+            <Tooltip shortcut="go-home" label={t('nav.bottom.home.aria')} side="bottom" className="min-w-0">
               <button type="button" className="brand" onClick={() => selectTab('home')}>
                 <img src={dark ? '/mark-dark.svg' : '/mark.svg'} alt="" width="26" height="26" />
                 <span className="wordmark">tippani</span>
@@ -1360,7 +1384,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
             <span className="flex-1" />
             {/* ＋ · Search · ? · chip — the same four the desktop bar carries, in
                 the same order, all reading the current route. */}
-            <Tooltip shortcut="capture" label={pendingImport > 0 ? `${pendingImport} imports awaiting review` : addLabel} side="bottom" className="shrink-0">
+            <Tooltip shortcut="capture" label={pendingImport > 0 ? t('shell.add.pending.tip', { n: pendingImport }) : addLabel} side="bottom" className="shrink-0">
               <button type="button" className="mobile-topbar-btn" data-tour="add" aria-label={addLabel} onClick={() => openAdd(addKind, addFor)}>
                 <IconPlus />
                 {importBadge}
@@ -1373,13 +1397,13 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
                 glyph says, and the one place that can flip it is the one place
                 the gesture exists. The drawer's Search below stays global
                 unconditionally, as it always has. */}
-            <Tooltip shortcut="search" label={globalSearch ? 'Searching everything' : 'Search'} side="bottom" className="shrink-0">
+            <Tooltip shortcut="search" label={t(globalSearch ? 'shell.search.global.tip' : 'nav.tab.search.label')} side="bottom" className="shrink-0">
               <button
                 type="button"
                 className="mobile-topbar-btn"
                 data-tour="search"
                 data-global={globalSearch ? 'on' : undefined}
-                aria-label={globalSearch ? 'Search everything' : 'Search'}
+                aria-label={t(globalSearch ? 'shell.search.global.aria' : 'nav.tab.search.label')}
                 onClick={openSearch}
               >
                 {globalSearch ? <IconSearchGlobe /> : <IconSearch />}
@@ -1389,7 +1413,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
             <AccountChip user={user} onOpen={() => setProfileOpen(true)} />
           </header>
         )}
-        <ErrorBoundary key={tab} label={`The ${tab} screen`}>
+        <ErrorBoundary key={tab} label={t('shell.error.boundary.screen.label', { name: tab })}>
         <div className="tab-panel">
         {tab === 'home' && (
           <div data-screen-label="home">

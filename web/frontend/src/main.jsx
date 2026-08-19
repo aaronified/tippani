@@ -51,6 +51,7 @@ import '@fontsource/hind/400.css'
 import './index.css'
 import App from './App.jsx'
 import { applyColors, applyLabels, applyTheme } from './theme.js'
+import { applyLocale, loadLocaleFiles } from './i18n.js'
 import { initTactile } from './ui.jsx'
 
 function boot() {
@@ -64,6 +65,18 @@ function boot() {
   // so it is readable synchronously here. Applying it later would show a phone
   // a frame of fully labelled buttons and then snap them to glyphs.
   applyLabels()
+  // The language, before the first render for the same reason the label density
+  // is: the device-local mirror is readable synchronously, so the login screen
+  // and the first-run screen are already in the reader's words. The two built-in
+  // languages are compiled into this bundle, so this needs no server and works
+  // with none (design §3).
+  applyLocale()
+  // What the operator ADDED lives in data/Locales and only the server can see it,
+  // so it arrives after the first paint. Deliberately not awaited: the interface
+  // is complete without it, and blocking boot on a request would trade a working
+  // screen for a spinner. i18n.js re-renders the tree only if the payload
+  // actually changed, which on an instance with no added language it has not.
+  loadLocaleFiles()
   initTactile() // "press where you clicked" for .tactile toggles + buttons
   createRoot(document.getElementById('root')).render(<App />)
 }

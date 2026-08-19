@@ -1,0 +1,22 @@
+# tippani — Bengali. The format is documented at the top of en.txt beside this
+# file, and the short version for a translator is in README.md.
+#
+# THIS FILE IS DELIBERATELY EMPTY OF COPY, and the emptiness is honest rather
+# than an oversight. The mechanism shipped first; the Bengali is written next, by
+# people who read Bengali. Every key it lacks resolves through the chain in
+# design §8 instead, so the app is complete in English and the picker reports
+# Bengali's real coverage — which is what design §7 asks for. No test fails
+# because a language is incomplete; one fails if the percentage lies about it.
+#
+# NOTHING HERE DECLARES _fallback, on purpose. Bengali is not English's
+# translation and English is not Bengali's fallback of last resort; both simply
+# ship in the box. A key missing from here reaches a built-in because the chain
+# always ends at one, not because en has been named its parent.
+#
+# Add keys in the same order as en.txt, with the same context comments, so the
+# two files can be read side by side. `node scripts/locale-template.mjs` prints
+# every key with the English and the Bengali as comments, which is the mechanical
+# way to find what is still missing.
+
+# How this language is labelled in the picker, in its own words.
+_name = বাংলা

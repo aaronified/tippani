@@ -44,11 +44,27 @@ process.env.TZ = 'UTC'
 // import.meta.url is a file: URL.
 process.env.TIPPANI_SRC = join(dirname(fileURLToPath(import.meta.url)), 'src')
 
+// THE LOCALE FILES ARE OUTSIDE THIS TREE, and Vite has to be told it may read
+// them. internal/i18n/en.txt and bn.txt are the canonical copy for BOTH sides of
+// the app (see web/frontend/src/i18n.js for why they live in a Go package), and
+// i18n.js imports them with `?raw`.
+//
+// The node project resolved that happily and the jsdom one refused it with
+// "Denied ID", which is Vite's fs allowlist: it defaults to the detected
+// workspace root, and the two environments do not detect the same one. Named
+// explicitly rather than left to a heuristic, because a heuristic that disagrees
+// with itself between two projects in one config file is not a heuristic worth
+// depending on. `npm run build` never checks this at all — the guard is the dev
+// server's — so vite.config.js says the same thing for `npm run dev`.
+const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
+const fs = { allow: [REPO_ROOT] }
+
 export default defineConfig({
   test: {
     projects: [
       {
         plugins: [react()],
+        server: { fs },
         test: {
           name: 'pure',
           environment: 'node',
@@ -58,6 +74,7 @@ export default defineConfig({
       },
       {
         plugins: [react()],
+        server: { fs },
         test: {
           name: 'dom',
           environment: 'jsdom',

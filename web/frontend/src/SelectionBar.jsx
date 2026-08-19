@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { atOverflow, atRow, bulkActionsFor, isWorkKind } from './actions.jsx'
 import { ANTHOLOGY_KIND, AddToAnthologyDialog } from './anthologies.jsx'
 import { errText, json } from './api.js'
+import { t, tNodes } from './i18n.js'
 import { MoveToBoardDialog } from './boards.jsx'
 import { KIND_ROUTES, deletePhrase, useBulkOps } from './bulkOps.jsx'
 import { StickerPicker, useStickers } from './stickers.jsx'
@@ -68,13 +69,17 @@ export { deletePhrase }
 // SHELF_CHOICES are the shelf states a selection can be moved to, per side. A book
 // reads and a film watches — the server refuses the other side's word, so offering
 // it would be a control that only ever errors.
-const SHELF_CHOICES = (kind) => [
-  ['', 'Clear'],
-  [kind === 'movie' ? 'watching' : 'reading', kind === 'movie' ? 'Watching' : 'Reading'],
-  ['paused', 'Paused'],
-  ['abandoned', 'Abandoned'],
-  ['completed', 'Completed'],
-]
+const SHELF_CHOICES = (kind) => {
+  // A book reads and a film watches, so the shelf words are keyed per side.
+  const side = kind === 'movie' ? 'film' : 'book'
+  return [
+    ['', t('common.selection.shelf.clear.label')],
+    [kind === 'movie' ? 'watching' : 'reading', t(`common.shelf.reading.${side}.label`)],
+    ['paused', t(`common.shelf.paused.${side}.label`)],
+    ['abandoned', t(`common.shelf.abandoned.${side}.label`)],
+    ['completed', t(`common.shelf.completed.${side}.label`)],
+  ]
+}
 
 export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = [], onEdit }) {
   const [asking, setAsking] = useState(false)
@@ -110,6 +115,9 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
 
   if (!open || !kind || !KIND_ROUTES[kind]) return null
   const routes = KIND_ROUTES[kind]
+  // The counted noun, in the form the number in front of it needs. `routes.noun`
+  // is still the ENGLISH pair, and is used only for the phrase the server checks.
+  const noun = (n) => t(routes.unit, { count: n })
   const isWork = isWorkKind(kind)
   // Nothing picked, mode still running. Every action is disabled and says so by
   // being disabled — an enabled Delete over zero rows is a button whose only
@@ -134,20 +142,25 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
   // function waiting to be called.
   const acts = bulkActionsFor(kind, ids, {
     // Quotes.
-    setColour: !isWork ? (_, c) => ops.post({ color: c }, `recoloured ${count}`) : undefined,
-    addTags: !isWork ? (_, names) => ops.post({ add_tags: names }, `tagged ${count}`) : undefined,
+    setColour: !isWork ? (_, c) => ops.post({ color: c }, t('common.selection.toast.recoloured', { n: count, count })) : undefined,
+    addTags: !isWork ? (_, names) => ops.post({ add_tags: names }, t('common.selection.toast.tagged', { n: count, count })) : undefined,
     setSticker: !isWork
       ? // 0 is the server's clear, and it has to be sent as a number rather than as
         // an absent field — see bulkTagReq, where a pointer is what keeps "no
         // sticker" apart from "not saying".
         (_, seal) =>
-          ops.post({ sticker_id: seal == null ? 0 : seal }, seal == null ? 'seals removed' : `sealed ${count}`)
+          ops.post(
+            { sticker_id: seal == null ? 0 : seal },
+            seal == null
+              ? t('common.selection.toast.seals-removed')
+              : t('common.selection.toast.sealed', { n: count, count }),
+          )
       : undefined,
-    favourite: !isWork ? () => ops.post({ favorite: true }, `favourited ${count}`) : undefined,
+    favourite: !isWork ? () => ops.post({ favorite: true }, t('common.selection.toast.favourited', { n: count, count })) : undefined,
     // Standalone quotes only: an annotation belongs to its book and a dialogue to
     // its film, and neither has a board. The registry reads the callback's
     // presence, so naming the kind here is what keeps the action off those two.
-    setBoard: kind === 'quote' ? (_, boardID) => ops.post({ board_id: boardID }, `moved ${count}`) : undefined,
+    setBoard: kind === 'quote' ? (_, boardID) => ops.post({ board_id: boardID }, t('common.selection.toast.moved', { n: count, count })) : undefined,
     // NOT THROUGH ops.post, which posts to `/{kind}/bulk`: gathering writes to the
     // ANTHOLOGY's own route and changes nothing about the quotes, so there is no
     // undo to register and no row to refresh. Offered for the three kinds of quote,
@@ -155,7 +168,7 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
     addToAnthology: ANTHOLOGY_KIND[kind] ? (_, anthologyID) => gather(anthologyID) : undefined,
     // Works.
     fillGaps: isWork ? ops.fillGaps : undefined,
-    setShelf: isWork ? (_, status) => ops.setShelf(status, `moved ${count}`) : undefined,
+    setShelf: isWork ? (_, status) => ops.setShelf(status, t('common.selection.toast.moved', { n: count, count })) : undefined,
     // Both. `edit` is filtered to a selection of exactly one by the registry, so
     // there is no count test here — and a screen with no inline form for one row
     // simply does not pass onEdit, which is how the action stays absent rather
@@ -163,7 +176,12 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
     edit: onEdit ? (id) => onEdit(id) : undefined,
     excluded: allExcluded,
     setReview: (_, wasExcluded) =>
-      ops.post({ review: wasExcluded }, wasExcluded ? 'back in the quiz' : `skipping ${count}`),
+      ops.post(
+        { review: wasExcluded },
+        wasExcluded
+          ? t('common.selection.toast.back-in-quiz')
+          : t('common.selection.toast.skipping', { n: count, count }),
+      ),
     remove: () => confirmedDelete(),
   })
   const byID = Object.fromEntries(acts.map((a) => [a.id, a]))
@@ -195,10 +213,16 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
   async function gather(anthologyID) {
     const items = ids.map((itemID) => ({ kind: ANTHOLOGY_KIND[kind], item_id: itemID }))
     const r = await json('POST', `/anthologies/${anthologyID}/entries`, { items })
-    if (!r.ok) return toast(errText(r, 'could not add those'))
+    if (!r.ok) return toast(errText(r, t('error.add.generic')))
     const added = r.data?.added ?? 0
     const skipped = r.data?.skipped ?? 0
-    toast(`${added} gathered${skipped ? `, ${skipped} already there` : ''}`)
+    // Two whole sentences rather than one plus an optional clause: the clause
+    // does not necessarily come last in another language.
+    toast(
+      skipped
+        ? t('common.selection.toast.gathered-some', { n: added, count: added, skipped })
+        : t('common.selection.toast.gathered', { n: added, count: added }),
+    )
   }
 
   // The typed phrase is this component's; the request and its Undo are the
@@ -249,13 +273,13 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
           selected": a bare 0 in a count reads as something having gone wrong. */}
       <IconButton
         icon={<span className="selection-count">{count}</span>}
-        label="Deselect all"
+        label={t('common.selection.deselect-all.label')}
         ariaLabel={none
-          ? `no ${routes.noun[1]} selected`
-          : `Deselect all, ${count} ${count === 1 ? routes.noun[0] : routes.noun[1]} selected`}
+          ? t('common.selection.none.aria', { noun: noun(0) })
+          : t('common.selection.count.aria', { n: count, count, noun: noun(count) })}
         tooltip={none
-          ? `no ${routes.noun[1]} selected`
-          : `${count} ${count === 1 ? routes.noun[0] : routes.noun[1]} selected`}
+          ? t('common.selection.none.aria', { noun: noun(0) })
+          : t('common.selection.count.tip', { n: count, count, noun: noun(count) })}
         disabled={busy || none}
         onClick={() => selection.deselectAll?.()}
       />
@@ -274,7 +298,7 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
                 disabled={none || busy}
                 value=""
                 onChange={(c) => a.run(c)}
-                ariaLabel={`Recolour the ${count} selected`}
+                ariaLabel={t('common.selection.colour.aria', { n: count, count })}
               />
             </span>
           )
@@ -285,8 +309,8 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
               key={a.id}
               icon={a.icon}
               label={a.label}
-              ariaLabel={`Move the ${count} selected to a shelf`}
-              tooltip="Move to a shelf"
+              ariaLabel={t('common.selection.shelf.aria', { n: count, count })}
+              tooltip={t('common.selection.shelf.tip')}
               disabled={none || busy}
               items={SHELF_CHOICES(kind).map(([value, label]) => ({
                 id: value || 'clear',
@@ -311,7 +335,7 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
             // flipping quiz toggle readable once the words are clipped: a hover or
             // a long press says which way round the selection currently is.
             ariaLabel={a.label}
-            tooltip={a.id === 'fill' && busy ? 'Fetching…' : a.label}
+            tooltip={a.id === 'fill' && busy ? t('common.action.fetch.busy') : a.label}
             disabled={none || busy}
             onClick={() => a.run()}
           />
@@ -323,8 +347,8 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
       {overflow.length > 0 && (
         <MoreMenu
           items={overflow}
-          ariaLabel={`More for the ${count} selected`}
-          tooltip="More actions"
+          ariaLabel={t('common.selection.more.aria', { n: count, count })}
+          tooltip={t('common.selection.more.tip')}
           disabled={none || busy}
         />
       )}
@@ -343,7 +367,7 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
           are. */}
       <FieldIconButton
         icon={<IconClose />}
-        ariaLabel="Dismiss the selection"
+        ariaLabel={t('common.selection.dismiss.aria')}
         onClick={() => selection.dismiss?.()}
         wrapClassName="ml-auto"
       />
@@ -365,26 +389,28 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
 
       <ConfirmDialog
         open={asking}
-        title={`Delete ${count} ${count === 1 ? routes.noun[0] : routes.noun[1]}?`}
+        title={t('common.selection.delete.confirm.title', { n: count, count, noun: noun(count) })}
         body={
           <div className="space-y-2">
             <p className="microcopy">
-              {isWork
-                ? 'They go to the bin with every quote saved from them — one entry for the whole selection, put back together or not at all. '
-                : 'They go to the bin and can be put back — one entry for the whole selection, with an Undo in the toast. '}
-              Type <b>{phrase}</b> to confirm.
+              {tNodes(
+                isWork
+                  ? 'common.selection.delete.confirm.body.work'
+                  : 'common.selection.delete.confirm.body.quote',
+                { phrase: <b key="phrase">{phrase}</b> },
+              )}
             </p>
             <input
               className="tp-input"
               autoFocus
               value={typed}
               placeholder={phrase}
-              aria-label="Type the confirmation phrase"
+              aria-label={t('common.selection.delete.confirm.phrase.aria')}
               onChange={(e) => setTyped(e.target.value)}
             />
           </div>
         }
-        confirmLabel="Delete them"
+        confirmLabel={t('common.selection.delete.confirm.action.label')}
         confirmDisabled={typed.trim().toLowerCase() !== phrase}
         onConfirm={() => byID.delete.run()}
         onCancel={() => {
@@ -404,20 +430,20 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
 // question, not to the bar, so closing it cannot leave half a tag behind.
 function TagsDialog({ count, busy, suggestions, onApply, onClose }) {
   const [tags, setTags] = useState([])
-  const names = tags.map((t) => t.trim()).filter(Boolean)
+  const names = tags.map((tag) => tag.trim()).filter(Boolean)
   return (
-    <FormModal open onClose={onClose} title={`Tag ${count}`}>
+    <FormModal open onClose={onClose} title={t('common.selection.tags.title', { n: count, count })}>
       <div className="space-y-3">
-        <p className="microcopy">Every tag here is ADDED to all {count}. Nothing already on them is removed.</p>
+        <p className="microcopy">{t('common.selection.tags.body', { n: count, count })}</p>
         <TokenInput
           value={tags}
           onChange={setTags}
           suggestions={suggestions}
-          placeholder="add tags"
-          ariaLabel="Tags to add to the selection"
+          placeholder={t('common.selection.tags.placeholder')}
+          ariaLabel={t('common.selection.tags.input.aria')}
         />
         <GhostButton onClick={() => onApply(names)} disabled={busy || names.length === 0}>
-          Add tags
+          {t('common.action.add-tags.label')}
         </GhostButton>
       </div>
     </FormModal>
@@ -431,14 +457,12 @@ function SealDialog({ count, busy, onApply, onClose }) {
   const [seal, setSeal] = useState(null)
   const { stickers, reload } = useStickers()
   return (
-    <FormModal open onClose={onClose} title={`Seal ${count}`}>
+    <FormModal open onClose={onClose} title={t('common.selection.seal.title', { n: count, count })}>
       <div className="space-y-3">
-        <p className="microcopy">
-          One sticker across the whole selection. “none” takes the seal off every one of them.
-        </p>
+        <p className="microcopy">{t('common.selection.seal.body')}</p>
         <StickerPicker value={seal} onChange={setSeal} stickers={stickers} reload={reload} />
         <GhostButton onClick={() => onApply(seal)} disabled={busy}>
-          Apply
+          {t('common.action.apply.label')}
         </GhostButton>
       </div>
     </FormModal>

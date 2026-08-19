@@ -12,6 +12,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { coverImgURL, errText, json, uploadWithProgress } from './api.js'
+import { t, tNodes } from './i18n.js'
 import { categoryVar } from './theme.js'
 import { glyphFor, STARTER_LANGUAGES } from './languages.jsx'
 import {
@@ -57,16 +58,33 @@ const BOARD_COLORS = ['yellow', 'blue', 'pink', 'orange', 'green', 'purple']
 // error. That is also why these stay on offer rather than disappearing once
 // "added": the app cannot tell a Proverbs board you renamed to Grandmother from
 // one you never made, and the name box is the honest guard either way.
+//
+// THE NAME AND THE DESCRIPTION ARE GETTERS, because pressing a starter writes
+// them into the reader's own database: they are copy on the way in and the
+// reader's own words from then on. Resolved at render rather than at module
+// scope, like every other table in this app that holds words.
 const BOARD_STARTERS = [
   {
     key: 'proverbs',
-    name: 'Proverbs',
+    get name() { return t('quotes.starter.proverbs.name') },
     color: 'green',
     kind: 'proverb',
-    description: 'Handed down, not attributed.',
+    get description() { return t('quotes.starter.proverbs.description') },
   },
-  { key: 'speeches', name: 'Speeches', color: 'blue', kind: 'speech', description: 'Said aloud, to a room.' },
-  { key: 'others', name: 'Others', color: 'yellow', kind: 'plain', description: 'Everything else worth keeping.' },
+  {
+    key: 'speeches',
+    get name() { return t('quotes.starter.speeches.name') },
+    color: 'blue',
+    kind: 'speech',
+    get description() { return t('quotes.starter.speeches.description') },
+  },
+  {
+    key: 'others',
+    get name() { return t('quotes.starter.others.name') },
+    color: 'yellow',
+    kind: 'plain',
+    get description() { return t('quotes.starter.others.description') },
+  },
 ]
 
 // The ten most-spoken languages in the world, offered as chips on a proverb
@@ -201,22 +219,18 @@ export function MoveToBoardDialog({ count, busy, currentBoardID = null, onApply,
   const [pick, setPick] = useState(currentBoardID == null ? '' : String(currentBoardID))
   const target = pick === '' ? null : Number(pick)
   return (
-    <FormModal open onClose={onClose} title={count === 1 ? 'Move this quote' : `Move ${count} quotes`}>
+    <FormModal open onClose={onClose} title={t('common.board.move.title', { count, n: count })}>
       <div className="space-y-3">
-        <p className="microcopy">
-          {count === 1
-            ? 'Which board it is filed on. Nothing else about the quote changes.'
-            : `All ${count} move to one board. Nothing else about them changes.`}
-        </p>
+        <p className="microcopy">{t('common.board.move.body', { count, n: count })}</p>
         {list.length === 0 ? (
-          <ErrorText>There is nowhere to move them — make a board first.</ErrorText>
+          <ErrorText>{t('common.board.move.empty')}</ErrorText>
         ) : (
           <Select
-            label="Board"
+            label={t('common.field.board.label')}
             value={pick}
             onChange={setPick}
             options={list.map((b) => [String(b.id), b.name])}
-            placeholder="choose a board"
+            placeholder={t('common.board.move.select.placeholder')}
           />
         )}
         <GhostButton
@@ -225,7 +239,7 @@ export function MoveToBoardDialog({ count, busy, currentBoardID = null, onApply,
           // nothing and still writes updated_at across the selection.
           disabled={busy || target == null || target === currentBoardID}
         >
-          Move
+          {t('common.action.move.label')}
         </GhostButton>
       </div>
     </FormModal>
@@ -237,7 +251,7 @@ export function MoveToBoardDialog({ count, busy, currentBoardID = null, onApply,
 // The picture is uploaded rather than fetched: no supplier has a photograph of a
 // shelf somebody invented, so an empty one is an honest blank rather than a
 // failed lookup.
-export function BoardForm({ initial, onSubmit, onCancel, submitLabel = 'Save', existingNames = [] }) {
+export function BoardForm({ initial, onSubmit, onCancel, submitLabel = t('common.action.save.label'), existingNames = [] }) {
   const [name, setName] = useState(initial?.name || '')
   const [description, setDescription] = useState(initial?.description || '')
   const [color, setColor] = useState(initial?.color || 'yellow')
@@ -286,14 +300,14 @@ export function BoardForm({ initial, onSubmit, onCancel, submitLabel = 'Save', e
     form.append('file', file)
     const r = await uploadWithProgress(`/boards/${initial.id}/cover`, form)
     setBusy(false)
-    if (!r.ok) return setError(errText(r, 'could not upload that'))
+    if (!r.ok) return setError(errText(r, t('error.upload.generic')))
     setImagePath(r.data?.image_path || r.data?.path || imagePath)
-    toast('picture saved')
+    toast(t('quotes.board.toast.picture-saved'))
   }
 
   async function submit(e) {
     e.preventDefault()
-    if (!name.trim()) return setError('Give the board a name')
+    if (!name.trim()) return setError(t('error.validate.board-name-required'))
     setBusy(true)
     const msg = await onSubmit({
       name: name.trim(),
@@ -312,8 +326,13 @@ export function BoardForm({ initial, onSubmit, onCancel, submitLabel = 'Save', e
 
   return (
     <form onSubmit={submit} className="space-y-4">
-      <Field label="Name" value={name} placeholder="Proverbs" onChange={(e) => setName(e.target.value)} />
-      {clash && <p className="microcopy">You already have a board called that.</p>}
+      <Field
+        label={t('common.field.name.label')}
+        value={name}
+        placeholder={t('quotes.board.form.name.placeholder')}
+        onChange={(e) => setName(e.target.value)}
+      />
+      {clash && <p className="microcopy">{t('quotes.board.form.clash.error')}</p>}
       {/* WHAT THE BOARD HOLDS, which is not the same question as what it is
           called. A proverb board puts the language and the English translation
           first on the quote form; on a board of speeches those two are noise.
@@ -332,18 +351,18 @@ export function BoardForm({ initial, onSubmit, onCancel, submitLabel = 'Save', e
           what the reader was choosing all along. Speeches and Others are both
           plain boards; the kind is a column with two values and stays that way. */}
       <div>
-        <MonoLabel className="mb-1.5 block">what it holds</MonoLabel>
+        <MonoLabel className="mb-1.5 block">{t('quotes.board.form.kind.label')}</MonoLabel>
         {initial?.id ? (
           /* On an edit the board already IS something, and chips that silently
              rewrote its name and colour would be a trap rather than a shortcut.
              So editing offers the behaviour alone. */
           <Toggle
-            ariaLabel="What it holds"
+            ariaLabel={t('quotes.board.form.kind.aria')}
             value={kind}
             onChange={setKind}
             options={[
-              ['plain', 'Quotes'],
-              ['proverb', 'Proverbs'],
+              ['plain', t('quotes.board.kind.plain.label')],
+              ['proverb', t('quotes.board.kind.proverb.label')],
             ]}
           />
         ) : (
@@ -370,13 +389,13 @@ export function BoardForm({ initial, onSubmit, onCancel, submitLabel = 'Save', e
                 </button>
               ))}
             </div>
-            <p className="microcopy mt-1.5">Fills the form in. Change any of it before you create.</p>
+            <p className="microcopy mt-1.5">{t('quotes.board.form.starters.hint')}</p>
           </>
         )}
       </div>
       {kind === 'proverb' && (
         <div>
-          <MonoLabel className="mb-1.5 block">languages</MonoLabel>
+          <MonoLabel className="mb-1.5 block">{t('quotes.board.form.languages.label')}</MonoLabel>
           <div className="flex flex-wrap items-center gap-2">
             {[...new Set([...STARTER_LANGUAGES.map((s) => s.name), ...languages])].map((l) => {
               const on = languages.some((x) => x.toLowerCase() === l.toLowerCase())
@@ -400,9 +419,9 @@ export function BoardForm({ initial, onSubmit, onCancel, submitLabel = 'Save', e
           </div>
           <div className="flex items-end gap-2 mt-2">
             <Field
-              label="Another language"
+              label={t('quotes.board.form.language.label')}
               value={newLanguage}
-              placeholder="Tamil, Yoruba…"
+              placeholder={t('quotes.board.form.language.placeholder')}
               onChange={(e) => setNewLanguage(e.target.value)}
               onKeyDown={(e) => {
                 // Enter adds the language rather than submitting the form, which
@@ -415,14 +434,14 @@ export function BoardForm({ initial, onSubmit, onCancel, submitLabel = 'Save', e
               }}
             />
             <GhostButton type="button" onClick={addLanguage}>
-              Add
+              {t('common.action.add.label')}
             </GhostButton>
           </div>
-          <p className="microcopy mt-1.5">Offered on the quote form, and what the language sections group by.</p>
+          <p className="microcopy mt-1.5">{t('quotes.board.form.languages.hint')}</p>
         </div>
       )}
       <div>
-        <MonoLabel className="mb-1.5 block">colour</MonoLabel>
+        <MonoLabel className="mb-1.5 block">{t('quotes.board.form.colour.label')}</MonoLabel>
         <div className="flex flex-wrap items-center gap-2">
           {BOARD_COLORS.map((c) => (
             <button
@@ -440,12 +459,12 @@ export function BoardForm({ initial, onSubmit, onCancel, submitLabel = 'Save', e
       {/* A textarea rather than a Field: Field renders an <input>, and a board's
           description is a sentence or two about what it is for. */}
       <label className="tp-field">
-        <MonoLabel>What it is for</MonoLabel>
+        <MonoLabel>{t('quotes.board.form.description.label')}</MonoLabel>
         <textarea
           className="tp-input"
           rows={2}
           value={description}
-          placeholder="Handed down, not attributed."
+          placeholder={t('quotes.board.form.description.placeholder')}
           onChange={(e) => setDescription(e.target.value)}
         />
       </label>
@@ -461,12 +480,12 @@ export function BoardForm({ initial, onSubmit, onCancel, submitLabel = 'Save', e
           )}
           <label className="tp-btn tp-btn-ghost tactile" style={{ cursor: 'pointer' }}>
             <IconUpload />
-            <span className="btn-label">Picture</span>
+            <span className="btn-label">{t('quotes.board.form.picture.label')}</span>
             <input type="file" accept="image/*" className="hidden" onChange={pickImage} disabled={busy} />
           </label>
           {imagePath && (
             <GhostButton type="button" onClick={() => setImagePath('')}>
-              Remove
+              {t('common.action.remove.label')}
             </GhostButton>
           )}
         </div>
@@ -474,10 +493,10 @@ export function BoardForm({ initial, onSubmit, onCancel, submitLabel = 'Save', e
       <ErrorText>{error}</ErrorText>
       <div className="flex items-center justify-end gap-2">
         <GhostButton type="button" onClick={onCancel}>
-          Cancel
+          {t('common.action.cancel.label')}
         </GhostButton>
         <button type="submit" className="tp-btn tp-btn-primary tactile" disabled={busy}>
-          {busy ? 'Saving…' : submitLabel}
+          {busy ? t('common.action.save.busy') : submitLabel}
         </button>
       </div>
     </form>
@@ -502,14 +521,17 @@ export function DeleteBoardDialog({ board, boards, onDone, onCancel }) {
     return (
       <ConfirmDialog
         open
-        title={`Delete ${board.name}?`}
-        confirmLabel="Delete"
+        title={t('quotes.board.delete.confirm.title', { name: board.name })}
+        confirmLabel={t('common.action.delete.label')}
         confirmDisabled
         onCancel={onCancel}
         body={
           <p>
-            This is your only board and it holds {board.quotes} {board.quotes === 1 ? 'quote' : 'quotes'}. Make another
-            board first — the quotes have to go somewhere.
+            {t('quotes.board.delete.only.body', {
+              count: board.quotes,
+              n: board.quotes,
+              noun: t('unit.quote', { count: board.quotes }),
+            })}
           </p>
         }
       />
@@ -519,35 +541,32 @@ export function DeleteBoardDialog({ board, boards, onDone, onCancel }) {
   async function run() {
     const body = holds ? { move_to: Number(moveTo) } : {}
     const r = await json('DELETE', `/boards/${board.id}`, body)
-    if (!r.ok) return setError(errText(r, 'could not delete that board'))
-    toast('board deleted')
+    if (!r.ok) return setError(errText(r, t('error.delete.board')))
+    toast(t('quotes.board.toast.deleted'))
     await onDone()
   }
 
   return (
     <ConfirmDialog
       open
-      title={`Delete ${board.name}?`}
-      confirmLabel="Delete"
+      title={t('quotes.board.delete.confirm.title', { name: board.name })}
+      confirmLabel={t('common.action.delete.label')}
       onConfirm={run}
       onCancel={onCancel}
       body={
         <div className="space-y-3">
           {holds ? (
             <>
-              <p>
-                {board.quotes} {board.quotes === 1 ? 'quote is' : 'quotes are'} filed here. They move to another board
-                rather than being deleted.
-              </p>
+              <p>{t('quotes.board.delete.holds.body', { count: board.quotes, n: board.quotes })}</p>
               <Select
-                ariaLabel="Move the quotes to"
+                ariaLabel={t('quotes.board.delete.move.aria')}
                 value={moveTo}
                 onChange={setMoveTo}
                 options={others.map((b) => [String(b.id), b.name])}
               />
             </>
           ) : (
-            <p>Nothing is filed here, so nothing is lost.</p>
+            <p>{t('quotes.board.delete.empty.body')}</p>
           )}
           <ErrorText>{error}</ErrorText>
         </div>
@@ -570,23 +589,23 @@ function BoardTile({ board, onOpen, onEdit, onDelete, onToggleHidden }) {
         )}
         <span className="board-tile-name">{board.name}</span>
         <span className="board-tile-count">
-          {board.quotes} {board.quotes === 1 ? 'quote' : 'quotes'}
+          {t('common.count.phrase', { n: board.quotes, noun: t('unit.quote', { count: board.quotes }) })}
         </span>
       </button>
       <span className="board-tile-tools">
         <MoreMenu
           items={[
-            { icon: <IconEdit />, label: 'Edit', onClick: () => onEdit(board) },
+            { icon: <IconEdit />, label: t('common.action.edit.label'), onClick: () => onEdit(board) },
             // The glyph shows the ACTION, not the state: this is a menu item,
             // where the words say what pressing it does. Settings' twin is a
             // toggle showing where a category currently stands, so its eye is the
             // other way round — different widget, different rule.
             {
               icon: board.hidden ? <IconEye /> : <IconEyeOff />,
-              label: board.hidden ? 'Show' : 'Hide',
+              label: t(board.hidden ? 'common.action.show.label' : 'common.action.hide.label'),
               onClick: () => onToggleHidden(board),
             },
-            { icon: <IconDelete />, label: 'Delete', danger: true, onClick: () => onDelete(board) },
+            { icon: <IconDelete />, label: t('common.action.delete.label'), danger: true, onClick: () => onDelete(board) },
           ]}
         />
       </span>
@@ -611,7 +630,7 @@ export function BoardList({ boards, total, reload, onOpen }) {
   async function save(fields) {
     const isNew = editing === 'new'
     const r = await json(isNew ? 'POST' : 'PUT', isNew ? '/boards' : `/boards/${editing.id}`, fields)
-    if (!r.ok) return errText(r, 'could not save that board')
+    if (!r.ok) return errText(r, t('error.save.board'))
     setEditing(null)
     await reload()
     return null
@@ -642,23 +661,26 @@ export function BoardList({ boards, total, reload, onOpen }) {
   return (
     <section>
       <PageHeader
-        title="Quotes"
-        counts={`${(boards || []).length} ${(boards || []).length === 1 ? 'board' : 'boards'}`}
+        title={t('nav.tab.quotes.label')}
+        counts={t('common.count.phrase', {
+          n: (boards || []).length,
+          noun: t('unit.board', { count: (boards || []).length }),
+        })}
         right={
           <span className="flex items-center gap-2">
             {hiddenCount > 0 && (
             <Toggle
-              ariaLabel="Hidden boards"
+              ariaLabel={t('quotes.board.hidden.aria')}
               value={showHidden ? 'on' : 'off'}
               onChange={(v) => setShowHidden(v === 'on')}
               options={[
-                ['off', 'In use'],
-                ['on', `All ${(boards || []).length}`],
+                ['off', t('quotes.board.hidden.inuse.label')],
+                ['on', t('quotes.board.hidden.all.label', { n: (boards || []).length })],
               ]}
             />
             )}
             <GhostButton icon={<IconPlus />} onClick={() => setEditing('new')}>
-              New board
+              {t('quotes.board.new.label')}
             </GhostButton>
           </span>
         }
@@ -670,9 +692,9 @@ export function BoardList({ boards, total, reload, onOpen }) {
             is not a board — no menu, nothing to rename — which is why it is
             drawn here rather than folded into the list. */}
         <button type="button" className="board-tile board-tile-all" onClick={() => onOpen(ALL_BOARD)}>
-          <span className="board-tile-name">All quotes</span>
+          <span className="board-tile-name">{t('quotes.board.all.label')}</span>
           <span className="board-tile-count">
-            {total} {total === 1 ? 'quote' : 'quotes'}
+            {t('common.count.phrase', { n: total, noun: t('unit.quote', { count: total }) })}
           </span>
         </button>
         {visible.map((b) => (
@@ -694,19 +716,22 @@ export function BoardList({ boards, total, reload, onOpen }) {
               three boards the rest of the app talks about were unreachable from
               the one place somebody would look for them. */}
           <p className="microcopy">
-            No boards yet. <b>New board</b> offers the three to start from — Proverbs, Speeches and Others — and takes
-            any name you like instead. The ＋ in the top bar saves a quote and makes the first one for you.
+            {tNodes('quotes.board.list.empty', { em1: <b key="em1">{t('quotes.board.new.label')}</b> })}
           </p>
         </Card>
       )}
 
       {editing && (
-        <FormModal open title={editing === 'new' ? 'New board' : 'Edit board'} onClose={() => setEditing(null)}>
+        <FormModal
+          open
+          title={t(editing === 'new' ? 'quotes.board.form.new.title' : 'quotes.board.form.edit.title')}
+          onClose={() => setEditing(null)}
+        >
           <BoardForm
             initial={editing === 'new' ? null : editing}
             onSubmit={save}
             onCancel={() => setEditing(null)}
-            submitLabel={editing === 'new' ? 'Create' : 'Save'}
+            submitLabel={t(editing === 'new' ? 'common.action.create.label' : 'common.action.save.label')}
             existingNames={(boards || []).map((b) => b.name)}
           />
         </FormModal>

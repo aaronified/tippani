@@ -501,15 +501,33 @@ describe('passphraseProblem', () => {
 })
 
 describe('secretProblem', () => {
-  // The shared helper both of the above are made from. Tested directly because
-  // the noun is interpolated into the message and a caller passing the wrong one
-  // produces a field that tells you to fix something you are not editing.
+  // The shared helper both of the above are made from. Tested directly because a
+  // caller passing the wrong stem produces a field that tells you to fix something
+  // you are not editing.
+  //
+  // A STEM, NOT A NOUN, and that is a real change rather than a rename. The three
+  // messages used to be one sentence with the noun dropped into the front of it,
+  // which works in English and does not survive a language where the marker on
+  // "password" depends on what follows it. So each secret owns its own three
+  // messages and the caller names the SET: stem + '.min' / '.max' / '.charset'.
+  //
+  // The expected strings are the English in internal/i18n/en.txt, written out
+  // rather than resolved through t() on both sides — an assertion that compares
+  // t(k) with t(k) passes on a key nobody wrote.
   it('names the thing it is complaining about', () => {
-    const opts = { min: 4, max: 6, noun: 'Recovery code' }
-    expect(secretProblem('abc', opts)).toBe('Recovery code must be at least 4 characters')
-    expect(secretProblem('abcdefg', opts)).toBe('Recovery code must be at most 6 characters')
-    expect(secretProblem('abcé', opts)).toBe('Recovery code: letters, digits and punctuation only — no accents')
+    const opts = { min: 4, max: 6, stem: 'error.validate.passphrase' }
+    expect(secretProblem('abc', opts)).toBe('Passphrase must be at least 4 characters')
+    expect(secretProblem('abcdefg', opts)).toBe('Passphrase must be at most 6 characters')
+    expect(secretProblem('abcé', opts)).toBe('Passphrase: letters, digits and punctuation only — no accents')
     expect(secretProblem('abcd', opts)).toBe('')
+  })
+
+  it('says the other secret’s name when it is given the other stem', () => {
+    // The whole point of the parameter: one helper, two vocabularies. A stem that
+    // resolved nowhere would show "Min" here, from placeholderFor.
+    const opts = { min: 4, max: 6, stem: 'error.validate.password' }
+    expect(secretProblem('abc', opts)).toBe('Password must be at least 4 characters')
+    expect(secretProblem('abcdefg', opts)).toBe('Password must be at most 6 characters')
   })
 
   // Counted in UTF-16 code units, where Go counts bytes. For anything the rule

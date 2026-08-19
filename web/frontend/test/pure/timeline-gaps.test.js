@@ -19,14 +19,15 @@ import {
   gapLines,
   gapMarkers,
   makeGapPicker,
-  TIMELINE_GAP_BANDS,
+  timelineGapBands,
   gapWidth,
-  TIMELINE_GAP_LINES,
+  timelineGapLines,
   TIMELINE_GAP_MIN,
   TIMELINE_MARKER_MAX,
   TIMELINE_MARKER_MIN,
   timelineSegments,
 } from '../../src/StatsPage.jsx'
+import { under } from '../locale-file.js'
 
 // A library with Meditations and then a modern shelf: the case the whole feature
 // is for.
@@ -214,10 +215,26 @@ describe('the line in the gap', () => {
     expect(said.size).toBeGreaterThan(1)
   })
 
+  // THE CAPTIONS ARE KEYS AND THE WORDS ARE IN internal/i18n/en.txt, so the two
+  // accessors below resolve rather than hold prose — which is what lets these rules
+  // (sorted by length, no attribution, bands that do not overlap) keep measuring the
+  // copy that actually renders. What they cannot do is notice a key nobody reads:
+  // timelineGapBands() asks for four bands of four, and en.txt could carry a fifth
+  // of either. That is the assertion below.
+  it('has exactly the sixteen captions the chart asks for, and no seventeenth', () => {
+    const want = []
+    for (const band of [1, 2, 3, 4]) for (const i of [1, 2, 3, 4]) want.push(`stats.timeline.gap.${band}.${i}`)
+    // The captions only: the gap element's own aria label and its tick are in the
+    // same namespace and are not part of the pool.
+    const captions = under('stats.timeline.gap').filter((k) => /\.\d+\.\d+$/.test(k))
+    expect(captions.sort()).toEqual(want.sort())
+    expect(timelineGapLines().filter((l) => !l), 'a caption key with no line').toEqual([])
+  })
+
   it('draws from a set sorted by length, so the fit test is a prefix test', () => {
-    const lens = TIMELINE_GAP_LINES.map((l) => l.length)
+    const lens = timelineGapLines().map((l) => l.length)
     expect([...lens].sort((a, b) => a - b)).toEqual(lens)
-    expect(TIMELINE_GAP_LINES.length).toBeGreaterThanOrEqual(10)
+    expect(timelineGapLines().length).toBeGreaterThanOrEqual(10)
   })
 
   it('attributes none of them to anybody', () => {
@@ -226,7 +243,7 @@ describe('the line in the gap', () => {
     // source in even if one existed.
     // An em-dash mid-sentence is punctuation; an em-dash followed by a
     // capitalised name is a byline, and that shape is what is refused.
-    for (const l of TIMELINE_GAP_LINES) {
+    for (const l of timelineGapLines()) {
       expect(l).not.toMatch(/[—–-]\s*[A-Z]/)
       expect(l).not.toMatch(/\bby [A-Z]/)
     }
@@ -317,7 +334,7 @@ describe('filling a wide gap with more than one line', () => {
 // joke.
 describe('the gap captions', () => {
   it('offers at least three at every length', () => {
-    for (const [i, band] of TIMELINE_GAP_BANDS.entries()) {
+    for (const [i, band] of timelineGapBands().entries()) {
       expect(band.length, `band ${i} has only ${band.length}`).toBeGreaterThanOrEqual(3)
     }
   })
@@ -325,14 +342,14 @@ describe('the gap captions', () => {
   it('keeps each band genuinely within one size, so a pick fits its slot', () => {
     // Bands must not overlap in length, or "the widest band that fits" picks a
     // band whose other members do not.
-    const spans = TIMELINE_GAP_BANDS.map((b) => [Math.min(...b.map((l) => l.length)), Math.max(...b.map((l) => l.length))])
+    const spans = timelineGapBands().map((b) => [Math.min(...b.map((l) => l.length)), Math.max(...b.map((l) => l.length))])
     for (let i = 1; i < spans.length; i++) {
       expect(spans[i][0], `band ${i} starts before band ${i - 1} ends`).toBeGreaterThan(spans[i - 1][1])
     }
   })
 
   it('has no duplicates', () => {
-    const all = TIMELINE_GAP_BANDS.flat()
+    const all = timelineGapBands().flat()
     expect(new Set(all).size).toBe(all.length)
   })
 })
@@ -342,7 +359,7 @@ describe('the picker draws without replacement', () => {
   // not that — with four lines it repeats within three picks about half the time,
   // which is exactly what a reader sees as "it keeps saying the same thing".
   it('exhausts a band before repeating anything in it', () => {
-    const band = TIMELINE_GAP_BANDS[0]
+    const band = timelineGapBands()[0]
     const room = Math.max(...band.map((l) => l.length)) * 6.1 + 1
     const bag = makeGapPicker(7)
     const first = Array.from({ length: band.length }, () => bag.pick(room))

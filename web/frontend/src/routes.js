@@ -40,47 +40,53 @@ export const ROUTE_TABS = ['search', 'quotes', 'anthologies', 'tags', 'metadata'
 // The third element of a strip/bar row is the hover label: those two collapse
 // to icon-only, so each tab has to be able to name itself. Five words or fewer,
 // like every other label. Drawer rows always show their words and need none.
+//
+// THE ROWS HOLD KEYS RATHER THAN WORDS, and they have to: this module is
+// evaluated at import, which is before the reader's language is known, so a word
+// baked in here would be the one word in the app that never changed. The shell
+// resolves each row through t() as it draws it. Four lists naming the same tab
+// now name the same KEY, which is the invariant one layer down.
 
 // CONTENT_TABS / UTILITY_TABS — the desktop strip, content then tools.
 export const CONTENT_TABS = [
-  ['home', 'Home', "Today's review"],
-  ['library', 'Library', 'Your books'],
-  ['movies', 'Catalogue', 'Films, shows and games'],
-  ['quotes', 'Quotes', 'Lines from anywhere else'],
-  ['anthologies', 'Anthologies', 'Quotes you have gathered'],
+  ['home', 'nav.tab.home.label', 'nav.tab.home.tip'],
+  ['library', 'nav.tab.library.label', 'nav.tab.library.tip'],
+  ['movies', 'nav.tab.movies.label', 'nav.tab.movies.tip'],
+  ['quotes', 'nav.tab.quotes.label', 'nav.tab.quotes.tip'],
+  ['anthologies', 'nav.tab.anthologies.label', 'nav.tab.anthologies.tip'],
 ]
 export const UTILITY_TABS = [
-  ['tags', 'Tags', 'Tags and stickers'],
-  ['metadata', 'Metadata', 'Covers, people and duplicates'],
-  ['stats', 'Stats', 'Calendar, memory, breakdowns'],
-  ['settings', 'Settings', 'Appearance, keys, backups'],
+  ['tags', 'nav.tab.tags.label', 'nav.tab.tags.tip'],
+  ['metadata', 'nav.tab.metadata.label', 'nav.tab.metadata.tip'],
+  ['stats', 'nav.tab.stats.label', 'nav.tab.stats.tip'],
+  ['settings', 'nav.tab.settings.label', 'nav.tab.settings.tip'],
 ]
 
 // DRAWER_TABS — the ☰ menu. null is the divider between the primary screens and
 // the utility group. Search leads, directly below the ＋ Add row.
 export const DRAWER_TABS = [
-  ['search', 'Search'],
-  ['home', 'Home'],
-  ['library', 'Library'],
-  ['movies', 'Catalogue'],
-  ['quotes', 'Quotes'],
-  ['anthologies', 'Anthologies'],
+  ['search', 'nav.tab.search.label'],
+  ['home', 'nav.tab.home.label'],
+  ['library', 'nav.tab.library.label'],
+  ['movies', 'nav.tab.movies.label'],
+  ['quotes', 'nav.tab.quotes.label'],
+  ['anthologies', 'nav.tab.anthologies.label'],
   null,
-  ['tags', 'Tags'],
-  ['metadata', 'Metadata'],
-  ['stats', 'Stats'],
-  ['settings', 'Settings'],
+  ['tags', 'nav.tab.tags.label'],
+  ['metadata', 'nav.tab.metadata.label'],
+  ['stats', 'nav.tab.stats.label'],
+  ['settings', 'nav.tab.settings.label'],
 ]
 
 // BOTTOM_TABS — the floating phone nav. Content screens only: the drawer owns
 // the utility tabs, ＋ Add and the account rows. Search is not here because the
 // phone's top bar has carried it since 1.4.1.
 export const BOTTOM_TABS = [
-  ['home', 'Home', "Go home to today's review"],
-  ['library', 'Library', 'Open your book library'],
-  ['movies', 'Catalogue', 'Open your film catalogue'],
-  ['quotes', 'Quotes', 'Open your standalone quotes'],
-  ['anthologies', 'Anthologies', 'Open your anthologies'],
+  ['home', 'nav.tab.home.label', 'nav.bottom.home.aria'],
+  ['library', 'nav.tab.library.label', 'nav.bottom.library.aria'],
+  ['movies', 'nav.tab.movies.label', 'nav.bottom.movies.aria'],
+  ['quotes', 'nav.tab.quotes.label', 'nav.bottom.quotes.aria'],
+  ['anthologies', 'nav.tab.anthologies.label', 'nav.bottom.anthologies.aria'],
 ]
 
 // ---- the sections a reader can turn off ----
@@ -111,16 +117,17 @@ export const BOTTOM_TABS = [
 // the Features card's writer — each branch on it once. A separate registry of
 // "the inverted ones" is the four-hand-maintained-lists shape this file already
 // warns about.
+// `label` and `what` are keys, for the reason the tab tables above are.
 export const SECTIONS = [
-  { tab: 'library', label: 'Library', pref: 'hideLibrary', what: 'Books, and the highlights you keep in them.' },
-  { tab: 'movies', label: 'Catalogue', pref: 'hideCatalogue', what: 'Films, shows and games, and the lines from them.' },
-  { tab: 'quotes', label: 'Quotes', pref: 'hideQuotes', what: 'Speeches, letters, proverbs — anything with no work behind it.' },
+  { tab: 'library', label: 'nav.tab.library.label', pref: 'hideLibrary', what: 'nav.section.library.what' },
+  { tab: 'movies', label: 'nav.tab.movies.label', pref: 'hideCatalogue', what: 'nav.section.movies.what' },
+  { tab: 'quotes', label: 'nav.tab.quotes.label', pref: 'hideQuotes', what: 'nav.section.quotes.what' },
   {
     tab: 'anthologies',
-    label: 'Anthologies',
+    label: 'nav.tab.anthologies.label',
     pref: 'showAnthologies',
     off: true,
-    what: 'Quotes gathered into a reading order, with your own words between them.',
+    what: 'nav.section.anthologies.what',
   },
 ]
 

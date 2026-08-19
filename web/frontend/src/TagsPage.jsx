@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { json, errText } from './api.js'
+import { t } from './i18n.js'
 import { usePractice } from './review.jsx'
 import {
   ColorSwatches,
@@ -52,8 +53,10 @@ export default function TagsPage() {
     <section className="space-y-5">
       <div className={mobile ? 'mobile-sticky-bar' : ''}>
         <PageHeader
-          title="Tags"
-          counts={tags ? `${tags.length} tag${tags.length === 1 ? '' : 's'} · shared by books & films` : undefined}
+          title={t('nav.tab.tags.label')}
+          counts={tags
+            ? t('tags.header.counts', { count: tags.length, n: tags.length, noun: t('unit.tag', { count: tags.length }) })
+            : undefined}
         />
       </div>
       <ErrorText>{error}</ErrorText>
@@ -63,18 +66,20 @@ export default function TagsPage() {
         <NewStickerCard onUploaded={reload} />
       </div>
       {tags && tags.length === 0 && (
-        <EmptyState>no tags yet — create one above, or tag an annotation</EmptyState>
+        <EmptyState>{t('tags.board.empty')}</EmptyState>
       )}
       {tags && tags.length > 0 && (
         <>
           <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
-            {top.map((t, i) => (
-              <CompactTagCard key={t.id} tag={t} index={i} onChanged={load} />
+            {top.map((row, i) => (
+              <CompactTagCard key={row.id} tag={row} index={i} onChanged={load} />
             ))}
           </div>
           {tags.length > 5 && (
             <GhostButton type="button" onClick={() => setShowTable((v) => !v)}>
-              {showTable ? 'Hide table' : `More tags (${tags.length - 5})…`}
+              {showTable
+                ? t('tags.table.hide.label')
+                : t('tags.table.more.label', { n: tags.length - 5, count: tags.length - 5 })}
             </GhostButton>
           )}
           {showTable && <TagTable tags={byUses} onChanged={load} />}
@@ -87,17 +92,17 @@ export default function TagsPage() {
   )
 }
 
-function plural(n, word) {
-  return `${n} ${word}${n === 1 ? '' : 's'}`
-}
-
 async function deleteTag(tag, onChanged, setError) {
   const uses = tag.annotations + tag.dialogues
-  const detach = uses > 0 ? ` It will be detached from ${plural(uses, 'item')} — they keep working, just untagged.` : ''
-  if (!confirm(`Delete tag "${tag.name}"?${detach}`)) return
+  // Two whole sentences rather than one plus an appended clause — see the same
+  // pair in stickers.jsx for why the reassurance is not glued on at the end.
+  const ask = uses > 0
+    ? t('tags.delete.confirm.body-used', { count: uses, n: uses, name: tag.name, noun: t('unit.item', { count: uses }) })
+    : t('tags.delete.confirm.body', { name: tag.name })
+  if (!confirm(ask)) return
   const r = await json('DELETE', `/tags/${tag.id}`)
   if (r.ok) onChanged()
-  else setError(errText(r, 'could not delete tag'))
+  else setError(errText(r, t('error.delete.tag')))
 }
 
 // CompactTagCard — the small top-row card: chip + counts + edit/delete, or the
@@ -110,14 +115,14 @@ function CompactTagCard({ tag, index, onChanged }) {
 
   return (
     <HandCard variant={index % 4} className="flex flex-col gap-2 p-3">
-      <FormModal open={editing} onClose={() => setEditing(false)} title="Edit tag" maxWidth={460}>
+      <FormModal open={editing} onClose={() => setEditing(false)} title={t('tags.form.edit.title')} maxWidth={460}>
         <TagForm
           initial={tag}
-          submitLabel="Save"
+          submitLabel={t('common.action.save.label')}
           onCancel={() => setEditing(false)}
           onSubmit={async (fields) => {
             const r = await json('PUT', `/tags/${tag.id}`, fields)
-            if (!r.ok) return errText(r, 'could not save tag')
+            if (!r.ok) return errText(r, t('error.save.tag'))
             setEditing(false)
             onChanged()
             return null
@@ -125,7 +130,7 @@ function CompactTagCard({ tag, index, onChanged }) {
         />
       </FormModal>
       <TagChip color={tag.color} style={tag.style}>
-        {tag.name} · {uses}
+        {t('tags.card.chip.label', { name: tag.name, n: uses })}
       </TagChip>
       <ErrorText>{error}</ErrorText>
       <div className="mt-auto flex gap-3 pt-0.5">
@@ -134,14 +139,14 @@ function CompactTagCard({ tag, index, onChanged }) {
             worse answer than an absent control. */}
         {uses > 0 && (
           <button className="tp-link" onClick={() => practise({ tag: tag.name, label: tag.name })}>
-            practise
+            {t('common.link.practise.label')}
           </button>
         )}
         <button className="tp-link" onClick={() => setEditing(true)}>
-          edit
+          {t('common.link.edit.label')}
         </button>
         <button className="tp-link tp-link-danger" onClick={() => deleteTag(tag, onChanged, setError)}>
-          delete
+          {t('common.link.delete.label')}
         </button>
       </div>
       {practiceDialog}
@@ -157,11 +162,11 @@ function TagTable({ tags, onChanged }) {
   const [error, setError] = useState('')
   const { practise, practiceDialog } = usePractice()
   const rows = apply(tags, {
-    name: (t) => t.name.toLowerCase(),
-    style: (t) => t.style,
-    uses: (t) => t.annotations + t.dialogues,
+    name: (row) => row.name.toLowerCase(),
+    style: (row) => row.style,
+    uses: (row) => row.annotations + row.dialogues,
   })
-  const editingRow = rows.find((t) => t.id === editingId)
+  const editingRow = rows.find((row) => row.id === editingId)
   return (
     <>
       <ErrorText>{error}</ErrorText>
@@ -169,28 +174,28 @@ function TagTable({ tags, onChanged }) {
         <table className="ann-table">
           <thead>
             <tr>
-              <SortableTh col="name" label="Tag" sort={sort} onSort={toggle} />
-              <SortableTh col="style" label="Style" sort={sort} onSort={toggle} />
-              <SortableTh col="uses" label="Uses" sort={sort} onSort={toggle} />
+              <SortableTh col="name" label={t('common.field.tag.label')} sort={sort} onSort={toggle} />
+              <SortableTh col="style" label={t('common.field.style.label')} sort={sort} onSort={toggle} />
+              <SortableTh col="uses" label={t('tags.table.uses.label')} sort={sort} onSort={toggle} />
               <th></th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((t) => (
-              <tr key={t.id}>
-                <td><TagChip color={t.color} style={t.style}>{t.name}</TagChip></td>
-                <td className="col-mono">{t.style}</td>
-                <td className="col-mono">{t.annotations + t.dialogues}</td>
+            {rows.map((row) => (
+              <tr key={row.id}>
+                <td><TagChip color={row.color} style={row.style}>{row.name}</TagChip></td>
+                <td className="col-mono">{row.style}</td>
+                <td className="col-mono">{row.annotations + row.dialogues}</td>
                 <td className="col-actions">
                   <TableActions
-                    noun="tag"
+                    noun={t('unit.tag.one')}
                     onPractise={
-                      t.annotations + t.dialogues > 0
-                        ? () => practise({ tag: t.name, label: t.name })
+                      row.annotations + row.dialogues > 0
+                        ? () => practise({ tag: row.name, label: row.name })
                         : undefined
                     }
-                    onEdit={() => setEditingId(t.id)}
-                    onDelete={() => deleteTag(t, onChanged, setError)}
+                    onEdit={() => setEditingId(row.id)}
+                    onDelete={() => deleteTag(row, onChanged, setError)}
                   />
                 </td>
               </tr>
@@ -198,15 +203,15 @@ function TagTable({ tags, onChanged }) {
           </tbody>
         </table>
       </div>
-      <FormModal open={!!editingRow} onClose={() => setEditingId(null)} title="Edit tag" maxWidth={460}>
+      <FormModal open={!!editingRow} onClose={() => setEditingId(null)} title={t('tags.form.edit.title')} maxWidth={460}>
         {editingRow && (
           <TagForm
             initial={editingRow}
-            submitLabel="Save"
+            submitLabel={t('common.action.save.label')}
             onCancel={() => setEditingId(null)}
             onSubmit={async (fields) => {
               const r = await json('PUT', `/tags/${editingRow.id}`, fields)
-              if (!r.ok) return errText(r, 'could not save tag')
+              if (!r.ok) return errText(r, t('error.save.tag'))
               setEditingId(null)
               onChanged()
               return null
@@ -224,13 +229,13 @@ function NewTagCard({ onCreated }) {
   return (
     <section className="p-5" style={{ border: '1.6px dashed var(--ink-border)', borderRadius: 14 }}>
       <p className="mb-3 font-semibold" style={{ color: 'var(--accent-ui)' }}>
-        ＋ New tag
+        {t('tags.new.title')}
       </p>
       <TagForm
-        submitLabel="Create tag"
+        submitLabel={t('tags.new.submit.label')}
         onSubmit={async (fields) => {
           const r = await json('POST', '/tags', fields)
-          if (!r.ok) return errText(r, 'could not create tag') // 409 duplicate lands here
+          if (!r.ok) return errText(r, t('error.create.tag')) // 409 duplicate lands here
           onCreated()
           return null
         }}
@@ -249,11 +254,11 @@ function TagForm({ initial, submitLabel, onSubmit, onCancel }) {
   const [busy, setBusy] = useState(false)
 
   // Joins the dialog's header ✓ when there is one — see FormHostContext.
-  const host = useFormHost(busy ? 'Saving…' : name.trim() ? '' : 'A name is required')
+  const host = useFormHost(busy ? t('common.action.save.busy') : name.trim() ? '' : t('error.validate.name-required'))
 
   async function submit(e) {
     e.preventDefault()
-    if (!name.trim()) return setError('name is required')
+    if (!name.trim()) return setError(t('error.validate.name-blank'))
     setBusy(true)
     setError('')
     const err = await onSubmit({ name: name.trim(), color, style })
@@ -270,17 +275,17 @@ function TagForm({ initial, submitLabel, onSubmit, onCancel }) {
     <form id={host?.formId} onSubmit={submit} className="space-y-3">
       <input
         className="tp-input"
-        placeholder="name…"
+        placeholder={t('common.field.name.placeholder')}
         maxLength={64}
         value={name}
         onChange={(e) => setName(e.target.value)}
       />
       <div className="flex items-center gap-3">
-        <MonoLabel>Colour</MonoLabel>
+        <MonoLabel>{t('common.field.colour.label')}</MonoLabel>
         <ColorSwatches value={color} onChange={setColor} />
       </div>
       <div className="space-y-1.5">
-        <MonoLabel>Style</MonoLabel>
+        <MonoLabel>{t('common.field.style.label')}</MonoLabel>
         <StylePicker color={color} value={style} onChange={setStyle} />
       </div>
       <ErrorText>{error}</ErrorText>
@@ -293,7 +298,7 @@ function TagForm({ initial, submitLabel, onSubmit, onCancel }) {
           </button>
           {onCancel && (
             <GhostButton type="button" onClick={onCancel} disabled={busy}>
-              Cancel
+              {t('common.action.cancel.label')}
             </GhostButton>
           )}
         </div>
@@ -306,7 +311,7 @@ function TagForm({ initial, submitLabel, onSubmit, onCancel }) {
 // (§6); selection ring is a border so the focus outline stays intact (§11).
 function StylePicker({ color, value, onChange }) {
   return (
-    <div className="flex flex-wrap items-center gap-1" role="radiogroup" aria-label="Tag style">
+    <div className="flex flex-wrap items-center gap-1" role="radiogroup" aria-label={t('tags.form.style.aria')}>
       {TAG_STYLES.map((s) => (
         <button
           key={s}

@@ -5,6 +5,7 @@
 // sticker_id column on annotations/dialogues (migrations 0011).
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { coverImgURL, json, upload, errText } from './api.js'
+import { t } from './i18n.js'
 import { EmptyState, ErrorText, GhostButton, HandCard, MonoLabel, SortableTh, TableActions, Tooltip, useSort } from './ui.jsx'
 
 // Stored sticker files are served from the shared cover route (built directly,
@@ -38,7 +39,7 @@ export function StickerImg({ sticker }) {
     <img
       className="sticker-img"
       src={stickerURL(sticker.path)}
-      alt={sticker.name || 'sticker'}
+      alt={sticker.name || t('common.sticker.image.alt')}
       draggable="false"
       aria-hidden="true"
     />
@@ -61,7 +62,7 @@ export function StickerPicker({ value, onChange, stickers, reload }) {
     setError('')
     const r = await upload('/stickers', f)
     setBusy(false)
-    if (!r.ok) return setError(errText(r, 'could not upload sticker'))
+    if (!r.ok) return setError(errText(r, t('error.upload.sticker')))
     await reload()
     onChange(r.data.id) // select the freshly uploaded sticker
   }
@@ -73,15 +74,15 @@ export function StickerPicker({ value, onChange, stickers, reload }) {
           type="button"
           className={`sticker-opt sticker-none${value == null ? ' is-sel' : ''}`}
           onClick={() => onChange(null)}
-          title="No sticker"
+          title={t('common.sticker.none.tip')}
           aria-pressed={value == null}
         >
-          none
+          {t('common.sticker.none.label')}
         </button>
         {stickers.map((s) => (
           <Tooltip
             key={s.id}
-            label={s.name ? `Use “${s.name}”` : 'Use as the seal'}
+            label={s.name ? t('common.sticker.use.tip', { name: s.name }) : t('common.sticker.use-any.tip')}
             side="top"
             className="shrink-0"
           >
@@ -91,11 +92,11 @@ export function StickerPicker({ value, onChange, stickers, reload }) {
               onClick={() => onChange(s.id)}
               aria-pressed={value === s.id}
             >
-              <img src={stickerURL(s.path)} alt={s.name || 'sticker'} />
+              <img src={stickerURL(s.path)} alt={s.name || t('common.sticker.image.alt')} />
             </button>
           </Tooltip>
         ))}
-        <Tooltip label={busy ? 'Uploading…' : 'Upload a new sticker'} side="top" className="shrink-0">
+        <Tooltip label={t(busy ? 'common.action.upload.busy' : 'common.sticker.upload.tip')} side="top" className="shrink-0">
           <button
             type="button"
             className="sticker-opt sticker-add"
@@ -127,20 +128,20 @@ export function NewStickerCard({ onUploaded }) {
     setError('')
     const r = await upload('/stickers', f)
     setBusy(false)
-    if (!r.ok) return setError(errText(r, 'could not upload sticker'))
+    if (!r.ok) return setError(errText(r, t('error.upload.sticker')))
     onUploaded()
   }
 
   return (
     <section className="p-5" style={{ border: '1.6px dashed var(--ink-border)', borderRadius: 14 }}>
       <p className="mb-1 font-semibold" style={{ color: 'var(--accent-ui)' }}>
-        ＋ New sticker
+        {t('tags.sticker.new.title')}
       </p>
       <p className="mb-3 text-xs" style={{ color: 'var(--soft)' }}>
-        transparent PNG or SVG images — attach one to any quote in its add/edit form
+        {t('tags.sticker.new.body')}
       </p>
       <GhostButton type="button" onClick={() => fileRef.current && fileRef.current.click()} disabled={busy}>
-        {busy ? 'uploading…' : 'Upload sticker'}
+        {t(busy ? 'tags.sticker.new.upload.busy' : 'tags.sticker.new.upload.label')}
       </GhostButton>
       <input ref={fileRef} type="file" accept={STICKER_ACCEPT} hidden onChange={onFile} />
       <ErrorText>{error}</ErrorText>
@@ -159,10 +160,10 @@ export function StickerList({ stickers, onChanged }) {
   return (
     <section className="space-y-4">
       <h2 className="text-lg font-semibold" style={{ color: 'var(--ink)' }}>
-        Stickers
+        {t('tags.sticker.section.title')}
       </h2>
       {stickers.length === 0 ? (
-        <EmptyState>no stickers yet — upload a transparent PNG or SVG above</EmptyState>
+        <EmptyState>{t('tags.sticker.board.empty')}</EmptyState>
       ) : (
         <>
           <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
@@ -172,7 +173,9 @@ export function StickerList({ stickers, onChanged }) {
           </div>
           {stickers.length > 5 && (
             <GhostButton type="button" onClick={() => setShowTable((v) => !v)}>
-              {showTable ? 'Hide table' : `More stickers (${stickers.length - 5})…`}
+              {showTable
+                ? t('tags.table.hide.label')
+                : t('tags.sticker.table.more.label', { n: stickers.length - 5, count: stickers.length - 5 })}
             </GhostButton>
           )}
           {showTable && <StickerTable stickers={stickers} onChanged={onChanged} />}
@@ -182,25 +185,25 @@ export function StickerList({ stickers, onChanged }) {
   )
 }
 
-function plural(n, word) {
-  return `${n} ${word}${n === 1 ? '' : 's'}`
-}
-
 async function renameSticker(sticker, name, onChanged, setError) {
   const trimmed = name.trim()
   if (trimmed === (sticker.name || '')) return
   const r = await json('PUT', `/stickers/${sticker.id}`, { name: trimmed })
-  if (!r.ok) setError(errText(r, 'could not rename'))
+  if (!r.ok) setError(errText(r, t('error.rename.generic')))
   else onChanged()
 }
 
 async function deleteSticker(sticker, onChanged, setError) {
   const uses = sticker.annotations + sticker.dialogues
-  const detach = uses > 0 ? ` It will be detached from ${plural(uses, 'quote')} — they keep working, just without the seal.` : ''
-  if (!confirm(`Delete this sticker?${detach}`)) return
+  // Two whole sentences rather than one plus an appended clause: another language
+  // may not want the reassurance last, or as a second sentence at all.
+  const ask = uses > 0
+    ? t('tags.sticker.delete.confirm.body-used', { count: uses, n: uses, noun: t('unit.quote', { count: uses }) })
+    : t('tags.sticker.delete.confirm.body')
+  if (!confirm(ask)) return
   const r = await json('DELETE', `/stickers/${sticker.id}`)
   if (r.ok) onChanged()
-  else setError(errText(r, 'could not delete sticker'))
+  else setError(errText(r, t('error.delete.sticker')))
 }
 
 // StickerCard — one of the latest-5 quick cards: preview, inline rename, delete.
@@ -211,11 +214,11 @@ function StickerCard({ sticker, index, onChanged }) {
   return (
     <HandCard variant={index % 4} className="flex flex-col gap-2 p-3">
       <div className="sticker-swatch" style={{ height: 72 }}>
-        <img src={stickerURL(sticker.path)} alt={sticker.name || 'sticker'} />
+        <img src={stickerURL(sticker.path)} alt={sticker.name || t('common.sticker.image.alt')} />
       </div>
       <input
         className="tp-input"
-        placeholder="name…"
+        placeholder={t('common.field.name.placeholder')}
         maxLength={64}
         value={name}
         onChange={(e) => setName(e.target.value)}
@@ -229,7 +232,7 @@ function StickerCard({ sticker, index, onChanged }) {
       />
       <ErrorText>{error}</ErrorText>
       <button className="tp-link tp-link-danger mt-auto self-start" onClick={() => deleteSticker(sticker, onChanged, setError)}>
-        delete
+        {t('common.link.delete.label')}
       </button>
     </HandCard>
   )
@@ -252,8 +255,8 @@ function StickerTable({ stickers, onChanged }) {
           <thead>
             <tr>
               <th style={{ width: 52 }}></th>
-              <SortableTh col="name" label="Name" sort={sort} onSort={toggle} />
-              <SortableTh col="uses" label="Uses" sort={sort} onSort={toggle} />
+              <SortableTh col="name" label={t('common.field.name.label')} sort={sort} onSort={toggle} />
+              <SortableTh col="uses" label={t('tags.table.uses.label')} sort={sort} onSort={toggle} />
               <th></th>
             </tr>
           </thead>
@@ -274,13 +277,13 @@ function StickerRow({ sticker, onChanged, setError }) {
     <tr>
       <td>
         <span className="sticker-swatch" style={{ height: 34, width: 34, padding: 3, display: 'inline-flex' }}>
-          <img src={stickerURL(sticker.path)} alt={sticker.name || 'sticker'} />
+          <img src={stickerURL(sticker.path)} alt={sticker.name || t('common.sticker.image.alt')} />
         </span>
       </td>
       <td>
         <input
           className="tp-input"
-          placeholder="name…"
+          placeholder={t('common.field.name.placeholder')}
           maxLength={64}
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -295,7 +298,7 @@ function StickerRow({ sticker, onChanged, setError }) {
       </td>
       <td className="col-mono">{sticker.annotations + sticker.dialogues}</td>
       <td className="col-actions">
-        <TableActions noun="sticker" onDelete={() => deleteSticker(sticker, onChanged, setError)} />
+        <TableActions noun={t('unit.sticker.one')} onDelete={() => deleteSticker(sticker, onChanged, setError)} />
       </td>
     </tr>
   )

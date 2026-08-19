@@ -13,23 +13,29 @@
 //
 // No dependency on the server, no network call, nothing stored. `pick` is random
 // rather than seeded, because a different line on every visit is the point.
+//
+// THE POOL IS KEYS, NOT LINES. The copy lives in the locale files under
+// greeting.epigraph.*, so a language can carry its own epigraphs rather than a
+// translation of these; the index in the key IS the pool member's identity.
+import { t } from './i18n.js'
+
 const EPIGRAPHS = [
-  'A margin is a promise: that there is always room to answer back.',
-  'The book is the author’s. The margin is yours.',
-  'Nothing is really read until something is written beside it.',
-  'A quote you cannot find again is a quote you did not keep.',
-  'Reading twice is not repetition. It is the second half of reading once.',
-  'Keep the line, and the book keeps you.',
-  'Underlining is a question. A note is the answer.',
-  'What you copied out by hand is what you actually read.',
-  'A commonplace book is a memory you are allowed to lend.',
-  'The margin is the only part of a book that is about you.',
+  'greeting.epigraph.1',
+  'greeting.epigraph.2',
+  'greeting.epigraph.3',
+  'greeting.epigraph.4',
+  'greeting.epigraph.5',
+  'greeting.epigraph.6',
+  'greeting.epigraph.7',
+  'greeting.epigraph.8',
+  'greeting.epigraph.9',
+  'greeting.epigraph.10',
 ]
 
 // pickEpigraph returns one line. Exported for the login screen and for the test
 // that keeps this file honest.
 export function pickEpigraph(rand = Math.random) {
-  return EPIGRAPHS[Math.floor(rand() * EPIGRAPHS.length) % EPIGRAPHS.length]
+  return t(EPIGRAPHS[Math.floor(rand() * EPIGRAPHS.length) % EPIGRAPHS.length])
 }
 
 export { EPIGRAPHS }

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { CAT_NAME_MAX, categoryName, categoryVar } from './theme.js'
 import { usePractice } from './review.jsx'
 import { coverImgURL, json } from './api.js'
+import { t, tNodes } from './i18n.js'
 import { PersonPortrait, usePeople } from './people.jsx'
 import { ANNOTATION_COLORS, ANNOTATION_HEX, Card, FieldIconButton, fmtHalfLife, IconQuiz, MonoLabel, mulberry32, PageHeader, STATUS_META, toast, Toggle, Tooltip, useIsMobileScreen, usePersistedState } from './ui.jsx'
 
@@ -15,7 +16,9 @@ import { ANNOTATION_COLORS, ANNOTATION_HEX, Card, FieldIconButton, fmtHalfLife, 
 // Everything named is a doorway: activity dots, breakdown rows, superlative
 // tiles and top tags all click through to the Search page (`onSearch`).
 
-const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+// A FUNCTION, so the names resolve at render time. The calendar's x axis takes
+// the first three characters of whichever name comes back.
+const monthName = (i) => t(`vocab.month.${i + 1}.label`)
 
 // The four colour categories, named and coloured the way the reader named and
 // coloured them — a breakdown headed "Blue" when every card in the app says
@@ -28,8 +31,8 @@ const hlRows = () => ANNOTATION_COLORS.map((c) => [c, categoryName(c), categoryV
 function formatMonth(ym) {
   if (!ym) return ''
   const [y, m] = ym.split('-')
-  const name = MONTHS[Number(m) - 1]
-  return name ? `${name} ${y}` : ym
+  const name = monthName(Number(m) - 1)
+  return name ? t('stats.month.label', { name, n: y }) : ym
 }
 
 function SectionHead({ label, right }) {
@@ -64,19 +67,19 @@ function Overview({ s }) {
   // database and the README call the book kind, and Quotes is now what the tab
   // means by it.
   const tiles = [
-    ['Books', s.books],
-    ['Annotations', s.annotations],
-    ['Films', s.movies],
-    ['Dialogues', s.dialogues],
-    ['Quotes', s.quotes],
-    ['Genres', s.genres],
-    ['Tags', s.tags],
+    [t('stats.overview.books.label'), s.books],
+    [t('stats.overview.annotations.label'), s.annotations],
+    [t('stats.overview.movies.label'), s.movies],
+    [t('stats.overview.dialogues.label'), s.dialogues],
+    [t('stats.overview.quotes.label'), s.quotes],
+    [t('stats.overview.genres.label'), s.genres],
+    [t('stats.overview.tags.label'), s.tags],
   ]
   return (
     <Card>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(118px, 1fr))', gap: 12 }}>
         {tiles.map(([label, n]) => <StatTile key={label} n={n} label={label} />)}
-        <StatTile n={s.favorites} label="Favourites" heart />
+        <StatTile n={s.favorites} label={t('stats.overview.favourites.label')} heart />
       </div>
     </Card>
   )
@@ -136,11 +139,15 @@ function useCalendarWeeks(ref, mobile) {
 // the rows). Those days say "no answers" rather than "0% correct", which is a
 // claim about a session that did not happen.
 export function dayTitle(dateLabel, day, noun, accuracy) {
-  if (!accuracy) return `${dateLabel}: ${day.count} ${noun}`
-  if (!day.count) return `${dateLabel}: no answers`
-  const answers = `${day.count} answer${day.count === 1 ? '' : 's'}`
-  if (day.got == null) return `${dateLabel}: ${answers}`
-  return `${dateLabel}: ${answers} · ${Math.round((100 * day.got) / day.count)}% correct`
+  if (!accuracy) return t('stats.activity.day.saves.tip', { date: dateLabel, n: day.count, count: day.count, noun })
+  if (!day.count) return t('stats.activity.day.none.tip', { date: dateLabel })
+  const answers = t('stats.activity.day.answers', { count: day.count, n: day.count })
+  if (day.got == null) return t('stats.activity.day.tally.tip', { date: dateLabel, answers })
+  return t('stats.activity.day.accuracy.tip', {
+    date: dateLabel,
+    answers,
+    percent: Math.round((100 * day.got) / day.count),
+  })
 }
 
 // ActivityCalendar — a GitHub-style heatmap: one dot per day, one column per
@@ -191,7 +198,7 @@ function ActivityCalendar({ data, noun = 'saved', onSearch, accuracy = false }) 
     // month (e.g. August) gets the label instead of being crowded out. A label
     // then needs ~3 columns of clearance from the previous one.
     if (m !== prevMonth && wi > 0 && wi - lastLabelAt >= 3) {
-      label = MONTHS[m].slice(0, 3)
+      label = monthName(m).slice(0, 3)
       lastLabelAt = wi
     }
     monthLabels.push(label)
@@ -229,8 +236,8 @@ function ActivityCalendar({ data, noun = 'saved', onSearch, accuracy = false }) 
                       key={di}
                       type="button"
                       className="cal-dot"
-                      title={`${label} — view in search`}
-                      aria-label={`${label} — view in search`}
+                      title={t('stats.activity.day.search.tip', { label })}
+                      aria-label={t('stats.activity.day.search.tip', { label })}
                       onClick={() => onSearch(localISO(d.date))}
                       style={dot}
                     />
@@ -252,11 +259,11 @@ function ActivityCalendar({ data, noun = 'saved', onSearch, accuracy = false }) 
         </div>
       </div>
       <div className="mt-2 flex items-center justify-end gap-1.5">
-        <span className="mono-label" style={{ fontSize: 9, color: 'var(--faint)' }}>less</span>
+        <span className="mono-label" style={{ fontSize: 9, color: 'var(--faint)' }}>{t('stats.activity.legend.less.label')}</span>
         {[0, 1, 2, 3, 4].map((lv) => (
           <span key={lv} aria-hidden="true" style={{ width: DOT, height: DOT, borderRadius: 999, background: lv === 0 ? 'var(--line)' : `color-mix(in srgb, var(--accent-ui) ${CAL_STEPS[lv - 1]}%, var(--line))` }} />
         ))}
-        <span className="mono-label" style={{ fontSize: 9, color: 'var(--faint)' }}>more</span>
+        <span className="mono-label" style={{ fontSize: 9, color: 'var(--faint)' }}>{t('stats.activity.legend.more.label')}</span>
       </div>
     </>
   )
@@ -273,26 +280,27 @@ function ActivityCalendar({ data, noun = 'saved', onSearch, accuracy = false }) 
 // the reader can empty on purpose, and a reset used to leave a full grid of grey
 // dots and no word about why — which reads as a chart that failed to load rather
 // than as the reset having worked.
-const ACTIVITY_STREAMS = [
-  { key: 'saves', label: 'Saves', noun: 'saved', clickable: true, accuracy: false, empty: 'nothing saved yet' },
-  { key: 'quiz', label: 'Quiz', noun: 'reviewed', clickable: false, accuracy: true, empty: 'no quiz answers yet' },
-  { key: 'practice', label: 'Practice', noun: 'practised', clickable: false, accuracy: true, empty: 'no practice history' },
+const activityStreams = () => [
+  { key: 'saves', label: t('stats.activity.saves.label'), noun: t('stats.activity.saves.noun'), clickable: true, accuracy: false, empty: t('stats.activity.saves.empty') },
+  { key: 'quiz', label: t('stats.activity.quiz.label'), noun: t('stats.activity.quiz.noun'), clickable: false, accuracy: true, empty: t('stats.activity.quiz.empty') },
+  { key: 'practice', label: t('stats.activity.practice.label'), noun: t('stats.activity.practice.noun'), clickable: false, accuracy: true, empty: t('stats.activity.practice.empty') },
 ]
 function ActivityCard({ saves, quiz, practice, onSearch, onResetPractice }) {
   const [stream, setStream] = useState('saves')
-  const meta = ACTIVITY_STREAMS.find((s) => s.key === stream) || ACTIVITY_STREAMS[0]
+  const streams = activityStreams()
+  const meta = streams.find((s) => s.key === stream) || streams[0]
   const series = stream === 'quiz' ? quiz : stream === 'practice' ? practice : saves
   const total = (series || []).reduce((n, d) => n + d.count, 0)
   const hasPractice = (practice || []).length > 0
   return (
     <Card>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-        <MonoLabel>Activity · {total} {meta.noun}</MonoLabel>
+        <MonoLabel>{t('stats.activity.title', { n: total, noun: meta.noun })}</MonoLabel>
         <div className="flex items-center gap-3">
           {stream === 'practice' && hasPractice && onResetPractice && (
-            <button type="button" className="tp-link" onClick={onResetPractice}>reset practice</button>
+            <button type="button" className="tp-link" onClick={onResetPractice}>{t('stats.activity.practice.reset.label')}</button>
           )}
-          <Toggle ariaLabel="Activity stream" value={stream} onChange={setStream} options={ACTIVITY_STREAMS.map((s) => [s.key, s.label])} />
+          <Toggle ariaLabel={t('stats.activity.stream.aria')} value={stream} onChange={setStream} options={streams.map((s) => [s.key, s.label])} />
         </div>
       </div>
       {total === 0 ? (
@@ -320,12 +328,15 @@ function MemoryCard({ recall }) {
   ]
   return (
     <Card>
-      <SectionHead label="Memory" right={<span className="mono-label">{recall.reviewed} of {st.total} in rotation</span>} />
+      <SectionHead
+        label={t('stats.memory.title')}
+        right={<span className="mono-label">{t('stats.memory.rotation.label', { done: recall.reviewed, total: st.total })}</span>}
+      />
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(148px, 1fr))', gap: 12 }}>
         {tiles.map(([key, n]) => (
-          <StatTile key={key} n={n} label={STATUS_META[key].label} dot={STATUS_META[key]} />
+          <StatTile key={key} n={n} label={t(STATUS_META[key].label)} dot={STATUS_META[key]} />
         ))}
-        {recall.reviewed > 0 && <StatTile n={fmtHalfLife(recall.avg_half_life)} label="Avg half-life" />}
+        {recall.reviewed > 0 && <StatTile n={fmtHalfLife(recall.avg_half_life)} label={t('stats.memory.half-life.label')} />}
       </div>
     </Card>
   )
@@ -339,23 +350,23 @@ function MemoryCard({ recall }) {
 // carry a cover/poster thumb (rows send cover_path); `person` kinds wear the
 // People-console portrait chip for that credit kind.
 const BREAKDOWN_KINDS = [
-  { key: 'authors', label: 'Authors', works: true, person: 'author' },
-  { key: 'books', label: 'Books', works: false, art: true },
-  { key: 'series', label: 'Series', works: true },
-  { key: 'films', label: 'Films', works: false, art: true },
-  { key: 'shows', label: 'Shows', works: false, art: true },
-  { key: 'directors', label: 'Directors', works: true, person: 'director' },
-  { key: 'actors', label: 'Actors', works: true, person: 'actor' },
+  { key: 'authors', get label() { return t('stats.breakdown.authors.label') }, works: true, person: 'author' },
+  { key: 'books', get label() { return t('stats.breakdown.books.label') }, works: false, art: true },
+  { key: 'series', get label() { return t('stats.breakdown.series.label') }, works: true },
+  { key: 'films', get label() { return t('stats.breakdown.films.label') }, works: false, art: true },
+  { key: 'shows', get label() { return t('stats.breakdown.shows.label') }, works: false, art: true },
+  { key: 'directors', get label() { return t('stats.breakdown.directors.label') }, works: true, person: 'director' },
+  { key: 'actors', get label() { return t('stats.breakdown.actors.label') }, works: true, person: 'actor' },
   // A speaker spans occasions the way an author spans books, so `works` is on.
   // The portrait comes from the People console like every other person kind.
-  { key: 'speakers', label: 'Speakers', works: true, person: 'speaker' },
+  { key: 'speakers', get label() { return t('stats.breakdown.speakers.label') }, works: true, person: 'speaker' },
   // Everyone, whatever they were credited as. 0027 made a person's NAME their
   // identity and their roles a set, exactly because a speaker is so often
   // already an author — but the breakdowns still asked the question four times,
   // so somebody with a book and a film was two half-people in two sections.
   // This is the section that answers "who do I quote", which is the question
   // the other four are each a fragment of.
-  { key: 'people', label: 'People', works: true, person: 'any' },
+  { key: 'people', get label() { return t('stats.breakdown.people.label') }, works: true, person: 'any' },
 ]
 
 // The status segments of a breakdown row, in curve order.
@@ -372,7 +383,8 @@ const ROW_SEGS = [
 // opens that entity on the Search page.
 function BreakdownRow({ r, rank, showWorks, art, personMap, onSearch }) {
   const segs = ROW_SEGS.map(([key, of]) => [key, of(r)]).filter(([, n]) => n > 0)
-  const barTip = segs.map(([key, n]) => `${n} ${STATUS_META[key].label.toLowerCase()}`).join(' · ')
+  const statusText = ([key, n]) => t('stats.breakdown.status.label', { n, name: t(STATUS_META[key].label).toLowerCase() })
+  const barTip = segs.map(statusText).join(' · ')
   const portrait = personMap ? personMap[r.name] : null
   // Kinds that carry art (covers / portraits) always reserve a fixed-width art
   // column, image or not, so the name + status bar start at the same x and the
@@ -398,7 +410,7 @@ function BreakdownRow({ r, rank, showWorks, art, personMap, onSearch }) {
       )}
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline justify-between gap-2">
-          <Tooltip label="Search for this name" side="bottom" className="min-w-0">
+          <Tooltip label={t('stats.breakdown.name.tip')} side="bottom" className="min-w-0">
             <button
               type="button"
               className="truncate text-left"
@@ -418,9 +430,9 @@ function BreakdownRow({ r, rank, showWorks, art, personMap, onSearch }) {
           </div>
         )}
         <p className="mono-label" style={{ marginTop: 3, fontSize: 9.5, color: 'var(--faint)' }}>
-          {showWorks ? `${r.works} ${r.works === 1 ? 'work' : 'works'}` : ''}
+          {showWorks ? t('stats.breakdown.works', { count: r.works, n: r.works }) : ''}
           {showWorks && segs.length > 0 ? ' · ' : ''}
-          {segs.map(([key, n]) => `${n} ${STATUS_META[key].label.toLowerCase()}`).join(' · ')}
+          {segs.map(statusText).join(' · ')}
         </p>
       </div>
     </div>
@@ -440,10 +452,10 @@ function BreakdownCard({ breakdown, personMaps, onSearch }) {
   return (
     <Card>
       <div className="mb-3 flex items-center justify-between gap-3">
-        <MonoLabel>Breakdown · {k.count}</MonoLabel>
+        <MonoLabel>{t('stats.breakdown.title', { n: k.count })}</MonoLabel>
         <select
           className="tp-input"
-          aria-label="Breakdown kind"
+          aria-label={t('stats.breakdown.kind.aria')}
           value={kind}
           onChange={(e) => setKind(e.target.value)}
           style={{ maxWidth: 140, paddingTop: 5, paddingBottom: 5, fontSize: 13 }}
@@ -453,13 +465,21 @@ function BreakdownCard({ breakdown, personMaps, onSearch }) {
       </div>
       {(k.most_remembered || k.most_forgotten) && (
         <p className="microcopy mb-3" style={{ lineHeight: 1.6 }}>
-          {k.most_remembered && <>best remembered: <strong>{k.most_remembered.name}</strong> · {k.most_remembered.remembered}</>}
+          {k.most_remembered &&
+            tNodes('stats.breakdown.best.label', {
+              name: <strong key="name">{k.most_remembered.name}</strong>,
+              n: k.most_remembered.remembered,
+            })}
           {k.most_remembered && k.most_forgotten && <br />}
-          {k.most_forgotten && <>most forgotten: <strong>{k.most_forgotten.name}</strong> · {k.most_forgotten.probably_forgotten}</>}
+          {k.most_forgotten &&
+            tNodes('stats.breakdown.worst.label', {
+              name: <strong key="name">{k.most_forgotten.name}</strong>,
+              n: k.most_forgotten.probably_forgotten,
+            })}
         </p>
       )}
       {!k.top || k.top.length === 0 ? (
-        <p className="tp-empty" style={{ padding: '16px 0' }}>nothing yet</p>
+        <p className="tp-empty" style={{ padding: '16px 0' }}>{t('stats.list.empty')}</p>
       ) : (
         // Ranked, and ~10 rows tall — the rest scrolls (the server sends up
         // to 50 per kind).
@@ -484,7 +504,7 @@ function BreakdownCard({ breakdown, personMaps, onSearch }) {
 // HBar — one labelled horizontal magnitude bar (used by the colour breakdown).
 function HBar({ swatch, label, labelWidth, n, max, fill, onPractise }) {
   return (
-    <div className="flex items-center gap-2" title={`${label}: ${n}`}>
+    <div className="flex items-center gap-2" title={t('stats.bar.tip', { name: label, n })}>
       {swatch}
       {/* The bar is a magnitude, not a control — so the doorway is a separate
           button at the end of the row rather than the row itself. A chart you
@@ -503,9 +523,9 @@ function HBar({ swatch, label, labelWidth, n, max, fill, onPractise }) {
       {onPractise && (
         <FieldIconButton
           icon={<IconQuiz />}
-          ariaLabel={`Practise ${label}`}
+          ariaLabel={t('stats.bar.practise.aria', { name: label })}
           onClick={onPractise}
-          tooltip={`Quiz me on ${label}`}
+          tooltip={t('stats.bar.practise.tip', { name: label })}
         />
       )}
     </div>
@@ -541,9 +561,12 @@ function Colors({ colors }) {
   const labelWidth = Math.min(labelCap, Math.max(52, ...rows.map(([, label]) => Math.ceil(label.length * 8.4) + 6)))
   return (
     <Card>
-      <SectionHead label="Colour categories" right={<span className="mono-label">{total} quotes</span>} />
+      <SectionHead
+        label={t('stats.colours.title')}
+        right={<span className="mono-label">{t('stats.colours.counts.label', { n: total })}</span>}
+      />
       {total === 0 ? (
-        <p className="tp-empty" style={{ padding: '16px 0' }}>no highlights yet</p>
+        <p className="tp-empty" style={{ padding: '16px 0' }}>{t('stats.colours.empty')}</p>
       ) : (
         <div className="space-y-2">
           {rows.map(([k, label, fill]) => (
@@ -569,7 +592,7 @@ function Colors({ colors }) {
 // tags: ~5 rows tall, the rest scrolls (the server sends up to 50). Names
 // click through to Search.
 function LeaderList({ rows, onSearch }) {
-  if (!rows || rows.length === 0) return <p className="tp-empty" style={{ padding: '16px 0' }}>nothing yet</p>
+  if (!rows || rows.length === 0) return <p className="tp-empty" style={{ padding: '16px 0' }}>{t('stats.list.empty')}</p>
   const max = Math.max(1, ...rows.map((r) => r.count))
   return (
     <div className="space-y-3" style={{ maxHeight: 220, overflowY: 'auto', paddingRight: 6 }}>
@@ -580,7 +603,7 @@ function LeaderList({ rows, onSearch }) {
           </span>
           <div className="min-w-0 flex-1">
             <div className="flex items-baseline justify-between gap-2">
-              <Tooltip label="Search for this tag" side="bottom" className="min-w-0">
+              <Tooltip label={t('stats.tag.tip')} side="bottom" className="min-w-0">
                 <button
                   type="button"
                   className="truncate text-left"
@@ -625,12 +648,12 @@ function decadeStart(year) {
 // number shown for a BCE decade is the START of it as spoken, which is the
 // higher absolute value — the 480s BCE runs from 489 to 480.
 export function decadeLabel(start) {
-  return start < 0 ? `${-start}s BCE` : `${start}s`
+  return t(start < 0 ? 'common.year.decade.bce.label' : 'common.year.decade.label', { year: Math.abs(start) })
 }
 
 // yearLabel writes a single year: "1994", "380 BCE".
 export function yearLabel(start) {
-  return start < 0 ? `${-start} BCE` : `${start}`
+  return t(start < 0 ? 'common.year.bce.label' : 'common.year.ce.label', { year: Math.abs(start) })
 }
 
 // bucketLabel names a timeline bucket AT ITS OWN SCALE, which is the part the
@@ -715,9 +738,9 @@ export function topDecade(timeline) {
 // sensible wants both at once.
 
 export const TIMELINE_SCALES = [
-  { key: 'decade', label: 'Decades', size: 10 },
-  { key: 'century', label: 'Centuries', size: 100 },
-  { key: 'year', label: 'Years', size: 1 },
+  { key: 'decade', get label() { return t('stats.timeline.decade.label') }, size: 10 },
+  { key: 'century', get label() { return t('stats.timeline.century.label') }, size: 100 },
+  { key: 'year', get label() { return t('stats.timeline.year.label') }, size: 1 },
 ]
 
 // bucketTimeline groups the per-year rows at a scale, INCLUDING the empty
@@ -842,36 +865,14 @@ export function gapMarkers(gap, size, { minStep = TIMELINE_MARKER_MIN, max = TIM
 //
 // Four bands, four lines each, so every width has real variety — and the picker
 // below draws WITHOUT REPLACEMENT, so a band is exhausted before anything repeats.
-export const TIMELINE_GAP_BANDS = [
-  [
-    'a long quiet.',
-    'nothing quoted here.',
-    'the shelf skips this.',
-    'no lines from in here.',
-  ],
-  [
-    'plenty was written. none of it is here.',
-    'a gap this wide is not history’s fault.',
-    'centuries pass. the shelf does not notice.',
-    'the years go by. the shelf has nothing to say.',
-  ],
-  [
-    'history happened. you were reading something else.',
-    'somebody was writing through all of this. you kept none of it.',
-    'a stretch with no quotes in it is still a stretch you lived past.',
-    'the era had its arguments. none of them are on this shelf.',
-  ],
-  [
-    'no quotes, no covers, no year worth marking — which says more about the reading than about the era.',
-    'the width of this gap is measured in centuries. the reason for it is measured in evenings.',
-    'every year in here had its writers, its arguments and its best sentence. your copy of that sentence is missing.',
-    'this stretch is not empty because nothing was written in it. it is empty because you have not got round to any of it yet.',
-  ],
-]
+// A FUNCTION rather than a table, so the four bands are read at render time. The
+// pool is indexed prose, exactly as greetings.js is: the number in the key IS the
+// line's identity, and another language may write its own rather than translate.
+export const timelineGapBands = () => [1, 2, 3, 4].map((band) => [1, 2, 3, 4].map((i) => t(`stats.timeline.gap.${band}.${i}`)))
 
 // Flattened and sorted, for the callers that only want "the lines" — the width
 // test and anything measuring the pool.
-export const TIMELINE_GAP_LINES = TIMELINE_GAP_BANDS.flat().sort((a, b) => a.length - b.length)
+export const timelineGapLines = () => timelineGapBands().flat().sort((a, b) => a.length - b.length)
 
 // GAP_CHAR_PX — how wide a character of the caption runs at its size, near enough.
 // Measuring would mean a ResizeObserver per gap for a decision that only has to be
@@ -895,7 +896,7 @@ const GAP_CHAR_PX = 6.1
 // The bag lives for a render rather than for the app, because the alternative is
 // state that makes the same chart draw differently on a re-render for no reason
 // the reader can see. Seeded, so it does not.
-export function makeGapPicker(seed = 1, bands = TIMELINE_GAP_BANDS) {
+export function makeGapPicker(seed = 1, bands = timelineGapBands()) {
   const rng = mulberry32(seed >>> 0)
   const bags = bands.map(() => [])
   const refill = (i) => {
@@ -929,7 +930,7 @@ export function makeGapPicker(seed = 1, bands = TIMELINE_GAP_BANDS) {
   }
 }
 
-export function gapLine(gap, widthPx, lines = TIMELINE_GAP_LINES) {
+export function gapLine(gap, widthPx, lines = timelineGapLines()) {
   // Two lines of caption, minus the padding either side. Two rather than one
   // because a gap wide enough for a sentence is usually not wide enough for it in
   // a single run, and a caption is allowed to wrap where a year label is not.
@@ -1068,7 +1069,7 @@ function TimelineCard({ timeline, onSearch }) {
   if (!timeline || timeline.length === 0) {
     return (
       <Card>
-        <SectionHead label="Timeline" />
+        <SectionHead label={t('stats.timeline.title')} />
         <p style={{ color: 'var(--soft)', fontSize: 13 }}>
           Nothing here yet — a book or film needs a year on it to have a place in time.
         </p>
@@ -1078,8 +1079,8 @@ function TimelineCard({ timeline, onSearch }) {
   return (
     <Card>
       <div className="mb-3 flex items-center justify-between gap-3">
-        <MonoLabel>Timeline · {buckets.length}</MonoLabel>
-        <select className="tp-input" aria-label="Timeline scale" value={scale} onChange={(e) => setScale(e.target.value)} style={{ width: 'auto' }}>
+        <MonoLabel>{t('stats.timeline.counts.title', { n: buckets.length })}</MonoLabel>
+        <select className="tp-input" aria-label={t('stats.timeline.scale.aria')} value={scale} onChange={(e) => setScale(e.target.value)} style={{ width: 'auto' }}>
           {TIMELINE_SCALES.map((x) => (
             <option key={x.key} value={x.key}>{x.label}</option>
           ))}
@@ -1095,7 +1096,7 @@ function TimelineCard({ timeline, onSearch }) {
                 const b = seg.bucket
                 const total = b.works + b.quotes
                 const label = bucketLabel(b.start, meta.size)
-                const reading = `${label}: ${b.works} works, ${b.quotes} quotes`
+                const reading = t('stats.timeline.column.tip', { label, a: b.works, b: b.quotes })
                 // The tick is the doorway, and only when there is something to
                 // walk through to: a bucket with an exact search (bucketQuery) and
                 // something in it. An empty column has nothing to show and would
@@ -1139,8 +1140,8 @@ function TimelineCard({ timeline, onSearch }) {
           more than one thing; on a small library every dot is one thing and
           saying so would be noise. */}
       <div className="mt-2 flex flex-wrap items-center justify-end gap-x-3 gap-y-1">
-        <TimelineKey kind="quotes" label="quotes" />
-        <TimelineKey kind="works" label="works" />
+        <TimelineKey kind="quotes" label={t('stats.timeline.key.quotes.label')} />
+        <TimelineKey kind="works" label={t('stats.timeline.key.works.label')} />
         {unit > 1 && (
           <span className="mono-label" style={{ fontSize: 9, color: 'var(--faint)' }}>1 dot ≈ {unit}</span>
         )}
@@ -1166,7 +1167,7 @@ function TimelineGap({ gap, size, bag }) {
   const lines = gapLines(gap, width, bag)
   const from = bucketLabel(gap.start, size)
   const to = bucketLabel(gap.end, size)
-  const reading = `${from} to ${to}: nothing`
+  const reading = t('stats.timeline.gap.aria', { a: from, b: to })
   return (
     <div className="tl-gap" style={{ width }} aria-label={reading}>
       {/* The markers ride on the plot area rather than on the tick row, so they
@@ -1192,7 +1193,7 @@ function TimelineGap({ gap, size, bag }) {
           </div>
         )}
       </div>
-      <div className="tl-tick tl-gap-tick">{`${from}–${to}`}</div>
+      <div className="tl-tick tl-gap-tick">{t('stats.timeline.gap.tick.label', { a: from, b: to })}</div>
     </div>
   )
 }
@@ -1244,7 +1245,7 @@ function SuperTile({ label, title, count, amber, cover, person, onOpen }) {
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline gap-1.5" style={{ minWidth: 0 }}>
             {title && onOpen ? (
-              <Tooltip label="Search for this title" side="top" className="min-w-0">
+              <Tooltip label={t('stats.super.title.tip')} side="top" className="min-w-0">
                 <button
                   type="button"
                   className="truncate text-left"
@@ -1295,22 +1296,22 @@ function Superlatives({ s, personMaps, onSearch }) {
   const face = (name) => (name ? personMaps?.any?.[name] : null)
   return (
     <Card>
-      <SectionHead label="Superlatives" />
+      <SectionHead label={t('stats.super.title')} />
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 12 }}>
-        <SuperTile label="Most annotated book" title={s.most_annotated?.title} count={s.most_annotated?.count} cover={s.most_annotated?.cover_path} onOpen={open(s.most_annotated?.title)} />
-        <SuperTile label="Most quoted film/show" title={s.most_quoted?.title} count={s.most_quoted?.count} cover={s.most_quoted?.cover_path} onOpen={open(s.most_quoted?.title)} />
-        <SuperTile label="Most quoted person" title={topPerson?.name} count={topPerson?.quotes} person={face(topPerson?.name)} onOpen={open(topPerson?.name)} />
-        <SuperTile label="Most favourited person" title={s.favourite_person?.title} count={s.favourite_person?.count} person={face(s.favourite_person?.title)} onOpen={open(s.favourite_person?.title)} />
+        <SuperTile label={t('stats.super.most-annotated.label')} title={s.most_annotated?.title} count={s.most_annotated?.count} cover={s.most_annotated?.cover_path} onOpen={open(s.most_annotated?.title)} />
+        <SuperTile label={t('stats.super.most-quoted-work.label')} title={s.most_quoted?.title} count={s.most_quoted?.count} cover={s.most_quoted?.cover_path} onOpen={open(s.most_quoted?.title)} />
+        <SuperTile label={t('stats.super.most-quoted-person.label')} title={topPerson?.name} count={topPerson?.quotes} person={face(topPerson?.name)} onOpen={open(topPerson?.name)} />
+        <SuperTile label={t('stats.super.most-favourited-person.label')} title={s.favourite_person?.title} count={s.favourite_person?.count} person={face(s.favourite_person?.title)} onOpen={open(s.favourite_person?.title)} />
         {/* The one superlative that never opened, though the server has answered
             "1990s" since the decade facet shipped. Every other tile here is a
             doorway; this one named a decade and did nothing with it.
             It searches bucketQuery rather than its own label, for the shorthand
             reason written there — the tile shows "50s" and asks for "0050s". */}
-        <SuperTile label="Most quoted decade" title={decade?.label} count={decade ? `${decade.quotes} quotes` : null} amber onOpen={decade && onSearch ? () => onSearch(bucketQuery(decade.start, 10)) : undefined} />
-        <SuperTile label="Busiest month" title={s.busiest_month ? formatMonth(s.busiest_month.month) : null} count={s.busiest_month ? `${s.busiest_month.count} saved` : null} amber />
-        <SuperTile label="Best remembered" title={remembered?.name} count={remembered ? `${remembered.remembered} of ${remembered.quotes}` : null} person={face(remembered?.name)} onOpen={open(remembered?.name)} />
-        <SuperTile label="Most forgotten" title={forgotten?.name} count={forgotten ? `${forgotten.probably_forgotten} of ${forgotten.quotes}` : null} person={face(forgotten?.name)} onOpen={open(forgotten?.name)} />
-        <SuperTile label="Collecting since" title={since} />
+        <SuperTile label={t('stats.super.most-quoted-decade.label')} title={decade?.label} count={decade ? t('stats.super.quotes.label', { n: decade.quotes }) : null} amber onOpen={decade && onSearch ? () => onSearch(bucketQuery(decade.start, 10)) : undefined} />
+        <SuperTile label={t('stats.super.busiest-month.label')} title={s.busiest_month ? formatMonth(s.busiest_month.month) : null} count={s.busiest_month ? t('stats.super.saved.label', { n: s.busiest_month.count }) : null} amber />
+        <SuperTile label={t('stats.super.best-remembered.label')} title={remembered?.name} count={remembered ? t('stats.super.of.label', { done: remembered.remembered, total: remembered.quotes }) : null} person={face(remembered?.name)} onOpen={open(remembered?.name)} />
+        <SuperTile label={t('stats.super.most-forgotten.label')} title={forgotten?.name} count={forgotten ? t('stats.super.of.label', { done: forgotten.probably_forgotten, total: forgotten.quotes }) : null} person={face(forgotten?.name)} onOpen={open(forgotten?.name)} />
+        <SuperTile label={t('stats.super.since.label')} title={since} />
       </div>
     </Card>
   )
@@ -1341,17 +1342,20 @@ export default function StatsPage({ onSearch }) {
   useEffect(() => { loadStats() }, [])
   async function resetPractice() {
     const r = await json('DELETE', '/review/practice')
-    if (r.ok) { toast('practice history cleared'); loadStats() }
-    else toast('could not reset practice')
+    if (r.ok) { toast(t('stats.toast.practice-reset')); loadStats() }
+    else toast(t('error.reset.practice'))
   }
   const twoCol = { display: 'grid', gridTemplateColumns: mobile ? '1fr' : '1fr 1fr', gap: 24 }
   return (
     <section className="space-y-6">
       <div className={mobile ? 'mobile-sticky-bar' : ''}>
-        <PageHeader title="Stats" counts={s ? `${(s.annotations || 0) + (s.dialogues || 0) + (s.quotes || 0)} saved` : ''} />
+        <PageHeader
+          title={t('nav.tab.stats.label')}
+          counts={s ? t('stats.header.counts', { n: (s.annotations || 0) + (s.dialogues || 0) + (s.quotes || 0) }) : ''}
+        />
       </div>
       {!s ? (
-        <Card><p className="tp-empty" style={{ padding: '32px 0' }}>loading…</p></Card>
+        <Card><p className="tp-empty" style={{ padding: '32px 0' }}>{t('common.action.load.busy')}</p></Card>
       ) : (
         <div className="space-y-6">
           <Overview s={s} />
@@ -1372,7 +1376,7 @@ export default function StatsPage({ onSearch }) {
             <BreakdownCard breakdown={s.breakdown} personMaps={personMaps} onSearch={onSearch} />
             <div className="space-y-6">
               <Colors colors={s.colors} />
-              <TopList label="Top tags" rows={s.top_tags} onSearch={onSearch} />
+              <TopList label={t('stats.top-tags.title')} rows={s.top_tags} onSearch={onSearch} />
             </div>
           </div>
         </div>

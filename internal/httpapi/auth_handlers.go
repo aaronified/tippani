@@ -10,6 +10,7 @@ import (
 
 	"tippani/internal/auth"
 	"tippani/internal/buildinfo"
+	"tippani/internal/i18n"
 )
 
 const maxAuthBody = 4 << 10 // 4 KiB is plenty for credentials
@@ -349,6 +350,21 @@ type prefs struct {
 	FontHandStyle       string `json:"fontHandStyle"`
 	FontBengaliStyle    string `json:"fontBengaliStyle"`
 	FontDevanagariStyle string `json:"fontDevanagariStyle"`
+	// Locale: which language the interface is in. The file name in data/Locales, or
+	// "en"/"bn" for a language that ships in the box; "" means the client decides,
+	// which is what a device that has never chosen stores.
+	//
+	// AN OPEN PREFERENCE, NOT AN ENUM, and that is design §4 rather than laziness:
+	// a language is a FILE, so the set of valid values is whatever is on disk at the
+	// moment somebody asks, and this server may be older than the file. So it
+	// validates the SHAPE and nothing else — exactly as normalizeFontToken does for
+	// a face token — and an unrecognised value renders a built-in on the client
+	// instead of blanking the interface.
+	//
+	// The client is the authority on what is RENDERING (see i18n.js): this field is
+	// what carries the choice to the reader's other devices, and its localStorage
+	// mirror is what makes the login screen readable before this field can be read.
+	Locale string `json:"locale"`
 	// LanguageMarks: the mark a proverb card wears where every other quote wears
 	// a face. A JSON object of folded language name -> glyph, stored as a STRING
 	// because prefs is a flat comparable struct (ui_test.go compares two with
@@ -669,6 +685,10 @@ func (s *Server) loadPrefs(uid int64) (prefs, error) {
 		p.CreditSeparators = defaultCreditSeps
 	}
 	normalizeFonts(&p)
+	// A stored code that no longer has the SHAPE of one reads as unset. The client
+	// falls back to a built-in for a code it cannot find, so the worst an unknown
+	// language can do is render the box's own words.
+	p.Locale = i18n.NormalizeCode(p.Locale)
 	// A bad blob already in the database reads as NO marks rather than failing the
 	// login. The PUT below is where a client's mistake is refused.
 	if norm, ok := normalizeLanguageMarks(p.LanguageMarks); ok {
@@ -725,6 +745,7 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 		Theme               *string  `json:"theme"`
 		Accent              *string  `json:"accent"`
 		CreditSeparators    *string  `json:"creditSeparators"`
+		Locale              *string  `json:"locale"`
 		LanguageMarks       *string  `json:"languageMarks"`
 		FontDisplay         *string  `json:"fontDisplay"`
 		FontUI              *string  `json:"fontUi"`
@@ -834,6 +855,20 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 			return
 		}
 		*curStyles[i] = v
+	}
+	// Empty is a real value here too: it is "I have not chosen", which is what a
+	// reader who wants the client's own default stores. REFUSED rather than
+	// silently dropped when the shape is wrong, because unlike a face token there
+	// is no visible fallback that tells them so — the language would simply not
+	// change, which reads as a broken control.
+	if in.Locale != nil {
+		v := i18n.NormalizeCode(*in.Locale)
+		if v == "" && strings.TrimSpace(*in.Locale) != "" {
+			writeErr(w, http.StatusBadRequest,
+				"locale must be a short language code like en, bn or pt-br")
+			return
+		}
+		cur.Locale = v
 	}
 	// An EMPTY string is a real value here — "clear every mark I set" — so this
 	// cannot use the `!= ""` shorthand its neighbour above uses.

@@ -36,6 +36,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { DEMO, apiURL, errText, json } from './api.js'
+import { t, tNodes } from './i18n.js'
 import { categoryVar } from './theme.js'
 import {
   Card,
@@ -91,7 +92,7 @@ export function useAnthologies() {
   const [error, setError] = useState('')
   const reload = useCallback(async () => {
     const r = await json('GET', '/anthologies')
-    if (!r.ok) return setError(errText(r, 'could not load your anthologies'))
+    if (!r.ok) return setError(errText(r, t('error.load.anthologies')))
     setRows(r.data.anthologies || [])
     setError('')
   }, [])
@@ -114,7 +115,7 @@ const exportHref = (id) => apiURL(`/anthologies/${id}/export`)
 // UNLIKE A BOARD, A DUPLICATE TITLE IS FINE. Two anthologies called "On grief" are
 // two anthologies; the server returns no 409 here, so there is no name-clash
 // warning to write.
-export function AnthologyForm({ initial, onSubmit, onCancel, submitLabel = 'Save' }) {
+export function AnthologyForm({ initial, onSubmit, onCancel, submitLabel = t('common.action.save.label') }) {
   const [title, setTitle] = useState(initial?.title || '')
   const [intro, setIntro] = useState(initial?.intro || '')
   const [error, setError] = useState('')
@@ -122,7 +123,7 @@ export function AnthologyForm({ initial, onSubmit, onCancel, submitLabel = 'Save
 
   async function submit(e) {
     e.preventDefault()
-    if (!title.trim()) return setError('Give the anthology a title')
+    if (!title.trim()) return setError(t('error.validate.anthology-title-required'))
     setBusy(true)
     // BOTH FIELDS, ALWAYS. The PUT is full-state — the fifth time this trap has
     // been laid in this app, see boards.jsx — so sending a renamed title without
@@ -135,33 +136,33 @@ export function AnthologyForm({ initial, onSubmit, onCancel, submitLabel = 'Save
   return (
     <form onSubmit={submit} className="space-y-4">
       <Field
-        label="Title"
+        label={t('common.field.title.label')}
         value={title}
         maxLength={TITLE_MAX}
-        placeholder="On grief"
+        placeholder={t('anthologies.form.title.placeholder')}
         onChange={(e) => setTitle(e.target.value)}
       />
       {/* A textarea rather than a Field: Field renders an <input>, and this is the
           paragraph that says what the gathering is for. The blank line between
           paragraphs survives — the server trims the edges only. */}
       <label className="tp-field">
-        <MonoLabel>Introduction</MonoLabel>
+        <MonoLabel>{t('anthologies.form.intro.label')}</MonoLabel>
         <textarea
           className="tp-input"
           rows={5}
           value={intro}
           maxLength={INTRO_MAX}
-          placeholder="Why these lines, and in this order."
+          placeholder={t('anthologies.form.intro.placeholder')}
           onChange={(e) => setIntro(e.target.value)}
         />
       </label>
       <ErrorText>{error}</ErrorText>
       <div className="flex items-center justify-end gap-2">
         <GhostButton type="button" onClick={onCancel}>
-          Cancel
+          {t('common.action.cancel.label')}
         </GhostButton>
         <button type="submit" className="tp-btn tp-btn-primary tactile" disabled={busy}>
-          {busy ? 'Saving…' : submitLabel}
+          {busy ? t('common.action.save.busy') : submitLabel}
         </button>
       </div>
     </form>
@@ -187,27 +188,27 @@ function EntryNoteDialog({ entry, onSave, onCancel }) {
   }
 
   return (
-    <FormModal open title="Your note" onClose={onCancel}>
+    <FormModal open title={t('anthologies.entry.note.title')} onClose={onCancel}>
       <div className="space-y-3">
-        <p className="microcopy">What this passage is doing here. It reads above the quote.</p>
+        <p className="microcopy">{t('anthologies.entry.note.body')}</p>
         <label className="tp-field">
-          <MonoLabel>Note</MonoLabel>
+          <MonoLabel>{t('common.field.note.label')}</MonoLabel>
           <textarea
             className="tp-input"
             rows={5}
             value={note}
             maxLength={NOTE_MAX}
-            placeholder="The turn this line makes."
+            placeholder={t('anthologies.entry.note.placeholder')}
             onChange={(e) => setNote(e.target.value)}
           />
         </label>
         <ErrorText>{error}</ErrorText>
         <div className="flex items-center justify-end gap-2">
           <GhostButton type="button" onClick={onCancel}>
-            Cancel
+            {t('common.action.cancel.label')}
           </GhostButton>
           <button type="button" className="tp-btn tp-btn-primary tactile" disabled={busy} onClick={save}>
-            {busy ? 'Saving…' : 'Save'}
+            {t(busy ? 'common.action.save.busy' : 'common.action.save.label')}
           </button>
         </div>
       </div>
@@ -229,26 +230,28 @@ export function DeleteAnthologyDialog({ anthology, onDone, onCancel }) {
 
   async function run() {
     const r = await json('DELETE', `/anthologies/${anthology.id}`)
-    if (!r.ok) return setError(errText(r, 'could not delete that anthology'))
-    toast('anthology deleted')
+    if (!r.ok) return setError(errText(r, t('error.delete.anthology')))
+    toast(t('anthologies.toast.deleted'))
     await onDone()
   }
 
   return (
     <ConfirmDialog
       open
-      title={`Delete ${anthology.title}?`}
-      confirmLabel="Delete"
+      title={t('anthologies.delete.confirm.title', { title: anthology.title })}
+      confirmLabel={t('common.action.delete.label')}
       onConfirm={run}
       onCancel={onCancel}
       body={
         <div className="space-y-2">
           <p>
-            The introduction and the note on each of its {anthology.entries}{' '}
-            {anthology.entries === 1 ? 'entry' : 'entries'} go with it. The quotes themselves stay exactly where they
-            are.
+            {t('anthologies.delete.confirm.body', {
+              count: anthology.entries,
+              n: anthology.entries,
+              noun: t('unit.entry', { count: anthology.entries }),
+            })}
           </p>
-          <p className="microcopy">This one does not wait in the bin, so there is nothing to put back.</p>
+          <p className="microcopy">{t('anthologies.delete.confirm.note')}</p>
           <ErrorText>{error}</ErrorText>
         </div>
       }
@@ -265,14 +268,14 @@ function AnthologyTile({ row, onOpen, onEdit, onDelete }) {
       <button type="button" className="board-tile-face" onClick={() => onOpen(row.id)}>
         <span className="board-tile-name">{row.title}</span>
         <span className="board-tile-count">
-          {row.entries} {row.entries === 1 ? 'entry' : 'entries'}
+          {t('common.count.phrase', { n: row.entries, noun: t('unit.entry', { count: row.entries }) })}
         </span>
         {row.intro && <span className="microcopy anthology-tile-intro">{row.intro}</span>}
       </button>
       <span className="board-tile-tools">
         <MoreMenu
           items={[
-            { id: 'edit', icon: <IconEdit />, label: 'Edit', onClick: () => onEdit(row) },
+            { id: 'edit', icon: <IconEdit />, label: t('common.action.edit.label'), onClick: () => onEdit(row) },
             // Absent rather than dead in the read-only demo, which has no server to
             // stream a file from.
             ...(DEMO
@@ -281,13 +284,13 @@ function AnthologyTile({ row, onOpen, onEdit, onDelete }) {
                   {
                     id: 'export',
                     icon: <IconExport />,
-                    label: 'Export',
+                    label: t('common.action.export.label'),
                     onClick: () => {
                       window.location.href = exportHref(row.id)
                     },
                   },
                 ]),
-            { id: 'delete', icon: <IconDelete />, label: 'Delete', danger: true, onClick: () => onDelete(row) },
+            { id: 'delete', icon: <IconDelete />, label: t('common.action.delete.label'), danger: true, onClick: () => onDelete(row) },
           ]}
         />
       </span>
@@ -307,7 +310,7 @@ function AnthologyList({ rows, reload, onOpen }) {
   async function save(fields) {
     const isNew = editing === 'new'
     const r = await json(isNew ? 'POST' : 'PUT', isNew ? '/anthologies' : `/anthologies/${editing.id}`, fields)
-    if (!r.ok) return errText(r, 'could not save that anthology')
+    if (!r.ok) return errText(r, t('error.save.anthology'))
     setEditing(null)
     await reload()
     return null
@@ -317,11 +320,11 @@ function AnthologyList({ rows, reload, onOpen }) {
   return (
     <section>
       <PageHeader
-        title="Anthologies"
-        counts={`${count} ${count === 1 ? 'anthology' : 'anthologies'}`}
+        title={t('nav.tab.anthologies.label')}
+        counts={t('common.count.phrase', { n: count, noun: t('unit.anthology', { count }) })}
         right={
           <GhostButton icon={<IconPlus />} onClick={() => setEditing('new')}>
-            New anthology
+            {t('anthologies.list.new.label')}
           </GhostButton>
         }
       />
@@ -340,8 +343,10 @@ function AnthologyList({ rows, reload, onOpen }) {
               made an anthology here and stopped would be looking for a control
               that is on a different screen by design. */}
           <p className="microcopy">
-            No anthologies yet. <b>New anthology</b> makes one; to fill it, select some quotes on the Library, the
-            Catalogue or Quotes and choose <b>Add to anthology</b> from the selection bar.
+            {tNodes('anthologies.list.empty', {
+              em1: <b key="em1">{t('anthologies.list.new.label')}</b>,
+              em2: <b key="em2">{t('common.action.anthology.label')}</b>,
+            })}
           </p>
         </Card>
       )}
@@ -349,14 +354,14 @@ function AnthologyList({ rows, reload, onOpen }) {
       {editing && (
         <FormModal
           open
-          title={editing === 'new' ? 'New anthology' : 'Edit anthology'}
+          title={t(editing === 'new' ? 'anthologies.form.new.title' : 'anthologies.form.edit.title')}
           onClose={() => setEditing(null)}
         >
           <AnthologyForm
             initial={editing === 'new' ? null : editing}
             onSubmit={save}
             onCancel={() => setEditing(null)}
-            submitLabel={editing === 'new' ? 'Create' : 'Save'}
+            submitLabel={t(editing === 'new' ? 'common.action.create.label' : 'common.action.save.label')}
           />
         </FormModal>
       )}
@@ -398,19 +403,18 @@ function AnthologyEntry({ entry, first, last, onNote, onMove, onRemove, onOpenBo
             {entry.quote}
           </blockquote>
           <p className="microcopy mt-1.5">
-            {entry.credit || 'unattributed'}
-            {entry.source && (
-              <>
-                {' · '}
-                {openWork ? (
-                  <button type="button" className="tp-link" onClick={() => openWork(entry.work_id)}>
-                    {entry.source}
-                  </button>
-                ) : (
-                  entry.source
-                )}
-              </>
-            )}
+            {/* One key holds the whole line, separator and all, so another language
+                can put the source first or punctuate it differently. */}
+            {tNodes(entry.source ? 'anthologies.entry.credit-source.label' : 'anthologies.entry.credit.label', {
+              credit: entry.credit || t('anthologies.entry.unattributed.label'),
+              source: openWork ? (
+                <button key="source" type="button" className="tp-link" onClick={() => openWork(entry.work_id)}>
+                  {entry.source}
+                </button>
+              ) : (
+                entry.source
+              ),
+            })}
           </p>
           {/* The QUOTE's own note, which is a different thing from the entry's and
               can be non-empty at the same time: one is what the reader wrote when
@@ -420,17 +424,22 @@ function AnthologyEntry({ entry, first, last, onNote, onMove, onRemove, onOpenBo
           {entry.quote_note && <p className="microcopy mt-1 opacity-80">{entry.quote_note}</p>}
         </div>
         <MoreMenu
-          ariaLabel="More for this entry"
+          ariaLabel={t('anthologies.entry.more.aria')}
           items={[
-            { id: 'note', icon: <IconEdit />, label: entry.note ? 'Edit note' : 'Add note', onClick: () => onNote(entry) },
+            {
+              id: 'note',
+              icon: <IconEdit />,
+              label: t(entry.note ? 'anthologies.entry.note.edit.label' : 'anthologies.entry.note.add.label'),
+              onClick: () => onNote(entry),
+            },
             // MOVE UP / MOVE DOWN, AND NO DRAG. The order is the feature, so it has
             // to be changeable — but a drag has no keyboard equivalent and a menu
             // item is reachable by tab, by arrow key and by a thumb. The item at an
             // end is OMITTED rather than greyed: a disabled row in a menu is a thing
             // to wonder about.
-            ...(first ? [] : [{ id: 'up', icon: <IconChevron open />, label: 'Move up', onClick: () => onMove(entry, 'up') }]),
-            ...(last ? [] : [{ id: 'down', icon: <IconChevron />, label: 'Move down', onClick: () => onMove(entry, 'down') }]),
-            { id: 'remove', icon: <IconDelete />, label: 'Remove', danger: true, onClick: () => onRemove(entry) },
+            ...(first ? [] : [{ id: 'up', icon: <IconChevron open />, label: t('common.action.move-up.label'), onClick: () => onMove(entry, 'up') }]),
+            ...(last ? [] : [{ id: 'down', icon: <IconChevron />, label: t('common.action.move-down.label'), onClick: () => onMove(entry, 'down') }]),
+            { id: 'remove', icon: <IconDelete />, label: t('common.action.remove.label'), danger: true, onClick: () => onRemove(entry) },
           ]}
         />
       </div>
@@ -449,7 +458,7 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
 
   const reload = useCallback(async () => {
     const r = await json('GET', `/anthologies/${id}`)
-    if (!r.ok) return setError(errText(r, 'could not open that anthology'))
+    if (!r.ok) return setError(errText(r, t('error.open.anthology')))
     setAnthology(r.data.anthology || null)
     // AS THE SERVER SENT THEM. The order is the anthology, it is computed from
     // stored positions, and re-sorting here would be this screen having a second
@@ -463,7 +472,7 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
 
   async function save(fields) {
     const r = await json('PUT', `/anthologies/${id}`, fields)
-    if (!r.ok) return errText(r, 'could not save that anthology')
+    if (!r.ok) return errText(r, t('error.save.anthology'))
     setEditing(false)
     await reload()
     return null
@@ -471,7 +480,7 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
 
   async function saveNote(entry, note) {
     const r = await json('PUT', `/anthologies/${id}/entries`, { ...entryRef(entry), note })
-    if (!r.ok) return errText(r, 'could not save that note')
+    if (!r.ok) return errText(r, t('error.save.note'))
     setNoting(null)
     await reload()
     return null
@@ -479,8 +488,8 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
 
   async function remove(entry) {
     const r = await json('DELETE', `/anthologies/${id}/entries/${entry.kind}/${entry.item_id}`)
-    if (!r.ok) return setError(errText(r, 'could not remove that entry'))
-    toast('entry removed')
+    if (!r.ok) return setError(errText(r, t('error.remove.entry')))
+    toast(t('anthologies.toast.entry-removed'))
     await reload()
   }
 
@@ -499,7 +508,7 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
       ...entryRef(entry),
       after: after ? entryRef(after) : null,
     })
-    if (!r.ok) return setError(errText(r, 'could not move that entry'))
+    if (!r.ok) return setError(errText(r, t('error.move.entry')))
     await reload()
   }
 
@@ -511,16 +520,16 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
           desktop-only nicety. */}
       <div className="mb-3">
         <GhostButton icon={<IconBack />} onClick={onClose}>
-          All anthologies
+          {t('anthologies.read.back.label')}
         </GhostButton>
       </div>
       <PageHeader
-        title={anthology?.title || 'Anthology'}
-        counts={entries ? `${rows.length} ${rows.length === 1 ? 'entry' : 'entries'}` : ''}
+        title={anthology?.title || t('anthologies.read.title.fallback')}
+        counts={entries ? t('common.count.phrase', { n: rows.length, noun: t('unit.entry', { count: rows.length }) }) : ''}
         right={
           <span className="flex items-center gap-2">
             <GhostButton icon={<IconEdit />} onClick={() => setEditing(true)} disabled={!anthology}>
-              Edit
+              {t('common.action.edit.label')}
             </GhostButton>
             {!DEMO && (
               <GhostButton
@@ -529,11 +538,11 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
                   window.location.href = exportHref(id)
                 }}
               >
-                Export
+                {t('common.action.export.label')}
               </GhostButton>
             )}
             <GhostButton icon={<IconDelete />} onClick={() => setDeleting(true)} disabled={!anthology}>
-              Delete
+              {t('common.action.delete.label')}
             </GhostButton>
           </span>
         }
@@ -563,15 +572,21 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
       {entries != null && rows.length === 0 && (
         <Card className="mt-3">
           <p className="microcopy">
-            Nothing gathered here yet. Select some quotes on the Library, the Catalogue or Quotes and choose{' '}
-            <b>Add to anthology</b> from the selection bar.
+            {tNodes('anthologies.read.empty', {
+              em1: <b key="em1">{t('common.action.anthology.label')}</b>,
+            })}
           </p>
         </Card>
       )}
 
       {editing && anthology && (
-        <FormModal open title="Edit anthology" onClose={() => setEditing(false)}>
-          <AnthologyForm initial={anthology} onSubmit={save} onCancel={() => setEditing(false)} submitLabel="Save" />
+        <FormModal open title={t('anthologies.form.edit.title')} onClose={() => setEditing(false)}>
+          <AnthologyForm
+            initial={anthology}
+            onSubmit={save}
+            onCancel={() => setEditing(false)}
+            submitLabel={t('common.action.save.label')}
+          />
         </FormModal>
       )}
       {noting && <EntryNoteDialog entry={noting} onSave={saveNote} onCancel={() => setNoting(null)} />}
@@ -607,31 +622,27 @@ export function AddToAnthologyDialog({ count, busy, onApply, onClose }) {
     <FormModal
       open
       onClose={onClose}
-      title={count === 1 ? 'Add this quote' : `Add ${count} quotes`}
+      title={t('common.anthology.add.title', { count, n: count })}
     >
       <div className="space-y-3">
-        <p className="microcopy">
-          {count === 1
-            ? 'It goes to the end of the anthology. The quote itself does not move.'
-            : `All ${count} go to the end of the anthology. The quotes themselves do not move.`}
-        </p>
+        <p className="microcopy">{t('common.anthology.add.body', { count, n: count })}</p>
         {rows != null && list.length === 0 ? (
           // The switch is named as well as the screen, because this dialog is reachable
           // with the section turned OFF — the bulk action is an action, not a door, so it
           // stays — and naming only a screen the reader may have no tab for is a dead end.
-          <ErrorText>No anthologies yet — make one on the Anthologies screen (Settings → Features).</ErrorText>
+          <ErrorText>{t('common.anthology.add.empty')}</ErrorText>
         ) : (
           <Select
-            label="Anthology"
+            label={t('common.field.anthology.label')}
             value={pick}
             onChange={setPick}
             options={list.map((a) => [String(a.id), a.title])}
-            placeholder="choose an anthology"
+            placeholder={t('common.anthology.add.select.placeholder')}
           />
         )}
         <ErrorText>{error}</ErrorText>
         <GhostButton icon={<IconAnthology />} onClick={() => onApply(target)} disabled={busy || target == null}>
-          Add
+          {t('common.action.add.label')}
         </GhostButton>
       </div>
     </FormModal>

@@ -15,6 +15,7 @@ import {
   sameChip,
   searchQueryString,
 } from './facets.js'
+import { t, tNodes } from './i18n.js'
 import { AnnotationCard, annotationState, annDate, fmtDate } from './Library.jsx'
 import { Frame, dialogueState } from './Movies.jsx'
 import { UtteranceForm, utteranceMeta, utteranceState } from './Quotes.jsx'
@@ -122,12 +123,12 @@ function useSearchVocabulary() {
 // quote kinds that have no tab — a book's annotation, a film's line — are the two
 // new drawings: a page with a marker's nib, and two bubbles.
 const SCOPES = [
-  ['all', 'All', null, true],
-  ['books', 'Books', <IconBooks />],
-  ['annotations', 'Annotations', <IconHighlight />],
-  ['movies', 'Movies', <IconReel />],
-  ['dialogues', 'Dialogues', <IconDialogue />],
-  ['quotes', 'Quotes', <IconQuote />],
+  ['all', t('search.scope.all.label'), null, true],
+  ['books', t('search.scope.books.label'), <IconBooks />],
+  ['annotations', t('search.scope.annotations.label'), <IconHighlight />],
+  ['movies', t('search.scope.movies.label'), <IconReel />],
+  ['dialogues', t('search.scope.dialogues.label'), <IconDialogue />],
+  ['quotes', t('search.scope.quotes.label'), <IconQuote />],
 ]
 
 // Which SECTION each chip searches, so the row answers the same Features switches
@@ -234,11 +235,11 @@ export function SearchBox({ q, setQ, chips, setChips, mobile, draft, options, on
               ? { fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontSize: 18, lineHeight: 1, padding: '10px 14px', width: '100%' }
               : { fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontSize: 19, lineHeight: 1, padding: '14px 18px', width: '100%' }
           }
-          placeholder="Search, or type tag: author: colour:…"
+          placeholder={t('search.box.placeholder')}
           value={q}
           autoFocus
           autoComplete="off"
-          aria-label="Search"
+          aria-label={t('search.box.aria')}
           onChange={(e) => {
             setQ(e.target.value)
             setOpen(true)
@@ -276,7 +277,7 @@ export function SearchBox({ q, setQ, chips, setChips, mobile, draft, options, on
                 className="token-opt token-more"
                 onMouseDown={(e) => { e.preventDefault(); more() }}
               >
-                More ({options.length - shown})
+                {t('search.box.more.label', { n: options.length - shown })}
               </button>
             </li>
           )}
@@ -288,12 +289,12 @@ export function SearchBox({ q, setQ, chips, setChips, mobile, draft, options, on
           {chips.map((c, i) => (
             <span key={`${c.field}:${c.value}`} className="token-pill">
               {chipText(c)}
-              <Tooltip label={`Remove ${c.field}`}>
+              <Tooltip label={t('search.chip.remove.tip', { field: c.field })}>
                 <button
                   type="button"
                   className="token-x"
                   onClick={() => setChips((cs) => removeChipAt(cs, i))}
-                  aria-label={`Remove ${chipText(c)}`}
+                  aria-label={t('search.chip.remove.aria', { name: chipText(c) })}
                 >
                   ×
                 </button>
@@ -359,7 +360,13 @@ function FacetPanel({ vocabulary, chips, querystring, onAdd, onRemove, onClear, 
   return (
     <div className="space-y-4">
       <p className="microcopy">
-        Or type them: <code>tag:</code> <code>author:</code> <code>character:</code> in the box.
+        {/* The three field names are GRAMMAR the box parses, not copy — they stay
+            as they are, and the sentence around them moves. */}
+        {tNodes('search.filters.type.hint', {
+          em1: <code key="em1">tag:</code>,
+          em2: <code key="em2">author:</code>,
+          em3: <code key="em3">character:</code>,
+        })}
       </p>
       {fields.map((f) => {
         const typed = filters[f.name] || ''
@@ -377,16 +384,22 @@ function FacetPanel({ vocabulary, chips, querystring, onAdd, onRemove, onClear, 
                   since 1.10.0 as "the copy the help screen quotes" — this is
                   that copy finally having somewhere to be read. */}
               <span className="microcopy">
-                {f.exclusive ? 'one or the other' : f.combine === 'and' ? 'all of them' : 'any of them'}
+                {t(
+                  f.exclusive
+                    ? 'search.filters.combine.exclusive'
+                    : f.combine === 'and'
+                      ? 'search.filters.combine.and'
+                      : 'search.filters.combine.or',
+                )}
               </span>
             </div>
             {all.length > 12 && (
               <input
                 className="tp-input"
                 style={{ fontSize: 13, padding: '5px 9px' }}
-                placeholder={`filter ${f.name}…`}
+                placeholder={t('search.filters.narrow.placeholder', { field: f.name })}
                 value={typed}
-                aria-label={`Filter ${f.name}`}
+                aria-label={t('search.filters.narrow.aria', { field: f.name })}
                 onChange={(e) => setFilters((m) => ({ ...m, [f.name]: e.target.value }))}
               />
             )}
@@ -412,7 +425,7 @@ function FacetPanel({ vocabulary, chips, querystring, onAdd, onRemove, onClear, 
                     // you mis-remembered your own library; a grey one says "not
                     // under this question", which is the answer and points at
                     // the chip to take off.
-                    title={dead ? `No hits under the current search` : undefined}
+                    title={dead ? t('search.filters.dead.tip') : undefined}
                     onClick={() => (on ? onRemove(chip) : onAdd(f.name, o.value, o.label))}
                   >
                     {o.label}
@@ -426,9 +439,9 @@ function FacetPanel({ vocabulary, chips, querystring, onAdd, onRemove, onClear, 
       })}
       <div className="flex justify-between gap-2 pt-1">
         <GhostButton icon={<IconClose />} disabled={chips.length === 0} onClick={onClear}>
-          Clear all
+          {t('search.filters.clear.label')}
         </GhostButton>
-        <GhostButton onClick={onClose}>Done</GhostButton>
+        <GhostButton onClick={onClose}>{t('common.action.done.label')}</GhostButton>
       </div>
     </div>
   )
@@ -516,19 +529,19 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators, 
       return
     }
     let stale = false
-    const t = setTimeout(async () => {
+    const timer = setTimeout(async () => {
       const r = await json('GET', `/search?${querystring}`)
       if (stale) return
       if (r.ok) {
         setResults(r.data)
         setError('')
       } else {
-        setError(errText(r, 'search failed'))
+        setError(errText(r, t('error.search.failed')))
       }
     }, 200)
     return () => {
       stale = true
-      clearTimeout(t)
+      clearTimeout(timer)
     }
   }, [querystring, nothingAsked, nonce])
 
@@ -591,7 +604,7 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators, 
             icon={icon}
             keepLabel={keepLabel}
             label={label}
-            tooltip={value === 'all' ? 'Search everything' : `Search ${label.toLowerCase()} only`}
+            tooltip={value === 'all' ? t('search.scope.all.tip') : t('search.scope.only.tip', { name: label.toLowerCase() })}
             onClick={() => setScope(value)}
           />
         ))}
@@ -607,8 +620,8 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators, 
           active={chips.length > 0}
           icon={<IconFilter />}
           keepLabel
-          label={chips.length > 0 ? `Filters · ${chips.length}` : 'Filters'}
-          tooltip="Narrow by tag, author, character…"
+          label={chips.length > 0 ? t('search.filters.count.label', { n: chips.length }) : t('search.filters.label')}
+          tooltip={t('search.filters.tip')}
           onClick={() => {
             loadVocabulary()
             setFiltersOpen(true)
@@ -618,12 +631,18 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators, 
           <span className="ml-auto flex items-center gap-3 view-toggle-row">
             {view !== 'table' && (
               <label className="flex items-center gap-2">
-                <MonoLabel>group</MonoLabel>
+                <MonoLabel>{t('common.mono.group.label')}</MonoLabel>
                 <Select
-                  ariaLabel="Group by"
+                  ariaLabel={t('common.filters.group.aria')}
                   value={group}
                   onChange={setGroup}
-                  options={[['none', 'None'], ['series', 'Series'], ['author', 'Author'], ['decade', 'Decade'], ['genre', 'Genre']]}
+                  options={[
+                    ['none', t('search.group.none.label')],
+                    ['series', t('search.group.series.label')],
+                    ['author', t('search.group.author.label')],
+                    ['decade', t('search.group.decade.label')],
+                    ['genre', t('search.group.genre.label')],
+                  ]}
                 />
               </label>
             )}
@@ -635,7 +654,7 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators, 
       <ErrorText>{error}</ErrorText>
 
       {!results && !error && (
-        <EmptyState>type to search your books, annotations, movies, and dialogues</EmptyState>
+        <EmptyState>{t('search.results.empty.prompt')}</EmptyState>
       )}
       {empty && (
         <div className="flex flex-col items-center gap-4 py-10">
@@ -643,15 +662,17 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators, 
               chips up, "no results for “”" would be reporting an empty search
               over a narrowing the reader can see on screen. */}
           <p className="tp-empty" style={{ padding: 0 }}>
-            no results for “{[freeText.trim(), ...chips.map(chipText)].filter(Boolean).join(' ')}”
-            {scope !== 'all' ? ` in ${scope}` : ''}
+            {t(scope === 'all' ? 'search.results.none' : 'search.results.none.scope', {
+              query: [freeText.trim(), ...chips.map(chipText)].filter(Boolean).join(' '),
+              name: scope,
+            })}
           </p>
           <div className="flex flex-wrap justify-center gap-2">
-            <GhostButton icon={<IconClose />} onClick={() => { setQ(''); setChips([]) }}>Clear search</GhostButton>
+            <GhostButton icon={<IconClose />} onClick={() => { setQ(''); setChips([]) }}>{t('search.results.clear.label')}</GhostButton>
             {chips.length > 0 && (
-              <GhostButton icon={<IconClose />} onClick={() => setChips([])}>Drop the filters</GhostButton>
+              <GhostButton icon={<IconClose />} onClick={() => setChips([])}>{t('search.results.drop-filters.label')}</GhostButton>
             )}
-            {scope !== 'all' && <GhostButton icon={<IconSearch />} onClick={() => setScope('all')}>Search everything</GhostButton>}
+            {scope !== 'all' && <GhostButton icon={<IconSearch />} onClick={() => setScope('all')}>{t('search.results.everything.label')}</GhostButton>}
           </div>
         </div>
       )}
@@ -659,7 +680,7 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators, 
           the exact query had no hits. Tell the reader which query these came from. */}
       {!empty && results?.corrected && (
         <p className="microcopy">
-          no exact matches — showing results for “{results.corrected}”
+          {t('search.results.corrected', { query: results.corrected })}
         </p>
       )}
 
@@ -678,7 +699,10 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators, 
           {results?.decade && (
             <section className="space-y-3">
               <MonoLabel className="block">
-                Decade · {results.decade.label} · {(results.decade.books?.length || 0) + (results.decade.movies?.length || 0)}
+                {t('search.section.decade.title', {
+                  name: results.decade.label,
+                  n: (results.decade.books?.length || 0) + (results.decade.movies?.length || 0),
+                })}
               </MonoLabel>
               <Board view={view}>
                 {[
@@ -694,7 +718,7 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators, 
             <>
               {bookGroups.length > 0 && (
                 <ResultSection
-                  label="Books"
+                  label={t('search.section.books.title')}
                   groups={bookGroups}
                   group={group}
                   view={view}
@@ -707,7 +731,7 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators, 
               )}
               {movieGroups.length > 0 && (
                 <ResultSection
-                  label="Movies"
+                  label={t('search.section.movies.title')}
                   groups={movieGroups}
                   group={group}
                   view={view}
@@ -719,7 +743,7 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators, 
               )}
               {annGroups.length > 0 && (
                 <ResultSection
-                  label="Annotations"
+                  label={t('search.section.annotations.title')}
                   groups={annGroups}
                   group={group}
                   view={view}
@@ -733,7 +757,7 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators, 
               )}
               {dlgGroups.length > 0 && (
                 <ResultSection
-                  label="Dialogues"
+                  label={t('search.section.dialogues.title')}
                   groups={dlgGroups}
                   group={group}
                   view={view}
@@ -748,7 +772,7 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators, 
           )}
           {results?.authors?.length > 0 && (
             <PeopleSection
-              label="Authors"
+              label={t('search.section.authors.title')}
               kind="author"
               entries={results.authors.map((a) => ({ name: a.name, count: a.books.length, groups: groupBooks({ books: a.books, annotations: [] }) }))}
               people={authors.map}
@@ -759,7 +783,7 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators, 
           )}
           {results?.directors?.length > 0 && (
             <PeopleSection
-              label="Directors"
+              label={t('search.section.directors.title')}
               kind="director"
               entries={results.directors.map((d) => ({ name: d.name, count: d.movies.length, groups: groupMovies({ movies: d.movies, dialogues: [] }) }))}
               people={directors.map}
@@ -770,7 +794,7 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators, 
           )}
           {results?.actors?.length > 0 && (
             <PeopleSection
-              label="Actors"
+              label={t('search.section.actors.title')}
               kind="actor"
               entries={results.actors.map((a) => ({ name: a.name, count: a.dialogues.length, groups: groupMovies({ movies: [], dialogues: a.dialogues }) }))}
               people={actors.map}
@@ -791,11 +815,13 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators, 
               character is not a person and there is nobody to photograph. */}
           {results?.characters?.length > 0 && (
             <section className="space-y-4">
-              <MonoLabel className="block">Characters · {results.characters.length}</MonoLabel>
+              <MonoLabel className="block">
+                {t('search.section.heading', { name: t('search.section.characters.title'), n: results.characters.length })}
+              </MonoLabel>
               {results.characters.map((ch) => (
                 <div key={ch.name} className="space-y-2">
                   <div className="flex items-center gap-3">
-                    <Tooltip label={`Everything ${ch.name} says`}>
+                    <Tooltip label={t('search.character.all.tip', { name: ch.name })}>
                       <button type="button" className="tp-chip facet-mini" onClick={() => addFacet('character', ch.name)}>
                         {ch.name}
                       </button>
@@ -815,7 +841,9 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators, 
               different answer to a different question. */}
           {results?.quotes?.length > 0 && (
             <section className="space-y-3">
-              <MonoLabel className="block">Quotes · {results.quotes.length}</MonoLabel>
+              <MonoLabel className="block">
+                {t('search.section.heading', { name: t('search.section.quotes.title'), n: results.quotes.length })}
+              </MonoLabel>
               <div className="space-y-2">
                 {results.quotes.map((h) => (
                   <QuoteHit key={`u${h.id}`} h={h} terms={terms} onOpen={setQuote} people={speakers.map} seps={creditSeps} />
@@ -827,7 +855,9 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators, 
               get the treatment authors and actors get. */}
           {results?.speakers?.length > 0 && (
             <section className="space-y-4">
-              <MonoLabel className="block">Speakers · {results.speakers.length}</MonoLabel>
+              <MonoLabel className="block">
+                {t('search.section.heading', { name: t('search.section.speakers.title'), n: results.speakers.length })}
+              </MonoLabel>
               {results.speakers.map((sp) => (
                 <div key={sp.name} className="space-y-2">
                   <div className="flex items-center gap-3">
@@ -847,7 +877,10 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators, 
           {(noteAnnGroups.length > 0 || noteDlgGroups.length > 0 || r.notes?.quotes?.length > 0) && (
             <section className="space-y-3">
               <MonoLabel className="block">
-                Notes · {(r.notes?.annotations?.length || 0) + (r.notes?.dialogues?.length || 0) + (r.notes?.quotes?.length || 0)}
+                {t('search.section.heading', {
+                  name: t('search.section.notes.title'),
+                  n: (r.notes?.annotations?.length || 0) + (r.notes?.dialogues?.length || 0) + (r.notes?.quotes?.length || 0),
+                })}
               </MonoLabel>
               <Board view={view}>{[...noteAnnGroups.map(renderBook), ...noteDlgGroups.map(renderMovie)]}</Board>
               {r.notes?.quotes?.length > 0 && (
@@ -869,7 +902,7 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators, 
       )}
 
       {filtersOpen && (
-        <FormModal title="Narrow the search" onClose={() => setFiltersOpen(false)}>
+        <FormModal title={t('search.filters.title')} onClose={() => setFiltersOpen(false)}>
           <FacetPanel
             vocabulary={vocabulary}
             chips={chips}
@@ -969,12 +1002,12 @@ function QuoteModal({ kind, hit, authorMap = {}, actorMap = {}, speakerMap = {},
     return () => document.removeEventListener('keydown', onKey)
   }, [onClose, shareOpen])
 
-  const tagMap = useMemo(() => Object.fromEntries(tags.map((t) => [t.name, t])), [tags])
+  const tagMap = useMemo(() => Object.fromEntries(tags.map((row) => [row.name, row])), [tags])
   const stickerMap = useMemo(() => Object.fromEntries(stickers.map((s) => [s.id, s])), [stickers])
 
   async function save(id, fields) {
     const r = await json('PUT', `${itemPath}/${id}`, fields)
-    if (!r.ok) return errText(r, 'could not save')
+    if (!r.ok) return errText(r, t('error.save.generic'))
     setEditing(false)
     await loadRow()
     onChanged && onChanged()
@@ -985,7 +1018,7 @@ function QuoteModal({ kind, hit, authorMap = {}, actorMap = {}, speakerMap = {},
   async function patch(x, fields) {
     const r = await json('PUT', `${itemPath}/${x.id}`, { ...stateFn(x), ...fields })
     if (!r.ok) {
-      setError(errText(r, 'could not save'))
+      setError(errText(r, t('error.save.generic')))
       return false
     }
     setError('')
@@ -994,7 +1027,18 @@ function QuoteModal({ kind, hit, authorMap = {}, actorMap = {}, speakerMap = {},
     return true
   }
   async function remove(x) {
-    if (!confirm(isQuote ? 'Delete this quote?' : isBook ? 'Delete this annotation?' : 'Delete this dialogue?')) return
+    if (
+      !confirm(
+        t(
+          isQuote
+            ? 'home.favourites.delete.quote.confirm'
+            : isBook
+              ? 'home.favourites.delete.annotation.confirm'
+              : 'home.favourites.delete.dialogue.confirm',
+        ),
+      )
+    )
+      return
     // The modal closes on success, so the Undo refreshes the RESULTS behind it
     // rather than this view — which is where the row would reappear.
     const r = await deleteWithUndo(`${itemPath}/${x.id}`, { reload: onChanged })
@@ -1005,7 +1049,7 @@ function QuoteModal({ kind, hit, authorMap = {}, actorMap = {}, speakerMap = {},
   // The header line. A standalone quote's "title" is the occasion it was said
   // on — the nearest thing it has to a work.
   const title = isQuote
-    ? row?.occasion || hit.occasion || 'Quote'
+    ? row?.occasion || hit.occasion || t('search.hit.title.fallback')
     : isBook
       ? parent?.title || hit.book_title
       : parent?.title || hit.movie_title
@@ -1027,10 +1071,10 @@ function QuoteModal({ kind, hit, authorMap = {}, actorMap = {}, speakerMap = {},
       className="tp-scrim fixed inset-0 z-50 overflow-y-auto px-4 py-10"
       onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div role="dialog" aria-modal="true" aria-label="Quote" className="mx-auto w-full max-w-2xl">
+      <div role="dialog" aria-modal="true" aria-label={t('search.hit.title.fallback')} className="mx-auto w-full max-w-2xl">
         <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0" style={{ maxWidth: '60%' }}>
-            <MonoLabel className="block truncate">{title || 'Quote'}</MonoLabel>
+            <MonoLabel className="block truncate">{title || t('search.hit.title.fallback')}</MonoLabel>
             {/* Author / actor portrait chips (split) — click one to open the
                 person panel, same as the detail pages. */}
             {creditNames.length > 0 && (
@@ -1045,7 +1089,7 @@ function QuoteModal({ kind, hit, authorMap = {}, actorMap = {}, speakerMap = {},
             {/* Nothing to open: a standalone quote is the whole record. */}
             {!isQuote && (
               <GhostButton icon={<IconOpen />} keepLabel onClick={() => (isBook ? onOpenBook(parentId) : onOpenMovie(parentId))}>
-                Open {isBook ? 'book' : 'film'}
+                {t(isBook ? 'search.hit.open.book.label' : 'search.hit.open.film.label')}
               </GhostButton>
             )}
             <CloseButton onClick={onClose} />
@@ -1053,9 +1097,9 @@ function QuoteModal({ kind, hit, authorMap = {}, actorMap = {}, speakerMap = {},
         </div>
         <ErrorText>{error}</ErrorText>
         {gone ? (
-          <HandCard className="p-5"><EmptyState>this quote no longer exists</EmptyState></HandCard>
+          <HandCard className="p-5"><EmptyState>{t('search.hit.gone')}</EmptyState></HandCard>
         ) : !row ? (
-          <HandCard className="p-5"><p className="microcopy">loading…</p></HandCard>
+          <HandCard className="p-5"><p className="microcopy">{t('common.action.load.busy')}</p></HandCard>
         ) : isBook || isQuote ? (
           <AnnotationCard
             a={row}
@@ -1115,66 +1159,66 @@ function SearchTables({ results, terms, onOpenBook, onOpenMovie, reload }) {
     <div className="space-y-6">
       {r.books?.length > 0 && (
         <ResultTable
-          label={`Books · ${r.books.length}`}
+          label={t('search.section.heading', { name: t('search.section.books.title'), n: r.books.length })}
           rows={r.books}
           terms={terms}
           onOpen={(row) => onOpenBook(row.id)}
           bulk={{ endpoint: '/books/bulk', kind: 'book-fields' }}
           reload={reload}
           cols={[
-            { key: 'title', label: 'Title', val: (b) => b.title, highlight: true, main: true },
-            { key: 'author', label: 'Author', val: (b) => b.author || '', mono: true },
-            { key: 'genres', label: 'Genres', val: (b) => (b.genres || []).join(', '), mono: true, sort: false },
+            { key: 'title', label: t('common.field.title.label'), val: (b) => b.title, highlight: true, main: true },
+            { key: 'author', label: t('common.field.author.label'), val: (b) => b.author || '', mono: true },
+            { key: 'genres', label: t('common.field.genres.label'), val: (b) => (b.genres || []).join(', '), mono: true, sort: false },
           ]}
         />
       )}
       {r.annotations?.length > 0 && (
         <ResultTable
-          label={`Annotations · ${r.annotations.length}`}
+          label={t('search.section.heading', { name: t('search.section.annotations.title'), n: r.annotations.length })}
           rows={r.annotations}
           terms={terms}
           onOpen={(row) => onOpenBook(row.book_id)}
           bulk={{ endpoint: '/annotations/bulk', kind: 'tag' }}
           reload={reload}
           cols={[
-            { key: 'quote', label: 'Quote', val: (a) => a.quote || a.note || '', highlight: true, main: true },
-            { key: 'book', label: 'Book', val: (a) => a.book_title || '', mono: true },
+            { key: 'quote', label: t('common.field.quote.label'), val: (a) => a.quote || a.note || '', highlight: true, main: true },
+            { key: 'book', label: t('share.field.work.book.label'), val: (a) => a.book_title || '', mono: true },
           ]}
         />
       )}
       {r.movies?.length > 0 && (
         <ResultTable
-          label={`Movies · ${r.movies.length}`}
+          label={t('search.section.heading', { name: t('search.section.movies.title'), n: r.movies.length })}
           rows={r.movies}
           terms={terms}
           onOpen={(row) => onOpenMovie(row.id)}
           bulk={{ endpoint: '/movies/bulk', kind: 'movie-fields' }}
           reload={reload}
           cols={[
-            { key: 'title', label: 'Title', val: (m) => m.title, highlight: true, main: true },
-            { key: 'director', label: 'Director', val: (m) => m.director || '', mono: true },
-            { key: 'year', label: 'Year', val: (m) => m.release_year || 0, mono: true },
+            { key: 'title', label: t('common.field.title.label'), val: (m) => m.title, highlight: true, main: true },
+            { key: 'director', label: t('common.field.director.label'), val: (m) => m.director || '', mono: true },
+            { key: 'year', label: t('common.field.year.label'), val: (m) => m.release_year || 0, mono: true },
           ]}
         />
       )}
       {r.dialogues?.length > 0 && (
         <ResultTable
-          label={`Dialogues · ${r.dialogues.length}`}
+          label={t('search.section.heading', { name: t('search.section.dialogues.title'), n: r.dialogues.length })}
           rows={r.dialogues}
           terms={terms}
           onOpen={(row) => onOpenMovie(row.movie_id)}
           bulk={{ endpoint: '/dialogues/bulk', kind: 'tag' }}
           reload={reload}
           cols={[
-            { key: 'quote', label: 'Quote', val: (d) => d.quote || '', highlight: true, main: true },
-            { key: 'character', label: 'Character', val: (d) => d.character || '', mono: true },
+            { key: 'quote', label: t('common.field.quote.label'), val: (d) => d.quote || '', highlight: true, main: true },
+            { key: 'character', label: t('common.field.character.label'), val: (d) => d.character || '', mono: true },
             // Results mix films and shows, so the Episode column earns its width
             // only when something in this result set actually has one.
             ...(r.dialogues.some((d) => d.season != null)
-              ? [{ key: 'episode', label: 'Episode', val: (d) => episodeLabel(d), mono: true }]
+              ? [{ key: 'episode', label: t('common.field.episode.label'), val: (d) => episodeLabel(d), mono: true }]
               : []),
-            { key: 'timestamp', label: 'Time', val: (d) => d.timestamp || '', mono: true },
-            { key: 'movie', label: 'Film', val: (d) => d.movie_title || '', mono: true },
+            { key: 'timestamp', label: t('share.field.time.label'), val: (d) => d.timestamp || '', mono: true },
+            { key: 'movie', label: t('vocab.kind.movie.label'), val: (d) => d.movie_title || '', mono: true },
           ]}
         />
       )}
@@ -1214,8 +1258,8 @@ function ResultTable({ label, rows, cols, terms, onOpen, bulk, reload }) {
             <tr>
               {bulk && (
                 <th style={{ width: 34 }}>
-                  <Tooltip label="Select every row" side="bottom">
-                    <input type="checkbox" checked={allSel} onChange={toggleAll} aria-label="Select all" />
+                  <Tooltip label={t('search.table.select-all.tip')} side="bottom">
+                    <input type="checkbox" checked={allSel} onChange={toggleAll} aria-label={t('search.table.select-all.aria')} />
                   </Tooltip>
                 </th>
               )}
@@ -1233,8 +1277,8 @@ function ResultTable({ label, rows, cols, terms, onOpen, bulk, reload }) {
               <tr key={row.id}>
                 {bulk && (
                   <td className="col-center" onClick={(e) => e.stopPropagation()}>
-                    <Tooltip label="Select this row" side="bottom">
-                      <input type="checkbox" checked={sel.has(row.id)} onChange={() => toggleId(row.id)} aria-label="Select row" />
+                    <Tooltip label={t('search.table.select-row.tip')} side="bottom">
+                      <input type="checkbox" checked={sel.has(row.id)} onChange={() => toggleId(row.id)} aria-label={t('search.table.select-row.aria')} />
                     </Tooltip>
                   </td>
                 )}
@@ -1293,35 +1337,35 @@ function SearchBulkForm({ n, ids, bulk, onClear, onDone }) {
     const body = { ids }
     if (isTag) {
       const tags = splitCommas(text)
-      if (!tags.length) return setErr('type at least one tag')
+      if (!tags.length) return setErr(t('error.validate.tag-required'))
       body.add_tags = tags
     } else {
       const genres = splitCommas(text)
       if (nameField.trim()) body[isBook ? 'author' : 'director'] = nameField.trim()
       if (series.trim()) body.series = series.trim()
       if (genres.length) body.add_genres = genres
-      if (!body.author && !body.director && !body.series && !body.add_genres) return setErr('set a field first')
+      if (!body.author && !body.director && !body.series && !body.add_genres) return setErr(t('error.validate.field-required'))
     }
     setBusy(true)
     setErr('')
     const r = await json('POST', bulk.endpoint, body)
     setBusy(false)
-    if (!r.ok) return setErr(errText(r, 'bulk action failed'))
+    if (!r.ok) return setErr(errText(r, t('error.bulk.failed')))
     onDone()
   }
 
   return (
     <BulkBar n={n} onClear={onClear}>
       {canSetFields && (
-        <input className="tp-input w-auto" style={{ minWidth: 130 }} placeholder={isBook ? 'set author' : 'set director'} value={nameField} onChange={(e) => setNameField(e.target.value)} />
+        <input className="tp-input w-auto" style={{ minWidth: 130 }} placeholder={t(isBook ? 'search.bulk.author.placeholder' : 'search.bulk.director.placeholder')} value={nameField} onChange={(e) => setNameField(e.target.value)} />
       )}
       {canSetFields && (
-        <input className="tp-input w-auto" style={{ minWidth: 110 }} placeholder="set series" value={series} onChange={(e) => setSeries(e.target.value)} />
+        <input className="tp-input w-auto" style={{ minWidth: 110 }} placeholder={t('search.bulk.series.placeholder')} value={series} onChange={(e) => setSeries(e.target.value)} />
       )}
       {canAddTags && <input
         className="tp-input w-auto"
         style={{ minWidth: 150 }}
-        placeholder={isTag ? 'add tags (comma-separated)' : 'add genres (comma-separated)'}
+        placeholder={t(isTag ? 'search.bulk.tags.placeholder' : 'search.bulk.genres.placeholder')}
         value={text}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); apply() } }}
@@ -1329,7 +1373,7 @@ function SearchBulkForm({ n, ids, bulk, onClear, onDone }) {
       <button
         className="tp-btn tp-btn-primary"
         disabled={busy || nothingSet}
-        title={nothingSet ? (isTag ? 'Type at least one tag' : 'Set a field first') : undefined}
+        title={nothingSet ? t(isTag ? 'search.bulk.tags.blocked.tip' : 'search.bulk.fields.blocked.tip') : undefined}
         onClick={apply}
       >
         Apply to {n}
@@ -1350,8 +1394,8 @@ function MediaGroup({ kind, item, cover, title, mediaTag, credits, genres = [], 
   return (
     <HandCard className="p-4">
       <div className="flex gap-4">
-        <Tooltip label="Open this work" className="shrink-0">
-          <button type="button" onClick={onOpen} aria-label={`Open ${title}`} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>
+        <Tooltip label={t('search.hit.work.tip')} className="shrink-0">
+          <button type="button" onClick={onOpen} aria-label={t('search.hit.work.aria', { title })} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>
             {cover ? (
               <img
                 src={coverImgURL(cover)}
@@ -1483,7 +1527,7 @@ function WorkResult({ kind, g, view, terms, onOpen, onOpenQuote, onOpenPerson, p
   // same treatment the detail pages and group-by headings use.
   const creditNames = splitCredits(isBook ? g.author : g.director, creditSeps)
   const creditKind = isBook ? 'author' : 'director'
-  const mediaTag = isBook ? null : g.media_type === 'show' ? 'SHOW' : 'FILM'
+  const mediaTag = isBook ? null : t(g.media_type === 'show' ? 'common.badge.show' : 'common.badge.film')
   const credits = (creditNames.length > 0 || (!isBook && g.release_year)) ? (
     <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1">
       {creditNames.map((n) => (
@@ -1503,7 +1547,7 @@ function WorkResult({ kind, g, view, terms, onOpen, onOpenQuote, onOpenPerson, p
   return (
     <div className={view === 'tiles' ? 'mb-3 break-inside-avoid' : ''}>
       <MediaGroup
-        kind={isBook ? 'COVER' : 'POSTER'}
+        kind={t(isBook ? 'common.badge.cover' : 'common.badge.poster')}
         item={g}
         cover={isBook ? g.cover_path : g.poster_path}
         title={g.title}
@@ -1583,7 +1627,7 @@ function CharacterCredits({ names, terms, onFacet }) {
         <button
           type="button"
           className="facet-mini"
-          title={`Everything ${name} says`}
+          title={t('search.character.all.tip', { name })}
           onClick={(e) => {
             e.stopPropagation()
             onFacet('character', name)
@@ -1622,18 +1666,18 @@ function ResultSection({ label, groups, group, view, isMovie, renderItem, people
   if (group === 'none') {
     return (
       <section className="space-y-3">
-        <MonoLabel className="block">{label} · {n}</MonoLabel>
+        <MonoLabel className="block">{t('search.section.heading', { name: label, n })}</MonoLabel>
         {pack(groups)}
       </section>
     )
   }
   return (
     <section className="space-y-4">
-      <MonoLabel className="block">{label} · {n}</MonoLabel>
+      <MonoLabel className="block">{t('search.section.heading', { name: label, n })}</MonoLabel>
       {groupWorks(groups, group, {
         credit: (g) => (isMovie ? g.director : g.author),
         splitCredit: !isMovie,
-        creditResidual: isMovie ? 'Unknown director' : 'Unknown author',
+        creditResidual: t(isMovie ? 'search.group.residual.director.label' : 'search.group.residual.author.label'),
         year: (g) => (isMovie ? g.release_year : g.published_year),
         genres: (g) => g.genres || [],
         series: (g) => g.series,
@@ -1693,7 +1737,7 @@ function Board({ view, children }) {
 function PeopleSection({ label, kind, entries, people, onOpenPerson, view, render }) {
   return (
     <section className="space-y-4">
-      <MonoLabel className="block">{label} · {entries.length}</MonoLabel>
+      <MonoLabel className="block">{t('search.section.heading', { name: label, n: entries.length })}</MonoLabel>
       {entries.map((e) => (
         <div key={e.name} className="space-y-2">
           <div className="flex items-center gap-3">
@@ -1757,16 +1801,18 @@ function QuoteHit({ h, terms, onOpen, people = {}, seps }) {
 function TagSection({ tags, terms, onOpenQuote, speakerMap, creditSeps }) {
   return (
     <section className="space-y-4">
-      <MonoLabel className="block">Tags · {tags.length}</MonoLabel>
-      {tags.map((t) => (
-        <div key={t.name} className="space-y-2">
+      <MonoLabel className="block">
+        {t('search.section.heading', { name: t('search.section.tags.title'), n: tags.length })}
+      </MonoLabel>
+      {tags.map((tag) => (
+        <div key={tag.name} className="space-y-2">
           <div className="flex items-center gap-3">
-            <span className="tp-chip">{t.name}</span>
-            <MonoLabel style={{ color: 'var(--accent-ui)' }}>{t.count}</MonoLabel>
+            <span className="tp-chip">{tag.name}</span>
+            <MonoLabel style={{ color: 'var(--accent-ui)' }}>{tag.count}</MonoLabel>
             <span className="h-px flex-1" style={{ background: 'var(--line)' }} />
           </div>
           <div className="space-y-2">
-            {(t.annotations || []).map((h) => (
+            {(tag.annotations || []).map((h) => (
               <ChildHit key={`a${h.id}`} color={h.color} hit={h} parent="book" onClick={() => onOpenQuote({ kind: 'book', hit: h })}>
                 {(h.quote || h.note) && (
                   <MatchWindow text={h.quote || h.note} terms={terms} style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontStyle: 'italic', fontSize: 15, lineHeight: 1.5 }} />
@@ -1776,7 +1822,7 @@ function TagSection({ tags, terms, onOpenQuote, speakerMap, creditSeps }) {
                 </MonoLabel>
               </ChildHit>
             ))}
-            {(t.dialogues || []).map((h) => (
+            {(tag.dialogues || []).map((h) => (
               <ChildHit key={`d${h.id}`} color={h.color} hit={h} parent={h.movie_media_type === 'show' ? 'show' : 'film'} onClick={() => onOpenQuote({ kind: 'movie', hit: h })}>
                 <MatchWindow text={h.quote} terms={terms} style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontSize: 15, lineHeight: 1.5 }} />
                 <MonoLabel className="mt-1 block min-w-0 truncate">
@@ -1787,7 +1833,7 @@ function TagSection({ tags, terms, onOpenQuote, speakerMap, creditSeps }) {
             {/* The count above has included these since the backend learned the
                 third kind, so leaving them out rendered "grief · 3" over a box
                 holding one row. */}
-            {(t.quotes || []).map((h) => (
+            {(tag.quotes || []).map((h) => (
               <QuoteHit key={`u${h.id}`} h={h} terms={terms} onOpen={onOpenQuote} people={speakerMap} seps={creditSeps} />
             ))}
           </div>
@@ -1802,7 +1848,9 @@ function TagSection({ tags, terms, onOpenQuote, speakerMap, creditSeps }) {
 function GenreSection({ genres, view, renderBook, renderMovie }) {
   return (
     <section className="space-y-4">
-      <MonoLabel className="block">Genres · {genres.length}</MonoLabel>
+      <MonoLabel className="block">
+        {t('search.section.heading', { name: t('search.section.genres.title'), n: genres.length })}
+      </MonoLabel>
       {genres.map((g) => (
         <div key={g.name} className="space-y-2">
           <div className="flex items-center gap-3">
@@ -1847,7 +1895,7 @@ function DateSection({ d, view, terms, renderBook, renderMovie, onOpenQuote, spe
   const standalone = d.quotes || []
   return (
     <section className="space-y-3">
-      <MonoLabel className="block">Added on {pretty} · {n}</MonoLabel>
+      <MonoLabel className="block">{t('search.section.date.title', { date: pretty, n })}</MonoLabel>
       {works.length > 0 && <Board view={view}>{works}</Board>}
       {quotes.length > 0 && <Board view={view}>{quotes}</Board>}
       {standalone.length > 0 && (
@@ -1921,7 +1969,7 @@ const WINDOW_PAD = 75
 
 // escapeTerms builds the shared match pattern (also used by Highlight).
 function termPattern(terms, flags) {
-  return new RegExp('(' + terms.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')', flags)
+  return new RegExp('(' + terms.map((term) => term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')', flags)
 }
 
 // MatchWindow shows a long quote as a context window: the run of text around

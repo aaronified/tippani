@@ -13,6 +13,8 @@
 // Strings in, values out — no React, no fetch — so it loads in the `pure` test
 // project the way facets.js and languages.jsx do.
 
+import { t } from './i18n.js'
+
 // The question types, in the order the settings screen lists them.
 //
 // `universal: false` marks one that cannot be asked of every card. `speaker`
@@ -28,44 +30,53 @@
 export const REVIEW_QUESTIONS = [
   {
     id: 'source',
-    label: 'Name the source',
-    hint: 'Shows the quote and asks which book, film, show, game or speech it came from. Multiple choice.',
+    get label() { return t('quiz.question.source.label') },
+    get hint() { return t('quiz.question.source.hint') },
     universal: true,
     decks: ['daily', 'practice'],
   },
   {
     id: 'quote',
-    label: 'Pick the quote',
-    hint: 'The other way round: shows the work and asks which of these lines came out of it. Multiple choice.',
+    get label() { return t('quiz.question.quote.label') },
+    get hint() { return t('quiz.question.quote.hint') },
     universal: true,
     decks: ['daily', 'practice'],
   },
   {
     id: 'cloze',
-    label: 'Fill in the blank',
-    hint: 'Blanks a phrase out of the quote and asks you to type it back. Graded on the server, and forgiving about typos and punctuation. Worth more than a multiple choice, and costs less when you miss it.',
+    get label() { return t('quiz.question.cloze.label') },
+    get hint() { return t('quiz.question.cloze.hint') },
     universal: true,
     decks: ['daily', 'practice'],
   },
   {
     id: 'speaker',
-    label: 'Who said this?',
-    hint: 'Films, shows and games only — a book has no cast, so this is simply never asked of a highlight.',
+    get label() { return t('quiz.question.speaker.label') },
+    get hint() { return t('quiz.question.speaker.hint') },
     universal: false,
     decks: ['daily', 'practice'],
   },
   {
     id: 'flip',
-    label: 'Flip and self-mark',
-    hint: 'Shows the quote, reveals the source, and asks you whether you had it. Nothing checks the answer, so it is offered in Practice only — and drops out there too once Practice is scored.',
+    get label() { return t('quiz.question.flip.label') },
+    get hint() { return t('quiz.question.flip.hint') },
     universal: true,
     decks: ['practice'],
   },
 ]
 
+// A deck row is [id, label] and Settings destructures it, so the shape cannot
+// change — but the label has to resolve at RENDER time, not at module scope,
+// because a locale is applied after this file loads. So slot 1 is a getter.
+function deckRow(id, key) {
+  const row = [id, '']
+  Object.defineProperty(row, 1, { get: () => t(key), enumerable: true, configurable: true })
+  return row
+}
+
 export const REVIEW_DECKS = [
-  ['daily', 'Daily quiz'],
-  ['practice', 'Practice'],
+  deckRow('daily', 'quiz.daily.label'),
+  deckRow('practice', 'quiz.practice.label'),
 ]
 
 // The defaults, which have to match defaultReviewQuestions() in Go.
@@ -138,7 +149,7 @@ export function lockedOff(state, deck, id) {
   if (!byId(id)?.universal) return ''
   const others = list.filter((x) => x !== id && byId(x)?.universal)
   if (others.length > 0) return ''
-  return 'Every deck needs at least one question it can ask of a book as well as a film — this is the last one.'
+  return t('quiz.question.last-universal.info')
 }
 
 // toggle flips one type in one deck, and refuses rather than silently reverting.
@@ -166,30 +177,39 @@ export function toggle(state, deck, id) {
 // often, for ever. Nothing errors and nothing looks broken.
 export const TUNING_FIELDS = [
   {
-    key: 'grow', label: 'Correct answer stretches by', min: 1.1, max: 5, step: 0.1, unit: '×', decimals: 2,
-    hint: 'Adaptive scheduling only. A correct recall multiplies the half-life by this. 2.5 is SM-2’s classic ease — higher means longer gaps sooner, and more forgetting between them.',
+    key: 'grow', min: 1.1, max: 5, step: 0.1, format: 'common.slider.multiplier.format', decimals: 2,
+    get label() { return t('quiz.tuning.grow.label') },
+    get hint() { return t('quiz.tuning.grow.hint') },
   },
   {
-    key: 'shrink', label: 'A lapse shortens by', min: 0.1, max: 0.95, step: 0.05, unit: '×', decimals: 2,
-    hint: 'Adaptive scheduling only. A miss multiplies the half-life by this rather than resetting it. 0.5 halves it. It cannot be 1 or more, which would make forgetting a card lengthen its interval.',
+    key: 'shrink', min: 0.1, max: 0.95, step: 0.05, format: 'common.slider.multiplier.format', decimals: 2,
+    get label() { return t('quiz.tuning.shrink.label') },
+    get hint() { return t('quiz.tuning.shrink.hint') },
   },
   {
-    key: 'clozeGrow', label: 'Typed answers earn', min: 1, max: 3, step: 0.05, unit: '×', decimals: 2,
-    hint: 'Fill-in-the-blank is recall with nothing to lean on, where a multiple choice has three quarters of the work done for you. This is how much more a typed answer is worth when you get it right.',
+    key: 'clozeGrow', min: 1, max: 3, step: 0.05, format: 'common.slider.multiplier.format', decimals: 2,
+    get label() { return t('quiz.tuning.cloze-grow.label') },
+    get hint() { return t('quiz.tuning.cloze-grow.hint') },
   },
   {
-    key: 'clozeShrink', label: 'And cost', min: 0.2, max: 1, step: 0.05, unit: '×', decimals: 2,
-    hint: 'The other half, and the one that makes it fair rather than generous: failing the hardest question in the deck is weak evidence that you have forgotten the quote, where failing to recognise it among four is strong evidence.',
+    key: 'clozeShrink', min: 0.2, max: 1, step: 0.05, format: 'common.slider.multiplier.format', decimals: 2,
+    get label() { return t('quiz.tuning.cloze-shrink.label') },
+    get hint() { return t('quiz.tuning.cloze-shrink.hint') },
   },
   {
-    key: 'clozeWords', label: 'Multi-word blanks from', min: 1, max: 100, step: 1, unit: ' days', decimals: 0,
-    hint: 'A blank hides one word until a quote has been remembered this long, and only then may it hide a phrase. Set it to 1 to allow wide blanks immediately.',
+    key: 'clozeWords', min: 1, max: 100, step: 1, format: 'common.slider.days.format', decimals: 0,
+    get label() { return t('quiz.tuning.cloze-words.label') },
+    get hint() { return t('quiz.tuning.cloze-words.hint') },
   },
-  { key: 'ladder1', label: 'Ladder rung 1', min: 7, max: 100, step: 1, unit: ' days', decimals: 0,
-    hint: 'The fixed ladder’s first rung, and where any lapse drops a card back to. Ignored when Adaptive intervals is on.' },
-  { key: 'ladder2', label: 'Ladder rung 2', min: 7, max: 100, step: 1, unit: ' days', decimals: 0, hint: 'The middle rung.' },
-  { key: 'ladder3', label: 'Ladder rung 3', min: 7, max: 100, step: 1, unit: ' days', decimals: 0,
-    hint: 'The top rung. Cards sit here for as long as the correct answers keep coming.' },
+  { key: 'ladder1', min: 7, max: 100, step: 1, format: 'common.slider.days.format', decimals: 0,
+    get label() { return t('quiz.tuning.ladder-1.label') },
+    get hint() { return t('quiz.tuning.ladder-1.hint') } },
+  { key: 'ladder2', min: 7, max: 100, step: 1, format: 'common.slider.days.format', decimals: 0,
+    get label() { return t('quiz.tuning.ladder-2.label') },
+    get hint() { return t('quiz.tuning.ladder-2.hint') } },
+  { key: 'ladder3', min: 7, max: 100, step: 1, format: 'common.slider.days.format', decimals: 0,
+    get label() { return t('quiz.tuning.ladder-3.label') },
+    get hint() { return t('quiz.tuning.ladder-3.hint') } },
 ]
 
 export const DEFAULT_TUNING = {
@@ -219,15 +239,15 @@ export function parseTuning(blob) {
 // THE LADDER MUST ASCEND. The server reverts a ladder that does not, silently,
 // which would be a slider that moves and then does nothing; the panel refuses
 // instead, the way the question toggles do.
-export function tuningProblem(t) {
-  if (!(t.ladder1 < t.ladder2 && t.ladder2 < t.ladder3)) {
-    return 'The three rungs have to climb — each one longer than the one before it.'
+export function tuningProblem(tune) {
+  if (!(tune.ladder1 < tune.ladder2 && tune.ladder2 < tune.ladder3)) {
+    return t('quiz.tuning.ladder.error')
   }
   return ''
 }
 
-export function tuningBlob(t) {
-  const same = Object.keys(DEFAULT_TUNING).every((k) => Number(t[k]) === DEFAULT_TUNING[k])
+export function tuningBlob(tune) {
+  const same = Object.keys(DEFAULT_TUNING).every((k) => Number(tune[k]) === DEFAULT_TUNING[k])
   if (same) return ''
-  return JSON.stringify(Object.fromEntries(Object.keys(DEFAULT_TUNING).map((k) => [k, Number(t[k])])))
+  return JSON.stringify(Object.fromEntries(Object.keys(DEFAULT_TUNING).map((k) => [k, Number(tune[k])])))
 }

@@ -14,6 +14,7 @@
 // Everything here is strings in, values out — no React, no fetch — so it loads
 // in the `pure` test project and the grammar can be tested without a browser.
 
+import { t } from './i18n.js'
 import { editBudget, editDistance, foldText } from './text.js'
 
 // The fields you can name, and where the dropdown gets their values.
@@ -201,9 +202,13 @@ export function readSearchBox(q, vocabulary) {
 
 // The two vocabularies that do not come from the server, because they are not
 // facts about a library.
-const YES_NO = [
-  { value: 'yes', label: 'yes' },
-  { value: 'no', label: 'no' },
+//
+// A FUNCTION RATHER THAN A TABLE, because the labels are copy: they are read at
+// render time so the language can change under the dropdown, while `value` — the
+// half that goes on the wire — stays yes/no in every language.
+const yesNo = () => [
+  { value: 'yes', label: t('vocab.yesno.yes.label') },
+  { value: 'no', label: t('vocab.yesno.no.label') },
 ]
 
 // facetOptions is every value a field could take, before narrowing.
@@ -219,7 +224,7 @@ const YES_NO = [
 export function facetOptions(field, vocabulary = {}, typed = '') {
   const spec = facetField(field)
   if (!spec || !spec.vocab) return []
-  if (spec.vocab === 'yesno') return YES_NO
+  if (spec.vocab === 'yesno') return yesNo()
   if (spec.vocab === 'year') {
     const n = String(typed || '').trim()
     return /^-?\d{1,4}$/.test(n) ? [{ value: n, label: n }] : []

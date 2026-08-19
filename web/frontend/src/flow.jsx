@@ -1,3 +1,5 @@
+import { t } from './i18n.js'
+
 // v3 sticker layer: a quote that flows around a round "sticker" the reader can
 // drag anywhere inside the block, using @chenglou/pretext for per-line measuring.
 //
@@ -263,7 +265,7 @@ export function FlowQuote({ text, sticker, stickerKey = '', quoteStyle, radius =
               touchAction: canDrag ? 'none' : undefined,
               transition: 'left .18s ease, top .18s ease, width .18s ease, height .18s ease',
             }}
-            title={canDrag ? 'Drag to reposition' : undefined}
+            title={canDrag ? t('common.sticker.drag.tip') : undefined}
           >
             {sticker}
           </span>

@@ -1,3 +1,5 @@
+import { t } from './i18n.js'
+
 // secret.js — the shape a password or a backup passphrase has to have, in one
 // place, mirroring passwordProblem / passphraseProblem on the server
 // (internal/httpapi/auth_handlers.go, backup_crypto.go). The server is the
@@ -25,21 +27,26 @@ export const PASSPHRASE_MAX = 20
 const PRINTABLE = /^[\x20-\x7e]*$/
 
 // secretProblem returns the reason `v` is unusable, or '' when it is fine.
-// `noun` names the thing in the message ("password" / "passphrase").
-export function secretProblem(v, { min, max, noun }) {
+//
+// `stem` IS A KEY STEM AND NOT A NOUN, and that is the whole change here. The
+// three messages used to be one sentence with the noun dropped into the front of
+// it, which works in English and does not survive a language where the marker on
+// "password" depends on what follows it. So each secret owns its own three
+// messages: stem + '.min' / '.max' / '.charset'.
+export function secretProblem(v, { min, max, stem }) {
   const s = String(v || '')
-  if (s.length < min) return `${noun} must be at least ${min} characters`
-  if (s.length > max) return `${noun} must be at most ${max} characters`
-  if (!PRINTABLE.test(s)) return `${noun}: letters, digits and punctuation only — no accents`
+  if (s.length < min) return t(`${stem}.min`, { n: min })
+  if (s.length > max) return t(`${stem}.max`, { n: max })
+  if (!PRINTABLE.test(s)) return t(`${stem}.charset`)
   return ''
 }
 
 export function passwordProblem(v) {
-  return secretProblem(v, { min: PASSWORD_MIN, max: PASSWORD_MAX, noun: 'Password' })
+  return secretProblem(v, { min: PASSWORD_MIN, max: PASSWORD_MAX, stem: 'error.validate.password' })
 }
 
 export function passphraseProblem(v) {
-  return secretProblem(v, { min: PASSPHRASE_MIN, max: PASSPHRASE_MAX, noun: 'Passphrase' })
+  return secretProblem(v, { min: PASSPHRASE_MIN, max: PASSPHRASE_MAX, stem: 'error.validate.passphrase' })
 }
 
 // The archive header layout, mirroring readBackupHeader in

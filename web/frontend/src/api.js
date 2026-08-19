@@ -1,3 +1,5 @@
+import { t } from './i18n.js'
+
 // Tiny fetch helpers (PLAN §10: fetch + useState suffice — no fetch libraries).
 // Every response resolves to {ok, status, data}; API errors are {"error":"msg"}.
 
@@ -116,8 +118,12 @@ export async function downloadPost(url, body, filename) {
 }
 
 // errText extracts the server's error message with a fallback.
-export function errText(res, fallback = 'something went wrong') {
-  return (res.data && res.data.error) || fallback
+// THE FALLBACK IS RESOLVED HERE RATHER THAN SPELLED AT THE CALL SITE, so a
+// caller that names no failure still says something in the reader's language.
+// The server's own `error` string wins when there is one — that half is Go's and
+// is not this pass's.
+export function errText(res, fallback) {
+  return (res.data && res.data.error) || fallback || t('error.generic')
 }
 
 // copyText copies text to the clipboard, returning true on success. The async

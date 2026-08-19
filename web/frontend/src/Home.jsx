@@ -11,6 +11,7 @@ import { dateLine, greetingFor } from './greetings.js'
 import { AnnotationForm, annotationState, annDate, fmtDate } from './Library.jsx'
 import { DialogueForm, dialogueState } from './Movies.jsx'
 import { UtteranceForm, utteranceState } from './Quotes.jsx'
+import { t, tNodes } from './i18n.js'
 import { PendingImportCard } from './StagingPage.jsx'
 import { QuizRunner, tzOffsetMinutes } from './review.jsx'
 import {
@@ -75,7 +76,7 @@ function StatesRow({ states, help, onToggleHelp, adaptive }) {
   return (
     <div style={{ borderTop: '1px solid var(--line)', paddingTop: 10 }} className="mt-3">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-        <span className="mono-label" style={{ color: 'var(--faint)' }}>where you stand</span>
+        <span className="mono-label" style={{ color: 'var(--faint)' }}>{t('home.states.title')}</span>
         {pips.map(([key, n]) => (
           <span key={key} className="mono-label inline-flex items-center gap-1.5" style={{ fontSize: 10.5, opacity: n ? 1 : 0.45 }}>
             <span
@@ -88,39 +89,34 @@ function StatesRow({ states, help, onToggleHelp, adaptive }) {
                 background: STATUS_META[key].filled ? STATUS_META[key].color : 'transparent',
               }}
             />
-            <span style={{ fontWeight: 600 }}>{n}</span> {STATUS_META[key].label.toLowerCase()}
+            <span style={{ fontWeight: 600 }}>{n}</span> {t(STATUS_META[key].label).toLowerCase()}
           </span>
         ))}
         <button type="button" className="tp-link" style={{ fontSize: 11, marginLeft: 'auto' }} onClick={onToggleHelp}>
-          how these work
+          {t('home.states.help.label')}
         </button>
       </div>
       {help && (
         <p className="microcopy mt-2" style={{ lineHeight: 1.6 }}>
-          {adaptive ? (
-            <>
-              Each quote carries a memory “half-life” that stretches to two and a half times its
-              length each time you recall it — up to 100 days — and is halved, not reset, when you
-              forget: the classic{' '}
-            </>
-          ) : (
-            <>
-              Each quote carries a memory “half-life” that climbs a fixed ladder — a week, then 30 and
-              100 days — each time you recall it, and falls straight back to a week when you forget —
-              the classic{' '}
-            </>
-          )}
-          <a href="https://en.wikipedia.org/wiki/Forgetting_curve" target="_blank" rel="noopener noreferrer" className="tp-link">
-            forgetting curve
-          </a>{' '}
-          behind{' '}
-          <a href="https://en.wikipedia.org/wiki/Spaced_repetition" target="_blank" rel="noopener noreferrer" className="tp-link">
-            spaced repetition
-          </a>. A quote is <strong>remembered</strong> while your odds of recalling it stay high,{' '}
-          <strong>forgetting</strong> as they slip, and <strong>probably forgotten</strong> once they
-          fall past half — which is when the Daily Quiz brings it back. A quote you’ve just saved counts
-          as remembered for its first week, then joins the rotation. Hover a quote’s dot anywhere to
-          see its half-life.
+          {/* ONE KEY PER RULE, holding the whole paragraph. It was five JSX
+              fragments around two links and three bold runs, which is a sentence
+              a translator cannot reorder — and this paragraph is the only place
+              the schedule is explained. */}
+          {tNodes(adaptive ? 'home.states.help.adaptive.prose' : 'home.states.help.ladder.prose', {
+            curve: (
+              <a key="curve" href="https://en.wikipedia.org/wiki/Forgetting_curve" target="_blank" rel="noopener noreferrer" className="tp-link">
+                {t('home.states.help.curve.label')}
+              </a>
+            ),
+            spaced: (
+              <a key="spaced" href="https://en.wikipedia.org/wiki/Spaced_repetition" target="_blank" rel="noopener noreferrer" className="tp-link">
+                {t('home.states.help.spaced.label')}
+              </a>
+            ),
+            remembered: <strong key="remembered">{t('home.states.help.remembered.label')}</strong>,
+            forgetting: <strong key="forgetting">{t('home.states.help.forgetting.label')}</strong>,
+            forgotten: <strong key="forgotten">{t('home.states.help.forgotten.label')}</strong>,
+          })}
         </p>
       )}
     </div>
@@ -152,9 +148,9 @@ function DailyQuizCard({ onPending, states, onStates, adaptive, submitStep }) {
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   function onAnswered(result, res) {
-    setTally((t) => ({
-      got: t.got + (result === 'got' ? 1 : 0),
-      forgot: t.forgot + (result === 'forgot' ? 1 : 0),
+    setTally((prev) => ({
+      got: prev.got + (result === 'got' ? 1 : 0),
+      forgot: prev.forgot + (result === 'forgot' ? 1 : 0),
     }))
     if (res && typeof res.remaining === 'number') onPending(res.remaining)
     // Every answer carries fresh library-wide status counts, so "where you
@@ -166,18 +162,20 @@ function DailyQuizCard({ onPending, states, onStates, adaptive, submitStep }) {
   return (
     <HandCard variant={0} style={{ padding: '16px 18px 14px' }}>
       <div className="mb-2.5 flex items-baseline justify-between gap-3">
-        <MonoLabel style={{ color: 'var(--accent-ui)' }}>Daily quiz</MonoLabel>
+        <MonoLabel style={{ color: 'var(--accent-ui)' }}>{t('home.daily.title')}</MonoLabel>
         {streak > 0 && (
-          <span className="mono-label" style={{ letterSpacing: '.06em' }}>{streak}-day streak</span>
+          <span className="mono-label" style={{ letterSpacing: '.06em' }}>
+            {t('home.daily.streak.label', { n: streak, count: streak })}
+          </span>
         )}
       </div>
 
       {phase === 'error' ? (
         <p className="microcopy py-6 text-center" style={{ color: 'var(--error)' }}>
-          couldn’t load today’s quiz — reload to try again
+          {t('home.daily.error')}
         </p>
       ) : phase === 'loading' ? (
-        <p className="microcopy py-6 text-center">gathering today’s cards…</p>
+        <p className="microcopy py-6 text-center">{t('home.daily.loading')}</p>
       ) : phase === 'active' ? (
         <QuizRunner
           mode="daily"
@@ -193,12 +191,12 @@ function DailyQuizCard({ onPending, states, onStates, adaptive, submitStep }) {
             aria-hidden="true"
             style={{ fontFamily: 'var(--font-hand)', fontWeight: 'var(--font-hand-weight)', fontStyle: 'var(--font-hand-style)', fontVariantCaps: 'var(--font-hand-caps)', textTransform: 'var(--font-hand-case)', fontVariantNumeric: 'var(--font-hand-figures)', fontSize: 24, color: 'var(--accent-ui)', transform: 'rotate(-1.2deg)' }}
           >
-            {tally.got || tally.forgot ? 'all caught up ✓' : 'nothing due today'}
+            {t(tally.got || tally.forgot ? 'home.daily.done.label' : 'home.daily.empty.label')}
           </p>
           <p className="mono-label mt-1" style={{ letterSpacing: '.06em' }}>
             {tally.got || tally.forgot
-              ? `${tally.got} recalled · ${tally.forgot} to resurface · back tomorrow`
-              : 'add or review more quotes to build your schedule'}
+              ? t('home.daily.done.summary', { got: tally.got, missed: tally.forgot })
+              : t('home.daily.empty.summary')}
           </p>
         </div>
       )}
@@ -240,7 +238,7 @@ function PracticeCard({ onStates, userId, submitStep }) {
     const r = await json('GET', '/review/practice')
     setBusy(false)
     const items = r.ok ? r.data.items || [] : []
-    if (!items.length) return toast('add a few quotes first')
+    if (!items.length) return toast(t('error.load.practice'))
     setSession({ cards: items, i: 0, got: 0, forgot: 0 })
     setPhase('active')
   }
@@ -270,7 +268,7 @@ function PracticeCard({ onStates, userId, submitStep }) {
   async function reset() {
     await json('DELETE', '/review/practice')
     loadScore()
-    toast('practice score cleared')
+    toast(t('home.practice.toast.reset'))
   }
 
   return (
@@ -281,31 +279,34 @@ function PracticeCard({ onStates, userId, submitStep }) {
           furniture above the only button that matters. */}
       <div className="mb-2.5 flex items-center justify-between gap-3">
         <span className="flex items-center gap-1.5">
-          <MonoLabel style={{ color: 'var(--accent-ui)' }}>Practice</MonoLabel>
-          <InfoDot
-            title="Practice"
-            text="Unlimited, skippable recall practice across your whole library. It leaves your review schedule alone unless you turn that on in Settings, and its own score resets without losing any learning history."
-          />
+          <MonoLabel style={{ color: 'var(--accent-ui)' }}>{t('home.practice.title')}</MonoLabel>
+          <InfoDot title={t('home.practice.info.title')} text={t('home.practice.info.body')} />
         </span>
-        {phase === 'active' && <span className="mono-label" style={{ letterSpacing: '.06em' }}>unlimited</span>}
+        {phase === 'active' && (
+          <span className="mono-label" style={{ letterSpacing: '.06em' }}>{t('home.practice.unlimited.label')}</span>
+        )}
       </div>
 
       {phase === 'idle' && (
         <div className="review-card-body">
           <div className="flex flex-wrap items-center gap-3">
             <button type="button" className="tp-btn tp-btn-primary tactile" disabled={busy} onClick={start}>
-              {busy ? 'Loading…' : 'Start practice'}
+              {t(busy ? 'home.practice.start.busy' : 'home.practice.start.label')}
             </button>
             {score && score.answered > 0 && (
               <>
                 <MonoLabel style={{ fontSize: 10.5 }}>
-                  {score.answered} answered · {Math.round(score.accuracy * 100)}% recalled
+                  {t('home.practice.score.label', {
+                    n: score.answered,
+                    count: score.answered,
+                    percent: Math.round(score.accuracy * 100),
+                  })}
                 </MonoLabel>
                 <FieldIconButton
                   icon={<IconDelete />}
-                  ariaLabel="Reset practice score"
+                  ariaLabel={t('home.practice.reset.aria')}
                   onClick={reset}
-                  tooltip="Reset the practice score"
+                  tooltip={t('home.practice.reset.tip')}
                 />
               </>
             )}
@@ -326,7 +327,7 @@ function PracticeCard({ onStates, userId, submitStep }) {
             onDone={finishRound}
           />
           <div className="mt-2 text-right">
-            <button type="button" className="tp-link" onClick={finishRound}>End practice</button>
+            <button type="button" className="tp-link" onClick={finishRound}>{t('home.practice.end.label')}</button>
           </div>
         </>
       )}
@@ -334,13 +335,13 @@ function PracticeCard({ onStates, userId, submitStep }) {
       {phase === 'done' && (
         <div className="review-card-body py-2 text-center">
           <p aria-hidden="true" style={{ fontFamily: 'var(--font-hand)', fontWeight: 'var(--font-hand-weight)', fontStyle: 'var(--font-hand-style)', fontVariantCaps: 'var(--font-hand-caps)', textTransform: 'var(--font-hand-case)', fontVariantNumeric: 'var(--font-hand-figures)', fontSize: 24, color: 'var(--accent-ui)', transform: 'rotate(-1.2deg)' }}>
-            {lastRound.got} / {lastRound.got + lastRound.forgot}
+            {t('quiz.round.score.label', { done: lastRound.got, total: lastRound.got + lastRound.forgot })}
           </p>
           <p className="mono-label mt-1 mb-3" style={{ letterSpacing: '.06em' }}>
-            practice round done — {lastRound.got} recalled · {lastRound.forgot} missed
+            {t('home.practice.round.summary', { got: lastRound.got, missed: lastRound.forgot })}
           </p>
           <button type="button" className="tp-btn tp-btn-primary tactile" disabled={busy} onClick={start}>
-            Another round
+            {t('quiz.round.again.label')}
           </button>
         </div>
       )}
@@ -364,7 +365,7 @@ function bookFav(a) {
   const meta = [
     a.book_title,
     chapterMeta(a),
-    a.location && `P. ${a.location}`,
+    a.location && t('common.locator.page.label', { n: a.location }),
   ]
     .filter(Boolean)
     .join(' · ')
@@ -378,7 +379,7 @@ function bookFav(a) {
     source: [a.book_title, a.book_author].filter(Boolean).join(' · '),
     meta,
     createdAt: a.created_at,
-    openLabel: 'Open this book',
+    openLabel: t('home.favourites.open.book.aria'),
     workId: a.book_id,
     raw: a, // the untouched row — share/edit/delete need the full state
   }
@@ -390,7 +391,7 @@ function screenFav(d, movieMap) {
   return {
     key: `screen:${d.id}`,
     kind: 'screen',
-    media: isShow ? 'SHOW' : 'FILM',
+    media: t(isShow ? 'common.badge.show' : 'common.badge.film'),
     // A dialogue has carried a colour for as long as the other two kinds have,
     // and this was the one builder that did not pass it on — so every film line
     // on Home wore the default yellow bar whatever colour it actually is, and
@@ -402,7 +403,7 @@ function screenFav(d, movieMap) {
     source: [m.title, d.character].filter(Boolean).join(' · '),
     meta: [m.title, episodeLabel(d), d.character, d.timestamp].filter(Boolean).join(' · '),
     createdAt: d.created_at,
-    openLabel: isShow ? 'Open this show' : 'Open this film',
+    openLabel: t(isShow ? 'home.favourites.open.show.aria' : 'home.favourites.open.film.aria'),
     workId: d.movie_id,
     raw: d, // the untouched row — share/edit/delete need the full state
     movie: m, // parent title/year for the share payload
@@ -432,7 +433,7 @@ function quoteFav(u) {
     // No speaker in `meta` \u2014 the expanded tile chips them. See bookFav.
     meta: rest.join(' · '),
     createdAt: u.created_at,
-    openLabel: 'Go to your quotes',
+    openLabel: t('home.favourites.open.quotes.aria'),
     raw: u,
   }
 }
@@ -463,13 +464,13 @@ function quoteFav(u) {
 const FAV_KINDS = {
   book: {
     actionKind: 'annotation',
-    label: () => 'BOOK',
+    label: () => t('common.badge.book'),
     labelColor: 'var(--accent-ui)',
     path: '/annotations',
     state: annotationState,
     form: AnnotationForm,
-    editTitle: 'Edit quote',
-    confirm: 'Delete this annotation?',
+    get editTitle() { return t('home.favourites.edit.annotation.title') },
+    get confirm() { return t('home.favourites.delete.annotation.confirm') },
     personKind: 'author',
     credit: (f) => f.raw.book_author,
     shareKind: 'book',
@@ -486,8 +487,8 @@ const FAV_KINDS = {
     path: '/dialogues',
     state: dialogueState,
     form: DialogueForm,
-    editTitle: 'Edit dialogue',
-    confirm: 'Delete this dialogue?',
+    get editTitle() { return t('home.favourites.edit.dialogue.title') },
+    get confirm() { return t('home.favourites.delete.dialogue.confirm') },
     personKind: 'actor',
     credit: (f) => f.raw.actor,
     shareKind: 'screen',
@@ -496,13 +497,13 @@ const FAV_KINDS = {
   },
   quote: {
     actionKind: 'quote',
-    label: () => 'QUOTE',
+    label: () => t('common.badge.quote'),
     labelColor: 'var(--accent-ui)',
     path: '/quotes',
     state: utteranceState,
     form: UtteranceForm,
-    editTitle: 'Edit quote',
-    confirm: 'Delete this quote?',
+    get editTitle() { return t('home.favourites.edit.quote.title') },
+    get confirm() { return t('home.favourites.delete.quote.confirm') },
     personKind: 'speaker',
     credit: (f) => f.raw.speaker,
     openIcon: 'quotes',
@@ -590,7 +591,7 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
   useEffect(() => {
     loadFavs()
     json('GET', '/tags').then((r) => {
-      if (r.ok && r.data) setTagNames((r.data.tags || []).map((t) => t.name))
+      if (r.ok && r.data) setTagNames((r.data.tags || []).map((row) => row.name))
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -608,7 +609,7 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
   const itemPath = (f) => FAV_KINDS[f.kind].path
   async function saveFav(f, fields) {
     const r = await json('PUT', `${itemPath(f)}/${f.raw.id}`, fields)
-    if (!r.ok) return errText(r, 'could not save')
+    if (!r.ok) return errText(r, t('error.save.generic'))
     setEditingFav(null)
     loadFavs()
     return null
@@ -620,7 +621,7 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
     const stateFn = FAV_KINDS[f.kind].state
     const r = await json('PUT', `${itemPath(f)}/${f.raw.id}`, { ...stateFn(f.raw), ...fields })
     if (!r.ok) {
-      toast(errText(r, 'could not save'))
+      toast(errText(r, t('error.save.generic')))
       return false
     }
     loadFavs()
@@ -628,7 +629,7 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
   async function removeFav(f) {
     if (!confirm(FAV_KINDS[f.kind].confirm)) return
     const r = await deleteWithUndo(`${itemPath(f)}/${f.raw.id}`, { reload: loadFavs })
-    if (!r.ok) return toast(errText(r, 'could not delete'))
+    if (!r.ok) return toast(errText(r, t('error.delete.generic')))
     if (openFav === f.key) setOpenFav(null)
     if (editingFav === f.key) setEditingFav(null)
     loadFavs()
@@ -698,23 +699,25 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
       {(onGoLibrary || onGoMovies) && (
       <div className={onGoLibrary && onGoMovies ? 'grid grid-cols-2 gap-2.5' : ''}>
         {onGoLibrary && (
-        <Tooltip label="Open the Library" className="flex items-stretch">
+        <Tooltip label={t('home.tile.library.tip')} className="flex items-stretch">
           <HandCard variant={1} className="cursor-pointer w-full" style={{ padding: '13px 15px' }} onClick={onGoLibrary} role="button" tabIndex={0}>
             <p style={{ fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontWeight: 600, fontSize: 24 }}>
               {stats ? stats.books : '–'}
             </p>
-            <MonoLabel style={{ fontSize: 11 }}>books · {stats ? stats.annotations : '–'} quotes</MonoLabel>
+            <MonoLabel style={{ fontSize: 11 }}>
+              {t('home.tile.library.counts', { n: stats ? stats.annotations : '–' })}
+            </MonoLabel>
           </HandCard>
         </Tooltip>
         )}
         {onGoMovies && (
-        <Tooltip label="Open the Catalogue" className="flex items-stretch">
+        <Tooltip label={t('home.tile.movies.tip')} className="flex items-stretch">
           <HandCard variant={2} className="cursor-pointer w-full" style={{ padding: '13px 15px' }} onClick={onGoMovies} role="button" tabIndex={0}>
             <p style={{ fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontWeight: 600, fontSize: 24 }}>
               {stats ? stats.movies : '–'}
             </p>
             <MonoLabel style={{ fontSize: 11, color: 'var(--amber)' }}>
-              films · {stats ? stats.dialogues : '–'} dialogues
+              {t('home.tile.movies.counts', { n: stats ? stats.dialogues : '–' })}
             </MonoLabel>
           </HandCard>
         </Tooltip>
@@ -736,10 +739,10 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
         <section>
           <div className="mb-2.5 flex items-center gap-3">
             <h2 style={{ fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontWeight: 600, fontSize: 18 }}>
-              Favourites
+              {t('home.favourites.title')}
             </h2>
             <span aria-hidden="true" className="h-px flex-1" style={{ background: 'var(--line)' }} />
-            <MonoLabel>♥ {favs.length}</MonoLabel>
+            <MonoLabel>{t('home.favourites.count.label', { n: favs.length })}</MonoLabel>
           </div>
           <Masonry columns={favCols} gap={10} order="source">
             {favs.slice(0, favsShown).map((f, i) => (
@@ -789,7 +792,7 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
           {favsShown < favs.length && (
             <div className="mt-3 text-center">
               <GhostButton onClick={() => setFavsShown((n) => n + 8)}>
-                View more ({favs.length - favsShown})
+                {t('home.favourites.more.label', { n: favs.length - favsShown })}
               </GhostButton>
             </div>
           )}
@@ -856,7 +859,7 @@ function FavouriteTile({
   let expandedMeta = f.meta
   if (isBook) {
     const chLabel = chapterMeta(f.raw)
-    const locLabel = f.raw.location ? `P. ${f.raw.location}` : ''
+    const locLabel = f.raw.location ? t('common.locator.page.label', { n: f.raw.location }) : ''
     collapsedSource = [f.raw.book_title, authorText].filter(Boolean).join(' · ')
     // No author in the EXPANDED line: the PersonCredit chips below carry the
     // same names with their portraits and their way in, so repeating them here
@@ -891,7 +894,7 @@ function FavouriteTile({
           initial={f.raw}
           onSubmit={onSave}
           onCancel={onEditCancel}
-          submitLabel="Save"
+          submitLabel={t('common.action.save.label')}
           show={f.movie?.media_type === 'show'}
           tagSuggestions={tagSuggestions}
           stickers={stickers}
@@ -901,7 +904,7 @@ function FavouriteTile({
         <>
           {/* Click anywhere on the tile head to expand — a chevron is the only
               affordance (no "show more"); the quote clamps to a per-card 3–5. */}
-          <Tooltip label={open ? 'Collapse this quote' : 'Show the whole quote'} className="flex w-full">
+          <Tooltip label={t(open ? 'home.favourites.collapse.tip' : 'quiz.option.expand.tip')} className="flex w-full">
             <button type="button" className="clampable is-clickable block w-full text-left" style={{ background: 'none', border: 'none', padding: 0 }} onClick={onToggle} aria-expanded={open}>
               <MonoLabel className="mb-1.5 block" style={{ fontSize: 9.5, color: meta.labelColor }}>
                 {meta.label(f)}
@@ -969,7 +972,7 @@ function FavouriteTile({
               )}
               {f.tags && f.tags.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
-                  {f.tags.map((t) => <span key={t} className="tp-chip">{t}</span>)}
+                  {f.tags.map((tag) => <span key={tag} className="tp-chip">{tag}</span>)}
                 </div>
               )}
               {/* THE SAME ROW, IN THE SAME ORDER, AS EVERY OTHER QUOTE CARD:
@@ -1004,7 +1007,7 @@ function FavouriteTile({
                 {/* `collapsible` because a Home tile is a masonry cell and often
                     narrower than 330px, where six dots become the named list. */}
                 <span className="card-colors is-visible shrink-0">
-                  <ColorSwatches collapsible value={color} onChange={pickColor} ariaLabel="Colour category" />
+                  <ColorSwatches collapsible value={color} onChange={pickColor} ariaLabel={t('common.colour.category.aria')} />
                 </span>
                 <span className="ml-auto flex items-center">
                   <QuoteActions actions={atOverflow(acts)} />
@@ -1068,8 +1071,10 @@ function SerendipityRow({ onOpenBook, onOpenMovie, onGoQuotes }) {
   if (!today.length && !shuffled) {
     return (
       <div className="flex justify-center">
-        <Tooltip label="One line, at random">
-          <GhostButton icon={<IconShuffle />} keepLabel onClick={shuffle} disabled={busy}>Shuffle</GhostButton>
+        <Tooltip label={t('home.shuffle.tip')}>
+          <GhostButton icon={<IconShuffle />} keepLabel onClick={shuffle} disabled={busy}>
+            {t('home.shuffle.label')}
+          </GhostButton>
         </Tooltip>
       </div>
     )
@@ -1078,7 +1083,7 @@ function SerendipityRow({ onOpenBook, onOpenMovie, onGoQuotes }) {
     <section className="space-y-3">
       {today.length > 0 && (
         <>
-          <MonoLabel className="block">On this day · {today.length}</MonoLabel>
+          <MonoLabel className="block">{t('home.onthisday.title', { n: today.length })}</MonoLabel>
           <div className="space-y-2">
             {today.slice(0, 3).map((q) => (
               <SerendipityCard key={`${q.kind}${q.id}`} q={q} onOpen={opener(q)} />
@@ -1087,8 +1092,10 @@ function SerendipityRow({ onOpenBook, onOpenMovie, onGoQuotes }) {
         </>
       )}
       <div className="flex items-center gap-3">
-        <Tooltip label="One line, at random">
-          <GhostButton icon={<IconShuffle />} keepLabel onClick={shuffle} disabled={busy}>Shuffle</GhostButton>
+        <Tooltip label={t('home.shuffle.tip')}>
+          <GhostButton icon={<IconShuffle />} keepLabel onClick={shuffle} disabled={busy}>
+            {t('home.shuffle.label')}
+          </GhostButton>
         </Tooltip>
         <span className="h-px flex-1" style={{ background: 'var(--line)' }} />
       </div>

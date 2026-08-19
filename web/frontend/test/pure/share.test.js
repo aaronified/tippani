@@ -9,6 +9,7 @@
 
 import { describe, expect, it } from 'vitest'
 import { bookShare, buildShareText, movieShare, quoteShare, SHARE_FORMATS } from '../../src/share.jsx'
+import { value } from '../locale-file.js'
 
 const ALL = new Proxy({}, { get: () => true })
 const only = (...ids) => Object.fromEntries(ids.map((id) => [id, true]))
@@ -239,10 +240,16 @@ describe('the payload shapers', () => {
     const character = casablanca().meta.find((m) => m.id === 'character')
     expect(actor.value).toBe('Humphrey Bogart')
     expect(actor.emphasis).toBe('bold')
-    expect(actor.prefix).toBe('played by ')
+    // A PHRASE, NOT A PREFIX, and the difference is the reason this assertion
+    // changed shape. "played by " glued to the front of a name is a sentence
+    // assembled by concatenation, and the credit does not run left to right in
+    // every language — so the key holds the whole clause with the name in a hole,
+    // and both renderers (buildShareText, quoteImage) fill it.
+    expect(actor.phrase).toBe('share.credit.actor.phrase')
+    expect(value(actor.phrase)).toBe('played by {value}')
     expect(character.value).toBe('Rick Blaine')
     expect(character.emphasis).toBeUndefined()
-    expect(character.prefix).toBeUndefined()
+    expect(character.phrase).toBeUndefined()
   })
 
   // Exact ids again, for the same reason the film case spells them out: the ALL

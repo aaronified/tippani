@@ -39,6 +39,7 @@ import {
   statusFilter,
   wishFilter,
 } from './works.jsx'
+import { t } from './i18n.js'
 import {
   ANNOTATION_HEX,
   byLastRead,
@@ -146,12 +147,18 @@ function Reveal({ className = '', children, ...rest }) {
 // column the 0006 migration already called a "franchise / collection name" —
 // relabelled here because "series" means a TV show on this page.
 const GROUP_OPTIONS = [
-  ['none', 'Titles'],
-  ['series', 'Collection'],
-  ['author', 'Director'],
-  ['decade', 'Decade'],
-  ['genre', 'Genre'],
+  ['none', 'movies.group.none.label'],
+  ['series', 'movies.group.series.label'],
+  ['author', 'movies.group.author.label'],
+  ['decade', 'movies.group.decade.label'],
+  ['genre', 'movies.group.genre.label'],
 ]
+
+// The table above holds KEYS; this is what the two Selects render.
+const groupOptions = () => GROUP_OPTIONS.map(([key, labelKey]) => [key, t(labelKey)])
+
+// countOf is "3 titles" / "1 line", from the shared unit table.
+const countOf = (n, unit) => t('common.count.phrase', { n, noun: t(unit, { count: n }) })
 
 // amberMono — the metadata voice of the film pages (counts, credit lines).
 const amberMono = {
@@ -179,11 +186,11 @@ function Poster({ path, title, className = '', zoomable = false }) {
     if (!zoomable) return img
     return (
       <>
-        <Tooltip label="View this poster full screen" className="w-full">
+        <Tooltip label={t('movies.poster.open.tip')} className="w-full">
           <button
             type="button"
             className="cover-zoom-btn"
-            aria-label={title ? `View poster of ${title} full screen` : 'View poster full screen'}
+            aria-label={title ? t('movies.poster.fullscreen.aria', { title }) : t('movies.poster.fullscreen.plain.aria')}
             onClick={() => setZoom(true)}
           >
             {img}
@@ -193,7 +200,7 @@ function Poster({ path, title, className = '', zoomable = false }) {
       </>
     )
   }
-  return <Placeholder kind="POSTER" className={'w-full ' + className} />
+  return <Placeholder kind={t('common.badge.poster')} className={'w-full ' + className} />
 }
 
 // movieState is the full PUT body for a movie (PUT is full-state, and omitting
@@ -226,7 +233,7 @@ function movieState(m) {
 // keeps the status and the watch log consistent. Returns an error string.
 async function setMovieStatus(id, body) {
   const r = await json('PUT', `/movies/${id}/status`, body)
-  return r.ok ? '' : errText(r, 'could not save')
+  return r.ok ? '' : errText(r, t('error.save.generic'))
 }
 
 // ---- movie list: poster grid mirroring Library (§8.6) ----
@@ -308,9 +315,9 @@ function MovieList({ onOpen, creditSeparators, dataNonce }) {
   // A chip only appears when the catalogue actually holds that type, so a
   // films-and-games library is not offered a Shows filter that matches nothing.
   const typeChips = useMemo(() => {
-    const out = [['', 'All'], ['movie', 'Movies']]
-    if (hasShows) out.push(['show', 'Shows'])
-    if (hasGames) out.push(['game', 'Games'])
+    const out = [['', t('movies.filters.media.all.label')], ['movie', t('movies.filters.media.movie.label')]]
+    if (hasShows) out.push(['show', t('movies.filters.media.show.label')])
+    if (hasGames) out.push(['game', t('movies.filters.media.game.label')])
     return out
   }, [hasShows, hasGames])
   // The gate is on the whole catalogue rather than the filtered view, so the row
@@ -388,7 +395,7 @@ function MovieList({ onOpen, creditSeparators, dataNonce }) {
         : groupWorks(shown, groupBy, {
             credit: (m) => m.director,
             splitCredit: true,
-            creditResidual: 'Unknown director',
+            creditResidual: t('movies.group.residual.director.label'),
             year: (m) => m.release_year,
             genres: (m) => m.genres || [],
             series: (m) => m.series,
@@ -401,26 +408,29 @@ function MovieList({ onOpen, creditSeparators, dataNonce }) {
   const films = movies ? movies.length : 0
   const lines = movies ? movies.reduce((n, m) => n + (m.dialogue_count || 0), 0) : 0
   const counts = movies
-    ? `${films} title${films === 1 ? '' : 's'} · ${lines} dialogue${lines === 1 ? '' : 's'}`
+    ? t('movies.header.counts', {
+        a: countOf(films, 'unit.title'),
+        b: countOf(lines, 'unit.dialogue'),
+      })
     : null
 
   return (
     <WorkListScaffold
       mobile={mobile}
-      title="Movies & Shows"
+      title={t('movies.header.title')}
       counts={counts}
       error={error}
       onExport={() => setExporting(true)}
       headerAside={
         <MonoLabel className="hidden sm:inline">
-          {tmdbSource === 'none' ? 'no TMDB key — manual entry' : 'lookup: title + year'}
+          {t(tmdbSource === 'none' ? 'movies.header.nokey.label' : 'movies.header.lookup.label')}
         </MonoLabel>
       }
       loaded={movies != null}
       hasItems={!!(movies && movies.length > 0)}
       shownCount={shown.length}
-      emptyText="No titles yet — look one up on TMDB/TVDB or add it manually."
-      noMatchText="no titles match these filters"
+      emptyText={t('movies.board.empty')}
+      noMatchText={t('movies.board.nomatch')}
       genres={genres}
       genre={genre}
       setGenre={setGenre}
@@ -435,7 +445,8 @@ function MovieList({ onOpen, creditSeparators, dataNonce }) {
       states={states}
       setStates={setStates}
       kind="movie"
-      noun="title"
+      noun={t('unit.title.one')}
+      nounPlural={t('unit.title.other')}
       seriesNames={seriesNames}
       series={series}
       setSeries={setSeries}
@@ -444,9 +455,17 @@ function MovieList({ onOpen, creditSeparators, dataNonce }) {
       creditNames={actorNames}
       credit={actor}
       setCredit={setActor}
-      creditNoun="actor"
-      seriesNoun="collection"
-      sortOptions={[['recent', 'Recent'], ['title', 'Title'], ['year', 'Year'], ['series', 'Collection'], ['read', 'Last watched']]}
+      creditNoun={t('unit.actor.one')}
+      creditNounPlural={t('unit.actor.other')}
+      seriesNoun={t('unit.collection.one')}
+      seriesNounPlural={t('unit.collection.other')}
+      sortOptions={[
+        ['recent', t('movies.sort.recent.label')],
+        ['title', t('movies.sort.title.label')],
+        ['year', t('movies.sort.year.label')],
+        ['series', t('movies.sort.series.label')],
+        ['read', t('movies.sort.read.label')],
+      ]}
       // The catalogue can hold two in-progress words at once, so the shelf-state
       // filter lists both rather than only the film's.
       activeStates={hasGames ? ['watching', 'playing'] : ['watching']}
@@ -474,9 +493,9 @@ function MovieList({ onOpen, creditSeparators, dataNonce }) {
       }
       trailing={
         <label className="flex items-center gap-2">
-          <MonoLabel>group</MonoLabel>
+          <MonoLabel>{t('common.mono.group.label')}</MonoLabel>
           <Select
-            ariaLabel="Group by"
+            ariaLabel={t('common.filters.group.aria')}
             value={groupBy}
             onChange={setGroupBy}
             options={GROUP_OPTIONS}
@@ -486,14 +505,14 @@ function MovieList({ onOpen, creditSeparators, dataNonce }) {
       trailingMobile={
         <div>
           <MonoLabel className="mb-2 block">group</MonoLabel>
-          <Select ariaLabel="Group by" value={groupBy} onChange={setGroupBy} options={GROUP_OPTIONS} />
+          <Select ariaLabel={t('common.filters.group.aria')} value={groupBy} onChange={setGroupBy} options={groupOptions()} />
         </div>
       }
       onReset={() => { setFilters([]); setGroupBy('none'); setSort('recent') }}
       exportDialog={
         <ConfirmDialog
           open={exporting}
-          title="Export catalogue"
+          title={t('movies.export.confirm.title')}
           body={(() => {
             // Counted per type rather than "everything that is not a show", which
             // is what this was: games would have been tallied as movies and the
@@ -502,13 +521,13 @@ function MovieList({ onOpen, creditSeparators, dataNonce }) {
             const games = shown.filter((m) => m.media_type === 'game').length
             const films = shown.length - shows - games
             const parts = [
-              films > 0 && `${films} movie${films === 1 ? '' : 's'}`,
-              shows > 0 && `${shows} show${shows === 1 ? '' : 's'}`,
-              games > 0 && `${games} game${games === 1 ? '' : 's'}`,
+              films > 0 && t('movies.export.count.movies', { count: films, n: films }),
+              shows > 0 && t('movies.export.count.shows', { count: shows, n: shows }),
+              games > 0 && t('movies.export.count.games', { count: games, n: games }),
             ].filter(Boolean)
-            return <>{parts.join(' · ') || '0 titles'} in view will be exported as a single Markdown file.</>
+            return t('movies.export.confirm.body', { a: parts.join(' · ') || t('movies.export.count.none') })
           })()}
-          confirmLabel="Export"
+          confirmLabel={t('common.action.export.label')}
           onCancel={() => setExporting(false)}
           onConfirm={async () => {
             setExporting(false)
@@ -525,7 +544,7 @@ function MovieList({ onOpen, creditSeparators, dataNonce }) {
         <EditWorkModal
           kind="movies"
           id={editWork}
-          title="Edit title"
+          title={t('film.form.edit.title')}
           onDone={() => {
             setEditWork(null)
             afterBulk()
@@ -537,7 +556,7 @@ function MovieList({ onOpen, creditSeparators, dataNonce }) {
         <div className="space-y-10">
           {grouped.map((g) => (
             <section key={g.key}>
-              <GroupHeading label={g.label} count={g.items.length} noun="title" />
+              <GroupHeading label={g.label} count={g.items.length} noun={t('unit.title.one')} nounPlural={t('unit.title.other')} />
               <div
                 className="grid gap-x-5 gap-y-8"
                 style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${coverSize}px, 1fr))` }}
@@ -616,23 +635,23 @@ export function DuplicateConfirm({ confirm, busy, onEnrich, onAddSeparate, onCan
               </p>
               <p className="truncate text-xs" style={{ color: 'var(--faint)' }}>
                 {[
-                  `${e.dialogue_count} dialogue${e.dialogue_count === 1 ? '' : 's'}`,
-                  e.has_poster ? 'has poster' : 'no poster',
+                  t('movies.duplicate.dialogues', { count: e.dialogue_count, n: e.dialogue_count }),
+                  t(e.has_poster ? 'movies.duplicate.poster.yes' : 'movies.duplicate.poster.no'),
                 ].join(' · ')}
               </p>
             </div>
             <GhostButton icon={<IconMetadata />} type="button" className="shrink-0" disabled={busy} onClick={() => onEnrich(e.id)}>
-              Enrich this
+              {t('movies.duplicate.enrich.label')}
             </GhostButton>
           </li>
         ))}
       </ul>
       <div className="flex flex-wrap gap-2">
         <button type="button" className="tp-btn tp-btn-primary" disabled={busy} onClick={onAddSeparate}>
-          Add as a separate title
+          {t('movies.duplicate.separate.label')}
         </button>
         <GhostButton type="button" disabled={busy} onClick={onCancel}>
-          Cancel
+          {t('common.action.cancel.label')}
         </GhostButton>
       </div>
     </div>
@@ -665,7 +684,7 @@ export function ManualMovie({ mediaType, setMediaType, title, setTitle, onAdded,
 
   async function submit(e) {
     e.preventDefault()
-    if (!title.trim()) return setError('title is required')
+    if (!title.trim()) return setError(t('error.validate.title-required.lower'))
     onBusy?.(true)
     setError('')
     const r = await json('POST', '/movies', {
@@ -682,13 +701,13 @@ export function ManualMovie({ mediaType, setMediaType, title, setTitle, onAdded,
     })
     onBusy?.(false)
     if (r.ok) onAdded(r.data) // hand back the created title (capture targets it)
-    else setError(errText(r, 'could not add title'))
+    else setError(errText(r, t('error.add.title')))
   }
 
   return (
     <form id={formId} onSubmit={submit} className="space-y-2.5">
       <div className="grid gap-2.5 sm:grid-cols-2">
-        <NameInput placeholder="Title (required)" value={title} onChange={(e) => setTitle(e.target.value)} />
+        <NameInput placeholder={t('film.form.title.placeholder')} value={title} onChange={(e) => setTitle(e.target.value)} />
         <NameInput
           placeholder={creditNounFor(mediaType)}
           value={director}
@@ -696,28 +715,28 @@ export function ManualMovie({ mediaType, setMediaType, title, setTitle, onAdded,
         />
         {isGame && (
           <NameInput
-            placeholder="Publisher"
+            placeholder={t('film.form.publisher.placeholder')}
             value={publisher}
             onChange={(e) => setPublisher(e.target.value)}
           />
         )}
-        <input className="tp-input" placeholder="Year" inputMode="numeric" value={year} maxLength={4} onChange={(e) => setYear(e.target.value.replace(/\D/g, '').slice(0, 4))} />
-        <TokenInput value={genres} onChange={setGenres} suggestions={genreSuggestions} placeholder="add a genre…" ariaLabel="Genres" transform={titleCaseGenre} />
-        <NameInput placeholder="Collection / franchise" value={series} onChange={(e) => setSeries(e.target.value)} />
+        <input className="tp-input" placeholder={t('film.form.year.placeholder')} inputMode="numeric" value={year} maxLength={4} onChange={(e) => setYear(e.target.value.replace(/\D/g, '').slice(0, 4))} />
+        <TokenInput value={genres} onChange={setGenres} suggestions={genreSuggestions} placeholder={t('common.field.genres.placeholder')} ariaLabel={t('common.field.genres.label')} transform={titleCaseGenre} />
+        <NameInput placeholder={t('film.form.series.placeholder')} value={series} onChange={(e) => setSeries(e.target.value)} />
         <input
           className="tp-input"
-          placeholder="Collection #"
+          placeholder={t('film.form.series-no.placeholder')}
           inputMode="decimal"
           value={seriesIndex}
           onChange={(e) => setSeriesIndex(e.target.value)}
         />
       </div>
-      <textarea className="tp-input" rows="3" placeholder="Description" value={description} onChange={(e) => setDescription(e.target.value)} />
+      <textarea className="tp-input" rows="3" placeholder={t('film.form.description.placeholder')} value={description} onChange={(e) => setDescription(e.target.value)} />
       <ErrorText>{error}</ErrorText>
       {/* Title is the one must-fill field. The ✓ in the popup header stays greyed
           until it has one rather than accepting the press and answering with an
           error; this line says why, because a disabled icon cannot. */}
-      {!title.trim() && <p className="microcopy" style={{ color: 'var(--faint)' }}>A title is required to save.</p>}
+      {!title.trim() && <p className="microcopy" style={{ color: 'var(--faint)' }}>{t('film.form.missing.hint')}</p>}
     </form>
   )
 }
@@ -728,10 +747,14 @@ export function ManualMovie({ mediaType, setMediaType, title, setTitle, onAdded,
 export function MediaTypeToggle({ value, onChange }) {
   return (
     <Toggle
-      ariaLabel="Media type"
+      ariaLabel={t('film.form.media.aria')}
       value={value}
       onChange={onChange}
-      options={[['movie', 'Movie'], ['show', 'Show'], ['game', 'Game']]}
+      options={[
+        ['movie', t('film.form.media.movie.label')],
+        ['show', t('vocab.kind.show.label')],
+        ['game', t('vocab.kind.game.label')],
+      ]}
     />
   )
 }
@@ -821,7 +844,7 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce
     const r = await json('PUT', `/movies/${id}/status`, body)
     setShelfBusy(false)
     if (r.ok) setMovie(r.data)
-    else setError(errText(r, 'could not save'))
+    else setError(errText(r, t('error.save.generic')))
   }
 
   async function pick(next) {
@@ -864,13 +887,13 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce
     const r = await json('PUT', `/movies/${id}/status`, { status: movie.status, ...patch })
     setShelfBusy(false)
     if (r.ok) setMovie(r.data)
-    else setError(errText(r, 'could not save'))
+    else setError(errText(r, t('error.save.generic')))
   }
 
   async function remove() {
     if (!confirm(`Delete "${movie.title}" and all its dialogues?`)) return
     // As with a book: this view closes, so there is nothing here to reload.
-    const r = await deleteWithUndo(`/movies/${id}`, { label: 'title deleted' })
+    const r = await deleteWithUndo(`/movies/${id}`, { label: t('film.toast.deleted') })
     if (r.ok) onClose()
     else setError(errText(r))
   }
@@ -879,7 +902,7 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce
   async function patch(fields) {
     const r = await json('PUT', `/movies/${id}`, { ...movieState(movie), ...fields })
     if (r.ok) setMovie(r.data)
-    else setError(errText(r, 'could not save'))
+    else setError(errText(r, t('error.save.generic')))
   }
 
   const isShow = movie && (movie.media_type || 'movie') === 'show'
@@ -923,7 +946,7 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce
   // not exist. Games only, for the same reason the form's box is.
   const publisherNode =
     detailMediaType === 'game' && movie?.publisher ? (
-      <span key="publisher">PUB. {movie.publisher}</span>
+      <span key="publisher">{t('film.credit.publisher.label', { name: movie.publisher })}</span>
     ) : null
   const metaParts = movie
     ? [
@@ -934,7 +957,7 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce
       ].filter(Boolean)
     : []
 
-  const detailTitle = movie ? (movie.title || 'Untitled') : ''
+  const detailTitle = movie ? (movie.title || t('film.title.fallback')) : ''
   const detailMeta = movie ? (movie.director || formatYear(movie.release_year, movie.release_circa) || '') : ''
 
   return (
@@ -946,12 +969,12 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce
           meta={detailMeta}
           actions={
             <>
-              <IconButton icon={<IconFilter />} label="Filter"
-            ariaLabel="Filter dialogues" onClick={() => setMobileFilter(true)} />
+              <IconButton icon={<IconFilter />} label={t('common.action.filter.label')}
+            ariaLabel={t('film.filter.aria')} onClick={() => setMobileFilter(true)} />
               {/* The shell's one Add surface, opened on Capture with this title
                   already the target — not a second add form of its own. */}
-              <IconButton icon={<IconPlus />} label="Capture"
-            ariaLabel="Capture a line" onClick={() => onAdd?.('quote', { type: 'movie', id })} />
+              <IconButton icon={<IconPlus />} label={t('common.action.capture.label')}
+            ariaLabel={t('film.capture.aria')} onClick={() => onAdd?.('quote', { type: 'movie', id })} />
               <MoreMenu
                 items={[
                   {
@@ -959,7 +982,7 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce
                     label: moveLabel('movie', movie?.status || '', activeWord),
                     onClick: () => pick(activeWord),
                   },
-                  ...(DEMO ? [] : [{ icon: <IconExport />, label: 'Export .md', onClick: () => { if (movie) window.location.href = `/api/movies/${movie.id}/export` } }]),
+                  ...(DEMO ? [] : [{ icon: <IconExport />, label: t('film.export.label'), onClick: () => { if (movie) window.location.href = `/api/movies/${movie.id}/export` } }]),
                   // SEARCH, ON A PHONE ONLY BECAUSE THAT IS WHERE IT IS MISSING.
                   // The top bar's Search already lands scoped to whatever you are
                   // looking at — searchScope reads the open work — so the
@@ -968,11 +991,11 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce
                   // where "find another line like this" is the obvious next thing
                   // with no way to ask it. Desktop needs no entry here: the bar is
                   // still up there.
-                  { icon: <IconSearch />, label: 'Search', onClick: () => onSearch?.() },
-                  { icon: <IconQuiz />, label: 'Practise this title', onClick: () => movie && practise({ movie: movie.id, label: movie.title }) },
-                  { icon: <IconDetails />, label: 'Details', onClick: () => setEditing(true) },
-                  { icon: <IconHelp size={24} />, label: 'What’s on this screen', onClick: () => setHelpOpen(true) },
-                  { icon: <IconDelete />, label: 'Delete', onClick: remove, danger: true },
+                  { icon: <IconSearch />, label: t('nav.tab.search.label'), onClick: () => onSearch?.() },
+                  { icon: <IconQuiz />, label: t('film.practise.menu.label'), onClick: () => movie && practise({ movie: movie.id, label: movie.title }) },
+                  { icon: <IconDetails />, label: t('common.work.details.title'), onClick: () => setEditing(true) },
+                  { icon: <IconHelp size={24} />, label: t('shell.help.menu.label'), onClick: () => setHelpOpen(true) },
+                  { icon: <IconDelete />, label: t('common.action.delete.label'), onClick: remove, danger: true },
                 ]}
               />
             </>
@@ -1020,7 +1043,7 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce
             // What this title is HOLDING, above the fold. Amber rather than the
             // app accent, because the credit line directly above it is amber and
             // two accents on one card read as two unrelated systems.
-            counts={<HeroCounts counts={lineStats} noun={['line', 'lines']} tone="amber" />}
+            counts={<HeroCounts counts={lineStats} noun={[t('unit.line.one'), t('unit.line.other')]} tone="amber" />}
             favorite={movie.favorite}
             onFavorite={(v) => patch({ favorite: v })}
             // Shelf state beside the hearts: the state chip (transitions and, while
@@ -1053,23 +1076,23 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce
                   {!DEMO && (
                     <IconButton
                         icon={<IconExport />}
-                        label="Export"
-            ariaLabel="Export as Markdown"
+                        label={t('common.action.export.label')}
+            ariaLabel={t('film.export.aria')}
                         onClick={() => (window.location.href = `/api/movies/${movie.id}/export`)}
-                      tooltip="Export as Markdown"
+                      tooltip={t('film.export.tip')}
                     />
                   )}
-                  <IconButton icon={<IconQuiz />} label="Practise"
-            ariaLabel="Practise this title" onClick={() => practise({ movie: movie.id, label: movie.title })} tooltip="Quiz me on this title" />
-                  <IconButton icon={<IconDetails />} label="Details"
-            ariaLabel="Details" onClick={() => setEditing(true)} tooltip="Details and metadata" />
+                  <IconButton icon={<IconQuiz />} label={t('common.action.practise.label')}
+            ariaLabel={t('film.practise.aria')} onClick={() => practise({ movie: movie.id, label: movie.title })} tooltip={t('film.practise.tip')} />
+                  <IconButton icon={<IconDetails />} label={t('common.work.details.title')}
+            ariaLabel={t('common.work.details.title')} onClick={() => setEditing(true)} tooltip={t('film.details.tip')} />
                   <IconButton
                       icon={<IconDelete />}
-                      label="Delete"
-            ariaLabel="Delete this title"
+                      label={t('common.action.delete.label')}
+            ariaLabel={t('film.delete.aria')}
                       onClick={remove}
                       danger
-                    tooltip="Delete this title"
+                    tooltip={t('film.delete.tip')}
                   />
                 </>
               )
@@ -1091,9 +1114,10 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce
         open={!!capPool}
         items={(capPool || []).map((m) => ({ id: m.id, title: m.title, meta: [m.director, formatYear(m.release_year, m.release_circa) || null].filter(Boolean).join(' · ') }))}
         cap={SHELF_CAPS[capKey]}
-        noun={capKey === 'show' ? 'show' : 'film'}
-        verb="watching"
-        pastLabel="Mark as watched"
+        noun={t(capKey === 'show' ? 'unit.show.one' : 'unit.film.one')}
+        nounPlural={t(capKey === 'show' ? 'unit.show.other' : 'unit.film.other')}
+        verb={t('common.shelf.reading.film.label')}
+        pastLabel={t('film.shelf.cap.past.label')}
         busyId={capBusyId}
         error={capError}
         onRelease={releaseWatching}
@@ -1103,7 +1127,13 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce
       <ShelfDateDialog
         open={!!pending}
         title={pending ? moveLabel('movie', movie?.status || '', pending.status) : ''}
-        label={pending?.status === activeWord ? 'Started' : pending?.status === 'abandoned' ? 'Gave up' : 'Finished'}
+        label={t(
+          pending?.status === activeWord
+            ? 'film.shelf.started.label'
+            : pending?.status === 'abandoned'
+              ? 'film.shelf.abandoned.label'
+              : 'film.shelf.finished.label',
+        )}
         value={pending?.date || ''}
         onChange={(v) => setPending((p) => (p ? { ...p, date: v } : p))}
         onCancel={() => setPending(null)}
@@ -1180,7 +1210,7 @@ export function EditMovie({ movie, onSaved, onCancel }) {
 
   async function submit(e) {
     e.preventDefault()
-    if (!title.trim()) return setError('title is required')
+    if (!title.trim()) return setError(t('error.validate.title-required.lower'))
     setBusy(true)
     setError('')
     const r = await json('PUT', `/movies/${movie.id}`, {
@@ -1206,7 +1236,7 @@ export function EditMovie({ movie, onSaved, onCancel }) {
     })
     setBusy(false)
     if (r.ok) onSaved()
-    else setError(errText(r, 'could not save'))
+    else setError(errText(r, t('error.save.generic')))
   }
 
   // Picking a match re-syncs everything server-side from that supplier (poster,
@@ -1221,7 +1251,7 @@ export function EditMovie({ movie, onSaved, onCancel }) {
     })
     setBusy(false)
     if (r.ok) onSaved()
-    else setError(errText(r, 'could not sync from the source'))
+    else setError(errText(r, t('error.sync.source')))
   }
 
   return (
@@ -1253,12 +1283,12 @@ export function EditMovie({ movie, onSaved, onCancel }) {
       <MediaTypeToggle value={mediaType} onChange={setMediaType} />
       {pickerOpen && (
         <div>
-          <MonoLabel className="mb-1.5 block">Pick the right title — replaces details, cast &amp; poster</MonoLabel>
+          <MonoLabel className="mb-1.5 block">{t('film.resync.pick.label')}</MonoLabel>
           <MovieLookupPicker auto title={title} year={year} mediaType={mediaType} tmdbId={tmdbId} tvdbId={tvdbId} onPick={resync} />
         </div>
       )}
       <div className="grid gap-2.5 sm:grid-cols-2">
-        <NameInput placeholder="Title (required)" value={title} onChange={(e) => setTitle(e.target.value)} />
+        <NameInput placeholder={t('film.form.title.placeholder')} value={title} onChange={(e) => setTitle(e.target.value)} />
         <NameInput
           placeholder={creditNounFor(mediaType)}
           value={director}
@@ -1266,17 +1296,17 @@ export function EditMovie({ movie, onSaved, onCancel }) {
         />
         {isGame && (
           <NameInput
-            placeholder="Publisher"
+            placeholder={t('film.form.publisher.placeholder')}
             value={publisher}
             onChange={(e) => setPublisher(e.target.value)}
           />
         )}
-        <input className="tp-input" placeholder="Year" inputMode="numeric" value={year} maxLength={4} onChange={(e) => setYear(e.target.value.replace(/\D/g, '').slice(0, 4))} />
-        <TokenInput value={genres} onChange={setGenres} suggestions={genreSuggestions} placeholder="add a genre…" ariaLabel="Genres" transform={titleCaseGenre} />
-        <NameInput placeholder="Collection / franchise" value={series} onChange={(e) => setSeries(e.target.value)} />
+        <input className="tp-input" placeholder={t('film.form.year.placeholder')} inputMode="numeric" value={year} maxLength={4} onChange={(e) => setYear(e.target.value.replace(/\D/g, '').slice(0, 4))} />
+        <TokenInput value={genres} onChange={setGenres} suggestions={genreSuggestions} placeholder={t('common.field.genres.placeholder')} ariaLabel={t('common.field.genres.label')} transform={titleCaseGenre} />
+        <NameInput placeholder={t('film.form.series.placeholder')} value={series} onChange={(e) => setSeries(e.target.value)} />
         <input
           className="tp-input"
-          placeholder="Collection #"
+          placeholder={t('film.form.series-no.placeholder')}
           inputMode="decimal"
           value={seriesIndex}
           onChange={(e) => setSeriesIndex(e.target.value)}
@@ -1286,20 +1316,20 @@ export function EditMovie({ movie, onSaved, onCancel }) {
             than reject. Emptying a field clears that id. */}
         <input
           className="tp-input"
-          placeholder="TMDB id"
+          placeholder={t('film.form.tmdb-id.placeholder')}
           inputMode="numeric"
           value={tmdbId}
           onChange={(e) => setTmdbId(e.target.value.replace(/\D/g, '').slice(0, 12))}
         />
         <input
           className="tp-input"
-          placeholder="TheTVDB id"
+          placeholder={t('film.form.tvdb-id.placeholder')}
           inputMode="numeric"
           value={tvdbId}
           onChange={(e) => setTvdbId(e.target.value.replace(/\D/g, '').slice(0, 12))}
         />
       </div>
-      <textarea className="tp-input" rows="4" placeholder="Description" value={description} onChange={(e) => setDescription(e.target.value)} />
+      <textarea className="tp-input" rows="4" placeholder={t('film.form.description.placeholder')} value={description} onChange={(e) => setDescription(e.target.value)} />
       <ErrorText>{error}</ErrorText>
       <div className="flex gap-2">
         {/* Greyed until the must-fill field has a value: an empty title would
@@ -1394,7 +1424,7 @@ function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen
   const { map: actorMap } = usePeople('actor') // name→metadata, for actor face icons
   const castListId = `cast-characters-${movieId}`
   const characters = [...new Set(cast.map((c) => c.character).filter(Boolean))]
-  const tagMap = Object.fromEntries(tags.map((t) => [t.name, t]))
+  const tagMap = Object.fromEntries(tags.map((row) => [row.name, row]))
   const stickerMap = useMemo(() => Object.fromEntries(stickers.map((s) => [s.id, s])), [stickers])
 
   // Tiles board (mirrors the Library's annotation board): one seed off the movie
@@ -1461,7 +1491,7 @@ function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen
 
   async function save(id, fields) {
     const r = await json('PUT', `/dialogues/${id}`, fields)
-    if (!r.ok) return errText(r, 'could not save dialogue')
+    if (!r.ok) return errText(r, t('error.save.dialogue'))
     setEditingId(null)
     load()
     loadTags()
@@ -1469,7 +1499,7 @@ function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen
   }
 
   async function remove(d) {
-    if (!confirm('Delete this dialogue?')) return
+    if (!confirm(t('film.lines.delete.confirm'))) return
     const r = await deleteWithUndo(`/dialogues/${d.id}`, { reload: load })
     if (r.ok) { setExpandedId(null); load() } // collapse before the shorter set re-packs
     else setError(errText(r))
@@ -1478,7 +1508,7 @@ function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen
   // patch PUTs a row's full current state with one field changed (♥ clicks).
   async function patch(d, fields) {
     const r = await json('PUT', `/dialogues/${d.id}`, { ...dialogueState(d), ...fields })
-    if (!r.ok) return setError(errText(r, 'could not save dialogue'))
+    if (!r.ok) return setError(errText(r, t('error.save.dialogue')))
     setError('')
     load()
   }
@@ -1514,7 +1544,7 @@ function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen
         <MobileSheet
           open={mobileFilterOpen}
           onClose={() => onMobileFilterOpen?.(false)}
-          title="Filter dialogues"
+          title={t('film.lines.filter.title')}
           footer={
             <SheetFooter
               count={items ? `${items.length} shown` : ''}
@@ -1529,7 +1559,7 @@ function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen
               <input
                 className="tp-input"
                 list={characters.length > 0 ? castListId : undefined}
-                placeholder="character or tag…"
+                placeholder={t('film.lines.filter.placeholder')}
                 value={tag}
                 onChange={(e) => setTag(e.target.value)}
               />
@@ -1537,7 +1567,7 @@ function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen
             <div>
               <MonoLabel className="mb-2 block">show only</MonoLabel>
               <div className="flex flex-wrap items-center gap-2">
-                <button onClick={() => setFav(!fav)} className={filterChipClass(fav)} title="Only favourites">
+                <button onClick={() => setFav(!fav)} className={filterChipClass(fav)} title={t('common.favourite.filter.tip')}>
                   ♥ favourites
                 </button>
                   </div>
@@ -1560,16 +1590,16 @@ function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen
         <div className="flex flex-wrap items-center gap-2">
           <MonoLabel>Dialogues{items ? ` · ${items.length}` : ''}</MonoLabel>
           <div className="ml-auto flex flex-wrap items-center gap-2">
-            <button onClick={() => setFav(!fav)} className={filterChipClass(fav)} title="Only favourites">
+            <button onClick={() => setFav(!fav)} className={filterChipClass(fav)} title={t('common.favourite.filter.tip')}>
               ♥ Favourites
             </button>
             <ColorSwatches value={color} onChange={(c) => setColor(c === color ? '' : c)} />
             {tags.length > 0 && (
               <Select
-                ariaLabel="Filter by tag"
+                ariaLabel={t('common.filters.tag.aria')}
                 value={tag}
                 onChange={setTag}
-                options={[['', 'All tags'], ...tags.map((t) => [t.name, t.name])]}
+                options={[['', t('film.lines.filter.tag.all.label')], ...tags.map((row) => [row.name, row.name])]}
               />
             )}
             <ViewToggle value={view} onChange={setView} />
@@ -1577,7 +1607,7 @@ function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen
                 this title as the target — the shell's ＋ knows which page it is
                 on. This is the desktop route to it; the phone's is the ＋ in the
                 detail bar above. */}
-            <GhostButton onClick={() => onAdd?.('quote', { type: 'movie', id: movieId })}>＋ Capture a line</GhostButton>
+            <GhostButton onClick={() => onAdd?.('quote', { type: 'movie', id: movieId })}>{t('film.lines.capture.label')}</GhostButton>
           </div>
         </div>
       )}
@@ -1593,7 +1623,7 @@ function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen
 
       {items && items.length === 0 && (
         <EmptyState>
-          {filtering ? 'No dialogues match the filters.' : 'No dialogues yet — the ＋ in the bar above captures the first line.'}
+          {t(filtering ? 'film.lines.nomatch' : 'film.lines.empty')}
         </EmptyState>
       )}
       {dlgSelection.open && (
@@ -1724,11 +1754,11 @@ function FrameDivider({ code }) {
 // A show gains an Episode column; a film has no episodes to show one for.
 const dialogueCols = (show) =>
   [
-    { key: 'quote', label: 'Quote' },
-    { key: 'character', label: 'Character' },
-    show ? { key: 'episode', label: 'Episode' } : null,
-    { key: 'timestamp', label: 'Time' },
-    { key: 'favorite', label: '♥' },
+    { key: 'quote', label: t('film.table.quote.label') },
+    { key: 'character', label: t('film.table.character.label') },
+    show ? { key: 'episode', label: t('film.table.episode.label') } : null,
+    { key: 'timestamp', label: t('film.table.time.label') },
+    { key: 'favorite', label: t('film.table.favourite.label') },
   ].filter(Boolean)
 
 // episodeSortKey orders a line within its run. Unset sorts last (Infinity) rather
@@ -1783,7 +1813,7 @@ function DialogueTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSo
                 onClick={() => onSort(c.key)}
                 aria-sort={sort.col === c.key ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
               >
-                <Tooltip label="Sort by this column" side="bottom">
+                <Tooltip label={t('book.table.sort.tip')} side="bottom">
                   <span>
                     {c.label}
                     {arrow(c.key)}
@@ -1802,9 +1832,9 @@ function DialogueTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSo
                 {d.tags?.length > 0 && (
                   <div className="mt-1.5 flex flex-wrap gap-1.5">
                     {d.tags.map((name) => {
-                      const t = tagMap[name]
+                      const tag = tagMap[name]
                       return (
-                        <TagChip key={name} color={t?.color} style={t?.style}>
+                        <TagChip key={name} color={tag?.color} style={tag?.style}>
                           {name}
                         </TagChip>
                       )
@@ -1818,7 +1848,8 @@ function DialogueTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSo
               <td className="col-center">{d.favorite ? '♥' : '—'}</td>
               <td className="col-actions">
                 <TableActions
-                  noun="line"
+                  noun={t('unit.line.one')}
+                  nounPlural={t('unit.line.other')}
                   onCopy={onCopy && (() => onCopy(d))}
                   onShare={onShare && (() => onShare(d))}
                   onEdit={() => setEditingId(d.id)}
@@ -1829,9 +1860,9 @@ function DialogueTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSo
           ))}
         </tbody>
       </table>
-      <FormModal open={!!editingRow} onClose={() => setEditingId(null)} title="Edit dialogue">
+      <FormModal open={!!editingRow} onClose={() => setEditingId(null)} title={t('common.dialogue.edit.title')}>
         {editingRow && (
-          <DialogueForm initial={editingRow} onSubmit={(fields) => save(editingRow.id, fields)} onCancel={() => setEditingId(null)} submitLabel="Save" show={show} cast={cast} actorMap={actorMap} tagSuggestions={Object.keys(tagMap)} stickers={stickers} reloadStickers={reloadStickers} />
+          <DialogueForm initial={editingRow} onSubmit={(fields) => save(editingRow.id, fields)} onCancel={() => setEditingId(null)} submitLabel={t('common.action.save.label')} show={show} cast={cast} actorMap={actorMap} tagSuggestions={Object.keys(tagMap)} stickers={stickers} reloadStickers={reloadStickers} />
         )}
       </FormModal>
     </div>
@@ -1909,7 +1940,7 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
   // (click the text to expand — no button), mirroring book annotations.
   const accordion = typeof onToggleExpand === 'function'
   const editForm = (
-    <DialogueForm initial={d} onSubmit={onSave} onCancel={onCancelEdit} submitLabel="Save" show={show} cast={cast} actorMap={actorMap} tagSuggestions={Object.keys(tagMap)} stickers={stickers} reloadStickers={reloadStickers} />
+    <DialogueForm initial={d} onSubmit={onSave} onCancel={onCancelEdit} submitLabel={t('common.action.save.label')} show={show} cast={cast} actorMap={actorMap} tagSuggestions={Object.keys(tagMap)} stickers={stickers} reloadStickers={reloadStickers} />
   )
   // editInline renders the form in place of the frame — used inside the search
   // QuoteModal (already a pop-up). Elsewhere the edit opens in a FormModal.
@@ -1926,7 +1957,7 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
   const actorCredit =
     actorNames.length > 0 ? (
       <span key="actor">
-        PLAYED BY{' '}
+        {t('film.credit.actor.label')}{' '}
         {actorNames.map((n, i) => (
           <Fragment key={n}>
             {i > 0 && ', '}
@@ -1951,7 +1982,7 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
   const quoteStyle = { fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontSize: 16.5, lineHeight: 1.5, color: 'var(--ink)' }
   return (
     <>
-      <FormModal open={editing} onClose={onCancelEdit} title="Edit dialogue">
+      <FormModal open={editing} onClose={onCancelEdit} title={t('common.dialogue.edit.title')}>
         {editForm}
       </FormModal>
     <article
@@ -1965,7 +1996,7 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
       }}
     >
       {selection && (
-        <PickMark picked={picked} label="this line" onChange={() => selection.toggle(d.id, selectKind)} />
+        <PickMark picked={picked} label={t('common.dialogue.pick.label')} onChange={() => selection.toggle(d.id, selectKind)} />
       )}
       {d.quote &&
         (sticker ? (
@@ -2014,9 +2045,9 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
       {d.tags?.length > 0 && (
         <div className="mt-2.5 flex flex-wrap gap-2">
           {d.tags.map((name) => {
-            const t = tagMap[name] // tag objects carry the user's colour + style
+            const tag = tagMap[name] // tag objects carry the user's colour + style
             return (
-              <TagChip key={name} color={t?.color} style={t?.style}>
+              <TagChip key={name} color={tag?.color} style={tag?.style}>
                 {name}
               </TagChip>
             )
@@ -2042,7 +2073,7 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
             collapsible
             value={d.color || 'yellow'}
             onChange={(c) => onPatch({ color: c })}
-            ariaLabel="Colour category"
+            ariaLabel={t('common.colour.category.aria')}
           />
         </span>
         <span className="ml-auto flex items-center">
@@ -2122,12 +2153,12 @@ export function DialogueForm({ initial, onSubmit, onCancel, submitLabel, show = 
   // would refuse. The second rule is the server's too — an episode number means
   // nothing without its season.
   const missing = !quote.trim()
-    ? 'The line itself is required'
+    ? t('error.validate.line-required')
     : episodeFields && episodeVal != null && seasonNum == null
-      ? 'An episode needs its season'
+      ? t('error.validate.season-required')
       : ''
   // Joins the dialog's header ✓ when there is one — see FormHostContext.
-  const host = useFormHost(busy ? 'Saving…' : missing)
+  const host = useFormHost(busy ? t('common.action.save.busy') : missing)
 
   async function submit(e) {
     e.preventDefault()
@@ -2175,7 +2206,7 @@ export function DialogueForm({ initial, onSubmit, onCancel, submitLabel, show = 
       <textarea
         className="tp-input"
         rows="3"
-        placeholder="Quote (required)"
+        placeholder={t('film.line.form.quote.placeholder')}
         value={quote}
         onChange={(e) => setQuote(e.target.value)}
       />
@@ -2184,8 +2215,8 @@ export function DialogueForm({ initial, onSubmit, onCancel, submitLabel, show = 
           value={characters}
           onChange={setCharacters}
           suggestions={charSuggestions}
-          placeholder="add a character… (picks from the cast)"
-          ariaLabel="Characters"
+          placeholder={t('film.line.form.characters.placeholder')}
+          ariaLabel={t('film.line.form.characters.aria')}
           nameCase
         />
         {/* The cast maps each character to who plays them — shown here so the
@@ -2207,9 +2238,9 @@ export function DialogueForm({ initial, onSubmit, onCancel, submitLabel, show = 
             type="number"
             min="0"
             max="999"
-            placeholder="Season"
-            title="Season (blank if unknown)"
-            aria-label="Season"
+            placeholder={t('film.line.form.season.placeholder')}
+            title={t('film.line.form.season.tip')}
+            aria-label={t('common.field.season.label')}
             value={season}
             onChange={(e) => setSeason(e.target.value)}
           />
@@ -2218,18 +2249,18 @@ export function DialogueForm({ initial, onSubmit, onCancel, submitLabel, show = 
             type="number"
             min="0"
             max="9999"
-            placeholder="Episode"
-            title="Episode (needs a season)"
-            aria-label="Episode"
+            placeholder={t('film.line.form.episode.placeholder')}
+            title={t('film.line.form.episode.tip')}
+            aria-label={t('common.field.episode.label')}
             value={episode}
             onChange={(e) => setEpisode(e.target.value)}
           />
           {/* Full width under the pair on a phone, third column from sm up. */}
           <input
             className="tp-input col-span-2 sm:col-span-1"
-            placeholder="HH:MM:SS"
-            title="Timestamp"
-            aria-label="Timestamp"
+            placeholder={t('film.line.form.timestamp.placeholder')}
+            title={t('film.line.form.timestamp.tip')}
+            aria-label={t('common.field.timestamp.label')}
             value={timestamp}
             onChange={(e) => setTimestamp(e.target.value)}
           />
@@ -2237,21 +2268,21 @@ export function DialogueForm({ initial, onSubmit, onCancel, submitLabel, show = 
       ) : (
         <input
           className="tp-input"
-          placeholder="HH:MM:SS"
-          title="Timestamp"
-          aria-label="Timestamp"
+          placeholder={t('film.line.form.timestamp.placeholder')}
+          title={t('film.line.form.timestamp.tip')}
+          aria-label={t('common.field.timestamp.label')}
           value={timestamp}
           onChange={(e) => setTimestamp(e.target.value)}
         />
       )}
-      <textarea className="tp-input" rows="2" placeholder="Note" value={note} onChange={(e) => setNote(e.target.value)} />
-      <TokenInput value={tags} onChange={setTags} suggestions={tagSuggestions} placeholder="add a tag…" ariaLabel="Tags" />
+      <textarea className="tp-input" rows="2" placeholder={t('common.field.note.label')} value={note} onChange={(e) => setNote(e.target.value)} />
+      <TokenInput value={tags} onChange={setTags} suggestions={tagSuggestions} placeholder={t('common.field.tags.placeholder')} ariaLabel={t('common.field.tags.label')} />
       <div className="flex items-center gap-3">
-        <MonoLabel>colour</MonoLabel>
-        <ColorSwatches value={color} onChange={setColor} ariaLabel="Colour category" />
+        <MonoLabel>{t('common.mono.colour.label')}</MonoLabel>
+        <ColorSwatches value={color} onChange={setColor} ariaLabel={t('common.colour.category.aria')} />
       </div>
       <div>
-        <MonoLabel className="mb-1.5 block">Sticker</MonoLabel>
+        <MonoLabel className="mb-1.5 block">{t('common.field.sticker.label')}</MonoLabel>
         <StickerPicker value={stickerId} onChange={setStickerId} stickers={stickers} reload={reloadStickers} />
       </div>
       {/* Hosted in a dialog, yes and no live together in its header. Inline

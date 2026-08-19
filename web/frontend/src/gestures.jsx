@@ -30,6 +30,8 @@
 // costing a few hundred bytes each, so that the day a swipe is bound the help for
 // it is a one-line reference and not a new asset pipeline.
 
+import { t } from './i18n.js'
+
 const VB = 72 // one square viewBox for every clip, so they line up in a row
 
 // IMPLEMENTED — what the app binds today, and where.
@@ -56,18 +58,20 @@ export const GESTURES = [
   'two-finger-down',
 ]
 
+// Keys, not words: this table is built at import, before the language is known,
+// and both readers below resolve it through t() as they draw.
 export const GESTURE_LABEL = {
-  'long-press': 'Long press',
-  'swipe-left': 'Swipe left',
-  'swipe-right': 'Swipe right',
-  'swipe-up': 'Swipe up',
-  'swipe-down': 'Swipe down',
-  'pinch-in': 'Pinch in',
-  'pinch-out': 'Pinch out',
-  'two-finger-left': 'Two fingers left',
-  'two-finger-right': 'Two fingers right',
-  'two-finger-up': 'Two fingers up',
-  'two-finger-down': 'Two fingers down',
+  'long-press': 'vocab.gesture.long-press.label',
+  'swipe-left': 'vocab.gesture.swipe-left.label',
+  'swipe-right': 'vocab.gesture.swipe-right.label',
+  'swipe-up': 'vocab.gesture.swipe-up.label',
+  'swipe-down': 'vocab.gesture.swipe-down.label',
+  'pinch-in': 'vocab.gesture.pinch-in.label',
+  'pinch-out': 'vocab.gesture.pinch-out.label',
+  'two-finger-left': 'vocab.gesture.two-finger-left.label',
+  'two-finger-right': 'vocab.gesture.two-finger-right.label',
+  'two-finger-up': 'vocab.gesture.two-finger-up.label',
+  'two-finger-down': 'vocab.gesture.two-finger-down.label',
 }
 
 // The travel vector per swipe, in viewBox units. One table, so a direction cannot
@@ -106,7 +110,7 @@ const dirOf = (kind) => {
 // rather than a mark. GestureChip overrides it down to label height.
 export function Gesture({ kind, size = 68, className = '' }) {
   if (!GESTURES.includes(kind)) return null
-  const label = GESTURE_LABEL[kind]
+  const label = t(GESTURE_LABEL[kind])
   const two = kind.startsWith('two-finger')
   const pinch = kind.startsWith('pinch')
   const swipe = kind.startsWith('swipe') || two
@@ -198,7 +202,7 @@ export function GestureChip({ kind, className = '' }) {
   return (
     <span className={`gesture-chip ${className}`}>
       <Gesture kind={kind} size={28} />
-      <span className="gesture-chip-label">{GESTURE_LABEL[kind]}</span>
+      <span className="gesture-chip-label">{t(GESTURE_LABEL[kind])}</span>
     </span>
   )
 }

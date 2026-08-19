@@ -1,4 +1,5 @@
 import { fontChoice } from './fonts.js'
+import { t } from './i18n.js'
 
 // Quote-card images (ROADMAP §10). Render a highlight as a shareable PNG,
 // styled in the current paper/film skin, entirely in the browser — no server, no
@@ -428,7 +429,9 @@ export function buildModel(share, selected, colorHex) {
     .map((a) => ({ text: a.value, emphasis: a.emphasis }))
   const meta = (share.meta || [])
     .filter((m) => selected[m.id] && m.value)
-    .map((m) => (m.prefix || '') + m.value)
+    // `phrase` is the whole clause with a {value} hole — see share.jsx, where the
+    // "played by …" credit stopped being a prefix glued onto a name.
+    .map((m) => (m.phrase ? t(m.phrase, { value: m.value }) : m.value))
   const tags = selected.tags && share.tags ? share.tags : []
   const note = selected.note && share.note ? share.note : ''
   // Credit faces (author / actor portraits) ride with their credit toggle:
@@ -591,11 +594,11 @@ export function drawQuoteCard(canvas, model, theme) {
     const rows = []
     let row = []
     let rowW = 0
-    for (const t of model.tags) {
+    for (const tag of model.tags) {
       ctx.font = FONTS.tag
-      const w = ctx.measureText(t).width + TAG_PADX * 2
+      const w = ctx.measureText(tag).width + TAG_PADX * 2
       if (row.length && rowW + w > innerW) { rows.push(row); row = []; rowW = 0 }
-      row.push({ text: t, w })
+      row.push({ text: tag, w })
       rowW += w + TAG_GAP
     }
     if (row.length) rows.push(row)
@@ -819,8 +822,11 @@ export function drawQuoteCard(canvas, model, theme) {
   ctx.fillStyle = theme.faint
   ctx.textBaseline = 'alphabetic'
   ctx.font = FONTS.credit
-  ctx.fillText('made with', fx, base)
-  fx += ctx.measureText('made with').width + 6
+  // The wordmarks below it are the app's name and stay as they are in every
+  // language; this is the only word on the footer line that is copy.
+  const madeWith = t('share.image.footer.credit.label')
+  ctx.fillText(madeWith, fx, base)
+  fx += ctx.measureText(madeWith).width + 6
   ctx.font = FONTS.foot
   ctx.fillText('tippani', fx, base)
   fx += ctx.measureText('tippani').width + 8

@@ -1,4 +1,5 @@
 import { json, errText } from './api.js'
+import { t } from './i18n.js'
 import { toast } from './ui.jsx'
 
 // Undo, while you still remember.
@@ -26,22 +27,23 @@ import { toast } from './ui.jsx'
 // screen's existing optimistic behaviour is untouched.
 //
 // Returns the response, so every call site keeps its own error handling.
-export async function deleteWithUndo(path, { label = 'deleted', reload } = {}) {
+export async function deleteWithUndo(path, { label, reload } = {}) {
+  const said = label || t('common.toast.deleted.label')
   const r = await json('DELETE', path)
   if (!r.ok) return r
   const id = r.data?.trash_id
   if (!id) {
     // An older server, or a kind that does not go to the bin. Say what happened
     // and offer nothing — an Undo that cannot work is worse than none.
-    toast(label)
+    toast(said)
     return r
   }
-  toast(label, {
-    label: 'Undo',
+  toast(said, {
+    label: t('common.action.undo.label'),
     onClick: async () => {
       const u = await json('POST', `/trash/${id}/restore`)
-      if (!u.ok) return toast(errText(u, 'could not undo'))
-      toast('restored')
+      if (!u.ok) return toast(errText(u, t('error.undo.generic')))
+      toast(t('common.toast.restored.label'))
       reload?.()
     },
   })

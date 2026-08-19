@@ -23,6 +23,12 @@
 // the Bengali face has to rebuild the display and ui stacks too — which is why
 // the stacks are composed here, from the whole choice, rather than per role.
 
+// EVERY LABEL, NOTE AND SPECIMEN BELOW IS A KEY. This module is evaluated at
+// import, before the reader's language is known, and it renders nothing itself —
+// Settings' Type card resolves each one through t() as it draws the row. A face's
+// `name` is keyed too, so a transliteration into the reader's script is possible
+// where one is wanted; `family` is the CSS family and never moves.
+//
 // ROLES — in the order the picker shows them, which is the order they matter.
 // `sample` is the role doing its actual job, because a type list that sets the
 // same specimen sentence in every face tells you nothing about the only question
@@ -31,46 +37,46 @@ export const FONT_ROLES = [
   {
     key: 'display',
     prop: '--font-display',
-    label: 'Quotes',
-    what: 'The words themselves, and every title.',
-    sample: 'It is a truth universally acknowledged',
+    label: 'vocab.font-role.display.label',
+    what: 'vocab.font-role.display.what',
+    sample: 'vocab.font-role.display.sample',
     italic: true,
   },
   {
     key: 'ui',
     prop: '--font-ui',
-    label: 'Interface',
-    what: 'Buttons, fields, everything you press.',
-    sample: 'Add to quiz · Move to board · Fill gaps',
+    label: 'vocab.font-role.ui.label',
+    what: 'vocab.font-role.ui.what',
+    sample: 'vocab.font-role.ui.sample',
   },
   {
     key: 'mono',
     prop: '--font-mono',
-    label: 'Labels',
-    what: 'Locators, dates, counts — the small caps lines.',
-    sample: 'CH. 12 · P. 288 · 3 QUOTES',
+    label: 'vocab.font-role.mono.label',
+    what: 'vocab.font-role.mono.what',
+    sample: 'vocab.font-role.mono.sample',
   },
   {
     key: 'hand',
     prop: '--font-hand',
-    label: 'Notes',
-    what: 'Your margin notes, and the score on a finished round.',
-    sample: 'the bit about the garden',
+    label: 'vocab.font-role.hand.label',
+    what: 'vocab.font-role.hand.what',
+    sample: 'vocab.font-role.hand.sample',
   },
   {
     key: 'bengali',
     prop: '--font-bengali',
-    label: 'Bengali',
-    what: 'Every Bengali quote, wherever it appears.',
-    sample: 'যে জীবন ফড়িঙের দোয়েলের',
+    label: 'vocab.font-role.bengali.label',
+    what: 'vocab.font-role.bengali.what',
+    sample: 'vocab.font-role.bengali.sample',
     script: 'bengali',
   },
   {
     key: 'devanagari',
     prop: '--font-devanagari',
-    label: 'Devanagari',
-    what: 'Hindi, Marathi, Sanskrit — anything in this script.',
-    sample: 'जो बीत गई सो बात गई',
+    label: 'vocab.font-role.devanagari.label',
+    what: 'vocab.font-role.devanagari.what',
+    sample: 'vocab.font-role.devanagari.sample',
     script: 'devanagari',
   },
 ]
@@ -88,34 +94,34 @@ export const FONT_ROLES = [
 // the same way, on the same reader's milder version of the same complaint.
 export const FONT_FACES = {
   display: [
-    { id: 'newsreader', name: 'Newsreader', family: 'Newsreader', note: 'The built-in' },
-    { id: 'source-serif-4', name: 'Source Serif 4', family: 'Source Serif 4', note: 'Cleaner, a little wider' },
-    { id: 'literata', name: 'Literata', family: 'Literata', note: 'Made for long reading' },
+    { id: 'newsreader', name: 'vocab.face.newsreader.name', family: 'Newsreader', note: 'vocab.face.newsreader.note' },
+    { id: 'source-serif-4', name: 'vocab.face.source-serif-4.name', family: 'Source Serif 4', note: 'vocab.face.source-serif-4.note' },
+    { id: 'literata', name: 'vocab.face.literata.name', family: 'Literata', note: 'vocab.face.literata.note' },
   ],
   ui: [
-    { id: 'hanken-grotesk', name: 'Hanken Grotesk', family: 'Hanken Grotesk', note: 'The built-in' },
-    { id: 'inter', name: 'Inter', family: 'Inter', note: 'Neutral, very legible small' },
-    { id: 'public-sans', name: 'Public Sans', family: 'Public Sans', note: 'Plainer, squarer' },
+    { id: 'hanken-grotesk', name: 'vocab.face.hanken-grotesk.name', family: 'Hanken Grotesk', note: 'vocab.face.hanken-grotesk.note' },
+    { id: 'inter', name: 'vocab.face.inter.name', family: 'Inter', note: 'vocab.face.inter.note' },
+    { id: 'public-sans', name: 'vocab.face.public-sans.name', family: 'Public Sans', note: 'vocab.face.public-sans.note' },
   ],
   mono: [
-    { id: 'ibm-plex-mono', name: 'IBM Plex Mono', family: 'IBM Plex Mono', note: 'The built-in' },
-    { id: 'jetbrains-mono', name: 'JetBrains Mono', family: 'JetBrains Mono', note: 'Taller, more open' },
-    { id: 'source-code-pro', name: 'Source Code Pro', family: 'Source Code Pro', note: 'Quieter' },
+    { id: 'ibm-plex-mono', name: 'vocab.face.ibm-plex-mono.name', family: 'IBM Plex Mono', note: 'vocab.face.ibm-plex-mono.note' },
+    { id: 'jetbrains-mono', name: 'vocab.face.jetbrains-mono.name', family: 'JetBrains Mono', note: 'vocab.face.jetbrains-mono.note' },
+    { id: 'source-code-pro', name: 'vocab.face.source-code-pro.name', family: 'Source Code Pro', note: 'vocab.face.source-code-pro.note' },
   ],
   hand: [
-    { id: 'caveat', name: 'Caveat', family: 'Caveat', note: 'The built-in' },
-    { id: 'kalam', name: 'Kalam', family: 'Kalam', note: 'Rounder — and writes Devanagari too' },
-    { id: 'gloria-hallelujah', name: 'Gloria Hallelujah', family: 'Gloria Hallelujah', note: 'Looser, more casual' },
+    { id: 'caveat', name: 'vocab.face.caveat.name', family: 'Caveat', note: 'vocab.face.caveat.note' },
+    { id: 'kalam', name: 'vocab.face.kalam.name', family: 'Kalam', note: 'vocab.face.kalam.note' },
+    { id: 'gloria-hallelujah', name: 'vocab.face.gloria-hallelujah.name', family: 'Gloria Hallelujah', note: 'vocab.face.gloria-hallelujah.note' },
   ],
   bengali: [
-    { id: 'noto-serif-bengali', name: 'Noto Serif Bengali', family: 'Noto Serif Bengali', note: 'The built-in' },
-    { id: 'hind-siliguri', name: 'Hind Siliguri', family: 'Hind Siliguri', note: 'Sans — plainer and larger on the line' },
-    { id: 'tiro-bangla', name: 'Tiro Bangla', family: 'Tiro Bangla', note: 'Traditional; the built-in before 1.15' },
+    { id: 'noto-serif-bengali', name: 'vocab.face.noto-serif-bengali.name', family: 'Noto Serif Bengali', note: 'vocab.face.noto-serif-bengali.note' },
+    { id: 'hind-siliguri', name: 'vocab.face.hind-siliguri.name', family: 'Hind Siliguri', note: 'vocab.face.hind-siliguri.note' },
+    { id: 'tiro-bangla', name: 'vocab.face.tiro-bangla.name', family: 'Tiro Bangla', note: 'vocab.face.tiro-bangla.note' },
   ],
   devanagari: [
-    { id: 'noto-serif-devanagari', name: 'Noto Serif Devanagari', family: 'Noto Serif Devanagari', note: 'The built-in' },
-    { id: 'hind', name: 'Hind', family: 'Hind', note: 'Sans — plainer and larger on the line' },
-    { id: 'tiro-devanagari-hindi', name: 'Tiro Devanagari Hindi', family: 'Tiro Devanagari Hindi', note: 'Traditional; the built-in before 1.15' },
+    { id: 'noto-serif-devanagari', name: 'vocab.face.noto-serif-devanagari.name', family: 'Noto Serif Devanagari', note: 'vocab.face.noto-serif-devanagari.note' },
+    { id: 'hind', name: 'vocab.face.hind.name', family: 'Hind', note: 'vocab.face.hind.note' },
+    { id: 'tiro-devanagari-hindi', name: 'vocab.face.tiro-devanagari-hindi.name', family: 'Tiro Devanagari Hindi', note: 'vocab.face.tiro-devanagari-hindi.note' },
   ],
 }
 
@@ -129,13 +135,13 @@ export const FONT_FACES = {
 // shipped, under the name of what it does. A control labelled "monospace" that
 // silently swapped the face would be a second, worse copy of the picker above it.
 export const FONT_STYLES = [
-  { id: 'bold', label: 'Bold', css: { fontWeight: '700' } },
-  { id: 'italic', label: 'Italic', css: { fontStyle: 'italic' } },
+  { id: 'bold', label: 'vocab.font-style.bold.label', css: { fontWeight: '700' } },
+  { id: 'italic', label: 'vocab.font-style.italic.label', css: { fontStyle: 'italic' } },
   // Meaningless in Bengali and Devanagari, which have no case at all — the row
   // offers what its script can do, and `caseless` is how it knows.
-  { id: 'smallcaps', label: 'Small caps', css: { fontVariantCaps: 'small-caps' }, needsCase: true },
-  { id: 'allcaps', label: 'All caps', css: { textTransform: 'uppercase' }, needsCase: true },
-  { id: 'figures', label: 'Lining figures', css: { fontVariantNumeric: 'tabular-nums' } },
+  { id: 'smallcaps', label: 'vocab.font-style.smallcaps.label', css: { fontVariantCaps: 'small-caps' }, needsCase: true },
+  { id: 'allcaps', label: 'vocab.font-style.allcaps.label', css: { textTransform: 'uppercase' }, needsCase: true },
+  { id: 'figures', label: 'vocab.font-style.figures.label', css: { fontVariantNumeric: 'tabular-nums' } },
 ]
 
 // stylesFor lists the modifiers a role can actually offer.
@@ -199,7 +205,7 @@ function uploadFace(token) {
   const m = /^upload:(\d+)$/.exec(String(token || ''))
   if (!m) return null
   const hit = uploads.find((f) => String(f.id) === m[1])
-  return hit ? { id: token, name: hit.name, family: hit.family, note: 'Yours' } : null
+  return hit ? { id: token, name: hit.name, family: hit.family, note: 'vocab.face.upload.note' } : null
 }
 
 // ---- the script check ------------------------------------------------------

@@ -30,6 +30,13 @@ vi.mock('../../src/api.js', async (orig) => ({
 
 const { default: Settings } = await import('../../src/Settings.jsx')
 const { SECTIONS } = await import('../../src/routes.js')
+// SECTIONS[].label IS A KEY, so the accessible name to look for is what it resolves
+// to. Every table in the app that names something now holds the key and the words
+// arrive at the dot that draws them — Settings renders {t(sec.label)}, so a test
+// querying by visible text has to resolve it the same way rather than restate the
+// English.
+const { t } = await import('../../src/i18n.js')
+const named = (sec) => t(sec.label)
 
 beforeEach(() => {
   PUTS = []
@@ -61,7 +68,7 @@ describe('the Features card', () => {
   it('offers one switch per section, named after the section', () => {
     page()
     for (const sec of SECTIONS) {
-      expect(screen.getByLabelText(sec.label), `no switch for ${sec.label}`).toBeTruthy()
+      expect(screen.getByLabelText(named(sec)), `no switch for ${sec.label}`).toBeTruthy()
     }
   })
 
@@ -73,7 +80,7 @@ describe('the Features card', () => {
     // its rows.
     page()
     for (const sec of SECTIONS) {
-      const group = screen.getByLabelText(sec.label)
+      const group = screen.getByLabelText(named(sec))
       // Read off the segment Toggle marks selected, not off the one we expected to
       // find: `getByRole('tab', {selected: true})` throws when nothing is selected,
       // which is the failure a `?? 'true'` fallback would have swallowed.

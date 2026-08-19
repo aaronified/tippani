@@ -23,9 +23,11 @@ import {
   verifyUpload,
 } from './fonts.js'
 import { SECTIONS, visibleSections } from './routes.js'
+import { LanguagePicker } from './locale.jsx'
 import { tourFeatures, tourSteps } from './tour.jsx'
 import { lockedOff, parseQuestions, parseTuning, questionsBlob, questionsFor, REVIEW_DECKS, toggle as toggleQuestion, TUNING_FIELDS, tuningBlob, tuningProblem } from './quiz.js'
 import { createPortal } from 'react-dom'
+import { t, tNodes } from './i18n.js'
 import { PASSPHRASE_MAX, PASSPHRASE_MIN, PASSWORD_MAX, passphraseProblem, sniffArchiveKey } from './secret.js'
 import {
   Card,
@@ -191,7 +193,7 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, on
   return (
     <section className="space-y-6">
       <div className={mobile ? 'mobile-sticky-bar' : ''}>
-        <PageHeader title="Settings" counts={user.is_admin ? 'admin' : user.username} />
+        <PageHeader title={t('nav.tab.settings.label')} counts={user.is_admin ? 'admin' : user.username} />
       </div>
       <Appearance prefs={user.preferences} onPreferences={onPreferences} />
       {/* align-items:start so a short column stays short instead of stretching
@@ -237,10 +239,10 @@ const CREDIT_SEP_OPTIONS = [
 ]
 function CreditSeparators({ user, onPreferences }) {
   const parse = (v) => {
-    const t = String(v || '').trim()
-    if (!t) return new Set(CREDIT_SEP_OPTIONS.map(([k]) => k)) // unset = all on
-    if (t.toLowerCase() === 'none') return new Set()
-    return new Set(t.split(',').map((s) => s.trim()).filter((s) => CREDIT_SEP_OPTIONS.some(([k]) => k === s)))
+    const raw = String(v || '').trim()
+    if (!raw) return new Set(CREDIT_SEP_OPTIONS.map(([k]) => k)) // unset = all on
+    if (raw.toLowerCase() === 'none') return new Set()
+    return new Set(raw.split(',').map((s) => s.trim()).filter((s) => CREDIT_SEP_OPTIONS.some(([k]) => k === s)))
   }
   const [active, setActive] = useState(() => parse(user.preferences?.creditSeparators))
   function toggle(key) {
@@ -257,12 +259,12 @@ function CreditSeparators({ user, onPreferences }) {
   return (
     <div className="settings-subsection">
       <div className="mb-2 flex flex-wrap items-center gap-2">
-        <MonoLabel>Multi-author credits</MonoLabel>
-        <InfoDot title="Multi-author credits" text="Splits a credit like “Gaiman & Pratchett” into two people, on the separators you pick. The author line stored on each book is untouched, so this is safe to change at any time. Turn the comma off if you store authors as “Last, First”." />
+        <MonoLabel>{t('settings.credits.title')}</MonoLabel>
+        <InfoDot title={t('settings.credits.info.title')} text={t('settings.credits.info.body')} />
       </div>
       <div className="flex flex-wrap items-center gap-2">
         {CREDIT_SEP_OPTIONS.map(([key, label]) => (
-          <Tooltip key={key} label="Split credits on this separator" side="top">
+          <Tooltip key={key} label={t('settings.credits.chip.tip')} side="top">
             <button
               type="button"
               className={'tp-filter-chip' + (active.has(key) ? ' active' : '')}
@@ -276,7 +278,7 @@ function CreditSeparators({ user, onPreferences }) {
         ))}
       </div>
       {active.size === 0 && (
-        <p className="microcopy mt-2">splitting is off — every credit stays one person</p>
+        <p className="microcopy mt-2">{t('settings.credits.off.prose')}</p>
       )}
     </div>
   )
@@ -284,15 +286,22 @@ function CreditSeparators({ user, onPreferences }) {
 
 // Slider — a labelled range that commits on release (pointer/key up), so a drag
 // is one PUT, not one per step. Mirrors its `value` prop if it changes upstream.
-function Slider({ label, hideLabel = false, min, max, step, value, unit = '', decimals = 0, onCommit }) {
+// A FORMAT KEY, NOT A UNIT SUFFIX. The readout used to be `{show}{unit}` with the
+// unit written as ' days' — a leading space no locale line can carry, since the
+// parser trims both halves, and a word order English happens to share with the
+// number. So the whole readout is one string: `{n} days`, `{n}×`, whatever the
+// language puts where. `count` rides along so a language with a singular form gets
+// it (`{n} day` at 1).
+function Slider({ label, hideLabel = false, min, max, step, value, format = '', decimals = 0, onCommit }) {
   const [v, setV] = useState(value)
   useEffect(() => setV(value), [value])
-  const show = decimals ? v.toFixed(decimals) : String(v)
+  const num = decimals ? v.toFixed(decimals) : String(v)
+  const show = format ? t(format, { n: num, count: v }) : num
   return (
     <div>
       <div className="mb-1.5 flex items-baseline justify-between">
         {hideLabel ? <span /> : <MonoLabel>{label}</MonoLabel>}
-        <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 12, color: 'var(--faint)' }}>{show}{unit}</span>
+        <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 12, color: 'var(--faint)' }}>{show}</span>
       </div>
       <input
         type="range" min={min} max={max} step={step} value={v} aria-label={label}
@@ -367,19 +376,19 @@ function ColourCategoriesCard({ prefs, onSaved }) {
     // microcopy underneath was repeating in shorter words.
     <Card data-tour="categories">
       <SectionTitle
-        info="Tags say what a quote is about; its colour says what KIND of note it is. Renaming changes only the words on screen — the stored value never moves, so exports round-trip. Hiding one leaves every quote wearing it untouched."
+        info={t('settings.colours.info.body')}
       >
-        Colour categories
+        {t('settings.colours.title')}
       </SectionTitle>
       <div>
         {rows.map((row) => (
           <div key={row.token} className="inline-field">
             <div className={'inline-field-head' + (picking === row.slot ? '' : ' is-flush')} style={{ gap: 10 }}>
-              <Tooltip label={row.fixed ? 'The default colour' : `Recolour ${row.label}`}>
+              <Tooltip label={row.fixed ? t('settings.colours.fixed.tip') : t('settings.colours.recolour.tip', { name: row.label })}>
                 <button
                   type="button"
                   className="color-dot-btn"
-                  aria-label={`Recolour ${row.label}`}
+                  aria-label={t('settings.colours.recolour.tip', { name: row.label })}
                   aria-expanded={picking === row.slot}
                   onClick={() => setPicking(picking === row.slot ? null : row.slot)}
                 >
@@ -388,8 +397,8 @@ function ColourCategoriesCard({ prefs, onSaved }) {
               </Tooltip>
               {row.fixed ? (
                 <div className="min-w-0 flex-1">
-                  <span style={{ fontWeight: 600 }}>{UNSET_LABEL}</span>
-                  <InfoDot title="Why this one has no name" text="Where a quote lands when nobody picks a colour, and where an import with no colour lands. Naming it would file every quote you never sorted under a category you never chose. Its colour is still yours to change." />
+                  <span style={{ fontWeight: 600 }}>{t(UNSET_LABEL)}</span>
+                  <InfoDot title={t('settings.colours.fixed.info.title')} text={t('settings.colours.fixed.info.body')} />
                 </div>
               ) : (
                 <input
@@ -398,7 +407,7 @@ function ColourCategoriesCard({ prefs, onSaved }) {
                   value={row.name}
                   maxLength={CAT_NAME_MAX}
                   placeholder={row.defaultName}
-                  aria-label={`Name for the ${row.token} category`}
+                  aria-label={t('settings.colours.name.aria', { name: row.token })}
                   onChange={(e) => setRows(rows.map((r) => (r.slot === row.slot ? { ...r, name: e.target.value } : r)))}
                   onBlur={() => save({})}
                   onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }}
@@ -407,32 +416,32 @@ function ColourCategoriesCard({ prefs, onSaved }) {
               {!row.fixed && (
                 <FieldIconButton
                   icon={row.hidden ? <IconEyeOff /> : <IconEye />}
-                  ariaLabel={row.hidden ? 'Offer this category' : 'Hide this category'}
+                  ariaLabel={row.hidden ? t('settings.colours.offer.aria') : t('settings.colours.hide.aria')}
                   aria-pressed={row.hidden}
                   disabled={!row.hidden && visible <= 2}
                   onClick={() => save({ [`catHidden${row.slot}`]: !row.hidden })}
-                  tooltip={row.hidden ? 'Offer this again' : visible <= 2 ? 'Keep two categories' : 'Stop offering this'}
+                  tooltip={row.hidden ? t('settings.colours.offer.tip') : visible <= 2 ? t('settings.colours.keep-two.tip') : t('settings.colours.hide.tip')}
                   active={row.hidden}
                 />
               )}
               {row.custom && (
                 <FieldIconButton
                   icon={<IconRevert />}
-                  ariaLabel="Reset this colour"
+                  ariaLabel={t('settings.colours.reset.aria')}
                   onClick={() => save({ [`catColor${row.slot}`]: '' })}
-                  tooltip="Back to the original"
+                  tooltip={t('settings.colours.reset.tip')}
                 />
               )}
             </div>
             {picking === row.slot && (
-              <div className="cat-palette" role="listbox" aria-label={`Colour for ${row.label}`}>
-                {CATEGORY_PALETTE.map(([hex, name]) => (
-                  <Tooltip key={hex} label={name}>
+              <div className="cat-palette" role="listbox" aria-label={t('settings.colours.palette.aria', { name: row.label })}>
+                {CATEGORY_PALETTE.map(([hex, nameKey]) => (
+                  <Tooltip key={hex} label={t(nameKey)}>
                     <button
                       type="button"
                       role="option"
                       aria-selected={row.hex.toLowerCase() === hex.toLowerCase()}
-                      aria-label={name}
+                      aria-label={t(nameKey)}
                       className={'cat-swatch' + (row.hex.toLowerCase() === hex.toLowerCase() ? ' is-on' : '')}
                       style={{ background: hex }}
                       onClick={() => { setPicking(null); save({ [`catColor${row.slot}`]: hex }) }}
@@ -495,9 +504,11 @@ function collect(rows) {
 // keys are untouched — they are a wire format the server parses (scopeFlags),
 // and renaming them would empty the deck of every account that had set one.
 const REVIEW_MEDIA = [
-  ['books', 'Library', 'Your book highlights'],
-  ['movies', 'Catalogue', 'Dialogue from films, shows and games'],
-  ['quotes', 'Quotes', 'Speeches, letters, anything else'],
+  // The stored key, then the SCREEN's own name, then what that screen's quotes
+  // are. Both words are keys; the key on the left is a wire format and never moves.
+  ['books', 'nav.tab.library.label', 'settings.review-scope.books.tip'],
+  ['movies', 'nav.tab.movies.label', 'settings.review-scope.movies.tip'],
+  ['quotes', 'nav.tab.quotes.label', 'settings.review-scope.quotes.tip'],
 ]
 
 export function parseScope(value) {
@@ -505,12 +516,12 @@ export function parseScope(value) {
   // 'both' predates the third medium and means everything; so does anything
   // unrecognised, matching the server, because a scope that fails to parse must
   // never silently empty the deck.
-  const toks = raw.split(',').map((t) => t.trim()).filter(Boolean)
+  const toks = raw.split(',').map((tok) => tok.trim()).filter(Boolean)
   const keys = new Set()
-  for (const t of toks) {
-    if (t === 'both' || t === 'all') return REVIEW_MEDIA.map((m) => m[0])
-    if (t === 'screen') keys.add('movies')
-    else if (REVIEW_MEDIA.some((m) => m[0] === t)) keys.add(t)
+  for (const tok of toks) {
+    if (tok === 'both' || tok === 'all') return REVIEW_MEDIA.map((m) => m[0])
+    if (tok === 'screen') keys.add('movies')
+    else if (REVIEW_MEDIA.some((m) => m[0] === tok)) keys.add(tok)
   }
   if (keys.size === 0) return REVIEW_MEDIA.map((m) => m[0])
   return REVIEW_MEDIA.map((m) => m[0]).filter((k) => keys.has(k))
@@ -522,15 +533,15 @@ export function ReviewScope({ value, onChange }) {
   return (
     <div>
       <div className="mb-2 flex items-center gap-1.5">
-        <MonoLabel>Review covers</MonoLabel>
-        <InfoDot title="Review covers" text="Which kinds of quote the Daily Quiz and Practice draw from, independently. A quote with no speaker and no occasion never joins the deck — there is nothing to recall but the words. Nor does anything saved in the last week." />
+        <MonoLabel>{t('settings.review-scope.title')}</MonoLabel>
+        <InfoDot title={t('settings.review-scope.info.title')} text={t('settings.review-scope.info.body')} />
       </div>
       <div className="flex flex-wrap items-center gap-2">
         {REVIEW_MEDIA.map(([key, label, hint]) => {
           const picked = on.includes(key)
           const stuck = picked && last
           return (
-            <Tooltip key={key} label={stuck ? 'The deck needs one' : hint}>
+            <Tooltip key={key} label={stuck ? t('settings.review-scope.stuck.tip') : t(hint)}>
               <button
                 type="button"
                 className={filterChipClass(picked)}
@@ -615,9 +626,9 @@ function TypeSettings({ prefs, onSaved }) {
   }
 
   async function removeFont(f) {
-    if (!confirm(`Remove ${f.name}? Any role using it goes back to its built-in.`)) return
+    if (!confirm(t('settings.type.font.remove.confirm', { name: t(f.name) }))) return
     const r = await json('DELETE', `/fonts/${f.id}`)
-    if (!r.ok) return setErr(errText(r, 'could not remove that font'))
+    if (!r.ok) return setErr(errText(r, t('error.delete.font')))
     await reloadUploads()
   }
 
@@ -641,8 +652,7 @@ function TypeSettings({ prefs, onSaved }) {
   return (
     <>
       <p className="microcopy mb-3">
-        Every face the app uses, each shown doing its own job. Two alternates apiece, all bundled with
-        the app and free to use — nothing here is fetched from anywhere.
+        {t('settings.type.intro.prose')}
       </p>
       <div>
         {rows.map((row) => {
@@ -658,10 +668,10 @@ function TypeSettings({ prefs, onSaved }) {
                     onClick={() => setOpenRole(open ? null : row.key)}
                     style={{ fontWeight: 600 }}
                   >
-                    {row.label}
+                    {t(row.label)}
                   </button>
                   <MonoLabel className="block" style={{ color: 'var(--faint)' }}>
-                    {row.chosen.name}
+                    {t(row.chosen.name)}
                   </MonoLabel>
                 </div>
               </div>
@@ -680,11 +690,11 @@ function TypeSettings({ prefs, onSaved }) {
                   overflowWrap: 'anywhere',
                 }}
               >
-                {row.sample}
+                {t(row.sample)}
               </p>
               {open && (
                 <div className="space-y-2 pb-2">
-                  <p className="microcopy">{row.what}</p>
+                  <p className="microcopy">{t(row.what)}</p>
                   <div className="flex flex-wrap items-center gap-2">
                     {row.faces.map((f) => (
                       <button
@@ -692,11 +702,11 @@ function TypeSettings({ prefs, onSaved }) {
                         type="button"
                         aria-pressed={row.chosen.id === f.id}
                         className={'tp-filter-chip tactile' + (row.chosen.id === f.id ? ' active' : '')}
-                        title={f.note}
+                        title={t(f.note)}
                         onClick={() => save({ [prefKey(row.key)]: f.id })}
                         style={{ fontFamily: `'${f.family}'` }}
                       >
-                        {f.name}
+                        {t(f.name)}
                       </button>
                     ))}
                     {/* YOUR OWN FACES ARE OFFERED ON EVERY ROLE, because only you
@@ -715,15 +725,15 @@ function TypeSettings({ prefs, onSaved }) {
                         </button>
                         <FieldIconButton
                           icon={<IconDelete />}
-                          ariaLabel={`Remove ${f.name}`}
+                          ariaLabel={t('common.action.remove.aria', { name: f.name })}
                           onClick={() => removeFont(f)}
-                          tooltip="Remove this font"
+                          tooltip={t('settings.type.font.remove.tip')}
                           danger
                         />
                       </span>
                     ))}
                     <label className="tp-filter-chip tactile" style={{ cursor: 'pointer' }}>
-                      {busy ? 'Uploading…' : '＋ Upload'}
+                      {busy ? t('common.action.upload.busy') : t('settings.type.upload.label')}
                       <input
                         type="file"
                         accept=".woff2,.woff,.otf,.ttf,font/woff2,font/woff,font/otf,font/ttf"
@@ -745,12 +755,11 @@ function TypeSettings({ prefs, onSaved }) {
                       all rather than guessing discouragingly. */}
                   {warn[row.key] === false && (
                     <p className="microcopy" style={{ color: 'var(--error)' }}>
-                      This font doesn’t look like it draws {row.script ? row.label : 'Latin'}. It is set anyway —
-                      if the text below turns into boxes, that is why.
+                      {t('settings.type.script-warning.prose', { field: t(row.script ? row.label : 'vocab.script.latin.label') })}
                     </p>
                   )}
                   <div>
-                    <MonoLabel className="mb-1 block" style={{ color: 'var(--faint)' }}>style</MonoLabel>
+                    <MonoLabel className="mb-1 block" style={{ color: 'var(--faint)' }}>{t('settings.type.style.title')}</MonoLabel>
                     <div className="flex flex-wrap gap-2">
                       {stylesFor(row.key).map((st) => {
                         const on = row.styles.includes(st.id)
@@ -768,7 +777,7 @@ function TypeSettings({ prefs, onSaved }) {
                               })
                             }
                           >
-                            {st.label}
+                            {t(st.label)}
                           </button>
                         )
                       })}
@@ -872,7 +881,7 @@ function LanguageMarksSettings({ prefs, onSaved }) {
     if (!g) return
     if (row.customs.includes(g)) return save(row.key, { mark: g })
     if (row.customs.length >= MAX_CUSTOM_MARKS) {
-      setErr(`${row.name} already keeps ${MAX_CUSTOM_MARKS} marks of its own — remove one first.`)
+      setErr(t('error.validate.marks-full', { name: row.name, n: MAX_CUSTOM_MARKS }))
       return
     }
     return save(row.key, { customs: [...row.customs, g], mark: g })
@@ -941,9 +950,9 @@ function LanguageMarksSettings({ prefs, onSaved }) {
                 {(row.mark || row.renamed) && (
                   <FieldIconButton
                     icon={<IconRevert />}
-                    ariaLabel={`Reset the ${row.canonical} mark`}
+                    ariaLabel={t('settings.languages.reset.aria', { name: row.canonical })}
                     onClick={() => save(row.key, { mark: '', name: '' })}
-                    tooltip="Back to the script letter"
+                    tooltip={t('settings.languages.reset.tip')}
                   />
                 )}
               </div>
@@ -951,8 +960,8 @@ function LanguageMarksSettings({ prefs, onSaved }) {
                 <div className="space-y-3 pb-2">
                   {row.glyphs.length > 0 ? (
                     <div>
-                      <MonoLabel className="mb-1 block" style={{ color: 'var(--faint)' }}>script</MonoLabel>
-                      <div className="cat-palette" role="listbox" aria-label={`Script letters for ${row.canonical}`}>
+                      <MonoLabel className="mb-1 block" style={{ color: 'var(--faint)' }}>{t('settings.languages.script.title')}</MonoLabel>
+                      <div className="cat-palette" role="listbox" aria-label={t('settings.languages.glyphs.aria', { name: row.canonical })}>
                         {row.glyphs.map((g, i) => (
                           <button
                             key={g}
@@ -976,16 +985,16 @@ function LanguageMarksSettings({ prefs, onSaved }) {
                     // offer, and guessing one would put a Latin A on a board of
                     // Yoruba proverbs. It gets the custom bar and nothing else.
                     <p className="microcopy">
-                      No script letters for {row.canonical} — give it a mark of your own below.
+                      {t('settings.languages.no-script.prose', { name: row.canonical })}
                     </p>
                   )}
 
                   <div>
                     <MonoLabel className="mb-1 block" style={{ color: 'var(--faint)' }}>
-                      your own · {row.customs.length}/{MAX_CUSTOM_MARKS}
+                      {t('settings.languages.customs.title', { done: row.customs.length, total: MAX_CUSTOM_MARKS })}
                     </MonoLabel>
                     {row.customs.length > 0 && (
-                      <div className="cat-palette" role="listbox" aria-label={`Your own marks for ${row.canonical}`}>
+                      <div className="cat-palette" role="listbox" aria-label={t('settings.languages.customs.aria', { name: row.canonical })}>
                         {row.customs.map((g) => (
                           <span key={g} className="lang-custom">
                             <button
@@ -1001,9 +1010,9 @@ function LanguageMarksSettings({ prefs, onSaved }) {
                             </button>
                             <FieldIconButton
                               icon={<IconClose />}
-                              ariaLabel={`Remove ${g} from ${row.canonical}`}
+                              ariaLabel={t('settings.languages.mark.remove.aria', { name: g, field: row.canonical })}
                               onClick={() => removeCustom(row, g)}
-                              tooltip="Remove this mark"
+                              tooltip={t('settings.languages.mark.remove.tip')}
                               danger
                             />
                           </span>
@@ -1015,13 +1024,13 @@ function LanguageMarksSettings({ prefs, onSaved }) {
                         save from is worse than no field. */}
                     {full ? (
                       <p className="microcopy">
-                        {row.canonical} keeps {MAX_CUSTOM_MARKS} marks of its own — remove one to add another.
+                        {t('settings.languages.full.prose', { name: row.canonical, n: MAX_CUSTOM_MARKS })}
                       </p>
                     ) : (
                       <Field
-                        label="Add one of your own"
+                        label={t('settings.languages.add-mark.label')}
                         value={draft}
-                        placeholder="any letter, symbol or emoji"
+                        placeholder={t('settings.languages.add-mark.placeholder')}
                         maxLength={MARK_MAX_RUNES}
                         onChange={(e) => setDraft(e.target.value)}
                         onBlur={(e) => addCustom(row, e.target.value)}
@@ -1036,7 +1045,7 @@ function LanguageMarksSettings({ prefs, onSaved }) {
                       matching, and round-trips through an export untouched —
                       the same rule the colour categories have always followed. */}
                   <Field
-                    label={`Shown as (stored as “${row.canonical}”)`}
+                    label={t('settings.languages.rename.label', { name: row.canonical })}
                     defaultValue={row.name}
                     key={`name-${row.key}-${row.name}`}
                     placeholder={row.canonical}
@@ -1061,13 +1070,13 @@ function LanguageMarksSettings({ prefs, onSaved }) {
           to go and find a quote in it first. */}
       <div className="mt-3">
         {adding === null ? null : adding === '' ? (
-          <GhostButton icon={<IconPlus />} onClick={() => setAdding(' ')}>Add a language</GhostButton>
+          <GhostButton icon={<IconPlus />} onClick={() => setAdding(' ')}>{t('settings.languages.add.label')}</GhostButton>
         ) : (
           <Field
-            label="Language name"
+            label={t('settings.languages.name.label')}
             autoFocus
             value={adding.trimStart()}
-            placeholder="Yoruba, Swahili, Tamil…"
+            placeholder={t('settings.languages.name.placeholder')}
             maxLength={LANGUAGE_NAME_MAX_RUNES}
             onChange={(e) => setAdding(e.target.value || ' ')}
             onBlur={(e) => addLanguage(e.target.value)}
@@ -1098,7 +1107,7 @@ function SRSettings({ user, onPreferences }) {
     <Card>
       <SectionTitle
         right={
-          <InfoDot text="These drive both the Daily Quiz and Practice. A card's interval climbs a fixed ladder — 7, 30, then 100 days — one step per correct recall, and one lapse drops it straight back to 7." />
+          <InfoDot text={t('settings.quiz.info.body')} />
         }
       >
         Daily quiz &amp; practice
@@ -1110,14 +1119,14 @@ function SRSettings({ user, onPreferences }) {
           the ladder behaves, whether Practice counts — is worth having and is
           not worth scrolling past every time you come here to change a font. */}
       <div className="space-y-5">
-        <Slider label="Daily quiz cards / day" min={2} max={10} step={1} value={p.srDaily || 8} onCommit={(v) => set({ srDaily: v })} />
+        <Slider label={t('settings.quiz.per-day.label')} min={2} max={10} step={1} value={p.srDaily || 8} onCommit={(v) => set({ srDaily: v })} />
         <ReviewScope value={p.srReviewScope} onChange={(v) => set({ srReviewScope: v })} />
-        <Tooltip label="Every question, both decks">
-          <GhostButton icon={<IconQuiz />} keepLabel onClick={() => setDeep(true)}>In-depth controls</GhostButton>
+        <Tooltip label={t('settings.quiz.in-depth.tip')}>
+          <GhostButton icon={<IconQuiz />} keepLabel onClick={() => setDeep(true)}>{t('settings.quiz.in-depth.label')}</GhostButton>
         </Tooltip>
       </div>
       {deep && (
-        <FormModal title="In-depth quiz controls" onClose={() => setDeep(false)} maxWidth={620}>
+        <FormModal title={t('settings.quiz.panel.title')} onClose={() => setDeep(false)} maxWidth={620}>
           <SRDeepControls p={p} set={set} onClose={() => setDeep(false)} />
         </FormModal>
       )}
@@ -1177,12 +1186,12 @@ function SRDeepControls({ p, set, onClose }) {
       {REVIEW_DECKS.map(([deck, deckLabel]) => (
         <div key={deck}>
           <div className="mb-2 flex items-center gap-1.5">
-            <MonoLabel>{deckLabel} asks</MonoLabel>
+            <MonoLabel>{t('settings.quiz.deck.title', { name: deckLabel })}</MonoLabel>
             <InfoDot
               text={
                 deck === 'daily'
-                  ? 'The daily deck is marked by the server from end to end, so it never offers a self-marked card. That is why the flip card is missing from this list rather than switched off in it.'
-                  : 'Practice leads with the flip card and varies the rest. Turn Practice scoring on and the flip card drops out, because nothing checks a self-marked answer.'
+                  ? t('settings.quiz.deck.daily.info.body')
+                  : t('settings.quiz.deck.practice.info.body')
               }
             />
           </div>
@@ -1194,14 +1203,14 @@ function SRDeepControls({ p, set, onClose }) {
                 <div key={q.id} className="flex items-center justify-between gap-3">
                   <span className="flex min-w-0 items-center gap-1.5">
                     <span className="truncate">{q.label}</span>
-                    <InfoDot text={locked ? `${q.hint} ${locked}` : q.hint} />
+                    <InfoDot text={locked ? t('settings.quiz.question.locked.hint', { hint: q.hint, reason: locked }) : q.hint} />
                   </span>
                   <Toggle
-                    ariaLabel={`${deckLabel}: ${q.label}`}
+                    ariaLabel={t('settings.quiz.question.aria', { name: deckLabel, field: q.label })}
                     disabled={!!locked}
                     value={on ? 'on' : 'off'}
                     onChange={() => commit(toggleQuestion(qs, deck, q.id))}
-                    options={[['off', 'No'], ['on', 'Yes']]}
+                    options={[['off', t('vocab.no.label')], ['on', t('vocab.yes.label')]]}
                   />
                 </div>
               )
@@ -1212,46 +1221,46 @@ function SRDeepControls({ p, set, onClose }) {
       <div className="space-y-5">
         <div>
           <div className="mb-2 flex items-center gap-1.5">
-            <MonoLabel>Practice moves the schedule</MonoLabel>
-            <InfoDot text="By default Practice is study only. Turn this on to let correct Practice answers stretch half-lives just like the Daily Quiz does." />
+            <MonoLabel>{t('settings.quiz.practice-counts.title')}</MonoLabel>
+            <InfoDot text={t('settings.quiz.practice-counts.info.body')} />
           </div>
           <Toggle
-            ariaLabel="Practice affects schedule"
+            ariaLabel={t('settings.quiz.practice-counts.aria')}
             value={p.srPracticeCounts ? 'on' : 'off'}
             onChange={(v) => set({ srPracticeCounts: v === 'on' })}
-            options={[['off', 'No'], ['on', 'Yes']]}
+            options={[['off', t('vocab.no.label')], ['on', t('vocab.yes.label')]]}
           />
         </div>
         <div>
           <div className="mb-2 flex items-center gap-1.5">
-            <MonoLabel>Confirm each answer</MonoLabel>
-            <InfoDot text="Normally a tap answers straight away. Turn this on and a tap only chooses — you can change your mind, and a Submit button records it. Flip cards are unaffected: revealing and grading are already two steps." />
+            <MonoLabel>{t('settings.quiz.submit.title')}</MonoLabel>
+            <InfoDot text={t('settings.quiz.submit.info.body')} />
           </div>
           <Toggle
-            ariaLabel="Confirm each answer"
+            ariaLabel={t('settings.quiz.submit.aria')}
             value={p.srSubmit ? 'on' : 'off'}
             onChange={(v) => set({ srSubmit: v === 'on' })}
-            options={[['off', 'No'], ['on', 'Yes']]}
+            options={[['off', t('vocab.no.label')], ['on', t('vocab.yes.label')]]}
           />
         </div>
         <div>
           <div className="mb-2 flex items-center gap-1.5">
-            <MonoLabel>Adaptive intervals</MonoLabel>
-            <InfoDot text="The ladder steps 7 → 30 → 100 days, and any lapse drops you straight back to 7. Adaptive multiplies by 2.5 instead, and halves on a lapse rather than resetting — so one slip on a well-known quote no longer costs you the whole climb." />
+            <MonoLabel>{t('settings.quiz.adaptive.title')}</MonoLabel>
+            <InfoDot text={t('settings.quiz.adaptive.info.body')} />
           </div>
           <Toggle
-            ariaLabel="Adaptive intervals"
+            ariaLabel={t('settings.quiz.adaptive.aria')}
             value={p.srAdaptive ? 'on' : 'off'}
             onChange={(v) => set({ srAdaptive: v === 'on' })}
-            options={[['off', 'Ladder'], ['on', 'Adaptive']]}
+            options={[['off', t('settings.quiz.adaptive.ladder.label')], ['on', t('settings.quiz.adaptive.on.label')]]}
           />
         </div>
         <div>
           <div className="mb-2 flex items-center gap-1.5">
-            <MonoLabel>Seeing lengthens half-life by</MonoLabel>
-            <InfoDot text="“Seeing” a quote — practising it (not skipping), sharing it, or favouriting it — nudges its half-life up a little, separate from Daily Quiz recall. Leave at 1.0× to turn this off." />
+            <MonoLabel>{t('settings.quiz.seen.title')}</MonoLabel>
+            <InfoDot text={t('settings.quiz.seen.info.body')} />
           </div>
-          <Slider label="Seeing lengthens half-life by" hideLabel min={1} max={1.5} step={0.05} value={p.srSeen || 1} unit="×" decimals={2} onCommit={(v) => set({ srSeen: v })} />
+          <Slider label={t('settings.quiz.seen.label')} hideLabel min={1} max={1.5} step={0.05} value={p.srSeen || 1} format="common.slider.multiplier.format" decimals={2} onCommit={(v) => set({ srSeen: v })} />
         </div>
       </div>
       {/* The numbers behind the schedule. Sliders rather than boxes because every
@@ -1259,8 +1268,8 @@ function SRDeepControls({ p, set, onClose }) {
           that can be refused after the fact. */}
       <div>
         <div className="mb-2 flex items-center gap-1.5">
-          <MonoLabel>How the schedule moves</MonoLabel>
-          <InfoDot text="These multiply a quote's half-life on every answer, and are bounded rather than free: a multiplier below 1 would shorten a card every time you got it right, which never looks broken — it just asks the same quote for ever." />
+          <MonoLabel>{t('settings.quiz.tuning.title')}</MonoLabel>
+          <InfoDot text={t('settings.quiz.tuning.info.body')} />
         </div>
         <div className="space-y-4">
           {TUNING_FIELDS.map((f) => (
@@ -1275,7 +1284,7 @@ function SRDeepControls({ p, set, onClose }) {
                 min={f.min}
                 max={f.max}
                 step={f.step}
-                unit={f.unit}
+                format={f.format}
                 decimals={f.decimals}
                 value={tune[f.key]}
                 onCommit={(v) => commitTune(f.key, v)}
@@ -1286,10 +1295,10 @@ function SRDeepControls({ p, set, onClose }) {
         <ErrorText>{tuneErr}</ErrorText>
       </div>
       <div className="flex justify-between gap-2 pt-1">
-        <Tooltip label="Undo every change on this panel">
-          <GhostButton icon={<IconRevert />} keepLabel onClick={reset}>Back to defaults</GhostButton>
+        <Tooltip label={t('settings.quiz.reset.tip')}>
+          <GhostButton icon={<IconRevert />} keepLabel onClick={reset}>{t('settings.quiz.reset.label')}</GhostButton>
         </Tooltip>
-        <GhostButton onClick={onClose}>Done</GhostButton>
+        <GhostButton onClick={onClose}>{t('common.action.done.label')}</GhostButton>
       </div>
     </div>
   )
@@ -1727,14 +1736,13 @@ function FeaturesCard({ prefs, onSaved }) {
   return (
     <Card>
       <SectionTitle
-        info="Which sections you want to see. Hiding one takes away its tab, its tile on Home, its chip on Search and its offer under ＋ — and nothing else: every book, film and quote stays where it is, and a link or bookmark still opens it."
-        infoTitle="Features"
+        info={t('settings.features.info.body')}
+        infoTitle={t('settings.features.info.title')}
       >
         Features
       </SectionTitle>
       <p className="microcopy">
-        Turn off what you do not keep, and on what you have not tried yet. This changes what you see, never what
-        you have.
+        {t('settings.features.intro.prose')}
       </p>
       <div className="space-y-3 mt-3">
         {SECTIONS.map((sec) => {
@@ -1745,17 +1753,17 @@ function FeaturesCard({ prefs, onSaved }) {
           return (
             <div key={sec.tab}>
               <div className="mb-1.5 flex items-center gap-1.5">
-                <MonoLabel>{sec.label}</MonoLabel>
+                <MonoLabel>{t(sec.label)}</MonoLabel>
               </div>
               <Toggle
-                ariaLabel={sec.label}
+                ariaLabel={t(sec.label)}
                 value={on[sec.tab] ? 'on' : 'off'}
                 onChange={(v) => set(sec, v === 'on')}
                 disabled={locked}
-                options={[['off', 'Hide'], ['on', 'Show']]}
+                options={[['off', t('common.action.hide.label')], ['on', t('common.action.show.label')]]}
               />
               <p className="microcopy mt-1">
-                {locked ? 'The last section has to stay — turn another one on first.' : sec.what}
+                {locked ? t('settings.features.locked.prose') : sec.what}
               </p>
             </div>
           )
@@ -2171,7 +2179,7 @@ function BinTile({ onOpen }) {
   }, [])
 
   const n = items?.length ?? 0
-  const held = (items || []).reduce((t, e) => t + (e.child_count || 0), 0)
+  const held = (items || []).reduce((sum, e) => sum + (e.child_count || 0), 0)
 
   return (
     <Card data-tour="trash">
@@ -2586,7 +2594,7 @@ function StatusChip({ tone = 'muted', children }) {
     error: { color: 'var(--error)', bg: 'color-mix(in srgb, var(--error) 14%, transparent)', bd: 'color-mix(in srgb, var(--error) 50%, transparent)' },
     muted: { color: 'var(--faint)', bg: 'var(--raised)', bd: 'var(--line)' },
   }
-  const t = tones[tone] || tones.muted
+  const skin = tones[tone] || tones.muted
   return (
     <span
       style={{
@@ -2597,9 +2605,9 @@ function StatusChip({ tone = 'muted', children }) {
         fontWeight: 500,
         letterSpacing: '.12em',
         textTransform: 'uppercase',
-        color: t.color,
-        background: t.bg,
-        border: `1px solid ${t.bd}`,
+        color: skin.color,
+        background: skin.bg,
+        border: `1px solid ${skin.bd}`,
         borderRadius: 5,
         padding: '3px 9px',
         whiteSpace: 'nowrap',
@@ -2803,14 +2811,14 @@ function Appearance({ prefs, onPreferences }) {
 
   return (
     <Card data-tour="appearance">
-      <SectionTitle>Appearance</SectionTitle>
+      <SectionTitle>{t('settings.appearance.title')}</SectionTitle>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <MonoLabel>Theme</MonoLabel>
+        <MonoLabel>{t('settings.appearance.theme.title')}</MonoLabel>
         <Toggle
-          ariaLabel="Match system theme"
+          ariaLabel={t('settings.appearance.match.aria')}
           value={syncSystem ? 'auto' : 'manual'}
           onChange={(v) => persist({ syncSystem: v === 'auto' })}
-          options={[['manual', 'Manual'], ['auto', 'Match system']]}
+          options={[['manual', t('settings.appearance.manual.label')], ['auto', t('settings.appearance.match.label')]]}
         />
       </div>
       <div className="grid grid-cols-2 gap-5 sm:grid-cols-4">
@@ -2835,15 +2843,15 @@ function Appearance({ prefs, onPreferences }) {
           flex-wrap stacks them on narrow screens. */}
       <div className="mt-7 flex flex-wrap gap-x-10 gap-y-5">
         <div>
-          <MonoLabel className="mb-2 block">Accent</MonoLabel>
+          <MonoLabel className="mb-2 block">{t('settings.appearance.accent.title')}</MonoLabel>
           <div className="flex items-center gap-3" style={{ minHeight: 44 }}>
             {Object.entries(ACCENTS).map(([name, hex]) => {
               const on = accent === name
               return (
-                <Tooltip key={name} label={`Use the ${name} accent`} side="top">
+                <Tooltip key={name} label={t('settings.appearance.accent.tip', { name: t(`vocab.accent.${name}.label`) })} side="top">
                   <button
                     type="button"
-                    aria-label={`${name} accent`}
+                    aria-label={t('settings.appearance.accent.aria', { name: t(`vocab.accent.${name}.label`) })}
                     aria-pressed={on}
                     onClick={() => persist({ accent: name })}
                     style={{
@@ -2860,9 +2868,22 @@ function Appearance({ prefs, onPreferences }) {
             })}
           </div>
         </div>
-        <SizeSlider label="Library cover size" storageKey="tippani:size:books" def={165} />
-        <SizeSlider label="Catalogue poster size" storageKey="tippani:size:movies" def={150} />
+        <SizeSlider label={t('settings.appearance.book-size.label')} storageKey="tippani:size:books" def={165} />
+        <SizeSlider label={t('settings.appearance.film-size.label')} storageKey="tippani:size:movies" def={150} />
         <LabelDensity />
+        {/* THE LANGUAGE, AND IT STAYS OUT OF `persist` ABOVE for the reason that
+            function documents: the Appearance panel re-sends every theme field on
+            any change, so a preference riding in that object would be wiped by an
+            unrelated accent click. One writer per concern. LanguagePicker applies
+            the choice itself and this supplies the save. */}
+        <LanguagePicker
+          titleKey="settings.language.title"
+          info
+          onPick={(code) => {
+            onPreferences?.({ locale: code })
+            json('PUT', '/auth/me/preferences', { locale: code })
+          }}
+        />
       </div>
 
       {/* The two doors, and they KEEP THEIR WORDS at every width.
@@ -2879,20 +2900,20 @@ function Appearance({ prefs, onPreferences }) {
           The tooltips say something the labels do not, which is the only reason
           to carry both. */}
       <div className="mt-7 flex flex-wrap items-center gap-2" style={{ borderTop: '1px solid var(--line)', paddingTop: 14 }}>
-        <Tooltip label="Every face the app uses">
-          <GhostButton icon={<IconType />} keepLabel onClick={() => setPanel('type')}>Type</GhostButton>
+        <Tooltip label={t('settings.type.open.tip')}>
+          <GhostButton icon={<IconType />} keepLabel onClick={() => setPanel('type')}>{t('settings.type.title')}</GhostButton>
         </Tooltip>
-        <Tooltip label="What a proverb wears">
-          <GhostButton icon={<IconLanguages />} keepLabel onClick={() => setPanel('marks')}>Language marks</GhostButton>
+        <Tooltip label={t('settings.languages.open.tip')}>
+          <GhostButton icon={<IconLanguages />} keepLabel onClick={() => setPanel('marks')}>{t('settings.languages.title')}</GhostButton>
         </Tooltip>
       </div>
 
       {/* No form registers with either dialog, so neither grows a ✓: both panels
           save on the tap, as they did as cards. The close is the only action. */}
-      <FormModal open={panel === 'type'} onClose={() => setPanel(null)} title="Type" maxWidth={620}>
+      <FormModal open={panel === 'type'} onClose={() => setPanel(null)} title={t('settings.type.title')} maxWidth={620}>
         <TypeSettings prefs={prefs} onSaved={onPreferences} />
       </FormModal>
-      <FormModal open={panel === 'marks'} onClose={() => setPanel(null)} title="Language marks" maxWidth={560}>
+      <FormModal open={panel === 'marks'} onClose={() => setPanel(null)} title={t('settings.languages.title')} maxWidth={560}>
         <LanguageMarksSettings prefs={prefs} onSaved={onPreferences} />
       </FormModal>
     </Card>
@@ -2933,14 +2954,14 @@ export function LabelDensity() {
   return (
     <div>
       <div className="mb-2 flex items-center gap-1.5">
-        <MonoLabel>Button labels</MonoLabel>
-        <InfoDot title="Button labels" text="Buttons with a glyph can show their words or drop them. Auto shows them on a desktop and hides them on a phone. Hidden words are still read aloud by screen readers, and every glyph names itself on hover or long-press." />
+        <MonoLabel>{t('settings.labels.title')}</MonoLabel>
+        <InfoDot title={t('settings.labels.info.title')} text={t('settings.labels.info.body')} />
       </div>
       <Toggle
-        ariaLabel="Button labels"
+        ariaLabel={t('settings.labels.info.title')}
         value={pref}
         onChange={pick}
-        options={[['auto', 'Auto'], ['on', 'Show'], ['off', 'Hide']]}
+        options={[['auto', t('settings.labels.auto.label')], ['on', t('common.action.show.label')], ['off', t('common.action.hide.label')]]}
       />
     </div>
   )

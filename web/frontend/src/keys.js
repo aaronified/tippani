@@ -1,3 +1,5 @@
+import { t } from './i18n.js'
+
 // keys.js — the shortcut registry, and the one place a key is bound to a name.
 //
 // There was no global registry at all, which for a text app with a large library
@@ -32,25 +34,30 @@
 // table: an entry here is a PROMISE printed on a button and in a legend, and five
 // of them would have been promises the app does not keep. They come back when
 // something is wired to them.
+// LABELS AND GROUP NAMES ARE KEYS. This table is built at import, so a word
+// spelled here would be the one word in the legend that never translated; the
+// sheet and every tooltip resolve them as they draw. `group` doubles as the
+// bucketing identity in groupedShortcuts, which is another reason it is a stable
+// key rather than a sentence.
 export const SHORTCUTS = [
   // Global
-  { id: 'search', keys: ['/'], label: 'Search', group: 'Anywhere' },
-  { id: 'capture', keys: ['n'], label: 'Capture a quote', group: 'Anywhere' },
-  { id: 'help', keys: ['?'], label: 'Keyboard shortcuts', group: 'Anywhere' },
+  { id: 'search', keys: ['/'], label: 'shell.shortcut.search.label', group: 'shell.shortcut.group.anywhere.label' },
+  { id: 'capture', keys: ['n'], label: 'shell.shortcut.capture.label', group: 'shell.shortcut.group.anywhere.label' },
+  { id: 'help', keys: ['?'], label: 'shell.shortcut.help.label', group: 'shell.shortcut.group.anywhere.label' },
 
   // Go to — a sequence, so the single letters stay free. The letter is the first
   // letter of the destination wherever one is available, which is why Settings is
   // the exception: S is Stats, and the comma is what ⌘, has trained everybody to
   // reach for instead.
-  { id: 'go-home', seq: ['g', 'h'], label: 'Go to Home', group: 'Go to' },
-  { id: 'go-library', seq: ['g', 'l'], label: 'Go to Library', group: 'Go to' },
-  { id: 'go-catalogue', seq: ['g', 'c'], label: 'Go to Catalogue', group: 'Go to' },
-  { id: 'go-quotes', seq: ['g', 'q'], label: 'Go to Quotes', group: 'Go to' },
-  { id: 'go-anthologies', seq: ['g', 'a'], label: 'Go to Anthologies', group: 'Go to' },
-  { id: 'go-stats', seq: ['g', 's'], label: 'Go to Stats', group: 'Go to' },
-  { id: 'go-metadata', seq: ['g', 'm'], label: 'Go to Metadata', group: 'Go to' },
-  { id: 'go-profile', seq: ['g', 'p'], label: 'Open your profile', group: 'Go to' },
-  { id: 'go-settings', seq: ['g', ','], label: 'Go to Settings', group: 'Go to' },
+  { id: 'go-home', seq: ['g', 'h'], label: 'shell.shortcut.go-home.label', group: 'shell.shortcut.group.go-to.label' },
+  { id: 'go-library', seq: ['g', 'l'], label: 'shell.shortcut.go-library.label', group: 'shell.shortcut.group.go-to.label' },
+  { id: 'go-catalogue', seq: ['g', 'c'], label: 'shell.shortcut.go-catalogue.label', group: 'shell.shortcut.group.go-to.label' },
+  { id: 'go-quotes', seq: ['g', 'q'], label: 'shell.shortcut.go-quotes.label', group: 'shell.shortcut.group.go-to.label' },
+  { id: 'go-anthologies', seq: ['g', 'a'], label: 'shell.shortcut.go-anthologies.label', group: 'shell.shortcut.group.go-to.label' },
+  { id: 'go-stats', seq: ['g', 's'], label: 'shell.shortcut.go-stats.label', group: 'shell.shortcut.group.go-to.label' },
+  { id: 'go-metadata', seq: ['g', 'm'], label: 'shell.shortcut.go-metadata.label', group: 'shell.shortcut.group.go-to.label' },
+  { id: 'go-profile', seq: ['g', 'p'], label: 'shell.shortcut.go-profile.label', group: 'shell.shortcut.group.go-to.label' },
+  { id: 'go-settings', seq: ['g', ','], label: 'shell.shortcut.go-settings.label', group: 'shell.shortcut.group.go-to.label' },
 
   // ---- review, and the two things that make it different --------------------
   //
@@ -63,20 +70,20 @@ export const SHORTCUTS = [
   //
   // So `ctx` is part of the identity of a binding: 1 is unique WITHIN mcq and
   // within flip, and the two never coexist on screen.
-  { id: 'pick-1', ctx: 'mcq', keys: ['1'], label: 'Choose the first answer', group: 'Multiple choice' },
-  { id: 'pick-2', ctx: 'mcq', keys: ['2'], label: 'Choose the second', group: 'Multiple choice' },
-  { id: 'pick-3', ctx: 'mcq', keys: ['3'], label: 'Choose the third', group: 'Multiple choice' },
-  { id: 'pick-4', ctx: 'mcq', keys: ['4'], label: 'Choose the fourth', group: 'Multiple choice' },
+  { id: 'pick-1', ctx: 'mcq', keys: ['1'], label: 'shell.shortcut.pick-1.label', group: 'shell.shortcut.group.mcq.label' },
+  { id: 'pick-2', ctx: 'mcq', keys: ['2'], label: 'shell.shortcut.pick-2.label', group: 'shell.shortcut.group.mcq.label' },
+  { id: 'pick-3', ctx: 'mcq', keys: ['3'], label: 'shell.shortcut.pick-3.label', group: 'shell.shortcut.group.mcq.label' },
+  { id: 'pick-4', ctx: 'mcq', keys: ['4'], label: 'shell.shortcut.pick-4.label', group: 'shell.shortcut.group.mcq.label' },
 
-  { id: 'reveal', ctx: 'flip', keys: ['space'], label: 'Reveal the answer', group: 'Flip card' },
-  { id: 'grade-forgot', ctx: 'flip', keys: ['1'], label: 'Forgot', group: 'Flip card' },
-  { id: 'grade-got', ctx: 'flip', keys: ['2'], label: 'Got it', group: 'Flip card' },
+  { id: 'reveal', ctx: 'flip', keys: ['space'], label: 'shell.shortcut.reveal.label', group: 'shell.shortcut.group.flip.label' },
+  { id: 'grade-forgot', ctx: 'flip', keys: ['1'], label: 'shell.shortcut.grade-forgot.label', group: 'shell.shortcut.group.flip.label' },
+  { id: 'grade-got', ctx: 'flip', keys: ['2'], label: 'shell.shortcut.grade-got.label', group: 'shell.shortcut.group.flip.label' },
 
   // Space again, and legitimately: on a cloze there is nothing to reveal, and
   // "get on with this card" means put the caret where the typing goes. It only
   // fires while the field is NOT focused, so it can never eat a space you meant
   // to type.
-  { id: 'focus-blank', ctx: 'cloze', keys: ['space'], label: 'Type in the blank', group: 'Fill in the blank' },
+  { id: 'focus-blank', ctx: 'cloze', keys: ['space'], label: 'shell.shortcut.focus-blank.label', group: 'shell.shortcut.group.cloze.label' },
 ]
 
 const BY_ID = new Map(SHORTCUTS.map((s) => [s.id, s]))
@@ -98,17 +105,20 @@ const isMac = (() => {
 // one binding and two labels, and a tooltip that says the wrong one is worse than
 // a tooltip that says nothing — it teaches a key that does not work.
 export function prettyKey(k) {
-  if (k === 'mod') return isMac ? '⌘' : 'Ctrl'
-  if (k === 'space') return 'Space'
-  if (k === 'esc') return 'Esc'
-  if (k === 'shift') return 'Shift'
+  if (k === 'mod') return t(isMac ? 'vocab.key.mod.mac.label' : 'vocab.key.mod.label')
+  if (k === 'space') return t('vocab.key.space.label')
+  if (k === 'esc') return t('vocab.key.esc.label')
+  if (k === 'shift') return t('vocab.key.shift.label')
   return k.length === 1 ? k.toUpperCase() : k
 }
 
 // shortcutLabel renders one binding: "⌘K", "G then L", "F".
 export function shortcutLabel(s) {
   if (!s) return ''
-  if (s.seq) return s.seq.map(prettyKey).join(' then ')
+  // The joining word is resolved rather than spelled, and ui.jsx's Kbd SPLITS on
+  // the same key — so the chord a legend draws and the chord this returns cannot
+  // disagree about where one key cap ends and the next begins.
+  if (s.seq) return s.seq.map(prettyKey).join(` ${t('common.kbd.then.label')} `)
   const combo = s.keys?.[0] || ''
   return combo.split('+').map(prettyKey).join(isMac ? '' : '-')
 }
@@ -126,7 +136,7 @@ export function shortcutFor(id, shifted = false) {
   const s = BY_ID.get(id)
   if (!s) return ''
   const label = shortcutLabel(s)
-  return shifted && s.ctx ? 'Shift-' + label : label
+  return shifted && s.ctx ? t('common.shortcut.shifted.label', { key: label }) : label
 }
 
 // withShortcut appends the key to a tooltip label, and is the function that
@@ -138,7 +148,7 @@ export function shortcutFor(id, shifted = false) {
 // every existing Tooltip can pass an id it may not have one for.
 export function withShortcut(label, id, shifted = false) {
   const k = shortcutFor(id, shifted)
-  return k ? `${label} · ${k}` : label
+  return k ? t('common.shortcut.suffix.label', { name: label, key: k }) : label
 }
 
 // groupedShortcuts is the help sheet's view of the table: the same list, in the
@@ -163,7 +173,7 @@ export function groupedShortcuts(omit) {
     if (!g) out.push((g = { group: s.group, items: [] }))
     g.items.push({
       id: s.id,
-      label: s.label,
+      label: t(s.label),
       keys: shortcutLabel(s),
       // A review key answers to two decks; the sheet says both rather than
       // leaving somebody in Practice pressing a key that does nothing.

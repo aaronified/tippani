@@ -1,5 +1,12 @@
 // Theme system — UI instructions §4. Two aesthetics × light/dark + accent,
 // applied as data attributes + CSS custom properties on <html>.
+//
+// THE WORD TABLES BELOW HOLD KEYS, not words: this module is evaluated at import,
+// before the reader's language is known, so anything spelled out here would be the
+// one label in the app that never translated. Every table is read through t() at
+// the moment it is drawn.
+
+import { t } from './i18n.js'
 
 export const ACCENTS = {
   terracotta: '#B4482D',
@@ -221,7 +228,10 @@ export const CATEGORY_DEFAULT_HEX = ['#E5C355', '#7FA6C9', '#D98CA6', '#DF9A5B',
 //
 // Slot 1 has no name for the reason it has no name field — it is the absence of
 // a choice, not one of six.
-export const CATEGORY_DEFAULT_NAME = ['', 'Fact', 'Disagreed', 'Inspirational', 'Funny', 'Meta']
+// SEEDED-LOOKING BUT NOT SEEDED: nothing here is written to the database. An
+// untouched account stores no category name at all, so translating these changes
+// what an unnamed slot is CALLED and never what is stored.
+export const CATEGORY_DEFAULT_NAME = ['', 'vocab.category.blue.label', 'vocab.category.pink.label', 'vocab.category.orange.label', 'vocab.category.green.label', 'vocab.category.purple.label']
 
 // What slot 1 is called. "DEFAULT" RATHER THAN "UNCATEGORISED", which is what it
 // said for eight releases and which was a small, constant reproach: a word built
@@ -234,7 +244,7 @@ export const CATEGORY_DEFAULT_NAME = ['', 'Fact', 'Disagreed', 'Inspirational', 
 // unless you assign it to a category."*
 //
 // Presentation only, like everything else here: the stored token is still 'yellow'.
-export const UNSET_LABEL = 'Default'
+export const UNSET_LABEL = 'vocab.category.unset.label'
 
 // CATEGORY_PALETTE — the swatches the picker offers.
 //
@@ -250,22 +260,22 @@ export const UNSET_LABEL = 'Default'
 // the kind of judgement that quietly stops being true when someone adds a
 // sixteenth swatch.
 export const CATEGORY_PALETTE = [
-  ['#E5C355', 'Sun'],
-  ['#DF9A5B', 'Amber'],
-  ['#D98CA6', 'Rose'],
-  ['#E8A0C0', 'Blush'],
-  ['#C2555F', 'Crimson'],
-  ['#A8739E', 'Mauve'],
-  ['#8A7BC8', 'Violet'],
-  ['#6E8FD0', 'Periwinkle'],
-  ['#7FA6C9', 'Sky'],
-  ['#5AA8B5', 'Teal'],
-  ['#6FBF9F', 'Mint'],
-  ['#4FA98A', 'Jade'],
-  ['#7CB342', 'Leaf'],
-  ['#B5C05A', 'Moss'],
-  ['#B0806B', 'Clay'],
-  ['#8C7F6E', 'Stone'],
+  ['#E5C355', 'vocab.swatch.sun.label'],
+  ['#DF9A5B', 'vocab.swatch.amber.label'],
+  ['#D98CA6', 'vocab.swatch.rose.label'],
+  ['#E8A0C0', 'vocab.swatch.blush.label'],
+  ['#C2555F', 'vocab.swatch.crimson.label'],
+  ['#A8739E', 'vocab.swatch.mauve.label'],
+  ['#8A7BC8', 'vocab.swatch.violet.label'],
+  ['#6E8FD0', 'vocab.swatch.periwinkle.label'],
+  ['#7FA6C9', 'vocab.swatch.sky.label'],
+  ['#5AA8B5', 'vocab.swatch.teal.label'],
+  ['#6FBF9F', 'vocab.swatch.mint.label'],
+  ['#4FA98A', 'vocab.swatch.jade.label'],
+  ['#7CB342', 'vocab.swatch.leaf.label'],
+  ['#B5C05A', 'vocab.swatch.moss.label'],
+  ['#B0806B', 'vocab.swatch.clay.label'],
+  ['#8C7F6E', 'vocab.swatch.stone.label'],
 ]
 
 // CAT_NAME_MAX bounds a category name, counted in CODE POINTS. It mirrors
@@ -343,10 +353,10 @@ export function categoryName(token) {
   const i = CATEGORY_SLOTS.indexOf(token)
   if (i < 0) return token
   if (catNames[i]) return catNames[i]
-  if (i === 0) return UNSET_LABEL
+  if (i === 0) return t(UNSET_LABEL)
   // The built-in name, not the colour word. "Blue" is what the token is; "Fact"
   // is what it is for.
-  return CATEGORY_DEFAULT_NAME[i] || token[0].toUpperCase() + token.slice(1)
+  return CATEGORY_DEFAULT_NAME[i] ? t(CATEGORY_DEFAULT_NAME[i]) : token[0].toUpperCase() + token.slice(1)
 }
 
 // categoryVar is the CSS reference for a token — what everything that is NOT a
@@ -383,7 +393,7 @@ export function categoryHidden(token) {
 
 // visibleCategories is the token list a picker should draw.
 export function visibleCategories() {
-  return CATEGORY_SLOTS.filter((t) => !categoryHidden(t))
+  return CATEGORY_SLOTS.filter((tok) => !categoryHidden(tok))
 }
 
 // categoryState is what Settings renders from — the raw per-slot values rather
@@ -395,7 +405,7 @@ export function categoryState() {
     slot: i + 1,
     name: catNames[i],
     label: categoryName(token),
-    defaultName: CATEGORY_DEFAULT_NAME[i] || token[0].toUpperCase() + token.slice(1),
+    defaultName: CATEGORY_DEFAULT_NAME[i] ? t(CATEGORY_DEFAULT_NAME[i]) : token[0].toUpperCase() + token.slice(1),
     hex: catHex[i],
     custom: catHex[i].toLowerCase() !== CATEGORY_DEFAULT_HEX[i].toLowerCase(),
     hidden: catHidden[i],

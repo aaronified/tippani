@@ -41,8 +41,21 @@
 // internally" so that it is testable — and a test leaning on the default would
 // silently be testing only whichever zone the runner happens to sit in.
 
+// THE TABLE HOLDS KEYS AND THE FILE HOLDS THE WORDS, which splits this file's
+// subject in two. holidayFor answers with greeting.holiday.br.09-07.1 — a fact about
+// ROUTING, and the half every regression in here has been about — so the routing
+// tests assert keys and read like the table they are checking.
+//
+// The COPY rules (one {name} slot, never "Happy" on a commemoration) read
+// internal/i18n/en.txt, because that is where the words are and because reading them
+// back through t() would make two of them pass on nothing: a key with no line
+// resolves to a humanised stub, which has no "Happy" in it and no {name} either. The
+// tone rule in particular was vacuous the moment the pools became keys — /^Happy /
+// cannot match `greeting.holiday.gb.11-11.1` — and a rule that cannot fail is worse
+// than a rule nobody wrote.
 import { beforeAll, describe, expect, it } from 'vitest'
 import { dateLine, greetingFor, holidayFor, isWeekend, localRegion, timeBucket } from '../../src/greetings.js'
+import { value } from '../locale-file.js'
 
 const YEAR = 2026 // any Gregorian year; the table is year-independent by design
 const HOURS = [2, 6, 9, 14, 19, 22] // one hour inside each of the six buckets
@@ -205,7 +218,10 @@ describe('localRegion — IANA zone to ISO region', () => {
     const brazilIndependence = new Date(YEAR, 8, 7)
     expect(localRegion('America/Bahia_Banderas')).toBe('MX')
     expect(holidayFor(brazilIndependence, localRegion('America/Bahia_Banderas'))).toBeNull()
-    expect(holidayFor(brazilIndependence, localRegion('America/Bahia'))).toEqual(['Happy Independence Day, {name}'])
+    const br = holidayFor(brazilIndependence, localRegion('America/Bahia'))
+    expect(br).toEqual(['greeting.holiday.br.09-07.1'])
+    // And the key is a line somebody wrote, in the country's own row of the file.
+    expect(value(br[0])).toBe('Happy Independence Day, {name}')
   })
 })
 
@@ -258,10 +274,15 @@ describe('greetingFor — every region × every day × every bucket', () => {
       for (let day = 0; day < 366; day++) {
         const d = new Date(YEAR, 0, 1 + day)
         if (d.getFullYear() !== YEAR) break
-        for (const g of holidayFor(d, region) || []) {
-          const where = `${region || 'intl'} ${d.toDateString()} → ${JSON.stringify(g)}`
-          if (typeof g !== 'string' || !g.trim()) bad.add(`empty: ${where}`)
-          else if (g.split('{name}').length !== 2) bad.add(`wants exactly one {name}: ${where}`)
+        for (const key of holidayFor(d, region) || []) {
+          const line = value(key)
+          const where = `${region || 'intl'} ${d.toDateString()} → ${JSON.stringify(key)}`
+          // An unwritten key is the new failure the split makes possible, and it is
+          // the one this loop is best placed to catch: it walks every row of the
+          // table on every day of the year, which is exactly the set of keys the
+          // pools can produce.
+          if (!line) bad.add(`no line in en.txt: ${where}`)
+          else if (line.split('{name}').length !== 2) bad.add(`wants exactly one {name}: ${where}`)
         }
       }
     }
@@ -288,7 +309,7 @@ describe('holidayFor — precedence: a national day beats the international list
   // every region/date that lost its holiday, not just the first.
   it('gives every one of these the holiday it should have', () => {
     const missed = CASES.filter(([region, when, want]) => {
-      const pool = holidayFor(when, region) || []
+      const pool = (holidayFor(when, region) || []).map(value)
       return !pool.some((g) => g.includes(want))
     }).map(([region, when, want]) => `${region || 'intl'} on ${when.toDateString()} should say ${want}`)
     expect(missed).toEqual([])
@@ -320,7 +341,12 @@ describe('holidayFor — tone: a commemoration never says "Happy"', () => {
       // Per row, never hoisted: one row falling out of the table must not be
       // covered by another row's pool being non-empty.
       if (pool.length === 0) wrong.push(`${at}: not in the table at all`)
-      for (const g of pool) if (/^Happy /.test(g)) wrong.push(`${at}: ${g}`)
+      // The words, from en.txt. A key would pass /^Happy / for ever.
+      for (const key of pool) {
+        const line = value(key)
+        if (!line) wrong.push(`${at}: ${key} has no line in en.txt`)
+        else if (/^Happy /.test(line)) wrong.push(`${at}: ${line}`)
+      }
     }
     expect(wrong).toEqual([])
   })
@@ -348,9 +374,13 @@ describe('holidayFor — the two computed families', () => {
   it('finds Easter and Good Friday with no table row', () => {
     expect(EASTER.getDay()).toBe(0) // the computus is wrong if this is not a Sunday
     expect(GOOD_FRIDAY.getDay()).toBe(5)
-    expect(holidayFor(EASTER, '')).toEqual(['Happy Easter, {name}'])
-    expect(holidayFor(GOOD_FRIDAY, '')).toEqual(['A quiet Good Friday, {name}'])
-    expect(holidayFor(EASTER, 'IN')).toEqual(['Happy Easter, {name}']) // region-free
+    expect(holidayFor(EASTER, '')).toEqual(['greeting.holiday.easter'])
+    expect(holidayFor(GOOD_FRIDAY, '')).toEqual(['greeting.holiday.good-friday'])
+    expect(holidayFor(EASTER, 'IN')).toEqual(['greeting.holiday.easter']) // region-free
+    // The tone of these two is the point of having them separately at all: one is a
+    // feast and the other is not, so the words are asserted as well as the routing.
+    expect(value('greeting.holiday.easter')).toBe('Happy Easter, {name}')
+    expect(value('greeting.holiday.good-friday')).toBe('A quiet Good Friday, {name}')
   })
 
   // Two countries, two different rules, and each has to stay behind its own
@@ -359,10 +389,14 @@ describe('holidayFor — the two computed families', () => {
   it('keeps each Thanksgiving inside its own country', () => {
     expect(US_THANKSGIVING.getDay()).toBe(4)
     expect(CA_THANKSGIVING.getDay()).toBe(1)
-    expect(holidayFor(US_THANKSGIVING, 'US')).toEqual(['Happy Thanksgiving, {name}'])
+    // TWO KEYS, ONE SENTENCE IN ENGLISH, and that is why they are two keys: the
+    // English happens to coincide and no other language has to make it coincide.
+    expect(holidayFor(US_THANKSGIVING, 'US')).toEqual(['greeting.holiday.thanksgiving.us'])
     expect(holidayFor(US_THANKSGIVING, 'CA')).toBeNull()
-    expect(holidayFor(CA_THANKSGIVING, 'CA')).toEqual(['Happy Thanksgiving, {name}'])
+    expect(holidayFor(CA_THANKSGIVING, 'CA')).toEqual(['greeting.holiday.thanksgiving.ca'])
     expect(holidayFor(CA_THANKSGIVING, 'US')).toBeNull()
+    expect(value('greeting.holiday.thanksgiving.us')).toBe('Happy Thanksgiving, {name}')
+    expect(value('greeting.holiday.thanksgiving.ca')).toBe('Happy Thanksgiving, {name}')
   })
 })
 

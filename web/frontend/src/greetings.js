@@ -37,6 +37,12 @@
 //     `Marking …` line instead. Taiwan's 228 and Rizal Day were dropped for the
 //     same reason: nobody there wants a greeting on them.
 
+// EVERY POOL BELOW IS KEYS, NOT SENTENCES. The copy lives in the locale files
+// under greeting.*, and the index in a key IS that pool member's identity — which
+// is what lets a language carry a different NUMBER of lines than English, and its
+// own festivals rather than a translation of these.
+import { t } from './i18n.js'
+
 // ---- time of day -----------------------------------------------------------
 
 // Six buckets, not three. "Good evening" at 23:50 and at 17:05 are the same
@@ -194,134 +200,134 @@ export function localRegion(zone = localZone()) {
 // "Happy X", commemorations get "Marking X". Getting that backwards is the most
 // embarrassing thing this file could do.
 const NATIONAL = [
-  { md: '01-25', regions: ['EG'], greetings: ['Happy Revolution Day, {name}'] },
-  { md: '01-26', regions: ['AU'], greetings: ['Happy Australia Day, {name}'] },
-  { md: '01-26', regions: ['IN'], greetings: ['Happy Republic Day, {name}'] },
-  { md: '02-04', regions: ['LK'], greetings: ['Happy Independence Day, {name}'] },
-  { md: '02-06', regions: ['NZ'], greetings: ['Happy Waitangi Day, {name}'] },
-  { md: '02-11', regions: ['JP'], greetings: ['Happy National Foundation Day, {name}'] },
-  { md: '02-21', regions: ['BD'], greetings: ['Marking Shaheed Dibash, {name}', 'অমর একুশে — a day for words, {name}'] },
-  { md: '02-22', regions: ['SA'], greetings: ['Happy Founding Day, {name}'] },
-  { md: '03-01', regions: ['KR'], greetings: ['Marking Samiljeol, {name}'] },
-  { md: '03-06', regions: ['GH'], greetings: ['Happy Independence Day, {name}'] },
-  { md: '03-15', regions: ['HU'], greetings: ['Happy 1848 Revolution Day, {name}'] },
-  { md: '03-17', regions: ['IE'], greetings: ['Happy St Patrick’s Day, {name}'] },
-  { md: '03-23', regions: ['PK'], greetings: ['Happy Pakistan Day, {name}'] },
-  { md: '03-25', regions: ['GR'], greetings: ['Happy Independence Day, {name}'] },
-  { md: '03-26', regions: ['BD'], greetings: ['Happy Independence Day, {name}'] },
-  { md: '04-13', regions: ['TH'], greetings: ['Happy Songkran, {name}'] },
+  { md: '01-25', regions: ['EG'], greetings: ['greeting.holiday.eg.01-25.1'] },
+  { md: '01-26', regions: ['AU'], greetings: ['greeting.holiday.au.01-26.1'] },
+  { md: '01-26', regions: ['IN'], greetings: ['greeting.holiday.in.01-26.1'] },
+  { md: '02-04', regions: ['LK'], greetings: ['greeting.holiday.lk.02-04.1'] },
+  { md: '02-06', regions: ['NZ'], greetings: ['greeting.holiday.nz.02-06.1'] },
+  { md: '02-11', regions: ['JP'], greetings: ['greeting.holiday.jp.02-11.1'] },
+  { md: '02-21', regions: ['BD'], greetings: ['greeting.holiday.bd.02-21.1', 'greeting.holiday.bd.02-21.2'] },
+  { md: '02-22', regions: ['SA'], greetings: ['greeting.holiday.sa.02-22.1'] },
+  { md: '03-01', regions: ['KR'], greetings: ['greeting.holiday.kr.03-01.1'] },
+  { md: '03-06', regions: ['GH'], greetings: ['greeting.holiday.gh.03-06.1'] },
+  { md: '03-15', regions: ['HU'], greetings: ['greeting.holiday.hu.03-15.1'] },
+  { md: '03-17', regions: ['IE'], greetings: ['greeting.holiday.ie.03-17.1'] },
+  { md: '03-23', regions: ['PK'], greetings: ['greeting.holiday.pk.03-23.1'] },
+  { md: '03-25', regions: ['GR'], greetings: ['greeting.holiday.gr.03-25.1'] },
+  { md: '03-26', regions: ['BD'], greetings: ['greeting.holiday.bd.03-26.1'] },
+  { md: '04-13', regions: ['TH'], greetings: ['greeting.holiday.th.04-13.1'] },
   // Poila Boishakh / Pohela Boishakh, the SOLAR Bengali new year — 14 April in
   // Bangladesh, 14 or 15 April in West Bengal. Solar, so it is fixed, which is
   // why it is here and Diwali is not. Worth having in an app called টিপ্পনী.
-  { md: '04-14', regions: ['IN', 'BD'], greetings: ['শুভ নববর্ষ, {name}', 'Happy Bengali new year, {name}'] },
-  { md: '04-15', regions: ['IN'], greetings: ['শুভ নববর্ষ, {name}', 'Happy Bengali new year, {name}'] },
-  { md: '04-19', regions: ['VE'], greetings: ['Happy Primer Grito de Independencia, {name}'] },
-  { md: '04-23', regions: ['TR'], greetings: ['Happy National Sovereignty and Children’s Day, {name}'] },
-  { md: '04-25', regions: ['AU', 'NZ'], greetings: ['Marking Anzac Day, {name}'] },
-  { md: '04-25', regions: ['IT'], greetings: ['Happy Liberation Day, {name}'] },
-  { md: '04-25', regions: ['EG'], greetings: ['Happy Sinai Liberation Day, {name}'] },
-  { md: '04-27', regions: ['ZA'], greetings: ['Happy Freedom Day, {name}'] },
-  { md: '04-30', regions: ['VN'], greetings: ['Happy Reunification Day, {name}'] },
-  { md: '05-03', regions: ['PL'], greetings: ['Happy Constitution Day, {name}'] },
-  { md: '05-03', regions: ['JP'], greetings: ['Happy Constitution Memorial Day, {name}'] },
-  { md: '05-05', regions: ['NL'], greetings: ['Happy Bevrijdingsdag, {name}'] },
-  { md: '05-05', regions: ['JP'], greetings: ['Happy Children’s Day, {name}'] },
-  { md: '05-17', regions: ['NO'], greetings: ['Happy Syttende mai, {name}'] },
-  { md: '05-25', regions: ['AR'], greetings: ['Happy May Revolution Day, {name}'] },
-  { md: '06-01', regions: ['KE'], greetings: ['Happy Madaraka Day, {name}'] },
-  { md: '06-01', regions: ['ID'], greetings: ['Happy Pancasila Day, {name}'] },
-  { md: '06-02', regions: ['IT'], greetings: ['Happy Festa della Repubblica, {name}'] },
-  { md: '06-06', regions: ['SE'], greetings: ['Happy Sveriges nationaldag, {name}'] },
-  { md: '06-10', regions: ['PT'], greetings: ['Happy Portugal Day, {name}'] },
-  { md: '06-12', regions: ['PH'], greetings: ['Happy Araw ng Kalayaan, {name}'] },
-  { md: '06-12', regions: ['NG'], greetings: ['Happy Democracy Day, {name}'] },
-  { md: '06-16', regions: ['ZA'], greetings: ['Marking Youth Day, {name}'] },
-  { md: '06-19', regions: ['US'], greetings: ['Happy Juneteenth, {name}'] },
-  { md: '06-28', regions: ['UA'], greetings: ['Happy Constitution Day, {name}'] },
-  { md: '07-01', regions: ['CA'], greetings: ['Happy Canada Day, {name}'] },
-  { md: '07-01', regions: ['HK'], greetings: ['Happy Establishment Day, {name}'] },
-  { md: '07-04', regions: ['US'], greetings: ['Happy Fourth of July, {name}', 'Happy Fourth, {name}'] },
-  { md: '07-05', regions: ['VE'], greetings: ['Happy Independence Day, {name}'] },
-  { md: '07-09', regions: ['AR'], greetings: ['Happy Independence Day, {name}'] },
-  { md: '07-14', regions: ['FR'], greetings: ['Happy Bastille Day, {name}'] },
-  { md: '07-18', regions: ['UY'], greetings: ['Happy Constitution Day, {name}'] },
-  { md: '07-20', regions: ['CO'], greetings: ['Happy Independence Day, {name}'] },
-  { md: '07-21', regions: ['BE'], greetings: ['Happy Belgian National Day, {name}'] },
-  { md: '07-23', regions: ['EG'], greetings: ['Happy Revolution Day, {name}'] },
-  { md: '07-24', regions: ['VE'], greetings: ['Happy Bolívar Day, {name}'] },
-  { md: '07-26', regions: ['MV'], greetings: ['Happy Independence Day, {name}'] },
-  { md: '07-28', regions: ['PE'], greetings: ['Happy Fiestas Patrias, {name}'] },
-  { md: '07-29', regions: ['PE'], greetings: ['Happy Gran Parada Militar, {name}'] },
-  { md: '08-01', regions: ['CH'], greetings: ['Happy Swiss National Day, {name}'] },
-  { md: '08-07', regions: ['CO'], greetings: ['Happy Battle of Boyacá Day, {name}'] },
-  { md: '08-09', regions: ['SG'], greetings: ['Happy National Day, {name}'] },
-  { md: '08-14', regions: ['PK'], greetings: ['Happy Independence Day, {name}'] },
-  { md: '08-15', regions: ['KR'], greetings: ['Happy Gwangbokjeol, {name}'] },
-  { md: '08-15', regions: ['IN'], greetings: ['Happy Independence Day, {name}'] },
-  { md: '08-17', regions: ['ID'], greetings: ['Happy Hari Kemerdekaan, {name}'] },
-  { md: '08-20', regions: ['HU'], greetings: ['Happy St Stephen’s Day, {name}'] },
-  { md: '08-24', regions: ['UA'], greetings: ['Happy Independence Day, {name}'] },
-  { md: '08-25', regions: ['UY'], greetings: ['Happy Independence Day, {name}'] },
-  { md: '08-30', regions: ['TR'], greetings: ['Happy Zafer Bayramı, {name}'] },
-  { md: '08-31', regions: ['MY'], greetings: ['Happy Hari Merdeka, {name}'] },
-  { md: '09-02', regions: ['VN'], greetings: ['Happy Quốc Khánh, {name}'] },
-  { md: '09-07', regions: ['BR'], greetings: ['Happy Independence Day, {name}'] },
-  { md: '09-16', regions: ['MX'], greetings: ['Happy Independence Day, {name}'] },
-  { md: '09-16', regions: ['MY'], greetings: ['Happy Malaysia Day, {name}'] },
-  { md: '09-18', regions: ['CL'], greetings: ['Happy Fiestas Patrias, {name}'] },
-  { md: '09-19', regions: ['CL'], greetings: ['Happy Día de las Glorias del Ejército, {name}'] },
-  { md: '09-21', regions: ['GH'], greetings: ['Marking Founders’ Day, {name}'] },
-  { md: '09-23', regions: ['SA'], greetings: ['Happy Saudi National Day, {name}'] },
-  { md: '09-24', regions: ['ZA'], greetings: ['Happy Heritage Day, {name}'] },
-  { md: '09-28', regions: ['CZ'], greetings: ['Happy Czech Statehood Day, {name}'] },
-  { md: '09-30', regions: ['CA'], greetings: ['Marking the National Day for Truth and Reconciliation, {name}'] },
-  { md: '10-01', regions: ['NG'], greetings: ['Happy Independence Day, {name}'] },
-  { md: '10-01', regions: ['CN', 'HK'], greetings: ['Happy National Day, {name}'] },
-  { md: '10-02', regions: ['IN'], greetings: ['Marking Gandhi Jayanti, {name}'] },
-  { md: '10-03', regions: ['KR'], greetings: ['Happy Gaecheonjeol, {name}'] },
-  { md: '10-03', regions: ['DE'], greetings: ['Happy German Unity Day, {name}'] },
-  { md: '10-05', regions: ['PT'], greetings: ['Happy Republic Day, {name}'] },
-  { md: '10-10', regions: ['TW'], greetings: ['Happy Double Ten Day, {name}'] },
-  { md: '10-12', regions: ['ES'], greetings: ['Happy Fiesta Nacional, {name}'] },
-  { md: '10-20', regions: ['KE'], greetings: ['Happy Mashujaa Day, {name}'] },
-  { md: '10-23', regions: ['HU'], greetings: ['Marking 1956 Revolution Day, {name}'] },
-  { md: '10-26', regions: ['AT'], greetings: ['Happy National Day, {name}'] },
-  { md: '10-28', regions: ['CZ'], greetings: ['Happy Independent Czechoslovak State Day, {name}'] },
-  { md: '10-28', regions: ['GR'], greetings: ['Happy Ohi Day, {name}'] },
-  { md: '10-29', regions: ['TR'], greetings: ['Happy Cumhuriyet Bayramı, {name}'] },
-  { md: '11-02', regions: ['MX'], greetings: ['Marking Día de Muertos, {name}'] },
-  { md: '11-03', regions: ['MV'], greetings: ['Happy Victory Day, {name}'] },
-  { md: '11-05', regions: ['GB'], greetings: ['Remember, remember, {name}'] },
-  { md: '11-06', regions: ['MA'], greetings: ['Happy Green March Day, {name}'] },
-  { md: '11-11', regions: ['FR'], greetings: ['Marking Armistice Day, {name}'] },
-  { md: '11-11', regions: ['PL'], greetings: ['Happy Independence Day, {name}'] },
-  { md: '11-11', regions: ['AU', 'CA', 'GB'], greetings: ['Marking Remembrance Day, {name}'] },
-  { md: '11-11', regions: ['MV'], greetings: ['Happy Republic Day, {name}'] },
-  { md: '11-11', regions: ['US'], greetings: ['Marking Veterans Day, {name}'] },
-  { md: '11-15', regions: ['BR'], greetings: ['Happy Republic Day, {name}'] },
-  { md: '11-18', regions: ['MA'], greetings: ['Happy Independence Day, {name}'] },
-  { md: '12-01', regions: ['RO'], greetings: ['Happy Great Union Day, {name}'] },
-  { md: '12-01', regions: ['PT'], greetings: ['Happy Restoration of Independence Day, {name}'] },
-  { md: '12-02', regions: ['AE'], greetings: ['Happy National Day, {name}'] },
-  { md: '12-05', regions: ['TH'], greetings: ['Happy National Day, {name}'] },
-  { md: '12-06', regions: ['ES'], greetings: ['Happy Constitution Day, {name}'] },
-  { md: '12-06', regions: ['FI'], greetings: ['Happy Independence Day, {name}'] },
-  { md: '12-12', regions: ['KE'], greetings: ['Happy Jamhuri Day, {name}'] },
-  { md: '12-16', regions: ['BD'], greetings: ['Happy Victory Day, {name}'] },
-  { md: '12-17', regions: ['BT'], greetings: ['Happy National Day, {name}'] },
-  { md: '12-25', regions: ['PK'], greetings: ['Happy Quaid-e-Azam Day, {name}'] },
+  { md: '04-14', regions: ['IN', 'BD'], greetings: ['greeting.holiday.in.04-14.1', 'greeting.holiday.in.04-14.2'] },
+  { md: '04-15', regions: ['IN'], greetings: ['greeting.holiday.in.04-15.1', 'greeting.holiday.in.04-15.2'] },
+  { md: '04-19', regions: ['VE'], greetings: ['greeting.holiday.ve.04-19.1'] },
+  { md: '04-23', regions: ['TR'], greetings: ['greeting.holiday.tr.04-23.1'] },
+  { md: '04-25', regions: ['AU', 'NZ'], greetings: ['greeting.holiday.au.04-25.1'] },
+  { md: '04-25', regions: ['IT'], greetings: ['greeting.holiday.it.04-25.1'] },
+  { md: '04-25', regions: ['EG'], greetings: ['greeting.holiday.eg.04-25.1'] },
+  { md: '04-27', regions: ['ZA'], greetings: ['greeting.holiday.za.04-27.1'] },
+  { md: '04-30', regions: ['VN'], greetings: ['greeting.holiday.vn.04-30.1'] },
+  { md: '05-03', regions: ['PL'], greetings: ['greeting.holiday.pl.05-03.1'] },
+  { md: '05-03', regions: ['JP'], greetings: ['greeting.holiday.jp.05-03.1'] },
+  { md: '05-05', regions: ['NL'], greetings: ['greeting.holiday.nl.05-05.1'] },
+  { md: '05-05', regions: ['JP'], greetings: ['greeting.holiday.jp.05-05.1'] },
+  { md: '05-17', regions: ['NO'], greetings: ['greeting.holiday.no.05-17.1'] },
+  { md: '05-25', regions: ['AR'], greetings: ['greeting.holiday.ar.05-25.1'] },
+  { md: '06-01', regions: ['KE'], greetings: ['greeting.holiday.ke.06-01.1'] },
+  { md: '06-01', regions: ['ID'], greetings: ['greeting.holiday.id.06-01.1'] },
+  { md: '06-02', regions: ['IT'], greetings: ['greeting.holiday.it.06-02.1'] },
+  { md: '06-06', regions: ['SE'], greetings: ['greeting.holiday.se.06-06.1'] },
+  { md: '06-10', regions: ['PT'], greetings: ['greeting.holiday.pt.06-10.1'] },
+  { md: '06-12', regions: ['PH'], greetings: ['greeting.holiday.ph.06-12.1'] },
+  { md: '06-12', regions: ['NG'], greetings: ['greeting.holiday.ng.06-12.1'] },
+  { md: '06-16', regions: ['ZA'], greetings: ['greeting.holiday.za.06-16.1'] },
+  { md: '06-19', regions: ['US'], greetings: ['greeting.holiday.us.06-19.1'] },
+  { md: '06-28', regions: ['UA'], greetings: ['greeting.holiday.ua.06-28.1'] },
+  { md: '07-01', regions: ['CA'], greetings: ['greeting.holiday.ca.07-01.1'] },
+  { md: '07-01', regions: ['HK'], greetings: ['greeting.holiday.hk.07-01.1'] },
+  { md: '07-04', regions: ['US'], greetings: ['greeting.holiday.us.07-04.1', 'greeting.holiday.us.07-04.2'] },
+  { md: '07-05', regions: ['VE'], greetings: ['greeting.holiday.ve.07-05.1'] },
+  { md: '07-09', regions: ['AR'], greetings: ['greeting.holiday.ar.07-09.1'] },
+  { md: '07-14', regions: ['FR'], greetings: ['greeting.holiday.fr.07-14.1'] },
+  { md: '07-18', regions: ['UY'], greetings: ['greeting.holiday.uy.07-18.1'] },
+  { md: '07-20', regions: ['CO'], greetings: ['greeting.holiday.co.07-20.1'] },
+  { md: '07-21', regions: ['BE'], greetings: ['greeting.holiday.be.07-21.1'] },
+  { md: '07-23', regions: ['EG'], greetings: ['greeting.holiday.eg.07-23.1'] },
+  { md: '07-24', regions: ['VE'], greetings: ['greeting.holiday.ve.07-24.1'] },
+  { md: '07-26', regions: ['MV'], greetings: ['greeting.holiday.mv.07-26.1'] },
+  { md: '07-28', regions: ['PE'], greetings: ['greeting.holiday.pe.07-28.1'] },
+  { md: '07-29', regions: ['PE'], greetings: ['greeting.holiday.pe.07-29.1'] },
+  { md: '08-01', regions: ['CH'], greetings: ['greeting.holiday.ch.08-01.1'] },
+  { md: '08-07', regions: ['CO'], greetings: ['greeting.holiday.co.08-07.1'] },
+  { md: '08-09', regions: ['SG'], greetings: ['greeting.holiday.sg.08-09.1'] },
+  { md: '08-14', regions: ['PK'], greetings: ['greeting.holiday.pk.08-14.1'] },
+  { md: '08-15', regions: ['KR'], greetings: ['greeting.holiday.kr.08-15.1'] },
+  { md: '08-15', regions: ['IN'], greetings: ['greeting.holiday.in.08-15.1'] },
+  { md: '08-17', regions: ['ID'], greetings: ['greeting.holiday.id.08-17.1'] },
+  { md: '08-20', regions: ['HU'], greetings: ['greeting.holiday.hu.08-20.1'] },
+  { md: '08-24', regions: ['UA'], greetings: ['greeting.holiday.ua.08-24.1'] },
+  { md: '08-25', regions: ['UY'], greetings: ['greeting.holiday.uy.08-25.1'] },
+  { md: '08-30', regions: ['TR'], greetings: ['greeting.holiday.tr.08-30.1'] },
+  { md: '08-31', regions: ['MY'], greetings: ['greeting.holiday.my.08-31.1'] },
+  { md: '09-02', regions: ['VN'], greetings: ['greeting.holiday.vn.09-02.1'] },
+  { md: '09-07', regions: ['BR'], greetings: ['greeting.holiday.br.09-07.1'] },
+  { md: '09-16', regions: ['MX'], greetings: ['greeting.holiday.mx.09-16.1'] },
+  { md: '09-16', regions: ['MY'], greetings: ['greeting.holiday.my.09-16.1'] },
+  { md: '09-18', regions: ['CL'], greetings: ['greeting.holiday.cl.09-18.1'] },
+  { md: '09-19', regions: ['CL'], greetings: ['greeting.holiday.cl.09-19.1'] },
+  { md: '09-21', regions: ['GH'], greetings: ['greeting.holiday.gh.09-21.1'] },
+  { md: '09-23', regions: ['SA'], greetings: ['greeting.holiday.sa.09-23.1'] },
+  { md: '09-24', regions: ['ZA'], greetings: ['greeting.holiday.za.09-24.1'] },
+  { md: '09-28', regions: ['CZ'], greetings: ['greeting.holiday.cz.09-28.1'] },
+  { md: '09-30', regions: ['CA'], greetings: ['greeting.holiday.ca.09-30.1'] },
+  { md: '10-01', regions: ['NG'], greetings: ['greeting.holiday.ng.10-01.1'] },
+  { md: '10-01', regions: ['CN', 'HK'], greetings: ['greeting.holiday.cn.10-01.1'] },
+  { md: '10-02', regions: ['IN'], greetings: ['greeting.holiday.in.10-02.1'] },
+  { md: '10-03', regions: ['KR'], greetings: ['greeting.holiday.kr.10-03.1'] },
+  { md: '10-03', regions: ['DE'], greetings: ['greeting.holiday.de.10-03.1'] },
+  { md: '10-05', regions: ['PT'], greetings: ['greeting.holiday.pt.10-05.1'] },
+  { md: '10-10', regions: ['TW'], greetings: ['greeting.holiday.tw.10-10.1'] },
+  { md: '10-12', regions: ['ES'], greetings: ['greeting.holiday.es.10-12.1'] },
+  { md: '10-20', regions: ['KE'], greetings: ['greeting.holiday.ke.10-20.1'] },
+  { md: '10-23', regions: ['HU'], greetings: ['greeting.holiday.hu.10-23.1'] },
+  { md: '10-26', regions: ['AT'], greetings: ['greeting.holiday.at.10-26.1'] },
+  { md: '10-28', regions: ['CZ'], greetings: ['greeting.holiday.cz.10-28.1'] },
+  { md: '10-28', regions: ['GR'], greetings: ['greeting.holiday.gr.10-28.1'] },
+  { md: '10-29', regions: ['TR'], greetings: ['greeting.holiday.tr.10-29.1'] },
+  { md: '11-02', regions: ['MX'], greetings: ['greeting.holiday.mx.11-02.1'] },
+  { md: '11-03', regions: ['MV'], greetings: ['greeting.holiday.mv.11-03.1'] },
+  { md: '11-05', regions: ['GB'], greetings: ['greeting.holiday.gb.11-05.1'] },
+  { md: '11-06', regions: ['MA'], greetings: ['greeting.holiday.ma.11-06.1'] },
+  { md: '11-11', regions: ['FR'], greetings: ['greeting.holiday.fr.11-11.1'] },
+  { md: '11-11', regions: ['PL'], greetings: ['greeting.holiday.pl.11-11.1'] },
+  { md: '11-11', regions: ['AU', 'CA', 'GB'], greetings: ['greeting.holiday.au.11-11.1'] },
+  { md: '11-11', regions: ['MV'], greetings: ['greeting.holiday.mv.11-11.1'] },
+  { md: '11-11', regions: ['US'], greetings: ['greeting.holiday.us.11-11.1'] },
+  { md: '11-15', regions: ['BR'], greetings: ['greeting.holiday.br.11-15.1'] },
+  { md: '11-18', regions: ['MA'], greetings: ['greeting.holiday.ma.11-18.1'] },
+  { md: '12-01', regions: ['RO'], greetings: ['greeting.holiday.ro.12-01.1'] },
+  { md: '12-01', regions: ['PT'], greetings: ['greeting.holiday.pt.12-01.1'] },
+  { md: '12-02', regions: ['AE'], greetings: ['greeting.holiday.ae.12-02.1'] },
+  { md: '12-05', regions: ['TH'], greetings: ['greeting.holiday.th.12-05.1'] },
+  { md: '12-06', regions: ['ES'], greetings: ['greeting.holiday.es.12-06.1'] },
+  { md: '12-06', regions: ['FI'], greetings: ['greeting.holiday.fi.12-06.1'] },
+  { md: '12-12', regions: ['KE'], greetings: ['greeting.holiday.ke.12-12.1'] },
+  { md: '12-16', regions: ['BD'], greetings: ['greeting.holiday.bd.12-16.1'] },
+  { md: '12-17', regions: ['BT'], greetings: ['greeting.holiday.bt.12-17.1'] },
+  { md: '12-25', regions: ['PK'], greetings: ['greeting.holiday.pk.12-25.1'] },
 ]
 
 // INTERNATIONAL — days that need no region, checked after NATIONAL so a
 // country's own day always wins the date.
 const INTERNATIONAL = [
-  { md: '01-01', greetings: ['Happy new year, {name}', 'A fresh year of margins, {name}', 'New year, empty notebook, {name}'] },
-  { md: '02-14', greetings: ['Happy Valentine’s day, {name}', 'Something quotable today, {name}?'] },
-  { md: '04-23', greetings: ['Happy World Book Day, {name}', 'World Book Day — good company, {name}'] },
-  { md: '10-31', greetings: ['Happy Hallowe’en, {name}', 'Something spooky in the margins, {name}?'] },
-  { md: '12-24', greetings: ['Christmas eve, {name}'] },
-  { md: '12-25', greetings: ['Merry Christmas, {name}', 'Happy Christmas, {name}'] },
-  { md: '12-31', greetings: ['Last page of the year, {name}', 'See the year out, {name}'] },
+  { md: '01-01', greetings: ['greeting.holiday.intl.01-01.1', 'greeting.holiday.intl.01-01.2', 'greeting.holiday.intl.01-01.3'] },
+  { md: '02-14', greetings: ['greeting.holiday.intl.02-14.1', 'greeting.holiday.intl.02-14.2'] },
+  { md: '04-23', greetings: ['greeting.holiday.intl.04-23.1', 'greeting.holiday.intl.04-23.2'] },
+  { md: '10-31', greetings: ['greeting.holiday.intl.10-31.1', 'greeting.holiday.intl.10-31.2'] },
+  { md: '12-24', greetings: ['greeting.holiday.intl.12-24.1'] },
+  { md: '12-25', greetings: ['greeting.holiday.intl.12-25.1', 'greeting.holiday.intl.12-25.2'] },
+  { md: '12-31', greetings: ['greeting.holiday.intl.12-31.1', 'greeting.holiday.intl.12-31.2'] },
 ]
 
 // easterSunday — Anonymous Gregorian computus. Exact for any Gregorian year, so
@@ -369,16 +375,16 @@ export function holidayFor(d = new Date(), region = localRegion()) {
   }
 
   const easter = easterSunday(d.getFullYear())
-  if (sameDay(d, easter)) return ['Happy Easter, {name}']
+  if (sameDay(d, easter)) return ['greeting.holiday.easter']
   const goodFriday = new Date(easter)
   goodFriday.setDate(easter.getDate() - 2)
-  if (sameDay(d, goodFriday)) return ['A quiet Good Friday, {name}']
+  if (sameDay(d, goodFriday)) return ['greeting.holiday.good-friday']
 
   if (region === 'US' && sameDay(d, nthWeekdayOfMonth(d.getFullYear(), 10, 4, 4))) {
-    return ['Happy Thanksgiving, {name}']
+    return ['greeting.holiday.thanksgiving.us']
   }
   if (region === 'CA' && sameDay(d, nthWeekdayOfMonth(d.getFullYear(), 9, 1, 2))) {
-    return ['Happy Thanksgiving, {name}']
+    return ['greeting.holiday.thanksgiving.ca']
   }
   return null
 }
@@ -387,58 +393,58 @@ export function holidayFor(d = new Date(), region = localRegion()) {
 
 const BY_BUCKET = {
   latenight: [
-    'Still up, {name}?',
-    'The small hours, {name}',
-    'One more page, {name}?',
-    'Burning the midnight oil, {name}',
-    'Quiet o’clock, {name}',
+    'greeting.bucket.latenight.1',
+    'greeting.bucket.latenight.2',
+    'greeting.bucket.latenight.3',
+    'greeting.bucket.latenight.4',
+    'greeting.bucket.latenight.5',
   ],
   dawn: [
-    'Early start, {name}',
-    'Morning, {name} — before the world wakes',
-    'First light, {name}',
-    'Up with the birds, {name}',
+    'greeting.bucket.dawn.1',
+    'greeting.bucket.dawn.2',
+    'greeting.bucket.dawn.3',
+    'greeting.bucket.dawn.4',
   ],
   morning: [
-    'Good morning, {name}',
-    'Morning, {name}',
-    'A good morning for a good line, {name}',
-    'Fresh page, {name}',
-    'Morning, {name} — what did you read?',
+    'greeting.bucket.morning.1',
+    'greeting.bucket.morning.2',
+    'greeting.bucket.morning.3',
+    'greeting.bucket.morning.4',
+    'greeting.bucket.morning.5',
   ],
   afternoon: [
-    'Good afternoon, {name}',
-    'Afternoon, {name}',
-    'Mid-afternoon, {name} — time for a chapter',
-    'Afternoon, {name}. Anything worth keeping?',
+    'greeting.bucket.afternoon.1',
+    'greeting.bucket.afternoon.2',
+    'greeting.bucket.afternoon.3',
+    'greeting.bucket.afternoon.4',
   ],
   evening: [
-    'Good evening, {name}',
-    'Evening, {name}',
-    'Evening, {name} — the reading hour',
-    'Wind down, {name}',
+    'greeting.bucket.evening.1',
+    'greeting.bucket.evening.2',
+    'greeting.bucket.evening.3',
+    'greeting.bucket.evening.4',
   ],
   night: [
-    'Good night, {name}',
-    'Evening, {name}',
-    'A late line or two, {name}?',
-    'Night, {name} — one chapter more',
+    'greeting.bucket.night.1',
+    'greeting.bucket.night.2',
+    'greeting.bucket.night.3',
+    'greeting.bucket.night.4',
   ],
 }
 
 // The weekend pool is used *instead of* the time-of-day pool on Saturday and
 // Sunday, except in the small hours, where "Still up?" beats any weekend line.
 const WEEKEND = {
-  dawn: ['Early, for a weekend, {name}', 'A quiet weekend start, {name}'],
-  morning: ['Happy Saturday, {name}', 'Weekend morning, {name}', 'Slow morning, {name}', 'No alarm today, {name}'],
-  afternoon: ['Weekend afternoon, {name}', 'A whole afternoon to read, {name}', 'Lazy afternoon, {name}'],
-  evening: ['Weekend evening, {name}', 'Evening, {name} — no Monday yet', 'Settle in, {name}'],
-  night: ['Late weekend night, {name}', 'No alarm tomorrow, {name}'],
+  dawn: ['greeting.weekend.dawn.1', 'greeting.weekend.dawn.2'],
+  morning: ['greeting.weekend.morning.1', 'greeting.weekend.morning.2', 'greeting.weekend.morning.3', 'greeting.weekend.morning.4'],
+  afternoon: ['greeting.weekend.afternoon.1', 'greeting.weekend.afternoon.2', 'greeting.weekend.afternoon.3'],
+  evening: ['greeting.weekend.evening.1', 'greeting.weekend.evening.2', 'greeting.weekend.evening.3'],
+  night: ['greeting.weekend.night.1', 'greeting.weekend.night.2'],
 }
 
 // Sunday gets its own morning line, since "Happy Saturday" on a Sunday is worse
 // than saying nothing clever at all.
-const SUNDAY_MORNING = ['Happy Sunday, {name}', 'Sunday morning, {name}', 'Slow Sunday, {name}']
+const SUNDAY_MORNING = ['greeting.sunday.1', 'greeting.sunday.2', 'greeting.sunday.3']
 
 const pick = (list) => list[Math.floor(Math.random() * list.length)]
 
@@ -450,7 +456,7 @@ const pick = (list) => list[Math.floor(Math.random() * list.length)]
 // Merry Christmas; the date has not rolled over yet, so the day is still the
 // day, and "Still up?" would be the one greeting that ignores it.
 export function greetingFor(username, now = new Date(), region = localRegion()) {
-  const name = (username || '').trim() || 'reader'
+  const name = (username || '').trim() || t('greeting.name-fallback')
   const bucket = timeBucket(now)
   let pool = BY_BUCKET[bucket] || BY_BUCKET.morning
 
@@ -461,7 +467,7 @@ export function greetingFor(username, now = new Date(), region = localRegion()) 
     const weekend = now.getDay() === 0 && bucket === 'morning' ? SUNDAY_MORNING : WEEKEND[bucket]
     if (weekend?.length) pool = weekend
   }
-  return pick(pool).replace('{name}', name)
+  return t(pick(pool), { name })
 }
 
 // dateLine — the mono line above the greeting. Rendered with the device's own
@@ -470,5 +476,5 @@ export function greetingFor(username, now = new Date(), region = localRegion()) 
 export function dateLine(now = new Date()) {
   const weekday = now.toLocaleDateString(undefined, { weekday: 'long' })
   const date = now.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })
-  return `${weekday} · ${date}`
+  return t('greeting.dateline.format', { weekday, date })
 }

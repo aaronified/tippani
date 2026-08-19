@@ -92,9 +92,14 @@ describe('the kind table', () => {
     // The tile looks each of these up with no fallback, so a kind added to the
     // table without one of them throws at render rather than degrading — which
     // is the intended failure, and worth pinning so nobody adds a `|| ''`.
+    // `field:` OR `get field()`. Three of these hold copy and are now getters, for
+    // the reason help.jsx's registry is: this table is built at module import,
+    // before applyLocale() has run, so a t() call here would freeze the tile's words
+    // in whatever language the module happened to load in. The property is still
+    // there and still read the same way — only the moment it resolves moved.
     for (const field of ['label', 'labelColor', 'path', 'state', 'form', 'editTitle',
       'confirm', 'personKind', 'credit', 'shareKind', 'quoted']) {
-      const count = table.split(new RegExp(`\\b${field}:`)).length - 1
+      const count = table.split(new RegExp(`\\b(?:get\\s+)?${field}\\s*[:(]`)).length - 1
       expect(count, `${field} is on ${count} of the 3 kinds`).toBe(3)
     }
   })

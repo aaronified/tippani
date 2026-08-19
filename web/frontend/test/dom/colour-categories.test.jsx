@@ -57,8 +57,12 @@ describe('the first slot is the default, not a category', () => {
     // The server rejects this, so the only way it arrives is a restored archive
     // or a hand-edited row — and the client is where it would be SEEN.
     const { applyColors, categoryName, UNSET_LABEL } = await load()
+    const { t } = await import('../../src/i18n.js')
     applyColors({ catName1: 'Inspirational' })
-    expect(categoryName('yellow')).toBe(UNSET_LABEL)
+    // UNSET_LABEL is the KEY; categoryName returns the words. Resolved here rather
+    // than written out, because which word it is belongs to internal/i18n/en.txt and
+    // the rule this asserts is "the stored name is refused".
+    expect(categoryName('yellow')).toBe(t(UNSET_LABEL))
   })
 
   it('refuses to be hidden even if hiding is stored', async () => {
@@ -79,8 +83,9 @@ describe('the first slot is the default, not a category', () => {
     // is what a quote gets when nobody picked, and what an import writes when
     // the source named no colour.
     const { applyColors, categoryName, UNSET_LABEL } = await load()
+    const { t } = await import('../../src/i18n.js')
     applyColors({})
-    expect(categoryName('yellow')).toBe(UNSET_LABEL)
+    expect(categoryName('yellow')).toBe(t(UNSET_LABEL))
     expect(categoryName('yellow')).not.toMatch(/yellow/i)
   })
 })
@@ -253,10 +258,26 @@ describe('CAT_NAME_MAX', () => {
   })
 
   it('fits every built-in name with room to spare', async () => {
+    // MEASURES THE FILE, IN EVERY LANGUAGE IN THE BOX. The table holds keys, so
+    // measuring it would measure the length of 'vocab.category.blue.label' — 25
+    // characters, over a cap it has nothing to do with. What has to fit is the
+    // WORD, and a Bengali or French name has to fit the same chip: the cap is
+    // enforced on the way in for reader-typed names, and a bundled one is only
+    // held to it here. A language that has not translated a name is skipped
+    // rather than failed (design §7).
     const { CAT_NAME_MAX, CATEGORY_DEFAULT_NAME, UNSET_LABEL } = await load()
-    for (const n of [...CATEGORY_DEFAULT_NAME, UNSET_LABEL]) {
-      expect([...n].length, n).toBeLessThanOrEqual(CAT_NAME_MAX)
+    const { BUILTINS } = await import('../locale-file.js')
+    const keys = [...CATEGORY_DEFAULT_NAME, UNSET_LABEL].filter(Boolean)
+    const over = []
+    for (const [code, file] of BUILTINS) {
+      for (const key of keys) {
+        const word = file.keys[key]
+        if (word && [...word].length > CAT_NAME_MAX) over.push(`${code}.txt ${key}: ${word}`)
+      }
     }
+    expect(over).toEqual([])
+    // And the names exist at all, in the language the suite runs in.
+    expect(keys.filter((k) => !BUILTINS[0][1].keys[k])).toEqual([])
   })
 
   it('leaves a name that fits exactly alone', async () => {

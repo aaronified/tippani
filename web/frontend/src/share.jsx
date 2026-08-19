@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useBodyScrollLock, ANNOTATION_HEX, CloseButton, FieldIconButton, GhostButton, IconShare, InfoDot, MonoLabel, Select, Toggle, toast, usePersistedState, useIsMobileScreen } from "./ui.jsx";
 import { buildModel, drawQuoteCard, ensureFonts, loadFaceImages, readTheme } from "./quoteImage.js";
+import { t } from "./i18n.js";
 import { DEFAULT_CREDIT_SEPS, splitCredits } from "./people.jsx";
 import { categoryHex, paletteTheme } from "./theme.js";
 import { DEMO, apiURL, copyText, coverImgURL, json } from "./api.js";
@@ -20,18 +21,19 @@ function resolveFaces(credit, people, seps) {
 // Image themes for the share card — the app's four skins, chosen independently
 // of the live app theme (an export choice, persisted per device). Value is the
 // "aesthetic-mode" palette key drawTheme() resolves.
-const IMAGE_THEMES = [
-  ["paper-light", "Paper · Light"],
-  ["paper-dark", "Paper · Dark"],
-  ["film-light", "Film · Light"],
-  ["film-dark", "Film · Dark"],
+// A function rather than a table: the four names are copy, read at render time.
+const imageThemes = () => [
+  ["paper-light", t("share.image.theme.paper-light.label")],
+  ["paper-dark", t("share.image.theme.paper-dark.label")],
+  ["film-light", t("share.image.theme.film-light.label")],
+  ["film-dark", t("share.image.theme.film-dark.label")],
 ];
 
 // defaultImageTheme seeds the picker from whatever the app is showing now, so
 // the first share matches the live skin until the user picks otherwise.
 function defaultImageTheme() {
-  const t = readTheme();
-  return `${t.aesthetic}-${t.dark ? "dark" : "light"}`;
+  const cur = readTheme();
+  return `${cur.aesthetic}-${cur.dark ? "dark" : "light"}`;
 }
 
 // drawTheme resolves an IMAGE_THEMES key to the canvas theme object, keeping the
@@ -51,34 +53,34 @@ const PRIMARY = "tp-btn tp-btn-primary";
 // standing permanently above the thing they describe pushes the quote itself
 // below the fold on a phone. Rules verified against the WhatsApp (2023
 // formatting update) and Reddit markdown conventions.
+// GETTERS, because this table is built at module scope — before a locale has
+// been applied — and the dialog reads `active.name` / `.logic` / `.hint` while it
+// renders. The four names are product names and stay as they are in every
+// language; the `hint` lines are literal markup samples.
 export const SHARE_FORMATS = [
   {
     id: "whatsapp",
-    name: "WhatsApp",
-    logic:
-      "WhatsApp chat formatting — single-character wrappers; no headings or link syntax (raw URLs auto-link).",
-    hint: "*bold*  _italic_  ~strike~  > quote  ```code```",
+    get name() { return t("share.format.whatsapp.name"); },
+    get logic() { return t("share.format.whatsapp.what"); },
+    get hint() { return t("share.format.whatsapp.hint"); },
   },
   {
     id: "plaintext",
-    name: "Plain",
-    logic:
-      "Plain text for Twitter/X, SMS — nothing renders, so: “curly quotes” around the quote and an — attribution line.",
-    hint: "no markup · “…” · — Author, Title · #tags",
+    get name() { return t("share.format.plaintext.name"); },
+    get logic() { return t("share.format.plaintext.what"); },
+    get hint() { return t("share.format.plaintext.hint"); },
   },
   {
     id: "markdown",
-    name: "Markdown",
-    logic:
-      "Rich Markdown — renders on GitHub, Obsidian, Notion and most editors.",
-    hint: "**bold**  *italic*  ~~strike~~  > quote  `code`  [text](url)",
+    get name() { return t("share.format.markdown.name"); },
+    get logic() { return t("share.format.markdown.what"); },
+    get hint() { return t("share.format.markdown.hint"); },
   },
   {
     id: "reddit",
-    name: "Reddit",
-    logic:
-      "Reddit markdown (old & new) — like Markdown, with `> ` quotes and [text](url) links.",
-    hint: "**bold**  *italic*  ~~strike~~  > quote  [text](url)",
+    get name() { return t("share.format.reddit.name"); },
+    get logic() { return t("share.format.reddit.what"); },
+    get hint() { return t("share.format.reddit.hint"); },
   },
 ];
 
@@ -87,8 +89,7 @@ export const SHARE_FORMATS = [
 // question in the same place — what am I about to produce — and the dialog
 // picks between them on one condition rather than laying out two different
 // explanations in two different shapes.
-const IMAGE_LOGIC =
-  "A picture of the quote, drawn on this device in whichever of the four skins you pick — nothing is uploaded, and the photograph of whoever said it never leaves the machine either. Tick the parts you want below, then download it or copy it straight to the clipboard.";
+const IMAGE_LOGIC = () => t("share.format.image.what");
 
 // ---- normalised share payload builders ---------------------------------
 // Callers pass already-resolved strings (dates pre-formatted); these shape the
@@ -119,11 +120,11 @@ export function bookShare({
     // Author-first (bold), work italic, then the publication year — the classic
     // epigraph order ("— **Author**, *Title*, 1965").
     attribution: [
-      { id: "author", label: "Author", value: author || "", emphasis: "bold" },
-      { id: "work", label: "Book", value: title || "", emphasis: "italic" },
+      { id: "author", label: t("share.field.author.label"), value: author || "", emphasis: "bold" },
+      { id: "work", label: t("share.field.work.book.label"), value: title || "", emphasis: "italic" },
       {
         id: "published",
-        label: "Published",
+        label: t("share.field.published.label"),
         value: published ? String(published) : "",
       },
     ],
@@ -132,15 +133,15 @@ export function bookShare({
     meta: [
       {
         id: "chapter",
-        label: "Chapter",
-        value: chapter ? `Ch. ${chapter}` : "",
+        label: t("share.field.chapter.label"),
+        value: chapter ? t("share.credit.chapter.phrase", { n: chapter }) : "",
       },
       {
         id: "location",
-        label: "Location",
-        value: location ? `p.${location}` : "",
+        label: t("share.field.location.label"),
+        value: location ? t("share.credit.location.phrase", { n: location }) : "",
       },
-      { id: "noted", label: "Noted", value: date || "" },
+      { id: "noted", label: t("share.field.noted.label"), value: date || "" },
     ],
     tags: tags || [],
     note: note || "",
@@ -169,25 +170,28 @@ export function movieShare({
     faces: resolveFaces(actor, people, seps),
     facesFor: "actor",
     attribution: [
-      { id: "work", label: "Title", value: title || "", emphasis: "italic" },
-      { id: "year", label: "Released", value: year ? String(year) : "" },
-      { id: "tmdb", label: "TMDB", value: tmdbId ? `TMDB #${tmdbId}` : "" },
-      { id: "tvdb", label: "TVDB", value: tvdbId ? `TVDB #${tvdbId}` : "" },
+      { id: "work", label: t("share.field.work.film.label"), value: title || "", emphasis: "italic" },
+      { id: "year", label: t("share.field.released.label"), value: year ? String(year) : "" },
+      { id: "tmdb", label: t("share.field.tmdb.label"), value: tmdbId ? t("share.credit.tmdb.phrase", { code: tmdbId }) : "" },
+      { id: "tvdb", label: t("share.field.tvdb.label"), value: tvdbId ? t("share.credit.tvdb.phrase", { code: tvdbId }) : "" },
     ],
     // Actor name bold inside the "played by …" credit; character stays plain.
     meta: [
-      { id: "character", label: "Character", value: character || "" },
+      { id: "character", label: t("share.field.character.label"), value: character || "" },
       {
         id: "actor",
-        label: "Actor",
+        label: t("share.field.actor.label"),
         value: actor || "",
         emphasis: "bold",
-        prefix: "played by ",
+        // A PHRASE RATHER THAN A PREFIX. "played by " glued to the front of a
+        // name is a sentence assembled by concatenation, and the credit does not
+        // run left-to-right in every language. The key holds the whole clause.
+        phrase: "share.credit.actor.phrase",
       },
       // A show's line says which episode; a film passes nothing and the part is
       // absent from the dialog altogether (fieldsOf skips empty values).
-      { id: "episode", label: "Episode", value: episode || "" },
-      { id: "timestamp", label: "Time", value: timestamp || "" },
+      { id: "episode", label: t("share.field.episode.label"), value: episode || "" },
+      { id: "timestamp", label: t("share.field.time.label"), value: timestamp || "" },
     ],
     tags: tags || [],
     note: note || "",
@@ -228,14 +232,14 @@ export function quoteShare({
     // "— **Bose**, *Burma Radio broadcast*, 1944" — speaker-first, occasion
     // italic, then when: the same epigraph order a book keeps.
     attribution: [
-      { id: "speaker", label: "Speaker", value: speaker || "", emphasis: "bold" },
-      { id: "occasion", label: "Occasion", value: occasion || "", emphasis: "italic" },
-      { id: "when", label: "When", value: when || "" },
+      { id: "speaker", label: t("share.field.speaker.label"), value: speaker || "", emphasis: "bold" },
+      { id: "occasion", label: t("share.field.occasion.label"), value: occasion || "", emphasis: "italic" },
+      { id: "when", label: t("share.field.when.label"), value: when || "" },
     ],
     meta: [
-      { id: "place", label: "Place", value: place || "" },
-      { id: "medium", label: "Medium", value: medium || "" },
-      { id: "noted", label: "Noted", value: date || "" },
+      { id: "place", label: t("share.field.place.label"), value: place || "" },
+      { id: "medium", label: t("share.field.medium.label"), value: medium || "" },
+      { id: "noted", label: t("share.field.noted.label"), value: date || "" },
     ],
     tags: tags || [],
     note: note || "",
@@ -250,13 +254,13 @@ const SHARE_OFF_BY_DEFAULT = new Set(["location", "noted"]);
 // fieldsOf lists the toggleable parts present in a payload, in output order.
 function fieldsOf(share) {
   const f = [];
-  if (share.quote) f.push({ id: "quote", label: "Quote" });
+  if (share.quote) f.push({ id: "quote", label: t("share.field.quote.label") });
   for (const a of share.attribution || [])
     if (a.value) f.push({ id: a.id, label: a.label });
   for (const m of share.meta || [])
     if (m.value) f.push({ id: m.id, label: m.label });
-  if (share.tags && share.tags.length) f.push({ id: "tags", label: "Tags" });
-  if (share.note) f.push({ id: "note", label: "Note" });
+  if (share.tags && share.tags.length) f.push({ id: "tags", label: t("share.field.tags.label") });
+  if (share.note) f.push({ id: "note", label: t("share.field.note.label") });
   return f;
 }
 
@@ -282,7 +286,7 @@ export function shareDefaults(share) {
 // old clipboard into a message.
 export async function copyQuote(share) {
   const ok = await copyText(buildShareText(share, shareDefaults(share), "plaintext"));
-  toast(ok ? "copied" : "could not copy");
+  toast(t(ok ? "common.toast.copied" : "error.copy.generic"));
   return ok;
 }
 
@@ -306,7 +310,7 @@ function emph(text, style, fmt) {
 }
 
 function quoteBlock(quote, fmt) {
-  if (fmt === "plaintext") return `“${quote}”`;
+  if (fmt === "plaintext") return t("share.text.quote.phrase", { value: quote });
   // markdown / reddit / whatsapp all support the "> " blockquote prefix.
   return quote
     .split("\n")
@@ -314,8 +318,8 @@ function quoteBlock(quote, fmt) {
     .join("\n");
 }
 
-function hashtag(t) {
-  const clean = String(t).trim().replace(/\s+/g, "");
+function hashtag(tag) {
+  const clean = String(tag).trim().replace(/\s+/g, "");
   return clean ? "#" + clean : "";
 }
 
@@ -326,12 +330,14 @@ export function buildShareText(share, selected, fmt) {
   const attr = [];
   for (const a of share.attribution || [])
     if (selected[a.id] && a.value) attr.push(emph(a.value, a.emphasis, fmt));
-  if (attr.length) blocks.push("— " + attr.join(", "));
+  if (attr.length) blocks.push(t("share.text.attribution.phrase", { value: attr.join(", ") }));
 
   const meta = [];
   for (const m of share.meta || [])
-    if (selected[m.id] && m.value)
-      meta.push((m.prefix || "") + emph(m.value, m.emphasis, fmt));
+    if (selected[m.id] && m.value) {
+      const piece = emph(m.value, m.emphasis, fmt);
+      meta.push(m.phrase ? t(m.phrase, { value: piece }) : piece);
+    }
   if (meta.length) blocks.push(meta.join(" · "));
 
   if (selected.note && share.note) blocks.push(share.note);
@@ -606,7 +612,7 @@ function QuoteImagePanel({ share, selected, onShared, actionRef }) {
         drawQuoteCard(canvas, buildModel({ ...share, portrait: portrait && canPortrait }, selected, colorHex), drawTheme(imageTheme));
         setErr("");
       } catch {
-        setErr("couldn't render the image on this device");
+        setErr(t("error.render.image"));
       }
     };
     redraw();
@@ -628,7 +634,7 @@ function QuoteImagePanel({ share, selected, onShared, actionRef }) {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const blob = await new Promise((res) => canvas.toBlob(res, "image/png"));
-    if (!blob) return setErr("couldn't render the image on this device");
+    if (!blob) return setErr(t("error.render.image"));
     // Phones get the native share sheet (save to Photos/Files, or share
     // straight on) via a named File. The anchor-download path is broken on
     // mobile two ways: iOS Safari — and installed PWAs especially — ignore
@@ -707,7 +713,7 @@ function QuoteImagePanel({ share, selected, onShared, actionRef }) {
       setTimeout(() => setCopied(false), 1600);
       onShared?.();
     } catch {
-      setErr("image copy isn't supported here — use Download");
+      setErr(t("share.image.copy.unsupported.error"));
     } finally {
       setBusy(false);
     }
@@ -716,42 +722,42 @@ function QuoteImagePanel({ share, selected, onShared, actionRef }) {
   return (
     <div>
       <div className="mb-2 flex flex-wrap items-center gap-2">
-        <MonoLabel>theme</MonoLabel>
+        <MonoLabel>{t("share.image.theme.label")}</MonoLabel>
         <Select
-          ariaLabel="Image theme"
+          ariaLabel={t("share.image.theme.aria")}
           value={imageTheme}
           onChange={setImageTheme}
-          options={IMAGE_THEMES}
+          options={imageThemes()}
         />
-        <InfoDot title="Image theme" text="The picture's look — paper or film, light or dark. Choosing one here never changes the app's own theme. Starts on whatever the app is showing now." />
+        <InfoDot title={t("share.image.theme.info.title")} text={t("share.image.theme.info.body")} />
       </div>
       {canPortrait && (
         <div className="mb-2 flex flex-wrap items-center gap-2">
-          <MonoLabel>portrait</MonoLabel>
+          <MonoLabel>{t("share.image.portrait.label")}</MonoLabel>
           <Toggle
-            ariaLabel="Portrait"
+            ariaLabel={t("share.image.portrait.aria")}
             value={portrait ? "backdrop" : "chip"}
             onChange={(v) => setPortrait(v === "backdrop")}
-            options={[["chip", "Chip"], ["backdrop", "Backdrop"]]}
+            options={[["chip", t("share.image.portrait.chip.label")], ["backdrop", t("share.image.portrait.backdrop.label")]]}
           />
-          <InfoDot title="Portrait" text="How a credited person appears. Chip is a small round photo beside their name; Backdrop bleeds the same photo in from the edge. One or the other, never both, and only when someone credited has a saved photo." />
+          <InfoDot title={t("share.image.portrait.info.title")} text={t("share.image.portrait.info.body")} />
         </div>
       )}
       {canColor && (
         <div className="mb-2 flex flex-wrap items-center gap-2">
-          <MonoLabel>colour</MonoLabel>
+          <MonoLabel>{t("common.mono.colour.label")}</MonoLabel>
           <Toggle
-            ariaLabel="Quote colour"
+            ariaLabel={t("share.image.colour.aria")}
             value={useColor ? "on" : "off"}
             onChange={(v) => setUseColor(v === "on")}
-            options={[["off", "Off"], ["on", "On"]]}
+            options={[["off", t("common.toggle.off.label")], ["on", t("common.toggle.on.label")]]}
           />
-          <InfoDot title="Quote colour" text="Shows this quote's colour in the picture — a stripe on a plain card, the portrait's tint on a backdrop. Off by default: the colour is your own filing and means nothing to whoever you send it to." />
+          <InfoDot title={t("share.image.colour.info.title")} text={t("share.image.colour.info.body")} />
         </div>
       )}
-      <MonoLabel className="mb-1.5 block">preview</MonoLabel>
+      <MonoLabel className="mb-1.5 block">{t("share.preview.label")}</MonoLabel>
       <div className="share-image-preview">
-        <canvas ref={canvasRef} className="share-image-canvas" aria-label="Quote card image preview" />
+        <canvas ref={canvasRef} className="share-image-canvas" aria-label={t("share.image.preview.aria")} />
       </div>
       {err && (
         <p className="microcopy mt-2" style={{ color: "var(--error)" }}>
@@ -765,7 +771,7 @@ function QuoteImagePanel({ share, selected, onShared, actionRef }) {
       {canCopyImage && (
         <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
           <GhostButton onClick={copyImage} disabled={busy}>
-            {copied ? "Copied ✓" : "Copy image"}
+            {t(copied ? "common.action.copy.done.label" : "share.image.copy.label")}
           </GhostButton>
         </div>
       )}
@@ -811,7 +817,7 @@ export function ShareDialog({ share, seen, onClose }) {
   // "Image" is a format alongside the text ones — same field-picking, rendered
   // to a PNG instead of copyable text (ROADMAP §10).
   const isImage = format === "image";
-  const formatOptions = [["image", "Image"], ...SHARE_FORMATS.map((f) => [f.id, f.name])];
+  const formatOptions = [["image", t("share.format.image.name")], ...SHARE_FORMATS.map((f) => [f.id, f.name])];
 
   // Regenerate the source whenever the format or the chosen fields change.
   // Manual edits to the textarea persist until the next such change.
@@ -850,7 +856,7 @@ export function ShareDialog({ share, seen, onClose }) {
       <div
         role="dialog"
         aria-modal="true"
-        aria-label="Share quote"
+        aria-label={t("share.dialog.aria")}
         className="hand-card hc-r2 mx-auto w-full max-w-3xl px-6 py-6"
       >
         {/* Title, then the two glyphs: share, then close. The worded Close that
@@ -860,14 +866,14 @@ export function ShareDialog({ share, seen, onClose }) {
             The share action came UP here from the picture panel so the two live
             together: they are the only two things you do to this window. */}
         <div className="mb-4 flex items-start justify-between gap-3">
-          <h2 className="display-title text-xl">Share</h2>
+          <h2 className="display-title text-xl">{t("share.dialog.title")}</h2>
           <span className="flex items-center gap-1">
             {isImage && (
               <FieldIconButton
                 icon={<IconShare />}
-                ariaLabel="Share picture"
+                ariaLabel={t("share.image.share.aria")}
                 onClick={() => shareImage.current?.()}
-                tooltip="Share this picture"
+                tooltip={t("share.image.share.tip")}
               />
             )}
             <CloseButton onClick={onClose} />
@@ -876,11 +882,11 @@ export function ShareDialog({ share, seen, onClose }) {
 
         {/* format toggle; what each one produces lives behind the dot */}
         <div className="mb-4 flex flex-wrap items-center gap-3">
-          <MonoLabel>format</MonoLabel>
+          <MonoLabel>{t("share.format.label")}</MonoLabel>
           {mobile ? (
             <select
               className="tp-input"
-              aria-label="Share format"
+              aria-label={t("share.format.aria")}
               value={format}
               onChange={(e) => setFormat(e.target.value)}
             >
@@ -893,7 +899,7 @@ export function ShareDialog({ share, seen, onClose }) {
           ) : (
             <div className="share-format-toggle">
               <Toggle
-                ariaLabel="Share format"
+                ariaLabel={t("share.format.aria")}
                 value={format}
                 onChange={setFormat}
                 options={formatOptions}
@@ -905,10 +911,10 @@ export function ShareDialog({ share, seen, onClose }) {
               rather than sitting there as an anonymous i beside a control whose
               meaning it depends on. */}
           <InfoDot
-            title={isImage ? "Image" : active.name}
+            title={isImage ? t("share.format.image.name") : active.name}
             text={
               isImage ? (
-                IMAGE_LOGIC
+                IMAGE_LOGIC()
               ) : (
                 <>
                   {active.logic}
@@ -922,7 +928,7 @@ export function ShareDialog({ share, seen, onClose }) {
         {/* choose what to include */}
         {fields.length > 0 && (
           <div className="mb-4">
-            <MonoLabel className="mb-2 block">include</MonoLabel>
+            <MonoLabel className="mb-2 block">{t("share.include.label")}</MonoLabel>
             <div className="flex flex-wrap gap-x-4 gap-y-2">
               {fields.map((f) => (
                 <label
@@ -951,22 +957,22 @@ export function ShareDialog({ share, seen, onClose }) {
         ) : (
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <MonoLabel className="mb-1.5 block">text</MonoLabel>
+              <MonoLabel className="mb-1.5 block">{t("share.text.label")}</MonoLabel>
               <textarea
                 className="tp-input share-source"
                 rows="11"
                 value={text}
                 onChange={(e) => setText(e.target.value)}
-                aria-label="Shareable text"
+                aria-label={t("share.text.aria")}
               />
             </div>
             <div>
-              <MonoLabel className="mb-1.5 block">preview</MonoLabel>
+              <MonoLabel className="mb-1.5 block">{t("share.preview.label")}</MonoLabel>
               <div className="share-preview" aria-live="polite">
                 {text.trim() ? (
                   preview
                 ) : (
-                  <p className="microcopy">nothing selected</p>
+                  <p className="microcopy">{t("share.preview.empty")}</p>
                 )}
               </div>
             </div>
@@ -976,7 +982,7 @@ export function ShareDialog({ share, seen, onClose }) {
         {!isImage && (
           <div className="mt-5 flex items-center justify-end gap-2">
             <button className={PRIMARY} onClick={copy}>
-              {copied ? "Copied ✓" : "Copy"}
+              {t(copied ? "common.action.copy.done.label" : "common.action.copy.label")}
             </button>
           </div>
         )}

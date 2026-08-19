@@ -166,6 +166,7 @@ browser ──▶ web/dist (embedded SPA)          ← everything not under /api
 | `internal/updater/` | The in-app self-update: the GitHub release check, and the Docker Engine calls that pull and recreate. |
 | `internal/changelog/` | The release history, embedded and parsed. Holds a **copy** of the root `CHANGELOG.md` because `//go:embed` cannot reach outside its own package; a drift test fails when the two differ. |
 | `internal/buildinfo/` | The running build's identity — version from ldflags, plus the repo and image the update check queries. Three constants a fork overrides. |
+| `internal/i18n/` | The locale FILE FORMAT, and `en.txt`/`bn.txt` — **the canonical copy of every user-facing string, for both sides of the app.** The frontend imports these same bytes with Vite's `?raw`, so unlike `internal/changelog` there is no second copy and no drift test. Holds the parser and the reader for `<data>/Locales`; it deliberately holds no resolver, because nothing the server prints is translated yet. |
 
 #### `internal/httpapi/` — the convention, then the files that carry rules
 
@@ -281,6 +282,8 @@ The shared modules do:
 | `works.jsx` | What books and films share: the shelf vocabulary, work cards, hero headers, grouping. |
 | `people.jsx` | Credit splitting, the name→metadata cache, portraits, and the person modal. |
 | `theme.js` | The two aesthetics × light/dark, the accent, label density, and the six nameable colour categories, written onto `<html>` as data attributes and custom properties. |
+| `i18n.js` | **Every user-facing string, by key.** `t('some.key')` and nothing else — no English literal at a call site and no fallback argument. Holds the parser (agreeing with Go's, over one shared fixture), the §8 fallback chain, coverage, and the pseudo-locale. Shaped like `theme.js`: frozen tables, one applier, pure readers — plus one subscription, because `GET /locales` lands after the first paint. |
+| `locale.jsx` | The one control that changes the language, used twice: the first-run screen and a Settings row. Applies the choice itself; the caller supplies the save. |
 | `help.jsx` | The per-screen copy registry behind every `?`. A test asserts every reachable screen has an entry. |
 | `tour.jsx` | The first-launch guided tour, replayable from Settings. |
 | `share.jsx` · `quoteImage.js` | The share sheet, and rendering a quote to PNG on a 2D canvas in the current styling. |
@@ -307,6 +310,7 @@ The shared modules do:
 | `web/frontend/vitest.config.js` | Defines those two projects, pins `TZ=UTC`, and exports `TIPPANI_SRC` for the few tests that read a source file rather than import it. |
 | `web/frontend/test/setup-pure.js` | One shim: `window.matchMedia`, because `theme.js` calls it at module scope. |
 | `web/frontend/test/setup-dom.js` | Everything jsdom lacks or answers uselessly, and the per-test reset. |
+| `web/frontend/test/locale-file.js` | Reads `internal/i18n/*.txt` through the app's own parser, so the copy budgets (`help-budget`, `infodot-copy`) measure the shipped strings instead of source literals. |
 
 ### `scripts/` — plain Node, no dependencies
 
@@ -318,6 +322,7 @@ The shared modules do:
 | `site-links.mjs` | Walks an assembled `_site/` and fails on any local `href` or `src` that does not resolve. |
 | `seed-issues.mjs` | Backfills a GitHub issue per roadmap item that predates the automation. |
 | `doc-map-check.mjs` | Checks this document against the tree: every path it names must exist, and every package, script and workflow must be named somewhere in it. |
+| `locale-template.mjs` | Prints (or writes) the template a stranger fills in to add a language: every key, with the English and Bengali as comments and an empty value. Generated so it cannot go stale as keys are added; refuses to overwrite a file without `--force`. |
 
 ### `.github/`
 

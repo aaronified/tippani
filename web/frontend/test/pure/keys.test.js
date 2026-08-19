@@ -220,7 +220,11 @@ describe('legends sit on the controls that share the job', () => {
   it('on the drawer’s destinations', () => {
     const app = read('App.jsx')
     expect(app).toMatch(/DRAWER_SHORTCUTS/)
-    expect(app).toMatch(/<Kbd keys=\{shortcutFor\(DRAWER_SHORTCUTS\[t\[0\]\]\)\}/)
+    // `row[0]`, not `t[0]`: the drawer's map callback used to bind `t`, and a local
+    // `t` shadows the imported resolver silently (see locale-shadow.test.js). The
+    // fix was always going to be renaming the local, and this is the line that
+    // knows what it was renamed to.
+    expect(app).toMatch(/<Kbd keys=\{shortcutFor\(DRAWER_SHORTCUTS\[row\[0\]\]\)\}/)
     // Every destination it maps must be a real action, or the row renders a
     // blank cap and teaches nothing.
     const ids = [...app.matchAll(/^\s+\w+: '([a-z-]+)',$/gm)].map((m) => m[1])

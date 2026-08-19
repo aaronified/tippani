@@ -8,6 +8,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { json, errText } from './api.js'
+import { t } from './i18n.js'
 import { CandidateRow, groupEditions } from './CoverPicker.jsx'
 import { ManualTab, isIsbn } from './Library.jsx'
 import { ManualMovie, sourceRef, candSourceID, DuplicateConfirm, countOrNull } from './Movies.jsx'
@@ -43,7 +44,21 @@ import {
 // Exported so the popup's kind maps can be tested against this list rather than
 // spot-checked: a fifth kind added here and forgotten in ManualPopup saves as a
 // film and says nothing (see test/dom/add-manual-kind.test.jsx).
-export const KINDS = [['book', 'Book'], ['film', 'Film'], ['show', 'Show'], ['game', 'Game']]
+// A [key, label] pair whose LABEL resolves when it is read: the pair shape the
+// callers destructure is unchanged, and nothing resolves at module scope, before
+// a locale has been applied.
+function labelPair(key, labelKey) {
+  const row = [key, '']
+  Object.defineProperty(row, 1, { get: () => t(labelKey), enumerable: true, configurable: true })
+  return row
+}
+
+export const KINDS = [
+  labelPair('book', 'vocab.kind.book.label'),
+  labelPair('film', 'vocab.kind.movie.label'),
+  labelPair('show', 'vocab.kind.show.label'),
+  labelPair('game', 'vocab.kind.game.label'),
+]
 
 // Which SECTION each kind is filed in, so the ＋ offers what the reader has left
 // switched on (Settings → Features). A book belongs to the Library; a film, a show
@@ -182,7 +197,7 @@ export function AddLookup({ initialKind = 'book', onAdded, onCreated, initialQue
     // No key → lookup 503s; steer to manual (which always works) instead of a
     // scary error.
     if (!isBook && r.status === 503) return setManual(true)
-    setError(errText(r, 'lookup failed'))
+    setError(errText(r, t('error.lookup.failed')))
   }
 
   async function addBook(c) {
@@ -203,7 +218,7 @@ export function AddLookup({ initialKind = 'book', onAdded, onCreated, initialQue
       openlibrary_id: c.openlibrary_id || undefined,
     })
     if (r.ok) finish('book', r.data)
-    else setError(errText(r, 'could not add book')) // 409 duplicate lands here
+    else setError(errText(r, t('error.add.book'))) // 409 duplicate lands here
   }
 
   // Movie add mirrors the old LookupMovie: a same-name title already in the
@@ -214,7 +229,7 @@ export function AddLookup({ initialKind = 'book', onAdded, onCreated, initialQue
     const r = await json('POST', '/movies', { ...sourceRef(c, mediaType), confirm_new: confirmNew })
     if (r.ok) return finish('film', r.data)
     if (r.status === 409 && r.data?.needs_confirm) return setConfirm({ cand: c, existing: r.data.existing || [] })
-    setError(errText(r, 'could not add title'))
+    setError(errText(r, t('error.add.title')))
   }
 
   async function enrichMovie(existingId, c) {
@@ -223,16 +238,18 @@ export function AddLookup({ initialKind = 'book', onAdded, onCreated, initialQue
     const r = await json('PUT', `/movies/${existingId}`, sourceRef(c, mediaType))
     setBusy(false)
     if (r.ok) return finish('film', r.data)
-    setError(errText(r, 'could not enrich that title'))
+    setError(errText(r, t('error.enrich.title')))
   }
 
-  const placeholder = isBook
-    ? 'ISBN or title'
-    : mediaType === 'show'
-      ? 'Show title'
-      : mediaType === 'game'
-        ? 'Game title'
-        : 'Film title'
+  const placeholder = t(
+    isBook
+      ? 'capture.lookup.book.placeholder'
+      : mediaType === 'show'
+        ? 'capture.lookup.show.placeholder'
+        : mediaType === 'game'
+          ? 'capture.lookup.game.placeholder'
+          : 'capture.lookup.film.placeholder',
+  )
   // The lookup let the user down (failed, or found nothing) — step the manual
   // path forward as a real button, not just the microcopy link below.
   const lookupFailed = !confirm && (!!error || (candidates && candidates.length === 0))
@@ -242,7 +259,7 @@ export function AddLookup({ initialKind = 'book', onAdded, onCreated, initialQue
       {/* One kind left is not a choice — the Catalogue alone still needs its
           Film / Show / Game toggle, but a lone "Book" segment is a label
           pretending to be a control. */}
-      {kinds.length > 1 && <Toggle ariaLabel="What to add" value={kind} onChange={switchKind} options={kinds} />}
+      {kinds.length > 1 && <Toggle ariaLabel={t('capture.lookup.kind.aria')} value={kind} onChange={switchKind} options={kinds} />}
       <form onSubmit={(e) => { e.preventDefault(); doSearch() }} className="flex flex-wrap gap-2">
         <input
           className="tp-input min-w-0 flex-1"
@@ -257,15 +274,15 @@ export function AddLookup({ initialKind = 'book', onAdded, onCreated, initialQue
             publication year, carried into the manual form. */}
         <input
           className="tp-input w-20 shrink-0"
-          placeholder="Year"
-          aria-label="Year (optional)"
+          placeholder={t('capture.lookup.year.placeholder')}
+          aria-label={t('capture.lookup.year.aria')}
           inputMode="numeric"
           maxLength={4}
           value={year}
           onChange={(e) => setYear(e.target.value.replace(/\D/g, '').slice(0, 4))}
         />
         <button className="tp-btn tp-btn-primary shrink-0" disabled={busy}>
-          {busy ? 'Searching…' : 'Search'}
+          {t(busy ? 'capture.lookup.search.busy' : 'capture.lookup.search.label')}
         </button>
       </form>
 
@@ -280,9 +297,7 @@ export function AddLookup({ initialKind = 'book', onAdded, onCreated, initialQue
               description where IGDB gives a paragraph. Saying "no key" and
               stopping would send somebody to Settings for a credential they may
               not need. */}
-          {kind === 'game'
-            ? 'no IGDB key — searching Wikidata instead, which rarely has cover art. A Twitch client id and secret in Settings gets the full record; “Add manually” always works.'
-            : 'no movie-lookup key configured — “Add manually” below always works.'}
+          {t(kind === 'game' ? 'capture.lookup.nokey.game' : 'capture.lookup.nokey.film')}
         </p>
       )}
       <ErrorText>{error}</ErrorText>
@@ -297,7 +312,7 @@ export function AddLookup({ initialKind = 'book', onAdded, onCreated, initialQue
         />
       )}
 
-      {!confirm && candidates && candidates.length === 0 && <EmptyState>no matches found</EmptyState>}
+      {!confirm && candidates && candidates.length === 0 && <EmptyState>{t('capture.lookup.empty')}</EmptyState>}
       {!confirm && candidates && candidates.length > 0 && (
         <ul className="space-y-2.5">
           {isBook
@@ -330,7 +345,7 @@ export function AddLookup({ initialKind = 'book', onAdded, onCreated, initialQue
                               key={j}
                               cover={c.cover_url}
                               title={c.title}
-                              sub={[c.published_year || null, c.isbn13].filter(Boolean).join(' · ') || 'no edition details'}
+                              sub={[c.published_year || null, c.isbn13].filter(Boolean).join(' · ') || t('capture.lookup.edition.none.label')}
                               source={c.source}
                               onAdd={() => addBook(c)}
                               busy={busy}
@@ -360,12 +375,12 @@ export function AddLookup({ initialKind = 'book', onAdded, onCreated, initialQue
       {/* Lookup failed or came back empty → a real "Add manually" button so the
           hand-entry path is one obvious press away (not only the link below). */}
       {!hideManual && lookupFailed && (
-        <GhostButton onClick={() => setManual(true)}>＋ Add manually instead</GhostButton>
+        <GhostButton onClick={() => setManual(true)}>{t('capture.lookup.manual.button.label')}</GhostButton>
       )}
 
       {!hideManual && (
         <button type="button" className="tp-link block" onClick={() => setManual(true)}>
-          ＋ Skip the lookup — add manually
+          {t('capture.lookup.manual.link.label')}
         </button>
       )}
 
@@ -424,14 +439,15 @@ function ManualPopup({ kind, onClose, onAdded }) {
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [onClose])
-  const heading =
+  const heading = t(
     kind === 'book'
-      ? 'Add a book manually'
+      ? 'capture.manual.book.title'
       : kind === 'show'
-        ? 'Add a show manually'
+        ? 'capture.manual.show.title'
         : kind === 'game'
-          ? 'Add a game manually'
-          : 'Add a film manually'
+          ? 'capture.manual.game.title'
+          : 'capture.manual.film.title',
+  )
   const canSave = !busy && !!title.trim()
   return createPortal(
     <div
@@ -449,11 +465,11 @@ function ManualPopup({ kind, onClose, onAdded }) {
             icon={<IconCheck />}
             type="submit"
             form={MANUAL_FORM_ID}
-            ariaLabel="Save"
-            tooltip={canSave ? 'Save' : 'A title is required'}
+            ariaLabel={t('common.action.save.label')}
+            tooltip={t(canSave ? 'common.action.save.label' : 'error.validate.title-required')}
             disabled={!canSave}
           />
-          <IconButton icon={<IconClose />} ariaLabel="Close" tooltip="Close without saving" onClick={onClose} />
+          <IconButton icon={<IconClose />} ariaLabel={t('common.action.close.label')} tooltip={t('capture.close.tip')} onClick={onClose} />
         </div>
         {kind === 'book' ? (
           <ManualTab
@@ -487,9 +503,9 @@ const WORK_PICKER_MAX = 8
 // which beats a hit that only landed in the subtitle (author / year).
 function matchRank(w, q) {
   if (!q) return 0
-  const t = w.title.toLowerCase()
-  if (t.startsWith(q)) return 0
-  return t.includes(q) ? 1 : 2
+  const title = w.title.toLowerCase()
+  if (title.startsWith(q)) return 0
+  return title.includes(q) ? 1 : 2
 }
 
 // WorkPicker — the capture-target picker: type to filter across every book and
@@ -564,7 +580,7 @@ export function WorkPicker({ works, value, onChange, onCreate }) {
         <span className="mono-label" style={{ fontSize: 9.5, color: value.kind === 'book' ? 'var(--accent-ui)' : 'var(--amber)' }}>
           {value.tag}
         </span>
-        <button type="button" className="tp-link ml-auto" onClick={() => onChange(null)}>change</button>
+        <button type="button" className="tp-link ml-auto" onClick={() => onChange(null)}>{t('capture.picker.change.label')}</button>
       </div>
     )
   }
@@ -572,7 +588,7 @@ export function WorkPicker({ works, value, onChange, onCreate }) {
     <div className="token-input" ref={boxRef}>
       <input
         className="tp-input"
-        placeholder="search your books, films & shows…"
+        placeholder={t('capture.picker.placeholder')}
         value={text}
         onChange={(e) => {
           setText(e.target.value)
@@ -610,7 +626,9 @@ export function WorkPicker({ works, value, onChange, onCreate }) {
               style={{ color: 'var(--accent-ui)', fontWeight: 600 }}
               onClick={create}
             >
-              ＋ Add {text.trim() ? `“${text.trim()}”` : 'a new work'} — book, film or show
+              {text.trim()
+                ? t('capture.picker.create.label', { title: `“${text.trim()}”` })
+                : t('capture.picker.create.blank.label')}
             </button>
           </li>
         </ul>,
@@ -687,7 +705,7 @@ export function CaptureQuote({ initialTarget = null, initialStandalone = false, 
       const list = []
       if (rb.ok && rb.data) {
         for (const b of rb.data.books || []) {
-          list.push({ kind: 'book', id: b.id, title: b.title, sub: b.author || '', tag: 'BOOK' })
+          list.push({ kind: 'book', id: b.id, title: b.title, sub: b.author || '', tag: t('common.badge.book') })
         }
       }
       if (rm.ok && rm.data) {
@@ -737,22 +755,22 @@ export function CaptureQuote({ initialTarget = null, initialStandalone = false, 
   const missing = standalone
     ? !draft.quote.trim()
       // Unlike a book highlight, there is no page for a bare note to be about.
-      ? 'A quote needs the words themselves'
+      ? t('error.validate.quote-words')
       : draft.occasionDate && !isPartialDate(draft.occasionDate)
-        ? 'Check the date'
+        ? t('error.validate.date')
         : ''
     : !draft.target
-    ? 'Pick a book, film or show'
+    ? t('error.validate.target-required')
     : isScreen && !draft.quote.trim()
-      ? 'A line needs the words themselves'
+      ? t('error.validate.line-words')
       : !isScreen && !draft.quote.trim() && !draft.note.trim()
-        ? 'Write a quote or a note'
+        ? t('error.validate.quote-or-note')
         : isShow && countOrNull(draft.episode) != null && countOrNull(draft.season) == null
-          ? 'An episode needs its season'
+          ? t('error.validate.season-required')
           : ''
 
   async function save() {
-    const t = draft.target
+    const target = draft.target
     if (missing) return setErr(missing.toLowerCase())
     setBusy(true)
     setErr('')
@@ -775,7 +793,7 @@ export function CaptureQuote({ initialTarget = null, initialStandalone = false, 
         })
       : isScreen
       ? await json('POST', '/dialogues', {
-          movie_id: t.id,
+          movie_id: target.id,
           quote: draft.quote.trim(),
           note: draft.note.trim(),
           character: draft.character.trim(),
@@ -788,7 +806,7 @@ export function CaptureQuote({ initialTarget = null, initialStandalone = false, 
           tags,
         })
       : await json('POST', '/annotations', {
-          book_id: t.id,
+          book_id: target.id,
           quote: draft.quote.trim(),
           note: draft.note.trim(),
           chapter: draft.chapter.trim(),
@@ -799,7 +817,7 @@ export function CaptureQuote({ initialTarget = null, initialStandalone = false, 
         })
     setBusy(false)
     if (!r.ok) return setErr(errText(r))
-    toast(standalone ? 'quote captured' : isScreen ? 'dialogue captured' : 'annotation captured')
+    toast(t(standalone ? 'capture.toast.quote' : isScreen ? 'capture.toast.dialogue' : 'capture.toast.annotation'))
     // What the next capture in this sitting starts from. The QUOTE is deliberately
     // not here: the words are the one thing that is never the same twice, and a
     // form that came back holding the last quote would be a form somebody saves
@@ -808,7 +826,7 @@ export function CaptureQuote({ initialTarget = null, initialStandalone = false, 
       at: Date.now(),
       color: draft.color,
       tags: draft.tags,
-      targetKey: standalone || !t ? null : `${t.kind}:${t.id}`,
+      targetKey: standalone || !target ? null : `${target.kind}:${target.id}`,
     })
     onCaptured?.()
   }
@@ -826,7 +844,7 @@ export function CaptureQuote({ initialTarget = null, initialStandalone = false, 
     <div className="flex flex-col gap-3.5">
       <div className="tp-field">
         <div className="flex items-center justify-between gap-2">
-          <MonoLabel>{standalone ? 'From somewhere else' : 'Book · Film · Show'}</MonoLabel>
+          <MonoLabel>{t(standalone ? 'capture.form.standalone.label' : 'capture.form.target.label')}</MonoLabel>
           <button
             type="button"
             className={filterChipClass(standalone)}
@@ -841,7 +859,7 @@ export function CaptureQuote({ initialTarget = null, initialStandalone = false, 
               if (!standalone) set({ target: null })
             }}
           >
-            no book or film
+            {t('capture.form.standalone.chip.label')}
           </button>
         </div>
         {!standalone && (
@@ -864,8 +882,8 @@ export function CaptureQuote({ initialTarget = null, initialStandalone = false, 
       {creating && !draft.target && !standalone && (
         <div className="space-y-2.5" style={{ border: '1.4px dashed var(--ink-border)', borderRadius: 10, padding: '10px 12px' }}>
           <div className="flex items-center justify-between gap-2">
-            <MonoLabel>Add a new book, film or show</MonoLabel>
-            <button type="button" className="tp-link" onClick={() => setCreating(null)}>cancel</button>
+            <MonoLabel>{t('capture.form.create.label')}</MonoLabel>
+            <button type="button" className="tp-link" onClick={() => setCreating(null)}>{t('capture.form.create.cancel.label')}</button>
           </div>
           {/* The app's canonical look-up / add card, embedded: search a source to
               auto-fill cover + year + genres, or add by hand. On add it becomes
@@ -881,22 +899,22 @@ export function CaptureQuote({ initialTarget = null, initialStandalone = false, 
         </div>
       )}
       <label className="tp-field">
-        <MonoLabel>Quote</MonoLabel>
+        <MonoLabel>{t('common.field.quote.label')}</MonoLabel>
         <textarea
           className="tp-input"
           rows={4}
-          placeholder="the line worth keeping…"
+          placeholder={t('capture.form.quote.placeholder')}
           style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontStyle: 'italic', fontSize: 16, lineHeight: 1.55 }}
           value={draft.quote}
           onChange={(e) => set({ quote: e.target.value })}
         />
       </label>
       <label className="tp-field">
-        <MonoLabel>Note</MonoLabel>
+        <MonoLabel>{t('common.field.note.label')}</MonoLabel>
         <textarea
           className="tp-input"
           rows={2}
-          placeholder="your margin note (renders handwritten)"
+          placeholder={t('capture.form.note.placeholder')}
           value={draft.note}
           onChange={(e) => set({ note: e.target.value })}
         />
@@ -905,48 +923,48 @@ export function CaptureQuote({ initialTarget = null, initialStandalone = false, 
         <>
           <div className="grid grid-cols-2 gap-3">
             <label className="tp-field">
-              <MonoLabel>Speaker</MonoLabel>
-              <input className="tp-input" placeholder="who said it" value={draft.speaker} onChange={(e) => set({ speaker: e.target.value })} />
+              <MonoLabel>{t('common.field.speaker.label')}</MonoLabel>
+              <input className="tp-input" placeholder={t('common.field.speaker.placeholder')} value={draft.speaker} onChange={(e) => set({ speaker: e.target.value })} />
             </label>
             <label className="tp-field">
-              <MonoLabel>Occasion</MonoLabel>
-              <input className="tp-input" placeholder="a speech, a letter…" value={draft.occasion} onChange={(e) => set({ occasion: e.target.value })} />
+              <MonoLabel>{t('common.field.occasion.label')}</MonoLabel>
+              <input className="tp-input" placeholder={t('common.field.occasion.placeholder')} value={draft.occasion} onChange={(e) => set({ occasion: e.target.value })} />
             </label>
           </div>
           <div className="grid grid-cols-2 gap-3">
             {/* A year on its own is a complete answer here. */}
-            <PartialDateField label="When" value={draft.occasionDate} onChange={(v) => set({ occasionDate: v })} />
+            <PartialDateField label={t('quotes.form.when.label')} value={draft.occasionDate} onChange={(v) => set({ occasionDate: v })} />
             <label className="tp-field">
-              <MonoLabel>Place</MonoLabel>
-              <input className="tp-input" placeholder="where" value={draft.place} onChange={(e) => set({ place: e.target.value })} />
+              <MonoLabel>{t('common.field.place.label')}</MonoLabel>
+              <input className="tp-input" placeholder={t('common.field.place.placeholder')} value={draft.place} onChange={(e) => set({ place: e.target.value })} />
             </label>
           </div>
           <label className="tp-field">
-            <MonoLabel>Medium</MonoLabel>
-            <input className="tp-input" placeholder="radio, speech, letter…" value={draft.medium} onChange={(e) => set({ medium: e.target.value })} />
+            <MonoLabel>{t('common.field.medium.label')}</MonoLabel>
+            <input className="tp-input" placeholder={t('common.field.medium.placeholder')} value={draft.medium} onChange={(e) => set({ medium: e.target.value })} />
           </label>
         </>
       ) : isScreen ? (
         <>
         <div className="grid grid-cols-2 gap-3">
           <label className="tp-field">
-            <MonoLabel>Character</MonoLabel>
-            <input className="tp-input" placeholder="who says it" value={draft.character} onChange={(e) => set({ character: e.target.value })} />
+            <MonoLabel>{t('common.field.character.label')}</MonoLabel>
+            <input className="tp-input" placeholder={t('common.field.character.placeholder')} value={draft.character} onChange={(e) => set({ character: e.target.value })} />
           </label>
           <label className="tp-field">
-            <MonoLabel>Timestamp</MonoLabel>
-            <input className="tp-input" placeholder="e.g. 01:12:40" value={draft.timestamp} onChange={(e) => set({ timestamp: e.target.value })} />
+            <MonoLabel>{t('common.field.timestamp.label')}</MonoLabel>
+            <input className="tp-input" placeholder={t('capture.form.timestamp.placeholder')} value={draft.timestamp} onChange={(e) => set({ timestamp: e.target.value })} />
           </label>
         </div>
         {isShow && (
           <div className="grid grid-cols-2 gap-3">
             <label className="tp-field">
-              <MonoLabel>Season</MonoLabel>
-              <input className="tp-input" type="number" min="0" max="999" placeholder="e.g. 2" value={draft.season} onChange={(e) => set({ season: e.target.value })} />
+              <MonoLabel>{t('common.field.season.label')}</MonoLabel>
+              <input className="tp-input" type="number" min="0" max="999" placeholder={t('capture.form.season.placeholder')} value={draft.season} onChange={(e) => set({ season: e.target.value })} />
             </label>
             <label className="tp-field">
-              <MonoLabel>Episode</MonoLabel>
-              <input className="tp-input" type="number" min="0" max="9999" placeholder="e.g. 5" value={draft.episode} onChange={(e) => set({ episode: e.target.value })} />
+              <MonoLabel>{t('common.field.episode.label')}</MonoLabel>
+              <input className="tp-input" type="number" min="0" max="9999" placeholder={t('capture.form.episode.placeholder')} value={draft.episode} onChange={(e) => set({ episode: e.target.value })} />
             </label>
           </div>
         )}
@@ -957,39 +975,43 @@ export function CaptureQuote({ initialTarget = null, initialStandalone = false, 
               "e.g. 3" under a label saying Chapter, which is the whole reason the field
               was split: it was asking for a number and storing it as a name. */}
           <label className="tp-field">
-            <MonoLabel>Chapter #</MonoLabel>
-            <input className="tp-input" inputMode="decimal" placeholder="e.g. 7" value={draft.chapter_no}
+            <MonoLabel>{t('common.field.chapter-no.label')}</MonoLabel>
+            <input className="tp-input" inputMode="decimal" placeholder={t('capture.form.chapter-no.placeholder')} value={draft.chapter_no}
                    onChange={(e) => set({ chapter_no: e.target.value.replace(/[^\d.]/g, '').slice(0, 7) })} />
           </label>
           <label className="tp-field">
-            <MonoLabel>Chapter name</MonoLabel>
-            <input className="tp-input" placeholder="optional" value={draft.chapter} onChange={(e) => set({ chapter: e.target.value })} />
+            <MonoLabel>{t('common.field.chapter-name.label')}</MonoLabel>
+            <input className="tp-input" placeholder={t('capture.form.chapter-name.placeholder')} value={draft.chapter} onChange={(e) => set({ chapter: e.target.value })} />
           </label>
           <label className="tp-field">
-            <MonoLabel>Location</MonoLabel>
-            <input className="tp-input" placeholder="e.g. 142" value={draft.location} onChange={(e) => set({ location: e.target.value })} />
+            <MonoLabel>{t('common.field.location.label')}</MonoLabel>
+            <input className="tp-input" placeholder={t('capture.form.location.placeholder')} value={draft.location} onChange={(e) => set({ location: e.target.value })} />
           </label>
         </div>
       )}
       <label className="tp-field">
-        <MonoLabel>Tags · comma separated</MonoLabel>
+        <MonoLabel>{t('capture.form.tags.label')}</MonoLabel>
         <input
           className="tp-input"
           style={{ fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 13 }}
-          placeholder="memory, craft"
+          placeholder={t('capture.form.tags.placeholder')}
           value={draft.tags}
           onChange={(e) => set({ tags: e.target.value })}
         />
       </label>
       <div className="flex items-center gap-3">
-        <MonoLabel>colour</MonoLabel>
+        <MonoLabel>{t('common.mono.colour.label')}</MonoLabel>
         <ColorSwatches value={draft.color} onChange={(c) => set({ color: c })} />
       </div>
       <ErrorText>{err}</ErrorText>
       {/* No Save row down here: it is a ✓ in the surface's title bar, which on a
           phone is pinned and reachable without scrolling past six fields to find
           it. What stays is the reason it is greyed, where the fields are. */}
-      {missing && <p className="microcopy" style={{ color: 'var(--faint)' }}>{missing} to save.</p>}
+      {missing && (
+        <p className="microcopy" style={{ color: 'var(--faint)' }}>
+          {t('capture.form.missing.hint', { reason: missing })}
+        </p>
+      )}
     </div>
   )
 }
@@ -1044,8 +1066,16 @@ export default function AddSurface({
   const mobile = useIsMobileScreen()
   // Short labels on a phone (the three-segment slider can't fit the full words).
   const tabOptions = (mobile
-    ? [['add', 'Add'], ['quote', 'Capture'], ['import', 'Import']]
-    : [['add', 'Look up / add'], ['quote', 'Capture quote'], ['import', 'Import files']]
+    ? [
+        ['add', t('capture.tab.add.short.label')],
+        ['quote', t('capture.tab.quote.short.label')],
+        ['import', t('capture.tab.import.short.label')],
+      ]
+    : [
+        ['add', t('capture.tab.add.label')],
+        ['quote', t('capture.tab.quote.label')],
+        ['import', t('capture.tab.import.label')],
+      ]
   ).filter(([key]) => key !== 'add' || canLookUp)
 
   useEffect(() => {
@@ -1069,29 +1099,35 @@ export default function AddSurface({
 
   if (!open) return null
 
-  const title = tab === 'quote' ? 'Capture' : tab === 'import' ? 'Import' : 'Add'
+  const title = t(tab === 'quote' ? 'capture.title.quote' : tab === 'import' ? 'capture.title.import' : 'capture.title.add')
   // Save is a ✓ in the title bar and is disabled — visibly, not silently — until
   // every must-fill field is filled. The reason is in its tooltip, because a
   // greyed control that will not say why is worse than one that is not there.
   const saveBtn = saveState && (
     <IconButton
       icon={<IconCheck />}
-      ariaLabel="Save"
-      tooltip={saveState.busy ? 'Saving…' : saveState.canSave ? 'Save' : saveState.why || 'Fill the required fields'}
+      ariaLabel={t('common.action.save.label')}
+      tooltip={
+        saveState.busy
+          ? t('common.action.save.busy')
+          : saveState.canSave
+            ? t('common.action.save.label')
+            : saveState.why || t('capture.save.blocked.tip')
+      }
       ok
       disabled={!saveState.canSave || saveState.busy}
       onClick={() => saveState.save()}
     />
   )
   const closeBtn = (
-    <IconButton icon={<IconClose />} ariaLabel="Close" tooltip="Close without saving" onClick={onClose} />
+    <IconButton icon={<IconClose />} ariaLabel={t('common.action.close.label')} tooltip={t('capture.close.tip')} onClick={onClose} />
   )
 
   const body = (
     <>
       <div className="mb-5">
         <Toggle
-          ariaLabel="Add, capture or import"
+          ariaLabel={t('capture.tabs.aria')}
           value={tab}
           onChange={setTab}
           options={tabOptions}
@@ -1124,7 +1160,7 @@ export default function AddSurface({
               style={{ marginBottom: 12 }}
               onClick={onReviewImport}
             >
-              {pendingImport} staged quote{pendingImport === 1 ? '' : 's'} waiting — review the queue
+              {t('capture.import.pending', { count: pendingImport, n: pendingImport })}
             </button>
           )}
           <ImportPage embedded onReviewImport={onReviewImport} onStaged={onStaged} />
@@ -1159,7 +1195,7 @@ export default function AddSurface({
       className="tp-scrim fixed inset-0 z-50 flex items-start justify-center overflow-y-auto px-4 py-10"
       role="dialog"
       aria-modal="true"
-      aria-label="Add to your library"
+      aria-label={t('capture.dialog.aria')}
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose()
       }}
