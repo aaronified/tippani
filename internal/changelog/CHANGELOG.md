@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Anthologies: an ordered set of quotes with your own writing between them.** An
+  introduction, then each passage with a paragraph of your commentary before it — drawn from
+  books, films and standalone quotes at once, and held in the order *you* chose rather than
+  by date or title. Make one, read it, move entries up and down, and export it as Markdown
+  that imports back with its order and every paragraph intact.
+
+  **It starts switched off.** Settings → Features has the switch, and unlike the Library,
+  the Catalogue and Quotes it defaults to off, because most libraries never hold one.
+  Turning it off later takes away the tab and nothing else: the anthologies stay, the URL
+  still opens, and turning it back on finds every one where you left it.
+
+  Entries move with **Move up / Move down** rather than by dragging. A drag with no keyboard
+  path is a control half of you cannot use.
+
+- **Tippani speaks two languages, and will speak any language you write a file for.** A
+  language picker in Settings and on the first-run screen, with English and Bengali in the
+  box. Every string in the interface now lives in a plain text file — `key = value`, one per
+  line — and both languages ship the same way. Neither is the "original"; neither is the
+  other's fallback.
+
+  **Adding a third takes no code.** Drop `data/Locales/fr.txt` into your data directory and
+  French appears in the picker, labelled with whatever `_name` you gave it. A generated
+  template lists every key with the English and Bengali beside it, so there is something to
+  fill in rather than a blank page. Translate as much as you like: **the picker shows how
+  complete each language is**, an unfinished one falls back rather than breaking, and a
+  language can name which other language fills its gaps before the built-ins do.
+
+  Files in your data directory override what ships — including the English — so any word in
+  the app is yours to change without rebuilding anything. A mangled line costs you that one
+  string and nothing else.
+
+  Bengali is scaffolded but not yet written in this release, so it reads 0% in the picker,
+  which is exactly what showing coverage is for.
+
 ### Changed
 
 - **The `?` panel is something you can scan.** Every entry now opens with one sentence that
