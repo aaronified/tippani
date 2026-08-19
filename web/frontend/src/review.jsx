@@ -999,11 +999,22 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
 // server would read as "no tag", which is what the whole round already means.
 export function themeQuery(theme) {
   const q = new URLSearchParams()
-  for (const k of ['book', 'movie', 'tag', 'color', 'person']) {
+  // ANTHOLOGY WAS MISSING FROM THIS LIST for two releases, and that alone was the
+  // whole reason the sixth theme had no way in. The server has parsed
+  // ?anthology= since 0043 and narrows the deck by a join on anthology_entries;
+  // nothing in the app ever set it, so the parameter was unreachable and the
+  // feature read as unbuilt. A list of keys is exactly the kind of place a new
+  // one gets forgotten — themeKeys is now shared with the effect below, so the
+  // dependency list cannot drift from it either.
+  for (const k of themeKeys) {
     if (theme?.[k]) q.set(k, String(theme[k]))
   }
   return q.toString()
 }
+
+// The six themes, in one place, because they are read twice: once to build the
+// query and once to decide when a round must be refetched.
+export const themeKeys = ['book', 'movie', 'tag', 'color', 'person', 'anthology']
 
 // ThemedPracticeDialog — one themed round in a modal, over whatever screen it
 // was started from. Deliberately not a route: the round is a detour, and coming
@@ -1028,7 +1039,13 @@ export function ThemedPracticeDialog({ theme, onClose }) {
       setCards(r.ok ? r.data.items || [] : [])
     })
     return () => { live = false }
-  }, [round, theme?.book, theme?.movie, theme?.tag, theme?.color, theme?.person])
+    // Spread from themeKeys rather than six names typed out, so a seventh theme
+    // cannot be added to the query and forgotten here — which is the mistake that
+    // would leave a round showing the previous theme's cards. The array's LENGTH
+    // is constant (themeKeys is a module constant), which is React's only
+    // requirement of a dependency list.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [round, ...themeKeys.map((k) => theme?.[k])])
 
   const empty = cards != null && cards.length === 0
   return (

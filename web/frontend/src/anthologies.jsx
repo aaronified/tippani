@@ -38,6 +38,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { DEMO, apiURL, errText, json } from './api.js'
 import { t, tNodes } from './i18n.js'
 import { categoryVar } from './theme.js'
+import { usePractice } from './review.jsx'
 import {
   Card,
   ConfirmDialog,
@@ -52,6 +53,7 @@ import {
   IconEdit,
   IconExport,
   IconPlus,
+  IconQuiz,
   MonoLabel,
   MoreMenu,
   PageHeader,
@@ -455,6 +457,12 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
   const [editing, setEditing] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [noting, setNoting] = useState(null)
+  // A THEMED ROUND OVER THIS ANTHOLOGY. The engine has taken ?anthology= since
+  // 0043 — it narrows the deck by a join on anthology_entries and excludes no
+  // kind, so a mixed anthology practises as one deck — and for two releases there
+  // was no way to ask for it: themeQuery never put the parameter in the URL and no
+  // screen had the button. A feature the reader cannot reach is not shipped.
+  const { practise, practiceDialog } = usePractice()
 
   const reload = useCallback(async () => {
     const r = await json('GET', `/anthologies/${id}`)
@@ -528,6 +536,17 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
         counts={entries ? t('common.count.phrase', { n: rows.length, noun: t('unit.entry', { count: rows.length }) }) : ''}
         right={
           <span className="flex items-center gap-2">
+            {/* Before Edit, because reading it back is what you do with an
+                anthology and editing it is what you do to one. Disabled while it
+                is empty: a round over nothing is the one case the dialog can only
+                answer with "nothing here". */}
+            <GhostButton
+              icon={<IconQuiz />}
+              onClick={() => practise({ anthology: id, label: anthology?.title || t('anthologies.read.title.fallback') })}
+              disabled={!anthology || rows.length === 0}
+            >
+              {t('common.action.practise.label')}
+            </GhostButton>
             <GhostButton icon={<IconEdit />} onClick={() => setEditing(true)} disabled={!anthology}>
               {t('common.action.edit.label')}
             </GhostButton>
@@ -590,6 +609,11 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
         </FormModal>
       )}
       {noting && <EntryNoteDialog entry={noting} onSave={saveNote} onCancel={() => setNoting(null)} />}
+      {/* The round belongs to this page and unmounts with it — usePractice is a
+          hook rather than a global for exactly that reason: a round left running
+          behind a screen the reader navigated away from would keep posting grades
+          against a schedule they thought they had stopped touching. */}
+      {practiceDialog}
       {deleting && anthology && (
         <DeleteAnthologyDialog
           anthology={anthology}
