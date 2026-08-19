@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **A shuffled quote now looks like something worth having found.** It was the words, a
+  colour bar and a small-caps caption — the plainest card in the app, on the one surface whose
+  whole job is to make you glad you kept something. It now carries the cover or poster of
+  where the line came from, the badge for its kind, the credited people as faces you can tap
+  through to their panel, its tags, and the same copy · share row every other quote surface
+  has. *On this day* draws the same card, so it gained all of this too.
+
+  Two of those were wrong rather than merely missing. The caption printed the **actor**, so a
+  line from Casablanca was credited to Humphrey Bogart and never to Rick Blaine — the name
+  you are actually looking for. And there was no cover at all, so a library full of posters
+  showed none of them here.
+
+  Copy, share and ♥ work from the card and produce exactly what the same quote produces from
+  its own screen — they fetch the full record first rather than sharing a summary of it, which
+  is the difference between two payloads that match and two that match until one is edited.
+  There is no edit form on it: this is a reading surface, and it knows where the quote lives.
+
 ## [2.1.1] - 2026-08-19
 
 ### Added
