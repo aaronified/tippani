@@ -535,7 +535,11 @@ export function NameInput({ onChange, ...rest }) {
 
 // Keys rather than words, resolved at draw time: this table is built at import,
 // before the language is known. The order IS the calendar and never changes.
-const MONTH_KEYS = [
+//
+// Exported because the stats calendar's x axis needs the same twelve short names
+// the date picker shows. It used to cut the FULL month name to three characters,
+// which agreed with this table only in English and only by luck.
+export const MONTH_KEYS = [
   "common.month.jan.label", "common.month.feb.label", "common.month.mar.label",
   "common.month.apr.label", "common.month.may.label", "common.month.jun.label",
   "common.month.jul.label", "common.month.aug.label", "common.month.sep.label",

@@ -4,7 +4,7 @@ import { usePractice } from './review.jsx'
 import { coverImgURL, json } from './api.js'
 import { t, tNodes } from './i18n.js'
 import { PersonPortrait, usePeople } from './people.jsx'
-import { ANNOTATION_COLORS, ANNOTATION_HEX, Card, FieldIconButton, fmtHalfLife, IconQuiz, MonoLabel, mulberry32, PageHeader, STATUS_META, toast, Toggle, Tooltip, useIsMobileScreen, usePersistedState } from './ui.jsx'
+import { ANNOTATION_COLORS, ANNOTATION_HEX, Card, FieldIconButton, fmtHalfLife, IconQuiz, MONTH_KEYS, MonoLabel, mulberry32, PageHeader, STATUS_META, toast, Toggle, Tooltip, useIsMobileScreen, usePersistedState } from './ui.jsx'
 
 // StatsPage (§ insights) — a dedicated library-analytics screen, the richer
 // successor to the old Settings "Library stats" card and the intended basis for
@@ -16,9 +16,18 @@ import { ANNOTATION_COLORS, ANNOTATION_HEX, Card, FieldIconButton, fmtHalfLife, 
 // Everything named is a doorway: activity dots, breakdown rows, superlative
 // tiles and top tags all click through to the Search page (`onSearch`).
 
-// A FUNCTION, so the names resolve at render time. The calendar's x axis takes
-// the first three characters of whichever name comes back.
+// FUNCTIONS, so the names resolve at render time — the reader can change
+// language without a reload.
 const monthName = (i) => t(`vocab.month.${i + 1}.label`)
+
+// The calendar's x axis needs a SHORT month, and the app already has twelve —
+// MONTH_KEYS, the same ones the date picker draws. This used to slice the full
+// name to three characters, which is three UTF-16 code units and therefore an
+// English-only idea: Bengali এপ্রিল cut at three lands mid-conjunct on a dangling
+// hasant (এপ্), and অক্টোবর gives অক্. Any language with combining marks breaks the
+// same way, and no translator could fix it from the locale file. Taking the axis
+// from MONTH_KEYS also means the axis and the picker can no longer disagree.
+const monthAbbr = (i) => t(MONTH_KEYS[i])
 
 // The four colour categories, named and coloured the way the reader named and
 // coloured them — a breakdown headed "Blue" when every card in the app says
@@ -198,7 +207,7 @@ function ActivityCalendar({ data, noun = 'saved', onSearch, accuracy = false }) 
     // month (e.g. August) gets the label instead of being crowded out. A label
     // then needs ~3 columns of clearance from the previous one.
     if (m !== prevMonth && wi > 0 && wi - lastLabelAt >= 3) {
-      label = monthName(m).slice(0, 3)
+      label = monthAbbr(m)
       lastLabelAt = wi
     }
     monthLabels.push(label)
