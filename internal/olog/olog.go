@@ -1,7 +1,20 @@
-// Package olog writes operational log lines to BOTH stdout and stderr, so a
-// deployment that captures only one stream still sees them (owner request: keep
-// detailed logs on stdout and stderr). Use it for significant events — startup,
-// integrity checks, index repair, database reset, and any handled error.
+// Package olog writes operational log lines, splitting them the way a Unix
+// program is expected to: EVERYTHING GOES TO STDOUT EXCEPT ERRORS, WHICH GO TO
+// STDERR. Use it for significant events — startup, integrity checks, index
+// repair, database reset, and any handled error.
+//
+// IT USED TO WRITE EVERY LINE TO BOTH STREAMS. The intent was that a deployment
+// capturing only one of them still saw everything, and the effect in a container
+// was that every line appeared twice: `docker logs` merges the two streams, so a
+// NAS paid double the log volume and read a doubled log for a redundancy that
+// helped nobody who was actually looking at it. Nor could it be detected and
+// disabled — Docker hands the process two genuinely separate pipes and merges
+// them downstream, so from in here they look like different destinations.
+//
+// The split costs one thing, stated plainly: a deployment that captures ONLY
+// stdout no longer sees errors. That is the conventional bargain every other
+// program on the box already makes, and it buys `2>/dev/null` for a clean
+// operational log and `1>/dev/null` for nothing but failures.
 //
 // It carries a small level system (ROADMAP §12): error/warn/info always emit;
 // trace is gated behind TIPPANI_LOG_LEVEL=debug so deep per-operation tracing is
@@ -9,8 +22,9 @@
 // (TIP-<SUBSYS>-<NNN>, see codes.go) so any failure in `docker logs` is greppable
 // and looked up in docs/troubleshoot.md.
 //
-// Both streams get the standard "2006/01/02 15:04:05" timestamp prefix so the two
-// copies line up; Docker/compose adds its own outer timestamp on top.
+// Both streams carry the standard "2006/01/02 15:04:05" timestamp prefix, so a
+// reader merging them back (which is what `docker logs` does) gets one ordered
+// sequence; Docker/compose adds its own outer timestamp on top.
 package olog
 
 import (
@@ -44,9 +58,16 @@ func SetLevel(s string) {
 // construction of an expensive trace argument before calling Tracef.
 func DebugEnabled() bool { return debugEnabled.Load() }
 
-// Printf logs an operational line to stdout and stderr.
+// Printf logs an operational line to stdout. This is the ordinary path: startup,
+// progress, integrity results — the things that are true rather than wrong.
 func Printf(format string, args ...any) {
 	out.Printf(format, args...)
+}
+
+// errPrintf logs to stderr. Private, and there is exactly one caller (Errorf),
+// because "which stream" is a decision this package makes once rather than a
+// choice offered at every call site.
+func errPrintf(format string, args ...any) {
 	err.Printf(format, args...)
 }
 
@@ -62,12 +83,17 @@ func Alertf(format string, args ...any) {
 // Always emits (errors are never gated). Use at the point an error is handled
 // (not merely wrapped-and-returned); the code sends a reader to docs/troubleshoot.md.
 func Errorf(code Code, format string, args ...any) {
-	Printf("[error] "+string(code)+" "+format, args...)
+	errPrintf("[error] "+string(code)+" "+format, args...)
 }
 
 // Warnf logs a recoverable/degraded condition with its Code: `[warn] TIP-XXX-NNN
 // msg`. Always emits. Use for "we carried on, but you should know" situations —
 // a best-effort step that failed, or N rows skipped during an import.
+//
+// ON STDOUT, NOT STDERR, which is the owner's call and a defensible one: a warning
+// is something that HAPPENED, not something that failed, and putting it on stderr
+// makes `1>/dev/null` — "show me only what went wrong" — noisy with things that
+// did not. Only Errorf crosses to stderr.
 func Warnf(code Code, format string, args ...any) {
 	Printf("[warn] "+string(code)+" "+format, args...)
 }

@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **Every log line was printed twice.** In a container `docker logs` merges stdout and
+  stderr, and the app was writing every line to both — so a NAS paid double the log volume
+  and you read a doubled log. Now it splits the conventional way: everything goes to stdout
+  except errors, which go to stderr. `2>/dev/null` gives you a clean operational log;
+  `1>/dev/null` gives you nothing but failures.
+
+  The old behaviour existed so that a deployment capturing only one stream still saw
+  everything. The split costs that, and it is worth stating: if you capture **only** stdout
+  you will no longer see errors. That is the bargain every other program on the box already
+  makes, and the doubling could not be detected and disabled automatically — Docker hands
+  the process two genuinely separate pipes and merges them downstream, so from inside they
+  look like different destinations.
+
+  Warnings stay on stdout, deliberately: a warning is something that happened, not something
+  that failed, and putting it on stderr makes "show me only what went wrong" noisy with
+  things that did not.
+
 ## [2.1.0] - 2026-08-19
 
 ### Added
