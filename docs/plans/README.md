@@ -21,7 +21,8 @@ shipped plans stayed here afterwards and reintroduced it one directory over —
 along with twenty-three entries in the log whose grey line still read *planned*
 for features that had been running for months.
 
-Three are open now — `anthologies.md` and `access.md` for roadmap §4 and §6, and
+Four are open now — `anthologies.md` and `access.md` for roadmap §4 and §6,
+`entry-helpers.md`, which no roadmap section owns, and
 `multilingual.md`, whose mechanism shipped in 2.1.0 and whose Bengali shipped in 2.1.1. That
 last one is the exception the directory's own rule allows for: the *language* work is done
 and it stays because two things outlast it — the record of how a six-writer translation was
@@ -33,7 +34,12 @@ itself stays on the roadmap, because what shipped was the panel's shape and what
 that section asks for is the consolidation behind it. Their verification passes
 moved four claims between
 them. That is four for three plans, which is the strongest argument this file
-makes for the rule that a plan opens by reading the tree.
+makes for the rule that a plan opens by reading the tree. `entry-helpers.md` made
+it again on arrival: its premise was that movie characters already autocomplete on
+the edit form and only needed porting to the add form, and reading the tree showed
+those suggestions are the TMDB cast list rather than a memory of anything typed —
+so the pool the feature is *about* did not exist on any surface, and two edit hosts
+were offering no suggestions at all.
 
 ## The two documents
 
