@@ -5,9 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.1.1] - 2026-08-19
+
+### Added
+
+- **Bengali — the whole interface, in one voice.** All 2,447 strings, written against a
+  style sheet rather than translated key by key. Modern চলিত, not the literary register
+  software Bengali drifts into; আপনি, with the pronoun dropped wherever Bengali would drop
+  it; and one settled word per idea — a book highlight is a **দাগ**, a film line a **সংলাপ**,
+  a standalone quote an **উক্তি**, with **উদ্ধৃতি** as the umbrella over all three. টিপ্পনী is
+  reserved for the app's own name, because *টিপ্পনীতে ১২টি টিপ্পনী* is not a sentence anyone
+  can read.
+
+  Pick it in Settings → Language. Both languages are compiled into the binary, so neither is
+  the other's fallback of last resort and no missing config directory can leave you with an
+  interface in no language at all.
+
+  58 strings carry a `# ??` or `# !!` note in `internal/i18n/bn.txt`, marking where the
+  wording is a judgement call or is fighting the space it has to fit. They are comments, and
+  they are there to be argued with — the file is yours to edit, and `data/Locales/bn.txt`
+  overrides it per string without a rebuild.
 
 ### Fixed
+
+- **The stats calendar stopped cutting month names in half.** Its x axis took the first
+  three characters of the full month name — three letters in English, three UTF-16 code
+  units everywhere else. In Bengali এপ্রিল came out as এপ্, a hasant left dangling with
+  nothing to join, and অক্টোবর as অক্. Ten of the twelve months happened to survive the cut,
+  which is why nothing looked wrong. The axis now uses the twelve written abbreviations the
+  date picker was already using, so the two can no longer disagree — and where a word may be
+  shortened is now a fact each language states for itself, which is the only place that fact
+  can live.
 
 - **The Shuffle button stopped jumping when you press it.** On Home it sat centred until you
   used it, then moved to the left edge — because the press itself was what switched the
