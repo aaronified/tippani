@@ -57,27 +57,36 @@ The audit trail is the git history itself: nearly every commit carries a
 
 | | |
 | :-- | :-- |
-| Commits in the repository | 522 |
-| Commits with an AI co-author trailer | **518** |
-| Period | 2026-07-02 → 2026-08-14 |
+| Commits in the repository | 627 |
+| Commits with an AI co-author trailer | **619** |
+| Period | 2026-07-02 → 2026-08-19 |
 
 Models used, by commit count:
 
 | Model | Commits |
 | :-- | --: |
-| Claude Opus 5 | 302 |
+| Claude Opus 5 | 403 |
 | Claude Opus 4.8 | 151 |
 | Claude Fable 5 | 55 |
 | Claude Haiku 4.5 | 5 |
 | Claude Sonnet 5 | 4 |
 | Claude Sonnet 4.6 | 1 |
 
-Four commits carry no trailer. One (`1687961`) adds attribution URLs for
-Bookcision, Readest and pretext to the README — typed by hand. The other three are
+Some of those trailers carry a `(1M context)` suffix naming the long-context
+variant — 286 of the Opus 5 commits and 147 of the Opus 4.8 ones. It is the same
+model with a larger window, so the table folds them; the second command below
+prints them unfolded if you would rather see it raw.
+
+Eight commits carry no trailer, and they divide three ways. **Four** are
 `github-actions[bot]` regenerating the roadmap's known-bugs block from the issue
-tracker, which is machine-written but not AI-written, and the distinction is the
-point of this file: a script that renders a JSON file into HTML is not a model
-making choices.
+tracker — machine-written but not AI-written, and that distinction is the point of
+this file: a script rendering a JSON file into HTML is not a model making choices.
+**One** (`1687961`) adds attribution URLs for Bookcision, Readest and pretext to
+the README, typed by hand. The remaining **three** are oversights rather than
+categories — the `2.0.0` and `2.1.0` release stamps and one Go test refactor,
+each of which was AI-written and should have said so. They are named here instead
+of being quietly fixed, because a disclosure that rounds its own gaps away is not
+one.
 
 To see it yourself:
 
@@ -95,6 +104,40 @@ The agent configuration used to do the work — session skills and subagent
 definitions under `.claude/` — is **gitignored and not part of this repository**,
 so what you see here is the output, not the toolchain.
 
+### Increasingly this is several agents at once, not one conversation in sequence
+
+Later releases were built by fanning a task out across **parallel subagents** under
+my direction and then reconciling what came back, rather than by one session doing
+everything in order. Three examples from 2.1.x, all of them in the history:
+
+- **The Bengali interface** (2.1.1, 2,446 strings) was written by **six agents in
+  two passes**, each working from a committed style sheet — `docs/plans/bengali-style.md`
+  — rather than from the English alone, because six writers with no shared
+  register produce six registers in one interface. The merge was then checked
+  mechanically: key set, placeholder parity, nothing lost, and on the 442 keys
+  where writers disagreed, that the file holds one of *their* readings rather than
+  an invented third. The register checks are in `docs/plans/multilingual.md`.
+- **The roadmap audit** ran one reader per section and then **four sceptic agents
+  whose instruction was to refute the first pass**, not to agree with it. They
+  overturned or amended **ten of thirty-three findings**. Acting on the first pass
+  alone would have deleted real backlog items and kept stale ones, which is the
+  whole argument for the second pass.
+- **Two decision entries in `docs/PLAN.md`** were drafted by agents from the plan
+  documents and then verified line by line against the code before being inserted.
+  One of them corrected a figure I had written and repeated: "1,299 of 2,446 keys
+  carry a comment" had counted comment *lines*.
+
+**The rule that makes this safe is that an agent's finding is worth nothing until
+something executes or cites.** More agents means more plausible-looking output per
+unit of my attention, which is a hazard and not a benefit unless the verification
+scales with it. So a finding carries a `file:line` or it is not a finding; a test
+is broken on purpose to watch it go red before it is trusted; and where a claim
+matters, a second agent is pointed at it with instructions to break it. This
+session alone, that pass caught two of my own tests asserting the wrong thing — one
+that a comma stays inside a tag name when the vocabulary deliberately splits on it,
+and one that a Bengali abbreviation may not end in a vowel sign when that is
+exactly how Bengali abbreviates.
+
 ---
 
 ## What is actually checked, and what that does not cover
@@ -103,23 +146,30 @@ AI-written code fails differently from hand-written code. It compiles, it reads
 well, it is plausibly commented, and it can still be wrong — so plausibility is
 worth nothing here and only execution counts. What the repo actually runs:
 
-- **807 Go test functions and 1,759 frontend tests, across 233 test files** — the
+- **916 Go test functions and 1,735 frontend tests, across 280 test files** — the
   Go half over real HTTP handlers against a real SQLite database, not mocks.
   Counted, not estimated, and every number here has a command that reproduces it:
 
   ```bash
   grep -rhoE '^func Test[A-Za-z0-9_]+' --include='*_test.go' . | wc -l   # Go functions
   cd web/frontend && npm test                                            # frontend tests
-  find . -name '*_test.go' -not -path './node_modules/*' | wc -l         # 136 Go files
+  find . -name '*_test.go' -not -path './node_modules/*' | wc -l         # 155 Go files
   find ./web/frontend -path '*/node_modules' -prune -o \
-       -type f \( -name '*.test.*' -o -name '*.spec.*' \) -print | wc -l # 97 frontend
+       -type f \( -name '*.test.*' -o -name '*.spec.*' \) -print | wc -l # 125 frontend
   ```
 
   A number in a file like this one is stale the moment it is written, so recount
   rather than trust it — these three had drifted from 645 / 1,293 / 180 before
   anyone checked them at 1.12.0, from 725 / 1,581 / 203 before they were
-  recounted at 1.14.2, and from 765 / 1,672 / 217 by 1.15.0, which is why each
-  one now sits beside the command that produces it.
+  recounted at 1.14.2, from 765 / 1,672 / 217 by 1.15.0, and from 807 / 1,759 /
+  233 by 2.1.1, which is why each one now sits beside the command that produces it.
+
+  **The frontend count went DOWN while its file count went up**, which is the sort
+  of number that ought to be explained rather than reported. `5751757` collapsed
+  per-datum tests into tables and dropped eleven that asserted nothing the
+  neighbouring case did not already assert. A suite is not better for containing
+  eleven tests that cannot fail alone, and a total that only ever climbs is a total
+  nobody is reading.
 
   Two habits behind those numbers are worth naming, because they are what stops a
   plausible test from being a useless one. **Assert on values, never on counts**:
