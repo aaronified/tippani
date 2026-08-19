@@ -139,17 +139,36 @@ describe('the visible part of an entry', () => {
   })
 
   it('and it is one sentence, not a paragraph with the full stops taken out', () => {
-    // Counting sentence-ending punctuation followed by a capital: the cheap proxy
+    // Counting sentence-ending punctuation followed by more text: the cheap proxy
     // for "this is a paragraph". Two is allowed — a short second sentence that
     // qualifies the first is often the clearest shape — three is a paragraph.
     //
-    // THE PROXY IS LATIN-SCRIPT, and honestly so: it looks for a capital, and
-    // Bengali has no case, so a Bengali paragraph passes it. The cap above catches
-    // that one by length instead. A per-script rule (a danda for Bengali) is worth
-    // writing when there is Bengali prose to write it against; inventing it now
-    // against no copy would be guessing.
+    // THE PROXY IS PER-SCRIPT, because a sentence boundary is. English looks for a
+    // capital after the stop, which is what makes "e.g. this" and "TMDB id." cost
+    // nothing. Bengali has no case, so that pattern finds nothing in a Bengali
+    // paragraph — it ends its sentences with a দাঁড়ি instead, and that mark does the
+    // same job unambiguously.
+    //
+    // Bengali's rule counts ONLY the danda, not `?` or `!`, and that is deliberate
+    // rather than lazy: Bengali borrows both marks from Latin punctuation, and this
+    // app's help copy also NAMES them as keys — `common.help.keyboard.what` opens
+    // with "? চাপলে", the ? being the key you press. Counting it read that entry as
+    // two sentences when it is one sentence about a question mark. The danda has no
+    // such double life.
+    //
+    // A built-in with no rule here is a failure, not a skip: adding a third
+    // compiled-in language should make somebody answer this question rather than
+    // silently exempt it. Config-only languages (§4) are outside BUILTINS and so
+    // outside this check — nothing can be enforced against a file that may not exist.
+    const SENTENCE_BREAK = {
+      en: /[.?!]\s+[A-Z“]/g,
+      bn: /।\s+\S/g,
+    }
+    const unruled = BUILTINS.map(([c]) => c).filter((c) => !SENTENCE_BREAK[c])
+    expect(unruled, 'a compiled-in language with no sentence rule — add one above').toEqual([])
+
     const wordy = whats()
-      .filter(([, , v]) => (v.match(/[.?!]\s+[A-Z“]/g) || []).length > 1)
+      .filter(([c, , v]) => (v.match(SENTENCE_BREAK[c]) || []).length > 1)
       .map(([c, k]) => where(c, k))
     expect(wordy, 'three or more sentences in `what`').toEqual([])
   })
