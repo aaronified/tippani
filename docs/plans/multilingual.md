@@ -1,38 +1,28 @@
 # Multilingual — the Bengali half, and anyone else's
 
 **Status:** the mechanism and the English catalogue **shipped in 2.1.0**; the Bengali
-**shipped in 2.1.1**, all 2,447 keys. This file is now the record of how, and of what is
+**shipped in 2.1.1**, all 2,446 keys. This file is now the record of how, and of what is
 still open — the two are different lists and only the second one is work.
 
-The design is settled and was arrived at the expensive way — four rejected drafts and a
-question round that should have come first. Do not redesign it. It is recorded in
-`docs/PLAN.md` under §13 once this ships; until then, here.
+**The design itself now lives in [`docs/PLAN.md`](../PLAN.md) §13**, as *"There is no source
+language: the code holds keys, and English is a file like any other"* — that entry is the one to
+read, and the one to keep current. What stays here is the part a decision log is the wrong shape for:
+how a six-writer translation was checked after the fact, and the short list of what is still open.
+
+The design was arrived at the expensive way — four rejected drafts and a question round that should
+have come first. Do not redesign it.
 
 ---
 
 ## What shipped
 
-`internal/i18n/` — `en.txt` (2,446 keys), `bn.txt` (a scaffold: `_name = বাংলা`),
-`i18n.go`, `README.md`, `testdata/`. The frontend imports the same bytes through
-`web/frontend/src/i18n.js`; the Go binary embeds them.
-
-| Decision | Why it is that way |
-| :-- | :-- |
-| **No source language.** The code holds keys only — `t('library.filters.genre.placeholder')`, never an English fallback argument. | The owner: *"do not make it work like random apps… it is supposed to be at least bilingual from inception"*, then *"i say translate, but i mean trilingual, and quadrilingual, etc."* An English literal at the call site makes every other language a patch that chases it. |
-| **Keys are long and self-describing**, with a `#` comment above any whose context the string cannot give. 1,299 of the 2,446 carry one. | The English left the call site, so the key is what a maintainer reads. A key nobody can read is a call site nobody can read. |
-| **English and Bengali are both compiled in.** | So a missing, empty or corrupt config directory cannot leave the app with no text. Both, so neither is the other's last resort. |
-| **Any other language is config-only**: `data/Locales/xx.txt`. | Which forces the locale pref to be validated against what exists rather than a constant list. |
-| **`data/Locales` overrides the embedded copies**, per key, including `en.txt`. | The override path privileges nobody either. Any word in the app is the owner's to change without a rebuild. |
-| **Coverage is shown, never enforced.** | Demanding completeness means no contributions. One test *does* fail if the percentage is wrong: a lying number is worse than none. |
-| **`_name`, `_fallback`, `_dir`** — reserved, underscore-prefixed, never rendered. | `_fallback` lets a language name its neighbour before a built-in (Bhojpuri → Hindi → built-in), with a cycle guard. `_dir = rtl` flips direction and the README says plainly the **layout has not been audited for RTL**. |
-| **An empty value means absent, not empty.** `key =` is unfilled; the resolver walks on. | This is what lets the generated template be dropped in half-finished without blanking the interface. It is the rule that makes the format usable by a stranger. |
-
-**Why `internal/i18n/` and not the frontend tree**, which the plan originally said: `go:embed`
-cannot escape its own package directory, so a file under `web/frontend` cannot be compiled
-into the binary — and both built-ins must be. Vite resolves anything, so the frontend reaches
-across. One file, two consumers, nothing to drift.
-
----
+`internal/i18n/` — `en.txt` and `bn.txt` (2,456 keys each), `i18n.go`, `README.md`,
+`testdata/`. The frontend imports the same bytes through `web/frontend/src/i18n.js`; the Go binary
+embeds them. **Every design decision behind that shape — no source language, both built-ins
+compiled in, config-only languages, an empty value meaning absent, the reserved `_` keys, and why
+the files live in a Go package rather than in the frontend tree — is one entry in
+[`docs/PLAN.md`](../PLAN.md) §13.** It is not repeated here, because two copies of a design is one
+copy that goes stale.
 
 ## How the Bengali got written
 
@@ -47,7 +37,7 @@ six registers unless something proves otherwise:
 
 | Check | Result |
 | :-- | :-- |
-| Key set identical to `en.txt`, same order, no duplicates, no empty values | 2,447 / 2,447 |
+| Key set identical to `en.txt`, same order, no duplicates, no empty values | 2,446 / 2,446 |
 | Placeholder parity — every `{hole}` present, in every string | 0 mismatches |
 | Nothing lost in the merge: every fragment key present in `bn.txt` | 0 lost |
 | Where writers disagreed, `bn.txt` holds one of **their** values, not a third | 442 contested, 0 invented |
