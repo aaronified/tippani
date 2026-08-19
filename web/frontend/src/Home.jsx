@@ -5,7 +5,7 @@
 // on a phone and a desktop. Quote capture is NOT here any more — it's the
 // "Capture quote" tab of the single ＋ Add surface (top bar + drawer).
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { errText, json } from './api.js'
+import { coverImgURL, errText, json } from './api.js'
 import { chapterLabel, chapterMeta, episodeLabel } from './text.js'
 import { dateLine, greetingFor } from './greetings.js'
 import { AnnotationForm, annotationState, annDate, fmtDate } from './Library.jsx'
@@ -33,6 +33,7 @@ import {
   clampSequence,
   FieldIconButton,
   formatPartialDate,
+  formatYear,
   FormModal,
   GhostButton,
   HandCard,
@@ -46,6 +47,7 @@ import {
   MonoLabel,
   mulberry32,
   NavIcon,
+  Placeholder,
   QuoteActions,
   QuoteTools,
   shuffleSeeded,
@@ -634,6 +636,50 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
     if (editingFav === f.key) setEditingFav(null)
     loadFavs()
   }
+  // A serendipity card draws itself from a SUMMARY row — one request for up to
+  // sixty On this day cards, rather than sixty — but acting on one needs the
+  // record: patchFav sends the full state back, and the share picture wants the
+  // chapter, the page, the timestamp and the occasion date that a summary has no
+  // business carrying. So the record is fetched when the reader actually presses
+  // something, and then routed through the SAME helpers the favourites board
+  // uses. That is what makes a quote copied from a shuffle and the same quote
+  // copied from its own screen produce identical text, rather than two share
+  // payloads that agree until one of them is edited.
+  const resolveQuote = async (q) => {
+    const r = await json('GET', `${FAV_KINDS[q.kind].path}?id=${q.id}`)
+    if (!r.ok || !r.data) return null
+    const row = (r.data.annotations || r.data.dialogues || r.data.utterances || [])[0]
+    if (!row) return null
+    if (q.kind === 'book') return bookFav(row)
+    if (q.kind === 'quote') return quoteFav(row)
+    // screenFav wants the parent film, and a dialogue row carries none — which is
+    // exactly why the summary row reports the title, the media type and the year.
+    // No second fetch: the three fields it needs already arrived with the card.
+    return screenFav(row, { [row.movie_id]: { title: q.title, media_type: q.media_type, release_year: q.year || null } })
+  }
+  const serendipityActions = {
+    copy: async (q) => {
+      const f = await resolveQuote(q)
+      if (!f) return toast(t('error.generic'))
+      copyQuote(sharePayloadFor(f))
+    },
+    share: async (q) => {
+      const f = await resolveQuote(q)
+      if (!f) return toast(t('error.generic'))
+      setShareFav(f)
+    },
+    // Returns false so the card can roll its optimistic heart back — the same
+    // contract patchFav already has with the favourite tiles.
+    favourite: async (q, next) => {
+      const f = await resolveQuote(q)
+      if (!f) {
+        toast(t('error.generic'))
+        return false
+      }
+      return patchFav(f, { favorite: next })
+    },
+  }
+
   const sharePayloadFor = (f) => {
     if (f.kind === 'book') {
       return bookShare({
@@ -733,7 +779,15 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
           there is a test saying so, because these draw the same quote card the
           deck does and a "seen" bump from idle shuffling would inflate the
           half-life of whatever the random number generator liked. */}
-      <SerendipityRow onOpenBook={onOpenBook} onOpenMovie={onOpenMovie} onGoQuotes={onGoQuotes} />
+      <SerendipityRow
+        onOpenBook={onOpenBook}
+        onOpenMovie={onOpenMovie}
+        onGoQuotes={onGoQuotes}
+        people={{ author: authorMap, actor: actorMap, speaker: speakerMap }}
+        seps={seps}
+        onOpenPerson={setPerson}
+        actions={serendipityActions}
+      />
 
       {favs.length > 0 && (
         <section>
@@ -1035,7 +1089,7 @@ function FavouriteTile({
 // ON THIS DAY DRAWS NOTHING WHEN THE DAY IS EMPTY. A card that says "nothing on
 // this day" every day for most of a first year is a card that teaches you to
 // skip the part of the screen it sits in.
-function SerendipityRow({ onOpenBook, onOpenMovie, onGoQuotes }) {
+function SerendipityRow({ onOpenBook, onOpenMovie, onGoQuotes, people, seps, onOpenPerson, actions }) {
   const [shuffled, setShuffled] = useState(null)
   const [busy, setBusy] = useState(false)
   const [today, setToday] = useState([])
@@ -1093,7 +1147,7 @@ function SerendipityRow({ onOpenBook, onOpenMovie, onGoQuotes }) {
     return (
       <section className="space-y-3">
         <div className="flex justify-center">{shuffleButton}</div>
-        {shuffled && <SerendipityCard q={shuffled} onOpen={opener(shuffled)} />}
+        {shuffled && <SerendipityCard q={shuffled} onOpen={opener(shuffled)} people={people} seps={seps} onOpenPerson={onOpenPerson} actions={actions} />}
       </section>
     )
   }
@@ -1106,7 +1160,7 @@ function SerendipityRow({ onOpenBook, onOpenMovie, onGoQuotes }) {
           <MonoLabel className="block">{t('home.onthisday.title', { n: today.length })}</MonoLabel>
           <div className="space-y-2">
             {today.slice(0, 3).map((q) => (
-              <SerendipityCard key={`${q.kind}${q.id}`} q={q} onOpen={opener(q)} />
+              <SerendipityCard key={`${q.kind}${q.id}`} q={q} onOpen={opener(q)} people={people} seps={seps} onOpenPerson={onOpenPerson} actions={actions} />
             ))}
           </div>
         </>
@@ -1115,29 +1169,141 @@ function SerendipityRow({ onOpenBook, onOpenMovie, onGoQuotes }) {
         {shuffleButton}
         <span className="h-px flex-1" style={{ background: 'var(--line)' }} />
       </div>
-      {shuffled && <SerendipityCard q={shuffled} onOpen={opener(shuffled)} />}
+      {shuffled && <SerendipityCard q={shuffled} onOpen={opener(shuffled)} people={people} seps={seps} onOpenPerson={onOpenPerson} actions={actions} />}
     </section>
   )
 }
 
-function SerendipityCard({ q, onOpen }) {
+// MEDIA_BADGE — what the strip along the top of a serendipity card says. The
+// three screen kinds name themselves; a book and a standalone quote wear the same
+// badge their favourite tile does, so one quote reads the same on both boards.
+const MEDIA_BADGE = {
+  movie: 'common.badge.film',
+  show: 'common.badge.show',
+  game: 'common.badge.game',
+  book: 'common.badge.book',
+  quote: 'common.badge.quote',
+}
+
+// SerendipityCard — one shuffled or on-this-day quote, drawn the way this app
+// draws a quote everywhere else.
+//
+// IT USED TO BE THE PLAINEST CARD IN THE APP: the words, a colour bar, and a
+// title-and-credit line in small caps. No cover, no faces, no tags, nothing to do
+// with the line but read it — on the one surface whose entire job is to make you
+// glad you kept something. The owner's report was exact: "devoid of even chips and
+// character names".
+//
+// So it now carries what a favourite tile carries, from the same components: the
+// cover or poster of where the line came from, the credited people as faces you
+// can click through to, its tags, and the standard quote row — copy · share, then
+// the overflow — built by the same registry, in the same order, as every other
+// quote surface. Two things it does NOT copy from FavouriteTile: there is no
+// expand/collapse (there is one card, so nothing to save room for) and no edit
+// form (this is a reading surface, and the card knows where the quote lives).
+//
+// THE CHARACTER, NOT JUST THE ACTOR. The old line printed `credit`, which for a
+// film is who ACTED. A reader looking at a line from Casablanca wants Rick Blaine
+// first and Humphrey Bogart second, and the row had no field for the former.
+function SerendipityCard({ q, onOpen, people = {}, seps, onOpenPerson, actions }) {
+  const kind = FAV_KINDS[q.kind]
+  const [hearted, setHearted] = useState(!!q.favorite)
+  const [busy, setBusy] = useState(false)
+  useEffect(() => { setHearted(!!q.favorite) }, [q])
+
+  // Split on the reader's own credit separators (§11), so "Gaiman & Pratchett" is
+  // two people with two portraits rather than one chip nobody is.
+  const names = splitCredits(q.credit, seps)
+  const map = people[kind.personKind] || {}
+  const year = formatYear(q.year)
+  // The work, its year, and — on a film line — who says it. A standalone quote's
+  // `title` IS its occasion, which is the same role in a different shape.
+  const source = [q.title, year, q.character].filter(Boolean).join(' · ')
+
+  // Copy · share · ♥, from the registry rather than spelled out here, so this card
+  // cannot end up with the row in a different order from the Library's. Each is
+  // available only if the handler is, which is how this card gets the same row
+  // minus the two (edit, delete) it deliberately does not offer.
+  const acts = actions
+    ? actionsFor(kind.actionKind, q, {
+      copy: () => actions.copy(q),
+      share: () => actions.share(q),
+      favourite: async () => {
+        if (busy) return
+        setBusy(true)
+        // Optimistic, the same trick the favourite tiles use: the heart paints
+        // the instant it is pressed and rolls back if the write failed.
+        setHearted((v) => !v)
+        if ((await actions.favourite(q, !hearted)) === false) setHearted((v) => !v)
+        setBusy(false)
+      },
+      favourited: hearted,
+    })
+    : []
+
+  const openLabel = t(`home.favourites.open.${q.kind === 'book' ? 'book' : q.kind === 'quote' ? 'quotes' : q.media_type === 'show' ? 'show' : 'film'}.aria`)
+  // The cover is a doorway when there is somewhere to go and a picture when there
+  // is not — a standalone quote has no work behind it, and a button that answers
+  // a tap with nothing is worse than no button.
+  const art = q.cover_path
+    ? <img src={coverImgURL(q.cover_path)} alt="" className="block w-14 object-cover" style={{ aspectRatio: '2 / 3', borderRadius: 6, border: '1px solid var(--ink-border)' }} />
+    : <Placeholder kind={t(MEDIA_BADGE[q.media_type] || 'common.badge.cover')} className="w-14" style={{ aspectRatio: '2 / 3', borderRadius: 6 }} />
+
   return (
-    <HandCard
-      colorBar={q.color || 'yellow'}
-      // No destination, no affordance: without an opener the card keeps its words
-      // and loses the pointer, the role and the tab stop.
-      className={onOpen ? 'cursor-pointer' : ''}
-      style={{ padding: '12px 15px' }}
-      onClick={onOpen || undefined}
-      role={onOpen ? 'button' : undefined}
-      tabIndex={onOpen ? 0 : undefined}
-    >
-      <p style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 15, lineHeight: 1.55, margin: 0 }}>
-        {q.kind === 'screen' ? q.quote : `“${q.quote}”`}
-      </p>
-      <MonoLabel className="mt-1.5 block" style={{ fontSize: 10.5 }}>
-        {[q.title, q.credit].filter(Boolean).join(' · ')}
-      </MonoLabel>
+    <HandCard colorBar={q.color || 'yellow'} style={{ padding: '12px 15px' }}>
+      <div className="flex gap-3.5">
+        <div className="shrink-0">
+          {onOpen ? (
+            <Tooltip label={openLabel}>
+              <button type="button" onClick={onOpen} aria-label={openLabel} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>
+                {art}
+              </button>
+            </Tooltip>
+          ) : art}
+        </div>
+        <div className="min-w-0 flex-1">
+          <MonoLabel className="mb-1 block" style={{ fontSize: 9.5, color: kind.labelColor }}>
+            {t(MEDIA_BADGE[q.media_type] || MEDIA_BADGE[q.kind])}
+          </MonoLabel>
+          {/* The words. Only the quote opens the parent — the faces and the tags
+              below are their own targets, so they sit outside this button. */}
+          <button
+            type="button"
+            onClick={onOpen || undefined}
+            className={`block w-full text-left${onOpen ? '' : ' cursor-default'}`}
+            style={{ background: 'none', border: 'none', padding: 0 }}
+            tabIndex={onOpen ? 0 : -1}
+          >
+            <p style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 15, lineHeight: 1.55, margin: 0, whiteSpace: 'pre-wrap' }}>
+              {kind.quoted ? `“${q.quote}”` : q.quote}
+            </p>
+          </button>
+          <span className="mt-1.5 flex items-center gap-1.5">
+            <CreditFaces names={names} map={map} size={18} ring="var(--card)" />
+            <MonoLabel style={{ fontSize: 10.5 }}>{source}</MonoLabel>
+          </span>
+          {names.length > 0 && (
+            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+              {names.map((n) => (
+                <PersonCredit key={n} kind={kind.personKind} name={n} person={map[n]} size={22} onOpen={onOpenPerson} />
+              ))}
+            </div>
+          )}
+          {q.tags && q.tags.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {q.tags.map((tag) => <span key={tag} className="tp-chip">{tag}</span>)}
+            </div>
+          )}
+          {acts.length > 0 && (
+            <div className="mt-2 flex items-center gap-x-3">
+              <QuoteTools actions={atRow(acts)} />
+              <span className="ml-auto flex items-center">
+                <QuoteActions actions={atOverflow(acts)} />
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
     </HandCard>
   )
 }

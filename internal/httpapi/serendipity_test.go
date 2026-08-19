@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 )
@@ -137,4 +138,116 @@ func TestSerendipityNeedsAuth(t *testing.T) {
 	c := &testClient{t: t, h: srv.Handler()}
 	c.mustDo("GET", "/shuffle", nil, http.StatusUnauthorized)
 	c.mustDo("GET", "/on-this-day", nil, http.StatusUnauthorized)
+}
+
+// The card these draw is meant to look like a favourite tile — cover, faces,
+// tags, a heart — and every one of those is a field on the row. It is a shape
+// test because the failure it guards against is silent: a card whose poster is
+// always missing looks like a library with no posters.
+func TestAShuffledQuoteCarriesWhatTheCardDraws(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+
+	// A film line, because it is the kind with the most to carry: a poster, a
+	// media type, a character AND an actor, which are two different people.
+	m := idOf(t, c.mustDo("POST", "/movies", map[string]any{"title": "Casablanca", "media_type": "movie", "release_year": 1942}, 201).Body.Bytes())
+	if _, err := srv.Store.DB.Exec(`UPDATE movies SET poster_path = ? WHERE id = ?`, "covers/casablanca.jpg", m); err != nil {
+		t.Fatalf("poster: %v", err)
+	}
+	c.mustDo("POST", "/dialogues", map[string]any{
+		"movie_id": m, "quote": "Here's looking at you, kid.",
+		"character": "Rick Blaine", "actor": "Humphrey Bogart",
+		"color": "blue", "favorite": true, "tags": []string{"noir", "goodbye"},
+	}, 201)
+
+	got := decode[shuffleResp](t, c.mustDo("GET", "/shuffle", nil, 200))
+	q := got.Quote
+	if q == nil {
+		t.Fatal("no quote")
+	}
+	// Values, not counts: "got 5 fields" passes happily while they are the wrong five.
+	if q.CoverPath != "covers/casablanca.jpg" {
+		t.Errorf("cover_path = %q, want the film's poster", q.CoverPath)
+	}
+	if q.MediaType != "movie" {
+		t.Errorf("media_type = %q, want movie", q.MediaType)
+	}
+	// The year is what lets the card say "Casablanca (1942)" and the share picture
+	// say the same — it is the one field the full-row fetch cannot supply, because
+	// a dialogue row carries no parent at all.
+	if q.Year != 1942 {
+		t.Errorf("year = %d, want 1942", q.Year)
+	}
+	// The distinction the old row could not make: Credit is who ACTED, Character
+	// is who SPOKE, and a card that names only the actor is naming the wrong person.
+	if q.Character != "Rick Blaine" || q.Credit != "Humphrey Bogart" {
+		t.Errorf("character/credit = %q/%q, want Rick Blaine/Humphrey Bogart", q.Character, q.Credit)
+	}
+	if !q.Favourite {
+		t.Error("favorite = false, so the heart on the card would start empty on a quote you had hearted")
+	}
+	if len(q.Tags) != 2 || q.Tags[0] != "goodbye" || q.Tags[1] != "noir" {
+		t.Errorf("tags = %v, want [goodbye noir] — alphabetical, as every other list is", q.Tags)
+	}
+	if q.Colour != "blue" {
+		t.Errorf("color = %q, want blue", q.Colour)
+	}
+}
+
+// Tags come back as [] rather than null, which is what lets a card map over them
+// without checking first. The same rule every list response in the app follows.
+func TestAnUntaggedShuffledQuoteHasAnEmptyTagListAndNotNull(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	b := idOf(t, c.mustDo("POST", "/books", map[string]any{"title": "A Book"}, 201).Body.Bytes())
+	c.mustDo("POST", "/annotations", map[string]any{"book_id": b, "quote": "untagged"}, 201)
+
+	res := c.mustDo("GET", "/shuffle", nil, 200)
+	if body := res.Body.String(); !strings.Contains(body, `"tags":[]`) {
+		t.Errorf("want \"tags\":[] in the response, got %s", body)
+	}
+	got := decode[shuffleResp](t, c.mustDo("GET", "/shuffle", nil, 200))
+	if got.Quote.Tags == nil {
+		t.Error("tags is nil — a card mapping over it would have to check first")
+	}
+	// A book has no character and no poster of its own kind's making; both are
+	// empty rather than absent, and the badge says which kind it is.
+	if got.Quote.MediaType != "book" || got.Quote.Character != "" {
+		t.Errorf("media_type/character = %q/%q, want book/empty", got.Quote.MediaType, got.Quote.Character)
+	}
+}
+
+// The shuffle row reads its tags with a group_concat rather than through the
+// annotation fetcher, so the two could drift. This pins them together on the
+// input most likely to separate them: a submitted tag with a comma in it, which
+// cleanNames() splits into two before it is ever stored.
+//
+// The first version of this test asserted the opposite — that "sci-fi, fantasy"
+// stayed one tag — on the assumption that a comma is legal in a tag name. It is
+// not: the vocabulary treats a comma as a separator on the way in. Whatever the
+// canonical list endpoint says a quote's tags are, this must say the same.
+func TestAShuffledQuoteAgreesWithTheListEndpointAboutItsTags(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	b := idOf(t, c.mustDo("POST", "/books", map[string]any{"title": "A Book"}, 201).Body.Bytes())
+	c.mustDo("POST", "/annotations", map[string]any{
+		"book_id": b, "quote": "one line", "tags": []string{"sci-fi, fantasy", "Kept"},
+	}, 201)
+
+	listed := decode[struct {
+		Annotations []annotationRow `json:"annotations"`
+	}](t, c.mustDo("GET", "/annotations?book_id="+itoa(b), nil, 200))
+	if len(listed.Annotations) != 1 {
+		t.Fatalf("want one annotation, got %d", len(listed.Annotations))
+	}
+	want := listed.Annotations[0].Tags
+
+	got := decode[shuffleResp](t, c.mustDo("GET", "/shuffle", nil, 200))
+	if strings.Join(got.Quote.Tags, "|") != strings.Join(want, "|") {
+		t.Errorf("shuffle tags = %v, /annotations says %v", got.Quote.Tags, want)
+	}
+	// And the comma really did split, so this test is measuring the case it claims.
+	if len(want) != 3 {
+		t.Errorf("expected the comma to split into three tags, got %v", want)
+	}
 }

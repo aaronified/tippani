@@ -2591,6 +2591,7 @@ home.favourites.more.label = আরও দেখুন ({n})
 common.badge.book = বই
 common.badge.film = সিনেমা
 common.badge.show = শো
+common.badge.game = গেম
 common.badge.quote = উদ্ধৃতি
 # Opening the thing a favourite came from, or the screen it lives on.
 home.favourites.open.book.aria = এই বইটা খুলুন

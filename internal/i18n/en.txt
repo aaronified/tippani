@@ -2513,6 +2513,7 @@ home.favourites.more.label = View more ({n})
 common.badge.book = BOOK
 common.badge.film = FILM
 common.badge.show = SHOW
+common.badge.game = GAME
 common.badge.quote = QUOTE
 # Opening the thing a favourite came from, or the screen it lives on.
 home.favourites.open.book.aria = Open this book
