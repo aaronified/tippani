@@ -75,6 +75,42 @@ type anthologyRow struct {
 	Entries   int    `json:"entries"`
 	CreatedAt string `json:"created_at"`
 	UpdatedAt string `json:"updated_at"`
+	anthologyFields
+}
+
+// anthologyFields is what this anthology shows — and therefore what it exports,
+// because the screen and the file are the same document (0045).
+//
+// EMBEDDED RATHER THAN SIX LOOSE FIELDS, so the one thing that has to travel from
+// the row to the reading view to the export renderer is one value. The export
+// takes it as a filter (see export_anthology.go) instead of the shared quote
+// renderer growing six parameters or, worse, a second copy of itself.
+//
+// hide_ where the thing is shown today, show_ where it is not, so every default is
+// the zero value. See the migration for the argument; it is the same one as
+// hideLibrary versus showAnthologies in the prefs struct.
+type anthologyFields struct {
+	HideCredit     bool `json:"hide_credit"`
+	HideSource     bool `json:"hide_source"`
+	HideCommentary bool `json:"hide_commentary"`
+	HideColour     bool `json:"hide_colour"`
+	ShowLocator    bool `json:"show_locator"`
+	ShowDate       bool `json:"show_date"`
+}
+
+// anthologyFieldCols is the column list, in the order every Scan below reads them.
+// One constant so a seventh switch is one line here rather than four SELECTs that
+// have to be found.
+const anthologyFieldCols = `hide_credit, hide_source, hide_commentary, hide_colour, show_locator, show_date`
+
+// scanTargets returns the six pointers in the same order as anthologyFieldCols.
+func (f *anthologyFields) scanTargets() []any {
+	return []any{&f.HideCredit, &f.HideSource, &f.HideCommentary, &f.HideColour, &f.ShowLocator, &f.ShowDate}
+}
+
+// values returns the six values in that same order, for an INSERT or UPDATE.
+func (f anthologyFields) values() []any {
+	return []any{f.HideCredit, f.HideSource, f.HideCommentary, f.HideColour, f.ShowLocator, f.ShowDate}
 }
 
 // anthologyEntryRow is one entry as the reading view needs it: the anthology's
@@ -104,11 +140,27 @@ type anthologyEntryRow struct {
 	// WorkID is the parent's id where there is one, so a card can still open the
 	// book it came from. Zero for a standalone quote, which has no parent.
 	WorkID int64 `json:"work_id,omitempty"`
+	// Locator is WHERE IN THE WORK, already joined, because what it is made of
+	// differs per kind and the join is not a decision three clients should each
+	// make separately: a chapter and a page for a book, a season/episode and a
+	// timestamp for a screen line, a place and a medium for a standalone quote.
+	// Empty when the reader recorded none, which is the common case.
+	//
+	// SENT ALWAYS and rendered only when show_locator is set (0045). Omitting it
+	// server-side would mean the reading view could not honour the switch without
+	// refetching the whole anthology.
+	Locator string `json:"locator"`
+	// Date is when the passage was SAVED — noted_at falling back to created_at, the
+	// same rule On this day settled on: created_at on an imported row is the day of
+	// the import, which is the same day for thousands of rows and tells a reader
+	// nothing. Sent always, rendered only when show_date is set.
+	Date string `json:"date"`
 }
 
 type anthologyReq struct {
 	Title string `json:"title"`
 	Intro string `json:"intro"`
+	anthologyFields
 }
 
 func (a *anthologyReq) normalise() string {
@@ -186,7 +238,8 @@ func (s *Server) handleListAnthologies(w http.ResponseWriter, r *http.Request) {
 	olog.Tracef("[anthologies] list uid=%d", uid)
 	rows, err := s.Store.DB.Query(`
 		SELECT a.id, a.title, a.intro, a.created_at, a.updated_at,
-		       (SELECT COUNT(*) FROM anthology_entries e WHERE e.anthology_id = a.id)
+		       (SELECT COUNT(*) FROM anthology_entries e WHERE e.anthology_id = a.id),
+		       `+anthologyFieldCols+`
 		FROM anthologies a WHERE a.user_id = ?
 		ORDER BY a.updated_at DESC, a.id DESC`, uid)
 	if err != nil {
@@ -197,7 +250,8 @@ func (s *Server) handleListAnthologies(w http.ResponseWriter, r *http.Request) {
 	out := []anthologyRow{}
 	for rows.Next() {
 		var a anthologyRow
-		if err := rows.Scan(&a.ID, &a.Title, &a.Intro, &a.CreatedAt, &a.UpdatedAt, &a.Entries); err != nil {
+		targets := append([]any{&a.ID, &a.Title, &a.Intro, &a.CreatedAt, &a.UpdatedAt, &a.Entries}, a.scanTargets()...)
+		if err := rows.Scan(targets...); err != nil {
 			olog.Warnf(olog.CodeAnthologyRowScan, "[anthologies] row scan failed: %v", err)
 			continue
 		}
@@ -223,10 +277,32 @@ func (s *Server) handleListAnthologies(w http.ResponseWriter, r *http.Request) {
 // it stops being redundant is the day an entry points somewhere it should not, and
 // then this join is what makes it invisible rather than a leak.
 func (s *Server) entriesFor(uid, id int64) ([]anthologyEntryRow, error) {
+	// THE LOCATOR IS BUILT PER ARM, in SQL, and that is the only place it can be:
+	// each kind's "where in the work" is made of different columns, and the UNION
+	// needs one column. Chapter uses the same "<number> · <name>" shape as
+	// chapterHeading in Go and chapterLabel in JS — three copies of one format,
+	// which is a real cost and cheaper than either joining in Go (three result sets
+	// to merge, and the ORDER runs across the kinds) or shipping the parts and
+	// having the reading view and the export each invent a join.
 	const q = `
 		SELECT e.kind, e.item_id, e.position, e.note,
 		       COALESCE(a.quote,''), COALESCE(a.note,''), a.color, a.favorite,
-		       b.title, COALESCE(b.author,''), b.id
+		       b.title, COALESCE(b.author,''), b.id,
+		       TRIM(TRIM(
+		         CASE WHEN COALESCE(a.chapter_no,0) <> 0
+		              THEN CAST(CAST(a.chapter_no AS INTEGER) AS TEXT) ||
+		                   CASE WHEN a.chapter_no <> CAST(a.chapter_no AS INTEGER)
+		                        THEN '.' || SUBSTR(CAST(a.chapter_no AS TEXT), INSTR(CAST(a.chapter_no AS TEXT), '.') + 1)
+		                        ELSE '' END
+		              ELSE '' END ||
+		         CASE WHEN COALESCE(a.chapter_no,0) <> 0 AND COALESCE(a.chapter,'') <> ''
+		              THEN ' · ' ELSE '' END ||
+		         COALESCE(a.chapter,'')
+		       ) || CASE WHEN COALESCE(a.location,'') <> ''
+		                 THEN CASE WHEN COALESCE(a.chapter_no,0) <> 0 OR COALESCE(a.chapter,'') <> ''
+		                           THEN ' · ' ELSE '' END || a.location
+		                 ELSE '' END),
+		       DATE(COALESCE(NULLIF(TRIM(COALESCE(a.noted_at,'')), ''), a.created_at))
 		  FROM anthology_entries e
 		  JOIN annotations a ON a.id = e.item_id
 		  JOIN books b ON b.id = a.book_id
@@ -241,7 +317,17 @@ func (s *Server) entriesFor(uid, id int64) ([]anthologyEntryRow, error) {
 		       TRIM(COALESCE(d.character,'') || CASE
 		         WHEN COALESCE(d.character,'') <> '' AND COALESCE(d.actor,'') <> ''
 		         THEN ' · ' || d.actor ELSE COALESCE(d.actor,'') END),
-		       m.id
+		       m.id,
+		       TRIM(
+		         CASE WHEN d.season IS NOT NULL AND d.episode IS NOT NULL
+		              THEN 'S' || d.season || 'E' || d.episode
+		              WHEN d.episode IS NOT NULL THEN 'E' || d.episode
+		              ELSE '' END ||
+		         CASE WHEN (d.season IS NOT NULL OR d.episode IS NOT NULL) AND COALESCE(d.timestamp,'') <> ''
+		              THEN ' · ' ELSE '' END ||
+		         COALESCE(d.timestamp,'')
+		       ),
+		       DATE(COALESCE(NULLIF(TRIM(COALESCE(d.noted_at,'')), ''), d.created_at))
 		  FROM anthology_entries e
 		  JOIN dialogues d ON d.id = e.item_id
 		  JOIN movies m ON m.id = d.movie_id
@@ -249,7 +335,13 @@ func (s *Server) entriesFor(uid, id int64) ([]anthologyEntryRow, error) {
 		UNION ALL
 		SELECT e.kind, e.item_id, e.position, e.note,
 		       u.quote, COALESCE(u.note,''), u.color, u.favorite,
-		       COALESCE(u.occasion,''), COALESCE(u.speaker,''), 0
+		       COALESCE(u.occasion,''), COALESCE(u.speaker,''), 0,
+		       -- A standalone quote's "where" is a place and a medium; its occasion
+		       -- is already the Source, so it is not repeated here.
+		       TRIM(COALESCE(u.place,'') || CASE
+		         WHEN COALESCE(u.place,'') <> '' AND COALESCE(u.medium,'') <> ''
+		         THEN ' · ' ELSE '' END || COALESCE(u.medium,'')),
+		       DATE(COALESCE(NULLIF(TRIM(COALESCE(u.noted_at,'')), ''), u.created_at))
 		  FROM anthology_entries e
 		  JOIN utterances u ON u.id = e.item_id
 		 WHERE e.anthology_id = ? AND e.kind = 'utterance' AND u.user_id = ?
@@ -263,7 +355,8 @@ func (s *Server) entriesFor(uid, id int64) ([]anthologyEntryRow, error) {
 	for rows.Next() {
 		var e anthologyEntryRow
 		if err := rows.Scan(&e.Kind, &e.ItemID, &e.Position, &e.Note,
-			&e.Quote, &e.QuoteNote, &e.Color, &e.Favorite, &e.Source, &e.Credit, &e.WorkID); err != nil {
+			&e.Quote, &e.QuoteNote, &e.Color, &e.Favorite, &e.Source, &e.Credit, &e.WorkID,
+			&e.Locator, &e.Date); err != nil {
 			olog.Warnf(olog.CodeAnthologyRowScan, "[anthologies] entry scan failed: %v", err)
 			continue
 		}
@@ -283,8 +376,9 @@ func (s *Server) handleGetAnthology(w http.ResponseWriter, r *http.Request) {
 	olog.Tracef("[anthologies] get uid=%d id=%d", uid, id)
 	var a anthologyRow
 	err := s.Store.DB.QueryRow(`
-		SELECT id, title, intro, created_at, updated_at FROM anthologies
-		WHERE id = ? AND user_id = ?`, id, uid).Scan(&a.ID, &a.Title, &a.Intro, &a.CreatedAt, &a.UpdatedAt)
+		SELECT id, title, intro, created_at, updated_at, `+anthologyFieldCols+` FROM anthologies
+		WHERE id = ? AND user_id = ?`, id, uid).
+		Scan(append([]any{&a.ID, &a.Title, &a.Intro, &a.CreatedAt, &a.UpdatedAt}, a.scanTargets()...)...)
 	if err == sql.ErrNoRows {
 		writeErr(w, http.StatusNotFound, "anthology not found")
 		return
@@ -320,8 +414,10 @@ func (s *Server) handleCreateAnthology(w http.ResponseWriter, r *http.Request) {
 	}
 	uid := userID(r)
 	olog.Tracef("[anthologies] create uid=%d title=%q", uid, req.Title)
-	res, err := s.Store.DB.Exec(`INSERT INTO anthologies (user_id, title, intro) VALUES (?, ?, ?)`,
-		uid, req.Title, req.Intro)
+	// The six visibility flags are set at creation as well as on edit, so a client
+	// that offers them on the new-anthology form is not silently ignored.
+	args := append([]any{uid, req.Title, req.Intro}, req.values()...)
+	res, err := s.Store.DB.Exec(`INSERT INTO anthologies (user_id, title, intro, `+anthologyFieldCols+`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, args...)
 	if err != nil {
 		internalError(w, r, "insert anthology", err)
 		return
@@ -335,8 +431,8 @@ func (s *Server) handleCreateAnthology(w http.ResponseWriter, r *http.Request) {
 	// the database's answer, and a client that has to guess them will guess wrong
 	// across a timezone.
 	var a anthologyRow
-	if err := s.Store.DB.QueryRow(`SELECT id, title, intro, created_at, updated_at FROM anthologies WHERE id = ?`,
-		id).Scan(&a.ID, &a.Title, &a.Intro, &a.CreatedAt, &a.UpdatedAt); err != nil {
+	if err := s.Store.DB.QueryRow(`SELECT id, title, intro, created_at, updated_at, `+anthologyFieldCols+` FROM anthologies WHERE id = ?`,
+		id).Scan(append([]any{&a.ID, &a.Title, &a.Intro, &a.CreatedAt, &a.UpdatedAt}, a.scanTargets()...)...); err != nil {
 		internalError(w, r, "read back anthology", err)
 		return
 	}
@@ -365,8 +461,13 @@ func (s *Server) handleUpdateAnthology(w http.ResponseWriter, r *http.Request) {
 	}
 	uid := userID(r)
 	olog.Tracef("[anthologies] update uid=%d id=%d", uid, id)
-	res, err := s.Store.DB.Exec(`UPDATE anthologies SET title = ?, intro = ?, updated_at = datetime('now')
-	                             WHERE id = ? AND user_id = ?`, req.Title, req.Intro, id, uid)
+	sets := `title = ?, intro = ?, updated_at = datetime('now')`
+	for _, col := range strings.Split(anthologyFieldCols, ", ") {
+		sets += ", " + col + " = ?"
+	}
+	args := append([]any{req.Title, req.Intro}, req.values()...)
+	args = append(args, id, uid)
+	res, err := s.Store.DB.Exec(`UPDATE anthologies SET `+sets+` WHERE id = ? AND user_id = ?`, args...)
 	if err != nil {
 		internalError(w, r, "update anthology", err)
 		return

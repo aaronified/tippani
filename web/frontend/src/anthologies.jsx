@@ -59,6 +59,7 @@ import {
   PageHeader,
   Select,
   toast,
+  Toggle,
 } from './ui.jsx'
 
 // The server's limits, mirrored so a field can stop you at the boundary instead of
@@ -110,9 +111,34 @@ export function useAnthologies() {
 // middle-click and "save link as" work on it.
 const exportHref = (id) => apiURL(`/anthologies/${id}/export`)
 
-// AnthologyForm — new anthology, and editing one. Title and introduction, and
-// nothing else: the entries are not in the PUT (the server's own comment says so),
-// so this form cannot accidentally clear them.
+// FIELD_SWITCHES — the six, in reading order rather than in column order, because
+// this is a list somebody reads top to bottom.
+//
+// Each row names the THING and the toggle says whether it is shown, so the label
+// never has to be negated: a switch reading "Who said it — off" is legible in a way
+// "Hide who said it — on" is not. The `hide` flag is where the stored column is
+// inverted, and it is the only place that inversion lives.
+//
+// The columns are hide_* where the thing is shown today and show_* where it is not
+// (0045), so that every default is the zero value. That asymmetry stops here: the
+// form deals only in "shown".
+const FIELD_SWITCHES = [
+  { key: 'hide_credit', hide: true, label: 'anthologies.form.fields.credit.label' },
+  { key: 'hide_source', hide: true, label: 'anthologies.form.fields.source.label' },
+  { key: 'show_locator', hide: false, label: 'anthologies.form.fields.locator.label' },
+  { key: 'show_date', hide: false, label: 'anthologies.form.fields.date.label' },
+  { key: 'hide_commentary', hide: true, label: 'anthologies.form.fields.commentary.label' },
+  { key: 'hide_colour', hide: true, label: 'anthologies.form.fields.colour.label' },
+]
+
+// shown / stored — the two directions of that inversion, named so a reader of this
+// file can see there is exactly one of each.
+const shown = (row, flags) => (row.hide ? !flags[row.key] : !!flags[row.key])
+const stored = (row, isShown) => (row.hide ? !isShown : isShown)
+
+// AnthologyForm — new anthology, and editing one. Title, introduction, and what
+// each passage shows. The ENTRIES are not in the PUT (the server's own comment says
+// so), so this form cannot accidentally clear them.
 //
 // UNLIKE A BOARD, A DUPLICATE TITLE IS FINE. Two anthologies called "On grief" are
 // two anthologies; the server returns no 409 here, so there is no name-clash
@@ -120,6 +146,14 @@ const exportHref = (id) => apiURL(`/anthologies/${id}/export`)
 export function AnthologyForm({ initial, onSubmit, onCancel, submitLabel = t('common.action.save.label') }) {
   const [title, setTitle] = useState(initial?.title || '')
   const [intro, setIntro] = useState(initial?.intro || '')
+  // The six as STORED, seeded from the row so an edit opens on what is set. A new
+  // anthology starts at all-zero, which is "show everything except the locator and
+  // the date" — exactly what an anthology looked like before 0045.
+  const [flags, setFlags] = useState(() => {
+    const out = {}
+    for (const row of FIELD_SWITCHES) out[row.key] = !!initial?.[row.key]
+    return out
+  })
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -127,10 +161,11 @@ export function AnthologyForm({ initial, onSubmit, onCancel, submitLabel = t('co
     e.preventDefault()
     if (!title.trim()) return setError(t('error.validate.anthology-title-required'))
     setBusy(true)
-    // BOTH FIELDS, ALWAYS. The PUT is full-state — the fifth time this trap has
+    // EVERY FIELD, ALWAYS. The PUT is full-state — the fifth time this trap has
     // been laid in this app, see boards.jsx — so sending a renamed title without
-    // the introduction beside it would silently delete the introduction.
-    const msg = await onSubmit({ title: title.trim(), intro })
+    // the introduction beside it would silently delete the introduction, and
+    // sending it without the six switches would silently reset all six.
+    const msg = await onSubmit({ title: title.trim(), intro, ...flags })
     setBusy(false)
     if (msg) setError(msg)
   }
@@ -158,6 +193,30 @@ export function AnthologyForm({ initial, onSubmit, onCancel, submitLabel = t('co
           onChange={(e) => setIntro(e.target.value)}
         />
       </label>
+      {/* WHAT EACH PASSAGE SHOWS — and therefore what the export writes. On the
+          form rather than on a menu behind the reading view, because it is a
+          property of the anthology in the same way its title is: you decide what
+          kind of document this is when you make it. */}
+      <div className="tp-field">
+        <MonoLabel>{t('anthologies.form.fields.label')}</MonoLabel>
+        <p className="microcopy mt-0.5 mb-2">{t('anthologies.form.fields.hint')}</p>
+        {/* The same Hide / Show pair the Features card uses, for the same reason:
+            these read POSITIVELY whatever the stored column is spelled, so a reader
+            never has to work out what "hide, off" means. */}
+        <div className="space-y-2.5">
+          {FIELD_SWITCHES.map((row) => (
+            <div key={row.key} className="flex items-center justify-between gap-3">
+              <MonoLabel>{t(row.label)}</MonoLabel>
+              <Toggle
+                ariaLabel={t(row.label)}
+                value={shown(row, flags) ? 'on' : 'off'}
+                onChange={(v) => setFlags((f) => ({ ...f, [row.key]: stored(row, v === 'on') }))}
+                options={[['off', t('common.action.hide.label')], ['on', t('common.action.show.label')]]}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
       <ErrorText>{error}</ErrorText>
       <div className="flex items-center justify-end gap-2">
         <GhostButton type="button" onClick={onCancel}>
@@ -389,7 +448,7 @@ function AnthologyList({ rows, reload, onOpen }) {
 // piece and then the piece speaks. The attribution sits under it, and where the
 // quote has a parent work the credit is a doorway into it — a CONTENT LINK, so it
 // is never gated on which sections are switched on.
-function AnthologyEntry({ entry, first, last, onNote, onMove, onRemove, onOpenBook, onOpenMovie }) {
+function AnthologyEntry({ entry, fields = {}, first, last, onNote, onMove, onRemove, onOpenBook, onOpenMovie }) {
   const openWork =
     entry.work_id && entry.kind === 'book'
       ? onOpenBook
@@ -400,24 +459,60 @@ function AnthologyEntry({ entry, first, last, onNote, onMove, onRemove, onOpenBo
     <Card className="mt-3">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          {entry.note && <p className="anthology-prose">{entry.note}</p>}
-          <blockquote className="anthology-quote" style={{ '--entry-color': categoryVar(entry.color) }}>
+          {!fields.hide_commentary && entry.note && <p className="anthology-prose">{entry.note}</p>}
+          {/* THE COLOUR BAR IS A NOTE TO YOURSELF, not to a reader — which is why it
+              is one of the six switches. Hidden, the bar takes the neutral rule the
+              card would have had anyway rather than disappearing and leaving the
+              passage unmarked. */}
+          <blockquote
+            className="anthology-quote"
+            style={{ '--entry-color': fields.hide_colour ? 'var(--line)' : categoryVar(entry.color) }}
+          >
             {entry.quote}
           </blockquote>
-          <p className="microcopy mt-1.5">
-            {/* One key holds the whole line, separator and all, so another language
-                can put the source first or punctuate it differently. */}
-            {tNodes(entry.source ? 'anthologies.entry.credit-source.label' : 'anthologies.entry.credit.label', {
-              credit: entry.credit || t('anthologies.entry.unattributed.label'),
-              source: openWork ? (
-                <button key="source" type="button" className="tp-link" onClick={() => openWork(entry.work_id)}>
-                  {entry.source}
-                </button>
-              ) : (
-                entry.source
-              ),
-            })}
-          </p>
+          {/* THE ATTRIBUTION LINE, and it can now be nothing at all. With the credit
+              and the source both switched off there is no line rather than an empty
+              one — a reader who turned both off asked for a document of passages, and
+              a stray separator would be the feature failing visibly. */}
+          {(!fields.hide_credit || !fields.hide_source) && (
+            <p className="microcopy mt-1.5">
+              {/* One key holds the whole line, separator and all, so another language
+                  can put the source first or punctuate it differently. The two
+                  single-value keys are what a half-hidden line uses, so the
+                  separator never appears with nothing on one side of it. */}
+              {fields.hide_source
+                ? t('anthologies.entry.credit.label', { credit: entry.credit || t('anthologies.entry.unattributed.label') })
+                : fields.hide_credit
+                  ? tNodes('anthologies.entry.source.label', {
+                    source: openWork ? (
+                      <button key="source" type="button" className="tp-link" onClick={() => openWork(entry.work_id)}>
+                        {entry.source}
+                      </button>
+                    ) : (
+                      entry.source
+                    ),
+                  })
+                  : tNodes(entry.source ? 'anthologies.entry.credit-source.label' : 'anthologies.entry.credit.label', {
+                    credit: entry.credit || t('anthologies.entry.unattributed.label'),
+                    source: openWork ? (
+                      <button key="source" type="button" className="tp-link" onClick={() => openWork(entry.work_id)}>
+                        {entry.source}
+                      </button>
+                    ) : (
+                      entry.source
+                    ),
+                  })}
+            </p>
+          )}
+          {/* Off by default, both of them: an anthology that has never been
+              configured reads exactly as it did before these switches existed. */}
+          {(fields.show_locator && entry.locator) || (fields.show_date && entry.date) ? (
+            <p className="microcopy mt-1 opacity-80">
+              {[fields.show_locator ? entry.locator : '', fields.show_date ? entry.date : '']
+                .filter(Boolean)
+                .join(' · ')}
+            </p>
+          ) : null}
           {/* The QUOTE's own note, which is a different thing from the entry's and
               can be non-empty at the same time: one is what the reader wrote when
               they saved the line, the other is what they wrote when they placed it
@@ -578,6 +673,7 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
         <AnthologyEntry
           key={`${entry.kind}:${entry.item_id}`}
           entry={entry}
+          fields={anthology || {}}
           first={i === 0}
           last={i === rows.length - 1}
           onNote={setNoting}

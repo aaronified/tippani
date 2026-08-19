@@ -2089,6 +2089,22 @@ anthologies.entry.unattributed.label = unattributed
 # value so another language can choose its own.
 anthologies.entry.credit.label = {credit}
 anthologies.entry.credit-source.label = {credit} · {source}
+# The same line with the credit switched off (0045). Its own key rather than the
+# one above with an empty hole, so the separator never appears with nothing beside it.
+anthologies.entry.source.label = {source}
+
+# --- What an anthology shows, and therefore what it exports. Six switches on the
+# anthology itself: a collection of film lines wants its actors named and a book of
+# proverbs wants nothing but the words. Each label names the THING, because the
+# control beside it is what says on or off.
+anthologies.form.fields.label = What each passage shows
+anthologies.form.fields.hint = The same for what you read and what you export.
+anthologies.form.fields.credit.label = Who said it
+anthologies.form.fields.source.label = Where it came from
+anthologies.form.fields.locator.label = Chapter, page or timestamp
+anthologies.form.fields.date.label = The day you saved it
+anthologies.form.fields.commentary.label = Your commentary
+anthologies.form.fields.colour.label = The colour bar
 
 anthologies.toast.deleted = anthology deleted
 anthologies.toast.entry-removed = entry removed

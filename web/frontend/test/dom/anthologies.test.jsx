@@ -102,7 +102,7 @@ describe('the anthology list', () => {
     expect(screen.getByText('0 entries')).toBeTruthy()
   })
 
-  it('creates one in a pop-up form, sending both fields', async () => {
+  it('creates one in a pop-up form, sending every field', async () => {
     list()
     await screen.findByText('On keeping quiet')
     fireEvent.click(screen.getByText('New anthology'))
@@ -115,10 +115,55 @@ describe('the anthology list', () => {
     fireEvent.click(screen.getByText('Create'))
     await waitFor(() => expect(CALLS.some(([m, p]) => m === 'POST' && p === '/anthologies')).toBe(true))
     const post = CALLS.find(([m, p]) => m === 'POST' && p === '/anthologies')
-    // The title is trimmed and the introduction rides along even when it is the
-    // only thing that changed — the PUT is full-state, so a form that sent one
-    // field would clear the other.
-    expect(post[2]).toEqual({ title: 'On silence', intro: 'Because I keep finding it.' })
+    // The title is trimmed and EVERY OTHER FIELD RIDES ALONG even when it is not
+    // the one that changed — the PUT is full-state, so a form that sent a subset
+    // would clear the rest. That is why the six field switches (0045) are in here
+    // too: send the title alone and all six reset to their defaults, which reads to
+    // the owner as a setting reverting by itself.
+    //
+    // Asserted with toEqual rather than toMatchObject on purpose. A seventh switch
+    // added to the form and not to the submit body is exactly the bug this catches,
+    // and toMatchObject would pass through it.
+    expect(post[2]).toEqual({
+      title: 'On silence',
+      intro: 'Because I keep finding it.',
+      hide_credit: false,
+      hide_source: false,
+      hide_commentary: false,
+      hide_colour: false,
+      show_locator: false,
+      show_date: false,
+    })
+  })
+
+  it('offers the six field switches, and sends what they are set to', async () => {
+    // The switches read POSITIVELY — Hide / Show — whatever the stored column is
+    // spelled, which is the same rule the Settings Features card follows. So
+    // "Who said it" starts on (hide_credit is false) and pressing Hide stores true;
+    // "The day you saved it" starts off (show_date is false) and pressing Show
+    // stores true. Getting that inversion backwards is a 200 that saves the reverse
+    // of what was pressed, which is the failure this test exists for.
+    list()
+    await screen.findByText('On keeping quiet')
+    fireEvent.click(screen.getByText('New anthology'))
+    fireEvent.change(await screen.findByPlaceholderText('On grief'), { target: { value: 'Passages' } })
+
+    const row = (label) => screen.getByLabelText(label).closest('div')
+    // Hide the credit: stored as hide_credit = true.
+    fireEvent.click(within(row('Who said it')).getByText('Hide'))
+    // Show the date: stored as show_date = true.
+    fireEvent.click(within(row('The day you saved it')).getByText('Show'))
+
+    fireEvent.click(screen.getByText('Create'))
+    await waitFor(() => expect(CALLS.some(([m, p]) => m === 'POST' && p === '/anthologies')).toBe(true))
+    const body = CALLS.find(([m, p]) => m === 'POST' && p === '/anthologies')[2]
+    expect(body.hide_credit).toBe(true)
+    expect(body.show_date).toBe(true)
+    // And pressing two switches did not move the other four.
+    expect(body.hide_source).toBe(false)
+    expect(body.hide_commentary).toBe(false)
+    expect(body.hide_colour).toBe(false)
+    expect(body.show_locator).toBe(false)
   })
 
   it('does not offer a way to add a quote from here, and says where the way in is', async () => {

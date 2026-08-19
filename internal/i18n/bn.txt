@@ -2151,6 +2151,21 @@ anthologies.entry.unattributed.label = নাম নেই
 # value so another language can choose its own.
 anthologies.entry.credit.label = {credit}
 anthologies.entry.credit-source.label = {credit} · {source}
+# একই লাইন, তবে কে বলেছেন সেটা বন্ধ থাকলে (0045)। আলাদা কী, যাতে ফাঁকা ঘরের পাশে
+# বিভাজকটা একলা দাঁড়িয়ে না থাকে।
+anthologies.entry.source.label = {source}
+
+# --- সংকলনে প্রতিটি উদ্ধৃতির সঙ্গে কী কী দেখাবে — আর সেটাই এক্সপোর্টেও যাবে। ছটা
+# স্বইচ, সংকলনের নিজের গায়ে: সিনেমার সংলাপের সংকলনে অভিনেতার নাম চাই, প্রবাদের বইয়ে
+# শুধু কথাগুলোই। প্রতিটি লেখা জিনিসটার নাম বলে, চালু-বন্ধ পাশের বোতামটাই বলে দেয়।
+anthologies.form.fields.label = প্রতিটি উদ্ধৃতির সঙ্গে কী থাকবে
+anthologies.form.fields.hint = পড়ার সময় যা দেখবেন, এক্সপোর্টেও তাই যাবে।
+anthologies.form.fields.credit.label = কে বলেছেন
+anthologies.form.fields.source.label = কোথা থেকে নেওয়া
+anthologies.form.fields.locator.label = অধ্যায়, পৃষ্ঠা বা সময়
+anthologies.form.fields.date.label = যেদিন তুলে রেখেছিলেন
+anthologies.form.fields.commentary.label = আপনার নিজের কথা
+anthologies.form.fields.colour.label = রঙের দাগ
 
 anthologies.toast.deleted = সংকলন মোছা হয়েছে
 anthologies.toast.entry-removed = এন্ট্রি সরানো হয়েছে
