@@ -181,3 +181,62 @@ with prose at each is a document editor.
 | same | Ownership: every route refuses another account's anthology with 404, and an entry cannot point at a quote the caller does not own. |
 | review | A themed round over an anthology draws only its entries, across all three kinds; the daily deck is unaffected — assert `dailyRemaining` is unchanged while a themed round is open, which is the specific failure `review_theme.go` warns about. |
 | export | The round trip: an anthology with commentary exports and re-imports with its order and prose intact. |
+
+---
+
+## Still ahead after 2.1.0 — decided 2026-08-19
+
+The API shipped in 2.0.0 and the screen in 2.1.0. **Per-entry commentary is BUILT**
+(`anthology_entries.note`, `EntryNoteDialog`) — the roadmap bullet asking for it is
+satisfied. What remains is the list below, and §4 stays on the roadmap with issue #18 open
+until it is done.
+
+### 1. The themed review has no button
+
+`review_theme.go` has taken an `anthology` theme since 2.0.0 and `handlePractice` refuses a
+foreign one with 404. **Backend only: nothing in the UI presses it.** This is a wiring job —
+a "Practise this anthology" control on the anthology screen, matching how a work's page
+offers the same thing.
+
+### 2. Per-entry field visibility — the choices, made with the owner
+
+**Stored per anthology, not globally and not per export.** A migration (0045 or later) puts
+the flags on the `anthologies` row so they travel with it through the export, the import, the
+bin and the account backup. The reason: a collection of film lines wants actors shown and a
+book anthology wants chapters, and a single global preference cannot express that — which is
+most of the reason to want the feature.
+
+**It changes BOTH the reading view and the export.** What you see when you read the anthology
+is what you get when you export it. An export that differs from the screen is a surprise, and
+every other export in this app round-trips faithfully.
+
+**EVERYTHING is switchable** — the owner's answer was "EVERYTHING" plus the four named
+fields, so read the list as illustrative rather than exhaustive and make the mechanism
+general:
+
+| Switch | What it hides |
+| :-- | :-- |
+| who said it | the credit — author, speaker, or character and actor |
+| where it came from | the source — book, film, or a standalone quote's occasion |
+| chapter / page / timestamp | the locator, per kind |
+| the date you saved it | `noted_at`; currently never rendered at all |
+| your commentary | the per-entry note (already stored) |
+| the colour | the category bar, which is a note to yourself and not to a reader |
+
+**Design consequence worth deciding before building:** the export's per-quote bindings are
+written by `writeQuoteBlock`/`writeBinding`, shared with the other three export formats. The
+flags must suppress bindings for an anthology WITHOUT forking that shared renderer — pass a
+filter, do not copy the function. A second copy of the quote renderer is how the four export
+formats would start to disagree.
+
+**Every default must be the zero value**, per the prefs and schema convention throughout this
+repo. So the flags are stored as `hide_*` where the thing is shown by default, and `show_*`
+where it is hidden by default (the date, which is currently never shown). Same asymmetry, and
+the same reasoning, as `hideLibrary` versus `showAnthologies`.
+
+### 3. EPUB export — DEFERRED
+
+The owner deferred it explicitly on 2026-08-19. The roadmap bullet reads "Exports as one
+Markdown file, and via §15 as EPUB"; the Markdown half is shipped. When it comes back:
+`archive/zip` in the standard library is enough for an EPUB (a ZIP of XHTML plus an OPF and
+an NCX), so it needs no new dependency — which is the only reason it is plausible here at all.

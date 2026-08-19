@@ -1,7 +1,8 @@
 # Multilingual — the Bengali half, and anyone else's
 
-**Status:** the mechanism and the English catalogue **shipped in 2.1.0**. The Bengali is
-written but not merged. This file exists for the session that finishes it.
+**Status:** the mechanism and the English catalogue **shipped in 2.1.0**; the Bengali
+**shipped in 2.1.1**, all 2,447 keys. This file is now the record of how, and of what is
+still open — the two are different lists and only the second one is work.
 
 The design is settled and was arrived at the expensive way — four rejected drafts and a
 question round that should have come first. Do not redesign it. It is recorded in
@@ -33,28 +34,44 @@ across. One file, two consumers, nothing to drift.
 
 ---
 
+## How the Bengali got written
+
+Six writers in two passes — three over the shell, the screens and the help panel, then three
+more over the 722 keys the first pass did not reach — each working from the style sheet
+below rather than from the English alone. Their fragments were staged in
+`internal/i18n/parts/`, merged into `bn.txt` in `en.txt`'s key order, and **deleted**; the
+merge is in the 2.1.1 history if it is ever needed.
+
+What the merge was checked against, after the fact and mechanically, because six writers is
+six registers unless something proves otherwise:
+
+| Check | Result |
+| :-- | :-- |
+| Key set identical to `en.txt`, same order, no duplicates, no empty values | 2,447 / 2,447 |
+| Placeholder parity — every `{hole}` present, in every string | 0 mismatches |
+| Nothing lost in the merge: every fragment key present in `bn.txt` | 0 lost |
+| Where writers disagreed, `bn.txt` holds one of **their** values, not a third | 442 contested, 0 invented |
+| সাধু (literary) register markers — ইহা, তাহা, করিয়া, হইবে, নাই | 0 |
+| তুমি / তুই anywhere in the interface | 0 |
+| আপনি spelled out where Bengali would drop it | 0 |
+| The domain terms, used consistently | দাগ 59 · সংলাপ 51 · উক্তি 53 · উদ্ধৃতি 142 · হাইলাইট 0 · কোট 0 |
+| টিপ্পনী used for anything but the app's name | 0 of 13 |
+| Sanskritised coinage where the style sheet keeps the loanword | 0 |
+| Bengali numerals in literal text, where `{n}` interpolates ASCII | 0 |
+| The help budgets — `what` ≤ 160, `how` ≤ 120, `more` ≤ 420 | 0 over, in any role |
+
+The scripts are throwaway and were not kept; the checks that should not be throwaway became
+tests instead (`help-budget`, `locale-complete`, `translated-not-sliced`).
+
+**One real defect fell out of the translation**, which is the argument for doing it at all:
+the stats calendar labelled its x axis with `monthName(m).slice(0, 3)`. Three UTF-16 code
+units is "three letters" only in English — এপ্রিল became এপ্ and অক্টোবর became অক্, while the
+other ten months survived and made it look fine. Fixed in 2.1.1 by taking the axis from
+`MONTH_KEYS`, the twelve written abbreviations the date picker already used.
+
 ## What is left
 
-### 1. Merge the Bengali — it is written, not lost
-
-Three writers produced **2,214 of 2,446 keys** before the session limit stopped them. The
-fragments are at:
-
-```
-.claude/tmp/bn-partial/bn-1.txt    730 keys   the shell and the controls
-.claude/tmp/bn-partial/bn-2.txt   1061 keys   the screens
-.claude/tmp/bn-partial/bn-3.txt    423 keys   help and the info dots (INCOMPLETE)
-```
-
-`.claude/` is gitignored and is a scratch directory — **check these still exist before
-planning around them**, and if they are gone, the style sheet below is what makes rewriting
-them cheap rather than a fresh start.
-
-To finish: complete fragment 3, concatenate into `internal/i18n/bn.txt` in `en.txt`'s key
-order keeping its section comments and the existing `_name` line, reconcile any term the
-three rendered differently (**§3 of the style sheet wins**), then delete the fragments.
-
-### 2. The style sheet is a decision, not a suggestion
+### 1. The style sheet is a decision, not a suggestion
 
 [`bengali-style.md`](bengali-style.md), 918 lines, beside this file. It is what stops three
 parallel writers producing three registers in one interface. Its load-bearing calls:
@@ -71,36 +88,45 @@ parallel writers producing three registers in one interface. Its load-bearing ca
 - A 60-word term table (§3), the loanword line (কভার, ট্যাগ, ফাইল stay; Sanskritised coinage
   does not), and three worked calque-versus-written examples (§5).
 
-### 3. Never verified
+### 2. Verified — and what the tests now hold
 
-The sceptic never ran. Nothing below has been proven, and all of it should be, because it is
-the difference between the feature working and appearing to:
+The list below was written as "never verified". It is verified now, and the checks live in
+tests rather than in this file, which is the only way they stay true:
 
-- **A stranger adding a language.** Run the template script, write `data/Locales/fr.txt` with
-  `_name` and two keys, and confirm: French appears in the picker labelled from `_name`,
-  those two strings render, the rest falls back, the coverage percentage is right, and
-  nothing logs an error a contributor would read as failure. **If any step needs a code
-  change, the requirement is not met.**
-- **The broken-config cases**, which are the normal case for a hand-edited file: no
-  directory, empty file, BOM, a line with no `=`, a value containing `=`, trailing spaces in
-  a key, an unknown locale in prefs, a `_fallback` cycle. Each must degrade, never blank.
-- **The pseudo-locale coverage number** — how many user-facing strings are *still* English
-  literals in the source. The honest measure of the migration, and it has never been read.
-  The merge agent named eight files and nine Settings cards it did not reach.
+- **A stranger adding a language** — `locale-resolve.test.js`, "the fallback chain (§8)": a
+  new `fr` file appears in the picker, is labelled from `_name`, renders its own strings and
+  falls back for the rest, with **no code change**. The `_fallback` chain is followed through
+  two hops, a `_fallback` naming nobody is ignored rather than fatal, and **a cycle
+  terminates** — including a language that is its own fallback.
+- **The broken-config cases** — `internal/i18n/i18n_test.go` and `locale-parser.test.js`
+  between them cover a mangled line (costs one string, not the file), a value containing `=`,
+  a `#` comment, a BOM before the first key, an empty value meaning *absent*, an empty file,
+  a missing directory, an empty directory, and a re-read when a file changes. An unknown
+  locale in prefs renders a built-in rather than blanking — `locale-resolve.test.js`, "the
+  preference is open (§4)".
+- **Coverage** — `locale-resolve.test.js`, "coverage (§7)", and the number is asserted rather
+  than displayed on trust.
 
-### 4. Known gaps, recorded rather than discovered later
+### 3. Known gaps, recorded rather than discovered later
 
-- **"`what` is one sentence" is Latin-script only.** The rule counts `[.?!]\s+[A-Z“]`;
-  Bengali has no case, so a Bengali paragraph passes it and is caught only by the 160-char
-  cap. A দাঁড়ি (danda) rule is worth writing once there is Bengali prose to write it against.
+- **The pseudo-locale coverage number has still never been read** — how many user-facing
+  strings are *still* English literals in the source, as opposed to keys. `locale-complete`
+  proves every key in the file is reached and every key the code asks for exists, which is a
+  different claim: it cannot see a string that never became a key. The merge agent named
+  eight files and nine Settings cards it did not reach. **This is the honest measure of the
+  migration and the one number nobody has.**
 - **The Go side's own user-facing strings are not in the catalogue.** Deliberately out of
   scope for this pass; they are listed in the mechanism agent's report.
 - **English `-s` plural fallbacks in `works.jsx`** (`nounPlural = ${noun}s`) are English
   grammar living in code. Unreachable today because every call site passes `nounPlural`, but
   removing them changes three component signatures.
-- **The help `more` bodies are in the catalogue** (the owner chose the largest scope), so
-  Bengali owes ~23,000 characters of folded prose. Fragment 3 is where that lives and is the
-  one that did not finish.
+- **The danda rule is written** — this was a gap and is now closed. `help-budget.test.js`
+  holds a sentence-break pattern **per language**: `[.?!]\s+[A-Z“]` for English, `।\s+\S` for
+  Bengali. Bengali's counts only the danda, not `?` or `!`, because this app's help copy
+  *names* those two as keys — `common.help.keyboard.what` opens with "? চাপলে", the ? being
+  the key you press, and counting it read one sentence about a question mark as two. A
+  compiled-in language with no rule is now a test failure rather than a silent exemption, so
+  a third built-in forces somebody to answer the question.
 
 ---
 

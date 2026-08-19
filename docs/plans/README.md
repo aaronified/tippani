@@ -22,10 +22,12 @@ along with twenty-three entries in the log whose grey line still read *planned*
 for features that had been running for months.
 
 Three are open now — `anthologies.md` and `access.md` for roadmap §4 and §6, and
-`multilingual.md`, whose mechanism shipped in 2.1.0 and whose Bengali has not. That last one
-is the exception the directory's own rule allows for: it describes work that is HALF done,
-and it says which half, because a plan that pretends nothing shipped is as useless as one
-that pretends everything did. `bengali-style.md` sits beside it as its appendix.
+`multilingual.md`, whose mechanism shipped in 2.1.0 and whose Bengali shipped in 2.1.1. That
+last one is the exception the directory's own rule allows for: the *language* work is done
+and it stays because two things outlast it — the record of how a six-writer translation was
+checked, and a short list of what is still open, of which the honest one is that nobody has
+measured how many strings never became keys at all. `bengali-style.md` sits beside it as its
+appendix, and is the reason a stranger could write the next language.
 `help-density.md` left at 2.0.1 by the front door, folded into PLAN.md §13; §5
 itself stays on the roadmap, because what shipped was the panel's shape and what
 that section asks for is the consolidation behind it. Their verification passes
