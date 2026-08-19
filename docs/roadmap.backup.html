@@ -366,10 +366,9 @@
         <li><a href="#interop"><span class="n">15</span>Interop</a></li>
         <li><a href="#homepage-widget"><span class="n">16</span>Homepage widget</a></li>
         <li><a href="#ops"><span class="n">17</span>Ops</a></li>
-        <li><a href="#logs"><span class="n">18</span>Structured logs</a></li>
-        <li><a href="#out-in-the-world"><span class="n">19</span>Out in the world</a></li>
-        <li><a href="#grimmory"><span class="n">20</span>Grimmory sync</a></li>
-        <li><a href="#android"><span class="n">21</span>Android app</a></li>
+        <li><a href="#out-in-the-world"><span class="n">18</span>Out in the world</a></li>
+        <li><a href="#grimmory"><span class="n">19</span>Grimmory sync</a></li>
+        <li><a href="#android"><span class="n">20</span>Android app</a></li>
       </ol>
     </details>
 
@@ -571,8 +570,9 @@
     between, and the bottom bar is already one tap away.
   </p>
   <p>
-    Discoverability rides the existing spotlight: a short gesture chapter in the tour,
-    and every gesture listed in the help panel (<a href="#help-density">§5</a>).
+    Discoverability rides the existing spotlight: a short gesture chapter in the tour.
+    The help panel already draws the two gestures that exist — the long press and the
+    drawer's leftward swipe — so a gesture added here arrives with a clip waiting for it.
   </p>
   </div>
 </details>
@@ -628,17 +628,23 @@
   <div class="sec-body">
   <p>
     The help copy lives in a registry, <code>web/frontend/src/help.jsx</code>, keyed by
-    screen — and the help panel is the only thing that reads it. The info dots, the UI
-    glossary and the tour each still carry their own copy, which means four descriptions
-    of the same control with nothing holding them together. Making it a
-    <em>single</em> source is the whole of what is left, and it is the kind of work that
-    only ever gets more expensive.
+    screen, and four <em>panels</em> read it. The info dots, the UI glossary and the tour
+    each still carry their own copy, which means four descriptions of the same control
+    with nothing holding them together. Making it a <em>single</em> source is what is
+    left, and it is the kind of work that only ever gets more expensive.
+  </p>
+  <p>
+    <strong>The panel's own shape shipped in 2.0.1</strong> and is not what remains here:
+    an entry is now one front-loaded sentence with the rest folded behind a
+    <em>more</em>, capped by a test, with a rail of screen sections, live swatches and
+    drawn gestures. That work made this section <em>cheaper</em> rather than smaller —
+    an info dot needs one short sentence, and there is now one short sentence to read.
   </p>
   <ul>
     <li><strong>The info dots should read from it.</strong> The panel does; the dots still carry their copy inline, which is precisely the drift this section exists to end.</li>
     <li><strong><a href="ui-glossary.html">The glossary</a> should be generated from it</strong> — rendered the way this page's own regions are, by a script with a <code>--check</code> mode in CI. Hand-maintained, it is still the document most likely to go quietly stale.</li>
     <li><strong>The tour should read it too.</strong> Step copy and panel copy overlap today and neither knows about the other; the same change has already had to be made twice by hand, which is the argument.</li>
-    <li><strong>Deep links</strong> — <code>/library?help=filters</code>, which the URL routing already supports.</li>
+    <li><strong>Deep links</strong> — <code>/library?help=filters</code>. Not "add a key": the shell parses a <em>pathname</em> and pushes a <em>path</em>, with no <code>URLSearchParams</code> anywhere, so whoever builds this builds the app's first query-string state.</li>
     <li><strong>The completeness test</strong>, the same shape as the one keeping <code>docs/troubleshoot.md</code> in lockstep with <code>internal/olog/codes.go</code>: every screen has an entry, every entry has copy, every dot resolves to a key. That is the difference between "explains every option" as an intention and as a guarantee.</li>
   </ul>
   </div>
@@ -662,9 +668,7 @@
   <div class="sec-body">
   <p>The tools you need after an import rather than during one.</p>
   <ul>
-    <li><strong>Find and replace across a selection</strong>, preview then apply, reusing the review-before-apply flow already built for metadata re-verify. This is the single most useful post-import tool, and it stops being optional the moment OCR capture lands.</li>
-    <li><strong>A shared text-cleanup pass</strong> — de-hyphenate across line breaks, drop page numbers and running heads, normalise the quote marks and ligatures that get mangled in transit. <a href="#android">§21</a> lists all of this as OCR post-processing, but it belongs <strong>server-side and shared</strong>, because every import source produces some of it and the typographic-folding normaliser already exists for the dedupe hash.</li>
-    <li><strong>The bulk bar on Library and Catalogue.</strong> It is on Search, Metadata and staging but not on the two main browse screens — which are where you actually notice that forty rows need the same correction.</li>
+    <li><strong>A shared text-cleanup pass</strong> — de-hyphenate across line breaks, drop page numbers and running heads, normalise the quote marks and ligatures that get mangled in transit. <a href="#android">§20</a> lists all of this as OCR post-processing, but it belongs <strong>server-side and shared</strong>, because every import source produces some of it and the typographic-folding normaliser already exists for the dedupe hash.</li>
     <li><strong>Per-batch import rollback.</strong> <code>import_batches</code> already records the source and filename, so "undo that whole import" is the natural completion of the staging story; approval is currently a one-way door.</li>
   </ul>
   </div>
@@ -773,10 +777,6 @@
   <div class="sec-body">
   <p>There is no global shortcut registry at all today, which for a text app with a large library is the biggest single desktop gap.</p>
   <ul>
-    <li><strong>A command palette</strong> on <code>⌘K</code> / <code>Ctrl-K</code> — jump to a work, run a search, capture a quote, switch theme, start the quiz. It doubles as the place every shortcut below becomes discoverable.</li>
-    <li><strong>Single-key shortcuts</strong> — <code>/</code> to search, <code>n</code> for a new quote, <code>g</code> then <code>l</code>/<code>c</code>/<code>s</code> to go to Library, Catalogue or Stats, <code>j</code>/<code>k</code> through a list, <code>f</code> to favourite, <code>e</code> to edit, <code>?</code> for the sheet. Escape-to-close is already implemented consistently across a dozen components, so half the conventions are set.</li>
-    <li><strong>Review shortcuts</strong> — <code>1</code> and <code>2</code> to grade, space to reveal, <code>u</code> to undo. Anyone arriving from an SRS tool reaches for these on reflex.</li>
-    <li><strong>Shift-click for range selection</strong>, since the bulk bar currently costs one click per row.</li>
     <li><strong>An optional denser layout</strong> — one toggle, not a redesign. The paper and film aesthetics are rightly generous for reading and expensive for triage.</li>
   </ul>
   </div>
@@ -904,22 +904,8 @@
   </div>
 </details>
 
-<details class="sec" id="logs">
-  <summary><h3><a class="sec-n" data-for="logs" href="https://github.com/aaronified/tippani/issues/34" title="Tracked as #34">§18</a>Verbose, structured logs</h3><a class="sec-issue" data-for="logs" href="https://github.com/aaronified/tippani/issues/34" title="Track this on the issue tracker">#34</a></summary>
-  <div class="sec-body">
-  <p>
-    A failed request should tell you <em>why</em> from the Docker logs, not just that
-    it failed. The plan: consistent structured logging across handlers (method · path
-    · user · outcome · <strong>cause</strong>), a <code>TIPPANI_LOG_LEVEL</code> knob
-    (quiet by default, <code>debug</code> opt-in), and request ids to correlate a
-    client error with its server line — without ever leaking internals into the HTTP
-    response.
-  </p>
-  </div>
-</details>
-
 <details class="sec" id="out-in-the-world">
-  <summary><h3><a class="sec-n" data-for="out-in-the-world" href="https://github.com/aaronified/tippani/issues/36" title="Tracked as #36">§19</a>Out in the world — directories &amp; icon CDNs</h3><a class="sec-issue" data-for="out-in-the-world" href="https://github.com/aaronified/tippani/issues/36" title="Track this on the issue tracker">#36</a></summary>
+  <summary><h3><a class="sec-n" data-for="out-in-the-world" href="https://github.com/aaronified/tippani/issues/36" title="Tracked as #36">§18</a>Out in the world — directories &amp; icon CDNs</h3><a class="sec-issue" data-for="out-in-the-world" href="https://github.com/aaronified/tippani/issues/36" title="Track this on the issue tracker">#36</a></summary>
   <div class="sec-body">
   <p>
     Getting Tippani discoverable where self-hosters actually browse. No code here —
@@ -941,7 +927,7 @@
 </details>
 
 <details class="sec" id="grimmory">
-  <summary><h3><a class="sec-n" data-for="grimmory" href="https://github.com/aaronified/tippani/issues/35" title="Tracked as #35">§20</a>Grimmory sync (self-hosted, direct MariaDB)</h3><a class="sec-issue" data-for="grimmory" href="https://github.com/aaronified/tippani/issues/35" title="Track this on the issue tracker">#35</a></summary>
+  <summary><h3><a class="sec-n" data-for="grimmory" href="https://github.com/aaronified/tippani/issues/35" title="Tracked as #35">§19</a>Grimmory sync (self-hosted, direct MariaDB)</h3><a class="sec-issue" data-for="grimmory" href="https://github.com/aaronified/tippani/issues/35" title="Track this on the issue tracker">#35</a></summary>
   <div class="sec-body">
   <p>
     A pull source for anyone already running <strong>Grimmory</strong> self-hosted:
@@ -960,7 +946,7 @@
 </details>
 
 <details class="sec" id="android">
-  <summary><h3><a class="sec-n" data-for="android" href="https://github.com/aaronified/tippani/issues/37" title="Tracked as #37">§21</a>Android app — capture by camera, with on-device OCR</h3><a class="sec-issue" data-for="android" href="https://github.com/aaronified/tippani/issues/37" title="Track this on the issue tracker">#37</a></summary>
+  <summary><h3><a class="sec-n" data-for="android" href="https://github.com/aaronified/tippani/issues/37" title="Tracked as #37">§20</a>Android app — capture by camera, with on-device OCR</h3><a class="sec-issue" data-for="android" href="https://github.com/aaronified/tippani/issues/37" title="Track this on the issue tracker">#37</a></summary>
   <div class="sec-body">
   <p>
     A native Android client, Flutter so the source stays portable, in
@@ -1040,7 +1026,7 @@
     person; this only widens coverage, which is why it is small enough to say yes to.
   </p>
   <p>
-    It should land after <a href="#metadata-sources">§12</a>, not before: once sources
+    It should land after <a href="#metadata-sources">§9</a>, not before: once sources
     are mine to pick, looking a person up should query Wikidata and not waste a call on
     TMDB. Doing it in the other order would bake in the fan-out that section exists to end.
   </p>
@@ -1174,7 +1160,7 @@
     it would be a dependency, a CPU cost, and an upload path, all on a box chosen for
     being small. What <em>has</em> changed is that I wrote this as though the server
     were the only place it could live. On-device OCR in a native app costs the server
-    nothing at all, so the feature moved to <a href="#android">§21</a> rather than
+    nothing at all, so the feature moved to <a href="#android">§20</a> rather than
     staying refused, and the share-target route (<a href="#capture">§3</a>) is still
     the no-app answer and still planned.
   </p>
@@ -1192,7 +1178,7 @@
     Tippani holds no book files, and that is a design decision rather than a gap: it
     is a home for what you <em>marked</em>, not for what you own. Grimmory, Kavita,
     Calibre-Web and Audiobookshelf all do the shelf properly, one of them is already
-    a planned sync source (<a href="#grimmory">§20</a>), and competing with them would
+    a planned sync source (<a href="#grimmory">§19</a>), and competing with them would
     mean carrying a format zoo, a streaming path and a storage story for no gain.
   </p>
   <p>
