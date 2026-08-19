@@ -1,7 +1,9 @@
 # Anthologies — roadmap §4
 
-**Status:** backend built (2.0.0, migration 0043). Frontend built, minus reordering
-by drag and the review theme — see [What shipped](#what-shipped).
+**Status:** backend built (2.0.0, migration 0043). Frontend built, minus reordering by
+drag — which [`episodes.md`](episodes.md) now owns as a shared primitive — plus the EPUB
+export §4 still asks for. The review theme shipped in 2.1.x (`7ad2a2b`); per-anthology
+field visibility shipped with migration 0045. See [What shipped](#what-shipped).
 
 Roadmap section [`#anthologies`](../roadmap.html#anthologies), issue #18. A named,
 ordered list of quotes drawn from anywhere in the library, carrying prose of its
@@ -155,7 +157,18 @@ directions post to the same `POST /anthologies/{id}/order` the drag would have u
 so the server side of reordering is finished and drag is presentation when somebody
 wants it.
 
-**Still missing:** the review theme in the section below, and drag.
+**Still missing: drag, and only drag.** The review theme shipped in `7ad2a2b` — the
+themed round the engine had been able to run since 0043, unreachable for two releases
+because `themeQuery()` copied five keys and `anthology` was the sixth.
+
+And drag is now somebody else's primitive rather than this plan's work.
+[`episodes.md`](episodes.md) needs the identical control for reordering a series'
+episodes, and specifies `ReorderList` — drag plus Alt+↑/↓, built once, with the keyboard
+route from the outset rather than retrofitted. **That is exactly the condition this
+section set** ("a drag shipped without that equivalent would be a control half the app
+cannot reach"), and the server side here has been finished since 2.0.0. So this gap
+closes as a side effect of that plan: adopting `ReorderList` over the `⋯` menu's Move
+up / Move down, posting to the same `POST /anthologies/{id}/order`.
 
 ---
 
