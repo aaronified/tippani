@@ -1,0 +1,1183 @@
+# tippani — বাংলা. The other half of this pair is en.txt beside it.
+#
+# The format is en.txt's format, and en.txt is the source of truth for both
+# sides: same keys, same order, same section banners. A comment above a key is
+# the context copied down from en.txt for whoever writes the Bengali; it is not
+# translated, because it is a note to the writer and not a string on screen.
+#
+# AN EMPTY VALUE COUNTS AS ABSENT and the resolver falls through to English, so
+# a key nobody has reached yet costs coverage and nothing else.
+#
+# TWO TEMPORARY MARKERS live in this file, both as comments ABOVE a key, never
+# inside a value — the parser ships everything after the first = to the screen:
+#
+#   # ?? …   the writer is not sure of this line
+#   # !! …   this line is too long for its cap or its control
+#
+#   grep -n '^# [?!][?!]' internal/i18n/bn.txt
+
+# How this language is labelled in the picker, in its own words.
+_name = বাংলা
+
+# ===========================================================================
+# THE LANGUAGE PICKER'S OWN WORDS.
+#
+# First in the file because they are the first strings a translator needs: the
+# row that changes the language, and the label the picker gives their own
+# file. Everything after this point is the interface itself, in the order you
+# meet it — the frame, then the screens, then the help panel.
+# ===========================================================================
+
+# The Settings row that changes the language, in the Appearance card.
+settings.language.title = ভাষা
+# The information dot beside that row.
+settings.language.info.title = ভাষা
+settings.language.info.body = টিপ্পনীর সঙ্গেই ইংরেজি আর বাংলা আসে। অন্য যে কোনও ভাষা নেহাত একটা ফাইল — data/Locales/fr.txt রেখে দিন, রিবিল্ড ছাড়াই এখানে চলে আসবে। শতাংশটা বলে অ্যাপের কতটা ঢাকা পড়ল; বাকিটা ইংরেজিতেই থাকে।
+# Shown under the picker when the stored language names a file that is no longer
+# on disk. {code} is what was stored, {name} is the language showing instead.
+settings.language.missing = {code} নেই — {name} দেখানো হচ্ছে।
+# The language chooser on the first-run screen, above the account form.
+onboarding.language.title = ভাষা
+# One row of the picker: the language's own name, then how complete it is.
+# {name} is the language's _name, {percent} is a whole number.
+locale.picker.coverage = {name} · {percent}%
+# The accessible name of the picker itself, on both screens.
+locale.picker.aria = ভাষা বাছুন
+# The pseudo-locale's row in the picker. It is not a translation: it transforms
+# every string that came from a locale file, so any English still hardcoded in
+# the source stands out on screen untransformed.
+locale.pseudo.name = সিউডো
+
+
+# ===========================================================================
+# THE FRAME — the shell, Settings, and the shared primitive layer every screen
+# borrows from.
+#
+# THE common.*, nav.*, unit.* AND vocab.* NAMESPACES ARE SHARED. A screen that
+# names a column, a countable noun or a shared verb points here rather than
+# keying its own copy of the word, which is what keeps the add form, the bulk
+# editor, the table head and the export heading spelling it the same way.
+# ===========================================================================
+
+# ---------------------------------------------------------------------------
+# nav.* — routes.js. The tab names, the desktop strip's hover labels, the phone
+# bar's screen-reader names, and the four Settings → Features rows.
+# ---------------------------------------------------------------------------
+
+nav.tab.home.label = হোম
+# Hover label on the desktop strip, which collapses to icons.
+nav.tab.home.tip = আজকের রিভিশন
+nav.tab.library.label = লাইব্রেরি
+nav.tab.library.tip = বই
+# The films / shows / games section. Its URL is /catalogue.
+nav.tab.movies.label = ক্যাটালগ
+nav.tab.movies.tip = সিনেমা, শো আর গেম
+nav.tab.quotes.label = উক্তি
+nav.tab.quotes.tip = বই-সিনেমার বাইরের কথা
+nav.tab.anthologies.label = সংকলন
+nav.tab.anthologies.tip = জড়ো করা উদ্ধৃতি
+nav.tab.tags.label = ট্যাগ
+nav.tab.tags.tip = ট্যাগ আর স্টিকার
+nav.tab.metadata.label = মেটাডেটা
+nav.tab.metadata.tip = কভার, মানুষ আর ডুপ্লিকেট
+nav.tab.stats.label = হিসেব
+nav.tab.stats.tip = ক্যালেন্ডার, স্মৃতি, কে কত
+nav.tab.settings.label = সেটিংস
+# ?? "keys" — the recovery/API key fields, or keyboard keys? Written as চাবি (the
+# ?? key fields). If it means the keyboard, this should be কীবোর্ড.
+nav.tab.settings.tip = চেহারা, চাবি, ব্যাকআপ
+nav.tab.search.label = খোঁজ
+
+# The floating phone nav is icon-only, so each row's name is read aloud rather
+# than shown.
+nav.bottom.home.aria = হোমে যান, আজকের রিভিশনে
+nav.bottom.library.aria = বইয়ের লাইব্রেরি খুলুন
+nav.bottom.movies.aria = সিনেমার ক্যাটালগ খুলুন
+nav.bottom.quotes.aria = নিজের উক্তিগুলো খুলুন
+nav.bottom.anthologies.aria = সংকলন খুলুন
+
+# The info-dot body under each switch in Settings → Features, saying what the
+# section you are about to hide actually holds.
+nav.section.library.what = বই, আর তার ভিতরে রাখা দাগ।
+nav.section.movies.what = সিনেমা, শো আর গেম, আর সেগুলোর সংলাপ।
+nav.section.quotes.what = ভাষণ, চিঠি, প্রবাদ — পিছনে কোনও উৎস নেই এমন সব কথা।
+nav.section.anthologies.what = পড়ার একটা ক্রমে সাজানো উদ্ধৃতি, মাঝে মাঝে নিজের কথা।
+
+# ---------------------------------------------------------------------------
+# vocab.* — the word lists that are not sentences. theme.js, fonts.js,
+# languages.jsx, credits.jsx, gestures.jsx, ui.jsx's source badges.
+# ---------------------------------------------------------------------------
+
+# --- vocab.category.* — what a highlight colour slot is CALLED when the reader
+# has not renamed it. NOT stored: presentation only.
+# Slot 1, where a quote lands when nobody picked a colour.
+# ?? "Default" as a category name — ডিফল্ট is the loan everybody says, but a
+# ?? native word (সাধারণ) may read better beside five Bengali category names.
+vocab.category.unset.label = ডিফল্ট
+vocab.category.blue.label = তথ্য
+vocab.category.pink.label = দ্বিমত
+vocab.category.orange.label = প্রেরণা
+vocab.category.green.label = মজার
+vocab.category.purple.label = মেটা
+
+# --- vocab.swatch.* — the sixteen colours the category picker offers, as a
+# tooltip and an accessible name on each swatch. Colour words, nothing else.
+vocab.swatch.sun.label = রোদ
+vocab.swatch.amber.label = সোনালি
+vocab.swatch.rose.label = গোলাপি
+vocab.swatch.blush.label = রাঙা
+vocab.swatch.crimson.label = লাল
+vocab.swatch.mauve.label = জাম
+vocab.swatch.violet.label = বেগুনি
+vocab.swatch.periwinkle.label = নীলাভ
+vocab.swatch.sky.label = আকাশি
+vocab.swatch.teal.label = ময়ূরকণ্ঠী
+vocab.swatch.mint.label = পুদিনা
+vocab.swatch.jade.label = পান্না
+vocab.swatch.leaf.label = পাতা
+vocab.swatch.moss.label = শ্যাওলা
+vocab.swatch.clay.label = মাটি
+vocab.swatch.stone.label = পাথর
+
+# --- vocab.accent.* — the four app accent colours, named inside a sentence in
+# Settings → Appearance ("Use the terracotta accent"), so lower case.
+vocab.accent.terracotta.label = টেরাকোটা
+vocab.accent.ochre.label = গেরুয়া
+vocab.accent.olive.label = জলপাই
+vocab.accent.slate.label = স্লেট
+
+# --- vocab.font-role.* — the six jobs type does in this app, in Settings → Type.
+# `.sample` is the specimen line, set in the face being offered, so it must be
+# text this role would actually carry — not a translation of the English one.
+vocab.font-role.display.label = উদ্ধৃতি
+vocab.font-role.display.what = কথাগুলো নিজে, আর প্রতিটা নাম।
+# ?? The display, ui, mono and hand faces are Latin-only. A Bengali specimen in
+# ?? those slots draws in an OS fallback, so it shows the reader nothing about
+# ?? the face. Kept Bengali per the style sheet; revert to Latin if it looks bad.
+vocab.font-role.display.sample = সেই সত্য যা রচিবে তুমি
+vocab.font-role.ui.label = ইন্টারফেস
+vocab.font-role.ui.what = বোতাম, ফিল্ড, যা কিছু চাপেন।
+vocab.font-role.ui.sample = কুইজে দিন · বোর্ডে পাঠান · ফাঁক ভরান
+vocab.font-role.mono.label = লেবেল
+vocab.font-role.mono.what = পৃষ্ঠা, তারিখ, সংখ্যা — ছোট হরফের লাইনগুলো।
+# Small caps and figures, which is what this role is for. Keep it that shape.
+vocab.font-role.mono.sample = অধ্যা. 12 · পৃ. 288 · 3 উদ্ধৃতি
+vocab.font-role.hand.label = নোট
+vocab.font-role.hand.what = মার্জিনে লেখা নিজের নোট, আর রাউন্ড শেষের স্কোর।
+vocab.font-role.hand.sample = বাগানের ওই জায়গাটা
+vocab.font-role.bengali.label = বাংলা
+vocab.font-role.bengali.what = যেখানেই থাক, প্রতিটা বাংলা উদ্ধৃতি।
+# Kept verbatim from en.txt: it is the specimen for the Bengali face.
+vocab.font-role.bengali.sample = যে জীবন ফড়িঙের দোয়েলের
+vocab.font-role.devanagari.label = দেবনাগরী
+vocab.font-role.devanagari.what = হিন্দি, মরাঠি, সংস্কৃত — এই হরফের সবকিছু।
+# Devanagari, and it has to stay Devanagari.
+vocab.font-role.devanagari.sample = जो बीत गई सो बात गई
+
+# --- vocab.face.* — the eighteen bundled typefaces, in Settings → Type.
+# `.name` is the face's own name: DO NOT TRANSLATE it. Kept in Latin rather than
+# transliterated because the name is set in the face itself, and half of these
+# faces cannot draw Bengali.
+vocab.face.newsreader.name = Newsreader
+vocab.face.newsreader.note = সঙ্গে যেটা আসে
+vocab.face.source-serif-4.name = Source Serif 4
+vocab.face.source-serif-4.note = পরিষ্কার, একটু চওড়া
+vocab.face.literata.name = Literata
+vocab.face.literata.note = লম্বা পড়ার জন্য
+vocab.face.hanken-grotesk.name = Hanken Grotesk
+vocab.face.hanken-grotesk.note = সঙ্গে যেটা আসে
+vocab.face.inter.name = Inter
+vocab.face.inter.note = সাদামাটা, ছোটতেও স্পষ্ট
+vocab.face.public-sans.name = Public Sans
+vocab.face.public-sans.note = আরও সাদামাটা, চৌকো
+vocab.face.ibm-plex-mono.name = IBM Plex Mono
+vocab.face.ibm-plex-mono.note = সঙ্গে যেটা আসে
+vocab.face.jetbrains-mono.name = JetBrains Mono
+vocab.face.jetbrains-mono.note = লম্বা, বেশি খোলা
+vocab.face.source-code-pro.name = Source Code Pro
+vocab.face.source-code-pro.note = শান্ত
+vocab.face.caveat.name = Caveat
+vocab.face.caveat.note = সঙ্গে যেটা আসে
+vocab.face.kalam.name = Kalam
+vocab.face.kalam.note = গোল ধাঁচ — দেবনাগরীও লেখে
+vocab.face.gloria-hallelujah.name = Gloria Hallelujah
+vocab.face.gloria-hallelujah.note = ঢিলেঢালা, বেশি অগোছালো
+vocab.face.noto-serif-bengali.name = Noto Serif Bengali
+vocab.face.noto-serif-bengali.note = সঙ্গে যেটা আসে
+vocab.face.hind-siliguri.name = Hind Siliguri
+vocab.face.hind-siliguri.note = স্যান্স — সাদামাটা, লাইনে বড় দেখায়
+vocab.face.tiro-bangla.name = Tiro Bangla
+vocab.face.tiro-bangla.note = চেনা ধাঁচ; 1.15-এর আগে এটাই আসত
+vocab.face.noto-serif-devanagari.name = Noto Serif Devanagari
+vocab.face.noto-serif-devanagari.note = সঙ্গে যেটা আসে
+vocab.face.hind.name = Hind
+vocab.face.hind.note = স্যান্স — সাদামাটা, লাইনে বড় দেখায়
+vocab.face.tiro-devanagari-hindi.name = Tiro Devanagari Hindi
+vocab.face.tiro-devanagari-hindi.note = চেনা ধাঁচ; 1.15-এর আগে এটাই আসত
+# A face the reader uploaded themselves, in the same slot as a bundled one's note.
+vocab.face.upload.note = নিজের
+
+# --- vocab.font-style.* — the modifiers offered per role in Settings → Type.
+vocab.font-style.bold.label = বোল্ড
+vocab.font-style.italic.label = ইটালিক
+vocab.font-style.smallcaps.label = স্মল ক্যাপস
+vocab.font-style.allcaps.label = অল ক্যাপস
+# `font-variant-numeric: tabular-nums` — figures that line up in a column.
+# ?? "Lining figures" — সারিবদ্ধ সংখ্যা says what it does; লাইনিং ফিগার is the
+# ?? term a Bengali typesetter would actually use. Went with the plain one.
+vocab.font-style.figures.label = সারিবদ্ধ সংখ্যা
+
+# --- vocab.gesture.* — the eleven touch gestures, drawn as a clip with the word
+# beside it. It names the gesture, never the instruction.
+vocab.gesture.long-press.label = চেপে ধরা
+vocab.gesture.swipe-left.label = বাঁয়ে সোয়াইপ
+vocab.gesture.swipe-right.label = ডাইনে সোয়াইপ
+vocab.gesture.swipe-up.label = উপরে সোয়াইপ
+vocab.gesture.swipe-down.label = নিচে সোয়াইপ
+vocab.gesture.pinch-in.label = পিঞ্চ ইন
+vocab.gesture.pinch-out.label = পিঞ্চ আউট
+vocab.gesture.two-finger-left.label = দুই আঙুলে বাঁয়ে
+vocab.gesture.two-finger-right.label = দুই আঙুলে ডাইনে
+vocab.gesture.two-finger-up.label = দুই আঙুলে উপরে
+vocab.gesture.two-finger-down.label = দুই আঙুলে নিচে
+
+# ---------------------------------------------------------------------------
+# common.action.* — THE SHARED VERBS. One key per act, however many objects it
+# is performed on. `.busy` is the transient state of the same button.
+# ---------------------------------------------------------------------------
+
+common.action.save.label = সেভ
+common.action.save.busy = সেভ হচ্ছে…
+# The pencil on a row whose name is already on screen. {field} is that name,
+# lower-cased by the caller.
+common.action.save.field.aria = {field} সেভ করুন
+common.action.cancel.label = বাতিল
+common.action.confirm.label = নিশ্চিত করুন
+common.action.delete.label = মুছুন
+common.action.close.label = বন্ধ করুন
+# The × on a window that sits over the screen. {name} is the word above — Close,
+# or whatever the caller renamed it to.
+common.action.close.window.tip = এই উইন্ডো {name}
+common.action.done.label = শেষ
+# !! 6 clusters against Add's 3 — Bengali has no bare noun for this act, so the
+# !! button is twice the English's width wherever the two sit side by side.
+common.action.add.label = যোগ করুন
+common.action.edit.label = এডিট
+common.action.edit.field.aria = {field} এডিট করুন
+common.action.copy.label = কপি
+common.action.share.label = শেয়ার
+common.action.export.label = এক্সপোর্ট
+common.action.restore.label = ফিরিয়ে আনুন
+common.action.apply.label = বসান
+common.action.apply.busy = বসানো হচ্ছে…
+common.action.undo.label = আনডু
+common.action.remove.label = সরান
+# The × on a tag pill, a cover candidate, a device row, a search chip. {name} is
+# whatever is being taken out, so the sentence is the same in all four places.
+common.action.remove.aria = {name} সরান
+# ?? "Move" and "Remove" are both সরান in the glossary's table, so Move takes
+# ?? পাঠান here — বোর্ডে পাঠান is what a Bengali would say. Reconcile at merge.
+common.action.move.label = পাঠান
+# !! 10 clusters against Reload's 6 — রিলোড fits in 4 but the term table says
+# !! আবার লোড করুন, so the sheet's word is kept and the overflow flagged.
+common.action.reload.label = আবার লোড করুন
+common.action.upload.busy = আপলোড হচ্ছে…
+common.action.load.busy = লোড হচ্ছে…
+common.action.fetch.busy = আনা হচ্ছে…
+# The verb on a button. The named MODE is quiz.practice.label — English tells the
+# two apart with an s and a c, which Bengali reproduces with two words.
+common.action.practise.label = ঝালিয়ে নিন
+common.action.capture.label = তুলে রাখুন
+common.action.filter.label = ফিল্টার
+common.action.show.label = দেখান
+# !! 7 clusters against Hide's 4, and it sits beside দেখান (3) in a two-button
+# !! pair, so the pair looks lopsided. লুকান would fit; the term table says this.
+common.action.hide.label = লুকিয়ে রাখুন
+common.action.show-less.label = কম দেখান
+common.action.got-it.label = বুঝেছি
+# The favourite toggle says what PRESSING it will do, not what the state is.
+common.action.favourite.on.label = প্রিয়তে রাখুন
+common.action.favourite.off.label = প্রিয় থেকে সরান
+# The tick on a card or a row, which names what is being picked.
+common.action.select.aria = {name} বাছুন
+common.action.deselect.aria = {name} থেকে বাছাই তুলুন
+# What the tick calls the thing when its caller did not name it.
+common.select.target.fallback = এটা
+
+# Tooltips on a table row's action cell. {noun} is what the row holds.
+common.action.copy.row.tip = এই {noun} কপি করুন
+common.action.practise.row.tip = এই {noun} নিয়ে কুইজ
+common.action.share.row.tip = এই {noun} শেয়ার করুন
+common.action.edit.row.tip = এই {noun} এডিট করুন
+common.action.delete.row.tip = এই {noun} মুছুন
+
+# ---------------------------------------------------------------------------
+# common.* — the shared component chrome from ui.jsx and works.jsx.
+# ---------------------------------------------------------------------------
+
+# The accent strip above a selectable list. {n} is how many are ticked.
+common.selection.count.one = {n}টা বাছা হয়েছে
+common.selection.count.other = {n}টা বাছা হয়েছে
+common.selection.clear.aria = বাছাই তুলে দিন
+
+# --- the calendar. Three-letter month abbreviations, because they sit in a
+# 3-column grid and in a one-line date.
+common.month.jan.label = জানু
+common.month.feb.label = ফেব
+common.month.mar.label = মার্চ
+common.month.apr.label = এপ্রি
+common.month.may.label = মে
+common.month.jun.label = জুন
+common.month.jul.label = জুলা
+common.month.aug.label = আগ
+common.month.sep.label = সেপ
+common.month.oct.label = অক্টো
+common.month.nov.label = নভে
+common.month.dec.label = ডিসে
+# A stored partial date, read back at the precision it was kept at.
+common.date.month-year.label = {month} {year}
+common.date.full.label = {day} {month} {year}
+common.date.picker.aria = তারিখ বাছুন
+common.date.picker.prev.tip = আগের তারিখ দেখান
+common.date.picker.prev.aria = আগের
+common.date.picker.next.tip = পরের তারিখ দেখান
+common.date.picker.next.aria = পরের
+# The heading of the year / month grid is also the way back up a level.
+common.date.picker.up.tip = এক ধাপ উপরে
+common.date.picker.year-range.title = {a}–{b}
+# The button that STOPS at a coarser precision — the whole point of a partial date.
+common.date.picker.just-year.label = শুধু {year}
+common.date.picker.just-month.label = শুধু {month} {year}
+common.date.pick.tip = তারিখ বাছুন
+# {field} is the name of the field being filled in.
+common.date.pick.aria = {field} বাছুন
+common.date.pick.field.fallback = তারিখ
+# The three shapes a date may be typed in. The letters are a PICTURE of what to
+# type and the field only ever holds Western digits, so they stay Latin; only
+# the joining word is Bengali.
+common.field.date.placeholder = YYYY, YYYY-MM বা YYYY-MM-DD
+common.field.year.placeholder = যেমন 1920
+
+# --- shelf states. ONE CONCEPT, TWO WORDS: a book is read and a film is
+# watched, so every state carries both. Third person, about the work.
+common.shelf.wishlist.book.label = উইশলিস্ট
+common.shelf.wishlist.film.label = উইশলিস্ট
+common.shelf.reading.book.label = পড়া চলছে
+common.shelf.reading.film.label = দেখা চলছে
+common.shelf.playing.book.label = খেলা চলছে
+common.shelf.playing.film.label = খেলা চলছে
+common.shelf.paused.book.label = থেমে আছে
+common.shelf.paused.film.label = থেমে আছে
+common.shelf.abandoned.book.label = ছেড়ে দেওয়া
+common.shelf.abandoned.film.label = ছেড়ে দেওয়া
+common.shelf.completed.book.label = শেষ
+common.shelf.completed.film.label = শেষ
+# The colour bar under a cover, read aloud. {name} is the shelf state above.
+common.shelf.progress.label = {name} — {percent}%
+# The badge on the artwork of something you are in the middle of.
+common.reading-badge.book.aria = এখন পড়ছেন
+common.reading-badge.film.aria = এখন দেখছেন
+# The ♥ in the corner of a favourited cover. Not a button — the card is.
+common.favourite.badge.aria = প্রিয়
+
+# --- the fold on a long description or a long quote.
+common.clamp.description.more.tip = গোটা বিবরণ দেখান
+common.clamp.text.more.tip = পুরো লেখা দেখান
+
+# --- shared field chrome.
+common.field.token.placeholder = যোগ করুন…
+common.field.select.placeholder = বাছুন…
+# What a row with nothing in it says, in the inline editors on a work's page.
+common.field.inline.placeholder = দেওয়া নেই
+common.field.colour.label = রং
+
+# --- the pop-up form frame.
+common.form.close.tip = সেভ না করেই বন্ধ করুন
+
+# --- the information dot.
+common.info.default.title = এটা কী
+# Announced by the dot itself; the popover carries the payload.
+common.info.dot.aria = আরও জানুন: {name}
+
+# --- key caps. The joining word between two keys of a chord ("G then L").
+common.kbd.then.label = তারপর
+# The word between the two caps of one quiz action in the shortcut sheet, where the
+# daily key is followed by the Practice one. Lower case: it labels a cap, not a row.
+common.kbd.practice.label = প্র্যাকটিস
+
+# --- help, from any screen.
+common.help.sheet.title = সাহায্য
+common.help.rail.aria = সাহায্যের বিভাগ
+# The fold on a help row, over the .more half of every entry that has one. One
+# word, lower case, because it sits under the sentence it continues.
+common.help.more.label = আরও
+# {name} is the screen you are standing on.
+common.help.button.tip = এই স্ক্রিনে কী আছে — {name}
+common.help.button.aria = সাহায্য: {name}
+
+# --- the memory status dot on every quote. The dot names the state and the ONE
+# number that matters: how long it keeps, or that it is already owed a look.
+common.status.remembered.label = মনে আছে
+common.status.forgetting.label = ভুলছেন
+common.status.probably-forgotten.label = সম্ভবত ভুলে গেছেন
+common.status.unseen.label = এখনও রিভিশন হয়নি
+# {name} is the state above, {detail} the clause after it.
+common.status.tip = {name} · {detail}
+common.status.new.detail = এ সপ্তাহে যোগ হয়েছে
+common.status.due.detail = এখনই দরকার
+# {span} is a compact duration from common.half-life.* below.
+common.status.half-life.detail = অর্ধায়ু {span}
+# A memory half-life, written as compactly as a locator. A one-letter unit beside
+# a Western digit is a symbol, not a word — left as it stands.
+common.half-life.hours.label = {n}h
+common.half-life.days.label = {n}d
+common.half-life.weeks.label = {n}w
+common.half-life.months.label = {n}mo
+
+# --- the number beside a slider, in the quiz panel. THE WHOLE READOUT IS ONE
+# STRING rather than a number with a unit glued to it. {n} is already formatted
+# to the slider's decimals; the plural form is chosen by the same value.
+common.slider.multiplier.format = {n}×
+common.slider.days.format.one = {n} দিন
+common.slider.days.format.other = {n} দিন
+
+# --- the struck flash card on a row the quiz will not draw. {kind} is the word
+# for the work it hangs off — book, film, show.
+# ?? সমেত is a shade formal, but it is the one postposition that attaches to a
+# ?? bare hole: {kind}-এর সঙ্গে would need a marker the frame cannot see.
+common.quiz-skip.with-work.label = {kind} সমেত বাদ
+common.quiz-skip.alone.label = কুইজে নেই
+
+# --- covers and posters.
+common.cover.alt = কভার: {title}
+common.cover.lightbox.untitled.aria = কভার
+common.cover.zoom.tip = কভারটা পুরো পর্দায় দেখুন
+common.cover.zoom.aria = পুরো পর্দায় কভার দেখুন: {title}
+common.cover.zoom.untitled.aria = পুরো পর্দায় কভার দেখুন
+# The word printed across a striped placeholder where artwork would be. It sits
+# in a narrow fixed slot in small caps, so shorter is better than accurate.
+common.badge.cover = কভার
+common.badge.poster = পোস্টার
+common.badge.none = নেই
+# The perforated edge of the film-strip decoration. BRANDING — DO NOT TRANSLATE.
+common.filmstrip.edge.label = TIPPANI · SAFETY FILM
+
+# --- the tiles / list / table switch.
+common.view.toggle.aria = ভিউ
+common.view.tiles.label = টাইল
+common.view.list.label = তালিকা
+common.view.table.label = টেবিল
+
+# --- tables and filter rows.
+common.table.sort.tip = এই কলাম দিয়ে সাজান
+common.filters.label = ফিল্টার
+common.filters.genre.aria = ঘরানা দিয়ে ফিল্টার
+common.filters.genre.all.label = সব ঘরানা
+common.filters.reset.aria = সব ফিল্টার তুলে দিন
+common.sheet.close.tip = এই প্যানেল বন্ধ করুন
+common.more.aria = আরও কাজ
+common.progress.aria = কতদূর
+
+# --- how a year is written. FOUR MESSAGES rather than a prefix and a suffix,
+# because "c." and "BCE" sit on the other side of the number in Bengali.
+common.year.ce.label = {year}
+common.year.bce.label = খ্রি.পূ. {year}
+common.year.circa.ce.label = আনু. {year}
+common.year.circa.bce.label = আনু. খ্রি.পূ. {year}
+
+# --- the colour a quote is filed under.
+common.colour.pick.tip = {name} বাছুন
+common.colour.current.tip = রং: {name}
+common.colour.pick.empty.tip = একটা রং বাছুন
+
+# --- where a metadata row came from.
+common.source.detail.tip = {name} · {detail}
+common.source.aria = সূত্র: {name}
+
+# The mark a proverb board wears in place of a face. {name} is the language.
+common.language-mark.aria = {name} ভাষায়
+
+# ---------------------------------------------------------------------------
+# vocab.source.* — the metadata suppliers. PROPER NOUNS: DO NOT TRANSLATE.
+# Transliterating into the reader's script is fine; renaming is not.
+# ---------------------------------------------------------------------------
+vocab.source.google.label = গুগল বুকস
+vocab.source.openlibrary.label = ওপেন লাইব্রেরি
+vocab.source.amazon.label = অ্যামাজন
+vocab.source.tmdb.label = TMDB
+vocab.source.tvdb.label = TheTVDB
+# What a row whose supplier the app does not recognise is called.
+vocab.source.unknown.label = অজানা সূত্র
+
+# ---------------------------------------------------------------------------
+# shell.* — the frame rather than a screen: App.jsx's login box, first run,
+# the drawer, both top bars, the update banner, the profile panel.
+# ---------------------------------------------------------------------------
+
+# The panel a crashed screen is replaced by. The rest of the app keeps working.
+shell.error.boundary.title = এই স্ক্রিনে কিছু একটা ভেঙেছে
+shell.error.boundary.body = বাকি অ্যাপটা ঠিকই আছে।
+# The same line when the crashed area has a name. {name} is that name.
+shell.error.boundary.named.body = {name} — বাকি অ্যাপটা ঠিকই আছে।
+
+# The legend for every keyboard shortcut at once, opened by `?`.
+shell.shortcuts.title = কীবোর্ড শর্টকাট
+shell.shortcuts.intro.prose = প্রতিটা শর্টকাট যে বোতামের কাজ করে, সেই বোতামের গায়েই লেখা আছে — তাই কোনওটা মুখস্থ রাখার দরকার নেই। টাইপ করার সময় শর্টকাট কিছুই করে না।
+# {mode} is the name of the Practice mode, in bold; {key} is a drawn key cap.
+shell.shortcuts.practice.prose = কুইজ কার্ড যে ধরনের প্রশ্ন করছে, সেই ধরনের শর্টকাটেই সাড়া দেয়। {mode} মোডে ওই একই শর্টকাটের সঙ্গে {key} লাগে — রোজকার ডেক আপনার নিজের রুটিন আর তার নম্বর পাকা, তাই যেটার ঝুঁকি কম সেটাতেই একটা আঙুল বেশি খরচ হয়।
+
+# ---------------------------------------------------------------------------
+# unit.* — EVERY COUNTABLE NOUN'S FORMS, and nothing else.
+#
+# A value here goes AFTER A NUMERAL, which is the whole reason the namespace
+# exists: in Bengali a noun after a numeral takes no plural marker at all, so
+# both forms are the same word — and both are written, because n = 0 resolves
+# to `one` in Bengali and an unwritten form falls back to English.
+# ---------------------------------------------------------------------------
+
+unit.book.one = বই
+unit.book.other = বই
+# A film, show or game as a row of the catalogue — "title" is what the three have
+# in common, and it is what the bulk bar and the wishlist folder count in.
+unit.title.one = টাইটেল
+unit.title.other = টাইটেল
+unit.film.one = সিনেমা
+unit.film.other = সিনেমা
+unit.show.one = শো
+unit.show.other = শো
+unit.quote.one = উদ্ধৃতি
+unit.quote.other = উদ্ধৃতি
+# A quote saved against a book.
+unit.highlight.one = দাগ
+unit.highlight.other = দাগ
+# A quote saved against a film or show. English runs two words for one row —
+# "film line" here and "dialogue" on the tile — because neither fits both slots.
+# Bengali needs only one.
+unit.dialogue.one = সংলাপ
+unit.dialogue.other = সংলাপ
+unit.entry.one = এন্ট্রি
+unit.entry.other = এন্ট্রি
+unit.anthology.one = সংকলন
+unit.anthology.other = সংকলন
+unit.board.one = বোর্ড
+unit.board.other = বোর্ড
+unit.tag.one = ট্যাগ
+unit.tag.other = ট্যাগ
+unit.sticker.one = স্টিকার
+unit.sticker.other = স্টিকার
+unit.item.one = জিনিস
+unit.item.other = জিনিস
+unit.work.one = উৎস
+unit.work.other = উৎস
+unit.issue.one = সমস্যা
+unit.issue.other = সমস্যা
+unit.actor.one = অভিনেতা
+unit.actor.other = অভিনেতা
+# A row of a table, which is what a table's action cell calls the thing it acts on
+# when its caller did not name it.
+unit.row.one = সারি
+unit.row.other = সারি
+
+# The sentence that puts a number in front of one of the words above. Bare, with
+# no classifier: a shared phrase cannot carry both টি (objects) and জন (people).
+common.count.phrase = {n} {noun}
+
+# ---------------------------------------------------------------------------
+# common.* continued — works.jsx: the shelf, the read log, the shared filter
+# toolbar, the work tile and its delete confirm.
+# ---------------------------------------------------------------------------
+
+# --- the primary credit, whose column is one but whose word depends on the
+# medium: a film has a director, a show a creator, a game a studio.
+common.field.director.label = পরিচালক
+common.field.creator.label = নির্মাতা
+common.field.studio.label = স্টুডিও
+# The same three as a small-caps badge on a card, in a narrow fixed slot.
+common.badge.director = পরি.
+common.badge.created-by = নির্মাতা
+common.badge.studio = স্টুডিও
+
+# --- the bucket a "group by" view puts the rows with nothing to group on.
+common.group.no-series.label = সিরিজ নেই
+common.group.no-genre.label = ঘরানা নেই
+common.group.unknown-year.label = সাল জানা নেই
+common.group.unknown-credit.label = জানা নেই
+common.group.none.label = কিছু নেই
+# A decade heading: 1920 becomes "1920s".
+common.group.decade.label = {year}-এর দশক
+# The tooltip on a group heading that names a person.
+common.person.open.tip = এই মানুষটার খুঁটিনাটি দেখুন
+
+# --- the in-progress cap. Starting one more than the shelf holds asks first.
+# {verb} is the in-progress word for the medium — reading, watching, playing.
+# ?? Written as though {verb} arrives as পড়ছেন / দেখছেন / খেলছেন. If the caller
+# ?? passes a শেলফ chip word (পড়া চলছে) this title reads wrong.
+common.work.cap.confirm.title = ইতিমধ্যেই {n}টা {verb}
+common.work.cap.confirm.action.label = তাও শুরু করুন
+common.work.cap.confirm.body = তাকে একসঙ্গে {n}টা {noun} থাকে, যাতে এক নজরে দেখে নেওয়া যায়। নিচের একটা শেষ করে দিন — আজকের তারিখেই শেষ বলে ধরা হবে, তারিখটা পরে ওর নিজের পাতায় ঠিক করে নেওয়া যায় — নয়তো এটাও শুরু করুন, তাক না হয় একটু লম্বাই হল।
+# The date prompt a shelf transition opens.
+common.work.shelf-date.hint = যতটা ঠিক জানেন ততটাই — শুধু সালটা দিলেও চলবে
+
+# --- where you are in a work, in the units it is actually counted in. These sit
+# in a narrow mono slot: E for episode, S for season, p. for page. A one-letter
+# code beside a Western digit is a symbol, not a word.
+common.position.episode.label = E{a}
+common.position.episode-season.label = {a} · S{b}
+common.position.page.label = পৃ. {a}/{b}
+
+# --- the progress editor under a work's state chip.
+common.progress.editor.title = কতদূর
+common.progress.unit.aria = কতদূরের একক
+common.progress.unit.percent.label = %
+common.progress.unit.pages.label = পৃষ্ঠা
+common.progress.unit.episodes.label = এপিসোড
+common.progress.field.season.label = সিজন
+common.progress.field.episode.label = এপিসোড
+common.progress.field.page.label = পৃষ্ঠা
+# The word between "episode 6" and "10" — 6 OF 10.
+# ?? Bengali has no word that sits between two numerals here — এর মধ্যে would
+# ?? need the total first. A slash is what a Bengali actually writes.
+common.progress.field.of.label = /
+# ?? "set" — apply is already বসান, so this small commit button takes দিন.
+common.action.set.label = দিন
+
+# --- the read / watch log.
+common.read-log.unknown.label = জানা নেই
+# A finished read, as a date range.
+common.read-log.range.label = {a} – {b}
+# One still open. {a} is the date it was started.
+common.read-log.range.open.label = {a} – চলছে
+common.read-log.abandoned.label = (ছেড়ে দেওয়া)
+# Why the open row cannot be edited here: the status control above sets it.
+common.read-log.open.hint = উপরে ঠিক হয়
+# The log's own small lower-case buttons. Lower case is the slot, not a mistake.
+common.read-log.edit.label = এডিট
+common.read-log.save.label = সেভ
+common.read-log.cancel.label = বাতিল
+common.read-log.delete.label = মুছুন
+common.read-log.add.book.label = আগের পড়া যোগ করুন
+common.read-log.add.film.label = আগের দেখা যোগ করুন
+common.read-log.started.placeholder = 2009 বা 2009-06-14
+common.read-log.finished.placeholder = 2009-06
+common.read-log.outcome.finished.label = শেষ
+common.read-log.outcome.abandoned.label = ছেড়ে দেওয়া
+common.field.started.label = শুরু
+common.field.finished.label = শেষ
+common.field.outcome.label = পরিণতি
+
+# --- the shelf chip on a work's page.
+# What the chip says when the work has no shelf state yet.
+common.shelf.shelve.label = তাকে তুলুন
+common.shelf.wishlist.tip = উইশলিস্টে কেন আছে
+common.shelf.wishlist.explainer.prose = এখান থেকে এখনও কিছু তোলা হয়নি বলেই উইশলিস্টে আছে — নিজে থেকেই, আর একটা উদ্ধৃতি রাখলেই সরে যাবে। নিচের তাকে তোলা আলাদা ব্যাপার।
+common.shelf.change.tip = তাকের অবস্থা বদলান
+# How many times it has been finished, as a multiplier.
+common.shelf.reads.label = ×{n}
+common.shelf.read-log.tip = পড়ার খাতা খুলুন
+
+# --- the shelf transitions, named by what pressing one will DO. The word follows
+# the medium: a book is read, a film watched, a game played.
+common.shelf.move.playing.again.label = আবার খেলুন
+common.shelf.move.playing.resume.label = খেলা চালান
+common.shelf.move.playing.start.label = খেলা শুরু
+common.shelf.move.reading.again.book.label = আবার পড়ুন
+common.shelf.move.reading.again.film.label = আবার দেখুন
+common.shelf.move.reading.resume.book.label = আবার ধরুন
+common.shelf.move.reading.resume.film.label = দেখা চালান
+common.shelf.move.reading.start.book.label = পড়া শুরু
+common.shelf.move.reading.start.film.label = দেখা শুরু
+common.shelf.move.paused.label = থামিয়ে রাখুন
+common.shelf.move.abandoned.label = ছেড়ে দিন
+common.shelf.move.completed.played.label = খেলা শেষ
+common.shelf.move.completed.book.label = পড়া শেষ
+common.shelf.move.completed.film.label = দেখা শেষ
+common.shelf.move.clear.label = তাক থেকে নামান
+
+# --- the work tile.
+common.poster.alt = পোস্টার: {title}
+# The count under a tile. A film's rows are called "dialogues" HERE and "film
+# lines" in the bulk vocabulary — two words for one row in English, one in
+# Bengali.
+common.work-card.count.quote.one = {n} উদ্ধৃতি
+common.work-card.count.quote.other = {n} উদ্ধৃতি
+common.work-card.count.dialogue.one = {n} সংলাপ
+common.work-card.count.dialogue.other = {n} সংলাপ
+
+# --- deleting one work, from its own card. ONE TAP, not a typed phrase: the
+# subject is the cover you just pressed and the bin holds it for thirty days.
+common.work.delete.confirm.title = {title} মুছবেন?
+common.work.delete.confirm.body.one = এখান থেকে রাখা {n}টা উদ্ধৃতি সমেত বিনে যাবে — একটাই এন্ট্রি, ফেরালে গোটাটাই ফেরে, নয়তো কিছুই নয়। নিচের বার্তায় আনডু থাকবে।
+common.work.delete.confirm.body.other = এখান থেকে রাখা {n}টা উদ্ধৃতি সমেত বিনে যাবে — একটাই এন্ট্রি, ফেরালে গোটাটাই ফেরে, নয়তো কিছুই নয়। নিচের বার্তায় আনডু থাকবে।
+# The same confirm for a work nothing is quoted from.
+common.work.delete.confirm.body.empty = বিনে যাবে, আবার ফিরিয়েও আনা যাবে। নিচের বার্তায় আনডু থাকবে।
+common.work.delete.confirm.action.label = মুছে দিন
+
+# --- the wishlist folder tile: the works you have nothing from yet, in one card.
+common.wishlist-folder.tip = যা থেকে এখনও কিছু তোলা হয়নি — সেই {n}
+common.wishlist-folder.subtitle.label = এখনও কিছু তোলা হয়নি
+
+# --- the four numbers in a work's hero. {noun} is already the plural.
+common.hero.counts.empty.label = এখনও {noun} নেই
+common.hero.counts.favourites.one = {n} প্রিয়
+common.hero.counts.favourites.other = {n} প্রিয়
+common.hero.counts.noted.label = {n}টায় নোট
+common.hero.counts.tagged.label = {n}টায় ট্যাগ
+
+# --- the sticky bar on a work's page, on a phone.
+common.detail.back.tip = তালিকায় ফিরুন
+common.action.back.label = পিছনে
+
+# --- the shared filter toolbar. The chip carries the short word and the tooltip
+# the sentence, so a chip row can lose its words on a phone and still be readable.
+common.filters.favourites.label = ♥ প্রিয়
+common.filters.favourites.tip = শুধু প্রিয়গুলো দেখান
+common.filters.tagged.label = ট্যাগ করা
+common.filters.tagged.tip = শুধু ট্যাগ করা {noun}
+common.filters.noted.label = নোট আছে
+common.filters.noted.tip = শুধু নোট আছে এমন {noun}
+# The three-way wishlist scope. "all" ignores it, "wishlist" shows only the works
+# nothing is quoted from, "annotated" hides them.
+common.filters.wish.label = উইশলিস্ট
+common.filters.wish.all.label = সব
+common.filters.wish.all.tip = সব {noun}
+common.filters.wish.only.label = উইশলিস্ট
+common.filters.wish.only.tip = শুধু যেসব {noun} থেকে কিছু তোলা হয়নি
+common.filters.wish.annotated.label = তোলা আছে
+common.filters.wish.annotated.tip = কিছু তোলা হয়নি এমন {noun} লুকিয়ে রাখুন
+common.filters.shelf.label = তাক
+common.filters.shelf.aria = তাকের অবস্থা দিয়ে ফিল্টার
+common.filters.shelf.all.label = যে কোনও অবস্থা
+common.filters.shelf.none.label = তাকে নেই
+common.filters.genre.label = ঘরানা
+common.filters.only.label = শুধু দেখান
+common.filters.sort.label = সাজান
+common.filters.sort.aria = সাজান
+# {field} is the name of the column being filtered — series, collection, actor.
+common.filters.by.aria = {field} দিয়ে ফিল্টার
+common.filters.all.label = সব {field}
+# What a book's group of related titles is called, and its plural. A film's is a
+# "collection", passed in by the Catalogue.
+common.filters.series.noun.one = সিরিজ
+common.filters.series.noun.other = সিরিজ
+common.filters.credit.noun.one = অভিনেতা
+common.filters.credit.noun.other = অভিনেতা
+# The live count in a filter sheet's footer.
+common.filters.shown.label = {n}টা দেখা যাচ্ছে
+common.action.export.shown.tip = যা দেখা যাচ্ছে এক্সপোর্ট করুন
+
+# ---------------------------------------------------------------------------
+# error.* — keyed by WHAT FAILED, never by where.
+# ---------------------------------------------------------------------------
+error.save.generic = সেভ করা গেল না
+error.save.read = এই পড়াটা সেভ করা গেল না
+error.save.watch = এই দেখাটা সেভ করা গেল না
+error.validate.partial-date = YYYY, YYYY-MM বা YYYY-MM-DD হতে হবে
+error.validate.episodes-total = এই সিজনে কটা এপিসোড?
+error.validate.pages-total = বইটায় কত পৃষ্ঠা?
+
+# ---------------------------------------------------------------------------
+# vocab.key.* — the words on a key cap. The reader is looking at a keyboard and
+# the keyboard is in Latin, so these stay as they are.
+# ---------------------------------------------------------------------------
+vocab.key.mod.mac.label = ⌘
+vocab.key.mod.label = Ctrl
+vocab.key.space.label = Space
+vocab.key.esc.label = Esc
+vocab.key.shift.label = Shift
+
+# ---------------------------------------------------------------------------
+# shell.shortcut.* — the keyboard registry. Nothing is listed here that does not
+# work, so every one of these is a promise printed on a button and in the legend.
+# ---------------------------------------------------------------------------
+shell.shortcut.group.anywhere.label = যে কোনও জায়গায়
+shell.shortcut.group.go-to.label = কোথায় যাবেন
+shell.shortcut.group.mcq.label = বহুনির্বাচনী
+shell.shortcut.group.flip.label = উল্টানো কার্ড
+shell.shortcut.group.cloze.label = শূন্যস্থান পূরণ
+shell.shortcut.search.label = খোঁজ
+shell.shortcut.capture.label = উদ্ধৃতি তুলে রাখুন
+shell.shortcut.help.label = কীবোর্ড শর্টকাট
+shell.shortcut.go-home.label = হোমে যান
+shell.shortcut.go-library.label = লাইব্রেরিতে যান
+shell.shortcut.go-catalogue.label = ক্যাটালগে যান
+shell.shortcut.go-quotes.label = উক্তিতে যান
+shell.shortcut.go-anthologies.label = সংকলনে যান
+shell.shortcut.go-stats.label = হিসেবে যান
+shell.shortcut.go-metadata.label = মেটাডেটায় যান
+shell.shortcut.go-profile.label = প্রোফাইল খুলুন
+shell.shortcut.go-settings.label = সেটিংসে যান
+shell.shortcut.pick-1.label = প্রথম উত্তর বাছুন
+shell.shortcut.pick-2.label = দ্বিতীয়টা বাছুন
+shell.shortcut.pick-3.label = তৃতীয়টা বাছুন
+shell.shortcut.pick-4.label = চতুর্থটা বাছুন
+shell.shortcut.reveal.label = উত্তর দেখান
+shell.shortcut.grade-forgot.label = ভুলে গেছি
+shell.shortcut.grade-got.label = পেরেছি
+shell.shortcut.focus-blank.label = শূন্যস্থানে লিখুন
+
+# A control's tooltip with its key appended. {name} is the tooltip, {key} the cap.
+common.shortcut.suffix.label = {name} · {key}
+# The Practice form of a quiz key, which asks for one extra finger.
+common.shortcut.shifted.label = Shift-{key}
+
+# ---------------------------------------------------------------------------
+# undo, and the last-resort failure.
+# ---------------------------------------------------------------------------
+# The toast every delete answers with. Five words or fewer: it is one glance.
+common.toast.deleted.label = মোছা হয়েছে
+# And the one undo answers with, from both places that can undo — the toast's own
+# button and the selection bar. ONE KEY, because it is one word about one act.
+common.toast.restored.label = ফিরিয়ে আনা হয়েছে
+# What errText says when the server sent no message and the caller named no
+# failure. The last resort, and it should read as one.
+error.generic = কিছু একটা গণ্ডগোল হয়েছে
+
+# The round sticker a quote flows around, on a board that lets you move it.
+common.sticker.drag.tip = টেনে জায়গা বদলান
+
+# ---------------------------------------------------------------------------
+# error.validate.* for the two typed secrets. ONE MESSAGE PER SECRET rather than
+# one sentence with the noun dropped into the front of it: the marker on
+# "password" depends on what follows it in Bengali.
+# ---------------------------------------------------------------------------
+error.validate.password.min = পাসওয়ার্ডে অন্তত {n}টা অক্ষর লাগবে
+error.validate.password.max = পাসওয়ার্ডে বড়জোর {n}টা অক্ষর চলবে
+error.validate.password.charset = পাসওয়ার্ডে শুধু অক্ষর, সংখ্যা আর যতিচিহ্ন — অ্যাকসেন্ট নয়
+error.validate.passphrase.min = পাসফ্রেজে অন্তত {n}টা অক্ষর লাগবে
+error.validate.passphrase.max = পাসফ্রেজে বড়জোর {n}টা অক্ষর চলবে
+error.validate.passphrase.charset = পাসফ্রেজে শুধু অক্ষর, সংখ্যা আর যতিচিহ্ন — অ্যাকসেন্ট নয়
+
+# ---------------------------------------------------------------------------
+# shell.* continued — App.jsx. The login box, first run, restore-before-login,
+# the drawer, both top bars, the update link and the profile panel frame.
+# ---------------------------------------------------------------------------
+
+# --- the demo ribbon, on the read-only GitHub Pages build only.
+# {link} is a link to the repository, whose words are the key below it.
+shell.demo.ribbon.prose = ডেমো · বানানো তথ্য, শুধু দেখার · আসলটার চেয়ে খসখসে — {link}
+shell.demo.ribbon.link.label = নিজে চালালে অ্যাপটা আরও পরিপাটি →
+shell.demo.roadmap.link.label = রোডম্যাপ →
+
+# --- the login form, shared by first run and every visit after it.
+common.field.username.label = ইউজারনেম
+common.field.username.placeholder = ইউজারনেম
+common.field.password.label = পাসওয়ার্ড
+common.field.password.placeholder = পাসওয়ার্ড
+common.field.passphrase.label = পাসফ্রেজ
+# The signup form's password box, which states the rule up front. {a} is the
+# shortest allowed and {b} the longest.
+shell.login.password.range.placeholder = পাসওয়ার্ড ({a}–{b})
+shell.login.cta.label = লগ ইন
+shell.login.microcopy.prose = ঢুকতে পারছেন না? অ্যাডমিন পাসওয়ার্ড বদলে দিতে পারেন
+# The toast on a successful login. {name} is the account's username.
+shell.login.toast.welcome = আবার স্বাগত, {name}
+# What the toast calls somebody whose account has no username to read.
+shell.login.reader.fallback = পাঠক
+# A blocked button prints its reason as a sentence underneath. {reason} is one of
+# the error.validate.* messages, and this key is what puts the full stop on it.
+common.form.reason.sentence = {reason}।
+
+# --- the first-run screen. The first account becomes the admin.
+shell.onboarding.title = টিপ্পনীতে স্বাগত
+shell.onboarding.subtitle.prose = এই প্রথম অ্যাকাউন্টটাই অ্যাডমিন হবে।
+shell.onboarding.cta.label = অ্যাডমিন অ্যাকাউন্ট তৈরি করুন
+shell.onboarding.microcopy.prose = একজন ইউজার হয়ে গেলে এই পাতা আর আসে না
+
+# --- restoring a backup INSTEAD of creating an account: the moving-to-a-new-box
+# path, offered on the first-run screen.
+shell.restore.title = অথবা ব্যাকআপ ফিরিয়ে আনুন
+shell.restore.what.prose = ভিতরের সবকিছু উঠে আসে — অ্যাকাউন্ট, লাইব্রেরি আর সেটিংস — তারপর সেই ব্যাকআপের ইউজারনেম-পাসওয়ার্ড দিয়েই লগ ইন করবেন।
+shell.restore.source.aria = কোথা থেকে ফেরাবেন
+shell.restore.source.server.label = এই সার্ভার
+shell.restore.source.file.label = একটা ফাইল
+# {date} is when the archive this server keeps was made, in bold.
+shell.restore.server.dated.prose = {date} তারিখের আর্কাইভ
+shell.restore.server.empty.prose = এই সার্ভারের ব্যাকআপ ফোল্ডার খালি
+shell.restore.file.aria = ফেরানোর জন্য ব্যাকআপ ফাইল বাছুন
+shell.restore.file.choose.label = ব্যাকআপ ফাইল বাছুন…
+shell.restore.passphrase.placeholder = আর্কাইভের পাসফ্রেজ
+# The archive was sealed with one account's password. {name} is that account.
+shell.restore.password.named.label = ‘{name}’ অ্যাকাউন্টের পাসওয়ার্ড
+shell.restore.password.placeholder = যে পাসওয়ার্ড দিয়ে সিল করা হয়েছিল
+shell.restore.password.recoverable.prose = আর্কাইভটা যদি এই সার্ভারেই তৈরি হয়ে থাকে, তবে এর রিকভারি চাবিতেই খুলবে — ওই অ্যাকাউন্টের যে কোনও পাসওয়ার্ড চলবে।
+shell.restore.password.era.prose = আর্কাইভ তৈরির সময় ওই অ্যাকাউন্টের যে পাসওয়ার্ড ছিল।
+shell.restore.unkeyed.prose = এই আর্কাইভ 1.4.1-এর আগেকার, এতে কোনও চাবি নেই
+shell.restore.uploading.busy = আপলোড হচ্ছে… {percent}%
+shell.restore.toast.done = ফিরিয়ে আনা হয়েছে · আবার লগ ইন করুন
+
+# --- the two nav landmarks. The drawer already claims "Primary", so the phone's
+# floating bar needs a different name or a screen reader lists two of one thing.
+shell.nav.primary.aria = মূল
+shell.nav.tools.aria = সরঞ্জাম
+shell.nav.quick.aria = দ্রুত যাতায়াত
+
+# --- the avatar chip, in both top bars and in the drawer's footer.
+shell.account.chip.tip = নিজের প্রোফাইল
+shell.account.chip.aria = প্রোফাইল — {name}
+shell.account.back.tip = বন্ধ করে ফিরুন
+shell.account.panel.close.tip = এই প্যানেল বন্ধ করুন
+# The profile screen's own name. It is a route rather than a nav tab, so it has
+# no strip entry — the avatar is its door.
+nav.tab.profile.label = প্রোফাইল
+
+# --- the ☰ drawer.
+shell.drawer.open.tip = মেনু খুলুন
+shell.drawer.open.aria = মেনু
+shell.drawer.close.aria = মেনু বন্ধ করুন
+# The app's name, and what the word means. It is the app naming itself.
+shell.drawer.tagline.label = টিপ্পনী · মার্জিনে লেখা কথা
+# What the one Add row can reach, as a badge beside it.
+shell.drawer.add.badge.label = উৎস · উদ্ধৃতি · ইমপোর্ট
+shell.drawer.pending.label = অপেক্ষায় ইমপোর্ট
+# The Metadata row's badge when the console has nothing to fix.
+shell.drawer.metadata.clear.label = সব ঠিক আছে
+shell.drawer.stats.streak.label = টানা {n} দিন
+shell.drawer.settings.version.label = v{version}
+shell.drawer.role.admin.label = অ্যাডমিন · নিজের সার্ভার
+shell.drawer.role.user.label = নিজের সার্ভার
+shell.drawer.logout.label = লগ আউট
+shell.drawer.changelog.tip = GitHub-এ রিলিজ নোট
+shell.drawer.changelog.label = v{version} · চেঞ্জলগ ↗
+shell.drawer.update.tip = {version}-এ আপডেট করুন
+shell.drawer.update.label = ↑ {version}-এ আপডেট
+
+# --- the ＋ in both top bars, which reads the route it is standing on.
+shell.add.work.label = যোগ করুন বা ইমপোর্ট
+shell.add.film.label = সিনেমা বা শো যোগ করুন
+shell.add.quote.label = উদ্ধৃতি তুলে রাখুন
+# The same button when an import is waiting in the pending queue.
+shell.add.pending.tip = {n}টা ইমপোর্ট দেখার অপেক্ষায়
+
+# --- Search, and its global mode (right-click on a desktop).
+shell.search.global.tip = সবকিছুতে খুঁজছে
+shell.search.global.aria = সবকিছুতে খুঁজুন
+
+# The crashed-screen panel names the screen by its route key, which is not a
+# translated word — keep {name} where it lands and translate the frame.
+shell.error.boundary.screen.label = {name} স্ক্রিন
+
+# ---------------------------------------------------------------------------
+# error.validate.* — what a blocked button says instead of refusing after the
+# click. Each is printed as a sentence by common.form.reason.sentence.
+# ---------------------------------------------------------------------------
+error.validate.username-required = ইউজারনেম লিখুন
+error.validate.password-required = পাসওয়ার্ড লিখুন
+error.validate.backup-file-required = ব্যাকআপ ফাইল বাছুন
+error.validate.backup-absent = এই সার্ভারে কোনও ব্যাকআপ নেই
+error.validate.archive-passphrase-required = আর্কাইভের পাসফ্রেজ লিখুন
+error.validate.archive-password-required = যে পাসওয়ার্ড দিয়ে সিল করা, সেটা লিখুন
+error.restore.failed = ফেরানো গেল না
+
+# ---------------------------------------------------------------------------
+# settings.* — Settings.jsx. Multi-author credits, colour categories, review
+# scope, the Type panel, language marks, the quiz panel, Features, button labels
+# and Appearance.
+# ---------------------------------------------------------------------------
+
+# --- multi-author credits.
+settings.credits.title = একাধিক লেখকের নাম
+settings.credits.info.title = একাধিক লেখকের নাম
+settings.credits.info.body = “Gaiman & Pratchett” ধরনের নাম বেছে দেওয়া চিহ্নে ভেঙে দু-জন মানুষ করে দেয়। বইয়ে জমা লেখকের লাইনটা অটুট থাকে, তাই যখন খুশি বদলানো যায়। লেখক যদি “Last, First” ধাঁচে রাখেন, কমাটা বন্ধ করে দিন।
+settings.credits.chip.tip = এই চিহ্নে নাম ভাঙুন
+settings.credits.off.prose = ভাঙা বন্ধ — প্রতিটা নাম একজন মানুষই থাকবে
+
+# --- colour categories. Renaming changes the words and never the stored value.
+settings.colours.title = রঙের ঘর
+settings.colours.info.body = ট্যাগ বলে উদ্ধৃতিটা কী নিয়ে; রং বলে সেটা কোন ধরনের নোট। নাম বদলালে শুধু পর্দার কথাটাই বদলায় — জমা মানটা নড়ে না, তাই এক্সপোর্ট মিলে যায়। কোনও ঘর লুকোলে সেই রঙের উদ্ধৃতির কিছুই হয় না।
+# Slot 1 has no name, and its dot says so instead of offering a rename.
+settings.colours.fixed.tip = ডিফল্ট রং
+settings.colours.fixed.info.title = এটার নাম নেই কেন
+settings.colours.fixed.info.body = রং না বাছলে উদ্ধৃতি এখানেই এসে পড়ে, রং ছাড়া ইমপোর্টও তাই। নাম দিলে যা কখনও সাজানো হয়নি সবই এমন এক ঘরে ঢুকে যেত যা আপনি বাছেননি। রংটা অবশ্য বদলাতে পারেন।
+# {name} is the category's current name.
+settings.colours.recolour.tip = রং বদলান: {name}
+settings.colours.name.aria = {name} ঘরের নাম
+settings.colours.palette.aria = {name} ঘরের রং
+settings.colours.offer.aria = এই ঘরটা দেখান
+settings.colours.hide.aria = এই ঘরটা লুকিয়ে রাখুন
+settings.colours.offer.tip = আবার দেখান
+# Two categories is the floor, so the second-to-last cannot be hidden.
+settings.colours.keep-two.tip = দুটো ঘর রাখতেই হবে
+settings.colours.hide.tip = আর দেখাবেন না
+settings.colours.reset.aria = রংটা আগের মতো করুন
+settings.colours.reset.tip = আগেরটায় ফিরুন
+
+# --- which quotes the quiz draws from. The chip names the SCREEN (nav.tab.*)
+# and the tooltip says what that screen's quotes are.
+settings.review-scope.title = রিভিশনে থাকবে
+settings.review-scope.info.title = রিভিশনে থাকবে
+settings.review-scope.info.body = রোজকার কুইজ আর প্র্যাকটিস কোন ধরনের উদ্ধৃতি থেকে টানবে, আলাদা আলাদা করে। যার বক্তাও নেই উপলক্ষও নেই সেটা ডেকে ঢোকে না — কথাটা ছাড়া মনে করার কিছু থাকে না। গত সপ্তাহে রাখা কিছুও ঢোকে না।
+settings.review-scope.books.tip = বইয়ের দাগ
+settings.review-scope.movies.tip = সিনেমা, শো আর গেমের সংলাপ
+settings.review-scope.quotes.tip = ভাষণ, চিঠি, বাকি সব
+# The last scope standing cannot be turned off, or the deck empties.
+settings.review-scope.stuck.tip = ডেকের একটা তো লাগবে
+
+# --- Settings → Type. Six roles, three faces each, all bundled.
+settings.type.title = হরফ
+settings.type.open.tip = অ্যাপের সব ফন্ট
+settings.type.intro.prose = অ্যাপের প্রতিটা ফন্ট, নিজের কাজ করতে করতেই দেখানো। প্রত্যেকটার দুটো করে বিকল্প, সবই অ্যাপের সঙ্গে আসে আর ব্যবহারে কোনও বাধা নেই — কিছুই বাইরে থেকে আনা হয় না।
+settings.type.style.title = ধাঁচ
+settings.type.upload.label = ＋ আপলোড
+settings.type.font.remove.tip = এই ফন্ট সরান
+settings.type.font.remove.confirm = {name} সরাবেন? যে কাজে এটা লাগানো আছে, সেখানে আবার সঙ্গের ফন্টটাই ফিরবে।
+# Shown when an uploaded face measures as though it does not draw the script the
+# role needs. A warning and not a refusal. {field} is the script's name.
+settings.type.script-warning.prose = এই ফন্ট {field} লেখে বলে মনে হচ্ছে না। তাও বসানো হল — নিচের লেখা যদি চৌকো বাক্স হয়ে যায়, কারণটা এটাই।
+# The script a role needs when the role does not name one.
+vocab.script.latin.label = লাতিন
+
+# --- Settings → Language marks. The mark a proverb board wears.
+settings.languages.title = ভাষার চিহ্ন
+settings.languages.open.tip = প্রবাদ কী পরে থাকে
+settings.languages.script.title = হরফ
+settings.languages.glyphs.aria = {name} ভাষার হরফ
+settings.languages.no-script.prose = {name} ভাষার জন্য কোনও হরফ নেই — নিচে নিজের একটা চিহ্ন দিন।
+# The reader's own marks, and how many of the allowance are used. {done}/{total}.
+settings.languages.customs.title = নিজের · {done}/{total}
+settings.languages.customs.aria = {name} ভাষায় নিজের চিহ্ন
+settings.languages.mark.remove.aria = {field} থেকে {name} সরান
+settings.languages.mark.remove.tip = এই চিহ্ন সরান
+settings.languages.full.prose = {name} ভাষায় নিজের {n}টা চিহ্ন আছে — নতুন দিতে হলে একটা সরান।
+settings.languages.add-mark.label = নিজের একটা যোগ করুন
+settings.languages.add-mark.placeholder = যে কোনও অক্ষর, চিহ্ন বা ইমোজি
+settings.languages.reset.aria = {name} চিহ্ন আগের মতো করুন
+settings.languages.reset.tip = হরফের অক্ষরে ফিরুন
+# Renaming a language is a DISPLAY name. The stored name stays and is shown
+# beside it, so "why does my Bangla board say Bengali" stays answerable.
+settings.languages.rename.label = যেভাবে দেখাবে (জমা আছে “{name}”)
+settings.languages.add.label = ভাষা যোগ করুন
+settings.languages.name.label = ভাষার নাম
+settings.languages.name.placeholder = ইওরুবা, সোয়াহিলি, তামিল…
+
+# --- the quiz panel.
+settings.quiz.info.body = রোজকার কুইজ আর প্র্যাকটিস দুটোই এগুলো দিয়ে চলে। কার্ডের ফাঁক বাঁধা সিঁড়ি বেয়ে ওঠে — 7, 30, তারপর 100 দিন — ঠিক উত্তরে এক ধাপ, আর একবার ভুল হলেই সোজা 7-এ।
+settings.quiz.per-day.label = রোজকার কুইজে কার্ড / দিন
+settings.quiz.in-depth.label = খুঁটিনাটি নিয়ন্ত্রণ
+settings.quiz.in-depth.tip = সব প্রশ্ন, দুই ডেকই
+settings.quiz.panel.title = কুইজের খুঁটিনাটি নিয়ন্ত্রণ
+# {name} is the deck — Daily quiz, or Practice.
+settings.quiz.deck.title = {name} যা জিজ্ঞেস করে
+settings.quiz.deck.daily.info.body = রোজকার ডেক গোড়া থেকে শেষ অবধি সার্ভারই বিচার করে, তাই নিজে বিচার করার কার্ড ওতে আসেই না। সেজন্যই উল্টানো কার্ড এই তালিকায় বন্ধ অবস্থায় নেই — একেবারেই নেই।
+settings.quiz.deck.practice.info.body = প্র্যাকটিস শুরু করে উল্টানো কার্ড দিয়ে, বাকিগুলো বদলে বদলে আসে। প্র্যাকটিসের স্কোর চালু করলে উল্টানো কার্ড বাদ পড়ে, কারণ নিজে বিচার করা উত্তর কেউ মিলিয়ে দেখে না।
+# A question type's own hint, then the reason its switch is locked.
+settings.quiz.question.locked.hint = {hint} {reason}
+settings.quiz.question.aria = {name}: {field}
+settings.quiz.practice-counts.title = প্র্যাকটিসও রুটিন নাড়ায়
+settings.quiz.practice-counts.aria = প্র্যাকটিস রুটিনে প্রভাব ফেলে
+settings.quiz.practice-counts.info.body = সাধারণভাবে প্র্যাকটিস শুধুই ঝালিয়ে নেওয়া। এটা চালু করলে প্র্যাকটিসের ঠিক উত্তরও রোজকার কুইজের মতোই অর্ধায়ু বাড়িয়ে দেবে।
+settings.quiz.submit.title = প্রতিটা উত্তর নিশ্চিত করুন
+settings.quiz.submit.aria = প্রতিটা উত্তর নিশ্চিত করুন
+settings.quiz.submit.info.body = সাধারণত এক টোকাতেই উত্তর জমা পড়ে যায়। এটা চালু করলে টোকা শুধু বেছে রাখে — মত বদলাতে পারেন, জমা দেওয়ার বোতামে তবেই লেখা হয়। উল্টানো কার্ডে কিছুই বদলায় না।
+settings.quiz.adaptive.title = মানিয়ে নেওয়া ফাঁক
+settings.quiz.adaptive.aria = মানিয়ে নেওয়া ফাঁক
+settings.quiz.adaptive.info.body = সিঁড়ি ওঠে 7 → 30 → 100 দিন, আর একবার ভুল হলেই সোজা 7-এ। মানিয়ে নেওয়ার ধাঁচে বদলে 2.5 গুণ হয়, ভুলে অর্ধেক — গোড়ায় ফেরে না। চেনা উদ্ধৃতিতে একবার হোঁচট খেলে গোটা চড়াইটা আর নষ্ট হয় না।
+settings.quiz.adaptive.ladder.label = সিঁড়ি
+# ?? "Adaptive" as the switch's on-state, one word. মানানসই is the shortest that
+# ?? still says it bends to you; it is not a standard technical term.
+settings.quiz.adaptive.on.label = মানানসই
+settings.quiz.seen.title = দেখলেই অর্ধায়ু বাড়ে
+settings.quiz.seen.label = দেখলেই অর্ধায়ু বাড়ে
+settings.quiz.seen.info.body = উদ্ধৃতি “দেখা” মানে — ঝালিয়ে নেওয়া (বাদ না দিয়ে), শেয়ার করা, বা প্রিয়তে রাখা — তাতে অর্ধায়ু একটু বাড়ে, রোজকার কুইজের হিসেবের বাইরে। 1.0× রাখলে এটা বন্ধ।
+settings.quiz.tuning.title = রুটিন কীভাবে নড়ে
+settings.quiz.tuning.info.body = প্রতিটা উত্তরে এগুলো অর্ধায়ুকে গুণ করে, আর ইচ্ছেমতো নয় — সীমা বাঁধা। 1-এর কম গুণ হলে ঠিক উত্তর দিলেই কার্ডের আয়ু কমত, যা ভাঙা বলে মনেই হত না — শুধু একই উদ্ধৃতি চিরকাল ফিরে ফিরে আসত।
+settings.quiz.reset.label = আগের মতো করুন
+settings.quiz.reset.tip = এই প্যানেলের সব বদল ফিরিয়ে দিন
+
+# --- Settings → Features. Hiding a section is cosmetic: it takes away the doors.
+settings.features.info.title = ফিচার
+settings.features.info.body = কোন বিভাগগুলো চোখের সামনে চান। একটা লুকোলে তার ট্যাব, হোমের টাইল, খোঁজের চিপ আর ＋-এর সারি থেকে নামটা যায় — আর কিছুই নয়: বই, সিনেমা, উদ্ধৃতি যেখানে ছিল সেখানেই থাকে, লিংক দিলে খুলেও যায়।
+settings.features.intro.prose = যেটা কাজে লাগে না, বন্ধ করে দিন; যেটা এখনও দেখেননি, চালু করুন। এতে চোখের সামনেরটা বদলায়, জমানো কিছুই নয়।
+settings.features.locked.prose = শেষ বিভাগটা থাকতেই হবে — আগে অন্য একটা চালু করুন।
+
+# --- button labels: whether a glyph shows its words.
+settings.labels.title = বোতামের কথা
+settings.labels.info.title = বোতামের কথা
+settings.labels.info.body = চিহ্ন আছে এমন বোতাম নিজের কথা দেখাতেও পারে, না-ও পারে। অটো ডেস্কটপে দেখায়, ফোনে লুকিয়ে রাখে। লুকোনো কথাও স্ক্রিন রিডার পড়ে শোনায়, আর প্রতিটা চিহ্ন হোভারে বা চেপে ধরলে নিজের নাম বলে।
+settings.labels.auto.label = অটো
+
+# --- Appearance.
+settings.appearance.title = চেহারা
+settings.appearance.theme.title = থিম
+settings.appearance.match.label = সিস্টেম যেমন
+settings.appearance.match.aria = সিস্টেমের থিম মেনে চলুন
+settings.appearance.manual.label = নিজে বাছুন
+settings.appearance.accent.title = অ্যাকসেন্ট
+# {name} is one of the vocab.accent.* words.
+settings.appearance.accent.tip = {name} অ্যাকসেন্ট বসান
+settings.appearance.accent.aria = {name} অ্যাকসেন্ট
+settings.appearance.book-size.label = লাইব্রেরির কভারের মাপ
+settings.appearance.film-size.label = ক্যাটালগের পোস্টারের মাপ
+
+# --- yes / no, the two words every switch in the quiz panel uses.
+vocab.yes.label = হ্যাঁ
+vocab.no.label = না
+
+error.delete.font = ফন্টটা সরানো গেল না
+# A language may keep only so many marks of its own. {name} is the language,
+# {n} the allowance.
+error.validate.marks-full = {name} ভাষায় নিজের {n}টা চিহ্ন আছেই — আগে একটা সরান।
+
+
+# ===========================================================================
+# THE REST OF THE SHARED VOCABULARY — common.field.* and one shell key.
+#
+# These sit in namespaces the frame section above also writes into, and they are
+# down here rather than up there because a screen asked for them first.
+# ===========================================================================
+
+# The stored-column labels. THE POINT OF ONE KEY PER COLUMN is that the add
+# form, the bulk editor, the table head, the share credit and the export
+# heading agree.
+common.field.title.label = নাম
+common.field.author.label = লেখক
+common.field.translator.label = অনুবাদক
+common.field.editor.label = সম্পাদক
+common.field.year.label = সাল
+common.field.series.label = সিরিজ
+common.field.series-no.label = সিরিজে নম্বর
+common.field.isbn.label = ISBN
+common.field.asin.label = ASIN
+common.field.genres.label = ঘরানা
+common.field.genres.placeholder = ঘরানা যোগ করুন…
+common.field.description.label = বিবরণ
+common.field.note.label = নোট
+common.field.tags.label = ট্যাগ
+common.field.tags.placeholder = ট্যাগ যোগ করুন…
+common.field.quote.label = উদ্ধৃতি
+common.field.chapter-no.label = অধ্যায় নম্বর
+common.field.chapter-name.label = অধ্যায়ের নাম
+common.field.location.label = লোকেশন
+common.field.character.label = চরিত্র
+common.field.actor.label = অভিনেতা
+common.field.timestamp.label = সময়
+common.field.season.label = সিজন
+common.field.episode.label = এপিসোড
+common.field.speaker.label = বক্তা
+common.field.occasion.label = উপলক্ষ
+common.field.occasion.placeholder = একটা ভাষণ, একটা চিঠি…
+common.field.place.label = জায়গা
+common.field.place.placeholder = কোথায়
+common.field.medium.label = মাধ্যম
+common.field.medium.placeholder = রেডিও, ভাষণ, চিঠি…
+common.field.language.label = ভাষা
+common.field.language.placeholder = বাংলা, হিন্দি…
+common.field.translation.label = অনুবাদ
+common.field.translation.placeholder = ইংরেজিতে কী বলছে
+common.field.media-type.label = ধরন
+common.field.name.label = নাম
+common.field.name.placeholder = নাম…
+common.field.tag.label = ট্যাগ
+common.field.style.label = ধাঁচ
+common.field.board.label = বোর্ড
+common.field.anthology.label = সংকলন
+common.field.sticker.label = স্টিকার
+
+# The shell's ? — reached from a work page's own ⋯ menu as well as the top bar.
+shell.help.menu.label = এই স্ক্রিনে কী আছে
+
+# ---------------------------------------------------------------------------
+# THE LAST FEW, found by sweeping the twenty-five files for a literal still
+# sitting in a label, a title or a placeholder prop.
+# ---------------------------------------------------------------------------
+# The ♥ filter chip, on the Library board and the Catalogue board.
+common.favourite.filter.tip = শুধু প্রিয়

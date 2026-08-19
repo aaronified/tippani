@@ -1,0 +1,538 @@
+# Writer 4's fragment — the shared vocabulary: common.*, vocab.* and unit.*.
+# Keys are in en.txt's own order, with en.txt's context comments carried down.
+# Scratch: merged into bn.txt, then deleted.
+#
+#   # ?? …   the writer is not sure of this line
+#   # !! …   this line is too long for its cap or its control
+
+# ---------------------------------------------------------------------------
+# THE FACET GRAMMAR (facets.js)
+#
+# NOTE FOR THE TRANSLATOR: the FIELD names in the search box — tag:, author:,
+# colour: — are deliberately NOT here. They are grammar the box parses, not
+# copy, and translating one would stop the box understanding what was typed.
+# Only the two values below are words.
+# ---------------------------------------------------------------------------
+
+# The only two facet values the app supplies itself: the dropdown offered for
+# favourite:, note: and wishlist:. The wire still carries yes/no; this is what
+# the reader picks from and types over.
+vocab.yesno.yes.label = হ্যাঁ
+vocab.yesno.no.label = না
+
+# ---------------------------------------------------------------------------
+# ACTING ON A SELECTION (bulkOps.jsx) — shared by the selection bar and by one
+# work card's own menu, so common.* rather than any one screen.
+# ---------------------------------------------------------------------------
+
+# The toast after acting on a selection. {n} is how many rows were touched — which
+# is what makes it a different string from common.toast.deleted.label above and not
+# a second copy of it. Undoing says common.toast.restored.label, up there, because
+# undoing one row and undoing forty say the same word.
+common.toast.deleted = {n}টা মোছা হয়েছে
+# Fill gaps: the three outcomes. "nothing was missing" is the GOOD case and has
+# to read like one, or people learn to distrust the button.
+common.selection.fill.toast.nothing-missing = কোনও ঘরই ফাঁকা ছিল না
+common.selection.fill.toast.none-fetched = কিছুই আনা গেল না
+# {n} counts FIELDS filled, not works — "filled 3 books" over a selection of
+# forty reads as a failure where "filled 7 fields" reads as the win it is.
+common.selection.fill.toast.filled = {n}টা ঘর ভরা হল
+
+# Under one field of the bulk edit sheet, warning what setting it would destroy.
+# {n} is how many rows already hold a value; {value} is that value when they all
+# agree; {distinct} is how many different ones there are when they do not.
+common.selection.edit.overwrite.same = যে {n}টায় আগে থেকেই “{value}” আছে, সেগুলোও বদলে যাবে
+common.selection.edit.overwrite.differ = {n}টা বদলে যাবে — তাতে এখন {distinct} রকম মান আছে
+
+# ---------------------------------------------------------------------------
+# THE CARD AND SELECTION ACTIONS (actions.jsx, selection.jsx, SelectionBar.jsx)
+#
+# One registry drives a card's ⋯ menu AND the bar a selection puts up, so all
+# of this is common.*. Every label is FIVE WORDS OR FEWER — the house rule —
+# and every one of them names what pressing it will DO, never where the row
+# currently stands.
+# ---------------------------------------------------------------------------
+
+# What a card menu calls its own subject, dropped into the tooltips below. A
+# film or show is "this title" because that is the word the delete confirmation
+# uses too. In Bengali the case marker belongs on the noun, so it is carried
+# here rather than in the sentences that quote it.
+# The four sentences below take a bare object, so none of the three needs a
+# marker; they are written to match writer 1's common.action.*.row.tip frames.
+common.subject.book.label = এই বই
+common.subject.movie.label = এই টাইটেল
+common.subject.quote.label = এই উদ্ধৃতি
+
+# The card actions. .label is the menu row, .tip the hover tooltip.
+common.action.copy.tip = {subject} কপি করুন
+common.action.share.tip = {subject} শেয়ার করুন
+common.action.edit.tip = {subject} এডিট করুন
+common.action.delete.tip = {subject} মুছুন
+# Fetch only what is MISSING and touch nothing else.
+common.action.fill.label = ফাঁক ভরান
+common.action.fill.tip = ফাঁকা ঘরগুলো ভরান
+# While it is fetching.
+# A themed quiz round over one book or one title.
+common.action.practise.tip = {subject} নিয়ে কুইজ
+# The quiz toggle, which flips to name what pressing it will do.
+common.action.review.add.label = কুইজে দিন
+common.action.review.add.tip = আবার কুইজে ফেরান
+common.action.review.skip.label = কুইজ থেকে বাদ দিন
+common.action.review.skip.tip = কুইজের বাইরে রাখুন
+# The other flipping pair: .on when the row is NOT a favourite yet, .off when
+# it already is. Bengali negation is a different construction, so both are keys.
+# English shortens these for the menu row; Bengali has one pair of words for the
+# act, so the menu says exactly what writer 1's common.action.favourite.* says.
+common.action.favourite.menu.on.label = প্রিয়তে রাখুন
+common.action.favourite.menu.off.label = প্রিয় থেকে সরান
+common.action.favourite.tip = {subject} প্রিয়তে রাখুন
+# Filing a standalone quote on a different board.
+common.action.board.label = বোর্ডে পাঠান
+common.action.board.tip = অন্য বোর্ডে রাখুন
+# The bulk-only actions: recolour, tag, sticker ("seal"), shelf, anthology, and
+# setting fields across several works at once.
+common.action.colour.label = রং
+common.action.add-tags.label = ট্যাগ যোগ করুন
+# ?? standing alone on a menu row, সিল may read as a rubber stamp rather than as
+# ?? the sticker pinned into a quote. The term table binds it; flagging it once.
+common.action.seal.label = সিল
+common.action.shelf.label = তাক
+common.action.anthology.label = সংকলনে দিন
+# ?? "Set fields" — the bulk editor that writes a value across a selection. ফাঁক
+# ?? ভরান is taken by fill-gaps, so this one says "put a value in a field".
+common.action.set-fields.label = ঘরে মান দিন
+
+# The select controls a card's own menu puts above its actions. {n} is how many
+# cards are on screen — never how many the library holds, because a filter may
+# be hiding four hundred.
+common.selection.menu.select.label = বাছুন
+common.selection.menu.deselect.label = বাছাই তুলুন
+common.selection.menu.select-all.label = {n}টাই বাছুন
+common.selection.menu.deselect-all.label = সব বাছাই তুলুন
+
+# THE SELECTION BAR. The count badge at the left empties the picks and leaves
+# the bar standing; the ✕ at the right ends the mode. {noun} arrives already in
+# the right form from unit.*.
+common.selection.deselect-all.label = সব বাছাই তুলুন
+# Spoken and hovered when nothing is picked. A bare 0 in a count reads as
+# something having gone wrong, so zero is worded rather than numbered.
+common.selection.none.aria = কোনও {noun} বাছা হয়নি
+common.selection.count.aria = সব বাছাই তুলুন — {n} {noun} বাছা হয়েছে
+common.selection.count.tip = {n} {noun} বাছা হয়েছে
+common.selection.colour.aria = বাছা {n}টার রং বদলান
+common.selection.shelf.aria = বাছা {n}টা তাকে তুলুন
+common.selection.shelf.tip = তাকে তুলুন
+# The first row of the shelf menu: take the selection off its shelf entirely.
+common.selection.shelf.clear.label = তাক থেকে নামান
+common.selection.more.aria = বাছা {n}টার জন্য আরও
+common.selection.more.tip = আরও কাজ
+common.selection.dismiss.aria = বাছাই বন্ধ করুন
+
+# Toasts after a bulk action. {n} is how many rows were touched.
+common.selection.toast.recoloured = {n}টার রং বদলাল
+common.selection.toast.tagged = {n}টায় ট্যাগ বসল
+common.selection.toast.sealed = {n}টায় সিল বসল
+common.selection.toast.seals-removed = সিল উঠে গেল
+common.selection.toast.favourited = {n}টা প্রিয়তে গেল
+common.selection.toast.moved = {n}টা পাঠানো হল
+common.selection.toast.back-in-quiz = আবার কুইজে ঢুকল
+common.selection.toast.skipping = {n}টা কুইজ থেকে বাদ
+# Gathering into an anthology. A quote already there is SKIPPED, not an error,
+# so the second form reports both numbers rather than claiming they all landed.
+common.selection.toast.gathered = {n}টা জড়ো হল
+common.selection.toast.gathered-some = {n}টা জড়ো হল, {skipped}টা আগেই ছিল
+
+# The delete confirmation. The reader has to TYPE {phrase} — and {phrase} is
+# still assembled in English by bulkOps.deletePhrase, because the Go server
+# compares it byte for byte. Translating this sentence without the server would
+# make the control impossible to satisfy.
+common.selection.delete.confirm.title = {n} {noun} মুছবেন?
+common.selection.delete.confirm.body.work = এখান থেকে রাখা সব উদ্ধৃতি সমেত বিনে যাবে — গোটা বাছাইয়ের একটাই এন্ট্রি, ফেরালে সবটাই ফেরে, নয়তো কিছুই নয়। নিশ্চিত করতে {phrase} লিখে দিন।
+common.selection.delete.confirm.body.quote = বিনে যাবে, আবার ফিরিয়েও আনা যাবে — গোটা বাছাইয়ের একটাই এন্ট্রি, আর নিচের বার্তায় আনডু থাকবে। নিশ্চিত করতে {phrase} লিখে দিন।
+common.selection.delete.confirm.phrase.aria = নিশ্চিত করার কথাগুলো লিখুন
+common.selection.delete.confirm.action.label = মুছে দিন
+
+# The tag sheet the bar opens. Every tag is ADDED; nothing is removed.
+common.selection.tags.title = {n}টায় ট্যাগ
+common.selection.tags.body = এখানে যা যা দেবেন, {n}টার সবগুলোতেই যোগ হবে। আগে থেকে যা আছে তার কিছুই সরে না।
+common.selection.tags.placeholder = ট্যাগ যোগ করুন
+common.selection.tags.input.aria = বাছা সবগুলোয় যে ট্যাগ যোগ হবে
+
+# The sticker sheet. "none" is the option that takes the seal off.
+common.selection.seal.title = {n}টায় সিল
+common.selection.seal.body = গোটা বাছাইয়ের জন্য একটাই স্টিকার। “কিছু না” বাছলে সবার গা থেকে সিল উঠে যায়।
+
+# ---------------------------------------------------------------------------
+# THE TAGS SCREEN (TagsPage.jsx) and THE STICKER LIBRARY (stickers.jsx)
+# ---------------------------------------------------------------------------
+
+# The three lower-case word links on a small card — deliberately lower case, so
+# they are their own strings and not the Title Case buttons of the same name.
+# Bengali has no case, so these are the same words twice; that is expected.
+common.link.practise.label = ঝালিয়ে নিন
+common.link.edit.label = এডিট
+common.link.delete.label = মুছুন
+
+# THE STICKER PICKER, which appears in every add and edit form and in the
+# selection bar's seal sheet — not only on the Tags screen.
+# The alt text on a sticker image that has no name of its own.
+common.sticker.image.alt = স্টিকার
+# The first option in the strip: no seal on this quote.
+common.sticker.none.label = কিছু না
+common.sticker.none.tip = কোনও স্টিকার নয়
+common.sticker.use.tip = “{name}” বসান
+# The same tooltip for a sticker nobody has named yet.
+common.sticker.use-any.tip = সিল হিসেবে বসান
+common.sticker.upload.tip = নতুন স্টিকার আপলোড করুন
+
+# ---------------------------------------------------------------------------
+# QUOTE BOARDS (quotes.jsx)
+# ---------------------------------------------------------------------------
+
+# THE MOVE-TO-BOARD SHEET, opened from a card's ⋯ and from the selection bar,
+# so common.* rather than quotes.*. A board only ever holds উক্তি.
+common.board.move.title.one = এই উক্তি পাঠান
+common.board.move.title.other = {n}টা উক্তি পাঠান
+common.board.move.body.one = কোন বোর্ডে থাকবে, সেটাই। উক্তির আর কিছুই বদলায় না।
+common.board.move.body.other = {n}টাই এক বোর্ডে যাবে। আর কিছুই বদলায় না।
+common.board.move.empty = পাঠানোর জায়গা নেই — আগে একটা বোর্ড তৈরি করুন।
+common.board.move.select.placeholder = বোর্ড বাছুন
+
+# Two more shared verbs, and the pair on a board's own menu. The words say what
+# pressing them DOES, so Hide is on a board that is currently visible.
+common.action.create.label = তৈরি করুন
+
+# ---------------------------------------------------------------------------
+# ANTHOLOGIES (anthologies.jsx)
+# ---------------------------------------------------------------------------
+
+# THE ADD-TO-ANTHOLOGY SHEET, opened from the selection bar on three different
+# screens, so common.* rather than anthologies.*.
+common.anthology.add.title.one = এই উদ্ধৃতি যোগ করুন
+common.anthology.add.title.other = {n}টা উদ্ধৃতি যোগ করুন
+common.anthology.add.body.one = সংকলনের শেষে গিয়ে বসবে। উদ্ধৃতিটা যেখানে আছে সেখানেই থাকে।
+common.anthology.add.body.other = {n}টাই সংকলনের শেষে গিয়ে বসবে। উদ্ধৃতিগুলো যেখানে আছে সেখানেই থাকে।
+# Reachable with the Anthologies section switched OFF, which is why it names the
+# switch as well as the screen — a dead end otherwise.
+common.anthology.add.empty = এখনও কোনও সংকলন নেই — সংকলন স্ক্রিনে গিয়ে একটা তৈরি করুন (সেটিংস → ফিচার)।
+common.anthology.add.select.placeholder = সংকলন বাছুন
+
+# Reordering an entry. No drag: a drag has no keyboard equivalent, and a menu row
+# is reachable by tab, by arrow key and by a thumb.
+common.action.move-up.label = উপরে তুলুন
+common.action.move-down.label = নিচে নামান
+
+# ---------------------------------------------------------------------------
+# SHARED FILTER AND FORM CHROME
+# ---------------------------------------------------------------------------
+
+# The lower-case small-caps labels above a control in a filter sheet or a form.
+# Their Title Case twins are common.field.*.label and are different strings.
+# A MONO SLOT: one word each, as short as the sense allows.
+common.mono.colour.label = রং
+common.mono.group.label = ভাগ
+common.mono.tag.label = ট্যাগ
+common.mono.speaker.label = বক্তা
+common.mono.medium.label = মাধ্যম
+common.mono.language.label = ভাষা
+
+# Filter controls shared by the Library, the Catalogue and Quotes.
+common.filters.tag.aria = ট্যাগ দিয়ে ফিল্টার
+common.filters.tag.all.label = সব ট্যাগ
+common.filters.group.aria = কী দিয়ে ভাগ করা হবে
+
+# ---------------------------------------------------------------------------
+# SHARING A QUOTE (share.jsx, quoteImage.js)
+# ---------------------------------------------------------------------------
+
+# The two-state toggles this screen uses, and the copy button's done state.
+common.toggle.on.label = চালু
+common.toggle.off.label = বন্ধ
+common.action.copy.done.label = কপি হয়েছে ✓
+common.toast.copied = কপি হয়েছে
+
+# ---------------------------------------------------------------------------
+# THE QUIZ CARD (review.jsx)
+# ---------------------------------------------------------------------------
+
+# The page locator on a book card. Small caps in a narrow slot.
+common.locator.page.label = পৃ. {n}
+common.toast.saved = সেভ হয়েছে
+
+# ---------------------------------------------------------------------------
+# THE FAVOURITES WALL (Home.jsx)
+# ---------------------------------------------------------------------------
+
+# The small caps kind tag on a favourite tile. SMALL CAPS IN A FIXED SLOT —
+# three or four characters is all that fits, and a script with no case will
+# need a shorter word rather than a translated one.
+common.badge.book = বই
+common.badge.film = সিনেমা
+common.badge.show = শো
+common.badge.quote = উদ্ধৃতি
+
+# The colour swatch row on a card.
+common.colour.category.aria = রঙের ঘর
+
+# ---------------------------------------------------------------------------
+# A WORK'S OWN DETAILS PANEL (WorkDetails.jsx)
+#
+# One panel serves a book and a Catalogue title, and it has three views: the
+# fields, a lookup, and the field-by-field comparison a match is adopted
+# through. A form field is a ঘর throughout, as writers 2 and 3 already have it.
+# ---------------------------------------------------------------------------
+
+# The three views. The titles match the info dots another writer already holds.
+common.work.details.title = খুঁটিনাটি
+common.work.lookup.title = মেটাডেটা আনুন
+common.work.merge.title = কী কী রাখবেন
+# On the header ✓ while nothing has been edited. Five words.
+common.work.details.nothing-to-save.hint = সেভ করার কিছু নেই
+common.work.fetch.label = মেটাডেটা আনুন
+common.work.lookup.back.aria = ঘরগুলোয় ফিরুন
+common.work.lookup.pick.label = সবচেয়ে কাছের মিলটা বাছুন
+# {noun} is a book or a title, from unit.*.
+common.work.delete.aria = এই {noun} মুছুন
+
+# A supplier id field: it edits like any other and reads as a link.
+common.work.id.placeholder = id লিখুন, বা মেটাডেটা আনুন
+# ?? {source} is a supplier's name and Bengali would put a different marker on
+# ?? each one (গুগল বুকসে, TMDB-তে), so the frame keeps the hole bare and adds
+# ?? সাইটে. Reconcile if a better bare frame exists.
+common.work.id.open.tip = {source} সাইটে খুলুন
+# The id as it reads when it is not being edited. The arrow means "opens away".
+common.work.id.display.label = #{n} ↗
+
+# Saving. {field} is a field name, already lower-cased by the caller.
+common.work.field-saved.toast = {field} সেভ হয়েছে
+common.work.fields-saved.toast.one = 1টা ঘর সেভ হয়েছে
+common.work.fields-saved.toast.other = {n}টা ঘর সেভ হয়েছে
+
+# THE COMPARISON VIEW. Fields you have nothing in are pre-ticked; anything
+# already filled starts unticked, so a match can never quietly overwrite you.
+common.work.merge.back.aria = মিলগুলোয় ফিরুন
+common.work.merge.all.aria = সব ঘরই নিন
+common.work.merge.all.tip = সবটাই নিন
+common.work.merge.none.aria = কোনও ঘরই নয়
+common.work.merge.none.tip = কিছুই নয়
+common.work.merge.empty = আপনার কাছে যা আছে, এই মিলটাও ঠিক তাই বলছে — বদলানোর কিছু নেই।
+common.work.merge.row.tip = এই ঘরটা নিন
+# The two columns of a comparison row: what you have, and what the match offers.
+# আপনার stays: this is the one place possession is the actual point.
+common.work.merge.yours.label = আপনার
+common.work.merge.theirs.label = সূত্রের
+# In the "yours" column when you have nothing there. Not "0", which is what an
+# unset year actually stores.
+common.work.merge.blank.label = এখনও কিছু নেই
+common.work.merge.take.one = {n}টা ঘর নিন
+common.work.merge.take.other = {n}টা ঘর নিন
+common.work.merge.toast.one = {n}টা ঘর বদলাল
+common.work.merge.toast.other = {n}টা ঘর বদলাল
+# The all-in option on the Catalogue side: the CAST is the reason to reach for
+# it, because a search result never carries one.
+common.work.resync.label = আবার সব আনুন
+common.work.resync.busy = সব আনা হচ্ছে…
+common.work.resync.toast = সূত্র থেকে সব আনা হল
+
+# ---------------------------------------------------------------------------
+# THE CATALOGUE'S OWN VOCABULARY
+# ---------------------------------------------------------------------------
+
+# THE THREE THINGS A CATALOGUE ROW CAN BE. One list, so the display and the
+# picker cannot offer different sets. "movie" is the stored token; the WORD is
+# Film, because that is what a reader calls it.
+vocab.kind.movie.label = সিনেমা
+vocab.kind.show.label = শো
+vocab.kind.game.label = গেম
+
+# The suppliers a work can be looked up on. ⚠ PROPER NOUNS — do not translate.
+# Left in Latin beside writer 1's TMDB and TheTVDB, since all four are acronyms.
+vocab.source.imdb.label = IMDb
+vocab.source.igdb.label = IGDB
+
+# Field labels this panel needs that no other screen names. A show has a
+# CREATOR where a film has a director; a game has a STUDIO, and its franchise is
+# a series where a film's is a collection — one word, সিরিজ, for both.
+common.field.publisher.label = প্রকাশক
+common.field.collection.label = সিরিজ
+common.field.collection-no.label = সিরিজে নম্বর
+common.field.cover.label = কভার
+common.field.poster.label = পোস্টার
+
+# ---------------------------------------------------------------------------
+# THE ＋ SURFACE (AddSurface.jsx)
+# ---------------------------------------------------------------------------
+
+# THE FOUR KINDS the ＋ can add. A book goes to the Library; a film, a show and
+# a game all go to the Catalogue.
+vocab.kind.book.label = বই
+
+# Placeholders shared with the Quotes screen's own form. A real person is spoken
+# of with the honorific; a character in a film is not.
+common.field.speaker.placeholder = কে বলেছেন
+common.field.character.placeholder = কে বলছে
+
+# ---------------------------------------------------------------------------
+# STATS (StatsPage.jsx)
+# ---------------------------------------------------------------------------
+
+# A YEAR AND A DECADE, WRITTEN THE WAY THEY ARE SAID. The "s" on a decade is an
+# English plural and a BCE decade is named by the START of it as spoken — the
+# 480s BCE runs from 489 to 480. These sit in narrow ticks under a chart.
+# !! 11 clusters against {year}s' one letter, in a narrow tick. Bengali has no
+# !! suffix for a decade; dropping -এর would read as a bare year beside a noun.
+# !! Matches writer 1's common.group.decade.label, which has room for it.
+common.year.decade.label = {year}-এর দশক
+# !! Worse: 16 clusters. খ্রি.পূ. goes before the year and cannot be shortened.
+common.year.decade.bce.label = খ্রি.পূ. {year}-এর দশক
+
+# The twelve months, spelled out. Only used for that tile and the calendar's
+# x axis, which shows the FIRST THREE LETTERS of whatever is written here.
+# ?? StatsPage slices the first three CODE UNITS, so এপ্রিল and অক্টোবর come out
+# ?? as এপ্ and অক্ — a dangling hasant. The other ten slice cleanly. Writer 1's
+# ?? common.month.* already holds proper abbreviations if the axis can use them.
+vocab.month.1.label = জানুয়ারি
+vocab.month.2.label = ফেব্রুয়ারি
+vocab.month.3.label = মার্চ
+vocab.month.4.label = এপ্রিল
+vocab.month.5.label = মে
+vocab.month.6.label = জুন
+vocab.month.7.label = জুলাই
+vocab.month.8.label = আগস্ট
+vocab.month.9.label = সেপ্টেম্বর
+vocab.month.10.label = অক্টোবর
+vocab.month.11.label = নভেম্বর
+vocab.month.12.label = ডিসেম্বর
+
+# ---------------------------------------------------------------------------
+# ONE HIGHLIGHT, as a card. This card is drawn on four screens, so common.*.
+# The card only ever holds a book highlight, so Bengali says দাগ where the
+# English says the umbrella word.
+# ---------------------------------------------------------------------------
+common.quote.edit.title = দাগ এডিট করুন
+common.quote.pick.label = এই দাগ
+# The chapter and page locator under a highlight. ⚠ "CH." in en.txt is spelled
+# the same way the Markdown export writes a chapter heading; that prefix is
+# hardcoded in text.js, not read from here, so this label is free to be Bengali.
+common.locator.chapter.label = অধ্যা. {name}
+common.locator.page.short.label = পৃ.{n}
+
+# ---------------------------------------------------------------------------
+# ONE FILM LINE, as a card. Drawn on four screens, so common.*.
+# ---------------------------------------------------------------------------
+common.dialogue.edit.title = সংলাপ এডিট করুন
+common.dialogue.pick.label = এই সংলাপ
+
+# The countable nouns the Catalogue counts in. English runs "line" here and
+# "dialogue" on the tile; Bengali needs only সংলাপ for both.
+unit.line.one = সংলাপ
+unit.line.other = সংলাপ
+
+# ---------------------------------------------------------------------------
+# ONE MORE COUNTABLE NOUN, for the Catalogue's franchise filter. A collection
+# and a series are one word in Bengali.
+# ---------------------------------------------------------------------------
+unit.collection.one = সিরিজ
+unit.collection.other = সিরিজ
+
+# ===========================================================================
+# common.help.* — the shell's own rows, appended to EVERY screen's panel, and
+# its heading in the whole-guide rail.
+# ===========================================================================
+
+# The last section of the guide: the controls that are on every screen.
+common.help.title = সবখানে
+
+# --- On every screen, both shells ---
+
+# The ＋ in the top bar.
+common.help.topbar.add.term = যোগ করুন (＋)
+common.help.topbar.add.what = ভিতরে ঢোকার একটাই পথ, আর সে জানে আপনি কোথায় আছেন: লাইব্রেরিতে বই, ক্যাটালগে সিনেমা বা শো, আর যে উৎসের পাতা খোলা তার নামে উদ্ধৃতি।
+common.help.topbar.add.more = খুঁজে আনা, তুলে রাখা আর একসঙ্গে ইমপোর্ট — সবই ওই এক পর্দার আলাদা ট্যাব, আর তার গায়ের ব্যাজ বলে কটা ইমপোর্ট দেখার অপেক্ষায়। একটা সেভ করার পর পরেরটা ওখান থেকেই শুরু হয় — সেই রং, সেই ট্যাগ, আর পরের আধ ঘণ্টা সেই উৎসই — তাই এক পাতা থেকে ছ-টা উদ্ধৃতি তোলা মানে ছ-বার গোটা ফর্ম ভরা নয়। কথাগুলো অবশ্য কখনও বয়ে আসে না।
+
+# The magnifier in the top bar.
+common.help.topbar.search.term = খোঁজ
+common.help.topbar.search.what = নাম, মানুষ, উদ্ধৃতি, নোট, ট্যাগ আর ঘরানা — সবেতেই খোঁজে, বানান একটু ভুল হলেও। লাইব্রেরি বা ক্যাটালগ থেকে খুললে ওই দিকটাতেই বাঁধা থাকে।
+
+# The ? in the top bar — the button that opens this panel.
+common.help.topbar.help.term = সাহায্য (?)
+common.help.topbar.help.what = এই তালিকাটাই — যে স্ক্রিনে দাঁড়িয়ে আছেন তাতে কী কী আছে, তার শেষে গোটা অ্যাপের নিজেরগুলো জোড়া।
+common.help.topbar.help.more = প্রতিটা পাতার নিজের হেডারে না রেখে উপরের বারে রাখা হয়েছে, যাতে সব স্ক্রিনে জায়গাটা এক থাকে।
+
+# The avatar chip at the end of the top bar.
+# ?? "Avatar chip" — বাংলায় বসানো কোনও নাম নেই। writer 2 renders the same control
+# ?? in profile.help.photo.what as "উপরের বারে আপনার ছবি"; this names what it opens.
+common.help.topbar.avatar.term = প্রোফাইল চিপ
+common.help.topbar.avatar.what = সোজা প্রোফাইল খুলে দেয়: ছবি, যে নামে দেখাবে, পাসওয়ার্ড, অ্যাকাউন্ট বদল, লগ আউট — আর অ্যাডমিন হলে ইউজারের তালিকা আর রিকভারির সরঞ্জাম।
+
+# Multi-select and the bar it opens.
+common.help.selecting.term = একসঙ্গে কয়েকটা বাছা
+common.help.selecting.what = একসঙ্গে অনেকগুলো কার্ডে কাজ করুন — উদ্ধৃতি, বই, সিনেমা, শো সবেতেই।
+common.help.selecting.how.1 = কার্ডের কোণে টিক দিন, Ctrl চেপে ক্লিক করুন, বা তার নিজের মেনু থেকে বাছুন।
+common.help.selecting.how.2 = Shift চেপে ক্লিক করলে টানা কয়েকটা বাছা হয়। সব বাছলে পর্দায় যা আছে তাই ওঠে, ফিল্টারে লুকোনো কিছু নয়।
+common.help.selecting.how.3 = একটা বার আসে: সারিতে তিনটে চিহ্ন, বাকিগুলো ⋯-এর পিছনে। চেপে ধরলে নাম দেখায়।
+common.help.selecting.more = উদ্ধৃতির উপরে: সারিতে রং, ♥ আর কুইজের সুইচ; ⋯-এর পিছনে ট্যাগ, একটা স্টিকার, অন্য বোর্ড আর মুছে ফেলা। বই, সিনেমা আর শোয়ের উপরে: ফাঁক ভরান, তাকে তুলুন, কুইজের সুইচ, আর ⋯-এর পিছনে মুছে ফেলা। ঠিক একটা বাছলে এডিট আসে; দ্বিতীয়টা বাছলেই চলে যায়। নিজে বন্ধ না করা পর্যন্ত বারটা থাকে, বাছাই শূন্য হলেও। মুছতে গেলে কাজটা লিখে দিতে হয়, আর গোটাটা বিনে যায় একটাই এন্ট্রি হয়ে, একটাই আনডু নিয়ে।
+
+# Favouriting one quote from its own menu.
+common.help.favourite.term = একটাকে প্রিয় করা
+common.help.favourite.what = উদ্ধৃতিতে ডান-ক্লিক করুন (ফোনে চেপে ধরুন) — মেনুতে এডিট আর মুছুন-এর পাশেই প্রিয়তে রাখার কথাটা আছে।
+common.help.favourite.more = কার্ডের ♥-ও একই কাজ করে, তবে হোভার না করলে সেটা দেখাই যায় না — তাই ফোনে এই পথটাই, আর উদ্ধৃতিতে লোকে সবচেয়ে বেশি এই কাজটাই করে। মেনুর কথাটা বলে চাপলে কী হবে, তাই যেটা আগে থেকেই প্রিয় তাতে লেখা থাকে “প্রিয় থেকে সরান”।
+
+# The right-click menu on a book, film or show cover.
+common.help.cover-menu.term = কভারের নিজের মেনু
+common.help.cover-menu.what = বোর্ডে বই, সিনেমা বা শোয়ে ডান-ক্লিক করুন — ফোনে চেপে ধরুন — মেনুতে থাকে বাছুন, ফাঁক ভরান, কুইজের সুইচ, এডিট আর মুছুন।
+common.help.cover-menu.more = ওখানে যা যা আছে, একটা মাত্র জিনিস বাছলে বাছাইয়ের বারও ঠিক তাই করতে পারত — সেটাই আসল কথা: বার আর কভার এখন একই তালিকা পড়ে। মুছতে গেলে আগে জিজ্ঞেস করে, আর সঙ্গে কটা উদ্ধৃতি যাবে বলে দেয়; তারপরের বার্তায় আনডু থাকে।
+
+# The selection-bar toggle that takes things out of the Daily Quiz.
+common.help.skip-in-quiz.term = কুইজ থেকে বাদ দিন
+common.help.skip-in-quiz.what = যা রাখেন সব নিয়ে তো পরীক্ষা দেওয়ার নয় — উদ্ধৃতি করে রাখা বাজারের ফর্দ, বা যে বইয়ের সব দাগই স্রেফ পৃষ্ঠার নম্বর।
+common.help.skip-in-quiz.more = সেগুলো বেছে “কুইজ থেকে বাদ দিন” চাপলে রোজকার কুইজ আর ওখান থেকে টানে না, অথচ কিছুই মোছে না। কোনও বইয়ে করলে পরে ওই বইয়ে যত দাগ রাখবেন সবেতেই খাটে। যেগুলো আগে থেকেই বাদ, সেগুলো বাছলে বোতামে লেখা ওঠে “কুইজে দিন” — তাই কোন দিকে আছে সেটা পড়েই বোঝা যায়।
+
+# The selection-bar action that fetches only the EMPTY fields.
+common.help.fill-gaps.term = ফাঁক ভরান
+common.help.fill-gaps.what = বই, সিনেমা বা শো বেছে নিলে: প্রত্যেকটার মেটাডেটা এনে শুধু যে ঘরগুলো ফাঁকা সেগুলোই ভরে দেয়।
+common.help.fill-gaps.more = নিজের লেখা বিবরণ, নিজের শুধরে দেওয়া সাল, নিজের বাছা কভার — কোনওটাতেই হাত পড়ে না, তাই আগে থেকে দেখে নেওয়ার দরকারও নেই। মেটাডেটার “আবার মিলিয়ে দেখুন” এর উল্টো দিক: সে প্রতিটা অমিল দেখায়, আর আপনি যেগুলো বিশ্বাস করেন সেগুলোয় টিক দেওয়ার অপেক্ষায় থাকে।
+
+# The circled i beside a control.
+common.help.info-dots.term = ইনফো ফুটকি
+common.help.info-dots.what = কোনও নিয়ন্ত্রণের পাশে গোল ঘেরা ছোট “i” — আগে যে ব্যাখ্যাটা নিচে অনুচ্ছেদ হয়ে থাকত, সেটা এখন এর ভিতরে।
+common.help.info-dots.more = ডেস্কটপে হোভার করলেই নিজে থেকে খোলে; ক্লিক করলে আবার ক্লিক না করা পর্যন্ত খোলাই থাকে। ফোনে টোকা দিন।
+
+# Tippani added to a phone's home screen.
+common.help.installed-app.term = ফোনে বসানো অ্যাপ
+common.help.installed-app.what = ফোনের হোম স্ক্রিনে টিপ্পনী রাখলে সঙ্গে তিনটে জিনিস আসে। আইকনটা চেপে ধরলেই উদ্ধৃতি তুলে রাখা, রোজকার কুইজ আর অপেক্ষায় ইমপোর্ট।
+common.help.installed-app.more = ফাইল ম্যানেজারে কোনও .md, My Clippings.txt বা Bookcision-এর .json-এ টোকা দিলে সোজা ইমপোর্টের ঘরে খুলে যায়, যে উইন্ডোটা খোলাই ছিল তাতেই। আর আইকনের গায়ে একটা ব্যাজ থাকে — কটা কার্ডের সময় হয়েছে আর কটা ইমপোর্ট অপেক্ষায়। সেটা বসে অ্যাপ খোলার সময়, পিছনে চলতে থাকা কিছু দিয়ে নয়: এখানে কিছুই নিজে থেকে জেগে ওঠে না।
+
+# The ☰ drawer button, phone only.
+common.help.topbar.menu.term = মেনু (☰)
+common.help.topbar.menu.what = ড্রয়ার: সব স্ক্রিন, নিজের প্রোফাইল, আর অপেক্ষায় থাকা ইমপোর্টের সারি।
+common.help.topbar.menu.more = এর যোগ করুন আর খোঁজ ইচ্ছে করেই কোনও প্রসঙ্গ ধরে না — কোন পাতা থেকে এলেন তা যা-ই হোক, কিছুই আগে থেকে ভরা থাকে না। বন্ধ করতে বাঁয়ে সোয়াইপ করুন, বা বাইরে টোকা দিন।
+
+# The floating phone nav.
+common.help.bottom-bar.term = নিচের বার
+common.help.bottom-bar.what = বুড়ো আঙুলের নাগালের স্ক্রিনগুলো — হোম, লাইব্রেরি, ক্যাটালগ আর উক্তি, বা সেটিংস → ফিচারে যেগুলো চালু রেখেছেন।
+common.help.bottom-bar.more = খোঁজ এর মধ্যে নেই; সেটা উপরের বারে, ওই একই আঙুলের নাগালে, এক সারি উপরে। নিচের দিকে স্ক্রল করলে সরে যায়, উপরে করলে ফিরে আসে।
+
+# What holding a finger down does.
+common.help.long-press.term = চেপে ধরা
+common.help.long-press.what = আঙুলের নিচে কী আছে, তার উপরেই ঠিক হয় — তিন রকমের তিনটে কাজ।
+common.help.long-press.more = কোনও নিয়ন্ত্রণে চেপে ধরলে তার নামটা দেখায় — ফোনে তো হোভার নেই — আর ধরে রাখাটা টোকাটাকে গিলে নেয়, তাই “মুছুন” কী করে জানতে চেপে ধরলে কিছুই মোছে না। উদ্ধৃতির কথাগুলোর উপরে চেপে ধরলে কিচ্ছু হয় না, আর সেটা ইচ্ছে করেই: ফোন ওভাবেই লেখা বাছে, আর এটা তো অন্যের বলা কথা জমিয়ে রাখারই অ্যাপ।
+
+# The shortcuts, and the sheet ? opens.
+common.help.keyboard.term = কীবোর্ড
+common.help.keyboard.what = যে কোনও জায়গায় ? চাপলে গোটা তালিকা। / খোঁজে, N উদ্ধৃতি তুলে রাখে, আর G তারপর H, L, C, Q বা S নিয়ে যায় হোম, লাইব্রেরি, ক্যাটালগ, উক্তি বা হিসেবে।
+common.help.keyboard.more = কুইজে 1 আর 2 নম্বর দেয়, আর Space উল্টানো কার্ড দেখিয়ে দেয়। প্রতিটা শর্টকাট যে বোতামের কাজ করে তার গায়েও লেখা আছে, তাই কোনওটা খুঁজে পেতে মুখস্থ রাখার দরকার নেই।
+
+# The always-visible desktop tab strip that stands in for the drawer.
+common.help.tab-strip.term = ট্যাব সারি
+common.help.tab-strip.what = সব স্ক্রিন, উপরের বারে সবসময় চোখের সামনে: হোম, লাইব্রেরি, ক্যাটালগ আর উক্তি, তারপর সরঞ্জাম — ট্যাগ, মেটাডেটা, হিসেব, সেটিংস।
+common.help.tab-strip.more = প্রথম চারটে সেটিংস → ফিচারের হাতে, তাই সারিটা যত লম্বা চান ততটাই। উইন্ডো সরু হয়ে কথাগুলো আর না ধরলে সারিটা চিহ্নে গুটিয়ে যায়, আর হোভার করলে প্রত্যেকটা নিজের নাম বলে।
+
+# The bubble a glyph-only control shows on hover.
+common.help.hover-labels.term = হোভার লেবেল
+common.help.hover-labels.what = শুধু চিহ্ন আছে এমন প্রতিটা বোতাম হোভার করলে বা ট্যাব করে পৌঁছলে নিজের নাম বলে — বোতামের গায়েই আটকানো ছোট একটা বুদবুদে।
+
+# The right-click menu on a quote card.
+common.help.card-menu.term = কার্ডে ডান-ক্লিক
+common.help.card-menu.what = উদ্ধৃতির কার্ডে ডান-ক্লিক করলে তার নিজের মেনু খোলে — কপি, শেয়ার, এডিট, মুছুন — ঠিক যেখানে চেপেছেন সেখানেই।
+common.help.card-menu.more = কীবোর্ড থেকে Shift+F10 বা Menu কি-ও একই কাজ করে, আর Escape বন্ধ করে ফোকাস ফিরিয়ে দেয়। কার্ডের ভিতরে কোনও লেখা বেছে রাখলে ব্রাউজারের নিজের মেনুই জেতে: আপনি তো কপি বা লুক আপ চেয়েছিলেন, আর ওগুলো কেড়ে নেওয়া আমাদের কাজ নয়।

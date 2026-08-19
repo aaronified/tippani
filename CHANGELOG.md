@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The Shuffle button stopped jumping when you press it.** On Home it sat centred until you
+  used it, then moved to the left edge — because the press itself was what switched the
+  layout. On a phone that is the width of the screen away from where your thumb was, and it
+  reads as having missed. The layout now depends only on what the page loaded with.
+
 - **Every log line was printed twice.** In a container `docker logs` merges stdout and
   stderr, and the app was writing every line to both — so a NAS paid double the log volume
   and you read a doubled log. Now it splits the conventional way: everything goes to stdout

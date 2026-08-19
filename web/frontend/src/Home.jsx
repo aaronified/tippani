@@ -1068,17 +1068,37 @@ function SerendipityRow({ onOpenBook, onOpenMovie, onGoQuotes }) {
     return onGoQuotes ? () => onGoQuotes() : null
   }
 
-  if (!today.length && !shuffled) {
+  // THE BUTTON DOES NOT MOVE WHEN YOU PRESS IT, which it used to.
+  //
+  // The two layouts below were chosen by `!today.length && !shuffled`, so pressing
+  // Shuffle — which sets `shuffled` — flipped the centred form to the left-aligned
+  // one and the button jumped sideways under the reader's own thumb. On a phone
+  // that is the whole width of the screen away from where they tapped.
+  //
+  // The layout now depends only on what was on the page when it loaded. `shuffled`
+  // still decides whether a CARD appears; it no longer decides where the control
+  // that produced it lives. A control that moves as a result of being used is
+  // telling the reader they missed.
+  const shuffleButton = (
+    <Tooltip label={t('home.shuffle.tip')}>
+      <GhostButton icon={<IconShuffle />} keepLabel onClick={shuffle} disabled={busy}>
+        {t('home.shuffle.label')}
+      </GhostButton>
+    </Tooltip>
+  )
+
+  // Nothing from this date in another year: the button is the only thing here, so
+  // it sits in the middle and reads as an invitation rather than as a heading.
+  if (!today.length) {
     return (
-      <div className="flex justify-center">
-        <Tooltip label={t('home.shuffle.tip')}>
-          <GhostButton icon={<IconShuffle />} keepLabel onClick={shuffle} disabled={busy}>
-            {t('home.shuffle.label')}
-          </GhostButton>
-        </Tooltip>
-      </div>
+      <section className="space-y-3">
+        <div className="flex justify-center">{shuffleButton}</div>
+        {shuffled && <SerendipityCard q={shuffled} onOpen={opener(shuffled)} />}
+      </section>
     )
   }
+  // With cards above it, the same button earns its rule: it separates what the date
+  // gave you from what chance did.
   return (
     <section className="space-y-3">
       {today.length > 0 && (
@@ -1092,11 +1112,7 @@ function SerendipityRow({ onOpenBook, onOpenMovie, onGoQuotes }) {
         </>
       )}
       <div className="flex items-center gap-3">
-        <Tooltip label={t('home.shuffle.tip')}>
-          <GhostButton icon={<IconShuffle />} keepLabel onClick={shuffle} disabled={busy}>
-            {t('home.shuffle.label')}
-          </GhostButton>
-        </Tooltip>
+        {shuffleButton}
         <span className="h-px flex-1" style={{ background: 'var(--line)' }} />
       </div>
       {shuffled && <SerendipityCard q={shuffled} onOpen={opener(shuffled)} />}
