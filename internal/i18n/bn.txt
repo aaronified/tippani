@@ -553,6 +553,9 @@ vocab.source.google.label = গুগল বুকস
 vocab.source.openlibrary.label = ওপেন লাইব্রেরি
 vocab.source.wikipedia.label = উইকিপিডিয়া
 
+# The floor under IGDB for games rather than a second opinion, so it is named.
+vocab.source.wikidata.label = Wikidata
+
 vocab.source.amazon.label = অ্যামাজন
 vocab.source.tmdb.label = TMDB
 vocab.source.tvdb.label = TheTVDB
@@ -3645,7 +3648,6 @@ staging.title = অপেক্ষায় ইমপোর্ট
 # ---------------------------------------------------------------------------
 account.photo.upload = ছবি আপলোড করুন
 account.photo.change = ছবি বদলান
-account.photo.busy = আপলোড হচ্ছে…
 account.photo.info.title = প্রোফাইলের ছবি
 account.photo.info.body = উপরের বার, ড্রয়ার আর ইউজারের তালিকায় এটাই আপনার চিপ হিসেবে দেখা যায়। চৌকো ছবি সবচেয়ে ভালো বসে; 5 MB পর্যন্ত।
 account.photo.remove.aria = ছবি সরান
@@ -3719,7 +3721,7 @@ error.validate.switch-name-required = অ্যাকাউন্টের ন�
 error.validate.switch-same = এই অ্যাকাউন্টেই তো আপনি আছেন
 error.validate.switch-password-required = সেই অ্যাকাউন্টের পাসওয়ার্ড দিন
 error.validate.username-required-add = একটা ইউজারনেম দিন
-error.upload.avatar = আপলোড করা গেল না
+error.upload.failed = আপলোড করা গেল না
 error.remove.photo = ছবি সরানো গেল না
 error.save.name = নাম বদলানো গেল না
 error.save.password = পাসওয়ার্ড বদলানো গেল না
@@ -3777,6 +3779,63 @@ error.validate.born-date = জন্ম সাল, YYYY-MM বা YYYY-MM-DD হ
 error.validate.died-date = মৃত্যু সাল, YYYY-MM বা YYYY-MM-DD হতে হবে
 error.lookup.none = এই নামে কোনও তথ্যসূত্রের পাতা পাওয়া গেল না
 error.save.links = লিঙ্ক সেভ করা গেল না
+
+# ---------------------------------------------------------------------------
+# COVERS AND POSTERS — CoverPicker.jsx. §3.1 gives cover → কভার and poster →
+# পোস্টার, kept as a pair in one register. Bengali has no letter case, so the
+# small-caps headings are ordinary words (§0.5). Supplier names are Latin (§8).
+# ---------------------------------------------------------------------------
+cover.noun.cover = কভার
+cover.noun.cover.plural = কভার
+cover.noun.poster = পোস্টার
+cover.noun.poster.plural = পোস্টার
+cover.heading.cover = কভার
+cover.heading.poster = পোস্টার
+cover.preview.blocked = এখানে দেখানো গেল না — সেভ করলে সার্ভার এনে নেবে
+
+cover.upload.tip = {noun} ছবি আপলোড করুন
+cover.upload.aria = {noun} ছবি আপলোড করুন
+cover.fetch-meta.aria = মেটাডেটা আনুন
+cover.fetch-meta.tip = সংস্করণ ধরে মেটাডেটা আনুন
+cover.url.aria = ছবির URL বসান
+cover.url.tip = ছবির একটা URL বসান
+cover.url.placeholder = https://… ছবির সরাসরি লিঙ্ক
+cover.url.use.aria = এই URL ব্যবহার করুন
+cover.url.use.tip = এই ছবিটা নিন
+cover.search.aria = {nouns} খুঁজুন
+cover.search.books.tip = Google Books, Open Library আর Amazon-এ খুঁজুন
+cover.search.screen.tip = TMDB আর TheTVDB-তে খুঁজুন
+cover.search.game.tip = IGDB আর Wikidata-তে খুঁজুন
+cover.remove.aria = {noun} সরান
+cover.pick.prose = একটা {noun} বাছুন — রেজলিউশন দেখানো আছে; বড় হলে বেশি পরিষ্কার
+cover.pick.none = কোনও {nouns} পাওয়া গেল না
+cover.pick.use = এই {noun} নিন — {source} · {res}
+cover.pending = নতুন {noun} — সেভ করলে বসবে
+cover.clearing = সেভ করলে {noun} সরে যাবে
+
+cover.candidate.editions = {n}টি সংস্করণ
+cover.candidate.show-editions = সংস্করণগুলো দেখান
+cover.candidate.add.tip = এই মিলটা যোগ করুন
+cover.candidate.add.label = যোগ করুন
+cover.candidate.choose-edition.aria = {title} — কোন সংস্করণ, বাছুন
+cover.candidate.add.aria = {action} {title}
+
+cover.editions.busy = সংস্করণ খোঁজা হচ্ছে…
+cover.editions.prose = ঠিক সংস্করণটা বাছুন — নিচের ঘরগুলো বদলে যাবে
+cover.editions.close.aria = পিকার বন্ধ করুন
+cover.editions.browse = অন্য মিলগুলো দেখুন…
+cover.editions.looking = খোঁজা হচ্ছে…
+cover.editions.none = কিছু মিলল না — নাম বা ISBN বদলে দেখুন
+cover.editions.use.tip = এই সংস্করণটা নিন
+cover.editions.use.aria = {title} নিন
+cover.editions.use.exact = নিন: {title}
+
+cover.movie.search.aria = খুঁজুন
+cover.movie.use.tip = এই মিলটা নিন
+cover.movie.none = কিছু মিলল না
+cover.movie.by-id = আইডি ধরে খোঁজা হচ্ছে · {ids}
+
+error.validate.lookup-fields = আগে নাম, ISBN বা ASIN দিন
 
 # ===========================================================================
 # THE REST OF THE SHARED VOCABULARY — common.field.* and one shell key.

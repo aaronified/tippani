@@ -40,7 +40,7 @@ function AvatarRow({ user, onUser }) {
     const r = await upload('/auth/me/avatar', f)
     setBusy(false)
     if (r.ok) onUser({ avatar_path: r.data.avatar_path })
-    else setErr(r.data?.error || t('error.upload.avatar'))
+    else setErr(r.data?.error || t('error.upload.failed'))
   }
   async function remove() {
     const r = await json('DELETE', '/auth/me/avatar')
@@ -56,7 +56,7 @@ function AvatarRow({ user, onUser }) {
         <div className="flex flex-wrap items-center gap-2">
           <label className="tp-btn tp-btn-primary" style={{ cursor: 'pointer' }}>
             {busy
-              ? t('account.photo.busy')
+              ? t('common.action.upload.busy')
               : user.avatar_path
                 ? t('account.photo.change')
                 : t('account.photo.upload')}

@@ -4,6 +4,7 @@
 // the ASIN with no cookie needed.
 import { useEffect, useState } from 'react'
 import { coverImgURL, json, upload, errText } from './api.js'
+import { t } from './i18n.js'
 import {
   ErrorText,
   FieldIconButton,
@@ -83,7 +84,7 @@ export function CoverPreview({ url, label, showRes = false, compact = false, cla
         className={'flex items-center justify-center px-1 text-center ' + className}
         style={{ aspectRatio: '2 / 3', border: '1px dashed var(--ink-border)', borderRadius: 8 }}
       >
-        <MonoLabel style={{ fontSize: 9, lineHeight: 1.3 }}>preview blocked — will fetch on save</MonoLabel>
+        <MonoLabel style={{ fontSize: 9, lineHeight: 1.3 }}>{t('cover.preview.blocked')}</MonoLabel>
       </span>
     )
   }
@@ -112,13 +113,29 @@ export const hiResPoster = (u) =>
 // SOURCE_BADGE / coverSourceLabel — who answers, per medium and per candidate.
 // Both existed as inline ternaries over TMDB and TheTVDB, written before the
 // Catalogue held games, and both quietly told a lie about every game.
-const SOURCE_BADGE = { tvdb: 'TVDB', tmdb: 'TMDB', igdb: 'IGDB', wikidata: 'Wikidata' }
+// Keys, not spellings. This file held TVDB, TMDB, GOOGLE, OPEN LIBRARY and
+// AMAZON as literals — three of them a third spelling of a provider vocab.source.*
+// already names for the metadata screens.
+const SOURCE_KEYS = {
+  tvdb: 'vocab.source.tvdb.label',
+  tmdb: 'vocab.source.tmdb.label',
+  igdb: 'vocab.source.igdb.label',
+  wikidata: 'vocab.source.wikidata.label',
+  google: 'vocab.source.google.label',
+  openlibrary: 'vocab.source.openlibrary.label',
+  amazon: 'vocab.source.amazon.label',
+}
+
+// sourceName — the reader's name for a candidate's supplier. An unknown slug
+// falls through to itself rather than to a missing key.
+export const sourceName = (slug) =>
+  SOURCE_KEYS[slug] ? t(SOURCE_KEYS[slug]) : String(slug || '')
 
 export function coverSourceLabel(mediaType) {
   // Wikidata is the floor under IGDB rather than a second opinion (see
   // wikidata_games.go), so it is named — a reader whose IGDB key is missing
   // still gets results and should know where from.
-  return mediaType === 'game' ? 'Search IGDB & Wikidata' : 'Search TMDB & TheTVDB'
+  return t(mediaType === 'game' ? 'cover.search.game.tip' : 'cover.search.screen.tip')
 }
 
 // idNum reads a supplier id off a form field or a stored record and returns a
@@ -147,7 +164,12 @@ export function CoverControls({
   const [err, setErr] = useState('')
   const [covers, setCovers] = useState(null) // null = closed; [] = searched, none found
   const [searching, setSearching] = useState(false)
-  const label = kind === 'movies' ? 'POSTER' : 'COVER'
+  // The heading as drawn, and the noun the sentences below take. Two keys
+  // rather than one word lower-cased in JavaScript: English casing is not
+  // grammar, and Bengali has no case for it to be.
+  const label = t(kind === 'movies' ? 'cover.heading.poster' : 'cover.heading.cover')
+  const noun = t(kind === 'movies' ? 'cover.noun.poster' : 'cover.noun.cover')
+  const nouns = t(kind === 'movies' ? 'cover.noun.poster.plural' : 'cover.noun.cover.plural')
 
   // searchCovers queries every metadata source for this item and collects the
   // candidate covers at storage quality: Google Books (hi-res render) / Open
@@ -181,12 +203,12 @@ export function CoverControls({
       })
       if (!r.ok) {
         setSearching(false)
-        return setErr(errText(r, 'lookup failed'))
+        return setErr(errText(r, t('error.lookup.failed')))
       }
       // The badge under each candidate says where it came from, so it has to
       // read the source rather than guess from a two-way ternary — which
       // labelled every IGDB and Wikidata game cover "TMDB".
-      for (const c of r.data.candidates || []) add(hiResPoster(c.poster_url), SOURCE_BADGE[c.source] || 'TMDB')
+      for (const c of r.data.candidates || []) add(hiResPoster(c.poster_url), sourceName(c.source || 'tmdb'))
     } else {
       const body = {}
       if (search?.isbn?.trim()) body.isbn = search.isbn.trim()
@@ -196,11 +218,11 @@ export function CoverControls({
       const r = await json('POST', '/books/lookup', body)
       if (!r.ok) {
         setSearching(false)
-        return setErr(errText(r, 'lookup failed'))
+        return setErr(errText(r, t('error.lookup.failed')))
       }
       for (const c of r.data.candidates || [])
-        add(c.cover_url, c.source === 'openlibrary' ? 'OPEN LIBRARY' : c.source === 'amazon' ? 'AMAZON' : 'GOOGLE')
-      if (search?.asin?.trim()) add(amazonCoverURL(search.asin), 'AMAZON')
+        add(c.cover_url, sourceName(c.source === 'openlibrary' || c.source === 'amazon' ? c.source : 'google'))
+      if (search?.asin?.trim()) add(amazonCoverURL(search.asin), sourceName('amazon'))
     }
     setSearching(false)
     setCovers(found)
@@ -222,7 +244,7 @@ export function CoverControls({
       onClear(true) // reset any pending URL/clear — the upload already applied
       onUploaded(r.data)
     } else {
-      setErr(errText(r, 'upload failed'))
+      setErr(errText(r, t('error.upload.failed')))
     }
   }
 
@@ -235,8 +257,8 @@ export function CoverControls({
             (upload · fetch metadata · paste URL · search covers · remove) so the
             edit form stops burning a whole labelled row on them. */}
         <div className="cover-ctl-row">
-          <Tooltip label={busy ? 'Uploading…' : `Upload a ${label.toLowerCase()} image`}>
-            <label className={'field-icon-btn field-icon-btn-boxed tactile' + (busy ? ' is-busy' : '')} aria-label={`Upload ${label.toLowerCase()} image`}>
+          <Tooltip label={busy ? t('common.action.upload.busy') : t('cover.upload.tip', { noun })}>
+            <label className={'field-icon-btn field-icon-btn-boxed tactile' + (busy ? ' is-busy' : '')} aria-label={t('cover.upload.aria', { noun })}>
               <IconUpload />
               <input type="file" accept="image/*" className="hidden" onChange={onFile} disabled={busy} />
             </label>
@@ -244,40 +266,40 @@ export function CoverControls({
           {onFetchMeta && (
             <FieldIconButton
               icon={<IconMetadata />}
-              ariaLabel="Fetch metadata"
+              ariaLabel={t('cover.fetch-meta.aria')}
               aria-pressed={!!fetchMetaOpen}
               onClick={onFetchMeta}
-              tooltip="Fetch metadata by edition"
+              tooltip={t('cover.fetch-meta.tip')}
               boxed
               active={!!fetchMetaOpen}
             />
           )}
           <FieldIconButton
             icon={<IconLink />}
-            ariaLabel="Paste image URL"
+            ariaLabel={t('cover.url.aria')}
             aria-pressed={urlOpen}
             onClick={() => setUrlOpen((v) => !v)}
-            tooltip="Paste an image URL"
+            tooltip={t('cover.url.tip')}
             boxed
             active={urlOpen}
           />
           <FieldIconButton
             icon={<IconSearch />}
-            ariaLabel={`Search ${label.toLowerCase()}s`}
+            ariaLabel={t('cover.search.aria', { nouns })}
             onClick={searchCovers}
             disabled={searching}
             // NAMED BY WHAT ACTUALLY ANSWERS. A game's lookup goes to IGDB —
             // it has since 0040, and the request below already carries the
             // media type — but the button said "Search TMDB & TheTVDB", which
             // is a promise about a supplier that is never asked.
-            tooltip={kind === 'movies' ? coverSourceLabel(search?.mediaType) : 'Search Books, Library & Amazon'}
+            tooltip={kind === 'movies' ? coverSourceLabel(search?.mediaType) : t('cover.search.books.tip')}
             boxed
             busy={searching}
           />
           {(currentPath || coverUrl) && !clearCover && (
             <FieldIconButton
               icon={<IconDelete />}
-              ariaLabel={`Remove ${label.toLowerCase()}`}
+              ariaLabel={t('cover.remove.aria', { noun })}
               onClick={onClear}
               boxed
               danger
@@ -288,19 +310,19 @@ export function CoverControls({
           <div className="flex gap-2 pt-1">
             <input
               className="tp-input"
-              placeholder="https://… direct image link"
+              placeholder={t('cover.url.placeholder')}
               value={urlText}
               onChange={(e) => setUrlText(e.target.value)}
             />
             <FieldIconButton
               icon={<IconCheck />}
-              ariaLabel="Use this image URL"
+              ariaLabel={t('cover.url.use.aria')}
               onClick={() => {
                   if (urlText.trim()) onSetUrl(urlText.trim())
                   setUrlOpen(false)
                   setUrlText('')
                 }}
-              tooltip="Use this image"
+              tooltip={t('cover.url.use.tip')}
               ok
               className="shrink-0"
             />
@@ -309,7 +331,7 @@ export function CoverControls({
         {covers && (
           <div className="space-y-1.5 pt-1">
             <MonoLabel className="block">
-              {covers.length ? `pick a ${label.toLowerCase()} — resolution shown; larger is sharper` : `no ${label.toLowerCase()}s found`}
+              {covers.length ? t('cover.pick.prose', { noun }) : t('cover.pick.none', { nouns })}
             </MonoLabel>
             <div className="flex flex-wrap gap-2">
               {covers.map((c) => (
@@ -317,7 +339,7 @@ export function CoverControls({
                   key={c.url}
                   url={c.url}
                   source={c.source}
-                  label={label}
+                  noun={noun}
                   onPick={() => {
                     onSetUrl(c.url)
                     setCovers(null)
@@ -327,8 +349,10 @@ export function CoverControls({
             </div>
           </div>
         )}
-        {coverUrl && <p className="microcopy">new {label.toLowerCase()} — applies when you Save</p>}
-        {clearCover && <p className="microcopy" style={{ color: 'var(--error)' }}>{label.toLowerCase()} will be removed on Save</p>}
+        {coverUrl && <p className="microcopy">{t('cover.pending', { noun })}</p>}
+        {clearCover && (
+          <p className="microcopy" style={{ color: 'var(--error)' }}>{t('cover.clearing', { noun })}</p>
+        )}
         <ErrorText>{err}</ErrorText>
       </div>
     </div>
@@ -338,17 +362,27 @@ export function CoverControls({
 // CoverPickThumb is one candidate in the "Search covers" grid: the image, its
 // source, and its true pixel size measured on load. A cover below the low-res
 // threshold is dimmed and badge-tinted so the user reaches for a bigger one.
-function CoverPickThumb({ url, source, label, onPick }) {
+function CoverPickThumb({ url, source, noun, onPick }) {
   const [dim, setDim] = useState(null)
   const [hide, setHide] = useState(false)
   if (hide) return null
   const lowRes = dim && dim.w > 0 && dim.w < LOW_RES_W
   return (
-    <Tooltip label={`Use this ${label.toLowerCase()} — ${source} · ${resLabel(dim) || 'loading…'}`}>
+    <Tooltip
+      label={t('cover.pick.use', {
+        noun,
+        source,
+        res: resLabel(dim) || t('common.state.loading'),
+      })}
+    >
       <button
         type="button"
         className={'cover-pick' + (lowRes ? ' is-low' : '')}
-        aria-label={`Use this ${label.toLowerCase()} — ${source} · ${resLabel(dim) || 'loading…'}`}
+        aria-label={t('cover.pick.use', {
+          noun,
+          source,
+          res: resLabel(dim) || t('common.state.loading'),
+        })}
         onClick={onPick}
       >
         <span className="relative block">
@@ -421,7 +455,8 @@ export function groupEditions(cands) {
 // `count` > 1 marks a group of editions. The cue is deliberately subtle — a
 // mono edition count where a single row shows nothing — because a group is not
 // a different kind of thing, just a tidier row.
-export function CandidateRow({ cover, title, sub, source, sourceDetail, count = 1, expanded, onAdd, addLabel = 'Add', busy = false }) {
+export function CandidateRow({ cover, title, sub, source, sourceDetail, count = 1, expanded, onAdd, addLabel, busy = false }) {
+  const action = addLabel || t('cover.candidate.add.label')
   const group = count > 1
   return (
     <li className="sheen-raised flex items-center gap-3 rounded-xl px-3 py-2.5" style={{ border: '1px solid var(--line)' }}>
@@ -431,17 +466,26 @@ export function CandidateRow({ cover, title, sub, source, sourceDetail, count = 
         <p className="truncate text-xs" style={{ color: 'var(--soft)' }}>{sub}</p>
       </div>
       {group ? (
-        <MonoLabel style={{ flex: 'none', fontSize: 9.5 }}>{count} eds</MonoLabel>
+        <MonoLabel style={{ flex: 'none', fontSize: 9.5 }}>
+          {t('cover.candidate.editions', { n: count })}
+        </MonoLabel>
       ) : (
         <SourceIcon source={source} detail={sourceDetail} />
       )}
-      <Tooltip label={group ? 'Show the editions' : 'Add this match'} className="shrink-0">
+      <Tooltip
+        label={group ? t('cover.candidate.show-editions') : t('cover.candidate.add.tip')}
+        className="shrink-0"
+      >
         <button
           type="button"
           className="cand-add tactile"
           onClick={onAdd}
           disabled={busy}
-          aria-label={group ? `Choose an edition of ${title}` : `${addLabel} ${title}`}
+          aria-label={
+            group
+              ? t('cover.candidate.choose-edition.aria', { title })
+              : t('cover.candidate.add.aria', { action, title })
+          }
           aria-expanded={group ? !!expanded : undefined}
         >
           {group ? <IconChevron open={!!expanded} /> : <IconPlus />}
@@ -473,12 +517,12 @@ export function BookLookupPicker({ isbn, title, author, asin, onPick, auto = fal
     if (asin && asin.trim()) body.asin = asin.trim()
     if (!body.isbn && !body.title && !body.asin) {
       setBusy(false)
-      return setErr('enter a title, ISBN, or ASIN first')
+      return setErr(t('error.validate.lookup-fields'))
     }
     const r = await json('POST', '/books/lookup', body)
     setBusy(false)
     if (r.ok) setCands(r.data.candidates)
-    else setErr(errText(r, 'lookup failed'))
+    else setErr(errText(r, t('error.lookup.failed')))
   }
 
   // Auto-search on open (the picker is mounted only while open, so re-opening
@@ -493,29 +537,29 @@ export function BookLookupPicker({ isbn, title, author, asin, onPick, auto = fal
       {auto ? (
         <div className="flex items-center justify-between gap-2">
           <MonoLabel className="block">
-            {busy ? 'finding editions…' : 'pick the right edition — replaces the fields below'}
+            {busy ? t('cover.editions.busy') : t('cover.editions.prose')}
           </MonoLabel>
           {onClose && (
             <FieldIconButton
               icon={<IconClose />}
-              ariaLabel="Close the picker"
+              ariaLabel={t('cover.editions.close.aria')}
               onClick={onClose}
             />
           )}
         </div>
       ) : (
         <GhostButton type="button" onClick={look} disabled={busy}>
-          {busy ? 'Looking up…' : 'Browse other matches…'}
+          {busy ? t('cover.editions.looking') : t('cover.editions.browse')}
         </GhostButton>
       )}
       <ErrorText>{err}</ErrorText>
-      {cands && cands.length === 0 && <p className="microcopy">no matches — try editing the title or ISBN</p>}
+      {cands && cands.length === 0 && <p className="microcopy">{t('cover.editions.none')}</p>}
       {cands && cands.length > 0 && (
         <ul className="lookup-grid">
           {cands.map((c, i) => (
             <li key={i} className="lookup-card">
-              <Tooltip label="Use this edition">
-                <button type="button" className="lookup-card-cover" aria-label={`Use ${c.title}`} onClick={() => onPick(c)}>
+              <Tooltip label={t('cover.editions.use.tip')}>
+                <button type="button" className="lookup-card-cover" aria-label={t('cover.editions.use.aria', { title: c.title })} onClick={() => onPick(c)}>
                   <CoverPreview url={c.cover_url} label="" showRes className="w-full" />
                 </button>
               </Tooltip>
@@ -531,12 +575,12 @@ export function BookLookupPicker({ isbn, title, author, asin, onPick, auto = fal
                 )}
               </div>
               <div className="flex items-center justify-between gap-2">
-                <span className="tp-chip shrink-0" style={{ fontSize: 9.5 }}>{(c.source || '').toUpperCase()}</span>
+                <span className="tp-chip shrink-0" style={{ fontSize: 9.5 }}>{sourceName(c.source)}</span>
                 <FieldIconButton
                   icon={<IconCheck />}
-                  ariaLabel={`Use ${c.title}`}
+                  ariaLabel={t('cover.editions.use.aria', { title: c.title })}
                   onClick={() => onPick(c)}
-                  tooltip={`Use: ${c.title}`}
+                  tooltip={t('cover.editions.use.exact', { title: c.title })}
                   ok
                   className="shrink-0"
                 />
@@ -590,7 +634,7 @@ export function MovieLookupPicker({ title, year, mediaType = 'movie', tmdbId, tv
     const r = await json('POST', '/movies/lookup', body)
     setBusy(false)
     if (r.ok) setCands(r.data.candidates)
-    else setErr(errText(r, 'lookup failed'))
+    else setErr(errText(r, t('error.lookup.failed')))
   }
   const onEnter = (e) => {
     if (e.key === 'Enter') {
@@ -602,11 +646,11 @@ export function MovieLookupPicker({ title, year, mediaType = 'movie', tmdbId, tv
   return (
     <div className="space-y-2">
       <div className="flex gap-2">
-        <input className="tp-input" placeholder="Title" value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={onEnter} />
-        <input className="tp-input w-24 shrink-0" placeholder="Year" inputMode="numeric" value={yr} onChange={(e) => setYr(e.target.value)} onKeyDown={onEnter} />
+        <input className="tp-input" placeholder={t('common.field.title.label')} value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={onEnter} />
+        <input className="tp-input w-24 shrink-0" placeholder={t('common.field.year.label')} inputMode="numeric" value={yr} onChange={(e) => setYr(e.target.value)} onKeyDown={onEnter} />
         <FieldIconButton
           icon={<IconSearch />}
-          ariaLabel="Search"
+          ariaLabel={t('cover.movie.search.aria')}
           onClick={look}
           disabled={busy}
           tooltip={coverSourceLabel(mediaType)}
@@ -614,15 +658,17 @@ export function MovieLookupPicker({ title, year, mediaType = 'movie', tmdbId, tv
         />
       </div>
       {/* Says why a match you did not search for is sitting at the top. */}
-      {pinned.length > 0 && <MonoLabel className="block">searching by id · {pinned.join(' · ')}</MonoLabel>}
+      {pinned.length > 0 && (
+        <MonoLabel className="block">{t('cover.movie.by-id', { ids: pinned.join(' · ') })}</MonoLabel>
+      )}
       <ErrorText>{err}</ErrorText>
-      {cands && cands.length === 0 && <p className="microcopy">no matches found</p>}
+      {cands && cands.length === 0 && <p className="microcopy">{t('cover.movie.none')}</p>}
       {cands && cands.length > 0 && (
         <ul className="lookup-grid">
           {cands.map((c) => (
             <li key={`${c.source}-${c.source_id || c.tmdb_id}`} className="lookup-card">
-              <Tooltip label="Use this match">
-                <button type="button" className="lookup-card-cover" aria-label={`Use ${c.title}`} onClick={() => onPick(c)}>
+              <Tooltip label={t('cover.movie.use.tip')}>
+                <button type="button" className="lookup-card-cover" aria-label={t('cover.editions.use.aria', { title: c.title })} onClick={() => onPick(c)}>
                   <CoverPreview url={c.poster_url} label="" showRes className="w-full" />
                 </button>
               </Tooltip>
@@ -632,13 +678,13 @@ export function MovieLookupPicker({ title, year, mediaType = 'movie', tmdbId, tv
               </div>
               <div className="flex items-center justify-between gap-2">
                 <span className="tp-chip shrink-0" style={{ color: 'var(--amber)', fontSize: 9.5 }}>
-                  {(c.source || 'tmdb').toUpperCase()}
+                  {sourceName(c.source || 'tmdb')}
                 </span>
                 <FieldIconButton
                   icon={<IconCheck />}
-                  ariaLabel={`Use ${c.title}`}
+                  ariaLabel={t('cover.editions.use.aria', { title: c.title })}
                   onClick={() => onPick(c)}
-                  tooltip={`Use: ${c.title}`}
+                  tooltip={t('cover.editions.use.exact', { title: c.title })}
                   ok
                   className="shrink-0"
                 />

@@ -539,6 +539,9 @@ vocab.source.google.label = Google Books
 vocab.source.openlibrary.label = Open Library
 vocab.source.wikipedia.label = Wikipedia
 
+# The floor under IGDB for games rather than a second opinion, so it is named.
+vocab.source.wikidata.label = Wikidata
+
 vocab.source.amazon.label = Amazon
 vocab.source.tmdb.label = TMDB
 vocab.source.tvdb.label = TheTVDB
@@ -3617,7 +3620,6 @@ staging.title = Pending import
 # ---------------------------------------------------------------------------
 account.photo.upload = Upload photo
 account.photo.change = Change photo
-account.photo.busy = Uploading…
 account.photo.info.title = Profile photo
 account.photo.info.body = Shown as your avatar chip in the top bar, the drawer and the user list. A square image reads best; up to 5 MB.
 account.photo.remove.aria = Remove photo
@@ -3697,7 +3699,7 @@ error.validate.switch-name-required = Enter the account name
 error.validate.switch-same = That is the account you are already in
 error.validate.switch-password-required = Enter that account’s password
 error.validate.username-required-add = Enter a username
-error.upload.avatar = upload failed
+error.upload.failed = upload failed
 error.remove.photo = could not remove photo
 error.save.name = could not change name
 error.save.password = could not change password
@@ -3773,6 +3775,84 @@ error.validate.born-date = born must be a year, YYYY-MM or YYYY-MM-DD
 error.validate.died-date = died must be a year, YYYY-MM or YYYY-MM-DD
 error.lookup.none = no reference pages found for this name
 error.save.links = could not save links
+
+# ---------------------------------------------------------------------------
+# COVERS AND POSTERS — CoverPicker.jsx. The picker under every work's image
+# field, the candidate strip a search fills it with, and the two look-up pickers
+# that replace a record's fields from a source.
+#
+# ONE NOUN, TWO WORDS, AND THE CODE USED TO LOWER-CASE IT. The component knew it
+# was handling a “COVER” or a “POSTER” and built every sentence around
+# `label.toLowerCase()` — English casing as grammar, in a language that has no
+# case where Bengali is concerned. The noun is now a key and the sentences take
+# it as {noun}, with {nouns} for the plural.
+#
+# THE SOURCE BADGES ARE vocab.source.*, not spellings of their own. This one file
+# held GOOGLE, OPEN LIBRARY, AMAZON, TMDB, TVDB — three of them a third spelling
+# of a provider the app already names.
+# ---------------------------------------------------------------------------
+cover.noun.cover = cover
+cover.noun.cover.plural = covers
+cover.noun.poster = poster
+cover.noun.poster.plural = posters
+# The field's own heading, drawn in small caps.
+cover.heading.cover = COVER
+cover.heading.poster = POSTER
+# A remote host outside the CSP allowlist cannot paint the preview; the file is
+# fetched server-side on save regardless.
+cover.preview.blocked = preview blocked — will fetch on save
+
+cover.upload.tip = Upload a {noun} image
+cover.upload.aria = Upload {noun} image
+cover.fetch-meta.aria = Fetch metadata
+cover.fetch-meta.tip = Fetch metadata by edition
+cover.url.aria = Paste image URL
+cover.url.tip = Paste an image URL
+cover.url.placeholder = https://… direct image link
+cover.url.use.aria = Use this image URL
+cover.url.use.tip = Use this image
+cover.search.aria = Search {nouns}
+# NAMED BY WHAT ACTUALLY ANSWERS. A game's lookup goes to IGDB, and this said
+# “Search TMDB & TheTVDB” — a promise about a supplier that is never asked.
+cover.search.books.tip = Search Books, Library & Amazon
+cover.search.screen.tip = Search TMDB & TheTVDB
+cover.search.game.tip = Search IGDB & Wikidata
+cover.remove.aria = Remove {noun}
+cover.pick.prose = pick a {noun} — resolution shown; larger is sharper
+cover.pick.none = no {nouns} found
+# One candidate in the strip. {res} is its measured pixel size, or the wait.
+cover.pick.use = Use this {noun} — {source} · {res}
+cover.pending = new {noun} — applies when you Save
+cover.clearing = {noun} will be removed on Save
+
+# One compact look-up match, shared by the Add surface and the edition picker.
+cover.candidate.editions = {n} eds
+cover.candidate.show-editions = Show the editions
+cover.candidate.add.tip = Add this match
+cover.candidate.add.label = Add
+cover.candidate.choose-edition.aria = Choose an edition of {title}
+cover.candidate.add.aria = {action} {title}
+
+# The book edition picker.
+cover.editions.busy = finding editions…
+cover.editions.prose = pick the right edition — replaces the fields below
+cover.editions.close.aria = Close the picker
+cover.editions.browse = Browse other matches…
+cover.editions.looking = Looking up…
+cover.editions.none = no matches — try editing the title or ISBN
+cover.editions.use.tip = Use this edition
+cover.editions.use.aria = Use {title}
+cover.editions.use.exact = Use: {title}
+
+# The film / show / game picker.
+cover.movie.search.aria = Search
+cover.movie.use.tip = Use this match
+cover.movie.none = no matches found
+# Says why a match you did not search for is sitting at the top. {ids} is a list
+# of supplier ids, which are Latin in every language.
+cover.movie.by-id = searching by id · {ids}
+
+error.validate.lookup-fields = enter a title, ISBN, or ASIN first
 
 # ===========================================================================
 # THE REST OF THE SHARED VOCABULARY — common.field.* and one shell key.
