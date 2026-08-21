@@ -48,6 +48,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Three places printed the key instead of the words.** The shortcut sheet's five
+  headings, the three lines of microcopy under *Settings → Features*, and the three
+  media chips in *Settings → Daily quiz & practice* all rendered a locale key on
+  screen — `shell.shortcut.group.anywhere.label`, `nav.section.library.what` — in
+  every language, English included. All three held the key in a table and drew it
+  without asking the resolver for its words; in each case the very same table was
+  being read correctly somewhere else in the same file, which is what made it
+  survivable. The headings had been the key for as long as the sheet has existed.
+
+  A test that scanned the whole of Settings rather than the one card the report
+  named is what found the third of them, and the shortcut heading's own test had
+  been passing for the wrong reason — it filtered on the English word *Go to* after
+  that value had become a key, matched nothing, and asserted that an empty set had
+  been removed.
+
+- **Two dialogs had never opened.** *Settings → Daily quiz & practice → In depth* and
+  *Search → Filters* both did nothing at all when pressed. The dialog primitive took an
+  `open` prop with no default and rendered nothing without one, and these two call sites
+  mount the dialog only while it is wanted rather than keeping a hidden instance around —
+  so there was no `open` to pass and the answer was always nothing. React does not warn
+  about this and the surrounding code reads correctly, which is why it lasted: the only
+  symptom is a button that looks broken.
+
+  Everything behind both doors was already right and had been all along. The in-depth
+  panel's question toggles, its eight scheduling sliders, its refusal to accept a ladder
+  that does not climb, and its *Back to defaults* all work, and the rules it enforces have
+  been checked against the server's own copy by a test that was green the entire time —
+  for a panel nobody could reach. Mounting a dialog now counts as opening it.
+
 - **A Kindle's own clippings file could split one book into two.** The device writes a
   byte-order mark before each record's title — not once at the top of the file, but every
   time it appends — and the parser trimmed only the leading one. The rest stayed glued to
