@@ -183,6 +183,30 @@ describe('the help sheet’s view', () => {
       for (const i of g.items) expect(i.keys).toBeTruthy()
     }
   })
+
+  // THE HEADING WAS THE KEY ITSELF, and for as long as the sheet existed. `label`
+  // went through t() on its way out of here and `group` did not, so pressing ?
+  // showed five headings reading `shell.shortcut.group.anywhere.label`,
+  // `…go-to.label` and so on — in English and in Bengali alike.
+  //
+  // It survived because locale-complete.test.js cannot see it. That file asks
+  // whether every key the code names exists and whether every key in the file is
+  // named, and `shell.shortcut.group.anywhere.label` passes both: it is right
+  // there in keys.js as a literal. What no scan of the source can tell is whether
+  // the value ever reached t(). Its own header says so. This is that assertion,
+  // made where the answer is a value rather than a grep.
+  it('resolves the heading, and does not hand out the key', () => {
+    const KEYSHAPE = /^[a-z][a-z0-9-]*(?:\.[a-z0-9-]+)+$/
+    for (const g of groupedShortcuts()) {
+      expect(KEYSHAPE.test(g.group), `heading is an unresolved key: ${g.group}`).toBe(false)
+      // The key is still exposed, deliberately — React needs a stable identity
+      // that does not move when the language does.
+      expect(KEYSHAPE.test(g.key), `${g.key} should be the locale key`).toBe(true)
+      for (const i of g.items) {
+        expect(KEYSHAPE.test(i.label), `label is an unresolved key: ${i.label}`).toBe(false)
+      }
+    }
+  })
 })
 
 // ---- the legends ---------------------------------------------------------
@@ -303,10 +327,18 @@ describe('the legend can leave out a door that is not on screen', () => {
 
   it('takes the heading with the last row under it', () => {
     // A group is built when its first surviving row arrives, so emptying one leaves
-    // no heading behind. Nothing can empty 'Go to' today - Home, Stats, Metadata,
-    // your profile and Settings are all unhideable - but a bare heading over
-    // nothing is the kind of thing a later section would introduce silently.
-    const gone = new Set(SHORTCUTS.filter((s) => s.group === 'Go to').map((s) => s.id))
-    expect(groupedShortcuts(gone).some((g) => g.group === 'Go to')).toBe(false)
+    // no heading behind. Nothing can empty the go-to group today - Home, Stats,
+    // Metadata, your profile and Settings are all unhideable - but a bare heading
+    // over nothing is the kind of thing a later section would introduce silently.
+    //
+    // MATCHED ON THE KEY. This read `s.group === 'Go to'` and passed for the wrong
+    // reason for as long as the i18n migration has existed: `group` became a locale
+    // key, the filter matched nothing, `gone` was empty, and the assertion that a
+    // heading had DISAPPEARED was satisfied by a heading that had never been asked
+    // to go. It only went red when the heading started resolving to real words.
+    const GO_TO = 'shell.shortcut.group.go-to.label'
+    const gone = new Set(SHORTCUTS.filter((s) => s.group === GO_TO).map((s) => s.id))
+    expect(gone.size, 'the go-to group has rows to remove').toBeGreaterThan(1)
+    expect(groupedShortcuts(gone).some((g) => g.key === GO_TO)).toBe(false)
   })
 })

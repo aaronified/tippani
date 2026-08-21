@@ -552,7 +552,11 @@ export function ReviewScope({ value, onChange }) {
                   onChange(REVIEW_MEDIA.map((m) => m[0]).filter((k) => next.includes(k)).join(','))
                 }}
               >
-                {label}
+                {/* t(), like the hint beside it. The comment on REVIEW_MEDIA says
+                    "both words are keys" and only one of them was resolved, so
+                    these three chips read `nav.tab.library.label` and its two
+                    siblings on screen — inside the review card itself. */}
+                {t(label)}
               </button>
             </Tooltip>
           )
@@ -1763,7 +1767,12 @@ function FeaturesCard({ prefs, onSaved }) {
                 options={[['off', t('common.action.hide.label')], ['on', t('common.action.show.label')]]}
               />
               <p className="microcopy mt-1">
-                {locked ? t('settings.features.locked.prose') : sec.what}
+                {/* t(), because SECTIONS[].what is a KEY. It was rendered raw
+                    here and printed `nav.section.library.what` on screen, while
+                    the SAME table resolved correctly forty lines up in the
+                    Metadata card — one table, two readings, and only one of them
+                    right. */}
+                {locked ? t('settings.features.locked.prose') : t(sec.what)}
               </p>
             </div>
           )

@@ -65,6 +65,38 @@ describe('the Features card', () => {
     expect(screen.getByText('Features')).toBeTruthy()
   })
 
+  // SECTIONS[].what IS A KEY and this card rendered it raw, so the three lines of
+  // microcopy under the three switches read `nav.section.library.what`,
+  // `nav.section.movies.what` and `nav.section.quotes.what` — on screen, in every
+  // language. The Metadata card reads the same table correctly forty lines away in
+  // the same file, which is what makes this worth a test rather than a fix: one
+  // table with two readings will grow a third.
+  //
+  // Asserted over the whole card's text rather than per row, so a key leaking from
+  // any other field here is caught by the same case.
+  it('renders no unresolved key anywhere in it', () => {
+    page()
+    // THE WHOLE PAGE, not just this card. Scoping this to the Features card was
+    // the first draft and it was worth less: run over all of Settings it
+    // immediately found a THIRD leak nobody was looking for — the review-scope
+    // chips in the quiz card, whose own comment says "both words are keys" and
+    // which resolved one of them. A key on screen is a key on screen; the card
+    // this case is filed under is not a reason to stop looking at the next one.
+    const keyish = [...document.querySelectorAll('*')]
+      .flatMap((el) => [...el.childNodes])
+      .filter((n) => n.nodeType === 3)
+      .map((n) => n.textContent.trim())
+      .filter((txt) => /^[a-z][a-z0-9-]*(?:\.[a-z0-9-]+)+$/.test(txt))
+    expect(keyish, 'unresolved keys on screen').toEqual([])
+  })
+
+  it('says what each section is for, in words', () => {
+    page()
+    for (const sec of SECTIONS) {
+      expect(screen.getByText(t(sec.what)), `no microcopy for ${sec.label}`).toBeTruthy()
+    }
+  })
+
   it('offers one switch per section, named after the section', () => {
     page()
     for (const sec of SECTIONS) {

@@ -3221,7 +3221,10 @@ export function ShortcutSheet({ open, onClose, omit }) {
         })}
       </p>
       {groupedShortcuts(omit).map((g) => (
-        <div key={g.group} style={{ marginBottom: 16 }}>
+        // Keyed on g.key — the locale key — and not on the words: g.group is now
+        // resolved copy, so keying on it would remount every group on a language
+        // change.
+        <div key={g.key} style={{ marginBottom: 16 }}>
           <MonoLabel className="mb-2 block">{g.group}</MonoLabel>
           <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
             {g.items.map((it) => (

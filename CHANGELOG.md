@@ -48,6 +48,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Three places printed the key instead of the words.** The shortcut sheet's five
+  headings, the three lines of microcopy under *Settings → Features*, and the three
+  media chips in *Settings → Daily quiz & practice* all rendered a locale key on
+  screen — `shell.shortcut.group.anywhere.label`, `nav.section.library.what` — in
+  every language, English included. All three held the key in a table and drew it
+  without asking the resolver for its words; in each case the very same table was
+  being read correctly somewhere else in the same file, which is what made it
+  survivable. The headings had been the key for as long as the sheet has existed.
+
+  A test that scanned the whole of Settings rather than the one card the report
+  named is what found the third of them, and the shortcut heading's own test had
+  been passing for the wrong reason — it filtered on the English word *Go to* after
+  that value had become a key, matched nothing, and asserted that an empty set had
+  been removed.
+
 - **Two dialogs had never opened.** *Settings → Daily quiz & practice → In depth* and
   *Search → Filters* both did nothing at all when pressed. The dialog primitive took an
   `open` prop with no default and rendered nothing without one, and these two call sites

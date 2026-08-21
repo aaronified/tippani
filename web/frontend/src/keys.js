@@ -165,12 +165,19 @@ export function withShortcut(label, id, shifted = false) {
 // A SET OF ACTION IDS, NOT OF TABS. keys.js knows which key runs which action and
 // deliberately nothing about screens, so the caller — which owns the tab-to-action
 // map — decides what to leave out.
+//
+// BOTH STRINGS RESOLVE HERE, and the heading used to not. `label` went through
+// t() and `group` was passed along raw, so the shortcuts sheet printed
+// `shell.shortcut.group.anywhere.label` — the key itself — as a heading, in every
+// language, for as long as the sheet has existed. Grouping BY THE KEY is still
+// right (it is the stable identity; two languages must not split one group in
+// two), so the key groups and the resolved words are what comes out.
 export function groupedShortcuts(omit) {
   const out = []
   for (const s of SHORTCUTS) {
     if (omit?.has?.(s.id)) continue
-    let g = out.find((x) => x.group === s.group)
-    if (!g) out.push((g = { group: s.group, items: [] }))
+    let g = out.find((x) => x.key === s.group)
+    if (!g) out.push((g = { key: s.group, group: t(s.group), items: [] }))
     g.items.push({
       id: s.id,
       label: t(s.label),
