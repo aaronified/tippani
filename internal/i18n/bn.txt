@@ -3530,6 +3530,103 @@ error.reverify.apply = বসানো গেল না
 error.reverify.interrupted = দেখার কাজ থেমে গেছে — কানেকশন দেখে আবার খুলুন
 error.reverify.apply-interrupted = বসানোর কাজ থেমে গেছে — কানেকশন দেখে আবার চেষ্টা করুন (যা বসে গেছে তা বসাই থাকবে)
 
+# ---------------------------------------------------------------------------
+# IMPORT — ImportPage.jsx. The seven format names are proper nouns and stay as
+# themselves (§8); “My Clippings” is the filename on the device, so it stays
+# Latin or the instruction stops being followable. URLs, file extensions and the
+# Ctrl+S / ⌘S key names are Latin for the same reason.
+# ---------------------------------------------------------------------------
+import.title = ইমপোর্ট
+import.counts = দাগগুলো ঘরে আনুন
+
+import.source.markdown.title = Markdown
+import.source.markdown.desc = টিপ্পনীর বই বা ক্যাটালগ এক্সপোর্ট, কিংবা Readest-এর এক্সপোর্ট — নিজেই চিনে নেয়।
+import.source.markdown.step.1 = টিপ্পনীর এক্সপোর্ট (বই বা ক্যাটালগ), Readest-এর এক্সপোর্ট, বা নিজের frontmatter + উদ্ধৃতি আবার ইমপোর্ট করুন।
+import.source.markdown.step.2 = একটা .md ফাইলে অনেক বই বা টাইটেল থাকতে পারে — সবগুলোই আসবে। ফাইল এখানে ছাড়ুন।
+
+import.source.bookcision.title = Bookcision
+import.source.bookcision.desc = Bookcision বুকমার্কলেট দিয়ে Kindle-এর দাগ।
+import.source.bookcision.step.1 = read.amazon.com/notebook-এ গিয়ে বইয়ের Notes & Highlights খুলুন।
+import.source.bookcision.step.2 = Bookcision বুকমার্কলেট চালান, তারপর Download → JSON, আর ফাইলটা এখানে ছাড়ুন।
+import.source.bookcision.step.3 = বুকমার্কলেট এড়াতে চান? Kindle notebook কার্ড দিয়ে সেভ করা পাতাই সরাসরি আনুন (রং থেকে যায়)।
+
+import.source.hardcover-html.title = Hardcover
+import.source.hardcover-html.desc = একটা বইয়ের জন্য আপনার পড়ার খাতার পাতা।
+import.source.hardcover-html.step.1 = নিজের জার্নালের পাতা খুলুন, যেমন hardcover.app/books/<book>/journals/@you
+import.source.hardcover-html.step.2 = পাতাটা ওয়েব পেজ হিসেবে সেভ করুন, শুধু HTML (Ctrl+S / ⌘S)।
+import.source.hardcover-html.step.3 = সেভ করা .html এখানে ছাড়ুন।
+
+import.source.goodreads-html.title = Goodreads
+import.source.goodreads-html.desc = একটা বইয়ের খোলা Quotes পাতা — উদ্ধৃতির ট্যাগও সঙ্গে আসে।
+import.source.goodreads-html.step.1 = বইয়ের Quotes পাতা খুলুন, যেমন goodreads.com/work/quotes/<id>-<book>
+import.source.goodreads-html.step.2 = পাতাটা ওয়েব পেজ হিসেবে সেভ করুন, শুধু HTML (Ctrl+S / ⌘S)।
+import.source.goodreads-html.step.3 = সেভ করা .html এখানে ছাড়ুন।
+
+import.source.imdb-quotes.title = IMDb উদ্ধৃতি
+import.source.imdb-quotes.desc = কোনও সিনেমা বা শোর Quotes পাতা → সংলাপ (সিনেমা আর শোতে)।
+import.source.imdb-quotes.step.1 = টাইটেলের Quotes পাতা খুলুন, যেমন imdb.com/title/tt0434409/quotes
+import.source.imdb-quotes.step.2 = পাতাটা ওয়েব পেজ হিসেবে সেভ করুন, শুধু HTML (Ctrl+S / ⌘S)।
+import.source.imdb-quotes.step.3 = সেভ করা .html এখানে ছাড়ুন।
+
+import.source.kindle-notebook.title = Kindle নোটবুক
+import.source.kindle-notebook.desc = আপনার Kindle-এর Notes & Highlights পাতা — রং আর লোকেশন সঙ্গে আসে।
+import.source.kindle-notebook.step.1 = read.amazon.com/notebook খুলে বইটা বাছুন।
+import.source.kindle-notebook.step.2 = পাতাটা ওয়েব পেজ হিসেবে সেভ করুন, শুধু HTML (Ctrl+S / ⌘S)।
+import.source.kindle-notebook.step.3 = সেভ করা .html এখানে ছাড়ুন।
+
+import.source.kindle-clippings.title = My Clippings
+import.source.kindle-clippings.desc = Kindle যন্ত্রের নিজের ফাইল — এক বারে সব বই, দাগ আর নোট নিয়ে।
+import.source.kindle-clippings.step.1 = USB দিয়ে Kindle লাগান।
+import.source.kindle-clippings.step.2 = যন্ত্র থেকে documents/My Clippings.txt কপি করুন।
+import.source.kindle-clippings.step.3 = এখানে ছাড়ুন — ফাইলের সব বই এক বারেই আসবে।
+import.source.kindle-clippings.caveat = Kindle এই ফরম্যাটের কথা কোথাও লিখে রাখেনি, আর ভাষা অনুযায়ী বদলায়ও — তাই অন্য ভাষার যন্ত্র (বা অন্য ফার্মওয়্যার) এমন রেকর্ড বানাতে পারে যা এটা ভুল পড়ে। কিছু অনুমান করা হয় না: যা পড়া যায় না তা বাদ যায়, আর গুনে জানানো হয়।
+
+import.experimental.label = পরীক্ষামূলক
+import.choose.label = ফাইল বাছুন — এক বা অনেক
+import.drop.hint = বা এখানে টেনে ছাড়ুন
+import.pick.label = ইমপোর্ট — ফাইল বাছুন
+import.format.aria = ইমপোর্টের ফরম্যাট
+import.format.search.placeholder = ফরম্যাট খুঁজুন…
+import.format.none = কোনও ফরম্যাট মিলল না
+
+import.summary.files.one = {n}টি ফাইল
+import.summary.files.other = {n}টি ফাইল
+import.summary.quotes.one = {n}টি উদ্ধৃতি অপেক্ষায়
+import.summary.quotes.other = {n}টি উদ্ধৃতি অপেক্ষায়
+import.summary.arrow = {files} → {quotes} · লাইব্রেরিতে এখনও কিছু ঢোকেনি
+import.row.staged.one = {n}টি উদ্ধৃতি অপেক্ষায়
+import.row.staged.other = {n}টি উদ্ধৃতি অপেক্ষায়
+import.row.duplicate = ⚠ এই বই আপনার কাছে আগেই আছে বলে মনে হচ্ছে: {titles} — অপেক্ষার সারিতে উদ্ধৃতিগুলো ওটার উপরেই পাঠান, নয়তো আলাদা বই হিসেবে মেনে নিন
+import.review.one = {n}টি অপেক্ষায় থাকা উদ্ধৃতি দেখুন
+import.review.other = {n}টি অপেক্ষায় থাকা উদ্ধৃতি দেখুন
+import.review.absent = দেখে মেনে নিতে “অপেক্ষায় ইমপোর্ট” খুলুন
+
+# The hole stays bare of case markers (§5.4) — {title} may be any name.
+import.work.joins = আগের “{title}”-এর সঙ্গে জুড়বে
+import.work.joins-year = আগের “{title}” ({year})-এর সঙ্গে জুড়বে
+import.work.new = নতুন একটা {kind}
+import.work.ambiguous = ⚠ “{title}” নামে আপনার {n}টি টাইটেল আছে — অপেক্ষার সারি দেখাবে কোনটা বাছা হল, আর সরানোও যাবে
+
+import.clippings.bookmarks.one = {n}টি বুকমার্ক বাদ (আনার মতো লেখা নেই)
+import.clippings.bookmarks.other = {n}টি বুকমার্ক বাদ (আনার মতো লেখা নেই)
+import.clippings.notes.one = {n}টি নোট নিজের দাগের সঙ্গে জুড়েছে
+import.clippings.notes.other = {n}টি নোট নিজের দাগের সঙ্গে জুড়েছে
+import.clippings.duplicates.one = {n}টি আবার-সেভ করা দাগ এক হয়েছে
+import.clippings.duplicates.other = {n}টি আবার-সেভ করা দাগ এক হয়েছে
+import.clippings.malformed.one = {n}টি রেকর্ড পড়া গেল না
+import.clippings.malformed.other = {n}টি রেকর্ড পড়া গেল না
+
+import.nothing-lands.body = ইমপোর্ট করা সব আগে {queue}-এ আসে আর আপনি সায় না দেওয়া পর্যন্ত সেখানেই থাকে — লাইব্রেরি, খোঁজ বা রিভিশনের ডেকে কিছুই ঢোকে না। ওখানে গোটা ফাইল এক বারে দেখে নিন: অধ্যায় আর লোকেশন একসঙ্গে ঠিক করুন, উদ্ধৃতি ঠিক বই বা সিনেমার উপরে পাঠান, তারপর মেনে নিন বা ফেলে দিন।
+import.why-upload.summary = সেভ করা পাতা আপলোড করি, URL দিই না কেন?
+import.why-upload.body = ব্রাউজার থেকে URL ধরে পাতা আনা cross-origin নিয়মে (CORS) আটকে যায় — Amazon, IMDb, Goodreads-এর মতো সাইট দেয় না, আর ঠিক এই কারণেই Bookcision-এর মতো বুকমার্কলেট {emphasis} চলতে হয়। সার্ভার থেকে আনলে CORS এড়ানো যায়, কিন্তু Kindle-এর মতো ব্যক্তিগত পাতার জন্য আপনার লগ-ইন করা সেশন দরকার, আর সার্ভার থেকে স্ক্র্যাপ করলে সাইটের অ্যান্টি-বট পাহারা আর শর্তে বাধে — ভঙ্গুর, আর চুপচাপ ভেঙে যায়। নিজের লগ-ইন করা ব্রাউজারে পাতা সেভ করে আপলোড করাই টিকে থাকা পথ, তাই সেটাই করা হয়।
+import.why-upload.emphasis = ওদের পাতাতেই
+
+error.import.failed = ইমপোর্ট করা গেল না
+
+# The queue's own name, which the import screen also puts in bold in its
+# standing note. §3.7 gives pending import → অপেক্ষায় ইমপোর্ট.
+staging.title = অপেক্ষায় ইমপোর্ট
+
 # ===========================================================================
 # THE REST OF THE SHARED VOCABULARY — common.field.* and one shell key.
 #

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { upload, errText } from './api.js'
+import { t, tNodes } from './i18n.js'
 import {
   GhostButton,
   HandCard,
@@ -26,92 +27,31 @@ import {
 // fill them in one at a time — is retired. The queue supersedes it and does the
 // same job over a selection instead of a row at a time.
 
+// SOURCES holds KEYS and the mechanical facts. Every word a reader sees —
+// the format's name, its one-line description, its numbered steps and the
+// clippings caveat — is a key resolved where it is drawn, so the wall is in the
+// reader's language and not in the language it was written in.
+//
+// `steps` is a COUNT rather than a list of strings: the keys are
+// import.source.<kind>.step.1 … .N, so the table says how many there are and the
+// file says what they are. A list of keys here would be the same fact written
+// twice, and locale-complete would only check one of them.
 const SOURCES = [
-  {
-    kind: 'markdown',
-    ext: '.md',
-    title: 'Markdown',
-    desc: 'Tippani book or catalogue exports, or a Readest export — auto-detected.',
-    accept: '.md,.markdown,.txt',
-    steps: [
-      'Re-import a Tippani export (books or the catalogue), a Readest export, or your own frontmatter + quotes.',
-      'A single .md may hold many books or titles — each is imported. Drop the file(s) here.',
-    ],
-  },
-  {
-    kind: 'bookcision',
-    ext: '.json',
-    title: 'Bookcision',
-    desc: 'Kindle highlights via the Bookcision bookmarklet.',
-    accept: '.json',
-    steps: [
-      'On read.amazon.com/notebook, open the book’s Notes & Highlights.',
-      'Run the Bookcision bookmarklet, then Download → JSON, and drop it here.',
-      'Prefer to skip the bookmarklet? Use the Kindle notebook card to import the saved page directly (keeps colours).',
-    ],
-  },
-  {
-    kind: 'hardcover-html',
-    ext: '.html',
-    title: 'Hardcover',
-    desc: 'Your reading-journal page for one book.',
-    accept: '.htm,.html',
-    steps: [
-      'Open your journal page, e.g. hardcover.app/books/<book>/journals/@you',
-      'Save it as a web page, HTML only (Ctrl+S / ⌘S).',
-      'Drop the saved .html here.',
-    ],
-  },
-  {
-    kind: 'goodreads-html',
-    ext: '.html',
-    title: 'Goodreads',
-    desc: "A book's public Quotes page — quote tags come across too.",
-    accept: '.htm,.html',
-    steps: [
-      'Open the book’s Quotes page, e.g. goodreads.com/work/quotes/<id>-<book>',
-      'Save it as a web page, HTML only (Ctrl+S / ⌘S).',
-      'Drop the saved .html here.',
-    ],
-  },
-  {
-    kind: 'imdb-quotes',
-    ext: '.html',
-    title: 'IMDb quotes',
-    desc: 'A movie or show’s Quotes page → dialogues (into Movies & Shows).',
-    accept: '.htm,.html',
-    steps: [
-      'Open the title’s Quotes page, e.g. imdb.com/title/tt0434409/quotes',
-      'Save it as a web page, HTML only (Ctrl+S / ⌘S).',
-      'Drop the saved .html here.',
-    ],
-  },
-  {
-    kind: 'kindle-notebook',
-    ext: '.html',
-    title: 'Kindle notebook',
-    desc: 'Your Kindle Notes & Highlights page — colours + locations come across.',
-    accept: '.htm,.html',
-    steps: [
-      'Open read.amazon.com/notebook and pick the book.',
-      'Save it as a web page, HTML only (Ctrl+S / ⌘S).',
-      'Drop the saved .html here.',
-    ],
-  },
-  {
-    kind: 'kindle-clippings',
-    ext: '.txt',
-    title: 'My Clippings',
-    desc: 'The Kindle device’s own file — every book at once, highlights and notes.',
-    accept: '.txt',
-    experimental: 'Kindle never documented this format and localises it, so a device in another language (or an unusual firmware) can produce records this misreads. Nothing is guessed at: whatever can’t be read is skipped and counted back to you.',
-    steps: [
-      'Plug the Kindle in by USB.',
-      'Copy documents/My Clippings.txt off the device.',
-      'Drop it here — every book in the file lands at once.',
-    ],
-  },
+  { kind: 'markdown', ext: '.md', accept: '.md,.markdown,.txt', steps: 2 },
+  { kind: 'bookcision', ext: '.json', accept: '.json', steps: 3 },
+  { kind: 'hardcover-html', ext: '.html', accept: '.htm,.html', steps: 3 },
+  { kind: 'goodreads-html', ext: '.html', accept: '.htm,.html', steps: 3 },
+  { kind: 'imdb-quotes', ext: '.html', accept: '.htm,.html', steps: 3 },
+  { kind: 'kindle-notebook', ext: '.html', accept: '.htm,.html', steps: 3 },
+  { kind: 'kindle-clippings', ext: '.txt', accept: '.txt', steps: 3, caveat: true },
 ]
+
+// The reader's words for one source, resolved at render.
+const sourceTitle = (kind) => t(`import.source.${kind}.title`)
+const sourceDesc = (kind) => t(`import.source.${kind}.desc`)
+const sourceSteps = (src) =>
+  Array.from({ length: src.steps }, (_, i) => t(`import.source.${src.kind}.step.${i + 1}`))
+const sourceCaveat = (src) => (src.caveat ? t(`import.source.${src.kind}.caveat`) : '')
 
 // `embedded` renders without the page header / sticky bar, for the unified Add
 // surface (§7 One "＋ Add") where the surface supplies its own title + chooser.
@@ -135,15 +75,17 @@ export default function ImportPage({ onReviewImport, onStaged, embedded = false 
       const r = await upload(`/import/${kind}`, files[i])
       rows[i] = r.ok
         ? { name: files[i].name, ok: true, ...r.data }
-        : { name: files[i].name, ok: false, error: errText(r, 'import failed') }
+        : { name: files[i].name, ok: false, error: errText(r, t('error.import.failed')) }
       setResults([...rows])
     }
     const ok = rows.filter((r) => r.ok)
     const total = ok.reduce((n, r) => n + (r.staged || 0), 0)
     setStaged(total)
     setSummary(
-      `${files.length} file${files.length === 1 ? '' : 's'} → ${total} quote${total === 1 ? '' : 's'} staged` +
-        ' · nothing has entered your library yet',
+      t('import.summary.arrow', {
+        files: t('import.summary.files', { count: files.length, n: files.length }),
+        quotes: t('import.summary.quotes', { count: total, n: total }),
+      }),
     )
     onStaged?.()
     setBusy(false)
@@ -153,7 +95,7 @@ export default function ImportPage({ onReviewImport, onStaged, embedded = false 
     <section className="space-y-5">
       {!embedded && (
         <div className={mobile ? 'mobile-sticky-bar' : ''}>
-          <PageHeader title="Import" counts="bring the highlights home" />
+          <PageHeader title={t('import.title')} counts={t('import.counts')} />
         </div>
       )}
       {/* Embedded in the narrow Add surface (max-w-2xl), 4 columns crammed the
@@ -167,7 +109,7 @@ export default function ImportPage({ onReviewImport, onStaged, embedded = false 
           {SOURCES.map((s, i) => (
             <SourceCard
               key={s.kind}
-              {...s}
+              src={s}
               variant={i}
               color={CARD_COLORS[i % CARD_COLORS.length]}
               busy={busy}
@@ -195,15 +137,12 @@ function SaveDontPasteNote() {
       style={{ border: '1px dashed var(--line)', borderRadius: 12, color: 'var(--soft)' }}
     >
       <summary className="mono-label cursor-pointer" style={{ listStyle: 'revert' }}>
-        Why upload the saved page, not paste a URL?
+        {t('import.why-upload.summary')}
       </summary>
       <p className="mt-2" style={{ fontSize: 13, lineHeight: 1.55 }}>
-        Fetching the page from a URL in your browser is blocked by cross-origin rules (CORS) — sites like Amazon,
-        IMDb and Goodreads don’t allow it, which is exactly why a bookmarklet such as Bookcision has to run{' '}
-        <i>on their page</i>. Fetching server-side would dodge CORS but needs your logged-in session for private
-        pages (Kindle), and scraping from a server trips anti-bot defences and site terms — fragile and easy to
-        break silently. Saving the page in your own signed-in browser and uploading it is the robust path that
-        keeps working, so that’s what we do.
+        {tNodes('import.why-upload.body', {
+          emphasis: <i>{t('import.why-upload.emphasis')}</i>,
+        })}
       </p>
     </details>
   )
@@ -250,8 +189,12 @@ function MobileImportPicker({ busy, onFiles }) {
   const selected = SOURCES[selIdx]
   const color = CARD_COLORS[selIdx % CARD_COLORS.length]
   const q = query.trim().toLowerCase()
+  // Searched over the RESOLVED words, so typing in the reader's own language
+  // finds the format they can see.
   const hits = q
-    ? SOURCES.filter((s) => `${s.title} ${s.desc} ${s.ext}`.toLowerCase().includes(q))
+    ? SOURCES.filter((s) =>
+        `${sourceTitle(s.kind)} ${sourceDesc(s.kind)} ${s.ext}`.toLowerCase().includes(q),
+      )
     : SOURCES
   return (
     <div className="flex flex-col gap-3">
@@ -261,15 +204,15 @@ function MobileImportPicker({ busy, onFiles }) {
           className="tp-input"
           role="combobox"
           aria-expanded={open}
-          aria-label="Import format"
-          placeholder="Search formats…"
-          value={open ? query : selected.title}
+          aria-label={t('import.format.aria')}
+          placeholder={t('import.format.search.placeholder')}
+          value={open ? query : sourceTitle(selected.kind)}
           onFocus={() => { setQuery(''); setOpen(true) }}
           onChange={(e) => { setQuery(e.target.value); setOpen(true) }}
         />
         {open && createPortal(
           <div ref={popRef} className="tp-select-panel" role="listbox" style={style}>
-            {hits.length === 0 && <p className="microcopy px-3 py-2">no format matches</p>}
+            {hits.length === 0 && <p className="microcopy px-3 py-2">{t('import.format.none')}</p>}
             {hits.map((s) => (
               <button
                 key={s.kind}
@@ -279,7 +222,8 @@ function MobileImportPicker({ busy, onFiles }) {
                 className="tp-select-opt tactile"
                 onClick={() => { setSel(s.kind); setQuery(''); setOpen(false) }}
               >
-                {s.title} <span className="mono-label" style={{ color: 'var(--faint)', marginLeft: 6 }}>{s.ext}</span>
+                {sourceTitle(s.kind)}{' '}
+                <span className="mono-label" style={{ color: 'var(--faint)', marginLeft: 6 }}>{s.ext}</span>
               </button>
             ))}
           </div>,
@@ -288,13 +232,13 @@ function MobileImportPicker({ busy, onFiles }) {
       </div>
       <HandCard variant={selIdx} colorBar={color} className="flex flex-col gap-3 p-5">
         <ExtBadge color={color}>{selected.ext}</ExtBadge>
-        <h3 className="text-base font-semibold">{selected.title}</h3>
-        <p className="text-sm" style={{ color: 'var(--soft)' }}>{selected.desc}</p>
+        <h3 className="text-base font-semibold">{sourceTitle(selected.kind)}</h3>
+        <p className="text-sm" style={{ color: 'var(--soft)' }}>{sourceDesc(selected.kind)}</p>
         <ol
           className="text-sm"
           style={{ color: 'var(--soft)', listStyle: 'decimal', paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 6 }}
         >
-          {selected.steps.map((step, i) => (
+          {sourceSteps(selected).map((step, i) => (
             <li key={i}>{step}</li>
           ))}
         </ol>
@@ -302,7 +246,7 @@ function MobileImportPicker({ busy, onFiles }) {
           className="tp-btn tp-btn-primary w-full"
           style={busy ? { opacity: 0.55, cursor: 'default' } : { cursor: 'pointer' }}
         >
-          Import — pick file(s)
+          {t('import.pick.label')}
           <input
             type="file"
             multiple
@@ -326,7 +270,10 @@ function MobileImportPicker({ busy, onFiles }) {
 // The paste-on wobble lives on a chrome-only HandCard underlay: rotating the
 // text itself rasterized every glyph on a 0.7° layer and blurred it (§ the
 // import wall was the only place whole text cards were tilted).
-function SourceCard({ variant, ext, title, desc, steps, accept, busy, onFiles, color, experimental }) {
+function SourceCard({ variant, src, busy, onFiles, color }) {
+  const { ext, accept } = src
+  const steps = sourceSteps(src)
+  const caveat = sourceCaveat(src)
   const [over, setOver] = useState(false)
   const tilt = variant % 2 ? 0.7 : -0.7 // paste-on wobble (§ playful, within ±2.2°)
   return (
@@ -353,28 +300,30 @@ function SourceCard({ variant, ext, title, desc, steps, accept, busy, onFiles, c
       <div className="relative flex h-full flex-col gap-3 p-5">
       <ExtBadge color={color}>{ext}</ExtBadge>
       <div className="flex items-center gap-1.5">
-        <h3 className="text-base font-semibold">{title}</h3>
-        {steps && steps.length > 0 && (
-          <InfoDot text={steps.map((s, i) => `${i + 1}. ${s}`).join('  ')} />
+        <h3 className="text-base font-semibold">{sourceTitle(src.kind)}</h3>
+        {steps.length > 0 && (
+          <InfoDot text={steps.map((step, i) => `${i + 1}. ${step}`).join('  ')} />
         )}
         {/* An honest label, not decoration: the caveat itself is one tap away
             rather than buried in the steps. */}
-        {experimental && (
-          <span className="tp-chip shrink-0" style={{ color: 'var(--amber)', fontSize: 9.5 }}>experimental</span>
+        {caveat && (
+          <span className="tp-chip shrink-0" style={{ color: 'var(--amber)', fontSize: 9.5 }}>
+            {t('import.experimental.label')}
+          </span>
         )}
       </div>
       <p className="text-sm" style={{ color: 'var(--soft)' }}>
-        {desc}
+        {sourceDesc(src.kind)}
       </p>
-      {experimental && (
-        <p className="microcopy" style={{ color: 'var(--amber, var(--accent-ui))' }}>⚠ {experimental}</p>
+      {caveat && (
+        <p className="microcopy" style={{ color: 'var(--amber, var(--accent-ui))' }}>⚠ {caveat}</p>
       )}
       <div className="mt-auto">
         <label
           className="tp-btn tp-btn-ghost w-full"
           style={busy ? { opacity: 0.55, cursor: 'default' } : { cursor: 'pointer' }}
         >
-          Choose file — one or many
+          {t('import.choose.label')}
           <input
             type="file"
             multiple
@@ -388,7 +337,7 @@ function SourceCard({ variant, ext, title, desc, steps, accept, busy, onFiles, c
             }}
           />
         </label>
-        <p className="microcopy mt-1.5 text-center">or drag &amp; drop here</p>
+        <p className="microcopy mt-1.5 text-center">{t('import.drop.hint')}</p>
       </div>
       </div>
     </div>
@@ -414,7 +363,7 @@ function BatchResults({ results, summary, staged, onReviewImport }) {
             {r.pending ? (
               '…'
             ) : r.ok ? (
-              `${r.staged} quote${r.staged === 1 ? '' : 's'} staged`
+              t('import.row.staged', { count: r.staged, n: r.staged })
             ) : (
               <span style={{ color: 'var(--error)' }}>{r.error}</span>
             )}
@@ -423,21 +372,21 @@ function BatchResults({ results, summary, staged, onReviewImport }) {
           {r.ok && (r.works || []).map((w) => <StagedWorkNotice key={w.id} work={w} />)}
           {r.ok && r.possible_duplicates && r.possible_duplicates.length > 0 && (
             <p className="microcopy" style={{ color: 'var(--amber, var(--accent-ui))' }}>
-              ⚠ looks like a book you already have:{' '}
-              {r.possible_duplicates.map((d) => d.title).join(', ')} — retarget the staged quotes onto it in the queue,
-              or approve them as a separate book
+              {t('import.row.duplicate', {
+                titles: r.possible_duplicates.map((d) => d.title).join(', '),
+              })}
             </p>
           )}
         </div>
       ))}
       {staged > 0 && onReviewImport && (
         <button className="tp-btn tp-btn-primary mt-1.5" onClick={onReviewImport}>
-          Review {staged} staged quote{staged === 1 ? '' : 's'}
+          {t('import.review', { count: staged, n: staged })}
         </button>
       )}
       {staged > 0 && !onReviewImport && (
         <p className="microcopy" style={{ color: 'var(--accent-ui)' }}>
-          open Pending import to review and approve them
+          {t('import.review.absent')}
         </p>
       )}
     </div>
@@ -448,19 +397,26 @@ function BatchResults({ results, summary, staged, onReviewImport }) {
 // already in the library — and flags an ambiguous match. This is the check the
 // 1.1.1 routing bug wanted: it happens before the write, not after it.
 function StagedWorkNotice({ work }) {
-  const kindWord = work.kind === 'book' ? 'book' : work.kind === 'show' ? 'show' : 'film'
+  // The three media the parser can report, each named by the app's shared noun.
+  const kindWord = t(work.kind === 'book' ? 'unit.book' : work.kind === 'show' ? 'unit.show' : 'unit.film', {
+    count: 1,
+  })
   return (
     <div className="microcopy" style={{ color: 'var(--soft)' }}>
       <span>
         {work.title} ({work.staged}) →{' '}
         {work.target_id
-          ? `joins your existing “${work.target_title || work.title}”${work.target_year ? ` (${work.target_year})` : ''}`
-          : `a new ${kindWord}`}
+          ? work.target_year
+            ? t('import.work.joins-year', {
+                title: work.target_title || work.title,
+                year: work.target_year,
+              })
+            : t('import.work.joins', { title: work.target_title || work.title })
+          : t('import.work.new', { kind: kindWord })}
       </span>
       {work.ambiguous && (
         <p style={{ color: 'var(--amber, var(--accent-ui))' }}>
-          ⚠ you have {work.alternatives + 1} titles named “{work.title}” — the queue shows which one it picked, and lets
-          you move it
+          {t('import.work.ambiguous', { n: work.alternatives + 1, title: work.title })}
         </p>
       )}
     </div>
@@ -475,9 +431,7 @@ function NothingLandsYetNote() {
       className="microcopy px-4 py-3"
       style={{ border: '1px dashed var(--line)', borderRadius: 12, color: 'var(--soft)' }}
     >
-      Imports land in <b>Pending import</b> first and stay there until you okay them — nothing enters your library, your
-      search or your review deck on arrival. Review a whole file at once there: fix chapters and locations in bulk, move
-      quotes to the right book or film, then approve or discard.
+      {tNodes('import.nothing-lands.body', { queue: <b>{t('staging.title')}</b> })}
     </p>
   )
 }
@@ -487,10 +441,11 @@ function NothingLandsYetNote() {
 // that says so, so every skipped record is accounted for on screen.
 function ClippingsNotice({ row }) {
   const parts = []
-  if (row.bookmarks_skipped) parts.push(`${row.bookmarks_skipped} bookmark${row.bookmarks_skipped === 1 ? '' : 's'} skipped (no text to import)`)
-  if (row.notes_merged) parts.push(`${row.notes_merged} note${row.notes_merged === 1 ? '' : 's'} attached to their highlight`)
-  if (row.near_duplicates) parts.push(`${row.near_duplicates} re-saved highlight${row.near_duplicates === 1 ? '' : 's'} collapsed`)
-  if (row.blocks_malformed) parts.push(`${row.blocks_malformed} record${row.blocks_malformed === 1 ? '' : 's'} couldn’t be read`)
+  const say = (key, n) => t(key, { count: n, n })
+  if (row.bookmarks_skipped) parts.push(say('import.clippings.bookmarks', row.bookmarks_skipped))
+  if (row.notes_merged) parts.push(say('import.clippings.notes', row.notes_merged))
+  if (row.near_duplicates) parts.push(say('import.clippings.duplicates', row.near_duplicates))
+  if (row.blocks_malformed) parts.push(say('import.clippings.malformed', row.blocks_malformed))
   if (parts.length === 0) return null
   return (
     <p className="microcopy" style={{ color: row.blocks_malformed ? 'var(--amber, var(--accent-ui))' : 'var(--soft)' }}>

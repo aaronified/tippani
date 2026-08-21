@@ -3473,6 +3473,128 @@ error.reverify.apply = apply failed
 error.reverify.interrupted = the check was interrupted — check your connection and reopen Re-verify
 error.reverify.apply-interrupted = apply was interrupted — check your connection and try again (already-applied items stay applied)
 
+# ---------------------------------------------------------------------------
+# IMPORT — ImportPage.jsx. Seven source formats, each a card with a how-to, and
+# the per-file result rows underneath.
+#
+# THE FORMAT NAMES ARE PROPER NOUNS and stay as themselves (§8): Markdown,
+# Bookcision, Hardcover, Goodreads, IMDb, Kindle. Where a common noun is stuck to
+# one — “IMDb quotes”, “Kindle notebook” — the common half translates and the
+# name does not. “My Clippings” is the FILENAME on the device, so it stays Latin
+# in every language or the instruction stops being followable.
+#
+# The steps are numbered by the code, so each is one line of instruction with no
+# number in it.
+# ---------------------------------------------------------------------------
+import.title = Import
+import.counts = bring the highlights home
+
+import.source.markdown.title = Markdown
+import.source.markdown.desc = Tippani book or catalogue exports, or a Readest export — auto-detected.
+import.source.markdown.step.1 = Re-import a Tippani export (books or the catalogue), a Readest export, or your own frontmatter + quotes.
+import.source.markdown.step.2 = A single .md may hold many books or titles — each is imported. Drop the file(s) here.
+
+import.source.bookcision.title = Bookcision
+import.source.bookcision.desc = Kindle highlights via the Bookcision bookmarklet.
+import.source.bookcision.step.1 = On read.amazon.com/notebook, open the book’s Notes & Highlights.
+import.source.bookcision.step.2 = Run the Bookcision bookmarklet, then Download → JSON, and drop it here.
+import.source.bookcision.step.3 = Prefer to skip the bookmarklet? Use the Kindle notebook card to import the saved page directly (keeps colours).
+
+import.source.hardcover-html.title = Hardcover
+import.source.hardcover-html.desc = Your reading-journal page for one book.
+import.source.hardcover-html.step.1 = Open your journal page, e.g. hardcover.app/books/<book>/journals/@you
+import.source.hardcover-html.step.2 = Save it as a web page, HTML only (Ctrl+S / ⌘S).
+import.source.hardcover-html.step.3 = Drop the saved .html here.
+
+import.source.goodreads-html.title = Goodreads
+import.source.goodreads-html.desc = A book's public Quotes page — quote tags come across too.
+import.source.goodreads-html.step.1 = Open the book’s Quotes page, e.g. goodreads.com/work/quotes/<id>-<book>
+import.source.goodreads-html.step.2 = Save it as a web page, HTML only (Ctrl+S / ⌘S).
+import.source.goodreads-html.step.3 = Drop the saved .html here.
+
+import.source.imdb-quotes.title = IMDb quotes
+import.source.imdb-quotes.desc = A movie or show’s Quotes page → dialogues (into Movies & Shows).
+import.source.imdb-quotes.step.1 = Open the title’s Quotes page, e.g. imdb.com/title/tt0434409/quotes
+import.source.imdb-quotes.step.2 = Save it as a web page, HTML only (Ctrl+S / ⌘S).
+import.source.imdb-quotes.step.3 = Drop the saved .html here.
+
+import.source.kindle-notebook.title = Kindle notebook
+import.source.kindle-notebook.desc = Your Kindle Notes & Highlights page — colours + locations come across.
+import.source.kindle-notebook.step.1 = Open read.amazon.com/notebook and pick the book.
+import.source.kindle-notebook.step.2 = Save it as a web page, HTML only (Ctrl+S / ⌘S).
+import.source.kindle-notebook.step.3 = Drop the saved .html here.
+
+# The filename on the device. Latin in every language, per §8.
+import.source.kindle-clippings.title = My Clippings
+import.source.kindle-clippings.desc = The Kindle device’s own file — every book at once, highlights and notes.
+import.source.kindle-clippings.step.1 = Plug the Kindle in by USB.
+import.source.kindle-clippings.step.2 = Copy documents/My Clippings.txt off the device.
+import.source.kindle-clippings.step.3 = Drop it here — every book in the file lands at once.
+# Not keyed as .info or .hint on purpose: this is a caveat under a chip, not a
+# dot's body, and it is longer than the 240 those are held to.
+import.source.kindle-clippings.caveat = Kindle never documented this format and localises it, so a device in another language (or an unusual firmware) can produce records this misreads. Nothing is guessed at: whatever can’t be read is skipped and counted back to you.
+
+# The honest chip beside a format that can misread a file.
+import.experimental.label = experimental
+# The desktop card's button, and the phone picker's.
+import.choose.label = Choose file — one or many
+import.drop.hint = or drag & drop here
+import.pick.label = Import — pick file(s)
+# The phone's format chooser.
+import.format.aria = Import format
+import.format.search.placeholder = Search formats…
+import.format.none = no format matches
+
+# The run's summary line. Two plural families rather than one sentence, because
+# the file count and the quote count pluralise independently.
+import.summary.files.one = {n} file
+import.summary.files.other = {n} files
+import.summary.quotes.one = {n} quote staged
+import.summary.quotes.other = {n} quotes staged
+import.summary.arrow = {files} → {quotes} · nothing has entered your library yet
+# One row per file.
+import.row.staged.one = {n} quote staged
+import.row.staged.other = {n} quotes staged
+import.row.duplicate = ⚠ looks like a book you already have: {titles} — retarget the staged quotes onto it in the queue, or approve them as a separate book
+# The hand-over to the queue.
+import.review.one = Review {n} staged quote
+import.review.other = Review {n} staged quotes
+import.review.absent = open Pending import to review and approve them
+
+# Where one parsed work will land. Two keys rather than one with an optional
+# parenthetical, so neither language has to build a bracket.
+import.work.joins = joins your existing “{title}”
+import.work.joins-year = joins your existing “{title}” ({year})
+import.work.new = a new {kind}
+import.work.ambiguous = ⚠ you have {n} titles named “{title}” — the queue shows which one it picked, and lets you move it
+
+# What a My Clippings.txt import dropped, and why. A best-effort parser that
+# quietly returns fewer quotes than the file held is worse than one that says so.
+import.clippings.bookmarks.one = {n} bookmark skipped (no text to import)
+import.clippings.bookmarks.other = {n} bookmarks skipped (no text to import)
+import.clippings.notes.one = {n} note attached to their highlight
+import.clippings.notes.other = {n} notes attached to their highlight
+import.clippings.duplicates.one = {n} re-saved highlight collapsed
+import.clippings.duplicates.other = {n} re-saved highlights collapsed
+import.clippings.malformed.one = {n} record couldn’t be read
+import.clippings.malformed.other = {n} records couldn’t be read
+
+# The contract of the screen, stated in place so the absence of “12 added” reads
+# as intended rather than as a failure. {queue} is the queue's own name, in bold.
+import.nothing-lands.body = Imports land in {queue} first and stay there until you okay them — nothing enters your library, your search or your review deck on arrival. Review a whole file at once there: fix chapters and locations in bulk, move quotes to the right book or film, then approve or discard.
+# Why imports are save-the-page-and-upload rather than paste-a-URL — a natural
+# question, answered once and collapsed. {emphasis} is “on their page”, italic.
+import.why-upload.summary = Why upload the saved page, not paste a URL?
+import.why-upload.body = Fetching the page from a URL in your browser is blocked by cross-origin rules (CORS) — sites like Amazon, IMDb and Goodreads don’t allow it, which is exactly why a bookmarklet such as Bookcision has to run {emphasis}. Fetching server-side would dodge CORS but needs your logged-in session for private pages (Kindle), and scraping from a server trips anti-bot defences and site terms — fragile and easy to break silently. Saving the page in your own signed-in browser and uploading it is the robust path that keeps working, so that’s what we do.
+import.why-upload.emphasis = on their page
+
+error.import.failed = import failed
+
+# The queue's own name, which the import screen also puts in bold in its
+# standing note. ONE KEY, so the two screens cannot disagree about what the
+# place is called.
+staging.title = Pending import
+
 # ===========================================================================
 # THE REST OF THE SHARED VOCABULARY — common.field.* and one shell key.
 #
