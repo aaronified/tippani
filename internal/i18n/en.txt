@@ -537,6 +537,8 @@ common.language-mark.aria = in {name}
 # ---------------------------------------------------------------------------
 vocab.source.google.label = Google Books
 vocab.source.openlibrary.label = Open Library
+vocab.source.wikipedia.label = Wikipedia
+
 vocab.source.amazon.label = Amazon
 vocab.source.tmdb.label = TMDB
 vocab.source.tvdb.label = TheTVDB
@@ -872,6 +874,9 @@ common.toast.restored.label = restored
 # What errText says when the server sent no message and the caller named no
 # failure. The last resort, and it should read as one.
 error.generic = something went wrong
+
+# The one-word wait every screen shows while a fetch is in flight.
+common.state.loading = loading…
 
 # The round sticker a quote flows around, on a board that lets you move it.
 common.sticker.drag.tip = Drag to reposition
@@ -3347,6 +3352,10 @@ unit.line.other = lines
 unit.collection.one = collection
 unit.collection.other = collections
 
+# One more countable noun, for the studio whose credits are games.
+unit.game.one = game
+unit.game.other = games
+
 # ---------------------------------------------------------------------------
 # THE BIN — BinPage.jsx. The one screen you open because you have already lost
 # something, and the only one with a single door: the tile in Settings. That is
@@ -3699,6 +3708,71 @@ error.load.users = could not load users
 error.add.user = could not add user
 error.save.role = could not change role
 error.delete.user = could not delete user
+
+# ---------------------------------------------------------------------------
+# PEOPLE — people.jsx. The panel behind every credited name: bio, portrait,
+# lifespan, reference-page chips, and the library-wide rename.
+#
+# THE PROVIDER NAMES ARE NOT KEYED HERE. IMDb, TMDB, TheTVDB, Open Library and
+# Wikipedia are vocab.source.*, which the metadata screens already point at — a
+# provider has one name in this app wherever it is drawn.
+#
+# A STUDIO IS NOT A PERSON, which is why the date fields fork: it is founded and
+# it closes rather than born and died, and its picture is a logo.
+# ---------------------------------------------------------------------------
+# The lifespan line shows only YEARS even when the record holds a full day: a
+# person's years are what the line is for, and “4 Mar 1920 – 12 Nov 2001” reads
+# as a gravestone next to a title. Born-only renders the bare year and needs no
+# key.
+people.lifespan.range = {born} – {died}
+people.lifespan.died = d. {died}
+
+people.photo.zoom.tip = View this photo full screen
+people.photo.zoom.aria = View photo of {name} full screen
+people.links.heading = reference pages
+people.source.via = via {source}
+people.state.nothing-saved = nothing saved yet
+people.add-details = Add details
+people.links.fetching = looking up reference pages…
+people.links.refetch = refetch links
+
+# The edit form. Bio and Links reuse common.field.*; these are the ones this
+# form words for itself.
+people.form.photo.remove = remove photo
+people.form.founded.label = Founded
+people.form.closed.label = Closed
+people.form.born.placeholder = e.g. 1982
+people.form.died.placeholder = e.g. 2001
+people.form.closed.placeholder = e.g. 2011
+people.form.photo-url.label = Photo URL
+people.form.logo-url.label = Logo URL
+people.form.image-search = search images
+people.form.image-url.placeholder = https://… paste an image link
+# Two lines of example, joined by the code — the file format is one value per
+# line, so a two-line placeholder is two keys. URLs, so unchanged in any
+# language.
+people.form.links.placeholder.1 = https://en.wikipedia.org/wiki/…
+people.form.links.placeholder.2 = https://openlibrary.org/authors/…
+people.form.links.hint = one link per line — known sites (Wikipedia, Open Library, IMDb, TMDB, TheTVDB) are labelled automatically; anything else shows as-is.
+
+# The library-wide rename: the fix for two transliterations of one person.
+people.rename.label = Rename across your library
+people.rename.action = Rename everywhere
+people.rename.busy = Renaming…
+# {noun} is the plural this person is counted in, {entity} the singular row that
+# carries the credit — both from unit.*.
+people.rename.confirm = Rename “{from}” to “{to}” across all your {noun}? This updates every {entity} crediting them.
+# Two keys rather than one with an it/them switch in the code: English grammar
+# living in a ternary is exactly what a locale file is for.
+people.rename.hint.person = rewrites this name on every {entity} that credits them and merges the saved details — use it to unify two spellings.
+people.rename.hint.org = rewrites this name on every {entity} that credits it and merges the saved details — use it to unify two spellings.
+
+people.delete.confirm = Remove saved {kind} metadata for “{name}”?
+
+error.validate.born-date = born must be a year, YYYY-MM or YYYY-MM-DD
+error.validate.died-date = died must be a year, YYYY-MM or YYYY-MM-DD
+error.lookup.none = no reference pages found for this name
+error.save.links = could not save links
 
 # ===========================================================================
 # THE REST OF THE SHARED VOCABULARY — common.field.* and one shell key.

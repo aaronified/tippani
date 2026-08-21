@@ -551,6 +551,8 @@ common.language-mark.aria = {name} ভাষায়
 # ---------------------------------------------------------------------------
 vocab.source.google.label = গুগল বুকস
 vocab.source.openlibrary.label = ওপেন লাইব্রেরি
+vocab.source.wikipedia.label = উইকিপিডিয়া
+
 vocab.source.amazon.label = অ্যামাজন
 vocab.source.tmdb.label = TMDB
 vocab.source.tvdb.label = TheTVDB
@@ -891,6 +893,9 @@ common.toast.restored.label = ফিরিয়ে আনা হয়েছে
 # What errText says when the server sent no message and the caller named no
 # failure. The last resort, and it should read as one.
 error.generic = কিছু একটা গণ্ডগোল হয়েছে
+
+# The one-word wait every screen shows while a fetch is in flight.
+common.state.loading = আসছে…
 
 # The round sticker a quote flows around, on a board that lets you move it.
 common.sticker.drag.tip = টেনে জায়গা বদলান
@@ -3432,6 +3437,10 @@ unit.line.other = সংলাপ
 unit.collection.one = সিরিজ
 unit.collection.other = সিরিজ
 
+# One more countable noun, for the studio whose credits are games.
+unit.game.one = গেম
+unit.game.other = গেম
+
 # ---------------------------------------------------------------------------
 # THE BIN — BinPage.jsx. The one screen you open because you have already lost
 # something, and the only one with a single door: the tile in Settings. That is
@@ -3721,6 +3730,53 @@ error.load.users = ইউজারদের তালিকা আনা গে�
 error.add.user = ইউজার যোগ করা গেল না
 error.save.role = ভূমিকা বদলানো গেল না
 error.delete.user = ইউজার মোছা গেল না
+
+# ---------------------------------------------------------------------------
+# PEOPLE — people.jsx. §3.2 gives the roles (লেখক, অভিনেতা, পরিচালক, বক্তা,
+# নির্মাতা, স্টুডিও) and people → মানুষ; §3.1 gives portrait → মুখের ছবি.
+# The provider names are vocab.source.*, not keyed here.
+# ---------------------------------------------------------------------------
+people.lifespan.range = {born} – {died}
+people.lifespan.died = মৃ. {died}
+
+people.photo.zoom.tip = ছবিটা পুরো পর্দায় দেখুন
+people.photo.zoom.aria = {name} — মুখের ছবি পুরো পর্দায় দেখুন
+people.links.heading = তথ্যসূত্রের পাতা
+people.source.via = সূত্র: {source}
+people.state.nothing-saved = এখনও কিছু রাখা হয়নি
+people.add-details = বিবরণ যোগ করুন
+people.links.fetching = তথ্যসূত্রের পাতা খোঁজা হচ্ছে…
+people.links.refetch = লিঙ্ক আবার আনুন
+
+people.form.photo.remove = ছবি সরান
+people.form.founded.label = শুরু
+people.form.closed.label = বন্ধ
+people.form.born.placeholder = যেমন 1982
+people.form.died.placeholder = যেমন 2001
+people.form.closed.placeholder = যেমন 2011
+people.form.photo-url.label = ছবির URL
+people.form.logo-url.label = লোগোর URL
+people.form.image-search = ছবি খুঁজুন
+people.form.image-url.placeholder = https://… ছবির লিঙ্ক বসান
+people.form.links.placeholder.1 = https://en.wikipedia.org/wiki/…
+people.form.links.placeholder.2 = https://openlibrary.org/authors/…
+people.form.links.hint = প্রতি লাইনে একটা লিঙ্ক — চেনা সাইট (উইকিপিডিয়া, ওপেন লাইব্রেরি, IMDb, TMDB, TheTVDB) নিজেই নাম পায়; বাকিগুলো যেমন আছে তেমনই দেখায়।
+
+people.rename.label = পুরো লাইব্রেরি জুড়ে নাম বদলান
+people.rename.action = সব জায়গায় বদলান
+people.rename.busy = বদলানো হচ্ছে…
+# The holes stay bare of case markers (§5.4) — {noun} and {entity} arrive from
+# unit.* and could be any of six nouns.
+people.rename.confirm = “{from}” থেকে “{to}” করে দেবেন, সব {noun} জুড়ে? যে যে {entity} এই নামে কৃতিত্ব দেয়, সব বদলে যাবে।
+people.rename.hint.person = এই নাম যে যে {entity}-তে কৃতিত্ব পায় সব জায়গায় বদলে দেয় আর রাখা বিবরণ এক করে দেয় — দুটো বানান মেলাতে কাজে লাগে।
+people.rename.hint.org = এই নাম যে যে {entity}-তে কৃতিত্ব পায় সব জায়গায় বদলে দেয় আর রাখা বিবরণ এক করে দেয় — দুটো বানান মেলাতে কাজে লাগে।
+
+people.delete.confirm = “{name}”-এর জন্য রাখা {kind} মেটাডেটা সরিয়ে দেবেন?
+
+error.validate.born-date = জন্ম সাল, YYYY-MM বা YYYY-MM-DD হতে হবে
+error.validate.died-date = মৃত্যু সাল, YYYY-MM বা YYYY-MM-DD হতে হবে
+error.lookup.none = এই নামে কোনও তথ্যসূত্রের পাতা পাওয়া গেল না
+error.save.links = লিঙ্ক সেভ করা গেল না
 
 # ===========================================================================
 # THE REST OF THE SHARED VOCABULARY — common.field.* and one shell key.

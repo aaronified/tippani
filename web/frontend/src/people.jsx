@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { json, errText } from './api.js'
+import { t } from './i18n.js'
 import { personImgURL, PersonPortrait, usePeople } from './credits.jsx'
 import { usePractice } from './review.jsx'
 import { useBodyScrollLock, CloseButton, ErrorText, ExpandableDescription, Field, GhostButton, IconCheck, IconClose, IconDelete, IconEdit, IconMerge, IconPlus, IconQuiz, IconRefresh, IconSearch, isPartialDate, Lightbox, MonoLabel, NameInput, PartialDateField, Placeholder, Tooltip } from './ui.jsx'
@@ -14,12 +15,15 @@ export { DEFAULT_CREDIT_SEPS, parseCreditSeps, personImgURL, PersonPortrait, spl
 
 // The external references a person can link out to, in display order. A saved
 // link is recognised by hostname; everything else renders as a plain URL row.
+// The middle column is the KEY that names the provider, not the name itself:
+// vocab.source.* already carries these five for the metadata screens, and a
+// provider has one name in this app wherever it is drawn.
 export const PROVIDERS = [
-  ['imdb', 'IMDb', /(^|\.)imdb\.com$/i],
-  ['tmdb', 'TMDB', /(^|\.)themoviedb\.org$/i],
-  ['tvdb', 'TheTVDB', /(^|\.)thetvdb\.com$/i],
-  ['wikipedia', 'Wikipedia', /(^|\.)wikipedia\.org$/i],
-  ['openlibrary', 'Open Library', /(^|\.)openlibrary\.org$/i],
+  ['imdb', 'vocab.source.imdb.label', /(^|\.)imdb\.com$/i],
+  ['tmdb', 'vocab.source.tmdb.label', /(^|\.)themoviedb\.org$/i],
+  ['tvdb', 'vocab.source.tvdb.label', /(^|\.)thetvdb\.com$/i],
+  ['wikipedia', 'vocab.source.wikipedia.label', /(^|\.)wikipedia\.org$/i],
+  ['openlibrary', 'vocab.source.openlibrary.label', /(^|\.)openlibrary\.org$/i],
 ]
 
 // parseLinks splits the stored free-text links field into recognised provider
@@ -155,9 +159,9 @@ function lifespanLabel(p) {
   const year = (v) => (v || '').trim().slice(0, 4)
   const b = year(p?.born)
   const d = year(p?.died)
-  if (b && d) return `${b} – ${d}`
+  if (b && d) return t('people.lifespan.range', { born: b, died: d })
   if (b) return b
-  if (d) return `d. ${d}`
+  if (d) return t('people.lifespan.died', { died: d })
   return ''
 }
 
@@ -169,11 +173,11 @@ function PersonView({ person, name, onEdit, onDelete, onPractise }) {
     // The float rides the Tooltip's wrapper span, not the button inside it —
     // left on the button it would float within the span and the text would
     // stop wrapping around the photo.
-    <Tooltip label="View this photo full screen" side="bottom" className="person-photo-btn float-left mt-[2px] mr-[14px] mb-[8px]">
+    <Tooltip label={t('people.photo.zoom.tip')} side="bottom" className="person-photo-btn float-left mt-[2px] mr-[14px] mb-[8px]">
       <button
         type="button"
         onClick={() => setZoom(true)}
-        aria-label={`View photo of ${name} full screen`}
+        aria-label={t('people.photo.zoom.aria', { name })}
         style={{ width: 104, padding: 0, background: 'none', border: 'none', cursor: 'zoom-in' }}
       >
         <img
@@ -197,12 +201,14 @@ function PersonView({ person, name, onEdit, onDelete, onPractise }) {
           {person.bio && <ExpandableDescription text={person.bio} lines={5} />}
           {person.links && (
             <div className="space-y-1">
-              <MonoLabel className="block" style={{ color: 'var(--faint)' }}>reference pages</MonoLabel>
+              <MonoLabel className="block" style={{ color: 'var(--faint)' }}>{t('people.links.heading')}</MonoLabel>
               <PersonLinksDetail links={person.links} />
             </div>
           )}
           {person.source && person.source !== 'manual' && (
-            <MonoLabel className="block" style={{ color: 'var(--faint)' }}>via {person.source}</MonoLabel>
+            <MonoLabel className="block" style={{ color: 'var(--faint)' }}>
+              {t('people.source.via', { source: person.source })}
+            </MonoLabel>
           )}
         </div>
       </div>
@@ -221,17 +227,17 @@ function PersonView({ person, name, onEdit, onDelete, onPractise }) {
             four on one field, and a reader who has quoted someone's films and
             their memoir means both. */}
         <GhostButton onClick={onPractise} className="mr-auto inline-flex items-center gap-1.5">
-          <IconQuiz /> Practise
+          <IconQuiz /> {t('common.action.practise.label')}
         </GhostButton>
         <GhostButton
           onClick={onDelete}
           className="inline-flex items-center gap-1.5"
           style={{ color: 'var(--error)', borderColor: 'color-mix(in srgb, var(--error) 55%, transparent)' }}
         >
-          <IconDelete /> Delete
+          <IconDelete /> {t('common.action.delete.label')}
         </GhostButton>
         <button className={PRIMARY + ' inline-flex items-center gap-1.5'} onClick={onEdit}>
-          <IconEdit /> Edit
+          <IconEdit /> {t('common.action.edit.label')}
         </button>
       </div>
     </div>
@@ -248,18 +254,21 @@ function PersonLinksDetail({ links }) {
   if (items.length === 0 && extra.length === 0) return <span className="microcopy">—</span>
   return (
     <span className="flex flex-wrap items-center gap-1.5">
-      {items.map(([slug, label]) => (
+      {items.map(([slug, labelKey]) => (
         <a key={slug} className="tp-chip tp-chip-btn" href={known[slug]} target="_blank" rel="noopener noreferrer">
-          {label}
+          {t(labelKey)}
         </a>
       ))}
-      {extra.map((t) =>
-        /^https?:\/\//i.test(t) ? (
-          <a key={t} className="tp-chip tp-chip-btn" href={t} target="_blank" rel="noopener noreferrer">
-            {t.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')}
+      {/* `tok`, not `t` — a local t here would shadow the resolver imported
+          above, silently and legally. locale-shadow.test.js fails the build over
+          exactly this, and the name parseLinks already uses is the right one. */}
+      {extra.map((tok) =>
+        /^https?:\/\//i.test(tok) ? (
+          <a key={tok} className="tp-chip tp-chip-btn" href={tok} target="_blank" rel="noopener noreferrer">
+            {tok.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')}
           </a>
         ) : (
-          <span key={t} className="tp-chip">{t}</span>
+          <span key={tok} className="tp-chip">{tok}</span>
         ),
       )}
     </span>
@@ -281,11 +290,30 @@ function PersonForm({ kind, name, initial, onCancel, onSaved, onRenamed }) {
   // BOOKS, like an author — so all three say "books", and only actors, directors
   // and speakers differ.
   const BOOK_ROLES = kind === 'author' || kind === 'translator' || kind === 'editor'
-  const noun = BOOK_ROLES ? 'books' : kind === 'speaker' ? 'quotes' : kind === 'studio' ? 'games' : 'films'
+  const nounKey = BOOK_ROLES
+    ? 'unit.book'
+    : kind === 'speaker'
+      ? 'unit.quote'
+      : kind === 'studio'
+        ? 'unit.game'
+        : 'unit.film'
+  const noun = t(nounKey, { count: 2 })
   // The row that carries the credit, per kind: a book's author, translator or
   // editor, a dialogue's actor, a film's director/creator, a game's studio, a
   // standalone quote's speaker.
-  const entity = BOOK_ROLES ? 'book' : kind === 'actor' ? 'dialogue' : kind === 'speaker' ? 'quote' : kind === 'studio' ? 'game' : 'film'
+  // unit.dialogue, so a film line is called a film line here too. This line
+  // said 'dialogue' while the rest of the app said 'film line' — one thing, two
+  // words, and the migration is the moment to settle it.
+  const entityKey = BOOK_ROLES
+    ? 'unit.book'
+    : kind === 'actor'
+      ? 'unit.dialogue'
+      : kind === 'speaker'
+        ? 'unit.quote'
+        : kind === 'studio'
+          ? 'unit.game'
+          : 'unit.film'
+  const entity = t(entityKey, { count: 1 })
 
   // A STUDIO IS NOT A PERSON, and three labels on this form said otherwise. It
   // is not born and it does not die; it is founded, and it closes. Its picture
@@ -299,13 +327,13 @@ function PersonForm({ kind, name, initial, onCancel, onSaved, onRenamed }) {
   async function rename() {
     const to = renameTo.trim()
     if (!to || to === name) return
-    if (!confirm(`Rename “${name}” to “${to}” across all your ${noun}? This updates every ${entity} crediting them.`)) return
+    if (!confirm(t('people.rename.confirm', { from: name, to, noun, entity }))) return
     setRenaming(true)
     setError('')
     const r = await json('POST', '/people/rename', { kind, from: name, to })
     setRenaming(false)
     if (r.ok) onRenamed && onRenamed(to)
-    else setError(errText(r, 'could not rename'))
+    else setError(errText(r, t('error.rename.generic')))
   }
 
   async function submit(e) {
@@ -313,10 +341,10 @@ function PersonForm({ kind, name, initial, onCancel, onSaved, onRenamed }) {
     // Born/died are partial dates (§3f): a year, a year-month, or a full day —
     // whatever is actually known. Same rule and same picker as a read's dates.
     if (born.trim() && !isPartialDate(born.trim())) {
-      return setError('born must be a year, YYYY-MM or YYYY-MM-DD')
+      return setError(t('error.validate.born-date'))
     }
     if (died.trim() && !isPartialDate(died.trim())) {
-      return setError('died must be a year, YYYY-MM or YYYY-MM-DD')
+      return setError(t('error.validate.died-date'))
     }
     setBusy(true)
     setError('')
@@ -334,7 +362,7 @@ function PersonForm({ kind, name, initial, onCancel, onSaved, onRenamed }) {
     })
     setBusy(false)
     if (r.ok) onSaved(r.data)
-    else setError(errText(r, 'could not save'))
+    else setError(errText(r, t('error.save.generic')))
   }
 
   return (
@@ -348,24 +376,36 @@ function PersonForm({ kind, name, initial, onCancel, onSaved, onRenamed }) {
             onClick={() => setClearImage(true)}
           >
             <IconDelete />
-            <span>remove photo</span>
+            <span>{t('people.form.photo.remove')}</span>
           </button>
         </div>
       )}
       <label className="block">
-        <MonoLabel className="mb-1.5 block">Bio</MonoLabel>
+        <MonoLabel className="mb-1.5 block">{t('common.field.bio.label')}</MonoLabel>
         <textarea className="tp-input" rows="4" value={bio} onChange={(e) => setBio(e.target.value)} />
       </label>
       {/* Partial dates: type a year and stop, or pick a month and day from the
           calendar when the record actually says one. The lifespan line above shows
           just the years either way. */}
       <div className="grid gap-3 sm:grid-cols-2">
-        <PartialDateField label={isOrg ? 'Founded' : 'Born'} value={born} onChange={setBorn} placeholder="e.g. 1982" />
-        <PartialDateField label={isOrg ? 'Closed' : 'Died'} value={died} onChange={setDied} placeholder={isOrg ? 'e.g. 2011' : 'e.g. 2001'} />
+        <PartialDateField
+          label={isOrg ? t('people.form.founded.label') : t('common.field.born.label')}
+          value={born}
+          onChange={setBorn}
+          placeholder={t('people.form.born.placeholder')}
+        />
+        <PartialDateField
+          label={isOrg ? t('people.form.closed.label') : t('common.field.died.label')}
+          value={died}
+          onChange={setDied}
+          placeholder={isOrg ? t('people.form.closed.placeholder') : t('people.form.died.placeholder')}
+        />
       </div>
       <div>
         <div className="mb-1.5 flex items-center justify-between gap-2">
-          <MonoLabel>{isOrg ? 'Logo URL' : 'Photo URL'}</MonoLabel>
+          <MonoLabel>
+            {isOrg ? t('people.form.logo-url.label') : t('people.form.photo-url.label')}
+          </MonoLabel>
           {/* No keyless portrait API, so offer a web image search: find one,
               copy its address, paste it here (this field also takes any cover
               image URL). */}
@@ -379,7 +419,7 @@ function PersonForm({ kind, name, initial, onCancel, onSaved, onRenamed }) {
                 replaces was carrying "opens a tab" — which every other outbound
                 chip in this modal states with no arrow at all. */}
             <IconSearch />
-            <span>search images</span>
+            <span>{t('people.form.image-search')}</span>
           </button>
         </div>
         <input
@@ -389,16 +429,16 @@ function PersonForm({ kind, name, initial, onCancel, onSaved, onRenamed }) {
             setImageUrl(e.target.value)
             setClearImage(false)
           }}
-          placeholder="https://… paste an image link"
+          placeholder={t('people.form.image-url.placeholder')}
         />
       </div>
       <label className="block">
-        <MonoLabel className="mb-1.5 block">Links</MonoLabel>
-        <textarea className="tp-input" rows="3" value={links} onChange={(e) => setLinks(e.target.value)} placeholder={'https://en.wikipedia.org/wiki/…\nhttps://openlibrary.org/authors/…'} />
-        <p className="microcopy mt-1">one link per line — known sites (Wikipedia, Open Library, IMDb, TMDB, TheTVDB) are labelled automatically; anything else shows as-is.</p>
+        <MonoLabel className="mb-1.5 block">{t('common.field.links.label')}</MonoLabel>
+        <textarea className="tp-input" rows="3" value={links} onChange={(e) => setLinks(e.target.value)} placeholder={[t('people.form.links.placeholder.1'), t('people.form.links.placeholder.2')].join('\n')} />
+        <p className="microcopy mt-1">{t('people.form.links.hint')}</p>
       </label>
       <div className="space-y-1.5" style={{ borderTop: '1px solid var(--line)', paddingTop: 12 }}>
-        <MonoLabel>Rename across your library</MonoLabel>
+        <MonoLabel>{t('people.rename.label')}</MonoLabel>
         <div className="flex flex-wrap items-center gap-2">
           <NameInput
             style={{ flex: 1, minWidth: 160 }}
@@ -415,21 +455,23 @@ function PersonForm({ kind, name, initial, onCancel, onSaved, onRenamed }) {
             disabled={renaming || !renameTo.trim() || renameTo.trim() === name}
             onClick={rename}
           >
-            {renaming ? 'Renaming…' : 'Rename everywhere'}
+            {renaming ? t('people.rename.busy') : t('people.rename.action')}
           </GhostButton>
         </div>
         {/* `entity`, not `noun`: this reads "on every ___", so it needs the
             singular. It has said "on every films" for as long as the line has
             existed. */}
-        <p className="microcopy">rewrites this name on every {entity} that credits {isOrg ? 'it' : 'them'} and merges the saved details — use it to unify two spellings.</p>
+        <p className="microcopy">
+          {t(isOrg ? 'people.rename.hint.org' : 'people.rename.hint.person', { entity })}
+        </p>
       </div>
       <ErrorText>{error}</ErrorText>
       <div className="flex justify-end gap-2">
         <GhostButton type="button" onClick={onCancel}>
-          <IconClose /> Cancel
+          <IconClose /> {t('common.action.cancel.label')}
         </GhostButton>
         <button className={PRIMARY + ' inline-flex items-center gap-1.5'} disabled={busy}>
-          <IconCheck /> Save
+          <IconCheck /> {t('common.action.save.label')}
         </button>
       </div>
     </form>
@@ -485,14 +527,14 @@ export function PersonModal({ kind, name, onClose, onSaved }) {
       const r = await json('POST', '/people/lookup', { kind, name })
       if (!r.ok) {
         setFetching(false)
-        return setFetchNote(errText(r, 'lookup failed'))
+        return setFetchNote(errText(r, t('error.lookup.failed')))
       }
       map = r.data.links
     }
     const merged = mergeLinks(current?.links, map)
     if (!merged) {
       setFetching(false)
-      return setFetchNote('no reference pages found for this name')
+      return setFetchNote(t('error.lookup.none'))
     }
     if (merged !== (current?.links || '')) {
       const s = await json('PUT', '/people', {
@@ -509,7 +551,7 @@ export function PersonModal({ kind, name, onClose, onSaved }) {
         setPerson(s.data)
         onSaved && onSaved()
       } else {
-        setFetchNote(errText(s, 'could not save links'))
+        setFetchNote(errText(s, t('error.save.links')))
       }
     }
     setFetching(false)
@@ -564,7 +606,7 @@ export function PersonModal({ kind, name, onClose, onSaved }) {
   }, [onClose])
 
   async function remove() {
-    if (!person || !confirm(`Remove saved ${kind} metadata for “${name}”?`)) return
+    if (!person || !confirm(t('people.delete.confirm', { kind: t(`common.field.${kind}.label`), name }))) return
     const r = await json('DELETE', `/people/${person.id}`)
     if (r.ok) {
       onSaved && onSaved()
@@ -584,7 +626,7 @@ export function PersonModal({ kind, name, onClose, onSaved }) {
           <div className="flex min-w-0 items-center gap-3">
             <PersonPortrait person={person} size={40} />
             <div className="min-w-0">
-              <MonoLabel>{kind}</MonoLabel>
+              <MonoLabel>{t(`common.field.${kind}.label`)}</MonoLabel>
               <h2 className="display-title truncate text-xl">{name}</h2>
             </div>
           </div>
@@ -592,7 +634,7 @@ export function PersonModal({ kind, name, onClose, onSaved }) {
         </div>
         <ErrorText>{error}</ErrorText>
         {loading ? (
-          <p className="microcopy">loading…</p>
+          <p className="microcopy">{t('common.state.loading')}</p>
         ) : editing ? (
           <PersonForm
             kind={kind}
@@ -623,21 +665,21 @@ export function PersonModal({ kind, name, onClose, onSaved }) {
               />
             ) : (
               <>
-                <p className="microcopy">nothing saved yet</p>
+                <p className="microcopy">{t('people.state.nothing-saved')}</p>
                 <div className="flex justify-end">
                   <button className={PRIMARY + ' inline-flex items-center gap-1.5'} onClick={() => setEditing(true)}>
-                    <IconPlus /> Add details
+                    <IconPlus /> {t('people.add-details')}
                   </button>
                 </div>
               </>
             )}
             {/* Auto-enrich feedback + the manual recovery path when the first
                 lookup failed or found a namesake. */}
-            {fetching && <p className="microcopy">looking up reference pages…</p>}
+            {fetching && <p className="microcopy">{t('people.links.fetching')}</p>}
             {!fetching && fetchNote && <p className="microcopy">{fetchNote}</p>}
             <button className="tp-link tp-link-icon" disabled={fetching} onClick={() => fetchLinks(person)}>
               <IconRefresh />
-              <span>refetch links</span>
+              <span>{t('people.links.refetch')}</span>
             </button>
           </div>
         )}
