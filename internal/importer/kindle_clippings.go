@@ -118,15 +118,21 @@ type ClippingStats struct {
 	Duplicates  int // Kindle re-appends a whole record when a highlight is edited
 }
 
-// clipLines reads the file into lines, stripping the UTF-8 BOM Kindle writes and
+// clipLines reads the file into lines, stripping the UTF-8 BOMs Kindle writes and
 // the CR of CRLF endings. Deliberately not markdown.go's readLines: that wraps
 // its errors "markdown: …", which would surface to the user on the wrong import.
+//
+// Every BOM, not just a leading one. A real device file turned out to carry one
+// before each record's title line — 12 of them in 13 records — because the device
+// re-writes the header every time it appends. Trimming only the file head left the
+// rest glued to the title, so the same book imported from the device and from a JSON
+// export read as two books, with an invisible character as the only difference.
 func clipLines(r io.Reader) ([]string, error) {
 	data, err := io.ReadAll(r) // the caller caps the upload size
 	if err != nil {
 		return nil, fmt.Errorf("kindle clippings: %w", err)
 	}
-	text := strings.TrimPrefix(string(data), "\ufeff")
+	text := strings.ReplaceAll(string(data), "\ufeff", "")
 	text = strings.ReplaceAll(text, "\r\n", "\n")
 	text = strings.ReplaceAll(text, "\r", "\n")
 	if strings.TrimSpace(text) == "" {

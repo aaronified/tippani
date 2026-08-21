@@ -333,3 +333,106 @@ func TestKindleClippingsRealFile(t *testing.T) {
 	}
 	t.Logf("parsed %d books, stats %+v", len(res), stats)
 }
+
+// The real file's duplicate pair, pinned. Kindle re-appended a highlight the
+// owner had extended in place, so page 368 of The Idiot carries the same
+// sentence twice — once cut off at "very rarely", once whole. The two records
+// disagree on their Location range (6361-6361 vs 6361-6362) and agree only on
+// the page, which is why dropClipDuplicate compares the normalised position
+// rather than the raw location line: matching on location alone would have let
+// both through. Skips with the fixture, like the test above.
+func TestKindleClippingsRealDuplicates(t *testing.T) {
+	f, err := os.Open("testdata/kindle_clippings_real.txt")
+	if err != nil {
+		t.Skip("real My Clippings.txt fixture not present (gitignored - owner privacy)")
+	}
+	defer f.Close()
+	res, stats, err := KindleClippings(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stats.Duplicates == 0 {
+		t.Error("the real file contains an edited-highlight duplicate; none was collapsed")
+	}
+	if stats.NotesMerged == 0 {
+		t.Error("the real file contains a standalone note to merge; none was")
+	}
+
+	const truncated = "and that we can very rarely"
+	const whole = "and that we can very rarely accurately describe the motives of another."
+	var found int
+	for _, b := range res {
+		for _, a := range b.Annotations {
+			if !strings.Contains(a.Quote, truncated) {
+				continue
+			}
+			found++
+			// The longer record wins: the cut-off variant must not survive.
+			if !strings.Contains(a.Quote, whole) {
+				t.Errorf("%q: kept the truncated variant: %q", b.Book.Title, a.Quote)
+			}
+		}
+	}
+	if found != 1 {
+		t.Errorf("the duplicated highlight survives %d times, want 1", found)
+	}
+
+	// The invariant dropClipDuplicate promises, checked over the whole file so
+	// it keeps holding as the owner's clippings grow: within one book, no two
+	// quotes at the same position may be prefixes of one another.
+	for _, b := range res {
+		for i := range b.Annotations {
+			for j := i + 1; j < len(b.Annotations); j++ {
+				x, y := b.Annotations[i], b.Annotations[j]
+				if x.Quote == "" || y.Quote == "" || x.Location != y.Location {
+					continue
+				}
+				nx, ny := clipNorm(x.Quote), clipNorm(y.Quote)
+				if strings.HasPrefix(nx, ny) || strings.HasPrefix(ny, nx) {
+					t.Errorf("%q: residual duplicate at %s:\n  %q\n  %q",
+						b.Book.Title, x.Location, x.Quote, y.Quote)
+				}
+			}
+		}
+	}
+}
+
+// A BOM before every record's title line, not just at the head of the file —
+// what a real device actually writes, and what the synthetic BOM case above
+// missed by having only one. A surviving BOM is invisible in test output, so
+// this asserts on the title bytes rather than on how the title looks.
+func TestKindleClippingsBOMBeforeEveryRecord(t *testing.T) {
+	const bom = "\ufeff"
+	in := bom + "Title A (Author, One)" + "\n" +
+		"- Your Highlight on page 1 | Location 1-2 | Added on Monday, 1 January 2026 00:00:00" + "\n" + "\n" +
+		"first" + "\n" +
+		"==========" + "\n" +
+		bom + "Title A (Author, One)" + "\n" +
+		"- Your Highlight on page 2 | Location 3-4 | Added on Monday, 1 January 2026 00:00:01" + "\n" + "\n" +
+		"second" + "\n" +
+		"==========" + "\n"
+	res, stats, err := KindleClippings(strings.NewReader(in))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stats.Malformed > 0 {
+		t.Fatalf("stats = %+v", stats)
+	}
+	// One book, not two: a BOM stuck to the second title must not fork it off.
+	if len(res) != 1 {
+		var titles []string
+		for _, b := range res {
+			titles = append(titles, b.Book.Title)
+		}
+		t.Fatalf("got %d books %q, want 1", len(res), titles)
+	}
+	if got := res[0].Book.Title; got != "Title A" {
+		t.Errorf("title = %q (% x), want %q", got, got, "Title A")
+	}
+	if strings.ContainsRune(res[0].Book.Title, '\ufeff') {
+		t.Error("BOM survived in the title")
+	}
+	if len(res[0].Annotations) != 2 {
+		t.Fatalf("got %d annotations, want 2", len(res[0].Annotations))
+	}
+}
