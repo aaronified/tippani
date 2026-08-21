@@ -318,7 +318,7 @@ function StylePicker({ color, value, onChange }) {
           type="button"
           role="radio"
           aria-checked={value === s}
-          title={s}
+          title={t(`vocab.tag-style.${s}.label`)}
           onClick={() => onChange(s)}
           style={{
             background: 'none',
@@ -328,7 +328,7 @@ function StylePicker({ color, value, onChange }) {
           }}
         >
           <TagChip color={color} style={s}>
-            {s}
+            {t(`vocab.tag-style.${s}.label`)}
           </TagChip>
         </button>
       ))}

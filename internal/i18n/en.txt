@@ -265,6 +265,20 @@ vocab.gesture.two-finger-right.label = Two fingers right
 vocab.gesture.two-finger-up.label = Two fingers up
 vocab.gesture.two-finger-down.label = Two fingers down
 
+# --- vocab.tag-style.* — the five shapes a tag chip can take, offered as live
+# previews in TagsPage's StylePicker. TAG_STYLES in ui.jsx holds the storage
+# tokens and the picker used to draw the token itself, so the chip and its
+# tooltip both read the stored word.
+#
+# EACH NAMES ITS SHAPE, which is what makes them translatable at all: a banner
+# is notched on the right, a flyout comes to a point underneath, tape has torn
+# edges, a reel is round with sprockets.
+vocab.tag-style.sticker.label = sticker
+vocab.tag-style.banner.label = banner
+vocab.tag-style.flyout.label = flyout
+vocab.tag-style.tape.label = tape
+vocab.tag-style.reel.label = reel
+
 # ---------------------------------------------------------------------------
 # common.action.* — THE SHARED VERBS. One key per act, however many objects it
 # is performed on: 24 copies of "could not save" is 24 chances for a translator

@@ -916,3 +916,10 @@ reason. Then mark the key `# ?? `.)*
 | BCE / circa | খ্রি.পূ. / আনু. | Both go BEFORE the year in Bengali, which is why en.txt keys all four year shapes |
 | lining figures | সারিবদ্ধ সংখ্যা | Says what `tabular-nums` does rather than naming the feature |
 | Latin (the script) | লাতিন | |
+
+### From the migration of the eight unreached files
+
+| English | Bengali | Reason |
+| --- | --- | --- |
+| flyout (a tag chip shape) | নিশান | The shape is a pennant, notched to a point underneath. Marked `# ?? ` — ফ্লাইআউট is a loan that means nothing away from a screen |
+| banner (a tag chip shape) | ব্যানার | A horizontal strip notched on the right; the loan is what a Bengali says for a strip that hangs |

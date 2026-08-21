@@ -272,6 +272,17 @@ vocab.gesture.two-finger-right.label = দুই আঙুলে ডাইনে
 vocab.gesture.two-finger-up.label = দুই আঙুলে উপরে
 vocab.gesture.two-finger-down.label = দুই আঙুলে নিচে
 
+# --- vocab.tag-style.* — the five shapes a tag chip can take. Each names its
+# SHAPE, so each is translated as the shape a Bengali reader would recognise
+# rather than transliterated.
+vocab.tag-style.sticker.label = স্টিকার
+vocab.tag-style.banner.label = ব্যানার
+# ?? নিশান for the flyout — a pennant, which is the shape: notched to a point
+# underneath. ফ্লাইআউট would be a loan that means nothing away from a screen.
+vocab.tag-style.flyout.label = নিশান
+vocab.tag-style.tape.label = টেপ
+vocab.tag-style.reel.label = রিল
+
 # ---------------------------------------------------------------------------
 # common.action.* — THE SHARED VERBS. One key per act, however many objects it
 # is performed on: 24 copies of "could not save" is 24 chances for a translator
