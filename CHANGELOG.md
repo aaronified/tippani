@@ -48,6 +48,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Two dialogs had never opened.** *Settings → Daily quiz & practice → In depth* and
+  *Search → Filters* both did nothing at all when pressed. The dialog primitive took an
+  `open` prop with no default and rendered nothing without one, and these two call sites
+  mount the dialog only while it is wanted rather than keeping a hidden instance around —
+  so there was no `open` to pass and the answer was always nothing. React does not warn
+  about this and the surrounding code reads correctly, which is why it lasted: the only
+  symptom is a button that looks broken.
+
+  Everything behind both doors was already right and had been all along. The in-depth
+  panel's question toggles, its eight scheduling sliders, its refusal to accept a ladder
+  that does not climb, and its *Back to defaults* all work, and the rules it enforces have
+  been checked against the server's own copy by a test that was green the entire time —
+  for a panel nobody could reach. Mounting a dialog now counts as opening it.
+
 - **A Kindle's own clippings file could split one book into two.** The device writes a
   byte-order mark before each record's title — not once at the top of the file, but every
   time it appends — and the parser trimmed only the leading one. The rest stayed glued to

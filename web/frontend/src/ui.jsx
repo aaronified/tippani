@@ -2406,7 +2406,18 @@ export function useFormHost(reason) {
   return host;
 }
 
-export function FormModal({ open, onClose, title, maxWidth = 560, children }) {
+// OPEN DEFAULTS TO TRUE, because mounting a dialog IS opening it.
+//
+// It did not, and two call sites paid for it: Settings' in-depth quiz panel and
+// the search filters panel both render this inside a `{cond && <FormModal …>}`
+// guard and pass no `open`, so both returned null and NEITHER DIALOG HAD EVER
+// APPEARED. The guard is not the mistake — it is how the rest of the app mounts
+// a conditional subtree, and the twenty-three sites that pass `open` explicitly
+// are the ones keeping a persistent instance around. The primitive was the
+// mistake: a prop whose absence renders nothing, silently, is a trap and not an
+// API. Both idioms work now, and the effects below still key off `open` so a
+// persistent instance closes exactly as it did.
+export function FormModal({ open = true, onClose, title, maxWidth = 560, children }) {
   const mobile = useIsMobileScreen();
   useBodyScrollLock(open);
   const formId = useId();
