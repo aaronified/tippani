@@ -3333,6 +3333,79 @@ unit.line.other = lines
 unit.collection.one = collection
 unit.collection.other = collections
 
+# ---------------------------------------------------------------------------
+# THE BIN — BinPage.jsx. The one screen you open because you have already lost
+# something, and the only one with a single door: the tile in Settings. That is
+# why the way back is NAMED rather than drawn as a bare arrow.
+# ---------------------------------------------------------------------------
+bin.back.tip = Back to Settings
+bin.title = The bin
+# What a row calls each kind, and what the chip above the list calls a pile of
+# them. ONE TABLE, TWO ROLES — a row is always singular and a chip always plural
+# — so these are two keys each rather than a .one/.other family, which would
+# need a count neither site has. “Film or show” is one label over two media
+# because the API stores 'movie' for both and no unit.* noun spans them.
+bin.kind.book.label = Book
+bin.kind.book.plural = Books
+bin.kind.movie.label = Film or show
+bin.kind.movie.plural = Films & shows
+bin.kind.annotation.label = Highlight
+bin.kind.annotation.plural = Highlights
+bin.kind.dialogue.label = Film line
+bin.kind.dialogue.plural = Film lines
+bin.kind.quote.label = Quote
+bin.kind.quote.plural = Quotes
+bin.kind.account.label = Account
+bin.kind.account.plural = Accounts
+# The retention control. The three windows are counted with the shared day
+# format, so only “never” needs a word of its own.
+bin.keep-for.label = keep for
+bin.retention.aria = How long the bin keeps things
+bin.retention.never.label = Never
+bin.info.title = The bin
+bin.info.body = Everything you delete waits here first, and putting one back returns it exactly as it was — quotes, tags, colours, schedule and cover alike. “Empty now” is for when you wanted something gone today.
+bin.empty-now.label = Empty now
+# The kind filter, which appears only once there is more than one kind to tell
+# apart. {kind} is a plural from the table above, lower-cased by the caller.
+bin.filter.all.label = All
+bin.filter.only.tip = Show {kind} only
+bin.state.loading = reading the bin…
+bin.state.empty = nothing deleted — anything you delete waits here first
+bin.state.empty-kind = nothing of that kind in the bin
+# A row. {label} is what the thing was called; the two fallbacks below stand in
+# when it had no name a reader would recognise.
+bin.row.untitled.label = untitled
+bin.row.expand.aria = What is inside {label}
+bin.row.expand.fallback = this entry
+bin.row.this.label = this
+bin.row.restore.aria = Restore {label}
+bin.row.restore.tip = Put this back
+bin.row.purge.aria = Remove {label} for good
+bin.row.purge.tip = Remove for good
+# When it went. The year is left out when it is this one — a column of “deleted
+# 1 Aug 2026” on a bin you emptied last week is noise.
+bin.row.deleted.label = deleted {when}
+# The pictures that went down with it and are still held. No number: the row
+# says whether any survived, not how many.
+bin.row.pictures.one = picture kept
+bin.row.pictures.other = pictures kept
+# When it is due to go for good. A DATE, NOT A COUNTDOWN: the purge clock runs
+# on server time and only while the server is up, so “gone in 3 days” is a
+# promise nothing here can keep.
+bin.row.expiry.due = due to go {date}
+bin.row.expiry.never = kept until you empty the bin
+bin.row.contents.empty = no quotes inside
+# Beside the page title: how many entries, and how many quotes went with them.
+bin.counts.held = {n} {noun} held
+bin.confirm.title = Empty the bin?
+bin.confirm.body = This removes {count} and the pictures they were holding. There is no undo for this one.
+bin.confirm.label = Empty it
+bin.toast.gone.label = gone
+bin.toast.emptied.label = bin emptied
+error.restore.generic = could not restore
+error.remove.generic = could not remove
+error.empty.bin = could not empty
+
 # ===========================================================================
 # THE REST OF THE SHARED VOCABULARY — common.field.* and one shell key.
 #

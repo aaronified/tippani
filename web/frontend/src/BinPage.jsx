@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { errText, json } from './api.js'
+import { t } from './i18n.js'
 import {
   Card,
   ConfirmDialog,
@@ -61,13 +62,16 @@ import {
 // reader's. The glyph is the same one the rest of the app uses for that thing, so
 // a row is recognisable before the words are read — and the filter chips above the
 // list are the same pairs, which is why one table carries both.
+// HOLDS KEYS, RESOLVED WHERE IT IS DRAWN. A table of words built at module scope
+// freezes the language at import time, which is the whole bug three other tables
+// in this app shipped — see keys.js's groupedShortcuts.
 export const TRASH_LABELS = {
-  book: 'Book',
-  movie: 'Film or show',
-  annotation: 'Highlight',
-  dialogue: 'Film line',
-  quote: 'Quote',
-  account: 'Account',
+  book: 'bin.kind.book.label',
+  movie: 'bin.kind.movie.label',
+  annotation: 'bin.kind.annotation.label',
+  dialogue: 'bin.kind.dialogue.label',
+  quote: 'bin.kind.quote.label',
+  account: 'bin.kind.account.label',
 }
 
 const TRASH_ICONS = {
@@ -82,26 +86,27 @@ const TRASH_ICONS = {
 // The plural each kind counts in, for the filter chips. "Film or shows" is not a
 // phrase, which is why this is a table rather than a suffix.
 const TRASH_PLURALS = {
-  book: 'Books',
-  movie: 'Films & shows',
-  annotation: 'Highlights',
-  dialogue: 'Film lines',
-  quote: 'Quotes',
-  account: 'Accounts',
+  book: 'bin.kind.book.plural',
+  movie: 'bin.kind.movie.plural',
+  annotation: 'bin.kind.annotation.plural',
+  dialogue: 'bin.kind.dialogue.plural',
+  quote: 'bin.kind.quote.plural',
+  account: 'bin.kind.account.plural',
 }
 
 // RETENTION: the offered windows. Never is -1 rather than 0 for the reason the
 // server gives (an unset preference reads as 0, and "nobody has set this" must not
 // mean "turn the purge off").
-const RETENTION = [
-  ['7', '7 days'],
-  ['30', '30 days'],
-  ['90', '90 days'],
-  ['-1', 'Never'],
-]
+// The number is the window in days, and -1 is never; the WORDS are built at
+// render from the shared day format, so three of the four rows need no key of
+// their own.
+const RETENTION = [7, 30, 90, -1]
 
-const BIN_INFO =
-  'Everything you delete waits here first, and putting one back returns it exactly as it was — quotes, tags, colours, schedule and cover alike. “Empty now” is for when you wanted something gone today.'
+const retentionOptions = () =>
+  RETENTION.map((n) => [
+    String(n),
+    n < 0 ? t('bin.retention.never.label') : t('common.slider.days.format', { count: n, n }),
+  ])
 
 // parseStamp reads the server's `datetime('now')` stamp. It is a UTC wall-clock
 // string with no zone marker, so the T and the Z are added rather than letting the
@@ -120,12 +125,12 @@ const asDay = (d) => d.toLocaleDateString(undefined, { day: 'numeric', month: 's
 // last week is a column of noise.
 export function fmtDeleted(raw) {
   const d = parseStamp(raw)
-  if (!d) return raw ? `deleted ${raw}` : ''
+  if (!d) return raw ? t('bin.row.deleted.label', { when: raw }) : ''
   const sameYear = d.getFullYear() === new Date().getFullYear()
   const when = sameYear
     ? asDay(d)
     : d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
-  return `deleted ${when}`
+  return t('bin.row.deleted.label', { when })
 }
 
 // expiryLabel — when this is due to go for good.
@@ -136,14 +141,14 @@ export function fmtDeleted(raw) {
 // would be a promise nothing here can keep. A date reads as the earliest it can
 // go, which is exactly what it is, and the info dot says so.
 export function expiryLabel(raw, days) {
-  if (!(days > 0)) return 'kept until you empty the bin'
+  if (!(days > 0)) return t('bin.row.expiry.never')
   const d = parseStamp(raw)
   if (!d) return ''
   const due = new Date(d.getTime() + days * 86400000)
   // Already past its window and still here: the purge sweeps on the server's own
   // schedule, so "due to go" is true and "gone" would be a lie about a row that
   // is visibly still in the list.
-  return `due to go ${asDay(due)}`
+  return t('bin.row.expiry.due', { date: asDay(due) })
 }
 
 export default function BinPage({ onClose }) {
@@ -178,8 +183,8 @@ export default function BinPage({ onClose }) {
     setBusy(true)
     const r = await json('POST', `/trash/${entry.id}/restore`)
     setBusy(false)
-    if (!r.ok) return toast(errText(r, 'could not restore'))
-    toast('restored')
+    if (!r.ok) return toast(errText(r, t('error.restore.generic')))
+    toast(t('common.toast.restored.label'))
     setOpen(null)
     load()
   }
@@ -188,8 +193,8 @@ export default function BinPage({ onClose }) {
     setBusy(true)
     const r = await json('DELETE', `/trash/${entry.id}`)
     setBusy(false)
-    if (!r.ok) return toast(errText(r, 'could not remove'))
-    toast('gone')
+    if (!r.ok) return toast(errText(r, t('error.remove.generic')))
+    toast(t('bin.toast.gone.label'))
     load()
   }
 
@@ -198,8 +203,8 @@ export default function BinPage({ onClose }) {
     setBusy(true)
     const r = await json('DELETE', '/trash')
     setBusy(false)
-    if (!r.ok) return toast(errText(r, 'could not empty'))
-    toast('bin emptied')
+    if (!r.ok) return toast(errText(r, t('error.empty.bin')))
+    toast(t('bin.toast.emptied.label'))
     load()
   }
 
@@ -208,7 +213,7 @@ export default function BinPage({ onClose }) {
     setDays(n)
     const r = await json('PUT', '/auth/me/preferences', { trashDays: n })
     if (!r.ok) {
-      toast(errText(r, 'could not save'))
+      toast(errText(r, t('error.save.generic')))
       load() // put the control back to what the server actually holds
     }
   }
@@ -233,7 +238,12 @@ export default function BinPage({ onClose }) {
   const counts =
     items === null
       ? ''
-      : `${all.length} ${all.length === 1 ? 'entry' : 'entries'}${held > 0 ? ` · ${held} ${held === 1 ? 'quote' : 'quotes'} held` : ''}`
+      : [
+          t('common.count.phrase', { n: all.length, noun: t('unit.entry', { count: all.length }) }),
+          held > 0 && t('bin.counts.held', { n: held, noun: t('unit.quote', { count: held }) }),
+        ]
+          .filter(Boolean)
+          .join(' · ')
 
   return (
     <section className="space-y-6" data-screen-label="bin">
@@ -241,26 +251,27 @@ export default function BinPage({ onClose }) {
         {/* The way back is to SETTINGS, which is the only way in. A page with one
             door needs that door named — a bare back arrow on a screen nothing in
             the nav points at leaves you guessing where it goes. */}
-        <Tooltip label="Back to Settings" side="bottom">
+        <Tooltip label={t('bin.back.tip')} side="bottom">
           <button type="button" className="bin-back" onClick={onClose}>
             <IconBack />
-            <MonoLabel>Settings</MonoLabel>
+            {/* The tab's own name, not a second copy of the word. */}
+            <MonoLabel>{t('nav.tab.settings.label')}</MonoLabel>
           </button>
         </Tooltip>
-        <PageHeader title="The bin" counts={counts} />
+        <PageHeader title={t('bin.title')} counts={counts} />
       </div>
 
       <Card>
         <div className="space-y-4">
           <div className="flex flex-wrap items-center gap-3">
-            <MonoLabel>keep for</MonoLabel>
+            <MonoLabel>{t('bin.keep-for.label')}</MonoLabel>
             <Select
-              ariaLabel="How long the bin keeps things"
+              ariaLabel={t('bin.retention.aria')}
               value={String(days)}
               onChange={setWindow}
-              options={RETENTION}
+              options={retentionOptions()}
             />
-            <InfoDot title="The bin" text={BIN_INFO} />
+            <InfoDot title={t('bin.info.title')} text={t('bin.info.body')} />
             {all.length > 0 && (
               <GhostButton
                 className="tp-btn-danger ml-auto"
@@ -269,7 +280,7 @@ export default function BinPage({ onClose }) {
                 onClick={() => setAsking(true)}
                 disabled={busy}
               >
-                Empty now
+                {t('bin.empty-now.label')}
               </GhostButton>
             )}
           </div>
@@ -282,7 +293,7 @@ export default function BinPage({ onClose }) {
               <FilterChip
                 active={kind === 'all'}
                 keepLabel
-                label="All"
+                label={t('bin.filter.all.label')}
                 onClick={() => setKind('all')}
               />
               {kinds.map((k) => (
@@ -290,20 +301,22 @@ export default function BinPage({ onClose }) {
                   key={k}
                   active={kind === k}
                   icon={TRASH_ICONS[k]}
-                  label={TRASH_PLURALS[k] || TRASH_LABELS[k]}
-                  tooltip={`Show ${(TRASH_PLURALS[k] || k).toLowerCase()} only`}
+                  label={t(TRASH_PLURALS[k] || TRASH_LABELS[k])}
+                  tooltip={t('bin.filter.only.tip', {
+                    kind: (TRASH_PLURALS[k] ? t(TRASH_PLURALS[k]) : k).toLowerCase(),
+                  })}
                   onClick={() => setKind(k)}
                 />
               ))}
             </div>
           )}
 
-          {items === null && <p className="microcopy">reading the bin…</p>}
+          {items === null && <p className="microcopy">{t('bin.state.loading')}</p>}
           {items !== null && all.length === 0 && (
-            <EmptyState>nothing deleted — anything you delete waits here first</EmptyState>
+            <EmptyState>{t('bin.state.empty')}</EmptyState>
           )}
           {items !== null && all.length > 0 && shown.length === 0 && (
-            <EmptyState>nothing of that kind in the bin</EmptyState>
+            <EmptyState>{t('bin.state.empty-kind')}</EmptyState>
           )}
 
           {shown.length > 0 && (
@@ -321,34 +334,36 @@ export default function BinPage({ onClose }) {
                         type="button"
                         className="tp-btn tp-btn-ghost tactile trash-expand"
                         aria-expanded={open === e.id}
-                        aria-label={`What is inside ${e.label || 'this entry'}`}
+                        aria-label={t('bin.row.expand.aria', {
+                          label: e.label || t('bin.row.expand.fallback'),
+                        })}
                         onClick={() => expand(e.id)}
                       >
                         <IconChevron open={open === e.id} size={16} />
                         <span className="trash-kind">{TRASH_ICONS[e.kind]}</span>
-                        <MonoLabel>{TRASH_LABELS[e.kind] || e.kind}</MonoLabel>
+                        <MonoLabel>{TRASH_LABELS[e.kind] ? t(TRASH_LABELS[e.kind]) : e.kind}</MonoLabel>
                       </button>
                     ) : (
                       <span className="flex items-center gap-1.5">
                         <span className="trash-kind">{TRASH_ICONS[e.kind]}</span>
-                        <MonoLabel>{TRASH_LABELS[e.kind] || e.kind}</MonoLabel>
+                        <MonoLabel>{TRASH_LABELS[e.kind] ? t(TRASH_LABELS[e.kind]) : e.kind}</MonoLabel>
                       </span>
                     )}
-                    <span className="trash-label">{e.label || 'untitled'}</span>
+                    <span className="trash-label">{e.label || t('bin.row.untitled.label')}</span>
                     <span className="ml-auto flex items-center gap-1">
                       <FieldIconButton
                         icon={<IconRevert />}
-                        ariaLabel={`Restore ${e.label || 'this'}`}
+                        ariaLabel={t('bin.row.restore.aria', { label: e.label || t('bin.row.this.label') })}
                         disabled={busy}
                         onClick={() => putBack(e)}
-                        tooltip="Put this back"
+                        tooltip={t('bin.row.restore.tip')}
                       />
                       <FieldIconButton
                         icon={<IconDelete />}
-                        ariaLabel={`Remove ${e.label || 'this'} for good`}
+                        ariaLabel={t('bin.row.purge.aria', { label: e.label || t('bin.row.this.label') })}
                         disabled={busy}
                         onClick={() => forget(e)}
-                        tooltip="Remove for good"
+                        tooltip={t('bin.row.purge.tip')}
                         danger
                       />
                     </span>
@@ -358,8 +373,12 @@ export default function BinPage({ onClose }) {
                   <p className="microcopy">
                     {[
                       fmtDeleted(e.deleted_at),
-                      e.child_count > 0 && `${e.child_count} ${e.child_count === 1 ? 'quote' : 'quotes'}`,
-                      e.files > 0 && `${e.files === 1 ? 'picture' : 'pictures'} kept`,
+                      e.child_count > 0 &&
+                        t('common.count.phrase', {
+                          n: e.child_count,
+                          noun: t('unit.quote', { count: e.child_count }),
+                        }),
+                      e.files > 0 && t('bin.row.pictures', { count: e.files }),
                       expiryLabel(e.deleted_at, days),
                     ]
                       .filter(Boolean)
@@ -373,7 +392,7 @@ export default function BinPage({ onClose }) {
                         </li>
                       ))}
                       {contents[e.id] && contents[e.id].length === 0 && (
-                        <li className="microcopy">no quotes inside</li>
+                        <li className="microcopy">{t('bin.row.contents.empty')}</li>
                       )}
                     </ul>
                   )}
@@ -386,9 +405,14 @@ export default function BinPage({ onClose }) {
 
       <ConfirmDialog
         open={asking}
-        title="Empty the bin?"
-        body={`This removes ${all.length} ${all.length === 1 ? 'entry' : 'entries'} and the pictures they were holding. There is no undo for this one.`}
-        confirmLabel="Empty it"
+        title={t('bin.confirm.title')}
+        body={t('bin.confirm.body', {
+          count: t('common.count.phrase', {
+            n: all.length,
+            noun: t('unit.entry', { count: all.length }),
+          }),
+        })}
+        confirmLabel={t('bin.confirm.label')}
         onConfirm={emptyAll}
         onCancel={() => setAsking(false)}
       />

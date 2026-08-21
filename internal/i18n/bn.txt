@@ -3421,6 +3421,65 @@ unit.line.other = সংলাপ
 unit.collection.one = সিরিজ
 unit.collection.other = সিরিজ
 
+# ---------------------------------------------------------------------------
+# THE BIN — BinPage.jsx. The one screen you open because you have already lost
+# something, and the only one with a single door: the tile in Settings. That is
+# why the way back is NAMED rather than drawn as a bare arrow.
+# ---------------------------------------------------------------------------
+bin.back.tip = সেটিংসে ফিরুন
+bin.title = বিন
+# What a row calls each kind, and what the chip above the list calls a pile of
+# them. Bengali takes no plural marker after a noun, so most pairs are the same
+# word twice — written out anyway, per §3.0.
+bin.kind.book.label = বই
+bin.kind.book.plural = বই
+bin.kind.movie.label = সিনেমা বা শো
+bin.kind.movie.plural = সিনেমা আর শো
+bin.kind.annotation.label = দাগ
+bin.kind.annotation.plural = দাগ
+bin.kind.dialogue.label = সংলাপ
+bin.kind.dialogue.plural = সংলাপ
+bin.kind.quote.label = উক্তি
+bin.kind.quote.plural = উক্তি
+bin.kind.account.label = অ্যাকাউন্ট
+bin.kind.account.plural = অ্যাকাউন্ট
+bin.keep-for.label = কতদিন রাখা হবে
+bin.retention.aria = বিন কতদিন জিনিস রাখবে
+bin.retention.never.label = কখনও নয়
+bin.info.title = বিন
+bin.info.body = মুছে ফেলা সবকিছু আগে এখানে আসে, আর ফিরিয়ে আনলে ঠিক আগের মতোই ফেরে — উদ্ধৃতি, ট্যাগ, রং, রিভিশনের সময়, কভার সব নিয়ে। আজই কিছু চিরতরে সরাতে চাইলে “এখনই খালি করুন”।
+bin.empty-now.label = এখনই খালি করুন
+bin.filter.all.label = সব
+bin.filter.only.tip = শুধু {kind} দেখান
+bin.state.loading = বিন পড়া হচ্ছে…
+bin.state.empty = মুছে ফেলা কিছু নেই — যা মুছবেন সব আগে এখানে আসবে
+bin.state.empty-kind = বিনে ওই ধরনের কিছু নেই
+bin.row.untitled.label = নাম নেই
+# The hole stays bare — a case marker on {label} would be right for one noun and
+# wrong for the next (§5.4).
+bin.row.expand.aria = {label} — ভিতরে কী আছে
+bin.row.expand.fallback = এই এন্ট্রি
+bin.row.this.label = এটা
+bin.row.restore.aria = {label} ফিরিয়ে আনুন
+bin.row.restore.tip = ফিরিয়ে আনুন
+bin.row.purge.aria = {label} চিরতরে সরান
+bin.row.purge.tip = চিরতরে সরান
+bin.row.deleted.label = মুছেছেন {when}
+bin.row.pictures.one = ছবি রাখা আছে
+bin.row.pictures.other = ছবি রাখা আছে
+bin.row.expiry.due = চিরতরে যাবে {date}
+bin.row.expiry.never = বিন খালি না করা পর্যন্ত থাকবে
+bin.row.contents.empty = ভিতরে কোনও উদ্ধৃতি নেই
+bin.counts.held = {n} {noun} রাখা আছে
+bin.confirm.title = বিন খালি করবেন?
+bin.confirm.body = এতে {count} আর তার সঙ্গের ছবিগুলো চলে যাবে। এটার কোনও আনডু নেই।
+bin.confirm.label = খালি করুন
+bin.toast.gone.label = চলে গেছে
+bin.toast.emptied.label = বিন খালি হয়েছে
+error.restore.generic = ফিরিয়ে আনা গেল না
+error.remove.generic = সরানো গেল না
+error.empty.bin = খালি করা গেল না
+
 # ===========================================================================
 # THE REST OF THE SHARED VOCABULARY — common.field.* and one shell key.
 #
