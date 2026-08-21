@@ -4170,9 +4170,12 @@ metadata.bulk.apply.label = {n}টিতে বসান
 
 metadata.duplicates.title = ডুপ্লিকেট বই
 metadata.duplicates.info.body = যে বইগুলোর নাম আর লেখক এত মেলে যে একই বই দুবার — সাধারণত একটা ইমপোর্ট করা, একটা হাতে যোগ করা — সেগুলো খুঁজে দেয়। এক করলে সব উদ্ধৃতি যেটা রাখছেন তার নিচে চলে আসে, বাকিগুলো মুছে যায়; সবচেয়ে বেশি উদ্ধৃতি যার, সেটাই আগে বাছা থাকে।
-# ?? group (a cluster of near-identical rows) → দল
-metadata.duplicates.groups.one = {n}টি দল
-metadata.duplicates.groups.other = {n}টি দল
+# group (a cluster of rows) → গ্রুপ, the same word staging.group.* uses for the
+# same idea. This pass briefly had two — দল here and গ্রুপ there — which is exactly
+# the one-thing-two-words drift §3 exists to stop. দল also means a team or a party,
+# which is misleading about two copies of one book.
+metadata.duplicates.groups.one = {n}টি গ্রুপ
+metadata.duplicates.groups.other = {n}টি গ্রুপ
 metadata.duplicates.scan.label = ডুপ্লিকেট বই খুঁজুন
 metadata.duplicates.rescan.aria = ডুপ্লিকেট আবার খুঁজুন
 metadata.duplicates.rescan.tip = আবার খুঁজুন
@@ -4558,7 +4561,7 @@ common.field.tag.label = ট্যাগ
 common.field.style.label = ধাঁচ
 # --- the fields a re-verify diff can name that nothing else in the app has a
 # word for. The three identifiers stay Latin (§8).
-common.field.cast.label = অভিনেতারা
+common.field.cast.label = কাস্ট
 common.field.portrait.label = মুখের ছবি
 common.field.bio.label = পরিচয়
 common.field.born.label = জন্ম

@@ -48,6 +48,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The whole interface speaks Bengali now, not most of it.** Eight screens and nine
+  Settings cards were still English at their call sites whatever language you chose —
+  the Metadata console, the pending-import queue, the bin, Profile, the import wall,
+  re-verify, the cover picker, the people panel, and Settings' updates, changelog,
+  onboarding, devices, backup, restore, key fields and metadata cards. All of them are
+  translated, 3,223 keys in each language, and Bengali is still complete rather than
+  dropping to a percentage.
+
+  **A test holds it now instead of a comment.** Every screen is mounted under the
+  pseudo-locale — a mode that accents and brackets every string that came from a
+  language file — and any plain English left on screen, including in a tooltip, a
+  placeholder or a screen-reader label, fails the build. The three keys that used to
+  print on screen as `nav.section.library.what` could not have been caught any other
+  way: a key rendered raw is a real key, so every check that reads the source thought
+  it was fine.
+
+  **Bengali labels are drawn in the face you chose.** Small-caps labels — the bin's
+  *keep for*, a diff's column heads, the shortcut sheet's headings — had no Bengali
+  font in their stack, so they fell through to whatever the operating system reached
+  for, in the middle of typography you had picked every other part of.
+
+  Four smaller things fell out of the pass and are fixed: the People console said
+  *"5 undefineds still need photos or links"* over a list of studios; an empty studio
+  list drew an empty message with nothing in it; a single-quote title read *"1 quotes"*;
+  and the re-verify summary ran two numbers together as *"9 up to date· 2 skipped"*.
+
 - **Three places printed the key instead of the words.** The shortcut sheet's five
   headings, the three lines of microcopy under *Settings → Features*, and the three
   media chips in *Settings → Daily quiz & practice* all rendered a locale key on

@@ -923,3 +923,40 @@ reason. Then mark the key `# ?? `.)*
 | --- | --- | --- |
 | flyout (a tag chip shape) | নিশান | The shape is a pennant, notched to a point underneath. Marked `# ?? ` — ফ্লাইআউট is a loan that means nothing away from a screen |
 | banner (a tag chip shape) | ব্যানার | A horizontal strip notched on the right; the loan is what a Bengali says for a strip that hangs |
+
+### From the last three screens (StagingPage, MetadataPage, Settings)
+
+The pass that closed the migration. Every row here is marked `# ?? ` at its key
+except where noted.
+
+| English | Bengali | Reason |
+| --- | --- | --- |
+| queue (the list of things waiting) | অপেক্ষার তালিকা | §3.7 has *Pending import* → অপেক্ষায় ইমপোর্ট but no word for the queue itself. Shortened to তালিকা where the header already says the rest. **Note it now does two jobs** — তালিকা is also §3.7's *List view* |
+| staged (held in the pending queue) | জমা | §5.2's own worked example uses *জমা থাকে* for a thing being held somewhere, which is exactly this state |
+| field (a form or table column) | ফিল্ড | ঘর is taken by রঙের ঘর (§3.3), and ফিল্ড is what a Bengali says about a form |
+| group (a cluster of rows) | গ্রুপ | Passes §4.1's conversation test outright. বিভাগ is §3.7's *Section*, and দল — which one agent reached for independently — also means a team or a party, which is misleading about two copies of one book. **One word, used by both screens** |
+| formula (the location arithmetic) | ফর্মুলা | সূত্র is taken for a metadata source (§3.7) |
+| operation (an arithmetic op in a Select) | কাজ | প্রক্রিয়া is the noticeboard register §1.1 keeps out, and the slot is mono, so one short word |
+| range (a page span like 610-612) | রেঞ্জ | পরিসর is a shade formal for a page span |
+| enriched (metadata fetched on approval) | মেটাডেটা পেয়েছে | No single Bengali verb; the phrase says what actually happened |
+| un-♥ (the compact unfavourite button) | ♥ সরান | The English is itself a coinage; Bengali says *take the ♥ off* |
+| maintenance | দেখভাল | রক্ষণাবেক্ষণ is exactly the noticeboard register §1.1 exists to keep out |
+| console (a screen you work AT) | কনসোল | §3.7 has স্ক্রিন and প্যানেল, neither of which is this |
+| detail (one filled metadata field) | তথ্য | The fetch tally counts *details filled*; খুঁটিনাটি is a mass noun and will not take টি |
+| run (the button on a phone action card) | চালান | §3.4 has no row for it |
+| flagged (a row with at least one gap) | সমস্যা আছে | Leans on *issue* → সমস্যা above; দাগানো would collide with দাগ (a highlight) |
+| low-res | ঝাপসা | The homely word for a soft picture, two clusters, fits the mono tile where কম রেজলিউশন cannot |
+| cast | কাস্ট | **Not marked** — `bn.txt` already said কাস্ট twice before this pass (`common.work.resync.info.body`, `film.fetch.info.body`). `common.field.cast.label` briefly said অভিনেতারা, a third word for one thing; corrected to match |
+| editor (the form inside a console row) | এডিটর | §3.4 gives *edit* → এডিট but no noun for the form |
+| look up (ask the sources about one row) | খুঁজে দেখুন | Distinct from খোঁজ (the Search tab) and from আনুন (*fetch*): this one only looks |
+| remap (re-point a speaker at a cast member) | বদল | নতুন করে বসানো is accurate and unusable on a heading |
+| mapping (one label paired with one member) | জোড়া | Also used by `error.validate.mapping-required` |
+| reference page (an external page about a person) | রেফারেন্স পাতা | পরিচিতির পাতা loses that these are external |
+| amp (the & chip's spoken name) | অ্যান্ড চিহ্ন | অ্যাম্পারস্যান্ড is unreadable in a chip's aria and names a glyph nobody says aloud |
+| and (the “and” chip's spoken name) | “and” শব্দ | The chip draws the English word the splitter actually matches (§8), so the Latin stays and only the frame around it is Bengali |
+| roadmap | রোডম্যাপ | পরিকল্পনা is form-Bengali; রোডম্যাপ is what people say about a project's plan |
+| pairing code | জোড়ার কোড | Two words under §6.3 mono pressure, but কোড alone does not say what it is a code for |
+
+**Already in `bn.txt` from an earlier pass and therefore NOT marked**, listed only so
+nobody re-decides them: Updates আপডেট · Changelog চেঞ্জলগ · version ভার্সন · release
+রিলিজ · API key কি · archive key চাবি · cookie কুকি · pair / unpair জুড়ুন / খুলে নিন.

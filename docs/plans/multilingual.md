@@ -1,8 +1,10 @@
 # Multilingual — the Bengali half, and anyone else's
 
 **Status:** the mechanism and the English catalogue **shipped in 2.1.0**; the Bengali
-**shipped in 2.1.1**, all 2,446 keys. This file is now the record of how, and of what is
-still open — the two are different lists and only the second one is work.
+**shipped in 2.1.1**, all 2,446 keys. The eight files and nine Settings cards that pass left
+behind are **done too**, at 3,223 keys per language, and a test now holds the property
+instead of a comment — see §3. This file is the record of how, and of what is still open;
+the two are different lists and only the second one is work.
 
 **The design itself now lives in [`docs/PLAN.md`](../PLAN.md) §13**, as *"There is no source
 language: the code holds keys, and English is a file like any other"* — that entry is the one to
@@ -99,12 +101,31 @@ tests rather than in this file, which is the only way they stay true:
 
 ### 3. Known gaps, recorded rather than discovered later
 
-- **The pseudo-locale coverage number has still never been read** — how many user-facing
-  strings are *still* English literals in the source, as opposed to keys. `locale-complete`
-  proves every key in the file is reached and every key the code asks for exists, which is a
-  different claim: it cannot see a string that never became a key. The merge agent named
-  eight files and nine Settings cards it did not reach. **This is the honest measure of the
-  migration and the one number nobody has.**
+- **The pseudo-locale coverage number has been read, and it is zero.** This entry used to
+  say the number was the honest measure of the migration and that nobody had it. The eight
+  files the merge agent never reached — `Account.jsx`, `ImportPage.jsx`, `StagingPage.jsx`,
+  `BinPage.jsx`, `MetadataPage.jsx`, `ReverifyReview.jsx`, `CoverPicker.jsx`, `people.jsx` —
+  and the nine Settings cards have all landed, at 3,223 keys per language with Bengali still
+  complete.
+
+  **What holds it is a test, not this paragraph.** `test/dom/screens-i18n.test.jsx` mounts
+  every screen `App` can route to under `qps` and fails on any readable plain-ASCII string,
+  in a rendered attribute as well as in the page. The screen list is `test/screens.js`,
+  shared with the mount smoke test so the two cannot disagree, and derived from the
+  `data-screen-label` attributes `App` itself carries.
+
+  **Four values are keyed and deliberately identical in both languages** — the wordmark, the
+  `{n}px` size readout, the four characters the credit splitter matches, and the `dev`
+  version stamp. They pass through the resolver so the gate can see them; a list of
+  exemptions inside the gate is where the next untokenised screen would have hidden.
+
+  **What the pass found, which is the argument for doing it rather than only recording it:**
+  three tables that held a key and drew it raw (the shortcut sheet's five headings had been
+  the key for as long as the sheet existed); four `t` shadows waiting to break their file
+  silently; a `kind → noun` map missing its `studio` row, so the People console read "5
+  undefineds still need photos or links"; twenty parenthesised `item(s)` plurals; and
+  `label.toLowerCase()` building nine sentences in the cover picker — English casing used as
+  grammar, in a language that has no case.
 - **The Go side's own user-facing strings are not in the catalogue.** Deliberately out of
   scope for this pass; they are listed in the mechanism agent's report.
 - **English `-s` plural fallbacks in `works.jsx`** (`nounPlural = ${noun}s`) are English

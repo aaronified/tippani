@@ -70,14 +70,27 @@ locale.pseudo.name = Pseudo
 # Sources: App.jsx routes.js keys.js ui.jsx works.jsx Settings.jsx theme.js
 # fonts.js secret.js languages.jsx gestures.jsx api.js undo.jsx flow.jsx.
 #
-# NOT YET IN HERE, said plainly so nobody hunts for a key that was never
-# written: Account.jsx, ImportPage.jsx, StagingPage.jsx, BinPage.jsx,
-# MetadataPage.jsx, ReverifyReview.jsx, CoverPicker.jsx and people.jsx are still
-# English at their call sites, as are nine cards inside Settings.jsx (updates,
-# the changelog dialog, onboarding, devices, backup, restore, the key fields and
-# the metadata card). Those screens render in English whatever language is
-# chosen. The pseudo-locale is how you see which: an untransformed sentence
-# under it is a literal still sitting in the source.
+# EVERYTHING IS IN HERE NOW. This paragraph used to name the eight files that
+# were still English at their call sites — Account, ImportPage, StagingPage,
+# BinPage, MetadataPage, ReverifyReview, CoverPicker, people — plus nine cards
+# inside Settings.jsx. All of them landed, and the screens they render are in
+# whichever language the reader chose.
+#
+# WHAT KEEPS IT THAT WAY is test/dom/screens-i18n.test.jsx rather than this
+# comment. It mounts every screen App can route to under the pseudo-locale, where
+# a string that came through the resolver comes back bracketed and accented, and
+# fails on any readable plain-ASCII text — in a rendered attribute as well as in
+# the page. A new screen is gated the day it joins test/screens.js, and a literal
+# left in the JSX is a red test rather than a paragraph somebody has to remember
+# to update.
+#
+# FOUR THINGS ARE KEYED HERE THAT NO TRANSLATOR SHOULD TOUCH, each carrying the
+# same value in every language: shell.wordmark.label (a logotype),
+# settings.type.size.format ({n}px, a unit beside a Western digit),
+# settings.credits.sep.*.symbol (the characters the credit splitter matches) and
+# settings.updates.version.dev. They go through the resolver so the gate above
+# can see them; the alternative was a list of exemptions inside the gate, which
+# is where the next untokenised screen would have hidden.
 #
 # THE common.*, nav.*, unit.* AND vocab.* NAMESPACES ARE SHARED. A screen that
 # names a column, a countable noun or a shared verb points here rather than
