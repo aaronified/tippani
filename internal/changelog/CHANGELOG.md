@@ -46,6 +46,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   is the difference between two payloads that match and two that match until one is edited.
   There is no edit form on it: this is a reading surface, and it knows where the quote lives.
 
+### Fixed
+
+- **A Kindle's own clippings file could split one book into two.** The device writes a
+  byte-order mark before each record's title — not once at the top of the file, but every
+  time it appends — and the parser trimmed only the leading one. The rest stayed glued to
+  the title, so *The Idiot* imported from the device and *The Idiot* imported from a JSON
+  export were two different books whose titles differed by a character you cannot see.
+  Every BOM is now dropped, wherever it appears.
+
+  The same file also carries the case the device makes when you extend a highlight in
+  place: it re-appends the whole record, leaving a truncated copy and a whole one at the
+  same page. That collapse already worked — it is now pinned by a test, along with the
+  invariant that no two quotes at one position may be prefixes of one another.
+
+- **An IMDb quotes page for a video game imported as a film.** IMDb carries quotes for all
+  three of the kinds the shelf knows, but the parser only asked whether the title was a
+  series — a game is not, so it fell through to *movie* and landed on the film shelf. It
+  now reads the title's type.
+
+  Two other places had to learn the same word. A hand-written or round-tripped file saying
+  `type: game` was ignored by the Markdown reader, and the import path folded every value
+  but *show* back into *movie*, which cancelled whatever the parsers had worked out. Games
+  have been a media type since 2.0.0; this is the rest of the sweep.
+
 ## [2.1.1] - 2026-08-19
 
 ### Added
