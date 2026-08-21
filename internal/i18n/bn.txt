@@ -3491,6 +3491,45 @@ error.restore.generic = ফিরিয়ে আনা গেল না
 error.remove.generic = সরানো গেল না
 error.empty.bin = খালি করা গেল না
 
+# ---------------------------------------------------------------------------
+# RE-VERIFY — ReverifyReview.jsx. §3.4 gives re-verify → আবার মিলিয়ে দেখুন; the
+# screen's own title is the noun form of the same act.
+# ---------------------------------------------------------------------------
+reverify.title = মেটাডেটা আবার মিলিয়ে দেখুন
+reverify.checking.prose = প্রতিটি সূত্রের সঙ্গে আবার মিলিয়ে দেখা হচ্ছে — মেনে না নেওয়া পর্যন্ত কিছুই লেখা হবে না।
+reverify.checking.progress = দেখা হচ্ছে · {done}/{total}
+reverify.summary = {checked} দেখা হয়েছে · {changed}টিতে বদল · {clean} ঠিক আছে
+reverify.summary.skipped =  · {n} বাদ (পিন করা আইডি নেই)
+reverify.summary.failed =  · {n} পারা গেল না
+reverify.clean = যা যা দেখা হল সব আগেই ঠিক আছে ✓
+reverify.item.open.tip = কী কী বদল হবে দেখান
+reverify.item.approved = {n}/{total} মেনে নেওয়া
+reverify.item.approve-all = সব মেনে নিন
+reverify.item.approve-none = কিছুই নয়
+reverify.field.approve.tip = এই বদল মেনে নিন
+# Bengali has no letter case, so small caps do nothing to it (§0.5) — these two
+# are written as ordinary words rather than as shouted ones.
+reverify.column.stored = যা আছে
+reverify.column.fresh = যা এল
+reverify.value.more = +{n} আরও
+reverify.status.unpinned = পিন করা আইডি নেই
+reverify.status.fetch-failed = সূত্র পর্যন্ত পৌঁছানো গেল না
+reverify.status.not-found = পাওয়া গেল না
+reverify.apply.label.one = {n}টি বদল বসান
+reverify.apply.label.other = {n}টি বদল বসান
+reverify.apply.busy = বসানো হচ্ছে…
+reverify.result.applied = বসেছে
+reverify.result.applied-note = বসেছে ({note})
+reverify.flash.one = আবার মিলিয়ে দেখা: {n}টি বদলেছে
+reverify.flash.other = আবার মিলিয়ে দেখা: {n}টি বদলেছে
+reverify.flash.failed =  · {n} পারা গেল না
+reverify.flash.skipped.one =  · {n}টি ছবি বাদ
+reverify.flash.skipped.other =  · {n}টি ছবি বাদ
+error.reverify.preview = আগে দেখা গেল না
+error.reverify.apply = বসানো গেল না
+error.reverify.interrupted = দেখার কাজ থেমে গেছে — কানেকশন দেখে আবার খুলুন
+error.reverify.apply-interrupted = বসানোর কাজ থেমে গেছে — কানেকশন দেখে আবার চেষ্টা করুন (যা বসে গেছে তা বসাই থাকবে)
+
 # ===========================================================================
 # THE REST OF THE SHARED VOCABULARY — common.field.* and one shell key.
 #
@@ -3544,6 +3583,18 @@ common.field.name.label = নাম
 common.field.name.placeholder = নাম…
 common.field.tag.label = ট্যাগ
 common.field.style.label = ধাঁচ
+# --- the fields a re-verify diff can name that nothing else in the app has a
+# word for. The three identifiers stay Latin (§8).
+common.field.cast.label = অভিনেতারা
+common.field.portrait.label = মুখের ছবি
+common.field.bio.label = পরিচয়
+common.field.born.label = জন্ম
+common.field.died.label = মৃত্যু
+common.field.links.label = লিঙ্ক
+common.field.identity.label = পরিচিতি
+common.field.tmdb-id.label = TMDB id
+common.field.tvdb-id.label = TheTVDB id
+
 common.field.board.label = বোর্ড
 common.field.anthology.label = সংকলন
 common.field.sticker.label = স্টিকার

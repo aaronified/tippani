@@ -3420,6 +3420,59 @@ error.restore.generic = could not restore
 error.remove.generic = could not remove
 error.empty.bin = could not empty
 
+# ---------------------------------------------------------------------------
+# RE-VERIFY — ReverifyReview.jsx. The review-before-apply flow: every pinned
+# work re-checked against its live source, every changed field shown as
+# stored-versus-fresh with a tick, and nothing written until the tick is there.
+#
+# THE PLURALS ARE REAL ONES NOW. The English read “item(s)”, “change(s)” and
+# “image(s)” — the parenthesised -s that stands in for a plural nobody wanted to
+# write twice. A locale file has a plural category per language, so the hedge is
+# no longer needed in English and would not have worked in any language that has
+# more than two forms.
+# ---------------------------------------------------------------------------
+reverify.title = Re-verify metadata
+reverify.checking.prose = re-checking each item against its pinned source — nothing is written until you approve it.
+reverify.checking.progress = checking · {done}/{total}
+# The tally across the top once the checking is done.
+reverify.summary = {checked} checked · {changed} with changes · {clean} up to date
+reverify.summary.skipped =  · {n} skipped (no pinned id)
+reverify.summary.failed =  · {n} failed
+reverify.clean = everything checked is already up to date ✓
+# One item's card.
+reverify.item.open.tip = Show the proposed changes
+reverify.item.approved = {n}/{total} approved
+reverify.item.approve-all = approve all
+reverify.item.approve-none = none
+# One field's row inside it. The two column heads are drawn in small caps.
+reverify.field.approve.tip = Approve this change
+reverify.column.stored = STORED
+reverify.column.fresh = FRESH
+# A cast list is clamped to six; this is the tail.
+reverify.value.more = +{n} more
+# Why an item had nothing checked, or could not be.
+reverify.status.unpinned = no pinned id
+reverify.status.fetch-failed = could not reach the source
+reverify.status.not-found = not found
+# The button, and what it says while it works.
+reverify.apply.label.one = Apply {n} approved change
+reverify.apply.label.other = Apply {n} approved changes
+reverify.apply.busy = Applying…
+# One line per applied item, afterwards. {note} is the server's own reason for
+# leaving an image alone.
+reverify.result.applied = applied
+reverify.result.applied-note = applied ({note})
+# The toast at the end.
+reverify.flash.one = re-verify: {n} item updated
+reverify.flash.other = re-verify: {n} items updated
+reverify.flash.failed =  · {n} failed
+reverify.flash.skipped.one =  · {n} image skipped
+reverify.flash.skipped.other =  · {n} images skipped
+error.reverify.preview = preview failed
+error.reverify.apply = apply failed
+error.reverify.interrupted = the check was interrupted — check your connection and reopen Re-verify
+error.reverify.apply-interrupted = apply was interrupted — check your connection and try again (already-applied items stay applied)
+
 # ===========================================================================
 # THE REST OF THE SHARED VOCABULARY — common.field.* and one shell key.
 #
@@ -3473,6 +3526,21 @@ common.field.name.label = Name
 common.field.name.placeholder = name…
 common.field.tag.label = Tag
 common.field.style.label = Style
+# --- the fields a re-verify diff can name that nothing else in the app has a
+# word for. The other fifteen it reports — title, author, description, year,
+# series, isbn, genres, cover, poster, director — already have their label
+# above; these are the six a person carries and the three identifiers.
+common.field.cast.label = Cast
+common.field.portrait.label = Portrait
+common.field.bio.label = Bio
+common.field.born.label = Born
+common.field.died.label = Died
+common.field.links.label = Links
+common.field.identity.label = Identity
+# Identifiers, which appear as themselves in every language.
+common.field.tmdb-id.label = TMDB id
+common.field.tvdb-id.label = TheTVDB id
+
 common.field.board.label = Board
 common.field.anthology.label = Anthology
 common.field.sticker.label = Sticker

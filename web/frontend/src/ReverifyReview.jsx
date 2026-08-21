@@ -9,6 +9,7 @@
 // on phones, a centered scrollable overlay on desktop.
 import { useEffect, useRef, useState } from 'react'
 import { coverImgURL, errText, json } from './api.js'
+import { t } from './i18n.js'
 import {
   CloseButton,
   EmptyState,
@@ -25,6 +26,59 @@ import {
 
 const CHUNK = 10 // items per preview call (server caps at 15)
 const IMAGE_FIELDS = new Set(['cover', 'poster', 'portrait'])
+// FIELD_KEYS — the server's field token, to the shared key that names it for a
+// reader. A table rather than a key built from the token, because the two
+// genuinely differ: published_year and release_year are both "Year", series_index
+// is "Series #", and a token with no row should fall through to something legible
+// rather than resolve to a missing key.
+//
+// The nine that had no word anywhere in the app before this — cast, portrait,
+// bio, born, died, links, identity and the two ids — were added to common.field.*
+// rather than keyed here, because a field's name is the same field's name
+// wherever it is drawn.
+const FIELD_KEYS = {
+  title: 'common.field.title.label',
+  author: 'common.field.author.label',
+  description: 'common.field.description.label',
+  published_year: 'common.field.year.label',
+  release_year: 'common.field.year.label',
+  series: 'common.field.series.label',
+  series_index: 'common.field.series-no.label',
+  isbn: 'common.field.isbn.label',
+  genres: 'common.field.genres.label',
+  cover: 'common.field.cover.label',
+  poster: 'common.field.poster.label',
+  director: 'common.field.director.label',
+  cast: 'common.field.cast.label',
+  portrait: 'common.field.portrait.label',
+  bio: 'common.field.bio.label',
+  born: 'common.field.born.label',
+  died: 'common.field.died.label',
+  links: 'common.field.links.label',
+  identity: 'common.field.identity.label',
+  tmdb_id: 'common.field.tmdb-id.label',
+  tvdb_id: 'common.field.tvdb-id.label',
+}
+
+// fieldName — the reader's word for a diff row. The fallback is the old
+// behaviour, kept for a field a newer server knows about and this build does not.
+const fieldName = (field) =>
+  FIELD_KEYS[field] ? t(FIELD_KEYS[field]) : String(field).replace(/_/g, ' ')
+
+// STATUS_KEYS — why an item had nothing checked, or could not be.
+const STATUS_KEYS = {
+  unpinned: 'reverify.status.unpinned',
+  fetch_failed: 'reverify.status.fetch-failed',
+  not_found: 'reverify.status.not-found',
+}
+
+// kindLabel — the chip beside an item's name. A work is named by its media kind,
+// a person by the role they were credited in, and both vocabularies already
+// exist elsewhere in the app.
+const kindLabel = (item) =>
+  item.type === 'person'
+    ? t(`common.field.${item.kind}.label`)
+    : t(`vocab.kind.${item.type}.label`)
 
 // itemKey identifies one previewed item across the approval state maps.
 const itemKey = (it) => (it.type === 'person' ? `person:${it.kind}:${it.name}` : `${it.type}:${it.id}`)
@@ -65,7 +119,9 @@ function ValueCell({ field, value, fresh }) {
         {value.slice(0, 6).map((m, i) => (
           <span key={i} className="block truncate">{m.character || '—'} · {m.actor || '—'}</span>
         ))}
-        {value.length > 6 && <span className="microcopy">+{value.length - 6} more</span>}
+        {value.length > 6 && (
+          <span className="microcopy">{t('reverify.value.more', { n: value.length - 6 })}</span>
+        )}
       </span>
     )
   }
@@ -87,18 +143,22 @@ function FieldDiffRow({ diff, approved, onToggle }) {
   return (
     <div className="flex items-start gap-3 py-2" style={{ borderTop: '1px solid var(--line)' }}>
       <label className="flex items-center gap-2" style={{ cursor: 'pointer', flex: 'none', paddingTop: 2 }}>
-        <Tooltip label="Approve this change" side="top">
+        <Tooltip label={t('reverify.field.approve.tip')} side="top">
           <input type="checkbox" checked={approved} onChange={onToggle} />
         </Tooltip>
-        <MonoLabel style={{ width: 92 }}>{diff.field.replace(/_/g, ' ')}</MonoLabel>
+        <MonoLabel style={{ width: 92 }}>{fieldName(diff.field)}</MonoLabel>
       </label>
       <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-2">
         <div className="min-w-0">
-          <MonoLabel className="mb-1 block" style={{ fontSize: 9, color: 'var(--faint)' }}>STORED</MonoLabel>
+          <MonoLabel className="mb-1 block" style={{ fontSize: 9, color: 'var(--faint)' }}>
+            {t('reverify.column.stored')}
+          </MonoLabel>
           <ValueCell field={diff.field} value={diff.stored} />
         </div>
         <div className="min-w-0">
-          <MonoLabel className="mb-1 block" style={{ fontSize: 9, color: 'var(--accent-ui)' }}>FRESH</MonoLabel>
+          <MonoLabel className="mb-1 block" style={{ fontSize: 9, color: 'var(--accent-ui)' }}>
+            {t('reverify.column.fresh')}
+          </MonoLabel>
           <ValueCell field={diff.field} value={diff.fresh} fresh />
         </div>
       </div>
@@ -109,10 +169,10 @@ function FieldDiffRow({ diff, approved, onToggle }) {
 function ReverifyItemCard({ item, open, onToggleOpen, approvals, onToggleField, onSetAll }) {
   const key = itemKey(item)
   const approvedCount = item.diffs.filter((d) => approvals[`${key}|${d.field}`]).length
-  const kindChip = item.type === 'person' ? item.kind : item.type
+  const kindChip = kindLabel(item)
   return (
     <HandCard className="px-4 py-3">
-      <Tooltip label="Show the proposed changes" side="top" className="w-full">
+      <Tooltip label={t('reverify.item.open.tip')} side="top" className="w-full">
         <button
           type="button"
           className="flex w-full items-center gap-2 text-left"
@@ -125,15 +185,20 @@ function ReverifyItemCard({ item, open, onToggleOpen, approvals, onToggleField, 
           </span>
           <MonoLabel style={{ fontSize: 9.5, flex: 'none' }}>{kindChip}{item.source ? ` · ${item.source}` : ''}</MonoLabel>
           <MonoLabel className="ml-auto" style={{ fontSize: 10, color: 'var(--accent-ui)', flex: 'none' }}>
-            {approvedCount}/{item.diffs.length} approved {open ? '▾' : '▸'}
+            {t('reverify.item.approved', { n: approvedCount, total: item.diffs.length })}{' '}
+            {open ? '▾' : '▸'}
           </MonoLabel>
         </button>
       </Tooltip>
       {open && (
         <div className="mt-2">
           <div className="mb-1 flex justify-end gap-3">
-            <button type="button" className="tp-link" style={{ fontSize: 11 }} onClick={() => onSetAll(item, true)}>approve all</button>
-            <button type="button" className="tp-link" style={{ fontSize: 11 }} onClick={() => onSetAll(item, false)}>none</button>
+            <button type="button" className="tp-link" style={{ fontSize: 11 }} onClick={() => onSetAll(item, true)}>
+              {t('reverify.item.approve-all')}
+            </button>
+            <button type="button" className="tp-link" style={{ fontSize: 11 }} onClick={() => onSetAll(item, false)}>
+              {t('reverify.item.approve-none')}
+            </button>
           </div>
           {item.diffs.map((d) => (
             <FieldDiffRow
@@ -193,7 +258,7 @@ export function ReverifyFlow({ selection, onClose, onFlash, onDone }) {
           const r = await json('POST', '/metadata/reverify', body)
           if (cancelled.current) return
           if (!r.ok || !r.data) {
-            setErr(errText(r, 'preview failed'))
+            setErr(errText(r, t('error.reverify.preview')))
             break
           }
           for (const it of r.data.items || []) {
@@ -206,7 +271,7 @@ export function ReverifyFlow({ selection, onClose, onFlash, onDone }) {
         }
       } catch {
         if (cancelled.current) return
-        setErr('the check was interrupted — check your connection and reopen Re-verify')
+        setErr(t('error.reverify.interrupted'))
       }
       setItems(all)
       setApprovals(seed)
@@ -263,14 +328,14 @@ export function ReverifyFlow({ selection, onClose, onFlash, onDone }) {
       for (let i = 0; i < payload.length; i += CHUNK) {
         const r = await json('POST', '/metadata/reverify/apply', { items: payload.slice(i, i + CHUNK) })
         if (!r.ok || !r.data) {
-          setErr(errText(r, 'apply failed'))
+          setErr(errText(r, t('error.reverify.apply')))
           setPhase('review')
           return
         }
         all.push(...(r.data.results || []))
       }
     } catch {
-      setErr('apply was interrupted — check your connection and try again (already-applied items stay applied)')
+      setErr(t('error.reverify.apply-interrupted'))
       setPhase('review')
       return
     }
@@ -280,7 +345,9 @@ export function ReverifyFlow({ selection, onClose, onFlash, onDone }) {
     const failCount = all.length - okCount
     const notes = all.filter((x) => x.note).length
     onFlash?.(
-      `re-verify: ${okCount} item(s) updated${failCount ? ` · ${failCount} failed` : ''}${notes ? ` · ${notes} image(s) skipped` : ''}`,
+      t('reverify.flash', { count: okCount, n: okCount }) +
+        (failCount ? t('reverify.flash.failed', { n: failCount }) : '') +
+        (notes ? t('reverify.flash.skipped', { count: notes, n: notes }) : ''),
     )
     onDone?.()
   }
@@ -289,22 +356,28 @@ export function ReverifyFlow({ selection, onClose, onFlash, onDone }) {
     <div className="space-y-3">
       {phase === 'checking' && (
         <>
-          <p className="microcopy">
-            re-checking each item against its pinned source — nothing is written until you approve it.
-          </p>
-          <ProgressBar value={progress.done} max={progress.total} label={`checking · ${progress.done}/${progress.total}`} />
+          <p className="microcopy">{t('reverify.checking.prose')}</p>
+          <ProgressBar
+            value={progress.done}
+            max={progress.total}
+            label={t('reverify.checking.progress', { done: progress.done, total: progress.total })}
+          />
         </>
       )}
       {phase !== 'checking' && (
         <MonoLabel className="block" style={{ fontSize: 10.5 }}>
-          {items.length} checked · {changed.length} with changes · {clean} up to date
-          {skipped > 0 && ` · ${skipped} skipped (no pinned id)`}
-          {failedCount > 0 && ` · ${failedCount} failed`}
+          {t('reverify.summary', {
+            checked: items.length,
+            changed: changed.length,
+            clean,
+          })}
+          {skipped > 0 && t('reverify.summary.skipped', { n: skipped })}
+          {failedCount > 0 && t('reverify.summary.failed', { n: failedCount })}
         </MonoLabel>
       )}
       <ErrorText>{err}</ErrorText>
       {(phase === 'review' || phase === 'applying') && changed.length === 0 && (
-        <EmptyState>everything checked is already up to date ✓</EmptyState>
+        <EmptyState>{t('reverify.clean')}</EmptyState>
       )}
       {(phase === 'review' || phase === 'applying') &&
         changed.map((it) => (
@@ -322,14 +395,20 @@ export function ReverifyFlow({ selection, onClose, onFlash, onDone }) {
         items.filter((it) => it.status === 'fetch_failed' || it.status === 'unpinned' || it.status === 'not_found')
           .map((it) => (
             <p key={itemKey(it)} className="microcopy">
-              {it.title || it.name}: {it.error || it.status}
+              {it.title || it.name}:{' '}
+              {it.error || (STATUS_KEYS[it.status] ? t(STATUS_KEYS[it.status]) : it.status)}
             </p>
           ))}
       {phase === 'done' && results && (
         <div className="space-y-1">
           {results.map((x, i) => (
             <p key={i} className="microcopy" style={x.ok ? undefined : { color: 'var(--error)' }}>
-              {x.type} {x.id || x.name}: {x.ok ? `applied${x.note ? ` (${x.note})` : ''}` : x.error}
+              {x.type} {x.id || x.name}:{' '}
+              {x.ok
+                ? x.note
+                  ? t('reverify.result.applied-note', { note: x.note })
+                  : t('reverify.result.applied')
+                : x.error}
             </p>
           ))}
         </div>
@@ -340,17 +419,21 @@ export function ReverifyFlow({ selection, onClose, onFlash, onDone }) {
   const footer = (
     <div className="flex w-full items-center gap-3">
       {phase === 'done' ? (
-        <button type="button" className="tp-btn tp-btn-primary tactile ml-auto" onClick={onClose}>Close</button>
+        <button type="button" className="tp-btn tp-btn-primary tactile ml-auto" onClick={onClose}>
+          {t('common.action.close.label')}
+        </button>
       ) : (
         <>
-          <GhostButton onClick={onClose}>Cancel</GhostButton>
+          <GhostButton onClick={onClose}>{t('common.action.cancel.label')}</GhostButton>
           <button
             type="button"
             className="tp-btn tp-btn-primary tactile ml-auto"
             disabled={phase !== 'review' || approvedTotal === 0}
             onClick={apply}
           >
-            {phase === 'applying' ? 'Applying…' : `Apply ${approvedTotal} approved change(s)`}
+            {phase === 'applying'
+              ? t('reverify.apply.busy')
+              : t('reverify.apply.label', { count: approvedTotal, n: approvedTotal })}
           </button>
         </>
       )}
@@ -359,7 +442,7 @@ export function ReverifyFlow({ selection, onClose, onFlash, onDone }) {
 
   if (mobile) {
     return (
-      <MobileSheet open onClose={onClose} title="Re-verify metadata" footer={footer}>
+      <MobileSheet open onClose={onClose} title={t('reverify.title')} footer={footer}>
         {body}
       </MobileSheet>
     )
@@ -369,14 +452,14 @@ export function ReverifyFlow({ selection, onClose, onFlash, onDone }) {
       className="tp-scrim fixed inset-0 z-50 overflow-y-auto px-4 py-10"
       role="dialog"
       aria-modal="true"
-      aria-label="Re-verify metadata"
+      aria-label={t('reverify.title')}
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose()
       }}
     >
       <HandCard variant={1} className="mx-auto w-full max-w-3xl px-6 py-5">
         <div className="mb-3 flex items-center justify-between gap-3">
-          <h2 className="display-title text-xl">Re-verify metadata</h2>
+          <h2 className="display-title text-xl">{t('reverify.title')}</h2>
           <CloseButton onClick={onClose} />
         </div>
         {body}
