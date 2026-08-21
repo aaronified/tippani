@@ -3627,6 +3627,101 @@ error.import.failed = ইমপোর্ট করা গেল না
 # standing note. §3.7 gives pending import → অপেক্ষায় ইমপোর্ট.
 staging.title = অপেক্ষায় ইমপোর্ট
 
+# ---------------------------------------------------------------------------
+# PROFILE — Account.jsx. §3.2 gives user → ইউজার (never ব্যবহারকারী) and admin →
+# অ্যাডমিন; §3.7 gives account → অ্যাকাউন্ট, password → পাসওয়ার্ড.
+#
+# RESET STAYS LATIN. The reader must type the word the server compares, so
+# {word} arrives as RESET and the sentence is built around it.
+# ---------------------------------------------------------------------------
+account.photo.upload = ছবি আপলোড করুন
+account.photo.change = ছবি বদলান
+account.photo.busy = আপলোড হচ্ছে…
+account.photo.info.title = প্রোফাইলের ছবি
+account.photo.info.body = উপরের বার, ড্রয়ার আর ইউজারের তালিকায় এটাই আপনার চিপ হিসেবে দেখা যায়। চৌকো ছবি সবচেয়ে ভালো বসে; 5 MB পর্যন্ত।
+account.photo.remove.aria = ছবি সরান
+account.photo.remove.tip = ছবিটা সরিয়ে দিন
+
+account.name.label = যে নাম দেখা যাবে
+account.name.save = নাম সেভ করুন
+account.name.done = নাম বদলে গেছে।
+
+account.password.label = পাসওয়ার্ড বদলান
+account.password.info.title = পাসওয়ার্ড বদলান
+account.password.info.body = {min}–{max}টি অক্ষর: বর্ণ, সংখ্যা আর যতিচিহ্ন, কোনও চিহ্নযুক্ত অক্ষর নয়। এটাই ব্যাকআপ আর্কাইভের চাবিও, তাই অন্য মেশিনে টাইপ করা যাওয়া দরকার। বদলালে বাকি ব্রাউজার লগ আউট হয়ে যায়; জোড়া লাগানো ফোন থেকে যায়।
+account.password.current.placeholder = এখনকার পাসওয়ার্ড
+account.password.new.placeholder = নতুন পাসওয়ার্ড ({min}–{max})
+account.password.repeat.placeholder = নতুন পাসওয়ার্ড আবার
+account.password.done = পাসওয়ার্ড বদলে গেছে।
+account.password.submit = পাসওয়ার্ড বদলান
+
+account.switch.title = অ্যাকাউন্ট বদলান
+account.switch.info.title = অ্যাকাউন্ট বদলান
+account.switch.info.body = এই সার্ভারের অন্য কোনও ইউজার হিসেবে লগ ইন করুন। প্রত্যেক অ্যাকাউন্টের লাইব্রেরি আলাদা, কিছুই ভাগ করা হয় না। অ্যাডমিন হোন বা না হোন, প্রতিবারই সেই অ্যাকাউন্টের পাসওয়ার্ড লাগবে।
+account.switch.action = বদলান
+account.switch.leaving = {name} ছেড়ে যাচ্ছেন। এই ব্রাউজার ওটা থেকে লগ আউট হয়ে যাবে।
+account.switch.name.label = অ্যাকাউন্টের নাম
+account.switch.password.label = তার পাসওয়ার্ড
+account.switch.submit = লগ ইন
+account.switch.busy = বদলানো হচ্ছে…
+
+account.logout.title = লগ আউট
+account.logout.info.title = লগ আউট
+account.logout.info.body = শুধু এই ব্রাউজারের সেশন শেষ হয়। বাকি ব্রাউজার লগ ইন থাকে, আর জোড়া লাগানো ফোন নিজের টোকেন রেখে দেয় — ওটাকেও বের করতে চাইলে সেটিংস › ডিভাইস থেকে জোড়া খুলুন।
+account.logout.action = লগ আউট
+
+account.maintenance.label = দেখাশোনা
+account.reindex.title = খোঁজের ইনডেক্স আবার বানান
+account.reindex.info.title = খোঁজের ইনডেক্স আবার বানান
+account.reindex.info.body = লাইব্রেরি থেকে পুরো লেখার ইনডেক্স আবার বানিয়ে “search failed / internal error” সারায়। কিছু নষ্ট হয় না — বই, উদ্ধৃতি বা সেটিংসে হাত পড়ে না।
+account.reindex.action = আবার বানান
+account.reindex.busy = বানানো হচ্ছে…
+account.reindex.done = খোঁজের ইনডেক্স আবার তৈরি হয়েছে — খোঁজ এখন কাজ করবে।
+account.reindex.partial = কিছু ইনডেক্স এতটাই নষ্ট যে আবার বানানো গেল না ({failed})। খোঁজ তাতেও না সারলে পুরো রিসেট ছাড়া উপায় নেই।
+
+account.reset.title = সব তথ্য মুছে দিন
+account.reset.info.title = সব তথ্য মুছে দিন
+account.reset.info.body = সবকিছু চিরতরে মুছে যায় — প্রত্যেক অ্যাকাউন্ট, সব বই, উদ্ধৃতি, ট্যাগ, মানুষ, স্টিকার, কভার, চাবি আর পছন্দ — আর টিপ্পনী প্রথম দিনের সেটআপে ফিরে যায়। কোনও ব্যাকআপ নেওয়া হয় না, আর এটা আর ফেরানো যায় না।
+account.reset.open = সব তথ্য মুছে দিন…
+account.reset.confirm.prose = সব মুছে ফেলতে চান তা নিশ্চিত করতে {word} লিখুন:
+account.reset.submit = সব মুছে আবার শুরু করুন
+account.reset.busy = মোছা হচ্ছে…
+
+account.users.label = এই সার্ভারের ইউজাররা
+account.users.info.title = ইউজার দেখাশোনা
+account.users.info.body = প্রত্যেক ইউজারের লাইব্রেরি একেবারে আলাদা — কিছুই ভাগ করা হয় না। কাউকে অ্যাডমিন করা যায়, কিন্তু নামতে পারেন শুধু তিনি নিজেই: অন্য অ্যাডমিনের অধিকার কেড়ে নেওয়া বা অ্যাকাউন্ট মোছা কারও পক্ষে সম্ভব নয়। শেষ অ্যাডমিন নামতে পারেন না।
+account.users.admin.chip = অ্যাডমিন
+account.users.you.chip = আপনি
+account.users.step-down = নেমে যান
+account.users.step-down.tip = নিজের অ্যাডমিন অধিকার ছেড়ে দিন
+account.users.make-admin = অ্যাডমিন করুন
+account.users.make-admin.tip = {name}-কে অ্যাডমিন করুন
+account.users.only-admin = একমাত্র অ্যাডমিন
+account.users.their-own = তার নিজের
+account.users.delete.tip = {name} আর তার লাইব্রেরি মুছুন
+account.users.delete.aria = {name} মুছুন
+account.users.delete.confirm = "{name}" ইউজারকে মুছবেন? তার বই আর দাগও সঙ্গে যাবে।
+account.users.add = ইউজার যোগ করুন
+
+error.validate.name-cannot-be-blank = নাম ফাঁকা রাখা যায় না
+error.validate.password-current-required = এখনকার পাসওয়ার্ড দিন
+error.validate.password-mismatch = নতুন দুটো পাসওয়ার্ড মিলছে না
+error.validate.switch-name-required = অ্যাকাউন্টের নাম দিন
+error.validate.switch-same = এই অ্যাকাউন্টেই তো আপনি আছেন
+error.validate.switch-password-required = সেই অ্যাকাউন্টের পাসওয়ার্ড দিন
+error.validate.username-required-add = একটা ইউজারনেম দিন
+error.upload.avatar = আপলোড করা গেল না
+error.remove.photo = ছবি সরানো গেল না
+error.save.name = নাম বদলানো গেল না
+error.save.password = পাসওয়ার্ড বদলানো গেল না
+error.switch.account = অ্যাকাউন্ট বদলানো গেল না
+error.reindex.failed = খোঁজের ইনডেক্স আবার বানানো গেল না
+error.reset.failed = ডেটাবেস রিসেট করা গেল না
+error.load.users = ইউজারদের তালিকা আনা গেল না
+error.add.user = ইউজার যোগ করা গেল না
+error.save.role = ভূমিকা বদলানো গেল না
+error.delete.user = ইউজার মোছা গেল না
+
 # ===========================================================================
 # THE REST OF THE SHARED VOCABULARY — common.field.* and one shell key.
 #

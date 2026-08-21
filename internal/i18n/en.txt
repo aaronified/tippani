@@ -3595,6 +3595,111 @@ error.import.failed = import failed
 # place is called.
 staging.title = Pending import
 
+# ---------------------------------------------------------------------------
+# PROFILE — Account.jsx. Everything about “you on this server”, in the order you
+# would ask it: who you are, which account you are in, your password, and — for
+# an admin — everyone else's accounts and the recovery tools.
+#
+# RESET IS NOT TRANSLATED. The reset confirmation asks you to type RESET and the
+# client sends that exact word to the server, which compares it. Translating the
+# word the reader must type would make the instruction unfollowable, exactly as
+# with the bulk-delete phrase (§8). The prose around it translates; {word} is
+# supplied by the code and is always RESET.
+# ---------------------------------------------------------------------------
+account.photo.upload = Upload photo
+account.photo.change = Change photo
+account.photo.busy = Uploading…
+account.photo.info.title = Profile photo
+account.photo.info.body = Shown as your avatar chip in the top bar, the drawer and the user list. A square image reads best; up to 5 MB.
+account.photo.remove.aria = Remove photo
+account.photo.remove.tip = Remove the photo
+
+account.name.label = Display name
+account.name.save = Save name
+account.name.done = Name updated.
+
+account.password.label = Change password
+account.password.info.title = Change password
+account.password.info.body = {min}–{max} characters: letters, digits and punctuation, no accents. It doubles as the key to your backup archives, so it must be typeable on another machine. Changing it signs out other browsers; paired phones stay.
+account.password.current.placeholder = current password
+account.password.new.placeholder = new password ({min}–{max})
+account.password.repeat.placeholder = repeat new password
+account.password.done = Password updated.
+account.password.submit = Update password
+
+# Switching accounts is a real re-authentication, not an impersonation.
+account.switch.title = Switch account
+account.switch.info.title = Switch account
+account.switch.info.body = Sign in as another user on this server. Each account has a fully separate library, so nothing is shared. It asks for that account's password every time, admin or not.
+account.switch.action = Switch
+# WHO YOU ARE LEAVING — the one fact the form is about. {name} is bold.
+account.switch.leaving = Leaving {name}. This browser signs out of it.
+# Real labels, not placeholders: a placeholder is gone the moment you type.
+account.switch.name.label = account name
+account.switch.password.label = their password
+account.switch.submit = Sign in
+account.switch.busy = Switching…
+
+account.logout.title = Log out
+account.logout.info.title = Log out
+account.logout.info.body = Ends this browser session only. Other browsers stay signed in, and a paired phone keeps its own token — unpair it from Settings › Devices if you want it out too.
+account.logout.action = Log out
+
+account.maintenance.label = Maintenance
+account.reindex.title = Rebuild search index
+account.reindex.info.title = Rebuild search index
+account.reindex.info.body = Fixes “search failed / internal error” by rebuilding the full-text indexes from your library. Non-destructive — no books, quotes or settings are touched.
+account.reindex.action = Rebuild
+account.reindex.busy = Rebuilding…
+account.reindex.done = Search index rebuilt — search should work again.
+account.reindex.partial = Some indexes were too damaged to rebuild ({failed}). If search stays broken, a full reset is the remaining option.
+
+account.reset.title = Reset all data
+account.reset.info.title = Reset all data
+account.reset.info.body = Permanently deletes everything — every account, all works, quotes, tags, people, stickers, covers, keys and preferences — and restarts Tippani at first-run setup. No backup is taken, and this cannot be undone.
+account.reset.open = Reset all data…
+account.reset.confirm.prose = Type {word} to confirm you want to delete everything:
+account.reset.submit = Delete everything & restart
+account.reset.busy = Resetting…
+
+# The admin's list of everyone on the server. Granting is something you do to
+# others; revoking is something you do only to yourself.
+account.users.label = Users on this server
+account.users.info.title = User management
+account.users.info.body = Every user gets a fully separate library — nothing is shared. You can make someone an admin, but only they can step down: nobody can remove another admin's rights or delete their account. The last admin cannot step down.
+account.users.admin.chip = admin
+account.users.you.chip = you
+account.users.step-down = Step down
+account.users.step-down.tip = Give up your own admin rights
+account.users.make-admin = Make admin
+account.users.make-admin.tip = Make {name} an admin
+account.users.only-admin = only admin
+account.users.their-own = their own
+account.users.delete.tip = Delete {name} and their library
+account.users.delete.aria = Delete {name}
+account.users.delete.confirm = Delete user "{name}"? Their books and annotations are removed too.
+account.users.add = Add user
+
+# What went wrong, keyed by what failed.
+error.validate.name-cannot-be-blank = name cannot be blank
+error.validate.password-current-required = Enter your current password
+error.validate.password-mismatch = The new passwords do not match
+error.validate.switch-name-required = Enter the account name
+error.validate.switch-same = That is the account you are already in
+error.validate.switch-password-required = Enter that account’s password
+error.validate.username-required-add = Enter a username
+error.upload.avatar = upload failed
+error.remove.photo = could not remove photo
+error.save.name = could not change name
+error.save.password = could not change password
+error.switch.account = could not switch account
+error.reindex.failed = could not rebuild the search index
+error.reset.failed = could not reset the database
+error.load.users = could not load users
+error.add.user = could not add user
+error.save.role = could not change role
+error.delete.user = could not delete user
+
 # ===========================================================================
 # THE REST OF THE SHARED VOCABULARY — common.field.* and one shell key.
 #
