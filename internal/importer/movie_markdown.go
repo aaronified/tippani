@@ -198,11 +198,15 @@ func parseMovieFrontmatter(lines []string) (*MovieResult, error) {
 		case "collection", "series", "franchise":
 			res.Movie.Series, res.Movie.SeriesIndex = parseSeriesValue(val)
 		case "type", "mediatype", "media_type":
-			// Only the two known values are honoured; anything else leaves
-			// MediaType empty so the server applies its own default.
+			// Only the three the shelf knows are honoured. Anything else keeps
+			// the "movie" this Result was seeded with rather than becoming a
+			// media type nothing downstream would accept — an unreadable type: is
+			// a file to correct in the queue, not an import to fail.
 			switch strings.ToLower(val) {
 			case "show":
 				res.Movie.MediaType = "show"
+			case "game":
+				res.Movie.MediaType = "game"
 			case "movie", "film":
 				res.Movie.MediaType = "movie"
 			}

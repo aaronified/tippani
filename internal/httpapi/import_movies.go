@@ -66,13 +66,19 @@ type movieSummary struct {
 	Enriched     int    `json:"enriched"`
 }
 
-// importMediaType folds anything that isn't a show into "movie". Unlike
+// importMediaType folds anything outside the vocabulary into "movie". Unlike
 // normalizeMediaType (movie_handlers.go), which validates a client's field and
 // rejects a bad value, a parsed file must never 400 over its media type — an
 // import guesses, and the queue is where a wrong guess gets corrected.
+//
+// It has to name every value the shelf knows, or it silently un-does the
+// parsers: "game" arrived in the vocabulary with 0040, this kept folding it to
+// "movie", and an imported game landed on the film shelf no matter what the
+// parser had worked out. Adding a media type means adding it here too.
 func importMediaType(t string) string {
-	if t == "show" {
-		return "show"
+	switch t {
+	case "show", "game":
+		return t
 	}
 	return "movie"
 }

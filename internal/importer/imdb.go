@@ -23,6 +23,7 @@ var (
 	imdbYear      = regexp.MustCompile(`"releaseYear":\{"year":(\d+)`)
 	imdbID        = regexp.MustCompile(`"data":\{"title":\{"id":"(tt\d+)"`)
 	imdbIsSeries  = regexp.MustCompile(`"titleType":\{[^}]*?"isSeries":(true|false)`)
+	imdbTypeID    = regexp.MustCompile(`"titleType":\{"id":"([A-Za-z]+)"`)
 	imdbQuoteNode = regexp.MustCompile(`(?s)"__typename":"TitleQuote".*?"plainText":"((?:[^"\\]|\\.)*)"`)
 )
 
@@ -45,10 +46,7 @@ func IMDbQuotes(r io.Reader) (*MovieResult, error) {
 	if m := imdbID.FindStringSubmatch(doc); m != nil {
 		res.Movie.IMDbID = m[1]
 	}
-	res.Movie.MediaType = "movie"
-	if m := imdbIsSeries.FindStringSubmatch(doc); m != nil && m[1] == "true" {
-		res.Movie.MediaType = "show"
-	}
+	res.Movie.MediaType = imdbMediaType(doc)
 
 	seen := map[string]bool{} // collapse the odd repeated quote within one page
 	for _, m := range imdbQuoteNode.FindAllStringSubmatch(doc, -1) {
@@ -67,6 +65,30 @@ func IMDbQuotes(r io.Reader) (*MovieResult, error) {
 		return nil, errors.New("imdb: no quotes parsed")
 	}
 	return res, nil
+}
+
+// imdbMediaType reads the page's titleType. IMDb quotes pages exist for all
+// three of the media types the shelf knows — a film, a series, and a video game
+// — but until this looked at the id, only isSeries was consulted, so every game
+// imported as a movie and landed on the wrong shelf.
+//
+// The id is matched rather than enumerated in full: IMDb has a dozen of them
+// (movie, tvSeries, tvMiniSeries, tvMovie, tvSpecial, short, video, videoGame,
+// tvEpisode) and only "videoGame" changes the answer. isSeries stays the test for
+// a show because it is one field that is true for every series shape at once,
+// rather than three ids that would have to be kept in step.
+//
+// Inference, not verified against a real export: the saved fixture is a film, so
+// the videoGame branch is read from IMDb's schema rather than from a saved game
+// page. Dropping one into input_samples/ would promote it.
+func imdbMediaType(doc string) string {
+	if strings.EqualFold(firstGroup(imdbTypeID, doc), "videoGame") {
+		return "game"
+	}
+	if m := imdbIsSeries.FindStringSubmatch(doc); m != nil && m[1] == "true" {
+		return "show"
+	}
+	return "movie"
 }
 
 // parseExchange turns one quote block's plainText ("\n* Speaker: line\n* …")

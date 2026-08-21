@@ -200,3 +200,37 @@ func ptrStr(p *int) string {
 	}
 	return strconv.Itoa(*p)
 }
+
+// The type: field carries the whole vocabulary. "game" was the value the shelf
+// gained last and the one this switch had not been told about, so a hand-written
+// or round-tripped game file came back with an empty MediaType and defaulted to
+// a film. An unrecognised value still falls back to "movie" rather than failing
+// the import — the staging queue is where a wrong guess gets corrected.
+func TestMovieMarkdownMediaType(t *testing.T) {
+	for _, tc := range []struct{ in, want string }{
+		{"movie", "movie"},
+		{"film", "movie"},
+		{"Movie", "movie"},
+		{"show", "show"},
+		{"SHOW", "show"},
+		{"game", "game"},
+		{"Game", "game"},
+		{"videogame", "movie"}, // not the spelling; falls back, does not fail
+		{"nonsense", "movie"},
+	} {
+		t.Run(tc.in, func(t *testing.T) {
+			src := "---" + "\n" + "title: A Title" + "\n" + "type: " + tc.in + "\n" +
+				"---" + "\n" + "\n" + "> a line" + "\n"
+			res, err := MovieMarkdownAll(strings.NewReader(src))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(res) != 1 {
+				t.Fatalf("got %d titles, want 1", len(res))
+			}
+			if got := res[0].Movie.MediaType; got != tc.want {
+				t.Errorf("media_type = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}

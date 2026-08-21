@@ -117,3 +117,33 @@ func TestIMDbImportAmbiguous(t *testing.T) {
 		t.Fatalf("ambiguous import spawned a title: %+v", list.Movies)
 	}
 }
+
+// importMediaType is the last word on a parsed file's media type, so every value
+// the shelf accepts has to survive it. It folded everything but "show" into
+// "movie", which quietly cancelled whatever the parsers worked out: an IMDb game
+// page or a "type: game" file arrived correctly typed and was filed as a film.
+func TestImportMediaTypeKeepsTheWholeVocabulary(t *testing.T) {
+	for _, tc := range []struct{ in, want string }{
+		{"movie", "movie"},
+		{"show", "show"},
+		{"game", "game"},
+		{"", "movie"},          // unset: the shelf's own default
+		{"videoGame", "movie"}, // IMDb's spelling is not the shelf's
+		{"anything else", "movie"},
+	} {
+		if got := importMediaType(tc.in); got != tc.want {
+			t.Errorf("importMediaType(%q) = %q, want %q", tc.in, got, tc.want)
+		}
+	}
+	// Whatever normalizeMediaType accepts from a client, this must preserve:
+	// the two cannot drift apart without an import silently retyping a work.
+	for _, mt := range []string{"movie", "show", "game"} {
+		v := mt
+		if msg := normalizeMediaType(&v); msg != "" {
+			t.Fatalf("normalizeMediaType(%q) rejected it: %s", mt, msg)
+		}
+		if got := importMediaType(mt); got != mt {
+			t.Errorf("client may send %q but an import folds it to %q", mt, got)
+		}
+	}
+}

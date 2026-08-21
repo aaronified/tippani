@@ -68,3 +68,38 @@ func TestIMDbQuotesNotAPage(t *testing.T) {
 		t.Fatal("expected an error for a non-IMDb page")
 	}
 }
+
+// All three media types the shelf knows, from the titleType the page carries.
+// A game's page is not a series, so before imdbMediaType read the id it fell
+// through to "movie" and the game landed on the film shelf.
+func TestIMDbQuotesMediaType(t *testing.T) {
+	for _, tc := range []struct {
+		file, want, title string
+	}{
+		{"imdb_synth.htm", "movie", "Synthetic Feature"},
+		{"imdb_show_synth.htm", "show", "Synthetic Series"},
+		{"imdb_game_synth.htm", "game", "Synthetic Game"},
+	} {
+		t.Run(tc.want, func(t *testing.T) {
+			f, err := os.Open("testdata/" + tc.file)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer f.Close()
+			res, err := IMDbQuotes(f)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if res.Movie.Title != tc.title {
+				t.Errorf("title = %q, want %q", res.Movie.Title, tc.title)
+			}
+			if res.Movie.MediaType != tc.want {
+				t.Errorf("media_type = %q, want %q", res.Movie.MediaType, tc.want)
+			}
+			// The type must not cost us the quotes.
+			if len(res.Dialogues) != 2 {
+				t.Errorf("got %d dialogues, want 2", len(res.Dialogues))
+			}
+		})
+	}
+}
