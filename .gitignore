@@ -16,3 +16,10 @@ web/frontend/node_modules/
 # reading history / account details). Tests skip when these are absent;
 # committed synthetic fixtures cover the same formats in CI.
 internal/importer/testdata/*_real.*
+# Raw personal exports dropped here before being installed as _real fixtures
+# (see internal/importer/testdata). Same privacy reason as the line above; this
+# directory is the staging area, testdata/ is what the tests read.
+/input_samples/
+# A _real fixture that is a directory of exports, not a single file — the glob
+# above needs the dot, so it does not cover bookcision_real/.
+internal/importer/testdata/*_real/
