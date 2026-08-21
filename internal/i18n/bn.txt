@@ -510,6 +510,24 @@ common.badge.none = নেই
 # The perforated edge of the film-strip decoration. BRANDING — DO NOT TRANSLATE.
 common.filmstrip.edge.label = TIPPANI · SAFETY FILM
 
+# The wordmark — the logotype. Branding, like the film-strip edge above: the same
+# value in every language. Bengali calls the app টিপ্পনী in prose
+# (shell.onboarding.title, shell.drawer.tagline.label); the drawn mark stays as it
+# is, because changing a logotype's script is a branding decision and not a
+# translation.
+shell.wordmark.label = tippani
+
+# --- THE THREE THINGS ON THIS SCREEN THAT ARE NOT COPY. Same value in every
+# language: a unit symbol, the four characters the credit splitter matches, and a
+# version identifier (§8). The screen-reader names beside the separators ARE copy
+# and are translated above.
+settings.type.size.format = {n}px
+settings.credits.sep.comma.symbol = ,
+settings.credits.sep.semicolon.symbol = ;
+settings.credits.sep.amp.symbol = &
+settings.credits.sep.and.symbol = “and”
+settings.updates.version.dev = dev
+
 # --- the tiles / list / table switch.
 common.view.toggle.aria = ভিউ
 common.view.tiles.label = টাইল
@@ -3511,8 +3529,8 @@ reverify.title = মেটাডেটা আবার মিলিয়ে দ
 reverify.checking.prose = প্রতিটি সূত্রের সঙ্গে আবার মিলিয়ে দেখা হচ্ছে — মেনে না নেওয়া পর্যন্ত কিছুই লেখা হবে না।
 reverify.checking.progress = দেখা হচ্ছে · {done}/{total}
 reverify.summary = {checked} দেখা হয়েছে · {changed}টিতে বদল · {clean} ঠিক আছে
-reverify.summary.skipped =  · {n} বাদ (পিন করা আইডি নেই)
-reverify.summary.failed =  · {n} পারা গেল না
+reverify.summary.skipped = {n} বাদ (পিন করা আইডি নেই)
+reverify.summary.failed = {n} পারা গেল না
 reverify.clean = যা যা দেখা হল সব আগেই ঠিক আছে ✓
 reverify.item.open.tip = কী কী বদল হবে দেখান
 reverify.item.approved = {n}/{total} মেনে নেওয়া
@@ -3534,9 +3552,9 @@ reverify.result.applied = বসেছে
 reverify.result.applied-note = বসেছে ({note})
 reverify.flash.one = আবার মিলিয়ে দেখা: {n}টি বদলেছে
 reverify.flash.other = আবার মিলিয়ে দেখা: {n}টি বদলেছে
-reverify.flash.failed =  · {n} পারা গেল না
-reverify.flash.skipped.one =  · {n}টি ছবি বাদ
-reverify.flash.skipped.other =  · {n}টি ছবি বাদ
+reverify.flash.failed = {n} পারা গেল না
+reverify.flash.skipped.one = {n}টি ছবি বাদ
+reverify.flash.skipped.other = {n}টি ছবি বাদ
 error.reverify.preview = আগে দেখা গেল না
 error.reverify.apply = বসানো গেল না
 error.reverify.interrupted = দেখার কাজ থেমে গেছে — কানেকশন দেখে আবার খুলুন
@@ -3836,6 +3854,654 @@ cover.movie.none = কিছু মিলল না
 cover.movie.by-id = আইডি ধরে খোঁজা হচ্ছে · {ids}
 
 error.validate.lookup-fields = আগে নাম, ISBN বা ASIN দিন
+
+# ---------------------------------------------------------------------------
+# PENDING IMPORT — StagingPage.jsx. Leans on: §3.7 (Pending import → অপেক্ষায়
+# ইমপোর্ট), §2.5 (উদ্ধৃতি for the umbrella, উক্তি for the standalone group, দাগ
+# for a book highlight), §3.1 (work → উৎস, title → টাইটেল), §3.4 (approve/discard
+# → মেনে নিন / ফেলে দিন, merge → এক করুন, select → বাছুন, reset → আগের মতো করুন,
+# edit → এডিট), §3.3 (location → লোকেশন, season/episode → সিজন / এপিসোড, page →
+# পৃ.), §1.3 (আপনার dropped everywhere except staging.group.pinned.label and
+# staging.card.body, where whose choice it was IS the point), §3.0 (both plural
+# forms written, same word twice — Bengali takes no marker after a numeral and
+# n = 0 resolves to one), §5.4 (every {hole} left bare of a case marker), §6.3
+# (mono slots — badge, File, Field, Operation, shifted — get one short word), §8
+# (HH:MM:SS, 01:02:03 and 610-612 are pictures, not words; Philip Marlowe and
+# Elliott Gould are transliterated, not renamed).
+#
+# Terms not in §3, marked # ?? below and listed for the Additions table: queue,
+# staged, field, group, formula, operation, range, enriched, un-♥.
+# ---------------------------------------------------------------------------
+
+staging.badge.quotes = উদ্ধৃতি
+
+# ?? queue → অপেক্ষার তালিকা, shortened to তালিকা where the header above already
+# ?? says অপেক্ষায় ইমপোর্ট. §3.7 has তালিকা for the List view, so this is a
+# ?? shared word in two roles.
+staging.state.loading = তালিকা পড়া হচ্ছে…
+staging.state.empty-counts = কিছুই অপেক্ষায় নেই
+# ?? staged → জমা. §5.2's own worked example uses জমা থাকে for a thing being
+# ?? held somewhere, which is exactly this state.
+staging.state.empty = কিছুই জমা নেই — ইমপোর্ট আগে এখানেই আসে, আর মেনে না নেওয়া পর্যন্ত এখানেই থাকে
+staging.state.empty-file = ওই ফাইলে জমা কোনও উদ্ধৃতি নেই
+
+staging.counts.quotes.one = {n}টি উদ্ধৃতি অপেক্ষায়
+staging.counts.quotes.other = {n}টি উদ্ধৃতি অপেক্ষায়
+staging.counts.works.one = {n}টি উৎস অপেক্ষায়, উদ্ধৃতি নেই
+staging.counts.works.other = {n}টি উৎস অপেক্ষায়, উদ্ধৃতি নেই
+
+staging.filter.file.label = ফাইল
+# "Import batch" names the control, and the control picks a file — so the file is
+# what it is called, and Bengali needs no word for a batch.
+staging.filter.batch.aria = ইমপোর্টের ফাইল
+staging.filter.all-files.label = সব ফাইল ({n})
+staging.filter.batch.label = {name} · {n}
+# The emphatic -ই carries the English "all" without a word for it.
+staging.select-all.label = {n}টিই বাছুন
+
+staging.approve-all.label = সব মেনে নিন
+staging.approve-all.count.label = {n}টিই মেনে নিন
+staging.discard-all.label = সব ফেলে দিন
+staging.discard-all.confirm.title = জমা সবকিছু ফেলে দেবেন?
+staging.discard-all.confirm.body = প্রতিটি ফাইলের জমা {n}টি উদ্ধৃতিই চলে যাবে। লাইব্রেরির কিছুতে হাত পড়বে না।
+
+staging.bulk.colour.aria = রঙের ঘর দিন
+staging.bulk.favourite.label = ♥ প্রিয়
+# ?? un-♥ is a coined compact English label; Bengali says "take the ♥ off".
+staging.bulk.unfavourite.label = ♥ সরান
+staging.bulk.unfavourite.tip = প্রিয় থেকে সরান
+# ?? field (a form or table column) → ফিল্ড. ঘর is taken by রঙের ঘর (§3.3), and
+# ?? ফিল্ড is what a Bengali says about a form.
+staging.bulk.fields.label = ফিল্ড এডিট…
+staging.bulk.move.label = পাঠান…
+staging.bulk.locations.label = লোকেশন…
+staging.bulk.approve.label = {n}টি মেনে নিন
+staging.discard.label = ফেলে দিন
+staging.discard.confirm.title.one = জমা {n}টি উদ্ধৃতি ফেলে দেবেন?
+staging.discard.confirm.title.other = জমা {n}টি উদ্ধৃতি ফেলে দেবেন?
+staging.discard.confirm.body = লাইব্রেরিতে না ঢুকেই অপেক্ষার তালিকা থেকে চলে যাবে।
+
+staging.flash.updated = {n}টি বদলেছে
+staging.flash.approved.added = {n}টি যোগ হয়েছে
+staging.flash.approved.skipped = {n}টি বাদ
+# ?? enriched → মেটাডেটা পেয়েছে. No single Bengali verb for it; the phrase says
+# ?? what actually happened.
+staging.flash.approved.enriched = {n}টি মেটাডেটা পেয়েছে
+staging.flash.discarded = {n}টি ফেলে দেওয়া হয়েছে
+staging.flash.saved = সেভ হয়েছে
+staging.flash.colour = → {name}
+staging.flash.favourited = প্রিয় হয়েছে
+staging.flash.unfavourited = প্রিয় থেকে সরল
+staging.flash.edited = {n}টি এডিট হয়েছে
+# The hole goes after a colon rather than taking -এ, so no case marker lands on a
+# name nobody can see (§5.4).
+staging.flash.moved = {n}টি পাঠানো হয়েছে: {title}
+staging.flash.merged = {n}টি এক করা হয়েছে
+staging.flash.formula = {n}টিতে {op} বসেছে
+
+# ?? group (the cluster of staged rows under one heading) → গ্রুপ. বিভাগ is §3.7's
+# ?? Section, and গ্রুপ is a loan Bengalis use constantly away from a screen.
+staging.group.select.tip = গোটা গ্রুপটা বাছুন
+staging.group.select.aria = জমা সব উদ্ধৃতি বাছুন: {title}
+staging.group.standalone.prose = → কোনও বই বা সিনেমা থেকে নয় — নিজেদের মতো উক্তি হয়ে সেভ হবে
+# যেটা…তাতেই — the correlative Bengali puts at the front, with the hole last and
+# bare.
+staging.group.joins.prose = → যেটা আগেই আছে তাতেই জুড়বে: {target}
+staging.group.target.year.label = {title} ({year})
+# আপনি stays: the whole point of the line is that this match was your choice and
+# not the app's guess (§1.3).
+staging.group.pinned.label = আপনিই বেছেছেন
+staging.group.new.prose = → নতুন {kind} হিসেবে যোগ হবে
+staging.group.ambiguous.warning = ⚠ এই নামে {n}টি টাইটেল আছে — ঠিকটাতে গেছে কি না দেখে নিন
+staging.group.empty.standalone = এই গ্রুপে আর কোনও উক্তি নেই
+staging.group.empty.work = কোনও উদ্ধৃতি নেই — মেনে নিলে {kind} নিজেই যোগ হবে
+
+staging.row.select.tip = এই উদ্ধৃতিটা বাছুন
+staging.row.select.aria = এই জমা উদ্ধৃতিটা বাছুন
+staging.row.note.label = নোট: {note}
+staging.row.shifted.label = সরেছে
+# ?? formula → ফর্মুলা. সূত্র is taken for a metadata source (§3.7), and ফর্মুলা
+# ?? is the everyday word.
+staging.row.shifted.tip = লোকেশনের ফর্মুলা এটা সরিয়েছে; আগের মতো করলে ফিরে আসবে
+
+staging.fields.panel.title = বাছা {n}টি এডিট
+staging.fields.set.placeholder = {field} দিন (ফাঁকা = মুছে যাবে)
+staging.fields.add-tags.aria = যে ট্যাগ যোগ হবে
+staging.fields.remove-tags.label = ট্যাগ সরান
+staging.fields.remove-tags.info = লাইব্রেরিতে একসঙ্গে অনেক সারিতে ট্যাগ শুধু যোগই করা যায়। জমা ট্যাগ মেনে নেওয়ার আগে পর্যন্ত নিছক লেখা, তাই এখানে আবার তুলেও নেওয়া যায়।
+staging.fields.remove-tags.placeholder = ট্যাগ সরান…
+staging.fields.remove-tags.aria = যে ট্যাগ সরবে
+staging.fields.apply.label = {n}টিতে বসান
+
+staging.move.panel.title = বাছা {n}টি পাঠান
+staging.move.library.label = লাইব্রেরির কোনও উৎসে
+staging.move.library.info = ধরন বদলেও চলে — বইয়ের দাগ সিনেমায় পাঠানো যায়, আবার ফেরানোও যায়। মেনে নেওয়ার সময় যেখানে যাচ্ছে সেখানকার লোকেশনই পড়া হয়।
+staging.move.button.label = পাঠান: {title}
+staging.move.button.none.label = কোনও উৎসে পাঠান
+staging.move.merge.label = বা এই তালিকার আর কোনও গ্রুপে এক করে দিন
+staging.move.group.aria = জমা গ্রুপ
+staging.move.group.placeholder = গ্রুপ বাছুন…
+staging.move.group.option = {title} · {badge} ({n})
+staging.move.merge.button.label = এক করুন
+
+staging.formula.panel.title = বাছা {n}টির লোকেশন সরান
+staging.formula.field.label = ফিল্ড
+staging.formula.field.aria = কোন ফিল্ড
+# ?? operation → কাজ. প্রক্রিয়া is the newsprint register this sheet keeps out,
+# ?? and the slot is mono, so one short word.
+staging.formula.op.label = কাজ
+# The four arithmetic words are the ones a Bengali schoolbook uses. ভাগ also
+# glosses "group by" in §3.4, and context disposes of it beside যোগ and গুণ.
+staging.formula.op.add.label = যোগ
+staging.formula.op.subtract.label = বিয়োগ
+staging.formula.op.multiply.label = গুণ
+staging.formula.op.divide.label = ভাগ
+# Nouns, not imperatives: the same word has to read as an option in a Select and
+# as the subject of staging.flash.formula.
+staging.formula.op.set.label = বদল
+staging.formula.op.reset.label = আগের মতো
+staging.formula.by.label = কত
+staging.formula.by.placeholder = 5
+staging.formula.to.label = কী
+staging.formula.to.placeholder = পৃ.1
+# ?? range → রেঞ্জ. পরিসর is a shade formal for a page span.
+staging.formula.prose = লেখার ভেতরের সংখ্যা সরে, চারপাশের সবটা যেমন ছিল তেমনই থাকে: {from} থেকে 5 কমালে {to}, আর একটা রেঞ্জ যেমন {range}, সেটা দুই দিকেই সরে। সময় সেকেন্ডে বদলায়, সরে, তারপর {clock} হয়ে ফেরে। ফল শূন্যে গিয়ে থামে, ভাগ গোল করে নেয়। {reset} প্রতিটি সারিকে ইমপোর্টের সময় যা ছিল তাতেই ফিরিয়ে দেয়, তাই ভুল করে বসানো ফর্মুলা নিয়ে থাকতে হয় না।
+staging.formula.example.page-from = পৃ.142
+staging.formula.example.page-to = পৃ.137
+staging.formula.example.range = 610-612
+staging.formula.example.clock = HH:MM:SS
+staging.formula.example.reset = আগের মতো
+
+staging.form.title = জমা উদ্ধৃতি এডিট
+staging.form.quoted = “{text}”
+staging.form.locators.prose = দুই ধরনের লোকেশনই এখানে আছে, কারণ জমা উদ্ধৃতি দুটোই বয়ে নিয়ে চলে। মেনে নেওয়ার সময় যেখানে যাচ্ছে সেখানকারটাই পড়া হয়, তাই একে সিনেমায় পাঠালে — বা আবার বইয়ে ফেরালে — অন্য অর্ধেকটা হারায় না।
+staging.form.chapter-no.placeholder = 7
+staging.form.chapter.placeholder = না দিলেও চলে
+staging.form.location.placeholder = পৃ.142
+staging.form.character.placeholder = ফিলিপ মার্লো
+staging.form.actor.placeholder = এলিয়ট গোল্ড
+staging.form.season.placeholder = 2 (শুধু শোয়ের জন্য)
+staging.form.episode.placeholder = 5 (সিজন লাগবে)
+staging.form.timestamp.placeholder = 01:02:03
+
+staging.card.label = অপেক্ষায় ইমপোর্ট
+# আপনার stays here: it is your approval the queue is waiting on, and that is the
+# whole sentence (§1.3).
+staging.card.body.one = ইমপোর্ট করা {n}টি উদ্ধৃতি আপনার মেনে নেওয়ার অপেক্ষায় — লাইব্রেরিতে এখনও কিছুই ঢোকেনি।
+staging.card.body.other = ইমপোর্ট করা {n}টি উদ্ধৃতি আপনার মেনে নেওয়ার অপেক্ষায় — লাইব্রেরিতে এখনও কিছুই ঢোকেনি।
+staging.card.review.label = {n}টি দেখে নিন
+
+# ---------------------------------------------------------------------------
+# METADATA — MetadataPage.jsx. চলিত, আপনি, পুরো §3-এর টেবিল ধরে।
+#
+# The style-sheet calls this block leans on: §1.1 (চলিত, no -করণ / এবং / প্রদত্ত),
+# §1.3 (the pronoun dropped — বই, never আপনার বই), §1.4 (কোনও · এখনও · -গুলো ·
+# হিসেব · সবচেয়ে · আর, danda in prose only, Western digits everywhere), §3.0
+# (both plural forms written even where they are the same word twice), §3.4 (fetch
+# আনুন · re-verify আবার মিলিয়ে দেখুন · merge এক করুন · apply বসান · select বাছুন ·
+# fill gaps ফাঁক ভরান), §3.7 (Coverage ঘাটতি · Duplicates ডুপ্লিকেট · People মানুষ
+# · source সূত্র · Catalogue ক্যাটালগ), §5.4 (bare holes — {noun} বাছুন, never
+# {noun}কে বাছুন), §6.3 (mono slots take one short word), §8 (RICK, Rick Blaine,
+# Bogart, TMDB, Wikidata, # and → left alone).
+#
+# ALIGNED WITH WHAT IS ALREADY WRITTEN for this screen: metadata.help.* above
+# already says ঘাটতি, "কভার আর মেটাডেটা আনুন", "আবার মিলিয়ে দেখুন", ডুপ্লিকেট,
+# বক্তা, মানুষ and "একসঙ্গে এডিট", and tour.step.metadata.more already says
+# "কভার নেই" for the tile. Those are the words used here.
+#
+# Thirteen terms are not in §3 and are marked "# ?? " where they first appear.
+# One of them (mapping → জোড়া) is marked in the shared block too, because the
+# validation message that needs it is an error.* key.
+# ---------------------------------------------------------------------------
+
+# ?? maintenance → দেখভাল (রক্ষণাবেক্ষণ is the noticeboard register §1.1 bars)
+metadata.counts.mobile = দেখভাল
+metadata.counts.desktop = হিসেব · ফিল্টার · একসঙ্গে কাজ
+
+# ?? console (the desktop screen) → কনসোল
+metadata.mobile.info.title = ফোনে মেটাডেটা
+metadata.mobile.info.body = এখানে শুধু দেখভালের কাজগুলো। পুরো মেটাডেটা কনসোল — ঘাটতির হিসেব, বই আর সিনেমার ফিল্টার করা তালিকা, একসঙ্গে অনেক কাজ — ডেস্কটপে টিপ্পনী খুলে দেখুন।
+
+# fetch → আনুন (§3.4), fill gaps → ফাঁক ভরান।
+metadata.fetch.label = আনুন
+metadata.fetch.aria = যে কভার আর মেটাডেটা নেই সেগুলো আনুন
+metadata.fetch.tip = ফাঁকা কভার আর মেটাডেটা ভরান
+metadata.fetch.progress = কভার আর মেটাডেটা আসছে · {done}/{total}
+metadata.fetch.progress.start = কভার আর মেটাডেটা আসছে…
+# Both forms of each pair, same word twice: Bengali takes no plural marker after a
+# numeral and n = 0 resolves to "one" (§3.0).
+metadata.fetch.flash.covers.one = {n}টি কভার এসেছে বা ভালো হয়েছে
+metadata.fetch.flash.covers.other = {n}টি কভার এসেছে বা ভালো হয়েছে
+# ?? detail (a filled metadata field) → তথ্য
+metadata.fetch.flash.details.one = {n}টি তথ্য ভরেছে
+metadata.fetch.flash.details.other = {n}টি তথ্য ভরেছে
+metadata.fetch.flash.skipped = {n}টি যেমন ছিল তেমনই (আরও ভালো ছবির সূত্র নেই)
+metadata.fetch.flash.failed = {n}টি পারা গেল না
+metadata.fetch.flash.uptodate = সব আগেই ঠিক আছে
+
+# ?? run (the one button on a phone card) → চালান
+metadata.mobile.run.label = চালান
+metadata.mobile.fetch.title = কভার আর মেটাডেটা আনুন
+metadata.mobile.fetch.desc = এই সার্ভারের সব লাইব্রেরিতে যে কভার, পোস্টার, লেখক, বিবরণ, সাল আর ঘরানা নেই সেগুলো ভরে দেয়। শুধু ফাঁকা ঘরই ভরে — যা আছে তা বদলায় না — আর প্রতিটায় সবচেয়ে বেশি পাঁচটা ঘরানা রাখে, যাতে কোনও সূত্র খারাপ ট্যাগে একটা উৎস ঢেকে দিতে না পারে।
+metadata.mobile.reverify.title = মেটাডেটা আবার মিলিয়ে দেখুন
+metadata.mobile.reverify.desc = পিন করা প্রতিটা বই, সিনেমা আর শো সূত্রের সঙ্গে আবার মিলিয়ে দেখে। প্রতিটা প্রস্তাবিত বদল নিজে দেখে মেনে না নেওয়া পর্যন্ত কিছুই লেখা হয় না।
+metadata.reverify.label = আবার মিলিয়ে দেখুন
+
+# ঘাটতি, one word, mono slot (§3.7, §6.3).
+metadata.coverage.title = ঘাটতি
+metadata.coverage.group.books = বই
+metadata.coverage.group.movies = সিনেমা আর শো
+metadata.coverage.group.dialogues = সংলাপ
+metadata.coverage.group.count = {group} ({n})
+metadata.coverage.line = {group} — {gaps}
+metadata.coverage.complete = সব পুরো ✓
+metadata.coverage.total.label = মোট
+# The hole is bare — a marker on {label} would be right for one gap word and
+# wrong for the next (§5.4).
+metadata.coverage.tile.tip = শুধু {label} দেখান
+
+# The gap words. Short, because they sit in a mono tile and in a dropdown.
+# ?? flagged (a row with at least one gap) → সমস্যা আছে
+metadata.gap.flagged.label = সমস্যা আছে
+metadata.gap.all.label = সব
+metadata.gap.no-cover.label = কভার নেই
+metadata.gap.no-poster.label = পোস্টার নেই
+# ?? low-res → ঝাপসা (the homely word for a soft picture, and two clusters)
+metadata.gap.low-res.label = ঝাপসা
+metadata.gap.low-res-cover.label = ঝাপসা কভার
+metadata.gap.low-res-poster.label = ঝাপসা পোস্টার
+metadata.gap.no-author.label = লেখক নেই
+metadata.gap.no-series.label = সিরিজ নেই
+metadata.gap.no-year.label = সাল নেই
+metadata.gap.no-genre.label = ঘরানা নেই
+metadata.gap.no-source.label = সূত্র নেই
+# ?? cast → কাস্ট, following metadata.help.speakers.what above, which already
+# says "কাস্ট থেকে অভিনেতাদের নাম"। কুশীলব is the literary word; কাস্ট is what
+# film-talk says, and it fits the tile.
+metadata.gap.no-cast.label = কাস্ট নেই
+metadata.gap.no-director.label = পরিচালক নেই
+metadata.gap.no-actor.label = অভিনেতা নেই
+metadata.row.complete = পুরো ✓
+
+metadata.catalogue.title = ক্যাটালগ
+metadata.catalogue.type.all.label = সব ধরন
+metadata.catalogue.filter.tip = শুধু এই ঘাটতিগুলো দেখান
+metadata.shown.count = {n}টি দেখাচ্ছে
+metadata.search.placeholder = খুঁজুন…
+metadata.catalogue.nomatch = কিছুই মিলল না।
+metadata.select-all.label = যা দেখাচ্ছে সব বাছুন
+
+# একসঙ্গে for bulk, the word metadata.help.bulk-edit.term already uses.
+metadata.bulk.open.label = একসঙ্গে বই এডিট করুন…
+metadata.bulk.close.label = একসঙ্গে এডিট বন্ধ করুন
+metadata.actors.fill.label = কাস্ট থেকে অভিনেতা ভরান
+metadata.actors.fill.disabled.tip = বাছা টাইটেলগুলোর কোনওটাতেই কাস্ট নেই, ভরানোর কিছু নেই
+metadata.reverify.open.label = আবার মিলিয়ে দেখুন…
+metadata.delete.confirm.one = {n}টি জিনিস আর তার সব উদ্ধৃতি/সংলাপ মুছবেন?
+metadata.delete.confirm.other = {n}টি জিনিস আর তার সব উদ্ধৃতি/সংলাপ মুছবেন?
+metadata.delete.flash.one = {n}টি জিনিস মুছে গেছে
+metadata.delete.flash.other = {n}টি জিনিস মুছে গেছে
+metadata.bulk.failed.suffix = , {n}টি পারা গেল না
+metadata.bulk.flash.one = {n}টি বই বদলেছে
+metadata.bulk.flash.other = {n}টি বই বদলেছে
+# জুড়ে takes no case marker, so both holes stay bare (§5.4).
+metadata.actors.flash = {titles} জুড়ে {actors} ভরেছে
+
+metadata.row.select.tip = এই {noun} বাছুন
+# ?? editor (the form that opens inside a row) → এডিটর
+metadata.row.edit.close.label = এডিটর বন্ধ করুন
+# ?? look up (ask the sources about this row) → খুঁজে দেখুন
+metadata.row.lookup.label = খুঁজে দেখুন
+metadata.row.lookup.close.label = খোঁজা বন্ধ করুন
+metadata.row.lookup.tip = সূত্রে খুঁজে দেখুন
+metadata.row.open.aria = খুলুন
+metadata.row.open.tip = এই {noun} খুলুন
+metadata.count.dialogues.one = {n}টি সংলাপ
+metadata.count.dialogues.other = {n}টি সংলাপ
+
+metadata.bulk.title = বাছা {n}টি একসঙ্গে এডিট করুন
+metadata.bulk.author.placeholder = লেখক বসান (ফাঁকা রাখলে মুছে যাবে)
+metadata.bulk.series.placeholder = সিরিজ বসান (ফাঁকা রাখলে মুছে যাবে)
+# A symbol, not a word (§8).
+metadata.bulk.series-no.placeholder = #
+metadata.bulk.genres.label = ঘরানা যোগ করুন
+metadata.bulk.genres.placeholder = কমা দিয়ে আলাদা — যোগ হবে, বদলাবে না
+metadata.bulk.apply.label = {n}টিতে বসান
+
+metadata.duplicates.title = ডুপ্লিকেট বই
+metadata.duplicates.info.body = যে বইগুলোর নাম আর লেখক এত মেলে যে একই বই দুবার — সাধারণত একটা ইমপোর্ট করা, একটা হাতে যোগ করা — সেগুলো খুঁজে দেয়। এক করলে সব উদ্ধৃতি যেটা রাখছেন তার নিচে চলে আসে, বাকিগুলো মুছে যায়; সবচেয়ে বেশি উদ্ধৃতি যার, সেটাই আগে বাছা থাকে।
+# ?? group (a cluster of near-identical rows) → দল
+metadata.duplicates.groups.one = {n}টি দল
+metadata.duplicates.groups.other = {n}টি দল
+metadata.duplicates.scan.label = ডুপ্লিকেট বই খুঁজুন
+metadata.duplicates.rescan.aria = ডুপ্লিকেট আবার খুঁজুন
+metadata.duplicates.rescan.tip = আবার খুঁজুন
+metadata.duplicates.none = কোনও ডুপ্লিকেট নাম পাওয়া গেল না ✓
+metadata.duplicates.keep.label = রাখা
+metadata.duplicates.merge.label = যেটা রাখবেন তাতে এক করুন
+metadata.duplicates.merge.confirm.one = {n}টি বই এক করবেন? তার দাগ যেটা রাখছেন তার নিচে যাবে; অন্যটা মুছে যাবে।
+metadata.duplicates.merge.confirm.other = {n}টি বই এক করবেন? তাদের দাগ যেটা রাখছেন তার নিচে যাবে; বাকিগুলো মুছে যাবে।
+metadata.duplicates.merge.flash.one = {n}টি বই এক হয়েছে
+metadata.duplicates.merge.flash.other = {n}টি বই এক হয়েছে
+
+# ?? remap (re-point a label at a cast member) → বদল
+metadata.speakers.title = বক্তা আর চরিত্র বদল
+# RICK, Rick Blaine, Bogart — a role and a person, so they stay Latin (§8).
+metadata.speakers.info.body = ইমপোর্ট করা সংলাপ সূত্রের নিজের লেবেল নিয়ে আসে — RICK, Rick Blaine, Bogart। প্রতিটাকে গোটা টাইটেল জুড়ে সত্যিকারের কাস্টের সঙ্গে মিলিয়ে দেওয়া যায়, তারপর প্রতিটা লাইনে অভিনেতা ভরে যায়। কাস্ট না থাকলে আগে টাইটেলটা খুঁজে দেখুন।
+metadata.speakers.pick.placeholder = — একটা টাইটেল বাছুন —
+metadata.speakers.option.year = ({year})
+metadata.speakers.nocast = ⚠ এই টাইটেলে এখনও কাস্ট নেই — আগে উপরে খুঁজে দেখুন, তারপর ফিরে এসে বদলান।
+metadata.speakers.nolabels = এই টাইটেলের সংলাপে বক্তার কোনও লেবেল নেই।
+metadata.speakers.map.label = বক্তার লেবেল → কাস্ট
+metadata.speakers.apply.label = বদল বসান
+# ?? mapping (one label paired with one cast member) → জোড়া
+metadata.speakers.apply.disabled.tip = অন্তত একটা জোড়া বাছুন
+metadata.speakers.remapped.flash = {n}টি বদলেছে
+metadata.speakers.refilled.flash.one = , {n}টি অভিনেতা ভরেছে
+metadata.speakers.refilled.flash.other = , {n}টি অভিনেতা ভরেছে
+metadata.remap.keep.label = যেমন আছে তেমনই
+metadata.remap.nocharacter.label = (চরিত্র নেই)
+metadata.remap.cast.option = {character} — {actor}
+metadata.remap.custom.label = নিজের মতো…
+
+metadata.people.title = মানুষ
+# ?? reference page (an IMDb / Wikipedia page about a person) → রেফারেন্স পাতা
+metadata.people.info.body = ছবি আর রেফারেন্স পাতা, ঠিক মানুষটার সঙ্গে মিলিয়ে — লেখককে তাঁর বই দিয়ে, অভিনেতা বা পরিচালককে সিনেমার কাস্ট দিয়ে, স্টুডিওকে গেমের নামে। অভিনেতা আর পরিচালকের ছবির জন্য TMDB কি লাগে; বাকিটা আসে Wikidata থেকে।
+# No plural marker: the chips are the bare nouns (§3.0).
+metadata.people.kind.author.label = লেখক
+metadata.people.kind.actor.label = অভিনেতা
+metadata.people.kind.director.label = পরিচালক
+metadata.people.kind.studio.label = স্টুডিও
+metadata.people.kind.speaker.label = বক্তা
+metadata.people.fetch.label = যা নেই আনুন
+metadata.people.fetch.count.label = যা নেই আনুন ({n})
+metadata.people.fetch.progress = ছবি আর লিঙ্ক আসছে · {done}/{total}
+metadata.people.fetch.flash = মানুষ: {ok}টি এসেছে · {failed}টি পারা গেল না
+metadata.people.fetch.flash.reason = ({error})
+metadata.people.reverify.label = সেভ করাগুলো আবার মিলিয়ে দেখুন
+metadata.people.reverify.tip = সেভ করা প্রতিটা মানুষের পরিচয়, লিঙ্ক আর মুখের ছবি সূত্রের সঙ্গে আবার মিলিয়ে দেখা হয় — কিছু বসার আগেই দেখে নিতে পারবেন
+# The hole is bare and the dash carries the sense, so no marker lands on {noun}
+# (§5.4). Both forms alike: Bengali has no verb agreement to change here.
+metadata.people.compact.one = {n} {noun} — মুখের ছবি বা লিঙ্ক এখনও নেই
+metadata.people.compact.other = {n} {noun} — মুখের ছবি বা লিঙ্ক এখনও নেই
+metadata.people.empty.author = লাইব্রেরিতে এখনও কোনও লেখক নেই
+metadata.people.empty.actor = কোনও সংলাপে এখনও কোনও অভিনেতা নেই
+metadata.people.empty.director = কোনও সিনেমায় এখনও কোনও পরিচালক নেই
+metadata.people.empty.studio = কোনও গেমে এখনও কোনও স্টুডিও নেই
+metadata.people.empty.speaker = এখনও কেউ কিছু বলেননি
+metadata.people.column.books = বই
+metadata.people.column.quotes = উদ্ধৃতি
+metadata.people.column.titles = টাইটেল
+# Mono slot, one short word: ছবি, not মুখের ছবি (§6.3).
+metadata.people.photo.label = ছবি
+metadata.people.photo.tip = ছবি সেভ করা আছে
+metadata.people.search.tip = লাইব্রেরিতে “{name}” খুঁজুন
+metadata.people.row.fetch.label = আনুন
+metadata.people.row.refetch.label = আবার আনুন
+metadata.people.row.fetch.busy = আনা হচ্ছে…
+metadata.people.row.error = {name}: {error}
+metadata.people.dups.count = হতে পারে ডুপ্লিকেট ({n})
+metadata.people.dup.title = হতে পারে ডুপ্লিকেট — কোন বানানটা রাখবেন?
+# রেখে rather than a marker on the hole: “{name}”-এ would be wrong for half the
+# names that land there (§5.4).
+metadata.people.merge.label = “{name}” রেখে এক করুন
+metadata.people.merge.busy = এক করা হচ্ছে…
+
+# ---------------------------------------------------------------------------
+# settings.* (part two) — Settings.jsx's nine remaining cards.
+#
+# Style sheet leaned on: §1.1 চলিত (আর not এবং, no -করণ / -পূর্বক), §1.3 আপনার
+# dropped throughout — "Your books" is বই — §1.4 কোনও / এখনও / -গুলো / হিসেব,
+# danda in prose only and never on a label or a chip, §3.0 Western digits and
+# both plural forms, §3.4 সেভ / বাতিল / ফিরিয়ে আনুন / কপি / ডাউনলোড / বাছুন,
+# §3.7 ব্যাকআপ / থিম / সূত্র / সেটিংস / ডিভাইস / বিন / প্রথম পরিচয়, §4 the
+# loanword test, §5.4 button grammar and BARE placeholder holes, §6.3 mono slots
+# get one short word, §8 the never-translate list.
+#
+# Established in this file already, and followed rather than re-decided:
+# আপডেট, চেঞ্জলগ, ভার্সন, রিলিজ, API কি, চাবি (the archive key), কুকি,
+# মেটাডেটার সূত্র, খোঁজ (a metadata lookup), জুড়ুন / খুলে নিন (pair / unpair),
+# এখনই ব্যাকআপ নিন, শেষেরটা ডাউনলোড করুন, পরেরটা / বাকিটা পরে (the tour's own
+# buttons) — see settings.help.*, tour.*, shell.restore.* above.
+# ---------------------------------------------------------------------------
+
+settings.card.info.title = এটা কী
+
+settings.quiz.title = রোজকার কুইজ আর প্র্যাকটিস
+
+settings.features.title = ফিচার
+
+# The chip draws the bare symbol; this is what a screen reader says instead.
+settings.credits.sep.comma.aria = কমা
+settings.credits.sep.semicolon.aria = সেমিকোলন
+# ?? "amp" is short for ampersand — the & sign read aloud. অ্যাম্পারস্যান্ড is
+# ?? a mouthful for a chip, so this names the sign by what it does.
+settings.credits.sep.amp.aria = অ্যান্ড চিহ্ন
+# ?? The chip shows the English word “and”, which is what the splitter matches
+# ?? (§8) — so the Latin stays and only the frame around it is Bengali.
+settings.credits.sep.and.aria = “and” শব্দ
+
+# মুখ for "a face", as settings.help.language-marks.what already has it.
+settings.languages.intro.prose = প্রবাদের নামে কারও নাম নেই, তাই তার কার্ড মুখ দিয়ে নয়, ভাষা দিয়েই শুরু হয়। প্রতিটা ভাষা নিজের লিপি থেকে চারটে অক্ষর দেয়; আর যা কিছু লিখবেন — চিহ্ন, পতাকা, ইমোজি — তা ওই ভাষার নিজের চিহ্ন হয়ে থেকে যায়।
+
+settings.appearance.preset.auto.aria = {name} (সিস্টেম যেমন)
+# §8.5 — a specimen is REPLACED, not translated: a line this face would really
+# be setting in Bengali.
+settings.appearance.preset.specimen.label = মার্জিন, লেখার চেয়েও চওড়া…
+
+# --------------------------------------------------------------- আপডেট
+settings.updates.title = আপডেট
+settings.updates.version.label = ভার্সন
+settings.updates.releases.tip = GitHub-এ রিলিজ নোট
+# §5.4 — the hole stays bare, so the link sits inside dashes rather than taking
+# a case marker.
+settings.updates.roadmap.prose = সামনে কী কী আসছে তা আছে এখানে — {roadmap} — যে সমস্যাগুলো আমি জানি সেগুলোসুদ্ধ; তাই কিছু জানানোর আগে একবার দেখে নেওয়া ভাল। অনুরোধ আর সমস্যার খবর, দুটোরই শুরু ওখান থেকে।
+# ?? roadmap → রোডম্যাপ. পরিকল্পনা is a form word; this is what people say.
+settings.updates.roadmap.link.label = রোডম্যাপ ↗
+settings.updates.restarting.prose = আপডেট হচ্ছে, আর নতুন করে চালু হচ্ছে — টিপ্পনী ফিরলে এই পাতাটা নিজেই আবার লোড হবে…
+settings.updates.check.label = আপডেট দেখুন
+settings.updates.check.busy = দেখা হচ্ছে…
+settings.updates.current.label = ✓ নতুনই আছে
+settings.updates.unreachable.prose = GitHub পর্যন্ত পৌঁছানো গেল না ({error}) — কানেকশন দেখে আবার চেষ্টা করুন
+settings.updates.available.prose = {version} বেরিয়েছে (এখন চলছে {current})।
+settings.updates.notes.label = রিলিজ নোট ↗
+settings.updates.confirm.prose = {version} নামিয়ে কন্টেনার আবার চালু করতে {word} লিখুন:
+settings.updates.apply.label = এখনই আপডেট করে চালু করুন
+settings.updates.apply.busy = শুরু হচ্ছে…
+settings.updates.failed.prose = আপডেট শুরুই হল না — কন্টেনারের লগ দেখুন, বা নিচের পথে নিজে হাতে করুন
+settings.updates.manual.prose = এক ক্লিকে আপডেট করতে Docker সকেট লাগানো থাকা চাই, বা একটা সকেট প্রক্সি সাজানো থাকা চাই (README দেখুন)। নিজে হাতে করতে হলে নিজের হোস্টে এটা চালান:
+settings.updates.copy.label = কপি
+settings.updates.toast.reload = একটু পরে পাতাটা আবার লোড করুন
+settings.updates.toast.copied = কমান্ড কপি হয়েছে
+
+# --------------------------------------------------------------- চেঞ্জলগ
+settings.changelog.title = চেঞ্জলগ
+settings.changelog.running.label = চলছে
+settings.changelog.unlisted.prose = এখন চলছে {version}, যা উপরের কোনও ভার্সন নয় — রিলিজের বাইরে বানানো একটা বিল্ড।
+settings.changelog.close.tip = চেঞ্জলগ বন্ধ করুন
+
+# ----------------------------------------------------------- প্রথম পরিচয়
+settings.onboarding.title = প্রথম পরিচয়
+settings.onboarding.info.body = প্রতিটা ফিচার ধরে ধরে দেখানো ট্যুর। প্রথমবার চালু করলে একবারই চলে, নিজের ফাইল কখনও লাগে না — নমুনা দাগ আর সংলাপ ভিতরেই আছে। “পরেরটা” এক ধাপ এগোয়, “বাকিটা পরে” ট্যুর এখানেই রেখে দেয়, আর এখান থেকেই আবার ধরতে পারেন।
+settings.onboarding.done.label = ✓ শেষ
+settings.onboarding.resume.label = ট্যুরে ফিরুন · ধাপ {n}/{total}
+settings.onboarding.restart.label = গোড়া থেকে শুরু
+settings.onboarding.replay.label = ট্যুর আবার দেখুন
+settings.onboarding.start.label = ট্যুর শুরু করুন
+settings.onboarding.pick.label = একটা বিভাগ আবার দেখুন
+settings.onboarding.pick.prose = ট্যুর ওই স্ক্রিনে খুলে সেখান থেকেই চলে — “পরেরটা” পরের বিভাগে নিয়ে যায়, আর “বাকিটা পরে” ট্যুরটা আবার এখানেই রেখে দেয়।
+
+# --------------------------------------------------------------- ডিভাইস
+settings.devices.title = ডিভাইস
+settings.devices.info.body = Android অ্যাপটাকে এই অ্যাকাউন্টের সঙ্গে জুড়ে দেয়। এখানে খুলে না নিলে ডিভাইস জোড়াই থাকে — পাসওয়ার্ড বদলালে ব্রাউজারগুলো লগ আউট হয়, তবে ফোনে ইচ্ছে করেই হাত পড়ে না, যাতে রোজকার পাসওয়ার্ড বদলে ফোনের জোড়া চুপচাপ খুলে না যায়।
+settings.devices.paired.count = {n}টি জোড়া
+# ?? "pairing code" → জোড়ার কোড. Two words in a mono slot (§6.3), but কোড alone
+# ?? does not say what it is a code for.
+settings.devices.code.label = জোড়ার কোড
+settings.devices.code.info.title = জোড়ার কোড
+settings.devices.code.info.body = পাঁচ মিনিটের মধ্যে অ্যাপে লিখে দিন। একবারই চলে, তারপর ফুরিয়ে যায় — দ্বিতীয় ডিভাইসের জন্য আবার নতুন করে জোড়া শুরু করুন।
+settings.devices.code.copy.aria = জোড়ার কোড কপি করুন
+settings.devices.code.copy.tip = কোড কপি করুন
+settings.devices.code.done.aria = জোড়া শেষ
+settings.devices.pair.label = ডিভাইস জুড়ুন
+settings.devices.revoke-all.aria = সব ডিভাইস খুলে নিন
+settings.devices.revoke-all.confirm = সব ডিভাইস খুলে নেবেন? প্রত্যেকটা এখনই কাজ করা বন্ধ করে দেবে।
+settings.devices.revoke.aria = {name} খুলে নিন
+settings.devices.revoke.confirm = “{name}” খুলে নেবেন? এখনই কাজ করা বন্ধ করে দেবে।
+settings.devices.last-seen.label = শেষ দেখা {when}
+settings.devices.never.label = কখনও ব্যবহার হয়নি
+settings.devices.empty.prose = এখনও কোনও ডিভাইস জোড়া হয়নি।
+settings.devices.toast.unpaired = ডিভাইস খুলে নেওয়া হল
+settings.devices.toast.all-unpaired = সব ডিভাইস খুলে নেওয়া হল
+
+# ------------------------------------------------------------------ বিন
+settings.bin.info.body = মুছে ফেলা সবকিছু আগে এখানেই জমা থাকে, আর ফিরিয়ে আনলে অবিকল আগের মতোই ফিরে আসে — উদ্ধৃতি, ট্যাগ, রং, রুটিন, কভার, সব। সময় পেরোলে এন্ট্রি নিজেই চলে যায়, আর সেই ঘড়ি শুধু সার্ভার চললেই চলে।
+settings.bin.tile.prose = {count} অপেক্ষায় — যেটা খুশি ফিরিয়ে আনুন, বা বিন খালি করুন
+settings.bin.tile.holding.prose = {count} অপেক্ষায়, {held} নিয়ে — যেটা খুশি ফিরিয়ে আনুন, বা বিন খালি করুন
+settings.bin.open.label = বিন খুলুন
+
+# ---------------------------------------------------------------- ব্যাকআপ
+settings.backup.title = ব্যাকআপ আর ফিরিয়ে আনা
+settings.backup.prompt.title = ব্যাকআপ নিন
+settings.backup.info.body = সবকিছুর একটাই তারিখ দেওয়া, সাংকেতিক আর্কাইভ — নিজের পাসওয়ার্ড বা পাসফ্রেজ দিয়ে সিল করা। অন্য মেশিনে গেলে যা দিয়ে সিল হয়েছিল সেই পাসওয়ার্ডই লাগে, আর পাসফ্রেজে সিল করা আর্কাইভ ফেরানোর পথই নেই। ফিরিয়ে আনলে এখানে সবই বদলে যায়।
+settings.backup.what.prose = আর্কাইভে প্রত্যেক ইউজার, লাইব্রেরি, পাসওয়ার্ডের হ্যাশ আর API কি থাকে, তাই সার্ভার ছাড়ার আগেই ওটা তালাবন্ধ হয়ে যায়। চাবিটা রেখে দিন: অন্য যে কোনও মেশিনে আর্কাইভ ওটাতেই খোলে।
+settings.backup.password.prose = এই পাসওয়ার্ড দিয়ে যে কোনও টিপ্পনীতে আর্কাইভ খোলে। আর এই সার্ভারে এখনকার পাসওয়ার্ডে সবসময়ই খুলবে, পরে বদলে ফেললেও।
+settings.backup.passphrase.label = পাসফ্রেজ · {min}–{max}টি অক্ষর
+settings.backup.passphrase.prose = কোনও অ্যাকাউন্টের সঙ্গে বাঁধা নয় — আর ফেরানোরও পথ নেই। হারালে আর্কাইভও হারাল।
+settings.backup.use-passphrase.label = বদলে আলাদা একটা পাসফ্রেজ দিন
+settings.backup.use-password.label = বদলে নিজের অ্যাকাউন্টের পাসওয়ার্ড নিন
+settings.backup.now.label = এখনই ব্যাকআপ নিন
+settings.backup.now.busy = ব্যাকআপ হচ্ছে…
+settings.backup.download.label = শেষেরটা ডাউনলোড করুন
+settings.backup.last.prose = শেষ ব্যাকআপ: {when} · {size} · পরেরটা না আসা পর্যন্ত এই সার্ভারেই থাকবে
+settings.backup.empty.prose = এই সার্ভারে এখনও কোনও ব্যাকআপ নেই
+settings.backup.restore-from.label = কোথা থেকে
+settings.backup.asks.passphrase = এর পাসফ্রেজ চাইবে
+settings.backup.asks.password = নিজের পাসওয়ার্ড চাইবে
+# §5.4 — the marker sits on অ্যাকাউন্টের, never on the hole.
+settings.backup.asks.password.named = তৈরির সময় ‘{name}’ অ্যাকাউন্টের যে পাসওয়ার্ড ছিল সেটা চাইবে
+settings.backup.asks.password.era = যে পাসওয়ার্ড দিয়ে সিল করা হয়েছিল সেটা চাইবে
+settings.backup.asks.unknown = পড়া যাচ্ছে না, বা নতুন কোনও টিপ্পনীর লেখা
+settings.backup.asks.unkeyed = 1.4.1-এর আগেকার · চাবি নেই, RESTORE লিখতে বলবে
+settings.backup.server.empty.prose = এখানে এখনও কিছুই রাখা নেই
+settings.backup.file.choose.label = ফাইল বাছুন…
+settings.backup.file.replace.label = অন্য ফাইল বাছুন…
+settings.backup.file.none.label = কোনও ফাইল বাছা হয়নি
+settings.backup.file.chosen.label = {name} · {size}
+settings.backup.restore.label = ফিরিয়ে আনুন…
+settings.backup.toast.created = ব্যাকআপ হয়ে গেছে
+settings.backup.toast.restored = ফিরিয়ে আনা হয়েছে · লগ আউট হচ্ছে
+
+# ------------------------------------------------------- ফিরিয়ে আনার প্যানেল
+settings.restore.title = ফিরিয়ে আনা
+settings.restore.warn.prose = এই সার্ভারের সবকিছু বদলে যাবে — প্রত্যেক ইউজার, লাইব্রেরি আর সেটিংস। সবাই লগ আউট হয়ে যাবে। যা বদলে যাচ্ছে তার একটা কপি সার্ভারেই রাখা থাকবে।
+settings.restore.warn.dated.prose = {date} তারিখের ব্যাকআপ দিয়ে এই সার্ভারের সবকিছু বদলে যাবে — প্রত্যেক ইউজার, লাইব্রেরি আর সেটিংস। সবাই লগ আউট হয়ে যাবে। যা বদলে যাচ্ছে তার একটা কপি সার্ভারেই রাখা থাকবে।
+# নিজের, not আপনার (§1.3) — but the contrast with a passphrase is the point, so
+# the word cannot be dropped altogether.
+settings.restore.password.label = নিজের পাসওয়ার্ড
+settings.restore.password.recoverable.prose = আর্কাইভটা এই সার্ভারেই তৈরি, তাই এখনকার পাসওয়ার্ডেই খুলবে — যে পাসওয়ার্ড দিয়ে সিল করা হয়েছিল, সেটা না হলেও।
+settings.restore.password.named.prose = অন্য সার্ভারে ‘{name}’ এটা সিল করেছিল, তাই তখন ওই অ্যাকাউন্টের যে পাসওয়ার্ড ছিল সেটাই লাগবে।
+settings.restore.password.era.prose = এই সার্ভারে তৈরি হয়নি, তাই তৈরির সময় যে পাসওয়ার্ড চালু ছিল সেটাই লাগবে।
+settings.restore.confirm.label = RESTORE লিখুন
+settings.restore.confirm.prose = এই আর্কাইভ 1.4.1-এর আগেকার, এতে কোনও চাবি নেই — তাই লেখা শব্দটাই নিশ্চিত করার উপায়।
+settings.prompt.close.tip = বাতিল করে বন্ধ করুন
+
+# -------------------------------------------------------- মেটাডেটার সূত্র
+settings.metadata.title = মেটাডেটার সূত্র
+settings.metadata.info.body = বইয়ে কোনও কি লাগে না: গুগল বুকস আর ওপেন লাইব্রেরি, দুটো এক করে। এই বিল্ডে নিজের কি না এলে সিনেমা চলে TMDB-তে (TheTVDB ইচ্ছেমতো), আর গেম চলে IGDB-র জোড়ায়, পিছনে সঙ্গে-আসা কিছুই নেই। প্রতিটা ঘর আলাদা সেভ হয়, হাতে লেখা তো সবসময়ই চলে।
+settings.metadata.books.failing.label = খোঁজ আটকাচ্ছে
+settings.metadata.tmdb.builtin.label = সঙ্গে আসা কি
+settings.metadata.tmdb.none.label = কি নেই
+settings.metadata.last-error.prose = শেষ গোলমাল: {error}
+settings.metadata.igdb.half.prose = IGDB-র দুটো অর্ধেকই দরকার — {half} এখনও ফাঁকা, তাই গেমের খোঁজ এমনভাবে আটকাবে যেন কি-টাই ভুল।
+
+settings.keys.field.label = {source} {noun}
+settings.keys.noun.key = কি
+# §8 — the field names on Twitch's own console appear as themselves, exactly as
+# settings.help.igdb.term already keeps them.
+settings.keys.noun.client-id = client id
+settings.keys.noun.secret = secret
+settings.keys.noun.cookie = কুকি
+settings.keys.noun.domain = ডোমেন
+
+settings.keys.google.hint = ইচ্ছেমতো, আর দিনে 1,000-এর মতো খোঁজ পেরোলেই তবে দরকার: console.cloud.google.com → Books API চালু করুন → একটা কি বানান। বই কোনও কি ছাড়াই চলে।
+settings.keys.google.placeholder = গুগল বুকস API কি — ইচ্ছেমতো
+settings.keys.tmdb.hint = themoviedb.org → Settings → API → বিনামূল্যের একটা v3 কি (v4 রিড টোকেনও চলে)। সঙ্গে আসা সবার কি-টাকে সরিয়ে এটাই চলে। কোনও কি না থাকলে খোঁজ 503 ফেরায় — নিজে হাতে লেখা তখনও চলে।
+settings.keys.tmdb.placeholder = TMDB v3 কি বা v4 টোকেন — সঙ্গে আসাটাকে সরিয়ে দেয়
+settings.keys.tvdb.hint = ইচ্ছেমতো, আর অনেক দিন ধরে চলা শোয়ের জন্য সাধারণত ভাল: thetvdb.com → Dashboard → API keys।
+settings.keys.tvdb.placeholder = TheTVDB v4 API কি — ইচ্ছেমতো
+settings.keys.igdb-id.hint = শুধু গেমের জন্য, আর IGDB পরিচয় মেলায় Twitch দিয়ে: dev.twitch.tv/console → Register Your Application → client id ওখানেই দেখা যায়। নিচের secret বাকি অর্ধেক; একলা একটা দিয়ে কিছুই খোঁজা যায় না।
+settings.keys.igdb-id.placeholder = Twitch client id — গেমের জন্য দরকার
+settings.keys.igdb-secret.hint = জোড়ার বাকি অর্ধেক, ওই একই Twitch অ্যাপ্লিকেশন থেকেই: তাতে “New Secret” টিপুন। একবারই দেখায়। কোনও কি না থাকলে গেমের খোঁজ 503 ফেরায় — নিজে হাতে লেখা সবসময়ই চলে।
+settings.keys.igdb-secret.placeholder = Twitch client secret — গেমের জন্য দরকার
+# ⚠ .caveat and not .hint — see en.txt. 440 characters of security warning with
+# a procedure in it; nothing in it can be cut to reach the dot budget.
+settings.keys.amazon-cookie.caveat = ইচ্ছেমতো। ASIN থেকে কভার তো কিছু না সাজিয়েই আসে; কুকিটা শুধু প্রোডাক্টের পাতা পড়ে বিবরণ আর ঘরানা যোগ করে। এটা ভঙ্গুর, Amazon-এর শর্তের বিরুদ্ধে, আর এতে অ্যাকাউন্টে ঢোকার পথও খুলে যায় — তাই এটা শুধু লেখা যায়, কখনও দেখানো হয় না। যেভাবে পাবেন: যে মার্কেটপ্লেসে বই কেনা, সেখানে Amazon-এ লগ ইন করুন, DevTools খুলুন (F12) → Network → যে কোনও amazon রিকোয়েস্টে ক্লিক → Request Headers, আর গোটা "cookie:" মানটা কপি করুন।
+settings.keys.amazon-cookie.placeholder = Amazon সেশন কুকি — ইচ্ছেমতো
+settings.keys.amazon-domain.hint = যে মার্কেটপ্লেসে বই কেনা হয়েছিল, যেমন www.amazon.com বা www.amazon.de। এটা গোপন কিছু নয়, তাই এটা নিজের মানটা দেখায়।
+# §8 — a domain to type, not a word to read.
+settings.keys.amazon-domain.placeholder = www.amazon.com
+
+settings.keys.unset.label = দেওয়া নেই
+settings.keys.saved.tip = সেভ আছে
+settings.keys.saved.aria = {name}: সেভ আছে
+settings.keys.add.aria = {name} দিন
+settings.keys.replace.aria = {name} বদলান
+settings.keys.save.blank.tip = ফাঁকা রেখে সেভ করলে কি-টা মুছে যাবে
+settings.keys.toast.cleared = মুছে গেল
+
+# ===========================================================================
+# SHARED VOCABULARY THE LAST THREE SCREENS ASKED FOR. See en.txt for why these
+# sit here rather than in the frame section above.
+# ===========================================================================
+
+# --- from staging ---
+error.load.import-queue = ইমপোর্টের তালিকা পড়া গেল না
+error.apply.edit = এডিট বসানো গেল না
+error.approve.generic = মেনে নেওয়া গেল না
+error.discard.generic = ফেলে দেওয়া গেল না
+common.field.favourite.label = প্রিয়
+
+# --- from metadata ---
+# §3.4: fetch → আনুন, so "could not fetch" is আনা গেল না. Agentless and চলিত.
+error.refetch.covers = কভার আবার আনা গেল না
+error.scan.duplicates = ডুপ্লিকেট খোঁজা গেল না
+# merge → এক করুন (§3.4).
+error.merge.failed = এক করা গেল না
+# ?? mapping → জোড়া (also marked in the metadata block). The button name arrives
+# in {action} and the hole stays bare (§5.4).
+error.validate.mapping-required = অন্তত একটা জোড়া বাছুন, নয়তো “{action}” ব্যবহার করুন।
+
+# Both forms written out even though they are the same word twice: Bengali takes
+# no plural marker after a numeral, and n = 0 resolves to "one" (§3.0).
+unit.author.one = লেখক
+unit.author.other = লেখক
+unit.director.one = পরিচালক
+unit.director.other = পরিচালক
+unit.studio.one = স্টুডিও
+unit.studio.other = স্টুডিও
+unit.speaker.one = বক্তা
+unit.speaker.other = বক্তা
+
+# --- from settings ---
+common.action.download.label = ডাউনলোড
+
+error.check.updates = আপডেট আছে কি না দেখা গেল না
+error.update.start = আপডেট শুরুই করা গেল না
+error.copy.manual = কপি করা গেল না — নিজে বেছে নিন
+error.load.changelog = চেঞ্জলগ আনা গেল না
+
+error.load.devices = ডিভাইসের তালিকা আনা গেল না
+error.pair.device = জোড়া শুরু করা গেল না
+error.revoke.device = ডিভাইসটা খুলে নেওয়া গেল না
+error.revoke.devices = ডিভাইসগুলো খুলে নেওয়া গেল না
+
+error.backup.failed = ব্যাকআপ হল না
+error.restore.intact = ফিরিয়ে আনা গেল না — ডেটা অক্ষত আছে
+
+error.upload.font = ফন্টটা আপলোড করা গেল না
+
+error.validate.restore-word = নিশ্চিত করতে RESTORE লিখুন
 
 # ===========================================================================
 # THE REST OF THE SHARED VOCABULARY — common.field.* and one shell key.

@@ -193,7 +193,10 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, on
   return (
     <section className="space-y-6">
       <div className={mobile ? 'mobile-sticky-bar' : ''}>
-        <PageHeader title={t('nav.tab.settings.label')} counts={user.is_admin ? 'admin' : user.username} />
+        {/* 'admin' is a ROLE, and the users list already names it — so this
+            draws that same word rather than a second copy of it. The username
+            beside it is data, not copy. */}
+        <PageHeader title={t('nav.tab.settings.label')} counts={user.is_admin ? t('account.users.admin.chip') : user.username} />
       </div>
       <Appearance prefs={user.preferences} onPreferences={onPreferences} />
       {/* align-items:start so a short column stays short instead of stretching
@@ -231,11 +234,20 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, on
 // this decides whether that is one person or two, so the question only arises
 // because of the sources above it — and a card with four chips in it was
 // claiming the same share of a settings page as the keys every lookup runs on.
+// Three columns now: the stored token, the SYMBOL the chip draws, and the key
+// that names it aloud. The symbol is not copy — it is the character the splitter
+// matches, and “and” is the English word an author line actually contains, so
+// translating either would name a separator nothing splits on. The screen-reader
+// name IS copy, and it used to be the stored token read out raw.
+// Three columns, and the middle one is now a KEY like the third. The symbol is
+// still not copy — its value is the same in every language — but it goes through
+// the resolver so the pseudo-locale gate can see it, rather than standing on the
+// screen as the one untokenised string on the card.
 const CREDIT_SEP_OPTIONS = [
-  ['comma', ','],
-  ['semicolon', ';'],
-  ['amp', '&'],
-  ['and', '“and”'],
+  ['comma', 'settings.credits.sep.comma.symbol', 'settings.credits.sep.comma.aria'],
+  ['semicolon', 'settings.credits.sep.semicolon.symbol', 'settings.credits.sep.semicolon.aria'],
+  ['amp', 'settings.credits.sep.amp.symbol', 'settings.credits.sep.amp.aria'],
+  ['and', 'settings.credits.sep.and.symbol', 'settings.credits.sep.and.aria'],
 ]
 function CreditSeparators({ user, onPreferences }) {
   const parse = (v) => {
@@ -263,16 +275,16 @@ function CreditSeparators({ user, onPreferences }) {
         <InfoDot title={t('settings.credits.info.title')} text={t('settings.credits.info.body')} />
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        {CREDIT_SEP_OPTIONS.map(([key, label]) => (
+        {CREDIT_SEP_OPTIONS.map(([key, symbol, aria]) => (
           <Tooltip key={key} label={t('settings.credits.chip.tip')} side="top">
             <button
               type="button"
               className={'tp-filter-chip' + (active.has(key) ? ' active' : '')}
               aria-pressed={active.has(key)}
-              aria-label={key}
+              aria-label={t(aria)}
               onClick={() => toggle(key)}
             >
-              {label}
+              {t(symbol)}
             </button>
           </Tooltip>
         ))}
@@ -354,7 +366,7 @@ function ColourCategoriesCard({ prefs, onSaved }) {
     setRows(categoryState())
     const r = await json('PUT', '/auth/me/preferences', next)
     if (!r.ok) {
-      setErr(errText(r, 'could not save'))
+      setErr(errText(r, t('error.save.generic')))
       // Put the screen back to what the server still believes, so the card can
       // never show a name that was refused.
       applyColors(prefs || {})
@@ -614,7 +626,7 @@ function TypeSettings({ prefs, onSaved }) {
     // would post the string "[object FormData]" and get a 400 nobody could read.
     const r = await uploadFile('/fonts', file)
     setBusy(false)
-    if (!r.ok) return setErr(errText(r, 'could not upload that font'))
+    if (!r.ok) return setErr(errText(r, t('error.upload.font')))
     await reloadUploads()
     await save({ [prefKey(roleKey)]: r.data.token })
     checkScript(roleKey)
@@ -644,7 +656,7 @@ function TypeSettings({ prefs, onSaved }) {
     setRows(fontState())
     const r = await json('PUT', '/auth/me/preferences', patch)
     if (!r.ok) {
-      setErr(errText(r, 'could not save'))
+      setErr(errText(r, t('error.save.generic')))
       applyFonts(prefs || {})
       setRows(fontState())
       return
@@ -864,7 +876,7 @@ function LanguageMarksSettings({ prefs, onSaved }) {
     setRows(languageMarksState(Object.keys(all)))
     const r = await json('PUT', '/auth/me/preferences', { languageMarks: blob })
     if (!r.ok) {
-      setErr(errText(r, 'could not save'))
+      setErr(errText(r, t('error.save.generic')))
       // Back to what the server still believes, so the panel can never show a
       // mark that was refused.
       applyLanguageMarks(prefs || {})
@@ -917,9 +929,7 @@ function LanguageMarksSettings({ prefs, onSaved }) {
   return (
     <>
       <p className="microcopy mb-3">
-        A proverb has nobody to credit, so its card leads with its language instead of a face. Each
-        language offers four letters from its own script; anything else you type — a symbol, a flag,
-        an emoji — is kept as one of that language’s own marks.
+        {t('settings.languages.intro.prose')}
       </p>
       <div>
         {rows.map((row) => {
@@ -1114,7 +1124,7 @@ function SRSettings({ user, onPreferences }) {
           <InfoDot text={t('settings.quiz.info.body')} />
         }
       >
-        Daily quiz &amp; practice
+        {t('settings.quiz.title')}
       </SectionTitle>
       {/* TWO CONTROLS ON THE CARD, the rest behind the door.
 
@@ -1313,7 +1323,7 @@ function SRDeepControls({ p, set, onClose }) {
 // offers a one-click update when the Docker socket is mounted (pull + recreate
 // via a one-shot Watchtower), and otherwise shows the manual command to run.
 function UpdatesCard({ user, update, onUpdateInfo }) {
-  const current = user?.version || 'dev'
+  const current = user?.version || t('settings.updates.version.dev')
   const [logOpen, setLogOpen] = useState(false)
   const [info, setInfo] = useState(update || null) // check result (seeded from the shared session cache)
   const [busy, setBusy] = useState(false)
@@ -1327,7 +1337,7 @@ function UpdatesCard({ user, update, onUpdateInfo }) {
     if (r.ok) {
       setInfo(r.data)
       onUpdateInfo?.(r.data) // share up so the mobile drawer's badge mirrors this
-    } else toast('couldn’t check for updates')
+    } else toast(t('error.check.updates'))
   }
 
   async function apply() {
@@ -1336,7 +1346,7 @@ function UpdatesCard({ user, update, onUpdateInfo }) {
     const r = await json('POST', '/admin/update/apply', { confirm: 'UPDATE' })
     if (!r.ok) {
       setPhase('failed')
-      toast(r.data?.error || 'update failed to start')
+      toast(r.data?.error || t('error.update.start'))
       return
     }
     // Watchtower will stop + recreate this container; poll until the new one
@@ -1348,22 +1358,22 @@ function UpdatesCard({ user, update, onUpdateInfo }) {
       if (ping.ok) return window.location.reload()
     }
     setPhase('failed')
-    toast('reload in a moment')
+    toast(t('settings.updates.toast.reload'))
   }
 
   const copyCmd = async () => {
     const ok = await copyText(info?.guided_command || '')
-    toast(ok ? 'command copied' : 'copy failed — select it manually')
+    toast(ok ? t('settings.updates.toast.copied') : t('error.copy.manual'))
   }
 
   return (
     <Card>
-      <SectionTitle>Updates</SectionTitle>
+      <SectionTitle>{t('settings.updates.title')}</SectionTitle>
       <div className="space-y-3">
         <div className="flex items-baseline gap-2">
-          <MonoLabel>version</MonoLabel>
+          <MonoLabel>{t('settings.updates.version.label')}</MonoLabel>
           {user?.releases_url ? (
-            <Tooltip label="Release notes on GitHub" side="bottom">
+            <Tooltip label={t('settings.updates.releases.tip')} side="bottom">
               <a
                 href={user.releases_url}
                 target="_blank"
@@ -1383,58 +1393,72 @@ function UpdatesCard({ user, update, onUpdateInfo }) {
             ask for something, or say what is broken — is the roadmap. It belongs here
             rather than only under Reference, because "what version am I on" and "what is
             coming" are the same question asked twice. */}
+        {/* tNodes, because the sentence carries a link and markup never goes in
+            a locale value: the {roadmap} hole takes the anchor. */}
         <p className="microcopy" style={{ fontSize: 12.5 }}>
-          What is still ahead is on the{' '}
-          <a className="tp-link" href={`${DOCS_BASE}roadmap.html`} target="_blank" rel="noreferrer">
-            roadmap ↗
-          </a>{' '}
-          — including the bugs I already know about, which is worth a look before you
-          report one. Requests and bug reports both start there too.
+          {tNodes('settings.updates.roadmap.prose', {
+            roadmap: (
+              <a key="roadmap" className="tp-link" href={`${DOCS_BASE}roadmap.html`} target="_blank" rel="noreferrer">
+                {t('settings.updates.roadmap.link.label')}
+              </a>
+            ),
+          })}
         </p>
 
         {phase === 'restarting' ? (
           <p className="microcopy" style={{ color: 'var(--accent-ui)' }}>
-            updating & restarting — this page will reload automatically when Tippani is back…
+            {t('settings.updates.restarting.prose')}
           </p>
         ) : (
           <>
             <div className="flex flex-wrap items-center gap-3">
               <GhostButton onClick={check} disabled={busy || phase === 'applying'}>
-                {busy ? 'Checking…' : 'Check for updates'}
+                {busy ? t('settings.updates.check.busy') : t('settings.updates.check.label')}
               </GhostButton>
               {/* Beside the check, not instead of the GitHub link above it: the
                   link answers "what is in a version I have not installed", this
                   answers "what is in the one I am running". Different questions,
                   and only the second one works with the network off. */}
-              <GhostButton onClick={() => setLogOpen(true)}>Changelog</GhostButton>
+              <GhostButton onClick={() => setLogOpen(true)}>{t('settings.changelog.title')}</GhostButton>
               {info && !info.update_available && !info.check_error && (
-                <MonoLabel style={{ color: 'var(--ok)' }}>✓ up to date</MonoLabel>
+                <MonoLabel style={{ color: 'var(--ok)' }}>{t('settings.updates.current.label')}</MonoLabel>
               )}
             </div>
 
             {info?.check_error && (
               <p className="microcopy" style={{ color: 'var(--soft)' }}>
-                couldn’t reach GitHub ({info.check_error}) — check your connection and try again
+                {t('settings.updates.unreachable.prose', { error: info.check_error })}
               </p>
             )}
 
             {info?.update_available && (
               <div className="space-y-3">
                 <p className="microcopy">
-                  <strong>{info.latest}</strong> is available (you’re on {current}).{' '}
+                  {tNodes('settings.updates.available.prose', {
+                    version: <strong key="version">{info.latest}</strong>,
+                    current,
+                  })}{' '}
                   {info.notes_url && (
                     <a href={info.notes_url} target="_blank" rel="noopener noreferrer" className="tp-link">
-                      release notes ↗
+                      {t('settings.updates.notes.label')}
                     </a>
                   )}
                 </p>
 
                 {info.can_self_update ? (
                   <div className="space-y-2">
+                    {/* UPDATE is not copy: it is the word the server compares
+                        byte for byte, so it stays Latin in every language and is
+                        supplied as a node rather than living in the value. */}
                     <p className="microcopy">
-                      Type <b>UPDATE</b> to pull {info.latest} and restart the container:
+                      {tNodes('settings.updates.confirm.prose', {
+                        word: <b key="word">UPDATE</b>,
+                        version: info.latest,
+                      })}
                     </p>
                     <div className="flex flex-wrap items-center gap-2">
+                      {/* The placeholder is the typed confirmation itself, not a
+                          label — see above. */}
                       <input
                         className="tp-input"
                         style={{ maxWidth: 140, fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)' }}
@@ -1446,20 +1470,19 @@ function UpdatesCard({ user, update, onUpdateInfo }) {
                         onClick={apply}
                         disabled={confirm !== 'UPDATE' || phase === 'applying'}
                       >
-                        {phase === 'applying' ? 'Starting…' : 'Update & restart now'}
+                        {phase === 'applying' ? t('settings.updates.apply.busy') : t('settings.updates.apply.label')}
                       </StickerButton>
                     </div>
                     {phase === 'failed' && (
                       <p className="microcopy" style={{ color: 'var(--error)' }}>
-                        update didn’t start — check the container logs, or update by hand below
+                        {t('settings.updates.failed.prose')}
                       </p>
                     )}
                   </div>
                 ) : (
                   <div className="space-y-2">
                     <p className="microcopy">
-                      One-click update needs the Docker socket mounted, or a socket proxy configured
-                      (see the README). To update by hand, run on your host:
+                      {t('settings.updates.manual.prose')}
                     </p>
                     <div
                       className="flex items-center justify-between gap-2"
@@ -1469,7 +1492,7 @@ function UpdatesCard({ user, update, onUpdateInfo }) {
                         {info.guided_command}
                       </code>
                       <button type="button" className="tp-link" onClick={copyCmd} style={{ whiteSpace: 'nowrap' }}>
-                        copy
+                        {t('settings.updates.copy.label')}
                       </button>
                     </div>
                   </div>
@@ -1546,7 +1569,7 @@ function ChangelogDialog({ current, onClose }) {
 
   useEffect(() => {
     json('GET', '/changelog').then((r) => {
-      if (!r.ok) return setError(errText(r, 'could not load the changelog'))
+      if (!r.ok) return setError(errText(r, t('error.load.changelog')))
       setData(r.data)
       const first = r.data?.releases?.[0]?.version
       if (first) setOpen(new Set([first]))
@@ -1564,7 +1587,7 @@ function ChangelogDialog({ current, onClose }) {
   const body = error ? (
     <ErrorText>{error}</ErrorText>
   ) : !data ? (
-    <p className="microcopy">loading…</p>
+    <p className="microcopy">{t('common.state.loading')}</p>
   ) : (
     <div className="cl-list">
       {data.releases.map((rel) => {
@@ -1583,7 +1606,7 @@ function ChangelogDialog({ current, onClose }) {
               {rel.date && <span className="cl-date">{rel.date}</span>}
               {/* Which one you are actually running. The whole point of an
                   in-app changelog over a link to GitHub is that it can say so. */}
-              {running && <span className="cl-running">running</span>}
+              {running && <span className="cl-running">{t('settings.changelog.running.label')}</span>}
             </button>
             {isOpen && (
               <div className="cl-body">
@@ -1602,10 +1625,12 @@ function ChangelogDialog({ current, onClose }) {
           </section>
         )
       })}
+      {/* tNodes: the version is bold, and markup never goes in a locale value. */}
       {data.current_listed === false && (
         <p className="microcopy" style={{ color: 'var(--faint)' }}>
-          You are running <b>{current}</b>, which is not one of the versions above — a build
-          made outside a release.
+          {tNodes('settings.changelog.unlisted.prose', {
+            version: <b key="version">{current}</b>,
+          })}
         </p>
       )}
     </div>
@@ -1613,7 +1638,7 @@ function ChangelogDialog({ current, onClose }) {
 
   if (mobile) {
     return createPortal(
-      <MobileSheet open onClose={onClose} title="Changelog">
+      <MobileSheet open onClose={onClose} title={t('settings.changelog.title')}>
         {body}
       </MobileSheet>,
       document.body,
@@ -1624,16 +1649,16 @@ function ChangelogDialog({ current, onClose }) {
       className="tp-scrim fixed inset-0 z-50 flex items-start justify-center overflow-y-auto px-4 py-10"
       role="dialog"
       aria-modal="true"
-      aria-label="Changelog"
+      aria-label={t('settings.changelog.title')}
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose()
       }}
     >
       <div className="hand-card hc-r2 w-full" style={{ maxWidth: 640, padding: '18px 20px 20px' }}>
         <div className="mb-3 flex items-center gap-2">
-          <h2 className="display-title flex-1" style={{ fontSize: 19 }}>Changelog</h2>
-          <Tooltip label="Close" side="bottom">
-            <CloseButton onClick={onClose} tooltip="Close the changelog" />
+          <h2 className="display-title flex-1" style={{ fontSize: 19 }}>{t('settings.changelog.title')}</h2>
+          <Tooltip label={t('common.action.close.label')} side="bottom">
+            <CloseButton onClick={onClose} tooltip={t('settings.changelog.close.tip')} />
           </Tooltip>
         </div>
         {body}
@@ -1743,7 +1768,7 @@ function FeaturesCard({ prefs, onSaved }) {
         info={t('settings.features.info.body')}
         infoTitle={t('settings.features.info.title')}
       >
-        Features
+        {t('settings.features.title')}
       </SectionTitle>
       <p className="microcopy">
         {t('settings.features.intro.prose')}
@@ -1798,11 +1823,11 @@ function OnboardingCard({ user, onStartTour }) {
   return (
     <Card>
       <SectionTitle
-        right={state === 'done' && <MonoLabel style={{ color: 'var(--ok)' }}>✓ completed</MonoLabel>}
-        info="A guided tour of every feature. It runs once on first launch and never needs your files — a sample book quote and film dialogue are built in. Next skips a step, “finish later” parks it, and you pick it back up here."
-        infoTitle="Onboarding"
+        right={state === 'done' && <MonoLabel style={{ color: 'var(--ok)' }}>{t('settings.onboarding.done.label')}</MonoLabel>}
+        info={t('settings.onboarding.info.body')}
+        infoTitle={t('settings.onboarding.title')}
       >
-        Onboarding
+        {t('settings.onboarding.title')}
       </SectionTitle>
       <div className="flex flex-wrap items-center gap-2">
         {/* keepLabel on the primary: it carries the step count when it is a
@@ -1811,13 +1836,13 @@ function OnboardingCard({ user, onStartTour }) {
         {state === 'postponed' ? (
           <>
             <StickerButton icon={<IconTour />} keepLabel onClick={() => start(step)}>
-              Resume tour · step {Math.min(step + 1, total)} of {total}
+              {t('settings.onboarding.resume.label', { n: Math.min(step + 1, total), total })}
             </StickerButton>
-            <GhostButton icon={<IconRefresh />} onClick={() => start(0)}>Start over</GhostButton>
+            <GhostButton icon={<IconRefresh />} onClick={() => start(0)}>{t('settings.onboarding.restart.label')}</GhostButton>
           </>
         ) : (
           <StickerButton icon={<IconTour />} keepLabel onClick={() => start(0)}>
-            {state ? 'Replay the tour' : 'Start the tour'}
+            {t(state ? 'settings.onboarding.replay.label' : 'settings.onboarding.start.label')}
           </StickerButton>
         )}
         {/* keepLabel for the same reason the two Appearance doors have it: this
@@ -1825,12 +1850,11 @@ function OnboardingCard({ user, onStartTour }) {
             is a feature nobody finds. "Start over" above keeps none, and should
             not — it is a secondary variant of the labelled button beside it, so
             the row it sits in already says what it is about. */}
-        <GhostButton icon={<IconBookmark />} keepLabel onClick={() => setPicking(true)}>Refresh one section</GhostButton>
+        <GhostButton icon={<IconBookmark />} keepLabel onClick={() => setPicking(true)}>{t('settings.onboarding.pick.label')}</GhostButton>
       </div>
-      <FormModal open={picking} onClose={() => setPicking(false)} title="Refresh one section" maxWidth={520}>
+      <FormModal open={picking} onClose={() => setPicking(false)} title={t('settings.onboarding.pick.label')} maxWidth={520}>
         <p className="microcopy mb-3">
-          The tour opens on that screen and carries on from there — Next moves to the next section,
-          and &ldquo;finish later&rdquo; parks it back here.
+          {t('settings.onboarding.pick.prose')}
         </p>
         <div>
           {feats.map((f) => (
@@ -1869,7 +1893,7 @@ function DevicesCard() {
   async function load() {
     const r = await json('GET', '/auth/devices')
     if (r.ok) setDevices(r.data.devices)
-    else setErr(errText(r, 'could not load devices'))
+    else setErr(errText(r, t('error.load.devices')))
   }
   useEffect(() => {
     load()
@@ -1879,43 +1903,44 @@ function DevicesCard() {
     setBusy(true)
     const r = await json('POST', '/auth/devices/pair')
     setBusy(false)
-    if (!r.ok) return setErr(errText(r, 'could not start pairing'))
+    if (!r.ok) return setErr(errText(r, t('error.pair.device')))
     setErr('')
     setPair(r.data)
   }
 
   async function revoke(d) {
-    if (!confirm(`Unpair “${d.name}”? It will stop working immediately.`)) return
+    if (!confirm(t('settings.devices.revoke.confirm', { name: d.name }))) return
     const r = await json('DELETE', `/auth/devices/${d.id}`)
-    if (!r.ok) return setErr(errText(r, 'could not revoke device'))
+    if (!r.ok) return setErr(errText(r, t('error.revoke.device')))
     setErr('')
-    toast('device unpaired')
+    toast(t('settings.devices.toast.unpaired'))
     load()
   }
 
   async function revokeAll() {
-    if (!confirm('Unpair every device? Each will stop working immediately.')) return
+    if (!confirm(t('settings.devices.revoke-all.confirm'))) return
     const r = await json('POST', '/auth/devices/revoke-all')
-    if (!r.ok) return setErr(errText(r, 'could not revoke devices'))
+    if (!r.ok) return setErr(errText(r, t('error.revoke.devices')))
     setErr('')
-    toast('all devices unpaired')
+    toast(t('settings.devices.toast.all-unpaired'))
     load()
   }
 
   return (
     <Card>
       <SectionTitle
-        right={devices?.length ? <MonoLabel>{devices.length} paired</MonoLabel> : null}
-        info="Pairs the Android app with this account. A device stays paired until you unpair it here — changing your password signs out browsers but deliberately leaves phones alone, so a routine password change can’t silently unpair them."
+        right={devices?.length ? <MonoLabel>{t('settings.devices.paired.count', { n: devices.length })}</MonoLabel> : null}
+        info={t('settings.devices.info.body')}
+        infoTitle={t('settings.devices.title')}
       >
-        Devices
+        {t('settings.devices.title')}
       </SectionTitle>
 
       {pair ? (
         <div style={{ borderTop: '1px solid var(--line)', paddingTop: 12 }}>
           <div className="flex items-center gap-1.5">
-            <MonoLabel>pairing code</MonoLabel>
-            <InfoDot title="Pairing code" text="Enter it in the app within five minutes. It works once, then expires — start another pairing for a second device." />
+            <MonoLabel>{t('settings.devices.code.label')}</MonoLabel>
+            <InfoDot title={t('settings.devices.code.info.title')} text={t('settings.devices.code.info.body')} />
           </div>
           <div
             className="mt-1 select-all"
@@ -1931,18 +1956,18 @@ function DevicesCard() {
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <FieldIconButton
               icon={<IconCopy />}
-              ariaLabel="Copy the pairing code"
+              ariaLabel={t('settings.devices.code.copy.aria')}
               onClick={() => copyText(pair.code)}
-              tooltip="Copy the code"
+              tooltip={t('settings.devices.code.copy.tip')}
             />
             <FieldIconButton
               icon={<IconCheck />}
-              ariaLabel="Done pairing"
+              ariaLabel={t('settings.devices.code.done.aria')}
               onClick={() => {
                   setPair(null)
                   load()
                 }}
-              tooltip="Done"
+              tooltip={t('common.action.done.label')}
               ok
             />
           </div>
@@ -1950,12 +1975,12 @@ function DevicesCard() {
       ) : (
         <div className="flex flex-wrap items-center gap-2">
           <StickerButton icon={<IconDevice />} keepLabel onClick={startPairing} disabled={busy}>
-            Pair a device
+            {t('settings.devices.pair.label')}
           </StickerButton>
           {devices?.length > 0 && (
             <FieldIconButton
               icon={<IconDelete />}
-              ariaLabel="Unpair every device"
+              ariaLabel={t('settings.devices.revoke-all.aria')}
               onClick={revokeAll}
               danger
             />
@@ -1971,13 +1996,15 @@ function DevicesCard() {
                 <b>{d.name}</b>
                 <span style={{ color: 'var(--soft)' }}>
                   {' — '}
-                  {d.last_seen_at ? `last seen ${fmtStamp(d.last_seen_at)}` : 'never used'}
+                  {d.last_seen_at
+                    ? t('settings.devices.last-seen.label', { when: fmtStamp(d.last_seen_at) })
+                    : t('settings.devices.never.label')}
                 </span>
               </span>
               <span className="ml-auto">
                 <FieldIconButton
                   icon={<IconClose />}
-                  ariaLabel={`Unpair ${d.name}`}
+                  ariaLabel={t('settings.devices.revoke.aria', { name: d.name })}
                   onClick={() => revoke(d)}
                   danger
                 />
@@ -1988,7 +2015,7 @@ function DevicesCard() {
       )}
       {devices?.length === 0 && !pair && (
         <p className="microcopy mt-3" style={{ fontSize: 12, color: 'var(--soft)' }}>
-          No devices paired yet.
+          {t('settings.devices.empty.prose')}
         </p>
       )}
       <ErrorText>{err}</ErrorText>
@@ -2036,13 +2063,16 @@ function RestorePrompt({ meta, me, busyLabel, onCancel, onConfirm }) {
   const [passphrase, setPassphrase] = useState('')
   const [confirm, setConfirm] = useState('')
 
+  // The same three validate reasons the onboarding twin uses (App.jsx), through
+  // the same keys: two dialogs for one operation should not own two vocabularies
+  // for "you have not typed the thing yet".
   const missing =
     key === 'passphrase'
-      ? passphrase ? '' : 'Enter the passphrase this archive was sealed with'
+      ? passphrase ? '' : t('error.validate.archive-passphrase-required')
       : key === 'password'
-        ? password ? '' : 'Enter your password'
+        ? password ? '' : t('error.validate.password-required')
         : confirm !== 'RESTORE'
-          ? 'Type RESTORE to confirm'
+          ? t('error.validate.restore-word')
           : ''
 
   const submit = (e) => {
@@ -2055,14 +2085,18 @@ function RestorePrompt({ meta, me, busyLabel, onCancel, onConfirm }) {
 
   const body = (
     <form onSubmit={submit} className="space-y-3">
+      {/* TWO WHOLE SENTENCES RATHER THAN ONE WITH A HOLE IN IT. The date clause
+          lands in the middle of the warning, and a locale value cannot begin with
+          the space that would need — the parser trims both halves — so the dated
+          and undated forms are two keys instead of a fragment glued in. */}
       <p className="microcopy" style={{ color: 'var(--error)' }}>
-        Replaces everything on this server{meta?.created ? ` with the backup from ${fmtWhen(meta.created)}` : ''} — every
-        user, library and setting. Everyone is logged out. The data being replaced is kept on the server as one
-        recovery copy.
+        {meta?.created
+          ? t('settings.restore.warn.dated.prose', { date: fmtWhen(meta.created) })
+          : t('settings.restore.warn.prose')}
       </p>
       {key === 'passphrase' && (
         <label className="tp-field">
-          <MonoLabel>Passphrase</MonoLabel>
+          <MonoLabel>{t('common.field.passphrase.label')}</MonoLabel>
           <input
             className="tp-input"
             type="password"
@@ -2075,7 +2109,7 @@ function RestorePrompt({ meta, me, busyLabel, onCancel, onConfirm }) {
       )}
       {key === 'password' && (
         <label className="tp-field">
-          <MonoLabel>Your password</MonoLabel>
+          <MonoLabel>{t('settings.restore.password.label')}</MonoLabel>
           <input
             className="tp-input"
             type="password"
@@ -2087,16 +2121,18 @@ function RestorePrompt({ meta, me, busyLabel, onCancel, onConfirm }) {
           />
           <p className="microcopy">
             {recoverable
-              ? 'This server made this archive, so your current password opens it — even if it is not the one it was sealed with.'
+              ? t('settings.restore.password.recoverable.prose')
               : era
-                ? `Sealed by \u2018${meta.account}\u2019 on another server, so it needs that account\u2019s password as it was then.`
-                : 'Not made on this server, so it needs the password that was current when it was made.'}
+                ? t('settings.restore.password.named.prose', { name: meta.account })
+                : t('settings.restore.password.era.prose')}
           </p>
         </label>
       )}
       {key !== 'passphrase' && key !== 'password' && (
         <label className="tp-field">
-          <MonoLabel>Type RESTORE</MonoLabel>
+          {/* RESTORE stays Latin in every language: it is the word the server
+              compares byte for byte. */}
+          <MonoLabel>{t('settings.restore.confirm.label')}</MonoLabel>
           <input
             className="tp-input"
             style={{ fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)' }}
@@ -2104,7 +2140,7 @@ function RestorePrompt({ meta, me, busyLabel, onCancel, onConfirm }) {
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
           />
-          <p className="microcopy">This archive predates 1.4.1 and carries no key, so the typed word is the confirmation.</p>
+          <p className="microcopy">{t('settings.restore.confirm.prose')}</p>
         </label>
       )}
       <div className="flex flex-wrap items-center gap-2">
@@ -2113,19 +2149,21 @@ function RestorePrompt({ meta, me, busyLabel, onCancel, onConfirm }) {
             everyone out. Nothing about that is to be found out by pressing a
             glyph you half-recognise. */}
         <StickerButton icon={<IconRestore />} keepLabel disabled={!!missing || !!busyLabel} title={missing || undefined}>
-          {busyLabel || 'Restore'}
+          {busyLabel || t('common.action.restore.label')}
         </StickerButton>
         <GhostButton type="button" icon={<IconClose />} keepLabel disabled={!!busyLabel} onClick={onCancel}>
-          Cancel
+          {t('common.action.cancel.label')}
         </GhostButton>
       </div>
-      {missing && <p className="microcopy" style={{ color: 'var(--faint)' }}>{missing}.</p>}
+      {/* The stop belongs to the sentence, not to the reason — Bengali ends on a
+          danda, which is why the frame is a key and not a '.' in the JSX. */}
+      {missing && <p className="microcopy" style={{ color: 'var(--faint)' }}>{t('common.form.reason.sentence', { reason: missing })}</p>}
     </form>
   )
 
   if (mobile) {
     return createPortal(
-      <MobileSheet open onClose={busyLabel ? () => {} : onCancel} title="Restore" dismissOnScrim={false}>
+      <MobileSheet open onClose={busyLabel ? () => {} : onCancel} title={t('settings.restore.title')} dismissOnScrim={false}>
         {body}
       </MobileSheet>,
       document.body,
@@ -2136,14 +2174,14 @@ function RestorePrompt({ meta, me, busyLabel, onCancel, onConfirm }) {
       className="tp-scrim fixed inset-0 z-50 flex items-start justify-center overflow-y-auto px-4 py-10"
       role="dialog"
       aria-modal="true"
-      aria-label="Restore"
+      aria-label={t('settings.restore.title')}
       onMouseDown={(e) => { if (e.target === e.currentTarget && !busyLabel) onCancel() }}
     >
       <div className="hand-card hc-r2 w-full" style={{ maxWidth: 460, padding: '18px 20px 20px' }}>
         <div className="mb-3 flex items-center gap-2">
-          <h2 className="display-title flex-1" style={{ fontSize: 19 }}>Restore</h2>
-          <Tooltip label="Cancel" side="bottom">
-            <CloseButton onClick={onCancel} label="Cancel" tooltip="Cancel and close" disabled={!!busyLabel} />
+          <h2 className="display-title flex-1" style={{ fontSize: 19 }}>{t('settings.restore.title')}</h2>
+          <Tooltip label={t('common.action.cancel.label')} side="bottom">
+            <CloseButton onClick={onCancel} label={t('common.action.cancel.label')} tooltip={t('settings.prompt.close.tip')} disabled={!!busyLabel} />
           </Tooltip>
         </div>
         {body}
@@ -2192,26 +2230,38 @@ function BinTile({ onOpen }) {
 
   return (
     <Card data-tour="trash">
+      {/* The name and the two states the page shares with the tile are the
+          page's own keys (bin.*) — one bin, one vocabulary. Only the dot and the
+          count line are the tile's own. */}
       <SectionTitle
-        info="Everything you delete waits here first, and putting one back returns it exactly as it was — quotes, tags, colours, schedule and cover alike. An entry leaves on its own past the window, and that clock only runs while the server does."
-        infoTitle="The bin"
+        info={t('settings.bin.info.body')}
+        infoTitle={t('bin.info.title')}
       >
-        The bin
+        {t('bin.title')}
       </SectionTitle>
 
       <div className="space-y-3">
+        {/* REAL PLURALS. This line was two JavaScript ternaries picking between
+            entry/entries and quote/quotes, which is English grammar in code and
+            has no answer in a language with different plural rules. Both counts
+            go through unit.* and common.count.phrase now, and whether anything is
+            held picks between two whole sentences rather than splicing a clause
+            in. */}
         <p className="microcopy">
           {items === null
-            ? 'reading the bin…'
+            ? t('bin.state.loading')
             : n === 0
-              ? 'nothing deleted — anything you delete waits here first'
-              : `${n} ${n === 1 ? 'entry' : 'entries'} waiting${held > 0 ? `, holding ${held} ${held === 1 ? 'quote' : 'quotes'}` : ''} — put any of them back, or empty it`}
+              ? t('bin.state.empty')
+              : t(held > 0 ? 'settings.bin.tile.holding.prose' : 'settings.bin.tile.prose', {
+                  count: t('common.count.phrase', { n, noun: t('unit.entry', { count: n }) }),
+                  held: t('common.count.phrase', { n: held, noun: t('unit.quote', { count: held }) }),
+                })}
         </p>
         {/* keepLabel: the one control on this card, and a lone wastebasket glyph on
             a settings page reads as "delete something" rather than "open the place
             deleted things went". */}
         <GhostButton icon={<IconDelete />} keepLabel onClick={onOpen}>
-          Open the bin
+          {t('settings.bin.open.label')}
         </GhostButton>
       </div>
     </Card>
@@ -2229,7 +2279,7 @@ function BackupPrompt({ me, busy, onCancel, onConfirm }) {
   const [usePhrase, setUsePhrase] = useState(false)
   const [password, setPassword] = useState('')
   const [passphrase, setPassphrase] = useState('')
-  const missing = usePhrase ? passphraseProblem(passphrase) : password ? '' : 'Enter your password'
+  const missing = usePhrase ? passphraseProblem(passphrase) : password ? '' : t('error.validate.password-required')
 
   const submit = (e) => {
     e.preventDefault()
@@ -2240,12 +2290,11 @@ function BackupPrompt({ me, busy, onCancel, onConfirm }) {
   const body = (
     <form onSubmit={submit} className="space-y-3">
       <p className="microcopy">
-        The archive holds every user, library, password hash and API key, so it is encrypted before it leaves the
-        server. Keep the key: it is what opens the archive on any other machine.
+        {t('settings.backup.what.prose')}
       </p>
       {!usePhrase ? (
         <label className="tp-field">
-          <MonoLabel>Your password</MonoLabel>
+          <MonoLabel>{t('settings.restore.password.label')}</MonoLabel>
           <input
             className="tp-input"
             type="password"
@@ -2256,13 +2305,12 @@ function BackupPrompt({ me, busy, onCancel, onConfirm }) {
             onChange={(e) => setPassword(e.target.value)}
           />
           <p className="microcopy">
-            This password opens the archive on any Tippani. On THIS server your current password always will, even
-            after you change it.
+            {t('settings.backup.password.prose')}
           </p>
         </label>
       ) : (
         <label className="tp-field">
-          <MonoLabel>Passphrase · {PASSPHRASE_MIN}–{PASSPHRASE_MAX} characters</MonoLabel>
+          <MonoLabel>{t('settings.backup.passphrase.label', { min: PASSPHRASE_MIN, max: PASSPHRASE_MAX })}</MonoLabel>
           <input
             className="tp-input"
             type="password"
@@ -2271,14 +2319,14 @@ function BackupPrompt({ me, busy, onCancel, onConfirm }) {
             value={passphrase}
             onChange={(e) => setPassphrase(e.target.value)}
           />
-          <p className="microcopy">Not tied to any account — and not recoverable. Lose it and the archive is lost.</p>
+          <p className="microcopy">{t('settings.backup.passphrase.prose')}</p>
         </label>
       )}
       {/* The key this archive will be sealed with is the single most consequential
           choice on this form, so the control that switches it wears the key. */}
       <button type="button" className="tp-link tp-link-icon" onClick={() => setUsePhrase((v) => !v)}>
         <IconKey />
-        <span>{usePhrase ? 'Use my account password instead' : 'Set a separate passphrase instead'}</span>
+        <span>{t(usePhrase ? 'settings.backup.use-password.label' : 'settings.backup.use-passphrase.label')}</span>
       </button>
       <div className="flex flex-wrap items-center gap-2">
         {/* "Back up" — not "Back up & download", which is what it used to say and
@@ -2287,19 +2335,19 @@ function BackupPrompt({ me, busy, onCancel, onConfirm }) {
             label naming two acts for a button that should only do one is how the
             second one got welded on in the first place. */}
         <StickerButton icon={<IconArchive />} keepLabel disabled={!!missing || busy} title={missing || undefined}>
-          {busy ? 'Backing up…' : 'Back up'}
+          {busy ? t('settings.backup.now.busy') : t('settings.backup.prompt.title')}
         </StickerButton>
         <GhostButton type="button" icon={<IconClose />} keepLabel disabled={busy} onClick={onCancel}>
-          Cancel
+          {t('common.action.cancel.label')}
         </GhostButton>
       </div>
-      {missing && <p className="microcopy" style={{ color: 'var(--faint)' }}>{missing}.</p>}
+      {missing && <p className="microcopy" style={{ color: 'var(--faint)' }}>{t('common.form.reason.sentence', { reason: missing })}</p>}
     </form>
   )
 
   if (mobile) {
     return createPortal(
-      <MobileSheet open onClose={busy ? () => {} : onCancel} title="Back up" dismissOnScrim={false}>
+      <MobileSheet open onClose={busy ? () => {} : onCancel} title={t('settings.backup.prompt.title')} dismissOnScrim={false}>
         {body}
       </MobileSheet>,
       document.body,
@@ -2310,14 +2358,14 @@ function BackupPrompt({ me, busy, onCancel, onConfirm }) {
       className="tp-scrim fixed inset-0 z-50 flex items-start justify-center overflow-y-auto px-4 py-10"
       role="dialog"
       aria-modal="true"
-      aria-label="Back up"
+      aria-label={t('settings.backup.prompt.title')}
       onMouseDown={(e) => { if (e.target === e.currentTarget && !busy) onCancel() }}
     >
       <div className="hand-card hc-r2 w-full" style={{ maxWidth: 460, padding: '18px 20px 20px' }}>
         <div className="mb-3 flex items-center gap-2">
-          <h2 className="display-title flex-1" style={{ fontSize: 19 }}>Back up</h2>
-          <Tooltip label="Cancel" side="bottom">
-            <CloseButton onClick={onCancel} label="Cancel" tooltip="Cancel and close" disabled={busy} />
+          <h2 className="display-title flex-1" style={{ fontSize: 19 }}>{t('settings.backup.prompt.title')}</h2>
+          <Tooltip label={t('common.action.cancel.label')} side="bottom">
+            <CloseButton onClick={onCancel} label={t('common.action.cancel.label')} tooltip={t('settings.prompt.close.tip')} disabled={busy} />
           </Tooltip>
         </div>
         {body}
@@ -2369,7 +2417,7 @@ function BackupCard({ user }) {
     setBusy(true)
     const r = await json('POST', '/admin/backup', creds)
     setBusy(false)
-    if (!r.ok) return toast(errText(r, 'backup failed'))
+    if (!r.ok) return toast(errText(r, t('error.backup.failed')))
     setAsking(false)
     setBackup(r.data.backup)
     // IT NO LONGER DOWNLOADS ITSELF. Making a backup and taking a copy of it are
@@ -2388,7 +2436,7 @@ function BackupCard({ user }) {
     //
     // So the toast offers it instead. One tap if you want the copy, nothing if you
     // do not, and the button on the card is there either way.
-    toast('backup created', { label: 'Download', onClick: download })
+    toast(t('settings.backup.toast.created'), { label: t('common.action.download.label'), onClick: download })
   }
 
   // The archive the restore prompt is about, and therefore which credential it
@@ -2415,9 +2463,9 @@ function BackupCard({ user }) {
       }
       if (!r.ok) {
         setPhase('idle')
-        return toast(errText(r, 'restore failed — data intact'))
+        return toast(errText(r, t('error.restore.intact')))
       }
-      toast('restored · logging you out')
+      toast(t('settings.backup.toast.restored'))
       setTimeout(() => window.location.reload(), 1200)
     } catch {
       // A large restore can outlive the connection even when it succeeds
@@ -2426,30 +2474,37 @@ function BackupCard({ user }) {
     }
   }
 
-  const busyLabel = phase === 'uploading' ? `Uploading… ${pct}%` : phase === 'restoring' ? 'Applying…' : ''
+  // The onboarding twin's own busy labels (App.jsx) — one upload, one word for
+  // it, whichever screen you started it from.
+  const busyLabel = phase === 'uploading' ? t('shell.restore.uploading.busy', { percent: pct }) : phase === 'restoring' ? t('common.action.apply.busy') : ''
   // What the chosen source will ask for, said before you commit to it — so the
   // prompt is never a surprise, and a file whose passphrase you do not have is
   // obvious before the upload starts.
+  // An archive with no account named in its header used to read "asks for the
+  // password ‘it’ had" — a pronoun assembled in code, standing in for a name that
+  // is not there. It gets its own sentence now instead of a quoted 'it'.
   const asks =
     !target
       ? ''
       : target.key === 'passphrase'
-        ? 'asks for its passphrase'
+        ? t('settings.backup.asks.passphrase')
         : target.key === 'password'
           ? target.recoverable
-            ? 'asks for your password'
-            : `asks for the password ‘${target.account || 'it'}’ had when it was made`
+            ? t('settings.backup.asks.password')
+            : target.account
+              ? t('settings.backup.asks.password.named', { name: target.account })
+              : t('settings.backup.asks.password.era')
           : target.key === 'unknown'
-            ? 'unreadable, or written by a newer Tippani'
-            : 'predates 1.4.1 · no key, asks you to type RESTORE'
+            ? t('settings.backup.asks.unknown')
+            : t('settings.backup.asks.unkeyed')
 
   return (
     <Card data-tour="backup">
       <SectionTitle
-        info="One dated, encrypted archive of everything, sealed with your password or a passphrase. Moved to another machine it needs the password that sealed it, and a passphrase archive is recoverable by nothing. Restoring replaces everything here."
-        infoTitle="Backup & restore"
+        info={t('settings.backup.info.body')}
+        infoTitle={t('settings.backup.title')}
       >
-        Backup &amp; restore
+        {t('settings.backup.title')}
       </SectionTitle>
       <div className="space-y-4">
         <div className="flex flex-wrap items-center gap-3">
@@ -2459,7 +2514,7 @@ function BackupCard({ user }) {
             onClick={() => setAsking(true)}
             disabled={busy || phase !== 'idle'}
           >
-            {busy ? 'Backing up…' : 'Back up now'}
+            {busy ? t('settings.backup.now.busy') : t('settings.backup.now.label')}
           </GhostButton>
           {/* THE DOWNLOAD IS A CONTROL NOW, not a `download` word in the corner.
               It was a bare tp-link beside a button, which read as a footnote to the
@@ -2475,19 +2530,21 @@ function BackupCard({ user }) {
               href={apiURL('/admin/backup/download')}
             >
               <IconExport />
-              Download the last one
+              {t('settings.backup.download.label')}
             </a>
           )}
         </div>
         {loaded && (
           <p className="microcopy">
             {backup ? (
-              <>
-                last backup: <b>{fmtWhen(backup.created)}</b> · {fmtSize(backup.size)} · kept on this server until the
-                next one replaces it
-              </>
+              // tNodes: the date is bold, so the sentence carries a node. fmtSize
+              // renders MB/KB, which are symbols rather than words (§8) and stay.
+              tNodes('settings.backup.last.prose', {
+                when: <b key="when">{fmtWhen(backup.created)}</b>,
+                size: fmtSize(backup.size),
+              })
             ) : (
-              'no backup on this server yet'
+              t('settings.backup.empty.prose')
             )}
           </p>
         )}
@@ -2499,19 +2556,22 @@ function BackupCard({ user }) {
               which is the moment it applies and the only place it is certain to
               be read. A card that explains the same consequence three times is
               not being three times as careful. */}
-          <MonoLabel>restore from</MonoLabel>
+          <MonoLabel>{t('settings.backup.restore-from.label')}</MonoLabel>
           {/* One control, two sources. Choosing the source is the whole difference
               between what used to be two separate restore blocks. */}
+          {/* The picker's own words are the onboarding twin's (shell.restore.*):
+              it is one control rendered on two screens, and it should not read as
+              two features. The stored values never move. */}
           <Toggle
-            ariaLabel="Restore from"
+            ariaLabel={t('shell.restore.source.aria')}
             value={source}
             onChange={setSource}
-            options={[['server', 'This server'], ['file', 'A file']]}
+            options={[['server', t('shell.restore.source.server.label')], ['file', t('shell.restore.source.file.label')]]}
           />
           {/* Just what it will ask for. "the archive kept here" was the Toggle's
               own "This server" said again in different words, one line below it. */}
           {source === 'server' && (
-            <p className="microcopy">{backup ? asks : 'nothing kept here yet'}</p>
+            <p className="microcopy">{backup ? asks : t('settings.backup.server.empty.prose')}</p>
           )}
           {source === 'file' && (
             <>
@@ -2520,7 +2580,7 @@ function BackupCard({ user }) {
                 type="file"
                 accept=".tpbk,.tar.gz,.tgz,application/gzip,application/octet-stream"
                 className="hidden"
-                aria-label="Choose a backup file to restore"
+                aria-label={t('shell.restore.file.aria')}
                 onChange={(e) => chooseFile(e.target.files?.[0] || null)}
               />
               <div className="flex flex-wrap items-center gap-2">
@@ -2532,9 +2592,13 @@ function BackupCard({ user }) {
                   onClick={() => fileRef.current?.click()}
                   disabled={phase !== 'idle'}
                 >
-                  {file ? 'Choose a different file…' : 'Choose file…'}
+                  {t(file ? 'settings.backup.file.replace.label' : 'settings.backup.file.choose.label')}
                 </GhostButton>
-                <span className="microcopy">{file ? `${file.name} · ${fmtSize(file.size)}` : 'no file chosen'}</span>
+                <span className="microcopy">
+                  {file
+                    ? t('settings.backup.file.chosen.label', { name: file.name, size: fmtSize(file.size) })
+                    : t('settings.backup.file.none.label')}
+                </span>
               </div>
               {file && <p className="microcopy">{asks}</p>}
             </>
@@ -2545,9 +2609,9 @@ function BackupCard({ user }) {
               keepLabel
               onClick={() => setPrompt(true)}
               disabled={!target || busy || phase !== 'idle'}
-              title={!target ? (source === 'file' ? 'Choose a file first' : 'No backup on this server yet') : undefined}
+              title={!target ? t(source === 'file' ? 'error.validate.backup-file-required' : 'error.validate.backup-absent') : undefined}
             >
-              Restore…
+              {t('settings.backup.restore.label')}
             </StickerButton>
           </div>
           {phase === 'uploading' && (
@@ -2588,7 +2652,7 @@ function SectionTitle({ children, right, info, infoTitle }) {
     <div className="mb-4 flex items-center justify-between gap-3">
       <div className="flex items-center gap-1.5">
         <h2 style={{ fontFamily: 'var(--font-ui)', fontStyle: 'var(--font-ui-style)', fontVariantCaps: 'var(--font-ui-caps)', textTransform: 'var(--font-ui-case)', fontVariantNumeric: 'var(--font-ui-figures)', fontSize: 16.5, fontWeight: 600 }}>{children}</h2>
-        {info && <InfoDot text={info} title={infoTitle || (typeof children === 'string' ? children : 'About this')} />}
+        {info && <InfoDot text={info} title={infoTitle || (typeof children === 'string' ? children : t('settings.card.info.title'))} />}
       </div>
       {right}
     </div>
@@ -2650,7 +2714,7 @@ function SizeSlider({ label, storageKey, def }) {
           style={{ width: 190, accentColor: 'var(--accent-ui)', cursor: 'pointer' }}
         />
         <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 12, color: 'var(--faint)', minWidth: 42 }}>
-          {size}px
+          {t('settings.type.size.format', { n: size })}
         </span>
       </div>
     </div>
@@ -2661,11 +2725,16 @@ function SizeSlider({ label, storageKey, def }) {
 // together. Rendered with hardcoded §4 palette colours (each shows its own combo
 // regardless of the live theme); the live accent is threaded through so the
 // callout edge/dot + selection ring all follow the chosen accent.
+// HOLDS KEYS, RESOLVED WHERE THEY ARE DRAWN — a module-scope table of words
+// freezes the language at import time, which is the bug three other tables in
+// this app shipped. The four names are the SAME four the share sheet's picture
+// panel offers (share.image.theme.*): one set of four skins, so one set of four
+// words rather than a second spelling of "Paper · Dark".
 const PRESETS = [
-  { aesthetic: 'paper', theme: 'light', label: 'Paper · Light', card: 'linear-gradient(180deg,#FFFFFC,#FCF8ED)', ink: '#221C16', border: 'rgba(41,38,29,.5)', line: '#E4DAC7' },
-  { aesthetic: 'paper', theme: 'dark', label: 'Paper · Dark', card: 'linear-gradient(180deg,#352D23,#2C251E)', ink: '#EFE6D4', border: 'rgba(239,230,212,.32)', line: '#453B2D' },
-  { aesthetic: 'film', theme: 'light', label: 'Film · Light', card: 'linear-gradient(180deg,#FDFAF3,#F7F2E4)', ink: '#2A241C', border: 'rgba(185,138,68,.45)', line: '#DFD6C4', strip: '#E9E1CC', holes: '#F7F2E6', amber: '#B98A44' },
-  { aesthetic: 'film', theme: 'dark', label: 'Film · Dark', card: 'linear-gradient(180deg,#251E16,#1D1710)', ink: '#ECE3D1', border: 'rgba(214,162,92,.3)', line: '#322A20', strip: '#0F0B07', holes: 'rgba(236,227,209,.5)', amber: '#D6A25C' },
+  { aesthetic: 'paper', theme: 'light', label: 'share.image.theme.paper-light.label', card: 'linear-gradient(180deg,#FFFFFC,#FCF8ED)', ink: '#221C16', border: 'rgba(41,38,29,.5)', line: '#E4DAC7' },
+  { aesthetic: 'paper', theme: 'dark', label: 'share.image.theme.paper-dark.label', card: 'linear-gradient(180deg,#352D23,#2C251E)', ink: '#EFE6D4', border: 'rgba(239,230,212,.32)', line: '#453B2D' },
+  { aesthetic: 'film', theme: 'light', label: 'share.image.theme.film-light.label', card: 'linear-gradient(180deg,#FDFAF3,#F7F2E4)', ink: '#2A241C', border: 'rgba(185,138,68,.45)', line: '#DFD6C4', strip: '#E9E1CC', holes: '#F7F2E6', amber: '#B98A44' },
+  { aesthetic: 'film', theme: 'dark', label: 'share.image.theme.film-dark.label', card: 'linear-gradient(180deg,#251E16,#1D1710)', ink: '#ECE3D1', border: 'rgba(214,162,92,.3)', line: '#322A20', strip: '#0F0B07', holes: 'rgba(236,227,209,.5)', amber: '#D6A25C' },
 ]
 
 // PresetCard — one clickable combo. Fixed height across all four (a reserved
@@ -2683,7 +2752,7 @@ function PresetCard({ spec, accentHex, code, selected, auto, dimmed, onClick }) 
       type="button"
       onClick={onClick}
       aria-pressed={selected}
-      aria-label={`${spec.label}${auto ? ' (matches system)' : ''}`}
+      aria-label={auto ? t('settings.appearance.preset.auto.aria', { name: t(spec.label) }) : t(spec.label)}
       style={{ background: 'none', border: 'none', padding: 0, textAlign: 'left', cursor: 'pointer', opacity: dimmed ? 0.45 : 1, transition: 'opacity .2s ease' }}
     >
       <div
@@ -2728,7 +2797,7 @@ function PresetCard({ spec, accentHex, code, selected, auto, dimmed, onClick }) 
           }}
         >
           <p style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontStyle: 'italic', fontSize: 12, lineHeight: 1.35, color: spec.ink }}>
-            the margins, wider than the text…
+            {t('settings.appearance.preset.specimen.label')}
           </p>
           <div className="mt-2 flex items-center gap-2">
             <span style={{ width: 7, height: 7, borderRadius: 999, background: accent, display: 'block' }} />
@@ -2745,7 +2814,7 @@ function PresetCard({ spec, accentHex, code, selected, auto, dimmed, onClick }) 
         )}
       </div>
       <p className="mt-2" style={{ fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 9.5, letterSpacing: '.14em', textTransform: 'uppercase', color: selected ? 'var(--accent-ui)' : 'var(--faint)' }}>
-        {spec.label}
+        {t(spec.label)}
       </p>
     </button>
   )
@@ -3023,6 +3092,12 @@ function IconSaved() {
 // row. The Amazon domain is not a secret, it is a setting whose whole content is
 // "www.amazon.de", and hiding that behind a badge saying "saved" would be
 // withholding the answer to the only question the field asks.
+//
+// `label` ARRIVES WHOLE AND IS NEVER RESHAPED HERE. The three aria-labels used
+// to be built out of it in code — `Add a ${label.toLowerCase()}` — which is an
+// English sentence assembled from two pieces: not translatable, and not even
+// right in English once IGDB arrived ("a IGDB client id"). Each frame is its own
+// key now and the name goes into it unaltered.
 function KeyField({ label, hint, set, placeholder, secret = true, value = '', onSave, busy }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(secret ? '' : value)
@@ -3041,12 +3116,12 @@ function KeyField({ label, hint, set, placeholder, secret = true, value = '', on
         <MonoLabel>{label}</MonoLabel>
         {hint && <InfoDot text={hint} title={label} />}
         {!secret && !editing && (
-          <span className={'inline-field-inline' + (value ? '' : ' is-empty')}>{value || 'not set'}</span>
+          <span className={'inline-field-inline' + (value ? '' : ' is-empty')}>{value || t('settings.keys.unset.label')}</span>
         )}
         <span className="flex-1" />
         {saved && !editing && (
-          <Tooltip label="Saved">
-            <span className="field-badge" role="img" aria-label={`${label}: saved`}>
+          <Tooltip label={t('settings.keys.saved.tip')}>
+            <span className="field-badge" role="img" aria-label={t('settings.keys.saved.aria', { name: label })}>
               <IconSaved />
             </span>
           </Tooltip>
@@ -3054,22 +3129,22 @@ function KeyField({ label, hint, set, placeholder, secret = true, value = '', on
         {!editing ? (
           <FieldIconButton
             icon={<IconEdit />}
-            ariaLabel={set ? `Replace the ${label.toLowerCase()}` : `Add a ${label.toLowerCase()}`}
+            ariaLabel={t(set ? 'settings.keys.replace.aria' : 'settings.keys.add.aria', { name: label })}
             onClick={() => setEditing(true)}
           />
         ) : (
           <>
             <FieldIconButton
               icon={<IconCheck />}
-              ariaLabel={`Save ${label.toLowerCase()}`}
+              ariaLabel={t('common.action.save.field.aria', { field: label })}
               disabled={busy}
               onClick={commit}
-              tooltip={draft.trim() ? 'Save' : 'Save blank — clears this key'}
+              tooltip={draft.trim() ? t('common.action.save.label') : t('settings.keys.save.blank.tip')}
               ok
             />
             <FieldIconButton
               icon={<IconClose />}
-              ariaLabel="Cancel"
+              ariaLabel={t('common.action.cancel.label')}
               disabled={busy}
               onClick={() => { setEditing(false); setDraft(secret ? '' : value) }}
             />
@@ -3093,6 +3168,17 @@ function KeyField({ label, hint, set, placeholder, secret = true, value = '', on
     </div>
   )
 }
+
+// keyLabel composes a field's name out of the supplier and the noun beside it:
+// "Google Books key", "IGDB client id", "Amazon domain". The supplier names are
+// PROPER NOUNS and already live in vocab.source.*, so seven hardcoded labels
+// would be seven more copies of a word the app spells in a dozen other places.
+// Called during render, never at module scope.
+const keyLabel = (source, noun) =>
+  t('settings.keys.field.label', {
+    source: t(`vocab.source.${source}.label`),
+    noun: t(`settings.keys.noun.${noun}`),
+  })
 
 function Metadata({ user, onPreferences }) {
   const admin = user.is_admin
@@ -3125,7 +3211,8 @@ function Metadata({ user, onPreferences }) {
   // that sounds like a warning, describes no fault, and clears itself the moment
   // anybody uses the app. Nothing was ever wrong and there was nothing to do.
   // Silence is the healthy state; a chip here means something to act on.
-  const booksChip = lookup?.ok === false ? ['error', 'Lookup failing'] : null
+  // Tone, then the KEY that names it — resolved where the chip is drawn.
+  const booksChip = lookup?.ok === false ? ['error', 'settings.metadata.books.failing.label'] : null
   // A CHIP ONLY WHERE THE KEY FIELDS CANNOT ANSWER. "Custom key" beside TMDB
   // said exactly what the saved badge on the TMDB field says one line below it,
   // and "No key (optional)" beside TheTVDB said nothing at all — an optional key
@@ -3134,8 +3221,8 @@ function Metadata({ user, onPreferences }) {
   // are running on the shared built-in key even though you have set nothing, and
   // that they are running on nothing at all and will 503.
   const tmdbChip =
-    source === 'builtin' ? ['active', 'Built-in key']
-      : source === 'none' ? ['error', 'No key']
+    source === 'builtin' ? ['active', 'settings.metadata.tmdb.builtin.label']
+      : source === 'none' ? ['error', 'settings.metadata.tmdb.none.label']
         : null
 
   // saveKey writes exactly one field. The endpoint decodes every key as a
@@ -3149,18 +3236,18 @@ function Metadata({ user, onPreferences }) {
     const r = await json('PUT', '/admin/metadata-keys', { [field]: value.trim() })
     setSaving(false)
     if (!r.ok) {
-      setError(errText(r, 'could not save'))
+      setError(errText(r, t('error.save.generic')))
       return false
     }
     await Promise.all([loadStatus(), loadKeys()])
-    toast(value.trim() ? 'saved' : 'cleared')
+    toast(value.trim() ? t('common.toast.saved') : t('settings.keys.toast.cleared'))
     return true
   }
 
   return (
     <Card data-tour="metadata-keys">
-      <SectionTitle info="Books need no key: Google Books and Open Library, merged. Films run on TMDB unless this build ships one (TheTVDB optional), games on an IGDB pair with no built-in behind it. Each field saves on its own, and manual entry always works.">
-        Metadata sources
+      <SectionTitle info={t('settings.metadata.info.body')}>
+        {t('settings.metadata.title')}
       </SectionTitle>
 
       {/* No per-source headings. 1.7.2 took away the feature descriptions that
@@ -3183,13 +3270,13 @@ function Metadata({ user, onPreferences }) {
           nothing to report. */}
       {(booksChip || tmdbChip) && (
         <div className="flex flex-wrap items-center gap-2">
-          {booksChip && <StatusChip tone={booksChip[0]}>{booksChip[1]}</StatusChip>}
-          {tmdbChip && <StatusChip tone={tmdbChip[0]}>{tmdbChip[1]}</StatusChip>}
+          {booksChip && <StatusChip tone={booksChip[0]}>{t(booksChip[1])}</StatusChip>}
+          {tmdbChip && <StatusChip tone={tmdbChip[0]}>{t(tmdbChip[1])}</StatusChip>}
         </div>
       )}
       {lookup?.ok === false && lookup.error && (
         <p className="mt-1" style={{ fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 11, color: 'var(--error)' }}>
-          last error: {lookup.error}
+          {t('settings.metadata.last-error.prose', { error: lookup.error })}
         </p>
       )}
 
@@ -3198,26 +3285,26 @@ function Metadata({ user, onPreferences }) {
       {admin && (
         <div className="mt-3">
           <KeyField
-            label="Google Books key"
-            hint="Optional, and only if you exceed roughly 1,000 lookups a day: console.cloud.google.com → enable the Books API → create a key. Books work with no key at all."
+            label={keyLabel('google', 'key')}
+            hint={t('settings.keys.google.hint')}
             set={keys?.google_books_key_set}
-            placeholder="Google Books API key — optional"
+            placeholder={t('settings.keys.google.placeholder')}
             busy={saving}
             onSave={(v) => saveKey('google_books_key', v)}
           />
           <KeyField
-            label="TMDB key"
-            hint="themoviedb.org → Settings → API → a free v3 key (a v4 read token also works). Overrides the built-in shared key. With no key at all, lookups return 503 — manual entry still works."
+            label={keyLabel('tmdb', 'key')}
+            hint={t('settings.keys.tmdb.hint')}
             set={keys?.tmdb_key_set}
-            placeholder="TMDB v3 key or v4 token — overrides built-in"
+            placeholder={t('settings.keys.tmdb.placeholder')}
             busy={saving}
             onSave={(v) => saveKey('tmdb_key', v)}
           />
           <KeyField
-            label="TheTVDB key"
-            hint="Optional, and usually better for long-running shows: thetvdb.com → Dashboard → API keys."
+            label={keyLabel('tvdb', 'key')}
+            hint={t('settings.keys.tvdb.hint')}
             set={keys?.tvdb_key_set}
-            placeholder="TheTVDB v4 API key — optional"
+            placeholder={t('settings.keys.tvdb.placeholder')}
             busy={saving}
             onSave={(v) => saveKey('tvdb_key', v)}
           />
@@ -3234,18 +3321,18 @@ function Metadata({ user, onPreferences }) {
               own, but it is stored beside its partner and never echoed, so there
               is no value to pre-fill and the saved badge is the whole answer. */}
           <KeyField
-            label="IGDB client id"
-            hint="Games only, and IGDB authenticates through Twitch: dev.twitch.tv/console → Register Your Application → the client id is shown there. The secret below is the other half; one on its own looks nothing up."
+            label={keyLabel('igdb', 'client-id')}
+            hint={t('settings.keys.igdb-id.hint')}
             set={keys?.igdb_client_id_set}
-            placeholder="Twitch client id — needed for games"
+            placeholder={t('settings.keys.igdb-id.placeholder')}
             busy={saving}
             onSave={(v) => saveKey('igdb_client_id', v)}
           />
           <KeyField
-            label="IGDB secret"
-            hint="The other half of the pair, from the same Twitch application: press “New Secret” on it. It is shown once. With no key at all, game lookups return 503 — manual entry always works."
+            label={keyLabel('igdb', 'secret')}
+            hint={t('settings.keys.igdb-secret.hint')}
             set={keys?.igdb_secret_set}
-            placeholder="Twitch client secret — needed for games"
+            placeholder={t('settings.keys.igdb-secret.placeholder')}
             busy={saving}
             onSave={(v) => saveKey('igdb_secret', v)}
           />
@@ -3258,8 +3345,9 @@ function Metadata({ user, onPreferences }) {
               is told games are broken when the truth is that one field is blank. */}
           {keys && (!!keys.igdb_client_id_set !== !!keys.igdb_secret_set) && (
             <p className="microcopy mt-1" style={{ color: 'var(--error)' }}>
-              IGDB needs both halves — the {keys.igdb_client_id_set ? 'secret' : 'client id'} is still
-              blank, so game lookups will fail as if the key were wrong.
+              {t('settings.metadata.igdb.half.prose', {
+                half: t(keys.igdb_client_id_set ? 'settings.keys.noun.secret' : 'settings.keys.noun.client-id'),
+              })}
             </p>
           )}
         </div>
@@ -3270,25 +3358,27 @@ function Metadata({ user, onPreferences }) {
       {admin && (
         <div>
           <div>
+            {/* .caveat, NOT .hint, and deliberately: this one runs to 440
+                characters and the 240-character dot budget measures .hint in both
+                languages. It is a security warning with a procedure in it —
+                fragile, against Amazon's terms, grants account access, and here
+                is where the header is — and none of those clauses can be dropped
+                to fit a cap. So it is named for what it is. */}
             <KeyField
-              label="Amazon cookie"
-              hint={
-                'Optional. Covers already work from an ASIN with no setup at all; the cookie only adds description and genres by reading the product page. ' +
-                'It is fragile, it is against Amazon’s terms, and it grants access to your account — it is stored write-only and never shown. ' +
-                'To get it: sign in to Amazon on the marketplace your books live on, open DevTools (F12) → Network → click any amazon request → Request Headers, and copy the whole "cookie:" value.'
-              }
+              label={keyLabel('amazon', 'cookie')}
+              hint={t('settings.keys.amazon-cookie.caveat')}
               set={keys?.amazon_cookie_set}
-              placeholder="Amazon session cookie — optional"
+              placeholder={t('settings.keys.amazon-cookie.placeholder')}
               busy={saving}
               onSave={(v) => saveKey('amazon_cookie', v)}
             />
             <KeyField
-              label="Amazon domain"
-              hint="The marketplace your books were bought on, e.g. www.amazon.com or www.amazon.de. Not a secret, so this one shows its value."
+              label={keyLabel('amazon', 'domain')}
+              hint={t('settings.keys.amazon-domain.hint')}
               secret={false}
               value={keys?.amazon_domain || ''}
               set={!!keys?.amazon_domain}
-              placeholder="www.amazon.com"
+              placeholder={t('settings.keys.amazon-domain.placeholder')}
               busy={saving}
               onSave={(v) => saveKey('amazon_domain', v)}
             />

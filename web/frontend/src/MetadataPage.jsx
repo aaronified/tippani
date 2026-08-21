@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { json, errText } from './api.js'
+import { t, tNodes } from './i18n.js'
 import { BookLookupPicker, MovieLookupPicker } from './CoverPicker.jsx'
 import { EditBook } from './Library.jsx'
 import { EditMovie } from './Movies.jsx'
@@ -54,7 +55,7 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch }
         if (cursor) body.cursor = cursor
         if (missingOnly) body.missing_only = true
         const r = await json('POST', '/covers/refetch', body)
-        if (!r.ok) return setError(errText(r, 'could not re-fetch covers'))
+        if (!r.ok) return setError(errText(r, t('error.refetch.covers')))
         sum.fetched += r.data.fetched
         sum.enriched += r.data.enriched || 0
         sum.failed += r.data.failed
@@ -66,11 +67,17 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch }
       }
       // Spell out skipped/failed so a partial run reads as intentional ("11
       // already had the best available") rather than a silent nothing-happened.
-      const parts = [`${sum.fetched} covers fetched/upgraded`, `${sum.enriched} details filled`]
-      if (sum.skipped) parts.push(`${sum.skipped} left as-is (no higher-res source)`)
-      if (sum.failed) parts.push(`${sum.failed} failed`)
+      // Real plural families where the English hedged with a parenthesised -s: a
+      // locale file carries a plural category per language, and "cover(s)" works
+      // in none of them.
+      const parts = [
+        t('metadata.fetch.flash.covers', { count: sum.fetched, n: sum.fetched }),
+        t('metadata.fetch.flash.details', { count: sum.enriched, n: sum.enriched }),
+      ]
+      if (sum.skipped) parts.push(t('metadata.fetch.flash.skipped', { n: sum.skipped }))
+      if (sum.failed) parts.push(t('metadata.fetch.flash.failed', { n: sum.failed }))
       if (!sum.fetched && !sum.enriched && !sum.skipped && !sum.failed) parts.length = 0
-      setFlash(parts.length ? parts.join(' · ') : 'everything already up to date')
+      setFlash(parts.length ? parts.join(' · ') : t('metadata.fetch.flash.uptodate'))
       load()
     } finally {
       setBusy(false)
@@ -117,24 +124,25 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch }
   return (
     <section className="space-y-6">
       <div className={mobile ? 'mobile-sticky-bar' : ''}>
+        {/* The tab's own name for the title, not a second copy of the word. */}
         <PageHeader
-          title="Metadata"
-          counts={mobile ? 'maintenance' : 'stats · filters · bulk actions'}
+          title={t('nav.tab.metadata.label')}
+          counts={mobile ? t('metadata.counts.mobile') : t('metadata.counts.desktop')}
           right={
             <>
               {mobile ? (
                 <InfoDot
                   side="bottom"
-                  title="Metadata on a phone"
-                  text="This is the trimmed-down maintenance view. Open Tippani on a desktop for the full metadata console — coverage stats, filterable book & film lists, and bulk actions."
+                  title={t('metadata.mobile.info.title')}
+                  text={t('metadata.mobile.info.body')}
                 />
               ) : (
                 user?.is_admin && (
                   <IconButton
                     icon={<IconMetadata />}
-                    label="Fetch"
-            ariaLabel="Fetch missing covers and metadata"
-                    tooltip="Fill missing covers and metadata"
+                    label={t('metadata.fetch.label')}
+            ariaLabel={t('metadata.fetch.aria')}
+                    tooltip={t('metadata.fetch.tip')}
                     tipSide="bottom"
                     onClick={() => fetchMissingCovers(false)}
                     disabled={busy}
@@ -151,8 +159,8 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch }
           value={progress.done}
           max={progress.total}
           label={progress.total > 0
-            ? `fetching covers & metadata · ${progress.done}/${progress.total}`
-            : 'fetching covers & metadata…'}
+            ? t('metadata.fetch.progress', { done: progress.done, total: progress.total })
+            : t('metadata.fetch.progress.start')}
         />
       )}
       {flash && (
@@ -161,7 +169,7 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch }
         </p>
       )}
       {!lib ? (
-        <EmptyState>loading…</EmptyState>
+        <EmptyState>{t('common.state.loading')}</EmptyState>
       ) : mobile ? (
         // Mobile (§5): a maintenance screen, not the at-scale console. Just the
         // handful of one-tap actions; the big filterable lists are desktop-only,
@@ -169,18 +177,18 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch }
         <>
           {user?.is_admin && (
             <MobileAction
-              title="Fetch covers & metadata"
-              desc="Fills missing covers, posters, authors, descriptions, years and genres across every library on this instance. It only fills blanks — nothing you already have is replaced — and it caps genres at five per item so a source cannot bury a work in low-quality tags."
-              actionLabel="Fetch"
+              title={t('metadata.mobile.fetch.title')}
+              desc={t('metadata.mobile.fetch.desc')}
+              actionLabel={t('metadata.fetch.label')}
               icon={<IconMetadata />}
               busy={busy}
               onClick={() => fetchMissingCovers(true)}
             />
           )}
           <MobileAction
-            title="Re-verify metadata"
-            desc="Re-checks every pinned book, film and show against the live sources. Nothing is written until you have seen each proposed change and accepted it."
-            actionLabel="Re-verify"
+            title={t('metadata.mobile.reverify.title')}
+            desc={t('metadata.mobile.reverify.desc')}
+            actionLabel={t('metadata.reverify.label')}
             icon={<IconCheck />}
             busy={!!reverify}
             onClick={() =>
@@ -198,7 +206,12 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch }
         </>
       ) : (
         <>
-          <StatsStrip stats={stats} onPick={(t, f) => { setCatType(t); setCatFilter(f) }} />
+          {/* The type parameter is named `ty`, not the single letter it was: this
+              file imports the resolver now, and a parameter of that one letter
+              shadows it silently and legally. locale-shadow.test.js fails the
+              build over it — including over a comment that spells the shape out,
+              which is why this one does not. */}
+          <StatsStrip stats={stats} onPick={(ty, f) => { setCatType(ty); setCatFilter(f) }} />
           <CatalogueConsole
             books={lib.books}
             movies={lib.movies}
@@ -231,7 +244,10 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch }
 
 // MobileAction — a compact action card for the stripped-down mobile Metadata
 // screen (§5): a title, a one-line what-it-does, and a single run button.
-function MobileAction({ title, desc, actionLabel = 'Run', icon, busy, onClick, disabled }) {
+function MobileAction({ title, desc, actionLabel, icon, busy, onClick, disabled }) {
+  // The fallback word is resolved HERE rather than defaulted in the signature: a
+  // default parameter is the one remaining place a word would sit in the source.
+  const label = actionLabel || t('metadata.mobile.run.label')
   return (
     <HandCard className="flex items-center gap-3 p-4">
       <div className="flex min-w-0 flex-1 items-center gap-1.5">
@@ -240,25 +256,76 @@ function MobileAction({ title, desc, actionLabel = 'Run', icon, busy, onClick, d
       </div>
       <IconButton
           icon={busy ? <IconMore /> : icon || <IconMetadata />}
-          ariaLabel={actionLabel}
+          ariaLabel={label}
           className="shrink-0"
           disabled={busy || disabled}
           onClick={onClick}
-        tooltip={actionLabel}
+        tooltip={label}
       />
     </HandCard>
   )
 }
 
+// GAP_KEYS — the server's gap token, to the word this screen calls it. ONE table
+// for the coverage tiles, both filter dropdowns and the per-row chips, because a
+// gap is called the same thing in all three places and three tables would be
+// three chances to drift.
+//
+// IT HOLDS KEYS, RESOLVED WHERE THEY ARE DRAWN. A table of WORDS built at module
+// scope freezes the language at import time, which is the bug three other tables
+// in this app shipped — see BinPage's TRASH_LABELS and keys.js's
+// groupedShortcuts.
+//
+// The two low-res rows are the long form a ROW says ("low-res cover") beside the
+// bare "low-res" a tile and a filter say. None of these is a field NAME — each is
+// a whole phrase about a missing field — so common.field.* is not their home.
+const GAP_KEYS = {
+  total: 'metadata.coverage.total.label',
+  flagged: 'metadata.gap.flagged.label',
+  all: 'metadata.gap.all.label',
+  no_cover: 'metadata.gap.no-cover.label',
+  no_poster: 'metadata.gap.no-poster.label',
+  low_res: 'metadata.gap.low-res.label',
+  low_res_cover: 'metadata.gap.low-res-cover.label',
+  low_res_poster: 'metadata.gap.low-res-poster.label',
+  no_author: 'metadata.gap.no-author.label',
+  no_series: 'metadata.gap.no-series.label',
+  no_year: 'metadata.gap.no-year.label',
+  no_genre: 'metadata.gap.no-genre.label',
+  no_source: 'metadata.gap.no-source.label',
+  no_cast: 'metadata.gap.no-cast.label',
+  no_director: 'metadata.gap.no-director.label',
+  no_actor: 'metadata.gap.no-actor.label',
+}
+const gapLabel = (token) => t(GAP_KEYS[token])
+
+// The gaps each half of the library can have, in the order they are drawn. The
+// tiles, the filter dropdown and the coverage lines all walk these, and the token
+// doubles as the name of its count on the stats object.
+const BOOK_GAPS = ['no_cover', 'low_res', 'no_author', 'no_series', 'no_year', 'no_genre', 'no_source']
+const MOVIE_GAPS = ['no_poster', 'low_res', 'no_cast', 'no_director', 'no_year', 'no_genre', 'no_source']
+
 // StatsLines — the coverage tiles as plain text lines (§5, mobile): one line per
 // group listing only the non-zero gaps, so "what still needs work" reads at a
 // glance without the tap-to-filter tiles the mobile screen has no lists to feed.
 function StatsLines({ stats }) {
-  const line = (label, entries) => {
-    const parts = entries.filter(([, n]) => n > 0).map(([l, n]) => `${n} ${l}`)
+  // tNodes, not a value with a <b> in it: markup never goes in a locale string,
+  // so the sentence carries {group} and {gaps} and the call site hands over the
+  // bold node.
+  const line = (group, total, gaps) => {
+    const parts = gaps
+      .filter(([, n]) => n > 0)
+      .map(([label, n]) => t('common.count.phrase', { n, noun: label }))
     return (
       <p className="microcopy" style={{ color: 'var(--soft)' }}>
-        <b style={{ color: 'var(--ink)' }}>{label}</b> — {parts.length ? parts.join(' · ') : 'all complete ✓'}
+        {tNodes('metadata.coverage.line', {
+          group: (
+            <b style={{ color: 'var(--ink)' }}>
+              {t('metadata.coverage.group.count', { group, n: total })}
+            </b>
+          ),
+          gaps: parts.length ? parts.join(' · ') : t('metadata.coverage.complete'),
+        })}
       </p>
     )
   }
@@ -266,10 +333,12 @@ function StatsLines({ stats }) {
   const m = stats.movies
   return (
     <div className="space-y-1.5 pt-1">
-      <MonoLabel className="block">Coverage</MonoLabel>
-      {line(`Books (${b.total})`, [['no cover', b.no_cover], ['low-res', b.low_res], ['no author', b.no_author], ['no series', b.no_series], ['no year', b.no_year], ['no genre', b.no_genre], ['no source', b.no_source]])}
-      {line(`Films & shows (${m.total})`, [['no poster', m.no_poster], ['low-res', m.low_res], ['no cast', m.no_cast], ['no director', m.no_director], ['no year', m.no_year], ['no genre', m.no_genre], ['no source', m.no_source]])}
-      {line(`Dialogues (${stats.dialogues.total})`, [['no actor', stats.dialogues.missing_actor]])}
+      <MonoLabel className="block">{t('metadata.coverage.title')}</MonoLabel>
+      {line(t('metadata.coverage.group.books'), b.total, BOOK_GAPS.map((g) => [gapLabel(g), b[g]]))}
+      {line(t('metadata.coverage.group.movies'), m.total, MOVIE_GAPS.map((g) => [gapLabel(g), m[g]]))}
+      {line(t('metadata.coverage.group.dialogues'), stats.dialogues.total, [
+        [gapLabel('no_actor'), stats.dialogues.missing_actor],
+      ])}
     </div>
   )
 }
@@ -282,7 +351,7 @@ function Stat({ n, label, warn, onClick }) {
   const bad = warn && n > 0
   const clickable = !!onClick && (n > 0 || !warn)
   return (
-    <Tooltip label={clickable ? `Show only ${label}` : null} side="bottom">
+    <Tooltip label={clickable ? t('metadata.coverage.tile.tip', { label }) : null} side="bottom">
       <button
         type="button"
         onClick={clickable ? onClick : undefined}
@@ -320,29 +389,21 @@ function StatsStrip({ stats, onPick }) {
   return (
     <HandCard className="p-5">
       <div className="flex flex-wrap gap-x-8 gap-y-4">
-        {group('Books', [
-          <Stat key="t" n={b.total} label="total" onClick={() => onPick('book', 'all')} />,
-          <Stat key="c" n={b.no_cover} label="no cover" warn onClick={() => onPick('book', 'no_cover')} />,
-          <Stat key="lr" n={b.low_res} label="low-res" warn onClick={() => onPick('book', 'low_res')} />,
-          <Stat key="au" n={b.no_author} label="no author" warn onClick={() => onPick('book', 'no_author')} />,
-          <Stat key="se" n={b.no_series} label="no series" warn onClick={() => onPick('book', 'no_series')} />,
-          <Stat key="y" n={b.no_year} label="no year" warn onClick={() => onPick('book', 'no_year')} />,
-          <Stat key="g" n={b.no_genre} label="no genre" warn onClick={() => onPick('book', 'no_genre')} />,
-          <Stat key="s" n={b.no_source} label="no source" warn onClick={() => onPick('book', 'no_source')} />,
+        {group(t('metadata.coverage.group.books'), [
+          <Stat key="total" n={b.total} label={gapLabel('total')} onClick={() => onPick('book', 'all')} />,
+          ...BOOK_GAPS.map((g) => (
+            <Stat key={g} n={b[g]} label={gapLabel(g)} warn onClick={() => onPick('book', g)} />
+          )),
         ])}
-        {group('Films & shows', [
-          <Stat key="t" n={m.total} label="total" onClick={() => onPick('movie', 'all')} />,
-          <Stat key="p" n={m.no_poster} label="no poster" warn onClick={() => onPick('movie', 'no_poster')} />,
-          <Stat key="lr" n={m.low_res} label="low-res" warn onClick={() => onPick('movie', 'low_res')} />,
-          <Stat key="c" n={m.no_cast} label="no cast" warn onClick={() => onPick('movie', 'no_cast')} />,
-          <Stat key="d" n={m.no_director} label="no director" warn onClick={() => onPick('movie', 'no_director')} />,
-          <Stat key="y" n={m.no_year} label="no year" warn onClick={() => onPick('movie', 'no_year')} />,
-          <Stat key="g" n={m.no_genre} label="no genre" warn onClick={() => onPick('movie', 'no_genre')} />,
-          <Stat key="s" n={m.no_source} label="no source" warn onClick={() => onPick('movie', 'no_source')} />,
+        {group(t('metadata.coverage.group.movies'), [
+          <Stat key="total" n={m.total} label={gapLabel('total')} onClick={() => onPick('movie', 'all')} />,
+          ...MOVIE_GAPS.map((g) => (
+            <Stat key={g} n={m[g]} label={gapLabel(g)} warn onClick={() => onPick('movie', g)} />
+          )),
         ])}
-        {group('Dialogues', [
-          <Stat key="t" n={stats.dialogues.total} label="total" />,
-          <Stat key="a" n={stats.dialogues.missing_actor} label="no actor" warn />,
+        {group(t('metadata.coverage.group.dialogues'), [
+          <Stat key="total" n={stats.dialogues.total} label={gapLabel('total')} />,
+          <Stat key="no_actor" n={stats.dialogues.missing_actor} label={gapLabel('no_actor')} warn />,
         ])}
       </div>
     </HandCard>
@@ -350,7 +411,7 @@ function StatsStrip({ stats, onPick }) {
 }
 
 function GapChips({ gaps }) {
-  if (gaps.length === 0) return <span className="microcopy" style={{ color: 'var(--accent-ui)' }}>complete ✓</span>
+  if (gaps.length === 0) return <span className="microcopy" style={{ color: 'var(--accent-ui)' }}>{t('metadata.row.complete')}</span>
   return (
     <span className="flex flex-wrap gap-1.5">
       {gaps.map((g) => (
@@ -388,31 +449,29 @@ async function runPooled(items, limit, fn) {
 // gets the filters common to books and films; a specific type gets that kind's
 // full set. Keep the shared keys (flagged/low_res/no_year/no_genre/no_source)
 // spelled the same across both so an "all types" filter applies to either kind.
+// The type selector holds the STORED VALUE and the KEY that names it; the words
+// are built by typeOptions() during render, for the reason GAP_KEYS gives above.
+// Three of the four rows are the app's own countable nouns, so this screen needs
+// a word of its own only for "all types".
 const CATALOGUE_TYPES = [
-  ['all', 'all types'],
-  ['book', 'books'],
-  ['movie', 'films'],
-  ['show', 'shows'],
+  ['all', 'metadata.catalogue.type.all.label'],
+  ['book', 'unit.book.other'],
+  ['movie', 'unit.film.other'],
+  ['show', 'unit.show.other'],
 ]
-const BOOK_FILTERS = [
-  ['flagged', 'flagged'], ['no_cover', 'no cover'], ['low_res', 'low-res'],
-  ['no_author', 'no author'], ['no_series', 'no series'], ['no_year', 'no year'],
-  ['no_genre', 'no genre'], ['no_source', 'no source'], ['all', 'all'],
-]
-const MOVIE_FILTERS = [
-  ['flagged', 'flagged'], ['no_poster', 'no poster'], ['low_res', 'low-res'],
-  ['no_cast', 'no cast'], ['no_director', 'no director'], ['no_year', 'no year'],
-  ['no_genre', 'no genre'], ['no_source', 'no source'], ['all', 'all'],
-]
-const ALL_FILTERS = [
-  ['flagged', 'flagged'], ['low_res', 'low-res'], ['no_year', 'no year'],
-  ['no_genre', 'no genre'], ['no_source', 'no source'], ['all', 'all'],
-]
+const typeOptions = () => CATALOGUE_TYPES.map(([v, key]) => [v, t(key)])
+
+// The filter dropdowns are lists of GAP TOKENS, named by GAP_KEYS above and
+// paired with their words at render.
+const BOOK_FILTERS = ['flagged', ...BOOK_GAPS, 'all']
+const MOVIE_FILTERS = ['flagged', ...MOVIE_GAPS, 'all']
+const ALL_FILTERS = ['flagged', 'low_res', 'no_year', 'no_genre', 'no_source', 'all']
 function filtersForType(type) {
   if (type === 'book') return BOOK_FILTERS
   if (type === 'movie' || type === 'show') return MOVIE_FILTERS
   return ALL_FILTERS
 }
+const filterOptions = (type) => filtersForType(type).map((v) => [v, gapLabel(v)])
 const catKey = (kind, id) => `${kind}:${id}`
 function bookPasses(b, filter) {
   const p = {
@@ -448,7 +507,7 @@ function CatalogueConsole({ books, movies, type, setType, filter, setFilter, onO
 
   // Guard against a filter that isn't valid for the current type (e.g. after a
   // type switch) so the <select> and predicates always agree.
-  const filterOpts = filtersForType(type)
+  const filterOpts = filterOptions(type)
   const filterVal = filterOpts.some(([v]) => v === filter) ? filter : 'flagged'
 
   const shown = useMemo(() => {
@@ -491,7 +550,8 @@ function CatalogueConsole({ books, movies, type, setType, filter, setFilter, onO
 
   async function del() {
     const total = selectedKeys.length
-    if (!confirm(`Delete ${total} item(s) and all their quotes/dialogues?`)) return
+    // A real plural family in place of the "item(s)" hedge.
+    if (!confirm(t('metadata.delete.confirm', { count: total, n: total }))) return
     setBusy(true)
     setErr('')
     try {
@@ -500,7 +560,11 @@ function CatalogueConsole({ books, movies, type, setType, filter, setFilter, onO
         return json('DELETE', `/${kind === 'book' ? 'books' : 'movies'}/${id}`)
       })
       const fail = rs.filter((r) => !r.ok).length
-      onFlash(`deleted ${total - fail} item(s)${fail ? `, ${fail} failed` : ''}`)
+      const gone = total - fail
+      onFlash(
+        t('metadata.delete.flash', { count: gone, n: gone }) +
+          (fail ? t('metadata.bulk.failed.suffix', { n: fail }) : ''),
+      )
     } finally {
       setBusy(false)
       clearSel()
@@ -515,8 +579,10 @@ function CatalogueConsole({ books, movies, type, setType, filter, setFilter, onO
     setErr('')
     const r = await json('POST', '/books/bulk', { ids: selBookIds, ...fields })
     setBusy(false)
-    if (!r.ok) return setErr(errText(r, 'bulk edit failed'))
-    onFlash(`updated ${r.data.updated} book(s)`)
+    // The app's own word for a bulk action that did not land, rather than a
+    // second near-identical error string of this screen's own.
+    if (!r.ok) return setErr(errText(r, t('error.bulk.failed')))
+    onFlash(t('metadata.bulk.flash', { count: r.data.updated, n: r.data.updated }))
     setEditing(false)
     clearSel()
     onDone()
@@ -529,7 +595,17 @@ function CatalogueConsole({ books, movies, type, setType, filter, setFilter, onO
       const rs = await runPooled(selMovieIds, 4, (id) => json('POST', `/movies/${id}/remap-speakers`, { mappings: [], refill: true }))
       const filled = rs.reduce((n, r) => n + (r.ok ? r.data.refilled || 0 : 0), 0)
       const fail = rs.filter((r) => !r.ok).length
-      onFlash(`filled ${filled} actor(s) across ${selMovieIds.length} title(s)${fail ? `, ${fail} failed` : ''}`)
+      // Two hedged plurals in one sentence became two real ones, composed from
+      // the shared count idiom instead of an English -s.
+      onFlash(
+        t('metadata.actors.flash', {
+          actors: t('common.count.phrase', { n: filled, noun: t('unit.actor', { count: filled }) }),
+          titles: t('common.count.phrase', {
+            n: selMovieIds.length,
+            noun: t('unit.title', { count: selMovieIds.length }),
+          }),
+        }) + (fail ? t('metadata.bulk.failed.suffix', { n: fail }) : ''),
+      )
     } finally {
       setBusy(false)
       clearSel()
@@ -540,50 +616,50 @@ function CatalogueConsole({ books, movies, type, setType, filter, setFilter, onO
   return (
     <section className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
-        <h2 style={H2}>Catalogue</h2>
-        <MonoLabel>{shown.length} shown</MonoLabel>
+        <h2 style={H2}>{t('metadata.catalogue.title')}</h2>
+        <MonoLabel>{t('metadata.shown.count', { n: shown.length })}</MonoLabel>
         <div className="ml-auto flex flex-wrap items-center gap-2">
-          <select className="tp-input w-auto" title="Type" value={type} onChange={(e) => { setType(e.target.value); setFilter('flagged') }}>
-            {CATALOGUE_TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+          <select className="tp-input w-auto" title={t('common.field.media-type.label')} value={type} onChange={(e) => { setType(e.target.value); setFilter('flagged') }}>
+            {typeOptions().map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </select>
-          <Tooltip label="Show only these gaps" side="top">
+          <Tooltip label={t('metadata.catalogue.filter.tip')} side="top">
             <select className="tp-input w-auto" value={filterVal} onChange={(e) => setFilter(e.target.value)}>
               {filterOpts.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
             </select>
           </Tooltip>
-          <input className="tp-input w-auto" placeholder="search…" value={q} onChange={(e) => setQ(e.target.value)} />
+          <input className="tp-input w-auto" placeholder={t('metadata.search.placeholder')} value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
       </div>
       {shown.length === 0 ? (
-        <p className="microcopy">nothing matches.</p>
+        <p className="microcopy">{t('metadata.catalogue.nomatch')}</p>
       ) : (
         <>
           <div className="flex flex-wrap items-center gap-3">
             <label className="flex items-center gap-2 microcopy" style={{ cursor: 'pointer' }}>
-              <input type="checkbox" checked={allChecked} onChange={() => setSel(allChecked ? new Set() : new Set(keys))} /> select all shown
+              <input type="checkbox" checked={allChecked} onChange={() => setSel(allChecked ? new Set() : new Set(keys))} /> {t('metadata.select-all.label')}
             </label>
           </div>
           <BulkBar n={selectedKeys.length} onClear={clearSel}>
             {selBookIds.length > 0 && (
               <GhostButton icon={<IconEdit />} disabled={busy} onClick={() => setEditing((v) => !v)}>
-                {editing ? 'Close bulk edit' : 'Bulk edit books…'}
+                {editing ? t('metadata.bulk.close.label') : t('metadata.bulk.open.label')}
               </GhostButton>
             )}
             {selMovieIds.length > 0 && (
               <GhostButton
                 disabled={busy || selMoviesWithCast === 0}
-                title={selMoviesWithCast === 0 ? 'none of the selected titles have a cast to fill from' : undefined}
+                title={selMoviesWithCast === 0 ? t('metadata.actors.fill.disabled.tip') : undefined}
                 onClick={fillActors}
                 icon={<IconUsers />}
               >
-                Fill actors from cast
+                {t('metadata.actors.fill.label')}
               </GhostButton>
             )}
             <GhostButton icon={<IconRefresh />} disabled={busy} onClick={() => onReverify({ book_ids: selBookIds, movie_ids: selMovieIds })}>
-              Re-verify…
+              {t('metadata.reverify.open.label')}
             </GhostButton>
             <GhostButton icon={<IconDelete />} keepLabel disabled={busy} style={{ color: 'var(--error)' }} onClick={del}>
-              Delete
+              {t('common.action.delete.label')}
             </GhostButton>
           </BulkBar>
           {editing && selBookIds.length > 0 && <BulkEditForm n={selBookIds.length} busy={busy} onApply={bulkEdit} />}
@@ -631,7 +707,7 @@ function InlineEdit({ kind, id, onDone, onCancel }) {
     json('GET', `/${kind}/${id}`).then((r) => (r.ok ? setRow(r.data) : setErr(errText(r))))
   }, [kind, id])
   if (err) return <ErrorText>{err}</ErrorText>
-  if (!row) return <p className="microcopy mt-3">loading…</p>
+  if (!row) return <p className="microcopy mt-3">{t('common.state.loading')}</p>
   return (
     <div className="mt-3">
       {kind === 'books'
@@ -651,31 +727,34 @@ function InlineEdit({ kind, id, onDone, onCancel }) {
 // same latch the cover controls use. The tooltip still carries the words, and
 // they still change with the state, so the answer is one hover away instead of
 // occupying the row forever.
+// `noun` arrives ALREADY RESOLVED — the reader's word for the row, taken from the
+// app's own countable nouns — because two of the frames it lands in are shared
+// sentences ("Edit this {noun}") that must not care which screen called them.
 function ConsoleRowActions({ editing, onEdit, lookingUp, onLookup, onOpen, noun }) {
   return (
     <span className="flex items-center gap-1">
       <FieldIconButton
         icon={<IconEdit />}
-        ariaLabel={editing ? 'Close the editor' : 'Edit'}
+        ariaLabel={editing ? t('metadata.row.edit.close.label') : t('common.action.edit.label')}
         aria-pressed={editing}
         onClick={onEdit}
-        tooltip={editing ? 'Close the editor' : `Edit this ${noun}`}
+        tooltip={editing ? t('metadata.row.edit.close.label') : t('common.action.edit.row.tip', { noun })}
         active={editing}
       />
       <FieldIconButton
         icon={<IconSearch />}
-        ariaLabel={lookingUp ? 'Close the look-up' : 'Look up'}
+        ariaLabel={lookingUp ? t('metadata.row.lookup.close.label') : t('metadata.row.lookup.label')}
         aria-pressed={lookingUp}
         onClick={onLookup}
-        tooltip={lookingUp ? 'Close the look-up' : 'Look up the sources'}
+        tooltip={lookingUp ? t('metadata.row.lookup.close.label') : t('metadata.row.lookup.tip')}
         active={lookingUp}
       />
       {onOpen && (
         <FieldIconButton
           icon={<IconOpen />}
-          ariaLabel="Open"
+          ariaLabel={t('metadata.row.open.aria')}
           onClick={onOpen}
-          tooltip={`Open this ${noun}`}
+          tooltip={t('metadata.row.open.tip', { noun })}
         />
       )}
     </span>
@@ -685,14 +764,16 @@ function ConsoleRowActions({ editing, onEdit, lookingUp, onLookup, onOpen, noun 
 function BookRow({ book, checked, onCheck, open, onToggleLookup, onOpen, onDone }) {
   const [err, setErr] = useState('')
   const [editing, setEditing] = useState(false)
+  const noun = t('unit.book', { count: 1 })
+  // The gap chips, drawn from the one table the tiles and the filters also use.
   const gaps = [
-    !book.has_cover && 'no cover',
-    book.low_res_cover && 'low-res cover',
-    !book.has_author && 'no author',
-    !book.has_series && 'no series',
-    !book.has_year && 'no year',
-    !book.has_genre && 'no genre',
-    !book.has_ids && 'no source',
+    !book.has_cover && gapLabel('no_cover'),
+    book.low_res_cover && gapLabel('low_res_cover'),
+    !book.has_author && gapLabel('no_author'),
+    !book.has_series && gapLabel('no_series'),
+    !book.has_year && gapLabel('no_year'),
+    !book.has_genre && gapLabel('no_genre'),
+    !book.has_ids && gapLabel('no_source'),
   ].filter(Boolean)
 
   async function apply(c) {
@@ -728,14 +809,14 @@ function BookRow({ book, checked, onCheck, open, onToggleLookup, onOpen, onDone 
   return (
     <div style={{ borderTop: '1px solid var(--line)', padding: '10px 0' }}>
       <div className="flex flex-wrap items-center gap-3">
-        <Tooltip label="Select this book" side="top">
+        <Tooltip label={t('metadata.row.select.tip', { noun })} side="top">
           <input type="checkbox" checked={checked} onChange={onCheck} />
         </Tooltip>
         <div className="min-w-0 flex-1">
           <p className="truncate">
             <b>{book.title}</b>
             {book.author && <span style={{ color: 'var(--soft)' }}> · {book.author}</span>}
-            <span className="microcopy"> · {book.annotation_count} quotes</span>
+            <span className="microcopy"> · {t('common.count.phrase', { n: book.annotation_count, noun: t('unit.quote', { count: book.annotation_count }) })}</span>
           </p>
           <GapChips gaps={gaps} />
         </div>
@@ -745,7 +826,7 @@ function BookRow({ book, checked, onCheck, open, onToggleLookup, onOpen, onDone 
           lookingUp={open}
           onLookup={onToggleLookup}
           onOpen={onOpen && (() => onOpen(book.id))}
-          noun="book"
+          noun={noun}
         />
       </div>
       {editing && <InlineEdit kind="books" id={book.id} onDone={() => { setEditing(false); onDone() }} onCancel={() => setEditing(false)} />}
@@ -762,7 +843,8 @@ function BookRow({ book, checked, onCheck, open, onToggleLookup, onOpen, onDone 
 function MovieRow({ movie, checked, onCheck, open, onToggleLookup, onOpen, onDone }) {
   const [err, setErr] = useState('')
   const [editing, setEditing] = useState(false)
-  const gaps = [!movie.has_poster && 'no poster', movie.low_res_poster && 'low-res poster', !movie.has_cast && 'no cast', !movie.has_source && 'no source'].filter(Boolean)
+  const noun = t('unit.title', { count: 1 })
+  const gaps = [!movie.has_poster && gapLabel('no_poster'), movie.low_res_poster && gapLabel('low_res_poster'), !movie.has_cast && gapLabel('no_cast'), !movie.has_source && gapLabel('no_source')].filter(Boolean)
 
   async function resync(c) {
     setErr('')
@@ -778,14 +860,19 @@ function MovieRow({ movie, checked, onCheck, open, onToggleLookup, onOpen, onDon
   return (
     <div style={{ borderTop: '1px solid var(--line)', padding: '10px 0' }}>
       <div className="flex flex-wrap items-center gap-3">
-        <Tooltip label="Select this title" side="top">
+        <Tooltip label={t('metadata.row.select.tip', { noun })} side="top">
           <input type="checkbox" checked={checked} onChange={onCheck} />
         </Tooltip>
         <div className="min-w-0 flex-1">
           <p className="truncate">
             <b>{movie.title}</b>
             {movie.release_year ? <span style={{ color: 'var(--soft)' }}> · {movie.release_year}</span> : null}
-            {movie.dialogue_count > 0 && <span className="microcopy"> · {movie.dialogue_count} dialogues</span>}
+            {/* metadata.count.dialogues rather than the shared unit.dialogue: that
+                noun now reads "film line", and this row has always counted
+                "dialogues". Migrating keys is not the place to change a word. */}
+            {movie.dialogue_count > 0 && (
+              <span className="microcopy"> · {t('metadata.count.dialogues', { count: movie.dialogue_count, n: movie.dialogue_count })}</span>
+            )}
           </p>
           <GapChips gaps={gaps} />
         </div>
@@ -795,7 +882,7 @@ function MovieRow({ movie, checked, onCheck, open, onToggleLookup, onOpen, onDon
           lookingUp={open}
           onLookup={onToggleLookup}
           onOpen={onOpen && (() => onOpen(movie.id))}
-          noun="title"
+          noun={noun}
         />
       </div>
       {editing && <InlineEdit kind="movies" id={movie.id} onDone={() => { setEditing(false); onDone() }} onCancel={() => setEditing(false)} />}
@@ -836,24 +923,28 @@ function BulkEditForm({ n, busy, onApply }) {
 
   return (
     <div className="space-y-2.5 rounded-xl p-3" style={{ border: '1px solid var(--line)', background: 'var(--raised)' }}>
-      <MonoLabel className="block">Bulk edit {n} selected</MonoLabel>
+      <MonoLabel className="block">{t('metadata.bulk.title', { n })}</MonoLabel>
       <label className="flex flex-wrap items-center gap-2">
         <input type="checkbox" checked={setAuthor} onChange={(e) => setSetAuthor(e.target.checked)} />
-        <span className="microcopy" style={{ minWidth: 54 }}>author</span>
-        <input className="tp-input w-auto flex-1" placeholder="set author (blank = clear)" value={author} disabled={!setAuthor} onChange={(e) => setAuthor2(e.target.value)} />
+        {/* The FIELD'S OWN NAME, from the shared table: a field is called the same
+            thing here as it is on the form that edits one row of it. */}
+        <span className="microcopy" style={{ minWidth: 54 }}>{t('common.field.author.label')}</span>
+        <input className="tp-input w-auto flex-1" placeholder={t('metadata.bulk.author.placeholder')} value={author} disabled={!setAuthor} onChange={(e) => setAuthor2(e.target.value)} />
       </label>
       <label className="flex flex-wrap items-center gap-2">
         <input type="checkbox" checked={setSeries} onChange={(e) => setSetSeries(e.target.checked)} />
-        <span className="microcopy" style={{ minWidth: 54 }}>series</span>
-        <input className="tp-input w-auto flex-1" placeholder="set series (blank = clear)" value={series} disabled={!setSeries} onChange={(e) => setSeries2(e.target.value)} />
-        <input className="tp-input w-16 shrink-0" placeholder="#" inputMode="decimal" value={seriesIndex} disabled={!setSeries} onChange={(e) => setSeriesIndex(e.target.value)} />
+        <span className="microcopy" style={{ minWidth: 54 }}>{t('common.field.series.label')}</span>
+        <input className="tp-input w-auto flex-1" placeholder={t('metadata.bulk.series.placeholder')} value={series} disabled={!setSeries} onChange={(e) => setSeries2(e.target.value)} />
+        {/* "#" is a symbol rather than a word, so it is the same in every language
+            — keyed all the same, so the slot has exactly one owner. */}
+        <input className="tp-input w-16 shrink-0" placeholder={t('metadata.bulk.series-no.placeholder')} inputMode="decimal" value={seriesIndex} disabled={!setSeries} onChange={(e) => setSeriesIndex(e.target.value)} />
       </label>
       <label className="flex flex-wrap items-center gap-2">
-        <span className="microcopy" style={{ minWidth: 72, marginLeft: 22 }}>add genres</span>
-        <input className="tp-input w-auto flex-1" placeholder="comma-separated — added, not replaced" value={addGenres} onChange={(e) => setAddGenres(e.target.value)} />
+        <span className="microcopy" style={{ minWidth: 72, marginLeft: 22 }}>{t('metadata.bulk.genres.label')}</span>
+        <input className="tp-input w-auto flex-1" placeholder={t('metadata.bulk.genres.placeholder')} value={addGenres} onChange={(e) => setAddGenres(e.target.value)} />
       </label>
       <button className="tp-btn tp-btn-primary" disabled={busy} onClick={apply}>
-        Apply to {n}
+        {t('metadata.bulk.apply.label', { n })}
       </button>
     </div>
   )
@@ -876,17 +967,19 @@ function DuplicatesPanel({ onDone, onFlash }) {
     setBusy(false)
     setOpen(true)
     if (r.ok) setGroups(r.data.groups)
-    else setErr(errText(r, 'could not scan for duplicates'))
+    else setErr(errText(r, t('error.scan.duplicates')))
   }
 
   async function merge(into, from) {
-    if (!confirm(`Merge ${from.length} book(s) into the keeper? Their annotations move over; the others are deleted.`)) return
+    // "book(s)" became a plural family, and the second half of the sentence has
+    // to agree with it — hence a whole message per form, not a shared tail.
+    if (!confirm(t('metadata.duplicates.merge.confirm', { count: from.length, n: from.length }))) return
     setBusy(true)
     setErr('')
     const r = await json('POST', '/books/merge', { into, from })
     setBusy(false)
-    if (!r.ok) return setErr(errText(r, 'merge failed'))
-    onFlash(`merged ${r.data.merged} book(s)`)
+    if (!r.ok) return setErr(errText(r, t('error.merge.failed')))
+    onFlash(t('metadata.duplicates.merge.flash', { count: r.data.merged, n: r.data.merged }))
     scan()
     onDone()
   }
@@ -894,19 +987,21 @@ function DuplicatesPanel({ onDone, onFlash }) {
   return (
     <HandCard className="space-y-3 p-5">
       <div className="flex flex-wrap items-center gap-2">
-        <h2 style={H2}>Duplicate books</h2>
-        <InfoDot title="Duplicate books" text="Finds books whose title and author match closely enough to be the same book twice — usually one imported, one added by hand. Merging moves every quote onto the copy you keep and deletes the rest, defaulting to the one with most quotes." />
-        {groups && <MonoLabel>{groups.length} group{groups.length === 1 ? '' : 's'}</MonoLabel>}
+        <h2 style={H2}>{t('metadata.duplicates.title')}</h2>
+        <InfoDot title={t('metadata.duplicates.title')} text={t('metadata.duplicates.info.body')} />
+        {/* Was a JavaScript ternary picking between "group" and "groups", which is
+            a plural rule written in the one place that cannot hold it. */}
+        {groups && <MonoLabel>{t('metadata.duplicates.groups', { count: groups.length, n: groups.length })}</MonoLabel>}
         <IconButton
             icon={<IconSearch />}
-            ariaLabel={open ? 'Scan again for duplicates' : 'Scan for duplicate books'}
+            ariaLabel={open ? t('metadata.duplicates.rescan.aria') : t('metadata.duplicates.scan.label')}
             disabled={busy}
             onClick={scan}
-          tooltip={open ? 'Scan again' : 'Scan for duplicate books'} wrapClassName="ml-auto"
+          tooltip={open ? t('metadata.duplicates.rescan.tip') : t('metadata.duplicates.scan.label')} wrapClassName="ml-auto"
         />
       </div>
       <ErrorText>{err}</ErrorText>
-      {open && groups && groups.length === 0 && <p className="microcopy">no duplicate titles found ✓</p>}
+      {open && groups && groups.length === 0 && <p className="microcopy">{t('metadata.duplicates.none')}</p>}
       {groups && groups.length > 0 && (
         <div className="space-y-3">
           {groups.map((g, i) => (
@@ -931,9 +1026,9 @@ function DuplicateGroup({ group, busy, onMerge }) {
               <b>{b.title}</b>
               {b.author && <span style={{ color: 'var(--soft)' }}> · {b.author}</span>}
               {b.year ? <span className="microcopy"> · {b.year}</span> : null}
-              <span className="microcopy"> · {b.annotation_count} quotes</span>
+              <span className="microcopy"> · {t('common.count.phrase', { n: b.annotation_count, noun: t('unit.quote', { count: b.annotation_count }) })}</span>
             </span>
-            {keep === b.id && <span className="tp-chip shrink-0" style={{ color: 'var(--accent-ui)' }}>keep</span>}
+            {keep === b.id && <span className="tp-chip shrink-0" style={{ color: 'var(--accent-ui)' }}>{t('metadata.duplicates.keep.label')}</span>}
           </label>
         ))}
       </div>
@@ -944,7 +1039,7 @@ function DuplicateGroup({ group, busy, onMerge }) {
           disabled={busy}
           onClick={() => onMerge(keep, group.filter((b) => b.id !== keep).map((b) => b.id))}
         >
-          Merge into keeper
+          {t('metadata.duplicates.merge.label')}
         </GhostButton>
       </div>
     </div>
@@ -1031,12 +1126,18 @@ function SpeakerRemap({ movies, onDone, user }) {
       .map(([from, v]) => ({ from, character: v.character, actor: v.actor || '' }))
     if (!refill && mappings.length === 0) {
       setBusy(false)
-      return setErr('Choose at least one mapping, or use “Fill actors from cast”.')
+      // The button is named ONCE, in its own key, and quoted into the sentence.
+      return setErr(t('error.validate.mapping-required', { action: t('metadata.actors.fill.label') }))
     }
     const r = await json('POST', `/movies/${movieId}/remap-speakers`, { mappings, refill })
     setBusy(false)
     if (!r.ok) return setErr(errText(r))
-    setMsg(`${r.data.remapped} remapped${r.data.refilled ? `, ${r.data.refilled} actor(s) filled` : ''}`)
+    setMsg(
+      t('metadata.speakers.remapped.flash', { n: r.data.remapped }) +
+        (r.data.refilled
+          ? t('metadata.speakers.refilled.flash', { count: r.data.refilled, n: r.data.refilled })
+          : ''),
+    )
     loadMovie(movieId)
     onDone()
   }
@@ -1044,28 +1145,30 @@ function SpeakerRemap({ movies, onDone, user }) {
   return (
     <HandCard className="space-y-3 p-5">
       <div className="flex items-center gap-1.5">
-        <h2 style={H2}>Speaker &amp; character remap</h2>
-        <InfoDot title="Speaker & character remap" text="Imported dialogue arrives with whatever label the source used — RICK, Rick Blaine, Bogart. This maps each onto a real cast member across the title, then fills in the actor on every line. A title with no cast must be looked up first." />
+        <h2 style={H2}>{t('metadata.speakers.title')}</h2>
+        <InfoDot title={t('metadata.speakers.title')} text={t('metadata.speakers.info.body')} />
       </div>
       <select className="tp-input w-auto" value={movieId} onChange={(e) => setMovieId(e.target.value)}>
-        <option value="">— choose a title —</option>
+        <option value="">{t('metadata.speakers.pick.placeholder')}</option>
         {movies.map((m) => (
           <option key={m.id} value={m.id}>
             {m.title}
-            {m.release_year ? ` (${m.release_year})` : ''} · {m.dialogue_count} dialogues
+            {m.release_year ? ` ${t('metadata.speakers.option.year', { year: m.release_year })}` : ''}
+            {' · '}
+            {t('metadata.count.dialogues', { count: m.dialogue_count, n: m.dialogue_count })}
           </option>
         ))}
       </select>
 
       {movieId && cast.length === 0 && (
         <p className="microcopy" style={{ color: 'var(--amber, var(--accent-ui))' }}>
-          ⚠ This title has no cast yet — look it up above first, then come back to remap.
+          {t('metadata.speakers.nocast')}
         </p>
       )}
-      {movieId && labels.length === 0 && <p className="microcopy">No speaker labels on this title’s dialogues.</p>}
+      {movieId && labels.length === 0 && <p className="microcopy">{t('metadata.speakers.nolabels')}</p>}
       {movieId && labels.length > 0 && (
         <>
-          <MonoLabel className="block">Speaker labels → cast</MonoLabel>
+          <MonoLabel className="block">{t('metadata.speakers.map.label')}</MonoLabel>
           <div>
             {labels.map((l) => (
               <RemapRow key={l.name} label={l} cast={cast} value={maps[l.name]} onChange={(v) => setMaps((m) => ({ ...m, [l.name]: v }))} />
@@ -1075,13 +1178,13 @@ function SpeakerRemap({ movies, onDone, user }) {
             <button
               className="tp-btn tp-btn-primary"
               disabled={busy || mapped === 0}
-              title={mapped === 0 ? 'Choose at least one mapping' : undefined}
+              title={mapped === 0 ? t('metadata.speakers.apply.disabled.tip') : undefined}
               onClick={() => apply(false)}
             >
-              Apply remap
+              {t('metadata.speakers.apply.label')}
             </button>
             <GhostButton icon={<IconUsers />} disabled={busy} onClick={() => apply(true)}>
-              Fill actors from cast
+              {t('metadata.actors.fill.label')}
             </GhostButton>
             {msg && (
               <span className="microcopy" style={{ color: 'var(--accent-ui)' }}>
@@ -1119,28 +1222,30 @@ function RemapRow({ label, cast, value, onChange }) {
           }
         }}
       >
-        <option value="">keep as-is</option>
-        {cast.map((c, i) => (
-          <option key={i} value={`cast:${i}`}>
-            {c.character || '(no character)'}
-            {c.actor ? ` — ${c.actor}` : ''}
-          </option>
-        ))}
-        <option value="custom">custom…</option>
+        <option value="">{t('metadata.remap.keep.label')}</option>
+        {cast.map((c, i) => {
+          const character = c.character || t('metadata.remap.nocharacter.label')
+          return (
+            <option key={i} value={`cast:${i}`}>
+              {c.actor ? t('metadata.remap.cast.option', { character, actor: c.actor }) : character}
+            </option>
+          )
+        })}
+        <option value="custom">{t('metadata.remap.custom.label')}</option>
       </select>
       {value?.custom && (
         <>
           <NameInput
             className="tp-input w-auto"
             style={{ maxWidth: 150 }}
-            placeholder="Character"
+            placeholder={t('common.field.character.label')}
             value={value.character}
             onChange={(e) => onChange({ ...value, character: e.target.value })}
           />
           <NameInput
             className="tp-input w-auto"
             style={{ maxWidth: 150 }}
-            placeholder="Actor"
+            placeholder={t('common.field.actor.label')}
             value={value.actor}
             onChange={(e) => onChange({ ...value, actor: e.target.value })}
           />
@@ -1191,7 +1296,7 @@ function DupCard({ group, kind, rowsByName, onMerged }) {
     for (const n of group) {
       if (n === keep) continue
       const r = await json('POST', '/people/rename', { kind, from: n, to: keep })
-      if (!r.ok) { setBusy(false); return setErr(errText(r, 'merge failed')) }
+      if (!r.ok) { setBusy(false); return setErr(errText(r, t('error.merge.failed'))) }
     }
     setBusy(false)
     onMerged()
@@ -1199,13 +1304,13 @@ function DupCard({ group, kind, rowsByName, onMerged }) {
 
   return (
     <HandCard variant={2} style={{ padding: '12px 14px' }}>
-      <MonoLabel>Possible duplicate — keep which spelling?</MonoLabel>
+      <MonoLabel>{t('metadata.people.dup.title')}</MonoLabel>
       <div className="mt-1.5 flex flex-col gap-1">
         {group.map((n) => (
           <label key={n} className="flex items-center gap-2" style={{ cursor: 'pointer' }}>
             <input type="radio" name={`dup-${kind}-${group.join('|')}`} checked={keep === n} onChange={() => setKeep(n)} />
             <span>{n}</span>
-            {rowsByName[n]?.has_image && <span className="mono-label" style={{ color: 'var(--soft)' }}>· photo</span>}
+            {rowsByName[n]?.has_image && <span className="mono-label" style={{ color: 'var(--soft)' }}>· {t('metadata.people.photo.label')}</span>}
           </label>
         ))}
       </div>
@@ -1213,12 +1318,44 @@ function DupCard({ group, kind, rowsByName, onMerged }) {
         {/* Same glyph and the same keepLabel as the book merge above: one act,
             two consoles, and it rewrites names across the library either way. */}
         <GhostButton type="button" icon={<IconMerge />} keepLabel disabled={busy} onClick={merge}>
-          {busy ? 'Merging…' : `Merge into “${keep}”`}
+          {busy ? t('metadata.people.merge.busy') : t('metadata.people.merge.label', { name: keep })}
         </GhostButton>
         <ErrorText>{err}</ErrorText>
       </div>
     </HandCard>
   )
+}
+
+// PEOPLE_KINDS — the five toggles, as [stored kind, the key that names it]. Keys
+// again, resolved at the chip that draws one, for the reason GAP_KEYS gives.
+const PEOPLE_KINDS = [
+  ['author', 'metadata.people.kind.author.label'],
+  ['actor', 'metadata.people.kind.actor.label'],
+  ['director', 'metadata.people.kind.director.label'],
+  ['studio', 'metadata.people.kind.studio.label'],
+  ['speaker', 'metadata.people.kind.speaker.label'],
+]
+
+// The countable noun each kind is counted in, for the mobile one-liner — shared
+// nouns, because a director is a director wherever the app counts them. STUDIO IS
+// NEW: the inline map this replaces had four rows, so the studio chip read
+// "5 undefineds still need photos or links".
+const PEOPLE_NOUNS = {
+  author: 'unit.author',
+  actor: 'unit.actor',
+  director: 'unit.director',
+  studio: 'unit.studio',
+  speaker: 'unit.speaker',
+}
+
+// What an empty list says, per kind. Same missing fifth row as above: a studio
+// list with nothing in it used to draw an empty state with nothing in it.
+const PEOPLE_EMPTY = {
+  author: 'metadata.people.empty.author',
+  actor: 'metadata.people.empty.actor',
+  director: 'metadata.people.empty.director',
+  studio: 'metadata.people.empty.studio',
+  speaker: 'metadata.people.empty.speaker',
 }
 
 // PeopleConsole — every author/actor referenced in the library, with their
@@ -1302,7 +1439,7 @@ export function PeopleConsole({ onFlash, compact = false, onReverify, onSearch }
     setErr('')
     const e = await fetchOne(p)
     setBusyName('')
-    if (e) setErr(`${p.name}: ${e}`)
+    if (e) setErr(t('metadata.people.row.error', { name: p.name, error: e }))
     load()
   }
 
@@ -1322,33 +1459,40 @@ export function PeopleConsole({ onFlash, compact = false, onReverify, onSearch }
       setBulk({ done, total: missing.length })
     })
     setBulk(null)
-    onFlash(`people: ${missing.length - failed} fetched · ${failed} failed${firstErr ? ` (${firstErr})` : ''}`)
+    // The joining space is CODE, not the head of a value: the parser trims both
+    // halves of a line, so a value that starts with a space loses it.
+    onFlash(
+      t('metadata.people.fetch.flash', { ok: missing.length - failed, failed }) +
+        (firstErr ? ` ${t('metadata.people.fetch.flash.reason', { error: firstErr })}` : ''),
+    )
     load()
   }
 
   return (
     <section className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
-        <h2 style={H2}>People</h2>
+        <h2 style={H2}>{t('metadata.people.title')}</h2>
         {/* §4: the verbose "what this fetches" copy now lives in a tooltip. */}
-        <InfoDot text="Photos and reference pages, matched to the right person — an author by their books, an actor or director from a film's credits, a studio from a game's. Actor and director photos need a TMDB key; the rest come from Wikidata." />
-        {!compact && <MonoLabel>{shown.length} shown</MonoLabel>}
+        <InfoDot text={t('metadata.people.info.body')} />
+        {!compact && <MonoLabel>{t('metadata.shown.count', { n: shown.length })}</MonoLabel>}
         <div className="ml-auto flex flex-wrap items-center gap-2">
           {/* Studios are their own row, not folded in with directors, because the
               two share movies.director and are told apart only by media_type —
               listing them together would offer a studio for renaming as a
               director, which rewrites the wrong half of the catalogue. */}
-          {[['author', 'Authors'], ['actor', 'Actors'], ['director', 'Directors'], ['studio', 'Studios'], ['speaker', 'Speakers']].map(([k, label]) => (
+          {PEOPLE_KINDS.map(([k, label]) => (
             <button key={k} className={'tp-filter-chip' + (kind === k ? ' active' : '')} onClick={() => setKind(k)}>
-              {label}
+              {t(label)}
             </button>
           ))}
-          {!compact && <input className="tp-input w-auto" placeholder="search…" value={q} onChange={(e) => setQ(e.target.value)} />}
+          {!compact && <input className="tp-input w-auto" placeholder={t('metadata.search.placeholder')} value={q} onChange={(e) => setQ(e.target.value)} />}
           {/* IconMetadata, the same arrow-landing-in-a-record the covers console
               uses: this fills fields on rows that already exist, which is what
               that drawing says and what tells it apart from IconExport. */}
           <GhostButton icon={<IconMetadata />} disabled={!!bulk || missing.length === 0} onClick={fetchMissing}>
-            Fetch missing{missing.length > 0 ? ` (${missing.length})` : ''}
+            {missing.length > 0
+              ? t('metadata.people.fetch.count.label', { n: missing.length })
+              : t('metadata.people.fetch.label')}
           </GhostButton>
           {!compact && onReverify && (
             /* IconRefresh, matching the re-verify button on the works bulk bar
@@ -1356,45 +1500,55 @@ export function PeopleConsole({ onFlash, compact = false, onReverify, onSearch }
             <GhostButton
               icon={<IconRefresh />}
               disabled={!!bulk || !(rows || []).some((p) => p.saved)}
-              title="Re-check every saved person's identity, links and portrait against the live sources — review before anything is applied"
+              title={t('metadata.people.reverify.tip')}
               onClick={() => onReverify((rows || []).filter((p) => p.saved).map((p) => ({ kind, name: p.name })))}
             >
-              Re-verify saved
+              {t('metadata.people.reverify.label')}
             </GhostButton>
           )}
         </div>
       </div>
       <ErrorText>{err}</ErrorText>
-      {bulk && <ProgressBar value={bulk.done} max={bulk.total} label={`fetching photos & links · ${bulk.done}/${bulk.total}`} />}
+      {bulk && <ProgressBar value={bulk.done} max={bulk.total} label={t('metadata.people.fetch.progress', { done: bulk.done, total: bulk.total })} />}
       {/* Mobile (§5): no browsable list — just how many still need work. */}
       {compact ? (
         <p className="microcopy" style={{ color: 'var(--soft)' }}>
           {!rows
-            ? 'loading…'
-            : `${missing.length} ${{ author: 'author', actor: 'actor', director: 'director', speaker: 'speaker' }[kind]}${missing.length === 1 ? '' : 's'} still need${missing.length === 1 ? 's' : ''} photos or links`}
+            ? t('common.state.loading')
+            : t('metadata.people.compact', {
+                count: missing.length,
+                n: missing.length,
+                noun: t(PEOPLE_NOUNS[kind], { count: missing.length }),
+              })}
         </p>
       ) : (
         <>
           {dupGroups.length > 0 && (
             <div className="space-y-2">
-              <MonoLabel>Possible duplicates ({dupGroups.length})</MonoLabel>
+              <MonoLabel>{t('metadata.people.dups.count', { n: dupGroups.length })}</MonoLabel>
               {dupGroups.map((g, i) => (
                 <DupCard key={i} group={g} kind={kind} rowsByName={rowsByName} onMerged={() => load()} />
               ))}
             </div>
           )}
           {!rows ? (
-            <EmptyState>loading…</EmptyState>
+            <EmptyState>{t('common.state.loading')}</EmptyState>
           ) : shown.length === 0 ? (
-            <EmptyState>{{ author: 'no authors in the library yet', actor: 'no actors on any dialogue yet', director: 'no directors on any film yet', speaker: 'nobody has said anything yet' }[kind]}</EmptyState>
+            <EmptyState>{t(PEOPLE_EMPTY[kind])}</EmptyState>
           ) : (
             <div className="ann-table-wrap" style={{ maxHeight: 420, overflowY: 'auto' }}>
               <table className="ann-table">
                 <thead>
                   <tr>
-                    <th>Name</th>
-                    <th>{kind === 'author' ? 'Books' : kind === 'speaker' ? 'Quotes' : 'Titles'}</th>
-                    <th>Links</th>
+                    <th>{t('common.field.name.label')}</th>
+                    <th>
+                      {t(kind === 'author'
+                        ? 'metadata.people.column.books'
+                        : kind === 'speaker'
+                          ? 'metadata.people.column.quotes'
+                          : 'metadata.people.column.titles')}
+                    </th>
+                    <th>{t('common.field.links.label')}</th>
                     <th></th>
                   </tr>
                 </thead>
@@ -1404,7 +1558,7 @@ export function PeopleConsole({ onFlash, compact = false, onReverify, onSearch }
                       <td>
                         <PersonName kind={kind} name={p.name} onOpen={setPerson} />
                         {p.has_image && (
-                          <span className="mono-label" style={{ marginLeft: 6, color: 'var(--soft)' }} title="photo saved">· photo</span>
+                          <span className="mono-label" style={{ marginLeft: 6, color: 'var(--soft)' }} title={t('metadata.people.photo.tip')}>· {t('metadata.people.photo.label')}</span>
                         )}
                       </td>
                       <td>
@@ -1412,7 +1566,7 @@ export function PeopleConsole({ onFlash, compact = false, onReverify, onSearch }
                             hits and actors on dialogue hits. Saved-but-no-
                             longer-referenced rows count 0 — nothing to find. */}
                         {p.count > 0 ? (
-                          <Tooltip label={`Search the library for “${p.name}”`} side="top">
+                          <Tooltip label={t('metadata.people.search.tip', { name: p.name })} side="top">
                             <button
                               className="tp-link"
                               onClick={() => onSearch?.(p.name)}
@@ -1437,7 +1591,11 @@ export function PeopleConsole({ onFlash, compact = false, onReverify, onSearch }
                         >
                           <IconRefresh />
                           <span>
-                            {busyName === p.name ? 'fetching…' : (Object.keys(parseLinks(p.links).known).length > 0 || p.has_image) ? 'refetch' : 'fetch'}
+                            {busyName === p.name
+                              ? t('metadata.people.row.fetch.busy')
+                              : (Object.keys(parseLinks(p.links).known).length > 0 || p.has_image)
+                                ? t('metadata.people.row.refetch.label')
+                                : t('metadata.people.row.fetch.label')}
                           </span>
                         </button>
                       </td>

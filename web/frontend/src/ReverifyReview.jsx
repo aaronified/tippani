@@ -344,10 +344,15 @@ export function ReverifyFlow({ selection, onClose, onFlash, onDone }) {
     const okCount = all.filter((x) => x.ok).length
     const failCount = all.length - okCount
     const notes = all.filter((x) => x.note).length
+    // Joined here for the same reason as the summary line above.
     onFlash?.(
-      t('reverify.flash', { count: okCount, n: okCount }) +
-        (failCount ? t('reverify.flash.failed', { n: failCount }) : '') +
-        (notes ? t('reverify.flash.skipped', { count: notes, n: notes }) : ''),
+      [
+        t('reverify.flash', { count: okCount, n: okCount }),
+        failCount && t('reverify.flash.failed', { n: failCount }),
+        notes && t('reverify.flash.skipped', { count: notes, n: notes }),
+      ]
+        .filter(Boolean)
+        .join(' · '),
     )
     onDone?.()
   }
@@ -366,13 +371,18 @@ export function ReverifyFlow({ selection, onClose, onFlash, onDone }) {
       )}
       {phase !== 'checking' && (
         <MonoLabel className="block" style={{ fontSize: 10.5 }}>
-          {t('reverify.summary', {
-            checked: items.length,
-            changed: changed.length,
-            clean,
-          })}
-          {skipped > 0 && t('reverify.summary.skipped', { n: skipped })}
-          {failedCount > 0 && t('reverify.summary.failed', { n: failedCount })}
+          {/* THE SEPARATOR IS JOINED HERE, NOT CARRIED IN THE VALUE. These three
+              read as one middot-joined line, and the first draft put the " · "
+              at the head of each tail value — where parseLocale trims it off,
+              silently, so the line came out as "9 up to date· 2 skipped". A
+              locale value cannot hold leading punctuation; the code owns it. */}
+          {[
+            t('reverify.summary', { checked: items.length, changed: changed.length, clean }),
+            skipped > 0 && t('reverify.summary.skipped', { n: skipped }),
+            failedCount > 0 && t('reverify.summary.failed', { n: failedCount }),
+          ]
+            .filter(Boolean)
+            .join(' · ')}
         </MonoLabel>
       )}
       <ErrorText>{err}</ErrorText>

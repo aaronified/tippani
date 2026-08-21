@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { categoryName, categoryVar } from './theme.js'
 import { json, errText } from './api.js'
+import { t, tNodes } from './i18n.js'
 import { WorkPicker, workFromBook, workFromMovie } from './AddSurface.jsx'
 import { chapterLabel, episodeLabel } from './text.js'
 import {
@@ -39,19 +40,38 @@ import {
 // Every mutation is one POST to /import/staged/bulk over the selection, so the
 // screen never walks rows one request at a time.
 
-const OPS = [
-  ['add', 'add'],
-  ['subtract', 'subtract'],
-  ['multiply', 'multiply'],
-  ['divide', 'divide'],
-  ['set', 'set to'],
-  ['reset', 'reset'],
-]
+// OPS — the six things a location formula can do, as STORED TOKENS ONLY. The
+// words sat beside them here until the i18n pass: a table of copy at module scope
+// freezes the language at import time, which is the bug three other tables in
+// this app shipped. So opLabel builds the words during render instead, and
+// opOptions is called from the Select rather than hoisted out of it.
+const OPS = ['add', 'subtract', 'multiply', 'divide', 'set', 'reset']
+const opLabel = (op) => t(`staging.formula.op.${op}.label`)
+const opOptions = () => OPS.map((op) => [op, opLabel(op)])
 
 // The tag beside a group's heading. `quotes` is the synthetic group a batch of
 // standalone quotes hangs from (§24, migration 0028) — it is not a work, so it
 // has no target to join and nothing to retarget onto.
-const KIND_TAG = { book: 'BOOK', movie: 'FILM', show: 'SHOW', quotes: 'QUOTES' }
+// HOLDS KEYS, RESOLVED WHERE IT IS DRAWN, for the reason OPS does. Three of the
+// four are the badges a favourite tile already draws, so they are the shared
+// common.badge.*; only the plural QUOTES belongs to this screen.
+const KIND_TAG = {
+  book: 'common.badge.book',
+  movie: 'common.badge.film',
+  show: 'common.badge.show',
+  quotes: 'staging.badge.quotes',
+}
+const kindTag = (kind) => t(KIND_TAG[kind] || 'common.badge.book')
+
+// kindNoun — the singular word for what approving a group would create. Drawn
+// from the shared unit.* table, so a book is called here what it is called in
+// every other count in the app.
+const kindNoun = (work) =>
+  work.kind === 'book'
+    ? t('unit.book', { count: 1 })
+    : work.kind === 'show'
+      ? t('unit.show', { count: 1 })
+      : t('unit.film', { count: 1 })
 
 export default function StagingPage({ onPending, onOpenBook, onOpenMovie, onApproved }) {
   const [queue, setQueue] = useState(null) // {pending, batches, works, quotes}
@@ -70,7 +90,7 @@ export default function StagingPage({ onPending, onOpenBook, onOpenMovie, onAppr
     const seq = ++reqSeq.current
     const r = await json('GET', '/import/staged')
     if (seq !== reqSeq.current) return // a newer load already answered
-    if (!r.ok) return setErr(errText(r, 'could not read the import queue'))
+    if (!r.ok) return setErr(errText(r, t('error.load.import-queue')))
     setErr('')
     setQueue(r.data)
     onPending?.(r.data.pending || 0)
@@ -140,8 +160,8 @@ export default function StagingPage({ onPending, onOpenBook, onOpenMovie, onAppr
     setErr('')
     const r = await json('POST', '/import/staged/bulk', { ids: selectedIds, ...body })
     setBusy(false)
-    if (!r.ok) return setErr(errText(r, 'could not apply the edit'))
-    setFlash(note || `updated ${r.data.updated}`)
+    if (!r.ok) return setErr(errText(r, t('error.apply.edit')))
+    setFlash(note || t('staging.flash.updated', { n: r.data.updated }))
     await load()
   }
 
@@ -151,10 +171,19 @@ export default function StagingPage({ onPending, onOpenBook, onOpenMovie, onAppr
     setErr('')
     const r = await json('POST', '/import/staged/approve', ids ? { ids } : { all: true })
     setBusy(false)
-    if (!r.ok) return setErr(errText(r, 'could not approve'))
+    if (!r.ok) return setErr(errText(r, t('error.approve.generic')))
     const { added = 0, skipped = 0, enriched = 0 } = r.data
+    // Three fragments joined HERE rather than one value with an optional tail:
+    // the locale parser trims a value, so a file cannot carry the leading
+    // separator a third fragment would need.
     setFlash(
-      `${added} added · ${skipped} skipped` + (enriched ? ` · ${enriched} enriched` : ''),
+      [
+        t('staging.flash.approved.added', { n: added }),
+        t('staging.flash.approved.skipped', { n: skipped }),
+        enriched > 0 && t('staging.flash.approved.enriched', { n: enriched }),
+      ]
+        .filter(Boolean)
+        .join(' · '),
     )
     clearSel()
     await load()
@@ -167,8 +196,8 @@ export default function StagingPage({ onPending, onOpenBook, onOpenMovie, onAppr
     setErr('')
     const r = await json('DELETE', '/import/staged', ids ? { ids } : { all: true })
     setBusy(false)
-    if (!r.ok) return setErr(errText(r, 'could not discard'))
-    setFlash(`discarded ${r.data.discarded}`)
+    if (!r.ok) return setErr(errText(r, t('error.discard.generic')))
+    setFlash(t('staging.flash.discarded', { n: r.data.discarded }))
     clearSel()
     await load()
   }
@@ -176,7 +205,7 @@ export default function StagingPage({ onPending, onOpenBook, onOpenMovie, onAppr
   if (!queue) {
     return (
       <section className="space-y-5">
-        <PageHeader title="Pending import" counts="reading the queue…" />
+        <PageHeader title={t('staging.title')} counts={t('staging.state.loading')} />
         <ErrorText>{err}</ErrorText>
       </section>
     )
@@ -187,17 +216,21 @@ export default function StagingPage({ onPending, onOpenBook, onOpenMovie, onAppr
   if (queue.pending === 0 && works.length === 0) {
     return (
       <section className="space-y-5">
-        <PageHeader title="Pending import" counts="nothing waiting" />
-        <EmptyState>
-          nothing staged — an import lands here first, and stays until you okay it
-        </EmptyState>
+        <PageHeader title={t('staging.title')} counts={t('staging.state.empty-counts')} />
+        <EmptyState>{t('staging.state.empty')}</EmptyState>
       </section>
     )
   }
 
+  // Built here, during the render that draws the Select, and not hoisted: the
+  // words in an options list are copy, and copy resolved once at import time is
+  // copy in whatever language was current then.
   const batchOptions = [
-    ['all', `All files (${queue.pending})`],
-    ...batches.map((b) => [String(b.id), `${b.filename || b.source} · ${b.quotes}`]),
+    ['all', t('staging.filter.all-files.label', { n: queue.pending })],
+    ...batches.map((b) => [
+      String(b.id),
+      t('staging.filter.batch.label', { name: b.filename || b.source, n: b.quotes }),
+    ]),
   ]
 
   const pageActions = (
@@ -207,17 +240,21 @@ export default function StagingPage({ onPending, onOpenBook, onOpenMovie, onAppr
         disabled={busy}
         onClick={() =>
           setConfirm({
-            title: 'Discard everything staged?',
-            body: `All ${queue.pending} staged quotes go, from every file. Nothing in your library is touched.`,
-            label: 'Discard all',
+            title: t('staging.discard-all.confirm.title'),
+            body: t('staging.discard-all.confirm.body', { n: queue.pending }),
+            label: t('staging.discard-all.label'),
             run: () => discard(null),
           })
         }
       >
-        Discard all
+        {t('staging.discard-all.label')}
       </GhostButton>
       <button className="tp-btn tp-btn-primary" disabled={busy} onClick={() => approve(null)}>
-        Approve all{queue.pending > 0 ? ` ${queue.pending}` : ''}
+        {/* Two keys rather than a number glued onto a label, so no language has
+            to assemble the phrase out of a word and a fragment. */}
+        {queue.pending > 0
+          ? t('staging.approve-all.count.label', { n: queue.pending })
+          : t('staging.approve-all.label')}
       </button>
     </>
   )
@@ -229,11 +266,13 @@ export default function StagingPage({ onPending, onOpenBook, onOpenMovie, onAppr
           and two buttons without the buttons sitting on the title. */}
       <div className={mobile ? 'mobile-sticky-bar' : ''}>
         <PageHeader
-          title="Pending import"
+          title={t('staging.title')}
           counts={
+            /* Two real plural families where the English grew its own -s in
+               JavaScript. A count now picks whichever form its language has. */
             queue.pending > 0
-              ? `${queue.pending} quote${queue.pending === 1 ? '' : 's'} waiting`
-              : `${works.length} work${works.length === 1 ? '' : 's'} waiting, no quotes`
+              ? t('staging.counts.quotes', { count: queue.pending, n: queue.pending })
+              : t('staging.counts.works', { count: works.length, n: works.length })
           }
           right={mobile ? null : pageActions}
         />
@@ -242,8 +281,8 @@ export default function StagingPage({ onPending, onOpenBook, onOpenMovie, onAppr
 
       <div className="filter-row">
         <label className="flex items-center gap-2">
-          <MonoLabel>File</MonoLabel>
-          <Select ariaLabel="Import batch" value={batch} onChange={setBatch} options={batchOptions} width={mobile ? undefined : 260} />
+          <MonoLabel>{t('staging.filter.file.label')}</MonoLabel>
+          <Select ariaLabel={t('staging.filter.batch.aria')} value={batch} onChange={setBatch} options={batchOptions} width={mobile ? undefined : 260} />
         </label>
         <label className="flex items-center gap-2" style={{ marginLeft: 'auto' }}>
           <input
@@ -251,7 +290,7 @@ export default function StagingPage({ onPending, onOpenBook, onOpenMovie, onAppr
             checked={allShownSelected}
             onChange={() => setSel(allShownSelected ? new Set() : new Set(shownIds))}
           />
-          <span className="microcopy">select all {shownIds.length}</span>
+          <span className="microcopy">{t('staging.select-all.label', { n: shownIds.length })}</span>
         </label>
       </div>
 
@@ -259,33 +298,38 @@ export default function StagingPage({ onPending, onOpenBook, onOpenMovie, onAppr
         {/* The toast names the CATEGORY, not the token. It said "colour → blue"
             while every card on the screen said "Fact", which reads as a
             different operation than the one you asked for. */}
-        <ColorSwatches value="" ariaLabel="Set category" onChange={(c) => apply({ color: c }, `→ ${categoryName(c)}`)} />
-        <GhostButton disabled={busy} onClick={() => apply({ favorite: true }, 'favourited')}>
-          ♥ favourite
+        <ColorSwatches
+          value=""
+          ariaLabel={t('staging.bulk.colour.aria')}
+          onChange={(c) => apply({ color: c }, t('staging.flash.colour', { name: categoryName(c) }))}
+        />
+        <GhostButton disabled={busy} onClick={() => apply({ favorite: true }, t('staging.flash.favourited'))}>
+          {t('staging.bulk.favourite.label')}
         </GhostButton>
-        <Tooltip label="Remove the favourite mark">
-          <GhostButton disabled={busy} onClick={() => apply({ favorite: false }, 'unfavourited')}>
-            un-♥
+        <Tooltip label={t('staging.bulk.unfavourite.tip')}>
+          <GhostButton disabled={busy} onClick={() => apply({ favorite: false }, t('staging.flash.unfavourited'))}>
+            {t('staging.bulk.unfavourite.label')}
           </GhostButton>
         </Tooltip>
-        <GhostButton icon={<IconEdit />} onClick={() => setPanel(panel === 'fields' ? '' : 'fields')}>Edit fields…</GhostButton>
-        <GhostButton icon={<IconMoveTo />} onClick={() => setPanel(panel === 'move' ? '' : 'move')}>Move to…</GhostButton>
-        <GhostButton icon={<IconRuler />} onClick={() => setPanel(panel === 'formula' ? '' : 'formula')}>Locations…</GhostButton>
+        <GhostButton icon={<IconEdit />} onClick={() => setPanel(panel === 'fields' ? '' : 'fields')}>{t('staging.bulk.fields.label')}</GhostButton>
+        <GhostButton icon={<IconMoveTo />} onClick={() => setPanel(panel === 'move' ? '' : 'move')}>{t('staging.bulk.move.label')}</GhostButton>
+        <GhostButton icon={<IconRuler />} onClick={() => setPanel(panel === 'formula' ? '' : 'formula')}>{t('staging.bulk.locations.label')}</GhostButton>
         <button className="tp-btn tp-btn-primary" disabled={busy} onClick={() => approve(selectedIds)}>
-          Approve {n}
+          {t('staging.bulk.approve.label', { n })}
         </button>
         <GhostButton
           disabled={busy}
           onClick={() =>
             setConfirm({
-              title: `Discard ${n} staged quote${n === 1 ? '' : 's'}?`,
-              body: 'They leave the queue without ever entering your library.',
-              label: 'Discard',
+              // A real plural family; the title used to build its own -s.
+              title: t('staging.discard.confirm.title', { count: n, n }),
+              body: t('staging.discard.confirm.body'),
+              label: t('staging.discard.label'),
               run: () => discard(selectedIds),
             })
           }
         >
-          Discard
+          {t('staging.discard.label')}
         </GhostButton>
       </BulkBar>
 
@@ -311,19 +355,19 @@ export default function StagingPage({ onPending, onOpenBook, onOpenMovie, onAppr
             onOpenMovie={onOpenMovie}
           />
         ))}
-        {groups.length === 0 && <EmptyState>no staged quotes in that file</EmptyState>}
+        {groups.length === 0 && <EmptyState>{t('staging.state.empty-file')}</EmptyState>}
       </div>
 
-      <FormModal open={!!editing} onClose={() => setEditing(null)} title="Edit staged quote">
+      <FormModal open={!!editing} onClose={() => setEditing(null)} title={t('staging.form.title')}>
         {editing && (
           <StagedQuoteForm
             quote={editing}
             onCancel={() => setEditing(null)}
             onSaved={async (fields) => {
               const r = await json('POST', '/import/staged/bulk', { ids: [editing.id], ...fields })
-              if (!r.ok) return errText(r, 'could not save')
+              if (!r.ok) return errText(r, t('error.save.generic'))
               setEditing(null)
-              setFlash('saved')
+              setFlash(t('staging.flash.saved'))
               await load()
               return null
             }}
@@ -363,47 +407,62 @@ function StagedGroup({ work, items, sel, onToggle, onToggleGroup, onEdit, onOpen
     if (!work.target_id) return
     isBook ? onOpenBook?.(work.target_id) : onOpenMovie?.(work.target_id)
   }
+  // The destination's own words. Two keys rather than one with an optional
+  // parenthetical, so no language has to build the bracket itself.
+  const targetName = work.target_title || work.title
+  const targetLabel = work.target_year
+    ? t('staging.group.target.year.label', { title: targetName, year: work.target_year })
+    : targetName
   return (
     <section>
       <div className="mb-3 flex flex-wrap items-center gap-3">
-        <Tooltip label="Select this whole group" side="bottom">
+        <Tooltip label={t('staging.group.select.tip')} side="bottom">
           <input
             type="checkbox"
             checked={allOn}
             onChange={onToggleGroup}
-            aria-label={`Select every staged quote for ${work.title}`}
+            aria-label={t('staging.group.select.aria', { title: work.title })}
           />
         </Tooltip>
         <h3 className="display-title truncate" style={{ fontSize: 19 }}>
           {work.title}
         </h3>
         <MonoLabel style={{ color: isBook || isStandalone ? 'var(--accent-ui)' : 'var(--amber)' }}>
-          {KIND_TAG[work.kind] || 'BOOK'}
+          {kindTag(work.kind)}
         </MonoLabel>
         <MonoLabel style={{ color: 'var(--accent-ui)' }}>
-          {items.length} quote{items.length === 1 ? '' : 's'}
+          {/* The shared count idiom and the shared noun, so this reads the same
+              way as every other quote count in the app. */}
+          {t('common.count.phrase', { n: items.length, noun: t('unit.quote', { count: items.length }) })}
         </MonoLabel>
         <span className="h-px flex-1" style={{ background: 'var(--line)' }} />
       </div>
       <p className="microcopy mb-3">
         {isStandalone ? (
-          <>→ will be saved as quotes of their own, from no book and no film</>
+          t('staging.group.standalone.prose')
         ) : work.target_id ? (
           <>
-            → joins your existing{' '}
-            <button type="button" className="tp-link" onClick={openTarget}>
-              {work.target_title || work.title}
-              {work.target_year ? ` (${work.target_year})` : ''}
-            </button>
-            {work.pinned && <span style={{ color: 'var(--accent-ui)' }}> · you chose this</span>}
+            {/* The destination is a BUTTON, so the sentence carries a {target}
+                hole and tNodes drops the node into it. Markup never goes into a
+                locale value. */}
+            {tNodes('staging.group.joins.prose', {
+              target: (
+                <button key="target" type="button" className="tp-link" onClick={openTarget}>
+                  {targetLabel}
+                </button>
+              ),
+            })}
+            {work.pinned && <span style={{ color: 'var(--accent-ui)' }}> · {t('staging.group.pinned.label')}</span>}
           </>
         ) : (
-          <>→ will be added as a new {isBook ? 'book' : work.kind === 'show' ? 'show' : 'film'}</>
+          t('staging.group.new.prose', { kind: kindNoun(work) })
         )}
         {work.ambiguous && (
           <span style={{ color: 'var(--amber)' }}>
             {' '}
-            ⚠ you have {work.alternatives + 1} titles with this name — check it went to the right one
+            {/* n is at least 2 by construction — a work is only ambiguous when a
+                second title shares its name — so this needs no plural family. */}
+            {t('staging.group.ambiguous.warning', { n: work.alternatives + 1 })}
           </span>
         )}
       </p>
@@ -412,8 +471,8 @@ function StagedGroup({ work, items, sel, onToggle, onToggleGroup, onEdit, onOpen
           {/* An empty work still creates the book or film; an empty quotes
               group creates nothing, because there is nothing but the quotes. */}
           {isStandalone
-            ? 'no quotes left in this group'
-            : `no quotes — approving adds the ${isBook ? 'book' : work.kind === 'show' ? 'show' : 'film'} itself`}
+            ? t('staging.group.empty.standalone')
+            : t('staging.group.empty.work', { kind: kindNoun(work) })}
         </p>
       ) : (
         <ul className="space-y-2">
@@ -461,8 +520,8 @@ function StagedRow({ quote, selected, onToggle, onEdit }) {
         borderLeft: `4px solid ${categoryVar(quote.color) || 'var(--line)'}`,
       }}
     >
-      <Tooltip label="Select this quote">
-        <input type="checkbox" checked={selected} onChange={onToggle} aria-label="Select this staged quote" style={{ marginTop: 3 }} />
+      <Tooltip label={t('staging.row.select.tip')}>
+        <input type="checkbox" checked={selected} onChange={onToggle} aria-label={t('staging.row.select.aria')} style={{ marginTop: 3 }} />
       </Tooltip>
       <div className="min-w-0 flex-1">
         <p
@@ -471,7 +530,9 @@ function StagedRow({ quote, selected, onToggle, onEdit }) {
         >
           {quote.quote || quote.note}
         </p>
-        {quote.quote && quote.note && <p className="microcopy mt-1">note: {quote.note}</p>}
+        {quote.quote && quote.note && (
+          <p className="microcopy mt-1">{t('staging.row.note.label', { note: quote.note })}</p>
+        )}
         {(bits.length > 0 || quote.tags?.length > 0 || quote.favorite) && (
           <div className="mt-1.5 flex flex-wrap items-center gap-2">
             {bits.map((b, i) => (
@@ -480,22 +541,22 @@ function StagedRow({ quote, selected, onToggle, onEdit }) {
               </MonoLabel>
             ))}
             {moved && (
-              <MonoLabel style={{ color: 'var(--accent-ui)' }} title="a location formula moved this; reset restores it">
-                shifted
+              <MonoLabel style={{ color: 'var(--accent-ui)' }} title={t('staging.row.shifted.tip')}>
+                {t('staging.row.shifted.label')}
               </MonoLabel>
             )}
             {quote.favorite && <span style={{ color: 'var(--accent)' }}>♥</span>}
-            {(quote.tags || []).map((t) => (
-              <TagChip key={t}>{t}</TagChip>
+            {(quote.tags || []).map((tag) => (
+              <TagChip key={tag}>{tag}</TagChip>
             ))}
           </div>
         )}
       </div>
       <FieldIconButton
         icon={<IconEdit />}
-        ariaLabel="Edit"
+        ariaLabel={t('common.action.edit.label')}
         onClick={onEdit}
-        tooltip="Edit this quote"
+        tooltip={t('common.action.edit.row.tip', { noun: t('unit.quote', { count: 1 }) })}
         className="shrink-0"
       />
     </div>
@@ -511,15 +572,18 @@ function FieldsPanel({ n, busy, onApply }) {
   const [val, setVal] = useState({})
   const [addTags, setAddTags] = useState([])
   const [removeTags, setRemoveTags] = useState([])
+  // HOLDS KEYS, not words. Every one of the eight is the shared label the rest
+  // of the app already draws for that column, so the bulk editor and the add
+  // form cannot disagree about what a field is called.
   const FIELDS = [
-    ['chapter_no', 'Chapter #'],
-    ['chapter', 'Chapter name'],
-    ['location', 'Location'],
-    ['character', 'Character'],
-    ['actor', 'Actor'],
-    ['season', 'Season'],
-    ['episode', 'Episode'],
-    ['timestamp', 'Timestamp'],
+    ['chapter_no', 'common.field.chapter-no.label'],
+    ['chapter', 'common.field.chapter-name.label'],
+    ['location', 'common.field.location.label'],
+    ['character', 'common.field.character.label'],
+    ['actor', 'common.field.actor.label'],
+    ['season', 'common.field.season.label'],
+    ['episode', 'common.field.episode.label'],
+    ['timestamp', 'common.field.timestamp.label'],
   ]
   function submit() {
     const body = {}
@@ -527,19 +591,23 @@ function FieldsPanel({ n, busy, onApply }) {
     if (addTags.length) body.add_tags = addTags
     if (removeTags.length) body.remove_tags = removeTags
     if (Object.keys(body).length === 0) return
-    onApply(body, `edited ${n}`)
+    onApply(body, t('staging.flash.edited', { n }))
   }
   return (
-    <Panel title={`Edit ${n} selected`}>
-      {FIELDS.map(([key, label]) => (
+    <Panel title={t('staging.fields.panel.title', { n })}>
+      {FIELDS.map(([key, labelKey]) => (
         <label key={key} className="flex flex-wrap items-center gap-2">
           <input type="checkbox" checked={!!on[key]} onChange={(e) => setOn({ ...on, [key]: e.target.checked })} />
           <span className="microcopy" style={{ minWidth: 76 }}>
-            {label}
+            {t(labelKey)}
           </span>
           <input
             className="tp-input w-auto flex-1"
-            placeholder={`set ${label.toLowerCase()} (blank = clear)`}
+            /* One frame with the field's own name dropped into it, LOWER-CASED BY
+               THE CALLER — the arrangement the bin's kind filter already uses, and
+               the reason the field label stays a single source of truth rather
+               than being written out eight more times. */
+            placeholder={t('staging.fields.set.placeholder', { field: t(labelKey).toLowerCase() })}
             disabled={!on[key]}
             value={val[key] || ''}
             onChange={(e) => setVal({ ...val, [key]: e.target.value })}
@@ -548,18 +616,28 @@ function FieldsPanel({ n, busy, onApply }) {
       ))}
       <div className="grid gap-2 sm:grid-cols-2">
         <label className="tp-field">
-          <MonoLabel>Add tags</MonoLabel>
-          <TokenInput value={addTags} onChange={setAddTags} placeholder="add a tag…" ariaLabel="Tags to add" />
+          <MonoLabel>{t('common.action.add-tags.label')}</MonoLabel>
+          <TokenInput
+            value={addTags}
+            onChange={setAddTags}
+            placeholder={t('common.field.tags.placeholder')}
+            ariaLabel={t('staging.fields.add-tags.aria')}
+          />
         </label>
         <label className="tp-field">
           <MonoLabel>
-            Remove tags <InfoDot text="The live bulk endpoint can only add tags. A staged tag is plain text until approval, so here it comes off again." />
+            {t('staging.fields.remove-tags.label')} <InfoDot text={t('staging.fields.remove-tags.info')} />
           </MonoLabel>
-          <TokenInput value={removeTags} onChange={setRemoveTags} placeholder="remove a tag…" ariaLabel="Tags to remove" />
+          <TokenInput
+            value={removeTags}
+            onChange={setRemoveTags}
+            placeholder={t('staging.fields.remove-tags.placeholder')}
+            ariaLabel={t('staging.fields.remove-tags.aria')}
+          />
         </label>
       </div>
       <button className="tp-btn tp-btn-primary" disabled={busy} onClick={submit}>
-        Apply to {n}
+        {t('staging.fields.apply.label', { n })}
       </button>
     </Panel>
   )
@@ -580,20 +658,24 @@ function MovePanel({ n, busy, works, onApply }) {
       setLibWorks(list)
     })
   }, [])
+  // Built during render, like batchOptions and for the same reason.
   const groupOptions = [
-    ['', 'pick a group…'],
+    ['', t('staging.move.group.placeholder')],
     // A standalone-quote group is left out: retargeting means "send these to a
     // different work", and these are quotes with no work by definition.
     ...works
       .filter((w) => w.kind !== 'quotes')
-      .map((w) => [String(w.id), `${w.title} · ${KIND_TAG[w.kind] || 'BOOK'} (${w.quotes})`]),
+      .map((w) => [
+        String(w.id),
+        t('staging.move.group.option', { title: w.title, badge: kindTag(w.kind), n: w.quotes }),
+      ]),
   ]
   return (
-    <Panel title={`Move ${n} selected`}>
+    <Panel title={t('staging.move.panel.title', { n })}>
       <div>
         <MonoLabel className="block">
-          Onto a work in your library{' '}
-          <InfoDot text="Across kinds too — book highlights can move onto a film, and back. Approval reads whichever locators the destination uses." />
+          {t('staging.move.library.label')}{' '}
+          <InfoDot text={t('staging.move.library.info')} />
         </MonoLabel>
         <WorkPicker works={libWorks} value={picked} onChange={setPicked} />
         <button
@@ -602,24 +684,26 @@ function MovePanel({ n, busy, works, onApply }) {
           onClick={() =>
             onApply(
               { retarget: { kind: picked.kind === 'book' ? 'book' : 'movie', id: picked.id } },
-              `moved ${n} to ${picked.title}`,
+              t('staging.flash.moved', { n, title: picked.title }),
             )
           }
         >
-          Move to {picked ? picked.title : 'a work'}
+          {/* Two keys rather than a fallback noun spliced into one, so neither
+              language has to build "Move to" plus a word out of two fragments. */}
+          {picked ? t('staging.move.button.label', { title: picked.title }) : t('staging.move.button.none.label')}
         </button>
       </div>
       <div className="flex flex-wrap items-end gap-2">
         <label className="tp-field" style={{ flex: 1, minWidth: 220 }}>
-          <MonoLabel>Or merge into another group in this queue</MonoLabel>
-          <Select ariaLabel="Staged group" value={group} onChange={setGroup} options={groupOptions} />
+          <MonoLabel>{t('staging.move.merge.label')}</MonoLabel>
+          <Select ariaLabel={t('staging.move.group.aria')} value={group} onChange={setGroup} options={groupOptions} />
         </label>
         <button
           className="tp-btn tp-btn-primary"
           disabled={busy || !group}
-          onClick={() => onApply({ retarget: { staged_work_id: Number(group) } }, `merged ${n}`)}
+          onClick={() => onApply({ retarget: { staged_work_id: Number(group) } }, t('staging.flash.merged', { n }))}
         >
-          Merge
+          {t('staging.move.merge.button.label')}
         </button>
       </div>
     </Panel>
@@ -635,7 +719,6 @@ function FormulaPanel({ n, busy, onApply }) {
   const [value, setValue] = useState('')
   const [text, setText] = useState('')
   const needsValue = ['add', 'subtract', 'multiply', 'divide'].includes(op)
-  const label = OPS.find(([k]) => k === op)?.[1] || op
   function submit() {
     const formula = { field, op }
     if (needsValue) {
@@ -644,34 +727,38 @@ function FormulaPanel({ n, busy, onApply }) {
       formula.value = v
     }
     if (op === 'set') formula.text = text.trim()
-    onApply({ formula }, `${label} applied to ${n}`)
+    onApply({ formula }, t('staging.flash.formula', { op: opLabel(op), n }))
   }
   return (
-    <Panel title={`Shift locations on ${n} selected`}>
+    <Panel title={t('staging.formula.panel.title', { n })}>
       <div className="flex flex-wrap items-end gap-2">
         <label className="tp-field">
-          <MonoLabel>Field</MonoLabel>
+          <MonoLabel>{t('staging.formula.field.label')}</MonoLabel>
           <Select
-            ariaLabel="Locator field"
+            ariaLabel={t('staging.formula.field.aria')}
             value={field}
             onChange={setField}
             options={[
-              ['location', 'Location'],
-              ['timestamp', 'Timestamp'],
+              // Resolved here, during render, and from the shared field labels:
+              // these are the same two words the rows above the panel print.
+              ['location', t('common.field.location.label')],
+              ['timestamp', t('common.field.timestamp.label')],
             ]}
           />
         </label>
         <label className="tp-field">
-          <MonoLabel>Operation</MonoLabel>
-          <Select ariaLabel="Operation" value={op} onChange={setOp} options={OPS} />
+          {/* The visible label and the aria label are the same word, so they are
+              one key — two would be two chances to disagree. */}
+          <MonoLabel>{t('staging.formula.op.label')}</MonoLabel>
+          <Select ariaLabel={t('staging.formula.op.label')} value={op} onChange={setOp} options={opOptions()} />
         </label>
         {needsValue && (
           <div style={{ maxWidth: 110 }}>
             <Field
-              label="By"
+              label={t('staging.formula.by.label')}
               type="number"
               step="any"
-              placeholder="5"
+              placeholder={t('staging.formula.by.placeholder')}
               value={value}
               onChange={(e) => setValue(e.target.value)}
             />
@@ -679,18 +766,33 @@ function FormulaPanel({ n, busy, onApply }) {
         )}
         {op === 'set' && (
           <div style={{ maxWidth: 160 }}>
-            <Field label="To" placeholder="p.1" value={text} onChange={(e) => setText(e.target.value)} />
+            <Field
+              label={t('staging.formula.to.label')}
+              placeholder={t('staging.formula.to.placeholder')}
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+            />
           </div>
         )}
         <button className="tp-btn tp-btn-primary" disabled={busy} onClick={submit}>
-          Apply
+          {t('common.action.apply.label')}
         </button>
       </div>
+      {/* Four worked examples and the reset operation's own name are NODES, drawn
+          in bold: a locale value never carries markup, so the sentence has five
+          holes and this call site fills them. HH:MM:SS is a picture of a time
+          format rather than words, and stays as it is in every language. */}
       <p className="microcopy">
-        Numbers inside the text move and everything around them stays: <b>p.142</b> minus 5 is <b>p.137</b>, and a range
-        like <b>610-612</b> moves at both ends. Timestamps convert to seconds, shift, and come back as{' '}
-        <b>HH:MM:SS</b>. Results stop at zero and division rounds. <b>Reset</b> restores every row's as-imported value,
-        so a formula applied by mistake is undone rather than lived with.
+        {/* Each node is KEYED, as every other multi-node tNodes site is: the
+            resolved value is split into an ARRAY, so an unkeyed element in it is
+            a React list-key warning on every render of this panel. */}
+        {tNodes('staging.formula.prose', {
+          from: <b key="from">{t('staging.formula.example.page-from')}</b>,
+          to: <b key="to">{t('staging.formula.example.page-to')}</b>,
+          range: <b key="range">{t('staging.formula.example.range')}</b>,
+          clock: <b key="clock">{t('staging.formula.example.clock')}</b>,
+          reset: <b key="reset">{t('staging.formula.example.reset')}</b>,
+        })}
       </p>
     </Panel>
   )
@@ -739,7 +841,8 @@ function StagedQuoteForm({ quote, onSaved, onCancel }) {
   async function submit() {
     setBusy(true)
     setErr('')
-    const gone = (quote.tags || []).filter((t) => !tags.some((x) => x.toLowerCase() === t.toLowerCase()))
+    // `tag`, not `t`: this file imports the resolver under that name now.
+    const gone = (quote.tags || []).filter((tag) => !tags.some((x) => x.toLowerCase() === tag.toLowerCase()))
     // Send only the fields that actually changed. location and timestamp matter
     // most: assigning either re-bases its as-imported snapshot server-side (so
     // `reset` returns to what you typed), and re-sending an untouched value would
@@ -770,43 +873,50 @@ function StagedQuoteForm({ quote, onSaved, onCancel }) {
         className="whitespace-pre-wrap"
         style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontStyle: 'italic', fontSize: 16 }}
       >
-        “{quote.quote || quote.note}”
+        {t('staging.form.quoted', { text: quote.quote || quote.note })}
       </p>
-      <p className="microcopy">
-        Both locator sets are here because a staged quote carries both: approval reads whichever the destination uses,
-        so moving this onto a film — or back onto a book — never loses the other half.
-      </p>
+      <p className="microcopy">{t('staging.form.locators.prose')}</p>
+      {/* Every label here is the shared one; only the eight example values are
+          this screen's own. Philip Marlowe and Elliott Gould are proper nouns,
+          and 01:02:03 is a picture of a time format. */}
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Chapter #" inputMode="decimal" placeholder="7" value={f.chapter_no} onChange={upd('chapter_no')} />
-        <Field label="Chapter name" placeholder="optional" value={f.chapter} onChange={upd('chapter')} />
-        <Field label="Location" placeholder="p.142" value={f.location} onChange={upd('location')} />
-        <Field label="Character" nameCase placeholder="Philip Marlowe" value={f.character} onChange={upd('character')} />
-        <Field label="Actor" nameCase placeholder="Elliott Gould" value={f.actor} onChange={upd('actor')} />
-        <Field label="Season" placeholder="2 (shows only)" value={f.season} onChange={upd('season')} />
-        <Field label="Episode" placeholder="5 (needs a season)" value={f.episode} onChange={upd('episode')} />
-        <Field label="Timestamp" placeholder="01:02:03" value={f.timestamp} onChange={upd('timestamp')} />
+        <Field label={t('common.field.chapter-no.label')} inputMode="decimal" placeholder={t('staging.form.chapter-no.placeholder')} value={f.chapter_no} onChange={upd('chapter_no')} />
+        <Field label={t('common.field.chapter-name.label')} placeholder={t('staging.form.chapter.placeholder')} value={f.chapter} onChange={upd('chapter')} />
+        <Field label={t('common.field.location.label')} placeholder={t('staging.form.location.placeholder')} value={f.location} onChange={upd('location')} />
+        <Field label={t('common.field.character.label')} nameCase placeholder={t('staging.form.character.placeholder')} value={f.character} onChange={upd('character')} />
+        <Field label={t('common.field.actor.label')} nameCase placeholder={t('staging.form.actor.placeholder')} value={f.actor} onChange={upd('actor')} />
+        <Field label={t('common.field.season.label')} placeholder={t('staging.form.season.placeholder')} value={f.season} onChange={upd('season')} />
+        <Field label={t('common.field.episode.label')} placeholder={t('staging.form.episode.placeholder')} value={f.episode} onChange={upd('episode')} />
+        <Field label={t('common.field.timestamp.label')} placeholder={t('staging.form.timestamp.placeholder')} value={f.timestamp} onChange={upd('timestamp')} />
       </div>
       <div className="flex flex-wrap items-center gap-4">
         <label className="tp-field">
-          <MonoLabel>Colour</MonoLabel>
+          <MonoLabel>{t('common.field.colour.label')}</MonoLabel>
           <ColorSwatches value={f.color} onChange={(c) => setF({ ...f, color: c })} />
         </label>
         <label className="tp-field">
-          <MonoLabel>Favourite</MonoLabel>
+          <MonoLabel>{t('common.field.favourite.label')}</MonoLabel>
           <Hearts value={f.favorite} onChange={(v) => setF({ ...f, favorite: v })} />
         </label>
       </div>
       <label className="tp-field">
-        <MonoLabel>Tags</MonoLabel>
-        <TokenInput value={tags} onChange={setTags} placeholder="add a tag…" ariaLabel="Tags" transform={(t) => splitCommas(t)[0] || t} />
+        <MonoLabel>{t('common.field.tags.label')}</MonoLabel>
+        {/* `tok`, not `t` — see the rename in submit(). */}
+        <TokenInput
+          value={tags}
+          onChange={setTags}
+          placeholder={t('common.field.tags.placeholder')}
+          ariaLabel={t('common.field.tags.label')}
+          transform={(tok) => splitCommas(tok)[0] || tok}
+        />
       </label>
       <ErrorText>{err}</ErrorText>
       <div className="flex flex-wrap items-center gap-2">
         <button className="tp-btn tp-btn-primary" disabled={busy} onClick={submit}>
-          Save
+          {t('common.action.save.label')}
         </button>
         <GhostButton onClick={onCancel} disabled={busy}>
-          Cancel
+          {t('common.action.cancel.label')}
         </GhostButton>
       </div>
     </div>
@@ -819,13 +929,14 @@ export function PendingImportCard({ pending, onOpen }) {
   if (!pending) return null
   return (
     <HandCard variant={1} colorBar="var(--accent-ui)" className="flex flex-wrap items-center gap-3 p-4">
-      <MonoLabel style={{ color: 'var(--accent-ui)' }}>pending import</MonoLabel>
+      <MonoLabel style={{ color: 'var(--accent-ui)' }}>{t('staging.card.label')}</MonoLabel>
       <p className="text-sm" style={{ color: 'var(--soft)' }}>
-        {pending} imported quote{pending === 1 ? '' : 's'} {pending === 1 ? 'is' : 'are'} waiting for you to okay{' '}
-        {pending === 1 ? 'it' : 'them'} — nothing has entered your library yet.
+        {/* One plural family replaced three JavaScript ternaries — the
+            quote/quotes, the is/are and the it/them the English needed. */}
+        {t('staging.card.body', { count: pending, n: pending })}
       </p>
       <button className="tp-btn tp-btn-primary ml-auto" onClick={onOpen}>
-        Review {pending}
+        {t('staging.card.review.label', { n: pending })}
       </button>
     </HandCard>
   )

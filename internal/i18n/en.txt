@@ -496,6 +496,42 @@ common.badge.none = NONE
 # The perforated edge of the film-strip decoration. BRANDING — DO NOT TRANSLATE.
 common.filmstrip.edge.label = TIPPANI · SAFETY FILM
 
+# The wordmark — the logotype, drawn three times in the shell (the login screen,
+# the drawer header and the top bar). BRANDING, LIKE THE FILM-STRIP EDGE ABOVE:
+# the same value in every language.
+#
+# THE APP'S NAME AND THE APP'S LOGOTYPE ARE TWO THINGS, and this key is only the
+# second. Bengali calls the app টিপ্পনী and says so in its own prose — see
+# shell.onboarding.title and shell.drawer.tagline.label — but a logotype is a
+# drawn mark set in one face at one size, and changing its script is a branding
+# decision rather than a translation. It goes through the resolver anyway so that
+# the pseudo-locale can see it, and so a language that DOES want its own mark has
+# somewhere to say so.
+shell.wordmark.label = tippani
+
+# --- THE THREE THINGS ON THIS SCREEN THAT ARE NOT COPY.
+#
+# Each goes through the resolver anyway, because the alternative is an exemption
+# in the pseudo-locale gate and a gate with exemptions in it stops being a gate.
+# Each carries the SAME VALUE IN EVERY LANGUAGE, exactly as
+# common.filmstrip.edge.label does and as §6.3's "unchanged" rows do.
+#
+# The size readout beside the Type card's slider. A unit symbol next to a Western
+# digit, in the same class as {n}h / {n}d / ×{n} — not a word.
+settings.type.size.format = {n}px
+# The four credit separators, as the chip DRAWS them. These are the characters the
+# splitter actually matches, so translating one would name a separator nothing
+# splits on: an author line reads "Gaiman & Pratchett" or "Gaiman and Pratchett"
+# in English whatever language the interface is in. The screen-reader names beside
+# them (settings.credits.sep.*.aria) ARE copy and are translated.
+settings.credits.sep.comma.symbol = ,
+settings.credits.sep.semicolon.symbol = ;
+settings.credits.sep.amp.symbol = &
+settings.credits.sep.and.symbol = “and”
+# What the Updates card shows for a build with no version stamped on it. A version
+# identifier, per §8 — never translated, and not a word about anything.
+settings.updates.version.dev = dev
+
 # --- the tiles / list / table switch.
 common.view.toggle.aria = View
 common.view.tiles.label = Tiles
@@ -3448,8 +3484,8 @@ reverify.checking.prose = re-checking each item against its pinned source — no
 reverify.checking.progress = checking · {done}/{total}
 # The tally across the top once the checking is done.
 reverify.summary = {checked} checked · {changed} with changes · {clean} up to date
-reverify.summary.skipped =  · {n} skipped (no pinned id)
-reverify.summary.failed =  · {n} failed
+reverify.summary.skipped = {n} skipped (no pinned id)
+reverify.summary.failed = {n} failed
 reverify.clean = everything checked is already up to date ✓
 # One item's card.
 reverify.item.open.tip = Show the proposed changes
@@ -3477,9 +3513,9 @@ reverify.result.applied-note = applied ({note})
 # The toast at the end.
 reverify.flash.one = re-verify: {n} item updated
 reverify.flash.other = re-verify: {n} items updated
-reverify.flash.failed =  · {n} failed
-reverify.flash.skipped.one =  · {n} image skipped
-reverify.flash.skipped.other =  · {n} images skipped
+reverify.flash.failed = {n} failed
+reverify.flash.skipped.one = {n} image skipped
+reverify.flash.skipped.other = {n} images skipped
 error.reverify.preview = preview failed
 error.reverify.apply = apply failed
 error.reverify.interrupted = the check was interrupted — check your connection and reopen Re-verify
@@ -3853,6 +3889,855 @@ cover.movie.none = no matches found
 cover.movie.by-id = searching by id · {ids}
 
 error.validate.lookup-fields = enter a title, ISBN, or ASIN first
+
+# ---------------------------------------------------------------------------
+# PENDING IMPORT — StagingPage.jsx. The queue an import lands in and stays in
+# until it is okayed: one list for everything staged from every file, grouped by
+# the work each quote will attach to, with a batch filter, checkbox multi-select
+# over the rows, a bulk editor, a location-formula box, a retargeter, and the two
+# buttons that end it.
+#
+# staging.title lives beside import.* — ONE KEY for the queue's name, because
+# ImportPage.jsx prints it in bold in its standing note and the two screens must
+# not disagree about what the place is called.
+#
+# FOUR PLURAL FAMILIES REPLACED FOUR JAVASCRIPT TERNARIES. The English built its
+# own -s ("quote${n === 1 ? '' : 's'}"), and the Home-screen card built three at
+# once — quote/quotes, is/are, it/them. A locale file has a plural category per
+# language, so the count picks the form and no language is stuck with English's
+# two.
+#
+# WHAT THIS SCREEN DOES NOT NAME AGAIN. The eight locator fields are the shared
+# common.field.* labels, the three kind badges are the shared common.badge.*, the
+# group count is common.count.phrase over unit.quote, and the row's edit button is
+# common.action.edit.*. A staged chapter is the same chapter it will be after
+# approval, so it is spelt the same way.
+# ---------------------------------------------------------------------------
+
+# The synthetic group a batch of standalone quotes hangs from. The other three
+# badges are common.badge.book / .film / .show; only this one is a PLURAL, because
+# the group is not one work. ⚠ SMALL CAPS IN A NARROW SLOT, and a script with no
+# case wants one short word rather than a translated shout.
+staging.badge.quotes = QUOTES
+
+# The three states before the list. "nothing waiting" sits in the header's counts
+# slot; "nothing staged" is the empty state under it; the third is what a batch
+# filter says when the file it points at has no rows left.
+staging.state.loading = reading the queue…
+staging.state.empty-counts = nothing waiting
+staging.state.empty = nothing staged — an import lands here first, and stays until you okay it
+staging.state.empty-file = no staged quotes in that file
+
+# The header's counts. A batch can hold works and no quotes at all (a book
+# exported with none), which is why there are two of these rather than one.
+staging.counts.quotes.one = {n} quote waiting
+staging.counts.quotes.other = {n} quotes waiting
+staging.counts.works.one = {n} work waiting, no quotes
+staging.counts.works.other = {n} works waiting, no quotes
+
+# The batch filter. It is a FILTER and not a view: the queue stays one list and
+# this narrows it to the file being worked through. {name} is the uploaded
+# filename, or the source's name when the file had none.
+staging.filter.file.label = File
+staging.filter.batch.aria = Import batch
+staging.filter.all-files.label = All files ({n})
+staging.filter.batch.label = {name} · {n}
+staging.select-all.label = select all {n}
+
+# The two page-level actions, which end the whole queue. The count on Approve
+# appears only when there is something to count, so it is two keys rather than a
+# number glued onto a label.
+staging.approve-all.label = Approve all
+staging.approve-all.count.label = Approve all {n}
+staging.discard-all.label = Discard all
+staging.discard-all.confirm.title = Discard everything staged?
+staging.discard-all.confirm.body = All {n} staged quotes go, from every file. Nothing in your library is touched.
+
+# THE BULK BAR, over the checked rows. The colour swatches, the two favourite
+# buttons, the three panel toggles, and the pair that ends the selection.
+staging.bulk.colour.aria = Set category
+staging.bulk.favourite.label = ♥ favourite
+staging.bulk.unfavourite.label = un-♥
+staging.bulk.unfavourite.tip = Remove the favourite mark
+staging.bulk.fields.label = Edit fields…
+staging.bulk.move.label = Move to…
+staging.bulk.locations.label = Locations…
+staging.bulk.approve.label = Approve {n}
+# One word for the bulk button and for the confirm's own button, so the dialog
+# cannot promise something the bar did not offer.
+staging.discard.label = Discard
+staging.discard.confirm.title.one = Discard {n} staged quote?
+staging.discard.confirm.title.other = Discard {n} staged quotes?
+staging.discard.confirm.body = They leave the queue without ever entering your library.
+
+# THE FLASH LINE beside the header — what the last bulk POST did. Every action
+# funnels through one request, so these are one family rather than a toast per
+# control.
+staging.flash.updated = updated {n}
+# Approving reports three numbers, and the third only when the server actually
+# fetched metadata. THREE KEYS JOINED BY THE CODE rather than one value with an
+# optional tail: the parser trims a value, so a file cannot carry the leading
+# " · " a third fragment would need.
+staging.flash.approved.added = {n} added
+staging.flash.approved.skipped = {n} skipped
+staging.flash.approved.enriched = {n} enriched
+staging.flash.discarded = discarded {n}
+staging.flash.saved = saved
+# {name} is the CATEGORY's name, not the stored colour token — it said
+# "colour → blue" while every card on the screen said "Fact".
+staging.flash.colour = → {name}
+staging.flash.favourited = favourited
+staging.flash.unfavourited = unfavourited
+staging.flash.edited = edited {n}
+staging.flash.moved = moved {n} to {title}
+staging.flash.merged = merged {n}
+# {op} is one of the six operation words below.
+staging.flash.formula = {op} applied to {n}
+
+# ONE GROUP — a target work and the staged quotes going to it. The heading is the
+# contract: it names where these will land if approved, so a misdetected file is
+# visible before the write rather than after it.
+staging.group.select.tip = Select this whole group
+staging.group.select.aria = Select every staged quote for {title}
+# Where the group will land, in three shapes. The standalone-quote group has no
+# destination at all — it is the queue's way of holding quotes that belong to
+# nothing.
+staging.group.standalone.prose = → will be saved as quotes of their own, from no book and no film
+# {target} IS A NODE — the destination's name as a link, supplied by the call
+# site, because markup never goes in a locale value.
+staging.group.joins.prose = → joins your existing {target}
+# The link's own words. Two keys rather than one with an optional parenthetical,
+# so no language has to build the bracket itself.
+staging.group.target.year.label = {title} ({year})
+# The match was pinned by hand rather than guessed, which is worth saying.
+staging.group.pinned.label = you chose this
+# {kind} is a singular unit.* noun: book, show or film.
+staging.group.new.prose = → will be added as a new {kind}
+# {n} is at least 2 by construction — a work is only ambiguous when a second
+# title shares its name — so this needs no plural family.
+staging.group.ambiguous.warning = ⚠ you have {n} titles with this name — check it went to the right one
+# A group with no quotes left in it. An empty WORK still creates the book or
+# film on approval; an empty quotes group creates nothing, because there is
+# nothing to it but the quotes.
+staging.group.empty.standalone = no quotes left in this group
+staging.group.empty.work = no quotes — approving adds the {kind} itself
+
+# ONE STAGED ROW. Its locators are drawn from the data; these are the words
+# around them.
+staging.row.select.tip = Select this quote
+staging.row.select.aria = Select this staged quote
+staging.row.note.label = note: {note}
+# The mark on a row a location formula has moved. ⚠ MONO SLOT — one short word.
+staging.row.shifted.label = shifted
+staging.row.shifted.tip = a location formula moved this; reset restores it
+
+# THE BULK FIELD EDITOR, following the Metadata console: a blank box is ambiguous
+# between "leave it" and "clear it", so the tick is what says "act on this field"
+# and an empty value then genuinely clears it. The eight field names are the
+# shared common.field.* labels.
+staging.fields.panel.title = Edit {n} selected
+# {field} is one of those eight labels, LOWER-CASED BY THE CALLER — the same
+# arrangement bin.filter.only.tip uses, and the reason a field's name stays a
+# single source of truth rather than being written out eight more times.
+staging.fields.set.placeholder = set {field} (blank = clear)
+staging.fields.add-tags.aria = Tags to add
+staging.fields.remove-tags.label = Remove tags
+staging.fields.remove-tags.info = The live bulk endpoint can only add tags. A staged tag is plain text until approval, so here it comes off again.
+staging.fields.remove-tags.placeholder = remove a tag…
+staging.fields.remove-tags.aria = Tags to remove
+staging.fields.apply.label = Apply to {n}
+
+# RETARGETING. Book and film are interchangeable here on purpose: moving a batch
+# onto the other kind is the repair for a misdetected file, and a staged row keeps
+# both locator sets so the move is reversible.
+staging.move.panel.title = Move {n} selected
+staging.move.library.label = Onto a work in your library
+staging.move.library.info = Across kinds too — book highlights can move onto a film, and back. Approval reads whichever locators the destination uses.
+# The button, before and after something is picked. Two keys, so neither language
+# has to build "Move to" plus a noun out of two fragments.
+staging.move.button.label = Move to {title}
+staging.move.button.none.label = Move to a work
+# The other half: merging into a group already in the queue. {badge} is one of
+# the kind badges above.
+staging.move.merge.label = Or merge into another group in this queue
+staging.move.group.aria = Staged group
+staging.move.group.placeholder = pick a group…
+staging.move.group.option = {title} · {badge} ({n})
+staging.move.merge.button.label = Merge
+
+# THE LOCATION FORMULA — the reason bulk location editing needs more than a text
+# box: a Kindle export numbers by location rather than by page (a division), and
+# a PDF runs a few pages ahead of the print edition (a subtraction).
+staging.formula.panel.title = Shift locations on {n} selected
+staging.formula.field.label = Field
+staging.formula.field.aria = Locator field
+# The visible label and the Select's aria label are the same word, so they are
+# one key rather than two chances to disagree.
+staging.formula.op.label = Operation
+# The six operations. STORED TOKENS live in the code; these are the words, and
+# they are resolved during render rather than at import — a table of copy at
+# module scope freezes the language.
+staging.formula.op.add.label = add
+staging.formula.op.subtract.label = subtract
+staging.formula.op.multiply.label = multiply
+staging.formula.op.divide.label = divide
+staging.formula.op.set.label = set to
+staging.formula.op.reset.label = reset
+# The number to shift by, and the text to set instead. Both labels sit in boxes
+# 110px and 160px wide.
+staging.formula.by.label = By
+staging.formula.by.placeholder = 5
+staging.formula.to.label = To
+staging.formula.to.placeholder = p.1
+# What a formula does to the text, stated once under the controls. FIVE HOLES,
+# ALL OF THEM NODES: the four worked examples and the reset operation's own name
+# are drawn in bold by the call site, because markup never goes in a value. Named
+# .prose rather than .info.body or .hint on purpose — it is a worked explanation
+# under a control, not a popover, and it is longer than a dot's 240-character
+# budget allows.
+staging.formula.prose = Numbers inside the text move and everything around them stays: {from} minus 5 is {to}, and a range like {range} moves at both ends. Timestamps convert to seconds, shift, and come back as {clock}. Results stop at zero and division rounds. {reset} restores every row's as-imported value, so a formula applied by mistake is undone rather than lived with.
+# The five bold fragments. HH:MM:SS is a picture of a time format rather than
+# words and stays as it is in every language.
+staging.formula.example.page-from = p.142
+staging.formula.example.page-to = p.137
+staging.formula.example.range = 610-612
+staging.formula.example.clock = HH:MM:SS
+staging.formula.example.reset = Reset
+
+# THE PER-ROW EDITOR, for one-offs. The quote's own text is not editable here,
+# because a staged row is a record of what the file said; wording is fixed after
+# approval, in the normal edit form.
+staging.form.title = Edit staged quote
+# The row's words, shown back as a quotation. The curly pair, as everywhere else.
+staging.form.quoted = “{text}”
+staging.form.locators.prose = Both locator sets are here because a staged quote carries both: approval reads whichever the destination uses, so moving this onto a film — or back onto a book — never loses the other half.
+# The eight example values. The labels above them are the shared common.field.*
+# ones. Philip Marlowe and Elliott Gould are proper nouns; 01:02:03 is a picture
+# of a time format.
+staging.form.chapter-no.placeholder = 7
+staging.form.chapter.placeholder = optional
+staging.form.location.placeholder = p.142
+staging.form.character.placeholder = Philip Marlowe
+staging.form.actor.placeholder = Elliott Gould
+staging.form.season.placeholder = 2 (shows only)
+staging.form.episode.placeholder = 5 (needs a season)
+staging.form.timestamp.placeholder = 01:02:03
+
+# THE HOME-SCREEN NUDGE. A half-finished import must not be forgettable, so the
+# count surfaces outside the Add surface too. ⚠ THE LABEL IS A MONO SLOT, and it
+# is lower case where staging.title is not — the two are different roles, not two
+# spellings of one.
+staging.card.label = pending import
+staging.card.body.one = {n} imported quote is waiting for you to okay it — nothing has entered your library yet.
+staging.card.body.other = {n} imported quotes are waiting for you to okay them — nothing has entered your library yet.
+staging.card.review.label = Review {n}
+
+# ---------------------------------------------------------------------------
+# METADATA — MetadataPage.jsx. The management console: coverage tiles, the
+# catalogue with its bulk bar, duplicate books, the per-title speaker remap and
+# the people table. It was the biggest screen in the app with no keys at all —
+# every word of it rendered English in every language.
+#
+# metadata.help.* IS A DIFFERENT SURFACE and already exists above: the "?" panel's
+# entries for this screen. These are the screen's own words. Where the two say the
+# same thing they are kept in step by hand rather than shared, because a help
+# entry is prose under a length cap and a heading is a heading.
+#
+# THE PLURALS ARE REAL ONES NOW. The English hedged five times — "item(s)",
+# "book(s)", "actor(s)", "title(s)", "cover(s)" — and one count picked between
+# "group" and "groups" with a JavaScript ternary. A locale file carries a plural
+# category per language, so each of those is a .one/.other family here and the
+# ternary is gone.
+#
+# THE GAP WORDS ARE ONE SET, drawn by the coverage tiles, by both filter
+# dropdowns and by the chips on a row. "no cover" is NOT a field name — it is a
+# phrase about a missing field — so it lives here rather than in common.field.*,
+# and the field labels this screen does draw (author, series, name, links,
+# character, actor) come from there untouched.
+# ---------------------------------------------------------------------------
+
+# --- the page header. The title is nav.tab.metadata.label, the tab's own name;
+# these are the two subtitles, one per form factor.
+metadata.counts.mobile = maintenance
+metadata.counts.desktop = stats · filters · bulk actions
+
+# --- the phone. A dot rather than an apology: the big filterable lists are
+# desktop-only, so the screen says so.
+metadata.mobile.info.title = Metadata on a phone
+metadata.mobile.info.body = This is the trimmed-down maintenance view. Open Tippani on a desktop for the full metadata console — coverage stats, filterable book & film lists, and bulk actions.
+
+# --- FETCH COVERS & METADATA, the admin-only run over the whole library. The
+# endpoint is chunked, so the bar is a real fraction — except before the first
+# chunk has reported a total, which is what the second label is for.
+metadata.fetch.label = Fetch
+metadata.fetch.aria = Fetch missing covers and metadata
+metadata.fetch.tip = Fill missing covers and metadata
+metadata.fetch.progress = fetching covers & metadata · {done}/{total}
+metadata.fetch.progress.start = fetching covers & metadata…
+# The tally afterwards, joined with " · ". Skipped and failed are spelled out so
+# a partial run reads as intentional rather than as nothing having happened.
+metadata.fetch.flash.covers.one = {n} cover fetched/upgraded
+metadata.fetch.flash.covers.other = {n} covers fetched/upgraded
+metadata.fetch.flash.details.one = {n} detail filled
+metadata.fetch.flash.details.other = {n} details filled
+metadata.fetch.flash.skipped = {n} left as-is (no higher-res source)
+metadata.fetch.flash.failed = {n} failed
+metadata.fetch.flash.uptodate = everything already up to date
+
+# --- the two action cards on the phone: a title, one line of what-it-does, and a
+# single button. .desc AND NOT .info.body ON PURPOSE — the fetch card's sentence
+# is 259 characters and the info-dot budget is 240, and cutting a true caveat to
+# fit a role name is the wrong way round. Nothing measures .desc, which is the
+# point; both are held to the same voice by hand.
+metadata.mobile.run.label = Run
+metadata.mobile.fetch.title = Fetch covers & metadata
+metadata.mobile.fetch.desc = Fills missing covers, posters, authors, descriptions, years and genres across every library on this instance. It only fills blanks — nothing you already have is replaced — and it caps genres at five per item so a source cannot bury a work in low-quality tags.
+metadata.mobile.reverify.title = Re-verify metadata
+metadata.mobile.reverify.desc = Re-checks every pinned book, film and show against the live sources. Nothing is written until you have seen each proposed change and accepted it.
+metadata.reverify.label = Re-verify
+
+# --- COVERAGE. Tiles on a desktop, the same numbers as plain lines on a phone.
+# {group} is one of the three group names and {gaps} the run of non-zero gaps;
+# the bold half is a node the code supplies, which is why the line has a hole in
+# it rather than markup.
+metadata.coverage.title = Coverage
+metadata.coverage.group.books = Books
+metadata.coverage.group.movies = Films & shows
+metadata.coverage.group.dialogues = Dialogues
+metadata.coverage.group.count = {group} ({n})
+metadata.coverage.line = {group} — {gaps}
+metadata.coverage.complete = all complete ✓
+metadata.coverage.total.label = total
+# A tile is also a filter button; {label} is the gap it would filter to.
+metadata.coverage.tile.tip = Show only {label}
+
+# --- THE GAP WORDS, one set for the tiles, the two filter dropdowns and the row
+# chips. The two long ones are what a ROW says, where a bare "low-res" would not
+# say low-res what.
+metadata.gap.flagged.label = flagged
+metadata.gap.all.label = all
+metadata.gap.no-cover.label = no cover
+metadata.gap.no-poster.label = no poster
+metadata.gap.low-res.label = low-res
+metadata.gap.low-res-cover.label = low-res cover
+metadata.gap.low-res-poster.label = low-res poster
+metadata.gap.no-author.label = no author
+metadata.gap.no-series.label = no series
+metadata.gap.no-year.label = no year
+metadata.gap.no-genre.label = no genre
+metadata.gap.no-source.label = no source
+metadata.gap.no-cast.label = no cast
+metadata.gap.no-director.label = no director
+metadata.gap.no-actor.label = no actor
+# And a row with nothing missing at all.
+metadata.row.complete = complete ✓
+
+# --- THE CATALOGUE, books and films and shows in one list. The type dropdown's
+# other three rows are unit.book / unit.film / unit.show — the app's own nouns,
+# not a second set for one screen.
+metadata.catalogue.title = Catalogue
+metadata.catalogue.type.all.label = all types
+metadata.catalogue.filter.tip = Show only these gaps
+metadata.shown.count = {n} shown
+metadata.search.placeholder = search…
+metadata.catalogue.nomatch = nothing matches.
+metadata.select-all.label = select all shown
+
+# --- the bulk bar over a selection. Bulk edit is books-only, so its button says
+# so; the actors one greys out when nothing selected has a cast to fill from.
+metadata.bulk.open.label = Bulk edit books…
+metadata.bulk.close.label = Close bulk edit
+metadata.actors.fill.label = Fill actors from cast
+metadata.actors.fill.disabled.tip = none of the selected titles have a cast to fill from
+metadata.reverify.open.label = Re-verify…
+# What each bulk action asks and reports. The failed tail hangs off whichever ran.
+metadata.delete.confirm.one = Delete {n} item and all its quotes/dialogues?
+metadata.delete.confirm.other = Delete {n} items and all their quotes/dialogues?
+metadata.delete.flash.one = deleted {n} item
+metadata.delete.flash.other = deleted {n} items
+metadata.bulk.failed.suffix = , {n} failed
+metadata.bulk.flash.one = updated {n} book
+metadata.bulk.flash.other = updated {n} books
+# {actors} and {titles} arrive already counted, which is the only way one
+# sentence can carry two counts without a plural rule per pair.
+metadata.actors.flash = filled {actors} across {titles}
+
+# --- one row of either list: the tick, the three buttons, the counts. The edit
+# and look-up buttons are TOGGLES, so each carries a second word for the state it
+# is already in — a latched glyph says which, and the tooltip says what. {noun} is
+# the app's own word for the row, book or title.
+metadata.row.select.tip = Select this {noun}
+metadata.row.edit.close.label = Close the editor
+metadata.row.lookup.label = Look up
+metadata.row.lookup.close.label = Close the look-up
+metadata.row.lookup.tip = Look up the sources
+metadata.row.open.aria = Open
+metadata.row.open.tip = Open this {noun}
+# A film's own count. NOT unit.dialogue, which now reads "film line": this row has
+# always counted "dialogues", and migrating keys is not the place to rename a
+# thing.
+metadata.count.dialogues.one = {n} dialogue
+metadata.count.dialogues.other = {n} dialogues
+
+# --- BULK EDIT, books only. The three row labels are common.field.author,
+# common.field.series and the genres line below; these are the placeholders that
+# say what filling one will do. "#" is a symbol rather than a word (§8) and is the
+# same in every language.
+metadata.bulk.title = Bulk edit {n} selected
+metadata.bulk.author.placeholder = set author (blank = clear)
+metadata.bulk.series.placeholder = set series (blank = clear)
+metadata.bulk.series-no.placeholder = #
+metadata.bulk.genres.label = add genres
+metadata.bulk.genres.placeholder = comma-separated — added, not replaced
+metadata.bulk.apply.label = Apply to {n}
+
+# --- DUPLICATE BOOKS. One copy imported and one added by hand is the case this
+# finds; merging moves the quotes onto the copy you keep.
+metadata.duplicates.title = Duplicate books
+metadata.duplicates.info.body = Finds books whose title and author match closely enough to be the same book twice — usually one imported, one added by hand. Merging moves every quote onto the copy you keep and deletes the rest, defaulting to the one with most quotes.
+metadata.duplicates.groups.one = {n} group
+metadata.duplicates.groups.other = {n} groups
+metadata.duplicates.scan.label = Scan for duplicate books
+metadata.duplicates.rescan.aria = Scan again for duplicates
+metadata.duplicates.rescan.tip = Scan again
+metadata.duplicates.none = no duplicate titles found ✓
+# The keeper, and the confirm before the others go. BOTH HALVES of that sentence
+# have to agree with the count, so each form is written whole rather than as a
+# shared head and a tail.
+metadata.duplicates.keep.label = keep
+metadata.duplicates.merge.label = Merge into keeper
+metadata.duplicates.merge.confirm.one = Merge {n} book into the keeper? Its annotations move over; the other copy is deleted.
+metadata.duplicates.merge.confirm.other = Merge {n} books into the keeper? Their annotations move over; the others are deleted.
+metadata.duplicates.merge.flash.one = merged {n} book
+metadata.duplicates.merge.flash.other = merged {n} books
+
+# --- SPEAKER & CHARACTER REMAP, one title at a time. RICK, Rick Blaine and
+# Bogart are one man; this maps each label onto a real cast member and fills the
+# actor in on every line. The three names in the dot are a PERSON and a ROLE, so
+# they stay as themselves in every language (§8).
+metadata.speakers.title = Speaker & character remap
+metadata.speakers.info.body = Imported dialogue arrives with whatever label the source used — RICK, Rick Blaine, Bogart. This maps each onto a real cast member across the title, then fills in the actor on every line. A title with no cast must be looked up first.
+metadata.speakers.pick.placeholder = — choose a title —
+# The year beside a title in the picker. A wrapper, so the digits stay Western
+# and the brackets stay brackets.
+metadata.speakers.option.year = ({year})
+metadata.speakers.nocast = ⚠ This title has no cast yet — look it up above first, then come back to remap.
+metadata.speakers.nolabels = No speaker labels on this title’s dialogues.
+metadata.speakers.map.label = Speaker labels → cast
+metadata.speakers.apply.label = Apply remap
+metadata.speakers.apply.disabled.tip = Choose at least one mapping
+metadata.speakers.remapped.flash = {n} remapped
+metadata.speakers.refilled.flash.one = , {n} actor filled
+metadata.speakers.refilled.flash.other = , {n} actors filled
+# One label's row: what it maps onto, or nothing, or a name you type yourself.
+metadata.remap.keep.label = keep as-is
+metadata.remap.nocharacter.label = (no character)
+metadata.remap.cast.option = {character} — {actor}
+metadata.remap.custom.label = custom…
+
+# --- PEOPLE. Every author, actor, director, studio and speaker the library
+# mentions, with a portrait and reference links.
+metadata.people.title = People
+metadata.people.info.body = Photos and reference pages, matched to the right person — an author by their books, an actor or director from a film's credits, a studio from a game's. Actor and director photos need a TMDB key; the rest come from Wikidata.
+# The five toggles. Studios are their own row rather than folded in with
+# directors: the two share one stored column and are told apart only by media
+# type, so listing them together would offer a studio for renaming as a director.
+metadata.people.kind.author.label = Authors
+metadata.people.kind.actor.label = Actors
+metadata.people.kind.director.label = Directors
+metadata.people.kind.studio.label = Studios
+metadata.people.kind.speaker.label = Speakers
+metadata.people.fetch.label = Fetch missing
+metadata.people.fetch.count.label = Fetch missing ({n})
+metadata.people.fetch.progress = fetching photos & links · {done}/{total}
+metadata.people.fetch.flash = people: {ok} fetched · {failed} failed
+# The first thing that went wrong, bracketed after the tally. The joining space
+# is in the code, because the parser trims a value's ends.
+metadata.people.fetch.flash.reason = ({error})
+metadata.people.reverify.label = Re-verify saved
+metadata.people.reverify.tip = Re-check every saved person's identity, links and portrait against the live sources — review before anything is applied
+# The phone has no browsable list, so it says only how many still need work.
+# {noun} is the countable noun for whichever kind is showing.
+metadata.people.compact.one = {n} {noun} still needs photos or links
+metadata.people.compact.other = {n} {noun} still need photos or links
+# What an empty list says. FIVE, one per toggle: the studio line is new, because
+# the table this replaces had four rows and a studio list with nothing in it drew
+# an empty state with nothing in it.
+metadata.people.empty.author = no authors in the library yet
+metadata.people.empty.actor = no actors on any dialogue yet
+metadata.people.empty.director = no directors on any film yet
+metadata.people.empty.studio = no studios on any game yet
+metadata.people.empty.speaker = nobody has said anything yet
+# The table. Name and Links are shared field names; the middle column's head
+# changes with the kind, because what it counts does.
+metadata.people.column.books = Books
+metadata.people.column.quotes = Quotes
+metadata.people.column.titles = Titles
+metadata.people.photo.label = photo
+metadata.people.photo.tip = photo saved
+metadata.people.search.tip = Search the library for “{name}”
+# ONE GLYPH, two words: fetch and refetch are the same act — go and get this
+# person's photo and links — and the word flips only because the row already has
+# some of it.
+metadata.people.row.fetch.label = fetch
+metadata.people.row.refetch.label = refetch
+metadata.people.row.fetch.busy = fetching…
+metadata.people.row.error = {name}: {error}
+# Near-duplicate spellings of one person, offered as a one-click merge. Same
+# glyph and same act as the book merge above, and it rewrites names across the
+# library either way.
+metadata.people.dups.count = Possible duplicates ({n})
+metadata.people.dup.title = Possible duplicate — keep which spelling?
+metadata.people.merge.label = Merge into “{name}”
+metadata.people.merge.busy = Merging…
+
+# ---------------------------------------------------------------------------
+# settings.* (part two) — the nine cards Settings.jsx still held in English:
+# Updates, the changelog dialog, Onboarding, Devices, the bin tile, Backup, the
+# restore prompt, the metadata-key fields and the Metadata card itself. The
+# cards migrated earlier — credits, colours, review scope, Type, language marks,
+# the quiz panel, Features, button labels and Appearance — are above.
+#
+# WHAT WAS TAKEN OUT OF THE CODE, rather than merely moved:
+#
+#   The KEY FIELD LABELS were seven hardcoded strings ("Google Books key",
+#   "IGDB client id"), and their aria-labels were assembled from them with a
+#   .toLowerCase() and an article picked by hand — "Add a google books key",
+#   which is neither translatable nor even right ("a IGDB client id"). The
+#   supplier is a proper noun that vocab.source.* already spells, so a label is
+#   now {source} + a noun, and the frames take the name whole.
+#
+#   The BIN TILE's count line was two JavaScript ternaries picking entry/entries
+#   and quote/quotes. Both go through unit.* and common.count.phrase now.
+#
+#   The THEME PRESETS held their four names at module scope, which freezes the
+#   language at import time. They hold keys — and the keys are the share sheet's
+#   own four skins (share.image.theme.*), because there is one set of four skins
+#   in this app and it should not be spelled twice.
+#
+#   The RESTORE and BACK UP prompts borrow the onboarding twin's words wherever
+#   the control is literally the same one (shell.restore.source.*, its file
+#   picker's aria, its upload label, and the three validate reasons). The two
+#   screens are one operation seen from either end and are not to read as two
+#   features.
+# ---------------------------------------------------------------------------
+
+# The fallback title for a card's info dot when the heading is not plain text.
+settings.card.info.title = About this
+
+# --- the quiz card's own heading, which was the last literal left on it.
+settings.quiz.title = Daily quiz & practice
+
+# --- Features: the heading beside the dot that was already keyed.
+settings.features.title = Features
+
+# --- the four credit separators. The CHIP draws the bare symbol — the character
+# the splitter matches — and this is the name a screen reader reads instead. It
+# used to read the stored token out raw.
+settings.credits.sep.comma.aria = comma
+settings.credits.sep.semicolon.aria = semicolon
+settings.credits.sep.amp.aria = amp
+settings.credits.sep.and.aria = and
+
+# --- Language marks: the standing paragraph above the rows. The rest of this
+# panel was migrated earlier; this line was missed.
+settings.languages.intro.prose = A proverb has nobody to credit, so its card leads with its language instead of a face. Each language offers four letters from its own script; anything else you type — a symbol, a flag, an emoji — is kept as one of that language’s own marks.
+
+# --- Appearance → the four theme presets. The names themselves are
+# share.image.theme.*; these two are what the preset card adds around them.
+# The card in sync mode is the one the OS is choosing, and says so.
+settings.appearance.preset.auto.aria = {name} (matches system)
+# The specimen inside the little callout — a line of the app's own display face
+# doing its job, not a pangram. Write one a reader of this language would keep.
+settings.appearance.preset.specimen.label = the margins, wider than the text…
+
+# ---------------------------------------------------------------------------
+# UPDATES (admin only). Checked on demand, never in the background.
+# ---------------------------------------------------------------------------
+settings.updates.title = Updates
+settings.updates.version.label = version
+settings.updates.releases.tip = Release notes on GitHub
+# The roadmap line. {roadmap} is the link — markup never goes in a value.
+settings.updates.roadmap.prose = What is still ahead is on the {roadmap} — including the bugs I already know about, which is worth a look before you report one. Requests and bug reports both start there too.
+settings.updates.roadmap.link.label = roadmap ↗
+settings.updates.restarting.prose = updating & restarting — this page will reload automatically when Tippani is back…
+settings.updates.check.label = Check for updates
+settings.updates.check.busy = Checking…
+# A mono label: one short word or symbol pair, whatever the language.
+settings.updates.current.label = ✓ up to date
+settings.updates.unreachable.prose = couldn’t reach GitHub ({error}) — check your connection and try again
+# {version} is the release that is available and arrives as a bold node;
+# {current} is the build you are on.
+settings.updates.available.prose = {version} is available (you’re on {current}).
+settings.updates.notes.label = release notes ↗
+# {word} is the literal UPDATE the server compares byte for byte. It arrives as
+# a bold node and is never translated.
+settings.updates.confirm.prose = Type {word} to pull {version} and restart the container:
+settings.updates.apply.label = Update & restart now
+settings.updates.apply.busy = Starting…
+settings.updates.failed.prose = update didn’t start — check the container logs, or update by hand below
+settings.updates.manual.prose = One-click update needs the Docker socket mounted, or a socket proxy configured (see the README). To update by hand, run on your host:
+settings.updates.copy.label = copy
+settings.updates.toast.reload = reload in a moment
+settings.updates.toast.copied = command copied
+
+# ---------------------------------------------------------------------------
+# THE CHANGELOG DIALOG — the release history out of the binary itself.
+# ---------------------------------------------------------------------------
+settings.changelog.title = Changelog
+# Which release you are actually running, marked on its own row.
+settings.changelog.running.label = running
+settings.changelog.unlisted.prose = You are running {version}, which is not one of the versions above — a build made outside a release.
+settings.changelog.close.tip = Close the changelog
+
+# ---------------------------------------------------------------------------
+# ONBOARDING — the guided tour's home.
+# ---------------------------------------------------------------------------
+settings.onboarding.title = Onboarding
+settings.onboarding.info.body = A guided tour of every feature. It runs once on first launch and never needs your files — a sample book quote and film dialogue are built in. Next skips a step, “finish later” parks it, and you pick it back up here.
+settings.onboarding.done.label = ✓ completed
+# The Resume button carries its own step count, which is why it keeps its words.
+settings.onboarding.resume.label = Resume tour · step {n} of {total}
+settings.onboarding.restart.label = Start over
+settings.onboarding.replay.label = Replay the tour
+settings.onboarding.start.label = Start the tour
+settings.onboarding.pick.label = Refresh one section
+settings.onboarding.pick.prose = The tour opens on that screen and carries on from there — Next moves to the next section, and “finish later” parks it back here.
+
+# ---------------------------------------------------------------------------
+# DEVICES — pair a phone with this account, and unpair it again.
+# ---------------------------------------------------------------------------
+settings.devices.title = Devices
+settings.devices.info.body = Pairs the Android app with this account. A device stays paired until you unpair it here — changing your password signs out browsers but deliberately leaves phones alone, so a routine password change can’t silently unpair them.
+settings.devices.paired.count = {n} paired
+settings.devices.code.label = pairing code
+settings.devices.code.info.title = Pairing code
+settings.devices.code.info.body = Enter it in the app within five minutes. It works once, then expires — start another pairing for a second device.
+settings.devices.code.copy.aria = Copy the pairing code
+settings.devices.code.copy.tip = Copy the code
+settings.devices.code.done.aria = Done pairing
+settings.devices.pair.label = Pair a device
+settings.devices.revoke-all.aria = Unpair every device
+settings.devices.revoke-all.confirm = Unpair every device? Each will stop working immediately.
+# {name} is the device's own name, as the phone reported it.
+settings.devices.revoke.aria = Unpair {name}
+settings.devices.revoke.confirm = Unpair “{name}”? It will stop working immediately.
+settings.devices.last-seen.label = last seen {when}
+settings.devices.never.label = never used
+settings.devices.empty.prose = No devices paired yet.
+settings.devices.toast.unpaired = device unpaired
+settings.devices.toast.all-unpaired = all devices unpaired
+
+# ---------------------------------------------------------------------------
+# THE BIN, AS A TILE. The list is a page of its own (bin.*), and the tile draws
+# the page's own name and its two states from there — one bin, one vocabulary.
+# Only the dot and the count line belong to Settings.
+# ---------------------------------------------------------------------------
+settings.bin.info.body = Everything you delete waits here first, and putting one back returns it exactly as it was — quotes, tags, colours, schedule and cover alike. An entry leaves on its own past the window, and that clock only runs while the server does.
+# {count} and {held} both arrive already counted, through
+# common.count.phrase + unit.entry / unit.quote.
+settings.bin.tile.prose = {count} waiting — put any of them back, or empty it
+settings.bin.tile.holding.prose = {count} waiting, holding {held} — put any of them back, or empty it
+settings.bin.open.label = Open the bin
+
+# ---------------------------------------------------------------------------
+# BACKUP (admin only) — one dated, encrypted archive, and the prompt that seals
+# it. The restore half is settings.restore.* below.
+# ---------------------------------------------------------------------------
+settings.backup.title = Backup & restore
+# The prompt's own name, and the button inside it. One act, one word.
+settings.backup.prompt.title = Back up
+settings.backup.info.body = One dated, encrypted archive of everything, sealed with your password or a passphrase. Moved to another machine it needs the password that sealed it, and a passphrase archive is recoverable by nothing. Restoring replaces everything here.
+settings.backup.what.prose = The archive holds every user, library, password hash and API key, so it is encrypted before it leaves the server. Keep the key: it is what opens the archive on any other machine.
+settings.backup.password.prose = This password opens the archive on any Tippani. On THIS server your current password always will, even after you change it.
+settings.backup.passphrase.label = Passphrase · {min}–{max} characters
+settings.backup.passphrase.prose = Not tied to any account — and not recoverable. Lose it and the archive is lost.
+settings.backup.use-passphrase.label = Set a separate passphrase instead
+settings.backup.use-password.label = Use my account password instead
+settings.backup.now.label = Back up now
+settings.backup.now.busy = Backing up…
+settings.backup.download.label = Download the last one
+# {when} arrives as a bold node; {size} is a byte count in MB or KB, which are
+# symbols rather than words.
+settings.backup.last.prose = last backup: {when} · {size} · kept on this server until the next one replaces it
+settings.backup.empty.prose = no backup on this server yet
+# A mono label above the source picker, whose own words are shell.restore.*.
+settings.backup.restore-from.label = restore from
+# What the chosen archive will ask for, said before you commit to it.
+settings.backup.asks.passphrase = asks for its passphrase
+settings.backup.asks.password = asks for your password
+settings.backup.asks.password.named = asks for the password ‘{name}’ had when it was made
+# The same, for an archive whose header names nobody. This used to read
+# "the password ‘it’ had" — a pronoun assembled in code.
+settings.backup.asks.password.era = asks for the password it was sealed with
+settings.backup.asks.unknown = unreadable, or written by a newer Tippani
+settings.backup.asks.unkeyed = predates 1.4.1 · no key, asks you to type RESTORE
+settings.backup.server.empty.prose = nothing kept here yet
+settings.backup.file.choose.label = Choose file…
+settings.backup.file.replace.label = Choose a different file…
+settings.backup.file.none.label = no file chosen
+settings.backup.file.chosen.label = {name} · {size}
+settings.backup.restore.label = Restore…
+settings.backup.toast.created = backup created
+settings.backup.toast.restored = restored · logging you out
+
+# ---------------------------------------------------------------------------
+# THE RESTORE PROMPT — one dialog, asking for exactly what the chosen archive's
+# own header needs. The consequence line lives here rather than on the card,
+# because this is the moment it applies.
+# ---------------------------------------------------------------------------
+settings.restore.title = Restore
+# TWO WHOLE SENTENCES, not one with a hole in it: the date clause lands in the
+# middle of the warning, and a value cannot begin with the space that would
+# need — the parser trims both halves.
+settings.restore.warn.prose = Replaces everything on this server — every user, library and setting. Everyone is logged out. The data being replaced is kept on the server as one recovery copy.
+settings.restore.warn.dated.prose = Replaces everything on this server with the backup from {date} — every user, library and setting. Everyone is logged out. The data being replaced is kept on the server as one recovery copy.
+# The account password, as against a passphrase — which is why it is not just
+# common.field.password.label.
+settings.restore.password.label = Your password
+settings.restore.password.recoverable.prose = This server made this archive, so your current password opens it — even if it is not the one it was sealed with.
+settings.restore.password.named.prose = Sealed by ‘{name}’ on another server, so it needs that account’s password as it was then.
+settings.restore.password.era.prose = Not made on this server, so it needs the password that was current when it was made.
+# A pre-1.4.1 archive carries no key at all, so the typed word stands for it.
+# RESTORE is compared byte for byte and stays Latin in every language.
+settings.restore.confirm.label = Type RESTORE
+settings.restore.confirm.prose = This archive predates 1.4.1 and carries no key, so the typed word is the confirmation.
+# The close on both prompts: backing out of a form is not the same as closing a
+# window you were only reading.
+settings.prompt.close.tip = Cancel and close
+
+# ---------------------------------------------------------------------------
+# THE METADATA CARD — the status chips, and the key fields under them.
+# ---------------------------------------------------------------------------
+settings.metadata.title = Metadata sources
+settings.metadata.info.body = Books need no key: Google Books and Open Library, merged. Films run on TMDB unless this build ships one (TheTVDB optional), games on an IGDB pair with no built-in behind it. Each field saves on its own, and manual entry always works.
+# Two chips, and only where a key field cannot answer: that lookups are failing,
+# that they are running on the shared built-in key, or on nothing at all.
+settings.metadata.books.failing.label = Lookup failing
+settings.metadata.tmdb.builtin.label = Built-in key
+settings.metadata.tmdb.none.label = No key
+settings.metadata.last-error.prose = last error: {error}
+# Half an IGDB pair fails at the Twitch token exchange, which arrives as a
+# lookup failure — so the missing half is named. {half} is one of the nouns
+# below, not a sentence.
+settings.metadata.igdb.half.prose = IGDB needs both halves — the {half} is still blank, so game lookups will fail as if the key were wrong.
+
+# --- a key field's NAME: the supplier, then the noun beside it. The supplier is
+# a proper noun and comes from vocab.source.*; only the noun is copy. Seven
+# hardcoded labels became this plus five words.
+settings.keys.field.label = {source} {noun}
+settings.keys.noun.key = key
+# "client id" and "secret" are the field names on Twitch's own console — field
+# identifiers, so they appear as themselves (see settings.help.igdb).
+settings.keys.noun.client-id = client id
+settings.keys.noun.secret = secret
+settings.keys.noun.cookie = cookie
+settings.keys.noun.domain = domain
+
+settings.keys.google.hint = Optional, and only if you exceed roughly 1,000 lookups a day: console.cloud.google.com → enable the Books API → create a key. Books work with no key at all.
+settings.keys.google.placeholder = Google Books API key — optional
+settings.keys.tmdb.hint = themoviedb.org → Settings → API → a free v3 key (a v4 read token also works). Overrides the built-in shared key. With no key at all, lookups return 503 — manual entry still works.
+settings.keys.tmdb.placeholder = TMDB v3 key or v4 token — overrides built-in
+settings.keys.tvdb.hint = Optional, and usually better for long-running shows: thetvdb.com → Dashboard → API keys.
+settings.keys.tvdb.placeholder = TheTVDB v4 API key — optional
+settings.keys.igdb-id.hint = Games only, and IGDB authenticates through Twitch: dev.twitch.tv/console → Register Your Application → the client id is shown there. The secret below is the other half; one on its own looks nothing up.
+settings.keys.igdb-id.placeholder = Twitch client id — needed for games
+settings.keys.igdb-secret.hint = The other half of the pair, from the same Twitch application: press “New Secret” on it. It is shown once. With no key at all, game lookups return 503 — manual entry always works.
+settings.keys.igdb-secret.placeholder = Twitch client secret — needed for games
+# ⚠ .caveat AND NOT .hint, DELIBERATELY. This one runs to 440 characters and the
+# 240-character dot budget measures .hint in both languages. It is a security
+# warning with a procedure in it — fragile, against Amazon's terms, grants
+# account access, and here is where the header is — and no clause in it can be
+# dropped to fit a cap, so it is named for what it is instead. Keep it that way.
+settings.keys.amazon-cookie.caveat = Optional. Covers already work from an ASIN with no setup at all; the cookie only adds description and genres by reading the product page. It is fragile, it is against Amazon’s terms, and it grants access to your account — it is stored write-only and never shown. To get it: sign in to Amazon on the marketplace your books live on, open DevTools (F12) → Network → click any amazon request → Request Headers, and copy the whole "cookie:" value.
+settings.keys.amazon-cookie.placeholder = Amazon session cookie — optional
+settings.keys.amazon-domain.hint = The marketplace your books were bought on, e.g. www.amazon.com or www.amazon.de. Not a secret, so this one shows its value.
+# A domain to type, not a word to read.
+settings.keys.amazon-domain.placeholder = www.amazon.com
+
+# --- the row's own controls. A secret is write-only, so "stored" is the whole of
+# what can be reported about one; a non-secret shows its value instead.
+settings.keys.unset.label = not set
+settings.keys.saved.tip = Saved
+settings.keys.saved.aria = {name}: saved
+# {name} is a whole field name — "Google Books key" — and goes in unaltered.
+# These two replaced "Add a google books key", lower-cased in code.
+settings.keys.add.aria = Add the {name}
+settings.keys.replace.aria = Replace the {name}
+settings.keys.save.blank.tip = Save blank — clears this key
+settings.keys.toast.cleared = cleared
+
+# ===========================================================================
+# SHARED VOCABULARY THE LAST THREE SCREENS ASKED FOR.
+#
+# error.* keyed by WHAT FAILED, a handful of countable people-nouns beside the
+# unit.actor that already existed, one field label and one shared verb. They
+# sit here rather than up in the frame section for the reason the section below
+# gives about its own contents: a screen asked for them first, and nothing is
+# defined twice, so a translator can search the namespace and find all of it.
+# ===========================================================================
+
+# --- from staging ---
+error.load.import-queue = could not read the import queue
+error.apply.edit = could not apply the edit
+error.approve.generic = could not approve
+error.discard.generic = could not discard
+common.field.favourite.label = Favourite
+
+# --- from metadata ---
+# Re-fetching covers and metadata across the whole library (POST /covers/refetch).
+error.refetch.covers = could not re-fetch covers
+# The duplicate-title scan (GET /metadata/duplicates).
+error.scan.duplicates = could not scan for duplicates
+# Merging, both kinds: two books into one, and two spellings of one person into
+# one name. One act, one error.
+error.merge.failed = merge failed
+# The speaker remap will not run with nothing mapped. {action} is the name of the
+# button that DOES work with nothing mapped, so the button is named once.
+error.validate.mapping-required = Choose at least one mapping, or use “{action}”.
+
+# The four countable people-nouns beside the existing unit.actor. The Metadata
+# screen counts all five ("3 authors still need photos or links"); the studio row
+# is the one that was silently missing before.
+unit.author.one = author
+unit.author.other = authors
+unit.director.one = director
+unit.director.other = directors
+unit.studio.one = studio
+unit.studio.other = studios
+unit.speaker.one = speaker
+unit.speaker.other = speakers
+
+# --- from settings ---
+# The toast that follows a backup offers the copy. "Export" is the neighbouring
+# verb and is a different act — this one hands you a file the server already has.
+common.action.download.label = Download
+
+# Updates.
+error.check.updates = couldn’t check for updates
+error.update.start = update failed to start
+# A clipboard write the browser refused — the command is still on screen.
+error.copy.manual = copy failed — select it manually
+error.load.changelog = could not load the changelog
+
+# Devices.
+error.load.devices = could not load devices
+error.pair.device = could not start pairing
+error.revoke.device = could not revoke device
+error.revoke.devices = could not revoke devices
+
+# Backup and restore. "data intact" is the load-bearing half: a restore that
+# failed changed nothing.
+error.backup.failed = backup failed
+error.restore.intact = restore failed — data intact
+
+# An uploaded typeface the server would not take.
+error.upload.font = could not upload that font
+
+# The third validate reason the restore prompt needs. The other two already
+# exist (error.validate.password-required, error.validate.archive-passphrase-
+# required) and are reused. RESTORE is compared byte for byte and stays Latin.
+error.validate.restore-word = Type RESTORE to confirm
 
 # ===========================================================================
 # THE REST OF THE SHARED VOCABULARY — common.field.* and one shell key.

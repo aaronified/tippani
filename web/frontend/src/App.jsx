@@ -509,7 +509,7 @@ export function Login({ onLogin }) {
             header={
               <>
                 <img src="/mark-dark.svg" alt="" width="44" height="44" className="mx-auto mb-3" />
-                <div className="wordmark" style={{ fontSize: 22 }}>tippani</div>
+                <div className="wordmark" style={{ fontSize: 22 }}>{t('shell.wordmark.label')}</div>
                 <p className="bengali text-sm" aria-hidden="true">টিপ্পনী</p>
                 {/* A locked door, and this app's subject is the sentence somebody
                     kept — so it opens with one, and a different one each visit.
@@ -1300,7 +1300,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
             <button type="button" className="brand" onClick={() => selectTab('home')}>
               {/* the mark matches the 28px nav tab icons so the row reads level */}
               <img src={dark ? '/mark-dark.svg' : '/mark.svg'} alt="" width="28" height="28" />
-              <span className="wordmark">tippani</span>
+              <span className="wordmark">{t('shell.wordmark.label')}</span>
               {brandDot}
             </button>
           </Tooltip>
@@ -1377,7 +1377,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
             <Tooltip shortcut="go-home" label={t('nav.bottom.home.aria')} side="bottom" className="min-w-0">
               <button type="button" className="brand" onClick={() => selectTab('home')}>
                 <img src={dark ? '/mark-dark.svg' : '/mark.svg'} alt="" width="26" height="26" />
-                <span className="wordmark">tippani</span>
+                <span className="wordmark">{t('shell.wordmark.label')}</span>
                 {brandDot}
               </button>
             </Tooltip>
