@@ -77,8 +77,25 @@ describe('the stacks', () => {
     expect(stackFor('ui')).toContain('Hind Siliguri')
   })
 
-  it('leaves the mono stack out of it — code has no Bengali', () => {
-    expect(stackFor('mono')).not.toContain('Bengali')
+  // THIS ASSERTION USED TO RUN THE OTHER WAY, and the reason it flipped is worth
+  // keeping. It read "leaves the mono stack out of it — code has no Bengali",
+  // which was true about half of what the role does: --font-mono is also what
+  // MonoLabel draws with, and MonoLabel is a UI label — the bin's keep-for row, a
+  // diff's column heads, the shortcut sheet's headings, every small-caps chip.
+  // Those are words, and once the interface spoke Bengali they were Bengali words
+  // falling through to whatever face the OS reached for, in the middle of a
+  // typography system the reader had chosen every other part of. locale.jsx
+  // carried the gap as a named TODO for exactly as long as it took the migration
+  // to make it visible.
+  it('carries the Indic faces in the mono stack too — a mono LABEL is words', () => {
+    const s = stackFor('mono')
+    expect(s).toContain('Bengali')
+    expect(s).toContain('Devanagari')
+    // After the Latin face, or its Latin subset wins and the face stops being
+    // monospaced; before the generics, or `monospace` catches Bengali first and
+    // we are back to an OS guess.
+    expect(s.indexOf('IBM Plex Mono')).toBeLessThan(s.indexOf('Bengali'))
+    expect(s.indexOf('Bengali')).toBeLessThan(s.indexOf('ui-monospace'))
   })
 })
 

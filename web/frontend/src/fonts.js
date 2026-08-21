@@ -304,7 +304,31 @@ export function stackFor(roleKey) {
     case 'ui':
       return `${latin}, ${bn}, ${dv}, system-ui, sans-serif`
     case 'mono':
-      return `${latin}, ui-monospace, 'Cascadia Mono', monospace`
+      // THE MONO STACK CARRIES THE INDIC FACES TOO, and it did not until the
+      // interface itself started speaking Bengali.
+      //
+      // The old stack was `latin, ui-monospace, monospace` on the reasoning that
+      // this role is for CODE and code has no Bengali. That reasoning was sound
+      // about half of what the role actually does. `--font-mono` is also what
+      // MonoLabel draws with, and MonoLabel is a UI LABEL — the keep-for row on
+      // the bin, the column heads on a diff, every small-caps chip, the shortcut
+      // sheet's headings. Those are words, and after the migration they are words
+      // in whichever language the reader chose. With no Indic face in the stack
+      // every one of them fell through to whatever the operating system reached
+      // for, so a Bengali reader met one arbitrary face in the middle of a
+      // typography system they had otherwise chosen every part of.
+      //
+      // locale.jsx named this gap rather than quietly fixing it, and said the fix
+      // was one line here; this is that line. The faces go AFTER the Latin one for
+      // the same reason they do in the display and ui stacks — ahead of it their
+      // own Latin subsets would win and the mono face would stop being monospaced
+      // — and BEFORE the generic fallbacks, or `monospace` would catch Bengali
+      // first and we would be back to an OS guess.
+      //
+      // Bengali in a mono slot is proportional and takes no small caps. That is
+      // expected rather than a bug (bengali-style.md §0.5 and §6.3 both say so,
+      // and §6.3 treats every mono label as a hard one-word budget because of it).
+      return `${latin}, ${bn}, ${dv}, ui-monospace, 'Cascadia Mono', monospace`
     case 'hand':
       // The hand face carries the Indic ones too: a margin note on a Bengali
       // quote is as likely to be in Bengali as the quote is.
