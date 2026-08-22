@@ -110,8 +110,10 @@ function useColumnCount() {
 // SETTINGS_CARDS — every card, in the order a single column shows them. This is
 // the canonical list; SETTINGS_LAYOUT below has to agree with it, and a test
 // says so.
-// Language marks and Type are NOT here. They are two buttons on the Appearance
-// card and a pop-up apiece (1.15.2) — see the note above `Appearance`.
+// Type and Language marks are NOT here. Each is a button with a pop-up behind
+// it (1.15.2) — Type on the Appearance card, Language marks on Metadata. See the
+// note above `Appearance` for why they are doors, and the door itself on
+// Metadata for why the marks moved.
 export const SETTINGS_CARDS = ['onboard', 'features', 'meta', 'colors', 'sr', 'devices', 'trash', 'upd', 'backup']
 
 // SETTINGS_LAYOUT — which column each card sits in, at each column count,
@@ -142,9 +144,10 @@ export const SETTINGS_CARDS = ['onboard', 'features', 'meta', 'colors', 'sr', 'd
 // rather than an arrangement: both are about what a quote is LABELLED with —
 // where the facts about a work come from, and what the colour on a highlight is
 // called — so reading down one column reads as one subject. Language marks was
-// the third card in that family and is now a pop-up off Appearance, which is the
-// same argument reaching its conclusion: what a proverb WEARS is a matter of
-// appearance, and settings-layout.test.js still pins the pair that remain.
+// the third card in that family and is a pop-up now, but it is a pop-up off
+// METADATA rather than off Appearance: a language mark is what a quote with
+// nobody to credit says it is, which is this family's subject and not the
+// theme's. settings-layout.test.js pins the pair of cards.
 export const SETTINGS_LAYOUT = {
   1: [SETTINGS_CARDS],
   2: [
@@ -2823,23 +2826,24 @@ function PresetCard({ spec, accentHex, code, selected, auto, dimmed, onClick }) 
 const prefersDark = () => typeof matchMedia !== 'undefined' && matchMedia('(prefers-color-scheme: dark)').matches
 
 // Appearance — the theme presets, the accent, the two size sliders, the label
-// density, and the doors to the two long panels that used to be cards.
+// density, and the door to Type.
 //
-// TYPE AND LANGUAGE MARKS ARE POP-UPS OFF THIS CARD (1.15.2), not cards in the
-// column grid beside it. Both belong to this subject — the faces the app draws
-// with, and what a proverb wears where every other quote wears a face — and
-// neither is a control panel: Type is eleven roles deep with a specimen apiece,
-// and Language marks is a row per language with a tray of flags behind each. The
-// settings page is read at a glance, and those two were the whole of two columns
-// standing open, permanently, for a choice most readers make once.
+// TYPE IS A POP-UP OFF THIS CARD (1.15.2), not a card in the column grid beside
+// it. It belongs to this subject — the faces the app draws with — and it is not
+// a control panel: it is eleven roles deep with a specimen apiece, and the
+// settings page is read at a glance. A whole column standing permanently open
+// for a choice most readers make once. So it becomes a button: a glyph and its
+// words, which is what every other door in this app is.
 //
-// So they become two buttons: a glyph and its words, which is what every other
-// door in this app is. The panels themselves are unchanged apart from losing
-// their card frame and heading, which the dialog now carries.
+// LANGUAGE MARKS USED TO BE THE SECOND DOOR HERE, on the argument that what a
+// proverb WEARS is a matter of appearance. That reading is now overruled by the
+// reader whose app it is, and their reading is better: the mark is how a quote
+// with nobody to credit says what it IS, which is the same question the rest of
+// the Metadata card answers. Where it is drawn is appearance; what it says is a
+// fact about the quote. It is a door on Metadata now, unchanged apart from which
+// card it hangs off.
 function Appearance({ prefs, onPreferences }) {
-  // Which long panel is open, if either. One piece of state rather than two
-  // booleans: they are alternatives, and two flags can both be true.
-  const [panel, setPanel] = useState(null)
+  const [typeOpen, setTypeOpen] = useState(false)
   // Seed from the appearance actually applied (getResolvedTheme reads the
   // concrete aesthetic off the DOM + the raw theme preference). The stored
   // theme pref maps to this panel's model: 'system' ⇒ syncSystem; 'light'/'dark'
@@ -2964,35 +2968,30 @@ function Appearance({ prefs, onPreferences }) {
         />
       </div>
 
-      {/* The two doors, and they KEEP THEIR WORDS at every width.
+      {/* The door, and it KEEPS ITS WORDS at every width.
 
           Button labels normally lets a glyphed button drop its text on a phone,
           and the buttons that opt out are named ones: primary submits and
           destructive confirms. This is a third case with the same shape. A card
           action that loses its words still sits on a card full of context, and
-          the reader can afford to guess; these two are the ONLY way into two
-          whole settings panels, so a bare letterform is not a button whose
-          meaning is merely unlabelled — it is a screen nobody finds. They were
-          headed cards until 1.15.2, which is the standard being kept.
+          the reader can afford to guess; this is the ONLY way into a whole
+          settings panel, so a bare letterform is not a button whose meaning is
+          merely unlabelled — it is a screen nobody finds. It was a headed card
+          until 1.15.2, which is the standard being kept. Metadata's door to
+          Language marks is the same case and does the same thing.
 
-          The tooltips say something the labels do not, which is the only reason
+          The tooltip says something the label does not, which is the only reason
           to carry both. */}
       <div className="mt-7 flex flex-wrap items-center gap-2" style={{ borderTop: '1px solid var(--line)', paddingTop: 14 }}>
         <Tooltip label={t('settings.type.open.tip')}>
-          <GhostButton icon={<IconType />} keepLabel onClick={() => setPanel('type')}>{t('settings.type.title')}</GhostButton>
-        </Tooltip>
-        <Tooltip label={t('settings.languages.open.tip')}>
-          <GhostButton icon={<IconLanguages />} keepLabel onClick={() => setPanel('marks')}>{t('settings.languages.title')}</GhostButton>
+          <GhostButton icon={<IconType />} keepLabel onClick={() => setTypeOpen(true)}>{t('settings.type.title')}</GhostButton>
         </Tooltip>
       </div>
 
-      {/* No form registers with either dialog, so neither grows a ✓: both panels
-          save on the tap, as they did as cards. The close is the only action. */}
-      <FormModal open={panel === 'type'} onClose={() => setPanel(null)} title={t('settings.type.title')} maxWidth={620}>
+      {/* No form registers with this dialog, so it grows no ✓: the panel saves on
+          the tap, as it did as a card. The close is the only action. */}
+      <FormModal open={typeOpen} onClose={() => setTypeOpen(false)} title={t('settings.type.title')} maxWidth={620}>
         <TypeSettings prefs={prefs} onSaved={onPreferences} />
-      </FormModal>
-      <FormModal open={panel === 'marks'} onClose={() => setPanel(null)} title={t('settings.languages.title')} maxWidth={560}>
-        <LanguageMarksSettings prefs={prefs} onSaved={onPreferences} />
       </FormModal>
     </Card>
   )
@@ -3182,6 +3181,7 @@ const keyLabel = (source, noun) =>
 
 function Metadata({ user, onPreferences }) {
   const admin = user.is_admin
+  const [marksOpen, setMarksOpen] = useState(false)
   const [status, setStatus] = useState(null)
   const [keys, setKeys] = useState(null) // {tmdb_key_set, google_books_key_set, amazon_cookie_set, amazon_domain}
   const [error, setError] = useState('')
@@ -3391,6 +3391,31 @@ function Metadata({ user, onPreferences }) {
       {/* Last, and a section rather than a card: a lookup hands back one credit
           string and this decides whether it names one person or two. */}
       <CreditSeparators user={user} onPreferences={onPreferences} />
+
+      {/* And the door to Language marks, which hung off Appearance from 1.15.2
+          until the reader moved it here.
+
+          WHY IT BELONGS ON THIS CARD. Everything above is about where the facts
+          about a work come from and what they are called. A language mark is the
+          same kind of fact: a proverb has nobody to credit, so its card leads
+          with its LANGUAGE, and the mark is that language's stand-in. Appearance
+          decides how the app looks; this decides what a quote says about itself.
+          The old argument — that what a proverb wears is a matter of appearance —
+          was about the drawing rather than the datum.
+
+          Still a door rather than a section, for the reason 1.15.2 gave: it is a
+          row per language with a tray behind each, and standing that open on a
+          page read at a glance is a column spent on a choice made once. Two
+          sections deep on one card would also read as part of the credit
+          separators above it, which it is not. */}
+      <div className="mt-7 flex flex-wrap items-center gap-2" style={{ borderTop: '1px solid var(--line)', paddingTop: 14 }}>
+        <Tooltip label={t('settings.languages.open.tip')}>
+          <GhostButton icon={<IconLanguages />} keepLabel onClick={() => setMarksOpen(true)}>{t('settings.languages.title')}</GhostButton>
+        </Tooltip>
+      </div>
+      <FormModal open={marksOpen} onClose={() => setMarksOpen(false)} title={t('settings.languages.title')} maxWidth={560}>
+        <LanguageMarksSettings prefs={user.preferences} onSaved={onPreferences} />
+      </FormModal>
     </Card>
   )
 }

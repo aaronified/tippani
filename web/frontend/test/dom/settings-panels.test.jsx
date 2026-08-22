@@ -1,5 +1,11 @@
-// Type and Language marks: two buttons on the Appearance card, and a pop-up
-// apiece (1.15.2).
+// Type and Language marks: a button apiece with a pop-up behind it (1.15.2) —
+// Type on the Appearance card, Language marks on Metadata since the reader moved
+// it there.
+//
+// The move is why this file is not called appearance-panels any more. Both doors
+// are still asserted together, because what they have in common is the SHAPE —
+// a panel too long to stand open on a page read at a glance — and a rule about
+// that shape is worth one file rather than one per card.
 //
 // THE BUG THAT PROMPTED THE MOVE was in the panel, not the layout. Settings'
 // language-mark tray rendered <Field label="Or type one"> and Settings never
@@ -94,9 +100,12 @@ describe('the two panels are doors, not cards', () => {
     }
   })
 
-  it('opens one at a time', async () => {
-    // Two booleans can both be true; one `panel` cannot. Opening the second
-    // while the first is up would stack two scrims and trap the page.
+  it('opens one at a time, from two different cards', async () => {
+    // They were one piece of `panel` state on one card, so "one at a time" was
+    // arithmetic. They are two cards' own booleans now, and what enforces it is
+    // the scrim: a FormModal covers the page, so the other card's button is not
+    // reachable while one is open. Asserted rather than assumed — two stacked
+    // scrims trap the page, and this is the sequence that would do it.
     await page()
     fireEvent.click(screen.getByRole('button', { name: 'Type' }))
     expect(dialog().getAttribute('aria-label')).toBe('Type')
@@ -104,6 +113,18 @@ describe('the two panels are doors, not cards', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Language marks' }))
     expect(screen.getAllByRole('dialog')).toHaveLength(1)
     expect(dialog().getAttribute('aria-label')).toBe('Language marks')
+  })
+
+  it('hangs the marks door off Metadata and Type off Appearance', async () => {
+    // WHERE each door is, which is the whole of this change and the one thing
+    // the assertions above cannot see: they find a button on the page without
+    // caring which card it sits on. A mark is what a quote with nobody to credit
+    // says it IS — the Metadata card's subject — and not how the app looks.
+    await page()
+    const heading = (name) =>
+      screen.getByRole('button', { name }).closest('.hand-card')?.querySelector('h2')?.textContent || ''
+    expect(heading('Language marks')).toBe('Metadata sources')
+    expect(heading('Type')).toBe('Appearance')
   })
 })
 

@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Language marks moved to Metadata sources.** It was a pop-up off Appearance; it is a
+  pop-up off the Metadata card now, under the credit separators. Where a mark is *drawn* is
+  a matter of appearance, which is what put it there — but what it *says* is a fact about the
+  quote: a proverb has nobody to credit, so its card leads with its language instead of a
+  face, and that is the same question the rest of that card answers. Nothing about the panel
+  itself changed.
+
 ### Fixed
 
 - **A book you skipped is skipped again.** Skipping a work has taken its quotes out of the
