@@ -217,7 +217,14 @@ describe('nothing on the screen opts out', () => {
     for (const path of sources()) {
       const rel = path.replace(/\\/g, '/').split('/src/')[1]
       const text = decommented(readFileSync(path, 'utf8'))
-      for (const m of text.matchAll(/fontSize:\s*([0-9.]+)(?![0-9.])/g)) raw.push(`src/${rel}: fontSize: ${m[1]}`)
+      // A BARE NUMBER AND A QUOTED ONE. `fontSize: '13px'` slipped past both the
+      // sweep and the first version of this check — one hardcoded size in the
+      // standalone-quote meta line, found only by counting the survivors by hand
+      // afterwards. Three more were computed rather than literal (a prop default,
+      // two of its callers) and are tokens now too.
+      for (const m of text.matchAll(/fontSize:\s*(?:([0-9.]+)(?![0-9.])|['"`]([0-9.]+)px['"`])/g)) {
+        raw.push(`src/${rel}: fontSize: ${m[1] || `${m[2]}px`}`)
+      }
     }
     expect(raw.sort(), 'these inline sizes will not answer the dials').toEqual([])
   })

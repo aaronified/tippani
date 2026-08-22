@@ -249,7 +249,7 @@ const TRANSLATION_LINE = {
   marginTop: 3,
   fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', fontVariantNumeric: 'var(--font-display-figures)',
   fontStyle: 'italic',
-  fontSize: '13px',
+  fontSize: 'var(--type-display-13)',
   textTransform: 'none',
   letterSpacing: 'normal',
   color: 'var(--soft)',

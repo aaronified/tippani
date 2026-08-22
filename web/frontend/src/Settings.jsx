@@ -11,6 +11,7 @@ import {
   MARK_MAX_RUNES,
   MAX_CUSTOM_MARKS,
 } from './languages.jsx'
+import { SIZE_ROLES } from './type.js'
 import {
   applyFonts,
   fontState,
@@ -598,6 +599,14 @@ export function ReviewScope({ value, onChange }) {
 // Every alternate is BUNDLED, not fetched. Tippani never contacts the network on
 // its own, and a type picker that loaded Google Fonts would be the first thing
 // in the app that did — on a screen about how your own words look. All OFL-1.1.
+// specimenSize — the token a role's specimen is drawn at. Mono is set smaller
+// because a label IS smaller; the two script rows borrow the reading face's dial,
+// since that is the size their glyphs are drawn at on a real screen.
+const specimenSize = (roleKey) => {
+  if (roleKey === 'mono') return 'var(--type-mono-13)'
+  return SIZE_ROLES.includes(roleKey) ? `var(--type-${roleKey}-17)` : 'var(--type-display-17)'
+}
+
 function TypeSettings({ prefs, onSaved }) {
   const [rows, setRows] = useState(fontState)
   const [openRole, setOpenRole] = useState(null)
@@ -702,7 +711,15 @@ function TypeSettings({ prefs, onSaved }) {
                 style={{
                   fontFamily: `var(${row.prop})`,
                   fontStyle: row.italic ? 'italic' : 'normal',
-                  fontSize: row.key === 'mono' ? 12.5 : 17,
+                  // THE SPECIMEN ANSWERS THIS ROW'S OWN DIAL, which is what makes
+                  // it a preview rather than a picture: turn Labels up and the
+                  // label specimen grows while the others hold still. The token
+                  // carries the factor, so nothing here does arithmetic.
+                  //
+                  // The two SCRIPT rows borrow the reading face's dial, because
+                  // that is the size their glyphs are actually drawn at: a Bengali
+                  // quote is a display element with Bengali codepoints in it.
+                  fontSize: specimenSize(row.key),
                   letterSpacing: row.key === 'mono' ? '.08em' : 0,
                   lineHeight: 1.45,
                   color: 'var(--ink)',

@@ -1027,7 +1027,7 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce
           <WorkHero
             cover={<Poster path={movie.poster_path} title={movie.title} zoomable />}
             title={movie.title}
-            titleSize={27}
+            titleSize={'var(--type-display-26)'}
             meta={
               metaParts.length > 0 && (
                 <div style={{ ...amberMono, display: 'flex', flexWrap: 'wrap', alignItems: 'center', rowGap: 2 }}>

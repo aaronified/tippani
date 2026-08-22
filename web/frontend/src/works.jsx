@@ -1324,7 +1324,10 @@ export function WorkHero({
   cover,
   shadow = 'drop-shadow(0 12px 22px rgba(0,0,0,.4))',
   title,
-  titleSize = 28,
+  // A prop with a default, so callers may override it — but the DEFAULT is a
+  // size like any other and answers the Quotes dial. 26 rather than 28: the scale
+  // has no 28, and 26 is the step it rounds to.
+  titleSize = 'var(--type-display-26)',
   titleStyle,
   meta,
   counts,
