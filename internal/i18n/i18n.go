@@ -34,6 +34,8 @@ import (
 	"sort"
 	"strings"
 	"sync"
+
+	"tippani/internal/olog"
 )
 
 //go:embed en.txt
@@ -222,6 +224,57 @@ type Overrides struct {
 	files map[string]File
 }
 
+// cand is one candidate file: the code it claims, the name it claims it with, and
+// where it is.
+type cand struct {
+	code string
+	name string
+	path string
+}
+
+// collision is one code claimed by more than one file, for the operator's log.
+type collision struct {
+	code string
+	won  string
+	lost string
+}
+
+// dedupeByCode keeps one file per language code and reports the rest.
+//
+// THE WINNER IS THE ONE WHOSE NAME IS ALREADY WHAT THE CODE IS: `fr.txt` for
+// `fr`. Failing that, the first in the directory's own order, which os.ReadDir
+// sorts by name — so the choice is stable across boots rather than being whatever
+// the filesystem happened to hand back. A rule nobody can predict is worse than a
+// rule somebody disagrees with: this one is guessable from the documentation,
+// which only ever writes the lower-case form.
+func dedupeByCode(in []cand) ([]cand, []collision) {
+	if len(in) < 2 {
+		return in, nil
+	}
+	best := make(map[string]int, len(in)) // code -> index into `in`
+	order := make([]string, 0, len(in))   // codes, first-seen order, so output is stable
+	var dups []collision
+	for i, c := range in {
+		prev, seen := best[c.code]
+		if !seen {
+			best[c.code] = i
+			order = append(order, c.code)
+			continue
+		}
+		winner, loser := prev, i
+		if c.name == c.code+Ext && in[prev].name != in[prev].code+Ext {
+			winner, loser = i, prev
+		}
+		best[c.code] = winner
+		dups = append(dups, collision{code: c.code, won: in[winner].name, lost: in[loser].name})
+	}
+	out := make([]cand, 0, len(order))
+	for _, code := range order {
+		out = append(out, in[best[code]])
+	}
+	return out, dups
+}
+
 // Files returns the parsed contents of root/Locales, keyed by language code.
 func (o *Overrides) Files(root string) map[string]File {
 	dir := filepath.Join(root, DirName)
@@ -231,10 +284,6 @@ func (o *Overrides) Files(root string) map[string]File {
 		// cache is left alone rather than cleared: nothing reads it on this path,
 		// and the signature below cannot match an absent directory anyway.
 		return nil
-	}
-	type cand struct {
-		code string
-		path string
 	}
 	var cands []cand
 	var sig strings.Builder
@@ -264,10 +313,29 @@ func (o *Overrides) Files(root string) map[string]File {
 		sig.WriteString(info.ModTime().UTC().Format("20060102150405.000000000"))
 		sig.WriteString("\x00")
 		sig.WriteString(itoa(info.Size()))
-		cands = append(cands, cand{code: code, path: filepath.Join(dir, name)})
+		cands = append(cands, cand{code: code, name: name, path: filepath.Join(dir, name)})
 		if len(cands) >= maxFiles {
 			break
 		}
+	}
+	// TWO FILES, ONE LANGUAGE. The code is the file name with its extension
+	// removed and lower-cased, so `FR.txt` and `fr.txt` are both `fr` — as are
+	// `fr .txt` and `fr.TXT`. Windows and macOS refuse the second file themselves;
+	// on Linux both exist, both parse, and one of them used to disappear into a map
+	// assignment with nothing said. The reader then edits the file that lost and
+	// watches the app ignore every change they make, which is close to the worst
+	// shape a bug can have: the app is not broken, their work simply has no effect.
+	//
+	// PREFER THE EXACT LOWER-CASE SPELLING, and log the rest. Deterministic — it
+	// cannot depend on the directory's order — and it is the answer somebody would
+	// guess, because the lower-case name is what every document tells them to use.
+	// The losing file is read past, never touched: it is somebody's translation and
+	// this is not the code that gets to decide it was a mistake.
+	cands, dups := dedupeByCode(cands)
+	for _, d := range dups {
+		olog.Warnf(olog.CodeLocaleDuplicate,
+			"[locale] %s and %s both resolve to language %q — loading %s and ignoring the other; rename or remove it",
+			d.won, d.lost, d.code, d.won)
 	}
 	key := sig.String()
 	o.mu.Lock()

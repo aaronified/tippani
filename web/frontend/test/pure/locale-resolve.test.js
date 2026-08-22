@@ -18,6 +18,7 @@ import {
   fullKeys,
   installedLocales,
   localeActive,
+  localeCatalogue,
   localeChain,
   localeDir,
   localeMissing,
@@ -306,6 +307,68 @@ describe('coverage (§7)', () => {
     setLocaleFiles({ fr: file({}) })
     expect(coverage('fr')).toBe(0)
     expect(installedLocales()).toContain('fr') // still offered at 0%
+  })
+})
+
+describe('two languages that call themselves the same thing', () => {
+  // `_name` is somebody's own word for their own language, and nothing stops two
+  // files using it: fr and fr-ca both "Français", a fork of a translation, or the
+  // same file copied under a second code while it is being worked on. All three
+  // are reasonable. Two identical rows in the picker are not — there is no way to
+  // choose between them, and which one you get is whichever the list put first.
+  //
+  // DISAMBIGUATED, NEVER REFUSED. Dropping the second file would delete somebody's
+  // translation from the app over a naming collision they could only diagnose from
+  // a log they have no reason to read.
+  test('are told apart by their code', () => {
+    setLocaleFiles({
+      fr: file({}, { _name: 'Français' }),
+      'fr-ca': file({}, { _name: 'Français' }),
+    })
+    const rows = localeCatalogue()
+    const names = rows.filter((r) => r.code.startsWith('fr')).map((r) => r.name)
+    expect(names.sort()).toEqual(['Français (fr)', 'Français (fr-ca)'])
+    // Both are still offered, and each still reports its own coverage.
+    expect(rows.map((r) => r.code)).toContain('fr')
+    expect(rows.map((r) => r.code)).toContain('fr-ca')
+  })
+
+  test('and a name nobody else claims is left exactly as its file wrote it', () => {
+    setLocaleFiles({
+      fr: file({}, { _name: 'Français' }),
+      ta: file({}, { _name: 'தமிழ்' }),
+    })
+    const byCode = Object.fromEntries(localeCatalogue().map((r) => [r.code, r.name]))
+    expect(byCode.fr).toBe('Français')
+    expect(byCode.ta).toBe('தமிழ்')
+  })
+
+  test('compares the claim rather than the spacing and the case', () => {
+    // "Français" and "français " are the same claim, and the reader who typed the
+    // second one cannot see the difference either.
+    setLocaleFiles({
+      fr: file({}, { _name: 'Français' }),
+      'fr-be': file({}, { _name: 'français ' }),
+    })
+    for (const row of localeCatalogue().filter((r) => r.code.startsWith('fr'))) {
+      expect(row.name, `${row.code} was not disambiguated`).toContain(`(${row.code})`)
+    }
+  })
+
+  test('does not dress up a file that forgot its _name', () => {
+    // localeName already reports that omission by showing the bare code, and
+    // "fr (fr)" reads as a different fault from the one there is.
+    setLocaleFiles({ fr: file({}), 'fr-ca': file({}) })
+    const byCode = Object.fromEntries(localeCatalogue().map((r) => [r.code, r.name]))
+    expect(byCode.fr).toBe('fr')
+    expect(byCode['fr-ca']).toBe('fr-ca')
+  })
+
+  test('is not confused by the two built-ins, which are named differently', () => {
+    setLocaleFiles({})
+    for (const row of localeCatalogue()) {
+      expect(row.name, `${row.code} gained a code it did not need`).not.toContain('(')
+    }
   })
 })
 

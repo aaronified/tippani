@@ -48,6 +48,12 @@ document and that registry in lockstep.
 | `TIP-SRCH-003` | A search result row failed to scan and was dropped. | A `SELECT` and its target struct drifted apart (usually a migration added a column). | Report it — the search query and its scan target need realigning. |
 | `TIP-SRCH-004` | A fuzzy-search vocabulary read failed; typo correction was skipped. | A corrupt FTS index that also failed its one-shot repair, or the `0016` fts5vocab migration did not apply. | Run Profile → Rebuild search index or restart. Exact search still works; only the zero-hit typo-correction pass was skipped. If it persists, check for `TIP-SRCH-002`. |
 
+## LOCALE — the languages in data/Locales
+
+| Code | Meaning | Likely cause | What to do |
+| --- | --- | --- | --- |
+| `TIP-LOCALE-001` | Two files in `data/Locales` resolve to the same language code; only one is loaded. | The language code is the file name with the extension removed, lower-cased — so `FR.txt` and `fr.txt` are both `fr`, as are `fr .txt` and `fr.TXT`. Only possible on a case-sensitive filesystem (Linux); Windows and macOS refuse the second file themselves. | The log line names every file that collided and which one won — the exact lower-case spelling is always preferred, so `fr.txt` beats `FR.txt`. Rename or delete the others. Nothing is lost: the losing files are read past, not touched. |
+
 ## List scanning — dropped rows
 
 These all mean one row of a list/collection failed to scan and was skipped, so a

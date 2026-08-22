@@ -34,6 +34,11 @@ const (
 	CodeSearchRowScan Code = "TIP-SRCH-003" // a search result row failed to scan (dropped from results)
 	CodeSearchVocab   Code = "TIP-SRCH-004" // fuzzy-search vocabulary read failed; typo correction skipped
 
+	// LOCALE — the language files an operator drops in data/Locales. Not "I18N":
+	// codes_test.go matches TIP-[A-Z]+-[0-9]+ against the doc, and a subsystem with a
+	// digit in its name can never satisfy its own registry gate.
+	CodeLocaleDuplicate Code = "TIP-LOCALE-001" // two files in data/Locales resolve to one language code; one is ignored
+
 	// Per-subsystem "list row failed to scan" — a SELECT/struct drift that would
 	// otherwise silently shorten a list with a 200 (the class the 0.6.4 favourites
 	// bug exposed). One per subsystem that has list/collection loops.
@@ -141,6 +146,8 @@ var Registry = map[Code]string{
 	CodeSearchRepair:  "A corrupt FTS index could not be reconstructed while serving a search.",
 	CodeSearchRowScan: "A search result row failed to scan and was dropped from the results.",
 	CodeSearchVocab:   "A fuzzy-search vocabulary read failed; typo correction was skipped and the exact (empty) result was returned.",
+
+	CodeLocaleDuplicate: "Two files in data/Locales resolve to the same language code; only one of them is loaded.",
 
 	CodeAnnoRowScan:      "An annotation list row failed to scan (SELECT/struct drift); dropped from the list.",
 	CodeDlgRowScan:       "A dialogue list row failed to scan (SELECT/struct drift); dropped from the list.",

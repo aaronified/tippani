@@ -541,16 +541,44 @@ export function localeDir(code) {
 // It is simply not listed. A translator reaches it by storing the code directly —
 // localStorage['tippani:locale'] = 'qps' — which is the same door applyLocale
 // reads at boot, and the suite reaches it by calling applyLocale(PSEUDO).
+// TWO LANGUAGES CALLING THEMSELVES THE SAME THING are disambiguated by their code,
+// never refused. `_name` is somebody's own word for their own language and nothing
+// stops two files using it: a dialect that has not renamed itself (fr and fr-ca
+// both "Français"), a fork of a translation, or the same file copied under a
+// second code while it is being worked on. All three are reasonable, and the
+// picker showing two identical rows is not — you cannot choose between them, and
+// the one you get is whichever the list happened to put first.
+//
+// REFUSING THE SECOND FILE WAS THE OTHER OPTION AND IT IS WORSE. It would delete
+// somebody's translation from the app over a naming collision they can only
+// diagnose from a log they have no reason to read. Appending the code costs one
+// parenthesis and leaves both reachable, which is the same instinct as the Go
+// side's collision rule next door: prefer the answer that loses nothing.
+//
+// Compared case- and space-insensitively, because "Français" and "français " are
+// the same claim and the reader who typed the second one cannot see the difference
+// either.
 export function localeCatalogue() {
-  return installedLocales()
-    .filter((code) => code !== PSEUDO)
-    .map((code) => ({
+  const codes = installedLocales().filter((code) => code !== PSEUDO)
+  const seen = new Map() // normalised name -> how many claim it
+  for (const code of codes) {
+    const k = localeName(code).trim().toLowerCase()
+    seen.set(k, (seen.get(k) || 0) + 1)
+  }
+  return codes.map((code) => {
+    const name = localeName(code)
+    const shared = (seen.get(name.trim().toLowerCase()) || 0) > 1
+    return {
       code,
-      name: localeName(code),
+      // The bare code when a file forgot its _name is deliberately NOT dressed up
+      // as "fr (fr)": localeName already reports that omission by showing the code,
+      // and saying it twice reads as a different fault.
+      name: shared && name !== code ? t('locale.picker.disambiguate', { name, code }) : name,
       dir: localeDir(code),
       percent: coverage(code),
       builtin: BUILTIN_CODES.includes(code),
-    }))
+    }
+  })
 }
 
 // localePref is what the reader STORED and localeActive is what is RENDERING, and

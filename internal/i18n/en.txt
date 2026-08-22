@@ -57,6 +57,9 @@ onboarding.language.title = Language
 locale.picker.coverage = {name} · {percent}%
 # The accessible name of the picker itself, on both screens.
 locale.picker.aria = Choose a language
+# Two languages whose files claim the same _name: the code tells them apart.
+# Never a refusal — see localeCatalogue.
+locale.picker.disambiguate = {name} ({code})
 # The pseudo-locale's row in the picker. It is not a translation: it transforms
 # every string that came from a locale file, so any English still hardcoded in
 # the source stands out on screen untransformed.

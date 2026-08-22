@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.1.3] - 2026-08-22
 
 ### Added
 
@@ -25,6 +25,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   **One bug came out with it.** A language file over 512 KB was silently ignored, and the
   finished Bengali is 493 KB — so anyone overriding a built-in, or filling in this template,
   would have had their work skipped with nothing said. The ceiling is 4 MB now.
+
+  **Two files claiming one language are handled rather than refused.** The language code is
+  the file name, so `FR.txt` and `fr.txt` are the same language — one of them used to be
+  dropped silently, which meant you could edit the wrong file forever and watch the app
+  ignore every change. The exact lower-case name wins now and the log says which file was
+  passed over (`TIP-LOCALE-001`); nothing is deleted or altered. And two languages that give
+  themselves the same name — `fr` and `fr-ca` both "Français" — are told apart in the picker
+  by their code instead of appearing as two identical rows.
 
 ### Changed
 

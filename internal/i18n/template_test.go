@@ -170,3 +170,73 @@ func min(a, b int) int {
 	}
 	return b
 }
+
+// TWO FILES, ONE LANGUAGE — and the one that loses must not lose silently.
+//
+// The code is the file name with its extension removed and lower-cased, so
+// `FR.txt` and `fr.txt` are both `fr`. Windows and macOS refuse the second file
+// themselves; on Linux both exist, both parse, and one used to vanish into a map
+// assignment. The reader then edits the file that lost and watches the app ignore
+// every change — the app is not broken, their work simply has no effect, which is
+// close to the worst shape a bug can take.
+func TestTwoFilesOneCodeIsDeterministicAndReported(t *testing.T) {
+	root := t.TempDir()
+	dir := filepath.Join(root, DirName)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	write := func(name, name_ string) {
+		t.Helper()
+		body := "_name = " + name_ + "\ncommon.action.save.label = X\n"
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// On a case-insensitive filesystem the second write REPLACES the first, so this
+	// test asserts the resolution rather than the collision there. dedupeByCode is
+	// exercised directly below, which is what actually runs on Linux.
+	write("FR.txt", "Upper")
+	write("fr.txt", "Exact")
+
+	var o Overrides
+	files := o.Files(root)
+	if len(files) != 1 {
+		t.Fatalf("expected one language, got %v", keysOf(files))
+	}
+	if _, ok := files["fr"]; !ok {
+		t.Fatalf("the language is not under its code: %v", keysOf(files))
+	}
+
+	// The rule, on the shape Linux actually produces. The exact lower-case spelling
+	// wins wherever it appears in the directory order, because that is the only
+	// name any of the documentation ever writes.
+	for _, order := range [][]cand{
+		{{code: "fr", name: "FR.txt"}, {code: "fr", name: "fr.txt"}},
+		{{code: "fr", name: "fr.txt"}, {code: "fr", name: "FR.txt"}},
+	} {
+		kept, dups := dedupeByCode(order)
+		if len(kept) != 1 || kept[0].name != "fr.txt" {
+			t.Errorf("order %v/%v kept %v, want fr.txt", order[0].name, order[1].name, kept)
+		}
+		if len(dups) != 1 || dups[0].won != "fr.txt" || dups[0].lost != "FR.txt" || dups[0].code != "fr" {
+			t.Errorf("collision not reported for %v/%v: %+v", order[0].name, order[1].name, dups)
+		}
+	}
+
+	// Neither name is the exact spelling: pick the first in the directory's order,
+	// which os.ReadDir sorts, so the choice is stable across boots rather than
+	// being whatever the filesystem handed back.
+	kept, dups := dedupeByCode([]cand{{code: "fr", name: "FR.TXT"}, {code: "fr", name: "Fr.txt"}})
+	if len(kept) != 1 || kept[0].name != "FR.TXT" {
+		t.Errorf("with no exact spelling, expected the first: got %v", kept)
+	}
+	if len(dups) != 1 {
+		t.Errorf("unreported collision: %+v", dups)
+	}
+
+	// And one file per code is left completely alone — no collision, no reordering.
+	kept, dups = dedupeByCode([]cand{{code: "fr", name: "fr.txt"}, {code: "ta", name: "ta.txt"}})
+	if len(kept) != 2 || len(dups) != 0 {
+		t.Errorf("two distinct languages were treated as a collision: %v %+v", kept, dups)
+	}
+}
