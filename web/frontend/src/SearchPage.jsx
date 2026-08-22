@@ -232,8 +232,8 @@ export function SearchBox({ q, setQ, chips, setChips, mobile, draft, options, on
           // centres the glyphs in the field instead of seating them high.
           style={
             mobile
-              ? { fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontSize: 18, lineHeight: 1, padding: '10px 14px', width: '100%' }
-              : { fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontSize: 19, lineHeight: 1, padding: '14px 18px', width: '100%' }
+              ? { fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontSize: 'var(--type-display-19)', lineHeight: 1, padding: '10px 14px', width: '100%' }
+              : { fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontSize: 'var(--type-display-19)', lineHeight: 1, padding: '14px 18px', width: '100%' }
           }
           placeholder={t('search.box.placeholder')}
           value={q}
@@ -396,7 +396,7 @@ function FacetPanel({ vocabulary, chips, querystring, onAdd, onRemove, onClear, 
             {all.length > 12 && (
               <input
                 className="tp-input"
-                style={{ fontSize: 13, padding: '5px 9px' }}
+                style={{ fontSize: 'var(--type-ui-13)', padding: '5px 9px' }}
                 placeholder={t('search.filters.narrow.placeholder', { field: f.name })}
                 value={typed}
                 aria-label={t('search.filters.narrow.aria', { field: f.name })}
@@ -1080,7 +1080,7 @@ function QuoteModal({ kind, hit, authorMap = {}, actorMap = {}, speakerMap = {},
             {creditNames.length > 0 && (
               <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1">
                 {creditNames.map((n) => (
-                  <PersonCredit key={n} kind={creditKind} name={n} person={creditMap[n]} size={22} onOpen={onOpenPerson} nameStyle={{ fontSize: 13 }} />
+                  <PersonCredit key={n} kind={creditKind} name={n} person={creditMap[n]} size={22} onOpen={onOpenPerson} nameStyle={{ fontSize: 'var(--type-ui-13)' }} />
                 ))}
               </div>
             )}
@@ -1420,7 +1420,7 @@ function MediaGroup({ kind, item, cover, title, mediaTag, credits, genres = [], 
             <p className="display-title text-[16.5px] leading-snug">
               <Highlight text={title} terms={terms} />
               {mediaTag && (
-                <span className="mono-label" style={{ marginLeft: 8, fontSize: 9.5, color: 'var(--amber)', verticalAlign: 'middle' }}>
+                <span className="mono-label" style={{ marginLeft: 8, fontSize: 'var(--type-ui-9)', color: 'var(--amber)', verticalAlign: 'middle' }}>
                   {mediaTag}
                 </span>
               )}
@@ -1538,10 +1538,10 @@ function WorkResult({ kind, g, view, terms, onOpen, onOpenQuote, onOpenPerson, p
           person={people[n]}
           size={20}
           onOpen={onOpenPerson}
-          nameStyle={{ fontSize: 12.5 }}
+          nameStyle={{ fontSize: 'var(--type-ui-13)' }}
         />
       ))}
-      {!isBook && g.release_year ? <MonoLabel style={{ fontSize: 10.5 }}>{g.release_year}</MonoLabel> : null}
+      {!isBook && g.release_year ? <MonoLabel style={{ fontSize: 'var(--type-ui-11)' }}>{g.release_year}</MonoLabel> : null}
     </div>
   ) : null
   return (
@@ -1561,7 +1561,7 @@ function WorkResult({ kind, g, view, terms, onOpen, onOpenQuote, onOpenPerson, p
           isBook ? (
             <ChildHit key={h.id} color={h.color} hit={h} parent="book" onClick={() => onOpenQuote({ kind: 'book', hit: h })}>
               {h.quote && (
-                <MatchWindow text={h.quote} terms={terms} style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontStyle: 'italic', fontSize: 15, lineHeight: 1.5 }} />
+                <MatchWindow text={h.quote} terms={terms} style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontStyle: 'italic', fontSize: 'var(--type-display-15)', lineHeight: 1.5 }} />
               )}
               {h.note && (
                 <HandNote>
@@ -1571,7 +1571,7 @@ function WorkResult({ kind, g, view, terms, onOpen, onOpenQuote, onOpenPerson, p
             </ChildHit>
           ) : (
             <ChildHit key={h.id} color={h.color} hit={h} parent={g.media_type === 'show' ? 'show' : 'film'} onClick={() => onOpenQuote({ kind: 'movie', hit: h })}>
-              <MatchWindow text={h.quote} terms={terms} style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontSize: 15, lineHeight: 1.5 }} />
+              <MatchWindow text={h.quote} terms={terms} style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontSize: 'var(--type-display-15)', lineHeight: 1.5 }} />
               {/* The margin note (highlighted — this is what a Notes hit matched on). */}
               {h.note && (
                 <HandNote>
@@ -1699,14 +1699,14 @@ function ResultSection({ label, groups, group, view, isMovie, renderItem, people
                   <button
                     type="button"
                     className="display-title truncate"
-                    style={{ fontSize: 16.5, background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
+                    style={{ fontSize: 'var(--type-ui-17)', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
                     onClick={() => onOpenPerson({ kind: personKind, name: b.label })}
                   >
                     {b.label}
                   </button>
                 </Tooltip>
               ) : (
-                <h3 className="display-title truncate" style={{ fontSize: 16.5 }}>{b.label}</h3>
+                <h3 className="display-title truncate" style={{ fontSize: 'var(--type-ui-17)' }}>{b.label}</h3>
               )}
               <MonoLabel style={{ color: 'var(--accent-ui)' }}>{b.items.length}</MonoLabel>
               <span className="h-px flex-1" style={{ background: 'var(--line)' }} />
@@ -1746,7 +1746,7 @@ function PeopleSection({ label, kind, entries, people, onOpenPerson, view, rende
               <button
                 type="button"
                 className="display-title truncate"
-                style={{ fontSize: 16.5, background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
+                style={{ fontSize: 'var(--type-ui-17)', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
                 onClick={() => onOpenPerson({ kind, name: e.name })}
               >
                 {e.name}
@@ -1778,7 +1778,7 @@ function QuoteHit({ h, terms, onOpen, people = {}, seps }) {
         <MatchWindow
           text={h.quote || h.note}
           terms={terms}
-          style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontStyle: 'italic', fontSize: 15, lineHeight: 1.5 }}
+          style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontStyle: 'italic', fontSize: 'var(--type-display-15)', lineHeight: 1.5 }}
         />
       )}
       <span className="mt-1 flex items-center gap-1.5">
@@ -1815,7 +1815,7 @@ function TagSection({ tags, terms, onOpenQuote, speakerMap, creditSeps }) {
             {(tag.annotations || []).map((h) => (
               <ChildHit key={`a${h.id}`} color={h.color} hit={h} parent="book" onClick={() => onOpenQuote({ kind: 'book', hit: h })}>
                 {(h.quote || h.note) && (
-                  <MatchWindow text={h.quote || h.note} terms={terms} style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontStyle: 'italic', fontSize: 15, lineHeight: 1.5 }} />
+                  <MatchWindow text={h.quote || h.note} terms={terms} style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontStyle: 'italic', fontSize: 'var(--type-display-15)', lineHeight: 1.5 }} />
                 )}
                 <MonoLabel className="mt-1 block min-w-0 truncate">
                   {[h.book_title, h.book_author].filter(Boolean).join(' · ')}
@@ -1824,7 +1824,7 @@ function TagSection({ tags, terms, onOpenQuote, speakerMap, creditSeps }) {
             ))}
             {(tag.dialogues || []).map((h) => (
               <ChildHit key={`d${h.id}`} color={h.color} hit={h} parent={h.movie_media_type === 'show' ? 'show' : 'film'} onClick={() => onOpenQuote({ kind: 'movie', hit: h })}>
-                <MatchWindow text={h.quote} terms={terms} style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontSize: 15, lineHeight: 1.5 }} />
+                <MatchWindow text={h.quote} terms={terms} style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontSize: 'var(--type-display-15)', lineHeight: 1.5 }} />
                 <MonoLabel className="mt-1 block min-w-0 truncate">
                   {[h.movie_title, h.character].filter(Boolean).join(' · ')}
                 </MonoLabel>
@@ -2001,7 +2001,7 @@ function MatchWindow({ text, terms, style }) {
   const before = start > 0
   const after = end < s.length
   const chev = (dir) => (
-    <span aria-hidden="true" style={{ display: 'block', textAlign: 'center', lineHeight: 1, fontSize: 11, color: 'var(--faint)' }}>
+    <span aria-hidden="true" style={{ display: 'block', textAlign: 'center', lineHeight: 1, fontSize: 'var(--type-ui-11)', color: 'var(--faint)' }}>
       {dir === 'up' ? '⌃' : '⌄'}
     </span>
   )

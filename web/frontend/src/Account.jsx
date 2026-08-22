@@ -49,7 +49,7 @@ function AvatarRow({ user, onUser }) {
   }
   return (
     <div className="flex items-center gap-4">
-      <span className="user-chip" style={{ width: 56, height: 56, fontSize: 22 }} aria-hidden="true">
+      <span className="user-chip" style={{ width: 56, height: 56, fontSize: 'var(--type-ui-22)' }} aria-hidden="true">
         {user.avatar_path ? <img src={coverImgURL(user.avatar_path)} alt="" /> : (user.username || '?').trim().charAt(0).toLowerCase()}
       </span>
       <div className="flex flex-col gap-2">
@@ -121,7 +121,7 @@ function NameForm({ user, onUser }) {
           {busy ? t('common.action.save.busy') : t('account.name.save')}
         </StickerButton>
       </div>
-      {done && <p style={{ fontSize: 13, color: 'var(--soft)' }}>{t('account.name.done')}</p>}
+      {done && <p style={{ fontSize: 'var(--type-ui-13)', color: 'var(--soft)' }}>{t('account.name.done')}</p>}
       <ErrorText>{err}</ErrorText>
     </form>
   )
@@ -174,7 +174,7 @@ function PasswordForm() {
       <input className="tp-input" placeholder={t('account.password.new.placeholder', { min: PASSWORD_MIN, max: PASSWORD_MAX })} type="password" value={next} autoComplete="new-password" maxLength={PASSWORD_MAX} onChange={(e) => setNext(e.target.value)} />
       <input className="tp-input" placeholder={t('account.password.repeat.placeholder')} type="password" value={repeat} autoComplete="new-password" maxLength={PASSWORD_MAX} onChange={(e) => setRepeat(e.target.value)} />
       <ErrorText>{error}</ErrorText>
-      {done && <p style={{ fontSize: 13.5, color: 'var(--soft)' }}>{t('account.password.done')}</p>}
+      {done && <p style={{ fontSize: 'var(--type-ui-13)', color: 'var(--soft)' }}>{t('account.password.done')}</p>}
       {/* Greyed with the reason on it, rather than pressable and answering with
           an error a moment later. */}
       <StickerButton icon={<IconKey />} keepLabel className="w-full" disabled={busy || !!missing} title={missing || undefined}>
@@ -250,7 +250,7 @@ function SwitchAccount({ me }) {
               small avatar and adjacent names, "switch" with no subject is a
               question about a thing you cannot see. */}
           <p className="switch-from">
-            <span className="user-chip" style={{ width: 24, height: 24, fontSize: 11 }} aria-hidden="true">
+            <span className="user-chip" style={{ width: 24, height: 24, fontSize: 'var(--type-ui-11)' }} aria-hidden="true">
               {me?.avatar_path ? <img src={coverImgURL(me.avatar_path)} alt="" /> : (me?.username || '?').trim().charAt(0).toLowerCase()}
             </span>
             <span>
@@ -522,7 +522,7 @@ export function UserManagement({ me }) {
           const canDelete = !isMe && !u.is_admin
           return (
             <li key={u.id} className="flex flex-wrap items-center gap-x-3 gap-y-1.5 py-2" style={{ borderBottom: '1px solid var(--line)' }}>
-              <span className="user-chip" style={{ width: 30, height: 30, fontSize: 13 }} aria-hidden="true">
+              <span className="user-chip" style={{ width: 30, height: 30, fontSize: 'var(--type-ui-13)' }} aria-hidden="true">
                 {u.avatar_path ? <img src={coverImgURL(u.avatar_path)} alt="" /> : (u.username || '?').trim().charAt(0).toLowerCase()}
               </span>
               <span style={{ fontWeight: 600 }}>{u.username}</span>
@@ -560,7 +560,7 @@ export function UserManagement({ me }) {
                       type="button"
                       onClick={() => removeUser(u)}
                       aria-label={t('account.users.delete.aria', { name: u.username })}
-                      style={{ background: 'none', border: 'none', color: 'var(--error)', fontSize: 16, padding: 4, lineHeight: 1, cursor: 'pointer' }}
+                      style={{ background: 'none', border: 'none', color: 'var(--error)', fontSize: 'var(--type-ui-17)', padding: 4, lineHeight: 1, cursor: 'pointer' }}
                     >
                       ✕
                     </button>

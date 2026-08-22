@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import Home from './Home.jsx'
 import { applyLanguageMarks } from './languages.jsx'
 import { applyFonts, registerUploads } from './fonts.js'
+import { applyTypeScale } from './type.js'
 import { applyReviewPrefs, tzOffsetMinutes } from './review.jsx'
 import { pickEpigraph } from './epigraphs.js'
 import { installShortcuts, shortcutFor } from './keys.js'
@@ -147,6 +148,10 @@ export default function App() {
       applyReviewPrefs(user.preferences || {})
       applyLanguageMarks(user.preferences || {})
       applyFonts(user.preferences || {})
+      // The four size dials. Beside applyFonts rather than inside it, because a
+      // size is not a face: the tokens it writes are consumed by every rule in the
+      // stylesheet, and the faces are consumed by six.
+      applyTypeScale(user.preferences || {})
       // The uploaded faces, if any. Loaded AFTER applyFonts and then applied
       // again: the stacks name the family either way, so the only thing the
       // second call changes is that the face now exists — and a font that never
@@ -511,7 +516,7 @@ export function Login({ onLogin }) {
             header={
               <>
                 <img src="/mark-dark.svg" alt="" width="44" height="44" className="mx-auto mb-3" />
-                <div className="wordmark" style={{ fontSize: 22 }}>{t('shell.wordmark.label')}</div>
+                <div className="wordmark" style={{ fontSize: 'var(--type-ui-22)' }}>{t('shell.wordmark.label')}</div>
                 <p className="bengali text-sm" aria-hidden="true">টিপ্পনী</p>
                 {/* A locked door, and this app's subject is the sentence somebody
                     kept — so it opens with one, and a different one each visit.
@@ -776,7 +781,7 @@ function Drawer({ open, onClose, tab, selectTab, onSearch, onAdd, onAccount, use
   const badge = (key) => {
     if (key === 'home') {
       return (
-        <span className="drawer-badge" style={{ fontSize: 9 }}>
+        <span className="drawer-badge" style={{ fontSize: 'var(--type-ui-9)' }}>
           {pending > 0 && <span className="review-dot" aria-hidden="true" />}
           quiz · practice
         </span>
@@ -810,10 +815,10 @@ function Drawer({ open, onClose, tab, selectTab, onSearch, onAdd, onAccount, use
         <div className="drawer-header">
           <img src={dark ? '/mark-dark.svg' : '/mark.svg'} alt="" width="34" height="34" />
           <div className="min-w-0">
-            <p style={{ fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontWeight: 600, fontSize: 19, letterSpacing: '-0.02em' }}>
+            <p style={{ fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontWeight: 600, fontSize: 'var(--type-display-19)', letterSpacing: '-0.02em' }}>
               tippani
             </p>
-            <p className="bengali" style={{ fontSize: 11.5, color: 'var(--amber)' }} aria-hidden="true">
+            <p className="bengali" style={{ fontSize: 'var(--type-display-12)', color: 'var(--amber)' }} aria-hidden="true">
               {t('shell.drawer.tagline.label')}
             </p>
           </div>
@@ -879,8 +884,8 @@ function Drawer({ open, onClose, tab, selectTab, onSearch, onAdd, onAccount, use
         <div className="drawer-footer">
           <AccountChip user={user} onOpen={() => { onAccount(); onClose() }} />
           <div className="min-w-0 flex-1">
-            <p style={{ fontSize: 13.5, fontWeight: 600 }}>{user.username}</p>
-            <p className="mono-label" style={{ fontSize: 9 }}>
+            <p style={{ fontSize: 'var(--type-ui-13)', fontWeight: 600 }}>{user.username}</p>
+            <p className="mono-label" style={{ fontSize: 'var(--type-ui-9)' }}>
               {t(user.is_admin ? 'shell.drawer.role.admin.label' : 'shell.drawer.role.user.label')}
             </p>
           </div>
@@ -900,7 +905,7 @@ function Drawer({ open, onClose, tab, selectTab, onSearch, onAdd, onAccount, use
               target="_blank"
               rel="noopener noreferrer"
               className="mono-label"
-              style={{ fontSize: 10, letterSpacing: '.04em', color: 'var(--faint)' }}
+              style={{ fontSize: 'var(--type-ui-11)', letterSpacing: '.04em', color: 'var(--faint)' }}
             >
               {t('shell.drawer.changelog.label', { version: user.version || 'dev' })}
             </a>
@@ -911,7 +916,7 @@ function Drawer({ open, onClose, tab, selectTab, onSearch, onAdd, onAccount, use
               target="_blank"
               rel="noopener noreferrer"
               className="mono-label"
-              style={{ fontSize: 10, fontWeight: 700, color: 'var(--accent-ui)' }}
+              style={{ fontSize: 'var(--type-ui-11)', fontWeight: 700, color: 'var(--accent-ui)' }}
               title={t('shell.drawer.update.tip', { version: update.latest })}
             >
               {t('shell.drawer.update.label', { version: update.latest })}

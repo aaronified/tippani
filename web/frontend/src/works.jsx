@@ -300,7 +300,7 @@ export function InProgressCapDialog({ open, items, cap, noun, nounPlural = `${no
                     {it.title}
                   </span>
                   {it.meta && (
-                    <span className="block truncate" style={{ fontSize: 12.5, color: 'var(--faint)' }}>
+                    <span className="block truncate" style={{ fontSize: 'var(--type-ui-13)', color: 'var(--faint)' }}>
                       {it.meta}
                     </span>
                   )}
@@ -394,7 +394,7 @@ export function ShelfProgress({ status, progress = 0, pos }) {
   return (
     <span style={{ display: 'block', minWidth: 168, maxWidth: 260 }}>
       <StatusBar state={status} progress={progress} radius={3} />
-      <span style={{ display: 'block', marginTop: 3, fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 11, letterSpacing: '.06em', color: 'var(--faint)' }}>
+      <span style={{ display: 'block', marginTop: 3, fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 'var(--type-mono-11)', letterSpacing: '.06em', color: 'var(--faint)' }}>
         {/* The percentage is only worth words when it is the ONLY thing known.
             Where the work counts in its own units, "E06/10" already says where
             you are more precisely than "53%" does, and the bar beside it is
@@ -459,7 +459,7 @@ function ProgressEditor({ kind, unit, status, progress, pos, busy, onSave }) {
   }
   const field = (label, value, set, max) => (
     <label style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-      <span style={{ fontSize: 12.5, color: 'var(--soft)' }}>{label}</span>
+      <span style={{ fontSize: 'var(--type-ui-13)', color: 'var(--soft)' }}>{label}</span>
       <input
         className="tp-input"
         inputMode="numeric"
@@ -496,7 +496,7 @@ function ProgressEditor({ kind, unit, status, progress, pos, busy, onSave }) {
         </div>
       )}
       {missingTotal && (
-        <span style={{ display: 'block', marginTop: 5, fontSize: 12, color: 'var(--error)' }}>
+        <span style={{ display: 'block', marginTop: 5, fontSize: 'var(--type-ui-12)', color: 'var(--error)' }}>
           {t(episodes ? 'error.validate.episodes-total' : 'error.validate.pages-total')}
         </span>
       )}
@@ -504,7 +504,7 @@ function ProgressEditor({ kind, unit, status, progress, pos, busy, onSave }) {
         <span className="flex-1">
           <StatusBar state={status} progress={preview} radius={3} />
         </span>
-        <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 11, color: 'var(--faint)' }}>{preview}%</span>
+        <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 'var(--type-mono-11)', color: 'var(--faint)' }}>{preview}%</span>
         <button type="button" className="tp-chip tp-chip-btn" disabled={busy || missingTotal} onClick={save}>
           {t('common.action.set.label')}
         </button>
@@ -696,7 +696,7 @@ export function ShelfControl({ kind, item = {}, status, progress = 0, pos, reads
       <StateTag state="wishlist" label={t('common.shelf.wishlist.book.label')} tip={t('common.shelf.wishlist.tip')}>
         {(close) => (
           <>
-            <p style={{ padding: '4px 6px 8px', fontSize: 13, lineHeight: 1.5, color: 'var(--soft)' }}>
+            <p style={{ padding: '4px 6px 8px', fontSize: 'var(--type-ui-13)', lineHeight: 1.5, color: 'var(--soft)' }}>
               {t('common.shelf.wishlist.explainer.prose')}
             </p>
             {transitionItems(kind, status, moves, busy, close, onSelect)}
@@ -957,7 +957,7 @@ export function WorkCard({ kind, item, index = 0, onOpen, people = {}, seps, sel
         {isShow && (
           <span
             className="tp-chip tp-scrim-deep absolute left-1.5 top-1.5"
-            style={{ fontSize: 9.5, color: 'var(--on-scrim)', borderColor: 'transparent' }}
+            style={{ fontSize: 'var(--type-ui-9)', color: 'var(--on-scrim)', borderColor: 'transparent' }}
           >
             SHOW
           </span>
@@ -967,7 +967,7 @@ export function WorkCard({ kind, item, index = 0, onOpen, people = {}, seps, sel
         {isActive(kind, item) && <ReadingBadge kind={kind} stacked={isShow} />}
         {item.favorite && <FavBadge />}
       </HandCard>
-      <p className="mt-2.5 truncate" style={{ fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontWeight: 600, fontSize: 15.5, color: 'var(--ink)' }}>
+      <p className="mt-2.5 truncate" style={{ fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontWeight: 600, fontSize: 'var(--type-display-15)', color: 'var(--ink)' }}>
         {item.title}
       </p>
       <div className="flex items-center gap-1.5">
@@ -986,7 +986,7 @@ export function WorkCard({ kind, item, index = 0, onOpen, people = {}, seps, sel
         {isBook ? (
           <MonoLabel style={{ color: 'var(--accent-ui)' }}>{t('common.work-card.count.quote', { count, n: count })}</MonoLabel>
         ) : (
-          <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 12, color: 'var(--amber)' }}>
+          <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 'var(--type-mono-12)', color: 'var(--amber)' }}>
             {t('common.work-card.count.dialogue', { count, n: count })}
           </span>
         )}
@@ -1115,7 +1115,7 @@ export function WishlistFolder({ kind = 'book', items = [], onOpen }) {
             it is. */}
         <span className="wish-folder-tag tp-scrim-deep">{t('common.shelf.wishlist.book.label')}</span>
       </HandCard>
-      <p className="mt-2.5 truncate" style={{ fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontWeight: 600, fontSize: 15.5, color: 'var(--ink)' }}>
+      <p className="mt-2.5 truncate" style={{ fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontWeight: 600, fontSize: 'var(--type-display-15)', color: 'var(--ink)' }}>
         {t('common.shelf.wishlist.book.label')}
       </p>
       <div className="flex items-center gap-1.5">
@@ -1127,7 +1127,7 @@ export function WishlistFolder({ kind = 'book', items = [], onOpen }) {
         {isBook ? (
           <MonoLabel style={{ color: 'var(--accent-ui)' }}>{t('common.count.phrase', { n, noun: t('unit.book', { count: n }) })}</MonoLabel>
         ) : (
-          <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 12, color: 'var(--amber)' }}>
+          <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 'var(--type-mono-12)', color: 'var(--amber)' }}>
             {t('common.count.phrase', { n, noun: t('unit.title', { count: n }) })}
           </span>
         )}
@@ -1155,14 +1155,14 @@ export function GroupHeading({ label, count, noun, nounPlural, person, onOpenPer
           <button
             type="button"
             className="display-title truncate"
-            style={{ fontSize: 19, background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
+            style={{ fontSize: 'var(--type-ui-19)', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
             onClick={onOpenPerson}
           >
             {label}
           </button>
         </Tooltip>
       ) : (
-        <h3 className="display-title truncate" style={{ fontSize: 19 }}>
+        <h3 className="display-title truncate" style={{ fontSize: 'var(--type-ui-19)' }}>
           {label}
         </h3>
       )}
@@ -1360,7 +1360,7 @@ export function WorkHero({
         <div className="work-hero-m-top">
           <div className="work-hero-m-cover">{cover}</div>
           <div className="min-w-0 flex-1">
-            <h1 className="display-title" style={{ fontSize: 21, lineHeight: 1.2, ...titleStyle }}>
+            <h1 className="display-title" style={{ fontSize: 'var(--type-ui-22)', lineHeight: 1.2, ...titleStyle }}>
               {title}
             </h1>
             {meta && <div className="mt-1.5">{meta}</div>}

@@ -138,7 +138,7 @@ function QuoteBlock({ card }) {
         style={{
           fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)',
           fontStyle: 'italic',
-          fontSize: 17,
+          fontSize: 'var(--type-display-17)',
           lineHeight: 1.5,
           overflowWrap: 'anywhere',
           whiteSpace: 'pre-wrap', // honour the quote's own line breaks / paragraphs
@@ -262,7 +262,7 @@ function PersonChip({ name, person, size = 20 }) {
       style={{ background: 'var(--raised)', border: '1px solid var(--line)', borderRadius: 999, padding: '2px 9px 2px 4px', maxWidth: '100%' }}
     >
       <PersonPortrait person={person} size={size} />
-      <span className="mono-label" style={{ fontSize: 10, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+      <span className="mono-label" style={{ fontSize: 'var(--type-ui-11)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {name}
       </span>
     </span>
@@ -299,7 +299,7 @@ function SourceLines({ card, maps = {} }) {
   }
   return (
     <div>
-      <p style={{ fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontWeight: 600, fontSize: 18, lineHeight: 1.2 }}>
+      <p style={{ fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontWeight: 600, fontSize: 'var(--type-display-19)', lineHeight: 1.2 }}>
         {card.title}
       </p>
       {people.length > 0 && (
@@ -309,7 +309,7 @@ function SourceLines({ card, maps = {} }) {
           ))}
         </div>
       )}
-      {meta && <MonoLabel className="mt-1 block" style={{ fontSize: 11 }}>{meta}</MonoLabel>}
+      {meta && <MonoLabel className="mt-1 block" style={{ fontSize: 'var(--type-ui-11)' }}>{meta}</MonoLabel>}
     </div>
   )
 }
@@ -779,7 +779,7 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
           ) : (
             <div style={{ borderTop: '1px solid var(--line)', paddingTop: 12 }}>
               <MonoLabel style={{ color: 'var(--faint)' }}>{t('quiz.cloze.answer.label')}</MonoLabel>
-              <p className="mt-1" style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontSize: 17, fontStyle: 'italic' }}>
+              <p className="mt-1" style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontSize: 'var(--type-display-17)', fontStyle: 'italic' }}>
                 {lastResp?.answer || attempt}
               </p>
             </div>
@@ -882,7 +882,7 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
                 // a quote. Only the "which quote?" card offers quotes.
                 fontFamily: card.direction === 'quote' ? 'var(--font-display)' : 'var(--font-ui)',
                 fontStyle: card.direction === 'quote' ? 'italic' : 'normal',
-                fontSize: 14.5,
+                fontSize: 'var(--type-ui-15)',
                 lineHeight: 1.4,
                 overflowWrap: 'anywhere',
               }}
@@ -1087,7 +1087,7 @@ export function ThemedPracticeDialog({ theme, onClose }) {
           <div className="py-2 text-center">
             <p
               aria-hidden="true"
-              style={{ fontFamily: 'var(--font-hand)', fontWeight: 'var(--font-hand-weight)', fontStyle: 'var(--font-hand-style)', fontVariantCaps: 'var(--font-hand-caps)', textTransform: 'var(--font-hand-case)', fontVariantNumeric: 'var(--font-hand-figures)', fontSize: 24, color: 'var(--accent-ui)', transform: 'rotate(-1.2deg)' }}
+              style={{ fontFamily: 'var(--font-hand)', fontWeight: 'var(--font-hand-weight)', fontStyle: 'var(--font-hand-style)', fontVariantCaps: 'var(--font-hand-caps)', textTransform: 'var(--font-hand-case)', fontVariantNumeric: 'var(--font-hand-figures)', fontSize: 'var(--type-hand-26)', color: 'var(--accent-ui)', transform: 'rotate(-1.2deg)' }}
             >
               {t('quiz.round.score.label', { done: tally.got, total: tally.got + tally.forgot })}
             </p>

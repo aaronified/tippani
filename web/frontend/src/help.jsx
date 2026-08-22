@@ -82,7 +82,7 @@ function HelpSwatches() {
 // and a language needs to be able to abbreviate them without abbreviating the entry.
 function HelpImportFlow() {
   const box = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.2, rx: 4, opacity: 0.5 }
-  const label = { fontSize: 8, fill: 'currentColor', fontFamily: 'var(--font-mono)' }
+  const label = { fontSize: 'var(--type-mono-9)', fill: 'currentColor', fontFamily: 'var(--font-mono)' }
   return (
     <svg viewBox="0 0 240 46" width="240" role="img"
          aria-label={t('capture.help.import.flow.aria')}>

@@ -412,7 +412,7 @@ function PersonForm({ kind, name, initial, onCancel, onSaved, onRenamed }) {
           <button
             type="button"
             className="tp-link tp-link-icon"
-            style={{ fontSize: 11 }}
+            style={{ fontSize: 'var(--type-ui-11)' }}
             onClick={() => window.open(`https://www.google.com/search?tbm=isch&q=${encodeURIComponent(name + ' ' + kind)}`, '_blank', 'noopener')}
           >
             {/* The magnifier, not IconOpen: the ACTION is a search, and the ↗ this

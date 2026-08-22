@@ -424,7 +424,7 @@ function StagedGroup({ work, items, sel, onToggle, onToggleGroup, onEdit, onOpen
             aria-label={t('staging.group.select.aria', { title: work.title })}
           />
         </Tooltip>
-        <h3 className="display-title truncate" style={{ fontSize: 19 }}>
+        <h3 className="display-title truncate" style={{ fontSize: 'var(--type-ui-19)' }}>
           {work.title}
         </h3>
         <MonoLabel style={{ color: isBook || isStandalone ? 'var(--accent-ui)' : 'var(--amber)' }}>
@@ -526,7 +526,7 @@ function StagedRow({ quote, selected, onToggle, onEdit }) {
       <div className="min-w-0 flex-1">
         <p
           className="whitespace-pre-wrap"
-          style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontStyle: 'italic', fontSize: 15.5, lineHeight: 1.5 }}
+          style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontStyle: 'italic', fontSize: 'var(--type-display-15)', lineHeight: 1.5 }}
         >
           {quote.quote || quote.note}
         </p>
@@ -871,7 +871,7 @@ function StagedQuoteForm({ quote, onSaved, onCancel }) {
     <div className="space-y-4">
       <p
         className="whitespace-pre-wrap"
-        style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontStyle: 'italic', fontSize: 16 }}
+        style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontStyle: 'italic', fontSize: 'var(--type-display-17)' }}
       >
         {t('staging.form.quoted', { text: quote.quote || quote.note })}
       </p>

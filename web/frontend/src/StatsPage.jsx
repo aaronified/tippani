@@ -58,10 +58,10 @@ function SectionHead({ label, right }) {
 function StatTile({ n, label, heart, dot }) {
   return (
     <div style={{ background: 'var(--raised)', border: '1px solid var(--line)', borderRadius: 10, padding: '14px 16px', overflow: 'hidden' }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, fontFamily: 'var(--font-mono)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 26, fontWeight: 500, lineHeight: 1, color: 'var(--ink)' }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, fontFamily: 'var(--font-mono)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 'var(--type-mono-26)', fontWeight: 500, lineHeight: 1, color: 'var(--ink)' }}>
         {dot && <span aria-hidden="true" style={{ width: 10, height: 10, borderRadius: 999, flex: '0 0 auto', background: dot.filled ? dot.color : 'transparent', border: `1.5px solid ${dot.color}` }} />}
         <span style={{ fontVariantNumeric: 'tabular-nums' }}>{n ?? 0}</span>
-        {heart && <span style={{ color: 'var(--accent-ui)', fontSize: 13, lineHeight: 1 }}>♥</span>}
+        {heart && <span style={{ color: 'var(--accent-ui)', fontSize: 'var(--type-mono-13)', lineHeight: 1 }}>♥</span>}
       </div>
       <MonoLabel className="mt-2 block">{label}</MonoLabel>
     </div>
@@ -260,7 +260,7 @@ function ActivityCalendar({ data, noun = 'saved', onSearch, accuracy = false }) 
           {/* x axis: month names only, pinned to the week their 1st falls in */}
           <div style={{ display: 'flex', gap: GAP, marginTop: 6 }}>
             {monthLabels.map((label, i) => (
-              <span key={i} className="mono-label" style={{ width: DOT, flex: '0 0 auto', fontSize: 9, color: 'var(--faint)', overflow: 'visible', whiteSpace: 'nowrap' }}>
+              <span key={i} className="mono-label" style={{ width: DOT, flex: '0 0 auto', fontSize: 'var(--type-ui-9)', color: 'var(--faint)', overflow: 'visible', whiteSpace: 'nowrap' }}>
                 {label}
               </span>
             ))}
@@ -268,11 +268,11 @@ function ActivityCalendar({ data, noun = 'saved', onSearch, accuracy = false }) 
         </div>
       </div>
       <div className="mt-2 flex items-center justify-end gap-1.5">
-        <span className="mono-label" style={{ fontSize: 9, color: 'var(--faint)' }}>{t('stats.activity.legend.less.label')}</span>
+        <span className="mono-label" style={{ fontSize: 'var(--type-ui-9)', color: 'var(--faint)' }}>{t('stats.activity.legend.less.label')}</span>
         {[0, 1, 2, 3, 4].map((lv) => (
           <span key={lv} aria-hidden="true" style={{ width: DOT, height: DOT, borderRadius: 999, background: lv === 0 ? 'var(--line)' : `color-mix(in srgb, var(--accent-ui) ${CAL_STEPS[lv - 1]}%, var(--line))` }} />
         ))}
-        <span className="mono-label" style={{ fontSize: 9, color: 'var(--faint)' }}>{t('stats.activity.legend.more.label')}</span>
+        <span className="mono-label" style={{ fontSize: 'var(--type-ui-9)', color: 'var(--faint)' }}>{t('stats.activity.legend.more.label')}</span>
       </div>
     </>
   )
@@ -423,7 +423,7 @@ function BreakdownRow({ r, rank, showWorks, art, personMap, onSearch }) {
             <button
               type="button"
               className="truncate text-left"
-              style={{ fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontWeight: 600, fontSize: 14, background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'inherit' }}
+              style={{ fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontWeight: 600, fontSize: 'var(--type-display-15)', background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'inherit' }}
               onClick={() => onSearch?.(r.name)}
             >
               {r.name}
@@ -438,7 +438,7 @@ function BreakdownRow({ r, rank, showWorks, art, personMap, onSearch }) {
             ))}
           </div>
         )}
-        <p className="mono-label" style={{ marginTop: 3, fontSize: 9.5, color: 'var(--faint)' }}>
+        <p className="mono-label" style={{ marginTop: 3, fontSize: 'var(--type-ui-9)', color: 'var(--faint)' }}>
           {showWorks ? t('stats.breakdown.works', { count: r.works, n: r.works }) : ''}
           {showWorks && segs.length > 0 ? ' · ' : ''}
           {segs.map(statusText).join(' · ')}
@@ -467,7 +467,7 @@ function BreakdownCard({ breakdown, personMaps, onSearch }) {
           aria-label={t('stats.breakdown.kind.aria')}
           value={kind}
           onChange={(e) => setKind(e.target.value)}
-          style={{ maxWidth: 140, paddingTop: 5, paddingBottom: 5, fontSize: 13 }}
+          style={{ maxWidth: 140, paddingTop: 5, paddingBottom: 5, fontSize: 'var(--type-ui-13)' }}
         >
           {BREAKDOWN_KINDS.map((m) => <option key={m.key} value={m.key}>{m.label}</option>)}
         </select>
@@ -616,7 +616,7 @@ function LeaderList({ rows, onSearch }) {
                 <button
                   type="button"
                   className="truncate text-left"
-                  style={{ fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontWeight: 600, fontSize: 14, background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'inherit' }}
+                  style={{ fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontWeight: 600, fontSize: 'var(--type-display-15)', background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'inherit' }}
                   onClick={() => onSearch?.(r.name)}
                 >
                   {r.name}
@@ -1079,7 +1079,7 @@ function TimelineCard({ timeline, onSearch }) {
     return (
       <Card>
         <SectionHead label={t('stats.timeline.title')} />
-        <p style={{ color: 'var(--soft)', fontSize: 13 }}>
+        <p style={{ color: 'var(--soft)', fontSize: 'var(--type-ui-13)' }}>
           Nothing here yet — a book or film needs a year on it to have a place in time.
         </p>
       </Card>
@@ -1152,7 +1152,7 @@ function TimelineCard({ timeline, onSearch }) {
         <TimelineKey kind="quotes" label={t('stats.timeline.key.quotes.label')} />
         <TimelineKey kind="works" label={t('stats.timeline.key.works.label')} />
         {unit > 1 && (
-          <span className="mono-label" style={{ fontSize: 9, color: 'var(--faint)' }}>1 dot ≈ {unit}</span>
+          <span className="mono-label" style={{ fontSize: 'var(--type-ui-9)', color: 'var(--faint)' }}>1 dot ≈ {unit}</span>
         )}
       </div>
     </Card>
@@ -1221,7 +1221,7 @@ function DotStack({ n, kind }) {
 // TimelineKey — one legend entry, the swatch drawn by the same rule as the dots.
 function TimelineKey({ kind, label }) {
   return (
-    <span className="mono-label inline-flex items-center gap-1.5" style={{ fontSize: 9 }}>
+    <span className="mono-label inline-flex items-center gap-1.5" style={{ fontSize: 'var(--type-ui-9)' }}>
       <span className={`tl-dots tl-dots-${kind}`} aria-hidden="true">
         <span className="tl-dot" />
       </span>
@@ -1258,7 +1258,7 @@ function SuperTile({ label, title, count, amber, cover, person, onOpen }) {
                 <button
                   type="button"
                   className="truncate text-left"
-                  style={{ fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontWeight: 600, fontSize: 15, lineHeight: 1.3, background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'inherit' }}
+                  style={{ fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontWeight: 600, fontSize: 'var(--type-display-15)', lineHeight: 1.3, background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'inherit' }}
                   onClick={onOpen}
                 >
                   {title}
@@ -1267,13 +1267,13 @@ function SuperTile({ label, title, count, amber, cover, person, onOpen }) {
             ) : (
               <span
                 title={title || undefined}
-                style={{ fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontWeight: 600, fontSize: 15, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                style={{ fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontWeight: 600, fontSize: 'var(--type-display-15)', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
               >
                 {title || '—'}
               </span>
             )}
             {count != null && (
-              <span style={{ flex: '0 0 auto', fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 12, color: amber ? 'var(--amber)' : 'var(--accent-ui)' }}>
+              <span style={{ flex: '0 0 auto', fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 'var(--type-mono-12)', color: amber ? 'var(--amber)' : 'var(--accent-ui)' }}>
                 {count}
               </span>
             )}

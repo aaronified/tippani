@@ -133,7 +133,7 @@
     font-variant-caps: var(--font-ui-caps);
     text-transform: var(--font-ui-case);
     font-variant-numeric: var(--font-ui-figures);
-    font-size: 15px;
+    font-size: var(--type-ui-15);
     line-height: 1.55;
   }
   /* Selection: a saturated accent ground with a light face reads clearly even
@@ -419,7 +419,7 @@
     font-variant-caps: var(--font-ui-caps);
     text-transform: var(--font-ui-case);
     font-variant-numeric: var(--font-ui-figures);
-    font-size: 14px;
+    font-size: var(--type-ui-15);
     font-weight: 600;
     color: var(--soft);
     white-space: nowrap;
@@ -467,7 +467,7 @@
      reads as nav, with a DISTINCT textured thumb (wood on paper, metal on film)
      to tell it apart from the filter toggles. */
   .nav-toggle.tp-toggle { background: transparent; border-color: transparent; box-shadow: none; padding: 3px; }
-  .nav-toggle .tp-toggle-opt { padding: 6px 13px; font-size: 14.5px; color: var(--soft); }
+  .nav-toggle .tp-toggle-opt { padding: 6px 13px; font-size: var(--type-ui-15); color: var(--soft); }
   /* The active tab label rides light over the wood/metal thumb (beats the soft
      colour above; the generic .is-on rule is out-specificity'd by .nav-toggle). */
   .nav-toggle .tp-toggle-opt.is-on { color: var(--on-accent); text-shadow: 0 1px 2px rgba(0,0,0,.4); }
@@ -498,7 +498,7 @@
     font-variant-caps: var(--font-ui-caps);
     text-transform: var(--font-ui-case);
     font-variant-numeric: var(--font-ui-figures);
-    font-size: 14px;
+    font-size: var(--type-ui-15);
     font-weight: 500;
     color: var(--ink);
     background: var(--card);
@@ -561,7 +561,7 @@
     font-variant-caps: var(--font-ui-caps);
     text-transform: var(--font-ui-case);
     font-variant-numeric: var(--font-ui-figures);
-    font-size: 14px;
+    font-size: var(--type-ui-15);
     color: var(--ink);
     white-space: nowrap;
     transition: color .2s ease;
@@ -706,7 +706,7 @@
     font-variant-caps: var(--font-ui-caps);
     text-transform: var(--font-ui-case);
     font-variant-numeric: var(--font-ui-figures);
-    font-size: 14.5px;
+    font-size: var(--type-ui-15);
     font-weight: 600;
     white-space: nowrap;
     border: 1.4px solid transparent;
@@ -1027,7 +1027,7 @@
     font-variant-caps: var(--font-ui-caps);
     text-transform: var(--font-ui-case);
     font-variant-numeric: var(--font-ui-figures);
-    font-size: 15px;
+    font-size: var(--type-ui-15);
     color: var(--ink);
     background: var(--card);
     border: 1.4px solid var(--line);
@@ -1068,7 +1068,7 @@
     font-style: var(--font-mono-style);
     font-variant-caps: var(--font-mono-caps);
     font-variant-numeric: var(--font-mono-figures);
-    font-size: 11px;
+    font-size: var(--type-mono-11);
     font-weight: 500;
     letter-spacing: .14em;
     text-transform: uppercase;
@@ -1079,7 +1079,7 @@
     font-style: var(--font-mono-style);
     font-variant-caps: var(--font-mono-caps);
     font-variant-numeric: var(--font-mono-figures);
-    font-size: 11.5px;
+    font-size: var(--type-mono-12);
     font-weight: 500;
     letter-spacing: .18em;
     text-transform: uppercase;
@@ -1092,7 +1092,7 @@
     font-variant-caps: var(--font-mono-caps);
     text-transform: var(--font-mono-case);
     font-variant-numeric: var(--font-mono-figures);
-    font-size: 11px;
+    font-size: var(--type-mono-11);
     letter-spacing: .06em;
     color: var(--faint);
   }
@@ -1131,7 +1131,7 @@
     font-variant-caps: var(--font-mono-caps);
     text-transform: var(--font-mono-case);
     font-variant-numeric: var(--font-mono-figures);
-    font-size: 11.5px;
+    font-size: var(--type-mono-12);
     font-weight: 500;
     color: #221C16;
     max-width: 100%;
@@ -1201,7 +1201,7 @@
     font-variant-caps: var(--font-hand-caps);
     text-transform: var(--font-hand-case);
     font-variant-numeric: var(--font-hand-figures);
-    font-size: 18.5px;
+    font-size: var(--type-hand-19);
     font-weight: 500;
     line-height: 1.35;
     color: var(--note);
@@ -1223,7 +1223,7 @@
     text-transform: var(--font-hand-case);
     font-variant-numeric: var(--font-hand-figures);
     font-style: normal;
-    font-size: 16px;
+    font-size: var(--type-hand-17);
     font-weight: 500;
     line-height: 1.32;
     color: #2A241C;
@@ -1260,7 +1260,7 @@
     background: none;
     border: none;
     padding: 6px;
-    font-size: 18.5px;
+    font-size: var(--type-ui-19);
     line-height: 1;
     color: var(--faint);
     rotate: var(--grot, 0deg);
@@ -1314,7 +1314,7 @@
     border: 1px solid var(--line);
     border-radius: 6px;
   }
-  .ph-label { font-size: 9.5px; letter-spacing: .3em; }
+  .ph-label { font-size: var(--type-ui-9); letter-spacing: .3em; }
   /* A placeholder is a stand-in for artwork, so it takes the shape of the thing
      it stands in for: a hand-drawn corner under paper, a square frame with the
      amber hairline under film. It had one radius for both, which made an
@@ -1351,7 +1351,7 @@
     font-style: var(--font-mono-style);
     font-variant-caps: var(--font-mono-caps);
     font-variant-numeric: var(--font-mono-figures);
-    font-size: 8.5px;
+    font-size: var(--type-mono-9);
     font-weight: 500;
     letter-spacing: .3em;
     text-transform: uppercase;
@@ -1510,7 +1510,7 @@
     text-transform: var(--font-display-case);
     font-variant-numeric: var(--font-display-figures);
     font-style: italic;
-    font-size: 14px;
+    font-size: var(--type-display-15);
     line-height: 1.5;
     text-align: center;
     color: var(--faint);
@@ -1535,7 +1535,7 @@
     font-variant-caps: var(--font-mono-caps);
     text-transform: var(--font-mono-case);
     font-variant-numeric: var(--font-mono-figures);
-    font-size: 11.5px;
+    font-size: var(--type-mono-12);
     letter-spacing: .08em;
     color: var(--soft);
   }
@@ -1568,7 +1568,7 @@
     font-variant-caps: var(--font-mono-caps);
     text-transform: var(--font-mono-case);
     font-variant-numeric: tabular-nums;
-    font-size: 13px;
+    font-size: var(--type-mono-13);
     font-weight: 600;
     line-height: 1;
     color: var(--accent-ui);
@@ -1723,7 +1723,7 @@
     font-variant-caps: var(--font-display-caps);
     text-transform: var(--font-display-case);
     font-variant-numeric: var(--font-display-figures);
-    font-size: 15px;
+    font-size: var(--type-display-15);
   }
   /* The disclosure control wears the kind, so the chevron has words to sit beside
      and the whole thing is one target rather than a caret you have to hit. */
@@ -1767,7 +1767,7 @@
     font-variant-caps: var(--font-display-caps);
     text-transform: var(--font-display-case);
     font-variant-numeric: var(--font-display-figures);
-    font-size: 13.5px;
+    font-size: var(--type-display-13);
     color: var(--soft);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1810,10 +1810,10 @@
     font-variant-caps: var(--font-mono-caps);
     text-transform: var(--font-mono-case);
     font-variant-numeric: var(--font-mono-figures);
-    font-size: 11px;
+    font-size: var(--type-mono-11);
     letter-spacing: .03em;
   }
-  .sticker-add { font-size: 20px; line-height: 1; color: var(--accent-ui); border-style: dashed; }
+  .sticker-add { font-size: var(--type-mono-19); line-height: 1; color: var(--accent-ui); border-style: dashed; }
   .sticker-add:disabled { opacity: .55; cursor: default; }
 
   /* Sticker manager swatch (Tags page): transparency checkerboard behind the
@@ -1846,7 +1846,7 @@
     font-variant-caps: var(--font-mono-caps);
     text-transform: var(--font-mono-case);
     font-variant-numeric: var(--font-mono-figures);
-    font-size: 12px;
+    font-size: var(--type-mono-12);
     letter-spacing: .02em;
     color: #fff;
     background: color-mix(in oklab, var(--accent-ui) 88%, #000);
@@ -1887,13 +1887,13 @@
     font-style: var(--font-mono-style);
     font-variant-caps: var(--font-mono-caps);
     text-transform: var(--font-mono-case);
-    font-variant-numeric: var(--font-mono-figures); font-size: 12px; font-weight: 500; line-height: 1;
+    font-variant-numeric: var(--font-mono-figures); font-size: var(--type-mono-12); font-weight: 500; line-height: 1;
     color: var(--accent-ui);
     background: color-mix(in srgb, var(--accent) 14%, transparent);
     border: 1px solid color-mix(in srgb, var(--accent) 42%, transparent);
     border-radius: 7px; padding: 4px 5px 4px 9px;
   }
-  .token-x { border: none; background: none; color: inherit; font-size: 15px; line-height: 1; cursor: pointer; padding: 0 2px; opacity: .65; }
+  .token-x { border: none; background: none; color: inherit; font-size: var(--type-ui-15); line-height: 1; cursor: pointer; padding: 0 2px; opacity: .65; }
   .token-x:hover { opacity: 1; }
 
   /* ---- the Filters panel: one pill per value a facet can take ----
@@ -1906,7 +1906,7 @@
     font-style: var(--font-mono-style);
     font-variant-caps: var(--font-mono-caps);
     text-transform: var(--font-mono-case);
-    font-variant-numeric: var(--font-mono-figures); font-size: 12px; line-height: 1;
+    font-variant-numeric: var(--font-mono-figures); font-size: var(--type-mono-12); line-height: 1;
     color: var(--soft); background: none;
     border: 1px solid var(--line); border-radius: 7px; padding: 5px 9px;
     cursor: pointer; transition: color .18s ease, border-color .18s ease, background .18s ease;
@@ -1944,7 +1944,7 @@
  font-style: var(--font-ui-style);
  font-variant-caps: var(--font-ui-caps);
  text-transform: var(--font-ui-case);
- font-variant-numeric: var(--font-ui-figures); font-size: 15px; color: var(--ink); padding: 2px 0; }
+ font-variant-numeric: var(--font-ui-figures); font-size: var(--type-ui-15); color: var(--ink); padding: 2px 0; }
   .token-entry::placeholder { color: var(--faint); }
   /* Placed by useAnchoredPosition, portalled to <body>. No offsets here: JS
      owns top/left/max-height so the list can flip and be capped to the room
@@ -1962,7 +1962,7 @@
  font-style: var(--font-ui-style);
  font-variant-caps: var(--font-ui-caps);
  text-transform: var(--font-ui-case);
- font-variant-numeric: var(--font-ui-figures); font-size: 14px; color: var(--ink); cursor: pointer;
+ font-variant-numeric: var(--font-ui-figures); font-size: var(--type-ui-15); color: var(--ink); cursor: pointer;
   }
   .token-opt.hi, .token-opt:hover { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent-ui); }
   /* "More (n)" — a page control, not a value, so it is quieter than the options
@@ -1974,7 +1974,7 @@
     font-variant-caps: var(--font-mono-caps);
     text-transform: var(--font-mono-case);
     font-variant-numeric: var(--font-mono-figures);
-    font-size: 11.5px; color: var(--soft);
+    font-size: var(--type-mono-12); color: var(--soft);
     border-top: 1px solid var(--line); border-radius: 0; margin-top: 3px; padding-top: 8px;
   }
   .token-more:hover { color: var(--accent-ui); background: none; }
@@ -2009,7 +2009,7 @@
     font-variant-caps: var(--font-mono-caps);
     text-transform: var(--font-mono-case);
     font-variant-numeric: var(--font-mono-figures);
-    font-size: 10.5px;
+    font-size: var(--type-mono-11);
     font-weight: 600;
     color: var(--faint);
     background: none;
@@ -2084,14 +2084,14 @@
     font-style: var(--font-mono-style);
     font-variant-caps: var(--font-mono-caps);
     font-variant-numeric: var(--font-mono-figures);
-    font-size: 10px;
+    font-size: var(--type-mono-11);
     font-weight: 500;
     letter-spacing: .11em;
     text-transform: uppercase;
     color: var(--accent-ui);
     margin-bottom: 6px;
   }
-  .info-pop-body { font-size: 13.5px; line-height: 1.6; color: var(--soft); }
+  .info-pop-body { font-size: var(--type-ui-13); line-height: 1.6; color: var(--soft); }
 
   .info-pop-anchored { width: min(320px, calc(100vw - 24px)); }
   /* The caret sits at the dot's centre, which is handed in as --caret-x — a
@@ -2156,7 +2156,7 @@
     font-style: var(--font-ui-style);
     font-variant-caps: var(--font-ui-caps);
     font-variant-numeric: var(--font-ui-figures);
-    font-size: 12.5px;
+    font-size: var(--type-ui-13);
     font-weight: 500;
     line-height: 1.45;
     letter-spacing: normal;
@@ -2182,8 +2182,8 @@
   }
 
   /* ---- help popover contents ---- */
-  .help-sheet-body { font-size: 13.5px; line-height: 1.6; color: var(--soft); }
-  .help-body { font-size: 14px; line-height: 1.6; color: var(--soft); }
+  .help-sheet-body { font-size: var(--type-ui-13); line-height: 1.6; color: var(--soft); }
+  .help-body { font-size: var(--type-ui-15); line-height: 1.6; color: var(--soft); }
   .help-list { display: flex; flex-direction: column; gap: 14px; }
   .help-row { display: flex; align-items: flex-start; gap: 11px; }
   .help-row-icon {
@@ -2203,8 +2203,8 @@
  font-style: var(--font-ui-style);
  font-variant-caps: var(--font-ui-caps);
  text-transform: var(--font-ui-case);
- font-variant-numeric: var(--font-ui-figures); font-size: 13.5px; font-weight: 600; color: var(--ink); }
-  .help-list dd { margin-top: 2px; font-size: 12.5px; line-height: 1.55; color: var(--soft); }
+ font-variant-numeric: var(--font-ui-figures); font-size: var(--type-ui-13); font-weight: 600; color: var(--ink); }
+  .help-list dd { margin-top: 2px; font-size: var(--type-ui-13); line-height: 1.55; color: var(--soft); }
 
   /* ---- InlineField: read at rest, edit in place ---- */
   /* Every field that used to live in a modal behind Edit/Save text buttons now
@@ -2229,7 +2229,7 @@
     font-variant-caps: var(--font-ui-caps);
     text-transform: var(--font-ui-case);
     font-variant-numeric: var(--font-ui-figures);
-    font-size: 13.5px;
+    font-size: var(--type-ui-13);
     color: var(--ink);
     overflow-wrap: anywhere;
     min-width: 0;
@@ -2265,7 +2265,7 @@
     display: flex;
     align-items: center;
     gap: 9px;
-    font-size: 13px;
+    font-size: var(--type-ui-13);
     line-height: 1.45;
     color: var(--soft);
   }
@@ -2279,7 +2279,7 @@
     font-variant-caps: var(--font-ui-caps);
     text-transform: var(--font-ui-case);
     font-variant-numeric: var(--font-ui-figures);
-    font-size: 14px;
+    font-size: var(--type-ui-15);
     line-height: 1.5;
     color: var(--ink);
     overflow-wrap: anywhere;
@@ -2411,7 +2411,7 @@
     font-style: var(--font-mono-style);
     font-variant-caps: var(--font-mono-caps);
     font-variant-numeric: var(--font-mono-figures);
-    font-size: 10px;
+    font-size: var(--type-mono-11);
     font-weight: 500;
     letter-spacing: .1em;
     text-transform: uppercase;
@@ -2426,7 +2426,7 @@
     -webkit-box-orient: vertical;
     overflow: hidden;
     margin-top: 3px;
-    font-size: 13px;
+    font-size: var(--type-ui-13);
     line-height: 1.45;
     color: var(--faint);
   }
@@ -2437,7 +2437,7 @@
     -webkit-box-orient: vertical;
     overflow: hidden;
     margin-top: 3px;
-    font-size: 13.5px;
+    font-size: var(--type-ui-13);
     line-height: 1.45;
     color: var(--ink);
   }
@@ -2619,7 +2619,7 @@
     font-variant-caps: var(--font-mono-caps);
     text-transform: var(--font-mono-case);
     font-variant-numeric: var(--font-mono-figures);
-    font-size: 9.5px;
+    font-size: var(--type-mono-9);
     font-weight: 500;
     line-height: 1.4;
     letter-spacing: .02em;
@@ -2674,7 +2674,7 @@
   /* Sideways chaining is the browser's back gesture. A trackpad swipe that
      runs off the end of a wide table must not navigate away from the page. */
   .ann-table-wrap { overflow-x: auto; overscroll-behavior-x: contain; }
-  .ann-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .ann-table { width: 100%; border-collapse: collapse; font-size: var(--type-mono-15); }
   .ann-table th, .ann-table td {
     text-align: left;
     padding: 10px 12px;
@@ -2686,7 +2686,7 @@
     font-style: var(--font-mono-style);
     font-variant-caps: var(--font-mono-caps);
     font-variant-numeric: var(--font-mono-figures);
-    font-size: 11px;
+    font-size: var(--type-mono-11);
     font-weight: 600;
     letter-spacing: .06em;
     text-transform: uppercase;
@@ -2703,7 +2703,7 @@
  font-style: var(--font-mono-style);
  font-variant-caps: var(--font-mono-caps);
  text-transform: var(--font-mono-case);
- font-variant-numeric: var(--font-mono-figures); font-size: 12px; color: var(--soft); white-space: nowrap; }
+ font-variant-numeric: var(--font-mono-figures); font-size: var(--type-mono-12); color: var(--soft); white-space: nowrap; }
   .ann-table .col-center { text-align: center; color: var(--accent-ui); white-space: nowrap; }
   .ann-table .col-actions { white-space: nowrap; text-align: right; }
   .ann-table .col-actions .tp-link { margin-left: 10px; }
@@ -2737,7 +2737,7 @@
     text-transform: var(--font-display-case);
     font-variant-numeric: var(--font-display-figures);
     font-weight: 600;
-    font-size: 17px;
+    font-size: var(--type-display-17);
     letter-spacing: -0.02em;
     color: var(--ink);
   }
@@ -2800,7 +2800,7 @@
     font-variant-caps: var(--font-ui-caps);
     text-transform: var(--font-ui-case);
     font-variant-numeric: var(--font-ui-figures);
-    font-size: 14px;
+    font-size: var(--type-ui-15);
     font-weight: 600;
     letter-spacing: .01em;
     text-shadow: 0 1px 1px rgba(0,0,0,.28);
@@ -2829,7 +2829,7 @@
     background: none;
     border: 1.4px solid transparent;
     border-radius: 9px;
-    font-size: 14.5px;
+    font-size: var(--type-ui-15);
     font-weight: 500;
     color: var(--soft);
     white-space: nowrap;
@@ -2866,7 +2866,7 @@
     font-variant-caps: var(--font-ui-caps);
     text-transform: var(--font-ui-case);
     font-variant-numeric: var(--font-ui-figures);
-    font-size: 14px;
+    font-size: var(--type-ui-15);
     font-weight: 500;
     color: var(--ink);
   }
@@ -2920,7 +2920,7 @@
     bottom: 10px;
     transform: translateX(-50%);
     font-family: var(--font-mono), monospace;
-    font-size: 10px;
+    font-size: var(--type-mono-11);
     letter-spacing: .14em;
     text-transform: uppercase;
     color: var(--on-scrim);
@@ -2961,7 +2961,7 @@
     align-items: center;
     justify-content: center;
     font-weight: 600;
-    font-size: 15px;
+    font-size: var(--type-ui-15);
     border: 1.4px solid var(--ink-border);
     background: linear-gradient(180deg, color-mix(in oklab, var(--accent), white 14%), var(--accent));
     color: var(--on-accent);
@@ -3008,7 +3008,7 @@
     font-variant-caps: var(--font-mono-caps);
     text-transform: var(--font-mono-case);
     font-variant-numeric: var(--font-mono-figures);
-    font-size: 11.5px;
+    font-size: var(--type-mono-12);
     letter-spacing: .06em;
     color: var(--soft);
     cursor: pointer;
@@ -3016,13 +3016,13 @@
   .date-coarse:hover { color: var(--ink); border-color: var(--ink-border); }
   /* The read-history popover under a work's ×N chip. */
   .read-log { margin: 0; padding: 2px 4px; display: flex; flex-direction: column; gap: 5px; }
-  .read-log li { display: flex; align-items: baseline; gap: 8px; font-size: 13px; color: var(--ink); }
+  .read-log li { display: flex; align-items: baseline; gap: 8px; font-size: var(--type-mono-13); color: var(--ink); }
   .read-log .read-n { font-family: var(--font-mono);
  font-weight: var(--font-mono-weight);
  font-style: var(--font-mono-style);
  font-variant-caps: var(--font-mono-caps);
  text-transform: var(--font-mono-case);
- font-variant-numeric: var(--font-mono-figures); font-size: 11px; color: var(--faint); flex: none; }
+ font-variant-numeric: var(--font-mono-figures); font-size: var(--type-mono-11); color: var(--faint); flex: none; }
   .read-log .read-open { color: var(--soft); font-style: italic; }
   /* Account surfaces (§7): a centered pop-up on desktop, a full page on phones. */
   .account-scrim {
@@ -3045,7 +3045,7 @@
  font-style: var(--font-ui-style);
  font-variant-caps: var(--font-ui-caps);
  text-transform: var(--font-ui-case);
- font-variant-numeric: var(--font-ui-figures); font-size: 16.5px; font-weight: 600; }
+ font-variant-numeric: var(--font-ui-figures); font-size: var(--type-ui-17); font-weight: 600; }
   /* .account-close is gone. The three modals that used it closed with a literal
      multiplication sign at font-size 24, while every other window in the app
      closed with a glyph from the icon set — one of the five different ways a
@@ -3066,7 +3066,7 @@
  font-style: var(--font-ui-style);
  font-variant-caps: var(--font-ui-caps);
  text-transform: var(--font-ui-case);
- font-variant-numeric: var(--font-ui-figures); font-size: 17px; font-weight: 600; }
+ font-variant-numeric: var(--font-ui-figures); font-size: var(--type-ui-17); font-weight: 600; }
   .account-page-body {
     overscroll-behavior: contain;
     flex: 1; overflow-y: auto;
@@ -3145,7 +3145,7 @@
  font-style: var(--font-display-style);
  font-variant-caps: var(--font-display-caps);
  text-transform: var(--font-display-case);
- font-variant-numeric: var(--font-display-figures); font-weight: 600; font-size: 24px; letter-spacing: -0.01em; }
+ font-variant-numeric: var(--font-display-figures); font-weight: 600; font-size: var(--type-display-26); letter-spacing: -0.01em; }
   .ph-left { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
 
   /* ---- compatibility styles for pre-redesign pages (page pass replaces) ---- */
@@ -3159,7 +3159,7 @@
     font-variant-caps: var(--font-mono-caps);
     text-transform: var(--font-mono-case);
     font-variant-numeric: var(--font-mono-figures);
-    font-size: 11px;
+    font-size: var(--type-mono-11);
     color: var(--soft);
     background: var(--raised);
     border: 1px solid var(--line);
@@ -3174,7 +3174,7 @@
     background: none;
     border: none;
     padding: 2px;
-    font-size: 12.5px;
+    font-size: var(--type-ui-13);
     color: var(--soft);
     text-decoration: underline;
     text-underline-offset: 3px;
@@ -3268,7 +3268,7 @@
     font-variant-caps: var(--font-ui-caps);
     text-transform: var(--font-ui-case);
     font-variant-numeric: var(--font-ui-figures);
-    font-size: 13px;
+    font-size: var(--type-ui-13);
     font-weight: 600;
     color: var(--soft);
     background: none;
@@ -3378,7 +3378,7 @@
   }
   .lang-custom .cat-swatch { flex: 1 1 auto; }
   .color-dot.active { opacity: 1; outline: 2px solid var(--accent-ui); outline-offset: 2px; }
-  .tp-error { font-size: 13.5px; color: var(--error); }
+  .tp-error { font-size: var(--type-ui-13); color: var(--error); }
   .tp-empty {
     padding: 44px 0;
     text-align: center;
@@ -3388,7 +3388,7 @@
     font-variant-caps: var(--font-mono-caps);
     text-transform: var(--font-mono-case);
     font-variant-numeric: var(--font-mono-figures);
-    font-size: 12.5px;
+    font-size: var(--type-mono-13);
     letter-spacing: .08em;
     color: var(--faint);
   }
@@ -3433,7 +3433,7 @@
     font-variant-caps: var(--font-mono-caps);
     text-transform: var(--font-mono-case);
     font-variant-numeric: var(--font-mono-figures);
-    font-size: 11.5px;
+    font-size: var(--type-mono-12);
     line-height: 1.6;
     color: var(--soft);
     background: color-mix(in oklab, var(--ink) 5%, transparent);
@@ -3449,7 +3449,7 @@
     font-variant-caps: var(--font-mono-caps);
     text-transform: var(--font-mono-case);
     font-variant-numeric: var(--font-mono-figures);
-    font-size: 12.5px;
+    font-size: var(--type-mono-13);
     line-height: 1.55;
     white-space: pre-wrap;
     resize: vertical;
@@ -3747,7 +3747,7 @@ html[data-aesthetic="film"] .mobile-sheet-footer::before { background-image: url
   font-variant-caps: var(--font-ui-caps);
   text-transform: var(--font-ui-case);
   font-variant-numeric: var(--font-ui-figures);
-  font-size: 14.5px;
+  font-size: var(--type-ui-15);
   font-weight: 600;
   color: var(--ink);
   text-align: left;
@@ -3796,7 +3796,7 @@ html[data-aesthetic="film"] .mobile-bottom-nav-btn.active {
   font-style: var(--font-mono-style);
   font-variant-caps: var(--font-mono-caps);
   font-variant-numeric: var(--font-mono-figures);
-  font-size: 10px;
+  font-size: var(--type-mono-11);
   font-weight: 500;
   letter-spacing: .1em;
   text-transform: uppercase;
@@ -3845,7 +3845,7 @@ html[data-aesthetic="film"] .mobile-bottom-nav-btn.active {
   font-variant-caps: var(--font-ui-caps);
   text-transform: var(--font-ui-case);
   font-variant-numeric: var(--font-ui-figures);
-  font-size: 13px;
+  font-size: var(--type-ui-13);
   font-weight: 500;
   line-height: 1.4;
   text-align: center;
@@ -3881,7 +3881,7 @@ html[data-aesthetic="film"] .mobile-bottom-nav-btn.active {
   font-variant-caps: var(--font-ui-caps);
   text-transform: var(--font-ui-case);
   font-variant-numeric: var(--font-ui-figures);
-  font-size: 13px;
+  font-size: var(--type-ui-13);
   font-weight: 700;
   text-decoration: underline;
   text-underline-offset: 3px;
@@ -4239,7 +4239,7 @@ html[data-aesthetic="film"] .mobile-bottom-nav-btn { border-radius: 9px; }
   text-transform: var(--font-display-case);
   font-variant-numeric: var(--font-display-figures);
   font-weight: 600;
-  font-size: 16px;
+  font-size: var(--type-display-17);
   line-height: 1.2;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -4254,7 +4254,7 @@ html[data-aesthetic="film"] .mobile-bottom-nav-btn { border-radius: 9px; }
   font-variant-caps: var(--font-mono-caps);
   text-transform: var(--font-mono-case);
   font-variant-numeric: var(--font-mono-figures);
-  font-size: 11px;
+  font-size: var(--type-mono-11);
   color: var(--soft);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -4323,7 +4323,7 @@ html[data-theme="dark"] .mobile-sheet-header {
   text-transform: var(--font-display-case);
   font-variant-numeric: var(--font-display-figures);
   font-weight: 600;
-  font-size: 18px;
+  font-size: var(--type-display-19);
   flex: 1;
   min-width: 0;
   overflow: hidden;
@@ -4464,10 +4464,10 @@ html[data-theme="dark"] .mobile-sheet-footer {
     margin: 16px 0 12px;
   }
   .page-header h1 {
-    font-size: 20px;
+    font-size: var(--type-display-19);
   }
   .display-title {
-    font-size: 22px;
+    font-size: var(--type-display-22);
   }
   .book-detail-hero {
     flex-direction: column;
@@ -4506,7 +4506,7 @@ html[data-theme="dark"] .mobile-sheet-footer {
   font-variant-caps: var(--font-mono-caps);
   text-transform: var(--font-mono-case);
   font-variant-numeric: var(--font-mono-figures);
-  font-size: 10px;
+  font-size: var(--type-mono-11);
   line-height: 17px;
   text-align: center;
   font-weight: 600;
@@ -4539,14 +4539,14 @@ html[data-theme="dark"] .mobile-sheet-footer {
   color: var(--ink);
 }
 .cl-head:hover .cl-version { color: var(--accent-ui); }
-.cl-version { font-family: var(--font-mono), monospace; font-weight: 600; font-size: 13.5px; }
-.cl-date { font-family: var(--font-mono), monospace; font-size: 10.5px; color: var(--faint); }
+.cl-version { font-family: var(--font-mono), monospace; font-weight: 600; font-size: var(--type-mono-13); }
+.cl-date { font-family: var(--font-mono), monospace; font-size: var(--type-mono-11); color: var(--faint); }
 /* The build in front of you. The whole reason an in-app changelog beats a link
    to the releases page is that it can say which one you are on. */
 .cl-running {
   margin-left: auto;
   font-family: var(--font-mono), monospace;
-  font-size: 9.5px;
+  font-size: var(--type-mono-9);
   letter-spacing: .12em;
   text-transform: uppercase;
   color: var(--accent-ui);
@@ -4561,7 +4561,7 @@ html[data-theme="dark"] .mobile-sheet-footer {
   position: relative;
   padding-left: 14px;
   margin-top: 7px;
-  font-size: 13.5px;
+  font-size: var(--type-mono-13);
   line-height: 1.5;
   color: var(--soft);
 }
@@ -4573,7 +4573,7 @@ html[data-theme="dark"] .mobile-sheet-footer {
 .cl-entry b { color: var(--ink); font-weight: 600; }
 .cl-entry code {
   font-family: var(--font-mono), monospace;
-  font-size: 11.5px;
+  font-size: var(--type-mono-12);
   background: var(--card-2, rgba(128,128,128,.12));
   border-radius: 4px;
   padding: 1px 4px;
@@ -4681,7 +4681,7 @@ html[data-theme="dark"] .mobile-sheet-footer {
   font-variant-caps: var(--font-ui-caps);
   text-transform: var(--font-ui-case);
   font-variant-numeric: var(--font-ui-figures);
-  font-size: 10.5px;
+  font-size: var(--type-ui-11);
   font-weight: 500;
   letter-spacing: 0.04em;
   color: var(--soft);
@@ -4785,7 +4785,7 @@ html[data-theme="dark"] .mobile-sheet-footer {
   font-variant-caps: var(--font-ui-caps);
   text-transform: var(--font-ui-case);
   font-variant-numeric: var(--font-ui-figures);
-  font-size: 11px;
+  font-size: var(--type-ui-11);
   font-weight: 500;
   letter-spacing: 0.04em;
   color: var(--faint);
@@ -4820,7 +4820,7 @@ html[data-theme="dark"] .mobile-sheet-footer {
   text-transform: var(--font-display-case);
   font-variant-numeric: var(--font-display-figures);
   font-style: italic;
-  font-size: 12.5px;
+  font-size: var(--type-display-13);
   line-height: 1.35;
   color: var(--faint);
   /* Two lines at most. A caption that grew to four would push the markers off
@@ -4955,7 +4955,7 @@ html[data-theme="dark"] .mobile-sheet-footer {
   color: inherit;
 }
 .cs-menu-row:hover { background: var(--raised); }
-.cs-menu-name { font-size: 13px; white-space: nowrap; }
+.cs-menu-name { font-size: var(--type-ui-13); white-space: nowrap; }
 
 /* ---- editable read log ---------------------------------------------------
    The log lives in a StateTag popover and is now a small form. Dates are TEXT
@@ -4964,8 +4964,8 @@ html[data-theme="dark"] .mobile-sheet-footer {
    cannot express a bare year without inventing a January morning. */
 .read-log-wrap { display: flex; flex-direction: column; gap: 6px; min-width: 240px; }
 .read-form { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
-.read-date { width: 8.5rem; font-size: 12px; padding: 3px 6px; }
-.read-outcome { width: auto; font-size: 12px; padding: 3px 6px; }
+.read-date { width: 8.5rem; font-size: var(--type-ui-12); padding: 3px 6px; }
+.read-outcome { width: auto; font-size: var(--type-ui-12); padding: 3px 6px; }
 .read-edit {
   border: none;
   background: none;
@@ -4977,7 +4977,7 @@ html[data-theme="dark"] .mobile-sheet-footer {
   font-variant-caps: var(--font-mono-caps);
   text-transform: var(--font-mono-case);
   font-variant-numeric: var(--font-mono-figures);
-  font-size: 11px;
+  font-size: var(--type-mono-11);
   color: var(--soft);
   text-decoration: underline;
 }
@@ -4995,7 +4995,7 @@ html[data-theme="dark"] .mobile-sheet-footer {
   font-variant-caps: var(--font-mono-caps);
   text-transform: var(--font-mono-case);
   font-variant-numeric: var(--font-mono-figures);
-  font-size: 11px;
+  font-size: var(--type-mono-11);
   color: var(--soft);
   text-decoration: underline;
 }
@@ -5007,7 +5007,7 @@ html[data-theme="dark"] .mobile-sheet-footer {
  font-style: var(--font-mono-style);
  font-variant-caps: var(--font-mono-caps);
  text-transform: var(--font-mono-case);
- font-variant-numeric: var(--font-mono-figures); font-size: 10px; color: var(--soft); opacity: .75; }
+ font-variant-numeric: var(--font-mono-figures); font-size: var(--type-mono-11); color: var(--soft); opacity: .75; }
 
 /* ---- quote boards (0036, boards.jsx) --------------------------------------
    /quotes lists BOARDS the way /library lists books. The shape is deliberately
@@ -5112,7 +5112,7 @@ html[data-theme="dark"] .board-cover {
   text-transform: var(--font-display-case);
   font-variant-numeric: var(--font-display-figures);
   font-weight: 600;
-  font-size: 16px;
+  font-size: var(--type-display-17);
   line-height: 1.25;
   overflow-wrap: anywhere;
 }
@@ -5121,7 +5121,7 @@ html[data-theme="dark"] .board-cover {
  font-style: var(--font-mono-style);
  font-variant-caps: var(--font-mono-caps);
  text-transform: var(--font-mono-case);
- font-variant-numeric: var(--font-mono-figures); font-size: 11px; color: var(--soft); }
+ font-variant-numeric: var(--font-mono-figures); font-size: var(--type-mono-11); color: var(--soft); }
 .board-tile-tools { position: absolute; top: 6px; right: 6px; }
 /* All quotes is pinned first and is NOT a board: no spine, no menu, and the
    dashed edge says it is a view rather than a shelf you can rename. */
@@ -5184,7 +5184,7 @@ html[data-theme="dark"] .board-cover {
    field has (see trimProse on the server). */
 .anthology-prose {
   white-space: pre-wrap;
-  font-size: 15px;
+  font-size: var(--type-display-15);
   line-height: 1.65;
   color: var(--ink);
 }
@@ -5201,7 +5201,7 @@ html[data-theme="dark"] .board-cover {
   font-variant-caps: var(--font-display-caps);
   text-transform: var(--font-display-case);
   font-variant-numeric: var(--font-display-figures);
-  font-size: 17px;
+  font-size: var(--type-display-17);
   line-height: 1.5;
   overflow-wrap: anywhere;
 }
@@ -5220,7 +5220,7 @@ html[data-theme="dark"] .board-cover {
     font-style: var(--font-mono-style);
     font-variant-caps: var(--font-mono-caps);
     font-variant-numeric: var(--font-mono-figures);
-    font-size: 10.5px; line-height: 1;
+    font-size: var(--type-mono-11); line-height: 1;
     color: var(--soft);
     background: var(--card);
     border: 1px solid var(--line);
@@ -5231,7 +5231,7 @@ html[data-theme="dark"] .board-cover {
   }
   .kbd-legend { display: inline-flex; align-items: center; gap: 4px; }
   .kbd-then {
-    font-family: var(--font-mono); font-size: 9.5px; color: var(--faint);
+    font-family: var(--font-mono); font-size: var(--type-mono-9); color: var(--faint);
     text-transform: lowercase;
   }
   /* One row of the sheet: what it does on the left, the key on the right, and a
@@ -5337,7 +5337,7 @@ html[data-theme="dark"] .board-cover {
   vertical-align: middle;
 }
 .gesture-chip-label {
-  font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.02em;
+  font-family: var(--font-mono); font-size: var(--type-mono-11); letter-spacing: 0.02em;
   text-transform: uppercase; color: var(--faint); white-space: nowrap;
 }
 
@@ -5404,7 +5404,7 @@ html[data-theme="dark"] .board-cover {
   border-right: 1px solid var(--line); padding-right: 12px;
 }
 .help-rail-item {
-  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.02em;
+  font-family: var(--font-mono); font-size: var(--type-mono-11); letter-spacing: 0.02em;
   color: var(--faint); text-decoration: none;
   padding: 5px 8px; border-radius: 7px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -5431,7 +5431,7 @@ html[data-theme="dark"] .board-cover {
    filled, selected row rather than as a heading. It was also saying what the rail
    already says and marks. */
 .help-section-title {
-  font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.08em;
+  font-family: var(--font-mono); font-size: var(--type-mono-11); letter-spacing: 0.08em;
   text-transform: uppercase; color: var(--faint);
   padding-bottom: 6px; margin-bottom: 10px;
   border-bottom: 1px solid var(--line);
@@ -5443,7 +5443,7 @@ html[data-theme="dark"] .board-cover {
 .help-how { margin: 6px 0 0; padding: 0 0 0 11px; list-style: none; }
 .help-how > li {
   position: relative; padding: 2px 0; line-height: 1.45;
-  font-size: 13px; color: var(--ink);
+  font-size: var(--type-ui-13); color: var(--ink);
 }
 .help-how > li::before {
   content: ""; position: absolute; left: -11px; top: 0.72em;
@@ -5454,7 +5454,7 @@ html[data-theme="dark"] .board-cover {
    the browser's own find-in-page reaches inside it while closed. */
 .help-more { margin-top: 7px; }
 .help-more > summary {
-  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.06em;
+  font-family: var(--font-mono); font-size: var(--type-mono-11); letter-spacing: 0.06em;
   text-transform: uppercase; color: var(--faint);
   cursor: pointer; width: fit-content; list-style: none;
 }
@@ -5465,7 +5465,7 @@ html[data-theme="dark"] .board-cover {
 .help-more-body {
   margin-top: 5px; padding-left: 11px;
   border-left: 1px solid var(--line);
-  font-size: 12.5px; line-height: 1.5; color: var(--muted);
+  font-size: var(--type-ui-13); line-height: 1.5; color: var(--muted);
 }
 
 @media (max-width: 768px) {

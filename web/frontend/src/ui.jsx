@@ -34,7 +34,7 @@ export class ErrorBoundary extends Component {
         role="alert"
         style={{ maxWidth: 560, margin: "0 auto", padding: "48px 20px", textAlign: "center" }}
       >
-        <p className="display-title" style={{ fontSize: 22, marginBottom: 8 }}>
+        <p className="display-title" style={{ fontSize: 'var(--type-ui-22)', marginBottom: 8 }}>
           {t("shell.error.boundary.title")}
         </p>
         <p className="microcopy" style={{ marginBottom: 16 }}>
@@ -45,7 +45,7 @@ export class ErrorBoundary extends Component {
         <pre
           style={{
             textAlign: "left", whiteSpace: "pre-wrap", overflowWrap: "anywhere",
-            fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--error)",
+            fontFamily: "var(--font-mono)", fontSize: 'var(--type-mono-12)', color: "var(--error)",
             background: "var(--raised)", border: "1px solid var(--line)",
             borderRadius: 10, padding: "12px 14px", marginBottom: 18,
           }}
@@ -660,7 +660,7 @@ function DatePicker({ value, onPick, onClose, granularity = "day" }) {
       key={key ?? label}
       type="button"
       className={`menu-item${active ? " active" : ""}`}
-      style={{ justifyContent: "center", padding: "7px 4px", fontSize: 13 }}
+      style={{ justifyContent: "center", padding: "7px 4px", fontSize: 'var(--type-ui-13)' }}
       onClick={onClick}
     >
       {label}
@@ -813,7 +813,7 @@ export function PartialDateField({
         )}
       </span>
       {(bad || hint) && (
-        <span style={{ display: "block", marginTop: 5, fontSize: 12, lineHeight: 1.4, color: bad ? "var(--error)" : "var(--faint)" }}>
+        <span style={{ display: "block", marginTop: 5, fontSize: 'var(--type-ui-12)', lineHeight: 1.4, color: bad ? "var(--error)" : "var(--faint)" }}>
           {bad ? t("error.validate.partial-date") : hint}
         </span>
       )}
@@ -966,7 +966,7 @@ export function FavBadge() {
       style={{
         ...wob,
         color: "#ef5a5a",
-        fontSize: 18,
+        fontSize: 'var(--type-ui-19)',
         lineHeight: 1,
         filter: "drop-shadow(0 1px 2px rgba(0,0,0,.55))",
         transform: "rotate(var(--grot)) scale(var(--gscale))",
@@ -1266,7 +1266,7 @@ export function ExpandableDescription({ text, style, lines = 3, className = "" }
     >
       <p
         ref={ref}
-        style={{ whiteSpace: "pre-wrap", color: "var(--soft)", fontSize: 14, lineHeight: 1.55, margin: 0, ...style, ...clamp }}
+        style={{ whiteSpace: "pre-wrap", color: "var(--soft)", fontSize: 'var(--type-ui-15)', lineHeight: 1.55, margin: 0, ...style, ...clamp }}
       >
         {text}
       </p>
@@ -2338,13 +2338,13 @@ export function ConfirmDialog({
         aria-label={title}
         className="hand-card hc-r2 w-full max-w-md px-6 py-6"
       >
-        <h2 className="display-title mb-2" style={{ fontSize: 20 }}>
+        <h2 className="display-title mb-2" style={{ fontSize: 'var(--type-ui-19)' }}>
           {title}
         </h2>
         {body && (
           <div
             className="mb-5"
-            style={{ color: "var(--soft)", fontSize: 14, lineHeight: 1.55 }}
+            style={{ color: "var(--soft)", fontSize: 'var(--type-ui-15)', lineHeight: 1.55 }}
           >
             {body}
           </div>
@@ -2525,7 +2525,7 @@ export function FormModal({ open = true, onClose, title, maxWidth = 560, childre
         style={{ maxWidth, padding: "18px 20px 20px" }}
       >
         <div className="mb-3 flex items-center gap-2">
-          <h2 className="display-title flex-1" style={{ fontSize: 19 }}>
+          <h2 className="display-title flex-1" style={{ fontSize: 'var(--type-ui-19)' }}>
             {title}
           </h2>
           {save}
@@ -3337,7 +3337,7 @@ export function HelpSheet({ open, title, wide = false, onClose, children }) {
         style={{ maxWidth: wide ? 860 : 520, padding: "18px 20px 20px" }}
       >
         <div className="mb-3 flex items-center gap-3">
-          <h2 className="display-title flex-1" style={{ fontSize: 19 }}>
+          <h2 className="display-title flex-1" style={{ fontSize: 'var(--type-ui-19)' }}>
             {title || t("common.help.sheet.title")}
           </h2>
           <IconButton

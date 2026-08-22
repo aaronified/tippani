@@ -343,7 +343,7 @@ function StatsLines({ stats }) {
   )
 }
 
-const H2 = { fontFamily: 'var(--font-ui)', fontStyle: 'var(--font-ui-style)', fontVariantCaps: 'var(--font-ui-caps)', textTransform: 'var(--font-ui-case)', fontVariantNumeric: 'var(--font-ui-figures)', fontSize: 16.5, fontWeight: 600 }
+const H2 = { fontFamily: 'var(--font-ui)', fontStyle: 'var(--font-ui-style)', fontVariantCaps: 'var(--font-ui-caps)', textTransform: 'var(--font-ui-case)', fontVariantNumeric: 'var(--font-ui-figures)', fontSize: 'var(--type-ui-17)', fontWeight: 600 }
 
 // Stat is a coverage tile. When onClick is set it's a filter button: clicking a
 // "missing X" tile filters the console below to exactly those rows.
@@ -366,7 +366,7 @@ function Stat({ n, label, warn, onClick }) {
           cursor: clickable ? 'pointer' : 'default',
         }}
       >
-        <div style={{ fontFamily: 'var(--font-mono)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 20, fontWeight: 500, lineHeight: 1, color: bad ? 'var(--error)' : 'var(--ink)' }}>
+        <div style={{ fontFamily: 'var(--font-mono)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 'var(--type-mono-19)', fontWeight: 500, lineHeight: 1, color: bad ? 'var(--error)' : 'var(--ink)' }}>
           {n}
         </div>
         <div className="mono-label" style={{ marginTop: 4, color: bad ? 'var(--error)' : undefined }}>

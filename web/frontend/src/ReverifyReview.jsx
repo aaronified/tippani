@@ -115,7 +115,7 @@ function ValueCell({ field, value, fresh }) {
   }
   if (field === 'cast') {
     return (
-      <span className="block" style={{ fontSize: 12 }}>
+      <span className="block" style={{ fontSize: 'var(--type-ui-12)' }}>
         {value.slice(0, 6).map((m, i) => (
           <span key={i} className="block truncate">{m.character || '—'} · {m.actor || '—'}</span>
         ))}
@@ -131,7 +131,7 @@ function ValueCell({ field, value, fresh }) {
       title={String(value)}
       style={{
         display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical',
-        overflow: 'hidden', fontSize: 13, lineHeight: 1.45, overflowWrap: 'anywhere', whiteSpace: 'pre-line',
+        overflow: 'hidden', fontSize: 'var(--type-ui-13)', lineHeight: 1.45, overflowWrap: 'anywhere', whiteSpace: 'pre-line',
       }}
     >
       {String(value)}
@@ -150,13 +150,13 @@ function FieldDiffRow({ diff, approved, onToggle }) {
       </label>
       <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-2">
         <div className="min-w-0">
-          <MonoLabel className="mb-1 block" style={{ fontSize: 9, color: 'var(--faint)' }}>
+          <MonoLabel className="mb-1 block" style={{ fontSize: 'var(--type-ui-9)', color: 'var(--faint)' }}>
             {t('reverify.column.stored')}
           </MonoLabel>
           <ValueCell field={diff.field} value={diff.stored} />
         </div>
         <div className="min-w-0">
-          <MonoLabel className="mb-1 block" style={{ fontSize: 9, color: 'var(--accent-ui)' }}>
+          <MonoLabel className="mb-1 block" style={{ fontSize: 'var(--type-ui-9)', color: 'var(--accent-ui)' }}>
             {t('reverify.column.fresh')}
           </MonoLabel>
           <ValueCell field={diff.field} value={diff.fresh} fresh />
@@ -180,11 +180,11 @@ function ReverifyItemCard({ item, open, onToggleOpen, approvals, onToggleField, 
           onClick={onToggleOpen}
           aria-expanded={open}
         >
-          <span className="min-w-0 truncate font-semibold" style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontSize: 15.5 }}>
+          <span className="min-w-0 truncate font-semibold" style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontSize: 'var(--type-display-15)' }}>
             {item.title || item.name}
           </span>
-          <MonoLabel style={{ fontSize: 9.5, flex: 'none' }}>{kindChip}{item.source ? ` · ${item.source}` : ''}</MonoLabel>
-          <MonoLabel className="ml-auto" style={{ fontSize: 10, color: 'var(--accent-ui)', flex: 'none' }}>
+          <MonoLabel style={{ fontSize: 'var(--type-display-9)', flex: 'none' }}>{kindChip}{item.source ? ` · ${item.source}` : ''}</MonoLabel>
+          <MonoLabel className="ml-auto" style={{ fontSize: 'var(--type-ui-11)', color: 'var(--accent-ui)', flex: 'none' }}>
             {t('reverify.item.approved', { n: approvedCount, total: item.diffs.length })}{' '}
             {open ? '▾' : '▸'}
           </MonoLabel>
@@ -193,10 +193,10 @@ function ReverifyItemCard({ item, open, onToggleOpen, approvals, onToggleField, 
       {open && (
         <div className="mt-2">
           <div className="mb-1 flex justify-end gap-3">
-            <button type="button" className="tp-link" style={{ fontSize: 11 }} onClick={() => onSetAll(item, true)}>
+            <button type="button" className="tp-link" style={{ fontSize: 'var(--type-ui-11)' }} onClick={() => onSetAll(item, true)}>
               {t('reverify.item.approve-all')}
             </button>
-            <button type="button" className="tp-link" style={{ fontSize: 11 }} onClick={() => onSetAll(item, false)}>
+            <button type="button" className="tp-link" style={{ fontSize: 'var(--type-ui-11)' }} onClick={() => onSetAll(item, false)}>
               {t('reverify.item.approve-none')}
             </button>
           </div>
@@ -370,7 +370,7 @@ export function ReverifyFlow({ selection, onClose, onFlash, onDone }) {
         </>
       )}
       {phase !== 'checking' && (
-        <MonoLabel className="block" style={{ fontSize: 10.5 }}>
+        <MonoLabel className="block" style={{ fontSize: 'var(--type-ui-11)' }}>
           {/* THE SEPARATOR IS JOINED HERE, NOT CARRIED IN THE VALUE. These three
               read as one middot-joined line, and the first draft put the " · "
               at the head of each tail value — where parseLocale trims it off,

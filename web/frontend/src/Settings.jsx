@@ -316,7 +316,7 @@ function Slider({ label, hideLabel = false, min, max, step, value, format = '', 
     <div>
       <div className="mb-1.5 flex items-baseline justify-between">
         {hideLabel ? <span /> : <MonoLabel>{label}</MonoLabel>}
-        <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 12, color: 'var(--faint)' }}>{show}</span>
+        <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 'var(--type-mono-12)', color: 'var(--faint)' }}>{show}</span>
       </div>
       <input
         type="range" min={min} max={max} step={step} value={v} aria-label={label}
@@ -989,7 +989,7 @@ function LanguageMarksSettings({ prefs, onSaved }) {
                             aria-selected={row.mark === g || (!row.mark && i === 0)}
                             aria-label={g}
                             className={'cat-swatch' + (row.mark === g || (!row.mark && i === 0) ? ' is-on' : '')}
-                            style={{ background: 'var(--raised)', fontSize: 15, lineHeight: 1 }}
+                            style={{ background: 'var(--raised)', fontSize: 'var(--type-ui-15)', lineHeight: 1 }}
                             onClick={() => save(row.key, { mark: i === 0 ? '' : g })}
                           >
                             {g}
@@ -1020,7 +1020,7 @@ function LanguageMarksSettings({ prefs, onSaved }) {
                               aria-selected={row.mark === g}
                               aria-label={g}
                               className={'cat-swatch' + (row.mark === g ? ' is-on' : '')}
-                              style={{ background: 'var(--raised)', fontSize: 15, lineHeight: 1 }}
+                              style={{ background: 'var(--raised)', fontSize: 'var(--type-ui-15)', lineHeight: 1 }}
                               onClick={() => save(row.key, { mark: g })}
                             >
                               {g}
@@ -1292,7 +1292,7 @@ function SRDeepControls({ p, set, onClose }) {
           {TUNING_FIELDS.map((f) => (
             <div key={f.key}>
               <div className="mb-1 flex items-center gap-1.5">
-                <MonoLabel style={{ fontSize: 10 }}>{f.label}</MonoLabel>
+                <MonoLabel style={{ fontSize: 'var(--type-ui-11)' }}>{f.label}</MonoLabel>
                 <InfoDot text={f.hint} />
               </div>
               <Slider
@@ -1398,7 +1398,7 @@ function UpdatesCard({ user, update, onUpdateInfo }) {
             coming" are the same question asked twice. */}
         {/* tNodes, because the sentence carries a link and markup never goes in
             a locale value: the {roadmap} hole takes the anchor. */}
-        <p className="microcopy" style={{ fontSize: 12.5 }}>
+        <p className="microcopy" style={{ fontSize: 'var(--type-ui-13)' }}>
           {tNodes('settings.updates.roadmap.prose', {
             roadmap: (
               <a key="roadmap" className="tp-link" href={`${DOCS_BASE}roadmap.html`} target="_blank" rel="noreferrer">
@@ -1491,7 +1491,7 @@ function UpdatesCard({ user, update, onUpdateInfo }) {
                       className="flex items-center justify-between gap-2"
                       style={{ background: 'var(--raised)', border: '1px solid var(--line)', borderRadius: 8, padding: '8px 12px' }}
                     >
-                      <code style={{ fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 12.5, overflowWrap: 'anywhere' }}>
+                      <code style={{ fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 'var(--type-mono-13)', overflowWrap: 'anywhere' }}>
                         {info.guided_command}
                       </code>
                       <button type="button" className="tp-link" onClick={copyCmd} style={{ whiteSpace: 'nowrap' }}>
@@ -1659,7 +1659,7 @@ function ChangelogDialog({ current, onClose }) {
     >
       <div className="hand-card hc-r2 w-full" style={{ maxWidth: 640, padding: '18px 20px 20px' }}>
         <div className="mb-3 flex items-center gap-2">
-          <h2 className="display-title flex-1" style={{ fontSize: 19 }}>{t('settings.changelog.title')}</h2>
+          <h2 className="display-title flex-1" style={{ fontSize: 'var(--type-ui-19)' }}>{t('settings.changelog.title')}</h2>
           <Tooltip label={t('common.action.close.label')} side="bottom">
             <CloseButton onClick={onClose} tooltip={t('settings.changelog.close.tip')} />
           </Tooltip>
@@ -1868,7 +1868,7 @@ function OnboardingCard({ user, onStartTour }) {
               style={{ borderTop: '1px solid var(--line)', padding: '9px 2px' }}
               onClick={() => start(f.at)}
             >
-              <span style={{ fontSize: 13.5, fontWeight: 600 }}>{f.name}</span>
+              <span style={{ fontSize: 'var(--type-ui-13)', fontWeight: 600 }}>{f.name}</span>
               <span className="microcopy block">{f.blurb}</span>
             </button>
           ))}
@@ -1949,7 +1949,7 @@ function DevicesCard() {
             className="mt-1 select-all"
             style={{
               fontFamily: 'var(--font-mono)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)',
-              fontSize: 30,
+              fontSize: 'var(--type-mono-30)',
               letterSpacing: '0.18em',
               fontWeight: 600,
             }}
@@ -1994,7 +1994,7 @@ function DevicesCard() {
       {devices?.length > 0 && (
         <ul className="mt-4 space-y-2" style={{ borderTop: '1px solid var(--line)', paddingTop: 12 }}>
           {devices.map((d) => (
-            <li key={d.id} className="flex items-center gap-3" style={{ fontSize: 12.5 }}>
+            <li key={d.id} className="flex items-center gap-3" style={{ fontSize: 'var(--type-ui-13)' }}>
               <span>
                 <b>{d.name}</b>
                 <span style={{ color: 'var(--soft)' }}>
@@ -2017,7 +2017,7 @@ function DevicesCard() {
         </ul>
       )}
       {devices?.length === 0 && !pair && (
-        <p className="microcopy mt-3" style={{ fontSize: 12, color: 'var(--soft)' }}>
+        <p className="microcopy mt-3" style={{ fontSize: 'var(--type-ui-12)', color: 'var(--soft)' }}>
           {t('settings.devices.empty.prose')}
         </p>
       )}
@@ -2182,7 +2182,7 @@ function RestorePrompt({ meta, me, busyLabel, onCancel, onConfirm }) {
     >
       <div className="hand-card hc-r2 w-full" style={{ maxWidth: 460, padding: '18px 20px 20px' }}>
         <div className="mb-3 flex items-center gap-2">
-          <h2 className="display-title flex-1" style={{ fontSize: 19 }}>{t('settings.restore.title')}</h2>
+          <h2 className="display-title flex-1" style={{ fontSize: 'var(--type-ui-19)' }}>{t('settings.restore.title')}</h2>
           <Tooltip label={t('common.action.cancel.label')} side="bottom">
             <CloseButton onClick={onCancel} label={t('common.action.cancel.label')} tooltip={t('settings.prompt.close.tip')} disabled={!!busyLabel} />
           </Tooltip>
@@ -2366,7 +2366,7 @@ function BackupPrompt({ me, busy, onCancel, onConfirm }) {
     >
       <div className="hand-card hc-r2 w-full" style={{ maxWidth: 460, padding: '18px 20px 20px' }}>
         <div className="mb-3 flex items-center gap-2">
-          <h2 className="display-title flex-1" style={{ fontSize: 19 }}>{t('settings.backup.prompt.title')}</h2>
+          <h2 className="display-title flex-1" style={{ fontSize: 'var(--type-ui-19)' }}>{t('settings.backup.prompt.title')}</h2>
           <Tooltip label={t('common.action.cancel.label')} side="bottom">
             <CloseButton onClick={onCancel} label={t('common.action.cancel.label')} tooltip={t('settings.prompt.close.tip')} disabled={busy} />
           </Tooltip>
@@ -2654,7 +2654,7 @@ function SectionTitle({ children, right, info, infoTitle }) {
   return (
     <div className="mb-4 flex items-center justify-between gap-3">
       <div className="flex items-center gap-1.5">
-        <h2 style={{ fontFamily: 'var(--font-ui)', fontStyle: 'var(--font-ui-style)', fontVariantCaps: 'var(--font-ui-caps)', textTransform: 'var(--font-ui-case)', fontVariantNumeric: 'var(--font-ui-figures)', fontSize: 16.5, fontWeight: 600 }}>{children}</h2>
+        <h2 style={{ fontFamily: 'var(--font-ui)', fontStyle: 'var(--font-ui-style)', fontVariantCaps: 'var(--font-ui-caps)', textTransform: 'var(--font-ui-case)', fontVariantNumeric: 'var(--font-ui-figures)', fontSize: 'var(--type-ui-17)', fontWeight: 600 }}>{children}</h2>
         {info && <InfoDot text={info} title={infoTitle || (typeof children === 'string' ? children : t('settings.card.info.title'))} />}
       </div>
       {right}
@@ -2677,7 +2677,7 @@ function StatusChip({ tone = 'muted', children }) {
         display: 'inline-flex',
         alignItems: 'center',
         fontFamily: 'var(--font-mono)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', fontVariantNumeric: 'var(--font-mono-figures)',
-        fontSize: 10.5,
+        fontSize: 'var(--type-mono-11)',
         fontWeight: 500,
         letterSpacing: '.12em',
         textTransform: 'uppercase',
@@ -2716,7 +2716,7 @@ function SizeSlider({ label, storageKey, def }) {
           onChange={(e) => setSize(Number(e.target.value))}
           style={{ width: 190, accentColor: 'var(--accent-ui)', cursor: 'pointer' }}
         />
-        <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 12, color: 'var(--faint)', minWidth: 42 }}>
+        <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 'var(--type-mono-12)', color: 'var(--faint)', minWidth: 42 }}>
           {t('settings.type.size.format', { n: size })}
         </span>
       </div>
@@ -2782,7 +2782,7 @@ function PresetCard({ spec, accentHex, code, selected, auto, dimmed, onClick }) 
                   <i key={i} style={{ width: 5, height: 5, borderRadius: 2, background: spec.holes, display: 'block' }} />
                 ))}
               </span>
-              <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 7, letterSpacing: '.2em', color: `color-mix(in srgb, ${spec.amber} 60%, transparent)` }}>
+              <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 'var(--type-mono-9)', letterSpacing: '.2em', color: `color-mix(in srgb, ${spec.amber} 60%, transparent)` }}>
                 {code} ▸
               </span>
             </>
@@ -2799,7 +2799,7 @@ function PresetCard({ spec, accentHex, code, selected, auto, dimmed, onClick }) 
             padding: '10px 11px',
           }}
         >
-          <p style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontStyle: 'italic', fontSize: 12, lineHeight: 1.35, color: spec.ink }}>
+          <p style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontStyle: 'italic', fontSize: 'var(--type-display-12)', lineHeight: 1.35, color: spec.ink }}>
             {t('settings.appearance.preset.specimen.label')}
           </p>
           <div className="mt-2 flex items-center gap-2">
@@ -2810,13 +2810,13 @@ function PresetCard({ spec, accentHex, code, selected, auto, dimmed, onClick }) 
         {selected && (
           <span
             aria-hidden="true"
-            style={{ position: 'absolute', top: -9, right: -9, width: 22, height: 22, borderRadius: 999, background: accent, color: '#FFF9EC', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, boxShadow: '0 1px 3px rgba(0,0,0,.45)' }}
+            style={{ position: 'absolute', top: -9, right: -9, width: 22, height: 22, borderRadius: 999, background: accent, color: '#FFF9EC', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 'var(--type-ui-12)', fontWeight: 700, boxShadow: '0 1px 3px rgba(0,0,0,.45)' }}
           >
             {auto ? '⟳' : '✓'}
           </span>
         )}
       </div>
-      <p className="mt-2" style={{ fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 9.5, letterSpacing: '.14em', textTransform: 'uppercase', color: selected ? 'var(--accent-ui)' : 'var(--faint)' }}>
+      <p className="mt-2" style={{ fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 'var(--type-mono-9)', letterSpacing: '.14em', textTransform: 'uppercase', color: selected ? 'var(--accent-ui)' : 'var(--faint)' }}>
         {t(spec.label)}
       </p>
     </button>
@@ -3275,7 +3275,7 @@ function Metadata({ user, onPreferences }) {
         </div>
       )}
       {lookup?.ok === false && lookup.error && (
-        <p className="mt-1" style={{ fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 11, color: 'var(--error)' }}>
+        <p className="mt-1" style={{ fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 'var(--type-mono-11)', color: 'var(--error)' }}>
           {t('settings.metadata.last-error.prose', { error: lookup.error })}
         </p>
       )}

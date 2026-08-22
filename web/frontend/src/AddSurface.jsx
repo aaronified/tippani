@@ -575,9 +575,9 @@ export function WorkPicker({ works, value, onChange, onCreate }) {
   if (value) {
     return (
       <div className="mt-1 flex flex-wrap items-center gap-2">
-        <span className="font-semibold" style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontSize: 16 }}>{value.title}</span>
+        <span className="font-semibold" style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontSize: 'var(--type-display-17)' }}>{value.title}</span>
         {value.sub && <span className="microcopy">{value.sub}</span>}
-        <span className="mono-label" style={{ fontSize: 9.5, color: value.kind === 'book' ? 'var(--accent-ui)' : 'var(--amber)' }}>
+        <span className="mono-label" style={{ fontSize: 'var(--type-display-9)', color: value.kind === 'book' ? 'var(--accent-ui)' : 'var(--amber)' }}>
           {value.tag}
         </span>
         <button type="button" className="tp-link ml-auto" onClick={() => onChange(null)}>{t('capture.picker.change.label')}</button>
@@ -612,7 +612,7 @@ export function WorkPicker({ works, value, onChange, onCreate }) {
                     {w.title}
                     {w.sub && <span style={{ color: 'var(--soft)' }}> · {w.sub}</span>}
                   </span>
-                  <span className="mono-label" style={{ flex: 'none', fontSize: 9.5, color: w.kind === 'book' ? 'var(--accent-ui)' : 'var(--amber)' }}>
+                  <span className="mono-label" style={{ flex: 'none', fontSize: 'var(--type-ui-9)', color: w.kind === 'book' ? 'var(--accent-ui)' : 'var(--amber)' }}>
                     {w.tag}
                   </span>
                 </span>
@@ -904,7 +904,7 @@ export function CaptureQuote({ initialTarget = null, initialStandalone = false, 
           className="tp-input"
           rows={4}
           placeholder={t('capture.form.quote.placeholder')}
-          style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontStyle: 'italic', fontSize: 16, lineHeight: 1.55 }}
+          style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontStyle: 'italic', fontSize: 'var(--type-display-17)', lineHeight: 1.55 }}
           value={draft.quote}
           onChange={(e) => set({ quote: e.target.value })}
         />
@@ -993,7 +993,7 @@ export function CaptureQuote({ initialTarget = null, initialStandalone = false, 
         <MonoLabel>{t('capture.form.tags.label')}</MonoLabel>
         <input
           className="tp-input"
-          style={{ fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 13 }}
+          style={{ fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 'var(--type-mono-13)' }}
           placeholder={t('capture.form.tags.placeholder')}
           value={draft.tags}
           onChange={(e) => set({ tags: e.target.value })}

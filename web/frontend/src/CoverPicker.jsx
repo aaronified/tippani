@@ -84,7 +84,7 @@ export function CoverPreview({ url, label, showRes = false, compact = false, cla
         className={'flex items-center justify-center px-1 text-center ' + className}
         style={{ aspectRatio: '2 / 3', border: '1px dashed var(--ink-border)', borderRadius: 8 }}
       >
-        <MonoLabel style={{ fontSize: 9, lineHeight: 1.3 }}>{t('cover.preview.blocked')}</MonoLabel>
+        <MonoLabel style={{ fontSize: 'var(--type-ui-9)', lineHeight: 1.3 }}>{t('cover.preview.blocked')}</MonoLabel>
       </span>
     )
   }
@@ -466,7 +466,7 @@ export function CandidateRow({ cover, title, sub, source, sourceDetail, count = 
         <p className="truncate text-xs" style={{ color: 'var(--soft)' }}>{sub}</p>
       </div>
       {group ? (
-        <MonoLabel style={{ flex: 'none', fontSize: 9.5 }}>
+        <MonoLabel style={{ flex: 'none', fontSize: 'var(--type-ui-9)' }}>
           {t('cover.candidate.editions', { n: count })}
         </MonoLabel>
       ) : (
@@ -575,7 +575,7 @@ export function BookLookupPicker({ isbn, title, author, asin, onPick, auto = fal
                 )}
               </div>
               <div className="flex items-center justify-between gap-2">
-                <span className="tp-chip shrink-0" style={{ fontSize: 9.5 }}>{sourceName(c.source)}</span>
+                <span className="tp-chip shrink-0" style={{ fontSize: 'var(--type-ui-9)' }}>{sourceName(c.source)}</span>
                 <FieldIconButton
                   icon={<IconCheck />}
                   ariaLabel={t('cover.editions.use.aria', { title: c.title })}
@@ -677,7 +677,7 @@ export function MovieLookupPicker({ title, year, mediaType = 'movie', tmdbId, tv
                 {c.release_year ? <p className="truncate text-xs" style={{ color: 'var(--soft)' }}>{c.release_year}</p> : null}
               </div>
               <div className="flex items-center justify-between gap-2">
-                <span className="tp-chip shrink-0" style={{ color: 'var(--amber)', fontSize: 9.5 }}>
+                <span className="tp-chip shrink-0" style={{ color: 'var(--amber)', fontSize: 'var(--type-ui-9)' }}>
                   {sourceName(c.source || 'tmdb')}
                 </span>
                 <FieldIconButton

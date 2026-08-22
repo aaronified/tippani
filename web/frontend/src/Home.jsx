@@ -80,7 +80,7 @@ function StatesRow({ states, help, onToggleHelp, adaptive }) {
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
         <span className="mono-label" style={{ color: 'var(--faint)' }}>{t('home.states.title')}</span>
         {pips.map(([key, n]) => (
-          <span key={key} className="mono-label inline-flex items-center gap-1.5" style={{ fontSize: 10.5, opacity: n ? 1 : 0.45 }}>
+          <span key={key} className="mono-label inline-flex items-center gap-1.5" style={{ fontSize: 'var(--type-ui-11)', opacity: n ? 1 : 0.45 }}>
             <span
               aria-hidden="true"
               style={{
@@ -94,7 +94,7 @@ function StatesRow({ states, help, onToggleHelp, adaptive }) {
             <span style={{ fontWeight: 600 }}>{n}</span> {t(STATUS_META[key].label).toLowerCase()}
           </span>
         ))}
-        <button type="button" className="tp-link" style={{ fontSize: 11, marginLeft: 'auto' }} onClick={onToggleHelp}>
+        <button type="button" className="tp-link" style={{ fontSize: 'var(--type-ui-11)', marginLeft: 'auto' }} onClick={onToggleHelp}>
           {t('home.states.help.label')}
         </button>
       </div>
@@ -191,7 +191,7 @@ function DailyQuizCard({ onPending, states, onStates, adaptive, submitStep }) {
         <div className="review-card-body py-4 text-center" style={{ padding: '18px 6px 12px' }}>
           <p
             aria-hidden="true"
-            style={{ fontFamily: 'var(--font-hand)', fontWeight: 'var(--font-hand-weight)', fontStyle: 'var(--font-hand-style)', fontVariantCaps: 'var(--font-hand-caps)', textTransform: 'var(--font-hand-case)', fontVariantNumeric: 'var(--font-hand-figures)', fontSize: 24, color: 'var(--accent-ui)', transform: 'rotate(-1.2deg)' }}
+            style={{ fontFamily: 'var(--font-hand)', fontWeight: 'var(--font-hand-weight)', fontStyle: 'var(--font-hand-style)', fontVariantCaps: 'var(--font-hand-caps)', textTransform: 'var(--font-hand-case)', fontVariantNumeric: 'var(--font-hand-figures)', fontSize: 'var(--type-hand-26)', color: 'var(--accent-ui)', transform: 'rotate(-1.2deg)' }}
           >
             {t(tally.got || tally.forgot ? 'home.daily.done.label' : 'home.daily.empty.label')}
           </p>
@@ -297,7 +297,7 @@ function PracticeCard({ onStates, userId, submitStep }) {
             </button>
             {score && score.answered > 0 && (
               <>
-                <MonoLabel style={{ fontSize: 10.5 }}>
+                <MonoLabel style={{ fontSize: 'var(--type-ui-11)' }}>
                   {t('home.practice.score.label', {
                     n: score.answered,
                     count: score.answered,
@@ -336,7 +336,7 @@ function PracticeCard({ onStates, userId, submitStep }) {
 
       {phase === 'done' && (
         <div className="review-card-body py-2 text-center">
-          <p aria-hidden="true" style={{ fontFamily: 'var(--font-hand)', fontWeight: 'var(--font-hand-weight)', fontStyle: 'var(--font-hand-style)', fontVariantCaps: 'var(--font-hand-caps)', textTransform: 'var(--font-hand-case)', fontVariantNumeric: 'var(--font-hand-figures)', fontSize: 24, color: 'var(--accent-ui)', transform: 'rotate(-1.2deg)' }}>
+          <p aria-hidden="true" style={{ fontFamily: 'var(--font-hand)', fontWeight: 'var(--font-hand-weight)', fontStyle: 'var(--font-hand-style)', fontVariantCaps: 'var(--font-hand-caps)', textTransform: 'var(--font-hand-case)', fontVariantNumeric: 'var(--font-hand-figures)', fontSize: 'var(--type-hand-26)', color: 'var(--accent-ui)', transform: 'rotate(-1.2deg)' }}>
             {t('quiz.round.score.label', { done: lastRound.got, total: lastRound.got + lastRound.forgot })}
           </p>
           <p className="mono-label mt-1 mb-3" style={{ letterSpacing: '.06em' }}>
@@ -718,7 +718,7 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
             style={{
               fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)',
               fontWeight: 600,
-              fontSize: 26,
+              fontSize: 'var(--type-display-26)',
               letterSpacing: '-0.01em',
               lineHeight: 1.15,
             }}
@@ -747,10 +747,10 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
         {onGoLibrary && (
         <Tooltip label={t('home.tile.library.tip')} className="flex items-stretch">
           <HandCard variant={1} className="cursor-pointer w-full" style={{ padding: '13px 15px' }} onClick={onGoLibrary} role="button" tabIndex={0}>
-            <p style={{ fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontWeight: 600, fontSize: 24 }}>
+            <p style={{ fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontWeight: 600, fontSize: 'var(--type-display-26)' }}>
               {stats ? stats.books : '–'}
             </p>
-            <MonoLabel style={{ fontSize: 11 }}>
+            <MonoLabel style={{ fontSize: 'var(--type-display-11)' }}>
               {t('home.tile.library.counts', { n: stats ? stats.annotations : '–' })}
             </MonoLabel>
           </HandCard>
@@ -759,10 +759,10 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
         {onGoMovies && (
         <Tooltip label={t('home.tile.movies.tip')} className="flex items-stretch">
           <HandCard variant={2} className="cursor-pointer w-full" style={{ padding: '13px 15px' }} onClick={onGoMovies} role="button" tabIndex={0}>
-            <p style={{ fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontWeight: 600, fontSize: 24 }}>
+            <p style={{ fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontWeight: 600, fontSize: 'var(--type-display-26)' }}>
               {stats ? stats.movies : '–'}
             </p>
-            <MonoLabel style={{ fontSize: 11, color: 'var(--amber)' }}>
+            <MonoLabel style={{ fontSize: 'var(--type-display-11)', color: 'var(--amber)' }}>
               {t('home.tile.movies.counts', { n: stats ? stats.dialogues : '–' })}
             </MonoLabel>
           </HandCard>
@@ -792,7 +792,7 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
       {favs.length > 0 && (
         <section>
           <div className="mb-2.5 flex items-center gap-3">
-            <h2 style={{ fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontWeight: 600, fontSize: 18 }}>
+            <h2 style={{ fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontWeight: 600, fontSize: 'var(--type-display-19)' }}>
               {t('home.favourites.title')}
             </h2>
             <span aria-hidden="true" className="h-px flex-1" style={{ background: 'var(--line)' }} />
@@ -960,14 +960,14 @@ function FavouriteTile({
               affordance (no "show more"); the quote clamps to a per-card 3–5. */}
           <Tooltip label={t(open ? 'home.favourites.collapse.tip' : 'quiz.option.expand.tip')} className="flex w-full">
             <button type="button" className="clampable is-clickable block w-full text-left" style={{ background: 'none', border: 'none', padding: 0 }} onClick={onToggle} aria-expanded={open}>
-              <MonoLabel className="mb-1.5 block" style={{ fontSize: 9.5, color: meta.labelColor }}>
+              <MonoLabel className="mb-1.5 block" style={{ fontSize: 'var(--type-ui-9)', color: meta.labelColor }}>
                 {meta.label(f)}
               </MonoLabel>
               <p
                 style={{
                   fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)',
                   fontStyle: 'italic',
-                  fontSize: 15,
+                  fontSize: 'var(--type-display-15)',
                   lineHeight: 1.5,
                   margin: 0,
                   whiteSpace: 'pre-wrap', // keep the quote's line breaks (collapsed clamp still limits height)
@@ -982,7 +982,7 @@ function FavouriteTile({
                   one person on the tile twice. */}
               <span className="mt-1.5 flex items-center gap-1.5">
                 {!open && <CreditFaces names={peopleNames} map={peopleMap} size={18} ring="var(--card)" />}
-                <MonoLabel style={{ fontSize: 10.5 }}>{open ? expandedMeta : collapsedSource}</MonoLabel>
+                <MonoLabel style={{ fontSize: 'var(--type-ui-11)' }}>{open ? expandedMeta : collapsedSource}</MonoLabel>
               </span>
               <ClampMore open={open} />
             </button>
@@ -1262,7 +1262,7 @@ function SerendipityCard({ q, onOpen, people = {}, seps, onOpenPerson, actions }
           ) : art}
         </div>
         <div className="min-w-0 flex-1">
-          <MonoLabel className="mb-1 block" style={{ fontSize: 9.5, color: kind.labelColor }}>
+          <MonoLabel className="mb-1 block" style={{ fontSize: 'var(--type-ui-9)', color: kind.labelColor }}>
             {t(MEDIA_BADGE[q.media_type] || MEDIA_BADGE[q.kind])}
           </MonoLabel>
           {/* The words. Only the quote opens the parent — the faces and the tags
@@ -1274,7 +1274,7 @@ function SerendipityCard({ q, onOpen, people = {}, seps, onOpenPerson, actions }
             style={{ background: 'none', border: 'none', padding: 0 }}
             tabIndex={onOpen ? 0 : -1}
           >
-            <p style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 15, lineHeight: 1.55, margin: 0, whiteSpace: 'pre-wrap' }}>
+            <p style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 'var(--type-display-15)', lineHeight: 1.55, margin: 0, whiteSpace: 'pre-wrap' }}>
               {kind.quoted ? `“${q.quote}”` : q.quote}
             </p>
           </button>
@@ -1291,7 +1291,7 @@ function SerendipityCard({ q, onOpen, people = {}, seps, onOpenPerson, actions }
               there is room, the names are the point, and one face each is the
               answer. (Named obliquely on purpose — the test that pins this
               scans this function's source for the component's name.) */}
-          <MonoLabel className="mt-1.5 block" style={{ fontSize: 10.5 }}>{source}</MonoLabel>
+          <MonoLabel className="mt-1.5 block" style={{ fontSize: 'var(--type-ui-11)' }}>{source}</MonoLabel>
           {names.length > 0 && (
             <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
               {names.map((n) => (

@@ -139,7 +139,7 @@ function SaveDontPasteNote() {
       <summary className="mono-label cursor-pointer" style={{ listStyle: 'revert' }}>
         {t('import.why-upload.summary')}
       </summary>
-      <p className="mt-2" style={{ fontSize: 13, lineHeight: 1.55 }}>
+      <p className="mt-2" style={{ fontSize: 'var(--type-ui-13)', lineHeight: 1.55 }}>
         {tNodes('import.why-upload.body', {
           emphasis: <i>{t('import.why-upload.emphasis')}</i>,
         })}
@@ -307,7 +307,7 @@ function SourceCard({ variant, src, busy, onFiles, color }) {
         {/* An honest label, not decoration: the caveat itself is one tap away
             rather than buried in the steps. */}
         {caveat && (
-          <span className="tp-chip shrink-0" style={{ color: 'var(--amber)', fontSize: 9.5 }}>
+          <span className="tp-chip shrink-0" style={{ color: 'var(--amber)', fontSize: 'var(--type-ui-9)' }}>
             {t('import.experimental.label')}
           </span>
         )}

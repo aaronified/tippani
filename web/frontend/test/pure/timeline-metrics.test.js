@@ -47,6 +47,18 @@ function px(selector, prop) {
   return Number(m[1])
 }
 
+// designedSize resolves a type token back to the pixels it is at 100%.
+//
+// EVERY font-size IN THE APP IS A TOKEN NOW (type.js), and each token is named
+// after its own default — `--type-ui-11` is eleven pixels at 100%, whatever the
+// interface dial says today. So this reads the name, which is also the only honest
+// thing it can read: there is no longer a literal in the stylesheet to compare.
+function designedSize(selector) {
+  const m = rule(selector).match(/font-size:\s*var\(--type-[a-z]+-(\d+)\)/)
+  expect(m, `${selector} has no type token for its font-size — a size that opted out of the dials`).toBeTruthy()
+  return Number(m[1])
+}
+
 describe('the folded gap is exactly as wide as the columns it replaces', () => {
   it('uses the column pitch the stylesheet actually draws', () => {
     expect(TL_COL_PX).toBe(px('.tl-col', 'min-width'))
@@ -91,8 +103,13 @@ describe('a year is legible', () => {
     it(`${sel} has no slashed zero`, () => {
       expect(rule(sel)).not.toMatch(/slashed-zero/)
     })
-    it(`${sel} is at least 10px`, () => {
-      expect(px(sel, 'font-size')).toBeGreaterThanOrEqual(10)
+    it(`${sel} is at least 10px as designed`, () => {
+      // AS DESIGNED, and that qualifier is the whole of what the size dials changed
+      // here. A reader who sets the interface to 75% gets 8px ticks, and that is not
+      // this rule being broken — it is them asking for smaller text and being given
+      // it. The floor governs what the app chooses for somebody who has chosen
+      // nothing, which is the case both reports were about.
+      expect(designedSize(sel)).toBeGreaterThanOrEqual(10)
     })
   }
 })
