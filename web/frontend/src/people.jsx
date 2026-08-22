@@ -66,9 +66,9 @@ export function ProviderChips({ links }) {
   if (items.length === 0) return <span className="microcopy">—</span>
   return (
     <span className="flex flex-wrap items-center gap-1.5">
-      {items.map(([slug, label]) => (
+      {items.map(([slug, labelKey]) => (
         <a key={slug} className="tp-chip tp-chip-btn" href={known[slug]} target="_blank" rel="noopener noreferrer">
-          {label}
+          {t(labelKey)}
         </a>
       ))}
     </span>

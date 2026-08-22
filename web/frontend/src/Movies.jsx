@@ -498,7 +498,7 @@ function MovieList({ onOpen, creditSeparators, dataNonce }) {
             ariaLabel={t('common.filters.group.aria')}
             value={groupBy}
             onChange={setGroupBy}
-            options={GROUP_OPTIONS}
+            options={groupOptions()}
           />
         </label>
       }
