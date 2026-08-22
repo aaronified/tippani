@@ -1199,6 +1199,12 @@ settings.appearance.accent.aria = {name} অ্যাকসেন্ট
 settings.appearance.book-size.label = লাইব্রেরির কভারের মাপ
 settings.appearance.film-size.label = ক্যাটালগের পোস্টারের মাপ
 
+settings.appearance.text-size.label = লেখার মাপ
+settings.appearance.text-size.info.body = সব ধরনের লেখা একসঙ্গে বদলায়। তারপর Type-এ গিয়ে প্রতিটা আলাদা করে ঠিক করা যায়, আর তখন এখানে — দেখাবে, যতক্ষণ আবার এখান থেকে বসানো না হয়। প্রতি ধাপে মাপ গোটা পিক্সেলে থাকে।
+settings.type.size.factor = {n}%
+settings.type.size.mixed = —
+settings.type.size.aria = {name} লেখার মাপ
+
 # --- yes / no, the two words every switch in the quiz panel uses.
 vocab.yes.label = হ্যাঁ
 vocab.no.label = না

@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Text size, on a dial.** Appearance has a *Text size* control that sets every kind of
+  text at once — 75%, 100%, 125%, 150%, 175% or 200% — and Type has one per kind, so quotes,
+  interface, labels and notes can each be tuned on their own afterwards. Every size in the
+  app answers them; there is nothing left that ignores the setting.
+
+  **The global one renormalises rather than compounding.** Moving it to 150% means every kind
+  is now at 150%, not that some other 150% is multiplied by it. Tune one kind afterwards and
+  the global reads as an em dash, because there is no longer a single number that describes
+  the four — it is worked out from them rather than stored beside them, so the two panels
+  cannot disagree about what the size is.
+
+  **Whole pixels at every step.** Nothing lands on a half, so there is no size at which the
+  hinting goes soft on one screen and not another. The scale has ten steps and no 10px step,
+  because 10 and 11 would both round to 8 at 75% and two sizes the design distinguishes would
+  stop being distinguishable.
+
+  Some sizes moved a pixel to sit on the scale — nine of the app's sizes were half-pixels —
+  and ties went upward, so 14px is 15 and 10px is 11. Two things set at 7px and 8px are 9px
+  now, which is the only reading size anything that small should have had.
+
+  **The Type panel's specimens follow their own dial**, so turning Labels up grows the label
+  specimen while the rest hold still.
+
 ## [2.1.3] - 2026-08-22
 
 ### Added

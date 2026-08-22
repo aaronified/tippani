@@ -1209,6 +1209,16 @@ settings.appearance.accent.aria = {name} accent
 settings.appearance.book-size.label = Library cover size
 settings.appearance.film-size.label = Catalogue poster size
 
+# The global dial. It RENORMALISES rather than multiplying: moving it writes
+# itself into all four kinds (type.js).
+settings.appearance.text-size.label = Text size
+settings.appearance.text-size.info.body = Sets every kind of text at once. Each kind can then be tuned on its own in Type, and this reads as — until you set it again. Sizes are whole pixels at every step, so nothing lands on a half.
+settings.type.size.factor = {n}%
+# What the global dial reads when the four kinds no longer agree. An em dash,
+# deliberately not a word: it is the absence of one answer, not a state.
+settings.type.size.mixed = —
+settings.type.size.aria = Size of {name} text
+
 # --- yes / no, the two words every switch in the quiz panel uses.
 vocab.yes.label = Yes
 vocab.no.label = No

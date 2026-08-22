@@ -11,7 +11,7 @@ import {
   MARK_MAX_RUNES,
   MAX_CUSTOM_MARKS,
 } from './languages.jsx'
-import { SIZE_ROLES } from './type.js'
+import { SIZE_ROLES, TYPE_FACTORS, applyTypeScale, factorsFrom, globalOf, renormalise, sizePrefKey } from './type.js'
 import {
   applyFonts,
   fontState,
@@ -599,6 +599,31 @@ export function ReviewScope({ value, onChange }) {
 // Every alternate is BUNDLED, not fetched. Tippani never contacts the network on
 // its own, and a type picker that loaded Google Fonts would be the first thing
 // in the app that did — on a screen about how your own words look. All OFL-1.1.
+// SizeDial — one role's scaling factor, or the global one.
+//
+// A Select rather than a slider, and rather than six chips. A slider suggests a
+// continuum and there are six positions; six chips is a row wider than the label
+// it belongs to, on a panel that already has a row of face chips under every
+// heading. A dropdown says "one of these" in the width of its longest option.
+//
+// `mixed` is offered as a READABLE value and not as a choosable one — it is what
+// the global reads when the four roles disagree, and picking it would mean nothing.
+// Select needs the current value to be in its options or it renders empty, so the
+// em dash is appended exactly when it applies.
+function SizeDial({ value, onChange, ariaLabel, width = 108 }) {
+  const options = TYPE_FACTORS.map((n) => [String(n), t('settings.type.size.factor', { n })])
+  if (!TYPE_FACTORS.includes(value)) options.unshift(['0', t('settings.type.size.mixed')])
+  return (
+    <Select
+      value={String(value)}
+      onChange={(v) => v !== '0' && onChange(Number(v))}
+      options={options}
+      ariaLabel={ariaLabel}
+      width={width}
+    />
+  )
+}
+
 // specimenSize — the token a role's specimen is drawn at. Mono is set smaller
 // because a label IS smaller; the two script rows borrow the reading face's dial,
 // since that is the size their glyphs are drawn at on a real screen.
@@ -618,6 +643,26 @@ function TypeSettings({ prefs, onSaved }) {
   const [warn, setWarn] = useState({})
 
   useEffect(() => { setRows(fontState()) }, [prefs])
+
+  // The four dials, read from the preferences the card was handed rather than held
+  // as state of their own: the global dial on the Appearance card writes the same
+  // four fields, and two copies of one number is how the two panels come to
+  // disagree about what the size is.
+  const factors = factorsFrom(prefs)
+
+  // Applied FIRST and asked after, exactly like save() below and for the same
+  // reason: the point of a size dial is watching the type move.
+  async function saveSize(patch) {
+    applyTypeScale({ ...(prefs || {}), ...patch })
+    const r = await json('PUT', '/auth/me/preferences', patch)
+    if (!r.ok) {
+      setErr(errText(r, t('error.save.generic')))
+      applyTypeScale(prefs || {})
+      return
+    }
+    setErr('')
+    onSaved?.(patch)
+  }
 
   async function reloadUploads() {
     const r = await json('GET', '/fonts')
@@ -702,6 +747,19 @@ function TypeSettings({ prefs, onSaved }) {
                     {t(row.chosen.name)}
                   </MonoLabel>
                 </div>
+                {/* THE SIZE DIAL SITS IN THE HEAD, not behind the disclosure, so
+                    the four of them read as a column you can compare down — and
+                    so the one control a reader is most likely to want is not two
+                    taps away. Only the four roles that OWN a size have one: a
+                    script's glyphs take the size of the element they are drawn in.
+                */}
+                {SIZE_ROLES.includes(row.key) && (
+                  <SizeDial
+                    value={factors[row.key]}
+                    ariaLabel={t('settings.type.size.aria', { name: t(row.label) })}
+                    onChange={(n) => saveSize({ [sizePrefKey(row.key)]: n })}
+                  />
+                )}
               </div>
               {/* The specimen, always visible: the row's own job, in the face
                   currently set, so the list reads as a page of type rather than
@@ -2969,6 +3027,17 @@ function Appearance({ prefs, onPreferences }) {
         </div>
         <SizeSlider label={t('settings.appearance.book-size.label')} storageKey="tippani:size:books" def={165} />
         <SizeSlider label={t('settings.appearance.film-size.label')} storageKey="tippani:size:movies" def={150} />
+        {/* THE GLOBAL TEXT SIZE, beside the two cover sliders because it is the
+            same kind of control — how big the thing you are looking at is — and
+            because "in appearance section itself" is where it was asked for.
+
+            IT RENORMALISES RATHER THAN MULTIPLYING (type.js): moving it writes
+            itself into all four kinds of text, so 150% means every kind is at
+            150%. Tune one in Type afterwards and this reads as an em dash, which
+            is the honest answer — there is no longer a single number that
+            describes the four. It is derived from them and never stored, so the
+            two panels cannot disagree about the size. */}
+        <TextSizeField prefs={prefs} onPreferences={onPreferences} />
         <LabelDensity />
         {/* THE LANGUAGE, AND IT STAYS OUT OF `persist` ABOVE for the reason that
             function documents: the Appearance panel re-sends every theme field on
@@ -3011,6 +3080,43 @@ function Appearance({ prefs, onPreferences }) {
         <TypeSettings prefs={prefs} onSaved={onPreferences} />
       </FormModal>
     </Card>
+  )
+}
+
+// TextSizeField — the global dial, in the shape of the fields around it.
+//
+// It writes the same four preference fields the Type panel's four dials write, so
+// there is exactly one place the size lives. Applied before the request, like every
+// other control on this card: a round trip between the tap and the type is long
+// enough to make a size control feel broken.
+function TextSizeField({ prefs, onPreferences }) {
+  const factors = factorsFrom(prefs)
+  const current = globalOf(factors)
+
+  async function set(n) {
+    const patch = renormalise(n)
+    applyTypeScale({ ...(prefs || {}), ...patch })
+    const r = await json('PUT', '/auth/me/preferences', patch)
+    if (!r.ok) {
+      applyTypeScale(prefs || {})
+      return
+    }
+    onPreferences?.(patch)
+  }
+
+  return (
+    <div>
+      <MonoLabel className="mb-1.5 flex items-center gap-1">
+        {t('settings.appearance.text-size.label')}
+        <InfoDot text={t('settings.appearance.text-size.info.body')} title={t('settings.appearance.text-size.label')} />
+      </MonoLabel>
+      <SizeDial
+        value={current}
+        ariaLabel={t('settings.appearance.text-size.label')}
+        onChange={set}
+        width={124}
+      />
+    </div>
   )
 }
 
