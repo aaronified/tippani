@@ -101,6 +101,30 @@ func normalizeFontStyles(raw string) (string, bool) {
 	return strings.Join(out, ","), true
 }
 
+// sizeFactors are the positions the text-size dials offer, as percentages of the
+// designed size. The same list as TYPE_FACTORS in type.js, and it has to be: the
+// client renders the arithmetic and the server refuses anything it cannot.
+//
+// 0 IS ACCEPTED AND IS NOT A POSITION. It means "not chosen" and renders at 100 —
+// the zero value of the struct, so a reader who has never touched a dial stores
+// nothing, and an upgrade that changed the designed sizes still reaches them.
+var sizeFactors = []int{0, 75, 100, 125, 150, 175, 200}
+
+func validSizeFactor(n int) bool {
+	for _, ok := range sizeFactors {
+		if n == ok {
+			return true
+		}
+	}
+	return false
+}
+
+// sizeFactorPtrs is the four dials in the same role order as fontFacePtrs, so the
+// two walks read alike.
+func sizeFactorPtrs(p *prefs) []*int {
+	return []*int{&p.SizeDisplay, &p.SizeUI, &p.SizeMono, &p.SizeHand}
+}
+
 // fontPrefPtrs is the twelve fields in role order, so the merge and the
 // validation walk one list instead of naming each field twice. The order matches
 // FONT_ROLES in fonts.js; nothing depends on it beyond readability, because each

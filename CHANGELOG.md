@@ -20,6 +20,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the four — it is worked out from them rather than stored beside them, so the two panels
   cannot disagree about what the size is.
 
+  **Fixed before it shipped:** the dials wrote four preference fields the server did not
+  have, so the setting applied instantly and was gone on the next load — a control that
+  appears to work and quietly forgets, which is worse than one that fails.
+
   **Whole pixels at every step.** Nothing lands on a half, so there is no size at which the
   hinting goes soft on one screen and not another. The scale has ten steps and no 10px step,
   because 10 and 11 would both round to 8 at 75% and two sizes the design distinguishes would

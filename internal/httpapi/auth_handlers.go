@@ -350,6 +350,18 @@ type prefs struct {
 	FontHandStyle       string `json:"fontHandStyle"`
 	FontBengaliStyle    string `json:"fontBengaliStyle"`
 	FontDevanagariStyle string `json:"fontDevanagariStyle"`
+	// The four size dials, as PERCENTAGES of the designed size: 75, 100, 125, 150,
+	// 175 or 200. One factor per role and nothing composes them — see type.js,
+	// "one multiplication, not two".
+	//
+	// 0 IS "NOT CHOSEN" and renders at 100, which is why the zero value of this
+	// struct is a correct set of preferences. Storing 100 for a reader who has
+	// never touched a dial would mean an upgrade that changed a designed size
+	// could never reach them.
+	SizeDisplay int `json:"sizeDisplay"`
+	SizeUI      int `json:"sizeUi"`
+	SizeMono    int `json:"sizeMono"`
+	SizeHand    int `json:"sizeHand"`
 	// Locale: which language the interface is in. The file name in data/Locales, or
 	// "en"/"bn" for a language that ships in the box; "" means the client decides,
 	// which is what a device that has never chosen stores.
@@ -758,6 +770,10 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 		FontMonoStyle       *string  `json:"fontMonoStyle"`
 		FontHandStyle       *string  `json:"fontHandStyle"`
 		FontBengaliStyle    *string  `json:"fontBengaliStyle"`
+		SizeDisplay         *int     `json:"sizeDisplay"`
+		SizeUI              *int     `json:"sizeUi"`
+		SizeMono            *int     `json:"sizeMono"`
+		SizeHand            *int     `json:"sizeHand"`
 		FontDevanagariStyle *string  `json:"fontDevanagariStyle"`
 		TrashDays           *int     `json:"trashDays"`
 		SRDaily             *int     `json:"srDaily"`
@@ -855,6 +871,22 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 			return
 		}
 		*curStyles[i] = v
+	}
+	// The four size dials. A CLOSED SET, unlike the face tokens above: a face is
+	// open by design (§4's reasoning — the server has no business knowing which
+	// typefaces exist), but a scaling factor is arithmetic the client and the
+	// server both have to agree about, and 137% is not a position the dial has.
+	//
+	// 0 is accepted and means "not chosen", which is how a reader clears one.
+	for i, want := range []*int{in.SizeDisplay, in.SizeUI, in.SizeMono, in.SizeHand} {
+		if want == nil {
+			continue
+		}
+		if !validSizeFactor(*want) {
+			writeErr(w, http.StatusBadRequest, "text size must be 75, 100, 125, 150, 175 or 200")
+			return
+		}
+		*sizeFactorPtrs(&cur)[i] = *want
 	}
 	// Empty is a real value here too: it is "I have not chosen", which is what a
 	// reader who wants the client's own default stores. REFUSED rather than
