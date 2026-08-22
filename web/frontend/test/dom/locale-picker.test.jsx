@@ -12,7 +12,7 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { LanguagePicker } from '../../src/locale.jsx'
-import { LOCALE_KEY, PSEUDO, applyLocale, coverage, localeActive, resetLocaleForTests, setLocaleFiles, t } from '../../src/i18n.js'
+import { LOCALE_KEY, PSEUDO, applyLocale, coverage, isInstalled, localeActive, localeCatalogue, resetLocaleForTests, setLocaleFiles, t } from '../../src/i18n.js'
 
 const file = (keys = {}, reserved = {}) => ({ keys, reserved, empty: [], bad: [] })
 
@@ -37,8 +37,9 @@ describe('the Settings row', () => {
     render(<LanguagePicker titleKey="settings.language.title" info />)
     const panel = await open(user)
     const rows = within(panel).getAllByRole('option')
-    // The two built-ins, the operator's file, and the pseudo-locale.
-    expect(rows).toHaveLength(4)
+    // The two built-ins and the operator's file. NOT the pseudo-locale, which is
+    // applicable but no longer offered — see the last describe in this file.
+    expect(rows).toHaveLength(3)
     // COVERAGE ON EVERY ROW, design §7 — including the two that ship in the box,
     // which is the whole point of showing it. No language is second-class, so none
     // of them gets to omit the number.
@@ -117,21 +118,38 @@ describe('a stored language that is no longer installed', () => {
   })
 })
 
-describe('the pseudo-locale is reachable from the picker', () => {
-  test('because a transform nobody can select finds no unwrapped literal', async () => {
+// THIS USED TO ASSERT THE OPPOSITE, and the change is a product decision rather
+// than a correction. The pseudo-locale was the third row of every reader's
+// language menu, labelled in its own transform — ⟦Pšëüðö··⟧ · 100% — which reads
+// as a broken build and not as a tool. The app ships two languages; further ones
+// arrive as config files when they arrive. So it is applicable but not offered.
+//
+// It is emphatically NOT gone: it is what screens-i18n.test.jsx drives over every
+// screen, and it is how the three tables that held a key and drew it raw were
+// found. Both halves are pinned below, because either one silently flipping is a
+// different bug — a diagnostic in a reader's menu, or a diagnostic that no longer
+// works.
+describe('the pseudo-locale is applicable but not offered', () => {
+  test('the picker lists the shipped languages and not the transform', async () => {
     const user = userEvent.setup()
     render(<LanguagePicker titleKey="settings.language.title" />)
     const panel = await open(user)
     const rows = within(panel).getAllByRole('option')
-    // Last, and labelled as itself in its own transformed alphabet — a reader who
-    // opens the list can see at a glance that it is not a language.
-    expect(rows[rows.length - 1].textContent).toContain('⟦')
-    await user.click(rows[rows.length - 1])
+    expect(rows.length, 'expected the two built-ins and nothing else').toBe(2)
+    for (const row of rows) {
+      expect(row.textContent, 'the transform is in the reader’s menu').not.toContain('⟦')
+    }
+    expect(localeCatalogue().some((l) => l.code === PSEUDO)).toBe(false)
+  })
+
+  test('and still applies when asked for by code, or it audits nothing', () => {
+    // The door a translator uses, and the one the suite uses: the code itself.
+    applyLocale(PSEUDO)
     expect(localeActive()).toBe(PSEUDO)
-    // Every keyed string on screen is now bracketed. An English literal still in
-    // the JSX would be the only plain text left, which is the point.
-    // getAll, not get: EVERY keyed string is bracketed now, which is why a single
-    // match would be the failure rather than the pass.
-    expect(screen.getAllByText(/^⟦/).length).toBeGreaterThan(0)
+    expect(isInstalled(PSEUDO), 'applicable, even though unlisted').toBe(true)
+    // Every keyed string it returns is bracketed. An English literal still in the
+    // JSX would be the only plain text left, which is the whole point.
+    expect(t('settings.language.title').startsWith('⟦')).toBe(true)
+    applyLocale('en')
   })
 })

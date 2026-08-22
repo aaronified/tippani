@@ -524,14 +524,33 @@ export function localeDir(code) {
 // order, then whatever the operator added, alphabetically, then the pseudo-locale
 // last. Deterministic on purpose — a list that reorders itself between boots is a
 // control that moves under a finger.
+// localeCatalogue is what the two pickers render. It is NOT installedLocales():
+// the pseudo-locale is applicable but not offered.
+//
+// WHY THEY DIVERGED. §9's pseudo-locale is a translator's instrument — it accents
+// and brackets every string that came through the resolver, so an English literal
+// still sitting in the JSX is the only plain text on the screen. It earned its
+// keep: it is what test/dom/screens-i18n.test.jsx drives, and it is how the three
+// tables that held a key and drew it raw were found. But it was also the third
+// row of every reader's language menu, under a name written in its own transform
+// — ⟦Pšëüðö··⟧ — which reads as a bug in the build rather than as a tool, and the
+// app ships two languages, not two and a diagnostic.
+//
+// So it stays a language in every other sense: isInstalled accepts it,
+// applyLocale applies it, buildChain and coverage treat it like any other code.
+// It is simply not listed. A translator reaches it by storing the code directly —
+// localStorage['tippani:locale'] = 'qps' — which is the same door applyLocale
+// reads at boot, and the suite reaches it by calling applyLocale(PSEUDO).
 export function localeCatalogue() {
-  return installedLocales().map((code) => ({
-    code,
-    name: localeName(code),
-    dir: localeDir(code),
-    percent: coverage(code),
-    builtin: BUILTIN_CODES.includes(code),
-  }))
+  return installedLocales()
+    .filter((code) => code !== PSEUDO)
+    .map((code) => ({
+      code,
+      name: localeName(code),
+      dir: localeDir(code),
+      percent: coverage(code),
+      builtin: BUILTIN_CODES.includes(code),
+    }))
 }
 
 // localePref is what the reader STORED and localeActive is what is RENDERING, and
