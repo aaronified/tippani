@@ -41,10 +41,16 @@ export const BN = parseLocale(readFileSync(BN_PATH, 'utf8'))
 // about the English. A copy budget is one of those: a translation that runs 30%
 // longer than the English overflows the same box, so the cap applies to it too.
 //
-// MEASURED OVER WHAT EACH FILE HAS, never over what it lacks. Design §7 forbids a
-// test that fails because a language is incomplete — the picker shows coverage
-// instead — so an absent key is skipped rather than counted, and bn.txt costs
-// nothing today and starts being held to the budget the day it carries a line.
+// A BUDGET IS MEASURED OVER WHAT EACH FILE HAS, never over what it lacks — an
+// absent key is skipped rather than counted as zero characters. This paragraph
+// used to give design §7 as the reason and stop there, which read as "no test may
+// ever require a language to be complete". §7 is about the NUMBER the picker
+// shows, and about a config language, whose half-finished state is the supported
+// normal. It says nothing about the two files inside the binary, and those are
+// now held to every token by token-coverage.test.js — the standing rule is that a
+// feature ships its English and its Bengali together. The distinction matters
+// here: a budget cannot enforce completeness anyway, because a key a file lacks
+// has no length to measure.
 export const BUILTINS = [
   ['en', EN],
   ['bn', BN],

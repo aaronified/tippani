@@ -311,6 +311,8 @@ The shared modules do:
 | `web/frontend/test/setup-pure.js` | One shim: `window.matchMedia`, because `theme.js` calls it at module scope. |
 | `web/frontend/test/setup-dom.js` | Everything jsdom lacks or answers uselessly, and the per-test reset. |
 | `web/frontend/test/locale-file.js` | Reads `internal/i18n/*.txt` through the app's own parser, so the copy budgets (`help-budget`, `infodot-copy`) measure the shipped strings instead of source literals. |
+| `web/frontend/test/token-scan.js` | Scans `src/` for every locale key the tree reaches — literal `t()` arguments, keys held in tables, keys built from a stem. Shared by `locale-complete` (code ↔ English) and `token-coverage` (token set × every language), because two extractions over one tree drift silently. |
+| `web/frontend/test/screens.js` | The list of screens `App` can route to, shared by the mount smoke test and the pseudo-locale gate. |
 
 ### `scripts/` — plain Node, no dependencies
 

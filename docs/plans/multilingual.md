@@ -98,6 +98,30 @@ tests rather than in this file, which is the only way they stay true:
   preference is open (§4)".
 - **Coverage** — `locale-resolve.test.js`, "coverage (§7)", and the number is asserted rather
   than displayed on trust.
+- **Every token, in every language in the box** — `token-coverage.test.js`. This is the
+  standing rule as a build failure: a feature ships its tokens, and the tokens ship their
+  English *and* their Bengali, in the same commit. Nothing enforced that until now — a key
+  added to `en.txt` and forgotten in `bn.txt` cost nothing at all. The suite stayed green,
+  and the only symptom was an English sentence in the middle of a Bengali screen, which the
+  reader who chose Bengali is the least able to report.
+
+  **The two kinds of language are held to different standards, and the difference is not a
+  compromise.** A compiled-in language is part of the product: nobody chose to install
+  `bn.txt` and nobody but us can fix it, so it must carry every token. A file in
+  `data/Locales` is somebody else's work in progress, and §7 is explicit that a
+  half-finished one is the supported normal — so nothing is demanded of it. What is asserted
+  is that the *number* it gets is honest, which is what §7 actually cares about: coverage
+  divides by `fullKeys()`, so one dead string in a shipped file silently caps every
+  translator in the world below 100%.
+
+  **Plurals are the one place a language may hold fewer strings**, and the test asks
+  `Intl.PluralRules` which forms that language can select rather than listing them —
+  Japanese selects only `other`, Polish four. It also refuses the opposite: a `.few` in a
+  file whose language has no `few` is dead copy the completeness check would excuse forever.
+
+  The scan itself moved to `test/token-scan.js` when this test needed the same answer
+  `locale-complete.test.js` was already computing; two extractions over one tree is how the
+  two come to disagree about which keys are reachable.
 
 ### 3. Known gaps, recorded rather than discovered later
 
