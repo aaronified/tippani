@@ -28,6 +28,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **The rubber texture no longer has a seam in it.** Every accent-filled control on the film
+  skin — primary buttons, the ＋ Add pill, the user chip, toggle thumbs, active filter chips —
+  wears a rubber grain, and its tile did not quite meet itself: the joining edge was about
+  twice as strong a step as any other, so a faint line repeated every 130 pixels across all of
+  them. The replacement tile meets itself to within a rounding error. It is also flatter, so
+  the grain reads more quietly than it did; that is the direction the whole texture set is
+  moving in.
+
 - **Language marks moved to Metadata sources.** It was a pop-up off Appearance; it is a
   pop-up off the Metadata card now, under the credit separators. Where a mark is *drawn* is
   a matter of appearance, which is what put it there — but what it *says* is a fact about the

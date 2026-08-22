@@ -296,7 +296,7 @@ The shared modules do:
 | `secret.js` | Password and passphrase rules, plus the backup header layout — **parsed by fixed byte offset against a Go-defined struct**, so the two must change together. |
 | `greetings.js` | The date line and greeting on Home, from the device's own clock and zone. |
 | `index.css` | The whole stylesheet: tokens, the paper/film material system, every component recipe the JSX names by class, and the mobile layout. |
-| `textures/` | Six grayscale WebP tiles (paper, wood, metal, glass, fabric, rubber). |
+| `textures/` | Six grayscale WebP tiles that are live (paper, wood, metal, glass, fabric, rubber), plus ten PNG tiles that are not: a pack landed ahead of the UI overhaul, referenced by nothing and therefore bundled into nothing. `textures/README.md` says which is which, what the `sd` figure beside each tile is for, and why `rubber.webp` is now a different image under the same name. |
 | `demo/install.js` | **The demo shim.** Replaces `window.fetch` with a router over in-memory fixtures so the Pages build runs with no backend. It must mirror real handler response shapes; when it drifts, the demo renders nonsense rather than failing. |
 
 ### The test tree
