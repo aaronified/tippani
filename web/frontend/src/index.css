@@ -545,6 +545,39 @@
   html[data-theme="dark"] .tp-select-thumb {
     background: linear-gradient(180deg, color-mix(in oklab, var(--accent-dark), white 12%), var(--accent-dark));
   }
+  /* The filter box a typeable Select grows at the top of its panel, and the line
+     it shows when nothing matches. Both sit ABOVE the drag thumb in z-order (the
+     thumb is z-index 0 in this stack) so the caret is never painted over. */
+  .tp-select-filter {
+    position: relative;
+    z-index: 2;
+    display: block;
+    width: 100%;
+    margin-bottom: 4px;
+    padding: 7px 12px;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: var(--field);
+    color: var(--ink);
+    font-family: var(--font-ui);
+    font-style: var(--font-ui-style);
+    font-size: var(--type-ui-13);
+  }
+  .tp-select-filter:focus-visible {
+    outline: none;
+    border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+  }
+  .tp-select-empty {
+    position: relative;
+    z-index: 1;
+    display: block;
+    padding: 8px 12px;
+    font-family: var(--font-ui);
+    font-style: var(--font-ui-style);
+    font-size: var(--type-ui-13);
+    color: var(--faint);
+  }
+
   .tp-select-opt {
     position: relative;
     z-index: 1;

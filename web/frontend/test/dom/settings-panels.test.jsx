@@ -232,11 +232,56 @@ describe('the Type panel', () => {
     expect(within(dialog()).queryByText(/monospace/i)).toBeNull()
   })
 
-  it('still sets a face', async () => {
-    // The paragraph went; the control it sat under must not have gone with it.
+  it('still sets a face, through the dropdown that replaced the chips', async () => {
+    // THE CONTROL CHANGED SHAPE AND THIS CASE DID NOT NOTICE. It used to click the
+    // first unpressed .tp-filter-chip in the dialog, which was a typeface; the
+    // typefaces are a typeable dropdown now and the first chip it found was a
+    // STYLE. It passed, and it was testing something else — so it drives the real
+    // control by name.
     await openRole('Labels')
-    const chips = within(dialog()).getAllByRole('button', { pressed: false })
-    fireEvent.click(chips.find((c) => c.className.includes('tp-filter-chip')))
+    fireEvent.click(within(dialog()).getByRole('button', { name: /Typeface for Labels/i }))
+    // The panel portals to <body>, so it is NOT inside the dialog element.
+    const opts = screen.getAllByRole('option')
+    expect(opts.length, 'the dropdown offers no typefaces').toBeGreaterThan(1)
+    fireEvent.click(opts[1])
     await waitFor(() => expect(PUTS.some(([p]) => p === '/auth/me/preferences')).toBe(true))
+  })
+
+  it('narrows the list as you type, and Enter takes what is left', async () => {
+    // The reason it is typeable at all: three bundled faces per role plus every
+    // font you have ever uploaded is a list you cannot read your way down.
+    await openRole('Labels')
+    fireEvent.click(within(dialog()).getByRole('button', { name: /Typeface for Labels/i }))
+    const all = screen.getAllByRole('option').length
+    const box = screen.getByPlaceholderText(/Type a typeface name/i)
+    fireEvent.change(box, { target: { value: 'jet' } }) // JetBrains Mono
+    const narrowed = screen.getAllByRole('option')
+    expect(narrowed.length).toBeLessThan(all)
+    expect(narrowed.length).toBe(1)
+    // Matched on the words on screen, not on the value token behind them.
+    fireEvent.keyDown(document, { key: 'Enter' })
+    await waitFor(() => {
+      const put = PUTS.filter(([p]) => p === '/auth/me/preferences').at(-1)
+      expect(put[1].fontMono).toBe('jetbrains-mono')
+    })
+  })
+
+  it('says so rather than emptying when nothing matches', async () => {
+    await openRole('Labels')
+    fireEvent.click(within(dialog()).getByRole('button', { name: /Typeface for Labels/i }))
+    const box = screen.getByPlaceholderText(/Type a typeface name/i)
+    fireEvent.change(box, { target: { value: 'zzzz' } })
+    expect(screen.queryAllByRole('option')).toHaveLength(0)
+    expect(screen.getByText(/nothing matches/i)).toBeTruthy()
+  })
+
+  it('offers Upload as its own control rather than as a fourth typeface', async () => {
+    // It was a chip in the row of faces, which reads as a face. It is not a face;
+    // it is a way of getting one.
+    await openRole('Labels')
+    const up = within(dialog()).getByText(/Upload$/i).closest('label')
+    expect(up, 'no Upload control').toBeTruthy()
+    expect(up.className, 'Upload is still styled as a typeface chip').not.toContain('tp-filter-chip')
+    expect(up.querySelector('input[type="file"]'), 'Upload takes no file').toBeTruthy()
   })
 })

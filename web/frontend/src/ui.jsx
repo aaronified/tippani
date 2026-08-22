@@ -2058,14 +2058,38 @@ export function Select({
   // holds its shape with nothing picked, and a live "move to…" over an empty
   // selection is a control that can only fail.
   disabled = false,
+  // TYPEABLE. The panel grows a filter box and the list narrows as you type.
+  //
+  // A PROP ON THIS RATHER THAN A SECOND COMPONENT. A combobox is a dropdown that
+  // can be typed into, and everything else about it is this one — the anchored
+  // panel, the drag-to-pick thumb, the arrow keys, the dismiss rules, the ARIA.
+  // Writing it again beside this would be two dropdowns to keep in step, which is
+  // the shape this repository keeps having to pull back apart. Off by default, so
+  // the two dozen Selects that are three options long stay exactly as they were.
+  filter = false,
+  filterPlaceholder,
 }) {
   const [open, setOpen] = useState(false);
   const [hi, setHi] = useState(0); // highlighted row (hover / keyboard)
+  const [query, setQuery] = useState("");
   const ref = useRef(null);
   const panelRef = useRef(null);
   const thumbRef = useRef(null);
   const idx = options.findIndex(([v]) => v === value);
   const label = idx >= 0 ? options[idx][1] : placeholder || t("common.field.select.placeholder");
+  // `shown` is what the PANEL is: the options after filtering. Everything below
+  // indexes into it — the highlight, the arrow keys, the drag maths, the rows —
+  // while the trigger's label above still comes from the full list, because the
+  // value that is set does not stop being set by being typed past.
+  //
+  // Matched case-insensitively, and on the WORDS the reader can see — not on the
+  // value tokens behind them. A third element in an option carries that text for
+  // the case a label is a node rather than a string: the face picker draws every
+  // option in its own typeface, so its labels are elements and String() on one
+  // would match the whole list against "[object Object]".
+  const q = filter ? query.trim().toLowerCase() : "";
+  const searchText = ([, lbl, text]) => String(text ?? (typeof lbl === "string" ? lbl : "")).toLowerCase();
+  const shown = q ? options.filter((o) => searchText(o).includes(q)) : options;
   // The textured thumb is grab-and-slide here exactly as it is in Toggle, only
   // down the panel instead of along the row. Live drag state sits in a ref so a
   // move never re-renders, and the listener identities ride on the record so a
@@ -2126,7 +2150,7 @@ export function Select({
     setTimeout(() => {
       suppressClick.current = false; // never leave it stuck
     }, 0);
-    const opt = options[d.hover];
+    const opt = shown[d.hover];
     if (opt) {
       onChange(opt[0]);
       setOpen(false);
@@ -2189,11 +2213,23 @@ export function Select({
     thumb.style.height = `${el.offsetHeight}px`;
     thumb.style.transform = `translateY(${el.offsetTop}px)`;
     thumb.style.opacity = "1";
-  }, [open, hi, options.length]);
+  }, [open, hi, shown.length]);
   // matchWidth 'min': the panel is at least as wide as the trigger and may grow
   // past it for a long option — which is what `min-width: 100%` meant before,
   // and which stops meaning anything once the panel is portalled and 100% is a
   // percentage of <body>.
+  //
+  // A closed panel keeps no query. Re-opening it to find the last search still in
+  // the box, and the list still narrowed to it, is the panel remembering something
+  // the reader has no reason to expect it to.
+  useEffect(() => {
+    if (!open) setQuery("");
+  }, [open]);
+  // And the highlight follows the filter rather than pointing past the end of it:
+  // type until one option is left and Enter must take that one.
+  useEffect(() => {
+    setHi((h) => (h < shown.length ? h : 0));
+  }, [shown.length]);
   const { popRef, style } = useAnchoredPosition(open, ref, { matchWidth: "min", minHeight: 140 });
   useDismiss(open, () => setOpen(false), [ref, popRef]);
   useEffect(() => {
@@ -2202,19 +2238,19 @@ export function Select({
       if (e.key === "Escape") return setOpen(false);
       if (e.key === "ArrowDown") {
         e.preventDefault();
-        setHi((h) => Math.min(options.length - 1, h + 1));
+        setHi((h) => Math.min(shown.length - 1, h + 1));
       } else if (e.key === "ArrowUp") {
         e.preventDefault();
         setHi((h) => Math.max(0, h - 1));
-      } else if (e.key === "Enter" && options[hi]) {
+      } else if (e.key === "Enter" && shown[hi]) {
         e.preventDefault();
-        onChange(options[hi][0]);
+        onChange(shown[hi][0]);
         setOpen(false);
       }
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [open, hi, options, onChange]);
+  }, [open, hi, shown, onChange]);
   return (
     <div
       className={`tp-select ${className}`}
@@ -2270,7 +2306,32 @@ export function Select({
           style={style}
         >
           <span className="tp-select-thumb" ref={thumbRef} aria-hidden="true" />
-          {options.map(([v, lbl], i) => (
+          {filter && (
+            /* INSIDE the panel rather than replacing the trigger, which is the
+               other way to build a combobox and the wrong one here: the trigger
+               has to keep SAYING what is set, and an input pre-filled with the
+               current value invites you to edit a name that is not editable. So
+               the panel opens with an empty box that narrows the list, and the
+               answer to "what is set now" stays on screen behind it.
+
+               autoFocus, because the panel was opened in order to pick something.
+               onPointerDown is stopped so the panel's drag-to-pick handler does
+               not read a click in the box as a grab of the thumb. */
+            <input
+              className="tp-select-filter"
+              type="text"
+              autoFocus
+              value={query}
+              placeholder={filterPlaceholder || t("common.field.filter.placeholder")}
+              aria-label={filterPlaceholder || t("common.field.filter.placeholder")}
+              onChange={(e) => setQuery(e.target.value)}
+              onPointerDown={(e) => e.stopPropagation()}
+            />
+          )}
+          {filter && shown.length === 0 && (
+            <span className="tp-select-empty">{t("common.field.filter.none")}</span>
+          )}
+          {shown.map(([v, lbl], i) => (
             <button
               key={v}
               type="button"

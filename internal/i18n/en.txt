@@ -437,6 +437,10 @@ common.clamp.text.more.tip = Show the full text
 # --- shared field chrome.
 common.field.token.placeholder = add…
 common.field.select.placeholder = Select…
+# A typeable Select: the box at the top of the panel, and the line it shows
+# when the typing matches nothing.
+common.field.filter.placeholder = Type to narrow
+common.field.filter.none = nothing matches
 # What a row with nothing in it says, in the inline editors on a work's page.
 common.field.inline.placeholder = not set
 common.field.colour.label = Colour
@@ -1121,6 +1125,8 @@ settings.type.open.tip = Every face the app uses
 settings.type.intro.prose = Every face the app uses, each shown doing its own job. Two alternates apiece, all bundled with the app and free to use — nothing here is fetched from anywhere.
 settings.type.style.title = style
 settings.type.upload.label = ＋ Upload
+settings.type.face.aria = Typeface for {name}
+settings.type.face.filter.placeholder = Type a typeface name
 settings.type.font.remove.tip = Remove this font
 settings.type.font.remove.confirm = Remove {name}? Any role using it goes back to its built-in.
 # Shown when an uploaded face measures as though it does not draw the script the

@@ -624,6 +624,24 @@ function SizeDial({ value, onChange, ariaLabel, width = 108 }) {
   )
 }
 
+// faceOptions — one role's whole list, each option drawn in the face it names.
+//
+// Select takes [value, label] pairs and a label may be a node, which is what lets
+// the specimen BE the option: a list of type names set in one typeface answers no
+// question anybody has.
+const faceOptions = (row, uploads) => [
+  ...row.faces.map((f) => [
+    f.id,
+    <span key={f.id} style={{ fontFamily: `'${f.family}'` }}>{t(f.name)}</span>,
+    t(f.name), // what typing searches, since the label itself is an element
+  ]),
+  ...uploads.map((f) => [
+    f.token,
+    <span key={f.token} style={{ fontFamily: `'${f.family}'` }}>{f.name}</span>,
+    f.name,
+  ]),
+]
+
 // specimenSize — the token a role's specimen is drawn at. Mono is set smaller
 // because a label IS smaller; the two script rows borrow the reading face's dial,
 // since that is the size their glyphs are drawn at on a real screen.
@@ -789,45 +807,40 @@ function TypeSettings({ prefs, onSaved }) {
               {open && (
                 <div className="space-y-2 pb-2">
                   <p className="microcopy">{t(row.what)}</p>
+                  {/* THE FACE PICKER IS A TYPEABLE DROPDOWN, and it stopped
+                      being a row of chips for a reason that arrives with use: it
+                      was three bundled faces per role, and it is three plus
+                      everything you have ever uploaded. A chip row grows sideways
+                      until it wraps to three lines under a heading that already
+                      has a specimen above it, and there is no way to find a name
+                      in it but to read all of them.
+
+                      EVERY OPTION IS DRAWN IN ITS OWN FACE. That is the only
+                      question the list is asked — a name set in the interface font
+                      tells you nothing about what you are choosing.
+
+                      AND YOUR OWN FACES ARE OFFERED ON EVERY ROLE, because only
+                      you know what you uploaded one for. The script check below is
+                      what tells you whether it suits the role you picked. */}
                   <div className="flex flex-wrap items-center gap-2">
-                    {row.faces.map((f) => (
-                      <button
-                        key={f.id}
-                        type="button"
-                        aria-pressed={row.chosen.id === f.id}
-                        className={'tp-filter-chip tactile' + (row.chosen.id === f.id ? ' active' : '')}
-                        title={t(f.note)}
-                        onClick={() => save({ [prefKey(row.key)]: f.id })}
-                        style={{ fontFamily: `'${f.family}'` }}
-                      >
-                        {t(f.name)}
-                      </button>
-                    ))}
-                    {/* YOUR OWN FACES ARE OFFERED ON EVERY ROLE, because only you
-                        know what you uploaded one for. The script check below is
-                        what tells you whether it suits the role you picked. */}
-                    {mine.map((f) => (
-                      <span key={f.id} className="inline-flex items-center gap-1">
-                        <button
-                          type="button"
-                          aria-pressed={row.chosen.id === f.token}
-                          className={'tp-filter-chip tactile' + (row.chosen.id === f.token ? ' active' : '')}
-                          onClick={() => { save({ [prefKey(row.key)]: f.token }); checkScript(row.key) }}
-                          style={{ fontFamily: `'${f.family}'` }}
-                        >
-                          {f.name}
-                        </button>
-                        <FieldIconButton
-                          icon={<IconDelete />}
-                          ariaLabel={t('common.action.remove.aria', { name: f.name })}
-                          onClick={() => removeFont(f)}
-                          tooltip={t('settings.type.font.remove.tip')}
-                          danger
-                        />
-                      </span>
-                    ))}
-                    <label className="tp-filter-chip tactile" style={{ cursor: 'pointer' }}>
-                      {busy ? t('common.action.upload.busy') : t('settings.type.upload.label')}
+                    <Select
+                      filter
+                      width={228}
+                      value={row.chosen.id}
+                      ariaLabel={t('settings.type.face.aria', { name: t(row.label) })}
+                      filterPlaceholder={t('settings.type.face.filter.placeholder')}
+                      onChange={(id) => {
+                        save({ [prefKey(row.key)]: id })
+                        if (String(id).startsWith('upload:')) checkScript(row.key)
+                      }}
+                      options={faceOptions(row, mine)}
+                    />
+                    {/* UPLOAD IS ITS OWN BUTTON. It was a fourth chip beside three
+                        typefaces, which reads as a fourth typeface — and it is not
+                        a face, it is a way of getting one. */}
+                    <label className="tp-btn tp-btn-ghost tactile" style={{ cursor: 'pointer' }}>
+                      <IconUpload />
+                      <span>{busy ? t('common.action.upload.busy') : t('settings.type.upload.label')}</span>
                       <input
                         type="file"
                         accept=".woff2,.woff,.otf,.ttf,font/woff2,font/woff,font/otf,font/ttf"
@@ -837,6 +850,25 @@ function TypeSettings({ prefs, onSaved }) {
                       />
                     </label>
                   </div>
+                  {/* Removing an uploaded face is managing YOUR FONTS, not picking
+                      this role's — so it is listed once, here, rather than as a bin
+                      beside the same face in all six rows. */}
+                  {mine.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      {mine.map((f) => (
+                        <span key={f.id} className="inline-flex items-center gap-1">
+                          <MonoLabel style={{ color: 'var(--faint)' }}>{f.name}</MonoLabel>
+                          <FieldIconButton
+                            icon={<IconDelete />}
+                            ariaLabel={t('common.action.remove.aria', { name: f.name })}
+                            onClick={() => removeFont(f)}
+                            tooltip={t('settings.type.font.remove.tip')}
+                            danger
+                          />
+                        </span>
+                      ))}
+                    </div>
+                  )}
                   {/* THE SCRIPT CHECK. Replace the Bengali face with something
                       that has no Bengali in it and every Bengali quote turns into
                       boxes, silently, with nothing on this screen to say why.

@@ -32,6 +32,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   **The Type panel's specimens follow their own dial**, so turning Labels up grows the label
   specimen while the rest hold still.
 
+- **The typeface picker is a dropdown you can type into.** It was a row of chips: three
+  bundled faces per row, plus every font you have ever uploaded, wrapping onto three lines
+  under a heading that already has a specimen above it — and no way to find a name in it but
+  to read all of them. Type a few letters and the list narrows. Every option is still drawn
+  in the face it names, which is the only question the list is asked.
+
+  **Upload is its own button now**, beside the dropdown rather than inside it as a fourth
+  chip among three typefaces. It is not a typeface; it is a way of getting one. And removing
+  a font you uploaded is listed once, where the fonts are, instead of as a bin beside the
+  same face in all six rows.
+
 ## [2.1.3] - 2026-08-22
 
 ### Added
