@@ -890,7 +890,16 @@ export function WorkCard({ kind, item, index = 0, onOpen, people = {}, seps, sel
     // full of controls that appear to do nothing.
     fillGaps: onChanged ? () => ops.fillGaps() : undefined,
     setReview: onChanged
-      ? (_, wasExcluded) => ops.post({ review: wasExcluded }, wasExcluded ? 'back in the quiz' : 'skipping one')
+      ? (_, wasExcluded) =>
+          ops.post(
+            { review: wasExcluded },
+            // The bar's own two, at n = 1. Spelled in English here until now, which
+            // is a class of miss the pseudo-locale gate cannot catch: a toast is
+            // not on screen when a screen mounts.
+            wasExcluded
+              ? t('common.selection.toast.back-in-quiz')
+              : t('common.selection.toast.skipping', { n: 1, count: 1 }),
+          )
       : undefined,
     excluded: !!item.review_excluded,
     edit: onEdit ? () => onEdit(item.id) : undefined,
