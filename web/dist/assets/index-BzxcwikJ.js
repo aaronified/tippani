@@ -94,7 +94,7 @@ _name = English
 settings.language.title = Language
 # The information dot beside that row.
 settings.language.info.title = Language
-settings.language.info.body = English and Bengali ship with tippani. Any other language is a file: drop data/Locales/fr.txt in and it appears here, with no rebuild. The percentage is how much of the app it covers; the rest falls back.
+settings.language.info.body = English and Bengali ship with tippani. Any other is a file: copy data/Locales/_TEMPLATE.txt — the app puts it there — to fr.txt and fill it in. It appears here with no rebuild, at whatever percentage it covers.
 # Shown under the picker when the stored language names a file that is no longer
 # on disk. {code} is what was stored, {name} is the language showing instead.
 settings.language.missing = {code} is not installed — showing {name}.
@@ -5793,7 +5793,7 @@ _name = বাংলা
 settings.language.title = ভাষা
 # The information dot beside that row.
 settings.language.info.title = ভাষা
-settings.language.info.body = টিপ্পনীর সঙ্গেই ইংরেজি আর বাংলা আসে। বাকি যে কোনও ভাষা একটা ফাইল — data/Locales/fr.txt রেখে দিলেই এখানে দেখা যায়, নতুন বিল্ড লাগে না। শতাংশটা বলে অ্যাপের কতটা ঢাকা পড়েছে; বাকিটা অন্য ভাষায় দেখাবে।
+settings.language.info.body = টিপ্পনীর সঙ্গেই ইংরেজি আর বাংলা আসে। বাকি যে কোনও ভাষা একটা ফাইল — data/Locales/_TEMPLATE.txt অ্যাপ নিজেই রাখে, ওটা fr.txt নামে কপি করে ভরে ফেলুন। নতুন বিল্ড ছাড়াই এখানে দেখা যাবে, যতটা ঢাকা পড়েছে সেই শতাংশ নিয়ে।
 # Shown under the picker when the stored language names a file that is no longer
 # on disk. {code} is what was stored, {name} is the language showing instead.
 settings.language.missing = {code} নেই — {name} দেখানো হচ্ছে।

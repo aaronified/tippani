@@ -874,7 +874,7 @@ Not a style preference — each of these breaks something.
 
 1. Copy `en.txt`'s structure into `bn.txt`: **same key order, same section banners, same
    context comments**, as the README asks — so the two files read side by side.
-   `node scripts/locale-template.mjs` prints every key with the English as a comment, which
+   The `_TEMPLATE.txt` the app writes into `data/Locales/` lists every key with the English as a comment, which
    is the mechanical way to see what is still missing.
 2. Fill values. **An empty value counts as absent**, so a key you have not reached costs you
    nothing but coverage — the picker reports the real percentage and no test fails for

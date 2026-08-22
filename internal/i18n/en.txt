@@ -46,7 +46,7 @@ _name = English
 settings.language.title = Language
 # The information dot beside that row.
 settings.language.info.title = Language
-settings.language.info.body = English and Bengali ship with tippani. Any other language is a file: drop data/Locales/fr.txt in and it appears here, with no rebuild. The percentage is how much of the app it covers; the rest falls back.
+settings.language.info.body = English and Bengali ship with tippani. Any other is a file: copy data/Locales/_TEMPLATE.txt — the app puts it there — to fr.txt and fill it in. It appears here with no rebuild, at whatever percentage it covers.
 # Shown under the picker when the stored language names a file that is no longer
 # on disk. {code} is what was stored, {name} is the language showing instead.
 settings.language.missing = {code} is not installed — showing {name}.

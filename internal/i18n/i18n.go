@@ -169,8 +169,13 @@ func Parse(src string) File {
 
 const (
 	// DirName is the sub-directory of the data dir a language file goes in.
-	// Nothing creates it: design §3 requires an absent one to be survivable, so
-	// an operator who never adds a language never has the directory.
+	//
+	// THE APP CREATES IT AT BOOT and puts the translation template in it — see
+	// template.go, which also records why that overrules the sentence this
+	// comment used to carry ("nothing creates it"). An ABSENT one is still
+	// survivable, which is what design §3 actually requires and what Files()
+	// below still does: a reader who deletes the directory loses the template and
+	// nothing else.
 	DirName = "Locales"
 	// Ext is the only extension read. .txt and not .md, because the Docker build
 	// context excludes *.md and a locale asset named .md would compile locally
@@ -178,9 +183,20 @@ const (
 	Ext = ".txt"
 	// maxBytes bounds one file. This directory is served to an unauthenticated
 	// caller (the login screen has to be readable), so its size is somebody
-	// else's decision and needs a ceiling. Half a megabyte is about twelve times
-	// the size of a complete language.
-	maxBytes = 512 << 10
+	// else's decision and needs a ceiling.
+	//
+	// FOUR MEGABYTES, AND THE OLD NUMBER WAS ALREADY WRONG. This said half a
+	// megabyte, "about twelve times the size of a complete language", and that was
+	// true the day it was written and false by the time the migration finished:
+	// bn.txt is 493 KB, so a complete language was within 4% of a cap meant to be
+	// twelve times its size, and an operator overriding Bengali would have watched
+	// their file be silently skipped. The template the app now writes is 652 KB —
+	// three comment lines per key, which is the translator's whole context — so it
+	// was over the cap outright, and a filled-in copy is larger again.
+	//
+	// The ceiling costs less than it looks: what reaches the wire is the PARSED
+	// table, so a megabyte of comments is a megabyte read once and never served.
+	maxBytes = 4 << 20
 	// maxFiles bounds how many are read. Same reasoning; the count is not the
 	// interesting attack but an unbounded loop over a directory is a bad shape.
 	maxFiles = 64

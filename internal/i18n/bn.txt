@@ -45,7 +45,7 @@ _name = বাংলা
 settings.language.title = ভাষা
 # The information dot beside that row.
 settings.language.info.title = ভাষা
-settings.language.info.body = টিপ্পনীর সঙ্গেই ইংরেজি আর বাংলা আসে। বাকি যে কোনও ভাষা একটা ফাইল — data/Locales/fr.txt রেখে দিলেই এখানে দেখা যায়, নতুন বিল্ড লাগে না। শতাংশটা বলে অ্যাপের কতটা ঢাকা পড়েছে; বাকিটা অন্য ভাষায় দেখাবে।
+settings.language.info.body = টিপ্পনীর সঙ্গেই ইংরেজি আর বাংলা আসে। বাকি যে কোনও ভাষা একটা ফাইল — data/Locales/_TEMPLATE.txt অ্যাপ নিজেই রাখে, ওটা fr.txt নামে কপি করে ভরে ফেলুন। নতুন বিল্ড ছাড়াই এখানে দেখা যাবে, যতটা ঢাকা পড়েছে সেই শতাংশ নিয়ে।
 # Shown under the picker when the stored language names a file that is no longer
 # on disk. {code} is what was stored, {name} is the language showing instead.
 settings.language.missing = {code} নেই — {name} দেখানো হচ্ছে।

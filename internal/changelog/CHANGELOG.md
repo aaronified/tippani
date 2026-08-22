@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **The app now tells you where your translations go, by putting the folder there.**
+  `data/Locales/` is created on start with `_TEMPLATE.txt` in it: every string in the app,
+  empty, each with up to three comments — what the key is for, the English, and the Bengali.
+  Copy it to `fr.txt` (or `ta.txt`, or `pt-br.txt`), fill in what you like, save it, and your
+  language is in Settings → Language at whatever percentage you have reached. No rebuild, no
+  restart, no container to replace.
+
+  This existed as a script in the repository, which is no use at all to somebody running the
+  image: the folder did not exist, nothing on any screen named it, and the file listing the
+  keys was in a checkout they had never made. The template is rewritten whenever the app's
+  own strings change, so it is never a stale list — copy it rather than translating in it,
+  and the leading underscore is what stops the app reading it as a language.
+
+  **One bug came out with it.** A language file over 512 KB was silently ignored, and the
+  finished Bengali is 493 KB — so anyone overriding a built-in, or filling in this template,
+  would have had their work skipped with nothing said. The ceiling is 4 MB now.
+
 ### Changed
 
 - **Language marks moved to Metadata sources.** It was a pop-up off Appearance; it is a

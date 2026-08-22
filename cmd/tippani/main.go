@@ -46,6 +46,7 @@ import (
 	"tippani/internal/auth"
 	"tippani/internal/buildinfo"
 	"tippani/internal/httpapi"
+	"tippani/internal/i18n"
 	"tippani/internal/olog"
 	"tippani/internal/store"
 	"tippani/web"
@@ -164,6 +165,16 @@ func serve() {
 	// A crash mid-backup/restore can leave staging dirs behind; sweep them.
 	// The .pre-restore-<ts> safety copy is deliberately kept (troubleshoot.md).
 	httpapi.CleanupBackupStaging(dataDir)
+
+	// <DataDir>/Locales, with the translation template in it. Answers the
+	// question the folder could not: where do my translations go. Never fatal —
+	// a read-only mount or a directory owned by another uid costs the template
+	// and nothing else, and the app has always run with no Locales at all.
+	if path, wrote, err := i18n.EnsureTemplate(dataDir); err != nil {
+		log.Printf("locale template: %v (the app runs without it; add a language by hand in %s)", err, filepath.Join(dataDir, i18n.DirName))
+	} else if wrote {
+		log.Printf("wrote locale template %s — copy it to fr.txt (or your own code) and translate the copy", path)
+	}
 
 	dist, err := fs.Sub(web.Dist, "dist")
 	if err != nil {

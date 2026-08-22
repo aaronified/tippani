@@ -1,8 +1,16 @@
 # Adding your language to tippani
 
-1. Run `node scripts/locale-template.mjs --out data/Locales/xx.txt`, where `xx`
-   is your language's code — the file name *is* the code, and it is what the app
-   stores as your choice. Nothing needs rebuilding; restart and it is in the list.
+1. **Look in `data/Locales/` beside your database.** The app creates that folder
+   on start and writes `_TEMPLATE.txt` into it: every string in the app, with an
+   empty value and up to three comments each — what the key is for, the English,
+   and the Bengali. Copy it to `xx.txt`, where `xx` is your language's code. The
+   file name *is* the code, and it is what the app stores as your choice. Nothing
+   needs rebuilding and nothing needs restarting; save the file and it is in the
+   picker.
+
+   Copy it rather than editing it: `_TEMPLATE.txt` is rewritten whenever the
+   app's own strings change, and the leading underscore is what stops the app
+   reading it as a language of its own.
 2. Fill in the empty values. One `key = value` per line, split on the **first**
    `=`, so a value may contain `=`. Blank lines are ignored, a line starting with
    `#` is a comment, and the comments above each key are context plus the English

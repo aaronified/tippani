@@ -325,7 +325,6 @@ The shared modules do:
 | `site-links.mjs` | Walks an assembled `_site/` and fails on any local `href` or `src` that does not resolve. |
 | `seed-issues.mjs` | Backfills a GitHub issue per roadmap item that predates the automation. |
 | `doc-map-check.mjs` | Checks this document against the tree: every path it names must exist, and every package, script and workflow must be named somewhere in it. |
-| `locale-template.mjs` | Prints (or writes) the template a stranger fills in to add a language: every key, with the English and Bengali as comments and an empty value. Generated so it cannot go stale as keys are added; refuses to overwrite a file without `--force`. |
 
 ### `.github/`
 
