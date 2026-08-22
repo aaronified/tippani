@@ -48,6 +48,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A shuffled quote credited each actor twice.** The card drew a row of faces and
+  then the same people again underneath with their names on, so a two-hander like
+  *Roman Holiday* showed four portraits for two actors. One face each now, with the
+  name beside it.
+
+- **Three more places printed a key instead of the words.** The Metadata console's
+  people rows showed `vocab.source.wikipedia.label` where a link chip should say
+  *Wikipedia*, and the Catalogue's group-by menu listed five keys instead of *None ·
+  Collection · Director · Decade · Genre*. Same cause as the three fixed above: a
+  table holding keys, drawn without asking the resolver for the words — in one case
+  by the desktop control while the phone control three lines away did it correctly.
+
+- **The language menu offered a third thing that was not a language.** A translator's
+  proofing mode — every string accented and bracketed, so untranslated text stands
+  out — sat under the two real languages calling itself `⟦Pšëüðö··⟧`. It reads as a
+  broken build. It is still there for whoever is checking a translation, reached by
+  asking for it directly rather than by being offered to everyone; English and
+  Bengali are what the app ships, and any further language arrives as a file you drop
+  in.
+
 - **The whole interface speaks Bengali now, not most of it.** Eight screens and nine
   Settings cards were still English at their call sites whatever language you chose —
   the Metadata console, the pending-import queue, the bin, Profile, the import wall,
