@@ -80,16 +80,16 @@ Both halves of that are set out in [`AI.md`](AI.md).
   <tr>
     <td width="38%"><img src="docs/img/library-paper-light.jpg" alt="Books — paper / light theme: a grid of real book covers with genre filters"></td>
     <td width="38%"><img src="docs/img/catalogue-film-dark.jpg" alt="Catalogue — film / dark theme: a grid of movie & show posters with dialogue counts"></td>
-    <td width="24%"><img src="docs/img/library-mobile-paper-light.jpg" alt="Books on a phone — paper / light theme: the cover grid in the mobile layout"></td>
+    <td width="24%"><img src="docs/img/quotes-mobile-paper-light.jpg" alt="Quotes on a phone — paper / light theme: standalone quotes in Bengali, Hindi and English, each with its script mark and translation"></td>
   </tr>
   <tr>
-    <td width="38%"><img src="docs/img/search-film-dark.jpg" alt="Search — film / dark theme: instant FTS5 results across books, annotations, movies and dialogues"></td>
-    <td width="38%"><img src="docs/img/import-paper-light.jpg" alt="Import — paper / light theme: cards for Markdown, Bookcision, Hardcover, Goodreads, IMDb and Kindle imports"></td>
+    <td width="38%"><img src="docs/img/search-film-light.jpg" alt="Search — film / light theme: a misspelled query corrected automatically, with results across books and annotations"></td>
+    <td width="38%"><img src="docs/img/import-paper-dark.jpg" alt="Import — paper / dark theme: cards for Markdown, Bookcision, Hardcover, Goodreads, IMDb and Kindle imports"></td>
     <td width="24%"><img src="docs/img/home-mobile-film-dark.jpg" alt="Home on a phone — film / dark theme: the Daily Quiz, Practice and library stats"></td>
   </tr>
 </table>
 
-<p align="center"><sub>Desktop — Books (paper · light) · Catalogue (film · dark) · Search (film · dark) · Import (paper · light). Mobile — Books &amp; the Home Daily Quiz (film · dark).</sub></p>
+<p align="center"><sub>All four skins, one per desktop shot — Books (paper · light) · Catalogue (film · dark) · Search (film · light) · Import (paper · dark), each on a different accent. Mobile — Quotes (paper · light) &amp; the Home Daily Quiz (film · dark).</sub></p>
 
 ## Features
 
