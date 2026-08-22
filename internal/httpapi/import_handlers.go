@@ -287,11 +287,17 @@ func writeBookAnnotations(tx *sql.Tx, uid int64, source string, bookID int64, an
 		}
 		ins, err := tx.Exec(`
 			INSERT OR IGNORE INTO annotations
-			  (id, book_id, quote, note, color, chapter, chapter_no, location, favorite, source, dedupe_hash, noted_at,
-			   review_excluded)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			  (id, book_id, quote, note, color, chapter, chapter_no, location, character, favorite,
+			   source, dedupe_hash, noted_at, review_excluded)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			annID, bookID, nullable(a.Quote), nullable(a.Note), color,
-			nullable(a.Chapter), nullableFloat(a.ChapterNo), nullable(a.Location), a.Favorite,
+			nullable(a.Chapter), nullableFloat(a.ChapterNo), nullable(a.Location),
+			// 0047, and a plain string: `character` is NOT NULL DEFAULT '' here, so
+			// nullable("") would send the NULL the column refuses. It stays OUT of the
+			// dedupe hash — a locator does not discriminate for a book (store.DedupeHash),
+			// so the same passage saved once bare and once with a speaker is one highlight
+			// that the enrichment below fills in.
+			a.Character, a.Favorite,
 			source, store.DedupeHash(text), nullable(a.NotedAt), excluded)
 		if err != nil {
 			return 0, 0, err
@@ -311,6 +317,7 @@ func writeBookAnnotations(tx *sql.Tx, uid int64, source string, bookID int64, an
 				  location   = COALESCE(location, ?),
 				  note       = COALESCE(note, ?),
 				  noted_at   = COALESCE(noted_at, ?),
+				  character  = CASE WHEN character = '' THEN ? ELSE character END,
 				  color      = CASE WHEN color = 'yellow' AND ? <> 'yellow' THEN ? ELSE color END,
 				  favorite   = MAX(favorite, ?),
 				  updated_at = datetime('now')
@@ -320,12 +327,19 @@ func writeBookAnnotations(tx *sql.Tx, uid int64, source string, bookID int64, an
 				       OR (location IS NULL AND ? IS NOT NULL)
 				       OR (note IS NULL AND ? IS NOT NULL)
 				       OR (noted_at IS NULL AND ? IS NOT NULL)
+				       OR (character = '' AND ? <> '')
 				       OR (color = 'yellow' AND ? <> 'yellow')
 				       OR (favorite = 0 AND ?))`,
 				nullable(a.Chapter), nullableFloat(a.ChapterNo), nullable(a.Location), nullable(a.Note), nullable(a.NotedAt),
+				// CASE WHEN rather than COALESCE, and `<> ''` rather than IS NOT NULL in
+				// the guard: on a NOT NULL DEFAULT '' column COALESCE('', x) is '' and
+				// `'' IS NOT NULL` is true, so the obvious spelling of both would donate
+				// nothing while reporting an enrichment. See enrichStagedQuote.
+				a.Character,
 				color, color, a.Favorite,
 				bookID, store.DedupeHash(text),
 				nullable(a.Chapter), nullableFloat(a.ChapterNo), nullable(a.Location), nullable(a.Note), nullable(a.NotedAt),
+				a.Character,
 				color, a.Favorite)
 			if err != nil {
 				return 0, 0, err
@@ -419,10 +433,17 @@ func upsertImportBook(tx *sql.Tx, uid int64, b importer.Book) (int64, bool, erro
 			                            author = COALESCE(author, ?), series = COALESCE(series, ?),
 			                            series_index = COALESCE(series_index, ?),
 			                            translator = COALESCE(NULLIF(translator, ''), ?),
-			                            editor = COALESCE(NULLIF(editor, ''), ?) WHERE id = ?`,
+			                            editor = COALESCE(NULLIF(editor, ''), ?),
+			                            language = COALESCE(NULLIF(language, ''), ?),
+			                            orig_language = COALESCE(NULLIF(orig_language, ''), ?)
+			                        WHERE id = ?`,
 			nullable(isbn), nullable(b.ASIN), nullable(b.Author),
 			nullable(b.Series), nullableFloat(b.SeriesIndex),
-			b.Translator, b.Editor, id); err != nil {
+			// The two languages (0047) join the two credits, in the same NULLIF form and
+			// under the same rule: what is already on the row wins, and an import can
+			// only fill a blank. A reader who corrected a bad `orig_language` by hand
+			// must not have the old file's value put back on the next re-import.
+			b.Translator, b.Editor, b.Language, b.OrigLanguage, id); err != nil {
 			return 0, false, err
 		}
 		// Shelf state is its own backfill (fill-empty-only, never clearing) so a
@@ -439,9 +460,12 @@ func upsertImportBook(tx *sql.Tx, uid int64, b importer.Book) (int64, bool, erro
 		return 0, false, err
 	}
 	if _, err := tx.Exec(
-		`INSERT INTO books (id, updated_at, user_id, title, author, translator, editor, isbn, asin, series, series_index)
-		 VALUES (?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		id, uid, b.Title, nullable(b.Author), b.Translator, b.Editor, nullable(isbn), nullable(b.ASIN),
+		`INSERT INTO books (id, updated_at, user_id, title, author, translator, editor,
+		                    language, orig_language, isbn, asin, series, series_index)
+		 VALUES (?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		id, uid, b.Title, nullable(b.Author), b.Translator, b.Editor,
+		b.Language, b.OrigLanguage, // plain strings: NOT NULL DEFAULT '' (0047)
+		nullable(isbn), nullable(b.ASIN),
 		nullable(b.Series), nullableFloat(b.SeriesIndex)); err != nil {
 		return 0, false, err
 	}

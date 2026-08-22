@@ -398,17 +398,29 @@ func (f searchFacets) where(k rowKind, uid int64) (string, []any, bool) {
 		c, a := creditAnyOf("d.actor", f.actors)
 		add(c, a...)
 	}
-	// character — the OTHER credit on a line of dialogue, and the only one of the
-	// five that is not a person. It behaves identically all the same: a line has
-	// one speaker, so two characters means EITHER, and it reaches nothing but a
-	// dialogue. A book has no characters as a column, so asking for one removes
-	// books from the search rather than quietly widening it back to every book in
-	// the library.
+	// character — the OTHER credit on a quote, and the only one of the five that is
+	// not a person. It behaves identically all the same: a line has one speaker, so
+	// two characters means EITHER.
+	//
+	// IT REACHES A BOOK HIGHLIGHT AS WELL AS A FILM LINE from 0047 on. Until then
+	// this arm refused everything but a dialogue, on the stated grounds that "a book
+	// has no characters as a column" — which was true and is now the opposite of
+	// true: annotations.character exists, annotations_fts indexes it, and a novel's
+	// speaker being storable and not findable is exactly the asymmetry
+	// quote_parity_test.go exists to catch. The WORKS are still out: a book is not a
+	// character any more than it is an actor, so asking for one empties Books and
+	// Movies rather than quietly widening them back to the whole library.
 	if len(f.characters) > 0 {
-		if k != rowDialogue {
+		var col string
+		switch k {
+		case rowDialogue:
+			col = "d.character"
+		case rowAnnotation:
+			col = "a.character"
+		default:
 			return "", nil, false
 		}
-		c, a := creditAnyOf("d.character", f.characters)
+		c, a := creditAnyOf(col, f.characters)
 		add(c, a...)
 	}
 	if len(f.speakers) > 0 {

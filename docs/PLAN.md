@@ -740,6 +740,22 @@ The table list is declared, like every other snapshot here, and the test that ma
 
 <sub>1.8.0 — `internal/httpapi/trash.go` · `internal/httpapi/admin_handlers.go` · `internal/httpapi/trash_account_test.go`</sub>
 
+### A vocabulary that is expected to grow carries no CHECK, and `boards.kind` gave up the one it had
+
+**Decided.** 0047 widens a board's kind from `plain | proverb` to `plain | proverb | speech | letter | essay` by **dropping the CHECK entirely** and validating the list in Go, beside `media_type` (0006), `status` (0024) and `person_kinds` (0027). The mechanism is `ALTER TABLE ... DROP COLUMN` followed by `ADD COLUMN`, with every board's kind parked in a scratch table for the two statements in between.
+
+**Why not widen it.** 0045 already wrote the argument for a different table — *"a CHECK on six columns is six things SQLite cannot later alter (0029 rebuilt four tables to widen one CHECK, which is the whole argument)"* — and this is the same vocabulary a second time. Poem, Lyrics and Article are expected kinds; two of the columns 0047 adds are deliberately named `work_title` and `locator` rather than `essay_title` and `essay_page` so that each of those is a label rather than a migration. A CHECK would make them a migration anyway.
+
+It also fixed a live 500 rather than a future risk. `boardKindSpeech = "speech"` has been defined and accepted since 1.15.0, the Quotes page has POSTed it from its **Speeches** starter since the same release, and 0037's CHECK refused it — so pressing that starter answered 500. Nothing tested it, which is how a Go validator and a schema managed to disagree for a release.
+
+**Instead of 0029's rebuild dance,** which is the house idiom for changing a constraint and **does not transfer here.** `boards` is the parent of a `RESTRICT` child — `utterances.board_id`, deliberately, so deleting a populated board refuses rather than cascading — and all three ways round that were probed on the real schema: `DROP TABLE boards` fails outright with FK 1811 (it does not cascade, so there is nothing parking the children can buy); `PRAGMA defer_foreign_keys=1` lets the DROP through and fails at COMMIT with 787, because RESTRICT is not deferrable; and `PRAGMA foreign_keys=OFF` is a no-op inside a transaction, which is where every migration runs. A rebuild would additionally have to park and re-point `board_id` and recreate `idx_boards_user` and the UNIQUE by hand.
+
+**The cost, stated rather than discovered.** `kind` moves to the end of the table's column order. The only positional reader of a base table is `store.Recover`, whose `INSERT INTO main."t" SELECT * FROM old."t"` runs *after* a successful `Migrate` against a fresh database built by the same migrations, so both sides always move together; trash and restore discover columns by name and the backup is a file-level `VACUUM INTO`. `DROP COLUMN` needs SQLite ≥ 3.35 and modernc's is 3.53.2.
+
+**Approved.** Mine. There is no replacement index either: a reader has tens of boards, and `idx_boards_user (user_id, hidden, pos)` already covers the only query that lists them.
+
+<sub>2.2.0 — `internal/store/migrations/0047_per_kind_fields.sql` · `internal/store/per_kind_fields_test.go`</sub>
+
 ## 4. What a Quote Is
 
 Three kinds of quote — a book highlight, a screen line, and one belonging to no work at all — converged on a single shape whose differences are enumerated rather than incidental. The dedupe rules and the colour vocabulary are where most of the schema pain lives.
@@ -1093,6 +1109,38 @@ Neither is a bug to patch. A control that belongs above the list was placed in t
 **Approved.** The reader's, in the form "Create the board."
 
 <sub>Not shipped</sub>
+
+### A medium that has no such locator has its locator CLEARED, not refused
+
+**Decided.** A game's line is placed by its **act** and its **quest** and carries no timestamp and no season/episode; a film's and a show's carry no act or quest; an episode NAME belongs to a show and nowhere else. Every one of those rules is applied by clearing the field on save — `dialogueReq.normalizeLocator`, one call, in both the create and the update path — and not by answering 400.
+
+**Why not a CHECK.** A game is a `movies` row (0040) exactly as a show is (0025), so the rule needs `movies.media_type`, and SQLite cannot reach across from `dialogues` to read it. It has to be a Go rule wherever it lives.
+
+**Why cleared and not refused.** This is `episodeRef.normalize`'s decision, restated for two more media, and its reason still holds: a work retargeted from a show to a film leaves its lines holding episode numbers that mean nothing, and refusing them would make every later edit of those lines fail from a form that — correctly — no longer offers the field. Retargeting is a legitimate repair, and the importer already forgives the same case.
+
+It matters more for the timestamp than it ever did for the season. **Nothing in the shipped capture forms gates the timestamp box by media type** — `AddSurface` computes `isScreen` and `isShow` and has no `isGame`, and the film page sends a timestamp unconditionally — so a 400 would have refused every game line the app is currently able to capture. The forms come with the design pass; until they do, a game's timestamp is silently dropped, which is stated here so that it is a known cost rather than a bug report.
+
+**A malformed value is still a 400.** Too long is too long on every medium, and the cap is applied in `validate` beside `timestamp`'s, before the media type is even known: a cap is a property of the column, not of the medium.
+
+**The cost, stated.** Two embedded structs on `dialogueReq` now both have a method called `normalize`, so neither is promoted and every call has to name which one it means. That is deliberate — an unqualified `d.normalize()` does not compile, which is a better failure than one of the two rules quietly not running.
+
+**Approved.** Mine.
+
+<sub>2.2.0 — `internal/httpapi/dialogue_handlers.go` · `internal/httpapi/game_locator_test.go`</sub>
+
+### The bulk field editor named the third quote kind twice, and answered 400 to every field it has
+
+**Decided.** `quoteFieldKinds` now spells the standalone-quote kind `utterance`, which is what `bulkTag` is actually called with, and a test walks it against `quoteBulkKinds` so a third spelling cannot be introduced quietly.
+
+**What was wrong.** Two tables in `bulk_handlers.go` name kinds, deliberately and with a comment explaining that they answer different questions — but one called the third kind `utterance` and the other called it `quote`. `POST /quotes/bulk` therefore answered *"speaker does not apply to this kind"* to `speaker`, `occasion`, `place`, `medium` and `note`, for a kind that has all five columns, while the client's own `BULK_QUOTE_FIELDS` offered exactly those four. Every per-field bulk edit on the Quotes screen was a 400 from the day the endpoint shipped.
+
+**It was invisible for the usual reason.** "Does not apply to this kind" is a legitimate answer for some other kind, so the response looked like a rule working rather than a name mismatch — and no test set a per-kind field on that endpoint.
+
+**And it was hiding a second fault.** `speaker`, `occasion`, `place` and `medium` have been NOT NULL with an empty-string default since 0026, while every text field in this file is written through `nullable()`, which maps the empty string to NULL. So *clearing* any of them over a selection is a NOT NULL violation — a 500, from inside the transaction, after the ownership check. Fixing the 400 uncovers it, so both are fixed together: shipping the first alone would replace a 400 with a 500, which is worse than either. `notNullQuoteCols` is the list, and it names why the genuinely nullable columns are absent from it.
+
+**Approved.** Mine. Found by the test written for 0047's four new quote fields, which would have been dead on arrival under the old spelling.
+
+<sub>2.2.0 — `internal/httpapi/bulk_handlers.go` · `internal/httpapi/bulk_fields_test.go`</sub>
 
 ## 5. Works, Shelves and Reading History
 
@@ -2253,6 +2301,34 @@ Games needed nothing: a game is a `movies` row (0040), so its lines are `dialogu
 **Instead of.** A `people` row per character, with portraits and a console — a different feature at a different price, and one the owner has already ruled against at the interface.
 
 <sub>1.16.0 — `internal/httpapi/search_handler.go` · `internal/httpapi/search_facets.go` · `web/frontend/src/SearchPage.jsx`</sub>
+
+### Three of eleven new columns were indexed, and the other eight are a decision
+
+**Decided.** 0047 adds eleven columns across four quote tables and puts exactly three of them in a full-text index: `annotations.character`, `utterances.recipient` and `utterances.work_title`. Both indexes were dropped and recreated to get them, because an FTS5 external-content table cannot gain a column.
+
+**Why those three.** `dialogues_fts` has carried `character` since 0003, the results page builds a **Characters** section out of it and `/search/vocabulary` autocompletes it — for films, shows and games only. A book character that is storable and not findable is the same asymmetry read from the other end, and it would present as a bug on the day the form ships rather than as a missing feature. "Every letter to Nehru" and "everything in that essay" are the same query shape as "everything Bose said", which is already a section; one rebuild covered both, and there was not going to be a cheaper moment.
+
+**Why not the other eight.** `act`, `quest` and `locator` are *locators*, and no locator in this schema is indexed — not `chapter`, not `location`, not the timestamp. Searching by one is what the facet grammar is for. `region`, `language` and `orig_language` are short reader-owned vocabularies rather than prose: 0026 said it about `place` and `medium` and 0035 said it about `language`, and indexing them would let a search for "Bengali" return every Bengali proverb ranked above the quote that is actually about Bengal — the vocabulary endpoint is their surface. `episode_name` follows the season it sits beside, and a show's own title is already in `movies_fts`. `occasion_circa` is a flag.
+
+**The shape of the rebuild is 0029's and 0035's, in that order:** drop the three sync triggers, drop the virtual table, recreate it with the column **appended**, recreate the triggers verbatim, and run `'rebuild'` **last** — rebuilding an external-content index while its triggers are live is the documented route to `database disk image is malformed`. The names land back exactly because two things find them by name and both fail silently: `store.Recover` excludes `%\_fts` from its table copy, and `rebuildFTSTable` finds an index's triggers with `sql LIKE '%<name>%'`. `bm25()` is called with no per-column weights, so a new column changes no ranking, and the `*_fts_vocab` tables survive untouched because fts5vocab resolves its target by name at query time.
+
+**Approved.** Mine. The test that matters is not the MATCH — it is the UPDATE and the DELETE afterwards, because the three triggers were re-cut by hand and a missing `_au` leaves a renamed character findable forever under its old name.
+
+<sub>2.2.0 — `internal/store/migrations/0047_per_kind_fields.sql` · `internal/store/per_kind_fields_test.go`</sub>
+
+### `character:` reaches a book highlight, and the sentence that said it could not has been rewritten
+
+**Decided.** The `character` facet, its counter, its autocomplete and the annotation search hit all now cover book highlights as well as film lines. The Characters **section** on the results screen does not: it is built from dialogue hits, and a section that mixes books and films under one heading is a layout decision for the design pass rather than a column.
+
+**Why it had to move with the column.** `search_facets.go` refused every kind but `rowDialogue` on the stated grounds that *"a book has no characters as a column"* — true when it was written and the opposite of true after 0047. A column that is storable and not findable is precisely the asymmetry `quote_parity_test.go` exists to catch, and a facet that silently answers about one of two kinds that have the field is the worst version of it: the search looks like it worked.
+
+**Four sites, and one of them tests itself.** `where()`, `facetCountKinds` plus the count expression, `vocabulary_handler`'s UNION, and `annotationHitCols`. Widening `where()` and forgetting the counter is caught for free by `TestFacetCountKindsMatchTheFacetPredicates`, which walks the two tables against each other — the reason that test exists.
+
+**Not added: a facet name of its own for the new fields.** `region:`, `recipient:` and `work:` would be a grammar change, and the grammar is parsed on the client against a closed eighteen-name list with its own test. Full-text already finds a recipient and a source title, because both are in the index.
+
+**Approved.** Mine.
+
+<sub>2.2.0 — `internal/httpapi/search_facets.go` · `internal/httpapi/search_facet_counts.go` · `internal/httpapi/vocabulary_handler.go`</sub>
 
 ## 8. The Review Loop
 

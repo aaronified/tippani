@@ -230,6 +230,12 @@ func writeMovieDialogues(tx *sql.Tx, uid, movieID int64, dialogues []importer.Di
 	_ = tx.QueryRow(`SELECT COALESCE(cast_json, ''), COALESCE(media_type, 'movie') FROM movies WHERE id = ?`,
 		movieID).Scan(&castJSON, &mediaType)
 	show := mediaType == "show"
+	// A GAME IS THE THIRD MEDIUM AND NEEDS ITS OWN GATE (0047), which is the same
+	// gate normalizeLocator applies at the API, in the same direction: which
+	// locators a line keeps is decided by the DESTINATION's media type, never by
+	// the file's, because retargeting a misdetected file onto the right work is
+	// the whole repair the queue exists for.
+	game := mediaType == "game"
 
 	// The film's quiz opt-out, inherited by every line this loop writes.
 	//
@@ -257,6 +263,28 @@ func writeMovieDialogues(tx *sql.Tx, uid, movieID int64, dialogues []importer.Di
 		if !show || season == nil {
 			season, episode = nil, nil
 		}
+		// A game is placed by its act and its quest and by nothing else, so the
+		// other two clears are the mirror image of the one above: a game keeps no
+		// timestamp (it has no runtime to point into), and everything that is not a
+		// game keeps no act and no quest. An episode's NAME needs an episode to be
+		// the name of, so it follows `show`.
+		//
+		// Cleared BEFORE the hash, which is the ordering that matters: act and quest
+		// are in DialogueDedupeHash, so a film line still carrying a stale quest
+		// would hash as though it were a game's and fork a duplicate of a line
+		// already on the record. Same contract as dialogueReq.hash().
+		act, quest := d.Act, d.Quest
+		if !game {
+			act, quest = "", ""
+		}
+		timestamp := d.Timestamp
+		if game {
+			timestamp = ""
+		}
+		episodeName := d.EpisodeName
+		if !show {
+			episodeName = ""
+		}
 		// Same rule as the book importer: IMDb quote pages carry no colour, so
 		// an unset one lands on the yellow default (PLAN §3).
 		color := d.Color
@@ -276,17 +304,26 @@ func writeMovieDialogues(tx *sql.Tx, uid, movieID int64, dialogues []importer.Di
 		if quote == "" {
 			continue
 		}
+		// Computed once, from the cleared locators, and used by all three statements
+		// below — the INSERT, the enrichment's WHERE, and the lookup that finds the
+		// row a collision landed on. Three spellings of the same hash is three places
+		// to forget the same argument.
+		hash := store.DialogueDedupeHash(quote, season, episode, act, quest)
 		did, err := ids.take()
 		if err != nil {
 			return 0, 0, err
 		}
 		ins, err := tx.Exec(`
 			INSERT OR IGNORE INTO dialogues
-			  (id, movie_id, quote, note, color, character, actor, timestamp, season, episode, favorite, dedupe_hash, noted_at,
-			   review_excluded)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			  (id, movie_id, quote, note, color, character, actor, timestamp, season, episode,
+			   act, quest, episode_name, favorite, dedupe_hash, noted_at, review_excluded)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			did, movieID, quote, nullable(note), color, nullable(d.Character), nullable(actor),
-			nullable(d.Timestamp), season, episode, d.Favorite, store.DialogueDedupeHash(quote, season, episode), nullable(d.NotedAt),
+			nullable(timestamp), season, episode,
+			// Plain strings: NOT NULL DEFAULT '' (0047), so nullable("") would send the
+			// NULL the column refuses rather than the default it already has.
+			act, quest, episodeName,
+			d.Favorite, hash, nullable(d.NotedAt),
 			excluded)
 		if err != nil {
 			return 0, 0, err
@@ -301,6 +338,7 @@ func writeMovieDialogues(tx *sql.Tx, uid, movieID int64, dialogues []importer.Di
 				  season    = COALESCE(season, ?),
 				  episode   = COALESCE(episode, ?),
 				  noted_at  = COALESCE(noted_at, ?),
+				  episode_name = CASE WHEN episode_name = '' THEN ? ELSE episode_name END,
 				  color     = CASE WHEN color = 'yellow' AND ? <> 'yellow' THEN ? ELSE color END,
 				  favorite  = MAX(favorite, ?),
 				  updated_at = datetime('now')
@@ -312,14 +350,26 @@ func writeMovieDialogues(tx *sql.Tx, uid, movieID int64, dialogues []importer.Di
 				       OR (season IS NULL AND ? IS NOT NULL)
 				       OR (episode IS NULL AND ? IS NOT NULL)
 				       OR (noted_at IS NULL AND ? IS NOT NULL)
+				       OR (episode_name = '' AND ? <> '')
 				       OR (color = 'yellow' AND ? <> 'yellow')
 				       OR (favorite = 0 AND ?))`,
-				nullable(note), nullable(d.Character), nullable(actor), nullable(d.Timestamp),
+				nullable(note), nullable(d.Character), nullable(actor), nullable(timestamp),
 				season, episode, nullable(d.NotedAt),
+				// ONLY THE EPISODE NAME ENRICHES. Act and quest are IN the dedupe hash
+				// (0047), so a row this line collided with already holds the same pair by
+				// construction — donating them would be writing a value onto itself. The
+				// episode name is not in the hash, which is exactly why it can be missing
+				// from the copy already staged and arrive with the second file.
+				//
+				// CASE WHEN and `<> ''` rather than COALESCE and IS NOT NULL, because on a
+				// NOT NULL DEFAULT '' column the obvious spelling donates nothing while
+				// reporting an enrichment. See enrichStagedQuote.
+				episodeName,
 				color, color, d.Favorite,
-				movieID, store.DialogueDedupeHash(quote, season, episode),
-				nullable(note), nullable(d.Character), nullable(actor), nullable(d.Timestamp),
+				movieID, hash,
+				nullable(note), nullable(d.Character), nullable(actor), nullable(timestamp),
 				season, episode, nullable(d.NotedAt),
+				episodeName,
 				color, d.Favorite)
 			if err != nil {
 				return 0, 0, err
@@ -332,7 +382,7 @@ func writeMovieDialogues(tx *sql.Tx, uid, movieID int64, dialogues []importer.Di
 				// this ignored insert left attached to nothing.
 				var existingID int64
 				if err := tx.QueryRow(`SELECT id FROM dialogues WHERE movie_id = ? AND dedupe_hash = ?`,
-					movieID, store.DialogueDedupeHash(quote, season, episode)).Scan(&existingID); err == nil {
+					movieID, hash).Scan(&existingID); err == nil {
 					if err := addTags(tx, "dialogue", uid, existingID, d.Tags); err != nil {
 						return 0, 0, err
 					}

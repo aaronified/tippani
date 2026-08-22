@@ -262,3 +262,61 @@ func TestMarkdownReadestReal(t *testing.T) {
 		}
 	}
 }
+
+// A NOVEL HAS SPEAKERS AND NOT A CAST (0047). One binding on the highlight, two
+// frontmatter keys on the book, and one absence worth pinning: there is no
+// `actor` on this side, because nobody plays Ahab.
+func TestMarkdownReadsACharacterAndTwoLanguages(t *testing.T) {
+	md := "---\ntitle: Moby-Dick\nauthor: Herman Melville\n" +
+		"language: English\norig_language: American English\ntype: book\n---\n\n" +
+		"> Call me Ishmael.\n- character: Ishmael\n- actor: Gregory Peck\n"
+	res, err := MarkdownAll(strings.NewReader(md))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res) != 1 || len(res[0].Annotations) != 1 {
+		t.Fatalf("expected one book with one highlight, got %+v", res)
+	}
+	if b := res[0].Book; b.Language != "English" || b.OrigLanguage != "American English" {
+		t.Fatalf("languages = %q / %q", b.Language, b.OrigLanguage)
+	}
+	if a := res[0].Annotations[0]; a.Character != "Ishmael" {
+		t.Fatalf("character = %q", a.Character)
+	}
+	// `- actor:` had nowhere to land and still has none. Asserted by the absence of
+	// a field on the struct, which is a compile-time fact; what this row really
+	// pins is that the line is IGNORED rather than folded into the character.
+	if a := res[0].Annotations[0]; strings.Contains(a.Character, "Peck") {
+		t.Fatalf("an actor leaked into the character: %q", a.Character)
+	}
+}
+
+// The frontmatter aliases a hand-written file reaches for. `lang` is the short
+// form the quotes parser already takes; the three spellings of the original
+// language are the ones somebody would actually type.
+func TestMarkdownLanguageAliases(t *testing.T) {
+	for _, tc := range []struct{ key, field, want string }{
+		{"language", "language", "Bengali"},
+		{"lang", "language", "Bengali"},
+		{"orig_language", "orig", "Bengali"},
+		{"orig language", "orig", "Bengali"},
+		{"original language", "orig", "Bengali"},
+		{"original_language", "orig", "Bengali"},
+		{"Language", "language", "Bengali"}, // keys fold case, as everywhere
+	} {
+		t.Run(tc.key, func(t *testing.T) {
+			md := "---\ntitle: Gora\n" + tc.key + ": Bengali\n---\n\n> a line\n"
+			res, err := MarkdownAll(strings.NewReader(md))
+			if err != nil {
+				t.Fatal(err)
+			}
+			got := res[0].Book.Language
+			if tc.field == "orig" {
+				got = res[0].Book.OrigLanguage
+			}
+			if got != tc.want {
+				t.Fatalf("%q did not read as the %s: %q", tc.key, tc.field, got)
+			}
+		})
+	}
+}

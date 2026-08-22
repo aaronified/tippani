@@ -92,13 +92,28 @@ type bulkTagReq struct {
 	// holds two. Blank clears it.
 	ChapterNo *string `json:"chapter_no"` // annotation
 	Location  *string `json:"location"`   // annotation
-	Character *string `json:"character"`  // dialogue
-	Actor     *string `json:"actor"`      // dialogue
-	Timestamp *string `json:"timestamp"`  // dialogue
-	Speaker   *string `json:"speaker"`    // quote
-	Occasion  *string `json:"occasion"`   // quote
-	Place     *string `json:"place"`      // quote
-	Medium    *string `json:"medium"`     // quote
+	// Character reaches ANNOTATIONS AS WELL AS DIALOGUES from 0047 on: a novel has
+	// speakers, and correcting the same misspelt name on thirty highlights is the
+	// most obvious reason there is to select thirty highlights. There is still no
+	// `actor` beside it on that side — nobody plays Ahab.
+	Character   *string `json:"character"`    // annotation, dialogue
+	Actor       *string `json:"actor"`        // dialogue
+	Timestamp   *string `json:"timestamp"`    // dialogue
+	Act         *string `json:"act"`          // dialogue (a game's)
+	Quest       *string `json:"quest"`        // dialogue (a game's)
+	EpisodeName *string `json:"episode_name"` // dialogue (a show's)
+	Speaker     *string `json:"speaker"`      // quote
+	Occasion    *string `json:"occasion"`     // quote
+	Place       *string `json:"place"`        // quote
+	Medium      *string `json:"medium"`       // quote
+	Region      *string `json:"region"`       // quote
+	Recipient   *string `json:"recipient"`    // quote
+	WorkTitle   *string `json:"work_title"`   // quote
+	Locator     *string `json:"locator"`      // quote
+	// occasion_circa is DELIBERATELY NOT HERE. It says how precisely one date is
+	// known, and "all forty of these dates are approximate" is not a thing anybody
+	// knows about forty quotes at once — it is a claim about each of them. The same
+	// reasoning keeps published_circa out of the book bulk editor.
 	// Which board these are filed on (0036). STANDALONE QUOTES ONLY — an
 	// annotation belongs to its book and a dialogue to its film, and neither has
 	// a board to be moved between. Sent to either of those kinds it is refused
@@ -150,29 +165,98 @@ var binnableKinds = map[string]quoteBulkKind{
 // quoteFieldKinds names, per optional field, the kinds that actually have the
 // column. One table, so "which fields does a dialogue take" has one answer and
 // adding a column means editing a list rather than remembering a switch.
+//
+// THE KIND NAMES ARE bulkTag's, which is to say quoteBulkKinds': annotation,
+// dialogue, utterance. That has to be spelled out because the bin's table one line
+// down calls the third kind "quote", and for four releases this table did too —
+// with the result that `POST /quotes/bulk` answered 400 to every per-kind field
+// the Quotes screen offers ("speaker does not apply to this kind"), for a kind
+// that has the column. Two vocabularies for one concept, and the mismatch was
+// invisible because the refusal is a legitimate answer for some other kind.
+// TestEveryBulkFieldKindIsAKindBulkTagKnows now walks the two tables against each
+// other, so a third spelling cannot be introduced quietly.
 var quoteFieldKinds = map[string][]string{
-	"note":       {"annotation", "dialogue", "quote"},
+	"note":       {"annotation", "dialogue", "utterance"},
 	"chapter":    {"annotation"},
 	"chapter_no": {"annotation"},
 	"location":   {"annotation"},
-	"character":  {"dialogue"},
-	"actor":      {"dialogue"},
-	"timestamp":  {"dialogue"},
-	"speaker":    {"quote"},
-	"occasion":   {"quote"},
-	"place":      {"quote"},
-	"medium":     {"quote"},
+	// 0047: a book character is a character. The word and the column are the same
+	// on both sides, which is what lets one facet and one autocomplete serve them.
+	"character":    {"annotation", "dialogue"},
+	"actor":        {"dialogue"},
+	"timestamp":    {"dialogue"},
+	"act":          {"dialogue"},
+	"quest":        {"dialogue"},
+	"episode_name": {"dialogue"},
+	"speaker":      {"utterance"},
+	"occasion":     {"utterance"},
+	"place":        {"utterance"},
+	"medium":       {"utterance"},
+	"region":       {"utterance"},
+	"recipient":    {"utterance"},
+	"work_title":   {"utterance"},
+	"locator":      {"utterance"},
+}
+
+// notNullQuoteCols are the bulk-settable columns declared NOT NULL with an
+// empty-string default, so a clear has to write the empty string rather than a
+// NULL. THIS IS THE MISTAKE THAT WOULD NOT BE CAUGHT BY READING THE CODE:
+// nullable("") is nil, and the rest of this file's fields go through it, so
+// clearing one of these over a selection is a NOT NULL violation reported as a
+// 500 — after the ownership check and inside the transaction, which is the most
+// expensive place to find out.
+//
+// FOUR OF THESE ARE NOT 0047'S. speaker, occasion, place and medium have been NOT
+// NULL with an empty-string default since 0026, so clearing any of them in bulk
+// has been a 500 for as long as the fields have existed — which nobody found,
+// because the kind-name bug above answered 400 first and the 400 never let the
+// request reach the UPDATE. Fixing the 400 uncovers the 500, so both are fixed
+// here; splitting them would ship a release where the endpoint answers 500 where
+// it used to answer 400, which is worse than either.
+//
+// `character` is in the set although it is only NOT NULL on annotations. The
+// empty string is legal in the dialogues column too, and every reader of it
+// coalesces (dialogueCols, vocabulary_handler, search_facets), so one rule per
+// column name beats one rule per (kind, column) pair.
+//
+// The columns deliberately ABSENT are the genuinely nullable ones — note, chapter,
+// location, actor, timestamp — where NULL is what the single-quote writers store
+// for empty. Writing the empty string there instead would be a quiet change of
+// representation under every exporter that coalesces.
+var notNullQuoteCols = map[string]bool{
+	"character": true, "act": true, "quest": true, "episode_name": true,
+	"speaker": true, "occasion": true, "place": true, "medium": true,
+	"region": true, "recipient": true, "work_title": true, "locator": true,
+}
+
+// bulkQuoteFieldPtrs is the one mapping from a column name to the request field
+// that carries it. ONE TABLE, because there were two — the applicability check
+// and the write loop each carried their own literal, and a field present in the
+// first and missing from the second is accepted, reported as updated and silently
+// dropped. That is the failure this file's own header calls the worst answer
+// available.
+//
+// chapter_no is not here: it is the one field written through nullableMeasure
+// rather than as text, so it keeps its own line in both places.
+func bulkQuoteFieldPtrs(req *bulkTagReq) map[string]*string {
+	return map[string]*string{
+		"note": req.Note, "chapter": req.Chapter, "location": req.Location,
+		"character": req.Character, "actor": req.Actor, "timestamp": req.Timestamp,
+		"act": req.Act, "quest": req.Quest, "episode_name": req.EpisodeName,
+		"speaker": req.Speaker, "occasion": req.Occasion,
+		"place": req.Place, "medium": req.Medium,
+		"region": req.Region, "recipient": req.Recipient,
+		"work_title": req.WorkTitle, "locator": req.Locator,
+	}
 }
 
 // unsupportedQuoteField returns the name of the first field this kind cannot
 // take, or "".
 func unsupportedQuoteField(kind string, req *bulkTagReq) string {
-	for name, p := range map[string]*string{
-		"note": req.Note, "chapter": req.Chapter, "chapter_no": req.ChapterNo, "location": req.Location,
-		"character": req.Character, "actor": req.Actor, "timestamp": req.Timestamp,
-		"speaker": req.Speaker, "occasion": req.Occasion,
-		"place": req.Place, "medium": req.Medium,
-	} {
+	if req.ChapterNo != nil && !slices.Contains(quoteFieldKinds["chapter_no"], kind) {
+		return "chapter_no"
+	}
+	for name, p := range bulkQuoteFieldPtrs(req) {
 		if p == nil {
 			continue
 		}
@@ -278,27 +362,35 @@ func (s *Server) bulkTag(w http.ResponseWriter, r *http.Request, kind string) {
 			return
 		}
 	}
-	// The per-kind columns. A field this kind does not have has already been
+	// The per-kind columns, driven off the same table the applicability check reads
+	// so the two cannot disagree. A field this kind does not have has already been
 	// refused above, so anything reaching here is a column that exists.
-	for _, f := range []struct {
-		col string
-		p   *string
-	}{
-		{"note", req.Note},
-		{"chapter", req.Chapter}, {"location", req.Location},
-		// chapter_no is NOT in this loop: every field in it is written through
-		// nullable(), which stores a string. A number goes through nullableMeasure
-		// below, so "7" lands as 7 rather than as the text "7" in a REAL column —
-		// which SQLite would accept and then sort as text.
-		{"character", req.Character}, {"actor", req.Actor}, {"timestamp", req.Timestamp},
-		{"speaker", req.Speaker}, {"occasion", req.Occasion},
-		{"place", req.Place}, {"medium", req.Medium},
-	} {
-		if f.p == nil {
+	//
+	// chapter_no is NOT in this loop: every field here is written as TEXT, and a
+	// number goes through nullableMeasure below so "7" lands as 7 rather than as the
+	// text "7" in a REAL column — which SQLite would accept and then sort as text.
+	//
+	// Iterated in sorted order, not map order, so a failure names the same column
+	// twice in a row and the UPDATEs land in a reproducible sequence.
+	ptrs := bulkQuoteFieldPtrs(&req)
+	cols := make([]string, 0, len(ptrs))
+	for col := range ptrs {
+		cols = append(cols, col)
+	}
+	slices.Sort(cols)
+	for _, col := range cols {
+		p := ptrs[col]
+		if p == nil {
 			continue
 		}
-		if err := bulkSetChild(tx, table, f.col, nullable(strings.TrimSpace(*f.p)), owned); err != nil {
-			internalError(w, r, "bulk tag: "+f.col, err)
+		// A clear is '' on a NOT NULL column and NULL on a nullable one — see
+		// notNullQuoteCols for why getting this wrong is a 500 and not a 400.
+		var val any = nullable(strings.TrimSpace(*p))
+		if notNullQuoteCols[col] {
+			val = strings.TrimSpace(*p)
+		}
+		if err := bulkSetChild(tx, table, col, val, owned); err != nil {
+			internalError(w, r, "bulk tag: "+col, err)
 			return
 		}
 	}

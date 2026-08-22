@@ -57,14 +57,22 @@ type utteranceExportRow struct {
 	quote, note, color                             string
 	speaker, occasion, occasionDate, place, medium string
 	category, language, translation                string
-	favorite                                       bool
-	notedAt                                        string
+	// 0047 — what a proverb, a letter and an essay carry. Written unconditionally
+	// for every quote, whatever board it is on, because the kind lives on the BOARD
+	// and the board does not round-trip yet: a file that only wrote a recipient for
+	// a quote currently sitting on a letter board would lose it the moment the
+	// reader moved that quote, which is the failure this whole pass is about.
+	region, recipient, workTitle, locator string
+	occasionCirca                         bool
+	favorite                              bool
+	notedAt                               string
 }
 
 func (s *Server) renderQuotesExport(uid int64, ids []int64) (string, error) {
 	q := `SELECT id, quote, COALESCE(note,''), color, COALESCE(speaker,''), COALESCE(occasion,''),
 	             COALESCE(occasion_date,''), COALESCE(place,''), COALESCE(medium,''),
 	             category, language, translation,
+	             region, recipient, work_title, locator, occasion_circa,
 	             favorite, COALESCE(noted_at,'')
 	      FROM utterances WHERE user_id = ?`
 	args := []any{uid}
@@ -86,9 +94,13 @@ func (s *Server) renderQuotesExport(uid int64, ids []int64) (string, error) {
 	var us []utteranceExportRow
 	for rows.Next() {
 		var u utteranceExportRow
+		// No COALESCE on the five: NOT NULL DEFAULT (0047), so the zero value is
+		// what a row predating them holds. Same rule as utteranceCols.
 		if err := rows.Scan(&u.id, &u.quote, &u.note, &u.color, &u.speaker, &u.occasion,
 			&u.occasionDate, &u.place, &u.medium,
-			&u.category, &u.language, &u.translation, &u.favorite, &u.notedAt); err != nil {
+			&u.category, &u.language, &u.translation,
+			&u.region, &u.recipient, &u.workTitle, &u.locator, &u.occasionCirca,
+			&u.favorite, &u.notedAt); err != nil {
 			olog.Warnf(olog.CodeExportRowScan, "[export] quote row scan failed: %v", err)
 			continue
 		}
@@ -129,9 +141,29 @@ func (s *Server) renderQuotesExport(uid int64, ids []int64) (string, error) {
 				// same rule the book export applies to chapter. Everything else
 				// that locates the quote is a binding.
 				writeBinding(&sb, "speaker", u.speaker)
+				// The second party, right after the first: a letter's `to` is the
+				// field that makes it a letter, and reading it two lines under the
+				// person who wrote it is how a letter is addressed on paper.
+				writeBinding(&sb, "recipient", u.recipient)
 				writeBinding(&sb, "occasion_date", u.occasionDate)
+				// The date's PRECISION, immediately under the date it qualifies, and
+				// written only when it is on — the same rule `favorite` follows, and
+				// the same reason: a file should say a thing only when the thing is
+				// true, so a shelf of exact dates exports as it did before 0047.
+				writeCirca(&sb, u.occasionCirca)
 				writeBinding(&sb, "place", u.place)
+				// Region pairs with place the way it pairs with language on the form: a
+				// Bengali proverb from Sylhet is not one from Kolkata.
+				writeBinding(&sb, "region", u.region)
 				writeBinding(&sb, "medium", u.medium)
+				// The essay's two, coarse to fine, exactly as the book export writes a
+				// chapter before a page. `work_title` and `locator` are named
+				// generically in the SCHEMA so poem/lyrics/article are one day a label
+				// rather than a migration — but the FILE spells the locator `page`,
+				// which is what the reader is shown and what a hand-written file would
+				// reach for. See applyQuoteBinding for why it cannot be `locator`.
+				writeBinding(&sb, "work_title", u.workTitle)
+				writeBinding(&sb, "page", u.locator)
 				// 0035. `other` is left out for the same reason yellow is: a file
 				// should mention the category only when one was chosen, so a shelf
 				// of ordinary quotes exports exactly as it did before the boards

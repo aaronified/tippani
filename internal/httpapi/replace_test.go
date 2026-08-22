@@ -113,9 +113,12 @@ func TestReplaceRefusesAFieldTheKindLacks(t *testing.T) {
 	srv := newTestServer(t)
 	c := signupAdmin(t, srv.Handler())
 	_, ids := replaceSeed(t, c)
-	// `character` is a dialogue column; an annotation has none.
+	// `actor` is a dialogue column and an annotation has none — nobody plays Ahab.
+	// (This row read `character` until 0047, which gave a book highlight one: a
+	// novel has speakers. The rule is unchanged; the example had to move to a field
+	// that is still one-sided.)
 	c.mustDo("POST", "/replace/preview", map[string]any{
-		"kind": "annotation", "ids": ids, "field": "character", "find": "a", "replace": "b",
+		"kind": "annotation", "ids": ids, "field": "actor", "find": "a", "replace": "b",
 	}, http.StatusBadRequest)
 	// And a work is not a kind this endpoint takes at all.
 	c.mustDo("POST", "/replace/preview", map[string]any{

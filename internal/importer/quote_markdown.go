@@ -44,6 +44,19 @@ type Utterance struct {
 	Category    string
 	Language    string
 	Translation string
+	// 0047 — what a proverb, a letter and an essay carry. Every one of them is
+	// optional and empty means "the file did not say", which the caller turns into
+	// the column default, exactly as the fields above do.
+	//
+	// OccasionCirca is the only bool of the five and the only one that is not free
+	// text: it says the occasion date is approximate. It rides here rather than on
+	// OccasionDate because the two are separate columns — a reader can tick it
+	// before typing a year, and the server does not mind (utteranceReq.OccasionCirca).
+	Region        string
+	Recipient     string
+	WorkTitle     string
+	Locator       string
+	OccasionCirca bool
 	// 0043. Which anthology this quote belongs to and the commentary that
 	// introduces it there — both empty for every file that is not an anthology
 	// export, which is why they can ride on this struct rather than needing a
@@ -180,6 +193,38 @@ func applyQuoteBinding(cur *Utterance, line string) {
 		cur.Category = strings.ToLower(val)
 	case "language", "lang":
 		cur.Language = val
+	// 0047. Region pairs with language; `to` is what a letter is addressed with,
+	// and is the alias a hand-written file is likeliest to reach for.
+	case "region":
+		cur.Region = val
+	case "recipient", "to":
+		cur.Recipient = val
+	// The essay's source title. `essay` is accepted because that is the LABEL the
+	// interface puts on this column for that kind, and `work` because a
+	// hand-written file has no reason to know the column is named generically.
+	case "work_title", "work title", "work", "essay":
+		cur.WorkTitle = val
+	// THE ESSAY'S LOCATOR, AND WHY THE FILE KEY IS `page` AND NOT `locator`.
+	//
+	// `locator` is already taken, by the anthology export (export_anthology.go),
+	// which writes it for a JOINED DISPLAY STRING — "7 · The Fall · p. 288", built
+	// in SQL from whichever kind the entry happens to be. This function is SHARED by
+	// the quotes parser and the anthology parser (read the header), so a `locator`
+	// case here would pour that whole display string into utterances.locator on
+	// every anthology re-import: a page field reading "7 · The Fall · p. 288".
+	//
+	// `page` is the spec's own label for the column ("Page — page, section, or
+	// paragraph"), it is what the quotes export writes, and it collides with
+	// nothing: the BOOK parser's `page` is a different parser reading a different
+	// file. `section` rides along as the alias for the other half of the label.
+	//
+	// Deliberately NOT a case: "locator". Leave it that way.
+	case "page", "section":
+		cur.Locator = val
+	// Approximate — "around 1890". truthy() takes true/yes/1, like favorite, so a
+	// hand-written file can say it however it likes; the exporter writes `true`.
+	case "circa":
+		cur.OccasionCirca = truthy(val)
 	// The English half of a line not in English. NOT folded into `note`:
 	// a note is what you thought, a translation is what the line says.
 	case "translation", "translated", "english":

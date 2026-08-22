@@ -38,6 +38,18 @@ type bookReq struct {
 	// working exactly as before.
 	GoogleID      string `json:"google_id"`
 	OpenLibraryID string `json:"openlibrary_id"`
+	// 0047 — the two languages a book has and, oddly, has never carried. A
+	// standalone quote has had one since 1.14 and the shelf it sits on has a whole
+	// LIST of them, while the book of a translated novel could not say which
+	// language it was read in.
+	//
+	// Language is the edition in hand; OrigLanguage is what it was written in. Two
+	// columns rather than one plus a flag, because "read in English, written in
+	// Bengali" is the ordinary case in this library and neither value is derivable
+	// from the other. Free text with suggestions, not BCP-47: the set of languages
+	// is the reader's, which is the same argument utteranceReq.Language makes.
+	Language     string `json:"language"`
+	OrigLanguage string `json:"orig_language"`
 }
 
 // validate trims the shared create/update fields and normalizes the ISBN
@@ -66,6 +78,15 @@ func (b *bookReq) validate() string {
 	if !validYear(b.PublishedYear) {
 		return "published_year must be between 4000 BCE and 3000 CE"
 	}
+	// 100 each, the cap utteranceReq.Language already uses — same kind of value,
+	// same box, and long enough for "Scottish Gaelic" twice over.
+	var ok bool
+	if b.Language, ok = trimCap(b.Language, 100); !ok {
+		return "language is too long"
+	}
+	if b.OrigLanguage, ok = trimCap(b.OrigLanguage, 100); !ok {
+		return "original language is too long"
+	}
 	return ""
 }
 
@@ -81,35 +102,44 @@ type bookDetail struct {
 	Author string `json:"author"`
 	// Present HERE and absent from the list row on purpose — see the list
 	// handler's own note. This is the shape the work's own page reads.
-	Translator     string    `json:"translator"`
-	Editor         string    `json:"editor"`
-	ISBN           string    `json:"isbn"`
-	ASIN           string    `json:"asin"`
-	Description    string    `json:"description"`
-	PublishedYear  int       `json:"published_year"`
-	PublishedCirca bool      `json:"published_circa"`
-	CoverPath      string    `json:"cover_path"`
-	Genres         []string  `json:"genres"`
-	Series         string    `json:"series"`
-	SeriesIndex    float64   `json:"series_index"`
-	Favorite       bool      `json:"favorite"`
-	Status         string    `json:"status"`   // "" | reading | paused | abandoned | completed
-	Progress       int       `json:"progress"` // 0-100, derived from the position when one is set
-	position                 // pos_unit ('' | page) · pos · pos_total
-	Reads          []readRow `json:"reads"` // oldest first
-	CreatedAt      string    `json:"created_at"`
+	Translator     string `json:"translator"`
+	Editor         string `json:"editor"`
+	ISBN           string `json:"isbn"`
+	ASIN           string `json:"asin"`
+	Description    string `json:"description"`
+	PublishedYear  int    `json:"published_year"`
+	PublishedCirca bool   `json:"published_circa"`
+	// DETAIL ONLY, and absent from the list row on purpose — the same call
+	// Translator and Editor made above, for the same reason: the library board draws
+	// a cover, a title and a progress bar, and a language on every row would be a
+	// column the shelf never renders and every list response would carry.
+	Language     string    `json:"language"`
+	OrigLanguage string    `json:"orig_language"`
+	CoverPath    string    `json:"cover_path"`
+	Genres       []string  `json:"genres"`
+	Series       string    `json:"series"`
+	SeriesIndex  float64   `json:"series_index"`
+	Favorite     bool      `json:"favorite"`
+	Status       string    `json:"status"`   // "" | reading | paused | abandoned | completed
+	Progress     int       `json:"progress"` // 0-100, derived from the position when one is set
+	position               // pos_unit ('' | page) · pos · pos_total
+	Reads        []readRow `json:"reads"` // oldest first
+	CreatedAt    string    `json:"created_at"`
 }
 
 func (s *Server) fetchBook(uid, id int64) (*bookDetail, error) {
 	var b bookDetail
 	err := s.Store.DB.QueryRow(`
 		SELECT id, title, COALESCE(author, ''), translator, editor, COALESCE(isbn, ''), COALESCE(asin, ''),
-		       COALESCE(description, ''), COALESCE(published_year, 0), published_circa, COALESCE(cover_path, ''),
+		       COALESCE(description, ''), COALESCE(published_year, 0), published_circa,
+		       language, orig_language, COALESCE(cover_path, ''),
 		       COALESCE(series, ''), COALESCE(series_index, 0), favorite, status, progress,
 		       pos_unit, pos, pos_total, created_at
 		FROM books WHERE id = ? AND user_id = ?`, id, uid).
 		Scan(&b.ID, &b.Title, &b.Author, &b.Translator, &b.Editor, &b.ISBN, &b.ASIN,
-			&b.Description, &b.PublishedYear, &b.PublishedCirca, &b.CoverPath,
+			&b.Description, &b.PublishedYear, &b.PublishedCirca,
+			// No COALESCE on either: NOT NULL DEFAULT '' (0047).
+			&b.Language, &b.OrigLanguage, &b.CoverPath,
 			&b.Series, &b.SeriesIndex, &b.Favorite, &b.Status, &b.Progress,
 			&b.Unit, &b.Pos, &b.PosTotal, &b.CreatedAt)
 	if err != nil {
@@ -208,11 +238,15 @@ func (s *Server) handleCreateBook(w http.ResponseWriter, r *http.Request) {
 	}
 	res, err := tx.Exec(`
 		INSERT INTO books (id, updated_at, user_id, title, author, translator, editor, isbn, asin, cover_path,
-		                   description, published_year, published_circa, google_id, openlibrary_id, source_metadata,
+		                   description, published_year, published_circa, language, orig_language,
+		                   google_id, openlibrary_id, source_metadata,
 		                   series, series_index, favorite)
-		VALUES (?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
+		VALUES (?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
 		id, uid, req.Title, nullable(req.Author), req.Translator, req.Editor, nullable(req.ISBN), nullable(req.ASIN),
 		nullable(coverPath), nullable(req.Description), nullableInt(req.PublishedYear), req.PublishedCirca,
+		// Plain strings — NOT NULL DEFAULT '' (0047), so nullable("") would be the
+		// violation rather than the empty value. Same trap on every 0047 column.
+		req.Language, req.OrigLanguage,
 		googleID, openlibraryID, sourceMeta,
 		nullable(req.Series), nullableFloat(req.SeriesIndex), req.Favorite)
 	if err != nil {
@@ -467,10 +501,12 @@ func (s *Server) handleUpdateBook(w http.ResponseWriter, r *http.Request) {
 	res, err := tx.Exec(`
 		UPDATE books SET title = ?, author = ?, translator = ?, editor = ?, isbn = ?, asin = ?,
 		                 description = ?, published_year = ?, published_circa = ?,
+		                 language = ?, orig_language = ?,
 		                 series = ?, series_index = ?, favorite = ?, updated_at = datetime('now')
 		WHERE id = ? AND user_id = ?`,
 		req.Title, nullable(req.Author), req.Translator, req.Editor, nullable(req.ISBN), nullable(req.ASIN),
 		nullable(req.Description), nullableInt(req.PublishedYear), req.PublishedCirca,
+		req.Language, req.OrigLanguage, // plain strings, see the create path
 		nullable(req.Series), nullableFloat(req.SeriesIndex), req.Favorite, id, uid)
 	if err != nil {
 		failErr("update book", err)

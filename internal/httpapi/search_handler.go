@@ -56,6 +56,13 @@ type annotationHit struct {
 	// list wore the default colour and a library sorted into six named
 	// categories looked uncategorised the moment you searched it.
 	Color string `json:"color"`
+	// Who says it (0047). On the hit so a result card can draw the speaker of a
+	// novel's line the way a dialogue card draws a film's — the field would
+	// otherwise be storable, searchable, and invisible in the one place the search
+	// for it lands. The Characters SECTION stays a screen-only grouping: it is built
+	// from dialogueHits, and a section mixing books and films under one name is a
+	// layout decision for the design pass rather than a column.
+	Character string `json:"character"`
 
 	ReviewExcluded     bool `json:"review_excluded"`
 	WorkReviewExcluded bool `json:"work_review_excluded"` // the book's; see quoteRow
@@ -260,7 +267,7 @@ const (
 	// nothing: `b`/`m` is already joined here, because for a child row that join
 	// IS the ownership check (see searchSources).
 	annotationHitCols = `a.id, a.book_id, b.title, COALESCE(b.cover_path, ''),
-		COALESCE(a.quote, ''), COALESCE(a.note, ''), a.color,
+		COALESCE(a.quote, ''), COALESCE(a.note, ''), a.color, a.character,
 		COALESCE(b.author, ''), COALESCE(b.published_year, 0), COALESCE(b.series, ''),
 		a.review_excluded, b.review_excluded`
 	movieHitCols = `m.id, m.title, COALESCE(m.director, ''), COALESCE(m.release_year, 0),
@@ -289,7 +296,7 @@ func scanBookHit(rows *sql.Rows) (bookHit, error) {
 
 func scanAnnotationHit(rows *sql.Rows) (annotationHit, error) {
 	h := annotationHit{BookGenres: []string{}}
-	err := rows.Scan(&h.ID, &h.BookID, &h.BookTitle, &h.BookCoverPath, &h.Quote, &h.Note, &h.Color,
+	err := rows.Scan(&h.ID, &h.BookID, &h.BookTitle, &h.BookCoverPath, &h.Quote, &h.Note, &h.Color, &h.Character,
 		&h.BookAuthor, &h.BookYear, &h.BookSeries,
 		&h.ReviewExcluded, &h.WorkReviewExcluded)
 	return h, err

@@ -14,6 +14,7 @@ package httpapi
 
 import (
 	"net/http"
+	"strings"
 	"testing"
 )
 
@@ -205,4 +206,75 @@ func TestLanguagesAreDroppedFromAPlainBoard(t *testing.T) {
 	if got := boardByID(t, c, b.ID); len(got.Languages) != 0 {
 		t.Fatalf("a plain board kept its languages: %+v", got.Languages)
 	}
+}
+
+// EVERY KIND THE APP OFFERS CAN BE CREATED, which for three releases was not
+// true and was not tested.
+//
+// `boardKindSpeech` has been defined and accepted by this handler since 1.15.0
+// and the Quotes page has POSTed it from its **Speeches** starter since the same
+// release — while 0037's CHECK still refused it. So pressing that starter
+// answered 500 (`insert board`), and nothing anywhere said so. This test is the
+// one that would have.
+//
+// 'letter' and 'essay' arrive with 0047 and are covered by the same table for the
+// same reason: five values validated in one Go list is one place to forget a
+// value, and the chain of `!=` it replaced was that place.
+func TestEveryBoardKindTheAppOffersCanBeCreated(t *testing.T) {
+	h := newTestServer(t).Handler()
+	c := signupAdmin(t, h)
+
+	// WRITTEN OUT, not read from boardKinds. Looping over the vocabulary would make
+	// this test a tautology — shrink the list and the loop shrinks with it — which
+	// is exactly the shape of the bug it exists to catch, where Go's idea of the set
+	// and the schema's disagreed and no assertion named a value.
+	want := []string{"plain", "proverb", "speech", "letter", "essay"}
+	if !sameStrings(boardKinds, want) {
+		t.Fatalf("boardKinds = %v, want %v — if a kind was added on purpose, add it here too "+
+			"(and to the Quotes screen, and to both locale files)", boardKinds, want)
+	}
+
+	for _, kind := range want {
+		b := decode[boardRow](t, c.mustDo("POST", "/boards",
+			map[string]any{"name": "board of " + kind, "kind": kind}, http.StatusCreated))
+		if b.Kind != kind {
+			t.Errorf("posted kind %q, got %q back", kind, b.Kind)
+		}
+		// Read back through the list, so a kind the INSERT accepted and the SELECT
+		// could not render is still a failure.
+		if got := boardByID(t, c, b.ID); got.Kind != kind {
+			t.Errorf("board of %q came back as %q", kind, got.Kind)
+		}
+	}
+
+	// The list is the whole constraint now that the CHECK is gone, so the refusal
+	// has to come from Go — and it has to NAME the five, because an error that says
+	// only "invalid kind" is one a client author cannot act on.
+	rec := c.do("POST", "/boards", map[string]any{"name": "Songs", "kind": "lyrics"})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("an unknown kind answered %d, want 400: %s", rec.Code, rec.Body)
+	}
+	msg := decode[struct {
+		Error string `json:"error"`
+	}](t, rec).Error
+	for _, kind := range want {
+		if !strings.Contains(msg, kind) {
+			t.Errorf("the refusal %q does not name %q", msg, kind)
+		}
+	}
+}
+
+// 'plain' STAYS THE STORED VALUE for the kind the screens label "Others".
+// Renaming a stored value to match a label is a data migration that buys a word,
+// and this is the test that says so out loud — because the spec calls the kind
+// "Others" and the next reader of that spec will reach for a rename.
+func TestTheOthersKindIsStillStoredAsPlain(t *testing.T) {
+	h := newTestServer(t).Handler()
+	c := signupAdmin(t, h)
+	b := decode[boardRow](t, c.mustDo("POST", "/boards",
+		map[string]any{"name": "Others"}, http.StatusCreated))
+	if b.Kind != "plain" {
+		t.Fatalf("a board with no kind came back %q, want plain", b.Kind)
+	}
+	c.mustDo("POST", "/boards", map[string]any{"name": "Other things", "kind": "others"}, http.StatusBadRequest)
 }

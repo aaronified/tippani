@@ -113,7 +113,11 @@ func TestBulkEditsAQuoteWithoutTouchingItsWords(t *testing.T) {
 	// A FIELD THIS KIND HAS NO COLUMN FOR IS A 400. Answering 200 would report a
 	// change that never happened, which is indistinguishable from one that did —
 	// the same rule parseSearchFacets states for an unknown facet.
-	c.mustDo("POST", "/annotations/bulk", map[string]any{"ids": []int64{a1}, "character": "Rick"}, http.StatusBadRequest)
+	//
+	// `character` was this line's example until 0047 gave a book highlight one, so
+	// the example is now `actor`: an annotation has no cast, because nobody plays
+	// Ahab. The rule being tested has not moved.
+	c.mustDo("POST", "/annotations/bulk", map[string]any{"ids": []int64{a1}, "actor": "Rick"}, http.StatusBadRequest)
 	c.mustDo("POST", "/quotes/bulk", map[string]any{"ids": []int64{1}, "chapter": "3"}, http.StatusBadRequest)
 }
 

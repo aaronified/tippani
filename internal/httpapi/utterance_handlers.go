@@ -84,6 +84,31 @@ type utteranceReq struct {
 	// Uncapped, like Quote and Note: it is the same kind of content, and a
 	// translation is routinely longer than its original.
 	Translation string `json:"translation"`
+	// 0047 — the fields the kinds a board can now hold actually carry. Which of
+	// them a form OFFERS is the board's kind's business; which of them this table
+	// STORES is all of them, because the kind lives on the board and a quote moved
+	// from one board to another must not lose a field on the way.
+	//
+	// Region pairs with Language: a Bengali proverb from Sylhet is not one from
+	// Kolkata. Recipient is what makes a letter a letter. WorkTitle and Locator are
+	// an essay's two — and they are named GENERICALLY on purpose, so that poem,
+	// lyrics and article are one day a label and a list entry rather than another
+	// migration. Those kinds are not being added; do not read this as a promise.
+	Region    string `json:"region"`
+	Recipient string `json:"recipient"`
+	WorkTitle string `json:"work_title"`
+	Locator   string `json:"locator"`
+	// Whether the occasion date is approximate — "around 1890". A plain bool with
+	// no cross-field rule, exactly like bookReq.PublishedCirca: a reader who ticks
+	// it before typing the year has not made a mistake worth a 400, and the box
+	// clears with the date it describes on the next save because every PUT here is
+	// full-state.
+	//
+	// DELIBERATELY OUT OF THE DEDUPE HASH, though occasion_date is in it: ticking a
+	// precision box says nothing new about which quote this is, and folding it in
+	// would make the tick fork a duplicate on the next import of the same file. See
+	// store.UtteranceDedupeHash.
+	OccasionCirca bool `json:"occasion_circa"`
 }
 
 // validate runs the shared rules, then this kind's own.
@@ -101,6 +126,14 @@ func (u *utteranceReq) validate() string {
 		{"place", &u.Place, 200},
 		{"medium", &u.Medium, 100},
 		{"language", &u.Language, 100},
+		// 0047. Region is a place name, so it is sized like `place`'s smaller
+		// sibling; recipient and work title are 200 because a name and a title are
+		// the shape `speaker` and `occasion` already are; locator is 128 because it
+		// is a locator, and every locator in this schema is 128.
+		{"region", &u.Region, 100},
+		{"recipient", &u.Recipient, 200},
+		{"work title", &u.WorkTitle, 200},
+		{"locator", &u.Locator, 128},
 	} {
 		s, ok := trimCap(*f.v, f.max)
 		if !ok {
@@ -161,6 +194,15 @@ type utteranceRow struct {
 	Category    string `json:"category"`
 	Language    string `json:"language"`
 	Translation string `json:"translation"`
+	// 0047. On the list row as well, for the reason the two above are: these are
+	// what the card DRAWS on a proverb, a letter and an essay board, and a board
+	// that had to fetch each quote singly to render its own shelf is the thing the
+	// two-level screen exists to avoid.
+	Region        string `json:"region"`
+	Recipient     string `json:"recipient"`
+	WorkTitle     string `json:"work_title"`
+	Locator       string `json:"locator"`
+	OccasionCirca bool   `json:"occasion_circa"`
 	// 0036. The board this quote is filed on. Always set — the migration
 	// backfilled every existing row and the API never writes a null — so the
 	// client can key on it without a "no board" branch.
@@ -172,6 +214,7 @@ type utteranceRow struct {
 const utteranceCols = `u.id, u.quote, COALESCE(u.note, ''), u.color, u.favorite,
 	u.speaker, u.occasion, u.occasion_date, u.place, u.medium,
 	u.category, u.language, u.translation, COALESCE(u.board_id, 0),
+	u.region, u.recipient, u.work_title, u.locator, u.occasion_circa,
 	COALESCE(u.noted_at, ''), u.sticker_id, u.sticker_x, u.sticker_y, u.created_at, u.updated_at,
 	r.item_id IS NOT NULL, COALESCE(r.stability, 0), COALESCE(r.last_reviewed_at, ''), COALESCE(r.last_result, ''),
 	u.review_excluded`
@@ -183,6 +226,7 @@ func scanUtterance(sc interface{ Scan(...any) error }) (utteranceRow, error) {
 	err := sc.Scan(&u.ID, &u.Quote, &u.Note, &u.Color, &u.Favorite,
 		&u.Speaker, &u.Occasion, &u.OccasionDate, &u.Place, &u.Medium,
 		&u.Category, &u.Language, &u.Translation, &u.BoardID,
+		&u.Region, &u.Recipient, &u.WorkTitle, &u.Locator, &u.OccasionCirca,
 		&u.NotedAt, &u.StickerID, &u.StickerX, &u.StickerY, &u.CreatedAt, &u.UpdatedAt,
 		&u.Reviewed, &u.Stability, &u.LastReviewedAt, &u.LastResult, &u.ReviewExcluded)
 	u.Tags = []string{}
@@ -254,12 +298,16 @@ func (s *Server) handleCreateUtterance(w http.ResponseWriter, r *http.Request) {
 		INSERT INTO utterances (id, user_id, quote, note, color, favorite,
 		                        speaker, occasion, occasion_date, place, medium,
 		                        category, language, translation, board_id,
+		                        region, recipient, work_title, locator, occasion_circa,
 		                        source, dedupe_hash, noted_at, sticker_id, sticker_x, sticker_y)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')), ?, ?, ?)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')), ?, ?, ?)
 		ON CONFLICT DO NOTHING`,
 		id, uid, req.Quote, nullable(req.Note), req.Color, req.Favorite,
 		req.Speaker, req.Occasion, req.OccasionDate, req.Place, req.Medium,
 		req.Category, req.Language, req.Translation, boardID,
+		// Plain values, like the five above them: every column here is NOT NULL with
+		// a zero-value default, so nullable() would turn "" into the violation.
+		req.Region, req.Recipient, req.WorkTitle, req.Locator, req.OccasionCirca,
 		req.Source, req.hash(), nullable(req.NotedAt), req.StickerID, req.StickerX, req.StickerY)
 	if err != nil {
 		internalError(w, r, "insert utterance", err)
@@ -483,12 +531,16 @@ func (s *Server) handleUpdateUtterance(w http.ResponseWriter, r *http.Request) {
 		UPDATE utterances SET quote = ?, note = ?, color = ?, favorite = ?,
 		       speaker = ?, occasion = ?, occasion_date = ?, place = ?, medium = ?,
 		       category = ?, language = ?, translation = ?, board_id = ?,
+		       region = ?, recipient = ?, work_title = ?, locator = ?, occasion_circa = ?,
 		       dedupe_hash = ?, sticker_id = ?, sticker_x = ?, sticker_y = ?,
 		       updated_at = datetime('now')
 		WHERE id = ? AND user_id = ?`,
 		req.Quote, nullable(req.Note), req.Color, req.Favorite,
 		req.Speaker, req.Occasion, req.OccasionDate, req.Place, req.Medium,
 		req.Category, req.Language, req.Translation, boardID,
+		// Full-state, like every other field in this UPDATE — see the note above on
+		// board_id for what a client that omits one of them is asking for.
+		req.Region, req.Recipient, req.WorkTitle, req.Locator, req.OccasionCirca,
 		req.hash(), req.StickerID, req.StickerX, req.StickerY, id, uid)
 	if err != nil {
 		internalError(w, r, "update utterance", err)

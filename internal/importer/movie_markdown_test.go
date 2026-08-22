@@ -234,3 +234,49 @@ func TestMovieMarkdownMediaType(t *testing.T) {
 		})
 	}
 }
+
+// A GAME'S LINE IS PLACED BY ITS ACT AND ITS QUEST, and a show's episode has a
+// name as well as a number (0047). Three bindings, and the one that could have
+// collided is `episode_name`: bindingKey lowercases and trims, so the number's
+// key and the name's key are different strings and cannot be confused.
+//
+// The parser reports whatever the file said, whatever its type line claims. Which
+// of the three survives is decided by the DESTINATION's media type, in
+// writeMovieDialogues, because that is where retargeting a misdetected file is
+// repaired — so a test asserting "a film file drops its act" belongs there and
+// not here.
+func TestMovieMarkdownGameAndEpisodeNameBindings(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		binding     string
+		act, quest  string
+		episodeName string
+	}{
+		{"act and quest", "- act: 2\n- quest: The Whirling-in-Rags\n", "2", "The Whirling-in-Rags", ""},
+		{"an act need not be a number", "- act: Prologue\n", "Prologue", "", ""},
+		{"a quest alone", "- quest: The Well\n", "", "The Well", ""},
+		{"an episode name", "- episode_name: All Prologue\n", "", "", "All Prologue"},
+		{"the spaced spelling of it", "- episode name: All Prologue\n", "", "", "All Prologue"},
+		{"keys still fold case", "- Act: 2\n- QUEST: The Well\n", "2", "The Well", ""},
+		// The collision that is not one: the number and the name are separate keys,
+		// so a file carrying both keeps both.
+		{"a number and a name together", "- episode: 6\n- episode_name: All Prologue\n", "", "", "All Prologue"},
+		{"nothing at all", "", "", "", ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			md := "---\ntitle: A Work\ntype: game\n---\n\n> A line.\n" + tc.binding
+			all, err := MovieMarkdownAll(strings.NewReader(md))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(all) != 1 || len(all[0].Dialogues) != 1 {
+				t.Fatalf("expected one title with one dialogue, got %+v", all)
+			}
+			d := all[0].Dialogues[0]
+			if d.Act != tc.act || d.Quest != tc.quest || d.EpisodeName != tc.episodeName {
+				t.Fatalf("act=%q quest=%q episode_name=%q, want %q / %q / %q",
+					d.Act, d.Quest, d.EpisodeName, tc.act, tc.quest, tc.episodeName)
+			}
+		})
+	}
+}

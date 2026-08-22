@@ -16,6 +16,10 @@ func TestMarkdownKindRouting(t *testing.T) {
 		{"explicit book", "---\ntype: book\ntitle: Dune\n---\n", KindBook},
 		{"explicit movie", "---\ntype: movie\ntitle: Casablanca\n---\n", KindMovie},
 		{"explicit show", "---\ntype: show\ntitle: The Wire\n---\n", KindMovie},
+		// A game is a catalogue file too (0040/0047). Its export is the one shape
+		// where nothing else can decide: no director, no collection, no timestamp
+		// and no episode — only an act and a quest.
+		{"explicit game", "---\ntype: game\ntitle: Disco Elysium\n---\n", KindMovie},
 		{"case insensitive", "---\nType: Quotes\n---\n", KindQuotes},
 
 		// Hand-written files with no type line fall back to the locator that only
@@ -25,6 +29,10 @@ func TestMarkdownKindRouting(t *testing.T) {
 		{"author frontmatter", "---\nauthor: Herbert\n---\n", KindBook},
 		{"director frontmatter", "---\ndirector: Curtiz\n---\n", KindMovie},
 		{"character binding", "---\n---\n\n> a line\n- character: Rick\n", KindMovie},
+		// The hand-written game: a bare title and a line placed by its act or its
+		// quest. Neither key exists on a book or a standalone quote.
+		{"act binding", "---\ntitle: Skyrim\n---\n\n> a bark\n- act: 2\n", KindMovie},
+		{"quest binding", "---\ntitle: Skyrim\n---\n\n> a bark\n- quest: The Well\n", KindMovie},
 
 		// The historical default. A file with nothing decisive is a book, which is
 		// the safer guess — a book import asks for a title and fails loudly.

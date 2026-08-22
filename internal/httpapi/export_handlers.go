@@ -224,7 +224,8 @@ func serveMarkdown(w http.ResponseWriter, filename, body string) {
 func (s *Server) renderBookExport(b *bookDetail) (string, error) {
 	rows, err := s.Store.DB.Query(`
 		SELECT id, COALESCE(quote, ''), COALESCE(note, ''), color, COALESCE(chapter, ''),
-		       COALESCE(chapter_no, 0), COALESCE(location, ''), favorite, COALESCE(noted_at, '')
+		       COALESCE(chapter_no, 0), COALESCE(location, ''), character, favorite,
+		       COALESCE(noted_at, '')
 		FROM annotations WHERE book_id = ? ORDER BY id`, b.ID)
 	if err != nil {
 		return "", err
@@ -233,8 +234,11 @@ func (s *Server) renderBookExport(b *bookDetail) (string, error) {
 	var anns []annotationRow
 	for rows.Next() {
 		var a annotationRow
+		// `character` carries no COALESCE: it is NOT NULL DEFAULT '' (0047), so the
+		// empty string is what a row predating the column actually holds and there is
+		// no NULL for a COALESCE to catch. Same rule as dialogueCols.
 		if err := rows.Scan(&a.ID, &a.Quote, &a.Note, &a.Color, &a.Chapter,
-			&a.ChapterNo, &a.Location, &a.Favorite, &a.NotedAt); err != nil {
+			&a.ChapterNo, &a.Location, &a.Character, &a.Favorite, &a.NotedAt); err != nil {
 			olog.Warnf(olog.CodeExportRowScan, "[export] book annotation row scan failed: %v", err)
 			continue
 		}
@@ -258,10 +262,30 @@ func (s *Server) renderBookExport(b *bookDetail) (string, error) {
 		// existing export fixtures honest rather than merely updated.
 		kv{"translator", b.Translator},
 		kv{"editor", b.Editor},
+		// The two languages (0047), beside the two credits and for the same reason
+		// they sit there: which edition this is, and what it was written in, are
+		// facts about the same act of translation. Empty values are dropped, so a
+		// book with neither exports byte-for-byte as it did before.
+		kv{"language", b.Language},
+		kv{"orig_language", b.OrigLanguage},
 		kv{"isbn", b.ISBN},
 		kv{"year", zeroBlank(b.PublishedYear)},
 		kv{"genres", strings.Join(b.Genres, ", ")},
 		kv{"series", seriesFrontmatter(b.Series, b.SeriesIndex)},
+		// A BOOK FILE NOW SAYS THAT IT IS A BOOK, unconditionally and in the same
+		// slot the catalogue export writes its own type line.
+		//
+		// It never did, and got away with it only because nothing a book carried was
+		// decisive for another kind. 0047 broke that: an annotation has a CHARACTER,
+		// and "- character:" is one of the bindings MarkdownKind reads as "this is a
+		// film" (movie_markdown.go). So a book with no author and no isbn — both
+		// dropped when empty — whose first highlight named a character would have
+		// re-imported as a FILM, with every chapter heading discarded on the way.
+		//
+		// This is exactly the hole mediaTypeLine was made unconditional to close on
+		// the catalogue side, and the fix is the same six characters. It changes
+		// shipped export bytes, which is the whole cost: wantBookExport moves with it.
+		kv{"type", "book"},
 		kv{"status", b.Status},
 		kv{"progress", progressFrontmatter(b.Status, b.Progress)},
 		kv{"page", posFrontmatter(b.Status, b.position)},
@@ -289,6 +313,11 @@ func (s *Server) renderBookExport(b *bookDetail) (string, error) {
 		for _, a := range grouped[ch] {
 			sb.WriteString("\n")
 			writeQuoteBlock(&sb, a.Quote, a.Note, func(note string) {
+				// Who says the line, first — the same slot and the same key the
+				// dialogue block puts it in, because it is the same fact about a
+				// different medium. A novel has speakers and no cast, so there is no
+				// `actor` beside it: nobody plays Ahab.
+				writeBinding(&sb, "character", a.Character)
 				writeBinding(&sb, "note", note)
 				if a.Color != "yellow" {
 					writeBinding(&sb, "color", a.Color)
@@ -309,7 +338,7 @@ func (s *Server) renderBookExport(b *bookDetail) (string, error) {
 func (s *Server) renderMovieExport(m *movieDetail) (string, error) {
 	rows, err := s.Store.DB.Query(`
 		SELECT id, quote, COALESCE(note, ''), color, COALESCE(character, ''), COALESCE(actor, ''),
-		       COALESCE(timestamp, ''), season, episode, favorite
+		       COALESCE(timestamp, ''), season, episode, act, quest, episode_name, favorite
 		FROM dialogues WHERE movie_id = ?`+dialogueOrder(""), m.ID)
 	if err != nil {
 		return "", err
@@ -318,8 +347,11 @@ func (s *Server) renderMovieExport(m *movieDetail) (string, error) {
 	var dlgs []dialogueRow
 	for rows.Next() {
 		var d dialogueRow
+		// act/quest/episode_name carry no COALESCE, for the reason dialogueCols
+		// states: NOT NULL DEFAULT '' (0047), so there is no NULL to catch.
 		if err := rows.Scan(&d.ID, &d.Quote, &d.Note, &d.Color, &d.Character, &d.Actor,
-			&d.Timestamp, &d.Season, &d.Episode, &d.Favorite); err != nil {
+			&d.Timestamp, &d.Season, &d.Episode, &d.Act, &d.Quest, &d.EpisodeName,
+			&d.Favorite); err != nil {
 			olog.Warnf(olog.CodeExportRowScan, "[export] movie dialogue row scan failed: %v", err)
 			continue
 		}
@@ -360,6 +392,15 @@ func (s *Server) renderMovieExport(m *movieDetail) (string, error) {
 			// frontmatter's own season/episode, one level down.
 			writeBinding(&sb, "season", nullBlank(d.Season))
 			writeBinding(&sb, "episode", nullBlank(d.Episode))
+			// The episode's NAME sits beside its number, because that is what it
+			// names; the game's two locators sit before the timestamp, because they
+			// replace it — a game has no runtime to point into (0047). All three are
+			// empty for every other medium (the server clears them, see
+			// normalizeLocator), so writeBinding drops the lines and a film's export
+			// is byte-for-byte what it was.
+			writeBinding(&sb, "episode_name", d.EpisodeName)
+			writeBinding(&sb, "act", d.Act)
+			writeBinding(&sb, "quest", d.Quest)
 			writeBinding(&sb, "timestamp", d.Timestamp)
 			writeBinding(&sb, "note", note)
 			// Same rule as the book export: the default colour is left out, so
@@ -454,6 +495,24 @@ func writeBinding(sb *strings.Builder, key, val string) {
 func writeFavorite(sb *strings.Builder, favorite bool) {
 	if favorite {
 		sb.WriteString("- favorite: true\n")
+	}
+}
+
+// writeCirca marks an approximate occasion date — "around 1890" (0047). Written
+// only when it is on, like favorite, so a shelf of exact dates exports byte for
+// byte as it did before the column existed.
+//
+// `true` AND NOT `yes`, though the parser's truthy() takes both. Every boolean
+// this app writes to a file is `true`, and one key spelling it differently in the
+// same block as `- favorite: true` would be a wart a reader has to think about.
+//
+// Written even when the date itself is empty, which looks odd and is right: the
+// column has no cross-field rule (see utteranceReq.OccasionCirca), so a tick
+// saved without a year is real stored state, and a file that dropped it would
+// silently untick it on the way back in.
+func writeCirca(sb *strings.Builder, circa bool) {
+	if circa {
+		sb.WriteString("- circa: true\n")
 	}
 }
 
@@ -565,9 +624,18 @@ func seriesFrontmatter(name string, idx float64) string {
 // that said "film" — so re-importing its own export silently created a BOOK with
 // annotations. Six characters of frontmatter is a cheap price for a file that
 // cannot be misread.
+//
+// A GAME WAS STILL BEING WRITTEN OUT AS A FILM, which was the same bug one media
+// type further along and shipped for as long as games have (0040/0042). There is
+// no such thing as a lossy-but-harmless answer here: the media type is what the
+// importer routes on, and a game re-imported as a film has its act and its quest
+// stripped by writeMovieDialogues' own per-medium gate on the way in — so the
+// file would come back a film with no locator at all. importMediaType and the
+// parser have understood "game" since 1.16.0; only the writer never said it.
 func mediaTypeLine(mediaType string) string {
-	if mediaType == "show" {
-		return "show"
+	switch mediaType {
+	case "show", "game":
+		return mediaType
 	}
 	return "movie" // "" (pre-0006 rows) reads as a film, matching the column default
 }

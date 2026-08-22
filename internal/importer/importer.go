@@ -19,12 +19,19 @@ type Book struct {
 	// The other two credits (0034). Read from Tippani's own frontmatter only —
 	// no third-party importer has a source for either, which is also why they are
 	// absent from the staging queue.
-	Translator  string
-	Editor      string
-	ISBN        string // as found in the file; callers normalize to ISBN-13
-	ASIN        string
-	Series      string  // series name, when the file carries one
-	SeriesIndex float64 // position within it (0 = unknown)
+	Translator string
+	Editor     string
+	// The two languages (0047), read from Tippani's own frontmatter only, for the
+	// same reason the two credits above are: no third-party importer has a source
+	// for either. Language is the edition in hand, OrigLanguage what it was written
+	// in — two facts, because a Bengali novel read in Bengali fills one and a
+	// translation fills both differently.
+	Language     string
+	OrigLanguage string
+	ISBN         string // as found in the file; callers normalize to ISBN-13
+	ASIN         string
+	Series       string  // series name, when the file carries one
+	SeriesIndex  float64 // position within it (0 = unknown)
 	// Shelf state, round-tripped by the Tippani export (§3f). Status is the
 	// server's own vocabulary ("reading" | "paused" | "abandoned" | "completed");
 	// the parser passes through whatever the file says and lets the server reject
@@ -56,6 +63,10 @@ type Annotation struct {
 	Chapter   string
 	ChapterNo float64
 	Location  string
+	// Who says the line (0047). A novel has SPEAKERS and not a cast, so there is
+	// no Actor beside this — the field a film's Dialogue carries and this one
+	// deliberately does not.
+	Character string
 	Color     string // "" -> caller defaults to yellow
 	Tags      []string
 	Favorite  bool
@@ -244,13 +255,22 @@ type Dialogue struct {
 	// Shows only: which episode the line is from. Pointers because nil ("the file
 	// didn't say") and 0 are different facts — season 0 is where a series keeps
 	// its specials, so it has to survive a round trip as a number.
-	Season   *int
-	Episode  *int
-	Note     string
-	Color    string // "" = the importer leaves it to the server default (yellow)
-	Tags     []string
-	Favorite bool
-	NotedAt  string // as for Annotation. No file format carries a date for a
+	Season  *int
+	Episode *int
+	// The episode's NAME, and a game's two locators (0047). Plain strings, not
+	// pointers: empty is unset here because "Act 0" is not a thing anyone writes
+	// and a quest has a name rather than an index — the argument gameRef makes at
+	// the API. Which of them survives depends on the destination's media type, and
+	// writeMovieDialogues is where that gate lives; a parser only reports what the
+	// file said.
+	EpisodeName string
+	Act         string
+	Quest       string
+	Note        string
+	Color       string // "" = the importer leaves it to the server default (yellow)
+	Tags        []string
+	Favorite    bool
+	NotedAt     string // as for Annotation. No file format carries a date for a
 	// dialogue yet, so no parser sets this; it exists so that retargeting staged
 	// book highlights (which do carry Kindle dates) onto a film keeps them
 	// instead of silently dropping the field on the way across.

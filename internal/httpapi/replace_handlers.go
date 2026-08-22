@@ -37,8 +37,15 @@ import (
 // difference is the preview: bulk-setting a quote replaces forty different
 // sentences with one, while replacing "teh" with "the" leaves forty different
 // sentences forty different sentences.
+// A book highlight gains `character` in 0047 for the same reason a film line has
+// always had it: the single commonest post-import cleanup is one name spelled two
+// ways, and a column that can be typed by hand on four hundred rows is a column
+// find-and-replace has to reach. The game's act and quest and the essay's title
+// and page are deliberately NOT here — they are locators, and a locator is
+// corrected by the bulk field editor (one value for the selection) rather than by
+// a substring rewrite across four hundred different ones.
 var replaceFields = map[string][]string{
-	"annotation": {"quote", "note"},
+	"annotation": {"quote", "note", "character"},
 	"dialogue":   {"quote", "note", "character", "actor"},
 	"quote":      {"quote", "note", "speaker", "occasion", "place", "medium"},
 }

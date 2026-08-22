@@ -44,8 +44,9 @@ func normalizeQuoteText(text string) string {
 	return strings.ToLower(strings.Join(strings.Fields(typographicFold.Replace(text)), " "))
 }
 
-// DialogueDedupeHash is DedupeHash for a show's line: the text, qualified by the
-// episode it is spoken in.
+// DialogueDedupeHash is DedupeHash for a screen line: the text, qualified by
+// WHERE IN THE WORK it is spoken — the episode for a show, the act and the quest
+// for a game.
 //
 // Excluding the locator is right for a book, because a book is one work and a
 // passage in it is one passage. It is wrong for a series, because a series is a
@@ -56,16 +57,42 @@ func normalizeQuoteText(text string) string {
 // `UNIQUE (movie_id, dedupe_hash)` and were silently folded into it, or worse,
 // relabelled it with the newer episode via the importer's COALESCE enrichment).
 //
-// Season and episode still are not a *locator* in the excluded sense: the
-// timestamp is, and it stays out. This is the same distinction the export makes
-// by writing the episode as a binding on the line rather than as its position.
+// A GAME IS THE SAME SHAPE, which is why 0047 folds act and quest in as well. A
+// game is one `movies` row too, and a bark reused in two quests is two quotes by
+// exactly the television argument — leaving them out would mean only the first
+// occurrence could ever be stored.
 //
-// When both are nil the result is byte-identical to DedupeHash(text). That is
-// load-bearing: films and un-episoded lines keep the hashes already on disk, so
-// nothing needs rewriting for them and film dedupe is untouched. Only rows that
-// carry an episode hash differently, and BackfillDialogueHashes migrates those.
-func DialogueDedupeHash(text string, season, episode *int) string {
-	if season == nil && episode == nil {
+// Season, episode, act and quest still are not a *locator* in the excluded sense:
+// the timestamp is, and it stays out. This is the same distinction the export
+// makes by writing the episode as a binding on the line rather than as its
+// position.
+//
+// WHEN ALL FOUR ARE EMPTY THE RESULT IS BYTE-IDENTICAL TO DedupeHash(text), and
+// that property is load-bearing rather than incidental. It is what says NO ROW ON
+// DISK NEEDS REHASHING: films and un-episoded lines keep the plain hash they
+// already have, and every dialogue that existed before 0047 has an empty act and
+// an empty quest because the columns did not exist, so a show row keeps its
+// season/episode hash too. Three things make it hold, all of them readable
+// straight off the string:
+//
+//  1. The guard TrimSpaces act and quest rather than testing them for emptiness,
+//     so a "- act:" with a blank value — or a form field holding one space —
+//     still takes the fast path. Without that, a whitespace-only act would emit
+//     "text\x1fa" and fork a duplicate: the same latent fault normalizeQuoteText
+//     exists to describe.
+//  2. The s…e… suffix is written FIRST and is unchanged — not padded, not
+//     reordered, not delimited differently — and act/quest append after it, only
+//     when non-empty. So every episoded row keeps the exact bytes it hashed
+//     before.
+//  3. Each new field is introduced by its OWN \x1f plus a one-letter tag, so it
+//     cannot forge a boundary: act="xqy" with no quest gives "…\x1faxqy" and
+//     act="x", quest="y" gives "…\x1fax\x1fqy". The naive encoding — appending
+//     "a"+act+"q"+quest inside one segment — collides on exactly that pair.
+//
+// BackfillDialogueHashes repairs any row whose stored hash has fallen behind.
+func DialogueDedupeHash(text string, season, episode *int, act, quest string) string {
+	if season == nil && episode == nil &&
+		strings.TrimSpace(act) == "" && strings.TrimSpace(quest) == "" {
 		return DedupeHash(text)
 	}
 	// THE TEXT IS NORMALISED BEFORE THE SUFFIX IS APPENDED, not after. Running
@@ -88,6 +115,17 @@ func DialogueDedupeHash(text string, season, episode *int) string {
 	if episode != nil {
 		b.WriteString("e")
 		b.WriteString(strconv.Itoa(*episode))
+	}
+	// Appended AFTER the episode suffix and each behind its own separator — see
+	// properties 2 and 3 above. Normalised individually, like every other field
+	// in this file, so a trailing space in a form box cannot fork a duplicate.
+	if a := normalizeQuoteText(act); a != "" {
+		b.WriteString("\x1fa")
+		b.WriteString(a)
+	}
+	if q := normalizeQuoteText(quest); q != "" {
+		b.WriteString("\x1fq")
+		b.WriteString(q)
 	}
 	sum := sha256.Sum256([]byte(b.String()))
 	return hex.EncodeToString(sum[:])
@@ -194,18 +232,32 @@ func DedupeHashOfJoined(normalized string) string {
 // worse outcome than leaving one of them on its old hash, so a failed row is
 // logged and skipped. The consequence of skipping is bounded and visible: that
 // row can still be duplicated by a future import, exactly as it could before.
+//
+// WIDENED IN 0047 TO ACT AND QUEST, and it repairs nothing on upgrade: no
+// historical row can carry an act, because the column did not exist. The reason
+// to widen it anyway is the self-healing property claimed two paragraphs up. That
+// property is what makes a STALE hash heal, and there are live ways to leave one
+// — the bulk field editor and find/replace both rewrite quote columns without
+// recomputing dedupe_hash. A game whose act is edited in bulk is a latent
+// duplicate until the next boot, and only if this scan can see it.
+//
+// Comparing act and quest against the empty string is safe without a NULL guard:
+// 0047 made both columns NOT NULL with an empty default, so there is no third
+// state for the comparison to swallow.
 func (s *Store) BackfillDialogueHashes() error {
 	for _, t := range []struct{ sel, upd string }{
 		{
-			`SELECT id, quote, season, episode, dedupe_hash FROM dialogues
-			  WHERE season IS NOT NULL OR episode IS NOT NULL`,
+			`SELECT id, quote, season, episode, act, quest, dedupe_hash FROM dialogues
+			  WHERE season IS NOT NULL OR episode IS NOT NULL
+			     OR act <> '' OR quest <> ''`,
 			`UPDATE dialogues SET dedupe_hash = ? WHERE id = ?`,
 		},
 		{
 			// Staging mirrors the live rule, so it needs the same repair. Its text is
 			// the quote or, for a note-only row, the note — as staged_quotes writes it.
-			`SELECT id, COALESCE(NULLIF(quote, ''), note, ''), season, episode, dedupe_hash
-			   FROM staged_quotes WHERE season IS NOT NULL OR episode IS NOT NULL`,
+			`SELECT id, COALESCE(NULLIF(quote, ''), note, ''), season, episode, act, quest, dedupe_hash
+			   FROM staged_quotes WHERE season IS NOT NULL OR episode IS NOT NULL
+			                         OR act <> '' OR quest <> ''`,
 			`UPDATE staged_quotes SET dedupe_hash = ? WHERE id = ?`,
 		},
 	} {
@@ -225,13 +277,14 @@ func (s *Store) BackfillDialogueHashes() error {
 			var (
 				id            int64
 				text, stored  string
+				act, quest    string
 				season, episo *int
 			)
-			if err := rows.Scan(&id, &text, &season, &episo, &stored); err != nil {
+			if err := rows.Scan(&id, &text, &season, &episo, &act, &quest, &stored); err != nil {
 				rows.Close()
 				return fmt.Errorf("backfill dialogue hashes: %w", err)
 			}
-			if want := DialogueDedupeHash(text, season, episo); want != stored {
+			if want := DialogueDedupeHash(text, season, episo, act, quest); want != stored {
 				todo = append(todo, pending{id: id, hash: want})
 			}
 		}

@@ -172,3 +172,81 @@ func TestQuoteMarkdownBindings(t *testing.T) {
 		})
 	}
 }
+
+// THE FIVE FIELDS THE BOARD KINDS ACTUALLY CARRY (0047) — region for a proverb,
+// recipient for a letter, work title and page for an essay, and circa for the
+// precision of the date.
+//
+// Pinned with DeepEqual over the whole struct, like the table above, so a value
+// landing in the wrong field cannot pass. The aliases are here because a quotes
+// file is hand-written as often as it is exported, and each one is the word the
+// interface itself uses for that column: `to` for a recipient, `essay` for a
+// source title, `page` for a locator.
+func TestQuoteMarkdownPerKindBindings(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		md   string
+		want Utterance
+	}{
+		{
+			name: "all five, canonical keys",
+			md: "---\ntype: quotes\n---\n\n> I have a bird in my hand.\n" +
+				"- recipient: Jawaharlal Nehru\n- region: Birbhum\n" +
+				"- work_title: Letters to a Friend\n- page: p. 44\n- circa: true\n",
+			want: Utterance{
+				Quote: "I have a bird in my hand.", Recipient: "Jawaharlal Nehru",
+				Region: "Birbhum", WorkTitle: "Letters to a Friend", Locator: "p. 44",
+				OccasionCirca: true,
+			},
+		},
+		{
+			name: "the aliases a person would type",
+			md: "---\ntype: quotes\n---\n\n> a line\n" +
+				"- to: Nehru\n- essay: On Liberty\n- section: §3\n- circa: yes\n",
+			want: Utterance{
+				Quote: "a line", Recipient: "Nehru", WorkTitle: "On Liberty",
+				Locator: "§3", OccasionCirca: true,
+			},
+		},
+		{
+			name: "the other alias for a source title",
+			md:   "---\ntype: quotes\n---\n\n> a line\n- work: On Liberty\n",
+			want: Utterance{Quote: "a line", WorkTitle: "On Liberty"},
+		},
+		{
+			// truthy() takes true/yes/1 and nothing else, exactly as favorite does, so
+			// "- circa: false" is off rather than a parse error.
+			name: "circa is off unless it is truthy",
+			md:   "---\ntype: quotes\n---\n\n> a line\n- circa: false\n",
+			want: Utterance{Quote: "a line"},
+		},
+		{
+			name: "keys still fold case",
+			md:   "---\ntype: quotes\n---\n\n> a line\n- Region: Sylhet\n- CIRCA: 1\n",
+			want: Utterance{Quote: "a line", Region: "Sylhet", OccasionCirca: true},
+		},
+		{
+			// THE KEY THIS PARSER DELIBERATELY DOES NOT HAVE. `locator` belongs to the
+			// anthology export, which writes a JOINED DISPLAY STRING under it — and
+			// applyQuoteBinding is shared by both parsers, so accepting it here would
+			// pour "7 · The Fall · p. 288" into a page field on every anthology
+			// re-import. The line is ignored, as any unknown binding is.
+			name: "an anthology's locator is not a page",
+			md:   "---\ntype: quotes\n---\n\n> a line\n- locator: 7 · The Fall · p. 288\n",
+			want: Utterance{Quote: "a line"},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			us, err := QuoteMarkdownAll(strings.NewReader(tc.md))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(us) != 1 {
+				t.Fatalf("expected one quote, got %d: %+v", len(us), us)
+			}
+			if !reflect.DeepEqual(us[0], tc.want) {
+				t.Fatalf("utterance = %+v, want %+v", us[0], tc.want)
+			}
+		})
+	}
+}

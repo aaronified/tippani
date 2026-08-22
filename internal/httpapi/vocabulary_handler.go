@@ -67,8 +67,21 @@ func (s *Server) handleSearchVocabulary(w http.ResponseWriter, r *http.Request) 
 		// `character:` matches neither of them. The join covers films, shows AND
 		// games in one query — a game is a movies row (0040), so there is nothing
 		// media-specific to add here and nothing to forget.
+		//
+		// 0047 UNIONs THE BOOK SIDE IN. A novel's speakers are the same vocabulary
+		// under the same facet name, and offering only the film half would make
+		// `character:` autocomplete a word the reader typed on a highlight yesterday
+		// and then fail to find it.
+		//
+		// vocabList derives its argument count from strings.Count(query, "user_id = ?"),
+		// so a UNION arm carrying its own scope needs nothing else changed — and one
+		// that FORGOT the scope would be a cross-account leak the count would not
+		// notice, which is why both arms spell it out.
 		{"characters", `SELECT DISTINCT d.character FROM dialogues d JOIN movies m ON m.id = d.movie_id
-		                WHERE m.user_id = ? AND d.character IS NOT NULL AND d.character <> ''`, true},
+		                WHERE m.user_id = ? AND d.character IS NOT NULL AND d.character <> ''
+		                UNION
+		                SELECT DISTINCT a.character FROM annotations a JOIN books b ON b.id = a.book_id
+		                WHERE b.user_id = ? AND a.character <> ''`, true},
 		{"speakers", `SELECT DISTINCT speaker FROM utterances WHERE user_id = ? AND speaker <> ''`, true},
 		{"shelves", `SELECT DISTINCT status FROM books WHERE user_id = ? AND status <> ''
 		             UNION SELECT DISTINCT status FROM movies WHERE user_id = ? AND status <> ''`, false},

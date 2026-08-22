@@ -116,7 +116,7 @@ func TestUtteranceHashDiffersFromTheOtherKinds(t *testing.T) {
 		t.Fatal("an utterance with an occasion hashes as if it had none")
 	}
 	s, e := 2, 5
-	if utt == DialogueDedupeHash(line, &s, &e) {
+	if utt == DialogueDedupeHash(line, &s, &e, "", "") {
 		t.Fatal("an utterance collides with an episoded dialogue")
 	}
 }
@@ -131,9 +131,9 @@ func TestUtteranceHashDiffersFromTheOtherKinds(t *testing.T) {
 // exact failure the qualified hash was introduced to stop.
 func TestDialogueHashIgnoresSurroundingWhitespace(t *testing.T) {
 	s2, e6 := 2, 6
-	base := DialogueDedupeHash("Not today", &s2, &e6)
+	base := DialogueDedupeHash("Not today", &s2, &e6, "", "")
 	for _, padded := range []string{"Not today ", " Not today", "  Not today  ", "Not  today"} {
-		if got := DialogueDedupeHash(padded, &s2, &e6); got != base {
+		if got := DialogueDedupeHash(padded, &s2, &e6, "", ""); got != base {
 			t.Errorf("DialogueDedupeHash(%q) differs from the unpadded line — "+
 				"a stray space makes a second copy of the same quote", padded)
 		}
@@ -145,7 +145,7 @@ func TestDialogueHashIgnoresSurroundingWhitespace(t *testing.T) {
 // hash already on disk and nothing needs rewriting for them.
 func TestDialogueHashIsUnchangedWithoutAnEpisode(t *testing.T) {
 	for _, text := range []string{"Here is looking at you", "  padded  ", "Smart “quotes” too"} {
-		if DialogueDedupeHash(text, nil, nil) != DedupeHash(text) {
+		if DialogueDedupeHash(text, nil, nil, "", "") != DedupeHash(text) {
 			t.Errorf("DialogueDedupeHash(%q, nil, nil) diverged from DedupeHash", text)
 		}
 	}
@@ -160,7 +160,7 @@ func TestDialogueHashIsStableForWellFormedText(t *testing.T) {
 	// For text with single internal spaces and no padding the two orders agree,
 	// which is what makes the fix safe to ship without a rewrite.
 	want := DedupeHashOfJoined("not today\x1fs1e1")
-	if got := DialogueDedupeHash("Not today", &s1, &e1); got != want {
+	if got := DialogueDedupeHash("Not today", &s1, &e1, "", ""); got != want {
 		t.Fatalf("the hash of a well-formed episoded line moved: %s vs %s", got, want)
 	}
 }
@@ -169,12 +169,140 @@ func TestDialogueHashIsStableForWellFormedText(t *testing.T) {
 // quotes, which is why this hash exists at all.
 func TestDialogueHashStillSeparatesEpisodes(t *testing.T) {
 	s1, e1, e2 := 1, 1, 2
-	a := DialogueDedupeHash("Not today", &s1, &e1)
-	b := DialogueDedupeHash("Not today", &s1, &e2)
+	a := DialogueDedupeHash("Not today", &s1, &e1, "", "")
+	b := DialogueDedupeHash("Not today", &s1, &e2, "", "")
 	if a == b {
 		t.Fatal("the same line in two episodes must be two quotes")
 	}
 	if a == DedupeHash("Not today") {
 		t.Fatal("an episoded line must not collide with the un-episoded one")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 0047: a game's act and quest
+// ---------------------------------------------------------------------------
+//
+// A game is one `movies` row, exactly as a series is, so a bark reused in two
+// quests is two quotes by the same argument that made the episode discriminate.
+// The two tests above — TestDialogueHashIsUnchangedWithoutAnEpisode and
+// TestDialogueHashIsStableForWellFormedText — are the proof that adding them
+// rewrote nothing on disk, and they are deliberately left saying what they said.
+
+// The guard is the whole property: with no season, no episode, no act and no
+// quest, the result must be DedupeHash byte for byte, or every film row in every
+// existing database needs rehashing.
+func TestDialogueHashIsUnchangedWithNoLocatorAtAll(t *testing.T) {
+	for _, text := range []string{"Here is looking at you", "  padded  ", "Smart “quotes” too"} {
+		if DialogueDedupeHash(text, nil, nil, "", "") != DedupeHash(text) {
+			t.Errorf("DialogueDedupeHash(%q) with no locator diverged from DedupeHash", text)
+		}
+	}
+	// WHITESPACE-ONLY COUNTS AS ABSENT. A "- act:" with a blank value, or a form
+	// field holding one space, must take the same fast path — otherwise it emits
+	// "text\x1fa" and the next import of the same file forks a duplicate. This is
+	// the fault normalizeQuoteText's own header describes, one field over.
+	const line = "Here is looking at you"
+	for _, pair := range [][2]string{{" ", ""}, {"", "\t"}, {"  ", " "}, {"\n", "\n"}} {
+		if DialogueDedupeHash(line, nil, nil, pair[0], pair[1]) != DedupeHash(line) {
+			t.Errorf("act=%q quest=%q read as a locator; whitespace-only must count as absent", pair[0], pair[1])
+		}
+	}
+}
+
+// Season and episode with an empty act and quest must hash EXACTLY as they did
+// before 0047, or every episoded row on disk is stranded. The value is stated as
+// the string being hashed rather than as a digest, so what is being claimed is
+// readable: the suffix is written first and act/quest append after it.
+func TestDialogueHashIsUnchangedForAnEpisodedLine(t *testing.T) {
+	s1, e1 := 1, 1
+	if got, want := DialogueDedupeHash("Not today", &s1, &e1, "", ""),
+		DedupeHashOfJoined("not today\x1fs1e1"); got != want {
+		t.Fatalf("an episoded line's hash moved when act and quest were added:\n got %s\nwant %s", got, want)
+	}
+	// And whitespace-only act/quest must not disturb it either.
+	if got, want := DialogueDedupeHash("Not today", &s1, &e1, " ", "  "),
+		DedupeHashOfJoined("not today\x1fs1e1"); got != want {
+		t.Fatal("a blank act changed an episoded line's hash")
+	}
+}
+
+// The encoding, pinned. Each new field is introduced by its own \x1f plus a
+// one-letter tag, and the empty season/episode segment stays where it was — so a
+// game's string is the text, an empty locator segment, then the act, then the
+// quest.
+func TestAGameLineHashesTheWayThisFileSaysItDoes(t *testing.T) {
+	if got, want := DialogueDedupeHash("Bark", nil, nil, "2", "The Well"),
+		DedupeHashOfJoined("bark\x1f\x1fa2\x1fqthe well"); got != want {
+		t.Fatalf("the game encoding is not what it claims to be:\n got %s\nwant %s", got, want)
+	}
+	if got, want := DialogueDedupeHash("Bark", nil, nil, "2", ""),
+		DedupeHashOfJoined("bark\x1f\x1fa2"); got != want {
+		t.Fatalf("an act with no quest is not encoded as claimed:\n got %s\nwant %s", got, want)
+	}
+	if got, want := DialogueDedupeHash("Bark", nil, nil, "", "The Well"),
+		DedupeHashOfJoined("bark\x1f\x1fqthe well"); got != want {
+		t.Fatalf("a quest with no act is not encoded as claimed:\n got %s\nwant %s", got, want)
+	}
+}
+
+// The reason act and quest are in the hash at all: the same bark in two quests is
+// two quotes. Without this, only the first could ever be stored — it would hit
+// UNIQUE (movie_id, dedupe_hash) and be folded into the other, or worse be
+// relabelled with the newer quest by the importer's enrichment.
+func TestAGameLineIsDiscriminatedByItsActAndQuest(t *testing.T) {
+	const bark = "Sure is a hot one today."
+	seen := map[string]string{}
+	for _, c := range []struct{ name, act, quest string }{
+		{"no locator", "", ""},
+		{"act 1", "1", ""},
+		{"act 2", "2", ""},
+		{"quest only", "", "The Well"},
+		{"another quest only", "", "The Bridge"},
+		{"act 1, the well", "1", "The Well"},
+		{"act 2, the well", "2", "The Well"},
+		{"act 1, the bridge", "1", "The Bridge"},
+	} {
+		h := DialogueDedupeHash(bark, nil, nil, c.act, c.quest)
+		if prev, dup := seen[h]; dup {
+			t.Errorf("%q and %q hash identically; the act and the quest must discriminate", c.name, prev)
+		}
+		seen[h] = c.name
+	}
+}
+
+// Normalisation applies to the new fields as it does to everything else: a
+// trailing space or a smart apostrophe in a quest name must not fork a duplicate.
+func TestAGameLineIgnoresHowItsQuestWasTyped(t *testing.T) {
+	const bark = "Sure is a hot one today."
+	base := DialogueDedupeHash(bark, nil, nil, "2", "The Ranger's Well")
+	for _, c := range []struct{ act, quest string }{
+		{" 2 ", "The Ranger's Well"},
+		{"2", "  The   Ranger's Well  "},
+		{"2", "the ranger's well"},
+		{"2", "The Ranger’s Well"},
+	} {
+		if got := DialogueDedupeHash(bark, nil, nil, c.act, c.quest); got != base {
+			t.Errorf("act=%q quest=%q hashed differently from the same line typed plainly", c.act, c.quest)
+		}
+	}
+}
+
+// The separators have to separate, and the naive encoding — appending "a"+act
+// followed by "q"+quest inside one segment — fails exactly this pair. \x1f cannot
+// occur in normalised quote text, so nothing typed can forge one.
+func TestAGameLineCannotForgeItsOwnLocator(t *testing.T) {
+	const bark = "a line"
+	if DialogueDedupeHash(bark, nil, nil, "xqy", "") == DialogueDedupeHash(bark, nil, nil, "x", "y") {
+		t.Fatal(`act="xqy" collides with act="x", quest="y"; the fields need their own separator each`)
+	}
+	if DialogueDedupeHash("a line a2", nil, nil, "", "") == DialogueDedupeHash("a line", nil, nil, "2", "") {
+		t.Fatal("a line whose TEXT spells out an act collides with one that genuinely has that act")
+	}
+	// A game's locator must not collide with a show's, either: they are different
+	// facts about different media and the hashes appear side by side in exports.
+	s1, e1 := 1, 1
+	if DialogueDedupeHash(bark, &s1, &e1, "", "") == DialogueDedupeHash(bark, nil, nil, "1", "1") {
+		t.Fatal("S1E1 collides with act 1 / quest 1")
 	}
 }

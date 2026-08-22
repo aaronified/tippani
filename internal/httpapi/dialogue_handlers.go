@@ -66,6 +66,38 @@ func (e *episodeRef) normalize(mediaType string) string {
 	return ""
 }
 
+// gameRef is the game half of a dialogue's locator, and it is the same shape as
+// episodeRef for the same reason: a game is a movies row (0040), so the rule that
+// a game's lines are placed by ACT and QUEST while a film's are not cannot live in
+// a CHECK either — SQLite cannot reach across to movies.media_type from here.
+//
+// Free text rather than numbers, unlike season and episode. "Act II" and
+// "Prologue" are both real answers, a quest has a name and not an index, and half
+// the games worth quoting number neither. So there is no zero-means-unset problem
+// to solve and no pointer to carry: empty IS unset, which is also the column
+// default (0047).
+//
+// BOTH ARE IDENTITY, not decoration — 0047 folds them into the dedupe hash the
+// way 0025 folded in season and episode. A bark reused in two quests is two
+// quotes, which is the TV catchphrase argument one medium over.
+type gameRef struct {
+	Act   string `json:"act"`
+	Quest string `json:"quest"`
+}
+
+// normalize applies the games-only rule, in the shape episodeRef.normalize uses
+// and for the reason written there: a line whose work was retargeted from a game
+// to a film is CLEARED rather than refused, because refusing it would make every
+// later edit of that line fail from a form that (correctly) no longer offers the
+// field. There is nothing else to check — the caps are applied in validate,
+// beside timestamp's, because a cap does not depend on the medium.
+func (g *gameRef) normalize(mediaType string) string {
+	if mediaType != "game" {
+		*g = gameRef{}
+	}
+	return ""
+}
+
 // dialogueReq is quoteReq plus the screen locator: who says the line, when in the
 // runtime, and — for a show — which episode. See quote.go for the shared half.
 type dialogueReq struct {
@@ -75,15 +107,64 @@ type dialogueReq struct {
 	Actor     string `json:"actor"`
 	Timestamp string `json:"timestamp"`
 	episodeRef
+	gameRef
+	// The episode's NAME, beside its number (0047). NOT inside episodeRef, though
+	// it belongs to the same locator, because episodeRef is embedded in the review
+	// card and in the search hit as well — and neither of those selects this
+	// column, so putting it there would put an `episode_name` on two more wires
+	// that is permanently empty. Cleared for anything but a show, in
+	// normalizeLocator.
+	EpisodeName string `json:"episode_name"`
 }
 
-// hash shadows quoteReq.hash to qualify a show's line by its episode — see
-// store.DialogueDedupeHash for why a series needs that and a book does not.
-// Films and un-episoded lines hash exactly as quoteReq would, so this changes
-// nothing for them. Must be called AFTER episodeRef.normalize, or a film that
-// still carries stale episode numbers would hash as though it were a show.
+// normalizeLocator applies EVERY per-medium locator rule in one call, so that
+// "which locator fields does this medium have" has one answer rather than three
+// scattered ones. Called where episodeRef.normalize used to be called, with the
+// same contract: after the movie is loaded, before hash().
+//
+// EACH RULE CLEARS RATHER THAN REFUSES, which is episodeRef.normalize's decision
+// and its stated reason (read it). It matters more here than it did there:
+// nothing in the shipped capture forms gates the timestamp box by media type, so
+// every game line taken through the app today arrives carrying one. A 400 would
+// refuse all of them, and the forms are not being changed in this pass.
+//
+// Both embedded structs have a method called `normalize`, so neither is promoted
+// and the selector has to be qualified. That is a feature: an unqualified
+// d.normalize() does not compile, which is a better failure than one of the two
+// rules silently not running.
+func (d *dialogueReq) normalizeLocator(mediaType string) string {
+	if msg := d.episodeRef.normalize(mediaType); msg != "" {
+		return msg
+	}
+	if msg := d.gameRef.normalize(mediaType); msg != "" {
+		return msg
+	}
+	// A GAME HAS NO TIMESTAMP. It is placed by its act and its quest, which is what
+	// 0047 put in the hash — and a timestamp left beside them would be a second
+	// locator saying what the first already said, in a unit the medium does not
+	// have.
+	if mediaType == "game" {
+		d.Timestamp = ""
+	}
+	// An episode name with no episode is a name for nothing.
+	if mediaType != "show" {
+		d.EpisodeName = ""
+	}
+	return ""
+}
+
+// hash shadows quoteReq.hash to qualify a show's line by its episode and a game's
+// by its act and quest — see store.DialogueDedupeHash for why those four
+// discriminate and a book's chapter does not. A film, and any line with no
+// locator at all, hashes exactly as quoteReq would, byte for byte, so this
+// changes nothing for them.
+//
+// MUST BE CALLED AFTER normalizeLocator. A film still carrying stale episode
+// numbers would hash as though it were a show, and one still carrying a stale
+// quest would hash as though it were a game — either way forking a duplicate of
+// a line that is already on the record.
 func (d *dialogueReq) hash() string {
-	return store.DialogueDedupeHash(d.Quote, d.Season, d.Episode)
+	return store.DialogueDedupeHash(d.Quote, d.Season, d.Episode, d.Act, d.Quest)
 }
 
 func (d *dialogueReq) validate() string {
@@ -104,6 +185,22 @@ func (d *dialogueReq) validate() string {
 	}
 	if d.Timestamp, ok = trimCap(d.Timestamp, 128); !ok {
 		return "timestamp too long (max 128 characters)"
+	}
+	// The game's locator and the show's episode name (0047). Capped HERE rather
+	// than in normalizeLocator, beside timestamp and for the same reason: a cap is
+	// a property of the column and not of the medium, so a value too long to store
+	// is refused whether or not this medium is the one that keeps it.
+	if d.Act, ok = trimCap(d.Act, 128); !ok {
+		return "act too long (max 128 characters)"
+	}
+	if d.Quest, ok = trimCap(d.Quest, 128); !ok {
+		return "quest too long (max 128 characters)"
+	}
+	// 200, an episode TITLE rather than a locator: episode names are sentences
+	// ("The One Where Everybody Finds Out"), which is the shape of an occasion and
+	// twice the length of a character's name.
+	if d.EpisodeName, ok = trimCap(d.EpisodeName, 200); !ok {
+		return "episode name too long (max 200 characters)"
 	}
 	return ""
 }
@@ -198,6 +295,9 @@ type dialogueRow struct {
 	Actor     string `json:"actor"`
 	Timestamp string `json:"timestamp"`
 	episodeRef
+	gameRef
+	// See dialogueReq.EpisodeName for why this is not inside episodeRef.
+	EpisodeName string `json:"episode_name"`
 	// The film's exclusion is quoteRow.WorkReviewExcluded, shared with
 	// annotations rather than spelled movie_review_excluded here.
 }
@@ -206,18 +306,37 @@ type dialogueRow struct {
 // dialogueReviewJoin); every SELECT using it must add that join. It also reads
 // `m.review_excluded`, so every SELECT using it must join `movies m` — both of
 // them already did, because that join IS the ownership check.
+//
+// act, quest and episode_name (0047) carry NO COALESCE, unlike every nullable
+// column beside them: they are NOT NULL with an empty-string default, so the empty
+// string is what a row predating the columns actually holds and there is no NULL
+// for a COALESCE to catch. Wrapping them anyway would read as though there were.
 const dialogueCols = `d.id, d.movie_id, d.quote, COALESCE(d.note, ''), d.color, COALESCE(d.character, ''),
-	COALESCE(d.actor, ''), COALESCE(d.timestamp, ''), d.season, d.episode, d.favorite, d.sticker_id, d.sticker_x, d.sticker_y,
+	COALESCE(d.actor, ''), COALESCE(d.timestamp, ''), d.season, d.episode,
+	d.act, d.quest, d.episode_name,
+	d.favorite, d.sticker_id, d.sticker_x, d.sticker_y,
 	COALESCE(d.noted_at, ''), d.created_at, d.updated_at,
 	r.item_id IS NOT NULL, COALESCE(r.stability, 0), COALESCE(r.last_reviewed_at, ''), COALESCE(r.last_result, ''),
 	d.review_excluded, m.review_excluded`
 
 // dialogueOrder is the one true dialogue order, used by the list and the export
 // so a file reads in the order the screen shows: through the run, then through
-// each episode, then down the runtime. A film's season/episode are always null,
-// so this collapses to the timestamp order dialogues have always had; an
-// un-episoded show line falls to the end of its group rather than the front
-// (season 0 is a real season and sorts first, which is where specials belong).
+// each episode, then through the game's acts and quests, then down the runtime. A
+// film's season/episode are always null, so this collapses to the timestamp order
+// dialogues have always had; an un-episoded show line falls to the end of its
+// group rather than the front (season 0 is a real season and sorts first, which is
+// where specials belong).
+//
+// ACT AND QUEST ARE BYTE-NEUTRAL FOR EVERY ROW THAT IS NOT A GAME'S, which is why
+// they can be slipped in without moving a single export golden: they are NOT NULL
+// with an empty-string default (0047), so every film and show line compares equal
+// on both and the tie is broken by the same timestamp and id as before. No
+// `IS NULL` guard for the same reason — there is no NULL here to sort to one end.
+//
+// THE COST, stated rather than found later: this is a TEXT sort over free text, so
+// act "10" comes before act "2". Padding it would be inventing a numbering the
+// medium does not have (see gameRef), and the alternative — a natural sort in Go
+// — cannot be expressed in the SQL the export shares with the list.
 //
 // `p` is the dialogues table's alias, or "" when the query has none.
 func dialogueOrder(p string) string {
@@ -225,6 +344,7 @@ func dialogueOrder(p string) string {
 		p += "."
 	}
 	return ` ORDER BY (` + p + `season IS NULL), ` + p + `season, (` + p + `episode IS NULL), ` + p + `episode,
+		` + p + `act, ` + p + `quest,
 		(` + p + `timestamp IS NULL), ` + p + `timestamp, ` + p + `id`
 }
 
@@ -240,7 +360,9 @@ func (s *Server) fetchDialogue(uid, id int64) (*dialogueRow, error) {
 		FROM dialogues d JOIN movies m ON m.id = d.movie_id`+dialogueReviewJoin+`
 		WHERE d.id = ? AND m.user_id = ?`, id, uid).
 		Scan(&d.ID, &d.MovieID, &d.Quote, &d.Note, &d.Color, &d.Character,
-			&d.Actor, &d.Timestamp, &d.Season, &d.Episode, &d.Favorite, &d.StickerID, &d.StickerX, &d.StickerY,
+			&d.Actor, &d.Timestamp, &d.Season, &d.Episode,
+			&d.Act, &d.Quest, &d.EpisodeName,
+			&d.Favorite, &d.StickerID, &d.StickerX, &d.StickerY,
 			&d.NotedAt, &d.CreatedAt, &d.UpdatedAt,
 			&d.Reviewed, &d.Stability, &d.LastReviewedAt, &d.LastResult,
 			&d.ReviewExcluded, &d.WorkReviewExcluded)
@@ -292,7 +414,7 @@ func (s *Server) handleCreateDialogue(w http.ResponseWriter, r *http.Request) {
 		internalError(w, r, "load movie cast", err)
 		return
 	}
-	if msg := req.episodeRef.normalize(mediaType); msg != "" {
+	if msg := req.normalizeLocator(mediaType); msg != "" {
 		writeErr(w, http.StatusBadRequest, msg)
 		return
 	}
@@ -314,14 +436,20 @@ func (s *Server) handleCreateDialogue(w http.ResponseWriter, r *http.Request) {
 	}
 	res, err := tx.Exec(`
 		INSERT INTO dialogues (id, movie_id, quote, note, color, character, actor, timestamp, season, episode,
+		                       act, quest, episode_name,
 		                       favorite, source, dedupe_hash, noted_at, sticker_id, sticker_x, sticker_y,
 		                       review_excluded)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')), ?, ?, ?,
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')), ?, ?, ?,
 		        -- Inherited from the film, exactly as a highlight inherits from its
 		        -- book. See the annotation create path.
 		        (SELECT COALESCE(review_excluded, 0) FROM movies WHERE id = ?)) ON CONFLICT DO NOTHING`,
 		id, req.MovieID, req.Quote, nullable(req.Note), req.Color, nullable(req.Character),
-		nullable(req.Actor), nullable(req.Timestamp), req.Season, req.Episode, req.Favorite, req.Source,
+		nullable(req.Actor), nullable(req.Timestamp), req.Season, req.Episode,
+		// PLAIN STRINGS, not nullable(): these three are NOT NULL DEFAULT '' (0047),
+		// and nullable("") is nil, which is the constraint violation rather than the
+		// empty value. Every new column in 0047 has this trap.
+		req.Act, req.Quest, req.EpisodeName,
+		req.Favorite, req.Source,
 		req.hash(), nullable(req.NotedAt), req.StickerID, req.StickerX, req.StickerY, req.MovieID)
 	if err != nil {
 		internalError(w, r, "insert dialogue", err)
@@ -423,7 +551,9 @@ func (s *Server) handleListDialogues(w http.ResponseWriter, r *http.Request) {
 		var d dialogueRow
 		d.Tags = []string{}
 		if err := rows.Scan(&d.ID, &d.MovieID, &d.Quote, &d.Note, &d.Color, &d.Character,
-			&d.Actor, &d.Timestamp, &d.Season, &d.Episode, &d.Favorite, &d.StickerID, &d.StickerX, &d.StickerY,
+			&d.Actor, &d.Timestamp, &d.Season, &d.Episode,
+			&d.Act, &d.Quest, &d.EpisodeName,
+			&d.Favorite, &d.StickerID, &d.StickerX, &d.StickerY,
 			&d.NotedAt, &d.CreatedAt, &d.UpdatedAt,
 			&d.Reviewed, &d.Stability, &d.LastReviewedAt, &d.LastResult,
 			&d.ReviewExcluded, &d.WorkReviewExcluded); err != nil {
@@ -498,7 +628,7 @@ func (s *Server) handleUpdateDialogue(w http.ResponseWriter, r *http.Request) {
 		internalError(w, r, "load dialogue", err)
 		return
 	}
-	if msg := req.episodeRef.normalize(mediaType); msg != "" {
+	if msg := req.normalizeLocator(mediaType); msg != "" {
 		writeErr(w, http.StatusBadRequest, msg)
 		return
 	}
@@ -527,11 +657,13 @@ func (s *Server) handleUpdateDialogue(w http.ResponseWriter, r *http.Request) {
 	defer tx.Rollback()
 	if _, err := tx.Exec(`
 		UPDATE dialogues SET quote = ?, note = ?, color = ?, character = ?, actor = ?, timestamp = ?,
-		       season = ?, episode = ?,
+		       season = ?, episode = ?, act = ?, quest = ?, episode_name = ?,
 		       favorite = ?, dedupe_hash = ?, sticker_id = ?, sticker_x = ?, sticker_y = ?, updated_at = datetime('now')
 		WHERE id = ?`,
 		req.Quote, nullable(req.Note), req.Color, nullable(req.Character),
 		nullable(req.Actor), nullable(req.Timestamp), req.Season, req.Episode,
+		// Plain strings — NOT NULL DEFAULT '', see the create path.
+		req.Act, req.Quest, req.EpisodeName,
 		req.Favorite, hash, req.StickerID, req.StickerX, req.StickerY, id); err != nil {
 		internalError(w, r, "update dialogue", err)
 		return

@@ -58,16 +58,18 @@ import (
 // there has nothing to count here — and mirroring rather than sharing is a real
 // risk, so `TestFacetCountKindsMatchTheFacetPredicates` walks both.
 var facetCountKinds = map[string][]rowKind{
-	"tag":       {rowAnnotation, rowDialogue, rowUtterance},
-	"genre":     {rowBook, rowAnnotation, rowMovie, rowDialogue},
-	"colour":    {rowAnnotation, rowDialogue, rowUtterance},
-	"shelf":     {rowBook, rowAnnotation, rowMovie, rowDialogue},
-	"series":    {rowBook, rowAnnotation, rowMovie, rowDialogue},
-	"year":      {rowBook, rowAnnotation, rowMovie, rowDialogue},
-	"author":    {rowBook, rowAnnotation},
-	"director":  {rowMovie, rowDialogue},
-	"actor":     {rowDialogue},
-	"character": {rowDialogue},
+	"tag":      {rowAnnotation, rowDialogue, rowUtterance},
+	"genre":    {rowBook, rowAnnotation, rowMovie, rowDialogue},
+	"colour":   {rowAnnotation, rowDialogue, rowUtterance},
+	"shelf":    {rowBook, rowAnnotation, rowMovie, rowDialogue},
+	"series":   {rowBook, rowAnnotation, rowMovie, rowDialogue},
+	"year":     {rowBook, rowAnnotation, rowMovie, rowDialogue},
+	"author":   {rowBook, rowAnnotation},
+	"director": {rowMovie, rowDialogue},
+	"actor":    {rowDialogue},
+	// 0047 put `character` on annotations too, so the counter follows where() —
+	// which the test below walks rather than trusts.
+	"character": {rowAnnotation, rowDialogue},
 	"speaker":   {rowUtterance},
 	"favourite": {rowBook, rowAnnotation, rowMovie, rowDialogue, rowUtterance},
 	"note":      {rowAnnotation, rowDialogue, rowUtterance},
@@ -249,7 +251,9 @@ func (s *Server) countOneFacet(field string, k rowKind, q string, f searchFacets
 	case "actor":
 		expr = "COALESCE(d.actor, '')"
 	case "character":
-		expr = "COALESCE(d.character, '')"
+		// Two columns of the same name on two tables, so the arm has to know which
+		// row it is counting. `self` is the alias searchSources already gave it.
+		expr = "COALESCE(" + self + ".character, '')"
 	case "speaker":
 		expr = "COALESCE(u.speaker, '')"
 	case "favourite":

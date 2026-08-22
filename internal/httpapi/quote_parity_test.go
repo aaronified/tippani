@@ -126,10 +126,24 @@ func TestQuoteKindsDifferOnlyByLocator(t *testing.T) {
 	// which is the one thing this half is for. A film has no chapters and a standalone
 	// quote has no book, so promoting it to quoteRow would put a null on two kinds to
 	// spare one struct a field — and this test would then be measuring nothing.
-	wantAnn := []string{"BookAuthor", "BookID", "BookTitle", "Chapter", "ChapterNo", "Location"}
+	//
+	// Character (0047) is on BOTH sides now and still belongs to neither shared
+	// half, which is the one case worth spelling out. It is a locator in the sense
+	// this test means: it says who in the work says the line. It is NOT promoted to
+	// quoteRow because the third kind has no characters — a standalone quote has a
+	// SPEAKER, which is a different column with a different meaning (the person, not
+	// the role) — so promoting it would put a permanently empty field on utterances
+	// to spare two structs a line. Note also what did not come with it: there is no
+	// Actor on the annotation side, because nobody plays Ahab.
+	wantAnn := []string{"BookAuthor", "BookID", "BookTitle", "Chapter", "ChapterNo", "Character", "Location"}
 	// Season/Episode are locators too: which episode of a show the line is from
-	// (0025). A film leaves them null — its timestamp is the whole locator.
-	wantDlg := []string{"Actor", "Character", "Episode", "MovieID", "Season", "Timestamp"}
+	// (0025). A film leaves them null — its timestamp is the whole locator. Act,
+	// Quest and EpisodeName (0047) are the same argument for the other two media: a
+	// game is placed by act and quest and has no timestamp at all, and an episode
+	// has a name as well as a number.
+	wantDlg := []string{
+		"Act", "Actor", "Character", "Episode", "EpisodeName", "MovieID", "Quest", "Season", "Timestamp",
+	}
 
 	if got := own(reflect.TypeOf(annotationRow{})); !reflect.DeepEqual(got, wantAnn) {
 		t.Errorf("annotationRow's own fields = %v, want %v\n"+
@@ -345,6 +359,24 @@ func TestExportStatesItsMediaTypeAndReimports(t *testing.T) {
 			file:          "andor.md",
 			wantTypeLine:  "type: show",
 			wantMediaType: "show",
+		},
+		{
+			// The case the exporter got WRONG until 0047's round-trip half: a game was
+			// written out as `type: movie` and came home a film. That is not a cosmetic
+			// loss — writeMovieDialogues gates act and quest on the media type, so the
+			// film it arrived as would have had its only locators stripped on the way in.
+			// Deliberately bare, like the film row: a game with no studio and no
+			// character has nothing but the type line to say what it is.
+			name:          "a game export comes home a game",
+			importer:      "dave",
+			create:        map[string]any{"title": "Disco Elysium", "media_type": "game"},
+			quote:         "You are the man with the hangover.",
+			file:          "disco.md",
+			wantTypeLine:  "type: game",
+			wantTitle:     "Disco Elysium",
+			wantMediaType: "game",
+			wantBooks:     count(0),
+			wantDialogues: count(1),
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

@@ -275,6 +275,8 @@ func stageBookWork(tx *sql.Tx, batchID int64, b importer.Book) (int64, error) {
 			`UPDATE staged_works SET isbn = COALESCE(isbn, ?), asin = COALESCE(asin, ?),
 			                         author = COALESCE(author, ?), series = COALESCE(series, ?),
 			                         series_index = COALESCE(series_index, ?),
+			                         language = CASE WHEN language = '' THEN ? ELSE language END,
+			                         orig_language = CASE WHEN orig_language = '' THEN ? ELSE orig_language END,
 			                         status = CASE WHEN status = '' THEN ? ELSE status END,
 			                         progress = max(progress, ?),
 			                         pos_json = CASE WHEN pos_json = '' THEN ? ELSE pos_json END,
@@ -282,6 +284,9 @@ func stageBookWork(tx *sql.Tx, batchID int64, b importer.Book) (int64, error) {
 			  WHERE id = ?`,
 			nullable(b.ISBN), nullable(b.ASIN), nullable(b.Author),
 			nullable(b.Series), nullableFloat(b.SeriesIndex),
+			// The two languages are NOT NULL DEFAULT '' (0047), so `CASE WHEN col = ''`
+			// rather than COALESCE — the same reason spelled out at enrichStagedQuote.
+			b.Language, b.OrigLanguage,
 			b.Status, b.Progress, encodePos(bookShelf(b).Pos), encodeReads(b.Reads), id); err != nil {
 			return 0, err
 		}
@@ -291,10 +296,12 @@ func stageBookWork(tx *sql.Tx, batchID int64, b importer.Book) (int64, error) {
 		return 0, err
 	}
 	res, err := tx.Exec(
-		`INSERT INTO staged_works (batch_id, kind, title, author, translator, editor, isbn, asin, series, series_index,
+		`INSERT INTO staged_works (batch_id, kind, title, author, translator, editor,
+		                           language, orig_language, isbn, asin, series, series_index,
 		                           status, progress, pos_json, reads_json)
-		 VALUES (?, 'book', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		 VALUES (?, 'book', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		batchID, b.Title, nullable(b.Author), nullable(b.Translator), nullable(b.Editor),
+		b.Language, b.OrigLanguage, // plain strings: NOT NULL DEFAULT '' (0047)
 		nullable(b.ISBN), nullable(b.ASIN),
 		nullable(b.Series), nullableFloat(b.SeriesIndex),
 		b.Status, b.Progress, encodePos(bookShelf(b).Pos), encodeReads(b.Reads))
@@ -360,12 +367,13 @@ func stageQuotes(tx *sql.Tx, workID int64, anns []importer.Annotation, dialogues
 	const q = `
 		INSERT OR IGNORE INTO staged_quotes
 		  (staged_work_id, quote, note, color, favorite, chapter, chapter_no, location, location_orig,
-		   character, actor, timestamp, timestamp_orig, season, episode, tags, noted_at, dedupe_hash)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		   character, actor, timestamp, timestamp_orig, season, episode,
+		   act, quest, episode_name, tags, noted_at, dedupe_hash)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	staged := 0
 	add := func(quote, note, color string, favorite bool, chapter string, chapterNo float64,
 		location, character, actor, timestamp string,
-		season, episode *int, tags []string, notedAt string) error {
+		season, episode *int, act, quest, episodeName string, tags []string, notedAt string) error {
 		if color == "" {
 			color = "yellow" // Kindle and IMDb sources carry no colour (PLAN §3)
 		}
@@ -376,15 +384,24 @@ func stageQuotes(tx *sql.Tx, workID int64, anns []importer.Annotation, dialogues
 		if text == "" {
 			text = note
 		}
-		// Episode-qualified, so two occurrences of a recurring line stage as two
-		// rows rather than one. season/episode are nil for every book, and
-		// DialogueDedupeHash is then byte-identical to DedupeHash — so this is a
-		// no-op on the annotation half of the queue.
-		hash := store.DialogueDedupeHash(text, season, episode)
+		// Episode- AND quest-qualified, so two occurrences of a recurring line stage
+		// as two rows rather than one. season/episode are nil and act/quest empty for
+		// every book, and DialogueDedupeHash is then byte-identical to DedupeHash — so
+		// this is a no-op on the annotation half of the queue.
+		//
+		// THE QUEUE HAS TO HASH THE WAY THE LIVE TABLE DOES, or the count a reader
+		// approves is not the count they were shown: a game file naming one bark in
+		// two quests would collapse to a single staged row and then arrive as a single
+		// line, with a matching "1 staged, 1 added" to say nothing was lost.
+		hash := store.DialogueDedupeHash(text, season, episode, act, quest)
 		res, err := tx.Exec(q, workID, nullable(quote), nullable(note), color, favorite,
 			nullable(chapter), nullableFloat(chapterNo), nullable(location), nullable(location),
 			nullable(character), nullable(actor), nullable(timestamp), nullable(timestamp),
-			season, episode, joinTags(tags), nullable(notedAt), hash)
+			season, episode,
+			// Plain strings, NOT nullable(): these are NOT NULL DEFAULT '' (0047), and
+			// nullable("") is nil, which is a NOT NULL violation rather than a default.
+			act, quest, episodeName,
+			joinTags(tags), nullable(notedAt), hash)
 		if err != nil {
 			return err
 		}
@@ -397,17 +414,35 @@ func stageQuotes(tx *sql.Tx, workID int64, anns []importer.Annotation, dialogues
 		// live importer enriched in that case rather than discarding, so staging
 		// must too, or the second copy's locators, note, colour and tags are lost
 		// silently before anyone can see them.
+		// ONLY THE EPISODE NAME IS DONATED, of the three 0047 added. Act and quest
+		// are IN the hash, so a row this one collided with already holds the same
+		// pair by construction and donating them would be writing a value onto
+		// itself — the same reason season and episode are listed below and can
+		// never actually change either. The episode name is NOT in the hash, which
+		// is exactly why the copy already staged can be missing it.
 		return enrichStagedQuote(tx, workID, hash, quote, note, color, favorite,
-			chapter, chapterNo, location, character, actor, timestamp, season, episode, tags, notedAt)
+			chapter, chapterNo, location, character, actor, timestamp, season, episode,
+			episodeName, tags, notedAt)
 	}
 	for _, a := range anns {
-		if err := add(a.Quote, a.Note, a.Color, a.Favorite, a.Chapter, a.ChapterNo, a.Location, "", "", "", nil, nil, a.Tags, a.NotedAt); err != nil {
+		// A book highlight now carries a CHARACTER (0047). This position was hardwired
+		// to "" when only a film's line could name one, and leaving it there would
+		// have lost the field between the parser and the queue — with a successful
+		// import and matching counts to say nothing happened, which is the failure
+		// 0034 supplied the proof for.
+		//
+		// No actor beside it: a novel has speakers, not a cast. No act, quest or
+		// episode name either — a book has none, and a book file retargeted onto a
+		// game is repaired by the media-type gate at approval rather than by inventing
+		// a locator here.
+		if err := add(a.Quote, a.Note, a.Color, a.Favorite, a.Chapter, a.ChapterNo, a.Location,
+			a.Character, "", "", nil, nil, "", "", "", a.Tags, a.NotedAt); err != nil {
 			return 0, err
 		}
 	}
 	for _, d := range dialogues {
 		if err := add(d.Quote, d.Note, d.Color, d.Favorite, "", 0, "", d.Character, d.Actor, d.Timestamp,
-			d.Season, d.Episode, d.Tags, d.NotedAt); err != nil {
+			d.Season, d.Episode, d.Act, d.Quest, d.EpisodeName, d.Tags, d.NotedAt); err != nil {
 			return 0, err
 		}
 	}
@@ -422,7 +457,7 @@ func stageQuotes(tx *sql.Tx, workID int64, anns []importer.Annotation, dialogues
 // that arrives only on the second copy is still resettable.
 func enrichStagedQuote(tx *sql.Tx, workID int64, hash, quote, note, color string, favorite bool,
 	chapter string, chapterNo float64, location, character, actor, timestamp string, season, episode *int,
-	tags []string, notedAt string) error {
+	episodeName string, tags []string, notedAt string) error {
 
 	var id int64
 	var storedTags string
@@ -448,6 +483,7 @@ func enrichStagedQuote(tx *sql.Tx, workID int64, hash, quote, note, color string
 		  timestamp_orig = COALESCE(timestamp_orig, ?),
 		  season         = COALESCE(season, ?),
 		  episode        = COALESCE(episode, ?),
+		  episode_name   = CASE WHEN episode_name = '' THEN ? ELSE episode_name END,
 		  color          = CASE WHEN color = 'yellow' AND ? <> 'yellow' THEN ? ELSE color END,
 		  favorite       = MAX(favorite, ?)
 		 WHERE id = ?`,
@@ -456,6 +492,12 @@ func enrichStagedQuote(tx *sql.Tx, workID int64, hash, quote, note, color string
 		nullable(character), nullable(actor),
 		nullable(timestamp), nullable(timestamp),
 		season, episode,
+		// COALESCE CANNOT EXPRESS FILL-EMPTY-ONLY ON A NOT NULL DEFAULT '' COLUMN:
+		// COALESCE('', x) is '', so the donation would never happen and the column
+		// would merely look as though it had enriched. `CASE WHEN col = ''` is the
+		// same rule spelled the way `status` two functions up already spells it, and
+		// upsertImportBook's NULLIF() is a third spelling of the one idea.
+		episodeName,
 		color, color, favorite, id); err != nil {
 		return err
 	}
@@ -538,6 +580,14 @@ type stagedQuoteRow struct {
 	TimestampOrig string  `json:"timestamp_orig"`
 	Season        *int    `json:"season"`  // shows only; null = the file didn't say
 	Episode       *int    `json:"episode"` // (season 0 is a real season — see 0025)
+	// 0047. The rest of the screen locator: the episode's NAME, and the two a game
+	// is placed by. Plain strings, because empty is unset for all three (gameRef).
+	// Which of them survives approval depends on the DESTINATION's media type, not
+	// on the file's — writeMovieDialogues owns that gate — so the queue holds
+	// whatever the file said and shows it before anybody commits to it.
+	EpisodeName string `json:"episode_name"`
+	Act         string `json:"act"`
+	Quest       string `json:"quest"`
 	// The occasion (§24), the third kind's locator. Empty on every book and
 	// film row, as chapter/character are on this one.
 	Speaker      string `json:"speaker"`
@@ -550,12 +600,21 @@ type stagedQuoteRow struct {
 	// is staged, so a field the queue does not hold is a field that survives the
 	// export, survives the parse and is dropped on the way in — with a successful
 	// import and matching counts saying nothing happened.
-	Category    string   `json:"category"`
-	Language    string   `json:"language"`
-	Translation string   `json:"translation"`
-	Tags        []string `json:"tags"`
-	NotedAt     string   `json:"noted_at"`
-	CreatedAt   string   `json:"created_at"`
+	Category    string `json:"category"`
+	Language    string `json:"language"`
+	Translation string `json:"translation"`
+	// 0047, and in the queue for exactly the reason the paragraph above gives. These
+	// five are a standalone quote's per-kind fields; the kind lives on the BOARD,
+	// which does not round-trip yet, so they are carried for every quote whatever
+	// board it lands on rather than gated on one.
+	Region        string   `json:"region"`
+	Recipient     string   `json:"recipient"`
+	WorkTitle     string   `json:"work_title"`
+	Locator       string   `json:"locator"`
+	OccasionCirca bool     `json:"occasion_circa"`
+	Tags          []string `json:"tags"`
+	NotedAt       string   `json:"noted_at"`
+	CreatedAt     string   `json:"created_at"`
 	// 0043. The anthology this row belongs to, by TITLE, and the commentary that
 	// introduces it there. Held in the queue for exactly the reason the paragraph
 	// above gives: an anthology file's whole content beyond the quotes is its order
@@ -837,12 +896,14 @@ func (s *Server) listStagedQuotes(w http.ResponseWriter, r *http.Request, uid, b
 	             q.color, q.favorite, COALESCE(q.chapter, ''), COALESCE(q.chapter_no, 0), COALESCE(q.location, ''),
 	             COALESCE(q.location_orig, ''), COALESCE(q.character, ''), COALESCE(q.actor, ''),
 	             COALESCE(q.timestamp, ''), COALESCE(q.timestamp_orig, ''), q.season, q.episode,
+	             q.episode_name, q.act, q.quest,
 	             COALESCE(q.tags, ''),
 	             COALESCE(q.noted_at, ''), q.created_at,
 	             COALESCE(q.speaker, ''), COALESCE(q.occasion, ''), COALESCE(q.occasion_date, ''),
 	             COALESCE(q.place, ''), COALESCE(q.medium, ''),
 	             COALESCE(q.category, 'other'), COALESCE(q.language, ''),
 	             COALESCE(q.translation, ''),
+	             q.region, q.recipient, q.work_title, q.locator, q.occasion_circa,
 	             COALESCE(q.anthology, ''), COALESCE(q.anthology_note, ''),
 	             COALESCE(q.anthology_intro, '')` + from + ` ORDER BY w.batch_id DESC, q.staged_work_id, q.id`
 	if !applyPaging(w, r, &q, &args) {
@@ -859,9 +920,12 @@ func (s *Server) listStagedQuotes(w http.ResponseWriter, r *http.Request, uid, b
 		var tags string
 		if err := rows.Scan(&sq.ID, &sq.StagedWorkID, &sq.BatchID, &sq.Quote, &sq.Note, &sq.Color,
 			&sq.Favorite, &sq.Chapter, &sq.ChapterNo, &sq.Location, &sq.LocationOrig, &sq.Character, &sq.Actor,
-			&sq.Timestamp, &sq.TimestampOrig, &sq.Season, &sq.Episode, &tags, &sq.NotedAt, &sq.CreatedAt,
+			&sq.Timestamp, &sq.TimestampOrig, &sq.Season, &sq.Episode,
+			&sq.EpisodeName, &sq.Act, &sq.Quest,
+			&tags, &sq.NotedAt, &sq.CreatedAt,
 			&sq.Speaker, &sq.Occasion, &sq.OccasionDate, &sq.Place, &sq.Medium,
 			&sq.Category, &sq.Language, &sq.Translation,
+			&sq.Region, &sq.Recipient, &sq.WorkTitle, &sq.Locator, &sq.OccasionCirca,
 			&sq.Anthology, &sq.AnthologyNote, &sq.AnthologyIntro); err != nil {
 			olog.Warnf(olog.CodeImportRowScan, "[import] staged quote row scan failed: %v", err)
 			continue
@@ -1070,28 +1134,37 @@ type stagedWorkForApproval struct {
 	// staged_works, and back out here into the importer.Book that approval writes.
 	// A gap at any one of those four points loses the field silently, with a
 	// successful import and matching counts to say nothing happened.
-	Translator  string
-	Editor      string
-	ISBN        string
-	ASIN        string
-	Series      string
-	SeriesIndex float64
-	ReleaseYear int
-	IMDbID      string
-	Director    string
-	Genres      []string
-	Status      string // shelf state as parsed; validated per side at approval
-	Progress    int
-	Pos         position
-	Reads       []importer.Read
-	TargetKind  string
-	TargetID    int64
-	Source      string
+	Translator string
+	Editor     string
+	// The two languages (0047) ride here for the reason the paragraph above gives
+	// about translator, and they are absent from stagedWorkRow for the same reason
+	// translator and editor are: the queue's LIST view is a destination preview, and
+	// a language is not a fact about where a book will land. Setting them in the
+	// queue is import_staged_bulk's business, which cannot set the credits either —
+	// its own piece of work, flagged rather than half-done here.
+	Language     string
+	OrigLanguage string
+	ISBN         string
+	ASIN         string
+	Series       string
+	SeriesIndex  float64
+	ReleaseYear  int
+	IMDbID       string
+	Director     string
+	Genres       []string
+	Status       string // shelf state as parsed; validated per side at approval
+	Progress     int
+	Pos          position
+	Reads        []importer.Read
+	TargetKind   string
+	TargetID     int64
+	Source       string
 }
 
 func (w stagedWorkForApproval) book() importer.Book {
 	return importer.Book{
 		Title: w.Title, Author: w.Author, Translator: w.Translator, Editor: w.Editor,
+		Language: w.Language, OrigLanguage: w.OrigLanguage,
 		ISBN: w.ISBN, ASIN: w.ASIN,
 		Series: w.Series, SeriesIndex: w.SeriesIndex,
 		Status: w.Status, Progress: w.Progress, Reads: w.Reads,
@@ -1124,7 +1197,8 @@ func loadStagedForApproval(tx *sql.Tx, picked stagedSelection) ([]stagedWorkForA
 	err := chunkIDs(picked.WorkIDs, func(batch []int64) error {
 		rows, err := tx.Query(`
 			SELECT w.id, w.kind, w.title, COALESCE(w.author, ''),
-			       COALESCE(w.translator, ''), COALESCE(w.editor, ''), COALESCE(w.isbn, ''),
+			       COALESCE(w.translator, ''), COALESCE(w.editor, ''),
+			       w.language, w.orig_language, COALESCE(w.isbn, ''),
 			       COALESCE(w.asin, ''), COALESCE(w.series, ''), COALESCE(w.series_index, 0),
 			       COALESCE(w.release_year, 0), COALESCE(w.imdb_id, ''), COALESCE(w.director, ''),
 			       COALESCE(w.genres, ''), w.status, w.progress, w.pos_json, w.reads_json,
@@ -1141,7 +1215,7 @@ func loadStagedForApproval(tx *sql.Tx, picked stagedSelection) ([]stagedWorkForA
 			var wk stagedWorkForApproval
 			var genres, posJSON, readsJSON string
 			if err := rows.Scan(&wk.ID, &wk.Kind, &wk.Title, &wk.Author,
-				&wk.Translator, &wk.Editor, &wk.ISBN, &wk.ASIN,
+				&wk.Translator, &wk.Editor, &wk.Language, &wk.OrigLanguage, &wk.ISBN, &wk.ASIN,
 				&wk.Series, &wk.SeriesIndex, &wk.ReleaseYear, &wk.IMDbID, &wk.Director,
 				&genres, &wk.Status, &wk.Progress, &posJSON, &readsJSON,
 				&wk.TargetKind, &wk.TargetID, &wk.Source); err != nil {
@@ -1167,11 +1241,13 @@ func loadStagedForApproval(tx *sql.Tx, picked stagedSelection) ([]stagedWorkForA
 		rows, err := tx.Query(`
 			SELECT q.id, q.staged_work_id, COALESCE(q.quote, ''), COALESCE(q.note, ''), q.color, q.favorite,
 			       COALESCE(q.chapter, ''), COALESCE(q.chapter_no, 0), COALESCE(q.location, ''), COALESCE(q.character, ''),
-			       COALESCE(q.actor, ''), COALESCE(q.timestamp, ''), q.season, q.episode, COALESCE(q.tags, ''),
+			       COALESCE(q.actor, ''), COALESCE(q.timestamp, ''), q.season, q.episode,
+			       q.episode_name, q.act, q.quest, COALESCE(q.tags, ''),
 			       COALESCE(q.noted_at, ''),
 			       COALESCE(q.speaker, ''), COALESCE(q.occasion, ''), COALESCE(q.occasion_date, ''),
 			       COALESCE(q.place, ''), COALESCE(q.medium, ''),
 			       COALESCE(q.category, 'other'), COALESCE(q.language, ''), COALESCE(q.translation, ''),
+			       q.region, q.recipient, q.work_title, q.locator, q.occasion_circa,
 			       COALESCE(q.anthology, ''), COALESCE(q.anthology_note, ''),
 			       COALESCE(q.anthology_intro, '')
 			  FROM staged_quotes q
@@ -1186,9 +1262,10 @@ func loadStagedForApproval(tx *sql.Tx, picked stagedSelection) ([]stagedWorkForA
 			var tags string
 			if err := rows.Scan(&sq.ID, &sq.StagedWorkID, &sq.Quote, &sq.Note, &sq.Color, &sq.Favorite,
 				&sq.Chapter, &sq.ChapterNo, &sq.Location, &sq.Character, &sq.Actor, &sq.Timestamp,
-				&sq.Season, &sq.Episode, &tags, &sq.NotedAt,
+				&sq.Season, &sq.Episode, &sq.EpisodeName, &sq.Act, &sq.Quest, &tags, &sq.NotedAt,
 				&sq.Speaker, &sq.Occasion, &sq.OccasionDate, &sq.Place, &sq.Medium,
 				&sq.Category, &sq.Language, &sq.Translation,
+				&sq.Region, &sq.Recipient, &sq.WorkTitle, &sq.Locator, &sq.OccasionCirca,
 				&sq.Anthology, &sq.AnthologyNote, &sq.AnthologyIntro); err != nil {
 				return err
 			}
@@ -1254,7 +1331,8 @@ func stagedAsAnnotations(quotes []stagedQuoteRow) []importer.Annotation {
 	for _, q := range quotes {
 		out = append(out, importer.Annotation{
 			Quote: q.Quote, Note: q.Note, Chapter: q.Chapter, ChapterNo: q.ChapterNo, Location: q.Location,
-			Color: q.Color, Tags: q.Tags, Favorite: q.Favorite, NotedAt: q.NotedAt,
+			Character: q.Character, // 0047; no actor — a novel has speakers, not a cast
+			Color:     q.Color, Tags: q.Tags, Favorite: q.Favorite, NotedAt: q.NotedAt,
 		})
 	}
 	return out
@@ -1269,6 +1347,8 @@ func stagedAsUtterances(quotes []stagedQuoteRow) []importer.Utterance {
 			Quote: q.Quote, Note: q.Note, Speaker: q.Speaker, Occasion: q.Occasion,
 			OccasionDate: q.OccasionDate, Place: q.Place, Medium: q.Medium,
 			Category: q.Category, Language: q.Language, Translation: q.Translation,
+			Region: q.Region, Recipient: q.Recipient, WorkTitle: q.WorkTitle,
+			Locator: q.Locator, OccasionCirca: q.OccasionCirca, // 0047
 			Color: q.Color, Tags: q.Tags, Favorite: q.Favorite, NotedAt: q.NotedAt,
 			Anthology: q.Anthology, AnthologyNote: q.AnthologyNote, AnthologyIntro: q.AnthologyIntro,
 		})
@@ -1282,6 +1362,7 @@ func stagedAsDialogues(quotes []stagedQuoteRow) []importer.Dialogue {
 		out = append(out, importer.Dialogue{
 			Quote: q.Quote, Note: q.Note, Character: q.Character, Actor: q.Actor,
 			Timestamp: q.Timestamp, Season: q.Season, Episode: q.Episode,
+			EpisodeName: q.EpisodeName, Act: q.Act, Quest: q.Quest, // 0047
 			Color: q.Color, Tags: q.Tags, Favorite: q.Favorite,
 			NotedAt: q.NotedAt,
 		})

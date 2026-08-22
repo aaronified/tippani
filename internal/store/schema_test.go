@@ -711,6 +711,12 @@ func wantShapes() []tableShape {
 				// meaning absent — series_index's convention, one table over, for the
 				// identical field. Nothing was backfilled: see the migration.
 				{Name: "chapter_no", Type: "REAL"},
+				// 0047. A novel has speakers and not a cast, so `character` lands here
+				// and `actor` deliberately does not. NOT NULL with an empty default,
+				// unlike the nullable text 0001 wrote on this table: 0045's rule is that
+				// a default must be the zero value, so an upgraded row reads exactly
+				// like a fresh one and no scanner needs a pointer.
+				{Name: "character", Type: "TEXT", NotNull: true, Default: "''", HasDflt: true},
 			},
 			Checks: []string{
 				"color IN ('yellow','blue','pink','orange','green','purple')",
@@ -780,6 +786,15 @@ func wantShapes() []tableShape {
 				// quote that has never been reviewed and inserting a bare one would
 				// read as "seen" in four separate queries. See the migration.
 				{Name: "review_excluded", Type: "INTEGER", NotNull: true, Default: "0", HasDflt: true},
+				// 0047. A game's only locators, and they nest the way season and episode
+				// do. Folded into DialogueDedupeHash, unlike the timestamp two rows up:
+				// a bark reused in two quests is two quotes, which is the television
+				// argument applied to a game.
+				{Name: "act", Type: "TEXT", NotNull: true, Default: "''", HasDflt: true},
+				{Name: "quest", Type: "TEXT", NotNull: true, Default: "''", HasDflt: true},
+				// 0047. The show's only new field. The number orders a line; the title is
+				// what a reader remembers it by, and it had nowhere to go but the note.
+				{Name: "episode_name", Type: "TEXT", NotNull: true, Default: "''", HasDflt: true},
 			},
 			Checks: []string{
 				"color IN ('yellow','blue','pink','orange','green','purple')",

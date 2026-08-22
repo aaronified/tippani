@@ -66,7 +66,13 @@ func MarkdownKind(data []byte) string {
 		// optional fields happen to be filled in.
 		if rest, ok := cutPrefixFold(line, "type:"); ok {
 			switch strings.ToLower(strings.TrimSpace(rest)) {
-			case "movie", "film", "show":
+			// A game is a catalogue file like the other two: one `movies` row with
+			// media_type='game' (0040), parsed by parseMovieFrontmatter, which has
+			// read "game" out of the type line since 1.16.0. It was missing HERE, so
+			// a game's own export — which now states `type: game` — routed by
+			// whichever optional heuristic below happened to match, and a game with
+			// no studio and no character on any line fell through to KindBook.
+			case "movie", "film", "show", "game":
 				return KindMovie
 			case "book":
 				return KindBook
@@ -83,7 +89,11 @@ func MarkdownKind(data []byte) string {
 		case strings.HasPrefix(line, "director:"), strings.HasPrefix(line, "creator:"),
 			strings.HasPrefix(line, "collection:"),
 			strings.HasPrefix(line, "- character:"), strings.HasPrefix(line, "- actor:"),
-			strings.HasPrefix(line, "- timestamp:"), strings.HasPrefix(line, "- episode:"):
+			strings.HasPrefix(line, "- timestamp:"), strings.HasPrefix(line, "- episode:"),
+			// A game's line has no timestamp and no episode (0047), so without these
+			// two a HAND-WRITTEN game file carries no catalogue signal at all. Its own
+			// export says `type: game` and never reaches this far.
+			strings.HasPrefix(line, "- act:"), strings.HasPrefix(line, "- quest:"):
 			return KindMovie
 		// A quote's locator is who said it and where. "- speaker:" is unique to
 		// this kind; "- occasion:" likewise. Neither appears on a book or a film.
@@ -266,6 +276,19 @@ func parseMovieFrontmatter(lines []string) (*MovieResult, error) {
 				cur.Actor = val
 			case "timestamp", "time":
 				cur.Timestamp = val
+			// 0047. The game's two locators and the show's episode name. Reported
+			// whatever the file's media type says: the DESTINATION's type decides
+			// which survive, in writeMovieDialogues, because that is where
+			// retargeting a misdetected file is repaired.
+			//
+			// "episode_name" is a different key from "episode" after bindingKey
+			// lowercases and trims, so the number and the name cannot collide.
+			case "act":
+				cur.Act = val
+			case "quest":
+				cur.Quest = val
+			case "episode_name", "episode name":
+				cur.EpisodeName = val
 			case "season", "episode", "ep":
 				// Shows only; the server drops these for a film. Either key accepts
 				// the combined "S2E5" people write by hand.

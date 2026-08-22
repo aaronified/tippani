@@ -33,17 +33,54 @@ const boardDescriptionMax = 2000
 // 1.15.0 gives it behaviour. A board's DEFAULT COVER is drawn from its kind — a
 // microphone and an audience for a board of speeches, a glyph of its language's
 // script for a board of proverbs — so the third value now earns itself by the
-// same test that refused it. The quote FORM is still identical on a speech board
-// and a plain one, which is what 0037 was actually protecting.
+// same test that refused it.
 //
-// The test to apply to a fourth is the one 0037 wrote, and this passes it: a
-// kind with no behaviour behind it is a label, and a label is how a vocabulary
-// rots.
+// 'letter' and 'essay' (0047) pass the same test, and this is the release where
+// they finally can: a letter's RECIPIENT and an essay's SOURCE TITLE and PAGE are
+// columns now, so each of the two kinds decides which fields its board's form
+// offers. That is behaviour, and it is the behaviour 0037 said a kind had to have.
+//
+// 'plain' STAYS THE STORED VALUE for the kind the screens label "Others".
+// Renaming a stored value to match a label is a data migration that buys a word.
 const (
 	boardKindPlain   = "plain"
 	boardKindProverb = "proverb"
 	boardKindSpeech  = "speech"
+	boardKindLetter  = "letter"
+	boardKindEssay   = "essay"
 )
+
+// boardKinds is the vocabulary, in the order the screens offer it, and it is
+// checked HERE rather than by a CHECK constraint — 0047 dropped the one 0037
+// wrote, and its header carries the argument (0045's, restated): a CHECK is a
+// thing SQLite cannot later alter, and this vocabulary is expected to grow. Poem,
+// lyrics and article are the named candidates, which is why two of 0047's columns
+// are `work_title` and `locator` rather than `essay_title` and `essay_page`.
+//
+// So this list is the whole constraint. It follows the colour and category
+// pattern (annotationColors, quoteCategories) rather than a chain of `!=` for the
+// reason those two do: a chain is a place to forget a value, and it forgets it
+// silently — which is precisely what happened between 1.15.0 and 0047, where Go
+// accepted 'speech' and the schema refused it, and pressing the Speeches starter
+// on the Quotes page answered 500 for three releases with no test to say so.
+var boardKinds = []string{boardKindPlain, boardKindProverb, boardKindSpeech, boardKindLetter, boardKindEssay}
+
+func validBoardKind(k string) bool {
+	for _, v := range boardKinds {
+		if k == v {
+			return true
+		}
+	}
+	return false
+}
+
+// boardKindList is the human list for an error message, built from the set for
+// the reason colorList and quoteCategoryList are: one place to forget when the
+// set grows.
+func boardKindList() string {
+	return strings.Join(boardKinds[:len(boardKinds)-1], ", ") +
+		" or " + boardKinds[len(boardKinds)-1]
+}
 
 // A language name, not a tag — long enough for "Scottish Gaelic" and short enough
 // that a pasted sentence fails as a 400.
@@ -115,8 +152,8 @@ func (b *boardReq) normalise() string {
 	if b.Kind == "" {
 		b.Kind = boardKindPlain
 	}
-	if b.Kind != boardKindPlain && b.Kind != boardKindProverb && b.Kind != boardKindSpeech {
-		return "kind must be " + boardKindPlain + ", " + boardKindProverb + " or " + boardKindSpeech
+	if !validBoardKind(b.Kind) {
+		return "kind must be " + boardKindList()
 	}
 	// Languages belong to a proverb board and are dropped from any other, rather
 	// than refused. A reader who fills the list in and then switches the kind back

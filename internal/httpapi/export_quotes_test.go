@@ -188,3 +188,69 @@ func TestExportQuotesEmptyStillCarriesItsType(t *testing.T) {
 		t.Fatalf("empty export: %q", got)
 	}
 }
+
+// THE FIVE FIELDS 0047 ADDED, ON THE EXACT BYTES — for the reason at the top of
+// this file. A "contains" check would pass with `- page:` written under the wrong
+// quote, above the wrong heading, or in place of `- work_title:`; only the whole
+// block says the file is right.
+//
+// The order is coarse to fine and pairs each new key with the one it qualifies:
+// recipient under speaker (a letter's two parties), circa under occasion_date (the
+// date's precision), region under place, and the essay's title above its page.
+func TestExportQuotesWritesThePerKindFields(t *testing.T) {
+	h := newTestServer(t).Handler()
+	c := signupAdmin(t, h)
+
+	newUtterance(t, c, map[string]any{
+		"quote":          "I have a bird in my hand.",
+		"speaker":        "Rabindranath Tagore",
+		"recipient":      "Jawaharlal Nehru",
+		"occasion":       "a letter from Santiniketan",
+		"occasion_date":  "1934",
+		"occasion_circa": true,
+		"place":          "Santiniketan",
+		"region":         "Birbhum",
+		"medium":         "letter",
+		"work_title":     "Letters to a Friend",
+		"locator":        "p. 44",
+	})
+
+	got := exportQuotes(t, c, nil)
+	want := "---\ntype: quotes\n---\n" +
+		"\n## a letter from Santiniketan\n" +
+		"\n> I have a bird in my hand.\n" +
+		"- speaker: Rabindranath Tagore\n" +
+		"- recipient: Jawaharlal Nehru\n" +
+		"- occasion_date: 1934\n" +
+		"- circa: true\n" +
+		"- place: Santiniketan\n" +
+		"- region: Birbhum\n" +
+		"- medium: letter\n" +
+		"- work_title: Letters to a Friend\n" +
+		"- page: p. 44\n"
+	if !strings.HasPrefix(got, want) {
+		t.Fatalf("export shape:\n--- got ---\n%s\n--- want prefix ---\n%s", got, want)
+	}
+	// The column is `locator`; the FILE key is `page`, because the anthology export
+	// already writes "- locator:" for a joined display string. See applyQuoteBinding.
+	if strings.Contains(got, "- locator:") {
+		t.Fatalf("the quotes export must not write the anthology's key:\n%s", got)
+	}
+}
+
+// The circa tick is written even with no date beside it, which looks odd and is
+// right: the column has no cross-field rule, so an unaccompanied tick is real
+// stored state and a file that dropped it would silently untick it.
+func TestExportQuotesWritesACircaWithNoDate(t *testing.T) {
+	h := newTestServer(t).Handler()
+	c := signupAdmin(t, h)
+	newUtterance(t, c, map[string]any{"quote": "Some time ago.", "occasion_circa": true})
+
+	got := exportQuotes(t, c, nil)
+	if !strings.Contains(got, "- circa: true") {
+		t.Fatalf("a dateless circa was dropped:\n%s", got)
+	}
+	if strings.Contains(got, "- occasion_date:") {
+		t.Fatalf("there was no date to write:\n%s", got)
+	}
+}

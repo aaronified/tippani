@@ -9,6 +9,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A field per kind, reachable.** Every column listed below is now something the app will
+  accept, store and give back, over every route that edits a quote: one at a time, in bulk over
+  a selection, and through find-and-replace — so a misspelt character on four hundred highlights
+  is one correction rather than four hundred.
+
+  **None of it is on screen yet, and that is the whole of what is missing.** The add and edit
+  forms are being redesigned; the selection bar's own list of offerable fields is unchanged, so
+  it still offers the seven it always did and not the new ones; and find-and-replace has never
+  had a screen at all. Until the redesign lands these fields are reachable through the API and
+  through an import, and not by pointing at them.
+
+  **A game's line is placed by its act and its quest**, which is what the help text now says
+  and what the server now enforces: a game keeps no timestamp and no episode number, a film and
+  a show keep no act or quest, and an episode's name belongs to a show. A line whose work you
+  retarget is tidied on its next save rather than refused forever — the same forgiveness a show
+  turned into a film has always had.
+
+  **A book character is searchable**, in every place a film character already was: the search
+  index, the `character:` filter, the counts beside it and the autocomplete that offers it — so
+  a name that arrives on a highlight through an import is a name you can find.
+
+  **And a board can be a board of letters or of essays**, alongside quotes, proverbs and
+  speeches.
+
+- **A field per kind, in the database.** Every type now has somewhere to put the fact it
+  actually carries: a book quote has a **character** (a novel has speakers, not a cast — so
+  there is no actor beside it), a game line has an **act** and a **quest**, an episode has a
+  **name** as well as a number, a proverb has a **region**, a letter has a **recipient**, an
+  essay has a **source title** and a **page**, an occasion can be marked **approximate**, and
+  a book carries its **language** and its **original language** — which, oddly, it never has,
+  while a standalone quote has since 1.14.
+
+  **Every one of them survives the import queue too**, because a column that exists on the
+  live table and not on the staged one is a field that survives the export, survives the parse
+  and is dropped at the last step — the one place a loss is invisible, because the file is
+  already gone.
+
+  A book character and a letter's recipient and an essay's title are **searchable**; an act, a
+  quest and a page are not, because they locate a quote rather than describe it and no locator
+  in this app has ever been searchable. Region and language are offered as autocomplete
+  instead, where a short list of your own words belongs.
+
+  **The forms come next.** This release only makes the fields storable, so nothing new is on
+  screen yet.
+
 - **Text size, on a dial.** Appearance has a *Text size* control that sets every kind of
   text at once — 75%, 100%, 125%, 150%, 175% or 200% — and Type has one per kind, so quotes,
   interface, labels and notes can each be tuned on their own afterwards. Every size in the
@@ -48,6 +93,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   same face in all six rows.
 
 ### Fixed
+
+- **Editing one field across a selection of quotes.** The Quotes screen has offered to set a
+  speaker, an occasion, a place or a medium over a whole selection since the selection bar
+  arrived, and every one of those saves failed with *"speaker does not apply to this kind"* —
+  the server and the screen had two different words for the same kind of quote. They now agree,
+  and **clearing** one of those fields over a selection works too, which it never has.
+
+- **A board of speeches can be created.** The *Speeches* starter on the Quotes page has been
+  offering to make one since 1.15, and the database refused the kind it was sending — so
+  pressing it failed with a server error. A board's kind is now checked by the app rather than
+  frozen into the schema, which is also what lets **Letter** and **Essay** join it, and what
+  will let the next kind arrive without a database change.
 
 - **A game's shelf menu no longer offers to mark it as *watched*.** It said "Mark as watched"
   for any game that was not, at that exact moment, being played — so a game you had never

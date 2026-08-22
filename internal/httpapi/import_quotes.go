@@ -144,9 +144,10 @@ func stageUtterances(tx *sql.Tx, workID int64, us []importer.Utterance) (int, er
 		INSERT OR IGNORE INTO staged_quotes
 		  (staged_work_id, quote, note, color, favorite, tags, noted_at,
 		   speaker, occasion, occasion_date, place, medium,
-		   category, language, translation, dedupe_hash,
+		   category, language, translation,
+		   region, recipient, work_title, locator, occasion_circa, dedupe_hash,
 		   anthology, anthology_note, anthology_intro)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	staged := 0
 	for _, u := range us {
 		color := u.Color
@@ -174,6 +175,14 @@ func stageUtterances(tx *sql.Tx, workID int64, us []importer.Utterance) (int, er
 			strings.TrimSpace(u.Speaker), strings.TrimSpace(u.Occasion),
 			strings.TrimSpace(u.OccasionDate), strings.TrimSpace(u.Place), strings.TrimSpace(u.Medium),
 			category, strings.TrimSpace(u.Language), strings.TrimSpace(u.Translation),
+			// 0047. Trimmed like their neighbours, and passed as plain values — these
+			// are NOT NULL DEFAULT columns, so nullable() would send a NULL where the
+			// default belongs. None of them is in the hash: they LOCATE or DESCRIBE,
+			// and recipient in particular is the field most likely to be refined after
+			// the fact, which folding it in would turn into a forked duplicate on the
+			// next import of the same file (store.UtteranceDedupeHash).
+			strings.TrimSpace(u.Region), strings.TrimSpace(u.Recipient),
+			strings.TrimSpace(u.WorkTitle), strings.TrimSpace(u.Locator), u.OccasionCirca,
 			hash,
 			// 0043. Empty for every file that is not an anthology export, which is
 			// why these ride on the same row rather than needing a table: a staged
@@ -252,12 +261,19 @@ func writeUtterances(tx *sql.Tx, uid int64, us []importer.Utterance) (int, error
 		res, err := tx.Exec(`
 			INSERT OR IGNORE INTO utterances
 			  (id, user_id, quote, note, color, favorite, speaker, occasion, occasion_date,
-			   place, medium, category, language, translation, board_id, source, dedupe_hash, noted_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'import', ?, ?)`,
+			   place, medium, category, language, translation,
+			   region, recipient, work_title, locator, occasion_circa,
+			   board_id, source, dedupe_hash, noted_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'import', ?, ?)`,
 			id, uid, strings.TrimSpace(u.Quote), nullable(u.Note), color, u.Favorite,
 			speaker, occasion, occDate,
 			strings.TrimSpace(u.Place), strings.TrimSpace(u.Medium),
 			category, strings.TrimSpace(u.Language), strings.TrimSpace(u.Translation),
+			// 0047. Plain trimmed values, NOT NULL DEFAULT columns — see stageUtterances.
+			// A collision here is a skip (the file is already in the library), so unlike
+			// the book and film paths there is no enrichment arm to keep in step.
+			strings.TrimSpace(u.Region), strings.TrimSpace(u.Recipient),
+			strings.TrimSpace(u.WorkTitle), strings.TrimSpace(u.Locator), u.OccasionCirca,
 			boardID, hash, nullable(u.NotedAt))
 		if err != nil {
 			return added, err

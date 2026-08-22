@@ -146,6 +146,14 @@ func parseFrontmatter(lines []string) (*Result, error) {
 			res.Book.Translator = val
 		case "editor":
 			res.Book.Editor = val
+		// 0047. `language` is the edition in hand. It cannot be confused with the
+		// interface language or with a board's language list — neither is ever written
+		// into a book's frontmatter — and it is not decisive for any kind, so adding
+		// it opens no routing hole (see MarkdownKind).
+		case "language", "lang":
+			res.Book.Language = val
+		case "orig_language", "orig language", "original language", "original_language":
+			res.Book.OrigLanguage = val
 		case "isbn":
 			res.Book.ISBN = val
 		case "series":
@@ -210,6 +218,11 @@ func parseFrontmatter(lines []string) (*Result, error) {
 				cur.Color = val
 			case "loc", "location", "page":
 				cur.Location = val
+			// 0047. Who says the line. NO `actor` alias and no actor field: a novel
+			// has speakers, not a cast, and a file that named one would be describing
+			// an adaptation rather than the book.
+			case "character":
+				cur.Character = val
 			case "date", "added", "noted":
 				cur.NotedAt = val
 			case "tags":

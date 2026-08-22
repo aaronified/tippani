@@ -666,7 +666,11 @@ func TestAFacetEmptiesTheKindsItCannotDescribe(t *testing.T) {
 	}, http.StatusCreated))
 	c.mustDo("POST", "/annotations", map[string]any{
 		"book_id": book.ID, "quote": "kestrel annotation", "note": "a note",
-		"color": "blue", "tags": []string{"birds"},
+		// 0047 put a character on a highlight, so the fixture carries one — the
+		// `character=` row below is only measuring something if both quote kinds
+		// that HAVE the column could have answered it.
+		"character": "Jay Kestrel",
+		"color":     "blue", "tags": []string{"birds"},
 	}, http.StatusCreated)
 	movie := decode[movieDetail](t, c.mustDo("POST", "/movies", map[string]any{
 		"title": "kestrel movie", "director": "Jay Kestrel", "series": "Kestrel",
@@ -674,7 +678,8 @@ func TestAFacetEmptiesTheKindsItCannotDescribe(t *testing.T) {
 	}, http.StatusCreated))
 	c.mustDo("POST", "/dialogues", map[string]any{
 		"movie_id": movie.ID, "quote": "kestrel dialogue", "note": "a note",
-		"color": "blue", "actor": "Jay Kestrel", "tags": []string{"birds"},
+		"color": "blue", "actor": "Jay Kestrel", "character": "Jay Kestrel",
+		"tags": []string{"birds"},
 	}, http.StatusCreated)
 	newUtterance(t, c, map[string]any{
 		"quote": "kestrel quote", "note": "a note", "color": "blue",
@@ -703,6 +708,13 @@ func TestAFacetEmptiesTheKindsItCannotDescribe(t *testing.T) {
 		{"author=Kestrel", []string{"movies", "dialogues", "quotes"}},
 		{"director=Kestrel", []string{"books", "annotations", "quotes"}},
 		{"actor=Kestrel", []string{"books", "annotations", "movies", "quotes"}},
+		// A character reaches a book highlight AND a film line from 0047 on, and
+		// nothing else: a WORK is not a character any more than it is an actor, and
+		// a standalone quote has a speaker instead. Before 0047 this row's `empty`
+		// list included "annotations", on the stated grounds that a book has no such
+		// column — it has one now, and the sentence that said otherwise has been
+		// rewritten rather than extended.
+		{"character=Kestrel", []string{"books", "movies", "quotes"}},
 		{"speaker=Kestrel", []string{"books", "annotations", "movies", "dialogues"}},
 		{"note=yes", []string{"books", "movies"}},
 		{"wishlist=no", []string{"annotations", "dialogues", "quotes"}},

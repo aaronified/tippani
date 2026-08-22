@@ -40,6 +40,7 @@ author: Frank Herbert
 isbn: 9780441013593
 year: 1965
 genres: Classics, Science Fiction
+type: book
 ---
 
 > Chapterless quote.
@@ -338,5 +339,119 @@ func TestSeriesAndCollectionRoundTrip(t *testing.T) {
 	gotB := decode[movieDetail](t, c2.mustDo("GET", "/movies/"+itoa(bres.MovieID), nil, 200))
 	if gotB.Series != "Firefly" || gotB.SeriesIndex != 0 {
 		t.Fatalf("bare collection: %q #%v", gotB.Series, gotB.SeriesIndex)
+	}
+}
+
+// A GAME'S EXPORT, ON THE EXACT BYTES. Two things are pinned here that a
+// "contains" check would not: `type: game` — the line that was written as
+// `type: movie` until 0047's round-trip half, so a game came home a film with its
+// only locators stripped — and the placement of act and quest, which sit where a
+// film's timestamp sits because they are what a game has instead of one.
+func TestGameExport(t *testing.T) {
+	h := newTestServer(t).Handler()
+	c := signupAdmin(t, h)
+
+	game := decode[movieDetail](t, c.mustDo("POST", "/movies", map[string]any{
+		"title": "Disco Elysium", "director": "ZA/UM", "publisher": "ZA/UM",
+		"release_year": 2019, "media_type": "game", "genres": []string{"RPG"},
+	}, http.StatusCreated))
+	c.mustDo("POST", "/dialogues", map[string]any{
+		"movie_id": game.ID, "quote": "You are the man with the hangover.",
+		"character": "Kim Kitsuragi", "act": "1", "quest": "The Whirling-in-Rags",
+		// Sent and DROPPED: a game has no runtime to point into, so the server
+		// clears it (normalizeLocator) and the file must not mention it.
+		"timestamp": "01:12:40",
+	}, http.StatusCreated)
+	c.mustDo("POST", "/dialogues", map[string]any{
+		"movie_id": game.ID, "quote": "A line with no locator at all.",
+	}, http.StatusCreated)
+
+	want := `---
+title: Disco Elysium
+director: ZA/UM
+publisher: ZA/UM
+year: 2019
+genres: RPG
+type: game
+---
+
+> A line with no locator at all.
+
+> You are the man with the hangover.
+- character: Kim Kitsuragi
+- act: 1
+- quest: The Whirling-in-Rags
+`
+	rec := c.mustDo("GET", "/movies/"+itoa(game.ID)+"/export", nil, http.StatusOK)
+	if got := rec.Body.String(); got != want {
+		t.Fatalf("export mismatch:\n--- got ---\n%s\n--- want ---\n%s", got, want)
+	}
+}
+
+// A SHOW'S EPISODE NAME sits beside the episode NUMBER, because that is what it
+// names — one level down from the frontmatter's own season/episode, the same rule
+// the two numbers already follow.
+func TestShowExportWritesTheEpisodeName(t *testing.T) {
+	h := newTestServer(t).Handler()
+	c := signupAdmin(t, h)
+
+	show := decode[movieDetail](t, c.mustDo("POST", "/movies", map[string]any{
+		"title": "The Wire", "media_type": "show",
+	}, http.StatusCreated))
+	c.mustDo("POST", "/dialogues", map[string]any{
+		"movie_id": show.ID, "quote": "All the pieces matter.",
+		"season": 1, "episode": 6, "episode_name": "All Prologue", "timestamp": "00:22:10",
+	}, http.StatusCreated)
+
+	want := `---
+title: The Wire
+type: show
+---
+
+> All the pieces matter.
+- season: 1
+- episode: 6
+- episode_name: All Prologue
+- timestamp: 00:22:10
+`
+	rec := c.mustDo("GET", "/movies/"+itoa(show.ID)+"/export", nil, http.StatusOK)
+	if got := rec.Body.String(); got != want {
+		t.Fatalf("export mismatch:\n--- got ---\n%s\n--- want ---\n%s", got, want)
+	}
+}
+
+// A BOOK'S CHARACTER AND ITS TWO LANGUAGES, on the exact bytes. The character is
+// written FIRST under its quote, the same slot the dialogue block puts it in,
+// because it is the same fact about a different medium; the languages sit beside
+// the two credits, because all four are facts about the same act of translation.
+func TestBookExportWritesACharacterAndTwoLanguages(t *testing.T) {
+	h := newTestServer(t).Handler()
+	c := signupAdmin(t, h)
+
+	book := decode[bookDetail](t, c.mustDo("POST", "/books", map[string]any{
+		"title": "Gora", "author": "Rabindranath Tagore", "translator": "Radha Chakravarty",
+		"language": "English", "orig_language": "Bengali",
+	}, http.StatusCreated))
+	c.mustDo("POST", "/annotations", map[string]any{
+		"book_id": book.ID, "quote": "A line somebody says.", "character": "Gora",
+		"noted_at": "2026-03-04",
+	}, http.StatusCreated)
+
+	want := `---
+title: Gora
+author: Rabindranath Tagore
+translator: Radha Chakravarty
+language: English
+orig_language: Bengali
+type: book
+---
+
+> A line somebody says.
+- character: Gora
+- date: 2026-03-04
+`
+	rec := c.mustDo("GET", "/books/"+itoa(book.ID)+"/export", nil, http.StatusOK)
+	if got := rec.Body.String(); got != want {
+		t.Fatalf("export mismatch:\n--- got ---\n%s\n--- want ---\n%s", got, want)
 	}
 }
