@@ -50,9 +50,22 @@ describe('the serendipity card', () => {
     expect(card, 'q.character is never read — a film line is captioned with the wrong person').toContain('q.character')
   })
 
-  it('draws the credited people as faces and as chips you can open', () => {
-    expect(card).toContain('CreditFaces')
+  // THIS ASSERTION USED TO REQUIRE BOTH, and requiring both was the bug. It read
+  // `toContain('CreditFaces')` as well as PersonCredit, on the reasoning that the
+  // card should show faces AND openable chips — but PersonCredit IS a portrait
+  // beside the name, so the card drew every credited person twice: once in an
+  // anonymous overlapping cluster on the source line, and again underneath with
+  // their name. Roman Holiday showed four faces for two actors.
+  //
+  // The overlapping cluster is right where there is no room for names — the
+  // collapsed favourite tile uses it, which is why Home still imports it — and
+  // wrong here, where the names are the point. So this now pins one face each.
+  it('draws each credited person once, as a face with their name', () => {
     expect(card, 'faces with no way into the person behind them').toContain('PersonCredit')
+    expect(
+      card,
+      'CreditYFaces is back on this card: PersonCredit already draws the portrait, so a cluster here means every actor is drawn twice'.replace('CreditYFaces', 'CreditFaces'),
+    ).not.toContain('CreditFaces')
     // Split on the READER'S separators, so co-authors are two people and not one
     // chip named after both of them.
     expect(card).toContain('splitCredits')

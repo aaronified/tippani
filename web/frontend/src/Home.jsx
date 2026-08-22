@@ -1278,10 +1278,20 @@ function SerendipityCard({ q, onOpen, people = {}, seps, onOpenPerson, actions }
               {kind.quoted ? `“${q.quote}”` : q.quote}
             </p>
           </button>
-          <span className="mt-1.5 flex items-center gap-1.5">
-            <CreditFaces names={names} map={map} size={18} ring="var(--card)" />
-            <MonoLabel style={{ fontSize: 10.5 }}>{source}</MonoLabel>
-          </span>
+          {/* THE SOURCE LINE CARRIES NO FACES, and it used to carry all of them.
+              An overlapping portrait cluster sat here as well as the
+              PersonCredit row below, and PersonCredit is a portrait AND the
+              name — so every credited person was drawn twice, once anonymously
+              in a stack and again underneath with their name on. On a two-hander
+              like Roman Holiday that is four faces for two actors.
+
+              The cluster is the right thing on a COLLAPSED surface, where there
+              is no room for names: that is what the favourite tile a few hundred
+              lines up uses it for, and why the import is still needed. Here
+              there is room, the names are the point, and one face each is the
+              answer. (Named obliquely on purpose — the test that pins this
+              scans this function's source for the component's name.) */}
+          <MonoLabel className="mt-1.5 block" style={{ fontSize: 10.5 }}>{source}</MonoLabel>
           {names.length > 0 && (
             <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
               {names.map((n) => (
