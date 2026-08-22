@@ -15,7 +15,7 @@
 // Bluetooth keyboard on a narrow window keeps working, and the omission is cosmetic
 // in exactly the way Settings → Features is.
 
-import { describe, expect, it, afterEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { Kbd, ShortcutSheet, ToastHost, Tooltip } from '../../src/ui.jsx'
 import { withShortcut } from '../../src/keys.js'
@@ -72,11 +72,21 @@ const hover = (mobile) => {
     </>,
   )
   fireEvent.pointerEnter(screen.getByRole('button'), { pointerType: 'mouse' })
-  act(() => {})
+  // A HOVER LABEL WAITS TO BE ASKED (HOVER_TIP_MS in ui.jsx): a pointer has to rest
+  // on the control before the bubble appears, so that crossing a bar of five
+  // controls does not fire five labels. This suite is about WHAT the bubble says,
+  // not when, so it waits out the delay rather than asserting about it —
+  // hint-lifetime.test.jsx owns the timing.
+  act(() => { vi.advanceTimersByTime(500) })
   return document.querySelector('.hint-bubble, .tp-hint, [data-hint]')?.textContent || ''
 }
 
 describe('Tooltip — the key on the label', () => {
+  // The hover delay is a real timer, so it has to be advanced rather than waited
+  // for. shouldAdvanceTime keeps React's own scheduling working underneath.
+  beforeEach(() => vi.useFakeTimers({ shouldAdvanceTime: true }))
+  afterEach(() => vi.useRealTimers())
+
   // The registry still composes it. If this ever stops being true the two cases
   // below would both pass while the feature was gone.
   it('composes label and key, which is what the phone case suppresses', () => {

@@ -2613,6 +2613,27 @@ export function FormModal({ open = true, onClose, title, maxWidth = 560, childre
 // what Material does too — but it means a merely slow tap that crosses the
 // threshold silently does nothing. 500ms keeps that out of ordinary tapping.
 const LONG_PRESS_MS = 500;
+
+// HOVER_TIP_MS — how long a pointer has to REST on a control before its label
+// appears.
+//
+// It used to be nothing: pointerenter showed the bubble on the same frame, which
+// reads as the app answering a question nobody asked. The report is exactly that —
+// "now they are instantaneous and thus irritating" — and the irritation is not the
+// label, it is the labels you never wanted: crossing the top bar to reach the ＋
+// fires five bubbles on the way, each a flash of text where you were about to look.
+//
+// A DELAY IS A TEST OF INTENT, and 400ms is about where it sits on every platform
+// that has one. Long enough that passing over a control costs nothing, short
+// enough that stopping ON one does not feel like waiting. Below roughly 250 it
+// stops filtering the pass-through; past roughly 600 you start noticing yourself
+// hovering.
+//
+// KEYBOARD FOCUS IS NOT DELAYED, and that is deliberate rather than an oversight.
+// Tabbing to a control IS the question — there is no passing over one with a
+// keyboard, so there is no intent left to test, and a delay there would only be a
+// pause between the press and the answer.
+const HOVER_TIP_MS = 400;
 // How far a finger may drift and still count as a press rather than a scroll.
 const LONG_PRESS_SLOP = 10;
 
@@ -2674,6 +2695,13 @@ export function Tooltip({ label, side = "top", className = "", onContextMenu, sh
   // The LABEL still shows — only the suffix goes.
   label = useIsMobileScreen() ? label : withShortcut(label, shortcut, shiftKey);
   const timer = useRef(null);
+  // The hover-intent timer, kept APART from `timer` above rather than sharing it.
+  // The two never run together — one is touch and one is pointer — but they are
+  // cancelled by different things: a long press dies when the finger slides
+  // (onPointerMove), and a mouse moving WITHIN a control must cancel nothing. One
+  // ref would have to answer both, and the guard that lets a flick kill a long
+  // press would then let a wobbling hand kill every tooltip in the app.
+  const hover = useRef(null);
   const origin = useRef(null);
   const fired = useRef(false);
   const wrap = useRef(null);
@@ -2683,7 +2711,10 @@ export function Tooltip({ label, side = "top", className = "", onContextMenu, sh
   const held = useRef(0);
   // Unmount is a close: clicking a control that opens a modal takes the wrapper
   // (and its pointerleave) with it, which would otherwise pin the label forever.
-  useEffect(() => () => hideHint(held.current), []);
+  useEffect(() => () => {
+    clearTimeout(hover.current);
+    hideHint(held.current);
+  }, []);
   if (!label) return children;
 
   // An open InfoDot / Help sheet suppresses its own trigger's bubble: the tap
@@ -2714,10 +2745,22 @@ export function Tooltip({ label, side = "top", className = "", onContextMenu, sh
     clearTimeout(timer.current);
     timer.current = null;
   };
+  const clearHover = () => {
+    clearTimeout(hover.current);
+    hover.current = null;
+  };
   const onPointerEnter = (e) => {
     // Touch fires pointerenter too, on the tap — that path is the long press.
     if (e.pointerType === "touch" || suppressed) return;
-    open(true);
+    clearHover();
+    hover.current = setTimeout(() => {
+      hover.current = null;
+      // open() reads the box when it runs, which is the same reason the long press
+      // reads it at fire time: four tenths of a second is long enough for a list to
+      // still be settling, and a bubble anchored to where the control WAS points at
+      // nothing.
+      open(true);
+    }, HOVER_TIP_MS);
   };
   const onPointerDown = (e) => {
     if (e.pointerType !== "touch") return;
@@ -2749,6 +2792,10 @@ export function Tooltip({ label, side = "top", className = "", onContextMenu, sh
       // does and then pressed it, so the label has done its job — and this is
       // the one moment we know for certain the pointer was here, which
       // pointerleave may never tell us if the control moves or is covered.
+      //
+      // AND IT CANCELS A PENDING ONE. Pressing a control inside the delay must not
+      // leave a bubble to arrive afterwards, over whatever the press just opened.
+      clearHover();
       close();
       return;
     }
@@ -2773,11 +2820,11 @@ export function Tooltip({ label, side = "top", className = "", onContextMenu, sh
       ref={wrap}
       className={`tp-tip-wrap ${className}`}
       onPointerEnter={onPointerEnter}
-      onPointerLeave={() => { clear(); close() }}
+      onPointerLeave={() => { clear(); clearHover(); close() }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={clear}
-      onPointerCancel={() => { clear(); close() }}
+      onPointerCancel={() => { clear(); clearHover(); close() }}
       onClickCapture={onClickCapture}
       onFocus={onFocus}
       onBlur={close}

@@ -47,6 +47,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a font you uploaded is listed once, where the fonts are, instead of as a bin beside the
   same face in all six rows.
 
+### Changed
+
+- **Tooltips wait to be asked.** They appeared on the frame the pointer arrived, which reads
+  as the app answering a question nobody put — crossing the top bar to reach ＋ passes over
+  five controls and fired five labels on the way, each one a flash of text where you were
+  about to look. A pointer now has to rest on a control for four tenths of a second. Leaving
+  before that, or pressing the control, cancels it, so nothing arrives after you have gone.
+
+  Tabbing to a control still answers immediately: there is no passing over something with a
+  keyboard, so there is no intent left to test and a delay would only be a pause between the
+  press and the answer. The long press on a phone is unchanged.
+
 ## [2.1.3] - 2026-08-22
 
 ### Added
