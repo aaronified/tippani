@@ -979,7 +979,10 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce
                 items={[
                   {
                     icon: <IconWatching size={24} />,
-                    label: moveLabel('movie', movie?.status || '', activeWord),
+                    // The ROW goes in, not just the board's kind: a game's
+                    // catalogue row and a film's are the same table, and only
+                    // media_type tells the label which verb it is naming.
+                    label: moveLabel('movie', movie?.status || '', activeWord, movie || {}),
                     onClick: () => pick(activeWord),
                   },
                   ...(DEMO ? [] : [{ icon: <IconExport />, label: t('film.export.label'), onClick: () => { if (movie) window.location.href = `/api/movies/${movie.id}/export` } }]),
@@ -1071,7 +1074,7 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce
               mobile ? null : (
                 <>
                   <GhostButton onClick={() => pick(activeWord)} disabled={shelfBusy}>
-                    {moveLabel('movie', movie.status || '', activeWord)}
+                    {moveLabel('movie', movie.status || '', activeWord, movie)}
                   </GhostButton>
                   {!DEMO && (
                     <IconButton
@@ -1126,7 +1129,7 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce
       />
       <ShelfDateDialog
         open={!!pending}
-        title={pending ? moveLabel('movie', movie?.status || '', pending.status) : ''}
+        title={pending ? moveLabel('movie', movie?.status || '', pending.status, movie || {}) : ''}
         label={t(
           pending?.status === activeWord
             ? 'film.shelf.started.label'

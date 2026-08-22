@@ -47,6 +47,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a font you uploaded is listed once, where the fonts are, instead of as a bin beside the
   same face in all six rows.
 
+### Fixed
+
+- **A game's shelf menu no longer offers to mark it as *watched*.** It said "Mark as watched"
+  for any game that was not, at that exact moment, being played — so a game you had never
+  started, or had paused, or had given up on, was offered the film's word. The wording is
+  asked of the work now rather than guessed from the state it is leaving, which also fixes the
+  mirror case: a film that still carried a game's status was being offered "Mark as played".
+
+  The same wrong headline appeared on the date dialog that confirms finishing something, and
+  it is right there too.
+
 ### Changed
 
 - **Tooltips wait to be asked.** They appeared on the frame the pointer arrived, which reads

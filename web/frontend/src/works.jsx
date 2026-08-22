@@ -683,7 +683,7 @@ export function ShelfControl({ kind, item = {}, status, progress = 0, pos, reads
   if (!state) {
     return (
       <StateTag state="" label={t('common.shelf.shelve.label')}>
-        {(close) => transitionItems(kind, status, moves, busy, close, onSelect)}
+        {(close) => transitionItems(kind, item, status, moves, busy, close, onSelect)}
       </StateTag>
     )
   }
@@ -699,7 +699,7 @@ export function ShelfControl({ kind, item = {}, status, progress = 0, pos, reads
             <p style={{ padding: '4px 6px 8px', fontSize: 'var(--type-ui-13)', lineHeight: 1.5, color: 'var(--soft)' }}>
               {t('common.shelf.wishlist.explainer.prose')}
             </p>
-            {transitionItems(kind, status, moves, busy, close, onSelect)}
+            {transitionItems(kind, item, status, moves, busy, close, onSelect)}
           </>
         )}
       </StateTag>
@@ -721,7 +721,7 @@ export function ShelfControl({ kind, item = {}, status, progress = 0, pos, reads
                 onSave={onProgress}
               />
             )}
-            {transitionItems(kind, status, moves, busy, close, onSelect)}
+            {transitionItems(kind, item, status, moves, busy, close, onSelect)}
           </>
         )}
       </StateTag>
@@ -751,7 +751,13 @@ export function ShelfControl({ kind, item = {}, status, progress = 0, pos, reads
 // transitionItems renders one menu row per legal move, each swatched in the
 // colour its state will paint the bar. Shared by the state chip and the
 // stand-in "Shelve" chip so there is one transitions menu, not two.
-function transitionItems(kind, from, moves, busy, close, onSelect) {
+//
+// It carries `item` for one reason: moveLabel needs the media_type to word the
+// finished move, and this function is where the row used to be dropped. Its
+// caller already resolves the active word per row, so it holds the row all along
+// — passing only `kind` from here meant a correct moveLabel still drew "Mark as
+// watched" on a game, with the pure test green.
+function transitionItems(kind, item, from, moves, busy, close, onSelect) {
   return moves.map((next) => (
     <button
       key={next || 'none'}
@@ -775,20 +781,43 @@ function transitionItems(kind, from, moves, busy, close, onSelect) {
           border: next ? 'none' : '1px solid var(--line)',
         }}
       />
-      {moveLabel(kind, from, next)}
+      {moveLabel(kind, from, next, item)}
     </button>
   ))
 }
 
-// moveLabel words a transition the way a person would say it, given where the
-// work is now. Starting again after finishing is a reread, not a fresh start.
-// moveLabel names the button for one shelf transition.
+// moveLabel names the button for one shelf transition, in the words a person
+// would use: starting again after finishing is a reread, not a fresh start.
 //
-// It switches on the DESTINATION word rather than on the kind, which is what lets
-// games join without a third branch everywhere: 'playing' is its own case, and a
-// completed game reads "Play it again" rather than "Watch it again".
-export function moveLabel(kind, from, to) {
-  const book = kind === 'book'
+// It switches on the DESTINATION word for the states the sides share, which is
+// what lets games join without a third branch everywhere: 'playing' is its own
+// case, so a completed game reads "Play it again" rather than "Watch it again".
+//
+// THE FINISHED WORD TAKES THE ROW, because the destination cannot supply it.
+// 'completed' is one word for every medium and its past tense is not — read,
+// watched, played — so something has to say which. This used to infer it from
+// `from === 'playing'`, on the stated grounds that only a game is ever moved to
+// completed from 'playing'. That is true and it is the wrong direction: the branch
+// needs the INVERSE, that only from 'playing' does a game reach completed, and
+// the inverse is false. A game reaches 'completed' from four other states — the
+// untracked "Shelve" chip, paused, abandoned, and a stale 'watching' left behind
+// by a media-type edit — and every one of them fell through to "Mark as watched".
+// The mirror was wrong too: a film carrying a stale 'playing' was offered "Mark as
+// played".
+//
+// So the row comes in and capKeyFor answers from media_type — the same call
+// ShelfControl already makes for the active word, so a chip and the menu under it
+// cannot disagree about the same tile. A status is a thing a work is doing and can
+// be stale; media_type is what the work IS. The new shape cannot make the old
+// mistake because no path is left from a status word to a medium: every
+// kind-bearing key is chosen from `key`. A caller that forgets the row gets its
+// board's own medium rather than whatever the row happens to be doing, which is a
+// wrong word on a game and never a wrong word on a film — and the render test in
+// test/dom/shelf-menu.test.jsx is what stops the row being dropped on the way
+// down, since transitionItems is where it went missing before.
+export function moveLabel(kind, from, to, item = {}) {
+  const key = capKeyFor(kind, item)
+  const book = key === 'book'
   switch (to) {
     case 'playing':
       if (from === 'completed') return t('common.shelf.move.playing.again.label')
@@ -804,10 +833,10 @@ export function moveLabel(kind, from, to) {
     case 'abandoned':
       return t('common.shelf.move.abandoned.label')
     case 'completed':
-      // The finished word follows what you DID with it, so a game reads
-      // "Mark as played" where a film reads "Mark as watched". `from` carries
-      // that: only a game is ever moved to completed from 'playing'.
-      if (from === 'playing') return t('common.shelf.move.completed.played.label')
+      // The finished word follows what you DID with it, so a game reads "Mark as
+      // played" where a film reads "Mark as watched" — asked of the row, not of
+      // the state it is leaving. A show settles as watched, like a film.
+      if (key === 'game') return t('common.shelf.move.completed.played.label')
       return t(book ? 'common.shelf.move.completed.book.label' : 'common.shelf.move.completed.film.label')
     default:
       return t('common.shelf.move.clear.label')

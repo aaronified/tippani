@@ -817,7 +817,7 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce 
                 items={[
                   {
                     icon: <IconReading size={24} />,
-                    label: moveLabel('book', book?.status || '', ACTIVE_STATUS.book),
+                    label: moveLabel('book', book?.status || '', ACTIVE_STATUS.book, book || {}),
                     onClick: () => pick(ACTIVE_STATUS.book),
                   },
                   ...(DEMO ? [] : [{ icon: <IconExport />, label: t('book.export.label'), onClick: () => { if (book) window.location.href = `/api/books/${book.id}/export` } }]),
@@ -912,7 +912,7 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce 
                   {/* The one shelf action worth a standing button; the rest of
                       the lifecycle lives in the state chip's popover. */}
                   <GhostButton onClick={() => pick(ACTIVE_STATUS.book)} disabled={shelfBusy}>
-                    {moveLabel('book', book.status || '', ACTIVE_STATUS.book)}
+                    {moveLabel('book', book.status || '', ACTIVE_STATUS.book, book)}
                   </GhostButton>
                   {!DEMO && (
                     <IconButton
@@ -967,7 +967,7 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce 
       />
       <ShelfDateDialog
         open={!!pending}
-        title={pending ? moveLabel('book', book?.status || '', pending.status) : ''}
+        title={pending ? moveLabel('book', book?.status || '', pending.status, book || {}) : ''}
         label={t(
           pending?.status === ACTIVE_STATUS.book
             ? 'book.shelf.started.label'

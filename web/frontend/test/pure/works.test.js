@@ -373,26 +373,62 @@ describe('credit vocabulary by media type', () => {
   })
 })
 
+// The three catalogue media types as the rows the app actually holds — the
+// distinction is media_type on a movies-table row, nothing else.
+const GAME = { media_type: 'game' }
+const FILM = { media_type: 'movie' }
+const SHOW = { media_type: 'show' }
+
 describe('moveLabel', () => {
-  // One test over all eight rows rather than two: every case is the same
-  // moveLabel(kind, from, to) call with no setup, and holding the game rows and
-  // the film/book rows in one table keeps the property and its converse side by
-  // side — the aggregate names every label that drifted, in both halves at once.
+  // One test over all thirteen rows rather than two: every case is the same
+  // moveLabel(kind, from, to, item) call with no setup, and holding the game rows
+  // and the film/book rows in one table keeps the property and its converse side
+  // by side — the aggregate names every label that drifted, in both halves at once.
+  //
+  // EVERY ROW CARRIES THE ROW ITSELF, and that is the point of the table rather
+  // than an incidental tidy-up. This block used to identify its game rows by
+  // putting 'playing' in the `from` or `to` slot, because the old signature had
+  // nowhere to say "game" — which is exactly the inference moveLabel itself was
+  // making. So the only game→completed row it could write was the one from-state
+  // where the guess happened to be right, and the three real ones ('', 'paused'
+  // and 'abandoned') were unwritable — each of them is character-for-character a
+  // film row. They are the first three rows below; the fourth, from 'playing', is
+  // the one that already passed.
   it('uses play wording for a game and leaves the film and book wording alone', () => {
     const cases = [
+      // a game reads "played" from EVERY state it can be finished from, not just
+      // from 'playing' — these four are the reachable moves ShelfControl offers.
+      { name: 'game · nothing → completed', args: ['movie', '', 'completed', GAME], want: 'Mark as played' },
+      { name: 'game · paused → completed', args: ['movie', 'paused', 'completed', GAME], want: 'Mark as played' },
+      { name: 'game · abandoned → completed', args: ['movie', 'abandoned', 'completed', GAME], want: 'Mark as played' },
+      { name: 'game · playing → completed', args: ['movie', 'playing', 'completed', GAME], want: 'Mark as played' },
       // uses play wording for a game
-      { name: 'game · nothing → playing', args: ['movie', '', 'playing'], want: 'Mark as playing' },
-      { name: 'game · completed → playing', args: ['movie', 'completed', 'playing'], want: 'Play it again' },
-      { name: 'game · paused → playing', args: ['movie', 'paused', 'playing'], want: 'Carry on playing' },
-      { name: 'game · playing → completed', args: ['movie', 'playing', 'completed'], want: 'Mark as played' },
-      // leaves the film and book wording alone
-      { name: 'film · nothing → watching', args: ['movie', '', 'watching'], want: 'Mark as watching' },
-      { name: 'film · watching → completed', args: ['movie', 'watching', 'completed'], want: 'Mark as watched' },
-      { name: 'book · nothing → reading', args: ['book', '', 'reading'], want: 'Mark as reading' },
-      { name: 'book · reading → completed', args: ['book', 'reading', 'completed'], want: 'Mark as read' },
+      { name: 'game · nothing → playing', args: ['movie', '', 'playing', GAME], want: 'Mark as playing' },
+      { name: 'game · completed → playing', args: ['movie', 'completed', 'playing', GAME], want: 'Play it again' },
+      { name: 'game · paused → playing', args: ['movie', 'paused', 'playing', GAME], want: 'Carry on playing' },
+      // leaves the film and book wording alone. The converse guard: the film row
+      // from nothing is character-for-character the game row above it but for the
+      // media type, so neither can be satisfied by a blanket rewording.
+      { name: 'film · nothing → completed', args: ['movie', '', 'completed', FILM], want: 'Mark as watched' },
+      { name: 'film · nothing → watching', args: ['movie', '', 'watching', FILM], want: 'Mark as watching' },
+      { name: 'film · watching → completed', args: ['movie', 'watching', 'completed', FILM], want: 'Mark as watched' },
+      { name: 'show · nothing → completed', args: ['movie', '', 'completed', SHOW], want: 'Mark as watched' },
+      { name: 'book · nothing → reading', args: ['book', '', 'reading', {}], want: 'Mark as reading' },
+      { name: 'book · reading → completed', args: ['book', 'reading', 'completed', {}], want: 'Mark as read' },
     ]
     const got = cases.map(({ name, args }) => [name, moveLabel(...args)])
     expect(got).toEqual(cases.map(({ name, want }) => [name, want]))
+  })
+
+  // A stale 'playing' on a film is reachable: PUT /movies/:id writes media_type
+  // and deliberately leaves status alone, so re-typing a game you are playing as
+  // a Film leaves a film at status 'playing' (and the mirror leaves a game at
+  // 'watching'). The old shape read the KIND off `from`, so both of those rows
+  // got the other side's word. The row decides now, so a stale status only
+  // misnames the state — never the medium.
+  it('follows the row, not a stale status, after a media-type edit', () => {
+    expect(moveLabel('movie', 'playing', 'completed', FILM)).toBe('Mark as watched')
+    expect(moveLabel('movie', 'watching', 'completed', GAME)).toBe('Mark as played')
   })
 })
 
