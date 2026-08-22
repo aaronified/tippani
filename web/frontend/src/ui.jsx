@@ -320,6 +320,55 @@ export function useBodyScrollLock(active) {
   }, [active]);
 }
 
+// useBackToClose — an open overlay answers the hardware/gesture Back by closing
+// itself, and closing itself gives the entry back.
+//
+// THE RULE THE READER STATED: "the back action needs to be global, no matter in
+// which menu. back buttons and software back actions (in desktop browser or
+// phone gestures/buttons) should be in sync." On a phone, Back is the close
+// gesture — every other app on the device teaches that — and an overlay that
+// ignores it turns the most reflexive press available into "leave the screen you
+// were reading", with the dialog still up when you come back to it.
+//
+// The Lightbox has done this since covers became openable, and it was the only
+// thing that did: the settings panels, every edit form, the Add surface, the
+// filter sheets and the drawer all sat over a page whose Back went somewhere
+// else. This is that one implementation, named and shared, so the next overlay
+// gets it by asking rather than by remembering.
+//
+// TWO-WAY, WHICH IS THE PART THAT IS EASY TO GET WRONG. Opening pushes a marker
+// entry; Back pops it and closes; closing by any other means — the ×, Escape, the
+// scrim, a save that dismisses the dialog — has to CONSUME the marker, or every
+// dialog opened and closed normally leaves a dead entry behind and the page's own
+// Back stops working after the third one.
+//
+// `closedByPop` is what tells those apart, and the cleanup is where the consuming
+// happens rather than in the close handler: an overlay can be unmounted by its
+// parent without anybody calling onClose, and that still owes the entry back.
+// The guard on our own marker matters for the same reason — if the parent
+// navigated, the entry on top is no longer ours and calling back() would undo the
+// navigation instead.
+export function useBackToClose(active, onClose) {
+  useEffect(() => {
+    if (!active) return;
+    let closedByPop = false;
+    // The depth App keeps in history.state is carried forward rather than
+    // replaced. pushState REPLACES the state object, so a marker that spelled
+    // only its own flag would blank the number the in-app Back reads to tell
+    // "there is a screen behind this" from "the reader arrived here directly".
+    window.history.pushState({ ...window.history.state, tpOverlay: true }, "");
+    const onPop = () => {
+      closedByPop = true;
+      onClose?.();
+    };
+    window.addEventListener("popstate", onPop);
+    return () => {
+      window.removeEventListener("popstate", onPop);
+      if (!closedByPop && window.history.state?.tpOverlay) window.history.back();
+    };
+  }, [active]); // eslint-disable-line react-hooks/exhaustive-deps
+}
+
 // ---- cards & buttons (§6) ----
 
 const HAND_RADII = ["", "hc-r1", "hc-r2", "hc-r3"];
@@ -2420,6 +2469,9 @@ export function useFormHost(reason) {
 export function FormModal({ open = true, onClose, title, maxWidth = 560, children }) {
   const mobile = useIsMobileScreen();
   useBodyScrollLock(open);
+  // Desktop only: the mobile branch below renders MobileSheet, which takes the
+  // Back entry for itself. Two markers for one dialog is two presses to close it.
+  useBackToClose(open && !mobile, onClose);
   const formId = useId();
   // null = no form has registered, so there is nothing to commit and no ✓.
   const [blocked, setBlocked] = useState(null);
@@ -4022,24 +4074,14 @@ export function Chips({ items, className = "" }) {
 // button, Escape, a backdrop tap, and the browser/Android back gesture (it
 // pushes a history entry on open and closes when that entry is popped).
 export function Lightbox({ path, title, onClose }) {
+  // This viewer is where the Back-closes-the-overlay behaviour was written, and
+  // it is the hook's own body verbatim — so it uses the hook now, and every other
+  // overlay in the app inherits what only the Lightbox used to have.
+  useBackToClose(true, onClose);
   useEffect(() => {
-    // A history entry so the hardware/gesture Back closes the viewer instead
-    // of leaving the page. popstate (Back) => close; explicit close pops it.
-    let closedByPop = false;
-    window.history.pushState({ tpLightbox: true }, "");
-    const onPop = () => { closedByPop = true; onClose(); };
     const onKey = (e) => { if (e.key === "Escape") onClose(); };
-    window.addEventListener("popstate", onPop);
     document.addEventListener("keydown", onKey);
-    return () => {
-      window.removeEventListener("popstate", onPop);
-      document.removeEventListener("keydown", onKey);
-      // If we're unmounting for a reason other than Back, consume the entry we
-      // pushed so the page's own Back still works normally.
-      if (!closedByPop && window.history.state && window.history.state.tpLightbox) {
-        window.history.back();
-      }
-    };
+    return () => document.removeEventListener("keydown", onKey);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   // Portal to <body>: the detail hero has a filter/will-change ancestor, which
   // makes position:fixed anchor to it instead of the viewport — so a plain
@@ -5731,6 +5773,7 @@ export function QuoteActions({ actions = [] }) {
 // `dismissOnScrim` is off for forms: a filter sheet loses nothing to a stray tap
 // beside the card, and a half-written quote loses everything.
 export function MobileSheet({ open, onClose, title, actions, children, footer, dismissOnScrim = true }) {
+  useBackToClose(open, onClose);
   useBodyScrollLock(open);
   if (!open) return null;
   return (

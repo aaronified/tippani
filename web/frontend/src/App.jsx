@@ -34,6 +34,7 @@ import {
   searchScope,
   statePath,
 } from './routes.js'
+import { navigateBack, pushRoute, seedRoute } from './history.js'
 import { DEMO, apiURL, coverImgURL, json, uploadWithProgress } from './api.js'
 import {
   CloseButton,
@@ -56,6 +57,7 @@ import {
   ToastHost,
   Toggle,
   Tooltip,
+  useBackToClose,
   useBodyScrollLock,
   useFrameBase,
   useHideOnScrollDown,
@@ -639,6 +641,9 @@ function AccountChip({ user, onOpen }) {
 // there is one title and one help entry.
 function AccountOverlay({ user, onUser, onClose, logout }) {
   const mobile = useIsMobileScreen()
+  // Draws its own overlay rather than going through FormModal or MobileSheet, so
+  // it asks for the Back entry itself.
+  useBackToClose(true, onClose)
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose() }
     document.addEventListener('keydown', onKey)
@@ -718,6 +723,9 @@ function Drawer({ open, onClose, tab, selectTab, onSearch, onAdd, onAccount, use
   // ids; a film/show with no poster, cast or source) — the same predicate the
   // Metadata page uses. Fetched lazily the first time the drawer opens (it's a
   // whole-library read, wasted on desktop users who never open the drawer).
+  // The nav sheet is the surface a phone reader is most likely to press Back
+  // on, because it is the surface they opened to go somewhere else.
+  useBackToClose(open, onClose)
   const [metaIssues, setMetaIssues] = useState(null)
   useEffect(() => {
     if (!open || metaIssues !== null) return
@@ -1106,6 +1114,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
   const routeRef = useRef({ tab, detail })
   useEffect(() => { routeRef.current = { tab, detail } })
 
+
   useEffect(() => {
     // The browser's native back/forward restoration can't work here (list
     // heights arrive async) — the scroll-memory effect below owns it instead.
@@ -1125,8 +1134,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
       setDetail(s.detail)
     }
     window.addEventListener('popstate', onPop)
-    const want = statePath(initialTab, initial.detail)
-    if (window.location.pathname !== want) window.history.replaceState({}, '', want)
+    seedRoute(statePath(initialTab, initial.detail))
     return () => window.removeEventListener('popstate', onPop)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -1161,8 +1169,22 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
     setTab(nextTab)
     setDetail(nextDetail)
     if (DEMO) return
-    const path = statePath(nextTab, nextDetail)
-    if (path !== window.location.pathname) window.history.pushState({}, '', path)
+    pushRoute(statePath(nextTab, nextDetail))
+  }
+
+  // goBack is the in-app Back: the arrow on the phone's detail bar, the one on a
+  // quote board, the Bin's, an anthology's. Every one of them used to call
+  // go(tab, null), and go PUSHES — so pressing Back left the stack reading
+  // shelf → book → shelf and the phone's Back walked into the book again. Why
+  // that is one decision and where it lives: history.js.
+  function goBack(fallbackTab) {
+    // True means the press was handed to the browser, and the popstate handler
+    // above is then what sets the tab and the detail — so the arrow and the
+    // gesture are one code path rather than two that agree today.
+    if (!DEMO && navigateBack(statePath(fallbackTab, null))) return
+    if (!detail) rememberScroll(statePath(tab, null))
+    setTab(fallbackTab)
+    setDetail(null)
   }
   function selectTab(key) { go(key, null) }
   function openBook(id) { go('library', { type: 'book', id }) }
@@ -1443,7 +1465,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
             <Library
               openId={detail?.type === 'book' ? detail.id : null}
               onOpen={openBook}
-              onClose={() => go('library', null)}
+              onClose={() => goBack('library')}
               onOpenMovie={openMovie}
               creditSeparators={user.preferences?.creditSeparators}
               onAdd={openAdd}
@@ -1457,7 +1479,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
             <Movies
               openId={detail?.type === 'movie' ? detail.id : null}
               onOpen={openMovie}
-              onClose={() => go('movies', null)}
+              onClose={() => goBack('movies')}
               creditSeparators={user.preferences?.creditSeparators}
               onAdd={openAdd}
               onSearch={openSearch}
@@ -1485,7 +1507,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
             <QuotesPage
               openId={detail?.type === 'board' ? detail.id : null}
               onOpen={(id) => go('quotes', { type: 'board', id })}
-              onClose={() => go('quotes', null)}
+              onClose={() => goBack('quotes')}
               creditSeparators={user.preferences?.creditSeparators}
             />
           </div>
@@ -1498,7 +1520,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
             <AnthologiesPage
               openId={detail?.type === 'anthology' ? detail.id : null}
               onOpen={(id) => go('anthologies', { type: 'anthology', id })}
-              onClose={() => go('anthologies', null)}
+              onClose={() => goBack('anthologies')}
               onOpenBook={openBook}
               onOpenMovie={openMovie}
             />
@@ -1541,7 +1563,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
             Settings, which is where its Back goes. */}
         {tab === 'bin' && (
           <div data-screen-label="bin">
-            <BinPage onClose={() => go('settings', null)} />
+            <BinPage onClose={() => goBack('settings')} />
           </div>
         )}
         </div>

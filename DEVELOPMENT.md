@@ -276,6 +276,7 @@ The shared modules do:
 | --- | --- |
 | `main.jsx` | Boot. Applies theme, colours and label density **before the first paint**, so a phone never shows one frame of the wrong thing. |
 | `App.jsx` | The auth gate and the app shell — top bar, phone drawer, bottom bar — and the only file that knows the full screen list. Two props go almost everywhere: `onAdd` opens the ＋ Add surface aimed at the current page, and `dataNonce` is the refetch signal. |
+| `history.js` | **The session history.** Whether the in-app Back arrow can delegate to the browser's, decided from a `tpDepth` carried in `history.state`. Pure of React, so it is testable without mounting `App` — which nothing does. |
 | `routes.js` | **The URL contract.** Pure functions, no React, so they are testable without rendering. Holds four hand-maintained nav lists of the same tab keys; `routes.test.js` asserts they agree, because a tab once got added to three of them. |
 | `api.js` | The whole server surface in one small file: URL prefixing, the four request helpers, cover URLs, and the demo flag. |
 | `ui.jsx` | The shared component library — every card, control, icon, overlay and hook the screens are assembled from. Large, and imported by everything. |

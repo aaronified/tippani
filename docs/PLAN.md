@@ -4858,9 +4858,27 @@ That was true about a parent record and false about a destination. The quote liv
 
 **Decided.** Opening pushes `{tpLightbox: true}`; `popstate` closes it; an explicit close consumes the entry it pushed. It renders through a portal to `<body>`.
 
+**Generalised in 2.1.3** — this is now `useBackToClose`, and every overlay in the app asks for it: `FormModal`, `MobileSheet`, the drawer, the account overlay. The entry carries `tpOverlay` and forwards the route depth below rather than replacing the state object, which the Lightbox's own marker did not. See the next entry but one.
+
 **Why.** On Android the back gesture is how a full-screen thing is dismissed, and without a history entry it leaves the page instead — losing the reader's place in a board they had scrolled. Consuming the entry on an explicit close is the part that is easy to omit: without it, the page's own Back stops working for one press after every lightbox you opened and closed normally. The portal is required for a different reason: the detail hero has a `filter`/`will-change` ancestor, which makes `position: fixed` anchor to *it* rather than to the viewport, so a plain render traps a full-screen overlay inside the cover's box. Mine, and it is the same containing-block trap the popup primitive exists for.
 
 <sub>`web/frontend/src/ui.jsx`</sub>
+
+### The in-app Back arrow is the browser's Back, and history.js is where that is decided
+
+**Decided.** `history.js` owns the session history: every pushed entry carries a `tpDepth` one greater than the entry it came from, the entry the reader ARRIVED on carries 0, and `navigateBack(fallback)` delegates to `window.history.back()` when the depth is above 0 and otherwise **replaces** the address in place. The five in-app back arrows — a work detail's, a quote board's, an anthology's, the Bin's, and the phone's detail bar — call `goBack(tab)`, which is that function plus a state update for the replace case only.
+
+**The bug.** Every one of those arrows called `go(tab, null)`, and `go` pushes. So the stack read shelf → book → shelf, and the phone's Back returned to the book. The report: *"if i use the back button on the top of the screen from a work details page of any page, it is not treated as back, but as a link. when i go back using the phone controls, it goes back to the work details page instead of going back yet further."* Two controls with one name doing opposite things to one stack, and the address bar could not show it — `/library` either way.
+
+**Why a depth and not a flag.** The arrow has to tell apart two situations that look identical from where it is pressed: the book was opened from the shelf, so Back is the browser's Back; or the reader arrived on the book directly — a shared link, a bookmark, a reload, the PWA reopening where it left off — where `history.back()` leaves the app entirely. A count answers both and needs nothing else remembered.
+
+**Why in `history.state` rather than a ref.** It has to survive a reload, and the session's entries do. A ref would read 0 after F5 on a detail page and the arrow would stop being Back on the one path a reader triggers most easily.
+
+**Why a module.** Nothing in the suite mounts `App` — its size is the reason, and `features-nav.test.js` reads it as *source* for the same reason. Splitting the history decision out of the component makes it testable against jsdom's real session history; what cannot be tested that way is which prop each arrow is wired to, so that is asserted from the source, and the pattern it forbids is `onClose={() => go('x', null)}` — the shape that reads most naturally when adding the next screen.
+
+**Approved.** The reader's, with the general rule stated in the same message: *"the back action needs to be global, no matter in which menu. back buttons and software back actions (in desktop browser or phone gestures/buttons) should be in sync."* The overlay half of that is `useBackToClose`, two entries above.
+
+<sub>2.1.3 — `web/frontend/src/history.js` · `web/frontend/src/App.jsx` · `web/frontend/src/ui.jsx`</sub>
 
 ### Home favourites shuffle on every load, and had never asked for standalone quotes
 

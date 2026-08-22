@@ -18,6 +18,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Back means back, everywhere, and the two Backs agree.** The back arrow at the top of a
+  work's page — and on a quote board, an anthology, the Bin — went *forwards*: it added a
+  history entry instead of consuming one, so the stack read shelf → book → shelf and your
+  phone's back gesture returned you to the book you had just left. The arrow now hands the
+  press to the browser, which means both run the same code and cannot drift apart again. If
+  you arrived on a page directly — a shared link, a bookmark, a reload — the arrow rewrites
+  the address in place instead, because there is nothing behind it and going back would leave
+  the app.
+
+  **And every overlay now closes on that gesture** rather than navigating the page behind it:
+  the settings panels, every edit form, the Add surface, the filter sheets, the nav drawer,
+  your account page. Full-screen cover view has done this since covers became openable; it
+  was the only thing that did.
+
 - **A book you skipped is skipped again.** Skipping a work has taken its quotes out of the
   Daily Quiz since 1.11.1, and 1.15.0 changed *how*: the deck stopped reading the book's flag
   and started reading each highlight's own, so skipping a book became a write across its
