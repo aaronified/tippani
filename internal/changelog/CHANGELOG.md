@@ -58,6 +58,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The same wrong headline appeared on the date dialog that confirms finishing something, and
   it is right there too.
 
+- **Three more places called a game something it is not.** The bulk shelf dropdown over a
+  Catalogue selection offered games "Watching" — the right action under the wrong word, since
+  the server was already filing each row by what it is. The blue in-progress badge on a game's
+  artwork announced itself as "Currently watching" to a screen reader. And the dialog that
+  stops you starting a fourth thing at once read "Already Watching 3 · the shelf holds 3 films
+  at a time", with a button offering to mark a game as watched.
+
+  **And one that was not about games at all.** The colour bar under every film and show
+  announced itself as "Reading — 40%". The function that names a shelf state defaulted to the
+  book wording and nothing was passing it a kind, so the two media that are watched rather
+  than read have been describing themselves wrongly to a screen reader for as long as the bar
+  has existed.
+
 ### Changed
 
 - **Tooltips wait to be asked.** They appeared on the frame the pointer arrived, which reads

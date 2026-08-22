@@ -1016,9 +1016,18 @@ export const SHELF_META = {
 export const IN_FLIGHT_STATES = new Set(["reading", "watching", "playing"]);
 
 // shelfLabel is the word one side uses for a state ('reading' vs 'watching').
+//
+// THE BOOKS SIDE IS THE ONE THAT HAS TO BE NAMED, not the other way round. This
+// tested `kind === "movie"`, which is correct for the two words a board passes
+// and wrong for everything a ROW answers: capKeyFor says 'show' or 'game' for a
+// catalogue row, and both of those fell through to the book wording — so a show
+// handed straight to this function would have been read out as "Reading". The
+// in-progress word is the only one that differs at all (paused, abandoned and
+// completed are one word for every medium), and a game's differs by STATE rather
+// than by side, since SHELF_META.playing says "Playing" on both.
 export function shelfLabel(state, kind = "book") {
   const m = SHELF_META[state];
-  return m ? t(kind === "movie" ? m.movie : m.book) : "";
+  return m ? t(kind === "book" ? m.book : m.movie) : "";
 }
 
 // StatusBar — the shelf state as a colour bar directly UNDER a cover or poster,
@@ -1033,7 +1042,13 @@ export function shelfLabel(state, kind = "book") {
 //
 // `radius` rounds the bottom corners to match the artwork above it (posters have
 // an 8px radius; a book's hand-drawn card clips its own shape, so it passes 0).
-export function StatusBar({ state, progress = 0, radius = 0, title }) {
+//
+// `kind` IS THE MEDIUM THE WORD COMES FROM, and it used to be missing entirely:
+// every caller drew the bar without one, so shelfLabel's default applied and the
+// strip under a film you are watching was announced — to a screen reader, and in
+// its tooltip — as "Reading — 40%". Nothing shows on screen, which is why it
+// survived: the bar is a colour, and the word is only ever heard.
+export function StatusBar({ state, kind = "book", progress = 0, radius = 0, title }) {
   const meta = SHELF_META[state];
   if (!meta) return null;
   // IN_FLIGHT_STATES rather than a two-way ||, which is what this was: adding
@@ -1045,8 +1060,8 @@ export function StatusBar({ state, progress = 0, radius = 0, title }) {
   const label =
     title ||
     (inFlight && pct > 0
-      ? t("common.shelf.progress.label", { name: shelfLabel(state), percent: pct })
-      : shelfLabel(state));
+      ? t("common.shelf.progress.label", { name: shelfLabel(state, kind), percent: pct })
+      : shelfLabel(state, kind));
   return (
     <div
       role="img"
@@ -1083,10 +1098,27 @@ export function StatusBar({ state, progress = 0, radius = 0, title }) {
 // disc now — shelf blue, white glyph, hard rim — so the contrast comes from an
 // edge that does not scale away, and the badge reads over busy art and pale art
 // alike. It also stops being the one thing in the app with a glow.
+//
+// `kind` IS A MEDIUM, NOT A BOARD — capKeyFor's answer ('book' | 'movie' |
+// 'show' | 'game'), asked of the ROW by whoever draws the tile. It used to be a
+// two-way `kind !== "movie"` split fed the Catalogue's literal 'movie' for every
+// tile it deals, so a game you are playing wore a badge whose accessible name
+// was "Currently watching" — the badge is a glyph, so the wrong word was audible
+// and never visible.
+//
+// A game keeps the play triangle. There is no gamepad glyph in this set, and a
+// triangle is what "playing" is drawn as everywhere else in the app; inventing an
+// icon for one badge is a design change, not a bug fix. Only the word changes.
 export function ReadingBadge({ kind = "book", stacked = false }) {
   const wob = useMemo(() => randWobble(11, 0), []);
-  const isBook = kind !== "movie";
-  const label = t(isBook ? "common.reading-badge.book.aria" : "common.reading-badge.film.aria");
+  // Named positively, both of them: anything that is not a book or a game is
+  // watched, which is what keeps a show on the film wording instead of falling
+  // through to the book one the way the old `!== "movie"` did.
+  const isBook = kind === "book";
+  const isGame = kind === "game";
+  const label = t(
+    isGame ? "common.reading-badge.game.aria" : isBook ? "common.reading-badge.book.aria" : "common.reading-badge.film.aria",
+  );
   return (
     <span
       aria-label={label}

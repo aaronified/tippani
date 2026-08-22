@@ -87,6 +87,7 @@ import {
   ReviewDot,
   Select,
   seriesLabel,
+  shelfLabel,
   SheetFooter,
   splitCommas,
   Sprockets,
@@ -110,6 +111,28 @@ import {
   formatYear,
   parseYearInput,
 } from './ui.jsx'
+
+// CAP_WORDS — how the in-progress cap dialog names ONE pool of catalogue rows.
+//
+// Three pools share this screen (films, shows, games — see SHELF_CAPS), and the
+// dialog says three things about whichever one is full: what the rows are
+// counted in, and what settling one is called. Games had no arm at all, so a
+// fourth game opened a dialog reading "The shelf holds 3 films at a time" with
+// three buttons offering to mark a game as watched.
+//
+// A TABLE RATHER THAN THE TERNARIES IT REPLACES. They were already two-way
+// (`capKey === 'show' ? … : …`) with the film arm doubling as the fallback, which
+// is exactly the shape that swallows a third media type silently. Keyed on
+// capKeyFor's answer, a fourth one is a row here and a miss is a lookup that
+// comes back undefined rather than a game quietly called a film.
+//
+// The settled word is shared with the transitions menu on purpose: a game is
+// "Mark as played" there (moveLabel) and must not be something else here.
+const CAP_WORDS = {
+  movie: { one: 'unit.film.one', other: 'unit.film.other', past: 'film.shelf.cap.past.label' },
+  show: { one: 'unit.show.one', other: 'unit.show.other', past: 'film.shelf.cap.past.label' },
+  game: { one: 'unit.game.one', other: 'unit.game.other', past: 'common.shelf.move.completed.played.label' },
+}
 
 // Movies — the reel wall (§8.6, mockups 12–14) + movie detail with the
 // filmstrip (§8.7 + §6 recipe, mockups 15–16). Dialogues mirror annotations
@@ -825,6 +848,10 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce
   // .movie would offer a game the wrong verb and then fail the server's
   // validation with a 400 the reader cannot act on.
   const activeWord = ACTIVE_STATUS[capKey]
+  // The cap dialog's nouns for this pool. Falls back to the film row for a
+  // media_type nobody has taught this screen yet, which is the one case where a
+  // slightly broad word beats a blank dialog.
+  const capWords = CAP_WORDS[capKey] || CAP_WORDS.movie
 
   async function save(status, date) {
     setShelfBusy(true)
@@ -1117,10 +1144,13 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce
         open={!!capPool}
         items={(capPool || []).map((m) => ({ id: m.id, title: m.title, meta: [m.director, formatYear(m.release_year, m.release_circa) || null].filter(Boolean).join(' · ') }))}
         cap={SHELF_CAPS[capKey]}
-        noun={t(capKey === 'show' ? 'unit.show.one' : 'unit.film.one')}
-        nounPlural={t(capKey === 'show' ? 'unit.show.other' : 'unit.film.other')}
-        verb={t('common.shelf.reading.film.label')}
-        pastLabel={t('film.shelf.cap.past.label')}
+        noun={t(capWords.one)}
+        nounPlural={t(capWords.other)}
+        // The state chip and this dialog have to agree about the verb, so both
+        // read it off `activeWord` — which is ACTIVE_STATUS[capKey], the pool's
+        // own in-progress word — rather than naming a key twice.
+        verb={shelfLabel(activeWord, 'movie')}
+        pastLabel={t(capWords.past)}
         busyId={capBusyId}
         error={capError}
         onRelease={releaseWatching}

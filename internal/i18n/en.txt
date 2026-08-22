@@ -424,9 +424,11 @@ common.shelf.completed.book.label = Completed
 common.shelf.completed.film.label = Completed
 # The colour bar under a cover, read aloud. {name} is the shelf state above.
 common.shelf.progress.label = {name} — {percent}%
-# The badge on the artwork of something you are in the middle of.
+# The badge on the artwork of something you are in the middle of. A game is
+# played, and only ever lives on the catalogue side.
 common.reading-badge.book.aria = Currently reading
 common.reading-badge.film.aria = Currently watching
+common.reading-badge.game.aria = Currently playing
 # The ♥ in the corner of a favourited cover. Not a button — the card is.
 common.favourite.badge.aria = Favourite
 

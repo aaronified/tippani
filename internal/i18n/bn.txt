@@ -425,6 +425,7 @@ common.shelf.progress.label = {name} — {percent}%
 # The badge on the artwork of something you are in the middle of.
 common.reading-badge.book.aria = এখন পড়ছেন
 common.reading-badge.film.aria = এখন দেখছেন
+common.reading-badge.game.aria = এখন খেলছেন
 # The ♥ in the corner of a favourited cover. Not a button — the card is.
 common.favourite.badge.aria = প্রিয়
 

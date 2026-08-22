@@ -194,8 +194,11 @@ describe('the bar over a selection of works', () => {
   })
 
   it('offers Reading for a book and Watching for a film, never both', async () => {
-    // The server refuses the other side's word, so offering it would be a control
-    // that only ever errors.
+    // One in-progress word per selection, and it is the books side here. Not
+    // because the server refuses the other one — normalizeBulkStatus takes
+    // 'reading' for a book and either catalogue word for a title, and
+    // resolveActiveStatus settles each row from its own media_type — but because
+    // two words for one shelf state in one dropdown is a choice with no meaning.
     open()
     fireEvent.click(screen.getByLabelText(/Move the 1 selected to a shelf/))
     expect(await screen.findByText('Reading')).toBeTruthy()
@@ -376,5 +379,68 @@ describe('the bar holds until it is dismissed', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Dismiss the selection' }))
     fireEvent.click(tiles()[2].querySelector('button'))
     expect(opened).toEqual([3])
+  })
+})
+
+// ---- the shelf dropdown says what the ROWS are (games) -----------------------
+//
+// The Catalogue board deals films, shows and games out of one movies table, so
+// SHELF_CHOICES keying the in-progress word off the board's kind offered
+// "Watching" over a selection of games.
+//
+// THE VALUE WAS NEVER THE BUG, which is why this is asserted on the word and on
+// the body in the same test: normalizeBulkStatus accepts either catalogue word
+// and resolveActiveStatus translates it per row against that row's media_type
+// (internal/httpapi/shelf.go), so the request lands correctly either way and only
+// the label was wrong. A pure test of the label alone would not notice the day
+// somebody "fixed" it by sending a word the server has to guess at.
+describe('the shelf dropdown over a catalogue selection', () => {
+  const shelf = (n) => screen.getByLabelText(new RegExp(`Move the ${n} selected to a shelf`))
+
+  it('offers Playing when every selected row is a game', async () => {
+    render(
+      <Board
+        kind="movie"
+        items={[
+          { id: 1, title: 'Outer Wilds', media_type: 'game' },
+          { id: 2, title: 'Disco Elysium', media_type: 'game' },
+        ]}
+      />,
+    )
+    fireEvent.click(boxes()[0])
+    fireEvent.click(boxes()[1])
+    fireEvent.click(shelf(2))
+    expect(await screen.findByText('Playing')).toBeTruthy()
+    expect(screen.queryByText('Watching')).toBeNull()
+    fireEvent.click(screen.getByText('Playing'))
+    await waitFor(() => expect(sent('/movies/bulk/status')).toBeTruthy())
+    expect(sent('/movies/bulk/status')[2]).toMatchObject({ ids: [1, 2], status: 'playing' })
+  })
+
+  it('keeps the film word over a MIXED selection of films and games', async () => {
+    // Every-not-some, and honestly: there is no one word for a pick holding both,
+    // so the board's own word stands and the server sorts each row out.
+    render(
+      <Board
+        kind="movie"
+        items={[
+          { id: 1, title: 'Casablanca' },
+          { id: 2, title: 'Outer Wilds', media_type: 'game' },
+        ]}
+      />,
+    )
+    fireEvent.click(boxes()[0])
+    fireEvent.click(boxes()[1])
+    fireEvent.click(shelf(2))
+    expect(await screen.findByText('Watching')).toBeTruthy()
+    expect(screen.queryByText('Playing')).toBeNull()
+  })
+
+  it('leaves a selection of films alone', async () => {
+    render(<Board kind="movie" items={[{ id: 1, title: 'Casablanca' }]} />)
+    fireEvent.click(boxes()[0])
+    fireEvent.click(shelf(1))
+    expect(await screen.findByText('Watching')).toBeTruthy()
+    expect(screen.queryByText('Playing')).toBeNull()
   })
 })

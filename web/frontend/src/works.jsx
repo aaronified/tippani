@@ -389,11 +389,15 @@ export function positionLabel(pos) {
 // ShelfProgress — the track under a work's state chip on its detail. Any
 // in-progress work shows it, so "where am I" is answered without opening the
 // popover, in the units the work is actually counted in.
-export function ShelfProgress({ status, progress = 0, pos }) {
+//
+// `kind` is carried for the bar's accessible name alone, and it has to be: with
+// it dropped, StatusBar falls back to the books side and a film's track reads
+// out as "Reading — 40%". Its caller holds the kind already.
+export function ShelfProgress({ kind, status, progress = 0, pos }) {
   const label = positionLabel(pos)
   return (
     <span style={{ display: 'block', minWidth: 168, maxWidth: 260 }}>
-      <StatusBar state={status} progress={progress} radius={3} />
+      <StatusBar state={status} kind={kind} progress={progress} radius={3} />
       <span style={{ display: 'block', marginTop: 3, fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 'var(--type-mono-11)', letterSpacing: '.06em', color: 'var(--faint)' }}>
         {/* The percentage is only worth words when it is the ONLY thing known.
             Where the work counts in its own units, "E06/10" already says where
@@ -502,7 +506,7 @@ function ProgressEditor({ kind, unit, status, progress, pos, busy, onSave }) {
       )}
       <div className="mt-2 flex items-center gap-2">
         <span className="flex-1">
-          <StatusBar state={status} progress={preview} radius={3} />
+          <StatusBar state={status} kind={kind} progress={preview} radius={3} />
         </span>
         <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 'var(--type-mono-11)', color: 'var(--faint)' }}>{preview}%</span>
         <button type="button" className="tp-chip tp-chip-btn" disabled={busy || missingTotal} onClick={save}>
@@ -741,7 +745,7 @@ export function ShelfControl({ kind, item = {}, status, progress = 0, pos, reads
           narrow screen, so the order is the same every time. */}
       {(status === active || status === 'paused') && (
         <span className="shelf-track">
-          <ShelfProgress status={status} progress={progress} pos={pos} />
+          <ShelfProgress kind={kind} status={status} progress={progress} pos={pos} />
         </span>
       )}
     </>
@@ -982,7 +986,7 @@ export function WorkCard({ kind, item, index = 0, onOpen, people = {}, seps, sel
         className={`relative overflow-hidden cover-lift${picked ? ' is-picked' : ''}`}
       >
         {image}
-        {state && <StatusBar state={state} progress={item.progress} />}
+        {state && <StatusBar state={state} kind={kind} progress={item.progress} />}
         {isShow && (
           <span
             className="tp-chip tp-scrim-deep absolute left-1.5 top-1.5"
@@ -992,8 +996,13 @@ export function WorkCard({ kind, item, index = 0, onOpen, people = {}, seps, sel
           </span>
         )}
         {/* A show's poster already spends its top-left on the SHOW chip, so the
-            reading mark stacks under it rather than overprinting. */}
-        {isActive(kind, item) && <ReadingBadge kind={kind} stacked={isShow} />}
+            reading mark stacks under it rather than overprinting.
+
+            The MEDIUM goes into the badge, not the board's kind: a game is a
+            movies row, so `kind` alone made the badge on a game you are playing
+            say "Currently watching". capKeyFor is the same call the tile's own
+            state and the transitions menu under it already make. */}
+        {isActive(kind, item) && <ReadingBadge kind={capKeyFor(kind, item)} stacked={isShow} />}
         {item.favorite && <FavBadge />}
       </HandCard>
       <p className="mt-2.5 truncate" style={{ fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontWeight: 600, fontSize: 'var(--type-display-15)', color: 'var(--ink)' }}>

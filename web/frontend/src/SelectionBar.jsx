@@ -6,6 +6,7 @@ import { t, tNodes } from './i18n.js'
 import { MoveToBoardDialog } from './boards.jsx'
 import { KIND_ROUTES, deletePhrase, useBulkOps } from './bulkOps.jsx'
 import { StickerPicker, useStickers } from './stickers.jsx'
+import { capKeyFor } from './works.jsx'
 import {
   ColorSwatches,
   ConfirmDialog,
@@ -17,6 +18,7 @@ import {
   MonoLabel,
   MoreMenu,
   TokenInput,
+  shelfLabel,
   toast,
 } from './ui.jsx'
 
@@ -66,18 +68,39 @@ import {
 // caller already imports it from.
 export { deletePhrase }
 
-// SHELF_CHOICES are the shelf states a selection can be moved to, per side. A book
-// reads and a film watches — the server refuses the other side's word, so offering
-// it would be a control that only ever errors.
-const SHELF_CHOICES = (kind) => {
-  // A book reads and a film watches, so the shelf words are keyed per side.
-  const side = kind === 'movie' ? 'film' : 'book'
+// SHELF_CHOICES are the shelf states a selection can be moved to, worded for the
+// rows in hand. A book reads, a film watches and a game plays.
+//
+// THE IN-PROGRESS WORD IS ASKED OF THE ROWS, not of the board. The Catalogue
+// deals films, shows and games out of one movies table, so keying it off `kind`
+// alone offered "Watching" over a selection of games — and offered no "Playing"
+// at all. `items` are the SELECTED rows and capKeyFor answers per row, which is
+// the same call the tiles and the transitions menu under them make (moveLabel).
+//
+// MIXED SELECTIONS ARE THE HONEST CASE, and there is no one word for them: every,
+// not some, so a pick holding a film and a game keeps the film word. A screen that
+// passes no rows lands there too rather than guessing, which is a word that is
+// merely broad on a game and never wrong on a film.
+//
+// THE VALUE WAS NEVER THE PROBLEM. This comment used to claim the server refuses
+// the other side's word, which stopped being true when games arrived:
+// normalizeBulkStatus accepts either catalogue word and resolveActiveStatus then
+// translates it PER ROW against that row's own media_type (internal/httpapi/
+// shelf.go) — the only thing that can be right over a mixed selection. So no
+// choice here can error, and the word is the whole of what was wrong.
+//
+// The other three states need none of this: paused, abandoned and completed are
+// one word for every medium (see SHELF_META), which is why they go through
+// shelfLabel with the rest rather than through a per-side key of their own.
+const SHELF_CHOICES = (kind, items = []) => {
+  const allGames = items.length > 0 && items.every((it) => capKeyFor(kind, it) === 'game')
+  const active = allGames ? 'playing' : kind === 'movie' ? 'watching' : 'reading'
   return [
     ['', t('common.selection.shelf.clear.label')],
-    [kind === 'movie' ? 'watching' : 'reading', t(`common.shelf.reading.${side}.label`)],
-    ['paused', t(`common.shelf.paused.${side}.label`)],
-    ['abandoned', t(`common.shelf.abandoned.${side}.label`)],
-    ['completed', t(`common.shelf.completed.${side}.label`)],
+    [active, shelfLabel(active, kind)],
+    ['paused', shelfLabel('paused', kind)],
+    ['abandoned', shelfLabel('abandoned', kind)],
+    ['completed', shelfLabel('completed', kind)],
   ]
 }
 
@@ -312,7 +335,7 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
               ariaLabel={t('common.selection.shelf.aria', { n: count, count })}
               tooltip={t('common.selection.shelf.tip')}
               disabled={none || busy}
-              items={SHELF_CHOICES(kind).map(([value, label]) => ({
+              items={SHELF_CHOICES(kind, picked).map(([value, label]) => ({
                 id: value || 'clear',
                 label,
                 onClick: () => a.run(value),
