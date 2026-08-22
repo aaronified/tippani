@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **A book you skipped is skipped again.** Skipping a work has taken its quotes out of the
+  Daily Quiz since 1.11.1, and 1.15.0 changed *how*: the deck stopped reading the book's flag
+  and started reading each highlight's own, so skipping a book became a write across its
+  highlights instead of a filter in a query. Every path that skips a work does that write
+  correctly — and nothing ever went back and did it for the books that were **already**
+  skipped when the change landed. Their highlights had never needed the flag.
+
+  So they returned to the quiz, silently, on upgrade. The book kept its own mark, the edit
+  form kept its state, and every screen went on agreeing the book was skipped; the deck was
+  the only surface that disagreed, and the deck never explains why it chose a card. A restore
+  of any backup taken before 1.15.0 lands in the same state on a current build.
+
+  A migration writes it once, in one direction — a skipped work stamps its quotes, an
+  unskipped one clears nothing, so a line you skipped by hand inside a book you did not skip
+  stays skipped. **One thing it cannot preserve:** if you skipped a whole work and then put a
+  single quote of it back in the deck, that quote is skipped again, because in the data it
+  looks exactly like the rows this repairs. The control that put it back still works.
+
 ## [2.1.2] - 2026-08-22
 
 ### Added
