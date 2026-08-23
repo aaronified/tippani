@@ -10,7 +10,12 @@ node_modules/
 web/frontend/node_modules/
 *.tar.gz
 .vscode/
-.claude/
+# .claude/settings.json is committed on purpose: it registers the claude-kit
+# marketplace and enables it (Reference mode, see CLAUDE.md) so the plugin is
+# available in every clone without copying any of the kit's files in here.
+# Everything else under .claude/ (local settings, caches) stays ignored.
+.claude/*
+!.claude/settings.json
 
 # Real personal exports used as local test fixtures (privacy: they contain
 # reading history / account details). Tests skip when these are absent;
