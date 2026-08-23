@@ -230,6 +230,10 @@ func parseMovieFrontmatter(lines []string) (*MovieResult, error) {
 			res.Movie.Season, res.Movie.SeasonTotal = parseOutOf(val)
 		case "reads":
 			res.Movie.Reads = parseReads(val)
+		// Both keys, for the reason the book parser's copy of this case gives: a
+		// file retargeted from one shelf to the other must keep its list.
+		case "cast", "characters":
+			res.Movie.Cast = parseCast(val)
 		} // unknown keys ignored
 	}
 	if res.Movie.Title == "" {

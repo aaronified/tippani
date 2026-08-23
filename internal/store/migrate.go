@@ -104,9 +104,16 @@ func (s *Store) Migrate() error {
 		}
 	}
 
-	// One repair that cannot be expressed as SQL, because SQLite has no sha256:
-	// re-hash the dialogues that 1.3.0 wrote with a text-only dedupe hash while
-	// already carrying an episode. Idempotent, and cheap enough to re-run every
-	// time — see BackfillDialogueHashes for why it is not flag-guarded.
-	return s.BackfillDialogueHashes()
+	// Two repairs that cannot be expressed as SQL, both for the same reason —
+	// SQLite has neither a sha256 nor a Unicode-aware lower() — and both
+	// deliberately unguarded and re-run every time. See BackfillDialogueHashes
+	// and BackfillCastKeys for why neither is flag-guarded.
+	//
+	// Re-hash the dialogues that 1.3.0 wrote with a text-only dedupe hash while
+	// already carrying an episode; then re-fold the cast lookup keys that 0048's
+	// backfill could only approximate in ASCII.
+	if err := s.BackfillDialogueHashes(); err != nil {
+		return err
+	}
+	return s.BackfillCastKeys()
 }

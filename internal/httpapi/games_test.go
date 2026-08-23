@@ -253,21 +253,20 @@ func TestBulkStatusResolvesPerRow(t *testing.T) {
 // the title simply stops being in the dropdown, or the remap reports 0 rows
 // changed, which reads as "there was nothing to do".
 //
-// The voice cast is what a game keeps in cast_json (0040), so the fixture is a
-// game whose imported label is a shouted screen name and whose cast has the
-// character properly spelled — the same shape as the film case, in the medium
-// that had no test.
+// The voice cast is a game's own row set in work_cast (0048 — it was cast_json
+// when this test was written, a blob that had no edit surface and that was empty
+// for nearly every game), so the fixture is a game whose imported label is a
+// shouted screen name and whose cast has the character properly spelled — the
+// same shape as the film case, in the medium that had no test.
 func TestRemappingSpeakersOnAGame(t *testing.T) {
 	srv := newTestServer(t)
 	h := srv.Handler()
 	c := signupAdmin(t, h)
 
 	game := createGame(t, c, "Portal 2", "Valve")
-	if _, err := srv.Store.DB.Exec(`UPDATE movies SET cast_json = ? WHERE id = ?`,
-		`[{"character":"GLaDOS","actor":"Ellen McLain"},{"character":"Wheatley","actor":"Stephen Merchant"}]`,
-		game); err != nil {
-		t.Fatal(err)
-	}
+	seedProviderCast(t, srv, 1, "movie", game,
+		[2]string{"GLaDOS", "Ellen McLain"},
+		[2]string{"Wheatley", "Stephen Merchant"})
 	// "GLADOS AI" is the label an import leaves behind: it matches no cast
 	// member, so the actor comes back empty.
 	d := decode[dialogueRow](t, c.mustDo("POST", "/dialogues", map[string]any{
@@ -317,10 +316,7 @@ func TestRefillingActorsOnAGame(t *testing.T) {
 	c := signupAdmin(t, h)
 
 	game := createGame(t, c, "Disco Elysium", "ZA/UM")
-	if _, err := srv.Store.DB.Exec(`UPDATE movies SET cast_json = ? WHERE id = ?`,
-		`[{"character":"Kim Kitsuragi","actor":"Jullian Champenois"}]`, game); err != nil {
-		t.Fatal(err)
-	}
+	seedProviderCast(t, srv, 1, "movie", game, [2]string{"Kim Kitsuragi", "Jullian Champenois"})
 	d := decode[dialogueRow](t, c.mustDo("POST", "/dialogues", map[string]any{
 		"movie_id": game, "quote": "It is a shithole.", "character": "Kim Kitsuragi",
 	}, http.StatusCreated))

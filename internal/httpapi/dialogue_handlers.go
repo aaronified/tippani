@@ -2,14 +2,12 @@ package httpapi
 
 import (
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
 
-	"tippani/internal/metadata"
 	"tippani/internal/olog"
 	"tippani/internal/store"
 )
@@ -206,17 +204,28 @@ func (d *dialogueReq) validate() string {
 }
 
 // autofillActor implements the PLAN §3b rule: when actor is empty, map each
-// character named on the line to who plays them in the movie's stored cast
-// (case-insensitive, trimmed). A line can now credit several characters (the
-// client picks them as comma-joined tokens), so we split on commas, resolve
-// each against the cast, and join the unique actors in order. Characters with
-// no cast match contribute nothing; a fully unmatched line yields "".
-func autofillActor(castJSON, character, actor string) string {
+// character named on the line to who plays them in the work's CAST MAPPING
+// (work_cast, 0048) — folded and trimmed. A line can credit several characters
+// (the client picks them as comma-joined tokens), so we split on commas, resolve
+// each against the mapping, and join the unique actors in order. Characters with
+// no match contribute nothing; a fully unmatched line yields "".
+//
+// THE SOURCE CHANGED AND THE RULE DID NOT. Until 0048 this read `movies.cast_json`,
+// a blob only a metadata fetch could write — which is why it produced NOTHING for
+// a game, every time, for every game whose Wikidata voice lookup came back empty,
+// and why a wrongly-billed minor role could never be corrected into it. Now the
+// same rule reads a table the reader can edit, so naming the voice actor once
+// fills every line that character speaks.
+//
+// A READER-TYPED ACTOR STILL WINS, unchanged and first: this fills a gap, it never
+// overwrites an answer. `dialogues.actor` is not going anywhere either — it stays
+// stored, FTS-indexed, faceted, exported and imported, and the mapping is the
+// SOURCE that fills it rather than a replacement for it.
+//
+// The querier is an interface because two of the four callers hold *sql.DB and two
+// hold the *sql.Tx they are writing in, and the read is identical either way.
+func autofillActor(q castQuerier, kind string, workID int64, character, actor string) string {
 	if actor != "" || strings.TrimSpace(character) == "" {
-		return actor
-	}
-	var cast []metadata.CastMember
-	if json.Unmarshal([]byte(castJSON), &cast) != nil {
 		return actor
 	}
 	var actors []string
@@ -226,35 +235,61 @@ func autofillActor(castJSON, character, actor string) string {
 		if ch == "" {
 			continue
 		}
-		for _, c := range cast {
-			if strings.EqualFold(strings.TrimSpace(c.Character), ch) {
-				a := strings.TrimSpace(c.Actor)
-				if a != "" && !seen[strings.ToLower(a)] {
-					seen[strings.ToLower(a)] = true
-					actors = append(actors, a)
-				}
-				break
-			}
+		a := castActorFor(q, kind, workID, ch)
+		if a == "" {
+			continue
 		}
+		// Folded rather than lowercased, so one actor spelt two ways across two
+		// cast rows is still named once. store.CastKey is the same fold the rows
+		// are keyed by, which is what makes that true.
+		k := store.CastKey(a)
+		if seen[k] {
+			continue
+		}
+		seen[k] = true
+		actors = append(actors, a)
 	}
 	return strings.Join(actors, ", ")
 }
 
 // refillMovieActors applies the auto-fill rule retroactively: for the movie's
-// dialogues whose actor is still empty, fill it from the (freshly updated) cast
-// by matching character. This is what lets correcting a movie's metadata flow
-// through to dialogues imported before the cast existed. Runs in the caller's tx;
-// returns how many rows were filled. Rows are collected before updating (SQLite
-// dislikes writing mid-iteration on the same connection).
+// dialogues whose actor is still empty, fill it from the (freshly merged) cast
+// mapping by matching character. This is what lets correcting a movie's metadata
+// flow through to dialogues imported before the cast existed. Runs in the
+// caller's tx; returns how many rows were filled.
+//
+// IT ONLY EVER FILLS AN EMPTY ACTOR, and that is deliberate rather than an
+// oversight: correcting a cast row does NOT rewrite the lines that already carry
+// the old name, because an actor the reader typed must not be silently rewritten
+// by a metadata edit. The deliberate remedy for that already exists and is
+// asked for explicitly — POST /movies/{id}/remap-speakers.
+//
+// The candidate lines are collected BEFORE anything is resolved or written. The
+// resolve is now a query of its own against work_cast rather than a walk over an
+// unmarshalled blob, so the loop would otherwise be reading and writing on the
+// same connection while its own Rows is still open.
 func refillMovieActors(tx *sql.Tx, movieID int64) (int, error) {
-	var castJSON string
-	if err := tx.QueryRow(`SELECT cast_json FROM movies WHERE id = ?`, movieID).Scan(&castJSON); err != nil {
-		return 0, err
-	}
 	rows, err := tx.Query(
 		`SELECT id, COALESCE(character, '') FROM dialogues WHERE movie_id = ? AND (actor IS NULL OR actor = '')`,
 		movieID)
 	if err != nil {
+		return 0, err
+	}
+	type candidate struct {
+		id        int64
+		character string
+	}
+	var todo []candidate
+	for rows.Next() {
+		var c candidate
+		if err := rows.Scan(&c.id, &c.character); err != nil {
+			rows.Close()
+			return 0, err
+		}
+		todo = append(todo, c)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
 		return 0, err
 	}
 	type fill struct {
@@ -262,20 +297,10 @@ func refillMovieActors(tx *sql.Tx, movieID int64) (int, error) {
 		actor string
 	}
 	var fills []fill
-	for rows.Next() {
-		var id int64
-		var ch string
-		if err := rows.Scan(&id, &ch); err != nil {
-			rows.Close()
-			return 0, err
+	for _, c := range todo {
+		if a := autofillActor(tx, "movie", movieID, c.character, ""); a != "" {
+			fills = append(fills, fill{c.id, a})
 		}
-		if a := autofillActor(castJSON, ch, ""); a != "" {
-			fills = append(fills, fill{id, a})
-		}
-	}
-	rows.Close()
-	if err := rows.Err(); err != nil {
-		return 0, err
 	}
 	for _, f := range fills {
 		if _, err := tx.Exec(
@@ -402,16 +427,19 @@ func (s *Server) handleCreateDialogue(w http.ResponseWriter, r *http.Request) {
 	}
 	uid := userID(r)
 	olog.Tracef("[dlg] handleCreateDialogue uid=%d movie=%d", uid, req.MovieID)
-	var castJSON, mediaType string
+	// The cast no longer travels with this row: it is a table of its own now, and
+	// the media type is all this read still needs — only a show's lines may carry
+	// an episode. The ownership check is why the read stays.
+	var mediaType string
 	err := s.Store.DB.QueryRow(
-		`SELECT cast_json, COALESCE(media_type, 'movie') FROM movies WHERE id = ? AND user_id = ?`,
-		req.MovieID, uid).Scan(&castJSON, &mediaType)
+		`SELECT COALESCE(media_type, 'movie') FROM movies WHERE id = ? AND user_id = ?`,
+		req.MovieID, uid).Scan(&mediaType)
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
 		writeErr(w, http.StatusNotFound, "movie not found")
 		return
 	case err != nil:
-		internalError(w, r, "load movie cast", err)
+		internalError(w, r, "load movie", err)
 		return
 	}
 	if msg := req.normalizeLocator(mediaType); msg != "" {
@@ -422,7 +450,7 @@ func (s *Server) handleCreateDialogue(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "sticker not found")
 		return
 	}
-	req.Actor = autofillActor(castJSON, req.Character, req.Actor)
+	req.Actor = autofillActor(s.Store.DB, "movie", req.MovieID, req.Character, req.Actor)
 	tx, err := s.Store.DB.Begin()
 	if err != nil {
 		internalError(w, r, "begin tx", err)
@@ -614,12 +642,12 @@ func (s *Server) handleUpdateDialogue(w http.ResponseWriter, r *http.Request) {
 	uid := userID(r)
 	olog.Tracef("[dlg] handleUpdateDialogue uid=%d id=%d", uid, id)
 	var movieID int64
-	var castJSON, mediaType string
+	var mediaType string
 	var wasFavorite bool
 	err := s.Store.DB.QueryRow(`
-		SELECT d.movie_id, m.cast_json, COALESCE(m.media_type, 'movie'), d.favorite
+		SELECT d.movie_id, COALESCE(m.media_type, 'movie'), d.favorite
 		FROM dialogues d JOIN movies m ON m.id = d.movie_id
-		WHERE d.id = ? AND m.user_id = ?`, id, uid).Scan(&movieID, &castJSON, &mediaType, &wasFavorite)
+		WHERE d.id = ? AND m.user_id = ?`, id, uid).Scan(&movieID, &mediaType, &wasFavorite)
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
 		writeErr(w, http.StatusNotFound, "dialogue not found")
@@ -632,7 +660,7 @@ func (s *Server) handleUpdateDialogue(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, msg)
 		return
 	}
-	req.Actor = autofillActor(castJSON, req.Character, req.Actor)
+	req.Actor = autofillActor(s.Store.DB, "movie", movieID, req.Character, req.Actor)
 	hash := req.hash()
 	var clash bool
 	if err := s.Store.DB.QueryRow(

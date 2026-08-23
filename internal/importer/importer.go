@@ -41,6 +41,13 @@ type Book struct {
 	Pos      int    // "page: 128/320" — the page you are on
 	PosTotal int    // …out of this many
 	Reads    []Read // read history, oldest first
+	// The work's own list of characters (0048), read from Tippani's own
+	// frontmatter only — like the two credits and the two languages above, no
+	// third-party importer has a source for it. A BOOK'S ENTRIES CARRY NO ACTOR:
+	// a novel has speakers, not a cast, and the server clears the field rather
+	// than rejecting the file (0047's rule — an import clears what a request is
+	// refused).
+	Cast []CastEntry
 }
 
 // Read is one entry of a work's read/watch history, parsed from the export's
@@ -49,6 +56,30 @@ type Read struct {
 	StartedAt  string
 	FinishedAt string
 	Outcome    string // "open" | "finished" | "abandoned"
+}
+
+// CastEntry is one row of a work's cast as a file states it: the two names, and
+// the one word that says who wrote them.
+//
+// ORIGIN IS ON THE WIRE BECAUSE IT IS THE HALF THAT CANNOT BE RE-DERIVED. The
+// names come back either way; "this one is mine, do not let a refetch rewrite
+// it" and "this one I deleted, do not let a refetch bring it back" exist nowhere
+// else in the file, and an export that dropped them would hand the reader's
+// library back with its provenance flattened to the provider's.
+//
+// The provider's own facts — person_id, image_url — are deliberately NOT here.
+// They are an id inside a supplier's namespace and a URL, neither of which
+// belongs in a file somebody reads or hand-edits, and the next lookup takes them
+// back on every row regardless of who has touched it. What that costs is a
+// portrait per row until that lookup happens.
+type CastEntry struct {
+	Character string
+	Actor     string // always empty on a book
+	// Origin is the schema's own vocabulary — "provider" | "corrected" | "reader"
+	// | "removed" — passed through as written. An empty value means the file said
+	// nothing, which the server reads as the provider's. Validating it here would
+	// put the vocabulary in two packages.
+	Origin string
 }
 
 // Annotation is one parsed quote/note.
@@ -216,6 +247,90 @@ func parseReads(val string) []Read {
 	return out
 }
 
+// parseCast reads the export's "cast:" / "characters:" line back into rows —
+// semicolon between entries, an em dash between a character and who plays them,
+// a parenthesised word for anything that is not the provider's own:
+//
+//	cast: GLaDOS — Ellen McLain; Chell (reader); Cave Johnson — J.K. Simmons (removed)
+//
+// SHAPED AFTER parseReads DELIBERATELY, down to the separators. One frontmatter
+// line rather than a YAML list because writeFrontmatter is a flat key/value
+// writer with no YAML dependency (PLAN §5b), and the two lines that carry a list
+// of small records should be read by the same hand-rolled split rather than by
+// two.
+//
+// A MISSING ACTOR IS ORDINARY AND NOT A MALFORMED ENTRY: a book's characters
+// never have one, and a game's voice actor is exactly the thing the reader has
+// not filled in yet. So the dash is optional, and an entry with neither name is
+// dropped — the same rule parseReads applies to a read with neither date.
+//
+// The separators are the same bet parseReads makes: an em dash cannot appear
+// inside a date there, and it is vanishingly rare inside a name here. A hand
+// written file may use a hyphen or an en dash instead, so all three are accepted.
+// A character whose name genuinely contains one of them, or a semicolon, is the
+// bounded cost of a format a person can read and edit.
+func parseCast(val string) []CastEntry {
+	var out []CastEntry
+	for _, chunk := range strings.Split(val, ";") {
+		chunk = strings.TrimSpace(chunk)
+		if chunk == "" {
+			continue
+		}
+		origin := ""
+		// Read from the END, because a parenthesis is far likelier inside a
+		// character's name — "The Narrator (voice)" — than after the marker.
+		if i := strings.LastIndex(chunk, "("); i >= 0 && strings.HasSuffix(chunk, ")") {
+			if o := castOriginWord(chunk[i+1 : len(chunk)-1]); o != "" {
+				origin = o
+				chunk = strings.TrimSpace(chunk[:i])
+			}
+		}
+		character, actor := chunk, ""
+		for _, dash := range []string{"—", "–", " - "} {
+			if a, b, found := strings.Cut(chunk, dash); found {
+				character, actor = a, b
+				break
+			}
+		}
+		character, actor = strings.TrimSpace(character), strings.TrimSpace(actor)
+		if character == "" && actor == "" {
+			continue
+		}
+		out = append(out, CastEntry{Character: character, Actor: actor, Origin: origin})
+	}
+	return out
+}
+
+// castOriginWord maps a marker to the schema's own `origin` vocabulary, and
+// answers "" for anything it does not recognise — which is what keeps a
+// parenthesis that is part of a name from being eaten as a marker.
+//
+// EXACTLY THE THREE WORDS THE EXPORTER WRITES, and the narrowing is the point.
+// This began with five aliases on the reasoning that a hand-edited file deserves
+// the same concession "colour", "creator" and "ep" get. It is not the same
+// concession: those are alternative spellings of a VALUE, while this is a suffix
+// stripped off the end of somebody's CHARACTER NAME. Every extra word is a name
+// the round trip silently mangles — a provider-origin character literally called
+// "X (deleted)" exports with no marker (castFrontmatter writes `provider` as
+// nothing at all), came back as a TOMBSTONE called "X", and the credit vanished
+// from the list on import. "provider" was the same trap with a quieter outcome,
+// and it is not written either.
+//
+// So the accepted set is castFrontmatter's output and nothing more. A hand-writer
+// who wants a marker can copy one out of their own export, which is where they
+// would look anyway.
+func castOriginWord(s string) string {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "corrected":
+		return "corrected"
+	case "reader":
+		return "reader"
+	case "removed":
+		return "removed"
+	}
+	return ""
+}
+
 // ---- movie/show quote imports (IMDb) ----
 
 // MovieHeader is the film/show parsed from a quotes import file. Director and
@@ -242,6 +357,11 @@ type MovieHeader struct {
 	Season      int     // "season: 2/5"
 	SeasonTotal int     // …out of this many
 	Reads       []Read  // watch history, oldest first
+	// The title's cast (0048), from Tippani's own frontmatter only. A GAME'S
+	// SECOND NAME IS THE VOICE ACTOR — the same field under a different word, and
+	// the only place most games' voice credits exist at all, since Wikidata has
+	// none for well over half of them (TIP-META-018).
+	Cast []CastEntry
 }
 
 // Dialogue is one parsed quote/exchange. Character is set only when the whole

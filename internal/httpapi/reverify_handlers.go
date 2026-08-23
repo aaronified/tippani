@@ -290,15 +290,15 @@ func (s *Server) reverifyBook(ctx context.Context, uid, id int64, gkey, cookie, 
 
 func (s *Server) reverifyMovie(ctx context.Context, uid, id int64, tmdb *metadata.TMDB, tvdb *metadata.TVDB) reverifyItem {
 	it := reverifyItem{Type: "movie", ID: id, Status: "ok", Diffs: []fieldDiff{}}
-	var title, director, desc, mediaType, series, poster, castJSON string
+	var title, director, desc, mediaType, series, poster string
 	var year int
 	var tmdbID, tvdbID int64
 	err := s.Store.DB.QueryRow(`
 		SELECT title, COALESCE(director,''), COALESCE(release_year,0), COALESCE(description,''),
 		       COALESCE(media_type,'movie'), COALESCE(series,''), COALESCE(tmdb_id,0), COALESCE(tvdb_id,0),
-		       COALESCE(poster_path,''), COALESCE(cast_json,'[]')
+		       COALESCE(poster_path,'')
 		FROM movies WHERE id = ? AND user_id = ?`, id, uid).
-		Scan(&title, &director, &year, &desc, &mediaType, &series, &tmdbID, &tvdbID, &poster, &castJSON)
+		Scan(&title, &director, &year, &desc, &mediaType, &series, &tmdbID, &tvdbID, &poster)
 	if errors.Is(err, sql.ErrNoRows) {
 		it.Status = "not_found"
 		return it
@@ -363,8 +363,20 @@ func (s *Server) reverifyMovie(ctx context.Context, uid, id int64, tmdb *metadat
 	d = diffStr(d, "series", series, det.Series)
 	// Cast: ordered (character, actor) pairs; person_id/image_url ride along in
 	// fresh so an approved apply keeps the portrait pipeline working.
-	var stored []metadata.CastMember
-	_ = json.Unmarshal([]byte(castJSON), &stored) // bad cached JSON reads as empty
+	//
+	// STORED IS THE MAPPING, not `cast_json` — the list the reader actually sees on
+	// the film page and can edit, which is the only honest thing to hold up against
+	// what the provider says now. Two consequences worth being plain about. A cast
+	// the reader has edited will keep reporting a difference, because the merge
+	// deliberately will not resolve it: approving the diff takes the provider's
+	// facts and leaves their names alone, for ever, by design (0048). And a
+	// hand-typed row makes the lists different lengths, so sameCast says so — which
+	// is true, and is the merge rule made visible rather than hidden.
+	stored, cerr := loadCastMembers(s.Store.DB, "movie", id)
+	if cerr != nil {
+		olog.Warnf(olog.CodeCastRowScan, "[meta] re-verify movie %d cast read failed: %v", id, cerr)
+		stored = []metadata.CastMember{}
+	}
 	if len(det.Cast) > 0 && !sameCast(stored, det.Cast) {
 		d = append(d, fieldDiff{Field: "cast", Stored: stored, Fresh: det.Cast})
 	}
@@ -854,7 +866,40 @@ func (s *Server) applyReverifyMovie(ctx context.Context, uid, id int64, set map[
 		if merr != nil {
 			return "", errors.New("cast: wrong shape")
 		}
-		cols = append(cols, "cast_json = ?")
+		// THE FROZEN BLOB IS FILLED, NEVER OVERWRITTEN. This is the one write to
+		// cast_json in the app that is conditional, and the condition is the whole
+		// point of keeping the column.
+		//
+		// 0048 keeps cast_json for exactly one reason: if its backfill turns out to
+		// be wrong about somebody's library, that blob is THE ONLY COPY IN EXISTENCE
+		// of what the provider said before the mapping took over. Nothing reads it on
+		// this path. Rewriting it here would spend the one thing it is for.
+		//
+		// AND THIS PATH IS THE WRONG ONE TO SPEND IT FROM, which is why it is this
+		// statement and not the two beside it that changed. applyReverifyMovie is
+		// also /metadata/fill's writer, and fill is UNATTENDED AND BULK: fifteen
+		// titles a call, no diff on screen, chunked over a whole selection by the
+		// client. A resync is one title the reader asked for by name; a fill is a
+		// button that could walk a library. Before 0048 fill never touched this
+		// column at all — missingStored returned false for a []CastMember — so the
+		// hole opened with the same change that made the blob worth protecting.
+		//
+		// FILLED rather than left alone for a reason that has since changed, and the
+		// change is written down here because it is what makes the column droppable.
+		// The reason WAS the blob's last reader — the quiz's speaker distractors —
+		// which would have lost its list on a title that never had one. THAT READER
+		// HAS MOVED TO work_cast (quizPools, review_handlers.go), because freezing
+		// this write is exactly what starved it: an approved cast diff wrote the
+		// mapping and stopped writing the blob, so the pool went stale for good while
+		// resyncMovieFromSource went on replacing the blob whole. Nothing reads the
+		// column now.
+		//
+		// The write STAYS anyway, for a smaller reason that is still true: the CASE
+		// keeps this in `cols`, so a cast-only approval has an UPDATE to prove
+		// ownership with and does not fall through to "no approved fields". Filling a
+		// blob that is already '[]' costs nothing and protects the same thing it did
+		// before — the pre-0048 copy on every title that has one.
+		cols = append(cols, "cast_json = CASE WHEN COALESCE(cast_json, '') IN ('', '[]') THEN ? ELSE cast_json END")
 		args = append(args, string(raw))
 	}
 	genres, hasGenres, derr := decodeSet[[]string](set, "genres")
@@ -926,6 +971,25 @@ func (s *Server) applyReverifyMovie(ctx context.Context, uid, id int64, set map[
 		}
 	}
 	if hasCast {
+		// THE MERGE RULE, on the third and last of the provider write paths. An
+		// approved cast diff is still a refetch: it may add credits and rewrite
+		// untouched ones, and it may not touch a row the reader has corrected,
+		// typed or deleted. Which is why approving the cast here does NOT
+		// necessarily silence the diff that offered it — see reverifyMovie.
+		//
+		// The cast_json statement above FILLS the superseded blob and never
+		// overwrites it, for the reason argued there: on this path — which is also
+		// the unattended bulk fill's — that blob is the only copy of what the
+		// provider said before 0048, and nothing reads it here.
+		//
+		// Fatal rather than warned, unlike the refill below: this is the write the
+		// reader approved, and reporting success over a cast that did not land is
+		// the failure shape this endpoint has no business inventing.
+		if merr := mergeProviderCast(tx, uid, "movie", id, castSourceForWork(tx, id), cast); merr != nil {
+			s.removeCoverFile(newPoster)
+			olog.Errorf(olog.CodeMetaReverifyApply, "[meta] re-verify movie %d cast merge failed: %v", id, merr)
+			return "", errors.New("write failed")
+		}
 		// A refreshed cast can name speakers for dialogues whose actor is blank.
 		if _, ferr := refillMovieActors(tx, id); ferr != nil {
 			olog.Warnf(olog.CodeMetaReverifyApply, "[meta] re-verify movie %d actor refill failed: %v", id, ferr)

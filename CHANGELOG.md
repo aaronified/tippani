@@ -9,6 +9,67 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Every book, film, show and game now owns a list of characters, and you can edit it.** Until
+  now a film's cast was a blob of provider JSON with no edit surface anywhere in the app: a minor
+  role the provider got wrong stayed wrong for ever, and a game had no cast at all — voice credits
+  come from Wikidata, which has none for most games. So the quote form's "who says this" could
+  never work on a game and could never be corrected on a film.
+
+  Now the list is real. **A book's rows are characters with nobody beside them** — a novel has
+  speakers, not a cast, and the server refuses an actor on one. **A game's second column is the
+  voice actor**, the same column under a different word. Add a row, correct one, remove one.
+
+  **A refetch never overwrites a row you have touched.** That is the rule the whole thing is built
+  around and it is worth being plain about what it costs: a name you "fix" wrongly stays wrong,
+  even if the provider later agrees with the truth — the way back is to delete the row and let the
+  next lookup put it back. Deleting a row the provider supplied is remembered too, so the next
+  lookup does not quietly hand it back to you. Anything you typed yourself is never touched at all.
+
+  **The list fills itself in, and now it fills the quotes too.** Looking a title up seeds it from
+  whichever provider you pinned it to, and every later lookup adds what the provider has started
+  crediting without touching a word you wrote. The quote form's "who says this" reads the list, so
+  naming a voice actor once names them on every line that character speaks — which on a game had
+  simply never worked before, because there was nothing there to read. Films and shows behave as
+  they always did, and an actor you typed yourself is still never overwritten. "Fill in the gaps"
+  in the metadata console can seed a missing cast as well; it never could, silently. It leaves
+  alone a list you have emptied on purpose, and no longer counts a cast it declined to write.
+
+  **A photo now follows the name you corrected.** "Fetch the portrait" pins a person to a
+  provider's own id taken from the cast of something they are in, rather than searching by name and
+  risking the wrong same-name person. It read the old blob, so the two names it could not see were
+  the ones you had fixed and every voice actor in every game — precisely the people it should have
+  been most careful with. It reads your list now, with the id and the headshot from the row itself,
+  and a game's Wikidata credit keeps its own identity instead of being swapped for a film actor who
+  happens to share the name. A credit you deleted is not used as a source for anybody's photo.
+
+  **Nothing you already had is lost and nothing is thrown away.** Every cast on disk is carried
+  into the new list in the order it was billed, and the old blob is kept for one release — dropping
+  a column is the one step nobody can undo by hand. Films and shows keep the actor stored on each
+  quote exactly as before; it is still searchable, still faceted, still exported.
+
+  **Merging a duplicate keeps the list, and so does an export.** Merging carries the characters of
+  the copy you are discarding onto the one you keep — the voice actors you typed, the names you
+  corrected, and the rows you deleted, so a lookup on the survivor cannot hand a deleted credit
+  back. Where both titles name the same character the one you are keeping stays, and it inherits
+  whatever protection the other had earned. The Markdown export writes the list into the file and
+  a re-import puts it back with its provenance: a character you typed and have not quoted yet
+  comes back, a correction comes back as a correction, and something you deleted stays deleted.
+  Re-importing an older file never disturbs a list that is already there.
+
+  **There is no screen for this yet, deliberately.** The work pages are being redesigned and the
+  cast editor is part of that design. Until it lands the list is reachable over the API and
+  through an import, and the words "actor" and "voice actor" ship in English and Bengali together
+  with the screen that shows them, rather than sitting unused in the language files.
+
+  **And the review deck's "who said this?" card reads it too, which it never did.** That card
+  picks its wrong answers from the other people in the same title, and it took them from the
+  provider's old cast blob — so a game was offered no voice actors at all, and a name you had
+  corrected was invisible to it. It reads your list now. On a game that is the first time the card
+  has had anything to work with; on a film it means the wrong answers follow your corrections
+  instead of drifting out of date the first time you approve a lookup. A credit you deleted is not
+  offered as a wrong answer, and neither is a character with nobody beside them — a name you
+  cannot see is not a choice.
+
 - **A field per kind, reachable.** Every column listed below is now something the app will
   accept, store and give back, over every route that edits a quote: one at a time, in bulk over
   a selection, and through find-and-replace — so a misspelt character on four hundred highlights

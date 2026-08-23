@@ -127,6 +127,19 @@ in a single transaction.
 | :-- | :-- | :-- | :-- |
 | `TIP-SHELF-001` | A shelf cap was asked for a `media_type` the shelf does not recognise; the tightest (film) cap of two was used. | A media type reached the shelf that `shelfCap` was never taught — either a new one added without an arm, or a corrupted `movies.media_type` value. | Check the log line for the offending value. If it is a media type the app should support, `shelfCap` in `internal/httpapi/shelf.go` needs a decided arm rather than a fallthrough; if it is junk, correct the row. Nothing is lost either way — the cap is only a client-side nudge. |
 
+## CAST — a work's character-to-actor mapping
+
+Every book, film, show and game owns a list of characters with the actor beside
+each (the **voice actor** on a game; a book's list has no second column at all).
+It is seeded by whichever metadata provider pinned the title and is editable by
+hand, and the rule that keeps those two apart is that **a refetch never
+overwrites a row you have touched** — see the header of migration `0048`.
+
+| Code | Meaning | Likely cause | What to do |
+| --- | --- | --- | --- |
+| `TIP-CAST-001` | A cast row failed to scan, so that character was left out of the list. | A `SELECT` that drifted from the Go struct it scans into — usually a migration that added or reordered a column in `work_cast` without updating the query. | Cosmetic per row and reported as a 500 only if the whole read fails. Realign the query and the scan target; the log line names the work and the underlying error. |
+| `TIP-CAST-002` | A cast row's folded lookup keys could not be rewritten by the boot-time repair; the row kept the keys it had. | Almost always the pair `UNIQUE`: two rows on one work whose names differ only by case or by punctuation (`Éowyn` and `éowyn`) become the same row once both are folded, and SQLite refuses the second. This repair runs on every start, so refusing to boot over it would be far worse than skipping it. | Nothing breaks. That one row goes on being missed by the quote form's actor auto-fill, exactly as it was before the repair ran. Open the work's cast, delete whichever of the two duplicates is wrong, and the next start folds the survivor. |
+
 ## TRASH — the bin
 
 Deleting a book, film, quote or account writes a JSON snapshot of the whole

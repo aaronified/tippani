@@ -224,11 +224,14 @@ func backfillImportMovie(tx *sql.Tx, uid, movieID int64, m importer.MovieHeader)
 // they retarget a misdetected file, and the dedupe, fill-empty enrichment and
 // tag-union rules stay one implementation.
 func writeMovieDialogues(tx *sql.Tx, uid, movieID int64, dialogues []importer.Dialogue) (int, int, error) {
-	// The actor autofill reads the title's stored TMDB cast, so fetch it once —
-	// along with the media type, since only a show's lines may carry an episode.
-	var castJSON, mediaType string
-	_ = tx.QueryRow(`SELECT COALESCE(cast_json, ''), COALESCE(media_type, 'movie') FROM movies WHERE id = ?`,
-		movieID).Scan(&castJSON, &mediaType)
+	// The media type, since only a show's lines may carry an episode. The actor
+	// autofill used to be fed from here too — it read the title's stored TMDB blob —
+	// and now queries the cast mapping per line instead (0048), which is what lets
+	// an imported GAME line take the voice actor the reader typed. There was never
+	// anything in the blob for a game to take.
+	var mediaType string
+	_ = tx.QueryRow(`SELECT COALESCE(media_type, 'movie') FROM movies WHERE id = ?`,
+		movieID).Scan(&mediaType)
 	show := mediaType == "show"
 	// A GAME IS THE THIRD MEDIUM AND NEEDS ITS OWN GATE (0047), which is the same
 	// gate normalizeLocator applies at the API, in the same direction: which
@@ -240,8 +243,8 @@ func writeMovieDialogues(tx *sql.Tx, uid, movieID int64, dialogues []importer.Di
 	// The film's quiz opt-out, inherited by every line this loop writes.
 	//
 	// A SECOND READ OF A ROW ALREADY FETCHED, on purpose. The query above ignores
-	// its error because a missing cast list costs an autofill and nothing else,
-	// and the same tolerance applied here would turn a failed read into a silent
+	// its error because a missing media type costs a locator clear and nothing
+	// else, and the same tolerance applied here would turn a failed read into a silent
 	// "included" — the exact shape of the bug this fixes. It goes through
 	// workExclusion so both import paths answer this question the same way.
 	excluded, err := workExclusion(tx, "movies", movieID)
@@ -253,7 +256,7 @@ func writeMovieDialogues(tx *sql.Tx, uid, movieID int64, dialogues []importer.Di
 	// One id reservation for the batch (idBlock, id_floor.go).
 	ids := newIDBlock(tx, "dialogues", len(dialogues))
 	for _, d := range dialogues {
-		actor := autofillActor(castJSON, d.Character, d.Actor)
+		actor := autofillActor(tx, "movie", movieID, d.Character, d.Actor)
 		// A film has one runtime and no episodes. Retargeting a show's file onto a
 		// film is a legitimate repair, so the locator is dropped rather than
 		// treated as an error — the same forgiveness the colour default gets. An

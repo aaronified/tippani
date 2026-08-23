@@ -37,6 +37,28 @@ var restoreOrder = accountTables
 // deleted and a genre garbage-collected while the entry sits in the bin.
 var vocabularyTables = map[string]bool{"tags": true, "genres": true}
 
+// idNotIdentity names the tables whose surrogate id is bookkeeping rather than
+// identity, so a restore drops it and lets SQLite issue a fresh one. insertRow
+// already skips a column the snapshot does not carry, so deleting the key is the
+// whole mechanism.
+//
+// WHY THIS IS NEEDED AT ALL. The comment above restoreSnapshot is right that ids
+// are the ORIGINAL ids and that nothing has to be renumbered — but the guarantee
+// underneath it is idFloorTables, which is "exactly the five kinds the bin can
+// hold". A table not on that list gets its ids from SQLite's rowid, and SQLite
+// reissues a rowid freed by a DELETE. So a film's cast row, deleted with the film
+// by 0048's trigger, can have its id handed to a cast row typed on a different
+// film while the first sits in the bin — and the restore then fails the primary
+// key and rolls back WHOLE, losing the film to protect a number.
+//
+// Putting work_cast on idFloorTables instead was the alternative and is worse: it
+// would make every cast row a floor reservation for a guarantee only spaced
+// repetition needs (id_floor.go says so — an id is kept stable there because a
+// review schedule is keyed by it). Nothing references a cast row's id, nothing
+// exports one, and the row's real identity is (kind, work_id, character_key,
+// actor_key), which the restore preserves exactly.
+var idNotIdentity = map[string]bool{"work_cast": true}
+
 // remapColumn names, per join table, the column holding a vocabulary id that may
 // have to be re-pointed on the way back in.
 var remapColumn = map[string]struct{ col, kind string }{
@@ -318,6 +340,9 @@ func (s *Server) restoreSnapshot(tx *sql.Tx, uid int64, snap snapshot) error {
 						row[remap.col] = now
 					}
 				}
+			}
+			if idNotIdentity[table] {
+				delete(row, "id")
 			}
 			if err := insertRow(tx, table, cols, row); err != nil {
 				return fmt.Errorf("%s: %w", table, err)

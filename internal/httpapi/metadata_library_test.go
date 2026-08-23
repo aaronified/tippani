@@ -121,10 +121,8 @@ func TestRemapSpeakers(t *testing.T) {
 	c := signupAdmin(t, h)
 
 	m := decode[movieDetail](t, c.mustDo("POST", "/movies", map[string]any{"title": "V for Vendetta"}, http.StatusCreated))
-	if _, err := srv.Store.DB.Exec(`UPDATE movies SET cast_json = ? WHERE id = ?`,
-		`[{"character":"Evey","actor":"Natalie Portman"},{"character":"V","actor":"Hugo Weaving"}]`, m.ID); err != nil {
-		t.Fatal(err)
-	}
+	seedProviderCast(t, srv, 1, "movie", m.ID,
+		[2]string{"Evey", "Natalie Portman"}, [2]string{"V", "Hugo Weaving"})
 	// "Evey Hammond" doesn't match the cast at create time -> actor empty.
 	d := decode[dialogueRow](t, c.mustDo("POST", "/dialogues",
 		map[string]any{"movie_id": m.ID, "quote": "People should not be afraid.", "character": "Evey Hammond"}, http.StatusCreated))
@@ -184,10 +182,8 @@ func TestRemapSpeakers(t *testing.T) {
 func vendetta(t *testing.T, srv *Server, c *testClient) movieDetail {
 	t.Helper()
 	m := decode[movieDetail](t, c.mustDo("POST", "/movies", map[string]any{"title": "V for Vendetta"}, http.StatusCreated))
-	if _, err := srv.Store.DB.Exec(`UPDATE movies SET cast_json = ? WHERE id = ?`,
-		`[{"character":"Evey","actor":"Natalie Portman"},{"character":"V","actor":"Hugo Weaving"}]`, m.ID); err != nil {
-		t.Fatal(err)
-	}
+	seedProviderCast(t, srv, 1, "movie", m.ID,
+		[2]string{"Evey", "Natalie Portman"}, [2]string{"V", "Hugo Weaving"})
 	return m
 }
 

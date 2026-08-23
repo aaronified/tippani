@@ -166,6 +166,13 @@ func parseFrontmatter(lines []string) (*Result, error) {
 			res.Book.Pos, res.Book.PosTotal = parseOutOf(val)
 		case "reads":
 			res.Book.Reads = parseReads(val)
+		// A book's list is written under "characters:" because that is what it is —
+		// a novel has speakers, not a cast (0047, 0048). "cast" is accepted anyway:
+		// both parsers take both keys, so a file retargeted from one shelf to the
+		// other keeps its list, and the whole per-kind difference stays the one line
+		// in applyImportedCast that clears a book's actors.
+		case "characters", "cast":
+			res.Book.Cast = parseCast(val)
 		} // unknown keys ignored
 	}
 	if res.Book.Title == "" {

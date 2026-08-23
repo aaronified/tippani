@@ -2,7 +2,6 @@ package httpapi
 
 import (
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"log"
 	"net/http"
@@ -102,7 +101,12 @@ func (s *Server) handleMetadataLibrary(w http.ResponseWriter, r *http.Request) {
 		SELECT m.id, m.title, m.media_type, COALESCE(m.release_year, 0),
 		       COALESCE(m.tmdb_id, 0), COALESCE(m.tvdb_id, 0),
 		       COALESCE(m.poster_path, ''),
-		       (m.cast_json IS NOT NULL AND m.cast_json <> '[]' AND m.cast_json <> ''),
+		       -- A cast is now a table (0048), so "has a cast" is a row test rather
+		       -- than a blob test — which is what makes the console honest about a
+		       -- game whose voice actors the reader typed in by hand. Tombstones do
+		       -- not count: a row somebody deleted is not a cast.
+		       EXISTS(SELECT 1 FROM work_cast wc
+		              WHERE wc.kind = 'movie' AND wc.work_id = m.id AND wc.origin <> 'removed'),
 		       (m.tmdb_id IS NOT NULL OR m.tvdb_id IS NOT NULL),
 		       (m.director IS NOT NULL AND m.director <> ''),
 		       (m.release_year IS NOT NULL AND m.release_year <> 0),
@@ -204,9 +208,11 @@ func (s *Server) handleRemapSpeakers(w http.ResponseWriter, r *http.Request) {
 	}
 	uid := userID(r)
 	olog.Tracef("[meta] handleRemapSpeakers uid=%v movie=%v mappings=%d refill=%v", uid, id, len(req.Mappings), req.Refill)
-	var castJSON string
+	// The ownership check. It used to bring the cast blob back with it; the cast is
+	// its own table now and is read per mapping below.
+	var one int
 	err := s.Store.DB.QueryRow(
-		`SELECT cast_json FROM movies WHERE id = ? AND user_id = ?`, id, uid).Scan(&castJSON)
+		`SELECT 1 FROM movies WHERE id = ? AND user_id = ?`, id, uid).Scan(&one)
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
 		writeErr(w, http.StatusNotFound, "movie not found")
@@ -220,16 +226,16 @@ func (s *Server) handleRemapSpeakers(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "too many mappings (max 500)")
 		return
 	}
-	// Parse the cast once (not per mapping), for actor auto-fill.
-	var cast []metadata.CastMember
-	_ = json.Unmarshal([]byte(castJSON), &cast)
+	// Who plays the character a mapping renames TO, for the actor auto-fill — read
+	// from the cast MAPPING (0048) and not from the blob, so that this endpoint and
+	// the refill below cannot disagree about who plays somebody. They are two halves
+	// of one request, and they used to read two different sources.
+	//
+	// castActorFor rather than a hand-rolled scan: the fold, the tombstone
+	// exclusion and the billing tie-break are then the same three rules the quote
+	// form's own auto-fill applies, in one implementation.
 	findActor := func(character string) string {
-		for _, c := range cast {
-			if strings.EqualFold(strings.TrimSpace(c.Character), character) {
-				return strings.TrimSpace(c.Actor)
-			}
-		}
-		return ""
+		return castActorFor(s.Store.DB, "movie", id, character)
 	}
 	// Build the exact-from -> {character, actor} lookup. `from` is an exact stored
 	// label from the UI, so match exactly (case-folding would collapse "Evey" and

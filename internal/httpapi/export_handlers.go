@@ -252,6 +252,12 @@ func (s *Server) renderBookExport(b *bookDetail) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	// The book's characters (0048). A separate read rather than a field on
+	// bookDetail because this one wants the TOMBSTONES too, which no screen does.
+	cast, err := loadCastForExport(s.Store.DB, "book", b.ID)
+	if err != nil {
+		return "", err
+	}
 
 	var sb strings.Builder
 	writeFrontmatter(&sb,
@@ -289,7 +295,12 @@ func (s *Server) renderBookExport(b *bookDetail) (string, error) {
 		kv{"status", b.Status},
 		kv{"progress", progressFrontmatter(b.Status, b.Progress)},
 		kv{"page", posFrontmatter(b.Status, b.position)},
-		kv{"reads", readsFrontmatter(b.Reads)})
+		kv{"reads", readsFrontmatter(b.Reads)},
+		// "characters" and not "cast", because a novel has speakers (0047's words,
+		// and the API refuses an actor on a book row for the same reason). The
+		// importer accepts either key on either side, so retargeting a file from one
+		// shelf to the other keeps the list.
+		kv{"characters", castFrontmatter(cast)})
 
 	// GROUPED ON THE RENDERED HEADING, not on the name alone (0044). Two highlights
 	// in chapter 7 belong under one "## 7 · The Fall" whether their name field agrees
@@ -365,6 +376,15 @@ func (s *Server) renderMovieExport(m *movieDetail) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	// The cast (0048), read again rather than taken from m.Cast: the detail record
+	// carries the LIVE list in the blob's old wire shape, and an export needs the
+	// tombstones and each row's origin as well. THIS IS THE HALF THE FEATURE HAD
+	// NOT COPIED — work_reads is cited in 0048's header as the precedent it
+	// followed, and work_reads round-trips through this file.
+	cast, err := loadCastForExport(s.Store.DB, "movie", m.ID)
+	if err != nil {
+		return "", err
+	}
 
 	var sb strings.Builder
 	writeFrontmatter(&sb,
@@ -381,7 +401,12 @@ func (s *Server) renderMovieExport(m *movieDetail) (string, error) {
 		kv{"progress", progressFrontmatter(m.Status, m.Progress)},
 		kv{"season", seasonFrontmatter(m.Status, m.position)},
 		kv{"episode", posFrontmatter(m.Status, m.position)},
-		kv{"reads", readsFrontmatter(m.Reads)})
+		kv{"reads", readsFrontmatter(m.Reads)},
+		// A GAME'S LINE HERE IS ITS VOICE CAST, which is the only place most games'
+		// voice credits exist at all — nothing else in the file, and nothing in any
+		// provider, has them. The key is the same word for all three media types; the
+		// label that says "voice actor" belongs to the screen, in both languages.
+		kv{"cast", castFrontmatter(cast)})
 	for _, d := range dlgs {
 		sb.WriteString("\n")
 		writeQuoteBlock(&sb, d.Quote, d.Note, func(note string) {
@@ -596,6 +621,53 @@ func readsFrontmatter(reads []readRow) string {
 // readsDash separates a read's two dates. An em dash reads as a range to a human
 // and cannot appear inside a partial date, so splitting on it is unambiguous.
 const readsDash = "—"
+
+// castFrontmatter renders a work's cast (0048) as one value: semicolon-separated
+// entries, each "character — who plays them", with anything that is not the
+// provider's own marked by a word in brackets.
+//
+//	cast: GLaDOS — Ellen McLain; Chell (reader); Cave Johnson — J.K. Simmons (removed)
+//
+// SHAPED AFTER readsFrontmatter, one line and the same separators, for the reason
+// stated there: writeFrontmatter is a flat key/value writer with no YAML
+// dependency, and importer.parseCast reads this back with the same hand-rolled
+// split parseReads uses.
+//
+// THE ORIGIN IS WRITTEN AND IT IS THE POINT. The two names round-trip either way;
+// "this row is mine, a refetch may not rewrite it" and "this row I deleted, a
+// refetch may not bring it back" exist nowhere else in the file. An export that
+// dropped them would restore a library with every correction demoted to the
+// provider's and every deletion undone by the next lookup — which is what the
+// export did before this, along with losing any character the reader had typed
+// and not yet quoted, since a quote's own `actor` binding was the only trace of
+// the cast the file carried at all.
+//
+// 'provider' IS WRITTEN AS NO MARKER, so a film whose cast nobody has touched
+// exports as the plain list a person would write by hand — the same restraint
+// that leaves out a `yellow` colour and an empty frontmatter line.
+//
+// AN EMPTY LIST YIELDS "", which writeFrontmatter drops: a work with no cast
+// exports byte-identically to what it did before 0048, and the round-trip tests
+// that pin a film's export are unaffected.
+func castFrontmatter(rows []castRow) string {
+	parts := make([]string, 0, len(rows))
+	for _, c := range rows {
+		s := c.Character
+		if c.Actor != "" {
+			// A character with no actor is ordinary — every book row, and every game
+			// row whose voice actor is still unknown — so the dash appears only when
+			// there is something on the other side of it.
+			s = strings.TrimSpace(s + " " + readsDash + " " + c.Actor)
+		}
+		if c.Origin != "" && c.Origin != castProvider {
+			s += " (" + c.Origin + ")"
+		}
+		if s = strings.TrimSpace(s); s != "" {
+			parts = append(parts, s)
+		}
+	}
+	return strings.Join(parts, "; ")
+}
 
 // seriesFrontmatter renders a series/collection and its position as one value,
 // "Name #1.5", mirroring seriesLabel() in the UI. An empty name yields "" so

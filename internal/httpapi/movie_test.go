@@ -31,13 +31,13 @@ func TestMovieAndDialogueCRUD(t *testing.T) {
 	c.mustDo("POST", "/movies", map[string]any{"title": "X", "release_year": 3001}, http.StatusBadRequest)
 	c.mustDo("POST", "/movies", map[string]any{"title": "X", "release_year": -4001}, http.StatusBadRequest)
 
-	// Seed the cast list directly (manual movies have none) to exercise the
-	// PLAN §3b actor auto-fill.
-	if _, err := srv.Store.DB.Exec(`UPDATE movies SET cast_json = ? WHERE id = ?`,
-		`[{"character":"Rick Blaine","actor":"Humphrey Bogart"},{"character":"Ilsa Lund","actor":"Ingrid Bergman"}]`,
-		m.ID); err != nil {
-		t.Fatal(err)
-	}
+	// Seed the cast mapping directly (manual movies have none) to exercise the
+	// PLAN §3b actor auto-fill. Rows rather than the cast_json blob it used to
+	// write: the blob is still stored for one release and is no longer what the
+	// auto-fill reads (0048).
+	seedProviderCast(t, srv, 1, "movie", m.ID,
+		[2]string{"Rick Blaine", "Humphrey Bogart"},
+		[2]string{"Ilsa Lund", "Ingrid Bergman"})
 
 	// Auto-fill: case-insensitive, trimmed character match.
 	d1 := decode[dialogueRow](t, c.mustDo("POST", "/dialogues", map[string]any{

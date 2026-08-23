@@ -1108,14 +1108,26 @@ type workRef struct {
 	// actorNames keeps the first-seen casing of each dialogue actor — the map
 	// above lowercases for matching, but option chips need a display name.
 	actorNames []string
-	// cast is the film's whole billed cast, from movies.cast_json — the people
-	// who COULD have said a line in it, as against actorNames, which is only
-	// those the reader has actually recorded saying one.
+	// cast is the work's whole billed cast, from work_cast — the people who COULD
+	// have said a line in it, as against actorNames, which is only those the
+	// reader has actually recorded saying one.
 	//
 	// The distinction is the whole quality of a "who said this?" card. Offering
 	// three actors the reader has already quoted makes the answer guessable from
 	// familiarity; offering three from the same film's billing makes it a
 	// question about the film.
+	//
+	// FROM THE MAPPING AND NO LONGER FROM movies.cast_json, which is the change
+	// that made a game's card answerable at all: the blob is '[]' for nearly every
+	// game, so before 0048 a game's whole pool was actorNames above — the inferior
+	// half by the argument two paragraphs up. It also stops the pool going stale,
+	// which is what moved it: the blob's write was frozen so an unattended bulk
+	// fill could not overwrite the one pre-0048 copy of a cast, and a frozen blob
+	// is a distractor pool that never learns an approved cast diff.
+	//
+	// Tombstones and actorless rows are left out — a credit somebody deleted and a
+	// row with no name are not answers anybody can pick. Filled at the loader
+	// below, not here.
 	cast []string
 }
 
@@ -1242,12 +1254,12 @@ func (s *Server) quizPools(uid int64, sc reviewScope, seed int64) (quizPools, er
 		}
 	}
 	if sc.screen {
-		if err := scan(`SELECT id, title, COALESCE(director,''), COALESCE(cast_json,'')
+		if err := scan(`SELECT id, title, COALESCE(director,'')
 		                FROM movies WHERE user_id = ? AND title <> ''`,
 			func(rows *sql.Rows) error {
 				var id int64
-				var title, director, castJSON string
-				if err := rows.Scan(&id, &title, &director, &castJSON); err != nil {
+				var title, director string
+				if err := rows.Scan(&id, &title, &director); err != nil {
 					olog.Warnf(olog.CodeReviewRowScan, "[review] screen work row scan failed: %v", err)
 					return nil
 				}
@@ -1255,12 +1267,70 @@ func (s *Server) quizPools(uid int64, sc reviewScope, seed int64) (quizPools, er
 				p.byKey[k] = workRef{
 					key: k, kind: kindScreen, title: title, director: director,
 					genres: map[string]bool{}, actors: map[string]bool{},
-					// Already stored by the metadata fetch. No API call, exactly as
-					// the roadmap promised.
-					cast: castActors(castJSON),
 				}
 				return nil
 			}); err != nil {
+			return p, err
+		}
+		// THE "WHO SAID THIS?" DISTRACTORS COME FROM THE MAPPING, not from
+		// movies.cast_json (0048). Still no API call — the same promise, one table
+		// over.
+		//
+		// The blob was frozen against the unattended bulk fill in the change that
+		// created work_cast, which is right (it is the only copy of what the provider
+		// said before the mapping took over) and which starved this reader: an
+		// approved cast diff writes the mapping and no longer writes the blob, so the
+		// pool went permanently stale, while resyncMovieFromSource still replaces the
+		// blob whole — one title answering "who else is in this film?" two different
+		// ways depending on which button the reader pressed.
+		//
+		// AND IT LIFTS THE DEFERRAL 0048 LEFT AS A TEST: A GAME'S TYPED VOICE CAST IS
+		// A DISTRACTOR NOW. IGDB has no credit endpoint and the Wikidata join finds
+		// nothing for most titles (TIP-META-018), so the blob is '[]' for nearly every
+		// game and the voice cast somebody typed by hand — the case the table exists
+		// for — was invisible to the one screen that would ask them about it.
+		//
+		// TWO EXCLUSIONS, and both would otherwise put something on the card that is
+		// not an answerable option. A TOMBSTONE is a credit the reader deleted: it is
+		// not on the list any more, and offering it as a wrong answer is the
+		// resurrection `origin` exists to refuse. A ROW WITH NO ACTOR is every book
+		// character and every game credit whose voice actor is still unknown — a
+		// nameless distractor is not a distractor.
+		//
+		// billing, id is the order the blob reader had and it is kept for its reason:
+		// billing is roughly "how likely is this person to be the answer somebody is
+		// weighing", so the top of the list holds the interesting wrong answers.
+		castSeen := map[string]bool{}
+		if err := scan(`SELECT work_id, actor FROM work_cast
+		                WHERE user_id = ? AND kind = 'movie' AND origin <> ? AND TRIM(actor) <> ''
+		                ORDER BY work_id, billing, id`,
+			func(rows *sql.Rows) error {
+				var id int64
+				var actor string
+				if err := rows.Scan(&id, &actor); err != nil {
+					olog.Warnf(olog.CodeReviewRowScan, "[review] screen cast row scan failed: %v", err)
+					return nil
+				}
+				k := kindScreen + ":" + strconv.FormatInt(id, 10)
+				w, ok := p.byKey[k]
+				if !ok {
+					return nil
+				}
+				a := strings.TrimSpace(actor)
+				// De-duplicated per WORK, because one actor billed twice (a role played
+				// young and old) is one face to choose between — and because the same
+				// name across two films is two legitimate entries in the wider pool.
+				dedupe := k + "\x1f" + strings.ToLower(a)
+				if a == "" || castSeen[dedupe] {
+					return nil
+				}
+				castSeen[dedupe] = true
+				// Append doesn't flow through the map copy the way the shared maps do —
+				// write the struct back, exactly as the actor scan below does.
+				w.cast = append(w.cast, a)
+				p.byKey[k] = w
+				return nil
+			}, castRemoved); err != nil {
 			return p, err
 		}
 		if err := scan(`SELECT mg.movie_id, g.name FROM movie_genres mg JOIN genres g ON g.id = mg.genre_id

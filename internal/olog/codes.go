@@ -116,6 +116,11 @@ const (
 	CodeTrashPurge   Code = "TIP-TRASH-004" // the retention sweep failed; nothing was removed
 	CodeTrashRowScan Code = "TIP-TRASH-005" // a bin list row failed to scan; dropped from the list
 
+	// CAST — a work's character-to-actor mapping (0048): one row per character,
+	// with the actor beside it, seeded by a provider and editable by the reader.
+	CodeCastRowScan Code = "TIP-CAST-001" // a work_cast row failed to scan; dropped from the list
+	CodeCastKeyFold Code = "TIP-CAST-002" // a cast lookup key could not be re-folded at boot; the row keeps its old key
+
 	// BACKUP — server-side backup & restore (Settings, admin).
 	CodeBackupSnapshot Code = "TIP-BACKUP-001" // database snapshot (VACUUM INTO) failed; no archive produced
 	CodeBackupArchive  Code = "TIP-BACKUP-002" // the backup archive could not be written/promoted
@@ -195,6 +200,9 @@ var Registry = map[Code]string{
 	CodeImportRowScan:  "A staged batch, work or quote row could not be scanned while listing the import queue; that row was left out of the response.",
 	CodeImportApprove:  "Approving staged quotes failed; the transaction rolled back, so nothing entered the library and the queue still holds them.",
 	CodeImportStagedOp: "A staging-queue mutation (bulk edit, retarget or discard) failed; the queue is unchanged.",
+
+	CodeCastRowScan: "A work's cast row failed to scan (SELECT/struct drift); that character was left out of the list.",
+	CodeCastKeyFold: "A cast row's folded lookup keys could not be rewritten during the boot-time repair; the row keeps the keys it had.",
 
 	CodeTrashWrite:   "A delete could not be written to the bin, so the delete was refused and nothing was removed.",
 	CodeTrashFile:    "A binned cover/poster could not be parked, restored or purged; the row itself is unaffected.",

@@ -278,6 +278,18 @@ func collectWork(tx *sql.Tx, uid int64, kind string, id int64) (*collected, erro
 	if len(reads) > 0 {
 		out.Payload["work_reads"] = reads
 	}
+	// The cast, on the same terms (0048): no foreign key, cleared by a trigger,
+	// invisible to any walk. Tombstones come too — a tombstone is a decision the
+	// reader made about this work's cast, and restoring a film without it would
+	// let the next refetch put back a row they deleted on purpose.
+	cast, err := queryMaps(tx,
+		`SELECT * FROM work_cast WHERE user_id = ? AND kind = ? AND work_id = ?`, uid, kind, id)
+	if err != nil {
+		return nil, err
+	}
+	if len(cast) > 0 {
+		out.Payload["work_cast"] = cast
+	}
 	return out, nil
 }
 
@@ -899,7 +911,12 @@ var accountTables = []string{
 	"anthologies", "anthology_entries",
 	"book_genres", "movie_genres",
 	"annotation_tags", "dialogue_tags", "utterance_tags",
-	"item_reviews", "work_reads",
+	// work_cast beside work_reads, and for the same reason: both hang off a work
+	// by a polymorphic (kind, work_id) pair with no foreign key, so nothing walks
+	// to them. A cast row is also the only thing here that a reader TYPED about a
+	// work rather than about a quote — a voice actor no provider lists exists
+	// nowhere else at all.
+	"item_reviews", "work_reads", "work_cast",
 	"import_batches", "staged_works", "staged_quotes",
 	// A reader's own uploaded type (0039). It is data rather than a credential —
 	// a font somebody found and chose — so it comes back with the account, and

@@ -249,6 +249,18 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /movies/{id}/reads", s.requireAuth(s.handleAddRead("movie")))
 	mux.Handle("PUT /reads/{id}", s.requireAuth(s.handleUpdateRead))
 	mux.Handle("DELETE /reads/{id}", s.requireAuth(s.handleDeleteRead))
+	// A work's cast (0048) — one row per character, with the actor beside it on a
+	// film or a show, the voice actor on a game, and nothing on a book. Seeded by
+	// a metadata fetch and editable by hand, which is the whole point: the blob it
+	// replaces had no edit surface and was empty for nearly every game. Shaped
+	// like the read log above — nested to add, flat by row id to correct or
+	// remove. See cast_handlers.go.
+	mux.Handle("GET /books/{id}/cast", s.requireAuth(s.handleListCast("book")))
+	mux.Handle("POST /books/{id}/cast", s.requireAuth(s.handleAddCast("book")))
+	mux.Handle("GET /movies/{id}/cast", s.requireAuth(s.handleListCast("movie")))
+	mux.Handle("POST /movies/{id}/cast", s.requireAuth(s.handleAddCast("movie")))
+	mux.Handle("PUT /cast/{id}", s.requireAuth(s.handleUpdateCast))
+	mux.Handle("DELETE /cast/{id}", s.requireAuth(s.handleDeleteCast))
 	mux.Handle("POST /books/{id}/cover", s.requireAuth(s.handleUploadBookCover))
 	mux.Handle("DELETE /books/{id}", s.requireAuth(s.handleDeleteBook))
 

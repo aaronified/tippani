@@ -409,6 +409,15 @@ func (s *Server) handleMergeBooks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// The characters, BEFORE the delete: 0048's trigger reaps a work's cast the
+	// moment the work goes, and a book's list is entirely the reader's — nothing
+	// seeds it, so every row lost here is one somebody typed. carryWorkCast is
+	// where the merge rule for it is argued.
+	if err := carryWorkCast(tx, uid, "book", req.Into, from); err != nil {
+		internalError(w, r, "merge: carry the characters", err)
+		return
+	}
+
 	// Delete the source books (cascades any leftover collided annotations + their
 	// book_genres). Scoped by user_id as a belt-and-braces guard.
 	delArgs := make([]any, 0, len(from)+1)
@@ -451,6 +460,11 @@ func (s *Server) handleMergeBooks(w http.ResponseWriter, r *http.Request) {
 // mirror. movies.director holds a film's director, a show's creator AND a game's
 // studio (0040), split by media_type — so merging away a game can orphan a
 // studio row that sweeping only 'director' would leave behind for ever.
+//
+// THE CAST CARRY IS THE ONE STATEMENT THAT IS SHARED rather than mirrored, and
+// carryWorkCast says why: work_cast is a single table addressed by (kind,
+// work_id), so there is no per-side table name or person kind in it to get wrong
+// — the two things that stopped the rest of this being generalised.
 func (s *Server) handleMergeMovies(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Into int64   `json:"into"`
@@ -541,6 +555,15 @@ func (s *Server) handleMergeMovies(w http.ResponseWriter, r *http.Request) {
 	if _, err := tx.Exec(
 		`UPDATE OR IGNORE dialogues SET movie_id = ? WHERE movie_id IN (`+inClause(len(from))+`)`, fromArgs...); err != nil {
 		internalError(w, r, "merge: move dialogues", err)
+		return
+	}
+
+	// The cast, BEFORE the delete, for the reason carryWorkCast argues at length:
+	// 0048's trigger reaps a work's cast with the work, so without this a merged-
+	// away duplicate takes its voice actors, its corrections and its tombstones
+	// with it — and for a game that list is the only place any of them exist.
+	if err := carryWorkCast(tx, uid, "movie", req.Into, from); err != nil {
+		internalError(w, r, "merge: carry the cast", err)
 		return
 	}
 

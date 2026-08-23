@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	"tippani/internal/metadata"
 	"tippani/internal/olog"
 )
 
@@ -73,6 +74,24 @@ func missingStored(v any) bool {
 	case float64:
 		return x == 0
 	case []string:
+		return len(x) == 0
+	case []metadata.CastMember:
+		// A CAST IS A GAP LIKE ANY OTHER, and until 0048 it silently was not: this
+		// type fell through to `default: return false`, so the one endpoint whose
+		// entire job is filling in what is missing would never seed a cast, not even
+		// onto a title that had none at all. Nothing covered it, because nothing had
+		// a reason to look.
+		//
+		// "Missing" is now read off the MAPPING rather than off the blob (see
+		// reverifyMovie), which tightens it in the right direction: a title where
+		// somebody has already typed one credit by hand is no longer empty, and an
+		// unattended fill must not start merging a provider list into a list a
+		// person has begun curating.
+		//
+		// AN EMPTY LIST IS STILL NOT PROOF THAT NOBODY HAS CURATED IT, and no value
+		// handed to this function ever could be: a reader who DELETES every credit
+		// leaves tombstones, which every read outside the merge filters out by
+		// design. fillOne asks castCurated the question this switch cannot.
 		return len(x) == 0
 	default:
 		return false
@@ -154,6 +173,26 @@ func (s *Server) fillOne(ctx context.Context, uid int64, it reverifyItem) fillRe
 	set := map[string]json.RawMessage{}
 	for _, d := range it.Diffs {
 		if !missingStored(d.Stored) {
+			continue
+		}
+		// THE ONE FIELD WHOSE EMPTINESS IS NOT IN ITS VALUE, and the only reason
+		// this loop knows a field name at all.
+		//
+		// A reader who deletes every credit a provider seeded leaves an empty list
+		// and a tombstone per row (0048), and a tombstone is filtered out of every
+		// read but the merge's — deliberately, because it is not part of the cast any
+		// more. So the diff's stored side is honestly empty, missingStored honestly
+		// says "missing", and an unattended fill would then hand back the very list
+		// somebody had just finished deleting. It would also report `filled:
+		// ["cast"]` while the merge correctly refused every row, which is the worse
+		// half: a bulk button that says it wrote something it did not.
+		//
+		// It cannot live in missingStored, which is dispatched on TYPE so that a
+		// field added to reverify tomorrow needs no edit here. The tombstone is not
+		// in the type, or in the value, or anywhere else this loop can see it — it is
+		// in the table. So it is asked for by name, once, with the reason written
+		// down.
+		if d.Field == "cast" && it.Type == "movie" && castCurated(s.Store.DB, "movie", it.ID) {
 			continue
 		}
 		raw, err := json.Marshal(d.Fresh)

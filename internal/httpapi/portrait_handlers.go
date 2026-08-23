@@ -10,6 +10,7 @@ import (
 
 	"tippani/internal/metadata"
 	"tippani/internal/olog"
+	"tippani/internal/store"
 )
 
 // Portrait resolution (author/actor photos) — the "fetch the image
@@ -18,11 +19,15 @@ import (
 // already knows and, crucially, pins the person to a stable external id so a
 // re-fetch can never drift to a namesake:
 //
-//	actor  — read straight from the film's stored cast (movies.cast_json), which
-//	         already carries the supplier's person id + a headshot URL harvested
-//	         from the credits when the movie was added. The film IS the
-//	         disambiguator (it is that film's cast), so NO extra provider call is
-//	         made here.
+//	actor  — read straight from the cast mapping (work_cast, 0048), whose rows
+//	         carry the supplier's person id + a headshot URL harvested from the
+//	         credits when the film was added, AND the reader's own corrections and
+//	         hand-typed credits. The film IS the disambiguator (it is that film's
+//	         cast), so NO extra provider call is made here. It read
+//	         movies.cast_json until 0048, which meant a name the reader corrected —
+//	         and every voice actor on a game, where that blob is empty — resolved
+//	         by name instead, through the namesake-prone search this path exists to
+//	         avoid.
 //	director — read from the crew in the film's cached TMDB payload
 //	         (movies.source_metadata), which carries the director's person id +
 //	         profile_path even though only their name was flattened onto the
@@ -223,7 +228,7 @@ func (s *Server) resolvePersonPortrait(ctx context.Context, uid int64, kind, nam
 }
 
 // resolveActorMeta resolves an actor's portrait, TMDB identity, biography and
-// birth year. It starts from the stored cast — the film IS the disambiguator, so
+// birth year. It starts from the cast mapping — the film IS the disambiguator, so
 // a person id harvested there is exact — then makes ONE live TMDB /person call to
 // (a) fill a headshot for films synced before headshots were captured and (b)
 // pull the bio + birthday the credits payload never carried. When no stored cast
@@ -241,9 +246,18 @@ func (s *Server) resolveActorMeta(ctx context.Context, uid int64, name string) (
 	switch {
 	case source == "tmdb" && sourceID != "":
 		id = sourceID // exact: this actor's id, pinned from one of their TMDB films
-	case source == "tvdb":
-		// A TVDB-only show already has a correct headshot + identity; a by-name
-		// TMDB search could pin a namesake, so leave it (TVDB carries no bio here).
+	case source == "tvdb", source == "wikidata":
+		// A PINNED IDENTITY IN SOMEBODY ELSE'S NAMESPACE IS STILL A PINNED IDENTITY.
+		// A TVDB-only show and a game's Wikidata voice credit both already carry a
+		// correct headshot and a correct id — a TVDB peopleId, a Wikidata QID — and
+		// neither is a TMDB person id, so neither can be handed to PersonDetails. The
+		// only remaining move would be a by-name TMDB search, which could pin a
+		// namesake to get a bio, and a bio is not worth the wrong person.
+		//
+		// `wikidata` arrives here because the cast row names its OWN supplier now
+		// (0048) rather than being labelled from the film's tmdb_id/tvdb_id. Under
+		// the blob every game credit was labelled "tvdb" — which took this same
+		// branch, so the behaviour is unchanged and the word is finally true.
 		return source, sourceID, imageURL, "", "", ""
 	default:
 		// Old TMDB film that stored no person id, or nothing stored → by-name search.
@@ -267,50 +281,70 @@ func (s *Server) resolveActorMeta(ctx context.Context, uid int64, name string) (
 }
 
 // actorPortraitFromCast finds an actor's portrait + supplier identity in the
-// stored cast of the caller's films that reference them — no external call. It
-// prefers a cast entry that carries both a person id and a headshot; failing a
-// headshot anywhere, it still returns the identity alone (so the person is
-// pinned). Empty strings mean "not found in any stored cast".
+// caller's own cast mapping — no external call. It prefers a row that carries
+// both a person id and a headshot; failing a headshot anywhere, it still returns
+// the identity alone (so the person is pinned). Empty strings mean "no cast row
+// in this library names them".
+//
+// IT READS work_cast AND NOT movies.cast_json, AND THAT IS THE POINT (0048). The
+// blob is a provider's list that no /cast edit has ever written, so every name
+// the reader owns was invisible here:
+//
+//   - A CORRECTED NAME STOPPED MATCHING. The mapping now fills dialogues.actor,
+//     so a quote saved after the correction carries the corrected spelling, the
+//     chip on the people page shows it — and the blob still held the provider's,
+//     so the lookup missed and resolveActorMeta fell through to a by-name TMDB
+//     search. That fallback's own comment calls it namesake-prone, and pinning an
+//     id from the film's own cast is the thing this function exists to do instead.
+//   - A GAME'S VOICE CAST WAS NEVER THERE AT ALL. For most games the blob is '[]'
+//     (TIP-META-018), so every voice actor in the app was resolved by name.
+//
+// MATCHED ON actor_key, the table's own folded key (store.CastKey), rather than
+// on EqualFold: it is what the rest of the feature calls the same person, and
+// idx_work_cast_actor is per-user on exactly that column because "does this actor
+// appear in any cast at all?" is the question a rename and an orphan sweep both
+// ask. The old query's LIKE over dialogues.actor is gone with the blob — it was
+// there to widen the CANDIDATE FILMS for a joint credit stored as "A & B", while
+// the decisive comparison was always against a cast entry's own actor name. That
+// comparison is now the index lookup, so the widening has nothing left to do.
+//
+// THE DIALOGUE JOIN IS GONE TOO, and that is a small deliberate widening: a cast
+// row no longer needs a quote beside it to be found. The film was always the
+// disambiguator; requiring a dialogue as well was an artefact of the blob being
+// reachable only through the film. Nothing asks about an actor who has no chip,
+// and a chip exists because something already names them.
+//
+// Tombstones are excluded. A credit the reader deleted is not a place to get a
+// headshot from.
 func (s *Server) actorPortraitFromCast(uid int64, name string) (source, personID, imageURL string) {
-	// LIKE (not equality): a multi-actor credit stored as "A & B" is listed as
-	// its split components, and each component must still find its films. The
-	// widened candidate set is safe — the precise match below is against the
-	// cast entry's own actor name (EqualFold), not the dialogue credit.
+	key := store.CastKey(name)
+	if key == "" {
+		return "", "", ""
+	}
+	// ORDER BY: a row with a headshot first, then the provider's billing. The loop
+	// below would find the same answer in any order — this makes it the same answer
+	// every time, which a person's stored identity had better be.
 	rows, err := s.Store.DB.Query(`
-		SELECT COALESCE(m.cast_json, '[]'), COALESCE(m.tmdb_id, 0), COALESCE(m.tvdb_id, 0)
-		FROM movies m JOIN dialogues d ON d.movie_id = m.id
-		WHERE m.user_id = ? AND LOWER(d.actor) LIKE '%' || LOWER(?) || '%'
-		GROUP BY m.id`, uid, name)
+		SELECT source, person_id, image_url FROM work_cast
+		WHERE user_id = ? AND actor_key = ? AND origin <> ?
+		ORDER BY CASE WHEN image_url <> '' THEN 0 ELSE 1 END, billing, id`,
+		uid, key, castRemoved)
 	if err != nil {
 		return "", "", ""
 	}
 	defer rows.Close()
-	var fbSource, fbID string // identity-only fallback (a cast hit with no headshot)
+	var fbSource, fbID string // identity-only fallback (a row with no headshot)
 	for rows.Next() {
-		var castJSON string
-		var tmdbID, tvdbID int64
-		if err := rows.Scan(&castJSON, &tmdbID, &tvdbID); err != nil {
+		var src, pid, img string
+		if err := rows.Scan(&src, &pid, &img); err != nil {
 			olog.Warnf(olog.CodePeopleRowScan, "[people] actor cast row scan failed: %v", err)
 			continue
 		}
-		src := "tvdb"
-		if tmdbID != 0 {
-			src = "tmdb"
+		if img != "" {
+			return src, pid, img // best: identity + headshot
 		}
-		var cast []metadata.CastMember
-		if json.Unmarshal([]byte(castJSON), &cast) != nil {
-			continue
-		}
-		for _, c := range cast {
-			if !strings.EqualFold(strings.TrimSpace(c.Actor), name) {
-				continue
-			}
-			if c.ImageURL != "" {
-				return src, c.PersonID, c.ImageURL // best: identity + headshot
-			}
-			if c.PersonID != "" && fbID == "" {
-				fbSource, fbID = src, c.PersonID // remember, keep looking for a headshot
-			}
+		if pid != "" && fbID == "" {
+			fbSource, fbID = src, pid // remember, keep looking for a headshot
 		}
 	}
 	if err := rows.Err(); err != nil {

@@ -547,7 +547,7 @@ func decodePos(s string) position {
 // bookShelf / movieShelf read one parsed header's shelf fields into the shape the
 // write path takes, so the two importer sides converge before they touch the DB.
 func bookShelf(b importer.Book) importedShelf {
-	in := importedShelf{Status: b.Status, Progress: b.Progress, Reads: b.Reads}
+	in := importedShelf{Status: b.Status, Progress: b.Progress, Reads: b.Reads, Cast: b.Cast}
 	if b.PosTotal > 0 {
 		in.Pos = position{Unit: PosPage, Pos: b.Pos, PosTotal: b.PosTotal}
 	}
@@ -555,7 +555,7 @@ func bookShelf(b importer.Book) importedShelf {
 }
 
 func movieShelf(m importer.MovieHeader) importedShelf {
-	in := importedShelf{Status: m.Status, Progress: m.Progress, Reads: m.Reads}
+	in := importedShelf{Status: m.Status, Progress: m.Progress, Reads: m.Reads, Cast: m.Cast}
 	if m.PosTotal > 0 {
 		in.Pos = position{
 			Unit: PosEpisode, Pos: m.Pos, PosTotal: m.PosTotal,
@@ -565,23 +565,44 @@ func movieShelf(m importer.MovieHeader) importedShelf {
 	return in
 }
 
-// importedShelf is what a parsed file says about where a work stands, in the
-// server's own terms. Built from either side's importer header.
+// importedShelf is what a parsed file says about a WORK rather than about any of
+// its quotes, in the server's own terms. Built from either side's importer header.
+//
+// THE CAST RIDES HERE RATHER THAN IN A CALL OF ITS OWN (0048), and the name of
+// this struct is the cost of it. Four places hand a parsed header to the write
+// path — both branches of upsertImportBook, upsertImportMovie, and
+// backfillImportMovie — and a second function beside each of them is precisely
+// the shape of this repo's recurring defect: a rule added to three of the four
+// sites that need it. Riding in the struct makes the sweep impossible to get
+// wrong, because there is nothing to sweep.
+//
+// The gap it inherits is stated rather than widened: a book RETARGETED by hand in
+// the queue never reaches this function at all (resolveApprovalTarget returns the
+// pinned id before upsertImportBook runs), so it gets neither the read log nor
+// the cast. That is work_reads' own behaviour since 0024 and fixing it is a
+// separate piece of work on a separate path.
 type importedShelf struct {
 	Status   string
 	Progress int
 	Pos      position
 	Reads    []importer.Read
+	Cast     []importer.CastEntry
 }
 
-// applyImportedShelf writes an imported status/progress/position/read log onto a
-// work at approval. Fill-empty-only, matching every other backfill on the import
-// path (PLAN §5f): a status already set by hand always wins, and the read log is
-// only adopted when the work has none — re-importing an old export must never
-// duplicate a history that is already there, nor overwrite a newer one.
+// applyImportedShelf writes an imported status/progress/position/read log — and
+// the work's cast — onto a work at approval. Fill-empty-only, matching every
+// other backfill on the import path (PLAN §5f): a status already set by hand
+// always wins, and the read log is only adopted when the work has none —
+// re-importing an old export must never duplicate a history that is already
+// there, nor overwrite a newer one.
 //
 // Statuses and positions the server does not recognise are dropped rather than
 // rejected: a hand-edited file should not fail an import over one bad word.
+//
+// The cast is applied by applyImportedCast under the same rule, and it is called
+// from inside this function rather than beside its five callers — see
+// importedShelf for why that is the sweep-proof arrangement rather than a
+// misfiling.
 func applyImportedShelf(tx *sql.Tx, kind, mediaType string, uid, workID int64, in importedShelf) error {
 	table := "movies"
 	if kind == "book" {
@@ -616,6 +637,11 @@ func applyImportedShelf(tx *sql.Tx, kind, mediaType string, uid, workID int64, i
 		if _, err := tx.Exec(`UPDATE `+table+` SET `+set+` WHERE id = ? AND user_id = ?`, args...); err != nil {
 			return err
 		}
+	}
+	// Before the read log's early return, so that a file carrying a cast and no
+	// history is not silently a file carrying nothing.
+	if err := applyImportedCast(tx, kind, mediaType, uid, workID, in.Cast); err != nil {
+		return err
 	}
 	reads := in.Reads
 	if len(reads) == 0 {

@@ -186,29 +186,48 @@ type movieDetail struct {
 
 func (s *Server) fetchMovie(uid, id int64) (*movieDetail, error) {
 	var m movieDetail
-	var castJSON string
 	err := s.Store.DB.QueryRow(`
 		SELECT id, title, COALESCE(director, ''), COALESCE(release_year, 0), release_circa, COALESCE(tmdb_id, 0),
 		       COALESCE(tvdb_id, 0), COALESCE(igdb_id, 0), media_type, COALESCE(poster_path, ''), COALESCE(description, ''),
 		       COALESCE(series, ''), COALESCE(series_index, 0), favorite, status, progress,
-		       pos_unit, pos, pos_total, season, season_total, cast_json, created_at,
+		       pos_unit, pos, pos_total, season, season_total, created_at,
 		       COALESCE(imdb_id, ''), publisher
 		FROM movies WHERE id = ? AND user_id = ?`, id, uid).
 		Scan(&m.ID, &m.Title, &m.Director, &m.ReleaseYear, &m.ReleaseCirca, &m.TMDBID,
 			&m.TVDBID, &m.IGDBID, &m.MediaType, &m.PosterPath, &m.Description,
 			&m.Series, &m.SeriesIndex, &m.Favorite, &m.Status, &m.Progress,
 			&m.Unit, &m.Pos, &m.PosTotal, &m.Season, &m.SeasonTotal,
-			&castJSON, &m.CreatedAt, &m.IMDbID, &m.Publisher)
+			&m.CreatedAt, &m.IMDbID, &m.Publisher)
 	if err != nil {
 		return nil, err
 	}
 	if m.Reads, err = loadReads(s.Store.DB, uid, "movie", id); err != nil {
 		return nil, err
 	}
-	m.Cast = []metadata.CastMember{}
-	_ = json.Unmarshal([]byte(castJSON), &m.Cast) // bad stored JSON -> empty cast
-	if m.Cast == nil {
-		m.Cast = []metadata.CastMember{}
+	// THE CAST IS READ FROM work_cast AND NOT FROM cast_json, and the wire shape is
+	// byte-identical on purpose (loadCastMembers). That equality is what lets this
+	// whole feature land with no frontend change: the film page, the quote form's
+	// character typeahead and the metadata console all go on reading `cast[]`
+	// exactly as they did, and now see the rows the reader added or corrected.
+	//
+	// The blob is still WRITTEN — whole by the two paths that replace a title's
+	// whole record, and only where it is empty by applyReverifyMovie, which is also
+	// the unattended bulk fill's writer and must not spend the one pre-0048 copy
+	// there is. Kept for one release because dropping a column is the one migration
+	// step nobody can walk back by hand (0036/0037's precedent, argued at length in
+	// 0048's header).
+	//
+	// NOTHING READS IT ANY MORE, which is the condition for dropping the column and
+	// is recorded here because this comment used to be the inventory of what still
+	// did. The last two readers have both moved to this table: the actor→portrait
+	// resolver (actorPortraitFromCast) and the quiz's speaker distractors
+	// (quizPools, review_handlers.go). The second moved as soon as the blob was
+	// frozen against the unattended bulk fill, because a frozen column with a reader
+	// on it is a pool that goes stale the first time a cast diff is approved and
+	// never recovers — and because the blob is '[]' for nearly every game, so a
+	// typed voice cast could never be a distractor at all.
+	if m.Cast, err = loadCastMembers(s.Store.DB, "movie", id); err != nil {
+		return nil, err
 	}
 	m.Genres = []string{}
 	rows, err := s.Store.DB.Query(`
@@ -376,6 +395,16 @@ func (s *Server) createMovieFromSource(w http.ResponseWriter, r *http.Request, s
 	if err := setGenres(tx, "movie", uid, id, d.Genres); err != nil {
 		s.removeCoverFile(posterPath)
 		internalError(w, r, "create movie: set genres", err)
+		return
+	}
+	// SEED THE CAST MAPPING (0048), inside this transaction rather than beside it.
+	// On a brand-new row every entry is an insert and there is nothing to protect,
+	// but it goes through the same merge as a refetch so there is exactly one
+	// implementation of the rule — and a title added twice after a look-alike
+	// confirmation still cannot end up with two copies of one credit.
+	if err := mergeProviderCast(tx, uid, "movie", id, castSourceForFetch(d.Source), d.Cast); err != nil {
+		s.removeCoverFile(posterPath)
+		internalError(w, r, "create movie: seed cast", err)
 		return
 	}
 	if err := tx.Commit(); err != nil {
@@ -959,6 +988,19 @@ func (s *Server) resyncMovieFromSource(w http.ResponseWriter, r *http.Request, i
 	}
 	if err := setGenres(tx, "movie", uid, id, d.Genres); err != nil {
 		failErr("resync movie: set genres", err)
+		return
+	}
+	// THE MERGE RULE RUNS HERE, and this is the call the whole feature is built
+	// around: a re-sync may add credits the provider has started listing and may
+	// rewrite the ones nobody has touched, and it must not change or remove a row
+	// the reader has corrected, typed or deleted. The blob two statements above was
+	// replaced whole, which is exactly the behaviour being retired — it is still
+	// written only because dropping the column has to wait a release.
+	//
+	// Inside the transaction, because unlike the blob this is a read followed by a
+	// write against what it read.
+	if err := mergeProviderCast(tx, uid, "movie", id, castSourceForFetch(d.Source), d.Cast); err != nil {
+		failErr("resync movie: merge cast", err)
 		return
 	}
 	// Correcting the movie's cast flows through to dialogues imported before it

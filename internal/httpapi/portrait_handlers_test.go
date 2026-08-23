@@ -23,9 +23,15 @@ type portraitResp struct {
 	Links map[string]string `json:"links"`
 }
 
-// An actor's portrait + identity come from the film's stored cast (person id +
-// headshot URL harvested when the movie was added) with NO extra provider call —
-// the stubbed fetchImage is handed exactly the cast's image_url.
+// An actor's portrait + identity come from the film's cast (person id + headshot
+// URL harvested when the movie was added) with NO extra provider call — the
+// stubbed fetchImage is handed exactly the cast row's image_url.
+//
+// THE CAST IS work_cast NOW, not movies.cast_json (0048). This test used to seed
+// the blob, which was the only place a cast had ever lived; it has to seed the
+// mapping instead, because the blob holds nothing the reader has corrected and
+// nothing at all on a game, so the resolver had to stop reading it. The
+// assertions are unchanged — the point of the move is that this answer does not.
 func TestPersonPortraitActorFromCast(t *testing.T) {
 	srv := newTestServer(t)
 	var fetched string
@@ -38,11 +44,17 @@ func TestPersonPortraitActorFromCast(t *testing.T) {
 
 	m := decode[movieDetail](t, c.mustDo("POST", "/movies",
 		map[string]any{"title": "Heat"}, http.StatusCreated))
-	// TMDB-sourced cast carrying the identity we now capture from the credits.
+	// A TMDB-seeded row carrying the identity we capture from the credits.
 	if _, err := srv.Store.DB.Exec(
-		`UPDATE movies SET tmdb_id = 949, cast_json = ? WHERE id = ?`,
-		`[{"character":"Neil McCauley","actor":"Robert De Niro","person_id":"380","image_url":"https://image.tmdb.org/t/p/original/de.jpg"}]`,
-		m.ID); err != nil {
+		`UPDATE movies SET tmdb_id = 949 WHERE id = ?`, m.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := srv.Store.DB.Exec(
+		`INSERT INTO work_cast (user_id, kind, work_id, character, character_key, actor, actor_key,
+		                        provider_key, person_id, image_url, billing, origin, source)
+		 VALUES (1, 'movie', ?, 'Neil McCauley', 'neil mccauley', 'Robert De Niro', 'robert de niro',
+		         ?, '380', 'https://image.tmdb.org/t/p/original/de.jpg', 0, 'provider', 'tmdb')`,
+		m.ID, "Neil McCauley\x1fRobert De Niro"); err != nil {
 		t.Fatal(err)
 	}
 	c.mustDo("POST", "/dialogues", map[string]any{

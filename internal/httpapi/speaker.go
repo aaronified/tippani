@@ -2,49 +2,28 @@ package httpapi
 
 // "Who said this?" — a screen-only review direction whose options are ACTORS.
 //
-// The reviewer picks a face. dialogues.actor has been stored per line since
-// 0003 (auto-filled from the film's own cast on save), and movies.cast_json
-// holds the whole billed cast — so the hard, interesting distractors, the other
-// people in this same film, are already on disk. No API call, exactly as the
-// roadmap promised.
+// The reviewer picks a face. dialogues.actor has been stored per line since 0003
+// (auto-filled from the film's own cast on save), and `work_cast` holds the whole
+// cast — so the hard, interesting distractors, the other people in this same
+// film, are already on disk. No API call, exactly as the roadmap promised.
+//
+// THE POOL IS THE MAPPING AND NOT movies.cast_json, and the argument for that is
+// where the pool is loaded (quizPools, review_handlers.go) rather than here,
+// because that is the code the next person will change. In short: the blob was
+// frozen against the unattended bulk fill by 0048, which left this direction
+// reading a column that an approved cast diff no longer updates; and the blob is
+// '[]' for nearly every game, so a typed voice cast — the case the table exists
+// for — could never be a distractor. Both stopped being true when the loader
+// moved, and TestAGamesTypedVoiceCastFeedsTheQuiz (cast_speaker_test.go) is what
+// says so.
 
-import (
-	"encoding/json"
-	"strings"
-
-	"tippani/internal/metadata"
-)
+import "strings"
 
 // speakerMinOptions — fewer than three faces is a coin toss rather than a
 // question, so a card that cannot reach three falls back to another direction.
 // (Which it can now do for free: buildQuestion tries the rest of the table and
 // ends at the flip card, which never fails.)
 const speakerMinOptions = 3
-
-// castActors is the billed cast of one film, in billing order, de-duplicated.
-// Billing order matters: it is roughly "how likely is this person to be the
-// answer somebody is weighing", which makes the top of the list the interesting
-// wrong answers.
-func castActors(castJSON string) []string {
-	if strings.TrimSpace(castJSON) == "" {
-		return nil
-	}
-	var cast []metadata.CastMember
-	if json.Unmarshal([]byte(castJSON), &cast) != nil {
-		return nil
-	}
-	var out []string
-	seen := map[string]bool{}
-	for _, c := range cast {
-		a := strings.TrimSpace(c.Actor)
-		if a == "" || seen[strings.ToLower(a)] {
-			continue
-		}
-		seen[strings.ToLower(a)] = true
-		out = append(out, a)
-	}
-	return out
-}
 
 // attachSpeaker fills a screen card's options with actor names.
 //

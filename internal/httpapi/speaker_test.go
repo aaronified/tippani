@@ -12,36 +12,15 @@ import (
 	"testing"
 )
 
-const castJSON = `[{"character":"Neil","actor":"Robert De Niro"},
-                   {"character":"Vincent","actor":"Al Pacino"},
-                   {"character":"Chris","actor":"Val Kilmer"},
-                   {"character":"Nate","actor":"Jon Voight"},
-                   {"character":"Eady","actor":"Amy Brenneman"}]`
-
-func TestCastActorsReadsBillingOrderOnce(t *testing.T) {
-	got := castActors(castJSON)
-	want := []string{"Robert De Niro", "Al Pacino", "Val Kilmer", "Jon Voight", "Amy Brenneman"}
-	if len(got) != len(want) {
-		t.Fatalf("castActors = %v, want %v", got, want)
-	}
-	for i := range want {
-		if got[i] != want[i] {
-			t.Fatalf("castActors[%d] = %q, want %q (billing order is the point)", i, got[i], want[i])
-		}
-	}
-	// A film with no cast fetched is not an error, just no material.
-	if castActors("") != nil || castActors("not json") != nil {
-		t.Error("a missing or malformed cast should read as no cast, not as a crash")
-	}
-	// One actor billed twice (two roles) appears once.
-	dup := castActors(`[{"actor":"Peter Sellers"},{"actor":"Peter Sellers"},{"actor":"George C. Scott"}]`)
-	if len(dup) != 2 {
-		t.Errorf("a double-billed actor should appear once: %v", dup)
-	}
-}
+// heatCast is one film's pool as quizPools builds it: the actors of `work_cast`
+// in billing order, de-duplicated, tombstones and actorless rows already left
+// out. The loading of it is pinned where it happens (cast_speaker_test.go, against
+// real rows); what these tests are about is what attachSpeaker does with a pool,
+// so they take one directly rather than through a database.
+var heatCast = []string{"Robert De Niro", "Al Pacino", "Val Kilmer", "Jon Voight", "Amy Brenneman"}
 
 func TestSpeakerOptionsAreActorsFromTheSameFilm(t *testing.T) {
-	own := workRef{key: "screen:1", kind: kindScreen, title: "Heat", cast: castActors(castJSON)}
+	own := workRef{key: "screen:1", kind: kindScreen, title: "Heat", cast: heatCast}
 	p := quizPools{byKey: map[string]workRef{"screen:1": own}, works: []workRef{own}}
 	card := reviewCard{Kind: kindScreen, ID: 1, Direction: dirSpeaker,
 		Quote: "Don't let yourself get attached", Title: "Heat", Character: "Neil", Actor: "Robert De Niro"}
@@ -88,7 +67,7 @@ func TestSpeakerOptionsAreActorsFromTheSameFilm(t *testing.T) {
 // producing a degenerate card — which costs nothing now, because buildQuestion
 // tries the rest of the table and ends at the flip card.
 func TestSpeakerRefusesWhatItCannotAsk(t *testing.T) {
-	own := workRef{key: "screen:1", kind: kindScreen, title: "Heat", cast: castActors(castJSON)}
+	own := workRef{key: "screen:1", kind: kindScreen, title: "Heat", cast: heatCast}
 	p := quizPools{byKey: map[string]workRef{"screen:1": own}, works: []workRef{own}}
 
 	noActor := reviewCard{Kind: kindScreen, ID: 1, Direction: dirSpeaker, Title: "Heat"}
