@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A shared proverb now carries its translation.** A proverb is its own language plus what it
+  says, so an image or a copied quote that held only the original was half the quote to anybody
+  who cannot read that language. The translation now sits directly under the words, in the same
+  type family, upright where the original is italic — and it is ticked by default, unlike the
+  note. Untick it and you get the original alone, which is what you want when you are sharing
+  to people who read it.
+
+- **You can give a character your own picture, and it behaves exactly like a fetched one.**
+  Paste a URL and it is stored on your instance and drawn wherever a character is drawn — the
+  same column, the same fallback, nothing downstream able to tell the difference. It also
+  survives every later metadata refetch, which the provider's own URL deliberately does not:
+  a picture you chose is yours, and a re-verify has nothing truer to say about it. This is
+  what makes a character on a game or in a book — where no provider has ever had art —
+  work the same way as one on a film.
+
 - **TheTVDB is now the first place a film or show is looked up, and it brings a picture of each
   character.** TheTVDB's records carry an image PER ROLE — Amanda Waller, not Viola Davis — and
   TMDB has nothing like it at any endpoint: a person there has one profile photo and a role has

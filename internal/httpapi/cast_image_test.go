@@ -144,3 +144,107 @@ func TestAnotherReadersCastImageIsNotFound(t *testing.T) {
 		t.Error("another reader's request reached the fetch")
 	}
 }
+
+// A READER'S OWN PICTURE WORKS THE SAME WAY AS A FETCHED ONE (0050).
+//
+// "The same way" is a claim about four things and each is asserted below: it
+// lands in the same column, it goes through the reader's fetcher rather than the
+// provider allowlist, it REPLACES what a provider supplied, and it survives every
+// later refetch. The last is the one that would rot silently — a refetch takes
+// character_image_url back by design, so if a reader's choice lived in that column
+// the next /metadata/fill would quietly discard it.
+func TestAReaderSuppliedCharacterImageWorksTheSameWayAndSurvivesARefetch(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+	film, withArt, noArt := seedTVDBCast(t, srv, c)
+
+	provider, reader := []string{}, []string{}
+	srv.fetchImage = func(_ context.Context, rawURL, _ string) (string, error) {
+		provider = append(provider, rawURL)
+		return "from-provider.jpg", nil
+	}
+	srv.fetchUserImage = func(_ context.Context, rawURL, _ string) (string, error) {
+		reader = append(reader, rawURL)
+		return "from-reader.jpg", nil
+	}
+
+	// A role the provider has no picture for — the case a reader most wants to fix.
+	got := decode[castRow](t, c.mustDo("POST", "/cast/"+itoa(noArt)+"/image",
+		map[string]any{"image_url": "https://example.test/my-extra.png"}, http.StatusOK))
+	if got.CharacterImagePath != "from-reader.jpg" {
+		t.Fatalf("stored path = %q, want the reader's picture", got.CharacterImagePath)
+	}
+	if len(reader) != 1 || reader[0] != "https://example.test/my-extra.png" {
+		t.Fatalf("reader fetches = %v, want the typed URL once", reader)
+	}
+	if len(provider) != 0 {
+		t.Errorf("a reader's URL went through the provider allowlist: %v", provider)
+	}
+
+	// AND IT REPLACES a provider's picture, because typing a URL is choosing.
+	c.mustDo("POST", "/cast/"+itoa(withArt)+"/image", nil, http.StatusOK) // provider first
+	replaced := decode[castRow](t, c.mustDo("POST", "/cast/"+itoa(withArt)+"/image",
+		map[string]any{"image_url": "https://example.test/better-waller.png"}, http.StatusOK))
+	if replaced.CharacterImagePath != "from-reader.jpg" {
+		t.Fatalf("path = %q, want the reader's choice to replace the provider's",
+			replaced.CharacterImagePath)
+	}
+
+	// NOW REFETCH THE WHOLE TITLE, which is what /metadata/fill does unattended.
+	tx, err := srv.Store.DB.Begin()
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = mergeProviderCast(tx, 1, "movie", film, "tvdb", []metadata.CastMember{
+		{Character: "Amanda Waller", Actor: "Viola Davis",
+			CharacterImageURL: "https://artworks.thetvdb.com/waller-v2.jpg"},
+		{Character: "Uncredited Extra", Actor: "Somebody"},
+	})
+	if err != nil {
+		tx.Rollback()
+		t.Fatal(err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatal(err)
+	}
+
+	after := map[string]castRow{}
+	for _, row := range castOf(t, c, "/movies/"+itoa(film)+"/cast").Cast {
+		after[row.Character] = row
+	}
+	if p := after["Amanda Waller"].CharacterImagePath; p != "from-reader.jpg" {
+		t.Errorf("Waller's stored picture after a refetch = %q, want the reader's — a "+
+			"refetch must not discard a picture somebody chose", p)
+	}
+	if p := after["Uncredited Extra"].CharacterImagePath; p != "from-reader.jpg" {
+		t.Errorf("the extra's stored picture after a refetch = %q, want the reader's", p)
+	}
+	// The provider's URL DID move, so this is not passing because the refetch was
+	// a no-op — the two columns are genuinely independent.
+	if u := after["Amanda Waller"].CharacterImageURL; u != "https://artworks.thetvdb.com/waller-v2.jpg" {
+		t.Errorf("provider URL = %q, want the refetched one; the refetch did not take effect", u)
+	}
+}
+
+// A reader cannot make the SERVER read its own disk. file:// and data: are
+// refused before any fetcher sees them.
+func TestAReaderSuppliedCharacterImageMustBeHTTP(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+	_, withArt, _ := seedTVDBCast(t, srv, c)
+
+	reached := false
+	srv.fetchUserImage = func(context.Context, string, string) (string, error) {
+		reached = true
+		return "x.jpg", nil
+	}
+	for _, bad := range []string{"file:///etc/passwd", "data:image/png;base64,AAA", "ftp://host/x.png"} {
+		c.mustDo("POST", "/cast/"+itoa(withArt)+"/image",
+			map[string]any{"image_url": bad}, http.StatusBadRequest)
+	}
+	if reached {
+		t.Error("a non-http scheme reached the fetcher")
+	}
+}

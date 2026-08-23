@@ -212,6 +212,7 @@ export function movieShare({
 // off by default like every other save-date.
 export function quoteShare({
   quote,
+  translation,
   note,
   speaker,
   occasion,
@@ -226,6 +227,12 @@ export function quoteShare({
 }) {
   return {
     quote: quote || "",
+    // WHAT THE LINE SAYS, not a thought about it — 0035 drew that line between a
+    // translation and a note, and the share keeps it: the translation sits with
+    // the quote, above the credit, where the card puts it. A proverb IS its own
+    // language plus this, so a share of one that carried only the original is
+    // half the quote to anybody who cannot read it.
+    translation: translation || "",
     color: color || "",
     faces: resolveFaces(speaker, people, seps),
     facesFor: "speaker",
@@ -255,6 +262,7 @@ const SHARE_OFF_BY_DEFAULT = new Set(["location", "noted"]);
 function fieldsOf(share) {
   const f = [];
   if (share.quote) f.push({ id: "quote", label: t("share.field.quote.label") });
+  if (share.translation) f.push({ id: "translation", label: t("share.field.translation.label") });
   for (const a of share.attribution || [])
     if (a.value) f.push({ id: a.id, label: a.label });
   for (const m of share.meta || [])
@@ -326,6 +334,9 @@ function hashtag(tag) {
 export function buildShareText(share, selected, fmt) {
   const blocks = [];
   if (selected.quote && share.quote) blocks.push(quoteBlock(share.quote, fmt));
+  // Its own block, straight after the quote: it is the same words in another
+  // language, so it belongs above the credit rather than down with the note.
+  if (selected.translation && share.translation) blocks.push(quoteBlock(share.translation, fmt));
 
   const attr = [];
   for (const a of share.attribution || [])

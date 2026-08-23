@@ -6642,3 +6642,31 @@ There is a second cost, and it is the one that made this concrete. Decisions tak
 **A role with no art is 200, not 404.** Most roles have none even on TheTVDB and every TMDB-sourced row has none by definition; the reply is the row with an empty path and the chip falls back to the actor's headshot, which is what TheTVDB's own site does. A 404 would make "this role has no picture" indistinguishable from "that row is not yours".
 
 <sub>2.2.0 — `internal/store/migrations/0050_character_image_path.sql` · `internal/httpapi/cast_image_handlers.go`</sub>
+
+### A reader's own picture and a fetched one are the same picture
+
+**Decided.** `POST /cast/{id}/image` takes an optional `{"image_url": "..."}`. With a body it fetches that and replaces whatever is stored; without one it fetches the provider's URL only if nothing is stored yet. Both write `character_image_path`, which is the only column anything downstream reads.
+
+**Why one route and not two.** "Fetched and reader-provided should work the same way" is a claim about what happens AFTER the fetch, and the cheapest way to make it true is to leave nothing downstream able to tell the difference: one column, one chip, one fallback. A second endpoint writing a second column would be two of everything and an invitation for the two to diverge — a chip that prefers one, an export that carries the other.
+
+**The reader's picture survives every refetch, and that falls out of 0050 rather than needing a rule.** A stored path is not a provider fact, so 0048's merge never touches it while it goes on replacing `character_image_url` beside it. That asymmetry is the whole design: the provider owns what it said, the reader owns what is on disk, and a re-verify cannot quietly discard a choice somebody made. It is also what lets a character on a game or in a book — where no provider has ever had art — work by the same mechanism as one on a film.
+
+**Two fetchers, and picking the wrong one fails quietly.** `fetchImage` enforces the provider host allowlist, which is right for a URL TheTVDB supplied and wrong for one a reader typed — their picture is wherever they found it, and the allowlist would refuse it with a message about a fetch failure. `fetchUserImage` is the no-allowlist path the person form already uses, with the same size and format checks. Provenance chooses, and it is the one place the two paths differ.
+
+**Scheme-checked before either fetcher sees it.** `file://` and `data:` would be read by the SERVER, from the server's own disk, on behalf of whoever typed the URL.
+
+<sub>2.2.0 — `internal/httpapi/cast_image_handlers.go`</sub>
+
+### A proverb's share carries both texts, and the drawing finally has a test
+
+**Decided.** `translation` is a toggleable share field, ticked by default, drawn directly under the quote in the quote's own family — upright where the original is italic, unquoted because the marks upstairs already opened and closed.
+
+**Why with the quote and not with the note.** 0035 drew that line when it added the column: a note is a thought ABOUT the line and a translation is what the line SAYS. So it belongs above the credit, where the proverb card already puts it, and the image and the card cannot disagree about what a proverb is.
+
+**Ticked by default, unlike the note and the page number.** Those are factual noise to a reader; a proverb without its translation is half the quote to anybody who cannot read the language. Untick it and the original stands alone, which is what somebody sharing to readers of that language wants.
+
+**The draw path had no test at all — for any field.** `buildModel` was covered and `drawQuoteCard` was not, so a field could arrive in the model, pass every test in the file, and be absent from the picture. The exhaustive `toEqual` over the whole model existed because the portrait flag had already done exactly that once. This adds a recording canvas — a Proxy that answers whatever the drawing asks of a 2D context and records only `fillText` — so the claim "it is in the image" is now checkable. Verified by disabling the block: the assertion fails naming the missing translation.
+
+**The recorded text is word-by-word**, because the flow engine draws each word separately, so the assertions compare with whitespace removed. A test that expected whole sentences would have failed against correct output.
+
+<sub>2.2.0 — `web/frontend/src/share.jsx` · `web/frontend/src/quoteImage.js` · `web/frontend/test/pure/quote-image.test.js`</sub>

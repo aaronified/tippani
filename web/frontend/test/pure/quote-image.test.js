@@ -12,7 +12,7 @@
 // selection of every field, rather than spot-checked.
 
 import { describe, expect, it } from 'vitest'
-import { buildModel, facesOnAttribution, flowRuns, hexToRgba } from '../../src/quoteImage.js'
+import { buildModel, drawQuoteCard, facesOnAttribution, flowRuns, hexToRgba, readTheme } from '../../src/quoteImage.js'
 import { bookShare, buildShareText, movieShare, quoteShare } from '../../src/share.jsx'
 
 // ---- fixtures ----------------------------------------------------------
@@ -200,6 +200,21 @@ describe('buildModel selection', () => {
     expect(model.note).toBe('')
   })
 
+  // A PROVERB IS TWO TEXTS. The original carries the language and the
+  // translation carries the sense, so a share of one that dropped either is half
+  // the quote — and the toggle has to work in both directions, because somebody
+  // sharing to readers of that language wants the original alone.
+  it('carries a translation, and drops it when unticked', () => {
+    const share = { quote: 'যেমন কর্ম তেমন ফল', translation: 'As the deed, so the fruit' }
+    expect(buildModel(share, ALL, null).translation).toBe('As the deed, so the fruit')
+    // ALL is a Proxy with no own keys, so it cannot be spread — everything-but
+    // has to be another Proxy, or the untick test silently unticks the lot.
+    const allBut = (id) => new Proxy({}, { get: (_t, k) => k !== id })
+    expect(buildModel(share, allBut('translation'), null).translation).toBe('')
+    // The original is untouched by the translation's own toggle.
+    expect(buildModel(share, allBut('translation'), null).quote).toBe('যেমন কর্ম তেমন ফল')
+  })
+
   it('survives a payload with no arrays at all', () => {
     // Exhaustive on purpose: toEqual over the WHOLE model, so a field added to
     // buildModel and forgotten everywhere else fails here rather than being
@@ -207,6 +222,7 @@ describe('buildModel selection', () => {
     // portrait flag below arrived and this is the test that noticed.
     expect(buildModel({}, ALL, null)).toEqual({
       quote: '',
+      translation: '',
       attribution: [],
       meta: [],
       tags: [],
@@ -600,5 +616,79 @@ describe('facesOnAttribution', () => {
     expect(facesOnAttribution(null)).toBe(true)
     expect(facesOnAttribution(undefined)).toBe(true)
     expect(facesOnAttribution('narrator')).toBe(false)
+  })
+})
+
+// ---- the draw path -------------------------------------------------------
+//
+// buildModel is where a field arrives and drawQuoteCard is where it becomes
+// visible, and until now nothing exercised the second half — so a field could sit
+// in the model, pass every test in this file, and be absent from the picture. The
+// portrait flag earned the exhaustive toEqual above for exactly that reason; this
+// is the other half of it.
+//
+// A PROXY RATHER THAN A HAND-WRITTEN STUB. drawQuoteCard touches a lot of the 2D
+// API and the list will grow; a Proxy answers whatever it asks for and records
+// only what matters here, so this harness does not need editing every time the
+// drawing gains a gradient or a clip.
+function recordingCanvas() {
+  const drawn = []
+  const chainable = { addColorStop() {} }
+  const ctx = new Proxy(
+    { drawn },
+    {
+      get(target, key) {
+        if (key === 'drawn') return drawn
+        if (key === 'canvas') return { width: 1000, height: 1000 }
+        if (key === 'measureText') return (s) => ({ width: String(s).length * 7 })
+        if (key === 'fillText') return (s) => drawn.push(String(s))
+        if (key === 'createLinearGradient' || key === 'createRadialGradient') return () => chainable
+        if (key === 'getImageData') return () => ({ data: new Uint8ClampedArray(4) })
+        if (key in target) return target[key]
+        return () => undefined // every other ctx call is a no-op
+      },
+      set(target, key, value) {
+        target[key] = value
+        return true
+      },
+    },
+  )
+  return { getContext: () => ctx, width: 0, height: 0, style: {}, drawn }
+}
+
+describe('drawQuoteCard', () => {
+  const theme = readTheme()
+  // The flow engine draws WORD BY WORD, and the quote arrives wrapped in
+  // typographic quotes, so the recorded calls are fragments rather than
+  // sentences. Comparing with the whitespace removed asks the only question this
+  // test has: did those glyphs reach the canvas at all.
+  const flat = (s) => s.replace(/\s+/g, '')
+
+  it('draws a proverb and its translation as two separate texts', () => {
+    const canvas = recordingCanvas()
+    const model = buildModel(
+      { quote: 'যেমন কর্ম তেমন ফল', translation: 'As the deed, so the fruit' },
+      ALL,
+      null,
+    )
+    drawQuoteCard(canvas, model, theme)
+    const text = flat(canvas.drawn.join(''))
+    // The original, and the translation, and NOT one standing in for the other.
+    expect(text).toContain(flat('যেমন কর্ম তেমন ফল'))
+    expect(text).toContain(flat('As the deed, so the fruit'))
+  })
+
+  it('omits the translation when it is unticked', () => {
+    const canvas = recordingCanvas()
+    const allBut = (id) => new Proxy({}, { get: (_t, k) => k !== id })
+    const model = buildModel(
+      { quote: 'যেমন কর্ম তেমন ফল', translation: 'As the deed, so the fruit' },
+      allBut('translation'),
+      null,
+    )
+    drawQuoteCard(canvas, model, theme)
+    const text = flat(canvas.drawn.join(''))
+    expect(text).toContain(flat('যেমন কর্ম তেমন ফল'))
+    expect(text).not.toContain(flat('As the deed, so the fruit'))
   })
 })

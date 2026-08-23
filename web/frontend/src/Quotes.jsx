@@ -739,6 +739,7 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
   const sharePayload = (u) =>
     quoteShare({
       quote: u.quote,
+      translation: u.translation,
       note: u.note,
       speaker: u.speaker,
       occasion: u.occasion,

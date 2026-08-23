@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"net/http"
+	"strings"
 
 	"tippani/internal/olog"
 )
@@ -38,6 +39,22 @@ import (
 // the row with an empty path, and the client falls back to the actor's headshot —
 // which is what TheTVDB's own site does. A 404 here would make "this role has no
 // picture" indistinguishable from "that row is not yours".
+//
+// A READER'S OWN PICTURE COMES THROUGH THIS SAME ROUTE, and that is the point of
+// the optional body rather than a second endpoint. Send {"image_url": "..."} and
+// those bytes are fetched and stored in the same column, so nothing downstream can
+// tell a reader's choice from a provider's: one chip, one fallback, one field to
+// read. A role a provider has never heard of — a reader-authored cast row on a
+// game, or a book's character — gets a picture by exactly the mechanism TheTVDB's
+// rows do.
+//
+// TWO DIFFERENCES, BOTH DELIBERATE. A body REPLACES an existing picture, where the
+// no-body call declines to: the empty call is a chip saying "make sure this is
+// local", and a reader typing a URL is somebody choosing. And what they choose
+// survives every later refetch for free, because a stored path is not a provider
+// fact — 0049's merge takes back `character_image_url` and never touches the path
+// beside it. That asymmetry is what makes "fetched and reader-provided work the
+// same way" true after the second fetch as well as the first.
 func (s *Server) handleCastImage(w http.ResponseWriter, r *http.Request) {
 	castID, ok := pathID(r)
 	if !ok {
@@ -45,6 +62,17 @@ func (s *Server) handleCastImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	uid := userID(r)
+
+	// An absent body is the ordinary "make this local if it is not already" call,
+	// so a decode failure must not be fatal: the chips send no body at all.
+	var req castImageReq
+	if r.ContentLength > 0 && !decodeBody(w, r, &req) {
+		return
+	}
+	if msg := req.validate(); msg != "" {
+		writeErr(w, http.StatusBadRequest, msg)
+		return
+	}
 
 	// Ownership first, and a row belonging to somebody else is a 404 rather than a
 	// 403 — the per-user rule this whole API follows, so one reader cannot learn
@@ -77,14 +105,28 @@ func (s *Server) handleCastImage(w http.ResponseWriter, r *http.Request) {
 		internalError(w, r, "load character image", err)
 		return
 	}
-	if stored != "" || srcURL == "" {
+	if req.ImageURL != "" {
+		// The reader chose this one. It replaces whatever is there, provider or not.
+		srcURL = req.ImageURL
+	} else if stored != "" || srcURL == "" {
 		// Already ours, or the provider never had one. Either way there is nothing
 		// to fetch and the answer is the row as it stands.
 		s.writeCastRow(w, r, castID, uid)
 		return
 	}
 
-	name, ferr := s.fetchImage(r.Context(), srcURL, s.coversDir())
+	// TWO FETCHERS, AND PICKING THE WRONG ONE BREAKS THE FEATURE QUIETLY.
+	// fetchImage enforces the provider host allowlist (metadata.coverHosts), which
+	// is right for a URL TheTVDB supplied and wrong for one a reader typed — their
+	// picture is wherever they found it, and an allowlist would refuse it with a
+	// message about a fetch failure. fetchUserImage is the no-allowlist path the
+	// person form already uses for exactly this, with the same size and format
+	// checks. So provenance chooses, and this is the one place the two paths differ.
+	fetch := s.fetchImage
+	if req.ImageURL != "" {
+		fetch = s.fetchUserImage
+	}
+	name, ferr := fetch(r.Context(), srcURL, s.coversDir())
 	if ferr != nil {
 		// The reader loses a picture, not a page: the chip falls back to the
 		// actor's headshot and the row keeps its provider URL for the next attempt.
@@ -103,6 +145,40 @@ func (s *Server) handleCastImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.writeCastRow(w, r, castID, uid)
+}
+
+// castImageReq is the optional body: a picture the reader has chosen for this
+// role, given as a URL the way a person's portrait is given one.
+//
+// A URL AND NOT AN UPLOAD, to match how every other image a reader supplies here
+// arrives — the person form takes `image_url` and the server fetches it — so the
+// fetch, the size cap and the format check are one code path for provider art and
+// reader art alike. That shared path is most of what "work the exact same way"
+// means in practice.
+type castImageReq struct {
+	ImageURL string `json:"image_url"`
+}
+
+// maxCastImageURL is the practical ceiling browsers and proxies agree on for a
+// URL. A cap rather than no cap because this string is stored nowhere but is
+// handed to a fetcher, and an unbounded one is a pointless thing to accept.
+const maxCastImageURL = 2048
+
+func (q *castImageReq) validate() string {
+	q.ImageURL = strings.TrimSpace(q.ImageURL)
+	if q.ImageURL == "" {
+		return ""
+	}
+	if len(q.ImageURL) > maxCastImageURL {
+		return "that image address is too long"
+	}
+	// http(s) only, and named rather than left to the fetcher: a file:// or data:
+	// URL would be read by the SERVER, from the server's own disk, on behalf of
+	// whoever typed it.
+	if !strings.HasPrefix(q.ImageURL, "http://") && !strings.HasPrefix(q.ImageURL, "https://") {
+		return "an image address must start with http:// or https://"
+	}
+	return ""
 }
 
 // writeCastRow replies with one cast row by id, in the shape every other cast

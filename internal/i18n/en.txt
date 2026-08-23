@@ -2397,6 +2397,10 @@ share.field.place.label = Place
 share.field.medium.label = Medium
 share.field.tags.label = Tags
 share.field.note.label = Note
+# A proverb's English translation. Ticked by default, unlike the note: a proverb
+# IS its own language plus what it says, so a share carrying only the original is
+# half the quote to anybody who cannot read it.
+share.field.translation.label = Translation
 
 # THE CREDIT PHRASES THEMSELVES — these go into the text somebody else reads.
 share.credit.chapter.phrase = Ch. {n}

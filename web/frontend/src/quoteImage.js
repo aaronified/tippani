@@ -41,6 +41,13 @@ function buildFonts() {
   const code = `"${mono}", ui-monospace, monospace`
   return {
     quote: `italic 400 27px ${serif}`,
+    // The translation: the quote's face, upright and two sizes down. Upright
+    // because the italic is what marks the ORIGINAL as the quotation, and two
+    // lines of italic in a row stop distinguishing anything. The Bengali and
+    // Devanagari families are in `serif` already, so a Bengali proverb and its
+    // English translation are set by the same stack in either direction — which
+    // is the whole point of a translation pair rendering as one card.
+    translation: `400 21px ${serif}`,
     attrBold: `600 15px ${serif}`,
     attrItalic: `italic 400 15px ${serif}`,
     attrPlain: `400 15px ${serif}`,
@@ -424,6 +431,7 @@ function fadedPortrait(img, w, h, dir, tint) {
 // or as the hue of the portrait on a backdrop card. See hasBar.
 export function buildModel(share, selected, colorHex) {
   const quote = selected.quote && share.quote ? share.quote : ''
+  const translation = selected.translation && share.translation ? share.translation : ''
   const attribution = (share.attribution || [])
     .filter((a) => selected[a.id] && a.value)
     .map((a) => ({ text: a.value, emphasis: a.emphasis }))
@@ -447,7 +455,7 @@ export function buildModel(share, selected, colorHex) {
   // the credit drops the backdrop with the discs. There is no portrait without
   // an attribution.
   return {
-    quote, attribution, meta, tags, note, faces,
+    quote, translation, attribution, meta, tags, note, faces,
     facesFor: share.facesFor || null,
     colorHex: colorHex || null,
     portrait: !!share.portrait && faces.length > 0,
@@ -456,6 +464,9 @@ export function buildModel(share, selected, colorHex) {
 
 // Line heights + tag metrics, shared by the measure and draw phases.
 const QLH = 38, ALH = 23, MLH = 19, NLH = 28
+// The translation's line height. Between the quote's and the attribution's,
+// because it is the quote said again rather than a credit about it.
+const TLH = 28
 const TAG_H = 24, TAG_PADX = 10, TAG_GAP = 7
 const FOOTER_H = 34 // hairline + the mark/credit block
 const MARK_SIZE = 20 // the logo's box in the footer
@@ -535,6 +546,17 @@ export function drawQuoteCard(canvas, model, theme) {
     const lines = flowRuns(ctx, [{ text: `“${model.quote}”`, font: FONTS.quote }], innerW)
     quoteH = lines.length * QLH
     push({ kind: 'text', lines, lh: QLH, color: theme.ink, gap: 0, height: quoteH })
+  }
+  // The translation, in the quote's own voice one size down: the same words in
+  // another language are still the quote, so they are set as prose rather than
+  // dropped into the mono meta strip. Unquoted, because the quotation marks
+  // upstairs already opened and closed — a second pair reads as a second quote.
+  //
+  // ABOVE THE CREDIT AND BELOW THE QUOTE, which is where the proverb card puts
+  // it, so the image and the card cannot disagree about what a proverb is.
+  if (model.translation) {
+    const lines = flowRuns(ctx, [{ text: model.translation, font: FONTS.translation }], innerW)
+    push({ kind: 'text', lines, lh: TLH, color: theme.soft, gap: 12, height: lines.length * TLH })
   }
   // Credit faces hang inline to the LEFT of the name they belong to (the
   // attribution line for an author, the meta line for an actor): the block that
