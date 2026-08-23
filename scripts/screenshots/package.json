@@ -1,0 +1,13 @@
+{
+  "name": "tippani-screenshots",
+  "private": true,
+  "type": "module",
+  "description": "Puppeteer scaffold that captures a screenshot of every screen of the Tippani app. Isolated from web/frontend's own manifest and lockfile on purpose.",
+  "scripts": {
+    "capture": "node capture.mjs",
+    "capture:with-server": "bash run-with-server.sh"
+  },
+  "dependencies": {
+    "puppeteer-core": "^25.8.0"
+  }
+}
