@@ -195,3 +195,85 @@ func TestMovieLookupPinsTVDBID(t *testing.T) {
 		t.Fatalf("pinned series: %+v", p)
 	}
 }
+
+// THETVDB LEADS THE PICKER (2.2.0), and this is the whole of what "the default
+// film/show source" means.
+//
+// Both suppliers are still consulted and every hit is still offered; what changed
+// is the order they arrive in. It matters because a reader taking the first
+// sensible-looking match is how a title gets pinned, and the record they end up
+// pinned to decides whether the app can ever show a character in costume — a
+// TheTVDB character record carries an image per role and TMDB has none at any
+// endpoint.
+//
+// Asserted BY ORDER rather than by presence, because presence was already true
+// before the change and a test that only checks both are there would have passed
+// under the old order too.
+func TestTheTVDBLeadsThePickerAndTMDBFollows(t *testing.T) {
+	srv := newTestServer(t)
+
+	tmdbFake := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/search/movie" {
+			_, _ = w.Write([]byte(`{"results":[{"id":297761,"title":"Suicide Squad","release_date":"2016-08-05"}]}`))
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer tmdbFake.Close()
+	srv.TMDB.Key = "testkey"
+	srv.TMDB.BaseURL = tmdbFake.URL
+
+	tvdbFake := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/login":
+			_, _ = w.Write([]byte(`{"data":{"token":"tok"}}`))
+		case "/search":
+			_, _ = w.Write([]byte(`{"data":[{"tvdb_id":"297","name":"Suicide Squad","year":"2016","type":"movie"}]}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer tvdbFake.Close()
+	srv.TVDB = &metadata.TVDB{Key: "testkey", BaseURL: tvdbFake.URL}
+
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	got := decode[lookupResp](t, c.mustDo("POST", "/movies/lookup",
+		map[string]any{"title": "Suicide Squad"}, 200))
+	if len(got.Candidates) != 2 {
+		t.Fatalf("both suppliers should still be consulted: %+v", got.Candidates)
+	}
+	if got.Candidates[0].Source != "tvdb" {
+		t.Errorf("first candidate came from %q, want tvdb — TheTVDB is the default source",
+			got.Candidates[0].Source)
+	}
+	if got.Candidates[1].Source != "tmdb" {
+		t.Errorf("second candidate came from %q, want tmdb — the fallback is still offered",
+			got.Candidates[1].Source)
+	}
+}
+
+// WITH NEITHER KEY, THE MESSAGE NAMES THE DEFAULT. It used to name TMDB, which
+// since 2.2.0 sends somebody to configure the fallback instead of the default —
+// a wrong turn the app itself caused.
+func TestNoFilmSourceConfiguredNamesTheTVDBFirst(t *testing.T) {
+	srv := newTestServer(t)
+	srv.TMDB.Key = ""
+	srv.TVDB = nil
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	res := c.mustDo("POST", "/movies/lookup", map[string]any{"title": "Suicide Squad"},
+		http.StatusServiceUnavailable)
+	body := res.Body.String()
+	if !strings.Contains(body, "TheTVDB") {
+		t.Errorf("message does not mention TheTVDB: %s", body)
+	}
+	if !strings.Contains(body, "TMDB") {
+		t.Errorf("message should still offer TMDB as the alternative: %s", body)
+	}
+	if strings.Index(body, "TheTVDB") > strings.Index(body, "TMDB") {
+		t.Errorf("TMDB is named before TheTVDB, so the reader is sent to the fallback: %s", body)
+	}
+}

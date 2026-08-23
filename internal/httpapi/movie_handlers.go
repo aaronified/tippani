@@ -18,6 +18,13 @@ import (
 const tmdbKeyMissing = "TMDB API key not configured (add one in Settings)"
 const tvdbKeyMissing = "TheTVDB API key not configured (set TIPPANI_TVDB_API_KEY or save a key in Settings)"
 
+// movieKeysMissing is for the case where NEITHER film/show supplier is
+// configured, and it names TheTVDB first because that is the default source
+// since 2.2.0. The two above answer "the supplier you asked for has no key"; this
+// one answers "you have asked for a lookup and there is nothing to look in", so
+// it has to say where to start rather than which of two named suppliers failed.
+const movieKeysMissing = "No film/show source is configured — add a TheTVDB key (the default) or a TMDB key in Settings → Metadata sources"
+
 // igdbKeyMissing names BOTH halves, because the commonest failure is having
 // saved one of them: a client id with no secret is indistinguishable from no key
 // at all, and "IGDB key not configured" would send you looking at the field you

@@ -150,7 +150,12 @@ func (s *Server) handleMovieLookup(w http.ResponseWriter, r *http.Request) {
 	tmdb, _ := s.resolveTMDB()
 	tvdb, _ := s.resolveTVDB()
 	if tmdb == nil && tvdb == nil {
-		writeErr(w, http.StatusServiceUnavailable, tmdbKeyMissing)
+		// NEITHER supplier is configured, so the message names the one to
+		// configure first — which since 2.2.0 is TheTVDB. It was tmdbKeyMissing,
+		// and sending somebody to add a TMDB key when the default source is the
+		// other one is a wrong turn the app itself caused. Both still work, and
+		// the message says so.
+		writeErr(w, http.StatusServiceUnavailable, movieKeysMissing)
 		return
 	}
 
@@ -171,11 +176,30 @@ func (s *Server) handleMovieLookup(w http.ResponseWriter, r *http.Request) {
 		}
 		cands = append(cands, d.Candidate())
 	}
-	if req.TMDBID > 0 && tmdb != nil {
-		pin("tmdb", strconv.FormatInt(req.TMDBID, 10))
-	}
+	// THETVDB FIRST, HERE AND IN THE SEARCH BELOW, and the order is the whole of
+	// what "the default source" means for a film or a show.
+	//
+	// It buys one thing TMDB cannot supply at any endpoint: an image PER ROLE.
+	// TheTVDB's character record carries the character in costume beside the
+	// actor's headshot, so a cast row seeded from it can show Amanda Waller rather
+	// than Viola Davis. TMDB has a profile image per person and nothing per role.
+	//
+	// Nothing here is exclusive — both suppliers are still consulted and both sets
+	// of hits are offered — so "default" is about which record is at the top of
+	// the picker when a reader takes the first sensible-looking one, and which
+	// record a title therefore ends up pinned to. Neither provider becoming
+	// unreachable changes the other's behaviour: the partial-failure handling
+	// below is unchanged.
+	//
+	// A request carrying BOTH ids is ordered the same way, deliberately. It means
+	// the reader has already identified the title in both databases, and the
+	// question this order answers is which of the two records the app should
+	// prefer — the one with the character art.
 	if req.TVDBID > 0 && tvdb != nil {
 		pin("tvdb", strconv.FormatInt(req.TVDBID, 10))
+	}
+	if req.TMDBID > 0 && tmdb != nil {
+		pin("tmdb", strconv.FormatInt(req.TMDBID, 10))
 	}
 	// A pinned record would otherwise appear twice — once by id, once as its own
 	// search hit — and the duplicate reads as two different matches.
@@ -194,6 +218,13 @@ func (s *Server) handleMovieLookup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var firstErr error
+	if tvdb != nil && req.Title != "" {
+		if c, err := tvdb.Search(r.Context(), req.Title, req.Year, mediaType); err != nil {
+			firstErr = err
+		} else {
+			add(c)
+		}
+	}
 	if tmdb != nil && req.Title != "" {
 		var c []metadata.MovieCandidate
 		var err error
@@ -203,13 +234,6 @@ func (s *Server) handleMovieLookup(w http.ResponseWriter, r *http.Request) {
 			c, err = tmdb.Search(r.Context(), req.Title, req.Year)
 		}
 		if err != nil {
-			firstErr = err
-		} else {
-			add(c)
-		}
-	}
-	if tvdb != nil && req.Title != "" {
-		if c, err := tvdb.Search(r.Context(), req.Title, req.Year, mediaType); err != nil {
 			if firstErr == nil {
 				firstErr = err
 			}

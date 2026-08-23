@@ -236,11 +236,28 @@ func (s *Store) Recover() error {
 	olog.Alertf("[recover] rebuilding database from intact content into %s", tmp)
 
 	// Which tables to copy: real tables only — skip the fts virtual tables and
-	// their %_fts_* shadow tables (rebuilt by triggers), sqlite internals, and
-	// schema_version (the fresh migrate writes its own).
+	// their %_fts_* shadow tables (rebuilt by triggers), sqlite internals, and the
+	// two bookkeeping tables the fresh migrate writes for itself.
+	//
+	// one_time_passes is excluded for schema_version's exact reason and it is not
+	// optional: the temp file is MIGRATED before anything is copied into it, and
+	// that migrate runs the one-time passes and records every one. Copying the
+	// source's rows on top then collides with the primary key and fails the whole
+	// recovery — which is how this line came to be written, with three store tests
+	// red.
+	//
+	// WHAT IT COSTS, precisely: the temp file's migrate sees an empty database, so
+	// it runs each pass as a fresh install — which is to say it runs none of them
+	// and records them all. A pass that had NOT yet run on the corrupt database is
+	// therefore marked as applied without having done its work. That is a real but
+	// narrow loss (it needs corruption and a pending upgrade in the same boot),
+	// and the reader-visible half survives anyway: what a pass WRITES lands in an
+	// ordinary table — `settings` for the 2.2.0 notice — and ordinary tables are
+	// exactly what this function copies.
 	rows, err := s.DB.Query(`SELECT name FROM sqlite_master WHERE type='table'
 		AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '%\_fts' ESCAPE '\'
-		AND name NOT LIKE '%\_fts\_%' ESCAPE '\' AND name != 'schema_version'
+		AND name NOT LIKE '%\_fts\_%' ESCAPE '\'
+		AND name NOT IN ('schema_version', 'one_time_passes')
 		ORDER BY name`)
 	if err != nil {
 		return fmt.Errorf("list tables: %w", err)

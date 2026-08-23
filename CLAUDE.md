@@ -66,6 +66,11 @@ running (`dockerd &` if not already up in this environment).
 - Imports land in a staging queue (`internal/httpapi/import_staging.go`) and are approved
   out of it — an import never writes straight to the library.
 - Shipped migrations are forward-only and never edited.
+- A one-time upgrade — something that must happen once, on a database that already
+  existed, because a release changed what something means — is neither a migration nor a
+  boot repair. It goes in its own `internal/store/onetime_<version>_<what>.go`, named for
+  the release it first ships in, registering itself from `init()` so retiring it later is
+  a file deletion and nothing else. See `internal/store/onetime.go`.
 - No goroutine outlives its request — no worker pool, ticker, or scheduler; adding one is
   a design discussion first.
 

@@ -19,6 +19,7 @@ import (
 
 	"tippani/internal/metadata"
 	"tippani/internal/olog"
+	"tippani/internal/store"
 )
 
 // lowResCoverWidth is the replace threshold for stored art: anything narrower
@@ -151,14 +152,60 @@ func (s *Server) handleMetadataStatus(w http.ResponseWriter, r *http.Request) {
 		lookup["ok"], lookup["error"], lookup["checked_at"] = rec.OK, rec.Error, rec.CheckedAt
 	}
 	_, igdbSource := s.resolveIGDB()
-	writeJSON(w, http.StatusOK, map[string]any{
+	out := map[string]any{
 		"tmdb":         map[string]string{"source": source},
 		"tvdb":         map[string]string{"source": tvdbSource},
 		"igdb":         map[string]string{"source": igdbSource},
 		"igdb_key_set": igdbSource != "none",
 		"google_books": map[string]bool{"key_set": gkey != ""},
 		"books_lookup": lookup,
-	})
+	}
+	if n := s.filmSourceNotice(userID(r)); n != nil {
+		out["film_source_notice"] = n
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+// filmSourceNotice answers "does this reader need telling that the default film
+// source moved, and is it still about anything?" — nil when either half is no.
+//
+// TWO FACTS, AND BOTH ARE REQUIRED. The marker in `settings` is an INSTANCE fact
+// written once by the 2.2.0 one-time pass (store/onetime_2_2_0_tvdb_default.go):
+// this database existed before the default moved. Without it, a library where
+// somebody has deliberately pinned things to TMDB since would be nagged about a
+// change they never lived through. The count is a PER-USER fact and it is what
+// makes the notice self-clearing: it is the number of that reader's films and
+// shows still pinned to TMDB alone, so re-verifying the last one ends the notice
+// with nothing to dismiss and no dismissal to store.
+//
+// Scoped by user_id like every other query here, which also means one reader
+// finishing their library does not silence the notice for anybody else.
+//
+// A FAILURE IS NOT AN ERROR FOR THE CALLER. This is one advisory line on a
+// settings card; failing the whole status response over it would take the page
+// with it. The read is logged and the notice omitted.
+func (s *Server) filmSourceNotice(uid int64) map[string]any {
+	since, err := s.Store.GetSetting(store.SettingFilmSourceNotice)
+	if err != nil || since == "" {
+		if err != nil {
+			olog.Warnf(olog.CodeStoreOneTimePass,
+				"[meta] film-source notice marker unreadable: %v", err)
+		}
+		return nil
+	}
+	var pinned int
+	if err := s.Store.DB.QueryRow(
+		`SELECT COUNT(*) FROM movies
+		 WHERE user_id = ? AND tmdb_id IS NOT NULL AND tvdb_id IS NULL`, uid,
+	).Scan(&pinned); err != nil {
+		olog.Warnf(olog.CodeStoreOneTimePass,
+			"[meta] film-source notice count failed: %v", err)
+		return nil
+	}
+	if pinned == 0 {
+		return nil
+	}
+	return map[string]any{"since": since, "tmdb_pinned": pinned}
 }
 
 // handleGetMetadataKeys (admin): booleans only for secrets — stored keys and

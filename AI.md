@@ -210,6 +210,16 @@ worth nothing here and only execution counts. What the repo actually runs:
   every way it can break is silent: a greeting rendering `{name}` literally, a
   commemoration wishing you a happy one, or a country resolving to its neighbour's
   time zone. None of those throw, and none of them fail a build.
+- **Two guards added in 2.2.0 were each watched to fail before being kept**, which
+  is the same standard the rest of this list is held to and is worth naming because
+  both protect something invisible. `CASE WHEN ? <> ''` in the cast merge is what
+  stops a TMDB refetch blanking the character art a TheTVDB fetch found — replaced
+  with plain assignment, the test reports both an untouched and a corrected row
+  losing it. And `OneTimeEnv.FreshInstall`, which stops a new install being told
+  about a change it never lived through, needed a SECOND test: on a genuinely
+  fresh database the pass writes nothing whether the guard is there or not, so
+  inverting the guard left the obvious test green and only a direct call with a
+  populated database caught it.
 - **The committed SPA is checked against the sources it was built from**, by
   `web/dist_inputs_test.go` against the hashes in `web/dist-inputs.json` that
   `npm run build` writes. This one is here because the guard it backs up was

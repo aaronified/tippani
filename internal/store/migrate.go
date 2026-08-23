@@ -115,5 +115,21 @@ func (s *Store) Migrate() error {
 	if err := s.BackfillDialogueHashes(); err != nil {
 		return err
 	}
-	return s.BackfillCastKeys()
+	if err := s.BackfillCastKeys(); err != nil {
+		return err
+	}
+
+	// And the third kind: the upgrades that happen ONCE, on a database that
+	// already existed, because something's meaning changed in a particular
+	// release. Neither a schema change nor a repair — see onetime.go, which also
+	// explains why nothing here names them: each pass registers itself, so
+	// retiring one is a file deletion and this line never changes.
+	//
+	// `current` is the version read BEFORE anything was applied, so 0 means this
+	// call created the database. A pass that exists to tell an upgrader something
+	// has no upgrader to tell on a fresh install, and needs to know the difference.
+	return s.runOneTimePasses(OneTimeEnv{
+		FreshInstall:        current == 0,
+		SchemaVersionBefore: current,
+	})
 }

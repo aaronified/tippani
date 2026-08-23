@@ -4644,13 +4644,19 @@ settings.prompt.close.tip = Cancel and close
 # THE METADATA CARD — the status chips, and the key fields under them.
 # ---------------------------------------------------------------------------
 settings.metadata.title = Metadata sources
-settings.metadata.info.body = Books need no key: Google Books and Open Library, merged. Films run on TMDB unless this build ships one (TheTVDB optional), games on an IGDB pair with no built-in behind it. Each field saves on its own, and manual entry always works.
-# Two chips, and only where a key field cannot answer: that lookups are failing,
-# that they are running on the shared built-in key, or on nothing at all.
+settings.metadata.info.body = Books need no key: Google Books and Open Library, merged. Films and shows try TheTVDB first, then TMDB; games run on an IGDB pair with no built-in behind it. Each field saves on its own, and manual entry always works.
+# Three chips, and only where a key field cannot answer: that lookups are
+# failing, that they are running on the shared built-in key or on nothing at
+# all, and that titles are still pinned to the source that used to be default.
 settings.metadata.books.failing.label = Lookup failing
 settings.metadata.tmdb.builtin.label = Built-in key
 settings.metadata.tmdb.none.label = No key
 settings.metadata.last-error.prose = last error: {error}
+# Shown only on an instance that existed before 2.2.0 moved the default film
+# source to TheTVDB, and only while that reader still has titles pinned to TMDB
+# alone — so it clears itself rather than needing a dismiss button.
+settings.metadata.filmsource.moved.label = {n} still on TMDB
+settings.metadata.filmsource.moved.prose = TheTVDB is the default for films and shows now. Re-verify one and its cast gains a picture per character; nothing changes until you do.
 # Half an IGDB pair fails at the Twitch token exchange, which arrives as a
 # lookup failure — so the missing half is named. {half} is one of the nouns
 # below, not a sentence.

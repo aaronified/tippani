@@ -9,6 +9,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **TheTVDB is now the first place a film or show is looked up, and it brings a picture of each
+  character.** TheTVDB's records carry an image PER ROLE — Amanda Waller, not Viola Davis — and
+  TMDB has nothing like it at any endpoint: a person there has one profile photo and a role has
+  none. So the cast of a title fetched from TheTVDB now stores two pictures per credit, the actor
+  and the character, kept apart rather than one overwriting the other. Putting the costume on the
+  actor's identity would have shown them as somebody else on every other title they appear in.
+
+  TMDB has not gone anywhere. Both sources are still searched, both sets of results are still
+  offered, and every title you have already saved keeps the source it was pinned to — a pin is a
+  decision, and a release is not entitled to overrule it. What changed is the order: TheTVDB's
+  match is at the top of the picker now, so that is what a title newly added tends to be pinned
+  to.
+
+  **If you were already running Tippani, nothing about your library changes on upgrade.** The
+  titles pinned to TMDB go on fetching from TMDB and will not have character art until you
+  re-verify one. Settings → Metadata sources says how many are in that state, and stops saying it
+  once you have worked through them. A brand-new install never sees that notice, because it has
+  never had another default.
+
+  Roles often have no image of their own even on TheTVDB, and there the actor's headshot is used
+  instead — which is what TheTVDB's own site does.
+
 - **Every book, film, show and game now owns a list of characters, and you can edit it.** Until
   now a film's cast was a blob of provider JSON with no edit surface anywhere in the app: a minor
   role the provider got wrong stayed wrong for ever, and a game had no cast at all — voice credits

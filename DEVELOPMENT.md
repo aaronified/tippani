@@ -217,6 +217,8 @@ The route groups themselves, so you can find the noun you want:
 | `store.go` | Opens the connection with this project's pragmas and pool settings. |
 | `migrate.go` | The migration runner. Applies embedded `migrations/*.sql` newer than the recorded schema version, one transaction each, and **refuses to open a database from a newer build**. |
 | `migrations/` | Numbered, embedded, append-only SQL. `NNNN_what_it_does.sql`. Never edit one that has shipped. |
+| `onetime.go` | The registry for **one-time upgrade passes** — the third kind of change, neither a schema migration nor a boot repair. Each pass registers itself from its own file's `init()`, runs once per database, and records itself in `one_time_passes`. |
+| `onetime_<version>_<what>.go` | One such pass, named for the release it first ships in. Retiring it is a file deletion: nothing else names it. |
 | `hash.go` | **The dedupe rules** for all three quote kinds, and the text normalisation — punctuation folding, case, whitespace — that defines what "the same words" means. |
 | `repair.go` | `quick_check` on boot, per-index FTS rebuild, recovery-from-content, and the factory reset. |
 | `backup.go` | The `VACUUM INTO` snapshot and the close/reopen pair a file swap needs. |
@@ -505,6 +507,48 @@ Migrations live in `internal/store/migrations/`, are embedded, numbered
 - Add a new file. Never edit a migration that has shipped — someone is already running it.
 - SQLite via `modernc.org/sqlite`: pure Go, so `CGO_ENABLED=0` works and FTS5 is compiled
   in with no build tag.
+
+### Three kinds of change, and which one you have
+
+A schema migration is not the only way a database moves, and picking the wrong one is how
+a change either runs when it should not or never runs at all.
+
+| Kind | Where | Runs |
+| --- | --- | --- |
+| **Schema migration** | `migrations/NNNN_what.sql` | once, in version order, forward-only |
+| **Boot repair** | a `Backfill*` in `store` | **every start**, unguarded, so it heals a row a later edit left stale |
+| **One-time pass** | `onetime_<version>_<what>.go` | once per database, recorded in `one_time_passes` |
+
+The third is for a change that has to happen once on a database that ALREADY EXISTED,
+because a release changed what something means — "every instance upgrading to 2.2.0 needs
+telling that the default film source moved". Running it twice would be wrong, and running
+it on a fresh install would state something untrue, which is why `OneTimeEnv.FreshInstall`
+exists and why every such pass has to check it.
+
+Write one as its own file, named for the release it first ships in, registering itself
+from `init()`:
+
+```go
+func init() {
+    RegisterOneTimePass(OneTimePass{
+        Version: "2.2.0",
+        Name:    "2.2.0-tvdb-default-notice", // the primary key; never changed
+        Why:     "one line, logged when it runs",
+        Run:     func(tx *sql.Tx, env OneTimeEnv) error { ... },
+    })
+}
+```
+
+**Retiring one is a file deletion**, and that is the whole reason for the registry: nothing
+else in the tree names the pass, so removing it cannot break startup for anybody. Delete it
+once no supported instance can still be upgrading from before its release — the version in
+the filename is what makes that answerable from `ls`. Check first whether anything the pass
+wrote is still read; if so (as with `store.SettingFilmSourceNotice`), move that constant to
+a permanent home rather than deleting it with the pass.
+
+A pass that fails is **logged and skipped, not returned** — an error out of `Migrate()`
+means the app does not start, and a one-time pass is not worth that. It stays unrecorded,
+so the next start tries again.
 - The connection is opened WAL, `synchronous=FULL`, `busy_timeout=5000`,
   `foreign_keys=ON`, and **`_txlock=immediate`**.
 

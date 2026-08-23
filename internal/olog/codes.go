@@ -27,6 +27,7 @@ const (
 	CodeStoreRecoverFailed Code = "TIP-STORE-004" // whole-database recovery-from-content failed
 	CodeStoreCheckpoint    Code = "TIP-STORE-005" // WAL checkpoint on shutdown failed
 	CodeStoreResetDelete   Code = "TIP-STORE-006" // factory reset could not delete a database file
+	CodeStoreOneTimePass   Code = "TIP-STORE-007" // a one-time upgrade pass failed; skipped, unrecorded, retried next start
 
 	// SRCH — full-text search.
 	CodeSearchQuery   Code = "TIP-SRCH-001" // an FTS MATCH query failed at runtime
@@ -146,6 +147,7 @@ var Registry = map[Code]string{
 	CodeStoreRecoverFailed: "Whole-database recovery (rebuild from intact content) failed.",
 	CodeStoreCheckpoint:    "WAL checkpoint on shutdown failed (the WAL is still valid and replays on reopen).",
 	CodeStoreResetDelete:   "Factory reset could not delete a database file.",
+	CodeStoreOneTimePass:   "A one-time upgrade pass failed. It was skipped and left unrecorded, so the next start tries it again; the app boots either way.",
 
 	CodeSearchQuery:   "A full-text search query failed at runtime (often a corrupt or drifted FTS index).",
 	CodeSearchRepair:  "A corrupt FTS index could not be reconstructed while serving a search.",

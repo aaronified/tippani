@@ -108,11 +108,22 @@ func (t *TMDB) PersonSearchID(ctx context.Context, name string) string {
 // movie's own source (TMDB person id / TVDB peopleId). The extra fields are
 // omitempty so pre-existing cast_json (character/actor only) round-trips
 // unchanged and old rows simply carry no portrait until re-synced.
+// CastMember is one credit, and it carries TWO images because they are two
+// different pictures of two different things: ImageURL is the person — the
+// headshot their own page shows — and CharacterImageURL is the role, in costume.
+//
+// ONLY THETVDB SUPPLIES THE SECOND ONE. TMDB has a profile image per person and
+// nothing per role, at any endpoint, so every TMDB-sourced credit leaves it
+// empty; the Wikidata game route has neither. That asymmetry is the reason it is
+// a separate field rather than a better value for the existing one: a caller has
+// to be able to tell "this provider has no character art" from "this role has
+// none", and one field collapsing both would silently answer the wrong question.
 type CastMember struct {
-	Character string `json:"character"`
-	Actor     string `json:"actor"`
-	PersonID  string `json:"person_id,omitempty"` // id within the movie's source
-	ImageURL  string `json:"image_url,omitempty"` // full portrait URL when the source gives one
+	Character         string `json:"character"`
+	Actor             string `json:"actor"`
+	PersonID          string `json:"person_id,omitempty"`           // id within the movie's source
+	ImageURL          string `json:"image_url,omitempty"`           // the actor's headshot, when the source gives one
+	CharacterImageURL string `json:"character_image_url,omitempty"` // the role in costume; TheTVDB only
 }
 
 // MovieCandidate is one search hit from any supplier. Source/SourceID/MediaType

@@ -6588,3 +6588,41 @@ There is a second cost, and it is the one that made this concrete. Decisions tak
 **Approved.** The reader's, in the form of the report: "quote screen now shows: can't access lexical declaration 'Se' before initialisation", later confirmed on a second server with quotes already in it.
 
 <sub>1.13.2 — `web/frontend/test/dom/screens-mount.test.jsx` · `web/frontend/src/Quotes.jsx` · `web/frontend/src/App.jsx`</sub>
+
+### TheTVDB is the default film source, because a role can have a face and TMDB has none
+
+**Decided.** Film and show lookups consult TheTVDB before TMDB, and a credit now stores two pictures: `work_cast.image_url` is the actor's headshot and `character_image_url` (0049) is the character in costume. Both suppliers are still searched, both sets of hits are still offered, and every already-pinned title keeps its pin.
+
+**Why.** TheTVDB's character record carries an image PER ROLE — Amanda Waller rather than Viola Davis — and it has been arriving on the extended movie and series payloads this app already fetches, in the same `characters[]` array `personImgURL` comes from. Nothing declared the field, so the bytes were discarded at parse time. TMDB has no equivalent at any endpoint: a person has one profile image and a role has none.
+
+**Two columns, not a better value in one.** The two pictures answer different questions. A headshot is a fact about a PERSON and is the same on every title they appear in — it is what the portrait pipeline resolves and what a rename has to follow. A character image is a fact about ONE ROW: this role, in this work. Overwriting `image_url` with it would put a costume on the actor's identity everywhere, and the first screen to notice would be a people page showing Viola Davis as somebody else. It also has to stay distinguishable from a role that genuinely has no art, which one column cannot express.
+
+**The rejected alternative was re-pinning existing titles.** It is the only thing that would give an existing library character art without the reader lifting a finger, and it costs a search-and-match against TheTVDB for every title — a network call each, from inside `Migrate()`, where a failure has to be swallowed and a wrong match cannot be reviewed. It would also overwrite provider facts on rows nobody asked about, and this repo has no background worker to do it outside a request. So a pin stays a decision the reader made, and character art arrives one title at a time on re-verify.
+
+**What that costs, plainly: an upgraded library sees no character art until each title is re-verified.** The mitigation is the notice rather than the fix — Settings → Metadata sources says how many titles are still pinned to TMDB alone, and stops saying it when the count reaches zero. Self-clearing, so there is no dismissal to store and none to go stale.
+
+**A fresh install is never told.** A notice about a change you never lived through is a sentence the interface made up, so the notice is gated on a marker written by a one-time pass that only fires on a database which already existed (`OneTimeEnv.FreshInstall`). That guard needed its own test: on a genuinely fresh database the pass writes nothing whether the guard is there or not, so inverting it left the obvious test green.
+
+**A TMDB refetch must not erase what TheTVDB found**, and this is the one way the feature can be lost. TMDB sends an empty character image for every row of every title, and `/metadata/fill` applies refetches in bulk and unattended — so under plain assignment a single fill would blank every costume in a library and report success. The `CASE WHEN ? <> ''` guards in `updateProviderCastRow` and `updateCastRowFacts` are what make the two providers additive over a row's life instead of the last fetch winning.
+
+**Verified without reaching the API.** The environment this was written in blocks `thetvdb.github.io`, `api4.thetvdb.com` and `thetvdb.com`, and the repo's own TheTVDB fixture is hand-written without the field — so "the character record has an `image`" could not be confirmed from either. It was established from the generated types in a published client package instead: `ICharacter` declares `image: string`, and `IMovieExtendedRecord`, `ISeriesExtendedRecord` and `IPeopleExtendedRecord` all embed `characters: ICharacter[]` — which are the endpoints this app already calls.
+
+**Not done, and deliberately left:** nothing displays a cast yet. A film's credit chips are the director or creator; `work_cast` is read only by the dialogue form's actor autofill and the quiz's distractors. The character image now reaches the client on `cast[].character_image_url` and has nowhere to be drawn — the screen 0048 called "a screen that does not exist yet" is still that.
+
+<sub>2.2.0 — `internal/metadata/tvdb.go` · `internal/store/migrations/0049_character_image.sql` · `internal/httpapi/cast.go` · `internal/httpapi/lookup_handlers.go`</sub>
+
+### A one-time upgrade pass is its own file, named for its release, and deleting it is the whole of retiring it
+
+**Decided.** A change that must happen once on a database that already existed goes in `internal/store/onetime_<version>_<what>.go`, registers itself from `init()` into the registry in `onetime.go`, and is recorded in `one_time_passes` inside its own transaction. `Migrate()` names none of them.
+
+**Why a third kind at all.** A numbered migration changes the schema and is forward-only. The two `Backfill*` repairs fix data SQLite cannot express and are deliberately unguarded so they re-run on every start and heal a row a later edit left stale. Neither covers "every instance upgrading to 2.2.0 needs telling that the default film source moved": running it twice would be wrong, and running it on a fresh install would state something untrue.
+
+**The registry exists for the retirement, not for the running.** A pass is dead weight once no supported instance can still be behind it, and dead weight that cannot be removed cheaply is never removed. Had `Migrate()` called each pass by name, deleting a pass would mean editing the one file every other pass also depends on — so the cheap, safe act of deleting old code would carry a risk of breaking startup for everybody. Self-registration makes the deletion local.
+
+**The version is in the FILENAME, not only in the struct**, so the retirement question is answerable from `ls`.
+
+**A failure is logged and skipped, never returned.** This runs from `Migrate()`, where an error means the application does not start; `BackfillCastKeys` settled that argument already for a repair whose failure costs one row's autofill. The pass is left unrecorded, so the next start retries it.
+
+**Recovery has to exclude the table**, which was found by three red tests rather than by reasoning: `Recover()` migrates the temp file before copying base tables into it, so that migrate records every pass and the copy then collides on the primary key. `one_time_passes` joins `schema_version` in the not-copied list. The cost is stated where the exclusion is: a pass that had not yet run on a corrupt database is marked applied without doing its work, while what a pass WRITES lands in an ordinary table and is copied normally.
+
+<sub>2.2.0 — `internal/store/onetime.go` · `internal/store/onetime_2_2_0_tvdb_default.go` · `internal/store/repair.go` · `internal/store/migrate.go`</sub>

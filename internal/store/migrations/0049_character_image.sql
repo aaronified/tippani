@@ -1,0 +1,38 @@
+-- 0049: the role has a face of its own, and it is not the actor's.
+--
+-- `work_cast.image_url` has meant one thing since 0048 — the person's headshot,
+-- whatever the provider handed over. TheTVDB's character record carries a SECOND
+-- picture beside it: `image`, the character in costume. Amanda Waller rather than
+-- Viola Davis. It has been arriving on every extended movie and series payload
+-- this app already fetches, in the same `characters[]` array `personImgURL` comes
+-- from, and it was being thrown away because nothing declared the field.
+--
+-- WHY A SECOND COLUMN AND NOT A BETTER VALUE IN THE FIRST. Because the two
+-- pictures answer different questions and one column cannot hold both answers.
+-- The headshot is a fact about a PERSON and is the same on every title they are
+-- in — it is what the portrait pipeline resolves, what a people page shows, and
+-- what a rename has to follow. The character image is a fact about ONE ROW: this
+-- role, in this work. Overwriting image_url with it would put a costume on the
+-- actor's identity everywhere they appear, and the first screen to notice would
+-- be a people page showing Viola Davis as somebody else.
+--
+-- ONLY THETVDB HAS THEM. TMDB has a profile image per person and nothing per
+-- role, at any endpoint; the Wikidata game route has neither. So this column is
+-- empty on every TMDB-sourced row and will stay empty — which is exactly why it
+-- must be distinguishable from a role that genuinely has no art. A caller
+-- reading one column could not tell those apart.
+--
+-- NO BACKFILL, AND NOTHING TO BACK FILL FROM. The bytes were never stored: the
+-- field was undeclared in the struct, so the value was discarded at parse time
+-- rather than kept somewhere this migration could reach. Every existing row
+-- therefore starts empty and the reader sees exactly what they see today, because
+-- the consumer falls back to image_url when this is blank — which is what
+-- TheTVDB's own site does for a role with no image. Character art arrives on a
+-- title the next time it is re-verified or re-synced against TheTVDB.
+--
+-- IT IS A PROVIDER'S FACT, and that places it precisely in 0048's merge rule
+-- beside billing, person_id, image_url and source: no edit surface will ever
+-- offer it, and a refetch takes it back regardless of who has touched the row.
+-- What the merge rule protects is the character and the actor — the two names —
+-- and this is not one of them.
+ALTER TABLE work_cast ADD COLUMN character_image_url TEXT NOT NULL DEFAULT '';

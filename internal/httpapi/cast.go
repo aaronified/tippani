@@ -88,19 +88,22 @@ type castRow struct {
 	Actor     string `json:"actor"`
 	PersonID  string `json:"person_id"`
 	ImageURL  string `json:"image_url"`
-	Billing   int    `json:"billing"`
-	Origin    string `json:"origin"`
-	Source    string `json:"source"`
+	// The role in costume, where the provider has one — TheTVDB only (0049). A
+	// provider's fact like the four above it, reported and never accepted.
+	CharacterImageURL string `json:"character_image_url"`
+	Billing           int    `json:"billing"`
+	Origin            string `json:"origin"`
+	Source            string `json:"source"`
 }
 
 // castCols is the SELECT list every read here shares, so a column added to the
 // row struct is added in one place rather than in three that drift.
-const castCols = `id, character, actor, person_id, image_url, billing, origin, source`
+const castCols = `id, character, actor, person_id, image_url, character_image_url, billing, origin, source`
 
 func scanCastRow(sc interface{ Scan(...any) error }) (castRow, error) {
 	var c castRow
 	err := sc.Scan(&c.ID, &c.Character, &c.Actor, &c.PersonID, &c.ImageURL,
-		&c.Billing, &c.Origin, &c.Source)
+		&c.CharacterImageURL, &c.Billing, &c.Origin, &c.Source)
 	return c, err
 }
 
@@ -184,6 +187,12 @@ func loadCastForExport(q interface {
 // person_id and image_url are omitempty on CastMember, so a hand-typed row —
 // which can carry neither, by design — serialises exactly as a pre-0037 blob
 // entry did: the two names and nothing else.
+//
+// character_image_url (0049) is omitempty for the same reason and is the one
+// place that equality is now a superset rather than an identity: a TheTVDB row
+// with character art carries a key the blob never had. Additive, so no existing
+// reader sees a difference, and a reader that wants the role's face has to ask
+// for it by name.
 func loadCastMembers(q interface {
 	Query(string, ...any) (*sql.Rows, error)
 }, kind string, workID int64) ([]metadata.CastMember, error) {
@@ -196,6 +205,7 @@ func loadCastMembers(q interface {
 		out = append(out, metadata.CastMember{
 			Character: c.Character, Actor: c.Actor,
 			PersonID: c.PersonID, ImageURL: c.ImageURL,
+			CharacterImageURL: c.CharacterImageURL,
 		})
 	}
 	return out, nil
@@ -439,10 +449,11 @@ func mergeProviderCast(tx *sql.Tx, uid int64, kind string, workID int64, source 
 		if !ok {
 			res, err := tx.Exec(
 				`INSERT INTO work_cast (user_id, kind, work_id, character, character_key, actor, actor_key,
-				                        provider_key, person_id, image_url, billing, origin, source)
-				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				                        provider_key, person_id, image_url, character_image_url,
+				                        billing, origin, source)
+				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 				uid, kind, workID, character, store.CastKey(character), actor, store.CastKey(actor),
-				key, p.PersonID, p.ImageURL, i, castProvider, source)
+				key, p.PersonID, p.ImageURL, p.CharacterImageURL, i, castProvider, source)
 			if err != nil {
 				return err
 			}
@@ -606,10 +617,12 @@ func updateProviderCastRow(tx *sql.Tx, id int64, character, actor string, p meta
 		`UPDATE work_cast SET character = ?, character_key = ?, actor = ?, actor_key = ?,
 		        person_id = CASE WHEN ? <> '' THEN ? ELSE person_id END,
 		        image_url = CASE WHEN ? <> '' THEN ? ELSE image_url END,
+		        character_image_url = CASE WHEN ? <> '' THEN ? ELSE character_image_url END,
 		        billing = ?, source = ?, updated_at = datetime('now')
 		 WHERE id = ?`,
 		character, store.CastKey(character), actor, store.CastKey(actor),
-		p.PersonID, p.PersonID, p.ImageURL, p.ImageURL, billing, source, id)
+		p.PersonID, p.PersonID, p.ImageURL, p.ImageURL,
+		p.CharacterImageURL, p.CharacterImageURL, billing, source, id)
 	return err
 }
 
@@ -619,16 +632,25 @@ func updateProviderCastRow(tx *sql.Tx, id int64, character, actor string, p meta
 // protection permanent rather than good for one fetch.
 //
 // A PROVIDER THAT SAYS NOTHING DOES NOT ERASE WHAT AN EARLIER FETCH FOUND — hence
-// the two CASE expressions rather than plain assignment. TheTVDB supplies a
-// portrait URL where TMDB sometimes has none, and a fetch from the thinner of two
-// records should cost the reader an update, not a headshot they already had.
+// the CASE expressions rather than plain assignment. TheTVDB supplies a portrait
+// URL where TMDB sometimes has none, and a fetch from the thinner of two records
+// should cost the reader an update, not a headshot they already had.
+//
+// character_image_url (0049) turns that from a courtesy into the thing holding
+// the feature up. TMDB has no character art AT ALL, so it sends an empty string
+// for every row of every title, every time — and a title re-verified after being
+// seeded by TheTVDB would lose every costume it had under plain assignment. The
+// CASE is what makes the two providers additive over a row's life instead of the
+// last fetch winning.
 func updateCastRowFacts(tx *sql.Tx, id int64, p metadata.CastMember, billing int, source string) error {
 	_, err := tx.Exec(
 		`UPDATE work_cast SET person_id = CASE WHEN ? <> '' THEN ? ELSE person_id END,
 		        image_url = CASE WHEN ? <> '' THEN ? ELSE image_url END,
+		        character_image_url = CASE WHEN ? <> '' THEN ? ELSE character_image_url END,
 		        billing = ?, source = ?, updated_at = datetime('now')
 		 WHERE id = ?`,
-		p.PersonID, p.PersonID, p.ImageURL, p.ImageURL, billing, source, id)
+		p.PersonID, p.PersonID, p.ImageURL, p.ImageURL,
+		p.CharacterImageURL, p.CharacterImageURL, billing, source, id)
 	return err
 }
 

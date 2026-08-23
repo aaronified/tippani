@@ -3380,6 +3380,23 @@ function Metadata({ user, onPreferences }) {
       : source === 'none' ? ['error', 'settings.metadata.tmdb.none.label']
         : null
 
+  // THE ONE-TIME NOTICE THAT THE DEFAULT FILM SOURCE MOVED (2.2.0), and it earns
+  // a chip under this section's own rule — "a chip here means something to act
+  // on" — because there is a specific action: re-verify those titles and their
+  // cast gains a picture per character, which is the whole reason the default
+  // moved to TheTVDB.
+  //
+  // The server decides whether it applies, not this component. It is shown only
+  // to an instance that EXISTED before the change (a one-time pass wrote the
+  // marker) and only while that reader still has titles pinned to TMDB alone — so
+  // it clears itself as they work through them and needs no dismiss button, and no
+  // stored dismissal to go stale. A fresh install never sees it at all, because a
+  // notice about a change you never lived through is a sentence the app made up.
+  const moved = status?.film_source_notice
+  const filmSourceChip = moved
+    ? ['active', 'settings.metadata.filmsource.moved.label', { n: moved.tmdb_pinned }]
+    : null
+
   // saveKey writes exactly one field. The endpoint decodes every key as a
   // pointer, so an omitted field is left alone and a present-but-empty one is
   // cleared — which is what makes a per-field save correct here rather than a
@@ -3423,11 +3440,20 @@ function Metadata({ user, onPreferences }) {
           The row itself goes when both chips do: an empty flex box under the
           heading is a gap that reads as a missing element rather than as
           nothing to report. */}
-      {(booksChip || tmdbChip) && (
+      {(booksChip || tmdbChip || filmSourceChip) && (
         <div className="flex flex-wrap items-center gap-2">
           {booksChip && <StatusChip tone={booksChip[0]}>{t(booksChip[1])}</StatusChip>}
           {tmdbChip && <StatusChip tone={tmdbChip[0]}>{t(tmdbChip[1])}</StatusChip>}
+          {filmSourceChip && <StatusChip tone={filmSourceChip[0]}>{t(filmSourceChip[1], filmSourceChip[2])}</StatusChip>}
         </div>
+      )}
+      {/* The chip says how many; this says what to do about them. Same shape as
+          the lookup error below it, and for the same reason: a count with no
+          instruction is a number somebody has to come and ask about. */}
+      {filmSourceChip && (
+        <p className="mt-1" style={{ fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 'var(--type-mono-11)' }}>
+          {t('settings.metadata.filmsource.moved.prose')}
+        </p>
       )}
       {lookup?.ok === false && lookup.error && (
         <p className="mt-1" style={{ fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 'var(--type-mono-11)', color: 'var(--error)' }}>

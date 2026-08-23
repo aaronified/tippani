@@ -38,6 +38,7 @@ document and that registry in lockstep.
 | `TIP-STORE-004` | Whole-database recovery (rebuild from intact content) failed. | Corruption has spread beyond the search indexes into base tables. | Restore from backup. Search stays unavailable until Profile → Reset all data or a restore. |
 | `TIP-STORE-005` | WAL checkpoint on shutdown failed. | A reader still held the database as the server stopped. | Harmless — the WAL is valid and replays on the next start. If frequent, check for a stuck long-running request at shutdown. |
 | `TIP-STORE-006` | Factory reset could not delete a database file. | The OS still held the file handle (common briefly on Windows). | The server reopens the existing database and reports the error; retry the reset. |
+| `TIP-STORE-007` | A one-time upgrade pass failed and was skipped. | A pass is the third kind of database change — once per database, on an instance that already existed, because a release changed what something means (`internal/store/onetime.go`). It runs from `Migrate()`, where a returned error would stop the app from starting, so a failure is logged instead. The commonest cause is the pass's own query meeting data it did not expect. | The app boots normally and the pass is left **unrecorded**, so the next start tries it again — which means this line repeats on every boot until it succeeds or the pass is removed. What is lost is whatever that pass does; for the 2.2.0 pass that is one advisory notice in Settings → Metadata sources, and nothing else. |
 
 ## SRCH — full-text search
 

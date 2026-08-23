@@ -192,6 +192,21 @@ type tvdbExtended struct {
 			PeopleType   string `json:"peopleType"`   // "Actor" | "Director" | "Writer" | …
 			PeopleID     int64  `json:"peopleId"`     // stable TheTVDB person id
 			PersonImgURL string `json:"personImgURL"` // actor headshot (full artworks.thetvdb.com URL), or ""
+			// THE CHARACTER IN COSTUME, which is a different picture from the actor
+			// and the reason this field is worth a line of its own. TheTVDB's
+			// character record carries both: `personImgURL` is the headshot the
+			// person's own page shows, `image` is the role — Amanda Waller rather
+			// than Viola Davis. TMDB has no equivalent at any endpoint; a person
+			// there has one profile image and a role has none.
+			//
+			// It arrives on THIS payload, already fetched. No extra call, no extra
+			// key, and the same argument the two fields below were added under.
+			//
+			// OFTEN EMPTY, and the fallback is not a nicety: TheTVDB's own site
+			// falls back to the person's headshot when a role has no image, so a
+			// caller that does the same is matching upstream rather than papering
+			// over a gap.
+			Image string `json:"image"` // the character in costume, or ""
 		} `json:"characters"`
 	} `json:"data"`
 }
@@ -232,7 +247,11 @@ func (t *TVDB) details(ctx context.Context, path, mediaType, id string) (*MovieD
 			if len(d.Cast) < maxCast {
 				// peopleId + personImgURL arrive on this same extended payload, so
 				// the actor→portrait resolver later needs no extra API call.
-				cm := CastMember{Character: c.Name, Actor: c.PersonName, ImageURL: c.PersonImgURL}
+				cm := CastMember{
+					Character: c.Name, Actor: c.PersonName,
+					ImageURL:          c.PersonImgURL,
+					CharacterImageURL: c.Image,
+				}
 				if c.PeopleID != 0 {
 					cm.PersonID = strconv.FormatInt(c.PeopleID, 10)
 				}
