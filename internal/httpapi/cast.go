@@ -91,19 +91,24 @@ type castRow struct {
 	// The role in costume, where the provider has one — TheTVDB only (0049). A
 	// provider's fact like the four above it, reported and never accepted.
 	CharacterImageURL string `json:"character_image_url"`
-	Billing           int    `json:"billing"`
-	Origin            string `json:"origin"`
-	Source            string `json:"source"`
+	// Where those bytes live once they are ours (0050). NOT a provider fact: it
+	// names a file on this disk, and a refetch leaves it alone. Filled on demand
+	// by POST /cast/{id}/image, so it is empty until something needs the picture.
+	CharacterImagePath string `json:"character_image_path"`
+	Billing            int    `json:"billing"`
+	Origin             string `json:"origin"`
+	Source             string `json:"source"`
 }
 
 // castCols is the SELECT list every read here shares, so a column added to the
 // row struct is added in one place rather than in three that drift.
-const castCols = `id, character, actor, person_id, image_url, character_image_url, billing, origin, source`
+const castCols = `id, character, actor, person_id, image_url, character_image_url,
+	character_image_path, billing, origin, source`
 
 func scanCastRow(sc interface{ Scan(...any) error }) (castRow, error) {
 	var c castRow
 	err := sc.Scan(&c.ID, &c.Character, &c.Actor, &c.PersonID, &c.ImageURL,
-		&c.CharacterImageURL, &c.Billing, &c.Origin, &c.Source)
+		&c.CharacterImageURL, &c.CharacterImagePath, &c.Billing, &c.Origin, &c.Source)
 	return c, err
 }
 
@@ -205,7 +210,7 @@ func loadCastMembers(q interface {
 		out = append(out, metadata.CastMember{
 			Character: c.Character, Actor: c.Actor,
 			PersonID: c.PersonID, ImageURL: c.ImageURL,
-			CharacterImageURL: c.CharacterImageURL,
+			CharacterImageURL: c.CharacterImageURL, CharacterImagePath: c.CharacterImagePath,
 		})
 	}
 	return out, nil

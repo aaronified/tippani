@@ -1,0 +1,42 @@
+-- 0050: the character image, once it is ours rather than TheTVDB's.
+--
+-- 0049 added `character_image_url` — what the provider said, taken from the
+-- extended payload a title is fetched with. This adds where the bytes live once
+-- they have been fetched and stored, which is the same pair every other image in
+-- this app has had since the beginning: `movies.poster_path` beside a provider
+-- URL, `people.image_path` beside a portrait that was resolved from one.
+--
+-- WHY STORE AT ALL, when the CSP already allows artworks.thetvdb.com and the URL
+-- would render today with no work. Three reasons, and the first is the one that
+-- decides it:
+--
+--   * A HOTLINKED CHIP TELLS THETVDB WHAT SOMEBODY IS READING. Every quote card
+--     that drew a character would be a request to a third party, from the
+--     reader's browser, naming a title they have in their library. This is a
+--     self-hosted app whose whole point is that the library is nobody else's
+--     business, and every other image here is already fetched once and served
+--     from the instance for exactly that reason.
+--   * A moved or deleted file becomes a broken chip, silently, on a card that
+--     used to work.
+--   * It is one round trip per image per reader per cache miss, forever, instead
+--     of one ever.
+--
+-- TWO COLUMNS AND NOT ONE, again, and the reason is not symmetry. The URL is the
+-- provider's fact and a refetch may replace it — a title re-verified against a
+-- corrected TheTVDB record should pick up the new art. The path is OURS: it names
+-- a file on this disk, and nothing a provider says can change what is already
+-- written there. Collapsing them would mean a refetch either orphaning a stored
+-- file or overwriting a path with a URL, and both are how an image goes missing.
+--
+-- FILLED ON DEMAND, NEVER AT SEED. A film's cast is twenty rows and a reader
+-- quotes two of them; fetching twenty images because a title was added would
+-- spend twenty requests to answer a question nobody asked, inside the request
+-- that added the title. So this stays empty until something actually needs the
+-- picture, which is the same rule the portrait pipeline follows — a person's
+-- headshot is resolved when their panel is opened, not when their name first
+-- appears in a credit.
+--
+-- NOT A PROVIDER FACT, unlike every other column 0048's merge rule takes back on
+-- refetch. A refetch must leave this alone: the file it names is already on disk,
+-- and the merge has nothing truer to say about it.
+ALTER TABLE work_cast ADD COLUMN character_image_path TEXT NOT NULL DEFAULT '';

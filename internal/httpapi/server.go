@@ -261,6 +261,10 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /movies/{id}/cast", s.requireAuth(s.handleAddCast("movie")))
 	mux.Handle("PUT /cast/{id}", s.requireAuth(s.handleUpdateCast))
 	mux.Handle("DELETE /cast/{id}", s.requireAuth(s.handleDeleteCast))
+	// The character's own picture, fetched once and served from here afterwards
+	// (0050). A POST because it may write — idempotent, so a client may call it for
+	// every chip it is about to draw. See cast_image_handlers.go.
+	mux.Handle("POST /cast/{id}/image", s.requireAuth(s.handleCastImage))
 	mux.Handle("POST /books/{id}/cover", s.requireAuth(s.handleUploadBookCover))
 	mux.Handle("DELETE /books/{id}", s.requireAuth(s.handleDeleteBook))
 

@@ -100,14 +100,6 @@ func (t *TMDB) PersonSearchID(ctx context.Context, name string) string {
 	return strconv.FormatInt(r.Results[0].ID, 10)
 }
 
-// CastMember is one billed actor, stored per movie in movies.cast_json. Beyond
-// the display pair (character/actor) it carries the source-agnostic identity we
-// harvest from the SAME credits call the details fetch already makes — the
-// supplier's person id and a ready-to-fetch headshot URL — so resolving an
-// actor to a portrait later needs NO extra API call. PersonID's namespace is the
-// movie's own source (TMDB person id / TVDB peopleId). The extra fields are
-// omitempty so pre-existing cast_json (character/actor only) round-trips
-// unchanged and old rows simply carry no portrait until re-synced.
 // CastMember is one credit, and it carries TWO images because they are two
 // different pictures of two different things: ImageURL is the person — the
 // headshot their own page shows — and CharacterImageURL is the role, in costume.
@@ -118,12 +110,22 @@ func (t *TMDB) PersonSearchID(ctx context.Context, name string) string {
 // a separate field rather than a better value for the existing one: a caller has
 // to be able to tell "this provider has no character art" from "this role has
 // none", and one field collapsing both would silently answer the wrong question.
+//
+// PersonID and ImageURL are harvested from the SAME credits call the details
+// fetch already makes, so resolving an actor to a portrait later needs no extra
+// API call. PersonID's namespace is the work's own source (TMDB person id /
+// TheTVDB peopleId). Every field but the two names is omitempty, so a row
+// predating them serialises exactly as it used to.
 type CastMember struct {
 	Character         string `json:"character"`
 	Actor             string `json:"actor"`
 	PersonID          string `json:"person_id,omitempty"`           // id within the movie's source
 	ImageURL          string `json:"image_url,omitempty"`           // the actor's headshot, when the source gives one
 	CharacterImageURL string `json:"character_image_url,omitempty"` // the role in costume; TheTVDB only
+	// Set by the app, never by a provider: where the character image lives once
+	// it has been fetched and stored here (0050). A provider fills the URL above;
+	// only this instance fills this.
+	CharacterImagePath string `json:"character_image_path,omitempty"`
 }
 
 // MovieCandidate is one search hit from any supplier. Source/SourceID/MediaType
