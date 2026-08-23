@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && node ../../scripts/dist-inputs.mjs",
     "build:demo": "vite build --base=./ --outDir ../../_site/demo",
     "test": "vitest run",
     "test:watch": "vitest"

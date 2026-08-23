@@ -59,6 +59,17 @@ COPY web/frontend/ ./
 # that starts depending on something else in the repository fails here instead of
 # quietly succeeding.
 COPY internal/i18n/*.txt /src/internal/i18n/
+# `npm run build` ends by rewriting web/dist-inputs.json, the record of which
+# bytes the bundle was built from (scripts/dist-inputs.mjs says why it exists).
+# The image throws that file away — it is checked in the repository, by a Go test
+# — but the write is part of the build command on purpose: a rebuild that can
+# skip it is a manifest that can be stale, and there is then nothing to trust.
+#
+# This is the second thing this stage reaches out of its own tree for, and it is
+# copied on its own line for the reason the locale files are: the COPY above
+# stays narrow so a build that starts depending on something else in the
+# repository fails here rather than quietly succeeding.
+COPY scripts/dist-inputs.mjs /src/scripts/
 RUN npm run build   # -> /src/web/dist
 # The bundle is what the whole image exists to serve, so a build that "succeeded"
 # without emitting one must not become an image. index.html is written last, so

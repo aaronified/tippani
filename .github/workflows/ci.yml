@@ -113,12 +113,22 @@ jobs:
       # about this in prose since the beginning and nothing enforced it. The
       # runner has just produced a fresh dist; if it differs from what was
       # committed, the commit is incomplete.
+      #
+      # web/dist-inputs.json is diffed with it because `npm run build` writes
+      # both, and the manifest is what the `go` job's cheap version of this check
+      # reads. A manifest that could drift from the dist beside it would make
+      # that check confidently wrong, which is worse than not having it.
       - name: web/dist matches the source it was built from
         run: |
-          if ! git diff --exit-code -- web/dist; then
+          if ! git diff --exit-code -- web/dist web/dist-inputs.json; then
             echo
             echo "web/dist is stale. Run 'make frontend' and commit the result"
             echo "alongside your source change — the binary embeds this directory."
+            echo
+            echo "Note that 'your source change' is wider than web/frontend:"
+            echo "src/i18n.js imports internal/i18n/*.txt with Vite's ?raw, so a"
+            echo "locale edit changes the bundle. web/dist-inputs.json lists every"
+            echo "input, and TestDistWasBuiltFromTheseInputs checks it in the go job."
             exit 1
           fi
       # docs/ui-glossary.html inlines the built stylesheet so its samples are

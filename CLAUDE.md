@@ -50,7 +50,10 @@ running (`dockerd &` if not already up in this environment).
   like `feat(cast): ...`. Subject says what changed; body says why, and the rejected
   alternative — see `git log` for the house style.
 - Comments explain why, not what.
-- A frontend change ships with the rebuilt `web/dist/` in the same commit.
+- A frontend change ships with the rebuilt `web/dist/` in the same commit — and "frontend
+  change" includes `internal/i18n/en.txt` and `bn.txt`, which `src/i18n.js` imports with
+  Vite's `?raw`. `make frontend` rebuilds both `web/dist/` and `web/dist-inputs.json`;
+  commit the two together. `go test ./...` fails on a stale `dist`.
 - Docs that go stale with a change and belong in the same PR: `CHANGELOG.md` (user-visible
   changes), `docs/ui-glossary.html` (interface renames), `AI.md` (verification changes),
   `docs/PLAN.md` (design departures).

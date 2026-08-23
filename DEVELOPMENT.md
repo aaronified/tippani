@@ -326,6 +326,7 @@ The shared modules do:
 | `site-links.mjs` | Walks an assembled `_site/` and fails on any local `href` or `src` that does not resolve. |
 | `seed-issues.mjs` | Backfills a GitHub issue per roadmap item that predates the automation. |
 | `doc-map-check.mjs` | Checks this document against the tree: every path it names must exist, and every package, script and workflow must be named somewhere in it. |
+| `dist-inputs.mjs` | Records every path `web/dist` is built from, with its hash, into `web/dist-inputs.json`. Run by `npm run build`, so the record cannot be forgotten. `--check` verifies it. The paths outside `web/frontend/` are derived from the imports that escape it, not listed by hand. |
 
 ### `.github/`
 
@@ -542,6 +543,16 @@ things in one commit: the source, and the rebuilt `dist`. If you change the fron
 do not rebuild, the binary keeps serving the old UI and nothing will tell you — which is
 why CI runs `git diff --exit-code -- web/dist` after building.
 
+**What counts as a frontend change is wider than `web/frontend/`.** `src/i18n.js` imports
+`internal/i18n/en.txt` and `bn.txt` with Vite's `?raw` — every user-facing string in the
+SPA comes from those two files — so editing a locale file changes the bundle, and nothing
+about editing a `.txt` inside a Go package suggests you have just changed the frontend.
+That is how the first commit after v2.1.3 reached `main` with a stale `dist`, and turned
+the whole push red for a reason its author had no way to predict. The full input set is written to
+`web/dist-inputs.json` by `npm run build` (`scripts/dist-inputs.mjs`) and checked by
+`TestDistWasBuiltFromTheseInputs`, so `go test ./...` now fails on a stale `dist` in your
+working tree — no Node, no build, and before there is a commit to push.
+
 The demo build (`VITE_DEMO=1`) swaps in the dummy-data fetch shim and disables writes. It
 is what GitHub Pages publishes.
 
@@ -584,12 +595,16 @@ silently.
 
 ## When your own build fails
 
-Four failures that are self-inflicted rather than real, in the order they catch people:
+Five failures that are self-inflicted rather than real, in the order they catch people:
 
 - **`git diff --exit-code -- web/dist` fails and the diff is whitespace.** Line endings.
   `.gitattributes` normalises every text file to LF, and overriding `core.eol` or
   `core.autocrlf` locally defeats it. Read the comments in that file before changing
   anything there.
+- **`TestDistWasBuiltFromTheseInputs` fails.** The committed `web/dist/` predates a file
+  it is built from, and the failure names the file. It is often `internal/i18n/en.txt` or
+  `bn.txt`, which the SPA imports — that is a frontend change even though it does not look
+  like one. Run `make frontend` and commit `web/dist/` and `web/dist-inputs.json` with it.
 - **A Go test passes suspiciously fast.** Check the `-run` filter matched something. A
   filter that matches nothing exits 0 and prints `ok`.
 - **`node scripts/glossary-css.mjs --check` fails.** The stylesheet inlined into
@@ -607,9 +622,9 @@ four jobs:
 
 | Job | What it runs |
 | --- | --- |
-| `go` | `go vet`, the full Go suite, and a smoke test that boots the server and health-checks it. |
+| `go` | `go vet`, the full Go suite — which includes the check that `web/dist` is not stale — and a smoke test that boots the server and health-checks it. |
 | `race` | The five locking tests under `-race` on every push, and the whole suite on the nightly schedule. Asserts each named test actually ran. |
-| `frontend` | `npm test`, `npm run build`, and `git diff --exit-code -- web/dist`. |
+| `frontend` | `npm test`, `npm run build`, and `git diff --exit-code -- web/dist web/dist-inputs.json`. |
 | `roadmap` | `roadmap-data.mjs --check`, `glossary-css.mjs --check`, and `doc-map-check.mjs`. |
 
 The other four workflows are described in [`.github/`](#github) above.

@@ -210,6 +210,20 @@ worth nothing here and only execution counts. What the repo actually runs:
   every way it can break is silent: a greeting rendering `{name}` literally, a
   commemoration wishing you a happy one, or a country resolving to its neighbour's
   time zone. None of those throw, and none of them fail a build.
+- **The committed SPA is checked against the sources it was built from**, by
+  `web/dist_inputs_test.go` against the hashes in `web/dist-inputs.json` that
+  `npm run build` writes. This one is here because the guard it backs up was
+  correct and still let a stale bundle onto `main`: CI rebuilt `web/dist` and
+  diffed it, which works, but only speaks after the push — and the commit it
+  caught had not touched `web/frontend` at all. It edited `internal/i18n/en.txt`
+  and `bn.txt`, which `src/i18n.js` imports with Vite's `?raw`, so every string in
+  the interface comes from them and editing one changes the bundle. Nothing about
+  a `.txt` file inside a Go package says "you have just changed the frontend".
+  Moving the check into `go test` is the whole point: it needs no Node, no
+  six-second build and nothing installed in the clone, so it fails in the working
+  tree rather than in a workflow. The input set outside `web/frontend/` is derived
+  from the imports that escape it, because a hand-kept list is the same blind spot
+  one level up.
 - **`docs/PLAN.md`** is a decision log: every design decision, the reasoning that
   produced it, the alternative turned down, and — where it applies — the part I
   got wrong and what changed my mind. It used to be the design document I wrote
