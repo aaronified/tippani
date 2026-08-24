@@ -67,30 +67,6 @@ func TestCleanupFixRewritesExactlyWhatWasFound(t *testing.T) {
 			want: "call me Ishmael, then",
 		},
 		{
-			name: "a bracketed footnote index goes entirely",
-			rule: "reference-mark",
-			in:   "the whale[12] surfaced",
-			want: "the whale surfaced",
-		},
-		{
-			name: "a digit welded to a word loses the digit and keeps the word",
-			rule: "reference-mark",
-			in:   "his conscience12 troubled him",
-			want: "his conscience troubled him",
-		},
-		{
-			name: "a superscript index goes",
-			rule: "reference-mark",
-			in:   "the whale¹ surfaced",
-			want: "the whale surfaced",
-		},
-		{
-			name: "a pronunciation gloss goes",
-			rule: "pronunciation",
-			in:   "cetacean /sɪˈteɪʃən/ means whale",
-			want: "cetacean  means whale",
-		},
-		{
 			name: "a word broken across a line is joined",
 			rule: "hyphen-break",
 			in:   "conti- nuation of the thought",
@@ -149,12 +125,21 @@ func TestCleanupFixRewritesExactlyWhatWasFound(t *testing.T) {
 // loop over the rule set rather than as cases, so a rule added without a thought
 // about them fails here.
 func TestCleanupFixHoldsForEveryRule(t *testing.T) {
-	// Every rule the scan reports must be answerable, or the page has a finding with
-	// no accept button. None is in that state today; if one is added deliberately,
-	// this is where the decision is recorded.
+	// EVERY RULE IS EITHER FIXABLE OR EXPLICITLY NOT, with a reason. This replaces a
+	// case that asserted every rule must be fixable — which was the assumption that
+	// shipped two rewrites able to destroy real text (see cleanupUnfixable).
 	for _, r := range cleanupRules {
-		if !cleanupFixable(r.ID) {
-			t.Errorf("rule %s has no fix, so it can only be ignored — deliberate?", r.ID)
+		_, why := cleanupUnfixable[r.ID]
+		if cleanupFixable(r.ID) == why {
+			t.Errorf("rule %s is neither fixable nor recorded as unfixable (or is both)", r.ID)
+		}
+	}
+	for id := range cleanupUnfixable {
+		if _, ok := cleanupRuleByID(id); !ok {
+			t.Errorf("cleanupUnfixable names %s, which is not a rule", id)
+		}
+		if cleanupFixable(id) {
+			t.Errorf("%s is listed as unfixable and has a fix", id)
 		}
 	}
 
@@ -204,5 +189,47 @@ func TestCleanupMatchHashIsPerFindingNotPerField(t *testing.T) {
 	// An unknown rule has no hash rather than a misleading one.
 	if cleanupMatchHash("x", "delete-everything") != "" {
 		t.Error("an unknown rule produced a hash")
+	}
+}
+
+// The text the two withdrawn fixes destroyed. Each of these is prose a reader keeps,
+// and each was silently rewritten by a rule whose detector was only ever meant to
+// LIST. The assertion is that no accept is offered for them at all — not that the
+// rewrite is better, because there is no rewrite that is right more often than wrong.
+func TestCleanupRefusesToRewriteWhatItCannotJudge(t *testing.T) {
+	for _, tc := range []struct {
+		rule, in, wouldHaveBecome string
+	}{
+		{"pronunciation", "the ratio was 1/2 and then 3/4 of it", "the ratio was 14 of it"},
+		{"pronunciation", "see https://example.com/path", "see https:/path"},
+		{"pronunciation", "on 12/05/1998 he wrote", "on 121998 he wrote"},
+		{"reference-mark", "Apollo11 lifted off", "Apollo lifted off"},
+		{"reference-mark", "COVID19 changed it", "COVID changed it"},
+	} {
+		t.Run(tc.rule+": "+tc.in, func(t *testing.T) {
+			// It is still FOUND — the reader sees it and can ignore it.
+			rule, ok := cleanupRuleByID(tc.rule)
+			if !ok || len(rule.find(tc.in)) == 0 {
+				t.Fatalf("%s no longer finds %q; this case is vacuous", tc.rule, tc.in)
+			}
+			// And it cannot be accepted.
+			if got, changed := cleanupApplyRule(tc.in, tc.rule); changed {
+				t.Errorf("%s offered to rewrite %q as %q (it once produced %q)", tc.rule, tc.in, got, tc.wouldHaveBecome)
+			}
+		})
+	}
+
+	// The narrower version of the same mistake, in a rule that KEEPS its fix: the
+	// space-before-punctuation pattern spans line breaks, so a closing bracket at the
+	// start of a line — a stage direction, a list, a quoted poem — would have had its
+	// two lines joined.
+	for _, in := range []string{"a line\n) closing", "the end\n. next", "one\n\t, two"} {
+		if got, changed := cleanupApplyRule(in, "space-before-punctuation"); changed {
+			t.Errorf("joined two lines: %q became %q", in, got)
+		}
+	}
+	// While the case it exists for still works.
+	if got, changed := cleanupApplyRule("call me Ishmael , then", "space-before-punctuation"); !changed || got != "call me Ishmael, then" {
+		t.Errorf("got %q (changed=%v), want the space before the comma gone", got, changed)
 	}
 }

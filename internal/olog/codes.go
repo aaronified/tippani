@@ -132,7 +132,7 @@ const (
 	CodeCleanupIgnore  Code = "TIP-CLEANUP-003" // an ignored finding could not be read or written; the answer was not recorded
 	// quote is carrying, and the reader's answer to each suggestion (0049).
 
-	// BOOK — the one read that is not part of a bigger group.
+	// BOOK-004 is the one book read that belongs to no bigger group.
 	CodeBookChapters Code = "TIP-BOOK-004" // a book's chapter list could not be read; the locator fields offer nothing
 
 	// BACKUP — server-side backup & restore (Settings, admin).

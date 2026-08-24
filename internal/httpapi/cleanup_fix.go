@@ -75,28 +75,23 @@ var cleanupFix = map[string]func(string) string{
 	// `\s+` then the punctuation that closes. The whitespace goes and the
 	// punctuation stays, which is why this cannot be a constant: the match ends in
 	// the character that has to survive.
+	//
+	// A RUN CONTAINING A NEWLINE IS LEFT ALONE. The rule's `\s+` spans line breaks,
+	// so a closing bracket at the start of a line — a quoted poem, a stage
+	// direction, a list — matched, and deleting the whitespace JOINED THE TWO LINES.
+	// That is not a stray space; it is the shape of the text. Returning the match
+	// unchanged makes cleanupApplyRule report "nothing changed", so the finding is
+	// still listed and simply cannot be accepted.
 	"space-before-punctuation": func(m string) string {
-		if m == "" {
+		if m == "" || strings.ContainsAny(m, "\n\r") {
 			return m
 		}
 		_, size := utf8.DecodeLastRuneInString(m)
 		return m[len(m)-size:]
 	},
-	// A reference index. Two of its three forms are the mark alone and go entirely;
-	// THE THIRD IS A LETTER FOLLOWED BY DIGITS (`conscience12`), where deleting the
-	// match would delete the letter with it — so the letter is kept and only the
-	// digits go. This is the fix most worth reading twice, and the reason `fix`
-	// takes the matched text rather than being a replacement string.
-	"reference-mark": func(m string) string {
-		r, size := utf8.DecodeRuneInString(m)
-		if unicode.IsLetter(r) {
-			return m[:size]
-		}
-		return ""
-	},
-	// A pronunciation gloss — IPA between slashes, an IPA-only character, or a
-	// parenthesised "pron." aside. The whole match is the gloss.
-	"pronunciation": func(string) string { return "" },
+	// `reference-mark` AND `pronunciation` ARE DELIBERATELY ABSENT, and that is the
+	// most important thing in this file. See cleanupUnfixable below for what they
+	// did when they were here.
 	// A word split by a line break and rejoined with the hyphen still inside it.
 	// Both shapes are handled by dropping everything that is not a letter: `a- b`
 	// becomes `ab`, and `a-\n` becomes `a` so the next line joins on.
@@ -141,6 +136,39 @@ var cleanupFix = map[string]func(string) string{
 	},
 }
 
+// cleanupUnfixable records WHY a rule the scan reports has no rewrite, because the
+// absence is a decision and an empty map entry cannot hold a reason.
+//
+// BOTH OF THESE HAD FIXES FOR ONE AFTERNOON, and both destroyed real text. The
+// detectors were written to LIST (cleanup.go says so at length, and says every rule
+// has a false positive that is somebody's real writing); what I got wrong was
+// assuming a detector implies a safe rewrite. Measured, on text a reader would
+// actually keep:
+//
+//	pronunciation   `/[^/\n]{2,40}/` is "two slashes with something between them",
+//	                which is a URL path, a date and a fraction as often as it is IPA:
+//	                  "the ratio was 1/2 and then 3/4 of it" → "the ratio was 14 of it"
+//	                  "see https://example.com/path"          → "see https:/path"
+//	                  "on 12/05/1998 he wrote"                → "on 121998 he wrote"
+//	reference-mark  its third form is a letter followed by digits, which is a
+//	                footnote index in `conscience12` and a NAME in:
+//	                  "Apollo11 lifted off"  → "Apollo lifted off"
+//	                  "COVID19 changed it"   → "COVID changed it"
+//
+// The reader still sees both findings, with the snippet, and can still ignore either
+// so it stops filling the list — they simply cannot be accepted in one press,
+// because there is no rewrite that is right more often than it is wrong. Fixing
+// either by hand, in the quote, is one click away on the row.
+//
+// A NARROWER RULE WOULD EARN A FIX BACK. `reference-mark` split into
+// "bracketed/superscript index" (safe to delete) and "digits welded to a word" (not)
+// would give the first half a button. That is a change to cleanup.go's rule set
+// rather than to this file, and it is not being made in a patch release.
+var cleanupUnfixable = map[string]string{
+	"reference-mark": "a letter followed by digits is a footnote index in `conscience12` and a name in `Apollo11`",
+	"pronunciation":  "two slashes with text between them is a fraction, a date and a URL path as often as it is IPA",
+}
+
 // cleanupFixable is whether this build can offer a rewrite for a rule.
 func cleanupFixable(rule string) bool {
 	_, ok := cleanupFix[rule]
@@ -168,37 +196,61 @@ func cleanupRuleByID(id string) (cleanupRule, bool) {
 // reader can delete a quote they do not want, and an accepted suggestion that
 // silently blanks a card is not a correction.
 func cleanupApplyRule(text, ruleID string) (string, bool) {
+	out, _, changed := cleanupApplyRuleAt(text, ruleID)
+	return out, changed
+}
+
+// cleanupApplyRuleAt is cleanupApplyRule plus WHERE the first replacement landed in
+// the output, as a byte range.
+//
+// That range is what lets the page mark the change in the after-text as well as in
+// the before-text. It has to be computed here, while the rewrite is being built,
+// because afterwards it is not recoverable: the fix may delete the span entirely, so
+// there is nothing left to search for, and a diff over the two strings would be a
+// second opinion about what changed.
+//
+// The FIRST replacement, matching the snippet convention: cleanupSnippet already
+// shows the first match and the count says how many there are.
+func cleanupApplyRuleAt(text, ruleID string) (string, []int, bool) {
 	rule, ok := cleanupRuleByID(ruleID)
 	if !ok {
-		return text, false
+		return text, nil, false
 	}
 	fix, ok := cleanupFix[ruleID]
 	if !ok {
-		return text, false
+		return text, nil, false
 	}
 	hits := rule.find(text)
 	if len(hits) == 0 {
-		return text, false
+		return text, nil, false
 	}
 	var b strings.Builder
+	var first []int
 	at := 0
 	for _, h := range hits {
 		if h[0] < at { // overlapping matches: the first one wins
 			continue
 		}
 		b.WriteString(text[at:h[0]])
-		b.WriteString(fix(text[h[0]:h[1]]))
+		repl := fix(text[h[0]:h[1]])
+		if first == nil && repl != text[h[0]:h[1]] {
+			// Where this replacement sits in the OUTPUT. A deletion gives an empty
+			// range, which is exactly right: the marker then points at the join, which
+			// is where the reader's eye has to go.
+			first = []int{b.Len(), b.Len() + len(repl)}
+		}
+		b.WriteString(repl)
 		at = h[1]
 	}
 	b.WriteString(text[at:])
 	out := b.String()
 	if out == text {
-		return text, false
+		return text, nil, false
 	}
 	if strings.TrimSpace(out) == "" && strings.TrimSpace(text) != "" {
-		return text, false
+		return text, nil, false
 	}
-	return out, true
+	return out, first, true
 }
 
 // cleanupMatchHash is the key an ignored finding is stored under: a fold of the

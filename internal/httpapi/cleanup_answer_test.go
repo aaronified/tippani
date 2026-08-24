@@ -3,6 +3,7 @@ package httpapi
 import (
 	"net/http"
 	"strconv"
+	"strings"
 	"testing"
 )
 
@@ -22,14 +23,13 @@ type answerReply struct {
 		ID        int64  `json:"id"`
 		WorkTitle string `json:"work_title"`
 		Findings  []struct {
-			Rule    string `json:"rule"`
-			Field   string `json:"field"`
-			Snippet string `json:"snippet"`
-			Count   int    `json:"count"`
-			Before  string `json:"before"`
-			After   string `json:"after"`
-			Hash    string `json:"match_hash"`
-			Ignored bool   `json:"ignored"`
+			Rule         string `json:"rule"`
+			Field        string `json:"field"`
+			Snippet      string `json:"snippet"`
+			Count        int    `json:"count"`
+			AfterSnippet string `json:"after_snippet"`
+			Hash         string `json:"match_hash"`
+			Ignored      bool   `json:"ignored"`
 		} `json:"findings"`
 	} `json:"items"`
 	Counts    map[string]int `json:"counts"`
@@ -52,7 +52,7 @@ func findingOf(t *testing.T, list answerReply, rule string) (int64, string, stri
 	for _, it := range list.Items {
 		for _, f := range it.Findings {
 			if f.Rule == rule {
-				return it.ID, f.Field, f.Hash, f.After
+				return it.ID, f.Field, f.Hash, f.AfterSnippet
 			}
 		}
 	}
@@ -85,21 +85,32 @@ func TestCleanupOffersTheRewriteItWouldMake(t *testing.T) {
 			continue
 		}
 		for _, f := range it.Findings {
-			if f.Before != "call  me Ishmael[12]" {
-				t.Errorf("%s reports before=%q", f.Rule, f.Before)
+			// The find, in its context, with the match marked in guillemets — the
+			// server's own snippet, which is the evidence half of the row.
+			if f.Snippet == "" || !strings.Contains(f.Snippet, "»") {
+				t.Errorf("%s reports snippet=%q", f.Rule, f.Snippet)
 			}
 			if f.Hash == "" {
 				t.Errorf("%s has no hash, so it cannot be answered", f.Rule)
 			}
-			seen[f.Rule] = f.After
+			seen[f.Rule] = f.AfterSnippet
 		}
 	}
-	// The rewrite, per rule, over the same field — each one only its own change.
-	if got := seen["double-space"]; got != "call me Ishmael[12]" {
+	// The rewrite, MARKED THE SAME WAY the find is, so the two lines on the page
+	// differ in exactly one visible place. The single space between the guillemets is
+	// what the two spaces became.
+	if got := seen["double-space"]; got != "call» «me Ishmael[12]" {
 		t.Errorf("double-space would produce %q", got)
 	}
-	if got := seen["reference-mark"]; got != "call  me Ishmael" {
-		t.Errorf("reference-mark would produce %q", got)
+	// AND reference-mark OFFERS NOTHING, because there is no rewrite for it that is
+	// right more often than wrong — `Apollo11` is a name and `conscience12` is a
+	// footnote index, and the detector cannot tell them apart (cleanupUnfixable). The
+	// finding is still listed, and can still be ignored; `after` is empty, which is
+	// what makes the page draw no accept button.
+	if got, ok := seen["reference-mark"]; !ok {
+		t.Error("reference-mark is no longer reported at all")
+	} else if got != "" {
+		t.Errorf("reference-mark offered a rewrite: %q", got)
 	}
 	if list.Counts["open"] < 2 || list.Counts["ignored"] != 0 {
 		t.Errorf("counts %v, want at least two open and none ignored", list.Counts)
@@ -216,8 +227,13 @@ func TestCleanupIgnoreSurvivesAcceptingADifferentRule(t *testing.T) {
 		}
 	}
 	ign := cleanupList(t, c, "ignored")
-	if len(ign.Items) != 1 || ign.Items[0].Findings[0].Before != "call me Ishmael[12]" {
+	if len(ign.Items) != 1 || len(ign.Items[0].Findings) != 1 || ign.Items[0].Findings[0].Rule != "reference-mark" {
 		t.Fatalf("the ignore did not survive the accept: %+v", ign.Items)
+	}
+	// And it is about the text as it now stands — the doubled space was accepted, so
+	// the snippet shows the repaired words with the reference mark still marked.
+	if snip := ign.Items[0].Findings[0].Snippet; snip != "call me Ishmael»[12]«" {
+		t.Errorf("the ignored finding's snippet is %q", snip)
 	}
 }
 
