@@ -692,7 +692,11 @@ export function CaptureQuote({ initialTarget = null, initialStandalone = false, 
       targetKey: fresh ? sitting.targetKey || null : null,
     }
   })
-  const [draft, setDraft] = useState({ target: null, quote: '', note: '', chapter: '', chapter_no: '', location: '', character: '', timestamp: '', season: '', episode: '', episodeName: '', act: '', quest: '', tags: seed.tags, color: seed.color, speaker: '', occasion: '', occasionDate: '', place: '', medium: '' })
+  const [draft, setDraft] = useState({ target: null, quote: '', note: '', chapter: '', chapter_no: '', location: '', character: '', timestamp: '', season: '', episode: '', episodeName: '', act: '', quest: '', tags: seed.tags, color: seed.color, speaker: '', occasion: '', occasionDate: '', place: '', medium: '',
+    // 0047's five, which the edit form gained in this release and this one needs for
+    // the same reason: a letter's recipient and an essay's page are known at the
+    // moment the quote is typed, not later.
+    region: '', recipient: '', workTitle: '', locator: '', circa: false })
   // "This came from nothing" is a MODE rather than an entry in the work picker.
   // The picker is search-first, so a synthetic "no book or film" row would only
   // surface for someone who typed words matching it — which is nobody, since it
@@ -805,6 +809,11 @@ export function CaptureQuote({ initialTarget = null, initialStandalone = false, 
           occasion_date: draft.occasionDate.trim(),
           place: draft.place.trim(),
           medium: draft.medium.trim(),
+          region: draft.region.trim(),
+          recipient: draft.recipient.trim(),
+          work_title: draft.workTitle.trim(),
+          locator: draft.locator.trim(),
+          occasion_circa: draft.circa,
           color: draft.color,
           tags,
         })
@@ -969,6 +978,38 @@ export function CaptureQuote({ initialTarget = null, initialStandalone = false, 
           <label className="tp-field">
             <MonoLabel>{t('common.field.medium.label')}</MonoLabel>
             <input className="tp-input" placeholder={t('common.field.medium.placeholder')} value={draft.medium} onChange={(e) => set({ medium: e.target.value })} />
+          </label>
+          {/* WHAT THE KIND CARRIES (0047), the same four boxes and the same heading as
+              the edit form — a proverb's region, a letter's recipient, an essay's
+              source title and page. Grouped rather than shown per kind because the
+              kind lives on the BOARD and this surface has not asked for one yet. */}
+          <MonoLabel>{t('quotes.form.carries.label')}</MonoLabel>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="tp-field">
+              <MonoLabel>{t('common.field.region.label')}</MonoLabel>
+              <input className="tp-input" placeholder={t('quotes.form.region.placeholder')} value={draft.region} onChange={(e) => set({ region: e.target.value })} />
+            </label>
+            <label className="tp-field">
+              <MonoLabel>{t('common.field.recipient.label')}</MonoLabel>
+              <input className="tp-input" placeholder={t('quotes.form.recipient.placeholder')} value={draft.recipient} onChange={(e) => set({ recipient: e.target.value })} />
+            </label>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="tp-field">
+              <MonoLabel>{t('common.field.work-title.label')}</MonoLabel>
+              <input className="tp-input" placeholder={t('quotes.form.work-title.placeholder')} value={draft.workTitle} onChange={(e) => set({ workTitle: e.target.value })} />
+            </label>
+            <label className="tp-field">
+              <MonoLabel>{t('common.field.locator.label')}</MonoLabel>
+              <input className="tp-input" placeholder={t('quotes.form.locator.placeholder')} value={draft.locator} onChange={(e) => set({ locator: e.target.value })} />
+            </label>
+          </div>
+          {/* The date's own precision, beside the boxes rather than beside the date:
+              it qualifies the date, and a checkbox in the middle of a date row reads
+              as a second date field. */}
+          <label className="flex items-center gap-2">
+            <input type="checkbox" checked={draft.circa} onChange={(e) => set({ circa: e.target.checked })} />
+            <span className="microcopy">{t('quotes.form.circa.label')}</span>
           </label>
         </>
       ) : isScreen ? (

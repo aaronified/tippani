@@ -2029,13 +2029,14 @@ export function AnnotationForm({ initial, onSubmit, onCancel, submitLabel, tagSu
       chapter: chapter.trim(),
       chapter_no: Number(chapterNo.trim()) || 0,
       location: location.trim(),
+      // EDITED HERE NOW, and the line that used to carry it through is gone. It was
+      // still below this one for one release: two `character` keys in one object
+      // literal, so the later carry-through won and the box above wrote nothing.
+      // Vite says "Duplicate key" and the build goes on, which is exactly how a
+      // control ships inert.
       character: character.trim(),
       color,
       tags,
-      // Carried through, not edited here: this form has no character box, and
-      // `character` is stored (0047), so omitting it would clear it on every save.
-      // The capture surface and the selection bar are where it is set.
-      character: initial?.character || '',
       // favorite is edited on the card, not in the form — but PUT is
       // full-state, so carry the existing value through.
       favorite: !!initial?.favorite,
