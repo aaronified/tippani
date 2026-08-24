@@ -1283,6 +1283,31 @@
   }
   @media (prefers-reduced-motion: reduce) { .hand-note { transform: none; } }
 
+  /* ---- what the line says (0051): the translation, under the meta strip ----
+     THE DISPLAY FACE AND NOT THE MONO ONE, and that is load-bearing rather than
+     aesthetic: the mono stack has no Indic member (see src/locale.jsx), so a
+     Bengali translation set in it would draw in whatever the OS reached for.
+     Italic separates it from the quote without making it a second quote, and it
+     is a size down from the quote for the same reason — this is what the words
+     mean, not another thing that was said. */
+  .quote-translation {
+    font-family: var(--font-display);
+    font-weight: var(--font-display-weight);
+    font-variant-caps: var(--font-display-caps);
+    font-variant-numeric: var(--font-display-figures);
+    font-style: italic;
+    font-size: var(--type-display-13);
+    line-height: 1.42;
+    color: var(--soft);
+    margin-top: 3px;
+  }
+  /* On a film frame the card is dark, so --soft (a paper mid-tone) would sink
+     into it. The amber the credit line uses is the frame's own quiet voice. */
+  html[data-aesthetic="film"] .quote-translation {
+    color: color-mix(in srgb, var(--amber) 72%, #fff);
+    margin-top: 5px;
+  }
+
   /* ---- ♥ favourite mark (§6): hand-inked, never machine-perfect.
      Each glyph's resting jitter (random rotation/scale/nudge) rides the *individual*
      transform properties (rotate/scale/translate, set inline by randWobble) so the

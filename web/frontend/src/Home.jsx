@@ -684,7 +684,8 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
   const sharePayloadFor = (f) => {
     if (f.kind === 'book') {
       return bookShare({
-        quote: f.raw.quote, note: f.raw.note, author: f.raw.book_author, title: f.raw.book_title,
+        quote: f.raw.quote, note: f.raw.note, translation: f.raw.translation,
+        author: f.raw.book_author, title: f.raw.book_title,
         chapter: chapterLabel(f.raw), location: f.raw.location, date: fmtDate(annDate(f.raw)),
         tags: f.raw.tags, color: f.raw.color, people: authorMap,
       })
@@ -702,7 +703,8 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
       })
     }
     return movieShare({
-      quote: f.raw.quote, note: f.raw.note, title: f.movie?.title, year: f.movie?.release_year,
+      quote: f.raw.quote, note: f.raw.note, translation: f.raw.translation,
+      title: f.movie?.title, year: f.movie?.release_year,
       character: f.raw.character, actor: f.raw.actor, timestamp: f.raw.timestamp,
       episode: episodeLabel(f.raw), tags: f.raw.tags,
       color: f.raw.color, people: actorMap,

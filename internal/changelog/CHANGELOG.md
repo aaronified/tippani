@@ -5,6 +5,52 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Any quote can now say what it means, not just a standalone one.** A book highlight and a
+  film or show line each carry a translation, the way a standalone quote has since 2.0.0. It
+  is not the note: a note is what you thought about the line, a translation is what the line
+  says, and until now the only place to put the second was the first — which meant the review
+  deck prompted you with your own reaction, and a shared image printed it where the meaning
+  should be.
+
+  **It sits under the words and above your note**, on every card and in every language, in the
+  quote's own type rather than the small capitals of the locator strip beside it.
+
+  **You can search for it.** Type the English half of a Bengali highlight and the highlight
+  comes back — the half you can actually type is the half you tend to remember. Translations
+  share the quote's own results rather than arriving under a heading of their own, because the
+  thing you want back is the quote.
+
+  **It travels.** Exported into the Markdown file beside the quote, read back out of it on
+  import, and carried through the staging queue in between, so the round trip keeps it. Files
+  written by hand can name it `translation:`, `translated:` or `english:` on any kind of quote.
+
+  Two things it deliberately does not do. A film records no language of its own anywhere, so a
+  translated line says what it means without saying what it was said in — that is a field on
+  the work, and it belongs with the rest of a film's metadata rather than bolted onto the quote
+  form. And the quick capture surface still does not offer the box: it is the short form on
+  purpose, and a translation is something you write once you have the line.
+
+### Fixed
+
+- **Hearting, recolouring or dragging a sticker on a highlight no longer erases who said the
+  line.** Every save in Tippani sends the whole quote, and the character on a book highlight —
+  added in 2.0.0 — was missing from what the card sent, so any of those small actions quietly
+  dropped it. The same bug took an episode's title and a game line's act and quest off a screen
+  line. Nothing reported it, because each of those saves succeeded and the field it dropped was
+  one the card had no box for.
+
+- **A standalone quote's translation now shows in search results too.** The search result card
+  asked for a plain-text version of the quote's credit line, which never included it.
+
+### Changed
+
+- **The translation box is a text area on every kind of quote.** On a standalone quote it was a
+  single line, which is a poor shape for a paragraph — and a translated passage is a passage.
+
 ## [2.2.0] - 2026-08-24
 
 ### Added

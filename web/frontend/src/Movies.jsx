@@ -59,6 +59,7 @@ import {
   GhostButton,
   HandCard,
   HandNote,
+  TranslationLine,
   Hearts,
   IconButton,
   IconDelete,
@@ -1401,6 +1402,17 @@ export function dialogueState(d) {
     // Shows only; null on a film's lines. ?? not ||, so season 0 survives.
     season: d.season ?? null,
     episode: d.episode ?? null,
+    // THE REST OF WHAT THE ROW STORES, and the comment above this function says
+    // why they have to be here: a field missing from this object is a field the
+    // request CLEARS. The ♥, the colour dots and the selection bar all save
+    // through it, so without these a recolour used to throw away an episode's
+    // title and a game line's act and quest (0047) — and would have thrown away
+    // the translation (0051) exactly the same way. utteranceState names the same
+    // trap on the third kind.
+    episode_name: d.episode_name || '',
+    act: d.act || '',
+    quest: d.quest || '',
+    translation: d.translation || '',
     tags: d.tags || [],
     favorite: !!d.favorite,
     // carry the attached sticker + its draggable seal position through every
@@ -1553,6 +1565,7 @@ function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen
     movieShare({
       quote: d.quote,
       note: d.note,
+      translation: d.translation,
       color: d.color,
       title: movie?.title,
       year: movie?.release_year,
@@ -2099,6 +2112,9 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
           })}
         </div>
       )}
+      {/* Above the pasted note, for the reason AnnotationCard gives: the
+          translation belongs to the line, the note is a thought about it. */}
+      {d.translation && <TranslationLine>{d.translation}</TranslationLine>}
       {d.note && <HandNote className="mt-2">{d.note}</HandNote>}
       {/* §7 declutter: the ♥ is the frame's resting mark and leads this row, then
           copy and share, then the colour quick-pick — the three reveal on hover
@@ -2169,6 +2185,7 @@ export function DialogueForm({ initial, onSubmit, onCancel, submitLabel, show = 
   const [season, setSeason] = useState(initial?.season ?? '')
   const [episode, setEpisode] = useState(initial?.episode ?? '')
   const [note, setNote] = useState(initial?.note || '')
+  const [translation, setTranslation] = useState(initial?.translation || '')
   const [color, setColor] = useState(initial?.color || 'yellow')
   const [tags, setTags] = useState(initial?.tags || [])
   const [stickerId, setStickerId] = useState(initial?.sticker_id ?? null)
@@ -2221,6 +2238,14 @@ export function DialogueForm({ initial, onSubmit, onCancel, submitLabel, show = 
       // existing actor through untouched (don't silently wipe a legacy credit).
       actor: characters.length ? '' : (initial?.actor || ''),
       timestamp: timestamp.trim(),
+      translation: translation.trim(),
+      // Carried through, not edited here. An episode's title, and a game's act and
+      // quest, have no box on this form and are stored (0047) — so omitting them
+      // would clear them on every save, which is the same reason `actor` above is
+      // carried rather than blanked.
+      episode_name: initial?.episode_name || '',
+      act: initial?.act || '',
+      quest: initial?.quest || '',
       color,
       tags,
       // favorite is edited on the frame, not in the form — but PUT is
@@ -2241,6 +2266,7 @@ export function DialogueForm({ initial, onSubmit, onCancel, submitLabel, show = 
       // the episode you are watching, so re-typing both every time would be the
       // wrong default. The timestamp above does clear — it changes every line.
       setNote('')
+      setTranslation('')
       setTags([])
       setStickerId(null)
     }
@@ -2320,6 +2346,11 @@ export function DialogueForm({ initial, onSubmit, onCancel, submitLabel, show = 
           onChange={(e) => setTimestamp(e.target.value)}
         />
       )}
+      {/* What the line says, above what you thought about it — the order the frame
+          draws them in, and the order the book form uses. */}
+      <textarea className="tp-input" rows="2" placeholder={t('common.field.translation.placeholder')}
+                aria-label={t('common.field.translation.label')}
+                value={translation} onChange={(e) => setTranslation(e.target.value)} />
       <textarea className="tp-input" rows="2" placeholder={t('common.field.note.label')} value={note} onChange={(e) => setNote(e.target.value)} />
       <TokenInput value={tags} onChange={setTags} suggestions={tagSuggestions} placeholder={t('common.field.tags.placeholder')} ariaLabel={t('common.field.tags.label')} />
       <div className="flex items-center gap-3">

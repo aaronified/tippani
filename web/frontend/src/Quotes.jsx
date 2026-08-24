@@ -201,10 +201,9 @@ export function utteranceMeta(u, { people, seps, onOpenPerson, omitSpeaker } = {
   // line has nowhere to go. They stay one line; only the rich form below grows.
   if (omitSpeaker) return rest.join(' · ')
   if (!onOpenPerson) return [u.speaker, ...rest].filter(Boolean).join(' · ')
-  const tr = (u.translation || '').trim()
 
   const names = u.speaker ? splitCredits(u.speaker, seps || DEFAULT_CREDIT_SEPS) : []
-  if (names.length === 0 && rest.length === 0 && !tr) return ''
+  if (names.length === 0 && rest.length === 0) return ''
   return (
     <>
       {/* THE MARK STANDS IN FOR THE FACE. A proverb is the one kind of quote with
@@ -232,27 +231,15 @@ export function utteranceMeta(u, { people, seps, onOpenPerson, omitSpeaker } = {
       )}
       {names.length > 0 && rest.length > 0 && ' · '}
       {rest.join(' · ')}
-      {/* WHAT THE LINE SAYS, when the words are not in a language the reader has.
-          A block span inside the meta label rather than a new slot on
-          AnnotationCard: the card takes `meta` as a node, so this buys a second line
-          without touching the component three screens share. In the display italic
-          rather than the mono voice around it, because it is prose — the same words
-          in another language, not another locator. */}
-      {tr && <span style={TRANSLATION_LINE}>{tr}</span>}
+      {/* THE TRANSLATION USED TO BE DRAWN HERE, as a block span smuggled inside the
+          meta label — the cheapest way to get a second line without touching the
+          card three screens share. 0051 moved it onto the card itself
+          (ui.jsx's TranslationLine), because the other two kinds now have the field
+          too and one line drawn in three places is three places to draw it
+          differently. It also fixed the search modal, which asks this function for
+          its STRING form and therefore never showed a translation at all. */}
     </>
   )
-}
-
-// The translation's own voice: prose, not the mono meta strip it sits inside.
-const TRANSLATION_LINE = {
-  display: 'block',
-  marginTop: 3,
-  fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', fontVariantNumeric: 'var(--font-display-figures)',
-  fontStyle: 'italic',
-  fontSize: 'var(--type-display-13)',
-  textTransform: 'none',
-  letterSpacing: 'normal',
-  color: 'var(--soft)',
 }
 
 // UtteranceForm follows the house form contract: {initial, onSubmit, onCancel,
@@ -395,12 +382,14 @@ export function UtteranceForm({ initial, onSubmit, onCancel, submitLabel, tagSug
         value={language}
         onChange={(e) => setLanguage(e.target.value)}
       />
-      <Field
-        label={t('common.field.translation.label')}
-        placeholder={t('common.field.translation.placeholder')}
-        value={translation}
-        onChange={(e) => setTranslation(e.target.value)}
-      />
+      {/* A TEXTAREA SINCE 0051, where it was a one-line box before. It holds the
+          same prose the quote above it does — uncapped at the server — and the two
+          other kinds' forms now offer the same control for the same field. */}
+      <label className="block">
+        <MonoLabel className="mb-1.5 block">{t('common.field.translation.label')}</MonoLabel>
+        <textarea className="tp-input" rows="2" placeholder={t('common.field.translation.placeholder')}
+                  value={translation} onChange={(e) => setTranslation(e.target.value)} />
+      </label>
       <label className="block">
         <MonoLabel className="mb-1.5 block">{t('common.field.tags.label')}</MonoLabel>
         <TokenInput

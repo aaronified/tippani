@@ -55,6 +55,7 @@ import {
   GhostButton,
   HandCard,
   HandNote,
+  TranslationLine,
   Hearts,
   IconButton,
   IconDelete,
@@ -1210,6 +1211,15 @@ export function annotationState(a) {
     chapter: a.chapter || '',
     chapter_no: a.chapter_no || 0,
     location: a.location || '',
+    // A SILENT-LOSS SITE, named the way utteranceState names its own. Every PUT
+    // here is full-state, so a field missing from this object is a field CLEARED
+    // by the request — and the ♥ on a card, the colour dots and the selection bar
+    // all save through it. `character` (0047) was missing from here for four
+    // releases, which meant recolouring a highlight quietly threw away who said
+    // it; `translation` (0051) is the same shape of field and would have gone the
+    // same way. 0034 records the trap catching `translator` on bookState first.
+    character: a.character || '',
+    translation: a.translation || '',
     color: a.color || 'yellow',
     tags: a.tags || [],
     favorite: !!a.favorite,
@@ -1443,6 +1453,14 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
             <QuizSkipMark item={a} parent={selectKind === 'annotation' ? 'book' : ''} />
             {metaLine && <MonoLabel className="block">{metaLine}</MonoLabel>}
           </div>
+          {/* WHAT IT SAYS, then what you thought — in that order, and the order is
+              the argument. The translation belongs to the quote, so it sits under
+              the words and above the margin note; putting it after the note would
+              read as a second thought about the line rather than the line itself.
+              Drawn here rather than inside each kind's `meta` node so that all
+              three kinds — and the search modal, which asks utteranceMeta for a
+              plain string — show it identically. */}
+          {a.translation && <TranslationLine>{a.translation}</TranslationLine>}
           {a.note && <HandNote>{a.note}</HandNote>}
           {a.tags && a.tags.length > 0 && (
             <div className="flex flex-wrap gap-2 pt-1">
@@ -1761,6 +1779,7 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
     bookShare({
       quote: a.quote,
       note: a.note,
+      translation: a.translation,
       author: book?.author,
       title: book?.title,
       published: book?.published_year,
@@ -1961,6 +1980,7 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
 export function AnnotationForm({ initial, onSubmit, onCancel, submitLabel, tagSuggestions = [], stickers = [], reloadStickers }) {
   const [quote, setQuote] = useState(initial?.quote || '')
   const [note, setNote] = useState(initial?.note || '')
+  const [translation, setTranslation] = useState(initial?.translation || '')
   const [chapter, setChapter] = useState(initial?.chapter || '')
   // The chapter's NUMBER, kept as a string so the box can be empty. Number(...)||0
   // at submit is the same shape the work forms use for Series #, and 0 is how the
@@ -1989,11 +2009,16 @@ export function AnnotationForm({ initial, onSubmit, onCancel, submitLabel, tagSu
     const err = await onSubmit({
       quote: quote.trim(),
       note: note.trim(),
+      translation: translation.trim(),
       chapter: chapter.trim(),
       chapter_no: Number(chapterNo.trim()) || 0,
       location: location.trim(),
       color,
       tags,
+      // Carried through, not edited here: this form has no character box, and
+      // `character` is stored (0047), so omitting it would clear it on every save.
+      // The capture surface and the selection bar are where it is set.
+      character: initial?.character || '',
       // favorite is edited on the card, not in the form — but PUT is
       // full-state, so carry the existing value through.
       favorite: !!initial?.favorite,
@@ -2008,6 +2033,7 @@ export function AnnotationForm({ initial, onSubmit, onCancel, submitLabel, tagSu
     if (!initial) {
       setQuote('')
       setNote('')
+      setTranslation('')
       setChapter('')
       setLocation('')
       setColor('yellow')
@@ -2021,6 +2047,14 @@ export function AnnotationForm({ initial, onSubmit, onCancel, submitLabel, tagSu
       <label className="block">
         <MonoLabel className="mb-1.5 block">{t('common.field.quote.label')}</MonoLabel>
         <textarea className="tp-input" rows="3" value={quote} onChange={(e) => setQuote(e.target.value)} />
+      </label>
+      {/* A TEXTAREA AND NOT A ONE-LINE BOX, like the quote it translates and unlike
+          every locator below it: a translated passage is a passage, and the server
+          caps neither. */}
+      <label className="block">
+        <MonoLabel className="mb-1.5 block">{t('common.field.translation.label')}</MonoLabel>
+        <textarea className="tp-input" rows="2" placeholder={t('common.field.translation.placeholder')}
+                  value={translation} onChange={(e) => setTranslation(e.target.value)} />
       </label>
       <label className="block">
         <MonoLabel className="mb-1.5 block">{t('common.field.note.label')}</MonoLabel>

@@ -918,6 +918,31 @@ export function HandNote({ className = "", children }) {
   );
 }
 
+// TranslationLine — what the line SAYS, under the meta strip and above the note.
+//
+// ONE COMPONENT FOR ALL THREE KINDS, and that is the point of it living here.
+// The rich form of utteranceMeta drew this itself from 0035 until 0051, which
+// meant a standalone quote showed its translation and the two kinds most
+// libraries are made of had nowhere to show one — and it also meant the search
+// modal, which asks utteranceMeta for its STRING form, showed no translation for
+// a quote either. Three cards drawing one field is three chances to draw it
+// differently.
+//
+// PROSE, NOT A LOCATOR, which is what decides the voice: it is set in the display
+// face rather than the mono strip it sits under, because it is the same words in
+// another language and not another thing to know about them. Italic separates it
+// from the quote without making it a second quote.
+//
+// NOT the mono face, and that is load-bearing rather than aesthetic: the mono
+// stack has no Indic member (see src/locale.jsx), so a Bengali translation set in
+// it would draw in whatever the OS reached for — which is the same trap
+// .cleanup-snippet documents.
+export function TranslationLine({ className = "", children }) {
+  // card-text for the reason HandNote carries it: this is prose, so a long press
+  // over it should select words rather than the card.
+  return <p className={"quote-translation card-text " + className}>{children}</p>;
+}
+
 // ---- ♥ favourite mark (§6: hearts for favourites, never stars) ----
 
 // randWobble is the ink-mark jitter (§1: user marks are "hand-drawn: tilted,

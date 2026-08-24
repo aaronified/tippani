@@ -24,6 +24,12 @@ import (
 //	dialogue:   character, actor, timestamp   (who said it, and when)
 //
 // Everything else is shared, and anything added here appears on both at once.
+//
+// §24's standalone quote (utteranceReq/utteranceRow) embeds these too, so a field
+// declared here is on all THREE kinds. That is the whole reason `translation`
+// moved here in 0051 from the one kind that had it: a field that is prose about
+// the quote rather than a pointer into its source has no business being per-kind,
+// and the parity tests below only bite on a field this file declares.
 // Embedding is anonymous, so the JSON wire format is unchanged: the fields
 // marshal inline exactly as they did when they were declared per-kind.
 
@@ -47,6 +53,21 @@ type quoteReq struct {
 	// a capture's origin doesn't change when you fix a typo in it.
 	NotedAt string `json:"noted_at"`
 	Source  string `json:"source"`
+	// What the line SAYS, for a quote whose words are not in a language the reader
+	// has (0051; 0035 on the third kind, which had it first). NOT the note: a note
+	// is what you thought about the line, and folding the two together leaves
+	// nothing downstream able to tell them apart — the review deck would prompt you
+	// with your own reaction, and `notes` as a search section would stop meaning
+	// notes.
+	//
+	// Uncapped, like Quote and Note and unlike every locator beside them: it is the
+	// same kind of content, and a translation is routinely longer than its original.
+	//
+	// NO Language BESIDE IT HERE. A standalone quote carries its own, because it has
+	// no parent to ask; an annotation's is the book's (0047's two columns); a film's
+	// is nowhere yet. Promoting Language would put a permanently unfillable field on
+	// two kinds — see 0051 for the argument in full.
+	Translation string `json:"translation"`
 }
 
 // validate trims and checks the shared fields, returning "" when they are good
@@ -74,6 +95,9 @@ func (q *quoteReq) validate() string {
 		return err.Error()
 	}
 	q.Source = source
+	// Trimmed but NOT capped, for the reason on the field: it holds prose, and the
+	// words it translates are uncapped too.
+	q.Translation = strings.TrimSpace(q.Translation)
 	return ""
 }
 
@@ -81,6 +105,11 @@ func (q *quoteReq) validate() string {
 // note-only rows. The source locator (chapter/location, timestamp) is
 // deliberately excluded, so the same passage recorded twice with different
 // page numbers still collapses to one row.
+//
+// Translation is excluded for a sharper reason than the locators are: the hash
+// answers "is this the same quote", and that answer must not depend on whether
+// anyone has got round to translating it. Folding it in would make typing a
+// translation fork a second copy of the line on the next import of the same file.
 func (q *quoteReq) hash() string {
 	if q.Quote != "" {
 		return store.DedupeHash(q.Quote)
@@ -90,18 +119,23 @@ func (q *quoteReq) hash() string {
 
 // quoteRow is the response shape common to both kinds.
 type quoteRow struct {
-	ID        int64    `json:"id"`
-	Quote     string   `json:"quote"`
-	Note      string   `json:"note"`
-	Color     string   `json:"color"`
-	Favorite  bool     `json:"favorite"`
-	Tags      []string `json:"tags"`
-	NotedAt   string   `json:"noted_at"`   // date of capture (original, or add time); "" if unknown
-	StickerID *int64   `json:"sticker_id"` // attached sticker (uploaded image), nil = none
-	StickerX  *float64 `json:"sticker_x"`  // seal centre x as a fraction of block width; nil = top-right default
-	StickerY  *float64 `json:"sticker_y"`  // seal centre y in the same width units
-	CreatedAt string   `json:"created_at"`
-	UpdatedAt string   `json:"updated_at"`
+	ID    int64  `json:"id"`
+	Quote string `json:"quote"`
+	Note  string `json:"note"`
+	// 0051. On every kind's LIST row and not only its single read, because the card
+	// draws it — see utteranceMeta, where it has been a second line under the meta
+	// strip since 0035. A list that omitted it would leave every card to fetch its
+	// own quote again to render one line of text.
+	Translation string   `json:"translation"`
+	Color       string   `json:"color"`
+	Favorite    bool     `json:"favorite"`
+	Tags        []string `json:"tags"`
+	NotedAt     string   `json:"noted_at"`   // date of capture (original, or add time); "" if unknown
+	StickerID   *int64   `json:"sticker_id"` // attached sticker (uploaded image), nil = none
+	StickerX    *float64 `json:"sticker_x"`  // seal centre x as a fraction of block width; nil = top-right default
+	StickerY    *float64 `json:"sticker_y"`  // seal centre y in the same width units
+	CreatedAt   string   `json:"created_at"`
+	UpdatedAt   string   `json:"updated_at"`
 	// Spaced-repetition state for the status dot (v0.5.0). Reviewed=false is the
 	// "unseen" pool; the client derives remembered/forgetting/probably-forgotten
 	// from stability + last_reviewed_at + last_result (a lapse forces

@@ -371,12 +371,12 @@ func stageMovieWork(tx *sql.Tx, batchID int64, m importer.MovieHeader) (int64, e
 func stageQuotes(tx *sql.Tx, workID int64, anns []importer.Annotation, dialogues []importer.Dialogue) (int, error) {
 	const q = `
 		INSERT OR IGNORE INTO staged_quotes
-		  (staged_work_id, quote, note, color, favorite, chapter, chapter_no, location, location_orig,
+		  (staged_work_id, quote, note, translation, color, favorite, chapter, chapter_no, location, location_orig,
 		   character, actor, timestamp, timestamp_orig, season, episode,
 		   act, quest, episode_name, tags, noted_at, dedupe_hash)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	staged := 0
-	add := func(quote, note, color string, favorite bool, chapter string, chapterNo float64,
+	add := func(quote, note, translation, color string, favorite bool, chapter string, chapterNo float64,
 		location, character, actor, timestamp string,
 		season, episode *int, act, quest, episodeName string, tags []string, notedAt string) error {
 		if color == "" {
@@ -399,7 +399,10 @@ func stageQuotes(tx *sql.Tx, workID int64, anns []importer.Annotation, dialogues
 		// two quests would collapse to a single staged row and then arrive as a single
 		// line, with a matching "1 staged, 1 added" to say nothing was lost.
 		hash := store.DialogueDedupeHash(text, season, episode, act, quest)
-		res, err := tx.Exec(q, workID, nullable(quote), nullable(note), color, favorite,
+		res, err := tx.Exec(q, workID, nullable(quote), nullable(note),
+			// A plain string: staged_quotes.translation is NOT NULL DEFAULT '' (0035),
+			// and nullable("") is nil.
+			translation, color, favorite,
 			nullable(chapter), nullableFloat(chapterNo), nullable(location), nullable(location),
 			nullable(character), nullable(actor), nullable(timestamp), nullable(timestamp),
 			season, episode,
@@ -425,7 +428,7 @@ func stageQuotes(tx *sql.Tx, workID int64, anns []importer.Annotation, dialogues
 		// itself — the same reason season and episode are listed below and can
 		// never actually change either. The episode name is NOT in the hash, which
 		// is exactly why the copy already staged can be missing it.
-		return enrichStagedQuote(tx, workID, hash, quote, note, color, favorite,
+		return enrichStagedQuote(tx, workID, hash, quote, note, translation, color, favorite,
 			chapter, chapterNo, location, character, actor, timestamp, season, episode,
 			episodeName, tags, notedAt)
 	}
@@ -440,13 +443,13 @@ func stageQuotes(tx *sql.Tx, workID int64, anns []importer.Annotation, dialogues
 		// episode name either — a book has none, and a book file retargeted onto a
 		// game is repaired by the media-type gate at approval rather than by inventing
 		// a locator here.
-		if err := add(a.Quote, a.Note, a.Color, a.Favorite, a.Chapter, a.ChapterNo, a.Location,
+		if err := add(a.Quote, a.Note, a.Translation, a.Color, a.Favorite, a.Chapter, a.ChapterNo, a.Location,
 			a.Character, "", "", nil, nil, "", "", "", a.Tags, a.NotedAt); err != nil {
 			return 0, err
 		}
 	}
 	for _, d := range dialogues {
-		if err := add(d.Quote, d.Note, d.Color, d.Favorite, "", 0, "", d.Character, d.Actor, d.Timestamp,
+		if err := add(d.Quote, d.Note, d.Translation, d.Color, d.Favorite, "", 0, "", d.Character, d.Actor, d.Timestamp,
 			d.Season, d.Episode, d.Act, d.Quest, d.EpisodeName, d.Tags, d.NotedAt); err != nil {
 			return 0, err
 		}
@@ -460,7 +463,7 @@ func stageQuotes(tx *sql.Tx, workID int64, anns []importer.Annotation, dialogues
 // tags union. Existing values always win, so the first copy in the file is the one
 // whose edits survive. The _orig snapshots follow their live column, so a locator
 // that arrives only on the second copy is still resettable.
-func enrichStagedQuote(tx *sql.Tx, workID int64, hash, quote, note, color string, favorite bool,
+func enrichStagedQuote(tx *sql.Tx, workID int64, hash, quote, note, translation, color string, favorite bool,
 	chapter string, chapterNo float64, location, character, actor, timestamp string, season, episode *int,
 	episodeName string, tags []string, notedAt string) error {
 
@@ -489,6 +492,7 @@ func enrichStagedQuote(tx *sql.Tx, workID int64, hash, quote, note, color string
 		  season         = COALESCE(season, ?),
 		  episode        = COALESCE(episode, ?),
 		  episode_name   = CASE WHEN episode_name = '' THEN ? ELSE episode_name END,
+		  translation    = CASE WHEN translation = '' THEN ? ELSE translation END,
 		  color          = CASE WHEN color = 'yellow' AND ? <> 'yellow' THEN ? ELSE color END,
 		  favorite       = MAX(favorite, ?)
 		 WHERE id = ?`,
@@ -501,8 +505,9 @@ func enrichStagedQuote(tx *sql.Tx, workID int64, hash, quote, note, color string
 		// COALESCE('', x) is '', so the donation would never happen and the column
 		// would merely look as though it had enriched. `CASE WHEN col = ''` is the
 		// same rule spelled the way `status` two functions up already spells it, and
-		// upsertImportBook's NULLIF() is a third spelling of the one idea.
-		episodeName,
+		// upsertImportBook's NULLIF() is a third spelling of the one idea. 0051's
+		// translation is the same shape of column and takes the same spelling.
+		episodeName, translation,
 		color, color, favorite, id); err != nil {
 		return err
 	}
@@ -1342,8 +1347,9 @@ func stagedAsAnnotations(quotes []stagedQuoteRow) []importer.Annotation {
 	for _, q := range quotes {
 		out = append(out, importer.Annotation{
 			Quote: q.Quote, Note: q.Note, Chapter: q.Chapter, ChapterNo: q.ChapterNo, Location: q.Location,
-			Character: q.Character, // 0047; no actor — a novel has speakers, not a cast
-			Color:     q.Color, Tags: q.Tags, Favorite: q.Favorite, NotedAt: q.NotedAt,
+			Character:   q.Character,   // 0047; no actor — a novel has speakers, not a cast
+			Translation: q.Translation, // 0051; the queue has carried it since 0035
+			Color:       q.Color, Tags: q.Tags, Favorite: q.Favorite, NotedAt: q.NotedAt,
 		})
 	}
 	return out
@@ -1374,7 +1380,8 @@ func stagedAsDialogues(quotes []stagedQuoteRow) []importer.Dialogue {
 			Quote: q.Quote, Note: q.Note, Character: q.Character, Actor: q.Actor,
 			Timestamp: q.Timestamp, Season: q.Season, Episode: q.Episode,
 			EpisodeName: q.EpisodeName, Act: q.Act, Quest: q.Quest, // 0047
-			Color: q.Color, Tags: q.Tags, Favorite: q.Favorite,
+			Translation: q.Translation, // 0051
+			Color:       q.Color, Tags: q.Tags, Favorite: q.Favorite,
 			NotedAt: q.NotedAt,
 		})
 	}

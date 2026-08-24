@@ -99,9 +99,19 @@ type Annotation struct {
 	// deliberately does not.
 	Character string
 	Color     string // "" -> caller defaults to yellow
-	Tags      []string
-	Favorite  bool
-	NotedAt   string // original date of the highlight/note, when the source carries one; "" otherwise
+	// What the line SAYS, for a highlight whose words are not in a language the
+	// reader has (0051). Read from Tippani's own frontmatter and hand-written files
+	// only: no third-party importer has a source for it, which is the same reason
+	// Book's two credits and two languages are parsed and never supplied.
+	//
+	// NOT FOLDED INTO Note, and quote_markdown.go has said why since the quote
+	// importer was written — a note is what you thought, a translation is what the
+	// line says. A parser that merged them would be the loss 0051 exists to undo,
+	// and it would be silent: the import would succeed and the counts would match.
+	Translation string
+	Tags        []string
+	Favorite    bool
+	NotedAt     string // original date of the highlight/note, when the source carries one; "" otherwise
 }
 
 // Result groups the annotations of one book.
@@ -388,6 +398,7 @@ type Dialogue struct {
 	Quest       string
 	Note        string
 	Color       string // "" = the importer leaves it to the server default (yellow)
+	Translation string // 0051; see Annotation.Translation for why it is not the note
 	Tags        []string
 	Favorite    bool
 	NotedAt     string // as for Annotation. No file format carries a date for a

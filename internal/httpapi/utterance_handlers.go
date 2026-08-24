@@ -79,11 +79,12 @@ type utteranceReq struct {
 	BoardID *int64 `json:"board_id"`
 	// A plain language name ('Bengali'), not a BCP-47 tag, and free text rather
 	// than an enum — the set of languages is the reader's, not this schema's.
+	//
+	// STILL PER-KIND, though the translation it pairs with is now shared (0051).
+	// This kind has no parent to ask: a book's language is on the book and a
+	// proverb's is nowhere else, so the field is meaningful here and unfillable on
+	// the other two. See quoteReq.Translation.
 	Language string `json:"language"`
-	// What the line says, when the words are not in a language the reader has.
-	// Uncapped, like Quote and Note: it is the same kind of content, and a
-	// translation is routinely longer than its original.
-	Translation string `json:"translation"`
 	// 0047 — the fields the kinds a board can now hold actually carry. Which of
 	// them a form OFFERS is the board's kind's business; which of them this table
 	// STORES is all of them, because the kind lives on the board and a quote moved
@@ -141,9 +142,6 @@ func (u *utteranceReq) validate() string {
 		}
 		*f.v = s
 	}
-	// Trimmed but not capped, for the reason on the field: it holds prose.
-	u.Translation = strings.TrimSpace(u.Translation)
-
 	// An omitted category is 'other' rather than a 400, matching the column
 	// default — an older client that has never heard of 0035 goes on saving
 	// quotes, and they land in the bucket that claims nothing.
@@ -190,10 +188,10 @@ type utteranceRow struct {
 	Medium       string `json:"medium"`
 	// 0035. On the LIST row as well as the single read, unlike book credits: the
 	// board a quote belongs on is what the client needs in order to draw the
-	// board at all, and the translation is on the card.
-	Category    string `json:"category"`
-	Language    string `json:"language"`
-	Translation string `json:"translation"`
+	// board at all. The translation moved to quoteRow in 0051 and reaches this
+	// shape by embedding, for the same reason and on all three kinds.
+	Category string `json:"category"`
+	Language string `json:"language"`
 	// 0047. On the list row as well, for the reason the two above are: these are
 	// what the card DRAWS on a proverb, a letter and an essay board, and a board
 	// that had to fetch each quote singly to render its own shelf is the thing the

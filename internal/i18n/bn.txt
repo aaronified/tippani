@@ -4027,6 +4027,7 @@ staging.group.empty.work = কোনও উদ্ধৃতি নেই — ম�
 staging.row.select.tip = এই উদ্ধৃতিটা বাছুন
 staging.row.select.aria = এই জমা উদ্ধৃতিটা বাছুন
 staging.row.note.label = নোট: {note}
+staging.row.translation.label = অনুবাদ: {text}
 staging.row.shifted.label = সরেছে
 # ?? formula → ফর্মুলা. সূত্র is taken for a metadata source (§3.7), and ফর্মুলা
 # ?? is the everyday word.

@@ -88,7 +88,22 @@ import (
 //	returns one row (a client that can edit a quote from a card needs full
 //	state before it can PUT full state), and /fonts uploads, lists, serves and
 //	deletes a reader's own type.
-const apiRevision = 7
+//
+// 8 — every quote can say what it means. `translation` moves from the standalone
+//
+//	quote, which has had it since revision 5, onto the book highlight and the
+//	screen line as well: on all three create/read/update shapes, on all three
+//	LIST rows, in all three Markdown round trips, and indexed for search
+//	alongside the words it translates.
+//
+//	THIS ONE MATTERS TO AN OLD CLIENT MORE THAN THE REST OF THE LIST, and the
+//	reason is that every PUT here is full-state. A client built against
+//	revision 7 that saves a highlight sends no `translation` and therefore
+//	CLEARS one somebody typed — the same hazard revision 5 introduced on the
+//	third kind, now reachable on the two kinds most libraries are made of. The
+//	feature string is how such a client can know to leave those quotes alone
+//	rather than probing a response shape for a field it has never heard of.
+const apiRevision = 8
 
 // apiFeatures names what this server can do, so a client can light up or hide a
 // screen instead of probing for a 404. Names are stable once published: an old
@@ -171,6 +186,13 @@ var apiFeatures = []string{
 	"quote-by-id", // ?id= on /annotations, /dialogues, /quotes
 	// Bring your own type. The server stores the bytes and never parses them.
 	"user-fonts", // GET/POST /fonts, GET /fonts/{id}/file, DELETE /fonts/{id}
+	// What the line SAYS, on every kind of quote rather than only the standalone
+	// one. NAMED SEPARATELY FROM quote-categories, though that string already
+	// covers the same column on the third kind, because the names are stable once
+	// published and a client that supports one kind's translation has not thereby
+	// been taught the other two — and because a full-state PUT from a client that
+	// has not heard of this one silently clears the field. See revision 8.
+	"quote-translation", // `translation` on /annotations and /dialogues too
 }
 
 // minClientRevision is the oldest client API revision this server still serves

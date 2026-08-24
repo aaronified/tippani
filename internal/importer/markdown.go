@@ -230,6 +230,11 @@ func parseFrontmatter(lines []string) (*Result, error) {
 			// an adaptation rather than the book.
 			case "character":
 				cur.Character = val
+			// 0051. The same three keys the quote importer has accepted since 0035,
+			// spelled the same way on purpose: a hand-written file should not have to
+			// know which shelf it is going to in order to name the same field.
+			case "translation", "translated", "english":
+				cur.Translation = val
 			case "date", "added", "noted":
 				cur.NotedAt = val
 			case "tags":

@@ -717,6 +717,12 @@ func wantShapes() []tableShape {
 				// a default must be the zero value, so an upgraded row reads exactly
 				// like a fresh one and no scanner needs a pointer.
 				{Name: "character", Type: "TEXT", NotNull: true, Default: "''", HasDflt: true},
+				// 0051. What the line SAYS, as against `note`, which is what you thought
+				// about it. Uncapped in the app layer for the reason `quote` is: it holds
+				// the same kind of prose, and a translation is routinely longer than its
+				// original. No `language` beside it — a book's is on the book (0047's two
+				// columns), and only the parentless third kind carries its own.
+				{Name: "translation", Type: "TEXT", NotNull: true, Default: "''", HasDflt: true},
 			},
 			Checks: []string{
 				"color IN ('yellow','blue','pink','orange','green','purple')",
@@ -795,6 +801,11 @@ func wantShapes() []tableShape {
 				// 0047. The show's only new field. The number orders a line; the title is
 				// what a reader remembers it by, and it had nowhere to go but the note.
 				{Name: "episode_name", Type: "TEXT", NotNull: true, Default: "''", HasDflt: true},
+				// 0051, the same column the two other kinds carry. A film's ORIGINAL
+				// language is the gap the migration names and leaves open: `movies` has no
+				// language column, so a translated line records what it says and not what
+				// it was said in.
+				{Name: "translation", Type: "TEXT", NotNull: true, Default: "''", HasDflt: true},
 			},
 			Checks: []string{
 				"color IN ('yellow','blue','pink','orange','green','purple')",
