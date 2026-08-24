@@ -105,12 +105,17 @@ type bulkTagReq struct {
 	Speaker     *string `json:"speaker"`      // quote
 	Occasion    *string `json:"occasion"`     // quote
 	Place       *string `json:"place"`        // quote
-	Medium      *string `json:"medium"`       // quote (superseded by kind, 0053)
-	Kind        *string `json:"kind"`         // quote, and one of 0053's five words
-	Region      *string `json:"region"`       // quote
-	Recipient   *string `json:"recipient"`    // quote
-	WorkTitle   *string `json:"work_title"`   // quote
-	Locator     *string `json:"locator"`      // quote
+	// SUPERSEDED BY Kind (0053) AND STILL ACCEPTED, which is not the same as still
+	// offered: no screen has a control for it since the field was replaced. It stays
+	// on the wire because a client older than 0053 — or a script somebody wrote
+	// against this API — must not start failing, and because the column keeps every
+	// value it holds. Nothing in this repo sends it.
+	Medium    *string `json:"medium"`     // quote (superseded by kind, 0053)
+	Kind      *string `json:"kind"`       // quote, and one of 0053's five words
+	Region    *string `json:"region"`     // quote
+	Recipient *string `json:"recipient"`  // quote
+	WorkTitle *string `json:"work_title"` // quote
+	Locator   *string `json:"locator"`    // quote
 	// occasion_circa is DELIBERATELY NOT HERE. It says how precisely one date is
 	// known, and "all forty of these dates are approximate" is not a thing anybody
 	// knows about forty quotes at once — it is a claim about each of them. The same

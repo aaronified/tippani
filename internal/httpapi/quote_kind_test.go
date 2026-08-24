@@ -424,3 +424,60 @@ func TestABookHighlightWithNoCharacterCreditsTheAuthorAlone(t *testing.T) {
 		t.Errorf("credit is %+v, want 'Melville'", got.Entries)
 	}
 }
+
+// AND THE FOURTH READ. Three passes swept the library card, the shares, Shuffle
+// and the anthology; the daily deck's book branch went on selecting no character
+// at all, so the quiz card — which is a quote card by any reading of the report —
+// still showed none. The field's own doc comment said "screen speaker" and had
+// been wrong since 0047.
+func TestTheQuizCardCarriesABookHighlightsCharacter(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	// The deck's own fixtures: a real sentence (a cloze needs content words to
+	// mask) and aged, because a highlight saved a moment ago is not due yet. Both
+	// of those would otherwise give an empty deck, and this test would pass while
+	// proving nothing.
+	_, ids := seedReviewBook(t, c, "Moby-Dick", 3)
+	ageSeededItems(t, srv)
+
+	// Put a character on one of them, through the API the form uses.
+	first := decode[pagedAnnotations](t, c.mustDo("GET", "/annotations", nil, http.StatusOK))
+	var target annotationRow
+	for _, a := range first.Annotations {
+		if a.ID == ids[0] {
+			target = a
+		}
+	}
+	if target.ID == 0 {
+		t.Fatalf("seeded annotation %d not found", ids[0])
+	}
+	c.mustDo("PUT", "/annotations/"+itoa(ids[0]), map[string]any{
+		"quote": target.Quote, "character": "Ishmael", "color": target.Color,
+	}, http.StatusOK)
+
+	deck := decode[struct {
+		Items []struct {
+			ID        int64  `json:"id"`
+			Kind      string `json:"kind"`
+			Character string `json:"character"`
+		} `json:"items"`
+	}](t, c.mustDo("GET", "/review/daily?offset=0", nil, http.StatusOK))
+	if len(deck.Items) == 0 {
+		t.Fatalf("the deck is empty, so this proves nothing: %+v", deck)
+	}
+	var found bool
+	for _, it := range deck.Items {
+		if it.Kind != "book" || it.ID != ids[0] {
+			continue
+		}
+		found = true
+		if it.Character != "Ishmael" {
+			t.Errorf("the quiz card dropped the character: %+v", it)
+		}
+	}
+	if !found {
+		t.Fatalf("the highlight with a character is not in the deck: %+v", deck.Items)
+	}
+}

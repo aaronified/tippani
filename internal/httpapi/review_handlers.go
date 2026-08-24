@@ -543,9 +543,12 @@ type reviewCard struct {
 	// title, or — for a standalone quote, which has no parent work — the
 	// occasion it was said on, falling back to the speaker. It is what a
 	// "source" card asks you to recall, so every kind must fill it.
-	Title        string  `json:"title"`
-	Author       string  `json:"author"`        // book author; "" otherwise
-	Character    string  `json:"character"`     // screen speaker; "" otherwise
+	Title  string `json:"title"`
+	Author string `json:"author"` // book author; "" otherwise
+	// WHO SAYS IT. A screen line's speaker — and, since 0047, a book highlight's
+	// too: a novel has speakers, and this was the fourth read of that column to be
+	// found still dropping it after three passes had swept the other three.
+	Character    string  `json:"character"`
 	Actor        string  `json:"actor"`         // screen speaker's actor; "" otherwise
 	Speaker      string  `json:"speaker"`       // utterance only — who said it
 	OccasionDate string  `json:"occasion_date"` // utterance only — when, possibly just a year
@@ -790,7 +793,8 @@ const schedCols = `r.item_id IS NOT NULL, COALESCE(r.stability, ?), COALESCE(r.r
 func (s *Server) bookCandidates(uid int64, bucket deckBucket, th reviewTheme, mod, day string, seed int64, limit int) ([]reviewCand, error) {
 	rs := bookSource()
 	q := `SELECT x.id, x.book_id, COALESCE(x.quote,''), COALESCE(x.note,''), x.color,
-	             p.title, COALESCE(p.author,''), COALESCE(x.chapter,''), COALESCE(x.location,''),
+	             p.title, COALESCE(p.author,''), COALESCE(x.character,''),
+	             COALESCE(x.chapter,''), COALESCE(x.location,''),
 	             ` + schedCols + `
 	      FROM ` + rs.from() + ` ` + rs.reviewJoin() + ` ` + rs.where()
 	args := []any{reviewMinStability, uid}
@@ -822,7 +826,7 @@ func (s *Server) bookCandidates(uid int64, bucket deckBucket, th reviewTheme, mo
 		var bookID int64
 		c.card.Kind = kindBook
 		if err := rows.Scan(&c.card.ID, &bookID, &c.card.Quote, &c.card.Note, &c.card.Color,
-			&c.card.Title, &c.card.Author, &c.card.Chapter, &c.card.Location,
+			&c.card.Title, &c.card.Author, &c.card.Character, &c.card.Chapter, &c.card.Location,
 			&c.seen, &c.card.Stability, &c.card.ReviewCount, &c.card.LapseCount, &lr, &c.lastResult, &c.age); err != nil {
 			olog.Warnf(olog.CodeReviewRowScan, "[review] book candidate row scan failed: %v", err)
 			continue
