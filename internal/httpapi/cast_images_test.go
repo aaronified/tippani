@@ -157,3 +157,55 @@ func TestALineNamingTwoCharactersGetsBothPictures(t *testing.T) {
 		t.Fatalf("names = %v, want both in the order the line names them", names)
 	}
 }
+
+// A BOOK'S CHARACTER GETS A PICTURE TOO (0050), and the parity guard is what
+// caught this being missing.
+//
+// Nobody plays Ahab, so a book quote has a character and no actor at all — which
+// is exactly why leaving books out would have been the wrong kind of incomplete:
+// a chip falling back to the author on one screen and drawing the character on
+// another, for the same reader, with nothing saying why.
+func TestABookQuoteArrivesWithItsCharacterPicture(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	book := decode[struct {
+		ID int64 `json:"id"`
+	}](t, c.mustDo("POST", "/books",
+		map[string]any{"title": "Moby-Dick", "author": "Herman Melville"}, http.StatusCreated))
+
+	// A cast row on a BOOK takes no actor (0047) — the API refuses one.
+	row := decode[castRow](t, c.mustDo("POST", "/books/"+itoa(book.ID)+"/cast",
+		map[string]any{"character": "Ahab"}, http.StatusCreated))
+	if _, err := srv.Store.DB.Exec(
+		`UPDATE work_cast SET character_image_path = ? WHERE id = ?`, "ahab.jpg", row.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	c.mustDo("POST", "/annotations", map[string]any{
+		"book_id": book.ID, "quote": "From hell's heart I stab at thee.",
+		"character": "ahab",
+	}, http.StatusCreated)
+
+	got := decode[struct {
+		Annotations []struct {
+			CharacterImages []struct {
+				Name string `json:"name"`
+				Path string `json:"path"`
+			} `json:"character_images"`
+		} `json:"annotations"`
+	}](t, c.mustDo("GET", "/annotations?book_id="+itoa(book.ID), nil, http.StatusOK))
+
+	if len(got.Annotations) != 1 {
+		t.Fatalf("want one annotation, got %d", len(got.Annotations))
+	}
+	imgs := got.Annotations[0].CharacterImages
+	if len(imgs) != 1 || imgs[0].Path != "ahab.jpg" {
+		t.Fatalf("book quote's character pictures = %+v, want the one stored for Ahab", imgs)
+	}
+	// The name off the line, lower case as typed — the fold is for matching only.
+	if imgs[0].Name != "ahab" {
+		t.Errorf("name = %q, want the line's own spelling", imgs[0].Name)
+	}
+}

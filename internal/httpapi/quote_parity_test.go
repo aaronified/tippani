@@ -135,14 +135,21 @@ func TestQuoteKindsDifferOnlyByLocator(t *testing.T) {
 	// the role) — so promoting it would put a permanently empty field on utterances
 	// to spare two structs a line. Note also what did not come with it: there is no
 	// Actor on the annotation side, because nobody plays Ahab.
-	wantAnn := []string{"BookAuthor", "BookID", "BookTitle", "Chapter", "ChapterNo", "Character", "Location"}
+	// CharacterImages (0050) rides beside Character on both sides, by Character's
+	// own argument: an utterance has no character to have a picture of, so
+	// promoting it would put a permanently empty field on the third kind. It is
+	// listed here rather than exempted because the pair has to move together — a
+	// kind that gains Character and not its pictures is a chip that silently falls
+	// back to the actor on one screen and not another.
+	wantAnn := []string{"BookAuthor", "BookID", "BookTitle", "Chapter", "ChapterNo", "Character", "CharacterImages", "Location"}
 	// Season/Episode are locators too: which episode of a show the line is from
 	// (0025). A film leaves them null — its timestamp is the whole locator. Act,
 	// Quest and EpisodeName (0047) are the same argument for the other two media: a
 	// game is placed by act and quest and has no timestamp at all, and an episode
 	// has a name as well as a number.
 	wantDlg := []string{
-		"Act", "Actor", "Character", "Episode", "EpisodeName", "MovieID", "Quest", "Season", "Timestamp",
+		"Act", "Actor", "Character", "CharacterImages", "Episode", "EpisodeName",
+		"MovieID", "Quest", "Season", "Timestamp",
 	}
 
 	if got := own(reflect.TypeOf(annotationRow{})); !reflect.DeepEqual(got, wantAnn) {

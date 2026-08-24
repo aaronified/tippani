@@ -90,6 +90,17 @@ type annotationRow struct {
 	ChapterNo  float64 `json:"chapter_no"`
 	Location   string  `json:"location"`
 	Character  string  `json:"character"` // 0047; see annotationReq.Character
+	// The stored picture for each character named on this line (0050). It rides
+	// BESIDE Character rather than in quoteRow for the identical reason Character
+	// does: the third kind has no characters at all — a standalone quote has a
+	// SPEAKER, a person rather than a role — so promoting it would put a
+	// permanently empty field on utterances to spare two structs a line. The
+	// parity test spells that argument out and now names both.
+	//
+	// A BOOK'S CHARACTER HAS A PICTURE FOR THE SAME REASON A FILM'S DOES: the
+	// reader can add a cast row on a book (0048) and give it a picture (0050), and
+	// nobody plays Ahab but somebody has drawn him.
+	CharacterImages []characterImage `json:"character_images,omitempty"`
 	// The book's exclusion is NOT here beside the title and the author, though it
 	// is borrowed from the same row: it is quoteRow.WorkReviewExcluded, shared
 	// with dialogues. See that field for why the parity test settled it.
@@ -336,6 +347,21 @@ func (s *Server) handleListAnnotations(w http.ResponseWriter, r *http.Request) {
 	if err := rows.Err(); err != nil {
 		olog.Warnf(olog.CodeAnnoRowScan, "[annotations] list row iteration failed: %v", err)
 	}
+	// One query fills every row's character pictures, the same shape the tag lists
+	// below use. Best-effort: a library with no character art renders as it did.
+	refs := make([]characterImageRef, 0, len(items))
+	for _, a := range items {
+		if a.Character != "" {
+			refs = append(refs, characterImageRef{WorkID: a.BookID, Character: a.Character})
+		}
+	}
+	if found := s.loadCharacterImages(uid, "book", refs); len(found) > 0 {
+		seps := s.creditSeps(uid)
+		for i := range items {
+			items[i].CharacterImages = characterImagesFor(found, seps, items[i].BookID, items[i].Character)
+		}
+	}
+
 	// One query fills all tag lists (tags are per-user, so this can't leak).
 	tagRows, err := s.Store.DB.Query(`
 		SELECT at.annotation_id, t.name FROM annotation_tags at
