@@ -5,6 +5,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.2] - 2026-08-24
+
+### Fixed
+
+- **Two of the eight cleanup rules could destroy real text when accepted, and no longer
+  offer to.** `pronunciation` looks for two slashes with something between them, which is a
+  fraction, a date and a URL path as often as it is IPA — so accepting it turned *"the ratio
+  was 1/2 and then 3/4 of it"* into *"the ratio was 14 of it"*, and `https://example.com/path`
+  into `https:/path`. `reference-mark` looks for digits welded to a word, which is a footnote
+  index in `conscience12` and a **name** in `Apollo11` and `COVID19`. Both are still **found
+  and still listed** — you can see them, and ignore them so they stop filling the list — but
+  neither has an accept button, because there is no rewrite that is right more often than it
+  is wrong. `space-before-punctuation` keeps its button and now refuses to act across a line
+  break, which was joining two lines of a quoted poem whose second line began with a bracket.
+
+  This is the risk the page's original "find, never fix" note was written about. The answer
+  is not to fix nothing; it is that a rule earns an accept button only when its rewrite is
+  safe on prose it fires on wrongly.
+
+- **The Character box on a book highlight wrote nothing.** The payload had two `character`
+  keys and the later one won, so the box added in this release was inert on every save from
+  the highlight card and the table. Vite printed "Duplicate key" and the build carried on.
+
+- **The rewrite is now marked where it changed**, in the same context and with the same
+  guillemets as the finding above it, instead of printing the whole rewritten field
+  unmarked — which in a long quote left you comparing two paragraphs by eye. The reply also
+  stopped carrying the full text of every quote twice.
+
+- **The accept-all-of-this-rule button is gone.** It was a press that could rewrite up to
+  five hundred fields with their diffs scrolled past rather than read — the control the
+  page's own design note argues against, one filter narrower — and it was not asked for.
+
+- **The five fields a proverb, a letter and an essay carry are on the capture form too**, not
+  only on the edit form. A letter's recipient is known when it is typed.
+
 ## [2.2.1] - 2026-08-24
 
 ### Added
