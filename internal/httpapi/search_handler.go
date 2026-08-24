@@ -99,7 +99,11 @@ type utteranceHit struct {
 	Occasion     string `json:"occasion"`
 	OccasionDate string `json:"occasion_date"`
 	Place        string `json:"place"`
-	Medium       string `json:"medium"`
+	// SUPERSEDED BY Kind (0053) and still sent: the column keeps every value it
+	// holds and the card falls back to it when no kind has been set, so a hit that
+	// carried only the kind would show less than the list row beside it.
+	Medium string `json:"medium"`
+	Kind   string `json:"kind"`
 	// 0035. The category is on the HIT and not only on the list row, because a hit
 	// is a link: with three boards, "open this quote" needs to know which board it
 	// opens. Translation rides along because it is what matched — a result whose
@@ -291,7 +295,7 @@ const (
 		d.review_excluded, m.review_excluded`
 	utteranceHitCols = `u.id, u.quote, COALESCE(u.note, ''), u.color,
 		COALESCE(u.speaker, ''), COALESCE(u.occasion, ''), COALESCE(u.occasion_date, ''),
-		COALESCE(u.place, ''), COALESCE(u.medium, ''),
+		COALESCE(u.place, ''), COALESCE(u.medium, ''), COALESCE(u.kind, ''),
 		u.category, u.language, u.translation,
 		u.review_excluded`
 )
@@ -330,7 +334,7 @@ func scanDialogueHit(rows *sql.Rows) (dialogueHit, error) {
 func scanUtteranceHit(rows *sql.Rows) (utteranceHit, error) {
 	var h utteranceHit
 	err := rows.Scan(&h.ID, &h.Quote, &h.Note, &h.Color, &h.Speaker, &h.Occasion,
-		&h.OccasionDate, &h.Place, &h.Medium,
+		&h.OccasionDate, &h.Place, &h.Medium, &h.Kind,
 		&h.Category, &h.Language, &h.Translation,
 		&h.ReviewExcluded)
 	return h, err
