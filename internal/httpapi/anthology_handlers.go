@@ -150,6 +150,13 @@ type anthologyEntryRow struct {
 	// server-side would mean the reading view could not honour the switch without
 	// refetching the whole anthology.
 	Locator string `json:"locator"`
+	// 0053. WHAT KIND OF THING a standalone quote is, as the MACHINE value, empty
+	// for the other two kinds. The screen renders the word, in whichever language
+	// it is running in; this file has never sent English prose and does not start
+	// here. The locator above carries the old free-text `medium` INSTEAD of this
+	// when there is no kind — see the query, and quoteKindMeta on the client, which
+	// is the same fallback the cards use.
+	QuoteKind string `json:"quote_kind"`
 	// Date is when the passage was SAVED — noted_at falling back to created_at, the
 	// same rule On this day settled on: created_at on an imported row is the day of
 	// the import, which is the same day for thousands of rows and tells a reader
@@ -302,7 +309,7 @@ func (s *Server) entriesFor(uid, id int64) ([]anthologyEntryRow, error) {
 		                 THEN CASE WHEN COALESCE(a.chapter_no,0) <> 0 OR COALESCE(a.chapter,'') <> ''
 		                           THEN ' · ' ELSE '' END || a.location
 		                 ELSE '' END),
-		       DATE(COALESCE(NULLIF(TRIM(COALESCE(a.noted_at,'')), ''), a.created_at))
+		       DATE(COALESCE(NULLIF(TRIM(COALESCE(a.noted_at,'')), ''), a.created_at)), ''
 		  FROM anthology_entries e
 		  JOIN annotations a ON a.id = e.item_id
 		  JOIN books b ON b.id = a.book_id
@@ -327,7 +334,7 @@ func (s *Server) entriesFor(uid, id int64) ([]anthologyEntryRow, error) {
 		              THEN ' · ' ELSE '' END ||
 		         COALESCE(d.timestamp,'')
 		       ),
-		       DATE(COALESCE(NULLIF(TRIM(COALESCE(d.noted_at,'')), ''), d.created_at))
+		       DATE(COALESCE(NULLIF(TRIM(COALESCE(d.noted_at,'')), ''), d.created_at)), ''
 		  FROM anthology_entries e
 		  JOIN dialogues d ON d.id = e.item_id
 		  JOIN movies m ON m.id = d.movie_id
@@ -336,12 +343,22 @@ func (s *Server) entriesFor(uid, id int64) ([]anthologyEntryRow, error) {
 		SELECT e.kind, e.item_id, e.position, e.note,
 		       u.quote, COALESCE(u.note,''), u.color, u.favorite,
 		       COALESCE(u.occasion,''), COALESCE(u.speaker,''), 0,
-		       -- A standalone quote's "where" is a place and a medium; its occasion
-		       -- is already the Source, so it is not repeated here.
+		       -- A standalone quote's "where" is a place and — where 0053 has no kind
+		       -- to say instead — the old free-text medium. Its occasion is already
+		       -- the Source, so it is not repeated here.
+		       --
+		       -- THE MEDIUM IS DROPPED THE MOMENT THERE IS A KIND, because the two
+		       -- say the same thing and the kind says it in the reader's language:
+		       -- it rides out as a machine value in the column after the date and
+		       -- the screen renders the word. Without this the caption would read
+		       -- "Santiniketan · letter · Letter" on a row the upgrade folded.
 		       TRIM(COALESCE(u.place,'') || CASE
 		         WHEN COALESCE(u.place,'') <> '' AND COALESCE(u.medium,'') <> ''
-		         THEN ' · ' ELSE '' END || COALESCE(u.medium,'')),
-		       DATE(COALESCE(NULLIF(TRIM(COALESCE(u.noted_at,'')), ''), u.created_at))
+		              AND COALESCE(u.kind,'') = ''
+		         THEN ' · ' ELSE '' END ||
+		         CASE WHEN COALESCE(u.kind,'') = '' THEN COALESCE(u.medium,'') ELSE '' END),
+		       DATE(COALESCE(NULLIF(TRIM(COALESCE(u.noted_at,'')), ''), u.created_at)),
+		       COALESCE(u.kind,'')
 		  FROM anthology_entries e
 		  JOIN utterances u ON u.id = e.item_id
 		 WHERE e.anthology_id = ? AND e.kind = 'utterance' AND u.user_id = ?
@@ -356,7 +373,7 @@ func (s *Server) entriesFor(uid, id int64) ([]anthologyEntryRow, error) {
 		var e anthologyEntryRow
 		if err := rows.Scan(&e.Kind, &e.ItemID, &e.Position, &e.Note,
 			&e.Quote, &e.QuoteNote, &e.Color, &e.Favorite, &e.Source, &e.Credit, &e.WorkID,
-			&e.Locator, &e.Date); err != nil {
+			&e.Locator, &e.Date, &e.QuoteKind); err != nil {
 			olog.Warnf(olog.CodeAnthologyRowScan, "[anthologies] entry scan failed: %v", err)
 			continue
 		}

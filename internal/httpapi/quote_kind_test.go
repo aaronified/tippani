@@ -285,3 +285,63 @@ func TestAQuoteFileWithABadKindIsRefused(t *testing.T) {
 		t.Errorf("the refusal does not name the bad word: %s", rec.Body)
 	}
 }
+
+// ---- and the anthology caption, which is a sweep miss ------------------------
+//
+// The "where" line for a standalone quote in an anthology was `place · medium`,
+// built in SQL. Every quote saved after 0053 has a kind and an empty medium, so
+// that half of the caption silently went blank in the release that moved the
+// field — the exact shape of miss the repo's own sweep-check exists for.
+//
+// It cannot simply become `kind`: that column holds a MACHINE word, and this file
+// has never sent English prose. So the kind rides out as its value and the screen
+// renders the word — and the medium stays in the locator only while there is no
+// kind to say instead, which is the same fallback the cards use.
+func TestAnAnthologyCaptionsAQuoteByItsKind(t *testing.T) {
+	h := newTestServer(t).Handler()
+	c := signupAdmin(t, h)
+
+	withKind := newUtterance(t, c, map[string]any{"quote": "Dear friend", "kind": "letter", "place": "Shilaidaha"})
+	oldStyle := newUtterance(t, c, map[string]any{"quote": "Static", "medium": "radio", "place": "Delhi"})
+
+	an := newAnthology(t, c, "A gathering")
+	c.mustDo("POST", "/anthologies/"+strconv.FormatInt(an.ID, 10)+"/entries", map[string]any{
+		"items": []map[string]any{
+			{"kind": "utterance", "item_id": withKind.ID},
+			{"kind": "utterance", "item_id": oldStyle.ID},
+		},
+	}, http.StatusOK)
+
+	got := decode[struct {
+		Entries []struct {
+			ItemID    int64  `json:"item_id"`
+			Locator   string `json:"locator"`
+			QuoteKind string `json:"quote_kind"`
+		} `json:"entries"`
+	}](t, c.mustDo("GET", "/anthologies/"+strconv.FormatInt(an.ID, 10), nil, http.StatusOK))
+	if len(got.Entries) != 2 {
+		t.Fatalf("gathered %d entries, want 2: %+v", len(got.Entries), got.Entries)
+	}
+	by := map[int64]struct {
+		ItemID    int64  `json:"item_id"`
+		Locator   string `json:"locator"`
+		QuoteKind string `json:"quote_kind"`
+	}{}
+	for _, e := range got.Entries {
+		by[e.ItemID] = e
+	}
+	// The kind travels as a machine value; the word is the screen's business.
+	if e := by[withKind.ID]; e.QuoteKind != "letter" || e.Locator != "Shilaidaha" {
+		t.Errorf("a quote with a kind: locator=%q quote_kind=%q, want Shilaidaha/letter", e.Locator, e.QuoteKind)
+	}
+	// AND THE MEDIUM IS NOT PRINTED BESIDE IT. Both would read "Shilaidaha ·
+	// letter · Letter" on a row the upgrade folded.
+	if e := by[withKind.ID]; strings.Contains(strings.ToLower(e.Locator), "letter") {
+		t.Errorf("the medium was printed beside the kind: %q", e.Locator)
+	}
+	// A quote the upgrade could not read keeps its text in the locator, exactly as
+	// the cards keep showing it.
+	if e := by[oldStyle.ID]; e.QuoteKind != "" || e.Locator != "Delhi · radio" {
+		t.Errorf("a quote with no kind: locator=%q quote_kind=%q, want 'Delhi · radio'/''", e.Locator, e.QuoteKind)
+	}
+}

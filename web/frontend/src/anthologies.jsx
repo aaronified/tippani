@@ -37,6 +37,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { DEMO, apiURL, errText, json } from './api.js'
 import { t, tNodes } from './i18n.js'
+import { quoteKindLabel } from './quoteKind.js'
 import { categoryVar } from './theme.js'
 import { usePractice } from './review.jsx'
 import {
@@ -445,6 +446,22 @@ function AnthologyList({ rows, reload, onOpen }) {
 //
 // The reader's note comes FIRST and the quote second, which is the shape of the
 // export and the shape of every anthology ever printed: the editor introduces the
+// locatorOf is the entry's "where", with a standalone quote's KIND on the end of
+// it.
+//
+// The server sends the locator already joined — it is built from whichever kind
+// the entry happens to be — and sends the quote's kind separately as a MACHINE
+// value, because the word for it belongs to the screen and exists in two
+// languages. So the joining of those two happens here, and only here.
+//
+// A quote with no kind has its old free-text `medium` inside the locator already
+// (the server puts it there instead), which is the same fallback quoteKindMeta
+// gives the cards: a value the 0053 upgrade could not read stays visible as work
+// to do rather than disappearing with the field that held it.
+function locatorOf(entry) {
+  return [entry.locator, quoteKindLabel(entry.quote_kind)].filter(Boolean).join(' · ')
+}
+
 // piece and then the piece speaks. The attribution sits under it, and where the
 // quote has a parent work the credit is a doorway into it — a CONTENT LINK, so it
 // is never gated on which sections are switched on.
@@ -506,9 +523,9 @@ function AnthologyEntry({ entry, fields = {}, first, last, onNote, onMove, onRem
           )}
           {/* Off by default, both of them: an anthology that has never been
               configured reads exactly as it did before these switches existed. */}
-          {(fields.show_locator && entry.locator) || (fields.show_date && entry.date) ? (
+          {(fields.show_locator && locatorOf(entry)) || (fields.show_date && entry.date) ? (
             <p className="microcopy mt-1 opacity-80">
-              {[fields.show_locator ? entry.locator : '', fields.show_date ? entry.date : '']
+              {[fields.show_locator ? locatorOf(entry) : '', fields.show_date ? entry.date : '']
                 .filter(Boolean)
                 .join(' · ')}
             </p>
