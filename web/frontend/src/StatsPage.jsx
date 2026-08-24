@@ -366,6 +366,15 @@ const BREAKDOWN_KINDS = [
   { key: 'shows', get label() { return t('stats.breakdown.shows.label') }, works: false, art: true },
   { key: 'directors', get label() { return t('stats.breakdown.directors.label') }, works: true, person: 'director' },
   { key: 'actors', get label() { return t('stats.breakdown.actors.label') }, works: true, person: 'actor' },
+  // CHARACTERS, BESIDE THE ACTORS AND NOT INSTEAD OF THEM. Neither list is
+  // derivable from the other: one actor plays several characters across a library,
+  // one character is played by several actors across adaptations, and a BOOK has
+  // characters and no actors at all — which is the case that settles it.
+  //
+  // No `person` key, so no portrait chip: a character is not a row in the People
+  // console and has no portrait, page or rename there. Its picture lives on the
+  // work's cast row (0049/0050), which this section does not read.
+  { key: 'characters', get label() { return t('stats.breakdown.characters.label') }, works: true },
   // A speaker spans occasions the way an author spans books, so `works` is on.
   // The portrait comes from the People console like every other person kind.
   { key: 'speakers', get label() { return t('stats.breakdown.speakers.label') }, works: true, person: 'speaker' },

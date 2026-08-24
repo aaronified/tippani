@@ -2956,6 +2956,9 @@ stats.breakdown.films.label = Films
 stats.breakdown.shows.label = Shows
 stats.breakdown.directors.label = Directors
 stats.breakdown.actors.label = Actors
+# Beside Actors, never instead of it: one actor plays several characters, one
+# character is played by several actors, and a book has characters and no actors.
+stats.breakdown.characters.label = Characters
 stats.breakdown.speakers.label = Speakers
 stats.breakdown.people.label = People
 # The headline above the rows. {name} is a person, a title or a series.

@@ -153,6 +153,18 @@ func (s *Server) statsBreakdown(uid int64) (map[string]statsKind, error) {
 	seps := s.creditSeps(uid)
 	authors, books, series := newTallyMap(), newTallyMap(), newTallyMap()
 	films, shows, directors, actors := newTallyMap(), newTallyMap(), newTallyMap(), newTallyMap()
+	// CHARACTERS ARE THEIR OWN TALLY, not a second reading of the actor one.
+	//
+	// They are a different KIND of thing and the counts differ: one actor plays
+	// several characters across a library and one character is played by several
+	// actors across adaptations, so neither list is derivable from the other. A
+	// book has characters and no actors at all, which is the case that settles it —
+	// merged, every book quote would be missing from the only list it belongs in.
+	//
+	// Deliberately NOT fed into `people`: a character is not a person with a
+	// portrait, a page and a rename. `people` is the actor-and-director merge and
+	// stays that.
+	characters := newTallyMap()
 	// people is every credited human in one map, whatever role they were
 	// credited in. 0027 already made the NAME a person's identity and their
 	// kinds a set, precisely because a speaker is so often already an author —
@@ -195,7 +207,7 @@ func (s *Server) statsBreakdown(uid int64) (map[string]statsKind, error) {
 	rows.Close()
 
 	rows, err = s.Store.DB.Query(`
-		SELECT a.book_id, r.item_id IS NOT NULL, COALESCE(r.stability, ?), r.last_reviewed_at, COALESCE(r.last_result,''),
+		SELECT a.book_id, COALESCE(a.character,''), r.item_id IS NOT NULL, COALESCE(r.stability, ?), r.last_reviewed_at, COALESCE(r.last_result,''),
 		       COALESCE(julianday('now') - julianday(a.created_at), 1e9)
 		FROM annotations a JOIN books b ON b.id = a.book_id
 		LEFT JOIN item_reviews r ON r.kind = 'book' AND r.item_id = a.id
@@ -205,11 +217,12 @@ func (s *Server) statsBreakdown(uid int64) (map[string]statsKind, error) {
 	}
 	for rows.Next() {
 		var bookID int64
+		var character string
 		var seen bool
 		var stability, age float64
 		var lr sql.NullString
 		var lastResult string
-		if err := rows.Scan(&bookID, &seen, &stability, &lr, &lastResult, &age); err != nil {
+		if err := rows.Scan(&bookID, &character, &seen, &stability, &lr, &lastResult, &age); err != nil {
 			olog.Warnf(olog.CodeStatsRowScan, "[stats] breakdown annotation row scan failed: %v", err)
 			continue
 		}
@@ -218,6 +231,12 @@ func (s *Server) statsBreakdown(uid int64) (map[string]statsKind, error) {
 		key := "book:" + strconv.FormatInt(bookID, 10)
 		books.quote(br.title, key, status)
 		series.quote(br.series, key, status)
+		// A BOOK HAS CHARACTERS AND NO ACTORS (0047), which is the case that makes
+		// the two lists separate rather than one relabelled. Merged into the actor
+		// tally these rows would be missing from the only list they belong in.
+		for _, c := range metadata.SplitCredits(character, seps) {
+			characters.quote(c, key, status)
+		}
 		for _, a := range metadata.SplitCredits(br.author, seps) {
 			authors.quote(a, key, status)
 			people.quote(a, key, status)
@@ -268,7 +287,7 @@ func (s *Server) statsBreakdown(uid int64) (map[string]statsKind, error) {
 	rows.Close()
 
 	rows, err = s.Store.DB.Query(`
-		SELECT d.movie_id, COALESCE(d.actor,''), r.item_id IS NOT NULL, COALESCE(r.stability, ?), r.last_reviewed_at, COALESCE(r.last_result,''),
+		SELECT d.movie_id, COALESCE(d.actor,''), COALESCE(d.character,''), r.item_id IS NOT NULL, COALESCE(r.stability, ?), r.last_reviewed_at, COALESCE(r.last_result,''),
 		       COALESCE(julianday('now') - julianday(d.created_at), 1e9)
 		FROM dialogues d JOIN movies m ON m.id = d.movie_id
 		LEFT JOIN item_reviews r ON r.kind = 'screen' AND r.item_id = d.id
@@ -278,12 +297,12 @@ func (s *Server) statsBreakdown(uid int64) (map[string]statsKind, error) {
 	}
 	for rows.Next() {
 		var movieID int64
-		var actor string
+		var actor, character string
 		var seen bool
 		var stability, age float64
 		var lr sql.NullString
 		var lastResult string
-		if err := rows.Scan(&movieID, &actor, &seen, &stability, &lr, &lastResult, &age); err != nil {
+		if err := rows.Scan(&movieID, &actor, &character, &seen, &stability, &lr, &lastResult, &age); err != nil {
 			olog.Warnf(olog.CodeStatsRowScan, "[stats] breakdown dialogue row scan failed: %v", err)
 			continue
 		}
@@ -301,6 +320,12 @@ func (s *Server) statsBreakdown(uid int64) (map[string]statsKind, error) {
 		}
 		for _, a := range metadata.SplitCredits(actor, seps) {
 			actors.quote(a, key, status)
+		}
+		// Split the same way the actor is: a line can be spoken by more than one
+		// character, entered like tags, and the quote form splits it on the reader's
+		// own separators.
+		for _, c := range metadata.SplitCredits(character, seps) {
+			characters.quote(c, key, status)
 		}
 		// Once per PERSON, not once per credit. Eastwood directs and stars, and
 		// counting the same line under both of his credits would give him twice
@@ -360,15 +385,16 @@ func (s *Server) statsBreakdown(uid int64) (map[string]statsKind, error) {
 	rows.Close()
 
 	return map[string]statsKind{
-		"authors":   authors.finish(),
-		"books":     books.finish(),
-		"series":    series.finish(),
-		"films":     films.finish(),
-		"shows":     shows.finish(),
-		"directors": directors.finish(),
-		"actors":    actors.finish(),
-		"speakers":  speakers.finish(),
-		"people":    people.finish(),
+		"authors":    authors.finish(),
+		"books":      books.finish(),
+		"series":     series.finish(),
+		"films":      films.finish(),
+		"shows":      shows.finish(),
+		"directors":  directors.finish(),
+		"actors":     actors.finish(),
+		"characters": characters.finish(),
+		"speakers":   speakers.finish(),
+		"people":     people.finish(),
 	}, nil
 }
 

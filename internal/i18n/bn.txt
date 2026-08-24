@@ -2982,6 +2982,7 @@ stats.breakdown.films.label = সিনেমা
 stats.breakdown.shows.label = শো
 stats.breakdown.directors.label = পরিচালক
 stats.breakdown.actors.label = অভিনেতা
+stats.breakdown.characters.label = চরিত্র
 stats.breakdown.speakers.label = বক্তা
 stats.breakdown.people.label = মানুষ
 # The headline above the rows. {name} is a person, a title or a series.
