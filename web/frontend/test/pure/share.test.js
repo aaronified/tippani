@@ -224,7 +224,9 @@ describe('the payload shapers', () => {
   // what the selection map is keyed on.
   it('give a book its author/work/published attribution', () => {
     expect(earthsea().attribution.map((a) => a.id)).toEqual(['author', 'work', 'published'])
-    expect(earthsea().meta.map((m) => m.id)).toEqual(['chapter', 'location', 'noted'])
+    // `character` leads the meta line, added in 2.2.3: a highlight has carried
+    // one since 0047 and every share of one dropped it.
+    expect(earthsea().meta.map((m) => m.id)).toEqual(['character', 'chapter', 'location', 'noted'])
   })
 
   // The film side was never asserted, so every id could have been renamed to

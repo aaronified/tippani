@@ -104,6 +104,14 @@ export function bookShare({
   published,
   chapter,
   location,
+  // WHO SAID IT (0047). A highlight from a novel is very often a line somebody
+  // speaks, and the box that records that shipped four releases before this
+  // payload learned about it — so the character was on the card in the app and
+  // absent from every copy and every picture made of it. Between the locator and
+  // the save-date, which is where a film line's character sits on its own meta
+  // line: it is not the attribution (a book's attribution is its author) and it
+  // is not a page number.
+  character,
   date,
   tags,
   color,
@@ -138,6 +146,7 @@ export function bookShare({
     // "Noted" is the date you saved/highlighted it (noted_at, else added_at) —
     // distinct from the publication year above.
     meta: [
+      { id: "character", label: t("share.field.character.label"), value: character || "" },
       {
         id: "chapter",
         label: t("share.field.chapter.label"),

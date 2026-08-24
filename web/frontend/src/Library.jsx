@@ -1322,6 +1322,12 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
   const metaLine =
     meta === undefined
       ? [
+          // WHO SAID IT, first, because it is the only part of this line that is
+          // about the words rather than about where they were. A highlight has
+          // carried a character since 0047 and no card showed it, so the box
+          // looked like it wrote nowhere — see the share payload, which had the
+          // same gap.
+          a.character,
           chapterLabel(a) && t('common.locator.chapter.label', { name: chapterLabel(a) }),
           a.location && t('common.locator.page.short.label', { n: a.location }),
           d,
@@ -1786,6 +1792,7 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
       published: book?.published_year,
       chapter: chapterLabel(a),
       location: a.location,
+      character: a.character,
       date: fmtDate(annDate(a)),
       tags: a.tags,
       color: a.color,

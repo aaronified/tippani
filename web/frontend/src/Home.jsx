@@ -367,6 +367,9 @@ const FAVS_INITIAL = 4 // tiles shown before "view more"
 function bookFav(a) {
   const meta = [
     a.book_title,
+    // 0047's character, on the tile as well as on the library card: the same box,
+    // and it was invisible on both.
+    a.character,
     chapterMeta(a),
     a.location && t('common.locator.page.label', { n: a.location }),
   ]
@@ -686,7 +689,8 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
       return bookShare({
         quote: f.raw.quote, note: f.raw.note, translation: f.raw.translation,
         author: f.raw.book_author, title: f.raw.book_title,
-        chapter: chapterLabel(f.raw), location: f.raw.location, date: fmtDate(annDate(f.raw)),
+        chapter: chapterLabel(f.raw), location: f.raw.location, character: f.raw.character,
+        date: fmtDate(annDate(f.raw)),
         tags: f.raw.tags, color: f.raw.color, people: authorMap,
       })
     }
