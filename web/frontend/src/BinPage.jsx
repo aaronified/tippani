@@ -252,7 +252,7 @@ export default function BinPage({ onClose }) {
             door needs that door named — a bare back arrow on a screen nothing in
             the nav points at leaves you guessing where it goes. */}
         <Tooltip label={t('bin.back.tip')} side="bottom">
-          <button type="button" className="bin-back" onClick={onClose}>
+          <button type="button" className="page-back" onClick={onClose}>
             <IconBack />
             {/* The tab's own name, not a second copy of the word. */}
             <MonoLabel>{t('nav.tab.settings.label')}</MonoLabel>

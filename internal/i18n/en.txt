@@ -3523,6 +3523,59 @@ error.remove.generic = could not remove
 error.empty.bin = could not empty
 
 # ---------------------------------------------------------------------------
+# STRAY MARKS — CleanupPage.jsx. What a quote picked up on its way in: the
+# footnote number that came with the selection, the dictionary's pronunciation
+# gloss, the double space a justified line left behind. The page LISTS and never
+# fixes — see internal/httpapi/cleanup.go for why — so every string here is
+# descriptive rather than an instruction, and there is no "fix all" to name.
+# ---------------------------------------------------------------------------
+cleanup.back.tip = Back to Settings
+cleanup.title = Stray marks
+# Beside the title: how many quotes were read, so “nothing found” is
+# distinguishable from “nothing looked at”.
+cleanup.counts.scanned = {n} {noun} read
+cleanup.info.title = Stray marks
+cleanup.info.body = A quote pasted from a page brings the page's furniture with it, and none of it shows in a card. This finds it and changes nothing — every rule below has a false positive that is somebody's real writing, so each one is yours to decide.
+cleanup.state.loading = reading every quote…
+cleanup.state.clean = nothing to look at — every quote reads as it was written
+cleanup.state.clean-rule = nothing of that kind found
+# When the cap was reached. A silently shortened list is indistinguishable from a
+# clean library, so the page says it out loud.
+cleanup.state.truncated = the first {count} — clear some and look again for the rest
+# THE RULES, one label and one line each. The label names what was found, never
+# what to do about it: nothing here fixes anything.
+cleanup.rule.invisible.label = Invisible characters
+cleanup.rule.invisible.body = A space or hyphen you cannot see — from HTML, a justified PDF, or a word broken across two lines.
+cleanup.rule.edge-space.label = Space at the ends
+cleanup.rule.edge-space.body = The quote begins or ends with a space, which a card hides and a search does not.
+cleanup.rule.double-space.label = Double spaces
+cleanup.rule.double-space.body = Two or more spaces in a row, left behind by justified text — or typed on purpose after a full stop.
+cleanup.rule.space-before-punctuation.label = Space before punctuation
+cleanup.rule.space-before-punctuation.body = A space before a comma, full stop or bracket. French does this deliberately.
+cleanup.rule.reference-mark.label = Footnote numbers
+cleanup.rule.reference-mark.body = A reference index the page left behind — a superscript, a number in brackets, or a digit welded to the last word.
+cleanup.rule.pronunciation.label = Pronunciation glosses
+cleanup.rule.pronunciation.body = A dictionary's guide to saying the word, carried in with the headword.
+cleanup.rule.hyphen-break.label = Hyphen from a line break
+cleanup.rule.hyphen-break.body = A word split across two lines and rejoined with the hyphen still in it.
+cleanup.rule.repeated-punctuation.label = Repeated punctuation
+cleanup.rule.repeated-punctuation.body = Doubled commas, stops or marks. An ellipsis and an em-dash pair are left alone.
+# WHICH TEXT it was found in. Names are never scanned — see cleanup.go — so these
+# three are the whole list.
+cleanup.field.quote.label = in the quote
+cleanup.field.note.label = in the note
+cleanup.field.translation.label = in the translation
+# A row. {count} is how many times the rule fired in that one field; the snippet
+# beside it marks the find with guillemets, because half these rules find
+# something that has no appearance at all.
+cleanup.row.times = ×{n}
+cleanup.row.open.tip = Open where this quote lives
+cleanup.row.open.aria = Open {label}
+cleanup.row.no-work.label = a quote of its own
+cleanup.filter.all.label = All
+error.cleanup.generic = could not read the library
+
+# ---------------------------------------------------------------------------
 # RE-VERIFY — ReverifyReview.jsx. The review-before-apply flow: every pinned
 # work re-checked against its live source, every changed field shown as
 # stored-versus-fresh with a tick, and nothing written until the tick is there.
@@ -4595,6 +4648,18 @@ settings.bin.tile.holding.prose = {count} waiting, holding {held} — put any of
 settings.bin.open.label = Open the bin
 
 # ---------------------------------------------------------------------------
+# STRAY MARKS, AS A TILE. Same shape as the bin above and for the same reason:
+# the list is a page of its own (cleanup.*), and the tile draws the page's name
+# from there. The tile is the only door — this is a place you are sent when
+# something reads oddly, not a place you browse.
+# ---------------------------------------------------------------------------
+settings.cleanup.info.body = Pasting a quote from a page brings the page's furniture with it — footnote numbers, double spaces, characters you cannot see. This lists them and changes nothing; each one is yours to decide.
+# {count} arrives already counted, through common.count.phrase + unit.quote.
+settings.cleanup.tile.prose = {count} with something worth a look
+settings.cleanup.tile.clean.prose = nothing to look at — every quote reads as it was written
+settings.cleanup.open.label = Look for stray marks
+
+# ---------------------------------------------------------------------------
 # BACKUP (admin only) — one dated, encrypted archive, and the prompt that seals
 # it. The restore half is settings.restore.* below.
 # ---------------------------------------------------------------------------
@@ -5475,6 +5540,48 @@ bin.help.empty-now.term = Empty now
 bin.help.empty-now.what = Removes every entry and the pictures they were holding. It asks first, and it is the one act in this feature with nothing behind it.
 
 # ---------------------------------------------------------------------------
+# cleanup.help.* — the "?" panel’s section for Stray marks.
+# ---------------------------------------------------------------------------
+
+# The help panel’s heading on the stray-marks screen.
+cleanup.help.title = Stray marks
+
+# What the page is for.
+cleanup.help.what-is-here.term = What is here
+cleanup.help.what-is-here.what = Every quote in your library, read once, and anything in it that looks like it came from the page rather than from the writer.
+cleanup.help.what-is-here.more = A quote typed by hand is clean. One that arrived by selecting text in an ebook, a PDF or a browser brings the page's furniture with it — a footnote index, a pronunciation gloss, a double space, a soft hyphen — and none of it shows in a card while all of it is in the search index. That is why a search for a phrase you can see sometimes finds nothing.
+
+# The one thing it deliberately does not do.
+cleanup.help.no-fix.term = Why nothing is fixed for you
+cleanup.help.no-fix.what = Every rule has a false positive that is somebody's real writing, so each find is yours to decide.
+cleanup.help.no-fix.more = A sentence may genuinely end in a numeral, a quote may genuinely contain a bracketed aside, and a language may genuinely use a character another one calls invisible. A single button would edit your own words on the strength of a guess, silently, in a library whose whole point is that the words are yours.
+
+# How the page is reached.
+cleanup.help.getting-here.term = Getting here
+cleanup.help.getting-here.what = The tile in Settings, and nothing else.
+cleanup.help.getting-here.more = It has a URL, so it bookmarks and survives a refresh, but it is in no menu: this is a page you visit when something reads oddly, not one you browse.
+
+# A row, and the marked snippet in it.
+cleanup.help.row.term = A row
+cleanup.help.row.what = What was found, which text it was found in, how many times, and the words around it with the find marked.
+cleanup.help.row.more = The marks are guillemets — »like this« — and they are what makes an invisible character visible at all: a no-break space, a zero-width space and an ordinary space look identical otherwise. Open the row's work to edit the quote where it lives.
+
+# The rule filter.
+cleanup.help.filter.term = Filtering
+cleanup.help.filter.what = One chip per rule that found something, for working through a single kind at a time.
+cleanup.help.filter.more = Only rules with a find get a chip. Working by rule rather than by quote is usually faster: the same decision repeated fifty times is one decision.
+
+# Names, and why they are left out.
+cleanup.help.names.term = What is not read
+cleanup.help.names.what = Only the prose — the quote, the note and a standalone quote's translation.
+cleanup.help.names.more = A character, an actor or a speaker is short, and far more often picked from autofill than typed. “R2-D2” looks exactly like a footnote number to a rule, and a droid is not a typo.
+
+# The cap.
+cleanup.help.cap.term = A long list
+cleanup.help.cap.what = At most five hundred quotes are listed at once, and the page says when it stopped early.
+cleanup.help.cap.more = It is a worklist rather than a report, and a worklist that reshuffles as you edit it is worse than a long one — so it is capped rather than paged. Clear some and look again for the rest.
+
+# ---------------------------------------------------------------------------
 # settings.help.* — the "?" panel’s section for Settings.
 # ---------------------------------------------------------------------------
 
@@ -5552,6 +5659,9 @@ settings.help.devices.what = Pair the Android app with this account, and unpair 
 settings.help.bin.term = The bin
 settings.help.bin.what = A tile, and a page behind it.
 settings.help.bin.more = Everything you delete waits in the bin first — a book with all its quotes, a film with its lines, or one highlight on its own — and the tile says whether there is anything in it and opens it. The list moved off this screen in 1.11.2: a settings card is a control panel, and the bin is a list of unbounded length whose rows expand, which in a 300px column had to leave one of its four facts out.
+settings.help.cleanup.term = Stray marks
+settings.help.cleanup.what = A tile, and a page listing what your quotes picked up on their way in.
+settings.help.cleanup.more = Footnote numbers, pronunciation glosses, double spaces, characters with no appearance at all — the furniture a page brings with it when you select text on it. The page reports and never edits: every rule has a false positive that is somebody's real writing, so each find is one decision of yours.
 
 settings.help.backup.term = Backup & restore
 settings.help.backup.what = Admin only: one dated, encrypted archive of everything — restored in place, or from a file taken off another Tippani.

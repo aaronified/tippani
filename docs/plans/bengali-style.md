@@ -957,6 +957,22 @@ except where noted.
 | roadmap | রোডম্যাপ | পরিকল্পনা is form-Bengali; রোডম্যাপ is what people say about a project's plan |
 | pairing code | জোড়ার কোড | Two words under §6.3 mono pressure, but কোড alone does not say what it is a code for |
 
+### From the stray-marks pass (`cleanup.*`)
+
+Eight rule names and the page they sit on. All eight had to be nameable in a chip, so the
+constraint was length as much as sense.
+
+| English | Bengali | Reason |
+| --- | --- | --- |
+| stray marks (the screen) | এলোমেলো চিহ্ন | *এলোমেলো* is what a Bengali says about something that has got in where it does not belong; অবাঞ্ছিত is form-Bengali |
+| footnote | পাদটীকা | A school word every reader owns, and the only Bengali for it. Not টীকা alone, which §2.2 keeps clear of টিপ্পনী |
+| punctuation | যতিচিহ্ন | Also a school word. চিহ্ন alone is any mark at all |
+| space (the typographic one) | ফাঁক | Already in `bn.txt` from spaced repetition (§3), and it is what a Bengali calls the gap |
+| hyphen | হাইফেন | §4's gap-filling loan: Bengali has no everyday word for the mark, and যোজক চিহ্ন needs a gloss |
+| pronunciation gloss | উচ্চারণের নির্দেশ | *উচ্চারণ* is everyday; the *নির্দেশ* is what makes it a dictionary's note rather than the act of speaking |
+| invisible (of a character) | অদৃশ্য | Everyday, and exactly the point: the character is there and cannot be seen |
+| dot (of an ellipsis) | ফুটকি | The rule's copy names three dots rather than borrowing “ellipsis”, which nobody says |
+
 **Already in `bn.txt` from an earlier pass and therefore NOT marked**, listed only so
 nobody re-decides them: Updates আপডেট · Changelog চেঞ্জলগ · version ভার্সন · release
 রিলিজ · API key কি · archive key চাবি · cookie কুকি · pair / unpair জুড়ুন / খুলে নিন.

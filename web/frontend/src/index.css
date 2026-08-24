@@ -1715,7 +1715,10 @@
      which screen is behind you — the browser's own Back is the only other answer
      and it is not on the page. Sits above the page header rather than inside it,
      so the title line keeps its own shape. */
-  .bin-back {
+  /* The named way back from a one-door page. Shared by the bin and Stray marks,
+     which is why it is not called .bin-back any more: both are pages nothing in
+     the nav points at, so both have to say where their arrow goes. */
+  .page-back {
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -1726,8 +1729,8 @@
     color: var(--soft);
     cursor: pointer;
   }
-  .bin-back:hover { color: var(--ink); }
-  .bin-back svg { width: 17px; height: 17px; }
+  .page-back:hover { color: var(--ink); }
+  .page-back svg { width: 17px; height: 17px; }
 
   .trash-list {
     display: flex;
@@ -1791,6 +1794,79 @@
   /* Each held quote keeps its colour bar, because that is how the same quote reads
      everywhere else in the app — the bin is the last place to invent a new way of
      showing one. */
+  /* STRAY MARKS. The row shape is the bin's — a header line, then the detail
+     under it — because both pages are a worklist read top to bottom. What is
+     different is the snippet: it carries the evidence, so it gets the mono face
+     and it is the one thing on the page allowed to scroll sideways rather than
+     wrap a marked find across two lines. */
+  .cleanup-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .cleanup-row {
+    padding: 10px 0;
+    border-top: 1px solid var(--line);
+  }
+  .cleanup-row:first-child { border-top: none; }
+  .cleanup-kind {
+    display: inline-flex;
+    align-items: center;
+    flex: none;
+    color: var(--faint);
+  }
+  .cleanup-kind svg { width: 15px; height: 15px; }
+  /* Takes the slack so the door stays pinned right, and ellipsises rather than
+     pushing it off the card. */
+  .cleanup-work {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: var(--font-display);
+    font-weight: var(--font-display-weight);
+    font-style: var(--font-display-style);
+    font-variant-caps: var(--font-display-caps);
+    text-transform: var(--font-display-case);
+    font-variant-numeric: var(--font-display-figures);
+    font-size: var(--type-display-15);
+    color: var(--ink);
+  }
+  .cleanup-finds {
+    margin: 6px 0 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+  .cleanup-finds > li {
+    padding: 2px 0 2px 9px;
+    border-left: 3px solid var(--line);
+  }
+  /* pre-wrap IS THE LOAD-BEARING LINE, and it is why this is not the mono face.
+     What has to survive is the RUN — two spaces have to draw as two — and
+     white-space does that in any face, while the guillemets the server marks the
+     find with do the rest. The mono stack was the first attempt and it is wrong
+     here for one reason: it has no Indic member (see src/locale.jsx), so a
+     Bengali quote's own words would draw in whatever the OS reached for. A
+     snippet is the reader's text, so it gets the face the reader's text has. */
+  .cleanup-snippet {
+    margin: 2px 0 0;
+    font-family: var(--font-display);
+    font-weight: var(--font-display-weight);
+    font-style: var(--font-display-style);
+    font-size: var(--type-display-13);
+    line-height: 1.55;
+    color: var(--soft);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
   .trash-contents li {
     padding: 2px 0 2px 9px;
     border-left: 3px solid var(--hl-1);

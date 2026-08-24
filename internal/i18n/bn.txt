@@ -3539,6 +3539,57 @@ error.remove.generic = সরানো গেল না
 error.empty.bin = খালি করা গেল না
 
 # ---------------------------------------------------------------------------
+# STRAY MARKS — CleanupPage.jsx. What a quote picked up on its way in. The page
+# spans all three kinds, so §2.5's umbrella উদ্ধৃতি is the word throughout —
+# never দাগ, সংলাপ or উক্তি, which belong to one screen each.
+#
+# NOTHING HERE IS AN INSTRUCTION. The page reports and never edits, so every
+# label names what was FOUND rather than what to do about it.
+# ---------------------------------------------------------------------------
+cleanup.back.tip = সেটিংসে ফিরুন
+cleanup.title = এলোমেলো চিহ্ন
+# Beside the title: how many quotes were read.
+cleanup.counts.scanned = {n} {noun} পড়া হয়েছে
+cleanup.info.title = এলোমেলো চিহ্ন
+cleanup.info.body = পাতা থেকে কপি করা উদ্ধৃতির সঙ্গে সেই পাতার আসবাবও চলে আসে, আর কার্ডে তার কিছুই দেখা যায় না। এখানে শুধু খুঁজে দেখানো হয়, বদলানো হয় না — সিদ্ধান্ত আপনারই।
+cleanup.state.loading = সব উদ্ধৃতি পড়া হচ্ছে…
+cleanup.state.clean = দেখার কিছু নেই — প্রতিটি উদ্ধৃতি যেমন লেখা হয়েছিল তেমনই আছে
+cleanup.state.clean-rule = এই ধরনের কিছু পাওয়া যায়নি
+# When the cap was reached.
+cleanup.state.truncated = প্রথম {count} — কিছু সামলে নিয়ে বাকিটার জন্য আবার দেখুন
+# THE RULES, one label and one line each. পাদটীকা, যতিচিহ্ন and উচ্চারণ are all
+# school words a reader already owns; হাইফেন is §4's gap-filling loan, because
+# Bengali has no everyday word for the mark itself.
+cleanup.rule.invisible.label = অদৃশ্য অক্ষর
+cleanup.rule.invisible.body = যে ফাঁক বা হাইফেন চোখেই পড়ে না — HTML, জাস্টিফাই করা PDF, বা দু’লাইনে ভাঙা শব্দ থেকে আসে।
+cleanup.rule.edge-space.label = দুই প্রান্তে ফাঁক
+cleanup.rule.edge-space.body = উদ্ধৃতির শুরুতে বা শেষে ফাঁক আছে — কার্ড সেটা লুকিয়ে রাখে, খোঁজ রাখে না।
+cleanup.rule.double-space.label = জোড়া ফাঁক
+cleanup.rule.double-space.body = পাশাপাশি দুই বা তার বেশি ফাঁক — জাস্টিফাই করা লেখার ফেলে যাওয়া, বা দাঁড়ির পরে ইচ্ছে করেই দেওয়া।
+cleanup.rule.space-before-punctuation.label = যতিচিহ্নের আগে ফাঁক
+cleanup.rule.space-before-punctuation.body = কমা, দাঁড়ি বা বন্ধনীর ঠিক আগে একটা ফাঁক। ফরাসি ভাষায় এটা ইচ্ছে করেই দেওয়া হয়।
+cleanup.rule.reference-mark.label = পাদটীকার সংখ্যা
+cleanup.rule.reference-mark.body = পাতার ফেলে যাওয়া রেফারেন্স — উপরে বসা সংখ্যা, বন্ধনীর ভিতরে সংখ্যা, বা শেষ শব্দের গায়ে জোড়া অঙ্ক।
+cleanup.rule.pronunciation.label = উচ্চারণের নির্দেশ
+cleanup.rule.pronunciation.body = অভিধানের উচ্চারণ-নির্দেশ, শব্দটার সঙ্গেই চলে এসেছে।
+cleanup.rule.hyphen-break.label = লাইন ভাঙার হাইফেন
+cleanup.rule.hyphen-break.body = দু’লাইনে ভাঙা শব্দ জোড়া লেগেছে, কিন্তু হাইফেনটা ভিতরে রয়ে গেছে।
+cleanup.rule.repeated-punctuation.label = জোড়া যতিচিহ্ন
+cleanup.rule.repeated-punctuation.body = পরপর দুটো কমা, দাঁড়ি বা চিহ্ন। পরপর তিন ফুটকি আর জোড়া em-dash বাদ থাকে।
+# WHICH TEXT it was found in. Names are never scanned, so these three are the
+# whole list.
+cleanup.field.quote.label = উদ্ধৃতিতে
+cleanup.field.note.label = নোটে
+cleanup.field.translation.label = অনুবাদে
+# A row. {n} is how many times the rule fired in that one field.
+cleanup.row.times = ×{n}
+cleanup.row.open.tip = উদ্ধৃতিটা যেখানে আছে, খুলুন
+cleanup.row.open.aria = {label} খুলুন
+cleanup.row.no-work.label = নিজেই একটা উদ্ধৃতি
+cleanup.filter.all.label = সব
+error.cleanup.generic = লাইব্রেরি পড়া গেল না
+
+# ---------------------------------------------------------------------------
 # RE-VERIFY — ReverifyReview.jsx. §3.4 gives re-verify → আবার মিলিয়ে দেখুন; the
 # screen's own title is the noun form of the same act.
 # ---------------------------------------------------------------------------
@@ -4380,6 +4431,16 @@ settings.bin.tile.prose = {count} অপেক্ষায় — যেটা �
 settings.bin.tile.holding.prose = {count} অপেক্ষায়, {held} নিয়ে — যেটা খুশি ফিরিয়ে আনুন, বা বিন খালি করুন
 settings.bin.open.label = বিন খুলুন
 
+# ---------------------------------------------------------------------------
+# STRAY MARKS, AS A TILE. Same shape as the bin above, and the same rule: the
+# list is a page of its own (cleanup.*) and the tile borrows the page's name.
+# ---------------------------------------------------------------------------
+settings.cleanup.info.body = পাতা থেকে উদ্ধৃতি কপি করলে সেই পাতার আসবাবও আসে — পাদটীকার সংখ্যা, জোড়া ফাঁক, চোখে না পড়া অক্ষর। এখানে শুধু তালিকা হয়, বদল হয় না; প্রতিটা সিদ্ধান্ত আপনার।
+# {count} arrives already counted, through common.count.phrase + unit.quote.
+settings.cleanup.tile.prose = {count} একবার দেখে নেওয়া দরকার
+settings.cleanup.tile.clean.prose = দেখার কিছু নেই — প্রতিটি উদ্ধৃতি যেমন লেখা হয়েছিল তেমনই আছে
+settings.cleanup.open.label = এলোমেলো চিহ্ন খুঁজুন
+
 # ---------------------------------------------------------------- ব্যাকআপ
 settings.backup.title = ব্যাকআপ আর ফিরিয়ে আনা
 settings.backup.prompt.title = ব্যাকআপ নিন
@@ -5198,6 +5259,48 @@ bin.help.empty-now.term = এখনই খালি করুন
 bin.help.empty-now.what = প্রতিটা এন্ট্রি আর তাদের ধরে রাখা ছবি সরিয়ে দেয়। আগে জিজ্ঞেস করে, আর এই ফিচারে এটাই একমাত্র কাজ যার পিছনে কিছুই নেই।
 
 # ---------------------------------------------------------------------------
+# cleanup.help.* — the "?" panel’s section for Stray marks.
+# ---------------------------------------------------------------------------
+
+# The help panel’s heading on the stray-marks screen.
+cleanup.help.title = এলোমেলো চিহ্ন
+
+# What the page is for.
+cleanup.help.what-is-here.term = এখানে কী আছে
+cleanup.help.what-is-here.what = লাইব্রেরির প্রতিটি উদ্ধৃতি একবার পড়া হয়, আর তার মধ্যে যা লেখকের নয় — পাতার — সেটাই দেখানো হয়।
+cleanup.help.what-is-here.more = হাতে টাইপ করা উদ্ধৃতি পরিষ্কারই থাকে। কিন্তু ইবুক, PDF বা ব্রাউজারে লেখা বেছে নিয়ে আনা উদ্ধৃতির সঙ্গে সেই পাতার আসবাবও আসে — পাদটীকার সংখ্যা, উচ্চারণের নির্দেশ, জোড়া ফাঁক, নরম হাইফেন — কার্ডে যার কিছুই দেখা যায় না, অথচ খোঁজের সূচিতে সবই থাকে। চোখের সামনের বাক্য খুঁজেও না পাওয়ার কারণ এটাই।
+
+# The one thing it deliberately does not do.
+cleanup.help.no-fix.term = কেন নিজে থেকে ঠিক করা হয় না
+cleanup.help.no-fix.what = প্রতিটা নিয়মেরই এমন ব্যতিক্রম আছে যা আসলে কারও নিজের লেখা, তাই প্রতিটা সিদ্ধান্ত আপনার।
+cleanup.help.no-fix.more = কোনও বাক্য সত্যিই সংখ্যা দিয়ে শেষ হতে পারে, কোনও উদ্ধৃতিতে সত্যিই বন্ধনীর মন্তব্য থাকতে পারে, আর এক ভাষার অদৃশ্য অক্ষর অন্য ভাষার দরকারি অক্ষর। একটা বোতামে সব বদলে দেওয়া মানে অনুমানের ভরসায় চুপচাপ আপনার নিজের লেখা এডিট করা।
+
+# How the page is reached.
+cleanup.help.getting-here.term = এখানে আসার পথ
+cleanup.help.getting-here.what = সেটিংসের টাইল, আর কিছুই নয়।
+cleanup.help.getting-here.more = এর নিজের URL আছে, তাই বুকমার্ক করা যায় আর রিফ্রেশেও টেকে — কিন্তু কোনও মেনুতে নেই: কিছু খটকা লাগলে এখানে আসবেন, ঘুরে দেখার পাতা এটা নয়।
+
+# A row, and the marked snippet in it.
+cleanup.help.row.term = একটা সারি
+cleanup.help.row.what = কী পাওয়া গেল, কোন লেখায়, কতবার, আর তার চারপাশের কথা — পাওয়া অংশটা ঘেরা।
+cleanup.help.row.more = পাওয়া অংশটা এইভাবে ঘেরা থাকে — »এইরকম« — আর অদৃশ্য অক্ষর দেখানোর একমাত্র উপায়ই সেটা: নো-ব্রেক ফাঁক, শূন্য-চওড়া ফাঁক আর সাধারণ ফাঁক নয়তো একেবারে একরকম দেখতে। সারির উৎসটা খুলে সেখানেই উদ্ধৃতিটা সম্পাদনা করুন।
+
+# The rule filter.
+cleanup.help.filter.term = ফিল্টার
+cleanup.help.filter.what = যে নিয়মে কিছু পাওয়া গেছে তার জন্য একটা চিপ, তাই এক ধরন ধরে ধরে এগোনো যায়।
+cleanup.help.filter.more = শুধু যেসব নিয়মে কিছু পাওয়া গেছে তারাই চিপ পায়। উদ্ধৃতি ধরে নয়, নিয়ম ধরে এগোনো সাধারণত দ্রুত: পঞ্চাশ বার একই সিদ্ধান্ত আসলে একটাই সিদ্ধান্ত।
+
+# Names, and why they are left out.
+cleanup.help.names.term = যা পড়া হয় না
+cleanup.help.names.what = শুধু গদ্যটাই — উদ্ধৃতি, নোট, আর একলা উক্তির অনুবাদ।
+cleanup.help.names.more = চরিত্র, অভিনেতা বা বক্তার নাম ছোট, আর টাইপ করার চেয়ে অটোফিল থেকে বাছাই হয় অনেক বেশি। নিয়মের চোখে “R2-D2” আর পাদটীকার সংখ্যা একই দেখতে, অথচ ড্রয়েড কোনও ভুল নয়।
+
+# The cap.
+cleanup.help.cap.term = লম্বা তালিকা
+cleanup.help.cap.what = একবারে সর্বোচ্চ পাঁচশো উদ্ধৃতি দেখানো হয়, আর আগে থেমে গেলে পাতা সেটা বলে দেয়।
+cleanup.help.cap.more = এটা রিপোর্ট নয়, কাজের তালিকা — আর সম্পাদনা করতে করতে যে তালিকা এলোমেলো হয়ে যায় সেটা লম্বা তালিকার চেয়েও খারাপ, তাই পাতায় ভাগ না করে সীমা বসানো হয়েছে। কিছু সামলে নিয়ে বাকিটার জন্য আবার দেখুন।
+
+# ---------------------------------------------------------------------------
 # settings.help.* — the "?" panel’s section for Settings.
 # ---------------------------------------------------------------------------
 
@@ -5276,6 +5379,9 @@ settings.help.devices.what = Android অ্যাপটাকে এই অ্�
 settings.help.bin.term = বিন
 settings.help.bin.what = একটা টাইল, আর তার পিছনে একটা পাতা।
 settings.help.bin.more = মুছে ফেলা সবকিছু আগে বিনেই জমা থাকে — গোটা বই তার সব দাগ নিয়ে, সিনেমা তার সংলাপ নিয়ে, বা শুধু একটা দাগ — আর টাইলটা বলে দেয় ভিতরে কিছু আছে কি না, আর খুলেও দেয়। তালিকাটা 1.11.2-তে এই স্ক্রিন থেকে সরেছে: সেটিংসের কার্ড একটা নিয়ন্ত্রণ প্যানেল, আর বিন যত খুশি লম্বা এক তালিকা যার সারি খোলে — 300px ঘরে তার চারটে তথ্যের একটা বাদ দিতেই হত।
+settings.help.cleanup.term = এলোমেলো চিহ্ন
+settings.help.cleanup.what = একটা টাইল, আর তার পিছনে উদ্ধৃতিতে ঢুকে পড়া জিনিসের তালিকা।
+settings.help.cleanup.more = পাদটীকার সংখ্যা, উচ্চারণের নির্দেশ, জোড়া ফাঁক, একেবারে চোখে না পড়া অক্ষর — পাতায় লেখা বেছে নিলে যে আসবাব সঙ্গে চলে আসে। পাতাটা শুধু জানায়, কখনও বদলায় না: প্রতিটা নিয়মেরই এমন ব্যতিক্রম আছে যা আসলে কারও নিজের লেখা।
 
 settings.help.backup.term = ব্যাকআপ আর ফিরিয়ে আনা
 settings.help.backup.what = শুধু অ্যাডমিনের জন্য: সবকিছুর একটাই তারিখ দেওয়া, সাংকেতিক আর্কাইভ — এখানেই ফেরানো যায়, বা অন্য টিপ্পনী থেকে আনা ফাইল থেকেও।

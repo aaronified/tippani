@@ -265,6 +265,10 @@ func (s *Server) Handler() http.Handler {
 	// (0050). A POST because it may write — idempotent, so a client may call it for
 	// every chip it is about to draw. See cast_image_handlers.go.
 	mux.Handle("POST /cast/{id}/image", s.requireAuth(s.handleCastImage))
+	// The cleanup sweep (Settings): read every quote, report what a page left
+	// behind in it, change nothing. See cleanup.go for the rules and why there is
+	// no companion write.
+	mux.Handle("GET /cleanup", s.requireAuth(s.handleCleanup))
 	mux.Handle("POST /books/{id}/cover", s.requireAuth(s.handleUploadBookCover))
 	mux.Handle("DELETE /books/{id}", s.requireAuth(s.handleDeleteBook))
 

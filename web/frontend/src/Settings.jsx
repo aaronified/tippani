@@ -115,7 +115,11 @@ function useColumnCount() {
 // it (1.15.2) — Type on the Appearance card, Language marks on Metadata. See the
 // note above `Appearance` for why they are doors, and the door itself on
 // Metadata for why the marks moved.
-export const SETTINGS_CARDS = ['onboard', 'features', 'meta', 'colors', 'sr', 'devices', 'trash', 'upd', 'backup']
+// 'clean' (Stray marks) sits directly after 'trash' for the same reason colours
+// sits under metadata: both are the corner of Settings you come to when something
+// has gone wrong — one for what you deleted, one for what a page left in your
+// quotes — and each is a tile in front of a page of its own.
+export const SETTINGS_CARDS = ['onboard', 'features', 'meta', 'colors', 'sr', 'devices', 'trash', 'clean', 'upd', 'backup']
 
 // SETTINGS_LAYOUT — which column each card sits in, at each column count,
 // decided here rather than measured.
@@ -153,12 +157,12 @@ export const SETTINGS_LAYOUT = {
   1: [SETTINGS_CARDS],
   2: [
     ['meta', 'colors', 'onboard', 'features'],
-    ['sr', 'devices', 'trash', 'upd', 'backup'],
+    ['sr', 'devices', 'trash', 'clean', 'upd', 'backup'],
   ],
   3: [
     ['meta', 'colors'], // the tall one, and the card that belongs under it
     ['sr', 'onboard', 'features'],
-    ['devices', 'trash', 'upd', 'backup'],
+    ['devices', 'trash', 'clean', 'upd', 'backup'],
   ],
 }
 
@@ -171,7 +175,7 @@ export function settingsColumns(ncols, presentKeys) {
   return layout.map((col) => col.filter((k) => present.has(k)))
 }
 
-export default function Settings({ user, onPreferences, update, onUpdateInfo, onStartTour, onOpenBin }) {
+export default function Settings({ user, onPreferences, update, onUpdateInfo, onStartTour, onOpenBin, onOpenCleanup }) {
   const mobile = useIsMobileScreen()
   const ncols = useColumnCount()
   const cards = {
@@ -186,6 +190,10 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, on
     // come to when something has gone wrong. The list itself is a page now, and
     // this tile is its only door.
     trash: <BinTile onOpen={onOpenBin} />,
+    // Beside the bin, and a tile for the same reason: the list behind it is
+    // unbounded and its rows carry a snippet, which a 300px grid column truncates
+    // exactly where the evidence is.
+    clean: <CleanupTile onOpen={onOpenCleanup} />,
     ...(user.is_admin
       ? {
           upd: <UpdatesCard user={user} update={update} onUpdateInfo={onUpdateInfo} />,
@@ -2372,6 +2380,63 @@ function BinTile({ onOpen }) {
             deleted things went". */}
         <GhostButton icon={<IconDelete />} keepLabel onClick={onOpen}>
           {t('settings.bin.open.label')}
+        </GhostButton>
+      </div>
+    </Card>
+  )
+}
+
+
+// CleanupTile — the door to Stray marks, and the whole of that page Settings keeps.
+//
+// SAME SHAPE AS THE BIN ABOVE, and for the same reasons argued there: the list is
+// of unbounded length and every row carries a snippet of the quote, which is the
+// one fact a narrow grid column cannot show. So the tile holds what a settings
+// page should hold about it — whether there is anything worth looking at, and the
+// way in.
+//
+// "NOTHING TO LOOK AT" IS THE ANSWER WORTH FETCHING FOR. It is the same argument
+// the bin's count makes: this page is in no tab list, so the tile is the only
+// thing that can tell you not to bother opening it. The sweep reads the whole
+// library, which is why this asks for it once on mount and never again.
+function CleanupTile({ onOpen }) {
+  const [items, setItems] = useState(null) // null = still loading
+
+  useEffect(() => {
+    let stale = false
+    json('GET', '/cleanup').then((r) => {
+      if (!stale) setItems(r.ok ? r.data.items || [] : [])
+    })
+    return () => {
+      stale = true
+    }
+  }, [])
+
+  const n = items?.length ?? 0
+
+  return (
+    <Card>
+      {/* The page's own name and its clean state come from cleanup.* — one
+          feature, one vocabulary — and only the dot and the count line here are
+          Settings' own. */}
+      <SectionTitle info={t('settings.cleanup.info.body')} infoTitle={t('cleanup.info.title')}>
+        {t('cleanup.title')}
+      </SectionTitle>
+
+      <div className="space-y-3">
+        <p className="microcopy">
+          {items === null
+            ? t('cleanup.state.loading')
+            : n === 0
+              ? t('settings.cleanup.tile.clean.prose')
+              : t('settings.cleanup.tile.prose', {
+                  count: t('common.count.phrase', { n, noun: t('unit.quote', { count: n }) }),
+                })}
+        </p>
+        {/* keepLabel, like the bin's: an eye on a settings page reads as "show
+            something", not "go and look at what got into your quotes". */}
+        <GhostButton icon={<IconEye />} keepLabel onClick={onOpen}>
+          {t('settings.cleanup.open.label')}
         </GhostButton>
       </div>
     </Card>

@@ -50,8 +50,9 @@ export const SCREENS = {
   tags: [() => import('../src/TagsPage.jsx'), 'default', {}],
   stats: [() => import('../src/StatsPage.jsx'), 'default', { onSearch: noop }],
   staging: [() => import('../src/StagingPage.jsx'), 'default', { onPending: noop, onOpenBook: noop, onOpenMovie: noop, onApproved: noop }],
-  settings: [() => import('../src/Settings.jsx'), 'default', { user: USER, onPreferences: noop, update: null, onUpdateInfo: noop, onStartTour: noop, onOpenBin: noop }],
+  settings: [() => import('../src/Settings.jsx'), 'default', { user: USER, onPreferences: noop, update: null, onUpdateInfo: noop, onStartTour: noop, onOpenBin: noop, onOpenCleanup: noop }],
   bin: [() => import('../src/BinPage.jsx'), 'default', { onClose: noop }],
+  cleanup: [() => import('../src/CleanupPage.jsx'), 'default', { onClose: noop, onOpenBook: noop, onOpenMovie: noop, onOpenQuotes: noop }],
   login: [() => import('../src/App.jsx'), 'Login', { onLogin: noop }],
   onboarding: [() => import('../src/App.jsx'), 'Onboarding', { onDone: noop, backup: null }],
 }

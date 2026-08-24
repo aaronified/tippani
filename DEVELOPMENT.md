@@ -175,7 +175,7 @@ it here and should not be one. The convention instead: **`*_handlers.go` is a ro
 named for its noun; a bare noun is a shared shape or a helper.** A new endpoint joins the
 nearest existing group, and only earns a file of its own when it is a new noun.
 
-Six of them are not route groups but rules, and these are the ones worth knowing:
+Seven of them are not route groups but rules, and these are the ones worth knowing:
 
 | File | The rule it holds |
 | --- | --- |
@@ -185,6 +185,7 @@ Six of them are not route groups but rules, and these are the ones worth knowing
 | `backup_crypto.go` | The AES-256-GCM archive envelope, and the rule that its key comes from a secret the operator knows rather than one stored beside it. |
 | `capture_fields.go` | What an offline capture must set on create — `noted_at` and `source` — so a queued phone capture keeps its real date. |
 | `locformula.go` | The location arithmetic over free-text locators (`p.142`, `610-612`, `42%`, `01:02:03`) that bulk staging edits use. |
+| `cleanup.go` | The stray-mark rules, as pure functions over a string — and the rule **that this reports and never fixes**. Every rule has a false positive that is somebody's real writing, so there is no companion `POST` and no "fix all". |
 
 The route groups themselves, so you can find the noun you want:
 
@@ -208,6 +209,7 @@ The route groups themselves, so you can find the noun you want:
 | `backup_handlers.go` · `backup_recovery.go` | Archive create, download and in-process restore; the per-instance recovery key. |
 | `admin_handlers.go` · `maintenance_handlers.go` · `update_handlers.go` | User management, FTS rebuild and factory reset, and the self-updater. |
 | `pairing_handlers.go` · `capabilities_handler.go` · `share_handlers.go` | Phone pairing by QR, the client version handshake, and one-shot share-image downloads. |
+| `cleanup_handlers.go` | The one-pass sweep behind Settings → Stray marks: every quote read once, capped, with what the rules in `cleanup.go` found. Read-only. |
 | `bulk_handlers.go` · `paging.go` · `gzip.go` | Bulk tagging, shared `LIMIT`/`OFFSET`, and response compression. |
 
 #### `internal/store/`
