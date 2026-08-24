@@ -1170,9 +1170,6 @@ settings.quiz.panel.title = In-depth quiz controls
 settings.quiz.deck.title = {name} asks
 settings.quiz.deck.daily.info.body = The daily deck is marked by the server from end to end, so it never offers a self-marked card. That is why the flip card is missing from this list rather than switched off in it.
 settings.quiz.deck.practice.info.body = Practice leads with the flip card and varies the rest. Turn Practice scoring on and the flip card drops out, because nothing checks a self-marked answer.
-# A question type's own hint, then the reason its switch is locked.
-settings.quiz.question.locked.hint = {hint} {reason}
-settings.quiz.question.aria = {name}: {field}
 settings.quiz.practice-counts.title = Practice moves the schedule
 settings.quiz.practice-counts.aria = Practice affects schedule
 settings.quiz.practice-counts.info.body = By default Practice is study only. Turn this on to let correct Practice answers stretch half-lives just like the Daily Quiz does.

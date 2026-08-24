@@ -32,6 +32,7 @@ import { t, tNodes } from './i18n.js'
 import { PASSPHRASE_MAX, PASSPHRASE_MIN, PASSWORD_MAX, passphraseProblem, sniffArchiveKey } from './secret.js'
 import {
   Card,
+  ChipSwitches,
   CloseButton,
   ConfirmDialog,
   ErrorText,
@@ -39,7 +40,6 @@ import {
   FieldIconButton,
   FormModal,
   IconChevron,
-  filterChipClass,
   frameCode,
   GhostButton,
   IconArchive,
@@ -58,6 +58,7 @@ import {
   IconPlus,
   IconQuiz,
   IconRefresh,
+  IconRuler,
   IconRestore,
   IconRevert,
   IconTour,
@@ -560,32 +561,31 @@ export function ReviewScope({ value, onChange }) {
         <MonoLabel>{t('settings.review-scope.title')}</MonoLabel>
         <InfoDot title={t('settings.review-scope.info.title')} text={t('settings.review-scope.info.body')} />
       </div>
-      <div className="flex flex-wrap items-center gap-2">
-        {REVIEW_MEDIA.map(([key, label, hint]) => {
-          const picked = on.includes(key)
-          const stuck = picked && last
-          return (
-            <Tooltip key={key} label={stuck ? t('settings.review-scope.stuck.tip') : t(hint)}>
-              <button
-                type="button"
-                className={filterChipClass(picked)}
-                aria-pressed={picked}
-                onClick={() => {
-                  if (stuck) return
-                  const next = picked ? on.filter((k) => k !== key) : [...on, key]
-                  onChange(REVIEW_MEDIA.map((m) => m[0]).filter((k) => next.includes(k)).join(','))
-                }}
-              >
-                {/* t(), like the hint beside it. The comment on REVIEW_MEDIA says
-                    "both words are keys" and only one of them was resolved, so
-                    these three chips read `nav.tab.library.label` and its two
-                    siblings on screen — inside the review card itself. */}
-                {t(label)}
-              </button>
-            </Tooltip>
-          )
-        })}
-      </div>
+      {/* THE CHIPS THEMSELVES ARE SHARED NOW. They were hand-rolled here from
+          filterChipClass and a Tooltip, and then the question toggles and the
+          Features switches became the same control — three copies of one widget,
+          one of which had already shipped a bug (t() around the hint and not
+          around the label). ChipSwitches holds the mechanism; this holds the
+          rule about which media a deck may be emptied of.
+
+          t() on BOTH slots. The comment on REVIEW_MEDIA says "both words are
+          keys" and only one of them was resolved, so these three chips read
+          `nav.tab.library.label` and its two siblings on screen — inside the
+          review card itself. */}
+      <ChipSwitches
+        ariaLabel={t('settings.review-scope.title')}
+        options={REVIEW_MEDIA.map(([key, label, hint]) => ({
+          key,
+          label: t(label),
+          on: on.includes(key),
+          hint: t(hint),
+          locked: on.includes(key) && last ? t('settings.review-scope.stuck.tip') : '',
+        }))}
+        onToggle={(key, next) => {
+          const picked = next ? [...on, key] : on.filter((k) => k !== key)
+          onChange(REVIEW_MEDIA.map((m) => m[0]).filter((k) => picked.includes(k)).join(','))
+        }}
+      />
     </div>
   )
 }
@@ -1327,27 +1327,33 @@ function SRDeepControls({ p, set, onClose }) {
               }
             />
           </div>
-          <div className="space-y-2">
-            {questionsFor(deck).map((q) => {
-              const on = qs[deck].includes(q.id)
-              const locked = lockedOff(qs, deck, q.id)
-              return (
-                <div key={q.id} className="flex items-center justify-between gap-3">
-                  <span className="flex min-w-0 items-center gap-1.5">
-                    <span className="truncate">{q.label}</span>
-                    <InfoDot text={locked ? t('settings.quiz.question.locked.hint', { hint: q.hint, reason: locked }) : q.hint} />
-                  </span>
-                  <Toggle
-                    ariaLabel={t('settings.quiz.question.aria', { name: deckLabel, field: q.label })}
-                    disabled={!!locked}
-                    value={on ? 'on' : 'off'}
-                    onChange={() => commit(toggleQuestion(qs, deck, q.id))}
-                    options={[['off', t('vocab.no.label')], ['on', t('vocab.yes.label')]]}
-                  />
-                </div>
-              )
-            })}
-          </div>
+          {/* ONE ROW OF CHIPS, NOT FIVE ROWS OF YES/NO (1.17.0). Nine labelled
+              rows, each with its own segmented switch and its own dot, filled
+              this pop-up top to bottom — and the question they answered is a set
+              ("which of these does it ask?"), which a lit chip states and a
+              column of switches makes you read one line at a time. The dots went
+              with the rows: a chip's hint is its tooltip, which is what the
+              review-scope chips three lines up have always done.
+
+              The lock still speaks IN WORDS, under the row. lockedOff returns
+              the reason rather than a boolean precisely so it can be shown, and
+              only one chip per deck can ever be locked — the last universal
+              question standing — so one line says it without naming which. */}
+          <ChipSwitches
+            ariaLabel={t('settings.quiz.deck.title', { name: deckLabel })}
+            options={questionsFor(deck).map((q) => ({
+              key: q.id,
+              label: q.label,
+              on: qs[deck].includes(q.id),
+              hint: q.hint,
+              locked: lockedOff(qs, deck, q.id),
+            }))}
+            onToggle={(id) => commit(toggleQuestion(qs, deck, id))}
+          />
+          {(() => {
+            const stuck = questionsFor(deck).map((q) => lockedOff(qs, deck, q.id)).find(Boolean)
+            return stuck ? <p className="microcopy mt-1.5">{stuck}</p> : null
+          })()}
         </div>
       ))}
       <div className="space-y-5">
@@ -1891,36 +1897,35 @@ function FeaturesCard({ prefs, onSaved }) {
       <p className="microcopy">
         {t('settings.features.intro.prose')}
       </p>
-      <div className="space-y-3 mt-3">
-        {SECTIONS.map((sec) => {
-          // The last one standing is the one that cannot go, and the reason
-          // replaces the microcopy on that row rather than hiding in a tooltip a
-          // touch screen has no way to show.
-          const locked = lastOne && on[sec.tab] && !sec.off
-          return (
-            <div key={sec.tab}>
-              <div className="mb-1.5 flex items-center gap-1.5">
-                <MonoLabel>{t(sec.label)}</MonoLabel>
-              </div>
-              <Toggle
-                ariaLabel={t(sec.label)}
-                value={on[sec.tab] ? 'on' : 'off'}
-                onChange={(v) => set(sec, v === 'on')}
-                disabled={locked}
-                options={[['off', t('common.action.hide.label')], ['on', t('common.action.show.label')]]}
-              />
-              <p className="microcopy mt-1">
-                {/* t(), because SECTIONS[].what is a KEY. It was rendered raw
-                    here and printed `nav.section.library.what` on screen, while
-                    the SAME table resolved correctly forty lines up in the
-                    Metadata card — one table, two readings, and only one of them
-                    right. */}
-                {locked ? t('settings.features.locked.prose') : t(sec.what)}
-              </p>
-            </div>
-          )
-        })}
-      </div>
+      {/* FOUR CHIPS, NOT FOUR ROWS (1.17.0). A section is shown when its chip is
+          lit, which is one line for the whole card where there were four blocks
+          of name-plus-switch-plus-blurb — and this card is read far more often
+          than it is changed, so the standing cost was the whole cost.
+
+          THE BLURBS GO INTO THE CHIPS' TOOLTIPS, resolved here, because
+          SECTIONS[].what is a KEY — it was rendered raw once and printed
+          `nav.section.library.what` on screen, while the SAME table resolved
+          correctly forty lines up in the Metadata card.
+
+          THE LOCK STILL SPEAKS IN WORDS, under the row rather than in a bubble.
+          Only one section can ever be the last one standing, so one line says it;
+          a reader who cannot turn something off is owed the reason on the screen
+          they are looking at. */}
+      <ChipSwitches
+        className="mt-3"
+        ariaLabel={t('settings.features.title')}
+        options={SECTIONS.map((sec) => ({
+          key: sec.tab,
+          label: t(sec.label),
+          on: !!on[sec.tab],
+          hint: t(sec.what),
+          // The last one standing is the one that cannot go. Anthologies is never
+          // one of them (see lastOne), so the lock cannot spill onto it.
+          locked: lastOne && on[sec.tab] && !sec.off ? t('settings.features.locked.prose') : '',
+        }))}
+        onToggle={(tab, next) => set(SECTIONS.find((sec) => sec.tab === tab), next)}
+      />
+      {lastOne && <p className="microcopy mt-2">{t('settings.features.locked.prose')}</p>}
     </Card>
   )
 }

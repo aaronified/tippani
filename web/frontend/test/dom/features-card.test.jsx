@@ -10,6 +10,15 @@
 //     silently ignores an unknown preference key and returns 200, and the client
 //     updates optimistically — so a misspelled key gives a switch that moves, sticks
 //     and reverts on the next reload, with nothing failing anywhere.
+//
+// THE CONTROL IS A CHIP NOW (1.17.0) rather than a Hide/Show Toggle per section, so
+// every case here reads the state off `aria-pressed` instead of off the selected
+// segment. WHAT IS ASSERTED DID NOT CHANGE — the polarity of each stored key, which
+// key is written, that turning one back on sends `false` rather than dropping the
+// field, and that the last one standing refuses in words — because those are
+// properties of the card and not of the widget it draws. That is the whole reason
+// this file was worth carrying through the change rather than rewriting after it: a
+// card that swapped its control and kept its bugs still fails here.
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, within } from '@testing-library/react'
@@ -59,6 +68,17 @@ const page = (preferences = {}) => {
 
 const prefsPuts = () => PUTS.filter(([p]) => p === '/auth/me/preferences')
 
+// One section's chip, by its accessible name — SCOPED TO THE CARD'S OWN GROUP, and
+// that scope is not tidiness. The review-scope chips in the quiz card are named
+// after the same screens ("Library" is `nav.tab.library.label` in both places), so
+// an unscoped getByRole('button', {name: 'Library'}) matches two controls in two
+// cards that write two different preferences. The group is what ChipSwitches puts
+// the card's own name on.
+const card = () => within(screen.getByRole('group', { name: t('settings.features.title') }))
+const chip = (sec) => card().getByRole('button', { name: named(sec) })
+const named2 = (name) => card().getByRole('button', { name })
+const pressed = (sec) => chip(sec).getAttribute('aria-pressed')
+
 describe('the Features card', () => {
   it('renders at all, which means it is in every layout', () => {
     page()
@@ -90,34 +110,33 @@ describe('the Features card', () => {
     expect(keyish, 'unresolved keys on screen').toEqual([])
   })
 
-  it('says what each section is for, in words', () => {
-    page()
+  // The blurbs travel in each chip's tooltip now — the same place the review-scope
+  // chips beside them have always kept theirs — so they are no longer standing text
+  // and cannot be read off the DOM. What the old case was really defending is that
+  // the card resolves the KEY before handing it over, so that is what is checked
+  // here; the sweep above proves nothing renders the raw token.
+  it('has words behind every section’s blurb, not just a key', () => {
     for (const sec of SECTIONS) {
-      expect(screen.getByText(t(sec.what)), `no microcopy for ${sec.label}`).toBeTruthy()
+      expect(t(sec.what), `no copy for ${sec.what}`).not.toBe(sec.what)
+      expect(t(sec.what).length, `empty copy for ${sec.what}`).toBeGreaterThan(0)
     }
   })
 
-  it('offers one switch per section, named after the section', () => {
+  it('offers one chip per section, named after the section', () => {
     page()
     for (const sec of SECTIONS) {
-      expect(screen.getByLabelText(named(sec)), `no switch for ${sec.label}`).toBeTruthy()
+      expect(chip(sec), `no chip for ${sec.label}`).toBeTruthy()
     }
   })
 
   it('opens on each section’s own default, for a reader who has set nothing', () => {
-    // NOT A BLANKET "Show" any more. Three sections are on until you turn them off
+    // NOT A BLANKET "shown" any more. Three sections are on until you turn them off
     // and Anthologies is off until you ask for it, so the expectation is read off
-    // the row's polarity rather than assumed — a card that rendered every switch
-    // the same way would pass a blanket assertion and be wrong about a quarter of
-    // its rows.
+    // the row's polarity rather than assumed — a card that rendered every chip the
+    // same way would pass a blanket assertion and be wrong about a quarter of them.
     page()
     for (const sec of SECTIONS) {
-      const group = screen.getByLabelText(named(sec))
-      // Read off the segment Toggle marks selected, not off the one we expected to
-      // find: `getByRole('tab', {selected: true})` throws when nothing is selected,
-      // which is the failure a `?? 'true'` fallback would have swallowed.
-      const selected = within(group).getByRole('tab', { selected: true })
-      expect(selected.textContent, sec.label).toBe(sec.off ? 'Hide' : 'Show')
+      expect(pressed(sec), sec.label).toBe(sec.off ? 'false' : 'true')
     }
   })
 
@@ -125,32 +144,32 @@ describe('the Features card', () => {
     // The other direction for the inverted row, and the one that catches a card
     // reading a show* key as though it were a hide* one.
     page({ showAnthologies: true })
-    expect(within(screen.getByLabelText('Anthologies')).getByRole('tab', { selected: true }).textContent).toBe('Show')
+    expect(named2('Anthologies').getAttribute('aria-pressed')).toBe('true')
   })
 
   it('opens showing a hidden section as hidden', () => {
     // The other direction, and the one that catches a card reading the wrong key:
-    // a switch that always renders Show would pass every assertion above.
+    // a chip that is always lit would pass every assertion above.
     page({ hideCatalogue: true })
-    expect(within(screen.getByLabelText('Catalogue')).getByRole('tab', { selected: true }).textContent).toBe('Hide')
-    expect(within(screen.getByLabelText('Library')).getByRole('tab', { selected: true }).textContent).toBe('Show')
+    expect(named2('Catalogue').getAttribute('aria-pressed')).toBe('false')
+    expect(named2('Library').getAttribute('aria-pressed')).toBe('true')
   })
 
   it('writes the stored key the server reads, and only that key', () => {
     // The whole point of the case. `hideCatalogue` is what the Go prefs struct
     // names; anything else is a 200 that stores nothing.
     page()
-    fireEvent.click(within(screen.getByLabelText('Catalogue')).getByText('Hide'))
+    fireEvent.click(named2('Catalogue'))
     expect(prefsPuts().length, 'nothing was saved').toBeGreaterThan(0)
     expect(prefsPuts().at(-1)[1]).toEqual({ hideCatalogue: true })
   })
 
   it('turns one back on by sending false rather than by dropping the key', () => {
     // An absent field means "leave it alone" to the merge handler, so turning a
-    // section back on has to be an explicit false. Omitting it would make the
-    // switch a one-way door and nothing would report it.
+    // section back on has to be an explicit false. Omitting it would make the chip
+    // a one-way door and nothing would report it.
     page({ hideQuotes: true })
-    fireEvent.click(within(screen.getByLabelText('Quotes')).getByText('Show'))
+    fireEvent.click(named2('Quotes'))
     expect(prefsPuts().at(-1)[1]).toEqual({ hideQuotes: false })
   })
 
@@ -158,13 +177,13 @@ describe('the Features card', () => {
     // THE FAILURE THIS CASE EXISTS FOR. `{ [sec.pref]: !show }` was correct while
     // every section was spelled hide*, and for a show* key it sends the OPPOSITE of
     // what was pressed. The PUT handler takes the key at its word and returns 200,
-    // and the shell updates optimistically — so the switch would move, stick, and
+    // and the shell updates optimistically — so the chip would light, stick, and
     // come back the other way round on the next reload, with nothing failing.
     page()
-    fireEvent.click(within(screen.getByLabelText('Anthologies')).getByText('Show'))
+    fireEvent.click(named2('Anthologies'))
     expect(prefsPuts().at(-1)[1]).toEqual({ showAnthologies: true })
     page({ showAnthologies: true })
-    fireEvent.click(within(screen.getAllByLabelText('Anthologies').at(-1)).getByText('Hide'))
+    fireEvent.click(within(screen.getAllByRole('group', { name: t('settings.features.title') }).at(-1)).getByRole('button', { name: 'Anthologies' }))
     expect(prefsPuts().at(-1)[1]).toEqual({ showAnthologies: false })
   })
 
@@ -173,10 +192,10 @@ describe('the Features card', () => {
     // three — so it can never be the last one standing, and the lock must not spill
     // onto it when one of the three is. It stays switchable while Quotes is locked.
     page({ hideLibrary: true, hideCatalogue: true, showAnthologies: true })
-    expect(screen.getByLabelText('Quotes').getAttribute('aria-disabled')).toBe('true')
-    const gathered = screen.getByLabelText('Anthologies')
-    expect(gathered.getAttribute('aria-disabled'), 'the anthologies switch was locked too').not.toBe('true')
-    fireEvent.click(within(gathered).getByText('Hide'))
+    expect(named2('Quotes').getAttribute('aria-disabled')).toBe('true')
+    const gathered = named2('Anthologies')
+    expect(gathered.getAttribute('aria-disabled'), 'the anthologies chip was locked too').toBe('false')
+    fireEvent.click(gathered)
     expect(prefsPuts().at(-1)[1]).toEqual({ showAnthologies: false })
   })
 
@@ -185,31 +204,29 @@ describe('the Features card', () => {
     // /auth/me after a settings save, so the optimistic call is the only thing
     // that moves the strip.
     const onPreferences = page()
-    fireEvent.click(within(screen.getByLabelText('Library')).getByText('Hide'))
+    fireEvent.click(named2('Library'))
     expect(onPreferences).toHaveBeenCalledWith({ hideLibrary: true })
   })
 
   it('will not let the last section go', () => {
-    // Two already hidden, so Quotes is the only one left. Its switch is disabled and
-    // the row says why in words rather than in a title attribute a phone cannot show.
+    // Two already hidden, so Quotes is the only one left. Its chip refuses, and the
+    // card says why IN WORDS under the row rather than only in a bubble a phone has
+    // to be held down to open.
     page({ hideLibrary: true, hideCatalogue: true })
-    const last = screen.getByLabelText('Quotes')
-    expect(last.getAttribute('aria-disabled'), 'the last switch is still live').toBe('true')
-    for (const seg of within(last).getAllByRole('tab')) {
-      expect(seg.hasAttribute('disabled'), seg.textContent).toBe(true)
-    }
+    const last = named2('Quotes')
+    expect(last.getAttribute('aria-disabled'), 'the last chip is still live').toBe('true')
     expect(screen.getByText(/last section has to stay/i)).toBeTruthy()
     // And pressing it anyway writes nothing.
-    fireEvent.click(within(last).getByText('Hide'))
+    fireEvent.click(last)
     expect(prefsPuts().length, 'the last section was hidden anyway').toBe(0)
   })
 
-  it('leaves the other two switches usable while one is locked', () => {
+  it('leaves the other two chips usable while one is locked', () => {
     // The lock is on the last one STANDING, not on the card. Somebody who has hidden
     // two must still be able to turn one of them back on — which is the way out of
     // the locked state, so it cannot itself be locked.
     page({ hideLibrary: true, hideCatalogue: true })
-    fireEvent.click(within(screen.getByLabelText('Library')).getByText('Show'))
+    fireEvent.click(named2('Library'))
     expect(prefsPuts().at(-1)[1]).toEqual({ hideLibrary: false })
   })
 })

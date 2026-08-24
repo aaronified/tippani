@@ -4458,6 +4458,57 @@ export function filterChipClass(active) {
   return "tp-filter-chip tactile" + (active ? " active" : "");
 }
 
+// ChipSwitches — a row of independent on/off buttons, where a column of Yes/No
+// toggles used to stand.
+//
+// THE TOGGLES WERE THE WRONG CONTROL FOR THE SHAPE OF THE QUESTION, and Settings
+// had nine of them in one pop-up. A segmented Yes/No answers ONE question with
+// two mutually exclusive answers; "which of these five does the deck ask?" is one
+// question with five independent answers, and drawing it as five two-state
+// controls spends a labelled row plus a 60px switch on each — a panel you scroll
+// to reach the third of five options, where the answer is "the ones that are lit".
+// A pressed chip carries the same bit in a quarter of the space, and the whole set
+// is then readable at a glance instead of a row at a time.
+//
+// IT IS THE CONTROL THE REVIEW SCOPE CHIPS ALREADY WERE. Those three (books /
+// films / quotes, in the same card) were hand-rolled from filterChipClass and a
+// Tooltip, and they were the precedent this borrows rather than a second answer to
+// the same question — which is why they now go through here too. One mechanism,
+// three call sites, and the lock rule below written down once.
+//
+// A LOCKED CHIP REFUSES, IT DOES NOT DISAPPEAR AND IT IS NOT `disabled`. Both of
+// this component's callers have a last-one-standing rule — the deck that must keep
+// one question it can ask, the app that must keep one content section — and the
+// reason has to reach the reader. `disabled` on a button eats the pointer events
+// the tooltip is opened by, so the chip stays live, says so with `aria-disabled`,
+// and swallows its own click; the caller draws the reason in words beside the row,
+// because a bubble is something you have to know to ask for.
+export function ChipSwitches({ options, onToggle, ariaLabel, className = "" }) {
+  return (
+    <div className={"flex flex-wrap items-center gap-2 " + className} role="group" aria-label={ariaLabel}>
+      {options.map((o) => (
+        <Tooltip key={o.key} label={o.locked || o.hint || ""}>
+          <button
+            type="button"
+            className={filterChipClass(o.on)}
+            aria-pressed={o.on}
+            // Coerced for the same reason aria-pressed is: a chip that only
+            // announces the lock in one of the two states is read as a plain
+            // button half the time.
+            aria-disabled={!!o.locked}
+            onClick={() => {
+              if (o.locked) return;
+              onToggle(o.key, !o.on);
+            }}
+          >
+            {o.label}
+          </button>
+        </Tooltip>
+      ))}
+    </div>
+  );
+}
+
 // FilterChip — a filter chip that can carry a glyph and lose its words.
 //
 // IT REUSES THE BUTTON MECHANISM RATHER THAN INVENTING A SECOND ONE, and that is

@@ -1155,9 +1155,6 @@ settings.quiz.panel.title = কুইজের খুঁটিনাটি স�
 settings.quiz.deck.title = {name} যা জিজ্ঞেস করে
 settings.quiz.deck.daily.info.body = রোজকার ডেকের খাতা গোড়া থেকে শেষ অবধি সার্ভার দেখে, তাই নিজে বিচার করার কার্ড এখানে আসেই না। সেই জন্যই উল্টে দেখার কার্ডটা এই তালিকায় বন্ধ হয়ে পড়ে নেই, একেবারেই নেই।
 settings.quiz.deck.practice.info.body = প্র্যাকটিস শুরু করে উল্টে দেখার কার্ড দিয়ে, বাকিগুলো বদলে বদলে আসে। প্র্যাকটিসে স্কোর চালু করলে ওই কার্ডটা বাদ পড়ে যায়, কারণ নিজে দেওয়া নম্বর কেউ মিলিয়ে দেখে না।
-# A question type's own hint, then the reason its switch is locked.
-settings.quiz.question.locked.hint = {hint} {reason}
-settings.quiz.question.aria = {name}: {field}
 # ?? "schedule" is not in the term table — রুটিন, what a Bengali student calls one
 settings.quiz.practice-counts.title = প্র্যাকটিসেও রুটিন বদলায়
 settings.quiz.practice-counts.aria = প্র্যাকটিস রুটিন বদলায়
@@ -5587,4 +5584,3 @@ common.help.hover-labels.what = শুধু চিহ্ন আছে এমন
 common.help.card-menu.term = কার্ডে ডান-ক্লিক
 common.help.card-menu.what = উদ্ধৃতির কার্ডে ডান-ক্লিক করলে তার নিজের মেনু খোলে — কপি, শেয়ার, এডিট, মুছুন — ঠিক যেখানে চেপেছেন সেখানেই।
 common.help.card-menu.more = কীবোর্ড থেকে Shift+F10 বা Menu কি-ও একই কাজ করে, আর Escape বন্ধ করে ফোকাস ফিরিয়ে দেয়। কার্ডের ভিতরে কোনও লেখা বেছে রাখলে ব্রাউজারের নিজের মেনুই জেতে: আপনি তো কপি বা লুক আপ চেয়েছিলেন, আর ওগুলো কেড়ে নেওয়া আমাদের কাজ নয়।
-

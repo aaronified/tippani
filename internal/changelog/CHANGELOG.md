@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The in-depth quiz controls and the Features card are buttons now, not columns of
+  Yes/No.** Nine labelled rows, each with its own segmented switch and its own info dot,
+  filled the quiz pop-up top to bottom — and the question they answered is a set ("which of
+  these does the deck ask?"), which a lit chip states and a column of switches makes you read
+  one line at a time. Same for the four Features rows. A locked one still refuses **in
+  words** under the row, rather than only in a bubble you have to know to ask for, and the
+  hand-rolled review-scope chips beside them now go through the same component — three copies
+  of one widget, one of which had already shipped a bug.
+
 - **Any quote can now say what it means, not just a standalone one.** A book highlight and a
   film or show line each carry a translation, the way a standalone quote has since 2.0.0. It
   is not the note: a note is what you thought about the line, a translation is what the line
