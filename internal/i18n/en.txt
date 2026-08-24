@@ -2677,7 +2677,7 @@ common.work.details.title = Details
 common.work.lookup.title = Fetch metadata
 common.work.merge.title = Choose what to keep
 # On the header ✓ while nothing has been edited. Five words.
-common.work.details.nothing-to-save.hint = Nothing to save
+common.work.details.done.tip = Save and close
 common.work.fetch.label = Fetch metadata
 common.work.lookup.back.aria = Back to the fields
 common.work.lookup.pick.label = pick the closest match

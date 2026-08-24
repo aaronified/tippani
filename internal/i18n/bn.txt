@@ -2700,7 +2700,7 @@ common.work.details.title = খুঁটিনাটি
 common.work.lookup.title = মেটাডেটা আনুন
 common.work.merge.title = কী কী রাখবেন
 # On the header ✓ while nothing has been edited. Five words.
-common.work.details.nothing-to-save.hint = সেভ করার কিছু নেই
+common.work.details.done.tip = সেভ করে বন্ধ
 common.work.fetch.label = মেটাডেটা আনুন
 common.work.lookup.back.aria = ঘরগুলোয় ফিরুন
 common.work.lookup.pick.label = সবচেয়ে কাছের মিলটা বাছুন

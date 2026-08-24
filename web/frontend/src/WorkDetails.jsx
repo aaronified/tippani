@@ -378,14 +378,18 @@ export function WorkDetails({ open, onClose, kind, item, onChanged, onDelete }) 
       setError(t('error.validate.title-required'))
       return
     }
-    if (!Object.keys(patch).length) return
+    if (!Object.keys(patch).length) return true
     if (await save(patch)) {
       // Closed only after the server agreed, like every row does on its own: a
       // failed save must leave what you typed on the screen.
       closeAll()
       const n = entries.length
       toast(t('common.work.fields-saved.toast', { count: n, n }))
+      return true
     }
+    // Reported, because the ✓ closes the panel afterwards and must not close it
+    // over a failed write — the error line and what you typed both have to stay.
+    return false
   }
 
   async function saveField(spec, draft) {
@@ -531,6 +535,7 @@ export function WorkDetails({ open, onClose, kind, item, onChanged, onDelete }) 
           genreSuggestions={genreSuggestions}
           onSaveField={saveField}
           onSaveAll={saveAll}
+          onClose={onClose}
           onCover={(patch) => save(patch, 'cover')}
           onChanged={onChanged}
           onFetch={() => setView('lookup')}
@@ -674,7 +679,7 @@ function IMDbCastFill({ item, onChanged }) {
   )
 }
 
-function FieldList({ kind, item, specs, mediaType, busy, genreSuggestions, onSaveField, onSaveAll, onCover, onChanged, onFetch, onDelete }) {
+function FieldList({ kind, item, specs, mediaType, busy, genreSuggestions, onSaveField, onSaveAll, onCover, onChanged, onFetch, onDelete, onClose }) {
   const artPath = kind === 'book' ? item.cover_path : item.poster_path
   // THE MASTER SAVE. Every row still saves itself — that is what the panel is
   // for, and changing one field should not cost more than one press. What it
@@ -684,12 +689,24 @@ function FieldList({ kind, item, specs, mediaType, busy, genreSuggestions, onSav
   // this component draws, so it lands in the same place on a phone's sheet and
   // on a desktop dialog, and greys with its reason on it like every other ✓.
   // "Nothing to save" is inside the five-word rule.
+  // IT IS NEVER GREYED, AND IT CLOSES THE PANEL. It used to be blocked with
+  // "Nothing to save" whenever no row was open with an unsaved edit in it, which
+  // is the state the panel is in for most of the time it is on screen — so the ✓
+  // in the header of a dialog you had just finished editing did nothing, and the
+  // way out was the ✕ beside it. A ✓ that is inert more often than not is not a
+  // save button, it is a decoration.
+  //
+  // So it means "done": commit whatever is open and leave. Nothing open is not an
+  // error, it is the ordinary case — every row saves itself, so by the time you
+  // reach for the header the work is usually already done and the only thing left
+  // is the leaving.
   const unsaved = useUnsavedFields()
-  const host = useFormHost(unsaved.count ? '' : t('common.work.details.nothing-to-save.hint'))
+  const host = useFormHost('', t('common.work.details.done.tip'))
   async function submit(e) {
     e.preventDefault()
-    if (!unsaved.count) return
-    await onSaveAll(unsaved.collect(), unsaved.closeAll)
+    // A failed write keeps the panel open with its error and its drafts intact.
+    if (unsaved.count && !(await onSaveAll(unsaved.collect(), unsaved.closeAll))) return
+    onClose?.()
   }
   return (
     // A real <form> bound to the header's ✓ by the HTML `form=` attribute, the

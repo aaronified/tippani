@@ -2562,14 +2562,23 @@ export const FormHostContext = createContext(null);
 // `reason` is shown on the disabled ✓, so it stays inside the five-word rule;
 // '' means ready, and unmounting hands back null so the button goes away with the
 // form it belonged to.
-export function useFormHost(reason) {
+export function useFormHost(reason, tip) {
   const host = useContext(FormHostContext);
   const setBlocked = host?.setBlocked;
+  const setTip = host?.setTip;
   useEffect(() => {
     if (!setBlocked) return;
     setBlocked(reason || "");
     return () => setBlocked(null);
   }, [setBlocked, reason]);
+  // `tip` overrides the ✓'s tooltip for a form whose ✓ does more than save —
+  // the work Details panel's, which saves every open row AND closes the panel,
+  // so "Save" undersells it by half.
+  useEffect(() => {
+    if (!setTip) return;
+    setTip(tip || "");
+    return () => setTip("");
+  }, [setTip, tip]);
   return host;
 }
 
@@ -2593,7 +2602,8 @@ export function FormModal({ open = true, onClose, title, maxWidth = 560, childre
   const formId = useId();
   // null = no form has registered, so there is nothing to commit and no ✓.
   const [blocked, setBlocked] = useState(null);
-  const host = useMemo(() => ({ formId, setBlocked }), [formId]);
+  const [tip, setTip] = useState("");
+  const host = useMemo(() => ({ formId, setBlocked, setTip }), [formId]);
   useEffect(() => {
     if (!open) return;
     const onKey = (e) => e.key === "Escape" && onClose && onClose();
@@ -2602,7 +2612,7 @@ export function FormModal({ open = true, onClose, title, maxWidth = 560, childre
   }, [open, onClose]);
   // A closed dialog holds no form, so its last blocked reason must not survive
   // into the next thing opened under the same instance.
-  useEffect(() => { if (!open) setBlocked(null); }, [open]);
+  useEffect(() => { if (!open) { setBlocked(null); setTip(""); } }, [open]);
   if (!open) return null;
   const save = blocked === null ? null : (
     <IconButton
@@ -2610,7 +2620,7 @@ export function FormModal({ open = true, onClose, title, maxWidth = 560, childre
       type="submit"
       form={formId}
       ariaLabel={t("common.action.save.label")}
-      tooltip={blocked || t("common.action.save.label")}
+      tooltip={blocked || tip || t("common.action.save.label")}
       disabled={!!blocked}
       style={{ width: 34, height: 34, padding: 0, flexShrink: 0 }}
       wrapClassName="shrink-0"
