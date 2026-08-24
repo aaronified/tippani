@@ -446,6 +446,7 @@ function AnthologyList({ rows, reload, onOpen }) {
 //
 // The reader's note comes FIRST and the quote second, which is the shape of the
 // export and the shape of every anthology ever printed: the editor introduces the
+// ---------------------------------------------------------------------------
 // locatorOf is the entry's "where", with a standalone quote's KIND on the end of
 // it.
 //
@@ -461,6 +462,7 @@ function AnthologyList({ rows, reload, onOpen }) {
 function locatorOf(entry) {
   return [entry.locator, quoteKindLabel(entry.quote_kind)].filter(Boolean).join(' · ')
 }
+// ---------------------------------------------------------------------------
 
 // piece and then the piece speaks. The attribution sits under it, and where the
 // quote has a parent work the credit is a doorway into it — a CONTENT LINK, so it

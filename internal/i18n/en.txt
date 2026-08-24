@@ -2458,7 +2458,7 @@ share.image.sides.aria = Which side each person takes
 share.image.sides.as-credited.label = As credited
 share.image.sides.swap.label = Swap
 share.image.sides.info.title = Sides
-share.image.sides.info.body = Which edge the first credited person enters from. With two, it swaps them over; with three or more they line up along the bottom instead, and this reverses the row.
+share.image.sides.info.body = Which of the credited people leads. On chips the other face comes to the front; on a backdrop it swaps the edges, or reverses the row when three or more line up along the bottom.
 # Whether the quote's own filing colour shows in the picture. Off by default.
 share.image.colour.aria = Quote colour
 share.image.colour.info.title = Quote colour

@@ -623,9 +623,25 @@ function FieldList({ kind, item, specs, mediaType, busy, genreSuggestions, onSav
   const unsaved = useUnsavedFields()
   const host = useFormHost('')
   async function submit(e) {
+    // A SUBMIT FROM SOMEBODY ELSE'S FORM IS NOT THIS ONE'S. React's synthetic
+    // events bubble through the React tree — a portal does not stop them — so a
+    // dialog rendered inside this panel that submits its own form used to run this
+    // handler too, closing the panel out from under it and, if a field row was
+    // open and dirty, writing the record nobody asked to write. The person editor
+    // opened from the People panel did exactly that.
+    if (e.target !== e.currentTarget) return
     e.preventDefault()
+    // WHAT IS OPEN IN THE PANEL'S OWN SUB-EDITORS, first. A cast row registers a
+    // `save` rather than a field: it writes through its own endpoint and cannot
+    // join the merged patch below, but "saves everything open and closes" has to
+    // be true of it or the reader loses what they typed to a button that says it
+    // saved. A refusal stops the close, exactly as a refused field write does.
+    const entries = unsaved.collect()
+    for (const e2 of entries) {
+      if (e2.save && (await e2.save()) === false) return
+    }
     // A failed write keeps the panel open with its error and its drafts intact.
-    if (unsaved.count && !(await onSaveAll(unsaved.collect(), unsaved.closeAll))) return
+    if (unsaved.count && !(await onSaveAll(entries, unsaved.closeAll))) return
     onClose?.()
   }
   // ENTER IN A TEXT INPUT MUST NOT SUBMIT THIS FORM, and that has to be said
@@ -642,8 +658,16 @@ function FieldList({ kind, item, specs, mediaType, busy, genreSuggestions, onSav
   // Controls that WANT Enter — an InlineField committing a row, the combobox
   // picking a suggestion, the cast panel's own boxes — handle it on their own
   // element, and their handlers run before this one on the way up.
+  //
+  // `e.target.form === e.currentTarget` IS THE WHOLE OF THE SECOND VERSION. The
+  // first swallowed Enter from every input in the subtree, which took it away from
+  // the controls inside a NESTED form — the person editor, which submits on Enter
+  // like any form — and left them dead. An input's `.form` is the form that owns
+  // it, so this cancels implicit submission of THIS form and leaves every inner
+  // one to its own business.
   const swallowEnter = (e) => {
-    if (e.key === 'Enter' && e.target instanceof HTMLInputElement) e.preventDefault()
+    if (e.key !== 'Enter' || !(e.target instanceof HTMLInputElement)) return
+    if (e.target.form === e.currentTarget) e.preventDefault()
   }
   return (
     // A real <form> bound to the header's ✓ by the HTML `form=` attribute, the

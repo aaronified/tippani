@@ -217,12 +217,20 @@ export const BULK_WORK_FIELDS = [
   { key: 'media_type', get label() { return t('common.field.media-type.label') }, kinds: ['movie'], required: true, get options() { return [['movie', t('vocab.kind.movie.label')], ['show', t('vocab.kind.show.label')], ['game', t('vocab.kind.game.label')]] } },
   { key: 'published_year', get label() { return t('common.field.year.label') }, kinds: ['book'], number: true },
   { key: 'release_year', get label() { return t('common.field.year.label') }, kinds: ['movie'], number: true },
+  // ONE COLUMN, TWO WORDS FOR IT. A book's is a Series and a film's is a
+  // Collection, which is what both Details panels call them — and a bulk editor
+  // that said "Series" over a selection of films was the one place in the app
+  // using the other side's word. Two entries rather than a label that switches on
+  // the kind, because `kinds` is how every other per-kind field here is expressed.
+  //
   // `title: true` picks the TITLE casing rather than the person casing — a series
   // keeps its small words small ("The Wheel of Time") and a director's name must
   // not, because half of those words are whole names in other languages. Every
   // other text field here holds a person.
-  { key: 'series', get label() { return t('common.field.series.label') }, title: true },
-  { key: 'series_index', get label() { return t('common.field.series-no.label') }, number: true },
+  { key: 'series', get label() { return t('common.field.series.label') }, kinds: ['book'], title: true },
+  { key: 'series', get label() { return t('common.field.collection.label') }, kinds: ['movie'], title: true },
+  { key: 'series_index', get label() { return t('common.field.series-no.label') }, kinds: ['book'], number: true },
+  { key: 'series_index', get label() { return t('common.field.collection-no.label') }, kinds: ['movie'], number: true },
   { key: 'description', get label() { return t('common.field.description.label') }, long: true },
 ]
 

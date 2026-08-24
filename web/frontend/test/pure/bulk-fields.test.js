@@ -106,3 +106,28 @@ describe('the per-field warning', () => {
     expect(overwriteWarning(null, 'series')).toBeNull()
   })
 })
+
+// ---- one column, two words for it -------------------------------------------
+//
+// A book's `series` is a Series and a film's is a Collection — which is what both
+// Details panels call them. The bulk editor said "Series" over a selection of
+// films, the one place in the app using the other side's word.
+describe('the word a kind uses for its own column', () => {
+  const labels = (kind) => bulkFieldsFor(kind).map((f) => f.label)
+
+  it('calls it a series for a book and a collection for a film', () => {
+    expect(labels('book')).toContain('Series')
+    expect(labels('book')).not.toContain('Collection')
+    expect(labels('movie')).toContain('Collection')
+    expect(labels('movie')).not.toContain('Series')
+  })
+
+  it('offers each of them exactly once', () => {
+    // Two entries share the `series` key; `bulkFieldsFor` filters by kind, so a
+    // dropdown that listed both would be two rows doing one thing.
+    for (const kind of ['book', 'movie']) {
+      expect(bulkFieldsFor(kind).filter((f) => f.key === 'series')).toHaveLength(1)
+      expect(bulkFieldsFor(kind).filter((f) => f.key === 'series_index')).toHaveLength(1)
+    }
+  })
+})

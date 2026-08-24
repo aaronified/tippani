@@ -195,3 +195,41 @@ describe('Enter inside the panel', () => {
     expect(enter(area)).toBe(true)
   })
 })
+
+// ---- a form inside this form ------------------------------------------------
+//
+// WHY THIS EXISTS. The People panel opens the person editor, which is a <form>,
+// INSIDE the Details <form>. React's synthetic submit bubbles through the React
+// tree — a portal does not stop it — so pressing Save on a person ran that form's
+// submit and then this one's, which closes the panel and, with a field row open
+// and dirty, wrote the record nobody asked to write. CoverPicker.jsx had already
+// written this rule down after the same bug ("the search bounces to the homepage").
+//
+// Asserted at the mechanism, because there is no person editor in this file's
+// fixtures and the fault is not about people: a submit that did not come from THIS
+// form is not this form's.
+describe('a submit from somewhere else', () => {
+  it('is ignored, so a nested form cannot close the panel', async () => {
+    panel()
+    openRow('Title')
+    typeIn('Title', 'Solaris (1961)')
+    const form = document.querySelector('form')
+    const inner = document.createElement('form')
+    form.appendChild(inner)
+    // The event React would deliver to the outer form's onSubmit when an inner
+    // form submits: target is the inner form, currentTarget the outer.
+    fireEvent.submit(inner)
+    await new Promise((r) => setTimeout(r, 0))
+    expect(CLOSED, 'a nested form closed the panel').toBe(0)
+    expect(PUTS, 'a nested form wrote the record').toEqual([])
+  })
+
+  it('and the panel still submits itself', async () => {
+    panel()
+    openRow('Title')
+    typeIn('Title', 'Solaris (1961)')
+    fireEvent.click(masterSave())
+    await waitFor(() => expect(PUTS.length).toBe(1))
+    await waitFor(() => expect(CLOSED).toBe(1))
+  })
+})

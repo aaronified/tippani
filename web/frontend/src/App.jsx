@@ -4,7 +4,7 @@ import { applyLanguageMarks } from './languages.jsx'
 import { applyFonts, registerUploads } from './fonts.js'
 import { applyTypeScale } from './type.js'
 import { applyReviewPrefs, tzOffsetMinutes } from './review.jsx'
-import { dailyDeck } from './daily.js'
+import { dailyDeck, forgetDailyDeck } from './daily.js'
 import { pickEpigraph } from './epigraphs.js'
 import { installShortcuts, shortcutFor } from './keys.js'
 import AddSurface from './AddSurface.jsx'
@@ -176,7 +176,21 @@ export default function App() {
 
   let screen = null
   if (!checking) {
-    if (user) screen = <Shell user={user} onLogout={() => setUser(null)} onPreferences={onPreferences} onUser={onUser} />
+    if (user) {
+      screen = (
+        <Shell
+          user={user}
+          // THE DECK IS SOMEBODY'S, and daily.js keys its five-second window on the
+          // timezone offset, which two people on one machine share. Signing out has
+          // to drop it or the next reader in this tab is served the last one's
+          // cards, pending count and streak — every query behind it is scoped by
+          // user_id, and a cache in front of one has to be too.
+          onLogout={() => { forgetDailyDeck(); setUser(null) }}
+          onPreferences={onPreferences}
+          onUser={onUser}
+        />
+      )
+    }
     else if (needsOnboarding) screen = <Onboarding onDone={setUser} backup={onboardBackup} />
     else screen = <Login onLogin={setUser} />
   }

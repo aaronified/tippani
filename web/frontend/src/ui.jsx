@@ -571,9 +571,15 @@ export function Field({ label, className = "", nameCase = false, titleCase = fal
 
 // NameInput is Field's bare twin for the forms that lay out their own inputs
 // rather than using a labelled Field — same casing behaviour, same event shape.
-export function NameInput({ onChange, ...rest }) {
-  const onName = useNameCasing(rest.value, (v) =>
-    onChange?.({ target: { value: v } }),
+export function NameInput({ onChange, titleCase = false, ...rest }) {
+  // The same two rules Field carries, for the forms that lay out their own inputs
+  // — the film side does, which is how its title and series kept the PERSON rule
+  // for a release after the book side got the title one and the same record
+  // capitalised differently depending on which screen you opened it from.
+  const onName = useNameCasing(
+    rest.value,
+    (v) => onChange?.({ target: { value: v } }),
+    titleCase ? capitalizeTitle : capitalizeNames,
   );
   return (
     <input
@@ -2024,6 +2030,10 @@ export function TokenInput({
         <input
           ref={inputRef}
           className="token-entry"
+          // `nameCase` means this box capitalises its own draft, so the keyboard is
+          // told to stay out of it — see "who capitalises, and where". This was the
+          // last capitalising field in the app still fighting the phone underneath.
+          autoCapitalize={nameCase ? "off" : undefined}
           value={text}
           placeholder={value.length ? "" : placeholder || t("common.field.token.placeholder")}
           aria-label={ariaLabel}
@@ -4265,10 +4275,28 @@ export function capitalizeNames(s) {
 // carrying a capital is left alone — then froze it as "Of" for the rest of the
 // edit.
 export function capitalizeTitle(s) {
+  const str = String(s ?? "");
+  // THE LAST WORD IS CAPITALISED HOWEVER SMALL IT IS, which is the half of English
+  // title case the first version left out: "Bring It On", "Set It Off", "Don't Look
+  // Up". Leaving it out did not merely under-capitalise — it REWROTE correct
+  // titles, because the rule runs on every keystroke, so a provider's "Bring It On"
+  // became "Bring It on" the moment somebody fixed a typo elsewhere in the field.
+  //
+  // It was left out because of the typing problem: promote the last word and "of"
+  // is promoted while it is briefly the last word, then frozen by the
+  // already-has-a-capital hatch. What makes it safe now is the DEMOTION below —
+  // the word is lowered again the instant another word appears after it — so the
+  // freeze cannot happen. There is one keystroke, between the space and the next
+  // letter, where the screen shows "The Wheel Of "; the next character corrects it.
+  //
+  // Computed once from the string rather than looked for per word, because
+  // `replace` has no idea which match is the last one.
+  const lastAt = str.search(/\S+\s*$/u);
   let prev = null; // the previous word, for CLAUSE_END
-  return String(s ?? "").replace(/\S+/gu, (w) => {
+  return str.replace(/\S+/gu, (w, at) => {
     const before = prev;
     prev = w;
+    const last = at === lastAt;
     // A SMALL WORD IS DEMOTED, NOT MERELY LEFT ALONE, and that is the part worth
     // arguing. Declining to promote it is not enough, because this runs on every
     // keystroke: "of" arrives one letter at a time, and "o" is not on the list,
@@ -4282,7 +4310,7 @@ export function capitalizeTitle(s) {
     // the capital: re-type the letter as a capital and the string changes in case
     // alone, which sends the whole field `free` (useNameCasing) and stops every
     // transform for the rest of the edit. That is how you get "Don't Look Up".
-    if (SMALL_WORDS.has(wordKey(w)) && before !== null && !CLAUSE_END.test(before)) {
+    if (SMALL_WORDS.has(wordKey(w)) && before !== null && !last && !CLAUSE_END.test(before)) {
       return isTitleCased(w) ? w.replace(/\p{L}/u, (c) => c.toLowerCase()) : w;
     }
     return /\p{Lu}/u.test(w) ? w : w.replace(/\p{Ll}/u, (c) => c.toUpperCase());

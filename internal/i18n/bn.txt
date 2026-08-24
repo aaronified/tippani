@@ -2476,7 +2476,7 @@ share.image.sides.aria = কে কোন দিকে থাকবেন
 share.image.sides.as-credited.label = নামের ক্রমে
 share.image.sides.swap.label = উল্টানো
 share.image.sides.info.title = দিক
-share.image.sides.info.body = যাঁর নাম আছে তিনি কোন কিনারা থেকে আসবেন। দুজন হলে দুজনকে উল্টে দেয়; তিনজন বা বেশি হলে তাঁরা নিচে সারি বেঁধে দাঁড়ান, আর এটি সেই সারি উল্টে দেয়।
+share.image.sides.info.body = কার ছবি আগে আসবে। চিপে অন্য জনকে সামনে আনে; ব্যাকড্রপে দুই কিনারা বদলায়, আর তিনজন বা বেশি হলে নিচের সারি উল্টে দেয়।
 # Whether the quote's own filing colour shows in the picture. Off by default.
 share.image.colour.aria = উদ্ধৃতির রং
 share.image.colour.info.title = উদ্ধৃতির রং

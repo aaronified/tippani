@@ -154,13 +154,22 @@ export function splitCredits(s, seps = DEFAULT_CREDIT_SEPS) {
 // usePeople loads every saved metadata row for a kind ('author'|'actor') and
 // returns a name→row map (for group-by portraits + quick presence checks) plus
 // a reload to call after a save/delete.
+// A FALSY KIND FETCHES NOTHING, and returns an empty map. Hooks cannot be called
+// conditionally, so a caller whose kind depends on what it is rendering — a cast
+// panel that wants actors for a film and has no second column on a book — either
+// asks a question with no answer or says nothing, and this is how it says nothing.
 export function usePeople(kind) {
   const [map, setMap] = useState({})
   async function reload() {
+    if (!kind) return
     const r = await json('GET', `/people?kind=${kind}`)
     if (r.ok) setMap(Object.fromEntries((r.data.people || []).map((p) => [p.name, p])))
   }
   useEffect(() => {
+    if (!kind) {
+      setMap({})
+      return
+    }
     reload()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kind])

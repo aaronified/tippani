@@ -25,7 +25,7 @@
 // because a dropdown could not be filled would be a worse form than one with no
 // dropdown. The server logs the failure with its code (TIP-CAST-001,
 // TIP-BOOK-004); the reader types the name.
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { json } from './api.js'
 import { MonoLabel, useAnchoredPosition, useDismiss, useIsMobileScreen, useNameCasing } from './ui.jsx'
@@ -193,8 +193,10 @@ export function CastCombo({
 }) {
   const [open, setOpen] = useState(false)
   const [hi, setHi] = useState(-1)
+  const inputID = useId()
   const boxRef = useRef(null)
   const ownRef = useRef(null)
+  const listID = useId()
   const ref = inputRef || ownRef
   const mobile = useIsMobileScreen()
   const cap = mobile ? COMBO_MAX_MOBILE : COMBO_MAX_DESKTOP
@@ -262,9 +264,10 @@ export function CastCombo({
 
   return (
     <div className="tp-field" ref={boxRef}>
-      {label && <MonoLabel>{label}</MonoLabel>}
+      {label && <MonoLabel htmlFor={inputID}>{label}</MonoLabel>}
       <input
         ref={ref}
+        id={inputID}
         className="tp-input"
         role="combobox"
         // This box capitalises its own value (useNameCasing below), so the
@@ -272,6 +275,11 @@ export function CastCombo({
         autoCapitalize={nameCase ? 'off' : undefined}
         aria-expanded={menuOpen}
         aria-autocomplete="list"
+        // The rest of the combobox contract. Focus never leaves the input — the
+        // arrow keys move a class — so without these a screen reader is told the
+        // list exists and never told which row is current.
+        aria-controls={menuOpen ? listID : undefined}
+        aria-activedescendant={menuOpen && hi >= 0 ? `${listID}-${hi}` : undefined}
         aria-label={ariaLabel || label}
         autoComplete="off"
         placeholder={placeholder}
@@ -293,12 +301,24 @@ export function CastCombo({
           setOpen(false)
         }}
       />
+      {/* THE POINTER LETTING GO IS AS MUCH AN ANSWER AS THE POINTER ARRIVING.
+          Without this, moving the mouse across the panel on the way to the ✓ left a
+          row highlighted, and Enter then replaced what had been typed with whatever
+          the pointer last crossed. */}
       {menuOpen && createPortal(
-        <ul ref={popRef} className="token-menu" style={style} role="listbox">
+        <ul
+          ref={popRef}
+          className="token-menu"
+          style={style}
+          role="listbox"
+          id={listID}
+          onMouseLeave={() => setHi(-1)}
+        >
           {matches.map((r, i) => (
             <li key={r.name} role="presentation">
               <button
                 type="button"
+                id={`${listID}-${i}`}
                 role="option"
                 aria-selected={i === hi}
                 className={'token-opt cast-opt' + (i === hi ? ' hi' : '')}

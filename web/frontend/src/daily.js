@@ -57,9 +57,17 @@ export function dailyDeck(offset) {
   return promise
 }
 
-// Called whenever something has changed what the deck would contain: an answer
-// grades a card and takes it out of today's list, so the next reader of this must
-// go and ask.
+// Called whenever something has changed what the deck would contain, or WHO would
+// be reading it: an answer grades a card and takes it out of today's list, and a
+// sign-out means the next caller is somebody else.
+//
+// THE SIGN-OUT CASE IS NOT THEORETICAL, and it is the one this module could get
+// wrong in the direction that matters. The key is the timezone offset, which two
+// people on one machine share — so without this, signing out and straight back in
+// as somebody else inside the window served them the first reader's deck, pending
+// count and streak. Every query in this app is scoped by user_id; a cache in front
+// of one has to be too, and the cheapest way to key a five-second window by user
+// is to throw it away when the user changes.
 export function forgetDailyDeck() {
   inflight = null
 }

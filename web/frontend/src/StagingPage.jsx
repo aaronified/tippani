@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { categoryName, categoryVar } from './theme.js'
 import { json, errText } from './api.js'
 import { t, tNodes } from './i18n.js'
+import { quoteKindMeta } from './quoteKind.js'
 import { WorkPicker, workFromBook, workFromMovie } from './AddSurface.jsx'
 import { chapterLabel, episodeLabel } from './text.js'
 import {
@@ -504,7 +505,11 @@ function StagedRow({ quote, selected, onToggle, onEdit }) {
     quote.occasion,
     quote.occasion_date,
     quote.place,
-    quote.medium,
+    // 0053. The KIND's word, falling back to the old free-text medium the way
+    // every card does — a staged letter or essay showed nothing on this line,
+    // because the queue carries the kind and this row still read the field it
+    // replaced.
+    quoteKindMeta(quote),
     quote.noted_at ? quote.noted_at.slice(0, 10) : '',
   ].filter(Boolean)
   const moved =

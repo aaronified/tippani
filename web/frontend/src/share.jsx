@@ -799,7 +799,11 @@ function QuoteImagePanel({ share, selected, onShared, actionRef }) {
           <InfoDot title={t("share.image.portrait.info.title")} text={t("share.image.portrait.info.body")} />
         </div>
       )}
-      {canPortrait && portrait && (
+      {/* WHENEVER THERE IS SOMEBODY TO SWAP, and not only on a backdrop. It was
+          gated on `portrait`, which is off by default — so a reader on the default
+          settings never saw the control at all, and the request it answers says
+          "chip". Both layouts honour it now (drawQuoteCard). */}
+      {canPortrait && (
         <div className="mb-2 flex flex-wrap items-center gap-2">
           <MonoLabel>{t("share.image.sides.label")}</MonoLabel>
           <Toggle

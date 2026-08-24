@@ -605,7 +605,13 @@ export function drawQuoteCard(canvas, model, theme) {
   // version of it reads as a mistake rather than as identification. The layout
   // reclaims the space too — the attribution line stops indenting past a cluster
   // that is not there.
-  const faces = !model.portrait && model.faces?.length ? model.faces.slice(0, FACE_MAX) : []
+  // THE CHIPS SWAP TOO, and this is the layout the request actually names. They
+  // are an overlapping cluster drawn so the FIRST credited face sits on top, so
+  // "swap" here means the same thing it means everywhere else — the other one
+  // leads — rather than a side, which a cluster does not have.
+  const faces = !model.portrait && model.faces?.length
+    ? (model.swap ? [...model.faces].reverse() : model.faces).slice(0, FACE_MAX)
+    : []
   const facesW = faces.length ? FACE_SIZE + (faces.length - 1) * (FACE_SIZE - Math.round(FACE_SIZE * 0.34)) : 0
   const onAttribution = facesOnAttribution(model.facesFor)
   const authorFaces = faces.length && onAttribution ? faces : null
@@ -709,12 +715,13 @@ export function drawQuoteCard(canvas, model, theme) {
   // bare paper — neither of which throws.
   const backdrop = !!model.portrait && !!model.faces?.length
   if (backdrop) {
-    // The order the faces are laid out in. `swap` reverses it, which is the whole
-    // of the left/right control: with two faces it exchanges the sides, with one
-    // it moves the single portrait to the other edge, and in the line-up it
-    // reverses the row. Reversing the LIST rather than flipping the sides is what
-    // makes one flag cover all three.
-    const order = model.swap ? [...model.faces].reverse() : model.faces
+    // REVERSING THE LIST IS RIGHT FOR THE LINE-UP AND WRONG FOR THE SIDES, which
+    // is the correction here. `[A].reverse()` is `[A]`, so with ONE face — the
+    // plain reading of "change the people chip from left to right" — the reversal
+    // was a no-op and the portrait went on entering from the left while the toggle
+    // claimed otherwise. The line-up genuinely wants the order reversed; the sides
+    // want the SIDE each face is given, which is a different statement.
+    const order = model.faces
     ctx.save()
     roundRectPath(ctx, cardX, M, cardW, cardH, radius)
     ctx.clip()
@@ -724,7 +731,8 @@ export function drawQuoteCard(canvas, model, theme) {
       // into the paper. The band is drawn full-bleed to the card's bottom edge
       // and the cells abut, because a gap between two people in a group
       // photograph reads as a missing person.
-      const list = order.slice(0, LINEUP_MAX)
+      // Here the reversal IS the operation: a row of five read right to left.
+      const list = (model.swap ? [...order].reverse() : order).slice(0, LINEUP_MAX)
       const bh = Math.round(cardH * LINEUP_H)
       const by = M + cardH - bh
       // Ceil, and the last cell is stretched to the remainder: rounding each cell
@@ -750,7 +758,11 @@ export function drawQuoteCard(canvas, model, theme) {
         { fade: 'left', x: cardX + cardW - pw },
       ]
       SIDES.forEach((side, i) => {
-        const face = order[i]
+        // Iterated left-then-right whatever happens, so the draw order on the card
+        // is stable; `swap` changes WHICH face each side gets. With one face and a
+        // swap that leaves the left side empty and puts the portrait on the right,
+        // which is the whole of what the control promises.
+        const face = model.swap ? order[SIDES.length - 1 - i] : order[i]
         if (!face) return
         const painted = fadedPortrait(faceCache.get(face.url), pw, ph, side.fade, model.colorHex)
         if (painted) ctx.drawImage(painted, side.x, M, pw, ph)

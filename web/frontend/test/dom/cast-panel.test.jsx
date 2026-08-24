@@ -18,6 +18,7 @@ let CAST
 let ROLE
 let FILLED
 let OK_IMAGE
+let OK_PUT
 
 vi.mock('../../src/api.js', async (orig) => ({
   ...(await orig()),
@@ -31,12 +32,14 @@ vi.mock('../../src/api.js', async (orig) => ({
       return { ok: true, data: { ...CAST.find((c) => c.id === id), character_image_path: `stored-${id}.jpg` } }
     }
     if (method === 'POST' && path.endsWith('/cast/tvdb')) return { ok: true, data: { title: 'Suicide Squad', cast: CAST } }
+    if (method === 'PUT' && path.startsWith('/cast/')) return OK_PUT ? { ok: true, data: {} } : { ok: false, status: 500, data: {} }
     return { ok: true, data: {} }
   }),
 }))
 
 const probeMod = await import('../../src/cast.jsx')
 const { CastSection } = probeMod
+const { UnsavedFieldsContext } = await import('../../src/ui.jsx')
 
 const FILM = { id: 7, title: 'Suicide Squad', media_type: 'movie', tvdb_id: 297762 }
 const GAME = { id: 8, title: 'The Witcher 3', media_type: 'game' }
@@ -67,6 +70,7 @@ beforeEach(() => {
   ROLE = 'actor'
   FILLED = 0
   OK_IMAGE = true
+  OK_PUT = true
 })
 
 describe('the people panel', () => {
@@ -247,5 +251,64 @@ describe('the character art a work page needs', () => {
     await waitFor(() => expect(posted(/^\/cast\/11\/image$/)).toHaveLength(1))
     await flush()
     expect(FILLED).toBe(0)
+  })
+})
+
+// ---- the panel's tick, and a row that is open -------------------------------
+//
+// The Details tick promises to commit what is open and close. A cast row saves
+// through its own endpoint and cannot join the merged field patch, so it registers
+// a `save` with the same registry instead — and without that, typing a corrected
+// character name and pressing the tick closed the panel and threw the name away,
+// under a control that had just said it saved.
+describe('a cast row that is open when the tick is pressed', () => {
+  const withHost = async (item = FILM) => {
+    const entries = new Map()
+    const host = { register: (id, entry) => (entry ? entries.set(id, entry) : entries.delete(id)) }
+    render(
+      <UnsavedFieldsContext.Provider value={host}>
+        <CastSection kind="movie" item={item} onChanged={() => {}} />
+      </UnsavedFieldsContext.Provider>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'People' }))
+    await waitFor(() => expect(CALLS.some(([m, p]) => m === 'GET' && p.endsWith('/cast'))).toBe(true))
+    return entries
+  }
+
+  it('registers nothing while it is merely open', async () => {
+    const entries = await withHost()
+    await screen.findByText('Amanda Waller')
+    fireEvent.click(screen.getAllByRole('button', { name: /^Edit / })[0])
+    // An open row you have not changed is not unsaved work, which is the same rule
+    // an InlineField follows.
+    expect(entries.size).toBe(0)
+  })
+
+  it('registers a save once it is typed into, and the save writes', async () => {
+    const entries = await withHost()
+    await screen.findByText('Amanda Waller')
+    fireEvent.click(screen.getAllByRole('button', { name: /^Edit / })[0])
+    fireEvent.change(screen.getByLabelText(/^Character$/i), { target: { value: 'A. Waller' } })
+    await waitFor(() => expect(entries.size).toBe(1))
+    const entry = [...entries.values()][0]
+    // A `save` and no `key`: it contributes nothing to the field patch and
+    // everything to the promise.
+    expect(entry.key).toBeUndefined()
+    expect(typeof entry.save).toBe('function')
+
+    expect(await entry.save()).toBe(true)
+    const put = CALLS.find(([m, p]) => m === 'PUT' && p === '/cast/11')
+    expect(put, 'the tick did not save the open row').toBeTruthy()
+    expect(put[2].character).toBe('A. Waller')
+  })
+
+  it('reports a refusal, so the panel does not close over it', async () => {
+    const entries = await withHost()
+    await screen.findByText('Amanda Waller')
+    fireEvent.click(screen.getAllByRole('button', { name: /^Edit / })[0])
+    fireEvent.change(screen.getByLabelText(/^Character$/i), { target: { value: 'A. Waller' } })
+    await waitFor(() => expect(entries.size).toBe(1))
+    OK_PUT = false
+    expect(await [...entries.values()][0].save()).toBe(false)
   })
 })

@@ -368,6 +368,12 @@ function PersonForm({ kind, name, initial, onCancel, onSaved, onRenamed }) {
 
   async function submit(e) {
     e.preventDefault()
+    // AND IT STOPS HERE. This form is opened from inside other forms — the work
+    // Details panel renders the person editor from its People section — and a
+    // React synthetic submit bubbles up the React tree whether or not the DOM
+    // nests. Without this, saving a person also submitted whatever form the modal
+    // happened to be standing in.
+    e.stopPropagation()
     // Born/died are partial dates (§3f): a year, a year-month, or a full day —
     // whatever is actually known. Same rule and same picker as a read's dates.
     if (born.trim() && !isPartialDate(born.trim())) {

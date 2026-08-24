@@ -85,10 +85,10 @@ describe('word boundaries are whitespace only, deliberately', () => {
     expect(capitalizeNames("schindler's list")).toBe("Schindler's List")
     // The PERSON rule is promote-only, so nothing here is demoted.
     expect(capitalizeNames("don't look up")).toBe("Don't Look Up")
-    // The TITLE rule keeps "up" small — the film's own title has a capital, and a
-    // capital is what you type to get one (see the small-words block below). It is
-    // the one place the list costs something.
-    expect(capitalizeTitle("don't look up")).toBe("Don't Look up")
+    // The TITLE rule keeps a small word small — but not the LAST one, which
+    // English title case always capitalises. This assertion has been wrong twice:
+    // "Up" (before the list), then "up" (before the last-word rule), now "Up".
+    expect(capitalizeTitle("don't look up")).toBe("Don't Look Up")
   })
 
   it('treats a newline or a tab as a word boundary like a space', () => {
@@ -199,13 +199,57 @@ describe('and a person\u2019s name does not', () => {
     // Stated as a contrast rather than left implied: if these two ever agree,
     // one of them has been changed into the other and the names above are no
     // longer safe.
-    expect(capitalizeTitle('nguyen van an')).toBe('Nguyen Van an')
-    expect(capitalizeNames('nguyen van an')).toBe('Nguyen Van An')
+    //
+    // The name has to be MID-STRING to show the difference, because the title rule
+    // capitalises the last word however small it is — which is why "Nguyen Van An"
+    // alone comes out right under both.
+    expect(capitalizeTitle('nguyen van an: a memoir')).toBe('Nguyen Van an: A Memoir')
+    expect(capitalizeNames('nguyen van an: a memoir')).toBe('Nguyen Van An: A Memoir')
+    expect(capitalizeTitle('nguyen van an')).toBe('Nguyen Van An')
   })
 
   it('never demotes a capital somebody typed', () => {
     // The person rule has no demotion at all, so a name that arrives cased is a
     // name that stays cased.
     expect(capitalizeNames('Nguyen Van An')).toBe('Nguyen Van An')
+  })
+})
+
+
+describe('the last word of a title is never small', () => {
+  // WHY THIS BLOCK EXISTS. The small-word list shipped without the other half of
+  // English title case — the last word is capitalised however small it is — and
+  // that did not merely under-capitalise. The rule runs on every keystroke, so a
+  // title that arrived correct from a provider was REWRITTEN the moment somebody
+  // fixed a typo elsewhere in the same field: "Bring It On" saved itself as "Bring
+  // It on", with no diff and nothing said.
+  const titles = [
+    ['bring it on', 'Bring It On'],
+    ['set it off', 'Set It Off'],
+    ["don't look up", "Don't Look Up"],
+    ['what is it all for', 'What Is It All For'],
+    // And the mid-string case still holds, which is the whole point of the pair.
+    ['the wheel of time', 'The Wheel of Time'],
+    ['a tale of two cities', 'A Tale of Two Cities'],
+  ]
+  it('capitalises it, and still keeps the middle ones small', () => {
+    const wrong = titles.filter(([a, b]) => capitalizeTitle(a) !== b).map(([a, b]) => `${a} -> ${capitalizeTitle(a)} (want ${b})`)
+    expect(wrong).toEqual([])
+  })
+
+  it('does not rewrite a correct title that is edited', () => {
+    // The failure in one line: idempotence over a title that was already right.
+    for (const t of ['Bring It On', 'Set It Off', 'The Wheel of Time', 'A Tale of Two Cities']) {
+      expect(capitalizeTitle(t), t).toBe(t)
+    }
+  })
+
+  it('demotes it again the moment another word follows', () => {
+    // This is what makes the last-word rule safe to have at all while the field
+    // capitalises as you type: "of" is promoted while it is briefly last, and
+    // lowered again by the next word — where the promote-only rule would have
+    // frozen it, because a word carrying a capital is left alone.
+    expect(capitalizeTitle('The Wheel Of')).toBe('The Wheel Of')
+    expect(capitalizeTitle('The Wheel Of t')).toBe('The Wheel of T')
   })
 })

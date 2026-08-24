@@ -354,3 +354,49 @@ describe('the portrait backdrop', () => {
     expect(ops).not.toContain('backdrop')
   })
 })
+
+// ---- the swap, on the case the request actually named -----------------------
+//
+// "change the people chip from left to right (or simply swap, thus the same key
+// works for two characters as well)" — so ONE person is the plain reading, and one
+// person was the case that did not work: the swap was implemented by reversing the
+// list, and reversing a list of one is that list. The single portrait went on
+// entering from the left while the toggle claimed otherwise, the preference
+// persisted, and the reader's next two-person card came out reversed.
+describe('swapping with one person', () => {
+  it('moves the single portrait to the other edge', async () => {
+    await render(model({ portrait: true, swap: true, faces: [FACE(1)] }))
+    const drawn = backdrops()
+    expect(drawn).toHaveLength(1)
+    const [, x, , w] = drawn[0].args
+    // Flush with the card's RIGHT edge: 640 wide, 22 of mat each side.
+    expect(x + w).toBe(618)
+    expect(x).toBeGreaterThan(22)
+    expect(sourceOf(drawn[0].args[0].__recorderId)).toBe('/api/covers/p1.jpg')
+  })
+
+  it('and leaves it on the left when it is not swapped', async () => {
+    await render(model({ portrait: true, faces: [FACE(1)] }))
+    expect(backdrops()[0].args[1]).toBe(22)
+  })
+})
+
+// The layout the request names by word, and the one that is on by default. A chip
+// cluster has no edges — it is drawn so the first credited face sits on top — so
+// "swap" means the other one leads.
+describe('swapping the chips', () => {
+  // The cluster is drawn right-to-left so the FIRST credited face ends up on top,
+  // which means the draw order IS the reverse of the credit order. One render per
+  // case: only the first canvas of a test is the card (see CARD at the top).
+  const discSources = () => discs().map((d) => d.args[0].src)
+
+  it('draws the first credited face last, so it sits on top', async () => {
+    await render(model({ faces: [FACE(1), FACE(2)] }))
+    expect(discSources()).toEqual(['/api/covers/p2.jpg', '/api/covers/p1.jpg'])
+  })
+
+  it('brings the other face to the front when swapped', async () => {
+    await render(model({ swap: true, faces: [FACE(1), FACE(2)] }))
+    expect(discSources()).toEqual(['/api/covers/p1.jpg', '/api/covers/p2.jpg'])
+  })
+})

@@ -24,7 +24,7 @@
 // picture shows the actor's — which is what TheTVDB's own site does, and what the
 // quote cards already do.
 
-import { useEffect, useRef, useState } from 'react'
+import { useContext, useEffect, useRef, useState } from 'react'
 import { coverImgURL, errText, json } from './api.js'
 import { t } from './i18n.js'
 import { PersonModal, personImgURL, usePeople } from './people.jsx'
@@ -44,6 +44,7 @@ import {
   InfoDot,
   MonoLabel,
   Tooltip,
+  UnsavedFieldsContext,
 } from './ui.jsx'
 
 // The second column's name, from the machine value the server sends. `actor_role`
@@ -56,7 +57,12 @@ const roleLabel = (role) =>
 // with a provider URL; firing twenty requests at once would open twenty outbound
 // connections from a self-hosted box the moment somebody opened a panel. One at a
 // time, oldest first (billing order), and the panel fills in as they land.
-const IMAGE_FILL_CAP = 12
+// Twenty, which is metadata.maxCast — the largest cast any provider seed can
+// produce. Below that the cap is reached on ordinary films and the roles past it
+// keep the actor fallback with nothing said; at it, a normal work is covered in
+// one pass. A reader-authored cast can be longer (maxWorkCast is 200) and those
+// rows have no provider URL to fetch anyway.
+const IMAGE_FILL_CAP = 20
 
 export function CastSection({ kind, item, onChanged }) {
   const path = kind === 'book' ? 'books' : 'movies'
@@ -67,7 +73,11 @@ export function CastSection({ kind, item, onChanged }) {
   const [open, setOpen] = useState(false)
   const [adding, setAdding] = useState(false)
   const [person, setPerson] = useState(null) // the actor whose own panel is open
-  const { map: actorMap, reload: reloadActors } = usePeople(kind === 'book' ? 'author' : 'actor')
+  // ONLY WHERE THERE IS AN ACTOR TO LOOK UP. This map exists to put a headshot
+  // beside a cast row's second column, and a book has no second column — the API
+  // refuses one — so asking for a book's people was a request per opening whose
+  // answer nothing could read.
+  const { map: actorMap, reload: reloadActors } = usePeople(kind === 'book' ? '' : 'actor')
   // Guards the image fill so re-rendering does not re-run it. A ref rather than
   // state: it must not itself cause a render.
   const filled = useRef(false)
@@ -262,17 +272,38 @@ function CastRow({ row, role, busy, actor, workTitle, onSave, onRemove, onImage,
       ? personImgURL(actor.image_path)
       : ''
 
+  // REPORTS WHETHER IT LANDED, because the panel's ✓ awaits it before closing and
+  // a refused write must stop the close — the same contract a field row keeps.
   const commit = async () => {
-    if (!character.trim()) return
+    if (!character.trim()) return false
     const body = { character: character.trim() }
     if (role !== 'none') body.actor = who.trim()
-    if (await onSave(body)) setEditing(false)
+    if (!(await onSave(body))) return false
+    setEditing(false)
+    return true
   }
   const onRowKey = (e) => {
     if (e.key !== 'Enter' || busy) return
     e.preventDefault()
     commit()
   }
+
+  // THE PANEL'S ✓ SAVES THIS ROW TOO. It commits every open field row and closes,
+  // and a row typed into here is open work by any reading of that — but a cast row
+  // writes through its own endpoint and has no place in the merged patch, so it
+  // registers a `save` instead of a field. The registry skips an entry whose key
+  // matches no spec, so this contributes nothing to the patch and everything to
+  // the promise.
+  const host = useContext(UnsavedFieldsContext)
+  const dirty = editing && (character !== (row.character || '') || who !== (row.actor || ''))
+  const commitRef = useRef(commit)
+  commitRef.current = commit
+  useEffect(() => {
+    if (!host?.register || !dirty) return
+    const id = `cast-${row.id}`
+    host.register(id, { save: () => commitRef.current(), close: () => setEditing(false) })
+    return () => host.register(id, null)
+  }, [host, dirty, row.id])
 
   if (editing) {
     return (
@@ -574,7 +605,6 @@ export function useCharacterArt(kind, workID, cast, onFilled) {
     // The question the caller can already answer from what it is holding.
     const pending = (cast || []).some((c) => c?.character_image_url && !c?.character_image_path)
     if (!pending) return
-    done.current = key
     let live = true
     const path = kind === 'book' ? 'books' : 'movies'
     ;(async () => {
@@ -589,9 +619,15 @@ export function useCharacterArt(kind, workID, cast, onFilled) {
         const one = await json('POST', `/cast/${c.id}/image`)
         if (one.ok && one.data?.character_image_path) got += 1
       }
+      // MARKED DONE ONLY ON THE WAY OUT. Setting it before the loop meant a parent
+      // refetch part-way through killed the run AND made the re-run return early —
+      // so the pictures that had already downloaded were never shown either, and it
+      // healed only on a fresh mount.
+      if (!live) return
+      done.current = key
       // Only when something actually arrived: a refetch that changes nothing is a
       // request and a re-render for no reason.
-      if (live && got) onFilled?.()
+      if (got) onFilled?.()
     })()
     return () => { live = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps

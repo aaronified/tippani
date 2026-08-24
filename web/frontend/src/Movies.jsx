@@ -732,7 +732,7 @@ export function ManualMovie({ mediaType, setMediaType, title, setTitle, onAdded,
   return (
     <form id={formId} onSubmit={submit} className="space-y-2.5">
       <div className="grid gap-2.5 sm:grid-cols-2">
-        <NameInput placeholder={t('film.form.title.placeholder')} value={title} onChange={(e) => setTitle(e.target.value)} />
+        <NameInput titleCase placeholder={t('film.form.title.placeholder')} value={title} onChange={(e) => setTitle(e.target.value)} />
         <NameInput
           placeholder={creditNounFor(mediaType)}
           value={director}
@@ -747,7 +747,7 @@ export function ManualMovie({ mediaType, setMediaType, title, setTitle, onAdded,
         )}
         <input className="tp-input" placeholder={t('film.form.year.placeholder')} inputMode="numeric" value={year} maxLength={4} onChange={(e) => setYear(e.target.value.replace(/\D/g, '').slice(0, 4))} />
         <TokenInput value={genres} onChange={setGenres} suggestions={genreSuggestions} placeholder={t('common.field.genres.placeholder')} ariaLabel={t('common.field.genres.label')} transform={titleCaseGenre} />
-        <NameInput placeholder={t('film.form.series.placeholder')} value={series} onChange={(e) => setSeries(e.target.value)} />
+        <NameInput titleCase placeholder={t('film.form.series.placeholder')} value={series} onChange={(e) => setSeries(e.target.value)} />
         <input
           className="tp-input"
           placeholder={t('film.form.series-no.placeholder')}
@@ -1323,7 +1323,7 @@ export function EditMovie({ movie, onSaved, onCancel }) {
         </div>
       )}
       <div className="grid gap-2.5 sm:grid-cols-2">
-        <NameInput placeholder={t('film.form.title.placeholder')} value={title} onChange={(e) => setTitle(e.target.value)} />
+        <NameInput titleCase placeholder={t('film.form.title.placeholder')} value={title} onChange={(e) => setTitle(e.target.value)} />
         <NameInput
           placeholder={creditNounFor(mediaType)}
           value={director}
@@ -1338,7 +1338,7 @@ export function EditMovie({ movie, onSaved, onCancel }) {
         )}
         <input className="tp-input" placeholder={t('film.form.year.placeholder')} inputMode="numeric" value={year} maxLength={4} onChange={(e) => setYear(e.target.value.replace(/\D/g, '').slice(0, 4))} />
         <TokenInput value={genres} onChange={setGenres} suggestions={genreSuggestions} placeholder={t('common.field.genres.placeholder')} ariaLabel={t('common.field.genres.label')} transform={titleCaseGenre} />
-        <NameInput placeholder={t('film.form.series.placeholder')} value={series} onChange={(e) => setSeries(e.target.value)} />
+        <NameInput titleCase placeholder={t('film.form.series.placeholder')} value={series} onChange={(e) => setSeries(e.target.value)} />
         <input
           className="tp-input"
           placeholder={t('film.form.series-no.placeholder')}
