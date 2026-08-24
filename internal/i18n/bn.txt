@@ -5615,9 +5615,28 @@ film.imdb.link.placeholder = imdb.com/title/tt1073668/
 film.imdb.go.label = কাস্ট আনুন
 film.imdb.busy.label = আনা হচ্ছে…
 film.imdb.done.prose = {title} — এখন কাস্টে {n} জন।
-film.imdb.info.title = আইএমডিবি কাস্ট সম্পর্কে
-film.imdb.info.body = এই নামের আইএমডিবি পাতার লিঙ্ক দিন, উপরের দিকের কাস্ট চরিত্রসহ যোগ হয়ে যাবে। একবারই অনুরোধ যায়, আপনি চাইলেই। আপনার নিজের লেখা বা সংশোধন করা নাম কখনও মুছে যায় না।
+cast.open.label = মানুষ
+cast.heading.label = মানুষ
+cast.role.voice.label = কণ্ঠশিল্পী
+cast.add.aria = একটা চরিত্র যোকরা
+cast.empty.prose = এখনো কারো নাম জমা নেই। খুঁজে আনুন, বা নিজে যোকরুন।
+cast.unnamed.label = (নাম নেই)
+cast.picture.tip = এই চরিত্রের ছবি দিন
+cast.picture.aria = {name}-এর ছবি
+cast.picture.url.aria = {name}-এর ছবির লিঙ্ক
+cast.picture.placeholder = https://… ছবির লিঙ্ক
+cast.remove.aria = {name}-কে সরান
+cast.remove.confirm.prose = {name}-কে সরাবেন?
+cast.fill.tvdb.label = TheTVDB থেকে কাস্ট
+cast.fill.done.prose = {title} — এখন কাস্টে {n} জন।
+cast.fill.info.title = কাস্ট খুঁজে আনা
+cast.fill.info.body = পোশাকে চরিত্রের ছবি শুধু TheTVDB দেয়, আর তার জন্য এই বই/ছবিটি তাদের সঙ্গে মেলানো থাকতে হবে। গেমের কাস্ট আছে IMDb-তে, যেখানে আপনি যে পাতাটি দেখছেন সেটিই দিতে হয়। দুই ক্ষেত্রেই আপনার টাইপ করা নাম বদলায় না।
+cast.info.title = মানুষের কথা
+cast.info.body = এই কাজের সব চরিত্র আর কারা সেগুলো করেন। চরিত্রের ছবি এখানেই থাকে; অভিনেতার নিজের ছবি সব কাজে এক, তাই সেটি তাঁর নিজের পাতায় বদলান।
 error.load.imdb-cast = ওই আইএমডিবি নাম পড়া গেল না।
+error.load.cast = কাস্ট পড়া গেল না
+error.load.cast-picture = ছবিটি আনা গেল না
+error.load.tvdb-cast = TheTVDB থেকে কাস্ট পড়া গেল না।
 
 # ---- প্রস্তাবের উত্তর (2.2.1) ----------------------------------------------
 # See the English block. মূল কথা: কী বদলাবে তা আগে দেখা যায়, আর বাতিল করলে লেখায়

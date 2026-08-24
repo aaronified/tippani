@@ -5903,9 +5903,28 @@ film.imdb.link.placeholder = imdb.com/title/tt1073668/
 film.imdb.go.label = Fetch the cast
 film.imdb.busy.label = Fetching…
 film.imdb.done.prose = {title} — {n} in the cast now.
-film.imdb.info.title = About the IMDb cast fill
-film.imdb.info.body = Paste the IMDb page for this title and its top cast is added, characters included. One request, only when you ask. Names you have typed or corrected are never overwritten.
+cast.open.label = People
+cast.heading.label = people
+cast.role.voice.label = Voice actor
+cast.add.aria = Add a character
+cast.empty.prose = No cast on file yet. Fetch one, or add a character.
+cast.unnamed.label = (unnamed)
+cast.picture.tip = Set this character's picture
+cast.picture.aria = Picture for {name}
+cast.picture.url.aria = Image URL for {name}
+cast.picture.placeholder = https://… image URL
+cast.remove.aria = Remove {name}
+cast.remove.confirm.prose = Remove {name}?
+cast.fill.tvdb.label = Cast from TheTVDB
+cast.fill.done.prose = {title} — {n} in the cast now.
+cast.fill.info.title = Fetching a cast
+cast.fill.info.body = TheTVDB is the only source with a picture of the character in costume, and needs this title matched to it. IMDb has the games, and takes the page you are looking at. Either way, names you have typed are never overwritten.
+cast.info.title = About people
+cast.info.body = Every character in this work and who plays them. The character's picture belongs to the role and lives here; an actor's headshot belongs to the person and is shared by every work they are in, so it is edited on their own page.
 error.load.imdb-cast = Could not read that IMDb title.
+error.load.cast = could not load the cast
+error.load.cast-picture = could not fetch that picture
+error.load.tvdb-cast = Could not read the cast from TheTVDB.
 
 # ---- answering a finding (2.2.1) -------------------------------------------
 # The page reported and fixed nothing; it now offers the rewrite and remembers a

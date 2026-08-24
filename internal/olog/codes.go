@@ -119,9 +119,10 @@ const (
 
 	// CAST — a work's character-to-actor mapping (0048): one row per character,
 	// with the actor beside it, seeded by a provider and editable by the reader.
-	CodeCastRowScan Code = "TIP-CAST-001" // a work_cast row failed to scan; dropped from the list
-	CodeCastKeyFold Code = "TIP-CAST-002" // a cast lookup key could not be re-folded at boot; the row keeps its old key
-	CodeIMDbFetch   Code = "TIP-CAST-003" // an on-demand IMDb cast pass failed; the work's cast is unchanged
+	CodeCastRowScan   Code = "TIP-CAST-001" // a work_cast row failed to scan; dropped from the list
+	CodeCastKeyFold   Code = "TIP-CAST-002" // a cast lookup key could not be re-folded at boot; the row keeps its old key
+	CodeIMDbFetch     Code = "TIP-CAST-003" // an on-demand IMDb cast pass failed; the work's cast is unchanged
+	CodeTVDBCastFetch Code = "TIP-CAST-004" // an on-demand TheTVDB cast re-pull failed; the work's cast is unchanged
 
 	// CLEANUP — the Settings sweep that reads every quote and reports what a page
 	// left behind in it (stray spaces, reference marks, pronunciation glosses). Its
@@ -222,6 +223,7 @@ var Registry = map[Code]string{
 	CodeCleanupApply:   "An accepted correction could not be written. The whole batch rolled back, so every quote still holds exactly the words it had.",
 	CodeCleanupIgnore:  "A finding you ignored could not be recorded, or the set of ignored findings could not be read. In the second case the list is not shown at all rather than shown without it, because that would re-offer everything you have dismissed.",
 	CodeIMDbFetch:      "A requested IMDb cast fetch failed (network, an unexpected page, or the write). The work's existing cast is unchanged; nothing partial is stored, because the merge runs in one transaction.",
+	CodeTVDBCastFetch:  "A requested TheTVDB cast re-pull failed (network, an expired key, or the write). The work's existing cast is unchanged; nothing partial is stored, because the merge runs in one transaction.",
 
 	CodeBookChapters: "A book's own chapter list could not be read, so the chapter number and name fields offered no suggestions. Typing them by hand still works.",
 

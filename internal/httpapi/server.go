@@ -270,6 +270,11 @@ func (s *Server) Handler() http.Handler {
 	// which is most games (see igdb_cast.go's measurement). One request per press, no
 	// search, no crawl; see imdb_handlers.go.
 	mux.Handle("POST /movies/{id}/cast/imdb", s.requireAuth(s.handleCastFromIMDb))
+	// And the same for TheTVDB, which is the only source with an image PER ROLE —
+	// the character in costume. Separate from the resync (PUT /movies/{id}) because
+	// that one re-pulls the poster, the genres and the year with it, and a reader
+	// who has corrected those by hand will not press it. See tvdb_cast_handlers.go.
+	mux.Handle("POST /movies/{id}/cast/tvdb", s.requireAuth(s.handleCastFromTVDB))
 	// The character's own picture, fetched once and served from here afterwards
 	// (0050). A POST because it may write — idempotent, so a client may call it for
 	// every chip it is about to draw. See cast_image_handlers.go.

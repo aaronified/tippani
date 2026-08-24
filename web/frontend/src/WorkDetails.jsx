@@ -22,6 +22,7 @@
 // overwriting an author you typed by hand is, so the second one asks first.
 import { useEffect, useMemo, useState } from 'react'
 import { coverImgURL, errText, json } from './api.js'
+import { CastSection } from './cast.jsx'
 import { t } from './i18n.js'
 import { BookLookupPicker, CoverControls, CoverPreview, MovieLookupPicker, hiResPoster, idNum } from './CoverPicker.jsx'
 import {
@@ -594,91 +595,6 @@ export function WorkDetails({ open, onClose, kind, item, onChanged, onDelete }) 
 
 // ---- the resting view ------------------------------------------------------
 
-// IMDbCastFill — one pass at IMDb for a work whose structured source has no cast.
-//
-// WHY IT ASKS FOR A LINK RATHER THAN SEARCHING. A title search is how a cast lands
-// on the wrong work, and a wrong cast reads as a correct one: the quote form then
-// autofills "played by" with somebody from a different game. So the reader pastes
-// the page they are already looking at, and the server extracts the id from it and
-// builds its own URL (see imdb_handlers.go). One press is one request; there is no
-// preview step, because a preview would be a second fetch of the same page.
-//
-// WHY IT IS HERE AT ALL. Wikidata is the only structured free source for a game's
-// voice cast and it is empty for most games — Witcher 3, Mass Effect 3, Persona 5,
-// Disco Elysium all return nothing. Those are the games somebody wants to keep a
-// line from, and until now the answer was to type the whole cast by hand.
-//
-// IT REPORTS WHAT IT ATTACHED, by name. That is the only check against the wrong
-// title, and it is shown after the fact rather than as a confirmation step for the
-// one-request reason above — the cast is editable, so a wrong one is a correction
-// rather than a disaster.
-function IMDbCastFill({ item, onChanged }) {
-  const [open, setOpen] = useState(false)
-  const [link, setLink] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [said, setSaid] = useState('')
-  const [err, setErr] = useState('')
-
-  async function run() {
-    setBusy(true)
-    setErr('')
-    setSaid('')
-    const r = await json('POST', `/movies/${item.id}/cast/imdb`, { imdb: link.trim() })
-    setBusy(false)
-    if (!r.ok) return setErr(errText(r, t('error.load.imdb-cast')))
-    const n = (r.data?.cast || []).length
-    // The title IMDb answered with, and how many rows the work now has. Both, because
-    // "12 names" without "for The Witcher 3" is the half of the answer that cannot
-    // catch a mistake.
-    setSaid(t('film.imdb.done.prose', { title: r.data?.title?.title || link.trim(), n }))
-    setLink('')
-    onChanged?.()
-  }
-
-  if (!open) {
-    return (
-      <div className="flex flex-wrap items-center gap-2">
-        <GhostButton type="button" onClick={() => setOpen(true)}>
-          <IconUsers />
-          <span>{t('film.imdb.open.label')}</span>
-        </GhostButton>
-        <InfoDot title={t('film.imdb.info.title')} text={t('film.imdb.info.body')} />
-        {said && <span className="microcopy">{said}</span>}
-      </div>
-    )
-  }
-  return (
-    <div className="space-y-2">
-      <Field
-        label={t('film.imdb.link.label')}
-        placeholder={t('film.imdb.link.placeholder')}
-        value={link}
-        autoFocus
-        onChange={(e) => setLink(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' && link.trim() && !busy) {
-            e.preventDefault()
-            run()
-          }
-          if (e.key === 'Escape') setOpen(false)
-        }}
-      />
-      <div className="flex flex-wrap items-center gap-2">
-        <GhostButton type="button" onClick={run} disabled={busy || !link.trim()}>
-          <IconUsers />
-          <span>{busy ? t('film.imdb.busy.label') : t('film.imdb.go.label')}</span>
-        </GhostButton>
-        <GhostButton type="button" onClick={() => { setOpen(false); setErr('') }} disabled={busy}>
-          {t('common.action.cancel.label')}
-        </GhostButton>
-        <InfoDot title={t('film.imdb.info.title')} text={t('film.imdb.info.body')} />
-      </div>
-      <ErrorText>{err}</ErrorText>
-      {said && <p className="microcopy">{said}</p>}
-    </div>
-  )
-}
-
 function FieldList({ kind, item, specs, mediaType, busy, genreSuggestions, onSaveField, onSaveAll, onCover, onChanged, onFetch, onDelete, onClose }) {
   const artPath = kind === 'book' ? item.cover_path : item.poster_path
   // THE MASTER SAVE. Every row still saves itself — that is what the panel is
@@ -731,9 +647,12 @@ function FieldList({ kind, item, specs, mediaType, busy, genreSuggestions, onSav
           : { title: item.title, year: item.release_year, mediaType: item.media_type || 'movie', tmdbId: item.tmdb_id, tvdbId: item.tvdb_id, igdbId: item.igdb_id }}
       />
 
-      {/* THE CAST FILL, ON THE WORK IT FILLS. A film, show or game only — a book's
-          cast is people the reader names, and IMDb has nothing to say about it. */}
-      {kind !== 'book' && <IMDbCastFill item={item} onChanged={onChanged} />}
+      {/* THE WORK'S PEOPLE — its characters, who plays them, and both of their
+          pictures. Books included: a book's cast is characters the reader names,
+          and 0048 has stored them for as long as a film's. What is film-only is
+          the FETCH, and that gate is inside the panel where it belongs (cast.jsx)
+          rather than being restated here. */}
+      <CastSection kind={kind} item={item} onChanged={onChanged} />
 
       <div className="flex flex-wrap items-center gap-2">
         <GhostButton type="button" onClick={onFetch} disabled={!!busy}>

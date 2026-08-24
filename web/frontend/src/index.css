@@ -2133,6 +2133,40 @@
  font-variant-numeric: var(--font-ui-figures); font-size: var(--type-ui-15); color: var(--ink); cursor: pointer;
   }
   .token-opt.hi, .token-opt:hover { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent-ui); }
+  /* ---- a work's people: one row per credit ----
+     A picture, two names, and the row's own controls. The face is SQUARE-ish
+     rather than round, unlike every other portrait in this app, and that is the
+     point: a round chip is a person, and half of these are a role in costume. The
+     controls sit at the far end and the confirm/URL rows drop BELOW the whole row
+     (flex-basis: 100%) so opening one never squeezes the names. */
+  .cast-list { display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 0; list-style: none; }
+  .cast-row {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+    padding: 6px 4px; border-bottom: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+  }
+  .cast-row:last-child { border-bottom: none; }
+  .cast-face {
+    width: 34px; height: 42px; flex: none; object-fit: cover;
+    border-radius: 5px; border: 1px solid var(--ink-border);
+  }
+  .cast-face.is-empty { background: color-mix(in srgb, var(--soft) 16%, transparent); }
+  .cast-names { display: flex; min-width: 0; flex: 1 1 auto; flex-direction: column; }
+  .cast-character { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--type-ui-15); }
+  .cast-actor {
+    font-family: var(--font-mono);
+    font-style: var(--font-mono-style);
+    font-variant-caps: var(--font-mono-caps);
+    text-transform: var(--font-mono-case);
+    font-variant-numeric: var(--font-mono-figures);
+    font-size: var(--type-mono-11); color: var(--soft);
+  }
+  .cast-row-acts { display: flex; flex: none; align-items: center; gap: 2px; }
+  .cast-row-fields { display: flex; flex: 1 1 auto; flex-wrap: wrap; gap: 8px; min-width: 0; }
+  .cast-row-fields > * { flex: 1 1 140px; min-width: 0; }
+  .cast-row-confirm, .cast-row-url { display: flex; flex: 1 1 100%; align-items: center; gap: 8px; }
+  .cast-row-url .tp-input { flex: 1 1 auto; min-width: 0; }
+  .cast-add { padding: 8px 4px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; }
+
   /* ---- the cast combobox's rows: two names, one line ----
      A film's cast is twenty pairs, and the name you remember is as often the
      actor's as the character's — so the row carries both, the one this box holds
