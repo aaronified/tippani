@@ -6863,3 +6863,97 @@ There is a second cost, and it is the one that made this concrete. Decisions tak
 **The general shape.** A form test that asserts a box EXISTS proves the least interesting half. This app's forms are full-state: what matters is the object they build, because a field missing from it is a field emptied rather than left alone — a trap `Quotes.jsx` has now fallen into three times, each time with a comment about the previous one. So the assertion is on the payload, and for the standalone fields there is a second case on `utteranceState`, which is what the ♥ and the colour dots save through.
 
 <sub>2.2.2 — `web/frontend/test/dom/per-kind-fields.test.jsx` · `web/frontend/test/dom/utterance-fields.test.jsx`</sub>
+
+### A fixed vocabulary beats a text box wherever a screen GROUPS by the field
+
+**Decided.** `utterances.medium` — free text since 0026 — is superseded by `utterances.kind` (0053), a CHECKed column holding one of speech, letter, essay, proverb, other, or the empty string. The old column stays, with every value in it.
+
+**What decided it was the grouping, not the typing.** A text box is a perfectly good way to record "radio". It stops being one the moment a screen offers to pile the shelf up by that field, which the Quotes board has done since it had a grouping control: "Speech", "speech", "a speech" and "Speech (radio)" become four headings over one kind of thing, and nothing in the interface can say they are the same or offer to merge them. That is the same failure a genre had, and a genre's answer — `titleCaseGenre`, a normaliser over an open vocabulary — does not apply here, because this vocabulary does not grow. A poem is an essay's SHAPE (a work title and a locator), which is why 0047 named those two columns generically.
+
+**The empty string is one of the values, and 'other' is not the default.** 'other' is a decision. A default that pretends to be one is a claim the card then makes on the reader's behalf about every quote they have not looked at. So an unset kind renders as nothing on a card and as "(not set)" in a chooser.
+
+**Nothing is destroyed, and "drop anything that doesn't match" is read as dropping it from the FIELD.** The `medium` column keeps every value; the interface stops offering the box; the export keeps writing the binding; and the card falls back to the old text whenever no kind is set. A reader who typed "radio" sees "radio" until they file it, rather than watching a field they filled in disappear in the release that replaced it. The alternative — dropping the column — is a table rebuild whose purpose is to delete data, which is two bad ideas in one statement.
+
+**The one-time pass guesses at nothing, and that is the whole of its design.** It folds `medium` where the value IS one of the five words (case-folded, trimmed) and falls back to `category`'s two real answers. It is very tempting to map "radio" and "interview" and "broadcast" onto `speech`, because most of the time that is what somebody meant. A synonym table is a silent reclassification of a library on upgrade with no record of what moved — precisely what 0035's header refused when it chose a default over a guess. `category`'s 'other' is not read either: 0035 defaulted every row to it so that nothing was reclassified, so there it means "nobody has said".
+
+**The importer runs the same fallback**, so restoring a backup written before 0053 lands where upgrading in place lands. Otherwise one library gets two different answers depending on which route it took, and neither is wrong enough to notice. The mapping is written twice on purpose — once in the pass, once in the importer — because the pass is a file to be DELETED once no instance is behind 2.2.3, and a shared helper would make that deletion a refactor.
+
+**The cost, stated.** Widening the list later is a migration and not an edit, because the CHECK is on the column. 0029 took the colour list from four to six by rebuilding five tables. It is worth paying: the alternative is what `medium` already was.
+
+<sub>2.2.3 — `internal/store/migrations/0053_quote_kind.sql` · `internal/store/onetime_2_2_3_quote_kind.go` · `web/frontend/src/quoteKind.js`</sub>
+
+### Plumbing with no tap is not a feature, and nothing in this repo notices
+
+**Decided.** The Details panel gets a People section, and opening it fetches the character pictures that are not local yet.
+
+**What was actually wrong.** 0048 built `work_cast` and six routes to edit it, and said so in its own header: "THERE IS NO SCREEN FOR ANY OF THIS YET, deliberately". 0049 and 0050 then added the character image and somewhere to keep it, and `POST /cast/{id}/image` was written so that "a client may call this for every chip it is about to draw". No client ever did. Three migrations, six routes and a fetch pipeline, and the reader saw no cast list and no character faces — not because anything was broken, but because the last three lines of the feature were never written.
+
+**Nothing catches this.** Every test passed; the routes are covered; the schema tripwire is green. A route with no caller and a column with no reader are both perfectly healthy code. The only thing that would have caught it is somebody opening the app and looking for the thing the migration promised — which is what the owner did, two releases later, and reported as "it is not fetching the same by default either".
+
+**The rule this is worth stating as.** A migration whose header says the screen is pending is a debt with no due date on it. When the screen does arrive, the thing to check is not that the endpoints work — they always did — but that something CALLS them. The test for the fill asserts the request was made at all, which is the assertion the whole feature turns on and the one nobody thinks to write.
+
+**Two pictures, two owners, and they are not merged.** The character's picture belongs to the ROLE (`work_cast.character_image_path`) and the actor's to the PERSON (`people.image_path`), shared by every work they are in. One control for both would be convenient and would make a global edit look local. The row shows both and sends you to the person's own panel for theirs.
+
+<sub>2.2.3 — `web/frontend/src/cast.jsx` · `internal/httpapi/tvdb_cast_handlers.go`</sub>
+
+### A cast re-pull is a different control from a re-sync, and the difference is what gets pressed
+
+**Decided.** `POST /movies/{id}/cast/tvdb` re-pulls a title's cast and nothing else, from the TheTVDB id already on the record.
+
+**Why not the existing resync.** `PUT /movies/{id}` with a source and source id re-pulls the poster, the genres, the overview, the release year AND the cast. That is the right control for "this record is wrong". It is the wrong control for "this record is fine, its cast is thin" — and the reader who most wants character art is exactly the reader who has corrected a year or a description by hand, so they will not press a button that offers to take those back. 2.2.0's one-time pass flags the titles still pinned to TMDB; this is the control it was flagging them for, and it did not exist.
+
+**No search, and the same argument as the IMDb route's.** A search is where the wrong cast is attached to the right work, and a wrong cast reads as a correct one: the capture form then autofills "played by" from it. A title with no TheTVDB id is a 409 naming the fix, before anything leaves the machine.
+
+<sub>2.2.3 — `internal/httpapi/tvdb_cast_handlers.go`</sub>
+
+### A native control is only better while the browsers agree about it
+
+**Decided.** The character box is a built dropdown (`CastCombo`) rather than a `<datalist>`. This reverses 2.2.1's decision, which was argued in this document.
+
+**The original argument still reads correctly** and two thirds of it are still true: the browser's own list filters as you type, does not steal a phone's keyboard, and cannot refuse free text. What it missed is that `<datalist>` specifies almost nothing about PRESENTATION. Desktop Chrome opens it only after a keystroke; Safari draws a scrolling menu of everything; Android renders a strip above the keyboard that looks like autocorrect. For a memory aid, "there is a list here" being discoverable IS the value — the box you open in order to be reminded of a name cannot require you to remember it first.
+
+**The chapter fields keep the datalist**, because none of that applies to a number you were about to type anyway. Reversing a decision for the case that broke it, rather than everywhere it was made, is the smaller change and the honest one.
+
+**The actor is in the row.** A film's cast is twenty pairs and the half you remember is as often the actor's, so a list of characters alone is one you have to translate before you can use it.
+
+<sub>2.2.3 — `web/frontend/src/suggest.jsx`</sub>
+
+### The demotion is what makes an as-you-type rule survive its own prefixes
+
+**Decided.** `capitalizeNames` keeps an English title's small words small, and DEMOTES one that arrives capitalised rather than merely declining to promote it.
+
+**Why declining is not enough, which is the non-obvious half.** The rule runs on every keystroke, so "of" arrives as "o" first — and "o" is not on any small-word list, so it is promoted to "O". By the time the "f" lands the word carries a capital, which is the promote-only rule's own escape hatch, and it is frozen for the rest of the edit. Every reader who typed "The Wheel of Time" got "The Wheel Of Time" and could not see why. Only an active demotion of the completed word beats the prefix it was typed through.
+
+**The escape hatch has to be the CASE hatch, not the capital.** Re-typing the letter as a capital changes the string in case alone, which sends the field `free` and stops every transform for the rest of the edit. That is how "Don't Look Up" is typed, and it costs one keypress.
+
+**Name particles are deliberately absent from the list.** `van`, `de`, `del`, `la`, `le` are lower-case by one convention and upper by another — "Vincent van Gogh" and "Robert De Niro" are both correct — and any list that settled it would quietly rename "Ursula Le Guin". The list stays to the words where English title case has one answer.
+
+**An all-caps token is exempt**: lowering the first letter of "IN" gives "iN", which is nobody's title.
+
+<sub>2.2.3 — `web/frontend/src/ui.jsx`</sub>
+
+### Measure the round trips before optimising the work
+
+**Decided.** `GET /review/daily` is coalesced so one page load makes one request. Nothing else about the write path changed.
+
+**The report was "edits take a long time, probably waiting to establish two way connection to the server".** Measured first, in-process, on 60 books and 1500 highlights: `PUT /books/{id}` 2.1 ms, `GET /books` 0.75 ms, `GET /annotations` 5.8 ms, `GET /review/daily` 4.2 ms. There is no connection to establish either — the API client is same-origin `fetch` with keep-alive and no preflight — and the work Details panel already patches its board from the reply rather than refetching. So the server was never the wait, and a fix aimed at query cost would have been a fix aimed at four milliseconds.
+
+**What a slow-feeling app is made of here is round trips**, and the only way to spend fewer is to stop making the ones nobody needed. There was exactly one duplicate, and it was the most expensive read in the app: the shell fetched the daily deck for its badge and Home's card fetched it again for the deck, so the library-wide distractor scan ran twice per load and the SECOND one is the one the reader watches a loading line for.
+
+**A coalescer, not a cache.** It holds the in-flight or just-settled promise for five seconds — long enough for one load's two callers to meet, far too short to be state. An answer clears it, because grading a card takes it out of today's list and a cache would hand a remounted card questions it has already asked. A failure is never held: a retry has to be a retry.
+
+**What is NOT fixed, so it is not mistaken for done.** An edit is one round trip and the control goes disabled, which is feedback but not motion; on a phone over a VPN that is a few hundred milliseconds of a screen that looks frozen. Making it feel instant means writing optimistically and reconciling afterwards — a change to how every form in this app relates to the server, and a design discussion rather than a patch. It is not scheduled.
+
+<sub>2.2.3 — `web/frontend/src/daily.js`</sub>
+
+### A feature can be one argument wide
+
+**Decided.** The selection bar passes `setFields`, and owns the dialog that goes with it.
+
+**What was there already.** The action has been in the registry since 1.16.0 with its label, its glyph and its single/bulk rule; `bulkOps.jsx` has carried the per-kind field tables and the overwrite warning for as long; `/books/bulk` and `/movies/bulk` take every field a work has, with the title and the supplier ids argued out in comments. The only thing missing was the callback — and the action reads `available: … && !!ctx.setFields`, so the menu item was simply not there. No error, no log, and no failing test: the registry test asserts the action EXISTS, and the bar's tests assert what the bar SHOWS.
+
+**The general shape, which is this release's second instance of it** (see the cast panel above). A registry entry with no provider and a route with no caller are both healthy code by every check this repository runs. What catches them is a test that goes all the way to the REQUEST — which is what the new cases do, because a test that found the menu item would have passed on the day the callback was added and said nothing about whether the dialog sends anything.
+
+**One field at a time, not a form of all of them.** A form of every field with a "leave alone" state per row is a form where "I did not touch this" and "I meant to clear this" look identical across forty rows. One named field and one value is a sentence you can read back before pressing it.
+
+<sub>2.2.3 — `web/frontend/src/SelectionBar.jsx`</sub>

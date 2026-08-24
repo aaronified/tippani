@@ -5,6 +5,104 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.3] - 2026-08-25
+
+### Added
+
+- **A work's people, with both of their pictures.** Every book, film, show and game's
+  Details panel has a **People** section: each character, who plays them, add, correct,
+  remove — and the character's picture, which had been fetchable since 2.2.0 and had never
+  been fetched. The plumbing shipped across three migrations and no screen ever called it,
+  so a library could hold a full cast with a TheTVDB art URL on every row and show you
+  neither. Opening the panel now asks for the pictures that are not local yet, one at a
+  time. A role with none falls back to the actor's headshot, which is what TheTVDB's own
+  site does.
+
+  The character's picture belongs to the ROLE and lives on the cast row; an actor's headshot
+  belongs to the PERSON and is shared by every work they are in — so the row shows both and
+  the actor's name opens their own page for theirs. Changing Viola Davis's photograph changes
+  it on every film she is in, and that has to be visible as such.
+
+- **Cast from TheTVDB, on demand.** A film or show can re-pull its cast — and only its cast —
+  from the id already on the record. Separate from "Re-sync everything", which also takes back
+  the poster, the genres, the overview and the year: that is the right control for a wrong
+  record and the wrong one for a right record with a thin cast, so a reader who has corrected a
+  year by hand never pressed it and never got the character art either. Games have no TheTVDB
+  record at all, so the button is absent for one rather than shown and refused; IMDb is what a
+  game has, and that control moves in beside it.
+
+- **Setting one field across a whole selection of works.** Pick several books or films, ⋯ →
+  **Set fields**, choose a field and a value. The series on five books in one press. The
+  action, the field tables and the overwrite warning had all been written; the bar simply
+  never passed the callback, so the menu item was absent and nothing errored. The warning
+  counts only what would be DESTROYED — a field that is empty across the whole selection
+  says nothing at all, and a field with values says how many rows and how many *different*
+  answers are about to become one.
+
+- **The character box is a real dropdown.** It opens on focus with the work's own cast,
+  filters as you type, and names the actor beside each part — so typing "robbie" finds
+  Harley Quinn. Ten rows on a desktop, five on a phone. It still takes any name you type,
+  including one the cast has never heard of. It was a native `<datalist>`, and what a browser
+  actually DOES with one turns out to vary: desktop Chrome opens it only after a keystroke,
+  so the box you open in order to be reminded of a name required you to remember it first.
+
+- **The picture share can swap the people over**, and lines up more than two along the
+  bottom like a team shot. Three faces used to lose one without a word — a card has two edges
+  — and which way round two people should read is a judgement about the line, not something
+  the card can know.
+
+### Changed
+
+- **"Other quotes" now say what KIND of thing they are, from a list of five**: speech, letter,
+  essay, proverb, other. The free-text **Medium** box is gone. That field was one of the
+  dimensions the Quotes board groups by, and grouping on something hand-typed gives you one
+  shelf per spelling — "Speech", "speech" and "a speech" are three shelves holding one kind of
+  thing, and nothing could tell you they were the same.
+
+  **Nothing is deleted.** An upgrade reads your old mediums across wherever the word IS one of
+  the five, folding case and spacing; anything else keeps its text and goes on showing on the
+  card, under a kind nobody has set, so you can see what is left to file. It guesses at
+  nothing — "radio" is not quietly filed as a speech, and "poem" is not quietly filed as an
+  essay — because a synonym table is a silent reclassification of your library with no record
+  of what moved.
+
+  A quote nobody has filed says **nothing** rather than "Other": "other" is a decision, and a
+  default pretending to be one is a claim the card would then make on your behalf. Exports
+  write the kind, imports read it, and a file written before this release has its kind read
+  off the old keys the same way an upgrade does.
+
+- **The board picker on the quote form is called Board.** It was called "Kind", with a note
+  beside it in the source saying that it was not one.
+
+- **A highlight's character reaches the card and the share.** A book highlight has had a
+  Character box for four releases and nothing showed what it held — not the library card, not
+  the Home tile, not the share dialog — so the box read as a field that wrote nowhere.
+
+### Fixed
+
+- **A title keeps its small words small.** "The Wheel of Time" could not be typed: every name
+  field capitalises as you type, so "of" was promoted while it was still the one-letter word
+  "o", and the rule's own escape hatch then froze it as "Of". An English title's small words —
+  the articles, the conjunctions, the short prepositions — now stay small anywhere but the
+  first word and the word after a full stop or a colon. Type a capital yourself and it is
+  yours, as before. Name particles are deliberately left out of the list: "Vincent van Gogh"
+  and "Robert De Niro" are both correct, and any list that settled it would quietly rename
+  Ursula Le Guin.
+
+- **The tick at the top of a work's Details panel does something.** It was greyed with
+  "Nothing to save" unless a row was open with an unsaved edit in it — which is not the state
+  the panel is usually in, because every row saves itself. It now means *done*: it commits
+  whatever is open and closes the panel. Nothing to save is not an error and writes nothing; a
+  refused write leaves the panel up with your drafts and the reason on it.
+
+- **The daily quiz is fetched once per load instead of twice.** It is the most expensive read
+  in the app — it scans the library to build the quiz's wrong answers — and two parts of the
+  screen were each asking for it: the badge that counts what is due, and the card that shows
+  it. The second one is the one you sit watching. Measured on a library of 60 books and 1500
+  highlights, the server answers a save in about two milliseconds and the deck in four, so
+  what a slow-feeling edit is made of is round trips rather than work — and this was the one
+  duplicate there was.
+
 ## [2.2.2] - 2026-08-24
 
 ### Fixed

@@ -146,24 +146,25 @@ AI-written code fails differently from hand-written code. It compiles, it reads
 well, it is plausibly commented, and it can still be wrong — so plausibility is
 worth nothing here and only execution counts. What the repo actually runs:
 
-- **1,100 Go test functions and 1,853 frontend tests, across 323 test files** — the
+- **1,149 Go test functions and 1,932 frontend tests, across 337 test files** — the
   Go half over real HTTP handlers against a real SQLite database, not mocks.
   Counted, not estimated, and every number here has a command that reproduces it:
 
   ```bash
   grep -rhoE '^func Test[A-Za-z0-9_]+' --include='*_test.go' . | wc -l   # Go functions
   cd web/frontend && npm test                                            # frontend tests
-  find . -name '*_test.go' -not -path './node_modules/*' | wc -l         # 188 Go files
+  find . -name '*_test.go' -not -path './node_modules/*' | wc -l         # 195 Go files
   find ./web/frontend -path '*/node_modules' -prune -o \
-       -type f \( -name '*.test.*' -o -name '*.spec.*' \) -print | wc -l # 135 frontend
+       -type f \( -name '*.test.*' -o -name '*.spec.*' \) -print | wc -l # 142 frontend
   ```
 
   A number in a file like this one is stale the moment it is written, so recount
   rather than trust it — these three had drifted from 645 / 1,293 / 180 before
   anyone checked them at 1.12.0, from 725 / 1,581 / 203 before they were
   recounted at 1.14.2, from 765 / 1,672 / 217 by 1.15.0, from 807 / 1,759 /
-  233 by 2.1.1, from 924 / 1,771 / 284 by 2.2.0, and from 1,085 / 1,844 / 320
-  by 2.3.0, which is why each one now sits beside the command that produces it.
+  233 by 2.1.1, from 924 / 1,771 / 284 by 2.2.0, from 1,085 / 1,844 / 320
+  by 2.3.0, and most recently from 1,100 / 1,853 / 323 when they were recounted
+  for 2.2.3 — which is why each one now sits beside the command that produces it.
 
   **The frontend count went DOWN while its file count went up**, which is the sort
   of number that ought to be explained rather than reported. `5751757` collapsed
