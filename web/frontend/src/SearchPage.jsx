@@ -1079,8 +1079,8 @@ function QuoteModal({ kind, hit, authorMap = {}, actorMap = {}, speakerMap = {},
       ? quoteShare({ quote: row.quote, translation: row.translation, note: row.note,
           category: row.category, language: row.language, speaker: row.speaker, occasion: row.occasion, when: formatPartialDate(row.occasion_date), place: row.place, medium: row.medium, date: fmtDate(annDate(row)), tags: row.tags, color: row.color, people: speakerMap, seps })
       : isBook
-        ? bookShare({ quote: row.quote, note: row.note, author: parent?.author, title, published: parent?.published_year, chapter: chapterLabel(row), location: row.location, date: fmtDate(annDate(row)), tags: row.tags, color: row.color, people: authorMap, seps })
-        : movieShare({ quote: row.quote, note: row.note, title, year: parent?.release_year, character: row.character, actor: row.actor, timestamp: row.timestamp, episode: episodeLabel(row), tags: row.tags, color: row.color, tmdbId: parent?.tmdb_id, tvdbId: parent?.tvdb_id, people: actorMap, seps })
+        ? bookShare({ quote: row.quote, note: row.note, translation: row.translation, author: parent?.author, title, published: parent?.published_year, chapter: chapterLabel(row), location: row.location, date: fmtDate(annDate(row)), tags: row.tags, color: row.color, people: authorMap, seps })
+        : movieShare({ quote: row.quote, note: row.note, translation: row.translation, title, year: parent?.release_year, character: row.character, actor: row.actor, timestamp: row.timestamp, episode: episodeLabel(row), tags: row.tags, color: row.color, tmdbId: parent?.tmdb_id, tvdbId: parent?.tvdb_id, people: actorMap, seps })
 
   return (
     <div

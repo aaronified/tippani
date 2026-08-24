@@ -98,6 +98,7 @@ const IMAGE_LOGIC = () => t("share.format.image.what");
 export function bookShare({
   quote,
   note,
+  translation,
   author,
   title,
   published,
@@ -111,6 +112,12 @@ export function bookShare({
 }) {
   return {
     quote: quote || "",
+    // WHAT THE LINE SAYS (0051). The same slot, and the same argument, that
+    // quoteShare has carried since 0035: a share of a Bengali highlight that
+    // carried only the original is half the quote to anybody who cannot read it.
+    // The dialog offers it as a toggle like any other part, so a share of an
+    // untranslated highlight is byte-for-byte what it was.
+    translation: translation || "",
     // The annotation colour (yellow|blue|pink|orange), for the quote-card
     // image's coloured edge. Ignored by the text formats.
     color: color || "",
@@ -151,6 +158,7 @@ export function bookShare({
 export function movieShare({
   quote,
   note,
+  translation,
   title,
   year,
   character,
@@ -166,6 +174,7 @@ export function movieShare({
 }) {
   return {
     quote: quote || "",
+    translation: translation || "", // 0051; see bookShare
     // Actor face(s) for the image, gated by the "Actor" toggle (facesFor).
     faces: resolveFaces(actor, people, seps),
     facesFor: "actor",

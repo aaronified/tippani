@@ -87,10 +87,14 @@ func TestTheCleanupSweepReachesAllThreeKinds(t *testing.T) {
 	}
 }
 
-// The note and a standalone quote's translation are scanned too — they are prose
-// the reader pasted, with the same origins as the quote. The FIELD is reported
-// because the decision differs: a stray mark in a note is not the same as one in
-// the words themselves.
+// The note and the translation are scanned too — they are prose the reader
+// pasted, with the same origins as the quote. The FIELD is reported because the
+// decision differs: a stray mark in a note is not the same as one in the words
+// themselves.
+//
+// The translation was a standalone quote's alone when this was written; 0051 put
+// it on all three kinds, and TestTheStrayMarksSweepScansTranslationsOnEveryKind
+// covers the two that gained it.
 func TestTheCleanupSweepReadsTheNoteAndTheTranslation(t *testing.T) {
 	h := newTestServer(t).Handler()
 	c := signupAdmin(t, h)
@@ -103,8 +107,8 @@ func TestTheCleanupSweepReadsTheNoteAndTheTranslation(t *testing.T) {
 	}, http.StatusCreated)
 	c.mustDo("POST", "/quotes", map[string]any{
 		"quote": "যা রটে তার কিছু বটে",
-		// The translation is the only field the other two kinds do not have, so it
-		// is the one that a per-kind field list can silently drop.
+		// The field a per-kind list can silently drop: it was on this kind alone until
+		// 0051, so the other two scanned a literal '' in its slot.
 		"translation": "what is rumoured  is partly true",
 	}, http.StatusCreated)
 

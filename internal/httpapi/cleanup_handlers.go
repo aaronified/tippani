@@ -76,21 +76,24 @@ func (s *Server) handleCleanup(w http.ResponseWriter, r *http.Request) {
 	sources := []source{
 		{
 			kind: "book",
-			query: `SELECT a.id, a.book_id, COALESCE(b.title, ''), a.quote, COALESCE(a.note, ''), ''
+			query: `SELECT a.id, a.book_id, COALESCE(b.title, ''), a.quote, COALESCE(a.note, ''), a.translation
 			        FROM annotations a JOIN books b ON b.id = a.book_id
 			        WHERE b.user_id = ? ORDER BY a.id`,
 			fields: []string{"quote", "note", "translation"},
 		},
 		{
 			kind: "screen",
-			query: `SELECT d.id, d.movie_id, COALESCE(m.title, ''), d.quote, COALESCE(d.note, ''), ''
+			query: `SELECT d.id, d.movie_id, COALESCE(m.title, ''), d.quote, COALESCE(d.note, ''), d.translation
 			        FROM dialogues d JOIN movies m ON m.id = d.movie_id
 			        WHERE m.user_id = ? ORDER BY d.id`,
 			fields: []string{"quote", "note", "translation"},
 		},
 		{
-			// A standalone quote has no parent work, and its translation is the one
-			// field the other two kinds do not have.
+			// A standalone quote has no parent work. Its translation was for one
+			// release the only field the other two kinds lacked; 0051 gave it to them,
+			// and the literal '' this slot used to hold on those two queries became
+			// the real column with no other change here — which is the whole reason
+			// the slot was named and scanned from the start.
 			kind: "quote",
 			query: `SELECT u.id, 0, '', u.quote, COALESCE(u.note, ''), COALESCE(u.translation, '')
 			        FROM utterances u WHERE u.user_id = ? ORDER BY u.id`,

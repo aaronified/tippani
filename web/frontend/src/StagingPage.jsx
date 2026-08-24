@@ -530,6 +530,15 @@ function StagedRow({ quote, selected, onToggle, onEdit }) {
         >
           {quote.quote || quote.note}
         </p>
+        {/* WHAT IT SAYS, before what somebody thought about it — the order every
+            card in the app draws the pair in. Shown here because the queue is where
+            approval is decided and a translation is part of what is arriving; it is
+            NOT editable in the row editor below, for the reason stated there: a
+            staged row is a record of what the file said, and a translation is the
+            quote's own text rather than a locator. */}
+        {quote.translation && (
+          <p className="microcopy mt-1">{t('staging.row.translation.label', { text: quote.translation })}</p>
+        )}
         {quote.quote && quote.note && (
           <p className="microcopy mt-1">{t('staging.row.note.label', { note: quote.note })}</p>
         )}

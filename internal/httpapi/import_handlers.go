@@ -287,10 +287,14 @@ func writeBookAnnotations(tx *sql.Tx, uid int64, source string, bookID int64, an
 		}
 		ins, err := tx.Exec(`
 			INSERT OR IGNORE INTO annotations
-			  (id, book_id, quote, note, color, chapter, chapter_no, location, character, favorite,
+			  (id, book_id, quote, note, translation, color, chapter, chapter_no, location, character, favorite,
 			   source, dedupe_hash, noted_at, review_excluded)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			annID, bookID, nullable(a.Quote), nullable(a.Note), color,
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			annID, bookID, nullable(a.Quote), nullable(a.Note),
+			// 0051, and a plain string for the reason `character` below is. Out of the
+			// dedupe hash as well, and for a sharper reason: whether somebody has
+			// translated a passage cannot decide whether it is the same passage.
+			a.Translation, color,
 			nullable(a.Chapter), nullableFloat(a.ChapterNo), nullable(a.Location),
 			// 0047, and a plain string: `character` is NOT NULL DEFAULT '' here, so
 			// nullable("") would send the NULL the column refuses. It stays OUT of the
@@ -318,6 +322,7 @@ func writeBookAnnotations(tx *sql.Tx, uid int64, source string, bookID int64, an
 				  note       = COALESCE(note, ?),
 				  noted_at   = COALESCE(noted_at, ?),
 				  character  = CASE WHEN character = '' THEN ? ELSE character END,
+				  translation = CASE WHEN translation = '' THEN ? ELSE translation END,
 				  color      = CASE WHEN color = 'yellow' AND ? <> 'yellow' THEN ? ELSE color END,
 				  favorite   = MAX(favorite, ?),
 				  updated_at = datetime('now')
@@ -328,6 +333,7 @@ func writeBookAnnotations(tx *sql.Tx, uid int64, source string, bookID int64, an
 				       OR (note IS NULL AND ? IS NOT NULL)
 				       OR (noted_at IS NULL AND ? IS NOT NULL)
 				       OR (character = '' AND ? <> '')
+				       OR (translation = '' AND ? <> '')
 				       OR (color = 'yellow' AND ? <> 'yellow')
 				       OR (favorite = 0 AND ?))`,
 				nullable(a.Chapter), nullableFloat(a.ChapterNo), nullable(a.Location), nullable(a.Note), nullable(a.NotedAt),
@@ -335,11 +341,11 @@ func writeBookAnnotations(tx *sql.Tx, uid int64, source string, bookID int64, an
 				// the guard: on a NOT NULL DEFAULT '' column COALESCE('', x) is '' and
 				// `'' IS NOT NULL` is true, so the obvious spelling of both would donate
 				// nothing while reporting an enrichment. See enrichStagedQuote.
-				a.Character,
+				a.Character, a.Translation,
 				color, color, a.Favorite,
 				bookID, store.DedupeHash(text),
 				nullable(a.Chapter), nullableFloat(a.ChapterNo), nullable(a.Location), nullable(a.Note), nullable(a.NotedAt),
-				a.Character,
+				a.Character, a.Translation,
 				color, a.Favorite)
 			if err != nil {
 				return 0, 0, err

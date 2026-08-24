@@ -341,7 +341,7 @@ type dialogueRow struct {
 // column beside them: they are NOT NULL with an empty-string default, so the empty
 // string is what a row predating the columns actually holds and there is no NULL
 // for a COALESCE to catch. Wrapping them anyway would read as though there were.
-const dialogueCols = `d.id, d.movie_id, d.quote, COALESCE(d.note, ''), d.color, COALESCE(d.character, ''),
+const dialogueCols = `d.id, d.movie_id, d.quote, COALESCE(d.note, ''), d.translation, d.color, COALESCE(d.character, ''),
 	COALESCE(d.actor, ''), COALESCE(d.timestamp, ''), d.season, d.episode,
 	d.act, d.quest, d.episode_name,
 	d.favorite, d.sticker_id, d.sticker_x, d.sticker_y,
@@ -389,7 +389,7 @@ func (s *Server) fetchDialogue(uid, id int64) (*dialogueRow, error) {
 		SELECT `+dialogueCols+`
 		FROM dialogues d JOIN movies m ON m.id = d.movie_id`+dialogueReviewJoin+`
 		WHERE d.id = ? AND m.user_id = ?`, id, uid).
-		Scan(&d.ID, &d.MovieID, &d.Quote, &d.Note, &d.Color, &d.Character,
+		Scan(&d.ID, &d.MovieID, &d.Quote, &d.Note, &d.Translation, &d.Color, &d.Character,
 			&d.Actor, &d.Timestamp, &d.Season, &d.Episode,
 			&d.Act, &d.Quest, &d.EpisodeName,
 			&d.Favorite, &d.StickerID, &d.StickerX, &d.StickerY,
@@ -468,15 +468,17 @@ func (s *Server) handleCreateDialogue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	res, err := tx.Exec(`
-		INSERT INTO dialogues (id, movie_id, quote, note, color, character, actor, timestamp, season, episode,
+		INSERT INTO dialogues (id, movie_id, quote, note, translation, color, character, actor, timestamp, season, episode,
 		                       act, quest, episode_name,
 		                       favorite, source, dedupe_hash, noted_at, sticker_id, sticker_x, sticker_y,
 		                       review_excluded)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')), ?, ?, ?,
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')), ?, ?, ?,
 		        -- Inherited from the film, exactly as a highlight inherits from its
 		        -- book. See the annotation create path.
 		        (SELECT COALESCE(review_excluded, 0) FROM movies WHERE id = ?)) ON CONFLICT DO NOTHING`,
-		id, req.MovieID, req.Quote, nullable(req.Note), req.Color, nullable(req.Character),
+		// req.Translation is a plain string for the reason the three 0047 columns
+		// below are: 0051's column is NOT NULL DEFAULT '' and nullable("") is nil.
+		id, req.MovieID, req.Quote, nullable(req.Note), req.Translation, req.Color, nullable(req.Character),
 		nullable(req.Actor), nullable(req.Timestamp), req.Season, req.Episode,
 		// PLAIN STRINGS, not nullable(): these three are NOT NULL DEFAULT '' (0047),
 		// and nullable("") is nil, which is the constraint violation rather than the
@@ -583,7 +585,7 @@ func (s *Server) handleListDialogues(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var d dialogueRow
 		d.Tags = []string{}
-		if err := rows.Scan(&d.ID, &d.MovieID, &d.Quote, &d.Note, &d.Color, &d.Character,
+		if err := rows.Scan(&d.ID, &d.MovieID, &d.Quote, &d.Note, &d.Translation, &d.Color, &d.Character,
 			&d.Actor, &d.Timestamp, &d.Season, &d.Episode,
 			&d.Act, &d.Quest, &d.EpisodeName,
 			&d.Favorite, &d.StickerID, &d.StickerX, &d.StickerY,
@@ -705,11 +707,11 @@ func (s *Server) handleUpdateDialogue(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback()
 	if _, err := tx.Exec(`
-		UPDATE dialogues SET quote = ?, note = ?, color = ?, character = ?, actor = ?, timestamp = ?,
+		UPDATE dialogues SET quote = ?, note = ?, translation = ?, color = ?, character = ?, actor = ?, timestamp = ?,
 		       season = ?, episode = ?, act = ?, quest = ?, episode_name = ?,
 		       favorite = ?, dedupe_hash = ?, sticker_id = ?, sticker_x = ?, sticker_y = ?, updated_at = datetime('now')
 		WHERE id = ?`,
-		req.Quote, nullable(req.Note), req.Color, nullable(req.Character),
+		req.Quote, nullable(req.Note), req.Translation, req.Color, nullable(req.Character),
 		nullable(req.Actor), nullable(req.Timestamp), req.Season, req.Episode,
 		// Plain strings — NOT NULL DEFAULT '', see the create path.
 		req.Act, req.Quest, req.EpisodeName,

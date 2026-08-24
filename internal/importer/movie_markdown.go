@@ -297,6 +297,10 @@ func parseMovieFrontmatter(lines []string) (*MovieResult, error) {
 				// Shows only; the server drops these for a film. Either key accepts
 				// the combined "S2E5" people write by hand.
 				applyEpisodeBinding(cur, strings.TrimSpace(key), val)
+			// 0051, and the same three keys the other two importers take — see
+			// markdown.go for why the spelling is deliberately shared.
+			case "translation", "translated", "english":
+				cur.Translation = val
 			case "note":
 				cur.Note = val
 			case "color", "colour":

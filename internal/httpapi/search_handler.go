@@ -63,6 +63,10 @@ type annotationHit struct {
 	// from dialogueHits, and a section mixing books and films under one name is a
 	// layout decision for the design pass rather than a column.
 	Character string `json:"character"`
+	// 0051. On the hit for the reason utteranceHit.Translation is: it is what
+	// MATCHED — a result whose search term appears in nothing the card shows reads
+	// as a wrong result, and a translated highlight is now findable by its English.
+	Translation string `json:"translation"`
 
 	ReviewExcluded     bool `json:"review_excluded"`
 	WorkReviewExcluded bool `json:"work_review_excluded"` // the book's; see quoteRow
@@ -127,6 +131,7 @@ type dialogueHit struct {
 	Character      string   `json:"character"`
 	Actor          string   `json:"actor"`
 	Timestamp      string   `json:"timestamp"`
+	Translation    string   `json:"translation"` // 0051; see annotationHit.Translation
 	episodeRef              // shows only; null on a film's lines
 
 	ReviewExcluded     bool `json:"review_excluded"`
@@ -271,7 +276,7 @@ const (
 	// nothing: `b`/`m` is already joined here, because for a child row that join
 	// IS the ownership check (see searchSources).
 	annotationHitCols = `a.id, a.book_id, b.title, COALESCE(b.cover_path, ''),
-		COALESCE(a.quote, ''), COALESCE(a.note, ''), a.color, a.character,
+		COALESCE(a.quote, ''), COALESCE(a.note, ''), a.color, a.character, a.translation,
 		COALESCE(b.author, ''), COALESCE(b.published_year, 0), COALESCE(b.series, ''),
 		a.review_excluded, b.review_excluded`
 	movieHitCols = `m.id, m.title, COALESCE(m.director, ''), COALESCE(m.release_year, 0),
@@ -280,7 +285,7 @@ const (
 		m.review_excluded`
 	dialogueHitCols = `d.id, d.movie_id, m.title, COALESCE(m.poster_path, ''), d.quote,
 		COALESCE(d.note, ''), d.color, COALESCE(d.character, ''), COALESCE(d.actor, ''), COALESCE(d.timestamp, ''),
-		d.season, d.episode,
+		d.translation, d.season, d.episode,
 		COALESCE(m.director, ''), COALESCE(m.release_year, 0), COALESCE(m.series, ''),
 		COALESCE(m.media_type, 'movie'),
 		d.review_excluded, m.review_excluded`
@@ -300,7 +305,7 @@ func scanBookHit(rows *sql.Rows) (bookHit, error) {
 
 func scanAnnotationHit(rows *sql.Rows) (annotationHit, error) {
 	h := annotationHit{BookGenres: []string{}}
-	err := rows.Scan(&h.ID, &h.BookID, &h.BookTitle, &h.BookCoverPath, &h.Quote, &h.Note, &h.Color, &h.Character,
+	err := rows.Scan(&h.ID, &h.BookID, &h.BookTitle, &h.BookCoverPath, &h.Quote, &h.Note, &h.Color, &h.Character, &h.Translation,
 		&h.BookAuthor, &h.BookYear, &h.BookSeries,
 		&h.ReviewExcluded, &h.WorkReviewExcluded)
 	return h, err
@@ -316,7 +321,7 @@ func scanMovieHit(rows *sql.Rows) (movieHit, error) {
 func scanDialogueHit(rows *sql.Rows) (dialogueHit, error) {
 	h := dialogueHit{MovieGenres: []string{}}
 	err := rows.Scan(&h.ID, &h.MovieID, &h.MovieTitle, &h.MoviePosterPath, &h.Quote, &h.Note, &h.Color,
-		&h.Character, &h.Actor, &h.Timestamp, &h.Season, &h.Episode,
+		&h.Character, &h.Actor, &h.Timestamp, &h.Translation, &h.Season, &h.Episode,
 		&h.MovieDirector, &h.MovieYear, &h.MovieSeries, &h.MovieMediaType,
 		&h.ReviewExcluded, &h.WorkReviewExcluded)
 	return h, err
@@ -1038,8 +1043,8 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 		Movies: []movieHit{}, Dialogues: []dialogueHit{}, Quotes: []utteranceHit{},
 		Authors: []authorHits{}, Directors: []directorHits{}, Actors: []actorHits{},
 		Characters: []characterHits{}, Speakers: []speakerHits{},
-		Notes:    noteHits{Annotations: []annotationHit{}, Dialogues: []dialogueHit{}, Quotes: []utteranceHit{}},
-		Tags:     []tagHits{}, Genres: []genreHits{},
+		Notes: noteHits{Annotations: []annotationHit{}, Dialogues: []dialogueHit{}, Quotes: []utteranceHit{}},
+		Tags:  []tagHits{}, Genres: []genreHits{},
 	}
 
 	sc := parseSearchScope(scope)
@@ -1108,7 +1113,13 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if sc.annotations {
-			hits, err := facetedHits(s, rowAnnotation, hitReq{what: "annotation", ftsCols: "quote", q: qq, limit: limit}, f, uid, scanAnnotationHit)
+			// QUOTE AND TRANSLATION IN ONE BUCKET, which is the arrangement 0035 chose
+			// for a standalone quote and 0051 extends here: somebody searching a shelf
+			// of Bengali highlights for "the thief's mother" is searching the English
+			// because the English is the half they can type, and the hit they want back
+			// is the highlight — not a "translations" section holding the same card
+			// under a second heading.
+			hits, err := facetedHits(s, rowAnnotation, hitReq{what: "annotation", ftsCols: "quote translation", q: qq, limit: limit}, f, uid, scanAnnotationHit)
 			if err != nil {
 				return 0, err
 			}
@@ -1163,7 +1174,9 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 			// matched"; Characters answers "this speaker matched". A query that
 			// hits both still gets both — they are separate queries and separate
 			// sections, so nothing is lost by the split.
-			hits, err := facetedHits(s, rowDialogue, hitReq{what: "dialogue", ftsCols: "quote", q: qq, limit: limit}, f, uid, scanDialogueHit)
+			// Quote and translation share one bucket here too — see the annotation
+			// section above for the argument.
+			hits, err := facetedHits(s, rowDialogue, hitReq{what: "dialogue", ftsCols: "quote translation", q: qq, limit: limit}, f, uid, scanDialogueHit)
 			if err != nil {
 				return 0, err
 			}

@@ -27,6 +27,12 @@ var sharedQuoteFields = []string{
 	"id", "quote", "note", "color", "favorite", "tags", "noted_at",
 	"sticker_id", "sticker_x", "sticker_y", "created_at", "updated_at",
 	"reviewed", "stability", "last_reviewed_at", "last_result",
+	// 0051. The field this list was written for: `translation` lived on the third
+	// kind alone from 0035 to 0051, which is precisely the drift described above —
+	// somebody went looking for it on a highlight and found it missing on two
+	// kinds out of three. It is here rather than beside `character` because it is
+	// prose about the quote, not a pointer into its source.
+	"translation",
 }
 
 func jsonKeys(t *testing.T, raw []byte) map[string]bool {

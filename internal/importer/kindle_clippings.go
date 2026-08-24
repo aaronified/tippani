@@ -72,10 +72,10 @@ var clipPosWords = []string{
 
 // clipRecord is one parsed block, before grouping and note-merging.
 type clipRecord struct {
-	book  Book
-	ann   Annotation
+	book   Book
+	ann    Annotation
 	isNote bool
-	pos   string // normalised position ("p.11", "loc.610-612"), "" when absent
+	pos    string // normalised position ("p.11", "loc.610-612"), "" when absent
 }
 
 // KindleClippings parses a Kindle "My Clippings.txt" into one Result per book,

@@ -4134,6 +4134,10 @@ staging.group.empty.work = no quotes — approving adds the {kind} itself
 staging.row.select.tip = Select this quote
 staging.row.select.aria = Select this staged quote
 staging.row.note.label = note: {note}
+# WHAT THE LINE SAYS, on a staged row. Drawn above the note, the order every card
+# in the app uses, and lower-cased to match its neighbour — these two are the row's
+# quiet second line, not headings.
+staging.row.translation.label = translation: {text}
 # The mark on a row a location formula has moved. ⚠ MONO SLOT — one short word.
 staging.row.shifted.label = shifted
 staging.row.shifted.tip = a location formula moved this; reset restores it
