@@ -290,8 +290,11 @@ function SourceLines({ card, maps = {} }) {
     // A quote's date is partial by design — a year alone is a complete answer.
     meta = card.occasion_date || ''
   } else {
-    // The author lives in the chips row now; the meta line keeps the location.
+    // The author lives in the chips row now; the meta line keeps the location —
+    // and, since 0047, WHO SAYS IT. A novel has speakers, and the quiz card was
+    // the last of four reads of that column still dropping it.
     meta = [
+      card.character,
       chapterMeta(card),
       card.location && t('common.locator.page.label', { n: card.location }),
     ]

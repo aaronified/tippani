@@ -36,6 +36,7 @@ import {
   groupWorks,
   isActive,
   moveLabel,
+  patchMovesTheRow,
   pinInProgress,
   statusFilter,
   wishFilter,
@@ -1563,11 +1564,19 @@ function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen
   }
 
   // patch PUTs a row's full current state with one field changed (♥ clicks).
+  //
+  // THE THIRD BOARD, and it was left out when the other two stopped refetching.
+  // The reply carries the updated row; asking the server for every line on the
+  // screen to learn what it just said is the second of two serialised round trips
+  // on the most frequent interaction there is. `patchMovesTheRow` is the shared
+  // rule — a refetch is still right when the change takes the row out of the
+  // filter being looked through — rather than a third hand-rolled copy of it.
   async function patch(d, fields) {
     const r = await json('PUT', `/dialogues/${d.id}`, { ...dialogueState(d), ...fields })
     if (!r.ok) return setError(errText(r, t('error.save.dialogue')))
     setError('')
-    load()
+    if (patchMovesTheRow(fields, { fav, color, tag })) load()
+    else setItems((cur) => (cur || []).map((x) => (x.id === d.id ? { ...x, ...r.data } : x)))
   }
 
   const filtering = tag || fav || color

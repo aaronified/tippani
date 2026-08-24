@@ -121,7 +121,7 @@ describe('the people panel', () => {
     fireEvent.click(screen.getAllByRole('button', { name: /^Edit / })[0])
     fireEvent.change(screen.getByLabelText(/^Character$/i), { target: { value: 'A. Waller' } })
     fireEvent.change(screen.getByLabelText(/^Actor$/i), { target: { value: 'V. Davis' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    fireEvent.click(screen.getByRole('button', { name: /^Save / }))
     await waitFor(() => expect(CALLS.some(([m, p]) => m === 'PUT' && p === '/cast/11')).toBe(true))
     const [, , body] = CALLS.find(([m, p]) => m === 'PUT' && p === '/cast/11')
     expect(body).toEqual({ character: 'A. Waller', actor: 'V. Davis' })
@@ -191,7 +191,7 @@ describe('the people panel', () => {
     fireEvent.click(screen.getByRole('button', { name: /^Edit / }))
     expect(screen.queryByLabelText(/^Actor$/i)).toBeNull()
     fireEvent.change(screen.getByLabelText(/^Character$/i), { target: { value: 'Ishmael' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    fireEvent.click(screen.getByRole('button', { name: /^Save / }))
     await waitFor(() => expect(CALLS.some(([m, p]) => m === 'PUT' && p === '/cast/21')).toBe(true))
     expect(CALLS.find(([m, p]) => m === 'PUT' && p === '/cast/21')[2]).toEqual({ character: 'Ishmael' })
   })
@@ -334,25 +334,30 @@ describe('what the panel hands back', () => {
     await waitFor(() => expect(CALLS.some(([m, p]) => m === 'GET' && p.endsWith('/cast'))).toBe(true))
   }
 
-  it('never calls back with nothing after a save', async () => {
+  it('hands over the new cast after a save', async () => {
     await panelWithSpy()
     await screen.findByText('Amanda Waller')
     fireEvent.click(screen.getAllByRole('button', { name: /^Edit / })[0])
     fireEvent.change(screen.getByLabelText(/^Character$/i), { target: { value: 'A. Waller' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    fireEvent.click(screen.getByRole('button', { name: /^Save / }))
     await waitFor(() => expect(CALLS.some(([m, p]) => m === 'PUT' && p === '/cast/11')).toBe(true))
     await waitFor(() => expect(seen.length).toBeGreaterThan(0))
+    // NOT `[]`, which is what the first repair produced and what an earlier
+    // version of this test asserted as correct: a callback that says nothing is a
+    // callback the host cannot act on, and it left the boards showing the old
+    // cast until the page was reloaded by hand.
     for (const args of seen) {
-      expect(args, 'the panel handed its host an undefined record').toEqual([])
+      expect(args).toHaveLength(1)
+      expect(Array.isArray(args[0]), 'the panel did not hand over the cast').toBe(true)
     }
   })
 
-  it('never calls back with nothing after an add or a remove', async () => {
+  it('hands it over after an add too', async () => {
     await panelWithSpy()
     fireEvent.click(screen.getByRole('button', { name: 'Add a character' }))
     fireEvent.change(screen.getByLabelText(/^Character$/i), { target: { value: 'the bartender' } })
     fireEvent.click(screen.getByRole('button', { name: 'Add' }))
     await waitFor(() => expect(seen.length).toBeGreaterThan(0))
-    for (const args of seen) expect(args).toEqual([])
+    for (const args of seen) expect(Array.isArray(args[0])).toBe(true)
   })
 })

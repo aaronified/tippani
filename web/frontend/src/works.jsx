@@ -853,6 +853,27 @@ export function moveLabel(kind, from, to, item = {}) {
 // hand-drawn card frame + "quotes" vs the film's plain poster + "dialogues".
 // The book grid (Library) and poster grid (Movies) both deal these; each keeps
 // its own <ul>/grid wrapper and gap, sharing only the tile.
+// patchMovesTheRow — would this one-field change take the row off the board?
+//
+// EXPORTED AND PURE so the decision can be argued with. It is the whole safety of
+// splicing a PUT's reply in rather than refetching: the filters are applied by the
+// SERVER, so un-hearting a row while the favourites filter is on must remove it,
+// and a splice would leave it sitting there looking saved and wrong.
+//
+// It asks about the FILTERS IN FORCE, not about the fields: changing a colour
+// while no colour filter is on moves nothing, and refetching for it would be the
+// round trip this exists to avoid. A filter this does not know about is a filter
+// that has to be added here — which is why it takes the filter values rather than
+// reading them, so a caller cannot forget to pass one without the argument list
+// changing shape.
+export function patchMovesTheRow(fields, { fav, color, tag } = {}) {
+  return Boolean(
+    (fav && 'favorite' in fields) ||
+      (color && 'color' in fields) ||
+      (tag && 'tags' in fields),
+  )
+}
+
 export function WorkCard({ kind, item, index = 0, onOpen, people = {}, seps, selection, selectKind = kind, onChanged, onEdit }) {
   const isBook = kind === 'book'
   const isShow = !isBook && (item.media_type || 'movie') === 'show'

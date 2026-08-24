@@ -16,7 +16,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 
-let PUTS, OK, CLOSED
+let PUTS, OK, CLOSED, CHANGED
 
 vi.mock('../../src/api.js', async (orig) => ({
   ...(await orig()),
@@ -25,6 +25,11 @@ vi.mock('../../src/api.js', async (orig) => ({
       PUTS.push({ path, body })
       return OK ? { ok: true, data: { ...ITEM, ...body } } : { ok: false, status: 500, data: {} }
     }
+    // The People section's own reads, so the panel can be driven from here.
+    if (method === 'GET' && path.endsWith('/cast')) {
+      return { ok: true, data: { cast: [{ id: 1, character: 'Ahab', actor: '' }], actor_role: 'none' } }
+    }
+    if (method === 'GET' && path.startsWith('/people')) return { ok: true, data: { people: [] } }
     return { ok: true, data: {} }
   }),
 }))
@@ -41,10 +46,17 @@ beforeEach(() => {
   PUTS = []
   OK = true
   CLOSED = 0
+  CHANGED = []
 })
 
 const panel = () => render(
-  <WorkDetails open kind="book" item={ITEM} onClose={() => { CLOSED += 1 }} onChanged={() => {}} />,
+  <WorkDetails
+    open
+    kind="book"
+    item={ITEM}
+    onClose={() => { CLOSED += 1 }}
+    onChanged={(rec) => CHANGED.push(rec)}
+  />,
 )
 
 // A row is opened by its pencil and typed into by its input.
@@ -231,5 +243,45 @@ describe('a submit from somewhere else', () => {
     fireEvent.click(masterSave())
     await waitFor(() => expect(PUTS.length).toBe(1))
     await waitFor(() => expect(CLOSED).toBe(1))
+  })
+})
+
+// ---- what the panel's HOST does with a cast change --------------------------
+//
+// THE STEP THE PANEL'S OWN TESTS STOP ONE SHORT OF, and where both versions of one
+// bug lived. Called with nothing, this host ran `setBook(undefined)` and the page
+// unmounted. Called with its own record back — the first repair — it set state to
+// the same reference, React bailed out, and the panel's edits reached nobody: the
+// character combobox and the film board's cast list kept the old names until the
+// page was reloaded by hand. Neither failure is visible from inside the panel, and
+// asserting the argument at the panel cannot see either.
+describe('a cast change reaches the record', () => {
+  const openPeople = async () => {
+    panel()
+    fireEvent.click(screen.getByRole('button', { name: 'People' }))
+    await screen.findByText('Ahab')
+  }
+
+  it('hands the host a NEW record carrying the new cast', async () => {
+    await openPeople()
+    // Named for the row, not by position: the Details panel has its own field
+    // pencils with the same prefix.
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Ahab' }))
+    fireEvent.change(screen.getByLabelText(/^Character$/i), { target: { value: 'Ishmael' } })
+    // The row's own ✓, named for the row: the dialog header carries a Save too.
+    fireEvent.click(screen.getByRole('button', { name: 'Save Ahab' }))
+
+    await waitFor(() => expect(CHANGED.length).toBeGreaterThan(0))
+    const rec = CHANGED[CHANGED.length - 1]
+    // Never undefined — that unmounted the page.
+    expect(rec, 'the host was handed nothing').toBeTruthy()
+    // Never the same object — React bails out of that, so nothing re-renders.
+    expect(rec, 'the host was handed its own record back').not.toBe(ITEM)
+    // And it carries the cast, which is what the boards read.
+    expect(Array.isArray(rec.cast)).toBe(true)
+    // The rest of the record survives, so this is an update and not a
+    // replacement.
+    expect(rec.title).toBe(ITEM.title)
+    expect(rec.author).toBe(ITEM.author)
   })
 })

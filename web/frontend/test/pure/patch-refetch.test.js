@@ -8,6 +8,10 @@
 // went looking for it concluded there was exactly one duplicate read and named a
 // different one.
 //
+// It lives in works.jsx — "what books and films share" — because all THREE boards
+// need it and one of them was left out the first time, which is how the film
+// board kept its extra round trip for a release after the other two lost theirs.
+//
 // The reason it could not simply be deleted is the other half: the filters are
 // applied by the SERVER. Un-hearting a row while the favourites filter is on has
 // to take it off the board, and splicing the reply back in would leave it sitting
@@ -15,7 +19,7 @@
 // and it is exported rather than buried in a closure so it can be read.
 
 import { describe, expect, it } from 'vitest'
-import { patchMovesTheRow } from '../../src/Library.jsx'
+import { patchMovesTheRow } from '../../src/works.jsx'
 
 describe('a heart, with no filter on', () => {
   it('does not move the row, so the reply is enough', () => {

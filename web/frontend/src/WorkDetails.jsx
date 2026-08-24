@@ -697,7 +697,16 @@ function FieldList({ kind, item, specs, mediaType, busy, genreSuggestions, onSav
           and 0048 has stored them for as long as a film's. What is film-only is
           the FETCH, and that gate is inside the panel where it belongs (cast.jsx)
           rather than being restated here. */}
-      <CastSection kind={kind} item={item} onCastChanged={() => onChanged?.(item)} />
+      {/* A NEW RECORD, CARRYING THE NEW CAST. Handing back `item` itself — which is
+          what the first repair did — is a state set to the same reference, which
+          React bails out of: nothing re-renders and nothing refetches, so the
+          panel's edits reached the boards that read `movie.cast` only after a
+          manual reload. Never undefined, and never the same object. */}
+      <CastSection
+        kind={kind}
+        item={item}
+        onCastChanged={(cast) => onChanged?.({ ...item, cast: cast || [] })}
+      />
 
       <div className="flex flex-wrap items-center gap-2">
         <GhostButton type="button" onClick={onFetch} disabled={!!busy}>

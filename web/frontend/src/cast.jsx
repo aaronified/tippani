@@ -64,14 +64,26 @@ const roleLabel = (role) =>
 // rows have no provider URL to fetch anyway.
 const IMAGE_FILL_CAP = 20
 
-// `onCastChanged` IS NAMED FOR WHAT IT MEANS and takes nothing, which is the
-// whole of a bug that blanked the page. It used to be called `onChanged` and was
+// `onCastChanged` IS NAMED FOR WHAT IT MEANS, and it hands over THE NEW CAST.
+//
+// Both halves were learned the hard way. It used to be called `onChanged` and was
 // wired straight to the host's record SETTER — `onChanged={setMovie}` in
-// Movies.jsx, `setBook` in Library.jsx — so calling it with no argument after a
-// save ran `setMovie(undefined)`, and both pages render behind `{movie && …}`.
-// Correcting a character's name unmounted the film page and the dialog on top of
-// it. A prop whose name says "the record changed" must never be called by
-// something that means "the cast changed".
+// Movies.jsx, `setBook` in Library.jsx — and called with no argument, so a save
+// ran `setMovie(undefined)` and both pages, which render behind `{movie && …}`,
+// unmounted. Correcting a character's name took the film page and the dialog on
+// top of it off the screen.
+//
+// The repair for that renamed the prop and passed the host its OWN record back —
+// which never blanks anything and also never does anything, because setting state
+// to the same reference is a bail-out in React. The panel's edits reached nobody:
+// the character combobox, the film board's cast list and the line form's
+// suggestions all kept the old cast until the page was reloaded by hand.
+//
+// So it passes the rows it has just reloaded. The host builds a new record around
+// them (WorkDetails.jsx), which re-renders and is what the boards read. A prop
+// whose name says "the record changed" must never be called by something that
+// means "the cast changed" — and a callback that cannot say WHAT changed is a
+// callback the host cannot act on.
 export function CastSection({ kind, item, onCastChanged }) {
   const path = kind === 'book' ? 'books' : 'movies'
   const [rows, setRows] = useState(null) // null while loading
@@ -135,8 +147,7 @@ export function CastSection({ kind, item, onCastChanged }) {
     setBusy('')
     if (!r.ok) { setErr(errText(r, t('error.save.generic'))); return false }
     setErr('')
-    await load()
-    onCastChanged?.()
+    onCastChanged?.(await load())
     return true
   }
 
@@ -146,8 +157,7 @@ export function CastSection({ kind, item, onCastChanged }) {
     setBusy('')
     if (!r.ok) { setErr(errText(r, t('error.save.generic'))); return false }
     setErr('')
-    await load()
-    onCastChanged?.()
+    onCastChanged?.(await load())
     return true
   }
 
@@ -157,8 +167,7 @@ export function CastSection({ kind, item, onCastChanged }) {
     setBusy('')
     if (!r.ok) return setErr(errText(r, t('error.delete.generic')))
     setErr('')
-    await load()
-    onCastChanged?.()
+    onCastChanged?.(await load())
   }
 
   // A picture the reader chose, through the same route the provider's goes
@@ -342,9 +351,12 @@ function CastRow({ row, role, busy, actor, workTitle, onSave, onRemove, onImage,
           )}
         </div>
         <div className="cast-row-acts">
+          {/* NAMED FOR THE ROW. There is a Save in the dialog's header as well, and
+              two controls called "Save" on one screen is ambiguous to a screen
+              reader before it is ambiguous to a test. */}
           <FieldIconButton
             icon={<IconCheck />}
-            ariaLabel={t('common.action.save.label')}
+            ariaLabel={t('common.action.save.field.aria', { field: row.character || '' })}
             disabled={busy || !character.trim()}
             ok
             onClick={commit}

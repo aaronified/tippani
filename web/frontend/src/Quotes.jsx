@@ -26,7 +26,7 @@ import { useSelection } from './selection.jsx'
 import { SelectionBar } from './SelectionBar.jsx'
 import { StickerPicker, useStickers } from './stickers.jsx'
 import { ALL_BOARD, BoardList, MoveToBoardDialog, useBoards } from './boards.jsx'
-import { GroupHeading, WorkListScaffold, groupWorks } from './works.jsx'
+import { GroupHeading, WorkListScaffold, groupWorks, patchMovesTheRow } from './works.jsx'
 import {
   ColorSwatches,
   ConfirmDialog,
@@ -471,6 +471,8 @@ export function UtteranceForm({ initial, onSubmit, onCancel, submitLabel, tagSug
         </div>
         <div className="cl-grid mt-3">
           <Field
+            // A source title is a title: "the wheel of time" and not a person.
+            titleCase
             label={t('common.field.work-title.label')}
             placeholder={t('quotes.form.work-title.placeholder')}
             value={workTitle}
@@ -850,7 +852,11 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
       return false
     }
     setError('')
-    if (color && 'color' in fields) await load()
+    // The shared rule, not a fourth copy of it: this board's other filters are
+    // client-side, so the colour is the only one the server applies — which the
+    // helper expresses by being told which filters are in force rather than
+    // guessing.
+    if (patchMovesTheRow(fields, { color })) await load()
     else setRows((cur) => (cur || []).map((x) => (x.id === u.id ? { ...x, ...r.data } : x)))
     return true
   }

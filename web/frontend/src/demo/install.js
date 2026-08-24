@@ -110,10 +110,10 @@ const ANNOTATIONS = [
 // no occasion — the one that must stay out of the review deck and still render
 // without a stray separator on its meta line.
 const UTTERANCES = [
-  { id: 1, quote: 'Give me blood, and I will give you freedom.', note: 'the Azad Hind broadcast my grandfather remembered', color: 'blue', favorite: true, speaker: 'Subhas Chandra Bose', occasion: 'Burma Radio broadcast', occasion_date: '1944', place: 'Burma', medium: 'radio', tags: ['freedom'], noted_at: '2026-04-02' },
-  { id: 2, quote: 'Freedom is not given, it is taken.', note: '', color: 'yellow', favorite: false, speaker: 'Subhas Chandra Bose', occasion: 'Burma Radio broadcast', occasion_date: '1944', place: 'Burma', medium: 'radio', tags: [], noted_at: '2026-04-02' },
-  { id: 3, quote: 'The only thing we have to fear is fear itself.', note: '', color: 'pink', favorite: false, speaker: 'Franklin D. Roosevelt', occasion: 'first inaugural address', occasion_date: '1933-03-04', place: 'Washington', medium: 'speech', tags: ['courage'], noted_at: '2026-05-30' },
-  { id: 4, quote: 'Least said, soonest mended.', note: 'my grandmother, about most things', color: 'yellow', favorite: false, speaker: '', occasion: '', occasion_date: '', place: '', medium: '', tags: [], noted_at: '2026-06-14' },
+  { id: 1, quote: 'Give me blood, and I will give you freedom.', note: 'the Azad Hind broadcast my grandfather remembered', color: 'blue', favorite: true, speaker: 'Subhas Chandra Bose', occasion: 'Burma Radio broadcast', occasion_date: '1944', place: 'Burma', medium: 'radio', kind: '', tags: ['freedom'], noted_at: '2026-04-02' },
+  { id: 2, quote: 'Freedom is not given, it is taken.', note: '', color: 'yellow', favorite: false, speaker: 'Subhas Chandra Bose', occasion: 'Burma Radio broadcast', occasion_date: '1944', place: 'Burma', medium: 'radio', kind: '', tags: [], noted_at: '2026-04-02' },
+  { id: 3, quote: 'The only thing we have to fear is fear itself.', note: '', color: 'pink', favorite: false, speaker: 'Franklin D. Roosevelt', occasion: 'first inaugural address', occasion_date: '1933-03-04', place: 'Washington', medium: 'speech', kind: 'speech', tags: ['courage'], noted_at: '2026-05-30' },
+  { id: 4, quote: 'Least said, soonest mended.', note: 'my grandmother, about most things', color: 'yellow', favorite: false, speaker: '', occasion: '', occasion_date: '', place: '', medium: '', kind: 'proverb', tags: [], noted_at: '2026-06-14' },
 ]
 
 // ---- anthologies (2.0.0) ----
@@ -720,7 +720,7 @@ function search(q, scope) {
   const annHit = (a) => { const b = bk(a.book_id); return { id: a.id, book_id: a.book_id, book_title: b.title || '', book_cover_path: b.cover_path || '', book_author: b.author || '', book_published_year: b.published_year || 0, book_series: b.series || '', book_genres: b.genres || [], quote: a.quote, note: a.note, color: a.color, review_excluded: !!a.review_excluded, work_review_excluded: !!b.review_excluded } }
   const dlgHit = (d) => { const m = mv(d.movie_id); return { id: d.id, movie_id: d.movie_id, movie_title: m.title || '', movie_poster_path: m.poster_path || '', movie_director: m.director || '', movie_release_year: m.release_year || 0, movie_series: m.series || '', movie_genres: m.genres || [], movie_media_type: m.media_type || 'movie', quote: d.quote, note: d.note || '', color: d.color, character: d.character, actor: d.actor, timestamp: d.timestamp, season: d.season ?? null, episode: d.episode ?? null, review_excluded: !!d.review_excluded, work_review_excluded: !!m.review_excluded } }
 
-  const uttHit = (u) => ({ id: u.id, quote: u.quote, note: u.note || '', color: u.color, speaker: u.speaker, occasion: u.occasion, occasion_date: u.occasion_date, place: u.place, medium: u.medium, review_excluded: !!u.review_excluded })
+  const uttHit = (u) => ({ id: u.id, quote: u.quote, note: u.note || '', color: u.color, speaker: u.speaker, occasion: u.occasion, occasion_date: u.occasion_date, place: u.place, medium: u.medium, kind: u.kind || '', review_excluded: !!u.review_excluded })
 
   const wantBooks = !scope || scope === 'all' || scope === 'books'
   const wantAnnotations = !scope || scope === 'all' || scope === 'annotations'
