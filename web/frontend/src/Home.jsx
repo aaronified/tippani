@@ -15,6 +15,7 @@ import { t, tNodes } from './i18n.js'
 import { quoteKindMeta } from './quoteKind.js'
 import { PendingImportCard } from './StagingPage.jsx'
 import { QuizRunner, tzOffsetMinutes } from './review.jsx'
+import { dailyDeck } from './daily.js'
 import {
   CharacterFaces,
   CreditFaces,
@@ -138,7 +139,7 @@ function DailyQuizCard({ onPending, states, onStates, adaptive, submitStep }) {
   const [help, setHelp] = useState(false)
 
   useEffect(() => {
-    json('GET', `/review/daily?offset=${tzOffsetMinutes()}`).then((r) => {
+    dailyDeck(tzOffsetMinutes()).then((r) => {
       // A failed fetch must NOT masquerade as "all caught up" — show an error and
       // leave the pending dot as the shell seeded it.
       if (!r.ok) return setPhase('error')

@@ -4,6 +4,7 @@ import { applyLanguageMarks } from './languages.jsx'
 import { applyFonts, registerUploads } from './fonts.js'
 import { applyTypeScale } from './type.js'
 import { applyReviewPrefs, tzOffsetMinutes } from './review.jsx'
+import { dailyDeck } from './daily.js'
 import { pickEpigraph } from './epigraphs.js'
 import { installShortcuts, shortcutFor } from './keys.js'
 import AddSurface from './AddSurface.jsx'
@@ -1079,7 +1080,10 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
   }
   useEffect(() => {
     refreshStats()
-    json('GET', `/review/daily?offset=${tzOffsetMinutes()}`).then((r) => {
+    // The SAME request Home's quiz card makes, shared rather than repeated — see
+    // daily.js. The shell wants two numbers off the deck and the card wants the
+    // deck; computing it twice on every load is the one duplicate read there was.
+    dailyDeck(tzOffsetMinutes()).then((r) => {
       if (r.ok) { setPending((r.data.items || []).length); setStreak(r.data.streak || 0) }
     })
     refreshPendingImport()

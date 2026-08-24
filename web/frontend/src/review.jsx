@@ -19,6 +19,7 @@ import { categoryVar } from './theme.js'
 import { errText, json } from './api.js'
 import { t } from './i18n.js'
 import { chapterMeta, episodeLabel } from './text.js'
+import { forgetDailyDeck } from './daily.js'
 import { DEFAULT_CREDIT_SEPS, PersonPortrait, splitCredits, usePeople } from './credits.jsx'
 import { REVIEW_BULK_KIND } from './bulkOps.jsx'
 import {
@@ -616,6 +617,10 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
     setSaveErr('')
     // .catch is belt-and-braces over api.js's own guard: `saving` gates the
     // options, and awaiting a rejected promise in advance() would throw.
+    // The deck this card came out of is now out of date — the card has been graded
+  // and is no longer due today — so the shared request is dropped rather than
+    // handed to whatever mounts next. See daily.js.
+    forgetDailyDeck()
     const req = json('POST', '/review/answer', {
       kind: card.kind,
       id: card.id,
