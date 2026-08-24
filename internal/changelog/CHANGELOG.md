@@ -5,6 +5,65 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.5] - 2026-08-25
+
+### Fixed
+
+- **Saving a person from the new People panel closed the whole work panel and threw away
+  whatever else was open.** The person editor is a form, and it was being rendered inside the
+  Details form — so pressing its Save ran both, and the outer one closes. With a field row
+  open and changed at that moment it also wrote the record nobody had asked to write. A form
+  now only answers a submit that came from itself.
+
+- **A title that was already correct was rewritten by editing any other part of it.** English
+  title case capitalises the last word however small it is, and 2.2.4's small-word rule did
+  not — so "Bring It On" saved itself as "Bring It on", and "Set It Off" as "Set It off", the
+  moment you fixed a typo elsewhere in the same field. No diff, nothing said.
+
+- **The swap in the picture share did nothing at all with one person**, which is the case the
+  request named. It was implemented by reversing the list, and reversing a list of one is
+  that list — so the portrait went on entering from the left while the toggle claimed
+  otherwise, and the preference it saved then reversed your *next* two-person card. It also
+  only appeared in Backdrop mode, which is not the default; the chips honour it now too.
+
+- **"The Wheel of Time" still could not be typed on the Film, Show or Game tab.** The fix
+  reached books and both Details panels and stopped there, so the same record capitalised
+  differently depending on which screen you opened it from.
+
+- **Enter was dead in the cover-URL box and the person form.** 2.2.4's guard against Enter
+  closing the panel was too wide and took the key away from the controls inside a nested form,
+  which submit on Enter like any form. It now cancels only its own form's.
+
+- **A character name typed into the People panel was thrown away by the tick.** The tick
+  promises to commit what is open and close; a cast row saves through its own endpoint and was
+  not included in "what is open".
+
+- **A book highlight's character reaches Shuffle, On-this-day and an anthology.** Two server
+  reads still dropped it — one of them selected an empty string where the film branch twenty
+  lines below selected the column — so the card the missing name was first reported on was
+  still showing it blank.
+
+- **Signing out drops the daily deck.** It was cached for five seconds against the timezone,
+  which two people on one machine share, so signing straight back in as somebody else could
+  serve the previous reader's cards, count and streak.
+
+- **A stray mouse-over no longer changes what Enter does in the character box.** Moving the
+  pointer across the list on the way to the tick left a row highlighted, and Enter then
+  replaced what you had typed with whatever the pointer last crossed.
+
+- **The tag and genre box tells the phone keyboard to stay out of it**, like every other
+  field that capitalises its own text. It was the last one still fighting it underneath.
+
+- **A part-finished character-picture fetch resumes.** If the page refreshed mid-fetch the
+  run stopped and marked itself done, so the pictures already downloaded were not shown
+  either until the screen was reopened. The cap is also raised to cover a full provider cast.
+
+- **A staged quote's kind shows on the approval line**, which still read the field it
+  replaced — so an imported letter or essay showed nothing there.
+
+- **A film's collection is called a Collection in the bulk editor**, as it is everywhere
+  else; it said "Series", the other side's word.
+
 ## [2.2.4] - 2026-08-25
 
 ### Fixed

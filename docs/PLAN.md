@@ -7019,3 +7019,51 @@ There is a second cost, and it is the one that made this concrete. Decisions tak
 **It costs nothing when there is nothing to do**, which is what makes it safe to do on a page rather than behind a button: `GET /movies/{id}` already carries both image fields on every cast row, so the page can answer "is anything missing" without asking anyone, and only then goes for the ids. Serial and capped for the reason the panel's is. The page is told once, at the end, and only if something arrived.
 
 <sub>2.2.4 — `web/frontend/src/cast.jsx` · `web/frontend/src/Movies.jsx`</sub>
+
+### A form inside a form, and why a portal does not save you
+
+**Decided.** The work Details form answers a submit only when `e.target === e.currentTarget`, and `PersonForm` stops its own submit at its own form.
+
+**The bug.** The People panel opens the person editor inline, so its `<form>` sits inside the Details `<form>`. Pressing Save on a person ran `PersonForm.submit` and then `FieldList.submit` — which closes the panel, and, with a field row open and dirty, wrote the record. `CoverPicker.jsx` had already written this rule down after the same fault ("the search bounces to the homepage"); the cast panel broke it a year later.
+
+**THE PART THAT IS WORTH KNOWING: a portal does not fix it.** React's synthetic events bubble through the REACT tree, not the DOM tree, so rendering the modal through `createPortal` — which is what the DOM nesting problem seems to call for — leaves the submit bubbling exactly as before. The fix is either to stop it at the inner form or to ignore it at the outer. Both are here, because they fail in opposite directions: the inner one is right at the source and is one line a future modal can forget; the outer one is a rule the panel keeps for every form anybody puts inside it.
+
+**And it was latent for a release.** Before the tick stopped being greyed, `submit` began `if (!unsaved.count) return`, so the stray submit usually did nothing. Making the tick always-enabled did not introduce the leak; it armed it.
+
+<sub>2.2.5 — `web/frontend/src/WorkDetails.jsx` · `web/frontend/src/people.jsx`</sub>
+
+### The last word, and the demotion that makes it safe
+
+**Decided.** `capitalizeTitle` capitalises the last word however small it is.
+
+**Why it was left out, and why that was wrong.** English title case always capitalises the last word. The first version skipped it because of the as-you-type problem: promote the last word and "of" is promoted while it is briefly the last word, then frozen by the already-has-a-capital hatch. That reasoning was sound about the mechanism and wrong about the consequence — because the rule runs on every keystroke, leaving the last word alone did not merely under-capitalise new titles, it REWROTE correct ones. A title imported correctly from a provider became "Bring It on" the moment somebody fixed a typo elsewhere in the field, saved on the keystroke, with no diff.
+
+**What makes it work now is the demotion added for the middle of the string.** The word is lowered again the instant another word appears after it, so the freeze cannot happen. There is exactly one keystroke — between the space and the next letter — where the screen shows "The Wheel Of "; the next character corrects it.
+
+**The general shape.** A rule that runs on every keystroke has to be judged on every PREFIX, not on the finished string. Both faults in this rule came from testing it on the answer.
+
+<sub>2.2.5 — `web/frontend/src/ui.jsx`</sub>
+
+### Reversing a list of one is that list
+
+**Decided.** The two-sided layout swaps by choosing which SIDE each face is given; only the line-up reverses the list.
+
+**The fault.** "Change the people chip from left to right (or simply swap, thus the same key works for two characters as well)" — one person is the plain reading, and one person was the case that did not work, because `[A].reverse()` is `[A]`. The toggle was a no-op on the request's own example, the help text promised it in two languages, and the preference it saved then reversed the reader's next two-person card.
+
+**One flag, three layouts, and it does not follow that one implementation covers them.** The line-up genuinely wants the order reversed. The sides want the side each face is given. Writing both as "reverse the list" was an economy that happened to be correct for two of the three.
+
+**And it was only visible on a backdrop**, which is off by default — so a reader on the default settings never found the control the request asked for. The chips honour it now: a cluster has no edges, so there "swap" means the other face leads, which is the same statement one layout over.
+
+<sub>2.2.5 — `web/frontend/src/quoteImage.js` · `web/frontend/src/share.jsx`</sub>
+
+### Half a sweep is a sweep that reads as done
+
+**Decided.** The character reaches Shuffle, On-this-day and the anthology; the film forms get the title casing; the staging line gets the kind.
+
+**Three separate misses, one shape.** Each was a change applied to the surfaces the author had in front of them: the character to the library card and the shares but not to two server reads that build the same card elsewhere; the title casing to books and to both Details panels but not to the film tab's own forms; the kind to five surfaces but not to the approval queue. Every one of them looked complete from inside the change that made it, and every one leaves the reported symptom visible somewhere the reporter will find it.
+
+**The serendipity one is the sharpest**, because the fault is legible in the source: the book branch selected the literal `''` for the character while the screen branch, twenty lines below, selected `COALESCE(d.character,'')`. Nothing is easier to read past.
+
+**What would have caught them is asking, per change, which OTHER code builds this same thing** — the question `sweep-check` exists for. A test cannot: each surface passed its own.
+
+<sub>2.2.5 — `internal/httpapi/serendipity_handlers.go` · `internal/httpapi/anthology_handlers.go` · `web/frontend/src/Movies.jsx` · `web/frontend/src/StagingPage.jsx`</sub>
