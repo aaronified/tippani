@@ -2133,6 +2133,24 @@
  font-variant-numeric: var(--font-ui-figures); font-size: var(--type-ui-15); color: var(--ink); cursor: pointer;
   }
   .token-opt.hi, .token-opt:hover { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent-ui); }
+  /* ---- the cast combobox's rows: two names, one line ----
+     A film's cast is twenty pairs, and the name you remember is as often the
+     actor's as the character's — so the row carries both, the one this box holds
+     first and the other pushed to the far end in the mono face the meta lines
+     use. `min-width: 0` on the name is what makes the truncation land on the long
+     character name rather than on the actor beside it. */
+  .cast-opt { display: flex; align-items: baseline; gap: 10px; }
+  .cast-opt-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cast-opt-other {
+    margin-left: auto; flex-shrink: 0;
+    font-family: var(--font-mono);
+    font-style: var(--font-mono-style);
+    font-variant-caps: var(--font-mono-caps);
+    text-transform: var(--font-mono-case);
+    font-variant-numeric: var(--font-mono-figures);
+    font-size: var(--type-mono-11); color: var(--soft);
+  }
+  .token-opt.hi .cast-opt-other, .token-opt:hover .cast-opt-other { color: inherit; opacity: .8; }
   /* "More (n)" — a page control, not a value, so it is quieter than the options
      above it and separated by a rule. It never takes .hi: arrowing onto the last
      row reveals the next page instead of landing here. */

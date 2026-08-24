@@ -57,12 +57,16 @@ describe('a book highlight', () => {
   it('offers the book’s own cast and its own chapters', async () => {
     render(<AnnotationForm initial={{ id: 5, book_id: 3, quote: 'x' }} onSubmit={() => null} submitLabel="Save" bookId={3} />)
     await flush()
-    // A datalist per field, holding what the work already knows. Asserted through the
-    // OPTIONS rather than the fetch, because a list nobody can see is not a suggestion.
+    // The chapter fields keep the native datalist; the character box is a real
+    // dropdown since 2.2.3, because a datalist on desktop Chrome shows nothing
+    // until you have typed and this is the box you open to be reminded.
     const options = [...document.querySelectorAll('datalist option')].map((o) => o.value)
-    expect(options, 'the cast is not offered').toContain('Ahab')
     expect(options, 'the chapter names are not offered').toContain('The Whale')
     expect(options, 'the chapter numbers are not offered').toContain('42')
+    // Asserted through what is on SCREEN rather than through the fetch: a list
+    // nobody can see is not a suggestion.
+    fireEvent.focus(document.querySelector('input[role="combobox"]'))
+    expect(screen.getAllByRole('option').map((o) => o.textContent), 'the cast is not offered').toContain('Ahab')
   })
 
   it('fills an empty chapter number from the name, and never overwrites one', async () => {

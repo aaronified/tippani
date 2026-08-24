@@ -25,8 +25,10 @@
 // because a dropdown could not be filled would be a worse form than one with no
 // dropdown. The server logs the failure with its code (TIP-CAST-001,
 // TIP-BOOK-004); the reader types the name.
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { json } from './api.js'
+import { MonoLabel, useAnchoredPosition, useDismiss, useIsMobileScreen, useNameCasing } from './ui.jsx'
 
 // EMPTY is the answer for "no work chosen", shared so callers can destructure
 // without guarding, and frozen so a caller cannot leave a name in it for the next
@@ -110,14 +112,17 @@ export function useWorkSuggestions(target) {
   return { ...state, actorFor, chapterNoFor, chapterNames, chapterNumbers }
 }
 
-// Datalist — a native suggestion list for a plain input.
+// Datalist — a native suggestion list for a plain input. The CHAPTER fields, and
+// only those: the character and actor boxes moved to CastCombo below.
 //
-// NATIVE, AND THAT IS THE WHOLE POINT. A hand-built dropdown here would be a
-// fourth one in this app, and this is the only role where the browser's own is
-// strictly better: it filters as you type, it does not steal the keyboard on a
-// phone, and it never prevents you typing something that is not on the list —
-// which matters, because every one of these fields is free text and the list is a
-// memory aid rather than a vocabulary.
+// NATIVE, AND STILL RIGHT HERE. The argument was that the browser's own list is
+// strictly better in this role — it filters as you type, it does not steal the
+// keyboard on a phone, and it never prevents you typing something that is not on
+// the list. The part that did not survive contact with the character box is
+// DISCOVERABILITY: desktop Chrome opens a datalist only after a keystroke, so a
+// reader who had typed nothing saw nothing. That is fatal for a list of a work's
+// cast, which is the thing you open the box in order to be reminded of, and it
+// costs nothing for a chapter number you are about to type anyway.
 //
 // Rendered as nothing when there is nothing to offer, so an input's `list=` can
 // point at an id that is simply absent; a datalist with no options is the same as
@@ -131,5 +136,179 @@ export function Datalist({ id, options }) {
         <option key={o} value={o} />
       ))}
     </datalist>
+  )
+}
+
+// ---- the cast combobox ------------------------------------------------------
+//
+// CastCombo is the character (or actor) box with the work's own cast hanging
+// under it: a text input that drops a list, filters as you type, and never stops
+// you typing a name the list has never heard of.
+//
+// IT REPLACES A <datalist>, WHICH IS A DECISION REVERSED. The argument for the
+// native list was that the browser's own is strictly better in this one role —
+// it filters, it does not steal a phone's keyboard, and it cannot refuse free
+// text. Two of those are still true and the first one is what went wrong: what
+// the browser actually does with a datalist is a per-browser matter. On desktop
+// Chrome it opens only after a keystroke, so a reader who had typed nothing saw
+// nothing and had no way to learn the list existed; Safari draws it as a
+// scrolling menu of everything; on Android it is a strip above the keyboard that
+// looks like autocorrect. "There is a dropdown here" was not discoverable, which
+// for a memory aid is the whole of its value.
+//
+// So it opens on FOCUS, shows what the work knows, and says who plays each part.
+//
+// TEN ON A DESKTOP, FIVE ON A PHONE, which is the cap the owner asked for and is
+// not arbitrary either way round: a phone's dropdown is drawn over the form it
+// belongs to, and a list of twenty covers the box you are typing into.
+//
+// THE ACTOR IS IN THE ROW, not only in the preview under the box. A film's cast
+// is twenty rows of two names and the one you remember is often the actor's —
+// "the one Alan Rickman played" — so a list of characters alone is a list you
+// have to translate before you can use it. It is free text, so nothing stops the
+// reader typing the actor's name into the character box; the row is what makes
+// that unnecessary rather than what prevents it.
+const COMBO_MAX_DESKTOP = 10
+const COMBO_MAX_MOBILE = 5
+
+// fold is the same accent-and-case fold the rest of the app matches names with,
+// kept local because this file must not import text.js's pure module for one
+// two-line function that has a different job here (substring, not distance).
+const fold = (v) => String(v || '').toLowerCase().trim()
+
+export function CastCombo({
+  label,
+  value,
+  onChange,
+  placeholder,
+  // [{ character, actor }] — the work's cast in billing order, straight from the
+  // hook. `field` says which of the two names this box holds, which decides both
+  // what is matched and what is shown as the second line.
+  cast = [],
+  field = 'character',
+  nameCase = true,
+  inputRef,
+  ariaLabel,
+}) {
+  const [open, setOpen] = useState(false)
+  const [hi, setHi] = useState(-1)
+  const boxRef = useRef(null)
+  const ownRef = useRef(null)
+  const ref = inputRef || ownRef
+  const mobile = useIsMobileScreen()
+  const cap = mobile ? COMBO_MAX_MOBILE : COMBO_MAX_DESKTOP
+  // The same as-you-type capitalisation every other name box has, so a character
+  // typed here is spelled the way the same name typed one form over would be.
+  const setTyped = useNameCasing(value, onChange)
+
+  // The rows, deduped on the name this box holds and in the order they arrived
+  // (billing order, then the reader's own additions) — the lead is the character
+  // most lines belong to, which beats alphabetical for a list of ten.
+  const rows = useMemo(() => {
+    const seen = new Set()
+    const out = []
+    for (const c of cast) {
+      const name = (c?.[field] || '').trim()
+      if (!name || seen.has(fold(name))) continue
+      seen.add(fold(name))
+      out.push({ name, other: (c?.[field === 'character' ? 'actor' : 'character'] || '').trim() })
+    }
+    return out
+  }, [cast, field])
+
+  // A SUBSTRING MATCH, NOT A PREFIX. "quinn" finds "Harley Quinn", which is the
+  // half of the name people actually remember. An exact hit is dropped: a list
+  // whose only row is what is already in the box is a panel over the form saying
+  // nothing.
+  const q = fold(value)
+  const matches = useMemo(
+    () => rows.filter((r) => (!q || fold(r.name).includes(q) || fold(r.other).includes(q)) && fold(r.name) !== q).slice(0, cap),
+    [rows, q, cap],
+  )
+
+  const menuOpen = open && matches.length > 0
+  const { popRef, style } = useAnchoredPosition(menuOpen, boxRef, { matchWidth: true, minHeight: 120 })
+  useDismiss(menuOpen, () => setOpen(false), [boxRef, popRef], { event: 'pointerdown' })
+
+  const pick = (name) => {
+    onChange(name)
+    setOpen(false)
+    setHi(-1)
+  }
+
+  const onKey = (e) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setOpen(true)
+      setHi((h) => Math.min(h + 1, matches.length - 1))
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setHi((h) => Math.max(h - 1, -1))
+    } else if (e.key === 'Enter' && menuOpen && hi >= 0) {
+      // Only with a row HIGHLIGHTED. Enter in a form field submits the form, and
+      // swallowing that unconditionally would make the dropdown a trap on the one
+      // control most likely to be the last thing typed.
+      e.preventDefault()
+      pick(matches[hi].name)
+    } else if (e.key === 'Escape' && menuOpen) {
+      // Stopped here rather than allowed to bubble: the dialog this box sits in
+      // closes on Escape, and losing the whole form to a dismissed dropdown is
+      // the sort of thing you only do once before you stop using the dropdown.
+      e.stopPropagation()
+      setOpen(false)
+    }
+  }
+
+  return (
+    <div className="tp-field" ref={boxRef}>
+      {label && <MonoLabel>{label}</MonoLabel>}
+      <input
+        ref={ref}
+        className="tp-input"
+        role="combobox"
+        aria-expanded={menuOpen}
+        aria-autocomplete="list"
+        aria-label={ariaLabel || label}
+        autoComplete="off"
+        placeholder={placeholder}
+        value={value || ''}
+        onChange={(e) => {
+          if (nameCase) setTyped(e.target.value)
+          else onChange(e.target.value)
+          setOpen(true)
+          setHi(-1)
+        }}
+        onFocus={() => setOpen(true)}
+        onKeyDown={onKey}
+        onBlur={(e) => {
+          // The menu is portalled, so it is not a descendant of boxRef — asking
+          // only boxRef makes every option click look like focus leaving the
+          // control, and closes the menu before the click can land.
+          if (boxRef.current?.contains(e.relatedTarget)) return
+          if (popRef.current?.contains(e.relatedTarget)) return
+          setOpen(false)
+        }}
+      />
+      {menuOpen && createPortal(
+        <ul ref={popRef} className="token-menu" style={style} role="listbox">
+          {matches.map((r, i) => (
+            <li key={r.name} role="presentation">
+              <button
+                type="button"
+                role="option"
+                aria-selected={i === hi}
+                className={'token-opt cast-opt' + (i === hi ? ' hi' : '')}
+                onMouseEnter={() => setHi(i)}
+                onClick={() => pick(r.name)}
+              >
+                <span className="cast-opt-name">{r.name}</span>
+                {r.other && <span className="cast-opt-other">{r.other}</span>}
+              </button>
+            </li>
+          ))}
+        </ul>,
+        document.body,
+      )}
+    </div>
   )
 }

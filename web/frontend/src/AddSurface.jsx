@@ -8,7 +8,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { json, errText } from './api.js'
-import { Datalist, useWorkSuggestions } from './suggest.jsx'
+import { CastCombo, Datalist, useWorkSuggestions } from './suggest.jsx'
 import { t } from './i18n.js'
 import { CandidateRow, groupEditions } from './CoverPicker.jsx'
 import { ManualTab, isIsbn } from './Library.jsx'
@@ -1015,21 +1015,18 @@ export function CaptureQuote({ initialTarget = null, initialStandalone = false, 
       ) : isScreen ? (
         <>
         <div className="grid grid-cols-2 gap-3">
-          <label className="tp-field">
-            <MonoLabel>{t('common.field.character.label')}</MonoLabel>
-            {/* THE CAST, AS YOU TYPE. The list is this work's own characters, so it
-                is a memory aid rather than a vocabulary — the box still takes
-                anybody, which matters for the line the cast list has never heard
-                of. See suggest.js for why the browser's own dropdown is the right
-                one here. */}
-            <input
-              className="tp-input"
-              list={suggest.characters.length ? `${listId}-char` : undefined}
+          <div>
+            {/* THE CAST, AS YOU TYPE. The list is this work's own characters and
+                the actor who plays each, so it is a memory aid rather than a
+                vocabulary — the box still takes anybody, which matters for the
+                line the cast list has never heard of. */}
+            <CastCombo
+              label={t('common.field.character.label')}
               placeholder={t('common.field.character.placeholder')}
               value={draft.character}
-              onChange={(e) => set({ character: e.target.value })}
+              onChange={(v) => set({ character: v })}
+              cast={suggest.cast}
             />
-            <Datalist id={`${listId}-char`} options={suggest.characters} />
             {/* Who plays them, from the cast. The same preview the film page's edit
                 form draws, and for the same reason: the actor is DERIVED on save,
                 so seeing it here is how you know the character matched a real row
@@ -1037,7 +1034,7 @@ export function CaptureQuote({ initialTarget = null, initialStandalone = false, 
             {impliedActor && (
               <span className="microcopy">{t('capture.form.played-by.prose', { name: impliedActor })}</span>
             )}
-          </label>
+          </div>
           {/* A game has no timestamp — see isGame. Its second box is the act. */}
           {isGame ? (
             <label className="tp-field">
@@ -1133,17 +1130,13 @@ export function CaptureQuote({ initialTarget = null, initialStandalone = false, 
             highlight edited on the book's page could. The list is the book's own
             cast: rows with a character and nobody beside them, which is what a
             book's cast list is. */}
-        <label className="tp-field">
-          <MonoLabel>{t('common.field.character.label')}</MonoLabel>
-          <input
-            className="tp-input"
-            list={suggest.characters.length ? `${listId}-char` : undefined}
-            placeholder={t('book.quote.form.character.placeholder')}
-            value={draft.character}
-            onChange={(e) => set({ character: e.target.value })}
-          />
-          <Datalist id={`${listId}-char`} options={suggest.characters} />
-        </label>
+        <CastCombo
+          label={t('common.field.character.label')}
+          placeholder={t('book.quote.form.character.placeholder')}
+          value={draft.character}
+          onChange={(v) => set({ character: v })}
+          cast={suggest.cast}
+        />
         </>
       )}
       <label className="tp-field">

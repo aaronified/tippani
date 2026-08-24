@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { DEMO, json, errText, downloadPost } from './api.js'
 import { chapterLabel } from './text.js'
-import { Datalist, useWorkSuggestions } from './suggest.jsx'
+import { CastCombo, Datalist, useWorkSuggestions } from './suggest.jsx'
 import { CoverControls, BookLookupPicker } from './CoverPicker.jsx'
 import { FlowQuote } from './flow.jsx'
 import { ScreenHelpSheet } from './help.jsx'
@@ -2119,14 +2119,13 @@ export function AnnotationForm({ initial, onSubmit, onCancel, submitLabel, tagSu
         {/* Who said it, from the book's own cast — rows with a character and nobody
             beside them, which is what a book's cast list is (0048). Free text, so a
             speaker the list has never heard of is typed straight in. */}
-        <Field
+        <CastCombo
           label={t('common.field.character.label')}
           placeholder={t('book.quote.form.character.placeholder')}
           value={character}
-          list={suggest.characters.length ? `${listId}-char` : undefined}
-          onChange={(e) => setCharacter(e.target.value)}
+          onChange={setCharacter}
+          cast={suggest.cast}
         />
-        <Datalist id={`${listId}-char`} options={suggest.characters} />
       </div>
       <label className="block">
         <MonoLabel className="mb-1.5 block">{t('common.field.tags.label')}</MonoLabel>
