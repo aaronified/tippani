@@ -53,10 +53,10 @@ func (s *Server) handleExportQuotes(w http.ResponseWriter, r *http.Request) {
 // utteranceRow, which carries sticker coordinates and an id the file has no
 // use for.
 type utteranceExportRow struct {
-	id                                             int64
-	quote, note, color                             string
-	speaker, occasion, occasionDate, place, medium string
-	category, language, translation                string
+	id                                                   int64
+	quote, note, color                                   string
+	speaker, occasion, occasionDate, place, medium, kind string
+	category, language, translation                      string
 	// 0047 — what a proverb, a letter and an essay carry. Written unconditionally
 	// for every quote, whatever board it is on, because the kind lives on the BOARD
 	// and the board does not round-trip yet: a file that only wrote a recipient for
@@ -70,7 +70,7 @@ type utteranceExportRow struct {
 
 func (s *Server) renderQuotesExport(uid int64, ids []int64) (string, error) {
 	q := `SELECT id, quote, COALESCE(note,''), color, COALESCE(speaker,''), COALESCE(occasion,''),
-	             COALESCE(occasion_date,''), COALESCE(place,''), COALESCE(medium,''),
+	             COALESCE(occasion_date,''), COALESCE(place,''), COALESCE(medium,''), COALESCE(kind,''),
 	             category, language, translation,
 	             region, recipient, work_title, locator, occasion_circa,
 	             favorite, COALESCE(noted_at,'')
@@ -97,7 +97,7 @@ func (s *Server) renderQuotesExport(uid int64, ids []int64) (string, error) {
 		// No COALESCE on the five: NOT NULL DEFAULT (0047), so the zero value is
 		// what a row predating them holds. Same rule as utteranceCols.
 		if err := rows.Scan(&u.id, &u.quote, &u.note, &u.color, &u.speaker, &u.occasion,
-			&u.occasionDate, &u.place, &u.medium,
+			&u.occasionDate, &u.place, &u.medium, &u.kind,
 			&u.category, &u.language, &u.translation,
 			&u.region, &u.recipient, &u.workTitle, &u.locator, &u.occasionCirca,
 			&u.favorite, &u.notedAt); err != nil {
@@ -155,6 +155,12 @@ func (s *Server) renderQuotesExport(uid int64, ids []int64) (string, error) {
 				// Region pairs with place the way it pairs with language on the form: a
 				// Bengali proverb from Sylhet is not one from Kolkata.
 				writeBinding(&sb, "region", u.region)
+				// 0053, and BEFORE `medium`: the kind is what the quote IS and the
+				// medium is a leftover the interface no longer offers. Written only
+				// when it is set, like every other binding, so a shelf whose kinds
+				// nobody has filled in exports exactly as it did before 0053 and
+				// diffs clean against an older file.
+				writeBinding(&sb, "kind", u.kind)
 				writeBinding(&sb, "medium", u.medium)
 				// The essay's two, coarse to fine, exactly as the book export writes a
 				// chapter before a page. `work_title` and `locator` are named

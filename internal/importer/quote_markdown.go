@@ -32,11 +32,22 @@ type Utterance struct {
 	Occasion     string
 	OccasionDate string // partial: YYYY | YYYY-MM | YYYY-MM-DD, validated server-side
 	Place        string
-	Medium       string
-	Color        string // "" -> caller defaults to yellow
-	Tags         []string
-	Favorite     bool
-	NotedAt      string // when YOU saved it, as the file's `date` binding said
+	// SUPERSEDED BY Kind (0053) and still read: `medium` is on every row already
+	// stored and the export still writes it, so a backup taken before 0053 has to
+	// restore.
+	Medium string
+	// 0053. What kind of thing the quote is, from a fixed list. The FILE KEY IS
+	// `kind`, which until now was an alias for `category` — a change of meaning
+	// worth stating: the three values they share (proverb, speech, other) land in
+	// the same place either way, because `category` was superseded by the board a
+	// quote sits on (0036) and no longer decides anything, while `letter` and
+	// `essay` were previously REFUSED by importCategory. So every file that used to
+	// import still imports, and two values that used to be errors now work.
+	Kind     string
+	Color    string // "" -> caller defaults to yellow
+	Tags     []string
+	Favorite bool
+	NotedAt  string // when YOU saved it, as the file's `date` binding said
 	// 0035. Which board the quote belongs on, the language it is in, and what it
 	// says. Category "" -> caller defaults to 'other', matching the column: a file
 	// written before the three boards existed named no category, and every line in
@@ -185,12 +196,17 @@ func applyQuoteBinding(cur *Utterance, line string) {
 		cur.Note = val
 	case "color", "colour":
 		cur.Color = val
-	// 0035. `kind` and `type` are accepted as aliases because a
-	// hand-written file is as likely to reach for either, and neither can
-	// collide here: `type` lives in the frontmatter, which this loop never
-	// sees.
-	case "category", "kind", "type":
+	// 0035. `type` is accepted as an alias because a hand-written file is as
+	// likely to reach for it, and it cannot collide here: `type` lives in the
+	// frontmatter, which this loop never sees.
+	//
+	// `kind` USED TO BE THE THIRD ALIAS and is now its own field — see
+	// Utterance.Kind for why that is safe.
+	case "category", "type":
 		cur.Category = strings.ToLower(val)
+	// 0053, and the key the export writes.
+	case "kind":
+		cur.Kind = strings.ToLower(val)
 	case "language", "lang":
 		cur.Language = val
 	// 0047. Region pairs with language; `to` is what a letter is addressed with,

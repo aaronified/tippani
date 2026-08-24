@@ -2283,7 +2283,7 @@ quotes.starter.already.label = আগে থেকেই আছে
 quotes.form.when.label = কবে
 # WHERE IT IS FILED, which is a board — the word is historical.
 # ?? English "Kind" is historical and means the board it is filed on
-quotes.form.kind.label = বোর্ড
+quotes.form.kind.label = ধরন
 
 # The board being read.
 quotes.board.back.label = সব বোর্ড
@@ -2298,15 +2298,15 @@ quotes.board.counts-described = {n} {noun} · {description}
 quotes.filters.colour.aria = রং দিয়ে ফিল্টার করুন
 quotes.filters.speaker.aria = বক্তা দিয়ে ফিল্টার করুন
 quotes.filters.speaker.all.label = সব বক্তা
-quotes.filters.medium.aria = মাধ্যম দিয়ে ফিল্টার করুন
-quotes.filters.medium.all.label = সব মাধ্যম
+quotes.filters.kind.aria = ধরন দিয়ে ফিল্টার
+quotes.filters.kind.all.label = সব ধরন
 quotes.filters.language.aria = ভাষা দিয়ে ফিল্টার করুন
 quotes.filters.language.all.label = সব ভাষা
 
 # Group by. "Quotes" here means UNGROUPED — one pile.
 quotes.group.none.label = উক্তি
 quotes.group.speaker.label = বক্তা
-quotes.group.medium.label = মাধ্যম
+quotes.group.kind.label = ধরন
 quotes.group.place.label = জায়গা
 quotes.group.decade.label = দশক
 # Offered on a proverb board only: on a board of speeches the field is empty on
@@ -2315,7 +2315,7 @@ quotes.group.language.label = ভাষা
 # The catch-all section heading, per dimension. It says WHAT IS MISSING rather
 # than "None", because a proverb lands in the catch-all of every one of these.
 quotes.group.residual.speaker.label = বক্তা নেই
-quotes.group.residual.medium.label = মাধ্যম নেই
+quotes.group.residual.kind.label = ধরন বলা হয়নি
 quotes.group.residual.place.label = জায়গা নেই
 quotes.group.residual.language.label = ভাষা নেই
 quotes.group.residual.none.label = কিছু নেই
@@ -2432,7 +2432,7 @@ share.field.speaker.label = বক্তা
 share.field.occasion.label = উপলক্ষ
 share.field.when.label = কবে
 share.field.place.label = জায়গা
-share.field.medium.label = মাধ্যম
+share.field.medium.label = ধরন
 share.field.tags.label = ট্যাগ
 share.field.note.label = নোট
 share.field.translation.label = অনুবাদ
@@ -2795,6 +2795,12 @@ film.fetch.info.body = TMDB আর TheTVDB-তে খোঁজে, তারপ�
 # picker cannot offer different sets. "movie" is the stored token; the WORD is
 # Film, because that is what a reader calls it.
 vocab.kind.movie.label = সিনেমা
+vocab.quote-kind.unset.label = (বলা হয়নি)
+vocab.quote-kind.speech.label = বক্তৃতা
+vocab.quote-kind.letter.label = চিঠি
+vocab.quote-kind.essay.label = প্রবন্ধ
+vocab.quote-kind.proverb.label = প্রবাদ
+vocab.quote-kind.other.label = অন্য
 vocab.kind.show.label = শো
 vocab.kind.game.label = গেম
 
@@ -4649,8 +4655,6 @@ common.field.region.label = অঞ্চল
 common.field.recipient.label = প্রাপক
 common.field.work-title.label = উৎসের নাম
 common.field.locator.label = পৃষ্ঠা
-common.field.medium.label = মাধ্যম
-common.field.medium.placeholder = রেডিও, ভাষণ, চিঠি…
 common.field.language.label = ভাষা
 common.field.language.placeholder = বাংলা, হিন্দি…
 common.field.orig-language.label = মূল ভাষা

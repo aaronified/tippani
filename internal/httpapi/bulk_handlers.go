@@ -105,7 +105,8 @@ type bulkTagReq struct {
 	Speaker     *string `json:"speaker"`      // quote
 	Occasion    *string `json:"occasion"`     // quote
 	Place       *string `json:"place"`        // quote
-	Medium      *string `json:"medium"`       // quote
+	Medium      *string `json:"medium"`       // quote (superseded by kind, 0053)
+	Kind        *string `json:"kind"`         // quote, and one of 0053's five words
 	Region      *string `json:"region"`       // quote
 	Recipient   *string `json:"recipient"`    // quote
 	WorkTitle   *string `json:"work_title"`   // quote
@@ -192,6 +193,7 @@ var quoteFieldKinds = map[string][]string{
 	"occasion":     {"utterance"},
 	"place":        {"utterance"},
 	"medium":       {"utterance"},
+	"kind":         {"utterance"},
 	"region":       {"utterance"},
 	"recipient":    {"utterance"},
 	"work_title":   {"utterance"},
@@ -226,6 +228,10 @@ var quoteFieldKinds = map[string][]string{
 var notNullQuoteCols = map[string]bool{
 	"character": true, "act": true, "quest": true, "episode_name": true,
 	"speaker": true, "occasion": true, "place": true, "medium": true,
+	// 0053's column is NOT NULL DEFAULT '' like its neighbours, and '' is a legal
+	// VALUE here rather than only a cleared one — "nobody has said what kind this
+	// is" is the answer the empty string means.
+	"kind":   true,
 	"region": true, "recipient": true, "work_title": true, "locator": true,
 }
 
@@ -244,7 +250,7 @@ func bulkQuoteFieldPtrs(req *bulkTagReq) map[string]*string {
 		"character": req.Character, "actor": req.Actor, "timestamp": req.Timestamp,
 		"act": req.Act, "quest": req.Quest, "episode_name": req.EpisodeName,
 		"speaker": req.Speaker, "occasion": req.Occasion,
-		"place": req.Place, "medium": req.Medium,
+		"place": req.Place, "medium": req.Medium, "kind": req.Kind,
 		"region": req.Region, "recipient": req.Recipient,
 		"work_title": req.WorkTitle, "locator": req.Locator,
 	}
@@ -291,6 +297,18 @@ func (s *Server) bulkTag(w http.ResponseWriter, r *http.Request, kind string) {
 	if req.Color != nil && !validColor(*req.Color) {
 		writeErr(w, http.StatusBadRequest, "invalid color")
 		return
+	}
+	// 0053's CHECK is on the column, so an unknown value would arrive as a 500 from
+	// inside the transaction, after the ownership check — the most expensive place
+	// to find out. Refused here, in the same shape as the colour above it. Lowered
+	// first, so "Speech" is the same answer as "speech".
+	if req.Kind != nil {
+		k := strings.ToLower(strings.TrimSpace(*req.Kind))
+		if !validQuoteKind(k) {
+			writeErr(w, http.StatusBadRequest, "kind must be "+quoteKindList())
+			return
+		}
+		req.Kind = &k
 	}
 	// A FIELD THIS KIND HAS NO COLUMN FOR IS A 400, NOT A SILENT DROP. `character`
 	// on a shelf of standalone quotes is a request the caller has got wrong, and

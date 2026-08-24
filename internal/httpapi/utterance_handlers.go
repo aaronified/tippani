@@ -32,6 +32,39 @@ import (
 // embedded anonymously so the JSON stays flat, and colours, tags, notes,
 // favourites, stickers and the review dot all behave identically.
 
+// quoteKinds is WHAT KIND OF THING a standalone quote is (0053) — the fixed list
+// that replaced the free-text `medium` 0026 gave this table.
+//
+// THE EMPTY STRING IS A LEGAL VALUE and it is the default: a quote whose kind
+// nobody has said is
+// not an 'other'. 'other' is a decision, and a default pretending to be one is a
+// lie the interface then reports as a fact. So the empty string is in the CHECK, in
+// this list, and in the interface as "(not set)".
+//
+// WIDENING IT IS A MIGRATION, not an edit here — the CHECK is on the column. That
+// is the cost of a fixed vocabulary, and it is worth paying: `medium` was free text
+// and the Quotes board groups on it, so grouping produced one shelf per spelling
+// and nothing could tell you that "Speech" and "speech" were the same kind of
+// thing.
+var quoteKinds = []string{"", "speech", "letter", "essay", "proverb", "other"}
+
+func validQuoteKind(k string) bool {
+	for _, v := range quoteKinds {
+		if k == v {
+			return true
+		}
+	}
+	return false
+}
+
+// quoteKindList is the human list for an error message, built from the set for the
+// reason quoteCategoryList is. The empty value is skipped, because a list that
+// starts with nothing is not a sentence and "omit it" is what it would mean.
+func quoteKindList() string {
+	named := quoteKinds[1:]
+	return strings.Join(named[:len(named)-1], ", ") + " or " + named[len(named)-1]
+}
+
 // quoteCategories is what KIND of standalone quote a row is (0035), in the order
 // the screens are offered. Unlike annotationColors this is NOT append-only for a
 // schema reason — the CHECK is on one column of one table — but it is still a
@@ -64,7 +97,16 @@ type utteranceReq struct {
 	Occasion     string `json:"occasion"`      // a rally, a broadcast, a letter, a recording
 	OccasionDate string `json:"occasion_date"` // PARTIAL: YYYY | YYYY-MM | YYYY-MM-DD
 	Place        string `json:"place"`
-	Medium       string `json:"medium"` // radio, speech, letter, interview, song
+	// SUPERSEDED BY Kind (0053) and still accepted. Free text, and the interface no
+	// longer offers a box for it — but it is on every row already stored, the
+	// Markdown export writes it, and the importer reads it back, so refusing it here
+	// would make a backup taken yesterday fail to restore today.
+	Medium string `json:"medium"` // radio, speech, letter, interview, song
+	// 0053. What kind of thing this quote is, from a fixed list: speech, letter,
+	// essay, proverb, other — or '' for "nobody has said". This is what `medium`
+	// was trying to be and could not, because a hand-typed value cannot be grouped
+	// on. See the vocabulary above.
+	Kind string `json:"kind"`
 	// 0035. Which of the three boards this quote lives on, and — for a line that
 	// is not in the reader's own language — what it says.
 	//
@@ -151,6 +193,15 @@ func (u *utteranceReq) validate() string {
 	if !validQuoteCategory(u.Category) {
 		return "category must be " + quoteCategoryList()
 	}
+	// AN OMITTED KIND IS '' AND NOT A 400 — the column default, and the honest
+	// value: a client that has never heard of 0053 is not claiming this quote is an
+	// 'other', it is saying nothing. A value that is not on the list IS a 400,
+	// because a fixed vocabulary that silently accepts anything is free text with
+	// extra steps.
+	u.Kind = strings.ToLower(strings.TrimSpace(u.Kind))
+	if !validQuoteKind(u.Kind) {
+		return "kind must be " + quoteKindList()
+	}
 
 	// A quote with no words is not a quote by anything the word could mean. An
 	// annotation may be a bare note about a page, because the page is the thing
@@ -186,6 +237,10 @@ type utteranceRow struct {
 	OccasionDate string `json:"occasion_date"`
 	Place        string `json:"place"`
 	Medium       string `json:"medium"`
+	// 0053. On the list row for the reason category is: it is what the card says a
+	// quote IS, and a board that had to fetch each quote singly to caption its own
+	// shelf is the thing the two-level screen exists to avoid.
+	Kind string `json:"kind"`
 	// 0035. On the LIST row as well as the single read, unlike book credits: the
 	// board a quote belongs on is what the client needs in order to draw the
 	// board at all. The translation moved to quoteRow in 0051 and reaches this
@@ -210,7 +265,7 @@ type utteranceRow struct {
 // utteranceCols includes the LEFT-JOINed spaced-repetition state; every SELECT
 // using it must add utteranceReviewJoin.
 const utteranceCols = `u.id, u.quote, COALESCE(u.note, ''), u.color, u.favorite,
-	u.speaker, u.occasion, u.occasion_date, u.place, u.medium,
+	u.speaker, u.occasion, u.occasion_date, u.place, u.medium, COALESCE(u.kind, ''),
 	u.category, u.language, u.translation, COALESCE(u.board_id, 0),
 	u.region, u.recipient, u.work_title, u.locator, u.occasion_circa,
 	COALESCE(u.noted_at, ''), u.sticker_id, u.sticker_x, u.sticker_y, u.created_at, u.updated_at,
@@ -222,7 +277,7 @@ const utteranceReviewJoin = ` LEFT JOIN item_reviews r ON r.kind = 'utterance' A
 func scanUtterance(sc interface{ Scan(...any) error }) (utteranceRow, error) {
 	var u utteranceRow
 	err := sc.Scan(&u.ID, &u.Quote, &u.Note, &u.Color, &u.Favorite,
-		&u.Speaker, &u.Occasion, &u.OccasionDate, &u.Place, &u.Medium,
+		&u.Speaker, &u.Occasion, &u.OccasionDate, &u.Place, &u.Medium, &u.Kind,
 		&u.Category, &u.Language, &u.Translation, &u.BoardID,
 		&u.Region, &u.Recipient, &u.WorkTitle, &u.Locator, &u.OccasionCirca,
 		&u.NotedAt, &u.StickerID, &u.StickerX, &u.StickerY, &u.CreatedAt, &u.UpdatedAt,
@@ -294,14 +349,14 @@ func (s *Server) handleCreateUtterance(w http.ResponseWriter, r *http.Request) {
 	}
 	res, err := tx.Exec(`
 		INSERT INTO utterances (id, user_id, quote, note, color, favorite,
-		                        speaker, occasion, occasion_date, place, medium,
+		                        speaker, occasion, occasion_date, place, medium, kind,
 		                        category, language, translation, board_id,
 		                        region, recipient, work_title, locator, occasion_circa,
 		                        source, dedupe_hash, noted_at, sticker_id, sticker_x, sticker_y)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')), ?, ?, ?)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')), ?, ?, ?)
 		ON CONFLICT DO NOTHING`,
 		id, uid, req.Quote, nullable(req.Note), req.Color, req.Favorite,
-		req.Speaker, req.Occasion, req.OccasionDate, req.Place, req.Medium,
+		req.Speaker, req.Occasion, req.OccasionDate, req.Place, req.Medium, req.Kind,
 		req.Category, req.Language, req.Translation, boardID,
 		// Plain values, like the five above them: every column here is NOT NULL with
 		// a zero-value default, so nullable() would turn "" into the violation.
@@ -527,14 +582,14 @@ func (s *Server) handleUpdateUtterance(w http.ResponseWriter, r *http.Request) {
 	// heading. See 0035.
 	res, err := tx.Exec(`
 		UPDATE utterances SET quote = ?, note = ?, color = ?, favorite = ?,
-		       speaker = ?, occasion = ?, occasion_date = ?, place = ?, medium = ?,
+		       speaker = ?, occasion = ?, occasion_date = ?, place = ?, medium = ?, kind = ?,
 		       category = ?, language = ?, translation = ?, board_id = ?,
 		       region = ?, recipient = ?, work_title = ?, locator = ?, occasion_circa = ?,
 		       dedupe_hash = ?, sticker_id = ?, sticker_x = ?, sticker_y = ?,
 		       updated_at = datetime('now')
 		WHERE id = ? AND user_id = ?`,
 		req.Quote, nullable(req.Note), req.Color, req.Favorite,
-		req.Speaker, req.Occasion, req.OccasionDate, req.Place, req.Medium,
+		req.Speaker, req.Occasion, req.OccasionDate, req.Place, req.Medium, req.Kind,
 		req.Category, req.Language, req.Translation, boardID,
 		// Full-state, like every other field in this UPDATE — see the note above on
 		// board_id for what a client that omits one of them is asking for.

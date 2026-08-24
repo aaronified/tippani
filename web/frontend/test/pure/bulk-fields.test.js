@@ -52,7 +52,10 @@ describe('what may be set over a selection', () => {
     )
     expect(keys('annotation')).toEqual(expect.arrayContaining(['note', 'chapter', 'chapter_no', 'location']))
     expect(keys('dialogue')).toEqual(expect.arrayContaining(['character', 'actor', 'timestamp']))
-    expect(keys('quote')).toEqual(expect.arrayContaining(['speaker', 'occasion', 'place', 'medium']))
+    // `kind` (0053) rather than the free-text `medium` it replaced: that field has
+    // no box on any form now, and a bulk editor is the wrong place to keep one.
+    expect(keys('quote')).toEqual(expect.arrayContaining(['speaker', 'occasion', 'place', 'kind']))
+    expect(keys('quote'), 'the retired free-text field is still offered').not.toContain('medium')
   })
 
   // A field offered to a kind with no such column would be a 400 from the

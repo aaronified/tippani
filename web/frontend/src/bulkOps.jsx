@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { json, errText } from './api.js'
 import { t } from './i18n.js'
+import { quoteKindOptions } from './quoteKind.js'
 import { toast } from './ui.jsx'
 
 // What acting on some rows actually DOES — the network half of the action
@@ -227,7 +228,11 @@ export const BULK_QUOTE_FIELDS = [
   { key: 'speaker', get label() { return t('common.field.speaker.label') }, kinds: ['quote'] },
   { key: 'occasion', get label() { return t('common.field.occasion.label') }, kinds: ['quote'] },
   { key: 'place', get label() { return t('common.field.place.label') }, kinds: ['quote'] },
-  { key: 'medium', get label() { return t('common.field.medium.label') }, kinds: ['quote'] },
+  // 0053. The free-text `medium` it replaced is deliberately NOT here: it has no
+  // box on any form any more, and a bulk editor is the wrong place to reintroduce
+  // one — "set the medium on forty quotes" over a field nothing else offers is a
+  // way to fill a column the interface has stopped reading.
+  { key: 'kind', get label() { return t('quotes.form.kind.label') }, kinds: ['quote'], get options() { return quoteKindOptions().slice(1) } },
 ]
 
 export function bulkFieldsFor(kind) {

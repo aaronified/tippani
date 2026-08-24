@@ -1,0 +1,72 @@
+-- 0053: a standalone quote says WHAT KIND OF THING IT IS, from a fixed list.
+--
+-- WHAT THIS REPLACES. 0026 gave the table `medium` — free text, "radio, speech,
+-- letter, interview, song" — and the interface offered it as a box you typed into.
+-- Free text was the wrong shape for it and the board screen is where that shows:
+-- `medium` is one of the dimensions the Quotes board groups by, and grouping on a
+-- hand-typed field produces one bucket per spelling. "Speech", "speech", "a
+-- speech" and "Speech (radio)" are four shelves holding one kind of thing, and
+-- nothing in the interface can tell you they are the same or offer to merge them.
+--
+-- A genre had the same problem and got titleCaseGenre, a normaliser over an open
+-- vocabulary. That works for genres because the reader keeps adding to the list.
+-- This list does not grow: speech, letter, essay, proverb, other is what a
+-- standalone quote is, and the answer to "what about a poem" is that a poem is an
+-- essay's shape — a work title and a locator — which 0047 already named
+-- generically for exactly this reason.
+--
+-- So: a fixed vocabulary, enforced by the column.
+--
+-- ---------------------------------------------------------------- the values
+--
+-- '' IS ONE OF THEM, and it is the default. A quote whose kind nobody has said is
+-- not an 'other' — 'other' is a decision, and a default that pretends to be one is
+-- a lie the interface then reports as a fact. Every row starts unset, the one-time
+-- pass (onetime_2_2_3_quote_kind.go) fills in what it can read, and what it cannot
+-- read stays unset and visible as work to do.
+--
+-- The CHECK goes in the ADD COLUMN, which SQLite permits — 0035 does exactly this
+-- for utterances.category and 0021 for dialogues.color. No table rebuild, and
+-- therefore none of the FTS drop-and-recreate a rebuild of this table would drag
+-- in.
+--
+-- ADDING A SIXTH VALUE LATER IS A MIGRATION, not an edit here, and that is the
+-- cost of the CHECK rather than an oversight: 0029 took the colour list from four
+-- to six by rebuilding five tables. It is worth paying because the alternative is
+-- what `medium` already was.
+--
+-- ------------------------------------------------- what happens to `medium`
+--
+-- NOTHING, AND THAT IS DELIBERATE. The column stays, with every value it holds.
+-- The interface stops offering it, the one-time pass reads it, and the Markdown
+-- export goes on writing it — so a reader whose `medium` said something this list
+-- cannot express has not lost it, and a card whose kind is unset still shows the
+-- old text rather than nothing. Dropping it would mean a table rebuild to destroy
+-- data, which is two bad ideas in one statement.
+--
+-- `category` (0035) stays for the same reason and is in the same position: it was
+-- superseded by the board a quote sits on (0036), and its three values fold into
+-- this column's five. The pass reads it as a fallback.
+--
+-- --------------------------------------------------------- the dedupe hash
+--
+-- IT STAYS OUT, on 0035's argument in 0035's words: the occasion is part of what
+-- the quote IS, while the kind is where you have decided to file it. The same
+-- words filed as a proverb and as an other are one saved line that somebody moved,
+-- not two. And folding it in would stale every hash already on disk — the hash is
+-- a SHA computed in Go and SQL cannot recompute it.
+
+ALTER TABLE utterances ADD COLUMN kind TEXT NOT NULL DEFAULT ''
+  CHECK (kind IN ('', 'speech', 'letter', 'essay', 'proverb', 'other'));
+
+-- The staging mirror takes the column WITHOUT the CHECK, exactly as 0035 gave
+-- staged_quotes an unconstrained `category`. A staged row is somebody's file
+-- before anybody has approved it: refusing it at the door means an import fails
+-- with a constraint error naming a column, where the approval screen could have
+-- shown the value and let the reader fix it.
+ALTER TABLE staged_quotes ADD COLUMN kind TEXT NOT NULL DEFAULT '';
+
+-- Grouped and filtered on, per user, exactly like category. Not in FTS: it is a
+-- filter value rather than prose, which is 0026's rule about place and medium and
+-- 0035's about category.
+CREATE INDEX idx_utterances_kind ON utterances(user_id, kind);

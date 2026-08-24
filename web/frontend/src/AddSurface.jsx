@@ -10,6 +10,7 @@ import { createPortal } from 'react-dom'
 import { json, errText } from './api.js'
 import { CastCombo, Datalist, useWorkSuggestions } from './suggest.jsx'
 import { t } from './i18n.js'
+import { quoteKindOptions } from './quoteKind.js'
 import { CandidateRow, groupEditions } from './CoverPicker.jsx'
 import { ManualTab, isIsbn } from './Library.jsx'
 import { ManualMovie, sourceRef, candSourceID, DuplicateConfirm, countOrNull } from './Movies.jsx'
@@ -27,6 +28,7 @@ import {
   IconClose,
   MobileSheet,
   MonoLabel,
+  Select,
   PartialDateField,
   isPartialDate,
   Toggle,
@@ -692,7 +694,7 @@ export function CaptureQuote({ initialTarget = null, initialStandalone = false, 
       targetKey: fresh ? sitting.targetKey || null : null,
     }
   })
-  const [draft, setDraft] = useState({ target: null, quote: '', note: '', chapter: '', chapter_no: '', location: '', character: '', timestamp: '', season: '', episode: '', episodeName: '', act: '', quest: '', tags: seed.tags, color: seed.color, speaker: '', occasion: '', occasionDate: '', place: '', medium: '',
+  const [draft, setDraft] = useState({ target: null, quote: '', note: '', chapter: '', chapter_no: '', location: '', character: '', timestamp: '', season: '', episode: '', episodeName: '', act: '', quest: '', tags: seed.tags, color: seed.color, speaker: '', occasion: '', occasionDate: '', place: '', kind: '',
     // 0047's five, which the edit form gained in this release and this one needs for
     // the same reason: a letter's recipient and an essay's page are known at the
     // moment the quote is typed, not later.
@@ -808,7 +810,7 @@ export function CaptureQuote({ initialTarget = null, initialStandalone = false, 
           occasion: draft.occasion.trim(),
           occasion_date: draft.occasionDate.trim(),
           place: draft.place.trim(),
-          medium: draft.medium.trim(),
+          kind: draft.kind,
           region: draft.region.trim(),
           recipient: draft.recipient.trim(),
           work_title: draft.workTitle.trim(),
@@ -975,9 +977,18 @@ export function CaptureQuote({ initialTarget = null, initialStandalone = false, 
               <input className="tp-input" placeholder={t('common.field.place.placeholder')} value={draft.place} onChange={(e) => set({ place: e.target.value })} />
             </label>
           </div>
+          {/* 0053. Five words, chosen, where a free-text "Medium" box used to be:
+              the Quotes board groups by this, and grouping on something typed
+              gives one shelf per spelling. Unset is the default and a real
+              answer. */}
           <label className="tp-field">
-            <MonoLabel>{t('common.field.medium.label')}</MonoLabel>
-            <input className="tp-input" placeholder={t('common.field.medium.placeholder')} value={draft.medium} onChange={(e) => set({ medium: e.target.value })} />
+            <MonoLabel>{t('quotes.form.kind.label')}</MonoLabel>
+            <Select
+              ariaLabel={t('quotes.form.kind.label')}
+              value={draft.kind}
+              onChange={(v) => set({ kind: v })}
+              options={quoteKindOptions()}
+            />
           </label>
           {/* WHAT THE KIND CARRIES (0047), the same four boxes and the same heading as
               the edit form — a proverb's region, a letter's recipient, an essay's

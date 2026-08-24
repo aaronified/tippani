@@ -17,6 +17,7 @@ import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { LanguageMark } from './languages.jsx'
 import { json, errText, downloadPost } from './api.js'
 import { t } from './i18n.js'
+import { QUOTE_KINDS, quoteKindLabel, quoteKindMeta, quoteKindOptions } from './quoteKind.js'
 import { AnnotationCard, fmtDate } from './Library.jsx'
 import { CreditFaces, DEFAULT_CREDIT_SEPS, PersonModal, PersonName, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
 import { ShareDialog, copyQuote, quoteShare } from './share.jsx'
@@ -130,7 +131,15 @@ export function utteranceState(u) {
     occasion: u.occasion || '',
     occasion_date: u.occasion_date || '',
     place: u.place || '',
+    // SUPERSEDED BY `kind` (0053) and still carried. The interface no longer offers
+    // a box for it, the column keeps every value it holds, and this object is
+    // full-state — so dropping it here would clear it on the next ♥, which is the
+    // opposite of keeping it.
     medium: u.medium || '',
+    // 0053, AND THE FOURTH TIME THIS TRAP HAS BEEN SPRUNG IN THIS ONE OBJECT. See
+    // the note below: a field missing from here is a field CLEARED by every
+    // full-state PUT, which includes recolouring a card.
+    kind: u.kind || '',
     // 0035, AND THIS IS A SILENT-LOSS SITE. Every PUT here is full-state, so a field
     // missing from this object is a field CLEARED by the request. The ♥ on a card,
     // the colour dots and the selection bar all save through it — so omitting these
@@ -207,7 +216,11 @@ export function utteranceMeta(u, { people, seps, onOpenPerson, omitSpeaker } = {
   // 0035. The language joins the strip because for a PROVERB it is often the only
   // locator there is — no speaker, no occasion, no date, no place — so without it a
   // Bengali proverb's meta line is empty and the card says nothing about itself.
-  const rest = [u.occasion, formatPartialDate(u.occasion_date), u.place, u.medium, u.language].filter(Boolean)
+  // 0053. The KIND's word where `medium`'s raw text used to be — and falling back
+  // to that text when no kind is set, so a value the one-time pass could not read
+  // stays on the card as work to do rather than vanishing in the release that
+  // replaced the field.
+  const rest = [u.occasion, formatPartialDate(u.occasion_date), u.place, quoteKindMeta(u), u.language].filter(Boolean)
   // The string forms feed the share image and the group headings, where a second
   // line has nowhere to go. They stay one line; only the rich form below grows.
   if (omitSpeaker) return rest.join(' · ')
@@ -263,7 +276,9 @@ export function UtteranceForm({ initial, onSubmit, onCancel, submitLabel, tagSug
   const [occasion, setOccasion] = useState(initial?.occasion || '')
   const [occasionDate, setOccasionDate] = useState(initial?.occasion_date || '')
   const [place, setPlace] = useState(initial?.place || '')
-  const [medium, setMedium] = useState(initial?.medium || '')
+  // 0053. What kind of thing this is, from a fixed list. `medium` is still on the
+  // record and still sent (see the payload below); it just has no box any more.
+  const [kind, setKind] = useState(initial?.kind || '')
   // 0035. Which board this belongs on, and — for a line not in the reader's own
   // language — what it says. Editable by hand because nothing else sets them: the
   // starter proverbs arrive categorised, and anything you type arrives as 'other'.
@@ -319,7 +334,9 @@ export function UtteranceForm({ initial, onSubmit, onCancel, submitLabel, tagSug
       occasion: occasion.trim(),
       occasion_date: occasionDate.trim(),
       place: place.trim(),
-      medium: medium.trim(),
+      // Carried, not offered: the box is gone and the value is not.
+      medium: initial?.medium || '',
+      kind,
       category,
       board_id: boardID,
       language: language.trim(),
@@ -388,18 +405,28 @@ export function UtteranceForm({ initial, onSubmit, onCancel, submitLabel, tagSug
           onChange={(e) => setPlace(e.target.value)}
         />
       </div>
-      <Field
-        label={t('common.field.medium.label')}
-        placeholder={t('common.field.medium.placeholder')}
-        value={medium}
-        onChange={(e) => setMedium(e.target.value)}
-      />
       <label className="block">
         <MonoLabel className="mb-1 block">{t('quotes.form.kind.label')}</MonoLabel>
-        {/* The board, not the "kind". 0036 made the three fixed kinds into
-            shelves the reader owns, so this is where a quote is filed rather
-            than what it is — and it is the one field that has to be here,
-            because a PUT without it moves the quote. */}
+        {/* 0053, AND IT IS WHAT THE FREE-TEXT "MEDIUM" BOX WAS REACHING FOR. Five
+            words, chosen, rather than anything typed — because the board below
+            GROUPS by this, and grouping on a hand-typed field gives one shelf per
+            spelling. "(not set)" is a real answer and the default: 'other' is a
+            decision, and a default pretending to be one is a lie the card then
+            reports as a fact. */}
+        <Select
+          ariaLabel={t('quotes.form.kind.label')}
+          value={kind}
+          onChange={setKind}
+          options={quoteKindOptions()}
+        />
+      </label>
+      <label className="block">
+        <MonoLabel className="mb-1 block">{t('common.field.board.label')}</MonoLabel>
+        {/* THE BOARD, WHICH IS WHERE IT IS FILED and not what it is — and until
+            0053 this control was labelled "Kind", with a comment saying it was not
+            one. Now that there is a real kind beside it, it takes its own name. It
+            is the one field that has to be on this form, because a PUT without it
+            moves the quote. */}
         {boards.length > 0 && (
           <Select
             ariaLabel={t('common.field.board.label')}
@@ -529,13 +556,13 @@ export function utteranceYear(u) {
 const groupOptions = () => [
   ['none', t('quotes.group.none.label')],
   ['speaker', t('quotes.group.speaker.label')],
-  ['medium', t('quotes.group.medium.label')],
+  ['kind', t('quotes.group.kind.label')],
   ['place', t('quotes.group.place.label')],
   ['decade', t('quotes.group.decade.label')],
 ]
 // The catch-all heading per dimension, as KEYS — resolved at grouping time.
 const GROUP_RESIDUAL = {
-  medium: 'quotes.group.residual.medium.label',
+  kind: 'quotes.group.residual.kind.label',
   place: 'quotes.group.residual.place.label',
   language: 'quotes.group.residual.language.label',
 }
@@ -588,8 +615,11 @@ export function groupUtterances(list, dim, seps) {
     splitCredit: true,
     creditResidual: t('quotes.group.residual.speaker.label'),
     year: utteranceYear,
-    // medium and place are literal column names, so the accessor is the dim.
-    facet: (u, d) => u[d],
+    // place is a literal column name, so the accessor is the dim. `kind` is a
+    // column too but its VALUE is a machine word, so it groups by the label — a
+    // shelf heading reading "speech" in a Bengali interface would be the one
+    // untranslated string on the screen.
+    facet: (u, d) => (d === 'kind' ? quoteKindLabel(u.kind) : u[d]),
     facetResidual: (d) => t(GROUP_RESIDUAL[d] || 'quotes.group.residual.none.label'),
     seps,
   })
@@ -657,7 +687,10 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
   const [noted, setNoted] = usePersistedState('tippani:quotes:noted', false)
   const [tag, setTag] = usePersistedState('tippani:quotes:tag', '')
   const [speaker, setSpeaker] = usePersistedState('tippani:quotes:speaker', '')
-  const [medium, setMedium] = usePersistedState('tippani:quotes:medium', '')
+  // 0053. A NEW KEY rather than the old `…:medium`, and that discards whatever
+  // free text was last filtered on — which is the right outcome: the old value is
+  // not a legal kind, so keeping it would restore a filter that matches nothing.
+  const [kind, setKind] = usePersistedState('tippani:quotes:kind', '')
   // THE BOARD, not a filter — one of the three, always exactly one.
   //
   // It defaults to 'other', which is what every quote already in a library IS: 0035
@@ -732,10 +765,13 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
     for (const u of board) for (const n of splitCredits(u.speaker || '', seps)) seen.add(n)
     return [...seen].sort((a, b) => a.localeCompare(b))
   }, [board, seps])
-  const mediums = useMemo(() => {
-    const seen = new Set()
-    for (const u of board) if (u.medium) seen.add(u.medium)
-    return [...seen].sort((a, b) => a.localeCompare(b))
+  // 0053. From the FIXED list, narrowed to what this board actually holds — not
+  // from the values in use, which is what `medium` needed because it was free text.
+  // In the list's own order rather than alphabetically: it is a vocabulary, and its
+  // order is a decision (see quoteKind.js).
+  const kinds = useMemo(() => {
+    const seen = new Set(board.map((u) => u.kind).filter(Boolean))
+    return QUOTE_KINDS.filter((k) => seen.has(k))
   }, [board])
   // Free text in 0035, so the only honest list is the one in use — the same rule
   // `mediums` follows. Offered only when the board actually holds more than one.
@@ -756,7 +792,7 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
     // the lines they said together — the same rule the card and the share image
     // use to decide who is credited.
     if (speaker) list = list.filter((u) => splitCredits(u.speaker || '', seps).includes(speaker))
-    if (medium) list = list.filter((u) => u.medium === medium)
+    if (kind) list = list.filter((u) => u.kind === kind)
     if (language) list = list.filter((u) => u.language === language)
     if (sort === 'recent') return list
     list = [...list]
@@ -766,7 +802,7 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
     // big-endian: '1944' < '1944-08' < '1945'. Undated sinks rather than leading.
     else if (sort === 'said') list.sort((a, b) => (a.occasion_date || '\uffff').localeCompare(b.occasion_date || '\uffff'))
     return list
-  }, [board, color, favOnly, tagged, noted, tag, speaker, medium, language, sort, seps])
+  }, [board, color, favOnly, tagged, noted, tag, speaker, kind, language, sort, seps])
 
   // groupBy is persisted across boards, so a grouping only one KIND of board
   // offers has to be checked against the board you are actually on rather than
@@ -820,7 +856,10 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
       occasion: u.occasion,
       when: formatPartialDate(u.occasion_date),
       place: u.place,
-      medium: u.medium,
+      // The kind's WORD, not its machine value, and falling back to the old
+      // free-text medium the same way the card's meta line does — a share is a
+      // picture somebody else reads.
+      medium: quoteKindMeta(u),
       date: fmtDate(u.noted_at || u.created_at),
       tags: u.tags,
       color: u.color,
@@ -886,7 +925,7 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
   const selects = [
     tags.length > 0 && ['tag', t('common.filters.tag.aria'), tag, setTag, [['', t('common.filters.tag.all.label')], ...tags.map((row) => [row.name, row.name])]],
     speakers.length > 0 && ['speaker', t('quotes.filters.speaker.aria'), speaker, setSpeaker, [['', t('quotes.filters.speaker.all.label')], ...speakers.map((n) => [n, n])]],
-    mediums.length > 0 && ['medium', t('quotes.filters.medium.aria'), medium, setMedium, [['', t('quotes.filters.medium.all.label')], ...mediums.map((m) => [m, m])]],
+    kinds.length > 0 && ['kind', t('quotes.filters.kind.aria'), kind, setKind, [['', t('quotes.filters.kind.all.label')], ...kinds.map((k) => [k, quoteKindLabel(k)])]],
     languages.length > 1 && ['language', t('quotes.filters.language.aria'), language, setLanguage, [['', t('quotes.filters.language.all.label')], ...languages.map((l) => [l, l])]],
   ].filter(Boolean)
 

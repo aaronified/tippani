@@ -605,6 +605,12 @@ type stagedQuoteRow struct {
 	OccasionDate string `json:"occasion_date"`
 	Place        string `json:"place"`
 	Medium       string `json:"medium"`
+	// 0053. Carried through the queue for the reason `category` above is carried:
+	// this app's own export is an importer's source and every import is staged, so
+	// a field the queue does not hold survives the export, survives the parse and
+	// is silently dropped on the way in — with a successful import and matching
+	// counts saying nothing happened.
+	Kind string `json:"kind"`
 	// 0035, and carried through the queue for the reason 0034 records about
 	// translator: this app's own export is an importer's source and every import
 	// is staged, so a field the queue does not hold is a field that survives the
@@ -910,7 +916,7 @@ func (s *Server) listStagedQuotes(w http.ResponseWriter, r *http.Request, uid, b
 	             COALESCE(q.tags, ''),
 	             COALESCE(q.noted_at, ''), q.created_at,
 	             COALESCE(q.speaker, ''), COALESCE(q.occasion, ''), COALESCE(q.occasion_date, ''),
-	             COALESCE(q.place, ''), COALESCE(q.medium, ''),
+	             COALESCE(q.place, ''), COALESCE(q.medium, ''), COALESCE(q.kind, ''),
 	             COALESCE(q.category, 'other'), COALESCE(q.language, ''),
 	             COALESCE(q.translation, ''),
 	             q.region, q.recipient, q.work_title, q.locator, q.occasion_circa,
@@ -933,7 +939,7 @@ func (s *Server) listStagedQuotes(w http.ResponseWriter, r *http.Request, uid, b
 			&sq.Timestamp, &sq.TimestampOrig, &sq.Season, &sq.Episode,
 			&sq.EpisodeName, &sq.Act, &sq.Quest,
 			&tags, &sq.NotedAt, &sq.CreatedAt,
-			&sq.Speaker, &sq.Occasion, &sq.OccasionDate, &sq.Place, &sq.Medium,
+			&sq.Speaker, &sq.Occasion, &sq.OccasionDate, &sq.Place, &sq.Medium, &sq.Kind,
 			&sq.Category, &sq.Language, &sq.Translation,
 			&sq.Region, &sq.Recipient, &sq.WorkTitle, &sq.Locator, &sq.OccasionCirca,
 			&sq.Anthology, &sq.AnthologyNote, &sq.AnthologyIntro); err != nil {
@@ -1261,7 +1267,7 @@ func loadStagedForApproval(tx *sql.Tx, picked stagedSelection) ([]stagedWorkForA
 			       q.episode_name, q.act, q.quest, COALESCE(q.tags, ''),
 			       COALESCE(q.noted_at, ''),
 			       COALESCE(q.speaker, ''), COALESCE(q.occasion, ''), COALESCE(q.occasion_date, ''),
-			       COALESCE(q.place, ''), COALESCE(q.medium, ''),
+			       COALESCE(q.place, ''), COALESCE(q.medium, ''), COALESCE(q.kind, ''),
 			       COALESCE(q.category, 'other'), COALESCE(q.language, ''), COALESCE(q.translation, ''),
 			       q.region, q.recipient, q.work_title, q.locator, q.occasion_circa,
 			       COALESCE(q.anthology, ''), COALESCE(q.anthology_note, ''),
@@ -1279,7 +1285,7 @@ func loadStagedForApproval(tx *sql.Tx, picked stagedSelection) ([]stagedWorkForA
 			if err := rows.Scan(&sq.ID, &sq.StagedWorkID, &sq.Quote, &sq.Note, &sq.Color, &sq.Favorite,
 				&sq.Chapter, &sq.ChapterNo, &sq.Location, &sq.Character, &sq.Actor, &sq.Timestamp,
 				&sq.Season, &sq.Episode, &sq.EpisodeName, &sq.Act, &sq.Quest, &tags, &sq.NotedAt,
-				&sq.Speaker, &sq.Occasion, &sq.OccasionDate, &sq.Place, &sq.Medium,
+				&sq.Speaker, &sq.Occasion, &sq.OccasionDate, &sq.Place, &sq.Medium, &sq.Kind,
 				&sq.Category, &sq.Language, &sq.Translation,
 				&sq.Region, &sq.Recipient, &sq.WorkTitle, &sq.Locator, &sq.OccasionCirca,
 				&sq.Anthology, &sq.AnthologyNote, &sq.AnthologyIntro); err != nil {
@@ -1362,7 +1368,7 @@ func stagedAsUtterances(quotes []stagedQuoteRow) []importer.Utterance {
 	for _, q := range quotes {
 		out = append(out, importer.Utterance{
 			Quote: q.Quote, Note: q.Note, Speaker: q.Speaker, Occasion: q.Occasion,
-			OccasionDate: q.OccasionDate, Place: q.Place, Medium: q.Medium,
+			OccasionDate: q.OccasionDate, Place: q.Place, Medium: q.Medium, Kind: q.Kind,
 			Category: q.Category, Language: q.Language, Translation: q.Translation,
 			Region: q.Region, Recipient: q.Recipient, WorkTitle: q.WorkTitle,
 			Locator: q.Locator, OccasionCirca: q.OccasionCirca, // 0047

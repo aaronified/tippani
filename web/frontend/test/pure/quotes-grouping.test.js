@@ -12,10 +12,10 @@
 import { describe, expect, it } from 'vitest'
 import { groupUtterances, utteranceYear } from '../../src/Quotes.jsx'
 
-const BOSE = { id: 1, speaker: 'Subhas Chandra Bose', occasion: 'Burma Radio broadcast', occasion_date: '1944', place: 'Burma', medium: 'radio' }
-const BOSE2 = { id: 2, speaker: 'Subhas Chandra Bose', occasion: 'Burma Radio broadcast', occasion_date: '1944', place: 'Burma', medium: 'radio' }
-const FDR = { id: 3, speaker: 'Franklin D. Roosevelt', occasion: 'first inaugural address', occasion_date: '1933-03-04', place: 'Washington', medium: 'speech' }
-const PROVERB = { id: 4, speaker: '', occasion: '', occasion_date: '', place: '', medium: '' }
+const BOSE = { id: 1, speaker: 'Subhas Chandra Bose', occasion: 'Burma Radio broadcast', occasion_date: '1944', place: 'Burma', kind: 'speech' }
+const BOSE2 = { id: 2, speaker: 'Subhas Chandra Bose', occasion: 'Burma Radio broadcast', occasion_date: '1944', place: 'Burma', kind: 'speech' }
+const FDR = { id: 3, speaker: 'Franklin D. Roosevelt', occasion: 'first inaugural address', occasion_date: '1933-03-04', place: 'Washington', kind: 'letter' }
+const PROVERB = { id: 4, speaker: '', occasion: '', occasion_date: '', place: '', kind: '' }
 
 const ALL = [BOSE, BOSE2, FDR, PROVERB]
 const labels = (groups) => groups.map((g) => g.label)
@@ -75,15 +75,18 @@ describe('grouping by speaker', () => {
   })
 })
 
-describe('grouping by medium and place', () => {
+describe('grouping by kind and place', () => {
   // One test over both dimensions rather than two: the call and the matcher are
   // identical and only the dimension and its expected labels differ. The two
-  // tests just below already loop over ['medium', 'place'] the same way, so a
+  // tests just below already loop over ['kind', 'place'] the same way, so a
   // table here matches the file's own style; the single toEqual over collected
   // pairs names whichever dimension bucketed wrongly.
-  it('buckets by medium, and by place', () => {
+  it('buckets by kind, and by place', () => {
+    // 0053. `kind` groups by the WORD, not the stored value — a shelf heading
+    // reading "speech" in a Bengali interface would be the one untranslated string
+    // on the screen — so the labels here are the interface's words.
     const want = [
-      ['medium', ['radio', 'speech', 'No medium']],
+      ['kind', ['Letter', 'Speech', 'No kind']],
       ['place', ['Burma', 'Washington', 'No place']],
     ]
     expect(want.map(([dim]) => [dim, labels(groupUtterances(ALL, dim))])).toEqual(want)
@@ -93,7 +96,7 @@ describe('grouping by medium and place', () => {
   // accessor were wrong the groups would silently all be residual — every quote
   // in one "None" pile, which looks like a screen with no data rather than a bug.
   it('does not put everything in the residual bucket', () => {
-    for (const dim of ['medium', 'place']) {
+    for (const dim of ['kind', 'place']) {
       const groups = groupUtterances(ALL, dim)
       expect(groups.filter((g) => g.residual)).toHaveLength(1)
       expect(groups.length, dim).toBeGreaterThan(1)
@@ -101,7 +104,7 @@ describe('grouping by medium and place', () => {
   })
 
   it('names each residual for its own dimension', () => {
-    expect(groupUtterances(ALL, 'medium').at(-1).label).toBe('No medium')
+    expect(groupUtterances(ALL, 'kind').at(-1).label).toBe('No kind')
     expect(groupUtterances(ALL, 'place').at(-1).label).toBe('No place')
   })
 })
@@ -125,7 +128,7 @@ describe('grouping by decade', () => {
 
 describe('every dimension', () => {
   it('keeps every quote, and loses none', () => {
-    for (const dim of ['speaker', 'medium', 'place', 'decade']) {
+    for (const dim of ['speaker', 'kind', 'place', 'decade']) {
       const seen = new Set()
       for (const g of groupUtterances(ALL, dim)) for (const u of g.items) seen.add(u.id)
       expect([...seen].sort(), dim).toEqual([1, 2, 3, 4])
@@ -133,7 +136,7 @@ describe('every dimension', () => {
   })
 
   it('files the proverb in the residual of all four', () => {
-    for (const dim of ['speaker', 'medium', 'place', 'decade']) {
+    for (const dim of ['speaker', 'kind', 'place', 'decade']) {
       const residual = groupUtterances(ALL, dim).find((g) => g.residual)
       expect(residual, dim).toBeTruthy()
       expect(ids(residual), dim).toEqual([4])
@@ -141,7 +144,7 @@ describe('every dimension', () => {
   })
 
   it('returns nothing for an empty shelf', () => {
-    for (const dim of ['speaker', 'medium', 'place', 'decade']) {
+    for (const dim of ['speaker', 'kind', 'place', 'decade']) {
       expect(groupUtterances([], dim), dim).toEqual([])
     }
   })

@@ -12,6 +12,7 @@ import { AnnotationForm, annotationState, annDate, fmtDate } from './Library.jsx
 import { DialogueForm, dialogueState } from './Movies.jsx'
 import { UtteranceForm, utteranceState } from './Quotes.jsx'
 import { t, tNodes } from './i18n.js'
+import { quoteKindMeta } from './quoteKind.js'
 import { PendingImportCard } from './StagingPage.jsx'
 import { QuizRunner, tzOffsetMinutes } from './review.jsx'
 import {
@@ -427,7 +428,9 @@ function screenFav(d, movieMap) {
 // used to have no open button at all, on the reasoning that a quote has nothing
 // behind it. True of a parent record, false of a destination.
 function quoteFav(u) {
-  const rest = [u.occasion, formatPartialDate(u.occasion_date), u.place, u.medium].filter(Boolean)
+  // 0053. The kind's word, falling back to the old free-text medium — the same
+  // rule utteranceMeta follows, spelled through the same helper.
+  const rest = [u.occasion, formatPartialDate(u.occasion_date), u.place, quoteKindMeta(u)].filter(Boolean)
   return {
     key: `quote:${u.id}`,
     kind: 'quote',
@@ -701,7 +704,7 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
         quote: f.raw.quote, translation: f.raw.translation, note: f.raw.note,
         category: f.raw.category, language: f.raw.language,
         speaker: f.raw.speaker, occasion: f.raw.occasion,
-        when: formatPartialDate(f.raw.occasion_date), place: f.raw.place, medium: f.raw.medium,
+        when: formatPartialDate(f.raw.occasion_date), place: f.raw.place, medium: quoteKindMeta(f.raw),
         date: fmtDate(f.raw.noted_at || f.raw.created_at),
         tags: f.raw.tags, color: f.raw.color, people: speakerMap, seps,
       })

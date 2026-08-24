@@ -108,6 +108,47 @@ func importCategory(raw string) (string, error) {
 	return c, nil
 }
 
+// importQuoteKind normalises a file's `kind` binding (0053), and — when the file
+// has none — reads it off the old fields the same way the 2.2.3 one-time pass
+// reads them.
+//
+// THE FALLBACK IS THE POINT. Restoring a backup written before 0053 has to land
+// where UPGRADING a live database lands, or the same library ends up in two
+// different states depending on which route it took. The rule is the pass's rule:
+// `medium` when it is one of the five words, then `category` for the two of its
+// three values that were real answers, and nothing otherwise.
+//
+// 'other' IS NOT READ FROM `category`. 0035 defaulted every existing row to
+// 'other' precisely so that nothing was reclassified, so 'other' there means
+// "nobody has said" — reading it as a deliberate answer would invent a decision
+// per row.
+//
+// An unknown `kind` IS refused, as an importClientError, so it reaches the person
+// as a 400 naming the bad word rather than as a 500 from the CHECK three steps
+// later. Same shape as importCategory, one column over.
+//
+// The mapping is written out twice — here and in onetime_2_2_3_quote_kind.go — and
+// that is deliberate: the pass is a file to be DELETED once no instance is behind
+// 2.2.3, and a shared helper would make the deletion a refactor.
+func importQuoteKind(raw, medium, category string) (string, error) {
+	if k := strings.ToLower(strings.TrimSpace(raw)); k != "" {
+		if !validQuoteKind(k) {
+			return "", importClientError{fmt.Sprintf("invalid kind %q (expected %s)", raw, quoteKindList())}
+		}
+		return k, nil
+	}
+	if m := strings.ToLower(strings.TrimSpace(medium)); m != "" && validQuoteKind(m) {
+		return m, nil
+	}
+	switch strings.ToLower(strings.TrimSpace(category)) {
+	case "proverb":
+		return "proverb", nil
+	case "speech":
+		return "speech", nil
+	}
+	return "", nil
+}
+
 // stageQuotesWork creates (or reuses) the batch's one synthetic group.
 func stageQuotesWork(tx *sql.Tx, batchID int64) (int64, error) {
 	var id int64
@@ -143,11 +184,11 @@ func stageUtterances(tx *sql.Tx, workID int64, us []importer.Utterance) (int, er
 	const q = `
 		INSERT OR IGNORE INTO staged_quotes
 		  (staged_work_id, quote, note, color, favorite, tags, noted_at,
-		   speaker, occasion, occasion_date, place, medium,
+		   speaker, occasion, occasion_date, place, medium, kind,
 		   category, language, translation,
 		   region, recipient, work_title, locator, occasion_circa, dedupe_hash,
 		   anthology, anthology_note, anthology_intro)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	staged := 0
 	for _, u := range us {
 		color := u.Color
@@ -165,6 +206,12 @@ func stageUtterances(tx *sql.Tx, workID int64, us []importer.Utterance) (int, er
 		if err != nil {
 			return 0, err
 		}
+		// 0053, refused here for the same reason the category is: a bad word in a
+		// file is cheap to fix while the file is still in the queue.
+		kind, err := importQuoteKind(u.Kind, u.Medium, u.Category)
+		if err != nil {
+			return 0, err
+		}
 		text := u.Quote
 		if text == "" {
 			text = u.Note
@@ -173,7 +220,7 @@ func stageUtterances(tx *sql.Tx, workID int64, us []importer.Utterance) (int, er
 		res, err := tx.Exec(q, workID, nullable(u.Quote), nullable(u.Note), color, u.Favorite,
 			joinTags(u.Tags), nullable(u.NotedAt),
 			strings.TrimSpace(u.Speaker), strings.TrimSpace(u.Occasion),
-			strings.TrimSpace(u.OccasionDate), strings.TrimSpace(u.Place), strings.TrimSpace(u.Medium),
+			strings.TrimSpace(u.OccasionDate), strings.TrimSpace(u.Place), strings.TrimSpace(u.Medium), kind,
 			category, strings.TrimSpace(u.Language), strings.TrimSpace(u.Translation),
 			// 0047. Trimmed like their neighbours, and passed as plain values — these
 			// are NOT NULL DEFAULT columns, so nullable() would send a NULL where the
@@ -235,6 +282,12 @@ func writeUtterances(tx *sql.Tx, uid int64, us []importer.Utterance) (int, error
 		if err != nil {
 			return added, err
 		}
+		// 0053. The same normalisation the staging path runs, so an approve and a
+		// direct import of one file land on the same value.
+		kind, err := importQuoteKind(u.Kind, u.Medium, u.Category)
+		if err != nil {
+			return added, err
+		}
 		occDate := strings.TrimSpace(u.OccasionDate)
 		if occDate != "" {
 			if msg := normalizePartialDate("occasion date", &occDate); msg != "" {
@@ -261,13 +314,13 @@ func writeUtterances(tx *sql.Tx, uid int64, us []importer.Utterance) (int, error
 		res, err := tx.Exec(`
 			INSERT OR IGNORE INTO utterances
 			  (id, user_id, quote, note, color, favorite, speaker, occasion, occasion_date,
-			   place, medium, category, language, translation,
+			   place, medium, kind, category, language, translation,
 			   region, recipient, work_title, locator, occasion_circa,
 			   board_id, source, dedupe_hash, noted_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'import', ?, ?)`,
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'import', ?, ?)`,
 			id, uid, strings.TrimSpace(u.Quote), nullable(u.Note), color, u.Favorite,
 			speaker, occasion, occDate,
-			strings.TrimSpace(u.Place), strings.TrimSpace(u.Medium),
+			strings.TrimSpace(u.Place), strings.TrimSpace(u.Medium), kind,
 			category, strings.TrimSpace(u.Language), strings.TrimSpace(u.Translation),
 			// 0047. Plain trimmed values, NOT NULL DEFAULT columns — see stageUtterances.
 			// A collision here is a skip (the file is already in the library), so unlike

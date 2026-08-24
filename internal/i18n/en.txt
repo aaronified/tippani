@@ -2279,15 +2279,15 @@ quotes.board.counts-described = {n} {noun} · {description}
 quotes.filters.colour.aria = Filter by category
 quotes.filters.speaker.aria = Filter by speaker
 quotes.filters.speaker.all.label = all speakers
-quotes.filters.medium.aria = Filter by medium
-quotes.filters.medium.all.label = all media
+quotes.filters.kind.aria = Filter by kind
+quotes.filters.kind.all.label = all kinds
 quotes.filters.language.aria = Filter by language
 quotes.filters.language.all.label = all languages
 
 # Group by. "Quotes" here means UNGROUPED — one pile.
 quotes.group.none.label = Quotes
 quotes.group.speaker.label = Speaker
-quotes.group.medium.label = Medium
+quotes.group.kind.label = Kind
 quotes.group.place.label = Place
 quotes.group.decade.label = Decade
 # Offered on a proverb board only: on a board of speeches the field is empty on
@@ -2296,7 +2296,7 @@ quotes.group.language.label = Language
 # The catch-all section heading, per dimension. It says WHAT IS MISSING rather
 # than "None", because a proverb lands in the catch-all of every one of these.
 quotes.group.residual.speaker.label = No speaker
-quotes.group.residual.medium.label = No medium
+quotes.group.residual.kind.label = No kind
 quotes.group.residual.place.label = No place
 quotes.group.residual.language.label = No language
 quotes.group.residual.none.label = None
@@ -2400,7 +2400,7 @@ share.field.speaker.label = Speaker
 share.field.occasion.label = Occasion
 share.field.when.label = When
 share.field.place.label = Place
-share.field.medium.label = Medium
+share.field.medium.label = Kind
 share.field.tags.label = Tags
 share.field.note.label = Note
 # A proverb's English translation. Ticked by default, unlike the note: a proverb
@@ -2769,6 +2769,12 @@ film.fetch.info.body = Searches TMDB and TheTVDB, then compares each field with 
 # picker cannot offer different sets. "movie" is the stored token; the WORD is
 # Film, because that is what a reader calls it.
 vocab.kind.movie.label = Film
+vocab.quote-kind.unset.label = (not set)
+vocab.quote-kind.speech.label = Speech
+vocab.quote-kind.letter.label = Letter
+vocab.quote-kind.essay.label = Essay
+vocab.quote-kind.proverb.label = Proverb
+vocab.quote-kind.other.label = Other
 vocab.kind.show.label = Show
 vocab.kind.game.label = Game
 
@@ -4930,8 +4936,6 @@ common.field.region.label = Region
 common.field.recipient.label = To
 common.field.work-title.label = Source title
 common.field.locator.label = Page
-common.field.medium.label = Medium
-common.field.medium.placeholder = radio, speech, letter…
 common.field.language.label = Language
 common.field.language.placeholder = Bengali, Hindi…
 common.field.orig-language.label = Original language

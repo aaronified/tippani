@@ -151,14 +151,21 @@ func TestAFileWithAnUnknownCategoryIsRefused(t *testing.T) {
 }
 
 // A quotes file is hand-written as often as it is exported, so the parser takes
-// the obvious alternative KEYS (`kind`, `lang`, `english`) and does not care
-// about the case of the VALUE.
+// the obvious alternative KEYS (`lang`, `english`) and does not care about the
+// case of the VALUE.
 //
 // The key itself is still case-sensitive, and deliberately not changed here:
 // every binding in every parser in this package matches its key exactly, so
 // folding case for `category` alone would make this one key behave unlike the
 // eight beside it. Worth doing across the board one day; not as a side effect of
 // adding a category.
+//
+// `kind` WAS A THIRD ALIAS FOR `category` AND IS NOW ITS OWN FIELD (0053), which
+// is why this test reads both columns. The three values they share land in the
+// same place either way — the board a quote sits on decides its shelf (0036), and
+// `category` has decided nothing since — and `letter` and `essay` used to be
+// REFUSED outright by importCategory, so nothing that imported before imports
+// differently now, and two values that used to be errors have started working.
 func TestAHandWrittenCategoryIsForgiving(t *testing.T) {
 	h := newTestServer(t).Handler()
 	c := signupAdmin(t, h)
@@ -169,13 +176,26 @@ func TestAHandWrittenCategoryIsForgiving(t *testing.T) {
 	staged := stageQuotesMD(t, c, "q.md", md)
 	approveBatch(t, c, staged.BatchID)
 
-	got := decode[utterancesResp](t, c.mustDo("GET", "/quotes?category=proverb", nil, http.StatusOK))
-	if len(got.Utterances) != 2 {
-		t.Fatalf("both hand-written spellings should have filed as proverbs: %+v", got.Utterances)
+	all := decode[utterancesResp](t, c.mustDo("GET", "/quotes", nil, http.StatusOK))
+	if len(all.Utterances) != 2 {
+		t.Fatalf("both quotes should have imported: %+v", all.Utterances)
 	}
 	byQuote := map[string]utteranceRow{}
-	for _, u := range got.Utterances {
+	for _, u := range all.Utterances {
 		byQuote[u.Quote] = u
+	}
+	// EITHER KEY, EITHER CASE, produces the kind — `category: Proverb` through the
+	// importer's fallback and `kind: PROVERB` directly.
+	for q, u := range byQuote {
+		if u.Kind != "proverb" {
+			t.Fatalf("%q came back with kind %q, want proverb", q, u.Kind)
+		}
+	}
+	// And the `category:` key still writes the column it names, case-folded, so the
+	// filter that reads it goes on answering.
+	filtered := decode[utterancesResp](t, c.mustDo("GET", "/quotes?category=proverb", nil, http.StatusOK))
+	if len(filtered.Utterances) != 1 || filtered.Utterances[0].Category != "proverb" {
+		t.Fatalf("`category: Proverb` did not fold into the category column: %+v", filtered.Utterances)
 	}
 	if e := byQuote["Least said, soonest mended"]; e.Language != "English" {
 		t.Fatalf("`lang` should be read as the language: %+v", e)
