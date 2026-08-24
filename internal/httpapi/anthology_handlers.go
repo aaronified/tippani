@@ -294,7 +294,16 @@ func (s *Server) entriesFor(uid, id int64) ([]anthologyEntryRow, error) {
 	const q = `
 		SELECT e.kind, e.item_id, e.position, e.note,
 		       COALESCE(a.quote,''), COALESCE(a.note,''), a.color, a.favorite,
-		       b.title, COALESCE(b.author,''), b.id,
+		       b.title,
+		       -- WHO SAYS IT, THEN WHO WROTE IT — the same shape the screen branch
+		       -- below uses for its character and actor, and for the same reason: a
+		       -- highlight from a novel is very often a line somebody speaks (0047),
+		       -- and this is the one output that leaves the app as a document. The
+		       -- author alone was the whole credit until now.
+		       TRIM(COALESCE(a.character,'') || CASE
+		         WHEN COALESCE(a.character,'') <> '' AND COALESCE(b.author,'') <> ''
+		         THEN ' · ' ELSE '' END || COALESCE(b.author,'')),
+		       b.id,
 		       TRIM(TRIM(
 		         CASE WHEN COALESCE(a.chapter_no,0) <> 0
 		              THEN CAST(CAST(a.chapter_no AS INTEGER) AS TEXT) ||

@@ -345,3 +345,82 @@ func TestAnAnthologyCaptionsAQuoteByItsKind(t *testing.T) {
 		t.Errorf("a quote with no kind: locator=%q quote_kind=%q, want 'Delhi · radio'/''", e.Locator, e.QuoteKind)
 	}
 }
+
+// ---- a book highlight's character, on the reads that were dropping it -------
+//
+// 0047 gave a highlight a character and 2.2.3 put it on the library card and in
+// the shares. Two SERVER reads went on dropping it: the Shuffle/On-this-day query
+// selected the literal empty string for the book branch where the screen branch
+// twenty lines below selected the column, and the anthology's book branch credited
+// the author alone. Both build the same card the missing name was first reported
+// on, which is why "it is not showing up" was still true after the release that
+// fixed it.
+func TestABookHighlightCarriesItsCharacterEverywhere(t *testing.T) {
+	h := newTestServer(t).Handler()
+	c := signupAdmin(t, h)
+
+	book := decode[struct {
+		ID int64 `json:"id"`
+	}](t, c.mustDo("POST", "/books", map[string]any{"title": "Moby-Dick", "author": "Melville"}, http.StatusCreated))
+	ann := decode[struct {
+		ID int64 `json:"id"`
+	}](t, c.mustDo("POST", "/annotations", map[string]any{
+		"book_id": book.ID, "quote": "Call me Ishmael", "character": "Ishmael",
+	}, http.StatusCreated))
+
+	// Shuffle answers with one random quote, and this library holds exactly one.
+	shuffled := decode[struct {
+		Quote struct {
+			Quote     string `json:"quote"`
+			Character string `json:"character"`
+		} `json:"quote"`
+	}](t, c.mustDo("GET", "/shuffle", nil, http.StatusOK))
+	if shuffled.Quote.Quote != "Call me Ishmael" {
+		t.Fatalf("shuffle returned %+v", shuffled.Quote)
+	}
+	if shuffled.Quote.Character != "Ishmael" {
+		t.Errorf("shuffle dropped the character: %+v", shuffled.Quote)
+	}
+
+	// And the anthology, which is the one output that leaves the app as a document:
+	// who says it, then who wrote it, the same shape the screen branch uses.
+	an := newAnthology(t, c, "With a speaker")
+	c.mustDo("POST", "/anthologies/"+strconv.FormatInt(an.ID, 10)+"/entries", map[string]any{
+		"items": []map[string]any{{"kind": "book", "item_id": ann.ID}},
+	}, http.StatusOK)
+	got := decode[struct {
+		Entries []struct {
+			Credit string `json:"credit"`
+		} `json:"entries"`
+	}](t, c.mustDo("GET", "/anthologies/"+strconv.FormatInt(an.ID, 10), nil, http.StatusOK))
+	if len(got.Entries) != 1 || got.Entries[0].Credit != "Ishmael · Melville" {
+		t.Errorf("anthology credit is %+v, want 'Ishmael · Melville'", got.Entries)
+	}
+}
+
+// And a highlight with no character credits the author alone, so a library that
+// has never used the field reads exactly as it did.
+func TestABookHighlightWithNoCharacterCreditsTheAuthorAlone(t *testing.T) {
+	h := newTestServer(t).Handler()
+	c := signupAdmin(t, h)
+	book := decode[struct {
+		ID int64 `json:"id"`
+	}](t, c.mustDo("POST", "/books", map[string]any{"title": "Moby-Dick", "author": "Melville"}, http.StatusCreated))
+	ann := decode[struct {
+		ID int64 `json:"id"`
+	}](t, c.mustDo("POST", "/annotations", map[string]any{
+		"book_id": book.ID, "quote": "a plain line",
+	}, http.StatusCreated))
+	an := newAnthology(t, c, "Plain")
+	c.mustDo("POST", "/anthologies/"+strconv.FormatInt(an.ID, 10)+"/entries", map[string]any{
+		"items": []map[string]any{{"kind": "book", "item_id": ann.ID}},
+	}, http.StatusOK)
+	got := decode[struct {
+		Entries []struct {
+			Credit string `json:"credit"`
+		} `json:"entries"`
+	}](t, c.mustDo("GET", "/anthologies/"+strconv.FormatInt(an.ID, 10), nil, http.StatusOK))
+	if len(got.Entries) != 1 || got.Entries[0].Credit != "Melville" {
+		t.Errorf("credit is %+v, want 'Melville'", got.Entries)
+	}
+}

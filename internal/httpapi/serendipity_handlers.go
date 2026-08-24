@@ -54,7 +54,7 @@ type shuffleRow struct {
 
 	CoverPath string   `json:"cover_path"` // the book's cover or the film's poster; "" for a standalone quote
 	MediaType string   `json:"media_type"` // book | movie | show | game | quote — what the badge says
-	Character string   `json:"character"`  // screen only: WHO says it, as against Credit's who plays them
+	Character string   `json:"character"`  // WHO says it, as against Credit's who wrote or played it (0047: a book has one too)
 	Year      int      `json:"year"`       // the work's year, 0 when unknown; NEGATIVE is BCE (0030)
 	Favourite bool     `json:"favorite"`   // so the heart on the card starts in the right state
 	Tags      []string `json:"tags"`
@@ -89,9 +89,14 @@ var shuffleSources = []struct {
 	kind  string
 	query string
 }{
+	// THE ELEVENTH COLUMN IS THE CHARACTER, and the book branch selected a literal
+	// empty string for it while the screen branch below selected the column. A
+	// novel has speakers (0047) and this is the card the owner reported the missing
+	// name on, so Shuffle and On-this-day were still showing it blank after the
+	// release that fixed the library's copy of the same card.
 	{"book", `SELECT a.id, a.quote, COALESCE(a.note, ''), a.color,
 	           COALESCE(b.title, ''), COALESCE(b.author, ''), b.id, a.created_at,
-	           COALESCE(b.cover_path, ''), 'book', '', COALESCE(b.published_year, 0), a.favorite,
+	           COALESCE(b.cover_path, ''), 'book', COALESCE(a.character, ''), COALESCE(b.published_year, 0), a.favorite,
 	           ` + tagsOf("annotation_tags", "annotation_id", "a") + `
 	          FROM annotations a JOIN books b ON b.id = a.book_id
 	          WHERE b.user_id = ? AND TRIM(COALESCE(a.quote, '')) <> ''`},
