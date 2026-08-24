@@ -30,6 +30,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   A book highlight gets the **Character** box its column has been waiting for since the
   same migration: a novel has speakers, and until now the only ways to fill that field were
   a bulk edit and an import.
+
+- **Cast from IMDb, once, when you ask for it.** Wikidata is the only structured free
+  source for a game's voice cast, and it is empty for most games — The Witcher 3, Mass
+  Effect 3, Persona 5 and Disco Elysium all return nothing. IMDb has them. So a film, show
+  or game's details now carry a **Cast from IMDb** control: paste the IMDb link for the
+  title you are looking at and its top cast is added, characters included.
+
+  **One press is one request.** There is no preview step and no second fetch, no search, no
+  crawl, and nothing calls this unless a person presses it. It takes a *link* rather than a
+  title because a title search is how a cast lands on the wrong work — and a wrong cast
+  reads as a correct one, since the quote form then offers you an actor from a different
+  game. The server extracts the `tt…` id and builds its own URL; anything that is not a
+  title id is refused **before** a request is built, so this cannot be pointed at a URL
+  somebody else chose. The names you have typed or corrected are never overwritten — the
+  row-level provenance rule from the cast work applies to IMDb unchanged, and a test pins
+  it. IMDb's own terms prohibit bulk mining; their official datasets are the route for
+  anything more than this.
 - **The in-depth quiz controls and the Features card are buttons now, not columns of
   Yes/No.** Nine labelled rows, each with its own segmented switch and its own info dot,
   filled the quiz pop-up top to bottom — and the question they answered is a set ("which of

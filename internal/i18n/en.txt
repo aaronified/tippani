@@ -5877,3 +5877,17 @@ capture.form.episode-name.placeholder = e.g. The Rains of Castamere
 # The actor the chosen character implies, from the work's own cast. Read-only: the
 # server derives the stored actor, so this says the character matched a real row.
 capture.form.played-by.prose = played by {name}
+
+# The one on-demand IMDb pass (1.17.0) — a cast for the works whose structured
+# source has none, which is most games. It asks for a LINK rather than searching,
+# because a title search is how a cast lands on the wrong work, and it reports the
+# title it attached because that is the only check against exactly that.
+film.imdb.open.label = Cast from IMDb
+film.imdb.link.label = IMDb link or id
+film.imdb.link.placeholder = imdb.com/title/tt1073668/
+film.imdb.go.label = Fetch the cast
+film.imdb.busy.label = Fetching…
+film.imdb.done.prose = {title} — {n} in the cast now.
+film.imdb.info.title = About the IMDb cast fill
+film.imdb.info.body = Paste the IMDb page for this title and its top cast is added, characters included. One request, only when you ask. Names you have typed or corrected are never overwritten.
+error.load.imdb-cast = Could not read that IMDb title.

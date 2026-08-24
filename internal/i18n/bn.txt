@@ -5592,3 +5592,14 @@ capture.form.act.placeholder = যেমন দ্বিতীয় অঙ্�
 capture.form.quest.placeholder = যেমন কায়ের মোরেনের যুদ্ধ
 capture.form.episode-name.placeholder = যেমন দ্য রেইনস অফ ক্যাসটামিয়ার
 capture.form.played-by.prose = অভিনয়ে {name}
+
+# আইএমডিবি থেকে একবারের কাস্ট (1.17.0) — see the English block.
+film.imdb.open.label = আইএমডিবি থেকে কাস্ট
+film.imdb.link.label = আইএমডিবি লিঙ্ক বা আইডি
+film.imdb.link.placeholder = imdb.com/title/tt1073668/
+film.imdb.go.label = কাস্ট আনুন
+film.imdb.busy.label = আনা হচ্ছে…
+film.imdb.done.prose = {title} — এখন কাস্টে {n} জন।
+film.imdb.info.title = আইএমডিবি কাস্ট সম্পর্কে
+film.imdb.info.body = এই নামের আইএমডিবি পাতার লিঙ্ক দিন, উপরের দিকের কাস্ট চরিত্রসহ যোগ হয়ে যাবে। একবারই অনুরোধ যায়, আপনি চাইলেই। আপনার নিজের লেখা বা সংশোধন করা নাম কখনও মুছে যায় না।
+error.load.imdb-cast = ওই আইএমডিবি নাম পড়া গেল না।
