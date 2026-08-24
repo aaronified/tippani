@@ -5,6 +5,51 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.6] - 2026-08-25
+
+### Fixed
+
+- **Correcting anyone in the new People section blanked the whole page.** Editing a character
+  name, adding somebody or removing a row unmounted the film or book page and the dialog
+  standing on it — a reload got it back, and nothing had been lost, but nothing said so. The
+  panel was telling its host "something changed" through a callback that means "here is the
+  new record", so the host was handed nothing and stopped rendering.
+
+- **The actor's own editor closed the instant it opened**, which made "edit both actor and
+  character images" unreachable from the section built for it: it closed on a signal the
+  person panel also sends when it quietly fetches somebody's details for the first time.
+
+- **A title that was already correct is no longer rewritten by editing another part of it.**
+  Two more shapes of the same fault: "Set It Off (1996)" became "Set It off (1996)" because
+  the trailing "(1996)" was counted as the last word, and "Bring It On: A Sequel" became
+  "Bring It on: A Sequel" because a small word can *end* a clause as well as follow one.
+  "Get Up, Stand Up" is right now too. A comma ends a phrase; it does not start one, so "The
+  Lion, the Witch and the Wardrobe" is unchanged.
+
+- **Hearting a quote costs one round trip instead of two.** The save already answers with the
+  updated row, and both boards were throwing that away and refetching every row on the
+  screen to learn what it had just said. The refetch stays exactly where it is needed — when
+  the change moves the row out of the filter you are looking through.
+
+- **The in-app help and the Quotes board no longer mention the field that was replaced.** The
+  help still described filtering and grouping by "medium" in both languages, and a reader who
+  had been grouping by it went on grouping by it — with a control beside them showing no
+  selection, because the value no longer exists in the list.
+
+- **A search result carries a quote's kind**, so nothing downstream has to go back for the
+  row to find out what it is.
+
+### Added
+
+- **Set fields works on a selection of quotes**, not only works — the speaker of forty
+  quotes, the chapter of forty highlights, the kind of every quote an upgrade could not
+  read. That last one is why it is here: the switch from "medium" to "kind" leaves a pile of
+  quotes to file, and one dialog each is not an answer. Each kind is offered only the columns
+  it has.
+
+- **A game's publisher can be set across a selection**, which the endpoint has accepted since
+  the bulk editor was written and no control offered.
+
 ## [2.2.5] - 2026-08-25
 
 ### Fixed

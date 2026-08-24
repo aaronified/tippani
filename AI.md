@@ -146,7 +146,7 @@ AI-written code fails differently from hand-written code. It compiles, it reads
 well, it is plausibly commented, and it can still be wrong — so plausibility is
 worth nothing here and only execution counts. What the repo actually runs:
 
-- **1,152 Go test functions and 1,963 frontend tests, across 337 test files** — the
+- **1,152 Go test functions and 1,976 frontend tests, across 338 test files** — the
   Go half over real HTTP handlers against a real SQLite database, not mocks.
   Counted, not estimated, and every number here has a command that reproduces it:
 
@@ -155,7 +155,7 @@ worth nothing here and only execution counts. What the repo actually runs:
   cd web/frontend && npm test                                            # frontend tests
   find . -name '*_test.go' -not -path './node_modules/*' | wc -l         # 195 Go files
   find ./web/frontend -path '*/node_modules' -prune -o \
-       -type f \( -name '*.test.*' -o -name '*.spec.*' \) -print | wc -l # 142 frontend
+       -type f \( -name '*.test.*' -o -name '*.spec.*' \) -print | wc -l # 143 frontend
   ```
 
   A number in a file like this one is stale the moment it is written, so recount
@@ -165,11 +165,19 @@ worth nothing here and only execution counts. What the repo actually runs:
   233 by 2.1.1, from 924 / 1,771 / 284 by 2.2.0, from 1,085 / 1,844 / 320
   by 2.3.0, and most recently from 1,100 / 1,853 / 323 when they were recounted
   for 2.2.3 — which is why each one now sits beside the command that produces it.
-  The 2.2.4 and 2.2.5 passes added thirty-one cases between them, every one for a
-  defect a release review found rather than for a feature — and four of those
+  The 2.2.4, 2.2.5 and 2.2.6 passes added forty-four cases between them, every one
+  for a defect a release review found rather than for a feature — and six of those
   defects were introduced by the pass before. That is the number worth reading
-  here: the two habits named below are what stops a fix pass being a source of
-  work, and they did not stop it twice.
+  here rather than the total: the two habits named below are what stops a fix pass
+  being a source of work, and they did not stop it three times running.
+
+  THE ONE THAT GOT PAST THREE REVIEWS is worth naming, because it is a gap in the
+  habits rather than a lapse. A panel called a callback it did not define with no
+  argument; the prop it had been handed was the host's record setter, so the host
+  was set to `undefined` and the page unmounted. Twenty tests around it asserted
+  requests, payloads and absences — and every one of them stubbed that callback as
+  `() => {}`, which cannot see what it was given. **When a component calls a
+  callback it did not define, assert the ARGUMENT, not only the call.**
 
   **The frontend count went DOWN while its file count went up**, which is the sort
   of number that ought to be explained rather than reported. `5751757` collapsed

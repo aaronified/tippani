@@ -504,7 +504,7 @@
         </div>
         <div class="g-name">quote block (standalone quote) <span class="g-tlabel">1.5.0</span></div>
         <div class="g-src">Quotes.jsx · AnnotationCard with <code>meta</code> + <code>form</code> · utteranceMeta + UtteranceForm</div>
-        <div class="g-desc">The same card as an annotation, and deliberately so: <code>.card-actions</code> and <code>.card-colors</code> only reveal under <code>.hand-card:hover</code>, and <code>.hand-card::before</code> is what carries the material — a bespoke wrapper would look right and lose the aesthetic toggle. What differs is the <b>meta line</b>: where a book shows <code>CH. 3 · P.142</code> this shows the <b>occasion</b> — speaker · occasion · when · place · medium, each dropped when empty. A quote with none of them (a proverb) shows no meta line at all.</div>
+        <div class="g-desc">The same card as an annotation, and deliberately so: <code>.card-actions</code> and <code>.card-colors</code> only reveal under <code>.hand-card:hover</code>, and <code>.hand-card::before</code> is what carries the material — a bespoke wrapper would look right and lose the aesthetic toggle. What differs is the <b>meta line</b>: where a book shows <code>CH. 3 · P.142</code> this shows the <b>occasion</b> — speaker · occasion · when · place · kind · language, each dropped when empty (0053 replaced the free-text medium with a fixed kind; a card falls back to the old text while no kind is set). A quote with none of them (a proverb) shows no meta line at all.</div>
       </div>
 
       <div class="g-item wide">
@@ -1074,7 +1074,7 @@
         </div>
         <div class="g-name">GroupHeading</div>
         <div class="g-src">GroupHeading — works.jsx · groupWorks / groupUtterances · PersonPortrait — people.jsx</div>
-        <div class="g-desc">The divider above each section of a grouped list: an optional <b>PersonPortrait</b>, the label, a count in accent mono, and a rule filling the rest. Given <code>onOpenPerson</code> the label becomes a button opening that person's panel — so an author heading in the Library and a speaker heading on Quotes are the same doorway the name on the card is. The buckets come from <code>groupWorks</code>, which splits a credit dimension into the people it names (a book by two authors appears under both) and files everything else under a residual bucket. Quotes names its own residuals — <b>No speaker</b>, <b>No medium</b>, <b>No place</b> — because a proverb has none of the four and a bucket called "None" would not say which.</div>
+        <div class="g-desc">The divider above each section of a grouped list: an optional <b>PersonPortrait</b>, the label, a count in accent mono, and a rule filling the rest. Given <code>onOpenPerson</code> the label becomes a button opening that person's panel — so an author heading in the Library and a speaker heading on Quotes are the same doorway the name on the card is. The buckets come from <code>groupWorks</code>, which splits a credit dimension into the people it names (a book by two authors appears under both) and files everything else under a residual bucket. Quotes names its own residuals — <b>No speaker</b>, <b>No kind</b>, <b>No place</b> — because a proverb has none of the four and a bucket called "None" would not say which.</div>
       </div>
     </div>
   </section>

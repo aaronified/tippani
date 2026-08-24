@@ -7067,3 +7067,53 @@ There is a second cost, and it is the one that made this concrete. Decisions tak
 **What would have caught them is asking, per change, which OTHER code builds this same thing** — the question `sweep-check` exists for. A test cannot: each surface passed its own.
 
 <sub>2.2.5 — `internal/httpapi/serendipity_handlers.go` · `internal/httpapi/anthology_handlers.go` · `web/frontend/src/Movies.jsx` · `web/frontend/src/StagingPage.jsx`</sub>
+
+### A callback named for the record cannot be called by something that means "the list"
+
+**Decided.** `CastSection` takes `onCastChanged`, which takes nothing; the panel that renders it passes `() => onChanged?.(item)`.
+
+**The bug.** The People panel called `onChanged?.()` after every save, add and remove. That prop is the host's record SETTER — `onChanged={setMovie}` in Movies.jsx, `setBook` in Library.jsx — and both pages render behind `{movie && …}`. So correcting a character's name ran `setMovie(undefined)` and unmounted the film page and the dialog standing on it.
+
+**IT SURVIVED THREE REVIEWS, and the reason is the interesting part.** Every test in `cast-panel.test.jsx` passed `onChanged={() => {}}`. A stub cannot notice what it was given, so a suite of twenty cases that assert requests, payloads and absences was blind to the ARGUMENT. The test that catches it is four lines and asserts `args` — and the general form of it is: when a component calls a callback it did not define, the test has to look at what it passes, not only that it passed.
+
+**The name did the damage.** `onChanged` reads as "tell the parent something changed" from inside the child and as "here is the new record" from outside it. Renaming is most of the fix; passing the record the panel already has is the rest, so the signal survives without the child ever holding the setter's contract.
+
+<sub>2.2.6 — `web/frontend/src/cast.jsx` · `web/frontend/src/WorkDetails.jsx`</sub>
+
+### The third and fourth shapes of one casing rule
+
+**Decided.** The small-word rule promotes the last LETTERED word, and any small word that carries a terminator; a comma ends a phrase but does not open one.
+
+**Three releases, four faults, one rule.** "The Wheel Of Time" (no list), "Bring It on" (no last-word rule), then "Set It off (1996)" and "Bring It on: A Sequel". Each of the last two is the same oversight as the second, seen from a different angle — the last TOKEN is not the last WORD when a title ends in a parenthetical, and a small word can END a clause as well as follow one.
+
+**All four are corruptions rather than omissions**, and that is what makes the rule expensive to get wrong: it runs on every keystroke and saves what you see, so a title that arrived correct from a provider is rewritten the moment somebody fixes a typo elsewhere in the same field. No diff, no warning, nothing to notice.
+
+**The comma is the shape of the general lesson.** It has to promote the word CARRYING it ("Get Up, Stand Up") and must not promote the word after it ("The Lion, the Witch and the Wardrobe"). One set could not do both, so there are two — and the test that keeps them apart asserts both strings, because either alone passes with the wrong set.
+
+**And the test that matters is idempotence over titles that are already right.** Every version of this rule passed its own examples. What none of them had was a list of correct titles asserted to come back unchanged.
+
+<sub>2.2.6 — `web/frontend/src/ui.jsx`</sub>
+
+### The reply is the answer, unless the filter disagrees
+
+**Decided.** A one-field save splices the PUT's reply into the board, and refetches only when the change moves the row out of the filter in force.
+
+**What was wrong.** `patch` is the ♥, the colour dots and a sticker drag — the most frequent interactions in the app — and each one did a PUT whose reply carried the updated row and then a full `GET /annotations` to learn what the reply had just said. Two serialised round trips where one had all the information.
+
+**This contradicts 2.2.3's own analysis**, which measured the server honestly, concluded correctly that the cost is round trips rather than work, and then said there was exactly one duplicate read. There were two, and this was the hotter by a wide margin. Counting requests on the path the user is watching is only useful if you count the path they actually use.
+
+**The refetch is still right sometimes**, which is why this is a guard and not a deletion: the filters are applied by the server, so un-hearting a row while the favourites filter is on has to take it off the board. `patchMovesTheRow` is exported and pure so that rule can be read and argued with, rather than living inside a closure — and it asks about the FILTERS IN FORCE, not about the fields, because changing a colour while no colour filter is on moves nothing.
+
+<sub>2.2.6 — `web/frontend/src/Library.jsx` · `web/frontend/src/Quotes.jsx`</sub>
+
+### A vocabulary that changed has to be chased into the copy and the stored keys
+
+**Decided.** The Quotes help text names Kind, and a stored `medium` grouping is read as `kind`.
+
+**Two more places the 0053 rename did not reach**, both of which a test cannot see: the help copy is prose in two language files, and the persisted grouping choice lives in the reader's browser. The second is the sharper one — the FILTER was deliberately given a new key so a stale value could not restore a filter that matches nothing, and the GROUPING was not, so a reader who had been grouping by Medium went on grouping by a column that still exists, beside a control showing no selection because the value is no longer one of its options.
+
+**Read through a rename rather than re-keyed**, because unlike the filter the stored value has an exact successor: somebody who chose to group by what a quote IS still wants that.
+
+**The pattern to check next time a field is replaced**: the column, the API, the forms, the cards, the export, the import, the staging queue, the search hit, the bulk editor, the help copy, the glossary, and every `usePersistedState` key that can hold its name.
+
+<sub>2.2.6 — `internal/i18n/en.txt` · `internal/i18n/bn.txt` · `web/frontend/src/Quotes.jsx`</sub>
