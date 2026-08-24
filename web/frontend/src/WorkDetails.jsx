@@ -87,7 +87,7 @@ const BOOK_FIELDS = [
   {
     key: 'series',
     get label() { return t('common.field.series.label') },
-    nameCase: true,
+    titleCase: true,
     get hint() { return t('book.field.series.info') },
   },
   { key: 'series_index', get label() { return t('common.field.series-no.label') }, kind: 'number' },
@@ -183,7 +183,7 @@ export const MOVIE_FIELDS = [
   {
     key: 'series',
     get label() { return t('common.field.collection.label') },
-    nameCase: true,
+    titleCase: true,
     get hint() { return t('film.field.series.info') },
   },
   { key: 'series_index', get label() { return t('common.field.collection-no.label') }, kind: 'number' },
@@ -527,7 +527,7 @@ export function WorkDetails({ open, onClose, kind, item, onChanged, onDelete }) 
   )
 
   return (
-    <FormModal open={open} onClose={onClose} title={title} maxWidth={620}>
+    <FormModal open={open} onClose={onClose} title={title} maxWidth={620} saveTip={t('common.work.details.done.tip')}>
       <ErrorText>{error}</ErrorText>
 
       {view === 'fields' && (
@@ -621,17 +621,34 @@ function FieldList({ kind, item, specs, mediaType, busy, genreSuggestions, onSav
   // reach for the header the work is usually already done and the only thing left
   // is the leaving.
   const unsaved = useUnsavedFields()
-  const host = useFormHost('', t('common.work.details.done.tip'))
+  const host = useFormHost('')
   async function submit(e) {
     e.preventDefault()
     // A failed write keeps the panel open with its error and its drafts intact.
     if (unsaved.count && !(await onSaveAll(unsaved.collect(), unsaved.closeAll))) return
     onClose?.()
   }
+  // ENTER IN A TEXT INPUT MUST NOT SUBMIT THIS FORM, and that has to be said
+  // here rather than left to each control.
+  //
+  // The tick is `type="submit" form={formId}` and, since it stopped being greyed,
+  // it is this form's DEFAULT BUTTON — so implicit submission fires on Enter from
+  // any of the inputs inside it. That is: type a character's name in the People
+  // panel, press Enter, and the whole Details panel closes without adding the
+  // character. Two changes that were each harmless became one bug together, and
+  // jsdom does not implement implicit submission, so nothing failed.
+  //
+  // Textareas are left alone: they take a newline and never implicitly submit.
+  // Controls that WANT Enter — an InlineField committing a row, the combobox
+  // picking a suggestion, the cast panel's own boxes — handle it on their own
+  // element, and their handlers run before this one on the way up.
+  const swallowEnter = (e) => {
+    if (e.key === 'Enter' && e.target instanceof HTMLInputElement) e.preventDefault()
+  }
   return (
     // A real <form> bound to the header's ✓ by the HTML `form=` attribute, the
     // way every other dialog in this app does it.
-    <form id={host?.formId} onSubmit={submit} className="space-y-3">
+    <form id={host?.formId} onSubmit={submit} onKeyDown={swallowEnter} className="space-y-3">
       <UnsavedFieldsContext.Provider value={unsaved.host}>
       {/* Artwork keeps its own icon row (upload · paste URL · search) — the same
           control CoverControls has always been, but wired to save immediately

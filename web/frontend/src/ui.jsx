@@ -2572,23 +2572,14 @@ export const FormHostContext = createContext(null);
 // `reason` is shown on the disabled ✓, so it stays inside the five-word rule;
 // '' means ready, and unmounting hands back null so the button goes away with the
 // form it belonged to.
-export function useFormHost(reason, tip) {
+export function useFormHost(reason) {
   const host = useContext(FormHostContext);
   const setBlocked = host?.setBlocked;
-  const setTip = host?.setTip;
   useEffect(() => {
     if (!setBlocked) return;
     setBlocked(reason || "");
     return () => setBlocked(null);
   }, [setBlocked, reason]);
-  // `tip` overrides the ✓'s tooltip for a form whose ✓ does more than save —
-  // the work Details panel's, which saves every open row AND closes the panel,
-  // so "Save" undersells it by half.
-  useEffect(() => {
-    if (!setTip) return;
-    setTip(tip || "");
-    return () => setTip("");
-  }, [setTip, tip]);
   return host;
 }
 
@@ -2603,7 +2594,12 @@ export function useFormHost(reason, tip) {
 // mistake: a prop whose absence renders nothing, silently, is a trap and not an
 // API. Both idioms work now, and the effects below still key off `open` so a
 // persistent instance closes exactly as it did.
-export function FormModal({ open = true, onClose, title, maxWidth = 560, children }) {
+// `saveTip` overrides the ✓'s tooltip for a dialog whose ✓ does more than save —
+// the work Details panel's, which commits every open row AND closes the panel, so
+// "Save" undersells it by half. A PROP rather than a second channel through the
+// form-host context: the dialog and the form that registers with it are written
+// in the same file at every call site, so the caller always knows.
+export function FormModal({ open = true, onClose, title, maxWidth = 560, saveTip, children }) {
   const mobile = useIsMobileScreen();
   useBodyScrollLock(open);
   // Desktop only: the mobile branch below renders MobileSheet, which takes the
@@ -2612,8 +2608,7 @@ export function FormModal({ open = true, onClose, title, maxWidth = 560, childre
   const formId = useId();
   // null = no form has registered, so there is nothing to commit and no ✓.
   const [blocked, setBlocked] = useState(null);
-  const [tip, setTip] = useState("");
-  const host = useMemo(() => ({ formId, setBlocked, setTip }), [formId]);
+  const host = useMemo(() => ({ formId, setBlocked }), [formId]);
   useEffect(() => {
     if (!open) return;
     const onKey = (e) => e.key === "Escape" && onClose && onClose();
@@ -2622,7 +2617,7 @@ export function FormModal({ open = true, onClose, title, maxWidth = 560, childre
   }, [open, onClose]);
   // A closed dialog holds no form, so its last blocked reason must not survive
   // into the next thing opened under the same instance.
-  useEffect(() => { if (!open) { setBlocked(null); setTip(""); } }, [open]);
+  useEffect(() => { if (!open) setBlocked(null); }, [open]);
   if (!open) return null;
   const save = blocked === null ? null : (
     <IconButton
@@ -2630,7 +2625,7 @@ export function FormModal({ open = true, onClose, title, maxWidth = 560, childre
       type="submit"
       form={formId}
       ariaLabel={t("common.action.save.label")}
-      tooltip={blocked || tip || t("common.action.save.label")}
+      tooltip={blocked || saveTip || t("common.action.save.label")}
       disabled={!!blocked}
       style={{ width: 34, height: 34, padding: 0, flexShrink: 0 }}
       wrapClassName="shrink-0"

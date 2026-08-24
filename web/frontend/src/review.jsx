@@ -618,7 +618,7 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
     // .catch is belt-and-braces over api.js's own guard: `saving` gates the
     // options, and awaiting a rejected promise in advance() would throw.
     // The deck this card came out of is now out of date — the card has been graded
-  // and is no longer due today — so the shared request is dropped rather than
+    // and is no longer due today — so the shared request is dropped rather than
     // handed to whatever mounts next. See daily.js.
     forgetDailyDeck()
     const req = json('POST', '/review/answer', {

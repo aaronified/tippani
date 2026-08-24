@@ -246,6 +246,11 @@ function CastRow({ row, role, busy, actor, onSave, onRemove, onImage, onOpenPers
   const [urlOpen, setUrlOpen] = useState(false)
   const [url, setUrl] = useState('')
   const [confirming, setConfirming] = useState(false)
+  const applyURL = async () => {
+    await onImage(url.trim())
+    setUrl('')
+    setUrlOpen(false)
+  }
 
   // The role in costume if we have it, the actor's headshot if not. Upstream's own
   // fallback — see the file header.
@@ -255,21 +260,38 @@ function CastRow({ row, role, busy, actor, onSave, onRemove, onImage, onOpenPers
       ? personImgURL(actor.image_path)
       : ''
 
+  const commit = async () => {
+    if (!character.trim()) return
+    const body = { character: character.trim() }
+    if (role !== 'none') body.actor = who.trim()
+    if (await onSave(body)) setEditing(false)
+  }
+  const onRowKey = (e) => {
+    if (e.key !== 'Enter' || busy) return
+    e.preventDefault()
+    commit()
+  }
+
   if (editing) {
     return (
       <li className="cast-row is-editing">
         <div className="cast-row-fields">
+          {/* ENTER SAVES THE ROW. It is the obvious keystroke after typing a name,
+              and the panel sits inside the Details form — so without a handler here
+              Enter reaches the form and closes the whole panel (see the guard in
+              WorkDetails.jsx). Local behaviour beats a swallowed key. */}
           <Field
             label={t('common.field.character.label')}
             nameCase
             value={character}
             autoFocus
             onChange={(e) => setCharacter(e.target.value)}
+            onKeyDown={onRowKey}
           />
           {/* A BOOK IS REFUSED AN ACTOR rather than quietly cleared (0047's line,
               which the API follows), so the box is absent for one — not disabled. */}
           {role !== 'none' && (
-            <Field label={roleLabel(role)} nameCase value={who} onChange={(e) => setWho(e.target.value)} />
+            <Field label={roleLabel(role)} nameCase value={who} onChange={(e) => setWho(e.target.value)} onKeyDown={onRowKey} />
           )}
         </div>
         <div className="cast-row-acts">
@@ -278,11 +300,7 @@ function CastRow({ row, role, busy, actor, onSave, onRemove, onImage, onOpenPers
             ariaLabel={t('common.action.save.label')}
             disabled={busy || !character.trim()}
             ok
-            onClick={async () => {
-              const body = { character: character.trim() }
-              if (role !== 'none') body.actor = who.trim()
-              if (await onSave(body)) setEditing(false)
-            }}
+            onClick={commit}
           />
           <FieldIconButton
             icon={<IconClose />}
@@ -363,11 +381,16 @@ function CastRow({ row, role, busy, actor, onSave, onRemove, onImage, onOpenPers
             aria-label={t('cast.picture.url.aria', { name: row.character || '' })}
             value={url}
             onChange={(e) => setUrl(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key !== 'Enter' || busy || !url.trim()) return
+              e.preventDefault()
+              applyURL()
+            }}
           />
           <GhostButton
             type="button"
             disabled={busy || !url.trim()}
-            onClick={async () => { await onImage(url.trim()); setUrl(''); setUrlOpen(false) }}
+            onClick={applyURL}
           >
             {t('common.action.apply.label')}
           </GhostButton>
@@ -383,30 +406,35 @@ function CastRow({ row, role, busy, actor, onSave, onRemove, onImage, onOpenPers
 function CastAdd({ role, busy, onAdd, onCancel }) {
   const [character, setCharacter] = useState('')
   const [who, setWho] = useState('')
+  const add = () => {
+    if (!character.trim()) return
+    const body = { character: character.trim() }
+    if (role !== 'none') body.actor = who.trim()
+    onAdd(body)
+  }
+  const onAddKey = (e) => {
+    if (e.key !== 'Enter' || busy) return
+    e.preventDefault()
+    add()
+  }
   return (
     <div className="cast-add">
       <div className="cast-row-fields">
+        {/* Enter adds, for the reason the edit row's Enter saves. */}
         <Field
           label={t('common.field.character.label')}
           nameCase
           value={character}
           autoFocus
           onChange={(e) => setCharacter(e.target.value)}
+          onKeyDown={onAddKey}
         />
         {role !== 'none' && (
-          <Field label={roleLabel(role)} nameCase value={who} onChange={(e) => setWho(e.target.value)} />
+          <Field label={roleLabel(role)} nameCase value={who} onChange={(e) => setWho(e.target.value)} onKeyDown={onAddKey} />
         )}
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <GhostButton
-          type="button"
-          disabled={busy || !character.trim()}
-          onClick={() => {
-            const body = { character: character.trim() }
-            if (role !== 'none') body.actor = who.trim()
-            onAdd(body)
-          }}
-        >
+        <GhostButton type="button" disabled={busy || !character.trim()} onClick={add}>
           {t('common.action.add.label')}
         </GhostButton>
         <GhostButton type="button" onClick={onCancel}>{t('common.action.cancel.label')}</GhostButton>
@@ -468,12 +496,20 @@ function CastFills({ item, onFilled }) {
       </div>
       {imdb && (
         <div className="space-y-2">
+          {/* THE HANDLER THIS CONTROL USED TO HAVE. It had an explicit Enter-to-fetch
+              in WorkDetails.jsx and lost it on the way into this file; without one,
+              Enter here reaches the Details form and closes the panel. */}
           <Field
             label={t('film.imdb.link.label')}
             placeholder={t('film.imdb.link.placeholder')}
             value={link}
             autoFocus
             onChange={(e) => setLink(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key !== 'Enter' || busy || !link.trim()) return
+              e.preventDefault()
+              fromIMDb()
+            }}
           />
           <GhostButton type="button" onClick={fromIMDb} disabled={!!busy || !link.trim()}>
             {busy === 'imdb' ? t('film.imdb.busy.label') : t('film.imdb.go.label')}

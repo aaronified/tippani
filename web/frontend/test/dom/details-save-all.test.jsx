@@ -147,3 +147,51 @@ describe('the master save', () => {
     expect(screen.getAllByLabelText(/save/i).length).toBeGreaterThan(1)
   })
 })
+
+// ---- Enter, and the form this panel really is -------------------------------
+//
+// WHY THIS BLOCK EXISTS, AND WHY THE OTHERS COULD NOT SEE IT. The header ✓ is
+// `type="submit" form={formId}`, so once it stopped being greyed it became this
+// form's DEFAULT BUTTON — and a form with a default button is implicitly
+// submitted by Enter in any text input inside it. The People panel lives inside
+// that form, so typing a character's name and pressing Enter closed the whole
+// Details panel and added nothing.
+//
+// jsdom does not implement implicit submission, which is exactly why every test
+// in this file stayed green through it. So these assert the MECHANISM the browser
+// uses: that the keydown's default is prevented before it can reach the form.
+describe('Enter inside the panel', () => {
+  const enter = (el) => fireEvent.keyDown(el, { key: 'Enter', bubbles: true, cancelable: true })
+
+  it('does not submit the form from a text input', () => {
+    panel()
+    openRow('Title')
+    const box = screen.getByLabelText(/^Title$/i)
+    // InlineField commits the row on Enter and prevents the default itself; the
+    // form-level guard is what covers every OTHER input in the panel.
+    expect(enter(box)).toBe(false) // false = something called preventDefault
+    expect(CLOSED).toBe(0)
+  })
+
+  it('is prevented for an input the panel does not own', () => {
+    // A box added to this panel later — the cast panel's, the cover URL's — gets
+    // the guard whether or not whoever added it thought about Enter. That is the
+    // point of putting it on the <form> rather than on each control.
+    panel()
+    const form = document.querySelector('form')
+    const stray = document.createElement('input')
+    form.appendChild(stray)
+    expect(enter(stray)).toBe(false)
+    expect(CLOSED).toBe(0)
+  })
+
+  it('leaves a textarea alone, which needs its newline', () => {
+    panel()
+    const form = document.querySelector('form')
+    const area = document.createElement('textarea')
+    form.appendChild(area)
+    // A textarea never implicitly submits, so swallowing Enter there would only
+    // take away the newline.
+    expect(enter(area)).toBe(true)
+  })
+})
