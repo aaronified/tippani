@@ -128,6 +128,8 @@ const (
 	// own subsystem rather than CAST's: it reads quotes, changes nothing, and has
 	// no relation to a work's cast.
 	CodeCleanupRowScan Code = "TIP-CLEANUP-001" // a quote failed to scan during the sweep; skipped, the rest is reported
+	CodeCleanupApply   Code = "TIP-CLEANUP-002" // an accepted correction failed to write; the batch rolled back and every quote is unchanged
+	CodeCleanupIgnore  Code = "TIP-CLEANUP-003" // an ignored finding could not be read or written; the answer was not recorded
 	// quote is carrying, and the reader's answer to each suggestion (0049).
 
 	// BOOK — the one read that is not part of a bigger group.
@@ -217,6 +219,8 @@ var Registry = map[Code]string{
 	CodeCastRowScan:    "A work's cast row failed to scan (SELECT/struct drift); that character was left out of the list.",
 	CodeCastKeyFold:    "A cast row's folded lookup keys could not be rewritten during the boot-time repair; the row keeps the keys it had.",
 	CodeCleanupRowScan: "A quote could not be read during the Settings cleanup sweep. It is skipped and every other quote is still reported.",
+	CodeCleanupApply:   "An accepted correction could not be written. The whole batch rolled back, so every quote still holds exactly the words it had.",
+	CodeCleanupIgnore:  "A finding you ignored could not be recorded, or the set of ignored findings could not be read. In the second case the list is not shown at all rather than shown without it, because that would re-offer everything you have dismissed.",
 	CodeIMDbFetch:      "A requested IMDb cast fetch failed (network, an unexpected page, or the write). The work's existing cast is unchanged; nothing partial is stored, because the merge runs in one transaction.",
 
 	CodeBookChapters: "A book's own chapter list could not be read, so the chapter number and name fields offered no suggestions. Typing them by hand still works.",

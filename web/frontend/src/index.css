@@ -1880,6 +1880,40 @@
      here for one reason: it has no Indic member (see src/locale.jsx), so a
      Bengali quote's own words would draw in whatever the OS reached for. A
      snippet is the reader's text, so it gets the face the reader's text has. */
+  /* What the finding would become, under what it is. The same face and the same
+     whitespace handling as the snippet — the comparison is the content, so the two
+     lines have to be set identically or the difference between them stops being
+     the only difference on screen. --ink rather than --soft: this is the result,
+     and the line above it is the evidence. */
+  .cleanup-after {
+    margin: 3px 0 0;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    font-family: var(--font-display);
+    font-weight: var(--font-display-weight);
+    font-style: italic;
+    font-variant-caps: var(--font-display-caps);
+    font-variant-numeric: var(--font-display-figures);
+    font-size: var(--type-display-13);
+    color: var(--ink);
+  }
+  .cleanup-arrow {
+    font-family: var(--font-mono);
+    font-size: var(--type-mono-11);
+    color: var(--accent-ui);
+    margin-right: 6px;
+  }
+  /* The two answers. Wrapped rather than pinned right: on a phone a row already
+     holds the rule, the field and the count, and a button pushed off the edge is a
+     button nobody presses. */
+  .cleanup-answers {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-top: 7px;
+  }
+
   .cleanup-snippet {
     margin: 2px 0 0;
     font-family: var(--font-display);

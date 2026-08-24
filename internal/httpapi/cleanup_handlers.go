@@ -41,6 +41,14 @@ type cleanupItem struct {
 	Findings  []cleanupFinding `json:"findings"`
 }
 
+// cleanupBucket is which half of the list to answer with: what is left, or what has
+// been refused. ONE SCAN SERVES BOTH — the bucket partitions one walk rather than
+// running a second query — so the two counts on the page cannot disagree with each
+// other, which is the bug a second code path would eventually produce.
+//
+// It also means the ignored bucket lists only ignores that still MATCH something: an
+// ignore whose text the reader later changed by hand is a row about nothing, and
+// offering to restore it would restore nothing.
 type cleanupResp struct {
 	// Rules is every rule the scan CAN report, whether or not it fired, so the
 	// client can name them all and show a zero rather than omitting the row. A
@@ -52,13 +60,45 @@ type cleanupResp struct {
 	Scanned int `json:"scanned"`
 	// Truncated says the cap was reached and the list is partial.
 	Truncated bool `json:"truncated"`
+	// Counts is how many findings are in each bucket, over the WHOLE scan rather
+	// than the returned page: the page needs to say "3 ignored" on a chip while
+	// showing the other bucket.
+	Counts map[string]int `json:"counts"`
+
+	// ---- not serialised: the walk's own working state ------------------------
+	bucket  string
+	ignored map[cleanupTarget]bool
 }
 
 func (s *Server) handleCleanup(w http.ResponseWriter, r *http.Request) {
 	uid := userID(r)
-	olog.Tracef("[cleanup] handleCleanup uid=%d", uid)
+	bucket := r.URL.Query().Get("bucket")
+	if bucket == "" {
+		bucket = "open"
+	}
+	if bucket != "open" && bucket != "ignored" {
+		writeErr(w, http.StatusBadRequest, "bucket must be open or ignored")
+		return
+	}
+	olog.Tracef("[cleanup] handleCleanup uid=%d bucket=%s", uid, bucket)
 
-	out := cleanupResp{Rules: make([]string, 0, len(cleanupRules)), Items: []cleanupItem{}}
+	// THE IGNORE SET IS READ FIRST AND A FAILURE IS FATAL TO THE REQUEST, rather
+	// than falling back to an unfiltered scan. Showing the list without it would
+	// re-offer every finding the reader has already dismissed, which is worse than
+	// showing nothing: the page's whole usefulness is that it does not do that.
+	ignored, err := s.cleanupIgnores(uid)
+	if err != nil {
+		codedError(w, r, olog.CodeCleanupIgnore, "cleanup: read ignores", err)
+		return
+	}
+
+	out := cleanupResp{
+		Rules:   make([]string, 0, len(cleanupRules)),
+		Items:   []cleanupItem{},
+		Counts:  map[string]int{"open": 0, "ignored": 0},
+		bucket:  bucket,
+		ignored: ignored,
+	}
 	for _, rule := range cleanupRules {
 		out.Rules = append(out.Rules, rule.ID)
 	}
@@ -138,7 +178,20 @@ func (s *Server) scanCleanupRows(rows *sql.Rows, kind string, fields []string, o
 
 		var found []cleanupFinding
 		for i, field := range fields {
-			found = append(found, scanCleanup(field, texts[i])...)
+			for _, f := range scanCleanup(field, texts[i]) {
+				// Counted in the bucket it belongs to, always, and returned only in the
+				// bucket that was asked for. The counts are therefore over the whole
+				// library even when the list is capped or filtered.
+				f.Ignored = out.ignored[cleanupTarget{Kind: kind, ID: id, Field: f.Field, Rule: f.Rule, Hash: f.Hash}]
+				if f.Ignored {
+					out.Counts["ignored"]++
+				} else {
+					out.Counts["open"]++
+				}
+				if f.Ignored == (out.bucket == "ignored") {
+					found = append(found, f)
+				}
+			}
 		}
 		if len(found) == 0 {
 			continue

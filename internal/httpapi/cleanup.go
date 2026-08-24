@@ -146,13 +146,33 @@ type cleanupFinding struct {
 	// reason a marker is needed at all: there is nothing to see otherwise.
 	Snippet string `json:"snippet"`
 	Count   int    `json:"count"`
+
+	// ---- what it would become, and how the reader answers it -----------------
+	//
+	// THE FIELD'S WHOLE TEXT, BEFORE AND AFTER, and not a patch. The two are what
+	// the page puts side by side, and a diff computed in the browser could disagree
+	// with the rewrite that will actually run — these two strings are produced by
+	// the same function that does the writing (cleanup_fix.go).
+	//
+	// Empty `After` means this build has no rewrite for the rule: the finding is
+	// still listed, and still ignorable, and the page draws no accept button. No
+	// rule is in that state today.
+	Before string `json:"before"`
+	After  string `json:"after,omitempty"`
+	// Hash identifies THIS finding — a fold of the exact spans the rule matched —
+	// and is what an ignore is stored under. See 0052.
+	Hash string `json:"match_hash"`
+	// Ignored is whether the reader has already said no to this exact finding. The
+	// default bucket omits those entirely; the ignored bucket contains only them.
+	Ignored bool `json:"ignored,omitempty"`
 }
 
 // scanCleanup runs every rule over one field and returns what fired.
 //
 // ONE FINDING PER RULE PER FIELD, with a count — not one per match. A page's
 // worth of double spaces in a long quote is one decision, and listing forty of
-// them would bury the other seven rules.
+// them would bury the other seven rules. It is also what makes a finding
+// ANSWERABLE: accept applies that rule to that field, which is the same unit.
 func scanCleanup(field, text string) []cleanupFinding {
 	if text == "" {
 		return nil
@@ -163,12 +183,20 @@ func scanCleanup(field, text string) []cleanupFinding {
 		if len(hits) == 0 {
 			continue
 		}
-		out = append(out, cleanupFinding{
+		f := cleanupFinding{
 			Rule:    r.ID,
 			Field:   field,
 			Snippet: cleanupSnippet(text, hits[0]),
 			Count:   len(hits),
-		})
+			Before:  text,
+			Hash:    cleanupMatchHash(text, r.ID),
+		}
+		// The rewrite, from the function that will do the writing. A rule with no fix
+		// leaves After empty and is listed without an accept button.
+		if after, changed := cleanupApplyRule(text, r.ID); changed {
+			f.After = after
+		}
+		out = append(out, f)
 	}
 	return out
 }

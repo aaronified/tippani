@@ -917,6 +917,13 @@ var accountTables = []string{
 	// work rather than about a quote — a voice actor no provider lists exists
 	// nowhere else at all.
 	"item_reviews", "work_reads", "work_cast",
+	// cleanup_ignores (0052) hangs off a quote by the same polymorphic (kind,
+	// item_id) pair, so nothing walks to it either — and what it holds is a
+	// judgement the reader made about their own words: "that finding is my real
+	// writing, stop asking". Dropped from the snapshot, a restored account would be
+	// re-offered every finding it had already dismissed, on a page whose whole
+	// usefulness is that it does not do that.
+	"cleanup_ignores",
 	"import_batches", "staged_works", "staged_quotes",
 	// A reader's own uploaded type (0039). It is data rather than a credential —
 	// a font somebody found and chose — so it comes back with the account, and

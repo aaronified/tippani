@@ -1062,6 +1062,15 @@ export function route(method, path, params, body) {
       }
       return [200, { people: list }]
     }
+    // Stray marks. THE DEMO LIBRARY IS CLEAN, deliberately: the fixtures are
+    // hand-written, so there is nothing in them for a rule to find, and putting a
+    // doubled space into the demo's own quotes to show off this page would be
+    // vandalising the thing everything else on the tour is looking at. What matters
+    // here is the SHAPE — the tile reads `counts`, the page reads `items`, `rules`
+    // and `scanned` — so both get the real envelope with nothing in it, and the page
+    // shows its clean state.
+    case path === '/cleanup':
+      return [200, { rules: [], items: [], scanned: (BOOKS.length + MOVIES.length) * 3, truncated: false, counts: { open: 0, ignored: 0 } }]
     // A GET nobody taught the shim about. 200 {} is the least-bad answer — a 404
     // would light up error states all over a demo that is meant to look calm —
     // but it is exactly how the Devices card broke: the component read a list

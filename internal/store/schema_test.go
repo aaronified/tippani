@@ -752,6 +752,12 @@ func wantShapes() []tableShape {
 				// anthology it was in. Left behind, it renders as a gap the reader
 				// cannot delete because nothing on screen represents it.
 				"anthology_entries_book_del",
+				// 0052's, the fourth table of that shape: an ignored cleanup finding is
+				// the reader's answer about THIS quote's words, so a deleted highlight has
+				// to take its answers with it. Nothing on any screen would ever show the
+				// orphan, which is exactly why it needs a trigger rather than a tidy-up
+				// somebody remembers to run.
+				"cleanup_ignores_book_del",
 			},
 		},
 		{
@@ -822,6 +828,7 @@ func wantShapes() []tableShape {
 				"dialogues_ad", "dialogues_ai", "dialogues_au",
 				"item_reviews_screen_del",
 				"anthology_entries_screen_del", // 0043 — see annotations above
+				"cleanup_ignores_screen_del",   // 0052 — see annotations above
 			},
 		},
 		{
@@ -1264,6 +1271,12 @@ func TestSchemaInvariants(t *testing.T) {
 		{"annotations", "anthology_entries_book_del"},
 		{"dialogues", "anthology_entries_screen_del"},
 		{"utterances", "anthology_entries_utterance_del"},
+		// 0052's three. Unlike item_reviews it needs all three, for anthology_entries'
+		// reason: the orphan is a correctness problem on its own, and a quote of any
+		// kind can carry an ignored finding.
+		{"annotations", "cleanup_ignores_book_del"},
+		{"dialogues", "cleanup_ignores_screen_del"},
+		{"utterances", "cleanup_ignores_quote_del"},
 	} {
 		found := false
 		for _, tr := range shapes[tc.table].Triggers {

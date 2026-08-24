@@ -6,11 +6,15 @@ import {
   EmptyState,
   FieldIconButton,
   FilterChip,
+  GhostButton,
   IconBack,
+  IconCheck,
+  IconClose,
   IconHighlight,
   IconDialogue,
   IconOpen,
   IconQuote,
+  IconRefresh,
   InfoDot,
   MonoLabel,
   PageHeader,
@@ -29,16 +33,30 @@ import {
 // snippet is the fact that gets truncated, and the snippet is the whole reason to
 // look.
 //
-// IT REPORTS AND NEVER EDITS. There is no "fix all" button and there is no
-// per-row fix either, which is a design decision rather than an unfinished one —
-// internal/httpapi/cleanup.go argues it at length. The short version: every rule
-// has a false positive that is somebody's real writing, and a button that edited
-// the reader's own words on the strength of a guess is worse than a list they read
-// once. So the only control on a row is a door to where the quote lives.
+// IT REPORTED AND NEVER EDITED, AND NOW IT ASKS (2.2.1). The original note here
+// said a fix button was worse than a list you read once, because every rule has a
+// false positive that is somebody's real writing. That was an argument against a
+// "fix all" — one press over five hundred finds with no diff — and it stands. What
+// it ruled out too much of is the smaller control the reader actually asked for:
+// **the rewrite, shown, accepted or refused one finding at a time**.
 //
-// AND IT IS ONE ROUND TRIP. The server reads the whole library in one pass and
-// caps the findings; nothing here pages, polls or refetches on a filter, because
-// the filter is a view of a list already in hand.
+// So every finding now carries what it would become, drawn beside what it is, with
+// the find marked in both — and two answers:
+//
+//	Accept   rewrites THAT field by THAT rule. Nothing else on the quote moves, and
+//	         the server applies the rule itself rather than storing a string the
+//	         client sent (cleanup_apply_handlers.go).
+//	Ignore   remembers the refusal (0052) and takes the finding off this list. The
+//	         words are untouched. It is remembered per FINDING, not per field, so
+//	         accepting something else on the same quote does not bring it back.
+//
+// TWO BUCKETS, ONE SCAN. `To answer` and `Ignored` are two partitions of one walk
+// on the server, so the counts cannot disagree; the reader can go and undo a
+// refusal, which is the thing that makes refusing safe.
+//
+// STILL ONE ROUND TRIP PER VIEW. The rule filter is a view of a list already in
+// hand; a bucket change and an answer are the only things that refetch, because
+// both change what the list IS.
 
 // The three kinds the sweep reports, in the bin's vocabulary. ONE VOCABULARY, not
 // a second set of words for the same three things — a highlight is a দাগ on both
@@ -60,23 +78,59 @@ export default function CleanupPage({ onClose, onOpenBook, onOpenMovie, onOpenQu
   const mobile = useIsMobileScreen()
   const [data, setData] = useState(null) // null = still reading
   const [rule, setRule] = useState('all')
+  const [bucket, setBucket] = useState('open')
+  const [busy, setBusy] = useState(false)
+  // Bumped by an answer, which is what re-runs the sweep. A refetch rather than a
+  // local edit: accepting can turn out to be stale or a duplicate, and the server's
+  // second answer is the only honest one.
+  const [nonce, setNonce] = useState(0)
 
   useEffect(() => {
     let stale = false
-    json('GET', '/cleanup').then((r) => {
+    setData(null)
+    json('GET', `/cleanup?bucket=${bucket}`).then((r) => {
       if (stale) return
       if (!r.ok) {
         toast(errText(r, t('error.cleanup.generic')))
         // An empty answer rather than a permanent "reading…": a page stuck on its
         // loading line is indistinguishable from a slow server.
-        return setData({ rules: [], items: [], scanned: 0 })
+        return setData({ rules: [], items: [], scanned: 0, counts: {} })
       }
       setData(r.data)
     })
     return () => {
       stale = true
     }
-  }, [])
+  }, [bucket, nonce])
+
+  // One finding, as the server identifies it. The hash is what makes an ignore
+  // about THIS find rather than about the rule on the field for ever.
+  const target = (it, f) => ({ kind: it.kind, id: it.id, field: f.field, rule: f.rule, match_hash: f.match_hash })
+
+  async function answer(path, items, said) {
+    setBusy(true)
+    const r = await json('POST', path, { items })
+    setBusy(false)
+    if (!r.ok) return toast(errText(r, t('error.save.generic')))
+    said(r.data || {})
+    setNonce((n) => n + 1)
+  }
+
+  const accept = (items) =>
+    answer('/cleanup/accept', items, ({ applied = 0, stale = 0, duplicates = 0 }) => {
+      // Reported, not assumed. A finding whose text changed since the page was drawn
+      // is stale, and a correction that would collide with another quote is a
+      // duplicate — in both cases the words are still exactly as they were, which
+      // the reader has to be told rather than left to notice.
+      if (applied > 0) toast(t('cleanup.toast.applied', { n: applied }))
+      if (stale > 0) toast(t('cleanup.toast.stale', { n: stale }))
+      if (duplicates > 0) toast(t('cleanup.toast.duplicate', { n: duplicates }))
+    })
+
+  const setIgnored = (items, ignore) =>
+    answer(ignore ? '/cleanup/ignore' : '/cleanup/unignore', items, () =>
+      toast(ignore ? t('cleanup.toast.ignored', { n: items.length }) : t('cleanup.toast.restored', { n: items.length })),
+    )
 
   // MEMOISED ON `data`, NOT ON A DERIVED ARRAY. `data?.items || []` is a fresh
   // array every render, so a memo keyed on it recomputes every render and — worse
@@ -120,6 +174,7 @@ export default function CleanupPage({ onClose, onOpenBook, onOpenMovie, onOpenQu
             noun: t('unit.quote', { count: data.scanned }),
           }),
         ].join(' · ')
+  const ignoredCount = data?.counts?.ignored ?? 0
 
   // Where a row's quote lives. A book highlight and a film line open their work;
   // a standalone quote has none, so it opens the board list it is filed on.
@@ -157,6 +212,31 @@ export default function CleanupPage({ onClose, onOpenBook, onOpenMovie, onOpenQu
 
       <Card>
         <div className="space-y-4">
+          {/* THE TWO BUCKETS, and the Ignored one is drawn even at zero — unlike
+              the rule chips below, which only exist for a rule that fired. It is
+              not a filter over what is on screen; it is the other half of the page,
+              and somebody who has just pressed Ignore has to be able to find what
+              they ignored. */}
+          <div className="flex flex-wrap items-center gap-2">
+            <FilterChip
+              active={bucket === 'open'}
+              keepLabel
+              label={t('cleanup.bucket.open.label')}
+              onClick={() => { setBucket('open'); setRule('all') }}
+            />
+            <FilterChip
+              active={bucket === 'ignored'}
+              keepLabel
+              label={t('cleanup.bucket.ignored.label', { n: ignoredCount })}
+              onClick={() => { setBucket('ignored'); setRule('all') }}
+            />
+            <span className="ml-auto">
+              <GhostButton icon={<IconRefresh />} onClick={() => setNonce((n) => n + 1)} disabled={busy}>
+                {t('cleanup.rescan.label')}
+              </GhostButton>
+            </span>
+          </div>
+
           {/* THE RULE LEGEND IS THE FILTER. Two lists — "here is what I look for"
               and "here is what I found" — would say the same thing twice, so a
               chip carries its rule's name, its count, and its one-line
@@ -169,6 +249,11 @@ export default function CleanupPage({ onClose, onOpenBook, onOpenMovie, onOpenQu
                 label={t('cleanup.filter.all.label')}
                 onClick={() => setRule('all')}
               />
+              {/* ACCEPT ALL IS PER RULE and never per page. A reader may trust the
+                  invisible-character rule completely and still want to read every
+                  reference mark before it goes — and "everything wrong with my
+                  library" is not one decision. Shown only when a rule is SELECTED,
+                  so the button always names exactly what is on screen. */}
               {chips.map((r) => (
                 // The bubble carries the rule's one-line explanation. FilterChip
                 // only grows its own tooltip when it can lose its words to the
@@ -186,8 +271,30 @@ export default function CleanupPage({ onClose, onOpenBook, onOpenMovie, onOpenQu
             </div>
           )}
 
+          {bucket === 'open' && rule !== 'all' && shown.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              <GhostButton
+                icon={<IconCheck />}
+                keepLabel
+                disabled={busy}
+                onClick={() =>
+                  accept(
+                    shown.flatMap((it) =>
+                      it.findings.filter((f) => f.rule === rule && f.after).map((f) => target(it, f)),
+                    ),
+                  )
+                }
+              >
+                {t('cleanup.accept-all.label', { name: t(`cleanup.rule.${rule}.label`) })}
+              </GhostButton>
+              <span className="microcopy">{t('cleanup.accept-all.hint')}</span>
+            </div>
+          )}
+
           {data === null && <p className="microcopy">{t('cleanup.state.loading')}</p>}
-          {data !== null && items.length === 0 && <EmptyState>{t('cleanup.state.clean')}</EmptyState>}
+          {data !== null && items.length === 0 && (
+            <EmptyState>{bucket === 'ignored' ? t('cleanup.state.none-ignored') : t('cleanup.state.clean')}</EmptyState>
+          )}
           {data !== null && items.length > 0 && shown.length === 0 && (
             <EmptyState>{t('cleanup.state.clean-rule')}</EmptyState>
           )}
@@ -244,6 +351,53 @@ export default function CleanupPage({ onClose, onOpenBook, onOpenMovie, onOpenQu
                               rather than collapsing it, which is what makes two
                               spaces look like two. */}
                           <p className="cleanup-snippet">{f.snippet}</p>
+                          {/* AND WHAT IT WOULD BECOME. The whole field, from the
+                              server, produced by the same function that does the
+                              writing — so what is on screen is what will happen,
+                              rather than a diff this page computed and hoped
+                              matched. A rule with no rewrite in this build sends
+                              no `after`, and then there is nothing to accept. */}
+                          {f.after && (
+                            <p className="cleanup-after">
+                              <span className="cleanup-arrow" aria-hidden="true">→</span>
+                              {f.after}
+                            </p>
+                          )}
+                          <div className="cleanup-answers">
+                            {bucket === 'open' ? (
+                              <>
+                                {f.after && (
+                                  <GhostButton
+                                    icon={<IconCheck />}
+                                    keepLabel
+                                    disabled={busy}
+                                    onClick={() => accept([target(it, f)])}
+                                  >
+                                    {t('cleanup.accept.label')}
+                                  </GhostButton>
+                                )}
+                                <Tooltip label={t('cleanup.ignore.tip')}>
+                                  <GhostButton
+                                    icon={<IconClose />}
+                                    keepLabel
+                                    disabled={busy}
+                                    onClick={() => setIgnored([target(it, f)], true)}
+                                  >
+                                    {t('cleanup.ignore.label')}
+                                  </GhostButton>
+                                </Tooltip>
+                              </>
+                            ) : (
+                              <GhostButton
+                                icon={<IconRefresh />}
+                                keepLabel
+                                disabled={busy}
+                                onClick={() => setIgnored([target(it, f)], false)}
+                              >
+                                {t('cleanup.restore.label')}
+                              </GhostButton>
+                            )}
+                          </div>
                         </li>
                       ))}
                     </ul>

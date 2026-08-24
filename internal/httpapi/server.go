@@ -256,11 +256,20 @@ func (s *Server) Handler() http.Handler {
 	// like the read log above — nested to add, flat by row id to correct or
 	// remove. See cast_handlers.go.
 	mux.Handle("GET /books/{id}/cast", s.requireAuth(s.handleListCast("book")))
+	// The chapters this book's own highlights already name (2.2.1) — what the capture
+	// surface and the highlight editor offer while you type a locator. See
+	// chapters_handler.go for why it is per book rather than part of the search
+	// vocabulary.
+	mux.Handle("GET /books/{id}/chapters", s.requireAuth(s.handleBookChapters))
 	mux.Handle("POST /books/{id}/cast", s.requireAuth(s.handleAddCast("book")))
 	mux.Handle("GET /movies/{id}/cast", s.requireAuth(s.handleListCast("movie")))
 	mux.Handle("POST /movies/{id}/cast", s.requireAuth(s.handleAddCast("movie")))
 	mux.Handle("PUT /cast/{id}", s.requireAuth(s.handleUpdateCast))
 	mux.Handle("DELETE /cast/{id}", s.requireAuth(s.handleDeleteCast))
+	// One on-demand pass at IMDb for a work whose structured sources have no cast —
+	// which is most games (see igdb_cast.go's measurement). One request per press, no
+	// search, no crawl; see imdb_handlers.go.
+	mux.Handle("POST /movies/{id}/cast/imdb", s.requireAuth(s.handleCastFromIMDb))
 	// The character's own picture, fetched once and served from here afterwards
 	// (0050). A POST because it may write — idempotent, so a client may call it for
 	// every chip it is about to draw. See cast_image_handlers.go.
@@ -269,6 +278,13 @@ func (s *Server) Handler() http.Handler {
 	// behind in it, change nothing. See cleanup.go for the rules and why there is
 	// no companion write.
 	mux.Handle("GET /cleanup", s.requireAuth(s.handleCleanup))
+	// The three that make the list a worklist (2.2.1): the rewrite a finding would
+	// make, accepted one at a time; and a refusal that is remembered (0052) so the
+	// finding that was somebody's real writing is dismissed once rather than every
+	// visit. See cleanup_apply_handlers.go.
+	mux.Handle("POST /cleanup/accept", s.requireAuth(s.handleCleanupAccept))
+	mux.Handle("POST /cleanup/ignore", s.requireAuth(s.handleCleanupIgnore))
+	mux.Handle("POST /cleanup/unignore", s.requireAuth(s.handleCleanupUnignore))
 	mux.Handle("POST /books/{id}/cover", s.requireAuth(s.handleUploadBookCover))
 	mux.Handle("DELETE /books/{id}", s.requireAuth(s.handleDeleteBook))
 
