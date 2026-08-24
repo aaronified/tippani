@@ -215,6 +215,25 @@ describe('buildModel selection', () => {
     expect(buildModel(share, allBut('translation'), null).quote).toBe('যেমন কর্ম তেমন ফল')
   })
 
+  // THE LEGEND IS THE ONLY THING A PROVERB SAYS ABOUT ITSELF, so it has to reach
+  // the picture — and it is a PHRASE token, so what reaches it is the clause and
+  // not the bare language. A noun glued after the language would read wrongly in
+  // any language that puts the noun first or has no article.
+  it('gives a proverb a legend naming its language, as a whole clause', () => {
+    const share = quoteShare({ quote: 'যেমন কর্ম তেমন ফল', category: 'proverb', language: 'Bengali' })
+    const model = buildModel(share, ALL, null)
+    expect(model.meta.join(' ')).toContain('Bengali')
+    // The clause, not the bare value: "a Bengali proverb" rather than "Bengali".
+    expect(model.meta.join(' ').toLowerCase()).toContain('proverb')
+  })
+
+  // A speech is not a proverb, and the legend must not appear on one — the field
+  // is gated on the category, not on having a language.
+  it('leaves the legend off a quote that is not a proverb', () => {
+    const share = quoteShare({ quote: 'Give me blood', category: 'speech', language: 'Bengali' })
+    expect(buildModel(share, ALL, null).meta.join(' ').toLowerCase()).not.toContain('proverb')
+  })
+
   it('survives a payload with no arrays at all', () => {
     // Exhaustive on purpose: toEqual over the WHOLE model, so a field added to
     // buildModel and forgotten everywhere else fails here rather than being

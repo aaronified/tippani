@@ -2430,6 +2430,8 @@ share.field.medium.label = মাধ্যম
 share.field.tags.label = ট্যাগ
 share.field.note.label = নোট
 share.field.translation.label = অনুবাদ
+share.field.proverb.label = ধরন
+share.field.proverb.legend = {value} প্রবাদ
 
 # THE CREDIT PHRASES THEMSELVES — these go into the text somebody else reads.
 share.credit.chapter.phrase = অধ্যায় {n}

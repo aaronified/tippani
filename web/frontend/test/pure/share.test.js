@@ -257,7 +257,14 @@ describe('the payload shapers', () => {
   // and only a spelled-out list catches it.
   it('give a standalone quote its speaker/occasion/when attribution', () => {
     expect(bose().attribution.map((a) => a.id)).toEqual(['speaker', 'occasion', 'when'])
-    expect(bose().meta.map((m) => m.id)).toEqual(['place', 'medium', 'noted'])
+    // `proverb` leads the meta line and is declared on every standalone quote,
+    // empty-valued unless the quote IS one — the same way place/medium/noted are
+    // declared and empty on a proverb. It leads because it answers "what is this",
+    // which is more general than where or when it was said.
+    expect(bose().meta.map((m) => m.id)).toEqual(['proverb', 'place', 'medium', 'noted'])
+    // Declared, and inert: a speech is not a proverb, so the value is empty and
+    // neither the dialog nor the image offers it.
+    expect(bose().meta.find((m) => m.id === 'proverb').value).toBe('')
   })
 
   it('make the speaker the credited one, the way an author is', () => {

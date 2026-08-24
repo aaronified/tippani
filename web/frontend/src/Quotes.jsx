@@ -482,21 +482,21 @@ export function groupOptionsFor(board) {
   return [...groupOptions(), ['language', t('quotes.group.language.label')]]
 }
 
-// THE THREE BOARDS (0035). One page, three boards — not three nav tabs: a phone's
-// bottom bar holds four content screens and turning one of them into three would put
-// six glyphs on a row a thumb has to hit.
+// THE THREE-CATEGORY CONTROL IS GONE, and its two tables went with it (2.2.0).
 //
-// 'other' is last and is the default, because it is the residual bucket and what
-// every quote in an existing library already is. The order is the order the control
-// draws, and it is the order of specificity: a proverb is the most particular thing
-// here, an 'other' the least.
-export const CATEGORY_OPTIONS = [
-  ['proverb', 'Proverbs'],
-  ['speech', 'Speeches'],
-  ['other', 'Others'],
-]
-// The singular, for the empty state and the counts.
-const CATEGORY_NOUN = { proverb: 'proverb', speech: 'speech', other: 'quote' }
+// `CATEGORY_OPTIONS` and `CATEGORY_NOUN` described the three boards from 0035 —
+// Proverbs, Speeches, Others — as a control this page drew. 0037 replaced that
+// with the BOARD's own `kind`, which is why `utterance.category` still exists on
+// the row and nothing reads these two tables: zero importers of the exported one,
+// zero readers of the private one.
+//
+// They are DELETED rather than translated, and that is the point worth recording.
+// Both held hardcoded English — the only untranslated copy left on this screen —
+// so the obvious fix was a locale token each. Tokens for a control nobody renders
+// are orphan keys, which locale-complete.test.js fails the build over, and it was
+// written after 37 of them had to be deleted. Dead English is deleted; live
+// English gets a token. The live one in this release is the share image's proverb
+// legend (`share.field.proverb.legend`).
 
 // groupUtterances buckets quotes for the group-by view. Extracted from the
 // component so the four dimensions can be checked without rendering a screen —
@@ -741,6 +741,8 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
       quote: u.quote,
       translation: u.translation,
       note: u.note,
+      category: u.category,
+      language: u.language,
       speaker: u.speaker,
       occasion: u.occasion,
       when: formatPartialDate(u.occasion_date),

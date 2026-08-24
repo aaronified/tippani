@@ -214,6 +214,8 @@ export function quoteShare({
   quote,
   translation,
   note,
+  category,
+  language,
   speaker,
   occasion,
   when,
@@ -244,6 +246,23 @@ export function quoteShare({
       { id: "when", label: t("share.field.when.label"), value: when || "" },
     ],
     meta: [
+      // WHAT THIS IS, for the one kind of quote that otherwise says nothing about
+      // itself. A proverb has no speaker, no occasion, no date and no place — so
+      // every other field on this line is empty and a shared proverb arrives as
+      // words from nowhere. The legend is the language plus the noun: "a Bengali
+      // proverb".
+      //
+      // A PHRASE TOKEN, not a noun with the language glued in front of it. Word
+      // order and the article are a translator's business — Bengali puts the noun
+      // last and has no "a" — so the whole clause is one key with the hole in it,
+      // the way the "played by …" credit stopped being a prefix. The hole is
+      // {value}, which is what buildModel hands every phrase on this line.
+      {
+        id: "proverb",
+        label: t("share.field.proverb.label"),
+        value: category === "proverb" && language ? language : "",
+        phrase: "share.field.proverb.legend",
+      },
       { id: "place", label: t("share.field.place.label"), value: place || "" },
       { id: "medium", label: t("share.field.medium.label"), value: medium || "" },
       { id: "noted", label: t("share.field.noted.label"), value: date || "" },

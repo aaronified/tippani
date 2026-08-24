@@ -2401,6 +2401,19 @@ share.field.note.label = Note
 # IS its own language plus what it says, so a share carrying only the original is
 # half the quote to anybody who cannot read it.
 share.field.translation.label = Translation
+# A PROVERB SAYS WHAT IT IS, because nothing else on its line can. A proverb has
+# no speaker, no occasion, no date and no place, so every other field on the meta
+# line is empty and a shared proverb arrives as words from nowhere.
+#
+# `legend` is the WHOLE CLAUSE with a {value} hole, not a noun with the language
+# glued in front of it: the article and the word order belong to the translator,
+# and Bengali puts the noun last and has no "a". The hole is spelled {value}
+# because that is what every phrase token on the meta line is handed — the same
+# mechanism as the "played by {value}" credit — and a token written {language}
+# renders the braces to the reader. `label` is the tick in the share dialog,
+# which names the thing rather than the sentence.
+share.field.proverb.label = Kind
+share.field.proverb.legend = a {value} proverb
 
 # THE CREDIT PHRASES THEMSELVES — these go into the text somebody else reads.
 share.credit.chapter.phrase = Ch. {n}
