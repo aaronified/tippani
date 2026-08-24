@@ -444,3 +444,104 @@ describe('the shelf dropdown over a catalogue selection', () => {
     expect(screen.queryByText('Playing')).toBeNull()
   })
 })
+
+// Setting one field across a whole selection (1.16.0, wired 2.2.3).
+//
+// WHY THIS BLOCK EXISTS. The action was in the registry, the field tables and the
+// overwrite warning were in bulkOps.jsx, and the server took every field — and
+// none of it did anything, because SelectionBar never passed `setFields`. The
+// action's `available` reads `!!ctx.setFields`, so the menu item simply was not
+// there: no error, no log, no failing test. The owner reported it as "I am unable
+// to bulk edit works".
+//
+// So the assertions go all the way to the REQUEST. A test that found the menu item
+// would have passed on the day the callback was added and said nothing about
+// whether the dialog sends anything.
+describe('setting one field over a selection', () => {
+  const pickTwo = () => {
+    render(<Board />)
+    fireEvent.click(boxes()[0])
+    fireEvent.click(boxes()[1])
+  }
+
+  // Select is this app's own dropdown, not a native <select>: it opens a panel and
+  // the options are clicked. Driving it with fireEvent.change silently does
+  // nothing, which is a test that passes while asserting the default.
+  const chooseField = (label) => {
+    fireEvent.click(screen.getByLabelText('Which field to set'))
+    fireEvent.click(screen.getByText(label))
+  }
+  const openDialog = () => {
+    openMore()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Set fields' }))
+  }
+
+  it('is not offered over a single work', () => {
+    // The work's own form is strictly better for one row, which is the registry's
+    // rule — asserted here because this is the surface that shows it.
+    render(<Board />)
+    fireEvent.click(boxes()[0])
+    openMore()
+    expect(screen.queryByRole('menuitem', { name: 'Set fields' })).toBeNull()
+  })
+
+  it('is offered over several', () => {
+    pickTwo()
+    openMore()
+    expect(screen.getByRole('menuitem', { name: 'Set fields' })).toBeTruthy()
+  })
+
+  it('sets the series on both books in one request', async () => {
+    pickTwo()
+    openDialog()
+    chooseField('Series')
+    fireEvent.change(screen.getByLabelText(/^Series$/i), { target: { value: 'the hainish cycle' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Apply' }))
+
+    await waitFor(() => expect(sent('/books/bulk')).toBeTruthy())
+    const [, , body] = sent('/books/bulk')
+    expect(body.ids).toEqual([1, 2])
+    // As-you-type capitalisation, and the small-word rule with it: this is the
+    // same Field the single-book form uses, so a series set over five books is
+    // spelled the way it would have been spelled in one of them.
+    expect(body.series).toBe('The Hainish Cycle')
+    // ONE key. A targeted patch is what makes "set the series and leave the rest"
+    // possible at all — a full-state body here would clear every other field on
+    // both books.
+    expect(Object.keys(body).sort()).toEqual(['ids', 'series'])
+  })
+
+  it('sends a number for a numeric field, not a string', async () => {
+    pickTwo()
+    openDialog()
+    chooseField('Year')
+    fireEvent.change(screen.getByLabelText(/^Year$/i), { target: { value: '1974' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Apply' }))
+
+    await waitFor(() => expect(sent('/books/bulk')).toBeTruthy())
+    // A string in a *int is a 400, and the failure would be a red toast nobody
+    // could act on.
+    expect(sent('/books/bulk')[2].published_year).toBe(1974)
+  })
+
+  it('warns about what it would overwrite, and only about that', () => {
+    pickTwo()
+    openDialog()
+    // Author is the first field, and both selected books already have one —
+    // the same one, so the warning quotes it.
+    expect(document.querySelector('.tp-warn')?.textContent).toMatch(/Le Guin/)
+    // Neither has a series, so filling that blank is not a loss and says nothing.
+    chooseField('Series')
+    expect(document.querySelector('.tp-warn')).toBeNull()
+  })
+
+  it('forgets a value typed for the previous field', () => {
+    pickTwo()
+    openDialog()
+    fireEvent.change(screen.getByLabelText(/^Author$/i), { target: { value: 'Borges' } })
+    chooseField('Series')
+    // Carrying it over would offer "Borges" as a series with the Apply button
+    // already live beside it.
+    expect(screen.getByLabelText(/^Series$/i).value).toBe('')
+  })
+})

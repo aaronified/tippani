@@ -4,19 +4,21 @@ import { ANTHOLOGY_KIND, AddToAnthologyDialog } from './anthologies.jsx'
 import { errText, json } from './api.js'
 import { t, tNodes } from './i18n.js'
 import { MoveToBoardDialog } from './boards.jsx'
-import { KIND_ROUTES, deletePhrase, useBulkOps } from './bulkOps.jsx'
+import { KIND_ROUTES, bulkFieldsFor, deletePhrase, overwriteWarning, useBulkOps } from './bulkOps.jsx'
 import { StickerPicker, useStickers } from './stickers.jsx'
 import { capKeyFor } from './works.jsx'
 import {
   ColorSwatches,
   ConfirmDialog,
   FieldIconButton,
+  Field,
   FormModal,
   GhostButton,
   IconButton,
   IconClose,
   MonoLabel,
   MoreMenu,
+  Select,
   TokenInput,
   shelfLabel,
   toast,
@@ -111,6 +113,7 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
   const [tagging, setTagging] = useState(false)
   const [moving, setMoving] = useState(false)
   const [gathering, setGathering] = useState(false)
+  const [editingFields, setEditingFields] = useState(false)
   const { kind, ids, count } = selection
   // The mode, not the count — see useSelection. Deselecting the last card used to
   // tear the bar off the screen, so re-picking meant finding the long press again.
@@ -124,7 +127,7 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
   // is a mode. Skipped while any of this bar's own dialogs is up: there Escape
   // belongs to the dialog, and dismissing the selection underneath it would answer
   // a question nobody asked.
-  const inDialog = asking || sealing || tagging || moving || gathering
+  const inDialog = asking || sealing || tagging || moving || gathering || editingFields
   useEffect(() => {
     if (!open || inDialog) return
     const k = (e) => {
@@ -191,6 +194,17 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
     addToAnthology: ANTHOLOGY_KIND[kind] ? (_, anthologyID) => gather(anthologyID) : undefined,
     // Works.
     fillGaps: isWork ? ops.fillGaps : undefined,
+    // ONE FIELD ACROSS THE WHOLE SELECTION — the series on five books, the
+    // director on nine films. The registry has carried this action since 1.16.0
+    // and the server has taken the fields for as long; the bar never passed the
+    // callback, so the menu item was `available: … && !!ctx.setFields` and
+    // therefore never appeared. Nothing errored and nothing logged. The whole
+    // feature was one argument wide.
+    //
+    // A TARGETED PATCH, not a full-state write: /{kind}/bulk touches only the
+    // keys present, which is what makes "set the series and leave everything
+    // else" possible over a selection at all.
+    setFields: isWork ? (_, patch) => ops.post(patch, t('common.selection.toast.fields-set', { n: count, count })) : undefined,
     setShelf: isWork ? (_, status) => ops.setShelf(status, t('common.selection.toast.moved', { n: count, count })) : undefined,
     // Both. `edit` is filtered to a selection of exactly one by the registry, so
     // there is no count test here — and a screen with no inline form for one row
@@ -229,6 +243,11 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
     byID.anthology.run(anthologyID)
   }
 
+  const applyFields = (patch) => {
+    setEditingFields(false)
+    byID['set-fields'].run(patch)
+  }
+
   // A DUPLICATE IS A SKIP, NOT AN ERROR — the server ignores a quote already in the
   // anthology — so the toast reports what the response says rather than assuming the
   // whole selection landed. Saying "5 added" over a selection where two were already
@@ -265,6 +284,7 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
     sticker: () => setSealing(true),
     board: () => setMoving(true),
     anthology: () => setGathering(true),
+    'set-fields': () => setEditingFields(true),
     delete: () => setAsking(true),
   }
   const overflow = atOverflow(acts).map((a) => ({
@@ -409,6 +429,16 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
       {gathering && (
         <AddToAnthologyDialog count={count} busy={busy} onApply={applyAnthology} onClose={() => setGathering(false)} />
       )}
+      {editingFields && (
+        <SetFieldsDialog
+          kind={kind}
+          count={count}
+          rows={picked}
+          busy={busy}
+          onApply={applyFields}
+          onClose={() => setEditingFields(false)}
+        />
+      )}
 
       <ConfirmDialog
         open={asking}
@@ -485,6 +515,102 @@ function SealDialog({ count, busy, onApply, onClose }) {
         <p className="microcopy">{t('common.selection.seal.body')}</p>
         <StickerPicker value={seal} onChange={setSeal} stickers={stickers} reload={reload} />
         <GhostButton onClick={() => onApply(seal)} disabled={busy}>
+          {t('common.action.apply.label')}
+        </GhostButton>
+      </div>
+    </FormModal>
+  )
+}
+
+// SetFieldsDialog — one field, one value, the whole selection.
+//
+// WHY ONE FIELD AT A TIME rather than a form of them all. A form of every field
+// with a "leave alone" state per row is a form where the difference between "I
+// did not touch this" and "I meant to clear this" is invisible, over forty rows
+// at once. One named field and one value is a sentence you can read back before
+// you press it — and pressing it twice is how you set two.
+//
+// THE WARNING COUNTS ONLY WHAT WOULD BE DESTROYED. Filling a blank is not a loss,
+// so a field that is empty across the whole selection says nothing at all; a
+// field with values says how many rows and how many DISTINCT answers are about to
+// become one, because "overwrites 12" and "overwrites 12 different answers" are
+// different sizes of mistake. That is overwriteWarning's rule, and it is the same
+// non-destructive default the Details merge screen uses when it pre-ticks only
+// the fields you have nothing in.
+//
+// EMPTY IS A CLEAR, and it is allowed. /{kind}/bulk documents "" as the clear,
+// the warning above is exactly the guard that makes it safe to offer, and a bulk
+// edit that could set a series but never unset one would send you back to forty
+// forms for the mistake it just helped you make.
+function SetFieldsDialog({ kind, count, rows, busy, onApply, onClose }) {
+  const fields = bulkFieldsFor(kind)
+  const [key, setKey] = useState(fields[0]?.key || '')
+  const [value, setValue] = useState('')
+  const spec = fields.find((f) => f.key === key)
+  // Recomputed per field, from the SELECTED rows the bar already holds — no
+  // second fetch, and it changes the moment the field does.
+  const warn = spec ? overwriteWarning(rows, key) : null
+
+  // A number field sends a number, because the server's field is one: `"3"` in a
+  // *float64 is a 400, and Number('') is 0, which is how both a year and a
+  // series index spell "unset".
+  const send = () => onApply({ [key]: spec?.number ? Number(value) || 0 : value })
+
+  return (
+    <FormModal open onClose={onClose} title={t('common.selection.edit.title', { n: count, count })}>
+      <div className="space-y-3">
+        <p className="microcopy">{t('common.selection.edit.body', { n: count, count })}</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <MonoLabel>{t('common.selection.edit.field.label')}</MonoLabel>
+          <Select
+            ariaLabel={t('common.selection.edit.field.aria')}
+            value={key}
+            onChange={(v) => {
+              setKey(v)
+              setValue('') // a value typed for one field is not a value for the next
+            }}
+            options={fields.map((f) => [f.key, f.label])}
+          />
+        </div>
+        {/* The value editor follows the field: a fixed vocabulary gets a Select, a
+            description gets a box with room in it, everything else is a line. */}
+        {spec?.options ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <MonoLabel>{spec.label}</MonoLabel>
+            <Select
+              ariaLabel={t('common.selection.edit.value.aria')}
+              value={value}
+              onChange={setValue}
+              options={[['', t('common.selection.edit.value.none.label')], ...spec.options]}
+            />
+          </div>
+        ) : spec?.long ? (
+          <label className="tp-field">
+            <MonoLabel>{spec.label}</MonoLabel>
+            <textarea
+              className="tp-input"
+              rows="4"
+              aria-label={t('common.selection.edit.value.aria')}
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+            />
+          </label>
+        ) : (
+          <Field
+            label={spec?.label || ''}
+            // The same as-you-type capitalisation the single-record forms use for
+            // these fields, so a series set over five books is spelled the way it
+            // would have been spelled in one of them.
+            nameCase={!spec?.number}
+            inputMode={spec?.number ? 'numeric' : undefined}
+            value={value}
+            autoFocus
+            onChange={(e) => setValue(e.target.value)}
+          />
+        )}
+        {warn && <p className="tp-warn">{warn.text}</p>}
+        {!value.trim() && <p className="microcopy">{t('common.selection.edit.clear.hint')}</p>}
+        <GhostButton onClick={send} disabled={busy || !spec}>
           {t('common.action.apply.label')}
         </GhostButton>
       </div>

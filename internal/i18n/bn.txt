@@ -1676,6 +1676,13 @@ common.selection.fill.toast.filled = {n}টা ঘর ভরা হল
 # Under one field of the bulk edit sheet, warning what setting it would destroy.
 # {n} is how many rows already hold a value; {value} is that value when they all
 # agree; {distinct} is how many different ones there are when they do not.
+common.selection.edit.title = {n}টায় একটা ঘর বসান
+common.selection.edit.body = একটা ঘর আর একটা মান বাছুন। বাছা প্রতিটি রেকর্ডে সেটি বসবে; আর কিছুতে হাত পড়বে না।
+common.selection.edit.field.label = ঘর
+common.selection.edit.field.aria = কোন ঘর বসানো হবে
+common.selection.edit.value.aria = যে মান বসবে
+common.selection.edit.value.none.label = (কিছু না)
+common.selection.edit.clear.hint = ফাঁকা রাখলে ঘরটি মুছে যাবে।
 common.selection.edit.overwrite.same = যে {n}টায় আগে থেকেই “{value}” আছে, সেগুলোও বদলে যাবে
 common.selection.edit.overwrite.differ = {n}টা বদলে যাবে — তাতে এখন {distinct} রকম মান আছে
 
@@ -1770,6 +1777,8 @@ common.selection.toast.recoloured = {n}টার রং বদলাল
 common.selection.toast.tagged = {n}টায় ট্যাগ বসল
 common.selection.toast.sealed = {n}টায় সিল বসল
 common.selection.toast.seals-removed = সিল উঠে গেল
+common.selection.toast.fields-set.one = 1টা রেকর্ড বদলাল
+common.selection.toast.fields-set.other = {n}টা রেকর্ড বদলাল
 common.selection.toast.favourited = {n}টা প্রিয়তে গেল
 common.selection.toast.moved = {n}টা পাঠানো হল
 common.selection.toast.back-in-quiz = আবার কুইজে ঢুকল

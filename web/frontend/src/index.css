@@ -3547,6 +3547,13 @@
   .lang-custom .cat-swatch { flex: 1 1 auto; }
   .color-dot.active { opacity: 1; outline: 2px solid var(--accent-ui); outline-offset: 2px; }
   .tp-error { font-size: var(--type-ui-13); color: var(--error); }
+  /* A WARNING IS NOT AN ERROR. Nothing has gone wrong — this is what pressing the
+     button would destroy, said before you press it — so it takes the accent
+     rather than the error red, which in this app means "look here" instead of
+     "this failed". Same size as the error line, because it sits in the same slot
+     and a warning drawn larger than the error above it would be a hierarchy
+     nobody intended. */
+  .tp-warn { font-size: var(--type-ui-13); color: var(--accent-ui); }
   .tp-empty {
     padding: 44px 0;
     text-align: center;

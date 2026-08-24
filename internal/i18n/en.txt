@@ -1681,6 +1681,13 @@ common.selection.fill.toast.filled = filled {n} fields
 # Under one field of the bulk edit sheet, warning what setting it would destroy.
 # {n} is how many rows already hold a value; {value} is that value when they all
 # agree; {distinct} is how many different ones there are when they do not.
+common.selection.edit.title = Set a field on {n}
+common.selection.edit.body = Choose one field and one value. Every selected record gets it; nothing else is touched.
+common.selection.edit.field.label = field
+common.selection.edit.field.aria = Which field to set
+common.selection.edit.value.aria = The value to set
+common.selection.edit.value.none.label = (none)
+common.selection.edit.clear.hint = Empty clears the field.
 common.selection.edit.overwrite.same = overwrites {n} that already say “{value}”
 common.selection.edit.overwrite.differ = overwrites {n}, with {distinct} different values
 
@@ -1771,6 +1778,8 @@ common.selection.toast.recoloured = recoloured {n}
 common.selection.toast.tagged = tagged {n}
 common.selection.toast.sealed = sealed {n}
 common.selection.toast.seals-removed = seals removed
+common.selection.toast.fields-set.one = 1 record updated
+common.selection.toast.fields-set.other = {n} records updated
 common.selection.toast.favourited = favourited {n}
 common.selection.toast.moved = moved {n}
 common.selection.toast.back-in-quiz = back in the quiz
