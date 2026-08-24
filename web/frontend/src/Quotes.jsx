@@ -145,6 +145,17 @@ export function utteranceState(u) {
     // board, because every PUT here is full-state. The ♥, the colour dots and the
     // selection bar all save through this object.
     board_id: u.board_id || null,
+    // 0047's five, AND THE THIRD TIME THIS TRAP HAS BEEN SPRUNG in this one object.
+    // A letter's recipient, a proverb's region, an essay's title and page and the
+    // date's "around" flag all arrive from an import and were all cleared by the
+    // next ♥, colour dot or bulk action on the card — because a field missing here
+    // is a field this full-state PUT empties. The two comments above say exactly
+    // this about the fields that were forgotten before them.
+    region: u.region || '',
+    recipient: u.recipient || '',
+    work_title: u.work_title || '',
+    locator: u.locator || '',
+    occasion_circa: !!u.occasion_circa,
     sticker_id: u.sticker_id ?? null,
     sticker_x: u.sticker_x ?? null,
     sticker_y: u.sticker_y ?? null,
@@ -262,6 +273,21 @@ export function UtteranceForm({ initial, onSubmit, onCancel, submitLabel, tagSug
   // capture inside a book does.
   const [boardID, setBoardID] = useState(initial?.board_id ?? defaultBoard ?? null)
   const [language, setLanguage] = useState(initial?.language || '')
+  // 0047's five, which this form has never offered — and which it therefore CLEARED
+  // on every save, because a PUT here is full-state and an absent field is an empty
+  // one. An imported letter's recipient survived exactly until somebody opened the
+  // quote to fix a typo.
+  //
+  // They are drawn together, under a heading, rather than spread through the form:
+  // each belongs to a KIND of quote — a proverb's region, a letter's recipient, an
+  // essay's title and page — and the kind lives on the board (see the note on
+  // utteranceReq), so this form cannot know which one applies. What it can do is
+  // group them and let the reader fill the one that means something.
+  const [region, setRegion] = useState(initial?.region || '')
+  const [recipient, setRecipient] = useState(initial?.recipient || '')
+  const [workTitle, setWorkTitle] = useState(initial?.work_title || '')
+  const [locator, setLocator] = useState(initial?.locator || '')
+  const [circa, setCirca] = useState(!!initial?.occasion_circa)
   const [translation, setTranslation] = useState(initial?.translation || '')
   const [color, setColor] = useState(initial?.color || 'yellow')
   const [tags, setTags] = useState(initial?.tags || [])
@@ -298,6 +324,13 @@ export function UtteranceForm({ initial, onSubmit, onCancel, submitLabel, tagSug
       board_id: boardID,
       language: language.trim(),
       translation: translation.trim(),
+      // 0047's five. Sent because this PUT is full-state: omitting one is not
+      // "leave it alone", it is "empty it".
+      region: region.trim(),
+      recipient: recipient.trim(),
+      work_title: workTitle.trim(),
+      locator: locator.trim(),
+      occasion_circa: circa,
       color,
       tags,
       // favorite is edited on the card, not here — but PUT is full-state, so
@@ -382,6 +415,57 @@ export function UtteranceForm({ initial, onSubmit, onCancel, submitLabel, tagSug
         value={language}
         onChange={(e) => setLanguage(e.target.value)}
       />
+      {/* WHAT THE KIND CARRIES (0047). Region pairs with the language above it — a
+          Bengali proverb from Sylhet is not one from Kolkata. Recipient is what makes
+          a letter a letter. Source title and page are an essay's two, named
+          generically because a poem and an article would want the same pair.
+
+          All four together, under one heading, because the kind lives on the BOARD
+          and not on the quote: this form is used from a board, from Home's inline
+          edit and from the search modal, and only the first of those knows which
+          kind is being edited. A heading and four optional boxes is honest about
+          that; four boxes appearing and disappearing under a Select would not be. */}
+      <div>
+        <MonoLabel className="mb-1.5 block">{t('quotes.form.carries.label')}</MonoLabel>
+        <div className="cl-grid">
+          <Field
+            label={t('common.field.region.label')}
+            placeholder={t('quotes.form.region.placeholder')}
+            value={region}
+            onChange={(e) => setRegion(e.target.value)}
+          />
+          <Field
+            label={t('common.field.recipient.label')}
+            nameCase
+            placeholder={t('quotes.form.recipient.placeholder')}
+            value={recipient}
+            onChange={(e) => setRecipient(e.target.value)}
+          />
+        </div>
+        <div className="cl-grid mt-3">
+          <Field
+            label={t('common.field.work-title.label')}
+            placeholder={t('quotes.form.work-title.placeholder')}
+            value={workTitle}
+            onChange={(e) => setWorkTitle(e.target.value)}
+          />
+          <Field
+            label={t('common.field.locator.label')}
+            placeholder={t('quotes.form.locator.placeholder')}
+            value={locator}
+            onChange={(e) => setLocator(e.target.value)}
+          />
+        </div>
+        {/* THE DATE'S OWN PRECISION, and it sits here rather than beside the date
+            because it is the only one of the five that qualifies another field —
+            "around 1890". A plain checkbox with no cross-field rule: ticking it
+            before typing the year is not a mistake worth refusing (see
+            utteranceReq.OccasionCirca). */}
+        <label className="mt-3 flex items-center gap-2">
+          <input type="checkbox" checked={circa} onChange={(e) => setCirca(e.target.checked)} />
+          <span className="microcopy">{t('quotes.form.circa.label')}</span>
+        </label>
+      </div>
       {/* A TEXTAREA SINCE 0051, where it was a one-line box before. It holds the
           same prose the quote above it does — uncapped at the server — and the two
           other kinds' forms now offer the same control for the same field. */}

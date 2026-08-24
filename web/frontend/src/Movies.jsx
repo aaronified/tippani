@@ -1433,6 +1433,11 @@ function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen
   // column, and nothing else — the credit line reads the row's own numbers, so a
   // leftover pair from a work that used to be a show is still visible.
   const show = movie?.media_type === 'show'
+  // The other medium whose lines are located differently: a game has no runtime,
+  // so its line's edit form asks for the act and the quest instead of a timestamp
+  // (see DialogueForm). Derived here beside `show` and passed the same way, so the
+  // two answers to "what kind of work is this" cannot disagree.
+  const game = movie?.media_type === 'game'
   const [items, setItems] = useState(null)
   const [tags, setTags] = useState([]) // tag objects: {id, name, color, style, …}
   const [shareTarget, setShareTarget] = useState(null) // dialogue being shared
@@ -1703,6 +1708,7 @@ function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen
                 reloadStickers={reloadStickers}
                 editing={editingId === d.id}
                 show={show}
+                game={game}
                 cast={cast}
                 onEdit={() => setEditingId(d.id)}
                 onCancelEdit={() => setEditingId(null)}
@@ -1740,6 +1746,7 @@ function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen
                 reloadStickers={reloadStickers}
                 editing={editingId === d.id}
                 show={show}
+                game={game}
                 cast={cast}
                 onEdit={() => setEditingId(d.id)}
                 onCancelEdit={() => setEditingId(null)}
@@ -1772,6 +1779,7 @@ function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen
           save={save}
           remove={remove}
           show={show}
+          game={game}
           cast={cast}
           actorMap={actorMap}
           onCopy={copyOne}
@@ -1844,7 +1852,7 @@ function sortDialogues(rows, sort) {
 // DialogueTable — the sortable table view for dialogues, mirroring the Library
 // annotation table (shared .ann-table styles): sortable columns + inline edit;
 // ♥ is shown read-only here and toggled from the tiles/list views.
-function DialogueTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSort, editingId, setEditingId, save, remove, show = false, cast = [], actorMap = {}, onCopy, onShare }) {
+function DialogueTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSort, editingId, setEditingId, save, remove, show = false, game = false, cast = [], actorMap = {}, onCopy, onShare }) {
   const arrow = (k) => (sort.col === k ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : '')
   const editingRow = rows.find((d) => d.id === editingId)
   return (
@@ -1908,7 +1916,7 @@ function DialogueTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSo
       </table>
       <FormModal open={!!editingRow} onClose={() => setEditingId(null)} title={t('common.dialogue.edit.title')}>
         {editingRow && (
-          <DialogueForm initial={editingRow} onSubmit={(fields) => save(editingRow.id, fields)} onCancel={() => setEditingId(null)} submitLabel={t('common.action.save.label')} show={show} cast={cast} actorMap={actorMap} tagSuggestions={Object.keys(tagMap)} stickers={stickers} reloadStickers={reloadStickers} />
+          <DialogueForm initial={editingRow} onSubmit={(fields) => save(editingRow.id, fields)} onCancel={() => setEditingId(null)} submitLabel={t('common.action.save.label')} show={show} game={game} cast={cast} actorMap={actorMap} tagSuggestions={Object.keys(tagMap)} stickers={stickers} reloadStickers={reloadStickers} />
         )}
       </FormModal>
     </div>
@@ -1934,7 +1942,7 @@ function DialogueTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSo
 // same dialogue on its film's page was "a textured card" versus "an untextured
 // rectangle". It is now "a torn-edged card" versus "a square lit panel", which
 // is a difference you can mean.
-export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, show = false, cast = [], onEdit, onCancelEdit, onSave, onPatch, onDelete, onCopy, onShare, onOpenPerson, actorMap = {}, seps, actionsAlwaysVisible = false, editInline = false, wrapClass = 'mx-4 my-1.5', quoteLines = 6, expanded, onToggleExpand, selection, selectKind = 'dialogue' }) {
+export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, show = false, game = false, cast = [], onEdit, onCancelEdit, onSave, onPatch, onDelete, onCopy, onShare, onOpenPerson, actorMap = {}, seps, actionsAlwaysVisible = false, editInline = false, wrapClass = 'mx-4 my-1.5', quoteLines = 6, expanded, onToggleExpand, selection, selectKind = 'dialogue' }) {
   // wrapClass carries the frame's outer spacing: the strip (list) view indents
   // frames from the film edges (mx-4 my-1.5); the masonry (tiles) view drops it
   // so the card fills its column slot and the masonry gap does the spacing.
@@ -1986,7 +1994,7 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
   // (click the text to expand — no button), mirroring book annotations.
   const accordion = typeof onToggleExpand === 'function'
   const editForm = (
-    <DialogueForm initial={d} onSubmit={onSave} onCancel={onCancelEdit} submitLabel={t('common.action.save.label')} show={show} cast={cast} actorMap={actorMap} tagSuggestions={Object.keys(tagMap)} stickers={stickers} reloadStickers={reloadStickers} />
+    <DialogueForm initial={d} onSubmit={onSave} onCancel={onCancelEdit} submitLabel={t('common.action.save.label')} show={show} game={game} cast={cast} actorMap={actorMap} tagSuggestions={Object.keys(tagMap)} stickers={stickers} reloadStickers={reloadStickers} />
   )
   // editInline renders the form in place of the frame — used inside the search
   // QuoteModal (already a pop-up). Elsewhere the edit opens in a FormModal.
@@ -2155,8 +2163,17 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
 // `show` adds the season/episode pair, which only a series has — a film is one
 // runtime, so its timestamp already locates the line. A leftover pair on a film
 // (flipped from a show after the fact) still shows, so it can be seen and cleared.
+//
+// `game` REPLACES THE TIMESTAMP WITH THE ACT AND THE QUEST, and that is a fix
+// rather than an addition. A game has no runtime: normalizeLocator CLEARS a
+// timestamp on a game's line, so the box this form drew for one was asking a
+// question whose answer the server threw away without a word. Act and quest are
+// what a game's line IS located by, they are in its dedupe hash (0047) — a bark
+// reused in two quests is two quotes — and until now this form carried them through
+// untouched, so the only ways to set them were an import and a bulk edit.
+//
 // Exported for Home's favourite-tile inline edit (same form, same contract).
-export function DialogueForm({ initial, onSubmit, onCancel, submitLabel, show = false, cast = [], actorMap = {}, tagSuggestions = [], stickers = [], reloadStickers }) {
+export function DialogueForm({ initial, onSubmit, onCancel, submitLabel, show = false, game = false, cast = [], actorMap = {}, tagSuggestions = [], stickers = [], reloadStickers }) {
   // character↔actor lookups from the movie's cast (case-insensitive keys).
   const charActor = useMemo(() => {
     const m = new Map()
@@ -2180,6 +2197,9 @@ export function DialogueForm({ initial, onSubmit, onCancel, submitLabel, show = 
     return []
   })
   const [timestamp, setTimestamp] = useState(initial?.timestamp || '')
+  // 0047's two, which this form has carried through and never offered.
+  const [act, setAct] = useState(initial?.act || '')
+  const [quest, setQuest] = useState(initial?.quest || '')
   // Kept as strings: '' is unset and '0' is season 0, and a number field cannot
   // hold both. ?? not ||, so a stored 0 seeds as "0" rather than blank.
   const [season, setSeason] = useState(initial?.season ?? '')
@@ -2237,15 +2257,18 @@ export function DialogueForm({ initial, onSubmit, onCancel, submitLabel, show = 
       // empty so the server maps it; but if no character is chosen, carry any
       // existing actor through untouched (don't silently wipe a legacy credit).
       actor: characters.length ? '' : (initial?.actor || ''),
-      timestamp: timestamp.trim(),
+      // A GAME SENDS NO TIMESTAMP. The server clears one on a game's line anyway
+      // (normalizeLocator), and this form no longer shows the box — so sending the
+      // stale value back would be asserting something it does not display.
+      timestamp: game ? '' : timestamp.trim(),
       translation: translation.trim(),
-      // Carried through, not edited here. An episode's title, and a game's act and
-      // quest, have no box on this form and are stored (0047) — so omitting them
-      // would clear them on every save, which is the same reason `actor` above is
-      // carried rather than blanked.
+      // An episode's title is carried through — it has no box here — and a game's
+      // act and quest are EDITED now, from the two fields below. Both must be SENT
+      // either way: omitting a field would clear it on every save, which is the same
+      // reason `actor` above is carried rather than blanked.
       episode_name: initial?.episode_name || '',
-      act: initial?.act || '',
-      quest: initial?.quest || '',
+      act: game ? act.trim() : initial?.act || '',
+      quest: game ? quest.trim() : initial?.quest || '',
       color,
       tags,
       // favorite is edited on the frame, not in the form — but PUT is
@@ -2262,6 +2285,10 @@ export function DialogueForm({ initial, onSubmit, onCancel, submitLabel, show = 
       setQuote('')
       setCharacters([])
       setTimestamp('')
+      // The quest clears and the ACT does not, for the reason season and episode
+      // stay put below: you add a run of lines from one act, and a quest changes as
+      // often as a timestamp does.
+      setQuest('')
       // Season and episode deliberately stay put: you add a run of lines from
       // the episode you are watching, so re-typing both every time would be the
       // wrong default. The timestamp above does clear — it changes every line.
@@ -2302,7 +2329,30 @@ export function DialogueForm({ initial, onSubmit, onCancel, submitLabel, show = 
       {/* Episode locator, coarse to fine: a series line says which episode, then
           where in it. Season 0 is legal — it is where specials live — so the
           fields are min=0 and blank means "not recorded". */}
-      {episodeFields ? (
+      {/* A GAME'S LINE IS PLACED BY ITS ACT AND ITS QUEST, and never by a
+          timestamp — see the note on `game` above. Both are free text: "Act II" and
+          "Prologue" are both real answers, and a quest has a name rather than an
+          index. */}
+      {game ? (
+        <div className="grid grid-cols-2 gap-2">
+          <input
+            className="tp-input"
+            placeholder={t('film.line.form.act.placeholder')}
+            title={t('film.line.form.act.tip')}
+            aria-label={t('common.field.act.label')}
+            value={act}
+            onChange={(e) => setAct(e.target.value)}
+          />
+          <input
+            className="tp-input"
+            placeholder={t('film.line.form.quest.placeholder')}
+            title={t('film.line.form.quest.tip')}
+            aria-label={t('common.field.quest.label')}
+            value={quest}
+            onChange={(e) => setQuest(e.target.value)}
+          />
+        </div>
+      ) : episodeFields ? (
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           <input
             className="tp-input"

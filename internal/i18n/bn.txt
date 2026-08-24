@@ -5603,3 +5603,36 @@ film.imdb.done.prose = {title} — এখন কাস্টে {n} জন।
 film.imdb.info.title = আইএমডিবি কাস্ট সম্পর্কে
 film.imdb.info.body = এই নামের আইএমডিবি পাতার লিঙ্ক দিন, উপরের দিকের কাস্ট চরিত্রসহ যোগ হয়ে যাবে। একবারই অনুরোধ যায়, আপনি চাইলেই। আপনার নিজের লেখা বা সংশোধন করা নাম কখনও মুছে যায় না।
 error.load.imdb-cast = ওই আইএমডিবি নাম পড়া গেল না।
+
+# ---- প্রস্তাবের উত্তর (2.2.1) ----------------------------------------------
+# See the English block. মূল কথা: কী বদলাবে তা আগে দেখা যায়, আর বাতিল করলে লেখায়
+# হাত পড়ে না।
+cleanup.bucket.open.label = উত্তর বাকি
+cleanup.bucket.ignored.label = বাতিল ({n})
+cleanup.rescan.label = আবার দেখুন
+cleanup.accept.label = মেনে নিন
+cleanup.accept-all.label = সব {name} মেনে নিন
+cleanup.accept-all.hint = শুধু পর্দায় যা আছে, আর শুধু এই নিয়মটিই।
+cleanup.ignore.label = বাতিল
+cleanup.ignore.tip = এটি আর দেখানো হবে না। উদ্ধৃতি বদলাবে না।
+cleanup.restore.label = আবার দেখান
+cleanup.state.none-ignored = এখনও কিছু বাতিল করা হয়নি। বাতিল করা প্রস্তাব এখানে জমা থাকে, নতুন করে আর দেখানো হয় না।
+cleanup.toast.applied = {n}টি সারানো হয়েছে
+cleanup.toast.stale = {n}টি ইতিমধ্যেই বদলে গিয়েছিল, তাই কিছু করা হয়নি
+cleanup.toast.duplicate = {n}টি সারালে আপনার রাখা অন্য উদ্ধৃতির সঙ্গে মিলে যেত, তাই হাত দেওয়া হয়নি
+cleanup.toast.ignored = {n}টি বাতিল
+cleanup.toast.restored = {n}টি আবার তালিকায়
+
+# গেমের সংলাপ যে ঘরে সংশোধন হয় (2.2.1) — see the English block.
+film.line.form.act.placeholder = অঙ্ক
+film.line.form.act.tip = সংলাপটি কোন অঙ্ক বা পর্বে — মুক্ত লেখা, তাই “প্রস্তাবনা”ও উত্তর।
+film.line.form.quest.placeholder = অভিযান
+film.line.form.quest.tip = কোন অভিযান বা মিশনের অংশ। দুই অভিযানে একই সংলাপ থাকলে দুবারই রাখা যায়।
+
+# একটি ধরনের উদ্ধৃতি যা বয়ে আনে (0047-এর পাঁচটি, 2.2.1-এ পর্দায়) — see the English block.
+quotes.form.carries.label = এই ধরনটি যা বয়ে আনে
+quotes.form.region.placeholder = সিলেট, কলকাতা…
+quotes.form.recipient.placeholder = কাকে লেখা
+quotes.form.work-title.placeholder = কোন প্রবন্ধ বা নিবন্ধ থেকে
+quotes.form.locator.placeholder = পৃষ্ঠা, অনুচ্ছেদ, পঙ্‌ক্তি
+quotes.form.circa.label = তারিখটি আন্দাজি

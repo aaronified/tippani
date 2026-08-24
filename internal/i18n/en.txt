@@ -5891,3 +5891,42 @@ film.imdb.done.prose = {title} — {n} in the cast now.
 film.imdb.info.title = About the IMDb cast fill
 film.imdb.info.body = Paste the IMDb page for this title and its top cast is added, characters included. One request, only when you ask. Names you have typed or corrected are never overwritten.
 error.load.imdb-cast = Could not read that IMDb title.
+
+# ---- answering a finding (2.2.1) -------------------------------------------
+# The page reported and fixed nothing; it now offers the rewrite and remembers a
+# refusal. The copy's job is to make accepting safe: the reader must know what will
+# change before they press, and know that ignoring changes nothing at all.
+cleanup.bucket.open.label = To answer
+cleanup.bucket.ignored.label = Ignored ({n})
+cleanup.rescan.label = Look again
+cleanup.accept.label = Accept
+cleanup.accept-all.label = Accept every {name}
+cleanup.accept-all.hint = Only the ones on screen, and only this rule.
+cleanup.ignore.label = Ignore
+cleanup.ignore.tip = Stop offering this one. The quote is not changed.
+cleanup.restore.label = Offer it again
+cleanup.state.none-ignored = Nothing ignored yet. A finding you ignore waits here, and stops being offered.
+cleanup.toast.applied = {n} corrected
+cleanup.toast.stale = {n} had already changed, so nothing was done to them
+cleanup.toast.duplicate = {n} would have matched a quote you already keep, so they were left alone
+cleanup.toast.ignored = {n} ignored
+cleanup.toast.restored = {n} back on the list
+
+# A game's line, in the form it is corrected in (2.2.1). A game has no runtime, so
+# where a film's line has a timestamp a game's has an act and a quest — the two the
+# dedupe hash is keyed by, since a bark reused in two quests is two quotes.
+film.line.form.act.placeholder = act
+film.line.form.act.tip = Which act or chapter this line is in — free text, so "Prologue" is an answer.
+film.line.form.quest.placeholder = quest
+film.line.form.quest.tip = The quest or mission it belongs to. Two quests can share a line and keep it twice.
+
+# What a kind of standalone quote carries (0047's five, on screen at last in 2.2.1).
+# Grouped under one heading because the kind lives on the board and not on the quote,
+# so the form cannot know which of them applies — and because the alternative,
+# boxes appearing and disappearing under a Select, hides a field somebody has filled.
+quotes.form.carries.label = What this kind carries
+quotes.form.region.placeholder = Sylhet, Kolkata…
+quotes.form.recipient.placeholder = who it was written to
+quotes.form.work-title.placeholder = the essay or article it is from
+quotes.form.locator.placeholder = page, section, line
+quotes.form.circa.label = The date is approximate
