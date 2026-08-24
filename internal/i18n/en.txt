@@ -2444,6 +2444,12 @@ share.image.portrait.chip.label = Chip
 share.image.portrait.backdrop.label = Backdrop
 share.image.portrait.info.title = Portrait
 share.image.portrait.info.body = How a credited person appears. Chip is a small round photo beside their name; Backdrop bleeds the same photo in from the edge. One or the other, never both, and only when someone credited has a saved photo.
+share.image.sides.label = sides
+share.image.sides.aria = Which side each person takes
+share.image.sides.as-credited.label = As credited
+share.image.sides.swap.label = Swap
+share.image.sides.info.title = Sides
+share.image.sides.info.body = Which edge the first credited person enters from. With two, it swaps them over; with three or more they line up along the bottom instead, and this reverses the row.
 # Whether the quote's own filing colour shows in the picture. Off by default.
 share.image.colour.aria = Quote colour
 share.image.colour.info.title = Quote colour

@@ -627,6 +627,14 @@ function QuoteImagePanel({ share, selected, onShared, actionRef }) {
   // a question with one answer.
   const [portrait, setPortrait] = usePersistedState("tippani:sharePortrait", false);
   const canPortrait = (share.faces || []).length > 0;
+  // WHICH WAY ROUND THE PEOPLE GO. Only the backdrop has sides — a chip row is
+  // one cluster beside one name — so this appears with the backdrop and not
+  // beside it, and it is meaningless with nobody to arrange.
+  //
+  // Persisted like the other two, and for the same reason: it is an export
+  // preference. A reader who wants the speaker on the right generally wants that
+  // in every picture they make, not in one.
+  const [swap, setSwap] = usePersistedState("tippani:shareSwapSides", false);
   // Whether the quote's highlight colour appears at all. One switch for both
   // card kinds, because it is one decision: on a plain card the colour is the
   // edge stripe beside the words, on a backdrop card it is the hue of the
@@ -657,7 +665,7 @@ function QuoteImagePanel({ share, selected, onShared, actionRef }) {
         // this is the one consumer that needs a real value — and the one whose
         // output leaves the app, which makes it the worst place to be stale.
         const colorHex = useColor && share.color ? categoryHex(share.color) : null;
-        drawQuoteCard(canvas, buildModel({ ...share, portrait: portrait && canPortrait }, selected, colorHex), drawTheme(imageTheme));
+        drawQuoteCard(canvas, buildModel({ ...share, portrait: portrait && canPortrait, swap }, selected, colorHex), drawTheme(imageTheme));
         setErr("");
       } catch {
         setErr(t("error.render.image"));
@@ -676,7 +684,7 @@ function QuoteImagePanel({ share, selected, onShared, actionRef }) {
       cancelled = true;
       window.removeEventListener("tippani:theme", redraw);
     };
-  }, [share, selected, imageTheme, portrait, canPortrait, useColor]);
+  }, [share, selected, imageTheme, portrait, canPortrait, swap, useColor]);
 
   async function download() {
     const canvas = canvasRef.current;
@@ -789,6 +797,18 @@ function QuoteImagePanel({ share, selected, onShared, actionRef }) {
             options={[["chip", t("share.image.portrait.chip.label")], ["backdrop", t("share.image.portrait.backdrop.label")]]}
           />
           <InfoDot title={t("share.image.portrait.info.title")} text={t("share.image.portrait.info.body")} />
+        </div>
+      )}
+      {canPortrait && portrait && (
+        <div className="mb-2 flex flex-wrap items-center gap-2">
+          <MonoLabel>{t("share.image.sides.label")}</MonoLabel>
+          <Toggle
+            ariaLabel={t("share.image.sides.aria")}
+            value={swap ? "swapped" : "as-credited"}
+            onChange={(v) => setSwap(v === "swapped")}
+            options={[["as-credited", t("share.image.sides.as-credited.label")], ["swapped", t("share.image.sides.swap.label")]]}
+          />
+          <InfoDot title={t("share.image.sides.info.title")} text={t("share.image.sides.info.body")} />
         </div>
       )}
       {canColor && (

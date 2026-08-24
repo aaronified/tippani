@@ -250,6 +250,7 @@ describe('buildModel selection', () => {
       facesFor: null,
       colorHex: null,
       portrait: false,
+      swap: false,
     })
   })
 })

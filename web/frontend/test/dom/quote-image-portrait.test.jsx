@@ -137,8 +137,17 @@ const sourceOf = (canvasId) => {
 
 async function render(m) {
   await loadFaceImages((m.faces || []).map((f) => f.url))
-  drawQuoteCard(document.createElement('canvas'), m, THEME)
+  const canvas = document.createElement('canvas')
+  drawQuoteCard(canvas, m, THEME)
+  return canvas
 }
+
+// The card's own height, read back off the canvas the draw sized: the buffer is
+// 2× (DPR) and holds the card plus a 22px mat top and bottom. Needed by the
+// bottom line-up, whose whole claim is about where the band sits relative to the
+// card — and the card's height depends on how much text there is, so it cannot
+// be a constant here.
+const cardHeightOf = (canvas) => canvas.height / 2 - 44
 
 describe('the portrait backdrop', () => {
   it('draws nothing when the model says no', async () => {
@@ -183,10 +192,66 @@ describe('the portrait backdrop', () => {
     expect(sourceOf(drawn[1].args[0].__recorderId)).toBe('/api/covers/p2.jpg')
   })
 
-  it('a third credited name does not get a third portrait', async () => {
-    // The small discs show up to five. There are only two sides.
-    await render(model({ portrait: true, faces: [FACE(1), FACE(2), FACE(3)] }))
-    expect(backdrops()).toHaveLength(2)
+  it('swapping the sides exchanges the two people, not the geometry', async () => {
+    await render(model({ portrait: true, swap: true, faces: [FACE(1), FACE(2)] }))
+    const drawn = backdrops()
+    expect(drawn).toHaveLength(2)
+    // The same two boxes as the unswapped card — the left one is still flush with
+    // the mat and the right one still ends at 618 — with the PEOPLE exchanged.
+    // Asserting the sources is the whole test: a swap that moved the boxes and
+    // not the faces draws an identical picture.
+    const [, leftX] = drawn[0].args
+    const [, rightX, , rightW] = drawn[1].args
+    expect(leftX).toBe(22)
+    expect(rightX + rightW).toBe(618)
+    expect(sourceOf(drawn[0].args[0].__recorderId)).toBe('/api/covers/p2.jpg')
+    expect(sourceOf(drawn[1].args[0].__recorderId)).toBe('/api/covers/p1.jpg')
+  })
+
+  // THREE PEOPLE USED TO LOSE ONE. A card has two edges, so the third face was
+  // dropped without a word — which is the wrong answer for a scene between four
+  // characters, and the reason the layout changes shape rather than the cap
+  // changing number.
+  it('three or more line up along the bottom, one cell each', async () => {
+    const canvas = await render(model({ portrait: true, faces: [FACE(1), FACE(2), FACE(3)] }))
+    const cardH = cardHeightOf(canvas)
+    const drawn = backdrops()
+    expect(drawn).toHaveLength(3)
+    // Abutting cells across the full card width, all at the same y and height,
+    // and the band sits in the BOTTOM half — a "line up along the bottom" that
+    // started at the top would satisfy every other assertion here.
+    const ys = drawn.map((d) => d.args[2])
+    const hs = drawn.map((d) => d.args[4])
+    expect(new Set(ys).size).toBe(1)
+    expect(new Set(hs).size).toBe(1)
+    const [, , y, , h] = drawn[0].args
+    // Flush with the card's bottom edge (±1 for the ceil the height goes through)
+    // and starting below its midpoint — a band "along the bottom" that began at
+    // the top would satisfy every other assertion in this test.
+    expect(Math.abs(y + h - (22 + cardH))).toBeLessThanOrEqual(1)
+    expect(y + h / 2).toBeGreaterThan(22 + cardH / 2)
+    // First cell at the left edge, last one ending at the right, no gaps.
+    expect(drawn[0].args[1]).toBe(22)
+    expect(drawn[2].args[1] + drawn[2].args[3]).toBe(618)
+    for (let i = 1; i < drawn.length; i++) {
+      expect(drawn[i].args[1]).toBe(drawn[i - 1].args[1] + drawn[i - 1].args[3])
+    }
+    // In credited order, left to right.
+    expect(drawn.map((d) => sourceOf(d.args[0].__recorderId))).toEqual([
+      '/api/covers/p1.jpg', '/api/covers/p2.jpg', '/api/covers/p3.jpg',
+    ])
+  })
+
+  it('the line-up reverses when the sides are swapped', async () => {
+    await render(model({ portrait: true, swap: true, faces: [FACE(1), FACE(2), FACE(3)] }))
+    expect(backdrops().map((d) => sourceOf(d.args[0].__recorderId))).toEqual([
+      '/api/covers/p3.jpg', '/api/covers/p2.jpg', '/api/covers/p1.jpg',
+    ])
+  })
+
+  it('caps the line-up at five, and says nothing about the sixth', async () => {
+    await render(model({ portrait: true, faces: [1, 2, 3, 4, 5, 6].map(FACE) }))
+    expect(backdrops()).toHaveLength(5)
   })
 
   it('fades out with a real alpha mask', async () => {

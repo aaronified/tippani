@@ -317,10 +317,15 @@ function drawImageCover(ctx, img, dx, dy, dw, dh) {
 // ---- the portrait backdrop --------------------------------------------------
 //
 // The person whose words these are, bled in from the card's edge and faded out
-// before the text starts. One credited name enters from the LEFT; two or more,
-// and the first two take a side each and the words sit between them — which is
-// the shape a conversation has, and the reason the second face goes right rather
-// than beside the first.
+// before the text starts. One credited name enters from the LEFT; two, and they
+// take a side each with the words between them — which is the shape a
+// conversation has, and the reason the second face goes right rather than beside
+// the first. THREE OR MORE line up along the bottom instead (LINEUP_MAX below):
+// a card has two edges, and the third person was being dropped.
+//
+// `model.swap` reverses the order, which is the reader's answer to "that is the
+// wrong way round" — and there is no way for the card to know which way round is
+// right, because it depends on the line.
 //
 // PORTRAIT_ALPHA is where legibility is decided, so it is a constant with a name
 // rather than a number inside the gradient. At the outer edge the image is at
@@ -333,6 +338,21 @@ const PORTRAIT_W = 0.46 // share of the card width one portrait may occupy
 const PORTRAIT_ALPHA = 0.62 // strength at the outer edge
 const PORTRAIT_FADE = 0.86 // fraction of the portrait's width the fade spans
 const PORTRAIT_TINT = 0.55 // how far the quote's colour pulls the portrait's hue
+
+// ---- more than two people ---------------------------------------------------
+//
+// A card has two edges, so the side-bleed layout has room for exactly two faces
+// and silently dropped the third. Three or more is a real case — a scene between
+// four characters, a panel, a band — and the answer is not a third edge: it is the
+// team photograph. The faces line up along the BOTTOM of the card, one cell each,
+// fading upward into the paper, and the words go on sitting where they sat.
+//
+// It is not an option the reader picks. "Backdrop" is already the answer to "how
+// should these people appear"; how many of them there are is a fact about the
+// quote, not a second question, and a control offering a two-sided layout for
+// five faces would be offering a worse picture on purpose.
+const LINEUP_MAX = 5 // beyond this the cells are too narrow to be a face
+const LINEUP_H = 0.52 // share of the card height the band occupies
 
 // ---- the halo under the words ----------------------------------------------
 //
@@ -369,7 +389,8 @@ function setHalo(ctx, theme, on) {
 
 // fadedPortrait renders one image into an offscreen canvas of (w × h), cropped
 // to fill, optionally tinted, and erases it towards `dir` ('right' fades out
-// rightwards). Returns null when the image has not loaded — a missing portrait
+// rightwards, 'up' fades out upwards for the bottom line-up). Returns null when
+// the image has not loaded — a missing portrait
 // must draw NOTHING rather than a grey block, because the caller redraws when it
 // arrives and a placeholder would flash on every share.
 //
@@ -407,9 +428,13 @@ function fadedPortrait(img, w, h, dir, tint) {
   // under it, a transparent one keeps it. The gradient runs from the card's
   // OUTER edge inwards, so the stops read in the direction the fade travels
   // whichever side the portrait is on.
-  const g = dir === 'right'
-    ? octx.createLinearGradient(0, 0, off.width, 0)
-    : octx.createLinearGradient(off.width, 0, 0, 0)
+  const g = dir === 'up'
+    // Vertical, from the card's BOTTOM edge upwards — the same statement one axis
+    // over, which is why it is a third value here rather than a second function.
+    ? octx.createLinearGradient(0, off.height, 0, 0)
+    : dir === 'right'
+      ? octx.createLinearGradient(0, 0, off.width, 0)
+      : octx.createLinearGradient(off.width, 0, 0, 0)
   g.addColorStop(0, 'rgba(0,0,0,0)')
   g.addColorStop(1 - PORTRAIT_FADE, 'rgba(0,0,0,0)')
   g.addColorStop(0.62, 'rgba(0,0,0,0.72)')
@@ -457,6 +482,14 @@ export function buildModel(share, selected, colorHex) {
   return {
     quote, translation, attribution, meta, tags, note, faces,
     facesFor: share.facesFor || null,
+    // WHICH SIDE THE FIRST PERSON TAKES. The first credited name has always
+    // entered from the left, which is right until the picture is of a
+    // conversation and the reader knows which way round it should read. One flag
+    // rather than a per-face side: two sides and an order is one bit.
+    //
+    // It rides `faces` like `portrait` does, so it is meaningless — and false —
+    // when there is nobody to swap.
+    swap: !!share.swap && faces.length > 0,
     colorHex: colorHex || null,
     portrait: !!share.portrait && faces.length > 0,
   }
@@ -672,30 +705,53 @@ export function drawQuoteCard(canvas, model, theme) {
   // bare paper — neither of which throws.
   const backdrop = !!model.portrait && !!model.faces?.length
   if (backdrop) {
-    const pw = Math.round(cardW * PORTRAIT_W)
-    const ph = cardH
-    // SIDES is the cap. A card has two edges, so it holds two entries, and the
-    // zip below stops when it runs out — rather than a slice(0, 2) sitting above
-    // code that only ever indexed [0] and [1] anyway, which is a cap that cannot
-    // be got wrong because it is not doing anything.
-    //
-    // Left first, and it stays left whether there is one face or two: the first
-    // credited name is the one the app's own chips put on top, so the card and
-    // the image have to agree about which person is which.
-    const SIDES = [
-      { fade: 'right', x: cardX },
-      { fade: 'left', x: cardX + cardW - pw },
-    ]
+    // The order the faces are laid out in. `swap` reverses it, which is the whole
+    // of the left/right control: with two faces it exchanges the sides, with one
+    // it moves the single portrait to the other edge, and in the line-up it
+    // reverses the row. Reversing the LIST rather than flipping the sides is what
+    // makes one flag cover all three.
+    const order = model.swap ? [...model.faces].reverse() : model.faces
     ctx.save()
     roundRectPath(ctx, cardX, M, cardW, cardH, radius)
     ctx.clip()
     ctx.globalAlpha = PORTRAIT_ALPHA
-    SIDES.forEach((side, i) => {
-      const face = model.faces[i]
-      if (!face) return
-      const painted = fadedPortrait(faceCache.get(face.url), pw, ph, side.fade, model.colorHex)
-      if (painted) ctx.drawImage(painted, side.x, M, pw, ph)
-    })
+    if (order.length > 2) {
+      // THE TEAM SHOT. One cell each along the bottom, every face fading upward
+      // into the paper. The band is drawn full-bleed to the card's bottom edge
+      // and the cells abut, because a gap between two people in a group
+      // photograph reads as a missing person.
+      const list = order.slice(0, LINEUP_MAX)
+      const bh = Math.round(cardH * LINEUP_H)
+      const by = M + cardH - bh
+      // Ceil, and the last cell is stretched to the remainder: rounding each cell
+      // independently leaves a hairline of card colour between two of them, and
+      // that line lands in a different place at every card width.
+      const cw = Math.ceil(cardW / list.length)
+      list.forEach((face, i) => {
+        const x = cardX + i * cw
+        const w = i === list.length - 1 ? cardX + cardW - x : cw
+        const painted = fadedPortrait(faceCache.get(face.url), w, bh, 'up', model.colorHex)
+        if (painted) ctx.drawImage(painted, x, by, w, bh)
+      })
+    } else {
+      const pw = Math.round(cardW * PORTRAIT_W)
+      const ph = cardH
+      // SIDES is the cap for the two-face layout. A card has two edges, so it
+      // holds two entries, and the zip below stops when it runs out — rather than
+      // a slice(0, 2) sitting above code that only ever indexed [0] and [1]
+      // anyway, which is a cap that cannot be got wrong because it is not doing
+      // anything. Three or more took the branch above.
+      const SIDES = [
+        { fade: 'right', x: cardX },
+        { fade: 'left', x: cardX + cardW - pw },
+      ]
+      SIDES.forEach((side, i) => {
+        const face = order[i]
+        if (!face) return
+        const painted = fadedPortrait(faceCache.get(face.url), pw, ph, side.fade, model.colorHex)
+        if (painted) ctx.drawImage(painted, side.x, M, pw, ph)
+      })
+    }
     ctx.restore()
   }
 

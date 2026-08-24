@@ -2462,6 +2462,12 @@ share.image.portrait.chip.label = চিপ
 share.image.portrait.backdrop.label = ব্যাকড্রপ
 share.image.portrait.info.title = মুখের ছবি
 share.image.portrait.info.body = যাঁর নাম আছে তিনি কীভাবে দেখা দেবেন। চিপ মানে নামের পাশে ছোট গোল ছবি; ব্যাকড্রপে সেই ছবিই কিনারা থেকে ছড়িয়ে আসে। একটা বা অন্যটা, দুটো একসঙ্গে নয়, আর ছবি জমা থাকলে তবেই।
+share.image.sides.label = দিক
+share.image.sides.aria = কে কোন দিকে থাকবেন
+share.image.sides.as-credited.label = নামের ক্রমে
+share.image.sides.swap.label = উল্টানো
+share.image.sides.info.title = দিক
+share.image.sides.info.body = যাঁর নাম আছে তিনি কোন কিনারা থেকে আসবেন। দুজন হলে দুজনকে উল্টে দেয়; তিনজন বা বেশি হলে তাঁরা নিচে সারি বেঁধে দাঁড়ান, আর এটি সেই সারি উল্টে দেয়।
 # Whether the quote's own filing colour shows in the picture. Off by default.
 share.image.colour.aria = উদ্ধৃতির রং
 share.image.colour.info.title = উদ্ধৃতির রং
