@@ -9,6 +9,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Stray marks now offers the change, and remembers a no.** The page has listed what a
+  page left in your quotes since 2.2.0 and fixed nothing, on the argument that every rule
+  has a false positive that is somebody's real writing. That argument was against a
+  *fix-all* button — one press over five hundred finds with no diff — and it still holds.
+  What it ruled out too much of is the smaller control: **each finding now shows what it
+  would become, right under what it is, and you answer it one at a time.**
+
+  **Accept** rewrites that one field by that one rule; nothing else on the quote moves, and
+  the server applies the rule itself rather than storing a string the page sent. **Ignore**
+  takes the finding off the list and leaves the words exactly as they are — and the refusal
+  is *remembered*, in a new table, so the finding that was your real writing is dismissed
+  once instead of on every visit. There is an **Ignored** bucket to undo it from, and an
+  **Accept every …** for a rule you trust, which touches only what is on screen.
+
+  An ignore is remembered per **finding**, not per field: `reference-mark` can fire twice in
+  one note, once on a footnote index that should go and once on a sentence that genuinely
+  ends in a numeral. So accepting something else on the same quote does not revive it, while
+  editing those very words does — correctly, because it is then a different question about
+  different words. **No rule may empty a field**, whatever the reader accepts, and a
+  correction that would collide with a quote you already keep is reported rather than
+  written.
+
+- **A game's line can finally say which act and which quest it is from, in the form you
+  correct it in.** The edit form showed a **Timestamp** box for a game, whose value the
+  server discards — a game has no runtime, it has an act and a quest, and those two are in
+  its dedupe hash, so a bark reused in two quests is two quotes. The box is gone and the
+  pair is there. (The capture surface got the same fix in this release.)
+
+- **The five things a proverb, a letter and an essay carry are on screen at last** — a
+  region, a recipient, a source title, a page, and whether the date is approximate. All five
+  have been in the schema since 2.1, and their absence from the form was worse than a gap:
+  every save from that screen is full-state, so opening a quote to fix a typo — or merely
+  hearting it, or recolouring it — silently **cleared** whatever an import had put in them.
+
+### Fixed
+
+- **The Bengali-copy gate had never once read a file on the machine this is written on.** It
+  built its path with `new URL(...).pathname`, which keeps the leading slash and
+  percent-encodes — so on Windows, in a directory whose name has a space in it, it resolved
+  to `/D:/Code%20Projects/...` and threw. With the walk fixed, its allowlist turned out to be
+  dead too (`path.split('/')` never splits a backslash), so the three legitimate entries read
+  as findings. CI is Linux with no space in the path, which is why it looked green throughout.
+
 - **Every box that asks who said it, or where, now remembers what this work already
   knows.** The film page's edit form has offered a line's character from the work's cast
   since the cast existed; the ＋ Add surface — the form you actually capture a quote in —
