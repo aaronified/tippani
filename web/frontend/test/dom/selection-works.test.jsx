@@ -545,3 +545,65 @@ describe('setting one field over a selection', () => {
     expect(screen.getByLabelText(/^Series$/i).value).toBe('')
   })
 })
+
+// ---- a field whose column has no empty --------------------------------------
+//
+// media_type is NOT NULL and the server maps "" onto 'movie'. Offering a blank
+// answer under a hint reading "Empty clears the field" therefore did not clear
+// anything: it turned every selected show and game into a film — the loudest
+// possible edit made by the quietest possible control, and the overwrite warning
+// is not an answer to it because the sentence beside it was false.
+describe('setting a field that cannot be cleared', () => {
+  const openTypeField = () => {
+    render(<Board kind="movie" items={[
+      { id: 1, title: 'The Wire', media_type: 'show' },
+      { id: 2, title: 'Deadwood', media_type: 'show' },
+    ]} />)
+    fireEvent.click(boxes()[0])
+    fireEvent.click(boxes()[1])
+    openMore()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Set fields' }))
+    fireEvent.click(screen.getByLabelText('Which field to set'))
+    fireEvent.click(screen.getByText('Type'))
+  }
+
+  it('offers no blank answer, and does not promise a clear', () => {
+    openTypeField()
+    fireEvent.click(screen.getByLabelText('The value to set'))
+    expect(screen.queryByText('(none)'), 'a blank answer that would convert every show to a film').toBeNull()
+    expect(screen.queryByText('Empty clears the field.'), 'a promise the server does not keep').toBeNull()
+  })
+
+  it('will not apply until a real value is picked', () => {
+    openTypeField()
+    expect(screen.getByRole('button', { name: 'Apply' }).disabled).toBe(true)
+    fireEvent.click(screen.getByLabelText('The value to set'))
+    fireEvent.click(screen.getByText('Film'))
+    expect(screen.getByRole('button', { name: 'Apply' }).disabled).toBe(false)
+  })
+
+  it('still offers the blank for a field that really does clear', () => {
+    render(<Board />)
+    fireEvent.click(boxes()[0])
+    fireEvent.click(boxes()[1])
+    openMore()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Set fields' }))
+    expect(screen.getByText('Empty clears the field.')).toBeTruthy()
+  })
+
+  it('trims what it sends', async () => {
+    // A trailing space stored across a whole selection is a value that looks
+    // right, sorts right, and never matches the one you type next time.
+    render(<Board />)
+    fireEvent.click(boxes()[0])
+    fireEvent.click(boxes()[1])
+    openMore()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Set fields' }))
+    fireEvent.click(screen.getByLabelText('Which field to set'))
+    fireEvent.click(screen.getByText('Series'))
+    fireEvent.change(screen.getByLabelText(/^Series$/i), { target: { value: '  The Hainish Cycle  ' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Apply' }))
+    await waitFor(() => expect(sent('/books/bulk')).toBeTruthy())
+    expect(sent('/books/bulk')[2].series).toBe('The Hainish Cycle')
+  })
+})

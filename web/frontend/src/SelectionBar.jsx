@@ -538,15 +538,28 @@ function SealDialog({ count, busy, onApply, onClose }) {
 // non-destructive default the Details merge screen uses when it pre-ticks only
 // the fields you have nothing in.
 //
-// EMPTY IS A CLEAR, and it is allowed. /{kind}/bulk documents "" as the clear,
-// the warning above is exactly the guard that makes it safe to offer, and a bulk
-// edit that could set a series but never unset one would send you back to forty
-// forms for the mistake it just helped you make.
+// EMPTY IS A CLEAR, and it is allowed — for the fields that HAVE an empty.
+// /{kind}/bulk documents "" as the clear, the warning above is exactly the guard
+// that makes it safe to offer, and a bulk edit that could set a series but never
+// unset one would send you back to forty forms for the mistake it just helped you
+// make.
+//
+// `required` IS THE EXCEPTION AND IT IS NOT A NICETY. media_type is NOT NULL and
+// the server maps "" onto 'movie', so a blank answer there does not clear
+// anything — it converts every selected show and game into a film, under a hint
+// reading "Empty clears the field". The loudest possible edit made by the
+// quietest possible control, and a warning is not enough of an answer to it: the
+// blank is not offered, and Apply is dead until a real value is picked.
 function SetFieldsDialog({ kind, count, rows, busy, onApply, onClose }) {
   const fields = bulkFieldsFor(kind)
   const [key, setKey] = useState(fields[0]?.key || '')
   const [value, setValue] = useState('')
   const spec = fields.find((f) => f.key === key)
+  // A field whose column has no empty (see `required` in bulkOps.jsx). Two things
+  // follow from it and both matter: the blank option is absent, and the hint that
+  // promises a clear is absent with it.
+  const clearable = !spec?.required
+  const blank = !String(value).trim()
   // Recomputed per field, from the SELECTED rows the bar already holds — no
   // second fetch, and it changes the moment the field does.
   const warn = spec ? overwriteWarning(rows, key) : null
@@ -554,7 +567,10 @@ function SetFieldsDialog({ kind, count, rows, busy, onApply, onClose }) {
   // A number field sends a number, because the server's field is one: `"3"` in a
   // *float64 is a 400, and Number('') is 0, which is how both a year and a
   // series index spell "unset".
-  const send = () => onApply({ [key]: spec?.number ? Number(value) || 0 : value })
+  // TRIMMED, like every single-record form. "The Hainish Cycle " stored across a
+  // whole selection is a value that looks right, sorts right, and never matches
+  // the one you type next time.
+  const send = () => onApply({ [key]: spec?.number ? Number(value) || 0 : String(value).trim() })
 
   return (
     <FormModal open onClose={onClose} title={t('common.selection.edit.title', { n: count, count })}>
@@ -581,7 +597,9 @@ function SetFieldsDialog({ kind, count, rows, busy, onApply, onClose }) {
               ariaLabel={t('common.selection.edit.value.aria')}
               value={value}
               onChange={setValue}
-              options={[['', t('common.selection.edit.value.none.label')], ...spec.options]}
+              options={clearable
+                ? [['', t('common.selection.edit.value.none.label')], ...spec.options]
+                : spec.options}
             />
           </div>
         ) : spec?.long ? (
@@ -611,8 +629,8 @@ function SetFieldsDialog({ kind, count, rows, busy, onApply, onClose }) {
           />
         )}
         {warn && <p className="tp-warn">{warn.text}</p>}
-        {!value.trim() && <p className="microcopy">{t('common.selection.edit.clear.hint')}</p>}
-        <GhostButton onClick={send} disabled={busy || !spec}>
+        {clearable && blank && <p className="microcopy">{t('common.selection.edit.clear.hint')}</p>}
+        <GhostButton onClick={send} disabled={busy || !spec || (!clearable && blank)}>
           {t('common.action.apply.label')}
         </GhostButton>
       </div>

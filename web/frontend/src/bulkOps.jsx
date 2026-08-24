@@ -209,7 +209,12 @@ export const BULK_WORK_FIELDS = [
   { key: 'translator', get label() { return t('common.field.translator.label') }, kinds: ['book'] },
   { key: 'editor', get label() { return t('common.field.editor.label') }, kinds: ['book'] },
   { key: 'director', get label() { return t('common.field.director.label') }, kinds: ['movie'] },
-  { key: 'media_type', get label() { return t('common.field.media-type.label') }, kinds: ['movie'], get options() { return [['movie', t('vocab.kind.movie.label')], ['show', t('vocab.kind.show.label')], ['game', t('vocab.kind.game.label')]] } },
+  // `required` because THIS COLUMN HAS NO EMPTY. media_type is NOT NULL and
+  // normalizeMediaType maps "" to 'movie' — so offering a blank answer under the
+  // words "empty clears the field" would silently turn every selected show and
+  // game into a film, which is the loudest possible edit made by the quietest
+  // possible control. The dialog neither offers the blank nor claims it clears.
+  { key: 'media_type', get label() { return t('common.field.media-type.label') }, kinds: ['movie'], required: true, get options() { return [['movie', t('vocab.kind.movie.label')], ['show', t('vocab.kind.show.label')], ['game', t('vocab.kind.game.label')]] } },
   { key: 'published_year', get label() { return t('common.field.year.label') }, kinds: ['book'], number: true },
   { key: 'release_year', get label() { return t('common.field.year.label') }, kinds: ['movie'], number: true },
   // `title: true` picks the TITLE casing rather than the person casing — a series
@@ -221,6 +226,16 @@ export const BULK_WORK_FIELDS = [
   { key: 'description', get label() { return t('common.field.description.label') }, long: true },
 ]
 
+// NOT REACHABLE FROM ANY SCREEN YET, and that is a stated decision rather than
+// dead weight: `set-fields` is `isWork`-only in actions.jsx, whose own comment
+// says the quote side "is a later commit — and until then its absence here is
+// deliberate rather than forgotten", with a test holding it to that.
+//
+// It is kept IN STEP anyway — `kind` was added to it in 2.2.3 with the column —
+// because a table that goes stale while it waits is a table that ships wrong on
+// the day it is switched on. If you are switching it on: `bulkFieldsFor` already
+// filters by kind, the dialog in SelectionBar.jsx is kind-agnostic, and the
+// server takes every field below (quoteFieldKinds in bulk_handlers.go).
 export const BULK_QUOTE_FIELDS = [
   { key: 'note', get label() { return t('common.field.note.label') }, long: true },
   { key: 'chapter_no', get label() { return t('common.field.chapter-no.label') }, kinds: ['annotation'], number: true },
