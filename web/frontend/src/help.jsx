@@ -342,6 +342,17 @@ export const HELP = {
     entry('bin.help.keep-for', { more: true }),
     entry('bin.help.empty-now', { icon: <IconDelete /> }),
   ]),
+  // Stray marks sits next to the bin in this table the way it does in Settings:
+  // both are pages you are sent to rather than pages you browse.
+  cleanup: section('cleanup.help.title', [
+    entry('cleanup.help.what-is-here', { more: true }),
+    entry('cleanup.help.no-fix', { more: true }),
+    entry('cleanup.help.getting-here', { more: true }),
+    entry('cleanup.help.row', { more: true }),
+    entry('cleanup.help.filter', { icon: <IconFilter />, more: true }),
+    entry('cleanup.help.names', { more: true }),
+    entry('cleanup.help.cap', { more: true }),
+  ]),
   settings: section('nav.tab.settings.label', [
     entry('settings.help.colour-categories', { asset: <HelpSwatches />, more: true }),
     entry('settings.help.appearance', { more: true }),
@@ -359,6 +370,7 @@ export const HELP = {
     entry('settings.help.credit-separators', { more: true }),
     entry('settings.help.devices'),
     entry('settings.help.bin', { more: true }),
+    entry('settings.help.cleanup', { more: true }),
     entry('settings.help.backup', { more: true }),
     entry('settings.help.backup-now', { icon: <IconArchive />, more: true }),
     entry('settings.help.backup-download', { icon: <IconExport />, more: true }),
@@ -426,6 +438,7 @@ const GUIDE_ORDER = [
   'metadata',
   'stats',
   'bin',
+  'cleanup',
   'settings',
   'profile',
 ]

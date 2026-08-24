@@ -18,7 +18,11 @@
 // modal, so it bookmarks and survives a refresh — which is what a route buys and
 // a nav entry does not. The nav contract in routes.test.js runs one way only:
 // every nav tab must have a URL; a URL is free not to be a tab.
-export const ROUTE_TABS = ['search', 'quotes', 'anthologies', 'tags', 'metadata', 'stats', 'settings', 'staging', 'bin']
+// `cleanup` is the second of those, and for the same reasons: Stray marks is a
+// worklist you are sent to when something reads oddly, its only door is a tile in
+// Settings, and a permanent tab for "possible mistakes in your quotes" would be a
+// standing invitation to worry.
+export const ROUTE_TABS = ['search', 'quotes', 'anthologies', 'tags', 'metadata', 'stats', 'settings', 'staging', 'bin', 'cleanup']
 
 // ---- the nav contract ----
 //

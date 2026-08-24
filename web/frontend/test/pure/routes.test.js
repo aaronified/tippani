@@ -42,7 +42,7 @@ describe('parsePath', () => {
   // nothing would fail. This is the only test protecting that table, so it has
   // to state the expected contents rather than read them.
   it('has exactly these plain tabs', () => {
-    expect(ROUTE_TABS).toEqual(['search', 'quotes', 'anthologies', 'tags', 'metadata', 'stats', 'settings', 'staging', 'bin'])
+    expect(ROUTE_TABS).toEqual(['search', 'quotes', 'anthologies', 'tags', 'metadata', 'stats', 'settings', 'staging', 'bin', 'cleanup'])
   })
 
   it('routes every plain tab by name', () => {
@@ -55,6 +55,7 @@ describe('parsePath', () => {
     expect(parsePath('/settings')).toEqual({ tab: 'settings', detail: null })
     expect(parsePath('/staging')).toEqual({ tab: 'staging', detail: null })
     expect(parsePath('/bin')).toEqual({ tab: 'bin', detail: null })
+    expect(parsePath('/cleanup')).toEqual({ tab: 'cleanup', detail: null })
   })
 
   // /quotes IS a work prefix now (0036). It used to be a flat list — "there is
@@ -297,11 +298,15 @@ describe('the nav contract', () => {
   // silently stop being true: `bin` is a route with no nav entry anywhere, so a
   // later tidy-up that "completes" the tab lists by adding every route to them
   // would put a permanent invitation to browse your deletions in the strip.
-  it('keeps the bin out of every nav list while keeping its URL', () => {
+  //
+  // Stray marks is held to the same shape, and it is the reason this is a loop
+  // now rather than a single assertion: the second no-tab route is exactly where
+  // a rule written for one stops being enforced.
+  it.each(['bin', 'cleanup'])('keeps %s out of every nav list while keeping its URL', (tab) => {
     const all = new Set([...keys(CONTENT_TABS), ...keys(UTILITY_TABS), ...keys(DRAWER_TABS), ...keys(BOTTOM_TABS)])
-    expect(ROUTE_TABS).toContain('bin')
-    expect(all.has('bin')).toBe(false)
-    expect(parsePath(statePath('bin', null))).toEqual({ tab: 'bin', detail: null })
+    expect(ROUTE_TABS).toContain(tab)
+    expect(all.has(tab)).toBe(false)
+    expect(parsePath(statePath(tab, null))).toEqual({ tab, detail: null })
   })
 
   it('gives every nav tab a URL that survives a hard refresh', () => {

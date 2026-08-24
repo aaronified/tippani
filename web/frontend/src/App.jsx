@@ -18,6 +18,7 @@ import StagingPage from './StagingPage.jsx'
 import StatsPage from './StatsPage.jsx'
 import Settings from './Settings.jsx'
 import BinPage from './BinPage.jsx'
+import CleanupPage from './CleanupPage.jsx'
 import { applyColors, applyTheme } from './theme.js'
 import { applyLocale, useLocale } from './i18n.js'
 import { LanguagePicker } from './locale.jsx'
@@ -1560,6 +1561,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
               onUpdateInfo={setUpdate}
               onStartTour={(step) => setTourState({ step })}
               onOpenBin={() => go('bin', null)}
+              onOpenCleanup={() => go('cleanup', null)}
             />
           </div>
         )}
@@ -1569,6 +1571,20 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
         {tab === 'bin' && (
           <div data-screen-label="bin">
             <BinPage onClose={() => goBack('settings')} />
+          </div>
+        )}
+        {/* Stray marks, the bin's neighbour in every sense: one door in from
+            Settings, a URL so it survives a refresh, and no tab. Its rows open
+            the work a quote lives in, which is where it can be edited — this page
+            never writes. */}
+        {tab === 'cleanup' && (
+          <div data-screen-label="cleanup">
+            <CleanupPage
+              onClose={() => goBack('settings')}
+              onOpenBook={openBook}
+              onOpenMovie={openMovie}
+              onOpenQuotes={() => go('quotes', null)}
+            />
           </div>
         )}
         </div>

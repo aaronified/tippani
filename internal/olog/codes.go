@@ -122,6 +122,12 @@ const (
 	CodeCastRowScan Code = "TIP-CAST-001" // a work_cast row failed to scan; dropped from the list
 	CodeCastKeyFold Code = "TIP-CAST-002" // a cast lookup key could not be re-folded at boot; the row keeps its old key
 
+	// CLEANUP — the Settings sweep that reads every quote and reports what a page
+	// left behind in it (stray spaces, reference marks, pronunciation glosses). Its
+	// own subsystem rather than CAST's: it reads quotes, changes nothing, and has
+	// no relation to a work's cast.
+	CodeCleanupRowScan Code = "TIP-CLEANUP-001" // a quote failed to scan during the sweep; skipped, the rest is reported
+
 	// BACKUP — server-side backup & restore (Settings, admin).
 	CodeBackupSnapshot Code = "TIP-BACKUP-001" // database snapshot (VACUUM INTO) failed; no archive produced
 	CodeBackupArchive  Code = "TIP-BACKUP-002" // the backup archive could not be written/promoted
@@ -203,8 +209,9 @@ var Registry = map[Code]string{
 	CodeImportApprove:  "Approving staged quotes failed; the transaction rolled back, so nothing entered the library and the queue still holds them.",
 	CodeImportStagedOp: "A staging-queue mutation (bulk edit, retarget or discard) failed; the queue is unchanged.",
 
-	CodeCastRowScan: "A work's cast row failed to scan (SELECT/struct drift); that character was left out of the list.",
-	CodeCastKeyFold: "A cast row's folded lookup keys could not be rewritten during the boot-time repair; the row keeps the keys it had.",
+	CodeCastRowScan:    "A work's cast row failed to scan (SELECT/struct drift); that character was left out of the list.",
+	CodeCastKeyFold:    "A cast row's folded lookup keys could not be rewritten during the boot-time repair; the row keeps the keys it had.",
+	CodeCleanupRowScan: "A quote could not be read during the Settings cleanup sweep. It is skipped and every other quote is still reported.",
 
 	CodeTrashWrite:   "A delete could not be written to the bin, so the delete was refused and nothing was removed.",
 	CodeTrashFile:    "A binned cover/poster could not be parked, restored or purged; the row itself is unaffected.",
