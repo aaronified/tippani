@@ -351,7 +351,11 @@ const PORTRAIT_TINT = 0.55 // how far the quote's colour pulls the portrait's hu
 // should these people appear"; how many of them there are is a fact about the
 // quote, not a second question, and a control offering a two-sided layout for
 // five faces would be offering a worse picture on purpose.
-const LINEUP_MAX = 5 // beyond this the cells are too narrow to be a face
+// The SAME cap the credit chips use (FACE_MAX below), rather than a number of its
+// own. The two draw the same people two ways, so a picture that showed fewer of
+// them than the chips would is the third-face bug again one layer up — and any
+// number here is arbitrary, so it may as well be the one already chosen.
+const LINEUP_MAX = 5
 const LINEUP_H = 0.52 // share of the card height the band occupies
 
 // ---- the halo under the words ----------------------------------------------

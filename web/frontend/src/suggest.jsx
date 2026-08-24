@@ -33,7 +33,7 @@ import { MonoLabel, useAnchoredPosition, useDismiss, useIsMobileScreen, useNameC
 // EMPTY is the answer for "no work chosen", shared so callers can destructure
 // without guarding, and frozen so a caller cannot leave a name in it for the next
 // one — these are module-level defaults, not state.
-const EMPTY = Object.freeze({ characters: [], cast: [], chapters: [], loading: false })
+const EMPTY = Object.freeze({ cast: [], chapters: [], loading: false })
 
 export function useWorkSuggestions(target) {
   const kind = target?.kind === 'screen' || target?.type === 'movie' ? 'movies' : 'books'
@@ -56,12 +56,13 @@ export function useWorkSuggestions(target) {
     Promise.all(wants).then(([rc, rch]) => {
       if (stale) return
       const cast = (rc?.ok && rc.data?.cast) || []
+      // `cast` WHOLE, not a list of names. It was both for one release: the
+      // deduped `characters` array existed for the datalist, and CastCombo — which
+      // replaced it — needs the actor beside each part, so it takes the rows and
+      // dedupes them itself. A second shape nothing reads is a second shape to keep
+      // in step.
       setState({
         cast,
-        // Deduped, in the order the server sent them (provider billing order, then
-        // the reader's own additions), because that order is more useful than
-        // alphabetical: the lead is the character most lines belong to.
-        characters: [...new Set(cast.map((c) => c.character).filter(Boolean))],
         chapters: (rch?.ok && rch.data?.chapters) || [],
         loading: false,
       })
@@ -270,8 +271,6 @@ export function CastCombo({
         // keyboard is told not to — see ui.jsx's "who capitalises, and where".
         autoCapitalize={nameCase ? 'off' : undefined}
         aria-expanded={menuOpen}
-        aria-expanded={menuOpen}
-
         aria-autocomplete="list"
         aria-label={ariaLabel || label}
         autoComplete="off"

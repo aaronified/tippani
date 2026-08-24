@@ -13,6 +13,7 @@ import { actionsFor, atOverflow, atRow } from './actions.jsx'
 import { selectionClick, selectionMenuItems, useSelection } from './selection.jsx'
 import { facetValue, facetValues, publishSearchSeed, seedableChips, withFacet, withFacetValues, workSeedChip } from './facets.js'
 import { SelectionBar } from './SelectionBar.jsx'
+import { useCharacterArt } from './cast.jsx'
 import { CharacterFaces, CreditFaces, PersonCredit, PersonModal, PersonName, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
 import { usePractice } from './review.jsx'
 import {
@@ -1472,6 +1473,12 @@ function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen
 
   const { stickers, reload: reloadStickers } = useStickers()
   const { map: actorMap } = usePeople('actor') // name→metadata, for actor face icons
+  // THE FACES THIS BOARD DRAWS, fetched once if they are not local yet. A line's
+  // chip shows the character in costume where there is one (2.2.0), and nothing
+  // had ever asked for those bytes outside the People panel — so a reader who
+  // never opened that panel saw the actor fallback for ever. Costs no request at
+  // all when the work's art is already stored. See cast.jsx.
+  useCharacterArt('movie', movieId, cast, () => load())
   const castListId = `cast-characters-${movieId}`
   const characters = [...new Set(cast.map((c) => c.character).filter(Boolean))]
   const tagMap = Object.fromEntries(tags.map((row) => [row.name, row]))

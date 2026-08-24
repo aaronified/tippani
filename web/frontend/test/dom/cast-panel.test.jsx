@@ -16,6 +16,8 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 let CALLS
 let CAST
 let ROLE
+let FILLED
+let OK_IMAGE
 
 vi.mock('../../src/api.js', async (orig) => ({
   ...(await orig()),
@@ -25,6 +27,7 @@ vi.mock('../../src/api.js', async (orig) => ({
     if (method === 'GET' && path.startsWith('/people')) return { ok: true, data: { people: [] } }
     if (method === 'POST' && /^\/cast\/\d+\/image$/.test(path)) {
       const id = Number(path.split('/')[2])
+      if (!OK_IMAGE) return { ok: true, data: { character_image_path: '' } }
       return { ok: true, data: { ...CAST.find((c) => c.id === id), character_image_path: `stored-${id}.jpg` } }
     }
     if (method === 'POST' && path.endsWith('/cast/tvdb')) return { ok: true, data: { title: 'Suicide Squad', cast: CAST } }
@@ -32,7 +35,8 @@ vi.mock('../../src/api.js', async (orig) => ({
   }),
 }))
 
-const { CastSection } = await import('../../src/cast.jsx')
+const probeMod = await import('../../src/cast.jsx')
+const { CastSection } = probeMod
 
 const FILM = { id: 7, title: 'Suicide Squad', media_type: 'movie', tvdb_id: 297762 }
 const GAME = { id: 8, title: 'The Witcher 3', media_type: 'game' }
@@ -55,10 +59,14 @@ const openPanel = async (item, kind) => {
 
 const posted = (re) => CALLS.filter(([m, p]) => m === 'POST' && re.test(p))
 
+const flush = () => new Promise((r) => setTimeout(r, 0))
+
 beforeEach(() => {
   CALLS = []
   CAST = WITH_ART.map((c) => ({ ...c }))
   ROLE = 'actor'
+  FILLED = 0
+  OK_IMAGE = true
 })
 
 describe('the people panel', () => {
@@ -188,5 +196,56 @@ describe('the people panel', () => {
     CAST = []
     await openPanel()
     expect(await screen.findByText(/No cast on file/)).toBeTruthy()
+  })
+})
+
+// ---- the faces a WORK PAGE draws --------------------------------------------
+//
+// THE HALF THE PANEL DID NOT ANSWER. `POST /cast/{id}/image` was written so a
+// client could call it "for every chip it is about to draw", and the People panel
+// was the first caller — but the panel is not where character faces are drawn en
+// masse. A film's dialogue board is, and a reader who never opened People went on
+// seeing the actor fallback for ever.
+//
+// The hook is tested on its own rather than through Movies.jsx: the board pulls in
+// half the app, and what is at issue is which requests are made and when.
+describe('the character art a work page needs', () => {
+  const Probe = ({ cast, workID = 7 }) => {
+    const { useCharacterArt } = probeMod
+    useCharacterArt('movie', workID, cast, () => { FILLED += 1 })
+    return null
+  }
+
+  it('asks for the pictures the board is about to draw', async () => {
+    // The work's own record already says which roles have a provider picture and
+    // no file — that is what makes the check free.
+    render(<Probe cast={[{ character_image_url: 'https://x/w.jpg', character_image_path: '' }]} />)
+    await waitFor(() => expect(posted(/^\/cast\/11\/image$/)).toHaveLength(1))
+    // And the page is told once, at the end, so it can refetch the rows whose
+    // character_images the server resolves.
+    await waitFor(() => expect(FILLED).toBe(1))
+  })
+
+  it('makes NO request at all when the art is already local', async () => {
+    // The point of reading the work's own cast first: a film whose faces are
+    // stored costs nothing on every visit.
+    render(<Probe cast={[{ character_image_url: 'https://x/w.jpg', character_image_path: 'stored.jpg' }]} />)
+    await flush()
+    expect(CALLS).toEqual([])
+  })
+
+  it('makes no request when no role has a picture to fetch', async () => {
+    render(<Probe cast={[{ character: 'Ahab', character_image_url: '', character_image_path: '' }]} />)
+    await flush()
+    expect(CALLS).toEqual([])
+  })
+
+  it('does not report back when nothing arrived', async () => {
+    // A refetch that changes nothing is a request and a re-render for no reason.
+    OK_IMAGE = false
+    render(<Probe cast={[{ character_image_url: 'https://x/w.jpg', character_image_path: '' }]} />)
+    await waitFor(() => expect(posted(/^\/cast\/11\/image$/)).toHaveLength(1))
+    await flush()
+    expect(FILLED).toBe(0)
   })
 })

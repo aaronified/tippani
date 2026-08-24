@@ -39,6 +39,7 @@ import {
   IconEdit,
   IconPlus,
   IconRefresh,
+  IconSearch,
   IconUsers,
   InfoDot,
   MonoLabel,
@@ -207,6 +208,7 @@ export function CastSection({ kind, item, onChanged }) {
               role={role}
               busy={!!busy}
               actor={actorMap[c.actor]}
+              workTitle={item.title}
               onSave={(f) => save(c.id, f)}
               onRemove={() => remove(c.id)}
               onImage={(u) => setImage(c.id, u)}
@@ -239,7 +241,7 @@ export function CastSection({ kind, item, onChanged }) {
 
 // CastRow — one credit. Resting it is two names and a face; editing it is two
 // boxes; and the picture controls are always the row's own, never the panel's.
-function CastRow({ row, role, busy, actor, onSave, onRemove, onImage, onOpenPerson }) {
+function CastRow({ row, role, busy, actor, workTitle, onSave, onRemove, onImage, onOpenPerson }) {
   const [editing, setEditing] = useState(false)
   const [character, setCharacter] = useState(row.character || '')
   const [who, setWho] = useState(row.actor || '')
@@ -375,6 +377,25 @@ function CastRow({ row, role, busy, actor, onSave, onRemove, onImage, onOpenPers
       )}
       {urlOpen && (
         <span className="cast-row-url">
+          {/* THE SAME OFFER THE PERSON EDITOR MAKES, and for the same reason: there
+              is no keyless portrait API, so a picture is a URL you paste — and
+              asking somebody to go and find one without helping them look is the
+              difference between a field and a chore. Searched by the ROLE and the
+              work, which is what you would type: "Amanda Waller Suicide Squad"
+              finds the character in costume; the actor's name would find the
+              actor, whose photo belongs on their own page. */}
+          <button
+            type="button"
+            className="tp-link tp-link-icon"
+            style={{ fontSize: 'var(--type-ui-11)' }}
+            onClick={() => window.open(
+              `https://www.google.com/search?tbm=isch&q=${encodeURIComponent([row.character, workTitle].filter(Boolean).join(' '))}`,
+              '_blank', 'noopener',
+            )}
+          >
+            <IconSearch />
+            <span>{t('people.form.image-search')}</span>
+          </button>
           <input
             className="tp-input"
             placeholder={t('cast.picture.placeholder')}
@@ -520,4 +541,59 @@ function CastFills({ item, onFilled }) {
       {said && <p className="microcopy">{said}</p>}
     </div>
   )
+}
+
+// useCharacterArt — the fetch for the faces a WORK PAGE is about to draw.
+//
+// WHY IT IS NOT ENOUGH THAT THE PANEL DOES IT. `POST /cast/{id}/image` was
+// written so that "a client may call this for every chip it is about to draw",
+// and the People panel (above) was the first client ever to call it. But the
+// panel is not where character faces are drawn en masse: a film's dialogue board
+// is, and a reader who never opens People saw the same empty chips they had
+// before — which is the half of "it is not fetching the same by default either"
+// the panel did not answer.
+//
+// IT COSTS NOTHING WHEN THERE IS NOTHING TO DO, and that is the whole design.
+// `GET /movies/{id}` already carries the cast with both image fields on every
+// row, so the caller can tell from what it is holding whether any role has a
+// provider picture and no file — and only then does this go and ask for the ids
+// it needs to fetch them by. A work whose art is already local makes no request
+// at all.
+//
+// Serial and capped, like the panel's: twenty roles would otherwise be twenty
+// outbound connections the moment somebody opened a film.
+//
+// `onFilled` is called once, after the last one lands, so the page can refetch
+// the rows that carry `character_images` — those are resolved server-side, so
+// the pictures do not appear until the list is asked again.
+export function useCharacterArt(kind, workID, cast, onFilled) {
+  const done = useRef('')
+  useEffect(() => {
+    const key = `${kind}:${workID}`
+    if (!workID || done.current === key) return
+    // The question the caller can already answer from what it is holding.
+    const pending = (cast || []).some((c) => c?.character_image_url && !c?.character_image_path)
+    if (!pending) return
+    done.current = key
+    let live = true
+    const path = kind === 'book' ? 'books' : 'movies'
+    ;(async () => {
+      const r = await json('GET', `/${path}/${workID}/cast`)
+      if (!live || !r.ok) return
+      const want = (r.data?.cast || [])
+        .filter((c) => c.character_image_url && !c.character_image_path)
+        .slice(0, IMAGE_FILL_CAP)
+      let got = 0
+      for (const c of want) {
+        if (!live) return
+        const one = await json('POST', `/cast/${c.id}/image`)
+        if (one.ok && one.data?.character_image_path) got += 1
+      }
+      // Only when something actually arrived: a refetch that changes nothing is a
+      // request and a re-render for no reason.
+      if (live && got) onFilled?.()
+    })()
+    return () => { live = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kind, workID, cast])
 }
