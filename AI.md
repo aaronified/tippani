@@ -162,7 +162,7 @@ worth nothing here and only execution counts. What the repo actually runs:
   rather than trust it — these three had drifted from 645 / 1,293 / 180 before
   anyone checked them at 1.12.0, from 725 / 1,581 / 203 before they were
   recounted at 1.14.2, from 765 / 1,672 / 217 by 1.15.0, from 807 / 1,759 /
-  233 by 2.1.1, and from 924 / 1,771 / 284 by 2.3.0, which is why each one now
+  233 by 2.1.1, and from 924 / 1,771 / 284 by 2.2.0, which is why each one now
   sits beside the command that produces it.
 
   **The frontend count went DOWN while its file count went up**, which is the sort

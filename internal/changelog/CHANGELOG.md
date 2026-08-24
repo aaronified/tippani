@@ -5,36 +5,6 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.3.0] - 2026-08-24
-
-### Added
-
-- **Settings → Stray marks: a list of what your quotes picked up on their way in.**
-  A quote typed by hand is clean. One that arrived by selecting text in an ebook, a PDF or a
-  browser brings the page's furniture with it — the footnote index that sat after the last
-  word, the pronunciation gloss a dictionary printed beside a headword, the double space a
-  justified line left behind, the soft hyphen that broke a word across two lines and is now
-  inside it. None of it shows in a card, all of it is in the search index, and it is why a
-  search for a phrase you can see sometimes finds nothing.
-
-  Eight rules read every highlight, film line and standalone quote — the words, the note, and
-  a standalone quote's translation — and each find is shown with the text around it and the
-  find itself marked, because half of them have no appearance at all: a no-break space, a
-  zero-width space and an ordinary space look identical otherwise. Filter by rule to work
-  through one kind of decision at a time, and open a row to reach the work the quote lives in.
-
-  **It reports and never fixes, and that is the design rather than a first step.** Every rule
-  has a false positive that is somebody's real writing: a sentence may genuinely end in a
-  numeral, a quote may genuinely contain a bracketed aside, and a character another language
-  calls invisible may be load-bearing in yours — the zero-width joiner Bengali and Devanagari
-  conjuncts need is deliberately not one of the characters flagged. A "fix all" button would
-  edit your own words on the strength of a guess, silently, in a library whose whole point is
-  that the words are yours. So names are never read either: a character, an actor or a speaker
-  is short and usually picked from autofill, and "R2-D2" looks exactly like a footnote number
-  to a rule.
-
-  Like the bin, it is a page with one door — the tile in Settings — and no tab of its own.
-
 ## [2.2.0] - 2026-08-24
 
 ### Added
@@ -151,6 +121,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   instead of drifting out of date the first time you approve a lookup. A credit you deleted is not
   offered as a wrong answer, and neither is a character with nobody beside them — a name you
   cannot see is not a choice.
+
+- **Settings → Stray marks: a list of what your quotes picked up on their way in.**
+  A quote typed by hand is clean. One that arrived by selecting text in an ebook, a PDF or a
+  browser brings the page's furniture with it — the footnote index that sat after the last
+  word, the pronunciation gloss a dictionary printed beside a headword, the double space a
+  justified line left behind, the soft hyphen that broke a word across two lines and is now
+  inside it. None of it shows in a card, all of it is in the search index, and it is why a
+  search for a phrase you can see sometimes finds nothing.
+
+  Eight rules read every highlight, film line and standalone quote — the words, the note, and
+  a standalone quote's translation — and each find is shown with the text around it and the
+  find itself marked, because half of them have no appearance at all: a no-break space, a
+  zero-width space and an ordinary space look identical otherwise. Filter by rule to work
+  through one kind of decision at a time, and open a row to reach the work the quote lives in.
+
+  **It reports and never fixes, and that is the design rather than a first step.** Every rule
+  has a false positive that is somebody's real writing: a sentence may genuinely end in a
+  numeral, a quote may genuinely contain a bracketed aside, and a character another language
+  calls invisible may be load-bearing in yours — the zero-width joiner Bengali and Devanagari
+  conjuncts need is deliberately not one of the characters flagged. A "fix all" button would
+  edit your own words on the strength of a guess, silently, in a library whose whole point is
+  that the words are yours. So names are never read either: a character, an actor or a speaker
+  is short and usually picked from autofill, and "R2-D2" looks exactly like a footnote number
+  to a rule.
+
+  Like the bin, it is a page with one door — the tile in Settings — and no tab of its own.
 
 - **A field per kind, reachable.** Every column listed below is now something the app will
   accept, store and give back, over every route that edits a quote: one at a time, in bulk over
