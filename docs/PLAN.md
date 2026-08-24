@@ -7117,3 +7117,37 @@ There is a second cost, and it is the one that made this concrete. Decisions tak
 **The pattern to check next time a field is replaced**: the column, the API, the forms, the cards, the export, the import, the staging queue, the search hit, the bulk editor, the help copy, the glossary, and every `usePersistedState` key that can hold its name.
 
 <sub>2.2.6 — `internal/i18n/en.txt` · `internal/i18n/bn.txt` · `web/frontend/src/Quotes.jsx`</sub>
+
+### The repair that stopped one step short, twice
+
+**Decided.** `onCastChanged` hands over the cast it has just reloaded, and the host builds a new record around it.
+
+**Three versions of one seam.** The panel called `onChanged?.()` with no argument; the prop was the host's record setter; the page unmounted. The repair renamed the prop and passed `onChanged?.(item)` — never undefined, and never anything either: setting React state to the same reference is a bail-out, so nothing re-rendered and nothing refetched. The panel's edits reached the boards only after a manual reload.
+
+**THE SECOND FAILURE IS THE SAME SHAPE AS THE FIRST, one level up**, and the test written to prevent a recurrence could not see it: `cast-panel.test.jsx` asserts what the panel PASSES, which is exactly right and exactly half. What the host DOES with it is the other half, and both bugs lived there. The new case renders the real dialog, drives the real panel and asserts the record the host was handed — not undefined, not the same object, and carrying the cast.
+
+**The general rule, now written down twice over.** A callback crossing a component boundary has three things worth asserting: that it is called, what it is called WITH, and what the other side does with it. A stub answers only the first.
+
+<sub>2.2.7 — `web/frontend/src/cast.jsx` · `web/frontend/src/WorkDetails.jsx` · `web/frontend/test/dom/details-save-all.test.jsx`</sub>
+
+### A shared rule belongs in the module that is shared
+
+**Decided.** `patchMovesTheRow` lives in `works.jsx` and all three boards call it.
+
+**Why it moved.** It was written in `Library.jsx` because that is where the first board that needed it lived, and the film board — the third — went a release without it, still refetching every line on the screen after every heart. Quotes had a hand-rolled third copy that was correct only by accident of its filters being client-side, with nothing saying so.
+
+**`works.jsx` is by its own header "what books and films share"**, and both screens already import it; putting the rule in one of the two 2,000-line screens and importing it into the other would have been an edge between two screens for one pure function.
+
+**The shape to notice**: when a fix is applied to N of M places, the fix is not finished, and the thing to move is usually the RULE rather than the code. A rule in a shared module is one call site away from being complete; a rule in one screen is a search away from being forgotten.
+
+<sub>2.2.7 — `web/frontend/src/works.jsx`</sub>
+
+### The fourth read of one column
+
+**Decided.** The daily deck's book branch selects `character`.
+
+**Four releases, four reads.** 2.2.3 put a highlight's character on the library card, the Home tile and the three share payloads. 2.2.5 found it missing from Shuffle and from the anthology's book branch. This one found the daily deck, whose field carried a doc comment reading "screen speaker" — accurate before 0047 and wrong ever since, which is precisely why it was not noticed: the comment agreed with the code.
+
+**The rule for a field added to an existing table.** 0047 gave `annotations` a column that the film side already had. Every place that reads the film's version is a place that now has to read the book's, and there is no test that can enumerate them — but `grep` can. A stale comment describing the old world is the thing that makes the search fail.
+
+<sub>2.2.7 — `internal/httpapi/review_handlers.go` · `web/frontend/src/review.jsx`</sub>

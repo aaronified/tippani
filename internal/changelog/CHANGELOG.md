@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.7] - 2026-08-25
+
+### Fixed
+
+- **Edits made in the People section now reach the page.** The last release stopped that
+  panel blanking the screen and, in doing so, made its "something changed" signal do
+  nothing at all — so adding or renaming a character left the character dropdown, the film
+  board's cast list and the line form's suggestions showing the old names until you reloaded
+  by hand. The panel hands over the cast it has just reloaded, and the page is given a
+  record carrying it.
+
+- **The daily quiz card shows a book highlight's character.** The fourth read of that field
+  to be found still dropping it, after three releases each swept three others.
+
+- **The Quotes filter sheet had a missing label.** The control that filters by kind asked for
+  a word that existed in neither language file, so on a phone it fell back to a stand-in.
+
+- **Hearting a line on a film's board costs one round trip, not two.** The other two boards
+  got that fix a release ago and this one was left out. The rule about when a refetch *is*
+  still needed now lives in the module all three share, instead of being written out three
+  times.
+
+- **The demo library knows about kinds**, so the tour no longer shows an empty kind filter
+  and a single unsorted pile.
+
+- **An essay's source title is capitalised as a title**, not as a person's name.
+
 ## [2.2.6] - 2026-08-25
 
 ### Fixed

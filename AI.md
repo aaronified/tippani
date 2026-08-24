@@ -146,7 +146,7 @@ AI-written code fails differently from hand-written code. It compiles, it reads
 well, it is plausibly commented, and it can still be wrong — so plausibility is
 worth nothing here and only execution counts. What the repo actually runs:
 
-- **1,152 Go test functions and 1,976 frontend tests, across 338 test files** — the
+- **1,153 Go test functions and 1,977 frontend tests, across 338 test files** — the
   Go half over real HTTP handlers against a real SQLite database, not mocks.
   Counted, not estimated, and every number here has a command that reproduces it:
 
@@ -176,8 +176,14 @@ worth nothing here and only execution counts. What the repo actually runs:
   argument; the prop it had been handed was the host's record setter, so the host
   was set to `undefined` and the page unmounted. Twenty tests around it asserted
   requests, payloads and absences — and every one of them stubbed that callback as
-  `() => {}`, which cannot see what it was given. **When a component calls a
-  callback it did not define, assert the ARGUMENT, not only the call.**
+  `() => {}`, which cannot see what it was given. The repair for THAT then passed
+  the host its own record back — never undefined and never anything either, since
+  setting React state to the same reference is a bail-out — and the new test could
+  not see it, because it asserted what the panel passes and stopped there.
+
+  **A callback crossing a component boundary has three things worth asserting:
+  that it is called, what it is called WITH, and what the other side does with
+  it.** A stub answers only the first, and the second missed a release.
 
   **The frontend count went DOWN while its file count went up**, which is the sort
   of number that ought to be explained rather than reported. `5751757` collapsed
