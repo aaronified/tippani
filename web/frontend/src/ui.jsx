@@ -543,9 +543,14 @@ export function PageHeader({ title, counts, right }) {
 // which is exactly how a caller ends up focusing an element that never moves.
 // Pulled out of `rest` for the same reason every other named prop is — anything
 // left in there is spread onto the <input> and would land as a DOM attribute.
-export function Field({ label, className = "", nameCase = false, onChange, inputRef, ...rest }) {
-  const onName = useNameCasing(rest.value, (v) =>
-    onChange?.({ target: { value: v } }),
+export function Field({ label, className = "", nameCase = false, titleCase = false, onChange, inputRef, ...rest }) {
+  // `titleCase` is `nameCase` for a TITLE: the same as-you-type wiring with the
+  // small-word rule on top. Two flags rather than one enum because a call site
+  // reads better saying which of the two a field holds than passing a string.
+  const onName = useNameCasing(
+    rest.value,
+    (v) => onChange?.({ target: { value: v } }),
+    titleCase ? capitalizeTitle : capitalizeNames,
   );
   return (
     <label className={"tp-field " + className}>
@@ -553,8 +558,12 @@ export function Field({ label, className = "", nameCase = false, onChange, input
       <input
         className="tp-input"
         ref={inputRef}
+        // The keyboard is told to stay out of it wherever this component is doing
+        // the capitalising — see "who capitalises, and where" above. Before `rest`,
+        // so a caller that needs something else can still say so.
+        autoCapitalize={nameCase || titleCase ? "off" : undefined}
         {...rest}
-        onChange={nameCase ? (e) => onName(e.target.value) : onChange}
+        onChange={nameCase || titleCase ? (e) => onName(e.target.value) : onChange}
       />
     </label>
   );
@@ -569,6 +578,7 @@ export function NameInput({ onChange, ...rest }) {
   return (
     <input
       className="tp-input"
+      autoCapitalize="off"
       {...rest}
       onChange={(e) => onName(e.target.value)}
     />
@@ -3756,6 +3766,7 @@ export function InlineField({
   disabled = false,
   editLabel,
   nameCase = false,
+  titleCase = false,
   // fieldKey opts this row into its panel's master save. Absent — which is every
   // row outside the Details panel — and the row behaves exactly as it always
   // has: it saves itself and nothing collects it.
@@ -3765,8 +3776,8 @@ export function InlineField({
   const [draft, setDraft] = useState(value);
   // Names capitalise in the editor, so the row saves the string you can see —
   // there is no second transform on the save path to disagree with it.
-  const onDraft = useNameCasing(draft, setDraft);
-  const setTyped = nameCase ? onDraft : setDraft;
+  const onDraft = useNameCasing(draft, setDraft, titleCase ? capitalizeTitle : capitalizeNames);
+  const setTyped = nameCase || titleCase ? onDraft : setDraft;
   const ref = useRef(null);
   // A save elsewhere (adopting a lookup match) must be reflected at rest.
   useEffect(() => {
@@ -3892,6 +3903,9 @@ export function InlineField({
               inputMode={inputMode}
               maxLength={maxLength}
               autoComplete="off"
+              // The row capitalises its own draft, so the keyboard is told not to
+              // — see "who capitalises, and where" beside useNameCasing.
+              autoCapitalize={nameCase || titleCase ? "off" : undefined}
               aria-label={label}
               onChange={(e) => setTyped(e.target.value)}
             />
@@ -4173,9 +4187,10 @@ export function titleCaseGenre(s) {
 
 // ---- name casing (1.7.8) ----------------------------------------------------
 
-// capitalizeNames upper-cases the first letter of each word, leaves the rest of
-// the word alone, and keeps an English title's small words small (SMALL_WORDS
-// below — "The Wheel of Time", not "The Wheel Of Time").
+// capitalizeNames upper-cases the first letter of each word and touches nothing
+// else. Promote-only is the entire rule for a PERSON'S NAME — see capitalizeTitle
+// below for the one that also keeps an English title's small words small, and the
+// note there for why the two cannot be one function.
 //
 // It is not the same rule as
 // titleCaseGenre above: that one lower-cases the rest of the word, which is
@@ -4194,7 +4209,7 @@ export function titleCaseGenre(s) {
 // "iRobot", "danah boyd" the moment the surname is typed — and it doubles as an
 // escape hatch you can reach without knowing the rule exists: put a capital
 // anywhere in the word and the word is yours.
-// SMALL_WORDS are the English function words a title keeps in lower case —
+// SMALL_WORDS are the English function words a TITLE keeps in lower case —
 // articles, coordinating conjunctions, and the short prepositions. "The Wheel of
 // Time", "A Tale of Two Cities", "Don't Look Up".
 //
@@ -4203,7 +4218,15 @@ export function titleCaseGenre(s) {
 // by another — "Vincent van Gogh" and "Robert De Niro" are both correct, and
 // "Ursula Le Guin" would be quietly renamed "Ursula le Guin" by any list that
 // tried to settle it. So the list stays to the words where English title case
-// has one answer, and a particle keeps the behaviour it has always had.
+// has one answer.
+//
+// AND IT IS NEVER APPLIED TO A PERSON, which is the harder half of the same
+// point. Half of these words are whole names somewhere else: `An`, `In`, `Van`,
+// `To`, `By`, `So` are Vietnamese, Korean and Chinese given names and surnames,
+// so a rule that lower-cased them would rename "Nguyen Van An" to "Nguyen Van an"
+// — a corruption of exactly the kind capitalizeNames' own header refuses, on a
+// reader who has no idea a small-word list exists. There is no test that can tell
+// a title from a name by looking at it, so the FIELD says which it is.
 const SMALL_WORDS = new Set([
   "a", "an", "and", "as", "at", "but", "by", "for", "from", "if", "in", "into",
   "nor", "of", "off", "on", "onto", "or", "over", "per", "so", "than", "the",
@@ -4233,6 +4256,20 @@ function isTitleCased(w) {
 }
 
 export function capitalizeNames(s) {
+  return String(s ?? "").replace(/\S+/gu, (w) =>
+    /\p{Lu}/u.test(w) ? w : w.replace(/\p{Ll}/u, (c) => c.toUpperCase()),
+  );
+}
+
+// capitalizeTitle is capitalizeNames plus the small-word rule: the casing for a
+// BOOK, FILM, SERIES or SOURCE TITLE, where "of" and "and" stay small.
+//
+// It exists because "The Wheel of Time" could not be typed. Every one of these
+// fields capitalises as you type, so "of" was promoted while it was still the
+// one-letter word "o", and the promote-only rule's own escape hatch — a word
+// carrying a capital is left alone — then froze it as "Of" for the rest of the
+// edit.
+export function capitalizeTitle(s) {
   let prev = null; // the previous word, for CLAUSE_END
   return String(s ?? "").replace(/\S+/gu, (w) => {
     const before = prev;
@@ -4257,6 +4294,39 @@ export function capitalizeNames(s) {
   });
 }
 
+// ---- who capitalises, and where ---------------------------------------------
+//
+// THERE ARE TWO THINGS CAPITALISING IN A TEXT FIELD ON A PHONE, and they are not
+// the same thing. Worth writing down, because the difference is invisible from
+// inside the app and it decides where a fix goes.
+//
+//   1. THE KEYBOARD, told what to do BY THE PAGE. The HTML `autocapitalize`
+//      attribute takes `off`/`none`, `sentences` (the default for a text input),
+//      `words` or `characters`, and the on-screen keyboard obeys it. That is why
+//      one app capitalises after a full stop and the next one does not on the same
+//      keyboard: the app said so. It is a hint about the SOFTWARE keyboard only —
+//      it does nothing to a hardware keyboard, and nothing at all on a desktop.
+//
+//   2. THIS, which runs in the page on every keystroke and rewrites the value.
+//      It is what makes "agatha christie" become "Agatha Christie" on a laptop,
+//      where nothing is hinting at anything.
+//
+// TIPPANI SET (1) NOWHERE, so every capitalising field on a phone had the browser
+// default — `sentences` — silently promoting the first letter underneath (2). Most
+// of the time they agree and you cannot tell. Where they disagree is the case
+// this whole rule exists to protect: a name whose small first letter is the point.
+// Type "bell hooks" on a phone and the keyboard capitalises the b before this code
+// ever sees it, and (2) then leaves the capital alone because a word carrying one
+// is somebody's decision — so the reader is fighting a rule that is not even the
+// one in this file, and the escape hatch below cannot help them because the field
+// never went `free`.
+//
+// So the fields that capitalise THEMSELVES now say `autocapitalize="off"`. One
+// thing decides the case of a name, it is the code that can be argued with, and it
+// behaves the same on a phone as on a laptop. Fields that are ordinary prose — a
+// quote, a note — keep the browser default, where sentence capitalisation is
+// exactly what you want.
+
 // useNameCasing wires a text field so names capitalise **as you type** — what
 // you see is what gets saved, with no second transform hiding on the save path.
 //
@@ -4270,7 +4340,12 @@ export function capitalizeNames(s) {
 //
 // Takes and returns plain values, not events, so it wraps an <input> or an
 // InlineField editor equally.
-export function useNameCasing(value, onChange) {
+//
+// `cap` is which rule: capitalizeNames for a person, capitalizeTitle for a title.
+// A parameter rather than two hooks, because everything else about the wiring —
+// the free-on-case-edit hatch above all — is identical and would have to be kept
+// in step by hand.
+export function useNameCasing(value, onChange, cap = capitalizeNames) {
   const [free, setFree] = useState(false);
   return (next) => {
     const s = String(next ?? "");
@@ -4279,7 +4354,7 @@ export function useNameCasing(value, onChange) {
       setFree(true); // a pure case edit — from here the casing is theirs
       return onChange(s);
     }
-    onChange(free ? s : capitalizeNames(s));
+    onChange(free ? s : cap(s));
   };
 }
 

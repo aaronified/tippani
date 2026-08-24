@@ -59,8 +59,12 @@ import {
 // `hint` is the InfoDot beside the label — where the ISBN/ASIN/TMDB explanation
 // went when it came off the hero.
 
+// `titleCase` where the field holds a TITLE and `nameCase` where it holds a
+// PERSON, because the two capitalise differently: a title keeps its small words
+// small ("The Wheel of Time") and a name must not, since half of those words are
+// whole names in other languages ("Nguyen Van An"). See ui.jsx's SMALL_WORDS.
 const BOOK_FIELDS = [
-  { key: 'title', get label() { return t('common.field.title.label') }, nameCase: true },
+  { key: 'title', get label() { return t('common.field.title.label') }, titleCase: true },
   {
     key: 'author',
     get label() { return t('common.field.author.label') },
@@ -160,7 +164,7 @@ export function specsFor(specs, mediaType) {
 }
 
 export const MOVIE_FIELDS = [
-  { key: 'title', get label() { return t('common.field.title.label') }, nameCase: true },
+  { key: 'title', get label() { return t('common.field.title.label') }, titleCase: true },
   {
     key: 'media_type',
     get label() { return t('common.field.media-type.label') },
@@ -769,6 +773,7 @@ function FieldList({ kind, item, specs, mediaType, busy, genreSuggestions, onSav
               hint={spec.hint}
               busy={!!busy}
               nameCase={!!spec.nameCase}
+              titleCase={!!spec.titleCase}
               multiline={spec.kind === 'long'}
               inputMode={spec.kind === 'number' ? 'decimal' : undefined}
               maxLength={spec.kind === 'year' ? 12 : undefined}

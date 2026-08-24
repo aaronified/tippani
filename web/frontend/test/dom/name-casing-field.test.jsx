@@ -150,3 +150,40 @@ describe('TokenInput capitalises the draft, so a chip reads as it saves', () => 
     expect(saved()).toBe('philip marlowe')
   })
 })
+
+// ---- who capitalises, and where ---------------------------------------------
+//
+// THE OWNER'S QUESTION, ANSWERED IN THE MARKUP. "how phone keyboards know to
+// capitalise after a fullstop in some apps … it doesnt do that in some other
+// apps" — the difference is the HTML `autocapitalize` attribute, which is a hint
+// the PAGE gives the on-screen keyboard. Its default for a text input is
+// `sentences`, so a phone was promoting the first letter of every name field
+// underneath the rule in ui.jsx.
+//
+// Most of the time the two agree and nothing shows. Where they disagree is the
+// case the rule exists to protect: type "bell hooks" on a phone and the keyboard
+// capitalises the b before any of our code runs, and the promote-only rule then
+// leaves the capital alone because a word carrying one is somebody's decision. The
+// reader ends up fighting a rule that is not in this codebase.
+//
+// So a field that capitalises itself tells the keyboard to stay out of it. These
+// assert the attribute rather than the behaviour, because jsdom has no keyboard —
+// the attribute IS the whole of what this app controls.
+describe('the keyboard is told who is in charge', () => {
+  it('a name field opts the keyboard out', () => {
+    render(<Field label="Author" nameCase value="" onChange={() => {}} />)
+    expect(screen.getByLabelText('Author').getAttribute('autocapitalize')).toBe('off')
+  })
+
+  it('a title field too', () => {
+    render(<Field label="Title" titleCase value="" onChange={() => {}} />)
+    expect(screen.getByLabelText('Title').getAttribute('autocapitalize')).toBe('off')
+  })
+
+  it('and an ordinary field does not, because sentence case is right there', () => {
+    // A note or a quote wants the browser default. Opting every input out would
+    // be answering a question nobody asked, in the one place the default is good.
+    render(<Field label="Note" value="" onChange={() => {}} />)
+    expect(screen.getByLabelText('Note').getAttribute('autocapitalize')).toBeNull()
+  })
+})

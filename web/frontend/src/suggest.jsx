@@ -266,7 +266,12 @@ export function CastCombo({
         ref={ref}
         className="tp-input"
         role="combobox"
+        // This box capitalises its own value (useNameCasing below), so the
+        // keyboard is told not to — see ui.jsx's "who capitalises, and where".
+        autoCapitalize={nameCase ? 'off' : undefined}
         aria-expanded={menuOpen}
+        aria-expanded={menuOpen}
+
         aria-autocomplete="list"
         aria-label={ariaLabel || label}
         autoComplete="off"
