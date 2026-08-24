@@ -6957,3 +6957,65 @@ There is a second cost, and it is the one that made this concrete. Decisions tak
 **One field at a time, not a form of all of them.** A form of every field with a "leave alone" state per row is a form where "I did not touch this" and "I meant to clear this" look identical across forty rows. One named field and one value is a sentence you can read back before pressing it.
 
 <sub>2.2.3 — `web/frontend/src/SelectionBar.jsx`</sub>
+
+### Two harmless changes, one bug: the default button nobody declared
+
+**Decided.** The work Details panel's `<form>` swallows Enter from any `<input>`, and the People panel's own boxes act on it.
+
+**How it happened, because the shape is the point.** 2.2.3 made the header ✓ always-enabled (it was greyed with "Nothing to save" almost all the time, which is its own entry above). Separately, 2.2.3 put the new People panel inside that form. Neither is wrong. Together they are: `type="submit" form={formId}` makes the ✓ the form's DEFAULT BUTTON, and HTML implicitly submits a form on Enter in a text input **when it has one**. A form whose default button is disabled is not implicitly submitted — so the greying had been suppressing this, invisibly, for every input the panel has ever contained.
+
+**Nothing could have caught it.** jsdom does not implement implicit submission at all, so the browser behaviour under test simply does not exist in the test environment. Both commits were covered; the tests that covered them are still correct.
+
+**So the test asserts the MECHANISM rather than the outcome**: that the keydown's default is prevented before it can reach the form. One case appends a bare `<input>` to the form and presses Enter — the case that fails the day somebody narrows the guard to the controls they remembered.
+
+**The guard is on the form and not on the controls**, which is the opposite of where the bug was introduced. A box added to this panel next year inherits it. Textareas are exempt: they take a newline and never implicitly submit.
+
+<sub>2.2.4 — `web/frontend/src/WorkDetails.jsx` · `web/frontend/src/cast.jsx`</sub>
+
+### A rule about English words cannot be applied to a field that might hold a name
+
+**Decided.** `capitalizeNames` is promote-only and is what a PERSON gets; `capitalizeTitle` adds the small-word rule and is what a TITLE gets. The field says which.
+
+**What went wrong.** 2.2.3 added the small-word list to the single casing rule so that "The Wheel of Time" could be typed. That rule runs on author, translator, editor, director, actor, character, speaker and recipient as well — and `an`, `in`, `so`, `to`, `by`, `up` are whole names in Vietnamese, Korean and Chinese. "Nguyen Van An" came back "Nguyen Van an".
+
+**It is the same class of mistake the function's own header refuses**, committed by the fix for a different instance of it. The header argues at length about `van`, `de` and `Le` — European particles — and the list was written with those in mind. The failure was one continent over.
+
+**The escape hatch is no defence here.** Re-casing a letter sends the field `free`, which is a real hatch for somebody who knows the rule exists. Nobody typing their own name knows that, and nobody should have to.
+
+**And there is no heuristic that separates them.** "The Wheel of Time" and "Nguyen Van An" are both four words with a small word in the middle. Only the field knows which it is, so only the field can say.
+
+<sub>2.2.4 — `web/frontend/src/ui.jsx`</sub>
+
+### Who capitalises: the page, the keyboard, and the two of them disagreeing
+
+**Decided.** Every field that capitalises its own value carries `autocapitalize="off"`.
+
+**The question was "how phone keyboards know to capitalise after a fullstop in some apps … it doesnt do that in some other apps".** The answer is that both halves are true at once. The keyboard does it, and the PAGE tells it to: the HTML `autocapitalize` attribute takes `off` · `sentences` · `words` · `characters`, defaults to `sentences` for a text input, and is a hint to the SOFTWARE keyboard only — no effect on a desktop, none with a hardware keyboard. An app that does not capitalise has said `off`.
+
+**Tippani had said nothing**, so on a phone the browser default ran underneath `capitalizeNames`. They agree almost always, which is why it never showed. They disagree on exactly the case the rule exists to protect: type "bell hooks" on a phone, the keyboard promotes the b before any of our code runs, and the promote-only rule then leaves it — because a word carrying a capital is somebody's decision. The reader is fighting a rule that is not in this codebase, and the field never goes `free`, so the hatch is shut.
+
+**One thing decides, and it is the one that can be argued with.** Prose fields — a quote, a note — keep the default, where sentence capitalisation is what anybody wants.
+
+<sub>2.2.4 — `web/frontend/src/ui.jsx` · `web/frontend/src/suggest.jsx`</sub>
+
+### A blank is only a clear where the column has one
+
+**Decided.** A bulk field can declare that its column has no empty; the dialog then offers no blank, promises no clear, and refuses to apply.
+
+**The failure.** `media_type` is NOT NULL and `normalizeMediaType` maps `""` onto `'movie'`. The dialog offered "(none)" under the words "Empty clears the field", so selecting five shows and pressing Apply converted all five into films — the loudest possible edit made by the quietest possible control, under a sentence that was false.
+
+**The overwrite warning is not an answer to it.** It fired and said how many rows would change. A reader who has just been told the field will be *cleared* reads that as the cost of clearing. A warning cannot correct a lie beside it.
+
+**The general rule.** "Empty clears" is a property of the COLUMN, not of the dialog, and a dialog that says it about every field is asserting something it cannot know. Every other field is unchanged, because a bulk editor that can set a series and never unset one sends you back to forty forms for the mistake it just helped you make.
+
+<sub>2.2.4 — `web/frontend/src/bulkOps.jsx` · `web/frontend/src/SelectionBar.jsx`</sub>
+
+### Answering "it does not fetch by default" on one screen is not answering it
+
+**Decided.** The film board fetches the character art for the faces it is about to draw, from what it is already holding.
+
+**Why the panel was not enough.** 2.2.3 made the People panel call `POST /cast/{id}/image`, which was the first caller that route had ever had. But the panel is not where character faces appear in quantity — a work's board of lines is, and a reader who never opens People saw exactly the empty chips they had reported. Fixing the reported symptom on the surface that does not show it is a fix that reads as complete and is not.
+
+**It costs nothing when there is nothing to do**, which is what makes it safe to do on a page rather than behind a button: `GET /movies/{id}` already carries both image fields on every cast row, so the page can answer "is anything missing" without asking anyone, and only then goes for the ids. Serial and capped for the reason the panel's is. The page is told once, at the end, and only if something arrived.
+
+<sub>2.2.4 — `web/frontend/src/cast.jsx` · `web/frontend/src/Movies.jsx`</sub>

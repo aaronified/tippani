@@ -5,6 +5,60 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.4] - 2026-08-25
+
+### Fixed
+
+- **Pressing Enter in the new People panel closed the whole Details panel and threw the
+  edit away.** Typing a character's name and pressing Enter — which is the obvious thing to
+  do — added nobody and shut the dialog. Same for the character-picture box and the IMDb
+  link box. Two changes in 2.2.3 that were each harmless did it together: the header tick
+  stopped being greyed, which made it the form's default button, and a form with one is
+  submitted by Enter from any text input inside it. Enter now does the local thing — save
+  the row, add the character, apply the picture, fetch the cast — and a box added to that
+  panel later inherits the guard whether or not anyone thinks about it.
+
+- **"Set fields → Type" could turn every selected show and game into a film.** The
+  dropdown offered "(none)" and the line under it said "Empty clears the field", but that
+  column has no empty: the server reads a blank as *Film*. A field whose column cannot be
+  cleared no longer offers a blank, no longer promises a clear, and will not apply until
+  you have picked something. Every other field is unchanged — empty still clears.
+
+- **A name is no longer rewritten by the rule that lets a title keep its small words.**
+  2.2.3 made "The Wheel of Time" typeable by keeping English function words small, and
+  applied that to every capitalising field — so "Nguyen Van An" came back "Nguyen Van an",
+  and so did "Kim So Hyun", "Li In Ho" and "Park By Ul". Half those words are whole names
+  somewhere else. Titles and series keep the small-word rule; a person's name goes back to
+  the promote-only one it always had.
+
+- **A phone's keyboard no longer capitalises underneath the app.** This is the other half of
+  "the capitalisation happens in engine": the keyboard does capitalise, but the *page* tells
+  it to, through the HTML `autocapitalize` attribute, whose default for a text input is
+  sentence case. So on a phone the keyboard was promoting the first letter of every name
+  field before any of the app's own rules ran — which is invisible until you try to type
+  "bell hooks", and then the capital is already there and the app leaves it alone because a
+  capital is somebody's decision. Fields that capitalise themselves now tell the keyboard to
+  stay out of it. Notes and quotes keep sentence case, where it is exactly right.
+
+- **Character pictures are fetched by the screen that draws them.** 2.2.3 fetched them when
+  you opened a work's People panel, which is not where character faces actually appear — a
+  film's board of lines is. It costs no request at all on a title whose pictures are already
+  stored.
+
+- **A quote's kind reaches its anthology caption.** The line under a gathered quote said
+  `place · medium`, and every quote saved since the field changed had no medium — so half of
+  that caption went quietly blank.
+
+- **A bulk field value is trimmed**, like every other form in the app. A trailing space
+  stored across a whole selection is a value that looks right, sorts right, and never
+  matches the one you type next time.
+
+### Added
+
+- **A character's picture can be searched for from the panel**, the way a person's photo
+  already could — searched by the role and the work, so "Amanda Waller Suicide Squad" finds
+  the character in costume rather than the actor.
+
 ## [2.2.3] - 2026-08-25
 
 ### Added

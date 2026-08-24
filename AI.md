@@ -146,7 +146,7 @@ AI-written code fails differently from hand-written code. It compiles, it reads
 well, it is plausibly commented, and it can still be wrong — so plausibility is
 worth nothing here and only execution counts. What the repo actually runs:
 
-- **1,149 Go test functions and 1,932 frontend tests, across 337 test files** — the
+- **1,150 Go test functions and 1,949 frontend tests, across 337 test files** — the
   Go half over real HTTP handlers against a real SQLite database, not mocks.
   Counted, not estimated, and every number here has a command that reproduces it:
 
@@ -165,6 +165,9 @@ worth nothing here and only execution counts. What the repo actually runs:
   233 by 2.1.1, from 924 / 1,771 / 284 by 2.2.0, from 1,085 / 1,844 / 320
   by 2.3.0, and most recently from 1,100 / 1,853 / 323 when they were recounted
   for 2.2.3 — which is why each one now sits beside the command that produces it.
+  The 2.2.4 pass added seventeen frontend cases and one Go one, every one of them
+  for a defect a release review found rather than for a feature: the two habits
+  named below are what that pass was measured against.
 
   **The frontend count went DOWN while its file count went up**, which is the sort
   of number that ought to be explained rather than reported. `5751757` collapsed
