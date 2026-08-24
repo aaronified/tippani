@@ -4163,8 +4163,11 @@ export function titleCaseGenre(s) {
 
 // ---- name casing (1.7.8) ----------------------------------------------------
 
-// capitalizeNames upper-cases the first letter of each word and touches nothing
-// else. Promote-only is the entire rule, and it is not the same rule as
+// capitalizeNames upper-cases the first letter of each word, leaves the rest of
+// the word alone, and keeps an English title's small words small (SMALL_WORDS
+// below — "The Wheel of Time", not "The Wheel Of Time").
+//
+// It is not the same rule as
 // titleCaseGenre above: that one lower-cases the rest of the word, which is
 // right for a genre (a word from a small vocabulary) and destructive for a name
 // or a title. "McDonald" would come back "Mcdonald", "O'Brien" as "O'brien",
@@ -4181,10 +4184,67 @@ export function titleCaseGenre(s) {
 // "iRobot", "danah boyd" the moment the surname is typed — and it doubles as an
 // escape hatch you can reach without knowing the rule exists: put a capital
 // anywhere in the word and the word is yours.
+// SMALL_WORDS are the English function words a title keeps in lower case —
+// articles, coordinating conjunctions, and the short prepositions. "The Wheel of
+// Time", "A Tale of Two Cities", "Don't Look Up".
+//
+// ENGLISH TITLE WORDS ONLY, AND NO NAME PARTICLES. `van`, `von`, `de`, `del`,
+// `la`, `le` all belong on a list like this by one convention and are wrong on it
+// by another — "Vincent van Gogh" and "Robert De Niro" are both correct, and
+// "Ursula Le Guin" would be quietly renamed "Ursula le Guin" by any list that
+// tried to settle it. So the list stays to the words where English title case
+// has one answer, and a particle keeps the behaviour it has always had.
+const SMALL_WORDS = new Set([
+  "a", "an", "and", "as", "at", "but", "by", "for", "from", "if", "in", "into",
+  "nor", "of", "off", "on", "onto", "or", "over", "per", "so", "than", "the",
+  "to", "up", "upon", "via", "vs", "with", "yet",
+]);
+
+// CLAUSE_END — the previous word closed something, so the next word opens
+// something and is capitalised however small it is. "2001: A Space Odyssey",
+// "Book Two. The Return".
+const CLAUSE_END = /[.:;!?—–]["'”’)\]]?$/u;
+
+// wordKey is the word with everything but its letters removed, which is what the
+// list is looked up by: "of," and "of" are the same word, and "don't" folds to
+// "dont" and matches nothing, which is correct.
+function wordKey(w) {
+  return w.replace(/[^\p{L}]/gu, "").toLowerCase();
+}
+
+// isTitleCased — the first letter is a capital and every letter after it is not.
+// "Of" yes; "OF" no, "oF" no, "of" no. It is the only shape a small word is
+// demoted from, so that a deliberate acronym is never touched: lower-casing the
+// first letter of "IN" would produce "iN", which is nobody's title.
+function isTitleCased(w) {
+  const letters = w.match(/\p{L}/gu);
+  if (!letters) return false;
+  return /\p{Lu}/u.test(letters[0]) && letters.slice(1).every((c) => /\p{Ll}/u.test(c));
+}
+
 export function capitalizeNames(s) {
-  return String(s ?? "").replace(/\S+/gu, (w) =>
-    /\p{Lu}/u.test(w) ? w : w.replace(/\p{Ll}/u, (c) => c.toUpperCase()),
-  );
+  let prev = null; // the previous word, for CLAUSE_END
+  return String(s ?? "").replace(/\S+/gu, (w) => {
+    const before = prev;
+    prev = w;
+    // A SMALL WORD IS DEMOTED, NOT MERELY LEFT ALONE, and that is the part worth
+    // arguing. Declining to promote it is not enough, because this runs on every
+    // keystroke: "of" arrives one letter at a time, and "o" is not on the list,
+    // so it is promoted to "O" — and then "Of" carries a capital, which is the
+    // rule's own escape hatch, and it is frozen for the rest of the edit. Every
+    // reader who typed "The Wheel of Time" got "The Wheel Of Time" and could not
+    // see why. The demotion is what makes the completed word win over the prefix
+    // it was typed through.
+    //
+    // The escape hatch still works, and it has to be the case hatch rather than
+    // the capital: re-type the letter as a capital and the string changes in case
+    // alone, which sends the whole field `free` (useNameCasing) and stops every
+    // transform for the rest of the edit. That is how you get "Don't Look Up".
+    if (SMALL_WORDS.has(wordKey(w)) && before !== null && !CLAUSE_END.test(before)) {
+      return isTitleCased(w) ? w.replace(/\p{L}/u, (c) => c.toLowerCase()) : w;
+    }
+    return /\p{Lu}/u.test(w) ? w : w.replace(/\p{Ll}/u, (c) => c.toUpperCase());
+  });
 }
 
 // useNameCasing wires a text field so names capitalise **as you type** — what
