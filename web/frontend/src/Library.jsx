@@ -1203,6 +1203,27 @@ export function EditBook({ book, onSaved, onCancel }) {
   )
 }
 
+// patchMovesTheRow — would this one-field change take the row off the board?
+//
+// EXPORTED AND PURE so the decision can be argued with. It is the whole safety of
+// splicing a PUT's reply in rather than refetching: the filters are applied by the
+// SERVER, so un-hearting a row while the favourites filter is on must remove it,
+// and a splice would leave it sitting there looking saved and wrong.
+//
+// It asks about the FILTERS IN FORCE, not about the fields: changing a colour
+// while no colour filter is on moves nothing, and refetching for it would be the
+// round trip this exists to avoid. A filter this does not know about is a filter
+// that has to be added here — which is why it takes the filter values rather than
+// reading them, so a caller cannot forget to pass one without the argument list
+// changing shape.
+export function patchMovesTheRow(fields, { fav, color, tag } = {}) {
+  return Boolean(
+    (fav && 'favorite' in fields) ||
+      (color && 'color' in fields) ||
+      (tag && 'tags' in fields),
+  )
+}
+
 // annotationState builds the full PUT body from an annotation row — PUT is
 // full-state, so every field must be carried even when only one changes.
 export function annotationState(a) {
@@ -1770,6 +1791,19 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
   // patch PUTs a row's full current state with one field changed (♥ clicks, the
   // colour quick-pick, sticker drags). Resolves false when the save failed, so
   // an optimistic caller can roll its preview back.
+  //
+  // IT TAKES THE REPLY RATHER THAN ASKING AGAIN. The PUT answers with the updated
+  // row, and this used to throw that away and refetch the whole board — so the
+  // most frequent interaction in the app, hearting a quote, cost two serialised
+  // round trips where one had all the information. On a phone over a VPN that is
+  // the difference the owner reported as "terribly unresponsive", and the release
+  // that measured it concluded there was exactly one duplicate read. There were
+  // two, and this was the hotter.
+  //
+  // THE REFETCH IS STILL RIGHT WHEN THE FILTER READS THE FIELD, which is why this
+  // is a guard and not a deletion: the filters are applied by the SERVER, so
+  // un-hearting a row while the favourites filter is on has to take it off the
+  // board, and splicing it back in would leave it sitting there.
   async function patch(a, fields) {
     const r = await json('PUT', `/annotations/${a.id}`, { ...annotationState(a), ...fields })
     if (!r.ok) {
@@ -1777,7 +1811,8 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
       return false
     }
     setError('')
-    load()
+    if (patchMovesTheRow(fields, { fav, color, tag })) load()
+    else setItems((cur) => (cur || []).map((x) => (x.id === a.id ? { ...x, ...r.data } : x)))
     return true
   }
 

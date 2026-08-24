@@ -322,3 +322,39 @@ describe('following the Button labels preference', () => {
     expect(more.querySelector('.btn-label')).toBeNull()
   })
 })
+
+// ---- setting one field over a selection of QUOTES ---------------------------
+//
+// Unreachable for five releases: `set-fields` was works-only, with a note in
+// actions.jsx calling the quote side "a later commit". 0053 is what made it that
+// commit — a reader upgrading from the free-text `medium` has a pile of quotes
+// whose old text the pass could not read, the card shows that text so it stays
+// visible as work to do, and filing it was one dialog per quote.
+//
+// The assertion goes to the REQUEST, like the works one: finding the menu item
+// would prove only that a guard changed.
+describe('setting one field over a selection of quotes', () => {
+  it('files the kind on all of them, in one targeted request', async () => {
+    bar()
+    openMore()
+    fireEvent.click(item('Set fields'))
+    fireEvent.click(screen.getByLabelText('Which field to set'))
+    fireEvent.click(screen.getByText('Kind'))
+    fireEvent.click(screen.getByLabelText('The value to set'))
+    fireEvent.click(screen.getByText('Proverb'))
+    fireEvent.click(screen.getByRole('button', { name: 'Apply' }))
+
+    await waitFor(() => expect(sent('/quotes/bulk')).toBeTruthy())
+    const [, , body] = sent('/quotes/bulk')
+    expect(body.kind).toBe('proverb')
+    // Targeted, so nothing else on those quotes moves.
+    expect(Object.keys(body).sort()).toEqual(['ids', 'kind'])
+    expect(body.ids).toEqual([1, 2, 3])
+  })
+
+  it('is absent over a single quote, where the quote’s own form is better', () => {
+    bar(selection({ ids: [1], count: 1 }))
+    openMore()
+    expect(screen.queryByRole('menuitem', { name: 'Set fields' })).toBeNull()
+  })
+})

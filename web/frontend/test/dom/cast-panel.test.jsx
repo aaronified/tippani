@@ -312,3 +312,47 @@ describe('a cast row that is open when the tick is pressed', () => {
     expect(await [...entries.values()][0].save()).toBe(false)
   })
 })
+
+// ---- what the panel tells its host, and with what --------------------------
+//
+// THE BUG THIS EXISTS FOR BLANKED THE WHOLE PAGE. The panel called
+// `onChanged?.()` with no argument after every save, add and remove; the prop it
+// was handed is the host's record SETTER (`onChanged={setMovie}` in Movies.jsx,
+// `setBook` in Library.jsx), and both pages render behind `{movie && …}`. So
+// correcting a character name called `setMovie(undefined)` and unmounted the film
+// page and the dialog standing on it. Reload required.
+//
+// It survived two review passes because every test in this file stubbed the
+// callback as `() => {}`, which cannot see what it was given. So this one looks at
+// the ARGUMENT — the only assertion that could have caught it.
+describe('what the panel hands back', () => {
+  const seen = []
+  const panelWithSpy = async () => {
+    seen.length = 0
+    render(<CastSection kind="movie" item={FILM} onCastChanged={(...args) => seen.push(args)} />)
+    fireEvent.click(screen.getByRole('button', { name: 'People' }))
+    await waitFor(() => expect(CALLS.some(([m, p]) => m === 'GET' && p.endsWith('/cast'))).toBe(true))
+  }
+
+  it('never calls back with nothing after a save', async () => {
+    await panelWithSpy()
+    await screen.findByText('Amanda Waller')
+    fireEvent.click(screen.getAllByRole('button', { name: /^Edit / })[0])
+    fireEvent.change(screen.getByLabelText(/^Character$/i), { target: { value: 'A. Waller' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(CALLS.some(([m, p]) => m === 'PUT' && p === '/cast/11')).toBe(true))
+    await waitFor(() => expect(seen.length).toBeGreaterThan(0))
+    for (const args of seen) {
+      expect(args, 'the panel handed its host an undefined record').toEqual([])
+    }
+  })
+
+  it('never calls back with nothing after an add or a remove', async () => {
+    await panelWithSpy()
+    fireEvent.click(screen.getByRole('button', { name: 'Add a character' }))
+    fireEvent.change(screen.getByLabelText(/^Character$/i), { target: { value: 'the bartender' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+    await waitFor(() => expect(seen.length).toBeGreaterThan(0))
+    for (const args of seen) expect(args).toEqual([])
+  })
+})

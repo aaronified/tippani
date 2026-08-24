@@ -383,13 +383,23 @@ export function bulkActionsFor(kind, items, ctx = {}) {
     },
     {
       id: 'set-fields',
-      label: isWork ? t('common.action.set-fields.label') : null,
+      label: t('common.action.set-fields.label'),
       where: OVERFLOW,
       icon: <IconDetails />,
       form: BULK_FIELDS,
-      // Only a work has an author/director and a series to set — and only a
-      // selection of SEVERAL wants this rather than the work's own form.
-      available: isWork && !!ctx.setFields && !one,
+      // EVERY KIND, since 2.2.6, and it was works-only for five releases with a
+      // note here saying the quote side was "a later commit". What made it that
+      // commit is 0053: a reader upgrading from the free-text `medium` has a pile
+      // of quotes whose old text the pass could not read, the card shows that text
+      // so it is visible as work to do, and filing it was one dialog per quote.
+      //
+      // `bulkFieldsFor` already answers per kind (bulkOps.jsx) and the endpoints
+      // already take every field it offers (quoteFieldKinds, bulk_handlers.go), so
+      // this is the argument they were waiting for rather than a new feature.
+      //
+      // Still only over a selection of SEVERAL: over one row the record's own form
+      // is strictly better, and Edit is the action offered there instead.
+      available: !!ctx.setFields && !one,
       run: (values) => ctx.setFields(items, values),
     },
     // ---- both ---------------------------------------------------------------

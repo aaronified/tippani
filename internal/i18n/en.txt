@@ -5359,12 +5359,12 @@ quotes.help.share.what = A picture of the quote, which is what it opens on — o
 quotes.help.share.more = The image can carry a portrait backdrop — the speaker’s photo bled in from the card’s edge, tinted with the quote’s own colour and faded out before the words start. Two speakers take a side each with the words between them, which is the shape a conversation has. The small portrait disc steps aside when the backdrop is on: the portrait is already the face.
 
 quotes.help.filters.term = Filters
-quotes.help.filters.what = Colour, favourites, tagged, has-notes, then a tag, speaker or medium — the last two built from what you have saved.
+quotes.help.filters.what = Colour, favourites, tagged, has-notes, then a tag, speaker, kind or language — the tag and speaker lists are built from what you have saved.
 quotes.help.filters.more = On a phone they open as a full-screen sheet with a live result count.
 
 quotes.help.group-by.term = Group by
-quotes.help.group-by.what = Break the grid into sections by speaker, medium, place or decade.
-quotes.help.group-by.more = A line missing that field lands in a bucket that says which field it is missing, because a quote with no speaker, no medium and no date is a perfectly ordinary proverb.
+quotes.help.group-by.what = Break the grid into sections by speaker, kind, place or decade.
+quotes.help.group-by.more = A line missing that field lands in a bucket that says which field it is missing, because a quote with no speaker, no kind and no date is a perfectly ordinary proverb.
 
 quotes.help.export.term = Export
 quotes.help.export.what = The quotes in view as Markdown, which imports back cleanly. It asks first and names the count.

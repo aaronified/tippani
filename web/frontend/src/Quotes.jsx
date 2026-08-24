@@ -703,7 +703,17 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
   const openBoard = (boards || []).find((b) => String(b.id) === String(boardId)) || null
   const [language, setLanguage] = usePersistedState('tippani:quotes:language', '')
   const [sort, setSort] = usePersistedState('tippani:quotes:sort', 'recent')
-  const [groupBy, setGroupBy] = usePersistedState('tippani:quotes:group', 'none')
+  // 0053. A READER WHO WAS GROUPING BY MEDIUM WENT ON GROUPING BY IT. The filter
+  // was given a new key when the field changed (see `kind` above) and this one was
+  // not — so the stored 'medium' still resolved against a column that still
+  // exists, the board went on making a shelf per spelling, and the control beside
+  // it showed its placeholder because 'medium' is no longer one of its options.
+  //
+  // Read through a rename rather than re-keyed, because unlike the filter the
+  // stored value has an exact successor: somebody who chose to group by what a
+  // quote IS still wants that.
+  const [rawGroupBy, setGroupBy] = usePersistedState('tippani:quotes:group', 'none')
+  const groupBy = rawGroupBy === 'medium' ? 'kind' : rawGroupBy
   const { stickers, reload: reloadStickers } = useStickers()
   // Speaker portraits for the card's credit line, the group headings AND the
   // share image — the same enrichment authors and actors get, now that
@@ -828,6 +838,11 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
   }
   // Resolves false on failure so AnnotationCard's optimistic colour pick can
   // roll its preview back — the same contract Library's patch keeps.
+  // Takes the reply rather than asking again — see the note on Library's `patch`,
+  // which is the same control on the other board and had the same cost. The
+  // filters here are client-side EXCEPT the board, which a patch cannot change
+  // (moving a quote between boards goes through the selection bar), so the only
+  // field that can move a row out of view is the one the colour filter reads.
   async function patch(u, fields) {
     const r = await json('PUT', `/quotes/${u.id}`, { ...utteranceState(u), ...fields })
     if (!r.ok) {
@@ -835,7 +850,8 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
       return false
     }
     setError('')
-    await load()
+    if (color && 'color' in fields) await load()
+    else setRows((cur) => (cur || []).map((x) => (x.id === u.id ? { ...x, ...r.data } : x)))
     return true
   }
   async function remove(u) {

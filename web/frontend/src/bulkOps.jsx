@@ -209,6 +209,10 @@ export const BULK_WORK_FIELDS = [
   { key: 'translator', get label() { return t('common.field.translator.label') }, kinds: ['book'] },
   { key: 'editor', get label() { return t('common.field.editor.label') }, kinds: ['book'] },
   { key: 'director', get label() { return t('common.field.director.label') }, kinds: ['movie'] },
+  // A game's publisher (0042). The endpoint has taken it since 1.16.0 and no
+  // control offered it — and its own comment on the server side argues it is
+  // among the likeliest fields to want correcting across a shelf of imports.
+  { key: 'publisher', get label() { return t('common.field.publisher.label') }, kinds: ['movie'] },
   // `required` because THIS COLUMN HAS NO EMPTY. media_type is NOT NULL and
   // normalizeMediaType maps "" to 'movie' — so offering a blank answer under the
   // words "empty clears the field" would silently turn every selected show and
@@ -234,16 +238,13 @@ export const BULK_WORK_FIELDS = [
   { key: 'description', get label() { return t('common.field.description.label') }, long: true },
 ]
 
-// NOT REACHABLE FROM ANY SCREEN YET, and that is a stated decision rather than
-// dead weight: `set-fields` is `isWork`-only in actions.jsx, whose own comment
-// says the quote side "is a later commit — and until then its absence here is
-// deliberate rather than forgotten", with a test holding it to that.
+// REACHABLE SINCE 2.2.6, and unreachable for five releases before it — the
+// `set-fields` action was works-only, with a note in actions.jsx calling the quote
+// side "a later commit". 0053 is what made it that commit: a reader upgrading from
+// the free-text `medium` has a pile of quotes to file, and one dialog each is not
+// an answer.
 //
-// It is kept IN STEP anyway — `kind` was added to it in 2.2.3 with the column —
-// because a table that goes stale while it waits is a table that ships wrong on
-// the day it is switched on. If you are switching it on: `bulkFieldsFor` already
-// filters by kind, the dialog in SelectionBar.jsx is kind-agnostic, and the
-// server takes every field below (quoteFieldKinds in bulk_handlers.go).
+// `kinds` names the record kinds that HAVE the column; absent means all three.
 export const BULK_QUOTE_FIELDS = [
   { key: 'note', get label() { return t('common.field.note.label') }, long: true },
   { key: 'chapter_no', get label() { return t('common.field.chapter-no.label') }, kinds: ['annotation'], number: true },

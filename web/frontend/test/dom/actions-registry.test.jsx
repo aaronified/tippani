@@ -161,8 +161,12 @@ describe('what you can do to a selection', () => {
     for (const kind of ['book', 'movie']) {
       expect(bulkActionsFor(kind, TWO, full()).map((a) => a.id)).toContain('set-fields')
     }
+    // Every kind has fields worth setting over a selection, and each is offered
+    // only the columns it HAS — the speaker of forty quotes, the chapter of forty
+    // highlights, the actor of forty lines. bulkFieldsFor answers that per kind
+    // and the server refuses the rest (quoteFieldKinds).
     for (const kind of ['annotation', 'dialogue', 'quote']) {
-      expect(bulkActionsFor(kind, TWO, full()).map((a) => a.id)).not.toContain('set-fields')
+      expect(bulkActionsFor(kind, TWO, full()).map((a) => a.id)).toContain('set-fields')
     }
   })
 
@@ -192,9 +196,14 @@ const everything = () => ({
 })
 
 describe('what a selection of quotes can do', () => {
-  it.each(['annotation', 'dialogue', 'quote'])('%s: colour, tags, seal, favourite, quiz, delete', (kind) => {
+  it.each(['annotation', 'dialogue', 'quote'])('%s: colour, tags, seal, favourite, fields, quiz, delete', (kind) => {
+    // `set-fields` joined this list in 2.2.6 — it was works-only for five
+    // releases, with a note in actions.jsx calling the quote side "a later
+    // commit". 0053 is what made it that commit: a reader upgrading from the
+    // free-text `medium` has a pile of quotes to file and one dialog each is not
+    // an answer.
     const ids = bulkActionsFor(kind, TWO, everything()).map((a) => a.id)
-    expect(ids).toEqual(['colour', 'add-tags', 'sticker', 'favourite', 'review', 'delete'])
+    expect(ids).toEqual(['colour', 'add-tags', 'sticker', 'favourite', 'set-fields', 'review', 'delete'])
   })
 
   it('leads with colour and ends with delete', () => {
@@ -268,7 +277,9 @@ describe('where a bulk action sits', () => {
   it.each(['annotation', 'dialogue', 'quote'])('%s: colour, favourite and the quiz stand in the row', (kind) => {
     const acts = bulkActionsFor(kind, TWO, everything())
     expect(atRow(acts).map((a) => a.id)).toEqual(['colour', 'favourite', 'review'])
-    expect(atOverflow(acts).map((a) => a.id)).toEqual(['add-tags', 'sticker', 'delete'])
+    // Set fields joins the overflow, not the row: it needs a dialog before it can
+    // run, which is what the overflow is for.
+    expect(atOverflow(acts).map((a) => a.id)).toEqual(['add-tags', 'sticker', 'set-fields', 'delete'])
   })
 
   it.each(['book', 'movie'])('%s: fill, shelf and the quiz stand in the row', (kind) => {

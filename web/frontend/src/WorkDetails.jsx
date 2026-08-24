@@ -697,7 +697,7 @@ function FieldList({ kind, item, specs, mediaType, busy, genreSuggestions, onSav
           and 0048 has stored them for as long as a film's. What is film-only is
           the FETCH, and that gate is inside the panel where it belongs (cast.jsx)
           rather than being restated here. */}
-      <CastSection kind={kind} item={item} onChanged={onChanged} />
+      <CastSection kind={kind} item={item} onCastChanged={() => onChanged?.(item)} />
 
       <div className="flex flex-wrap items-center gap-2">
         <GhostButton type="button" onClick={onFetch} disabled={!!busy}>

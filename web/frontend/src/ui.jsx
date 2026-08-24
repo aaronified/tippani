@@ -4241,7 +4241,19 @@ const SMALL_WORDS = new Set([
 // CLAUSE_END — the previous word closed something, so the next word opens
 // something and is capitalised however small it is. "2001: A Space Odyssey",
 // "Book Two. The Return".
+//
+// NO COMMA HERE, deliberately: a comma does not open a clause, and putting one in
+// this set would capitalise "the" in "The Lion, the Witch and the Wardrobe".
 const CLAUSE_END = /[.:;!?—–]["'”’)\]]?$/u;
+
+// PHRASE_END is the same question asked of the word ITSELF rather than of the one
+// before it: a small word carrying a terminator is the last word of its phrase,
+// and English title case capitalises that. "Bring It On: A Sequel", "Get Up, Stand
+// Up", "Where Are You From?".
+//
+// The comma IS here, and only here. That asymmetry is the whole reason these are
+// two constants: "Up," is promoted and the word after a comma is not.
+const PHRASE_END = /[.,:;!?—–]["'”’)\]]?$/u;
 
 // wordKey is the word with everything but its letters removed, which is what the
 // list is looked up by: "of," and "of" are the same word, and "don't" folds to
@@ -4291,7 +4303,11 @@ export function capitalizeTitle(s) {
   //
   // Computed once from the string rather than looked for per word, because
   // `replace` has no idea which match is the last one.
-  const lastAt = str.search(/\S+\s*$/u);
+  // THE LAST LETTERED WORD, not the last token. A title very often ends in
+  // something that is not a word — "(1996)", "[Live]", "— Vol. 2" — and taking the
+  // last token pushed the real last word back into the middle of the string, where
+  // it was demoted: "Set It Off (1996)" came back "Set It off (1996)".
+  const lastAt = str.search(/\S*\p{L}\S*(?:\s+[^\p{L}\s]+)*\s*$/u);
   let prev = null; // the previous word, for CLAUSE_END
   return str.replace(/\S+/gu, (w, at) => {
     const before = prev;
@@ -4310,7 +4326,13 @@ export function capitalizeTitle(s) {
     // the capital: re-type the letter as a capital and the string changes in case
     // alone, which sends the whole field `free` (useNameCasing) and stops every
     // transform for the rest of the edit. That is how you get "Don't Look Up".
-    if (SMALL_WORDS.has(wordKey(w)) && before !== null && !last && !CLAUSE_END.test(before)) {
+    if (
+      SMALL_WORDS.has(wordKey(w)) &&
+      before !== null &&
+      !last &&
+      !PHRASE_END.test(w) &&
+      !CLAUSE_END.test(before)
+    ) {
       return isTitleCased(w) ? w.replace(/\p{L}/u, (c) => c.toLowerCase()) : w;
     }
     return /\p{Lu}/u.test(w) ? w : w.replace(/\p{Ll}/u, (c) => c.toUpperCase());

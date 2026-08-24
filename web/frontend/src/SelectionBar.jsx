@@ -204,7 +204,7 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
     // A TARGETED PATCH, not a full-state write: /{kind}/bulk touches only the
     // keys present, which is what makes "set the series and leave everything
     // else" possible over a selection at all.
-    setFields: isWork ? (_, patch) => ops.post(patch, t('common.selection.toast.fields-set', { n: count, count })) : undefined,
+    setFields: (_, patch) => ops.post(patch, t('common.selection.toast.fields-set', { n: count, count })),
     setShelf: isWork ? (_, status) => ops.setShelf(status, t('common.selection.toast.moved', { n: count, count })) : undefined,
     // Both. `edit` is filtered to a selection of exactly one by the registry, so
     // there is no count test here — and a screen with no inline form for one row

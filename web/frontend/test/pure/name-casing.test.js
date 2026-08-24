@@ -200,12 +200,15 @@ describe('and a person\u2019s name does not', () => {
     // one of them has been changed into the other and the names above are no
     // longer safe.
     //
-    // The name has to be MID-STRING to show the difference, because the title rule
-    // capitalises the last word however small it is — which is why "Nguyen Van An"
-    // alone comes out right under both.
-    expect(capitalizeTitle('nguyen van an: a memoir')).toBe('Nguyen Van an: A Memoir')
-    expect(capitalizeNames('nguyen van an: a memoir')).toBe('Nguyen Van An: A Memoir')
+    // The name has to be MID-STRING with no punctuation on it to show the
+    // difference: the title rule capitalises the last word however small it is,
+    // and a small word carrying a terminator ends a phrase — so "Nguyen Van An"
+    // and "Nguyen Van An: A Memoir" both come out right under BOTH rules, which is
+    // a relief and not a test.
+    expect(capitalizeTitle('kim so hyun in seoul')).toBe('Kim so Hyun in Seoul')
+    expect(capitalizeNames('kim so hyun in seoul')).toBe('Kim So Hyun In Seoul')
     expect(capitalizeTitle('nguyen van an')).toBe('Nguyen Van An')
+    expect(capitalizeTitle('nguyen van an: a memoir')).toBe('Nguyen Van An: A Memoir')
   })
 
   it('never demotes a capital somebody typed', () => {
@@ -251,5 +254,63 @@ describe('the last word of a title is never small', () => {
     // frozen it, because a word carrying a capital is left alone.
     expect(capitalizeTitle('The Wheel Of')).toBe('The Wheel Of')
     expect(capitalizeTitle('The Wheel Of t')).toBe('The Wheel of T')
+  })
+})
+
+describe('a title that is already right is never rewritten', () => {
+  // WHY THIS BLOCK EXISTS, AND WHY IT IS THE THIRD ONE. The small-word rule has
+  // been wrong three times in three releases, each time in a way that looked like
+  // an omission and was actually a CORRUPTION — because it runs on every keystroke
+  // and saves what you see, so a title that arrived correct is rewritten the
+  // moment somebody edits a typo elsewhere in the same field. No diff, no warning.
+  //
+  //   1. "The Wheel Of Time"        — no small-word list at all
+  //   2. "Bring It on"              — no last-word rule
+  //   3. "Set It off (1996)"        — the last TOKEN is not the last WORD
+  //      "Bring It on: A Sequel"    — a small word can END a clause as well as follow one
+  //      "Get up, Stand Up"         — a comma ends a phrase too
+  //
+  // So the assertion that matters is idempotence over titles that are correct.
+  const correct = [
+    'Bring It On',
+    'Set It Off (1996)',
+    'Bring It On: A Sequel',
+    'Get Up, Stand Up',
+    'Where Are You From?',
+    'Live at the Apollo [Remastered]',
+    'The Wheel of Time',
+    'A Tale of Two Cities',
+    'The Lion, the Witch and the Wardrobe',
+    'Gone with the Wind',
+    '2001: A Space Odyssey',
+    "Don't Look Up",
+    'Of Mice and Men',
+  ]
+  it('leaves every one of these exactly as it is', () => {
+    const rewritten = correct.filter((s) => capitalizeTitle(s) !== s).map((s) => `${s} -> ${capitalizeTitle(s)}`)
+    expect(rewritten).toEqual([])
+  })
+
+  it('and produces them from lower case', () => {
+    const wrong = correct
+      .map((s) => [s.toLowerCase(), s])
+      .filter(([a, b]) => capitalizeTitle(a) !== b)
+      .map(([a, b]) => `${a} -> ${capitalizeTitle(a)} (want ${b})`)
+    // The one exception is the comma case, which lower-casing destroys the
+    // evidence for — "the lion, the witch" is genuinely ambiguous from lower case
+    // and is asserted above in the form a reader would type it.
+    expect(wrong).toEqual([])
+  })
+
+  it('a comma ends a phrase but does not open one', () => {
+    // The asymmetry that needs two constants: the word CARRYING the comma is
+    // promoted, the word after it is not.
+    expect(capitalizeTitle('get up, stand up')).toBe('Get Up, Stand Up')
+    expect(capitalizeTitle('the lion, the witch and the wardrobe')).toBe('The Lion, the Witch and the Wardrobe')
+  })
+
+  it('a trailing parenthetical does not steal the last word', () => {
+    expect(capitalizeTitle('set it off (1996)')).toBe('Set It Off (1996)')
+    expect(capitalizeTitle('live at the apollo [remastered]')).toBe('Live at the Apollo [Remastered]')
   })
 })

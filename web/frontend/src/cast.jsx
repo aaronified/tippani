@@ -64,7 +64,15 @@ const roleLabel = (role) =>
 // rows have no provider URL to fetch anyway.
 const IMAGE_FILL_CAP = 20
 
-export function CastSection({ kind, item, onChanged }) {
+// `onCastChanged` IS NAMED FOR WHAT IT MEANS and takes nothing, which is the
+// whole of a bug that blanked the page. It used to be called `onChanged` and was
+// wired straight to the host's record SETTER — `onChanged={setMovie}` in
+// Movies.jsx, `setBook` in Library.jsx — so calling it with no argument after a
+// save ran `setMovie(undefined)`, and both pages render behind `{movie && …}`.
+// Correcting a character's name unmounted the film page and the dialog on top of
+// it. A prop whose name says "the record changed" must never be called by
+// something that means "the cast changed".
+export function CastSection({ kind, item, onCastChanged }) {
   const path = kind === 'book' ? 'books' : 'movies'
   const [rows, setRows] = useState(null) // null while loading
   const [role, setRole] = useState('none')
@@ -128,7 +136,7 @@ export function CastSection({ kind, item, onChanged }) {
     if (!r.ok) { setErr(errText(r, t('error.save.generic'))); return false }
     setErr('')
     await load()
-    onChanged?.()
+    onCastChanged?.()
     return true
   }
 
@@ -139,7 +147,7 @@ export function CastSection({ kind, item, onChanged }) {
     if (!r.ok) { setErr(errText(r, t('error.save.generic'))); return false }
     setErr('')
     await load()
-    onChanged?.()
+    onCastChanged?.()
     return true
   }
 
@@ -150,7 +158,7 @@ export function CastSection({ kind, item, onChanged }) {
     if (!r.ok) return setErr(errText(r, t('error.delete.generic')))
     setErr('')
     await load()
-    onChanged?.()
+    onCastChanged?.()
   }
 
   // A picture the reader chose, through the same route the provider's goes
@@ -242,7 +250,13 @@ export function CastSection({ kind, item, onChanged }) {
           kind={person.kind}
           name={person.name}
           onClose={() => setPerson(null)}
-          onSaved={() => { reloadActors(); setPerson(null) }}
+          // NOT setPerson(null). PersonModal fires onSaved from its own
+          // auto-enrichment effect the first time an actor with no stored photo is
+          // opened — not only when somebody presses Save — so closing on it shut
+          // the actor editor the instant it opened, which made "edit … both actor
+          // and character images" unreachable from the section built for it. The
+          // other seven call sites in this app reload and leave the modal alone.
+          onSaved={() => reloadActors()}
         />
       )}
     </div>
