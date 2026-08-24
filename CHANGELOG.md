@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A quote now wears the face of the character who says it, not the actor who plays them.**
+  A line is spoken by a character, so the picture beside it is the one in costume — Amanda
+  Waller rather than Viola Davis. The actor is still named on the credit line a few words
+  along, and their own page still shows their own face. Roles with no picture fall back to
+  the actor's headshot, which is what TheTVDB's own site does, so a library with no
+  character art looks exactly as it did.
+
+  **Search shows whichever face you asked about.** Search an actor and the Actors section
+  shows the actor; search a quote or a character and the face is the character's. Nothing
+  guesses from what you typed — the results were already grouped by what matched.
+
+  **Stats lists Characters beside Actors.** Neither list can be worked out from the other:
+  one actor plays several characters, one character is played by several actors, and a book
+  has characters and no actors at all — those rows were counted nowhere before.
+
 - **A shared proverb now carries its translation.** A proverb is its own language plus what it
   says, so an image or a copied quote that held only the original was half the quote to anybody
   who cannot read that language. The translation now sits directly under the words, in the same

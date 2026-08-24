@@ -22,7 +22,7 @@ import { UtteranceForm, utteranceMeta, utteranceState } from './Quotes.jsx'
 import { ShareDialog, bookShare, copyQuote, movieShare, quoteShare } from './share.jsx'
 import { deleteWithUndo } from './undo.jsx'
 import { BULK_FIELDS, BULK_TAGS, bulkActionsFor } from './actions.jsx'
-import { CreditFaces, PersonCredit, PersonModal, PersonPortrait, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
+import { CharacterFaces, CreditFaces, PersonCredit, PersonModal, PersonPortrait, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
 import { groupWorks } from './works.jsx'
 import { useStickers } from './stickers.jsx'
 import { categoryVar } from './theme.js'
@@ -573,9 +573,20 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators, 
   const renderBook = (g) => (
     <WorkResult key={`b${g.id}`} kind="book" g={g} view={view} terms={terms} onOpen={onOpenBook} onOpenQuote={setQuote} onOpenPerson={setPerson} people={authors.map} creditSeps={creditSeps} />
   )
-  const renderMovie = (g) => (
-    <WorkResult key={`m${g.id}`} kind="movie" g={g} view={view} terms={terms} onOpen={onOpenMovie} onOpenQuote={setQuote} onOpenPerson={setPerson} people={directors.map} actorMap={actors.map} creditSeps={creditSeps} onFacet={addFacet} />
+  // WHICH FACE A DIALOGUE HIT WEARS, decided by the SECTION it is in (2.2.0).
+  //
+  // The search response already answers this: `actors` holds the hits where the
+  // ACTOR column matched, `characters` the ones where the character did, and the
+  // work groups the ones where the words did. So a reader who searched a name gets
+  // the face they asked about — the actor under Actors, the character everywhere
+  // else — and nothing has to guess from the query text.
+  //
+  // Defaults to the character, because that is who speaks a line. The actor is
+  // still named on the credit line beside it either way.
+  const renderMovie = (g, face = 'character') => (
+    <WorkResult key={`m${g.id}`} kind="movie" g={g} view={view} terms={terms} onOpen={onOpenMovie} onOpenQuote={setQuote} onOpenPerson={setPerson} people={directors.map} actorMap={actors.map} creditSeps={creditSeps} onFacet={addFacet} face={face} />
   )
+  const renderMovieActorFace = (g) => renderMovie(g, 'actor')
 
   return (
     <section className="space-y-5">
@@ -800,7 +811,7 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators, 
               people={actors.map}
               onOpenPerson={setPerson}
               view={view}
-              render={renderMovie}
+              render={renderMovieActorFace}
             />
           )}
           {/* Characters — who said it, in a film, a show or a game.
@@ -811,8 +822,12 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators, 
               cover, so finding "everything Tyrion says" meant reading six
               posters and assembling the answer yourself.
 
-              The name is a plain chip and a button — no portrait, because a
-              character is not a person and there is nobody to photograph. */}
+              The NAME is a plain chip and a button rather than a portrait: a
+              character is not a row in the People console, so there is no page for
+              a portrait to open. Their picture does appear on the LINES below,
+              where a quote's own chip is now the character's face (0050) — the
+              claim that there is nobody to photograph stopped being true when
+              TheTVDB's per-role art arrived. */}
           {results?.characters?.length > 0 && (
             <section className="space-y-4">
               <MonoLabel className="block">
@@ -1522,7 +1537,7 @@ function ChildHit({ color, hit, parent = '', onClick, children }) {
 // Clicking a child opens the quote modal; the cover/title opens the parent; a
 // credit chip opens that person. `people` is the credit map for the chips
 // (authors / directors), `actorMap` the per-dialogue actor chips.
-function WorkResult({ kind, g, view, terms, onOpen, onOpenQuote, onOpenPerson, people = {}, actorMap = {}, creditSeps, onFacet }) {
+function WorkResult({ kind, g, view, terms, onOpen, onOpenQuote, onOpenPerson, people = {}, actorMap = {}, creditSeps, onFacet, face = 'character' }) {
   const isBook = kind === 'book'
   // Joined credits split into individual, clickable people (ROADMAP §11), the
   // same treatment the detail pages and group-by headings use.
@@ -1580,8 +1595,16 @@ function WorkResult({ kind, g, view, terms, onOpen, onOpenQuote, onOpenPerson, p
                 </HandNote>
               )}
               <span className="mt-1 flex items-center gap-1.5">
-                {/* Actor face(s) on the dialogue hit (split for multi-speaker lines). */}
-                <CreditFaces names={splitCredits(h.actor, creditSeps)} map={actorMap} size={22} ring="var(--raised)" />
+                {/* THE FACE THE SECTION ASKED FOR. Under Actors it is the actor,
+                    because searching a name is asking about that person; anywhere
+                    else it is the character, because a character speaks the line.
+                    Falls back to the actor when the role has no stored picture,
+                    which is most roles. */}
+                {face === 'character' && h.character_images?.length ? (
+                  <CharacterFaces images={h.character_images} size={22} ring="var(--raised)" />
+                ) : (
+                  <CreditFaces names={splitCredits(h.actor, creditSeps)} map={actorMap} size={22} ring="var(--raised)" />
+                )}
                 <MonoLabel className="block min-w-0 truncate">
                   {/* The character is a BUTTON. Pressing it narrows the whole
                       search to that speaker, which is what turns "I found the

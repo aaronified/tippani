@@ -13,7 +13,7 @@ import { actionsFor, atOverflow, atRow } from './actions.jsx'
 import { selectionClick, selectionMenuItems, useSelection } from './selection.jsx'
 import { facetValue, facetValues, publishSearchSeed, seedableChips, withFacet, withFacetValues, workSeedChip } from './facets.js'
 import { SelectionBar } from './SelectionBar.jsx'
-import { CreditFaces, PersonCredit, PersonModal, PersonName, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
+import { CharacterFaces, CreditFaces, PersonCredit, PersonModal, PersonName, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
 import { usePractice } from './review.jsx'
 import {
   ACTIVE_STATUS,
@@ -2056,10 +2056,22 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
         ))}
       <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
         <span className="inline-flex items-center gap-2">
-          {/* Actor face(s) on the quote block (when a portrait is saved),
-              overlapping with the first actor on top; sized to match the
-              library's author chip. */}
-          <CreditFaces names={actorNames} map={actorMap} size={24} ring="var(--card)" />
+          {/* THE CHARACTER'S FACE, NOT THE ACTOR'S (2.2.0). A line is spoken by a
+              character, so the picture beside it should be the one in costume —
+              Amanda Waller rather than Viola Davis. The actor is still named a few
+              words along on the credit line, and their own page still shows their
+              own face.
+
+              FALLING BACK TO THE ACTOR, which is what TheTVDB's own site does for
+              a role with no image: most roles have none, and TMDB has none for
+              anybody. `character_images` is absent rather than empty when there is
+              nothing stored, so this tells "no picture" from "no character" and a
+              library with no character art looks exactly as it did before. */}
+          {d.character_images?.length ? (
+            <CharacterFaces images={d.character_images} size={24} ring="var(--card)" />
+          ) : (
+            <CreditFaces names={actorNames} map={actorMap} size={24} ring="var(--card)" />
+          )}
           <ReviewDot item={d} />
           {/* The library's twin — see AnnotationCard. `show` is already the prop
               that tells this frame which kind of thing it is inside, so the mark

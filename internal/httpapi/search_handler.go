@@ -131,6 +131,10 @@ type dialogueHit struct {
 
 	ReviewExcluded     bool `json:"review_excluded"`
 	WorkReviewExcluded bool `json:"work_review_excluded"` // the film's; see quoteRow
+	// The stored picture for each character named on this line (0050). Filled by
+	// fillSearchCharacterImages after the sections are assembled; omitted when
+	// there is none, so a chip can tell "no picture" from "no character".
+	CharacterImages []characterImage `json:"character_images,omitempty"`
 }
 
 // ---- facet sections (§ sectioned search) ------------------------------------
@@ -1397,6 +1401,11 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+
+	// Every dialogue hit gets its characters' pictures here, in one query, after
+	// the sections are assembled — see search_character_images.go for why it is one
+	// pass at the end rather than six inside the section builders.
+	s.fillSearchCharacterImages(uid, &resp)
 
 	olog.Tracef("[search] handleSearch uid=%d results books=%d annotations=%d movies=%d dialogues=%d authors=%d directors=%d actors=%d notes=%d/%d tags=%d genres=%d",
 		uid, len(resp.Books), len(resp.Annotations), len(resp.Movies), len(resp.Dialogues),

@@ -15,6 +15,7 @@ import { t, tNodes } from './i18n.js'
 import { PendingImportCard } from './StagingPage.jsx'
 import { QuizRunner, tzOffsetMinutes } from './review.jsx'
 import {
+  CharacterFaces,
   CreditFaces,
   PersonCredit,
   PersonModal,
@@ -983,7 +984,20 @@ function FavouriteTile({
                   way into their panel — and drawing the face here as well put
                   one person on the tile twice. */}
               <span className="mt-1.5 flex items-center gap-1.5">
-                {!open && <CreditFaces names={peopleNames} map={peopleMap} size={18} ring="var(--card)" />}
+                {/* A SCREEN TILE WEARS THE CHARACTER, everything else the person
+                    (2.2.0). A film line is spoken by a character, so the face on
+                    it is the one in costume; a book quote's author and a standalone
+                    quote's speaker are people and keep their portraits.
+
+                    Falls back to the person when the role has no stored picture,
+                    which is most roles — so a library with no character art looks
+                    exactly as it did. */}
+                {!open &&
+                  (f.raw?.character_images?.length ? (
+                    <CharacterFaces images={f.raw.character_images} size={18} ring="var(--card)" />
+                  ) : (
+                    <CreditFaces names={peopleNames} map={peopleMap} size={18} ring="var(--card)" />
+                  ))}
                 <MonoLabel style={{ fontSize: 'var(--type-ui-11)' }}>{open ? expandedMeta : collapsedSource}</MonoLabel>
               </span>
               <ClampMore open={open} />

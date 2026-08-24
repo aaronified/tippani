@@ -323,6 +323,11 @@ type dialogueRow struct {
 	gameRef
 	// See dialogueReq.EpisodeName for why this is not inside episodeRef.
 	EpisodeName string `json:"episode_name"`
+	// The picture stored for each character named on this line, in the order they
+	// are named (0050; cast_images.go says why the server resolves this and not
+	// the client). Omitted entirely when there is none, which is the ordinary
+	// case: the chip then falls back to the actor's headshot.
+	CharacterImages []characterImage `json:"character_images,omitempty"`
 	// The film's exclusion is quoteRow.WorkReviewExcluded, shared with
 	// annotations rather than spelled movie_review_excluded here.
 }
@@ -595,6 +600,22 @@ func (s *Server) handleListDialogues(w http.ResponseWriter, r *http.Request) {
 	if err := rows.Err(); err != nil {
 		olog.Warnf(olog.CodeDlgRowScan, "[dialogues] list row iteration failed: %v", err)
 	}
+	// One query fills every row's character pictures, in the shape the tag lists
+	// below use. Best-effort: a page with no character art renders exactly as it
+	// did before.
+	refs := make([]characterImageRef, 0, len(items))
+	for _, d := range items {
+		if d.Character != "" {
+			refs = append(refs, characterImageRef{WorkID: d.MovieID, Character: d.Character})
+		}
+	}
+	if found := s.loadCharacterImages(uid, "movie", refs); len(found) > 0 {
+		seps := s.creditSeps(uid)
+		for i := range items {
+			items[i].CharacterImages = characterImagesFor(found, seps, items[i].MovieID, items[i].Character)
+		}
+	}
+
 	// One query fills all tag lists (tags are per-user, so this can't leak).
 	tagRows, err := s.Store.DB.Query(`
 		SELECT dt.dialogue_id, t.name FROM dialogue_tags dt

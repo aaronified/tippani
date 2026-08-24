@@ -108,23 +108,53 @@ export function PersonName({ kind, name, onOpen, className = 'tp-link', style, c
 export function CreditFaces({ names, map = {}, size = 24, ring = 'var(--bg)', className = '' }) {
   const list = Array.isArray(names) ? names : names ? [names] : []
   const people = list.map((n) => map?.[n]).filter((p) => p?.image_path)
-  if (people.length === 0) return null
+  return <FaceStack paths={people.map((p) => p.image_path)} size={size} ring={ring} className={className} />
+}
+
+// CharacterFaces — the same cluster, for the CHARACTERS on a quote rather than
+// the people who play them (0050). One entry per character on the line that has a
+// stored picture, in the order the line names them, so the first speaker is on
+// top exactly as the first credited name is.
+//
+// Takes {name, path} pairs off the row rather than a name→row map, because a
+// character's picture belongs to ONE WORK: the same name in two films is two
+// pictures, and a map keyed by name alone could not hold both. The server
+// resolves the pair (see cast_images.go) because the match needs a fold SQLite
+// cannot do and the client should not implement twice.
+export function CharacterFaces({ images = [], size = 24, ring = 'var(--bg)', className = '' }) {
+  return (
+    <FaceStack
+      paths={(images || []).map((c) => c?.path).filter(Boolean)}
+      size={size}
+      ring={ring}
+      className={className}
+    />
+  )
+}
+
+// FaceStack is the overlap itself, shared so the actor cluster and the character
+// cluster cannot drift apart: portraits overlap like set intersections with the
+// FIRST one on top, and a ring in the surface colour cuts each disc out of the one
+// beneath so the overlap reads as stacked rather than merged. Nothing renders when
+// there is nothing to show.
+function FaceStack({ paths = [], size = 24, ring = 'var(--bg)', className = '' }) {
+  if (paths.length === 0) return null
   const overlap = Math.round(size * 0.34)
   return (
     <span className={('inline-flex items-center ' + className).trim()} style={{ flex: 'none' }}>
-      {people.map((p, i) => (
+      {paths.map((path, i) => (
         <span
-          key={p.id ?? p.name ?? i}
+          key={path + i}
           style={{
             position: 'relative',
             marginLeft: i === 0 ? 0 : -overlap,
-            zIndex: people.length - i, // first credited name sits on top
+            zIndex: paths.length - i, // the first one sits on top
             borderRadius: '50%',
             boxShadow: `0 0 0 2px ${ring}`,
             lineHeight: 0,
           }}
         >
-          <PersonPortrait person={p} size={size} />
+          <PersonPortrait person={{ image_path: path }} size={size} />
         </span>
       ))}
     </span>
