@@ -249,11 +249,6 @@ export default function CleanupPage({ onClose, onOpenBook, onOpenMovie, onOpenQu
                 label={t('cleanup.filter.all.label')}
                 onClick={() => setRule('all')}
               />
-              {/* ACCEPT ALL IS PER RULE and never per page. A reader may trust the
-                  invisible-character rule completely and still want to read every
-                  reference mark before it goes — and "everything wrong with my
-                  library" is not one decision. Shown only when a rule is SELECTED,
-                  so the button always names exactly what is on screen. */}
               {chips.map((r) => (
                 // The bubble carries the rule's one-line explanation. FilterChip
                 // only grows its own tooltip when it can lose its words to the
@@ -271,25 +266,12 @@ export default function CleanupPage({ onClose, onOpenBook, onOpenMovie, onOpenQu
             </div>
           )}
 
-          {bucket === 'open' && rule !== 'all' && shown.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2">
-              <GhostButton
-                icon={<IconCheck />}
-                keepLabel
-                disabled={busy}
-                onClick={() =>
-                  accept(
-                    shown.flatMap((it) =>
-                      it.findings.filter((f) => f.rule === rule && f.after).map((f) => target(it, f)),
-                    ),
-                  )
-                }
-              >
-                {t('cleanup.accept-all.label', { name: t(`cleanup.rule.${rule}.label`) })}
-              </GhostButton>
-              <span className="microcopy">{t('cleanup.accept-all.hint')}</span>
-            </div>
-          )}
+          {/* THERE IS NO ACCEPT-ALL, and it was here for one afternoon. It is the
+              control cleanup.go's original note was arguing against, one filter
+              narrower: a press that rewrites up to five hundred fields on rules that
+              each carry a known false positive, with the diffs scrolled past rather
+              than read. The row's own button is the feature; a button that skips the
+              row is the feature undone. Nobody asked for it either. */}
 
           {data === null && <p className="microcopy">{t('cleanup.state.loading')}</p>}
           {data !== null && items.length === 0 && (
@@ -351,22 +333,25 @@ export default function CleanupPage({ onClose, onOpenBook, onOpenMovie, onOpenQu
                               rather than collapsing it, which is what makes two
                               spaces look like two. */}
                           <p className="cleanup-snippet">{f.snippet}</p>
-                          {/* AND WHAT IT WOULD BECOME. The whole field, from the
-                              server, produced by the same function that does the
-                              writing — so what is on screen is what will happen,
-                              rather than a diff this page computed and hoped
-                              matched. A rule with no rewrite in this build sends
-                              no `after`, and then there is nothing to accept. */}
-                          {f.after && (
+                          {/* AND WHAT IT WOULD BECOME, in the same context and marked
+                              the same way. Both lines come from the server, produced by
+                              the function that does the writing — so what is on screen
+                              is what will happen, rather than a diff this page computed
+                              and hoped matched. The first version drew the whole
+                              rewritten field here, unmarked, which in a long quote left
+                              the reader comparing two paragraphs by eye. A rule with no
+                              rewrite in this build sends no snippet, and then there is
+                              nothing to accept. */}
+                          {f.after_snippet && (
                             <p className="cleanup-after">
                               <span className="cleanup-arrow" aria-hidden="true">→</span>
-                              {f.after}
+                              {f.after_snippet}
                             </p>
                           )}
                           <div className="cleanup-answers">
                             {bucket === 'open' ? (
                               <>
-                                {f.after && (
+                                {f.after_snippet && (
                                   <GhostButton
                                     icon={<IconCheck />}
                                     keepLabel

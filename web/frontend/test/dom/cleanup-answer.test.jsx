@@ -45,8 +45,7 @@ const OPEN = {
           field: 'quote',
           snippet: 'call»  «me Ishmael',
           count: 1,
-          before: 'call  me Ishmael',
-          after: 'call me Ishmael',
+          after_snippet: 'call»&nbsp;«me Ishmael'.replace('&nbsp;', ' '),
           match_hash: 'abc123',
         },
       ],
@@ -70,8 +69,7 @@ const IGNORED = {
           field: 'note',
           snippet: 'a note»[12]«',
           count: 1,
-          before: 'a note[12]',
-          after: 'a note',
+          after_snippet: 'a note»«',
           match_hash: 'def456',
           ignored: true,
         },
@@ -106,7 +104,7 @@ describe('answering a cleanup finding', () => {
     await waitFor(() => expect(screen.getByText(exact('call»  «me Ishmael'))).toBeTruthy())
     // THE ASSERTION THE WHOLE FEATURE RESTS ON: the result is on screen before
     // anything is pressed.
-    expect(screen.getByText(exact('→call me Ishmael'))).toBeTruthy()
+    expect(screen.getByText(exact('→call» «me Ishmael'))).toBeTruthy()
   })
 
   it('accepts exactly the finding it was showing', async () => {
@@ -163,7 +161,7 @@ describe('answering a cleanup finding', () => {
     // which is exactly why the page's handling of it needs a test.
     ANSWER = () => ({
       ...OPEN,
-      items: [{ ...OPEN.items[0], findings: [{ ...OPEN.items[0].findings[0], after: '' }] }],
+      items: [{ ...OPEN.items[0], findings: [{ ...OPEN.items[0].findings[0], after_snippet: '' }] }],
     })
     page()
     await waitFor(() => expect(screen.getByText('Moby-Dick')).toBeTruthy())

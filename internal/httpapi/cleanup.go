@@ -149,16 +149,21 @@ type cleanupFinding struct {
 
 	// ---- what it would become, and how the reader answers it -----------------
 	//
-	// THE FIELD'S WHOLE TEXT, BEFORE AND AFTER, and not a patch. The two are what
-	// the page puts side by side, and a diff computed in the browser could disagree
-	// with the rewrite that will actually run — these two strings are produced by
-	// the same function that does the writing (cleanup_fix.go).
+	// A SNIPPET, MARKED THE SAME WAY THE FINDING IS. `Snippet` above shows the match
+	// in its context with guillemets round it; this shows the same context AFTER the
+	// rewrite, with the replacement marked — so the two lines on screen differ in
+	// exactly one visible place, and in a four-hundred-word quote the reader can see
+	// which place.
 	//
-	// Empty `After` means this build has no rewrite for the rule: the finding is
-	// still listed, and still ignorable, and the page draws no accept button. No
-	// rule is in that state today.
-	Before string `json:"before"`
-	After  string `json:"after,omitempty"`
+	// It replaced a pair of whole-field strings (`before` and `after`). Both were
+	// wrong: `before` was never read by anything, and it meant a five-hundred-finding
+	// reply carried the full text of every quote twice. Worse, an unmarked `after`
+	// left the reader comparing two long paragraphs by eye, which is the opposite of
+	// what this row is for.
+	//
+	// Empty means this build has no rewrite for the rule (see cleanupUnfixable): the
+	// finding is still listed, still ignorable, and the page draws no accept button.
+	AfterSnippet string `json:"after_snippet,omitempty"`
 	// Hash identifies THIS finding — a fold of the exact spans the rule matched —
 	// and is what an ignore is stored under. See 0052.
 	Hash string `json:"match_hash"`
@@ -188,13 +193,13 @@ func scanCleanup(field, text string) []cleanupFinding {
 			Field:   field,
 			Snippet: cleanupSnippet(text, hits[0]),
 			Count:   len(hits),
-			Before:  text,
 			Hash:    cleanupMatchHash(text, r.ID),
 		}
-		// The rewrite, from the function that will do the writing. A rule with no fix
-		// leaves After empty and is listed without an accept button.
-		if after, changed := cleanupApplyRule(text, r.ID); changed {
-			f.After = after
+		// The rewrite, from the function that will do the writing, shown through the
+		// same snippet mechanism as the find itself. A rule with no fix leaves this
+		// empty and is listed without an accept button.
+		if after, at, changed := cleanupApplyRuleAt(text, r.ID); changed && at != nil {
+			f.AfterSnippet = cleanupSnippet(after, at)
 		}
 		out = append(out, f)
 	}
