@@ -3315,6 +3315,7 @@ book.quotes.nomatch = এই ফিল্টারে কোনও দাগ ম
 book.quotes.delete.confirm = এই দাগটা মুছবেন?
 
 # The highlight form.
+book.quote.form.character.placeholder = কে বলছে, যদি কেউ বলে
 book.quote.form.chapter-no.placeholder = যেমন 7
 book.quote.form.location.placeholder = যেমন 1042
 
@@ -5584,3 +5585,10 @@ common.help.hover-labels.what = শুধু চিহ্ন আছে এমন
 common.help.card-menu.term = কার্ডে ডান-ক্লিক
 common.help.card-menu.what = উদ্ধৃতির কার্ডে ডান-ক্লিক করলে তার নিজের মেনু খোলে — কপি, শেয়ার, এডিট, মুছুন — ঠিক যেখানে চেপেছেন সেখানেই।
 common.help.card-menu.more = কীবোর্ড থেকে Shift+F10 বা Menu কি-ও একই কাজ করে, আর Escape বন্ধ করে ফোকাস ফিরিয়ে দেয়। কার্ডের ভিতরে কোনও লেখা বেছে রাখলে ব্রাউজারের নিজের মেনুই জেতে: আপনি তো কপি বা লুক আপ চেয়েছিলেন, আর ওগুলো কেড়ে নেওয়া আমাদের কাজ নয়।
+
+# ---------------------------------------------------------------------------
+# ধরা-পাতার ঘরগুলো (1.17.0) — see the English block.
+capture.form.act.placeholder = যেমন দ্বিতীয় অঙ্ক
+capture.form.quest.placeholder = যেমন কায়ের মোরেনের যুদ্ধ
+capture.form.episode-name.placeholder = যেমন দ্য রেইনস অফ ক্যাসটামিয়ার
+capture.form.played-by.prose = অভিনয়ে {name}

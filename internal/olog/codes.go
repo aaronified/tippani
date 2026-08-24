@@ -127,6 +127,10 @@ const (
 	// own subsystem rather than CAST's: it reads quotes, changes nothing, and has
 	// no relation to a work's cast.
 	CodeCleanupRowScan Code = "TIP-CLEANUP-001" // a quote failed to scan during the sweep; skipped, the rest is reported
+	// quote is carrying, and the reader's answer to each suggestion (0049).
+
+	// BOOK — the one read that is not part of a bigger group.
+	CodeBookChapters Code = "TIP-BOOK-004" // a book's chapter list could not be read; the locator fields offer nothing
 
 	// BACKUP — server-side backup & restore (Settings, admin).
 	CodeBackupSnapshot Code = "TIP-BACKUP-001" // database snapshot (VACUUM INTO) failed; no archive produced
@@ -212,6 +216,8 @@ var Registry = map[Code]string{
 	CodeCastRowScan:    "A work's cast row failed to scan (SELECT/struct drift); that character was left out of the list.",
 	CodeCastKeyFold:    "A cast row's folded lookup keys could not be rewritten during the boot-time repair; the row keeps the keys it had.",
 	CodeCleanupRowScan: "A quote could not be read during the Settings cleanup sweep. It is skipped and every other quote is still reported.",
+
+	CodeBookChapters: "A book's own chapter list could not be read, so the chapter number and name fields offered no suggestions. Typing them by hand still works.",
 
 	CodeTrashWrite:   "A delete could not be written to the bin, so the delete was refused and nothing was removed.",
 	CodeTrashFile:    "A binned cover/poster could not be parked, restored or purged; the row itself is unaffected.",

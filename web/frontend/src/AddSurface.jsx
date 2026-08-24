@@ -8,6 +8,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { json, errText } from './api.js'
+import { Datalist, useWorkSuggestions } from './suggest.jsx'
 import { t } from './i18n.js'
 import { CandidateRow, groupEditions } from './CoverPicker.jsx'
 import { ManualTab, isIsbn } from './Library.jsx'
@@ -691,7 +692,7 @@ export function CaptureQuote({ initialTarget = null, initialStandalone = false, 
       targetKey: fresh ? sitting.targetKey || null : null,
     }
   })
-  const [draft, setDraft] = useState({ target: null, quote: '', note: '', chapter: '', chapter_no: '', location: '', character: '', timestamp: '', season: '', episode: '', tags: seed.tags, color: seed.color, speaker: '', occasion: '', occasionDate: '', place: '', medium: '' })
+  const [draft, setDraft] = useState({ target: null, quote: '', note: '', chapter: '', chapter_no: '', location: '', character: '', timestamp: '', season: '', episode: '', episodeName: '', act: '', quest: '', tags: seed.tags, color: seed.color, speaker: '', occasion: '', occasionDate: '', place: '', medium: '' })
   // "This came from nothing" is a MODE rather than an entry in the work picker.
   // The picker is search-first, so a synthetic "no book or film" row would only
   // surface for someone who typed words matching it — which is nobody, since it
@@ -737,6 +738,22 @@ export function CaptureQuote({ initialTarget = null, initialStandalone = false, 
   const isScreen = !standalone && draft.target?.kind === 'screen'
   // Only a series has episodes to locate a line in; a film has just its runtime.
   const isShow = isScreen && draft.target?.media_type === 'show'
+  // A GAME IS A `movies` ROW (0006, 0040) and is located by act and quest rather
+  // than by a timestamp — the server drops a timestamp on a game's line outright
+  // (normalizeLocator), so a form that offered one was offering a box whose value
+  // was thrown away without a word.
+  const isGame = isScreen && draft.target?.media_type === 'game'
+
+  // What this work already knows about itself: its cast, and (for a book) the
+  // chapters its own highlights name. The film page's edit form has offered the
+  // first since the cast existed; this form offered nothing, which is the same
+  // field on the same work asking you to remember what the database already holds.
+  const suggest = useWorkSuggestions(standalone ? null : draft.target)
+  const listId = `capture-${draft.target?.kind || 'none'}-${draft.target?.id || 0}`
+  // The actor(s) the chosen character implies, shown as a preview exactly as the
+  // film form shows it. Read-only: the server derives the stored actor from the
+  // cast, so a box here would be a second answer to a question already settled.
+  const impliedActor = isScreen ? suggest.actorFor(draft.character) : ''
 
   // targetCreated adopts a freshly-added work (from the look-up card) as the
   // capture target and slots it into the picker list. The shell's stat tiles
@@ -797,11 +814,19 @@ export function CaptureQuote({ initialTarget = null, initialStandalone = false, 
           quote: draft.quote.trim(),
           note: draft.note.trim(),
           character: draft.character.trim(),
-          timestamp: draft.timestamp.trim(),
+          // A game's line carries no timestamp and a film's carries no act or
+          // quest. Sent as '' rather than omitted, because the server's normaliser
+          // clears the fields the medium does not have — sending the pair the
+          // medium DOES have is this form's whole job, and omitting a field on an
+          // edit would leave whatever was there before.
+          timestamp: isGame ? '' : draft.timestamp.trim(),
+          act: isGame ? draft.act.trim() : '',
+          quest: isGame ? draft.quest.trim() : '',
           // Blank means "not recorded", and 0 is a real season — so '' has to
           // become null rather than 0. Films send neither.
           season: isShow ? countOrNull(draft.season) : null,
           episode: isShow ? countOrNull(draft.episode) : null,
+          episode_name: isShow ? draft.episodeName.trim() : '',
           color: draft.color,
           tags,
         })
@@ -812,6 +837,8 @@ export function CaptureQuote({ initialTarget = null, initialStandalone = false, 
           chapter: draft.chapter.trim(),
           chapter_no: Number(String(draft.chapter_no).trim()) || 0,
           location: draft.location.trim(),
+          // 0047's column, which this form had no box for until now.
+          character: draft.character.trim(),
           color: draft.color,
           tags,
         })
@@ -949,45 +976,134 @@ export function CaptureQuote({ initialTarget = null, initialStandalone = false, 
         <div className="grid grid-cols-2 gap-3">
           <label className="tp-field">
             <MonoLabel>{t('common.field.character.label')}</MonoLabel>
-            <input className="tp-input" placeholder={t('common.field.character.placeholder')} value={draft.character} onChange={(e) => set({ character: e.target.value })} />
+            {/* THE CAST, AS YOU TYPE. The list is this work's own characters, so it
+                is a memory aid rather than a vocabulary — the box still takes
+                anybody, which matters for the line the cast list has never heard
+                of. See suggest.js for why the browser's own dropdown is the right
+                one here. */}
+            <input
+              className="tp-input"
+              list={suggest.characters.length ? `${listId}-char` : undefined}
+              placeholder={t('common.field.character.placeholder')}
+              value={draft.character}
+              onChange={(e) => set({ character: e.target.value })}
+            />
+            <Datalist id={`${listId}-char`} options={suggest.characters} />
+            {/* Who plays them, from the cast. The same preview the film page's edit
+                form draws, and for the same reason: the actor is DERIVED on save,
+                so seeing it here is how you know the character matched a real row
+                rather than being stored as loose text. */}
+            {impliedActor && (
+              <span className="microcopy">{t('capture.form.played-by.prose', { name: impliedActor })}</span>
+            )}
           </label>
-          <label className="tp-field">
-            <MonoLabel>{t('common.field.timestamp.label')}</MonoLabel>
-            <input className="tp-input" placeholder={t('capture.form.timestamp.placeholder')} value={draft.timestamp} onChange={(e) => set({ timestamp: e.target.value })} />
-          </label>
+          {/* A game has no timestamp — see isGame. Its second box is the act. */}
+          {isGame ? (
+            <label className="tp-field">
+              <MonoLabel>{t('common.field.act.label')}</MonoLabel>
+              <input className="tp-input" placeholder={t('capture.form.act.placeholder')} value={draft.act} onChange={(e) => set({ act: e.target.value })} />
+            </label>
+          ) : (
+            <label className="tp-field">
+              <MonoLabel>{t('common.field.timestamp.label')}</MonoLabel>
+              <input className="tp-input" placeholder={t('capture.form.timestamp.placeholder')} value={draft.timestamp} onChange={(e) => set({ timestamp: e.target.value })} />
+            </label>
+          )}
         </div>
+        {/* THE TWO LOCATORS A GAME'S LINE IS PLACED BY (0047), and the pair that
+            was missing here entirely: a bark reused in two quests is two quotes,
+            which is why the dedupe hash includes them, and a capture form that
+            could not say which quest could only ever store the first of them. */}
+        {isGame && (
+          <label className="tp-field">
+            <MonoLabel>{t('common.field.quest.label')}</MonoLabel>
+            <input className="tp-input" placeholder={t('capture.form.quest.placeholder')} value={draft.quest} onChange={(e) => set({ quest: e.target.value })} />
+          </label>
+        )}
         {isShow && (
-          <div className="grid grid-cols-2 gap-3">
+          <>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="tp-field">
+                <MonoLabel>{t('common.field.season.label')}</MonoLabel>
+                <input className="tp-input" type="number" min="0" max="999" placeholder={t('capture.form.season.placeholder')} value={draft.season} onChange={(e) => set({ season: e.target.value })} />
+              </label>
+              <label className="tp-field">
+                <MonoLabel>{t('common.field.episode.label')}</MonoLabel>
+                <input className="tp-input" type="number" min="0" max="9999" placeholder={t('capture.form.episode.placeholder')} value={draft.episode} onChange={(e) => set({ episode: e.target.value })} />
+              </label>
+            </div>
+            {/* The episode's NAME, which the API has taken since 0047 and this form
+                never offered. Kept beside the numbers rather than above them: it is
+                the same locator said in words, and the server drops it on anything
+                that is not a show. */}
             <label className="tp-field">
-              <MonoLabel>{t('common.field.season.label')}</MonoLabel>
-              <input className="tp-input" type="number" min="0" max="999" placeholder={t('capture.form.season.placeholder')} value={draft.season} onChange={(e) => set({ season: e.target.value })} />
+              <MonoLabel>{t('common.field.episode-name.label')}</MonoLabel>
+              <input className="tp-input" placeholder={t('capture.form.episode-name.placeholder')} value={draft.episodeName} onChange={(e) => set({ episodeName: e.target.value })} />
             </label>
-            <label className="tp-field">
-              <MonoLabel>{t('common.field.episode.label')}</MonoLabel>
-              <input className="tp-input" type="number" min="0" max="9999" placeholder={t('capture.form.episode.placeholder')} value={draft.episode} onChange={(e) => set({ episode: e.target.value })} />
-            </label>
-          </div>
+          </>
         )}
         </>
       ) : (
+        <>
         <div className="grid grid-cols-2 gap-3">
           {/* The number and the name, since 0044. This form's placeholder used to read
               "e.g. 3" under a label saying Chapter, which is the whole reason the field
-              was split: it was asking for a number and storing it as a name. */}
+              was split: it was asking for a number and storing it as a name.
+
+              BOTH REMEMBER THIS BOOK'S OWN CHAPTERS now, commonest first, from the
+              highlights already in it. Choosing a NAME fills the number the reader
+              typed beside it last time; the reverse is deliberately not done —
+              filling a name from a number would be guessing what somebody meant by
+              "42". See suggest.js. */}
           <label className="tp-field">
             <MonoLabel>{t('common.field.chapter-no.label')}</MonoLabel>
-            <input className="tp-input" inputMode="decimal" placeholder={t('capture.form.chapter-no.placeholder')} value={draft.chapter_no}
+            <input className="tp-input" inputMode="decimal"
+                   list={suggest.chapterNumbers.length ? `${listId}-chno` : undefined}
+                   placeholder={t('capture.form.chapter-no.placeholder')} value={draft.chapter_no}
                    onChange={(e) => set({ chapter_no: e.target.value.replace(/[^\d.]/g, '').slice(0, 7) })} />
+            <Datalist id={`${listId}-chno`} options={suggest.chapterNumbers} />
           </label>
           <label className="tp-field">
             <MonoLabel>{t('common.field.chapter-name.label')}</MonoLabel>
-            <input className="tp-input" placeholder={t('capture.form.chapter-name.placeholder')} value={draft.chapter} onChange={(e) => set({ chapter: e.target.value })} />
+            <input
+              className="tp-input"
+              list={suggest.chapterNames.length ? `${listId}-chname` : undefined}
+              placeholder={t('capture.form.chapter-name.placeholder')}
+              value={draft.chapter}
+              onChange={(e) => {
+                const name = e.target.value
+                const no = suggest.chapterNoFor(name)
+                // Only fills an EMPTY number box. Overwriting a number somebody has
+                // just typed because the name matched something is the form editing
+                // itself, which is the one thing a suggestion must never do.
+                set(no && !String(draft.chapter_no).trim() ? { chapter: name, chapter_no: String(no) } : { chapter: name })
+              }}
+            />
+            <Datalist id={`${listId}-chname`} options={suggest.chapterNames} />
           </label>
           <label className="tp-field">
             <MonoLabel>{t('common.field.location.label')}</MonoLabel>
             <input className="tp-input" placeholder={t('capture.form.location.placeholder')} value={draft.location} onChange={(e) => set({ location: e.target.value })} />
           </label>
         </div>
+        {/* A NOVEL HAS SPEAKERS (0047), and this form had nowhere to put one — the
+            column has existed since that migration and the API has always accepted
+            it, so a highlight captured here could not say who said it while the same
+            highlight edited on the book's page could. The list is the book's own
+            cast: rows with a character and nobody beside them, which is what a
+            book's cast list is. */}
+        <label className="tp-field">
+          <MonoLabel>{t('common.field.character.label')}</MonoLabel>
+          <input
+            className="tp-input"
+            list={suggest.characters.length ? `${listId}-char` : undefined}
+            placeholder={t('book.quote.form.character.placeholder')}
+            value={draft.character}
+            onChange={(e) => set({ character: e.target.value })}
+          />
+          <Datalist id={`${listId}-char`} options={suggest.characters} />
+        </label>
+        </>
       )}
       <label className="tp-field">
         <MonoLabel>{t('capture.form.tags.label')}</MonoLabel>

@@ -6750,3 +6750,30 @@ There is a second cost, and it is the one that made this concrete. Decisions tak
 **What was given up.** The Features card's four blurbs were standing microcopy and are now each chip's tooltip — reachable by hover and by long press, which is the same bargain the review-scope chips have always made. The test that asserted them on screen now asserts that the card resolves the key before handing it over, which is the failure that case actually existed for.
 
 <sub>2.2.1 — `web/frontend/src/ui.jsx` · `web/frontend/src/Settings.jsx` · `web/frontend/test/dom/features-card.test.jsx`</sub>
+<sub>1.17.0 — `web/frontend/src/ui.jsx` · `web/frontend/src/Settings.jsx` · `web/frontend/test/dom/features-card.test.jsx`</sub>
+
+### A locator box offers what the work already knows, and the work is asked rather than the library
+
+**Decided.** `GET /books/{id}/chapters` returns the (number, name, count) triples this book's own highlights already carry, commonest first. `useWorkSuggestions` (suggest.jsx) is the one place that fetches it and a work's cast, and both the capture surface and the highlight editor read it. The chapter-name box fills an EMPTY chapter-number box from the pair; nothing else is ever auto-filled.
+
+**Why per work rather than in /search/vocabulary.** The vocabulary endpoint is deliberately the reader's whole library, because that is what the search box narrows over. A chapter name is not that kind of word — "The Whale" belongs to one book — and offering every chapter title in the library while typing a locator for THIS one would be a dropdown that is wrong more often than right. The cast is the same argument: a character belongs to a work.
+
+**Why an endpoint rather than reading /annotations?book_id=N.** That was the first draft and it works: the chapter columns are already in the payload. It also fetches every quote in the book — text, tags, sticker coordinates, review state — to offer a dozen strings on a form whose whole point is being quick.
+
+**Why the number is filled from the name and never the reverse.** Filling a name from "42" is guessing what somebody meant; filling 42 from a name they themselves typed against those exact words is repeating them. And it fills only an EMPTY box — a suggestion that overwrites what you have just typed is the form arguing with you, which is the one thing an autofill must never do.
+
+**Native datalists, not a fourth dropdown.** This app already has three list controls and none of them fits: these fields are free text, the list is a memory aid rather than a vocabulary, and the browser's own control filters as you type, does not steal a phone's keyboard, and never prevents typing something absent from the list.
+
+**What this was: a sweep-check failure.** The cast has offered a film line's character since it was a blob of provider JSON, and the same field on the same work offered nothing two screens away. One rule, some of the places that need it — which is the recurring defect class this repo already has a skill for.
+
+<sub>1.17.0 — `internal/httpapi/chapters_handler.go` · `web/frontend/src/suggest.jsx` · `web/frontend/src/AddSurface.jsx` · `web/frontend/src/Library.jsx`</sub>
+
+### The capture surface asks for the locators the medium actually has
+
+**Decided.** A game's capture form offers Act and Quest and no Timestamp; a show's offers the episode's name beside its numbers; a book's offers a Character. All four columns already existed (0047) and the API already accepted them.
+
+**Why it is a bug and not a gap.** The timestamp box on a game was WORSE than a missing field: `normalizeLocator` clears a timestamp on a game's line, so the form asked a question and the server threw the answer away without a word. And act and quest are in the dedupe hash — a bark reused in two quests is two quotes — so a form that could not say which quest could only ever store the first of them, with the second silently folded into it as a duplicate.
+
+**The book's character is the same shape of omission.** 0047 gave `annotations` a `character` column and argued for it at length; no form ever got a box, so the only ways to fill it were the bulk field editor and an import. A novel has speakers.
+
+<sub>1.17.0 — `web/frontend/src/AddSurface.jsx` · `web/frontend/src/Library.jsx`</sub>

@@ -9,6 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Every box that asks who said it, or where, now remembers what this work already
+  knows.** The film page's edit form has offered a line's character from the work's cast
+  since the cast existed; the ＋ Add surface — the form you actually capture a quote in —
+  offered nothing, and a book offered nothing anywhere. So: the capture surface's
+  **Character** box suggests this work's own cast (and shows who plays them, from the same
+  rows), and a book's **Chapter #** and **Chapter name** boxes suggest the chapters its own
+  highlights already name, commonest first. Choosing a chapter *name* fills an empty number
+  box with the number you typed beside it last time — and never overwrites a number you
+  have just typed, because a suggestion that edits your typing is the form arguing with
+  you. New endpoint: `GET /books/{id}/chapters`, which answers the actual question in two
+  columns instead of the old client-side approach of fetching every quote in the book to
+  read a dozen strings out of it.
+
+- **A game can finally say which act and which quest a line is from, and a show can name
+  its episode.** Both columns have existed since 0047 and the capture surface had no box
+  for either — worse, it showed a **Timestamp** box on a game, whose value the server
+  discards outright, because a game is placed by act and quest and has no runtime. A game
+  now gets Act and Quest and loses the box that was quietly throwing your answer away.
+  A book highlight gets the **Character** box its column has been waiting for since the
+  same migration: a novel has speakers, and until now the only ways to fill that field were
+  a bulk edit and an import.
 - **The in-depth quiz controls and the Features card are buttons now, not columns of
   Yes/No.** Nine labelled rows, each with its own segmented switch and its own info dot,
   filled the quiz pop-up top to bottom — and the question they answered is a set ("which of

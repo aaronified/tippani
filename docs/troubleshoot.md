@@ -160,6 +160,7 @@ a feature whose whole purpose is not losing things.
 
 | Code | Meaning | Likely cause | What to do |
 | --- | --- | --- | --- |
+| `TIP-BOOK-004` | A book's own chapter list could not be read, so the chapter number and name fields offered no suggestions. | A `SELECT` over `annotations`' two chapter columns failed — schema drift, or the database unreadable at that moment. | Cosmetic. The fields still accept anything you type, and the highlight saves exactly as before; only the dropdown is empty. |
 | `TIP-BACKUP-001` | The backup's database snapshot (`VACUUM INTO`) failed; no archive was produced. | Disk full, or the live database is corrupt (`TIP-STORE-002`). | Free disk space; run Profile → Rebuild search index or check integrity, then retry. |
 | `TIP-BACKUP-002` | The backup archive could not be written or promoted into `backups/`. | Disk full or a permissions problem on the data volume. | Free disk space / fix volume permissions and retry. |
 | `TIP-BACKUP-003` | Restore could not extract the backup archive to staging. | Disk full (restore needs roughly the archive's expanded size free) or a truncated archive. | Free disk space; re-create the backup if the archive is damaged. |

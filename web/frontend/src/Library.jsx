@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { DEMO, json, errText, downloadPost } from './api.js'
 import { chapterLabel } from './text.js'
+import { Datalist, useWorkSuggestions } from './suggest.jsx'
 import { CoverControls, BookLookupPicker } from './CoverPicker.jsx'
 import { FlowQuote } from './flow.jsx'
 import { ScreenHelpSheet } from './help.jsx'
@@ -1327,7 +1328,7 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
         ].filter(Boolean).join(' · ')
       : meta
   const editForm = (
-    <Form initial={a} onSubmit={(fields) => save(a.id, fields)} onCancel={() => setEditingId(null)} submitLabel={t('common.action.save.label')} tagSuggestions={tagSuggestions} stickers={stickers} reloadStickers={reloadStickers} />
+    <Form initial={a} onSubmit={(fields) => save(a.id, fields)} onCancel={() => setEditingId(null)} submitLabel={t('common.action.save.label')} tagSuggestions={tagSuggestions} stickers={stickers} reloadStickers={reloadStickers} bookId={a.book_id ?? null} />
   )
   // Right-click, long-press or Shift+F10 anywhere on the card opens the SAME list
   // the row and the ⋯ render (actions.jsx), so the gesture can never offer
@@ -1546,7 +1547,7 @@ function AnnotationTable({ rows, tagMap, stickers = [], reloadStickers, sort, on
       </table>
       <FormModal open={!!editingRow} onClose={() => setEditingId(null)} title={t('common.quote.edit.title')}>
         {editingRow && (
-          <AnnotationForm initial={editingRow} onSubmit={(fields) => save(editingRow.id, fields)} onCancel={() => setEditingId(null)} submitLabel={t('common.action.save.label')} tagSuggestions={Object.keys(tagMap)} stickers={stickers} reloadStickers={reloadStickers} />
+          <AnnotationForm initial={editingRow} onSubmit={(fields) => save(editingRow.id, fields)} onCancel={() => setEditingId(null)} submitLabel={t('common.action.save.label')} tagSuggestions={Object.keys(tagMap)} stickers={stickers} reloadStickers={reloadStickers} bookId={editingRow.book_id ?? null} />
         )}
       </FormModal>
     </div>
@@ -1977,7 +1978,12 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
 // AnnotationForm serves both add (no initial) and inline edit (initial set).
 // onSubmit receives the full field state and returns an error string or null.
 // Exported for Home's favourite-tile inline edit (same form, same contract).
-export function AnnotationForm({ initial, onSubmit, onCancel, submitLabel, tagSuggestions = [], stickers = [], reloadStickers }) {
+// bookId is what lets the locator boxes remember this book's own chapters and its
+// cast. OPTIONAL, and absent is a working form: the search modal's inline editor and
+// Home's favourite-tile edit render this without one, and they get the boxes with no
+// dropdowns rather than no boxes — the fields are free text, and the list is a
+// memory aid.
+export function AnnotationForm({ initial, onSubmit, onCancel, submitLabel, tagSuggestions = [], stickers = [], reloadStickers, bookId = null }) {
   const [quote, setQuote] = useState(initial?.quote || '')
   const [note, setNote] = useState(initial?.note || '')
   const [translation, setTranslation] = useState(initial?.translation || '')
@@ -1987,11 +1993,21 @@ export function AnnotationForm({ initial, onSubmit, onCancel, submitLabel, tagSu
   // server spells "no number".
   const [chapterNo, setChapterNo] = useState(initial?.chapter_no ? String(initial.chapter_no) : '')
   const [location, setLocation] = useState(initial?.location || '')
+  // 0047 gave a book highlight a `character` column, and the API has accepted one
+  // ever since — but no form had a box for it, so the only ways to fill it were the
+  // bulk field editor and an import. A novel has speakers; this is where you say so.
+  const [character, setCharacter] = useState(initial?.character || '')
   const [color, setColor] = useState(initial?.color || 'yellow')
   const [tags, setTags] = useState(initial?.tags || [])
   const [stickerId, setStickerId] = useState(initial?.sticker_id ?? null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+
+  // What this book already knows: the chapters its own highlights name, and its
+  // cast. Keyed on the book, so it is one fetch per book rather than one per
+  // keystroke; with no bookId it answers empty and the boxes simply have no lists.
+  const suggest = useWorkSuggestions(bookId ? { kind: 'book', id: bookId } : null)
+  const listId = `ann-${bookId || 0}`
 
   // The must-fill rule, stated once: the guard below and the greyed-out button
   // read the same value, so the button is never pressable in a state the
@@ -2013,6 +2029,7 @@ export function AnnotationForm({ initial, onSubmit, onCancel, submitLabel, tagSu
       chapter: chapter.trim(),
       chapter_no: Number(chapterNo.trim()) || 0,
       location: location.trim(),
+      character: character.trim(),
       color,
       tags,
       // Carried through, not edited here: this form has no character box, and
@@ -2036,6 +2053,7 @@ export function AnnotationForm({ initial, onSubmit, onCancel, submitLabel, tagSu
       setTranslation('')
       setChapter('')
       setLocation('')
+      setCharacter('')
       setColor('yellow')
       setTags([])
       setStickerId(null)
@@ -2064,13 +2082,43 @@ export function AnnotationForm({ initial, onSubmit, onCancel, submitLabel, tagSu
           chapter in. Both chapter fields are optional and independent: a numbered
           book fills the first, an essay collection the second. The number box takes
           a decimal, because 12.5 is where an interlude goes. */}
+      {/* BOTH CHAPTER BOXES REMEMBER THIS BOOK, commonest chapter first. Choosing a
+          NAME fills an empty number box with the number typed beside it last time;
+          it never overwrites a number already there, because a suggestion that
+          edits what you have just typed is the form arguing with you. The reverse
+          direction is deliberately absent — filling a name from a number would be
+          guessing what somebody meant by "42". */}
       <div className="cl-grid">
         <Field label={t('common.field.chapter-no.label')} inputMode="decimal" placeholder={t('book.quote.form.chapter-no.placeholder')} value={chapterNo}
+               list={suggest.chapterNumbers.length ? `${listId}-chno` : undefined}
                onChange={(e) => setChapterNo(e.target.value.replace(/[^\d.]/g, '').slice(0, 7))} />
-        <Field label={t('common.field.chapter-name.label')} value={chapter} onChange={(e) => setChapter(e.target.value)} />
+        <Field
+          label={t('common.field.chapter-name.label')}
+          value={chapter}
+          list={suggest.chapterNames.length ? `${listId}-chname` : undefined}
+          onChange={(e) => {
+            const name = e.target.value
+            const no = suggest.chapterNoFor(name)
+            setChapter(name)
+            if (no && !String(chapterNo).trim()) setChapterNo(String(no))
+          }}
+        />
+        <Datalist id={`${listId}-chno`} options={suggest.chapterNumbers} />
+        <Datalist id={`${listId}-chname`} options={suggest.chapterNames} />
       </div>
       <div className="cl-grid">
         <Field label={t('common.field.location.label')} placeholder={t('book.quote.form.location.placeholder')} value={location} onChange={(e) => setLocation(e.target.value)} />
+        {/* Who said it, from the book's own cast — rows with a character and nobody
+            beside them, which is what a book's cast list is (0048). Free text, so a
+            speaker the list has never heard of is typed straight in. */}
+        <Field
+          label={t('common.field.character.label')}
+          placeholder={t('book.quote.form.character.placeholder')}
+          value={character}
+          list={suggest.characters.length ? `${listId}-char` : undefined}
+          onChange={(e) => setCharacter(e.target.value)}
+        />
+        <Datalist id={`${listId}-char`} options={suggest.characters} />
       </div>
       <label className="block">
         <MonoLabel className="mb-1.5 block">{t('common.field.tags.label')}</MonoLabel>

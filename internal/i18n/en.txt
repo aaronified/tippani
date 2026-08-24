@@ -3285,6 +3285,7 @@ book.quotes.nomatch = no annotations match the filters
 book.quotes.delete.confirm = Delete this annotation?
 
 # The highlight form.
+book.quote.form.character.placeholder = who says it, if anybody
 book.quote.form.chapter-no.placeholder = e.g. 7
 book.quote.form.location.placeholder = e.g. 1042
 
@@ -5864,3 +5865,15 @@ common.help.hover-labels.what = Every glyph-only control says what it is when yo
 common.help.card-menu.term = Right-click a card
 common.help.card-menu.what = A quote card answers a right-click with its own menu — copy, share, edit, delete — opened where you pressed.
 common.help.card-menu.more = Shift+F10 or the Menu key does the same from the keyboard, and Escape closes it and hands focus back. If you have selected text inside the card, the browser’s own menu wins instead: you wanted Copy, or Look Up, and those are not ours to take away.
+
+# ---------------------------------------------------------------------------
+# The capture surface's per-kind locator boxes (1.17.0). A game is placed by its
+# act and its quest and has no timestamp at all — the server clears one on a game's
+# line — so the form asks for the pair the medium actually has. The episode's name
+# is the same locator as its number, said in words.
+capture.form.act.placeholder = e.g. Act II
+capture.form.quest.placeholder = e.g. The Battle of Kaer Morhen
+capture.form.episode-name.placeholder = e.g. The Rains of Castamere
+# The actor the chosen character implies, from the work's own cast. Read-only: the
+# server derives the stored actor, so this says the character matched a real row.
+capture.form.played-by.prose = played by {name}
