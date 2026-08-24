@@ -1198,7 +1198,7 @@ It matters more for the timestamp than it ever did for the season. **Nothing in 
 
 **Approved.** Mine.
 
-<sub>2.3.0 — `internal/httpapi/cleanup.go` · `internal/httpapi/cleanup_handlers.go` · `web/frontend/src/CleanupPage.jsx` · `web/frontend/src/Settings.jsx`</sub>
+<sub>2.2.0 — `internal/httpapi/cleanup.go` · `internal/httpapi/cleanup_handlers.go` · `web/frontend/src/CleanupPage.jsx` · `web/frontend/src/Settings.jsx`</sub>
 
 ## 5. Works, Shelves and Reading History
 
