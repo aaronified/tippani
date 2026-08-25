@@ -28,7 +28,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { json } from './api.js'
-import { MonoLabel, useAnchoredPosition, useDismiss, useIsMobileScreen, useNameCasing } from './ui.jsx'
+import { MonoLabel, useAnchoredPosition, useDismiss, useIsMobileScreen } from './ui.jsx'
 
 // EMPTY is the answer for "no work chosen", shared so callers can destructure
 // without guarding, and frozen so a caller cannot leave a name in it for the next
@@ -200,9 +200,6 @@ export function CastCombo({
   const ref = inputRef || ownRef
   const mobile = useIsMobileScreen()
   const cap = mobile ? COMBO_MAX_MOBILE : COMBO_MAX_DESKTOP
-  // The same as-you-type capitalisation every other name box has, so a character
-  // typed here is spelled the way the same name typed one form over would be.
-  const setTyped = useNameCasing(value, onChange)
 
   // The rows, deduped on the name this box holds and in the order they arrived
   // (billing order, then the reader's own additions) — the lead is the character
@@ -270,9 +267,9 @@ export function CastCombo({
         id={inputID}
         className="tp-input"
         role="combobox"
-        // This box capitalises its own value (useNameCasing below), so the
-        // keyboard is told not to — see ui.jsx's "who capitalises, and where".
-        autoCapitalize={nameCase ? 'off' : undefined}
+        // The per-word offer a phone's keyboard makes on any name box here —
+        // see ui.jsx's "name casing". Nothing rewrites what is typed.
+        autoCapitalize={nameCase ? 'words' : undefined}
         aria-expanded={menuOpen}
         aria-autocomplete="list"
         // The rest of the combobox contract. Focus never leaves the input — the
@@ -285,8 +282,7 @@ export function CastCombo({
         placeholder={placeholder}
         value={value || ''}
         onChange={(e) => {
-          if (nameCase) setTyped(e.target.value)
-          else onChange(e.target.value)
+          onChange(e.target.value)
           setOpen(true)
           setHi(-1)
         }}

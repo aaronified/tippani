@@ -620,8 +620,7 @@ function SetFieldsDialog({ kind, count, rows, busy, onApply, onClose }) {
             // these fields, so a series set over five books is spelled the way it
             // would have been spelled in one of them — and the same SPLIT, because a
             // series is a title and an author is a person (see ui.jsx's SMALL_WORDS).
-            nameCase={!spec?.number && !spec?.title}
-            titleCase={!!spec?.title}
+            nameCase={!spec?.number}
             inputMode={spec?.number ? 'numeric' : undefined}
             value={value}
             autoFocus

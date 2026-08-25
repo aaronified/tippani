@@ -1,19 +1,25 @@
-// Name fields capitalise as you type, and stop when you disagree.
+// Name fields ask the keyboard for a capital per word, and rewrite nothing.
 //
-// Two properties, and both are silent when broken.
+// THIS FILE REPLACES A SUITE THAT TESTED THE OPPOSITE, and the reason is worth
+// a line: the app used to capitalise names itself, on every keystroke, with a
+// small-word list for titles and an escape hatch for "bell hooks". It failed on
+// "The Wheel of Time" three releases running, so the rule is gone and the HTML
+// `autocapitalize` attribute does the job — the phone offers the capital, the
+// reader presses shift when the offer is wrong, and nothing in the page argues.
 //
-// The first is that the transform is on the INPUT, not on the save path. A
-// capitaliser that runs at save time passes every unit test of its own while
-// the field shows "agatha" and the database stores "Agatha" — the user is never
-// shown what was saved, so nothing looks wrong until an export or a group-by
-// header disagrees with the form. So these tests read what the field displays
-// and what the change handler reported, and require them to be the same string.
+// TWO PROPERTIES, AND BOTH ARE SILENT WHEN BROKEN.
 //
-// The second is the override. useNameCasing yields the moment a change is
-// nothing but a case edit, which is what makes "bell hooks" typeable. Break the
-// yield and the field still works perfectly for every ordinary name; only the
-// people whose names are lower-case on purpose can no longer be entered, and
-// nothing throws.
+// The first is that WHAT YOU TYPE IS WHAT IS SAVED. A transform reintroduced
+// anywhere on this path — in the field, in the hook, on the save — would pass
+// its own unit tests while quietly renaming somebody. So these tests type
+// lower-case strings that the old rule would have rewritten and require the
+// field and the reported value to be that exact string.
+//
+// The second is that THE ATTRIBUTE IS ACTUALLY ON THE ELEMENT. jsdom has no
+// software keyboard, so nothing here can prove a phone capitalises anything;
+// what it can prove is that the hint is present on a name box and absent from
+// prose, which is the whole of what this app controls. A missing attribute
+// looks identical on a desktop and is only wrong on the device nobody tests on.
 
 import { useState } from 'react'
 import { render, screen } from '@testing-library/react'
@@ -37,153 +43,103 @@ function Harness({ initial = '', Comp = NameInput, ...props }) {
 const box = () => screen.getByLabelText('Name')
 const saved = () => screen.getByTestId('saved').textContent
 
-describe('capitalising happens in the field, not on save', () => {
-  it('shows the capital as you type it', async () => {
+describe('a name field stores exactly what was typed', () => {
+  // THE TITLE THE OLD RULE WAS WRITTEN FOR AND KEPT BREAKING. Under the small-word
+  // rule this arrived as "The Wheel Of Time" — "of" was promoted while it was still
+  // the one-letter word "o", and the promote-only rule's own escape hatch then
+  // froze the capital for the rest of the edit.
+  it('lets a title keep a small word small', async () => {
     const user = userEvent.setup()
     render(<Harness />)
-    await user.type(box(), 'agatha')
-    expect(box().value).toBe('Agatha')
+    await user.type(box(), 'The Wheel of Time')
+    expect(box().value).toBe('The Wheel of Time')
+    expect(saved()).toBe('The Wheel of Time')
   })
 
-  it('reports exactly what it displays', async () => {
-    const user = userEvent.setup()
-    render(<Harness />)
-    await user.type(box(), 'agatha christie')
-    // The two must be the same string. If a transform ever moves to the save
-    // path, this is the assertion that catches it.
-    expect(box().value).toBe('Agatha Christie')
-    expect(saved()).toBe(box().value)
-  })
+  // The names the escape hatch existed for. They now need no hatch at all.
+  it.each(['bell hooks', 'danah boyd', 'k.d. lang', 'eBay', 'iRobot'])(
+    'leaves %s alone',
+    async (name) => {
+      const user = userEvent.setup()
+      render(<Harness />)
+      await user.type(box(), name)
+      expect(box().value).toBe(name)
+      expect(saved()).toBe(name)
+    },
+  )
 
-  it('capitalises each new word as the space is typed past', async () => {
-    const user = userEvent.setup()
-    render(<Harness />)
-    await user.type(box(), 'gabriel garcia marquez')
-    expect(box().value).toBe('Gabriel Garcia Marquez')
-  })
-
-  it('leaves a name typed with internal capitals alone', async () => {
-    const user = userEvent.setup()
-    render(<Harness />)
-    await user.type(box(), 'Ian McEwan')
-    expect(box().value).toBe('Ian McEwan')
-    expect(saved()).toBe('Ian McEwan')
-  })
-})
-
-describe('the override — a case edit hands the field back to you', () => {
-  it('lets a deliberately lower-cased word stay lower-cased', async () => {
-    const user = userEvent.setup()
-    render(<Harness initial="Bell" />)
-    // Select the capital and retype it in lower case: letters unchanged, case
-    // changed, which can only be deliberate.
-    await user.clear(box())
-    await user.paste('bell')
-    expect(box().value).toBe('Bell') // still capitalised — clearing reset nothing
-    // Now the case-only edit.
-    box().setSelectionRange(0, 4)
-    await user.paste('bell')
-    expect(box().value).toBe('bell')
-  })
-
-  it('stays yielded for the rest of the edit, not just one keystroke', async () => {
-    const user = userEvent.setup()
-    render(<Harness initial="Bell" />)
-    // paste() goes to whatever holds focus, so the click is not decoration —
-    // without it the paste lands nowhere and the test passes by doing nothing.
-    await user.click(box())
-    box().setSelectionRange(0, 4)
-    await user.paste('bell') // case-only edit -> field goes free
-    expect(box().value).toBe('bell')
-    // The bug this catches: re-capitalising on the very next character typed,
-    // which would make the override last exactly one keystroke.
-    await user.type(box(), ' hooks')
-    expect(box().value).toBe('bell hooks')
-    expect(saved()).toBe('bell hooks')
-  })
-})
-
-describe('Field opts in with a prop, and only then', () => {
-  it('capitalises when nameCase is set', async () => {
-    const user = userEvent.setup()
-    render(<Harness Comp={Field} label="Name" nameCase />)
-    await user.type(screen.getByLabelText('Name'), 'agatha')
-    expect(screen.getByLabelText('Name').value).toBe('Agatha')
-  })
-
-  it('leaves a plain Field completely untouched', async () => {
+  // A LOWER-CASE FIRST LETTER IS NOT PROMOTED, which is the single-keystroke
+  // version of the same claim and the one a reintroduced transform would fail
+  // first.
+  it('does not promote the first letter', async () => {
     const user = userEvent.setup()
     render(<Harness Comp={Field} label="Name" />)
-    // Description, ISBN, timestamps and quotes all go through Field. None of
-    // them should gain a capital because a name field wanted one.
-    await user.type(screen.getByLabelText('Name'), 'agatha')
-    expect(screen.getByLabelText('Name').value).toBe('agatha')
+    await user.type(box(), 'a')
+    expect(box().value).toBe('a')
+  })
+
+  // Field re-wraps its value in a synthetic event, so the parent's
+  // `e.target.value` wiring has to keep working with no transform in the middle.
+  it('reports the typed value through Field', async () => {
+    const user = userEvent.setup()
+    render(<Harness Comp={Field} label="Name" nameCase />)
+    await user.type(box(), 'agatha christie')
+    expect(box().value).toBe('agatha christie')
+    expect(saved()).toBe('agatha christie')
   })
 })
 
-describe('TokenInput capitalises the draft, so a chip reads as it saves', () => {
-  function TokenHarness({ nameCase = false }) {
+describe('the keyboard hint is on the element', () => {
+  it('NameInput always asks for a capital per word', () => {
+    render(<Harness />)
+    expect(box().getAttribute('autocapitalize')).toBe('words')
+  })
+
+  it('Field asks only when the box holds a name', () => {
+    render(<Harness Comp={Field} label="Name" nameCase />)
+    expect(box().getAttribute('autocapitalize')).toBe('words')
+  })
+
+  // PROSE KEEPS THE BROWSER DEFAULT, which is `sentences` — a quote or a note is
+  // the one place sentence capitalisation is exactly right, and forcing `words`
+  // there would be the same mistake in the other direction.
+  it('Field leaves prose to the browser', () => {
+    render(<Harness Comp={Field} label="Name" />)
+    expect(box().getAttribute('autocapitalize')).toBe(null)
+  })
+
+  // A caller may still override, because the attribute is written BEFORE the
+  // spread. That ordering is load-bearing and invisible.
+  it('lets a caller override the hint', () => {
+    render(<Harness Comp={Field} label="Name" nameCase autoCapitalize="off" />)
+    expect(box().getAttribute('autocapitalize')).toBe('off')
+  })
+})
+
+describe('the token box', () => {
+  // TokenInput holds characters and actors, entered as chips. Its entry box takes
+  // the same hint and, like every other, stores the draft verbatim.
+  function Tokens({ nameCase = false }) {
     const [v, setV] = useState([])
     return (
-      <div>
-        <TokenInput value={v} onChange={setV} ariaLabel="Characters" nameCase={nameCase} />
-        <span data-testid="saved">{v.join('|')}</span>
-      </div>
+      <TokenInput value={v} onChange={setV} ariaLabel="Name" nameCase={nameCase} />
     )
   }
 
-  it('capitalises a character as it is typed, before it becomes a chip', async () => {
+  it('asks for a capital per word on a name token', () => {
+    render(<Tokens nameCase />)
+    expect(box().getAttribute('autocapitalize')).toBe('words')
+  })
+
+  it('leaves the draft exactly as typed', async () => {
     const user = userEvent.setup()
-    render(<TokenHarness nameCase />)
-    const input = screen.getByLabelText('Characters')
-    await user.type(input, 'philip marlowe')
-    expect(input.value).toBe('Philip Marlowe')
-    await user.type(input, '{Enter}')
-    expect(saved()).toBe('Philip Marlowe')
+    render(<Tokens nameCase />)
+    await user.type(box(), 'bell hooks')
+    expect(box().value).toBe('bell hooks')
   })
 
-  it('leaves a token list alone without the prop', async () => {
-    const user = userEvent.setup()
-    render(<TokenHarness />)
-    const input = screen.getByLabelText('Characters')
-    await user.type(input, 'philip marlowe{Enter}')
-    expect(saved()).toBe('philip marlowe')
-  })
-})
-
-// ---- who capitalises, and where ---------------------------------------------
-//
-// THE OWNER'S QUESTION, ANSWERED IN THE MARKUP. "how phone keyboards know to
-// capitalise after a fullstop in some apps … it doesnt do that in some other
-// apps" — the difference is the HTML `autocapitalize` attribute, which is a hint
-// the PAGE gives the on-screen keyboard. Its default for a text input is
-// `sentences`, so a phone was promoting the first letter of every name field
-// underneath the rule in ui.jsx.
-//
-// Most of the time the two agree and nothing shows. Where they disagree is the
-// case the rule exists to protect: type "bell hooks" on a phone and the keyboard
-// capitalises the b before any of our code runs, and the promote-only rule then
-// leaves the capital alone because a word carrying one is somebody's decision. The
-// reader ends up fighting a rule that is not in this codebase.
-//
-// So a field that capitalises itself tells the keyboard to stay out of it. These
-// assert the attribute rather than the behaviour, because jsdom has no keyboard —
-// the attribute IS the whole of what this app controls.
-describe('the keyboard is told who is in charge', () => {
-  it('a name field opts the keyboard out', () => {
-    render(<Field label="Author" nameCase value="" onChange={() => {}} />)
-    expect(screen.getByLabelText('Author').getAttribute('autocapitalize')).toBe('off')
-  })
-
-  it('a title field too', () => {
-    render(<Field label="Title" titleCase value="" onChange={() => {}} />)
-    expect(screen.getByLabelText('Title').getAttribute('autocapitalize')).toBe('off')
-  })
-
-  it('and an ordinary field does not, because sentence case is right there', () => {
-    // A note or a quote wants the browser default. Opting every input out would
-    // be answering a question nobody asked, in the one place the default is good.
-    render(<Field label="Note" value="" onChange={() => {}} />)
-    expect(screen.getByLabelText('Note').getAttribute('autocapitalize')).toBeNull()
+  it('says nothing on a box that is not a name', () => {
+    render(<Tokens />)
+    expect(box().getAttribute('autocapitalize')).toBe(null)
   })
 })

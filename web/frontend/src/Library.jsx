@@ -596,7 +596,7 @@ export function ManualTab({ onAdded, formId, title, setTitle, onBusy }) {
 
   return (
     <form id={formId} onSubmit={submit} className="space-y-3">
-      <Field label={t('common.field.title.label')} titleCase value={title} autoFocus onChange={(e) => setTitle(e.target.value)} />
+      <Field label={t('common.field.title.label')} nameCase value={title} autoFocus onChange={(e) => setTitle(e.target.value)} />
       <Field label={t('common.field.author.label')} nameCase value={author} onChange={(e) => setAuthor(e.target.value)} />
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label={t('common.field.year.label')} inputMode="numeric" value={year} maxLength={4} onChange={(e) => setYear(e.target.value.replace(/\D/g, '').slice(0, 4))} />
@@ -1160,7 +1160,7 @@ export function EditBook({ book, onSaved, onCancel }) {
         />
       )}
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label={t('common.field.title.label')} titleCase value={title} onChange={(e) => setTitle(e.target.value)} />
+        <Field label={t('common.field.title.label')} nameCase value={title} onChange={(e) => setTitle(e.target.value)} />
         <Field label={t('common.field.author.label')} nameCase value={author} onChange={(e) => setAuthor(e.target.value)} />
         {/* Below the author, above the identifiers: they are credits, and they
             belong with the credit rather than filed among the catalogue numbers.
@@ -1176,7 +1176,7 @@ export function EditBook({ book, onSaved, onCancel }) {
         <TokenInput value={genres} onChange={setGenres} suggestions={genreSuggestions} placeholder={t('common.field.genres.placeholder')} ariaLabel={t('common.field.genres.label')} transform={titleCaseGenre} />
       </label>
       <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
-        <Field label={t('common.field.series.label')} titleCase placeholder={t('book.form.series.placeholder')} value={series} onChange={(e) => setSeries(e.target.value)} />
+        <Field label={t('common.field.series.label')} nameCase placeholder={t('book.form.series.placeholder')} value={series} onChange={(e) => setSeries(e.target.value)} />
         <Field
           label={t('common.field.series-no.label')}
           inputMode="decimal"

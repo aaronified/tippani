@@ -136,8 +136,9 @@ describe('the people panel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Add' }))
     await waitFor(() => expect(CALLS.some(([m, p]) => m === 'POST' && p === '/movies/7/cast')).toBe(true))
     const [, , body] = CALLS.find(([m, p]) => m === 'POST' && p === '/movies/7/cast')
-    // Capitalised as you type, like every other name box in the app.
-    expect(body.character).toBe('The Bartender')
+    // EXACTLY WHAT WAS TYPED, like every other name box in the app: the
+    // as-you-type capitaliser is gone and the keyboard hint replaced it.
+    expect(body.character).toBe('the bartender')
   })
 
   it('confirms before removing a row, because a deletion leaves a tombstone', async () => {

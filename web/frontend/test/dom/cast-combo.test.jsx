@@ -106,7 +106,10 @@ describe('the cast dropdown', () => {
     // keeping are spoken by somebody the provider never credited.
     render(<Box />)
     fireEvent.change(box(), { target: { value: 'the bartender' } })
-    expect(value()).toBe('The Bartender') // capitalised as you type, like every name box
+    // STORED VERBATIM. This box used to capitalise as you typed; the rule is gone
+    // and the keyboard hint (autocapitalize="words") does that job on a phone,
+    // where the reader can disagree with it by pressing shift.
+    expect(value()).toBe('the bartender')
     expect(options()).toHaveLength(0) // nothing matches, and that is not an error
   })
 

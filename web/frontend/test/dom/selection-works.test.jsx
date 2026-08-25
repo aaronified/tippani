@@ -501,10 +501,12 @@ describe('setting one field over a selection', () => {
     await waitFor(() => expect(sent('/books/bulk')).toBeTruthy())
     const [, , body] = sent('/books/bulk')
     expect(body.ids).toEqual([1, 2])
-    // As-you-type capitalisation, and the small-word rule with it: this is the
-    // same Field the single-book form uses, so a series set over five books is
-    // spelled the way it would have been spelled in one of them.
-    expect(body.series).toBe('The Hainish Cycle')
+    // EXACTLY WHAT WAS TYPED. This is the same Field the single-book form uses,
+    // and neither rewrites a name any more: the small-word rule that used to run
+    // here could not be argued with, and the keyboard hint that replaced it can.
+    // So a series set over five books is spelled the way it was typed, which is
+    // also how it would have been spelled in one of them.
+    expect(body.series).toBe('the hainish cycle')
     // ONE key. A targeted patch is what makes "set the series and leave the rest"
     // possible at all — a full-state body here would clear every other field on
     // both books.

@@ -472,7 +472,7 @@ export function UtteranceForm({ initial, onSubmit, onCancel, submitLabel, tagSug
         <div className="cl-grid mt-3">
           <Field
             // A source title is a title: "the wheel of time" and not a person.
-            titleCase
+            nameCase
             label={t('common.field.work-title.label')}
             placeholder={t('quotes.form.work-title.placeholder')}
             value={workTitle}
