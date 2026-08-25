@@ -94,6 +94,7 @@ export function readTheme() {
   }
   return {
     dark: root ? root.dataset.theme === 'dark' : false,
+    materialSet: root ? root.dataset.matSet || '' : '',
     bg: v('--bg', '#F4EDDE'),
     cardTop: v('--card-top', '#FFFFFC'),
     cardBottom: v('--card-bottom', '#FCF8ED'),
@@ -270,6 +271,35 @@ const faceCache = new Map() // url -> HTMLImageElement | null (null = failed)
 
 // loadFaceImages resolves once every not-yet-cached url has loaded (or failed);
 // best-effort and never rejects, so a blocked portrait just leaves a blank disc.
+// One tile at a time, cached by URL, and deliberately a separate cache from the
+// faces': a face is per-quote and a tile is per-material, so they turn over at
+// completely different rates and sharing one map would evict the tile every time a
+// different quote was shared.
+const tileCache = new Map()
+
+export function loadTileImage(url) {
+  if (!url) return Promise.resolve(null)
+  if (tileCache.has(url)) return Promise.resolve(tileCache.get(url))
+  return new Promise((res) => {
+    const img = new Image()
+    img.onload = () => {
+      tileCache.set(url, img)
+      res(img)
+    }
+    img.onerror = () => {
+      // A missing tile draws the card flat rather than not at all. The texture is
+      // the least load-bearing thing on a quote card.
+      tileCache.set(url, null)
+      res(null)
+    }
+    img.src = url
+  })
+}
+
+export function tileImage(url) {
+  return url ? tileCache.get(url) || null : null
+}
+
 export function loadFaceImages(urls) {
   const missing = (urls || []).filter((u) => u && !faceCache.has(u))
   if (!missing.length) return Promise.resolve()
@@ -704,6 +734,47 @@ export function drawQuoteCard(canvas, model, theme) {
   ctx.fillStyle = grad
   ctx.fill()
   ctx.restore()
+
+  // ---- the material, on the canvas ----------------------------------------
+  // THE PICTURE IS MADE OF WHAT THE APP IS MADE OF. This is the CSS operator
+  // rebuilt with a pattern: the card colour is already down, then the coarse pass
+  // at the material's own strength, then the fine pass composited `overlay` — the
+  // same two scales and the same blend index.css uses, because a share that showed
+  // a different material from the screen would be the artefact that leaves the app
+  // disagreeing with the app.
+  //
+  // Inside the card's own clip, and BEFORE the border, so the grain stops at the
+  // deckle edge and the border stays a crisp line over it rather than under grain.
+  //
+  // GUARDED ON createPattern, not on a browser check: the test harness stubs a
+  // context with only the operations the card actually needs, and a card that
+  // silently loses its texture in a headless run is a better failure than one that
+  // throws. A tile that has not finished loading is the same case — the picture
+  // draws flat and redraws when it arrives.
+  const tile = theme.tile && theme.tile.img
+  if (tile && typeof ctx.createPattern === 'function') {
+    ctx.save()
+    roundRectPath(ctx, cardX, M, cardW, cardH, radius)
+    ctx.clip()
+    for (const [px, blend] of [[theme.tile.coarse, 'source-over'], [theme.tile.fine, 'overlay']]) {
+      const pat = ctx.createPattern(tile, 'repeat')
+      if (!pat) break
+      // The tile is drawn at its CSS background-size, not its pixel size, which is
+      // the whole reason the two passes read as one material at two scales.
+      const k = px / (tile.width || px)
+      if (typeof pat.setTransform === 'function' && typeof DOMMatrix === 'function') {
+        pat.setTransform(new DOMMatrix([k, 0, 0, k, 0, 0]))
+      }
+      ctx.globalAlpha = theme.tile.strength
+      ctx.globalCompositeOperation = blend
+      ctx.fillStyle = pat
+      ctx.fillRect(cardX, M, cardW, cardH)
+    }
+    ctx.globalAlpha = 1
+    ctx.globalCompositeOperation = 'source-over'
+    ctx.restore()
+  }
+
   roundRectPath(ctx, cardX, M, cardW, cardH, radius)
   ctx.lineWidth = 1.5
   ctx.strokeStyle = theme.inkBorder

@@ -2477,6 +2477,8 @@ share.image.theme.info.body = ছবিটা দেখতে কেমন হ�
 # differs in the drawing.
 share.image.theme.light.label = হালকা
 share.image.theme.dark.label = গাঢ়
+share.image.material.label = উপাদান
+share.image.material.aria = ছবির উপাদান
 # How a credited person appears. Offered only when somebody credited has a photo.
 share.image.portrait.label = মুখের ছবি
 share.image.portrait.aria = মুখের ছবি

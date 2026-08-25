@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useBodyScrollLock, ANNOTATION_HEX, CloseButton, FieldIconButton, GhostButton, IconShare, InfoDot, MonoLabel, Select, Toggle, toast, usePersistedState, useIsMobileScreen } from "./ui.jsx";
-import { buildModel, drawQuoteCard, ensureFonts, loadFaceImages, readTheme } from "./quoteImage.js";
+import { buildModel, drawQuoteCard, ensureFonts, loadFaceImages, loadTileImage, readTheme, tileImage } from "./quoteImage.js";
 import { t } from "./i18n.js";
 import { DEFAULT_CREDIT_SEPS, splitCredits } from "./people.jsx";
-import { categoryHex, paletteTheme } from "./theme.js";
+import { categoryHex, MAT_SET_DEFAULT, MAT_SET_LABELS, MAT_SETS, paletteTheme, tileFor } from "./theme.js";
 import { DEMO, apiURL, copyText, coverImgURL, json } from "./api.js";
 
 // resolveFaces turns a credit string + a name→metadata map into the portrait
@@ -18,18 +18,21 @@ function resolveFaces(credit, people, seps) {
     .map((p) => ({ name: p.name, url: coverImgURL(p.image_path) }));
 }
 
-// Image themes for the share card — the two modes, chosen independently of the live
-// app theme (an export choice, persisted per device).
+// The picture is chosen along the same two axes the app is: a mode and a material.
+// Both are export choices, persisted per device and independent of the live app
+// theme, so sharing a dark Bindery card out of a light Manuscript app is one pick.
 //
-// FOUR BECAME TWO, AND NOT BY DROPPING ANYTHING THE PICTURE HAD. There were paper and
-// film in light and dark; with one palette per mode, paper-light and film-light now
-// resolve to the same colours, so two of the four cards were the other two under a
-// different name. What the reader actually chose between was always the mode.
-// A function rather than a table: the names are copy, read at render time.
+// TWO CONTROLS RATHER THAN ONE LIST OF FOURTEEN. There used to be four skins —
+// paper and film in light and dark — as a single list, which worked at four and does
+// not at 7 x 2. The two axes were always independent; the old list only got away
+// with enumerating them.
+// Functions rather than tables: the names are copy, read at render time.
 const imageThemes = () => [
   ["light", t("share.image.theme.light.label")],
   ["dark", t("share.image.theme.dark.label")],
 ];
+const imageMaterials = () =>
+  Object.keys(MAT_SETS).map((name) => [name, t(MAT_SET_LABELS[name])]);
 
 // defaultImageTheme seeds the picker from whatever the app is showing now, so
 // the first share matches the live skin until the user picks otherwise.
@@ -37,17 +40,32 @@ function defaultImageTheme() {
   return readTheme().dark ? "dark" : "light";
 }
 
-// drawTheme resolves an imageThemes key to the canvas theme object, keeping the app's
-// current accent (the picker only swaps light/dark).
+function defaultImageMaterial() {
+  const s = readTheme().materialSet;
+  return MAT_SETS[s] ? s : MAT_SET_DEFAULT;
+}
+
+// drawTheme resolves the two picker values to the canvas theme object, keeping the
+// app's current accent (the picker swaps the mode and the material, not the accent).
 //
-// A DEVICE THAT REMEMBERS "film-dark" STILL GETS DARK. The stored value is per-device
-// and predates this change, so it can be any of the four old keys; anything that is
-// not exactly "light" reads as dark only if it ends in "dark", and everything else
-// falls to light. That is the same shape as every other retired preference here —
-// unknown means default, and nobody has to migrate a localStorage key.
-function drawTheme(key) {
+// A DEVICE THAT REMEMBERS "film-dark" STILL GETS DARK. The stored mode is per-device
+// and predates the split, so it can be any of the four old keys; anything ending in
+// "dark" reads as dark and everything else falls to light. Same shape as every other
+// retired preference here — unknown means default, and nobody migrates a
+// localStorage key.
+//
+// The tile rides on the theme object because that is what drawQuoteCard is handed.
+// Its image may be null on the first draw; the effect below loads it and redraws,
+// exactly as it already does for fonts and for portrait faces.
+function drawTheme(key, material) {
   const k = String(key || "");
-  return paletteTheme(k === "dark" || k.endsWith("-dark"), readTheme().accent);
+  const dark = k === "dark" || k.endsWith("-dark");
+  const tile = tileFor(material, "card");
+  return {
+    ...paletteTheme(dark, readTheme().accent),
+    materialSet: MAT_SETS[material] ? material : MAT_SET_DEFAULT,
+    tile: { ...tile, img: tileImage(tile.url) },
+  };
 }
 
 const PRIMARY = "tp-btn tp-btn-primary";
@@ -618,6 +636,7 @@ function QuoteImagePanel({ share, selected, onShared, actionRef }) {
   // The image skin is chosen independently of the app theme and persisted per
   // device (an export preference, not an identity one — like the view toggles).
   const [imageTheme, setImageTheme] = usePersistedState("tippani:shareImageTheme", defaultImageTheme());
+  const [imageMaterial, setImageMaterial] = usePersistedState("tippani:shareImageMaterial", defaultImageMaterial());
   // How the credited person appears: as a small CHIP beside their name, or as a
   // BACKDROP bled in from the card's edge. Persisted per device beside the skin
   // — both are export preferences rather than identity ones.
@@ -672,7 +691,7 @@ function QuoteImagePanel({ share, selected, onShared, actionRef }) {
         // this is the one consumer that needs a real value — and the one whose
         // output leaves the app, which makes it the worst place to be stale.
         const colorHex = useColor && share.color ? categoryHex(share.color) : null;
-        drawQuoteCard(canvas, buildModel({ ...share, portrait: portrait && canPortrait, swap }, selected, colorHex), drawTheme(imageTheme));
+        drawQuoteCard(canvas, buildModel({ ...share, portrait: portrait && canPortrait, swap }, selected, colorHex), drawTheme(imageTheme, imageMaterial));
         setErr("");
       } catch {
         setErr(t("error.render.image"));
@@ -686,12 +705,15 @@ function QuoteImagePanel({ share, selected, onShared, actionRef }) {
     // Author / actor portraits load lazily; redraw once they're in so the faces
     // fill the (already reserved) chip row.
     loadFaceImages((share.faces || []).map((f) => f.url)).then(redraw);
+    // The material's tile, the same way: the first draw is flat and the grain
+    // arrives a frame later rather than the whole picture waiting on it.
+    loadTileImage(tileFor(imageMaterial, "card").url).then(redraw);
     window.addEventListener("tippani:theme", redraw);
     return () => {
       cancelled = true;
       window.removeEventListener("tippani:theme", redraw);
     };
-  }, [share, selected, imageTheme, portrait, canPortrait, swap, useColor]);
+  }, [share, selected, imageTheme, imageMaterial, portrait, canPortrait, swap, useColor]);
 
   async function download() {
     const canvas = canvasRef.current;
@@ -793,6 +815,15 @@ function QuoteImagePanel({ share, selected, onShared, actionRef }) {
           options={imageThemes()}
         />
         <InfoDot title={t("share.image.theme.info.title")} text={t("share.image.theme.info.body")} />
+      </div>
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        <MonoLabel>{t("share.image.material.label")}</MonoLabel>
+        <Select
+          ariaLabel={t("share.image.material.aria")}
+          value={imageMaterial}
+          onChange={setImageMaterial}
+          options={imageMaterials()}
+        />
       </div>
       {canPortrait && (
         <div className="mb-2 flex flex-wrap items-center gap-2">

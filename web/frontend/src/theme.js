@@ -217,6 +217,30 @@ export const TILE_NAMES = Object.keys(TEXTILES)
 // NOT applied — the material picker in Settings shows seven specimens at once, and
 // each has to be made of what it is offering. A picker whose swatches are drawn by
 // hand is a picker that goes on being right after the recipe stops being.
+// tileURL reads back what the BUILD did with a texture path, rather than importing
+// one. index.css is the single place a texture file is named — that is what lets a
+// stylesheet rule say var(--tile-card) and never learn a filename — and a canvas
+// cannot resolve var(), so the one consumer that needs a real URL asks the document
+// what the custom property resolved to and unwraps it. An import here would put a
+// second copy of every filename in a second language.
+function tileURL(file) {
+  if (typeof getComputedStyle !== 'function' || typeof document === 'undefined') return ''
+  const raw = getComputedStyle(document.documentElement).getPropertyValue(`--tile-${file}`).trim()
+  return /url\((['"]?)([^)'"]+)\1\)/.exec(raw)?.[2] || ''
+}
+
+// tileFor answers, for one slot of one set: which material, which file the build
+// emitted, and the two scales and the strength the operator composites it at. The
+// share picture is the caller — it paints on a canvas, so it cannot spend the
+// --surf-* properties and has to rebuild the same recipe with a pattern.
+export function tileFor(setName, slot, override) {
+  const names = MAT_SETS[setName] || MAT_SETS[MAT_SET_DEFAULT]
+  const i = SLOTS.indexOf(slot)
+  const name = TEXTILES[override] ? override : names[i < 0 ? 2 : i]
+  const [file, coarse, fine, strength] = TEXTILES[name]
+  return { name, file, coarse, fine, strength, url: tileURL(file) }
+}
+
 export function surfaceStyle(setName, slot, dark, accentHex, tile) {
   const names = MAT_SETS[setName] || MAT_SETS[MAT_SET_DEFAULT]
   const palette = PALETTES[dark ? 'dark' : 'light']

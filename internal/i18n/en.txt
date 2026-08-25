@@ -2459,6 +2459,11 @@ share.image.theme.info.body = The picture's look — light or dark. Choosing one
 # differs in the drawing.
 share.image.theme.light.label = Light
 share.image.theme.dark.label = Dark
+# The material the picture is made of. Independent of the mode above and of what the
+# app itself is set to, so a dark Bindery card can be shared out of a light
+# Manuscript app. Names come from settings.material.*.
+share.image.material.label = material
+share.image.material.aria = Image material
 # How a credited person appears. Offered only when somebody credited has a photo.
 share.image.portrait.label = portrait
 share.image.portrait.aria = Portrait
