@@ -152,6 +152,10 @@ func (s *Server) handleListCast(kind string) http.HandlerFunc {
 			writeErr(w, http.StatusNotFound, "not found")
 			return
 		}
+		// EVERY CHARACTER THIS WORK'S OWN QUOTES NAME IS ONE OF ITS PEOPLE, and this
+		// is the one place that is made true — see cast_from_quotes.go for why the
+		// list and not the six save paths. Costs one SELECT once every name is on.
+		s.adoptQuoteCharacters(uid, kind, workID)
 		rows, err := loadCast(s.Store.DB, kind, workID)
 		if err != nil {
 			codedError(w, r, olog.CodeCastRowScan, "list cast", err)
@@ -408,6 +412,17 @@ func (s *Server) handleUpdateCast(w http.ResponseWriter, r *http.Request) {
 //     DELETED, because nothing will ever re-add it and a tombstone for it would
 //     be litter that only the pair unique can see.
 //
+// THE SECOND RULE'S PREMISE CHANGED IN 2.2.8, and this is where it had to be paid
+// for. Something DOES re-add a reader row now: a character named on one of the
+// work's own quotes is adopted onto its cast (cast_from_quotes.go), which is the
+// whole of "the characters i already entered in quotes are not populating that
+// list". Left as it was, deleting such a character hard-deleted the row and the
+// very next read put it straight back — for ever, with the delete button looking
+// broken rather than declined. So the condition is no longer "did a provider list
+// this?" but the question that was always underneath it: WILL ANYTHING RE-ADD IT?
+// A quoted character is tombstoned; a row nothing names anywhere is still deleted
+// outright, and the litter argument survives for the rows it was made about.
+//
 // Either way the reply is 204 and the row is gone from every read: loadCast
 // excludes tombstones. A tombstone is reaped when its work is deleted, by the
 // two triggers 0048 adds.
@@ -418,7 +433,7 @@ func (s *Server) handleDeleteCast(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	uid := userID(r)
-	_, _, origin, providerKey, err := s.castOwner(uid, castID)
+	kind, workID, origin, providerKey, err := s.castOwner(uid, castID)
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
 		writeErr(w, http.StatusNotFound, "cast row not found")
@@ -430,7 +445,7 @@ func (s *Server) handleDeleteCast(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusNotFound, "cast row not found")
 		return
 	}
-	if providerKey == "" {
+	if providerKey == "" && !s.characterIsQuoted(uid, kind, workID, castID) {
 		if _, err := s.Store.DB.Exec(
 			`DELETE FROM work_cast WHERE id = ? AND user_id = ?`, castID, uid); err != nil {
 			internalError(w, r, "delete cast row", err)
@@ -446,4 +461,32 @@ func (s *Server) handleDeleteCast(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// characterIsQuoted reports whether this cast row's character is named on one of
+// the work's own quotes — which is to say, whether adoption would put the row
+// back the moment it was deleted. See handleDeleteCast's header.
+//
+// Best-effort in the direction that costs least: an error here answers "yes", so
+// the row is tombstoned rather than deleted. A tombstone too many is one dead row
+// nobody can see; a hard delete too many is a deletion that undoes itself.
+func (s *Server) characterIsQuoted(uid int64, kind string, workID, castID int64) bool {
+	var key string
+	if err := s.Store.DB.QueryRow(
+		`SELECT character_key FROM work_cast WHERE id = ? AND user_id = ?`, castID, uid).Scan(&key); err != nil {
+		return true
+	}
+	if key == "" {
+		return false
+	}
+	named, err := s.quoteCharacters(uid, kind, workID)
+	if err != nil {
+		return true
+	}
+	for _, c := range named {
+		if c.key == key {
+			return true
+		}
+	}
+	return false
 }
