@@ -86,6 +86,11 @@ const TEXTILES = {
   wood: ['wood', 300, 97, 0.12], metal: ['metal', 260, 84, 0.09],
   brushed: ['brushed', 240, 78, 0.08], matte: ['matte', 200, 65, 0.07],
   satin: ['satin', 210, 68, 0.07], glass: ['glass', 280, 90, 0.06],
+  // GLASS WITH THE CREASES TAKEN OUT, and it cannot be made to read as loud as
+  // glass.webp does. Its sd is 6.32 against glass's 42.61, so matching that tile's
+  // 2.56 levels would need a strength of .40 — three times the pack's own .12
+  // ceiling. Capped, it lands at 0.76 levels: a pane that has been cleaned.
+  'glass-soft': ['glass-soft', 280, 90, 0.12],
   rubber: ['rubber-flat', 230, 74, 0.10], fabric: ['fabric', 260, 84, 0.11],
   walnut: ['walnut', 300, 97, 0.09], pine: ['pine', 340, 109, 0.09],
   marble: ['marble', 360, 116, 0.08], granite: ['granite', 280, 90, 0.08],
@@ -202,19 +207,24 @@ function surfaceProps(hex, name, dark, accentUI) {
 // takes the page background, the furniture the top bar, the page the card, the binding
 // the raised surface.
 const SLOT_COLOUR = { ground: 'bg', shell: 'topbar-top', card: 'card', cover: 'raised' }
+export const SLOTS = ['ground', 'shell', 'card', 'cover']
+// Every tile the app can put on a surface, in the order the picker offers them:
+// the set's own inventory first, then the two the seven sets never name. A reader
+// wanting Manuscript with a stone floor has nowhere else to say so.
+export const TILE_NAMES = Object.keys(TEXTILES)
 
 // surfaceStyle returns one slot of one set as a React style object, for a set that is
 // NOT applied — the material picker in Settings shows seven specimens at once, and
 // each has to be made of what it is offering. A picker whose swatches are drawn by
 // hand is a picker that goes on being right after the recipe stops being.
-export function surfaceStyle(setName, slot, dark, accentHex) {
+export function surfaceStyle(setName, slot, dark, accentHex, tile) {
   const names = MAT_SETS[setName] || MAT_SETS[MAT_SET_DEFAULT]
   const palette = PALETTES[dark ? 'dark' : 'light']
   const accent = accentHex || ACCENTS.terracotta
   const light = luminance(accent) > 0.32
   const accentUI = dark && !light ? `color-mix(in oklab, ${accent}, white 20%)` : accent
-  const idx = ['ground', 'shell', 'card', 'cover'].indexOf(slot)
-  const p = surfaceProps(palette[SLOT_COLOUR[slot] || 'card'], names[idx < 0 ? 2 : idx], dark, accentUI)
+  const idx = SLOTS.indexOf(slot)
+  const p = surfaceProps(palette[SLOT_COLOUR[slot] || 'card'], tile || names[idx < 0 ? 2 : idx], dark, accentUI)
   return {
     backgroundColor: p.color,
     backgroundImage: p.image,
@@ -326,8 +336,22 @@ export function labelsPref() {
 // paper for light, because the aesthetics carried their own palettes and a light film
 // looked wrong. One palette per mode means every set works in both, so the default is
 // a single answer instead of a branch.
-export function applyTheme({ materialSet, theme, accent } = {}) {
-  current = { materialSet, theme: theme || 'system', accent: accent || 'terracotta' }
+export function applyTheme(prefs = {}) {
+  const { materialSet, theme, accent } = prefs
+  current = {
+    materialSet,
+    theme: theme || 'system',
+    accent: accent || 'terracotta',
+    // Per-slot overrides, read straight off the preference object so a caller never
+    // has to know the four names. Anything unrecognised is dropped here rather than
+    // guarded at every use: an override naming a tile this build does not have puts
+    // the slot back on the set's own material, which is the only fallback that
+    // leaves a surface with a texture on it.
+    tiles: SLOTS.map((slot) => {
+      const v = prefs['tile' + slot[0].toUpperCase() + slot.slice(1)]
+      return TEXTILES[v] ? v : ''
+    }),
+  }
   apply()
 }
 
@@ -343,6 +367,7 @@ export function getResolvedTheme() {
     materialSet: MAT_SETS[s] ? s : MAT_SET_DEFAULT,
     theme: current.theme || 'system',
     accent: current.accent || 'terracotta',
+    tiles: (current.tiles || ['', '', '', '']).slice(),
   }
 }
 
@@ -390,8 +415,9 @@ function apply() {
   root.style.setProperty('--accent-dark', `color-mix(in oklab, ${accent}, white 20%)`)
   root.style.setProperty('--accent-ui', accentUI)
   root.style.setProperty('--on-accent', light ? '#221C16' : '#FBF6EA')
-  const names = MAT_SETS[matSet]
-  for (const [i, slot] of ['ground', 'shell', 'card', 'cover'].entries()) {
+  // The set proposes and an override disposes, slot by slot.
+  const names = MAT_SETS[matSet].map((n, i) => (current.tiles || [])[i] || n)
+  for (const [i, slot] of SLOTS.entries()) {
     const p = surfaceProps(palette[SLOT_COLOUR[slot]], names[i], dark, accentUI)
     for (const [k, v] of Object.entries(p)) root.style.setProperty(`--surf-${slot}-${k}`, v)
     // The slot's bare tile, aliased to the one index.css declares. Every texture

@@ -343,6 +343,24 @@ type prefs struct {
 	MaterialSet string `json:"materialSet"`
 	Theme       string `json:"theme"`
 	Accent      string `json:"accent"`
+	// Per-slot texture overrides: one tile name each, or empty for "whatever the
+	// set says". A set is seven ready answers; these are for the reader who wants
+	// Manuscript with a stone floor, and they are also the only way the tiles no
+	// set happens to name are reachable at all.
+	//
+	// VALIDATED BY SHAPE, NOT AGAINST A LIST, and that is deliberate. The tile
+	// inventory is declared exactly once, in index.css, as --tile-<name>: url(...)
+	// — one place, which the build rewrites and the frontend reads. A copy of those
+	// twenty-seven names here would be a second list to keep in step by hand, and
+	// the failure would be silent in the worst direction: a tile that exists,
+	// rejected with a 400 nobody can explain. So the server checks that the value
+	// LOOKS like a tile name and theme.js falls back to the set's own tile for
+	// anything it does not recognise, which is how every other retired or unknown
+	// preference in this file already behaves.
+	TileGround string `json:"tileGround"`
+	TileShell  string `json:"tileShell"`
+	TileCard   string `json:"tileCard"`
+	TileCover  string `json:"tileCover"`
 	// CreditSeparators: which separators split a joined multi-author credit
 	// ("Gaiman & Pratchett") into distinct people — a comma-separated subset
 	// of {comma, semicolon, amp, and} in canonical order, or "none" to turn
@@ -684,6 +702,26 @@ func catColorValid(v string) bool {
 	return !accentHexes[strings.ToLower(v)]
 }
 
+// badTileName rejects anything that could not be a tile name. Empty is fine — it
+// means "whatever the set says" — and so is any lowercase/digit/hyphen word up to 24
+// characters, which is every name in src/textures/ with room to spare. The point is
+// not to police the inventory (see the note on TileGround) but to keep a stored value
+// from ever being long, odd or capitalised enough to be interesting.
+func badTileName(v string) bool {
+	if v == "" {
+		return false
+	}
+	if len(v) > 24 {
+		return true
+	}
+	for _, r := range v {
+		if (r < 'a' || r > 'z') && (r < '0' || r > '9') && r != '-' {
+			return true
+		}
+	}
+	return false
+}
+
 // loadPrefs reads users.preferences and applies defaults for anything unset:
 // theme "system", accent "terracotta", material set "manuscript".
 //
@@ -708,6 +746,13 @@ func (s *Server) loadPrefs(uid int64) (prefs, error) {
 	}
 	if !prefMaterialSets[p.MaterialSet] {
 		p.MaterialSet = "manuscript"
+	}
+	// A stored override that no longer has the SHAPE of a tile name reads as unset,
+	// which puts the slot back on the set's own material rather than on nothing.
+	for _, t := range []*string{&p.TileGround, &p.TileShell, &p.TileCard, &p.TileCover} {
+		if badTileName(*t) {
+			*t = ""
+		}
 	}
 	if norm, ok := normalizeCreditSeps(p.CreditSeparators); ok {
 		p.CreditSeparators = norm
@@ -774,6 +819,10 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 		MaterialSet         *string  `json:"materialSet"`
 		Theme               *string  `json:"theme"`
 		Accent              *string  `json:"accent"`
+		TileGround          *string  `json:"tileGround"`
+		TileShell           *string  `json:"tileShell"`
+		TileCard            *string  `json:"tileCard"`
+		TileCover           *string  `json:"tileCover"`
 		CreditSeparators    *string  `json:"creditSeparators"`
 		Locale              *string  `json:"locale"`
 		LanguageMarks       *string  `json:"languageMarks"`
@@ -836,6 +885,18 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 	}
 	if in.MaterialSet != nil {
 		cur.MaterialSet = *in.MaterialSet
+	}
+	if in.TileGround != nil {
+		cur.TileGround = *in.TileGround
+	}
+	if in.TileShell != nil {
+		cur.TileShell = *in.TileShell
+	}
+	if in.TileCard != nil {
+		cur.TileCard = *in.TileCard
+	}
+	if in.TileCover != nil {
+		cur.TileCover = *in.TileCover
 	}
 	if in.Theme != nil {
 		cur.Theme = *in.Theme
@@ -1023,6 +1084,11 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 		cur.ShowAnthologies = *in.ShowAnthologies
 	}
 	switch {
+	case badTileName(cur.TileGround), badTileName(cur.TileShell),
+		badTileName(cur.TileCard), badTileName(cur.TileCover):
+		writeErr(w, http.StatusBadRequest,
+			"a texture override must be a tile name: lowercase letters, digits and hyphens")
+		return
 	case !prefMaterialSets[cur.MaterialSet]:
 		writeErr(w, http.StatusBadRequest,
 			"materialSet must be manuscript, film-assembly, office, school, atelier, bindery or quarry")

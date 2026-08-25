@@ -14,7 +14,7 @@
 // the contract between them IS the property, and the property is what gets tested.
 
 import { beforeEach, describe, expect, it } from 'vitest'
-import { applyTheme, getResolvedTheme, MAT_SET_LABELS, MAT_SETS, surfaceStyle } from '../../src/theme.js'
+import { applyTheme, getResolvedTheme, MAT_SET_LABELS, MAT_SETS, surfaceStyle, TILE_NAMES } from '../../src/theme.js'
 
 const root = () => document.documentElement
 const prop = (name) => root().style.getPropertyValue(name).trim()
@@ -156,3 +156,52 @@ describe('the picker draws what choosing it would do', () => {
     expect(Object.keys(MAT_SET_LABELS).sort()).toEqual(Object.keys(MAT_SETS).sort())
   })
 })
+
+describe('a slot can be overridden off the set', () => {
+  // WHY OVERRIDES EXIST AT ALL: two tiles in src/textures/ are named by no set —
+  // glass-soft, and whatever a later pack adds — so without a per-slot choice they
+  // are files nobody can ever see. And a reader who wants Manuscript with a stone
+  // floor has nowhere else to say so.
+  it('replaces one material and leaves the other three', () => {
+    applyTheme({ materialSet: 'manuscript', theme: 'light', tileGround: 'sandstone' })
+    expect(prop('--tile-ground')).toBe('var(--tile-sandstone)')
+    expect(prop('--tile-shell')).toBe('var(--tile-paper)')
+    expect(prop('--tile-card')).toBe('var(--tile-paper)')
+    expect(prop('--tile-cover')).toBe('var(--tile-wood)')
+  })
+
+  it('reaches a tile no set names', () => {
+    applyTheme({ materialSet: 'manuscript', theme: 'light', tileCover: 'glass-soft' })
+    expect(prop('--tile-cover')).toBe('var(--tile-glass-soft)')
+    // And it takes the glass branch, because what it is made of decides that.
+    expect(prop('--surf-cover-blur')).toContain('blur')
+  })
+
+  it('falls back to the set rather than to nothing', () => {
+    // A tile name from a later release, or a hand-edited preference. The slot has to
+    // keep a texture: an override that resolved to nothing would leave one surface
+    // in the app flat, with no error anywhere.
+    applyTheme({ materialSet: 'quarry', theme: 'light', tileCard: 'obsidian' })
+    expect(prop('--tile-card')).toBe('var(--tile-satin)')
+  })
+
+  it('is reported back so the picker can show what is set', () => {
+    applyTheme({ materialSet: 'atelier', theme: 'light', tileShell: 'walnut' })
+    expect(getResolvedTheme().tiles).toEqual(['', 'walnut', '', ''])
+  })
+
+  it('offers every tile the stylesheet declares, and nothing it does not', () => {
+    const declared = new Set(
+      [...require('node:fs')
+        .readFileSync(require('node:path').join(process.env.TIPPANI_SRC, 'index.css'), 'utf8')
+        .matchAll(/--tile-([\w-]+):\s*url\(/g)].map((m) => m[1]),
+    )
+    for (const name of TILE_NAMES) {
+      applyTheme({ materialSet: 'manuscript', theme: 'light', tileCard: name })
+      const tile = /var\(--tile-([\w-]+)\)/.exec(prop('--tile-card'))?.[1]
+      expect(declared.has(tile), `the picker offers ${name}, which resolves to --tile-${tile}`).toBe(true)
+    }
+    expect(TILE_NAMES.length).toBeGreaterThanOrEqual(27)
+  })
+})
+

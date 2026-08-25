@@ -262,9 +262,10 @@ The five flattened neutrals derive from the CC0 webp tiles already in the repo a
 stay CC0. The five textiles are generated from the description above — no source
 photography, no third-party asset, nothing to attribute.
 
-**The twelve photographic tiles have no recorded provenance, and this is owed before
-release.** `textures-bundle.js`, which delivered them, carries no licence header and
-no source list, and they are photographs of real materials rather than anything
-generated. Timber, stone, hide and stock at 256×256 are the commonest CC0 subjects
-there are, so the likely answer is that they are CC0 too — but likely is not a
-licence, and a shipped binary redistributes them.
+**The twelve photographic tiles are CC0**, from AmbientCG or a comparable CC0 texture
+library — the owner's account of where they came from, recorded here on 2026-08-25
+because `textures-bundle.js` delivered them with no licence header and no source list.
+CC0 asks for no attribution, so nothing is owed to anyone by the binary that
+redistributes them; what is written down is the ANSWER, so that the next person to ask
+does not have to ask the same person again. A per-file source URL was never captured
+and is not recoverable from the bundle.
