@@ -7358,10 +7358,20 @@ Bindery's card lands at 3.45 levels against `paper.webp`'s 2.61, already behind 
 today, so the three new slot tiles join the set.
 
 `basalt.png` is dropped. Twenty-eight tiles re-encoded from colour-type 6 to single-channel
-grayscale: 1.78MB to 1.04MB, verified equal in value per file rather than assumed. Still
-owed: the six legacy webps are chromatic with means of 127.07-127.85, so the operator's
-"identical grain in both modes" promise holds for twenty of them until those are flattened
-too.
+grayscale: 1.78MB to 1.04MB, verified equal in value per file rather than assumed.
+
+**AND THE CLAIM ABOUT THE SIX LEGACY WEBPS WAS WRONG.** This entry said they are chromatic,
+so the operator's "identical grain in both modes" promise held for only twenty tiles until
+they were flattened. They are not chromatic. Every one carries a maximum channel spread of
+exactly 2 levels out of 255 **before the flattening and after it**, because that spread is
+the WebP encoder's chroma subsampling and not the image. What was genuinely wrong was the
+mean — 127.07 to 127.86 instead of 128 — which is worth about 0.02% of one surface's tone
+at these strengths. Flattening them bought a true invariant and a re-measurable number
+rather than a visible improvement, and it cost 101KB in git and in the binary at quality
+95; lossless would have cost 382KB to hold a mean the format never held. `rubber.webp` was
+already exactly right and re-encoding it made it worse, so it was left alone. The tile
+record is `web/frontend/src/textures/README.md`; the number that matters per tile is
+`s x sd`, not `s`.
 
 #### One thing ships before the branch
 
