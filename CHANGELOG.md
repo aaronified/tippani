@@ -5,6 +5,54 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.8] - 2026-08-25
+
+### Changed
+
+- **Name fields no longer capitalise as you type.** "The Wheel of Time" could not be
+  typed into a series box for four releases: the rule promoted "of" while it was still
+  the one-letter word "o", and its own escape hatch then froze the capital for the rest
+  of the edit. Three attempts to make the rule smarter produced three more ways to be
+  wrong about somebody's name. The rule is gone. Every name and title field now sets the
+  HTML `autocapitalize="words"` hint instead — on a phone the keyboard offers a capital
+  at the start of each word and **you press shift when the offer is wrong**, which is a
+  control you already know; on a desktop nothing capitalises anything and what you type
+  is what is saved. Prose fields — a quote, a note — keep sentence capitalisation, which
+  is what you want there.
+
+### Added
+
+- **A character you have quoted is one of the work's people.** Book and game characters
+  had to be typed into the People list separately before they appeared anywhere, even
+  though you had already named them on the quotes themselves. Every character named on a
+  work's own quotes is now on that work's cast list — so the character dropdown offers
+  them, the People section can give them a picture, and a film line's "played by" comes
+  along where the line named one. Nothing is guessed: a line naming two characters and
+  one actor pairs neither.
+
+- **Portraits fetch themselves.** An actor's headshot resolved only when you opened that
+  person's panel by hand, one at a time, so a film with twenty credits needed twenty
+  visits before its board showed twenty faces. A work's page now fetches the portraits it
+  is about to draw — serially, capped, once per name, and not at all when they are
+  already stored.
+
+### Fixed
+
+- **You can see and edit a character's picture.** The People section opened collapsed
+  behind a button, so the cast was invisible unless you knew to ask for it; and a role
+  with no picture drew a blank grey box whose only control was an unlabelled refresh
+  arrow. The section now opens with the work, and **the face is the button** — an empty
+  one carries a picture mark, a filled one shows it on hover.
+
+- **"Cast from TheTVDB" and "Cast from IMDb" moved to the fetch screen**, beside the
+  metadata lookup, where the other two ways of asking a provider for something already
+  live. They were inside the People section, two screens away from the button you press
+  when you want a provider to fill something in.
+
+- **Deleting a character you have also quoted now stays deleted.** It would have come
+  straight back on the next read, for ever, with the delete button looking broken rather
+  than declined.
+
 ## [2.2.7] - 2026-08-25
 
 ### Fixed

@@ -7151,3 +7151,127 @@ There is a second cost, and it is the one that made this concrete. Decisions tak
 **The rule for a field added to an existing table.** 0047 gave `annotations` a column that the film side already had. Every place that reads the film's version is a place that now has to read the book's, and there is no test that can enumerate them — but `grep` can. A stale comment describing the old world is the thing that makes the search fail.
 
 <sub>2.2.7 — `internal/httpapi/review_handlers.go` · `web/frontend/src/review.jsx`</sub>
+
+### The capitaliser could not be argued with
+
+**Decided.** Nothing in the page rewrites a name. `autocapitalize="words"` on every name
+or title field; the browser default everywhere else.
+
+**Four releases on one title.** "The Wheel of Time" was the example the small-word rule
+was written for and the example it kept failing. The rule ran on every keystroke, so "of"
+arrived as "o" — not on the list — was promoted to "O", and the promote-only rule's own
+escape hatch (a word carrying a capital is somebody's decision) froze it. Each fix added a
+clause: demote a completed small word, exempt the last word, find the last LETTERED word,
+skip a word carrying a terminator, a different set for the word before. Five interacting
+clauses, and the owner still could not type the title.
+
+**THE SHAPE OF THE MISTAKE IS NOT THE CLAUSES, IT IS THE GUESSING.** A rule that infers
+intent from characters needs an escape hatch; a hatch needs to be discovered; and a reader
+who has not read the source has no way to know either exists. Meanwhile it rewrote what a
+provider had spelled correctly, it fought the phone's keyboard underneath it, and on a
+laptop it was the only thing capitalising at all — so the same field behaved three ways on
+three devices.
+
+**What the attribute buys that the rule could not.** It is a HINT, and the reader
+overrules it with shift — a control they already know, on the field they are looking at,
+with no hatch to find. `titleCase` went with the rule: a flag whose only job was picking
+between two rules has nothing to say when there are none.
+
+**The one transform that survives** is `titleCaseGenre`, and the distinction is worth
+keeping: a genre is a closed vocabulary normalised on COMMIT, not an open-ended name
+rewritten per keystroke. It never fights the person typing because it runs after they
+stop.
+
+<sub>2.2.8 — `web/frontend/src/ui.jsx` · `web/frontend/src/suggest.jsx` · `web/frontend/test/dom/name-casing-field.test.jsx`</sub>
+
+### A table nothing wrote to is a feature nobody has
+
+**Decided.** `GET /books|movies/{id}/cast` adopts every character named on that work's own
+quotes.
+
+**0048 built the table and 0048's own header said there was no screen.** 2.2.3 built the
+screen. What neither noticed is that the only two things that ever WROTE a row were a
+provider fetch and an Add button — and a book has no cast fetch, and most games have none
+worth the name (TIP-META-018). So for the two kinds the table was built to serve, the list
+was empty on day one and empty for ever, while the reader typed character names onto
+highlight after highlight into a column 0047 had added for exactly this.
+
+**THE SAVE PATH IS SIX PLACES AND THE LIST IS ONE.** A character reaches a quote from the
+capture form, the edit modal, a bulk edit, the staging approve, a Markdown import and the
+demo seed. A rule applied in five of six is not a rule — and it would still have needed a
+one-time pass for every quote already written, which is the same code again with a
+different lifetime. The list covers the whole history for free and is what the panel and
+both capture forms already call. It writes nothing once every name is on, so the steady
+state is one SELECT and no transaction.
+
+**A GET THAT WRITES IS NOT FREE OF DOUBT**, and the answer to the doubt is that the write
+is idempotent, bounded, and once per name ever. What made it acceptable rather than merely
+convenient is that a row is permanent: the film board reads its cast from
+`GET /movies/{id}`, which never calls this, and does not need to.
+
+**The delete rule moved with it, and that is the part a test found.** `DELETE /cast/{id}`
+hard-deleted a reader-authored row on the stated grounds that "nothing will ever re-add
+it". Something does now. The condition is no longer "did a provider list this?" but the
+question that was always underneath it: WILL ANYTHING RE-ADD IT? A quoted character is
+tombstoned; a row nothing names is still deleted outright, so the litter argument survives
+for the rows it was made about.
+
+<sub>2.2.8 — `internal/httpapi/cast_from_quotes.go` · `internal/httpapi/cast_handlers.go`</sub>
+
+### The picture is the thing you press
+
+**Decided.** The cast row's face is the control that sets the cast row's picture. The
+People section opens with the work.
+
+**Three reports, one surface**: "the cast character images are not working at all"; "i
+cannot see any cast character"; "i cannot edit or see the character images anywhere". All
+three were true, and none of them was a broken endpoint — every byte of the pipeline
+worked. What was wrong was that nothing on screen said so.
+
+**A COLLAPSED PANEL IS AN INVISIBLE FEATURE.** It was behind a button reading "People" for
+a defensible reason (a film's twenty rows would dominate the Details panel) and the cost
+was total: a list you have to know to ask for is a list nobody knows about.
+
+**AN UNLABELLED REFRESH ARROW SAYS "FETCH AGAIN"**, and the thing it opened means "choose
+a picture". Beside it, a role with no art drew a blank grey rectangle that reads as a
+spacer. So the affordance moved onto the object it affects. Empty, the face carries a
+picture mark permanently, because nothing else in the row says a picture is missing;
+filled, the mark appears on hover and focus, because a permanent badge over twenty faces
+is twenty badges.
+
+**And the two provider fetches left**, at the owner's suggestion and for a reason that
+generalises: a control belongs with the controls that mean the same thing. "Cast from
+TheTVDB" and "Cast from IMDb" are metadata fetches, and they were living inside the editor
+for the rows they overwrite while the button labelled "Fetch metadata" was two screens
+away.
+
+<sub>2.2.8 — `web/frontend/src/cast.jsx` · `web/frontend/src/WorkDetails.jsx` · `web/frontend/src/index.css`</sub>
+
+### The route was right and nothing was asking
+
+**Decided.** `usePortraitFill` fetches the portraits a screen is about to draw.
+
+**The second time this exact shape has been found**, and the first was 2.2.3's
+`useCharacterArt`: `POST /cast/{id}/image` had been written so "a client may call this for
+every chip it is about to draw" and no client ever did. `POST /people/portrait` is the
+same story — it resolves an actor's headshot from the cast row the library already holds,
+and its only caller was PersonModal's own effect, which runs when you open ONE person.
+Twenty credits meant twenty panels opened by hand.
+
+**A ROUTE WITH NO CALLER PASSES EVERY CHECK IN THIS REPO.** Its handler tests pass, `go
+vet` is silent, the registry entry is present. That is now twice, so it is a pattern and
+not an accident: when a fetch is written "for a client to call", the commit that writes it
+must contain the client.
+
+**Three restraints, each invisible when broken.** Serial and capped at twenty, so a
+self-hosted box does not open twenty outbound connections because somebody opened a film.
+Asked once per name per mount, tracked in a ref rather than inferred from the map — the
+obvious version re-asks on every render for the people with no findable portrait, which is
+most minor credits, for ever. And `onFilled` only when something arrived, because a reload
+that changes nothing is a request and a re-render, and that is how a quiet loop starts.
+
+**Deliberately not wired to authors and directors yet.** An author resolves through Open
+Library, one outbound lookup each; firing twenty of those when a shelf opens is a
+different decision from this one and should be made on its own.
+
+<sub>2.2.8 — `web/frontend/src/credits.jsx` · `web/frontend/src/cast.jsx` · `web/frontend/src/Movies.jsx`</sub>
