@@ -24,10 +24,10 @@
 // picture shows the actor's — which is what TheTVDB's own site does, and what the
 // quote cards already do.
 
-import { useContext, useEffect, useRef, useState } from 'react'
+import { useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { coverImgURL, errText, json } from './api.js'
 import { t } from './i18n.js'
-import { PersonModal, personImgURL, usePeople } from './people.jsx'
+import { PersonModal, personImgURL, usePeople, usePortraitFill } from './people.jsx'
 import {
   ErrorText,
   Field,
@@ -102,6 +102,16 @@ export function CastSection({ kind, item, onCastChanged }) {
   // refuses one — so asking for a book's people was a request per opening whose
   // answer nothing could read.
   const { map: actorMap, reload: reloadActors } = usePeople(kind === 'book' ? '' : 'actor')
+  // THE HEADSHOTS THIS PANEL IS ABOUT TO DRAW. A row with no character picture of
+  // its own falls back to the actor's — upstream's own fallback, see the header —
+  // so a panel whose actors have no stored portrait shows a column of blank boxes
+  // and gives the reader no clue that anything could fill them. Nothing had ever
+  // asked outside PersonModal, one person at a time, by hand.
+  const actorNames = useMemo(
+    () => [...new Set((rows || []).map((c) => (c.actor || '').trim()).filter(Boolean))],
+    [rows],
+  )
+  usePortraitFill(kind === 'book' ? '' : 'actor', actorNames, actorMap, reloadActors)
   // Guards the image fill so re-rendering does not re-run it. A ref rather than
   // state: it must not itself cause a render.
   const filled = useRef(false)

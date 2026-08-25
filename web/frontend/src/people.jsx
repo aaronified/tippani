@@ -10,7 +10,7 @@ const PRIMARY = 'tp-btn tp-btn-primary'
 // The person primitives — portrait, credit splitting, the saved-people map —
 // live in credits.jsx so the quiz card can draw a face without importing this
 // panel. Re-exported here because this is still where a reader looks for them.
-export { DEFAULT_CREDIT_SEPS, parseCreditSeps, personImgURL, PersonPortrait, splitCredits, usePeople } from './credits.jsx'
+export { DEFAULT_CREDIT_SEPS, parseCreditSeps, personImgURL, PersonPortrait, splitCredits, usePeople, usePortraitFill } from './credits.jsx'
 
 
 // The external references a person can link out to, in display order. A saved

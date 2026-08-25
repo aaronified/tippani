@@ -16,7 +16,7 @@
 // that is where a reader looks for them and a re-export costs nothing. What
 // changed is that review.jsx can import the portrait without importing the
 // panel.
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { coverImgURL, json } from './api.js'
 
 export function personImgURL(path) {
@@ -174,6 +174,68 @@ export function usePeople(kind) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kind])
   return { map, reload }
+}
+
+// usePortraitFill — the portraits a screen is about to draw, fetched because it
+// is about to draw them.
+//
+// THE COMPLAINT: "people images are not auto fetched still and needs to be
+// manually fetched." Which was the literal truth. `POST /people/portrait` has
+// existed for many releases and resolves an actor's headshot from the cast row
+// the library already holds — but the only thing that ever called it was
+// PersonModal's own effect, which runs when you OPEN one person. So a film with
+// twenty credits needed twenty panels opened by hand before its board had twenty
+// faces, and an author's shelf heading stayed blank until somebody went looking
+// for the author. The route was right and nothing was asking.
+//
+// THIS IS useCharacterArt'S ARGUMENT, applied to the other picture (cast.jsx). A
+// work's page already holds the names it is about to draw and the map saying who
+// has a stored portrait, so it can tell — with no request at all — whether there
+// is anything to do. When there is not, this costs nothing.
+//
+// SERIAL AND CAPPED, for the reason twenty of anything is: a self-hosted box
+// should not open twenty outbound connections because somebody opened a film.
+// Twenty is metadata.maxCast, the largest a provider seed can be.
+//
+// ASKED ONCE PER NAME PER MOUNT, tracked in a ref rather than inferred from the
+// map. The obvious version — "ask for everyone the map has no picture for" —
+// re-asks on every render for the people who HAVE no findable portrait, which is
+// most minor credits, for ever. A name is attempted once and then left alone
+// whether it resolved or not; re-opening the page is how you retry.
+//
+// `onFilled` fires once, after the last one lands, and only if something actually
+// arrived — a reload that changes nothing is a request and a re-render for free.
+const PORTRAIT_FILL_CAP = 20
+
+export function usePortraitFill(kind, names, people, onFilled) {
+  const asked = useRef(null)
+  if (asked.current === null) asked.current = new Set()
+  useEffect(() => {
+    if (!kind) return undefined
+    const want = []
+    for (const raw of names || []) {
+      const name = String(raw || '').trim()
+      if (!name || asked.current.has(name) || people?.[name]?.image_path) continue
+      want.push(name)
+      if (want.length >= PORTRAIT_FILL_CAP) break
+    }
+    if (want.length === 0) return undefined
+    // MARKED BEFORE THE AWAIT, not after: a re-render while the loop is in flight
+    // would otherwise start a second loop over the same names.
+    for (const n of want) asked.current.add(n)
+    let live = true
+    ;(async () => {
+      let got = 0
+      for (const name of want) {
+        if (!live) return
+        const r = await json('POST', '/people/portrait', { kind, name })
+        if (r.ok && r.data?.image) got += 1
+      }
+      if (live && got) onFilled?.()
+    })()
+    return () => { live = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kind, names, people])
 }
 
 // PersonPortrait — the small round portrait for a group-by heading (renders
