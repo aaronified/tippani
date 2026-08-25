@@ -18,29 +18,36 @@ function resolveFaces(credit, people, seps) {
     .map((p) => ({ name: p.name, url: coverImgURL(p.image_path) }));
 }
 
-// Image themes for the share card — the app's four skins, chosen independently
-// of the live app theme (an export choice, persisted per device). Value is the
-// "aesthetic-mode" palette key drawTheme() resolves.
-// A function rather than a table: the four names are copy, read at render time.
+// Image themes for the share card — the two modes, chosen independently of the live
+// app theme (an export choice, persisted per device).
+//
+// FOUR BECAME TWO, AND NOT BY DROPPING ANYTHING THE PICTURE HAD. There were paper and
+// film in light and dark; with one palette per mode, paper-light and film-light now
+// resolve to the same colours, so two of the four cards were the other two under a
+// different name. What the reader actually chose between was always the mode.
+// A function rather than a table: the names are copy, read at render time.
 const imageThemes = () => [
-  ["paper-light", t("share.image.theme.paper-light.label")],
-  ["paper-dark", t("share.image.theme.paper-dark.label")],
-  ["film-light", t("share.image.theme.film-light.label")],
-  ["film-dark", t("share.image.theme.film-dark.label")],
+  ["light", t("share.image.theme.light.label")],
+  ["dark", t("share.image.theme.dark.label")],
 ];
 
 // defaultImageTheme seeds the picker from whatever the app is showing now, so
 // the first share matches the live skin until the user picks otherwise.
 function defaultImageTheme() {
-  const cur = readTheme();
-  return `${cur.aesthetic}-${cur.dark ? "dark" : "light"}`;
+  return readTheme().dark ? "dark" : "light";
 }
 
-// drawTheme resolves an IMAGE_THEMES key to the canvas theme object, keeping the
-// app's current accent (the picker only swaps paper/film + light/dark).
+// drawTheme resolves an imageThemes key to the canvas theme object, keeping the app's
+// current accent (the picker only swaps light/dark).
+//
+// A DEVICE THAT REMEMBERS "film-dark" STILL GETS DARK. The stored value is per-device
+// and predates this change, so it can be any of the four old keys; anything that is
+// not exactly "light" reads as dark only if it ends in "dark", and everything else
+// falls to light. That is the same shape as every other retired preference here —
+// unknown means default, and nobody has to migrate a localStorage key.
 function drawTheme(key) {
-  const [aesthetic, mode] = String(key || "").split("-");
-  return paletteTheme(aesthetic, mode === "dark", readTheme().accent);
+  const k = String(key || "");
+  return paletteTheme(k === "dark" || k.endsWith("-dark"), readTheme().accent);
 }
 
 const PRIMARY = "tp-btn tp-btn-primary";

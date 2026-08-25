@@ -76,9 +76,9 @@ beforeEach(() => {
   canvas = document.createElement('canvas')
 })
 
-const PAPER = paletteTheme('paper', false, '#B4482D')
-const BLUE_ACCENT = paletteTheme('paper', false, '#7FA6C9')
-const FILM_DARK = paletteTheme('film', true, '#B4482D')
+const LIGHT = paletteTheme(false, '#B4482D')
+const BLUE = paletteTheme(false, '#7FA6C9')
+const DARK = paletteTheme(true, '#B4482D')
 
 const model = (over = {}) => ({
   quote: 'The margins are where the reader answers back.',
@@ -93,7 +93,7 @@ const model = (over = {}) => ({
   ...over,
 })
 
-const render = (m = model(), theme = PAPER) => drawQuoteCard(canvas, m, theme)
+const render = (m = model(), theme = LIGHT) => drawQuoteCard(canvas, m, theme)
 
 const cardOps = () => log.filter((e) => e.canvas === CARD)
 const texts = () => cardOps().filter((e) => e.op === 'fillText')
@@ -170,13 +170,13 @@ describe('the credit in the corner', () => {
     // Every other coloured thing on this card takes the theme's accent, so
     // reaching for `theme.accent` here is the natural mistake — and it produces
     // a blue tippani logo, which is not the tippani logo.
-    render(model(), BLUE_ACCENT)
+    render(model(), BLUE)
     expect(fillsIn(BRAND_RED).length).toBeGreaterThanOrEqual(2)
     expect(fillsIn('#7FA6C9')).toHaveLength(0)
   })
 
   it('lifts the red on a dark card', async () => {
-    render(model(), FILM_DARK)
+    render(model(), DARK)
     expect(fillsIn(BRAND_RED_DARK).length).toBeGreaterThanOrEqual(2)
     expect(fillsIn(BRAND_RED)).toHaveLength(0)
   })

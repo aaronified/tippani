@@ -112,7 +112,7 @@ beforeEach(() => {
   localStorage.clear()
   document.body.style.overflow = ''
   document.documentElement.removeAttribute('data-theme')
-  document.documentElement.removeAttribute('data-aesthetic')
+  document.documentElement.removeAttribute('data-mat-set')
 })
 
 afterEach(() => {

@@ -19,7 +19,7 @@ const USER = {
   // showAnthologies is ON here and off for a real fresh account, deliberately: a
   // published demo whose job is to show the app has to show the section, and the
   // default it is overriding is the one the Features card explains.
-  preferences: { aesthetic: 'paper', theme: 'light', accent: 'terracotta', showAnthologies: true },
+  preferences: { materialSet: 'manuscript', theme: 'light', accent: 'terracotta', showAnthologies: true },
 }
 
 // ---- inline artwork (data: URIs) ----

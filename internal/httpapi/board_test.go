@@ -377,7 +377,7 @@ func TestASettingsChangeDoesNotMoveYourDefaultBoard(t *testing.T) {
 
 	// Something entirely unrelated: one accent swatch.
 	c.mustDo("PUT", "/auth/me/preferences",
-		map[string]any{"aesthetic": "paper", "theme": "light", "accent": "olive"}, http.StatusOK)
+		map[string]any{"materialSet": "manuscript", "theme": "light", "accent": "olive"}, http.StatusOK)
 
 	if got := storedDefault(); got != dest.ID {
 		t.Fatalf("defaultBoardId = %d after an accent change, want %d — the preferences PUT deleted it", got, dest.ID)

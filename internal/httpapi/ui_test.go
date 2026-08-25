@@ -31,27 +31,30 @@ func TestPreferences(t *testing.T) {
 	h := srv.Handler()
 	c := signupAdmin(t, h)
 
-	// Fresh user: defaults (theme system -> paper aesthetic, terracotta).
+	// Fresh user: defaults (theme system, the Manuscript material set, terracotta).
 	me := decode[meResp](t, c.mustDo("GET", "/auth/me", nil, 200))
-	if me.Preferences != (prefs{Aesthetic: "paper", Theme: "system", Accent: "terracotta", CreditSeparators: defaultCreditSeps, TrashDays: defaultTrashDays, SRDaily: 8, SRReviewScope: "both", SRSeen: 1}) {
+	if me.Preferences != (prefs{MaterialSet: "manuscript", Theme: "system", Accent: "terracotta", CreditSeparators: defaultCreditSeps, TrashDays: defaultTrashDays, SRDaily: 8, SRReviewScope: "both", SRSeen: 1}) {
 		t.Fatalf("default preferences: %+v", me.Preferences)
 	}
 
-	// A stored dark theme without an aesthetic defaults to film (§4); a stale
-	// pre-0.4 "home" start-page key in the stored JSON is silently dropped.
+	// THE MATERIAL SET NO LONGER FOLLOWS THE THEME, and this is the test that says so.
+	// Until 3.0.0 a stored dark theme with no aesthetic defaulted to film, because the
+	// two aesthetics carried their own palettes and a light film looked wrong. There is
+	// one palette per mode now and every set works in both, so dark gets the same
+	// default as light. A stale pre-0.4 "home" start-page key is still dropped on read.
 	if _, err := srv.Store.DB.Exec(`UPDATE users SET preferences = '{"theme":"dark","home":"movies"}' WHERE id = 1`); err != nil {
 		t.Fatal(err)
 	}
 	me = decode[meResp](t, c.mustDo("GET", "/auth/me", nil, 200))
-	if me.Preferences != (prefs{Aesthetic: "film", Theme: "dark", Accent: "terracotta", CreditSeparators: defaultCreditSeps, TrashDays: defaultTrashDays, SRDaily: 8, SRReviewScope: "both", SRSeen: 1}) {
-		t.Fatalf("dark default aesthetic: %+v", me.Preferences)
+	if me.Preferences != (prefs{MaterialSet: "manuscript", Theme: "dark", Accent: "terracotta", CreditSeparators: defaultCreditSeps, TrashDays: defaultTrashDays, SRDaily: 8, SRReviewScope: "both", SRSeen: 1}) {
+		t.Fatalf("dark default material set: %+v", me.Preferences)
 	}
 
 	// Roundtrip.
 	c.mustDo("PUT", "/auth/me/preferences",
-		prefs{Aesthetic: "film", Theme: "light", Accent: "ochre"}, 200)
+		prefs{MaterialSet: "film-assembly", Theme: "light", Accent: "ochre"}, 200)
 	me = decode[meResp](t, c.mustDo("GET", "/auth/me", nil, 200))
-	if me.Preferences != (prefs{Aesthetic: "film", Theme: "light", Accent: "ochre", CreditSeparators: defaultCreditSeps, TrashDays: defaultTrashDays, SRDaily: 8, SRReviewScope: "both", SRSeen: 1}) {
+	if me.Preferences != (prefs{MaterialSet: "film-assembly", Theme: "light", Accent: "ochre", CreditSeparators: defaultCreditSeps, TrashDays: defaultTrashDays, SRDaily: 8, SRReviewScope: "both", SRSeen: 1}) {
 		t.Fatalf("after PUT: %+v", me.Preferences)
 	}
 
@@ -59,17 +62,17 @@ func TestPreferences(t *testing.T) {
 	// "navUtilities", the pre-ladder "srGrow"/"srShrink" factors) gets them
 	// ignored.
 	c.mustDo("PUT", "/auth/me/preferences",
-		map[string]any{"aesthetic": "paper", "theme": "light", "accent": "olive", "home": "movies", "navUtilities": "menu", "srGrow": 3.0, "srShrink": 0.5}, 200)
+		map[string]any{"materialSet": "manuscript", "theme": "light", "accent": "olive", "home": "movies", "navUtilities": "menu", "srGrow": 3.0, "srShrink": 0.5}, 200)
 	me = decode[meResp](t, c.mustDo("GET", "/auth/me", nil, 200))
-	if me.Preferences != (prefs{Aesthetic: "paper", Theme: "light", Accent: "olive", CreditSeparators: defaultCreditSeps, TrashDays: defaultTrashDays, SRDaily: 8, SRReviewScope: "both", SRSeen: 1}) {
+	if me.Preferences != (prefs{MaterialSet: "manuscript", Theme: "light", Accent: "olive", CreditSeparators: defaultCreditSeps, TrashDays: defaultTrashDays, SRDaily: 8, SRReviewScope: "both", SRSeen: 1}) {
 		t.Fatalf("after PUT with stale retired keys: %+v", me.Preferences)
 	}
 
 	// Validation: all three fields are required enums.
-	c.mustDo("PUT", "/auth/me/preferences", prefs{Aesthetic: "vellum", Theme: "light", Accent: "ochre"}, http.StatusBadRequest)
-	c.mustDo("PUT", "/auth/me/preferences", prefs{Aesthetic: "paper", Theme: "auto", Accent: "ochre"}, http.StatusBadRequest)
-	c.mustDo("PUT", "/auth/me/preferences", prefs{Aesthetic: "paper", Theme: "light", Accent: "mauve"}, http.StatusBadRequest)
-	c.mustDo("PUT", "/auth/me/preferences", prefs{Aesthetic: "paper", Theme: "light"}, http.StatusBadRequest)
+	c.mustDo("PUT", "/auth/me/preferences", prefs{MaterialSet: "vellum", Theme: "light", Accent: "ochre"}, http.StatusBadRequest)
+	c.mustDo("PUT", "/auth/me/preferences", prefs{MaterialSet: "manuscript", Theme: "auto", Accent: "ochre"}, http.StatusBadRequest)
+	c.mustDo("PUT", "/auth/me/preferences", prefs{MaterialSet: "manuscript", Theme: "light", Accent: "mauve"}, http.StatusBadRequest)
+	c.mustDo("PUT", "/auth/me/preferences", prefs{MaterialSet: "manuscript", Theme: "light"}, http.StatusBadRequest)
 
 	// A failed PUT never clobbers the stored set.
 	me = decode[meResp](t, c.mustDo("GET", "/auth/me", nil, 200))
@@ -166,7 +169,7 @@ func TestSectionVisibilityPreferences(t *testing.T) {
 
 	// One section off, and nothing else disturbed: the accent set above it stays.
 	c.mustDo("PUT", "/auth/me/preferences",
-		map[string]any{"aesthetic": "paper", "theme": "light", "accent": "ochre"}, 200)
+		map[string]any{"materialSet": "manuscript", "theme": "light", "accent": "ochre"}, 200)
 	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"hideCatalogue": true}, 200)
 	if l, c2, q := sections(); l || !c2 || q {
 		t.Fatalf("after hiding the Catalogue: library=%v catalogue=%v quotes=%v", l, c2, q)
@@ -236,7 +239,7 @@ func TestAnthologiesSectionPreference(t *testing.T) {
 
 	// On, and nothing else disturbed.
 	c.mustDo("PUT", "/auth/me/preferences",
-		map[string]any{"aesthetic": "paper", "theme": "light", "accent": "ochre"}, 200)
+		map[string]any{"materialSet": "manuscript", "theme": "light", "accent": "ochre"}, 200)
 	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"showAnthologies": true}, 200)
 	if !shown() {
 		t.Fatal("Anthologies stayed off after being turned on")

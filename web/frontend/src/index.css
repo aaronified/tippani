@@ -256,7 +256,49 @@
     --grain-card: 300px;      /* paper / metal on a card face */
   }
 
-  /* ---- grain (§5): fixed overlay tile, blend per aesthetic × theme ---- */
+  /* ---- every tile, named once ---------------------------------------------
+     THE ONLY PLACE A TEXTURE FILE IS NAMED. theme.js chooses a material per slot
+     and writes --tile-card: var(--tile-paper); it never spells a path, because a
+     path spelled in JavaScript is a path the bundler cannot fingerprint and a
+     404 nobody notices until the grain is missing. Here, every url() goes
+     through the build's own asset rewriting.
+
+     Unreferenced on purpose: a tile no set names still costs the bundle nothing,
+     because a custom property nobody resolves is never fetched. That is what
+     makes it safe to declare the whole inventory rather than the subset in use.
+
+     The scales and strengths that go with these live in
+     src/textures/README.md, measured per file. ---- */
+  :root {
+    --tile-paper: url("./textures/paper.webp");
+    --tile-linen: url("./textures/linen.png");
+    --tile-cotton: url("./textures/cotton.png");
+    --tile-canvas: url("./textures/canvas.png");
+    --tile-denim: url("./textures/denim.png");
+    --tile-wool: url("./textures/wool.png");
+    --tile-wood: url("./textures/wood.webp");
+    --tile-metal: url("./textures/metal.webp");
+    --tile-brushed: url("./textures/brushed.png");
+    --tile-matte: url("./textures/matte.png");
+    --tile-satin: url("./textures/satin.png");
+    --tile-glass: url("./textures/glass.webp");
+    --tile-rubber-flat: url("./textures/rubber-flat.png");
+    --tile-fabric: url("./textures/fabric.webp");
+    --tile-walnut: url("./textures/walnut.png");
+    --tile-pine: url("./textures/pine.png");
+    --tile-marble: url("./textures/marble.png");
+    --tile-granite: url("./textures/granite.png");
+    --tile-sandstone: url("./textures/sandstone.png");
+    --tile-concrete: url("./textures/concrete.png");
+    --tile-cardboard: url("./textures/cardboard.png");
+    --tile-paper-photo: url("./textures/paper-photo.png");
+    --tile-leather-004: url("./textures/leather-004.png");
+    --tile-leather-021: url("./textures/leather-021.png");
+    --tile-leather-034d: url("./textures/leather-034d.png");
+    --tile-leather-037: url("./textures/leather-037.png");
+  }
+
+  /* ---- grain (§5): fixed overlay tile, blend per theme ---- */
   .grain-overlay {
     position: fixed;
     inset: 0;
@@ -268,11 +310,11 @@
     opacity: .055;
   }
   html[data-theme="dark"] .grain-overlay { mix-blend-mode: screen; opacity: .05; }
-  html[data-aesthetic="film"][data-theme="dark"] .grain-overlay { opacity: .08; }
 
   /* ---- scenic background: a faint, fixed layer behind everything ----
-     A tiled material per aesthetic — wood for paper, glass/quartz for film —
-     blended into the page so it stays a texture rather than a picture. The tiles
+     The ground slot of the chosen material set — linen under Manuscript,
+     sandstone under Quarry — blended into the page so it stays a texture rather
+     than a picture. The tiles
      are grayscale webp in src/textures/, so the blend does the colouring:
      multiply on light themes, screen on dark. A barely-there drift, GPU
      composited, off under reduced-motion.
@@ -298,8 +340,11 @@
     from { transform: translate3d(0, 0, 0); }
     to { transform: translate3d(0, -14px, 0); }
   }
-  html[data-aesthetic="paper"] .scene-bg { background-image: url("./textures/wood.webp"); background-size: var(--grain-scene); }
-  html[data-aesthetic="film"] .scene-bg { background-image: url("./textures/glass.webp"); background-size: calc(var(--grain-scene) * 0.86); }
+  /* The desk. --tile-ground is written by theme.js from the chosen set, so this
+     rule stops naming a material and starts naming a SLOT — which is the whole
+     point of the seven sets: Quarry's desk is sandstone and Atelier's is canvas
+     without a rule here knowing either word. */
+  html .scene-bg { background-image: var(--tile-ground); background-size: var(--grain-scene); }
   @media (prefers-reduced-motion: reduce) { .scene-bg { animation: none; } }
 
   /* ---- the scrim behind a modal ------------------------------------------
@@ -341,7 +386,6 @@
   .sheen-raised,
   .tp-select-panel,
   .token-menu { background: linear-gradient(180deg, color-mix(in oklab, var(--raised), white 3%), var(--raised)); }
-
 
   /* ---- tactile surfaces (§ design): a press "depression" blooms where you
      click, shared by toggles + primary buttons; initTactile feeds --px/--py. ---- */
@@ -459,27 +503,30 @@
          snap and NO depression at all.
      --thumb-ease/--thumb-dur drive the slide; --press-a(-dark)/--press-r drive
      the press bloom (reduced-motion still zeroes both). */
-  html[data-aesthetic="paper"] { --thumb-ease: cubic-bezier(.2,.68,.28,1); --thumb-dur: .32s; --press-a: .2; --press-a-dark: .34; --press-r: 36px; }
-  html[data-aesthetic="film"]  { --thumb-ease: cubic-bezier(.34,1.62,.48,1); --thumb-dur: .48s; --press-a: .34; --press-a-dark: .5; --press-r: 46px; }
-  html[data-aesthetic="paper"] .nav-toggle { --thumb-ease: cubic-bezier(.4,.9,.36,1); --thumb-dur: .19s; --press-a: 0; --press-a-dark: 0; }
-  html[data-aesthetic="film"]  .nav-toggle { --thumb-ease: cubic-bezier(.42,.86,.4,1); --thumb-dur: .21s; --press-a: 0; --press-a-dark: 0; }
+  html { --thumb-ease: cubic-bezier(.2,.68,.28,1); --thumb-dur: .32s; --press-a: .2; --press-a-dark: .34; --press-r: 36px; }
+  html .nav-toggle { --thumb-ease: cubic-bezier(.4,.9,.36,1); --thumb-dur: .19s; --press-a: 0; --press-a-dark: 0; }
 
   /* Drop-shadow elevation for cards / covers / posters / frames, tuned per
      material: PAPER (wood desk, paper cards, leather) is TIGHT & crisp; FILM
      (glass/quartz, metal, rubber) is SOFT & DIFFUSE with a faint amber glow. The
      current look is the middle ground these bracket. Every drop shadow reads
      var(--lift), so one place sets the diffusion. --lift = rest, --lift-hi = hover. */
-  html { --lift: 0 1px 2px rgba(41,38,29,.14), 0 9px 18px -8px rgba(41,38,29,.22), 0 24px 44px -20px rgba(41,38,29,.3);
-    --lift-hi: 0 3px 6px rgba(41,38,29,.16), 0 16px 30px -10px rgba(41,38,29,.34), 0 34px 56px -22px rgba(41,38,29,.4); }
-  html[data-aesthetic="paper"] { --lift: 0 1px 2px rgba(41,38,29,.17), 0 6px 11px -6px rgba(41,38,29,.26), 0 14px 22px -14px rgba(41,38,29,.32);
-    --lift-hi: 0 2px 4px rgba(41,38,29,.2), 0 10px 17px -7px rgba(41,38,29,.32), 0 20px 30px -16px rgba(41,38,29,.4); }
-  html[data-aesthetic="paper"][data-theme="dark"] { --lift: 0 1px 2px rgba(0,0,0,.55), 0 6px 12px -6px rgba(0,0,0,.6), 0 15px 24px -14px rgba(0,0,0,.68);
-    --lift-hi: 0 2px 5px rgba(0,0,0,.6), 0 11px 20px -7px rgba(0,0,0,.66), 0 24px 36px -16px rgba(0,0,0,.74); }
-  /* FILM edge light modelled as an LED strip (§ design): a crisp amber hairline
-     hugging the edge + a tight bloom, not a big soft halo. --lift-hi turns the
-     strip up on hover. */
-  html[data-aesthetic="film"] { --lift: 0 2px 7px rgba(0,0,0,.4), 0 18px 44px -12px rgba(0,0,0,.48), 0 46px 90px -28px rgba(0,0,0,.6), 0 0 0 1px color-mix(in srgb, var(--amber) 30%, transparent), 0 0 6px -1px color-mix(in srgb, var(--amber) 44%, transparent), 0 0 15px -3px color-mix(in srgb, var(--amber) 24%, transparent);
-    --lift-hi: 0 3px 9px rgba(0,0,0,.44), 0 26px 60px -12px rgba(0,0,0,.54), 0 60px 112px -30px rgba(0,0,0,.64), 0 0 0 1px color-mix(in srgb, var(--amber) 46%, transparent), 0 0 9px 0 color-mix(in srgb, var(--amber) 58%, transparent), 0 0 22px -3px color-mix(in srgb, var(--amber) 34%, transparent); }
+  /* FOUR BLOCKS BECOME TWO, AND THE COLOUR COMES FROM THE PALETTE. There was a
+     default pair, a paper pair, a paper-dark pair and a film pair, each spelling
+     its own rgba() — twelve hardcoded shadow colours for what is one recipe at
+     two opacities. The mode supplies --sh (the shadow's own RGB triple: warm ink
+     on light, black on dark), so the recipe is written once here and the palette
+     decides what it is made of.
+
+     FILM'S AMBER EDGE LIGHT IS GONE, and deliberately. It modelled an LED strip
+     on the frame — three amber rings on every raised thing in the app — and it
+     was film the AESTHETIC rather than any material. Seven sets have no glowing
+     one, and a set that wanted an edge light would want it per surface, not per
+     app. If it comes back it comes back as a material's own answer to light. */
+  html { --lift: 0 1px 2px rgba(var(--sh), .17), 0 6px 11px -6px rgba(var(--sh), .26), 0 14px 22px -14px rgba(var(--sh), .32);
+    --lift-hi: 0 2px 4px rgba(var(--sh), .2), 0 10px 17px -7px rgba(var(--sh), .32), 0 20px 30px -16px rgba(var(--sh), .4); }
+  html[data-theme="dark"] { --lift: 0 1px 2px rgba(var(--sh), .55), 0 6px 12px -6px rgba(var(--sh), .6), 0 15px 24px -14px rgba(var(--sh), .68);
+    --lift-hi: 0 2px 5px rgba(var(--sh), .6), 0 11px 20px -7px rgba(var(--sh), .66), 0 24px 36px -16px rgba(var(--sh), .74); }
 
   /* The shell nav IS a toggle too (§ design): transparent in the topbar so it
      reads as nav, with a DISTINCT textured thumb (wood on paper, metal on film)
@@ -489,15 +536,14 @@
   /* The active tab label rides light over the wood/metal thumb (beats the soft
      colour above; the generic .is-on rule is out-specificity'd by .nav-toggle). */
   .nav-toggle .tp-toggle-opt.is-on { color: var(--on-accent); text-shadow: 0 1px 2px rgba(0,0,0,.4); }
-  html[data-aesthetic="paper"] .nav-toggle .tp-toggle-thumb {
-    background-image: linear-gradient(rgba(0,0,0,var(--sel-scrim,.12)), rgba(0,0,0,var(--sel-scrim,.12))), url("./textures/wood.webp"), linear-gradient(180deg, color-mix(in oklab, var(--accent), white 14%), var(--accent));
+  /* THE NAV THUMB KEEPS ITS OWN SCALE, NOT ITS OWN MATERIAL. It used to be wood
+     against the filter toggles' leather so the shell nav read apart, which was a
+     distinction two aesthetics could afford and seven sets cannot: there is one
+     shell material now, and inventing a second for this control would put a
+     material in the app that no set names. The tile is the same and the SIZE is
+     not — shell-sm against grain-accent — so it still reads as its own thing. */
+  html .nav-toggle .tp-toggle-thumb {
     background-size: auto, var(--grain-shell-sm), auto;
-    background-blend-mode: normal, overlay, normal;
-  }
-  html[data-aesthetic="film"] .nav-toggle .tp-toggle-thumb {
-    background-image: linear-gradient(rgba(0,0,0,var(--sel-scrim,.12)), rgba(0,0,0,var(--sel-scrim,.12))), url("./textures/metal.webp"), linear-gradient(180deg, color-mix(in oklab, var(--accent-dark), white 12%), var(--accent-dark));
-    background-size: auto, var(--grain-shell-sm), auto;
-    background-blend-mode: normal, overlay, normal;
   }
 
   /* ---- the one Select (§ design): tactile trigger + a panel that dips open,
@@ -524,7 +570,6 @@
     border-radius: 10px 8px 11px 8px / 8px 11px 8px 10px;
     box-shadow: inset 0 1px 2px rgba(0,0,0,.09);
   }
-  html[data-aesthetic="film"] .tp-select-trigger { border-radius: 8px; border-color: var(--frame-border); }
   .tp-select-ph { color: var(--faint); }
   .tp-select-chev { color: var(--soft); transition: transform .22s ease; flex: none; }
   .tp-select-trigger[aria-expanded="true"] .tp-select-chev { transform: rotate(180deg); }
@@ -678,24 +723,21 @@
     box-shadow: var(--lift), inset 0 1px 0 rgba(255,255,255,.06), inset 0 -1px 0 rgba(0,0,0,.35);
   }
 
-  /* ---- aesthetic identity (§1: the toggle flips the whole vibe, not just radii).
-     PAPER = a note lifted off the desk; FILM = a frame on a light table. ---- */
-  html[data-aesthetic="paper"] .hand-card {
+  /* ---- a card is a note lifted off the desk ----
+     This pair used to be four rules: one for paper, one for film, and a dark
+     variant of each, because an aesthetic chose a whole look. There is one look
+     now and seven materials in it, so what is left is the light face and the dark
+     one, and the material arrives through --tile-card above. ---- */
+  html .hand-card {
     background: linear-gradient(180deg, color-mix(in srgb, var(--card), white 6%), color-mix(in srgb, var(--card), black 5%));
     box-shadow: var(--lift), inset 0 1px 0 rgba(255,255,255,.8), inset 0 -1px 0 rgba(41,38,29,.06);
   }
-  html[data-aesthetic="paper"][data-theme="dark"] .hand-card {
+  html[data-theme="dark"] .hand-card{
     background: linear-gradient(180deg, color-mix(in srgb, var(--card), white 8%), color-mix(in srgb, var(--card), black 10%));
     box-shadow: var(--lift), inset 0 1px 0 rgba(255,255,255,.07), inset 0 -1px 0 rgba(0,0,0,.4);
   }
   /* FILM: emulsion panel, square corners, amber hairline, and a light-table glow
      so cards read as frames lit from beneath — a different app at a glance. */
-  html[data-aesthetic="film"] .hand-card {
-    border: 1px solid color-mix(in srgb, var(--amber) 45%, var(--frame-border));
-    border-radius: 7px;
-    background: linear-gradient(180deg, color-mix(in srgb, var(--card), white 7%), color-mix(in srgb, var(--card), black 12%));
-    box-shadow: var(--lift), inset 0 1px 0 color-mix(in srgb, var(--amber) 24%, transparent), inset 0 -1px 0 rgba(0,0,0,.35);
-  }
 
   /* ---- film frame (§6): one dialogue/quote card in the strip. Sheened and
      lifted so the strip reads as stacked frames, not flat rectangles.
@@ -721,18 +763,14 @@
     border-radius: 10px;
     box-shadow: var(--lift), inset 0 1px 0 rgba(255,255,255,.55), inset 0 -1px 0 rgba(41,38,29,.05);
   }
-  /* And it answers the aesthetic toggle, which it also did not. Under paper a
-     frame is a strip of contact-sheet card stock — warmer ground, softer
-     corners; under film it is the lit panel the rest of that skin is made of,
-     with the amber hairline every other film surface wears. */
-  html[data-aesthetic="paper"] .film-frame {
+  /* A frame is a strip of contact-sheet card stock: warmer ground, softer
+     corners. It used to have a second reading under film — the lit panel that
+     skin was made of, amber hairline and all — and that reading is gone with the
+     skin. What a frame is made of now comes from the set's card slot, the same
+     as a quote card, so this rule is only its SHAPE. */
+  html .film-frame {
     border-radius: 10px 8px 11px 9px / 9px 11px 8px 10px;
     border-color: var(--ink-border);
-  }
-  html[data-aesthetic="film"] .film-frame {
-    border-radius: 7px;
-    border-color: color-mix(in srgb, var(--amber) 38%, var(--frame-border));
-    box-shadow: var(--lift), inset 0 1px 0 color-mix(in srgb, var(--amber) 20%, transparent), inset 0 -1px 0 rgba(0,0,0,.3);
   }
 
   /* Quote/note text inside cards must never widen the page: a long unbroken
@@ -769,17 +807,18 @@
   /* Raised, lit from the top-centre: bright top edge, shaded underside, and a
      cast shadow beneath. On :active the whole face sinks (translateY) and the
      lighting inverts to an inset — a genuine push, not a colour swap. */
-  /* THE STICKER IS A PAPER OBJECT, so it is gated like every other one.
-     It was not. .btn-sticker carried leather grain, an ink border, uneven radii
-     and a -0.5deg tilt unconditionally, while .tp-btn-primary — the button
-     Library.jsx documents as the intended primary — has been aesthetic-aware for
-     releases. So under film, Settings, Profile, the work-detail pages and the
-     tour showed tilted leather stickers and every other screen showed level
-     rubber, from one component. The film branch below is the same recipe
-     .tp-btn-primary already uses, so the two now differ in name only, which is
+  /* THE STICKER AND THE PRIMARY BUTTON ARE THE SAME OBJECT, and the aesthetics
+     are the reason that was ever in doubt. .btn-sticker carried leather grain, an
+     ink border, uneven radii and a -0.5deg tilt unconditionally, while
+     .tp-btn-primary — the button Library.jsx documents as the intended primary —
+     branched on the aesthetic. So under film, Settings, Profile, the work-detail
+     pages and the tour showed tilted leather stickers and every other screen
+     showed level rubber, from one component. With one look the branch is gone and
+     what is left is the paper recipe for both, so the two now differ in name
+     only, which is
      what lets the 33 call sites migrate later without a visual change. */
-  html[data-aesthetic="paper"] .btn-sticker,
-  html[data-aesthetic="paper"] .tp-btn-primary {
+  html .btn-sticker,
+  html .tp-btn-primary {
     box-shadow:
       inset 0 1px 0 rgba(255,255,255,.5),
       inset 0 -2px 3px rgba(41,38,29,.14),
@@ -787,8 +826,8 @@
       0 5px 11px -3px rgba(41,38,29,.32);
     transform: rotate(-0.5deg);
   }
-  html[data-aesthetic="paper"] .btn-sticker:active:not(:disabled),
-  html[data-aesthetic="paper"] .tp-btn-primary:active:not(:disabled) {
+  html .btn-sticker:active:not(:disabled),
+  html .tp-btn-primary:active:not(:disabled) {
     transform: rotate(-0.5deg) translateY(2px);
     box-shadow: inset 0 2px 4px rgba(41,38,29,.3), inset 0 -1px 1px rgba(255,255,255,.3), 0 1px 1px rgba(41,38,29,.2);
   }
@@ -797,39 +836,21 @@
     color: var(--on-accent);
     border-color: var(--ink-border);
   }
-  html[data-aesthetic="paper"] .btn-sticker { border-radius: 11px 7px 10px 8px / 8px 11px 7px 10px; }
+  html .btn-sticker { border-radius: 11px 7px 10px 8px / 8px 11px 7px 10px; }
   .btn-sticker:hover:not(:disabled) {
     background: linear-gradient(180deg, color-mix(in oklab, var(--accent), white 22%), color-mix(in oklab, var(--accent), white 6%));
   }
-  /* Under film a sticker is a rubber key: level, square-ish, darker accent —
-     exactly what .tp-btn-primary does on this aesthetic. */
-  html[data-aesthetic="film"] .btn-sticker {
-    border-radius: 9px 7px 8px 6px / 7px 9px 6px 8px;
-    background: linear-gradient(180deg, color-mix(in oklab, var(--accent-dark), white 12%), var(--accent-dark));
-    color: var(--on-accent-dark);
+  /* .btn-film is a level, square-ish key with a darker accent. The name is
+     historical — it was the film aesthetic's sticker — and it survives as the one
+     button in the app that asks for that shape by name rather than by skin. */
+  .btn-film{
     box-shadow:
       inset 0 1px 0 rgba(255,255,255,.22),
       inset 0 -2px 3px rgba(0,0,0,.3),
       0 2px 3px rgba(0,0,0,.42),
       0 6px 14px -4px rgba(0,0,0,.5);
   }
-  html[data-aesthetic="film"] .btn-sticker:hover:not(:disabled) {
-    background: linear-gradient(180deg, color-mix(in oklab, var(--accent-dark), white 24%), color-mix(in oklab, var(--accent-dark), white 8%));
-  }
-  html[data-aesthetic="film"] .btn-sticker:active:not(:disabled) {
-    transform: translateY(2px);
-    box-shadow: inset 0 2px 5px rgba(0,0,0,.45), inset 0 -1px 1px rgba(255,255,255,.16), 0 1px 2px rgba(0,0,0,.4);
-  }
-  .btn-film,
-  html[data-aesthetic="film"] .tp-btn-primary {
-    box-shadow:
-      inset 0 1px 0 rgba(255,255,255,.22),
-      inset 0 -2px 3px rgba(0,0,0,.3),
-      0 2px 3px rgba(0,0,0,.42),
-      0 6px 14px -4px rgba(0,0,0,.5);
-  }
-  .btn-film:active:not(:disabled),
-  html[data-aesthetic="film"] .tp-btn-primary:active:not(:disabled) {
+  .btn-film:active:not(:disabled){
     transform: translateY(2px);
     box-shadow: inset 0 2px 5px rgba(0,0,0,.45), inset 0 -1px 1px rgba(255,255,255,.16), 0 1px 2px rgba(0,0,0,.4);
   }
@@ -852,16 +873,15 @@
   html[data-theme="dark"] .tp-btn-ghost { box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 1px 2px rgba(0,0,0,.4), 0 4px 8px -3px rgba(0,0,0,.5); }
   .tp-btn-ghost:hover:not(:disabled) { background: color-mix(in oklab, var(--ink) 6%, transparent); }
   .tp-btn-ghost:active:not(:disabled) { transform: translateY(1.5px); box-shadow: inset 0 2px 4px rgba(41,38,29,.18); }
-  html[data-aesthetic="paper"] .tp-btn-ghost { border-radius: 10px 7px 9px 8px / 8px 10px 7px 9px; }
+  html .tp-btn-ghost { border-radius: 10px 7px 9px 8px / 8px 10px 7px 9px; }
   /* .tp-btn-primary maps to sticker on paper, film-style on film (compat + shell) */
   /* No `transform: rotate(-0.5deg)` here: the shared paper rule above already
      sets it, and a second copy is a second thing to remember when the tilt
      changes. */
-  html[data-aesthetic="paper"] .tp-btn-primary {
+  html .tp-btn-primary {
     border-color: var(--ink-border);
     border-radius: 11px 7px 10px 8px / 8px 11px 7px 10px;
   }
-  html[data-aesthetic="film"] .tp-btn-primary { border-radius: 9px 7px 8px 6px / 7px 9px 6px 8px; }
   html[data-theme="light"] .tp-btn-primary {
     background: linear-gradient(180deg, color-mix(in oklab, var(--accent), white 14%), var(--accent));
     color: var(--on-accent);
@@ -982,10 +1002,9 @@
   }
   html[data-theme="dark"] .hand-card::before,
   html[data-theme="dark"] .film-frame::before { mix-blend-mode: screen; opacity: .11; }
-  html[data-aesthetic="paper"] .hand-card::before,
-  html[data-aesthetic="paper"] .film-frame::before { background-image: url("./textures/paper.webp"); background-size: var(--grain-card); }
-  html[data-aesthetic="film"] .hand-card::before,
-  html[data-aesthetic="film"] .film-frame::before { background-image: url("./textures/metal.webp"); background-size: var(--grain-card); }
+  /* The page. */
+  html .hand-card::before,
+  html .film-frame::before { background-image: var(--tile-card); background-size: var(--grain-card); }
 
   /* Fine noise dither — breaks up 8-bit banding in the card's low-contrast
      vertical gradient (visible on tall dark cards). Overlay blend + very low
@@ -1034,15 +1053,16 @@
     opacity: .5;
     mix-blend-mode: overlay;
   }
-  html[data-aesthetic="paper"] .btn-sticker::before,
-  html[data-aesthetic="paper"] .topbar-add-btn::before,
-  html[data-aesthetic="paper"] .user-chip::before,
-  html[data-aesthetic="paper"] .tp-btn-primary::before { background-image: url("./textures/fabric.webp"); }
-  .btn-film::before,
-  html[data-aesthetic="film"] .btn-sticker::before,
-  html[data-aesthetic="film"] .topbar-add-btn::before,
-  html[data-aesthetic="film"] .user-chip::before,
-  html[data-aesthetic="film"] .tp-btn-primary::before { background-image: url("./textures/rubber.webp"); }
+  /* AN ACCENT FILL IS FURNITURE, so it wears the shell's material. The set names
+     four materials and none of them is "the accent", so the choice was between
+     freezing one tile here for ever and picking the slot a control belongs to.
+     A toggle thumb, an Add pill and a user chip are things you push — the same
+     category as the bar they sit in — so they take the shell. */
+  html .btn-sticker::before,
+  html .btn-film::before,
+  html .topbar-add-btn::before,
+  html .user-chip::before,
+  html .tp-btn-primary::before { background-image: var(--tile-shell); }
 
   /* A dark scrim over the textured accent surfaces: now the selected label rides
      light, a slightly darker ground lifts it off the grain. Dark theme goes a
@@ -1052,17 +1072,15 @@
 
   /* Filter toggle + select thumbs get the same leather/rubber grain (the nav
      toggle overrides with wood/metal so the shell stays distinct). */
-  html[data-aesthetic="paper"] .tp-toggle-thumb,
-  html[data-aesthetic="paper"] .tp-select-thumb {
-    background-image: linear-gradient(rgba(0,0,0,var(--sel-scrim,.12)), rgba(0,0,0,var(--sel-scrim,.12))), url("./textures/fabric.webp"), linear-gradient(180deg, color-mix(in oklab, var(--accent), white 14%), var(--accent));
+  html .tp-toggle-thumb,
+  html .tp-select-thumb {
+    background-image: linear-gradient(rgba(0,0,0,var(--sel-scrim,.12)), rgba(0,0,0,var(--sel-scrim,.12))), var(--tile-shell), linear-gradient(180deg, color-mix(in oklab, var(--accent), white 14%), var(--accent));
     background-size: auto, var(--grain-accent), auto;
     background-blend-mode: normal, overlay, normal;
   }
-  html[data-aesthetic="film"] .tp-toggle-thumb,
-  html[data-aesthetic="film"] .tp-select-thumb {
-    background-image: linear-gradient(rgba(0,0,0,var(--sel-scrim,.12)), rgba(0,0,0,var(--sel-scrim,.12))), url("./textures/rubber.webp"), linear-gradient(180deg, color-mix(in oklab, var(--accent-dark), white 12%), var(--accent-dark));
-    background-size: auto, var(--grain-accent), auto;
-    background-blend-mode: normal, overlay, normal;
+  html[data-theme="dark"] .tp-toggle-thumb,
+  html[data-theme="dark"] .tp-select-thumb {
+    background-image: linear-gradient(rgba(0,0,0,var(--sel-scrim,.12)), rgba(0,0,0,var(--sel-scrim,.12))), var(--tile-shell), linear-gradient(180deg, color-mix(in oklab, var(--accent-dark), white 12%), var(--accent-dark));
   }
 
   /* ---- inputs (§6/§8): mono labels above, wobbly borders on paper ---- */
@@ -1086,7 +1104,7 @@
     /* recessed: fields sit *into* the surface, cards sit *above* it (depth hierarchy). */
     box-shadow: inset 0 2px 4px rgba(41,38,29,.09), inset 0 1px 0 rgba(41,38,29,.04);
   }
-  html[data-aesthetic="paper"] .tp-input {
+  html .tp-input {
     border-color: color-mix(in srgb, var(--ink-border) 70%, transparent);
     border-radius: 10px 8px 11px 8px / 8px 11px 8px 10px;
   }
@@ -1235,7 +1253,7 @@
     background: #F7F2E6;
     box-shadow: inset 0 0 0 1px rgba(41,38,29,.35);
   }
-  @media (prefers-reduced-motion: reduce) { .tag-chip, html[data-aesthetic="paper"] .btn-sticker, html[data-aesthetic="paper"] .tp-btn-primary { transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .tag-chip, html .btn-sticker, html .tp-btn-primary{ transform: none; } }
 
   /* ---- highlight span (§6) ---- */
   .hl {
@@ -1266,39 +1284,6 @@
  font-variant-numeric: var(--font-ui-figures); color: var(--accent-ui); margin-right: 7px; }
   /* FILM note = a cream paper label, hand-written, taped onto the dark frame
      (§1: "tiles to pasted notes, like the ones pasted on reels"). */
-  html[data-aesthetic="film"] .hand-note {
-    position: relative;
-    display: inline-block;
-    font-family: var(--font-hand);
-    font-variant-caps: var(--font-hand-caps);
-    text-transform: var(--font-hand-case);
-    font-variant-numeric: var(--font-hand-figures);
-    font-style: normal;
-    font-size: var(--type-hand-17);
-    font-weight: 500;
-    line-height: 1.32;
-    color: #2A241C;
-    background: linear-gradient(180deg, #FBF5E6, #F0E7D1);
-    border: 1px solid rgba(41,38,29,.22);
-    border-radius: 3px;
-    padding: 8px 13px;
-    margin-top: 9px;
-    transform: rotate(-1.4deg);
-    box-shadow: 0 7px 16px -9px rgba(0,0,0,.6);
-  }
-  html[data-aesthetic="film"] .hand-note .tick { display: none; }
-  html[data-aesthetic="film"] .hand-note::before {
-    content: '';
-    position: absolute;
-    top: -7px;
-    left: 14px;
-    width: 46px;
-    height: 15px;
-    background: color-mix(in srgb, var(--amber) 34%, #fff);
-    opacity: .6;
-    border: 1px solid rgba(41,38,29,.14);
-    transform: rotate(-5deg);
-  }
   @media (prefers-reduced-motion: reduce) { .hand-note { transform: none; } }
 
   /* ---- what the line says (0051): the translation, under the meta strip ----
@@ -1321,10 +1306,6 @@
   }
   /* On a film frame the card is dark, so --soft (a paper mid-tone) would sink
      into it. The amber the credit line uses is the frame's own quiet voice. */
-  html[data-aesthetic="film"] .quote-translation {
-    color: color-mix(in srgb, var(--amber) 72%, #fff);
-    margin-top: 5px;
-  }
 
   /* ---- ♥ favourite mark (§6): hand-inked, never machine-perfect.
      Each glyph's resting jitter (random rotation/scale/nudge) rides the *individual*
@@ -1395,11 +1376,7 @@
      it stands in for: a hand-drawn corner under paper, a square frame with the
      amber hairline under film. It had one radius for both, which made an
      unfetched cover the only rounded rectangle on a film board. */
-  html[data-aesthetic="paper"] .ph { border-radius: 7px 5px 6px 5px / 5px 7px 5px 6px; }
-  html[data-aesthetic="film"] .ph {
-    border-radius: 4px;
-    border-color: color-mix(in srgb, var(--amber) 26%, var(--line));
-  }
+  html .ph { border-radius: 7px 5px 6px 5px / 5px 7px 5px 6px; }
 
   /* ---- film strip pieces (§6) ---- */
   .film-strip {
@@ -1554,7 +1531,7 @@
   }
   /* The picked card. An accent RING rather than a fill: a quote card already carries
      a colour bar that means something else entirely, and tinting the paper would
-     fight it — and on the film aesthetic it would fight the frame. The ring is what
+     fight it — and on a frame it would fight the border. The ring is what
      you see from across the board; the tick is what you read up close. */
   .is-picked {
     position: relative;
@@ -2914,8 +2891,6 @@
   }
   /* Film's grooves are machined: a square-ended track, like the counter on a
      splicer. Paper keeps the pill. */
-  html[data-aesthetic="film"] .progress-track,
-  html[data-aesthetic="film"] .progress-fill { border-radius: 3px; }
   .progress-fill {
     height: 100%;
     border-radius: inherit;
@@ -3106,15 +3081,10 @@
      a different one, so this value has never once been drawn. The tab is a pill
      with its bottom corners nearly square — see that rule, which is now the only
      place the shape is decided. */
-  html[data-aesthetic="paper"] .tab.active { /* hand-drawn accent pill */
+  html .tab.active { /* hand-drawn accent pill */
     color: var(--accent-ui);
     background: linear-gradient(180deg, var(--card-top), var(--card-bottom));
     border-color: color-mix(in srgb, var(--accent) 55%, transparent);
-  }
-  html[data-aesthetic="film"] .tab.active { /* accent tint (icon carries the mark now) */
-    color: var(--accent-ui);
-    background: color-mix(in srgb, var(--accent) 16%, transparent);
-    border-radius: 8px;
   }
   .tab svg { flex: none; }
   /* user-chip menu rows (utility tabs live here now) */
@@ -3233,8 +3203,7 @@
     background: linear-gradient(180deg, color-mix(in oklab, var(--accent), white 14%), var(--accent));
     color: var(--on-accent);
     text-shadow: 0 1px 1px rgba(0,0,0,.28);
-  }
-  html[data-aesthetic="film"] .user-chip { border-radius: 22%; }  /* film runs more geometric */
+  }  /* film runs more geometric */
   html[data-theme="dark"] .user-chip {
     background: linear-gradient(180deg, color-mix(in oklab, var(--accent-dark), white 12%), var(--accent-dark));
   }
@@ -3553,17 +3522,14 @@
     background: linear-gradient(180deg, color-mix(in oklab, var(--accent), white 14%), var(--accent));
     box-shadow: 0 1px 2px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.3);
   }
-  html[data-aesthetic="paper"] .tp-filter-chip.active {
-    background-image: linear-gradient(rgba(0,0,0,var(--sel-scrim,.12)), rgba(0,0,0,var(--sel-scrim,.12))), url("./textures/fabric.webp"), linear-gradient(180deg, color-mix(in oklab, var(--accent), white 14%), var(--accent));
+  html .tp-filter-chip.active {
+    background-image: linear-gradient(rgba(0,0,0,var(--sel-scrim,.12)), rgba(0,0,0,var(--sel-scrim,.12))), var(--tile-shell), linear-gradient(180deg, color-mix(in oklab, var(--accent), white 14%), var(--accent));
     background-size: auto, var(--grain-accent), auto;
     background-blend-mode: normal, overlay, normal;
   }
-  html[data-aesthetic="film"] .tp-filter-chip.active {
-    background-image: linear-gradient(rgba(0,0,0,var(--sel-scrim,.12)), rgba(0,0,0,var(--sel-scrim,.12))), url("./textures/rubber.webp"), linear-gradient(180deg, color-mix(in oklab, var(--accent-dark), white 12%), var(--accent-dark));
-    background-size: auto, var(--grain-accent), auto;
-    background-blend-mode: normal, overlay, normal;
+  html[data-theme="dark"] .tp-filter-chip.active {
+    background-image: linear-gradient(rgba(0,0,0,var(--sel-scrim,.12)), rgba(0,0,0,var(--sel-scrim,.12))), var(--tile-shell), linear-gradient(180deg, color-mix(in oklab, var(--accent-dark), white 12%), var(--accent-dark));
   }
-  html[data-aesthetic="film"] .tp-filter-chip { border-radius: 8px; }
   /* One-line filter row. It holds only selects and short chips now — the
      measured genre chip strip (and its .genre-chips rule) went with GenreFilter
      in 1.4.2, so nothing on this row has to be sized against the row's leftover
@@ -3667,30 +3633,12 @@
     color: var(--faint);
   }
 
-  /* ---- aesthetic identity — chrome (Phase 1): chips, ghost buttons, tabs,
-     empties + a film light-table backlight, so paper vs film reads app-wide. ---- */
-  html[data-aesthetic="film"] body {
-    background-image: radial-gradient(130% 80% at 50% -8%, color-mix(in srgb, var(--amber) 7%, transparent), transparent 55%);
-    background-attachment: fixed;
-  }
-  html[data-aesthetic="film"] .tp-chip {
-    border-radius: 4px;
-    color: var(--amber);
-    border-color: color-mix(in srgb, var(--amber) 34%, var(--line));
-    background: color-mix(in srgb, var(--amber) 9%, transparent);
-  }
-  html[data-aesthetic="film"] .tp-btn-ghost {
-    border-color: color-mix(in srgb, var(--amber) 30%, var(--ink-border));
-  }
-  html[data-aesthetic="film"] .tp-empty {
-    border: 1px dashed color-mix(in srgb, var(--amber) 32%, var(--line));
-    border-radius: 8px;
-    color: color-mix(in srgb, var(--amber) 80%, var(--faint));
-  }
-  html[data-aesthetic="film"] .tab.active {
-    box-shadow: 0 0 13px -4px color-mix(in srgb, var(--accent) 45%, transparent);
-  }
-  html[data-aesthetic="paper"] .tab.active {
+  /* ---- chrome: chips, ghost buttons, tabs, empties ----
+     What is left of a block that also carried film's light-table backlight — a
+     fixed amber radial wash on <body>, painted app-wide from one rule. It was the
+     aesthetic rather than any material, and seven sets have no glowing one, so it
+     went rather than being mapped onto a set. ---- */
+  html .tab.active {
     border-radius: 11px 9px 4px 4px / 9px 11px 4px 4px;
     box-shadow: 0 -2px 7px -5px rgba(41,38,29,.35);
   }
@@ -3967,20 +3915,14 @@ html[data-theme="dark"] .mobile-sheet-footer::before {
   mix-blend-mode: screen;
   opacity: .1;
 }
-html[data-aesthetic="paper"] .drawer::before,
-html[data-aesthetic="paper"] .mobile-bottom-nav::before,
-html[data-aesthetic="paper"] .topbar::before,
-html[data-aesthetic="paper"] .mobile-topbar::before,
-html[data-aesthetic="paper"] .mobile-sticky-bar::before,
-html[data-aesthetic="paper"] .mobile-sheet-header::before,
-html[data-aesthetic="paper"] .mobile-sheet-footer::before { background-image: url("./textures/wood.webp"); }
-html[data-aesthetic="film"] .drawer::before,
-html[data-aesthetic="film"] .mobile-bottom-nav::before,
-html[data-aesthetic="film"] .topbar::before,
-html[data-aesthetic="film"] .mobile-topbar::before,
-html[data-aesthetic="film"] .mobile-sticky-bar::before,
-html[data-aesthetic="film"] .mobile-sheet-header::before,
-html[data-aesthetic="film"] .mobile-sheet-footer::before { background-image: url("./textures/metal.webp"); }
+/* The furniture: every bar, drawer and sheet edge in the app is one slot. */
+html .drawer::before,
+html .mobile-bottom-nav::before,
+html .topbar::before,
+html .mobile-topbar::before,
+html .mobile-sticky-bar::before,
+html .mobile-sheet-header::before,
+html .mobile-sheet-footer::before { background-image: var(--tile-shell); }
 /* A bar is short and wide, so its tile scales down to read as grain rather than
    as one blurry plank crossing the whole control. The drawer is a full-height
    panel and keeps the panel scale. */
@@ -4036,23 +3978,21 @@ html[data-aesthetic="film"] .mobile-sheet-footer::before { background-image: url
 .drawer-item svg { flex: none; }
 
 /* THE SELECTED THING WEARS THE SELECTED MATERIAL. Both of these were a flat
-   13% accent wash — the one selection state in the app that ignored the
-   aesthetic entirely, so a phone showed the same tinted rectangle whether the
-   theme was paper or film, while every selection on a desktop (Toggle and
-   Select thumbs, active filter chips) wore the accent fill with leather or
-   rubber grain over it. Same recipe as .tp-filter-chip.active, down to the
-   --sel-scrim that lifts a light label off the grain. */
-html[data-aesthetic="paper"] .drawer-item.active,
-html[data-aesthetic="paper"] .mobile-bottom-nav-btn.active {
-  background-image: linear-gradient(rgba(0,0,0,var(--sel-scrim,.12)), rgba(0,0,0,var(--sel-scrim,.12))), url("./textures/fabric.webp"), linear-gradient(180deg, color-mix(in oklab, var(--accent), white 14%), var(--accent));
+   13% accent wash — the one selection state in the app that ignored the material
+   entirely, so a phone showed the same tinted rectangle while every selection on
+   a desktop (Toggle and Select thumbs, active filter chips) wore the accent fill
+   with grain over it. Same recipe as .tp-filter-chip.active, down to the
+   --sel-scrim that lifts a light label off the grain, and the tile is the shell's
+   because an accent fill is furniture. */
+html .drawer-item.active,
+html .mobile-bottom-nav-btn.active {
+  background-image: linear-gradient(rgba(0,0,0,var(--sel-scrim,.12)), rgba(0,0,0,var(--sel-scrim,.12))), var(--tile-shell), linear-gradient(180deg, color-mix(in oklab, var(--accent), white 14%), var(--accent));
   background-size: auto, var(--grain-accent), auto;
   background-blend-mode: normal, overlay, normal;
 }
-html[data-aesthetic="film"] .drawer-item.active,
-html[data-aesthetic="film"] .mobile-bottom-nav-btn.active {
-  background-image: linear-gradient(rgba(0,0,0,var(--sel-scrim,.12)), rgba(0,0,0,var(--sel-scrim,.12))), url("./textures/rubber.webp"), linear-gradient(180deg, color-mix(in oklab, var(--accent-dark), white 12%), var(--accent-dark));
-  background-size: auto, var(--grain-accent), auto;
-  background-blend-mode: normal, overlay, normal;
+html[data-theme="dark"] .drawer-item.active,
+html[data-theme="dark"] .mobile-bottom-nav-btn.active {
+  background-image: linear-gradient(rgba(0,0,0,var(--sel-scrim,.12)), rgba(0,0,0,var(--sel-scrim,.12))), var(--tile-shell), linear-gradient(180deg, color-mix(in oklab, var(--accent-dark), white 12%), var(--accent-dark));
 }
 /* §7 One "＋ Add": the drawer's lead row wears the accent so the single add
    action reads as primary, and a rule sets it apart from the nav rows below. */
@@ -4203,11 +4143,6 @@ html[data-theme="dark"] .mobile-bottom-nav {
               inset 0 1px 0 rgba(255, 255, 255, .06);
 }
 /* Film goes geometric + amber-hairlined, as .hand-card does. */
-html[data-aesthetic="film"] .mobile-bottom-nav {
-  border-radius: 12px;
-  border-color: color-mix(in oklab, var(--amber) 45%, var(--line));
-}
-html[data-aesthetic="film"] .mobile-bottom-nav-btn { border-radius: 9px; }
 
 /* Slid away. 100% clears the bar's own height; the extra px clear the float gap
    and the drop shadow. Fading too stops the shadow smearing at the edge, and

@@ -214,11 +214,20 @@ function wins(a, b) {
 // context in the file. Media conditions are not evaluated: a rule inside
 // `@media (max-width: 768px)` competes because a phone in high-contrast mode is a
 // real reader, and the off switch must beat it there too.
-function resolve(target, prop) {
+//
+// `skipContrast` is how a caller asks the OTHER question. The off switch is
+// `!important` in the first layer, so it wins every resolution it takes part in —
+// which is the point, and which would make "is this surface textured at all?"
+// unanswerable, because the answer would always be the stripped value. Excluding
+// that one block resolves the ordinary reader's screen; including it resolves the
+// screen of a reader who asked for more contrast. Both are real and they are
+// different questions.
+function resolve(target, prop, { skipContrast = false } = {}) {
   let best = null
   for (const r of rules) {
     const d = r.decls[prop]
     if (!d) continue
+    if (skipContrast && r.media.some((m) => m.includes('prefers-contrast: more'))) continue
     for (const sel of r.selectors) {
       if (!competes(sel, target)) continue
       const cand = { ...d, layer: r.layer, order: r.order, spec: specificity(sel), sel, media: r.media }
@@ -228,8 +237,13 @@ function resolve(target, prop) {
   return best
 }
 
-const CONTRAST = '(prefers-contrast: more), (prefers-reduced-transparency: reduce)'
-const isTexture = (v) => /textures\/|feTurbulence/.test(v)
+// A TEXTURE IS NOW NAMED BY SLOT, NOT BY FILE. index.css declares every tile once
+// as --tile-<material> and theme.js aliases --tile-card to whichever of them the
+// chosen material set puts on the page, so a stylesheet rule says
+// `background-image: var(--tile-card)` and never learns a filename. Both spellings
+// count as texture here: the aliases, and the one `:root` block that still holds
+// real url()s.
+const isTexture = (v) => /textures\/|feTurbulence|var\(--tile-/.test(v)
 const inContrast = (d) => !!d && d.media.some((m) => m.includes('prefers-contrast: more'))
 
 // A surface is off when it is faded to nothing, or when its fill no longer names a
@@ -246,14 +260,13 @@ function offState(target) {
 
 // ---------------------------------------------------------------------------
 
-// Controls that carry a full accent FILL and therefore the ::before grain overlay,
-// leather on paper and rubber on film.
+// Controls that carry a full accent FILL and therefore the ::before grain overlay.
 //
-// .btn-film is deliberately absent from this list and present in the off-switch one
-// below: it is the film-aesthetic button, so it is rubber in BOTH aesthetics by
-// definition rather than by branch. Asserting a paper branch for it would be
-// asserting a bug.
-const GRAIN_OVERLAY = ['.btn-sticker', '.tp-btn-primary', '.topbar-add-btn', '.user-chip']
+// .btn-film is in this list now and used to be excluded from it. It was the
+// film-aesthetic button, so it was rubber in both aesthetics by definition rather
+// than by branch, and asserting a paper branch for it would have been asserting a
+// bug. With one material per slot there is no branch to be absent from.
+const GRAIN_OVERLAY = ['.btn-sticker', '.btn-film', '.tp-btn-primary', '.topbar-add-btn', '.user-chip']
 // Surfaces whose grain rides inside background-image, so it cannot be faded by a
 // pseudo-element and has to be replaced outright in the contrast block.
 const LAYERED_FILL = ['.tp-toggle-thumb', '.tp-select-thumb', '.tp-filter-chip.active', '.drawer-item.active', '.mobile-bottom-nav-btn.active']
@@ -292,25 +305,28 @@ describe('accent-filled controls are textured', () => {
   // collected list names every untextured control at once. The two families stay
   // APART because they assert different things — a ::before overlay against a
   // tile inside the fill — not different data.
-  it('every accent fill gets the grain overlay in both aesthetics', () => {
-    // fabric on paper, rubber on film — the two halves of the same rule.
+  // Both now resolve the cascade rather than matching a selector string, so they
+  // answer what a reader gets instead of what somebody typed. An accent fill is
+  // furniture, so both families take the SHELL slot: --tile-shell is what the set
+  // put on the bars these controls sit in.
+  it('every accent fill gets the grain overlay from the shell material', () => {
     const missing = []
     for (const sel of GRAIN_OVERLAY) {
-      const esc = sel.replace('.', '\\.')
-      if (!new RegExp(`html\\[data-aesthetic="paper"\\]\\s*${esc}::before`).test(css)) missing.push(`${sel} paper grain`)
-      if (!new RegExp(`html\\[data-aesthetic="film"\\]\\s*${esc}::before`).test(css)) missing.push(`${sel} film grain`)
+      const bg = resolve(`${sel}::before`, 'background-image', { skipContrast: true })
+      if (!bg) missing.push(`${sel} has no grain layer at all`)
+      else if (!bg.value.includes('var(--tile-shell)')) missing.push(`${sel} grain is ${bg.value.slice(0, 40)}`)
     }
-    expect(missing).toEqual([])
+    expect(missing, 'an accent fill with no grain on it').toEqual([])
   })
 
-  it('every layered surface carries a texture tile in its fill', () => {
+  it('every layered surface carries the same material inside its fill', () => {
     const missing = []
     for (const sel of LAYERED_FILL) {
-      const esc = sel.replace(/\./g, '\\.')
-      if (!new RegExp(`html\\[data-aesthetic="paper"\\][^{]*${esc}[^{]*\\{[^}]*fabric\\.webp`).test(css)) missing.push(`${sel} paper tile`)
-      if (!new RegExp(`html\\[data-aesthetic="film"\\][^{]*${esc}[^{]*\\{[^}]*rubber\\.webp`).test(css)) missing.push(`${sel} film tile`)
+      const bg = resolve(sel, 'background-image', { skipContrast: true })
+      if (!bg) missing.push(`${sel} has no fill at all`)
+      else if (!bg.value.includes('var(--tile-shell)')) missing.push(`${sel} fill is ${bg.value.slice(0, 40)}`)
     }
-    expect(missing).toEqual([])
+    expect(missing, 'a layered fill with no tile in it').toEqual([])
   })
 })
 
@@ -324,6 +340,9 @@ describe('every texture is actually turned off, not merely mentioned', () => {
     rules.flatMap((r) => {
       const bg = r.decls['background-image']
       if (!bg || !isTexture(bg.value)) return []
+      // The off switch re-declares some of these fills; it is not a surface that
+      // needs switching off.
+      if (r.media.some((m) => m.includes('prefers-contrast: more'))) return []
       return r.selectors.map(rightmost)
     }),
   )].sort()

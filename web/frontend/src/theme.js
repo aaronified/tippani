@@ -1,5 +1,17 @@
-// Theme system — UI instructions §4. Two aesthetics × light/dark + accent,
-// applied as data attributes + CSS custom properties on <html>.
+// Theme system — one palette per mode, seven material sets, one accent, applied as
+// data attributes + CSS custom properties on <html>.
+//
+// WHAT 3.0.0 CHANGED, AND WHY IT IS TWO CONTROLS RATHER THAN ONE. There used to be
+// two "aesthetics", paper and film, and each carried its own palette — so choosing a
+// look also chose its colours, and light film had to be a different cream from light
+// paper. Four palettes for two looks, and no way to ask for film's materials on
+// paper's page.
+//
+// A MATERIAL SET SAYS WHAT SURFACES ARE MADE OF AND NOTHING ELSE. Seven of them, four
+// slots each — the desk, the furniture, the page, the binding — and light/dark is its
+// own control beside it. So there is one palette per mode, every set works in both,
+// and the two palettes that survive are paper's, unchanged hex for hex, because the
+// v3 design library's own palette turned out to be exactly this one.
 //
 // THE WORD TABLES BELOW HOLD KEYS, not words: this module is evaluated at import,
 // before the reader's language is known, so anything spelled out here would be the
@@ -15,9 +27,23 @@ export const ACCENTS = {
   slate: '#2F6D8F',
 }
 
-// §4 palettes verbatim; tokens the spec leaves out are derived in-key.
+// The two palettes, verbatim; tokens the spec leaves out are derived in-key.
+//
+// THE FILM PALETTES ARE GONE, NOT MERGED. There is nothing of film-light or film-dark
+// in here — no averaging, no third cream. The v3 design library states one palette
+// per mode and its values are paper's to the hex, so keeping paper's and deleting the
+// other two is the whole change. Film's *materials* survive as the Film assembly set.
+//
+// The film-only chrome tokens (strip, holes, frame-border, amber) stay defined,
+// sourced from paper: a token that stops being written is a token whose consumers
+// silently fall back to nothing, and the surfaces that read them are retired by the
+// port rather than by an undefined variable.
+//
+// `sh` is the shadow's own colour as an RGB triple, and it is what lets ONE lift
+// recipe live in index.css instead of one per look. Four hardcoded box-shadow blocks
+// keyed on the aesthetic collapse into two alphas over rgba(var(--sh), a).
 const PALETTES = {
-  'paper-light': {
+  light: {
     bg: '#F4EDDE', raised: '#FBF6EA', card: '#FFFEF9',
     'card-top': '#FFFFFC', 'card-bottom': '#FCF8ED',
     'topbar-top': '#F3EBDB', 'topbar-bottom': '#EDE3D1',
@@ -25,8 +51,9 @@ const PALETTES = {
     'ink-border': 'rgba(41,38,29,.6)', 'frame-border': 'rgba(41,38,29,.35)',
     amber: '#BE8A4E', note: '#221C16', error: '#A93B26', ok: '#3E8E5A',
     strip: '#E9E1CC', holes: '#F7F2E6', 'holes-border': '#D3C7AB', 'holes-glow': 'none',
+    sh: '41,38,29', 'bevel-hi': 'rgba(255,255,255,.75)', 'bevel-mid': 'rgba(255,255,255,.35)',
   },
-  'paper-dark': {
+  dark: {
     bg: '#262019', raised: '#2A231C', card: '#2F2820',
     'card-top': '#352D23', 'card-bottom': '#2C251E',
     'topbar-top': '#2B241C', 'topbar-bottom': '#241E17',
@@ -34,29 +61,190 @@ const PALETTES = {
     'ink-border': 'rgba(239,230,212,.4)', 'frame-border': 'rgba(214,162,92,.3)',
     amber: '#D6A25C', note: '#E8DCC2', error: '#C96B5B', ok: '#5FB47E',
     strip: '#1C1710', holes: 'rgba(239,230,212,.4)', 'holes-border': 'transparent', 'holes-glow': 'none',
-  },
-  'film-light': {
-    bg: '#F1ECE1', raised: '#F7F2E6', card: '#FAF6EC',
-    'card-top': '#FDFAF3', 'card-bottom': '#F7F2E4',
-    'topbar-top': '#F0EADB', 'topbar-bottom': '#EAE2CF',
-    ink: '#2A241C', soft: '#6A5F50', faint: '#8A7C68', line: '#DFD6C4',
-    'ink-border': 'rgba(42,36,28,.55)', 'frame-border': 'rgba(185,138,68,.4)',
-    amber: '#B98A44', note: '#2A241C', error: '#A93B26', ok: '#3E8E5A',
-    strip: '#E9E1CC', holes: '#F7F2E6', 'holes-border': '#D3C7AB', 'holes-glow': 'none',
-  },
-  'film-dark': {
-    bg: '#15100C', raised: '#201A13', card: '#201A13',
-    'card-top': '#251E16', 'card-bottom': '#1D1710',
-    'topbar-top': '#201913', 'topbar-bottom': '#19130D',
-    ink: '#ECE3D1', soft: '#A2937C', faint: '#8E8069', line: '#322A20',
-    'ink-border': 'rgba(236,227,209,.35)', 'frame-border': 'rgba(214,162,92,.3)',
-    amber: '#D6A25C', note: '#ECE3D1', error: '#C96B5B', ok: '#5FB47E',
-    strip: '#0F0B07', holes: 'rgba(236,227,209,.5)', 'holes-border': 'transparent',
-    'holes-glow': '0 0 6px rgba(236,227,209,.2)',
+    sh: '0,0,0', 'bevel-hi': 'rgba(255,255,255,.07)', 'bevel-mid': 'rgba(255,255,255,.05)',
   },
 }
 
-let current = { aesthetic: undefined, theme: 'system', accent: 'terracotta' }
+// ---- the material sets ------------------------------------------------------
+//
+// [tile, coarse px, fine px, strength] — verbatim from the v3 design library. The
+// tile name is a KEY INTO index.css, not a filename: the stylesheet declares
+// --tile-paper: url("./textures/paper.webp") and this module only ever writes
+// var(--tile-paper). That keeps every file path in the one place the build rewrites
+// them, so nothing here can name a tile the bundler does not know about, and no tile
+// gets pulled into the bundle just for being in the folder.
+//
+// STRENGTH IS NOT AMPLITUDE. What a reader sees is strength x the tile's own standard
+// deviation, in levels out of 255, so the photographic tiles carry the SMALLER
+// strengths and still read louder. The measurements are in src/textures/README.md and
+// they are load-bearing: replace a tile and the number has to be re-measured, not
+// inherited.
+const TEXTILES = {
+  paper: ['paper', 220, 71, 0.10], linen: ['linen', 340, 109, 0.11],
+  cotton: ['cotton', 300, 97, 0.12], canvas: ['canvas', 400, 129, 0.10],
+  denim: ['denim', 320, 103, 0.12], wool: ['wool', 360, 113, 0.12],
+  wood: ['wood', 300, 97, 0.12], metal: ['metal', 260, 84, 0.09],
+  brushed: ['brushed', 240, 78, 0.08], matte: ['matte', 200, 65, 0.07],
+  satin: ['satin', 210, 68, 0.07], glass: ['glass', 280, 90, 0.06],
+  rubber: ['rubber-flat', 230, 74, 0.10], fabric: ['fabric', 260, 84, 0.11],
+  walnut: ['walnut', 300, 97, 0.09], pine: ['pine', 340, 109, 0.09],
+  marble: ['marble', 360, 116, 0.08], granite: ['granite', 280, 90, 0.08],
+  sandstone: ['sandstone', 300, 97, 0.09], concrete: ['concrete', 320, 103, 0.08],
+  cardboard: ['cardboard', 280, 90, 0.10], 'paper-photo': ['paper-photo', 300, 97, 0.07],
+  leather: ['leather-004', 260, 84, 0.10], 'leather-suede': ['leather-021', 240, 78, 0.11],
+  'leather-pebbled': ['leather-034d', 280, 90, 0.09],
+  'leather-tooled': ['leather-037', 320, 103, 0.06],
+}
+
+// The four slots, in order: the desk, the furniture, what you write on, what the book
+// is bound in. Read each set as somewhere you could stand — assembled slot by slot
+// they drift, and an earlier Office had glass on the book, the one object in the room
+// glass makes no sense on.
+export const MAT_SETS = {
+  manuscript: ['linen', 'paper', 'paper', 'wood'],
+  'film-assembly': ['metal', 'brushed', 'matte', 'glass'],
+  office: ['glass', 'rubber', 'satin', 'metal'],
+  school: ['wood', 'rubber', 'paper', 'cotton'],
+  atelier: ['canvas', 'denim', 'cotton', 'wool'],
+  bindery: ['concrete', 'leather-suede', 'paper-photo', 'leather-pebbled'],
+  quarry: ['sandstone', 'granite', 'satin', 'marble'],
+}
+export const MAT_SET_DEFAULT = 'manuscript'
+// Keys, not words — see the note at the top of the file.
+export const MAT_SET_LABELS = {
+  manuscript: 'settings.material.manuscript.label',
+  'film-assembly': 'settings.material.film-assembly.label',
+  office: 'settings.material.office.label',
+  school: 'settings.material.school.label',
+  atelier: 'settings.material.atelier.label',
+  bindery: 'settings.material.bindery.label',
+  quarry: 'settings.material.quarry.label',
+}
+
+// ---- the operator -----------------------------------------------------------
+//
+//   result = (1 − s)·colour + s·overlay(fine, coarse)
+//
+// A veil of the surface's own colour at 1 − s, a fine pass composited `overlay`, a
+// coarse pass composited `normal`, each at its own background-size. ONE FILE SERVES
+// LIGHT AND DARK: the tile carries no tone of its own, only deviation from the middle
+// grey, so the mode supplies the colour and the file supplies the grain. That is what
+// the mean-128 invariant in src/textures/README.md buys — `overlay` pivots at 128, so
+// a tile whose mean IS 128 neither darkens nor lightens what it lands on.
+//
+// Written as custom properties rather than as classes because the arithmetic needs
+// the set, the mode and the accent at once, and all three live here. index.css spends
+// them: background-image: var(--surf-card-image).
+const GLASSY = new Set(['glass', 'glass-soft'])
+const METALLIC = new Set(['metal', 'brushed'])
+
+function veil(hex, s) {
+  return `color-mix(in srgb, ${hex} ${((1 - s) * 100).toFixed(1)}%, transparent)`
+}
+
+// A pane does not hide what is behind it, it softens it — so glass takes a backdrop
+// blur and a specular sweep instead of an opaque veil. The grain still goes through
+// the same veil maths (s is .06, so the pane stays clear); skipping it left the raw
+// grayscale tile fully opaque over the blur, which read as a scuffed window.
+function glassProps(hex, tile, a, b, s, dark) {
+  const v = veil(hex, s)
+  const hi1 = dark ? 0.16 : 0.55
+  const hi2 = dark ? 0.04 : 0.12
+  return {
+    color: `color-mix(in srgb, ${hex} ${dark ? 34 : 24}%, transparent)`,
+    image: `linear-gradient(124deg, rgba(255,255,255,${hi1}) 0%, rgba(255,255,255,0) 34%,` +
+      ` rgba(255,255,255,0) 64%, rgba(255,255,255,${hi2}) 100%),` +
+      ` linear-gradient(${v}, ${v}), var(--tile-${tile}), var(--tile-${tile})`,
+    size: `auto, auto, ${a}px ${a}px, ${b}px ${b}px`,
+    blend: 'normal, normal, overlay, normal',
+    blur: 'blur(18px) saturate(1.5)',
+    border: dark ? 'rgba(255,255,255,.15)' : 'rgba(255,255,255,.6)',
+    inset: `inset 0 1px 0 ${dark ? 'rgba(255,255,255,.1)' : 'rgba(255,255,255,.7)'},` +
+      ` inset 0 -10px 16px -12px rgba(255,255,255,${dark ? 0.06 : 0.3})`,
+  }
+}
+
+// Metal and brushed steel stay opaque but bleed a whisper of whatever accent is
+// nearby: a mirror-ish surface reflects its surroundings rather than holding a colour
+// of its own.
+function surfaceProps(hex, name, dark, accentUI) {
+  const [tile, a, b, s] = TEXTILES[name] || TEXTILES.paper
+  if (GLASSY.has(tile)) return glassProps(hex, tile, a, b, s, dark)
+  const v = veil(hex, s)
+  const img = []
+  const size = []
+  const blend = []
+  if (METALLIC.has(tile)) {
+    img.push(`linear-gradient(126deg, color-mix(in oklab, ${accentUI}, transparent 84%) 0%,` +
+      ' transparent 40%, transparent 60%,' +
+      ` color-mix(in oklab, ${accentUI}, transparent 90%) 100%)`)
+    size.push('auto')
+    blend.push('soft-light')
+  }
+  img.push(`linear-gradient(${v}, ${v})`, `var(--tile-${tile})`, `var(--tile-${tile})`)
+  size.push('auto', `${a}px ${a}px`, `${b}px ${b}px`)
+  blend.push('normal', 'overlay', 'normal')
+  return {
+    color: hex,
+    image: img.join(', '),
+    size: size.join(', '),
+    blend: blend.join(', '),
+    // Identity values, so index.css can declare these unconditionally on every slot
+    // and a non-glass surface simply gets nothing. A property left unwritten would
+    // keep the PREVIOUS set's value after a switch, which is the bug this avoids.
+    blur: 'none',
+    border: 'transparent',
+    inset: 'none',
+  }
+}
+
+// The four slots, and which palette colour each one's veil is tinted with: the desk
+// takes the page background, the furniture the top bar, the page the card, the binding
+// the raised surface.
+const SLOT_COLOUR = { ground: 'bg', shell: 'topbar-top', card: 'card', cover: 'raised' }
+
+// surfaceStyle returns one slot of one set as a React style object, for a set that is
+// NOT applied — the material picker in Settings shows seven specimens at once, and
+// each has to be made of what it is offering. A picker whose swatches are drawn by
+// hand is a picker that goes on being right after the recipe stops being.
+export function surfaceStyle(setName, slot, dark, accentHex) {
+  const names = MAT_SETS[setName] || MAT_SETS[MAT_SET_DEFAULT]
+  const palette = PALETTES[dark ? 'dark' : 'light']
+  const accent = accentHex || ACCENTS.terracotta
+  const light = luminance(accent) > 0.32
+  const accentUI = dark && !light ? `color-mix(in oklab, ${accent}, white 20%)` : accent
+  const idx = ['ground', 'shell', 'card', 'cover'].indexOf(slot)
+  const p = surfaceProps(palette[SLOT_COLOUR[slot] || 'card'], names[idx < 0 ? 2 : idx], dark, accentUI)
+  return {
+    backgroundColor: p.color,
+    backgroundImage: p.image,
+    backgroundSize: p.size,
+    backgroundBlendMode: p.blend,
+    backdropFilter: p.blur === 'none' ? undefined : p.blur,
+    boxShadow: p.inset === 'none' ? undefined : p.inset,
+  }
+}
+
+// AN ACCENT IS NOT ALWAYS DARK, SO IT CANNOT ALWAYS BE LIGHTENED. The old rule lifted
+// every accent 20% toward white in dark mode, which is right for the default red and
+// wrong for ochre: #C8992B lifted lands near a pale gold, and the paper-coloured text
+// this app has always put on an accent fill measures about 1.8:1 against it — Save and
+// Import were legible only because you already knew what they said. So the lift is
+// conditional on the accent's own luminance, and the ink on it is chosen the same way
+// rather than assumed to be paper. Both computed from the hex, so a fifth accent needs
+// no new rule.
+function luminance(hex) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex || '')
+  if (!m) return 0.3
+  const n = parseInt(m[1], 16)
+  const ch = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => {
+    const c = v / 255
+    return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
+  })
+  return 0.2126 * ch[0] + 0.7152 * ch[1] + 0.0722 * ch[2]
+}
+
+let current = { materialSet: undefined, theme: 'system', accent: 'terracotta' }
 const media = window.matchMedia('(prefers-color-scheme: dark)')
 media.addEventListener('change', () => {
   if (current.theme !== 'light' && current.theme !== 'dark') apply() // live "system" updates
@@ -131,36 +319,44 @@ export function labelsPref() {
   return labelPref
 }
 
-// applyTheme({aesthetic, theme, accent}) — all optional; defaults per §4:
-// theme "system", aesthetic light→paper / dark→film, accent terracotta.
-export function applyTheme({ aesthetic, theme, accent } = {}) {
-  current = { aesthetic, theme: theme || 'system', accent: accent || 'terracotta' }
+// applyTheme({materialSet, theme, accent}) — all optional; defaults are theme
+// "system", set "manuscript", accent terracotta.
+//
+// THE SET NO LONGER DEPENDS ON THE THEME. The old default chose film for dark and
+// paper for light, because the aesthetics carried their own palettes and a light film
+// looked wrong. One palette per mode means every set works in both, so the default is
+// a single answer instead of a branch.
+export function applyTheme({ materialSet, theme, accent } = {}) {
+  current = { materialSet, theme: theme || 'system', accent: accent || 'terracotta' }
   apply()
 }
 
-// getResolvedTheme returns the appearance currently applied: the concrete
-// aesthetic (paper|film) read off the DOM — so it reflects the resolved value
-// even when the stored pref was unset/derived — plus the theme *preference*
-// (light|dark|system) and accent. Settings inits its toggles from this so they
-// always mirror what's on screen rather than a stale prop.
+// getResolvedTheme returns the appearance currently applied: the concrete material
+// set read off the DOM — so it reflects the resolved value even when the stored pref
+// was unset — plus the theme *preference* (light|dark|system) and accent. Settings
+// inits its controls from this so they always mirror what's on screen rather than a
+// stale prop.
 export function getResolvedTheme() {
   const root = document.documentElement
+  const s = root.dataset.matSet
   return {
-    aesthetic: root.dataset.aesthetic === 'film' ? 'film' : 'paper',
+    materialSet: MAT_SETS[s] ? s : MAT_SET_DEFAULT,
     theme: current.theme || 'system',
     accent: current.accent || 'terracotta',
   }
 }
 
 // paletteTheme returns the canvas theme object (the shape quoteImage's readTheme
-// produces) for an explicit aesthetic + mode, independent of what's applied to
-// the DOM. Used by the share-image picker to render any of the four skins
-// without touching the live app theme. `accentHex` keeps the app's accent.
-export function paletteTheme(aesthetic, dark, accentHex) {
-  const aes = aesthetic === 'film' ? 'film' : 'paper'
-  const p = PALETTES[aes + '-' + (dark ? 'dark' : 'light')]
+// produces) for an explicit mode, independent of what's applied to the DOM. Used by
+// the share-image picker to render either skin without touching the live app theme.
+// `accentHex` keeps the app's accent.
+//
+// TWO SKINS, NOT FOUR. The picker offered paper/film × light/dark; with one palette
+// per mode, two of those four rendered identically to the other two. What it offers
+// now is the mode, which is the only thing that was ever different in the drawing.
+export function paletteTheme(dark, accentHex) {
+  const p = PALETTES[dark ? 'dark' : 'light']
   return {
-    aesthetic: aes,
     dark: !!dark,
     bg: p.bg,
     cardTop: p['card-top'],
@@ -169,7 +365,6 @@ export function paletteTheme(aesthetic, dark, accentHex) {
     soft: p.soft,
     faint: p.faint,
     line: p.line,
-    amber: p.amber,
     accent: accentHex || ACCENTS.terracotta,
     inkBorder: p['ink-border'],
   }
@@ -177,21 +372,36 @@ export function paletteTheme(aesthetic, dark, accentHex) {
 
 function apply() {
   const dark = current.theme === 'dark' || (current.theme !== 'light' && media.matches)
-  const aesthetic =
-    current.aesthetic === 'paper' || current.aesthetic === 'film'
-      ? current.aesthetic
-      : dark ? 'film' : 'paper'
+  const matSet = MAT_SETS[current.materialSet] ? current.materialSet : MAT_SET_DEFAULT
   const root = document.documentElement
-  root.dataset.aesthetic = aesthetic
+  // Kept as an attribute even though every value it drives is a custom property:
+  // a test, a screenshot run and a person with dev tools open all need to see WHICH
+  // set is applied, and reading it back out of four composed background stacks is
+  // not seeing it.
+  root.dataset.matSet = matSet
   root.dataset.theme = dark ? 'dark' : 'light'
-  const palette = PALETTES[aesthetic + '-' + (dark ? 'dark' : 'light')]
+  const palette = PALETTES[dark ? 'dark' : 'light']
   for (const [k, v] of Object.entries(palette)) root.style.setProperty('--' + k, v)
   const accent = ACCENTS[current.accent] || ACCENTS.terracotta
+  const light = luminance(accent) > 0.32
+  const accentUI = dark && !light ? `color-mix(in oklab, ${accent}, white 20%)` : accent
   root.style.setProperty('--accent', accent)
   // dark-surface accent variant is derived (§4)
   root.style.setProperty('--accent-dark', `color-mix(in oklab, ${accent}, white 20%)`)
-  root.style.setProperty('--accent-ui', dark ? `color-mix(in oklab, ${accent}, white 20%)` : accent)
-  window.dispatchEvent(new CustomEvent('tippani:theme', { detail: { aesthetic, dark } }))
+  root.style.setProperty('--accent-ui', accentUI)
+  root.style.setProperty('--on-accent', light ? '#221C16' : '#FBF6EA')
+  const names = MAT_SETS[matSet]
+  for (const [i, slot] of ['ground', 'shell', 'card', 'cover'].entries()) {
+    const p = surfaceProps(palette[SLOT_COLOUR[slot]], names[i], dark, accentUI)
+    for (const [k, v] of Object.entries(p)) root.style.setProperty(`--surf-${slot}-${k}`, v)
+    // The slot's bare tile, aliased to the one index.css declares. Every texture
+    // rule in the stylesheet reads --tile-card rather than a filename, so a set
+    // changes what the app is made of without a single selector knowing a
+    // material's name. --surf-* above is the full composite for the same slot and
+    // the surfaces move onto it one at a time.
+    root.style.setProperty(`--tile-${slot}`, `var(--tile-${TEXTILES[names[i]][0]})`)
+  }
+  window.dispatchEvent(new CustomEvent('tippani:theme', { detail: { materialSet: matSet, dark } }))
 }
 
 

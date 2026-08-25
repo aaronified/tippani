@@ -1191,9 +1191,23 @@ settings.labels.auto.label = নিজে থেকে
 # --- Appearance.
 settings.appearance.title = চেহারা
 settings.appearance.theme.title = থিম
+settings.appearance.theme.light.label = হালকা
+settings.appearance.theme.dark.label = গাঢ়
 settings.appearance.match.label = সিস্টেম যেমন
 settings.appearance.match.aria = সিস্টেমের থিম মেনে চলুন
-settings.appearance.manual.label = নিজে বাছুন
+# --- Appearance -> Material. Seven sets, each naming what four surfaces are
+# made of: the desk under everything, the furniture, the page you read, the
+# binding on a cover. Independent of light/dark -- every set works in both -- so
+# these are PLACES, not moods. Translate each as the room it is, not word for
+# word: the English is already the room's name rather than a description.
+settings.appearance.material.title = উপাদান
+settings.material.manuscript.label = পাণ্ডুলিপি
+settings.material.film-assembly.label = ফিল্ম সংযোজন
+settings.material.office.label = অফিস
+settings.material.school.label = স্কুল
+settings.material.atelier.label = শিল্পশালা
+settings.material.bindery.label = বাঁধাইখানা
+settings.material.quarry.label = পাথরখাদান
 settings.appearance.accent.title = অ্যাকসেন্ট
 # {name} is one of the vocab.accent.* words.
 settings.appearance.accent.tip = {name} অ্যাকসেন্ট বসান
@@ -2458,12 +2472,11 @@ share.text.quote.phrase = “{value}”
 share.image.theme.label = থিম
 share.image.theme.aria = ছবির থিম
 share.image.theme.info.title = ছবির থিম
-share.image.theme.info.body = ছবিটা দেখতে কেমন হবে — কাগজ না ফিল্ম, হালকা না গাঢ়। এখানে বাছলে অ্যাপের নিজের থিম বদলায় না। অ্যাপ এখন যা দেখাচ্ছে, শুরু হয় সেখান থেকেই।
-# The four skins. "Paper" and "Film" are the app's two aesthetics.
-share.image.theme.paper-light.label = কাগজ · হালকা
-share.image.theme.paper-dark.label = কাগজ · গাঢ়
-share.image.theme.film-light.label = ফিল্ম · হালকা
-share.image.theme.film-dark.label = ফিল্ম · গাঢ়
+share.image.theme.info.body = ছবিটা দেখতে কেমন হবে — হালকা না গাঢ়। এখানে বাছলে অ্যাপের নিজের থিম বদলায় না। অ্যাপ এখন যা দেখাচ্ছে, শুরু হয় সেখান থেকেই।
+# The two skins. One palette per mode means the mode is the only thing that
+# differs in the drawing.
+share.image.theme.light.label = হালকা
+share.image.theme.dark.label = গাঢ়
 # How a credited person appears. Offered only when somebody credited has a photo.
 share.image.portrait.label = মুখের ছবি
 share.image.portrait.aria = মুখের ছবি
@@ -4375,7 +4388,6 @@ settings.credits.sep.and.aria = “and” শব্দ
 # মুখ for "a face", as settings.help.language-marks.what already has it.
 settings.languages.intro.prose = প্রবাদের নামে কারও নাম নেই, তাই তার কার্ড মুখ দিয়ে নয়, ভাষা দিয়েই শুরু হয়। প্রতিটা ভাষা নিজের লিপি থেকে চারটে অক্ষর দেয়; আর যা কিছু লিখবেন — চিহ্ন, পতাকা, ইমোজি — তা ওই ভাষার নিজের চিহ্ন হয়ে থেকে যায়।
 
-settings.appearance.preset.auto.aria = {name} (সিস্টেম যেমন)
 # §8.5 — a specimen is REPLACED, not translated: a line this face would really
 # be setting in Bengali.
 settings.appearance.preset.specimen.label = মার্জিন, লেখার চেয়েও চওড়া…

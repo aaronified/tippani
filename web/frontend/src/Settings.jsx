@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { DEMO, json, errText, coverImgURL, copyText, apiURL, upload as uploadFile, uploadWithProgress } from './api.js'
-import { ACCENTS, applyColors, applyLabels, applyTheme, CAT_NAME_MAX, CATEGORY_PALETTE, categoryState, getResolvedTheme, LABELS_KEY, labelsPref, UNSET_LABEL } from './theme.js'
+import { ACCENTS, applyColors, applyLabels, applyTheme, CAT_NAME_MAX, CATEGORY_PALETTE, categoryState, getResolvedTheme, LABELS_KEY, labelsPref, MAT_SET_LABELS, MAT_SETS, surfaceStyle, UNSET_LABEL } from './theme.js'
 import {
   applyLanguageMarks,
   currentLanguageEntries,
@@ -2901,100 +2901,76 @@ function SizeSlider({ label, storageKey, def }) {
   )
 }
 
-// The four presets ARE the theme selector: clicking one sets aesthetic + theme
-// together. Rendered with hardcoded §4 palette colours (each shows its own combo
-// regardless of the live theme); the live accent is threaded through so the
-// callout edge/dot + selection ring all follow the chosen accent.
-// HOLDS KEYS, RESOLVED WHERE THEY ARE DRAWN — a module-scope table of words
-// freezes the language at import time, which is the bug three other tables in
-// this app shipped. The four names are the SAME four the share sheet's picture
-// panel offers (share.image.theme.*): one set of four skins, so one set of four
-// words rather than a second spelling of "Paper · Dark".
-const PRESETS = [
-  { aesthetic: 'paper', theme: 'light', label: 'share.image.theme.paper-light.label', card: 'linear-gradient(180deg,#FFFFFC,#FCF8ED)', ink: '#221C16', border: 'rgba(41,38,29,.5)', line: '#E4DAC7' },
-  { aesthetic: 'paper', theme: 'dark', label: 'share.image.theme.paper-dark.label', card: 'linear-gradient(180deg,#352D23,#2C251E)', ink: '#EFE6D4', border: 'rgba(239,230,212,.32)', line: '#453B2D' },
-  { aesthetic: 'film', theme: 'light', label: 'share.image.theme.film-light.label', card: 'linear-gradient(180deg,#FDFAF3,#F7F2E4)', ink: '#2A241C', border: 'rgba(185,138,68,.45)', line: '#DFD6C4', strip: '#E9E1CC', holes: '#F7F2E6', amber: '#B98A44' },
-  { aesthetic: 'film', theme: 'dark', label: 'share.image.theme.film-dark.label', card: 'linear-gradient(180deg,#251E16,#1D1710)', ink: '#ECE3D1', border: 'rgba(214,162,92,.3)', line: '#322A20', strip: '#0F0B07', holes: 'rgba(236,227,209,.5)', amber: '#D6A25C' },
-]
-
-// PresetCard — one clickable combo. Fixed height across all four (a reserved
-// header row keeps film's sprocket bar from making it taller), real material
-// texture on the callout, and a selection state: solid accent ring + ✓ when
-// chosen manually, dashed ring + ⟳ when it's the OS-matched card in sync mode.
-// Off-theme cards dim while syncing.
-function PresetCard({ spec, accentHex, code, selected, auto, dimmed, onClick }) {
-  const film = spec.aesthetic === 'film'
-  const dark = spec.theme === 'dark'
+// The seven material sets, each drawn in what it is made of.
+//
+// WHAT THIS REPLACED, AND WHY IT IS NOT THE SAME CONTROL WITH MORE CARDS. There were
+// four preset cards and they WERE the theme selector: each one set an aesthetic and a
+// theme together, because an aesthetic carried its own palette and the two could not
+// be chosen apart. Light/dark is its own control now, so these cards choose one thing.
+//
+// AND THEY ARE NOT DRAWN BY HAND. The old cards carried hardcoded §4 hexes — four
+// copies of the palette, in a file that is not the palette — so a colour changed in
+// theme.js stayed wrong here until somebody noticed. Every surface below comes from
+// surfaceStyle(), the same function that dresses the app, so a specimen cannot drift
+// from what choosing it does. That is also why there is no `spec` table any more:
+// there is nothing left to tabulate that theme.js does not already know.
+function MaterialCard({ name, dark, accentHex, code, selected, onClick }) {
   const accent = dark ? `color-mix(in oklab, ${accentHex}, white 20%)` : accentHex
-  const texClass = (film ? 'tex-film' : 'tex-paper') + (dark ? ' dark-combo' : '')
   return (
     <button
       type="button"
       onClick={onClick}
       aria-pressed={selected}
-      aria-label={auto ? t('settings.appearance.preset.auto.aria', { name: t(spec.label) }) : t(spec.label)}
-      style={{ background: 'none', border: 'none', padding: 0, textAlign: 'left', cursor: 'pointer', opacity: dimmed ? 0.45 : 1, transition: 'opacity .2s ease' }}
+      aria-label={t(MAT_SET_LABELS[name])}
+      style={{ background: 'none', border: 'none', padding: 0, textAlign: 'left', cursor: 'pointer' }}
     >
       <div
         style={{
+          ...surfaceStyle(name, 'shell', dark, accentHex),
           position: 'relative',
           height: 120,
           display: 'flex',
           flexDirection: 'column',
-          background: film ? spec.strip : 'transparent',
-          border: `1px solid ${spec.line}`,
-          borderRadius: film ? 12 : '13px 10px 14px 9px / 9px 14px 10px 13px',
-          padding: film ? 8 : 10,
-          boxShadow: selected && !auto ? `0 0 0 2px var(--card), 0 0 0 4px ${accent}` : 'none',
-          outline: auto ? `2px dashed ${accent}` : 'none',
-          outlineOffset: 2,
+          border: '1px solid var(--line)',
+          borderRadius: '13px 10px 14px 9px / 9px 14px 10px 13px',
+          padding: 10,
+          boxShadow: selected ? `0 0 0 2px var(--card), 0 0 0 4px ${accent}` : 'none',
         }}
       >
-        {/* reserved header row → uniform height whether or not sprockets show */}
-        <div className="flex items-center justify-between" style={{ height: 12, marginBottom: 6 }} aria-hidden="true">
-          {film && (
-            <>
-              <span className="flex gap-1">
-                {Array.from({ length: 5 }, (_, i) => (
-                  <i key={i} style={{ width: 5, height: 5, borderRadius: 2, background: spec.holes, display: 'block' }} />
-                ))}
-              </span>
-              <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 'var(--type-mono-9)', letterSpacing: '.2em', color: `color-mix(in srgb, ${spec.amber} 60%, transparent)` }}>
-                {code} ▸
-              </span>
-            </>
-          )}
+        <div className="flex items-center justify-end" style={{ height: 12, marginBottom: 6 }} aria-hidden="true">
+          <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 'var(--type-mono-9)', letterSpacing: '.2em', color: 'color-mix(in srgb, var(--faint) 70%, transparent)' }}>
+            {code} ▸
+          </span>
         </div>
         <div
-          className={`preset-callout ${texClass}`}
           style={{
+            ...surfaceStyle(name, 'card', dark, accentHex),
             flex: 1,
-            background: spec.card,
-            border: `1px solid ${spec.border}`,
+            border: '1px solid var(--ink-border)',
             borderLeft: `3px solid ${accent}`,
-            borderRadius: film ? 8 : '10px 7px 11px 8px / 8px 11px 7px 10px',
+            borderRadius: '10px 7px 11px 8px / 8px 11px 7px 10px',
             padding: '10px 11px',
           }}
         >
-          <p style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontStyle: 'italic', fontSize: 'var(--type-display-12)', lineHeight: 1.35, color: spec.ink }}>
+          <p style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontStyle: 'italic', fontSize: 'var(--type-display-12)', lineHeight: 1.35, color: 'var(--ink)' }}>
             {t('settings.appearance.preset.specimen.label')}
           </p>
           <div className="mt-2 flex items-center gap-2">
             <span style={{ width: 7, height: 7, borderRadius: 999, background: accent, display: 'block' }} />
-            <span style={{ flex: 1, height: 4, borderRadius: 2, background: `color-mix(in srgb, ${spec.ink} 22%, transparent)` }} />
+            <span style={{ flex: 1, height: 4, borderRadius: 2, background: 'color-mix(in srgb, var(--ink) 22%, transparent)' }} />
           </div>
         </div>
         {selected && (
           <span
             aria-hidden="true"
-            style={{ position: 'absolute', top: -9, right: -9, width: 22, height: 22, borderRadius: 999, background: accent, color: '#FFF9EC', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 'var(--type-ui-12)', fontWeight: 700, boxShadow: '0 1px 3px rgba(0,0,0,.45)' }}
+            style={{ position: 'absolute', top: -9, right: -9, width: 22, height: 22, borderRadius: 999, background: accent, color: 'var(--on-accent)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 'var(--type-ui-12)', fontWeight: 700, boxShadow: '0 1px 3px rgba(0,0,0,.45)' }}
           >
-            {auto ? '⟳' : '✓'}
+            ✓
           </span>
         )}
       </div>
       <p className="mt-2" style={{ fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 'var(--type-mono-9)', letterSpacing: '.14em', textTransform: 'uppercase', color: selected ? 'var(--accent-ui)' : 'var(--faint)' }}>
-        {t(spec.label)}
+        {t(MAT_SET_LABELS[name])}
       </p>
     </button>
   )
@@ -3021,19 +2997,23 @@ const prefersDark = () => typeof matchMedia !== 'undefined' && matchMedia('(pref
 // card it hangs off.
 function Appearance({ prefs, onPreferences }) {
   const [typeOpen, setTypeOpen] = useState(false)
-  // Seed from the appearance actually applied (getResolvedTheme reads the
-  // concrete aesthetic off the DOM + the raw theme preference). The stored
-  // theme pref maps to this panel's model: 'system' ⇒ syncSystem; 'light'/'dark'
-  // ⇒ that manualTheme.
+  // Seed from the appearance actually applied (getResolvedTheme reads the concrete
+  // material set off the DOM + the raw theme preference).
+  //
+  // THE THEME PREFERENCE IS NOW THE CONTROL'S OWN VALUE, and that deleted two pieces
+  // of state. It used to be split into syncSystem + manualTheme because the four cards
+  // chose light or dark and a separate toggle chose whether to obey them — so 'system'
+  // had to be reassembled from two booleans on every save, and a card had to know
+  // whether clicking it should also turn syncing off. One three-way control maps
+  // 1:1 onto what is stored: light, dark, system.
   const applied = getResolvedTheme()
-  const [aesthetic, setAesthetic] = useState(applied.aesthetic)
-  const [syncSystem, setSyncSystem] = useState(applied.theme === 'system')
-  const [manualTheme, setManualTheme] = useState(applied.theme === 'system' ? (prefersDark() ? 'dark' : 'light') : applied.theme)
+  const [materialSet, setMaterialSet] = useState(applied.materialSet)
+  const [themePref, setThemePref] = useState(applied.theme)
   const [sysTheme, setSysTheme] = useState(prefersDark() ? 'dark' : 'light')
   const [accent, setAccent] = useState(applied.accent)
   const base = useFrameBase()
 
-  // Track the OS theme live so the auto-matched card follows it while syncing.
+  // Track the OS theme live so the specimens follow it while set to match system.
   useEffect(() => {
     if (typeof matchMedia === 'undefined') return
     const m = matchMedia('(prefers-color-scheme: dark)')
@@ -3042,60 +3022,51 @@ function Appearance({ prefs, onPreferences }) {
     return () => m.removeEventListener('change', fn)
   }, [])
 
-  const effectiveTheme = syncSystem ? sysTheme : manualTheme
+  const effectiveDark = themePref === 'system' ? sysTheme === 'dark' : themePref === 'dark'
 
-  // persist applies the change to the live DOM immediately (§4), lifts it to App
-  // so the session user stays current, and PUTs it. The stored theme token is
-  // 'system' while syncing, else the explicit light/dark. Every field rides
-  // along so changing one never resets another.
+  // persist applies the change to the live DOM immediately (§4), lifts it to App so
+  // the session user stays current, and PUTs it. Every field rides along so changing
+  // one never resets another — a full-state save means a field left out is a field
+  // cleared.
   function persist(next) {
-    const s = { aesthetic, syncSystem, manualTheme, accent, ...next }
-    setAesthetic(s.aesthetic)
-    setSyncSystem(s.syncSystem)
-    setManualTheme(s.manualTheme)
+    const s = { materialSet, theme: themePref, accent, ...next }
+    setMaterialSet(s.materialSet)
+    setThemePref(s.theme)
     setAccent(s.accent)
-    const merged = { aesthetic: s.aesthetic, theme: s.syncSystem ? 'system' : s.manualTheme, accent: s.accent }
-    applyTheme(merged)
-    onPreferences?.(merged)
-    json('PUT', '/auth/me/preferences', merged)
-  }
-
-  // Clicking a preset: in sync mode, a card whose theme matches the OS just
-  // switches aesthetic (stays auto); the opposite-theme card is an explicit
-  // choice that turns sync off and locks that theme. In manual mode it sets both.
-  function selectPreset(cardA, cardT) {
-    if (syncSystem && cardT === sysTheme) persist({ aesthetic: cardA })
-    else persist({ aesthetic: cardA, manualTheme: cardT, syncSystem: false })
+    applyTheme(s)
+    onPreferences?.(s)
+    json('PUT', '/auth/me/preferences', s)
   }
 
   return (
     <Card data-tour="appearance">
       <SectionTitle>{t('settings.appearance.title')}</SectionTitle>
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <MonoLabel>{t('settings.appearance.theme.title')}</MonoLabel>
         <Toggle
           ariaLabel={t('settings.appearance.match.aria')}
-          value={syncSystem ? 'auto' : 'manual'}
-          onChange={(v) => persist({ syncSystem: v === 'auto' })}
-          options={[['manual', t('settings.appearance.manual.label')], ['auto', t('settings.appearance.match.label')]]}
+          value={themePref}
+          onChange={(v) => persist({ theme: v })}
+          options={[
+            ['light', t('settings.appearance.theme.light.label')],
+            ['dark', t('settings.appearance.theme.dark.label')],
+            ['system', t('settings.appearance.match.label')],
+          ]}
         />
       </div>
+      <MonoLabel className="mb-2 block">{t('settings.appearance.material.title')}</MonoLabel>
       <div className="grid grid-cols-2 gap-5 sm:grid-cols-4">
-        {PRESETS.map((spec, i) => {
-          const selected = spec.aesthetic === aesthetic && spec.theme === effectiveTheme
-          return (
-            <PresetCard
-              key={spec.label}
-              spec={spec}
-              accentHex={ACCENTS[accent]}
-              code={frameCode(base, i)}
-              selected={selected}
-              auto={syncSystem && selected}
-              dimmed={syncSystem && spec.theme !== sysTheme}
-              onClick={() => selectPreset(spec.aesthetic, spec.theme)}
-            />
-          )
-        })}
+        {Object.keys(MAT_SETS).map((name, i) => (
+          <MaterialCard
+            key={name}
+            name={name}
+            dark={effectiveDark}
+            accentHex={ACCENTS[accent]}
+            code={frameCode(base, i)}
+            selected={name === materialSet}
+            onClick={() => persist({ materialSet: name })}
+          />
+        ))}
       </div>
 
       {/* Accent + the two size sliders share one wrapping row on desktop;

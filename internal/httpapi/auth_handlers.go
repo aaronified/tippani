@@ -246,9 +246,19 @@ func (s *Server) handleUpdateMe(w http.ResponseWriter, r *http.Request) {
 // ---- UI preferences (§10; enums from the UI instructions §4) ----
 
 var (
-	prefAesthetics = map[string]bool{"paper": true, "film": true}
-	prefThemes     = map[string]bool{"light": true, "dark": true, "system": true}
-	prefAccents    = map[string]bool{"terracotta": true, "ochre": true, "olive": true, "slate": true}
+	// SEVEN MATERIAL SETS, AND THE SLUG IS NOT THE LABEL. The interface shows
+	// "Film assembly" from a token in en.txt/bn.txt; what is stored is the slug, so a
+	// renamed label never invalidates a stored preference and a translator can never
+	// break one. Retired here in 3.0.0: "paper" and "film", the two whole-look
+	// aesthetics these replace — see internal/store/onetime_3_0_0_material_sets.go,
+	// which carries each reader's choice across rather than letting loadPrefs heal it
+	// to the default.
+	prefMaterialSets = map[string]bool{
+		"manuscript": true, "film-assembly": true, "office": true, "school": true,
+		"atelier": true, "bindery": true, "quarry": true,
+	}
+	prefThemes  = map[string]bool{"light": true, "dark": true, "system": true}
+	prefAccents = map[string]bool{"terracotta": true, "ochre": true, "olive": true, "slate": true}
 	// The single-medium scopes, and the legacy aliases. "both" predates
 	// standalone quotes and now means all three media — see scopeFlags.
 	//
@@ -321,11 +331,18 @@ func clampFloat(v, lo, hi, def float64) float64 {
 // start-page, the pre-0.7 "navUtilities" nav-placement toggle (Tags +
 // Metadata are always in the navbar now), and the "srGrow"/"srShrink"
 // half-life factors (the fixed interval ladder in review_handlers.go replaced
-// the tunable update rule) — are dropped on read and on the next PUT.
+// the tunable update rule), and the pre-3.0 "aesthetic" look chooser (seven
+// material sets replaced two aesthetics) — are dropped on read and on the next PUT.
 type prefs struct {
-	Aesthetic string `json:"aesthetic"`
-	Theme     string `json:"theme"`
-	Accent    string `json:"accent"`
+	// MaterialSet was "aesthetic" until 3.0.0, and the rename is the point rather
+	// than tidying: an aesthetic was a choice between two whole looks, palette
+	// included. A set chooses what the surfaces are MADE OF, on one palette per
+	// mode, with light/dark its own control beside it. The old key is not deleted
+	// anywhere — it is simply unknown now, and this file has always dropped what it
+	// does not know, on read and on the next PUT.
+	MaterialSet string `json:"materialSet"`
+	Theme       string `json:"theme"`
+	Accent      string `json:"accent"`
 	// CreditSeparators: which separators split a joined multi-author credit
 	// ("Gaiman & Pratchett") into distinct people — a comma-separated subset
 	// of {comma, semicolon, amp, and} in canonical order, or "none" to turn
@@ -668,8 +685,13 @@ func catColorValid(v string) bool {
 }
 
 // loadPrefs reads users.preferences and applies defaults for anything unset:
-// theme "system", accent "terracotta", and aesthetic per theme — dark defaults
-// to film, everything else to paper (instructions §4).
+// theme "system", accent "terracotta", material set "manuscript".
+//
+// THE SET NO LONGER DEPENDS ON THE THEME, and that is the release's whole shape.
+// The old default read the theme and chose film for dark and paper for light,
+// because the two aesthetics carried their own palettes and a light film looked
+// wrong. There is now one palette per mode and the set only says what things are
+// made of, so every set works in both modes and the default is a single answer.
 func (s *Server) loadPrefs(uid int64) (prefs, error) {
 	var raw string
 	if err := s.Store.DB.QueryRow(
@@ -684,12 +706,8 @@ func (s *Server) loadPrefs(uid int64) (prefs, error) {
 	if !prefAccents[p.Accent] {
 		p.Accent = "terracotta"
 	}
-	if !prefAesthetics[p.Aesthetic] {
-		if p.Theme == "dark" {
-			p.Aesthetic = "film"
-		} else {
-			p.Aesthetic = "paper"
-		}
+	if !prefMaterialSets[p.MaterialSet] {
+		p.MaterialSet = "manuscript"
 	}
 	if norm, ok := normalizeCreditSeps(p.CreditSeparators); ok {
 		p.CreditSeparators = norm
@@ -753,7 +771,7 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	var in struct {
-		Aesthetic           *string  `json:"aesthetic"`
+		MaterialSet         *string  `json:"materialSet"`
 		Theme               *string  `json:"theme"`
 		Accent              *string  `json:"accent"`
 		CreditSeparators    *string  `json:"creditSeparators"`
@@ -816,8 +834,8 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 	if !decodeBody(w, r, &in) {
 		return
 	}
-	if in.Aesthetic != nil {
-		cur.Aesthetic = *in.Aesthetic
+	if in.MaterialSet != nil {
+		cur.MaterialSet = *in.MaterialSet
 	}
 	if in.Theme != nil {
 		cur.Theme = *in.Theme
@@ -1005,8 +1023,9 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 		cur.ShowAnthologies = *in.ShowAnthologies
 	}
 	switch {
-	case !prefAesthetics[cur.Aesthetic]:
-		writeErr(w, http.StatusBadRequest, "aesthetic must be paper or film")
+	case !prefMaterialSets[cur.MaterialSet]:
+		writeErr(w, http.StatusBadRequest,
+			"materialSet must be manuscript, film-assembly, office, school, atelier, bindery or quarry")
 		return
 	case !prefThemes[cur.Theme]:
 		writeErr(w, http.StatusBadRequest, "theme must be light, dark or system")

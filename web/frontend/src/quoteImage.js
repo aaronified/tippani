@@ -2,7 +2,7 @@ import { fontChoice } from './fonts.js'
 import { t } from './i18n.js'
 
 // Quote-card images (ROADMAP §10). Render a highlight as a shareable PNG,
-// styled in the current paper/film skin, entirely in the browser — no server, no
+// styled in the current light/dark palette, entirely in the browser — no server, no
 // library. A <canvas> is drawn by hand (the 2D API) so the output is a clean
 // raster with no tainted-canvas or CSP concerns (everything is drawn locally;
 // no external images are loaded). The same field-picking the text formats use
@@ -92,9 +92,7 @@ export function readTheme() {
     const raw = cs ? cs.getPropertyValue(name).trim() : ''
     return raw || fallback
   }
-  const aesthetic = root && root.dataset.aesthetic === 'film' ? 'film' : 'paper'
   return {
-    aesthetic,
     dark: root ? root.dataset.theme === 'dark' : false,
     bg: v('--bg', '#F4EDDE'),
     cardTop: v('--card-top', '#FFFFFC'),
@@ -560,7 +558,14 @@ function drawTextBlock(ctx, lines, x, top, lh, color, letterSpacing) {
 // height and the drawn layout can't drift. Read the result via toBlob/toDataURL.
 export function drawQuoteCard(canvas, model, theme) {
   const ctx = canvas.getContext('2d')
-  const film = theme.aesthetic === 'film'
+  // THERE IS NO FILM VARIANT ANY MORE, and this is the one place that loses drawing
+  // rather than gaining tokens. The sprocket rows, the amber border and the tighter
+  // corner were film the AESTHETIC — a whole alternative look — and 3.0.0 replaces
+  // two aesthetics with seven material sets on one palette per mode. Drawing seven
+  // sets on a canvas would mean loading a tile, building a pattern and compositing
+  // an overlay pass per export, asynchronously, inside a synchronous draw; that is a
+  // feature, not a port. So the picture follows the mode, which is what the picker
+  // now offers, and the Film assembly set shows in the app rather than in the export.
   const M = 22 // outer mat around the card
   const CP = 34 // padding inside the card
   const cardX = M
@@ -569,10 +574,9 @@ export function drawQuoteCard(canvas, model, theme) {
   // so a card never makes it twice: with a backdrop the quote's colour is the
   // hue of the portrait, and a stripe beside it would be a second, louder copy
   // of a thing already said across half the card.
-  const hasBar = !!model.colorHex && !film && !model.portrait
+  const hasBar = !!model.colorHex && !model.portrait
   const innerX = cardX + CP + (hasBar ? 8 : 0)
   const innerW = cardW - CP * 2 - (hasBar ? 8 : 0)
-  const sprocket = film ? 16 : 0 // room for a sprocket row top + bottom
 
   // ---- measure phase: build an ordered list of blocks ----
   const blocks = []
@@ -649,7 +653,7 @@ export function drawQuoteCard(canvas, model, theme) {
     const lines = flowRuns(ctx, [{ text: metaText, font: FONTS.meta }], innerW - lead)
     ctx.letterSpacing = '0px'
     const textH = lines.length * MLH
-    push({ kind: 'text', lines, lh: MLH, color: film ? theme.amber : theme.soft, ls: '1px', gap: 6, textH, lead, leadFaces: actorFaces, height: Math.max(textH, lead ? FACE_SIZE : 0) })
+    push({ kind: 'text', lines, lh: MLH, color: theme.soft, ls: '1px', gap: 6, textH, lead, leadFaces: actorFaces, height: Math.max(textH, lead ? FACE_SIZE : 0) })
   }
   if (model.note) {
     const lines = flowRuns(ctx, [{ text: model.note, font: FONTS.note }], innerW - 12)
@@ -672,7 +676,7 @@ export function drawQuoteCard(canvas, model, theme) {
 
   let contentH = 0
   blocks.forEach((b, i) => { contentH += (i ? b.gap : 0) + b.height })
-  const cardH = sprocket * 2 + CP * 2 + contentH + 20 + FOOTER_H
+  const cardH = CP * 2 + contentH + 20 + FOOTER_H
   const H = Math.ceil(cardH + M * 2)
 
   // ---- draw phase ----
@@ -691,7 +695,7 @@ export function drawQuoteCard(canvas, model, theme) {
   const grad = ctx.createLinearGradient(0, M, 0, cardH + M)
   grad.addColorStop(0, theme.cardTop)
   grad.addColorStop(1, theme.cardBottom)
-  const radius = film ? 8 : 14
+  const radius = 14
   ctx.save()
   ctx.shadowColor = 'rgba(0,0,0,0.28)'
   ctx.shadowBlur = 26
@@ -702,11 +706,11 @@ export function drawQuoteCard(canvas, model, theme) {
   ctx.restore()
   roundRectPath(ctx, cardX, M, cardW, cardH, radius)
   ctx.lineWidth = 1.5
-  ctx.strokeStyle = film ? hexToRgba(theme.amber, 0.5) : theme.inkBorder
+  ctx.strokeStyle = theme.inkBorder
   ctx.stroke()
 
   // Portrait backdrop — after the card face and its border, before everything
-  // else, so it sits behind the sprockets, the colour edge and every word.
+  // else, so it sits behind the colour edge and every word.
   // Clipped to the card's own rounded path: the image bleeds to the card's edge,
   // not to the mat's.
   // ONE condition, read twice: it decides both that the photograph is painted
@@ -771,25 +775,11 @@ export function drawQuoteCard(canvas, model, theme) {
     ctx.restore()
   }
 
-  // film sprocket rows (echo the strip)
-  if (film) {
-    ctx.fillStyle = hexToRgba(theme.ink, 0.14)
-    const holeW = 14, holeH = 9, gap = 12
-    const count = Math.max(1, Math.floor((cardW - 24) / (holeW + gap)))
-    const startX = cardX + (cardW - (count * (holeW + gap) - gap)) / 2
-    for (const rowY of [M + 8, M + cardH - 8 - holeH]) {
-      for (let i = 0; i < count; i++) {
-        roundRectPath(ctx, startX + i * (holeW + gap), rowY, holeW, holeH, 2)
-        ctx.fill()
-      }
-    }
-  }
-
   // colour edge (book annotation colour) — spans the QUOTE only, not the whole
   // card, so the attribution/meta/footer below it sit clear of the bar.
   if (hasBar && quoteH > 0) {
     ctx.fillStyle = model.colorHex
-    roundRectPath(ctx, cardX + CP - 2, M + sprocket + CP, 6, quoteH, 3)
+    roundRectPath(ctx, cardX + CP - 2, M + CP, 6, quoteH, 3)
     ctx.fill()
   }
 
@@ -834,7 +824,7 @@ export function drawQuoteCard(canvas, model, theme) {
   // included: a translucent accent chip over a photograph is exactly as hard to
   // find as a word is.
   setHalo(ctx, theme, backdrop)
-  let top = M + sprocket + CP
+  let top = M + CP
   blocks.forEach((b, i) => {
     if (i) top += b.gap
     if (b.kind === 'text') {
@@ -892,7 +882,7 @@ export function drawQuoteCard(canvas, model, theme) {
   // wordmark already had. Louder branding on a card somebody is about to post
   // is branding they crop out.
   const footTop = M + cardH - CP - FOOTER_H + 10
-  ctx.strokeStyle = hexToRgba(theme.ink, film ? 0.18 : 0.12)
+  ctx.strokeStyle = hexToRgba(theme.ink, 0.12)
   ctx.lineWidth = 1
   ctx.beginPath()
   ctx.moveTo(innerX, footTop)

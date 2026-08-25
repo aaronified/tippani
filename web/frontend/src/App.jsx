@@ -339,7 +339,7 @@ export function Onboarding({ onDone, backup }) {
   const [passphrase, setPassphrase] = useState('')
   const fileRef = useRef(null)
   useEffect(() => {
-    applyTheme({ aesthetic: 'paper', theme: 'light' })
+    applyTheme({ materialSet: 'manuscript', theme: 'light' })
   }, [])
 
   const target = source === 'file' ? (file ? { ...fileKey, name: file.name } : null) : backup
@@ -512,7 +512,7 @@ export function Onboarding({ onDone, backup }) {
 // Exported for the same reason as Onboarding, above.
 export function Login({ onLogin }) {
   useEffect(() => {
-    applyTheme({ aesthetic: 'film', theme: 'dark' })
+    applyTheme({ materialSet: 'film-assembly', theme: 'dark' })
   }, [])
   // Picked once per mount rather than per render: re-rolling on every keystroke
   // would make the line flicker while somebody types their password.

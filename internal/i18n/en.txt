@@ -1204,9 +1204,23 @@ settings.labels.auto.label = Auto
 # --- Appearance.
 settings.appearance.title = Appearance
 settings.appearance.theme.title = Theme
+settings.appearance.theme.light.label = Light
+settings.appearance.theme.dark.label = Dark
 settings.appearance.match.label = Match system
 settings.appearance.match.aria = Match system theme
-settings.appearance.manual.label = Manual
+# --- Appearance -> Material. Seven sets, each naming what four surfaces are
+# made of: the desk under everything, the furniture, the page you read, the
+# binding on a cover. Independent of light/dark -- every set works in both -- so
+# these are PLACES, not moods. Translate each as the room it is, not word for
+# word: the English is already the room's name rather than a description.
+settings.appearance.material.title = Material
+settings.material.manuscript.label = Manuscript
+settings.material.film-assembly.label = Film assembly
+settings.material.office.label = Office
+settings.material.school.label = School
+settings.material.atelier.label = Atelier
+settings.material.bindery.label = Bindery
+settings.material.quarry.label = Quarry
 settings.appearance.accent.title = Accent
 # {name} is one of the vocab.accent.* words.
 settings.appearance.accent.tip = Use the {name} accent
@@ -2440,12 +2454,11 @@ share.text.quote.phrase = “{value}”
 share.image.theme.label = theme
 share.image.theme.aria = Image theme
 share.image.theme.info.title = Image theme
-share.image.theme.info.body = The picture's look — paper or film, light or dark. Choosing one here never changes the app's own theme. Starts on whatever the app is showing now.
-# The four skins. "Paper" and "Film" are the app's two aesthetics.
-share.image.theme.paper-light.label = Paper · Light
-share.image.theme.paper-dark.label = Paper · Dark
-share.image.theme.film-light.label = Film · Light
-share.image.theme.film-dark.label = Film · Dark
+share.image.theme.info.body = The picture's look — light or dark. Choosing one here never changes the app's own theme. Starts on whatever the app is showing now.
+# The two skins. One palette per mode means the mode is the only thing that
+# differs in the drawing.
+share.image.theme.light.label = Light
+share.image.theme.dark.label = Dark
 # How a credited person appears. Offered only when somebody credited has a photo.
 share.image.portrait.label = portrait
 share.image.portrait.aria = Portrait
@@ -4573,10 +4586,8 @@ settings.credits.sep.and.aria = and
 # panel was migrated earlier; this line was missed.
 settings.languages.intro.prose = A proverb has nobody to credit, so its card leads with its language instead of a face. Each language offers four letters from its own script; anything else you type — a symbol, a flag, an emoji — is kept as one of that language’s own marks.
 
-# --- Appearance → the four theme presets. The names themselves are
-# share.image.theme.*; these two are what the preset card adds around them.
-# The card in sync mode is the one the OS is choosing, and says so.
-settings.appearance.preset.auto.aria = {name} (matches system)
+# --- Appearance → the seven material specimens. Each card is drawn in
+# the materials it offers; this is the line of type inside it.
 # The specimen inside the little callout — a line of the app's own display face
 # doing its job, not a pangram. Write one a reader of this language would keep.
 settings.appearance.preset.specimen.label = the margins, wider than the text…

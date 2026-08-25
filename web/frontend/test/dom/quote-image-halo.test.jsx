@@ -65,8 +65,8 @@ beforeEach(() => {
   Object.defineProperty(globalThis.Image.prototype, 'height', { value: 100, configurable: true })
 })
 
-const PAPER = paletteTheme('paper', false, '#B4482D')
-const FILM_DARK = paletteTheme('film', true, '#B4482D')
+const LIGHT = paletteTheme(false, '#B4482D')
+const DARK = paletteTheme(true, '#B4482D')
 const FACE = (n) => ({ name: `Person ${n}`, url: `/api/covers/p${n}.jpg` })
 
 // Deliberately every kind of text the card can paint: the quote, the "— "
@@ -87,7 +87,7 @@ const model = (over = {}) => ({
   ...over,
 })
 
-async function render(m, theme = PAPER) {
+async function render(m, theme = LIGHT) {
   await loadFaceImages((m.faces || []).map((f) => f.url))
   drawQuoteCard(document.createElement('canvas'), m, theme)
 }
@@ -132,8 +132,8 @@ describe('the halo under the words', () => {
     // difference between the text and what is behind it.
     await render(model({ portrait: true, faces: [FACE(1)] }))
     const { color } = words()[0].shadow
-    expect(rgbOf(color)).toBe(rgbOf(hexToRgba(PAPER.cardTop, 1)))
-    expect(rgbOf(color)).not.toBe(rgbOf(hexToRgba(PAPER.ink, 1)))
+    expect(rgbOf(color)).toBe(rgbOf(hexToRgba(LIGHT.cardTop, 1)))
+    expect(rgbOf(color)).not.toBe(rgbOf(hexToRgba(LIGHT.ink, 1)))
     // And it is a colour with some translucency, not an opaque plate: the blur
     // is what softens the edge, the alpha is what keeps it a surround.
     expect(Number(String(color).replace(/[()]/g, '').split(',')[3])).toBeGreaterThan(0)
@@ -144,9 +144,9 @@ describe('the halo under the words', () => {
     // around every word in dark mode. The picture's skin is chosen in the share
     // panel and is frequently NOT the app's, so reading the live theme would be
     // wrong even when reading a theme is right.
-    await render(model({ portrait: true, faces: [FACE(1)] }), FILM_DARK)
-    expect(rgbOf(words()[0].shadow.color)).toBe(rgbOf(hexToRgba(FILM_DARK.cardTop, 1)))
-    expect(FILM_DARK.cardTop).not.toBe(PAPER.cardTop) // the test can tell them apart
+    await render(model({ portrait: true, faces: [FACE(1)] }), DARK)
+    expect(rgbOf(words()[0].shadow.color)).toBe(rgbOf(hexToRgba(DARK.cardTop, 1)))
+    expect(DARK.cardTop).not.toBe(LIGHT.cardTop) // the test can tell them apart
   })
 
   it('is a glow, not a drop shadow', async () => {
@@ -166,7 +166,7 @@ describe('the halo under the words', () => {
     // card's own drop shadow, and by the portrait composite before it.
     const canvas = document.createElement('canvas')
     await loadFaceImages(['/api/covers/p1.jpg'])
-    drawQuoteCard(canvas, model({ portrait: true, faces: [FACE(1)] }), PAPER)
+    drawQuoteCard(canvas, model({ portrait: true, faces: [FACE(1)] }), LIGHT)
     expect(canvas.getContext('2d').shadowBlur).toBe(0)
   })
 })
