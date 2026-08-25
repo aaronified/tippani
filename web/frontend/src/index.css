@@ -146,6 +146,89 @@
   @media (prefers-reduced-motion: reduce) { /* §11 — no reveals, tilts, glows */
     *, *::before, *::after { transition: none !important; animation: none !important; }
   }
+
+  /* ---- an escape hatch from the grain -----------------------------------
+     There was none. Every texture in this app is an overlay with a blend mode,
+     and .grain-overlay is a fixed layer at z-index 60 — ABOVE everything,
+     multiplying over every glyph, every quote and every input on the screen. It
+     is 5.5% opacity and it is the whole point of the design, and for a reader
+     who has asked their operating system for more contrast it is 5.5% of noise
+     standing between them and the text.
+
+     `prefers-contrast: more` and `prefers-reduced-transparency: reduce` are the
+     two ways a person says so, and neither was honoured anywhere in the file.
+     Both drop every decorative layer to zero: the page grain, the scenic
+     backdrop, the card tiles, the dither, the shell tiles and the accent
+     grain. Nothing structural moves — the borders, the lifts, the colours and
+     the layout are untouched — so what is left is the same app with the noise
+     taken off, not a different one.
+
+     This is §18's high-contrast item arriving early, and it arrives here rather
+     than there because it costs one rule and the alternative is shipping a
+     release that adds SIX more textured surfaces with no way to turn any of
+     PLACEMENT IS THE RULE, NOT THE SELECTORS. This block shipped inside
+     `@layer components` with no `!important`, and it did nothing at all — not
+     "mostly worked": every one of the twenty-three surfaces below stayed on. Its
+     `.grain-overlay` (0,1,0) lost to `html[data-theme="dark"] .grain-overlay`
+     (0,2,1) twenty lines above it; its `::before` entries lost at equal
+     specificity to the same selectors written later in the same layer; and
+     `.topbar::before`, `.drawer::before` and every mobile surface are declared
+     after the last `@layer components` closes, which makes them unlayered, which
+     beats any layered rule however specific.
+
+     So it lives in `@layer base` and every declaration is `!important`, which is
+     exactly how `prefers-reduced-motion` next door has always worked. For
+     important declarations the cascade REVERSES the layer order: the earliest
+     layer wins, and unlayered — normally the strongest — becomes the weakest. One
+     rule in the first layer therefore beats the whole file, including anything
+     Tailwind's utilities layer brings, and it will keep beating a rule someone
+     adds tomorrow in a place nobody predicted. Chasing this with specificity
+     would only have moved which rule won.
+     them off. ---- */
+  @media (prefers-contrast: more), (prefers-reduced-transparency: reduce) {
+    .grain-overlay,
+    .scene-bg,
+    .hand-card::before,
+    .hand-card::after,
+    .film-frame::before,
+    .film-frame::after,
+    .preset-callout::before,
+    .btn-sticker::before,
+    .btn-film::before,
+    .tp-btn-primary::before,
+    .topbar-add-btn::before,
+    .user-chip::before,
+    .drawer::before,
+    .mobile-bottom-nav::before,
+    .topbar::before,
+    .mobile-topbar::before,
+    .mobile-sticky-bar::before,
+    .mobile-sheet-header::before,
+    .mobile-sheet-footer::before {
+      opacity: 0 !important;
+    }
+    /* The layered fills carry their tile INSIDE background-image, so there is no
+       pseudo-element to fade — the middle layer is dropped by replacing the
+       stack with the scrim and the accent alone. */
+    .tp-toggle-thumb,
+    .tp-select-thumb,
+    .nav-toggle .tp-toggle-thumb,
+    .tp-filter-chip.active,
+    .drawer-item.active,
+    .mobile-bottom-nav-btn.active {
+      background-image: linear-gradient(rgba(0,0,0,var(--sel-scrim,.12)), rgba(0,0,0,var(--sel-scrim,.12))), linear-gradient(180deg, color-mix(in oklab, var(--accent), white 14%), var(--accent)) !important;
+      background-size: auto, auto !important;
+      background-blend-mode: normal, normal !important;
+    }
+    html[data-theme="dark"] .tp-toggle-thumb,
+    html[data-theme="dark"] .tp-select-thumb,
+    html[data-theme="dark"] .nav-toggle .tp-toggle-thumb,
+    html[data-theme="dark"] .tp-filter-chip.active,
+    html[data-theme="dark"] .drawer-item.active,
+    html[data-theme="dark"] .mobile-bottom-nav-btn.active {
+      background-image: linear-gradient(rgba(0,0,0,var(--sel-scrim,.12)), rgba(0,0,0,var(--sel-scrim,.12))), linear-gradient(180deg, color-mix(in oklab, var(--accent-dark), white 12%), var(--accent-dark)) !important;
+    }
+  }
 }
 
 @layer components {
@@ -218,71 +301,6 @@
   html[data-aesthetic="paper"] .scene-bg { background-image: url("./textures/wood.webp"); background-size: var(--grain-scene); }
   html[data-aesthetic="film"] .scene-bg { background-image: url("./textures/glass.webp"); background-size: calc(var(--grain-scene) * 0.86); }
   @media (prefers-reduced-motion: reduce) { .scene-bg { animation: none; } }
-
-  /* ---- an escape hatch from the grain -----------------------------------
-     There was none. Every texture in this app is an overlay with a blend mode,
-     and .grain-overlay is a fixed layer at z-index 60 — ABOVE everything,
-     multiplying over every glyph, every quote and every input on the screen. It
-     is 5.5% opacity and it is the whole point of the design, and for a reader
-     who has asked their operating system for more contrast it is 5.5% of noise
-     standing between them and the text.
-
-     `prefers-contrast: more` and `prefers-reduced-transparency: reduce` are the
-     two ways a person says so, and neither was honoured anywhere in the file.
-     Both drop every decorative layer to zero: the page grain, the scenic
-     backdrop, the card tiles, the dither, the shell tiles and the accent
-     grain. Nothing structural moves — the borders, the lifts, the colours and
-     the layout are untouched — so what is left is the same app with the noise
-     taken off, not a different one.
-
-     This is §18's high-contrast item arriving early, and it arrives here rather
-     than there because it costs one rule and the alternative is shipping a
-     release that adds SIX more textured surfaces with no way to turn any of
-     them off. ---- */
-  @media (prefers-contrast: more), (prefers-reduced-transparency: reduce) {
-    .grain-overlay,
-    .scene-bg,
-    .hand-card::before,
-    .hand-card::after,
-    .film-frame::before,
-    .film-frame::after,
-    .preset-callout::before,
-    .btn-sticker::before,
-    .btn-film::before,
-    .tp-btn-primary::before,
-    .topbar-add-btn::before,
-    .user-chip::before,
-    .drawer::before,
-    .mobile-bottom-nav::before,
-    .topbar::before,
-    .mobile-topbar::before,
-    .mobile-sticky-bar::before,
-    .mobile-sheet-header::before,
-    .mobile-sheet-footer::before {
-      opacity: 0;
-    }
-    /* The layered fills carry their tile INSIDE background-image, so there is no
-       pseudo-element to fade — the middle layer is dropped by replacing the
-       stack with the scrim and the accent alone. */
-    .tp-toggle-thumb,
-    .tp-select-thumb,
-    .nav-toggle .tp-toggle-thumb,
-    .tp-filter-chip.active,
-    .drawer-item.active,
-    .mobile-bottom-nav-btn.active {
-      background-image: linear-gradient(rgba(0,0,0,var(--sel-scrim,.12)), rgba(0,0,0,var(--sel-scrim,.12))), linear-gradient(180deg, color-mix(in oklab, var(--accent), white 14%), var(--accent));
-      background-size: auto, auto;
-      background-blend-mode: normal, normal;
-    }
-    html[data-theme="dark"] .tp-toggle-thumb,
-    html[data-theme="dark"] .tp-select-thumb,
-    html[data-theme="dark"] .nav-toggle .tp-toggle-thumb,
-    html[data-theme="dark"] .tp-filter-chip.active,
-    html[data-theme="dark"] .drawer-item.active,
-    html[data-theme="dark"] .mobile-bottom-nav-btn.active {
-      background-image: linear-gradient(rgba(0,0,0,var(--sel-scrim,.12)), rgba(0,0,0,var(--sel-scrim,.12))), linear-gradient(180deg, color-mix(in oklab, var(--accent-dark), white 12%), var(--accent-dark));
-    }
-  }
 
   /* ---- the scrim behind a modal ------------------------------------------
      One recipe, one place. `rgba(21,16,12,.55)` was written inline at TEN call
