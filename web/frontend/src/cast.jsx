@@ -37,13 +37,12 @@ import {
   IconClose,
   IconDelete,
   IconEdit,
+  IconPicture,
   IconPlus,
-  IconRefresh,
   IconSearch,
   IconUsers,
   InfoDot,
   MonoLabel,
-  Tooltip,
   UnsavedFieldsContext,
 } from './ui.jsx'
 
@@ -90,7 +89,12 @@ export function CastSection({ kind, item, onCastChanged }) {
   const [role, setRole] = useState('none')
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState('')
-  const [open, setOpen] = useState(false)
+  // OPEN, NOT COLLAPSED. This started behind a "People" button because a film's
+  // twenty rows would have dominated the Details panel — and the cost of that was
+  // the owner's report: "i cannot see any cast character". A list you have to know
+  // to ask for is a list nobody knows about. It still closes, and the close is now
+  // the only thing the header's ✕ does.
+  const [open, setOpen] = useState(true)
   const [adding, setAdding] = useState(false)
   const [person, setPerson] = useState(null) // the actor whose own panel is open
   // ONLY WHERE THERE IS AN ACTOR TO LOOK UP. This map exists to put a headshot
@@ -214,13 +218,6 @@ export function CastSection({ kind, item, onCastChanged }) {
       </div>
 
       <ErrorText>{err}</ErrorText>
-
-      {/* The two on-demand fills, side by side, because they answer the same
-          question from two sources — and which one to press depends on the work:
-          TheTVDB has the character art and nothing for games, IMDb has the games. */}
-      {kind !== 'book' && (
-        <CastFills item={item} onFilled={() => load(true)} />
-      )}
 
       {rows === null ? (
         <p className="microcopy">{t('common.state.loading')}</p>
@@ -378,11 +375,24 @@ function CastRow({ row, role, busy, actor, workTitle, onSave, onRemove, onImage,
 
   return (
     <li className="cast-row">
-      {face ? (
-        <img className="cast-face" src={face} alt="" />
-      ) : (
-        <span className="cast-face is-empty" aria-hidden="true" />
-      )}
+      {/* THE PICTURE IS THE BUTTON. See index.css for the report this answers.
+          `aria-expanded` because what it opens is the row's own picture editor,
+          which renders below the names rather than in a popup. */}
+      <button
+        type="button"
+        className={'cast-face-btn' + (face ? '' : ' is-empty')}
+        aria-label={t('cast.picture.aria', { name: row.character || '' })}
+        aria-expanded={urlOpen}
+        disabled={busy}
+        onClick={() => setUrlOpen((v) => !v)}
+      >
+        {face ? (
+          <img className="cast-face" src={face} alt="" />
+        ) : (
+          <span className="cast-face is-empty" aria-hidden="true" />
+        )}
+        <span className="cast-face-mark" aria-hidden="true"><IconPicture size={16} /></span>
+      </button>
       <span className="cast-names">
         <span className="cast-character">{row.character || t('cast.unnamed.label')}</span>
         {row.actor && (
@@ -396,17 +406,8 @@ function CastRow({ row, role, busy, actor, workTitle, onSave, onRemove, onImage,
         )}
       </span>
       <span className="cast-row-acts">
-        {/* THE CHARACTER'S PICTURE, on the row that owns it. The actor's is on the
-            actor, reached by their name above — see the file header for why the two
-            are not one control. */}
-        <Tooltip label={t('cast.picture.tip')}>
-          <FieldIconButton
-            icon={<IconRefresh />}
-            ariaLabel={t('cast.picture.aria', { name: row.character || '' })}
-            disabled={busy}
-            onClick={() => setUrlOpen((v) => !v)}
-          />
-        </Tooltip>
+        {/* The character's picture is reached by pressing the picture — see the
+            face button above. What is left here is the row's text and its life. */}
         <FieldIconButton
           icon={<IconEdit />}
           ariaLabel={t('common.action.edit.field.aria', { field: row.character || '' })}
@@ -521,12 +522,28 @@ function CastAdd({ role, busy, onAdd, onCancel }) {
   )
 }
 
-// CastFills — the two on-demand sources, in one row.
+// CastFills — the two on-demand cast sources, in one row.
+//
+// THEY LIVE ON THE FETCH SCREEN NOW, not in the People panel, and that is the
+// owner's own placement: "there are two cast entries from IMDB and TVDB, which
+// could probably be fit into the fetch / refetch metadata screens." It is the
+// right one. Both of these ARE metadata fetches — one asks TheTVDB for this
+// title's cast, the other asks IMDb — and the screen next to them already holds
+// "look this title up" and "re-pull everything". Three buttons that all mean
+// "go and ask a provider" belong on one screen; two of them hiding inside an
+// editor for the rows they overwrite is where a reader looks last.
+//
+// What stayed behind is editing: naming a character, correcting a spelling,
+// attaching a picture. That is the panel's job and none of it is a fetch.
 //
 // TheTVDB takes no input: the id is on the record, and a search here is where the
 // wrong cast gets attached to the right work. IMDb takes the page you are looking
 // at, for the same reason from the other end — it has no id on the record to use.
-function CastFills({ item, onFilled }) {
+//
+// `onFilled` is handed THE CAST THAT CAME BACK, because the caller is now a screen
+// away from the panel that would otherwise reload it. Both endpoints already reply
+// with the merged list, so this costs nothing and saves the caller a round trip.
+export function CastFills({ item, onFilled }) {
   const [busy, setBusy] = useState('')
   const [said, setSaid] = useState('')
   const [err, setErr] = useState('')
@@ -540,7 +557,7 @@ function CastFills({ item, onFilled }) {
     if (!r.ok) return setErr(errText(r, t('error.load.tvdb-cast')))
     const n = (r.data?.cast || []).length
     setSaid(t('cast.fill.done.prose', { title: r.data?.title || '', n }))
-    onFilled?.()
+    onFilled?.(r.data?.cast || [])
   }
 
   async function fromIMDb() {
@@ -552,7 +569,7 @@ function CastFills({ item, onFilled }) {
     setSaid(t('film.imdb.done.prose', { title: r.data?.title?.title || link.trim(), n }))
     setLink('')
     setImdb(false)
-    onFilled?.()
+    onFilled?.(r.data?.cast || [])
   }
 
   return (

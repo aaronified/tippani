@@ -38,7 +38,7 @@ vi.mock('../../src/api.js', async (orig) => ({
 }))
 
 const probeMod = await import('../../src/cast.jsx')
-const { CastSection } = probeMod
+const { CastFills, CastSection } = probeMod
 const { UnsavedFieldsContext } = await import('../../src/ui.jsx')
 
 const FILM = { id: 7, title: 'Suicide Squad', media_type: 'movie', tvdb_id: 297762 }
@@ -53,10 +53,12 @@ const WITH_ART = [
 const panel = (item = FILM, kind = 'movie') =>
   render(<CastSection kind={kind} item={item} onChanged={() => {}} />)
 
+// THE PANEL IS NO LONGER BEHIND A PRESS. It opened collapsed for one release and
+// the owner's report was "i cannot see any cast character" — a list you have to
+// know to ask for is a list nobody knows about. So this waits for the load rather
+// than triggering it.
 const openPanel = async (item, kind) => {
   panel(item, kind)
-  // Exact, not a regex: the info dot beside it is named "About people".
-  fireEvent.click(screen.getByRole('button', { name: 'People' }))
   await waitFor(() => expect(CALLS.some(([m, p]) => m === 'GET' && p.endsWith('/cast'))).toBe(true))
 }
 
@@ -74,11 +76,20 @@ beforeEach(() => {
 })
 
 describe('the people panel', () => {
-  it('fetches nothing until it is opened', () => {
+  it('fetches its cast as soon as it renders', async () => {
     panel()
-    // A film page opening a cast list nobody asked for is a request per work
-    // browsed. The panel is behind one press for that reason.
-    expect(CALLS.filter(([, p]) => p.endsWith('/cast'))).toEqual([])
+    await waitFor(() => expect(CALLS.some(([m, p]) => m === 'GET' && p === '/movies/7/cast')).toBe(true))
+  })
+
+  it('can be closed, and asks for nothing more once it is', async () => {
+    await openPanel(FILM, 'movie')
+    // Counted on the request that matters, not the total: usePeople's own GET
+    // can land between the two reads and has nothing to do with this claim.
+    const casts = () => CALLS.filter(([m, q]) => m === 'GET' && q === '/movies/7/cast').length
+    const before = casts()
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    expect(screen.queryByText('Amanda Waller')).toBeNull()
+    expect(casts()).toBe(before)
   })
 
   it('lists the characters and who plays them', async () => {
@@ -153,6 +164,11 @@ describe('the people panel', () => {
   it('sets a picture the reader chose, through the same route', async () => {
     await openPanel()
     await screen.findByText('Amanda Waller')
+    // THE FACE IS THE BUTTON. It used to be an unlabelled refresh arrow in the
+    // row's action cluster, which is how "i cannot edit or see the character
+    // images anywhere" happened: the thing you press to change a picture is the
+    // picture. Same accessible name, so this line reads the same and points at a
+    // different element.
     fireEvent.click(screen.getAllByRole('button', { name: /^Picture for / })[0])
     fireEvent.change(screen.getByLabelText('Image URL for Amanda Waller'), { target: { value: 'https://example.com/w.png' } })
     fireEvent.click(screen.getByRole('button', { name: 'Apply' }))
@@ -163,30 +179,11 @@ describe('the people panel', () => {
     })
   })
 
-  it('offers TheTVDB for a film and not for a game', async () => {
-    await openPanel(FILM, 'movie')
-    expect(screen.getByRole('button', { name: /Cast from TheTVDB/ })).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: /Cast from TheTVDB/ }))
-    await waitFor(() => expect(posted(/^\/movies\/7\/cast\/tvdb$/)).toHaveLength(1))
-    // It takes NO body: the id is on the record, and a search here is where the
-    // wrong cast gets attached to the right work.
-    expect(posted(/^\/movies\/7\/cast\/tvdb$/)[0][2]).toBeUndefined()
-  })
-
-  it('hides TheTVDB for a game, which has no record there at all', async () => {
-    await openPanel(GAME, 'movie')
-    expect(screen.queryByRole('button', { name: /Cast from TheTVDB/ })).toBeNull()
-    // IMDb is what a game has, and it stays.
-    expect(screen.getByRole('button', { name: /Cast from IMDb/ })).toBeTruthy()
-  })
-
   it('a book has characters and no actors and nothing to fetch', async () => {
     ROLE = 'none'
     CAST = [{ id: 21, character: 'Ahab', actor: '', character_image_url: '', character_image_path: '' }]
     await openPanel(BOOK, 'book')
     expect(await screen.findByText('Ahab')).toBeTruthy()
-    // Neither fill applies: a book's cast is people the reader names.
-    expect(screen.queryByRole('button', { name: /Cast from/ })).toBeNull()
     // And the actor box is ABSENT rather than disabled — the API refuses an actor
     // on a book rather than quietly clearing it (0047's line).
     fireEvent.click(screen.getByRole('button', { name: /^Edit / }))
@@ -271,7 +268,6 @@ describe('a cast row that is open when the tick is pressed', () => {
         <CastSection kind="movie" item={item} onChanged={() => {}} />
       </UnsavedFieldsContext.Provider>,
     )
-    fireEvent.click(screen.getByRole('button', { name: 'People' }))
     await waitFor(() => expect(CALLS.some(([m, p]) => m === 'GET' && p.endsWith('/cast'))).toBe(true))
     return entries
   }
@@ -331,7 +327,6 @@ describe('what the panel hands back', () => {
   const panelWithSpy = async () => {
     seen.length = 0
     render(<CastSection kind="movie" item={FILM} onCastChanged={(...args) => seen.push(args)} />)
-    fireEvent.click(screen.getByRole('button', { name: 'People' }))
     await waitFor(() => expect(CALLS.some(([m, p]) => m === 'GET' && p.endsWith('/cast'))).toBe(true))
   }
 
@@ -360,5 +355,47 @@ describe('what the panel hands back', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Add' }))
     await waitFor(() => expect(seen.length).toBeGreaterThan(0))
     for (const args of seen) expect(Array.isArray(args[0])).toBe(true)
+  })
+})
+
+// ---- the two cast fetches, on the fetch screen -----------------------------
+//
+// THEY MOVED OUT OF THE PANEL, at the owner's own suggestion: "there are two cast
+// entries from IMDB and TVDB, which could probably be fit into the fetch /
+// refetch metadata screens." Both ARE metadata fetches, and the screen they now
+// sit on already holds "look this title up" and "re-pull everything" — so all
+// three ways of asking a provider for something are in one place, instead of two
+// of them hiding inside the editor for the rows they overwrite.
+//
+// Tested here rather than through WorkDetails because this is the component that
+// makes the requests; that it is RENDERED on the fetch screen is asserted in
+// details-save-all.test.jsx, which drives the real dialog.
+describe('the cast fetches', () => {
+  it('asks TheTVDB with no body — the id is on the record', async () => {
+    render(<CastFills item={FILM} onFilled={() => {}} />)
+    fireEvent.click(screen.getByRole('button', { name: /Cast from TheTVDB/ }))
+    await waitFor(() => expect(posted(/^\/movies\/7\/cast\/tvdb$/)).toHaveLength(1))
+    // NO BODY. A search here is where the wrong cast gets attached to the right
+    // work, so the id comes from the row and nothing guesses.
+    expect(posted(/^\/movies\/7\/cast\/tvdb$/)[0][2]).toBeUndefined()
+  })
+
+  it('hides TheTVDB for a game, which has no record there at all', () => {
+    render(<CastFills item={GAME} onFilled={() => {}} />)
+    expect(screen.queryByRole('button', { name: /Cast from TheTVDB/ })).toBeNull()
+    // IMDb is what a game has, and it stays.
+    expect(screen.getByRole('button', { name: /Cast from IMDb/ })).toBeTruthy()
+  })
+
+  // WHAT IT HANDS BACK IS THE CAST, not a bare "something changed". The caller is
+  // a screen away from the panel that would otherwise reload it, and both
+  // endpoints already reply with the merged list — so a callback that could not
+  // say WHAT changed would cost the caller a round trip to find out.
+  it('hands the caller the cast that came back', async () => {
+    let got = null
+    render(<CastFills item={FILM} onFilled={(c) => { got = c }} />)
+    fireEvent.click(screen.getByRole('button', { name: /Cast from TheTVDB/ }))
+    await waitFor(() => expect(got).not.toBeNull())
+    expect(got.map((c) => c.character)).toEqual(['Amanda Waller', 'Harley Quinn'])
   })
 })

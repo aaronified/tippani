@@ -5228,6 +5228,12 @@ export function IconArchive({ size = ICON_SIZE }) { return <svg {...iconStroke} 
 export function IconRestore({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><rect x="3" y="4.5" width="18" height="4" rx="1.2"/><path d="M4.8 8.5v10a2 2 0 0 0 2 2h10.4a2 2 0 0 0 2-2v-10"/><path d="M12 18v-6"/><path d="m9.3 14.7 2.7-2.7 2.7 2.7"/></svg> }
 // IconRefresh — do it again against the live sources: re-verify, look up, refetch
 // links, check for updates, start the tour over.
+// A framed picture, for the control that attaches one. The mountain-and-sun
+// shape is what every photo picker in the world uses, which is the whole reason
+// to draw it rather than reuse the refresh arrow this control used to wear — an
+// arrow says "fetch again" and the thing it opens is "choose a picture".
+export function IconPicture({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><circle cx="8.8" cy="9.6" r="1.6"/><path d="m4.5 17 4.6-4.6a1.6 1.6 0 0 1 2.3 0l3 3"/><path d="m13.7 14.2 1.9-1.9a1.6 1.6 0 0 1 2.3 0l2.1 2.1"/></svg> }
+
 export function IconRefresh({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><path d="M20.5 12a8.5 8.5 0 1 1-2.9-6.4"/><path d="M20.5 3.5V9.2h-5.7"/></svg> }
 // IconTour — a pennant on a pole: the guided tour, whether it is being started
 // for the first time, replayed, or resumed. A flag rather than a circular arrow,

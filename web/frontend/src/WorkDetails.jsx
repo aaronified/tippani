@@ -22,7 +22,7 @@
 // overwriting an author you typed by hand is, so the second one asks first.
 import { useEffect, useMemo, useState } from 'react'
 import { coverImgURL, errText, json } from './api.js'
-import { CastSection } from './cast.jsx'
+import { CastFills, CastSection } from './cast.jsx'
 import { t } from './i18n.js'
 import { BookLookupPicker, CoverControls, CoverPreview, MovieLookupPicker, hiResPoster, idNum } from './CoverPicker.jsx'
 import {
@@ -578,6 +578,27 @@ export function WorkDetails({ open, onClose, kind, item, onChanged, onDelete }) 
               tvdbId={item.tvdb_id}
               onPick={(c) => { setMerge({ rows: proposeMovie(c), candidate: c }); setView('merge') }}
             />
+          )}
+          {/* THE CAST-ONLY FETCHES, on the screen the reader came to fetch from.
+              They used to live inside the People panel, two screens away from the
+              lookup they are a narrower version of — so a reader who wanted this
+              title's cast pressed "Fetch metadata", got a title picker, and never
+              found the button that asks for the cast alone. Below the picker
+              rather than above it: the picker is what most people came for, and
+              these two are the answer to "the record is fine, its cast is thin".
+
+              A book has neither: TheTVDB has no books and IMDb has no books. */}
+          {kind !== 'book' && (
+            <div className="space-y-2 border-t pt-3" style={{ borderColor: 'var(--line)' }}>
+              <MonoLabel>{t('cast.fill.heading.label')}</MonoLabel>
+              <CastFills
+                item={item}
+                // A NEW RECORD CARRYING THE NEW CAST, which is the same contract
+                // the People panel keeps — handing back `item` would be a state set
+                // to the same reference, which React bails out of.
+                onFilled={(cast) => onChanged?.({ ...item, cast: cast || [] })}
+              />
+            </div>
           )}
         </div>
       )}

@@ -2150,6 +2150,35 @@
     border-radius: 5px; border: 1px solid var(--ink-border);
   }
   .cast-face.is-empty { background: color-mix(in srgb, var(--soft) 16%, transparent); }
+  /* THE FACE IS THE CONTROL. It used to be a static <img> beside an unlabelled
+     refresh arrow in the row's action cluster, and the owner's report was that
+     character pictures could be neither seen nor edited "anywhere" — which was
+     fair: an empty role showed a blank grey rectangle that looked like a spacer,
+     and the one control that could fill it looked like a re-fetch. The picture
+     you want to change is the thing you press. */
+  .cast-face-btn {
+    position: relative; flex: none; padding: 0; border: 0; background: none;
+    line-height: 0; border-radius: 5px; cursor: pointer;
+  }
+  .cast-face-btn:disabled { cursor: default; opacity: 0.55; }
+  .cast-face-btn .cast-face { display: block; }
+  .cast-face-mark {
+    position: absolute; display: flex; align-items: center; justify-content: center;
+    color: var(--soft); pointer-events: none;
+  }
+  /* A ROLE WITH A PICTURE keeps the picture and shows the affordance only on the
+     way to using it — a permanent badge over twenty faces is twenty badges. */
+  .cast-face-btn:not(.is-empty) .cast-face-mark {
+    inset: auto 0 0 0; height: 15px; opacity: 0;
+    color: var(--bg); background: color-mix(in srgb, var(--ink) 62%, transparent);
+    border-radius: 0 0 4px 4px; transition: opacity 120ms ease;
+  }
+  .cast-face-btn:not(.is-empty):hover .cast-face-mark,
+  .cast-face-btn:not(.is-empty):focus-visible .cast-face-mark { opacity: 1; }
+  /* A ROLE WITHOUT ONE says so permanently, because there is nothing else in the
+     row to say it and the blank box was the whole complaint. */
+  .cast-face-btn.is-empty .cast-face-mark { inset: 0; opacity: 1; }
+  .cast-face-btn.is-empty:hover .cast-face-mark { color: var(--ink); }
   .cast-names { display: flex; min-width: 0; flex: 1 1 auto; flex-direction: column; }
   .cast-character { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--type-ui-15); }
   .cast-actor {

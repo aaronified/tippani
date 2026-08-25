@@ -30,6 +30,9 @@ vi.mock('../../src/api.js', async (orig) => ({
       return { ok: true, data: { cast: [{ id: 1, character: 'Ahab', actor: '' }], actor_role: 'none' } }
     }
     if (method === 'GET' && path.startsWith('/people')) return { ok: true, data: { people: [] } }
+    if (method === 'POST' && path.endsWith('/cast/tvdb')) {
+      return { ok: true, data: { title: 'Stalker', cast: [{ id: 4, character: 'The Stalker', actor: 'Aleksandr Kaydanovskiy' }] } }
+    }
     return { ok: true, data: {} }
   }),
 }))
@@ -256,9 +259,10 @@ describe('a submit from somewhere else', () => {
 // page was reloaded by hand. Neither failure is visible from inside the panel, and
 // asserting the argument at the panel cannot see either.
 describe('a cast change reaches the record', () => {
+  // The panel opens with the work now — it spent a release collapsed behind a
+  // "People" button and the owner could not find the cast at all.
   const openPeople = async () => {
     panel()
-    fireEvent.click(screen.getByRole('button', { name: 'People' }))
     await screen.findByText('Ahab')
   }
 
@@ -283,5 +287,61 @@ describe('a cast change reaches the record', () => {
     // replacement.
     expect(rec.title).toBe(ITEM.title)
     expect(rec.author).toBe(ITEM.author)
+  })
+})
+
+// ---- the cast fetches are on the fetch screen ------------------------------
+//
+// A COMPONENT WITH NO CALLER PASSES EVERY TEST IT HAS. cast-panel.test.jsx proves
+// CastFills asks TheTVDB correctly and hands back the cast; none of that is worth
+// anything if the screen never renders it, and the move that put it here is
+// exactly the kind of change that can leave it rendered nowhere. So this drives
+// the real dialog: press the button a reader presses, and look for the control on
+// the screen it lands on.
+describe('the fetch screen carries the cast fetches', () => {
+  const FILM = {
+    id: 12, title: 'Stalker', director: 'Andrei Tarkovsky', media_type: 'movie',
+    release_year: 1979, genres: [], series: '', series_index: 0, tmdb_id: 0, tvdb_id: 4321,
+  }
+  const film = (onChanged) => render(
+    <WorkDetails
+      open
+      kind="movie"
+      item={FILM}
+      onClose={() => {}}
+      onChanged={onChanged || (() => {})}
+    />,
+  )
+
+  it('offers them where the other fetch is, not inside the People panel', async () => {
+    film()
+    // The People panel is open on arrival and must NOT be where these live any
+    // more — that is half the claim, and the half a positive-only test misses.
+    // The panel's own row, from the mocked /cast read above — MonoLabel's heading
+    // is upper-cased by CSS, so its DOM text is not what it looks like.
+    expect(await screen.findByText('Ahab')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /Cast from TheTVDB/ })).toBeNull()
+
+    // The first of two: the ID rows below carry their own "fetch metadata" links.
+    fireEvent.click(screen.getAllByRole('button', { name: /Fetch metadata/i })[0])
+    expect(await screen.findByRole('button', { name: /Cast from TheTVDB/ })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Cast from IMDb/ })).toBeTruthy()
+  })
+
+  // AND WHAT IT HANDS BACK REACHES THE HOST — the same seam that broke twice on
+  // the People panel: never undefined (that unmounts the page), never the same
+  // object (React bails out of a state set to the same reference).
+  it('hands the host a new record carrying the fetched cast', async () => {
+    const seen = []
+    film((rec) => seen.push(rec))
+    fireEvent.click(screen.getAllByRole('button', { name: /Fetch metadata/i })[0])
+    fireEvent.click(await screen.findByRole('button', { name: /Cast from TheTVDB/ }))
+
+    await waitFor(() => expect(seen.length).toBeGreaterThan(0))
+    const rec = seen[seen.length - 1]
+    expect(rec, 'the host was handed nothing').toBeTruthy()
+    expect(rec, 'the host was handed its own record back').not.toBe(FILM)
+    expect(rec.cast.map((c) => c.character)).toEqual(['The Stalker'])
+    expect(rec.title).toBe(FILM.title)
   })
 })
