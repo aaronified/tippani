@@ -7369,8 +7369,12 @@ too.
 by the cascade three ways — out-specified by `html[data-aesthetic="paper"] .tp-toggle-thumb`
 (0,2,1) against its own (0,1,0), out-ordered by three later `::before` rules in the same
 layer, and outranked outright by `.topbar::before` and the drawer rules, which sit AFTER the
-last `@layer components` closes and so beat any layered rule. Seventeen of nineteen
-decorative layers are never stripped. `accent-texture.test.jsx:105` passes because it
+last `@layer components` closes and so beat any layered rule. **The reading-by-eye said
+seventeen of nineteen decorative layers are never stripped; resolving the cascade in code
+said all twenty-three of them, including the two that looked safe** — the page grain and
+the scenic backdrop are each beaten by their own dark-theme rule twenty lines above the
+block. The same resolver, given the tile list derived from the stylesheet rather than typed,
+found two textured surfaces the hand-written list had never named. `accent-texture.test.jsx:105` passes because it
 asserts the selector *string appears* in the block; it never resolves the cascade.
 
 **Reduced-motion works for the reason contrast does not**: its rule is in `@layer base` with

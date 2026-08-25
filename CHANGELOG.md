@@ -5,6 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.9] - 2026-08-25
+
+### Fixed
+
+- **High-contrast mode now actually removes the texture.** Asking your operating system
+  for more contrast — or for less transparency — has always been meant to strip every
+  decorative layer in the app: the page grain that multiplies over every glyph, the
+  scenic backdrop, the card tiles, the button grain, the selection fills. The rule that
+  does it has been in the stylesheet since the release that added six textured surfaces,
+  it names all twenty-three of them, and it did nothing whatsoever. It sat in a CSS layer
+  where the dark theme's own grain rule out-specified it, where three later rules with
+  identical selectors simply came after it, and where the top bar, the drawer and every
+  mobile surface are declared past the end of the last layer — which makes them
+  unlayered, which beats a layered rule however specific it is. A reader who asked for
+  more contrast got 5.5% of noise standing between them and the text, in both themes, on
+  every screen, and nothing on screen said so.
+
+  The block now sits in the first layer with `!important`, which is exactly how the
+  reduced-motion rule beside it has always worked: for important declarations the cascade
+  **reverses** the layer order, so one rule in the first layer beats the whole file —
+  including a rule added tomorrow in a place nobody predicted. Chasing this with more
+  specific selectors would only have moved which rule won. Nothing structural changes:
+  borders, lifts, colours and layout are untouched, so what is left is the same app with
+  the noise taken off rather than a different one.
+
+  **The test that was meant to guard this is why it shipped.** It searched the stylesheet
+  for each selector's name inside the block, found every one of them, and reported the
+  promise kept. It now parses the stylesheet and resolves the cascade — importance, layer
+  order, specificity, source order — and asserts the value a reader ends up with. It also
+  derives the list of textured surfaces from the stylesheet instead of carrying a typed
+  copy, which immediately found two more (the aesthetic-preview callouts) that the typed
+  list could not have named. Two different bugs are now catchable: a texture with no off
+  switch, and an off switch that loses.
+
 ## [2.2.8] - 2026-08-25
 
 ### Changed
