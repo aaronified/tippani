@@ -105,18 +105,42 @@ jobs:
           flavor: |
             latest=false
 
+      # WHAT THE BRANCH BUILD CALLS ITSELF.
+      #
+      # metadata-action's `version` output for a branch push is the branch name,
+      # and the branch is named "v3" — which internal/updater/parseSemver reads
+      # as 3.0.0. Stamped in unchanged, the branch build would show "3.0.0" in
+      # Settings as though it were the release, and, being "newer" than every
+      # real tag, would never offer an update: a tester could sit on a stale
+      # unfinished image forever and be told they were current. The prefix makes
+      # it non-semver, which is the case the updater already handles correctly
+      # ("can't assert this is current, so offer") and which `edge` on main
+      # already takes. Tag builds are untouched — their version IS the release.
+      - name: Version to stamp into the binary
+        id: ver
+        run: |
+          set -euo pipefail
+          v='${{ steps.meta.outputs.version }}'
+          case "${GITHUB_REF}" in
+            refs/tags/*) ;;
+            *) [ "${GITHUB_REF_NAME}" = "${{ github.event.repository.default_branch }}" ] || v="edge-${GITHUB_REF_NAME}" ;;
+          esac
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          echo "stamping $v"
+
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
           context: .
-          # Stamp the resolved version (e.g. 0.5.0 on a tag, "edge" on main) into
-          # the binary so the in-app update check knows what it's running.
+          # Stamp the version decided above (0.5.0 on a tag, "edge" on main,
+          # "edge-v3" on the release branch) into the binary so the in-app
+          # update check knows what it's running.
           # TMDB_TOKEN is the built-in film/show credential (a v4 read access
           # token), kept in a repository secret so it is not in the source. An
           # unset secret builds an image with no built-in, which behaves exactly
           # as every release before this one did: 503 until a key is saved.
           build-args: |
-            VERSION=${{ steps.meta.outputs.version }}
+            VERSION=${{ steps.ver.outputs.version }}
             TMDB_TOKEN=${{ secrets.TMDB_READ_TOKEN }}
             TVDB_TOKEN=${{ secrets.TVDB_API_KEY }}
           # Multi-arch: amd64 is the tested arch; arm64 is published too (pure Go,

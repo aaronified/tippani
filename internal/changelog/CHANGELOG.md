@@ -46,7 +46,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `ghcr.io/aaronified/tippani:<branch>` — `:v3` while v3 is in flight — so it can be tried
   on the machine it is built for without installing a Go and Node toolchain there. It
   carries nothing that moves: no `latest`, no `edge`, no series pointer, so nobody
-  tracking a release can be moved onto unfinished work by it.
+  tracking a release can be moved onto unfinished work by it. It reports its version as
+  `edge-v3` rather than `v3`: a bare branch name reads as the release 3.0.0, which would
+  have made the branch image look like the finished thing in Settings and, being newer
+  than every published release, would have told its testers they were up to date forever.
 
 - **Films and shows look up with nothing configured.** The published Docker images now
   carry built-in TMDB **and TheTVDB** credentials, the way Jellyfin and friends ship theirs, so a fresh

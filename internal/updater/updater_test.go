@@ -21,6 +21,15 @@ func TestCompareAndUpdateAvailable(t *testing.T) {
 		{"dev", "v0.5.0", 0, false, true}, // non-semver current → offer if a release exists
 		{"edge", "", 0, false, false},     // no release → nothing to offer
 		{"v1.0.0-rc1", "v1.0.0", 0, true, false},
+
+		// A BRANCH BUILD MUST NOT PASS FOR THE RELEASE IT IS NAMED AFTER. The
+		// release branch is "v3", and a bare "v3" parses here as 3.0.0 — newer
+		// than every real tag, so the tester would be told they are current
+		// forever. docker-publish.yml stamps "edge-v3" for exactly this reason;
+		// these two rows are what makes that prefix load-bearing rather than
+		// cosmetic.
+		{"v3", "v2.9.9", 1, true, false},      // the trap: reads as 3.0.0
+		{"edge-v3", "v2.9.9", 0, false, true}, // the fix: unparseable, so offer
 	}
 	for _, c := range cases {
 		cmp, ok := Compare(c.cur, c.latest)
