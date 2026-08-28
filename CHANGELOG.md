@@ -42,6 +42,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   at 1 gets no change at all, and one who has it higher has their half-lives moved by
   quotes they genuinely re-read.
 
+- **An unreleased branch can be pulled as an image.** A release branch now publishes
+  `ghcr.io/aaronified/tippani:<branch>` — `:v3` while v3 is in flight — so it can be tried
+  on the machine it is built for without installing a Go and Node toolchain there. It
+  carries nothing that moves: no `latest`, no `edge`, no series pointer, so nobody
+  tracking a release can be moved onto unfinished work by it.
+
 - **Films and shows look up with nothing configured.** The published Docker images now
   carry built-in TMDB **and TheTVDB** credentials, the way Jellyfin and friends ship theirs, so a fresh
   install can search TMDB before anybody has been to Settings. A key you save still wins

@@ -1,10 +1,19 @@
 name: docker
 
 # Build the multi-arch image and push it to GHCR so `docker compose up` can
-# pull ghcr.io/<owner>/tippani. Runs on pushes to main and on version tags.
+# pull ghcr.io/<owner>/tippani. Runs on pushes to main, on the release branch of
+# the moment, and on version tags.
+#
+# A RELEASE BRANCH GETS AN IMAGE NAMED AFTER IT — `:v3` — and nothing that moves:
+# no `latest`, no `edge`, no series pointer. The alternative was what we had,
+# which is that the only way to try the branch before it merges is to build the
+# image yourself, and "test this on the NAS it is built for" then costs a
+# toolchain on the NAS. A branch tag is a pointer that only somebody who typed
+# the branch name can be pulling, so nobody tracking a release tag can be moved
+# onto unfinished work by it.
 on:
   push:
-    branches: [main]
+    branches: [main, v3]
     tags: ["v*"]
   workflow_dispatch:
 
@@ -89,6 +98,10 @@ jobs:
             type=raw,value=latest,enable=${{ steps.rank.outputs.overall == 'true' }}
             type=raw,value=edge,enable={{is_default_branch}}
             type=sha,format=short,enable={{is_default_branch}}
+            # The branch's own name, for a non-default branch only: `:v3` while
+            # v3 is in flight, and nothing at all once it merges and the branch
+            # stops being pushed to.
+            type=ref,event=branch,enable=${{ github.ref_name != github.event.repository.default_branch }}
           flavor: |
             latest=false
 

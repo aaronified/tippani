@@ -311,6 +311,13 @@ slots, and without them film lookup answers `503` until a key is saved. A shippe
 secret one: TMDB's is a v4 **read** token, which cannot write to the account behind it, and both
 providers rate-limit per client IP so a shared credential never pools into one quota.
 
+**Trying an unreleased branch.** A release branch publishes an image named after itself —
+`ghcr.io/aaronified/tippani:v3` while v3 is in flight — so it can be pulled on the box it is
+meant for without a toolchain there. It moves with every push to that branch and carries
+unfinished work by definition: point a **separate** data directory at it (`-v
+/srv/tippani-v3:/data`) rather than your real library, since a branch may add migrations that
+a released build will not read back.
+
 **TheTVDB's free key needs your PIN.** TheTVDB issues two kinds of v4 key: a paid *project* key logs
 in with the key alone, while the free *user-supported* key logs in only with your **subscriber PIN**
 beside it — and their dashboard shows such a key as *inactive* until a subscription backs it. Both
