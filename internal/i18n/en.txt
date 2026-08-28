@@ -4845,6 +4845,9 @@ settings.keys.noun.client-id = client id
 settings.keys.noun.secret = secret
 settings.keys.noun.cookie = cookie
 settings.keys.noun.domain = domain
+# The subscriber number a free TheTVDB key logs in with. Their own site calls it
+# a PIN, so it appears as itself.
+settings.keys.noun.pin = PIN
 # The half of a Programmable Search credential that names WHICH engine — its own
 # console calls it a search engine ID.
 settings.keys.noun.engine-id = engine id
@@ -4853,7 +4856,9 @@ settings.keys.google.hint = Optional, and only if you exceed roughly 1,000 looku
 settings.keys.google.placeholder = Google Books API key — optional
 settings.keys.tmdb.hint = themoviedb.org → Settings → API → a free v3 key (a v4 read token also works). Overrides the built-in shared key. With no key at all, lookups return 503 — manual entry still works.
 settings.keys.tmdb.placeholder = TMDB v3 key or v4 token — overrides built-in
-settings.keys.tvdb.hint = Optional, and usually better for long-running shows: thetvdb.com → Dashboard → API keys.
+settings.keys.tvdb.hint = Optional, and usually better for long-running shows: thetvdb.com → Dashboard → API keys. A free (user-supported) key needs the PIN below as well, or it is refused at login.
+settings.keys.tvdb-pin.hint = Only for a free (user-supported) TheTVDB key: thetvdb.com → your account → Subscriber PIN. Without it that kind of key is rejected and results quietly come from TMDB instead. A paid project key needs no PIN.
+settings.keys.tvdb-pin.placeholder = TheTVDB subscriber PIN — free keys only
 settings.keys.tvdb.placeholder = TheTVDB v4 API key — optional
 settings.keys.igdb-id.hint = Games only, and IGDB authenticates through Twitch: dev.twitch.tv/console → Register Your Application → the client id is shown there. The secret below is the other half; one on its own looks nothing up.
 settings.keys.igdb-id.placeholder = Twitch client id — needed for games

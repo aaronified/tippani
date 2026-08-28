@@ -3526,6 +3526,14 @@ function Metadata({ user, onPreferences }) {
             onSave={(v) => saveKey('tmdb_key', v)}
           />
           <KeyField
+            label={keyLabel('tvdb', 'pin')}
+            hint={t('settings.keys.tvdb-pin.hint')}
+            set={keys?.tvdb_pin_set}
+            placeholder={t('settings.keys.tvdb-pin.placeholder')}
+            busy={saving}
+            onSave={(v) => saveKey('tvdb_pin', v)}
+          />
+          <KeyField
             label={keyLabel('tvdb', 'key')}
             hint={t('settings.keys.tvdb.hint')}
             set={keys?.tvdb_key_set}

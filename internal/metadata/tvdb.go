@@ -22,11 +22,28 @@ const tvdbBase = "https://api4.thetvdb.com/v4"
 var ErrTVDBAuth = errors.New("tvdb rejected the API key")
 
 // TVDB is the api4.thetvdb.com/v4 client (PLAN §6, second movie/show supplier).
-// Unlike TMDB it uses a login exchange: POST /login {apikey} → a bearer JWT
+// Unlike TMDB it uses a login exchange: POST /login {apikey, pin} → a bearer JWT
 // (valid ~1 month) cached in-memory per client and re-fetched on a 401. Key is
 // the TheTVDB v4 API key; BaseURL defaults to the real API (tests override).
+//
+// THE PIN IS THE HALF THAT WAS MISSING, and its absence looked exactly like a
+// wrong key. TheTVDB issues two kinds of v4 credential, and only one of them
+// logs in with the key alone:
+//
+//	a PROJECT key  — the paid/approved kind — authenticates on its own.
+//	a USER-SUPPORTED key — the free kind anybody can generate — authenticates
+//	    only WITH the subscriber's PIN, and its own dashboard describes the key
+//	    as "inactive" until a subscription stands behind it.
+//
+// Sending no pin makes every user-supported key a 401 at login, which reaches
+// the reader as "TheTVDB rejected the key" if nothing else answered — and as
+// SILENCE if TMDB did, because a partial failure is deliberately swallowed so one
+// supplier being down does not hide the other's hits. That is how a key can read
+// as inactive on their site while the app appears to search TheTVDB happily: it
+// was never TheTVDB answering.
 type TVDB struct {
 	Key     string
+	PIN     string // subscriber PIN; required by a user-supported key, unused by a project key
 	BaseURL string
 
 	mu    sync.Mutex
@@ -42,7 +59,14 @@ func (t *TVDB) base() string {
 
 // login exchanges the API key for a bearer token and caches it.
 func (t *TVDB) login(ctx context.Context) error {
-	body, _ := json.Marshal(map[string]string{"apikey": t.Key})
+	// OMITTED WHEN EMPTY rather than sent as "". A project key logs in with no pin
+	// at all, and TheTVDB refuses an empty one — so a field that is always present
+	// would break the credential that works today to support the one that does not.
+	payload := map[string]string{"apikey": t.Key}
+	if p := strings.TrimSpace(t.PIN); p != "" {
+		payload["pin"] = p
+	}
+	body, _ := json.Marshal(payload)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, t.base()+"/login", bytes.NewReader(body))
 	if err != nil {
 		return fmt.Errorf("tvdb: %w", err)

@@ -646,6 +646,7 @@ export function MovieLookupPicker({ title, year, mediaType = 'movie', tmdbId, tv
   const [cands, setCands] = useState(null)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
+  const [warn, setWarn] = useState('')
   const pinned = [idNum(tmdbId) && `TMDB #${idNum(tmdbId)}`, idNum(tvdbId) && `TVDB #${idNum(tvdbId)}`].filter(Boolean)
 
   // §7: opening the edition picker (from the Fetch-metadata icon) auto-runs the
@@ -672,8 +673,18 @@ export function MovieLookupPicker({ title, year, mediaType = 'movie', tmdbId, tv
     if (idNum(tvdbId)) body.tvdb_id = idNum(tvdbId)
     const r = await json('POST', '/movies/lookup', body)
     setBusy(false)
-    if (r.ok) setCands(r.data.candidates)
-    else setErr(errText(r, t('error.lookup.failed')))
+    if (r.ok) {
+      setCands(r.data.candidates)
+      // A SUPPLIER THAT REFUSED WHILE THE OTHER ANSWERED. The server sends this
+      // only for a rejected key and only when there are results to explain, so it
+      // is never an error — the hits below it are real. Without it, a TheTVDB key
+      // that does not work is indistinguishable from one that does: results
+      // appear, and they are TMDB's.
+      setWarn(r.data.warning || '')
+    } else {
+      setWarn('')
+      setErr(errText(r, t('error.lookup.failed')))
+    }
   }
   const onEnter = (e) => {
     if (e.key === 'Enter') {
@@ -696,6 +707,11 @@ export function MovieLookupPicker({ title, year, mediaType = 'movie', tmdbId, tv
           className="shrink-0"
         />
       </div>
+      {/* A SUPPLIER THAT REFUSED WHILE THE OTHER ANSWERED. Not an ErrorText: the
+          results below it are real, and painting them red would say the opposite.
+          The server sends this string only for a rejected key with hits to
+          explain — see handleMovieLookup. */}
+      {warn && <p className="microcopy" style={{ color: 'var(--error)' }}>{warn}</p>}
       {/* Says why a match you did not search for is sitting at the top. */}
       {pinned.length > 0 && (
         <MonoLabel className="block">{t('cover.movie.by-id', { ids: pinned.join(' · ') })}</MonoLabel>

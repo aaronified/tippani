@@ -44,8 +44,13 @@ func (s *Server) coverWidth(name string) int {
 
 // Settings-table keys (store.GetSetting/SetSetting).
 const (
-	settingTMDBKey        = "tmdb_key"
-	settingTVDBKey        = "tvdb_key"
+	settingTMDBKey = "tmdb_key"
+	settingTVDBKey = "tvdb_key"
+	// THE OTHER HALF OF A FREE TheTVDB CREDENTIAL. A user-supported key logs in
+	// only with the subscriber's PIN beside it; a project key needs none. Stored
+	// write-only like every other secret — it is a number that stands for a
+	// paid subscription.
+	settingTVDBPIN        = "tvdb_pin"
 	settingIGDBClientID   = "igdb_client_id" // not secret on its own, but stored write-only with its partner
 	settingIGDBSecret     = "igdb_secret"    // secret: write-only, never echoed
 	settingGoogleBooksKey = "google_books_key"
@@ -109,7 +114,8 @@ func (s *Server) resolveTVDB() (*metadata.TVDB, string) {
 		base = s.TVDB.BaseURL
 	}
 	if key, err := s.Store.GetSetting(settingTVDBKey); err == nil && key != "" {
-		return &metadata.TVDB{Key: key, BaseURL: base}, "custom"
+		pin, _ := s.Store.GetSetting(settingTVDBPIN)
+		return &metadata.TVDB{Key: key, PIN: pin, BaseURL: base}, "custom"
 	}
 	return nil, "none"
 }
@@ -233,8 +239,9 @@ func (s *Server) handleGetMetadataKeys(w http.ResponseWriter, r *http.Request) {
 	igdbSec, err7 := s.Store.GetSetting(settingIGDBSecret)
 	csekey, err8 := s.Store.GetSetting(settingGoogleCSEKey)
 	csecx, err9 := s.Store.GetSetting(settingGoogleCSECX)
-	if err1 != nil || err2 != nil || err3 != nil || err4 != nil || err5 != nil || err6 != nil || err7 != nil || err8 != nil || err9 != nil {
-		internalError(w, r, "load metadata keys", errors.Join(err1, err2, err3, err4, err5, err6, err7, err8, err9))
+	vpin, err10 := s.Store.GetSetting(settingTVDBPIN)
+	if err1 != nil || err2 != nil || err3 != nil || err4 != nil || err5 != nil || err6 != nil || err7 != nil || err8 != nil || err9 != nil || err10 != nil {
+		internalError(w, r, "load metadata keys", errors.Join(err1, err2, err3, err4, err5, err6, err7, err8, err9, err10))
 		return
 	}
 	_, source := s.resolveTMDB()
@@ -243,6 +250,7 @@ func (s *Server) handleGetMetadataKeys(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"tmdb_key_set":         tkey != "",
 		"tvdb_key_set":         vkey != "",
+		"tvdb_pin_set":         vpin != "",
 		"google_books_key_set": gkey != "",
 		"amazon_cookie_set":    acookie != "",
 		"amazon_domain":        adomain,
@@ -273,6 +281,7 @@ func (s *Server) handlePutMetadataKeys(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		TMDBKey        *string `json:"tmdb_key"`
 		TVDBKey        *string `json:"tvdb_key"`
+		TVDBPIN        *string `json:"tvdb_pin"`
 		GoogleBooksKey *string `json:"google_books_key"`
 		AmazonCookie   *string `json:"amazon_cookie"`
 		AmazonDomain   *string `json:"amazon_domain"`
@@ -297,6 +306,12 @@ func (s *Server) handlePutMetadataKeys(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := set(settingTVDBKey, req.TVDBKey); err != nil {
 		internalError(w, r, "save tvdb key", err)
+		return
+	}
+	// Saved on its own, like the IGDB pair: a reader correcting a mistyped PIN
+	// should not have to re-enter the key beside it.
+	if err := set(settingTVDBPIN, req.TVDBPIN); err != nil {
+		internalError(w, r, "save tvdb pin", err)
 		return
 	}
 	if err := set(settingGoogleBooksKey, req.GoogleBooksKey); err != nil {

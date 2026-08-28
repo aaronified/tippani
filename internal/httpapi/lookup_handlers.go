@@ -217,10 +217,10 @@ func (s *Server) handleMovieLookup(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	var firstErr error
+	var firstErr, tvdbErr error
 	if tvdb != nil && req.Title != "" {
 		if c, err := tvdb.Search(r.Context(), req.Title, req.Year, mediaType); err != nil {
-			firstErr = err
+			firstErr, tvdbErr = err, err
 		} else {
 			add(c)
 		}
@@ -270,7 +270,26 @@ func (s *Server) handleMovieLookup(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"candidates": cands})
+	out := map[string]any{"candidates": cands}
+	// A SUPPLIER THAT WAS ASKED AND REFUSED, said out loud even though the other
+	// one answered.
+	//
+	// The partial-failure rule above is right — one supplier being down must not
+	// hide the other's hits — but it was also SILENT, and silence is how a reader
+	// comes to believe TheTVDB is answering when TMDB is. The reported case:
+	// "TVDB says the API key is inactive! but i can search TVDB from the app!"
+	// Both halves were true and the second was TMDB.
+	//
+	// Only for an auth failure, and only when there are hits to explain. A
+	// timeout is noise the reader can do nothing about; a rejected key is a thing
+	// to go and fix, and the fix is usually the PIN — TheTVDB's free
+	// user-supported key does not log in without one.
+	if errors.Is(tvdbErr, metadata.ErrTVDBAuth) && len(cands) > 0 {
+		out["warning"] = "TheTVDB rejected the key, so these results are TMDB's. " +
+			"A free (user-supported) TheTVDB key also needs your subscriber PIN — " +
+			"add it in Settings → Metadata sources."
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 // gameLookup is the games arm of POST /movies/lookup. Same response shape as the

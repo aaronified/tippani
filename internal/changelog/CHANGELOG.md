@@ -50,6 +50,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   build time from a repository secret rather than committed, so a binary you build
   yourself has no built-in unless you pass one (`make build TMDB_TOKEN=…`).
 
+- **A TheTVDB key that does not work no longer looks like one that does.** TheTVDB
+  issues two kinds of v4 credential and only one of them logs in with the key alone: a
+  paid **project** key authenticates on its own, while the free **user-supported** key
+  needs your subscriber **PIN** beside it — and its dashboard describes the key as
+  *inactive* until a subscription stands behind it. The app never sent a PIN, so that
+  kind of key was refused at login every time. There is now a *TheTVDB PIN* field in
+  Settings → Metadata sources (sent only when you have filled it, because a project key
+  is refused if an empty one is sent).
+
+  Worse than the refusal was that it was **silent**: when one film supplier fails the
+  other's results are deliberately still shown, so a rejected TheTVDB key produced a
+  full picker of TMDB hits and no hint that TheTVDB had said no. The lookup now says
+  which supplier refused, above the results, whenever there are results to explain.
+
 - **A character can have a picture of the character.** TheTVDB carries an image per
   ROLE — Amanda Waller in costume rather than Viola Davis on a red carpet — and it is
   the only supplier that does, so every TMDB-sourced cast row, every game's typed voice
@@ -62,6 +76,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   through the same route a pasted address has always taken, so a later refetch leaves it
   alone. With no picture source configured the button opens a web search in a tab,
   exactly as before.
+
+- **A TheTVDB key that does not work no longer looks like one that does.** TheTVDB
+  issues two kinds of v4 credential and only one of them logs in with the key alone: a
+  paid **project** key authenticates on its own, while the free **user-supported** key
+  needs your subscriber **PIN** beside it — and its dashboard describes the key as
+  *inactive* until a subscription stands behind it. The app never sent a PIN, so that
+  kind of key was refused at login every time. There is now a *TheTVDB PIN* field in
+  Settings → Metadata sources (sent only when you have filled it, because a project key
+  is refused if an empty one is sent).
+
+  Worse than the refusal was that it was **silent**: when one film supplier fails the
+  other's results are deliberately still shown, so a rejected TheTVDB key produced a
+  full picker of TMDB hits and no hint that TheTVDB had said no. The lookup now says
+  which supplier refused, above the results, whenever there are results to explain.
 
 - **A character can have a picture of the character.** TheTVDB carries an image per
   ROLE — Amanda Waller in costume rather than Viola Davis on a red carpet — and it is

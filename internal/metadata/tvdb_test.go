@@ -2,7 +2,9 @@ package metadata
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -153,5 +155,44 @@ func TestTVDBAuthFailure(t *testing.T) {
 	tv := &TVDB{Key: "bad", BaseURL: fake.URL}
 	if _, err := tv.Search(context.Background(), "x", 0, "movie"); !errors.Is(err, ErrTVDBAuth) {
 		t.Fatalf("err = %v, want ErrTVDBAuth", err)
+	}
+}
+
+// THE PIN IS THE HALF THAT WAS MISSING, and its absence looked exactly like a
+// wrong key: TheTVDB's free user-supported key logs in only with the
+// subscriber's PIN, its own dashboard calls the key "inactive" until then, and a
+// 401 at login is swallowed whenever TMDB answered — so the reader sees results
+// and believes TheTVDB produced them.
+func TestTVDBLoginSendsThePINOnlyWhenThereIsOne(t *testing.T) {
+	var got map[string]string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/login" {
+			got = nil
+			_ = json.NewDecoder(r.Body).Decode(&got)
+			fmt.Fprint(w, `{"data":{"token":"tok"}}`)
+			return
+		}
+		fmt.Fprint(w, `{"data":[]}`)
+	}))
+	defer srv.Close()
+
+	// A user-supported key: the PIN travels beside it.
+	withPIN := &TVDB{Key: "k", PIN: "4242", BaseURL: srv.URL}
+	if _, err := withPIN.Search(context.Background(), "Heat", 0, "movie"); err != nil {
+		t.Fatalf("search: %v", err)
+	}
+	if got["apikey"] != "k" || got["pin"] != "4242" {
+		t.Fatalf("login body = %v, want the key and the pin", got)
+	}
+
+	// A project key: the field is ABSENT rather than empty. TheTVDB refuses an
+	// empty pin, so always sending the field would break the credential that
+	// works today in order to support the one that does not.
+	noPIN := &TVDB{Key: "k", BaseURL: srv.URL}
+	if _, err := noPIN.Search(context.Background(), "Heat", 0, "movie"); err != nil {
+		t.Fatalf("search: %v", err)
+	}
+	if _, present := got["pin"]; present {
+		t.Fatalf("login body = %v, want no pin field at all", got)
 	}
 }

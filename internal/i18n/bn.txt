@@ -4588,6 +4588,9 @@ settings.keys.noun.client-id = client id
 settings.keys.noun.secret = secret
 settings.keys.noun.cookie = কুকি
 settings.keys.noun.domain = ডোমেন
+# The subscriber number a free TheTVDB key logs in with. Their own site calls it
+# a PIN, so it appears as itself.
+settings.keys.noun.pin = PIN
 # The half of a Programmable Search credential that names WHICH engine — its own
 # console calls it a search engine ID.
 settings.keys.noun.engine-id = ইঞ্জিন আইডি
@@ -4596,7 +4599,9 @@ settings.keys.google.hint = ইচ্ছেমতো, আর দিনে 1,000-
 settings.keys.google.placeholder = গুগল বুকস API কি — ইচ্ছেমতো
 settings.keys.tmdb.hint = themoviedb.org → Settings → API → বিনামূল্যের একটা v3 কি (v4 রিড টোকেনও চলে)। সঙ্গে আসা সবার কি-টাকে সরিয়ে এটাই চলে। কোনও কি না থাকলে খোঁজ 503 ফেরায় — নিজে হাতে লেখা তখনও চলে।
 settings.keys.tmdb.placeholder = TMDB v3 কি বা v4 টোকেন — সঙ্গে আসাটাকে সরিয়ে দেয়
-settings.keys.tvdb.hint = ইচ্ছেমতো, আর অনেক দিন ধরে চলা শোয়ের জন্য সাধারণত ভাল: thetvdb.com → Dashboard → API keys।
+settings.keys.tvdb.hint = ইচ্ছেমতো, আর অনেক দিন ধরে চলা শোয়ের জন্য সাধারণত ভাল: thetvdb.com → Dashboard → API keys। ফ্রি (user-supported) কি হলে নিচের PIN-টাও লাগে, নইলে লগইনেই ফিরিয়ে দেয়।
+settings.keys.tvdb-pin.hint = শুধু ফ্রি (user-supported) TheTVDB কি-র জন্য: thetvdb.com → আপনার অ্যাকাউন্ট → Subscriber PIN। এটা ছাড়া ওই কি বাতিল হয়, আর ফলাফল চুপচাপ TMDB থেকে আসে। পেইড প্রজেক্ট কি-তে PIN লাগে না।
+settings.keys.tvdb-pin.placeholder = TheTVDB subscriber PIN — শুধু ফ্রি কি-র জন্য
 settings.keys.tvdb.placeholder = TheTVDB v4 API কি — ইচ্ছেমতো
 settings.keys.igdb-id.hint = শুধু গেমের জন্য, আর IGDB পরিচয় মেলায় Twitch দিয়ে: dev.twitch.tv/console → Register Your Application → client id ওখানেই দেখা যায়। নিচের secret বাকি অর্ধেক; একলা একটা দিয়ে কিছুই খোঁজা যায় না।
 settings.keys.igdb-id.placeholder = Twitch client id — গেমের জন্য দরকার
