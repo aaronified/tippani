@@ -235,74 +235,112 @@ func clozeSpan(text string, kind string, id int64, maxWords int) (masked, answer
 // derived from the same fact — how far you can travel from a word before landing
 // on another real one, which is a function of its length.
 func clozeCorrect(answer, attempt string) bool {
+	return clozeJudge(answer, attempt) != clozeMiss
+}
+
+// clozeResult is HOW an attempt matched, which the schedule needs and a boolean
+// cannot carry.
+//
+// THE THREE OUTCOMES ARE NOT TWO. Recalling the word and spelling it another way
+// is the word; recalling a word that means the same thing is not, and neither is
+// it a failure. Collapsing the middle case into "correct" tells a reader who
+// wrote "nearly" for "almost" that they reproduced the line, and collapsing it
+// into "wrong" tells somebody who has the sentence that they have forgotten it.
+// It is its own answer and it is worth its own amount — see clozeSynonymWeight.
+type clozeResult int
+
+const (
+	clozeMiss       clozeResult = iota // not the word, and not near enough to be one
+	clozeGot                           // the word itself: spelling, form and typos forgiven
+	clozeGotSynonym                    // a different word that means the same thing
+)
+
+// clozeJudge grades an attempt and says which of the three it is.
+func clozeJudge(answer, attempt string) clozeResult {
 	a, b := clozeNormalise(answer), clozeNormalise(attempt)
 	if a == "" || b == "" {
-		return false
+		return clozeMiss
 	}
 	if a == b {
-		return true
+		return clozeGot
 	}
 	aw, bw := strings.Fields(a), strings.Fields(b)
 	// A missing or an extra word is never a typo, whatever the distances say.
 	if len(aw) != len(bw) {
-		return false
+		return clozeMiss
 	}
+	synonym := false
 	for i := range aw {
-		if aw[i] == bw[i] {
-			continue
-		}
-		// A CLOSE SYNONYM IS NOT A TYPO AND IS STILL A RECALL. The edit budget
-		// below measures how far the letters travelled, which is exactly the wrong
-		// instrument for "remembered" vs "forgot" — "quiet" for "silent" is nine
-		// edits away and is somebody who has the sentence; "vast" for "fast" is one
-		// edit away and is somebody who has not. So the words are compared as words
-		// first, and only then as spellings.
-		if clozeEquivalent(aw[i], bw[i]) {
-			continue
-		}
-		budget := clozeBudget(len([]rune(aw[i])))
-		if budget == 0 {
-			return false
-		}
-		if search.Distance(aw[i], bw[i], budget) > budget {
-			return false
+		switch {
+		case aw[i] == bw[i]:
+		// THE SAME WORD, WRITTEN ANOTHER WAY, and this is full credit: a British
+		// spelling and a plural are not a different word, and nobody recalling a
+		// line has failed at it by writing "colour".
+		case clozeSameWord(aw[i], bw[i]):
+		// A DIFFERENT WORD THAT MEANS THE SAME, which the edit budget below can
+		// never recognise: it measures how far the LETTERS travelled, and
+		// "nearly" is six edits from "almost" while "fast" is one edit from
+		// "vast". Counted, and counted for less.
+		case clozeSynonymOf(aw[i], bw[i]):
+			synonym = true
+		default:
+			budget := clozeBudget(len([]rune(aw[i])))
+			if budget == 0 {
+				return clozeMiss
+			}
+			if search.Distance(aw[i], bw[i], budget) > budget {
+				return clozeMiss
+			}
 		}
 	}
-	return true
+	if synonym {
+		return clozeGotSynonym
+	}
+	return clozeGot
 }
 
-// clozeEquivalent reports whether two words count as the same recall: the same
-// word spelled another way, the same word in another form, or one of a small set
-// of near-synonyms.
-//
-// THE LIST IS SHORT AND HAND-WRITTEN, for the same reason clozeStopwords is: the
-// alternative is a thesaurus, and a thesaurus is exactly the wrong tool here. It
-// would accept "large" for "great" and "wonderful" for "great" alike, and the
-// second is a different sentence. What this accepts is the class of miss that is
-// obviously not a failure of memory — a British spelling for an American one, a
-// plural for a singular, and the handful of pairs that are genuinely
-// interchangeable in a quotation.
-//
-// It is deliberately NOT applied to the whole-string comparison: three words
-// recalled as three synonyms is a paraphrase, and the word count check above
-// already refuses a rewrite of a different length.
-func clozeEquivalent(a, b string) bool {
+// clozeSameWord reports whether two words are THE SAME WORD written differently:
+// one spelled the British way and the other the American, or one inflected and
+// the other not. Full credit — nobody recalling a line has failed at it by
+// writing "colour", and the reader who typed "fortunes" for "fortune" had the
+// word.
+func clozeSameWord(a, b string) bool {
 	if a == b {
 		return true
 	}
 	if clozeSpellingFold(a) == clozeSpellingFold(b) {
 		return true
 	}
-	if clozeStemFold(a) == clozeStemFold(b) {
-		return true
+	return clozeStemFold(a) == clozeStemFold(b)
+}
+
+// clozeSynonymOf reports whether two DIFFERENT words are in the same group of
+// the narrow list below.
+//
+// Spelling-folded on both sides so the list does not have to carry both
+// spellings of anything, and never true for a word compared with itself — the
+// caller distinguishes "the word" from "a word that means the same", so a
+// synonym check that answered yes for an exact match would discount a perfect
+// answer.
+func clozeSynonymOf(a, b string) bool {
+	if a == b {
+		return false
 	}
+	// Stem-folded as well as spelling-folded, so one row covers the regular
+	// inflections and the list stays a list of WORDS rather than of forms:
+	// "starting" reaches the row that holds "start". An irregular past does not —
+	// "began" is not "begin" to a suffix trim — and that is left as a miss rather
+	// than papered over with more rows, because a tense the reader changed is a
+	// sentence they changed.
+	fa, fb := clozeStemFold(a), clozeStemFold(b)
 	for _, group := range clozeSynonyms {
 		var hitA, hitB bool
 		for _, w := range group {
-			if w == a || clozeSpellingFold(w) == clozeSpellingFold(a) {
+			fw := clozeStemFold(w)
+			if fw == fa {
 				hitA = true
 			}
-			if w == b || clozeSpellingFold(w) == clozeSpellingFold(b) {
+			if fw == fb {
 				hitB = true
 			}
 		}
@@ -363,36 +401,36 @@ func clozeStemFold(w string) string {
 	return w
 }
 
-// clozeSynonyms are the pairs a reader can put in the blank and still have
-// recalled the line. Kept to words that are interchangeable in ordinary English
-// prose — nothing that changes the register, the era or the emphasis of a
-// quotation, because a quote is the one kind of text where those ARE the
-// meaning.
+// clozeSynonyms is the whole of the thesaurus this app has, and it is meant to
+// stay this short.
+//
+// THE TEST A PAIR HAS TO PASS: substituting one for the other changes the WORD
+// and nothing else — not the strength, not the register, not the era. "Nearly"
+// for "almost" is the same sentence. "Large" for "big" is not: one is the word a
+// writer chose and the other is the word a reader reaches for, and a quotation is
+// the one kind of text where that difference IS the text. So the list opened at
+// twenty-four pairs and was cut to these, which is the version that can be
+// defended pair by pair.
+//
+// It is not empty, and it is not empty on purpose. A reader who half-remembers a
+// line, types the word that means the thing, and is told they forgot the quote
+// has been failed by an edit-distance function pretending to be a judgement about
+// memory — and will believe the deck rather than argue with it. This is the
+// narrow middle: enough that a fair answer is not called wrong, little enough
+// that a different sentence is never called right. What stops it being merely
+// generous is that it is worth LESS — see clozeSynonymWeight.
+//
+// Regular inflections need no entries — clozeSynonymOf stem-folds both sides, so
+// the row holding "start" is reached by "starts" and "starting". An irregular
+// past is not covered and is deliberately left as a miss.
 var clozeSynonyms = [][]string{
-	{"big", "large"},
-	{"small", "little"},
-	{"quiet", "silent"},
-	{"begin", "start"},
-	{"began", "started"},
-	{"end", "finish"},
-	{"quick", "fast", "rapid"},
-	{"answer", "reply"},
-	{"beautiful", "lovely"},
-	{"happy", "glad"},
-	{"sad", "unhappy"},
-	{"strange", "odd"},
-	{"whole", "entire"},
 	{"almost", "nearly"},
 	{"perhaps", "maybe"},
+	{"begin", "start"},
+	{"whole", "entire"},
+	{"difficult", "hard"},
+	{"quick", "fast"},
 	{"often", "frequently"},
-	{"always", "forever"},
-	{"speak", "talk"},
-	{"buy", "purchase"},
-	{"choose", "select"},
-	{"hard", "difficult"},
-	{"true", "real"},
-	{"awful", "terrible", "dreadful"},
-	{"wise", "clever"},
 }
 
 // clozeBudget is how many edits one word of n characters may be wrong by.

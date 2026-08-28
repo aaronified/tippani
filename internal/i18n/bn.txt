@@ -1656,6 +1656,8 @@ quiz.tuning.cloze-grow.label = টাইপ করা উত্তর পায�
 quiz.tuning.cloze-grow.hint = শূন্যস্থান পূরণে ভরসা করার কিছু থাকে না, অথচ বহুনির্বাচনীতে চার ভাগের তিন ভাগ কাজ আগেই করা থাকে। ঠিক হলে টাইপ করা উত্তরের দাম তাই কতটা বেশি, সেটাই এটা।
 quiz.tuning.cloze-shrink.label = আর ভুল হলে খরচ
 quiz.tuning.cloze-shrink.hint = অন্য অর্ধেকটা, আর এটাই একে উদার না রেখে ন্যায্য রাখে: ডেকের সবচেয়ে কঠিন প্রশ্নে আটকে যাওয়া দিয়ে ভোলা প্রমাণ হয় না, কিন্তু চারটের মধ্যে চিনতে না পারা জোরালো প্রমাণ।
+quiz.tuning.cloze-synonym.label = সমার্থক শব্দের দাম
+quiz.tuning.cloze-synonym.hint = কাছাকাছি সমার্থক শব্দে ফাঁক ভরালে সেটা ঠিক বলেই গোনা হয়, তবে অর্ধায়ু বাড়ে হুবহু উত্তরের এই ভগ্নাংশ। 0.5 মানে আসল শব্দের দাম সমার্থকের দ্বিগুণ; 0 মানে গোনা হবে, কার্ড এগোবে না।
 quiz.tuning.cloze-words.label = একাধিক শব্দের ফাঁক কবে থেকে
 quiz.tuning.cloze-words.hint = এতদিন মনে থাকা পর্যন্ত ফাঁক একটাই শব্দ লুকোয়, তারপর গোটা টুকরো লুকোতে পারে। 1 করে দিলে চওড়া ফাঁক গোড়া থেকেই আসবে।
 quiz.tuning.ladder-1.label = সিঁড়ির ধাপ 1
@@ -2573,6 +2575,9 @@ quiz.cloze.placeholder-key = ফাঁকে যা বসবে, টাইপ �
 quiz.cloze.check.label = মিলিয়ে দেখুন
 # Above the right answer, once it has been checked.
 quiz.cloze.answer.label = যে শব্দগুলো ছিল
+# Under the revealed words when the attempt was a close synonym rather than the
+# word itself: it counted, and it earned less. See quiz.tuning.cloze-synonym.
+quiz.cloze.synonym.note = সমার্থক হিসেবে গোনা হল — আসল শব্দের চেয়ে কম দামে
 
 # Under each option of a "which quote?" card, once it has been answered: the
 # work that option came out of. {title} is a book, film, show, game or occasion.

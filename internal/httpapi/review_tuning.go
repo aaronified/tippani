@@ -40,18 +40,24 @@ type reviewTuning struct {
 	Shrink      float64 `json:"shrink"`      // adaptive: lapse multiplier
 	ClozeGrow   float64 `json:"clozeGrow"`   // extra credit for a typed answer
 	ClozeShrink float64 `json:"clozeShrink"` // reduced cost for missing a typed answer
-	ClozeWords  float64 `json:"clozeWords"`  // half-life (days) at which a blank may span several words
-	Ladder1     float64 `json:"ladder1"`     // the fixed ladder's three rungs, in days
-	Ladder2     float64 `json:"ladder2"`
-	Ladder3     float64 `json:"ladder3"`
+	// ClozeSynonym is how much of an exact recall's stretch a blank filled with a
+	// close synonym keeps. 0.5 means a correct answer is worth twice a synonym;
+	// 1 means the reader does not want the distinction made; 0 means the answer
+	// counts (the card does not lapse) and earns nothing.
+	ClozeSynonym float64 `json:"clozeSynonym"`
+	ClozeWords   float64 `json:"clozeWords"` // half-life (days) at which a blank may span several words
+	Ladder1      float64 `json:"ladder1"`    // the fixed ladder's three rungs, in days
+	Ladder2      float64 `json:"ladder2"`
+	Ladder3      float64 `json:"ladder3"`
 }
 
 func defaultReviewTuning() reviewTuning {
 	return reviewTuning{
 		Grow: reviewGrow, Shrink: reviewShrink,
 		ClozeGrow: clozeGrowWeight, ClozeShrink: clozeShrinkWeight,
-		ClozeWords: clozeMultiWordFrom,
-		Ladder1:    reviewMinStability, Ladder2: 30, Ladder3: reviewMaxStability,
+		ClozeSynonym: clozeSynonymWeight,
+		ClozeWords:   clozeMultiWordFrom,
+		Ladder1:      reviewMinStability, Ladder2: 30, Ladder3: reviewMaxStability,
 	}
 }
 
@@ -75,6 +81,10 @@ func clampTuning(t reviewTuning) reviewTuning {
 	// argues against itself.
 	t.ClozeGrow = pick(t.ClozeGrow, 1, 3, d.ClozeGrow)
 	t.ClozeShrink = pick(t.ClozeShrink, 0.2, 1, d.ClozeShrink)
+	// 0 to 1, and both ends mean something: at 1 a synonym is an exact recall, at
+	// 0 it counts without moving the card. Above 1 it would earn MORE than the
+	// word it stood in for, which is the one reading that makes no sense at all.
+	t.ClozeSynonym = pick(t.ClozeSynonym, 0, 1, d.ClozeSynonym)
 	t.ClozeWords = pick(t.ClozeWords, 1, reviewMaxStability, d.ClozeWords)
 	// The ladder has to ASCEND, and has to stay inside the bounds every query
 	// floors and caps against — reviewMinStability/reviewMaxStability are spliced
@@ -125,6 +135,6 @@ func (t reviewTuning) ladder() [3]float64 {
 }
 
 func (t reviewTuning) String() string {
-	return fmt.Sprintf("grow=%.2f shrink=%.2f cloze=%.2f/%.2f words@%.0f ladder=%.0f/%.0f/%.0f",
-		t.Grow, t.Shrink, t.ClozeGrow, t.ClozeShrink, t.ClozeWords, t.Ladder1, t.Ladder2, t.Ladder3)
+	return fmt.Sprintf("grow=%.2f shrink=%.2f cloze=%.2f/%.2f syn=%.2f words@%.0f ladder=%.0f/%.0f/%.0f",
+		t.Grow, t.Shrink, t.ClozeGrow, t.ClozeShrink, t.ClozeSynonym, t.ClozeWords, t.Ladder1, t.Ladder2, t.Ladder3)
 }

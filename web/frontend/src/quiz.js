@@ -258,6 +258,13 @@ export const TUNING_FIELDS = [
     get hint() { return t('quiz.tuning.cloze-shrink.hint') },
   },
   {
+    // 0 to 1, because a synonym cannot be worth MORE than the word it stood in
+    // for. See clozeSynonymWeight in Go: this scales the stretch, not the result.
+    key: 'clozeSynonym', min: 0, max: 1, step: 0.05, format: 'common.slider.multiplier.format', decimals: 2,
+    get label() { return t('quiz.tuning.cloze-synonym.label') },
+    get hint() { return t('quiz.tuning.cloze-synonym.hint') },
+  },
+  {
     key: 'clozeWords', min: 1, max: 100, step: 1, format: 'common.slider.days.format', decimals: 0,
     get label() { return t('quiz.tuning.cloze-words.label') },
     get hint() { return t('quiz.tuning.cloze-words.hint') },
@@ -274,7 +281,7 @@ export const TUNING_FIELDS = [
 ]
 
 export const DEFAULT_TUNING = {
-  grow: 2.5, shrink: 0.5, clozeGrow: 1.25, clozeShrink: 0.85, clozeWords: 30,
+  grow: 2.5, shrink: 0.5, clozeGrow: 1.25, clozeShrink: 0.85, clozeSynonym: 0.5, clozeWords: 30,
   ladder1: 7, ladder2: 30, ladder3: 100,
 }
 

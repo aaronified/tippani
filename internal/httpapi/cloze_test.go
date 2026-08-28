@@ -138,17 +138,32 @@ func TestClozeGradingIsForgivingButNotBlind(t *testing.T) {
 
 		// CLOSE SYNONYMS COUNT AS RECALL (3.0). The edit distance above measures
 		// how far the LETTERS travelled, which is the wrong instrument for a word
-		// somebody remembered correctly and wrote another way: "silent" is nine
-		// edits from "quiet" and is the same recall, while "fast" is one edit from
-		// "vast" and is not.
-		{"quiet", "silent", true},
-		{"colour", "color", true},         // the same word, two spellings
-		{"realise", "realize", true},      //
-		{"travelling", "traveling", true}, //
-		{"theatre", "theater", true},      //
-		{"fortunes", "fortune", true},     // the same word, two numbers
-		{"beginning", "beginnings", true},
+		// somebody remembered correctly and wrote another way: "nearly" is six
+		// edits from "almost" and is the same sentence, while "fast" is one edit
+		// from "vast" and is not.
+		{"almost", "nearly", true},
+		{"perhaps", "maybe", true},
+		{"whole", "entire", true},
 		{"almost lost", "nearly lost", true}, // one synonym inside a phrase
+		// THE SAME WORD, WRITTEN ANOTHER WAY, which is a different thing from a
+		// synonym and is worth more — see TestASynonymIsWorthLessThanTheWord.
+		{"colour", "color", true},
+		{"realise", "realize", true},
+		{"travelling", "traveling", true},
+		{"theatre", "theater", true},
+		{"fortunes", "fortune", true},
+		{"beginning", "beginnings", true},
+		// THE LIST IS NARROW AND THESE ARE THE CUTS THAT MAKE IT SO. Each of them
+		// was accepted by the first version, and each changes something a
+		// quotation is made of: the strength of a word, its register, or its era.
+		// "A large man" is not "a big man"; "silent" is not "quiet"; "wise" is not
+		// "clever". A reader who wrote one for the other did not recall the line.
+		{"big", "large", false},
+		{"small", "little", false},
+		{"quiet", "silent", false},
+		{"wise", "clever", false},
+		{"beautiful", "lovely", false},
+		{"always", "forever", false},
 		// AND THE FOLD MUST NOT INVENT AN EQUIVALENCE, which is why every rule in
 		// clozeSpellingFold is anchored: an unanchored "oe"→"e" folds "poet" onto
 		// "pet", and both would be accepted as the same recall. (The unanchored
@@ -307,5 +322,103 @@ func TestClozeAsksAShortQuoteWithOneWord(t *testing.T) {
 	const short = "the sleeper must awaken across the wide desert"
 	if _, _, ok := clozeSpan(short, kindBook, 9, 1); !ok {
 		t.Fatalf("a one-word blank should build from %q", short)
+	}
+}
+
+// ---- a synonym is a third answer, not a second ------------------------------
+
+// The grader has to distinguish three outcomes, because the schedule pays them
+// three different amounts. A boolean cannot carry that, and the two ways of
+// collapsing it are both wrong: "correct" tells a reader who wrote "nearly" for
+// "almost" that they reproduced the line, and "wrong" tells somebody who has the
+// sentence that they have forgotten it.
+func TestClozeJudgeSeparatesTheWordFromAWordThatMeansTheSame(t *testing.T) {
+	cases := []struct {
+		answer, attempt string
+		want            clozeResult
+	}{
+		{"almost", "almost", clozeGot},
+		{"almost", "  Almost. ", clozeGot},      // normalisation is not forgiveness
+		{"colour", "color", clozeGot},           // the same word, two spellings
+		{"fortunes", "fortune", clozeGot},       // the same word, two numbers
+		{"universally", "universaly", clozeGot}, // a typo is still the word
+		{"almost", "nearly", clozeGotSynonym},
+		{"begin", "start", clozeGotSynonym},
+		{"begin", "starting", clozeGotSynonym}, // a regular inflection reaches the row
+		// AN IRREGULAR PAST IS NOT COVERED, and is a miss rather than a synonym: a
+		// suffix trim cannot fold "began" onto "begin", and a row for every
+		// irregular verb is the thesaurus this list exists not to be.
+		{"began", "started", clozeMiss},
+		{"almost lost", "nearly lost", clozeGotSynonym},
+		{"almost", "never", clozeMiss},
+		{"quiet", "silent", clozeMiss}, // cut from the list: not the same word
+	}
+	for _, c := range cases {
+		if got := clozeJudge(c.answer, c.attempt); got != c.want {
+			t.Errorf("clozeJudge(%q, %q) = %v, want %v", c.answer, c.attempt, got, c.want)
+		}
+	}
+}
+
+// A word is never a synonym of itself, or an exact answer would be discounted
+// by the very machinery that exists to be generous to a near one.
+func TestAWordIsNotItsOwnSynonym(t *testing.T) {
+	for _, w := range []string{"almost", "begin", "whole", "fast"} {
+		if clozeSynonymOf(w, w) {
+			t.Errorf("%q was called a synonym of itself", w)
+		}
+	}
+}
+
+// THE SCHEDULE PAYS THEM DIFFERENTLY, which is the whole point of separating
+// them — and the arithmetic is on the MOVE rather than on the value landed on,
+// the same shape as every other weight in this file.
+func TestASynonymIsWorthLessThanTheWord(t *testing.T) {
+	tune := defaultReviewTuning()
+	const was = 7.0
+	// What the baseline rules earned before any weighting.
+	earned := 20.0
+	exact := weighByDifficulty(dirCloze, "got", was, earned, tune)
+	syn := weighSynonym(was, exact, tune.ClozeSynonym)
+	if syn >= exact {
+		t.Fatalf("a synonym earned %.2f and the word itself %.2f", syn, exact)
+	}
+	// Half the stretch at the default, which is what "the word is worth twice a
+	// synonym" means when the thing being weighed is the distance travelled.
+	if want := was + (exact-was)*0.5; syn != want {
+		t.Errorf("synonym half-life = %.4f, want %.4f", syn, want)
+	}
+	// The slider's two ends: at 1 the reader has said they do not want the
+	// distinction made, and at 0 the answer counts without moving the card.
+	if got := weighSynonym(was, exact, 1); got != exact {
+		t.Errorf("at 1.0 a synonym should be worth exactly the word: %.4f vs %.4f", got, exact)
+	}
+	if got := weighSynonym(was, exact, 0); got != was {
+		t.Errorf("at 0 a synonym should leave the card where it was: %.4f vs %.4f", got, was)
+	}
+}
+
+// A LAPSE IS NEVER DISCOUNTED. The weight says "you knew the meaning and not the
+// words", which is a thing to say about a right answer; a wrong one is wrong for
+// its own reasons.
+func TestTheSynonymWeightNeverTouchesALapse(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"srAdaptive": true}, 200)
+
+	book := createBook(t, c, "Pride and Prejudice")
+	id := idOf(t, c.mustDo("POST", "/annotations",
+		map[string]any{"book_id": book, "quote": clozeQuote}, http.StatusCreated).Body.Bytes())
+	ageSeededItems(t, srv)
+	// A wrong answer that is also not a synonym of anything.
+	got := decode[struct {
+		Result  string `json:"result"`
+		Synonym bool   `json:"synonym"`
+	}](t, c.mustDo("POST", "/review/answer", map[string]any{
+		"kind": kindBook, "id": id, "result": "got", "mode": "daily", "attempt": "elephants",
+	}, 200))
+	if got.Result != "forgot" || got.Synonym {
+		t.Fatalf("a wrong answer came back as %+v", got)
 	}
 }

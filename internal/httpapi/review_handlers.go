@@ -119,9 +119,19 @@ const (
 //
 // A flip card carries no weight because it never reaches a scored deck (see
 // directionsForMode), and in unscored Practice there is nothing to multiply.
+//
+// AND ONE ANSWER IS WEIGHED BY WHAT IT WAS RATHER THAN BY WHICH CARD ASKED IT.
+// A blank filled with a close synonym is a correct answer — it counts, the card
+// does not lapse — and it is not the same evidence as reproducing the line. The
+// reader knew what the sentence meant; whether they knew what it SAID is exactly
+// what the card asked and exactly what a synonym leaves unanswered. So a synonym
+// keeps half the stretch an exact recall earns, which is the same shape as the
+// weights above (they scale the MOVE, never the value landed on) and is a slider
+// rather than a constant for the same reason those are.
 const (
-	clozeGrowWeight   = 1.25
-	clozeShrinkWeight = 0.85
+	clozeGrowWeight    = 1.25
+	clozeShrinkWeight  = 0.85
+	clozeSynonymWeight = 0.5
 )
 
 // directionWeight returns the (reward, penalty) multipliers for a direction.
@@ -151,6 +161,26 @@ func weighByDifficulty(direction, result string, cur, next float64, t reviewTuni
 	if result != "got" {
 		w = shrink
 	}
+	return weighMove(cur, next, w)
+}
+
+// weighSynonym is the discount on a blank filled with a word that means the same
+// rather than the word itself. Applied AFTER weighByDifficulty and on the same
+// distance, so the two compose the way two weights should: the cloze card's
+// extra credit is earned first, and half of it is what a synonym keeps.
+//
+// A LAPSE IS NEVER DISCOUNTED, and that is not an omission. This weight says
+// "you knew the meaning and not the words", which is a thing to say about a
+// right answer. A wrong one is wrong for its own reasons and its penalty is the
+// card's, not the attempt's.
+func weighSynonym(cur, next, w float64) float64 {
+	return weighMove(cur, next, w)
+}
+
+// weighMove scales the DISTANCE between where a card was and where the rules put
+// it. One function because two callers stretching the same interval two
+// different ways is how they come to disagree about the bounds.
+func weighMove(cur, next, w float64) float64 {
 	if w == 1 {
 		return next
 	}
@@ -2165,7 +2195,8 @@ func (s *Server) handleReviewAnswer(w http.ResponseWriter, r *http.Request) {
 	}
 	uid := userID(r)
 	olog.Tracef("[review] handleReviewAnswer uid=%d kind=%s id=%d result=%s mode=%s", uid, req.Kind, req.ID, req.Result, req.Mode)
-	clozeAnswer := "" // filled once a cloze attempt has been graded, never before
+	clozeAnswer := ""     // filled once a cloze attempt has been graded, never before
+	clozeSynonym := false // the attempt was a word that means the same, not the word
 	// A cloze attempt decides its own grade. Done before ownership so that a
 	// borrowed id still 404s on the same line every other write does.
 	pf, err := s.loadPrefs(uid)
@@ -2211,10 +2242,15 @@ func (s *Server) handleReviewAnswer(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, http.StatusBadRequest, "this card is not a fill-in-the-blank")
 			return
 		}
-		if clozeCorrect(answerText, *req.Attempt) {
-			req.Result = "got"
-		} else {
+		switch clozeJudge(answerText, *req.Attempt) {
+		case clozeMiss:
 			req.Result = "forgot"
+		case clozeGotSynonym:
+			// A right answer, and a different one from the word itself. It counts
+			// (the card does not lapse) and it is weighed differently below.
+			req.Result, clozeSynonym = "got", true
+		default:
+			req.Result = "got"
 		}
 		// Safe to send back ONLY because the attempt is in: the card is graded,
 		// so the words are no longer the answer to an open question. Carried on
@@ -2261,7 +2297,7 @@ func (s *Server) handleReviewAnswer(w http.ResponseWriter, r *http.Request) {
 	// retried POST could, and re-applying growth would compound the half-life
 	// and double-count the tally. Treat a same-day repeat as a no-op echo.
 	if req.Mode == "daily" && found && touchedToday {
-		s.answerResponse(w, r, uid, req.Mode, offset, req.Kind, req.ID, req.Result, "", stability, age, lapseCount, lastReviewed, lastResult, pf, found)
+		s.answerResponse(w, r, uid, req.Mode, offset, req.Kind, req.ID, req.Result, "", false, stability, age, lapseCount, lastReviewed, lastResult, pf, found)
 		return
 	}
 
@@ -2285,6 +2321,14 @@ func (s *Server) handleReviewAnswer(w http.ResponseWriter, r *http.Request) {
 			dir = dirCloze
 		}
 		stability = weighByDifficulty(dir, req.Result, prev, stability, tuning)
+		// AND THE SAME ARGUMENT ONE LEVEL DOWN. The weight above is about which
+		// QUESTION was asked; this one is about what the ANSWER was. The server
+		// knows a synonym the same way it knows a cloze — it graded the attempt
+		// itself, against words that never left the machine — so this cannot be
+		// claimed by a client either.
+		if clozeSynonym && req.Result == "got" {
+			stability = weighSynonym(prev, stability, tuning.ClozeSynonym)
+		}
 		if found {
 			q := `UPDATE item_reviews SET stability = ?, review_count = review_count + 1,
 			       last_result = ?, last_reviewed_at = datetime('now'), last_touched_at = datetime('now')`
@@ -2354,7 +2398,7 @@ func (s *Server) handleReviewAnswer(w http.ResponseWriter, r *http.Request) {
 	if req.Mode == "practice" && req.Result != "skip" {
 		s.bumpSeen(req.Kind, req.ID, pf.SRSeen)
 	}
-	s.answerResponse(w, r, uid, req.Mode, offset, req.Kind, req.ID, req.Result, clozeAnswer, stability, age, lapses, respLastReviewed, respLastResult, pf, found || moveSchedule)
+	s.answerResponse(w, r, uid, req.Mode, offset, req.Kind, req.ID, req.Result, clozeAnswer, clozeSynonym, stability, age, lapses, respLastReviewed, respLastResult, pf, found || moveSchedule)
 }
 
 // itemAgeDays is how many days ago the item behind a card was added — the clock
@@ -2434,7 +2478,7 @@ func (s *Server) itemText(kind string, id int64) (string, error) {
 // A flag that travelled only on the deck would surface the offer seven days
 // after the frustration that earned it, which is the wrong week to be asked.
 func (s *Server) answerResponse(w http.ResponseWriter, r *http.Request, uid int64, mode string, offset int,
-	kind string, id int64, result, clozeAnswer string, stability, ageDays float64, lapses int, lastReviewed sql.NullString, lastResult string, pf prefs, seen bool) {
+	kind string, id int64, result, clozeAnswer string, clozeSynonym bool, stability, ageDays float64, lapses int, lastReviewed sql.NullString, lastResult string, pf prefs, seen bool) {
 	day, _, _ := reviewDay(offset)
 	answered, got, forgot, err := s.modeTally(uid, mode, day)
 	if err != nil {
@@ -2469,6 +2513,13 @@ func (s *Server) answerResponse(w http.ResponseWriter, r *http.Request, uid int6
 	// not the answer to an open question.
 	if clozeAnswer != "" {
 		out["answer"] = clozeAnswer
+		// SAID OUT LOUD, because a discount nobody is told about is a schedule
+		// moving for reasons the reader cannot see. The card already shows the
+		// words that were missing; this says which of the two right answers this
+		// was, beside them.
+		if clozeSynonym {
+			out["synonym"] = true
+		}
 	}
 	if mode == "daily" {
 		remaining, err := s.dailyRemaining(uid, offset, pf, answered)

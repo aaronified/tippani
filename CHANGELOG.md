@@ -104,17 +104,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   half changing would have brought the face back. Found by mutating the code and
   watching the tests not notice.
 
-- **Fill in the blank no longer marks a close synonym wrong.** Grading measured how far
-  the letters had travelled, which is exactly the wrong instrument for recall: "silent"
-  for "quiet" is nine edits away and is somebody who has the sentence, while "fast" for
-  "vast" is one edit away and is somebody who has not. Words are now compared as words
-  first — a British spelling for an American one, a plural for a singular, a past tense
-  for a present, and a short hand-written list of pairs that are genuinely
-  interchangeable in prose — and only then as spellings. The list is deliberately not a
-  thesaurus: it takes "big" for "large" and refuses "wonderful" for "great", because a
-  quote is the one kind of text where the register *is* the meaning. Every fold is
-  anchored, so it cannot invent an equivalence out of a substring — "poet" is still not
-  "pet".
+- **Fill in the blank no longer marks a close synonym wrong — and pays it less than the
+  word itself.** Grading measured how far the letters had travelled, which is exactly the
+  wrong instrument for recall: "nearly" for "almost" is six edits away and is the same
+  sentence, while "fast" for "vast" is one edit away and is not. Words are now compared
+  as words first — a British spelling for an American one, a plural for a singular, a
+  past tense for a present, and a very short list of pairs that are genuinely
+  interchangeable — and only then as spellings.
+
+  **The list is seven pairs and is meant to stay that short.** A pair earns its place
+  only if swapping one for the other changes the word and nothing else: not the
+  strength, not the register, not the era. So "almost"/"nearly" and "whole"/"entire" are
+  in, and "big"/"large", "quiet"/"silent" and "wise"/"clever" are out — one is the word
+  a writer chose and the other is the word a reader reaches for, and a quotation is the
+  one kind of text where that difference *is* the text. Every spelling fold is anchored,
+  so it cannot invent an equivalence out of a substring: "poet" is still not "pet".
+
+  **And a synonym is a third outcome rather than a second.** It counts — the card does
+  not lapse — and it earns **half the stretch** an exact recall earns, on a new
+  *A synonym is worth* slider in Settings → Quiz → in-depth (0 to 1; at 0 it counts
+  without moving the card at all, at 1 the two are equal). The card says which of the
+  two it was, under the revealed words, because a discount nobody is told about is a
+  schedule moving for reasons you cannot see. The same word spelled differently or in
+  another form is **not** a synonym and keeps full credit — nobody has failed to recall
+  a line by writing "colour".
 
 - **Share images with a portrait backdrop are readable again.** Turning a credited
   person into the card's backdrop put a photograph behind every word on it, and the

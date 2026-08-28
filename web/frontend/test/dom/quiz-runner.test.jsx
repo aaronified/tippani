@@ -13,12 +13,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 
 let SENT
+let RESP
 
 vi.mock('../../src/api.js', async (orig) => ({
   ...(await orig()),
   json: vi.fn(async (method, path, body) => {
     SENT.push({ method, path, body })
-    return { ok: true, data: { ok: true, stability: 7, status: 'remembered' } }
+    // RESP lets one case stand in a different reply — a cloze grade comes back
+    // with the words and, when it was one, the fact that it was a synonym.
+    return { ok: true, data: RESP || { ok: true, stability: 7, status: 'remembered' } }
   }),
 }))
 
@@ -40,7 +43,7 @@ const flip = (over = {}) => ({
 
 const posted = () => SENT.filter((s) => s.path === '/review/answer')
 
-beforeEach(() => { SENT = [] })
+beforeEach(() => { SENT = []; RESP = null })
 
 describe('a multiple-choice card', () => {
   it('grades on the tap and posts once', async () => {
@@ -357,6 +360,36 @@ describe('a "who said this" card', () => {
     fireEvent.click(screen.getAllByText('Al Pacino')[0])
     await waitFor(() => expect(posted()).toHaveLength(1))
     expect(posted()[0].body.result).toBe('forgot')
+  })
+})
+
+// ---- a cloze answer that was a synonym -------------------------------------
+//
+// The server grades a typed blank and pays a synonym less than the word itself.
+// The reader has to be told which of the two right answers theirs was, or the
+// schedule moves by an amount they have no way to account for.
+describe('a fill-in-the-blank graded as a synonym', () => {
+  const blank = () => ({
+    kind: 'book', id: 4, direction: 'cloze', color: 'yellow',
+    quote: 'it is a truth ￼ acknowledged', title: 'Pride and Prejudice', options: [], answer: 0,
+  })
+
+  it('says so beside the words', async () => {
+    RESP = { ok: true, result: 'got', answer: 'universally', synonym: true }
+    render(<QuizRunner mode="daily" cards={[blank()]} />)
+    fireEvent.change(screen.getByPlaceholderText(/type what belongs/), { target: { value: 'widely' } })
+    fireEvent.click(screen.getByText('Check'))
+    await screen.findByText('universally')
+    expect(screen.getByText(/counted as a synonym/)).toBeTruthy()
+  })
+
+  it('says nothing of the sort when the answer was the word', async () => {
+    RESP = { ok: true, result: 'got', answer: 'universally' }
+    render(<QuizRunner mode="daily" cards={[blank()]} />)
+    fireEvent.change(screen.getByPlaceholderText(/type what belongs/), { target: { value: 'universally' } })
+    fireEvent.click(screen.getByText('Check'))
+    await screen.findByText('universally')
+    expect(screen.queryByText(/counted as a synonym/)).toBeNull()
   })
 })
 

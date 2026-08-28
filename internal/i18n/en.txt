@@ -1651,7 +1651,7 @@ quiz.taxonomy.line = {klass} · {form}
 # because it is the last one the deck could ask of a book as well as a film.
 quiz.question.last-universal.info = Every deck needs at least one question it can ask of a book as well as a film — this is the last one.
 
-# The nine tuning sliders in Settings → Quiz. .label sits above the slider,
+# The ten tuning sliders in Settings → Quiz. .label sits above the slider,
 # .hint is its info dot. Every one of these multiplies a half-life.
 quiz.tuning.grow.label = Correct answer stretches by
 quiz.tuning.grow.hint = Adaptive scheduling only. A correct recall multiplies the half-life by this. 2.5 is SM-2’s classic ease — higher means longer gaps sooner, and more forgetting between them.
@@ -1661,6 +1661,8 @@ quiz.tuning.cloze-grow.label = Typed answers earn
 quiz.tuning.cloze-grow.hint = Fill-in-the-blank is recall with nothing to lean on, where a multiple choice has three quarters of the work done for you. This is how much more a typed answer is worth when you get it right.
 quiz.tuning.cloze-shrink.label = And cost
 quiz.tuning.cloze-shrink.hint = The other half, and the one that makes it fair rather than generous: failing the hardest question in the deck is weak evidence that you have forgotten the quote, where failing to recognise it among four is strong evidence.
+quiz.tuning.cloze-synonym.label = A synonym is worth
+quiz.tuning.cloze-synonym.hint = A blank filled with a close synonym counts as correct, and earns this much of the stretch an exact recall does. At 0.5 the word itself is worth twice a word that means the same; at 0 a synonym counts without moving the card.
 quiz.tuning.cloze-words.label = Multi-word blanks from
 quiz.tuning.cloze-words.hint = A blank hides one word until a quote has been remembered this long, and only then may it hide a phrase. Set it to 1 to allow wide blanks immediately.
 quiz.tuning.ladder-1.label = Ladder rung 1
@@ -2555,6 +2557,9 @@ quiz.cloze.placeholder-key = type what belongs in the blank · {key}
 quiz.cloze.check.label = Check
 # Above the right answer, once it has been checked.
 quiz.cloze.answer.label = the missing words
+# Under the revealed words when the attempt was a close synonym rather than the
+# word itself: it counted, and it earned less. See quiz.tuning.cloze-synonym.
+quiz.cloze.synonym.note = counted as a synonym — worth less than the words themselves
 
 # Under each option of a "which quote?" card, once it has been answered: the
 # work that option came out of. {title} is a book, film, show, game or occasion.
