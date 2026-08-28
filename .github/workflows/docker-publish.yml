@@ -98,8 +98,13 @@ jobs:
           context: .
           # Stamp the resolved version (e.g. 0.5.0 on a tag, "edge" on main) into
           # the binary so the in-app update check knows what it's running.
+          # TMDB_TOKEN is the built-in film/show credential (a v4 read access
+          # token), kept in a repository secret so it is not in the source. An
+          # unset secret builds an image with no built-in, which behaves exactly
+          # as every release before this one did: 503 until a key is saved.
           build-args: |
             VERSION=${{ steps.meta.outputs.version }}
+            TMDB_TOKEN=${{ secrets.TMDB_READ_TOKEN }}
           # Multi-arch: amd64 is the tested arch; arm64 is published too (pure Go,
           # CGO-free, so it cross-compiles cleanly) but is UNTESTED — shipped so
           # arm64 NAS owners (Synology/QNAP/Pi) can try it and report back.

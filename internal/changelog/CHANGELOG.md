@@ -42,6 +42,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   at 1 gets no change at all, and one who has it higher has their half-lives moved by
   quotes they genuinely re-read.
 
+- **Films and shows look up with nothing configured.** The published Docker images now
+  carry a built-in TMDB credential, the way Jellyfin and friends ship theirs, so a fresh
+  install can search TMDB before anybody has been to Settings. A key you save still wins
+  over it, and deleting yours now falls back to the built-in instead of to a `503`. It is
+  a v4 **read** token — it cannot write to the account behind it — and it is injected at
+  build time from a repository secret rather than committed, so a binary you build
+  yourself has no built-in unless you pass one (`make build TMDB_TOKEN=…`).
+
 - **Cover, poster and portrait searches can now look for PICTURES, not just
   records.** Every image the app could offer came out of a catalogue lookup — Google
   Books, Open Library, TMDB, TheTVDB, IGDB — which answers with a record that happens

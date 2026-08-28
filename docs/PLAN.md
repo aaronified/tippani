@@ -2909,6 +2909,20 @@ A standalone film fails the other way. Nothing scores highly, the distractors sh
 
 <sub>v3.0.0 — `internal/httpapi/review_handlers.go` · `web/frontend/src/review.jsx` · `web/frontend/test/dom/quiz-runner.test.jsx`</sub>
 
+### The built-in TMDB credential is injected at build time, and is a read token
+
+**Decided.** `defaultTMDBKey` becomes a `var` filled by `-ldflags -X main.defaultTMDBKey=…` from a CI secret, empty in the source and empty in any locally built binary. The credential shipped is a **v4 read access token**, not a v3 API key. Resolution order is unchanged: a key saved in Settings > the built-in > none.
+
+**Why a build-time injection rather than a committed constant.** The slot has existed since the beginning and has always been empty, because filling it means publishing the credential in a public repository — in every clone and in the history for ever, where rotating it does not remove it. An ldflags injection keeps it in one place that can be rotated, and leaves a fork's own build with the honest default of no built-in.
+
+**What it does NOT buy, stated because the opposite is easy to assume.** A credential linked into a released binary is extractable from that binary; this keeps it out of the SOURCE, not out of the artefact. That is why the shipped form is a read token: TMDB's write operations take a per-user access token, so an extracted copy buys the quota and nothing else — and the quota is rate-limited per client IP, so a shared token does not pool. For the same reason it is a plain Docker `ARG` rather than a BuildKit secret mount: hiding it from `docker history` would protect nothing the image already carries.
+
+**No client change was needed.** `metadata.TMDB` has detected the credential form since it was written — a JWT (`ey…`) goes in `Authorization: Bearer`, anything else on the query string — so the same slot takes either.
+
+**Approved.** The reader's: "if I want to bundle TMDB, can you do that via the API Read Access Token? i do not want to give away the API key in public", and then "ok, ci secret it is". TheTVDB and IGDB are to follow the same shape later.
+
+<sub>v3.0.0 — `cmd/tippani/main.go` · `Makefile` · `Dockerfile` · `.github/workflows/docker-publish.yml` · `README.md`</sub>
+
 ### A picture search is a different question from a catalogue lookup, and gets its own route
 
 **Decided.** `POST /images/search {kind, …}` answers with `{images: [{url, thumb, source}], sources: {…}}` for the three things the app puts a picture on — a book's cover, a screen work's poster, a person's portrait. Three suppliers, none of them required: **Amazon's image CDN by ISBN-10 or ASIN**, which is keyless and probed with a HEAD before a candidate is offered; **Google Programmable Search** in image mode, which needs the reader's own key *and* engine id; and **Amazon's search page**, behind the session cookie that is already the opt-in for scraping. A supplier that fails contributes nothing and is not an error.

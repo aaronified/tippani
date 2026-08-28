@@ -88,13 +88,22 @@ ARG TARGETARCH
 # own version for the in-app update check; the docker-publish workflow passes
 # the release tag, and it defaults to "dev" for a plain local build.
 ARG VERSION=dev
+# TMDB_TOKEN fills the built-in TMDB slot (defaultTMDBKey in cmd/tippani). The
+# publish workflow passes the repository secret; a plain local build leaves it
+# empty, which means no built-in and a 503 until a key is saved in Settings.
+#
+# It is an ARG rather than a BuildKit secret mount deliberately: the value is
+# linked INTO the binary either way, so hiding it from `docker history` would
+# protect nothing that the image itself does not already carry. See the comment
+# on defaultTMDBKey for what embedding does and does not buy.
+ARG TMDB_TOKEN=""
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 COPY --from=frontend /src/web/dist ./web/dist
 RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
-    go build -trimpath -ldflags "-s -w -X tippani/internal/buildinfo.Version=${VERSION}" -o /tippani ./cmd/tippani
+    go build -trimpath -ldflags "-s -w -X tippani/internal/buildinfo.Version=${VERSION} -X main.defaultTMDBKey=${TMDB_TOKEN}" -o /tippani ./cmd/tippani
 # Stage an empty data dir owned by distroless's nonroot uid (65532). A named
 # volume mounted at /data inherits this ownership when first initialized, so the
 # non-root process can create the SQLite DB — otherwise the volume is root-owned

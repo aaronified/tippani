@@ -300,10 +300,23 @@ make build       # re-embed
 **Metadata API keys — TMDB, TheTVDB, Google Books — are configured in the app**, not via environment:
 sign in → **Settings → metadata keys**, and paste a TMDB v3 key or v4 read token from
 [themoviedb.org](https://www.themoviedb.org/settings/api) (TheTVDB and Google Books keys are optional —
-TMDB alone covers most catalogues). There is also an optional built-in TMDB slot (`defaultTMDBKey` in
-[`cmd/tippani/main.go`](cmd/tippani/main.go)) for shipping a Jellyfin-style shared app key — **currently
-empty**, so until a key is saved (or that constant is filled) movie lookup answers `503` and manual
-entry still works. Everything else works with no key.
+TMDB alone covers most catalogues). Everything else works with no key.
+
+**The published images carry a built-in TMDB read token**, Jellyfin-style, so films and shows look up
+with nothing configured; a key saved in Settings always wins over it, and deleting yours falls back to
+the built-in rather than to nothing. It is injected at build time (`-ldflags -X
+main.defaultTMDBKey=…`, from a repository secret) rather than committed, so **a binary you build
+yourself has no built-in** — `make build TMDB_TOKEN=…` fills the slot, and without it film lookup
+answers `503` until a key is saved. A shipped credential is not a secret one: it is a v4 **read**
+token, which cannot write to the account behind it, and TMDB rate-limits per client IP so a shared
+token never pools into one quota.
+
+**Optional: search the web for cover art, posters and portraits.** Under **Settings → metadata keys**,
+a [Programmable Search](https://programmablesearchengine.google.com/) engine id plus a Custom Search
+API key turns the *search covers* and *search images* buttons into an in-app picture strip (100
+searches a day are free). Without them, book covers still come from Google Books, Open Library and —
+keylessly, by ISBN — Amazon's image CDN, and the people console's *search images* opens a web search
+in a browser tab as it always has.
 
 > [!CAUTION]
 > **Amazon cookie (optional, use at your own risk).** Under **Settings → Amazon (advanced)** an admin

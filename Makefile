@@ -2,7 +2,12 @@ BINARY  := bin/tippani
 # VERSION stamps buildinfo.Version so the app knows its own version for the
 # in-app update check; override with `make build VERSION=v1.2.3`.
 VERSION ?= dev
-LDFLAGS := -s -w -X tippani/internal/buildinfo.Version=$(VERSION)
+# TMDB_TOKEN fills the built-in TMDB slot (defaultTMDBKey in cmd/tippani) at
+# build time, so the credential lives in a CI secret rather than in the source.
+# Empty for a local build, which is the honest default: no built-in, and film
+# lookups answer 503 until a key is saved in Settings.
+TMDB_TOKEN ?=
+LDFLAGS := -s -w -X tippani/internal/buildinfo.Version=$(VERSION) -X main.defaultTMDBKey=$(TMDB_TOKEN)
 
 .PHONY: build frontend changelog test run clean
 

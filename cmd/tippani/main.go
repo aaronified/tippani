@@ -134,15 +134,30 @@ func openStore() (*store.Store, string) {
 	return st, dataDir
 }
 
-// defaultTMDBKey is Tippani's registered TMDB application key, embedded
+// defaultTMDBKey is Tippani's registered TMDB credential, embedded
 // Jellyfin-style so installs work without configuration: TMDB permits
 // open-source apps shipping their app key (attribution required, see README)
 // and rate-limits per client IP, so a shared key never pools into one quota.
-// Register a free key at themoviedb.org (Settings → API) and paste it here;
-// until then movie lookup answers 503 and manual entry still works.
 // Resolution order per request (PLAN §6): Settings-saved custom key >
 // this built-in > none. (No env slot — the key is managed in-app.)
-const defaultTMDBKey = ""
+//
+// A VAR AND NOT A CONST, AND EMPTY IN THE SOURCE ON PURPOSE. It is filled at
+// BUILD time — `-ldflags "-X main.defaultTMDBKey=…"`, which only works on a
+// string variable — so the credential lives in a CI secret rather than in a
+// public repository. A local `make build` produces a binary with no built-in,
+// which is the honest default for a fork: lookups answer 503 until a key is
+// saved in Settings, and manual entry has always worked regardless.
+//
+// WHAT THIS DOES AND DOES NOT BUY. It keeps the token out of the source, out of
+// every clone and out of the git history. It does NOT make it secret in a
+// released binary — anything embedded can be read back out of one — which is why
+// the credential to ship is a v4 READ ACCESS TOKEN and not a v3 API key: the
+// read token cannot write to the account it belongs to (TMDB's write operations
+// take a per-user access token), so the worst an extracted copy buys is the
+// quota, which is rate-limited per client IP anyway. metadata.TMDB detects which
+// of the two it has been given — a JWT goes in the Authorization header, a v3
+// key on the query string — so both forms work here with no further change.
+var defaultTMDBKey = ""
 
 func serve() {
 	st, dataDir := openStore()
