@@ -251,6 +251,15 @@ func clozeCorrect(answer, attempt string) bool {
 		if aw[i] == bw[i] {
 			continue
 		}
+		// A CLOSE SYNONYM IS NOT A TYPO AND IS STILL A RECALL. The edit budget
+		// below measures how far the letters travelled, which is exactly the wrong
+		// instrument for "remembered" vs "forgot" — "quiet" for "silent" is nine
+		// edits away and is somebody who has the sentence; "vast" for "fast" is one
+		// edit away and is somebody who has not. So the words are compared as words
+		// first, and only then as spellings.
+		if clozeEquivalent(aw[i], bw[i]) {
+			continue
+		}
 		budget := clozeBudget(len([]rune(aw[i])))
 		if budget == 0 {
 			return false
@@ -260,6 +269,130 @@ func clozeCorrect(answer, attempt string) bool {
 		}
 	}
 	return true
+}
+
+// clozeEquivalent reports whether two words count as the same recall: the same
+// word spelled another way, the same word in another form, or one of a small set
+// of near-synonyms.
+//
+// THE LIST IS SHORT AND HAND-WRITTEN, for the same reason clozeStopwords is: the
+// alternative is a thesaurus, and a thesaurus is exactly the wrong tool here. It
+// would accept "large" for "great" and "wonderful" for "great" alike, and the
+// second is a different sentence. What this accepts is the class of miss that is
+// obviously not a failure of memory — a British spelling for an American one, a
+// plural for a singular, and the handful of pairs that are genuinely
+// interchangeable in a quotation.
+//
+// It is deliberately NOT applied to the whole-string comparison: three words
+// recalled as three synonyms is a paraphrase, and the word count check above
+// already refuses a rewrite of a different length.
+func clozeEquivalent(a, b string) bool {
+	if a == b {
+		return true
+	}
+	if clozeSpellingFold(a) == clozeSpellingFold(b) {
+		return true
+	}
+	if clozeStemFold(a) == clozeStemFold(b) {
+		return true
+	}
+	for _, group := range clozeSynonyms {
+		var hitA, hitB bool
+		for _, w := range group {
+			if w == a || clozeSpellingFold(w) == clozeSpellingFold(a) {
+				hitA = true
+			}
+			if w == b || clozeSpellingFold(w) == clozeSpellingFold(b) {
+				hitB = true
+			}
+		}
+		if hitA && hitB {
+			return true
+		}
+	}
+	return false
+}
+
+// clozeSpellingFold folds the spelling differences that are not differences of
+// word: -ise/-ize, -our/-or, -re/-er, a doubled consonant before a suffix, and
+// the ligature vowels. Applied to both sides, so "colour"/"color" and
+// "realise"/"realize" meet in the middle.
+func clozeSpellingFold(w string) string {
+	w = strings.ToLower(w)
+	// EVERY RULE IS ANCHORED, and that is not fussiness. An unanchored "oe"→"e"
+	// folds "poet" onto "pet", and an unanchored "ll"→"l" folds "bitter" onto
+	// "biter" — two words that are not each other, accepted as the same recall,
+	// silently. A fold that can invent an equivalence is worse than no fold.
+	for _, sub := range [][2]string{
+		{"ise", "ize"}, {"isation", "ization"}, {"yse", "yze"}, // realise / realize
+		{"our", "or"},                                       // colour / color
+		{"lling", "ling"}, {"lled", "led"}, {"ller", "ler"}, // travelling / traveling
+	} {
+		w = strings.ReplaceAll(w, sub[0], sub[1])
+	}
+	// The ligature vowels only where English ever writes them: at the front of a
+	// word borrowed whole (aesthetic / esthetic, oedema / edema).
+	for _, pre := range []string{"ae", "oe"} {
+		if strings.HasPrefix(w, pre) {
+			w = "e" + w[2:]
+			break
+		}
+	}
+	// -re → -er only at the end ("theatre"/"theater"), never inside a word.
+	if strings.HasSuffix(w, "re") && len([]rune(w)) > 4 {
+		w = w[:len(w)-2] + "er"
+	}
+	return w
+}
+
+// clozeStemFold strips the inflections that leave the word the same word: a
+// plural, a possessive, a past tense, a participle. Crude on purpose — it is a
+// suffix trim and not a stemmer, so it can only ever say "these two are the same
+// word", never "these two mean the same thing".
+func clozeStemFold(w string) string {
+	w = clozeSpellingFold(w)
+	for _, suf := range []string{"'s", "ies", "es", "s", "ing", "ed"} {
+		if strings.HasSuffix(w, suf) && len([]rune(w))-len([]rune(suf)) >= 3 {
+			stem := w[:len(w)-len(suf)]
+			if suf == "ies" {
+				stem += "y"
+			}
+			return stem
+		}
+	}
+	return w
+}
+
+// clozeSynonyms are the pairs a reader can put in the blank and still have
+// recalled the line. Kept to words that are interchangeable in ordinary English
+// prose — nothing that changes the register, the era or the emphasis of a
+// quotation, because a quote is the one kind of text where those ARE the
+// meaning.
+var clozeSynonyms = [][]string{
+	{"big", "large"},
+	{"small", "little"},
+	{"quiet", "silent"},
+	{"begin", "start"},
+	{"began", "started"},
+	{"end", "finish"},
+	{"quick", "fast", "rapid"},
+	{"answer", "reply"},
+	{"beautiful", "lovely"},
+	{"happy", "glad"},
+	{"sad", "unhappy"},
+	{"strange", "odd"},
+	{"whole", "entire"},
+	{"almost", "nearly"},
+	{"perhaps", "maybe"},
+	{"often", "frequently"},
+	{"always", "forever"},
+	{"speak", "talk"},
+	{"buy", "purchase"},
+	{"choose", "select"},
+	{"hard", "difficult"},
+	{"true", "real"},
+	{"awful", "terrible", "dreadful"},
+	{"wise", "clever"},
 }
 
 // clozeBudget is how many edits one word of n characters may be wrong by.
@@ -299,4 +432,61 @@ func clozeNormalise(s string) string {
 		}
 	}
 	return strings.TrimSpace(b.String())
+}
+
+// ---------------------------------------------------------------------------
+// The same blank, recognised rather than produced (3.0)
+// ---------------------------------------------------------------------------
+//
+// A typed cloze is the hardest card in the deck: nothing is offered, the words
+// have to come back exactly enough to survive clozeCorrect, and a reader who
+// half-remembers the phrase scores "forgot" and learns only that they were
+// wrong. That is the right question to keep — it is the only one that tests
+// production rather than recognition — but it should not be the ONLY way to be
+// asked about a hole in a quote.
+//
+// So the same span, with four phrases to choose between. The distractors are
+// spans cut out of OTHER quotes in the library by the same selector, which is
+// what keeps them plausible: they are the kind of phrase this reader's quotes
+// are made of, in the same shape and the same length as the answer, rather than
+// words invented to be wrong.
+
+// clozePhraseOf cuts a candidate distractor of exactly `words` content words out
+// of some other quote, deterministically per (text, salt).
+//
+// SAME WORD COUNT AS THE ANSWER, always. Three options of one word beside an
+// answer of three is not a question — the shape of the blank gives it away
+// without reading any of them.
+func clozePhraseOf(text string, words int, salt uint64) (string, bool) {
+	text = strings.TrimSpace(text)
+	if words < 1 || !clozeReadable(text) {
+		return "", false
+	}
+	toks := clozeTokens(text)
+	// Every run of exactly `words` consecutive content words.
+	var runs [][2]int
+	for i := 0; i+words-1 < len(toks); i++ {
+		ok := true
+		for j := i; j < i+words; j++ {
+			if !toks[j].content {
+				ok = false
+				break
+			}
+		}
+		if ok {
+			runs = append(runs, [2]int{i, i + words - 1})
+		}
+	}
+	if len(runs) == 0 {
+		return "", false
+	}
+	r := runs[int(salt%uint64(len(runs)))]
+	return text[toks[r[0]].start:toks[r[1]].end], true
+}
+
+// clozeSameSpan reports whether two spans are the same answer as far as grading
+// is concerned — so a distractor can never be a second correct option, which is
+// the one way a multiple-choice cloze can be worse than no card at all.
+func clozeSameSpan(a, b string) bool {
+	return clozeNormalise(a) == clozeNormalise(b)
 }

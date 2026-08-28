@@ -32,10 +32,24 @@ import {
 // outside the frontend tree, so neither of the usual seams reaches it.
 const repo = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..')
 const goSrc = readFileSync(join(repo, 'internal', 'httpapi', 'review_questions.go'), 'utf8')
+const goHandlers = readFileSync(join(repo, 'internal', 'httpapi', 'review_handlers.go'), 'utf8')
+
+// THE CONSTANTS ARE RESOLVED, NOT LOWER-CASED. The tables in Go are written in
+// identifiers (dirClozeMCQ) and the wire — which is what both sides actually
+// have to agree on — is the string those identifiers are declared as
+// ("cloze-mcq"). Folding the identifier's case happened to produce the wire name
+// while every direction was one lower-case word, and stopped the moment one
+// wasn't; a parity test that fails on a NAMING choice is a parity test nobody
+// will trust the next time it goes red.
+const DIR_VALUES = Object.fromEntries(
+  [...goHandlers.matchAll(/\b(dir[A-Za-z]+)\s*=\s*"([^"]+)"/g)].map((m) => [m[1], m[2]]),
+)
+
+const dirIds = (src) => [...src.matchAll(/\b(dir[A-Za-z]+)\b/g)].map((m) => DIR_VALUES[m[1]])
 
 const goList = (name) => {
   const m = goSrc.match(new RegExp(`${name}:\\s*\\[\\]string\\{([^}]*)\\}`))
-  return m ? [...m[1].matchAll(/dir(\w+)/g)].map((x) => x[1].toLowerCase()) : null
+  return m ? dirIds(m[1]) : null
 }
 
 describe('the two implementations agree', () => {
@@ -49,15 +63,24 @@ describe('the two implementations agree', () => {
 
   it('on which directions exist at all', () => {
     const m = goSrc.match(/reviewDirectionsAll = \[\]string\{([^}]*)\}/)
-    const inGo = [...m[1].matchAll(/dir(\w+)/g)].map((x) => x[1].toLowerCase())
-    expect(inGo).toEqual(REVIEW_QUESTIONS.map((q) => q.id))
+    expect(dirIds(m[1])).toEqual(REVIEW_QUESTIONS.map((q) => q.id))
   })
 
   it('on which of them can be asked of every kind of card', () => {
     const m = goSrc.match(/reviewDirectionUniversal = map\[string\]bool\{([\s\S]*?)\}/)
-    const inGo = [...m[1].matchAll(/dir(\w+):/g)].map((x) => x[1].toLowerCase()).sort()
+    const inGo = dirIds(m[1]).sort()
     const inJs = REVIEW_QUESTIONS.filter((q) => q.universal).map((q) => q.id).sort()
     expect(inGo).toEqual(inJs)
+  })
+
+  // EVERY QUESTION SITS ON BOTH AXES (3.0). The class/form pair is what the
+  // settings chips say out loud, and a type added without them would show a
+  // tooltip ending in a bare separator.
+  it('and every type declares its class and its form', () => {
+    for (const q of REVIEW_QUESTIONS) {
+      expect(['work', 'quote', 'person', 'words'], q.id).toContain(q.klass)
+      expect(['choose', 'type', 'self'], q.id).toContain(q.form)
+    }
   })
 })
 
@@ -97,7 +120,7 @@ describe('toggling', () => {
 
   it('takes a type out and puts it back, in the table’s own order', () => {
     const off = toggle(state(), 'daily', 'quote')
-    expect(off.daily).toEqual(['source', 'cloze', 'speaker'])
+    expect(off.daily).toEqual(DEFAULT_QUESTIONS.daily.filter((x) => x !== 'quote'))
     // Back on, and NOT appended at the end — a canonical order is what lets the
     // stored blob be compared between two accounts.
     expect(toggle(off, 'daily', 'quote').daily).toEqual(DEFAULT_QUESTIONS.daily)

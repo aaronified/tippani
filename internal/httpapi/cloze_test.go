@@ -135,6 +135,27 @@ func TestClozeGradingIsForgivingButNotBlind(t *testing.T) {
 		// A missing or an extra word is never a typo, whatever the distances say.
 		{"in possession of", "in possession", false},
 		{"a good fortune", "a very good fortune", false},
+
+		// CLOSE SYNONYMS COUNT AS RECALL (3.0). The edit distance above measures
+		// how far the LETTERS travelled, which is the wrong instrument for a word
+		// somebody remembered correctly and wrote another way: "silent" is nine
+		// edits from "quiet" and is the same recall, while "fast" is one edit from
+		// "vast" and is not.
+		{"quiet", "silent", true},
+		{"colour", "color", true},         // the same word, two spellings
+		{"realise", "realize", true},      //
+		{"travelling", "traveling", true}, //
+		{"theatre", "theater", true},      //
+		{"fortunes", "fortune", true},     // the same word, two numbers
+		{"beginning", "beginnings", true},
+		{"almost lost", "nearly lost", true}, // one synonym inside a phrase
+		// AND THE FOLD MUST NOT INVENT AN EQUIVALENCE, which is why every rule in
+		// clozeSpellingFold is anchored: an unanchored "oe"→"e" folds "poet" onto
+		// "pet", and both would be accepted as the same recall. (The unanchored
+		// version passed this pair before the anchors went in.)
+		{"poet", "pet", false},
+		{"great", "wonderful", false}, // a thesaurus would take this; a quote must not
+		{"blood", "sweat", false},
 	}
 	for _, c := range cases {
 		if got := clozeCorrect(c.answer, c.attempt); got != c.want {
@@ -251,7 +272,7 @@ func TestClozeSpanWidthIsEarned(t *testing.T) {
 	if got := clozeMaxWordsFor(reviewMinStability, clozeMultiWordFrom); got != 1 {
 		t.Fatalf("a new card gets a one-word blank, got %d", got)
 	}
-	if got := clozeMaxWordsFor(clozeMultiWordFrom - 0.01, clozeMultiWordFrom); got != 1 {
+	if got := clozeMaxWordsFor(clozeMultiWordFrom-0.01, clozeMultiWordFrom); got != 1 {
 		t.Fatalf("just under the rung is still one word, got %d", got)
 	}
 	if got := clozeMaxWordsFor(clozeMultiWordFrom, clozeMultiWordFrom); got != clozeMaxWords {

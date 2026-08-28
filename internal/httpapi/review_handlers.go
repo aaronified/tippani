@@ -224,8 +224,26 @@ const (
 	dirQuote  = "quote"  // show the work / speech, recall the quote
 	dirFlip   = "flip"   // show the quote, reveal the source, grade yourself
 	dirCloze  = "cloze"  // blank a phrase out of the quote, type it back
-	// Screen only: a book has no cast, which is why directionsFor is per-kind.
-	dirSpeaker = "speaker" // show the line, recall WHO said it (options are actors)
+	// THE SAME BLANK, RECOGNISED RATHER THAN PRODUCED. A typed cloze is the
+	// hardest question in the deck and the first one a reader gives up on — a
+	// half-remembered phrase scores "forgot" because it was not typed exactly,
+	// and nothing about that says which words were missing. With four spans to
+	// choose between, the same hole becomes a question you can lose and still
+	// learn something from. It is a different QUESTION TYPE over the same
+	// CLASS of question, which is the axis this table gained in 3.0.
+	dirClozeMCQ = "cloze-mcq"
+	// WHO. Two names for one class — "who is behind these words?" — kept apart
+	// because the two decks they apply to answer it from different columns and a
+	// reader who wants one and not the other must be able to say so.
+	//
+	// dirSpeaker is the line's SPEAKER: a film's actor, a speech's speaker. It was
+	// screen-only until 3.0, which was never a fact about the question — a speech
+	// has somebody who gave it, stored one column over, and the reader who asked
+	// for "who said this?" was being shown it for one kind of card in three.
+	dirSpeaker = "speaker" // show the line, recall WHO said it (options are people)
+	// dirAuthor is the work's AUTHOR, which only a book has: nobody is credited
+	// with writing a highlight, so the question is about the volume it sits in.
+	dirAuthor = "author" // show the quote, recall WHO WROTE the book it is from
 )
 
 // directionsFor is every question a card of this kind can be asked, in one
@@ -299,11 +317,20 @@ func directionsFor(kind string) []string {
 // the failure would be an empty deck rather than a compile error. So it is also
 // checked here, where the cost is one branch.
 func directionsForMode(kind string, scored bool, on map[string]bool) []string {
-	dirs := []string{dirSource, dirQuote, dirCloze}
-	if kind == kindScreen {
-		// A book has no cast, which is why this is per-kind: it can never be
-		// asked who said the line.
+	dirs := []string{dirSource, dirQuote, dirCloze, dirClozeMCQ}
+	switch kind {
+	case kindScreen, kindUtterance:
+		// WHO SAID IT, for both kinds that record a speaker. A film line has its
+		// actor; a speech has the person who gave it. A book highlight has
+		// neither — its `character` is who says it INSIDE the book, which is a
+		// different question and not one the library can offer distractors for.
 		dirs = append(dirs, dirSpeaker)
+	case kindBook:
+		// WHO WROTE IT. The mirror of the above and the reason the two are
+		// separate directions rather than one "who?" — the answer comes from a
+		// different column, and the reader is allowed to want one without the
+		// other.
+		dirs = append(dirs, dirAuthor)
 	}
 	if !scored {
 		dirs = append(dirs, dirFlip)
@@ -545,6 +572,11 @@ type reviewCard struct {
 	// "source" card asks you to recall, so every kind must fill it.
 	Title  string `json:"title"`
 	Author string `json:"author"` // book author; "" otherwise
+	// Art is the work's cover / poster file, so the attribution side of a card
+	// shows the work the way every other screen in the app does. A speech has
+	// none — its "work" is an occasion — which is why it is omitempty rather than
+	// a promise. See optionMeta for the rule this is the other half of.
+	Art string `json:"art,omitempty"`
 	// WHO SAYS IT. A screen line's speaker — and, since 0047, a book highlight's
 	// too: a novel has speakers, and this was the fourth read of that column to be
 	// found still dropping it after three passes had swept the other three.
@@ -577,17 +609,46 @@ type reviewCard struct {
 	// card they are quotes (which quote is from this work?).
 	Options []string `json:"options"`
 	Answer  int      `json:"answer"`
-	// OptionMeta mirrors Options index-for-index on "source" cards: the person
-	// the UI shows as a face chip under each work title — a book's author, a
-	// screen work's dialogue actor (falling back to its director). Absent on
-	// "quote" cards (a quote option's people would name its work — the answer).
+	// OptionMeta mirrors Options index-for-index: what each option IS, beyond
+	// the string the reader reads. See optionMeta.
 	OptionMeta []optionMeta `json:"option_meta,omitempty"`
 }
 
-// optionMeta is the person credit for one multiple-choice work option.
+// optionMeta is the picture and the provenance of one multiple-choice option.
+//
+// ONE RULE DECIDES WHICH FIELD IS FILLED, and it is the rule the interface
+// draws: A WORK IS SHOWN BY ITS PICTURE, A PERSON BY THEIR CHIP.
+//
+// Until 3.0 a work option carried a PERSON — a film title with the face of one
+// of its actors under it, picked as "the first one we have a line from". That
+// put a person's name and portrait under a thing that was not a person, on a
+// card whose whole job was to ask which of four things this was; and the film,
+// which has a poster on every other screen in the app, was the one thing on the
+// card with no picture at all. So a work option now carries its own art and no
+// face, and a face appears only where the option IS a face.
+//
+// SOURCE/ITEM ARE THE "WHICH QUOTE?" REVEAL and are meaningless before the card
+// is graded — the client must not draw them until then, exactly as it must not
+// draw `Answer`. They are sent WITH the card rather than fetched afterwards for
+// the same reason `Answer` is: a second route that hands out the answers to a
+// card in play is a worse thing to own than a field the client is trusted not
+// to paint early.
 type optionMeta struct {
-	Person string `json:"person,omitempty"` // display name; "" when unknown
-	Kind   string `json:"kind,omitempty"`   // author | actor | director
+	Person string `json:"person,omitempty"` // person options: display name
+	Kind   string `json:"kind,omitempty"`   // author | actor | director | speaker
+	// Art is the work's stored cover/poster file (the same path every other
+	// screen resolves through coverImgURL). "" for a work that has none, and for
+	// a speech, which is an occasion and has no art to have.
+	Art string `json:"art,omitempty"`
+	// Source names the work a QUOTE option came out of, revealed once the card is
+	// graded: four quotes were offered and the reader learns where all four came
+	// from, not only which one was right.
+	Source string `json:"source,omitempty"`
+	// ItemKind/ItemID identify the quote behind an option so the client can
+	// report it as SEEN once it has been revealed — reading three other quotes is
+	// a real encounter with them, and the half-life should say so.
+	ItemKind string `json:"item_kind,omitempty"`
+	ItemID   int64  `json:"item_id,omitempty"`
 }
 
 // reviewCand wraps a card with the transient facts used to order it and build
@@ -793,7 +854,7 @@ const schedCols = `r.item_id IS NOT NULL, COALESCE(r.stability, ?), COALESCE(r.r
 func (s *Server) bookCandidates(uid int64, bucket deckBucket, th reviewTheme, mod, day string, seed int64, limit int) ([]reviewCand, error) {
 	rs := bookSource()
 	q := `SELECT x.id, x.book_id, COALESCE(x.quote,''), COALESCE(x.note,''), x.color,
-	             p.title, COALESCE(p.author,''), COALESCE(x.character,''),
+	             p.title, COALESCE(p.author,''), COALESCE(p.cover_path,''), COALESCE(x.character,''),
 	             COALESCE(x.chapter,''), COALESCE(x.location,''),
 	             ` + schedCols + `
 	      FROM ` + rs.from() + ` ` + rs.reviewJoin() + ` ` + rs.where()
@@ -826,7 +887,7 @@ func (s *Server) bookCandidates(uid int64, bucket deckBucket, th reviewTheme, mo
 		var bookID int64
 		c.card.Kind = kindBook
 		if err := rows.Scan(&c.card.ID, &bookID, &c.card.Quote, &c.card.Note, &c.card.Color,
-			&c.card.Title, &c.card.Author, &c.card.Character, &c.card.Chapter, &c.card.Location,
+			&c.card.Title, &c.card.Author, &c.card.Art, &c.card.Character, &c.card.Chapter, &c.card.Location,
 			&c.seen, &c.card.Stability, &c.card.ReviewCount, &c.card.LapseCount, &lr, &c.lastResult, &c.age); err != nil {
 			olog.Warnf(olog.CodeReviewRowScan, "[review] book candidate row scan failed: %v", err)
 			continue
@@ -840,7 +901,7 @@ func (s *Server) bookCandidates(uid int64, bucket deckBucket, th reviewTheme, mo
 
 func (s *Server) screenCandidates(uid int64, bucket deckBucket, th reviewTheme, mod, day string, seed int64, limit int) ([]reviewCand, error) {
 	rs := screenSource()
-	q := `SELECT x.id, x.movie_id, COALESCE(x.quote,''), COALESCE(x.note,''), x.color, p.title, COALESCE(x.character,''),
+	q := `SELECT x.id, x.movie_id, COALESCE(x.quote,''), COALESCE(x.note,''), x.color, p.title, COALESCE(p.poster_path,''), COALESCE(x.character,''),
 	             COALESCE(x.actor,''), COALESCE(x.timestamp,''), x.season, x.episode, COALESCE(p.media_type,'movie'),
 	             ` + schedCols + `
 	      FROM ` + rs.from() + ` ` + rs.reviewJoin() + ` ` + rs.where()
@@ -872,7 +933,7 @@ func (s *Server) screenCandidates(uid int64, bucket deckBucket, th reviewTheme, 
 		var lr sql.NullString
 		var movieID int64
 		c.card.Kind = kindScreen
-		if err := rows.Scan(&c.card.ID, &movieID, &c.card.Quote, &c.card.Note, &c.card.Color, &c.card.Title, &c.card.Character,
+		if err := rows.Scan(&c.card.ID, &movieID, &c.card.Quote, &c.card.Note, &c.card.Color, &c.card.Title, &c.card.Art, &c.card.Character,
 			&c.card.Actor, &c.card.Timestamp, &c.card.Season, &c.card.Episode, &c.card.MediaType,
 			&c.seen, &c.card.Stability, &c.card.ReviewCount, &c.card.LapseCount, &lr, &c.lastResult, &c.age); err != nil {
 			olog.Warnf(olog.CodeReviewRowScan, "[review] screen candidate row scan failed: %v", err)
@@ -1105,7 +1166,11 @@ type workRef struct {
 	// standalone quote, whose "work" is the occasion — its speaker. Both play the
 	// same two roles: the chip under the option, and the signal that makes
 	// another work a confusable distractor.
-	author   string
+	author string
+	// art is the work's stored cover/poster file — the picture a work option is
+	// shown by (see optionMeta). Empty for a speech, which has no art anywhere in
+	// the app, and for a book or film whose cover was never fetched.
+	art      string
 	director string          // screen only
 	genres   map[string]bool // books + screen
 	actors   map[string]bool // screen only, lowercased (similarity matching)
@@ -1135,31 +1200,14 @@ type workRef struct {
 	cast []string
 }
 
-// person is the credit an option chip shows for this work: a book's author, a
-// quote's speaker, a screen work's dialogue actor (falling back to its
-// director).
-func (w workRef) person() optionMeta {
-	if w.kind == kindBook {
-		if w.author != "" {
-			return optionMeta{Person: w.author, Kind: "author"}
-		}
-		return optionMeta{}
-	}
-	if w.kind == kindUtterance {
-		// A quote with no occasion is titled by its speaker already; repeating the
-		// name as its own chip would just read as a stutter.
-		if w.author != "" && w.author != w.title {
-			return optionMeta{Person: w.author, Kind: "speaker"}
-		}
-		return optionMeta{}
-	}
-	if len(w.actorNames) > 0 {
-		return optionMeta{Person: w.actorNames[0], Kind: "actor"}
-	}
-	if w.director != "" {
-		return optionMeta{Person: w.director, Kind: "director"}
-	}
-	return optionMeta{}
+// meta is what a WORK option carries: its own picture and nothing else.
+//
+// It used to return a person — see optionMeta for why it no longer does. The
+// speech is the one kind that comes back empty, and that is honest rather than a
+// gap: an occasion has no poster, and the person who spoke on it is already the
+// larger half of the title the option prints.
+func (w workRef) meta() optionMeta {
+	return optionMeta{Art: w.art}
 }
 
 // quoteRef is one quote in the distractor pool, carrying its source work so a
@@ -1168,6 +1216,11 @@ func (w workRef) person() optionMeta {
 type quoteRef struct {
 	work workRef
 	text string
+	// The row this quote IS — its own review kind and id. Carried so a "which
+	// quote?" card can tell the client what it just showed it: the three wrong
+	// options were still read, and reading them counts as seeing them.
+	kind string
+	id   int64
 }
 
 // quizPools holds a round's distractor material: every in-scope work (for
@@ -1218,16 +1271,17 @@ func (s *Server) quizPools(uid int64, sc reviewScope, seed int64) (quizPools, er
 	}
 	// works (title + person signal), genres, actors (screen), and a quote sample.
 	if sc.books {
-		if err := scan(`SELECT id, title, COALESCE(author,'') FROM books WHERE user_id = ? AND title <> ''`,
+		if err := scan(`SELECT id, title, COALESCE(author,''), COALESCE(cover_path,'')
+		                FROM books WHERE user_id = ? AND title <> ''`,
 			func(rows *sql.Rows) error {
 				var id int64
-				var title, author string
-				if err := rows.Scan(&id, &title, &author); err != nil {
+				var title, author, cover string
+				if err := rows.Scan(&id, &title, &author, &cover); err != nil {
 					olog.Warnf(olog.CodeReviewRowScan, "[review] book work row scan failed: %v", err)
 					return nil
 				}
 				k := kindBook + ":" + strconv.FormatInt(id, 10)
-				p.byKey[k] = workRef{key: k, kind: kindBook, title: title, author: author, genres: map[string]bool{}, actors: map[string]bool{}}
+				p.byKey[k] = workRef{key: k, kind: kindBook, title: title, author: author, art: cover, genres: map[string]bool{}, actors: map[string]bool{}}
 				return nil
 			}); err != nil {
 			return p, err
@@ -1258,18 +1312,18 @@ func (s *Server) quizPools(uid int64, sc reviewScope, seed int64) (quizPools, er
 		}
 	}
 	if sc.screen {
-		if err := scan(`SELECT id, title, COALESCE(director,'')
+		if err := scan(`SELECT id, title, COALESCE(director,''), COALESCE(poster_path,'')
 		                FROM movies WHERE user_id = ? AND title <> ''`,
 			func(rows *sql.Rows) error {
 				var id int64
-				var title, director string
-				if err := rows.Scan(&id, &title, &director); err != nil {
+				var title, director, poster string
+				if err := rows.Scan(&id, &title, &director, &poster); err != nil {
 					olog.Warnf(olog.CodeReviewRowScan, "[review] screen work row scan failed: %v", err)
 					return nil
 				}
 				k := kindScreen + ":" + strconv.FormatInt(id, 10)
 				p.byKey[k] = workRef{
-					key: k, kind: kindScreen, title: title, director: director,
+					key: k, kind: kindScreen, title: title, director: director, art: poster,
 					genres: map[string]bool{}, actors: map[string]bool{},
 				}
 				return nil
@@ -1393,14 +1447,15 @@ func (s *Server) quizPools(uid int64, sc reviewScope, seed int64) (quizPools, er
 		// utteranceCandidates' — a quote with no attribution belongs to no work and
 		// would otherwise become a distractor with a blank title.
 		uttOrder, uttArgs := sampleOn("id", kindUtterance)
-		if err := scan(`SELECT COALESCE(quote,''), COALESCE(note,''), COALESCE(speaker,''), COALESCE(occasion,'')
+		if err := scan(`SELECT id, COALESCE(quote,''), COALESCE(note,''), COALESCE(speaker,''), COALESCE(occasion,'')
 		                FROM utterances
 		                WHERE user_id = ? AND (COALESCE(quote,'') <> '' OR COALESCE(note,'') <> '')
 		                  AND (COALESCE(occasion,'') <> '' OR COALESCE(speaker,'') <> '')
 		                `+uttOrder,
 			func(rows *sql.Rows) error {
+				var id int64
 				var quote, note, speaker, occasion string
-				if err := rows.Scan(&quote, &note, &speaker, &occasion); err != nil {
+				if err := rows.Scan(&id, &quote, &note, &speaker, &occasion); err != nil {
 					olog.Warnf(olog.CodeReviewRowScan, "[review] utterance pool row scan failed: %v", err)
 					return nil
 				}
@@ -1415,7 +1470,7 @@ func (s *Server) quizPools(uid int64, sc reviewScope, seed int64) (quizPools, er
 				if text == "" {
 					text = note
 				}
-				p.quotes = append(p.quotes, quoteRef{work: w, text: text})
+				p.quotes = append(p.quotes, quoteRef{work: w, text: text, kind: kindUtterance, id: id})
 				return nil
 			}, uttArgs...); err != nil {
 			return p, err
@@ -1444,7 +1499,8 @@ func (s *Server) quizPools(uid int64, sc reviewScope, seed int64) (quizPools, er
 }
 
 // quoteScanner adds a row (id, work_id, quote, note) to the quote pool, linking
-// it to its work so distractors can be ranked and same-work quotes excluded.
+// it to its work so distractors can be ranked and same-work quotes excluded, and
+// keeping the row's own id so a revealed option can be reported as seen.
 func (p *quizPools) quoteScanner(kind string) func(*sql.Rows) error {
 	return func(rows *sql.Rows) error {
 		var id, workID int64
@@ -1461,7 +1517,7 @@ func (p *quizPools) quoteScanner(kind string) func(*sql.Rows) error {
 			return nil
 		}
 		if w, ok := p.byKey[kind+":"+strconv.FormatInt(workID, 10)]; ok {
-			p.quotes = append(p.quotes, quoteRef{work: w, text: text})
+			p.quotes = append(p.quotes, quoteRef{work: w, text: text, kind: kind, id: id})
 		}
 		return nil
 	}
@@ -1587,8 +1643,12 @@ func attachDirection(card *reviewCard, ownKey string, p quizPools, seed int64, c
 		return true
 	case dirCloze:
 		return attachCloze(card, clozeWords)
+	case dirClozeMCQ:
+		return attachClozeMCQ(card, ownKey, p, seed, clozeWords)
 	case dirSpeaker:
 		return attachSpeaker(card, ownKey, p, seed)
+	case dirAuthor:
+		return attachAuthor(card, ownKey, p, seed)
 	default:
 		return false
 	}
@@ -1622,7 +1682,7 @@ func attachMCQ(card *reviewCard, ownKey string, p quizPools, seed int64) bool {
 		card.OptionMeta = make([]optionMeta, len(opts))
 		for i, o := range opts {
 			card.Options[i] = o.title
-			card.OptionMeta[i] = o.person()
+			card.OptionMeta[i] = o.meta()
 		}
 		card.Answer = ans
 		return true
@@ -1646,18 +1706,38 @@ func attachMCQ(card *reviewCard, ownKey string, p quizPools, seed int64) bool {
 	// sharing a 140-rune opening are no longer folded together as duplicates by
 	// choicesFrom, which could quietly leave a card with fewer choices than it
 	// should have had.
-	var distractors []string
+	var distractors []quoteRef
 	for _, q := range rankQuotes(own, p.quotes, rng) {
 		if q.work.key == ownKey || q.work.title == card.Title {
 			continue // never a quote from the same work
 		}
-		distractors = append(distractors, q.text)
+		distractors = append(distractors, q)
 	}
-	opts, ans := choicesFrom(correct, distractors, quizOptions, rng)
+	// The answer's own ref. `own` can be the zero workRef when the card's work
+	// missed the pool sample, so the title falls back to the card's own — the
+	// same fallback the source branch above makes for the same reason.
+	mine := quoteRef{work: own, text: correct, kind: card.Kind, id: card.ID}
+	if mine.work.title == "" {
+		mine.work = workRef{key: ownKey, kind: card.Kind, title: card.Title}
+	}
+	opts, ans := choicesFromQuotes(mine, distractors, quizOptions, rng)
 	if len(opts) < 2 {
 		return false
 	}
-	card.Options, card.Answer = opts, ans
+	card.Options = make([]string, len(opts))
+	// WHERE EACH OF THE FOUR CAME FROM, for the client to reveal after the grade.
+	// A "which quote is from this book?" card puts three quotes from three other
+	// works in front of the reader and, until now, told them nothing about any of
+	// them — the round ended with three passages read and unattributed, which is
+	// the opposite of what the deck is for.
+	card.OptionMeta = make([]optionMeta, len(opts))
+	for i, o := range opts {
+		card.Options[i] = o.text
+		card.OptionMeta[i] = optionMeta{
+			Source: o.work.title, Art: o.work.art, ItemKind: o.kind, ItemID: o.id,
+		}
+	}
+	card.Answer = ans
 	return true
 }
 
@@ -1690,6 +1770,64 @@ func attachCloze(card *reviewCard, multiWordFrom float64) bool {
 	} else {
 		card.Quote = masked
 	}
+	return true
+}
+
+// attachClozeMCQ is attachCloze with four phrases to choose between.
+//
+// THE ANSWER TRAVELS, and that is the difference from the typed cloze — which is
+// precisely why they are two directions and not one control. A typed cloze keeps
+// its answer on the server and grades the attempt there; a multiple choice
+// cannot, because the answer is one of the four things printed on the card. So
+// this one is graded by the client from `Answer` like every other MCQ, and the
+// reader who wants the harder promise still has it, one chip over.
+//
+// The distractors are spans cut out of OTHER quotes by the same selector, in the
+// same word count — see clozePhraseOf. Ranked by the same similarity as every
+// other distractor pool, so the phrases offered come from the neighbourhood of
+// the quote rather than from the far end of the library.
+func attachClozeMCQ(card *reviewCard, ownKey string, p quizPools, seed int64, multiWordFrom float64) bool {
+	text := card.Quote
+	if strings.TrimSpace(text) == "" {
+		text = card.Note
+	}
+	masked, answer, ok := clozeSpan(text, card.Kind, card.ID, clozeMaxWordsFor(card.Stability, multiWordFrom))
+	if !ok {
+		return false
+	}
+	words := len(strings.Fields(answer))
+	rng := seededRand(seed)
+	own := p.byKey[ownKey]
+	var distractors []string
+	for i, q := range rankQuotes(own, p.quotes, rng) {
+		if q.work.key == ownKey {
+			continue // a phrase out of this same work could be this same phrase
+		}
+		// The salt varies the span taken from each source quote, so a library of
+		// near-identical openings does not offer the same three words twice.
+		phrase, ok := clozePhraseOf(q.text, words, uint64(i)*0x9E3779B97F4A7C15+uint64(card.ID))
+		if !ok || clozeSameSpan(phrase, answer) {
+			continue
+		}
+		distractors = append(distractors, phrase)
+		if len(distractors) >= quizOptions-1 {
+			break
+		}
+	}
+	opts, ans := choicesFrom(answer, distractors, quizOptions, rng)
+	// THE SAME FLOOR THE SPEAKER CARD USES, and for the same reason: two options
+	// is a coin toss, and a coin toss recorded as a grade moves a schedule on no
+	// evidence. A library too small for three phrases gets the typed cloze
+	// instead, which needs nothing but the quote's own words.
+	if len(opts) < speakerMinOptions {
+		return false
+	}
+	if strings.TrimSpace(card.Quote) == "" {
+		card.Note = masked
+	} else {
+		card.Quote = masked
+	}
+	card.Options, card.Answer = opts, ans
 	return true
 }
 
@@ -1774,6 +1912,30 @@ func choicesFromWorks(answer workRef, distractors []workRef, n int, rng *rand.Ra
 	shuffleN(rng, len(opts), func(i, j int) { opts[i], opts[j] = opts[j], opts[i] })
 	for i, o := range opts {
 		if o.title == answer.title {
+			return opts, i
+		}
+	}
+	return opts, 0
+}
+
+// choicesFromQuotes is choicesFrom over quoteRefs — same dedupe (by text),
+// shuffle and answer-index contract, but each option keeps the row it came out
+// of, so the card can name its source once the answer is in.
+func choicesFromQuotes(answer quoteRef, distractors []quoteRef, n int, rng *rand.Rand) ([]quoteRef, int) {
+	opts := []quoteRef{answer}
+	seen := map[string]bool{answer.text: true}
+	for _, d := range distractors {
+		if len(opts) >= n {
+			break
+		}
+		if d.text != "" && !seen[d.text] {
+			seen[d.text] = true
+			opts = append(opts, d)
+		}
+	}
+	shuffleN(rng, len(opts), func(i, j int) { opts[i], opts[j] = opts[j], opts[i] })
+	for i, o := range opts {
+		if o.text == answer.text {
 			return opts, i
 		}
 	}

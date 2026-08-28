@@ -2857,6 +2857,58 @@ A standalone film fails the other way. Nothing scores highly, the distractors sh
 
 <sub>1.15.0 — `internal/httpapi/cloze.go` · `internal/httpapi/cloze_test.go`</sub>
 
+### Cloze now forgives a close synonym, reversing the entry above
+
+**Decided.** Before the edit-distance banding runs, two words are compared as *words*: the same word spelled another way (`-ise`/`-ize`, `-our`/`-or`, `-re`/`-er`, a doubled consonant before a suffix, a leading ligature vowel), the same word in another form (a plural, a possessive, a past tense, a participle), or a pair from a short hand-written list of near-synonyms. Everything else is unchanged — same banding, same token-by-token rule, same word-count refusal.
+
+**Why the earlier refusal was half right.** It was right that edit distance cannot separate a typo from a different word, and the banding it set stands. It was wrong that a synonym is therefore a failure of recall. "silent" for "quiet" is **nine edits** away and is somebody who has the sentence; "fast" for "vast" is **one edit** away and is somebody who has not. Grading on letters means the reader who half-remembers the phrase is told only that they were wrong, on the hardest card in the deck, which is the card people give up on first.
+
+**What keeps it from being a thesaurus.** The list is written by hand and short, and it takes only pairs interchangeable in ordinary prose ("big"/"large") while refusing pairs that change the register ("wonderful" for "great") — because a quote is the one kind of text where the register *is* the meaning. Every spelling fold is **anchored**: an unanchored `oe`→`e` folds "poet" onto "pet", and a fold that can invent an equivalence is worse than no fold. It applies per word inside a phrase and never to the whole string, so three words recalled as three synonyms is still a paraphrase and still wrong.
+
+**Reversal.** Of "Refused explicitly: synonyms" in the entry above, which was the reader's own decision.
+
+**Approved.** The reader's, in the form "cloze should handle some close synonyms" — asked for after living with the strict version.
+
+<sub>v3.0.0 — `internal/httpapi/cloze.go` · `internal/httpapi/cloze_test.go` · `CHANGELOG.md`</sub>
+
+### A question has a class and a form, and the two axes are what makes the missing ones visible
+
+**Decided.** Every question type declares WHAT it asks (which work · which quote · who is behind it · the words themselves) and HOW it is answered (pick one of four · type it back · mark yourself). The table gains three entries filling holes the two axes make visible: **`author`** ("who wrote this?", books only), **`speaker` extended to a speech** (it was screen-only), and **`cloze-mcq`** — the same blank as `cloze`, answered by choosing rather than typing.
+
+**Why the flat list hid them.** Five types with no axes read as an arbitrary set, so "the same class asked a second way" had nowhere to be and a whole class — *who is behind it* for a book — was missing with nothing to say so. The reader's report was two observations that turn out to be one: *"I also never see who wrote this or who said this"*. "Who wrote this?" did not exist; "who said this?" existed and was gated on `kindScreen`, which was never a fact about the question — `utterances.speaker` has been a column since 0026, so a library of speeches had a switch on that could never fire.
+
+**What stays true.** Both "who?" questions are **not universal**: `author` needs a book and `speaker` needs a recorded speaker, so neither can be the last question standing in a deck (rule 3 of `review_questions.go`). `cloze-mcq` **is** universal, which makes it the second card type that needs no distractor work to be askable — but unlike the typed cloze it needs three other quotes to cut phrases out of, so it refuses on a one-book library and the typed one answers instead. The typed cloze keeps its difficulty weighting and its answer stays on the server; the with-choices twin is graded client-side from `answer` like every other MCQ, because the answer is printed on the card.
+
+**Approved.** The reader's, in the form "there should be different class (who said it, which book is this from, which quote is from this book, etc) and types (cloze, mcq, cloze with options) of questions."
+
+<sub>v3.0.0 — `internal/httpapi/review_handlers.go` · `internal/httpapi/speaker.go` · `internal/httpapi/cloze.go` · `internal/httpapi/review_questions.go` · `internal/httpapi/question_types_test.go` · `web/frontend/src/quiz.js` · `web/frontend/src/review.jsx`</sub>
+
+### A work option is shown by its picture and a person by their chip, and nothing shows both
+
+**Decided.** A multiple-choice option that names a WORK carries that work's cover or poster and no face. An option that IS a person carries their portrait chip. The slot is reserved whether or not a given work has art, so four options align. The attribution block on a card that reveals its source shows the same art beside the title.
+
+**Why the old rule was a category error.** `workRef.person()` credited each work option with a person — a book's author, a screen work's *first dialogue actor*, falling back to its director. So a film title was offered with the photograph and name of one of its actors under it, on the one card whose job is to ask which of four things this is, while the film's own poster — drawn on every other screen in the app — was the one thing on the card with no picture. The reader's report names it exactly: *"the movie quiz where actor name and chip is accompanied with movie"*.
+
+**The cost, stated.** A book option no longer shows its author, and a speech has no art at all, so an utterance option is now its title alone. That is accepted rather than overlooked: the title of a speech already *is* its attribution (`utteranceAttribution` falls back to the speaker's name), and a per-option fallback to a face would reinstate the same confusion for exactly the works whose covers are missing.
+
+**Approved.** The reader's, in the form "for all work options, they should be accompanied with their posters. All people with their chips. Simple rule."
+
+<sub>v3.0.0 — `internal/httpapi/review_handlers.go` · `web/frontend/src/review.jsx`</sub>
+
+### A "which quote?" card names every option's source after the grade, and reading them counts as seeing them
+
+**Decided.** Each option of a `quote` card carries its source work (title + art) and its own row identity (`item_kind`, `item_id`). The client draws the sources only once the card is graded, and reports the OTHER options — never the card being graded — to `POST /review/seen`, which prices them by the reader's existing `srSeen` factor.
+
+**Why.** The card puts three passages from three other works in front of the reader and then says nothing about any of them: the round ends with three quotes read and unattributed, which is the opposite of what the deck is for. And they were genuinely read — weighed against the question and rejected — so the event the app already models for "you met this quote outside the schedule" is the honest one to record.
+
+**Why the provenance travels with the card rather than through a second request.** It is the same argument `Answer` already settles: a route that hands out facts about a card in play is a worse thing to own than a field the client is trusted not to paint early. The client draws them under the same `answered` gate that reveals the verdict.
+
+**Why the card's own row is excluded.** Its answer moves the schedule properly a few lines earlier; a seeing on top would pay it twice.
+
+**Approved.** The reader's, in the form "when an answer is submitted ... the books for the other quotes need to be shown as well. and that should count as seen (affects halflife as per the seen settings)."
+
+<sub>v3.0.0 — `internal/httpapi/review_handlers.go` · `web/frontend/src/review.jsx` · `web/frontend/test/dom/quiz-runner.test.jsx`</sub>
+
 ### Measured difficulty feeds the schedule, beside the fixed ladder
 
 **Decided.** The deck counts its own **plausible** distractors per card — candidates scoring above the same-medium floor — and that number reaches the grader. A correct answer on a card the deck knows was easy does not earn the full step up the ladder; **a lapse on a card the deck knows was unfair is not decisive.**

@@ -1183,7 +1183,7 @@ settings.quiz.adaptive.ladder.label = Ladder
 settings.quiz.adaptive.on.label = Adaptive
 settings.quiz.seen.title = Seeing lengthens half-life by
 settings.quiz.seen.label = Seeing lengthens half-life by
-settings.quiz.seen.info.body = “Seeing” a quote — practising it (not skipping), sharing it, or favouriting it — nudges its half-life up a little, separate from Daily Quiz recall. Leave at 1.0× to turn this off.
+settings.quiz.seen.info.body = “Seeing” a quote — practising it, sharing it, favouriting it, or meeting it among the choices on a card you answered — nudges its half-life up a little, separate from Daily Quiz recall. Leave at 1.0× to turn this off.
 settings.quiz.tuning.title = How the schedule moves
 settings.quiz.tuning.info.body = These multiply a quote's half-life on every answer, and are bounded rather than free: a multiplier below 1 would shorten a card every time you got it right, which never looks broken — it just asks the same quote for ever.
 settings.quiz.reset.label = Back to defaults
@@ -1616,17 +1616,33 @@ greeting.dateline.format = {weekday} · {date}
 quiz.daily.label = Daily quiz
 quiz.practice.label = Practice
 
-# The five question types. .label is the row in Settings, .hint its info dot.
+# The seven question types. .label is the chip in Settings, .hint its tooltip.
 quiz.question.source.label = Name the source
 quiz.question.source.hint = Shows the quote and asks which book, film, show, game or speech it came from. Multiple choice.
 quiz.question.quote.label = Pick the quote
 quiz.question.quote.hint = The other way round: shows the work and asks which of these lines came out of it. Multiple choice.
 quiz.question.cloze.label = Fill in the blank
 quiz.question.cloze.hint = Blanks a phrase out of the quote and asks you to type it back. Graded on the server, and forgiving about typos and punctuation. Worth more than a multiple choice, and costs less when you miss it.
+quiz.question.cloze-mcq.label = Fill in the blank — with choices
+quiz.question.cloze-mcq.hint = The same blank, with four phrases to pick between instead of a box to type into. The other three are real phrases cut out of your own other quotes, so they are the right length and the right kind of words.
 quiz.question.speaker.label = Who said this?
-quiz.question.speaker.hint = Films, shows and games only — a book has no cast, so this is simply never asked of a highlight.
+quiz.question.speaker.hint = Anything with a speaker on record: a film, show or game line offers its cast, a speech offers the people you have heard from. A highlight has neither, so this is never asked of one.
+quiz.question.author.label = Who wrote this?
+quiz.question.author.hint = Books only — nobody is credited with writing a film line, so the question there is who SAID it. The wrong answers are the authors of the books nearest this one.
 quiz.question.flip.label = Flip and self-mark
 quiz.question.flip.hint = Shows the quote, reveals the source, and asks you whether you had it. Nothing checks the answer, so it is offered in Practice only — and drops out there too once Practice is scored.
+
+# The two axes every question type sits on, appended to its tooltip: WHAT is
+# being asked, and HOW you answer it. Two questions sharing a class are the same
+# question asked two ways — which is what a flat row of chips cannot show.
+quiz.class.work.label = Which work
+quiz.class.quote.label = Which quote
+quiz.class.person.label = Who is behind it
+quiz.class.words.label = The words themselves
+quiz.form.choose.label = pick one of four
+quiz.form.type.label = type it back
+quiz.form.self.label = mark yourself
+quiz.taxonomy.line = {klass} · {form}
 
 # Appended to the hint of a question toggle that REFUSES to switch off,
 # because it is the last one the deck could ask of a book as well as a film.
@@ -2518,7 +2534,9 @@ quiz.noun.occasion.label = occasion
 quiz.question.source.stem = Which {kind} is this quote from?
 quiz.question.quote.stem = Which quote is from this {kind}?
 quiz.question.cloze.stem = Fill in the blank
+quiz.question.cloze-mcq.stem = Which words belong in the blank?
 quiz.question.speaker.stem = Who says this?
+quiz.question.author.stem = Who wrote this?
 # A flip card, and any question type a newer server sends that this client has
 # never heard of: both are answered the same way.
 quiz.question.flip.stem = Where is this from?
@@ -2534,6 +2552,10 @@ quiz.cloze.placeholder-key = type what belongs in the blank · {key}
 quiz.cloze.check.label = Check
 # Above the right answer, once it has been checked.
 quiz.cloze.answer.label = the missing words
+
+# Under each option of a "which quote?" card, once it has been answered: the
+# work that option came out of. {title} is a book, film, show, game or occasion.
+quiz.option.source.label = from {title}
 
 # A multiple-choice option that is longer than three lines.
 quiz.option.expand.aria = Expand this option

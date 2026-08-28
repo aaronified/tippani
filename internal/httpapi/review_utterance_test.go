@@ -454,16 +454,17 @@ func TestQuoteDistractorsPreferTheSameSpeaker(t *testing.T) {
 	}
 }
 
-// A quote titled by its speaker (no occasion) must not also carry that speaker
-// as its option chip — the option would read "Bose" with "Bose" underneath.
-func TestQuoteOptionChipDoesNotRepeatTheTitle(t *testing.T) {
-	titled := workRef{kind: kindUtterance, title: "Burma Radio broadcast", author: "Subhas Chandra Bose"}
-	if p := titled.person(); p.Person != "Subhas Chandra Bose" || p.Kind != "speaker" {
-		t.Fatalf("a speech should credit its speaker: %+v", p)
+// A WORK OPTION IS SHOWN BY ITS PICTURE AND NEVER BY A FACE (3.0). A speech has
+// no art, so its option carries nothing at all — which is the point: the face
+// that used to sit under it belonged to a person, and the option is not one.
+func TestAWorkOptionCarriesArtAndNoFace(t *testing.T) {
+	speech := workRef{kind: kindUtterance, title: "Burma Radio broadcast", author: "Subhas Chandra Bose"}
+	if m := speech.meta(); m.Person != "" || m.Art != "" {
+		t.Fatalf("a speech has no art and is not a person: %+v", m)
 	}
-	bare := workRef{kind: kindUtterance, title: "Subhas Chandra Bose", author: "Subhas Chandra Bose"}
-	if p := bare.person(); p.Person != "" {
-		t.Fatalf("the chip repeated the option text: %+v", p)
+	book := workRef{kind: kindBook, title: "Dune", author: "Frank Herbert", art: "abc123.jpg"}
+	if m := book.meta(); m.Art != "abc123.jpg" || m.Person != "" {
+		t.Fatalf("a book option should carry its cover and no face: %+v", m)
 	}
 }
 

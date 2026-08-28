@@ -359,3 +359,153 @@ describe('a "who said this" card', () => {
     expect(posted()[0].body.result).toBe('forgot')
   })
 })
+
+// ---- what is drawn beside an option (3.0) ----------------------------------
+//
+// ONE RULE: a work is shown by its picture, a person by their chip. A film
+// option used to wear the face of one of its actors — a person's portrait under
+// a thing that is not a person, on the one card whose job is to ask which of
+// four things this is, while the film's own poster went undrawn.
+describe('what an option is drawn as', () => {
+  const withArt = () => mcq({
+    option_meta: [
+      { art: 'persuasion.jpg' },
+      { art: 'emma.jpg' },
+      { art: '' }, // a work whose cover was never fetched
+    ],
+  })
+
+  it('gives a work option its cover and no face', () => {
+    const { container } = render(<QuizRunner mode="daily" cards={[withArt()]} />)
+    const srcs = [...container.querySelectorAll('img')].map((i) => i.getAttribute('src'))
+    expect(srcs.some((s) => s.includes('persuasion.jpg'))).toBe(true)
+    expect(srcs.some((s) => s.includes('emma.jpg'))).toBe(true)
+    // No portrait, because none of these options is a person.
+    expect(screen.queryByText('Austen')).toBeNull()
+  })
+
+  // The slot is reserved whether or not a given work has art, so four options
+  // start at the same x rather than stepping in and out with the covers.
+  it('still reserves the slot for a work with no cover', () => {
+    const { container } = render(<QuizRunner mode="daily" cards={[withArt()]} />)
+    expect(container.querySelectorAll('[aria-hidden="true"]').length).toBeGreaterThan(0)
+  })
+})
+
+// ---- "which quote?" names its options once it is answered ------------------
+describe('a “which quote is from this work?” card', () => {
+  const which = (over = {}) => ({
+    kind: 'book', id: 1, direction: 'quote', quote: 'the only way out is through',
+    title: 'Persuasion', author: 'Austen', color: 'yellow', art: 'persuasion.jpg',
+    options: ['a line of ours', 'a line of theirs', 'a third line'],
+    option_meta: [
+      { source: 'Persuasion', art: 'persuasion.jpg', item_kind: 'book', item_id: 1 },
+      { source: 'Moby-Dick', art: 'moby.jpg', item_kind: 'book', item_id: 20 },
+      { source: 'Middlemarch', art: '', item_kind: 'utterance', item_id: 30 },
+    ],
+    answer: 0, ...over,
+  })
+
+  const seen = () => SENT.filter((s) => s.path === '/review/seen')
+
+  it('says nothing about where any of them came from until it is answered', () => {
+    render(<QuizRunner mode="daily" cards={[which()]} />)
+    expect(screen.queryByText(/from Moby-Dick/)).toBeNull()
+    expect(seen()).toHaveLength(0)
+  })
+
+  it('names all four sources once the answer is in', async () => {
+    render(<QuizRunner mode="daily" cards={[which()]} />)
+    fireEvent.click(screen.getByText('a line of theirs'))
+    await waitFor(() => expect(posted()).toHaveLength(1))
+    expect(screen.getByText('from Moby-Dick')).toBeTruthy()
+    expect(screen.getByText('from Middlemarch')).toBeTruthy()
+  })
+
+  // READING THEM COUNTS AS SEEING THEM, priced by the reader's own srSeen. Never
+  // the card being graded: its own answer moves the schedule properly, and a
+  // seeing on top would pay it twice.
+  it('reports the other quotes as seen, and never the card itself', async () => {
+    render(<QuizRunner mode="daily" cards={[which()]} />)
+    fireEvent.click(screen.getByText('a line of ours'))
+    await waitFor(() => expect(seen()).toHaveLength(2))
+    expect(seen().map((s) => s.body)).toEqual([
+      { kind: 'book', id: 20 },
+      { kind: 'utterance', id: 30 },
+    ])
+  })
+
+  it('reports them once, however long the card stays on screen', async () => {
+    render(<QuizRunner mode="daily" cards={[which()]} />)
+    fireEvent.click(screen.getByText('a line of ours'))
+    await waitFor(() => expect(seen()).toHaveLength(2))
+    fireEvent.click(screen.getByText('a line of theirs'))
+    fireEvent.click(screen.getByText('a third line'))
+    expect(seen()).toHaveLength(2)
+  })
+})
+
+// ---- fill in the blank, with choices ---------------------------------------
+//
+// The same hole in the same words, answered by picking rather than typing. The
+// client tells the two apart by whether there is anything to pick — which is
+// also what makes an unknown direction from a newer server degrade sensibly.
+describe('a cloze card with choices', () => {
+  const blanked = (over = {}) => ({
+    kind: 'book', id: 3, direction: 'cloze-mcq', color: 'green',
+    quote: 'it is a truth ￼ acknowledged',
+    title: 'Pride and Prejudice', author: 'Austen',
+    options: ['universally', 'privately', 'grudgingly'], answer: 0, ...over,
+  })
+
+  it('offers the phrases instead of a box to type into', () => {
+    render(<QuizRunner mode="daily" cards={[blanked()]} />)
+    expect(screen.getByText('Which words belong in the blank?')).toBeTruthy()
+    expect(screen.getByText('universally')).toBeTruthy()
+    expect(screen.queryByPlaceholderText(/type what belongs/)).toBeNull()
+  })
+
+  it('grades the pick like any other multiple choice', async () => {
+    render(<QuizRunner mode="daily" cards={[blanked()]} />)
+    fireEvent.click(screen.getByText('privately'))
+    await waitFor(() => expect(posted()).toHaveLength(1))
+    expect(posted()[0].body.result).toBe('forgot')
+    // NOT as a cloze attempt: the answer was on the card, so the server has
+    // nothing to grade that the client did not already know.
+    expect(posted()[0].body.attempt).toBeUndefined()
+  })
+
+  // The typed cloze is the same blank with nothing offered, and it must still
+  // take the typing path.
+  it('leaves a blank with no options as something to type', () => {
+    render(<QuizRunner mode="daily" cards={[blanked({ direction: 'cloze', options: [] })]} />)
+    expect(screen.getByPlaceholderText(/type what belongs/)).toBeTruthy()
+  })
+})
+
+// ---- "who wrote this?" -----------------------------------------------------
+describe('a “who wrote this?” card', () => {
+  const wrote = (over = {}) => ({
+    kind: 'book', id: 7, direction: 'author', color: 'pink',
+    quote: 'you cannot buy the revolution', title: 'The Dispossessed', author: 'Ursula K. Le Guin',
+    options: ['Frank Herbert', 'Ursula K. Le Guin', 'George Eliot'],
+    option_meta: [
+      { person: 'Frank Herbert', kind: 'author' },
+      { person: 'Ursula K. Le Guin', kind: 'author' },
+      { person: 'George Eliot', kind: 'author' },
+    ],
+    answer: 1, ...over,
+  })
+
+  it('asks the question and offers people', () => {
+    render(<QuizRunner mode="daily" cards={[wrote()]} />)
+    expect(screen.getByText('Who wrote this?')).toBeTruthy()
+    expect(screen.getAllByText('Frank Herbert').length).toBeGreaterThan(0)
+  })
+
+  // The title is the answer to a different question and must not be on screen.
+  it('does not print the book it is asking about', () => {
+    render(<QuizRunner mode="daily" cards={[wrote()]} />)
+    expect(screen.queryByText('The Dispossessed')).toBeNull()
+  })
+})

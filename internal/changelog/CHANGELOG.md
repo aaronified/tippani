@@ -7,7 +7,67 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Two questions the quiz never asked, and a second way of asking one it did.**
+  "Who wrote this?" did not exist at all — the deck could ask which book a highlight
+  came from and never who wrote the book — and "who said this?" existed but was
+  screen-only, which was never a fact about the question: a speech has somebody who
+  gave it, stored one column over, and a reader with a shelf of speeches had switched
+  on a question that could never be asked of them. Both are multiple choice over
+  people, with a face on every option; the wrong answers for an author are the authors
+  of the books nearest this one, and for a speaker the rest of the film's cast or the
+  other people you have quoted. **Fill in the blank now has a with-choices twin**: the
+  same hole in the same words, with four phrases to pick between instead of a box to
+  type into. The other three are real phrases cut out of your own other quotes by the
+  same selector, so they are the right length and the right kind of words. The typed
+  one is untouched and is still worth more — it is the only card that tests production
+  rather than recognition — but it should not have been the only way to be asked.
+
+  Both new types are on by default, in both decks, and every type's tooltip in
+  Settings → Quiz now ends with the two axes it sits on: what is being asked (which
+  work, which quote, who is behind it, the words themselves) and how you answer it
+  (pick one of four, type it back, mark yourself). Seven chips in a row read as an
+  arbitrary list until something says which of them are the same question asked
+  differently.
+
+- **A "which quote is from this book?" card now tells you where all four came from.**
+  It put three passages from three other works in front of you and, once you had
+  answered, said nothing about any of them — the round ended with three quotes read
+  and unattributed, which is the opposite of what the deck is for. Each option now
+  names its source under it, with that work's own cover or poster, the moment the card
+  is graded and never before. **Reading them counts as seeing them**: the other three
+  are reported as a "seeing" event, priced by the same *Seeing lengthens half-life by*
+  preference that already governs favouriting and sharing — so a reader who has that
+  at 1 gets no change at all, and one who has it higher has their half-lives moved by
+  quotes they genuinely re-read.
+
+### Changed
+
+- **A work option in the quiz wears its own cover; only a person wears a face.** A
+  film title was offered with the portrait of one of its actors under it — picked as
+  "the first one we have a line from" — which put a person's name and photograph under
+  something that is not a person, on the one card whose whole job is to ask which of
+  four things this is. Meanwhile the film, which has a poster on every other screen in
+  the app, was the one thing on the card with no picture at all. Now: a work is shown
+  by its picture, a person by their chip, and nothing shows both. The slot is reserved
+  whether or not a given work has art, so four options line up rather than stepping in
+  and out with whichever covers were fetched, and the attribution block on a card that
+  reveals its source shows the cover beside the title.
+
 ### Fixed
+
+- **Fill in the blank no longer marks a close synonym wrong.** Grading measured how far
+  the letters had travelled, which is exactly the wrong instrument for recall: "silent"
+  for "quiet" is nine edits away and is somebody who has the sentence, while "fast" for
+  "vast" is one edit away and is somebody who has not. Words are now compared as words
+  first — a British spelling for an American one, a plural for a singular, a past tense
+  for a present, and a short hand-written list of pairs that are genuinely
+  interchangeable in prose — and only then as spellings. The list is deliberately not a
+  thesaurus: it takes "big" for "large" and refuses "wonderful" for "great", because a
+  quote is the one kind of text where the register *is* the meaning. Every fold is
+  anchored, so it cannot invent an equivalence out of a substring — "poet" is still not
+  "pet".
 
 - **Share images with a portrait backdrop are readable again.** Turning a credited
   person into the card's backdrop put a photograph behind every word on it, and the

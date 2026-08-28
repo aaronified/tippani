@@ -26,7 +26,7 @@ import {
 import { SECTIONS, visibleSections } from './routes.js'
 import { LanguagePicker } from './locale.jsx'
 import { tourFeatures, tourSteps } from './tour.jsx'
-import { lockedOff, parseQuestions, parseTuning, questionsBlob, questionsFor, REVIEW_DECKS, toggle as toggleQuestion, TUNING_FIELDS, tuningBlob, tuningProblem } from './quiz.js'
+import { lockedOff, parseQuestions, parseTuning, questionsBlob, questionsFor, REVIEW_DECKS, taxonomy, toggle as toggleQuestion, TUNING_FIELDS, tuningBlob, tuningProblem } from './quiz.js'
 import { createPortal } from 'react-dom'
 import { t, tNodes } from './i18n.js'
 import { PASSPHRASE_MAX, PASSPHRASE_MIN, PASSWORD_MAX, passphraseProblem, sniffArchiveKey } from './secret.js'
@@ -1345,7 +1345,10 @@ function SRDeepControls({ p, set, onClose }) {
               key: q.id,
               label: q.label,
               on: qs[deck].includes(q.id),
-              hint: q.hint,
+              // The hint, then the two axes the question sits on. Seven chips in
+              // a row is a list you read as arbitrary unless something says which
+              // of them are the same question asked another way — see taxonomy.
+              hint: q.hint + '\n\n' + taxonomy(q),
               locked: lockedOff(qs, deck, q.id),
             }))}
             onToggle={(id) => commit(toggleQuestion(qs, deck, id))}

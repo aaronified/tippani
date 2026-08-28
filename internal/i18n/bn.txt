@@ -1170,7 +1170,7 @@ settings.quiz.adaptive.ladder.label = সিঁড়ি
 settings.quiz.adaptive.on.label = মানানসই
 settings.quiz.seen.title = চোখে পড়লে অর্ধায়ু বাড়ে
 settings.quiz.seen.label = চোখে পড়লে অর্ধায়ু বাড়ে
-settings.quiz.seen.info.body = উদ্ধৃতি “চোখে পড়া” মানে — প্র্যাকটিসে সেটায় উত্তর দেওয়া, শেয়ার করা, বা প্রিয়তে রাখা — অর্ধায়ু একটু বাড়ে, রোজকার কুইজের হিসেবের বাইরে। 1.0× রাখলে এটা বন্ধ।
+settings.quiz.seen.info.body = উদ্ধৃতি “চোখে পড়া” মানে — প্র্যাকটিসে উত্তর দেওয়া, শেয়ার করা, প্রিয়তে রাখা, বা উত্তর দেওয়া কার্ডের বিকল্পগুলোর মধ্যে সেটাকে পাওয়া — অর্ধায়ু একটু বাড়ে, রোজকার কুইজের হিসেবের বাইরে। 1.0× রাখলে এটা বন্ধ।
 settings.quiz.tuning.title = রুটিন কীভাবে সরে
 settings.quiz.tuning.info.body = প্রতিটা উত্তরে এগুলো উদ্ধৃতির অর্ধায়ুকে গুণ করে, আর এদের সীমা বাঁধা: 1-এর কম গুণক ঠিক উত্তরেও ফাঁক ছোট করে দিত — দেখে গোলমাল মনে হত না, শুধু একই উদ্ধৃতি চিরকাল ঘুরে ফিরে আসত।
 settings.quiz.reset.label = আগের মতো করুন
@@ -1611,17 +1611,33 @@ greeting.dateline.format = {weekday} · {date}
 quiz.daily.label = রোজকার কুইজ
 quiz.practice.label = প্র্যাকটিস
 
-# The five question types. .label is the row in Settings, .hint its info dot.
+# The seven question types. .label is the chip in Settings, .hint its tooltip.
 quiz.question.source.label = কোন উৎস?
 quiz.question.source.hint = উদ্ধৃতিটা দেখিয়ে জিজ্ঞেস করে সেটা কোন বই, সিনেমা, শো, গেম বা ভাষণ থেকে এসেছে। বহুনির্বাচনী।
 quiz.question.quote.label = কোন লাইনটা?
 quiz.question.quote.hint = উল্টোটা: উৎসটা দেখিয়ে জিজ্ঞেস করে এর মধ্যে কোন লাইনটা সেখান থেকে এসেছে। বহুনির্বাচনী।
 quiz.question.cloze.label = শূন্যস্থান পূরণ
 quiz.question.cloze.hint = উদ্ধৃতি থেকে একটা টুকরো তুলে নিয়ে সেটা টাইপ করতে বলে। সার্ভার মিলিয়ে দেখে, আর বানান বা যতিচিহ্নে ছাড় দেয়। বহুনির্বাচনীর চেয়ে দাম বেশি, আর ভুল হলে ক্ষতিও কম।
+quiz.question.cloze-mcq.label = শূন্যস্থান পূরণ — বেছে নিয়ে
+quiz.question.cloze-mcq.hint = সেই একই শূন্যস্থান, তবে টাইপ করার বাক্সের বদলে চারটে টুকরো থেকে বেছে নিতে হয়। বাকি তিনটে আপনার নিজেরই অন্য উদ্ধৃতি থেকে কাটা সত্যিকারের টুকরো, তাই সেগুলোর মাপ আর ধরন একই রকম।
 quiz.question.speaker.label = কে বলেছে?
-quiz.question.speaker.hint = শুধু সিনেমা, শো আর গেমে — বইয়ের তো কোনও কুশীলব নেই, তাই দাগ নিয়ে এ প্রশ্ন কখনও ওঠে না।
+quiz.question.speaker.hint = যেখানেই বক্তা লেখা আছে: সিনেমা, শো বা গেমের লাইনে তার কুশীলবরা, ভাষণে যাঁদের কথা আপনি রেখেছেন তাঁরা। বইয়ের দাগে দুটোর কোনওটাই নেই, তাই সেখানে এ প্রশ্ন ওঠে না।
+quiz.question.author.label = কে লিখেছে?
+quiz.question.author.hint = শুধু বইয়ে — সিনেমার সংলাপ কে লিখেছেন সেটা কোথাও লেখা থাকে না, তাই সেখানে প্রশ্নটা কে বলেছে। ভুল উত্তরগুলো আসে এই বইয়ের সবচেয়ে কাছের বইগুলোর লেখকদের থেকে।
 quiz.question.flip.label = উল্টে নিজে বিচার
 quiz.question.flip.hint = উদ্ধৃতি দেখায়, তারপর উৎসটা দেখিয়ে দেয়, আর জিজ্ঞেস করে আপনার মনে ছিল কি না। উত্তর কেউ মেলায় না, তাই এটা শুধু প্র্যাকটিসেই — আর প্র্যাকটিসে স্কোর চালু করলে সেখান থেকেও বাদ যায়।
+
+# The two axes every question type sits on, appended to its tooltip: WHAT is
+# being asked, and HOW you answer it. Two questions sharing a class are the same
+# question asked two ways — which is what a flat row of chips cannot show.
+quiz.class.work.label = কোন উৎস
+quiz.class.quote.label = কোন উদ্ধৃতি
+quiz.class.person.label = পিছনে কে
+quiz.class.words.label = শব্দগুলো নিজেই
+quiz.form.choose.label = চারটের একটা বাছুন
+quiz.form.type.label = টাইপ করে ফেরান
+quiz.form.self.label = নিজেই বিচার করুন
+quiz.taxonomy.line = {klass} · {form}
 
 # Appended to the hint of a question toggle that REFUSES to switch off,
 # because it is the last one the deck could ask of a book as well as a film.
@@ -2536,7 +2552,9 @@ quiz.noun.occasion.label = উপলক্ষ
 quiz.question.source.stem = এই উদ্ধৃতি কোন {kind} থেকে?
 quiz.question.quote.stem = এই {kind} থেকে কোন উদ্ধৃতিটা?
 quiz.question.cloze.stem = শূন্যস্থান পূরণ করুন
+quiz.question.cloze-mcq.stem = ফাঁকে কোন শব্দগুলো বসবে?
 quiz.question.speaker.stem = এটা কে বলছে?
+quiz.question.author.stem = এটা কে লিখেছেন?
 # A flip card, and any question type a newer server sends that this client has
 # never heard of: both are answered the same way.
 quiz.question.flip.stem = এটা কোথা থেকে?
@@ -2552,6 +2570,10 @@ quiz.cloze.placeholder-key = ফাঁকে যা বসবে, টাইপ �
 quiz.cloze.check.label = মিলিয়ে দেখুন
 # Above the right answer, once it has been checked.
 quiz.cloze.answer.label = যে শব্দগুলো ছিল
+
+# Under each option of a "which quote?" card, once it has been answered: the
+# work that option came out of. {title} is a book, film, show, game or occasion.
+quiz.option.source.label = {title} থেকে
 
 # A multiple-choice option that is longer than three lines.
 quiz.option.expand.aria = এই উত্তরটা খুলুন

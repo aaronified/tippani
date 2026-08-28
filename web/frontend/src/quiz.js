@@ -17,21 +17,33 @@ import { t } from './i18n.js'
 
 // The question types, in the order the settings screen lists them.
 //
-// `universal: false` marks one that cannot be asked of every card. `speaker`
-// only applies to a line of dialogue — a book has no cast — which is why "keep
-// at least one" is not the same rule as "keep at least one universal one", and
-// why the second is the one that matters.
+// `universal: false` marks one that cannot be asked of every card. The two
+// "who?" questions are the exceptions — `speaker` needs something with a
+// recorded speaker and `author` needs a book — which is why "keep at least one"
+// is not the same rule as "keep at least one universal one", and why the second
+// is the one that matters.
 //
 // `decks` is where a type may be offered AT ALL, as against where it is on by
 // default. Flip names only practice, and that is the 1.15.3 decision written
 // down: the daily deck is server-marked from end to end, and one self-marked
 // card in five does not make it slightly softer, it makes the score mean
 // something else.
+//
+// TWO AXES, NAMED (3.0). `klass` is WHAT is being asked — which work, which
+// quote, who, or the words themselves — and `form` is HOW you answer it: pick
+// one, type it, or mark yourself. They were one undifferentiated list of five,
+// which is why the list read as arbitrary rather than as a grid with holes in
+// it: the same class asked a second way ("fill the blank, with choices") had
+// nowhere to be, and a whole class ("who wrote this?") was missing without
+// anything saying so. The two fields are what the chip tooltips say out loud,
+// and what makes the next hole in the grid visible.
 export const REVIEW_QUESTIONS = [
   {
     id: 'source',
     get label() { return t('quiz.question.source.label') },
     get hint() { return t('quiz.question.source.hint') },
+    klass: 'work',
+    form: 'choose',
     universal: true,
     decks: ['daily', 'practice'],
   },
@@ -39,6 +51,8 @@ export const REVIEW_QUESTIONS = [
     id: 'quote',
     get label() { return t('quiz.question.quote.label') },
     get hint() { return t('quiz.question.quote.hint') },
+    klass: 'quote',
+    form: 'choose',
     universal: true,
     decks: ['daily', 'practice'],
   },
@@ -46,6 +60,17 @@ export const REVIEW_QUESTIONS = [
     id: 'cloze',
     get label() { return t('quiz.question.cloze.label') },
     get hint() { return t('quiz.question.cloze.hint') },
+    klass: 'words',
+    form: 'type',
+    universal: true,
+    decks: ['daily', 'practice'],
+  },
+  {
+    id: 'cloze-mcq',
+    get label() { return t('quiz.question.cloze-mcq.label') },
+    get hint() { return t('quiz.question.cloze-mcq.hint') },
+    klass: 'words',
+    form: 'choose',
     universal: true,
     decks: ['daily', 'practice'],
   },
@@ -53,6 +78,17 @@ export const REVIEW_QUESTIONS = [
     id: 'speaker',
     get label() { return t('quiz.question.speaker.label') },
     get hint() { return t('quiz.question.speaker.hint') },
+    klass: 'person',
+    form: 'choose',
+    universal: false,
+    decks: ['daily', 'practice'],
+  },
+  {
+    id: 'author',
+    get label() { return t('quiz.question.author.label') },
+    get hint() { return t('quiz.question.author.hint') },
+    klass: 'person',
+    form: 'choose',
     universal: false,
     decks: ['daily', 'practice'],
   },
@@ -60,10 +96,35 @@ export const REVIEW_QUESTIONS = [
     id: 'flip',
     get label() { return t('quiz.question.flip.label') },
     get hint() { return t('quiz.question.flip.hint') },
+    klass: 'work',
+    form: 'self',
     universal: true,
     decks: ['practice'],
   },
 ]
+
+// The two axes, as words. A chip's tooltip ends with them, so the panel says
+// which of the six questions are the same question asked differently — which is
+// the thing a flat list of chips cannot show.
+export const QUESTION_CLASSES = {
+  work: 'quiz.class.work.label',
+  quote: 'quiz.class.quote.label',
+  person: 'quiz.class.person.label',
+  words: 'quiz.class.words.label',
+}
+
+export const QUESTION_FORMS = {
+  choose: 'quiz.form.choose.label',
+  type: 'quiz.form.type.label',
+  self: 'quiz.form.self.label',
+}
+
+// taxonomy is the one line appended to a question's hint: "Who is behind it ·
+// Pick one of four".
+export function taxonomy(q) {
+  if (!q?.klass || !q?.form) return ''
+  return t('quiz.taxonomy.line', { klass: t(QUESTION_CLASSES[q.klass]), form: t(QUESTION_FORMS[q.form]) })
+}
 
 // A deck row is [id, label] and Settings destructures it, so the shape cannot
 // change — but the label has to resolve at RENDER time, not at module scope,
@@ -81,8 +142,8 @@ export const REVIEW_DECKS = [
 
 // The defaults, which have to match defaultReviewQuestions() in Go.
 export const DEFAULT_QUESTIONS = {
-  daily: ['source', 'quote', 'cloze', 'speaker'],
-  practice: ['source', 'quote', 'cloze', 'speaker', 'flip'],
+  daily: ['source', 'quote', 'cloze', 'cloze-mcq', 'speaker', 'author'],
+  practice: ['source', 'quote', 'cloze', 'cloze-mcq', 'speaker', 'author', 'flip'],
 }
 
 const ORDER = REVIEW_QUESTIONS.map((q) => q.id)

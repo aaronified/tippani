@@ -121,9 +121,20 @@ func TestDirectionsForModeHonoursTheRepertoire(t *testing.T) {
 		t.Fatalf("book directions = %v, want only the one asked for", got)
 	}
 	// nil is "everything this build can ask" — what the internal callers pass and
-	// what every caller passed before the controls existed.
-	if len(directionsForMode(kindBook, true, nil)) != 3 {
-		t.Fatalf("nil must mean unfiltered: %v", directionsForMode(kindBook, true, nil))
+	// what every caller passed before the controls existed. Spelled out rather
+	// than counted: a count is a number that has to be edited every time a
+	// direction is added, and editing it is indistinguishable from not noticing
+	// that a direction went missing.
+	if got := dirsOf(directionsForMode(kindBook, true, nil)); got != "source,quote,cloze,cloze-mcq,author" {
+		t.Fatalf("nil must mean unfiltered: %v", got)
+	}
+	// A film line is asked who SAID it and never who wrote it; a speech is asked
+	// the same question out of its own column.
+	if got := dirsOf(directionsForMode(kindScreen, true, nil)); got != "source,quote,cloze,cloze-mcq,speaker" {
+		t.Fatalf("screen directions = %v", got)
+	}
+	if got := dirsOf(directionsForMode(kindUtterance, true, nil)); got != "source,quote,cloze,cloze-mcq,speaker" {
+		t.Fatalf("utterance directions = %v", got)
 	}
 }
 

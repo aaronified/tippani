@@ -45,12 +45,12 @@ import (
 //     except guessing which switch did it.
 //
 //     The check is sharper than "is the list empty", and the sharp part is the
-//     one worth having: `speaker` only applies to a line of dialogue, because a
-//     book has no cast. A reader who enables ONLY "who said this?" leaves every
-//     book and every standalone quote with no question at all — a deck that is
-//     not empty, and is empty for two thirds of a library. So a deck must keep
-//     at least one direction that applies to EVERY kind, or it goes back to its
-//     defaults.
+//     one worth having: `speaker` only applies to something with a recorded
+//     speaker — a film line or a speech — and `author` only to a book. A reader
+//     who enables ONLY "who said this?" leaves every book with no question at all
+//     — a deck that is not empty, and is empty for a third of a library. So a
+//     deck must keep at least one direction that applies to EVERY kind, or it
+//     goes back to its defaults.
 type reviewQuestions struct {
 	daily    []string
 	practice []string
@@ -65,13 +65,16 @@ const (
 // reviewDirectionsAll is every direction this build knows, in the order the
 // settings screen lists them. It is the ONLY list of direction names outside
 // review_handlers.go's constants, and it is what makes rule 1 above possible.
-var reviewDirectionsAll = []string{dirSource, dirQuote, dirCloze, dirSpeaker, dirFlip}
+var reviewDirectionsAll = []string{dirSource, dirQuote, dirCloze, dirClozeMCQ, dirSpeaker, dirAuthor, dirFlip}
 
 // reviewDirectionUniversal marks the directions that apply to EVERY kind of
-// card. `speaker` is the exception and the reason rule 3 is not simply a
-// non-empty test — see the comment above.
+// card. The two "who?" questions are the exceptions and the reason rule 3 is not
+// simply a non-empty test — see the comment above. `speaker` needs a recorded
+// speaker (a film line or a speech) and `author` needs a book; a reader who
+// enabled only those would leave a third of the library with nothing to be
+// asked.
 var reviewDirectionUniversal = map[string]bool{
-	dirSource: true, dirQuote: true, dirCloze: true, dirFlip: true,
+	dirSource: true, dirQuote: true, dirCloze: true, dirClozeMCQ: true, dirFlip: true,
 }
 
 // defaultReviewQuestions is what a reader gets who has never touched this, and
@@ -80,8 +83,8 @@ var reviewDirectionUniversal = map[string]bool{
 // Practice is for.
 func defaultReviewQuestions() reviewQuestions {
 	return reviewQuestions{
-		daily:    []string{dirSource, dirQuote, dirCloze, dirSpeaker},
-		practice: []string{dirSource, dirQuote, dirCloze, dirSpeaker, dirFlip},
+		daily:    []string{dirSource, dirQuote, dirCloze, dirClozeMCQ, dirSpeaker, dirAuthor},
+		practice: []string{dirSource, dirQuote, dirCloze, dirClozeMCQ, dirSpeaker, dirAuthor, dirFlip},
 	}
 }
 

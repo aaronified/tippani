@@ -16,7 +16,7 @@ import { installShortcuts, shortcutFor } from './keys.js'
 // it is defined, below.
 import { useEffect, useRef, useState } from 'react'
 import { categoryVar } from './theme.js'
-import { errText, json } from './api.js'
+import { coverImgURL, errText, json } from './api.js'
 import { t } from './i18n.js'
 import { chapterMeta, episodeLabel } from './text.js'
 import { forgetDailyDeck } from './daily.js'
@@ -97,8 +97,12 @@ function askLine(card) {
       return t('quiz.question.quote.stem', { kind: workNoun(card) })
     case 'cloze':
       return t('quiz.question.cloze.stem')
+    case 'cloze-mcq':
+      return t('quiz.question.cloze-mcq.stem')
     case 'speaker':
       return t('quiz.question.speaker.stem')
+    case 'author':
+      return t('quiz.question.author.stem')
     default:
       // Flip, and any direction a newer server sends that this client has never
       // heard of. Both are asked the same way, because both are answered the
@@ -112,7 +116,14 @@ function askLine(card) {
 // own punctuation.
 const CLOZE_BLANK = '￼'
 
-const isClozeCard = (card) => (card.quote || card.note || '').includes(CLOZE_BLANK)
+// A card with a blank in it. BOTH cloze types have one — the difference is
+// whether there is anything to choose between, which is exactly what decides how
+// it is answered. So the blank says "there is a hole in these words" and the
+// options say "and here are four things that might fill it"; a card with a hole
+// and no options is the one the reader types into.
+const hasBlank = (card) => (card.quote || card.note || '').includes(CLOZE_BLANK)
+
+const isClozeCard = (card) => hasBlank(card) && !(card.options || []).length
 
 // isFlipCard — a card the reader grades themselves.
 //
@@ -122,7 +133,7 @@ const isClozeCard = (card) => (card.quote || card.note || '').includes(CLOZE_BLA
 // nothing to choose. A card with options is a question this client understands
 // how to grade; a card without them is not.
 function isFlipCard(card) {
-  return !isClozeCard(card) && !(card.options || []).length
+  return !hasBlank(card) && !(card.options || []).length
 }
 
 // QuoteBlock — the quote side of a card (used as prompt for "source", as the
@@ -199,7 +210,7 @@ const QUIZ_OPTION_LINES = 4
 // and on a wide desktop card. The measurement is skipped while open (the clamp
 // is off then, so it would always report "fits" and the control would vanish
 // mid-read), which leaves the flag latched at its last closed value.
-function QuizOption({ opt, om, personMaps, isSource, disabled, onPick, style, hotkey }) {
+function QuizOption({ opt, om, personMaps, isWork, revealed, disabled, onPick, style, hotkey }) {
   const [open, setOpen] = useState(false)
   const [clipped, setClipped] = useState(false)
   const textRef = useRef(null)
@@ -224,18 +235,41 @@ function QuizOption({ opt, om, personMaps, isSource, disabled, onPick, style, ho
         className="min-w-0 flex-1 text-left"
         style={style}
       >
-        <span ref={textRef} style={{ display: 'block', ...clamp }}>
-          {/* The number that answers this option, on the option. Four keys and
-              four answers is the one place in the app where the legend IS the
-              instruction — without it, 1-4 is a shortcut you can only find by
-              reading a sheet. */}
-          {hotkey && <Kbd keys={hotkey} />}{hotkey ? ' ' : ''}{opt}
-        </span>
-        {om?.person && (
-          <span className="mt-1.5 flex" style={{ fontStyle: 'normal' }}>
-            <PersonChip name={om.person} person={personMaps[om.kind]?.[om.person]} size={18} />
+        <span className="flex items-start gap-2.5">
+          {/* A WORK IS SHOWN BY ITS PICTURE. The column is reserved whether or not
+              this particular work has one, so four options line up at the same x
+              rather than stepping in and out with whichever covers were fetched. */}
+          {isWork && <WorkArt path={om?.art} />}
+          <span className="min-w-0 flex-1">
+            <span ref={textRef} style={{ display: 'block', ...clamp }}>
+              {/* The number that answers this option, on the option. Four keys and
+                  four answers is the one place in the app where the legend IS the
+                  instruction — without it, 1-4 is a shortcut you can only find by
+                  reading a sheet. */}
+              {hotkey && <Kbd keys={hotkey} />}{hotkey ? ' ' : ''}{opt}
+            </span>
+            {/* A PERSON IS SHOWN BY THEIR CHIP — the other half of the same rule,
+                and the only place a face belongs on an option now: where the
+                option IS the person. */}
+            {om?.person && (
+              <span className="mt-1.5 flex" style={{ fontStyle: 'normal' }}>
+                <PersonChip name={om.person} person={personMaps[om.kind]?.[om.person]} size={18} />
+              </span>
+            )}
+            {/* WHERE THIS ONE CAME FROM, once the card is graded. Three of the
+                four quotes on a "which quote?" card are somebody else's, and the
+                round used to end with them read and unattributed. Never before
+                the grade: the sources ARE the answer. */}
+            {revealed && om?.source && (
+              <span className="mt-1.5 flex items-center gap-1.5" style={{ fontStyle: 'normal' }}>
+                <WorkArt path={om.art} size={22} />
+                <MonoLabel style={{ fontSize: 'var(--type-ui-11)', color: 'var(--faint)' }}>
+                  {t('quiz.option.source.label', { title: om.source })}
+                </MonoLabel>
+              </span>
+            )}
           </span>
-        )}
+        </span>
       </button>
       {/* Only when there is something hidden. A control that is always there but
           does nothing three times out of four teaches you to ignore it. */}
@@ -250,6 +284,28 @@ function QuizOption({ opt, om, personMaps, isSource, disabled, onPick, style, ho
       )}
     </div>
   )
+}
+
+// WorkArt — a work's cover or poster, at option size.
+//
+// The other half of optionMeta's rule (a work is shown by its picture, a person
+// by their chip), and the reason a work option no longer wears somebody's face.
+// A work with no art still gets the tile: the slot is what keeps four options
+// aligned, and an empty frame reads as "no cover" rather than as a layout that
+// shifted.
+function WorkArt({ path, size = 30 }) {
+  const box = {
+    flex: '0 0 auto',
+    width: size,
+    aspectRatio: '2 / 3',
+    borderRadius: 4,
+    border: '1px solid var(--ink-border)',
+    background: 'var(--raised)',
+    display: 'block',
+    objectFit: 'cover',
+  }
+  if (!path) return <span style={box} aria-hidden="true" />
+  return <img src={coverImgURL(path)} alt="" style={box} />
 }
 
 // PersonChip — a display-only person credit (portrait + name pill) for quiz
@@ -302,18 +358,25 @@ function SourceLines({ card, maps = {} }) {
       .join(' · ')
   }
   return (
-    <div>
-      <p style={{ fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontWeight: 600, fontSize: 'var(--type-display-19)', lineHeight: 1.2 }}>
-        {card.title}
-      </p>
-      {people.length > 0 && (
-        <div className="mt-1.5 flex flex-wrap gap-1.5">
-          {people.map((p) => (
-            <PersonChip key={p.kind + p.name} name={p.name} person={maps[p.kind]?.[p.name]} />
-          ))}
-        </div>
-      )}
-      {meta && <MonoLabel className="mt-1 block" style={{ fontSize: 'var(--type-ui-11)' }}>{meta}</MonoLabel>}
+    <div className="flex items-start gap-3">
+      {/* THE WORK, SHOWN AS THE WORK. A film has a poster and a book has a cover
+          on every other screen in the app; the card that names one and prints
+          only a face beside it was the odd one out. The people keep their chips
+          below — they are people, and this is where their credit belongs. */}
+      {card.art && <WorkArt path={card.art} size={44} />}
+      <div className="min-w-0 flex-1">
+        <p style={{ fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontWeight: 600, fontSize: 'var(--type-display-19)', lineHeight: 1.2 }}>
+          {card.title}
+        </p>
+        {people.length > 0 && (
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {people.map((p) => (
+              <PersonChip key={p.kind + p.name} name={p.name} person={maps[p.kind]?.[p.name]} />
+            ))}
+          </div>
+        )}
+        {meta && <MonoLabel className="mt-1 block" style={{ fontSize: 'var(--type-ui-11)' }}>{meta}</MonoLabel>}
+      </div>
     </div>
   )
 }
@@ -517,7 +580,12 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
   const { map: authorMap } = usePeople('author')
   const { map: actorMap } = usePeople('actor')
   const { map: directorMap } = usePeople('director')
-  const personMaps = { author: authorMap, actor: actorMap, director: directorMap }
+  // SPEAKERS TOO, since 3.0. "Who said this?" reaches a speech now, and its
+  // options are the people the library has heard from — who are filed under
+  // `speaker` in the People console, not under `actor`. Without this map every
+  // one of those options wore an empty chip.
+  const { map: speakerMap } = usePeople('speaker')
+  const personMaps = { author: authorMap, actor: actorMap, director: directorMap, speaker: speakerMap }
   // What an in-card edit changed, keyed by position. The deck belongs to the host
   // — and Practice persists it to localStorage — so a card fixed here is patched
   // over the one that was handed in rather than written back into it.
@@ -542,6 +610,12 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
   // reveal below has to remember which mode it is in.
   const committed = cloze ? graded != null : twoStep ? committedFlag : picked != null
   const setCommitted = setCommittedFlag
+  // One name for "this card has been graded", whichever way it was graded. Every
+  // reveal in the body below reads this rather than `picked != null`, which is
+  // true only for the multiple-choice half. It is declared UP HERE, beside the
+  // other three facts about the card, because an effect reads it too — and an
+  // effect cannot read a const declared below it.
+  const answered = flip || cloze ? graded != null : committed
 
   // REVIEW SHORTCUTS LIVE HERE, NOT IN THE SHELL'S DISPATCHER. A grade only means
   // something to the card in front of you, so the component holding that card is
@@ -588,6 +662,31 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
       if (idx >= 0 && idx < (card.options?.length || 0) && !committed) pick(idx)
     }
   }, { ctx: () => ctx }), [saving, flip, shown, cloze, ctx, wantShift, committed, i, card?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // THE THREE QUOTES THAT WERE NOT THE ANSWER STILL GOT READ (3.0).
+  //
+  // A "which quote is from this book?" card puts four passages in front of the
+  // reader, and once it is graded it says where all four came from. That is a
+  // real encounter with the other three — they were read, weighed against the
+  // question and attributed — so it is reported as a SEEING, which is the event
+  // the srSeen preference already exists to price. Nothing here decides what a
+  // seeing is worth: the server multiplies by whatever the reader set, and a
+  // reader who set it to 1 gets no change at all.
+  //
+  // ONCE PER CARD, and never for the card being graded: its own answer moves the
+  // schedule properly a few lines up, and a seeing on top would pay it twice.
+  const seenPosted = useRef(new Set())
+  useEffect(() => {
+    if (!answered) return
+    const key = `${card.kind}:${card.id}`
+    if (seenPosted.current.has(key)) return
+    seenPosted.current.add(key)
+    for (const om of card.option_meta || []) {
+      if (!om?.item_kind || !om?.item_id) continue
+      if (om.item_kind === card.kind && om.item_id === card.id) continue
+      json('POST', '/review/seen', { kind: om.item_kind, id: om.item_id }).catch(() => {})
+    }
+  }, [answered, card.kind, card.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function advance() {
     posRef.current = i + 1
@@ -718,6 +817,8 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
   }
 
   const isSource = card.direction === 'source'
+  // Options that are somebody's words rather than a name or a title.
+  const quoteOptions = card.direction === 'quote' || card.direction === 'cloze-mcq'
   // A cloze verdict is right or wrong like an MCQ, not self-graded like a flip
   // card, so it takes the same two words.
   const clozeRight = graded === 'got'
@@ -726,10 +827,6 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
   // waiting for the flag to arrive on a future deck would surface the offer a
   // week after the frustration that earned it.
   const leech = !dismissed && (lastResp?.leech ?? card.leech)
-  // One name for "this card has been graded", whichever way it was graded. Every
-  // reveal in the body below reads this rather than `picked != null`, which is
-  // true only for the multiple-choice half.
-  const answered = flip || cloze ? graded != null : committed
   return (
     <div key={i} className="review-card-body">
       <div className="mb-2 flex items-baseline justify-between gap-3">
@@ -845,11 +942,13 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
         {(card.options || []).map((opt, idx) => {
           const isAnswer = idx === card.answer
           const chosen = picked === idx
-          // Work-title options carry a person chip (author / actor / director).
-          // A face under the option: a work's author/actor/director on a source
-          // card, and the actor themselves on a speaker card, where every option
-          // IS a person.
-          const om = isSource || card.direction === 'speaker' ? card.option_meta?.[idx] : null
+          // WHAT AN OPTION IS decides what is drawn beside it, and there are
+          // exactly three answers: a work (its cover or poster), a person (their
+          // chip), or a quote (nothing, until the grade names where it came
+          // from). Read from the option's own metadata rather than switched on
+          // the direction, so a direction this client has never heard of still
+          // draws its options correctly.
+          const om = card.option_meta?.[idx] || null
           let border = 'var(--line)'
           let bg = 'var(--raised)'
           if (answered && isAnswer) {
@@ -876,7 +975,8 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
               opt={opt}
               om={om}
               personMaps={personMaps}
-              isSource={isSource}
+              isWork={isSource}
+              revealed={answered}
               disabled={committed || saving}
               hotkey={idx < 4 ? shortcutFor(`pick-${idx + 1}`, mode === 'practice') : ''}
               onPick={() => pick(idx)}
@@ -887,9 +987,11 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
                 border: `1.4px solid ${border}`,
                 background: bg,
                 // A title and a person's name are set as text; a quote is set as
-                // a quote. Only the "which quote?" card offers quotes.
-                fontFamily: card.direction === 'quote' ? 'var(--font-display)' : 'var(--font-ui)',
-                fontStyle: card.direction === 'quote' ? 'italic' : 'normal',
+                // a quote. Two cards offer words out of quotes — the whole line
+                // ("which quote?") and a phrase out of one ("fill the blank, with
+                // choices") — and both are the quote's own voice.
+                fontFamily: quoteOptions ? 'var(--font-display)' : 'var(--font-ui)',
+                fontStyle: quoteOptions ? 'italic' : 'normal',
                 fontSize: 'var(--type-ui-15)',
                 lineHeight: 1.4,
                 overflowWrap: 'anywhere',
