@@ -437,6 +437,19 @@ export function WorkDetails({ open, onClose, kind, item, onChanged, onDelete }) 
       description: c.overview || '',
       media_type: c.media_type || item.media_type || 'movie',
     }
+    // THE MATCH'S OWN ID IS PROPOSED, AND IT IS THE POINT OF MIXING SOURCES.
+    //
+    // The rule below still stands for the ids this candidate does NOT carry: an
+    // id adopted without the record behind it points at something it does not
+    // describe. But THIS id IS the record — the reader is looking at the match it
+    // names — and taking it alone is the one way to say "keep TMDB's title and
+    // year, and remember which TheTVDB record this is". That is what makes the
+    // character art reachable: `Cast from TheTVDB` needs a tvdb_id on the row and
+    // refuses to search for one, so without this the only route was reading the
+    // number off their website and typing it in.
+    const idKey = { tvdb: 'tvdb_id', tmdb: 'tmdb_id', igdb: 'igdb_id' }[c.source || 'tmdb']
+    const idValue = Number(c.source === 'tmdb' ? c.tmdb_id || c.source_id : c.source_id)
+    if (idKey && Number.isInteger(idValue) && idValue > 0) cand[idKey] = idValue
     return buildRows(cand, c.poster_url || '')
   }
 
@@ -446,10 +459,12 @@ export function WorkDetails({ open, onClose, kind, item, onChanged, onDelete }) 
   function buildRows(cand, artUrl) {
     const rows = []
     for (const spec of specs) {
-      // A match proposes the fields it actually carries. The supplier ids are
-      // deliberately not among them: adopting an id without the record behind
-      // it would leave the row pointing at something it does not describe —
-      // "Re-sync everything" is the control that changes both together.
+      // A match proposes the fields it actually carries — including, since the
+      // mixing change, the id of the record it IS (see proposeMovie). The OTHER
+      // suppliers' ids are still deliberately absent: adopting one without the
+      // record behind it would leave the row pointing at something it does not
+      // describe, and "Re-sync everything" is the control that changes both
+      // together.
       if (!(spec.key in cand)) continue
       const next = cand[spec.key]
       if (blank(next, spec.kind)) continue

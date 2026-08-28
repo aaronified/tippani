@@ -135,3 +135,37 @@ func TestTheTVDBPINIsWriteOnlyAndSavedOnItsOwn(t *testing.T) {
 		t.Fatal("saving the PIN cleared the key")
 	}
 }
+
+// THE BUILT-IN IS THE LAST FALLBACK AND NEVER THE FIRST, which is the whole of
+// what "a key you save wins" means — and the case worth pinning is the middle
+// one: a reader with their own key must not silently be served ours.
+func TestTheTVDBBuiltinIsOnlyReachedWhenNothingElseIsSet(t *testing.T) {
+	srv := newTestServer(t)
+	srv.TVDB = &metadata.TVDB{} // no direct/programmatic key
+	c := signupAdmin(t, srv.Handler())
+
+	if _, source := srv.resolveTVDB(); source != "none" {
+		t.Fatalf("source = %q with nothing configured, want none", source)
+	}
+	srv.TVDBBuiltin = "project-key"
+	client, source := srv.resolveTVDB()
+	if source != "builtin" || client.Key != "project-key" {
+		t.Fatalf("source = %q key = %q, want the built-in", source, client.Key)
+	}
+	// THE BUILT-IN CARRIES NO PIN. It is a project key, which authenticates on
+	// its own; a PIN belongs to a person's subscription and to their key.
+	if client.PIN != "" {
+		t.Errorf("the built-in was given a PIN: %q", client.PIN)
+	}
+
+	c.mustDo("PUT", "/admin/metadata-keys", map[string]any{"tvdb_key": "mine", "tvdb_pin": "4242"}, 200)
+	client, source = srv.resolveTVDB()
+	if source != "custom" || client.Key != "mine" {
+		t.Fatalf("a saved key must win over the built-in: source=%q key=%q", source, client.Key)
+	}
+	// And the reader's PIN travels with the reader's key, or the free tier is
+	// half a credential and 401s.
+	if client.PIN != "4242" {
+		t.Errorf("the saved PIN did not reach the client: %q", client.PIN)
+	}
+}

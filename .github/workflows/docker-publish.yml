@@ -105,6 +105,7 @@ jobs:
           build-args: |
             VERSION=${{ steps.meta.outputs.version }}
             TMDB_TOKEN=${{ secrets.TMDB_READ_TOKEN }}
+            TVDB_TOKEN=${{ secrets.TVDB_API_KEY }}
           # Multi-arch: amd64 is the tested arch; arm64 is published too (pure Go,
           # CGO-free, so it cross-compiles cleanly) but is UNTESTED — shipped so
           # arm64 NAS owners (Synology/QNAP/Pi) can try it and report back.

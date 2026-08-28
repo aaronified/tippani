@@ -3423,6 +3423,13 @@ function Metadata({ user, onPreferences }) {
     source === 'builtin' ? ['active', 'settings.metadata.tmdb.builtin.label']
       : source === 'none' ? ['error', 'settings.metadata.tmdb.none.label']
         : null
+  // THE SAME FACT ABOUT THE DEFAULT SOURCE. TheTVDB has a built-in slot too now,
+  // and "you have set nothing and lookups are running anyway" is precisely the
+  // thing a key field cannot report. There is no `none` chip beside it: an unset
+  // optional key is the ordinary state of a self-built binary, not a fault — the
+  // TMDB chip already says when there is nothing at all to look in.
+  const tvdbChip =
+    status?.tvdb?.source === 'builtin' ? ['active', 'settings.metadata.tvdb.builtin.label'] : null
 
   // THE ONE-TIME NOTICE THAT THE DEFAULT FILM SOURCE MOVED (2.2.0), and it earns
   // a chip under this section's own rule — "a chip here means something to act
@@ -3484,9 +3491,10 @@ function Metadata({ user, onPreferences }) {
           The row itself goes when both chips do: an empty flex box under the
           heading is a gap that reads as a missing element rather than as
           nothing to report. */}
-      {(booksChip || tmdbChip || filmSourceChip) && (
+      {(booksChip || tmdbChip || tvdbChip || filmSourceChip) && (
         <div className="flex flex-wrap items-center gap-2">
           {booksChip && <StatusChip tone={booksChip[0]}>{t(booksChip[1])}</StatusChip>}
+          {tvdbChip && <StatusChip tone={tvdbChip[0]}>{t(tvdbChip[1])}</StatusChip>}
           {tmdbChip && <StatusChip tone={tmdbChip[0]}>{t(tmdbChip[1])}</StatusChip>}
           {filmSourceChip && <StatusChip tone={filmSourceChip[0]}>{t(filmSourceChip[1], filmSourceChip[2])}</StatusChip>}
         </div>

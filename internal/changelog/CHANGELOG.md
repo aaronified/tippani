@@ -43,12 +43,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   quotes they genuinely re-read.
 
 - **Films and shows look up with nothing configured.** The published Docker images now
-  carry a built-in TMDB credential, the way Jellyfin and friends ship theirs, so a fresh
+  carry built-in TMDB **and TheTVDB** credentials, the way Jellyfin and friends ship theirs, so a fresh
   install can search TMDB before anybody has been to Settings. A key you save still wins
   over it, and deleting yours now falls back to the built-in instead of to a `503`. It is
   a v4 **read** token — it cannot write to the account behind it — and it is injected at
-  build time from a repository secret rather than committed, so a binary you build
-  yourself has no built-in unless you pass one (`make build TMDB_TOKEN=…`).
+  build time from repository secrets rather than committed, so a binary you build
+  yourself has no built-in unless you pass them (`make build TMDB_TOKEN=… TVDB_TOKEN=…`).
+  TheTVDB's built-in is a project key, which authenticates on its own — a subscriber PIN
+  belongs to a person's subscription, so the free tier is still configured per install.
+
+- **Suppliers can be mixed: TMDB's metadata with TheTVDB's character pictures.** Both
+  halves were already separate controls — a re-sync pulls the record from the source a
+  title is pinned to, and *Cast from TheTVDB* pulls only the cast, whatever the pin says
+  — but two things stood between them. **A re-fetch erased the other supplier's id.**
+  The record is written from one payload, TMDB's details carry no TheTVDB id, so every
+  id column was written from a response that could not know two of them: pressing "this
+  record is stale" on a TMDB title silently cleared its TheTVDB id, and with it the only
+  route to a character in costume (that route needs the id on the row and refuses to
+  search for one). The rule already written for the IMDb id — *a supplier is the
+  authority on what it knows, never on what it does not* — now covers all four. And **a
+  look-up can hand over just the id**: the match you pick proposes its own supplier id
+  as a row you can take on its own, so you can keep TMDB's title, year and poster and
+  still tell the app which TheTVDB record this is, instead of copying the number off
+  their website.
 
 - **A TheTVDB key that does not work no longer looks like one that does.** TheTVDB
   issues two kinds of v4 credential and only one of them logs in with the key alone: a

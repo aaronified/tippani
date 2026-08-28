@@ -7,7 +7,10 @@ VERSION ?= dev
 # Empty for a local build, which is the honest default: no built-in, and film
 # lookups answer 503 until a key is saved in Settings.
 TMDB_TOKEN ?=
-LDFLAGS := -s -w -X tippani/internal/buildinfo.Version=$(VERSION) -X main.defaultTMDBKey=$(TMDB_TOKEN)
+# TVDB_TOKEN is the same slot for TheTVDB, which is the default film/show source.
+TVDB_TOKEN ?=
+LDFLAGS := -s -w -X tippani/internal/buildinfo.Version=$(VERSION) \
+	-X main.defaultTMDBKey=$(TMDB_TOKEN) -X main.defaultTVDBKey=$(TVDB_TOKEN)
 
 .PHONY: build frontend changelog test run clean
 

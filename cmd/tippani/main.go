@@ -159,6 +159,18 @@ func openStore() (*store.Store, string) {
 // key on the query string — so both forms work here with no further change.
 var defaultTMDBKey = ""
 
+// defaultTVDBKey is the same slot for TheTVDB, and it exists for the same reason:
+// a fresh install should be able to look a film up before anybody has been to
+// Settings. Filled at build time from a CI secret (`-X main.defaultTVDBKey=…`),
+// empty in a locally built binary, and overridden by a key saved in Settings.
+//
+// NO PIN GOES WITH IT. TheTVDB's free user-supported key needs the subscriber's
+// PIN, which is a PERSON's — it stands for their subscription and is not ours to
+// ship — so the credential that can be bundled is a project key, which
+// authenticates on its own. A reader with the free kind saves both halves in
+// Settings and their key wins over this one.
+var defaultTVDBKey = ""
+
 func serve() {
 	st, dataDir := openStore()
 	defer st.Close()
@@ -214,6 +226,7 @@ func serve() {
 		os.Getenv("TIPPANI_TRUSTED_PROXY") == "1",
 	)
 	srv.TMDBBuiltin = defaultTMDBKey // last fallback before 503 (key otherwise set in Settings)
+	srv.TVDBBuiltin = defaultTVDBKey // ditto for TheTVDB, which is the default film/show source
 
 	// One-shot: hand the starter stickers to the accounts that existed before
 	// they shipped, so an upgrade opens the same box a fresh install does. Not a

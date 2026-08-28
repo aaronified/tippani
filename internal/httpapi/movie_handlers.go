@@ -45,11 +45,11 @@ type movieReq struct {
 	// what a re-sync pulls from, so an old client omitting one must not wipe it;
 	// nothing ever fetches with this one, so there is no such thing to protect —
 	// it is a field the reader typed, and it behaves like every other.
-	IMDbID       string   `json:"imdb_id"`
-	Source       string   `json:"source"`    // "tmdb" | "tvdb": with SourceID, create/resync from that supplier
-	SourceID     string   `json:"source_id"` // id within the source
-	Title        string   `json:"title"`
-	Director     string   `json:"director"` // "creator" for shows; one column, labelled per media_type in the UI
+	IMDbID   string `json:"imdb_id"`
+	Source   string `json:"source"`    // "tmdb" | "tvdb": with SourceID, create/resync from that supplier
+	SourceID string `json:"source_id"` // id within the source
+	Title    string `json:"title"`
+	Director string `json:"director"` // "creator" for shows; one column, labelled per media_type in the UI
 	// Publisher is the OTHER company credit a game has (0042). Its own field
 	// rather than a second meaning for Director, because collapsing the two is
 	// the bug that migration exists to end.
@@ -143,6 +143,36 @@ func imdbOrKeep(tx *sql.Tx, uid, id int64, found string) string {
 	var cur string
 	_ = tx.QueryRow(`SELECT COALESCE(imdb_id, '') FROM movies WHERE id = ? AND user_id = ?`, id, uid).Scan(&cur)
 	return cur
+}
+
+// supplierIDOrKeep is imdbOrKeep's argument applied to the OTHER suppliers'
+// numeric ids, and it is what makes mixing sources survive a re-fetch.
+//
+// A re-sync pulls one record from ONE supplier and writes the row from it. TMDB's
+// details carry no TheTVDB id and TheTVDB's carry no TMDB id, so writing every id
+// column from the payload meant a re-sync from either one ERASED the other's —
+// silently, on a button whose promise is "this record is stale, fetch it again".
+//
+// That is not a cosmetic loss. `POST /movies/{id}/cast/tvdb` is the only route to
+// a character in costume and it needs `movies.tvdb_id` on the row; it refuses to
+// search for one, deliberately, because a search is where the wrong cast gets
+// attached to the right work. So a reader keeping TMDB's metadata and TheTVDB's
+// character art lost the art the next time they re-fetched the metadata, and the
+// two facts are far enough apart that nothing would have connected them.
+//
+// The rule is the one already written for imdb_id one function up, and it belongs
+// to all four: a supplier is the authority on what it knows, not on what it does
+// not.
+func supplierIDOrKeep(tx *sql.Tx, uid, id int64, col string, found int64) any {
+	if found > 0 {
+		return found
+	}
+	// `col` is never caller-supplied — the three call sites pass a literal — so
+	// the interpolation is a constant, and the alternative is three copies of this
+	// function that differ by one word.
+	var cur int64
+	_ = tx.QueryRow(`SELECT COALESCE(`+col+`, 0) FROM movies WHERE id = ? AND user_id = ?`, id, uid).Scan(&cur)
+	return nullableInt64(cur)
 }
 
 // normalizeMediaType defaults an empty media_type to "movie" and rejects
@@ -974,7 +1004,12 @@ func (s *Server) resyncMovieFromSource(w http.ResponseWriter, r *http.Request, i
 		                  updated_at = datetime('now')
 		WHERE id = ? AND user_id = ?`,
 		d.Title, nullable(d.Director), nullableInt(d.ReleaseYear),
-		nullableInt64(d.TMDBID), nullableInt64(d.TVDBID), nullableInt64(d.IGDBID), d.MediaType,
+		// Each id kept when this supplier did not supply it — see supplierIDOrKeep.
+		// Without this a re-sync from TMDB erased the TheTVDB id the character art
+		// depends on, and the other way round.
+		supplierIDOrKeep(tx, uid, id, "tmdb_id", d.TMDBID),
+		supplierIDOrKeep(tx, uid, id, "tvdb_id", d.TVDBID),
+		supplierIDOrKeep(tx, uid, id, "igdb_id", d.IGDBID), d.MediaType,
 		nullable(poster), nullable(d.Overview), nullable(d.Series), castJSON, string(d.Raw),
 		// A re-sync that found no id must not ERASE one the reader typed: the
 		// supplier is the authority on what it knows, not on what it does not.

@@ -97,13 +97,14 @@ ARG VERSION=dev
 # protect nothing that the image itself does not already carry. See the comment
 # on defaultTMDBKey for what embedding does and does not buy.
 ARG TMDB_TOKEN=""
+ARG TVDB_TOKEN=""
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 COPY --from=frontend /src/web/dist ./web/dist
 RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
-    go build -trimpath -ldflags "-s -w -X tippani/internal/buildinfo.Version=${VERSION} -X main.defaultTMDBKey=${TMDB_TOKEN}" -o /tippani ./cmd/tippani
+    go build -trimpath -ldflags "-s -w -X tippani/internal/buildinfo.Version=${VERSION} -X main.defaultTMDBKey=${TMDB_TOKEN} -X main.defaultTVDBKey=${TVDB_TOKEN}" -o /tippani ./cmd/tippani
 # Stage an empty data dir owned by distroless's nonroot uid (65532). A named
 # volume mounted at /data inherits this ownership when first initialized, so the
 # non-root process can create the SQLite DB — otherwise the volume is root-owned

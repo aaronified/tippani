@@ -128,7 +128,10 @@ describe('what the card no longer says', () => {
     // Deleting the chip along with the redundant one would have removed the
     // answer to "why does this work".
     await page()
-    await waitFor(() => expect(screen.getByText('Built-in key')).toBeTruthy())
+    // NAMED BY SUPPLIER since TheTVDB gained a built-in slot of its own: two
+    // chips reading "Built-in key" side by side answer "why does this work"
+    // with a question.
+    await waitFor(() => expect(screen.getByText('Built-in TMDB key')).toBeTruthy())
     expect(screen.queryByText('OK')).toBeNull()
   })
 

@@ -302,14 +302,20 @@ sign in → **Settings → metadata keys**, and paste a TMDB v3 key or v4 read t
 [themoviedb.org](https://www.themoviedb.org/settings/api) (TheTVDB and Google Books keys are optional —
 TMDB alone covers most catalogues). Everything else works with no key.
 
-**The published images carry a built-in TMDB read token**, Jellyfin-style, so films and shows look up
-with nothing configured; a key saved in Settings always wins over it, and deleting yours falls back to
-the built-in rather than to nothing. It is injected at build time (`-ldflags -X
-main.defaultTMDBKey=…`, from a repository secret) rather than committed, so **a binary you build
-yourself has no built-in** — `make build TMDB_TOKEN=…` fills the slot, and without it film lookup
-answers `503` until a key is saved. A shipped credential is not a secret one: it is a v4 **read**
-token, which cannot write to the account behind it, and TMDB rate-limits per client IP so a shared
-token never pools into one quota.
+**The published images carry built-in TMDB and TheTVDB credentials**, Jellyfin-style, so films and
+shows look up with nothing configured; a key saved in Settings always wins over them, and deleting
+yours falls back to the built-in rather than to nothing. Both are injected at build time (`-ldflags -X
+main.defaultTMDBKey=… -X main.defaultTVDBKey=…`, from repository secrets) rather than committed, so
+**a binary you build yourself has no built-in** — `make build TMDB_TOKEN=… TVDB_TOKEN=…` fills the
+slots, and without them film lookup answers `503` until a key is saved. A shipped credential is not a
+secret one: TMDB's is a v4 **read** token, which cannot write to the account behind it, and both
+providers rate-limit per client IP so a shared credential never pools into one quota.
+
+**TheTVDB's free key needs your PIN.** TheTVDB issues two kinds of v4 key: a paid *project* key logs
+in with the key alone, while the free *user-supported* key logs in only with your **subscriber PIN**
+beside it — and their dashboard shows such a key as *inactive* until a subscription backs it. Both
+fields are in Settings → Metadata sources; without the PIN that kind of key is refused at login, and
+results quietly come from TMDB instead (the picker now says so when that happens).
 
 **Optional: search the web for cover art, posters and portraits.** Under **Settings → metadata keys**,
 a [Programmable Search](https://programmablesearchengine.google.com/) engine id plus a Custom Search

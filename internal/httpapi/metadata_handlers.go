@@ -117,6 +117,13 @@ func (s *Server) resolveTVDB() (*metadata.TVDB, string) {
 		pin, _ := s.Store.GetSetting(settingTVDBPIN)
 		return &metadata.TVDB{Key: key, PIN: pin, BaseURL: base}, "custom"
 	}
+	// The built-in, which is a PROJECT key and therefore needs no PIN — see
+	// defaultTVDBKey. A reader's own key wins over it above, and a reader's PIN
+	// belongs to their key rather than to this one, so it is deliberately not
+	// read here: half a credential is how a working supplier becomes a 401.
+	if s.TVDBBuiltin != "" {
+		return &metadata.TVDB{Key: s.TVDBBuiltin, BaseURL: base}, "builtin"
+	}
 	return nil, "none"
 }
 

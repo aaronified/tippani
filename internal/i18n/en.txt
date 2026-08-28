@@ -4821,7 +4821,8 @@ settings.metadata.info.body = Books need no key: Google Books and Open Library, 
 # failing, that they are running on the shared built-in key or on nothing at
 # all, and that titles are still pinned to the source that used to be default.
 settings.metadata.books.failing.label = Lookup failing
-settings.metadata.tmdb.builtin.label = Built-in key
+settings.metadata.tmdb.builtin.label = Built-in TMDB key
+settings.metadata.tvdb.builtin.label = Built-in TheTVDB key
 settings.metadata.tmdb.none.label = No key
 settings.metadata.last-error.prose = last error: {error}
 # Shown only on an instance that existed before 2.2.0 moved the default film
