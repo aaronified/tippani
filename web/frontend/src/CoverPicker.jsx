@@ -164,6 +164,14 @@ export function CoverControls({
   const [err, setErr] = useState('')
   const [covers, setCovers] = useState(null) // null = closed; [] = searched, none found
   const [searching, setSearching] = useState(false)
+  // WHAT THE PREVIEW DRAWS WHEN THE PENDING URL CANNOT BE DRAWN. A picture from
+  // a web image search is staged for saving by its own address, and that host is
+  // not on the page's img-src list — so the preview above the controls would be
+  // a "blocked" note for the one candidate the reader just chose. The thumbnail
+  // that WAS drawable in the strip stands in until the save replaces both with a
+  // stored file. Local to the picker: nothing about the parent's pending state
+  // changes, and the thing being saved is still the full-size original.
+  const [previewFor, setPreviewFor] = useState(null) // {url, thumb}
   // The heading as drawn, and the noun the sentences below take. Two keys
   // rather than one word lower-cased in JavaScript: English casing is not
   // grammar, and Bengali has no case for it to be.
@@ -181,10 +189,15 @@ export function CoverControls({
     setCovers(null)
     const found = []
     const seen = new Set()
-    const add = (url, source) => {
+    // `thumb`, when given, is what the STRIP draws while `url` is what gets
+    // stored — see ImageHit in internal/metadata/image_search.go. A web image
+    // search returns pictures from hosts no allowlist can name in advance, so
+    // the page previews the supplier's own thumbnail host and the server fetches
+    // the original, where no Content-Security-Policy applies.
+    const add = (url, source, thumb = '') => {
       if (url && !seen.has(url)) {
         seen.add(url)
-        found.push({ url, source })
+        found.push({ url, source, thumb })
       }
     }
     if (kind === 'movies') {
@@ -224,13 +237,38 @@ export function CoverControls({
         add(c.cover_url, sourceName(c.source === 'openlibrary' || c.source === 'amazon' ? c.source : 'google'))
       if (search?.asin?.trim()) add(amazonCoverURL(search.asin), sourceName('amazon'))
     }
+    // THE PICTURE SOURCES, after the catalogue ones and never instead of them.
+    // A catalogue hands back the record's own art — the publisher's cover, the
+    // distributor's poster — which is the right answer when it has one and no
+    // answer at all when it does not: a book Google has under a different
+    // edition's jacket, a film whose poster nobody uploaded. /images/search asks
+    // the suppliers that search for PICTURES instead (Amazon by ISBN with no
+    // configuration at all, a web image search with the reader's own key), so
+    // the strip has something in it in exactly the cases the strip was empty.
+    //
+    // Failures are silent here on purpose: the catalogue results are already on
+    // screen, and an error about a supplementary source would read as though the
+    // covers above it were suspect.
+    const pics = await json('POST', '/images/search', {
+      kind: kind === 'movies' ? 'poster' : 'cover',
+      title: (search?.title || '').trim() || undefined,
+      author: (search?.author || '').trim() || undefined,
+      year: search?.year ? Number(search.year) : undefined,
+      isbn: (search?.isbn || '').trim() || undefined,
+      asin: (search?.asin || '').trim() || undefined,
+      media_type: kind === 'movies' ? (search?.mediaType || 'movie') : undefined,
+    }).catch(() => ({ ok: false }))
+    if (pics.ok) {
+      for (const im of pics.data?.images || []) add(im.url, sourceName(im.source), im.thumb)
+    }
     setSearching(false)
     setCovers(found)
   }
 
   // Preview precedence: a pending URL, else the cleared placeholder, else the
   // currently stored file.
-  const previewUrl = coverUrl || (!clearCover && currentPath ? coverImgURL(currentPath) : '')
+  const staged = coverUrl || (!clearCover && currentPath ? coverImgURL(currentPath) : '')
+  const previewUrl = coverUrl && previewFor?.url === coverUrl && previewFor.thumb ? previewFor.thumb : staged
 
   async function onFile(e) {
     const f = e.target.files && e.target.files[0]
@@ -337,11 +375,12 @@ export function CoverControls({
               {covers.map((c) => (
                 <CoverPickThumb
                   key={c.url}
-                  url={c.url}
+                  url={c.thumb || c.url}
                   source={c.source}
                   noun={noun}
                   onPick={() => {
                     onSetUrl(c.url)
+                    setPreviewFor({ url: c.url, thumb: c.thumb })
                     setCovers(null)
                   }}
                 />

@@ -601,6 +601,9 @@ vocab.source.wikipedia.label = Wikipedia
 vocab.source.wikidata.label = Wikidata
 
 vocab.source.amazon.label = Amazon
+# The picture search — Google's Programmable Search, which is a different
+# product from the Books API above and takes a different pair of credentials.
+vocab.source.google-cse.label = Google image search
 vocab.source.tmdb.label = TMDB
 vocab.source.tvdb.label = TheTVDB
 # What a row whose supplier the app does not recognise is called.
@@ -3951,6 +3954,12 @@ people.form.closed.placeholder = e.g. 2011
 people.form.photo-url.label = Photo URL
 people.form.logo-url.label = Logo URL
 people.form.image-search = search images
+# The strip of candidates the search comes back with, when this install has a
+# picture source configured. Without one the button opens a web search in a tab
+# instead, exactly as it always did, and none of these three are shown.
+people.form.image-pick.prose = Pick one, or paste an address below
+people.form.image-pick.none = Nothing came back — try the name on its own, or paste an address below
+people.form.image-pick.use = Use this picture from {source}
 people.form.image-url.placeholder = https://… paste an image link
 # Two lines of example, joined by the code — the file format is one value per
 # line, so a two-line placeholder is two keys. URLs, so unchanged in any
@@ -4819,6 +4828,9 @@ settings.keys.noun.client-id = client id
 settings.keys.noun.secret = secret
 settings.keys.noun.cookie = cookie
 settings.keys.noun.domain = domain
+# The half of a Programmable Search credential that names WHICH engine — its own
+# console calls it a search engine ID.
+settings.keys.noun.engine-id = engine id
 
 settings.keys.google.hint = Optional, and only if you exceed roughly 1,000 lookups a day: console.cloud.google.com → enable the Books API → create a key. Books work with no key at all.
 settings.keys.google.placeholder = Google Books API key — optional
@@ -4840,6 +4852,10 @@ settings.keys.amazon-cookie.placeholder = Amazon session cookie — optional
 settings.keys.amazon-domain.hint = The marketplace your books were bought on, e.g. www.amazon.com or www.amazon.de. Not a secret, so this one shows its value.
 # A domain to type, not a word to read.
 settings.keys.amazon-domain.placeholder = www.amazon.com
+settings.keys.google-cse.hint = Optional, and the only way to search the web for a picture inside the app: programmablesearchengine.google.com → an engine set to the whole web with image search on; then a key from console.cloud.google.com. 100 searches a day free.
+settings.keys.google-cse.placeholder = Custom Search API key — optional
+settings.keys.google-cse-cx.hint = The other half, from the engine you made: its “Search engine ID”. Not a secret, so this one shows its value. One without the other searches nothing.
+settings.keys.google-cse-cx.placeholder = Search engine ID (cx)
 
 # --- the row's own controls. A secret is write-only, so "stored" is the whole of
 # what can be reported about one; a non-secret shows its value instead.

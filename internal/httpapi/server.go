@@ -235,6 +235,9 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("DELETE /people/{id}", s.requireAuth(s.handleDeletePerson))
 
 	// Books + annotations (PLAN §3, §5a, §6).
+	// One route for three pickers — a book's cover, a film's poster, a person's
+	// portrait. Not admin-only: it reads no secret back, it only spends one.
+	mux.Handle("POST /images/search", s.requireAuth(s.handleImageSearch))
 	mux.Handle("POST /books/lookup", s.requireAuth(s.handleBookLookup))
 	mux.Handle("POST /books", s.requireAuth(s.handleCreateBook))
 	mux.Handle("GET /books", s.requireAuth(s.handleListBooks))
@@ -610,7 +613,14 @@ func securityHeaders(next http.Handler) http.Handler {
 				"https://archive.org https://*.us.archive.org "+
 				"https://images-na.ssl-images-amazon.com https://m.media-amazon.com "+
 				// Wikidata portraits (re-verify previews a fresh author photo by URL).
-				"https://commons.wikimedia.org https://upload.wikimedia.org; "+
+				"https://commons.wikimedia.org https://upload.wikimedia.org "+
+				// A WEB IMAGE SEARCH CANNOT BE ALLOWLISTED, which is why the
+				// picture strip previews Google's own thumbnail host rather than
+				// the pictures' hosts: a Custom Search hit lives wherever the
+				// picture lives, and that set is the web. The full-size image is
+				// never loaded by the page — the server fetches it, where no CSP
+				// applies, and only once the reader has picked it.
+				"https://*.gstatic.com; "+
 				"frame-ancestors 'none'")
 		h.Set("X-Content-Type-Options", "nosniff")
 		h.Set("Referrer-Policy", "no-referrer")

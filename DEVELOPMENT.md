@@ -160,7 +160,7 @@ browser ──▶ web/dist (embedded SPA)          ← everything not under /api
 | `internal/store/` | The SQLite connection, the pragmas, the migrations, the dedupe rules. **The only package that opens the database.** |
 | `internal/search/` | Building safe FTS5 `MATCH` expressions, and the typo-correction pass. |
 | `internal/importer/` | One parser per source format, producing the package's shared intermediate shapes. Touches no database. |
-| `internal/metadata/` | Every outbound HTTP call in the app: Google Books, Open Library, TMDB, TheTVDB, Wikidata, Amazon, plus the SSRF-guarded image fetcher. |
+| `internal/metadata/` | Every outbound HTTP call in the app: Google Books, Open Library, TMDB, TheTVDB, Wikidata, Amazon, the two picture searches (`image_search.go`), plus the SSRF-guarded image fetcher. |
 | `internal/auth/` | Password hashing, cookie sessions, bearer device tokens, and the login rate limiter. |
 | `internal/olog/` | Operational logging, and the registry of stable `TIP-*` operator codes. |
 | `internal/updater/` | The in-app self-update: the GitHub release check, and the Docker Engine calls that pull and recreate. |
@@ -203,6 +203,7 @@ The route groups themselves, so you can find the noun you want:
 | `export_handlers.go` · `export_quotes.go` | Markdown export per work and for the whole library, and the standalone-quote `type:`. |
 | `import_handlers.go` · `import_quotes.go` · `import_movies.go` · `import_staged_bulk.go` · `import_dupes.go` | Upload, stage, bulk-edit and de-duplicate. |
 | `metadata_handlers.go` · `metadata_library.go` · `metadata_bulk.go` · `lookup_handlers.go` · `reverify_handlers.go` | Source keys, the coverage console, bulk correction, one-off lookups, and the preview-then-apply re-verify flow. |
+| `image_search_handlers.go` | The picture strip behind all three pickers — a cover, a poster, a portrait. A different question from a catalogue lookup: these suppliers search for PICTURES, and none of them is required. |
 | `covers_handler.go` · `avatar_handlers.go` · `sticker_handlers.go` | The three image kinds, all under `<DataDir>/MediaCover`. |
 | `taxonomy_handlers.go` | Tags and genres, and the starter vocabulary seeded per account. |
 | `seed_stickers.go` · `assets/stickers/` | The five starter seals, embedded as SVG and copied into each account's own cover store — plus the one-shot backfill that hands them to accounts older than the feature. |

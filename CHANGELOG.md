@@ -42,6 +42,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   at 1 gets no change at all, and one who has it higher has their half-lives moved by
   quotes they genuinely re-read.
 
+- **Cover, poster and portrait searches can now look for PICTURES, not just
+  records.** Every image the app could offer came out of a catalogue lookup — Google
+  Books, Open Library, TMDB, TheTVDB, IGDB — which answers with a record that happens
+  to carry one piece of art. That is the right answer when the catalogue has your
+  edition and no answer at all when it does not, and for a PERSON there was no answer
+  ever: the people console opened a web image search in a browser tab and asked you to
+  copy an address back into a text field. There is now one route behind all three
+  pickers that asks the suppliers that search for pictures:
+
+  **Amazon, with nothing configured at all.** A print ISBN converts to the ISBN-10
+  Amazon's image CDN indexes covers by, and an ASIN addresses one directly — so a book
+  with an ISBN gets an Amazon cover offered with no key, no cookie and no setup. Each
+  candidate is checked before it is shown, because that CDN answers "200 OK" with a
+  40-byte placeholder for a book it has never stocked, and an unchecked candidate is a
+  blank frame in the strip.
+
+  **Google, with your own key.** Google Programmable Search (the Custom Search API,
+  in image mode) takes a key and a search-engine id, both set in Settings → Metadata
+  sources; 100 searches a day are free. The query names what it is after — "Heat movie
+  poster 1995" rather than "Heat" — because the noun is the difference between a poster
+  and a thermodynamics diagram. This is the one that finally answers the portrait
+  question: press *search images* on a person and the candidates appear in the app.
+  With no key configured that button does exactly what it did before and opens a tab.
+
+  **Amazon's search page, behind the cookie you have already opted into.** The same
+  stored session cookie that reads a product page will read a search results page, for
+  the posters and box art that have no ISBN.
+
+  One supplier failing never takes the others with it — a spent Google quota or a
+  CAPTCHA from Amazon contributes nothing and says nothing, and the strip still shows
+  what the others found.
+
 ### Changed
 
 - **A work option in the quiz wears its own cover; only a person wears a face.** A

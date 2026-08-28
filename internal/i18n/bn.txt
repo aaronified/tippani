@@ -580,6 +580,9 @@ vocab.source.wikipedia.label = উইকিপিডিয়া
 vocab.source.wikidata.label = Wikidata
 
 vocab.source.amazon.label = অ্যামাজন
+# The picture search — Google's Programmable Search, which is a different
+# product from the Books API above and takes a different pair of credentials.
+vocab.source.google-cse.label = গুগল ছবি খোঁজা
 vocab.source.tmdb.label = TMDB
 vocab.source.tvdb.label = TheTVDB
 # What a row whose supplier the app does not recognise is called.
@@ -3901,6 +3904,12 @@ people.form.closed.placeholder = যেমন 2011
 people.form.photo-url.label = ছবির URL
 people.form.logo-url.label = লোগোর URL
 people.form.image-search = ছবি খুঁজুন
+# The strip of candidates the search comes back with, when this install has a
+# picture source configured. Without one the button opens a web search in a tab
+# instead, exactly as it always did, and none of these three are shown.
+people.form.image-pick.prose = একটা বেছে নিন, বা নিচে ঠিকানা বসান
+people.form.image-pick.none = কিছুই এল না — শুধু নামটা দিয়ে দেখুন, বা নিচে ঠিকানা বসান
+people.form.image-pick.use = {source} থেকে এই ছবিটা নিন
 people.form.image-url.placeholder = https://… ছবির লিঙ্ক বসান
 people.form.links.placeholder.1 = https://en.wikipedia.org/wiki/…
 people.form.links.placeholder.2 = https://openlibrary.org/authors/…
@@ -4562,6 +4571,9 @@ settings.keys.noun.client-id = client id
 settings.keys.noun.secret = secret
 settings.keys.noun.cookie = কুকি
 settings.keys.noun.domain = ডোমেন
+# The half of a Programmable Search credential that names WHICH engine — its own
+# console calls it a search engine ID.
+settings.keys.noun.engine-id = ইঞ্জিন আইডি
 
 settings.keys.google.hint = ইচ্ছেমতো, আর দিনে 1,000-এর মতো খোঁজ পেরোলেই তবে দরকার: console.cloud.google.com → Books API চালু করুন → একটা কি বানান। বই কোনও কি ছাড়াই চলে।
 settings.keys.google.placeholder = গুগল বুকস API কি — ইচ্ছেমতো
@@ -4580,6 +4592,10 @@ settings.keys.amazon-cookie.placeholder = Amazon সেশন কুকি — �
 settings.keys.amazon-domain.hint = যে মার্কেটপ্লেসে বই কেনা হয়েছিল, যেমন www.amazon.com বা www.amazon.de। এটা গোপন কিছু নয়, তাই এটা নিজের মানটা দেখায়।
 # §8 — a domain to type, not a word to read.
 settings.keys.amazon-domain.placeholder = www.amazon.com
+settings.keys.google-cse.hint = ঐচ্ছিক, অ্যাপের ভিতর থেকে ওয়েবে ছবি খোঁজার একমাত্র পথ: programmablesearchengine.google.com-এ গোটা ওয়েব ও ছবি খোঁজা চালু করা ইঞ্জিন বানান; তারপর console.cloud.google.com থেকে কি নিন। দিনে ১০০টা বিনামূল্যে।
+settings.keys.google-cse.placeholder = Custom Search API key — ঐচ্ছিক
+settings.keys.google-cse-cx.hint = জোড়ার বাকি অর্ধেক, আপনার বানানো ইঞ্জিনের “Search engine ID”। এটা গোপন নয়, তাই মানটা দেখা যায়। একটা ছাড়া আরেকটা কিছুই খোঁজে না।
+settings.keys.google-cse-cx.placeholder = Search engine ID (cx)
 
 settings.keys.unset.label = দেওয়া নেই
 settings.keys.saved.tip = সেভ আছে

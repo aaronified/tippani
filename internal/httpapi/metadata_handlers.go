@@ -51,6 +51,12 @@ const (
 	settingGoogleBooksKey = "google_books_key"
 	settingAmazonCookie   = "amazon_cookie" // secret: write-only, never echoed
 	settingAmazonDomain   = "amazon_domain" // not secret: e.g. www.amazon.com
+	// TWO HALVES, LIKE THE IGDB PAIR, and stored apart for the same reason: they
+	// are typed at different moments from different pages, so requiring both in
+	// one request would make correcting a mistyped key mean re-entering the
+	// engine id. Neither on its own searches anything — see handleImageSearch.
+	settingGoogleCSEKey = "google_cse_key" // secret: write-only, never echoed
+	settingGoogleCSECX  = "google_cse_cx"  // the engine id; not secret, so it is echoed
 )
 
 // lookupOutcome is the in-memory record of the most recent POST /books/lookup
@@ -159,6 +165,11 @@ func (s *Server) handleMetadataStatus(w http.ResponseWriter, r *http.Request) {
 		"igdb_key_set": igdbSource != "none",
 		"google_books": map[string]bool{"key_set": gkey != ""},
 		"books_lookup": lookup,
+		// Whether POST /images/search has any supplier behind it. Reported HERE
+		// rather than only on the admin keys endpoint, because the pickers that
+		// ask the question — a cover, a poster, a portrait — are used by every
+		// reader and none of them can see a key.
+		"image_search": s.imageSearchConfigured(r.Context()),
 	}
 	if n := s.filmSourceNotice(userID(r)); n != nil {
 		out["film_source_notice"] = n
@@ -220,8 +231,10 @@ func (s *Server) handleGetMetadataKeys(w http.ResponseWriter, r *http.Request) {
 	vkey, err5 := s.Store.GetSetting(settingTVDBKey)
 	igdbID, err6 := s.Store.GetSetting(settingIGDBClientID)
 	igdbSec, err7 := s.Store.GetSetting(settingIGDBSecret)
-	if err1 != nil || err2 != nil || err3 != nil || err4 != nil || err5 != nil || err6 != nil || err7 != nil {
-		internalError(w, r, "load metadata keys", errors.Join(err1, err2, err3, err4, err5, err6, err7))
+	csekey, err8 := s.Store.GetSetting(settingGoogleCSEKey)
+	csecx, err9 := s.Store.GetSetting(settingGoogleCSECX)
+	if err1 != nil || err2 != nil || err3 != nil || err4 != nil || err5 != nil || err6 != nil || err7 != nil || err8 != nil || err9 != nil {
+		internalError(w, r, "load metadata keys", errors.Join(err1, err2, err3, err4, err5, err6, err7, err8, err9))
 		return
 	}
 	_, source := s.resolveTMDB()
@@ -241,6 +254,13 @@ func (s *Server) handleGetMetadataKeys(w http.ResponseWriter, r *http.Request) {
 		"igdb_client_id_set": igdbID != "",
 		"igdb_secret_set":    igdbSec != "",
 		"igdb_source":        igdbSource,
+		// The picture sources (POST /images/search). Reported as two halves for
+		// the same reason IGDB is, and as one `image_search` so a picker can ask
+		// one question — "is there a picture search behind this button?" —
+		// without knowing which supplier answers it.
+		"google_cse_key_set": csekey != "",
+		"google_cse_cx":      csecx,
+		"image_search":       (csekey != "" && csecx != "") || acookie != "",
 	})
 }
 
@@ -258,6 +278,8 @@ func (s *Server) handlePutMetadataKeys(w http.ResponseWriter, r *http.Request) {
 		AmazonDomain   *string `json:"amazon_domain"`
 		IGDBClientID   *string `json:"igdb_client_id"`
 		IGDBSecret     *string `json:"igdb_secret"`
+		GoogleCSEKey   *string `json:"google_cse_key"`
+		GoogleCSECX    *string `json:"google_cse_cx"`
 	}
 	if !decodeBody(w, r, &req) {
 		return
@@ -299,6 +321,15 @@ func (s *Server) handlePutMetadataKeys(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := set(settingIGDBSecret, req.IGDBSecret); err != nil {
 		internalError(w, r, "save igdb secret", err)
+		return
+	}
+	// The picture search's pair, saved independently for the same reason.
+	if err := set(settingGoogleCSEKey, req.GoogleCSEKey); err != nil {
+		internalError(w, r, "save google cse key", err)
+		return
+	}
+	if err := set(settingGoogleCSECX, req.GoogleCSECX); err != nil {
+		internalError(w, r, "save google cse engine id", err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})

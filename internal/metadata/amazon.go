@@ -22,6 +22,12 @@ const browserUA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 
 // maxHTMLBody caps a scraped product page (Amazon pages run ~1–2 MB).
 const maxHTMLBody = 3 << 20
 
+// amazonCDNBase is the keyless cover host, as a test seam. It is a variable for
+// the same reason googleBase is: the image-search handler PROBES these URLs
+// before offering them (a book Amazon does not stock answers 200 with a
+// placeholder), and a test of that check has to be able to serve both answers.
+var amazonCDNBase = "https://images-na.ssl-images-amazon.com"
+
 // AmazonCoverURL returns Amazon's public image-CDN URL for a book/Kindle cover
 // keyed by ASIN (or a print ISBN-10). No auth needed — this host serves cover
 // art openly. The `_SCLZZZZZZZ_` modifier asks for the LARGEST available scan:
@@ -35,7 +41,7 @@ func AmazonCoverURL(asin string) string {
 	if asin == "" {
 		return ""
 	}
-	return "https://images-na.ssl-images-amazon.com/images/P/" + asin + ".01._SCLZZZZZZZ_.jpg"
+	return amazonCDNBase + "/images/P/" + asin + ".01._SCLZZZZZZZ_.jpg"
 }
 
 // AmazonCoverByISBN returns Amazon's keyless, full-size cover URL for a print

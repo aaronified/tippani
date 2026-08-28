@@ -316,6 +316,9 @@ function PersonForm({ kind, name, initial, onCancel, onSaved, onRenamed }) {
   const [error, setError] = useState('')
   const [renameTo, setRenameTo] = useState(name)
   const [renaming, setRenaming] = useState(false)
+  // The picture strip. null = never asked; [] = asked and found nothing.
+  const [pics, setPics] = useState(null)
+  const [picsBusy, setPicsBusy] = useState(false)
   // What this person is counted in. A translator and an editor are credited on
   // BOOKS, like an author — so all three say "books", and only actors, directors
   // and speakers differ.
@@ -364,6 +367,33 @@ function PersonForm({ kind, name, initial, onCancel, onSaved, onRenamed }) {
     setRenaming(false)
     if (r.ok) onRenamed && onRenamed(to)
     else setError(errText(r, t('error.rename.generic')))
+  }
+
+  // findPicture — the one button, doing whatever this install can do.
+  //
+  // IT USED TO BE A LINK OUT AND NOTHING ELSE: open a web image search in a new
+  // tab, find a photograph, copy its address, come back, paste it into the field
+  // below. That was the app admitting it had no portrait source for a person —
+  // there is no keyless one — and it is a five-step errand for one picture.
+  //
+  // POST /images/search answers with whatever suppliers are configured, so the
+  // strip appears for an install that has a Custom Search key or the Amazon
+  // cookie, and an install with neither gets EXACTLY what it got before: the tab.
+  // One control either way, because "search for a picture" is one intention and
+  // splitting it into two buttons would make the reader work out which of them
+  // their server can honour.
+  async function findPicture() {
+    setPicsBusy(true)
+    setError('')
+    const r = await json('POST', '/images/search', { kind: 'portrait', name }).catch(() => ({ ok: false }))
+    setPicsBusy(false)
+    const images = r.ok ? r.data?.images || [] : []
+    const configured = r.ok && (r.data?.sources?.google || r.data?.sources?.amazon)
+    if (!configured) {
+      window.open(`https://www.google.com/search?tbm=isch&q=${encodeURIComponent(name + ' ' + kind)}`, '_blank', 'noopener')
+      return
+    }
+    setPics(images)
   }
 
   async function submit(e) {
@@ -442,22 +472,50 @@ function PersonForm({ kind, name, initial, onCancel, onSaved, onRenamed }) {
           <MonoLabel>
             {isOrg ? t('people.form.logo-url.label') : t('people.form.photo-url.label')}
           </MonoLabel>
-          {/* No keyless portrait API, so offer a web image search: find one,
-              copy its address, paste it here (this field also takes any cover
-              image URL). */}
+          {/* IN THE APP WHERE IT CAN BE, AND IN A TAB WHERE IT CANNOT — see
+              findPicture. The field below still takes any pasted address, which
+              is what the tab route comes back to. */}
           <button
             type="button"
             className="tp-link tp-link-icon"
             style={{ fontSize: 'var(--type-ui-11)' }}
-            onClick={() => window.open(`https://www.google.com/search?tbm=isch&q=${encodeURIComponent(name + ' ' + kind)}`, '_blank', 'noopener')}
+            disabled={picsBusy}
+            onClick={findPicture}
           >
             {/* The magnifier, not IconOpen: the ACTION is a search, and the ↗ this
                 replaces was carrying "opens a tab" — which every other outbound
                 chip in this modal states with no arrow at all. */}
             <IconSearch />
-            <span>{t('people.form.image-search')}</span>
+            <span>{picsBusy ? t('common.state.loading') : t('people.form.image-search')}</span>
           </button>
         </div>
+        {pics && (
+          <div className="mb-1.5 space-y-1.5">
+            <MonoLabel className="block">
+              {pics.length ? t('people.form.image-pick.prose') : t('people.form.image-pick.none')}
+            </MonoLabel>
+            <div className="flex flex-wrap gap-2">
+              {pics.map((im) => (
+                <button
+                  key={im.url}
+                  type="button"
+                  className="cover-pick"
+                  aria-label={t('people.form.image-pick.use', { source: im.source })}
+                  onClick={() => {
+                    // The full-size original is what is stored; the thumbnail was
+                    // only ever what the page was allowed to draw.
+                    setImageUrl(im.url)
+                    setClearImage(false)
+                    setPics(null)
+                  }}
+                >
+                  <img src={im.thumb || im.url} alt="" loading="lazy" />
+                  <span className="microcopy">{im.source}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <input
           className="tp-input"
           value={imageUrl}
