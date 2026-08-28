@@ -243,6 +243,7 @@ export function CastSection({ kind, item, onCastChanged }) {
               busy={!!busy}
               actor={actorMap[c.actor]}
               workTitle={item.title}
+              mediaType={kind === 'book' ? 'book' : item.media_type || 'movie'}
               onSave={(f) => save(c.id, f)}
               onRemove={() => remove(c.id)}
               onImage={(u) => setImage(c.id, u)}
@@ -281,17 +282,51 @@ export function CastSection({ kind, item, onCastChanged }) {
 
 // CastRow — one credit. Resting it is two names and a face; editing it is two
 // boxes; and the picture controls are always the row's own, never the panel's.
-function CastRow({ row, role, busy, actor, workTitle, onSave, onRemove, onImage, onOpenPerson }) {
+function CastRow({ row, role, busy, actor, workTitle, mediaType, onSave, onRemove, onImage, onOpenPerson }) {
   const [editing, setEditing] = useState(false)
   const [character, setCharacter] = useState(row.character || '')
   const [who, setWho] = useState(row.actor || '')
   const [urlOpen, setUrlOpen] = useState(false)
   const [url, setUrl] = useState('')
   const [confirming, setConfirming] = useState(false)
+  const [pics, setPics] = useState(null) // null = never asked; [] = asked, nothing found
+  const [picsBusy, setPicsBusy] = useState(false)
   const applyURL = async () => {
     await onImage(url.trim())
     setUrl('')
     setUrlOpen(false)
+  }
+
+  // THE PICTURE OF A ROLE, WHICH ALMOST NOTHING HAS. TheTVDB carries an image per
+  // character and is the only supplier that does, so every TMDB-sourced row,
+  // every game's typed voice cast and every character in a book has never had one
+  // available at all — and this row's answer was to send the reader to a browser
+  // tab with two words in the search box.
+  //
+  // The sentence the server builds is "ACTOR as CHARACTER in TITLE", which is how
+  // a still is captioned wherever pictures of one are published; the tab this
+  // replaces searched the character and the title alone, which finds the poster.
+  // With no supplier configured it opens that tab, unchanged, for the same reason
+  // the people console does: one control, whatever the install can do.
+  async function findPicture() {
+    setPicsBusy(true)
+    const r = await json('POST', '/images/search', {
+      kind: 'character',
+      name: row.character || '',
+      actor: row.actor || '',
+      title: workTitle || '',
+      media_type: mediaType || '',
+    }).catch(() => ({ ok: false }))
+    setPicsBusy(false)
+    const configured = r.ok && (r.data?.sources?.google || r.data?.sources?.amazon)
+    if (!configured) {
+      window.open(
+        `https://www.google.com/search?tbm=isch&q=${encodeURIComponent([row.character, workTitle].filter(Boolean).join(' '))}`,
+        '_blank', 'noopener',
+      )
+      return
+    }
+    setPics(r.data?.images || [])
   }
 
   // The role in costume if we have it, the actor's headshot if not. Upstream's own
@@ -445,24 +480,20 @@ function CastRow({ row, role, busy, actor, workTitle, onSave, onRemove, onImage,
       )}
       {urlOpen && (
         <span className="cast-row-url">
-          {/* THE SAME OFFER THE PERSON EDITOR MAKES, and for the same reason: there
-              is no keyless portrait API, so a picture is a URL you paste — and
-              asking somebody to go and find one without helping them look is the
-              difference between a field and a chore. Searched by the ROLE and the
-              work, which is what you would type: "Amanda Waller Suicide Squad"
-              finds the character in costume; the actor's name would find the
-              actor, whose photo belongs on their own page. */}
+          {/* THE SAME OFFER THE PERSON EDITOR MAKES, and for the same reason:
+              asking somebody to go and find a picture without helping them look
+              is the difference between a field and a chore. In the app where a
+              picture source is configured, in a tab where none is — see
+              findPicture. */}
           <button
             type="button"
             className="tp-link tp-link-icon"
             style={{ fontSize: 'var(--type-ui-11)' }}
-            onClick={() => window.open(
-              `https://www.google.com/search?tbm=isch&q=${encodeURIComponent([row.character, workTitle].filter(Boolean).join(' '))}`,
-              '_blank', 'noopener',
-            )}
+            disabled={picsBusy}
+            onClick={findPicture}
           >
             <IconSearch />
-            <span>{t('people.form.image-search')}</span>
+            <span>{picsBusy ? t('common.state.loading') : t('people.form.image-search')}</span>
           </button>
           <input
             className="tp-input"
@@ -483,6 +514,34 @@ function CastRow({ row, role, busy, actor, workTitle, onSave, onRemove, onImage,
           >
             {t('common.action.apply.label')}
           </GhostButton>
+          {pics && (
+            <span className="cast-row-pics">
+              <span className="microcopy">
+                {pics.length ? t('cast.picture.pick.prose') : t('cast.picture.pick.none')}
+              </span>
+              <span className="flex flex-wrap gap-2">
+                {pics.map((im) => (
+                  <button
+                    key={im.url}
+                    type="button"
+                    className="cover-pick"
+                    aria-label={t('cast.picture.pick.use', { source: im.source })}
+                    disabled={busy}
+                    onClick={async () => {
+                      // The full-size original is stored; the thumbnail was only
+                      // ever what the page was allowed to draw.
+                      setPics(null)
+                      setUrlOpen(false)
+                      await onImage(im.url)
+                    }}
+                  >
+                    <img src={im.thumb || im.url} alt="" loading="lazy" />
+                    <span className="microcopy">{im.source}</span>
+                  </button>
+                ))}
+              </span>
+            </span>
+          )}
         </span>
       )}
     </li>

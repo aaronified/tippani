@@ -3915,6 +3915,18 @@ people.form.image-search = ছবি খুঁজুন
 people.form.image-pick.prose = একটা বেছে নিন, বা নিচে ঠিকানা বসান
 people.form.image-pick.none = কিছুই এল না — শুধু নামটা দিয়ে দেখুন, বা নিচে ঠিকানা বসান
 people.form.image-pick.use = {source} থেকে এই ছবিটা নিন
+# The same strip on a cast row, where the picture is of a ROLE — an actor in
+# costume — rather than of a person. Only shown when a picture source is
+# configured; without one the button opens a web search in a tab as before.
+cast.picture.pick.prose = একটা বেছে নিন, বা ঠিকানা বসান
+cast.picture.pick.none = কিছুই এল না — অভিনেতার নাম দিয়ে দেখুন, বা ঠিকানা বসান
+cast.picture.pick.use = {source} থেকে এই ছবিটা নিন
+# The same strip on a cast row, where the picture is of a ROLE — an actor in
+# costume — rather than of a person. Only shown when a picture source is
+# configured; without one the button opens a web search in a tab as before.
+cast.picture.pick.prose = একটা বেছে নিন, বা ঠিকানা বসান
+cast.picture.pick.none = কিছুই এল না — অভিনেতার নাম দিয়ে দেখুন, বা ঠিকানা বসান
+cast.picture.pick.use = {source} থেকে এই ছবিটা নিন
 people.form.image-url.placeholder = https://… ছবির লিঙ্ক বসান
 people.form.links.placeholder.1 = https://en.wikipedia.org/wiki/…
 people.form.links.placeholder.2 = https://openlibrary.org/authors/…

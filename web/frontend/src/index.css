@@ -2190,6 +2190,10 @@
   .cast-row-fields > * { flex: 1 1 140px; min-width: 0; }
   .cast-row-confirm, .cast-row-url { display: flex; flex: 1 1 100%; align-items: center; gap: 8px; }
   .cast-row-url .tp-input { flex: 1 1 auto; min-width: 0; }
+  /* The candidates a picture search came back with, under the field they are an
+     alternative to. Its own row (100%), because a strip of thumbnails beside a
+     text input squeezes both. */
+  .cast-row-pics { display: flex; flex: 1 1 100%; flex-direction: column; gap: 6px; margin-top: 6px; }
   .cast-add { padding: 8px 4px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; }
 
   /* ---- the cast combobox's rows: two names, one line ----

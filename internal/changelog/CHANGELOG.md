@@ -50,6 +50,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   build time from a repository secret rather than committed, so a binary you build
   yourself has no built-in unless you pass one (`make build TMDB_TOKEN=…`).
 
+- **A character can have a picture of the character.** TheTVDB carries an image per
+  ROLE — Amanda Waller in costume rather than Viola Davis on a red carpet — and it is
+  the only supplier that does, so every TMDB-sourced cast row, every game's typed voice
+  cast and every character in a book has never had one available at all. The cast row's
+  *search images* now runs the picture search for the role, asking for **"Viola Davis as
+  Amanda Waller in Suicide Squad movie 2016"** — the way a still is captioned wherever
+  pictures of one are published — and offers what comes back beside the paste-an-address
+  field. Where nobody is credited (a book's character, a game's cast) it asks for
+  "Elizabeth Bennet character in Pride and Prejudice book" instead. Picking one stores it
+  through the same route a pasted address has always taken, so a later refetch leaves it
+  alone. With no picture source configured the button opens a web search in a tab,
+  exactly as before.
+
+- **A character can have a picture of the character.** TheTVDB carries an image per
+  ROLE — Amanda Waller in costume rather than Viola Davis on a red carpet — and it is
+  the only supplier that does, so every TMDB-sourced cast row, every game's typed voice
+  cast and every character in a book has never had one available at all. The cast row's
+  *search images* now runs the picture search for the role, asking for **"Viola Davis as
+  Amanda Waller in Suicide Squad movie 2016"** — the way a still is captioned wherever
+  pictures of one are published — and offers what comes back beside the paste-an-address
+  field. Where nobody is credited (a book's character, a game's cast) it asks for
+  "Elizabeth Bennet character in Pride and Prejudice book" instead. Picking one stores it
+  through the same route a pasted address has always taken, so a later refetch leaves it
+  alone. With no picture source configured the button opens a web search in a tab,
+  exactly as before.
+
 - **Cover, poster and portrait searches can now look for PICTURES, not just
   records.** Every image the app could offer came out of a catalogue lookup — Google
   Books, Open Library, TMDB, TheTVDB, IGDB — which answers with a record that happens

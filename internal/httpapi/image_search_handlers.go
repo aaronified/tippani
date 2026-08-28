@@ -48,6 +48,13 @@ const (
 	imageKindCover    = "cover"    // a book
 	imageKindPoster   = "poster"   // a film, show or game
 	imageKindPortrait = "portrait" // a person
+	// A ROLE, WHICH IS NOT A PERSON AND NOT A WORK. Amanda Waller is a picture of
+	// Viola Davis in costume, and neither "Viola Davis" nor "Suicide Squad" finds
+	// it: the first finds the actor on a red carpet and the second finds the
+	// poster. TheTVDB has an image per role and is the only supplier that does —
+	// so every TMDB-sourced row, every game's typed voice cast, and every
+	// character in a BOOK has never had a picture available to it at all.
+	imageKindCharacter = "character"
 )
 
 // imageSearchMax is how many pictures one strip may carry, across all sources.
@@ -66,20 +73,21 @@ func (s *Server) handleImageSearch(w http.ResponseWriter, r *http.Request) {
 		Kind      string `json:"kind"`
 		Title     string `json:"title"`
 		Author    string `json:"author"`
-		Name      string `json:"name"` // portrait: the person
+		Name      string `json:"name"`  // portrait: the person · character: the role
+		Actor     string `json:"actor"` // character: who plays it, when anybody does
 		Year      int    `json:"year"`
 		ISBN      string `json:"isbn"`
 		ASIN      string `json:"asin"`
-		MediaType string `json:"media_type"` // movie | show | game
+		MediaType string `json:"media_type"` // movie | show | game | book
 	}
 	if !decodeBody(w, r, &req) {
 		return
 	}
 	kind := strings.TrimSpace(req.Kind)
 	switch kind {
-	case imageKindCover, imageKindPoster, imageKindPortrait:
+	case imageKindCover, imageKindPoster, imageKindPortrait, imageKindCharacter:
 	default:
-		writeErr(w, http.StatusBadRequest, "kind must be cover, poster or portrait")
+		writeErr(w, http.StatusBadRequest, "kind must be cover, poster, portrait or character")
 		return
 	}
 	subject := strings.TrimSpace(req.Name)
@@ -124,7 +132,7 @@ func (s *Server) handleImageSearch(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	query := imageSearchQuery(kind, subject, req.Author, req.MediaType, req.Year)
+	query := imageSearchQuery(kind, subject, req.Author, req.Actor, req.Title, req.MediaType, req.Year)
 	if gkey != "" && gcx != "" {
 		if hits, err := metadata.GoogleImageSearch(r.Context(), gkey, gcx, query, 10); err != nil {
 			// One source failing is not the request failing — the others may have
@@ -173,7 +181,7 @@ func amazonCoverURLs(isbn, asin string) []string {
 // poster, "Heat" finds a thermodynamics diagram. So each kind names what it is
 // after, and the year — which a catalogue search uses to disambiguate — is
 // included for the same reason here.
-func imageSearchQuery(kind, subject, author, mediaType string, year int) string {
+func imageSearchQuery(kind, subject, author, actor, title, mediaType string, year int) string {
 	parts := []string{subject}
 	switch kind {
 	case imageKindCover:
@@ -182,21 +190,59 @@ func imageSearchQuery(kind, subject, author, mediaType string, year int) string 
 		}
 		parts = append(parts, "book cover")
 	case imageKindPoster:
-		switch mediaType {
-		case "show":
-			parts = append(parts, "tv series poster")
-		case "game":
+		// A GAME HAS COVER ART AND NOT A POSTER, which is the word its pictures are
+		// published under — so this one does not go through mediaNoun.
+		if mediaType == "game" {
 			parts = append(parts, "game cover art")
-		default:
-			parts = append(parts, "movie poster")
+		} else {
+			parts = append(parts, mediaNoun(mediaType)+" poster")
 		}
 	case imageKindPortrait:
 		parts = append(parts, "portrait photo")
+	case imageKindCharacter:
+		// "ACTOR as CHARACTER in TITLE" IS THE SENTENCE THAT FINDS A ROLE, and it
+		// is worth writing out rather than concatenating names: "as" is how a
+		// still is captioned everywhere pictures of one are published, so the
+		// three words carry more than the three names do. `subject` is the
+		// character, so the actor goes in FRONT of it and the title after.
+		//
+		// Without an actor — a book's character, a game's typed cast, anything
+		// nobody is credited for — the same sentence loses its subject, so the
+		// role is named as a role instead: "character in TITLE the game".
+		parts = nil
+		if a := strings.TrimSpace(actor); a != "" {
+			parts = append(parts, a, "as", subject)
+		} else {
+			parts = append(parts, subject, "character")
+		}
+		if tt := strings.TrimSpace(title); tt != "" {
+			parts = append(parts, "in", tt)
+		}
+		parts = append(parts, mediaNoun(mediaType))
 	}
+	// A YEAR DISAMBIGUATES A WORK AND NOT A FACE. Two films share a title far
+	// more often than two people share a name, and a portrait search narrowed by
+	// a year finds that person in that year, which is not what was asked.
 	if year > 0 && kind != imageKindPortrait {
 		parts = append(parts, strconv.Itoa(year))
 	}
 	return strings.Join(parts, " ")
+}
+
+// mediaNoun is what to call the work in a search sentence. "movie" is the
+// default because it is the word an image search is indexed under, whatever the
+// app calls a film elsewhere.
+func mediaNoun(mediaType string) string {
+	switch mediaType {
+	case "show":
+		return "tv series"
+	case "game":
+		return "game"
+	case "book":
+		return "book"
+	default:
+		return "movie"
+	}
 }
 
 // imageSearchConfigured reports whether any keyed picture source is available —

@@ -19,6 +19,8 @@ let ROLE
 let FILLED
 let OK_IMAGE
 let OK_PUT
+let IMAGES
+let IMAGE_SOURCES
 
 vi.mock('../../src/api.js', async (orig) => ({
   ...(await orig()),
@@ -32,6 +34,7 @@ vi.mock('../../src/api.js', async (orig) => ({
       return { ok: true, data: { ...CAST.find((c) => c.id === id), character_image_path: `stored-${id}.jpg` } }
     }
     if (method === 'POST' && path.endsWith('/cast/tvdb')) return { ok: true, data: { title: 'Suicide Squad', cast: CAST } }
+    if (path === '/images/search') return { ok: true, data: { images: IMAGES, sources: IMAGE_SOURCES } }
     if (method === 'PUT' && path.startsWith('/cast/')) return OK_PUT ? { ok: true, data: {} } : { ok: false, status: 500, data: {} }
     return { ok: true, data: {} }
   }),
@@ -73,6 +76,8 @@ beforeEach(() => {
   FILLED = 0
   OK_IMAGE = true
   OK_PUT = true
+  IMAGES = []
+  IMAGE_SOURCES = { google: false, amazon: false }
 })
 
 describe('the people panel', () => {
@@ -177,6 +182,56 @@ describe('the people panel', () => {
       expect(withBody).toHaveLength(1)
       expect(withBody[0][2].image_url).toBe('https://example.com/w.png')
     })
+  })
+
+  // A PICTURE OF A ROLE IS THE ONE PICTURE ALMOST NOTHING HAS. TheTVDB carries an
+  // image per character and no other supplier does, so a TMDB-sourced row, a
+  // game's typed voice cast and every character in a book have never had one to
+  // fetch. The strip is the answer to that, and the sentence it searches for is
+  // the part worth pinning: "ACTOR as CHARACTER in TITLE" finds a still, while
+  // the character and the title alone find the poster.
+  it('searches for the role in costume, naming the actor, the character and the work', async () => {
+    IMAGE_SOURCES = { google: true, amazon: false }
+    IMAGES = [{ url: 'https://pics.test/waller.jpg', thumb: 'https://encrypted-tbn0.gstatic.com/w', source: 'google' }]
+    await openPanel()
+    await screen.findByText('Amanda Waller')
+    fireEvent.click(screen.getAllByRole('button', { name: /^Picture for / })[0])
+    fireEvent.click(screen.getAllByText('search images')[0])
+
+    await waitFor(() => expect(CALLS.some(([, p]) => p === '/images/search')).toBe(true))
+    expect(CALLS.find(([, p]) => p === '/images/search')[2]).toEqual({
+      kind: 'character', name: 'Amanda Waller', actor: 'Viola Davis',
+      title: 'Suicide Squad', media_type: 'movie',
+    })
+
+    // Drawn: the thumbnail. Stored: the original, through the same route a
+    // pasted address takes.
+    const img = await waitFor(() => {
+      const el = document.querySelector('.cast-row-pics img')
+      expect(el, 'no candidate was drawn').toBeTruthy()
+      return el
+    })
+    expect(img.getAttribute('src')).toBe('https://encrypted-tbn0.gstatic.com/w')
+    fireEvent.click(img.closest('button'))
+    await waitFor(() => {
+      const withBody = posted(/^\/cast\/11\/image$/).filter(([, , b]) => b?.image_url)
+      expect(withBody).toHaveLength(1)
+      expect(withBody[0][2].image_url).toBe('https://pics.test/waller.jpg')
+    })
+  })
+
+  // With no supplier configured the control does exactly what it did before the
+  // strip existed, because "find me a picture" is one intention and two buttons
+  // would make the reader work out which one their server can honour.
+  it('falls back to a web search in a tab when nothing is configured', async () => {
+    IMAGE_SOURCES = { google: false, amazon: false }
+    window.open = vi.fn()
+    await openPanel()
+    await screen.findByText('Amanda Waller')
+    fireEvent.click(screen.getAllByRole('button', { name: /^Picture for / })[0])
+    fireEvent.click(screen.getAllByText('search images')[0])
+    await waitFor(() => expect(window.open).toHaveBeenCalled())
+    expect(document.querySelector('.cast-row-pics')).toBeNull()
   })
 
   it('a book has characters and no actors and nothing to fetch', async () => {

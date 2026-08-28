@@ -2939,9 +2939,13 @@ A standalone film fails the other way. Nothing scores highly, the distractors sh
 
 **Storage is unchanged.** A picked candidate goes through the existing user-typed-URL path (`fetchUserImage`) — no host allowlist, every other guard intact — which is what makes an image from an arbitrary host storable at all, and is the same path a pasted address has always taken.
 
+**A ROLE IS A FOURTH KIND, and it is the one with no supplier at all.** `kind: "character"` searches for the person IN the part: "ACTOR as CHARACTER in TITLE the movie", because "as" is how a still is captioned wherever pictures of one are published — the character and the title alone find the poster, and the actor alone finds a red carpet. Without a credited actor (a book's character, a game's typed cast) the sentence loses its subject and the role is named as a role: "CHARACTER character in TITLE the book". TheTVDB has an image per role and is the only supplier that has ever had one, so before this every TMDB-sourced row, every game and every book character could only be given a picture by pasting an address.
+
+**A ROLE IS A FOURTH KIND, and it is the one with no supplier at all.** `kind: "character"` searches for the person IN the part: "ACTOR as CHARACTER in TITLE the movie", because "as" is how a still is captioned wherever pictures of one are published — the character and the title alone find the poster, and the actor alone finds a red carpet. Without a credited actor (a book's character, a game's typed cast) the sentence loses its subject and the role is named as a role: "CHARACTER character in TITLE the book". TheTVDB has an image per role and is the only supplier that has ever had one, so before this every TMDB-sourced row, every game and every book character could only be given a picture by pasting an address.
+
 **Approved.** The reader's, in the form "image search (cover, poster, people images) need to fetch posters etc from amazon and google as well. They are already supposed to do that but I see no options from them ever." Half of that was true and worth stating: Amazon was reachable only with an ASIN typed by hand, and Google was reachable only as a books catalogue.
 
-<sub>v3.0.0 — `internal/metadata/image_search.go` · `internal/metadata/image_search_test.go` · `internal/httpapi/image_search_handlers.go` · `internal/httpapi/image_search_test.go` · `web/frontend/src/CoverPicker.jsx` · `web/frontend/src/people.jsx`</sub>
+<sub>v3.0.0 — `internal/metadata/image_search.go` · `internal/metadata/image_search_test.go` · `internal/httpapi/image_search_handlers.go` · `internal/httpapi/image_search_test.go` · `web/frontend/src/CoverPicker.jsx` · `web/frontend/src/people.jsx` · `web/frontend/src/cast.jsx`</sub>
 
 ### Measured difficulty feeds the schedule, beside the fixed ladder
 
@@ -7116,7 +7120,7 @@ There is a second cost, and it is the one that made this concrete. Decisions tak
 
 **And it was latent for a release.** Before the tick stopped being greyed, `submit` began `if (!unsaved.count) return`, so the stray submit usually did nothing. Making the tick always-enabled did not introduce the leak; it armed it.
 
-<sub>2.2.5 — `web/frontend/src/WorkDetails.jsx` · `web/frontend/src/people.jsx`</sub>
+<sub>2.2.5 — `web/frontend/src/WorkDetails.jsx` · `web/frontend/src/people.jsx` · `web/frontend/src/cast.jsx`</sub>
 
 ### The last word, and the demotion that makes it safe
 

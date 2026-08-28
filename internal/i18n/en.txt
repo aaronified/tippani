@@ -3965,6 +3965,18 @@ people.form.image-search = search images
 people.form.image-pick.prose = Pick one, or paste an address below
 people.form.image-pick.none = Nothing came back — try the name on its own, or paste an address below
 people.form.image-pick.use = Use this picture from {source}
+# The same strip on a cast row, where the picture is of a ROLE — an actor in
+# costume — rather than of a person. Only shown when a picture source is
+# configured; without one the button opens a web search in a tab as before.
+cast.picture.pick.prose = Pick one, or paste an address
+cast.picture.pick.none = Nothing came back — try the actor's name, or paste an address
+cast.picture.pick.use = Use this picture from {source}
+# The same strip on a cast row, where the picture is of a ROLE — an actor in
+# costume — rather than of a person. Only shown when a picture source is
+# configured; without one the button opens a web search in a tab as before.
+cast.picture.pick.prose = Pick one, or paste an address
+cast.picture.pick.none = Nothing came back — try the actor's name, or paste an address
+cast.picture.pick.use = Use this picture from {source}
 people.form.image-url.placeholder = https://… paste an image link
 # Two lines of example, joined by the code — the file format is one value per
 # line, so a two-line placeholder is two keys. URLs, so unchanged in any

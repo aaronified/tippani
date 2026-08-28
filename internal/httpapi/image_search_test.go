@@ -49,6 +49,31 @@ func TestImageSearchWithNothingConfiguredSaysSoRatherThanFailing(t *testing.T) {
 	}
 }
 
+// A PORTRAIT IS NOT NARROWED BY A YEAR even when one is sent. Two films share a
+// title constantly; two people sharing a name is rare, and "Le Guin 1974" finds
+// that person in that year rather than that person.
+func TestAYearNarrowsAWorkAndNeverAFace(t *testing.T) {
+	var asked string
+	cse := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		asked = r.URL.Query().Get("q")
+		fmt.Fprint(w, `{"items":[]}`)
+	}))
+	defer cse.Close()
+	metadata.SetImageSearchBasesForTest(t, cse.URL, "")
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	c.mustDo("PUT", "/admin/metadata-keys", map[string]any{"google_cse_key": "k", "google_cse_cx": "cx"}, 200)
+
+	c.mustDo("POST", "/images/search", map[string]any{"kind": "portrait", "name": "Ursula K. Le Guin", "year": 1974}, 200)
+	if strings.Contains(asked, "1974") {
+		t.Errorf("a portrait search was narrowed by a year: %q", asked)
+	}
+	c.mustDo("POST", "/images/search", map[string]any{"kind": "poster", "title": "Persuasion", "year": 1995}, 200)
+	if !strings.Contains(asked, "1995") {
+		t.Errorf("a poster search dropped the year that tells two films apart: %q", asked)
+	}
+}
+
 func TestImageSearchRefusesAKindItCannotPicture(t *testing.T) {
 	srv := newTestServer(t)
 	c := signupAdmin(t, srv.Handler())
@@ -70,6 +95,23 @@ func TestImageSearchAsksForTheRightKindOfPicture(t *testing.T) {
 		{"show", "Severance tv series poster", map[string]any{"kind": "poster", "title": "Severance", "media_type": "show"}},
 		{"game", "Hades game cover art", map[string]any{"kind": "poster", "title": "Hades", "media_type": "game"}},
 		{"portrait", "Ursula K. Le Guin portrait photo", map[string]any{"kind": "portrait", "name": "Ursula K. Le Guin"}},
+		// A ROLE IS A SENTENCE AND NOT A LIST OF NAMES. "Viola Davis" finds the
+		// actor on a red carpet, "Suicide Squad" finds the poster, and only
+		// "X as Y in Z" finds the character in costume — which is the picture
+		// TheTVDB has for a handful of rows and nobody has for the rest.
+		{"character", "Viola Davis as Amanda Waller in Suicide Squad movie 2016", map[string]any{
+			"kind": "character", "name": "Amanda Waller", "actor": "Viola Davis",
+			"title": "Suicide Squad", "year": 2016,
+		}},
+		// Nobody is credited with playing a book's character, so the sentence
+		// loses its subject and the role is named as a role instead.
+		{"character in a book", "Elizabeth Bennet character in Pride and Prejudice book", map[string]any{
+			"kind": "character", "name": "Elizabeth Bennet",
+			"title": "Pride and Prejudice", "media_type": "book",
+		}},
+		{"character in a game", "Kratos character in God of War game", map[string]any{
+			"kind": "character", "name": "Kratos", "title": "God of War", "media_type": "game",
+		}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.kind, func(t *testing.T) {
