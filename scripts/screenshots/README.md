@@ -53,6 +53,7 @@ account itself when the server is on onboarding, which is why it runs *before* t
 | 2 binned quotes | Bin — created then deleted, since delete is a move to trash |
 | 3 staged rows | Staging — by exporting a seeded book and re-importing it, so the fixture is the app's own format rather than a second hand-maintained copy of it |
 | **43 real cover images** | Shelves and the catalogue grid, which are mostly artwork by area |
+| **1 person, with a portrait** | The share image's portrait backdrop, and the Metadata console's photo/link status |
 
 ### Artwork
 
@@ -72,6 +73,27 @@ later run reads the cache, which is what keeps the captures byte-identical.
 A cover that will not download leaves that work without one and is **reported by name** at
 the end of the run. That is a real state — one book carries `nocover` deliberately so the
 placeholder is captured too.
+
+### The one image this script does not upload
+
+A person's portrait is the exception, and the reason is a security control working. There
+is no multipart upload for one: `PUT /people` takes an `image_url` and fetches it
+server-side through `metadata.FetchUserImage`, which refuses loopback and private
+addresses at dial time. So serving the disk cache off `127.0.0.1` and handing the server
+that URL — the obvious way to keep the bytes local — is precisely the SSRF the guard
+exists to stop, and defeating it to seed a fixture would be the worst possible reason to.
+
+The Commons **title** stays pinned, so it is the same photograph every run; what is lost
+is the cache, so this is the one fixture image that touches the network on every run. It
+fails the same way every other artwork does: recorded against the name, never fatal. A
+person with no photo is a real row, and the share card falls back to its no-portrait
+layout.
+
+Tagore is the person seeded because this file already credits him twice — as the author of
+*Gitanjali* and as the speaker of a standalone quote — so one row covers two of the share
+card's three `facesFor` paths (`author` and `speaker`). The film's `actor` path has nobody
+seeded yet; the card renders all three identically, so it is coverage that is missing
+rather than behaviour.
 
 One fixture in each list is deliberately oversized — a 168-character book title, a long note,
 a five-word tag. `visual-verify` asks for a long-content capture because truncation bugs

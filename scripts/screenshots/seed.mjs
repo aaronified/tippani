@@ -26,7 +26,7 @@
 // The account is created if the server is still on onboarding, otherwise logged into, so
 // this can run before capture.mjs against the same scratch server.
 
-import { bookCover, commonsImage } from './artwork.mjs'
+import { bookCover, commonsImage, commonsPortraitURL } from './artwork.mjs'
 
 // ---- the fixtures -----------------------------------------------------------------
 //
@@ -442,6 +442,41 @@ const QUOTES = [
   },
 ]
 
+// ---- people ------------------------------------------------------------------------
+//
+// Per-name enrichment (bio, dates, portrait) for names the library already references as
+// free text. Nothing here creates a work; a person is matched to one by exact NAME, so
+// `name` below has to agree character for character with the `author` on the book and the
+// `speaker` on the quote, or the row is enrichment nobody sees.
+//
+// WHY THIS EXISTS AT ALL: the share image's portrait backdrop is drawn from a credited
+// person's photo, and without one seeded, every capture of the share sheet showed the
+// no-portrait case — the one path where the feature is invisible. Tagore is the fixture
+// because he is already BOTH kinds in this file: the author of Gitanjali and the speaker
+// of a standalone quote. One row therefore covers the two `facesFor` paths the card has
+// (`author`, hanging off the attribution line; `speaker`, doing the same for an utterance)
+// and leaves only the film's `actor` path unseeded.
+//
+// `kinds` is a list because a role is not part of a person's identity — the same human
+// writes and speaks, and saving them twice under two roles is the pre-0027 shape that
+// left one of the two with a blank portrait. The upsert files each role against the one
+// row.
+const PEOPLE = [
+  {
+    name: 'Rabindranath Tagore',
+    kinds: ['author', 'speaker'],
+    bio: 'Bengali poet, essayist and composer; the first non-European awarded the Nobel Prize in Literature, in 1913, largely for his own English Gitanjali.',
+    born: '1861-05-07',
+    died: '1941-08-07',
+    links: 'https://en.wikipedia.org/wiki/Rabindranath_Tagore',
+    source: 'wikidata',
+    source_id: 'Q7241',
+    // The 1909 studio portrait: public domain, high contrast, and a face rather than a
+    // crowd — which is what a backdrop needs, since half of it is faded out by design.
+    portrait: 'File:Rabindranath Tagore in 1909.jpg',
+  },
+]
+
 const ANTHOLOGIES = [
   { tag: 'first lines', title: 'Openings', intro: 'First lines, collected because a first line is a promise the rest of the book has to keep.' },
   { tag: 'the sea', title: 'The Sea', intro: '' },
@@ -656,6 +691,39 @@ async function main() {
     bump('quotes')
   }
   log(`quotes      ${counts.quotes}`)
+
+  // People, AFTER the works that name them. A person row is enrichment matched by name,
+  // so seeding it first would work and prove nothing — the interesting assertion is that
+  // the name on the row and the name on the book are the same string, and that only bites
+  // once both exist.
+  //
+  // The portrait is the one fixture image the server fetches rather than this script:
+  // see commonsPortraitURL in artwork.mjs for why it cannot be uploaded as bytes. That
+  // makes it the one image with no disk cache, and the failure is handled the same way
+  // every other missing artwork is — recorded against the name, never fatal. A person
+  // without a photo is a real row; the share card just falls back to the no-portrait
+  // layout, which is what it did before this fixture existed.
+  for (const p of PEOPLE) {
+    const { kinds, portrait, ...body } = p
+    let image_url = ''
+    if (opts.artwork && portrait) {
+      try {
+        image_url = await commonsPortraitURL(portrait)
+      } catch (err) {
+        artFailures.push(`${p.name} (portrait) — ${err.message}`)
+      }
+    }
+    // One PUT per role. The endpoint takes a single `kind` and files it against the row
+    // it upserts, so two roles are two calls — and the image only rides the first, since
+    // sending it twice would have the server fetch and store the same photograph again
+    // and leave the first copy orphaned in the covers directory.
+    for (const [i, kind] of kinds.entries()) {
+      await api('PUT', '/people', { kind, ...body, ...(i === 0 && image_url ? { image_url } : {}) })
+    }
+    bump('people')
+    if (image_url) bump('portraits')
+  }
+  log(`people      ${counts.people}${counts.portraits ? ` (+${counts.portraits} portraits)` : ''}`)
 
   // Anthologies get real entries, chosen by tag rather than by position, so adding a
   // fixture above does not silently change which quotes an anthology holds.

@@ -363,9 +363,31 @@ function drawImageCover(ctx, img, dx, dy, dw, dh) {
 // gradient, so a flat overlay would leave a seam exactly where the fade ends,
 // which is the one place a viewer is already looking.
 const PORTRAIT_W = 0.46 // share of the card width one portrait may occupy
-const PORTRAIT_ALPHA = 0.62 // strength at the outer edge
-const PORTRAIT_FADE = 0.86 // fraction of the portrait's width the fade spans
+const PORTRAIT_ALPHA = 0.5 // strength at the outer edge
+const PORTRAIT_FADE = 0.88 // fraction of the portrait's width the fade spans
 const PORTRAIT_TINT = 0.55 // how far the quote's colour pulls the portrait's hue
+
+// ---- the photograph's tonal range -------------------------------------------
+//
+// THE HALO WAS NEVER GOING TO BE ENOUGH ON ITS OWN, and the arithmetic says so:
+// a dark shoulder under a 0.62-alpha portrait leaves the credit line at 1.35:1
+// against its own ink, and the footer at 1.14:1 — a WCAG floor of 4.5:1 puts
+// both of them at "not text, texture". A glow around each letter gives the type
+// back a few pixels of paper; it cannot give it back the paper's contrast.
+//
+// So the picture meets the words halfway. The buffer is washed with the card's
+// own colour before it is masked, which RAISES THE FLOOR in light mode and
+// lowers the ceiling in dark: the photograph stops being a full-range image and
+// becomes a band the ink can beat everywhere, rather than in most places and not
+// on an eyebrow. It is the scrim that the card comment rules out — and it works
+// here for the reason it fails there, because it goes on INSIDE the portrait's
+// own buffer, ahead of the alpha mask, so it fades out with the face instead of
+// ending in a hard line partway across a gradient.
+//
+// The face survives it. A portrait at 0.5 over paper is already a suggestion of
+// a person rather than a photograph of one, and compressing what is left costs
+// far less than the reader loses to a name they cannot read.
+const PORTRAIT_WASH = 0.3
 
 // ---- more than two people ---------------------------------------------------
 //
@@ -405,18 +427,70 @@ const LINEUP_H = 0.52 // share of the card height the band occupies
 // Which is also why it is drawn only where there IS an image — on a plain card
 // the paper is already exactly this colour, so it would cost a blur pass per
 // line to composite something invisible.
-const HALO_BLUR = 8
-const HALO_ALPHA = 0.85
+//
+// A HALO HAS TO HUG THE LETTERFORM, and a letterform is not one size. This was a
+// flat 8px for everything, which is two different failures at once: around the
+// 27px quote it is a tight outline, and around the 11.5px meta line it is a wash
+// wider than the type is tall, spreading the same alpha over four times the area
+// and leaving the small print — the exact text that was hardest to read — with
+// the weakest surround on the card. So the radius is a share of the type size,
+// and each block carries the size it is set in.
+const HALO_RATIO = 0.5
+const HALO_MIN = 4
+const HALO_ALPHA = 0.7
+// AND IT IS PAINTED MORE THAN ONCE. One pass of a translucent shadow is a glow:
+// it tints what is behind the word without ever covering it. Laying the same
+// pass down three times compounds towards opacity immediately around the glyph
+// (1 - 0.3³ ≈ 0.97) while the outer falloff, where each pass contributes least,
+// stays as soft as it was. That is the difference between type that is tinted
+// and type that is on paper — and it is three fillText calls, not a second
+// offscreen buffer and a composite.
+const HALO_PASSES = 3
 
-// setHalo turns the glow on or off for everything painted after it. Explicit
-// both ways rather than leaning on save/restore: the halo has to be OFF for the
-// rest of the card, and "off" being a thing this function says out loud is what
-// lets a test ask when it was on.
-function setHalo(ctx, theme, on) {
+// setHalo turns the glow on or off for everything painted after it, sized to the
+// type it is about to sit under. Explicit both ways rather than leaning on
+// save/restore: the halo has to be OFF for the rest of the card, and "off" being
+// a thing this function says out loud is what lets a test ask when it was on.
+function setHalo(ctx, theme, on, px = 15) {
   ctx.shadowColor = on ? hexToRgba(theme.cardTop, HALO_ALPHA) : 'rgba(0,0,0,0)'
-  ctx.shadowBlur = on ? HALO_BLUR : 0
+  ctx.shadowBlur = on ? Math.max(HALO_MIN, Math.round(px * HALO_RATIO)) : 0
   ctx.shadowOffsetX = 0
   ctx.shadowOffsetY = 0
+}
+
+// paintText lays one string down `passes` times at the same point. With the halo
+// off, `passes` is 1 and this is fillText with extra steps; with it on, the
+// repeats are the whole mechanism — see HALO_PASSES.
+function paintText(ctx, text, x, y, passes) {
+  for (let i = 0; i < passes; i++) ctx.fillText(text, x, y)
+}
+
+// ---- ink on a photograph ----------------------------------------------------
+//
+// `soft` and `faint` are HIERARCHY colours, and on the card's own paper that is
+// exactly what they do: a credit set two steps down from the quote reads as a
+// credit before it is read as words. Over a photograph they are not a hierarchy,
+// they are a dropout — 1.35:1 for the book's name and 1.14:1 for the footer,
+// which is the complaint this whole change answers.
+//
+// So on a backdrop card the secondary inks step up one: the credit takes the
+// quote's ink, the footer takes the credit's. NOTHING IS LOST, because the
+// hierarchy here was never carried by colour alone — the quote is 27px italic,
+// the credit is 15px, the meta line is 11.5px mono in caps with a point of
+// letter-spacing. Those go on saying which is which on a card where colour has
+// been spent on being legible instead.
+// ONE INK, once there is a photograph. Stepping the credit up and leaving the
+// footer one behind still measured 4.41:1 for the footer over a dark portrait,
+// because what limits that line is the colour it is set in and not the picture
+// behind it — raising the wash by a fifth moved it by nothing at all. Over a
+// photograph the card therefore has a single ink, and size and weight carry the
+// hierarchy on their own: 27px italic, 15px, 11.5px mono in caps. On paper the
+// three tones come back, because there quiet is affordable and a credit that
+// recedes is worth having.
+function inksFor(theme, backdrop) {
+  return backdrop
+    ? { ink: theme.ink, soft: theme.ink, faint: theme.ink }
+    : { ink: theme.ink, soft: theme.soft, faint: theme.faint }
 }
 
 // fadedPortrait renders one image into an offscreen canvas of (w × h), cropped
@@ -426,17 +500,20 @@ function setHalo(ctx, theme, on) {
 // must draw NOTHING rather than a grey block, because the caller redraws when it
 // arrives and a placeholder would flash on every share.
 //
-// ORDER MATTERS, twice. The tint goes on while the buffer is still fully
-// opaque, so it colours the photo rather than the shape the fade will leave
-// behind; and the mask goes on last, so the tint fades out with the face
-// instead of surviving as a coloured rectangle after it.
-function fadedPortrait(img, w, h, dir, tint) {
+// ORDER MATTERS, THREE TIMES now. The tint goes on while the buffer is still
+// fully opaque, so it colours the photo rather than the shape the fade will
+// leave behind; the wash (`surface`, see PORTRAIT_WASH) goes on after it, so it
+// compresses the tinted picture rather than being tinted itself; and the mask
+// goes on last, so both of them fade out with the face instead of surviving as
+// a coloured rectangle after it.
+function fadedPortrait(img, w, h, dir, tint, surface) {
   if (!img || !w || !h) return null
   const off = document.createElement('canvas')
   off.width = Math.ceil(w)
   off.height = Math.ceil(h)
   const octx = off.getContext('2d')
   if (!octx) return null
+
   drawImageCover(octx, img, 0, 0, off.width, off.height)
 
   // The quote's own colour, carried into the portrait. `color` is the blend
@@ -456,6 +533,17 @@ function fadedPortrait(img, w, h, dir, tint) {
     octx.globalAlpha = 1
   }
 
+  // The wash. `source-over` and not `source-atop` because the buffer is still
+  // fully opaque here (drawImageCover fills it edge to edge), so the two are the
+  // same operation — and this one is implemented everywhere.
+  if (surface) {
+    octx.globalCompositeOperation = 'source-over'
+    octx.globalAlpha = PORTRAIT_WASH
+    octx.fillStyle = surface
+    octx.fillRect(0, 0, off.width, off.height)
+    octx.globalAlpha = 1
+  }
+
   // destination-out with a gradient of alphas: an opaque stop erases what is
   // under it, a transparent one keeps it. The gradient runs from the card's
   // OUTER edge inwards, so the stops read in the direction the fade travels
@@ -467,9 +555,16 @@ function fadedPortrait(img, w, h, dir, tint) {
     : dir === 'right'
       ? octx.createLinearGradient(0, 0, off.width, 0)
       : octx.createLinearGradient(off.width, 0, 0, 0)
+  // The knee moved EARLY, and the reason is a coordinate. The words start one
+  // card-padding in from the edge — about 12% across a portrait this wide — and
+  // the old plateau ran to 14%, so the photograph was at its full strength for
+  // precisely the span the credit line begins in, and had shed under a tenth of
+  // it by the first letter. The fade now starts before the text does and is half
+  // gone by the third of the way across, which is where most of a credit sits.
   g.addColorStop(0, 'rgba(0,0,0,0)')
   g.addColorStop(1 - PORTRAIT_FADE, 'rgba(0,0,0,0)')
-  g.addColorStop(0.62, 'rgba(0,0,0,0.72)')
+  g.addColorStop(0.34, 'rgba(0,0,0,0.55)')
+  g.addColorStop(0.62, 'rgba(0,0,0,0.86)')
   g.addColorStop(1, 'rgba(0,0,0,1)')
   octx.globalCompositeOperation = 'destination-out'
   octx.fillStyle = g
@@ -547,6 +642,16 @@ const MARK_INK = (229.3 - 23.37) / 256
 const FOOT_CAP = 14 * 0.7
 const FACE_SIZE = 34, FACE_MAX = 5 // credit portraits: disc size + how many fit
 
+// fontPx pulls the size out of a CSS font shorthand, so the halo's radius is
+// derived from the FONTS table itself rather than from a second copy of the same
+// numbers beside it. A duplicate would go stale the first time a face was
+// resized, and go stale SILENTLY: a mis-sized halo still draws, still looks like
+// a halo, and only fails at the one job it has.
+function fontPx(font, fallback = 15) {
+  const m = /(\d+(?:\.\d+)?)px/.exec(String(font))
+  return m ? Number(m[1]) : fallback
+}
+
 // facesOnAttribution says WHICH LINE a credit's portraits hang beside: the
 // attribution ("— (o) Bose, Burma Radio broadcast") or the meta line
 // ("Rick Blaine · played by (o) Humphrey Bogart").
@@ -566,7 +671,7 @@ export function facesOnAttribution(facesFor) {
 
 // drawTextBlock paints wrapped `lines` inside a box whose top is `top`, seating
 // each baseline within its line-height so text stays inside the block's height.
-function drawTextBlock(ctx, lines, x, top, lh, color, letterSpacing) {
+function drawTextBlock(ctx, lines, x, top, lh, color, letterSpacing, passes = 1) {
   if (letterSpacing) ctx.letterSpacing = letterSpacing
   ctx.fillStyle = color
   ctx.textBaseline = 'alphabetic'
@@ -575,7 +680,7 @@ function drawTextBlock(ctx, lines, x, top, lh, color, letterSpacing) {
     const baseline = top + lh * i + lh * 0.76
     for (const seg of line) {
       ctx.font = seg.font
-      ctx.fillText(seg.text, cx, baseline)
+      paintText(ctx, seg.text, cx, baseline, passes)
       cx += seg.w
     }
   })
@@ -608,6 +713,17 @@ export function drawQuoteCard(canvas, model, theme) {
   const innerX = cardX + CP + (hasBar ? 8 : 0)
   const innerW = cardW - CP * 2 - (hasBar ? 8 : 0)
 
+  // ONE condition, read everywhere: it decides that the photograph is painted,
+  // that the words get their halo, AND which inks they are set in. Asking the
+  // same question three times in three places is how a card ends up with a face
+  // behind unhaloed text, or promoted ink on bare paper — neither of which
+  // throws, and both of which are only visible to somebody looking for them.
+  // It has to be settled here, before the measure phase, because the colour a
+  // block is built with is now part of the answer.
+  const backdrop = !!model.portrait && !!model.faces?.length
+  const inks = inksFor(theme, backdrop)
+  const passes = backdrop ? HALO_PASSES : 1
+
   // ---- measure phase: build an ordered list of blocks ----
   const blocks = []
   const push = (b) => { if (b.height > 0) blocks.push(b) }
@@ -616,7 +732,7 @@ export function drawQuoteCard(canvas, model, theme) {
   if (model.quote) {
     const lines = flowRuns(ctx, [{ text: `“${model.quote}”`, font: FONTS.quote }], innerW)
     quoteH = lines.length * QLH
-    push({ kind: 'text', lines, lh: QLH, color: theme.ink, gap: 0, height: quoteH })
+    push({ kind: 'text', lines, lh: QLH, color: inks.ink, px: fontPx(FONTS.quote), gap: 0, height: quoteH })
   }
   // The translation, in the quote's own voice one size down: the same words in
   // another language are still the quote, so they are set as prose rather than
@@ -627,7 +743,7 @@ export function drawQuoteCard(canvas, model, theme) {
   // it, so the image and the card cannot disagree about what a proverb is.
   if (model.translation) {
     const lines = flowRuns(ctx, [{ text: model.translation, font: FONTS.translation }], innerW)
-    push({ kind: 'text', lines, lh: TLH, color: theme.soft, gap: 12, height: lines.length * TLH })
+    push({ kind: 'text', lines, lh: TLH, color: inks.soft, px: fontPx(FONTS.translation), gap: 12, height: lines.length * TLH })
   }
   // Credit faces hang inline to the LEFT of the name they belong to (the
   // attribution line for an author, the meta line for an actor): the block that
@@ -674,7 +790,7 @@ export function drawQuoteCard(canvas, model, theme) {
     }
     const lines = flowRuns(ctx, runsForFlow, innerW - lead)
     const textH = lines.length * ALH
-    push({ kind: 'text', lines, lh: ALH, color: theme.soft, gap: 14, textH, lead, pre, preFont: FONTS.attrPlain, faceX: preW, leadFaces: authorFaces, height: Math.max(textH, authorFaces ? FACE_SIZE : 0) })
+    push({ kind: 'text', lines, lh: ALH, color: inks.soft, px: fontPx(FONTS.attrPlain), gap: 14, textH, lead, pre, preFont: FONTS.attrPlain, faceX: preW, leadFaces: authorFaces, height: Math.max(textH, authorFaces ? FACE_SIZE : 0) })
   }
   const metaText = model.meta.join('  ·  ').toUpperCase()
   if (metaText) {
@@ -683,11 +799,11 @@ export function drawQuoteCard(canvas, model, theme) {
     const lines = flowRuns(ctx, [{ text: metaText, font: FONTS.meta }], innerW - lead)
     ctx.letterSpacing = '0px'
     const textH = lines.length * MLH
-    push({ kind: 'text', lines, lh: MLH, color: theme.soft, ls: '1px', gap: 6, textH, lead, leadFaces: actorFaces, height: Math.max(textH, lead ? FACE_SIZE : 0) })
+    push({ kind: 'text', lines, lh: MLH, color: inks.soft, px: fontPx(FONTS.meta), ls: '1px', gap: 6, textH, lead, leadFaces: actorFaces, height: Math.max(textH, lead ? FACE_SIZE : 0) })
   }
   if (model.note) {
     const lines = flowRuns(ctx, [{ text: model.note, font: FONTS.note }], innerW - 12)
-    push({ kind: 'note', lines, lh: NLH, color: theme.ink, gap: 20, height: lines.length * NLH })
+    push({ kind: 'note', lines, lh: NLH, color: inks.ink, px: fontPx(FONTS.note), gap: 20, height: lines.length * NLH })
   }
   if (model.tags.length) {
     const rows = []
@@ -701,7 +817,7 @@ export function drawQuoteCard(canvas, model, theme) {
       rowW += w + TAG_GAP
     }
     if (row.length) rows.push(row)
-    push({ kind: 'tags', rows, gap: 18, height: rows.length * (TAG_H + TAG_GAP) - TAG_GAP })
+    push({ kind: 'tags', rows, px: fontPx(FONTS.tag), gap: 18, height: rows.length * (TAG_H + TAG_GAP) - TAG_GAP })
   }
 
   let contentH = 0
@@ -784,11 +900,7 @@ export function drawQuoteCard(canvas, model, theme) {
   // else, so it sits behind the colour edge and every word.
   // Clipped to the card's own rounded path: the image bleeds to the card's edge,
   // not to the mat's.
-  // ONE condition, read twice: it decides both that the photograph is painted
-  // and that the words get their halo. Two separate tests of the same thing is
-  // how a card ends up with a face behind unhaloed text, or a halo glowing on
-  // bare paper — neither of which throws.
-  const backdrop = !!model.portrait && !!model.faces?.length
+  // `backdrop` was settled before the measure phase — see there for why.
   if (backdrop) {
     // REVERSING THE LIST IS RIGHT FOR THE LINE-UP AND WRONG FOR THE SIDES, which
     // is the correction here. `[A].reverse()` is `[A]`, so with ONE face — the
@@ -817,7 +929,7 @@ export function drawQuoteCard(canvas, model, theme) {
       list.forEach((face, i) => {
         const x = cardX + i * cw
         const w = i === list.length - 1 ? cardX + cardW - x : cw
-        const painted = fadedPortrait(faceCache.get(face.url), w, bh, 'up', model.colorHex)
+        const painted = fadedPortrait(faceCache.get(face.url), w, bh, 'up', model.colorHex, theme.cardTop)
         if (painted) ctx.drawImage(painted, x, by, w, bh)
       })
     } else {
@@ -839,7 +951,7 @@ export function drawQuoteCard(canvas, model, theme) {
         // which is the whole of what the control promises.
         const face = model.swap ? order[SIDES.length - 1 - i] : order[i]
         if (!face) return
-        const painted = fadedPortrait(faceCache.get(face.url), pw, ph, side.fade, model.colorHex)
+        const painted = fadedPortrait(faceCache.get(face.url), pw, ph, side.fade, model.colorHex, theme.cardTop)
         if (painted) ctx.drawImage(painted, side.x, M, pw, ph)
       })
     }
@@ -894,10 +1006,12 @@ export function drawQuoteCard(canvas, model, theme) {
   // the backdrop put down, so it all reads through the same halo. The tag pills
   // included: a translucent accent chip over a photograph is exactly as hard to
   // find as a word is.
-  setHalo(ctx, theme, backdrop)
+  // Re-sized PER BLOCK rather than once for the walk, because the radius now
+  // follows the type — see HALO_RATIO.
   let top = M + CP
   blocks.forEach((b, i) => {
     if (i) top += b.gap
+    setHalo(ctx, theme, backdrop, b.px)
     if (b.kind === 'text') {
       // A block carrying leadFaces hangs the disc cluster inline and centres its
       // (shorter) text against the disc height, so the name sits on the same line
@@ -909,13 +1023,13 @@ export function drawQuoteCard(canvas, model, theme) {
         ctx.font = b.preFont
         ctx.fillStyle = b.color
         ctx.textBaseline = 'alphabetic'
-        ctx.fillText(b.pre, innerX, textTop + b.lh * 0.76)
+        paintText(ctx, b.pre, innerX, textTop + b.lh * 0.76, passes)
       }
-      drawTextBlock(ctx, b.lines, innerX + (b.lead || 0), textTop, b.lh, b.color, b.ls)
+      drawTextBlock(ctx, b.lines, innerX + (b.lead || 0), textTop, b.lh, b.color, b.ls, passes)
     } else if (b.kind === 'note') {
       ctx.fillStyle = theme.accent
       ctx.fillRect(innerX, top + 4, 3, b.lh * 0.62)
-      drawTextBlock(ctx, b.lines, innerX + 12, top, b.lh, b.color)
+      drawTextBlock(ctx, b.lines, innerX + 12, top, b.lh, b.color, null, passes)
     } else if (b.kind === 'tags') {
       ctx.font = FONTS.tag
       ctx.textBaseline = 'middle'
@@ -924,13 +1038,29 @@ export function drawQuoteCard(canvas, model, theme) {
         let x = innerX
         for (const pill of row) {
           roundRectPath(ctx, x, rowTop, pill.w, TAG_H, 7)
-          ctx.fillStyle = hexToRgba(theme.accent, 0.12)
+          // THE CHIP IS A FILLED CHIP, and it was the one part of the card that
+          // disagreed with the app about what a tag looks like. `.tag-chip` in
+          // index.css is a solid coloured pill with INK on it; this drew accent
+          // text on a 12% accent wash, which is a tint of whatever is behind it —
+          // so on a plain card it measured 4.37:1 and on a dark card over a
+          // photograph 2.39:1, against a 4.5:1 floor. The halo could not save it
+          // either: a halo surrounds glyphs, and what had gone missing was the
+          // chip.
+          //
+          // So: an opaque coat of the card's surface, the accent at a strength
+          // that reads as a colour rather than a hint, and the label in the
+          // card's own ink — which is the app's chip, in the card's palette,
+          // and is legible in both modes because the ink and the surface under
+          // it are the pair the mode already guarantees.
+          ctx.fillStyle = theme.cardTop
+          ctx.fill()
+          ctx.fillStyle = hexToRgba(theme.accent, 0.3)
           ctx.fill()
           ctx.lineWidth = 1
-          ctx.strokeStyle = hexToRgba(theme.accent, 0.4)
+          ctx.strokeStyle = hexToRgba(theme.accent, 0.55)
           ctx.stroke()
-          ctx.fillStyle = theme.accent
-          ctx.fillText(pill.text, x + TAG_PADX, rowTop + TAG_H / 2 + 1)
+          ctx.fillStyle = inks.ink
+          paintText(ctx, pill.text, x + TAG_PADX, rowTop + TAG_H / 2 + 1, passes)
           x += pill.w + TAG_GAP
         }
       })
@@ -972,20 +1102,26 @@ export function drawQuoteCard(canvas, model, theme) {
   // baseline both read as floating.
   const base = footTop + 21
   const markInk = MARK_SIZE * MARK_INK
+  // The footer had the worst of it — 11px in the faintest ink on the card, over
+  // the bottom of a portrait that runs the card's full height, which measured
+  // 1.14:1. It is only a credit, but a credit nobody can read is the same as one
+  // that was cropped off. Sized to the small type it actually sets, not to the
+  // 15px default.
+  setHalo(ctx, theme, backdrop, fontPx(FONTS.credit))
   drawMark(ctx, innerX, base - FOOT_CAP / 2 - markInk / 2, MARK_SIZE, theme.dark)
   let fx = innerX + MARK_SIZE + 7
-  ctx.fillStyle = theme.faint
+  ctx.fillStyle = inks.faint
   ctx.textBaseline = 'alphabetic'
   ctx.font = FONTS.credit
   // The wordmarks below it are the app's name and stay as they are in every
   // language; this is the only word on the footer line that is copy.
   const madeWith = t('share.image.footer.credit.label')
-  ctx.fillText(madeWith, fx, base)
+  paintText(ctx, madeWith, fx, base, passes)
   fx += ctx.measureText(madeWith).width + 6
   ctx.font = FONTS.foot
-  ctx.fillText('tippani', fx, base)
+  paintText(ctx, 'tippani', fx, base, passes)
   fx += ctx.measureText('tippani').width + 8
   ctx.font = FONTS.bengali
-  ctx.fillText('টিপ্পনী', fx, base)
+  paintText(ctx, 'টিপ্পনী', fx, base, passes)
   setHalo(ctx, theme, false)
 }

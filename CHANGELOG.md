@@ -5,6 +5,51 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **Share images with a portrait backdrop are readable again.** Turning a credited
+  person into the card's backdrop put a photograph behind every word on it, and the
+  small print never survived the trip. Measured against the palette, the credit line —
+  the author's name, the book's title, the year — came out at **1.35:1** over a dark
+  part of the portrait, and the "made with tippani" footer at **1.14:1**, where 4.5:1
+  is the floor for body text. Even the quote itself only reached 3.64:1. The tag chips
+  fared worst of all: a 12%-accent wash tints whatever is behind it, so over a face
+  they stopped being chips. It affected every kind of card equally — a book's
+  annotation, a film's dialogue, a standalone quote — because all three are drawn by
+  the same renderer.
+
+  The halo around each word was already there and was never going to be enough on its
+  own: it gives type back a few pixels of paper, not contrast against the paper it now
+  has. So the fix works on all three of the things that were wrong. The **photograph**
+  is washed with the card's own surface colour before it is faded, which raises its
+  floor in light mode and lowers its ceiling in dark, turning a full-range image into a
+  band one ink can beat everywhere rather than in most places; because that happens
+  inside the portrait's own buffer, ahead of the alpha mask, it fades out with the face
+  instead of ending in a seam. The **secondary inks** step up one on a backdrop card —
+  the credit takes the quote's ink, the footer takes the credit's — since the hierarchy
+  there was never carried by colour alone, and 27px italic against 11.5px mono caps
+  goes on saying which is which. And the **halo** itself is now sized to the type it
+  sits under rather than a flat 8px for everything (which was a tight outline on the
+  quote and a wash wider than the letters on the meta line, giving the smallest text
+  the weakest surround), and painted three times, so it compounds towards opacity
+  around each glyph while its outer falloff stays soft. Tag pills get an opaque coat of
+  the card's surface under their wash. Measured off the rendered PNGs, the small print
+  goes from 3.2–5.5:1 to 6.8–13.1:1 — from under the floor to over it in all four
+  combinations of kind and theme.
+
+  The portrait is a little quieter than it was, and the point at which it starts to
+  fade moved earlier: the old fade held the photograph at full strength for exactly the
+  span the credit line begins in, and had shed under a tenth of it by the first letter.
+
+- **Tag chips on the share picture are legible, and are the app's chips.** They were
+  accent-coloured text on a 12% accent wash — a tint of whatever is behind it, which
+  measured 4.37:1 on a plain card and 2.39:1 on a dark card over a photograph. The app's
+  own `.tag-chip` has never looked like that: it is a filled pill with ink on it. The
+  card now draws the same thing in its own palette, which fixes the contrast (9.7:1 and
+  10.8:1) and stops the picture disagreeing with the screen it is a picture of.
+
 ## [2.2.9] - 2026-08-25
 
 ### Fixed
