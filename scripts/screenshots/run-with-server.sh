@@ -3,7 +3,17 @@
 # needs_onboarding and the scaffold's signup path actually runs), waits for it to
 # answer healthcheck the same way ci.yml's smoke test does, runs capture.mjs
 # against it, then tears the server down. Nothing here touches a real data dir.
+#
+# With --seed, seed.mjs runs first and fills the account with the fixture library, so
+# the captures show populated screens. That flag is consumed here and every other
+# argument is passed through to capture.mjs untouched.
 set -euo pipefail
+
+SEED=0
+ARGS=()
+for a in "$@"; do
+  if [ "$a" = "--seed" ]; then SEED=1; else ARGS+=("$a"); fi
+done
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 BIN="$(mktemp -d)/tippani"
@@ -31,7 +41,15 @@ done
 cd "$(dirname "${BASH_SOURCE[0]}")"
 if [ ! -d node_modules ]; then
   echo "installing scaffold dependencies (puppeteer-core)"
-  npm install
+  npm ci
 fi
 
-node capture.mjs --base-url "http://$BIND" "$@"
+# Before the browser, not during it: seeding creates the account too, so capture.mjs
+# then takes its login path rather than its signup path. A failure here stops the run —
+# capturing an empty library after asking for a seeded one would be a silently wrong
+# result, and every screenshot would be of the wrong thing.
+if [ "$SEED" = 1 ]; then
+  node seed.mjs --base-url "http://$BIND"
+fi
+
+node capture.mjs --base-url "http://$BIND" ${ARGS[@]+"${ARGS[@]}"}
