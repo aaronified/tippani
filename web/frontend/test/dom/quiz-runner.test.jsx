@@ -375,6 +375,24 @@ describe('what an option is drawn as', () => {
     ],
   })
 
+  // THE CONTRACT, NOT THE CURRENT PAYLOAD. The server sends art OR a person, so
+  // a card carrying both is not something it produces today — which is exactly
+  // why the rule has to be asserted here: it is the client that decides what a
+  // work option looks like, and "we happen not to send a face" is not the same
+  // promise as "a work option never wears one".
+  it('draws the cover and not the face when a card carries both', () => {
+    render(<QuizRunner mode="daily" cards={[mcq({
+      option_meta: [
+        { art: 'persuasion.jpg', person: 'Austen', kind: 'author' },
+        { art: 'emma.jpg', person: 'Austen', kind: 'author' },
+        { art: '', person: 'Brontë', kind: 'author' },
+      ],
+    })]} />)
+    expect(document.querySelector('img[src*="persuasion.jpg"]')).toBeTruthy()
+    expect(screen.queryByText('Austen')).toBeNull()
+    expect(screen.queryByText('Brontë')).toBeNull()
+  })
+
   it('gives a work option its cover and no face', () => {
     const { container } = render(<QuizRunner mode="daily" cards={[withArt()]} />)
     const srcs = [...container.querySelectorAll('img')].map((i) => i.getAttribute('src'))
@@ -433,6 +451,20 @@ describe('a “which quote is from this work?” card', () => {
       { kind: 'book', id: 20 },
       { kind: 'utterance', id: 30 },
     ])
+  })
+
+  // THE CARD OBJECT IS REPLACED UNDER THE RUNNER IN NORMAL USE — an in-card edit
+  // patches it, and a host that re-renders hands down a fresh deck array — which
+  // is what the effect's guard is actually for. Before this case existed, the
+  // "reports once" test below passed against a runner with no guard at all: it
+  // only clicked things that change no dependency.
+  it('reports them once when the card object is handed down again', async () => {
+    const { rerender } = render(<QuizRunner mode="daily" cards={[which()]} />)
+    fireEvent.click(screen.getByText('a line of ours'))
+    await waitFor(() => expect(seen()).toHaveLength(2))
+    rerender(<QuizRunner mode="daily" cards={[which()]} />)
+    await waitFor(() => expect(posted()).toHaveLength(1))
+    expect(seen()).toHaveLength(2)
   })
 
   it('reports them once, however long the card stays on screen', async () => {

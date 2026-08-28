@@ -250,8 +250,13 @@ function QuizOption({ opt, om, personMaps, isWork, revealed, disabled, onPick, s
             </span>
             {/* A PERSON IS SHOWN BY THEIR CHIP — the other half of the same rule,
                 and the only place a face belongs on an option now: where the
-                option IS the person. */}
-            {om?.person && (
+                option IS the person.
+                `!isWork` IS THE RULE AND NOT A GUARD AGAINST A PAYLOAD WE DO NOT
+                SEND. Without it the client draws whatever the card carries, so
+                the promise "a work option never wears a face" would rest on the
+                server happening not to fill the field — and the two halves of one
+                rule would live on opposite sides of the wire. */}
+            {!isWork && om?.person && (
               <span className="mt-1.5 flex" style={{ fontStyle: 'normal' }}>
                 <PersonChip name={om.person} person={personMaps[om.kind]?.[om.person]} size={18} />
               </span>
@@ -675,6 +680,13 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
   //
   // ONCE PER CARD, and never for the card being graded: its own answer moves the
   // schedule properly a few lines up, and a seeing on top would pay it twice.
+  //
+  // THE REF IS THE GUARD AND THE DEPENDENCY LIST IS NOT, because the card OBJECT
+  // is replaced under this component in normal use: an in-card edit patches it,
+  // and a host that re-renders hands down a fresh deck array. Keying the effect
+  // on `card.id` instead would look tighter and would silently be a lie the day a
+  // second card for the same row appeared; keying it on the object and
+  // remembering what has already been reported is the honest version.
   const seenPosted = useRef(new Set())
   useEffect(() => {
     if (!answered) return
@@ -686,7 +698,7 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
       if (om.item_kind === card.kind && om.item_id === card.id) continue
       json('POST', '/review/seen', { kind: om.item_kind, id: om.item_id }).catch(() => {})
     }
-  }, [answered, card.kind, card.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [answered, card]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function advance() {
     posRef.current = i + 1

@@ -127,9 +127,15 @@ func clozeMCQPools() (quizPools, string) {
 		byKey: map[string]workRef{own.key: own, other.key: other, third.key: third},
 		works: []workRef{own, other, third},
 		quotes: []quoteRef{
-			{work: other, kind: kindBook, id: 20, text: "Call me Ishmael, and mind the whaling voyages of the world"},
-			{work: third, kind: kindBook, id: 30, text: "Character is not cut in marble, it is something living and changing"},
-			{work: other, kind: kindBook, id: 21, text: "Whenever it is a damp drizzly November in my very soul indeed"},
+			// THE CARD'S OWN WORK IS IN THE POOL, which is the case the same-work
+			// guard exists for and the case a pool of other people's quotes cannot
+			// test. Written to be a tempting distractor: it shares the card's
+			// opening, so an unguarded selector cuts a phrase out of the same
+			// sentence the blank was cut from.
+			{work: own, kind: kindBook, id: 2, text: "It is a truth universally acknowledged that a single man wants nothing"},
+			{work: other, kind: kindBook, id: 20, text: "Call me Ishmael, whaling voyages haunted Nantucket harbour every damp season"},
+			{work: third, kind: kindBook, id: 30, text: "Character is not cut in marble, something living changing shifting quietly"},
+			{work: other, kind: kindBook, id: 21, text: "Whenever grim drizzly November settles upon my very soul indeed again"},
 		},
 	}
 	return p, own.key
@@ -138,7 +144,12 @@ func clozeMCQPools() (quizPools, string) {
 func TestClozeWithChoicesBlanksTheQuoteAndOffersRealPhrases(t *testing.T) {
 	p, ownKey := clozeMCQPools()
 	text := "It is a truth universally acknowledged that a single man in possession of a good fortune must be in want of a wife"
-	card := reviewCard{Kind: kindBook, ID: 1, Direction: dirClozeMCQ, Quote: text, Title: "Pride and Prejudice"}
+	// A HALF-LIFE PAST THE MULTI-WORD RUNG, so the blank is three words wide.
+	// With a one-word answer every "same shape" assertion below is satisfied by
+	// accident — a selector that always cuts single words passes it — and the
+	// widest blank is the one where the distractors' shape actually matters.
+	card := reviewCard{Kind: kindBook, ID: 1, Direction: dirClozeMCQ, Quote: text,
+		Title: "Pride and Prejudice", Stability: clozeMultiWordFrom + 1}
 	if !attachClozeMCQ(&card, ownKey, p, 11, clozeMultiWordFrom) {
 		t.Fatal("a quote this long could not be blanked with choices")
 	}
@@ -159,6 +170,9 @@ func TestClozeWithChoicesBlanksTheQuoteAndOffersRealPhrases(t *testing.T) {
 	// EVERY OPTION IS THE SAME SHAPE. Three one-word options beside a three-word
 	// answer would give the card away without reading any of them.
 	want := len(strings.Fields(answer))
+	if want < 2 {
+		t.Fatalf("this card was meant to have a multi-word blank; answer = %q", answer)
+	}
 	for _, o := range card.Options {
 		if len(strings.Fields(o)) != want {
 			t.Errorf("option %q is %d words, the answer is %d", o, len(strings.Fields(o)), want)
@@ -173,6 +187,46 @@ func TestClozeWithChoicesBlanksTheQuoteAndOffersRealPhrases(t *testing.T) {
 	}
 	if right != 1 {
 		t.Errorf("%d of %v grade as correct — a card with two right answers", right, card.Options)
+	}
+}
+
+// NO DISTRACTOR IS CUT OUT OF THE CARD'S OWN WORK, and the interesting case is a
+// THIN library — which is the only one where the rule bites.
+//
+// distractorScore ranks a work below every other work, so in a library with
+// three other quotes the card's own is reached only after the choices are full
+// and the guard never fires. Take the other quotes down to two and the selector
+// walks all the way to it: without the guard the card offers a phrase out of the
+// very sentence the blank was cut from, which is not a wrong answer so much as a
+// second reading of the right one.
+func TestClozeWithChoicesNeverCutsADistractorOutOfTheCardsOwnWork(t *testing.T) {
+	own := workRef{key: "book:1", kind: kindBook, title: "Pride and Prejudice", author: "Jane Austen",
+		genres: map[string]bool{}, actors: map[string]bool{}}
+	other := workRef{key: "book:2", kind: kindBook, title: "Moby-Dick", author: "Herman Melville",
+		genres: map[string]bool{}, actors: map[string]bool{}}
+	sameBook := "It is a truth universally acknowledged that a single man wants nothing"
+	p := quizPools{
+		byKey: map[string]workRef{own.key: own, other.key: other},
+		works: []workRef{own, other},
+		quotes: []quoteRef{
+			{work: own, kind: kindBook, id: 2, text: sameBook},
+			{work: other, kind: kindBook, id: 20, text: "Call me Ishmael, whaling voyages haunted Nantucket harbour every damp season"},
+			{work: other, kind: kindBook, id: 21, text: "Whenever grim drizzly November settles upon my very soul indeed again"},
+		},
+	}
+	card := reviewCard{Kind: kindBook, ID: 1, Direction: dirClozeMCQ, Title: "Pride and Prejudice",
+		Stability: clozeMultiWordFrom + 1,
+		Quote:     "It is a truth universally acknowledged that a single man in possession of a good fortune must be in want of a wife"}
+	if !attachClozeMCQ(&card, own.key, p, 11, clozeMultiWordFrom) {
+		t.Fatal("two other quotes should still make a question")
+	}
+	for i, o := range card.Options {
+		if i == card.Answer {
+			continue
+		}
+		if strings.Contains(sameBook, o) {
+			t.Errorf("distractor %q was cut out of the card's own work", o)
+		}
 	}
 }
 

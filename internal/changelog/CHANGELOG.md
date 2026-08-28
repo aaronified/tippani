@@ -97,6 +97,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A work option could still wear somebody's face.** The rule — a work is shown by
+  its picture, a person by their chip — was enforced only by the server not filling the
+  field: the card drew a portrait whenever one was present, whatever kind of option it
+  was. So the two halves of one rule lived on opposite sides of the wire, and either
+  half changing would have brought the face back. Found by mutating the code and
+  watching the tests not notice.
+
 - **Fill in the blank no longer marks a close synonym wrong.** Grading measured how far
   the letters had travelled, which is exactly the wrong instrument for recall: "silent"
   for "quiet" is nine edits away and is somebody who has the sentence, while "fast" for
