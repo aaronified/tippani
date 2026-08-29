@@ -139,7 +139,35 @@ function tokensFor(set, accent, dark) {
   const tile = (s.getPropertyValue('--tile-shell') || '').trim().replace(/^var\(--tile-|\)$/g, '')
   const veil = parseFloat(s.getPropertyValue('--sel-veil')) / 100
   const onAccent = (s.getPropertyValue('--on-accent') || '').trim()
-  return { tile, veil, onAccent }
+  return {
+    tile,
+    veil,
+    onAccent,
+    // The bar the UNSELECTED half of the same control sits on. Written by
+    // applyTheme from the palette, so these are read rather than copied.
+    barTop: (s.getPropertyValue('--topbar-top') || '').trim(),
+    barBottom: (s.getPropertyValue('--topbar-bottom') || '').trim(),
+    soft: (s.getPropertyValue('--soft') || '').trim(),
+    ink: (s.getPropertyValue('--ink') || '').trim(),
+  }
+}
+
+// ---- the bar ---------------------------------------------------------------
+//
+// A textured BAR is not a textured fill and does not use the operator. `.topbar`,
+// `.mobile-topbar` and `.mobile-bottom-nav` each lay their tile in a ::before at
+// `opacity: .17` with `mix-blend-mode: multiply` — `.1` and `screen` in the dark
+// theme, because multiplying a grey tile over a dark ground makes mud. So the
+// arithmetic below is that rule and not fillPixel's, and the guard beside it
+// fails if the stylesheet stops saying so.
+const BAR_ALPHA = { light: 0.17, dark: 0.1 }
+function barPixel(base, tileValue, dark) {
+  const t = tileValue / 255
+  const a = dark ? BAR_ALPHA.dark : BAR_ALPHA.light
+  return base.map((c) => {
+    const blended = dark ? 255 - ((255 - c) * (255 - tileValue)) / 255 : c * t
+    return c + (blended - c) * a
+  })
 }
 
 // ---- the assertions --------------------------------------------------------
@@ -155,6 +183,19 @@ const FLOOR = 3.0
 // fill stops being calibrated, whatever the palette does, and it fails for a
 // loud tile in a set nobody has looked at yet.
 const MAX_TEXTURE_COST = 0.2
+
+// The bar's own debt register, the same bargain text-readability.test.jsx makes:
+// a pair listed here may be below its floor and may NOT get worse. Empty is the
+// goal; deleting an entry is how a fix is recorded.
+const BAR_KNOWN = {
+  // Measured 2026-08-29, on the first run of the bar half. Every set fails in
+  // LIGHT mode and none in dark, and the spread across sets is only 0.25 — so
+  // this is the --soft token against --topbar-top, not the texture: even Atrium,
+  // which lays no tile at all, measures 4.07. Recorded rather than patched here
+  // because darkening --soft is a palette decision that moves every muted label
+  // in the app, not a bug in the bar.
+  'an unselected nav tab (--soft)': 3.82, // floor 4.5 — quarry/light is worst
+}
 
 const GRAINS = [
   ['a toggle or select thumb (--grain-accent)', 130],
@@ -242,4 +283,86 @@ describe('a label on a selection fill', () => {
       expect(failures, `grain is eating the label: ${failures.join(', ')}`).toEqual([])
     })
   }
+})
+
+// The other half of the control the report was about. The SELECTED tab rides the
+// accent thumb and is measured above; the tabs beside it sit on the bar itself,
+// in --soft, over the same loud tile — and nothing measured that. A set whose
+// shell is suede or sandstone puts every unselected label on it, so the failure
+// this file was written for has a resting-state twin.
+describe('a label on a textured bar', () => {
+  const cases = []
+  for (const set of Object.keys(MAT_SETS)) {
+    for (const dark of [false, true]) cases.push([set, dark])
+  }
+
+  const bands = new Map()
+  const FLAT_BAND = { pLo: 128, pHi: 128, lLo: 128, lHi: 128 }
+  // --grain-shell-sm, which is the size every BAR draws its tile at; the drawer
+  // keeps the full --grain-shell and is a panel rather than a bar.
+  const BAR_GRAIN = 185
+  beforeAll(async () => {
+    for (const set of Object.keys(MAT_SETS)) {
+      const { tile } = tokensFor(set, 'terracotta', false)
+      bands.set(tile, tile === 'flat' ? FLAT_BAND : await tileBand(tile, BAR_GRAIN))
+    }
+  })
+
+  it('lays its tile the way this assumes — multiply at .17, screen at .1', () => {
+    expect(CSS).toContain('background-size: var(--grain-shell-sm);')
+    expect(CSS).toMatch(/opacity: \.17;\s*\n\s*mix-blend-mode: multiply;/)
+    expect(CSS).toMatch(/mix-blend-mode: screen;\s*\n\s*opacity: \.1;/)
+  })
+
+  // 4.5:1. A nav label is 15px at weight 600, which is not "large text" under
+  // 1.4.3 (that starts at 18.66px bold), so it takes the full floor — unlike the
+  // selected label above, which is the same size but carries a halo over a fill
+  // whose palette tops out below 4.5 anyway.
+  for (const [id, token, floor] of [
+    ['an unselected nav tab (--soft)', 'soft', 4.5],
+    ['the bar\'s own ink (--ink)', 'ink', 4.5],
+  ]) {
+    it(`clears ${floor}:1 for ${id}, in every set and mode`, () => {
+      const failures = []
+      for (const [set, dark] of cases) {
+        const k = tokensFor(set, 'terracotta', dark)
+        const band = bands.get(k.tile)
+        const ink = relLum(...hex(k[token]))
+        let worst = Infinity
+        // Both ends of the bar's vertical gradient, and both extremes of the
+        // tile at letter scale.
+        for (const stop of [hex(k.barTop), hex(k.barBottom)]) {
+          for (const v of [band.lLo, band.lHi]) {
+            worst = Math.min(worst, wcag(ink, relLum(...barPixel(stop, v, dark))))
+          }
+        }
+        if (worst < (BAR_KNOWN[id] ?? floor)) {
+          failures.push(`${set}/${dark ? 'dark' : 'light'} = ${worst.toFixed(2)}:1`)
+        }
+      }
+      expect(failures, `${id}: ${failures.join(', ')}`).toEqual([])
+    })
+  }
+
+  // The regression guard proper, and the reason the row above can be recorded
+  // rather than fixed: whatever the palette does, the TILE may not eat the bar's
+  // contrast. Atrium lays none at all, so it is the control — the same bar with
+  // its texture switched off.
+  it(`spends less than ${MAX_TEXTURE_COST * 100}% of a label's contrast on grain`, () => {
+    const failures = []
+    for (const [set, dark] of cases) {
+      const k = tokensFor(set, 'terracotta', dark)
+      const band = bands.get(k.tile)
+      const ink = relLum(...hex(k.soft))
+      for (const stop of [hex(k.barTop), hex(k.barBottom)]) {
+        // 128 is the tile's own mean: the same bar with no grain on it.
+        const flat = wcag(ink, relLum(...barPixel(stop, 128, dark)))
+        for (const v of [band.lLo, band.lHi]) {
+          const cost = (flat - wcag(ink, relLum(...barPixel(stop, v, dark)))) / flat
+          if (cost > MAX_TEXTURE_COST) failures.push(`${set}/${dark ? 'dark' : 'light'} loses ${(cost * 100).toFixed(0)}%`)
+        }
+      }
+    }
+    expect(failures, `grain is eating the bar: ${failures.join(', ')}`).toEqual([])
+  })
 })

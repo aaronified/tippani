@@ -279,15 +279,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   measures the old and new grain against each other across every skin and holds them to
   within a hundredth of a contrast point.
 
-- **A readability inventory for the interface's own text.** Twenty-four ink-on-paper pairs
-  — buttons, labels, links, status text, menu rows, control borders — measured across all
-  fifty-six skins (seven material sets × four accents × two modes). The sample runs before
-  every commit; `TIPPANI_FULL_A11Y=1` runs every row and every state. Twelve pairs are
-  below their WCAG floor today and are recorded with the number they currently measure,
-  so they cannot get worse while they wait to be decided. The worst is the top bar's
-  **Add** button at 2.62:1, which is an inconsistency rather than a palette choice: the
-  primary button switches its ink for the dark theme's lighter accent fill and the Add
-  button, wearing the same fill one bar up, does not.
+- **A readability inventory for the interface's own text.** Thirty-five ink-on-paper pairs
+  — every button and every state it has, chips, the segmented toggle, labels, links, status
+  text, menu rows, control borders — measured across all sixty-four skins (eight material
+  sets × four accents × two modes). Twelve of the pairs run before every commit, one per
+  kind of thing; `TIPPANI_FULL_A11Y=1` runs all thirty-five and every state. Fourteen are
+  below their WCAG floor today and are recorded with the number they currently measure, so
+  they cannot get worse while they wait to be decided; two more — a disabled primary and a
+  disabled danger button — are pinned rather than owed, since 1.4.3 exempts inactive
+  controls. The worst is the top bar's **Add** button at 2.62:1, which is an inconsistency
+  rather than a palette choice: the primary button switches its ink for the dark theme's
+  lighter accent fill and the Add button, wearing the same fill one bar up, does not.
+
+- **And for the labels on the app's textured bars, which nobody had measured.** The
+  readability work that came out of the Quarry and Bindery report measured the *selected*
+  tab — the one riding the accent thumb — and stopped there. The tabs beside it sit on the
+  bar itself, in `--soft`, over the same loud tile, and that pair measures **3.82:1 in
+  Quarry** and 3.94 in Bindery against a 4.5 floor. It is the token and not the texture:
+  every set fails in light mode, none in dark, and Atrium — which lays no tile at all —
+  measures 4.07, so the grain is worth a quarter of a point of the shortfall and the
+  palette the rest. Recorded, with a guard beside it that fails if a future tile ever costs
+  a bar label more than a fifth of its contrast.
 
 - **The Updates card now says why there is no one-click update, and the README says what
   the socket route actually needs.** Mounting `docker.sock` was never enough on its own —

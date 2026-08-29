@@ -119,6 +119,10 @@ const INVENTORY = [
     ink: T('faint'), paper: T('raised') },
   { id: 'faint text on the page', kind: 'small', min: 3.0, where: '.microcopy on --bg',
     ink: T('faint'), paper: T('bg') },
+  { id: 'soft text on the page', kind: 'text', min: 4.5, where: '--soft on --bg, between cards',
+    ink: T('soft'), paper: T('bg') },
+  { id: 'body ink on a raised panel', kind: 'text', min: 4.5, where: '--ink on --raised',
+    ink: T('ink'), paper: T('raised') },
   { id: 'input placeholder', kind: 'small', min: 3.0, where: '.tp-input::placeholder — index.css:1137',
     ink: T('faint'), paper: T('card') },
   { id: 'accent kicker on a card', kind: 'small', sample: true, min: 3.0, where: '.kicker — index.css',
@@ -161,6 +165,37 @@ const INVENTORY = [
     paper: (k) => parse(k.dark
       ? 'color-mix(in oklab, var(--accent-dark), white 12%)'
       : 'color-mix(in oklab, var(--accent), white 14%)', k) },
+  { id: 'primary button label, disabled', kind: 'text', min: 3.0, where: '.tp-btn:disabled { opacity: .55 } over .tp-btn-primary — index.css:815',
+    // The fill fades toward the card with the label, so BOTH sides move; the
+    // gradient's light end is still the harder half.
+    ink: (k) => over(parse(k.dark ? k['on-accent-dark'] : k['on-accent'], k), parse(k.card, k), 0.55),
+    paper: (k) => over(parse(k.dark
+      ? 'color-mix(in oklab, var(--accent-dark), white 12%)'
+      : 'color-mix(in oklab, var(--accent), white 14%)', k), parse(k.card, k), 0.55) },
+  { id: 'danger button label, disabled', kind: 'text', min: 3.0, where: '.tp-btn-danger:disabled — index.css:815,907',
+    ink: (k) => over(parse(k.error, k), parse(k.card, k), 0.55),
+    paper: T('card') },
+
+  // --- chips: a label pill, and the same pill made clickable ---
+  { id: 'chip label', kind: 'small', sample: true, min: 3.0, where: '.tp-chip — index.css:3449',
+    ink: T('soft'), paper: T('raised') },
+  { id: 'chip button', kind: 'text', min: 4.5, where: '.tp-chip-btn — index.css:3468',
+    ink: T('accent-ui'), paper: T('raised') },
+  { id: 'chip button, hovered', kind: 'text', min: 4.5, where: '.tp-chip-btn:hover — index.css:3469',
+    ink: T('ink'), paper: T('card') },
+  { id: 'chip border', kind: 'edge', min: 3.0, where: '.tp-chip border — index.css:3449',
+    ink: T('line'), paper: T('raised') },
+
+  // --- the segmented toggle, at rest ---
+  //
+  // ONLY THE UNSELECTED HALF IS HERE. The selected one rides the textured accent
+  // thumb, which is not a colour — surface-readability.test.jsx composites that
+  // fill against its tile and measures the label on it, in every set, accent and
+  // mode. Measuring --on-accent against a flat accent here would report a number
+  // the screen never shows.
+  { id: 'toggle option at rest', kind: 'text', sample: true, min: 4.5, where: '.tp-toggle-opt on .tp-toggle — index.css:504,469',
+    ink: T('soft'), paper: T('card') },
+
   { id: 'link on a card', kind: 'text', sample: true, min: 4.5, where: '.tp-link — index.css:3435',
     ink: T('soft'), paper: T('card') },
   { id: 'link, hovered', kind: 'text', min: 4.5, where: '.tp-link:hover — index.css',
@@ -190,7 +225,20 @@ const INVENTORY = [
 
 // ---- the skins -------------------------------------------------------------
 
+// MEMOISED, because the sweep asks for the same sixty-four skins once per row and
+// applyTheme + getComputedStyle is the expensive half. The value is a plain
+// snapshot and nothing downstream reads the DOM again, so handing back the same
+// object is handing back the same answer — 64 theme applications for the whole
+// file instead of 64 per row, which is the difference between this finishing and
+// this timing out as rows are added.
+const tokenCache = new Map()
 function tokensFor(set, accent, dark) {
+  const key = `${set}/${accent}/${dark}`
+  if (!tokenCache.has(key)) tokenCache.set(key, readTokens(set, accent, dark))
+  return tokenCache.get(key)
+}
+
+function readTokens(set, accent, dark) {
   applyTheme({ materialSet: set, accent, theme: dark ? 'dark' : 'light' })
   const s = getComputedStyle(document.documentElement)
   const read = (n) => (s.getPropertyValue('--' + n) || '').trim()
@@ -241,6 +289,16 @@ const KNOWN = {
   'menu row, current': 2.31, // floor 4.5 — accent ink on a 13% accent tint
   'input border': 2.27, // floor 3.0 (1.4.11)
   'card divider': 1.33, // floor 3.0 — a hairline between rows, not a control edge
+  'chip button': 2.42, // floor 4.5 — the same ochre --accent-ui, one paper up
+  'chip border': 1.29, // floor 3.0 — the same hairline as the divider, on --raised
+
+  // PINNED, NOT DEBT. WCAG 1.4.3 exempts inactive user interface components, so
+  // these two are not shortfalls and deleting the entry is not how they get
+  // fixed — the row exists so a disabled control cannot quietly fade further
+  // than it already does. `opacity: .55` moves the ink AND the fill toward the
+  // paper, which is why a disabled primary reads worse than a disabled ghost.
+  'primary button label, disabled': 1.85,
+  'danger button label, disabled': 2.15,
 }
 
 function measure(row, skin) {
