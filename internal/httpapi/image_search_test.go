@@ -262,3 +262,64 @@ func TestGoogleCSECredentialsAreStoredWriteOnlyExceptTheEngineID(t *testing.T) {
 		t.Fatal("saving one half cleared the other")
 	}
 }
+
+// AMAZON IS A SHOP, SO IT IS ASKED ONLY ABOUT THINGS SOMEBODY SELLS.
+//
+// The bug this pins: a portrait or a character strip consulted the Amazon
+// search scrape, which cannot return a face and always returns something —
+// merchandise for the role, the actor's own DVDs, an author's books — so the
+// strip filled up with confident, well-lit, entirely wrong pictures and pushed
+// the suppliers that do have faces out of the cap.
+//
+// Both halves are asserted because they fail independently: the scrape not
+// being CALLED, and `sources.amazon` not CLAIMING it as a live supplier for a
+// kind it will never answer. The second is what the client uses to tell
+// "nothing found" from "nothing configured", so a false claim there makes the
+// reader go looking for a setting that would not have helped.
+func TestAmazonIsNotConsultedForFaces(t *testing.T) {
+	var amazonHits int
+	amazon := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		amazonHits++
+		fmt.Fprint(w, `<img src="https://m.media-amazon.com/images/I/shop._SY300_.jpg">`)
+	}))
+	defer amazon.Close()
+	cse := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprint(w, `{"items":[]}`)
+	}))
+	defer cse.Close()
+	metadata.SetImageSearchBasesForTest(t, cse.URL, amazon.URL)
+
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	c.mustDo("PUT", "/admin/metadata-keys", map[string]any{
+		"google_cse_key": "k", "google_cse_cx": "cx", "amazon_cookie": "session=1",
+	}, 200)
+
+	for _, tc := range []struct {
+		kind string
+		body map[string]any
+		want bool // may Amazon answer this kind?
+	}{
+		{"portrait", map[string]any{"kind": "portrait", "name": "Hugo Weaving"}, false},
+		{"character", map[string]any{"kind": "character", "name": "V",
+			"actor": "Hugo Weaving", "title": "V for Vendetta", "media_type": "movie"}, false},
+		// The two it is right for, asserted in the same table so that a change
+		// which silences Amazon everywhere fails here rather than passing quietly.
+		{"cover", map[string]any{"kind": "cover", "title": "Dune", "author": "Frank Herbert"}, true},
+		{"poster", map[string]any{"kind": "poster", "title": "Heat", "media_type": "movie"}, true},
+	} {
+		t.Run(tc.kind, func(t *testing.T) {
+			amazonHits = 0
+			got := decode[imageSearchResp](t, c.mustDo("POST", "/images/search", tc.body, 200))
+			if (amazonHits > 0) != tc.want {
+				t.Errorf("amazon consulted = %t for kind %q, want %t",
+					amazonHits > 0, tc.kind, tc.want)
+			}
+			if got.Sources.Amazon != tc.want {
+				t.Errorf("sources.amazon = %t for kind %q, want %t — the client cannot "+
+					"tell an unasked supplier from an empty one",
+					got.Sources.Amazon, tc.kind, tc.want)
+			}
+		})
+	}
+}

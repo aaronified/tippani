@@ -223,6 +223,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Amazon stopped answering when the picture wanted is a face.** The picture strip
+  asked every configured supplier for every kind of image, and one of those suppliers
+  is a shop. Asked for a poster or a cover, that is exactly right — somebody sells
+  the thing being pictured. Asked for "Hugo Weaving as V", it returns the DVD, a mask and
+  a T-shirt; asked for an author, it returns their books. All of them are confident,
+  well-lit, entirely wrong, and because they arrive first they crowded the strip's
+  cap and pushed out the suppliers that do have faces. Amazon is now consulted for
+  covers and posters only. The keyless ISBN/ASIN cover lookup is untouched — it was
+  never a search — and the "is a supplier configured?" flag follows the same rule, so
+  a portrait strip no longer reports a live Amazon it will never be asked.
+
 - **The share picture's backdrop froze the page for seconds, and it was never the
   photograph.** "Clicking share shows a 'slowing down' message from the browser; the
   backdrop takes 5-10s to render." Measured in Firefox, the entire portrait pipeline —

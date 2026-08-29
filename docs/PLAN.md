@@ -2965,9 +2965,20 @@ A standalone film fails the other way. Nothing scores highly, the distractors sh
 
 **THE PREVIEW AND THE FILE ARE TWO URLS, and that is forced by the CSP.** `img-src` is an allowlist that matches `metadata.coverHosts`, and a web image search returns pictures from hosts that cannot be enumerated in advance — that set is the web. So a hit carries `thumb` (the supplier's own thumbnail host, which CAN be allowlisted — `*.gstatic.com` is the one host added) for the page to draw, and `url` (the original) for the server to fetch once the reader picks it, where no CSP applies. The picker keeps drawing the thumbnail for the pending pick until the save replaces both with a stored file. Rejected: relaxing `img-src` to `https:`, which trades a deliberate allowlist for a convenience; and proxying previews through our own host, which is a new fetch surface for something the reader has not chosen yet.
 
-**Storage is unchanged.** A picked candidate goes through the existing user-typed-URL path (`fetchUserImage`) — no host allowlist, every other guard intact — which is what makes an image from an arbitrary host storable at all, and is the same path a pasted address has always taken.
+**AMAZON IS A SHOP, SO IT IS ASKED ONLY ABOUT THINGS SOMEBODY SELLS.** The search-page
+scrape answers `cover` and `poster` and nothing else. It was originally asked for every
+kind, on the reasoning that a configured supplier should be allowed to contribute — and
+that is wrong for a face in a way it is not wrong for a work. Amazon indexes PRODUCTS, so
+"Hugo Weaving as V" returns the DVD, a mask and a T-shirt, and an author returns their
+books: not an empty answer, which would be harmless, but a confident and well-lit wrong
+one, arriving early enough to spend the strip's cap on. A whitelist rather than a
+blacklist, so a `kind` added later gets no Amazon until somebody decides it should. The
+keyless ISBN/ASIN CDN probe is a different supplier and is untouched — it was never a
+search. Rejected: ranking Amazon last for faces instead of excluding it, which still
+spends requests to produce merchandise, and leaves the reader deciding whether a T-shirt
+is a portrait.
 
-**A ROLE IS A FOURTH KIND, and it is the one with no supplier at all.** `kind: "character"` searches for the person IN the part: "ACTOR as CHARACTER in TITLE the movie", because "as" is how a still is captioned wherever pictures of one are published — the character and the title alone find the poster, and the actor alone finds a red carpet. Without a credited actor (a book's character, a game's typed cast) the sentence loses its subject and the role is named as a role: "CHARACTER character in TITLE the book". TheTVDB has an image per role and is the only supplier that has ever had one, so before this every TMDB-sourced row, every game and every book character could only be given a picture by pasting an address.
+**Storage is unchanged.** A picked candidate goes through the existing user-typed-URL path (`fetchUserImage`) — no host allowlist, every other guard intact — which is what makes an image from an arbitrary host storable at all, and is the same path a pasted address has always taken.
 
 **A ROLE IS A FOURTH KIND, and it is the one with no supplier at all.** `kind: "character"` searches for the person IN the part: "ACTOR as CHARACTER in TITLE the movie", because "as" is how a still is captioned wherever pictures of one are published — the character and the title alone find the poster, and the actor alone finds a red carpet. Without a credited actor (a book's character, a game's typed cast) the sentence loses its subject and the role is named as a role: "CHARACTER character in TITLE the book". TheTVDB has an image per role and is the only supplier that has ever had one, so before this every TMDB-sourced row, every game and every book character could only be given a picture by pasting an address.
 

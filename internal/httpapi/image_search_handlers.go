@@ -143,7 +143,7 @@ func (s *Server) handleImageSearch(w http.ResponseWriter, r *http.Request) {
 			add(hits...)
 		}
 	}
-	if cookie != "" {
+	if amazonSuits(kind) && cookie != "" {
 		if hits, err := metadata.AmazonImageSearch(r.Context(), query, cookie, domain, 8); err == nil {
 			add(hits...)
 		}
@@ -153,9 +153,33 @@ func (s *Server) handleImageSearch(w http.ResponseWriter, r *http.Request) {
 		"images": images,
 		"sources": map[string]bool{
 			"google": gkey != "" && gcx != "",
-			"amazon": cookie != "",
+			"amazon": amazonSuits(kind) && cookie != "",
 		},
 	})
+}
+
+// amazonSuits reports whether the Amazon search scrape has any business
+// answering this kind of strip.
+//
+// IT IS A SHOP, AND THAT IS THE WHOLE ARGUMENT. Amazon's search page indexes
+// PRODUCTS, so it answers a title with the edition somebody sells and a poster
+// with the print somebody sells — which is exactly right for a cover and a
+// poster, and worthless for a face. Asked for "Hugo Weaving as V in V for
+// Vendetta", it returns the DVD, a T-shirt and a mask, because those are the
+// things it has; asked for an author's portrait it returns their books. Every
+// one of those is a confident, well-lit, entirely wrong picture, and they crowd
+// out the suppliers that do have faces by filling the strip first.
+//
+// So this is a whitelist and not a blacklist: a kind added later gets no Amazon
+// until somebody decides it should, which is the safe direction for a source
+// whose failure mode is plausible-looking junk rather than an empty strip.
+//
+// THE `sources` FLAG FOLLOWS THE SAME RULE, deliberately. That flag exists so
+// the client can tell "nothing found" from "nothing configured", and reporting
+// Amazon as a live source on a portrait strip it will never contribute to makes
+// the client blame the search for a supplier that was never asked.
+func amazonSuits(kind string) bool {
+	return kind == imageKindCover || kind == imageKindPoster
 }
 
 // amazonCoverURLs is the keyless pair: the ASIN the reader typed, and the
