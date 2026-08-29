@@ -13,8 +13,8 @@
     "web/frontend/vite.config.js"
   ],
   "sha256": {
-    "internal/i18n/bn.txt": "766e03f1c02f2a28448aa2f0c32f772735a19266491264f53ba6719c9fc2715e",
-    "internal/i18n/en.txt": "7849cdd3819a7bbfcf0ddb2333ff56a8839d972e3fbc2e8ed3e5571e0e308927",
+    "internal/i18n/bn.txt": "49a4156b0ccc426af840e57458504d422c6328780ef2714a45a89e11db688102",
+    "internal/i18n/en.txt": "f2b96186bd64a51cd131d79b5d0f9fd433e026e5f60c52bc5c31634c9efd4a2d",
     "web/frontend/index.html": "faa8bb6fc81705b9d9d395a62a9d474414a029c571723bf099f84cb624ce906c",
     "web/frontend/package-lock.json": "d7afffc5b73c431c604bfaff5760d6ef244d1f74b187575d213f3ad353c18715",
     "web/frontend/package.json": "39e3500f352a3cc249a37b894e3fc0a2b2c7e38bd40ba74465fe64d22d0964cd",
@@ -50,7 +50,7 @@
     "web/frontend/src/api.js": "8e2e9dd27689803814f9cd5f98314de6fb1a2a8759490efd97720360297710d4",
     "web/frontend/src/boards.jsx": "70aacfe193857399e3c1c275eab2896021f0a329b493f24e88b545671bfdf1a3",
     "web/frontend/src/bulkOps.jsx": "a0400a83a6cb692f4f72dd889b0eb2319e3c96def190327da8c7c78df5263d50",
-    "web/frontend/src/cast.jsx": "83891aad806617c2c6f1abda35a4ae4ade453a0046d8e94cb2caa859e40ffc4e",
+    "web/frontend/src/cast.jsx": "1b2b6bd1bde5901dd6d5f196bcf2fecd8a831c0c6c941eb7e5c50f65b2b059f1",
     "web/frontend/src/credits.jsx": "40ce8df24ce2ddaf2dcc2e3aef2922ce38353dcc1a1022d436d550e1c52961ba",
     "web/frontend/src/daily.js": "a589a1d1e2f7d6ac928df3d8d7f52e4ddb7481219ec312e71db82d5efed79670",
     "web/frontend/src/demo/install.js": "175b71cb62c52d23f7b1f19b1b7765cbb8e8722359fe474aa6e645714053f4d6",

@@ -21,6 +21,8 @@ let OK_IMAGE
 let OK_PUT
 let IMAGES
 let IMAGE_SOURCES
+let TVDB_NEEDS_ID
+let LOOKUP
 
 vi.mock('../../src/api.js', async (orig) => ({
   ...(await orig()),
@@ -33,7 +35,12 @@ vi.mock('../../src/api.js', async (orig) => ({
       if (!OK_IMAGE) return { ok: true, data: { character_image_path: '' } }
       return { ok: true, data: { ...CAST.find((c) => c.id === id), character_image_path: `stored-${id}.jpg` } }
     }
-    if (method === 'POST' && path.endsWith('/cast/tvdb')) return { ok: true, data: { title: 'Suicide Squad', cast: CAST } }
+    if (method === 'POST' && path.endsWith('/cast/tvdb')) {
+      // The server refuses a row with no TheTVDB id until the reader names one.
+      if (TVDB_NEEDS_ID && !body?.tvdb_id) return { ok: false, status: 409, data: { error: 'this title has no TheTVDB id' } }
+      return { ok: true, data: { title: 'Suicide Squad', cast: CAST } }
+    }
+    if (path === '/movies/lookup') return { ok: true, data: { candidates: LOOKUP } }
     if (path === '/images/search') return { ok: true, data: { images: IMAGES, sources: IMAGE_SOURCES } }
     if (method === 'PUT' && path.startsWith('/cast/')) return OK_PUT ? { ok: true, data: {} } : { ok: false, status: 500, data: {} }
     return { ok: true, data: {} }
@@ -75,6 +82,8 @@ beforeEach(() => {
   ROLE = 'actor'
   FILLED = 0
   OK_IMAGE = true
+  TVDB_NEEDS_ID = false
+  LOOKUP = []
   OK_PUT = true
   IMAGES = []
   IMAGE_SOURCES = { google: false, amazon: false }
@@ -141,6 +150,32 @@ describe('the people panel', () => {
     await waitFor(() => expect(CALLS.some(([m, p]) => m === 'PUT' && p === '/cast/11')).toBe(true))
     const [, , body] = CALLS.find(([m, p]) => m === 'PUT' && p === '/cast/11')
     expect(body).toEqual({ character: 'A. Waller', actor: 'V. Davis' })
+  })
+
+  // THE ROW THAT IS BEING EDITED KEEPS ITS PICTURE. Pressing the pencil used to
+  // swap the whole row for two text boxes, so the reader who opened it BECAUSE a
+  // character's picture was wrong found a form with no picture in it — and every
+  // field sat 44px left of the rows above, because those begin with a face and
+  // this one began with a text box.
+  it('offers the picture from inside the edit form, not only beside it', async () => {
+    await openPanel()
+    await screen.findByText('Amanda Waller')
+    fireEvent.click(screen.getAllByRole('button', { name: /^Edit / })[0])
+    // Still in the edit form — the two boxes are what the pencil opened.
+    expect(screen.getByLabelText(/^Character$/i)).toBeTruthy()
+
+    // The edited row's own face, not a neighbour's — one per row, still.
+    const face = screen.getAllByRole('button', { name: 'Picture for Amanda Waller' })
+    expect(face).toHaveLength(1)
+    fireEvent.click(face[0])
+    fireEvent.change(screen.getByLabelText('Image URL for Amanda Waller'), { target: { value: 'https://example.com/edit.png' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Apply' }))
+    await waitFor(() => {
+      const withBody = posted(/^\/cast\/11\/image$/).filter(([, , b]) => b?.image_url)
+      expect(withBody[0][2].image_url).toBe('https://example.com/edit.png')
+    })
+    // And the names survived the detour: the picture editor is not a mode change.
+    expect(screen.getByLabelText(/^Character$/i).value).toBe('Amanda Waller')
   })
 
   it('adds a character the provider never listed', async () => {
@@ -433,6 +468,44 @@ describe('the cast fetches', () => {
     // NO BODY. A search here is where the wrong cast gets attached to the right
     // work, so the id comes from the row and nothing guesses.
     expect(posted(/^\/movies\/7\/cast\/tvdb$/)[0][2]).toBeUndefined()
+  })
+
+  // THE REFUSAL THAT HAD NOWHERE TO GO. TheTVDB is the only supplier with a
+  // picture per role, and a library matched on TMDB — every library upgraded from
+  // before 2.2.0 — has no id here at all, so this button answered with a sentence
+  // telling the reader to go and use Look up: notice a second supplier is offered,
+  // pick the same title again, take one row out of a merge. Three screens away
+  // from the art, which is how "the character images are not visible anywhere"
+  // stayed true after the art itself was built.
+  it('offers the TheTVDB records for this title when the row has no id', async () => {
+    TVDB_NEEDS_ID = true
+    LOOKUP = [
+      { source: 'tvdb', source_id: '297762', title: 'Suicide Squad', release_year: 2016 },
+      { source: 'tmdb', source_id: '297761', title: 'Suicide Squad', release_year: 2016 },
+    ]
+    render(<CastFills item={{ ...FILM, tvdb_id: 0 }} onFilled={() => {}} />)
+    fireEvent.click(screen.getByRole('button', { name: /Cast from TheTVDB/ }))
+
+    // The search it was telling the reader to go and run, run for them — and
+    // filtered to the supplier that was asked for, so the TMDB row with the same
+    // name cannot be picked into a TheTVDB field.
+    const pick = await screen.findByRole('button', { name: /Suicide Squad · 2016/ })
+    expect(screen.queryAllByRole('button', { name: /Suicide Squad · 2016/ })).toHaveLength(1)
+
+    fireEvent.click(pick)
+    await waitFor(() => {
+      const withID = posted(/^\/movies\/7\/cast\/tvdb$/).filter(([, , b]) => b?.tvdb_id)
+      expect(withID).toHaveLength(1)
+      expect(withID[0][2].tvdb_id).toBe(297762)
+    })
+  })
+
+  it('says so plainly when TheTVDB has no record to offer', async () => {
+    TVDB_NEEDS_ID = true
+    LOOKUP = [{ source: 'tmdb', source_id: '1', title: 'Suicide Squad', release_year: 2016 }]
+    render(<CastFills item={{ ...FILM, tvdb_id: 0 }} onFilled={() => {}} />)
+    fireEvent.click(screen.getByRole('button', { name: /Cast from TheTVDB/ }))
+    expect(await screen.findByText(/no record matching this title/i)).toBeTruthy()
   })
 
   it('hides TheTVDB for a game, which has no record there at all', () => {

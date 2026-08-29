@@ -187,6 +187,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Character pictures, reachable at last — and the row keeps its face while you edit
+  it.** TheTVDB is the only supplier that carries a picture per role, so a library
+  matched on TMDB (which is every library upgraded from before 2.2.0) had no route to
+  character art at all: *Cast from TheTVDB* refused a title with no TheTVDB id and told
+  you to go and use Look up, where you had to notice a second supplier was on offer,
+  find the same title again, and take one row out of a merge. It now runs that search
+  for you and shows the TheTVDB records for this title; picking one fetches the cast and
+  **keeps the id**, so the art stays re-fetchable and nothing else about the record is
+  touched. It still will not choose for you — a cast attached to the wrong film reads as
+  a correct one — and it will never overwrite an id the row already has.
+
+  Separately, pressing the pencil on a cast row swapped the whole row for two text
+  boxes, taking the picture button with it: the reader who opened the editor *because*
+  a character's picture was wrong found a form with no picture in it. The face stays
+  through editing now, which also stops the row jumping 44px left of its neighbours the
+  moment it opens.
+
 - **A pre-release is a run-up to its version, not a successor to it.** Anyone running
   `1.0.0-rc1` was told they were up to date on the day 1.0.0 came out, because the
   version compare stopped at the numbers and read the two as equal. Pre-release

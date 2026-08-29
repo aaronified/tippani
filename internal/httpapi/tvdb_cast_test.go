@@ -275,3 +275,74 @@ func TestTVDBCastFillWithoutAKey(t *testing.T) {
 	srv.TVDB = &metadata.TVDB{} // no key, and no setting behind it in a fresh store
 	c.mustDo("POST", "/movies/"+strconv.FormatInt(id, 10)+"/cast/tvdb", nil, http.StatusServiceUnavailable)
 }
+
+// THE READER NAMING THE RECORD IS NOT THIS HANDLER SEARCHING FOR IT. The refusal
+// above stands for a request that names nothing; what it must not do is stand in
+// the way of a reader who has picked the record — which is the same act as typing
+// the id into the Details panel, and the only road to character art for a library
+// matched on TMDB.
+func TestTVDBCastFillAcceptsAnIDTheReaderNamed(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	m := decode[struct{ ID int64 }](t, c.mustDo("POST", "/movies",
+		map[string]any{"title": "Suicide Squad", "media_type": "movie"}, http.StatusCreated))
+	stub, client, done := newTVDBCastStub(t, tvdbSuicideSquad)
+	defer done()
+	srv.TVDB = client
+	path := "/movies/" + strconv.FormatInt(m.ID, 10) + "/cast/tvdb"
+
+	got := decode[struct {
+		Added int `json:"added"`
+		Cast  []struct {
+			Character         string `json:"character"`
+			CharacterImageURL string `json:"character_image_url"`
+		} `json:"cast"`
+	}](t, c.mustDo("POST", path, map[string]any{"tvdb_id": 297762}, http.StatusOK))
+	if got.Added == 0 {
+		t.Fatal("named the record and got no cast")
+	}
+	if stub.records == 0 {
+		t.Error("never asked TheTVDB")
+	}
+	var art int
+	for _, row := range got.Cast {
+		if row.CharacterImageURL != "" {
+			art++
+		}
+	}
+	if art == 0 {
+		t.Error("no character art came back — the art is the whole reason for this route")
+	}
+
+	// AND THE ID IS KEPT. Without that, the work page's own art pass has nothing
+	// to re-fetch from and the next refill asks the reader to pick again.
+	kept := decode[struct {
+		TVDBID int64 `json:"tvdb_id"`
+	}](t, c.mustDo("GET", "/movies/"+strconv.FormatInt(m.ID, 10), nil, http.StatusOK))
+	if kept.TVDBID != 297762 {
+		t.Fatalf("tvdb_id after the fill = %d, want 297762", kept.TVDBID)
+	}
+}
+
+// AND IT NEVER STANDS ON AN ID THAT IS ALREADY THERE. Same rule as a re-sync:
+// one supplier's id is not allowed to overwrite another's, and a reader whose row
+// already names a record is not silently re-pointed by a stray body.
+func TestTVDBCastFillWillNotOverwriteAnIDTheRowAlreadyHas(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	id := filmWithTVDBID(t, c, "Suicide Squad", 297762)
+	stub, client, done := newTVDBCastStub(t, tvdbSuicideSquad)
+	defer done()
+	srv.TVDB = client
+	_ = stub
+
+	c.mustDo("POST", "/movies/"+strconv.FormatInt(id, 10)+"/cast/tvdb",
+		map[string]any{"tvdb_id": 111111}, http.StatusOK)
+
+	kept := decode[struct {
+		TVDBID int64 `json:"tvdb_id"`
+	}](t, c.mustDo("GET", "/movies/"+strconv.FormatInt(id, 10), nil, http.StatusOK))
+	if kept.TVDBID != 297762 {
+		t.Fatalf("tvdb_id = %d, want the row's own 297762", kept.TVDBID)
+	}
+}

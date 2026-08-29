@@ -337,6 +337,37 @@ function CastRow({ row, role, busy, actor, workTitle, mediaType, onSave, onRemov
       ? personImgURL(actor.image_path)
       : ''
 
+  // THE PICTURE TRAVELS WITH THE ROW INTO EDITING, and it did not.
+  //
+  // Editing swapped the whole row for two text boxes, which took the face button
+  // with it — so the reader who pressed the pencil BECAUSE they wanted to fix a
+  // character's picture arrived at a form with no picture in it, and the report
+  // was, again, that there is no way to add one. It also moved every field 44px
+  // left of the rows above and below it, because those start with a 34px face and
+  // a 10px gap and this one started with a text box: an edit that shunts its own
+  // row sideways reads as a layout fault before it reads as a mode.
+  //
+  // One face button and one picture editor, defined once and rendered by both
+  // states, is the whole fix. The editor still opens BELOW the row (flex-basis
+  // 100%), so it does not squeeze the boxes it now sits under.
+  const faceButton = (
+    <button
+      type="button"
+      className={'cast-face-btn' + (face ? '' : ' is-empty')}
+      aria-label={t('cast.picture.aria', { name: row.character || '' })}
+      aria-expanded={urlOpen}
+      disabled={busy}
+      onClick={() => setUrlOpen((v) => !v)}
+    >
+      {face ? (
+        <img className="cast-face" src={face} alt="" />
+      ) : (
+        <span className="cast-face is-empty" aria-hidden="true" />
+      )}
+      <span className="cast-face-mark" aria-hidden="true"><IconPicture size={16} /></span>
+    </button>
+  )
+
   // REPORTS WHETHER IT LANDED, because the panel's ✓ awaits it before closing and
   // a refused write must stop the close — the same contract a field row keeps.
   const commit = async () => {
@@ -370,9 +401,78 @@ function CastRow({ row, role, busy, actor, workTitle, mediaType, onSave, onRemov
     return () => host.register(id, null)
   }, [host, dirty, row.id])
 
+  const pictureEditor = urlOpen && (
+    <span className="cast-row-url">
+      {/* THE SAME OFFER THE PERSON EDITOR MAKES, and for the same reason:
+          asking somebody to go and find a picture without helping them look
+          is the difference between a field and a chore. In the app where a
+          picture source is configured, in a tab where none is — see
+          findPicture. */}
+      <button
+        type="button"
+        className="tp-link tp-link-icon"
+        style={{ fontSize: 'var(--type-ui-11)' }}
+        disabled={picsBusy}
+        onClick={findPicture}
+      >
+        <IconSearch />
+        <span>{picsBusy ? t('common.state.loading') : t('people.form.image-search')}</span>
+      </button>
+      <input
+        className="tp-input"
+        placeholder={t('cast.picture.placeholder')}
+        aria-label={t('cast.picture.url.aria', { name: row.character || '' })}
+        value={url}
+        onChange={(e) => setUrl(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key !== 'Enter' || busy || !url.trim()) return
+          e.preventDefault()
+          applyURL()
+        }}
+      />
+      <GhostButton
+        type="button"
+        disabled={busy || !url.trim()}
+        onClick={applyURL}
+      >
+        {t('common.action.apply.label')}
+      </GhostButton>
+      {pics && (
+        <span className="cast-row-pics">
+          <span className="microcopy">
+            {pics.length ? t('cast.picture.pick.prose') : t('cast.picture.pick.none')}
+          </span>
+          <span className="flex flex-wrap gap-2">
+            {pics.map((im) => (
+              <button
+                key={im.url}
+                type="button"
+                className="cover-pick"
+                aria-label={t('cast.picture.pick.use', { source: im.source })}
+                disabled={busy}
+                onClick={async () => {
+                  // The full-size original is stored; the thumbnail was only
+                  // ever what the page was allowed to draw.
+                  setPics(null)
+                  setUrlOpen(false)
+                  await onImage(im.url)
+                }}
+              >
+                <img src={im.thumb || im.url} alt="" loading="lazy" />
+                <span className="microcopy">{im.source}</span>
+              </button>
+            ))}
+          </span>
+        </span>
+      )}
+    </span>
+  )
+
   if (editing) {
     return (
       <li className="cast-row is-editing">
+        {/* The row keeps its face while it is being edited — see faceButton. */}
+        {faceButton}
         <div className="cast-row-fields">
           {/* ENTER SAVES THE ROW. It is the obvious keystroke after typing a name,
               and the panel sits inside the Details form — so without a handler here
@@ -414,6 +514,7 @@ function CastRow({ row, role, busy, actor, workTitle, mediaType, onSave, onRemov
             }}
           />
         </div>
+        {pictureEditor}
       </li>
     )
   }
@@ -423,21 +524,7 @@ function CastRow({ row, role, busy, actor, workTitle, mediaType, onSave, onRemov
       {/* THE PICTURE IS THE BUTTON. See index.css for the report this answers.
           `aria-expanded` because what it opens is the row's own picture editor,
           which renders below the names rather than in a popup. */}
-      <button
-        type="button"
-        className={'cast-face-btn' + (face ? '' : ' is-empty')}
-        aria-label={t('cast.picture.aria', { name: row.character || '' })}
-        aria-expanded={urlOpen}
-        disabled={busy}
-        onClick={() => setUrlOpen((v) => !v)}
-      >
-        {face ? (
-          <img className="cast-face" src={face} alt="" />
-        ) : (
-          <span className="cast-face is-empty" aria-hidden="true" />
-        )}
-        <span className="cast-face-mark" aria-hidden="true"><IconPicture size={16} /></span>
-      </button>
+      {faceButton}
       <span className="cast-names">
         <span className="cast-character">{row.character || t('cast.unnamed.label')}</span>
         {row.actor && (
@@ -478,72 +565,7 @@ function CastRow({ row, role, busy, actor, workTitle, mediaType, onSave, onRemov
           <GhostButton type="button" onClick={() => setConfirming(false)}>{t('common.action.cancel.label')}</GhostButton>
         </span>
       )}
-      {urlOpen && (
-        <span className="cast-row-url">
-          {/* THE SAME OFFER THE PERSON EDITOR MAKES, and for the same reason:
-              asking somebody to go and find a picture without helping them look
-              is the difference between a field and a chore. In the app where a
-              picture source is configured, in a tab where none is — see
-              findPicture. */}
-          <button
-            type="button"
-            className="tp-link tp-link-icon"
-            style={{ fontSize: 'var(--type-ui-11)' }}
-            disabled={picsBusy}
-            onClick={findPicture}
-          >
-            <IconSearch />
-            <span>{picsBusy ? t('common.state.loading') : t('people.form.image-search')}</span>
-          </button>
-          <input
-            className="tp-input"
-            placeholder={t('cast.picture.placeholder')}
-            aria-label={t('cast.picture.url.aria', { name: row.character || '' })}
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key !== 'Enter' || busy || !url.trim()) return
-              e.preventDefault()
-              applyURL()
-            }}
-          />
-          <GhostButton
-            type="button"
-            disabled={busy || !url.trim()}
-            onClick={applyURL}
-          >
-            {t('common.action.apply.label')}
-          </GhostButton>
-          {pics && (
-            <span className="cast-row-pics">
-              <span className="microcopy">
-                {pics.length ? t('cast.picture.pick.prose') : t('cast.picture.pick.none')}
-              </span>
-              <span className="flex flex-wrap gap-2">
-                {pics.map((im) => (
-                  <button
-                    key={im.url}
-                    type="button"
-                    className="cover-pick"
-                    aria-label={t('cast.picture.pick.use', { source: im.source })}
-                    disabled={busy}
-                    onClick={async () => {
-                      // The full-size original is stored; the thumbnail was only
-                      // ever what the page was allowed to draw.
-                      setPics(null)
-                      setUrlOpen(false)
-                      await onImage(im.url)
-                    }}
-                  >
-                    <img src={im.thumb || im.url} alt="" loading="lazy" />
-                    <span className="microcopy">{im.source}</span>
-                  </button>
-                ))}
-              </span>
-            </span>
-          )}
-        </span>
-      )}
+      {pictureEditor}
     </li>
   )
 }
@@ -618,12 +640,43 @@ export function CastFills({ item, onFilled }) {
   const [err, setErr] = useState('')
   const [link, setLink] = useState('')
   const [imdb, setImdb] = useState(false)
+  const [matches, setMatches] = useState(null) // null = not asked; [] = asked, nothing found
 
-  async function fromTVDB() {
+  // A TITLE WITH NO TheTVDB ID IS THE COMMON CASE, NOT THE EDGE ONE. TheTVDB is
+  // the only supplier that carries a picture per role, and every library matched
+  // on TMDB — which is every library upgraded from before 2.2.0 — has no id here
+  // at all. The button's answer to that was a sentence telling the reader to go
+  // and use Look up, where they would have to notice that a second supplier is
+  // offered, pick the same title again, and take one row out of a merge. Three
+  // screens to reach the art, and the report was that the art does not exist.
+  //
+  // So the refusal now comes with the search it was telling you to go and run.
+  // The handler still will not choose — a cast attached to the wrong work reads
+  // as a correct one, and the capture form autofills "played by" out of it — but
+  // the READER choosing is the same act as typing the id into Details, and this
+  // is the shorter road to it.
+  async function fromTVDB(tvdbID) {
     setBusy('tvdb'); setErr(''); setSaid('')
-    const r = await json('POST', `/movies/${item.id}/cast/tvdb`)
+    const r = await json('POST', `/movies/${item.id}/cast/tvdb`, tvdbID ? { tvdb_id: tvdbID } : undefined)
+    if (!r.ok) {
+      // 409 is "the row is not ready", and it is the one refusal with something
+      // to offer. Any other failure is reported as it always was.
+      if (r.status === 409 && !tvdbID) {
+        const l = await json('POST', '/movies/lookup', {
+          title: item.title || '',
+          year: item.release_year || 0,
+          media_type: item.media_type || 'movie',
+        })
+        setBusy('')
+        if (!l.ok) return setErr(errText(r, t('error.load.tvdb-cast')))
+        setMatches((l.data?.candidates || []).filter((c) => c.source === 'tvdb'))
+        return
+      }
+      setBusy('')
+      return setErr(errText(r, t('error.load.tvdb-cast')))
+    }
     setBusy('')
-    if (!r.ok) return setErr(errText(r, t('error.load.tvdb-cast')))
+    setMatches(null)
     const n = (r.data?.cast || []).length
     setSaid(t('cast.fill.done.prose', { title: r.data?.title || '', n }))
     onFilled?.(r.data?.cast || [])
@@ -647,7 +700,7 @@ export function CastFills({ item, onFilled }) {
         {/* Games have no TheTVDB record at all, so the control that cannot work for
             them is absent rather than shown and refused. */}
         {item.media_type !== 'game' && (
-          <GhostButton type="button" onClick={fromTVDB} disabled={!!busy}>
+          <GhostButton type="button" onClick={() => fromTVDB()} disabled={!!busy}>
             <IconUsers />
             <span>{busy === 'tvdb' ? t('film.imdb.busy.label') : t('cast.fill.tvdb.label')}</span>
           </GhostButton>
@@ -678,6 +731,23 @@ export function CastFills({ item, onFilled }) {
           <GhostButton type="button" onClick={fromIMDb} disabled={!!busy || !link.trim()}>
             {busy === 'imdb' ? t('film.imdb.busy.label') : t('film.imdb.go.label')}
           </GhostButton>
+        </div>
+      )}
+      {matches && (
+        <div className="space-y-2">
+          <p className="microcopy">
+            {matches.length ? t('cast.fill.match.prose') : t('cast.fill.match.none')}
+          </p>
+          {matches.map((c) => (
+            <GhostButton
+              key={c.source_id}
+              type="button"
+              disabled={!!busy}
+              onClick={() => fromTVDB(Number(c.source_id))}
+            >
+              {[c.title, c.release_year || ''].filter(Boolean).join(' · ')}
+            </GhostButton>
+          ))}
         </div>
       )}
       <ErrorText>{err}</ErrorText>
