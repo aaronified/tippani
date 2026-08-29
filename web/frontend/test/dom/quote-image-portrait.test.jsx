@@ -23,7 +23,7 @@
 // belongs to, and only id 0 is the card.
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { drawQuoteCard, loadFaceImages } from '../../src/quoteImage.js'
+import { clearPortraitCache, drawQuoteCard, loadFaceImages } from '../../src/quoteImage.js'
 import { paletteTheme } from '../../src/theme.js'
 
 const CARD = 0 // the first canvas asked for a context is the one being drawn
@@ -79,6 +79,10 @@ function recorder(id, supported = FULL_SUPPORT) {
 }
 
 beforeEach(() => {
+  // Every case here asserts what a draw DOES, and the faded portrait is cached
+  // between draws — so without this the second case in the file measures the
+  // first case's buffer and sees no operations at all.
+  clearPortraitCache()
   log = []
   supportedOps = FULL_SUPPORT
   let next = 0

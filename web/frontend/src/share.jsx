@@ -698,16 +698,26 @@ function QuoteImagePanel({ share, selected, onShared, actionRef }) {
       }
     };
     redraw();
-    // Redraw once the bundled fonts are ready (first paint may fall back) and
-    // whenever the app accent flips (the chosen skin follows the picker, but the
-    // accent still tracks the app).
-    ensureFonts().then(redraw);
-    // Author / actor portraits load lazily; redraw once they're in so the faces
-    // fill the (already reserved) chip row.
-    loadFaceImages((share.faces || []).map((f) => f.url)).then(redraw);
-    // The material's tile, the same way: the first draw is flat and the grain
-    // arrives a frame later rather than the whole picture waiting on it.
-    loadTileImage(tileFor(imageMaterial, "card").url).then(redraw);
+    // ONE REDRAW FOR THE THREE OF THEM, not three. Each of these used to end in
+    // its own `.then(redraw)`, which is four full draws for one toggle — and
+    // once they are all cached, which is every toggle after the first, the three
+    // extra ones land in the same microtask queue and redraw an identical card
+    // three times over. On a backdrop card each draw resamples a photograph that
+    // may be several thousand pixels on its long edge, so the cost was paid four
+    // times for one picture and the page stopped while it was.
+    //
+    // Still one redraw per resolution stage in the sense that matters: the first
+    // draw is immediate and flat (the fonts may fall back, the faces and the
+    // grain are not in yet), and the finished one arrives when the slowest of
+    // the three is ready. Nobody was watching for the middle two.
+    Promise.all([
+      // The bundled fonts (first paint may fall back).
+      ensureFonts(),
+      // Author / actor portraits, which load lazily.
+      loadFaceImages((share.faces || []).map((f) => f.url)),
+      // The material's tile.
+      loadTileImage(tileFor(imageMaterial, "card").url),
+    ]).then(redraw);
     window.addEventListener("tippani:theme", redraw);
     return () => {
       cancelled = true;

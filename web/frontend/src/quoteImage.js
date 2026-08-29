@@ -506,8 +506,49 @@ function inksFor(theme, backdrop) {
 // compresses the tinted picture rather than being tinted itself; and the mask
 // goes on last, so both of them fade out with the face instead of surviving as
 // a coloured rectangle after it.
-function fadedPortrait(img, w, h, dir, tint, surface) {
+// THE BUFFER IS BUILT ONCE PER SHAPE, NOT ONCE PER DRAW.
+//
+// Everything below — the cover-crop of a full-resolution photograph into a
+// 590×1000 box, a non-separable `color` blend across all of it, a wash, and an
+// alpha mask — is redone from scratch on every call, and the share panel calls
+// redraw FOUR times for one toggle: once immediately, then again as the fonts,
+// the faces and the material tile each resolve. With a portrait staged at its
+// original size (the picture search hands over the full-size URL on purpose,
+// because the thumbnail is only what the page is allowed to DRAW), that is four
+// resamples of a photograph that may be 4000px on its long edge, and the page
+// stops for seconds with nothing on screen to say why.
+//
+// Keyed by the image itself, in a WeakMap, so a portrait that is never drawn
+// again is collected with its buffers instead of pinning a canvas per person
+// for the life of the tab. The inner key is every argument that changes a
+// pixel; miss it and the cache would serve one person's crop for another's box.
+let portraitCache = new WeakMap()
+const PORTRAIT_CACHE_MAX = 6 // one card draws at most five faces, plus a spare
+
+// A SEAM, because a cache is state and a test that draws the same card twice is
+// otherwise measuring the first draw both times — which is not a hypothetical:
+// the portrait tests each assert the OPERATIONS a draw performs, and a hit
+// performs none of them. A WeakMap cannot be cleared, so it is replaced.
+export function clearPortraitCache() {
+  portraitCache = new WeakMap()
+}
+
+function fadedPortrait(img, w, h, dir, tint, surface, url) {
   if (!img || !w || !h) return null
+  // The url is in the key as well as the image, because the image alone is not
+  // an identity: faceCache holds one Image per url in the app, but a caller (a
+  // test's stub, a future cache that dedupes identical bytes) may hand the same
+  // object for two people, and serving one person's crop for another's is the
+  // one way this cache could be WRONG rather than merely stale.
+  const key = `${url || ''}|${Math.ceil(w)}x${Math.ceil(h)}|${dir}|${tint || ''}|${surface || ''}`
+  let byShape = portraitCache.get(img)
+  if (byShape) {
+    const hit = byShape.get(key)
+    if (hit) return hit
+  } else {
+    byShape = new Map()
+    portraitCache.set(img, byShape)
+  }
   const off = document.createElement('canvas')
   off.width = Math.ceil(w)
   off.height = Math.ceil(h)
@@ -569,6 +610,13 @@ function fadedPortrait(img, w, h, dir, tint, surface) {
   octx.globalCompositeOperation = 'destination-out'
   octx.fillStyle = g
   octx.fillRect(0, 0, off.width, off.height)
+
+  // Bounded, and oldest-first: the Map preserves insertion order, so the first
+  // key it yields is the one least recently ADDED. A card can only be showing a
+  // few shapes at once, and the alternative — no bound — keeps a full-size
+  // buffer alive for every window width the reader has ever dragged through.
+  if (byShape.size >= PORTRAIT_CACHE_MAX) byShape.delete(byShape.keys().next().value)
+  byShape.set(key, off)
   return off
 }
 
@@ -929,7 +977,7 @@ export function drawQuoteCard(canvas, model, theme) {
       list.forEach((face, i) => {
         const x = cardX + i * cw
         const w = i === list.length - 1 ? cardX + cardW - x : cw
-        const painted = fadedPortrait(faceCache.get(face.url), w, bh, 'up', model.colorHex, theme.cardTop)
+        const painted = fadedPortrait(faceCache.get(face.url), w, bh, 'up', model.colorHex, theme.cardTop, face.url)
         if (painted) ctx.drawImage(painted, x, by, w, bh)
       })
     } else {
@@ -951,7 +999,7 @@ export function drawQuoteCard(canvas, model, theme) {
         // which is the whole of what the control promises.
         const face = model.swap ? order[SIDES.length - 1 - i] : order[i]
         if (!face) return
-        const painted = fadedPortrait(faceCache.get(face.url), pw, ph, side.fade, model.colorHex, theme.cardTop)
+        const painted = fadedPortrait(faceCache.get(face.url), pw, ph, side.fade, model.colorHex, theme.cardTop, face.url)
         if (painted) ctx.drawImage(painted, side.x, M, pw, ph)
       })
     }

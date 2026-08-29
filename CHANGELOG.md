@@ -187,6 +187,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The share picture no longer freezes the page when the backdrop goes on.** Drawing the
+  card is not the slow part — it measures about 18ms even with a photograph behind it —
+  but it was being done **four times for one change**: once immediately, then once more
+  as each of the fonts, the portraits and the material tile resolved. Three of those four
+  are identical, and on a backdrop card each one resamples the portrait at its original
+  size (the picture search stages the full-size image on purpose) and runs a duotone
+  blend across all of it. It is one immediate draw and one finished one now, and the
+  faded portrait is built once per shape rather than once per draw. All of this happens
+  in your browser; nothing about the picture is computed on the server.
+
 - **The selected tab is readable in Quarry and Bindery.** Every surface in the app
   composites its texture through one operator — a veil of the surface's own colour at
   1 − *strength*, where the strength is measured per tile — and the selection fills (the
