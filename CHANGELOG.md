@@ -187,6 +187,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The selected tab is readable in Quarry and Bindery.** Every surface in the app
+  composites its texture through one operator — a veil of the surface's own colour at
+  1 − *strength*, where the strength is measured per tile — and the selection fills (the
+  top bar's selected tab, the select thumb, an active filter chip, the drawer's current
+  row) were the one place that skipped it: they blended the tile at full weight. That is
+  invisible in Manuscript, whose shell is paper, and it is a light label on near-white
+  blotches in Bindery and Quarry, whose shells are suede and granite — the two loudest
+  in the set library. Measured worst-case contrast on the selected tab was **3.10:1 in
+  Bindery and 2.82:1 in Quarry** against 3.36–3.62 everywhere else; all seven sets now
+  sit at 3.82–3.89, which is the contrast the same fill has with no texture on it at
+  all. The active label also gains a tight halo, which is what holds a stroke together
+  over grain — the drop shadow it had only ever defended the underside.
+
+  A new test measures this the way the share card's does: it composites the real tile
+  file at the real size, reads the pixels back, and fails if any set, accent or mode puts
+  a label below the floor — so tile twenty-nine fails there rather than in a bug report.
+
 - **Character pictures, reachable at last — and the row keeps its face while you edit
   it.** TheTVDB is the only supplier that carries a picture per role, so a library
   matched on TMDB (which is every library upgraded from before 2.2.0) had no route to

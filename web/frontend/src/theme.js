@@ -451,6 +451,17 @@ function apply() {
     // the surfaces move onto it one at a time.
     root.style.setProperty(`--tile-${slot}`, `var(--tile-${TEXTILES[names[i]][0]})`)
   }
+  // THE SELECTION FILLS GET THE SHELL SLOT'S STRENGTH, NOT ITS TILE ALONE.
+  // They composite --tile-shell directly and used to do it at full weight, which
+  // is the one place in the app the operator above was skipped: a photographic
+  // tile carries three times a generated one's standard deviation, so Bindery's
+  // concrete and Quarry's sandstone put a light label on a fill whose bright
+  // patches reached 1.4:1 while Manuscript's linen sat at 2.8:1 and hid it. The
+  // veil is 1 − s, spent by index.css as a colour stop, so the fill lands at the
+  // same amplitude every other surface in the set already uses. Read out of
+  // `names` rather than out of MAT_SETS, so a per-slot override is calibrated too.
+  const shell = names[SLOTS.indexOf('shell')]
+  root.style.setProperty('--sel-veil', `${((1 - TEXTILES[shell][3]) * 100).toFixed(1)}%`)
   window.dispatchEvent(new CustomEvent('tippani:theme', { detail: { materialSet: matSet, dark } }))
 }
 

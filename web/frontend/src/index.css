@@ -534,9 +534,17 @@
      to tell it apart from the filter toggles. */
   .nav-toggle.tp-toggle { background: transparent; border-color: transparent; box-shadow: none; padding: 3px; }
   .nav-toggle .tp-toggle-opt { padding: 6px 13px; font-size: var(--type-ui-15); color: var(--soft); }
-  /* The active tab label rides light over the wood/metal thumb (beats the soft
-     colour above; the generic .is-on rule is out-specificity'd by .nav-toggle). */
-  .nav-toggle .tp-toggle-opt.is-on { color: var(--on-accent); text-shadow: 0 1px 2px rgba(0,0,0,.4); }
+  /* The active tab label rides light over the thumb (beats the soft colour
+     above; the generic .is-on rule is out-specificity'd by .nav-toggle). TWO
+     SHADOWS, NOT ONE: the offset one is the drop that was always here, and the
+     tight one at 0 0 is a halo, which is what actually holds a stroke together
+     over grain — a drop shadow only defends the underside. The fill it sits on
+     is calibrated now (--sel-veil), so this is the second half of the same
+     report rather than a patch over an uncalibrated one. */
+  .nav-toggle .tp-toggle-opt.is-on {
+    color: var(--on-accent);
+    text-shadow: 0 0 2px rgba(0,0,0,.34), 0 1px 2px rgba(0,0,0,.45);
+  }
   /* THE NAV THUMB KEEPS ITS OWN SCALE, NOT ITS OWN MATERIAL. It used to be wood
      against the filter toggles' leather so the shell nav read apart, which was a
      distinction two aesthetics could afford and seven sets cannot: there is one
@@ -544,7 +552,7 @@
      material in the app that no set names. The tile is the same and the SIZE is
      not — shell-sm against grain-accent — so it still reads as its own thing. */
   html .nav-toggle .tp-toggle-thumb {
-    background-size: auto, var(--grain-shell-sm), auto;
+    background-size: auto, auto, var(--grain-shell-sm), auto;
   }
 
   /* ---- the one Select (§ design): tactile trigger + a panel that dips open,
@@ -1070,18 +1078,31 @@
      touch darker still. Applied to toggle/select thumbs + active filter chips. */
   html { --sel-scrim: .12; }
   html[data-theme="dark"] { --sel-scrim: .2; }
+  /* THE SELECTION FILL IS THE ONE SURFACE THAT SKIPPED THE OPERATOR.
+     Every other surface in the app composites its tile as (1 − s)·colour +
+     s·tile, where s is the strength measured for that tile in
+     src/textures/README.md — "strength is not amplitude", and the numbers are
+     load-bearing precisely because the photographic tiles carry three times the
+     standard deviation of the generated ones. These fills blended the tile at
+     FULL weight instead, so a set whose shell is concrete (sd 49.1) or
+     sandstone (sd 45.7) put a light label on a fill whose bright patches ran to
+     a worst-case contrast of 1.4:1 — Quarry and Bindery, which is exactly where
+     the report came from. Manuscript's linen (sd 16.0) hid the same bug.
+     theme.js writes the veil for the shell slot, so a per-slot override is
+     covered too; the fallback is Manuscript's. */
+  html { --sel-veil: 89%; }
 
   /* Filter toggle + select thumbs get the same leather/rubber grain (the nav
      toggle overrides with wood/metal so the shell stays distinct). */
   html .tp-toggle-thumb,
   html .tp-select-thumb {
-    background-image: linear-gradient(rgba(0,0,0,var(--sel-scrim,.12)), rgba(0,0,0,var(--sel-scrim,.12))), var(--tile-shell), linear-gradient(180deg, color-mix(in oklab, var(--accent), white 14%), var(--accent));
-    background-size: auto, var(--grain-accent), auto;
-    background-blend-mode: normal, overlay, normal;
+    background-image: linear-gradient(rgba(0,0,0,var(--sel-scrim,.12)), rgba(0,0,0,var(--sel-scrim,.12))), linear-gradient(180deg, color-mix(in srgb, color-mix(in oklab, var(--accent), white 14%) var(--sel-veil), transparent), color-mix(in srgb, var(--accent) var(--sel-veil), transparent)), var(--tile-shell), linear-gradient(180deg, color-mix(in oklab, var(--accent), white 14%), var(--accent));
+    background-size: auto, auto, var(--grain-accent), auto;
+    background-blend-mode: normal, normal, overlay, normal;
   }
   html[data-theme="dark"] .tp-toggle-thumb,
   html[data-theme="dark"] .tp-select-thumb {
-    background-image: linear-gradient(rgba(0,0,0,var(--sel-scrim,.12)), rgba(0,0,0,var(--sel-scrim,.12))), var(--tile-shell), linear-gradient(180deg, color-mix(in oklab, var(--accent-dark), white 12%), var(--accent-dark));
+    background-image: linear-gradient(rgba(0,0,0,var(--sel-scrim,.12)), rgba(0,0,0,var(--sel-scrim,.12))), linear-gradient(180deg, color-mix(in srgb, color-mix(in oklab, var(--accent-dark), white 12%) var(--sel-veil), transparent), color-mix(in srgb, var(--accent-dark) var(--sel-veil), transparent)), var(--tile-shell), linear-gradient(180deg, color-mix(in oklab, var(--accent-dark), white 12%), var(--accent-dark));
   }
 
   /* ---- inputs (§6/§8): mono labels above, wobbly borders on paper ---- */
@@ -3528,12 +3549,12 @@
     box-shadow: 0 1px 2px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.3);
   }
   html .tp-filter-chip.active {
-    background-image: linear-gradient(rgba(0,0,0,var(--sel-scrim,.12)), rgba(0,0,0,var(--sel-scrim,.12))), var(--tile-shell), linear-gradient(180deg, color-mix(in oklab, var(--accent), white 14%), var(--accent));
-    background-size: auto, var(--grain-accent), auto;
-    background-blend-mode: normal, overlay, normal;
+    background-image: linear-gradient(rgba(0,0,0,var(--sel-scrim,.12)), rgba(0,0,0,var(--sel-scrim,.12))), linear-gradient(180deg, color-mix(in srgb, color-mix(in oklab, var(--accent), white 14%) var(--sel-veil), transparent), color-mix(in srgb, var(--accent) var(--sel-veil), transparent)), var(--tile-shell), linear-gradient(180deg, color-mix(in oklab, var(--accent), white 14%), var(--accent));
+    background-size: auto, auto, var(--grain-accent), auto;
+    background-blend-mode: normal, normal, overlay, normal;
   }
   html[data-theme="dark"] .tp-filter-chip.active {
-    background-image: linear-gradient(rgba(0,0,0,var(--sel-scrim,.12)), rgba(0,0,0,var(--sel-scrim,.12))), var(--tile-shell), linear-gradient(180deg, color-mix(in oklab, var(--accent-dark), white 12%), var(--accent-dark));
+    background-image: linear-gradient(rgba(0,0,0,var(--sel-scrim,.12)), rgba(0,0,0,var(--sel-scrim,.12))), linear-gradient(180deg, color-mix(in srgb, color-mix(in oklab, var(--accent-dark), white 12%) var(--sel-veil), transparent), color-mix(in srgb, var(--accent-dark) var(--sel-veil), transparent)), var(--tile-shell), linear-gradient(180deg, color-mix(in oklab, var(--accent-dark), white 12%), var(--accent-dark));
   }
   /* One-line filter row. It holds only selects and short chips now — the
      measured genre chip strip (and its .genre-chips rule) went with GenreFilter
@@ -3991,13 +4012,13 @@ html .mobile-sheet-footer::before { background-image: var(--tile-shell); }
    because an accent fill is furniture. */
 html .drawer-item.active,
 html .mobile-bottom-nav-btn.active {
-  background-image: linear-gradient(rgba(0,0,0,var(--sel-scrim,.12)), rgba(0,0,0,var(--sel-scrim,.12))), var(--tile-shell), linear-gradient(180deg, color-mix(in oklab, var(--accent), white 14%), var(--accent));
-  background-size: auto, var(--grain-accent), auto;
-  background-blend-mode: normal, overlay, normal;
+  background-image: linear-gradient(rgba(0,0,0,var(--sel-scrim,.12)), rgba(0,0,0,var(--sel-scrim,.12))), linear-gradient(180deg, color-mix(in srgb, color-mix(in oklab, var(--accent), white 14%) var(--sel-veil), transparent), color-mix(in srgb, var(--accent) var(--sel-veil), transparent)), var(--tile-shell), linear-gradient(180deg, color-mix(in oklab, var(--accent), white 14%), var(--accent));
+  background-size: auto, auto, var(--grain-accent), auto;
+  background-blend-mode: normal, normal, overlay, normal;
 }
 html[data-theme="dark"] .drawer-item.active,
 html[data-theme="dark"] .mobile-bottom-nav-btn.active {
-  background-image: linear-gradient(rgba(0,0,0,var(--sel-scrim,.12)), rgba(0,0,0,var(--sel-scrim,.12))), var(--tile-shell), linear-gradient(180deg, color-mix(in oklab, var(--accent-dark), white 12%), var(--accent-dark));
+  background-image: linear-gradient(rgba(0,0,0,var(--sel-scrim,.12)), rgba(0,0,0,var(--sel-scrim,.12))), linear-gradient(180deg, color-mix(in srgb, color-mix(in oklab, var(--accent-dark), white 12%) var(--sel-veil), transparent), color-mix(in srgb, var(--accent-dark) var(--sel-veil), transparent)), var(--tile-shell), linear-gradient(180deg, color-mix(in oklab, var(--accent-dark), white 12%), var(--accent-dark));
 }
 /* §7 One "＋ Add": the drawer's lead row wears the accent so the single add
    action reads as primary, and a rule sets it apart from the nav rows below. */

@@ -103,6 +103,33 @@ describe('the operator writes a whole composite, not just a tile', () => {
     expect(prop('--surf-card-size')).toContain('71px 71px')
   })
 
+  // THE SELECTION FILLS SKIPPED THE OPERATOR ENTIRELY, and that is the bug this
+  // pins. The toggle thumb, the active filter chip and the drawer's active row
+  // composite --tile-shell straight onto the accent at FULL weight, so the grain
+  // they showed was the tile's raw standard deviation rather than s × sd — three
+  // times louder for a photographic tile than for a generated one. Bindery's
+  // concrete and Quarry's sandstone put a light label on bright patches measuring
+  // 1.4:1; Manuscript's linen, at a third the deviation, hid the same fault.
+  it('calibrates the selection fills to the shell tile, not to the loudest one', () => {
+    applyTheme({ materialSet: 'manuscript', theme: 'light' })
+    expect(prop('--sel-veil')).toBe('90.0%') // paper, strength .10
+
+    applyTheme({ materialSet: 'quarry', theme: 'light' })
+    expect(prop('--sel-veil')).toBe('92.0%') // granite, strength .08
+
+    applyTheme({ materialSet: 'bindery', theme: 'dark' })
+    expect(prop('--sel-veil')).toBe('89.0%') // leather-suede, strength .11
+  })
+
+  // A SLOT OVERRIDE HAS TO BE CALIBRATED TOO, or putting one loud tile into a
+  // quiet set brings the fault straight back — which is the shape the per-slot
+  // override was added in, so keying this off the set name would have been wrong
+  // on the day it shipped.
+  it('follows a per-slot override rather than the set it came from', () => {
+    applyTheme({ materialSet: 'manuscript', theme: 'light', tileShell: 'leather-suede' })
+    expect(prop('--sel-veil')).toBe('89.0%') // suede's .11, not paper's .10
+  })
+
   it('gives glass a blur and a sweep instead of an opaque veil', () => {
     // A pane does not hide what is behind it, it softens it. Office puts glass on
     // the desk, so the ground slot takes the other branch entirely.
