@@ -146,6 +146,24 @@ export const SETTINGS_CARDS = ['onboard', 'features', 'meta', 'colors', 'sr', 'd
 // layout below. It will not render until you do — the render walks the layout,
 // not the card list — which is a loud failure rather than a card appearing
 // somewhere unpredictable. settings-layout.test.js checks the three agree.
+// BALANCING IS BY MEASUREMENT, not by eye, and here is the measurement. Rendered
+// heights at three columns, in a browser, with every card an admin has:
+//
+//   meta 780  colors 422 | sr 283  onboard 136  features 189  upd 265
+//   devices 167  trash 165  clean 182  backup 321          (24px between cards)
+//
+// Quiz, Onboarding and Features all lost height when they were tightened, which
+// left the middle column at 657px between two of about 1,200 — the page read as
+// an inverted U, two tall sides around a short middle. Moving Updates into it
+// gives 1226 / 945 / 907. Updates rather than Backup because Backup belongs
+// beside the bin (see above) and Updates belongs with the cards about the app
+// itself; and because Updates is the card a NON-ADMIN does not have, so their
+// three columns come out exactly as they did before this was rebalanced rather
+// than being rebalanced around a card they cannot see.
+//
+// Re-measure before moving anything: any card that changes height changes the
+// answer, and the numbers above are the whole argument.
+//
 // Colours sits directly under Metadata in every layout, and that is a rule
 // rather than an arrangement: both are about what a quote is LABELLED with —
 // where the facts about a work come from, and what the colour on a highlight is
@@ -162,8 +180,8 @@ export const SETTINGS_LAYOUT = {
   ],
   3: [
     ['meta', 'colors'], // the tall one, and the card that belongs under it
-    ['sr', 'onboard', 'features'],
-    ['devices', 'trash', 'clean', 'upd', 'backup'],
+    ['sr', 'onboard', 'features', 'upd'],
+    ['devices', 'trash', 'clean', 'backup'],
   ],
 }
 

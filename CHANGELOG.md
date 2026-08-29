@@ -203,6 +203,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The Settings page read as an inverted U.** Tightening the Quiz, Onboarding and
+  Features cards left the middle of the three columns at 657px between two of about
+  1,200 — two tall sides around a short middle, which is the one arrangement a
+  three-column page should never take. Updates moves into the middle column: 1226 /
+  946 / 908, measured. Updates rather than Backup, which belongs beside the bin, and
+  because Updates is the card a non-admin does not have — so a non-admin's page comes
+  out exactly as it did rather than being balanced around a card they cannot see.
+
 - **A shelf of four hundred books asked for thirty-one megabytes of covers to show
   eighteen.** Every tile on the Library board and the Catalogue's carried an eager
   `<img>`, so opening either one fetched the artwork for the whole collection —
