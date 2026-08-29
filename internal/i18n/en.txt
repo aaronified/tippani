@@ -4657,6 +4657,16 @@ settings.updates.roadmap.link.label = roadmap ↗
 settings.updates.restarting.prose = updating & restarting — this page will reload automatically when Tippani is back…
 settings.updates.check.label = Check for updates
 settings.updates.check.busy = Checking…
+# WHICH RELEASE LINE THIS INSTALL FOLLOWS. A mono label and a two-way toggle;
+# the two .implied.* lines appear only when nobody has chosen and the running
+# build decided it.
+settings.updates.channel.title = release line
+settings.updates.channel.aria = Which release line to follow
+settings.updates.channel.info.body = Stable follows finished releases only. Pre-release also offers release candidates and branch builds — newer, and more likely to be broken. Either way nothing installs itself.
+settings.updates.channel.stable.label = stable
+settings.updates.channel.prerelease.label = pre-release
+settings.updates.channel.implied.prerelease.prose = you are running a pre-release build, so this line is followed by default — switch to stable to be offered finished releases only
+settings.updates.channel.implied.stable.prose = the default for a released build — switch to see release candidates too
 # A mono label: one short word or symbol pair, whatever the language.
 settings.updates.current.label = ✓ up to date
 settings.updates.unreachable.prose = couldn’t reach GitHub ({error}) — check your connection and try again

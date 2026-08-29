@@ -197,6 +197,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /changelog", s.requireAuth(s.handleChangelog))
 	mux.Handle("GET /admin/update/check", s.requireAdmin(s.handleUpdateCheck))
 	mux.Handle("POST /admin/update/apply", s.requireAdmin(s.handleUpdateApply))
+	mux.Handle("POST /admin/update/channel", s.requireAdmin(s.handleUpdateChannel))
 
 	// Search (PLAN §4).
 	mux.Handle("GET /search", s.requireAuth(s.handleSearch))

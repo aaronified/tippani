@@ -1457,6 +1457,29 @@ function UpdatesCard({ user, update, onUpdateInfo }) {
   const [confirm, setConfirm] = useState('')
   const [phase, setPhase] = useState('idle') // idle | applying | restarting | failed
 
+  // WHICH RELEASE LINE THIS BOX FOLLOWS. Not read from a preference the client
+  // owns: the server decides the default from the version it is running (a
+  // branch or rc build is already on the pre-release line), so the control
+  // shows what the last check reported and only sends when it is moved.
+  const channel = info?.channel || 'stable'
+
+  async function setChannel(next) {
+    setBusy(true)
+    const r = await json('POST', '/admin/update/channel', { channel: next })
+    if (r.ok) {
+      setInfo((prev) => (prev ? { ...prev, ...r.data } : prev))
+      // Re-check straight away: changing the line changes the answer, and
+      // leaving the old one on screen under the new label is how somebody ends
+      // up reading "up to date" about a line they just left.
+      const c = await json('GET', '/admin/update/check')
+      if (c.ok) {
+        setInfo(c.data)
+        onUpdateInfo?.(c.data)
+      }
+    } else toast(t('error.check.updates'))
+    setBusy(false)
+  }
+
   async function check() {
     setBusy(true)
     const r = await json('GET', '/admin/update/check')
@@ -1551,6 +1574,35 @@ function UpdatesCard({ user, update, onUpdateInfo }) {
                 <MonoLabel style={{ color: 'var(--ok)' }}>{t('settings.updates.current.label')}</MonoLabel>
               )}
             </div>
+
+            {/* Only after a check: before one, there is nothing to say which
+                line this build is on, and a toggle that guesses would be
+                asserting the very thing the check is for. */}
+            {info && (
+              <div>
+                <div className="mb-2 flex items-center gap-1.5">
+                  <MonoLabel>{t('settings.updates.channel.title')}</MonoLabel>
+                  <InfoDot text={t('settings.updates.channel.info.body')} />
+                </div>
+                <Toggle
+                  ariaLabel={t('settings.updates.channel.aria')}
+                  disabled={busy || phase === 'applying'}
+                  value={channel}
+                  onChange={setChannel}
+                  options={[
+                    ['stable', t('settings.updates.channel.stable.label')],
+                    ['prerelease', t('settings.updates.channel.prerelease.label')],
+                  ]}
+                />
+                {!info.channel_explicit && (
+                  <p className="microcopy" style={{ marginTop: 6, color: 'var(--soft)' }}>
+                    {t(channel === 'prerelease'
+                      ? 'settings.updates.channel.implied.prerelease.prose'
+                      : 'settings.updates.channel.implied.stable.prose')}
+                  </p>
+                )}
+              </div>
+            )}
 
             {info?.check_error && (
               <p className="microcopy" style={{ color: 'var(--soft)' }}>

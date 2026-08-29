@@ -9,6 +9,10 @@ package httpapi
 //        that recreates this container. Requires {"confirm":"UPDATE"} and a
 //        reachable Engine API; otherwise it returns the guided command so the
 //        operator can update by hand.
+//   POST /admin/update/channel — {"channel":"stable"|"prerelease"}: which line
+//        the check follows. Instance-wide, because the thing it changes is
+//        which image the box is going to be running, and that is not a per-user
+//        opinion.
 //
 // The check is strictly on demand — Tippani never contacts GitHub on its own.
 // The apply is an opt-in, privileged operation: it only works when the operator
@@ -38,6 +42,33 @@ type UpdateDocker interface {
 
 const guidedUpdateCommand = "docker compose up -d --pull always --force-recreate"
 
+// settingUpdateChannel is "prerelease" to follow the run-ups, "stable" to skip
+// them, and "" to let the running build decide (see updateChannel). Stored
+// rather than an env var so the box can be moved onto the rc line from the
+// page that shows the rc, without an operator editing compose and recreating
+// the container to answer a question the app already asked.
+const settingUpdateChannel = "update_channel"
+
+// updateChannel resolves the stored preference. The default is not a constant:
+// an image that is ITSELF a pre-release (3.0.0-edge.f7ddba5, the branch build)
+// is already on that line, and defaulting it to stable would have the update
+// card offer it the last stable release — a downgrade, which is exactly the
+// wrong answer to "am I current?" and exactly what the branch tester saw. An
+// explicit stored value always wins, in both directions.
+func (s *Server) updateChannel() (channel string, pre bool, explicit bool) {
+	v, _ := s.Store.GetSetting(settingUpdateChannel)
+	switch v {
+	case "prerelease":
+		return "prerelease", true, true
+	case "stable":
+		return "stable", false, true
+	}
+	if updater.IsPrerelease(buildinfo.Version) {
+		return "prerelease", true, false
+	}
+	return "stable", false, false
+}
+
 // handleUpdateCheck reports the running version, the latest release, whether an
 // update is available, and whether a one-click update is possible on this host.
 // A GitHub failure (offline, rate-limited, no releases) is soft: it comes back
@@ -54,19 +85,48 @@ func (s *Server) handleUpdateCheck(w http.ResponseWriter, r *http.Request) {
 		"can_self_update": socket,
 		"guided_command":  guidedUpdateCommand,
 	}
-	rel, err := updater.LatestRelease(ctx, s.GitHubAPI, buildinfo.Repo())
+	channel, includePre, explicit := s.updateChannel()
+	out["channel"] = channel
+	out["channel_explicit"] = explicit
+
+	rel, err := updater.LatestRelease(ctx, s.GitHubAPI, buildinfo.Repo(), includePre)
 	if err != nil {
 		olog.Printf("[update] check for user %d (%s): %v", userID(r), username(r), err)
 		out["check_error"] = err.Error()
 		out["update_available"] = false
 	} else {
 		out["latest"] = rel.TagName
+		out["latest_prerelease"] = rel.Prerelease
 		out["release_name"] = rel.Name
 		out["notes_url"] = rel.HTMLURL
 		out["published_at"] = rel.PublishedAt
 		out["update_available"] = updater.UpdateAvailable(buildinfo.Version, rel.TagName)
 	}
 	writeJSON(w, http.StatusOK, out)
+}
+
+// handleUpdateChannel stores which release line the check follows. "" clears
+// the preference back to "whatever this build implies", which is the only way
+// back to the default once it has been set either way.
+func (s *Server) handleUpdateChannel(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Channel string `json:"channel"`
+	}
+	if !decodeBody(w, r, &req) {
+		return
+	}
+	switch req.Channel {
+	case "", "stable", "prerelease":
+	default:
+		writeErr(w, http.StatusBadRequest, `channel must be "stable", "prerelease", or "" for the default`)
+		return
+	}
+	if err := s.Store.SetSetting(settingUpdateChannel, req.Channel); err != nil {
+		writeErr(w, http.StatusInternalServerError, "save channel")
+		return
+	}
+	channel, _, explicit := s.updateChannel()
+	writeJSON(w, http.StatusOK, map[string]any{"channel": channel, "channel_explicit": explicit})
 }
 
 // handleUpdateApply pulls the newest image and recreates this container via a

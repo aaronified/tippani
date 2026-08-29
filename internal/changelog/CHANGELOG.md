@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A release line to follow, in Settings → Updates.** *Stable* is what the update
+  check always did: finished releases only. *Pre-release* also offers release
+  candidates and branch builds, for anybody testing a run-up. Nothing installs itself
+  on either line — the check is still on demand and the update still needs typing
+  `UPDATE`. The line is **not asked for when it can be inferred**: an install that is
+  itself a pre-release is already on that line and is set to it, with a note saying so,
+  because the alternative was a branch tester being offered the last *stable* release as
+  their "update" — a downgrade, one click away.
+
 - **Two questions the quiz never asked, and a second way of asking one it did.**
   "Who wrote this?" did not exist at all — the deck could ask which book a highlight
   came from and never who wrote the book — and "who said this?" existed but was
@@ -47,9 +56,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   on the machine it is built for without installing a Go and Node toolchain there. It
   carries nothing that moves: no `latest`, no `edge`, no series pointer, so nobody
   tracking a release can be moved onto unfinished work by it. It reports its version as
-  `edge-v3` rather than `v3`: a bare branch name reads as the release 3.0.0, which would
-  have made the branch image look like the finished thing in Settings and, being newer
-  than every published release, would have told its testers they were up to date forever.
+  `3.0.0-edge.<commit>` — a pre-release of the version the branch is *for*. A bare branch
+  name reads as the release 3.0.0, which would have made the branch image look like the
+  finished thing in Settings and, being newer than every published release, would have
+  told its testers they were up to date forever.
 
 - **Films and shows look up with nothing configured.** The published Docker images now
   carry built-in TMDB **and TheTVDB** credentials, the way Jellyfin and friends ship theirs, so a fresh
@@ -176,6 +186,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reveals its source shows the cover beside the title.
 
 ### Fixed
+
+- **A pre-release is a run-up to its version, not a successor to it.** Anyone running
+  `1.0.0-rc1` was told they were up to date on the day 1.0.0 came out, because the
+  version compare stopped at the numbers and read the two as equal. Pre-release
+  identifiers are now ordered the way semantic versioning says: having one puts you
+  *behind* the release, `rc.9` comes before `rc.10` rather than after it (a string
+  compare had that backwards), and fewer identifiers sort first.
 
 - **A work option could still wear somebody's face.** The rule — a work is shown by
   its picture, a person by their chip — was enforced only by the server not filling the

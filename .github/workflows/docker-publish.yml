@@ -108,23 +108,41 @@ jobs:
       # WHAT THE BRANCH BUILD CALLS ITSELF.
       #
       # metadata-action's `version` output for a branch push is the branch name,
-      # and the branch is named "v3" — which internal/updater/parseSemver reads
-      # as 3.0.0. Stamped in unchanged, the branch build would show "3.0.0" in
-      # Settings as though it were the release, and, being "newer" than every
-      # real tag, would never offer an update: a tester could sit on a stale
-      # unfinished image forever and be told they were current. The prefix makes
-      # it non-semver, which is the case the updater already handles correctly
-      # ("can't assert this is current, so offer") and which `edge` on main
-      # already takes. Tag builds are untouched — their version IS the release.
+      # and the release branch is named "v3" — which internal/updater reads as
+      # the release 3.0.0. Stamped in unchanged, the branch image showed "3.0.0"
+      # in Settings as though it were the finished thing and, being newer than
+      # every published tag, never offered an update: a tester could sit on a
+      # stale unfinished image forever and be told they were current.
+      #
+      # Prefixing it out of semver entirely ("edge-v3") fixed that and bought
+      # the mirror image of it — unorderable means "cannot assert", so the card
+      # offered 2.2.9, a DOWNGRADE, as the update. Both readings are wrong in
+      # the same way: they treat the branch as either finished or unplaceable,
+      # when it is neither. It is the run-up to the release it is named for, so
+      # that is what it is stamped as: 3.0.0-edge.<sha>, a semver pre-release,
+      # which sorts after every 2.x and before 3.0.0-rc.1 and 3.0.0 alike. The
+      # sha is there so a tester's bug report names the exact build.
+      #
+      # A branch not shaped like a version falls back to the unorderable form —
+      # there is no release to be the run-up to, so "cannot assert" is honest.
+      # Tag builds never reach this: their version IS the release.
       - name: Version to stamp into the binary
         id: ver
         run: |
           set -euo pipefail
           v='${{ steps.meta.outputs.version }}'
-          case "${GITHUB_REF}" in
-            refs/tags/*) ;;
-            *) [ "${GITHUB_REF_NAME}" = "${{ github.event.repository.default_branch }}" ] || v="edge-${GITHUB_REF_NAME}" ;;
-          esac
+          if [ "${GITHUB_REF}" != "${GITHUB_REF#refs/tags/}" ]; then
+            :                                                    # a tag: as-is
+          elif [ "${GITHUB_REF_NAME}" = "${{ github.event.repository.default_branch }}" ]; then
+            :                                                    # main: "edge"
+          else
+            core="${GITHUB_REF_NAME#v}"
+            case "$core" in
+              ''|*[!0-9.]*) v="edge-${GITHUB_REF_NAME}" ;;       # not a version
+              # "3" -> 3.0.0, "3.1" -> 3.1.0: pad, then keep three fields.
+              *) v="$(printf '%s.0.0' "$core" | cut -d. -f1-3)-edge.$(git rev-parse --short HEAD)" ;;
+            esac
+          fi
           echo "version=$v" >> "$GITHUB_OUTPUT"
           echo "stamping $v"
 
