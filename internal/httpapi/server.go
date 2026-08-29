@@ -924,6 +924,29 @@ func (s *Server) spaHandler() http.Handler {
 		if p == "" {
 			p = "index.html"
 		}
+		// EVERY FILE IN /assets IS CONTENT-HASHED, AND NONE OF THEM WAS CACHED.
+		//
+		// Vite names these index-DsRtUZ5f.css, caveat-latin-500-normal-B9SDL8cy.woff2
+		// — the hash IS the version, so a changed file is a changed URL and the old
+		// one can be kept for a year. This handler sent no Cache-Control, no ETag
+		// and no Last-Modified, which leaves a browser with no freshness lifetime
+		// and nothing to revalidate against: it refetched the bundle, the
+		// stylesheet and every font on essentially every navigation.
+		//
+		// That is most of what "the app has become sluggish" was on a LAN, and all
+		// of what "opening Share takes 2-3 seconds and is not even cached" was:
+		// the share card is the only thing in the app that asks for the Bengali,
+		// Devanagari and handwriting faces, so opening it fetched a third of a
+		// megabyte of fonts, and did it again the next time.
+		//
+		// index.html is deliberately NOT in here. It is the one file whose name
+		// never changes, so it is also the one that must be revalidated — it is
+		// what tells the browser which hashed bundle to ask for next.
+		if strings.HasPrefix(p, "assets/") {
+			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+		} else {
+			w.Header().Set("Cache-Control", "no-cache")
+		}
 		if _, err := fs.Stat(s.Static, p); err != nil {
 			// A MISSING FILE IS A 404, AND ONLY A ROUTE FALLS BACK.
 			//

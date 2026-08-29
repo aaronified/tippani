@@ -711,8 +711,15 @@ function QuoteImagePanel({ share, selected, onShared, actionRef }) {
     // grain are not in yet), and the finished one arrives when the slowest of
     // the three is ready. Nobody was watching for the middle two.
     Promise.all([
-      // The bundled fonts (first paint may fall back).
-      ensureFonts(),
+      // The bundled fonts (first paint may fall back) — asked for by SCRIPT, so
+      // an English quote does not pull the Bengali and Devanagari faces. See
+      // ensureFonts: this panel is the only caller that can say what will be set.
+      ensureFonts({
+        text: [share.quote, share.translation, share.note, ...(share.attribution || []).map((a) => a?.text || '')]
+          .filter(Boolean)
+          .join(' '),
+        hand: !!share.note,
+      }),
       // Author / actor portraits, which load lazily.
       loadFaceImages((share.faces || []).map((f) => f.url)),
       // The material's tile.

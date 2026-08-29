@@ -181,3 +181,45 @@ func assetRefs(html string) []string {
 	}
 	return out
 }
+
+// THE 751 KILOBYTES THAT WERE DOWNLOADED AGAIN ON EVERY VISIT.
+//
+// Everything under /assets is content-hashed by the build — index-DsRtUZ5f.css,
+// caveat-latin-500-normal-B9SDL8cy.woff2 — so the name IS the version and a
+// changed file is a changed URL. This handler sent no Cache-Control, no ETag and
+// no Last-Modified, which leaves a browser with no freshness lifetime and
+// nothing to revalidate against: measured in Chromium against a real instance,
+// the bundle, the stylesheet and seven fonts came down on the first visit, the
+// second and the third alike. That is the "app has become sluggish" and the
+// "not even cached" reports, and on a LAN it is most of both.
+func TestHashedAssetsAreCachedAndIndexIsNot(t *testing.T) {
+	h := spaServer(t, map[string]string{
+		"index.html":          indexHTML,
+		"assets/index-abc.js": "console.log(1)",
+	})
+
+	asset := get(t, h, "/assets/index-abc.js").Header().Get("Cache-Control")
+	if !strings.Contains(asset, "immutable") || !strings.Contains(asset, "max-age=31536000") {
+		t.Errorf("hashed asset Cache-Control = %q, want a year and immutable", asset)
+	}
+
+	// INDEX MUST NOT BE. It is the one file whose name never changes, so it is
+	// the one that has to be revalidated — it is what tells the browser which
+	// hashed bundle to ask for next, and a cached copy of it pins the app to
+	// the version it named for as long as the cache holds.
+	for _, p := range []string{"/", "/index.html", "/library"} {
+		got := get(t, h, p).Header().Get("Cache-Control")
+		if strings.Contains(got, "immutable") || strings.Contains(got, "max-age=31536000") {
+			t.Errorf("%s Cache-Control = %q, want it revalidated", p, got)
+		}
+		if got == "" {
+			t.Errorf("%s sent no Cache-Control at all", p)
+		}
+	}
+
+	// A 404 for a missing asset keeps its no-cache answer rather than being
+	// pinned for a year by the header set on the way in.
+	if rec := get(t, h, "/assets/gone-999.js"); rec.Code != http.StatusNotFound {
+		t.Errorf("missing asset = %d, want 404", rec.Code)
+	}
+}

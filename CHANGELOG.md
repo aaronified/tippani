@@ -203,6 +203,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **751 kilobytes were re-downloaded on every single visit.** Everything the build emits
+  under `/assets` is content-hashed — `index-DsRtUZ5f.css`, `caveat-latin-500-normal-B9SDL8cy.woff2`
+  — so the name *is* the version, and a changed file is a changed URL. The server sent no
+  `Cache-Control`, no `ETag` and no `Last-Modified` for any of them, which leaves a browser
+  with no freshness lifetime and nothing to revalidate against. Measured in a real browser
+  against a real instance: the bundle, the stylesheet and seven fonts came down on the
+  first visit, the second and the third alike. They are now cached for a year and served
+  from disk after the first load — 0 KB over the wire on visit two. `index.html`, whose
+  name never changes, is deliberately still revalidated. **This is most of the "the app has
+  become sluggish" report, and all of the "not even cached" one.**
+
+- **Opening the share picture no longer fetches a third of a megabyte of fonts.** The
+  share card is the only thing in the app that asks for the handwriting, Bengali and
+  Devanagari faces — nothing else draws with them — and it asked for all three, plus the
+  Latin subsets of the two Indic families, whatever language the quote was in. It now asks
+  only for the scripts the card is about to set, and narrows each request to the characters
+  it will draw. Measured: opening Share went from five font requests to none for an
+  English quote already on screen.
+
 - **A branch build now sees that its branch has moved.** Tracking `:v3` (or `:edge`) means
   tracking a moving image tag, and pushing to a branch rebuilds that image without creating
   any GitHub release — so the update check, which could only see releases, correctly and

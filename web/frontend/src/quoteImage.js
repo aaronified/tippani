@@ -64,7 +64,11 @@ function buildFonts() {
 // paint isn't a fallback serif. Best-effort: never rejects (a blocked load just
 // falls back visually), and returns immediately where the Font Loading API is
 // missing.
-export function ensureFonts() {
+// SCRIPT RANGES, so a card asks only for the faces it is going to draw with.
+const BENGALI = /[\u0980-\u09FF]/
+const DEVANAGARI = /[\u0900-\u097F]/
+
+export function ensureFonts(sample) {
   if (typeof document === 'undefined' || !document.fonts || !document.fonts.load) {
     return Promise.resolve()
   }
@@ -77,9 +81,32 @@ export function ensureFonts() {
     `italic 27px "${fam('display')}"`, `600 15px "${fam('display')}"`,
     `italic 15px "${fam('display')}"`, `600 14px "${fam('display')}"`,
     `500 12px "${fam('mono')}"`, `600 11px "${fam('mono')}"`, `500 11px "${fam('mono')}"`,
-    `22px "${fam('hand')}"`, `12px "${fam('bengali')}"`, `12px "${fam('devanagari')}"`,
   ]
-  return Promise.all(faces.map((f) => document.fonts.load(f).catch(() => {}))).then(() => {})
+  // THE THREE THAT ARE NOT ALWAYS NEEDED, AND WERE ALWAYS FETCHED.
+  //
+  // The share card is the only thing in this app that asks the Font Loading API
+  // for the handwriting, Bengali and Devanagari faces — nothing else draws with
+  // them — so opening the picture panel fetched all three, plus the Latin
+  // subsets of the two Indic families, whatever the quote was written in. That
+  // is around a third of a megabyte, on a screen the reader opened to look at
+  // one English sentence, and it was the first thing between the click and a
+  // usable dialog.
+  //
+  // `sample` is the text the card is about to set. Absent, everything loads —
+  // the old behaviour, for a caller that cannot say. Given, the Indic faces are
+  // asked for only when their script is actually present, and the hand face
+  // only when there is a note to write in it.
+  const all = sample === undefined
+  if (all || sample.hand) faces.push(`22px "${fam('hand')}"`)
+  const text = all ? '' : String(sample.text || '')
+  if (all || BENGALI.test(text)) faces.push(`12px "${fam('bengali')}"`)
+  if (all || DEVANAGARI.test(text)) faces.push(`12px "${fam('devanagari')}"`)
+  // The second argument narrows the request to the characters that will be
+  // drawn, so a family with a dozen unicode-range subsets sends the one needed
+  // rather than all of them.
+  return Promise.all(
+    faces.map((f) => (text ? document.fonts.load(f, text) : document.fonts.load(f)).catch(() => {})),
+  ).then(() => {})
 }
 
 // readTheme snapshots the canvas-safe colours off <html> (theme.js writes them
