@@ -102,8 +102,8 @@ func (s *Server) resolveTMDB() (*metadata.TMDB, string) {
 
 // resolveTVDB picks the effective TheTVDB client: a direct programmatic key
 // (embedders/tests, set on s.TVDB) > the settings-table key (a fresh client) >
-// nil (no built-in — TheTVDB is opt-in). Like TMDB there is no environment slot;
-// the key is configured in Settings. The second return is the source enum for
+// the built-in project key > nil. Like TMDB there is no environment slot; the
+// key is configured in Settings. The second return is the source enum for
 // /metadata/status.
 func (s *Server) resolveTVDB() (*metadata.TVDB, string) {
 	base := ""
