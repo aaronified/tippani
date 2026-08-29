@@ -223,6 +223,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The TMDB and TheTVDB info dots stopped contradicting the card they sit on.** The
+  heading's dot has said "films and shows try TheTVDB first, then TMDB" since the
+  default moved, while the dot on the TheTVDB key row still opened with "Optional" and
+  the one on the TMDB row still said a missing TMDB key means lookups return 503. Both
+  described the app as it was before 2.2.0, and they are the two dots somebody actually
+  opens while deciding which key is worth going and fetching — so the card's own
+  summary was right and the two fields it summarises were wrong. TheTVDB's now says it
+  is tried first and is the only source with a picture per character; TMDB's says it is
+  the fallback, and that the 503 needs *neither* source keyed.
+
 - **Amazon stopped answering when the picture wanted is a face.** The picture strip
   asked every configured supplier for every kind of image, and one of those suppliers
   is a shop. Asked for a poster or a cover, that is exactly right — somebody sells

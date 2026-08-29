@@ -4870,9 +4870,9 @@ settings.keys.noun.engine-id = engine id
 
 settings.keys.google.hint = Optional, and only if you exceed roughly 1,000 lookups a day: console.cloud.google.com → enable the Books API → create a key. Books work with no key at all.
 settings.keys.google.placeholder = Google Books API key — optional
-settings.keys.tmdb.hint = themoviedb.org → Settings → API → a free v3 key (a v4 read token also works). Overrides the built-in shared key. With no key at all, lookups return 503 — manual entry still works.
+settings.keys.tmdb.hint = The FALLBACK for films and shows, tried after TheTVDB: themoviedb.org → Settings → API → a free v3 key (a v4 read token works too). Overrides the built-in shared key. With neither source keyed, lookups return 503.
 settings.keys.tmdb.placeholder = TMDB v3 key or v4 token — overrides built-in
-settings.keys.tvdb.hint = Optional, and usually better for long-running shows: thetvdb.com → Dashboard → API keys. A free (user-supported) key needs the PIN below as well, or it is refused at login.
+settings.keys.tvdb.hint = Tried FIRST for films and shows, and the only source with a picture per character: thetvdb.com → Dashboard → API keys. A free (user-supported) key needs the PIN below as well, or it is refused at login.
 settings.keys.tvdb-pin.hint = Only for a free (user-supported) TheTVDB key: thetvdb.com → your account → Subscriber PIN. Without it that kind of key is rejected and results quietly come from TMDB instead. A paid project key needs no PIN.
 settings.keys.tvdb-pin.placeholder = TheTVDB subscriber PIN — free keys only
 settings.keys.tvdb.placeholder = TheTVDB v4 API key — optional

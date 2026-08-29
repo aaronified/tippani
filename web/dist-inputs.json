@@ -13,8 +13,8 @@
     "web/frontend/vite.config.js"
   ],
   "sha256": {
-    "internal/i18n/bn.txt": "9b62e3e241567c2dae15800fda707d7376b03500365f37f34a1100c9a8509223",
-    "internal/i18n/en.txt": "357fa7c8d2a03df3ace5bc415bbd1274f6b6a9afc6234dc7eca3e96c0e98ea56",
+    "internal/i18n/bn.txt": "3ccf17165c0efe98206ba7bd451e266741508dd5e167a962645ea1e2c053c008",
+    "internal/i18n/en.txt": "61a2d396c7158b40ff4d7a2b6c11f07a0b86f1987d7a42c9698383800bdc190f",
     "web/frontend/index.html": "faa8bb6fc81705b9d9d395a62a9d474414a029c571723bf099f84cb624ce906c",
     "web/frontend/package-lock.json": "d7afffc5b73c431c604bfaff5760d6ef244d1f74b187575d213f3ad353c18715",
     "web/frontend/package.json": "39e3500f352a3cc249a37b894e3fc0a2b2c7e38bd40ba74465fe64d22d0964cd",

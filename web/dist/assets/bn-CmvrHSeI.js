@@ -4609,9 +4609,9 @@ settings.keys.noun.engine-id = ইঞ্জিন আইডি
 
 settings.keys.google.hint = ইচ্ছেমতো, আর দিনে 1,000-এর মতো খোঁজ পেরোলেই তবে দরকার: console.cloud.google.com → Books API চালু করুন → একটা কি বানান। বই কোনও কি ছাড়াই চলে।
 settings.keys.google.placeholder = গুগল বুকস API কি — ইচ্ছেমতো
-settings.keys.tmdb.hint = themoviedb.org → Settings → API → বিনামূল্যের একটা v3 কি (v4 রিড টোকেনও চলে)। সঙ্গে আসা সবার কি-টাকে সরিয়ে এটাই চলে। কোনও কি না থাকলে খোঁজ 503 ফেরায় — নিজে হাতে লেখা তখনও চলে।
+settings.keys.tmdb.hint = সিনেমা আর শোয়ের পিছনের উপায়, TheTVDB-র পরে দেখা হয়: themoviedb.org → Settings → API → বিনামূল্যের একটা v3 কি (v4 রিড টোকেনও চলে)। সঙ্গে আসা সবার কি-টাকে সরিয়ে এটাই চলে। দুটোর কোনওটারই কি না থাকলে খোঁজ 503 ফেরায়।
 settings.keys.tmdb.placeholder = TMDB v3 কি বা v4 টোকেন — সঙ্গে আসাটাকে সরিয়ে দেয়
-settings.keys.tvdb.hint = ইচ্ছেমতো, আর অনেক দিন ধরে চলা শোয়ের জন্য সাধারণত ভাল: thetvdb.com → Dashboard → API keys। ফ্রি (user-supported) কি হলে নিচের PIN-টাও লাগে, নইলে লগইনেই ফিরিয়ে দেয়।
+settings.keys.tvdb.hint = সিনেমা আর শোয়ের জন্য প্রথমে এটাই দেখা হয়, আর চরিত্রপিছু ছবি কেবল এখানেই আছে: thetvdb.com → Dashboard → API keys। ফ্রি (user-supported) কি হলে নিচের PIN-টাও লাগে, নইলে লগইনেই ফিরিয়ে দেয়।
 settings.keys.tvdb-pin.hint = শুধু ফ্রি (user-supported) TheTVDB কি-র জন্য: thetvdb.com → আপনার অ্যাকাউন্ট → Subscriber PIN। এটা ছাড়া ওই কি বাতিল হয়, আর ফলাফল চুপচাপ TMDB থেকে আসে। পেইড প্রজেক্ট কি-তে PIN লাগে না।
 settings.keys.tvdb-pin.placeholder = TheTVDB subscriber PIN — শুধু ফ্রি কি-র জন্য
 settings.keys.tvdb.placeholder = TheTVDB v4 API কি — ইচ্ছেমতো
