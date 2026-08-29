@@ -234,9 +234,14 @@ describe('the people panel', () => {
     fireEvent.click(screen.getAllByText('search images')[0])
 
     await waitFor(() => expect(CALLS.some(([, p]) => p === '/images/search')).toBe(true))
+    // cast_id is the one that matters and the one that is easy to drop: without
+    // it the server cannot reach the work's TheTVDB record, and the strip falls
+    // back to asking a search engine for a sentence — which is what it did
+    // before the ladder and is indistinguishable from "no results" on an install
+    // with no Custom Search key.
     expect(CALLS.find(([, p]) => p === '/images/search')[2]).toEqual({
       kind: 'character', name: 'Amanda Waller', actor: 'Viola Davis',
-      title: 'Suicide Squad', media_type: 'movie',
+      title: 'Suicide Squad', media_type: 'movie', cast_id: 11,
     })
 
     // Drawn: the thumbnail. Stored: the original, through the same route a

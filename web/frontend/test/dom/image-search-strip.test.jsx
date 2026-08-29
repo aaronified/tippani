@@ -101,11 +101,18 @@ describe('finding a picture for a person', () => {
     expect(window.open).not.toHaveBeenCalled()
   })
 
-  it('asks for a portrait of this person and nothing else', async () => {
+  // The body is pinned exactly, not spot-checked: a field quietly added here is a
+  // field the server will act on, and `person_id` in particular decides which
+  // supplier the ladder can reach. It carries the person's OWN id — never a
+  // supplier's — so that the server resolves the pinned identity from the
+  // reader's own row rather than trusting whatever the page sent.
+  it('asks for a portrait of this person, by their id, and nothing else', async () => {
     SOURCES = { google: true, amazon: false }
     await openForm()
     fireEvent.click(screen.getByText('search images'))
     await waitFor(() => expect(SENT.some((s) => s.path === '/images/search')).toBe(true))
-    expect(SENT.find((s) => s.path === '/images/search').body).toEqual({ kind: 'portrait', name: 'Anna Kavan' })
+    expect(SENT.find((s) => s.path === '/images/search').body).toEqual({
+      kind: 'portrait', name: 'Anna Kavan', person_id: 7,
+    })
   })
 })

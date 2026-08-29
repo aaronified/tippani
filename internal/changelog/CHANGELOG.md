@@ -223,6 +223,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Character pictures: the strip never asked the one supplier that has them.** Asking
+  for a picture of a role reached exactly two suppliers — Google Custom Search, which
+  needs a key *and* an engine id, and the Amazon scrape, which sells things. TheTVDB,
+  which carries an image per character and is the only source that ever has, was not
+  among them; it is why the default film source moved to TheTVDB in the first place. So
+  on an ordinary install the strip came back empty and the button fell through to
+  opening a browser tab, which is what it did before the strip existed. The suppliers
+  are now an ordered ladder rather than a flat merge: for a role TheTVDB goes first and
+  a web search fills in beneath it, and for a face TheTVDB then TMDB come before the
+  search. The 18-picture cap is therefore spent from the top instead of by whoever
+  answered fastest.
+
+  Two things fall out of it. A portrait now reaches TheTVDB with **no new setting and
+  no name search** — the person id has been arriving on every cast fetch and being
+  discarded, and it is read back from the reader's own rows. And the ladder is asked
+  using *our* ids, never a supplier's: the page sends a cast row id or a person id,
+  which the server resolves scoped to that reader, so a request cannot name a work in
+  somebody else's library.
+
+- **The TMDB and TheTVDB info dots stopped contradicting the card they sit on.** The
+  heading's dot has said "films and shows try TheTVDB first, then TMDB" since the
+  default moved, while the dot on the TheTVDB key row still opened with "Optional" and
+  the one on the TMDB row still said a missing TMDB key means lookups return 503. Both
+  described the app as it was before 2.2.0, and they are the two dots somebody actually
+  opens while deciding which key is worth going and fetching — so the card's own
+  summary was right and the two fields it summarises were wrong. TheTVDB's now says it
+  is tried first and is the only source with a picture per character; TMDB's says it is
+  the fallback, and that the 503 needs *neither* source keyed.
+
+- **Amazon stopped answering when the picture wanted is a face.** The picture strip
+  asked every configured supplier for every kind of image, and one of those suppliers
+  is a shop. Asked for a poster or a cover, that is exactly right — somebody sells
+  the thing being pictured. Asked for "Hugo Weaving as V", it returns the DVD, a mask and
+  a T-shirt; asked for an author, it returns their books. All of them are confident,
+  well-lit, entirely wrong, and because they arrive first they crowded the strip's
+  cap and pushed out the suppliers that do have faces. Amazon is now consulted for
+  covers and posters only. The keyless ISBN/ASIN cover lookup is untouched — it was
+  never a search — and the "is a supplier configured?" flag follows the same rule, so
+  a portrait strip no longer reports a live Amazon it will never be asked.
+
 - **The share picture's backdrop froze the page for seconds, and it was never the
   photograph.** "Clicking share shows a 'slowing down' message from the browser; the
   backdrop takes 5-10s to render." Measured in Firefox, the entire portrait pipeline —

@@ -2965,6 +2965,38 @@ A standalone film fails the other way. Nothing scores highly, the distractors sh
 
 **THE PREVIEW AND THE FILE ARE TWO URLS, and that is forced by the CSP.** `img-src` is an allowlist that matches `metadata.coverHosts`, and a web image search returns pictures from hosts that cannot be enumerated in advance — that set is the web. So a hit carries `thumb` (the supplier's own thumbnail host, which CAN be allowlisted — `*.gstatic.com` is the one host added) for the page to draw, and `url` (the original) for the server to fetch once the reader picks it, where no CSP applies. The picker keeps drawing the thumbnail for the pending pick until the save replaces both with a stored file. Rejected: relaxing `img-src` to `https:`, which trades a deliberate allowlist for a convenience; and proxying previews through our own host, which is a new fetch surface for something the reader has not chosen yet.
 
+**THE SUPPLIERS ARE AN ORDERED LADDER, NOT A FLAT MERGE.** `character` climbs TheTVDB
+first and then the web search; `portrait` climbs TheTVDB, then TMDB, then the web search;
+`cover` and `poster` keep the keyless Amazon CDN probe at the top. Order is priority and
+**every rung that applies still runs** — a picker exists so somebody can reject the first
+picture, so short-circuiting on the best tier would be a picker with one thing in it.
+What the ordering buys is that the 18-hit cap is spent from the top rather than by
+whichever supplier answered fastest. A rung that cannot run — no key, no pinned id, wrong
+media type — is simply absent, which is why the tiers are assembled into a slice before
+any of them runs rather than being a chain of ifs.
+
+**Why it had to change at all:** `kind: "character"` could reach Google Custom Search and
+the Amazon scrape and nothing else, so the supplier that actually holds character art was
+never asked. On an install without a Custom Search key — which needs a key AND an engine
+id — the strip came back empty and the control fell through to opening a browser tab, the
+behaviour the strip was built to replace.
+
+**THE LADDER IS ADDRESSED WITH OUR IDS AND NEVER A SUPPLIER'S.** The two new rungs need a
+TheTVDB work id (to find a role on it) and a TheTVDB person id (to find a face), and the
+client sends neither: it sends `cast_id` and `person_id`, which the server reads back
+scoped by `user_id`. A request carrying a raw `tvdb_id` could name a work in somebody
+else's library; one carrying a cast row id can only ever name its own, and a row that is
+not theirs costs the ladder its top rung rather than confirming the row exists. The
+TheTVDB *person* id needs no new setting at all — it has been arriving on every cast
+fetch as `work_cast.person_id` and being discarded for want of a client to hand it to.
+
+**MATCHING A TYPED ROLE AGAINST A RECORD IS WORD-WISE, NEVER A SUBSTRING.** "Smith" should
+find "Agent Smith", which argues for containment — and containment answers a request for
+**V** with every role whose name contains the letter v, which is how V for Vendetta
+returned Evey Hammond. One-letter and very short role names are a convention rather than
+an edge case (V, M, Q, Neo), so every word of the shorter name must appear as a *word* in
+the longer one. Found by running the app, not by reading it.
+
 **AMAZON IS A SHOP, SO IT IS ASKED ONLY ABOUT THINGS SOMEBODY SELLS.** The search-page
 scrape answers `cover` and `poster` and nothing else. It was originally asked for every
 kind, on the reasoning that a configured supplier should be allowed to contribute — and

@@ -28,6 +28,8 @@ type imageSearchResp struct {
 	Sources struct {
 		Google bool `json:"google"`
 		Amazon bool `json:"amazon"`
+		TVDB   bool `json:"tvdb"`
+		TMDB   bool `json:"tmdb"`
 	} `json:"sources"`
 }
 

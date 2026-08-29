@@ -316,9 +316,17 @@ function CastRow({ row, role, busy, actor, workTitle, mediaType, onSave, onRemov
       actor: row.actor || '',
       title: workTitle || '',
       media_type: mediaType || '',
+      // THE ROW ID, WHICH IS WHAT REACHES TheTVDB. The server reads this row
+      // back scoped to the reader, follows it to the work's TheTVDB id and asks
+      // for the character's own art — the picture of the role, which no search
+      // engine has and which this button could not previously get at all.
+      cast_id: row.id || 0,
     }).catch(() => ({ ok: false }))
     setPicsBusy(false)
-    const configured = r.ok && (r.data?.sources?.google || r.data?.sources?.amazon)
+    // ANY RUNG. See people.jsx: the ladder has more suppliers than the two this
+    // test used to name, and a character strip is commonly configured with no
+    // Google key at all.
+    const configured = r.ok && Object.values(r.data?.sources || {}).some(Boolean)
     if (!configured) {
       window.open(
         `https://www.google.com/search?tbm=isch&q=${encodeURIComponent([row.character, workTitle].filter(Boolean).join(' '))}`,

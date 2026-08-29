@@ -223,6 +223,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Character pictures: the strip never asked the one supplier that has them.** Asking
+  for a picture of a role reached exactly two suppliers — Google Custom Search, which
+  needs a key *and* an engine id, and the Amazon scrape, which sells things. TheTVDB,
+  which carries an image per character and is the only source that ever has, was not
+  among them; it is why the default film source moved to TheTVDB in the first place. So
+  on an ordinary install the strip came back empty and the button fell through to
+  opening a browser tab, which is what it did before the strip existed. The suppliers
+  are now an ordered ladder rather than a flat merge: for a role TheTVDB goes first and
+  a web search fills in beneath it, and for a face TheTVDB then TMDB come before the
+  search. The 18-picture cap is therefore spent from the top instead of by whoever
+  answered fastest.
+
+  Two things fall out of it. A portrait now reaches TheTVDB with **no new setting and
+  no name search** — the person id has been arriving on every cast fetch and being
+  discarded, and it is read back from the reader's own rows. And the ladder is asked
+  using *our* ids, never a supplier's: the page sends a cast row id or a person id,
+  which the server resolves scoped to that reader, so a request cannot name a work in
+  somebody else's library.
+
 - **The TMDB and TheTVDB info dots stopped contradicting the card they sit on.** The
   heading's dot has said "films and shows try TheTVDB first, then TMDB" since the
   default moved, while the dot on the TheTVDB key row still opened with "Optional" and

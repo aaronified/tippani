@@ -79,10 +79,21 @@ func (s *Server) handleImageSearch(w http.ResponseWriter, r *http.Request) {
 		ISBN      string `json:"isbn"`
 		ASIN      string `json:"asin"`
 		MediaType string `json:"media_type"` // movie | show | game | book
+		// THE PINNED IDENTITIES, sent as OUR ids and never as a supplier's.
+		// The ladder needs a TheTVDB work id to find a role and a TheTVDB person
+		// id to find a face, and both are read back from the reader's own rows —
+		// so what crosses the wire is a cast row id and a person id, scoped by
+		// user_id on arrival. A client that sent a tvdb_id directly could name a
+		// work in somebody else's library; one that sends a cast_id can only ever
+		// name its own, and a row that is not theirs costs the ladder its top
+		// rung rather than leaking that the row exists.
+		CastID   int64 `json:"cast_id"`
+		PersonID int64 `json:"person_id"`
 	}
 	if !decodeBody(w, r, &req) {
 		return
 	}
+	uid := userID(r)
 	kind := strings.TrimSpace(req.Kind)
 	switch kind {
 	case imageKindCover, imageKindPoster, imageKindPortrait, imageKindCharacter:
@@ -121,41 +132,104 @@ func (s *Server) handleImageSearch(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// KEYLESS FIRST, so a reader who has configured nothing at all still gets
-	// something for a book they typed an ISBN into. This is the half of "Amazon"
-	// that needs no permission and no cookie: the CDN indexes covers by ISBN-10.
-	if kind == imageKindCover {
-		for _, u := range amazonCoverURLs(req.ISBN, req.ASIN) {
-			if metadata.ImageIsReal(r.Context(), u) {
-				add(metadata.ImageHit{URL: u, Source: "amazon"})
-			}
+	query := imageSearchQuery(kind, subject, req.Author, req.Actor, req.Title, req.MediaType, req.Year)
+	googleOn := gkey != "" && gcx != ""
+
+	// THE LADDER, ASSEMBLED BEFORE ANY RUNG RUNS. Order is priority, every rung
+	// that applies still runs, and a rung that cannot run is simply absent — see
+	// image_search_tiers.go for why that is the shape rather than a chain of ifs.
+	var tiers []imageTier
+	tier := func(t *imageTier) {
+		if t != nil {
+			tiers = append(tiers, *t)
 		}
 	}
 
-	query := imageSearchQuery(kind, subject, req.Author, req.Actor, req.Title, req.MediaType, req.Year)
-	if gkey != "" && gcx != "" {
-		if hits, err := metadata.GoogleImageSearch(r.Context(), gkey, gcx, query, 10); err != nil {
-			// One source failing is not the request failing — the others may have
-			// answered. The reason is logged rather than shown, exactly as the
-			// catalogue lookups do with a provider error.
-			olog.Warnf(olog.CodeMetaLookupFailed, "[meta] google image search %q: %v", query, err)
-		} else {
-			add(hits...)
+	switch kind {
+	case imageKindCharacter:
+		// THE ROLE, FROM THE ONE SUPPLIER THAT HAS ROLES. Everything below it is
+		// a search engine being asked to guess from a sentence.
+		pin := s.castPinFor(uid, req.CastID)
+		tier(s.tvdbCharacterTier(pin, subject))
+	case imageKindPortrait:
+		pin := s.personPinFor(uid, req.PersonID, subject)
+		cast := s.castPinFor(uid, req.CastID)
+		castPersonID := ""
+		if cast.Source == "tvdb" {
+			castPersonID = cast.PersonID
 		}
+		tier(s.tvdbPortraitTier(uid, pin, castPersonID, subject))
+		tier(s.tmdbPortraitTier(pin, subject))
+	case imageKindCover:
+		// KEYLESS AND FIRST, so a reader who has configured nothing at all still
+		// gets something for a book they typed an ISBN into. This is the half of
+		// "Amazon" that needs no permission and no cookie: the CDN indexes covers
+		// by ISBN-10, and it is a direct address rather than a search.
+		isbn, asin := req.ISBN, req.ASIN
+		tier(&imageTier{name: "amazon-by-id", run: func(ctx context.Context) []metadata.ImageHit {
+			var out []metadata.ImageHit
+			for _, u := range amazonCoverURLs(isbn, asin) {
+				if metadata.ImageIsReal(ctx, u) {
+					out = append(out, metadata.ImageHit{URL: u, Source: "amazon"})
+				}
+			}
+			return out
+		}})
+	}
+
+	// GOOGLE SITS BELOW EVERY PINNED SUPPLIER AND ABOVE THE SCRAPE. It answers
+	// every kind, which is precisely why it cannot be the top rung for the two
+	// kinds that have a supplier holding the real thing.
+	if googleOn {
+		tier(&imageTier{name: "google", run: func(ctx context.Context) []metadata.ImageHit {
+			hits, err := metadata.GoogleImageSearch(ctx, gkey, gcx, query, 10)
+			if err != nil {
+				// One source failing is not the request failing — the others may
+				// have answered. Logged rather than shown, exactly as the catalogue
+				// lookups do with a provider error.
+				olog.Warnf(olog.CodeMetaLookupFailed, "[meta] google image search %q: %v", query, err)
+				return nil
+			}
+			return hits
+		}})
 	}
 	if amazonSuits(kind) && cookie != "" {
-		if hits, err := metadata.AmazonImageSearch(r.Context(), query, cookie, domain, 8); err == nil {
-			add(hits...)
-		}
+		tier(&imageTier{name: "amazon-search", run: func(ctx context.Context) []metadata.ImageHit {
+			hits, err := metadata.AmazonImageSearch(ctx, query, cookie, domain, 8)
+			if err != nil {
+				return nil
+			}
+			return hits
+		}})
 	}
 
-	writeJSON(w, http.StatusOK, map[string]any{
-		"images": images,
-		"sources": map[string]bool{
-			"google": gkey != "" && gcx != "",
-			"amazon": amazonSuits(kind) && cookie != "",
-		},
-	})
+	names := make([]string, 0, len(tiers))
+	for _, t := range tiers {
+		names = append(names, t.name)
+		add(t.run(r.Context())...)
+		if len(images) >= imageSearchMax {
+			break // the cap is spent, and it was spent from the top
+		}
+	}
+	olog.Tracef("[meta] image ladder kind=%s tiers=%v -> %d hit(s)", kind, names, len(images))
+
+	// `sources` NAMES EVERY RUNG THIS REQUEST HAD, not the two it used to have.
+	// The client uses it to tell "nothing found" from "nothing configured", and
+	// after the ladder those are no longer the same two suppliers for every kind:
+	// a character strip can be fully configured with no Google key at all, and
+	// reporting only google/amazon would have it announce an unconfigured app to
+	// a reader whose TheTVDB key is working.
+	srcs := map[string]bool{
+		"google": googleOn,
+		"amazon": amazonSuits(kind) && cookie != "",
+	}
+	for _, t := range tiers {
+		switch t.name {
+		case "tvdb", "tmdb":
+			srcs[t.name] = true
+		}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"images": images, "sources": srcs})
 }
 
 // amazonSuits reports whether the Amazon search scrape has any business

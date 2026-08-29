@@ -385,10 +385,21 @@ function PersonForm({ kind, name, initial, onCancel, onSaved, onRenamed }) {
   async function findPicture() {
     setPicsBusy(true)
     setError('')
-    const r = await json('POST', '/images/search', { kind: 'portrait', name }).catch(() => ({ ok: false }))
+    // THE PERSON ID BUYS THE TOP OF THE LADDER. With it the server can reach
+    // whatever supplier this person is pinned to — and, failing that, the
+    // TheTVDB person id a cast fetch already stored against their name — instead
+    // of handing their name to a search engine. Without it (a person not yet
+    // saved) the ladder simply starts lower down.
+    const r = await json('POST', '/images/search', {
+      kind: 'portrait', name, person_id: initial?.id || 0,
+    }).catch(() => ({ ok: false }))
     setPicsBusy(false)
     const images = r.ok ? r.data?.images || [] : []
-    const configured = r.ok && (r.data?.sources?.google || r.data?.sources?.amazon)
+    // ANY RUNG, NOT THE TWO WE USED TO HAVE. `sources` names every supplier the
+    // request could reach, and the ladder added more of them — testing for
+    // google-or-amazon by name would send a reader with a working TheTVDB key
+    // out to a browser tab.
+    const configured = r.ok && Object.values(r.data?.sources || {}).some(Boolean)
     if (!configured) {
       window.open(`https://www.google.com/search?tbm=isch&q=${encodeURIComponent(name + ' ' + kind)}`, '_blank', 'noopener')
       return
