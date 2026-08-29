@@ -194,6 +194,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The page no longer re-composites itself on every scroll frame.** Two fixed,
+  full-viewport layers — the paper grain and the scenic background — used `mix-blend-mode`,
+  which blends an element with everything *behind* it: for a layer pinned over a scrolling
+  page that means reading back and recombining the whole viewport every frame, with no
+  JavaScript involved at all. The scenic layer also carried a 14-pixel drift running on a
+  66-second loop forever, so the compositor never went idle even on a page nobody was
+  touching. Both now composite inside their own element — the grain as a flat veil under a
+  noise mask, the background against its own page colour — and the drift is gone. **The
+  material set and the accent are untouched by this**: both layers still read the tile and
+  the colour the way they always did, and swapping either works exactly as before. A test
+  measures the old and new grain against each other across every skin and holds them to
+  within a hundredth of a contrast point.
+
+- **A readability inventory for the interface's own text.** Twenty-four ink-on-paper pairs
+  — buttons, labels, links, status text, menu rows, control borders — measured across all
+  fifty-six skins (seven material sets × four accents × two modes). The sample runs before
+  every commit; `TIPPANI_FULL_A11Y=1` runs every row and every state. Twelve pairs are
+  below their WCAG floor today and are recorded with the number they currently measure,
+  so they cannot get worse while they wait to be decided. The worst is the top bar's
+  **Add** button at 2.62:1, which is an inconsistency rather than a palette choice: the
+  primary button switches its ink for the dark theme's lighter accent fill and the Add
+  button, wearing the same fill one bar up, does not.
+
 - **The Updates card now says why there is no one-click update, and the README says what
   the socket route actually needs.** Mounting `docker.sock` was never enough on its own —
   the image runs as the non-root user `65532` and the socket is `root:docker` `0660`, so

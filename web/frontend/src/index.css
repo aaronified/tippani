@@ -299,18 +299,42 @@
     --tile-leather-037: url("./textures/leather-037.png");
   }
 
-  /* ---- grain (§5): fixed overlay tile, blend per theme ---- */
+  /* ---- grain (§5): fixed overlay tile ----
+     NO mix-blend-mode, AND THAT IS A PERFORMANCE DECISION WITH A NAME. A fixed,
+     full-viewport element that blends with its BACKDROP forces the browser to
+     read back and re-composite everything beneath it on every frame in which
+     anything beneath it moves — which, for a layer pinned over a scrolling
+     page, is every frame of every scroll. Two of these existed (this and
+     .scene-bg) and the owner's report was ~500ms of lag on click and scroll
+     alike, on a page whose JavaScript does nothing while you scroll.
+
+     The look is kept by doing the blend ARITHMETICALLY instead of optically.
+     multiply at 5.5% over the light theme's papers is, to within a level or
+     two, black at 5.5%; screen at 5% over the dark theme's is white at 5%. So
+     the noise is drawn as a mask and the veil is a flat colour, which composites
+     inside this element and touches nothing behind it. The two are algebraically
+     each other's mirror — multiply gives base·(1 − a(1 − n)) across a noise texel
+     n and the mask gives base·(1 − a·n) — so the same range of darkening is
+     reached at opposite ends of the noise, which for isotropic grain is the same
+     grain with its sign flipped. text-readability.test.jsx measures the worst
+     case under both and holds them to within a hundredth of a contrast point.
+
+     WHAT IT DOES NOT TOUCH is what the veil is made OF: no tile, no accent, no
+     material set. Swapping either goes on working exactly as before, which was
+     the condition this change was allowed under. ---- */
   .grain-overlay {
     position: fixed;
     inset: 0;
     z-index: 60;
     pointer-events: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E");
-    background-size: 180px 180px;
-    mix-blend-mode: multiply;
+    background-color: #000;
     opacity: .055;
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E");
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E");
+    -webkit-mask-size: 180px 180px;
+    mask-size: 180px 180px;
   }
-  html[data-theme="dark"] .grain-overlay { mix-blend-mode: screen; opacity: .05; }
+  html[data-theme="dark"] .grain-overlay { background-color: #FFF; opacity: .05; }
 
   /* ---- scenic background: a faint, fixed layer behind everything ----
      The ground slot of the chosen material set — linen under Manuscript,
@@ -326,27 +350,31 @@
      anyone reading it went looking for a gradient recipe that no longer exists.
      And it pointed at textures/README, which is not there and, from the shape of
      the reference, has not been for some time. */
+  /* SAME CHANGE AS .grain-overlay, and here it costs nothing at all: this layer
+     sits at z-index -1, so the only backdrop it ever blended with was the page
+     colour. Painting that colour into the element's own stack and using
+     background-blend-mode — which composites an element's OWN layers and reads
+     back nothing — is the identical result with none of the recomposition.
+
+     THE DRIFT IS GONE. A 14px translate over 66 seconds, running forever: a
+     motion nobody has ever consciously seen, keeping the compositor awake for
+     the life of the tab and re-blending a full-viewport layer to do it. */
   .scene-bg {
     position: fixed;
     inset: -30px 0;
     z-index: -1;
     pointer-events: none;
     background-repeat: repeat;
-    mix-blend-mode: multiply;
+    background-color: var(--bg);
+    background-blend-mode: multiply;
     opacity: .14;
-    animation: bg-drift 66s ease-in-out infinite alternate;
   }
-  html[data-theme="dark"] .scene-bg { mix-blend-mode: screen; opacity: .12; }
-  @keyframes bg-drift {
-    from { transform: translate3d(0, 0, 0); }
-    to { transform: translate3d(0, -14px, 0); }
-  }
+  html[data-theme="dark"] .scene-bg { background-blend-mode: screen; opacity: .12; }
   /* The desk. --tile-ground is written by theme.js from the chosen set, so this
      rule stops naming a material and starts naming a SLOT — which is the whole
      point of the seven sets: Quarry's desk is sandstone and Atelier's is canvas
      without a rule here knowing either word. */
   html .scene-bg { background-image: var(--tile-ground); background-size: var(--grain-scene); }
-  @media (prefers-reduced-motion: reduce) { .scene-bg { animation: none; } }
 
   /* ---- the scrim behind a modal ------------------------------------------
      One recipe, one place. `rgba(21,16,12,.55)` was written inline at TEN call
