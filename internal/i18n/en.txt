@@ -600,6 +600,8 @@ vocab.source.wikipedia.label = Wikipedia
 # Wikipedia, because the picture may come from either the article or Commons
 # and the reader is being told who to credit, not which API answered.
 vocab.source.wikimedia.label = Wikimedia
+# The wikis that cover what Wikipedia does not — the long tail of characters.
+vocab.source.fandom.label = Fandom
 
 # The floor under IGDB for games rather than a second opinion, so it is named.
 vocab.source.wikidata.label = Wikidata
@@ -4897,6 +4899,9 @@ settings.keys.amazon-domain.placeholder = www.amazon.com
 settings.keys.google-cse.hint = Optional, and the only way to search the web for a picture inside the app: programmablesearchengine.google.com → an engine set to the whole web with image search on; then a key from console.cloud.google.com. 100 searches a day free.
 settings.keys.google-cse.placeholder = Custom Search API key — optional
 settings.keys.google-cse-cx.hint = The other half, from the engine you made: its “Search engine ID”. Not a secret, so this one shows its value. One without the other searches nothing.
+settings.keys.google-scrape.title = Read Google image results directly
+settings.keys.google-scrape.aria = Read Google image results directly
+settings.keys.google-scrape.info.body = A last resort, used only when nothing above answers. It needs no key because it reads the results page — so the requests come from THIS SERVER, and being rate-limited or shown a consent wall affects everyone here. Off by default.
 settings.keys.google-cse-cx.placeholder = Search engine ID (cx)
 
 # --- the row's own controls. A secret is write-only, so "stored" is the whole of

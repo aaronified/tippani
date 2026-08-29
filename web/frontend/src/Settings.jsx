@@ -3720,6 +3720,39 @@ function Metadata({ user, onPreferences }) {
               busy={saving}
               onSave={(v) => saveKey('google_cse_cx', v)}
             />
+            {/* THE SCRAPE'S OPT-IN, and the only control on this card that is
+                not a credential.
+
+                Every other switch here is implicit in a secret: you cannot use
+                the Amazon scrape without storing the cookie that says you meant
+                to, so the key field IS the consent. Scraping Google's image
+                results needs nothing at all, which leaves the consent with
+                nowhere to live — hence a setting, and hence a control, because a
+                setting with no control is a feature nobody can reach.
+
+                It sits under the Programmable Search pair because it is the same
+                index read a worse way, and anybody who fills in the two fields
+                above never reaches it. */}
+            <div className="mt-4">
+              <div className="mb-2 flex items-center gap-1.5">
+                <MonoLabel>{t('settings.keys.google-scrape.title')}</MonoLabel>
+                <InfoDot text={t('settings.keys.google-scrape.info.body')} />
+              </div>
+              <Toggle
+                ariaLabel={t('settings.keys.google-scrape.aria')}
+                value={keys?.google_scrape ? 'on' : 'off'}
+                onChange={async (v) => {
+                  setSaving(true)
+                  setError('')
+                  const r = await json('PUT', '/admin/metadata-keys', { google_scrape: v === 'on' })
+                  setSaving(false)
+                  if (!r.ok) { setError(errText(r, t('error.save.generic'))); return }
+                  await Promise.all([loadStatus(), loadKeys()])
+                  toast(t('common.toast.saved'))
+                }}
+                options={[['off', t('vocab.no.label')], ['on', t('vocab.yes.label')]]}
+              />
+            </div>
             <KeyField
               label={keyLabel('amazon', 'domain')}
               hint={t('settings.keys.amazon-domain.hint')}

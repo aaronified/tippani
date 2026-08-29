@@ -13,8 +13,8 @@
     "web/frontend/vite.config.js"
   ],
   "sha256": {
-    "internal/i18n/bn.txt": "de5d4f213f4b42a9c3f46ab5aaf8d7362a90f121ce861514818a035bae260dfb",
-    "internal/i18n/en.txt": "0e3aed69f1fe35bbc2078c77ebed26e942c695b936032f4d0273c621ebe84492",
+    "internal/i18n/bn.txt": "7c282b0fafaddabc5503f425611499a962c47385fb6a6babd23818346c0fb5ca",
+    "internal/i18n/en.txt": "bb221531613eea3d900486e646382f149e73d77d13f315dab909011ab257486f",
     "web/frontend/index.html": "faa8bb6fc81705b9d9d395a62a9d474414a029c571723bf099f84cb624ce906c",
     "web/frontend/package-lock.json": "d7afffc5b73c431c604bfaff5760d6ef244d1f74b187575d213f3ad353c18715",
     "web/frontend/package.json": "39e3500f352a3cc249a37b894e3fc0a2b2c7e38bd40ba74465fe64d22d0964cd",
@@ -30,7 +30,7 @@
     "web/frontend/src/App.jsx": "bb6ef0ed0220d5f547fcec366ad545161c5734b2563d34ac55cf34f3f4564932",
     "web/frontend/src/BinPage.jsx": "37c8fef4258f7a37516ea3449c5bf4f6b10eccfc45e65eaf1a450854488d3413",
     "web/frontend/src/CleanupPage.jsx": "f6d25dba8ad916d9c7554702ab4e7a94b601ed75fd14b7456bfdb8f9ef5d5076",
-    "web/frontend/src/CoverPicker.jsx": "b5505712ba426e7b9844a92c975ba94334ac92569670ddaeaf48113b8752f485",
+    "web/frontend/src/CoverPicker.jsx": "7a45cc33b017a27207835a81dfdf9c208827f57333a09513329f1ff84a7ad86b",
     "web/frontend/src/Home.jsx": "ef3382d7bb1e6f0261e5d2cbf3470628f18c7b8b4b080476c99ea2439d39f4ab",
     "web/frontend/src/ImportPage.jsx": "ad49164e027e7d89f366320d97ceab1c59f2bb2faf0263eaec8d599c616f112e",
     "web/frontend/src/Library.jsx": "c81a3ecc89374fa1ac5c0d52bee728b007f1fc625c6733c591537ffa71b0d389",
@@ -40,7 +40,7 @@
     "web/frontend/src/ReverifyReview.jsx": "58be0d6b3d79cfd26063c4dd7efb3c90f81c3c4818a930b126cd129099bbf938",
     "web/frontend/src/SearchPage.jsx": "2e303c28e4891542c59d5121cc72ded81e9500f7bd2bf4e4ad2722cdfc2a053a",
     "web/frontend/src/SelectionBar.jsx": "cf478273ad01e121f464ea2b0a28fb5866c8560974517174814e0bf7513d73c8",
-    "web/frontend/src/Settings.jsx": "aebe53c8416064fff99090b8042379a3060acb4cd73b85b9c6f9fb5ac4bfd4db",
+    "web/frontend/src/Settings.jsx": "fe1b2a67ec2e0eb58ac8bbd671976355561dfc377bb5463e408c61ff6287ce49",
     "web/frontend/src/StagingPage.jsx": "751c45ae2194e110b6ab88d39c28a0103bdc2a46fbe47e22cd7b30b6f67b9d6f",
     "web/frontend/src/StatsPage.jsx": "0fd8cad1afe42217209fe4bddcf75882acd93883249d23e01eb469714f09e887",
     "web/frontend/src/TagsPage.jsx": "353561b43af8ff6d7e8213645ca27bb285ca5579f972c70f970094307c64807b",

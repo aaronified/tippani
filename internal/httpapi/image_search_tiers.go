@@ -343,3 +343,30 @@ func (s *Server) wikimediaCharacterTier(character, workTitle string) *imageTier 
 		return metadata.WikimediaCharacterImages(ctx, character, workTitle)
 	}}
 }
+
+// fandomCharacterTier is the rung under Wikimedia, and the one that covers the
+// long tail: Wikipedia writes about a character when the character is notable
+// outside their story, and Fandom writes about all of them. Keyless, and honest
+// about being a guess — see FandomCharacterImages for why the wiki slug cannot
+// be resolved properly and what a wrong guess costs.
+func (s *Server) fandomCharacterTier(character, workTitle string) *imageTier {
+	if strings.TrimSpace(character) == "" || strings.TrimSpace(workTitle) == "" {
+		return nil
+	}
+	return &imageTier{name: "fandom", run: func(ctx context.Context) []metadata.ImageHit {
+		return metadata.FandomCharacterImages(ctx, character, workTitle)
+	}}
+}
+
+// googleScrapeTier is the bottom of the ladder and is absent unless the reader
+// has said yes. See metadata.GoogleImageScrape for why this one needs a setting
+// of its own where every other opt-in rides on a credential.
+func (s *Server) googleScrapeTier(query string) *imageTier {
+	on, err := s.Store.GetSetting(settingGoogleScrape)
+	if err != nil || on != "1" || strings.TrimSpace(query) == "" {
+		return nil
+	}
+	return &imageTier{name: "google-scrape", run: func(ctx context.Context) []metadata.ImageHit {
+		return metadata.GoogleImageScrape(ctx, query, true, 8)
+	}}
+}

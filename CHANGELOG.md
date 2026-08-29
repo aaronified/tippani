@@ -221,6 +221,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and out with whichever covers were fetched, and the attribution block on a card that
   reveals its source shows the cover beside the title.
 
+### Added
+
+- **Two more places to look for a picture, at the bottom of the ladder.** *Fandom*
+  covers the long tail Wikipedia does not: Wikipedia writes about a character when the
+  character is notable outside their own story, and Fandom writes about all of them —
+  which is most of a cast list. It needs no key, and it is honest about being a guess:
+  Fandom is tens of thousands of separate wikis addressed by a slug nobody publishes a
+  mapping for, so the wiki is guessed from the work's title. A wrong guess costs one
+  404 and offers nothing; a right one is exactly right.
+
+- **Reading Google's image results directly — off by default, in Settings → Metadata
+  sources.** The last resort, below Programmable Search, for an install that has
+  configured nothing: anybody who fills in the key and engine id above it never reaches
+  it. It is a setting rather than a key because it needs no key, and it is *asked* for
+  rather than assumed because the requests come from your server — being rate-limited
+  or shown a consent wall is a consequence for everyone in the house, not for whoever
+  pressed the button.
+
 ### Fixed
 
 - **A picture for a character in a book, a game, or any film still pinned to TMDB.**

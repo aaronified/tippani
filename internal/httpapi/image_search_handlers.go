@@ -151,7 +151,9 @@ func (s *Server) handleImageSearch(w http.ResponseWriter, r *http.Request) {
 		// a search engine being asked to guess from a sentence.
 		pin := s.castPinFor(uid, req.CastID)
 		tier(s.tvdbCharacterTier(pin, subject))
-		tier(s.wikimediaCharacterTier(firstNonEmpty(subject, pin.Character), req.Title))
+		role := firstNonEmpty(subject, pin.Character)
+		tier(s.wikimediaCharacterTier(role, req.Title))
+		tier(s.fandomCharacterTier(role, req.Title))
 	case imageKindPortrait:
 		pin := s.personPinFor(uid, req.PersonID, subject)
 		cast := s.castPinFor(uid, req.CastID)
@@ -195,6 +197,10 @@ func (s *Server) handleImageSearch(w http.ResponseWriter, r *http.Request) {
 			return hits
 		}})
 	}
+	// THE VERY BOTTOM, under the API version of the same index: anybody who has
+	// configured Programmable Search never reaches it, and it exists for the
+	// install that has configured nothing at all.
+	tier(s.googleScrapeTier(query))
 	if amazonSuits(kind) && cookie != "" {
 		tier(&imageTier{name: "amazon-search", run: func(ctx context.Context) []metadata.ImageHit {
 			hits, err := metadata.AmazonImageSearch(ctx, query, cookie, domain, 8)
@@ -227,7 +233,7 @@ func (s *Server) handleImageSearch(w http.ResponseWriter, r *http.Request) {
 	}
 	for _, t := range tiers {
 		switch t.name {
-		case "tvdb", "tmdb", "wikimedia":
+		case "tvdb", "tmdb", "wikimedia", "fandom", "google-scrape":
 			srcs[t.name] = true
 		}
 	}

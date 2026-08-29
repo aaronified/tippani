@@ -33,6 +33,12 @@ var coverHosts = map[string]bool{
 	"commons.wikimedia.org":           true, // Wikidata P18 author photo (Special:FilePath entry point)
 	"upload.wikimedia.org":            true, // ^ the redirect target that serves the actual image bytes
 	"images.igdb.com":                 true, // IGDB game covers AND studio logos (one host serves both)
+	// Fandom's image CDN, which serves every wiki. Needed by the character
+	// picture ladder's Fandom rung: Wikipedia has an article for a character only
+	// when the character is notable outside their story, and Fandom has one for
+	// the rest. One host for tens of thousands of wikis, so this is one entry and
+	// not a pattern.
+	"static.wikia.nocookie.net": true,
 }
 
 // olArchiveHost matches the Internet Archive node hosts OpenLibrary's cover

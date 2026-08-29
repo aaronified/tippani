@@ -3015,6 +3015,33 @@ so "Anna Kavan" is not satisfied by "Kavan (disambiguation)". Rejected: enumerat
 Wikidata's fictional-character classes to filter by P31, which is a class hierarchy to
 keep in step with for a judgement Wikipedia's own titles already encode.
 
+**FANDOM IS A GUESS AND SAYS SO.** Wikipedia has an article for a character only when
+the character is notable outside their story; Fandom has one for the rest, which is most
+of a cast list. The obstacle is that Fandom is not one MediaWiki but tens of thousands,
+addressed by a slug with no published mapping — "V for Vendetta" is `vforvendetta`, "The
+Expanse" is `expanse`. So the slug is derived from the work's title, a leading article
+dropped, and being wrong costs one 404 and contributes nothing. Deliberately
+fragile-proof rather than robust, the same bargain already recorded for the Amazon and
+Hardcover scrapes. The fetch itself is not a guess: every Fandom wiki is a MediaWiki, so
+it is the same `prop=pageimages` call the Wikipedia rung makes. `static.wikia.nocookie.net`
+joins `coverHosts` and the CSP `img-src` — one host serves every wiki, so it is one entry
+rather than a pattern.
+
+**THE GOOGLE SCRAPE IS THE ONLY OPT-IN HERE THAT IS NOT A CREDENTIAL, and that is the
+whole design note.** Every other agreement in this app rides on a secret: you cannot use
+the Amazon scrape without storing the cookie, so the key field *is* the consent. Scraping
+Google's image results needs nothing, so the consent has nowhere to live and becomes a
+setting of its own (`google_image_scrape`), with a control on the Settings card — a
+setting with no control is a feature nobody can reach. It is worth asking for rather than
+defaulting on: the requests leave the SERVER's address, so a rate-limit or a consent wall
+is a consequence for the whole household rather than for the reader who pressed the
+button. It sits below Programmable Search, which is the same index with a contract
+attached, so anybody who configured that never reaches this. Only the
+`encrypted-tbn*.gstatic.com` thumbnail is taken — an already-allowed host, and a far more
+stable target than the page around it — and `URL` and `Thumb` are deliberately the same
+value, because a results page has no original to offer and the picker must draw exactly
+what it will store.
+
 **A STORED ARTICLE BEATS ANY SEARCH.** A person resolved through Open Library carries
 `links["wikipedia"]`, so the exact article is known and no name is ever handed to a search
 engine. The search is the floor, not the method.

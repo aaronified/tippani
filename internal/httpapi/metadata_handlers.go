@@ -62,6 +62,13 @@ const (
 	// engine id. Neither on its own searches anything — see handleImageSearch.
 	settingGoogleCSEKey = "google_cse_key" // secret: write-only, never echoed
 	settingGoogleCSECX  = "google_cse_cx"  // the engine id; not secret, so it is echoed
+	// THE OPT-IN FOR SCRAPING GOOGLE'S IMAGE RESULTS, which is a SETTING and not
+	// a credential because scraping Google needs none. Every other opt-in in this
+	// block doubles as the permission — you cannot use the Amazon scrape without
+	// storing the cookie that says you meant to. This one has nothing to store,
+	// so the agreement has to be recorded on its own. Not a secret: it is a
+	// boolean ("1"), and it is echoed.
+	settingGoogleScrape = "google_image_scrape"
 )
 
 // lookupOutcome is the in-memory record of the most recent POST /books/lookup
@@ -247,8 +254,9 @@ func (s *Server) handleGetMetadataKeys(w http.ResponseWriter, r *http.Request) {
 	csekey, err8 := s.Store.GetSetting(settingGoogleCSEKey)
 	csecx, err9 := s.Store.GetSetting(settingGoogleCSECX)
 	vpin, err10 := s.Store.GetSetting(settingTVDBPIN)
-	if err1 != nil || err2 != nil || err3 != nil || err4 != nil || err5 != nil || err6 != nil || err7 != nil || err8 != nil || err9 != nil || err10 != nil {
-		internalError(w, r, "load metadata keys", errors.Join(err1, err2, err3, err4, err5, err6, err7, err8, err9, err10))
+	scrape, err11 := s.Store.GetSetting(settingGoogleScrape)
+	if err1 != nil || err2 != nil || err3 != nil || err4 != nil || err5 != nil || err6 != nil || err7 != nil || err8 != nil || err9 != nil || err10 != nil || err11 != nil {
+		internalError(w, r, "load metadata keys", errors.Join(err1, err2, err3, err4, err5, err6, err7, err8, err9, err10, err11))
 		return
 	}
 	_, source := s.resolveTMDB()
@@ -274,6 +282,7 @@ func (s *Server) handleGetMetadataKeys(w http.ResponseWriter, r *http.Request) {
 		// one question — "is there a picture search behind this button?" —
 		// without knowing which supplier answers it.
 		"google_cse_key_set": csekey != "",
+		"google_scrape":      scrape == "1",
 		"google_cse_cx":      csecx,
 		"image_search":       (csekey != "" && csecx != "") || acookie != "",
 	})
@@ -296,6 +305,10 @@ func (s *Server) handlePutMetadataKeys(w http.ResponseWriter, r *http.Request) {
 		IGDBSecret     *string `json:"igdb_secret"`
 		GoogleCSEKey   *string `json:"google_cse_key"`
 		GoogleCSECX    *string `json:"google_cse_cx"`
+		// A BOOLEAN OVER THE WIRE, stored as "1"/"" so it goes through the same
+		// pointer-means-omitted machinery every other field uses rather than
+		// growing a second save path for one checkbox.
+		GoogleScrape *bool `json:"google_scrape"`
 	}
 	if !decodeBody(w, r, &req) {
 		return
@@ -306,6 +319,16 @@ func (s *Server) handlePutMetadataKeys(w http.ResponseWriter, r *http.Request) {
 			return nil
 		}
 		return s.Store.SetSetting(key, strings.TrimSpace(*v))
+	}
+	if req.GoogleScrape != nil {
+		v := ""
+		if *req.GoogleScrape {
+			v = "1"
+		}
+		if err := s.Store.SetSetting(settingGoogleScrape, v); err != nil {
+			internalError(w, r, "save google image scrape opt-in", err)
+			return
+		}
 	}
 	if err := set(settingTMDBKey, req.TMDBKey); err != nil {
 		internalError(w, r, "save tmdb key", err)

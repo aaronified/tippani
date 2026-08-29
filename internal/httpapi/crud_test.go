@@ -68,10 +68,21 @@ func newTestServer(t *testing.T) *Server {
 	// A test that actually wants Wikimedia calls SetWikipediaBaseForTest again
 	// with its own stub; the later call wins and both cleanups unwind in order.
 	metadata.SetWikipediaBaseForTest(t, deadWikipedia(t))
+	// FANDOM IS KEYLESS FOR THE SAME REASON AND NEEDS THE SAME GUARD. Its rung
+	// fires on any character search that knows the work's title, and it addresses
+	// a host derived from that title — so an unstubbed test would send requests to
+	// whatever <slug>.fandom.com the fixture happens to name. The scrape base is
+	// pinned alongside it: that rung is off unless a setting says otherwise, but
+	// pinning it costs nothing and means no test can reach google.com by setting
+	// one boolean.
+	metadata.SetFandomAndScrapeBasesForTest(t, deadWikipedia(t), deadWikipedia(t))
 	return srv
 }
 
-// deadWikipedia is a server that answers every Wikipedia call with "no results".
+// deadWikipedia is a server that answers every MediaWiki call with "no results".
+// It stands in for Wikipedia AND for Fandom, which is not a shortcut: both are
+// MediaWiki, both are asked the same action=query&prop=pageimages question, and
+// "this wiki has nothing" is the same answer in both.
 // Not a closed port: a refused connection is an error path, and a test asserting
 // "no pictures" should be exercising the empty-answer path a real quiet search
 // takes, not a network failure that happens to look the same from outside.

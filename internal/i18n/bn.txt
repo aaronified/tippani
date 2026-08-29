@@ -576,6 +576,7 @@ vocab.source.google.label = গুগল বুকস
 vocab.source.openlibrary.label = ওপেন লাইব্রেরি
 vocab.source.wikipedia.label = উইকিপিডিয়া
 vocab.source.wikimedia.label = Wikimedia
+vocab.source.fandom.label = Fandom
 
 # The floor under IGDB for games rather than a second opinion, so it is named.
 vocab.source.wikidata.label = Wikidata
@@ -4630,6 +4631,9 @@ settings.keys.amazon-domain.placeholder = www.amazon.com
 settings.keys.google-cse.hint = ঐচ্ছিক, অ্যাপের ভিতর থেকে ওয়েবে ছবি খোঁজার একমাত্র পথ: programmablesearchengine.google.com-এ গোটা ওয়েব ও ছবি খোঁজা চালু করা ইঞ্জিন বানান; তারপর console.cloud.google.com থেকে কি নিন। দিনে ১০০টা বিনামূল্যে।
 settings.keys.google-cse.placeholder = Custom Search API key — ঐচ্ছিক
 settings.keys.google-cse-cx.hint = জোড়ার বাকি অর্ধেক, আপনার বানানো ইঞ্জিনের “Search engine ID”। এটা গোপন নয়, তাই মানটা দেখা যায়। একটা ছাড়া আরেকটা কিছুই খোঁজে না।
+settings.keys.google-scrape.title = গুগল ছবির ফল সরাসরি পড়া হবে
+settings.keys.google-scrape.aria = গুগল ছবির ফল সরাসরি পড়া হবে
+settings.keys.google-scrape.info.body = একেবারে শেষ উপায়, উপরের কিছুতেই উত্তর না এলে তবেই। কি লাগে না, কারণ এটা ফলের পাতাটাই পড়ে — তাই অনুরোধ যায় এই সার্ভার থেকে, আর সীমা পড়লে বা সম্মতির দেয়াল এলে তা সবার উপরেই পড়ে। শুরুতে বন্ধ থাকে।
 settings.keys.google-cse-cx.placeholder = Search engine ID (cx)
 
 settings.keys.unset.label = দেওয়া নেই

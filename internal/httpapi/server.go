@@ -616,6 +616,9 @@ func securityHeaders(next http.Handler) http.Handler {
 				"https://images-na.ssl-images-amazon.com https://m.media-amazon.com "+
 				// Wikidata portraits (re-verify previews a fresh author photo by URL).
 				"https://commons.wikimedia.org https://upload.wikimedia.org "+
+				// Fandom character art, previewed in the picture strip before it
+				// is picked and stored (metadata.coverHosts carries the same host).
+				"https://static.wikia.nocookie.net "+
 				// A WEB IMAGE SEARCH CANNOT BE ALLOWLISTED, which is why the
 				// picture strip previews Google's own thumbnail host rather than
 				// the pictures' hosts: a Custom Search hit lives wherever the

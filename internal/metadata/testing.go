@@ -52,3 +52,21 @@ func SetWikipediaBaseForTest(t *testing.T, base string) {
 	wikipediaBase = base
 	t.Cleanup(func() { wikipediaBase = orig })
 }
+
+// SetFandomAndScrapeBasesForTest points the Fandom wiki host and the Google
+// image-results page at stubs for one test. Pass "" to leave one alone.
+//
+// The Fandom base is a FORMAT with one %s in it, standing for the wiki slug —
+// the slug guess is the interesting half of that provider, so a test has to be
+// able to see which wiki was addressed.
+func SetFandomAndScrapeBasesForTest(t *testing.T, fandomFmt, googleScrape string) {
+	t.Helper()
+	f, g := fandomHostFmt, googleScrapeBase
+	if fandomFmt != "" {
+		fandomHostFmt = fandomFmt
+	}
+	if googleScrape != "" {
+		googleScrapeBase = googleScrape
+	}
+	t.Cleanup(func() { fandomHostFmt, googleScrapeBase = f, g })
+}
