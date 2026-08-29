@@ -190,6 +190,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Scrolling that the app does for you now glides.** An anchor, a jump to a section, a
+  `scrollIntoView` — the wheel and the trackpad were always the browser's own and are
+  unchanged. The two scrolls that must stay instant say so: arriving on a screen, and
+  restoring a remembered position. Gliding to a place the reader was already standing in
+  is not smoothness, it is a page moving on its own. Off entirely under
+  `prefers-reduced-motion`.
+
 - **A work option in the quiz wears its own cover; only a person wears a face.** A
   film title was offered with the portrait of one of its actors under it — picked as
   "the first one we have a line from" — which put a person's name and photograph under
@@ -202,6 +209,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reveals its source shows the cover beside the title.
 
 ### Fixed
+
+- **The share picture's backdrop froze the page for seconds, and it was never the
+  photograph.** "Clicking share shows a 'slowing down' message from the browser; the
+  backdrop takes 5-10s to render." Measured in Firefox, the entire portrait pipeline —
+  the cover-crop of a full-resolution scan, the `color` blend, the wash and the alpha
+  mask — costs 13ms and does not care how large the source image is. The cost was the
+  halo under the words: a canvas *shadow*, set on the context and paid for once per
+  `fillText`, three passes per line and forty-odd lines on a full card. About 120
+  separate blurs for one picture, measured at 1,603ms per draw, and the panel drew the
+  card twice for every toggle. It was slow only with a backdrop because the photograph
+  is what switches the halo on. Every word that wants a halo is now painted once into
+  an offscreen layer, blurred **once**, and composited under the words the same three
+  times — the same glow, at 177ms. The panel also no longer draws immediately when a
+  backdrop is on: that draw paid the highest price and then painted the card *without*
+  the picture, because the faces had not loaded yet.
+
+- **The quotes board mounted every quote in the library.** The Library and the
+  Catalogue were given a window; this board never was, and there is nothing different
+  about quotes — it was simply missed. Four hundred quotes built 28,644 elements and a
+  36,230px document before the reader had scrolled past three cards; it now builds
+  4,378. The work detail page had the same defect on the page a reader actually spends
+  their time on, and both its list and its tile views are windowed too. A quote card is
+  not a cover tile — around seventy elements against a handful — so it reveals two
+  dozen at a time rather than the shelves' sixty.
+
+- **Revealing more of a board re-sorted the part already on screen.** A window grows by
+  appending, which changes both the card count and the key hash — and the masonry read
+  that as "a different set of cards" and re-packed the whole board tallest-first. Every
+  reveal would have moved the card the reader was reading into another column, which is
+  the one thing the board's existing freeze exists to prevent, arriving through the
+  other door. An append is now recognised and carried: the cards already placed keep
+  their columns and only the new tail is packed.
+
+- **The page repainted its whole background on every scrolled pixel.** The lit surface
+  behind the app — a pool of light at the top, a darker floor at the bottom — was two
+  radial gradients with a `color-mix` in each, drawn with `background-attachment: fixed`
+  on the root. A fixed background does not move with the content, so the browser cannot
+  shift the painted page and fill in the newly-exposed strip: it re-rasterises the whole
+  viewport against the new scroll offset every frame. It is now a fixed-position layer,
+  which is composited once and then simply not moved — the same picture, and what
+  "fixed" should have cost all along.
 
 - **The Settings page read as an inverted U.** Tightening the Quiz, Onboarding and
   Features cards left the middle of the three columns at 657px between two of about

@@ -1560,14 +1560,23 @@ export function Masonry({ columns = 2, gap = 24, seed = 1, pinnedCount = 0, lock
   // A cheap rolling hash of the child keys: it folds the card IDENTITIES into the
   // signature, so swapping the set for a same-size one (e.g. a filter that keeps
   // the count) still re-opens packing instead of reusing a stale assignment.
-  const keyHash = useMemo(() => {
+  //
+  // EVERY PREFIX IS HASHED, not just the whole list, because a windowed board grows
+  // by appending and the whole-list hash cannot tell that from a re-filter. keyHashes[k]
+  // is the hash of the first k keys, so "are the cards already on screen still the first
+  // of these?" is one integer comparison — see the append branch in the layout effect.
+  const keyHashes = useMemo(() => {
+    const out = new Array(items.length + 1);
     let hprime = 0;
-    for (const it of items) {
-      const k = String(it.key);
+    out[0] = 0;
+    for (let i = 0; i < items.length; i++) {
+      const k = String(items[i].key);
       for (let j = 0; j < k.length; j++) hprime = (Math.imul(hprime, 31) + k.charCodeAt(j)) | 0;
+      out[i + 1] = hprime;
     }
-    return hprime;
+    return out;
   }, [items]);
+  const keyHash = keyHashes[items.length];
   // The frozen placement: order = card indices in placement sequence, colOf[i] =
   // card i's column. assignRef holds it; frozenRef latches once expanded; sigRef
   // is the structural signature whose change re-opens free packing; prevLockRef
@@ -1576,6 +1585,11 @@ export function Masonry({ columns = 2, gap = 24, seed = 1, pinnedCount = 0, lock
   const frozenRef = useRef(false);
   const sigRef = useRef("");
   const prevLockRef = useRef(false);
+  // The card count and prefix hash as of the last pass, which is all an append test
+  // needs: same geometry, and the old keys still the first of the new ones.
+  const prevNRef = useRef(0);
+  const prevHashRef = useRef(0);
+  const geomRef = useRef("");
   // pos[i] = { col, top } for card i (left derives from col via CSS calc).
   // height = the tallest column, so the relative container reserves the space.
   const [pos, setPos] = useState([]);
@@ -1586,10 +1600,34 @@ export function Masonry({ columns = 2, gap = 24, seed = 1, pinnedCount = 0, lock
     // expand/collapse — re-opens free packing.
     const sig = `${n}|${cols}|${seed}|${pinnedCount}|${keyHash}`;
     const sigChanged = sigRef.current !== sig;
+    // AN APPEND IS NOT A RE-FILTER, and a windowed board only ever grows by one.
+    // Revealing the next page changes both `n` and the key hash, which the signature
+    // alone reads as "a different set of cards" — so every scroll would re-sort the
+    // whole board tallest-first and every card the reader had already looked at would
+    // jump to another column mid-scroll. That is the one thing the freeze above exists
+    // to prevent, arriving through the other door.
+    //
+    // So an append is recognised and CARRIED: same geometry, and the cards already
+    // placed still the first of the new list. They keep the columns they were given and
+    // only the newly revealed tail is packed, onto the columns as they now stand.
+    const geom = `${cols}|${seed}|${pinnedCount}`;
+    const carry =
+      geomRef.current === geom &&
+      assignRef.current &&
+      prevNRef.current < n &&
+      assignRef.current.colOf.length === prevNRef.current &&
+      keyHashes[prevNRef.current] === prevHashRef.current
+        ? assignRef.current
+        : null;
+    geomRef.current = geom;
+    prevNRef.current = n;
+    prevHashRef.current = keyHash;
     if (sigChanged) {
       sigRef.current = sig;
-      frozenRef.current = false;
-      assignRef.current = null;
+      if (!carry) {
+        frozenRef.current = false;
+        assignRef.current = null;
+      }
     }
     // Latch the assignment on the RISING EDGE of lockOrder (the first expand of a
     // settled board) — never on a pass where a structural change just re-opened
@@ -1609,14 +1647,16 @@ export function Masonry({ columns = 2, gap = 24, seed = 1, pinnedCount = 0, lock
         // Round heights for the ORDERING only (tops still flow from exact px) so
         // sub-pixel measurement noise can't reorder a tallest-first sort.
         const hr = h.map((x) => Math.round(x));
-        // Placement sequence: "source" keeps children as given (newest-first,
-        // pinned prefix on top); "height" sorts tallest-first with a seeded nudge.
-        let placeOrder;
-        if (order === "source") {
-          placeOrder = Array.from({ length: n }, (_, i) => i);
-        } else {
-          // (1) tallest first — only the non-pinned tail (ties → index).
-          const rest0 = Array.from({ length: n - pc }, (_, k) => k + pc).sort((a, b) => hr[b] - hr[a] || a - b);
+        // The placement sequence for the cards from `from` onwards: "source" keeps them
+        // as given (newest-first, pinned prefix on top); "height" sorts them tallest-first
+        // with a seeded nudge. `from` is 0 for a fresh pack and the old length for an
+        // append, so the two cases share one rule rather than growing a second copy.
+        const sequence = (from) => {
+          if (order === "source") return Array.from({ length: n - from }, (_, k) => k + from);
+          // (1) tallest first — only the non-pinned tail (ties → index). A pinned card is
+          // only ever in the first page, so an append has no pinned prefix to protect.
+          const base = Math.max(from, pc);
+          const rest0 = Array.from({ length: n - base }, (_, k) => k + base).sort((a, b) => hr[b] - hr[a] || a - b);
           const rankOf = new Array(n);
           rest0.forEach((i, r) => (rankOf[i] = r));
           // (2) seeded ±2–3 nudge on ~20% of cards: shift the mover's sort key, then
@@ -1632,19 +1672,30 @@ export function Masonry({ columns = 2, gap = 24, seed = 1, pinnedCount = 0, lock
           }
           const rest = rest0.slice().sort((a, b) => key[a] - key[b] || rankOf[a] - rankOf[b]);
           // Pinned prefix stays on top in its given order, then the height-packed tail.
-          placeOrder = [];
-          for (let i = 0; i < pc; i++) placeOrder.push(i);
-          for (const i of rest) placeOrder.push(i);
-        }
-        // (3) greedy by rows: each card, in that order, onto the shortest column —
-        // this FIXES each card's column; every later re-flow only moves tops.
+          const out = [];
+          for (let i = from; i < base; i++) out.push(i);
+          for (const i of rest) out.push(i);
+          return out;
+        };
+        // An append replays the carried sequence first — the column heights have to
+        // accumulate in the order they originally did for the new tail to land on the
+        // right columns — and then packs only what is new.
+        const placeOrder = carry ? [...carry.order, ...sequence(carry.colOf.length)] : sequence(0);
+        // (3) greedy by rows: each card, in that order, onto the shortest column — this
+        // FIXES each card's column; every later re-flow only moves tops. A carried card
+        // keeps the column it already has and only contributes its height.
         const colOf = new Array(n);
         const colH0 = Array(cols).fill(0);
         for (const i of placeOrder) {
-          let shortest = 0;
-          for (let c = 1; c < cols; c++) if (colH0[c] < colH0[shortest]) shortest = c;
-          colOf[i] = shortest;
-          colH0[shortest] += hr[i] + gap;
+          let col;
+          if (carry && i < carry.colOf.length) {
+            col = carry.colOf[i];
+          } else {
+            col = 0;
+            for (let c = 1; c < cols; c++) if (colH0[c] < colH0[col]) col = c;
+          }
+          colOf[i] = col;
+          colH0[col] += hr[i] + gap;
         }
         assign = { order: placeOrder, colOf };
         assignRef.current = assign;

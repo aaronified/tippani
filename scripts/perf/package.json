@@ -1,0 +1,13 @@
+{
+  "name": "tippani-perf",
+  "private": true,
+  "type": "module",
+  "description": "Puppeteer harness that measures how long the app blocks the main thread around each action, and fails when anything crosses the budget. Isolated from web/frontend's own manifest and lockfile on purpose, the same way scripts/screenshots is.",
+  "scripts": {
+    "snappiness": "node snappiness.mjs",
+    "snappiness:with-server": "bash run-with-server.sh"
+  },
+  "dependencies": {
+    "puppeteer-core": "^25.8.0"
+  }
+}

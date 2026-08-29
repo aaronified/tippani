@@ -26,7 +26,7 @@ import { useSelection } from './selection.jsx'
 import { SelectionBar } from './SelectionBar.jsx'
 import { StickerPicker, useStickers } from './stickers.jsx'
 import { ALL_BOARD, BoardList, MoveToBoardDialog, useBoards } from './boards.jsx'
-import { GroupHeading, WorkListScaffold, groupWorks, patchMovesTheRow } from './works.jsx'
+import { ANNOTATION_PAGE, GroupHeading, WorkListScaffold, groupWorks, patchMovesTheRow, useBoardWindow } from './works.jsx'
 import {
   ColorSwatches,
   ConfirmDialog,
@@ -652,6 +652,31 @@ const sortOptions = () => [
 // clearing first. The endpoint still accepts those parameters; this screen just
 // asks for everything and narrows it here, so the filter options describe the
 // whole collection rather than the current view of it.
+// QuoteBoard — the wall of cards, bounded by what has been scrolled to.
+//
+// A Masonry mounts every child it is handed, and this screen handed it the whole
+// filtered list: four hundred quotes was twenty-eight thousand DOM nodes and a
+// thirty-six-thousand-pixel document before the reader had scrolled past three cards.
+// That is the whole of this screen's stutter, and it is the one board that never got
+// the window the Library and the catalogue were given — there is nothing different
+// about quotes, they were simply missed.
+//
+// The same hook those two use, so there is one answer to "how does a board grow" and
+// not three. Growing it is safe here because Masonry carries a placement across an
+// append (see `carry` there): the cards already on screen keep their columns, and only
+// the newly revealed tail is packed. Without that, every reveal would re-sort the board
+// tallest-first and the card the reader was reading would jump to another column.
+function QuoteBoard({ items, columns, card }) {
+  const win = useBoardWindow(items.length, items, ANNOTATION_PAGE)
+  return (
+    <>
+      <Masonry columns={columns}>{items.slice(0, win.count).map(card)}</Masonry>
+      {/* aria-hidden and empty: a scroll position, not content. See the Library board. */}
+      {win.more && <div ref={win.sentinel} aria-hidden="true" className="h-px" />}
+    </>
+  )
+}
+
 export default function QuotesPage({ creditSeparators, openId = null, onOpen, onClose }) {
   const { boards, total, reload: reloadBoards } = useBoards()
   // TWO LEVELS, like the Library. No board open means the shelf list; a board
@@ -830,6 +855,11 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
     () => (groupable === 'none' ? null : groupUtterances(shown, groupable, seps)),
     [shown, groupable, seps],
   )
+  // The GROUPS are windowed as well as the cards inside them, the same two-level
+  // window the catalogue uses: grouping by speaker over a large board is otherwise
+  // one heading and one Masonry per speaker, all mounted at once, which is the very
+  // cost the card window just removed arriving one level up.
+  const groupWin = useBoardWindow(grouped ? grouped.length : 0, grouped, 12)
 
   async function save(id, fields) {
     const r = await json('PUT', `/quotes/${id}`, fields)
@@ -1111,7 +1141,7 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
         <Placeholder />
       ) : grouped ? (
         <div className="space-y-10">
-          {grouped.map((g) => {
+          {grouped.slice(0, groupWin.count).map((g) => {
             // A speaker heading gets their portrait and opens their panel — the
             // same chip an author heading gets in the Library.
             const isSpeaker = groupable === 'speaker' && !g.residual
@@ -1125,13 +1155,14 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
                   person={isSpeaker ? speakerMap[g.label] : null}
                   onOpenPerson={isSpeaker ? () => setPerson({ kind: 'speaker', name: g.label }) : undefined}
                 />
-                <Masonry columns={columns}>{g.items.map(card)}</Masonry>
+                <QuoteBoard items={g.items} columns={columns} card={card} />
               </section>
             )
           })}
+          {groupWin.more && <div ref={groupWin.sentinel} aria-hidden="true" className="h-px" />}
         </div>
       ) : (
-        <Masonry columns={columns}>{shown.map(card)}</Masonry>
+        <QuoteBoard items={shown} columns={columns} card={card} />
       )}
     </WorkListScaffold>
     </>

@@ -68,6 +68,16 @@ import { selectionClick, selectionMenuItems } from './selection.jsx'
 // which at a normal scroll speed lands the next row before it is asked for.
 export const BOARD_PAGE = 60
 
+// A QUOTE CARD IS NOT A COVER TILE, and the page size has to know it. BOARD_PAGE is
+// sized for a tile — an image and a caption. An annotation card carries the text, its
+// meta line, its tag chips, its colour row and its action menu: around seventy DOM
+// nodes each, against a tile's handful. Revealing sixty of those at once mounts four
+// thousand nodes in a single frame, which measured a 434ms block mid-scroll — not a
+// freeze, but past the point where the scroll stops feeling attached to the finger.
+// Two dozen is the same amount of reading revealed a little more often, and the reveal
+// happens 600px before the reader gets there either way.
+export const ANNOTATION_PAGE = 24
+
 // useBoardWindow returns how many of `total` to render, and the ref to hang on a
 // sentinel element AFTER the last one. `resetKey` is whatever changes the list —
 // re-filtering back to the top with a thousand tiles still mounted would defeat

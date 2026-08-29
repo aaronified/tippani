@@ -465,31 +465,99 @@ const LINEUP_H = 0.52 // share of the card height the band occupies
 const HALO_RATIO = 0.5
 const HALO_MIN = 4
 const HALO_ALPHA = 0.7
-// AND IT IS PAINTED MORE THAN ONCE. One pass of a translucent shadow is a glow:
-// it tints what is behind the word without ever covering it. Laying the same
-// pass down three times compounds towards opacity immediately around the glyph
-// (1 - 0.3³ ≈ 0.97) while the outer falloff, where each pass contributes least,
-// stays as soft as it was. That is the difference between type that is tinted
-// and type that is on paper — and it is three fillText calls, not a second
-// offscreen buffer and a composite.
+// AND IT IS PAINTED MORE THAN ONCE. One pass of a translucent glow tints what is
+// behind the word without ever covering it. Laying the same pass down three times
+// compounds towards opacity immediately around the glyph (1 - 0.3³ ≈ 0.97) while the
+// outer falloff, where each pass contributes least, stays as soft as it was. That is
+// the difference between type that is tinted and type that is on paper.
 const HALO_PASSES = 3
 
-// setHalo turns the glow on or off for everything painted after it, sized to the
-// type it is about to sit under. Explicit both ways rather than leaning on
-// save/restore: the halo has to be OFF for the rest of the card, and "off" being
-// a thing this function says out loud is what lets a test ask when it was on.
-function setHalo(ctx, theme, on, px = 15) {
-  ctx.shadowColor = on ? hexToRgba(theme.cardTop, HALO_ALPHA) : 'rgba(0,0,0,0)'
-  ctx.shadowBlur = on ? Math.max(HALO_MIN, Math.round(px * HALO_RATIO)) : 0
-  ctx.shadowOffsetX = 0
-  ctx.shadowOffsetY = 0
+// ---- and it is ONE BLUR, not one per word ----------------------------------
+//
+// THE REPORT: "clicking share shows a 'slowing down' message from the browser,
+// the backdrop takes 5-10s to render". It was never the photograph. Measured in
+// Firefox, the whole portrait pipeline — cover-crop of a full-resolution scan,
+// the `color` blend, the wash, the alpha mask — costs 13ms and does not care how
+// large the source is. A card's worth of text costs 17ms to paint bare.
+//
+// The same text with the halo on cost 1,350ms, and the reason is arithmetic: the
+// glow was a canvas SHADOW, set on the context and paid for once per fillText, and
+// there are three passes per line and forty-odd lines on a full card. That is ~120
+// separate blurs for one picture, and the panel draws the card twice for every
+// toggle. It is also why only the backdrop was slow — the halo is switched on by
+// the photograph and by nothing else.
+//
+// A blur does not have to be bought by the word. Every word that wants a halo is
+// painted ONCE into an offscreen layer, the layer is recoloured to the card's
+// surface in a single operation, blurred ONCE, and then composited under the words
+// HALO_PASSES times — which compounds exactly as three shadowed fillTexts did,
+// because it is the same three translucent passes over the same shape.
+//
+// The layer is built at 1× while the card draws at DPR×. A glow carries no detail
+// finer than its own radius, so the resolution it is blurred at is not the
+// resolution it has to be seen at, and 1× is a quarter of the pixels. Measured, the
+// three together — one blur, at 1×, composited rather than re-shadowed — take a
+// card of text from 1,603ms to 177ms.
+//
+// THE RADIUS IS QUANTISED, and that is the last of the cost. A blur is paid for per
+// layer, so a card whose type comes in four sizes would buy four layers to keep
+// 14px of glow distinct from 11px of it — a difference no reader can see through a
+// blur. Rounding to the nearest HALO_STEP collapses this card's sizes to two, and
+// the halo still follows the letterform in the way HALO_RATIO exists to make it:
+// small print keeps a tight surround and the quote keeps a wide one.
+const HALO_STEP = 6
+
+function haloRadius(px) {
+  return Math.max(HALO_MIN, Math.round((px * HALO_RATIO) / HALO_STEP) * HALO_STEP)
 }
 
-// paintText lays one string down `passes` times at the same point. With the halo
-// off, `passes` is 1 and this is fillText with extra steps; with it on, the
-// repeats are the whole mechanism — see HALO_PASSES.
-function paintText(ctx, text, x, y, passes) {
-  for (let i = 0; i < passes; i++) ctx.fillText(text, x, y)
+// haloLayer paints `draw` into an offscreen buffer, flattens the whole buffer to
+// `surface`, blurs it once, and hands it back to be composited under the words.
+//
+// source-in is what makes the recolour one operation: it keeps the alpha that was
+// drawn and replaces every colour under it, so the layer becomes a silhouette of
+// the text in the card's own paper — whatever colours the text was actually set in.
+// The halo has to be the SURFACE colour and not the ink; a glow the colour of the
+// ink is a fattened, smeared letterform, which reads as a bad font at a glance and
+// does nothing for contrast, because contrast is the difference between the text
+// and what is behind it.
+//
+// The blur goes into a SECOND buffer because `filter` applies per drawImage: left
+// set during the composite loop it would buy HALO_PASSES blurs instead of one,
+// which is the bug this whole mechanism exists to remove, one level down.
+function haloLayer(w, h, radius, surface, draw) {
+  if (typeof document === 'undefined') return null
+  const lay = document.createElement('canvas')
+  lay.width = Math.max(1, Math.ceil(w))
+  lay.height = Math.max(1, Math.ceil(h))
+  const lctx = lay.getContext('2d')
+  if (!lctx) return null
+  draw(lctx)
+  lctx.globalCompositeOperation = 'source-in'
+  lctx.fillStyle = surface
+  lctx.fillRect(0, 0, lay.width, lay.height)
+  lctx.globalCompositeOperation = 'source-over'
+
+  const out = document.createElement('canvas')
+  out.width = lay.width
+  out.height = lay.height
+  const octx = out.getContext('2d')
+  if (!octx) return null
+  // Read the filter back rather than hoping, the same check the portrait's `color`
+  // blend makes: an unsupported value is silently ignored, and the fall-through here
+  // is an unblurred silhouette — a hard-edged surround, which is a worse halo but
+  // still a legible one, rather than nothing at all.
+  const want = `blur(${radius}px)`
+  let blurred = false
+  try {
+    octx.filter = want
+    blurred = octx.filter === want
+  } catch {
+    blurred = false
+  }
+  octx.drawImage(lay, 0, 0)
+  if (blurred) octx.filter = 'none'
+  return out
 }
 
 // ---- ink on a photograph ----------------------------------------------------
@@ -746,7 +814,7 @@ export function facesOnAttribution(facesFor) {
 
 // drawTextBlock paints wrapped `lines` inside a box whose top is `top`, seating
 // each baseline within its line-height so text stays inside the block's height.
-function drawTextBlock(ctx, lines, x, top, lh, color, letterSpacing, passes = 1) {
+function drawTextBlock(ctx, lines, x, top, lh, color, letterSpacing) {
   if (letterSpacing) ctx.letterSpacing = letterSpacing
   ctx.fillStyle = color
   ctx.textBaseline = 'alphabetic'
@@ -755,7 +823,7 @@ function drawTextBlock(ctx, lines, x, top, lh, color, letterSpacing, passes = 1)
     const baseline = top + lh * i + lh * 0.76
     for (const seg of line) {
       ctx.font = seg.font
-      paintText(ctx, seg.text, cx, baseline, passes)
+      ctx.fillText(seg.text, cx, baseline)
       cx += seg.w
     }
   })
@@ -797,7 +865,6 @@ export function drawQuoteCard(canvas, model, theme) {
   // block is built with is now part of the answer.
   const backdrop = !!model.portrait && !!model.faces?.length
   const inks = inksFor(theme, backdrop)
-  const passes = backdrop ? HALO_PASSES : 1
 
   // ---- measure phase: build an ordered list of blocks ----
   const blocks = []
@@ -1045,7 +1112,7 @@ export function drawQuoteCard(canvas, model, theme) {
   // (x0, y0): right-to-left so the FIRST credited face lands on top (matching
   // the app's chips), each disc ringed in the surface colour to cut it out of
   // the one beneath, plus a faint ink hairline for definition.
-  const drawFaces = (list, x0, y0) => {
+  const drawFaces = (ctx, list, x0, y0) => {
     const fs = FACE_SIZE
     const overlap = Math.round(fs * 0.34)
     for (let j = list.length - 1; j >= 0; j--) {
@@ -1077,126 +1144,193 @@ export function drawQuoteCard(canvas, model, theme) {
     }
   }
 
-  // walk the blocks — everything from here to the wordmark sits over whatever
-  // the backdrop put down, so it all reads through the same halo. The tag pills
-  // included: a translucent accent chip over a photograph is exactly as hard to
-  // find as a word is.
-  // Re-sized PER BLOCK rather than once for the walk, because the radius now
-  // follows the type — see HALO_RATIO.
-  let top = M + CP
-  blocks.forEach((b, i) => {
-    if (i) top += b.gap
-    setHalo(ctx, theme, backdrop, b.px)
-    if (b.kind === 'text') {
-      // A block carrying leadFaces hangs the disc cluster inline and centres its
-      // (shorter) text against the disc height, so the name sits on the same line
-      // as its face. `pre` (the "— " marker) is drawn first, the faces sit at
-      // `faceX` after it, and the name text is indented past both.
-      const textTop = top + (b.height - (b.textH ?? b.height)) / 2
-      if (b.leadFaces) drawFaces(b.leadFaces, innerX + (b.faceX || 0), top + (b.height - FACE_SIZE) / 2)
-      if (b.pre) {
-        ctx.font = b.preFont
-        ctx.fillStyle = b.color
-        ctx.textBaseline = 'alphabetic'
-        paintText(ctx, b.pre, innerX, textTop + b.lh * 0.76, passes)
-      }
-      drawTextBlock(ctx, b.lines, innerX + (b.lead || 0), textTop, b.lh, b.color, b.ls, passes)
-    } else if (b.kind === 'note') {
-      ctx.fillStyle = theme.accent
-      ctx.fillRect(innerX, top + 4, 3, b.lh * 0.62)
-      drawTextBlock(ctx, b.lines, innerX + 12, top, b.lh, b.color, null, passes)
-    } else if (b.kind === 'tags') {
-      ctx.font = FONTS.tag
-      ctx.textBaseline = 'middle'
-      b.rows.forEach((row, ri) => {
-        const rowTop = top + ri * (TAG_H + TAG_GAP)
-        let x = innerX
-        for (const pill of row) {
-          roundRectPath(ctx, x, rowTop, pill.w, TAG_H, 7)
-          // THE CHIP IS A FILLED CHIP, and it was the one part of the card that
-          // disagreed with the app about what a tag looks like. `.tag-chip` in
-          // index.css is a solid coloured pill with INK on it; this drew accent
-          // text on a 12% accent wash, which is a tint of whatever is behind it —
-          // so on a plain card it measured 4.37:1 and on a dark card over a
-          // photograph 2.39:1, against a 4.5:1 floor. The halo could not save it
-          // either: a halo surrounds glyphs, and what had gone missing was the
-          // chip.
-          //
-          // So: an opaque coat of the card's surface, the accent at a strength
-          // that reads as a colour rather than a hint, and the label in the
-          // card's own ink — which is the app's chip, in the card's palette,
-          // and is legible in both modes because the ink and the surface under
-          // it are the pair the mode already guarantees.
-          ctx.fillStyle = theme.cardTop
-          ctx.fill()
-          ctx.fillStyle = hexToRgba(theme.accent, 0.3)
-          ctx.fill()
-          ctx.lineWidth = 1
-          ctx.strokeStyle = hexToRgba(theme.accent, 0.55)
-          ctx.stroke()
-          ctx.fillStyle = inks.ink
-          paintText(ctx, pill.text, x + TAG_PADX, rowTop + TAG_H / 2 + 1, passes)
-          x += pill.w + TAG_GAP
+  // paintContent walks the blocks — everything from here to the wordmark sits over
+  // whatever the backdrop put down, so it all reads through the same halo. The tag
+  // pills included: a translucent accent chip over a photograph is exactly as hard
+  // to find as a word is.
+  //
+  // IT TAKES ITS CANVAS, because on a backdrop card it runs more than once: once
+  // into each halo layer, and once onto the card itself. `ctx` is the parameter and
+  // shadows the outer one deliberately — every line below addresses the canvas it
+  // was handed, and a stray reference to the card while filling a layer would paint
+  // the glow's silhouette straight onto the picture.
+  //
+  // `only` is a halo radius, and selects the parts of the card whose halo is that
+  // wide — one layer per radius, so the glow still follows the type (see
+  // haloRadius). null draws everything, which is the crisp pass. The vertical walk
+  // runs whatever is selected: `top` has to advance past a block that is not being
+  // painted, or the next one lands in its place.
+  const paintContent = (ctx, only) => {
+    let top = M + CP
+    blocks.forEach((b, i) => {
+      if (i) top += b.gap
+      if (only !== null && haloRadius(b.px) !== only) { top += b.height; return }
+      if (b.kind === 'text') {
+        // A block carrying leadFaces hangs the disc cluster inline and centres its
+        // (shorter) text against the disc height, so the name sits on the same line
+        // as its face. `pre` (the "— " marker) is drawn first, the faces sit at
+        // `faceX` after it, and the name text is indented past both.
+        const textTop = top + (b.height - (b.textH ?? b.height)) / 2
+        if (b.leadFaces) drawFaces(ctx, b.leadFaces, innerX + (b.faceX || 0), top + (b.height - FACE_SIZE) / 2)
+        if (b.pre) {
+          ctx.font = b.preFont
+          ctx.fillStyle = b.color
+          ctx.textBaseline = 'alphabetic'
+          ctx.fillText(b.pre, innerX, textTop + b.lh * 0.76)
         }
-      })
-      ctx.textBaseline = 'alphabetic'
-    }
-    top += b.height
-  })
+        drawTextBlock(ctx, b.lines, innerX + (b.lead || 0), textTop, b.lh, b.color, b.ls)
+      } else if (b.kind === 'note') {
+        ctx.fillStyle = theme.accent
+        ctx.fillRect(innerX, top + 4, 3, b.lh * 0.62)
+        drawTextBlock(ctx, b.lines, innerX + 12, top, b.lh, b.color, null)
+      } else if (b.kind === 'tags') {
+        ctx.font = FONTS.tag
+        ctx.textBaseline = 'middle'
+        b.rows.forEach((row, ri) => {
+          const rowTop = top + ri * (TAG_H + TAG_GAP)
+          let x = innerX
+          for (const pill of row) {
+            roundRectPath(ctx, x, rowTop, pill.w, TAG_H, 7)
+            // THE CHIP IS A FILLED CHIP, and it was the one part of the card that
+            // disagreed with the app about what a tag looks like. `.tag-chip` in
+            // index.css is a solid coloured pill with INK on it; this drew accent
+            // text on a 12% accent wash, which is a tint of whatever is behind it —
+            // so on a plain card it measured 4.37:1 and on a dark card over a
+            // photograph 2.39:1, against a 4.5:1 floor. The halo could not save it
+            // either: a halo surrounds glyphs, and what had gone missing was the
+            // chip.
+            //
+            // So: an opaque coat of the card's surface, the accent at a strength
+            // that reads as a colour rather than a hint, and the label in the
+            // card's own ink — which is the app's chip, in the card's palette,
+            // and is legible in both modes because the ink and the surface under
+            // it are the pair the mode already guarantees.
+            ctx.fillStyle = theme.cardTop
+            ctx.fill()
+            ctx.fillStyle = hexToRgba(theme.accent, 0.3)
+            ctx.fill()
+            ctx.lineWidth = 1
+            ctx.strokeStyle = hexToRgba(theme.accent, 0.55)
+            ctx.stroke()
+            ctx.fillStyle = inks.ink
+            ctx.fillText(pill.text, x + TAG_PADX, rowTop + TAG_H / 2 + 1)
+            x += pill.w + TAG_GAP
+          }
+        })
+        ctx.textBaseline = 'alphabetic'
+      }
+      top += b.height
+    })
 
-  // The footer: a hairline, then the mark, "made with" and the wordmark, all
-  // pinned to the bottom-left of the card.
+    // The footer: a hairline, then the mark, "made with" and the wordmark, all
+    // pinned to the bottom-left of the card.
+    //
+    // It used to be the word "tippani" and nothing else, which names the app to
+    // somebody who already knows it and reads as a signature to everybody else.
+    // The mark is what makes it attribution — a picture of a quote is exactly the
+    // kind of thing that travels with its source cropped off — and "made with"
+    // is what makes it a credit rather than a claim on the words above it, which
+    // belong to whoever said them.
+    //
+    // Bottom-left, one line, in --faint: the same corner and the same volume the
+    // wordmark already had. Louder branding on a card somebody is about to post
+    // is branding they crop out.
+    const footTop = M + cardH - CP - FOOTER_H + 10
+    // The footer's own halo radius. It is the smallest type on the card, which is why
+    // it is asked for by name rather than taking the walk's last value.
+    const footHalo = haloRadius(fontPx(FONTS.credit))
+    if (only !== null && only !== footHalo) return
+    ctx.strokeStyle = hexToRgba(theme.ink, 0.12)
+    ctx.lineWidth = 1
+    ctx.beginPath()
+    ctx.moveTo(innerX, footTop)
+    ctx.lineTo(innerX + innerW, footTop)
+    ctx.stroke()
+    // ONE BASELINE, AND ONE OPTICAL CENTRE. Every word on this line sits on `base`
+    // — no per-run nudges, which is what left the two wordmarks and the mark each
+    // a pixel or two off the sentence between them. The three faces are different
+    // sizes (11px mono, 14px serif, 12px Bengali) and a shared baseline is exactly
+    // how mixed sizes are set on one line; lifting one of them by a pixel is how
+    // they stop looking like one line.
+    //
+    // The mark is the exception that proves it: a logo has no baseline, so it is
+    // centred on the CAP-HEIGHT BAND of the words instead — the band from
+    // base - FOOT_CAP to base. Centring it on the em box or hanging it off the
+    // baseline both read as floating.
+    const base = footTop + 21
+    const markInk = MARK_SIZE * MARK_INK
+    // The footer had the worst of it — 11px in the faintest ink on the card, over
+    // the bottom of a portrait that runs the card's full height, which measured
+    // 1.14:1. It is only a credit, but a credit nobody can read is the same as one
+    // that was cropped off. Sized to the small type it actually sets, not to the
+    // 15px default.
+    drawMark(ctx, innerX, base - FOOT_CAP / 2 - markInk / 2, MARK_SIZE, theme.dark)
+    let fx = innerX + MARK_SIZE + 7
+    ctx.fillStyle = inks.faint
+    ctx.textBaseline = 'alphabetic'
+    ctx.font = FONTS.credit
+    // The wordmarks below it are the app's name and stay as they are in every
+    // language; this is the only word on the footer line that is copy.
+    const madeWith = t('share.image.footer.credit.label')
+    ctx.fillText(madeWith, fx, base)
+    fx += ctx.measureText(madeWith).width + 6
+    ctx.font = FONTS.foot
+    ctx.fillText('tippani', fx, base)
+    fx += ctx.measureText('tippani').width + 8
+    ctx.font = FONTS.bengali
+    ctx.fillText('টিপ্পনী', fx, base)
+  }
+
+  // ---- the halo, then the words ----
   //
-  // It used to be the word "tippani" and nothing else, which names the app to
-  // somebody who already knows it and reads as a signature to everybody else.
-  // The mark is what makes it attribution — a picture of a quote is exactly the
-  // kind of thing that travels with its source cropped off — and "made with"
-  // is what makes it a credit rather than a claim on the words above it, which
-  // belong to whoever said them.
+  // One layer per radius the card actually uses, each blurred once and composited
+  // HALO_PASSES times under everything — see haloLayer. Clipped to the card's own
+  // rounded path, because a glow is a wide, soft thing and the mat behind the card
+  // is not paper the words are sitting on.
   //
-  // Bottom-left, one line, in --faint: the same corner and the same volume the
-  // wordmark already had. Louder branding on a card somebody is about to post
-  // is branding they crop out.
-  const footTop = M + cardH - CP - FOOTER_H + 10
-  ctx.strokeStyle = hexToRgba(theme.ink, 0.12)
-  ctx.lineWidth = 1
-  ctx.beginPath()
-  ctx.moveTo(innerX, footTop)
-  ctx.lineTo(innerX + innerW, footTop)
-  ctx.stroke()
-  // ONE BASELINE, AND ONE OPTICAL CENTRE. Every word on this line sits on `base`
-  // — no per-run nudges, which is what left the two wordmarks and the mark each
-  // a pixel or two off the sentence between them. The three faces are different
-  // sizes (11px mono, 14px serif, 12px Bengali) and a shared baseline is exactly
-  // how mixed sizes are set on one line; lifting one of them by a pixel is how
-  // they stop looking like one line.
-  //
-  // The mark is the exception that proves it: a logo has no baseline, so it is
-  // centred on the CAP-HEIGHT BAND of the words instead — the band from
-  // base - FOOT_CAP to base. Centring it on the em box or hanging it off the
-  // baseline both read as floating.
-  const base = footTop + 21
-  const markInk = MARK_SIZE * MARK_INK
-  // The footer had the worst of it — 11px in the faintest ink on the card, over
-  // the bottom of a portrait that runs the card's full height, which measured
-  // 1.14:1. It is only a credit, but a credit nobody can read is the same as one
-  // that was cropped off. Sized to the small type it actually sets, not to the
-  // 15px default.
-  setHalo(ctx, theme, backdrop, fontPx(FONTS.credit))
-  drawMark(ctx, innerX, base - FOOT_CAP / 2 - markInk / 2, MARK_SIZE, theme.dark)
-  let fx = innerX + MARK_SIZE + 7
-  ctx.fillStyle = inks.faint
-  ctx.textBaseline = 'alphabetic'
-  ctx.font = FONTS.credit
-  // The wordmarks below it are the app's name and stay as they are in every
-  // language; this is the only word on the footer line that is copy.
-  const madeWith = t('share.image.footer.credit.label')
-  paintText(ctx, madeWith, fx, base, passes)
-  fx += ctx.measureText(madeWith).width + 6
-  ctx.font = FONTS.foot
-  paintText(ctx, 'tippani', fx, base, passes)
-  fx += ctx.measureText('tippani').width + 8
-  ctx.font = FONTS.bengali
-  paintText(ctx, 'টিপ্পনী', fx, base, passes)
-  setHalo(ctx, theme, false)
+  // On a plain card this loop does not run at all: the paper is already exactly the
+  // halo's colour, so every one of these passes would be compositing the card colour
+  // onto the card colour, at the price of a blur.
+  if (backdrop) {
+    const radii = [...new Set(blocks.map((b) => haloRadius(b.px)))]
+    if (!radii.includes(haloRadius(fontPx(FONTS.credit)))) radii.push(haloRadius(fontPx(FONTS.credit)))
+    for (const r of radii) {
+      const layer = haloLayer(W, H, r, hexToRgba(theme.cardTop, 1), (lctx) => paintContent(lctx, r))
+      if (!layer) continue
+      ctx.save()
+      roundRectPath(ctx, cardX, M, cardW, cardH, radius)
+      ctx.clip()
+      // NO OFFSET, at either end: the layer is drawn at the same place the words
+      // will be. An offset glow says "this text is floating above a picture", and
+      // the text is meant to be ON the card, not over it.
+      //
+      // The shadow registers are zeroed OUT LOUD rather than left to the save/restore
+      // around the card's own drop shadow, which is the last thing to have set them.
+      // A halo carrying that shadow's 12px offset is a drop shadow OF a glow, which
+      // is the one thing this comment just said it must not be.
+      ctx.shadowColor = 'rgba(0,0,0,0)'
+      ctx.shadowBlur = 0
+      ctx.shadowOffsetX = 0
+      ctx.shadowOffsetY = 0
+      // Laid over the whole picture at its intrinsic size — the layer is built at 1×
+      // and the context is scaled by DPR, so three arguments place it exactly. It is
+      // also what tells a halo from a portrait when reading the calls back: a
+      // portrait is PLACED, and carries a destination rectangle.
+      ctx.globalAlpha = HALO_ALPHA
+      for (let i = 0; i < HALO_PASSES; i++) ctx.drawImage(layer, 0, 0)
+      ctx.globalAlpha = 1
+      ctx.restore()
+    }
+  }
+  paintContent(ctx, null)
+
+  // Left clean for the next card, explicitly rather than by leaning on the
+  // save/restore around the card's own drop shadow. The share panel redraws into the
+  // SAME canvas on every font load, theme event and toggle, and a shadow or a filter
+  // left switched on would be inherited by the next card's portrait composite.
+  ctx.shadowColor = 'rgba(0,0,0,0)'
+  ctx.shadowBlur = 0
+  ctx.shadowOffsetX = 0
+  ctx.shadowOffsetY = 0
+  ctx.filter = 'none'
 }

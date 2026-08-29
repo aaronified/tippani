@@ -697,14 +697,24 @@ function QuoteImagePanel({ share, selected, onShared, actionRef }) {
         setErr(t("error.render.image"));
       }
     };
-    redraw();
+    // THE IMMEDIATE DRAW IS SKIPPED WHEN A BACKDROP IS ON, because that draw cannot
+    // show one. A backdrop card is haloed — the halo is switched on by the
+    // photograph and by nothing else — so this draw pays for the most expensive
+    // card the panel can make, and then paints it WITHOUT the picture, because the
+    // faces are still loading and the portrait falls back to nothing. The reader is
+    // shown a wrong card at the highest price, and it is replaced a moment later.
+    //
+    // Skipping it costs nothing visible. Once the faces are cached — every toggle
+    // after the first — the promise below settles in a microtask, which is sooner
+    // than a frame. Before they are, the canvas holds the card it was already
+    // showing, which is a better thing to look at than a haloed card with a hole
+    // where the person should be.
+    if (!(portrait && canPortrait)) redraw();
     // ONE REDRAW FOR THE THREE OF THEM, not three. Each of these used to end in
     // its own `.then(redraw)`, which is four full draws for one toggle — and
     // once they are all cached, which is every toggle after the first, the three
     // extra ones land in the same microtask queue and redraw an identical card
-    // three times over. On a backdrop card each draw resamples a photograph that
-    // may be several thousand pixels on its long edge, so the cost was paid four
-    // times for one picture and the page stopped while it was.
+    // three times over.
     //
     // Still one redraw per resolution stage in the sense that matters: the first
     // draw is immediate and flat (the fonts may fall back, the faces and the

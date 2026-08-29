@@ -25,6 +25,12 @@ build:
 frontend:
 	cd web/frontend && npm ci && npm run build
 
+## perf: measure main-thread blocking per action against a scratch server, and fail
+## when any action crosses the budget. See scripts/perf/README.md for what the number
+## means and, just as importantly, what it does not cover.
+perf:
+	bash scripts/perf/run-with-server.sh
+
 ## changelog: refresh the copy the binary embeds (//go:embed cannot reach the
 ## repo root, so the app shows internal/changelog/CHANGELOG.md — a drift test
 ## fails the build when it falls behind the real one)

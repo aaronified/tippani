@@ -37,6 +37,7 @@ import {
   pinInProgress,
   statusFilter,
   useBoardWindow,
+  ANNOTATION_PAGE,
   wishFilter,
 } from './works.jsx'
 import { t } from './i18n.js'
@@ -1701,6 +1702,19 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
     () => (!pinned.length || !items ? 0 : pinned.filter((id) => items.some((x) => x.id === id)).length),
     [pinned, items],
   )
+  // THE DETAIL PAGE IS A BOARD TOO, and it was the last one still mounting everything
+  // it had. A book with three hundred highlights rendered three hundred cards before
+  // the reader had seen the first screen of them — the same defect the quotes board
+  // had, on the page a reader actually spends their time on.
+  //
+  // The count is floored at the pinned prefix: pinToTop puts newly-added quotes at the
+  // front, and a window that cut below them would hide the very rows that were pinned
+  // there to be seen.
+  const rowsWin = useBoardWindow(displayRows.length, displayRows, ANNOTATION_PAGE)
+  const shownRows = useMemo(
+    () => displayRows.slice(0, Math.max(rowsWin.count, pinnedShown)),
+    [displayRows, rowsWin.count, pinnedShown],
+  )
   // One board seed drives both the masonry jitter and each card's clamp height,
   // so the two stay in step and a given book always lays out the same way.
   const boardSeed = book?.id || bookId || 1
@@ -1949,7 +1963,7 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
       )}
       {items && items.length > 0 && view === 'list' && (
         <div className="space-y-4">
-          {displayRows.map((a, i) => (
+          {shownRows.map((a, i) => (
             <AnnotationCard
               key={a.id}
               a={a}
@@ -1970,6 +1984,8 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
               selection={selection}
             />
           ))}
+          {/* aria-hidden and empty: a scroll position, not content. See BookGrid. */}
+          {rowsWin.more && <div ref={rowsWin.sentinel} aria-hidden="true" className="h-px" />}
         </div>
       )}
       {items && items.length > 0 && view === 'tiles' && (
@@ -1981,8 +1997,9 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
         // than its clamp just shows in full. Clicking a quote expands it (chevron
         // affordance, no button); doing so collapses any other and locks the column
         // order so the board never reshuffles under the reader.
+        <>
         <Masonry columns={tileCols} gap={16} seed={boardSeed} pinnedCount={pinnedShown} lockOrder={expandedId != null} order="source">
-          {displayRows.map((a, i) => (
+          {shownRows.map((a, i) => (
             <AnnotationCard
               key={a.id}
               a={a}
@@ -2006,6 +2023,10 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
             />
           ))}
         </Masonry>
+        {/* Outside the Masonry, which positions its children absolutely — a sentinel
+            inside it would be placed as a card and never reach the bottom of the board. */}
+        {rowsWin.more && <div ref={rowsWin.sentinel} aria-hidden="true" className="h-px" />}
+        </>
       )}
 
       {shareTarget && <ShareDialog share={sharePayload(shareTarget)} seen={{ kind: 'book', id: shareTarget.id }} onClose={() => setShareTarget(null)} />}

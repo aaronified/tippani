@@ -1167,9 +1167,15 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
   // else — details, expired or never-seen lists — starts fresh at the top
   // instead of inheriting the previous screen's (clamped) position.
   useEffect(() => {
+    // INSTANT, BOTH TIMES, and said out loud because the stylesheet now asks for
+    // smooth scrolling everywhere else. Gliding to the top of a screen the reader
+    // has just arrived at is an animation of a page they have not seen yet, and
+    // gliding to a REMEMBERED position is worse: it scrolls the whole board past
+    // them to land where they already were. Smooth is for a scroll the reader
+    // asked for; neither of these is one.
     const y = detail ? null : scrollMem.get(statePath(tab, null))
     if (y == null) {
-      window.scrollTo(0, 0)
+      window.scrollTo({ top: 0, behavior: 'instant' })
       return
     }
     let tries = 0
@@ -1177,7 +1183,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
     const attempt = () => {
       if (stop) return
       if (document.documentElement.scrollHeight - window.innerHeight >= y || tries > 40) {
-        window.scrollTo(0, y)
+        window.scrollTo({ top: y, behavior: 'instant' })
         return
       }
       tries++

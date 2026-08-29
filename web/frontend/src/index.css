@@ -105,16 +105,19 @@
     --hl-5: #7CB342;
     --hl-6: #8A7BC8;
   }
-  /* Base colour lives on <html> (the canvas). <body> stays transparent so the
-     fixed .scene-bg layer (z-index -1) shows through behind the content. The
-     canvas isn't a flat fill: a soft pool of light up top and a darker floor at
-     the bottom give the whole page a lit, 3-D surface to sit on (§1 "nothing flat"). */
+  /* Base colour lives on <html> (the canvas), and only the colour: the pool of light
+     that used to be layered on top of it here is now its own fixed layer further
+     down — see html::before, which says why. <body> stays transparent so that layer
+     and the .scene-bg texture (z-index -1) both show through behind the content. */
   html {
-    background:
-      radial-gradient(125% 85% at 50% -5%, color-mix(in srgb, var(--bg), white 8%), transparent 55%),
-      radial-gradient(130% 110% at 50% 118%, color-mix(in srgb, var(--bg), black 12%), transparent 60%),
-      var(--bg);
-    background-attachment: fixed;
+    background: var(--bg);
+    /* SMOOTH, BUT ONLY WHERE THE READER ASKED FOR IT. This governs programmatic
+       scrolls — an anchor, a scrollIntoView, a jump to a section — and not the wheel
+       or the trackpad, which the browser has always animated itself. The two scrolls
+       that must stay instant say so at their own call sites: arriving on a screen and
+       restoring a remembered position (App.jsx). Gliding to a place the reader was
+       already standing in is not smoothness, it is a page moving on its own. */
+    scroll-behavior: smooth;
     /* Belt-and-suspenders: nothing in this app relies on page-level horizontal
        scroll (wide tables/nav strips scroll in their own contained wrapper —
        see .ann-table-wrap, .topbar-inner nav). This backstops any stray element
@@ -143,7 +146,38 @@
   html[data-theme="dark"] ::selection { background: color-mix(in oklab, var(--accent-dark) 80%, white 4%); color: #16100A; }
   :focus-visible { outline: 2px solid var(--accent-ui); outline-offset: 2px; } /* §11 */
   button { cursor: pointer; }
+  /* The lit surface, on its own fixed layer instead of a fixed background.
+     ---------------------------------------------------------------------------
+     The canvas isn't a flat fill: a soft pool of light up top and a darker floor at
+     the bottom give the whole page a lit, 3-D surface to sit on (§1 "nothing flat").
+
+     IT USED TO BE `background-attachment: fixed` ON <html>, AND THAT IS A SCROLL
+     COST. A fixed background does not move with the content, so the browser cannot
+     shift the already-painted page and fill in the newly-exposed strip: the
+     background has to be re-rasterised against the new scroll offset every frame,
+     over the whole viewport, and here that is two large radial gradients with a
+     color-mix in each. It is the single most expensive thing on the page during a
+     scroll and it is behind everything, where nobody thinks to look.
+
+     A fixed-position LAYER is the same picture with none of that. It is composited
+     once and then simply not moved, which is what "fixed" should have cost all
+     along. Same two gradients, same stops, same result — .scene-bg next door has
+     been doing exactly this for its own texture, and for the same reason. */
+  html::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -2;
+    pointer-events: none;
+    background:
+      radial-gradient(125% 85% at 50% -5%, color-mix(in srgb, var(--bg), white 8%), transparent 55%),
+      radial-gradient(130% 110% at 50% 118%, color-mix(in srgb, var(--bg), black 12%), transparent 60%);
+  }
+
   @media (prefers-reduced-motion: reduce) { /* §11 — no reveals, tilts, glows */
+    /* A reader who has asked for less motion has asked for this too: a scroll that
+       glides is a scroll that moves without being pushed. */
+    html { scroll-behavior: auto; }
     *, *::before, *::after { transition: none !important; animation: none !important; }
   }
 

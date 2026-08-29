@@ -121,16 +121,24 @@ const model = (over = {}) => ({
   ...over,
 })
 
-// On the card: a drawImage whose source is a canvas is a backdrop; whose source
-// is an Image is a credit disc.
+// On the card: a drawImage whose source is an Image is a credit disc. TWO kinds of
+// canvas are composited onto the card, and the argument count is what separates
+// them — a portrait is PLACED and carries a destination rectangle, while a halo
+// layer is laid over the whole picture at its intrinsic size (see haloLayer in
+// quoteImage.js). Telling them apart by which came first would pass for an
+// implementation that had lost one of them.
 const onCard = (pred) => log.filter((e) => e.canvas === CARD && pred(e))
-const backdrops = () => onCard((e) => e.op === 'drawImage' && e.args[0] instanceof HTMLCanvasElement)
-const discs = () => onCard((e) => e.op === 'drawImage' && !(e.args[0] instanceof HTMLCanvasElement))
+const isCanvas = (e) => e.args[0] instanceof HTMLCanvasElement
+const backdrops = () => onCard((e) => e.op === 'drawImage' && isCanvas(e) && e.args.length > 3)
+const halos = () => onCard((e) => e.op === 'drawImage' && isCanvas(e) && e.args.length <= 3)
+const discs = () => onCard((e) => e.op === 'drawImage' && !isCanvas(e))
 // The ordered story of the card's own surface, which is what depth means here.
 const cardOps = () =>
   log
     .filter((e) => e.canvas === CARD && (e.op === 'drawImage' || e.op === 'fillText'))
-    .map((e) => (e.op === 'fillText' ? 'text' : e.args[0] instanceof HTMLCanvasElement ? 'backdrop' : 'disc'))
+    .map((e) =>
+      e.op === 'fillText' ? 'text' : !isCanvas(e) ? 'disc' : e.args.length > 3 ? 'backdrop' : 'halo',
+    )
 
 // sourceOf answers which photo was painted into a given offscreen buffer, by
 // URL. fadedPortrait's only drawImage is the cover-crop of the source photo.
@@ -345,6 +353,21 @@ describe('the portrait backdrop', () => {
     expect(ops).toContain('backdrop')
     expect(ops).toContain('text')
     expect(ops.lastIndexOf('backdrop')).toBeLessThan(ops.indexOf('text'))
+  })
+
+  it('is under the halo, which is under the words', async () => {
+    // The three layers of a backdrop card, in the only order that works. The
+    // portrait goes down first because it is the background. The halo goes over it,
+    // because a glow that sits UNDER the photograph gives the words back nothing.
+    // The words go last. Getting the middle one wrong is the failure that looks
+    // fine in a thumbnail and unreadable at full size.
+    await render(model({ portrait: true, faces: [FACE(1)] }))
+    const ops = cardOps()
+    expect(ops).toContain('backdrop')
+    expect(ops).toContain('halo')
+    expect(ops).toContain('text')
+    expect(ops.lastIndexOf('backdrop')).toBeLessThan(ops.indexOf('halo'))
+    expect(ops.lastIndexOf('halo')).toBeLessThan(ops.indexOf('text'))
   })
 
   it('a plain card still draws its discs on top of nothing', async () => {
