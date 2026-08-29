@@ -1637,6 +1637,7 @@ function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen
       tvdbId: movie?.tvdb_id,
       people: actorMap,
       seps: creditSeps,
+      characterImages: d.character_images,
     })
 
   // The frame's copy glyph writes out the same line the share dialog's plain-text

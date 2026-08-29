@@ -2267,6 +2267,15 @@
   .cast-face-btn.is-empty:hover .cast-face-mark { color: var(--ink); }
   .cast-names { display: flex; min-width: 0; flex: 1 1 auto; flex-direction: column; }
   .cast-character { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--type-ui-15); }
+  /* The character name is a button now (it opens this row's picture editor), and
+     a button inherits neither the truncation nor the type of the span around it.
+     Restated here rather than moved onto the button, because the span is what the
+     flex row measures and the button has to fill it to truncate at the same place. */
+  .cast-character > button {
+    display: block; max-width: 100%;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-size: inherit; font-family: inherit; text-align: left;
+  }
   .cast-actor {
     font-family: var(--font-mono);
     font-style: var(--font-mono-style);

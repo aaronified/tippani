@@ -2493,6 +2493,12 @@ share.image.theme.dark.label = Dark
 share.image.material.label = material
 share.image.material.aria = Image material
 # How a credited person appears. Offered only when somebody credited has a photo.
+share.image.facekind.label = face
+share.image.facekind.aria = Whose picture the card draws
+share.image.facekind.actor.label = Actor
+share.image.facekind.character.label = Character
+share.image.facekind.info.title = Face
+share.image.facekind.info.body = Whose picture goes on the card: the performer, or the part they played. Offered only when the work has a saved picture for both — a character in costume is often the one the line belongs to.
 share.image.portrait.label = portrait
 share.image.portrait.aria = Portrait
 share.image.portrait.chip.label = Chip

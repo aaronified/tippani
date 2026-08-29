@@ -1843,6 +1843,7 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
       color: a.color,
       people: authorMap,
       seps,
+      characterImages: a.character_images,
     })
 
   // The card's copy glyph writes out the same quote the share dialog's plain-text

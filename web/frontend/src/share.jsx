@@ -18,6 +18,25 @@ function resolveFaces(credit, people, seps) {
     .map((p) => ({ name: p.name, url: coverImgURL(p.image_path) }));
 }
 
+// resolveCharacterFaces is the same job for the picture of a ROLE, and it is a
+// different function rather than a parameter because the two are shaped
+// differently at source and neither shape is convertible into the other.
+//
+// An actor face is looked up: a credit string is split into names and each name
+// finds a row in a name→person map, because a person is global and one row serves
+// every quote they are on. A character face is already a LIST — the server
+// resolved it per work when it built the row (`character_images`), because a
+// character belongs to one work and the fold that matches them lives in Go.
+//
+// Un-pictured characters are already absent from that list, deliberately, so the
+// server can report "no picture" apart from "no character". Nothing is dropped
+// here; the filtering happened upstream.
+function resolveCharacterFaces(images) {
+  return (images || [])
+    .filter((c) => c && c.path)
+    .map((c) => ({ name: c.name, url: coverImgURL(c.path) }));
+}
+
 // The picture is chosen along the same two axes the app is: a mode and a material.
 // Both are export choices, persisted per device and independent of the live app
 // theme, so sharing a dark Bindery card out of a light Manuscript app is one pick.
@@ -142,6 +161,7 @@ export function bookShare({
   color,
   people,
   seps,
+  characterImages,
 }) {
   return {
     quote: quote || "",
@@ -157,6 +177,11 @@ export function bookShare({
     // Author face(s) for the image, gated by the "Author" toggle (facesFor).
     faces: resolveFaces(author, people, seps),
     facesFor: "author",
+    // A BOOK HAS CHARACTERS TOO, and this is the half of the feature nobody
+    // could see: the server has been sending `character_images` on an annotation
+    // since 0049 and the book pages never read it, so a book's character had a
+    // picture stored and no surface drawing it.
+    characterFaces: resolveCharacterFaces(characterImages),
     // Author-first (bold), work italic, then the publication year — the classic
     // epigraph order ("— **Author**, *Title*, 1965").
     attribution: [
@@ -205,13 +230,18 @@ export function movieShare({
   tvdbId,
   people,
   seps,
+  characterImages,
 }) {
   return {
     quote: quote || "",
     translation: translation || "", // 0051; see bookShare
-    // Actor face(s) for the image, gated by the "Actor" toggle (facesFor).
+    // BOTH SETS TRAVEL, and the panel picks one. `faces` stays the actor's so
+    // that every existing caller, and the drawing code, keep the meaning they
+    // had; `characterFaces` is additional and is empty for a quote whose work has
+    // no character art, which is what hides the control rather than greying it.
     faces: resolveFaces(actor, people, seps),
     facesFor: "actor",
+    characterFaces: resolveCharacterFaces(characterImages),
     attribution: [
       { id: "work", label: t("share.field.work.film.label"), value: title || "", emphasis: "italic" },
       { id: "year", label: t("share.field.released.label"), value: year ? String(year) : "" },
@@ -652,7 +682,25 @@ function QuoteImagePanel({ share, selected, onShared, actionRef }) {
   // hidden rather than shown greyed: a toggle that cannot change the picture is
   // a question with one answer.
   const [portrait, setPortrait] = usePersistedState("tippani:sharePortrait", false);
-  const canPortrait = (share.faces || []).length > 0;
+  const canPortrait = (share.faces || []).length > 0 || (share.characterFaces || []).length > 0;
+  // WHOSE PICTURE: the person, or the part they played.
+  //
+  // These have been two stored pictures since 0049 — an actor is global and a
+  // character belongs to one work — and the card could only ever draw the first.
+  // For a line whose whole point is WHO SAID IT, that is often the wrong one:
+  // "V" delivers the speech and Hugo Weaving is a man in a photograph who is not
+  // wearing the mask.
+  //
+  // HIDDEN, NOT GREYED, when the work has no character art — the same rule the
+  // portrait control follows, because a toggle that cannot change the picture is
+  // a question with one answer. Persisted per device beside the other export
+  // preferences.
+  const [faceKind, setFaceKind] = usePersistedState("tippani:shareFaceKind", "actor");
+  const characterFaces = share.characterFaces || [];
+  const canFaceKind = characterFaces.length > 0 && (share.faces || []).length > 0;
+  // The array actually drawn. `faces` keeps its meaning everywhere else — the
+  // swap happens here, once, so nothing downstream has to learn a second field.
+  const drawnFaces = faceKind === "character" && characterFaces.length > 0 ? characterFaces : share.faces || [];
   // WHICH WAY ROUND THE PEOPLE GO. Only the backdrop has sides — a chip row is
   // one cluster beside one name — so this appears with the backdrop and not
   // beside it, and it is meaningless with nobody to arrange.
@@ -691,7 +739,7 @@ function QuoteImagePanel({ share, selected, onShared, actionRef }) {
         // this is the one consumer that needs a real value — and the one whose
         // output leaves the app, which makes it the worst place to be stale.
         const colorHex = useColor && share.color ? categoryHex(share.color) : null;
-        drawQuoteCard(canvas, buildModel({ ...share, portrait: portrait && canPortrait, swap }, selected, colorHex), drawTheme(imageTheme, imageMaterial));
+        drawQuoteCard(canvas, buildModel({ ...share, faces: drawnFaces, portrait: portrait && canPortrait, swap }, selected, colorHex), drawTheme(imageTheme, imageMaterial));
         setErr("");
       } catch {
         setErr(t("error.render.image"));
@@ -731,7 +779,7 @@ function QuoteImagePanel({ share, selected, onShared, actionRef }) {
         hand: !!share.note,
       }),
       // Author / actor portraits, which load lazily.
-      loadFaceImages((share.faces || []).map((f) => f.url)),
+      loadFaceImages(drawnFaces.map((f) => f.url)),
       // The material's tile.
       loadTileImage(tileFor(imageMaterial, "card").url),
     ]).then(redraw);
@@ -740,7 +788,11 @@ function QuoteImagePanel({ share, selected, onShared, actionRef }) {
       cancelled = true;
       window.removeEventListener("tippani:theme", redraw);
     };
-  }, [share, selected, imageTheme, imageMaterial, portrait, canPortrait, swap, useColor]);
+    // faceKind and NOT drawnFaces: the latter is a fresh array on every render,
+    // so listing it would re-run this effect forever. `share` already covers the
+    // two arrays themselves; faceKind is the only new thing that can change which
+    // of them is drawn.
+  }, [share, selected, imageTheme, imageMaterial, portrait, canPortrait, swap, useColor, faceKind]);
 
   async function download() {
     const canvas = canvasRef.current;
@@ -852,6 +904,21 @@ function QuoteImagePanel({ share, selected, onShared, actionRef }) {
           options={imageMaterials()}
         />
       </div>
+      {canFaceKind && (
+        <div className="mb-2 flex flex-wrap items-center gap-2">
+          <MonoLabel>{t("share.image.facekind.label")}</MonoLabel>
+          <Toggle
+            ariaLabel={t("share.image.facekind.aria")}
+            value={faceKind}
+            onChange={setFaceKind}
+            options={[
+              ["actor", t("share.image.facekind.actor.label")],
+              ["character", t("share.image.facekind.character.label")],
+            ]}
+          />
+          <InfoDot title={t("share.image.facekind.info.title")} text={t("share.image.facekind.info.body")} />
+        </div>
+      )}
       {canPortrait && (
         <div className="mb-2 flex flex-wrap items-center gap-2">
           <MonoLabel>{t("share.image.portrait.label")}</MonoLabel>

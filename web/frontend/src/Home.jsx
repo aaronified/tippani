@@ -696,6 +696,7 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
         chapter: chapterLabel(f.raw), location: f.raw.location, character: f.raw.character,
         date: fmtDate(annDate(f.raw)),
         tags: f.raw.tags, color: f.raw.color, people: authorMap,
+        characterImages: f.raw.character_images,
       })
     }
     if (f.kind === 'quote') {
@@ -716,6 +717,7 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
       character: f.raw.character, actor: f.raw.actor, timestamp: f.raw.timestamp,
       episode: episodeLabel(f.raw), tags: f.raw.tags,
       color: f.raw.color, people: actorMap,
+      characterImages: f.raw.character_images,
     })
   }
 

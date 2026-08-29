@@ -223,6 +223,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The character's name is a link now, and it leads to the character's picture.** An
+  actor and the part they play have been two separate stored pictures for a while —
+  the performer is global, the character belongs to one work — but only the actor's
+  name was clickable, so both names led to the actor. The character was flat text and
+  the only route to its picture was working out that the small round face to its left
+  was a button. Same affordance on both names, two destinations, each the one its noun
+  implies.
+
+- **A share card can draw the character instead of the actor.** A new *face* control on
+  the picture panel, beside *portrait* and *sides*. It appears only when the work has a
+  saved picture for both — a toggle that cannot change the picture is a question with
+  one answer — and for a line whose whole point is who said it, the performer is often
+  the wrong choice: V delivers the speech, and Hugo Weaving is a man in a photograph not
+  wearing the mask. Book quotes get this too, which is the half nobody could see: the
+  server has been sending a book's character pictures for as long as they have existed
+  and no book surface ever read them.
+
 - **Two more places to look for a picture, at the bottom of the ladder.** *Fandom*
   covers the long tail Wikipedia does not: Wikipedia writes about a character when the
   character is notable outside their own story, and Fandom writes about all of them —

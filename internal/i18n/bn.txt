@@ -2504,6 +2504,12 @@ share.image.theme.dark.label = গাঢ়
 share.image.material.label = উপাদান
 share.image.material.aria = ছবির উপাদান
 # How a credited person appears. Offered only when somebody credited has a photo.
+share.image.facekind.label = মুখ
+share.image.facekind.aria = কার ছবি কার্ডে আঁকা হবে
+share.image.facekind.actor.label = অভিনেতা
+share.image.facekind.character.label = চরিত্র
+share.image.facekind.info.title = মুখ
+share.image.facekind.info.body = কার্ডে কার ছবি যাবে: যিনি অভিনয় করেছেন, নাকি যে চরিত্রটি তিনি করেছেন। দুটোরই ছবি জমা থাকলে তবেই এটা আসে — সংলাপটা প্রায়ই চরিত্রেরই, অভিনেতার নয়।
 share.image.portrait.label = মুখের ছবি
 share.image.portrait.aria = মুখের ছবি
 share.image.portrait.chip.label = চিপ

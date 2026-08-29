@@ -534,7 +534,32 @@ function CastRow({ row, role, busy, actor, workTitle, mediaType, onSave, onRemov
           which renders below the names rather than in a popup. */}
       {faceButton}
       <span className="cast-names">
-        <span className="cast-character">{row.character || t('cast.unnamed.label')}</span>
+        {/* THE TWO NAMES NOW LEAD TO THE TWO PICTURES, which is the thing they
+            always looked like they did and did not.
+
+            Hugo Weaving is a person and V is a part he played, and the app has
+            stored those as two pictures since 0049 — `people.image_path` is his,
+            globally, and `work_cast.character_image_path` is V's, on this work.
+            But only the ACTOR name was a link, so both names led to the actor:
+            the character was flat text, and the only way to its picture was to
+            work out that the little round face to the left was a button.
+
+            So the character name opens the row's picture editor — the same one
+            the face opens, which is where a character picture is searched for and
+            chosen — and the actor name goes on opening the person, which is where
+            an actor's picture is. Same affordance, two destinations, each the one
+            its noun implies. */}
+        <span className="cast-character">
+          <button
+            type="button"
+            className="tp-link"
+            aria-expanded={urlOpen}
+            disabled={busy}
+            onClick={() => setUrlOpen((v) => !v)}
+          >
+            {row.character || t('cast.unnamed.label')}
+          </button>
+        </span>
         {row.actor && (
           <span className="cast-actor">
             {onOpenPerson ? (

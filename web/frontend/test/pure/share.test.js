@@ -316,3 +316,64 @@ describe('the payload shapers', () => {
     expect(buildShareText(empty, ALL, 'markdown')).toBe('')
   })
 })
+
+// THE TWO PICTURES A LINE CAN CARRY, and the fact that the payload now carries
+// both rather than only the performer's.
+//
+// An actor is global and a character belongs to one work — two stored pictures
+// since 0049 — and the share card could only ever draw the first. For a line
+// whose whole point is who said it, that is often the wrong one: V delivers the
+// speech, and Hugo Weaving is a man in a photograph not wearing the mask.
+//
+// Tested as a CONTRACT here rather than through the panel, for the reason this
+// file's header gives: the shapes are what the drawing code reads, and the panel
+// only chooses between them.
+describe('both faces travel with a share', () => {
+  const withCharacters = () =>
+    movieShare({
+      quote: 'Remember, remember',
+      title: 'V for Vendetta',
+      character: 'V',
+      actor: 'Hugo Weaving',
+      people: { 'Hugo Weaving': { name: 'Hugo Weaving', image_path: 'hugo.jpg' } },
+      characterImages: [{ name: 'V', path: 'v-mask.jpg' }],
+    })
+
+  it('carries the actor faces and the character faces separately', () => {
+    const s = withCharacters()
+    expect(s.faces.map((f) => f.name)).toEqual(['Hugo Weaving'])
+    expect(s.characterFaces.map((f) => f.name)).toEqual(['V'])
+    // Same-origin cover route for both, which is what keeps the canvas untainted.
+    expect(s.characterFaces[0].url).toContain('v-mask.jpg')
+    // `faces` keeps meaning the actor's, so nothing downstream had to change.
+    expect(s.facesFor).toBe('actor')
+  })
+
+  it('leaves characterFaces empty when the work has no character art, which is what hides the control', () => {
+    // The existing fixture has no characterImages at all — the common case, and
+    // the one where offering a choice would be a question with one answer.
+    expect(casablanca().characterFaces).toEqual([])
+  })
+
+  it('drops a character with no stored picture rather than drawing a blank disc', () => {
+    const s = movieShare({
+      quote: 'x',
+      character: 'V',
+      actor: 'Hugo Weaving',
+      people: {},
+      characterImages: [{ name: 'V', path: '' }, { name: 'Evey', path: 'evey.jpg' }],
+    })
+    expect(s.characterFaces.map((f) => f.name)).toEqual(['Evey'])
+  })
+
+  it('gives a book quote its characters too, which no book surface has ever drawn', () => {
+    const s = bookShare({
+      quote: 'y',
+      author: 'Murakami',
+      title: '1Q84',
+      people: {},
+      characterImages: [{ name: 'Aomame', path: 'aomame.jpg' }],
+    })
+    expect(s.characterFaces.map((f) => f.name)).toEqual(['Aomame'])
+  })
+})
