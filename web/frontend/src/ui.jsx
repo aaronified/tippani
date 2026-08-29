@@ -2697,6 +2697,24 @@ const LONG_PRESS_MS = 500;
 const HOVER_TIP_MS = 400;
 // How far a finger may drift and still count as a press rather than a scroll.
 const LONG_PRESS_SLOP = 10;
+// HOVER_REST_SLOP — how far a POINTER may drift and still count as resting.
+//
+// The delay above was a test of presence, not of intent, and those are only the
+// same thing when events arrive on time. Crossing the top bar fast still raised
+// bubbles, late, over whatever the pointer had moved on to: pointerenter starts
+// the clock, the pointer sweeps on, and if the matching pointerleave is delayed
+// — by a busy main thread, by pointer-event coalescing, by the control moving
+// under the cursor — the clock finishes anyway and shows a label for a control
+// nobody is pointing at any more. The reader's report is exactly that shape:
+// "it still appears and is lagging behind ... the hover delay is thus rendered
+// useless".
+//
+// So the clock now measures REST. Any move beyond this slop restarts it, which
+// makes the rule "the pointer has been within 8px of one spot for 400ms" rather
+// than "the pointer arrived 400ms ago" — and a sweep, which is nothing but
+// movement, can no longer complete one no matter what pointerleave does. 8px is
+// wider than a resting hand's jitter and far narrower than a traverse.
+const HOVER_REST_SLOP = 8;
 
 // Tooltip — an on-brand label bubble that replaces native title= tooltips, on
 // every device. ONE bubble serves both input styles (HintBubble, placed by
@@ -2770,6 +2788,17 @@ export function Tooltip({ label, side = "top", className = "", onContextMenu, sh
   // closes our own — moving between two adjacent controls interleaves an enter
   // and a leave, and a blind "hide" would race the new label away.
   const held = useRef(0);
+  // Where the pointer was when the current rest clock started, and whether a
+  // pointerleave has been seen since it started. The second is a belt to the
+  // first's braces: rest cannot complete during a sweep, and if one somehow did,
+  // a control the pointer has already left must not speak.
+  //
+  // ABOVE THE `if (!label)` RETURN, with every other hook in this component. A
+  // ref declared below it runs on some renders and not others, which React
+  // reports as "rendered more hooks than during the previous render" three
+  // screens away from the line that caused it.
+  const restAt = useRef(null);
+  const inside = useRef(false);
   // Unmount is a close: clicking a control that opens a modal takes the wrapper
   // (and its pointerleave) with it, which would otherwise pin the label forever.
   useEffect(() => () => {
@@ -2809,19 +2838,27 @@ export function Tooltip({ label, side = "top", className = "", onContextMenu, sh
   const clearHover = () => {
     clearTimeout(hover.current);
     hover.current = null;
+    restAt.current = null;
   };
-  const onPointerEnter = (e) => {
-    // Touch fires pointerenter too, on the tap — that path is the long press.
-    if (e.pointerType === "touch" || suppressed) return;
+  const startRest = (e) => {
     clearHover();
+    restAt.current = { x: e.clientX, y: e.clientY };
     hover.current = setTimeout(() => {
       hover.current = null;
+      if (!inside.current) return;
       // open() reads the box when it runs, which is the same reason the long press
       // reads it at fire time: four tenths of a second is long enough for a list to
       // still be settling, and a bubble anchored to where the control WAS points at
       // nothing.
       open(true);
     }, HOVER_TIP_MS);
+  };
+
+  const onPointerEnter = (e) => {
+    // Touch fires pointerenter too, on the tap — that path is the long press.
+    if (e.pointerType === "touch" || suppressed) return;
+    inside.current = true;
+    startRest(e);
   };
   const onPointerDown = (e) => {
     if (e.pointerType !== "touch") return;
@@ -2837,6 +2874,19 @@ export function Tooltip({ label, side = "top", className = "", onContextMenu, sh
     }, LONG_PRESS_MS);
   };
   const onPointerMove = (e) => {
+    // THE POINTER PATH: still travelling, so the clock starts again. This is
+    // what makes the delay a test of intent rather than of arrival — see
+    // HOVER_REST_SLOP.
+    if (e.pointerType !== "touch") {
+      if (!hover.current || !restAt.current) return;
+      if (
+        Math.abs(e.clientX - restAt.current.x) > HOVER_REST_SLOP ||
+        Math.abs(e.clientY - restAt.current.y) > HOVER_REST_SLOP
+      ) {
+        startRest(e);
+      }
+      return;
+    }
     // A drag is a scroll, not a question. Let go of the timer as soon as the
     // finger leaves the control, or every flick down a list would flash a label.
     if (!timer.current || !origin.current) return;
@@ -2881,11 +2931,11 @@ export function Tooltip({ label, side = "top", className = "", onContextMenu, sh
       ref={wrap}
       className={`tp-tip-wrap ${className}`}
       onPointerEnter={onPointerEnter}
-      onPointerLeave={() => { clear(); clearHover(); close() }}
+      onPointerLeave={() => { inside.current = false; clear(); clearHover(); close() }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={clear}
-      onPointerCancel={() => { clear(); clearHover(); close() }}
+      onPointerCancel={() => { inside.current = false; clear(); clearHover(); close() }}
       onClickCapture={onClickCapture}
       onFocus={onFocus}
       onBlur={close}

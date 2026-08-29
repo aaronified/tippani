@@ -222,6 +222,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   it will draw. Measured: opening Share went from five font requests to none for an
   English quote already on screen.
 
+- **The tooltip delay tests intent, not arrival.** Moving quickly across the top bar still
+  raised bubbles — late, over whatever the pointer had moved on to — because the clock
+  started when the pointer arrived and only a `pointerleave` stopped it. When that leave was
+  delayed, the clock finished anyway. The delay now measures *rest*: any movement beyond
+  eight pixels restarts it, so a sweep cannot complete one however late the events are, and
+  a label is never shown for a control the pointer has already left.
+
 - **A branch build now sees that its branch has moved.** Tracking `:v3` (or `:edge`) means
   tracking a moving image tag, and pushing to a branch rebuilds that image without creating
   any GitHub release — so the update check, which could only see releases, correctly and

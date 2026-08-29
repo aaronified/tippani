@@ -165,3 +165,77 @@ describe('an info dot sticks when you click it, on purpose', () => {
     expect(dot.getAttribute('aria-expanded')).toBe('false')
   })
 })
+
+// THE DELAY HAS TO TEST INTENT, NOT ARRIVAL.
+//
+// The report: "if i am moving my mouse over the top bar, quite fast to not hover
+// for enough so that the tooltip doesn't appear, it still appears and is lagging
+// behind ... the hover delay is thus rendered useless". The clock started on
+// pointerenter and nothing but pointerleave stopped it — so when that leave was
+// late (a busy main thread, coalesced pointer events, a control moving under the
+// cursor) the clock finished anyway and a label arrived for a control the
+// pointer had long since crossed.
+describe('the hover delay', () => {
+  // ToastHost, because the bubble is drawn by the shared hint slot and not by
+  // the wrapper — see the top of this file.
+  const mount = () => {
+    render(
+      <>
+        <ToastHost />
+        <Tooltip label="Search">
+          <button type="button">go</button>
+        </Tooltip>
+      </>,
+    )
+    return screen.getByRole('button')
+  }
+  const move = (el, x, y) =>
+    fireEvent.pointerMove(el, { pointerType: 'mouse', clientX: x, clientY: y })
+  const enter = (el, x, y) =>
+    fireEvent.pointerEnter(el, { pointerType: 'mouse', clientX: x, clientY: y })
+
+  it('shows the label when the pointer rests', async () => {
+    vi.useFakeTimers()
+    try {
+      const el = mount()
+      enter(el, 100, 100)
+      move(el, 102, 101) // a resting hand's jitter, well inside the slop
+      await act(async () => { vi.advanceTimersByTime(500) })
+      expect(document.body.textContent).toContain('Search')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('shows nothing while the pointer is still travelling', async () => {
+    vi.useFakeTimers()
+    try {
+      const el = mount()
+      enter(el, 100, 100)
+      // A sweep: each step is beyond the slop, so the clock never completes —
+      // and this is true whether or not a pointerleave ever arrives, which is
+      // the whole point.
+      for (let i = 1; i <= 6; i++) {
+        await act(async () => { vi.advanceTimersByTime(300) })
+        move(el, 100 + i * 40, 100)
+      }
+      await act(async () => { vi.advanceTimersByTime(399) })
+      expect(document.body.textContent).not.toContain('Search')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('says nothing once the pointer has left, even if the clock finishes anyway', async () => {
+    vi.useFakeTimers()
+    try {
+      const el = mount()
+      enter(el, 100, 100)
+      fireEvent.pointerLeave(el, { pointerType: 'mouse' })
+      await act(async () => { vi.advanceTimersByTime(1000) })
+      expect(document.body.textContent).not.toContain('Search')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})
