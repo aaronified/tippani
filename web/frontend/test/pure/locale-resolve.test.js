@@ -15,6 +15,8 @@ import {
   applyLocale,
   coverage,
   coveragePercent,
+  ensureBuiltin,
+  ensureBuiltins,
   fullKeys,
   installedLocales,
   localeActive,
@@ -413,5 +415,46 @@ describe('the pseudo-locale (§9)', () => {
     const list = installedLocales()
     expect(list[list.length - 1]).toBe(PSEUDO)
     expect(localeName(PSEUDO).startsWith('⟦')).toBe(true)
+  })
+})
+
+// ---- the second built-in arrives as its own chunk ---------------------------
+//
+// English is compiled into the bundle; Bengali is loaded on demand, because the two
+// of them together were 58% of the application bundle and most readers want one.
+// See i18n.js.
+//
+// THIS IS TESTED BECAUSE THE FAILURE IS SILENT. ensureBuiltin swallows a failed
+// load on purpose — a language that will not arrive should leave the interface
+// working in English rather than throwing — which means a wrong import path, a
+// renamed file or a build that stops emitting the chunk would show up as Bengali
+// quietly resolving to English, everywhere, forever. Nothing else in the suite
+// would notice: every other assertion about bn is about codes and chains, which
+// are unaffected.
+describe('the language that is not compiled in', () => {
+  test('loads, and resolves to its own words rather than falling back', async () => {
+    await ensureBuiltins()
+    applyLocale('bn')
+    const bengali = t('common.action.share.label')
+    // Not the English string, and actually in the Bengali block — a fallback to
+    // English would satisfy "is a string" and nothing else here.
+    expect(bengali).not.toBe('Share')
+    expect(/[\u0980-\u09FF]/.test(bengali)).toBe(true)
+  })
+
+  test('is idempotent, and asking for a language that is not built in is a no-op', async () => {
+    await ensureBuiltin('bn')
+    await ensureBuiltin('bn')
+    await ensureBuiltin('fr') // not a built-in: resolves, changes nothing
+    applyLocale('bn')
+    expect(/[\u0980-\u09FF]/.test(t('common.action.share.label'))).toBe(true)
+  })
+
+  test('counts as fully translated once it is here, which the coverage sum divides by', async () => {
+    await ensureBuiltins()
+    // Both built-ins are measured against the union of both, so each one is 100%
+    // by construction — and that is the assertion that fails if the chunk is empty
+    // or half-parsed rather than merely absent.
+    for (const code of BUILTIN_CODES) expect(coverage(code)).toBe(100)
   })
 })

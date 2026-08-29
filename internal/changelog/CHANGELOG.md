@@ -190,6 +190,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **The app no longer downloads itself all at once.** It compiled to a single 1.8MB
+  JavaScript file, and a browser can render nothing until it has downloaded, parsed
+  and compiled all of it — including Settings, Stats and Metadata, which most sessions
+  never open, and including *both* shipped languages, which between them were 870KB of
+  text and 58% of the bundle. It is now split: the main file is 953KB (278KB
+  compressed, down from 505KB), React is its own cached chunk that a release does not
+  invalidate, each tab screen is its own chunk fetched when first shown, and Bengali is
+  a chunk of its own. Nothing about what ships changed — both languages are still in
+  the box, the picker still offers both, and a Bengali reader's first screen is still
+  in Bengali, because that one is awaited at boot when it is the language rendering.
+  The tabs a reader is most likely to open next are fetched on idle, so the split costs
+  nothing at the first click either.
+
 - **Scrolling that the app does for you now glides.** An anchor, a jump to a section, a
   `scrollIntoView` — the wheel and the trackpad were always the browser's own and are
   unchanged. The two scrolls that must stay instant say so: arriving on a screen, and

@@ -51,10 +51,10 @@ import '@fontsource/hind/400.css'
 import './index.css'
 import App from './App.jsx'
 import { applyColors, applyLabels, applyTheme } from './theme.js'
-import { applyLocale, loadLocaleFiles } from './i18n.js'
+import { applyLocale, DEFAULT_LOCALE, ensureBuiltin, ensureBuiltins, loadLocaleFiles, localeActive } from './i18n.js'
 import { initTactile } from './ui.jsx'
 
-function boot() {
+async function boot() {
   applyTheme({}) // defaults until /auth/me preferences load (§4)
   // The four --hl-N properties, seeded with the built-ins. index.css declares
   // them too, so this is not what makes the first paint correct — it is what
@@ -67,16 +67,27 @@ function boot() {
   applyLabels()
   // The language, before the first render for the same reason the label density
   // is: the device-local mirror is readable synchronously, so the login screen
-  // and the first-run screen are already in the reader's words. The two built-in
-  // languages are compiled into this bundle, so this needs no server and works
-  // with none (design §3).
+  // and the first-run screen are already in the reader's words.
   applyLocale()
+  // English is compiled into this bundle and needs nothing; Bengali is its own
+  // chunk (see i18n.js, which says why) and is AWAITED here when it is the
+  // language actually rendering. That keeps the promise the line above makes — a
+  // Bengali reader's first screen is in Bengali, not a frame of English that
+  // snaps — at the cost of one same-origin request for the reader who wants it,
+  // and nothing at all for the reader who does not. Design §3 is unchanged: both
+  // languages still ship in the box and the picker still offers both.
+  if (localeActive() !== DEFAULT_LOCALE) await ensureBuiltin(localeActive())
   // What the operator ADDED lives in data/Locales and only the server can see it,
   // so it arrives after the first paint. Deliberately not awaited: the interface
   // is complete without it, and blocking boot on a request would trade a working
   // screen for a spinner. i18n.js re-renders the tree only if the payload
   // actually changed, which on an instance with no added language it has not.
   loadLocaleFiles()
+  // And the other built-in, quietly, once the screen is up: it is the terminal
+  // fallback for whichever language is active (i18n.js, buildChain), so the
+  // symmetry §3 asks for is restored a moment after the first paint rather than
+  // being paid for before it. Not awaited, for the reason loadLocaleFiles is not.
+  ensureBuiltins()
   initTactile() // "press where you clicked" for .tactile toggles + buttons
   createRoot(document.getElementById('root')).render(<App />)
 }

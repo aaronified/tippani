@@ -58,10 +58,20 @@ import {
   BUILTIN_CODES,
   coverage,
   coveragePercent,
+  ensureBuiltins,
   fullKeys,
   resetLocaleForTests,
   setLocaleFiles,
 } from '../../src/i18n.js'
+
+// AWAITED FIRST, AND THE WHOLE FILE DEPENDS ON IT. Only English is compiled into
+// the bundle now; Bengali is a chunk that loads on demand (see i18n.js). So
+// fullKeys() before this line is the union over ONE language, and the union is the
+// entire point here — the case this file exists to catch is a key that is in
+// bn.txt and nowhere else, which an en-only token set cannot see. The suite stayed
+// green when that protection was removed, because today the two files happen to
+// agree; that is exactly the shape of silence this file was written about.
+await ensureBuiltins()
 
 // THE TOKEN SET. fullKeys() is what the app divides by, so it is what a coverage
 // test has to measure against — using anything else would test a number the app

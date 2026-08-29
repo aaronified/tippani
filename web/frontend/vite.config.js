@@ -8,7 +8,21 @@ import { fileURLToPath } from 'node:url'
 // `npm run dev` proxies API calls to a locally running tippani server.
 export default defineConfig({
   plugins: [react(), tailwindcss()],
-  build: { outDir: '../dist', emptyOutDir: true },
+  build: {
+    outDir: '../dist',
+    emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        // React changes on its own schedule and the app changes on every commit.
+        // In one chunk they share a cache entry, so a one-line fix re-downloads the
+        // framework with it. Split, the framework stays cached across releases.
+        manualChunks: (id) =>
+          id.includes('/node_modules/react-dom/') || id.includes('/node_modules/react/') || id.includes('/node_modules/scheduler/')
+            ? 'react'
+            : undefined,
+      },
+    },
+  },
   server: {
     // The whole REST API is mounted under /api (api.js prefixes every call),
     // so one proxy entry covers it. TIPPANI_DEV_API overrides the target when

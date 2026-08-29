@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import Home from './Home.jsx'
 import { applyLanguageMarks } from './languages.jsx'
 import { applyFonts, registerUploads } from './fonts.js'
@@ -8,18 +8,35 @@ import { dailyDeck, forgetDailyDeck } from './daily.js'
 import { pickEpigraph } from './epigraphs.js'
 import { installShortcuts, shortcutFor } from './keys.js'
 import AddSurface from './AddSurface.jsx'
-import Library from './Library.jsx'
-import MetadataPage from './MetadataPage.jsx'
-import Movies from './Movies.jsx'
-import QuotesPage from './Quotes.jsx'
+// ---- one screen, one chunk -------------------------------------------------
+//
+// The app compiled to a single 1.8MB file, and a browser cannot render anything
+// until it has downloaded, parsed and COMPILED all of it — including the code for
+// Settings, Stats and Metadata, which most sessions never open. Every tab screen is
+// its own chunk now, fetched the first time it is shown.
+//
+// Home is deliberately NOT one of them: it is the screen the app opens on, so
+// deferring it would not remove its cost, only move it behind a round trip. The
+// tabs a reader actually uses are warmed on idle instead (see warmScreens below),
+// which is the same trade made the other way round — the chunk is off the critical
+// path, and it is already there by the time anybody clicks.
+//
+// There is no loading state, and that is a house rule rather than an omission: this
+// app has never shown a spinner for a screen. The [data-screen-label] wrapper is
+// outside the boundary, so the screen still announces itself immediately and only
+// its body arrives a beat later.
+const Library = lazy(() => import('./Library.jsx'))
+const MetadataPage = lazy(() => import('./MetadataPage.jsx'))
+const Movies = lazy(() => import('./Movies.jsx'))
+const QuotesPage = lazy(() => import('./Quotes.jsx'))
 import AnthologiesPage from './anthologies.jsx'
-import TagsPage from './TagsPage.jsx'
-import SearchPage from './SearchPage.jsx'
-import StagingPage from './StagingPage.jsx'
-import StatsPage from './StatsPage.jsx'
-import Settings from './Settings.jsx'
-import BinPage from './BinPage.jsx'
-import CleanupPage from './CleanupPage.jsx'
+const TagsPage = lazy(() => import('./TagsPage.jsx'))
+const SearchPage = lazy(() => import('./SearchPage.jsx'))
+const StagingPage = lazy(() => import('./StagingPage.jsx'))
+const StatsPage = lazy(() => import('./StatsPage.jsx'))
+const Settings = lazy(() => import('./Settings.jsx'))
+const BinPage = lazy(() => import('./BinPage.jsx'))
+const CleanupPage = lazy(() => import('./CleanupPage.jsx'))
 import { applyColors, applyTheme } from './theme.js'
 import { applyLocale, useLocale } from './i18n.js'
 import { LanguagePicker } from './locale.jsx'
@@ -1002,12 +1019,33 @@ function MobileBottomNav({ tab, selectTab, hidden, sections }) {
 // whose ☰ drawer owns primary nav — logo taps Home, ＋ captures a quote. A
 // {type, id} detail state lets lists and search open detail views; tab +
 // detail are mirrored to the URL via the History API.
+// warmScreens fetches the chunks a reader is most likely to open next, once the
+// page has gone quiet. Splitting alone would trade a slow start for a stutter on
+// every first tab click; this puts the chunk on disk before the click happens, so
+// the split costs nothing at either end. Idle rather than on mount, because the
+// point is to use time the browser is not otherwise using — and best-effort,
+// because a failed prefetch is not a failure: the real import will ask again.
+const WARM = [
+  () => import('./Library.jsx'),
+  () => import('./Quotes.jsx'),
+  () => import('./Movies.jsx'),
+  () => import('./SearchPage.jsx'),
+]
+function warmScreens() {
+  const run = () => {
+    for (const load of WARM) load().catch(() => {})
+  }
+  if (typeof requestIdleCallback === 'function') requestIdleCallback(run, { timeout: 4000 })
+  else setTimeout(run, 1500)
+}
+
 function Shell({ user, onLogout, onPreferences, onUser }) {
   const initial = parsePath(typeof window !== 'undefined' ? window.location.pathname : '/')
   // /import isn't a tab any more — start on Home and open the Add surface there.
   // Neither /import nor /capture is a tab: both are the Add surface over Home.
   const initialTab = initial.tab === 'import' || initial.tab === 'capture' ? 'home' : initial.tab
   const [tab, setTab] = useState(initialTab)
+  useEffect(warmScreens, [])
   const [detail, setDetail] = useState(initial.detail) // {type: 'book' | 'movie', id}
   // Profile is one screen with everything in it now (see AccountOverlay), so
   // this is open/closed rather than which-of-two-views.
@@ -1467,6 +1505,9 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
         )}
         <ErrorBoundary key={tab} label={t('shell.error.boundary.screen.label', { name: tab })}>
         <div className="tab-panel">
+        {/* One boundary for every screen, INSIDE the error boundary: a chunk that
+            fails to arrive is an error the screen should report, not a blank tab. */}
+        <Suspense fallback={null}>
         {tab === 'home' && (
           <div data-screen-label="home">
             {/* THE THREE onGo* PROPS ARE DOORS, and each is passed only while the
@@ -1611,6 +1652,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
             />
           </div>
         )}
+        </Suspense>
         </div>
         </ErrorBoundary>
       </main>

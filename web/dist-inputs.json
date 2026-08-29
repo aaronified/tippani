@@ -27,7 +27,7 @@
     "web/frontend/public/mark.svg": "fce406e4046c0ac0885f679b22e9dab9dfb35d0fb92a6a94ad2894ac3bbe0ff8",
     "web/frontend/src/Account.jsx": "1a5aa37a7e5531ea0a6d0f8ac6d83a6f5a344ee9a4761ba902966271f12f6973",
     "web/frontend/src/AddSurface.jsx": "44e1f0120a5fc8e3e038194ee856ea21f0a8863db242a58bf1acc9e483f58924",
-    "web/frontend/src/App.jsx": "1ca66c654ffa670ec89c3170725618265b824f65e4500b8e49e101bc525710f4",
+    "web/frontend/src/App.jsx": "bb6ef0ed0220d5f547fcec366ad545161c5734b2563d34ac55cf34f3f4564932",
     "web/frontend/src/BinPage.jsx": "37c8fef4258f7a37516ea3449c5bf4f6b10eccfc45e65eaf1a450854488d3413",
     "web/frontend/src/CleanupPage.jsx": "f6d25dba8ad916d9c7554702ab4e7a94b601ed75fd14b7456bfdb8f9ef5d5076",
     "web/frontend/src/CoverPicker.jsx": "baf29b418b640d53f6a91c8dc3d666c48cafe6dd7e24c85252ec9066acbd02fd",
@@ -62,12 +62,12 @@
     "web/frontend/src/greetings.js": "1a184c8c27ddcd6127886f14f7ce0a5d59c1d694408bb567599209098099d358",
     "web/frontend/src/help.jsx": "a6d36726c1ddf62b1ffe63e684178c592f1aebeb2499fcaa0af243ece5ff2519",
     "web/frontend/src/history.js": "13604d919e7e8f7cdd3f637895907b2ff30425282e3049c6a3fa5524f2f3be19",
-    "web/frontend/src/i18n.js": "7d0e729a715e2495c56559fcb8fdd33a0fcfbc9b0cc7e204101cd343d5c48500",
+    "web/frontend/src/i18n.js": "6056197526bb55ee44f4a4c3be19304e9c48bf83af8e98f6c44dfa80fd82afe5",
     "web/frontend/src/index.css": "69dd43f9cd51d8bdfcdd4fa4f5f210a678a9380314cc33990ec06e8756f91428",
     "web/frontend/src/keys.js": "75e1fd35adf3747681c0ddd7aff0b71d01d8961cd890e5525be6d4dd85d5fd9a",
     "web/frontend/src/languages.jsx": "869532cdca1124db41a7447cd9a05588698bb37dd78c230af38f0de3a3af7b12",
     "web/frontend/src/locale.jsx": "3c27a6f83604ccbaa173750f33fbd08ea2add93b6239ef1627af1969ea56b174",
-    "web/frontend/src/main.jsx": "8cf652a303c22ff0f137974da9c6f2072e8e0f5ed663a22519d153109422a227",
+    "web/frontend/src/main.jsx": "14bf46694a446095a4e664b0adca68e83f1b49e63302e33a85b86fc9b31b01b7",
     "web/frontend/src/people.jsx": "3ca79d4531634ca31dd1aaa2521d3724da5e24c6b3b30fe258f479321642ea55",
     "web/frontend/src/quiz.js": "7b8406f50186cfe842c0d4c5f1c48407576edb2d4346659290d435c84824521a",
     "web/frontend/src/quoteImage.js": "5f85fbdce9d74dd1e96f26ac6834ada53534aeb7f40c0dfb04e40708c6242f8f",
@@ -116,6 +116,6 @@
     "web/frontend/src/ui.jsx": "8d9138434d0b39dfd4b3464648da434d227ac9c060c3cf1d6a409601f6a9cc6d",
     "web/frontend/src/undo.jsx": "27dd04ac24e09c8b53b5caee551b7ecd575ae012aa087fa87e3d31ed767e0834",
     "web/frontend/src/works.jsx": "c36d705d8adc58802ee6ba34696ebcc240ff0c5e72e1c4fca7f6735a85dbc7c4",
-    "web/frontend/vite.config.js": "93b9a6ea72878f7927d8c9540304d055fab58ac70eef585cfc918d00141657c6"
+    "web/frontend/vite.config.js": "e68566c44bb7553c2567ffeb6da9c308065ed32bebe1b2a625148cbd387c55d8"
   }
 }

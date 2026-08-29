@@ -31,7 +31,6 @@
 import { useEffect, useState } from 'react'
 import { json } from './api.js'
 import builtinEN from '../../../internal/i18n/en.txt?raw'
-import builtinBN from '../../../internal/i18n/bn.txt?raw'
 
 // ---- the format ------------------------------------------------------------
 //
@@ -131,7 +130,55 @@ export function parseLocale(src) {
 // resort, so this is an inventory and not a precedence.
 export const BUILTIN_CODES = ['en', 'bn']
 
-const BUILTIN = { en: parseLocale(builtinEN), bn: parseLocale(builtinBN) }
+// ---- one of the two is compiled in; the other is a chunk ---------------------
+//
+// Both used to be inlined here, and between them they were 870KB of text — 236KB
+// gzipped, which was FIFTY-EIGHT PER CENT of the application bundle. Every reader
+// downloaded both languages and parsed 6,880 lines before the first paint,
+// whichever one they read in.
+//
+// English stays compiled in, because it is what a device that has never chosen
+// renders (DEFAULT_LOCALE) and what the login screen is in before any session
+// exists. Deferring it would trade a working first screen for a request.
+//
+// Bengali is loaded on demand — awaited at boot when it is the active language, so
+// a Bengali reader still never sees a frame of English, and fetched quietly after
+// the first paint otherwise, so the symmetric fallback below is restored without
+// anybody waiting for it. It is the same bytes from the same origin either way;
+// what changes is that they are no longer on the critical path of a reader who
+// does not want them. Design §3 is untouched: both languages are still shipped in
+// the box, still offered by the picker, and neither is the other's source.
+const BUILTIN = { en: parseLocale(builtinEN) }
+
+// ensureBuiltin loads a compiled-in language that is not resident yet. Idempotent
+// and safe to call from anywhere; concurrent callers share one request.
+const loading = new Map()
+export function ensureBuiltin(code) {
+  if (BUILTIN[code]) return Promise.resolve()
+  if (!BUILTIN_CODES.includes(code)) return Promise.resolve()
+  if (loading.has(code)) return loading.get(code)
+  const p = import('../../../internal/i18n/bn.txt?raw')
+    .then(({ default: src }) => {
+      BUILTIN[code] = parseLocale(src)
+      // Both derived answers are now stale: the key set is a union over the
+      // built-ins, and every merged table that fell through to this language was
+      // memoised without it.
+      fullKeySet = null
+      tables = new Map()
+      reresolve()
+    })
+    .catch(() => {
+      // A language that will not load is a language the reader cannot pick, which
+      // installedLocales already handles by asking BUILTIN_CODES rather than
+      // BUILTIN. Nothing to report: the interface is complete in English.
+    })
+  loading.set(code, p)
+  return p
+}
+
+// ensureBuiltins loads every compiled-in language. The coverage arithmetic below
+// is the only thing that needs all of them at once.
+export const ensureBuiltins = () => Promise.all(BUILTIN_CODES.map(ensureBuiltin))
 
 // DEFAULT_LOCALE is what a device that has never chosen renders.
 //
@@ -163,8 +210,8 @@ export function normCode(raw) {
   return /^[a-z0-9-]+$/.test(s) ? s : ''
 }
 
-// FULL_KEY_SET is what "100%" means, and it is the union of the two compiled-in
-// built-ins rather than either one of them.
+// The full key set is what "100%" means, and it is the union of the two built-ins
+// rather than either one of them.
 //
 // SYMMETRIC BECAUSE §3 IS. Measuring bn against en would make en the source
 // language by arithmetic, and would also hide the opposite mistake: a key added
@@ -173,12 +220,22 @@ export function normCode(raw) {
 // exists only in a data/Locales file is NOT in here — the app's key set is
 // defined by what the code asks for, which the shipped files approximate, and a
 // string nothing renders is not coverage.
-const FULL_KEY_SET = new Set([...Object.keys(BUILTIN.en.keys), ...Object.keys(BUILTIN.bn.keys)])
+// Computed on demand rather than at module scope, because the second built-in now
+// arrives later — see ensureBuiltin, which clears this. A caller that wants the
+// true union awaits ensureBuiltins() first; one that does not gets the union over
+// whatever is resident, which is the same answer whenever the files agree.
+let fullKeySet = null
+const fullKeySetNow = () => {
+  if (!fullKeySet) {
+    fullKeySet = new Set(BUILTIN_CODES.flatMap((c) => Object.keys(BUILTIN[c]?.keys || {})))
+  }
+  return fullKeySet
+}
 
 // fullKeys is the key set coverage is measured against, sorted. Exported so the
 // suite can assert the percentages against real keys rather than invented ones,
 // and returned as a copy so nothing can shrink what "100%" means.
-export const fullKeys = () => [...FULL_KEY_SET].sort()
+export const fullKeys = () => [...fullKeySetNow()].sort()
 
 // ---- the live answer -------------------------------------------------------
 
@@ -459,7 +516,7 @@ export function pseudoTransform(text) {
 function pseudoTable() {
   if (pseudo) return pseudo
   pseudo = {}
-  for (const key of FULL_KEY_SET) {
+  for (const key of fullKeySetNow()) {
     const source = tableFor('en')[key] || tableFor('bn')[key] || ''
     if (source) pseudo[key] = pseudoTransform(source)
   }
@@ -486,8 +543,9 @@ function pseudoTable() {
 export function coverage(code) {
   const table = tableFor(code)
   let have = 0
-  for (const key of FULL_KEY_SET) if (table[key]) have += 1
-  return coveragePercent(have, FULL_KEY_SET.size)
+  const full = fullKeySetNow()
+  for (const key of full) if (table[key]) have += 1
+  return coveragePercent(have, full.size)
 }
 
 // coveragePercent is the arithmetic on its own, so the suite can assert it at
