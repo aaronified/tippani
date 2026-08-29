@@ -203,6 +203,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A shelf of four hundred books asked for thirty-one megabytes of covers to show
+  eighteen.** Every tile on the Library board and the Catalogue's carried an eager
+  `<img>`, so opening either one fetched the artwork for the whole collection —
+  measured in a real browser at 401 requests and 31.1 MB, on a viewport that holds
+  about eighteen covers. Covers now load as they are approached: the same board asks
+  for 25 of them and 1.9 MB. The 2:3 box was already declared in CSS rather than read
+  off the file, so nothing reflows as they arrive.
+
+- **The board mounts a window, not a library.** The same four hundred books built 401
+  tiles and 7,492 elements in one 707ms blocking task — each tile carrying a context
+  menu, a selection tick and a shelf control — before anything could be clicked. The
+  list is still fetched and filtered whole, because every chip, sort, count and
+  select-all reads all of it; what is bounded now is how much of it becomes DOM. Sixty
+  tiles at rest, growing 600px before the end of the board, so scrolling never waits
+  for the decision: 61 tiles and 1,625 elements at rest, all 401 by the time you have
+  scrolled to them. Grouped boards are bounded at both levels — twelve sections, sixty
+  tiles inside each — because a hundred small sections is still the whole library.
+
 - **751 kilobytes were re-downloaded on every single visit.** Everything the build emits
   under `/assets` is content-hashed — `index-DsRtUZ5f.css`, `caveat-latin-500-normal-B9SDL8cy.woff2`
   — so the name *is* the version, and a changed file is a changed URL. The server sent no

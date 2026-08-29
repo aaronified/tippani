@@ -39,6 +39,7 @@ import {
   patchMovesTheRow,
   pinInProgress,
   statusFilter,
+  useBoardWindow,
   wishFilter,
 } from './works.jsx'
 import { t } from './i18n.js'
@@ -166,6 +167,28 @@ function Reveal({ className = '', children, ...rest }) {
     <div ref={ref} className={'reveal ' + className} {...rest}>
       {children}
     </div>
+  )
+}
+
+// MovieGroup is one grouped section. It is a component rather than a block inside
+// the map because each section carries its OWN window — a group of four hundred
+// films needs bounding exactly as the flat board does, and a hook cannot live in
+// a loop body.
+function MovieGroup({ group, coverSize, onOpen, directorMap, creditSeps, selection, afterBulk, setEditWork }) {
+  const win = useBoardWindow(group.items.length, group.items)
+  return (
+    <section>
+      <GroupHeading label={group.label} count={group.items.length} noun={t('unit.title.one')} nounPlural={t('unit.title.other')} />
+      <div
+        className="grid gap-x-5 gap-y-8"
+        style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${coverSize}px, 1fr))` }}
+      >
+        {group.items.slice(0, win.count).map((m) => (
+          <WorkCard key={m.id} kind="movie" item={m} onOpen={onOpen} people={directorMap} seps={creditSeps} selection={selection} onChanged={afterBulk} onEdit={setEditWork} />
+        ))}
+        {win.more && <div ref={win.sentinel} aria-hidden="true" className="h-px" />}
+      </div>
+    </section>
   )
 }
 
@@ -430,6 +453,11 @@ function MovieList({ onOpen, creditSeparators, dataNonce }) {
           }),
     [shown, groupBy, creditSeps],
   )
+  // The Catalogue is the same board as the Library's and pays the same price for
+  // mounting all of it; both windows live here rather than inside the grid,
+  // because the flat board is a Reveal rather than a component of its own.
+  const flatWin = useBoardWindow(shown.length, shown)
+  const groupWin = useBoardWindow(grouped ? grouped.length : 0, grouped, 12)
 
   const films = movies ? movies.length : 0
   const lines = movies ? movies.reduce((n, m) => n + (m.dialogue_count || 0), 0) : 0
@@ -580,28 +608,30 @@ function MovieList({ onOpen, creditSeparators, dataNonce }) {
       )}
       {grouped ? (
         <div className="space-y-10">
-          {grouped.map((g) => (
-            <section key={g.key}>
-              <GroupHeading label={g.label} count={g.items.length} noun={t('unit.title.one')} nounPlural={t('unit.title.other')} />
-              <div
-                className="grid gap-x-5 gap-y-8"
-                style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${coverSize}px, 1fr))` }}
-              >
-                {g.items.map((m) => (
-                  <WorkCard key={m.id} kind="movie" item={m} onOpen={onOpen} people={directorMap} seps={creditSeps} selection={selection} onChanged={afterBulk} onEdit={setEditWork} />
-                ))}
-              </div>
-            </section>
+          {grouped.slice(0, groupWin.count).map((g) => (
+            <MovieGroup
+              key={g.key}
+              group={g}
+              coverSize={coverSize}
+              onOpen={onOpen}
+              directorMap={directorMap}
+              creditSeps={creditSeps}
+              selection={selection}
+              afterBulk={afterBulk}
+              setEditWork={setEditWork}
+            />
           ))}
+          {groupWin.more && <div ref={groupWin.sentinel} aria-hidden="true" className="h-px" />}
         </div>
       ) : (
         <Reveal
           className="grid gap-x-5 gap-y-8"
           style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${coverSize}px, 1fr))` }}
         >
-          {shown.map((m) => (
+          {shown.slice(0, flatWin.count).map((m) => (
             <WorkCard key={m.id} kind="movie" item={m} onOpen={onOpen} people={directorMap} seps={creditSeps} selection={selection} onChanged={afterBulk} onEdit={setEditWork} />
           ))}
+          {flatWin.more && <div ref={flatWin.sentinel} aria-hidden="true" className="h-px" />}
         </Reveal>
       )}
     </WorkListScaffold>

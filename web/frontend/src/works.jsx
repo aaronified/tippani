@@ -3,7 +3,7 @@
 // Search and Metadata screens. Kept in their own module so both sides compose
 // the same pieces instead of re-deriving them (and to avoid a ui ↔ people
 // import cycle — this layer is free to import from both).
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { DEMO, coverImgURL, errText, json } from './api.js'
 import { t } from './i18n.js'
 import { CreditFaces, PersonPortrait, splitCredits } from './people.jsx'
@@ -48,6 +48,60 @@ import { actionsFor } from './actions.jsx'
 import { usePractice } from './review.jsx'
 import { useBulkOps } from './bulkOps.jsx'
 import { selectionClick, selectionMenuItems } from './selection.jsx'
+
+// ---- how much of a board is mounted at once --------------------------------
+//
+// A shelf is a list the user owns all of, and every control on the page — the
+// chips, the sort, the group-by, the counts in the heading, select-all — reads
+// the WHOLE of it. So the list stays whole in memory and is filtered whole; what
+// is bounded here is only how much of it becomes DOM.
+//
+// Measured on a four-hundred-book library, which is not a large one: the board
+// mounted 401 tiles, 7,492 elements, and spent 707ms of a single blocking task
+// building them — on a page where eighteen tiles are visible. Every one of those
+// tiles carries a context menu, a selection tick and a shelf control, so the cost
+// is per tile and it is not small.
+//
+// A "load more" button was the alternative and is the wrong shape for a shelf:
+// browsing a library is scrolling, and a button turns the one gesture the board
+// is for into a decision. This grows on approach instead — 600px before the end,
+// which at a normal scroll speed lands the next row before it is asked for.
+export const BOARD_PAGE = 60
+
+// useBoardWindow returns how many of `total` to render, and the ref to hang on a
+// sentinel element AFTER the last one. `resetKey` is whatever changes the list —
+// re-filtering back to the top with a thousand tiles still mounted would defeat
+// the whole thing.
+//
+// WITHOUT IntersectionObserver the window opens to the full list rather than
+// stopping at the first page. A board that cannot observe its own end cannot grow
+// one, and a permanently truncated library is a worse failure than a slow one.
+export function useBoardWindow(total, resetKey, page = BOARD_PAGE) {
+  const [count, setCount] = useState(page)
+  const sentinel = useRef(null)
+  useEffect(() => {
+    setCount(page)
+  }, [resetKey, page])
+  const more = count < total
+  useEffect(() => {
+    if (!more) return undefined
+    if (typeof IntersectionObserver !== 'function') {
+      setCount(total)
+      return undefined
+    }
+    const el = sentinel.current
+    if (!el) return undefined
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) setCount((n) => Math.min(total, n + page))
+      },
+      { rootMargin: '600px' },
+    )
+    io.observe(el)
+    return () => io.disconnect()
+  }, [more, total, page])
+  return { count: Math.min(count, total), more, sentinel }
+}
 
 // ---- shelf state (§3f) -----------------------------------------------------
 // A work has one shelf state, and everything visual keys off it: the colour bar
@@ -886,6 +940,16 @@ export function WorkCard({ kind, item, index = 0, onOpen, people = {}, seps, sel
     <img
       src={coverImgURL(coverPath)}
       alt={t(isBook ? 'common.cover.alt' : 'common.poster.alt', { title: item.title })}
+      // A board is a few hundred covers at eighty kilobytes each and a viewport
+      // that holds eighteen of them. Eager, a library of four hundred books asked
+      // for THIRTY-ONE MEGABYTES on every visit to the shelf, measured — most of
+      // it for tiles nobody had scrolled to yet, all of it competing with the
+      // covers that were actually on screen. The 2:3 box below is declared in CSS
+      // rather than measured from the file, so the space is reserved before the
+      // image exists and nothing reflows as they arrive — which is the condition
+      // that makes lazy loading safe here rather than a scroll-jumping board.
+      loading="lazy"
+      decoding="async"
       className="block aspect-[2/3] w-full object-cover"
     />
   ) : (

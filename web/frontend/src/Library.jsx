@@ -36,6 +36,7 @@ import {
   patchMovesTheRow,
   pinInProgress,
   statusFilter,
+  useBoardWindow,
   wishFilter,
 } from './works.jsx'
 import { t } from './i18n.js'
@@ -193,17 +194,26 @@ async function setBookStatus(id, body) {
 // knows the visible ORDER — Shift-click extends over that, and a per-group hook
 // would extend over one bucket while the reader saw the whole board.
 function BookGrid({ books, coverSize, onOpen, authorMap = {}, seps, selection, leadingTile, onChanged, onEdit }) {
+  // Bounded by what has been scrolled to, not by what the shelf holds; `books`
+  // itself is the reset key, because a new array here is a re-filtered board and
+  // a re-filtered board starts at its own top. See useBoardWindow.
+  const win = useBoardWindow(books.length, books)
   return (
     <ul className="grid gap-x-6 gap-y-9" style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${coverSize}px, 1fr))` }}>
       {/* FIRST, not last. The folder is the pile you are not looking at, and a
           pile you have to scroll past forty covers to find is a pile you will
           never open. It also keeps its place as the board is filtered. */}
       {leadingTile && <li>{leadingTile}</li>}
-      {books.map((b, i) => (
+      {books.slice(0, win.count).map((b, i) => (
         <li key={b.id}>
           <WorkCard kind="book" item={b} index={i} onOpen={onOpen} people={authorMap} seps={seps} selection={selection} onChanged={onChanged} onEdit={onEdit} />
         </li>
       ))}
+      {/* aria-hidden and empty: this is a scroll position, not content. It sits
+          inside the grid so it is laid out with the tiles rather than after a
+          row of them, which is what makes "600px from the end" mean the same
+          thing at every column count. */}
+      {win.more && <li ref={win.sentinel} aria-hidden="true" className="h-px" />}
     </ul>
   )
 }
@@ -377,6 +387,8 @@ function BookList({ onOpen, onOpenMovie, creditSeparators, dataNonce }) {
     [shown, groupBy, creditSeps],
   )
 
+  const groupWin = useBoardWindow(grouped ? grouped.length : 0, grouped, 12)
+
   const quoteTotal = (books || []).reduce((n, b) => n + (b.annotation_count || 0), 0)
 
   return (
@@ -502,7 +514,7 @@ function BookList({ onOpen, onOpenMovie, creditSeparators, dataNonce }) {
       )}
       {grouped ? (
         <div className="space-y-10">
-          {grouped.map((g) => {
+          {grouped.slice(0, groupWin.count).map((g) => {
             const isAuthor = groupBy === 'author' && !g.residual
             return (
               <section key={g.key}>
@@ -518,6 +530,10 @@ function BookList({ onOpen, onOpenMovie, creditSeparators, dataNonce }) {
               </section>
             )
           })}
+          {/* Groups are windowed too. Each section's own grid stops at sixty,
+              but a hundred small sections is still the whole library mounted —
+              the bound has to exist at both levels or neither. */}
+          {groupWin.more && <div ref={groupWin.sentinel} aria-hidden="true" className="h-px" />}
         </div>
       ) : (
         <BookGrid
