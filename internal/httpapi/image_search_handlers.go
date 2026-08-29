@@ -151,6 +151,7 @@ func (s *Server) handleImageSearch(w http.ResponseWriter, r *http.Request) {
 		// a search engine being asked to guess from a sentence.
 		pin := s.castPinFor(uid, req.CastID)
 		tier(s.tvdbCharacterTier(pin, subject))
+		tier(s.wikimediaCharacterTier(firstNonEmpty(subject, pin.Character), req.Title))
 	case imageKindPortrait:
 		pin := s.personPinFor(uid, req.PersonID, subject)
 		cast := s.castPinFor(uid, req.CastID)
@@ -160,6 +161,7 @@ func (s *Server) handleImageSearch(w http.ResponseWriter, r *http.Request) {
 		}
 		tier(s.tvdbPortraitTier(uid, pin, castPersonID, subject))
 		tier(s.tmdbPortraitTier(pin, subject))
+		tier(s.wikimediaPortraitTier(pin, subject))
 	case imageKindCover:
 		// KEYLESS AND FIRST, so a reader who has configured nothing at all still
 		// gets something for a book they typed an ISBN into. This is the half of
@@ -225,7 +227,7 @@ func (s *Server) handleImageSearch(w http.ResponseWriter, r *http.Request) {
 	}
 	for _, t := range tiers {
 		switch t.name {
-		case "tvdb", "tmdb":
+		case "tvdb", "tmdb", "wikimedia":
 			srcs[t.name] = true
 		}
 	}

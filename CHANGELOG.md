@@ -223,6 +223,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A picture for a character in a book, a game, or any film still pinned to TMDB.**
+  TheTVDB has an image per role and needs the work pinned to TheTVDB to find it, which
+  leaves out every book character, every game's typed voice cast, and every title that
+  has not been re-verified since the default moved — the majority, and the rows the app
+  admitted it had "never had one available at all" for. Wikimedia now sits under
+  TheTVDB on the ladder and answers them, and because it needs no key it is also the
+  first character picture a self-built binary can produce at all.
+
+  **The hard part is not fetching, it is being sure which article.** The search is
+  Wikipedia's rather than Wikidata's, because Wikipedia ranks articles and takes free
+  text, so the work's title can be handed to it as context — "V V for Vendetta" finds
+  V, where a Wikidata label search for "V" finds a letter, a vitamin and a Roman
+  numeral. What comes back is then checked, because a search engine always answers:
+  the article must name the character, must not *be* the work (whose lead image is the
+  poster — a wrong answer that looks entirely right in a strip), and its
+  disambiguator has to fit. That last one is not hypothetical: "Trinity" is a
+  character in The Matrix and also a nuclear test, and without reading the qualifier
+  the strip offers a photograph of an atomic bomb. A portrait is held to the same
+  standard in the other direction — every word of the person's name must appear in the
+  article title, so "Anna Kavan" is not satisfied by "Kavan (disambiguation)".
+
+  Where a person's record already carries their Wikipedia article — anyone resolved
+  through Open Library does — no search happens at all and the namesake problem never
+  arises.
+
 - **Character pictures: the strip never asked the one supplier that has them.** Asking
   for a picture of a role reached exactly two suppliers — Google Custom Search, which
   needs a key *and* an engine id, and the Amazon scrape, which sells things. TheTVDB,

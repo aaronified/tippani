@@ -26,10 +26,11 @@ type imageSearchResp struct {
 		Source string `json:"source"`
 	} `json:"images"`
 	Sources struct {
-		Google bool `json:"google"`
-		Amazon bool `json:"amazon"`
-		TVDB   bool `json:"tvdb"`
-		TMDB   bool `json:"tmdb"`
+		Google    bool `json:"google"`
+		Amazon    bool `json:"amazon"`
+		TVDB      bool `json:"tvdb"`
+		TMDB      bool `json:"tmdb"`
+		Wikimedia bool `json:"wikimedia"`
 	} `json:"sources"`
 }
 

@@ -200,3 +200,51 @@ func TestAPortraitStripUsesTheTVDBPersonIDTheCastFetchAlreadyStored(t *testing.T
 		t.Errorf("the portrait rung does not name itself: %+v / %+v", got.Images[0], got.Sources)
 	}
 }
+
+// THE ROLE TheTVDB HAS NEVER HEARD OF, which is most of them.
+//
+// The TheTVDB rung needs a work pinned to TheTVDB. A character in a BOOK has no
+// such work and never will; nor does a game's typed voice cast, nor any film
+// still pinned to TMDB alone. Those rows are the majority and they are exactly
+// the ones the file header of cast.jsx says "has never had one available at
+// all". Wikimedia is the rung that answers them, and it needs no key — so this
+// is also the first character picture an unconfigured install can produce.
+func TestABookCharacterFallsToWikimediaWhichNeedsNoKey(t *testing.T) {
+	wiki := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		if q.Get("list") == "search" {
+			_, _ = w.Write([]byte(`{"query":{"search":[{"title":"Aomame (1Q84)"}]}}`))
+			return
+		}
+		if q.Get("prop") == "pageimages" {
+			_, _ = w.Write([]byte(`{"query":{"pages":[{"original":{"source":"https://upload.wikimedia.org/aomame.jpg"}}]}}`))
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer wiki.Close()
+
+	srv := newTestServer(t)
+	// AFTER newTestServer, NOT BEFORE. The helper points Wikipedia at a
+	// silent stub so no test can reach the real one by accident, and the later
+	// call is the one that wins — set first, this stub is overwritten and the
+	// test fails with an empty strip that looks like a broken rung.
+	metadata.SetWikipediaBaseForTest(t, wiki.URL)
+	c := signupAdmin(t, srv.Handler())
+	// No TheTVDB client, no Google key, no Amazon cookie: the install a fork
+	// builds for itself, which until now had no character picture at all.
+	got := decode[imageSearchResp](t, c.mustDo("POST", "/images/search", map[string]any{
+		"kind": "character", "name": "Aomame", "title": "1Q84", "media_type": "book",
+	}, http.StatusOK))
+
+	if len(got.Images) != 1 || got.Images[0].URL != "https://upload.wikimedia.org/aomame.jpg" {
+		t.Fatalf("the keyless rung produced nothing: %+v", got.Images)
+	}
+	if got.Images[0].Source != "wikimedia" {
+		t.Errorf("hit does not name its source: %+v", got.Images[0])
+	}
+	if !got.Sources.Wikimedia {
+		t.Error("sources.wikimedia is false on a request Wikimedia answered — the " +
+			"client reports the app unconfigured and opens a browser tab instead")
+	}
+}

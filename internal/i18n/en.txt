@@ -596,6 +596,10 @@ common.language-mark.aria = in {name}
 vocab.source.google.label = Google Books
 vocab.source.openlibrary.label = Open Library
 vocab.source.wikipedia.label = Wikipedia
+# The picture ladder's keyless rung. Named for the FOUNDATION and not for
+# Wikipedia, because the picture may come from either the article or Commons
+# and the reader is being told who to credit, not which API answered.
+vocab.source.wikimedia.label = Wikimedia
 
 # The floor under IGDB for games rather than a second opinion, so it is named.
 vocab.source.wikidata.label = Wikidata

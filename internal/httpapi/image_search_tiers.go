@@ -37,6 +37,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -122,6 +123,12 @@ type personPin struct {
 	Source   string // tmdb | tvdb | wikidata | openlibrary | manual | ""
 	SourceID string
 	Name     string
+	// THE LINKS FIELD IS A PINNED IDENTITY IN DISGUISE. A person resolved through
+	// Open Library carries their Wikipedia article here, which is the exact
+	// article — so the Wikimedia rung can fetch a known page instead of searching
+	// a name and hoping it is not a namesake. Free text, space-separated, exactly
+	// as mergePersonLinks writes it.
+	Links string
 }
 
 // personPinFor resolves a person by id when the client knows one, and by name
@@ -134,14 +141,14 @@ func (s *Server) personPinFor(uid, personID int64, name string) personPin {
 	switch {
 	case personID > 0:
 		err = s.Store.DB.QueryRow(
-			`SELECT COALESCE(source, ''), COALESCE(source_id, ''), name
+			`SELECT COALESCE(source, ''), COALESCE(source_id, ''), name, COALESCE(links, '')
 			   FROM people WHERE id = ? AND user_id = ?`, personID, uid,
-		).Scan(&p.Source, &p.SourceID, &p.Name)
+		).Scan(&p.Source, &p.SourceID, &p.Name, &p.Links)
 	case strings.TrimSpace(name) != "":
 		err = s.Store.DB.QueryRow(
-			`SELECT COALESCE(source, ''), COALESCE(source_id, ''), name
+			`SELECT COALESCE(source, ''), COALESCE(source_id, ''), name, COALESCE(links, '')
 			   FROM people WHERE user_id = ? AND name = ?`, uid, strings.TrimSpace(name),
-		).Scan(&p.Source, &p.SourceID, &p.Name)
+		).Scan(&p.Source, &p.SourceID, &p.Name, &p.Links)
 	default:
 		return personPin{}
 	}
@@ -280,4 +287,59 @@ func firstNonEmpty(vals ...string) string {
 		}
 	}
 	return ""
+}
+
+// wikipediaLinkOf picks the Wikipedia article out of a person's stored links.
+// Recognised by HOST rather than by position, using the same provider table the
+// link merger writes with, so a reader who pasted their own article gets the same
+// benefit as one whose article arrived from Open Library.
+func wikipediaLinkOf(links string) string {
+	for _, tok := range strings.Fields(links) {
+		u, err := url.Parse(tok)
+		if err != nil || u.Hostname() == "" {
+			continue
+		}
+		if strings.HasSuffix(strings.ToLower(u.Hostname()), "wikipedia.org") {
+			return tok
+		}
+	}
+	return ""
+}
+
+// wikimediaPortraitTier is the third rung for a face: free, keyless, and exact
+// whenever the person's own record carries their article.
+//
+// NO KEY MEANS NO GATE, which makes this the first rung an unconfigured install
+// can actually reach — a self-built binary with no TheTVDB key and no Custom
+// Search pair had literally no portrait source before it.
+func (s *Server) wikimediaPortraitTier(pin personPin, name string) *imageTier {
+	who := firstNonEmpty(pin.Name, name)
+	article := wikipediaLinkOf(pin.Links)
+	qid := ""
+	if pin.Source == "wikidata" {
+		qid = pin.SourceID
+	}
+	if who == "" && article == "" && qid == "" {
+		return nil
+	}
+	return &imageTier{name: "wikimedia", run: func(ctx context.Context) []metadata.ImageHit {
+		return metadata.WikimediaPortraitImages(ctx, who, article, qid)
+	}}
+}
+
+// wikimediaCharacterTier is the rung under TheTVDB for a role, and the only one
+// that works for a role TheTVDB has never heard of — a character in a BOOK, a
+// game's typed voice cast, anything on a title pinned to TMDB. Those are exactly
+// the rows the character picture never existed for.
+//
+// The work's title is passed as context and is also what gets refused: see
+// WikimediaCharacterImages for why the film's own article is the wrong answer
+// that looks most like a right one.
+func (s *Server) wikimediaCharacterTier(character, workTitle string) *imageTier {
+	if strings.TrimSpace(character) == "" {
+		return nil
+	}
+	return &imageTier{name: "wikimedia", run: func(ctx context.Context) []metadata.ImageHit {
+		return metadata.WikimediaCharacterImages(ctx, character, workTitle)
+	}}
 }

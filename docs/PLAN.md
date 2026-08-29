@@ -2997,6 +2997,28 @@ returned Evey Hammond. One-letter and very short role names are a convention rat
 an edge case (V, M, Q, Neo), so every word of the shorter name must appear as a *word* in
 the longer one. Found by running the app, not by reading it.
 
+**THE WIKIMEDIA RUNG SEARCHES WIKIPEDIA, NOT WIKIDATA, AND THEN DISBELIEVES IT.** Both
+fetches already existed (`WikipediaImageURL`, `WikidataImageURL`); what was missing was
+getting from a NAME to the right entity, and this package warns twice that a bare-name
+Wikidata search lands on namesakes. `wbsearchentities` matches labels, so "V" ranks a
+letter, a vitamin and a Roman numeral above the character. Wikipedia's search ranks
+ARTICLES and takes free text, so the work's title goes in as context and the
+disambiguation is one editors have already done.
+
+The answer is then checked three ways, because a search engine always answers: the title
+must name the subject, must not BE the work (whose lead image is the poster — the wrong
+answer that looks most like a right one), and its parenthesised qualifier must fit.
+Trinity is a character in The Matrix and also a nuclear test; without the qualifier check
+the rung offers a photograph of an atomic bomb. Name-matching is directional here and
+deliberately unlike the cast-list fold: every word of the NAME must appear in the title,
+so "Anna Kavan" is not satisfied by "Kavan (disambiguation)". Rejected: enumerating
+Wikidata's fictional-character classes to filter by P31, which is a class hierarchy to
+keep in step with for a judgement Wikipedia's own titles already encode.
+
+**A STORED ARTICLE BEATS ANY SEARCH.** A person resolved through Open Library carries
+`links["wikipedia"]`, so the exact article is known and no name is ever handed to a search
+engine. The search is the floor, not the method.
+
 **AMAZON IS A SHOP, SO IT IS ASKED ONLY ABOUT THINGS SOMEBODY SELLS.** The search-page
 scrape answers `cover` and `poster` and nothing else. It was originally asked for every
 kind, on the reasoning that a configured supplier should be allowed to contribute — and

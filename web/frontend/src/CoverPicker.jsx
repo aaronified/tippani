@@ -124,6 +124,7 @@ const SOURCE_KEYS = {
   google: 'vocab.source.google.label',
   openlibrary: 'vocab.source.openlibrary.label',
   amazon: 'vocab.source.amazon.label',
+  wikimedia: 'vocab.source.wikimedia.label',
 }
 
 // sourceName — the reader's name for a candidate's supplier. An unknown slug

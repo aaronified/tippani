@@ -575,6 +575,7 @@ common.language-mark.aria = {name} ভাষায়
 vocab.source.google.label = গুগল বুকস
 vocab.source.openlibrary.label = ওপেন লাইব্রেরি
 vocab.source.wikipedia.label = উইকিপিডিয়া
+vocab.source.wikimedia.label = Wikimedia
 
 # The floor under IGDB for games rather than a second opinion, so it is named.
 vocab.source.wikidata.label = Wikidata

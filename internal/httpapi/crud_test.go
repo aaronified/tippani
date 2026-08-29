@@ -13,6 +13,7 @@ import (
 	"testing"
 	"testing/fstest"
 
+	"tippani/internal/metadata"
 	"tippani/internal/store"
 )
 
@@ -46,7 +47,45 @@ func newTestServer(t *testing.T) *Server {
 	}
 	srv := New(st, fstest.MapFS{}, dir, false, false)
 	srv.SeedNewUsers = false // keep tag assertions deterministic; TestSeedDefaultTags flips this on
+
+	// NO TEST IN THIS PACKAGE MAY REACH THE REAL WIKIPEDIA, and one silently did.
+	//
+	// The picture ladder's Wikimedia rung needs no key, which is the point of it —
+	// and it means the rung fires on every portrait and character search rather
+	// than only when somebody has configured something. Three tests that had
+	// nothing to do with Wikimedia therefore started fetching live articles: the
+	// run came back holding photographs of Viola Davis and Ursula Le Guin, each
+	// URL stamped with Wikimedia's own utm_source, downloaded from their servers
+	// during `go test`. Green, offline-hostile, and measuring somebody else's
+	// uptime.
+	//
+	// The keyless rung is the reason the guard belongs HERE rather than in the
+	// handful of tests that noticed. Every keyed supplier is off by default in a
+	// test — no key, no call — so the package has never needed this; a rung that
+	// needs no key has no such default and a test has to opt OUT. Doing that per
+	// test means the next one written forgets, and forgetting looks like a pass.
+	//
+	// A test that actually wants Wikimedia calls SetWikipediaBaseForTest again
+	// with its own stub; the later call wins and both cleanups unwind in order.
+	metadata.SetWikipediaBaseForTest(t, deadWikipedia(t))
 	return srv
+}
+
+// deadWikipedia is a server that answers every Wikipedia call with "no results".
+// Not a closed port: a refused connection is an error path, and a test asserting
+// "no pictures" should be exercising the empty-answer path a real quiet search
+// takes, not a network failure that happens to look the same from outside.
+func deadWikipedia(t *testing.T) string {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("list") == "search" {
+			_, _ = w.Write([]byte(`{"query":{"search":[]}}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"query":{"pages":[{}]}}`))
+	}))
+	t.Cleanup(srv.Close)
+	return srv.URL
 }
 
 // testClient sends requests through the full handler chain as one user, via

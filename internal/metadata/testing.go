@@ -42,3 +42,13 @@ func SetAmazonCDNBaseForTest(t *testing.T, base string) {
 	amazonCDNBase = base
 	t.Cleanup(func() { amazonCDNBase = orig })
 }
+
+// SetWikipediaBaseForTest points the Wikipedia search and article host at a stub
+// for one test. Same reasoning as the seams above: httpapi's image-ladder tests
+// reach Wikipedia through this package.
+func SetWikipediaBaseForTest(t *testing.T, base string) {
+	t.Helper()
+	orig := wikipediaBase
+	wikipediaBase = base
+	t.Cleanup(func() { wikipediaBase = orig })
+}

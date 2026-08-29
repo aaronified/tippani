@@ -550,7 +550,7 @@ func birthYear(s string) string {
 // Wikipedia article or the page has no lead image.
 func WikipediaImageURL(ctx context.Context, pageURL string) string {
 	u, err := url.Parse(strings.TrimSpace(pageURL))
-	if err != nil || u.Host == "" || !strings.HasSuffix(u.Host, "wikipedia.org") {
+	if err != nil || u.Host == "" || !wikipediaHost(u.Host) {
 		return ""
 	}
 	title := strings.TrimPrefix(u.Path, "/wiki/")
@@ -564,7 +564,15 @@ func WikipediaImageURL(ctx context.Context, pageURL string) string {
 		"action": {"query"}, "prop": {"pageimages"}, "piprop": {"original"},
 		"titles": {title}, "format": {"json"}, "formatversion": {"2"}, "redirects": {"1"},
 	}
-	body, status, err := httpGet(ctx, "https://"+u.Host+"/w/api.php?"+q.Encode(), "")
+	// The article's OWN scheme, not a hardcoded https. Every real Wikipedia URL
+	// is https and this reads as a distinction without a difference — until the
+	// host is a test stub, at which point a hardcoded scheme silently addresses a
+	// server that is not there and the call fails as "no lead image".
+	scheme := u.Scheme
+	if scheme == "" {
+		scheme = "https"
+	}
+	body, status, err := httpGet(ctx, scheme+"://"+u.Host+"/w/api.php?"+q.Encode(), "")
 	if err != nil || status != 200 {
 		return ""
 	}

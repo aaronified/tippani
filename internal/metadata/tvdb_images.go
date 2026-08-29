@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"unicode"
 )
 
 // PersonImages returns every portrait TheTVDB holds for one person id, primary
@@ -180,5 +181,16 @@ func roleWordsMatch(a, b []string) bool {
 // not depend on internal/store, and inverting that for a string compare would be
 // the wrong price.
 func foldRole(s string) string {
-	return strings.Join(strings.Fields(strings.ToLower(strings.TrimSpace(s))), " ")
+	// Punctuation becomes a separator rather than part of a word, so "Dr.
+	// Manhattan" and "Dr Manhattan" fold together, and so does the apostrophe in
+	// "O'Brien" against a record that spells it without one.
+	var b strings.Builder
+	for _, r := range strings.ToLower(strings.TrimSpace(s)) {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			b.WriteRune(r)
+		} else {
+			b.WriteRune(' ')
+		}
+	}
+	return strings.Join(strings.Fields(b.String()), " ")
 }
