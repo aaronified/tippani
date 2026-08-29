@@ -374,6 +374,39 @@ itself:
 - The container healthcheck adapts automatically. A self-signed cert works too, with the usual
   browser warnings — trusted certs are what remove them.
 
+### One-click updates through the Docker socket (optional)
+
+Mounting the socket is not enough on its own, and this is the step that catches people:
+the image runs as the non-root user `65532`, and the socket is owned by `root:docker`
+with mode `0660`. Without membership of that group the container can see the socket and
+cannot open it — Settings → Updates then shows the manual command and prints why.
+
+```yaml
+services:
+  tippani:
+    image: ghcr.io/aaronified/tippani:latest
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    group_add:
+      - "999"    # the socket's GROUP id on YOUR host — see below
+```
+
+Find the number rather than copying it; it is 999 on Debian/Ubuntu, 998 on Fedora, and
+something else again on a NAS:
+
+```bash
+stat -c %g /var/run/docker.sock
+```
+
+`:ro` belongs on the volume line only. Putting it on `TIPPANI_DOCKER_SOCK` makes the app
+look for a socket whose name ends in `:ro`, which is a real thing people have done and is
+one of the reasons the card now prints the path it tried.
+
+**This is host-root-equivalent** — anything that can create containers can own the machine.
+The proxy below is the narrower version of the same permission, and running neither is a
+perfectly good answer: the guided `docker compose up -d --pull always` in the card does the
+same job by hand.
+
 ### One-click updates through a socket proxy (optional)
 
 The in-app update can talk to a [docker-socket-proxy](https://github.com/Tecnativa/docker-socket-proxy)

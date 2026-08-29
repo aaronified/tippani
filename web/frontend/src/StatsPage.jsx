@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { CAT_NAME_MAX, categoryName, categoryVar } from './theme.js'
-import { usePractice } from './review.jsx'
+import { tzOffsetMinutes, usePractice } from './review.jsx'
 import { coverImgURL, json } from './api.js'
 import { t, tNodes } from './i18n.js'
 import { PersonPortrait, usePeople } from './people.jsx'
@@ -55,7 +55,7 @@ function SectionHead({ label, right }) {
 
 // StatTile — a hero number in mono over a mono label, on a raised chip. `dot`
 // pairs the number with a status colour; the label still names it.
-function StatTile({ n, label, heart, dot }) {
+function StatTile({ n, label, heart, dot, sub }) {
   return (
     <div style={{ background: 'var(--raised)', border: '1px solid var(--line)', borderRadius: 10, padding: '14px 16px', overflow: 'hidden' }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, fontFamily: 'var(--font-mono)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 'var(--type-mono-26)', fontWeight: 500, lineHeight: 1, color: 'var(--ink)' }}>
@@ -64,6 +64,11 @@ function StatTile({ n, label, heart, dot }) {
         {heart && <span style={{ color: 'var(--accent-ui)', fontSize: 'var(--type-mono-13)', lineHeight: 1 }}>♥</span>}
       </div>
       <MonoLabel className="mt-2 block">{label}</MonoLabel>
+      {/* A SECOND NUMBER UNDER THE FIRST, for the one tile where the headline
+          figure is a record and the reader's next question is "and now?".
+          Microcopy rather than a second MonoLabel: two mono lines the same size
+          read as two tiles crushed together. */}
+      {sub && <p className="microcopy mt-1" style={{ color: 'var(--soft)' }}>{sub}</p>}
     </div>
   )
 }
@@ -346,6 +351,24 @@ function MemoryCard({ recall }) {
           <StatTile key={key} n={n} label={t(STATUS_META[key].label)} dot={STATUS_META[key]} />
         ))}
         {recall.reviewed > 0 && <StatTile n={fmtHalfLife(recall.avg_half_life)} label={t('stats.memory.half-life.label')} />}
+        {/* THE RECORD, ANNOTATED WITH THE PRESENT. The drawer and the Home card
+            both show the CURRENT streak, and neither can say whether it is any
+            good — a run that ended is invisible to that number by construction,
+            so a reader on day three has nothing to measure three against. This
+            tile is the other way round: the record is the headline and today's
+            run is the note under it, which is the only arrangement where both
+            numbers mean something at a glance.
+
+            Shown once anything has been played. At zero it would be a tile
+            reading 0 with "0 days now" under it, which is a worse way of saying
+            the Daily Quiz has not been opened than not being there at all. */}
+        {recall.longest_streak > 0 && (
+          <StatTile
+            n={t('stats.memory.streak.value', { n: recall.longest_streak })}
+            label={t('stats.memory.streak.label')}
+            sub={t('stats.memory.streak.current', { n: recall.streak || 0 })}
+          />
+        )}
       </div>
     </Card>
   )
@@ -1356,7 +1379,9 @@ export default function StatsPage({ onSearch }) {
     speaker: speakers.map,
     any: { ...speakers.map, ...actors.map, ...directors.map, ...authors.map },
   }
-  const loadStats = () => json('GET', '/stats').then((r) => { if (r.ok) setS(r.data) })
+  // The offset is only for the streak: which local day counts as today is the
+  // one thing on this page that depends on where the reader is standing.
+  const loadStats = () => json('GET', `/stats?offset=${tzOffsetMinutes()}`).then((r) => { if (r.ok) setS(r.data) })
   useEffect(() => { loadStats() }, [])
   async function resetPractice() {
     const r = await json('DELETE', '/review/practice')

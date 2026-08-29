@@ -1663,6 +1663,20 @@ function UpdatesCard({ user, update, onUpdateInfo }) {
                     <p className="microcopy">
                       {t('settings.updates.manual.prose')}
                     </p>
+                    {/* WHAT IT ACTUALLY LOOKED FOR. The sentence above is the
+                        same one whether the socket was never mounted, was
+                        mounted where this user cannot read it, or is being
+                        hunted for under a path with a ":ro" left on it — and
+                        the operator has no way to tell which from here. The
+                        server's own words, in mono, because it is a path. */}
+                    {info.socket_error && (
+                      <p
+                        className="microcopy"
+                        style={{ color: 'var(--soft)', fontFamily: 'var(--font-mono)', fontSize: 'var(--type-mono-11)', overflowWrap: 'anywhere' }}
+                      >
+                        {info.socket_error}
+                      </p>
+                    )}
                     <div
                       className="flex items-center justify-between gap-2"
                       style={{ background: 'var(--raised)', border: '1px solid var(--line)', borderRadius: 8, padding: '8px 12px' }}

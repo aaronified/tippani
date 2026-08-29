@@ -3011,6 +3011,10 @@ stats.activity.legend.more.label = more
 stats.memory.title = Memory
 stats.memory.rotation.label = {done} of {total} in rotation
 stats.memory.half-life.label = Avg half-life
+stats.memory.streak.label = longest streak
+# {n} is a number of days; the tile prints it big, so this is the unit beside it.
+stats.memory.streak.value = {n}d
+stats.memory.streak.current = {n} now
 
 # THE PER-KIND RECALL BREAKDOWN. A dropdown picks the dimension.
 stats.breakdown.title = Breakdown · {n}

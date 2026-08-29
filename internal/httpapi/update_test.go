@@ -16,6 +16,7 @@ import (
 // fakeDocker records what apply would do without a real Engine API.
 type fakeDocker struct {
 	avail   bool
+	why     string
 	name    string
 	image   string
 	selfErr error
@@ -23,7 +24,8 @@ type fakeDocker struct {
 	watched []string
 }
 
-func (f *fakeDocker) Available(context.Context) bool { return f.avail }
+func (f *fakeDocker) Available(context.Context) bool       { return f.avail }
+func (f *fakeDocker) Probe(context.Context) (bool, string) { return f.avail, f.why }
 func (f *fakeDocker) Self(context.Context) (string, string, string, error) {
 	return "id123", f.name, f.image, f.selfErr
 }
@@ -79,6 +81,37 @@ func TestUpdateCheck(t *testing.T) {
 	res = decode[map[string]any](t, c.mustDo("GET", "/admin/update/check", nil, 200))
 	if res["socket"] != false || res["can_self_update"] != false {
 		t.Fatalf("no-socket flags: %+v", res)
+	}
+}
+
+// A CARD WITH NO BUTTON HAS TO SAY WHY. "One-click needs the Docker socket
+// mounted" is the same sentence whether it was never mounted, was mounted
+// somewhere this user cannot read, or is being looked for under a path with a
+// ":ro" suffix left on it by a compose file — and the operator has to guess
+// which. The reason travels with the refusal.
+func TestUpdateCheckSaysWhyThereIsNoButton(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+	srv.GitHubAPI = mockGitHub(t, "v99.0.0").URL
+	srv.newDocker = func() UpdateDocker {
+		return &fakeDocker{avail: false, why: `no socket at /var/run/docker.sock:ro`}
+	}
+
+	res := decode[map[string]any](t, c.mustDo("GET", "/admin/update/check", nil, 200))
+	if res["can_self_update"] != false {
+		t.Fatal("offered a one-click update with no socket")
+	}
+	if res["socket_error"] != "no socket at /var/run/docker.sock:ro" {
+		t.Fatalf("socket_error = %v, want the probe's reason", res["socket_error"])
+	}
+
+	// And a working socket carries no reason at all — an empty string in the
+	// payload would draw an empty line under a card that is working.
+	srv.newDocker = func() UpdateDocker { return &fakeDocker{avail: true} }
+	res = decode[map[string]any](t, c.mustDo("GET", "/admin/update/check", nil, 200))
+	if _, ok := res["socket_error"]; ok {
+		t.Fatalf("a working socket reported %v", res["socket_error"])
 	}
 }
 

@@ -4,8 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -212,4 +215,71 @@ func TestRunWatchtowerNoNetworksOmitsNetworkMode(t *testing.T) {
 	if len(connected) != 0 {
 		t.Errorf("no-networks target must connect nothing: %v", connected)
 	}
+}
+
+// THE THREE WAYS A SOCKET IS NOT THERE, told apart. The card used to say the
+// same sentence for all of them, so an operator with a mounted socket and a
+// typo in TIPPANI_DOCKER_SOCK was told to mount the socket.
+func TestProbeNamesWhatItLookedFor(t *testing.T) {
+	t.Run("missing", func(t *testing.T) {
+		_, why := NewDocker(filepath.Join(t.TempDir(), "nope.sock")).Probe(context.Background())
+		if !strings.Contains(why, "no socket at") || !strings.Contains(why, "nope.sock") {
+			t.Fatalf("why = %q", why)
+		}
+		if strings.Contains(why, ":ro") {
+			t.Fatalf("volunteered a mount-suffix hint for a plain path: %q", why)
+		}
+	})
+
+	// The one misconfiguration that can be read off the string itself: `:ro`
+	// belongs on the volume line, not on the path, and a container started that
+	// way is patiently looking for a socket with a colon in its name.
+	t.Run("a mount suffix left on the path", func(t *testing.T) {
+		_, why := NewDocker("/var/run/docker.sock:ro").Probe(context.Background())
+		if !strings.Contains(why, ":ro") || !strings.Contains(why, "volume mount") {
+			t.Fatalf("why = %q, want the suffix named", why)
+		}
+	})
+
+	// THE ONE THE OWNER ACTUALLY HIT: the socket IS mounted, and the container's
+	// non-root user is in no group that may open it. It stats fine — stat needs
+	// only the directory — and dies on connect, so "mount the socket" was the
+	// advice for a socket that was already mounted.
+	t.Run("mounted but unreadable", func(t *testing.T) {
+		if os.Getuid() == 0 {
+			t.Skip("root opens a 0600 socket it does not own")
+		}
+		dir := t.TempDir()
+		p := filepath.Join(dir, "docker.sock")
+		l, err := net.Listen("unix", p)
+		if err != nil {
+			t.Skip("no unix sockets here:", err)
+		}
+		defer l.Close()
+		if err := os.Chmod(p, 0o000); err != nil {
+			t.Fatal(err)
+		}
+		ok, why := NewDocker(p).Probe(context.Background())
+		if ok {
+			t.Fatal("opened a socket with no permissions")
+		}
+		if !strings.Contains(why, "may not open it") || !strings.Contains(why, "group_add") {
+			t.Fatalf("why = %q, want the group_add fix named", why)
+		}
+	})
+
+	t.Run("there but not answering", func(t *testing.T) {
+		// A real file that is not a socket: it stats, and the dial fails.
+		p := filepath.Join(t.TempDir(), "docker.sock")
+		if err := os.WriteFile(p, nil, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		ok, why := NewDocker(p).Probe(context.Background())
+		if ok {
+			t.Fatal("a regular file answered a ping")
+		}
+		if !strings.Contains(why, "did not answer") {
+			t.Fatalf("why = %q", why)
+		}
+	})
 }

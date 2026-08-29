@@ -4,14 +4,17 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"sort"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -102,17 +105,65 @@ func (d *Docker) do(ctx context.Context, method, path string, body io.Reader) (*
 // CONTAINERS=1, IMAGES=1, POST=1); that surfaces as a coded error at apply
 // time rather than here — _ping is allowed by every proxy default.
 func (d *Docker) Available(ctx context.Context) bool {
+	ok, _ := d.Probe(ctx)
+	return ok
+}
+
+// Probe is Available with the reason attached. A one-click update that is simply
+// missing tells the operator nothing about WHY — and the two commonest causes
+// look identical from the outside: the socket was never mounted, or it was
+// mounted and the non-root user cannot open it. A third, which cost this
+// project's own owner an evening, is a TIPPANI_DOCKER_SOCK carrying a `:ro`
+// suffix that belongs on the volume and not on the path, so the app is patiently
+// looking for a socket named "/var/run/docker.sock:ro".
+//
+// The reason names what was tried, and never carries anything the operator did
+// not type: it is a path or a host they configured, plus the OS's own words.
+func (d *Docker) Probe(ctx context.Context) (bool, string) {
+	where := d.tcpHost
 	if d.sock != "" {
+		where = d.sock
 		if _, err := os.Stat(d.sock); err != nil {
-			return false
+			if errors.Is(err, fs.ErrNotExist) {
+				hint := ""
+				if strings.Contains(d.sock, ":") {
+					// The one misconfiguration that is diagnosable from the string.
+					hint = ` — a ":ro" or ":rw" suffix belongs on the volume mount, not on this path`
+				}
+				return false, fmt.Sprintf("no socket at %s%s", d.sock, hint)
+			}
+			if errors.Is(err, fs.ErrPermission) {
+				return false, fmt.Sprintf("%s is not readable by the user tippani runs as (uid %d) — add its group to group_add", d.sock, os.Getuid())
+			}
+			return false, fmt.Sprintf("%s: %v", d.sock, err)
 		}
 	}
 	resp, err := d.do(ctx, http.MethodGet, "/_ping", nil)
 	if err != nil {
-		return false
+		// THE COMMONEST FAILURE ONCE THE SOCKET IS ACTUALLY MOUNTED, and the one
+		// that looks least like what it is. The socket is root:docker 0660 on the
+		// host; this process is uid 65532 in the container and belongs to no
+		// group that can open it — so it STATS fine (stat needs only the
+		// directory) and dies on connect with "permission denied". "Mount the
+		// socket" is the wrong advice at that point, because it is mounted.
+		//
+		// The group id is read off the socket rather than assumed, because it is
+		// the number the operator has to type and it is different on every host.
+		if errors.Is(err, fs.ErrPermission) || errors.Is(err, syscall.EACCES) {
+			if gid, ok := socketGID(d.sock); ok {
+				return false, fmt.Sprintf(
+					"%s is mounted but this process (uid %d) may not open it — add `group_add: [\"%d\"]` to the service in compose and recreate it",
+					d.sock, os.Getuid(), gid)
+			}
+			return false, fmt.Sprintf("%s is mounted but this process (uid %d) may not open it — it needs the socket's group", d.sock, os.Getuid())
+		}
+		return false, fmt.Sprintf("%s did not answer: %v", where, err)
 	}
 	resp.Body.Close()
-	return resp.StatusCode == http.StatusOK
+	if resp.StatusCode != http.StatusOK {
+		return false, fmt.Sprintf("%s answered %d to a ping", where, resp.StatusCode)
+	}
+	return true, ""
 }
 
 // Self identifies this container from the process hostname (Docker sets it to

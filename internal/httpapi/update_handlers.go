@@ -35,6 +35,8 @@ import (
 // *updater.Docker implements it, and tests inject a fake via Server.newDocker.
 type UpdateDocker interface {
 	Available(ctx context.Context) bool
+	// Probe is Available with the reason attached — see updater.Docker.Probe.
+	Probe(ctx context.Context) (bool, string)
 	Self(ctx context.Context) (id, name, image string, err error)
 	Pull(ctx context.Context, ref string) error
 	RunWatchtower(ctx context.Context, target string) error
@@ -77,13 +79,21 @@ func (s *Server) handleUpdateCheck(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
 
-	socket := s.newDocker().Available(ctx)
+	socket, why := s.newDocker().Probe(ctx)
 	out := map[string]any{
 		"current":         buildinfo.Version,
 		"image":           buildinfo.Image(),
 		"socket":          socket,
 		"can_self_update": socket,
 		"guided_command":  guidedUpdateCommand,
+	}
+	// WHY THERE IS NO BUTTON. Without this the card says one-click needs the
+	// socket mounted and stops, which is the same sentence whether it was never
+	// mounted, was mounted somewhere this user cannot read, or is being looked
+	// for under a path with a ":ro" suffix left on it. Only ever the operator's
+	// own configuration and the OS's own words — see updater.Docker.Probe.
+	if !socket && why != "" {
+		out["socket_error"] = why
 	}
 	channel, includePre, explicit := s.updateChannel()
 	out["channel"] = channel

@@ -19,7 +19,7 @@ let STATS
 vi.mock('../../src/api.js', async (orig) => ({
   ...(await orig()),
   json: vi.fn(async (method, path) => {
-    if (path === '/stats') return { ok: true, data: STATS }
+    if (path.startsWith('/stats')) return { ok: true, data: STATS } // the page sends ?offset= for the streak
     if (path.startsWith('/people')) return { ok: true, data: { people: [] } }
     return { ok: true, data: {} }
   }),

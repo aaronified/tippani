@@ -3034,6 +3034,9 @@ stats.activity.legend.more.label = বেশি
 stats.memory.title = স্মৃতি
 stats.memory.rotation.label = {total}-এর মধ্যে {done} ঘুরছে
 stats.memory.half-life.label = গড় অর্ধায়ু
+stats.memory.streak.label = দীর্ঘতম ধারা
+stats.memory.streak.value = {n} দিন
+stats.memory.streak.current = এখন {n}
 
 # THE PER-KIND RECALL BREAKDOWN. A dropdown picks the dimension.
 stats.breakdown.title = কে কত · {n}

@@ -595,10 +595,34 @@ func everyQuoteCreatedAt(uid int64) (string, []any) {
 // aggregate queries — nothing per-row.
 func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	uid := userID(r)
-	olog.Tracef("[stats] handleStats uid=%v", uid)
+	// OPTIONAL, AND UTC WHEN ABSENT. The only thing the offset decides here is
+	// which local day "today" is for the current streak, and every other number
+	// on this page is timezone-free — so a caller that does not send one gets
+	// the page it always got rather than a 400.
+	offset, ok := tzOffset(r.URL.Query().Get("offset"))
+	if !ok {
+		writeErr(w, http.StatusBadRequest, "offset must be UTC offset minutes between -720 and 840")
+		return
+	}
+	olog.Tracef("[stats] handleStats uid=%v offset=%d", uid, offset)
+
+	// Read up here, ahead of the local `type reviewDay struct` this function
+	// declares further down for the activity series — which shadows the package
+	// function of that name for the rest of the body.
+	today, _, _ := reviewDay(offset)
+	streak, err := s.dailyStreak(uid, today)
+	if err != nil {
+		internalError(w, r, "recall streak", err)
+		return
+	}
+	longestStreak, err := s.longestDailyStreak(uid)
+	if err != nil {
+		internalError(w, r, "recall longest streak", err)
+		return
+	}
 
 	var books, annotations, movies, dialogues, quotes, tags, favorites int
-	err := s.Store.DB.QueryRow(`
+	err = s.Store.DB.QueryRow(`
 		SELECT
 		  (SELECT count(*) FROM books WHERE user_id = ?),
 		  (SELECT count(*) FROM annotations a JOIN books b ON b.id = a.book_id WHERE b.user_id = ?),
@@ -934,6 +958,13 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 			"states":        states,
 			"reviewed":      reviewedN,
 			"avg_half_life": avgHalfLife,
+			// BOTH STREAKS, because the longest one is not derivable from the
+			// current one and is the number a reader measures themselves
+			// against: a run that ended is invisible to the current figure by
+			// construction. They travel together so the card can print one and
+			// annotate it with the other.
+			"streak":         streak,
+			"longest_streak": longestStreak,
 		},
 		"breakdown": breakdown,
 	})

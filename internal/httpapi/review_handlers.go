@@ -2682,6 +2682,48 @@ func (s *Server) dailyStreak(uid int64, today string) (int, error) {
 	return streak, nil
 }
 
+// longestDailyStreak is the longest run of consecutive days ever cleared, which
+// is a different fact from the current one and not derivable from it: a run that
+// ended is invisible to dailyStreak by construction, and it is the number a
+// reader is measuring themselves against.
+//
+// NO "TODAY" AND SO NO OFFSET. A run that has already ended does not move when
+// the reader flies somewhere — the days were bucketed into local dates when they
+// were played, and those strings are what quiz_sessions stores. The CURRENT
+// streak needs today because it has an open end; this one has two closed ones.
+func (s *Server) longestDailyStreak(uid int64) (int, error) {
+	rows, err := s.Store.DB.Query(`SELECT DISTINCT day FROM quiz_sessions
+	                               WHERE user_id = ? AND mode = 'daily' AND answered > 0
+	                               ORDER BY day`, uid)
+	if err != nil {
+		return 0, err
+	}
+	defer rows.Close()
+	best, run := 0, 0
+	var prev time.Time
+	for rows.Next() {
+		var d string
+		if err := rows.Scan(&d); err != nil {
+			olog.Warnf(olog.CodeReviewRowScan, "[review] longest streak row scan failed: %v", err)
+			continue
+		}
+		cur, perr := time.Parse("2006-01-02", d)
+		if perr != nil {
+			continue // a day string nothing wrote; skipping it cannot lengthen a run
+		}
+		if !prev.IsZero() && cur.Equal(prev.AddDate(0, 0, 1)) {
+			run++
+		} else {
+			run = 1
+		}
+		if run > best {
+			best = run
+		}
+		prev = cur
+	}
+	return best, rows.Err()
+}
+
 // handleReviewScores serves GET /review/scores?offset=N — the Daily Quiz score
 // (today + streak + lifetime days) and the separate Practice score (lifetime
 // totals + sessions), plus the library-wide status breakdown.

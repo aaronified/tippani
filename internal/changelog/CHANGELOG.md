@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A longest-streak tile in Stats → Memory**, with today's run as the line under it. The
+  drawer and the Home card both show the *current* streak and neither can say whether it
+  is any good: a run that has ended is invisible to that number by construction, so
+  somebody three days into a new one had nothing to measure three against. The record is
+  the headline here and the current run is the note, which is the only arrangement where
+  both mean something at a glance. The tile appears once the Daily Quiz has been played.
+
 - **A release line to follow, in Settings → Updates.** *Stable* is what the update
   check always did: finished releases only. *Pre-release* also offers release
   candidates and branch builds, for anybody testing a run-up. Nothing installs itself
@@ -186,6 +193,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reveals its source shows the cover beside the title.
 
 ### Fixed
+
+- **The Updates card now says why there is no one-click update, and the README says what
+  the socket route actually needs.** Mounting `docker.sock` was never enough on its own —
+  the image runs as the non-root user `65532` and the socket is `root:docker` `0660`, so
+  the container can see it and not open it — and nothing said so: the card printed the
+  same "needs the Docker socket mounted" sentence for a socket that *was* mounted. It now
+  prints what it looked for and what the OS said, and for the permission case it prints
+  the `group_add` line with **the group id read off your own socket**, because that number
+  differs on every host. Two other cases it can now tell apart: no socket at that path,
+  and a path with a `:ro` suffix left on it (that belongs on the volume line, not on
+  `TIPPANI_DOCKER_SOCK`). The README gained the raw-socket recipe it never had.
+
+- **The Updates card now says why there is no one-click update.** It said "one-click
+  update needs the Docker socket mounted, or a socket proxy configured", which is the
+  same sentence whether the socket was never mounted, was mounted somewhere the non-root
+  user cannot read, or is being looked for under a path with a `:ro` left on it — a
+  suffix that belongs on the volume line and not on `TIPPANI_DOCKER_SOCK`. It now prints
+  what it looked for and what the OS said about it, including that last case by name.
 
 - **The share picture no longer freezes the page when the backdrop goes on.** Drawing the
   card is not the slow part — it measures about 18ms even with a photograph behind it —
