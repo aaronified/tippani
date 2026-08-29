@@ -15,6 +15,23 @@ find the code in `docker logs` and look it up here.
 The codes are defined in `internal/olog/codes.go`; a build-time test keeps this
 document and that registry in lockstep.
 
+## The container will not start at all
+
+There is no code for this one, because it happens before the logging subsystem
+and the HTTP server exist. The container exits 1 and the restart policy loops
+it, and `docker logs` holds two lines and nothing else.
+
+| Line | Cause | What to do |
+| --- | --- | --- |
+| `open db: … unable to open database file` followed by `… is owned by uid 0, but tippani runs as uid 65532 …` | The image runs as the non-root user `65532`, and the data directory is not writable by it. Almost always a Docker **bind** mount whose host directory did not exist when the container first started: Docker creates a missing bind source as root. | Run the `chown -R 65532:65532 <path>` the second line prints, against the path **on the host**. A named volume is chowned by the image and never needs this. |
+| `create data dir: … permission denied` | Same cause, one level up: the *parent* of the data directory is not writable either. | Same fix, applied to the parent. |
+| `migrate: …` | The database opened but a schema migration failed. Not a permissions problem. | Read the migration error. Restore the backup taken before the upgrade; migrations are forward-only, so an older image cannot open a newer database. |
+
+Two things that look like this and are not: a **healthcheck** failure does not
+restart the container (only an unhealthy status), and a bad `TIPPANI_LOG_LEVEL`
+is ignored rather than fatal — including the quotes in `- TIPPANI_LOG_LEVEL="debug"`,
+which Compose keeps in list form, leaving tracing silently off.
+
 ## HTTP
 
 | Code | Meaning | Likely cause | What to do |

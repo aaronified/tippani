@@ -115,10 +115,19 @@ func healthcheck() {
 func openStore() (*store.Store, string) {
 	dataDir := envOr("TIPPANI_DATA", "data")
 	if err := os.MkdirAll(dataDir, 0o700); err != nil {
+		if advice := dataDirAdvice(filepath.Dir(dataDir)); advice != "" {
+			log.Fatalf("create data dir: %v\n  %s", err, advice)
+		}
 		log.Fatalf("create data dir: %v", err)
 	}
 	st, err := store.Open(filepath.Join(dataDir, "tippani.db"))
 	if err != nil {
+		// The most common cause is a data directory the process cannot write
+		// to, and SQLite's own words for it name neither the directory nor the
+		// fix. See dataDirAdvice.
+		if advice := dataDirAdvice(dataDir); advice != "" {
+			log.Fatalf("open db: %v\n  %s", err, advice)
+		}
 		log.Fatalf("open db: %v", err)
 	}
 	if err := st.Migrate(); err != nil {

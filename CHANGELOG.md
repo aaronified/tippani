@@ -194,6 +194,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   *behind* the release, `rc.9` comes before `rc.10` rather than after it (a string
   compare had that backwards), and fewer identifiers sort first.
 
+- **The container now says what to chown when it cannot start.** A Docker **bind**
+  mount whose host directory did not exist is created by Docker as root, and the image
+  runs as uid 65532 — so the app could not create its database, exited, and was
+  restarted forever. All it printed was SQLite's `unable to open database file`, which
+  names neither the directory nor the fix, and it happens before any log code or page
+  exists to explain it. It now prints who owns the directory, who Tippani is running as,
+  and the exact `chown` to run on the host. `docs/troubleshoot.md` has the case too, in
+  a section for the failures that have no error code because nothing is up yet to emit
+  one.
+
 - **A work option could still wear somebody's face.** The rule — a work is shown by
   its picture, a person by their chip — was enforced only by the server not filling the
   field: the card drew a portrait whenever one was present, whatever kind of option it
