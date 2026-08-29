@@ -8,6 +8,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"tippani/internal/buildinfo"
@@ -112,6 +113,134 @@ func TestUpdateCheckSaysWhyThereIsNoButton(t *testing.T) {
 	res = decode[map[string]any](t, c.mustDo("GET", "/admin/update/check", nil, 200))
 	if _, ok := res["socket_error"]; ok {
 		t.Fatalf("a working socket reported %v", res["socket_error"])
+	}
+}
+
+// THE BRANCH BUILD THAT WAS TOLD IT WAS CURRENT WITH THREE COMMITS BEHIND IT.
+// A push to v3 rebuilds `:v3` and creates no GitHub release, so the pre-release
+// channel — which reads the release list — had nothing newer to report, and was
+// right: the newest STABLE release is older than a run-up to the next major,
+// which is the same arithmetic that stops it being offered as a downgrade. The
+// question for a moving tag is whether the branch has moved.
+func TestABranchBuildIsComparedAgainstItsBranch(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+	srv.newDocker = func() UpdateDocker { return &fakeDocker{} }
+
+	orig := buildinfo.Version
+	buildinfo.Version = "3.0.0-edge.f7ddba5"
+	t.Cleanup(func() { buildinfo.Version = orig })
+
+	head := "a66ff6c"
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/repos/aaronified/tippani/commits/v3":
+			w.Write([]byte(`{"sha":"` + head + `0000000000000000"}`))
+		case "/repos/aaronified/tippani/releases":
+			// Only stable tags exist, and every one is behind this build.
+			w.Write([]byte(`[{"tag_name":"v2.2.9","html_url":"https://x/s"}]`))
+		default:
+			w.Write([]byte(`{"tag_name":"v2.2.9","html_url":"https://x/s"}`))
+		}
+	}))
+	t.Cleanup(ts.Close)
+	srv.GitHubAPI = ts.URL
+
+	res := decode[map[string]any](t, c.mustDo("GET", "/admin/update/check", nil, 200))
+	if res["update_available"] != true {
+		t.Fatalf("branch moved and nothing was offered: %v", res)
+	}
+	if res["latest"] != "v3 @ "+head {
+		t.Errorf("latest = %v, want the branch and its head", res["latest"])
+	}
+	if res["branch"] != "v3" || res["commit"] != "f7ddba5" {
+		t.Errorf("did not report what it is running: %v / %v", res["branch"], res["commit"])
+	}
+	// The link has to go somewhere useful: what changed, not a release page for
+	// a release that does not exist.
+	if u, _ := res["notes_url"].(string); !strings.Contains(u, "/compare/f7ddba5...a66ff6c") {
+		t.Errorf("notes_url = %v, want the compare view", res["notes_url"])
+	}
+
+	// AND IT STOPS OFFERING ONCE PULLED. The same check, on the build the branch
+	// now points at, is quiet — a check that always says yes is a badge nobody
+	// can clear.
+	buildinfo.Version = "3.0.0-edge." + head
+	res = decode[map[string]any](t, c.mustDo("GET", "/admin/update/check", nil, 200))
+	if res["update_available"] != false {
+		t.Fatalf("still offering an update after the branch was pulled: %v", res)
+	}
+}
+
+// AND main MOVES TOO. `:edge` is rebuilt on every push to the default branch,
+// and a build off it is UNORDERABLE by design — a run-up to nothing in
+// particular — which used to mean the check offered it the last stable release,
+// a downgrade, for want of anything it could compare. It can compare now.
+func TestAnEdgeBuildIsComparedAgainstMain(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+	srv.newDocker = func() UpdateDocker { return &fakeDocker{} }
+
+	orig := buildinfo.Version
+	buildinfo.Version = "edge.main.f7ddba5"
+	t.Cleanup(func() { buildinfo.Version = orig })
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/repos/aaronified/tippani/commits/main" {
+			w.Write([]byte(`{"sha":"a66ff6c0000000000000000"}`))
+			return
+		}
+		w.Write([]byte(`{"tag_name":"v2.2.9","html_url":"https://x/s"}`))
+	}))
+	t.Cleanup(ts.Close)
+	srv.GitHubAPI = ts.URL
+
+	res := decode[map[string]any](t, c.mustDo("GET", "/admin/update/check", nil, 200))
+	if res["latest"] != "main @ a66ff6c" {
+		t.Fatalf("latest = %v, want main's head and not the last stable release", res["latest"])
+	}
+	if res["update_available"] != true {
+		t.Fatal("main moved and nothing was offered")
+	}
+
+	// On the head itself: quiet, and NOT offered v2.2.9 as a consolation.
+	buildinfo.Version = "edge.main.a66ff6c"
+	res = decode[map[string]any](t, c.mustDo("GET", "/admin/update/check", nil, 200))
+	if res["update_available"] != false {
+		t.Fatalf("offered %v to a build that is main's head", res["latest"])
+	}
+}
+
+// A PUBLISHED RELEASE STILL WINS. An rc, or the release itself, is a better
+// answer than another commit on the branch it came from.
+func TestAReleaseOutranksTheBranchHead(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+	srv.newDocker = func() UpdateDocker { return &fakeDocker{} }
+
+	orig := buildinfo.Version
+	buildinfo.Version = "3.0.0-edge.f7ddba5"
+	t.Cleanup(func() { buildinfo.Version = orig })
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/repos/aaronified/tippani/releases" {
+			w.Write([]byte(`[{"tag_name":"v3.0.0-rc.1","prerelease":true,"html_url":"https://x/rc"}]`))
+			return
+		}
+		w.Write([]byte(`{"sha":"a66ff6c0000000000000000"}`))
+	}))
+	t.Cleanup(ts.Close)
+	srv.GitHubAPI = ts.URL
+
+	res := decode[map[string]any](t, c.mustDo("GET", "/admin/update/check", nil, 200))
+	if res["latest"] != "v3.0.0-rc.1" {
+		t.Fatalf("latest = %v, want the rc rather than a commit on the branch", res["latest"])
 	}
 }
 

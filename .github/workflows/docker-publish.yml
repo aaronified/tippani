@@ -126,21 +126,33 @@ jobs:
       # A branch not shaped like a version falls back to the unorderable form —
       # there is no release to be the run-up to, so "cannot assert" is honest.
       # Tag builds never reach this: their version IS the release.
+      #
+      # EVERY BRANCH BUILD CARRIES ITS BRANCH AND ITS COMMIT, because a moving
+      # image tag has no release to be compared against: pushing to v3 rebuilds
+      # `:v3` and creates no GitHub release, so a box tracking that tag was told
+      # it was current with several commits' worth of image sitting in front of
+      # it. The check reads these two back and asks GitHub whether the branch has
+      # moved (see updater.BranchBuild). main gets the same treatment for the
+      # same reason — `:edge` moves too.
       - name: Version to stamp into the binary
         id: ver
         run: |
           set -euo pipefail
           v='${{ steps.meta.outputs.version }}'
+          sha="$(git rev-parse --short HEAD)"
           if [ "${GITHUB_REF}" != "${GITHUB_REF#refs/tags/}" ]; then
             :                                                    # a tag: as-is
           elif [ "${GITHUB_REF_NAME}" = "${{ github.event.repository.default_branch }}" ]; then
-            :                                                    # main: "edge"
+            # main. Unorderable on purpose — a run-up to nothing in particular —
+            # but it still carries where it came from, so the update check can
+            # ask whether main has moved since this image was built.
+            v="edge.${GITHUB_REF_NAME}.${sha}"
           else
             core="${GITHUB_REF_NAME#v}"
             case "$core" in
-              ''|*[!0-9.]*) v="edge-${GITHUB_REF_NAME}" ;;       # not a version
+              ''|*[!0-9.]*) v="edge.${GITHUB_REF_NAME}.${sha}" ;;  # not a version
               # "3" -> 3.0.0, "3.1" -> 3.1.0: pad, then keep three fields.
-              *) v="$(printf '%s.0.0' "$core" | cut -d. -f1-3)-edge.$(git rev-parse --short HEAD)" ;;
+              *) v="$(printf '%s.0.0' "$core" | cut -d. -f1-3)-edge.${GITHUB_REF_NAME}.${sha}" ;;
             esac
           fi
           echo "version=$v" >> "$GITHUB_OUTPUT"

@@ -167,3 +167,54 @@ func TestSplitRef(t *testing.T) {
 		}
 	}
 }
+
+// A BUILD THAT TRACKS A MOVING TAG. `:v3` is rebuilt on every push to the
+// branch and no GitHub release is created for any of them, so the release list
+// — everything the pre-release channel can see — is genuinely empty of anything
+// newer while the image the box points at has moved several times.
+func TestBranchBuildReadsItsOwnBranchAndCommit(t *testing.T) {
+	for _, c := range []struct {
+		version, branch, commit string
+		ok                      bool
+	}{
+		{"3.0.0-edge.v3.a66ff6c", "v3", "a66ff6c", true},             // the shape CI stamps now
+		{"edge.main.a66ff6c", "main", "a66ff6c", true},               // the default branch
+		{"edge.release.2.x.abc1234", "release.2.x", "abc1234", true}, // dots in a branch name
+		// The two-identifier form that shipped first: the branch comes from the
+		// major, which is the assumption the workflow already makes backwards.
+		{"3.0.0-edge.f7ddba5", "v3", "f7ddba5", true},
+		{"4.1.0-edge.abc1234", "v4", "abc1234", true},
+		{"v3.0.0-rc.1", "", "", false}, // a run-up, but a published one
+		{"3.0.0", "", "", false},       // the release itself
+		{"edge", "", "", false},        // main
+		{"edge-v3", "", "", false},     // the old, unorderable stamp
+		{"dev", "", "", false},         // a local build
+		{"3.0.0-edge", "", "", false},  // no commit to compare
+	} {
+		b, sha, ok := BranchBuild(c.version)
+		if ok != c.ok || b != c.branch || sha != c.commit {
+			t.Errorf("BranchBuild(%q) = (%q, %q, %v), want (%q, %q, %v)", c.version, b, sha, ok, c.branch, c.commit, c.ok)
+		}
+	}
+}
+
+func TestBranchHead(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/repos/owner/repo/commits/v3" {
+			w.WriteHeader(404)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"sha":"a66ff6c1234567890abcdef"}`))
+	}))
+	defer ts.Close()
+
+	got, err := BranchHead(context.Background(), ts.URL, "owner/repo", "v3")
+	if err != nil || got != "a66ff6c" {
+		t.Fatalf("BranchHead = (%q, %v), want the short sha", got, err)
+	}
+	// A branch that has been merged and tidied away is a 404, not a panic.
+	if _, err := BranchHead(context.Background(), ts.URL, "owner/repo", "v9"); err == nil {
+		t.Fatal("expected an error for a branch that is not there")
+	}
+}

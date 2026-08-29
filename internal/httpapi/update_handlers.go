@@ -112,6 +112,54 @@ func (s *Server) handleUpdateCheck(w http.ResponseWriter, r *http.Request) {
 		out["published_at"] = rel.PublishedAt
 		out["update_available"] = updater.UpdateAvailable(buildinfo.Version, rel.TagName)
 	}
+
+	// A BUILD THAT TRACKS A MOVING TAG HAS NO RELEASE TO COMPARE AGAINST, and
+	// until this existed the pre-release channel answered "no update" to a box
+	// running :v3 with three unpulled commits sitting in the image it points at.
+	// That answer was correct and useless: a branch push builds an image and
+	// creates no GitHub release, so the release list — everything the channel
+	// could see — genuinely had nothing newer in it. The newest STABLE release
+	// is older than a run-up to the next major, which is exactly the arithmetic
+	// that stops it being offered as a downgrade.
+	//
+	// So for a branch build the question is the other one: has the branch this
+	// image is rebuilt from moved? Compared by commit, because that is what the
+	// version carries and what the tag will pull. A published release that
+	// outranks the running version still wins — an rc, or 3.0.0 itself, is a
+	// better answer than another commit on the branch it came from.
+	if branch, running, isBranch := updater.BranchBuild(buildinfo.Version); isBranch {
+		out["branch"] = branch
+		out["commit"] = running
+		// DECISIVE, not merely true. For an unorderable version — `edge.main.<sha>`,
+		// which is what a build off the default branch is — UpdateAvailable
+		// returns true for any release that exists at all, because it cannot
+		// prove the build is current. That is the right default with nothing
+		// else to go on, and it is the WRONG answer here: main is ahead of the
+		// last release, so offering it is offering a downgrade. The release only
+		// wins when the comparator can say so.
+		beaten := false
+		if rel != nil {
+			if cmp, ok := updater.Compare(buildinfo.Version, rel.TagName); ok && cmp < 0 {
+				beaten = true
+			}
+		}
+		out["update_available"] = beaten
+		if !beaten {
+			head, herr := updater.BranchHead(ctx, s.GitHubAPI, buildinfo.Repo(), branch)
+			switch {
+			case herr != nil:
+				// Soft, like the release check above: the card still shows the
+				// version, and a branch that has been deleted (merged and tidied
+				// away) is a 404 rather than a reason to fail the request.
+				olog.Printf("[update] branch head for user %d (%s): %v", userID(r), username(r), herr)
+			case head != running:
+				out["latest"] = branch + " @ " + head
+				out["latest_commit"] = head
+				out["update_available"] = true
+				out["notes_url"] = "https://github.com/" + buildinfo.Repo() + "/compare/" + running + "..." + head
+			}
+		}
+	}
 	writeJSON(w, http.StatusOK, out)
 }
 

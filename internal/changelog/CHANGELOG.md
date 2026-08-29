@@ -203,6 +203,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A branch build now sees that its branch has moved.** Tracking `:v3` (or `:edge`) means
+  tracking a moving image tag, and pushing to a branch rebuilds that image without creating
+  any GitHub release — so the update check, which could only see releases, correctly and
+  uselessly reported "no update" to a box with three commits' worth of image waiting for it.
+  A branch build now carries its branch and its commit in its version, and the check asks
+  GitHub whether that branch has moved; the link goes to the comparison of the two commits.
+  A published release still wins when it genuinely outranks what you are running — an rc, or
+  the release itself, is a better answer than another commit on the branch it came from.
+  This also stops an `:edge` build being offered the last stable release as its "update",
+  which was a downgrade dressed as an upgrade.
+
 - **The page no longer re-composites itself on every scroll frame.** Two fixed,
   full-viewport layers — the paper grain and the scenic background — used `mix-blend-mode`,
   which blends an element with everything *behind* it: for a layer pinned over a scrolling

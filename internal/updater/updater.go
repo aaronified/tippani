@@ -219,6 +219,66 @@ func Compare(current, latest string) (cmp int, ok bool) {
 	return comparePre(apre, bpre), true
 }
 
+// BranchBuild reads the branch and the commit out of a version this project's
+// CI stamped, in either of the two shapes it produces:
+//
+//	3.0.0-edge.v3.a66ff6c  -> ("v3", "a66ff6c")   a release branch
+//	edge.main.a66ff6c      -> ("main", "a66ff6c") the default branch
+//
+// A RELEASE BRANCH IS SEMVER AND MAIN IS NOT, and that asymmetry is deliberate
+// rather than an oversight. "v3" is a run-up to 3.0.0 and has to sort after
+// every 2.x and before 3.0.0-rc.1, so it is stamped as the pre-release it is.
+// main is a run-up to nothing in particular — the next release off it could be
+// anything — so it stays unorderable, which is the case the comparator already
+// treats as "cannot assert, so offer".
+//
+// The two-identifier form (3.0.0-edge.a66ff6c) is what shipped first, before the
+// branch travelled in the version. Its branch is derived from the major, which
+// is the assumption docker-publish.yml already makes in the other direction —
+// it derives the VERSION from the branch name. Kept so an image built before
+// this change can still find its own branch, which is the one build that cannot
+// be told about the fix any other way.
+func BranchBuild(version string) (branch, commit string, ok bool) {
+	v := strings.TrimSpace(version)
+	if rest, cut := strings.CutPrefix(v, "edge."); cut {
+		// The unorderable form: edge.<branch>.<sha>. A branch name may carry
+		// dots, so the SHA is the last field and the branch is everything
+		// between — "edge.release.2.x.a66ff6c" is release.2.x at a66ff6c.
+		parts := strings.Split(rest, ".")
+		if len(parts) < 2 {
+			return "", "", false
+		}
+		return strings.Join(parts[:len(parts)-1], "."), parts[len(parts)-1], true
+	}
+	nums, pre, valid := parseSemver(v)
+	if !valid || len(pre) < 2 || pre[0] != "edge" {
+		return "", "", false
+	}
+	if len(pre) >= 3 {
+		return strings.Join(pre[1:len(pre)-1], "."), pre[len(pre)-1], true
+	}
+	return fmt.Sprintf("v%d", nums[0]), pre[1], true
+}
+
+// BranchHead is the short commit sha at the tip of a branch. Used by the update
+// check for a build that tracks a moving IMAGE TAG rather than a release: `:v3`
+// is rebuilt on every push, and no GitHub release is created for any of them, so
+// the release list — which is all the pre-release channel could see — reports
+// nothing new while the image the box would pull has moved several times.
+func BranchHead(ctx context.Context, apiBase, repo, branch string) (string, error) {
+	var out struct {
+		SHA string `json:"sha"`
+	}
+	url := fmt.Sprintf("%s/repos/%s/commits/%s", strings.TrimRight(apiBase, "/"), repo, branch)
+	if err := getJSON(ctx, url, &out); err != nil {
+		return "", err
+	}
+	if len(out.SHA) < 7 {
+		return "", fmt.Errorf("branch %s has no commit", branch)
+	}
+	return out.SHA[:7], nil
+}
+
 // IsPrerelease reports whether a version string is a semver pre-release —
 // "3.0.0-edge.f7ddba5", "3.0.0-rc.1". Used to decide the DEFAULT channel: a
 // build that is itself a run-up is already on the pre-release line, and asking
