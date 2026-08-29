@@ -1224,6 +1224,7 @@ settings.material.school.label = School
 settings.material.atelier.label = Atelier
 settings.material.bindery.label = Bindery
 settings.material.quarry.label = Quarry
+settings.material.atrium.label = Atrium
 settings.appearance.accent.title = Accent
 # {name} is one of the vocab.accent.* words.
 settings.appearance.accent.tip = Use the {name} accent

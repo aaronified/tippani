@@ -182,10 +182,18 @@ describe('a label on a selection fill', () => {
   }
 
   const bands = new Map()
+  // Atrium's slots resolve to --tile-flat, a transparent gradient: there is no
+  // file, nothing is composited, and the fill is the accent alone. A band of
+  // 128 (the tiles' own mean) is exactly that — the identity the overlay blend
+  // pivots on — so it goes through the same arithmetic and comes out flat,
+  // rather than being skipped and quietly left unmeasured.
+  const FLAT_BAND = { pLo: 128, pHi: 128, lLo: 128, lHi: 128 }
   beforeAll(async () => {
     for (const set of Object.keys(MAT_SETS)) {
       const { tile } = tokensFor(set, 'terracotta', false)
-      for (const [, size] of GRAINS) bands.set(`${tile}@${size}`, await tileBand(tile, size))
+      for (const [, size] of GRAINS) {
+        bands.set(`${tile}@${size}`, tile === 'flat' ? FLAT_BAND : await tileBand(tile, size))
+      }
     }
   })
 

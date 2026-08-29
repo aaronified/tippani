@@ -80,6 +80,12 @@ const PALETTES = {
 // they are load-bearing: replace a tile and the number has to be re-measured, not
 // inherited.
 const TEXTILES = {
+  // ATRIUM'S MATERIAL, WHICH IS NONE. Strength 0 and no file: the operator's own
+  // identity element, so "a set with no texture" needs no branch anywhere except
+  // the one that skips building a stack for it. The two sizes are 0 because
+  // nothing is ever drawn at them, and a number that looks like a measurement
+  // would be a measurement nobody took.
+  flat: ['flat', 0, 0, 0],
   paper: ['paper', 220, 71, 0.10], linen: ['linen', 340, 109, 0.11],
   cotton: ['cotton', 300, 97, 0.12], canvas: ['canvas', 400, 129, 0.10],
   denim: ['denim', 320, 103, 0.12], wool: ['wool', 360, 113, 0.12],
@@ -113,6 +119,20 @@ export const MAT_SETS = {
   atelier: ['canvas', 'denim', 'cotton', 'wool'],
   bindery: ['concrete', 'leather-suede', 'paper-photo', 'leather-pebbled'],
   quarry: ['sandstone', 'granite', 'satin', 'marble'],
+  // THE EIGHTH IS NOT A ROOM YET. Atrium is the plain one — flat colour and the
+  // accent, no material in any slot — and it is a PLACEHOLDER on purpose: the
+  // set this key is reserved for is a glass one, modern and lit from behind,
+  // which is a design of its own and not a set of four tiles. Shipping the flat
+  // version first gives the key a meaning people can already use (the fastest
+  // surface in the app is the one with nothing composited on it) and gives the
+  // glass one somewhere to land without a second migration of everybody's
+  // stored preference.
+  //
+  // Named for a room, like the other seven, and for the room this one will
+  // become: an atrium is the glazed, daylit middle of a modern building. It is
+  // the only word in the set that is already about glass and light without
+  // being about a craft.
+  atrium: ['flat', 'flat', 'flat', 'flat'],
 }
 export const MAT_SET_DEFAULT = 'manuscript'
 // Keys, not words — see the note at the top of the file.
@@ -124,6 +144,7 @@ export const MAT_SET_LABELS = {
   atelier: 'settings.material.atelier.label',
   bindery: 'settings.material.bindery.label',
   quarry: 'settings.material.quarry.label',
+  atrium: 'settings.material.atrium.label',
 }
 
 // ---- the operator -----------------------------------------------------------
@@ -141,6 +162,8 @@ export const MAT_SET_LABELS = {
 // the set, the mode and the accent at once, and all three live here. index.css spends
 // them: background-image: var(--surf-card-image).
 const GLASSY = new Set(['glass', 'glass-soft'])
+// A surface with nothing on it. See TEXTILES.flat and the Atrium set.
+const FLAT = new Set(['flat'])
 const METALLIC = new Set(['metal', 'brushed'])
 
 function veil(hex, s) {
@@ -174,6 +197,12 @@ function glassProps(hex, tile, a, b, s, dark) {
 // of its own.
 function surfaceProps(hex, name, dark, accentUI) {
   const [tile, a, b, s] = TEXTILES[name] || TEXTILES.paper
+  // NOT the veil at s = 0, which would be an opaque colour laid OVER two tile
+  // layers the browser still fetches and still composites — the flat set exists
+  // to cost nothing, and "covered up" is not "absent". `image: none` is.
+  if (FLAT.has(tile)) {
+    return { color: hex, image: 'none', size: 'auto', blend: 'normal', blur: 'none', border: 'transparent', inset: 'none' }
+  }
   if (GLASSY.has(tile)) return glassProps(hex, tile, a, b, s, dark)
   const v = veil(hex, s)
   const img = []
@@ -211,7 +240,12 @@ export const SLOTS = ['ground', 'shell', 'card', 'cover']
 // Every tile the app can put on a surface, in the order the picker offers them:
 // the set's own inventory first, then the two the seven sets never name. A reader
 // wanting Manuscript with a stone floor has nowhere else to say so.
-export const TILE_NAMES = Object.keys(TEXTILES)
+// WITHOUT `flat`, WHICH IS NOT A TILE ANYBODY PICKS. It is Atrium's material —
+// the absence of one — and offering it here would put "no texture" in a list of
+// twenty-eight materials as though it were a twenty-ninth, where it would read
+// as a bug in whichever slot took it. Choosing to have no material is choosing
+// the SET, one control up.
+export const TILE_NAMES = Object.keys(TEXTILES).filter((n) => n !== 'flat')
 
 // surfaceStyle returns one slot of one set as a React style object, for a set that is
 // NOT applied — the material picker in Settings shows seven specimens at once, and

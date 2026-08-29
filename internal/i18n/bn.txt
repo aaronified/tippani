@@ -1211,6 +1211,7 @@ settings.material.school.label = স্কুল
 settings.material.atelier.label = শিল্পশালা
 settings.material.bindery.label = বাঁধাইখানা
 settings.material.quarry.label = পাথরখাদান
+settings.material.atrium.label = অলিন্দ
 settings.appearance.accent.title = অ্যাকসেন্ট
 # {name} is one of the vocab.accent.* words.
 settings.appearance.accent.tip = {name} অ্যাকসেন্ট বসান

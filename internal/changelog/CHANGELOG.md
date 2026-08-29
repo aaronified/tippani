@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Atrium — an eighth material set, with no material in it.** Flat surfaces and the
+  accent, nothing composited: the seven others each name four textures and this one names
+  none, which makes it the cheapest thing the app can draw and the answer for a machine
+  where the grain is costing more than it is worth. It is deliberately a placeholder as
+  well: the key is reserved for a glass set — modern, lit from behind — that is a design
+  rather than four tiles, and shipping the flat version first means it can land later
+  without moving anybody's stored preference twice. "No material" is a choice about the
+  set, so it is not offered as a twenty-ninth tile in the per-slot picker.
+
 - **A longest-streak tile in Stats → Memory**, with today's run as the line under it. The
   drawer and the Home card both show the *current* streak and neither can say whether it
   is any good: a run that has ended is invisible to that number by construction, so

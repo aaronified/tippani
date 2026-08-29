@@ -238,6 +238,7 @@ object in the room glass makes no sense on. Read each as somewhere you could sta
 | **Atelier** | `canvas` | `denim` | `cotton` | `wool` |
 | **Bindery** | `concrete` | `leather-suede` | `paper-photo` | `leather-pebbled` |
 | **Quarry** | `sandstone` | `granite` | `satin` | `marble` |
+| **Atrium** | *(none)* | *(none)* | *(none)* | *(none)* |
 
 A cloth blotter with paper on it and boards on the book; a steel bench with alloy
 furniture and glass on the poster; a glass desktop with a rubber mat; a timber desk
@@ -247,6 +248,16 @@ room: a poured floor, a suede-topped bench, photographic stock to work on, the b
 bound in pebbled hide, and the only set where the cover is the softest thing in it.
 And a stonecutter's: sandstone underfoot, a granite bench, coated stock, marble
 boards.
+
+**Atrium is the eighth and has no row in the table above it, because it uses no
+tile.** Its four slots resolve to `--tile-flat` — a transparent gradient, a valid
+background layer that draws nothing — so its surfaces are flat colour and the accent,
+and it is the only set that composites nothing at all. That is a real property and not
+an omission: it is the fastest surface in the app, and the two full-viewport layers it
+still shares with the rest are the cheap ones. It is also a **placeholder**, holding the
+key for a glass set — modern, lit from behind — that is a design rather than four tiles.
+Shipping the flat version first gives the key a meaning people can use now and gives the
+glass one somewhere to land without migrating everybody's stored preference twice.
 
 `cover` is a real slot, not decoration: the missing-cover hatch composites **above**
 it, so "no cover yet" reads as a hatch while the boards it would be bound in show

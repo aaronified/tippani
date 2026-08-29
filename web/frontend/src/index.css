@@ -270,6 +270,13 @@
      The scales and strengths that go with these live in
      src/textures/README.md, measured per file. ---- */
   :root {
+    /* THE ONE TILE THAT IS NOT A FILE. Atrium has no material: its surfaces are
+       flat colour, so its slots resolve to nothing to draw. It still has to be a
+       VALID background-image layer, because the selection fills composite
+       var(--tile-shell) by name — an undeclared custom property there would
+       invalidate the whole declaration and take the fill with it. A transparent
+       gradient is the layer that costs nothing and is still a layer. */
+    --tile-flat: linear-gradient(transparent, transparent);
     --tile-paper: url("./textures/paper.webp");
     --tile-linen: url("./textures/linen.png");
     --tile-cotton: url("./textures/cotton.png");

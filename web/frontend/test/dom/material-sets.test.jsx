@@ -53,17 +53,23 @@ describe('a material set reaches the page', () => {
       expect(seen.has(sig), `${name} is ${seen.get(sig)} under another name`).toBe(false)
       seen.set(sig, name)
     }
-    expect(seen.size).toBe(7)
+    // Eight: the seven rooms, and Atrium — whose signature is four flat slots,
+    // which is as distinct a signature as any of the others.
+    expect(seen.size).toBe(8)
   })
 
   it('names a tile the stylesheet actually declares', () => {
     // theme.js writes var(--tile-linen); index.css has to be the file that says
     // what linen is. A typo here resolves to nothing at all and the surface simply
     // loses its grain — no error, no warning.
+    //
+    // NOT ONLY url(). Atrium's --tile-flat is a transparent gradient — a valid
+    // layer that draws nothing — and matching url() alone would report the one
+    // set that is CORRECTLY textureless as the one that is broken.
     const declared = new Set(
       [...require('node:fs')
         .readFileSync(require('node:path').join(process.env.TIPPANI_SRC, 'index.css'), 'utf8')
-        .matchAll(/--tile-([\w-]+):\s*url\(/g)].map((m) => m[1]),
+        .matchAll(/--tile-([\w-]+):\s*(?:url|linear-gradient)\(/g)].map((m) => m[1]),
     )
     const missing = []
     for (const name of Object.keys(MAT_SETS)) {
@@ -74,6 +80,25 @@ describe('a material set reaches the page', () => {
       }
     }
     expect(missing, 'a slot points at a tile index.css never declares').toEqual([])
+  })
+
+  // ATRIUM IS THE PLAIN ONE, and "plain" has to mean nothing is drawn rather
+  // than something is covered. A veil at strength 0 would look identical and
+  // still name two tile layers the browser fetches and composites — which is
+  // the opposite of the point of the set.
+  it('gives Atrium no surface stack at all, not a covered one', () => {
+    applyTheme({ materialSet: 'atrium', theme: 'light' })
+    for (const slot of ['ground', 'shell', 'card', 'cover']) {
+      expect(prop(`--surf-${slot}-image`), `${slot} still draws something`).toBe('none')
+    }
+    // And the selection fills lose their tile with it: the veil is total.
+    expect(prop('--sel-veil')).toBe('100.0%')
+  })
+
+  it('leaves Atrium out of the per-slot material picker', () => {
+    // "No material" is a choice about the SET; offering it as a twenty-ninth
+    // tile would put it in a list where it reads as a broken slot.
+    expect(TILE_NAMES).not.toContain('flat')
   })
 
   it('falls back to Manuscript rather than to nothing', () => {
@@ -218,6 +243,9 @@ describe('a slot can be overridden off the set', () => {
   })
 
   it('offers every tile the stylesheet declares, and nothing it does not', () => {
+    // url() only, deliberately: the picker offers MATERIALS, and every material
+    // is a file. --tile-flat is the one declaration that is not, and it must not
+    // be in this list — see TILE_NAMES.
     const declared = new Set(
       [...require('node:fs')
         .readFileSync(require('node:path').join(process.env.TIPPANI_SRC, 'index.css'), 'utf8')
