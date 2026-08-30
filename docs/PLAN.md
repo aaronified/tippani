@@ -2965,6 +2965,33 @@ A standalone film fails the other way. Nothing scores highly, the distractors sh
 
 **THE PREVIEW AND THE FILE ARE TWO URLS, and that is forced by the CSP.** `img-src` is an allowlist that matches `metadata.coverHosts`, and a web image search returns pictures from hosts that cannot be enumerated in advance — that set is the web. So a hit carries `thumb` (the supplier's own thumbnail host, which CAN be allowlisted — `*.gstatic.com` is the one host added) for the page to draw, and `url` (the original) for the server to fetch once the reader picks it, where no CSP applies. The picker keeps drawing the thumbnail for the pending pick until the save replaces both with a stored file. Rejected: relaxing `img-src` to `https:`, which trades a deliberate allowlist for a convenience; and proxying previews through our own host, which is a new fetch surface for something the reader has not chosen yet.
 
+### A stored title is re-read from the DEFAULT source, and that rule lives in one function
+
+**Decided.** `preferredSourceFor(tmdbID, tvdbID, igdbID)` is the single answer to "which
+supplier does this work read from": TheTVDB, then TMDB, then Wikidata for a game's people
+namespace. `reverifyMovie` and `castSourceForWork` both defer to it.
+
+**Why.** The precedence was written out twice and 2.2.0 updated neither, so both said TMDB
+first — while the lookup route, the Settings card and the keyless-install message all said
+TheTVDB is the default film and show source. A title carrying BOTH ids therefore went on
+reading from TMDB for ever and never saw the per-role art the default moved for. Worse, a
+title *acquires* both ids by ordinary use: re-verify offers a `tvdb_id` diff whenever
+TheTVDB's record carries one, so accepting that diff was how a reader took their own title
+out of the new default. The "still on TMDB" notice counts `tvdb_id IS NULL`, so those rows
+left the count at the same moment — still on TMDB, and the app had stopped saying so.
+
+**The second case is a fallback and not a second preference.** A work pinned to TheTVDB on
+an install whose TheTVDB key is missing re-verifies against TMDB rather than reporting
+itself broken. Rejected: failing such a row with "the pinned source needs its key", which
+is true of the preferred source and useless when another one can answer.
+
+**Blast radius, deliberately bounded.** Re-verify is preview-then-approve, so nothing is
+overwritten without the reader ticking it, and `metadata/fill` writes only into fields
+that are empty. The visible change is that a dual-pinned title now shows TheTVDB's facts
+in the diff, which is the change that was wanted.
+
+<sub>2.3.0 — `internal/httpapi/cast.go` · `internal/httpapi/reverify_handlers.go` · `internal/httpapi/dual_pin_test.go`</sub>
+
 **THE SUPPLIERS ARE AN ORDERED LADDER, NOT A FLAT MERGE.** `character` climbs TheTVDB
 first and then the web search; `portrait` climbs TheTVDB, then TMDB, then the web search;
 `cover` and `poster` keep the keyless Amazon CDN probe at the top. Order is priority and

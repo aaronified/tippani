@@ -289,15 +289,7 @@ func castSourceForWork(tx *sql.Tx, movieID int64) string {
 		 FROM movies WHERE id = ?`, movieID).Scan(&tmdbID, &tvdbID, &igdbID); err != nil {
 		return ""
 	}
-	switch {
-	case tmdbID != 0:
-		return "tmdb"
-	case tvdbID != 0:
-		return "tvdb"
-	case igdbID != 0:
-		return "wikidata"
-	}
-	return ""
+	return preferredSourceFor(tmdbID, tvdbID, igdbID)
 }
 
 // storedCast is the merge's view of one row a provider seeded: enough to decide
@@ -1131,4 +1123,39 @@ func carryWorkCast(tx *sql.Tx, uid int64, kind string, into int64, from []int64)
 		}
 	}
 	return nil
+}
+
+// preferredSourceFor names the supplier a work's metadata is read from.
+//
+// ONE FUNCTION BECAUSE IT IS ONE RULE, and it had been written out twice — here,
+// to label which namespace a cast row's person_id belongs to, and in
+// reverifyMovie, to choose who to re-fetch from. Two copies of a precedence is
+// two places to update when the precedence moves, and when 2.2.0 moved it,
+// neither was updated.
+//
+// THETVDB FIRST, WHICH IS WHAT THE REST OF THE APP ALREADY SAYS. 2.2.0 made it
+// the default film and show source because its character records carry an image
+// per role and TMDB has no equivalent at any endpoint. The lookup route says so,
+// the Settings card says so, and a keyless install is told to configure TheTVDB
+// first. The resolvers said otherwise: they tried TMDB first, so a title carrying
+// BOTH ids went on reading from TMDB for ever and never saw the art the default
+// moved for.
+//
+// And a title acquires both ids by ordinary use — re-verify offers a `tvdb_id`
+// diff whenever TheTVDB's record carries one, so accepting that diff was how a
+// reader took their title OUT of the new default without being told.
+//
+// A GAME IS NEITHER SUPPLIER'S. igdb_id maps to "wikidata" because that is the
+// namespace a game's people ids live in, not because Wikidata is a fallback for
+// the two above.
+func preferredSourceFor(tmdbID, tvdbID, igdbID int64) string {
+	switch {
+	case tvdbID != 0:
+		return "tvdb"
+	case tmdbID != 0:
+		return "tmdb"
+	case igdbID != 0:
+		return "wikidata"
+	}
+	return ""
 }

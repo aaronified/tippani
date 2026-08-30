@@ -258,6 +258,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A film pinned to both TMDB and TheTVDB was still being read from TMDB.** 2.2.0 made
+  TheTVDB the default source for films and shows — the lookup route says so, the
+  Settings card says so, and a keyless install is told to configure TheTVDB first — but
+  the two resolvers that decide *which* supplier a stored title is re-fetched from both
+  tried TMDB first. So a title carrying both ids went on reading from TMDB for ever and
+  never saw the per-character art the default moved for.
+
+  A title acquires both ids by ordinary use, which is what made this quiet: re-verify
+  offers a `tvdb_id` diff whenever TheTVDB's record carries one, so accepting that diff
+  was how a reader took their own title *out* of the new default. And the "still on
+  TMDB" notice counts only titles with no TheTVDB id, so those rows left the count at
+  the same moment — still fetching from TMDB, with the app no longer saying so. Both
+  resolvers now defer to one shared rule, so the next time the default moves there is
+  one place to change rather than two that can disagree. Where TheTVDB is preferred but
+  its key is missing, TMDB still answers — that is a fallback, not a preference.
+
 - **A picture for a character in a book, a game, or any film still pinned to TMDB.**
   TheTVDB has an image per role and needs the work pinned to TheTVDB to find it, which
   leaves out every book character, every game's typed voice cast, and every title that

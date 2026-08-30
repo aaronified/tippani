@@ -313,18 +313,23 @@ func (s *Server) reverifyMovie(ctx context.Context, uid, id int64, tmdb *metadat
 
 	var det *metadata.MovieDetails
 	var lerr error
+	// THE DEFAULT SOURCE FIRST — see preferredSourceFor in cast.go for why this
+	// order is TheTVDB's and what the old TMDB-first order silently cost a title
+	// pinned to both. The second case is a genuine fallback rather than a second
+	// preference: a work pinned to TheTVDB on an install whose TheTVDB key is
+	// missing still re-verifies against TMDB rather than reporting itself broken.
 	switch {
-	case tmdbID != 0 && tmdb != nil:
-		if mediaType == "show" {
-			det, lerr = tmdb.DetailsTV(ctx, tmdbID)
-		} else {
-			det, lerr = tmdb.Details(ctx, tmdbID)
-		}
 	case tvdbID != 0 && tvdb != nil:
 		if mediaType == "show" {
 			det, lerr = tvdb.SeriesDetails(ctx, strconv.FormatInt(tvdbID, 10))
 		} else {
 			det, lerr = tvdb.MovieDetails(ctx, strconv.FormatInt(tvdbID, 10))
+		}
+	case tmdbID != 0 && tmdb != nil:
+		if mediaType == "show" {
+			det, lerr = tmdb.DetailsTV(ctx, tmdbID)
+		} else {
+			det, lerr = tmdb.Details(ctx, tmdbID)
 		}
 	case tmdbID != 0 || tvdbID != 0:
 		it.Status = "fetch_failed"
