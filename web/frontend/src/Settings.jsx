@@ -3617,14 +3617,20 @@ function Metadata({ user, onPreferences }) {
             busy={saving}
             onSave={(v) => saveKey('tmdb_key', v)}
           />
-          <KeyField
-            label={keyLabel('tvdb', 'pin')}
-            hint={t('settings.keys.tvdb-pin.hint')}
-            set={keys?.tvdb_pin_set}
-            placeholder={t('settings.keys.tvdb-pin.placeholder')}
-            busy={saving}
-            onSave={(v) => saveKey('tvdb_pin', v)}
-          />
+          {/* THE KEY FIRST AND THE PIN UNDER IT, which is both the order they
+              are needed in and the order the copy has always claimed.
+
+              THE PIN WAS ON TOP, so the first TheTVDB thing on the card was a
+              SUBSCRIBER PIN — and the reader's reasonable conclusion is that
+              TheTVDB wants a subscription. It does not: a project key, which is
+              the kind bundled with the app and the kind Jellyfin ships,
+              authenticates on its own and never sends a pin at all (see login()
+              in tvdb.go, which omits the field when it is empty). Only the free
+              user-supported key needs one.
+
+              The hint on the key row said "the PIN below" while the PIN sat
+              above it, so the copy was already describing this arrangement and
+              the fields were the thing that was wrong. */}
           <KeyField
             label={keyLabel('tvdb', 'key')}
             hint={t('settings.keys.tvdb.hint')}
@@ -3632,6 +3638,14 @@ function Metadata({ user, onPreferences }) {
             placeholder={t('settings.keys.tvdb.placeholder')}
             busy={saving}
             onSave={(v) => saveKey('tvdb_key', v)}
+          />
+          <KeyField
+            label={keyLabel('tvdb', 'pin')}
+            hint={t('settings.keys.tvdb-pin.hint')}
+            set={keys?.tvdb_pin_set}
+            placeholder={t('settings.keys.tvdb-pin.placeholder')}
+            busy={saving}
+            onSave={(v) => saveKey('tvdb_pin', v)}
           />
           {/* IGDB IS A PAIR, AND BOTH HALVES GET A ROW. The endpoint has
               accepted these since 1.15.1 and reports the two halves separately —

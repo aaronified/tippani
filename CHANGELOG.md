@@ -258,6 +258,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **TheTVDB's key field stopped reading as though it needed a subscription.** The
+  subscriber PIN sat *above* the API key on the Settings card, so the first TheTVDB
+  thing anybody saw was a PIN — and the reasonable conclusion is that TheTVDB wants a
+  paid subscriber account. It does not. A *project* key authenticates on its own and
+  never sends a PIN at all, which is the kind bundled with the app and the same
+  arrangement Jellyfin ships; only the free user-supported key needs one. The app knew
+  this and said it in the wrong place: "a paid project key needs no PIN" was the last
+  line of the *PIN's* own tooltip, which you only open if you already believe you need
+  a PIN. The key now comes first, and both tooltips say which kind needs what. The key
+  row's hint also said "the PIN below" while the PIN was above it.
+
 - **A film pinned to both TMDB and TheTVDB was still being read from TMDB.** 2.2.0 made
   TheTVDB the default source for films and shows — the lookup route says so, the
   Settings card says so, and a keyless install is told to configure TheTVDB first — but
