@@ -584,7 +584,6 @@ vocab.source.wikidata.label = Wikidata
 vocab.source.amazon.label = অ্যামাজন
 # The picture search — Google's Programmable Search, which is a different
 # product from the Books API above and takes a different pair of credentials.
-vocab.source.google-cse.label = গুগল ছবি খোঁজা
 vocab.source.tmdb.label = TMDB
 vocab.source.tvdb.label = TheTVDB
 # What a row whose supplier the app does not recognise is called.
@@ -4613,7 +4612,6 @@ settings.keys.noun.domain = ডোমেন
 settings.keys.noun.pin = PIN
 # The half of a Programmable Search credential that names WHICH engine — its own
 # console calls it a search engine ID.
-settings.keys.noun.engine-id = ইঞ্জিন আইডি
 
 settings.keys.google.hint = ইচ্ছেমতো, আর দিনে 1,000-এর মতো খোঁজ পেরোলেই তবে দরকার: console.cloud.google.com → Books API চালু করুন → একটা কি বানান। বই কোনও কি ছাড়াই চলে।
 settings.keys.google.placeholder = গুগল বুকস API কি — ইচ্ছেমতো
@@ -4634,13 +4632,9 @@ settings.keys.amazon-cookie.placeholder = Amazon সেশন কুকি — �
 settings.keys.amazon-domain.hint = যে মার্কেটপ্লেসে বই কেনা হয়েছিল, যেমন www.amazon.com বা www.amazon.de। এটা গোপন কিছু নয়, তাই এটা নিজের মানটা দেখায়।
 # §8 — a domain to type, not a word to read.
 settings.keys.amazon-domain.placeholder = www.amazon.com
-settings.keys.google-cse.hint = গুগল এই API-তে নতুন কাউকে আর নিচ্ছে না, আর ২০২৭-র ১ জানুয়ারি এটা বন্ধ করে দেবে — তাই আগে থেকে কি থাকলে তবেই এই ঘরটা কাজে লাগে। ছবির সিঁড়ি এটা ছাড়াও চলে: TheTVDB, Wikimedia আর Fandom-এ কোনও কি লাগে না।
-settings.keys.google-cse.placeholder = Custom Search API key — ঐচ্ছিক
-settings.keys.google-cse-cx.hint = জোড়ার বাকি অর্ধেক, আপনার বানানো ইঞ্জিনের “Search engine ID”। এটা গোপন নয়, তাই মানটা দেখা যায়। একটা ছাড়া আরেকটা কিছুই খোঁজে না।
 settings.keys.google-scrape.title = গুগল ছবির ফল সরাসরি পড়া হবে
 settings.keys.google-scrape.aria = গুগল ছবির ফল সরাসরি পড়া হবে
 settings.keys.google-scrape.info.body = একেবারে শেষ উপায়, উপরের কিছুতেই উত্তর না এলে তবেই। কি লাগে না, কারণ এটা ফলের পাতাটাই পড়ে — তাই অনুরোধ যায় এই সার্ভার থেকে, আর সীমা পড়লে বা সম্মতির দেয়াল এলে তা সবার উপরেই পড়ে। শুরুতে বন্ধ থাকে।
-settings.keys.google-cse-cx.placeholder = Search engine ID (cx)
 
 settings.keys.unset.label = দেওয়া নেই
 settings.keys.need.bundled.label = সঙ্গেই আছে

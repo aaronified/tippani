@@ -56,12 +56,11 @@ const (
 	settingGoogleBooksKey = "google_books_key"
 	settingAmazonCookie   = "amazon_cookie" // secret: write-only, never echoed
 	settingAmazonDomain   = "amazon_domain" // not secret: e.g. www.amazon.com
-	// TWO HALVES, LIKE THE IGDB PAIR, and stored apart for the same reason: they
-	// are typed at different moments from different pages, so requiring both in
-	// one request would make correcting a mistyped key mean re-entering the
-	// engine id. Neither on its own searches anything — see handleImageSearch.
-	settingGoogleCSEKey = "google_cse_key" // secret: write-only, never echoed
-	settingGoogleCSECX  = "google_cse_cx"  // the engine id; not secret, so it is echoed
+	// GOOGLE'S CUSTOM SEARCH KEY AND ENGINE ID USED TO LIVE HERE. Google closed
+	// that API to new customers and set it to retire on 1 January 2027, so the two
+	// fields asked readers to register for something they could not get and would
+	// then lose. The remaining Google path is the results-page scrape below, whose
+	// opt-in is a setting rather than a credential because it needs none.
 	// THE OPT-IN FOR SCRAPING GOOGLE'S IMAGE RESULTS, which is a SETTING and not
 	// a credential because scraping Google needs none. Every other opt-in in this
 	// block doubles as the permission — you cannot use the Amazon scrape without
@@ -251,12 +250,10 @@ func (s *Server) handleGetMetadataKeys(w http.ResponseWriter, r *http.Request) {
 	vkey, err5 := s.Store.GetSetting(settingTVDBKey)
 	igdbID, err6 := s.Store.GetSetting(settingIGDBClientID)
 	igdbSec, err7 := s.Store.GetSetting(settingIGDBSecret)
-	csekey, err8 := s.Store.GetSetting(settingGoogleCSEKey)
-	csecx, err9 := s.Store.GetSetting(settingGoogleCSECX)
 	vpin, err10 := s.Store.GetSetting(settingTVDBPIN)
 	scrape, err11 := s.Store.GetSetting(settingGoogleScrape)
-	if err1 != nil || err2 != nil || err3 != nil || err4 != nil || err5 != nil || err6 != nil || err7 != nil || err8 != nil || err9 != nil || err10 != nil || err11 != nil {
-		internalError(w, r, "load metadata keys", errors.Join(err1, err2, err3, err4, err5, err6, err7, err8, err9, err10, err11))
+	if err1 != nil || err2 != nil || err3 != nil || err4 != nil || err5 != nil || err6 != nil || err7 != nil || err10 != nil || err11 != nil {
+		internalError(w, r, "load metadata keys", errors.Join(err1, err2, err3, err4, err5, err6, err7, err10, err11))
 		return
 	}
 	_, source := s.resolveTMDB()
@@ -288,12 +285,10 @@ func (s *Server) handleGetMetadataKeys(w http.ResponseWriter, r *http.Request) {
 		// first fact to say "a key here only REPLACES what ships with the app",
 		// which is the difference between a field somebody must fill and a field
 		// they may.
-		"tmdb_builtin":       s.TMDBBuiltin != "",
-		"tvdb_builtin":       s.TVDBBuiltin != "",
-		"google_cse_key_set": csekey != "",
-		"google_scrape":      scrape == "1",
-		"google_cse_cx":      csecx,
-		"image_search":       (csekey != "" && csecx != "") || acookie != "",
+		"tmdb_builtin":  s.TMDBBuiltin != "",
+		"tvdb_builtin":  s.TVDBBuiltin != "",
+		"google_scrape": scrape == "1",
+		"image_search":  true, // see imageSearchConfigured: the ladder has keyless rungs
 	})
 }
 
@@ -312,8 +307,6 @@ func (s *Server) handlePutMetadataKeys(w http.ResponseWriter, r *http.Request) {
 		AmazonDomain   *string `json:"amazon_domain"`
 		IGDBClientID   *string `json:"igdb_client_id"`
 		IGDBSecret     *string `json:"igdb_secret"`
-		GoogleCSEKey   *string `json:"google_cse_key"`
-		GoogleCSECX    *string `json:"google_cse_cx"`
 		// A BOOLEAN OVER THE WIRE, stored as "1"/"" so it goes through the same
 		// pointer-means-omitted machinery every other field uses rather than
 		// growing a second save path for one checkbox.
@@ -378,14 +371,6 @@ func (s *Server) handlePutMetadataKeys(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// The picture search's pair, saved independently for the same reason.
-	if err := set(settingGoogleCSEKey, req.GoogleCSEKey); err != nil {
-		internalError(w, r, "save google cse key", err)
-		return
-	}
-	if err := set(settingGoogleCSECX, req.GoogleCSECX); err != nil {
-		internalError(w, r, "save google cse engine id", err)
-		return
-	}
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 

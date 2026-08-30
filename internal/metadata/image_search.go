@@ -33,8 +33,6 @@ package metadata
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -46,8 +44,7 @@ import (
 
 // Test seams: real endpoints in production, httptest servers in tests.
 var (
-	googleCSEBase = "https://www.googleapis.com"
-	amazonBase    = "" // "" means "use the marketplace domain the caller passed"
+	amazonBase = "" // "" means "use the marketplace domain the caller passed"
 )
 
 // ImageHit is one picture offered to the reader.
@@ -70,56 +67,17 @@ type ImageHit struct {
 // twentieth candidate has never been the one.
 const maxImageHits = 12
 
-// GoogleImageSearch runs one Custom Search image query. Both halves of the
-// credential are required — a key with no engine id searches nothing, and the
-// API answers 400 rather than falling back to a default engine.
-func GoogleImageSearch(ctx context.Context, key, cx, query string, n int) ([]ImageHit, error) {
-	key, cx, query = strings.TrimSpace(key), strings.TrimSpace(cx), strings.TrimSpace(query)
-	if key == "" || cx == "" || query == "" {
-		return nil, nil
-	}
-	if n <= 0 || n > 10 {
-		n = 10 // the API's own per-request maximum
-	}
-	u := fmt.Sprintf("%s/customsearch/v1?key=%s&cx=%s&searchType=image&safe=active&num=%d&q=%s",
-		googleCSEBase, url.QueryEscape(key), url.QueryEscape(cx), n, url.QueryEscape(query))
-	body, status, err := httpGet(ctx, u, "")
-	if err != nil {
-		return nil, fmt.Errorf("google images: %w", err)
-	}
-	if status == http.StatusTooManyRequests || status == http.StatusForbidden {
-		// The daily free allowance is 100 queries. Named rather than folded into
-		// "status 4xx", because it is the failure this source will actually have
-		// and the remedy is a different one (wait, or raise the quota).
-		return nil, fmt.Errorf("google images: quota or key rejected (status %d)", status)
-	}
-	if status != http.StatusOK {
-		return nil, fmt.Errorf("google images: status %d", status)
-	}
-	var out struct {
-		Items []struct {
-			Link  string `json:"link"`
-			Image struct {
-				ThumbnailLink string `json:"thumbnailLink"`
-			} `json:"image"`
-		} `json:"items"`
-	}
-	if err := json.Unmarshal(body, &out); err != nil {
-		return nil, fmt.Errorf("google images: %w", err)
-	}
-	var hits []ImageHit
-	for _, it := range out.Items {
-		if !strings.HasPrefix(it.Link, "https://") {
-			continue // an http image would be blocked on the way in anyway
-		}
-		hits = append(hits, ImageHit{URL: it.Link, Thumb: it.Image.ThumbnailLink, Source: "google"})
-	}
-	return hits, nil
-}
+// GOOGLE'S CUSTOM SEARCH JSON API USED TO BE A RUNG HERE AND IS GONE.
+//
+// Google closed it to new customers and set it to retire on 1 January 2027, so
+// the app was asking readers to register for something they could not get: two
+// key fields, a quota, and a supplier that would stop answering. Reading the
+// results page (google_scrape.go) is the remaining Google path — worse in every
+// way except the one that now matters, which is that it will still be there.
+//
+// The picture ladder was already built so this is not load-bearing: TheTVDB,
+// Wikimedia and Fandom need no key at all.
 
-// amazonImageRe matches the product images Amazon serves from its own CDN. The
-// id is what varies; the size modifier is stripped by AmazonFullSizeImage so the
-// stored file is the original scan rather than a search-results thumbnail.
 var amazonImageRe = regexp.MustCompile(`https://m\.media-amazon\.com/images/I/[A-Za-z0-9%+._-]+\.(?:jpg|png|webp)`)
 
 // AmazonImageSearch scrapes one search-results page for product art.

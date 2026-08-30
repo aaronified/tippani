@@ -3754,31 +3754,13 @@ function Metadata({ user, onPreferences }) {
               busy={saving}
               onSave={(v) => saveKey('amazon_cookie', v)}
             />
-            {/* THE PICTURE SEARCH'S PAIR, under Amazon rather than under Google
-                Books, because what it belongs beside is the other source that
-                answers "find me a picture of this" rather than "tell me about
-                this record". Two halves, like the IGDB pair and for the same
-                reason: neither searches anything alone. */}
-            <KeyField
-              label={keyLabel('google-cse', 'key')}
-              hint={t('settings.keys.google-cse.hint')}
-              need="closed"
-              set={keys?.google_cse_key_set}
-              placeholder={t('settings.keys.google-cse.placeholder')}
-              busy={saving}
-              onSave={(v) => saveKey('google_cse_key', v)}
-            />
-            <KeyField
-              label={keyLabel('google-cse', 'engine-id')}
-              hint={t('settings.keys.google-cse-cx.hint')}
-              need="closed"
-              secret={false}
-              value={keys?.google_cse_cx || ''}
-              set={!!keys?.google_cse_cx}
-              placeholder={t('settings.keys.google-cse-cx.placeholder')}
-              busy={saving}
-              onSave={(v) => saveKey('google_cse_cx', v)}
-            />
+            {/* GOOGLE'S PROGRAMMABLE SEARCH PAIR STOOD HERE. Google closed that
+                API to new customers and retires it on 1 January 2027, so the two
+                fields asked readers to register for something they could not get
+                and would then lose. What is left of Google is the toggle below,
+                which needs no credential at all — which is why it is a setting
+                rather than a key, and why it sits under Amazon's cookie beside
+                the other thing the reader has to agree to rather than obtain. */}
             {/* THE SCRAPE'S OPT-IN, and the only control on this card that is
                 not a credential.
 

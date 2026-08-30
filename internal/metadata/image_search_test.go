@@ -14,81 +14,12 @@ import (
 	"testing"
 )
 
-func TestGoogleImageSearchKeepsTheThumbnailBesideTheImage(t *testing.T) {
-	var gotQuery string
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		gotQuery = r.URL.Query().Get("q")
-		if r.URL.Query().Get("searchType") != "image" {
-			t.Errorf("not an image search: %s", r.URL.RawQuery)
-		}
-		if r.URL.Query().Get("cx") == "" || r.URL.Query().Get("key") == "" {
-			t.Errorf("credentials missing from the request: %s", r.URL.RawQuery)
-		}
-		fmt.Fprint(w, `{"items":[
-			{"link":"https://example.test/poster.jpg","image":{"thumbnailLink":"https://encrypted-tbn0.gstatic.com/x"}},
-			{"link":"http://insecure.test/poster.jpg","image":{"thumbnailLink":"https://encrypted-tbn0.gstatic.com/y"}}
-		]}`)
-	}))
-	defer srv.Close()
-	googleCSEBase = srv.URL
-	defer func() { googleCSEBase = "https://www.googleapis.com" }()
-
-	hits, err := GoogleImageSearch(context.Background(), "k", "cx", "Heat movie poster", 10)
-	if err != nil {
-		t.Fatalf("search failed: %v", err)
-	}
-	// THE http RESULT IS DROPPED. It would be refused at the fetch, so offering
-	// it is offering a candidate that cannot be taken.
-	if len(hits) != 1 {
-		t.Fatalf("want 1 usable hit, got %+v", hits)
-	}
-	if hits[0].URL != "https://example.test/poster.jpg" {
-		t.Errorf("the stored URL is not the full-size image: %+v", hits[0])
-	}
-	if !strings.Contains(hits[0].Thumb, "gstatic.com") {
-		t.Errorf("the preview is not the allowlisted thumbnail host: %+v", hits[0])
-	}
-	if hits[0].Source != "google" {
-		t.Errorf("hit does not name its source: %+v", hits[0])
-	}
-	if gotQuery != "Heat movie poster" {
-		t.Errorf("query = %q", gotQuery)
-	}
-}
-
-// Half a credential searches nothing, and says so by answering nothing rather
-// than by spending a request that the API refuses with a 400.
-func TestGoogleImageSearchNeedsBothHalves(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
-		t.Error("a request was made without a full credential")
-	}))
-	defer srv.Close()
-	googleCSEBase = srv.URL
-	defer func() { googleCSEBase = "https://www.googleapis.com" }()
-
-	for _, c := range [][2]string{{"", "cx"}, {"key", ""}, {"", ""}} {
-		hits, err := GoogleImageSearch(context.Background(), c[0], c[1], "anything", 10)
-		if err != nil || len(hits) != 0 {
-			t.Errorf("key=%q cx=%q returned %v, %v", c[0], c[1], hits, err)
-		}
-	}
-}
-
-// The quota failure is the one this source will actually have, so it is named
-// rather than folded into "status 4xx".
-func TestGoogleImageSearchNamesTheQuotaFailure(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusTooManyRequests)
-	}))
-	defer srv.Close()
-	googleCSEBase = srv.URL
-	defer func() { googleCSEBase = "https://www.googleapis.com" }()
-
-	_, err := GoogleImageSearch(context.Background(), "k", "cx", "q", 10)
-	if err == nil || !strings.Contains(err.Error(), "quota") {
-		t.Fatalf("err = %v, want the quota named", err)
-	}
-}
+// THE CUSTOM SEARCH TESTS LIVED HERE — thumbnail beside original, both halves of
+// the credential required, the quota failure named. The client they tested is
+// gone: Google closed that API to new customers and retires it on 1 January
+// 2027. The surviving Google path is the results-page scrape, tested in
+// google_scrape_test.go, which needs no credential and therefore has a
+// different shape of failure to guard.
 
 func TestAmazonImageSearchStripsTheSizeModifierAndDedupes(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

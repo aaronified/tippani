@@ -308,11 +308,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **Google's Programmable Search is closed to new customers and retires on 1 January
-  2027**, so the two fields asking for one were sending readers to register for
-  something they can no longer get. Both now say so. Nothing else changes: the picture
-  ladder was already built so that TheTVDB, Wikimedia and Fandom need no key at all,
-  and an existing key goes on working until Google turns it off.
+### Removed
+
+- **The Google Programmable Search key and engine id are gone from Settings.** Google
+  closed that API to new customers and retires it on 1 January 2027, so the two fields
+  asked readers to register for something they could not get and would then lose.
+  *Google image search itself stays* — reading the results page, the toggle in the same
+  section, which needs no credential at all and is why its opt-in is a setting rather
+  than a key. The picture ladder was already built so this is not load-bearing: TheTVDB,
+  Wikimedia and Fandom need no key, and the ladder answers with them alone.
 
 - **TheTVDB's key field stopped reading as though it needed a subscription.** The
   subscriber PIN sat *above* the API key on the Settings card, so the first TheTVDB

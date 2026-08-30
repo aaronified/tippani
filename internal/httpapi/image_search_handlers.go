@@ -34,6 +34,7 @@ package httpapi
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -109,16 +110,13 @@ func (s *Server) handleImageSearch(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "a title, a name, an isbn or an asin is required")
 		return
 	}
-	gkey, err1 := s.Store.GetSetting(settingGoogleCSEKey)
-	gcx, err2 := s.Store.GetSetting(settingGoogleCSECX)
 	cookie, err3 := s.Store.GetSetting(settingAmazonCookie)
 	domain, err4 := s.Store.GetSetting(settingAmazonDomain)
-	if err1 != nil || err2 != nil || err3 != nil || err4 != nil {
-		internalError(w, r, "load image search settings", err1)
+	if err3 != nil || err4 != nil {
+		internalError(w, r, "load image search settings", errors.Join(err3, err4))
 		return
 	}
-	olog.Tracef("[meta] handleImageSearch kind=%s subject=%q google=%t amazon=%t",
-		kind, subject, gkey != "" && gcx != "", cookie != "")
+	olog.Tracef("[meta] handleImageSearch kind=%s subject=%q amazon=%t", kind, subject, cookie != "")
 
 	seen := map[string]bool{}
 	images := []metadata.ImageHit{}
@@ -133,7 +131,6 @@ func (s *Server) handleImageSearch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	query := imageSearchQuery(kind, subject, req.Author, req.Actor, req.Title, req.MediaType, req.Year)
-	googleOn := gkey != "" && gcx != ""
 
 	// THE LADDER, ASSEMBLED BEFORE ANY RUNG RUNS. Order is priority, every rung
 	// that applies still runs, and a rung that cannot run is simply absent — see
@@ -181,25 +178,14 @@ func (s *Server) handleImageSearch(w http.ResponseWriter, r *http.Request) {
 		}})
 	}
 
-	// GOOGLE SITS BELOW EVERY PINNED SUPPLIER AND ABOVE THE SCRAPE. It answers
-	// every kind, which is precisely why it cannot be the top rung for the two
-	// kinds that have a supplier holding the real thing.
-	if googleOn {
-		tier(&imageTier{name: "google", run: func(ctx context.Context) []metadata.ImageHit {
-			hits, err := metadata.GoogleImageSearch(ctx, gkey, gcx, query, 10)
-			if err != nil {
-				// One source failing is not the request failing — the others may
-				// have answered. Logged rather than shown, exactly as the catalogue
-				// lookups do with a provider error.
-				olog.Warnf(olog.CodeMetaLookupFailed, "[meta] google image search %q: %v", query, err)
-				return nil
-			}
-			return hits
-		}})
-	}
-	// THE VERY BOTTOM, under the API version of the same index: anybody who has
-	// configured Programmable Search never reaches it, and it exists for the
-	// install that has configured nothing at all.
+	// GOOGLE SITS BELOW EVERY PINNED SUPPLIER, which is where a search engine
+	// belongs when another supplier holds the actual thing being asked for.
+	//
+	// It used to be two rungs — the Custom Search JSON API, then the results page
+	// as a last resort. Google closed that API to new customers and set it to
+	// retire on 1 January 2027, so the keyed rung was asking readers to register
+	// for something they could not get and would lose. Reading the page is what
+	// is left: worse in every way except the one that now decides it.
 	tier(s.googleScrapeTier(query))
 	if amazonSuits(kind) && cookie != "" {
 		tier(&imageTier{name: "amazon-search", run: func(ctx context.Context) []metadata.ImageHit {
@@ -228,12 +214,14 @@ func (s *Server) handleImageSearch(w http.ResponseWriter, r *http.Request) {
 	// reporting only google/amazon would have it announce an unconfigured app to
 	// a reader whose TheTVDB key is working.
 	srcs := map[string]bool{
-		"google": googleOn,
 		"amazon": amazonSuits(kind) && cookie != "",
 	}
 	for _, t := range tiers {
 		switch t.name {
-		case "tvdb", "tmdb", "wikimedia", "fandom", "google-scrape":
+		case "google-scrape":
+			// Reported under the name the reader knows and the hits carry.
+			srcs["google"] = true
+		case "tvdb", "tmdb", "wikimedia", "fandom":
 			srcs[t.name] = true
 		}
 	}
@@ -351,15 +339,15 @@ func mediaNoun(mediaType string) string {
 	}
 }
 
-// imageSearchConfigured reports whether any keyed picture source is available —
+// imageSearchConfigured reports whether a picture search can find anything —
 // read by GET /metadata/status so a picker can offer the strip rather than
-// promising a search that has nothing behind it.
-func (s *Server) imageSearchConfigured(_ context.Context) bool {
-	k, _ := s.Store.GetSetting(settingGoogleCSEKey)
-	cx, _ := s.Store.GetSetting(settingGoogleCSECX)
-	if k != "" && cx != "" {
-		return true
-	}
-	c, _ := s.Store.GetSetting(settingAmazonCookie)
-	return c != ""
-}
+// promising a search with nothing behind it.
+//
+// IT IS ALWAYS TRUE NOW, and that is the honest answer rather than a shortcut.
+// It was written when every rung needed a credential, so "is anything set up"
+// was a real question. The ladder has since grown three keyless rungs —
+// Wikimedia, Fandom, and TheTVDB on the bundled key — so a picture search always
+// has somebody to ask. Kept as a function, and kept in the status payload,
+// because the client asks the question and a constant is the correct answer to
+// it rather than a reason to make the client stop asking.
+func (s *Server) imageSearchConfigured(_ context.Context) bool { return true }

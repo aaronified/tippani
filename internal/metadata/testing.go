@@ -18,21 +18,20 @@ func SetWikidataBaseForTest(t *testing.T, base string) {
 	t.Cleanup(func() { wikidataBase = orig })
 }
 
-// SetImageSearchBasesForTest points the picture sources at stub servers for the
-// duration of one test — the Google Custom Search host and the Amazon
-// marketplace. Same reasoning as SetWikidataBaseForTest: httpapi's own tests
-// reach these through this package, so the seam has to be reachable from
-// outside without exporting the variables themselves. Pass "" to leave one alone.
-func SetImageSearchBasesForTest(t *testing.T, google, amazon string) {
+// SetAmazonBaseForTest points the Amazon marketplace at a stub server for one
+// test. Same reasoning as SetWikidataBaseForTest: httpapi's own tests reach it
+// through this package.
+//
+// It took a Google Custom Search base too until that API was retired from the
+// app. The remaining Google path is the results-page scrape, whose base is set by
+// SetFandomAndScrapeBasesForTest.
+func SetAmazonBaseForTest(t *testing.T, base string) {
 	t.Helper()
-	g, a := googleCSEBase, amazonBase
-	if google != "" {
-		googleCSEBase = google
+	orig := amazonBase
+	if base != "" {
+		amazonBase = base
 	}
-	if amazon != "" {
-		amazonBase = amazon
-	}
-	t.Cleanup(func() { googleCSEBase, amazonBase = g, a })
+	t.Cleanup(func() { amazonBase = orig })
 }
 
 // SetAmazonCDNBaseForTest points the keyless cover host at a stub for one test.

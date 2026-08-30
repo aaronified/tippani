@@ -59,13 +59,15 @@ func TestAYearNarrowsAWorkAndNeverAFace(t *testing.T) {
 	var asked string
 	cse := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		asked = r.URL.Query().Get("q")
-		fmt.Fprint(w, `{"items":[]}`)
+		fmt.Fprint(w, `<html><body>no pictures here</body></html>`)
 	}))
 	defer cse.Close()
-	metadata.SetImageSearchBasesForTest(t, cse.URL, "")
 	srv := newTestServer(t)
+	// AFTER newTestServer, NOT BEFORE: the helper pins the scrape base at a silent
+	// stub so no test can reach the real Google, and the later call wins.
+	metadata.SetFandomAndScrapeBasesForTest(t, "", cse.URL)
 	c := signupAdmin(t, srv.Handler())
-	c.mustDo("PUT", "/admin/metadata-keys", map[string]any{"google_cse_key": "k", "google_cse_cx": "cx"}, 200)
+	c.mustDo("PUT", "/admin/metadata-keys", map[string]any{"google_scrape": true}, 200)
 
 	c.mustDo("POST", "/images/search", map[string]any{"kind": "portrait", "name": "Ursula K. Le Guin", "year": 1974}, 200)
 	if strings.Contains(asked, "1974") {
@@ -121,14 +123,16 @@ func TestImageSearchAsksForTheRightKindOfPicture(t *testing.T) {
 			var asked string
 			cse := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				asked = r.URL.Query().Get("q")
-				fmt.Fprint(w, `{"items":[]}`)
+				fmt.Fprint(w, `<html><body>no pictures here</body></html>`)
 			}))
 			defer cse.Close()
-			metadata.SetImageSearchBasesForTest(t, cse.URL, "")
 
 			srv := newTestServer(t)
+			// AFTER newTestServer: the helper pins the scrape base at a silent stub so no
+			// test can reach the real Google, and the later call wins.
+			metadata.SetFandomAndScrapeBasesForTest(t, "", cse.URL)
 			c := signupAdmin(t, srv.Handler())
-			c.mustDo("PUT", "/admin/metadata-keys", map[string]any{"google_cse_key": "k", "google_cse_cx": "cx"}, 200)
+			c.mustDo("PUT", "/admin/metadata-keys", map[string]any{"google_scrape": true}, 200)
 			c.mustDo("POST", "/images/search", tc.body, 200)
 			if asked != tc.want {
 				t.Errorf("query = %q, want %q", asked, tc.want)
@@ -148,12 +152,15 @@ func TestImageSearchSurvivesOneSupplierFailing(t *testing.T) {
 		fmt.Fprint(w, `<img src="https://m.media-amazon.com/images/I/zzz._SY300_.jpg">`)
 	}))
 	defer amazon.Close()
-	metadata.SetImageSearchBasesForTest(t, cse.URL, amazon.URL)
 
 	srv := newTestServer(t)
+	// AFTER newTestServer: the helper pins the scrape base at a silent stub so no
+	// test can reach the real Google, and the later call wins.
+	metadata.SetFandomAndScrapeBasesForTest(t, "", cse.URL)
+	metadata.SetAmazonBaseForTest(t, amazon.URL)
 	c := signupAdmin(t, srv.Handler())
 	c.mustDo("PUT", "/admin/metadata-keys", map[string]any{
-		"google_cse_key": "k", "google_cse_cx": "cx", "amazon_cookie": "session=1",
+		"google_scrape": true, "amazon_cookie": "session=1",
 	}, 200)
 
 	got := decode[imageSearchResp](t, c.mustDo("POST", "/images/search",
@@ -213,15 +220,17 @@ func TestImageSearchOffersAmazonByISBNWithNoKeysAndSkipsThePlaceholder(t *testin
 // every reader has a people console.
 func TestImageSearchIsAvailableToEveryReader(t *testing.T) {
 	cse := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		fmt.Fprint(w, `{"items":[{"link":"https://pics.test/leguin.jpg","image":{"thumbnailLink":"https://encrypted-tbn0.gstatic.com/t"}}]}`)
+		fmt.Fprint(w, `<img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:LEGUIN">`)
 	}))
 	defer cse.Close()
-	metadata.SetImageSearchBasesForTest(t, cse.URL, "")
 
 	srv := newTestServer(t)
+	// AFTER newTestServer: the helper pins the scrape base at a silent stub so no
+	// test can reach the real Google, and the later call wins.
+	metadata.SetFandomAndScrapeBasesForTest(t, "", cse.URL)
 	h := srv.Handler()
 	admin := signupAdmin(t, h)
-	admin.mustDo("PUT", "/admin/metadata-keys", map[string]any{"google_cse_key": "k", "google_cse_cx": "cx"}, 200)
+	admin.mustDo("PUT", "/admin/metadata-keys", map[string]any{"google_scrape": true}, 200)
 	bob := addUser(t, h, admin, "bob")
 
 	got := decode[imageSearchResp](t, bob.mustDo("POST", "/images/search",
@@ -229,10 +238,21 @@ func TestImageSearchIsAvailableToEveryReader(t *testing.T) {
 	if len(got.Images) != 1 {
 		t.Fatalf("a reader who is not an admin got no strip: %+v", got)
 	}
-	// THE PREVIEW AND THE FILE ARE DIFFERENT URLS, and the page can only draw
-	// one of them: img-src names the hosts, and a web image lives anywhere.
-	if got.Images[0].Thumb == "" || got.Images[0].URL == got.Images[0].Thumb {
+	// THE STRIP MUST HAVE SOMETHING IT IS ALLOWED TO DRAW, which is what this
+	// assertion has always been about — img-src names the hosts and a web image
+	// lives anywhere.
+	//
+	// It used to say the two URLs must DIFFER, because the Custom Search API
+	// returned an original on an unknowable host plus a gstatic thumbnail. Reading
+	// the results page returns only the thumbnail, so URL and Thumb are the same
+	// value on purpose: the picture offered IS the picture stored, and saying so
+	// is what makes the picker draw exactly what it will keep. What still has to
+	// hold is that the drawable URL is on the one host the CSP allows.
+	if got.Images[0].Thumb == "" {
 		t.Errorf("the strip has nothing it is allowed to draw: %+v", got.Images[0])
+	}
+	if !strings.Contains(got.Images[0].Thumb, "gstatic.com") {
+		t.Errorf("the preview is not on an allowlisted host: %+v", got.Images[0])
 	}
 	// And the reader can tell there is a search behind the button.
 	st := decode[struct {
@@ -243,42 +263,14 @@ func TestImageSearchIsAvailableToEveryReader(t *testing.T) {
 	}
 }
 
-// The key is a secret and the engine id is not — the same split the Amazon
-// cookie and domain already make, for the same reason: one of them has to be
-// visible to be checked for a typo.
-func TestGoogleCSECredentialsAreStoredWriteOnlyExceptTheEngineID(t *testing.T) {
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	c.mustDo("PUT", "/admin/metadata-keys", map[string]any{"google_cse_key": "sekrit", "google_cse_cx": "abc123"}, 200)
+// GOOGLE'S CUSTOM SEARCH CREDENTIALS USED TO BE TESTED HERE — a write-only key
+// beside a visible engine id, the same split the Amazon cookie and domain make.
+// Both fields are gone: Google closed that API to new customers and set it to
+// retire on 1 January 2027, so the app was asking readers to register for
+// something they could not get. The surviving Google path needs no credential at
+// all, which is why its opt-in is a setting and is tested as one in
+// TestTheGoogleScrapeDoesNothingUntilItIsTurnedOn.
 
-	body := c.mustDo("GET", "/admin/metadata-keys", nil, 200).Body.String()
-	if strings.Contains(body, "sekrit") {
-		t.Fatalf("the key was echoed back: %s", body)
-	}
-	if !strings.Contains(body, `"google_cse_key_set":true`) || !strings.Contains(body, `"google_cse_cx":"abc123"`) {
-		t.Fatalf("the pair is not reported: %s", body)
-	}
-	// A partial save leaves the other half alone — correcting a mistyped key must
-	// not mean re-entering the engine id.
-	c.mustDo("PUT", "/admin/metadata-keys", map[string]any{"google_cse_key": "sekrit2"}, 200)
-	if !strings.Contains(c.mustDo("GET", "/admin/metadata-keys", nil, 200).Body.String(), `"google_cse_cx":"abc123"`) {
-		t.Fatal("saving one half cleared the other")
-	}
-}
-
-// AMAZON IS A SHOP, SO IT IS ASKED ONLY ABOUT THINGS SOMEBODY SELLS.
-//
-// The bug this pins: a portrait or a character strip consulted the Amazon
-// search scrape, which cannot return a face and always returns something —
-// merchandise for the role, the actor's own DVDs, an author's books — so the
-// strip filled up with confident, well-lit, entirely wrong pictures and pushed
-// the suppliers that do have faces out of the cap.
-//
-// Both halves are asserted because they fail independently: the scrape not
-// being CALLED, and `sources.amazon` not CLAIMING it as a live supplier for a
-// kind it will never answer. The second is what the client uses to tell
-// "nothing found" from "nothing configured", so a false claim there makes the
-// reader go looking for a setting that would not have helped.
 func TestAmazonIsNotConsultedForFaces(t *testing.T) {
 	var amazonHits int
 	amazon := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -287,15 +279,18 @@ func TestAmazonIsNotConsultedForFaces(t *testing.T) {
 	}))
 	defer amazon.Close()
 	cse := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		fmt.Fprint(w, `{"items":[]}`)
+		fmt.Fprint(w, `<html><body>no pictures here</body></html>`)
 	}))
 	defer cse.Close()
-	metadata.SetImageSearchBasesForTest(t, cse.URL, amazon.URL)
 
 	srv := newTestServer(t)
+	// AFTER newTestServer: the helper pins the scrape base at a silent stub so no
+	// test can reach the real Google, and the later call wins.
+	metadata.SetFandomAndScrapeBasesForTest(t, "", cse.URL)
+	metadata.SetAmazonBaseForTest(t, amazon.URL)
 	c := signupAdmin(t, srv.Handler())
 	c.mustDo("PUT", "/admin/metadata-keys", map[string]any{
-		"google_cse_key": "k", "google_cse_cx": "cx", "amazon_cookie": "session=1",
+		"google_scrape": true, "amazon_cookie": "session=1",
 	}, 200)
 
 	for _, tc := range []struct {

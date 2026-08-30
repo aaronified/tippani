@@ -3054,6 +3054,17 @@ it is the same `prop=pageimages` call the Wikipedia rung makes. `static.wikia.no
 joins `coverHosts` and the CSP `img-src` — one host serves every wiki, so it is one entry
 rather than a pattern.
 
+**THE CUSTOM SEARCH RUNG IS RETIRED, AND ITS KEY FIELDS WITH IT.** Google closed the
+Custom Search JSON API to new customers and set it to retire on 1 January 2027
+(confirmed against Google's own overview page). A key field for an API nobody can
+register for is worse than no field: it asks a reader to go and fail, and then to lose
+what they had. Both halves are gone from Settings, from the settings table and from the
+client. Reading the results page is what remains of Google, and the ladder was already
+built so this is not load-bearing — TheTVDB, Wikimedia and Fandom need no key and answer
+on their own. `imageSearchConfigured` becomes a constant `true` for the same reason: it
+was written when every rung needed a credential, and the question it asks no longer has
+a false answer.
+
 **THE GOOGLE SCRAPE IS THE ONLY OPT-IN HERE THAT IS NOT A CREDENTIAL, and that is the
 whole design note.** Every other agreement in this app rides on a secret: you cannot use
 the Amazon scrape without storing the cookie, so the key field *is* the consent. Scraping
