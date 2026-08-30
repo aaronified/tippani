@@ -37,10 +37,81 @@ import (
 // maxReverifyItems caps one preview/apply call. The client chunks above this.
 const maxReverifyItems = 15
 
+// fieldAlt is one supplier's answer for one field.
+//
+// THE POINT OF THE WHOLE CHANGE. A work pinned to two suppliers used to be read
+// from one of them, chosen for the ENTIRE record by a single switch, so "take the
+// description from TheTVDB and the franchise from TMDB" was not expressible — and
+// the reader could not even see that the two disagreed. Every supplier the work
+// is pinned to now answers, and each field carries what each of them said.
+type fieldAlt struct {
+	Source   string `json:"source"`
+	SourceID string `json:"source_id,omitempty"`
+	Value    any    `json:"value"`
+}
+
 type fieldDiff struct {
 	Field  string `json:"field"`
 	Stored any    `json:"stored"`
-	Fresh  any    `json:"fresh"`
+	// Fresh is the PREFERRED supplier's answer and stays for two reasons: it is
+	// the default pick, so a reader who ticks a field without opening the choice
+	// gets what they used to get; and it is what every existing client and test
+	// reads. Alts[0] is always the same value.
+	Fresh any        `json:"fresh"`
+	Alts  []fieldAlt `json:"alts,omitempty"`
+}
+
+// altsFor builds the per-source list for one field from what each supplier
+// returned, in preference order, dropping the ones with nothing to say.
+//
+// A SUPPLIER WITH NO ANSWER IS NOT AN OPTION. An empty description offered as
+// "TMDB says: (nothing)" is a choice that can only make the record worse, and it
+// would put a supplier's name against a value it never supplied. Suppliers that
+// agree are kept separately: the reader is choosing a SOURCE as much as a value,
+// and collapsing two agreeing suppliers into one row would hide that both back
+// it — which is the strongest reason to accept a value there is.
+func altsFor(fetched []fetchedSource, pick func(*metadata.MovieDetails) any) []fieldAlt {
+	var out []fieldAlt
+	for _, f := range fetched {
+		v := pick(f.Det)
+		if isEmptyValue(v) {
+			continue
+		}
+		out = append(out, fieldAlt{Source: f.Source, SourceID: f.SourceID, Value: v})
+	}
+	return out
+}
+
+// isEmptyValue reports whether a supplier actually answered. Typed rather than
+// reflective because the diff carries exactly these shapes, and an unrecognised
+// type answers "not empty" so the failure direction is to offer a choice rather
+// than to silently drop one.
+func isEmptyValue(v any) bool {
+	switch x := v.(type) {
+	case nil:
+		return true
+	case string:
+		return strings.TrimSpace(x) == ""
+	case int:
+		return x == 0
+	case int64:
+		return x == 0
+	case float64:
+		return x == 0
+	case []string:
+		return len(x) == 0
+	case []metadata.CastMember:
+		return len(x) == 0
+	}
+	return false
+}
+
+// fetchedSource is one supplier's whole answer about a work, kept so that every
+// field can be asked of every supplier without re-fetching.
+type fetchedSource struct {
+	Source   string
+	SourceID string
+	Det      *metadata.MovieDetails
 }
 
 // reverifyItem statuses: "ok" (checked; Diffs empty = up to date),
@@ -48,15 +119,18 @@ type fieldDiff struct {
 // "fetch_failed" (the provider call failed; Error carries a short hint),
 // "not_found" (not the caller's row — indistinguishable from missing).
 type reverifyItem struct {
-	Type   string      `json:"type"` // "book" | "movie" | "person"
-	ID     int64       `json:"id,omitempty"`
-	Kind   string      `json:"kind,omitempty"` // person only: author | actor
-	Name   string      `json:"name,omitempty"` // person only
-	Title  string      `json:"title,omitempty"`
-	Status string      `json:"status"`
-	Source string      `json:"source,omitempty"` // which provider answered
-	Diffs  []fieldDiff `json:"diffs"`
-	Error  string      `json:"error,omitempty"`
+	Type   string `json:"type"` // "book" | "movie" | "person"
+	ID     int64  `json:"id,omitempty"`
+	Kind   string `json:"kind,omitempty"` // person only: author | actor
+	Name   string `json:"name,omitempty"` // person only
+	Title  string `json:"title,omitempty"`
+	Status string `json:"status"`
+	Source string `json:"source,omitempty"` // the PREFERRED provider — the one Fresh came from
+	// Every supplier that answered, in preference order. The reader picks per
+	// field from these; Source is Sources[0].
+	Sources []string    `json:"sources,omitempty"`
+	Diffs   []fieldDiff `json:"diffs"`
+	Error   string      `json:"error,omitempty"`
 }
 
 // handleMetadataReverify: POST /metadata/reverify
@@ -209,6 +283,12 @@ func (s *Server) reverifyBook(ctx context.Context, uid, id int64, gkey, cookie, 
 	// have poor field parity, so an OL-only book reads as unpinned.)
 	isbnN := metadata.NormalizeISBN(isbn)
 	var cand *metadata.BookCandidate
+	// EVERY SUPPLIER THAT ANSWERED, not just the winner. An ISBN search already
+	// asks Google Books, Open Library and Amazon and merges what comes back — the
+	// answers were being thrown away one line after they arrived, so a book has
+	// had multi-source data available for as long as it has had a lookup, and no
+	// way to see or use it.
+	var alt []metadata.BookCandidate
 	switch {
 	case isbnN != "":
 		cs, lerr := s.searchBooks(ctx, isbnN, "", "", gkey)
@@ -218,6 +298,7 @@ func (s *Server) reverifyBook(ctx context.Context, uid, id int64, gkey, cookie, 
 		}
 		if len(cs) > 0 {
 			cand = &cs[0]
+			alt = cs
 		}
 	case asin != "" && cookie != "":
 		a, lerr := metadata.FetchAmazonBook(ctx, asin, cookie, domain)
@@ -226,6 +307,7 @@ func (s *Server) reverifyBook(ctx context.Context, uid, id int64, gkey, cookie, 
 			return it
 		}
 		cand = a
+		alt = []metadata.BookCandidate{*a}
 	case googleID != "":
 		g, lerr := s.googleVolume(ctx, googleID, gkey)
 		if lerr != nil {
@@ -233,6 +315,7 @@ func (s *Server) reverifyBook(ctx context.Context, uid, id int64, gkey, cookie, 
 			return it
 		}
 		cand = g
+		alt = []metadata.BookCandidate{*g}
 	case asin != "":
 		// Pinned by ASIN, but the Amazon source needs its cookie — say so
 		// instead of the misleading "no pinned identity".
@@ -250,6 +333,11 @@ func (s *Server) reverifyBook(ctx context.Context, uid, id int64, gkey, cookie, 
 		return it
 	}
 	it.Source = cand.Source
+	bookSrcs := dedupeBookSources(alt)
+	it.Sources = make([]string, 0, len(bookSrcs))
+	for _, b := range bookSrcs {
+		it.Sources = append(it.Sources, b.Source)
+	}
 
 	d := it.Diffs
 	d = diffStr(d, "title", title, cand.Title)
@@ -261,13 +349,7 @@ func (s *Server) reverifyBook(ctx context.Context, uid, id int64, gkey, cookie, 
 	// Genres: candidate capped at 5 (same cap as the covers refetch), compared
 	// as a case-insensitive set after the canonical title-casing.
 	if len(cand.Genres) > 0 {
-		fresh := cleanNames(cand.Genres)
-		if len(fresh) > 5 {
-			fresh = fresh[:5]
-		}
-		for i := range fresh {
-			fresh[i] = titleCaseGenre(fresh[i])
-		}
+		fresh := cappedGenres(cand.Genres)
 		if !sameGenreSet(genres, fresh) {
 			d = append(d, fieldDiff{Field: "genres", Stored: genres, Fresh: fresh})
 		}
@@ -285,8 +367,72 @@ func (s *Server) reverifyBook(ctx context.Context, uid, id int64, gkey, cookie, 
 	if cand.CoverURL != "" && (cover == "" || s.coverWidth(cover) < lowResCoverWidth) {
 		d = append(d, fieldDiff{Field: "cover", Stored: cover, Fresh: cand.CoverURL})
 	}
+	// Same rule as a film's, and the same reason for doing it here rather than
+	// inside each comparison: whether a field DIFFERS from what is stored is a
+	// separate question from what the alternatives are.
+	if len(bookSrcs) > 1 {
+		attachBookAlts(d, bookSrcs)
+	}
 	it.Diffs = d
 	return it
+}
+
+// dedupeBookSources keeps the first candidate from each supplier, in the order
+// the merged lookup returned them.
+//
+// FIRST-PER-SUPPLIER RATHER THAN ALL, because an ISBN search can return more than
+// one row from the same provider — a different edition, a reissue — and offering
+// "Google Books says…" twice with different answers is not a choice between
+// SOURCES, which is what the reader is being asked to make. The lookup already
+// ranks, so the first from each is the one it thinks is right.
+func dedupeBookSources(cs []metadata.BookCandidate) []metadata.BookCandidate {
+	seen := map[string]bool{}
+	out := make([]metadata.BookCandidate, 0, len(cs))
+	for _, c := range cs {
+		src := strings.TrimSpace(c.Source)
+		if src == "" || seen[src] {
+			continue
+		}
+		seen[src] = true
+		out = append(out, c)
+	}
+	return out
+}
+
+// bookAltPickers is movieAltPickers' counterpart. Separate table, same rule: a
+// field in the diff list and its alternatives must not be able to drift apart.
+var bookAltPickers = map[string]func(*metadata.BookCandidate) any{
+	"title":          func(c *metadata.BookCandidate) any { return c.Title },
+	"author":         func(c *metadata.BookCandidate) any { return c.Author },
+	"description":    func(c *metadata.BookCandidate) any { return c.Description },
+	"published_year": func(c *metadata.BookCandidate) any { return c.PublishedYear },
+	"series":         func(c *metadata.BookCandidate) any { return c.Series },
+	"series_index":   func(c *metadata.BookCandidate) any { return c.SeriesIndex },
+	"genres":         func(c *metadata.BookCandidate) any { return cappedGenres(c.Genres) },
+	"cover":          func(c *metadata.BookCandidate) any { return c.CoverURL },
+	// isbn is absent for the reason tmdb_id is on the film side: it is the
+	// identity the lookup was made BY, so every supplier necessarily agrees.
+}
+
+func attachBookAlts(diffs []fieldDiff, cands []metadata.BookCandidate) {
+	for i := range diffs {
+		pick, ok := bookAltPickers[diffs[i].Field]
+		if !ok {
+			continue
+		}
+		var alts []fieldAlt
+		for j := range cands {
+			v := pick(&cands[j])
+			if isEmptyValue(v) {
+				continue
+			}
+			alts = append(alts, fieldAlt{Source: cands[j].Source, Value: v})
+		}
+		if len(alts) < 2 {
+			continue
+		}
+		diffs[i].Alts = alts
+	}
 }
 
 func (s *Server) reverifyMovie(ctx context.Context, uid, id int64, tmdb *metadata.TMDB, tvdb *metadata.TVDB) reverifyItem {
@@ -312,21 +458,29 @@ func (s *Server) reverifyMovie(ctx context.Context, uid, id int64, tmdb *metadat
 	it.Title = title
 	genres := s.itemGenreNames("movie", id)
 
-	var det *metadata.MovieDetails
-	var lerr error
-	switch plan, _ := movieFetchPlan(tmdbID, tvdbID, tmdb, tvdb); {
-	case plan == "tvdb":
-		if mediaType == "show" {
-			det, lerr = tvdb.SeriesDetails(ctx, strconv.FormatInt(tvdbID, 10))
-		} else {
-			det, lerr = tvdb.MovieDetails(ctx, strconv.FormatInt(tvdbID, 10))
-		}
-	case plan == "tmdb":
-		if mediaType == "show" {
-			det, lerr = tmdb.DetailsTV(ctx, tmdbID)
-		} else {
-			det, lerr = tmdb.Details(ctx, tmdbID)
-		}
+	// EVERY SUPPLIER THIS WORK IS PINNED TO, not just the winning one.
+	//
+	// The preferred source still leads and is still what `Fresh` carries, so a
+	// reader who ticks a field without opening the choice gets exactly what they
+	// got before. What is new is that the others are ASKED, so a field can offer
+	// what each of them says and the reader can take the description from one and
+	// the franchise from another.
+	//
+	// A SECOND REQUEST IS THE PRICE AND IT IS PAID ONLY WHEN IT BUYS SOMETHING: a
+	// title pinned to one supplier, or on an install with one key, fetches once
+	// exactly as before. Bounded by the same 15-item cap the route already has.
+	//
+	// ONE SUPPLIER FAILING IS NOT THE ITEM FAILING. If TheTVDB is down and TMDB
+	// answers, the reader gets TMDB's values rather than an error — which is the
+	// same best-effort rule the picture ladder and the catalogue lookups follow.
+	// It is only fetch_failed when NOBODY answered.
+	fetched, lerr := s.fetchAllMovieSources(ctx, mediaType, tmdbID, tvdbID, tmdb, tvdb)
+	switch {
+	case len(fetched) > 0:
+		// at least one supplier answered
+	case lerr != nil:
+		it.Status, it.Error = "fetch_failed", reverifyLookupError("movie details", lerr)
+		return it
 	case tmdbID != 0 || tvdbID != 0:
 		it.Status = "fetch_failed"
 		it.Error = "the pinned source needs its key — add it in Settings → Metadata sources"
@@ -336,11 +490,12 @@ func (s *Server) reverifyMovie(ctx context.Context, uid, id int64, tmdb *metadat
 		it.Error = "no pinned identity (TMDB/TheTVDB id) — use Look up to pin this title first"
 		return it
 	}
-	if lerr != nil {
-		it.Status, it.Error = "fetch_failed", reverifyLookupError("movie details", lerr)
-		return it
-	}
+	det := fetched[0].Det
 	it.Source = det.Source
+	it.Sources = make([]string, 0, len(fetched))
+	for _, f := range fetched {
+		it.Sources = append(it.Sources, f.Source)
+	}
 
 	d := it.Diffs
 	d = diffStr(d, "title", title, det.Title)
@@ -350,13 +505,7 @@ func (s *Server) reverifyMovie(ctx context.Context, uid, id int64, tmdb *metadat
 		d = append(d, fieldDiff{Field: "release_year", Stored: year, Fresh: det.ReleaseYear})
 	}
 	if len(det.Genres) > 0 {
-		fresh := cleanNames(det.Genres)
-		if len(fresh) > 5 {
-			fresh = fresh[:5]
-		}
-		for i := range fresh {
-			fresh[i] = titleCaseGenre(fresh[i])
-		}
+		fresh := cappedGenres(det.Genres)
 		if !sameGenreSet(genres, fresh) {
 			d = append(d, fieldDiff{Field: "genres", Stored: genres, Fresh: fresh})
 		}
@@ -390,8 +539,66 @@ func (s *Server) reverifyMovie(ctx context.Context, uid, id int64, tmdb *metadat
 	if det.TVDBID != 0 && det.TVDBID != tvdbID {
 		d = append(d, fieldDiff{Field: "tvdb_id", Stored: tvdbID, Fresh: det.TVDBID})
 	}
+	// WHAT EACH SUPPLIER SAID, attached once the diff list is settled rather than
+	// woven into each comparison above. Two reasons: the comparisons decide
+	// whether a field DIFFERS from what is stored, which is a separate question
+	// from what the alternatives are, and doing it here means a field added to the
+	// diff list tomorrow gets its alternatives without anybody remembering to.
+	//
+	// Only when more than one supplier answered. A single-source fetch carries no
+	// choice, and an `alts` array with one entry would make the client draw a
+	// picker for a decision that does not exist.
+	if len(fetched) > 1 {
+		attachMovieAlts(d, fetched)
+	}
 	it.Diffs = d
 	return it
+}
+
+// movieAltPickers maps a diff field to the value each supplier would offer for
+// it. ONE TABLE so that a field and its alternatives cannot drift apart: adding a
+// field to the diff list without adding it here means it silently offers no
+// choice, which looks like "the suppliers agree" and is not.
+var movieAltPickers = map[string]func(*metadata.MovieDetails) any{
+	"title":        func(d *metadata.MovieDetails) any { return d.Title },
+	"director":     func(d *metadata.MovieDetails) any { return d.Director },
+	"description":  func(d *metadata.MovieDetails) any { return d.Overview },
+	"release_year": func(d *metadata.MovieDetails) any { return d.ReleaseYear },
+	"series":       func(d *metadata.MovieDetails) any { return d.Series },
+	"genres":       func(d *metadata.MovieDetails) any { return cappedGenres(d.Genres) },
+	"cast":         func(d *metadata.MovieDetails) any { return d.Cast },
+	"poster":       func(d *metadata.MovieDetails) any { return d.PosterURL },
+	// tmdb_id and tvdb_id are deliberately absent: each names its own supplier, so
+	// "TheTVDB says the tmdb_id is 603" is not an alternative anybody can weigh.
+}
+
+// attachMovieAlts fills Alts on every diff a supplier can answer for.
+func attachMovieAlts(diffs []fieldDiff, fetched []fetchedSource) {
+	for i := range diffs {
+		pick, ok := movieAltPickers[diffs[i].Field]
+		if !ok {
+			continue
+		}
+		alts := altsFor(fetched, pick)
+		if len(alts) < 2 {
+			continue // nothing to choose between
+		}
+		diffs[i].Alts = alts
+	}
+}
+
+// cappedGenres is the genre normalisation the diff and the alternatives must
+// agree on — cleaned, capped at five, title-cased. It was inline in one place and
+// is now needed in two, which is exactly when a rule becomes a function.
+func cappedGenres(in []string) []string {
+	out := cleanNames(in)
+	if len(out) > 5 {
+		out = out[:5]
+	}
+	for i := range out {
+		out[i] = titleCaseGenre(out[i])
+	}
+	return out
 }
 
 // sameCast compares billing order and the visible (character, actor) pairs —
@@ -560,9 +767,20 @@ func (s *Server) handleMetadataReverifyApply(w http.ResponseWriter, r *http.Requ
 			Kind string                     `json:"kind"`
 			Name string                     `json:"name"`
 			Set  map[string]json.RawMessage `json:"set"`
-			// The supplier the preview named. Used for a BOOK only — a film's is
-			// recomputed server-side, see applyReverifyBook.
+			// The supplier the preview named, for the whole item. Still accepted so
+			// that a client which offers no per-field choice keeps working.
 			Source string `json:"source"`
+			// WHICH SUPPLIER EACH ACCEPTED VALUE CAME FROM — the wire half of
+			// mix-and-match. The reader picks per field, so provenance is per field,
+			// and this is the only place that fact exists: by the time apply runs,
+			// the responses the values were read out of are gone.
+			//
+			// It also RETIRES AN ASYMMETRY. A film's supplier used to be recomputed
+			// server-side because it was derivable from the row; a book's had to be
+			// echoed because it was not. Neither is derivable once the reader can
+			// take the description from one supplier and the year from another, so
+			// both kinds now say so here, and both are validated the same way.
+			Sources map[string]string `json:"sources"`
 		} `json:"items"`
 	}
 	if !decodeBody(w, r, &req) {
@@ -596,9 +814,9 @@ func (s *Server) handleMetadataReverifyApply(w http.ResponseWriter, r *http.Requ
 		var aerr error
 		switch item.Type {
 		case "book":
-			note, aerr = s.applyReverifyBook(r.Context(), uid, item.ID, item.Set, item.Source)
+			note, aerr = s.applyReverifyBook(r.Context(), uid, item.ID, item.Set, item.Source, item.Sources)
 		case "movie":
-			note, aerr = s.applyReverifyMovie(r.Context(), uid, item.ID, item.Set)
+			note, aerr = s.applyReverifyMovie(r.Context(), uid, item.ID, item.Set, item.Sources)
 		case "person":
 			note, aerr = s.applyReverifyPerson(r.Context(), uid, strings.TrimSpace(item.Kind), strings.TrimSpace(item.Name), item.Set)
 		default:
@@ -653,7 +871,7 @@ func isUniqueErr(err error) bool {
 // see knownBookSource. The worst a wrong value buys is a mislabelled line in the
 // reader's own provenance for their own book, which is why validation is the
 // proportionate guard and a second fetch is not.
-func (s *Server) applyReverifyBook(ctx context.Context, uid, id int64, set map[string]json.RawMessage, source string) (note string, err error) {
+func (s *Server) applyReverifyBook(ctx context.Context, uid, id int64, set map[string]json.RawMessage, source string, sources map[string]string) (note string, err error) {
 	allowed := map[string]bool{"title": true, "author": true, "description": true, "published_year": true,
 		"genres": true, "series": true, "series_index": true, "isbn": true, "cover": true}
 	for k := range set {
@@ -765,12 +983,8 @@ func (s *Server) applyReverifyBook(ctx context.Context, uid, id int64, set map[s
 		return "", errors.New("write failed")
 	}
 	defer tx.Rollback()
-	if src := knownBookSource(source); src != "" {
-		applied := make([]string, 0, len(set))
-		for k := range set {
-			applied = append(applied, k)
-		}
-		if perr := store.RecordFieldSources(tx, uid, "book", id, src, "", applied); perr != nil {
+	if src := knownBookSource(source); src != "" || len(sources) > 0 {
+		if perr := recordPerField(tx, uid, "book", id, set, sources, knownBookSource, src, ""); perr != nil {
 			// Not fatal, for the reason the movie path gives: the fields are the
 			// write, this is the note beside them.
 			olog.Warnf(olog.CodeMetaReverifyApply,
@@ -827,7 +1041,7 @@ func txOwnsRow(tx *sql.Tx, table string, uid, id int64) bool {
 	return ok
 }
 
-func (s *Server) applyReverifyMovie(ctx context.Context, uid, id int64, set map[string]json.RawMessage) (note string, err error) {
+func (s *Server) applyReverifyMovie(ctx context.Context, uid, id int64, set map[string]json.RawMessage, sources map[string]string) (note string, err error) {
 	allowed := map[string]bool{"title": true, "director": true, "description": true, "release_year": true,
 		"genres": true, "series": true, "cast": true, "poster": true, "tmdb_id": true, "tvdb_id": true}
 	for k := range set {
@@ -1011,11 +1225,7 @@ func (s *Server) applyReverifyMovie(ctx context.Context, uid, id int64, set map[
 	// A plan of "" means the row is unpinned or its supplier has no key, in which
 	// case there is nothing true to record and RecordFieldSources returns early.
 	if src, srcID := s.movieFetchPlanFor(uid, id); src != "" {
-		applied := make([]string, 0, len(set))
-		for k := range set {
-			applied = append(applied, k)
-		}
-		if perr := store.RecordFieldSources(tx, uid, "movie", id, src, srcID, applied); perr != nil {
+		if perr := recordPerField(tx, uid, "movie", id, set, sources, knownMovieSource, src, srcID); perr != nil {
 			// NOT FATAL. The fields are written; this is the note beside them. A
 			// failed audit line must not undo a re-verify the reader approved.
 			olog.Warnf(olog.CodeMetaReverifyApply,
@@ -1213,6 +1423,105 @@ func (s *Server) movieFetchPlanFor(uid, id int64) (source, sourceID string) {
 func knownBookSource(source string) string {
 	switch strings.TrimSpace(source) {
 	case "google", "openlibrary", "amazon", "hardcover", store.SourceManual:
+		return strings.TrimSpace(source)
+	}
+	return ""
+}
+
+// fetchAllMovieSources asks every supplier the work is pinned to AND has a client
+// for, in preference order. Returns the answers that came back plus the last
+// error, so the caller can tell "nobody answered" from "nobody was asked".
+func (s *Server) fetchAllMovieSources(ctx context.Context, mediaType string, tmdbID, tvdbID int64,
+	tmdb *metadata.TMDB, tvdb *metadata.TVDB) ([]fetchedSource, error) {
+	var out []fetchedSource
+	var lastErr error
+	add := func(source, sourceID string, det *metadata.MovieDetails, err error) {
+		if err != nil {
+			// Logged and remembered, not returned: another supplier may still
+			// answer, and one being down must not cost the reader the other's.
+			olog.Warnf(olog.CodeMetaReverifyFetch, "[meta] re-verify %s#%s: %v", source, sourceID, err)
+			lastErr = err
+			return
+		}
+		if det != nil {
+			out = append(out, fetchedSource{Source: source, SourceID: sourceID, Det: det})
+		}
+	}
+	// PREFERENCE ORDER, and it is the same order preferredSourceFor states —
+	// TheTVDB leads for films and shows because that is the default source.
+	if tvdbID != 0 && tvdb != nil {
+		id := strconv.FormatInt(tvdbID, 10)
+		if mediaType == "show" {
+			det, err := tvdb.SeriesDetails(ctx, id)
+			add("tvdb", id, det, err)
+		} else {
+			det, err := tvdb.MovieDetails(ctx, id)
+			add("tvdb", id, det, err)
+		}
+	}
+	if tmdbID != 0 && tmdb != nil {
+		id := strconv.FormatInt(tmdbID, 10)
+		if mediaType == "show" {
+			det, err := tmdb.DetailsTV(ctx, tmdbID)
+			add("tmdb", id, det, err)
+		} else {
+			det, err := tmdb.Details(ctx, tmdbID)
+			add("tmdb", id, det, err)
+		}
+	}
+	return out, lastErr
+}
+
+// recordPerField writes provenance for an approved set, honouring a PER-FIELD
+// source where the client supplied one and falling back to the item's single
+// source where it did not.
+//
+// ONE FUNCTION FOR BOTH KINDS, because the rule is the same rule and the two
+// copies it replaces had already drifted once. `valid` is the only per-kind part:
+// a film's suppliers and a book's are different vocabularies, and validating
+// against the wrong one would either reject a real source or accept a nonsense
+// one.
+//
+// AN UNRECOGNISED SOURCE FALLS BACK rather than failing. The fields are already
+// written; this is the note beside them, and a note that refused to be written
+// because one entry was unrecognised would lose the provenance of every other
+// field in the same apply.
+func recordPerField(tx *sql.Tx, uid int64, kind string, id int64,
+	set map[string]json.RawMessage, sources map[string]string,
+	valid func(string) string, fallback, fallbackID string) error {
+	// Grouped by source so each distinct supplier is one call rather than one per
+	// field, which matters because a full apply is a dozen fields and this runs
+	// inside the write transaction.
+	bySource := map[string][]string{}
+	for field := range set {
+		src := fallback
+		if s := valid(sources[field]); s != "" {
+			src = s
+		}
+		if src == "" {
+			continue
+		}
+		bySource[src] = append(bySource[src], field)
+	}
+	for src, fields := range bySource {
+		srcID := ""
+		if src == fallback {
+			srcID = fallbackID
+		}
+		if err := store.RecordFieldSources(tx, uid, kind, id, src, srcID, fields); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// knownMovieSource is knownBookSource's counterpart. Same whitelist discipline,
+// different vocabulary — the two are separate functions rather than one union
+// because accepting "openlibrary" for a film would record a supplier that cannot
+// have answered.
+func knownMovieSource(source string) string {
+	switch strings.TrimSpace(source) {
+	case "tmdb", "tvdb", "igdb", "wikidata", "imdb", store.SourceManual:
 		return strings.TrimSpace(source)
 	}
 	return ""

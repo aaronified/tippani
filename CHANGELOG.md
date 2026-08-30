@@ -258,6 +258,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Take each field from whichever source you prefer, in one pass.** A work pinned to
+  two suppliers used to be read from one of them, chosen for the *entire* record by a
+  single rule — so "TheTVDB describes it better but TMDB has the right year" was not
+  expressible, and you could not even see that the two disagreed. Re-verify now asks
+  every supplier a work is pinned to and shows a column per supplier on any field where
+  they differ; picking one takes that field from that source. Fields only one supplier
+  answers for look exactly as they did.
+
+  A second request is the price, and it is paid only where it buys something: a title
+  pinned to one supplier, or on an install with one key, fetches once as before. One
+  supplier being down no longer costs you the other's answers — it is only a failure
+  when nobody answered.
+
+  This also **retires an asymmetry**: a film's supplier used to be recomputed on the
+  server and a book's had to be taken on trust, because one was derivable from the row
+  and the other was not. Neither is derivable once you can take the description from one
+  place and the year from another, so both kinds now say which source each accepted
+  value came from, and both are validated the same way.
+
 - **Books and films both remember which supplier gave them each field.** Until now the app held one
   raw provider blob per work, overwritten by whichever fetch ran last, so "where did this
   description come from" had no answer at all — the closest thing was a notice counting

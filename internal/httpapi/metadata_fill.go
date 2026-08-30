@@ -213,9 +213,9 @@ func (s *Server) fillOne(ctx context.Context, uid int64, it reverifyItem) fillRe
 	var note string
 	var err error
 	if it.Type == "book" {
-		note, err = s.applyReverifyBook(ctx, uid, it.ID, set, it.Source)
+		note, err = s.applyReverifyBook(ctx, uid, it.ID, set, it.Source, nil)
 	} else {
-		note, err = s.applyReverifyMovie(ctx, uid, it.ID, set)
+		note, err = s.applyReverifyMovie(ctx, uid, it.ID, set, nil)
 	}
 	res.Note = note
 	if err != nil {

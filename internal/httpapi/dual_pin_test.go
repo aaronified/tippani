@@ -67,10 +67,13 @@ func TestATitlePinnedToBothIsFetchedFromTheDefaultSource(t *testing.T) {
 	*tmdbHits, *tvdbHits = 0, 0
 	res := decode[reverifyResp](t, c.mustDo("POST", "/metadata/reverify",
 		map[string]any{"movie_ids": []int64{m.ID}}, 200))
+	if len(res.Items) == 0 {
+		t.Fatal("no item came back")
+	}
 
-	// THE DEFAULT FILM SOURCE IS TheTVDB. A row that has a TheTVDB id should be
-	// read from TheTVDB; TMDB is the fallback, which is what every other surface
-	// in the app already tells the reader.
+	// THE DEFAULT FILM SOURCE IS TheTVDB, so it is the one whose values LEAD:
+	// `source` names it and `fresh` carries its answer, which is what a reader
+	// ticking a field without opening the choice gets.
 	if res.Items[0].Source != "tvdb" {
 		t.Errorf("re-verify read a dual-pinned title from %q, want tvdb — the resolver "+
 			"contradicts the default the rest of the app states", res.Items[0].Source)
@@ -78,8 +81,23 @@ func TestATitlePinnedToBothIsFetchedFromTheDefaultSource(t *testing.T) {
 	if *tvdbHits == 0 {
 		t.Error("TheTVDB was never asked about a title pinned to it")
 	}
-	if *tmdbHits > 0 {
-		t.Errorf("TMDB was asked %d time(s) for a title TheTVDB can answer", *tmdbHits)
+	// BOTH ARE ASKED NOW, AND THAT IS THE FEATURE RATHER THAN A REGRESSION.
+	//
+	// This assertion used to read "TMDB must not be asked at all", which was the
+	// right test when a record had ONE supplier for every field: asking the
+	// fallback was pure waste. Per-field mix-and-match inverts that — the second
+	// supplier is asked precisely so the reader can be shown what it says and take
+	// its answer for the fields where they prefer it. Asking only TheTVDB would
+	// now mean there is nothing to choose between.
+	//
+	// What the old assertion was really protecting is unchanged and is checked
+	// above: TMDB must not WIN. The order is still TheTVDB's.
+	if *tmdbHits == 0 {
+		t.Error("TMDB was not asked, so a dual-pinned title has no alternatives to " +
+			"offer and mix-and-match has nothing to mix")
+	}
+	if len(res.Items[0].Sources) != 2 || res.Items[0].Sources[0] != "tvdb" {
+		t.Errorf("sources = %v, want both with tvdb leading", res.Items[0].Sources)
 	}
 }
 
@@ -117,5 +135,120 @@ func TestTheStillOnTMDBCountMeansWhatItSays(t *testing.T) {
 	if n.TMDBPinned != 1 {
 		t.Errorf("count = %d, want 1 — the notice counts titles still read from TMDB, "+
 			"and a dual-pinned row is read from TheTVDB", n.TMDBPinned)
+	}
+}
+
+// MIX AND MATCH: the description from one supplier, the year from the other, in
+// one apply — and each field recorded against the supplier it actually came from.
+//
+// THIS IS THE FEATURE. A record used to take every field from one supplier chosen
+// by a single switch, so "TheTVDB describes it better but TMDB has the right
+// year" was not expressible and the disagreement was not even visible. The test
+// asserts all three halves: both suppliers answer, the diff carries what each
+// said, and provenance afterwards names two different sources on one work.
+func TestAReaderCanTakeOneFieldFromEachSupplier(t *testing.T) {
+	srv := newTestServer(t)
+	tmdb := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"id":603,"title":"The Matrix","release_date":"1999-03-30",
+			"overview":"TMDB's description.","credits":{"cast":[]}}`))
+	}))
+	defer tmdb.Close()
+	tvdb := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && r.URL.Path == "/login" {
+			_, _ = w.Write([]byte(`{"status":"success","data":{"token":"tok"}}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"data":{"id":70,"name":"The Matrix","year":"1998",
+			"overview":"TheTVDB's description.","characters":[]}}`))
+	}))
+	defer tvdb.Close()
+	srv.TMDB.Key, srv.TMDB.BaseURL = "k", tmdb.URL
+	srv.TVDB = &metadata.TVDB{Key: "k", BaseURL: tvdb.URL}
+	c := signupAdmin(t, srv.Handler())
+
+	m := decode[movieDetail](t, c.mustDo("POST", "/movies",
+		map[string]any{"title": "The Matrix", "media_type": "movie"}, http.StatusCreated))
+	c.mustDo("PUT", "/movies/"+strconv.FormatInt(m.ID, 10), map[string]any{
+		"title": "The Matrix", "media_type": "movie", "tmdb_id": 603, "tvdb_id": 70,
+	}, http.StatusOK)
+
+	res := decode[reverifyResp](t, c.mustDo("POST", "/metadata/reverify",
+		map[string]any{"movie_ids": []int64{m.ID}}, 200))
+
+	// THE DISAGREEMENT IS VISIBLE. Both suppliers describe the film and they
+	// describe it differently, so the description field carries both answers.
+	var descAlts map[string]string
+	for _, d := range res.Items[0].Diffs {
+		if d.Field == "description" {
+			descAlts = map[string]string{}
+			for _, a := range d.Alts {
+				descAlts[a.Source] = a.Value.(string)
+			}
+		}
+	}
+	if len(descAlts) != 2 {
+		t.Fatalf("description offers %v, want both suppliers' answers", descAlts)
+	}
+	if descAlts["tvdb"] != "TheTVDB's description." || descAlts["tmdb"] != "TMDB's description." {
+		t.Errorf("the alternatives are not each supplier's own words: %v", descAlts)
+	}
+
+	// TAKE ONE FROM EACH: TheTVDB's words, TMDB's year (1999 against TheTVDB's 1998).
+	c.mustDo("POST", "/metadata/reverify/apply", map[string]any{
+		"items": []map[string]any{{
+			"type": "movie", "id": m.ID,
+			"set": map[string]any{
+				"description":  "TheTVDB's description.",
+				"release_year": 1999,
+			},
+			"sources": map[string]string{
+				"description":  "tvdb",
+				"release_year": "tmdb",
+			},
+		}},
+	}, http.StatusOK)
+
+	got := sourcesByField(t, c, m.ID)
+	if got["description"] != "tvdb" {
+		t.Errorf("description recorded as %q, want tvdb — %v", got["description"], got)
+	}
+	if got["release_year"] != "tmdb" {
+		t.Errorf("release_year recorded as %q, want tmdb — %v", got["release_year"], got)
+	}
+	// And the values actually landed.
+	after := decode[movieDetail](t, c.mustDo("GET", "/movies/"+strconv.FormatInt(m.ID, 10), nil, 200))
+	if after.Description != "TheTVDB's description." || after.ReleaseYear != 1999 {
+		t.Errorf("the mixed values were not written: %q / %d", after.Description, after.ReleaseYear)
+	}
+}
+
+// AN UNRECOGNISED SUPPLIER ON THE WIRE FALLS BACK, IT DOES NOT POISON THE REST.
+// The fields are already written by the time provenance is recorded, so a note
+// that refused to be written because one entry was nonsense would lose the
+// provenance of every other field in the same apply.
+func TestABadPerFieldSourceFallsBackWithoutLosingTheOthers(t *testing.T) {
+	srv := newTestServer(t)
+	srv.TVDB = newTVDBStub(t, `{"data":{"id":70,"name":"The Matrix","year":"1999",
+		"overview":"From TheTVDB.","characters":[]}}`)
+	c := signupAdmin(t, srv.Handler())
+	m := decode[movieDetail](t, c.mustDo("POST", "/movies",
+		map[string]any{"source": "tvdb", "source_id": "70", "media_type": "movie"}, http.StatusCreated))
+
+	c.mustDo("POST", "/metadata/reverify/apply", map[string]any{
+		"items": []map[string]any{{
+			"type": "movie", "id": m.ID,
+			"set":     map[string]any{"description": "From TheTVDB.", "director": "Somebody"},
+			"sources": map[string]string{"description": "not-a-supplier", "director": "tvdb"},
+		}},
+	}, http.StatusOK)
+
+	got := sourcesByField(t, c, m.ID)
+	if got["director"] != "tvdb" {
+		t.Errorf("a valid per-field source was lost because a sibling was bad: %v", got)
+	}
+	// The nonsense one falls back to the work's own pinned supplier rather than
+	// being recorded as typed, or dropped.
+	if got["description"] != "tvdb" {
+		t.Errorf("description = %q, want the fallback supplier — %v", got["description"], got)
 	}
 }

@@ -17,18 +17,23 @@ import (
 
 type reverifyResp struct {
 	Items []struct {
-		Type   string `json:"type"`
-		ID     int64  `json:"id"`
-		Kind   string `json:"kind"`
-		Name   string `json:"name"`
-		Title  string `json:"title"`
-		Status string `json:"status"`
-		Source string `json:"source"`
-		Error  string `json:"error"`
-		Diffs  []struct {
+		Type    string   `json:"type"`
+		ID      int64    `json:"id"`
+		Kind    string   `json:"kind"`
+		Name    string   `json:"name"`
+		Title   string   `json:"title"`
+		Status  string   `json:"status"`
+		Source  string   `json:"source"`
+		Sources []string `json:"sources"`
+		Error   string   `json:"error"`
+		Diffs   []struct {
 			Field  string `json:"field"`
 			Stored any    `json:"stored"`
 			Fresh  any    `json:"fresh"`
+			Alts   []struct {
+				Source string `json:"source"`
+				Value  any    `json:"value"`
+			} `json:"alts"`
 		} `json:"diffs"`
 	} `json:"items"`
 	Checked int `json:"checked"`

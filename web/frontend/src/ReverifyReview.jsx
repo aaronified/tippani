@@ -10,6 +10,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { coverImgURL, errText, json } from './api.js'
 import { t } from './i18n.js'
+import { sourceName } from './CoverPicker.jsx'
 import {
   CloseButton,
   EmptyState,
@@ -139,34 +140,81 @@ function ValueCell({ field, value, fresh }) {
   )
 }
 
-function FieldDiffRow({ diff, approved, onToggle }) {
+// FieldDiffRow — what is stored, beside what each supplier says.
+//
+// IT USED TO BE TWO COLUMNS: stored, and "fresh". That shape encoded the old
+// model, where a record took every field from ONE supplier chosen for the whole
+// row — so there was only ever one fresh value and a checkbox was enough to say
+// yes to it. With a work asked of every supplier it is pinned to, one field can
+// have two answers that disagree, and the reader is choosing a SOURCE as much as
+// a value.
+//
+// SO EACH SUPPLIER GETS ITS OWN CELL and picking one takes the field. The
+// checkbox stays for the single-answer case — most fields, most of the time —
+// and picking a cell ticks it, because requiring both would make the common
+// gesture two gestures for no meaning.
+//
+// The cells are the same component in the same grid whatever the kind of work.
+// A book's suppliers and a film's are different names in the same layout, which
+// is the point: there is one reviewer and it does not know what it is reviewing.
+function FieldDiffRow({ diff, picked, onToggle, onChoose }) {
+  const alts = diff.alts || []
+  const choosing = alts.length > 1
   return (
     <div className="flex items-start gap-3 py-2" style={{ borderTop: '1px solid var(--line)' }}>
       <label className="flex items-center gap-2" style={{ cursor: 'pointer', flex: 'none', paddingTop: 2 }}>
         <Tooltip label={t('reverify.field.approve.tip')} side="top">
-          <input type="checkbox" checked={approved} onChange={onToggle} />
+          <input type="checkbox" checked={!!picked} onChange={onToggle} />
         </Tooltip>
         <MonoLabel style={{ width: 92 }}>{fieldName(diff.field)}</MonoLabel>
       </label>
-      <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-2">
+      <div
+        className="grid min-w-0 flex-1 gap-2"
+        style={{ gridTemplateColumns: `repeat(${choosing ? alts.length + 1 : 2}, minmax(0, 1fr))` }}
+      >
         <div className="min-w-0">
           <MonoLabel className="mb-1 block" style={{ fontSize: 'var(--type-ui-9)', color: 'var(--faint)' }}>
             {t('reverify.column.stored')}
           </MonoLabel>
           <ValueCell field={diff.field} value={diff.stored} />
         </div>
-        <div className="min-w-0">
-          <MonoLabel className="mb-1 block" style={{ fontSize: 'var(--type-ui-9)', color: 'var(--accent-ui)' }}>
-            {t('reverify.column.fresh')}
-          </MonoLabel>
-          <ValueCell field={diff.field} value={diff.fresh} fresh />
-        </div>
+        {choosing ? (
+          alts.map((a) => {
+            const on = picked === a.source
+            return (
+              <button
+                key={a.source}
+                type="button"
+                onClick={() => onChoose(a.source)}
+                aria-pressed={on}
+                className="min-w-0 text-left"
+                style={{
+                  background: 'none', padding: '2px 6px', cursor: 'pointer',
+                  border: `1px solid ${on ? 'var(--accent)' : 'transparent'}`,
+                  borderRadius: 6,
+                }}
+              >
+                <MonoLabel className="mb-1 block" style={{ fontSize: 'var(--type-ui-9)', color: on ? 'var(--accent-ui)' : 'var(--faint)' }}>
+                  {sourceName(a.source)}
+                </MonoLabel>
+                <ValueCell field={diff.field} value={a.value} fresh={on} />
+              </button>
+            )
+          })
+        ) : (
+          <div className="min-w-0">
+            <MonoLabel className="mb-1 block" style={{ fontSize: 'var(--type-ui-9)', color: 'var(--accent-ui)' }}>
+              {t('reverify.column.fresh')}
+            </MonoLabel>
+            <ValueCell field={diff.field} value={diff.fresh} fresh />
+          </div>
+        )}
       </div>
     </div>
   )
 }
 
-function ReverifyItemCard({ item, open, onToggleOpen, approvals, onToggleField, onSetAll }) {
+function ReverifyItemCard({ item, open, onToggleOpen, approvals, onToggleField, onChooseSource, onSetAll }) {
   const key = itemKey(item)
   const approvedCount = item.diffs.filter((d) => approvals[`${key}|${d.field}`]).length
   const kindChip = kindLabel(item)
@@ -204,8 +252,9 @@ function ReverifyItemCard({ item, open, onToggleOpen, approvals, onToggleField, 
             <FieldDiffRow
               key={d.field}
               diff={d}
-              approved={!!approvals[`${key}|${d.field}`]}
+              picked={approvals[`${key}|${d.field}`]}
               onToggle={() => onToggleField(item, d.field)}
+              onChoose={(src) => onChooseSource(item, d.field, src)}
             />
           ))}
         </div>
@@ -292,14 +341,38 @@ export function ReverifyFlow({ selection, onClose, onFlash, onDone }) {
   const approvedTotal = changed.reduce(
     (n, it) => n + it.diffs.filter((d) => approvals[`${itemKey(it)}|${d.field}`]).length, 0)
 
+  // AN APPROVAL IS NOW A CHOICE OF SOURCE, not a yes/no.
+  //
+  // A work pinned to two suppliers is asked of both, so a field can carry what
+  // each of them said and the reader can take the description from one and the
+  // year from another. The state therefore holds WHICH source was picked rather
+  // than whether the row was ticked: `undefined` is untaken, and a supplier slug
+  // is taken-from-that-supplier.
+  //
+  // A field with no alternatives still works exactly as before — ticking it
+  // stores the preferred source's slug, which is the same value it always sent,
+  // now merely labelled.
+  function defaultSourceFor(item, diff) {
+    return diff.alts?.[0]?.source || item.source || ''
+  }
   function toggleField(item, field) {
     const k = `${itemKey(item)}|${field}`
-    setApprovals((a) => ({ ...a, [k]: !a[k] }))
+    const d = item.diffs.find((x) => x.field === field)
+    setApprovals((a) => ({ ...a, [k]: a[k] ? undefined : defaultSourceFor(item, d) }))
+  }
+  function chooseSource(item, field, source) {
+    const k = `${itemKey(item)}|${field}`
+    // PICKING A SOURCE TAKES THE FIELD. Requiring a tick as well would make the
+    // common gesture two gestures, and there is no meaning to "I choose TheTVDB's
+    // description but do not want it".
+    setApprovals((a) => ({ ...a, [k]: a[k] === source ? undefined : source }))
   }
   function setAllFields(item, on) {
     setApprovals((a) => {
       const next = { ...a }
-      for (const d of item.diffs) next[`${itemKey(item)}|${d.field}`] = on
+      for (const d of item.diffs) {
+        next[`${itemKey(item)}|${d.field}`] = on ? defaultSourceFor(item, d) : undefined
+      }
       return next
     })
   }
@@ -308,13 +381,21 @@ export function ReverifyFlow({ selection, onClose, onFlash, onDone }) {
     const payload = changed
       .map((it) => {
         const set = {}
+        const sources = {}
         for (const d of it.diffs) {
-          if (approvals[`${itemKey(it)}|${d.field}`]) set[d.field] = d.fresh
+          const picked = approvals[`${itemKey(it)}|${d.field}`]
+          if (!picked) continue
+          // The value that BELONGS to the chosen source. Falling back to `fresh`
+          // covers the ordinary single-source field, where fresh is by definition
+          // the preferred supplier's answer.
+          const alt = (d.alts || []).find((a) => a.source === picked)
+          set[d.field] = alt ? alt.value : d.fresh
+          sources[d.field] = picked
         }
         if (Object.keys(set).length === 0) return null
         return it.type === 'person'
           ? { type: 'person', kind: it.kind, name: it.name, set }
-          : { type: it.type, id: it.id, set }
+          : { type: it.type, id: it.id, set, sources, source: it.source }
       })
       .filter(Boolean)
     if (payload.length === 0) return
@@ -398,6 +479,7 @@ export function ReverifyFlow({ selection, onClose, onFlash, onDone }) {
             onToggleOpen={() => setOpenItem((k) => (k === itemKey(it) ? null : itemKey(it)))}
             approvals={approvals}
             onToggleField={toggleField}
+            onChooseSource={chooseSource}
             onSetAll={setAllFields}
           />
         ))}
