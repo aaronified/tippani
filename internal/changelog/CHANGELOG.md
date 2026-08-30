@@ -256,7 +256,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   or shown a consent wall is a consequence for everyone in the house, not for whoever
   pressed the button.
 
+### Added
+
+- **Every key field now says whether you actually need it.** The card listed nine
+  credential fields in one flat run and said nothing about which of them the app is
+  waiting on — so it read as nine API registrations standing between you and a working
+  library. Two of them ship with the app and a key there only *replaces* what is
+  already working; one pair is the difference between games working and not; the rest
+  are optional improvements to something that already answers. Each row now carries one
+  word — **built in**, **needed**, **optional**, **closed to new keys** — chosen to
+  answer "must I do something about this" rather than to report status.
+
 ### Fixed
+
+- **Google's Programmable Search is closed to new customers and retires on 1 January
+  2027**, so the two fields asking for one were sending readers to register for
+  something they can no longer get. Both now say so. Nothing else changes: the picture
+  ladder was already built so that TheTVDB, Wikimedia and Fandom need no key at all,
+  and an existing key goes on working until Google turns it off.
 
 - **TheTVDB's key field stopped reading as though it needed a subscription.** The
   subscriber PIN sat *above* the API key on the Settings card, so the first TheTVDB

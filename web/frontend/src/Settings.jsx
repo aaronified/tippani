@@ -3380,7 +3380,24 @@ function IconSaved() {
 // English sentence assembled from two pieces: not translatable, and not even
 // right in English once IGDB arrived ("a IGDB client id"). Each frame is its own
 // key now and the name goes into it unaltered.
-function KeyField({ label, hint, set, placeholder, secret = true, value = '', onSave, busy }) {
+// NEED_TONE maps a row's consequence to the chip palette. `bundled` is 'active'
+// and not 'ok' on purpose: it is a live fact about what is answering right now,
+// the same tone the built-in chips beside the heading already use.
+const NEED_TONE = { bundled: 'active', required: 'error', optional: 'muted', closed: 'muted' }
+
+// LITERAL KEYS IN A MAP, never t('prefix.' + x + '.label'). locale-complete.test.js
+// verifies statically that every key the code asks for exists and that every key
+// in en.txt is asked for, and a key assembled at runtime defeats both halves: the
+// scan reads the prefix as a missing key and the four real ones as orphans. Same
+// shape as SOURCE_KEYS in CoverPicker.jsx, for the same reason.
+const NEED_LABEL = {
+  bundled: 'settings.keys.need.bundled.label',
+  required: 'settings.keys.need.required.label',
+  optional: 'settings.keys.need.optional.label',
+  closed: 'settings.keys.need.closed.label',
+}
+
+function KeyField({ label, hint, set, placeholder, secret = true, value = '', onSave, busy, need }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(secret ? '' : value)
   useEffect(() => { if (!editing) setDraft(secret ? '' : value) }, [value, editing, secret])
@@ -3396,6 +3413,25 @@ function KeyField({ label, hint, set, placeholder, secret = true, value = '', on
     <div className="inline-field">
       <div className={'inline-field-head' + (editing ? '' : ' is-flush')}>
         <MonoLabel>{label}</MonoLabel>
+        {/* WHAT FILLING THIS IN ACTUALLY BUYS, said before the reader goes and
+            registers for anything.
+
+            The card listed nine credential fields in one flat run and told you
+            nothing about which of them you NEED. Two of them ship with the app and
+            a key there only replaces what is already working; one pair is the
+            difference between games working and not; the rest are optional
+            improvements to something that already answers. A reader looking at
+            that list reasonably concludes the app needs nine API registrations
+            before it is useful, and most of them are not obtainable in five
+            minutes.
+
+            So each row says which it is, in one word, before the label's own
+            tooltip has to be opened. The wording is about CONSEQUENCE and not
+            about status — "built in" rather than "configured" — because the
+            question being answered is "must I do something about this". */}
+        {need && (
+          <StatusChip tone={NEED_TONE[need]}>{t(NEED_LABEL[need])}</StatusChip>
+        )}
         {hint && <InfoDot text={hint} title={label} />}
         {!secret && !editing && (
           <span className={'inline-field-inline' + (value ? '' : ' is-empty')}>{value || t('settings.keys.unset.label')}</span>
@@ -3604,6 +3640,7 @@ function Metadata({ user, onPreferences }) {
           <KeyField
             label={keyLabel('google', 'key')}
             hint={t('settings.keys.google.hint')}
+              need="optional"
             set={keys?.google_books_key_set}
             placeholder={t('settings.keys.google.placeholder')}
             busy={saving}
@@ -3612,6 +3649,7 @@ function Metadata({ user, onPreferences }) {
           <KeyField
             label={keyLabel('tmdb', 'key')}
             hint={t('settings.keys.tmdb.hint')}
+              need={keys?.tmdb_builtin ? 'bundled' : 'required'}
             set={keys?.tmdb_key_set}
             placeholder={t('settings.keys.tmdb.placeholder')}
             busy={saving}
@@ -3634,6 +3672,7 @@ function Metadata({ user, onPreferences }) {
           <KeyField
             label={keyLabel('tvdb', 'key')}
             hint={t('settings.keys.tvdb.hint')}
+              need={keys?.tvdb_builtin ? 'bundled' : 'required'}
             set={keys?.tvdb_key_set}
             placeholder={t('settings.keys.tvdb.placeholder')}
             busy={saving}
@@ -3642,6 +3681,7 @@ function Metadata({ user, onPreferences }) {
           <KeyField
             label={keyLabel('tvdb', 'pin')}
             hint={t('settings.keys.tvdb-pin.hint')}
+              need="optional"
             set={keys?.tvdb_pin_set}
             placeholder={t('settings.keys.tvdb-pin.placeholder')}
             busy={saving}
@@ -3662,6 +3702,7 @@ function Metadata({ user, onPreferences }) {
           <KeyField
             label={keyLabel('igdb', 'client-id')}
             hint={t('settings.keys.igdb-id.hint')}
+              need="required"
             set={keys?.igdb_client_id_set}
             placeholder={t('settings.keys.igdb-id.placeholder')}
             busy={saving}
@@ -3670,6 +3711,7 @@ function Metadata({ user, onPreferences }) {
           <KeyField
             label={keyLabel('igdb', 'secret')}
             hint={t('settings.keys.igdb-secret.hint')}
+              need="required"
             set={keys?.igdb_secret_set}
             placeholder={t('settings.keys.igdb-secret.placeholder')}
             busy={saving}
@@ -3706,6 +3748,7 @@ function Metadata({ user, onPreferences }) {
             <KeyField
               label={keyLabel('amazon', 'cookie')}
               hint={t('settings.keys.amazon-cookie.caveat')}
+              need="optional"
               set={keys?.amazon_cookie_set}
               placeholder={t('settings.keys.amazon-cookie.placeholder')}
               busy={saving}
@@ -3719,6 +3762,7 @@ function Metadata({ user, onPreferences }) {
             <KeyField
               label={keyLabel('google-cse', 'key')}
               hint={t('settings.keys.google-cse.hint')}
+              need="closed"
               set={keys?.google_cse_key_set}
               placeholder={t('settings.keys.google-cse.placeholder')}
               busy={saving}
@@ -3727,6 +3771,7 @@ function Metadata({ user, onPreferences }) {
             <KeyField
               label={keyLabel('google-cse', 'engine-id')}
               hint={t('settings.keys.google-cse-cx.hint')}
+              need="closed"
               secret={false}
               value={keys?.google_cse_cx || ''}
               set={!!keys?.google_cse_cx}
@@ -3770,6 +3815,7 @@ function Metadata({ user, onPreferences }) {
             <KeyField
               label={keyLabel('amazon', 'domain')}
               hint={t('settings.keys.amazon-domain.hint')}
+              need="optional"
               secret={false}
               value={keys?.amazon_domain || ''}
               set={!!keys?.amazon_domain}

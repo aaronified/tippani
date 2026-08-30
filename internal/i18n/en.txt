@@ -4902,7 +4902,7 @@ settings.keys.amazon-cookie.placeholder = Amazon session cookie — optional
 settings.keys.amazon-domain.hint = The marketplace your books were bought on, e.g. www.amazon.com or www.amazon.de. Not a secret, so this one shows its value.
 # A domain to type, not a word to read.
 settings.keys.amazon-domain.placeholder = www.amazon.com
-settings.keys.google-cse.hint = Optional, and the only way to search the web for a picture inside the app: programmablesearchengine.google.com → an engine set to the whole web with image search on; then a key from console.cloud.google.com. 100 searches a day free.
+settings.keys.google-cse.hint = Google closed this API to new customers and retires it on 1 January 2027, so this row is only useful if you already have a key. The picture ladder works without it — TheTVDB, Wikimedia and Fandom need no key at all.
 settings.keys.google-cse.placeholder = Custom Search API key — optional
 settings.keys.google-cse-cx.hint = The other half, from the engine you made: its “Search engine ID”. Not a secret, so this one shows its value. One without the other searches nothing.
 settings.keys.google-scrape.title = Read Google image results directly
@@ -4913,6 +4913,10 @@ settings.keys.google-cse-cx.placeholder = Search engine ID (cx)
 # --- the row's own controls. A secret is write-only, so "stored" is the whole of
 # what can be reported about one; a non-secret shows its value instead.
 settings.keys.unset.label = not set
+settings.keys.need.bundled.label = built in
+settings.keys.need.required.label = needed
+settings.keys.need.optional.label = optional
+settings.keys.need.closed.label = closed to new keys
 settings.keys.saved.tip = Saved
 settings.keys.saved.aria = {name}: saved
 # {name} is a whole field name — "Google Books key" — and goes in unaltered.

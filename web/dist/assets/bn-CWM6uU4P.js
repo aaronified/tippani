@@ -4634,7 +4634,7 @@ settings.keys.amazon-cookie.placeholder = Amazon সেশন কুকি — �
 settings.keys.amazon-domain.hint = যে মার্কেটপ্লেসে বই কেনা হয়েছিল, যেমন www.amazon.com বা www.amazon.de। এটা গোপন কিছু নয়, তাই এটা নিজের মানটা দেখায়।
 # §8 — a domain to type, not a word to read.
 settings.keys.amazon-domain.placeholder = www.amazon.com
-settings.keys.google-cse.hint = ঐচ্ছিক, অ্যাপের ভিতর থেকে ওয়েবে ছবি খোঁজার একমাত্র পথ: programmablesearchengine.google.com-এ গোটা ওয়েব ও ছবি খোঁজা চালু করা ইঞ্জিন বানান; তারপর console.cloud.google.com থেকে কি নিন। দিনে ১০০টা বিনামূল্যে।
+settings.keys.google-cse.hint = গুগল এই API-তে নতুন কাউকে আর নিচ্ছে না, আর ২০২৭-র ১ জানুয়ারি এটা বন্ধ করে দেবে — তাই আগে থেকে কি থাকলে তবেই এই ঘরটা কাজে লাগে। ছবির সিঁড়ি এটা ছাড়াও চলে: TheTVDB, Wikimedia আর Fandom-এ কোনও কি লাগে না।
 settings.keys.google-cse.placeholder = Custom Search API key — ঐচ্ছিক
 settings.keys.google-cse-cx.hint = জোড়ার বাকি অর্ধেক, আপনার বানানো ইঞ্জিনের “Search engine ID”। এটা গোপন নয়, তাই মানটা দেখা যায়। একটা ছাড়া আরেকটা কিছুই খোঁজে না।
 settings.keys.google-scrape.title = গুগল ছবির ফল সরাসরি পড়া হবে
@@ -4643,6 +4643,10 @@ settings.keys.google-scrape.info.body = একেবারে শেষ উপ�
 settings.keys.google-cse-cx.placeholder = Search engine ID (cx)
 
 settings.keys.unset.label = দেওয়া নেই
+settings.keys.need.bundled.label = সঙ্গেই আছে
+settings.keys.need.required.label = লাগবে
+settings.keys.need.optional.label = ইচ্ছেমতো
+settings.keys.need.closed.label = নতুন কি মেলে না
 settings.keys.saved.tip = সেভ আছে
 settings.keys.saved.aria = {name}: সেভ আছে
 settings.keys.add.aria = {name} দিন

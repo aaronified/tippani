@@ -281,6 +281,15 @@ func (s *Server) handleGetMetadataKeys(w http.ResponseWriter, r *http.Request) {
 		// the same reason IGDB is, and as one `image_search` so a picker can ask
 		// one question — "is there a picture search behind this button?" —
 		// without knowing which supplier answers it.
+		// WHETHER A BUILT-IN EXISTS, which is a different fact from which source is
+		// winning. `tmdb_source` says "custom" the moment a reader saves a key, and
+		// from that answer the card cannot tell whether clearing the field would
+		// leave lookups working or leave them at 503. The Settings card needs the
+		// first fact to say "a key here only REPLACES what ships with the app",
+		// which is the difference between a field somebody must fill and a field
+		// they may.
+		"tmdb_builtin":       s.TMDBBuiltin != "",
+		"tvdb_builtin":       s.TVDBBuiltin != "",
 		"google_cse_key_set": csekey != "",
 		"google_scrape":      scrape == "1",
 		"google_cse_cx":      csecx,
