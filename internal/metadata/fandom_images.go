@@ -30,6 +30,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/url"
+	"regexp"
 	"strings"
 	"unicode"
 )
@@ -44,7 +45,7 @@ var fandomHostFmt = defaultFandomHostFmt
 //
 // A LEADING ARTICLE IS DROPPED because Fandom slugs almost never carry one — the
 // wiki for "The Expanse" is expanse — and keeping it turns a likely hit into a
-// certain miss.
+// certain miss. Letterboxd's convention is the opposite; see LetterboxdSlug.
 func fandomSlug(title string) string {
 	t := strings.ToLower(strings.TrimSpace(title))
 	for _, a := range []string{"the ", "a ", "an "} {
@@ -59,12 +60,74 @@ func fandomSlug(title string) string {
 	return b.String()
 }
 
+// romanTail matches a trailing roman numeral, which is how half of all game
+// franchises number themselves.
+var romanTail = regexp.MustCompile(`(?i)(i|ii|iii|iv|v|vi|vii|viii|ix|x|xi|xii|xiii)$`)
+
+// FandomWikiCandidates is the truncation ladder: the slugs to try, best first.
+//
+// THE WIKI IS NAMED FOR THE FRANCHISE, NOT THE INSTALMENT, and that is the whole
+// reason this exists. Measured over nine real titles the plain title-derived slug
+// found six wikis; all three misses were a numbered or subtitled entry whose wiki
+// carries the franchise name — witcher3wildhunt against `witcher`, masseffect3
+// against `masseffect`, elderscrollsvskyrim against `elderscrolls`. Games and
+// long-running series are overwhelmingly that shape, and they are also the works
+// with no other source of character art at all.
+//
+// So: the full slug, then the part before the subtitle, then that with a trailing
+// instalment number or roman numeral removed. Deduped and ordered most specific
+// first, because a wiki dedicated to one instalment is a better answer than the
+// franchise's when both exist.
+func FandomWikiCandidates(title string) []string {
+	title = strings.TrimSpace(title)
+	if title == "" {
+		return nil
+	}
+	var out []string
+	seen := map[string]bool{}
+	add := func(s string) {
+		if s != "" && !seen[s] {
+			seen[s] = true
+			out = append(out, s)
+		}
+	}
+	add(fandomSlug(title))
+	// Before the subtitle: "The Witcher 3: Wild Hunt" -> "The Witcher 3".
+	base := title
+	if i := strings.IndexAny(base, ":—–-"); i > 0 {
+		base = strings.TrimSpace(base[:i])
+	}
+	add(fandomSlug(base))
+	// And without the instalment: "The Witcher 3" -> "The Witcher".
+	trimmed := strings.TrimRight(fandomSlug(base), "0123456789")
+	add(trimmed)
+	add(romanTail.ReplaceAllString(trimmed, ""))
+	return out
+}
+
+// FandomResolveWiki returns the first candidate wiki that answers, or "".
+//
+// ONE HEAD-SHAPED PROBE PER CANDIDATE, and at most four. The result is meant to
+// be STORED by the caller — see migration 0055 — so this runs once per work and
+// every later lookup is a single request. A work that resolves to nothing is left
+// unresolved rather than remembered as such: a wiki that did not exist last month
+// may exist now, and being wrong costs one 404.
+func FandomResolveWiki(ctx context.Context, title string) string {
+	for _, slug := range FandomWikiCandidates(title) {
+		base := strings.Replace(fandomHostFmt, "%s", slug, 1)
+		_, status, err := httpGet(ctx, base+"/api.php?action=query&meta=siteinfo&format=json", "")
+		if err == nil && status == 200 {
+			return slug
+		}
+	}
+	return ""
+}
+
 // FandomCharacterImages asks the work's own wiki for a character's page image.
 // Empty on every failure — no wiki, no page, no image — because each of those is
 // the ordinary case rather than a fault.
-func FandomCharacterImages(ctx context.Context, character, workTitle string) []ImageHit {
-	character, workTitle = strings.TrimSpace(character), strings.TrimSpace(workTitle)
-	slug := fandomSlug(workTitle)
+func FandomCharacterImages(ctx context.Context, character, wiki string) []ImageHit {
+	character, slug := strings.TrimSpace(character), strings.TrimSpace(wiki)
 	if character == "" || slug == "" {
 		return nil
 	}

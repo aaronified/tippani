@@ -64,6 +64,10 @@ type imageTier struct {
 // would mean here anyway.
 type castPin struct {
 	TVDBWorkID string
+	// The Fandom wiki this work lives on: stored on the row once resolved, or
+	// typed by the reader. See fandomWikiFor.
+	FandomWiki string
+	WorkID     int64
 	MediaType  string
 	Character  string
 	Actor      string
@@ -80,7 +84,6 @@ func (s *Server) castPinFor(uid, castID int64) castPin {
 		return castPin{}
 	}
 	var p castPin
-	var workID int64
 	var kind string
 	err := s.Store.DB.QueryRow(
 		`SELECT c.work_id, c.kind, c.character, c.actor,
@@ -88,7 +91,7 @@ func (s *Server) castPinFor(uid, castID int64) castPin {
 		   FROM work_cast c
 		  WHERE c.id = ? AND c.user_id = ? AND c.origin <> 'removed'`,
 		castID, uid,
-	).Scan(&workID, &kind, &p.Character, &p.Actor, &p.PersonID, &p.Source)
+	).Scan(&p.WorkID, &kind, &p.Character, &p.Actor, &p.PersonID, &p.Source)
 	if err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
 			olog.Warnf(olog.CodeCastRowScan, "[meta] image ladder: cast %d unreadable: %v", castID, err)
@@ -104,9 +107,9 @@ func (s *Server) castPinFor(uid, castID int64) castPin {
 	var tvdbID int64
 	var mediaType string
 	if err := s.Store.DB.QueryRow(
-		`SELECT COALESCE(tvdb_id, 0), COALESCE(media_type, 'movie')
-		   FROM movies WHERE id = ? AND user_id = ?`, workID, uid,
-	).Scan(&tvdbID, &mediaType); err != nil {
+		`SELECT COALESCE(tvdb_id, 0), COALESCE(media_type, 'movie'), COALESCE(fandom_wiki, '')
+		   FROM movies WHERE id = ? AND user_id = ?`, p.WorkID, uid,
+	).Scan(&tvdbID, &mediaType, &p.FandomWiki); err != nil {
 		return p
 	}
 	p.MediaType = mediaType
@@ -349,13 +352,54 @@ func (s *Server) wikimediaCharacterTier(character, workTitle string) *imageTier 
 // outside their story, and Fandom writes about all of them. Keyless, and honest
 // about being a guess — see FandomCharacterImages for why the wiki slug cannot
 // be resolved properly and what a wrong guess costs.
-func (s *Server) fandomCharacterTier(character, workTitle string) *imageTier {
-	if strings.TrimSpace(character) == "" || strings.TrimSpace(workTitle) == "" {
+func (s *Server) fandomCharacterTier(uid int64, pin castPin, character, workTitle string) *imageTier {
+	if strings.TrimSpace(character) == "" {
 		return nil
 	}
 	return &imageTier{name: "fandom", run: func(ctx context.Context) []metadata.ImageHit {
-		return metadata.FandomCharacterImages(ctx, character, workTitle)
+		wiki := s.fandomWikiFor(ctx, uid, pin.WorkID, pin.FandomWiki, workTitle)
+		if wiki == "" {
+			return nil
+		}
+		return metadata.FandomCharacterImages(ctx, character, wiki)
 	}}
+}
+
+// fandomWikiFor answers "which wiki is this work on", resolving and REMEMBERING
+// the answer the first time.
+//
+// STORED BEATS PROBED, ALWAYS, and that covers both of the ways the column gets
+// filled. A reader who typed a wiki has told us something a title cannot: Star
+// Wars characters live on `starwars` and on `wookieepedia`, and no derivation
+// picks between them. A probe that already succeeded has bought the same fact
+// more cheaply. Neither is overwritten, so a later probe cannot undo a correction.
+//
+// A FAILED PROBE IS NOT REMEMBERED. Storing "no wiki" would make the answer
+// permanent for a work whose wiki is created next month, and the cost of asking
+// again is one 404 on a search nobody is waiting on.
+//
+// Writing here rather than in a separate pass is deliberate: this runs inside a
+// request that is already talking to Fandom, and the alternative is a background
+// job, which this app does not have and does not want.
+func (s *Server) fandomWikiFor(ctx context.Context, uid, workID int64, stored, title string) string {
+	if w := strings.TrimSpace(stored); w != "" {
+		return w
+	}
+	if strings.TrimSpace(title) == "" {
+		return ""
+	}
+	wiki := metadata.FandomResolveWiki(ctx, title)
+	if wiki == "" || workID == 0 {
+		return wiki
+	}
+	// Only into an EMPTY column, so a value the reader typed between the read
+	// above and this write is not clobbered by a probe that started earlier.
+	if _, err := s.Store.DB.Exec(
+		`UPDATE movies SET fandom_wiki = ? WHERE id = ? AND user_id = ? AND COALESCE(fandom_wiki, '') = ''`,
+		wiki, workID, uid); err != nil {
+		olog.Warnf(olog.CodeMetaLookupFailed, "[meta] remembering fandom wiki for %d: %v", workID, err)
+	}
+	return wiki
 }
 
 // googleScrapeTier is the bottom of the ladder and is absent unless the reader

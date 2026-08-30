@@ -1,0 +1,37 @@
+-- 0055: which Fandom wiki a work lives on.
+--
+-- FANDOM IS NOT ONE MEDIAWIKI, IT IS TENS OF THOUSANDS, one per fandom, addressed
+-- by a slug nobody publishes a mapping for. fandom_images.go has been guessing
+-- that slug from the work's title since it shipped, and the guess is right for a
+-- standalone title and wrong for exactly the works this feature matters most to.
+--
+-- MEASURED, NOT ASSUMED. Over nine real titles the title-derived guess found the
+-- wiki six times. All three misses were the same shape — a numbered or subtitled
+-- entry in a franchise, where the wiki is named for the FRANCHISE:
+--
+--     The Witcher 3: Wild Hunt   -> witcher3wildhunt   404   (it is `witcher`)
+--     Mass Effect 3              -> masseffect3        404   (it is `masseffect`)
+--     The Elder Scrolls V: Skyrim-> elderscrollsvskyrim 404  (it is `elderscrolls`)
+--
+-- Games and long-running series are overwhelmingly of that shape, and they are
+-- also the works with no other source of character art at all: TheTVDB has no
+-- games, and Wikipedia has an article for a character only when the character is
+-- notable outside their own story.
+--
+-- SO THE SLUG IS PROBED ONCE AND REMEMBERED. The resolver walks a truncation
+-- ladder — full slug, then without the subtitle, then without the instalment
+-- number — and stops at the first wiki that answers. Storing the winner turns a
+-- three-request guess into a one-request lookup for every search after the first,
+-- which is what makes it affordable to do at all.
+--
+-- AND IT IS A TYPED FIELD AS WELL AS A REMEMBERED ONE. The ladder cannot resolve
+-- every work — Star Wars characters live on `starwars` and on `wookieepedia`, and
+-- no derivation from a title picks between them — so the column is writable by
+-- the reader and a value it holds is never overwritten by a later probe. One
+-- column serves both because they are the same fact: this work is on that wiki.
+-- What distinguishes them is only who last wrote it, which nothing needs to know.
+--
+-- EMPTY MEANS "NOT RESOLVED YET" rather than "no wiki". A work whose probe found
+-- nothing is left empty and re-probed on the next search, because a wiki that did
+-- not exist last month may exist now, and the cost of being wrong is one 404.
+ALTER TABLE movies ADD COLUMN fandom_wiki TEXT NOT NULL DEFAULT '';

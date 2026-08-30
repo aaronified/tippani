@@ -25,14 +25,14 @@ import (
 	"context"
 	"encoding/json"
 	"net/url"
+	"strconv"
 	"strings"
 )
 
 // FandomWorkDetails asks a work's own wiki for its article summary and image.
 // Silent on every miss: no wiki, no article, nothing to say.
-func FandomWorkDetails(ctx context.Context, title string) (*MovieDetails, error) {
-	title = strings.TrimSpace(title)
-	slug := fandomSlug(title)
+func FandomWorkDetails(ctx context.Context, title, wiki string) (*MovieDetails, error) {
+	title, slug := strings.TrimSpace(title), strings.TrimSpace(wiki)
 	if title == "" || slug == "" {
 		return nil, nil
 	}
@@ -86,5 +86,109 @@ func FandomWorkDetails(ctx context.Context, title string) (*MovieDetails, error)
 	if d.Title == "" {
 		d.Title = title
 	}
+	// THE CHARACTERS, WHICH FOR A GAME IS OFTEN THE ONLY LIST THAT EXISTS. TheTVDB
+	// has no games at all and Wikipedia writes about a character only when the
+	// character is notable outside their own story, so a game's cast has had no
+	// structured source anywhere. A wiki has one, and it is a CATEGORY rather than
+	// an infobox — a MediaWiki primitive that works identically on every wiki,
+	// where infobox markup is per-wiki and would be the kind of scraping the rest
+	// of this package refuses.
+	d.Cast = fandomCharacters(ctx, slug)
 	return d, nil
+}
+
+// fandomCharacterCategories are the category names wikis actually use, best
+// first. More than one because there is no convention: a category is a MediaWiki
+// primitive but its NAME is a wiki's own choice.
+var fandomCharacterCategories = []string{"Characters", "Character", "Playable characters"}
+
+// fandomCharacters lists a wiki's characters, each with the picture from their
+// own page.
+//
+// TWO REQUESTS, NOT ONE PER CHARACTER. `categorymembers` names them and a single
+// `pageimages` call takes up to fifty titles at once, so a full cast costs two
+// round trips rather than twenty. That bound is why this can run inside an
+// ordinary details fetch at all.
+//
+// NO ACTOR NAMES, and that is the honest shape. A wiki's character page is about
+// the CHARACTER; who voices them lives in an infobox whose markup differs per
+// wiki. So these are cast rows with a character and no actor, which the merge
+// tolerates — and which is the right way round for a game, where the character is
+// the thing anybody quotes and the voice actor is the footnote.
+func fandomCharacters(ctx context.Context, slug string) []CastMember {
+	base := strings.Replace(fandomHostFmt, "%s", slug, 1)
+	var names []string
+	for _, cat := range fandomCharacterCategories {
+		q := url.Values{
+			"action": {"query"}, "list": {"categorymembers"},
+			"cmtitle": {"Category:" + cat}, "cmlimit": {strconv.Itoa(maxCast)},
+			"cmtype": {"page"}, "format": {"json"}, "formatversion": {"2"},
+		}
+		body, status, err := httpGet(ctx, base+"/api.php?"+q.Encode(), "")
+		if err != nil || status != 200 {
+			continue
+		}
+		var r struct {
+			Query struct {
+				CategoryMembers []struct {
+					Title string `json:"title"`
+				} `json:"categorymembers"`
+			} `json:"query"`
+		}
+		if json.Unmarshal(body, &r) != nil {
+			continue
+		}
+		for _, m := range r.Query.CategoryMembers {
+			if n := strings.TrimSpace(m.Title); n != "" {
+				names = append(names, n)
+			}
+		}
+		if len(names) > 0 {
+			break // the first category that has anybody in it is this wiki's
+		}
+	}
+	if len(names) == 0 {
+		return nil
+	}
+	images := fandomPageImages(ctx, base, names)
+	out := make([]CastMember, 0, len(names))
+	for _, n := range names {
+		out = append(out, CastMember{Character: n, CharacterImageURL: images[n]})
+	}
+	return out
+}
+
+// fandomPageImages fetches the page image for many titles in ONE call —
+// MediaWiki takes up to fifty pipe-separated titles, and maxCast is twenty.
+func fandomPageImages(ctx context.Context, base string, titles []string) map[string]string {
+	q := url.Values{
+		"action": {"query"}, "prop": {"pageimages"}, "piprop": {"original"},
+		"pilimit": {"max"},
+		"titles":  {strings.Join(titles, "|")},
+		"format":  {"json"}, "formatversion": {"2"}, "redirects": {"1"},
+	}
+	body, status, err := httpGet(ctx, base+"/api.php?"+q.Encode(), "")
+	if err != nil || status != 200 {
+		return nil
+	}
+	var r struct {
+		Query struct {
+			Pages []struct {
+				Title    string `json:"title"`
+				Original struct {
+					Source string `json:"source"`
+				} `json:"original"`
+			} `json:"pages"`
+		} `json:"query"`
+	}
+	if json.Unmarshal(body, &r) != nil {
+		return nil
+	}
+	out := map[string]string{}
+	for _, p := range r.Query.Pages {
+		if src := strings.TrimSpace(p.Original.Source); src != "" {
+			out[strings.TrimSpace(p.Title)] = src
+		}
+	}
+	return out
 }

@@ -3065,6 +3065,49 @@ reading markup that differs per wiki, and offering two fields honestly is worth 
 six unreliably. The per-field picker is built for precisely that: a supplier contributes
 where it is good and is absent everywhere else.
 
+### The Fandom wiki is probed once, remembered, and overridable
+
+**Decided.** `FandomWikiCandidates` walks a truncation ladder — the full title slug, then
+without the subtitle, then without the trailing instalment number or roman numeral — and
+`FandomResolveWiki` stops at the first wiki that answers. The winner is written to
+`movies.fandom_wiki` (0055) and every later lookup uses it. The column is also writable by
+the reader, and a value it holds is never overwritten by a probe.
+
+**Why, measured.** Over nine real titles the plain title-derived slug found six wikis. All
+three misses were the same shape — a numbered or subtitled entry whose wiki carries the
+FRANCHISE name: `witcher3wildhunt` against `witcher`, `masseffect3` against `masseffect`,
+`elderscrollsvskyrim` against `elderscrolls`. Games and long-running series are
+overwhelmingly that shape, and they are also the works with no other source of character
+art at all: TheTVDB has no games, and Wikipedia has an article for a character only when
+the character is notable outside their own story.
+
+**Why remembered rather than re-derived.** Probing costs up to four requests, which is
+affordable exactly once. Storing the answer turns every later character search on that
+title into one request, and writing it inside a request already talking to Fandom avoids
+the background job this app does not have. A FAILED probe is deliberately not remembered:
+a wiki that did not exist last month may exist now, and asking again costs one 404.
+
+**Why typed as well.** The ladder cannot resolve every work — Star Wars characters live on
+`starwars` and on `wookieepedia`, and no derivation from a title picks between them. One
+column serves both because they are the same fact; what distinguishes them is only who
+last wrote it, which nothing needs to know. Rejected: a second column recording provenance
+of the wiki name, which would exist solely to be ignored.
+
+**FANDOM SUPPLIES CHARACTERS FROM A CATEGORY, NOT AN INFOBOX.** A wiki's character list is
+`Category:Characters`, which is a MediaWiki primitive that works identically everywhere;
+an infobox is per-wiki markup and reading it would be the scraping the rest of this
+package refuses. Two requests, not one per character: `categorymembers` names them and one
+`pageimages` call takes fifty titles at once. No actor names — who voices a character
+lives in that same infobox — so these are cast rows with a character and no actor, which
+is the right way round for a game, where the character is what anybody quotes.
+
+**AND FANDOM LEADS THE CHARACTER LADDER FOR GAMES.** For `media_type=game` the order is
+fandom → wikimedia → google; films and shows keep tvdb → wikimedia → fandom → google.
+TheTVDB has no games at all, and asking Wikipedia first for a game character spends a
+request to be told nothing before reaching the supplier that has the thing.
+
+<sub>2.3.0 — `internal/store/migrations/0055_fandom_wiki.sql` · `internal/metadata/fandom_images.go` · `internal/metadata/fandom_details.go` · `internal/httpapi/image_search_tiers.go`</sub>
+
 **FANDOM IS A GUESS AND SAYS SO.** Wikipedia has an article for a character only when
 the character is notable outside their story; Fandom has one for the rest, which is most
 of a cast list. The obstacle is that Fandom is not one MediaWiki but tens of thousands,

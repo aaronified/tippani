@@ -147,10 +147,24 @@ func (s *Server) handleImageSearch(w http.ResponseWriter, r *http.Request) {
 		// THE ROLE, FROM THE ONE SUPPLIER THAT HAS ROLES. Everything below it is
 		// a search engine being asked to guess from a sentence.
 		pin := s.castPinFor(uid, req.CastID)
-		tier(s.tvdbCharacterTier(pin, subject))
 		role := firstNonEmpty(subject, pin.Character)
-		tier(s.wikimediaCharacterTier(role, req.Title))
-		tier(s.fandomCharacterTier(role, req.Title))
+		// FANDOM LEADS FOR A GAME, and the reason is that the two rungs above it
+		// cannot answer at all: TheTVDB has no games, and Wikipedia writes about a
+		// character only when the character is notable outside their own story —
+		// which almost no game character is. A wiki has an article for every one of
+		// them, with a picture. Asking Wikipedia first for a game spends a request
+		// to be told nothing, before reaching the supplier that has the thing.
+		//
+		// Films and shows keep TheTVDB on top: it holds the actual photograph of
+		// the actual role, which no wiki illustration is.
+		if req.MediaType == "game" {
+			tier(s.fandomCharacterTier(uid, pin, role, req.Title))
+			tier(s.wikimediaCharacterTier(role, req.Title))
+		} else {
+			tier(s.tvdbCharacterTier(pin, subject))
+			tier(s.wikimediaCharacterTier(role, req.Title))
+			tier(s.fandomCharacterTier(uid, pin, role, req.Title))
+		}
 	case imageKindPortrait:
 		pin := s.personPinFor(uid, req.PersonID, subject)
 		cast := s.castPinFor(uid, req.CastID)

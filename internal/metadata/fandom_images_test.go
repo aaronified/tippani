@@ -46,7 +46,7 @@ func TestFandomAsksTheWorksOwnWikiAndIsSilentWhenThereIsNone(t *testing.T) {
 	defer srv.Close()
 	SetFandomAndScrapeBasesForTest(t, srv.URL, "")
 
-	got := FandomCharacterImages(context.Background(), "V", "V for Vendetta")
+	got := FandomCharacterImages(context.Background(), "V", "vforvendetta")
 	if len(got) != 1 || got[0].URL != "https://static.wikia.nocookie.net/v.jpg" {
 		t.Fatalf("the wiki answered and the hit was lost: %+v", got)
 	}
@@ -56,7 +56,7 @@ func TestFandomAsksTheWorksOwnWikiAndIsSilentWhenThereIsNone(t *testing.T) {
 	// A PAGE THAT IS NOT THERE IS NOT AN IMAGE. MediaWiki answers `missing:true`
 	// with a 200, so a caller that only checked the status code would offer an
 	// empty struct's zero-value URL as a picture.
-	if got := FandomCharacterImages(context.Background(), "Nobody", "V for Vendetta"); len(got) != 0 {
+	if got := FandomCharacterImages(context.Background(), "Nobody", "vforvendetta"); len(got) != 0 {
 		t.Errorf("a missing page produced a hit: %+v", got)
 	}
 	// No work title means no wiki to guess, so nothing is fetched at all.
@@ -96,7 +96,7 @@ func TestFandomSuppliesAnArticleSummaryAndNothingItCannotKnow(t *testing.T) {
 	defer srv.Close()
 	SetFandomAndScrapeBasesForTest(t, srv.URL, "")
 
-	d, err := FandomWorkDetails(context.Background(), "V for Vendetta")
+	d, err := FandomWorkDetails(context.Background(), "V for Vendetta", "vfv")
 	if err != nil || d == nil {
 		t.Fatalf("no record: %v / %+v", err, d)
 	}
@@ -117,7 +117,89 @@ func TestFandomSuppliesAnArticleSummaryAndNothingItCannotKnow(t *testing.T) {
 	}
 
 	// A missing article is silence, not a record.
-	if got, _ := FandomWorkDetails(context.Background(), "Nothing At All"); got != nil {
+	if got, _ := FandomWorkDetails(context.Background(), "Nothing At All", "vfv"); got != nil {
 		t.Errorf("a missing article produced a record: %+v", got)
+	}
+}
+
+// THE WIKI IS NAMED FOR THE FRANCHISE, NOT THE INSTALMENT, and the plain
+// title-derived slug misses exactly there.
+//
+// MEASURED AGAINST THE REAL SITE before this was written: over nine titles the
+// plain guess found six wikis, and all three misses were a numbered or subtitled
+// entry — witcher3wildhunt (it is `witcher`), masseffect3 (`masseffect`),
+// elderscrollsvskyrim (`elderscrolls`). Games and long-running series are
+// overwhelmingly that shape, and they are also the works with no other source of
+// character art at all.
+//
+// So the ladder is: full slug, then without the subtitle, then without the
+// instalment number, then without a roman numeral. Most specific FIRST, because a
+// wiki dedicated to one instalment is a better answer than the franchise's when
+// both exist.
+func TestTheWikiLadderReachesTheFranchiseWhenTheInstalmentHasNoWiki(t *testing.T) {
+	for _, tc := range []struct {
+		title string
+		want  string // the franchise root the ladder must eventually offer
+	}{
+		{"The Witcher 3: Wild Hunt", "witcher"},
+		{"Mass Effect 3", "masseffect"},
+		{"The Elder Scrolls V: Skyrim", "elderscrolls"},
+		{"Hades", "hades"},
+		{"Death Note", "deathnote"},
+	} {
+		got := FandomWikiCandidates(tc.title)
+		if len(got) == 0 {
+			t.Fatalf("%q produced no candidates", tc.title)
+		}
+		// The most specific guess leads.
+		if got[0] != fandomSlug(tc.title) {
+			t.Errorf("%q leads with %q, want the full slug %q", tc.title, got[0], fandomSlug(tc.title))
+		}
+		found := false
+		for _, c := range got {
+			if c == tc.want {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("%q never offers %q — the ladder does not reach the franchise: %v",
+				tc.title, tc.want, got)
+		}
+	}
+	// No duplicates: a standalone title collapses to one candidate rather than
+	// probing the same wiki four times.
+	if got := FandomWikiCandidates("Hades"); len(got) != 1 {
+		t.Errorf("a standalone title produced %v, want one candidate", got)
+	}
+}
+
+// The resolver stops at the FIRST wiki that answers, and asks no further.
+func TestFandomResolveWikiStopsAtTheFirstWikiThatExists(t *testing.T) {
+	var asked []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// THE SLUG IS IN THE PATH, NOT THE HOST. In production the wiki is a
+		// SUBDOMAIN, and a subdomain of 127.0.0.1 does not resolve — so the seam
+		// takes a format string and the test puts %s where it can be read back.
+		slug := strings.Trim(strings.TrimSuffix(r.URL.Path, "/api.php"), "/")
+		asked = append(asked, slug)
+		if slug == "witcher" { // only the franchise wiki exists, as in the real world
+			_, _ = w.Write([]byte(`{"batchcomplete":true}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer srv.Close()
+	SetFandomAndScrapeBasesForTest(t, srv.URL+"/%s", "")
+
+	got := FandomResolveWiki(context.Background(), "The Witcher 3: Wild Hunt")
+	if got != "witcher" {
+		t.Fatalf("resolved to %q, want witcher (asked: %v)", got, asked)
+	}
+	if len(asked) != 3 {
+		t.Errorf("asked %d wikis (%v), want three — full, de-subtitled, de-numbered", len(asked), asked)
+	}
+	// A title with no wiki at all resolves to nothing rather than to a guess.
+	if got := FandomResolveWiki(context.Background(), "Something Nobody Wrote About"); got != "" {
+		t.Errorf("an unknown work resolved to %q", got)
 	}
 }

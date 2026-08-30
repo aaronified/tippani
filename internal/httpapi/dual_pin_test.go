@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"strings"
 	"testing"
 
 	"tippani/internal/metadata"
@@ -353,5 +354,97 @@ func TestAnUnpinnedFilmIsNotGivenAGuessedRecord(t *testing.T) {
 	}
 	if asked != 0 {
 		t.Errorf("Letterboxd was guessed at for an unpinned film (%d request(s))", asked)
+	}
+}
+
+// THE WIKI IS RESOLVED ONCE AND REMEMBERED, and a typed one is never overwritten.
+//
+// Probing costs up to four requests, which is affordable exactly once. What makes
+// it affordable at all is that the answer is stored on the work, so every later
+// character search on that title is a single request. And because the ladder
+// cannot resolve every work — Star Wars characters live on `starwars` and on
+// `wookieepedia`, and no derivation from a title picks between them — a value the
+// reader typed has to survive every later probe.
+func TestTheFandomWikiIsProbedOnceRememberedAndNeverOverwritten(t *testing.T) {
+	var probes int
+	srv := newTestServer(t)
+	fandom := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		slug := strings.Trim(strings.TrimSuffix(r.URL.Path, "/api.php"), "/")
+		q := r.URL.Query()
+		if q.Get("meta") == "siteinfo" {
+			probes++
+			if slug != "witcher" {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			_, _ = w.Write([]byte(`{"batchcomplete":true}`))
+			return
+		}
+		if slug == "witcher" && q.Get("titles") == "Geralt of Rivia" {
+			_, _ = w.Write([]byte(`{"query":{"pages":[{"title":"Geralt of Rivia",
+				"original":{"source":"https://static.wikia.nocookie.net/geralt.jpg"}}]}}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"query":{"pages":[{"missing":true}]}}`))
+	}))
+	defer fandom.Close()
+	metadata.SetFandomAndScrapeBasesForTest(t, fandom.URL+"/%s", "")
+
+	c := signupAdmin(t, srv.Handler())
+	game := decode[movieDetail](t, c.mustDo("POST", "/movies",
+		map[string]any{"title": "The Witcher 3: Wild Hunt", "media_type": "game"}, http.StatusCreated))
+	cast := decode[struct {
+		Cast []ladderCastRow `json:"cast"`
+	}](t, c.mustDo("POST", "/movies/"+strconv.FormatInt(game.ID, 10)+"/cast",
+		map[string]any{"character": "Geralt of Rivia"}, http.StatusCreated))
+	_ = cast
+	rows := decode[struct {
+		Cast []ladderCastRow `json:"cast"`
+	}](t, c.mustDo("GET", "/movies/"+strconv.FormatInt(game.ID, 10)+"/cast", nil, http.StatusOK))
+	if len(rows.Cast) == 0 {
+		t.Fatal("no cast row to search from")
+	}
+
+	search := func() imageSearchResp {
+		return decode[imageSearchResp](t, c.mustDo("POST", "/images/search", map[string]any{
+			"kind": "character", "name": "Geralt of Rivia", "title": "The Witcher 3: Wild Hunt",
+			"media_type": "game", "cast_id": rows.Cast[0].ID,
+		}, http.StatusOK))
+	}
+
+	got := search()
+	if len(got.Images) != 1 || got.Images[0].Source != "fandom" {
+		t.Fatalf("the franchise wiki was not reached: %+v", got.Images)
+	}
+	// Three probes: witcher3wildhunt, witcher3, witcher.
+	if probes != 3 {
+		t.Errorf("probed %d times, want 3 (full, de-subtitled, de-numbered)", probes)
+	}
+
+	// SECOND SEARCH: NO PROBES AT ALL. The wiki is on the row now.
+	probes = 0
+	if got := search(); len(got.Images) != 1 {
+		t.Fatalf("the remembered wiki was not used: %+v", got.Images)
+	}
+	if probes != 0 {
+		t.Errorf("re-probed %d time(s) for a wiki already stored", probes)
+	}
+
+	// A TYPED WIKI SURVIVES. Set one by hand and confirm no probe replaces it.
+	if _, err := srv.Store.DB.Exec(
+		`UPDATE movies SET fandom_wiki = 'wookieepedia' WHERE id = ?`, game.ID); err != nil {
+		t.Fatal(err)
+	}
+	probes = 0
+	search()
+	if probes != 0 {
+		t.Errorf("a typed wiki was re-probed %d time(s)", probes)
+	}
+	var stored string
+	if err := srv.Store.DB.QueryRow(`SELECT fandom_wiki FROM movies WHERE id = ?`, game.ID).Scan(&stored); err != nil {
+		t.Fatal(err)
+	}
+	if stored != "wookieepedia" {
+		t.Errorf("a typed wiki was overwritten by a probe: %q", stored)
 	}
 }

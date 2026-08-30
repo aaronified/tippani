@@ -39,7 +39,9 @@ const lbPage = `<html><head>
  "description":"In a world in which Great Britain has become a fascist state...",
  "image":"https://a.ltrbxd.com/resized/film-poster/5/1/4/0/0/51400-v-for-vendetta.jpg",
  "genre":["Thriller","Science Fiction"],
- "director":[{"@type":"Person","name":"James McTeigue"}],
+ "director":[{"@type":"Person","name":"Lana Wachowski"},{"@type":"Person","name":"Lilly Wachowski"}],
+ "dateCreated":"2005-12-11",
+ "productionCompany":[{"@type":"Organization","name":"Virtual Studios"},{"@type":"Organization","name":"Anarchos"}],
  "actor":[{"@type":"Person","name":"Natalie Portman"},{"@type":"Person","name":"Hugo Weaving"}]}
 /* ]]> */
 </script></head><body><a href="/films/year/2005/">2005</a></body></html>`
@@ -59,12 +61,20 @@ func TestLetterboxdReadsThePublishedRecordAndTheYearBesideIt(t *testing.T) {
 	if err != nil || d == nil {
 		t.Fatalf("no record: %v / %+v", err, d)
 	}
-	if d.Title != "V for Vendetta" || d.Director != "James McTeigue" {
-		t.Errorf("title/director: %q / %q", d.Title, d.Director)
+	if d.Title != "V for Vendetta" {
+		t.Errorf("title: %q", d.Title)
 	}
-	// THE YEAR IS NOT IN THE JSON-LD and is read from the page's year link. If
-	// that ever moves, the year is dropped and everything else still arrives —
-	// which is the behaviour the next assertion protects.
+	// EVERY DIRECTOR, NOT THE FIRST. Taking [0] credits one Wachowski and
+	// silently drops the other, and the app's credit splitter needs them
+	// separated the way it separates every other multi-person credit.
+	if d.Director != "Lana Wachowski, Lilly Wachowski" {
+		t.Errorf("director = %q, want both", d.Director)
+	}
+	// The lead production company — `publisher` is who put it out (0042).
+	if d.Publisher != "Virtual Studios" {
+		t.Errorf("publisher = %q", d.Publisher)
+	}
+	// THE YEAR COMES FROM THE STRUCTURED RECORD, not the markup around it.
 	if d.ReleaseYear != 2005 {
 		t.Errorf("release year = %d, want 2005", d.ReleaseYear)
 	}
@@ -86,6 +96,25 @@ func TestLetterboxdReadsThePublishedRecordAndTheYearBesideIt(t *testing.T) {
 	got, err := LetterboxdDetails(context.Background(), "Some Film That Is Not There")
 	if err != nil || got != nil {
 		t.Errorf("a missed guess was not silent: %+v / %v", got, err)
+	}
+}
+
+// THE YEAR FALLS BACK TO THE PAGE when the record omits the date — a film whose
+// JSON-LD has no dateCreated still gets a year rather than losing one, and every
+// other field is unaffected either way.
+func TestLetterboxdFallsBackToThePageYearWhenTheRecordHasNoDate(t *testing.T) {
+	noDate := `<html><script type="application/ld+json">
+		{"@type":"Movie","name":"Heat","description":"x","image":"https://a/p.jpg"}
+		</script><a href="/films/year/1995/">1995</a></html>`
+	d, err := parseLetterboxd([]byte(noDate), "heat")
+	if err != nil || d == nil {
+		t.Fatalf("no record: %v", err)
+	}
+	if d.ReleaseYear != 1995 {
+		t.Errorf("release year = %d, want the page's 1995", d.ReleaseYear)
+	}
+	if d.Title != "Heat" {
+		t.Errorf("the rest of the record did not survive: %+v", d)
 	}
 }
 

@@ -258,11 +258,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Fandom finds the right wiki now, which is what makes it work for games.** The wiki
+  is named for the *franchise*, not the instalment, and guessing from the title missed
+  exactly there — measured over nine real titles, the guess found six, and all three
+  misses were the same shape: `witcher3wildhunt` where the wiki is `witcher`,
+  `masseffect3` where it is `masseffect`, `elderscrollsvskyrim` where it is
+  `elderscrolls`. Those are precisely the works with no other source of character art
+  at all, since TheTVDB has no games and Wikipedia writes about a character only when
+  they are notable outside their own story.
+
+  The wiki is now found by trying the full name, then without the subtitle, then
+  without the instalment number — and the answer is **remembered on the work**, so
+  every later search on that title is a single request. You can also **type the wiki
+  yourself**, and a typed one is never overwritten by a later guess: Star Wars
+  characters live on both `starwars` and `wookieepedia`, and no rule derived from a
+  title picks between them.
+
+  Fandom also supplies a work's **characters, with their pictures** — read from the
+  wiki's character category, which is a MediaWiki primitive rather than per-wiki
+  markup. For a game that is often the only character list in existence. And for a
+  game's characters Fandom now goes **first**, ahead of Wikipedia, which was being
+  asked before the supplier that actually has them.
+
 - **Letterboxd and Fandom are metadata sources now, not just picture ones.** Both need
   no key, and both appear as columns in the per-field picker on a film you have already
-  pinned. *Letterboxd* is better than a catalogue at exactly two things and is offered
-  for them: a synopsis written to tell you what a film is like rather than to fill a
-  column, and a poster chosen by people who care which poster it is. *Fandom* supplies
+  pinned. *Letterboxd* supplies its synopsis, poster, genres, cast, release year, every
+  director (not just the first — a film with two of them had one silently dropped) and
+  the lead production company. *Fandom* supplies
   its wiki article's opening paragraph and page image — which is often the only real
   description a long-tail series or game has anywhere.
 

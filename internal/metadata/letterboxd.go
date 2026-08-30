@@ -81,17 +81,23 @@ func LetterboxdSlug(title string) string {
 }
 
 // letterboxdLD is the schema.org Movie the page publishes.
+type namedThing struct {
+	Name string `json:"name"`
+}
+
 type letterboxdLD struct {
-	Name        string   `json:"name"`
-	Description string   `json:"description"`
-	Image       string   `json:"image"`
-	Genre       []string `json:"genre"`
-	Director    []struct {
-		Name string `json:"name"`
-	} `json:"director"`
-	Actor []struct {
-		Name string `json:"name"`
-	} `json:"actor"`
+	Name        string       `json:"name"`
+	Description string       `json:"description"`
+	Image       string       `json:"image"`
+	Genre       []string     `json:"genre"`
+	Director    []namedThing `json:"director"`
+	Actor       []namedThing `json:"actor"`
+	// DateCreated is the release date, and it is the STRUCTURED answer for the
+	// year — the page's year link is a fallback for when this is absent.
+	DateCreated string `json:"dateCreated"`
+	// ProductionCompany maps to `publisher`, which 0042 defines as who PUT IT OUT
+	// as against who made it. Letterboxd lists several; the first is the lead.
+	ProductionCompany []namedThing `json:"productionCompany"`
 }
 
 // LetterboxdDetails fetches one film page and returns what it publishes about
@@ -158,11 +164,28 @@ func parseLetterboxd(page []byte, slug string) (*MovieDetails, error) {
 	// One art URL, so the picker thumbnail and the stored poster are the same
 	// image — the same note tvdb.go makes about TheTVDB.
 	d.PosterThumbURL = d.PosterURL
-	if len(ld.Director) > 0 {
-		d.Director = strings.TrimSpace(ld.Director[0].Name)
+	// EVERY DIRECTOR, NOT THE FIRST. A film with two of them has two, and the
+	// Wachowskis are the reason this is not a detail: taking [0] credits one
+	// sibling and silently drops the other. Joined the way the app's own credit
+	// separators expect, so the people console splits them back apart.
+	d.Director = joinNames(ld.Director)
+	// The lead production company. `publisher` is who put it out rather than who
+	// made it (0042), and Letterboxd lists them in that order.
+	if len(ld.ProductionCompany) > 0 {
+		d.Publisher = strings.TrimSpace(ld.ProductionCompany[0].Name)
 	}
-	if y := lbYearRe.FindSubmatch(page); y != nil {
-		d.ReleaseYear, _ = strconv.Atoi(string(y[1]))
+	// THE RELEASE YEAR, FROM THE DOCUMENT FIRST. dateCreated is inside the record
+	// other people's crawlers depend on; the year link is markup on the page
+	// around it. Reading the structured one first is the same preference this
+	// whole file is built on, and the fallback means a film whose record omits the
+	// date still gets a year.
+	if len(ld.DateCreated) >= 4 {
+		d.ReleaseYear, _ = strconv.Atoi(ld.DateCreated[:4])
+	}
+	if d.ReleaseYear == 0 {
+		if y := lbYearRe.FindSubmatch(page); y != nil {
+			d.ReleaseYear, _ = strconv.Atoi(string(y[1]))
+		}
 	}
 	// CAST WITHOUT CHARACTERS, which is what the page publishes: schema.org's
 	// `actor` is a list of people and carries no role. Offered anyway because an
@@ -179,4 +202,17 @@ func parseLetterboxd(page []byte, slug string) (*MovieDetails, error) {
 	}
 	d.Raw = json.RawMessage(raw)
 	return d, nil
+}
+
+// joinNames renders a list of people as one credit string, using the separator
+// the app's own credit splitter treats as canonical — so "the Wachowskis" arrive
+// as two people rather than as one person with an ampersand in their name.
+func joinNames(in []namedThing) string {
+	out := make([]string, 0, len(in))
+	for _, n := range in {
+		if v := strings.TrimSpace(n.Name); v != "" {
+			out = append(out, v)
+		}
+	}
+	return strings.Join(out, ", ")
 }

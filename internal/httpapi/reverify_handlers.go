@@ -437,15 +437,15 @@ func attachBookAlts(diffs []fieldDiff, cands []metadata.BookCandidate) {
 
 func (s *Server) reverifyMovie(ctx context.Context, uid, id int64, tmdb *metadata.TMDB, tvdb *metadata.TVDB) reverifyItem {
 	it := reverifyItem{Type: "movie", ID: id, Status: "ok", Diffs: []fieldDiff{}}
-	var title, director, desc, mediaType, series, poster string
+	var title, director, desc, mediaType, series, poster, fandomWiki string
 	var year int
 	var tmdbID, tvdbID int64
 	err := s.Store.DB.QueryRow(`
 		SELECT title, COALESCE(director,''), COALESCE(release_year,0), COALESCE(description,''),
 		       COALESCE(media_type,'movie'), COALESCE(series,''), COALESCE(tmdb_id,0), COALESCE(tvdb_id,0),
-		       COALESCE(poster_path,'')
+		       COALESCE(poster_path,''), COALESCE(fandom_wiki,'')
 		FROM movies WHERE id = ? AND user_id = ?`, id, uid).
-		Scan(&title, &director, &year, &desc, &mediaType, &series, &tmdbID, &tvdbID, &poster)
+		Scan(&title, &director, &year, &desc, &mediaType, &series, &tmdbID, &tvdbID, &poster, &fandomWiki)
 	if errors.Is(err, sql.ErrNoRows) {
 		it.Status = "not_found"
 		return it
@@ -474,7 +474,7 @@ func (s *Server) reverifyMovie(ctx context.Context, uid, id int64, tmdb *metadat
 	// answers, the reader gets TMDB's values rather than an error — which is the
 	// same best-effort rule the picture ladder and the catalogue lookups follow.
 	// It is only fetch_failed when NOBODY answered.
-	fetched, lerr := s.fetchAllMovieSources(ctx, mediaType, title, tmdbID, tvdbID, tmdb, tvdb)
+	fetched, lerr := s.fetchAllMovieSources(ctx, uid, id, mediaType, title, fandomWiki, tmdbID, tvdbID, tmdb, tvdb)
 	switch {
 	case len(fetched) > 0:
 		// at least one supplier answered
@@ -1431,8 +1431,8 @@ func knownBookSource(source string) string {
 // fetchAllMovieSources asks every supplier the work is pinned to AND has a client
 // for, in preference order. Returns the answers that came back plus the last
 // error, so the caller can tell "nobody answered" from "nobody was asked".
-func (s *Server) fetchAllMovieSources(ctx context.Context, mediaType, title string, tmdbID, tvdbID int64,
-	tmdb *metadata.TMDB, tvdb *metadata.TVDB) ([]fetchedSource, error) {
+func (s *Server) fetchAllMovieSources(ctx context.Context, uid, id int64, mediaType, title, storedWiki string,
+	tmdbID, tvdbID int64, tmdb *metadata.TMDB, tvdb *metadata.TVDB) ([]fetchedSource, error) {
 	var out []fetchedSource
 	var lastErr error
 	add := func(source, sourceID string, det *metadata.MovieDetails, err error) {
@@ -1489,8 +1489,11 @@ func (s *Server) fetchAllMovieSources(ctx context.Context, mediaType, title stri
 			det, err := metadata.LetterboxdDetails(ctx, title)
 			add("letterboxd", metadata.LetterboxdSlug(title), det, err)
 		}
-		det, err := metadata.FandomWorkDetails(ctx, title)
-		add("fandom", "", det, err)
+		// The wiki is resolved once and remembered on the row; see fandomWikiFor.
+		if wiki := s.fandomWikiFor(ctx, uid, id, storedWiki, title); wiki != "" {
+			det, err := metadata.FandomWorkDetails(ctx, title, wiki)
+			add("fandom", wiki, det, err)
+		}
 	}
 	return out, lastErr
 }

@@ -40,7 +40,12 @@ type movieReq struct {
 	// has never heard of it must not be able to wipe it by omission.
 	TMDBID *int64 `json:"tmdb_id"`
 	TVDBID *int64 `json:"tvdb_id"`
-	IGDBID *int64 `json:"igdb_id"` // games (0040); same pointer contract as the two above
+	// FandomWiki is the wiki this work lives on, and it is a POINTER for the same
+	// reason the supplier ids are: nil means the body did not mention it and the
+	// stored value — which a probe may have filled — stays exactly as it is. A
+	// present empty string clears it, which re-arms the probe.
+	FandomWiki *string `json:"fandom_wiki"`
+	IGDBID     *int64  `json:"igdb_id"` // games (0040); same pointer contract as the two above
 	// IMDbID is full-state like the ordinary fields rather than a pointer like
 	// the two above, and the difference is what each id is FOR. Those two are
 	// what a re-sync pulls from, so an old client omitting one must not wipe it;
@@ -202,7 +207,10 @@ type movieDetail struct {
 	// the table stays silent until something next writes to it. An absent list and
 	// an empty one mean the same thing here — "nothing recorded" — which is why the
 	// zero value is allowed to disappear rather than being sent as [].
-	FieldSources []store.FieldSource   `json:"field_sources,omitempty"`
+	FieldSources []store.FieldSource `json:"field_sources,omitempty"`
+	// Which Fandom wiki this work is on — resolved by a probe or typed by the
+	// reader. Returned so a wrong guess can be seen and corrected.
+	FandomWiki   string                `json:"fandom_wiki"`
 	ID           int64                 `json:"id"`
 	Title        string                `json:"title"`
 	Director     string                `json:"director"`
@@ -235,13 +243,13 @@ func (s *Server) fetchMovie(uid, id int64) (*movieDetail, error) {
 		       COALESCE(tvdb_id, 0), COALESCE(igdb_id, 0), media_type, COALESCE(poster_path, ''), COALESCE(description, ''),
 		       COALESCE(series, ''), COALESCE(series_index, 0), favorite, status, progress,
 		       pos_unit, pos, pos_total, season, season_total, created_at,
-		       COALESCE(imdb_id, ''), publisher
+		       COALESCE(imdb_id, ''), publisher, COALESCE(fandom_wiki, '')
 		FROM movies WHERE id = ? AND user_id = ?`, id, uid).
 		Scan(&m.ID, &m.Title, &m.Director, &m.ReleaseYear, &m.ReleaseCirca, &m.TMDBID,
 			&m.TVDBID, &m.IGDBID, &m.MediaType, &m.PosterPath, &m.Description,
 			&m.Series, &m.SeriesIndex, &m.Favorite, &m.Status, &m.Progress,
 			&m.Unit, &m.Pos, &m.PosTotal, &m.Season, &m.SeasonTotal,
-			&m.CreatedAt, &m.IMDbID, &m.Publisher)
+			&m.CreatedAt, &m.IMDbID, &m.Publisher, &m.FandomWiki)
 	if err != nil {
 		return nil, err
 	}
@@ -913,6 +921,17 @@ func (s *Server) handleUpdateMovie(w http.ResponseWriter, r *http.Request) {
 		if _, err := tx.Exec(`UPDATE movies SET poster_path = ?, updated_at = datetime('now') WHERE id = ? AND user_id = ?`,
 			nullable(newPoster), id, uid); err != nil {
 			failErr("update movie: set poster", err)
+			return
+		}
+	}
+	// The typed wiki writes on its own for the same reason the supplier ids do:
+	// it is a column a body is allowed to stay silent about. Silence leaves
+	// whatever a probe stored; an empty string clears it and re-arms the probe.
+	if req.FandomWiki != nil {
+		if _, err := tx.Exec(
+			`UPDATE movies SET fandom_wiki = ?, updated_at = datetime('now') WHERE id = ? AND user_id = ?`,
+			strings.TrimSpace(*req.FandomWiki), id, uid); err != nil {
+			failErr("update movie: set fandom wiki", err)
 			return
 		}
 	}
