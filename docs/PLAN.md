@@ -3042,6 +3042,29 @@ so "Anna Kavan" is not satisfied by "Kavan (disambiguation)". Rejected: enumerat
 Wikidata's fictional-character classes to filter by P31, which is a class hierarchy to
 keep in step with for a judgement Wikipedia's own titles already encode.
 
+**LETTERBOXD AND FANDOM ARE RECORD SOURCES ON THE SAME TERMS AS THEY ARE PICTURE ONES.**
+Both are keyless, so what gates them is not a credential but the work being PINNED to
+somebody first. Each finds its page by guessing a slug from the title, and a guess is
+worth making beside a record that is already identified — the reader sees the two side by
+side and can reject a wrong one. Offered as the ONLY answer on an unpinned row, the same
+guess is a confident wrong record with nothing to check it against, which is the mistake
+igdb_cast.go watched a fuzzy title search make with Hades.
+
+Letterboxd publishes a schema.org Movie as JSON-LD on every film page, which is the same
+bargain imdb.go strikes with `__NEXT_DATA__`: read the STRUCTURED thing other people's
+crawlers depend on, not the markup around it. The release year is the one field outside
+that document — it is read from the page's own year link, and if that moves the year is
+dropped while every other field still arrives. Its `actor` list carries no roles, so the
+cast arrives without character names rather than with invented ones. It is asked about
+FILMS only: it catalogues cinema, so a series or a game spends a request to guarantee a
+404 or, worse, finds a film sharing the name.
+
+Fandom supplies exactly two fields — the lead extract and the page image — and refuses
+the rest. A wiki article is prose; deriving a director or a year from an infobox means
+reading markup that differs per wiki, and offering two fields honestly is worth more than
+six unreliably. The per-field picker is built for precisely that: a supplier contributes
+where it is good and is absent everywhere else.
+
 **FANDOM IS A GUESS AND SAYS SO.** Wikipedia has an article for a character only when
 the character is notable outside their story; Fandom has one for the rest, which is most
 of a cast list. The obstacle is that Fandom is not one MediaWiki but tens of thousands,

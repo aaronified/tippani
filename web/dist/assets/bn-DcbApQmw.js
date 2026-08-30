@@ -577,6 +577,7 @@ vocab.source.openlibrary.label = ওপেন লাইব্রেরি
 vocab.source.wikipedia.label = উইকিপিডিয়া
 vocab.source.wikimedia.label = Wikimedia
 vocab.source.fandom.label = Fandom
+vocab.source.letterboxd.label = Letterboxd
 
 # The floor under IGDB for games rather than a second opinion, so it is named.
 vocab.source.wikidata.label = Wikidata

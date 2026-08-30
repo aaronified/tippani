@@ -252,3 +252,106 @@ func TestABadPerFieldSourceFallsBackWithoutLosingTheOthers(t *testing.T) {
 		t.Errorf("description = %q, want the fallback supplier — %v", got["description"], got)
 	}
 }
+
+// THE KEYLESS SUPPLIERS REACH THE PICKER, which is what makes them metadata
+// sources rather than two functions nobody calls.
+//
+// Letterboxd and Fandom need no credential, so what gates them is not a key but
+// the work being PINNED to somebody first: both find their page by guessing a
+// slug from the title, and a guess is worth making beside a record that is
+// already identified — the reader sees the two side by side and can reject a
+// wrong one. Offered as the only answer on an unpinned row, the same guess would
+// be a confident wrong record with nothing to check it against.
+func TestLetterboxdAndFandomAppearAsAlternativesOnAPinnedFilm(t *testing.T) {
+	srv := newTestServer(t)
+	lb := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`<html><script type="application/ld+json">
+			{"@type":"Movie","name":"The Matrix","description":"Letterboxd's synopsis.",
+			 "image":"https://a.ltrbxd.com/p.jpg","director":[{"name":"The Wachowskis"}]}
+			</script><a href="/films/year/1999/">1999</a></html>`))
+	}))
+	defer lb.Close()
+	fandom := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"query":{"pages":[{"title":"The Matrix",
+			"extract":"Fandom's synopsis.","original":{"source":"https://static.wikia.nocookie.net/m.jpg"}}]}}`))
+	}))
+	defer fandom.Close()
+	srv.TVDB = newTVDBStub(t, `{"data":{"id":70,"name":"The Matrix","year":"1999",
+		"overview":"TheTVDB's synopsis.","characters":[]}}`)
+	metadata.SetLetterboxdBaseForTest(t, lb.URL)
+	metadata.SetFandomAndScrapeBasesForTest(t, fandom.URL, "")
+
+	c := signupAdmin(t, srv.Handler())
+	m := decode[movieDetail](t, c.mustDo("POST", "/movies",
+		map[string]any{"title": "The Matrix", "media_type": "movie"}, http.StatusCreated))
+	c.mustDo("PUT", "/movies/"+strconv.FormatInt(m.ID, 10), map[string]any{
+		"title": "The Matrix", "media_type": "movie", "tvdb_id": 70,
+	}, http.StatusOK)
+
+	res := decode[reverifyResp](t, c.mustDo("POST", "/metadata/reverify",
+		map[string]any{"movie_ids": []int64{m.ID}}, 200))
+
+	srcs := map[string]bool{}
+	for _, s := range res.Items[0].Sources {
+		srcs[s] = true
+	}
+	if !srcs["letterboxd"] || !srcs["fandom"] {
+		t.Fatalf("the keyless suppliers did not answer: %v", res.Items[0].Sources)
+	}
+	// THE PINNED SUPPLIER STILL LEADS. Being keyless must not mean being first:
+	// a guessed slug does not outrank an id the reader pinned.
+	if res.Items[0].Sources[0] != "tvdb" {
+		t.Errorf("a guessed source outranked the pinned one: %v", res.Items[0].Sources)
+	}
+
+	var descBySource map[string]string
+	for _, d := range res.Items[0].Diffs {
+		if d.Field == "description" {
+			descBySource = map[string]string{}
+			for _, a := range d.Alts {
+				descBySource[a.Source] = a.Value.(string)
+			}
+		}
+	}
+	if descBySource["letterboxd"] != "Letterboxd's synopsis." || descBySource["fandom"] != "Fandom's synopsis." {
+		t.Errorf("their words are not offered as alternatives: %v", descBySource)
+	}
+
+	// And one of them can be taken, and is recorded as itself.
+	c.mustDo("POST", "/metadata/reverify/apply", map[string]any{
+		"items": []map[string]any{{
+			"type": "movie", "id": m.ID,
+			"set":     map[string]any{"description": "Letterboxd's synopsis."},
+			"sources": map[string]string{"description": "letterboxd"},
+		}},
+	}, http.StatusOK)
+	if got := sourcesByField(t, c, m.ID); got["description"] != "letterboxd" {
+		t.Errorf("description recorded as %q, want letterboxd — %v", got["description"], got)
+	}
+}
+
+// AN UNPINNED FILM GETS NO GUESSES. Nothing identifies it, so a slug derived from
+// its title has nothing to be checked against — and a confident wrong record is
+// worse than none.
+func TestAnUnpinnedFilmIsNotGivenAGuessedRecord(t *testing.T) {
+	srv := newTestServer(t)
+	var asked int
+	lb := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		asked++
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer lb.Close()
+	metadata.SetLetterboxdBaseForTest(t, lb.URL)
+	c := signupAdmin(t, srv.Handler())
+	m := decode[movieDetail](t, c.mustDo("POST", "/movies",
+		map[string]any{"title": "The Matrix", "media_type": "movie"}, http.StatusCreated))
+
+	res := decode[reverifyResp](t, c.mustDo("POST", "/metadata/reverify",
+		map[string]any{"movie_ids": []int64{m.ID}}, 200))
+	if res.Items[0].Status != "unpinned" {
+		t.Errorf("status = %q, want unpinned", res.Items[0].Status)
+	}
+	if asked != 0 {
+		t.Errorf("Letterboxd was guessed at for an unpinned film (%d request(s))", asked)
+	}
+}

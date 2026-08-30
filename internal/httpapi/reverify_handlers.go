@@ -474,7 +474,7 @@ func (s *Server) reverifyMovie(ctx context.Context, uid, id int64, tmdb *metadat
 	// answers, the reader gets TMDB's values rather than an error — which is the
 	// same best-effort rule the picture ladder and the catalogue lookups follow.
 	// It is only fetch_failed when NOBODY answered.
-	fetched, lerr := s.fetchAllMovieSources(ctx, mediaType, tmdbID, tvdbID, tmdb, tvdb)
+	fetched, lerr := s.fetchAllMovieSources(ctx, mediaType, title, tmdbID, tvdbID, tmdb, tvdb)
 	switch {
 	case len(fetched) > 0:
 		// at least one supplier answered
@@ -1431,7 +1431,7 @@ func knownBookSource(source string) string {
 // fetchAllMovieSources asks every supplier the work is pinned to AND has a client
 // for, in preference order. Returns the answers that came back plus the last
 // error, so the caller can tell "nobody answered" from "nobody was asked".
-func (s *Server) fetchAllMovieSources(ctx context.Context, mediaType string, tmdbID, tvdbID int64,
+func (s *Server) fetchAllMovieSources(ctx context.Context, mediaType, title string, tmdbID, tvdbID int64,
 	tmdb *metadata.TMDB, tvdb *metadata.TVDB) ([]fetchedSource, error) {
 	var out []fetchedSource
 	var lastErr error
@@ -1468,6 +1468,29 @@ func (s *Server) fetchAllMovieSources(ctx context.Context, mediaType string, tmd
 			det, err := tmdb.Details(ctx, tmdbID)
 			add("tmdb", id, det, err)
 		}
+	}
+	// THE KEYLESS RUNGS, BELOW THE PINNED ONES AND ONLY WHEN THERE IS ALREADY A
+	// PINNED ONE.
+	//
+	// Letterboxd and Fandom need no credential, so nothing stops them answering
+	// for every title — which is exactly why they are gated on the work being
+	// pinned to somebody first. Both find their page by GUESSING a slug from the
+	// title, and a guess is worth making beside a record that is already
+	// identified: the reader can see the two side by side and reject a wrong one.
+	// Offered as the ONLY answer, on an unpinned row, the same guess would be a
+	// confident wrong record with nothing to check it against — which is the
+	// mistake igdb_cast.go watched a fuzzy title search make.
+	//
+	// A SHOW OR A GAME IS NOT A LETTERBOXD FILM. It catalogues cinema, so asking
+	// it about a series spends a request to guarantee a 404 — or worse, finds a
+	// film that shares the name.
+	if len(out) > 0 && strings.TrimSpace(title) != "" {
+		if mediaType == "movie" {
+			det, err := metadata.LetterboxdDetails(ctx, title)
+			add("letterboxd", metadata.LetterboxdSlug(title), det, err)
+		}
+		det, err := metadata.FandomWorkDetails(ctx, title)
+		add("fandom", "", det, err)
 	}
 	return out, lastErr
 }
@@ -1521,7 +1544,7 @@ func recordPerField(tx *sql.Tx, uid int64, kind string, id int64,
 // have answered.
 func knownMovieSource(source string) string {
 	switch strings.TrimSpace(source) {
-	case "tmdb", "tvdb", "igdb", "wikidata", "imdb", store.SourceManual:
+	case "tmdb", "tvdb", "igdb", "wikidata", "imdb", "letterboxd", "fandom", store.SourceManual:
 		return strings.TrimSpace(source)
 	}
 	return ""

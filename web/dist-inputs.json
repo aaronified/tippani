@@ -13,8 +13,8 @@
     "web/frontend/vite.config.js"
   ],
   "sha256": {
-    "internal/i18n/bn.txt": "93a1d9d5f309bd62b9904e17a26b6e5f07db125167aa74c19ae5de8d4cb8905e",
-    "internal/i18n/en.txt": "6d08b30dc35f631fd125515d1b8bb44ff87aa6b58b39c575786ab01172a39059",
+    "internal/i18n/bn.txt": "c2e5375e7f8ae060ecc996be6064eee5398b064df14a8844d43f422be3a49cf7",
+    "internal/i18n/en.txt": "4dda43d67b567c12914cd432ef78d3861c9714c9fa3c1d8fe31bda7a82242545",
     "web/frontend/index.html": "faa8bb6fc81705b9d9d395a62a9d474414a029c571723bf099f84cb624ce906c",
     "web/frontend/package-lock.json": "d7afffc5b73c431c604bfaff5760d6ef244d1f74b187575d213f3ad353c18715",
     "web/frontend/package.json": "39e3500f352a3cc249a37b894e3fc0a2b2c7e38bd40ba74465fe64d22d0964cd",
@@ -30,7 +30,7 @@
     "web/frontend/src/App.jsx": "bb6ef0ed0220d5f547fcec366ad545161c5734b2563d34ac55cf34f3f4564932",
     "web/frontend/src/BinPage.jsx": "37c8fef4258f7a37516ea3449c5bf4f6b10eccfc45e65eaf1a450854488d3413",
     "web/frontend/src/CleanupPage.jsx": "f6d25dba8ad916d9c7554702ab4e7a94b601ed75fd14b7456bfdb8f9ef5d5076",
-    "web/frontend/src/CoverPicker.jsx": "7a45cc33b017a27207835a81dfdf9c208827f57333a09513329f1ff84a7ad86b",
+    "web/frontend/src/CoverPicker.jsx": "65d59e18a4b0eddd2b501da69c83c7a646169d7a1168b17fc89d7dea9269c1bc",
     "web/frontend/src/Home.jsx": "57b4dec032d76c9ca650ae1e28e9daf23449d4f7e8f4a69683c6676f4298d392",
     "web/frontend/src/ImportPage.jsx": "ad49164e027e7d89f366320d97ceab1c59f2bb2faf0263eaec8d599c616f112e",
     "web/frontend/src/Library.jsx": "03173f0d17b12b03fc229705fa9fc751ac93a6c065b7999687d252ccb17cdf19",

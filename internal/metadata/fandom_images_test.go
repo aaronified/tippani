@@ -68,3 +68,56 @@ func TestFandomAsksTheWorksOwnWikiAndIsSilentWhenThereIsNone(t *testing.T) {
 		t.Error("a request went out with no wiki to send it to")
 	}
 }
+
+// FANDOM AS A RECORD SOURCE, not only a picture one. The same wiki that has a
+// character's portrait has an article about the work, and its opening paragraph
+// is a description written by people who care about the thing.
+//
+// WHAT IT REFUSES IS THE POINT. Two fields, honestly — an extract and a page
+// image — and nothing else. A wiki article is prose; inventing a director or a
+// year out of an infobox would mean reading markup that differs per wiki, which
+// is the discipline the rest of this package exists to keep.
+func TestFandomSuppliesAnArticleSummaryAndNothingItCannotKnow(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		if !strings.Contains(q.Get("prop"), "extracts") {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		title, _ := url.QueryUnescape(q.Get("titles"))
+		if title != "V for Vendetta" {
+			_, _ = w.Write([]byte(`{"query":{"pages":[{"missing":true}]}}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"query":{"pages":[{"title":"V for Vendetta",
+			"extract":"V for Vendetta is a 2005 dystopian political thriller.",
+			"original":{"source":"https://static.wikia.nocookie.net/vfv/poster.jpg"}}]}}`))
+	}))
+	defer srv.Close()
+	SetFandomAndScrapeBasesForTest(t, srv.URL, "")
+
+	d, err := FandomWorkDetails(context.Background(), "V for Vendetta")
+	if err != nil || d == nil {
+		t.Fatalf("no record: %v / %+v", err, d)
+	}
+	if !strings.HasPrefix(d.Overview, "V for Vendetta is a 2005") {
+		t.Errorf("overview: %q", d.Overview)
+	}
+	if d.PosterURL != "https://static.wikia.nocookie.net/vfv/poster.jpg" {
+		t.Errorf("poster: %q", d.PosterURL)
+	}
+	if d.Source != "fandom" {
+		t.Errorf("the record does not name itself: %q", d.Source)
+	}
+	// EVERYTHING IT CANNOT KNOW IS EMPTY, so the per-field picker offers it only
+	// where it has something. A director invented from an infobox would look
+	// exactly like a real one.
+	if d.Director != "" || d.ReleaseYear != 0 || len(d.Genres) != 0 || len(d.Cast) != 0 {
+		t.Errorf("fandom claimed structure it cannot have: %+v", d)
+	}
+
+	// A missing article is silence, not a record.
+	if got, _ := FandomWorkDetails(context.Background(), "Nothing At All"); got != nil {
+		t.Errorf("a missing article produced a record: %+v", got)
+	}
+}

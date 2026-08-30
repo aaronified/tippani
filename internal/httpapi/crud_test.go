@@ -76,7 +76,23 @@ func newTestServer(t *testing.T) *Server {
 	// pinning it costs nothing and means no test can reach google.com by setting
 	// one boolean.
 	metadata.SetFandomAndScrapeBasesForTest(t, deadWikipedia(t), deadWikipedia(t))
+	// LETTERBOXD IS KEYLESS TOO, and its rung fires on any re-verify of a pinned
+	// film. Pointed at a server that 404s everything: a missing film page is the
+	// ordinary case for a guessed slug, so that is the honest silent stub here
+	// rather than an empty-but-200 one.
+	metadata.SetLetterboxdBaseForTest(t, notFoundServer(t))
 	return srv
+}
+
+// notFoundServer answers everything with a 404 — the shape a guessed-wrong slug
+// really produces.
+func notFoundServer(t *testing.T) string {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	t.Cleanup(srv.Close)
+	return srv.URL
 }
 
 // deadWikipedia is a server that answers every MediaWiki call with "no results".

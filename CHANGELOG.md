@@ -258,6 +258,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Letterboxd and Fandom are metadata sources now, not just picture ones.** Both need
+  no key, and both appear as columns in the per-field picker on a film you have already
+  pinned. *Letterboxd* is better than a catalogue at exactly two things and is offered
+  for them: a synopsis written to tell you what a film is like rather than to fill a
+  column, and a poster chosen by people who care which poster it is. *Fandom* supplies
+  its wiki article's opening paragraph and page image — which is often the only real
+  description a long-tail series or game has anywhere.
+
+  Both find their page by **guessing** a slug from the title, so both are offered only
+  beside a record that is already identified: you see them next to the pinned
+  supplier's answer and can reject a wrong one. An unpinned film is given no guesses at
+  all, because a confident wrong record with nothing to check it against is worse than
+  none. Fandom is honest about what it cannot know — no director, no year, no cast —
+  rather than inventing structure out of an infobox.
+
 - **Take each field from whichever source you prefer, in one pass.** A work pinned to
   two suppliers used to be read from one of them, chosen for the *entire* record by a
   single rule — so "TheTVDB describes it better but TMDB has the right year" was not

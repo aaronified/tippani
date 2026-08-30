@@ -602,6 +602,7 @@ vocab.source.wikipedia.label = Wikipedia
 vocab.source.wikimedia.label = Wikimedia
 # The wikis that cover what Wikipedia does not — the long tail of characters.
 vocab.source.fandom.label = Fandom
+vocab.source.letterboxd.label = Letterboxd
 
 # The floor under IGDB for games rather than a second opinion, so it is named.
 vocab.source.wikidata.label = Wikidata

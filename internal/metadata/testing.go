@@ -69,3 +69,18 @@ func SetFandomAndScrapeBasesForTest(t *testing.T, fandomFmt, googleScrape string
 	}
 	t.Cleanup(func() { fandomHostFmt, googleScrapeBase = f, g })
 }
+
+// SetLetterboxdBaseForTest points the film-page reader at a stub for one test.
+//
+// IT MATTERS MORE THAN THE OTHERS. Letterboxd needs no credential, so its rung
+// fires on any re-verify of a pinned film — there is no missing key to keep a
+// test offline, exactly as with Wikimedia and Fandom, and httpapi's newTestServer
+// pins all three for that reason.
+func SetLetterboxdBaseForTest(t *testing.T, base string) {
+	t.Helper()
+	orig := letterboxdBase
+	if base != "" {
+		letterboxdBase = base
+	}
+	t.Cleanup(func() { letterboxdBase = orig })
+}
