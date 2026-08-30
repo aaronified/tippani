@@ -12,6 +12,7 @@ import (
 
 	"tippani/internal/metadata"
 	"tippani/internal/olog"
+	"tippani/internal/store"
 )
 
 // tmdbKeyMissing: manual movie entry still works without a key (PLAN §6).
@@ -196,6 +197,12 @@ func normalizeMediaType(mt *string) string {
 // PUT /movies/:id/status, the only path that keeps the status and the watch log
 // consistent with one another.
 type movieDetail struct {
+	// WHERE EACH FIELD CAME FROM (0054), omitempty because most works have no
+	// provenance and never will: nothing is backfilled, so a library that predates
+	// the table stays silent until something next writes to it. An absent list and
+	// an empty one mean the same thing here — "nothing recorded" — which is why the
+	// zero value is allowed to disappear rather than being sent as [].
+	FieldSources []store.FieldSource   `json:"field_sources,omitempty"`
 	ID           int64                 `json:"id"`
 	Title        string                `json:"title"`
 	Director     string                `json:"director"`
@@ -284,6 +291,14 @@ func (s *Server) fetchMovie(uid, id int64) (*movieDetail, error) {
 	}
 	if err := rows.Err(); err != nil {
 		olog.Warnf(olog.CodeMovieRowScan, "[movie] genre name row iteration failed: %v", err)
+	}
+	// BEST-EFFORT, like the genre and cast reads beside it. Provenance is a note
+	// on a page, and failing the whole detail response because the note could not
+	// be read would take the page with it.
+	if fs, ferr := s.Store.FieldSourcesFor(uid, "movie", id); ferr != nil {
+		olog.Warnf(olog.CodeMetaLookupFailed, "[movie] field sources for %d: %v", id, ferr)
+	} else {
+		m.FieldSources = fs
 	}
 	return &m, nil
 }
@@ -442,6 +457,15 @@ func (s *Server) createMovieFromSource(w http.ResponseWriter, r *http.Request, s
 	if err := mergeProviderCast(tx, uid, "movie", id, castSourceForFetch(d.Source), d.Cast); err != nil {
 		s.removeCoverFile(posterPath)
 		internalError(w, r, "create movie: seed cast", err)
+		return
+	}
+	// WHERE EACH FIELD CAME FROM (0054), in this transaction rather than beside
+	// it: provenance that outlived a rolled-back insert would describe a row that
+	// does not exist.
+	if err := store.RecordFieldSources(tx, uid, "movie", id, d.Source, d.SourceID,
+		movieFieldsFrom(d, posterPath)); err != nil {
+		s.removeCoverFile(posterPath)
+		internalError(w, r, "create movie: record field sources", err)
 		return
 	}
 	if err := tx.Commit(); err != nil {
@@ -1041,6 +1065,14 @@ func (s *Server) resyncMovieFromSource(w http.ResponseWriter, r *http.Request, i
 	//
 	// Inside the transaction, because unlike the blob this is a read followed by a
 	// write against what it read.
+	// newPoster and NOT `poster`: the latter may be the file kept from an earlier
+	// fetch because this supplier had none, and recording that as theirs would
+	// credit them with a picture they did not provide.
+	if err := store.RecordFieldSources(tx, uid, "movie", id, d.Source, d.SourceID,
+		movieFieldsFrom(d, newPoster)); err != nil {
+		failErr("resync movie: record field sources", err)
+		return
+	}
 	if err := mergeProviderCast(tx, uid, "movie", id, castSourceForFetch(d.Source), d.Cast); err != nil {
 		failErr("resync movie: merge cast", err)
 		return
@@ -1078,4 +1110,25 @@ func (s *Server) handleDeleteMovie(w http.ResponseWriter, r *http.Request) {
 	s.binDelete(w, r, "movie", "movie not found",
 		func(tx *sql.Tx) error { return gcGenres(tx, uid) },
 		func() { s.gcOrphanPeople(uid, "actor") }) // cascaded-deleted lines can orphan actors
+}
+
+// movieFieldsFrom names the fields a fetched record actually filled, for the
+// provenance table. Only fields the payload HAS: a supplier that returned no
+// director did not write one, and recording it as theirs would attribute an
+// empty column to whoever was asked last.
+func movieFieldsFrom(d *metadata.MovieDetails, posterPath string) []string {
+	f := []string{"title"}
+	add := func(cond bool, name string) {
+		if cond {
+			f = append(f, name)
+		}
+	}
+	add(strings.TrimSpace(d.Director) != "", "director")
+	add(strings.TrimSpace(d.Overview) != "", "description")
+	add(d.ReleaseYear != 0, "release_year")
+	add(strings.TrimSpace(d.Series) != "", "series")
+	add(strings.TrimSpace(d.Publisher) != "", "publisher")
+	add(len(d.Genres) > 0, "genres")
+	add(strings.TrimSpace(posterPath) != "", "poster")
+	return f
 }

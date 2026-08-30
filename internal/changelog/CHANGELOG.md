@@ -258,6 +258,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A film now remembers which supplier gave it each field.** Until now the app held one
+  raw provider blob per work, overwritten by whichever fetch ran last, so "where did this
+  description come from" had no answer at all — the closest thing was a notice counting
+  titles "still on TMDB", which is the coarsest possible version of the question. Adding
+  a film records who supplied its title, director, description, year, genres, series and
+  poster; re-verifying records **only the fields you actually ticked**, so a value you
+  declined is never attributed to the supplier whose version you rejected.
+
+  Two deliberate silences. A field the supplier returned empty gets **no** entry — an
+  entry there would attribute a blank column to whoever was asked last, and you could no
+  longer tell "TheTVDB says the director is unknown" from "TheTVDB was never asked".
+  And **nothing is backfilled**: every field in an existing library reads as unknown
+  until something next writes it, because a guessed provenance is indistinguishable
+  from a real one once it is stored, and it would be wrong for exactly the rows you
+  have spent time correcting by hand.
+
 - **Every key field now says whether you actually need it.** The card listed nine
   credential fields in one flat run and said nothing about which of them the app is
   waiting on — so it read as nine API registrations standing between you and a working

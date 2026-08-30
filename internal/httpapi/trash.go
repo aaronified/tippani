@@ -917,6 +917,13 @@ var accountTables = []string{
 	// work rather than about a quote — a voice actor no provider lists exists
 	// nowhere else at all.
 	"item_reviews", "work_reads", "work_cast",
+	// work_field_source with them, and for a third version of the same reason:
+	// it hangs off a work by the same polymorphic (kind, work_id) pair, so nothing
+	// walks to it either. Worth KEEPING rather than skipping — it records which
+	// supplier last wrote each field, and a restored library that lost it would
+	// answer "where did this come from" with silence for every work, which is the
+	// one answer that is indistinguishable from never having been fetched.
+	"work_field_source",
 	// cleanup_ignores (0052) hangs off a quote by the same polymorphic (kind,
 	// item_id) pair, so nothing walks to it either — and what it holds is a
 	// judgement the reader made about their own words: "that finding is my real

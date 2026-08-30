@@ -13,6 +13,7 @@ import (
 
 	"tippani/internal/metadata"
 	"tippani/internal/olog"
+	"tippani/internal/store"
 )
 
 // Force-fetch & re-verify (ROADMAP §2): a deliberate "re-check everything"
@@ -313,19 +314,14 @@ func (s *Server) reverifyMovie(ctx context.Context, uid, id int64, tmdb *metadat
 
 	var det *metadata.MovieDetails
 	var lerr error
-	// THE DEFAULT SOURCE FIRST — see preferredSourceFor in cast.go for why this
-	// order is TheTVDB's and what the old TMDB-first order silently cost a title
-	// pinned to both. The second case is a genuine fallback rather than a second
-	// preference: a work pinned to TheTVDB on an install whose TheTVDB key is
-	// missing still re-verifies against TMDB rather than reporting itself broken.
-	switch {
-	case tvdbID != 0 && tvdb != nil:
+	switch plan, _ := movieFetchPlan(tmdbID, tvdbID, tmdb, tvdb); {
+	case plan == "tvdb":
 		if mediaType == "show" {
 			det, lerr = tvdb.SeriesDetails(ctx, strconv.FormatInt(tvdbID, 10))
 		} else {
 			det, lerr = tvdb.MovieDetails(ctx, strconv.FormatInt(tvdbID, 10))
 		}
-	case tmdbID != 0 && tmdb != nil:
+	case plan == "tmdb":
 		if mediaType == "show" {
 			det, lerr = tmdb.DetailsTV(ctx, tmdbID)
 		} else {
@@ -975,6 +971,26 @@ func (s *Server) applyReverifyMovie(ctx context.Context, uid, id int64, set map[
 			return "", errors.New("write failed")
 		}
 	}
+	// WHERE THESE FIELDS NOW COME FROM (0054). The keys of `set` are exactly the
+	// diffs the reader ticked, so this records what they actually accepted rather
+	// than everything the supplier offered — which is the whole point of a preview
+	// somebody approves field by field.
+	//
+	// The source is RECOMPUTED and not taken from the request: see movieFetchPlan.
+	// A plan of "" means the row is unpinned or its supplier has no key, in which
+	// case there is nothing true to record and RecordFieldSources returns early.
+	if src, srcID := s.movieFetchPlanFor(uid, id); src != "" {
+		applied := make([]string, 0, len(set))
+		for k := range set {
+			applied = append(applied, k)
+		}
+		if perr := store.RecordFieldSources(tx, uid, "movie", id, src, srcID, applied); perr != nil {
+			// NOT FATAL. The fields are written; this is the note beside them. A
+			// failed audit line must not undo a re-verify the reader approved.
+			olog.Warnf(olog.CodeMetaReverifyApply,
+				"[meta] re-verify movie %d field sources not recorded: %v", id, perr)
+		}
+	}
 	if hasCast {
 		// THE MERGE RULE, on the third and last of the provider write paths. An
 		// approved cast diff is still a refetch: it may add credits and rewrite
@@ -1114,4 +1130,47 @@ func (s *Server) applyReverifyPerson(ctx context.Context, uid int64, kind, name 
 		s.removeCoverFile(p.ImagePath)
 	}
 	return note, nil
+}
+
+// movieFetchPlan decides who to ask about a STORED film: the ids it carries,
+// crossed with the clients that are actually configured.
+//
+// ONE FUNCTION BECAUSE TWO CALLERS NEED THE SAME ANSWER AND ONLY ONE OF THEM CAN
+// FETCH. The preview asks a supplier and knows who answered; the apply path is
+// handed a map of approved VALUES and nothing else — castSourceForWork's comment
+// has complained about exactly that for two releases. Recording where a field
+// came from means apply has to know too, and the honest way to tell it is to let
+// it recompute the same decision from the same inputs rather than to have the
+// browser send back a claim about provenance.
+//
+// THE DEFAULT SOURCE FIRST — see preferredSourceFor in cast.go for why the order
+// is TheTVDB's. The second case is a genuine fallback rather than a second
+// preference: a work pinned to TheTVDB on an install whose TheTVDB key is missing
+// still re-verifies against TMDB rather than reporting itself broken. That is
+// also why the CLIENTS are arguments: "who would answer" is not a property of the
+// row alone, and a plan computed without them would name a supplier that cannot
+// be reached.
+func movieFetchPlan(tmdbID, tvdbID int64, tmdb *metadata.TMDB, tvdb *metadata.TVDB) (source, sourceID string) {
+	switch {
+	case tvdbID != 0 && tvdb != nil:
+		return "tvdb", strconv.FormatInt(tvdbID, 10)
+	case tmdbID != 0 && tmdb != nil:
+		return "tmdb", strconv.FormatInt(tmdbID, 10)
+	}
+	return "", ""
+}
+
+// movieFetchPlanFor is movieFetchPlan for a work the caller has only an id for.
+// Scoped by user_id; a row that is not theirs plans nothing, which is the same
+// answer an unpinned row gives and leaks nothing about whether it exists.
+func (s *Server) movieFetchPlanFor(uid, id int64) (source, sourceID string) {
+	var tmdbID, tvdbID int64
+	if err := s.Store.DB.QueryRow(
+		`SELECT COALESCE(tmdb_id, 0), COALESCE(tvdb_id, 0) FROM movies WHERE id = ? AND user_id = ?`,
+		id, uid).Scan(&tmdbID, &tvdbID); err != nil {
+		return "", ""
+	}
+	tmdb, _ := s.resolveTMDB()
+	tvdb, _ := s.resolveTVDB()
+	return movieFetchPlan(tmdbID, tvdbID, tmdb, tvdb)
 }
