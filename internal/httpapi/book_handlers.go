@@ -10,6 +10,7 @@ import (
 
 	"tippani/internal/metadata"
 	"tippani/internal/olog"
+	"tippani/internal/store"
 )
 
 type bookReq struct {
@@ -97,9 +98,13 @@ func (b *bookReq) validate() string {
 // read log consistent with each other. A full-state PUT that carried them would
 // let an ordinary Edit-form save silently rewrite reading history.
 type bookDetail struct {
-	ID     int64  `json:"id"`
-	Title  string `json:"title"`
-	Author string `json:"author"`
+	// WHERE EACH FIELD CAME FROM (0054) — same shape and same omitempty rule as
+	// movieDetail: nothing is backfilled, so a book that predates the table stays
+	// silent until something next writes to it.
+	FieldSources []store.FieldSource `json:"field_sources,omitempty"`
+	ID           int64               `json:"id"`
+	Title        string              `json:"title"`
+	Author       string              `json:"author"`
 	// Present HERE and absent from the list row on purpose — see the list
 	// handler's own note. This is the shape the work's own page reads.
 	Translator     string `json:"translator"`
@@ -166,6 +171,14 @@ func (s *Server) fetchBook(uid, id int64) (*bookDetail, error) {
 	}
 	if err := rows.Err(); err != nil {
 		olog.Warnf(olog.CodeBookRowScan, "[book] genre row iteration failed: %v", err)
+	}
+	// Best-effort, like the movie side: provenance is a note on a page, and
+	// failing the detail response because the note could not be read would take
+	// the page with it.
+	if fs, ferr := s.Store.FieldSourcesFor(uid, "book", id); ferr != nil {
+		olog.Warnf(olog.CodeMetaLookupFailed, "[book] field sources for %d: %v", id, ferr)
+	} else {
+		b.FieldSources = fs
 	}
 	return &b, nil
 }
@@ -258,6 +271,16 @@ func (s *Server) handleCreateBook(w http.ResponseWriter, r *http.Request) {
 		s.removeCoverFile(coverPath)
 		writeErr(w, http.StatusConflict, "book already in your library")
 		return
+	}
+	// WHERE EACH FIELD CAME FROM (0054), in this transaction: provenance that
+	// outlived a rolled-back insert would describe a row that does not exist.
+	if src, srcID := bookCreateSource(&req); true {
+		if perr := store.RecordFieldSources(tx, uid, "book", id, src, srcID,
+			bookFieldsFrom(&req, coverPath)); perr != nil {
+			s.removeCoverFile(coverPath)
+			internalError(w, r, "create book: record field sources", perr)
+			return
+		}
 	}
 	if err := setGenres(tx, "book", uid, id, req.Genres); err != nil {
 		s.removeCoverFile(coverPath)
@@ -574,4 +597,40 @@ func (s *Server) handleDeleteBook(w http.ResponseWriter, r *http.Request) {
 	s.binDelete(w, r, "book", "book not found",
 		func(tx *sql.Tx) error { return gcGenres(tx, uid) },
 		func() { s.gcOrphanPeople(uid, "author") }) // last book by an author gone → drop its metadata
+}
+
+// bookFieldsFrom names the fields this request actually filled, for the
+// provenance table (0054). Only the ones with a value: a candidate that carried
+// no publication year did not supply one, and recording it would attribute an
+// empty column to whoever the reader adopted.
+func bookFieldsFrom(req *bookReq, coverPath string) []string {
+	f := []string{"title"}
+	add := func(cond bool, name string) {
+		if cond {
+			f = append(f, name)
+		}
+	}
+	add(strings.TrimSpace(req.Author) != "", "author")
+	add(strings.TrimSpace(req.Description) != "", "description")
+	add(req.PublishedYear != 0, "published_year")
+	add(strings.TrimSpace(req.Series) != "", "series")
+	add(strings.TrimSpace(req.ISBN) != "", "isbn")
+	add(len(req.Genres) > 0, "genres")
+	add(strings.TrimSpace(coverPath) != "", "cover")
+	return f
+}
+
+// bookCreateSource is who to credit for a newly added book.
+//
+// A BOOK WITH NO SOURCE IS THE READER'S OWN, and saying so is the point rather
+// than a fallback. This route serves two arrivals: adopting a candidate from a
+// lookup, which names its supplier, and typing a book in by hand, which names
+// nobody. Recording the second as manual is what makes an ABSENT row mean "we do
+// not know" — a library that predates the table, or a field nothing has written
+// since — rather than collapsing the reader's own work into the same silence.
+func bookCreateSource(req *bookReq) (source, sourceID string) {
+	if s := strings.TrimSpace(req.Source); s != "" {
+		return s, strings.TrimSpace(req.SourceID)
+	}
+	return store.SourceManual, ""
 }

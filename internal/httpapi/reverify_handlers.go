@@ -560,6 +560,9 @@ func (s *Server) handleMetadataReverifyApply(w http.ResponseWriter, r *http.Requ
 			Kind string                     `json:"kind"`
 			Name string                     `json:"name"`
 			Set  map[string]json.RawMessage `json:"set"`
+			// The supplier the preview named. Used for a BOOK only — a film's is
+			// recomputed server-side, see applyReverifyBook.
+			Source string `json:"source"`
 		} `json:"items"`
 	}
 	if !decodeBody(w, r, &req) {
@@ -593,7 +596,7 @@ func (s *Server) handleMetadataReverifyApply(w http.ResponseWriter, r *http.Requ
 		var aerr error
 		switch item.Type {
 		case "book":
-			note, aerr = s.applyReverifyBook(r.Context(), uid, item.ID, item.Set)
+			note, aerr = s.applyReverifyBook(r.Context(), uid, item.ID, item.Set, item.Source)
 		case "movie":
 			note, aerr = s.applyReverifyMovie(r.Context(), uid, item.ID, item.Set)
 		case "person":
@@ -634,7 +637,23 @@ func isUniqueErr(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "UNIQUE")
 }
 
-func (s *Server) applyReverifyBook(ctx context.Context, uid, id int64, set map[string]json.RawMessage) (note string, err error) {
+// `source` is the supplier the PREVIEW reported, echoed back by the client.
+//
+// AND IT IS ECHOED HERE WHERE A FILM'S IS RECOMPUTED, which is an asymmetry worth
+// stating rather than smoothing over. A film's supplier is derivable from the row
+// alone — the ids it carries, crossed with the clients configured — so
+// movieFetchPlan works it out server-side and the request's opinion is not wanted.
+// A book's is not: the identity ladder runs an ISBN through a MERGED lookup across
+// Google Books, Open Library and Amazon, and which of them won is a fact about a
+// response that has already been discarded by the time apply runs. Recomputing it
+// would mean repeating the fetch — a second round of network calls, on the write
+// path, to re-derive something the client was already told.
+//
+// So it is accepted, and VALIDATED against the vocabulary rather than trusted:
+// see knownBookSource. The worst a wrong value buys is a mislabelled line in the
+// reader's own provenance for their own book, which is why validation is the
+// proportionate guard and a second fetch is not.
+func (s *Server) applyReverifyBook(ctx context.Context, uid, id int64, set map[string]json.RawMessage, source string) (note string, err error) {
 	allowed := map[string]bool{"title": true, "author": true, "description": true, "published_year": true,
 		"genres": true, "series": true, "series_index": true, "isbn": true, "cover": true}
 	for k := range set {
@@ -746,6 +765,18 @@ func (s *Server) applyReverifyBook(ctx context.Context, uid, id int64, set map[s
 		return "", errors.New("write failed")
 	}
 	defer tx.Rollback()
+	if src := knownBookSource(source); src != "" {
+		applied := make([]string, 0, len(set))
+		for k := range set {
+			applied = append(applied, k)
+		}
+		if perr := store.RecordFieldSources(tx, uid, "book", id, src, "", applied); perr != nil {
+			// Not fatal, for the reason the movie path gives: the fields are the
+			// write, this is the note beside them.
+			olog.Warnf(olog.CodeMetaReverifyApply,
+				"[meta] re-verify book %d field sources not recorded: %v", id, perr)
+		}
+	}
 	if len(cols) > 0 {
 		args = append(args, id, uid)
 		res, xerr := tx.Exec(`UPDATE books SET `+strings.Join(cols, ", ")+`, updated_at = datetime('now') WHERE id = ? AND user_id = ?`, args...)
@@ -1173,4 +1204,16 @@ func (s *Server) movieFetchPlanFor(uid, id int64) (source, sourceID string) {
 	tmdb, _ := s.resolveTMDB()
 	tvdb, _ := s.resolveTVDB()
 	return movieFetchPlan(tmdbID, tvdbID, tmdb, tvdb)
+}
+
+// knownBookSource validates a client-supplied supplier name, returning "" for
+// anything not in the vocabulary. A WHITELIST rather than a sanitiser: these
+// strings are rendered to the reader as "where this came from", and the safe
+// failure is to record nothing rather than to record whatever arrived.
+func knownBookSource(source string) string {
+	switch strings.TrimSpace(source) {
+	case "google", "openlibrary", "amazon", "hardcover", store.SourceManual:
+		return strings.TrimSpace(source)
+	}
+	return ""
 }

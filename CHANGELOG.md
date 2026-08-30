@@ -258,7 +258,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **A film now remembers which supplier gave it each field.** Until now the app held one
+- **Books and films both remember which supplier gave them each field.** Until now the app held one
   raw provider blob per work, overwritten by whichever fetch ran last, so "where did this
   description come from" had no answer at all — the closest thing was a notice counting
   titles "still on TMDB", which is the coarsest possible version of the question. Adding
@@ -273,6 +273,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   until something next writes it, because a guessed provenance is indistinguishable
   from a real one once it is stored, and it would be wrong for exactly the rows you
   have spent time correcting by hand.
+
+  A book typed in by hand records **you** rather than nothing, which is what keeps an
+  absent entry meaning "we do not know" instead of quietly filing your own work under
+  the same silence as a field nobody has ever fetched.
 
 - **Every key field now says whether you actually need it.** The card listed nine
   credential fields in one flat run and said nothing about which of them the app is
