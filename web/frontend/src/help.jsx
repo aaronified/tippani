@@ -353,6 +353,15 @@ export const HELP = {
     entry('cleanup.help.names', { more: true }),
     entry('cleanup.help.cap', { more: true }),
   ]),
+  // CHECKS. Its two sections are documented on their own screens too, because
+  // both still have their own URLs — so this entry answers what the SCREEN is
+  // for and leaves what each list means to the pages that own them.
+  checks: section('checks.title', [
+    entry('checks.help.what-is-here', { more: true }),
+    entry('checks.help.imports', { more: true }),
+    entry('checks.help.marks', { more: true }),
+    entry('checks.help.not-review', { more: true }),
+  ]),
   settings: section('nav.tab.settings.label', [
     entry('settings.help.colour-categories', { asset: <HelpSwatches />, more: true }),
     entry('settings.help.appearance', { more: true }),
@@ -433,6 +442,10 @@ const GUIDE_ORDER = [
   'anthologies',
   'search',
   'capture',
+  // Checks sits above the two sections it is made of. Both keep their own rails
+  // entries because both keep their own URLs — this one answers what the SCREEN
+  // is, and each of those answers what its list means.
+  'checks',
   'staging',
   'tags',
   'metadata',

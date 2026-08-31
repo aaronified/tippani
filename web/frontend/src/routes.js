@@ -22,7 +22,7 @@
 // worklist you are sent to when something reads oddly, its only door is a tile in
 // Settings, and a permanent tab for "possible mistakes in your quotes" would be a
 // standing invitation to worry.
-export const ROUTE_TABS = ['search', 'quotes', 'anthologies', 'tags', 'metadata', 'stats', 'settings', 'staging', 'bin', 'cleanup']
+export const ROUTE_TABS = ['search', 'quotes', 'anthologies', 'tags', 'metadata', 'stats', 'settings', 'staging', 'bin', 'cleanup', 'checks']
 
 // ---- the nav contract ----
 //
@@ -66,10 +66,13 @@ export const UTILITY_TABS = [
   ['settings', 'nav.tab.settings.label', 'nav.tab.settings.tip'],
 ]
 
-// DRAWER_TABS — the ☰ menu. null is the divider between the primary screens and
-// the utility group. Search leads, directly below the ＋ Add row.
+// DRAWER_TABS — the ☰ menu, and on a phone the ONLY list of destinations there
+// is. null is the divider between the primary screens and the utility group.
+//
+// SEARCH LEFT THIS LIST. It is a dock key now — the persistent pair with Back,
+// leftmost on every screen — so a row here would be the same door twice, and the
+// height it gave up is what Checks and Bin are drawn in.
 export const DRAWER_TABS = [
-  ['search', 'nav.tab.search.label'],
   ['home', 'nav.tab.home.label'],
   ['library', 'nav.tab.library.label'],
   ['movies', 'nav.tab.movies.label'],
@@ -82,16 +85,6 @@ export const DRAWER_TABS = [
   ['settings', 'nav.tab.settings.label'],
 ]
 
-// BOTTOM_TABS — the floating phone nav. Content screens only: the drawer owns
-// the utility tabs, ＋ Add and the account rows. Search is not here because the
-// phone's top bar has carried it since 1.4.1.
-export const BOTTOM_TABS = [
-  ['home', 'nav.tab.home.label', 'nav.bottom.home.aria'],
-  ['library', 'nav.tab.library.label', 'nav.bottom.library.aria'],
-  ['movies', 'nav.tab.movies.label', 'nav.bottom.movies.aria'],
-  ['quotes', 'nav.tab.quotes.label', 'nav.bottom.quotes.aria'],
-  ['anthologies', 'nav.tab.anthologies.label', 'nav.bottom.anthologies.aria'],
-]
 
 // ---- the sections a reader can turn off ----
 //
@@ -261,6 +254,28 @@ export function statePath(tab, detail) {
   if (tab === 'movies') return '/catalogue'
   if (tab === 'staging') return '/pending'
   return `/${tab}`
+}
+
+// screenTitle — what a screen is CALLED, for the two places that name it: the
+// desktop breadcrumb and the phone's header.
+//
+// `nav.tab.<tab>.label` covers only the nine destinations that have a nav row.
+// Four routable screens do not — bin, cleanup, staging and checks are reached
+// from the rail's foot or from each other — so asking for their nav key got the
+// humanised stub back, and the phone header on Checks read "Label". A stub is
+// the right behaviour for a key nobody wrote; the bug was asking for a key that
+// was never going to exist.
+//
+// Keyed by ROUTE, not by nav list, because the question is "what is this screen
+// called" and every screen has an answer even when nothing links to it.
+const TITLE_KEYS = {
+  bin: 'bin.title',
+  cleanup: 'cleanup.title',
+  staging: 'staging.title',
+  checks: 'checks.title',
+}
+export function screenTitleKey(tab) {
+  return TITLE_KEYS[tab] || `nav.tab.${tab}.label`
 }
 
 // ---- what the shell's three context-aware controls read off the route ----

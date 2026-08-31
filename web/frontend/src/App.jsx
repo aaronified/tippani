@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react'
+import { Fragment, lazy, Suspense, useEffect, useRef, useState } from 'react'
 import Home from './Home.jsx'
 import { applyLanguageMarks } from './languages.jsx'
 import { applyFonts, registerUploads } from './fonts.js'
@@ -37,11 +37,11 @@ const StatsPage = lazy(() => import('./StatsPage.jsx'))
 const Settings = lazy(() => import('./Settings.jsx'))
 const BinPage = lazy(() => import('./BinPage.jsx'))
 const CleanupPage = lazy(() => import('./CleanupPage.jsx'))
+const ChecksPage = lazy(() => import('./ChecksPage.jsx'))
 import { applyColors, applyTheme } from './theme.js'
 import { applyLocale, useLocale } from './i18n.js'
 import { LanguagePicker } from './locale.jsx'
 import {
-  BOTTOM_TABS,
   CONTENT_TABS,
   DRAWER_TABS,
   SECTIONS,
@@ -51,6 +51,7 @@ import {
   addSection,
   helpScreen,
   parsePath,
+  screenTitleKey,
   searchScope,
   statePath,
 } from './routes.js'
@@ -85,6 +86,7 @@ import {
   useBodyScrollLock,
   useCrumbTitle,
   useEdgeScroll,
+  useScreenBarState,
   useFrameBase,
   useHideOnScrollDown,
   useIsMobileScreen,
@@ -636,7 +638,7 @@ export function navBadge(key, { stats, metaIssues, streak, version } = {}) {
 function Breadcrumb({ tab, detail, title, onRoot }) {
   const rootKey = detail?.type === 'movie' ? 'movies' : detail?.type === 'book' ? 'library' : null
   const rootLabel = rootKey ? t(`nav.tab.${rootKey === 'movies' ? 'movies' : 'library'}.label`) : t('shell.wordmark.label')
-  const leaf = detail ? title : t(`nav.tab.${tab}.label`)
+  const leaf = detail ? title : t(screenTitleKey(tab))
   if (!leaf) return null
   return (
     <nav className="topbar-crumbs" aria-label={t('shell.crumbs.aria')}>
@@ -709,7 +711,7 @@ function TopBarSearch({ scope, scopeLabel, onSearch, onDropScope }) {
 // right shape for a row of peers and the wrong one for a column of destinations:
 // a segment implies "one of these", and this column also holds a rule, the bin and
 // an account. The rows are buttons and the rule is a span — see below.
-function NavRail({ tab, onChange, sections, user, onAccount, onBin, onChecks, brandDot = null, badges = {}, binCount = 0, checkCount = 0 }) {
+export function NavRail({ tab, onChange, sections, user, onAccount, onBin, onChecks, brandDot = null, badges = {}, binCount = 0, checkCount = 0 }) {
   const dark = useResolvedDark()
   const railRef = useRef(null)
   // Nine destinations in a short window outrun the column, and the app's own rule
@@ -888,7 +890,7 @@ function UserAvatar({ user }) {
 // Drawer — the hamburger nav (§7 redesign): primary nav on mobile, opened by
 // the ☰ button or the avatar chip. Scrim tap / Escape / any navigation closes
 // it. Home carries the pending-review dot; Library/Catalogue show live counts.
-function Drawer({ open, onClose, tab, selectTab, onSearch, onAdd, onAccount, user, stats, pending, pendingImport, streak, metaIssues, update, logout, dark, onUser, sections }) {
+export function Drawer({ open, onClose, tab, selectTab, onSearch, onAdd, onAccount, user, stats, pending, pendingImport, streak, metaIssues, dark, onUser, sections, binCount = 0, checkCount = 0 }) {
   // Metadata "issues" = items the console flags (a book with no cover or no
   // ids; a film/show with no poster, cast or source) — the same predicate the
   // Metadata page uses. Fetched lazily the first time the drawer opens (it's a
@@ -1016,6 +1018,33 @@ function Drawer({ open, onClose, tab, selectTab, onSearch, onAdd, onAccount, use
               </button>
             ),
           )}
+          {/* CHECKS AND BIN, the two rows the rail has had since the rail
+              landed and the drawer did not. They were still buried in Settings
+              here, so the phone had no door to either — and a waiting import is
+              exactly the thing you want to find without going looking for it.
+              They sit below the divider with the utility screens because that is
+              what they are: places the app is asking something of you. */}
+          <div className="drawer-divider" aria-hidden="true" />
+          <button
+            type="button"
+            className={'drawer-item' + (tab === 'checks' ? ' active' : '')}
+            aria-current={tab === 'checks' ? 'page' : undefined}
+            onClick={() => { selectTab('checks'); onClose() }}
+          >
+            <IconChecks />
+            {t('checks.title')}
+            {checkCount > 0 ? <span className="drawer-badge">{checkCount}</span> : null}
+          </button>
+          <button
+            type="button"
+            className={'drawer-item' + (tab === 'bin' ? ' active' : '')}
+            aria-current={tab === 'bin' ? 'page' : undefined}
+            onClick={() => { selectTab('bin'); onClose() }}
+          >
+            <IconBin />
+            {t('bin.title')}
+            {binCount > 0 ? <span className="drawer-badge">{binCount}</span> : null}
+          </button>
         </div>
         {/* The footer chip IS the way to Profile, exactly as in both top bars —
             the same AccountChip component, so the tooltip, the label and the
@@ -1026,48 +1055,26 @@ function Drawer({ open, onClose, tab, selectTab, onSearch, onAdd, onAccount, use
             behind the avatar. That was true of the bar and false here, so the
             phone had two account entries and the one that looked like the
             account was the one that did nothing. */}
-        <div className="drawer-footer">
-          <AccountChip user={user} onOpen={() => { onAccount(); onClose() }} />
-          <div className="min-w-0 flex-1">
-            <p style={{ fontSize: 'var(--type-ui-13)', fontWeight: 600 }}>{user.username}</p>
-            <p className="mono-label" style={{ fontSize: 'var(--type-ui-9)' }}>
-              {t(user.is_admin ? 'shell.drawer.role.admin.label' : 'shell.drawer.role.user.label')}
-            </p>
-          </div>
-          <button type="button" className="tp-link" onClick={logout}>
-            {t('shell.drawer.logout.label')}
-          </button>
-        </div>
-        {/* Version → changelog (ABS-style corner). The update link only appears
-            once a check has found a newer release (admin-run, on demand). */}
-        <div
-          className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 px-4 pb-3 pt-2"
-          style={{ borderTop: '1px solid var(--line)' }}
+        {/* THE WHOLE FOOTER IS THE DOOR, not a chip beside a link. It opens
+            Profile, which carries the log-out — so the separate Log out here was
+            a second way to do the one thing behind it, spending a row of a
+            drawer that needed the height for Checks and Bin. Tapping a name to
+            reach your account is also the gesture every other row in this list
+            already uses. */}
+        <button
+          type="button"
+          className="drawer-footer"
+          aria-label={t('shell.account.chip.aria', { name: user.username })}
+          onClick={() => { onAccount(); onClose() }}
         >
-          <Tooltip label={t('shell.drawer.changelog.tip')} side="top">
-            <a
-              href={user.releases_url || 'https://github.com/aaronified/tippani/releases'}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mono-label"
-              style={{ fontSize: 'var(--type-ui-11)', letterSpacing: '.04em', color: 'var(--faint)' }}
-            >
-              {t('shell.drawer.changelog.label', { version: user.version || 'dev' })}
-            </a>
-          </Tooltip>
-          {update?.update_available && update.notes_url && (
-            <a
-              href={update.notes_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mono-label"
-              style={{ fontSize: 'var(--type-ui-11)', fontWeight: 700, color: 'var(--accent-ui)' }}
-              title={t('shell.drawer.update.tip', { version: update.latest })}
-            >
-              {t('shell.drawer.update.label', { version: update.latest })}
-            </a>
-          )}
-        </div>
+          <span className="user-chip" aria-hidden="true"><UserAvatar user={user} /></span>
+          <span className="min-w-0 flex-1 text-left">
+            <span className="block" style={{ fontSize: 'var(--type-ui-13)', fontWeight: 600 }}>{user.username}</span>
+            <span className="mono-label block" style={{ fontSize: 'var(--type-ui-9)' }}>
+              {t(user.is_admin ? 'shell.drawer.role.admin.label' : 'shell.drawer.role.user.label')}
+            </span>
+          </span>
+        </button>
       </nav>
     </>
   )
@@ -1082,46 +1089,75 @@ function Drawer({ open, onClose, tab, selectTab, onSearch, onAdd, onAccount, use
 // so a Search entry down here was the same control twice on one screen while
 // the third content tab had nowhere to live. The bar now holds the four
 // content screens and nothing else.
-// MobileBottomNav — the floating phone nav: four thumb-reachable icons, hovering
-// clear of the bottom edge so the Android gesture pill keeps its own strip. It's
-// an ADDITION, not a replacement — the ☰ drawer still owns the utility tabs,
-// ＋ Add and the account rows, and is untouched.
+// MobileDock — the phone's bottom bar, and the only place its verbs live.
 //
-// Deliberately carries no data-tour attribute. tour.jsx's findVisible picks the
-// first match with a non-zero box, and .is-away only sets opacity — the slid-away
-// bar still measures, so a data-tour here could spotlight an invisible control.
+// IT REPLACED A NAV. Four destinations sat here while the other five were behind
+// ☰, so navigation had two doors that disagreed about how many places the app
+// has — and every verb a screen owned was crammed into the top edge, which is
+// the corner of a phone a thumb reaches last. Now the drawer owns all nine
+// destinations and this bar owns what you can do, which is also what frees the
+// top bar to be a header.
 //
-// aria-label is "Quick navigation", not "Primary": the drawer already claims
-// that landmark name and both can be mounted at once.
-function MobileBottomNav({ tab, selectTab, hidden, sections }) {
-  // The bar stays focusable while slid away, so focusing a button must bring it
-  // back rather than leave focus on something off-screen.
+// FIVE KEYS IS THE CEILING. Past five the thumb checks instead of aiming. Back
+// and Search are the persistent pair and sit leftmost — they mean the same thing
+// on every screen, so they never move — and ＋ is the middle one of five, which
+// is arithmetic rather than a preference. That leaves two seats for the screen,
+// and a screen wanting a third has a More key for it.
+//
+// BACK IS RENDERED EVEN WHERE IT IS DEAD. On a top-level screen there is nothing
+// behind it, so it is disabled rather than absent: dropping it would slide Search
+// into the first seat and break the one promise this row makes.
+function MobileDock({ keys, hidden, canBack, onBack, onSearch, onAdd, addLabel, addBadge, searchLabel, searchIcon }) {
   const [focused, setFocused] = useState(false)
+  // The bar stays focusable while slid away, so focusing a key must bring it
+  // back rather than leave focus on something off-screen.
   const away = hidden && !focused
+  const seats = (keys || []).slice(0, 2)
+  // A seat the screen renders itself — see useScreenBar. MoreMenu is the reason:
+  // it anchors to its own trigger, so the shell cannot draw the button for it.
+  const key = (k) => k.node ? <Fragment key={k.id}>{k.node}</Fragment> : (
+    <Tooltip key={k.id} label={k.label} side="top">
+      <button
+        type="button"
+        className="mobile-dock-btn"
+        aria-label={k.label}
+        aria-pressed={k.on === undefined ? undefined : !!k.on}
+        disabled={!!k.disabled}
+        onClick={k.onClick}
+      >
+        {k.icon}
+      </button>
+    </Tooltip>
+  )
   return (
     <nav
-      className={'mobile-bottom-nav' + (away ? ' is-away' : '')}
-      aria-label={t('shell.nav.quick.aria')}
+      className={'mobile-dock' + (away ? ' is-away' : '')}
+      aria-label={t('shell.nav.dock.aria')}
       onFocus={() => setFocused(true)}
       onBlur={() => setFocused(false)}
     >
-      {visibleTabs(BOTTOM_TABS, sections).map(([key, label, tip]) => {
-        const active = tab === key
-        return (
-          <Tooltip key={key} label={t(tip)} side="top">
-            <button
-              type="button"
-              className={'mobile-bottom-nav-btn' + (active ? ' active' : '')}
-              aria-label={t(label)}
-              aria-current={active ? 'page' : undefined}
-              onClick={() => selectTab(key)}
-            >
-              <NavIcon name={key} />
-              <span className="mobile-bottom-nav-mark" aria-hidden="true" />
-            </button>
-          </Tooltip>
-        )
+      {key({
+        id: 'back',
+        label: t('common.action.back.label'),
+        icon: <IconBack />,
+        disabled: !canBack,
+        onClick: onBack,
       })}
+      {key({ id: 'search', label: searchLabel, icon: searchIcon, onClick: onSearch })}
+      <Tooltip label={addLabel} side="top">
+        <button
+          type="button"
+          className="mobile-dock-btn is-accent"
+          data-tour="add"
+          aria-label={addLabel}
+          onClick={onAdd}
+        >
+          <IconPlus />
+          {addBadge}
+        </button>
+      </Tooltip>
+      {seats.length > 0 && <span className="mobile-dock-rule" aria-hidden="true" />}
+      {seats.map(key)}
     </nav>
   )
 }
@@ -1151,7 +1187,7 @@ function warmScreens() {
   else setTimeout(run, 1500)
 }
 
-function Shell({ user, onLogout, onPreferences, onUser }) {
+export function Shell({ user, onLogout, onPreferences, onUser }) {
   const initial = parsePath(typeof window !== 'undefined' ? window.location.pathname : '/')
   // /import isn't a tab any more — start on Home and open the Add surface there.
   // Neither /import nor /capture is a tab: both are the Add surface over Home.
@@ -1521,6 +1557,13 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
   // function the old button used, so the field and the search screen cannot disagree
   // about what "here" means.
   const detailTitle = useCrumbTitle()
+  // The phone header's sub-line and the dock's two screen seats, published by
+  // whichever screen owns them. Both are null on a screen that publishes neither,
+  // which is the resting state and draws nothing.
+  const { sub: barSub, keys: barKeys } = useScreenBarState()
+  // Back is dead on the first screen of a session. It is still drawn — see
+  // MobileDock — so Search never slides into the seat it always occupies.
+  const canGoBack = (window.history.state?.tpDepth || 0) > 0 || !!detail
   const barScope = searchScope(tab, detail)
   const scopeLabel = (sc) => t(
     sc === 'books' ? (detail ? 'shell.search.scope.thisbook' : 'nav.tab.library.label')
@@ -1539,7 +1582,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
   }
 
   return (
-    <div className={'min-h-screen' + (!detail ? ' has-mobile-topbar' : '')}>
+    <div className="min-h-screen has-mobile-topbar">
       {/* THE RAIL OWNS THE BRAND, THE DESTINATIONS AND THE ACCOUNT now; the bar keeps
           the four verbs that act on the screen you are looking at. Neither list is
           restated — both read routes.js through visibleTabs. */}
@@ -1605,55 +1648,25 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
         </div>
       </header>
       <main className="container-tp">
-        {/* Mobile shell bar (hidden on desktop): drawer · logo→Home · ＋ ·
-            search · avatar. Detail screens drop it — their own back+title bar
-            (inside the page) takes over the top edge instead. */}
-        {!detail && (
-          <header className="mobile-topbar">
-            <Tooltip label={t('shell.drawer.open.tip')} side="bottom" className="shrink-0">
-              <button type="button" className="mobile-topbar-btn" aria-label={t('shell.drawer.open.aria')} onClick={() => setDrawerOpen(true)}>
-                <IconMenu />
-              </button>
-            </Tooltip>
-            <Tooltip shortcut="go-home" label={t('nav.bottom.home.aria')} side="bottom" className="min-w-0">
-              <button type="button" className="brand" onClick={() => selectTab('home')}>
-                <img src={dark ? '/mark-dark.svg' : '/mark.svg'} alt="" width="26" height="26" />
-                <span className="wordmark">{t('shell.wordmark.label')}</span>
-                {brandDot}
-              </button>
-            </Tooltip>
-            <span className="flex-1" />
-            {/* ＋ · Search · ? · chip — the same four the desktop bar carries, in
-                the same order, all reading the current route. */}
-            <Tooltip shortcut="capture" label={pendingImport > 0 ? t('shell.add.pending.tip', { n: pendingImport }) : addLabel} side="bottom" className="shrink-0">
-              <button type="button" className="mobile-topbar-btn" data-tour="add" aria-label={addLabel} onClick={() => openAdd(addKind, addFor)}>
-                <IconPlus />
-                {importBadge}
-              </button>
-            </Tooltip>
-            {/* The glyph follows the preference here too, but the GESTURE does
-                not: a phone has no right-click, and long-press is already the
-                Tooltip's. So this bar reports the mode and cannot change it,
-                which is the honest arrangement — the button behaves the way its
-                glyph says, and the one place that can flip it is the one place
-                the gesture exists. The drawer's Search below stays global
-                unconditionally, as it always has. */}
-            <Tooltip shortcut="search" label={t(globalSearch ? 'shell.search.global.tip' : 'nav.tab.search.label')} side="bottom" className="shrink-0">
-              <button
-                type="button"
-                className="mobile-topbar-btn"
-                data-tour="search"
-                data-global={globalSearch ? 'on' : undefined}
-                aria-label={t(globalSearch ? 'shell.search.global.aria' : 'nav.tab.search.label')}
-                onClick={openSearch}
-              >
-                {globalSearch ? <IconSearchGlobe /> : <IconSearch />}
-              </button>
-            </Tooltip>
-            <PageHelp screen={help} />
-            <AccountChip user={user} onOpen={() => setProfileOpen(true)} />
-          </header>
-        )}
+        {/* THE PHONE'S TOP BAR IS A HEADER NOW, on every screen including a
+            detail — which is why the detail screens' own back+title bar is gone.
+            ☰ and the title, and under the title a line of whatever the screen
+            knows about itself: a year, a count, an author. The four glyphs it
+            used to carry (＋, search, help, the avatar) moved to the dock or the
+            drawer, and the space they freed is what the title and its sub-line
+            are made of. */}
+        <header className="mobile-topbar">
+          <Tooltip label={t('shell.drawer.open.tip')} side="bottom" className="shrink-0">
+            <button type="button" className="mobile-topbar-btn" aria-label={t('shell.drawer.open.aria')} onClick={() => setDrawerOpen(true)}>
+              <IconMenu />
+              {brandDot}
+            </button>
+          </Tooltip>
+          <span className="mobile-topbar-titles">
+            <span className="mobile-topbar-title">{detailTitle || t(screenTitleKey(tab))}</span>
+            {barSub ? <span className="mobile-topbar-sub">{barSub}</span> : null}
+          </span>
+        </header>
         <ErrorBoundary key={tab} label={t('shell.error.boundary.screen.label', { name: tab })}>
         <div className="tab-panel">
         {/* One boundary for every screen, INSIDE the error boundary: a chunk that
@@ -1768,6 +1781,21 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
             />
           </div>
         )}
+        {/* CHECKS — the rail and the drawer have carried a counted row to this
+            screen since the rail landed, and until now it went nowhere: 'checks'
+            was in no route table and no render branch, so the row opened a blank
+            page. One screen, two sections, both of which already existed. */}
+        {tab === 'checks' && (
+          <div data-screen-label="checks">
+            <ChecksPage
+              onPending={setPendingImport}
+              onOpenBook={openBook}
+              onOpenMovie={openMovie}
+              onApproved={refreshStats}
+              onOpenQuotes={() => go('quotes', null)}
+            />
+          </div>
+        )}
         {tab === 'settings' && (
           <div data-screen-label="settings">
             <Settings
@@ -1776,8 +1804,6 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
               update={update}
               onUpdateInfo={setUpdate}
               onStartTour={(step) => setTourState({ step })}
-              onOpenBin={() => go('bin', null)}
-              onOpenCleanup={() => go('cleanup', null)}
             />
           </div>
         )}
@@ -1807,7 +1833,18 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
         </div>
         </ErrorBoundary>
       </main>
-      <MobileBottomNav tab={tab} selectTab={selectTab} hidden={navHidden} sections={sections} />
+      <MobileDock
+        keys={barKeys}
+        hidden={navHidden}
+        canBack={canGoBack}
+        onBack={() => window.history.back()}
+        onSearch={openSearch}
+        searchLabel={t(globalSearch ? 'shell.search.global.aria' : 'nav.tab.search.label')}
+        searchIcon={globalSearch ? <IconSearchGlobe /> : <IconSearch />}
+        onAdd={() => openAdd(addKind, addFor)}
+        addLabel={addLabel}
+        addBadge={importBadge}
+      />
       <Drawer
         metaIssues={metaIssues}
         open={drawerOpen}
@@ -1828,8 +1865,8 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
         pending={pending}
         pendingImport={pendingImport}
         streak={streak}
-        update={update}
-        logout={logout}
+        binCount={binCount}
+        checkCount={pendingImport}
         dark={dark}
         onUser={onUser}
       />

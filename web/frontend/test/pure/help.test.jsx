@@ -24,7 +24,7 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { HELP, helpFor } from '../../src/help.jsx'
-import { BOTTOM_TABS, CONTENT_TABS, DRAWER_TABS, ROUTE_TABS, UTILITY_TABS, helpScreen } from '../../src/routes.js'
+import { CONTENT_TABS, DRAWER_TABS, ROUTE_TABS, UTILITY_TABS, helpScreen } from '../../src/routes.js'
 
 const src = (name) => readFileSync(new URL(`../../src/${name}`, import.meta.url), 'utf8')
 
@@ -34,7 +34,6 @@ const navTabs = [
   ...CONTENT_TABS.map((t) => t[0]),
   ...UTILITY_TABS.map((t) => t[0]),
   ...DRAWER_TABS.filter(Boolean).map((t) => t[0]),
-  ...BOTTOM_TABS.map((t) => t[0]),
   ...ROUTE_TABS,
 ]
 

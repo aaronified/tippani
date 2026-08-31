@@ -47,6 +47,7 @@ export const SCREENS = [
   { name: 'search', path: '/search' },
   { name: 'stats', path: '/stats' },
   { name: 'staging', path: '/pending' },
+  { name: 'checks', path: '/checks' },
   { name: 'settings', path: '/settings' },
   { name: 'bin', path: '/bin' },
   { name: 'book-detail', path: (id) => `/books/${id}`, needs: 'book-id' },
@@ -394,6 +395,21 @@ async function main() {
     })
     try {
       const page = await browser.newPage()
+      // FORWARD THE PAGE'S OWN ERRORS. Without this a screen that throws on
+      // mount reports as "Waiting failed: 15000ms exceeded" on a selector — a
+      // timeout, which reads as a slow server rather than as a broken build, and
+      // says nothing about which line threw. The one message that would have
+      // named it was in a browser console nobody was reading.
+      page.on('pageerror', (err) => console.error(`PAGE ERROR  ${err.message}`))
+      // console.error(err) arrives as a JSHandle whose text() is "JSHandle@error",
+      // which names the TYPE and not the fault. The args are unwrapped so the
+      // message and its stack come through — the whole reason for listening.
+      page.on('console', (msg) => {
+        if (msg.type() !== 'error') return
+        Promise.all(msg.args().map((a) =>
+          a.evaluate((v) => (v instanceof Error ? `${v.message}\n${v.stack}` : String(v))).catch(() => '?'),
+        )).then((parts) => console.error(`PAGE CONSOLE ${parts.join(' ')}`)).catch(() => {})
+      })
       await page.setViewport({ ...opts.viewport, deviceScaleFactor: 1 })
       // Both native BiDi operations, unlike emulateMediaFeatures — Firefox honours
       // these. Pinned because the app formats dates and numbers through Intl and

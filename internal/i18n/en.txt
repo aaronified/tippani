@@ -135,10 +135,6 @@ nav.tab.search.label = Search
 # The floating phone nav is icon-only, so each row's name is read aloud rather
 # than shown.
 nav.bottom.home.aria = Go home to today's review
-nav.bottom.library.aria = Open your book library
-nav.bottom.movies.aria = Open your film catalogue
-nav.bottom.quotes.aria = Open your standalone quotes
-nav.bottom.anthologies.aria = Open your anthologies
 
 # The info-dot body under each switch in Settings → Features, saying what the
 # section you are about to hide actually holds.
@@ -337,8 +333,6 @@ common.action.fetch.busy = Fetching…
 # The verb on a button. The named MODE is quiz.practice.label — English tells the
 # two apart with an s and a c, which no other language can reproduce.
 common.action.practise.label = Practise
-common.action.capture.label = Capture
-common.action.filter.label = Filter
 common.action.show.label = Show
 common.action.hide.label = Hide
 common.action.show-less.label = Show less
@@ -449,6 +443,7 @@ common.field.colour.label = Colour
 
 # --- the pop-up form frame.
 common.form.close.tip = Close without saving
+common.panel.back.aria = Back to {title}
 
 # --- the information dot.
 common.info.default.title = About this
@@ -829,7 +824,6 @@ common.hero.counts.noted.label = {n} noted
 common.hero.counts.tagged.label = {n} tagged
 
 # --- the sticky bar on a work's page, on a phone.
-common.detail.back.tip = Back to the list
 common.action.back.label = Back
 
 # --- the shared filter toolbar. The chip carries the short word and the tooltip
@@ -1026,7 +1020,7 @@ shell.restore.toast.done = restored · log in again
 # --- the two nav landmarks. The drawer already claims "Primary", so the phone's
 # floating bar needs a different name or a screen reader lists two of one thing.
 shell.nav.primary.aria = Primary
-shell.nav.quick.aria = Quick navigation
+shell.nav.dock.aria = Actions for this screen
 
 # --- the avatar chip, in both top bars and in the drawer's footer.
 shell.account.chip.tip = Your profile
@@ -1053,11 +1047,6 @@ shell.drawer.stats.streak.label = {n}-day streak
 shell.drawer.settings.version.label = v{version}
 shell.drawer.role.admin.label = admin · self-hosted
 shell.drawer.role.user.label = self-hosted
-shell.drawer.logout.label = log out
-shell.drawer.changelog.tip = Release notes on GitHub
-shell.drawer.changelog.label = v{version} · changelog ↗
-shell.drawer.update.tip = Update to {version}
-shell.drawer.update.label = ↑ update to {version}
 
 # --- the ＋ in both top bars, which reads the route it is standing on.
 shell.add.work.label = Add or import
@@ -1077,7 +1066,6 @@ shell.search.hint.scoped = author, tag, a line you half remember…
 shell.search.hint.all = everything — every book, film, quote…
 shell.search.aria.scoped = Search what you are looking at
 shell.search.aria.all = Search everything
-shell.search.global.tip = Searching everything
 shell.search.global.aria = Search everything
 
 # The crashed-screen panel names the screen by its route key, which is not a
@@ -3321,7 +3309,6 @@ library.export.confirm.body = {a} · {b} in view will be exported as one Markdow
 # A BOOK'S OWN PAGE.
 book.title.fallback = Untitled
 book.filter.aria = Filter annotations
-book.capture.aria = Capture a quote
 book.export.label = Export .md
 book.export.aria = Export as Markdown
 book.export.tip = Export as Markdown
@@ -3473,7 +3460,6 @@ film.form.media.movie.label = Movie
 # A TITLE'S OWN PAGE.
 film.title.fallback = Untitled
 film.filter.aria = Filter dialogues
-film.capture.aria = Capture a line
 film.export.label = Export .md
 film.export.aria = Export as Markdown
 film.export.tip = Export as Markdown
@@ -4765,12 +4751,8 @@ settings.devices.toast.all-unpaired = all devices unpaired
 # the page's own name and its two states from there — one bin, one vocabulary.
 # Only the dot and the count line belong to Settings.
 # ---------------------------------------------------------------------------
-settings.bin.info.body = Everything you delete waits here first, and putting one back returns it exactly as it was — quotes, tags, colours, schedule and cover alike. An entry leaves on its own past the window, and that clock only runs while the server does.
 # {count} and {held} both arrive already counted, through
 # common.count.phrase + unit.entry / unit.quote.
-settings.bin.tile.prose = {count} waiting — put any of them back, or empty it
-settings.bin.tile.holding.prose = {count} waiting, holding {held} — put any of them back, or empty it
-settings.bin.open.label = Open the bin
 
 # ---------------------------------------------------------------------------
 # STRAY MARKS, AS A TILE. Same shape as the bin above and for the same reason:
@@ -4778,11 +4760,7 @@ settings.bin.open.label = Open the bin
 # from there. The tile is the only door — this is a place you are sent when
 # something reads oddly, not a place you browse.
 # ---------------------------------------------------------------------------
-settings.cleanup.info.body = Pasting a quote from a page brings the page's furniture with it — footnote numbers, double spaces, characters you cannot see. This lists them and changes nothing; each one is yours to decide.
 # {count} arrives already counted, through common.count.phrase + unit.quote.
-settings.cleanup.tile.prose = {count} with something worth a look
-settings.cleanup.tile.clean.prose = nothing to look at — every quote reads as it was written
-settings.cleanup.open.label = Look for stray marks
 
 # ---------------------------------------------------------------------------
 # BACKUP (admin only) — one dated, encrypted archive, and the prompt that seals
@@ -5685,6 +5663,18 @@ bin.help.empty-now.what = Removes every entry and the pictures they were holding
 cleanup.help.title = Stray marks
 
 # What the page is for.
+checks.help.what-is-here.term = What is here
+checks.help.what-is-here.what = The two lists that are waiting on you, on one screen: quotes imported from a file, and quotes something looks odd in.
+checks.help.what-is-here.more = Both were pages of their own, reachable only from a tile in Settings — which is where you go to change how the app behaves, not to find out it has been holding forty quotes for a fortnight. The count on the rail and in the ☰ menu is what makes them findable; this screen is where they land.
+checks.help.imports.term = Imports waiting
+checks.help.imports.what = Nothing you import goes straight into your library. It lands here and stays, for as long as you like, until you approve it.
+checks.help.imports.more = That is deliberate and it does not change: a file of a thousand highlights with the wrong book attached is far easier to reject here than to unpick afterwards. Approve a batch, a work, or single rows, and edit anything before you do.
+checks.help.marks.term = Marks to look at
+checks.help.marks.what = Quotes carrying something that came from the page rather than the writer — a footnote number, a soft hyphen, a doubled space.
+checks.help.marks.more = None of it shows on a card and all of it is in the search index, which is why a search for a phrase you can see sometimes finds nothing. This half of the screen never writes: its rows open the work the quote lives in, where it can be edited.
+checks.help.not-review.term = Why it is not called Review
+checks.help.not-review.what = Review already means the daily quiz and the practice deck, and one word cannot mean two things in one app.
+checks.help.not-review.more = A check is something the app noticed and is asking you about. A review is something you asked the app to test you on. Naming both the same would make every mention of either ambiguous.
 cleanup.help.what-is-here.term = What is here
 cleanup.help.what-is-here.what = Every quote in your library, read once, and anything in it that looks like it came from the page rather than from the writer.
 cleanup.help.what-is-here.more = A quote typed by hand is clean. One that arrived by selecting text in an ebook, a PDF or a browser brings the page's furniture with it — a footnote index, a pronunciation gloss, a double space, a soft hyphen — and none of it shows in a card while all of it is in the search index. That is why a search for a phrase you can see sometimes finds nothing.

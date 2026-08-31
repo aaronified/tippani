@@ -194,7 +194,7 @@ export function settingsColumns(ncols, presentKeys) {
   return layout.map((col) => col.filter((k) => present.has(k)))
 }
 
-export default function Settings({ user, onPreferences, update, onUpdateInfo, onStartTour, onOpenBin, onOpenCleanup }) {
+export default function Settings({ user, onPreferences, update, onUpdateInfo, onStartTour }) {
   const mobile = useIsMobileScreen()
   const ncols = useColumnCount()
   const cards = {
@@ -204,15 +204,14 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, on
     sr: <SRSettings user={user} onPreferences={onPreferences} />,
     colors: <ColourCategoriesCard prefs={user.preferences} onSaved={onPreferences} />,
     devices: <DevicesCard />,
-    // Every account has a bin, so this is not admin-gated — unlike the two cards
-    // below it. It sits beside Backup because that is the corner of Settings you
-    // come to when something has gone wrong. The list itself is a page now, and
-    // this tile is its only door.
-    trash: <BinTile onOpen={onOpenBin} />,
-    // Beside the bin, and a tile for the same reason: the list behind it is
-    // unbounded and its rows carry a snippet, which a 300px grid column truncates
-    // exactly where the evidence is.
-    clean: <CleanupTile onOpen={onOpenCleanup} />,
+    // THE BIN AND STRAY-MARKS TILES ARE GONE FROM HERE. Both were doors and
+    // nothing else — a count, a state, and a button to a page that already showed
+    // both. The rail and the ☰ menu now carry a counted row to each (stray marks
+    // as half of Checks), which is a door visible from every screen rather than
+    // one you have to remember lives in Settings. A tile that restates a page's
+    // own summary is a second copy to keep in step, and this pair had already
+    // drifted: the tile counted /cleanup's open bucket while the page counted
+    // whichever bucket you last looked at.
     ...(user.is_admin
       ? {
           upd: <UpdatesCard user={user} update={update} onUpdateInfo={onUpdateInfo} />,
@@ -2405,136 +2404,6 @@ function RestorePrompt({ meta, me, busyLabel, onCancel, onConfirm }) {
 // with a passphrase. Same framing as RestorePrompt, deliberately: the two are one
 // operation seen from either end, and they should not look like different
 // features.
-// ---- the bin, as a tile (§ trash-and-undo) ----
-
-// BinTile — the bin's door, and the whole of the bin that Settings keeps.
-//
-// The list itself moved to a page of its own in 1.11.2 (BinPage.jsx), for a reason
-// that is about shape rather than importance. This is a three-column grid of
-// CARDS, and a card is a control panel: a label, a control, done. The bin is a
-// LIST of unbounded length whose rows expand — and in a 300px grid column beside
-// Devices and Updates it had to say what an entry was, when it went, what
-// travelled with it and when it is due to go, so it said three of those and
-// truncated the fourth.
-//
-// What stays here is what a settings page should hold about the bin: whether there
-// is anything in it, and the way in. The tile is the ONLY way in — the bin is in
-// no tab list on purpose (see ROUTE_TABS) — which is why the count is worth
-// fetching for it. "Nothing deleted" is an answer, and it is the answer that means
-// you do not have to go and look.
-function BinTile({ onOpen }) {
-  const [items, setItems] = useState(null) // null = still loading
-
-  useEffect(() => {
-    let stale = false
-    json('GET', '/trash').then((r) => {
-      if (!stale) setItems(r.ok ? r.data.trash || [] : [])
-    })
-    return () => {
-      stale = true
-    }
-  }, [])
-
-  const n = items?.length ?? 0
-  const held = (items || []).reduce((sum, e) => sum + (e.child_count || 0), 0)
-
-  return (
-    <Card data-tour="trash">
-      {/* The name and the two states the page shares with the tile are the
-          page's own keys (bin.*) — one bin, one vocabulary. Only the dot and the
-          count line are the tile's own. */}
-      <SectionTitle
-        info={t('settings.bin.info.body')}
-        infoTitle={t('bin.info.title')}
-      >
-        {t('bin.title')}
-      </SectionTitle>
-
-      <div className="space-y-3">
-        {/* REAL PLURALS. This line was two JavaScript ternaries picking between
-            entry/entries and quote/quotes, which is English grammar in code and
-            has no answer in a language with different plural rules. Both counts
-            go through unit.* and common.count.phrase now, and whether anything is
-            held picks between two whole sentences rather than splicing a clause
-            in. */}
-        <p className="microcopy">
-          {items === null
-            ? t('bin.state.loading')
-            : n === 0
-              ? t('bin.state.empty')
-              : t(held > 0 ? 'settings.bin.tile.holding.prose' : 'settings.bin.tile.prose', {
-                  count: t('common.count.phrase', { n, noun: t('unit.entry', { count: n }) }),
-                  held: t('common.count.phrase', { n: held, noun: t('unit.quote', { count: held }) }),
-                })}
-        </p>
-        {/* keepLabel: the one control on this card, and a lone wastebasket glyph on
-            a settings page reads as "delete something" rather than "open the place
-            deleted things went". */}
-        <GhostButton icon={<IconDelete />} keepLabel onClick={onOpen}>
-          {t('settings.bin.open.label')}
-        </GhostButton>
-      </div>
-    </Card>
-  )
-}
-
-
-// CleanupTile — the door to Stray marks, and the whole of that page Settings keeps.
-//
-// SAME SHAPE AS THE BIN ABOVE, and for the same reasons argued there: the list is
-// of unbounded length and every row carries a snippet of the quote, which is the
-// one fact a narrow grid column cannot show. So the tile holds what a settings
-// page should hold about it — whether there is anything worth looking at, and the
-// way in.
-//
-// "NOTHING TO LOOK AT" IS THE ANSWER WORTH FETCHING FOR. It is the same argument
-// the bin's count makes: this page is in no tab list, so the tile is the only
-// thing that can tell you not to bother opening it. The sweep reads the whole
-// library, which is why this asks for it once on mount and never again.
-function CleanupTile({ onOpen }) {
-  const [items, setItems] = useState(null) // null = still loading
-
-  useEffect(() => {
-    let stale = false
-    json('GET', '/cleanup').then((r) => {
-      if (!stale) setItems(r.ok ? r.data.items || [] : [])
-    })
-    return () => {
-      stale = true
-    }
-  }, [])
-
-  const n = items?.length ?? 0
-
-  return (
-    <Card>
-      {/* The page's own name and its clean state come from cleanup.* — one
-          feature, one vocabulary — and only the dot and the count line here are
-          Settings' own. */}
-      <SectionTitle info={t('settings.cleanup.info.body')} infoTitle={t('cleanup.info.title')}>
-        {t('cleanup.title')}
-      </SectionTitle>
-
-      <div className="space-y-3">
-        <p className="microcopy">
-          {items === null
-            ? t('cleanup.state.loading')
-            : n === 0
-              ? t('settings.cleanup.tile.clean.prose')
-              : t('settings.cleanup.tile.prose', {
-                  count: t('common.count.phrase', { n, noun: t('unit.quote', { count: n }) }),
-                })}
-        </p>
-        {/* keepLabel, like the bin's: an eye on a settings page reads as "show
-            something", not "go and look at what got into your quotes". */}
-        <GhostButton icon={<IconEye />} keepLabel onClick={onOpen}>
-          {t('settings.cleanup.open.label')}
-        </GhostButton>
-      </div>
-    </Card>
-  )
-}
-
 
 function BackupPrompt({ me, busy, onCancel, onConfirm }) {
    // The page behind an overlay does not move. Without this a wheel or a swipe

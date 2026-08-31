@@ -21,7 +21,6 @@ import {
   GroupHeading,
   HeroCounts,
   InProgressCapDialog,
-  MobileDetailBar,
   SHELF_CAPS,
   ShelfControl,
   ShelfDateDialog,
@@ -111,6 +110,7 @@ import {
   useColumnsAt,
   useCoverSize,
   useCrumb,
+  useScreenBar,
   useFormHost,
   useFrameBase,
   useIsMobileScreen,
@@ -953,8 +953,12 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce
     else setError(errText(r, t('error.save.generic')))
   }
 
+  // The browser's own confirm() was asking this, in English, in an app that
+  // ships Bengali. Same ConfirmDialog and same copy the catalogue tile has used
+  // since it got a context menu — see BookDetail's for the full note.
+  const [asking, setAsking] = useState(false)
   async function remove() {
-    if (!confirm(`Delete "${movie.title}" and all its dialogues?`)) return
+    setAsking(false)
     // As with a book: this view closes, so there is nothing here to reload.
     const r = await deleteWithUndo(`/movies/${id}`, { label: t('film.toast.deleted') })
     if (r.ok) onClose()
@@ -1025,51 +1029,45 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce
   useCrumb(detailTitle)
   const detailMeta = movie ? (movie.director || formatYear(movie.release_year, movie.release_circa) || '') : ''
 
+  // The phone's two bars while this screen is open — see BookDetail for why the
+  // in-page MobileDetailBar went. Same two seats, and deliberately so: a reader
+  // moving between a book and a film must not have to re-find Filter.
+  useScreenBar({
+    sub: detailMeta || null,
+    keys: mobile ? [
+      {
+        id: 'filter',
+        label: t('film.filter.aria'),
+        icon: <IconFilter />,
+        onClick: () => setMobileFilter(true),
+      },
+      {
+        id: 'more',
+        node: (
+          <MoreMenu
+            items={[
+              {
+                // The ROW goes in, not just the board's kind: a game's catalogue
+                // row and a film's are the same table, and only media_type tells
+                // the label which verb it is naming.
+                icon: <IconWatching size={24} />,
+                label: moveLabel('movie', movie?.status || '', activeWord, movie || {}),
+                onClick: () => pick(activeWord),
+              },
+              ...(DEMO ? [] : [{ icon: <IconExport />, label: t('film.export.label'), onClick: () => { if (movie) window.location.href = `/api/movies/${movie.id}/export` } }]),
+              { icon: <IconPractise />, label: t('film.practise.menu.label'), onClick: () => movie && practise({ movie: movie.id, label: movie.title }) },
+              { icon: <IconDetails />, label: t('common.work.details.title'), onClick: () => setEditing(true) },
+              { icon: <IconHelp size={24} />, label: t('shell.help.menu.label'), onClick: () => setHelpOpen(true) },
+              { icon: <IconDelete />, label: t('common.action.delete.label'), onClick: () => setAsking(true), danger: true },
+            ]}
+          />
+        ),
+      },
+    ] : null,
+  })
+
   return (
     <section className="space-y-6 md:pt-5" data-screen-label="movie-detail">
-      {mobile && (
-        <MobileDetailBar
-          onClose={onClose}
-          title={detailTitle}
-          meta={detailMeta}
-          actions={
-            <>
-              <IconButton icon={<IconFilter />} label={t('common.action.filter.label')}
-            ariaLabel={t('film.filter.aria')} onClick={() => setMobileFilter(true)} />
-              {/* The shell's one Add surface, opened on Capture with this title
-                  already the target — not a second add form of its own. */}
-              <IconButton icon={<IconPlus />} label={t('common.action.capture.label')}
-            ariaLabel={t('film.capture.aria')} onClick={() => onAdd?.('quote', { type: 'movie', id })} />
-              <MoreMenu
-                items={[
-                  {
-                    icon: <IconWatching size={24} />,
-                    // The ROW goes in, not just the board's kind: a game's
-                    // catalogue row and a film's are the same table, and only
-                    // media_type tells the label which verb it is naming.
-                    label: moveLabel('movie', movie?.status || '', activeWord, movie || {}),
-                    onClick: () => pick(activeWord),
-                  },
-                  ...(DEMO ? [] : [{ icon: <IconExport />, label: t('film.export.label'), onClick: () => { if (movie) window.location.href = `/api/movies/${movie.id}/export` } }]),
-                  // SEARCH, ON A PHONE ONLY BECAUSE THAT IS WHERE IT IS MISSING.
-                  // The top bar's Search already lands scoped to whatever you are
-                  // looking at — searchScope reads the open work — so the
-                  // work-details screen has had a context-aware search all along.
-                  // MobileDetailBar replaces that bar, which left the one screen
-                  // where "find another line like this" is the obvious next thing
-                  // with no way to ask it. Desktop needs no entry here: the bar is
-                  // still up there.
-                  { icon: <IconSearch />, label: t('nav.tab.search.label'), onClick: () => onSearch?.() },
-                  { icon: <IconPractise />, label: t('film.practise.menu.label'), onClick: () => movie && practise({ movie: movie.id, label: movie.title }) },
-                  { icon: <IconDetails />, label: t('common.work.details.title'), onClick: () => setEditing(true) },
-                  { icon: <IconHelp size={24} />, label: t('shell.help.menu.label'), onClick: () => setHelpOpen(true) },
-                  { icon: <IconDelete />, label: t('common.action.delete.label'), onClick: remove, danger: true },
-                ]}
-              />
-            </>
-          }
-        />
-      )}
       {!mobile && (
         <button
           onClick={onClose}
@@ -1158,7 +1156,7 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce
                       icon={<IconDelete />}
                       label={t('common.action.delete.label')}
             ariaLabel={t('film.delete.aria')}
-                      onClick={remove}
+                      onClick={() => setAsking(true)}
                       danger
                     tooltip={t('film.delete.tip')}
                   />
@@ -1215,6 +1213,23 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce
       {/* Phone-only route into this screen's help — see the Library twin. */}
       {practiceDialog}
       <ScreenHelpSheet screen="movie-detail" open={helpOpen} onClose={() => setHelpOpen(false)} />
+      {/* Counted, because the count is the fact that decides it. One tap and not
+          a typed phrase, for the reason the catalogue tile records — the subject
+          is the title you are looking at, and the bin holds it whole. */}
+      <ConfirmDialog
+        open={asking}
+        title={t('common.work.delete.confirm.title', { title: movie?.title || '' })}
+        body={
+          <p className="microcopy">
+            {lineStats?.total > 0
+              ? t('common.work.delete.confirm.body', { count: lineStats.total, n: lineStats.total })
+              : t('common.work.delete.confirm.body.empty')}
+          </p>
+        }
+        confirmLabel={t('common.work.delete.confirm.action.label')}
+        onConfirm={remove}
+        onCancel={() => setAsking(false)}
+      />
     </section>
   )
 }
@@ -1599,8 +1614,12 @@ function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen
     return null
   }
 
+  // Asked in the app's voice, and asked on every door: the registry calls
+  // ctx.remove(item), so handing it the asker is what makes the confirm
+  // unskippable rather than one path out of three.
+  const [asking, setAsking] = useState(null)
   async function remove(d) {
-    if (!confirm(t('film.lines.delete.confirm'))) return
+    setAsking(null)
     const r = await deleteWithUndo(`/dialogues/${d.id}`, { reload: load })
     if (r.ok) { setExpandedId(null); load() } // collapse before the shorter set re-packs
     else setError(errText(r))
@@ -1774,7 +1793,7 @@ function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen
                 onCancelEdit={() => setEditingId(null)}
                 onSave={(fields) => save(d.id, fields)}
                 onPatch={(fields) => patch(d, fields)}
-                onDelete={() => remove(d)}
+                onDelete={() => setAsking(d)}
                 onCopy={() => copyOne(d)}
                 onShare={() => setShareTarget(d)}
                 onOpenPerson={setPerson}
@@ -1812,7 +1831,7 @@ function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen
                 onCancelEdit={() => setEditingId(null)}
                 onSave={(fields) => save(d.id, fields)}
                 onPatch={(fields) => patch(d, fields)}
-                onDelete={() => remove(d)}
+                onDelete={() => setAsking(d)}
                 onCopy={() => copyOne(d)}
                 onShare={() => setShareTarget(d)}
                 onOpenPerson={setPerson}
@@ -1837,7 +1856,7 @@ function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen
           editingId={editingId}
           setEditingId={setEditingId}
           save={save}
-          remove={remove}
+          remove={setAsking}
           show={show}
           game={game}
           cast={cast}
@@ -1848,6 +1867,17 @@ function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen
       )}
 
       {shareTarget && <ShareDialog share={sharePayload(shareTarget)} seen={{ kind: 'screen', id: shareTarget.id }} onClose={() => setShareTarget(null)} />}
+      {/* Shows the LINE rather than naming the row, because that is the only
+          thing that says whether the row under your finger was the one you
+          meant. */}
+      <ConfirmDialog
+        open={!!asking}
+        title={t('film.lines.delete.confirm')}
+        body={<p className="microcopy line-clamp-3">“{asking?.quote || ''}”</p>}
+        confirmLabel={t('common.action.delete.label')}
+        onConfirm={() => remove(asking)}
+        onCancel={() => setAsking(null)}
+      />
       {person && <PersonModal kind={person.kind} name={person.name} onClose={() => setPerson(null)} />}
     </div>
   )
@@ -1967,7 +1997,7 @@ function DialogueTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSo
                   onCopy={onCopy && (() => onCopy(d))}
                   onShare={onShare && (() => onShare(d))}
                   onEdit={() => setEditingId(d.id)}
-                  onDelete={() => remove(d)}
+                  onDelete={() => setAsking(d)}
                 />
               </td>
             </tr>

@@ -11,7 +11,7 @@
 import { render } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import * as ui from '../../src/ui.jsx'
-import { CONTENT_TABS, DRAWER_TABS, UTILITY_TABS, BOTTOM_TABS } from '../../src/routes.js'
+import { CONTENT_TABS, DRAWER_TABS, UTILITY_TABS } from '../../src/routes.js'
 
 // The declared exceptions. The KEY is the exported glyph; the VALUE is which of the four
 // arguments it is making. Adding a row here is the deliberate act the rule asks for.
@@ -83,7 +83,7 @@ describe('the rail is filled all the way round', () => {
   // every destination wears it or the rule is not being applied.
   const tabs = [...new Set([
     ...CONTENT_TABS.map((t) => t[0]), ...UTILITY_TABS.map((t) => t[0]),
-    ...DRAWER_TABS.filter(Boolean).map((t) => t[0]), ...BOTTOM_TABS.map((t) => t[0]),
+    ...DRAWER_TABS.filter(Boolean).map((t) => t[0]),
   ])].sort()
 
   it('every destination draws a solid glyph', () => {

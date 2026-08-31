@@ -20,7 +20,6 @@ import {
   GroupHeading,
   HeroCounts,
   InProgressCapDialog,
-  MobileDetailBar,
   SHELF_CAPS,
   ShelfControl,
   ShelfDateDialog,
@@ -101,6 +100,7 @@ import {
   useColumnsAt,
   useCoverSize,
   useCrumb,
+  useScreenBar,
   useFormHost,
   useIsMobileScreen,
   usePersistedState,
@@ -759,11 +759,18 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce 
     else setError(errText(r, t('error.save.generic')))
   }
 
+  // THE BROWSER'S OWN confirm() WAS DOING THIS, and it was the last one on the
+  // screen: an English-only string in an app that ships Bengali, unstyleable,
+  // and drawn by the OS rather than by the app. The board's tile has asked
+  // properly since it got a context menu — same ConfirmDialog, same copy — so
+  // this is not a new surface, it is the detail screen finally using the one
+  // that exists. One act, one door.
+  const [asking, setAsking] = useState(false)
   async function remove() {
-    if (!confirm(`Delete "${book.title}" and all its annotations?`)) return
+    setAsking(false)
     // No reload on the Undo: this view closes on a successful delete, so the book
     // coming back has to be found again from the shelf. The toast still offers it,
-    // and Settings → The bin is the other way in.
+    // and the Bin is the other way in.
     const r = await deleteWithUndo(`/books/${id}`, { label: t('book.toast.deleted') })
     if (r.ok) onClose()
     else setError(errText(r))
@@ -823,48 +830,53 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce 
   useCrumb(detailTitle)
   const detailAuthor = book && book.author ? book.author : ''
 
+  // ── WHAT THE PHONE'S TWO BARS CARRY WHILE THIS SCREEN IS OPEN.
+  //
+  // This replaced MobileDetailBar, which was a whole second top bar drawn INSIDE
+  // the page — a back key, a title, a meta line and three controls, duplicating
+  // the shell's bar rather than extending it, on the one device with no room for
+  // two. The title and the sub-line go up to the header; the verbs go down to the
+  // dock, where a thumb is. Back is the dock's own leftmost key and Search is
+  // beside it on every screen, so neither is declared here.
+  //
+  // TWO SEATS, and the second is More precisely because there are more than two
+  // things: shelf, export, practise, help and delete are a menu, not five keys a
+  // thumb has to aim between.
+  useScreenBar({
+    sub: detailAuthor || null,
+    keys: mobile ? [
+      {
+        id: 'filter',
+        label: t('book.filter.aria'),
+        icon: <IconFilter />,
+        onClick: () => setMobileFilter(true),
+      },
+      {
+        id: 'more',
+        // Rendered by this screen rather than the shell: MoreMenu anchors its
+        // popover to its own trigger.
+        node: (
+          <MoreMenu
+            items={[
+              {
+                icon: <IconReading size={24} />,
+                label: moveLabel('book', book?.status || '', ACTIVE_STATUS.book, book || {}),
+                onClick: () => pick(ACTIVE_STATUS.book),
+              },
+              ...(DEMO ? [] : [{ icon: <IconExport />, label: t('book.export.label'), onClick: () => { if (book) window.location.href = `/api/books/${book.id}/export` } }]),
+              { icon: <IconPractise />, label: t('book.practise.menu.label'), onClick: () => book && practise({ book: book.id, label: book.title }) },
+              { icon: <IconDetails />, label: t('common.work.details.title'), onClick: () => setEditing(true) },
+              { icon: <IconHelp size={24} />, label: t('shell.help.menu.label'), onClick: () => setHelpOpen(true) },
+              { icon: <IconDelete />, label: t('common.action.delete.label'), onClick: () => setAsking(true), danger: true },
+            ]}
+          />
+        ),
+      },
+    ] : null,
+  })
+
   return (
     <section ref={reveal} className="reveal space-y-6 md:pt-4" data-screen-label="book-detail">
-      {mobile && (
-        <MobileDetailBar
-          onClose={onClose}
-          title={detailTitle}
-          meta={detailAuthor}
-          actions={
-            <>
-              <IconButton icon={<IconFilter />} label={t('common.action.filter.label')}
-            ariaLabel={t('book.filter.aria')} onClick={() => setMobileFilter(true)} />
-              {/* The shell's one Add surface, opened on Capture with this book
-                  already the target — not a second add form of its own. */}
-              <IconButton icon={<IconPlus />} label={t('common.action.capture.label')}
-            ariaLabel={t('book.capture.aria')} onClick={() => onAdd?.('quote', { type: 'book', id })} />
-              <MoreMenu
-                items={[
-                  {
-                    icon: <IconReading size={24} />,
-                    label: moveLabel('book', book?.status || '', ACTIVE_STATUS.book, book || {}),
-                    onClick: () => pick(ACTIVE_STATUS.book),
-                  },
-                  ...(DEMO ? [] : [{ icon: <IconExport />, label: t('book.export.label'), onClick: () => { if (book) window.location.href = `/api/books/${book.id}/export` } }]),
-                  // SEARCH, ON A PHONE ONLY BECAUSE THAT IS WHERE IT IS MISSING.
-                  // The top bar's Search already lands scoped to whatever you are
-                  // looking at — searchScope reads the open work — so the
-                  // work-details screen has had a context-aware search all along.
-                  // MobileDetailBar replaces that bar, which left the one screen
-                  // where "find another line like this" is the obvious next thing
-                  // with no way to ask it. Desktop needs no entry here: the bar is
-                  // still up there.
-                  { icon: <IconSearch />, label: t('nav.tab.search.label'), onClick: () => onSearch?.() },
-                  { icon: <IconPractise />, label: t('book.practise.menu.label'), onClick: () => book && practise({ book: book.id, label: book.title }) },
-                  { icon: <IconDetails />, label: t('common.work.details.title'), onClick: () => setEditing(true) },
-                  { icon: <IconHelp size={24} />, label: t('shell.help.menu.label'), onClick: () => setHelpOpen(true) },
-                  { icon: <IconDelete />, label: t('common.action.delete.label'), onClick: remove, danger: true },
-                ]}
-              />
-            </>
-          }
-        />
-      )}
       {!mobile && (
         <button
           className="mono-label"
@@ -956,7 +968,7 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce 
                       icon={<IconDelete />}
                       label={t('common.action.delete.label')}
             ariaLabel={t('book.delete.aria')}
-                      onClick={remove}
+                      onClick={() => setAsking(true)}
                       danger
                     tooltip={t('book.delete.tip')}
                   />
@@ -1011,6 +1023,25 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce 
           for a "?", so the ⋯ menu opens the same panel the desktop button does. */}
       {practiceDialog}
       <ScreenHelpSheet screen="book-detail" open={helpOpen} onClose={() => setHelpOpen(false)} />
+      {/* Counted, because the count is the fact that decides it: a book with 200
+          highlights and a book with none are the same two clicks and very
+          different acts. One tap and not a typed phrase, for the reason the
+          board's tile records — the subject is the book you are looking at, and
+          the bin holds it whole with an Undo in the toast. */}
+      <ConfirmDialog
+        open={asking}
+        title={t('common.work.delete.confirm.title', { title: book?.title || '' })}
+        body={
+          <p className="microcopy">
+            {quoteStats?.total > 0
+              ? t('common.work.delete.confirm.body', { count: quoteStats.total, n: quoteStats.total })
+              : t('common.work.delete.confirm.body.empty')}
+          </p>
+        }
+        confirmLabel={t('common.work.delete.confirm.action.label')}
+        onConfirm={remove}
+        onCancel={() => setAsking(false)}
+      />
     </section>
   )
 }
@@ -1567,7 +1598,7 @@ function AnnotationTable({ rows, tagMap, stickers = [], reloadStickers, sort, on
                   onCopy={onCopy && (() => onCopy(a))}
                   onShare={onShare && (() => onShare(a))}
                   onEdit={() => setEditingId(a.id)}
-                  onDelete={() => remove(a)}
+                  onDelete={() => setAsking(a)}
                 />
               </td>
             </tr>
@@ -1789,8 +1820,12 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
     return null
   }
 
+  // Asked in the app's own voice rather than the browser's — the last native
+  // confirm() on this screen. It keeps the same friction it had: a question, not
+  // a typed phrase, because the row is right there and the toast carries an Undo.
+  const [asking, setAsking] = useState(null)
   async function remove(a) {
-    if (!confirm(t('book.quotes.delete.confirm'))) return
+    setAsking(null)
     const r = await deleteWithUndo(`/annotations/${a.id}`, { reload: load })
     if (r.ok) {
       setTotal((n) => (n == null ? n : n - 1))
@@ -1962,7 +1997,7 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
           editingId={editingId}
           setEditingId={setEditingId}
           save={save}
-          remove={remove}
+          remove={setAsking}
           onCopy={copyOne}
           onShare={setShareTarget}
         />
@@ -1982,7 +2017,7 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
               setEditingId={setEditingId}
               save={save}
               patch={patch}
-              remove={remove}
+              remove={setAsking}
               onCopy={copyOne}
               onShare={setShareTarget}
               quoteLines={5}
@@ -2018,7 +2053,7 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
               setEditingId={setEditingId}
               save={save}
               patch={patch}
-              remove={remove}
+              remove={setAsking}
               onCopy={copyOne}
               onShare={setShareTarget}
               quoteLines={clampLines[i]}
@@ -2036,6 +2071,18 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
       )}
 
       {shareTarget && <ShareDialog share={sharePayload(shareTarget)} seen={{ kind: 'book', id: shareTarget.id }} onClose={() => setShareTarget(null)} />}
+      {/* The quote's own delete, asked in the app's voice. It shows the WORDS
+          rather than naming the row by number, because that is the only thing
+          that tells you whether the row under your finger was the one you
+          meant. */}
+      <ConfirmDialog
+        open={!!asking}
+        title={t('book.quotes.delete.confirm')}
+        body={<p className="microcopy line-clamp-3">“{asking?.quote || ''}”</p>}
+        confirmLabel={t('common.action.delete.label')}
+        onConfirm={() => remove(asking)}
+        onCancel={() => setAsking(null)}
+      />
     </div>
   )
 }

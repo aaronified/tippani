@@ -271,7 +271,7 @@ it in lockstep with `docs/troubleshoot.md` — add a code and you add a row.
 `web/frontend/src/` is flat too, and the naming carries the distinction:
 **TitleCase `*.jsx` are routed screens, lowercase modules are shared.** The screens are
 `Home`, `Library`, `Movies`, `Quotes`, `SearchPage`, `AddSurface`, `ImportPage`,
-`StagingPage`, `TagsPage`, `MetadataPage`, `StatsPage`, `Settings`, `Account`,
+`StagingPage`, `ChecksPage`, `TagsPage`, `MetadataPage`, `StatsPage`, `Settings`, `Account`,
 `WorkDetails`, `CoverPicker`, `ReverifyReview` — each is what its name says, and none of
 them needs a row here.
 

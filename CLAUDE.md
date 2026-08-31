@@ -14,6 +14,19 @@ does not auto-install — run `claude plugin install claude-kit@claude-kit` ther
 Prefer the kit's skills/agents (e.g. `test-summary`, `git-sync`, `screenshot-runner`,
 `repo-doc-set`) over ad hoc equivalents when one already fits the task.
 
+Two of the kit's rules bind work in this repo even when no kit skill is running:
+
+- **A subagent's model follows its job, not its caller.** An agent that only retrieves —
+  inventorying files, mapping a prototype, listing call sites, checking that a cited line
+  says what it was claimed to say — runs on `haiku`. Reserve the session model for agents
+  that must weigh a trade-off or find a bug. A fan-out inherits the caller's model unless
+  told otherwise, and over-tiering never announces itself: the answers come back fine and
+  only the bill records it.
+- **Rate before reporting done.** Run the kit's `work-rating` skill at the end of a piece
+  of work — it is stage 8 of `pre-commit-gate`, ahead of the commit. Hand the rater the
+  session's prompts verbatim and never the target; act on its findings before reporting,
+  and report the score as given.
+
 ## Commands
 
 ```bash

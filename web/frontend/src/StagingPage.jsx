@@ -23,7 +23,7 @@ import {
   IconRuler,
   InfoDot,
   MonoLabel,
-  PageHeader,
+  SectionHead,
   Select,
   splitCommas,
   TagChip,
@@ -74,7 +74,7 @@ const kindNoun = (work) =>
       ? t('unit.show', { count: 1 })
       : t('unit.film', { count: 1 })
 
-export default function StagingPage({ onPending, onOpenBook, onOpenMovie, onApproved }) {
+export default function StagingPage({ onPending, onOpenBook, onOpenMovie, onApproved, embedded = false }) {
   const [queue, setQueue] = useState(null) // {pending, batches, works, quotes}
   const [batch, setBatch] = useState('all')
   const [sel, setSel] = useState(() => new Set())
@@ -206,7 +206,7 @@ export default function StagingPage({ onPending, onOpenBook, onOpenMovie, onAppr
   if (!queue) {
     return (
       <section className="space-y-5">
-        <PageHeader title={t('staging.title')} counts={t('staging.state.loading')} />
+        <SectionHead embedded={embedded} title={t('staging.title')} counts={t('staging.state.loading')} />
         <ErrorText>{err}</ErrorText>
       </section>
     )
@@ -217,7 +217,7 @@ export default function StagingPage({ onPending, onOpenBook, onOpenMovie, onAppr
   if (queue.pending === 0 && works.length === 0) {
     return (
       <section className="space-y-5">
-        <PageHeader title={t('staging.title')} counts={t('staging.state.empty-counts')} />
+        <SectionHead embedded={embedded} title={t('staging.title')} counts={t('staging.state.empty-counts')} />
         <EmptyState>{t('staging.state.empty')}</EmptyState>
       </section>
     )
@@ -265,8 +265,9 @@ export default function StagingPage({ onPending, onOpenBook, onOpenMovie, onAppr
       {/* The two page-level actions ride in the header on desktop; on a phone
           they get their own row, because a 390px sticky bar cannot hold a title
           and two buttons without the buttons sitting on the title. */}
-      <div className={mobile ? 'mobile-sticky-bar' : ''}>
-        <PageHeader
+      <div className={mobile && !embedded ? 'mobile-sticky-bar' : ''}>
+        <SectionHead
+          embedded={embedded}
           title={t('staging.title')}
           counts={
             /* Two real plural families where the English grew its own -s in

@@ -18,7 +18,6 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import {
   addSection,
-  BOTTOM_TABS,
   CONTENT_TABS,
   DRAWER_TABS,
   helpScreen,
@@ -128,7 +127,6 @@ describe('visibleSections', () => {
     // nothing, and nothing else would fail.
     for (const sec of SECTIONS) {
       expect(keys(CONTENT_TABS), sec.tab).toContain(sec.tab)
-      expect(keys(BOTTOM_TABS), sec.tab).toContain(sec.tab)
       expect(keys(DRAWER_TABS), sec.tab).toContain(sec.tab)
     }
   })
@@ -157,7 +155,6 @@ describe('visibleTabs', () => {
         ['CONTENT_TABS', CONTENT_TABS],
         ['UTILITY_TABS', UTILITY_TABS],
         ['DRAWER_TABS', DRAWER_TABS],
-        ['BOTTOM_TABS', BOTTOM_TABS],
       ]
       for (const [name, list] of lists) {
         expect(keys(visibleTabs(list, sections)), `${sec.tab} is still in ${name}`).not.toContain(sec.tab)
@@ -165,13 +162,16 @@ describe('visibleTabs', () => {
     }
   })
 
-  it('keeps the strip and the phone bar identical, filtered as well as whole', () => {
-    // The strictest assertion in the nav contract, restated under a filter. The two
-    // lists are asserted equal when whole, so they cannot be filtered by different
-    // rules either — the desktop strip and the thumb bar are one decision.
+  it('keeps the rail and the drawer offering the same places, filtered as well as whole', () => {
+    // The strictest assertion in the nav contract, restated under a filter, and
+    // re-pointed when the phone's four-tab bar became a verb dock. The drawer is
+    // now the ONLY list of destinations a phone has, so what it offers and what
+    // the rail offers must stay one decision — a section switched off has to
+    // vanish from both or the phone keeps a door the desk has closed.
     for (const sec of SECTIONS) {
       const sections = off(sec.tab)
-      expect(keys(visibleTabs(BOTTOM_TABS, sections))).toEqual(keys(visibleTabs(CONTENT_TABS, sections)))
+      const rail = [...keys(visibleTabs(CONTENT_TABS, sections)), ...keys(visibleTabs(UTILITY_TABS, sections))]
+      expect(keys(visibleTabs(DRAWER_TABS, sections)).sort()).toEqual(rail.sort())
     }
   })
 
@@ -181,7 +181,7 @@ describe('visibleTabs', () => {
     // passing them through could quietly change one, and the symptom would be a
     // nav tab with no hover label — invisible until somebody hovers it.
     const sections = off('movies')
-    for (const list of [CONTENT_TABS, UTILITY_TABS, DRAWER_TABS, BOTTOM_TABS]) {
+    for (const list of [CONTENT_TABS, UTILITY_TABS, DRAWER_TABS]) {
       for (const row of visibleTabs(list, sections)) {
         if (row === null) continue
         expect(list).toContain(row)
@@ -190,11 +190,13 @@ describe('visibleTabs', () => {
   })
 
   it('passes through everything the answer says nothing about', () => {
-    // Home, Search and the four tools are not hideable, and the way that is
-    // expressed is that the sections object has no key for them at all — not a
-    // `true`. A filter keyed on truthiness would drop every one of them.
+    // Home and the four tools are not hideable, and the way that is expressed is
+    // that the sections object has no key for them at all — not a `true`. A
+    // filter keyed on truthiness would drop every one of them. Search left this
+    // list when it became a dock key rather than a drawer row; it is still not
+    // hideable, and ROUTE_TABS is where that is now asserted.
     const kept = keys(visibleTabs(DRAWER_TABS, off('quotes')))
-    for (const tab of ['home', 'search', 'tags', 'metadata', 'stats', 'settings']) {
+    for (const tab of ['home', 'tags', 'metadata', 'stats', 'settings']) {
       expect(kept, tab).toContain(tab)
     }
   })
@@ -285,7 +287,7 @@ describe('the shell filters every list it draws', () => {
     .map((l) => (/^\s*(\/\/|\*|\/\*)/.test(l) ? '' : l))
     .join('\n')
 
-  it.each(['CONTENT_TABS', 'UTILITY_TABS', 'DRAWER_TABS', 'BOTTOM_TABS'])('passes %s through visibleTabs', (list) => {
+  it.each(['CONTENT_TABS', 'UTILITY_TABS', 'DRAWER_TABS'])('passes %s through visibleTabs', (list) => {
     // The captured text reaches one character back past the name, so a bare
     // `CONTENT_TABS` and a wrapped `visibleTabs(CONTENT_TABS` are distinguishable.
     // Escaped twice on purpose: this is a regex built in a template literal, where

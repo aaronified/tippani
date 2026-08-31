@@ -13,7 +13,8 @@
 // of the refactor, and the only way to be wrong about it is for them to differ.
 
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
+import { useScreenBarState } from '../../src/ui.jsx'
 
 const BOOKS = [
   { id: 1, title: 'Dispossessed', author: 'Le Guin', genres: ['Science Fiction'], series: 'Hainish', status: 'reading', favorite: 1, annotation_count: 2, tagged_count: 1, noted_count: 1 },
@@ -37,8 +38,22 @@ beforeEach(async () => {
   takeSearchSeed = (await import('../../src/facets.js')).takeSearchSeed
 })
 
+// What the board hands the shell's dock. Read through a probe rather than a
+// getter on the store, so the test sees exactly what a subscriber sees.
+let BAR = { sub: null, keys: null }
+const Probe = () => {
+  BAR = useScreenBarState()
+  return null
+}
+const screenBarNow = () => BAR
+
 const board = async () => {
-  render(<Library openId={null} onOpen={() => {}} onClose={() => {}} onOpenMovie={() => {}} creditSeparators=",;&" onAdd={() => {}} dataNonce={0} />)
+  render(
+    <>
+      <Library openId={null} onOpen={() => {}} onClose={() => {}} onOpenMovie={() => {}} creditSeparators=",;&" onAdd={() => {}} dataNonce={0} />
+      <Probe />
+    </>,
+  )
   // The list arrives on the first settled fetch.
   await screen.findByText('Dispossessed')
 }
@@ -135,6 +150,15 @@ describe('the board-only filters', () => {
   })
 })
 
+// The dock is the shell's, and these tests render the board alone — so the key
+// is reached through the store the shell subscribes to rather than through a
+// second render of the whole frame.
+function openFiltersFromTheDock() {
+  const key = (screenBarNow().keys || []).find((k) => k.id === 'filter')
+  expect(key, 'the board published no filter key').toBeTruthy()
+  act(() => key.onClick())
+}
+
 describe('reset', () => {
   // onReset used to enumerate nine setters by hand, which is a list that goes
   // stale the moment a tenth filter is added — and one that already had to
@@ -147,7 +171,12 @@ describe('reset', () => {
     // not rendered at all — so this drives the sheet's own copies of them, which
     // is the half of "two editors of one state" the desktop tests above do not
     // reach.
-    press('Filters')
+    //
+    // AND THE KEY THAT OPENS IT IS NO LONGER ON THE PAGE. The phone's verbs are
+    // published to the dock, which the shell draws, so the board itself has no
+    // Filters button to press — the test reaches the published key instead. That
+    // is the honest route: it is exactly what a thumb hits.
+    openFiltersFromTheDock()
     press('♥ favourites')
     press('tagged')
     press('annotated')

@@ -269,7 +269,7 @@ function offState(target) {
 const GRAIN_OVERLAY = ['.btn-sticker', '.btn-film', '.tp-btn-primary', '.topbar-add-btn', '.user-chip']
 // Surfaces whose grain rides inside background-image, so it cannot be faded by a
 // pseudo-element and has to be replaced outright in the contrast block.
-const LAYERED_FILL = ['.tp-toggle-thumb', '.tp-select-thumb', '.tp-filter-chip.active', '.drawer-item.active', '.mobile-bottom-nav-btn.active']
+const LAYERED_FILL = ['.tp-toggle-thumb', '.tp-select-thumb', '.tp-filter-chip.active', '.drawer-item.active', '.mobile-dock-btn.active']
 
 describe('the stylesheet parses into something worth resolving', () => {
   it('finds the contrast block, in a layer, and every declaration important', () => {
@@ -397,7 +397,7 @@ describe('a selected thing wears the selected material', () => {
     // What both of these used to be: `color-mix(in srgb, var(--accent) 13%, transparent)`.
     // It ignored the aesthetic entirely, so a phone showed the same rectangle on
     // paper and on film while every desktop selection wore grain.
-    for (const sel of ['.drawer-item.active', '.mobile-bottom-nav-btn.active']) {
+    for (const sel of ['.drawer-item.active', '.mobile-dock-btn.active']) {
       const at = css.indexOf(`\n${sel} {`)
       expect(at, `${sel} rule not found`).toBeGreaterThan(-1)
       const body = css.slice(at, css.indexOf('}', at))
@@ -406,7 +406,7 @@ describe('a selected thing wears the selected material', () => {
   })
 
   it('rides its label on the ink meant for an accent fill', () => {
-    for (const sel of ['.drawer-item.active', '.mobile-bottom-nav-btn.active']) {
+    for (const sel of ['.drawer-item.active', '.mobile-dock-btn.active']) {
       const at = css.indexOf(`\n${sel} {`)
       const body = css.slice(at, css.indexOf('}', at))
       expect(body, `${sel} label colour`).toContain('var(--on-accent)')

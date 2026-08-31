@@ -37,7 +37,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   be okayed, and quotes with something odd left in them. Both were tiles buried in
   Settings, which is where you go to change how the app behaves, not to find out it is
   waiting on you. The bin moved out of Settings for the same reason and now sits in the
-  rail beside it, with its count.
+  rail beside it, with its count. **Checks is a screen now rather than a
+  count with nowhere to go:** the rail's row has been drawn since the rail landed and
+  opened a blank page, because the screen behind it had not been built. It is one page
+  with two sections, and both halves keep their own addresses so an old bookmark still
+  works. **Nothing about importing has changed** — a file still lands in the queue and
+  still waits there until you approve it. What changed is that you can see it waiting.
+
+- **On a phone, the top bar is a header and the bottom bar is what you can do.** The
+  title of whatever you are looking at, with a line under it saying something about it —
+  the author, the year, how many quotes — and underneath the screen, a floating row of
+  five keys: back, search, ＋, and two the screen chooses. Every verb that used to be
+  crammed into the top corners is down there now, where a thumb is, and the title has the
+  room those four glyphs were spending.
+
+  Two bars disappeared to make it. A work's page used to draw a **second** top bar of its
+  own, inside the page, duplicating the shell's rather than extending it — two rows on the
+  device with the least of them. And the four navigation tabs that floated at the bottom
+  are gone: they offered four of the nine places the app has while ☰ offered all nine, so
+  navigation had two doors that disagreed about how big the app was. ☰ is the one door
+  now, and it finally lists **Checks** and **the bin** alongside everything else.
+
+- **Every panel that opens another panel now looks and behaves the same.** A work's
+  details could reach about thirty surfaces across seven different kinds — a centred
+  dialog, a bottom sheet, a confirm, three sorts of full-screen overlay, popovers, and
+  twice the browser's own grey box — and you could meet three of them on one screen. They
+  are one surface now: a header of three slots with the title centred in it, a back key
+  that names where it goes rather than saying "Back", and a stack you can walk. On a
+  phone or a tablet it rises from the bottom edge, where your hand is.
+
+  **The Back gesture walks it.** Every step forward is a step your phone's back button can
+  take back, one panel at a time, and closing a panel any other way leaves nothing behind
+  for Back to re-open.
 
 - **A scrolling row now says that it scrolls.** Wherever content outruns its box — the
   top bar's tabs on a narrow window, an annotation table, the Stats timeline and its

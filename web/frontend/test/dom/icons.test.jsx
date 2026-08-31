@@ -24,7 +24,7 @@
 import { render } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import * as ui from '../../src/ui.jsx'
-import { BOTTOM_TABS, CONTENT_TABS, DRAWER_TABS, UTILITY_TABS } from '../../src/routes.js'
+import { CONTENT_TABS, DRAWER_TABS, UTILITY_TABS } from '../../src/routes.js'
 
 // Every exported component whose name starts with Icon. Collected by reflection
 // rather than listed, so a glyph added tomorrow is covered without anyone
@@ -113,8 +113,9 @@ describe('NavIcon', () => {
   const tabs = [...new Set([
     ...CONTENT_TABS.map((t) => t[0]),
     ...UTILITY_TABS.map((t) => t[0]),
+    // DRAWER_TABS is the phone's whole nav now, so it is the widest of the
+    // three; the retired BOTTOM_TABS was a subset of CONTENT_TABS anyway.
     ...DRAWER_TABS.filter(Boolean).map((t) => t[0]),
-    ...BOTTOM_TABS.map((t) => t[0]),
   ])].sort()
 
   // The nav strip collapses to icon-only when the window is narrow. A tab with

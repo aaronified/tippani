@@ -17,7 +17,7 @@ import {
   IconRefresh,
   InfoDot,
   MonoLabel,
-  PageHeader,
+  SectionHead,
   Tooltip,
   toast,
   useIsMobileScreen,
@@ -74,7 +74,7 @@ const KIND_ICONS = {
   quote: <IconQuote />,
 }
 
-export default function CleanupPage({ onClose, onOpenBook, onOpenMovie, onOpenQuotes }) {
+export default function CleanupPage({ onClose, onOpenBook, onOpenMovie, onOpenQuotes, embedded = false }) {
   const mobile = useIsMobileScreen()
   const [data, setData] = useState(null) // null = still reading
   const [rule, setRule] = useState('all')
@@ -191,19 +191,24 @@ export default function CleanupPage({ onClose, onOpenBook, onOpenMovie, onOpenQu
 
   return (
     <section className="space-y-6" data-screen-label="cleanup">
-      <div className={mobile ? 'mobile-sticky-bar' : ''}>
+      <div className={mobile && !embedded ? 'mobile-sticky-bar' : ''}>
         {/* Named, not a bare arrow — the same reason the bin's is. One door in
-            means the way out has to say where it goes. */}
-        <Tooltip label={t('cleanup.back.tip')} side="bottom">
-          <button type="button" className="page-back" onClick={onClose}>
-            <IconBack />
-            <MonoLabel>{t('nav.tab.settings.label')}</MonoLabel>
-          </button>
-        </Tooltip>
+            means the way out has to say where it goes. Suppressed when embedded
+            in Checks: the section is not somewhere you navigated to, so there is
+            nothing there to go back FROM. */}
+        {!embedded && (
+          <Tooltip label={t('cleanup.back.tip')} side="bottom">
+            <button type="button" className="page-back" onClick={onClose}>
+              <IconBack />
+              <MonoLabel>{t('nav.tab.settings.label')}</MonoLabel>
+            </button>
+          </Tooltip>
+        )}
         {/* The dot rides in the header rather than on a label row of its own: the
             page has no controls to sit beside, and a lone MonoLabel repeating the
             title above it is a second copy of the same word. */}
-        <PageHeader
+        <SectionHead
+          embedded={embedded}
           title={t('cleanup.title')}
           counts={counts}
           right={<InfoDot title={t('cleanup.info.title')} text={t('cleanup.info.body')} />}

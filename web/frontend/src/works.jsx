@@ -34,7 +34,9 @@ import {
   SheetFooter,
   StateTag,
   StatusBar,
+  useCrumb,
   useIsMobileScreen,
+  useScreenBar,
   ReadingBadge,
   Toggle,
   Tooltip,
@@ -1307,42 +1309,6 @@ export function GroupHeading({ label, count, noun, nounPlural, person, onOpenPer
   )
 }
 
-// MobileDetailBar — the sticky top bar on a book/film detail on mobile: a round
-// back button, the title + a meta subtitle, and a caller-supplied actions
-// cluster (filter / add / overflow — these differ per detail). Shared so the
-// bar structure lives in one place.
-// MobileDetailBar — the phone's in-page top bar for a detail screen (the shell
-// bar steps aside for it).
-//
-// No help button here on purpose: this bar already carries a back arrow, a
-// filter, a ＋ and a ⋯ , and a fifth 44px control would leave a book title about
-// eighty pixels of a 360px screen. The detail screens put help in the ⋯ menu
-// instead (see ScreenHelpSheet), which costs the bar nothing.
-export function MobileDetailBar({ onClose, title, meta, actions }) {
-  return (
-    <div className="mobile-sticky-bar">
-      <div className="mobile-detail-bar">
-        <Tooltip label={t('common.detail.back.tip')} side="bottom" className="shrink-0">
-          <button
-            type="button"
-            className="tp-btn tp-btn-ghost tactile flex items-center justify-center rounded-full"
-            style={{ width: 44, height: 44, padding: 0, flexShrink: 0 }}
-            onClick={onClose}
-            aria-label={t('common.action.back.label')}
-          >
-            <IconBack />
-          </button>
-        </Tooltip>
-        <div className="min-w-0 flex-1">
-          <div className="mobile-detail-title">{title}</div>
-          {meta && <div className="mobile-detail-meta">{meta}</div>}
-        </div>
-        <div className="mobile-detail-actions">{actions}</div>
-      </div>
-    </div>
-  )
-}
-
 // countQuotes — the four numbers HeroCounts prints, off one list of quotes.
 //
 // ONE FUNCTION FOR BOTH SIDES, because a highlight and a film line answer these
@@ -1770,30 +1736,52 @@ export function WorkListScaffold({
   const sortSelect = hasSort && <Select ariaLabel={t('common.filters.sort.aria')} value={sort} onChange={setSort} options={sortOptions} />
   // The same two controls whichever bar draws them, so a board and a book put
   // Filters and Export in the same place under the same thumb.
-  const mobileActions = (
-    <>
-      <IconButton icon={<IconFilter />} label={t('common.filters.label')}
-        ariaLabel={t('common.filters.label')} onClick={() => setMobileFilter((o) => !o)} />
-      {!DEMO && <MoreMenu items={[{ icon: <IconExport />, label: t('common.action.export.label'), onClick: onExport }]} />}
-    </>
-  )
+  // A sub-board reached from somewhere — a series, a credit — used to draw its
+  // own MobileDetailBar, the same second top bar the work details drew. It
+  // publishes now: the shell's header takes the title and the counts, and the
+  // dock takes the two verbs. `onBack` is what marks it as a place you arrived
+  // at rather than a tab, and the dock's own Back key is what leaves it.
+  // ONE PUBLICATION FOR BOTH RANKS. A scaffold is either a top-level board
+  // (Library, the Catalogue, Quotes) or a sub-board you arrived at (a series, a
+  // credit, one board of quotes) — and on a phone both now spend their verbs the
+  // same way, in the dock, because the header they used to sit in is a header.
+  //
+  // The crumb is the one difference: only the arrived-at case publishes a title,
+  // since a top-level board's name is already what the shell calls the tab.
+  useCrumb(mobile && onBack ? title : null)
+  useScreenBar({
+    sub: mobile ? counts : null,
+    keys: mobile ? [
+      {
+        id: 'filter',
+        label: t('common.filters.label'),
+        icon: <IconFilter />,
+        onClick: () => setMobileFilter((o) => !o),
+      },
+      ...(DEMO ? [] : [{
+        id: 'export',
+        label: t('common.action.export.label'),
+        icon: <IconExport />,
+        onClick: onExport,
+      }]),
+    ] : null,
+  })
 
   return (
     <section>
-      {mobile && onBack ? (
-        // Identical to a work's detail page, because it IS one: back, what you
-        // are looking at, how much of it there is, and what you can do to it —
-        // one row, not two.
-        <MobileDetailBar onClose={onBack} title={title} meta={counts} actions={mobileActions} />
-      ) : (
-      <div className={mobile ? 'mobile-sticky-bar' : ''}>
+      {/* ON A PHONE THIS IS A HEADING AND NOTHING ELSE. The counts went to the
+          shell header's sub-line and the two verbs went to the dock, so what is
+          left is the page's <h1> — kept, and taken off the screen by CSS rather
+          than out of the document, because it is the top of this page's outline
+          and a phone page with no heading at all is a worse bug than a repeated
+          word. */}
+      <div>
         <PageHeader
           title={title}
-          counts={counts}
-          right={
+          counts={mobile ? null : counts}
+          right={mobile ? null : (
             <>
-              {mobile && <div className="flex items-center gap-2">{mobileActions}</div>}
-              {!mobile && headerAside}
+              {headerAside}
               {/* Export is a glyph, not a word: the header row is the tightest
                   real estate on the page and "Export all" spent it on a label
                   the ⬇ already carries.
@@ -1803,15 +1791,14 @@ export function WorkListScaffold({
                   dialog has always said "N in view". The label was the last
                   survivor of the whole-collection export it replaced, and it
                   contradicted the dialog directly above the button you press. */}
-              {!mobile && !DEMO && (
+              {!DEMO && (
                 <IconButton icon={<IconExport />} label={t('common.action.export.label')}
             ariaLabel={t('common.action.export.label')} onClick={onExport} tooltip={t('common.action.export.shown.tip')} />
               )}
             </>
-          }
+          )}
         />
       </div>
-      )}
       <ErrorText>{error}</ErrorText>
 
       {hasItems && !mobile && (

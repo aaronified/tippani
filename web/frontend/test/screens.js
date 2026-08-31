@@ -50,9 +50,13 @@ export const SCREENS = {
   tags: [() => import('../src/TagsPage.jsx'), 'default', {}],
   stats: [() => import('../src/StatsPage.jsx'), 'default', { onSearch: noop }],
   staging: [() => import('../src/StagingPage.jsx'), 'default', { onPending: noop, onOpenBook: noop, onOpenMovie: noop, onApproved: noop }],
-  settings: [() => import('../src/Settings.jsx'), 'default', { user: USER, onPreferences: noop, update: null, onUpdateInfo: noop, onStartTour: noop, onOpenBin: noop, onOpenCleanup: noop }],
+  settings: [() => import('../src/Settings.jsx'), 'default', { user: USER, onPreferences: noop, update: null, onUpdateInfo: noop, onStartTour: noop }],
   bin: [() => import('../src/BinPage.jsx'), 'default', { onClose: noop }],
   cleanup: [() => import('../src/CleanupPage.jsx'), 'default', { onClose: noop, onOpenBook: noop, onOpenMovie: noop, onOpenQuotes: noop }],
+  // Checks composes the two above it. It gets its own row rather than being
+  // assumed covered by them: it is the screen a nav row actually opens, and the
+  // composition is exactly what could throw while both halves mount fine.
+  checks: [() => import('../src/ChecksPage.jsx'), 'default', { onPending: noop, onOpenBook: noop, onOpenMovie: noop, onApproved: noop, onOpenQuotes: noop }],
   login: [() => import('../src/App.jsx'), 'Login', { onLogin: noop }],
   onboarding: [() => import('../src/App.jsx'), 'Onboarding', { onDone: noop, backup: null }],
 }

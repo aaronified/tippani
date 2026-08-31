@@ -295,6 +295,60 @@ export function useCrumbTitle() {
   return v
 }
 
+// ---- what the phone's two bars carry ---------------------------------------
+//
+// THE PHONE'S TOP BAR IS A HEADER AND ITS BOTTOM BAR IS THE VERBS. Nine
+// destinations pinned beside a 390px screen would leave 320px of book, so they
+// go behind ☰ and the bar that used to hold four of them holds what you can DO
+// on the screen you are looking at instead. That is what frees the top edge to
+// be a title and a line of facts about it rather than a strip of glyphs.
+//
+// Same store shape as the crumb above, and deliberately the same one: a screen
+// that publishes a title almost always publishes a sub-line and a verb set in
+// the same breath, and three parallel stores would be three chances for one of
+// them to outlive its screen. Publishing null on unmount is not optional here
+// either — a dock still offering "Filter" for a work you closed is a key that
+// does nothing, which is worse than a key that is absent.
+let screenBar = { sub: null, keys: null }
+const barSubs = new Set()
+function publishBar(v) {
+  screenBar = v
+  for (const fn of barSubs) fn(screenBar)
+}
+
+// useScreenBar — the phone header's sub-line and the dock's verbs, published by
+// the screen that owns them.
+//
+// `keys` is at most TWO: the dock seats five and three are spoken for — the pair
+// that never moves (Back, Search) and the ＋ in the middle, which is arithmetic
+// rather than a preference. Past five the thumb checks instead of aiming, so a
+// third verb is not a tight fit; it is a different control, and it belongs behind
+// the More key that is usually one of the two.
+//
+// A key is `{ id, label, icon, onClick }`, or `{ id, node }` when the screen has
+// to own the element itself — a MoreMenu anchors its popover to its own trigger,
+// so a shell-rendered button could not open one. The shell still owns the SEAT;
+// what sits in it is the screen's.
+export function useScreenBar({ sub = null, keys = null } = {}) {
+  // Serialised rather than compared by identity: a caller building its key array
+  // inline would otherwise republish on every render and re-run every subscriber.
+  const stamp = keys ? keys.map((k) => k && k.id).join('|') : ''
+  useEffect(() => {
+    publishBar({ sub, keys })
+    return () => publishBar({ sub: null, keys: null })
+  }, [sub, stamp]) // eslint-disable-line react-hooks/exhaustive-deps
+}
+// Called by the shell.
+export function useScreenBarState() {
+  const [v, setV] = useState(screenBar)
+  useEffect(() => {
+    barSubs.add(setV)
+    setV(screenBar)
+    return () => barSubs.delete(setV)
+  }, [])
+  return v
+}
+
 // ---- the edge fade: how a scroller says it scrolls ------------------------
 //
 // AN EDGE FADE MEANS THE ROW SCROLLS. Wherever content outruns its box the last
@@ -819,6 +873,36 @@ export function PageHeader({ title, counts, right }) {
       )}
     </header>
   );
+}
+
+// SectionHead — a page header, or the same words one level down.
+//
+// Checks is one screen made of two pages that were screens of their own, and
+// each still has to work at both ranks: on its own URL it IS the page and takes
+// an <h1>; inside Checks it is a section under the page's <h1> and takes an
+// <h2>. A page with two <h1>s is not a style problem, it is a document with two
+// titles, and a screen reader reads it as two documents.
+//
+// One component rather than a conditional at each of the four call sites: the
+// two pages would otherwise disagree about what "embedded" changes the first
+// time one of them grows a fourth header.
+export function SectionHead({ embedded = false, title, counts, right }) {
+  if (!embedded) return <PageHeader title={title} counts={counts} right={right} />;
+  return (
+    <header className="section-header">
+      <div className="ph-left">
+        <h2>{title}</h2>
+        {counts && <MonoLabel>{counts}</MonoLabel>}
+      </div>
+      {right && <div className="flex flex-wrap items-center gap-3">{right}</div>}
+    </header>
+  );
+}
+// Wrapped, like every other demo here — see the note above the first one.
+if (import.meta.env.DEV) {
+  SectionHead.glossary = {
+    demo: (h) => h(SectionHead, { embedded: true, title: "Stray marks", counts: "3 findings" }),
+  };
 }
 
 // Field — mono label above a themed input (§8 form pattern).
@@ -2917,6 +3001,165 @@ export function useFormHost(reason) {
 
 // OPEN DEFAULTS TO TRUE, because mounting a dialog IS opening it.
 //
+// ---- the panel stack (§6.5) ----
+
+// usePanelStack — the one idiom for a surface that opens another surface.
+//
+// The app reached ~30 surfaces from a work detail across SEVEN physical kinds
+// (FormModal, MobileSheet, ConfirmDialog, three bare-scrim overlays, anchored
+// popovers, inline blocks and two raw window.confirm calls), and a reader met
+// three of them on one screen. A panel is a list of rows that may push another
+// list of rows; that is one shape, so it gets one implementation.
+//
+// HISTORY IS THE STACK'S ONLY MUTATOR, and that is the whole design. Every push
+// writes its depth into history.state; every close — the ✕, the ← key, the
+// scrim, Escape, a row that answers its question — goes through history.back()
+// or .go(-n) rather than calling setState. So the Back gesture and the header's
+// own key are the same code path and cannot disagree, and a panel dismissed by
+// ✓ can never leave an entry behind for Back to re-open. Reading the depth from
+// the popped state rather than decrementing is what makes go(-n) correct:
+// browsers coalesce a multi-step go into ONE popstate, so a handler that pops
+// one level would strand the rest of the stack open with no entries left.
+export function usePanelStack() {
+  const [stack, setStack] = useState([]);
+  // The handler is registered once and must not close over a stale stack.
+  const depthRef = useRef(0);
+  depthRef.current = stack.length;
+
+  useEffect(() => {
+    const onPop = (e) => {
+      const want = e.state?.tpPanelDepth || 0;
+      if (want < depthRef.current) setStack((s) => s.slice(0, want));
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
+  // Leaving the screen with panels open would strand their entries, so the last
+  // unmount walks back exactly as far as it pushed.
+  useEffect(() => () => {
+    const n = depthRef.current;
+    if (n > 0 && window.history.state?.tpPanelDepth) window.history.go(-n);
+  }, []);
+
+  const push = useCallback((panel) => {
+    setStack((s) => {
+      const next = s.concat(panel);
+      // Carried forward, not replaced: pushState REPLACES the state object, and
+      // App keeps its own depth in there for the in-app Back.
+      window.history.pushState(
+        { ...window.history.state, tpPanelDepth: next.length }, "",
+      );
+      return next;
+    });
+  }, []);
+
+  // open() is push() onto an empty stack — the prototype's openPanel, which
+  // REPLACES rather than deepens, so a control that means "show me this" cannot
+  // accidentally bury whatever a previous one left open.
+  const open = useCallback((panel) => {
+    const n = depthRef.current;
+    if (n > 0) window.history.go(-n);
+    // After the go, the popstate above empties the stack; pushing in the same
+    // tick would race it, so the push waits for the pop to land.
+    requestAnimationFrame(() => push(panel));
+  }, [push]);
+
+  const back = useCallback(() => {
+    if (depthRef.current > 0) window.history.back();
+  }, []);
+
+  const close = useCallback(() => {
+    const n = depthRef.current;
+    if (n > 0) window.history.go(-n);
+  }, []);
+
+  return { stack, top: stack[stack.length - 1] || null, open, push, back, close };
+}
+
+// PanelHost — the chrome every panel wears. Scrim, three-slot header, one
+// scrolling body.
+//
+// THE HEADER IS THREE SLOTS because the title is centred on the BOX and not on
+// the space left over: two equal flexible sides, each reserving the 44px a key
+// needs, so the title does not shift as you walk the stack. Everything in the
+// head shares one 44px line box — a back key and a title sitting a few pixels
+// apart vertically is the tell of a header assembled from parts.
+//
+// THE HEADER CASTS, UNCONDITIONALLY. A 1px rule alone made the body look like it
+// passed THROUGH the header rather than under it, and a shadow that appears on
+// scroll is a layer changing depth while you read.
+//
+// NO ✕ ON A NESTED PANEL. Its two exits are "answer" and "back": a ✕ there
+// closed the whole stack and discarded the half-filled surface underneath, which
+// is a destructive key wearing a dismiss key's clothes. The right slot still
+// reserves its 44px, so the title does not move when the key goes.
+export function PanelHost({ stack }) {
+  const { stack: levels, back, close } = stack;
+  const panel = levels[levels.length - 1] || null;
+  const nested = levels.length > 1;
+  const parent = nested ? levels[levels.length - 2] : null;
+  useBodyScrollLock(!!panel);
+  useEffect(() => {
+    if (!panel) return;
+    const onKey = (e) => e.key === "Escape" && back();
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [panel, back]);
+  if (!panel) return null;
+  // A panel that declares its own verb carries it in the head — Links' ＋. Only
+  // ever the panel's OWN verb: the list is what is already there, and adding to
+  // it is not another member of it.
+  const verb = panel.headVerb || null;
+  return createPortal(
+    <div
+      className="tp-scrim tp-panel-scrim fixed inset-0 z-50 flex justify-center"
+      onMouseDown={(e) => { if (e.target === e.currentTarget) close(); }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={panel.title}
+        className="tp-panel"
+        style={panel.wide ? { width: "min(900px, 100%)" } : undefined}
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        <div className="tp-panel-head">
+          <div className="tp-panel-slot">
+            {nested && (
+              <button
+                type="button"
+                className="tp-panel-back tactile"
+                aria-label={t("common.panel.back.aria", { title: parent.title })}
+                onClick={back}
+              >
+                <IconBack />
+                <span className="tp-panel-back-word">{parent.title}</span>
+              </button>
+            )}
+          </div>
+          <h2 className="tp-panel-title">{panel.title}</h2>
+          <div className="tp-panel-slot tp-panel-slot-r">
+            {verb}
+            {!nested && (
+              <IconButton
+                icon={<IconClose />}
+                ariaLabel={t("common.action.close.label")}
+                tooltip={t("common.form.close.tip")}
+                onClick={close}
+              />
+            )}
+          </div>
+        </div>
+        <Scroller axis="v" className="tp-panel-body">
+          {typeof panel.render === "function" ? panel.render() : panel.render}
+        </Scroller>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
 // It did not, and two call sites paid for it: Settings' in-depth quiz panel and
 // the search filters panel both render this inside a `{cond && <FormModal …>}`
 // guard and pass no `open`, so both returned null and NEITHER DIALOG HAD EVER

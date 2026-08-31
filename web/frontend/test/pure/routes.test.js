@@ -9,7 +9,6 @@
 import { describe, expect, it } from 'vitest'
 import {
   addSection,
-  BOTTOM_TABS,
   CONTENT_TABS,
   DRAWER_TABS,
   helpScreen,
@@ -42,7 +41,7 @@ describe('parsePath', () => {
   // nothing would fail. This is the only test protecting that table, so it has
   // to state the expected contents rather than read them.
   it('has exactly these plain tabs', () => {
-    expect(ROUTE_TABS).toEqual(['search', 'quotes', 'anthologies', 'tags', 'metadata', 'stats', 'settings', 'staging', 'bin', 'cleanup'])
+    expect(ROUTE_TABS).toEqual(['search', 'quotes', 'anthologies', 'tags', 'metadata', 'stats', 'settings', 'staging', 'bin', 'cleanup', 'checks'])
   })
 
   it('routes every plain tab by name', () => {
@@ -270,8 +269,14 @@ describe('the nav contract', () => {
     }
   })
 
-  it('offers every content tab in the phone bottom bar', () => {
-    expect(keys(BOTTOM_TABS)).toEqual(keys(CONTENT_TABS))
+  // THE DRAWER IS THE PHONE'S ONLY NAV NOW, which is what makes this the
+  // strictest row in the contract rather than a restatement of the two above it.
+  // The four-tab bottom bar was retired when that bar became a dock of verbs, so
+  // a destination missing from DRAWER_TABS is not merely inconvenient on a phone
+  // — it is unreachable there while remaining a row on the desk.
+  it('offers every rail destination in the drawer, because a phone has no other', () => {
+    const rail = [...keys(CONTENT_TABS), ...keys(UTILITY_TABS)]
+    for (const key of rail) expect(keys(DRAWER_TABS), key).toContain(key)
   })
 
   it('offers every utility tab in the drawer', () => {
@@ -281,7 +286,7 @@ describe('the nav contract', () => {
   })
 
   it('names no tab twice within a list', () => {
-    for (const list of [CONTENT_TABS, UTILITY_TABS, DRAWER_TABS, BOTTOM_TABS]) {
+    for (const list of [CONTENT_TABS, UTILITY_TABS, DRAWER_TABS]) {
       const k = keys(list)
       expect(new Set(k).size).toBe(k.length)
     }
@@ -294,34 +299,42 @@ describe('the nav contract', () => {
     for (const key of keys(CONTENT_TABS)) expect(util.has(key)).toBe(false)
   })
 
-  // The asymmetry the bin depends on, asserted in the direction that could
-  // silently stop being true: `bin` is a route with no nav entry anywhere, so a
-  // later tidy-up that "completes" the tab lists by adding every route to them
-  // would put a permanent invitation to browse your deletions in the strip.
-  //
-  // Stray marks is held to the same shape, and it is the reason this is a loop
-  // now rather than a single assertion: the second no-tab route is exactly where
-  // a rule written for one stops being enforced.
+  // `bin` and `cleanup` stay out of the TABLES, and that is now a narrower claim
+  // than it once was: both have a deliberate row in the rail's foot and in the
+  // drawer, hand-written there so they sit apart from the destinations rather
+  // than among them. What this still forbids is a tidy-up that "completes" the
+  // tab lists by folding every route into them — which would put a permanent
+  // invitation to browse your deletions in the middle of the nav, next to
+  // Library, instead of in the foot where you go looking for it deliberately.
   it.each(['bin', 'cleanup'])('keeps %s out of every nav list while keeping its URL', (tab) => {
-    const all = new Set([...keys(CONTENT_TABS), ...keys(UTILITY_TABS), ...keys(DRAWER_TABS), ...keys(BOTTOM_TABS)])
+    const all = new Set([...keys(CONTENT_TABS), ...keys(UTILITY_TABS), ...keys(DRAWER_TABS)])
     expect(ROUTE_TABS).toContain(tab)
     expect(all.has(tab)).toBe(false)
     expect(parsePath(statePath(tab, null))).toEqual({ tab, detail: null })
   })
 
   it('gives every nav tab a URL that survives a hard refresh', () => {
-    // A tab you can reach but cannot bookmark is half a screen. Search is in
-    // the drawer and is a real route; home/library/movies have bespoke slugs.
-    const all = new Set([...keys(CONTENT_TABS), ...keys(UTILITY_TABS), ...keys(DRAWER_TABS), ...keys(BOTTOM_TABS)])
+    // A tab you can reach but cannot bookmark is half a screen. home/library/
+    // movies have bespoke slugs. Search is no longer a drawer row — it is a dock
+    // key — so ROUTE_TABS is what keeps it bookmarkable, asserted just below.
+    const all = new Set([...keys(CONTENT_TABS), ...keys(UTILITY_TABS), ...keys(DRAWER_TABS)])
     for (const tab of all) {
       expect(parsePath(statePath(tab, null)).tab).toBe(tab)
     }
   })
 
+  // SEARCH LOST ITS NAV ROW when it became a dock key, and with it the coverage
+  // the loop above gave it. It is still a real screen with a real URL, and the
+  // dock reaches it by tab key like everything else, so the route has to hold.
+  it('keeps search bookmarkable now that no nav list names it', () => {
+    expect(ROUTE_TABS).toContain('search')
+    expect(parsePath(statePath('search', null))).toEqual({ tab: 'search', detail: null })
+  })
+
   it('gives every strip and bar row a hover label, and no drawer row one', () => {
     // The strip and the bar collapse to icon-only, so a row without a third
     // element becomes an unnamed glyph. Drawer rows always show their words.
-    for (const row of [...CONTENT_TABS, ...UTILITY_TABS, ...BOTTOM_TABS]) {
+    for (const row of [...CONTENT_TABS, ...UTILITY_TABS]) {
       expect(typeof row[2]).toBe('string')
       expect(row[2].trim()).not.toBe('')
       expect(row[2].split(/\s+/).length).toBeLessThanOrEqual(5) // the five-word rule

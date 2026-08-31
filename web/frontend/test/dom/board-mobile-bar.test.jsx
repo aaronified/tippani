@@ -10,9 +10,17 @@
 //
 // The fix is the missing slot rather than a stylesheet tweak, so this asserts
 // the STRUCTURE: one bar, carrying all of it, and no second way back.
+//
+// WHAT CHANGED SINCE. The bar the board borrowed — MobileDetailBar, a whole
+// second top bar drawn inside the page — is gone. The phone's shell bar is a
+// header on every screen now, and the verbs went down to the dock, so a board
+// PUBLISHES its name, its description and its filters instead of drawing them.
+// The guarantee is unchanged and is what these still assert: one row spent, not
+// two, and exactly one way back.
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
+import { useCrumbTitle, useScreenBarState } from '../../src/ui.jsx'
 
 let BOARDS, QUOTES
 
@@ -52,31 +60,46 @@ beforeEach(() => {
 })
 
 const noop = () => {}
+// On a phone the board's NAME is no longer in the page at all — it is published
+// to the shell's header — so the load signal has to be something the page itself
+// still draws. On a desktop the PageHeader keeps the name, and the assertion
+// below relies on that difference being real.
 const openBoard = async (mobile) => {
   asPhone(mobile)
   render(<QuotesPage openId={1} onOpen={noop} onClose={noop} />)
-  await screen.findByText('Proverbs')
+  await screen.findByText(mobile ? /A stitch in time/ : 'Proverbs')
 }
 
 describe('an opened board on a phone', () => {
-  it('carries its name, its count and its filters in ONE bar with the back arrow', async () => {
-    await openBoard(true)
-    const bar = document.querySelector('.mobile-detail-bar')
-    expect(bar, 'the board did not draw a work-detail bar').toBeTruthy()
+  it('publishes its name, its description and its filters rather than drawing a bar', async () => {
+    // Read through the same store the shell subscribes to, so this asserts what
+    // the header and the dock will actually be handed — not a DOM shape that
+    // could be right while the publication is empty.
+    let seen = null
+    const Probe = () => {
+      seen = { crumb: useCrumbTitle(), bar: useScreenBarState() }
+      return null
+    }
+    asPhone(true)
+    render(<><QuotesPage openId={1} onOpen={noop} onClose={noop} /><Probe /></>)
+    await screen.findByText(/A stitch in time/)
 
-    // Everything the work page's bar carries, in the same bar.
-    expect(bar.querySelector('[aria-label="Back"]')).toBeTruthy()
-    expect(bar.textContent).toContain('Proverbs')
-    expect(bar.textContent).toContain('Handed down')
-    expect(bar.querySelector('[aria-label="Filters"]')).toBeTruthy()
+    await waitFor(() => expect(seen.crumb).toBe('Proverbs'))
+    expect(seen.bar.sub).toContain('Handed down')
+    // Filters is one of the two seats the screen owns; Back, Search and ＋ are
+    // the dock's own and are not a screen's to declare.
+    expect(seen.bar.keys.map((k) => k.id)).toContain('filter')
   })
 
-  // The scaffold draws the arrow now, so the page must not draw a second one —
-  // which is exactly what a partial fix would leave behind.
-  it('does not also keep the old back row', async () => {
+  it('draws no in-page bar of its own, and no second way back', async () => {
     await openBoard(true)
+    // The bar it used to borrow no longer exists anywhere in the app.
+    expect(document.querySelector('.mobile-detail-bar')).toBeNull()
+    // And the row that predated it has not come back in its place.
     expect(screen.queryByText('All boards')).toBeNull()
-    expect(document.querySelectorAll('[aria-label="Back"]').length).toBe(1)
+    // Back belongs to the dock, which the shell draws — so the page itself has
+    // none. Two would be the partial-fix failure this file was written for.
+    expect(document.querySelectorAll('[aria-label="Back"]').length).toBe(0)
   })
 })
 

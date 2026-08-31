@@ -13,10 +13,12 @@
 // a DATE rather than a countdown, because the purge clock only runs while the
 // server is up — "gone in 3 days" is a promise nothing here can keep.
 //
-// It became a page in 1.11.2. The tile that replaced it in Settings is asserted
-// separately and asserted for one thing above all: that it is still there for
-// everybody. It sits between Devices and the two admin-only cards, which is
-// exactly how it would end up behind the same gate.
+// It became a page in 1.11.2, behind a tile in Settings. The tile is gone now —
+// the door is a counted row in the rail and the ☰ menu — so the last two blocks
+// here assert the move in both directions: that Settings kept none of it, and
+// that both navs carry it. The second block exists because nothing rendered the
+// nav until it was written, which is how the drawer shipped WITHOUT a bin row at
+// all while the rail had one.
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
@@ -268,51 +270,108 @@ describe('the two labels that must not overstate what is known', () => {
   })
 })
 
-describe('the tile that replaced it in Settings', () => {
+describe('Settings has given the bin up entirely', () => {
+  // THE TILE IS GONE. It was a door and nothing else — a count, a state and a
+  // button to a page that already showed both — and it lived in the one part of
+  // the app you visit to change behaviour rather than to be told the app is
+  // waiting on you. The door is a counted row in the rail and the ☰ menu now,
+  // visible from every screen. What this still guards is the half of the old
+  // rule worth keeping: Settings must not grow the bin back one control at a
+  // time.
   const settings = async () => {
-    render(<Settings user={USER} onPreferences={() => {}} update={null} onUpdateInfo={() => {}} onStartTour={() => {}} onOpenBin={() => {}} />)
-    await screen.findByText('The bin')
+    render(<Settings user={USER} onPreferences={() => {}} update={null} onUpdateInfo={() => {}} onStartTour={() => {}} />)
+    await screen.findByText('Settings')
   }
 
-  it('is there for everybody, not just an admin', async () => {
-    // Backup and Updates are admin-only and this tile sits beside them, which is
-    // exactly how it would end up behind the same gate. Every account has a bin.
+  it('carries no bin tile, and no piece of one', async () => {
     await settings()
-    expect(screen.getByText('The bin')).toBeTruthy()
-    expect(screen.queryByText('Backup & restore')).toBeNull() // the gate still works
+    expect(screen.queryByText('The bin')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Open the bin' })).toBeNull()
+    expect(screen.queryByText(/entry waiting/)).toBeNull()
+    expect(screen.queryByText(/nothing deleted/)).toBeNull()
   })
 
-  it('says whether there is anything in it', async () => {
+  it('carries no stray-marks tile either', async () => {
+    // The pair came out together: stray marks is half of Checks now, and a tile
+    // pointing at one half of a screen is a door to somewhere that no longer is.
     await settings()
-    expect(await screen.findByText(/1 entry waiting, holding 40 quotes/)).toBeTruthy()
+    expect(screen.queryByText('Stray marks')).toBeNull()
   })
 
-  it('says so when there is nothing, which is the answer that saves the trip', async () => {
-    TRASH = []
+  it('never grows the page back', async () => {
+    // The list is emphatically not here: no rows, no retention control, no Empty.
     await settings()
-    expect(await screen.findByText(/nothing deleted/)).toBeTruthy()
-  })
-
-  it('opens the page, and does not try to be the page', async () => {
-    const onOpenBin = vi.fn()
-    render(<Settings user={USER} onPreferences={() => {}} update={null} onUpdateInfo={() => {}} onStartTour={() => {}} onOpenBin={onOpenBin} />)
-    await screen.findByText('The bin')
-    fireEvent.click(screen.getByRole('button', { name: 'Open the bin' }))
-    expect(onOpenBin).toHaveBeenCalled()
-    // The list is emphatically not here any more: no rows, no retention control,
-    // no Empty. A tile that grew half the page back would be the shape problem
-    // returning one control at a time.
     expect(screen.queryByRole('button', { name: 'Empty now' })).toBeNull()
     expect(screen.queryByRole('button', { name: /How long the bin keeps things/ })).toBeNull()
     expect(screen.queryByText('The Dispossessed')).toBeNull()
   })
 
-  it('keeps its words on the one button it has', async () => {
-    // A lone wastebasket glyph on a settings page reads as "delete something",
-    // not "open the place deleted things went".
+  it('still gates what was always gated', async () => {
+    // The tile sat beside Backup and Updates, which are admin-only. Removing it
+    // must not have taken the gate with it.
     await settings()
-    const b = screen.getByRole('button', { name: 'Open the bin' })
-    expect(b.querySelector('.btn-label-fixed')).toBeTruthy()
-    expect(b.className).not.toContain('has-btn-icon')
+    expect(screen.queryByText('Backup & restore')).toBeNull()
+  })
+})
+
+// ---- and the door that replaced it ----------------------------------------
+//
+// NOTHING IN THIS SUITE RENDERED THE NAV before this block. That is not a gap in
+// coverage so much as the direct cause of a defect: the rail grew Checks and Bin
+// rows, the drawer did not, and the phone was left with no route to either — a
+// reader found it, not the suite. Both navs are asserted together here, because
+// the failure mode is exactly one of them being updated.
+describe('the rail and the drawer are the door now', () => {
+  const USER_NAV = { username: 'aaron', display_name: 'Aaron', is_admin: false, preferences: {}, version: '1.0.0' }
+
+  it('gives the rail a counted Bin row and a counted Checks row', async () => {
+    const { NavRail } = await import('../../src/App.jsx')
+    render(<NavRail tab="home" onChange={() => {}} sections={{}} user={USER_NAV} onAccount={() => {}} onBin={() => {}} onChecks={() => {}} binCount={3} checkCount={7} />)
+    const bin = screen.getByRole('button', { name: /bin/i })
+    expect(within(bin).getByText('3')).toBeTruthy()
+    const checks = screen.getByRole('button', { name: /checks/i })
+    expect(within(checks).getByText('7')).toBeTruthy()
+  })
+
+  it('gives the drawer the same two rows, with the same counts', async () => {
+    const { Drawer } = await import('../../src/App.jsx')
+    render(<Drawer open onClose={() => {}} tab="home" selectTab={() => {}} onSearch={() => {}} onAdd={() => {}} onAccount={() => {}} user={USER_NAV} stats={{}} pending={0} pendingImport={0} streak={0} metaIssues={0} logout={() => {}} dark={false} onUser={() => {}} sections={{}} binCount={3} checkCount={7} />)
+    const bin = screen.getByRole('button', { name: /bin/i })
+    expect(within(bin).getByText('3')).toBeTruthy()
+    const checks = screen.getByRole('button', { name: /checks/i })
+    expect(within(checks).getByText('7')).toBeTruthy()
+  })
+
+  it('draws neither count at zero, on either surface', async () => {
+    // A row reading "Bin 0" is a row telling you to go and look at nothing. The
+    // rail already worked this way; the drawer has to agree, or the same nav
+    // says two different things on two devices.
+    const { NavRail, Drawer } = await import('../../src/App.jsx')
+    const { unmount } = render(<NavRail tab="home" onChange={() => {}} sections={{}} user={USER_NAV} onAccount={() => {}} onBin={() => {}} onChecks={() => {}} binCount={0} checkCount={0} />)
+    expect(within(screen.getByRole('button', { name: /bin/i })).queryByText('0')).toBeNull()
+    unmount()
+    render(<Drawer open onClose={() => {}} tab="home" selectTab={() => {}} onSearch={() => {}} onAdd={() => {}} onAccount={() => {}} user={USER_NAV} stats={{}} pending={0} pendingImport={0} streak={0} metaIssues={0} logout={() => {}} dark={false} onUser={() => {}} sections={{}} binCount={0} checkCount={0} />)
+    expect(within(screen.getByRole('button', { name: /bin/i })).queryByText('0')).toBeNull()
+  })
+
+  it('leaves no Search row in the drawer, because Search is a dock key', async () => {
+    // Two doors to one screen on a 390px surface, and the drawer's height is
+    // what Checks and Bin are drawn in.
+    const { Drawer } = await import('../../src/App.jsx')
+    render(<Drawer open onClose={() => {}} tab="home" selectTab={() => {}} onSearch={() => {}} onAdd={() => {}} onAccount={() => {}} user={USER_NAV} stats={{}} pending={0} pendingImport={0} streak={0} metaIssues={0} logout={() => {}} dark={false} onUser={() => {}} sections={{}} />)
+    expect(screen.queryByRole('button', { name: /^Search$/ })).toBeNull()
+  })
+
+  it('carries no version FOOTER, because the Settings row already says it', async () => {
+    // Two copies of the version in one drawer, one of them a link to the release
+    // notes at the very bottom where the rows had run out of height. The badge on
+    // the Settings row is the one that stays — a utility row answering its own
+    // question, which is the rule the rail's counts follow too.
+    const { Drawer } = await import('../../src/App.jsx')
+    render(<Drawer open onClose={() => {}} tab="home" selectTab={() => {}} onSearch={() => {}} onAdd={() => {}} onAccount={() => {}} user={USER_NAV} stats={{}} pending={0} pendingImport={0} streak={0} metaIssues={0} logout={() => {}} dark={false} onUser={() => {}} sections={{}} />)
+    // No link out to the releases page — that was the footer's whole content.
+    expect(screen.queryByRole('link')).toBeNull()
+    // And the version survives exactly once, on the row that owns the question.
+    expect(screen.getAllByText(/1\.0\.0/)).toHaveLength(1)
   })
 })

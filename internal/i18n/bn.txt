@@ -121,10 +121,6 @@ nav.tab.search.label = খোঁজ
 # The floating phone nav is icon-only, so each row's name is read aloud rather
 # than shown.
 nav.bottom.home.aria = হোমে যান, আজকের রিভিশনে
-nav.bottom.library.aria = বইয়ের লাইব্রেরি খুলুন
-nav.bottom.movies.aria = সিনেমার ক্যাটালগ খুলুন
-nav.bottom.quotes.aria = নিজের উক্তিগুলো খুলুন
-nav.bottom.anthologies.aria = সংকলন খুলুন
 
 # The info-dot body under each switch in Settings → Features, saying what the
 # section you are about to hide actually holds.
@@ -333,8 +329,6 @@ common.action.fetch.busy = আনা হচ্ছে…
 # The verb on a button. The named MODE is quiz.practice.label — English tells the
 # two apart with an s and a c, which no other language can reproduce.
 common.action.practise.label = ঝালিয়ে নিন
-common.action.capture.label = তুলে রাখুন
-common.action.filter.label = ফিল্টার
 common.action.show.label = দেখান
 # !! 7 clusters against Hide's 4, and it sits beside দেখান (3) in a two-button
 # !! pair, so the pair looks lopsided. লুকান would fit; the term table says this.
@@ -444,6 +438,7 @@ common.field.colour.label = রং
 
 # --- the pop-up form frame.
 common.form.close.tip = সেভ না করেই বন্ধ করুন
+common.panel.back.aria = {title}-এ ফিরে যান
 
 # --- the information dot.
 common.info.default.title = এটা কী
@@ -809,7 +804,6 @@ common.hero.counts.noted.label = {n}টায় নোট
 common.hero.counts.tagged.label = {n}টায় ট্যাগ
 
 # --- the sticky bar on a work's page, on a phone.
-common.detail.back.tip = তালিকায় ফিরুন
 common.action.back.label = পিছনে
 
 # --- the shared filter toolbar. The chip carries the short word and the tooltip
@@ -1006,7 +1000,7 @@ shell.restore.toast.done = ফিরিয়ে আনা হয়েছে ·
 # --- the two nav landmarks. The drawer already claims "Primary", so the phone's
 # floating bar needs a different name or a screen reader lists two of one thing.
 shell.nav.primary.aria = মূল
-shell.nav.quick.aria = দ্রুত যাতায়াত
+shell.nav.dock.aria = এই স্ক্রিনের কাজগুলি
 
 # --- the avatar chip, in both top bars and in the drawer's footer.
 shell.account.chip.tip = নিজের প্রোফাইল
@@ -1033,11 +1027,6 @@ shell.drawer.stats.streak.label = টানা {n} দিন
 shell.drawer.settings.version.label = v{version}
 shell.drawer.role.admin.label = অ্যাডমিন · নিজের সার্ভার
 shell.drawer.role.user.label = নিজের সার্ভার
-shell.drawer.logout.label = লগ আউট
-shell.drawer.changelog.tip = GitHub-এ রিলিজ নোট
-shell.drawer.changelog.label = v{version} · চেঞ্জলগ ↗
-shell.drawer.update.tip = {version}-এ আপডেট করুন
-shell.drawer.update.label = ↑ {version}-এ আপডেট
 
 # --- the ＋ in both top bars, which reads the route it is standing on.
 shell.add.work.label = যোগ করুন বা ইমপোর্ট
@@ -1057,7 +1046,6 @@ shell.search.hint.scoped = লেখক, ট্যাগ, আধা-মনে �
 shell.search.hint.all = সবকিছু — সব বই, চলচ্চিত্র, উদ্ধৃতি…
 shell.search.aria.scoped = যা দেখছেন তার মধ্যে খুঁজুন
 shell.search.aria.all = সবকিছুতে খুঁজুন
-shell.search.global.tip = সবকিছুতে খুঁজছে
 shell.search.global.aria = সবকিছুতে খুঁজুন
 
 # The crashed-screen panel names the screen by its route key, which is not a
@@ -3343,7 +3331,6 @@ library.export.confirm.body = চোখের সামনের {a} · {b} — 
 # A BOOK'S OWN PAGE.
 book.title.fallback = নাম নেই
 book.filter.aria = দাগ ফিল্টার করুন
-book.capture.aria = একটা উদ্ধৃতি তুলে রাখুন
 book.export.label = .md এক্সপোর্ট
 book.export.aria = Markdown হিসেবে এক্সপোর্ট
 book.export.tip = Markdown হিসেবে এক্সপোর্ট
@@ -3495,7 +3482,6 @@ film.form.media.movie.label = সিনেমা
 # A TITLE'S OWN PAGE.
 film.title.fallback = নাম নেই
 film.filter.aria = সংলাপ ফিল্টার করুন
-film.capture.aria = একটা লাইন তুলে রাখুন
 film.export.label = .md এক্সপোর্ট
 film.export.aria = Markdown হিসেবে এক্সপোর্ট
 film.export.tip = Markdown হিসেবে এক্সপোর্ট
@@ -4538,20 +4524,12 @@ settings.devices.toast.unpaired = ডিভাইস খুলে নেওয�
 settings.devices.toast.all-unpaired = সব ডিভাইস খুলে নেওয়া হল
 
 # ------------------------------------------------------------------ বিন
-settings.bin.info.body = মুছে ফেলা সবকিছু আগে এখানেই জমা থাকে, আর ফিরিয়ে আনলে অবিকল আগের মতোই ফিরে আসে — উদ্ধৃতি, ট্যাগ, রং, রুটিন, কভার, সব। সময় পেরোলে এন্ট্রি নিজেই চলে যায়, আর সেই ঘড়ি শুধু সার্ভার চললেই চলে।
-settings.bin.tile.prose = {count} অপেক্ষায় — যেটা খুশি ফিরিয়ে আনুন, বা বিন খালি করুন
-settings.bin.tile.holding.prose = {count} অপেক্ষায়, {held} নিয়ে — যেটা খুশি ফিরিয়ে আনুন, বা বিন খালি করুন
-settings.bin.open.label = বিন খুলুন
 
 # ---------------------------------------------------------------------------
 # STRAY MARKS, AS A TILE. Same shape as the bin above, and the same rule: the
 # list is a page of its own (cleanup.*) and the tile borrows the page's name.
 # ---------------------------------------------------------------------------
-settings.cleanup.info.body = পাতা থেকে উদ্ধৃতি কপি করলে সেই পাতার আসবাবও আসে — পাদটীকার সংখ্যা, জোড়া ফাঁক, চোখে না পড়া অক্ষর। এখানে শুধু তালিকা হয়, বদল হয় না; প্রতিটা সিদ্ধান্ত আপনার।
 # {count} arrives already counted, through common.count.phrase + unit.quote.
-settings.cleanup.tile.prose = {count} একবার দেখে নেওয়া দরকার
-settings.cleanup.tile.clean.prose = দেখার কিছু নেই — প্রতিটি উদ্ধৃতি যেমন লেখা হয়েছিল তেমনই আছে
-settings.cleanup.open.label = এলোমেলো চিহ্ন খুঁজুন
 
 # ---------------------------------------------------------------- ব্যাকআপ
 settings.backup.title = ব্যাকআপ আর ফিরিয়ে আনা
@@ -5391,6 +5369,18 @@ bin.help.empty-now.what = প্রতিটা এন্ট্রি আর ত
 cleanup.help.title = এলোমেলো চিহ্ন
 
 # What the page is for.
+checks.help.what-is-here.term = এখানে কী আছে
+checks.help.what-is-here.what = আপনার জন্য অপেক্ষমাণ দুটি তালিকা, এক স্ক্রিনে: ফাইল থেকে ইমপোর্ট করা উদ্ধৃতি, আর যেসবে কিছু একটা অস্বাভাবিক লাগছে।
+checks.help.what-is-here.more = দুটিই আলাদা পাতা ছিল, কেবল সেটিংসের একটি টাইল থেকে পৌঁছনো যেত — অথচ সেটিংসে যান অ্যাপের আচরণ বদলাতে, চল্লিশটি উদ্ধৃতি পনেরো দিন ধরে আটকে আছে তা জানতে নয়। রেল আর ☰ মেনুর সংখ্যাটিই এগুলিকে খুঁজে পাওয়ার উপায়; এই স্ক্রিনেই সেগুলি আসে।
+checks.help.imports.term = অপেক্ষমাণ ইমপোর্ট
+checks.help.imports.what = ইমপোর্ট করা কিছুই সরাসরি আপনার লাইব্রেরিতে যায় না। সেটি এখানে আসে এবং আপনি অনুমোদন না করা পর্যন্ত যত দিন খুশি থাকে।
+checks.help.imports.more = এটি ইচ্ছাকৃত এবং বদলাবে না: ভুল বই যুক্ত এক হাজার হাইলাইটের ফাইল পরে ঠিক করার চেয়ে এখানে বাতিল করা অনেক সহজ। গোটা ব্যাচ, একটি রচনা, বা আলাদা সারি অনুমোদন করুন — এবং তার আগে যা খুশি সম্পাদনা করুন।
+checks.help.marks.term = দেখার মতো চিহ্ন
+checks.help.marks.what = যেসব উদ্ধৃতি লেখকের নয়, পাতার নিজস্ব কিছু বহন করছে — পাদটীকার সংখ্যা, নরম হাইফেন, জোড়া স্পেস।
+checks.help.marks.more = কার্ডে এর কিছুই দেখা যায় না, অথচ সবই সার্চ ইনডেক্সে থাকে — তাই চোখের সামনে থাকা বাক্যাংশ খুঁজেও মাঝে মাঝে কিছু পাওয়া যায় না। এই অংশটি কখনও কিছু লেখে না: সারিগুলি সেই রচনাটি খোলে যেখানে উদ্ধৃতিটি আছে, যেখানে সেটি সম্পাদনা করা যায়।
+checks.help.not-review.term = একে রিভিউ বলা হয় না কেন
+checks.help.not-review.what = রিভিউ মানে ইতিমধ্যেই দৈনিক কুইজ আর অনুশীলনের ডেক, আর একটি শব্দ এক অ্যাপে দুটি জিনিস বোঝাতে পারে না।
+checks.help.not-review.more = চেক হল অ্যাপ যা লক্ষ্য করেছে এবং আপনাকে জিজ্ঞেস করছে। রিভিউ হল আপনি যা নিয়ে অ্যাপকে পরীক্ষা নিতে বলেছেন। দুটির একই নাম হলে কোনওটির উল্লেখই আর স্পষ্ট থাকত না।
 cleanup.help.what-is-here.term = এখানে কী আছে
 cleanup.help.what-is-here.what = লাইব্রেরির প্রতিটি উদ্ধৃতি একবার পড়া হয়, আর তার মধ্যে যা লেখকের নয় — পাতার — সেটাই দেখানো হয়।
 cleanup.help.what-is-here.more = হাতে টাইপ করা উদ্ধৃতি পরিষ্কারই থাকে। কিন্তু ইবুক, PDF বা ব্রাউজারে লেখা বেছে নিয়ে আনা উদ্ধৃতির সঙ্গে সেই পাতার আসবাবও আসে — পাদটীকার সংখ্যা, উচ্চারণের নির্দেশ, জোড়া ফাঁক, নরম হাইফেন — কার্ডে যার কিছুই দেখা যায় না, অথচ খোঁজের সূচিতে সবই থাকে। চোখের সামনের বাক্য খুঁজেও না পাওয়ার কারণ এটাই।
