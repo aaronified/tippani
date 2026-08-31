@@ -204,6 +204,7 @@ var Registry = map[Code]string{
 	CodeMetaReverifyImage: "An approved cover/poster/portrait failed to download on re-verify apply; text fields were kept.",
 	CodeMetaFillField:     "A fetched field could not be encoded during a fill-the-gaps run; that one field was skipped and the rest of the item was still written.",
 
+	CodeMetaRemapUnaligned: "A speaker remap rewrote a film line's character and left its actor alone, because the line names a different number of characters than actors.",
 	CodeMetaLookupFailed:   "An on-demand book/movie lookup failed at the provider (Google Books / Open Library / TMDB / TheTVDB); the client saw a generic 502.",
 	CodePeopleLookupFailed: "An on-demand person link/portrait lookup failed at the provider (Open Library / TMDB); the client saw a generic 502.",
 
