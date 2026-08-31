@@ -110,16 +110,24 @@ func (s *Server) handlePersonPortrait(w http.ResponseWriter, r *http.Request) {
 	// Upsert identity + image + bio/born/died. A blank newImage keeps any existing
 	// photo (identity still refreshed) so re-running never wipes a good portrait;
 	// bio/born/died fill only when empty, so a user's manual edits are never clobbered.
+	// Find-or-create then UPDATE, because 0056 dropped UNIQUE(user_id, name) and
+	// with it the ON CONFLICT target this used. The fill rules are unchanged and
+	// read more plainly against the row itself than against `excluded`.
+	pid, err := s.personRowByName(uid, req.Name)
+	if err != nil {
+		s.removeCoverFile(newImage)
+		internalError(w, r, "portrait upsert", err)
+		return
+	}
 	if _, err := s.Store.DB.Exec(`
-		INSERT INTO people (user_id, name, image_path, bio, born, died, source, source_id)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-		ON CONFLICT(user_id, name) DO UPDATE SET
-			image_path = CASE WHEN excluded.image_path <> '' THEN excluded.image_path ELSE people.image_path END,
-			bio = CASE WHEN people.bio = '' AND excluded.bio <> '' THEN excluded.bio ELSE people.bio END,
-			born = CASE WHEN people.born = '' AND excluded.born <> '' THEN excluded.born ELSE people.born END,
-			died = CASE WHEN people.died = '' AND excluded.died <> '' THEN excluded.died ELSE people.died END,
-			source = excluded.source, source_id = excluded.source_id`,
-		uid, req.Name, newImage, bio, born, died, source, sourceID); err != nil {
+		UPDATE people SET
+			image_path = CASE WHEN ? <> '' THEN ? ELSE image_path END,
+			bio  = CASE WHEN bio  = '' AND ? <> '' THEN ? ELSE bio  END,
+			born = CASE WHEN born = '' AND ? <> '' THEN ? ELSE born END,
+			died = CASE WHEN died = '' AND ? <> '' THEN ? ELSE died END,
+			source = ?, source_id = ?
+		WHERE id = ? AND user_id = ?`,
+		newImage, newImage, bio, bio, born, born, died, died, source, sourceID, pid, uid); err != nil {
 		s.removeCoverFile(newImage) // roll back the just-fetched file on write failure
 		internalError(w, r, "portrait upsert", err)
 		return

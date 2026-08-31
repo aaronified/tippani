@@ -893,7 +893,14 @@ func plural(n int, one, many string) string {
 // column, so adding one to the schema fails the build rather than the restore.
 var accountTables = []string{
 	"users",
-	"genres", "tags", "stickers", "people", "person_kinds",
+	// characters beside people, and person_alias/character_alias after both,
+	// because this list is in RESTORE order and each alias row references its
+	// record. An alias is the ONLY evidence a merge ever happened: without it a
+	// restored library re-splits into the four Bulgakovs the reader spent an
+	// afternoon folding into one, and re-creates them silently on the next
+	// credit write, because resolving a name is what consults the alias table.
+	"genres", "tags", "stickers", "people", "person_kinds", "characters",
+	"person_alias", "character_alias",
 	"books", "movies",
 	// boards BEFORE utterances, because this list is in RESTORE order (parents
 	// first) and the delete walks it backwards. utterances.board_id is ON DELETE
@@ -924,6 +931,13 @@ var accountTables = []string{
 	// answer "where did this come from" with silence for every work, which is the
 	// one answer that is indistinguishable from never having been fetched.
 	"work_field_source",
+	// work_person with them: it hangs off a work by the same polymorphic
+	// (kind, work_id) pair, so nothing walks to it. It carries credit_as and
+	// the ordering a work prints its credits in — neither of which is
+	// recoverable from the cached column, because that column is composed FROM
+	// these rows. Restore without it and every co-authored work comes back as
+	// one person named after the whole credit line.
+	"work_person",
 	// cleanup_ignores (0052) hangs off a quote by the same polymorphic (kind,
 	// item_id) pair, so nothing walks to it either — and what it holds is a
 	// judgement the reader made about their own words: "that finding is my real

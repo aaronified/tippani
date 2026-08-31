@@ -516,6 +516,20 @@ func (s *Server) handleCoversRefetch(w http.ResponseWriter, r *http.Request) {
 			if uerr == nil {
 				if n, _ := res.RowsAffected(); n > 0 {
 					enriched++
+					// 0056: an author that was NULL may now hold a name, so the
+					// link rows follow it. In its own transaction because this
+					// sweep writes outside one — and best-effort, because a
+					// backfill that walks the whole library must not abort over
+					// one row: the columns are correct either way, and
+					// SyncAllCredits repairs a straggler.
+					if tx, terr := s.Store.DB.Begin(); terr == nil {
+						if cerr := store.SyncCreditsFromColumns(tx, b.uid, "book", b.id, s.creditSeps(b.uid)); cerr != nil {
+							tx.Rollback()
+							olog.Warnf(olog.CodeMetaRowScan, "[meta] backfill: credits not linked for book %d: %v", b.id, cerr)
+						} else if cerr := tx.Commit(); cerr != nil {
+							olog.Warnf(olog.CodeMetaRowScan, "[meta] backfill: credit link commit failed for book %d: %v", b.id, cerr)
+						}
+					}
 				}
 			}
 			if b.genreCount == 0 && len(cand.Genres) > 0 {

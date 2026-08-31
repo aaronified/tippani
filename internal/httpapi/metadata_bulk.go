@@ -6,7 +6,9 @@ import (
 	"sort"
 	"strings"
 
+	"tippani/internal/metadata"
 	"tippani/internal/olog"
+	"tippani/internal/store"
 )
 
 // Metadata bulk management (Calibre-inspired basics): a bulk field-correction
@@ -54,16 +56,37 @@ func (s *Server) ownedRowIDs(table string, uid int64, ids []int64) ([]int64, err
 
 // bulkSetBooks runs `UPDATE books SET <col> = ? WHERE id IN (ids) AND user_id = ?`.
 // col is a package constant (author/series/series_index), never client input.
-func bulkSetBooks(tx *sql.Tx, col string, val any, ids []int64, uid int64) error {
+//
+// A CREDIT COLUMN TAKES ITS LINK ROWS WITH IT (0056). Setting one author across
+// forty books is the single largest credit write the app can make, and it is
+// exactly the shape that would leave forty works' link rows describing a name
+// nobody holds any more. The re-derive reads each row back rather than being
+// handed the value, so it cannot disagree with what the UPDATE actually stored.
+func bulkSetBooks(tx *sql.Tx, col string, val any, ids []int64, uid int64, seps metadata.CreditSeps) error {
 	args := make([]any, 0, len(ids)+2)
 	args = append(args, val)
 	for _, id := range ids {
 		args = append(args, id)
 	}
 	args = append(args, uid)
-	_, err := tx.Exec(`UPDATE books SET `+col+` = ?, updated_at = datetime('now') WHERE id IN (`+inClause(len(ids))+`) AND user_id = ?`, args...)
-	return err
+	if _, err := tx.Exec(`UPDATE books SET `+col+` = ?, updated_at = datetime('now') WHERE id IN (`+inClause(len(ids))+`) AND user_id = ?`, args...); err != nil {
+		return err
+	}
+	if !bookCreditColumn[col] {
+		return nil
+	}
+	for _, id := range ids {
+		if err := store.SyncCreditsFromColumns(tx, uid, "book", id, seps); err != nil {
+			return err
+		}
+	}
+	return nil
 }
+
+// bookCreditColumn names the columns bulkSetBooks has to re-derive after. A set
+// rather than a string compare, so adding a fourth credit column is one line
+// here and not a condition somebody has to remember to widen.
+var bookCreditColumn = map[string]bool{"author": true, "translator": true, "editor": true}
 
 // genresOf reads the current genre names of one book/movie inside a tx.
 func genresOf(tx *sql.Tx, kind string, ownerID int64) ([]string, error) {
@@ -136,6 +159,10 @@ func (s *Server) handleBulkUpdateBooks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	uid := userID(r)
+	// Read once for the whole batch rather than per book: it is one account's
+	// setting, and bulk edit is the path where "per row" would mean forty
+	// identical preference loads.
+	seps := s.creditSeps(uid)
 	olog.Tracef("[meta] handleBulkUpdateBooks uid=%v ids=%d", uid, len(req.IDs))
 	owned, err := s.ownedRowIDs("books", uid, req.IDs)
 	if err != nil {
@@ -155,19 +182,19 @@ func (s *Server) handleBulkUpdateBooks(w http.ResponseWriter, r *http.Request) {
 	defer tx.Rollback()
 
 	if req.Author != nil {
-		if err := bulkSetBooks(tx, "author", nullable(strings.TrimSpace(*req.Author)), owned, uid); err != nil {
+		if err := bulkSetBooks(tx, "author", nullable(strings.TrimSpace(*req.Author)), owned, uid, seps); err != nil {
 			internalError(w, r, "bulk books: author", err)
 			return
 		}
 	}
 	if req.Series != nil {
-		if err := bulkSetBooks(tx, "series", nullable(strings.TrimSpace(*req.Series)), owned, uid); err != nil {
+		if err := bulkSetBooks(tx, "series", nullable(strings.TrimSpace(*req.Series)), owned, uid, seps); err != nil {
 			internalError(w, r, "bulk books: series", err)
 			return
 		}
 	}
 	if req.SeriesIndex != nil {
-		if err := bulkSetBooks(tx, "series_index", nullableFloat(*req.SeriesIndex), owned, uid); err != nil {
+		if err := bulkSetBooks(tx, "series_index", nullableFloat(*req.SeriesIndex), owned, uid, seps); err != nil {
 			internalError(w, r, "bulk books: series_index", err)
 			return
 		}
@@ -187,7 +214,7 @@ func (s *Server) handleBulkUpdateBooks(w http.ResponseWriter, r *http.Request) {
 		if !f.set {
 			continue
 		}
-		if err := bulkSetBooks(tx, f.col, f.val, owned, uid); err != nil {
+		if err := bulkSetBooks(tx, f.col, f.val, owned, uid, seps); err != nil {
 			internalError(w, r, "bulk books: "+f.col, err)
 			return
 		}
@@ -200,7 +227,7 @@ func (s *Server) handleBulkUpdateBooks(w http.ResponseWriter, r *http.Request) {
 		// highlights out of the quiz is a write across them rather than a term in
 		// a query. See cascadeWorkReview.
 		val := boolToInt(!*req.Review)
-		if err := bulkSetBooks(tx, "review_excluded", val, owned, uid); err != nil {
+		if err := bulkSetBooks(tx, "review_excluded", val, owned, uid, seps); err != nil {
 			internalError(w, r, "bulk books: review", err)
 			return
 		}

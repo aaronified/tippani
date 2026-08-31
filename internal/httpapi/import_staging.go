@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"tippani/internal/importer"
+	"tippani/internal/metadata"
 	"tippani/internal/olog"
 	"tippani/internal/store"
 )
@@ -998,7 +999,7 @@ func (s *Server) handleApproveStaged(w http.ResponseWriter, r *http.Request) {
 		// quoted or not), so approval must still create it or a whole-library
 		// export would lose them all on the way back in.
 		quotes := byWork[work.ID]
-		destKind, destID, created, anchor, err := resolveApprovalTarget(tx, uid, work)
+		destKind, destID, created, anchor, err := resolveApprovalTarget(tx, uid, work, s.creditSeps(uid))
 		_ = destID // unused on the quotes arm, which has no destination work
 		if err != nil {
 			var ce importClientError
@@ -1048,7 +1049,7 @@ func (s *Server) handleApproveStaged(w http.ResponseWriter, r *http.Request) {
 			bookIDs = appendUnique(bookIDs, destID)
 			tAdd, tSkip, tEn = tAdd+added, tSkip+len(quotes)-added, tEn+enriched
 		} else {
-			if err := backfillImportMovie(tx, uid, destID, work.header()); err != nil {
+			if err := backfillImportMovie(tx, uid, destID, work.header(), s.creditSeps(uid)); err != nil {
 				codedError(w, r, olog.CodeImportApprove, "approve staged: backfill title", err)
 				return
 			}
@@ -1307,7 +1308,7 @@ func loadStagedForApproval(tx *sql.Tx, picked stagedSelection) ([]stagedWorkForA
 // since been deleted falls back to resolving by parsed identity rather than
 // failing the approval. The destination's kind — not the staged work's — is what
 // selects the locator set, which is how retargeting across kinds works.
-func resolveApprovalTarget(tx *sql.Tx, uid int64, work stagedWorkForApproval) (kind string, id int64, created bool, anchor importMovieResult, err error) {
+func resolveApprovalTarget(tx *sql.Tx, uid int64, work stagedWorkForApproval, seps metadata.CreditSeps) (kind string, id int64, created bool, anchor importMovieResult, err error) {
 	if work.TargetID != 0 {
 		table, col := "books", "published_year"
 		if work.TargetKind != "book" {
@@ -1339,7 +1340,7 @@ func resolveApprovalTarget(tx *sql.Tx, uid int64, work stagedWorkForApproval) (k
 		return stagedKindQuotes, 0, false, importMovieResult{}, nil
 	}
 	if work.Kind == "book" {
-		id, created, err := upsertImportBook(tx, uid, work.book())
+		id, created, err := upsertImportBook(tx, uid, work.book(), seps)
 		return "book", id, created, importMovieResult{Anchored: !created}, err
 	}
 	got, err := upsertImportMovie(tx, uid, work.header())

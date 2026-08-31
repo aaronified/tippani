@@ -418,7 +418,7 @@ func findImportBook(tx *sql.Tx, uid int64, b importer.Book) (int64, error) {
 
 // upsertImportBook finds or creates the import target, returning the row id and
 // whether it had to be created.
-func upsertImportBook(tx *sql.Tx, uid int64, b importer.Book) (int64, bool, error) {
+func upsertImportBook(tx *sql.Tx, uid int64, b importer.Book, seps metadata.CreditSeps) (int64, bool, error) {
 	isbn := metadata.NormalizeISBN(b.ISBN)
 	id, err := findImportBook(tx, uid, b)
 	if err != nil {
@@ -457,6 +457,12 @@ func upsertImportBook(tx *sql.Tx, uid int64, b importer.Book) (int64, bool, erro
 		if err := applyImportedShelf(tx, "book", "", uid, id, bookShelf(b)); err != nil {
 			return 0, false, err
 		}
+		// 0056. The backfill above may have filled an author that was empty, so the
+		// link rows have to follow it — read back rather than guessed at, because
+		// fill-empty-only means the caller cannot know which of the three landed.
+		if err := store.SyncCreditsFromColumns(tx, uid, "book", id, seps); err != nil {
+			return 0, false, err
+		}
 		return id, false, nil
 	}
 	// Allocated, not left to SQLite — see id_floor.go. An import creates works and
@@ -476,6 +482,10 @@ func upsertImportBook(tx *sql.Tx, uid int64, b importer.Book) (int64, bool, erro
 		return 0, false, err
 	}
 	if err := applyImportedShelf(tx, "book", "", uid, id, bookShelf(b)); err != nil {
+		return 0, false, err
+	}
+	// 0056, for the row this call just created.
+	if err := store.SyncCreditsFromColumns(tx, uid, "book", id, seps); err != nil {
 		return 0, false, err
 	}
 	return id, true, nil

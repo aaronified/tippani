@@ -266,7 +266,7 @@ func seedPerson(t *testing.T, srv *Server, uid int64, kind, name string) int64 {
 	t.Helper()
 	res, err := srv.Store.DB.Exec(
 		`INSERT INTO people (user_id, name) VALUES (?, ?)
-		 ON CONFLICT(user_id, name) DO UPDATE SET name = excluded.name`, uid, name)
+		 `, uid, name) // 0056: no UNIQUE(user_id, name) to conflict on any more
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -163,8 +163,18 @@ func TestPersonPortraitDirectorFromCrew(t *testing.T) {
 	}
 }
 
-// No confident match: 200 with resolved:false and NO row written (so the UI can
-// offer manual entry and we don't pin a wrong identity).
+// No confident match: 200 with resolved:false and NOTHING PINNED — so the UI can
+// offer manual entry rather than show an identity the app has made up.
+//
+// THIS USED TO ASSERT "no row in people at all", AND 0056 MOVED THAT LINE. A
+// credit link has to point at a record, so creating the book already resolved
+// "Unknown Person" to one; people now holds a row for every credited name rather
+// than only for the enriched ones. What the assertion was protecting is
+// unchanged and is stated below the way the schema now makes it true: the row
+// stays BARE — no portrait, no bio, no provider identity — and it is not filed
+// under a role, which is what the Metadata console reads to decide whether a
+// name has been looked up. Loosening this to "some row exists" would have let a
+// wrong identity through, which is the whole point of the test.
 func TestPersonPortraitUnresolved(t *testing.T) {
 	srv := newTestServer(t)
 	srv.resolveAuthor = func(context.Context, string, []string) (metadata.AuthorResolution, error) {
@@ -181,11 +191,22 @@ func TestPersonPortraitUnresolved(t *testing.T) {
 	}
 	var n int
 	if err := srv.Store.DB.QueryRow(
-		`SELECT COUNT(*) FROM people WHERE name = 'Unknown Person'`).Scan(&n); err != nil {
+		`SELECT COUNT(*) FROM people
+		  WHERE name = 'Unknown Person'
+		    AND (image_path <> '' OR bio <> '' OR source <> '' OR source_id <> '')`).Scan(&n); err != nil {
 		t.Fatal(err)
 	}
 	if n != 0 {
-		t.Fatalf("unresolved portrait wrote %d rows, want 0", n)
+		t.Fatalf("unresolved portrait enriched %d rows, want 0", n)
+	}
+	// Nor filed under a role: an unlooked-up name is not a saved author.
+	if err := srv.Store.DB.QueryRow(
+		`SELECT COUNT(*) FROM person_kinds pk JOIN people p ON p.id = pk.person_id
+		  WHERE p.name = 'Unknown Person'`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if n != 0 {
+		t.Fatalf("unresolved portrait filed %d roles, want 0", n)
 	}
 }
 

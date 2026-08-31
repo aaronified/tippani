@@ -217,17 +217,33 @@ func TestPersonKindsCascade(t *testing.T) {
 	}
 }
 
-// The name is now the identity, so a second row under it must be refused
-// whatever role it claims.
-func TestPeopleNameIsUniquePerAccount(t *testing.T) {
+// 0027 made the NAME the identity and refused a second row under it. 0056 undid
+// that on purpose, and this asserts the undoing rather than deleting the case:
+// identity is the id now, the name is a label on it, and two people who
+// genuinely share a name are a library fact rather than a corruption.
+//
+// The 0027 behaviour is still asserted, one migration earlier, by the merge
+// tests above — which is where it belongs, because it was true then.
+func TestTwoPeopleMayShareAName(t *testing.T) {
 	s := openAt26(t)
 	seedPeopleAt26(t, s)
+	migrateThrough(t, s, 9999)
 
 	if _, err := s.DB.Exec(
-		`INSERT INTO people (user_id, name) VALUES (1, 'Kurosawa')`); err == nil {
-		t.Fatal("a duplicate name was accepted; (user_id, name) is not unique")
+		`INSERT INTO people (user_id, name) VALUES (1, 'Kurosawa')`); err != nil {
+		t.Fatalf("a second Kurosawa was refused; 0056 did not drop the unique: %v", err)
 	}
-	// ...but the same name under another account still is.
+	// Two rows, two ids, one spelling — and the credit that prints it points at
+	// one of them rather than at the string.
+	var n int
+	if err := s.DB.QueryRow(
+		`SELECT count(*) FROM people WHERE user_id = 1 AND name = 'Kurosawa'`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if n != 2 {
+		t.Fatalf("expected two people named Kurosawa, got %d", n)
+	}
+	// The other account is untouched, as it was before.
 	if _, err := s.DB.Exec(
 		`INSERT INTO people (user_id, name) VALUES (2, 'Kurosawa')`); err != nil {
 		t.Fatalf("the other account could not keep its own Kurosawa: %v", err)

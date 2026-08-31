@@ -79,12 +79,42 @@ func (s *Server) recordPersonKind(personID int64, kind string) error {
 // against" — an impossible state that is still worth not crashing on.
 func (s *Server) personIDByName(uid int64, name string) (int64, error) {
 	var id int64
+	// LOWEST ID, STATED. Two people may share a name since 0056, so without an
+	// ORDER BY this returns whichever row SQLite's scan reached first — which is
+	// stable in practice and not guaranteed, and "the same request enriched a
+	// different person this time" is a bug nobody can reproduce. Same rule as
+	// store.ResolvePerson, deliberately.
 	err := s.Store.DB.QueryRow(
-		`SELECT id FROM people WHERE user_id = ? AND name = ?`, uid, name).Scan(&id)
+		`SELECT id FROM people WHERE user_id = ? AND name = ? ORDER BY id LIMIT 1`, uid, name).Scan(&id)
 	if errors.Is(err, sql.ErrNoRows) {
 		return 0, nil
 	}
 	return id, err
+}
+
+// personRowByName returns the id of the person of that name, creating a bare
+// row if there is none.
+//
+// THE FIND-OR-CREATE HALF OF THREE UPSERTS. All three were
+// `INSERT … ON CONFLICT(user_id, name) DO UPDATE`, and 0056 dropped that
+// constraint on purpose: two people may share a name, and uniqueness on a
+// DISPLAY string is what the migration exists to undo.
+//
+// Only the find-or-create is shared. Each caller's UPDATE stays where it is,
+// because the three differ in exactly the part that matters — the portrait
+// handler fills bio/born/died only when empty, re-verify overwrites them, and
+// the person editor takes whatever was submitted. Folding those into one
+// function would mean a mode flag, which is three behaviours behind one name.
+func (s *Server) personRowByName(uid int64, name string) (int64, error) {
+	id, err := s.personIDByName(uid, name)
+	if err != nil || id != 0 {
+		return id, err
+	}
+	res, err := s.Store.DB.Exec(`INSERT INTO people (user_id, name) VALUES (?, ?)`, uid, name)
+	if err != nil {
+		return 0, err
+	}
+	return res.LastInsertId()
 }
 
 // personKindsTx is personKindsOf inside a caller's transaction. The rename holds
@@ -597,14 +627,40 @@ func (s *Server) handleUpsertPerson(w http.ResponseWriter, r *http.Request) {
 		newImage = name
 	}
 
-	if _, err := s.Store.DB.Exec(`
-		INSERT INTO people (user_id, name, bio, image_path, born, died, links, source, source_id)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-		ON CONFLICT(user_id, name) DO UPDATE SET
-			bio = excluded.bio, image_path = excluded.image_path, born = excluded.born,
-			died = excluded.died, links = excluded.links, source = excluded.source, source_id = excluded.source_id`,
-		uid, req.Name, strings.TrimSpace(req.Bio), newImage, strings.TrimSpace(req.Born),
-		strings.TrimSpace(req.Died), strings.TrimSpace(req.Links), strings.TrimSpace(req.Source), strings.TrimSpace(req.SourceID)); err != nil {
+	// FIND-THEN-WRITE, NOT ON CONFLICT (0056). This was
+	// `ON CONFLICT(user_id, name) DO UPDATE`, and that constraint is gone: two
+	// people may genuinely share a name now, so uniqueness on a DISPLAY string is
+	// the thing the migration exists to undo.
+	//
+	// The behaviour a reader sees is unchanged for the case that is nearly always
+	// true — one person of that name, whose metadata this updates. Where there
+	// are two, the LOWEST ID wins, which is ResolvePerson's rule and is stated
+	// here rather than left to SQLite's scan order. Enriching the wrong one of
+	// two same-named people is a visible mistake with an obvious remedy; picking
+	// a different one on each request is a bug nobody can reproduce.
+	existing, err := s.personIDByName(uid, req.Name)
+	if err != nil {
+		s.removeCoverFile(newImage)
+		internalError(w, r, "find person", err)
+		return
+	}
+	if existing != 0 {
+		_, err = s.Store.DB.Exec(`
+			UPDATE people SET bio = ?, image_path = ?, born = ?, died = ?,
+			                  links = ?, source = ?, source_id = ?
+			WHERE id = ? AND user_id = ?`,
+			strings.TrimSpace(req.Bio), newImage, strings.TrimSpace(req.Born),
+			strings.TrimSpace(req.Died), strings.TrimSpace(req.Links),
+			strings.TrimSpace(req.Source), strings.TrimSpace(req.SourceID), existing, uid)
+	} else {
+		_, err = s.Store.DB.Exec(`
+			INSERT INTO people (user_id, name, bio, image_path, born, died, links, source, source_id)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			uid, req.Name, strings.TrimSpace(req.Bio), newImage, strings.TrimSpace(req.Born),
+			strings.TrimSpace(req.Died), strings.TrimSpace(req.Links),
+			strings.TrimSpace(req.Source), strings.TrimSpace(req.SourceID))
+	}
+	if err != nil {
 		s.removeCoverFile(newImage) // roll back a just-fetched file on write failure
 		internalError(w, r, "upsert person", err)
 		return
@@ -1066,6 +1122,20 @@ func (s *Server) handleRenamePerson(w http.ResponseWriter, r *http.Request) {
 		toID = froms[0].id
 		froms = froms[1:] // the rest are now redundant duplicates
 	}
+	// 0056: THE LINK ROWS FOLLOW THE RENAME. The loop above rewrote credit
+	// STRINGS — matching a name as a component inside a joined credit, which is
+	// the one thing a link table cannot express and the reason this handler still
+	// works the way it does. What it leaves behind is link rows still pointing at
+	// the old spelling, so they are re-derived from the columns it just wrote.
+	//
+	// The whole account rather than the rows it touched: `rewrites` carries ids
+	// without saying which table each came from, and reconstructing that mapping
+	// would be a second chance to get wrong what this can simply read. Rename is
+	// rare, and this loop is already a full scan.
+	if err := store.SyncAllCredits(tx, uid, seps); err != nil {
+		internalError(w, r, "rename: resync credits", err)
+		return
+	}
 	// A speaker rename changes the quotes' identity, so their hashes follow.
 	// Once for the account rather than per rewritten row: the hash depends on
 	// fields the loop above does not carry, and a second pass over a personal
@@ -1087,6 +1157,42 @@ func (s *Server) handleRenamePerson(w http.ResponseWriter, r *http.Request) {
 				 SELECT ?, kind FROM person_kinds WHERE person_id = ?`, toID, p.id); e != nil {
 				internalError(w, r, "rename role merge", e)
 				return
+			}
+			// AND THE METADATA MOVES WITH THEM. This branch only moved roles, so
+			// a rename onto a name that already had a row silently threw away the
+			// bio, portrait, dates and links attached to the name being renamed
+			// away — the one thing in this operation that exists nowhere else.
+			//
+			// IT WAS ALWAYS WRONG AND IS ONLY NOW ROUTINE. Before 0056, `to` had a
+			// row only if somebody had saved metadata for it, so this branch was
+			// the rare case where the destination was already enriched and
+			// preferring it was defensible. Since 0056 every credited name has a
+			// record, so `to` almost always has one — usually a bare row created
+			// by a credit, with nothing in it at all.
+			//
+			// FILL-EMPTY-ONLY, in the survivor's favour: a field the destination
+			// already holds is a fact about the person somebody chose to keep, and
+			// this is a rename rather than an overwrite. Same rule 0027's merge
+			// used, for the same reason.
+			if _, e := tx.Exec(`
+				UPDATE people SET
+					bio        = CASE WHEN bio        = '' THEN (SELECT bio        FROM people WHERE id = ?) ELSE bio        END,
+					image_path = CASE WHEN image_path = '' THEN (SELECT image_path FROM people WHERE id = ?) ELSE image_path END,
+					born       = CASE WHEN born       = '' THEN (SELECT born       FROM people WHERE id = ?) ELSE born       END,
+					died       = CASE WHEN died       = '' THEN (SELECT died       FROM people WHERE id = ?) ELSE died       END,
+					links      = CASE WHEN links      = '' THEN (SELECT links      FROM people WHERE id = ?) ELSE links      END,
+					sort_name  = CASE WHEN sort_name  = '' THEN (SELECT sort_name  FROM people WHERE id = ?) ELSE sort_name  END,
+					note       = CASE WHEN note       = '' THEN (SELECT note       FROM people WHERE id = ?) ELSE note       END
+				WHERE id = ?`,
+				p.id, p.id, p.id, p.id, p.id, p.id, p.id, toID); e != nil {
+				internalError(w, r, "rename metadata merge", e)
+				return
+			}
+			// The portrait file is now referenced by the survivor, so it must not
+			// be swept as a freed file below.
+			var kept string
+			if e := tx.QueryRow(`SELECT image_path FROM people WHERE id = ?`, toID).Scan(&kept); e == nil && kept == p.img {
+				p.img = ""
 			}
 		}
 		if _, e := tx.Exec(`DELETE FROM people WHERE id = ?`, p.id); e != nil {

@@ -600,6 +600,10 @@ func wantShapes() []tableShape {
 				{Name: "id", Type: "INTEGER", PK: 1},
 				{Name: "user_id", Type: "INTEGER", NotNull: true},
 				{Name: "name", Type: "TEXT", NotNull: true},
+				// How they FILE, and a field rather than a derivation: splitting on
+				// the last space breaks on mononyms, on Spanish double surnames and
+				// on every name where the family name comes first (0056).
+				{Name: "sort_name", Type: "TEXT", NotNull: true, Default: "''", HasDflt: true},
 				// Every enrichment field defaults to empty rather than NULL, so a
 				// hand-made row and a fetched one read the same to the scanner.
 				{Name: "bio", Type: "TEXT", NotNull: true, Default: "''", HasDflt: true},
@@ -607,14 +611,19 @@ func wantShapes() []tableShape {
 				{Name: "born", Type: "TEXT", NotNull: true, Default: "''", HasDflt: true},
 				{Name: "died", Type: "TEXT", NotNull: true, Default: "''", HasDflt: true},
 				{Name: "links", Type: "TEXT", NotNull: true, Default: "''", HasDflt: true},
+				// The reader's own, private, and never printed on a credit (0056).
+				{Name: "note", Type: "TEXT", NotNull: true, Default: "''", HasDflt: true},
 				{Name: "source", Type: "TEXT", NotNull: true, Default: "''", HasDflt: true},
 				{Name: "source_id", Type: "TEXT", NotNull: true, Default: "''", HasDflt: true},
 				{Name: "created_at", Type: "TEXT", NotNull: true, Default: "datetime('now')", HasDflt: true},
 			},
 			Indexes: []indexShape{
-				// (user_id, name), NOT (user_id, kind, name): the role stopped being
-				// part of identity in 0027.
-				{Name: autoIndexName, Unique: true, Origin: "u", Columns: []string{"user_id", "name"}},
+				// NOT UNIQUE ANY MORE, and that is the point of 0056. Two people
+				// genuinely share a name, and a uniqueness constraint on a DISPLAY
+				// string is the same mistake 0056 exists to undo, one level down:
+				// identity is the id, the name is a label on it. The index stays
+				// because resolving a credit string to a person is the hot path.
+				{Name: "idx_people_user_name", Unique: false, Origin: "c", Columns: []string{"user_id", "name"}},
 			},
 			FKs: []fkShape{
 				{From: "user_id", Table: "users", To: "id", OnDelete: "CASCADE", OnUpdate: "NO ACTION"},
@@ -723,6 +732,12 @@ func wantShapes() []tableShape {
 				// original. No `language` beside it — a book's is on the book (0047's two
 				// columns), and only the parentless third kind carries its own.
 				{Name: "translation", Type: "TEXT", NotNull: true, Default: "''", HasDflt: true},
+				// 0056. WHICH CAST ROW SAID IT, not which character — one reference
+				// yields the character's name, the performer and THIS work's photograph
+				// of them in a single join, and a quote can never name somebody who is
+				// not in this work's cast. Nullable, because narration has no speaker
+				// and inventing one is worse than leaving it off.
+				{Name: "speaker_cast_id", Type: "INTEGER"},
 			},
 			Checks: []string{
 				"color IN ('yellow','blue','pink','orange','green','purple')",
@@ -733,12 +748,16 @@ func wantShapes() []tableShape {
 				// sentence highlighted in two books is two highlights.
 				{Name: autoIndexName, Unique: true, Origin: "u", Columns: []string{"book_id", "dedupe_hash"}},
 				{Name: "idx_ann_book", Origin: "c", Columns: []string{"book_id"}},
+				{Name: "idx_annotations_speaker", Origin: "c", Columns: []string{"speaker_cast_id"}},
 			},
 			FKs: []fkShape{
 				{From: "book_id", Table: "books", To: "id", OnDelete: "CASCADE", OnUpdate: "NO ACTION"},
 				// SET NULL, emphatically not CASCADE: retiring a sticker from the
 				// sticker sheet must not delete the highlights wearing it.
 				{From: "sticker_id", Table: "stickers", To: "id", OnDelete: "SET NULL", OnUpdate: "NO ACTION"},
+				// SET NULL for the reason sticker_id is: removing somebody from a
+				// work's cast must not delete the lines they spoke.
+				{From: "speaker_cast_id", Table: "work_cast", To: "id", OnDelete: "SET NULL", OnUpdate: "NO ACTION"},
 			},
 			Triggers: []string{
 				"annotations_ad", "annotations_ai", "annotations_au",
@@ -812,6 +831,11 @@ func wantShapes() []tableShape {
 				// language column, so a translated line records what it says and not what
 				// it was said in.
 				{Name: "translation", Type: "TEXT", NotNull: true, Default: "''", HasDflt: true},
+				// 0056, and the same column annotations gained: WHICH CAST ROW said it.
+				// `character` and `actor` beside it are the printed form; this is the
+				// identity, and it is what lets two films of one book show the same
+				// character with two faces. Nullable — narration has no speaker.
+				{Name: "speaker_cast_id", Type: "INTEGER"},
 			},
 			Checks: []string{
 				"color IN ('yellow','blue','pink','orange','green','purple')",
@@ -819,9 +843,12 @@ func wantShapes() []tableShape {
 			Indexes: []indexShape{
 				{Name: autoIndexName, Unique: true, Origin: "u", Columns: []string{"movie_id", "dedupe_hash"}},
 				{Name: "idx_dlg_movie", Origin: "c", Columns: []string{"movie_id"}},
+				{Name: "idx_dialogues_speaker", Origin: "c", Columns: []string{"speaker_cast_id"}},
 			},
 			FKs: []fkShape{
 				{From: "movie_id", Table: "movies", To: "id", OnDelete: "CASCADE", OnUpdate: "NO ACTION"},
+				// SET NULL: removing somebody from a cast must not delete their lines.
+				{From: "speaker_cast_id", Table: "work_cast", To: "id", OnDelete: "SET NULL", OnUpdate: "NO ACTION"},
 				{From: "sticker_id", Table: "stickers", To: "id", OnDelete: "SET NULL", OnUpdate: "NO ACTION"},
 			},
 			Triggers: []string{

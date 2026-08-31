@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"tippani/internal/importer"
+	"tippani/internal/metadata"
 	"tippani/internal/store"
 )
 
@@ -165,7 +166,7 @@ func anchorScore(h movieDupHint, importedYear int) int {
 // stored row lacks. Fill-empty-only throughout: a director, collection or genre
 // set already on the row — curated by hand, or from TMDB's belongs_to_collection
 // — always wins over the file's version.
-func backfillImportMovie(tx *sql.Tx, uid, movieID int64, m importer.MovieHeader) error {
+func backfillImportMovie(tx *sql.Tx, uid, movieID int64, m importer.MovieHeader, seps metadata.CreditSeps) error {
 	if m.Director != "" {
 		if _, err := tx.Exec(
 			`UPDATE movies SET director = COALESCE(director, ?), updated_at = datetime('now') WHERE id = ?`,
@@ -213,6 +214,12 @@ func backfillImportMovie(tx *sql.Tx, uid, movieID int64, m importer.MovieHeader)
 				return err
 			}
 		}
+	}
+	// 0056. The director above is fill-empty-only, so whether it changed is not
+	// something this function knows — it reads the column back rather than
+	// guessing, which is also what makes a repeated import a no-op here.
+	if err := store.SyncCreditsFromColumns(tx, uid, "movie", movieID, seps); err != nil {
+		return err
 	}
 	return nil
 }

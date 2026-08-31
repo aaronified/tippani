@@ -273,6 +273,13 @@ func (s *Server) handleCreateBook(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusConflict, "book already in your library")
 		return
 	}
+	// WHO THE CREDITS ARE (0056), in this transaction for the same reason: link
+	// rows that outlived a rolled-back insert would credit a book nobody has.
+	if cerr := s.syncBookCredits(tx, uid, id, req.Author, req.Translator, req.Editor); cerr != nil {
+		s.removeCoverFile(coverPath)
+		internalError(w, r, "create book: credits", cerr)
+		return
+	}
 	// WHERE EACH FIELD CAME FROM (0054), in this transaction: provenance that
 	// outlived a rolled-back insert would describe a row that does not exist.
 	if src, srcID := bookCreateSource(&req); true {
@@ -572,6 +579,14 @@ func (s *Server) handleUpdateBook(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := setGenres(tx, "book", uid, id, req.Genres); err != nil {
 		failErr("update book", err)
+		return
+	}
+	// 0056: the columns above are the reader's input; the link rows are what the
+	// library holds. This turns one into the other and recomposes the columns
+	// from the result, so an edit that renames a co-author re-points a credit
+	// rather than rewriting a string that four other places also parse.
+	if err := s.syncBookCredits(tx, uid, id, req.Author, req.Translator, req.Editor); err != nil {
+		failErr("update book: credits", err)
 		return
 	}
 	// Every field the reader actually moved is now theirs. Fields they left alone keep

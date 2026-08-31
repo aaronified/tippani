@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"tippani/internal/olog"
+	"tippani/internal/store"
 )
 
 // Bulk actions over a selection from the search results (and reusable elsewhere):
@@ -654,6 +655,15 @@ func (s *Server) handleBulkUpdateMovies(w http.ResponseWriter, r *http.Request) 
 		if err := set("director", nullable(*req.Director)); err != nil {
 			internalError(w, r, "bulk movies: director", err)
 			return
+		}
+		// 0056: the link rows follow, read back per row rather than handed the
+		// value, so they cannot disagree with what the UPDATE stored.
+		seps := s.creditSeps(uid)
+		for _, id := range owned {
+			if err := store.SyncCreditsFromColumns(tx, uid, "movie", id, seps); err != nil {
+				internalError(w, r, "bulk movies: credits", err)
+				return
+			}
 		}
 	}
 	if req.Series != nil {

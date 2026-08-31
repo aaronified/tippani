@@ -1010,6 +1010,15 @@ func (s *Server) applyReverifyBook(ctx context.Context, uid, id int64, set map[s
 		s.removeCoverFile(newCover)
 		return "", errors.New("not found")
 	}
+	// 0056. Re-verify applies one allowed field at a time and the credit column
+	// is one of them, so the link rows are re-derived from whatever landed —
+	// unconditionally, because whether this call touched the credit is decided
+	// by a map above and re-reading is cheaper than threading that answer down.
+	if cerr := store.SyncCreditsFromColumns(tx, uid, "book", id, s.creditSeps(uid)); cerr != nil {
+		s.removeCoverFile(newCover)
+		olog.Errorf(olog.CodeMetaReverifyApply, "[meta] re-verify book %d credits failed: %v", id, cerr)
+		return "", errors.New("write failed")
+	}
 	if hasGenres {
 		capped := cleanNames(genres)
 		if len(capped) > 5 {
@@ -1205,6 +1214,15 @@ func (s *Server) applyReverifyMovie(ctx context.Context, uid, id int64, set map[
 		s.removeCoverFile(newPoster)
 		return "", errors.New("not found")
 	}
+	// 0056. Re-verify applies one allowed field at a time and the credit column
+	// is one of them, so the link rows are re-derived from whatever landed —
+	// unconditionally, because whether this call touched the credit is decided
+	// by a map above and re-reading is cheaper than threading that answer down.
+	if cerr := store.SyncCreditsFromColumns(tx, uid, "movie", id, s.creditSeps(uid)); cerr != nil {
+		s.removeCoverFile(newPoster)
+		olog.Errorf(olog.CodeMetaReverifyApply, "[meta] re-verify movie %d credits failed: %v", id, cerr)
+		return "", errors.New("write failed")
+	}
 	if hasGenres {
 		capped := cleanNames(genres)
 		if len(capped) > 5 {
@@ -1350,14 +1368,20 @@ func (s *Server) applyReverifyPerson(ctx context.Context, uid int64, kind, name 
 	}
 	// Full upsert. bio/born/died now flow through too (only diffed when the stored
 	// field was empty, so a user's own text still can't be overwritten here).
+	// Find-or-create then UPDATE — 0056 dropped the ON CONFLICT target. The
+	// fields written are exactly the ones this handler wrote before; the diffing
+	// that decides WHICH of them changed happens above, as it always did.
+	pid, perr := s.personRowByName(uid, name)
+	if perr != nil {
+		s.removeCoverFile(newImage)
+		olog.Errorf(olog.CodeMetaReverifyApply, "[meta] re-verify person %q upsert failed: %v", name, perr)
+		return "", errors.New("write failed")
+	}
 	if _, xerr := s.Store.DB.Exec(`
-		INSERT INTO people (user_id, name, bio, image_path, born, died, links, source, source_id)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-		ON CONFLICT(user_id, name) DO UPDATE SET
-			image_path = excluded.image_path, links = excluded.links,
-			bio = excluded.bio, born = excluded.born, died = excluded.died,
-			source = excluded.source, source_id = excluded.source_id`,
-		uid, name, newBio, image, newBorn, newDied, newLinks, source, sourceID); xerr != nil {
+		UPDATE people SET bio = ?, image_path = ?, born = ?, died = ?, links = ?,
+		                  source = ?, source_id = ?
+		WHERE id = ? AND user_id = ?`,
+		newBio, image, newBorn, newDied, newLinks, source, sourceID, pid, uid); xerr != nil {
 		s.removeCoverFile(newImage)
 		olog.Errorf(olog.CodeMetaReverifyApply, "[meta] re-verify person %q upsert failed: %v", name, xerr)
 		return "", errors.New("write failed")

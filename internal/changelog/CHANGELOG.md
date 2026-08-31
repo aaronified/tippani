@@ -44,6 +44,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   works. **Nothing about importing has changed** — a file still lands in the queue and
   still waits there until you approve it. What changed is that you can see it waiting.
 
+- **One person is one record, however many ways their name is printed.** Bulgakov is
+  "Mikhail Bulgakov" on the Penguin, "M. Bulgakov" on the Vintage, "Михаил Булгаков" on the
+  Азбука and "মিখাইল বুলগাকভ" on the Bengali — four spellings, one human being, and until now
+  four separate people in your library each holding a quarter of the quotes, with the
+  "Works: 6" on every one of them simply wrong. A person is an identity now and their name
+  is a label on it, so the four can be one and each book still prints the name that is
+  actually on its cover.
+
+  **Characters became records too**, with their own list, and separate from people: a
+  picker for who wrote a book never offers a character, and a picker for who says a line
+  never offers an author. A character is the same character across every adaptation while
+  keeping a different picture in each — same Harry, eight films, eight photographs — and a
+  quote can now say who spoke it and show the right face.
+
+  **Nothing you can see has changed yet.** This release lays the record down and moves
+  every existing credit onto it; the screens that let you merge two spellings, split one
+  back out, or set how a name prints on one particular book come next. Your library is
+  read once on the first start after upgrading — a co-authored book becomes two people
+  rather than one person with a comma in their name, using the separator setting you
+  already have — and it will say so in the log.
+
 - **On a phone, the top bar is a header and the bottom bar is what you can do.** The
   title of whatever you are looking at, with a line under it saying something about it —
   the author, the year, how many quotes — and underneath the screen, a floating row of
