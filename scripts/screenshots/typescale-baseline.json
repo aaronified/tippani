@@ -1,9 +1,9 @@
 {
-  "_why": "What each screen still clips when the type dial is at 200% and the root is 24px. Recorded by scripts/screenshots/typescale.mjs so the number can FALL and never RISE. Every entry is the same defect \u2014 a work title or a person's name wearing Tailwind's `truncate` \u2014 and the rule says a name is never truncated: it scrolls under the fade instead. Spending an entry is that screen's own pass; when one falls, write the lower number here in the same change.",
-  "_recorded": "2026-08-30, at the end of the standing-rules pass",
+  "_why": "What each screen still clips when the type dial is at 200% and the root is 24px. Recorded by scripts/screenshots/typescale.mjs so the number can FALL and never RISE. Every entry is the same defect — a work title or a person's name wearing Tailwind's `truncate` — and the rule says a name is never truncated: it scrolls under the fade instead. Spending an entry is that screen's own pass; when one falls, write the lower number here in the same change.",
+  "_recorded": "2026-08-30, at the end of the standing-rules pass; library spent 2 on 2026-09-01 when the wide rail stopped being a px box",
   "screens": {
     "home": 0,
-    "library": 11,
+    "library": 9,
     "movies": 12,
     "quotes": 0,
     "anthologies": 0,
@@ -12,6 +12,7 @@
     "search": 0,
     "stats": 24,
     "staging": 0,
+    "checks": 0,
     "settings": 0,
     "bin": 0
   }

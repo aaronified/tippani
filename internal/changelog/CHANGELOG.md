@@ -345,6 +345,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The navigation rail cut its own labels when text was turned up.** At the 200% type
+  size *Catalogue* lost 53 pixels and *Metadata* 75 — the rail was a fixed 236px box with
+  growing words inside it. It now grows with the text, so the destinations stay readable
+  at every size. 236px is still the floor, so nothing changes at the ordinary setting.
+
 - **Thirteen "are you sure?" questions were still the browser's own.** Deleting a tag, a
   sticker, a font, a paired device, a person, a user account, a favourite, a quote, a
   search result, a selection of works, or merging duplicates — each asked in a grey

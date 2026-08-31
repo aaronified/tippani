@@ -3366,8 +3366,20 @@
   @media (min-width: 769px) {
     :root { --rail: 68px; }
   }
+  /* THE WIDE RAIL IS A BOX THAT HOLDS TEXT, so it is not a px. At the 200% type
+     dial "Catalogue" was cut by 53px and "Metadata" by 75px — the standing rule's
+     exact failure, and `make typescale` said so. The floor stays 236px because
+     that is the width the layout was drawn at, and the multiplier lands just
+     UNDER it at the ordinary setting (15.7 x 15px = 235.5px) so nothing moves
+     until the reader turns the type up. Above the floor the rail tracks the dial.
+
+     IT MULTIPLIES --type-ui-15 AND NOT `em`, which is the trap this repo has
+     already written down once: `em` here resolves against the BROWSER root, and
+     the type dial does not move the browser root — it writes finished pixels into
+     --type-*. An em would track a number nothing in this app changes. The 15px
+     fallback keeps the width right in the moment before applyTypeScale runs. */
   @media (min-width: 1180px) {
-    :root { --rail: 236px; }
+    :root { --rail: max(236px, calc(var(--type-ui-15, 15px) * 15.7)); }
   }
 
   .rail {
