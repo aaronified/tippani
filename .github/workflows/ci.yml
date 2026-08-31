@@ -60,6 +60,19 @@ jobs:
   # alone is 143s unraced and ~29m raced. The v1.7.4 run finished 43 seconds
   # inside its 30-minute timeout, which is not a margin, and 1.8.0 adds tests.
   #
+  # MEASURED AGAIN 2026-09-01, AND THE NIGHTLY SWEEP IS NOW AT RISK. On an
+  # otherwise idle developer machine, `go test -race ./internal/httpapi/` DID NOT
+  # FINISH IN 55 MINUTES — it panicked on the timeout with the suite still
+  # working steadily: no data race, no deadlock, five goroutines alive and one
+  # test in newTestServer. The package holds 949 test functions now and each one
+  # builds a fresh database through every migration, so the number above has
+  # roughly doubled since it was written. The per-push job below is unaffected —
+  # it runs five named tests in about 45 seconds — but `-timeout 60m` on the
+  # nightly is no longer a margin either, and what it will do on a runner is not
+  # something a developer machine can answer. Raising it, sharding the package,
+  # or sampling the sweep are all decisions with costs; this note exists so the
+  # next red nightly is read as arithmetic rather than as a hang.
+  #
   # Raising the number would have bought one release and made every push wait
   # half an hour, and a job that slow is a job people stop reading. So the split
   # is by value: the locking tests run raced on EVERY push, which is what that
