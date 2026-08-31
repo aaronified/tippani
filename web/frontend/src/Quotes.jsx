@@ -44,6 +44,7 @@ import {
   formatPartialDate,
   isPartialDate,
   QUOTE_COLUMNS,
+  useConfirm,
   useColumnsAt,
   useFormHost,
   useIsMobileScreen,
@@ -698,6 +699,7 @@ export default function QuotesPage({ creditSeparators, openId = null, onOpen, on
 }
 
 function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose }) {
+  const { ask, confirmDialog } = useConfirm()
   const [rows, setRows] = useState(null)
   const [error, setError] = useState('')
   const [editingId, setEditingId] = useState(null)
@@ -891,7 +893,7 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
     return true
   }
   async function remove(u) {
-    if (!confirm(t('quotes.delete.confirm'))) return
+    if (!(await ask(t('quotes.delete.confirm')))) return
     const r = await deleteWithUndo(`/quotes/${u.id}`, { reload: load })
     if (r.ok) load()
     else setError(errText(r))
@@ -996,6 +998,7 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
 
   return (
     <>
+      {confirmDialog}
       {/* The way back to the shelves, on DESKTOP only — a work's detail page
           draws its own the same way, above the header with room to spare.
           On a phone this was an entire row spent on a single back arrow, with

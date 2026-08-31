@@ -4,7 +4,7 @@ import { t, tNodes } from './i18n.js'
 import { BookLookupPicker, MovieLookupPicker } from './CoverPicker.jsx'
 import { EditBook } from './Library.jsx'
 import { EditMovie } from './Movies.jsx'
-import { BulkBar, EmptyState, ErrorText, FieldIconButton, GhostButton, HandCard, IconButton, IconCheck, IconDelete, IconEdit, IconMerge, IconMetadata, IconMore, IconOpen, IconRefresh, IconSearch, IconUsers, InfoDot, MonoLabel, NameInput, normName, PageHeader, ProgressBar, Scroller, splitCommas, Tooltip, PanelHost, usePanelStack, useIsMobileScreen, useScreenBar } from './ui.jsx'
+import { BulkBar, EmptyState, ErrorText, FieldIconButton, GhostButton, HandCard, IconButton, IconCheck, IconDelete, IconEdit, IconMerge, IconMetadata, IconMore, IconOpen, IconRefresh, IconSearch, IconUsers, InfoDot, MonoLabel, NameInput, normName, PageHeader, ProgressBar, Scroller, splitCommas, Tooltip, PanelHost, usePanelStack, useConfirm, useIsMobileScreen, useScreenBar } from './ui.jsx'
 import { PersonModal, PersonName, ProviderChips, mergeLinks, parseCreditSeps, parseLinks, splitCredits } from './people.jsx'
 import { characterPanel } from './identity.jsx'
 import { ReverifyFlow } from './ReverifyReview.jsx'
@@ -517,6 +517,7 @@ function moviePasses(m, filter) {
 // as BookRow / MovieRow by kind, and the bulk bar splits the (kind-namespaced)
 // selection back into per-kind actions.
 function CatalogueConsole({ books, movies, type, setType, filter, setFilter, onOpenBook, onOpenMovie, onDone, onFlash, onReverify }) {
+  const { ask, confirmDialog } = useConfirm()
   const [q, setQ] = useState('')
   const [lookupKey, setLookupKey] = useState(null)
   const [busy, setBusy] = useState(false)
@@ -570,7 +571,7 @@ function CatalogueConsole({ books, movies, type, setType, filter, setFilter, onO
   async function del() {
     const total = selectedKeys.length
     // A real plural family in place of the "item(s)" hedge.
-    if (!confirm(t('metadata.delete.confirm', { count: total, n: total }))) return
+    if (!(await ask(t('metadata.delete.confirm', { count: total, n: total })))) return
     setBusy(true)
     setErr('')
     try {
@@ -634,6 +635,7 @@ function CatalogueConsole({ books, movies, type, setType, filter, setFilter, onO
 
   return (
     <section className="space-y-3">
+      {confirmDialog}
       <div className="flex flex-wrap items-center gap-2">
         <h2 style={H2}>{t('metadata.catalogue.title')}</h2>
         <MonoLabel>{t('metadata.shown.count', { n: shown.length })}</MonoLabel>
@@ -974,6 +976,7 @@ function BulkEditForm({ n, busy, onApply }) {
 // DuplicatesPanel loads fuzzy-title duplicate groups and lets you merge each
 // group into a chosen keeper (annotations move over, dupes drop, sources delete).
 function DuplicatesPanel({ onDone, onFlash }) {
+  const { ask, confirmDialog } = useConfirm()
   const [groups, setGroups] = useState(null)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
@@ -992,7 +995,7 @@ function DuplicatesPanel({ onDone, onFlash }) {
   async function merge(into, from) {
     // "book(s)" became a plural family, and the second half of the sentence has
     // to agree with it — hence a whole message per form, not a shared tail.
-    if (!confirm(t('metadata.duplicates.merge.confirm', { count: from.length, n: from.length }))) return
+    if (!(await ask(t('metadata.duplicates.merge.confirm', { count: from.length, n: from.length })))) return
     setBusy(true)
     setErr('')
     const r = await json('POST', '/books/merge', { into, from })
@@ -1005,6 +1008,7 @@ function DuplicatesPanel({ onDone, onFlash }) {
 
   return (
     <HandCard className="space-y-3 p-5">
+      {confirmDialog}
       <div className="flex flex-wrap items-center gap-2">
         <h2 style={H2}>{t('metadata.duplicates.title')}</h2>
         <InfoDot title={t('metadata.duplicates.title')} text={t('metadata.duplicates.info.body')} />

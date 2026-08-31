@@ -345,6 +345,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Thirteen "are you sure?" questions were still the browser's own.** Deleting a tag, a
+  sticker, a font, a paired device, a person, a user account, a favourite, a quote, a
+  search result, a selection of works, or merging duplicates — each asked in a grey
+  system box with **OK** and **Cancel** in whatever language the browser was set to,
+  regardless of the language Tippani was in. They are the app's own dialog now: the same
+  words, in your language, dismissable with Escape, and with the page behind them held
+  still. Nothing else about any of them changed.
+
 - **The one-click update reloaded the page before it had updated anything.** It waited
   three seconds and then asked whether Tippani was answering — and it was, because *this*
   copy was still running while the new one was being pulled. So it reloaded onto the build

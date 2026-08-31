@@ -3,7 +3,7 @@ import { json, errText } from './api.js'
 import { t } from './i18n.js'
 import { personImgURL, PersonPortrait, usePeople } from './credits.jsx'
 import { usePractice } from './review.jsx'
-import { useBodyScrollLock, CloseButton, ErrorText, ExpandableDescription, Field, GhostButton, IconCheck, IconClose, IconDelete, IconEdit, IconMerge, IconPlus, IconQuiz, IconPractise, IconRefresh, IconSearch, isPartialDate, Lightbox, MonoLabel, NameInput, PartialDateField, Placeholder, Tooltip } from './ui.jsx'
+import { useBodyScrollLock, CloseButton, ErrorText, ExpandableDescription, Field, GhostButton, IconCheck, IconClose, IconDelete, IconEdit, IconMerge, IconPlus, IconQuiz, IconPractise, IconRefresh, IconSearch, isPartialDate, Lightbox, MonoLabel, NameInput, PartialDateField, Placeholder, Tooltip, useConfirm } from './ui.jsx'
 
 const PRIMARY = 'tp-btn tp-btn-primary'
 
@@ -306,6 +306,7 @@ function PersonLinksDetail({ links }) {
 }
 
 function PersonForm({ kind, name, initial, onCancel, onSaved, onRenamed }) {
+  const { ask, confirmDialog } = useConfirm()
   const [bio, setBio] = useState(initial?.bio || '')
   const [born, setBorn] = useState(initial?.born || '')
   const [died, setDied] = useState(initial?.died || '')
@@ -360,7 +361,7 @@ function PersonForm({ kind, name, initial, onCancel, onSaved, onRenamed }) {
   async function rename() {
     const to = renameTo.trim()
     if (!to || to === name) return
-    if (!confirm(t('people.rename.confirm', { from: name, to, noun, entity }))) return
+    if (!(await ask(t('people.rename.confirm', { from: name, to, noun, entity })))) return
     setRenaming(true)
     setError('')
     const r = await json('POST', '/people/rename', { kind, from: name, to })
@@ -444,6 +445,7 @@ function PersonForm({ kind, name, initial, onCancel, onSaved, onRenamed }) {
 
   return (
     <form onSubmit={submit} className="space-y-3">
+      {confirmDialog}
       {initial?.image_path && !clearImage && (
         <div className="flex items-center gap-3">
           <img src={personImgURL(initial.image_path)} alt="" className="w-16 rounded object-cover" style={{ aspectRatio: '3 / 4' }} />
@@ -589,6 +591,7 @@ function PersonForm({ kind, name, initial, onCancel, onSaved, onRenamed }) {
 // yet. (The old links-only redirect view is retired — the chips here already
 // link out.)
 export function PersonModal({ kind, name, onClose, onSaved }) {
+  const { ask, confirmDialog } = useConfirm()
    // The page behind an overlay does not move. Without this a wheel or a swipe
   // running past the end of the dialog scrolls the page you cannot see, which is
   // still scrolled when you close this. Ref-counted, so a dialog opened from
@@ -711,7 +714,8 @@ export function PersonModal({ kind, name, onClose, onSaved }) {
   }, [onClose])
 
   async function remove() {
-    if (!person || !confirm(t('people.delete.confirm', { kind: t(`common.field.${kind}.label`), name }))) return
+    if (!person) return
+    if (!(await ask(t('people.delete.confirm', { kind: t(`common.field.${kind}.label`), name })))) return
     const r = await json('DELETE', `/people/${person.id}`)
     if (r.ok) {
       onSaved && onSaved()
@@ -726,6 +730,10 @@ export function PersonModal({ kind, name, onClose, onSaved }) {
         if (e.target === e.currentTarget) onClose()
       }}
     >
+      {/* Portalled to <body> by ConfirmDialog itself, so it lands above this
+          scrim: the question is about the record this modal is showing, and the
+          click that answers it must not be the click that closes it. */}
+      {confirmDialog}
       <div role="dialog" aria-modal="true" aria-label={name} className="hand-card hc-r2 mx-auto w-full max-w-md px-6 py-6">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">

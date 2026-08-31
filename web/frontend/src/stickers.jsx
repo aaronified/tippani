@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { coverImgURL, json, upload, errText } from './api.js'
 import { t } from './i18n.js'
-import { EmptyState, ErrorText, GhostButton, HandCard, MonoLabel, Scroller, SortableTh, TableActions, Tooltip, useSort } from './ui.jsx'
+import { EmptyState, ErrorText, GhostButton, HandCard, MonoLabel, Scroller, SortableTh, TableActions, Tooltip, useConfirm, useSort } from './ui.jsx'
 
 // Stored sticker files are served from the shared cover route (built directly,
 // like Cover in ui.jsx — these don't go through the json/upload helpers).
@@ -193,14 +193,18 @@ async function renameSticker(sticker, name, onChanged, setError) {
   else onChanged()
 }
 
-async function deleteSticker(sticker, onChanged, setError) {
+// THE QUESTION IS ASKED BY THE CALLER'S DIALOG, passed in. This helper is not a
+// component and cannot hold one, and the browser's confirm() — which it used —
+// is untranslated chrome in an app that ships in two languages, and does not
+// exist at all in jsdom, so this delete had never run in a test.
+async function deleteSticker(sticker, ask, onChanged, setError) {
   const uses = sticker.annotations + sticker.dialogues
   // Two whole sentences rather than one plus an appended clause: another language
   // may not want the reassurance last, or as a second sentence at all.
-  const ask = uses > 0
+  const question = uses > 0
     ? t('tags.sticker.delete.confirm.body-used', { count: uses, n: uses, noun: t('unit.quote', { count: uses }) })
     : t('tags.sticker.delete.confirm.body')
-  if (!confirm(ask)) return
+  if (!(await ask(question))) return
   const r = await json('DELETE', `/stickers/${sticker.id}`)
   if (r.ok) onChanged()
   else setError(errText(r, t('error.delete.sticker')))
@@ -208,11 +212,13 @@ async function deleteSticker(sticker, onChanged, setError) {
 
 // StickerCard — one of the latest-5 quick cards: preview, inline rename, delete.
 function StickerCard({ sticker, index, onChanged }) {
+  const { ask, confirmDialog } = useConfirm()
   const [name, setName] = useState(sticker.name || '')
   const [error, setError] = useState('')
 
   return (
     <HandCard variant={index % 4} className="flex flex-col gap-2 p-3">
+      {confirmDialog}
       <div className="sticker-swatch" style={{ height: 72 }}>
         <img src={stickerURL(sticker.path)} alt={sticker.name || t('common.sticker.image.alt')} />
       </div>
@@ -231,7 +237,7 @@ function StickerCard({ sticker, index, onChanged }) {
         }}
       />
       <ErrorText>{error}</ErrorText>
-      <button className="tp-link tp-link-danger mt-auto self-start" onClick={() => deleteSticker(sticker, onChanged, setError)}>
+      <button className="tp-link tp-link-danger mt-auto self-start" onClick={() => deleteSticker(sticker, ask, onChanged, setError)}>
         {t('common.link.delete.label')}
       </button>
     </HandCard>
@@ -241,6 +247,7 @@ function StickerCard({ sticker, index, onChanged }) {
 // StickerTable — the full library (behind "more"): mini preview, name (editable),
 // usage counts, delete. Sortable + scrolls in its own box.
 function StickerTable({ stickers, onChanged }) {
+  const { ask, confirmDialog } = useConfirm()
   const { sort, toggle, apply } = useSort('name', 'asc')
   const [error, setError] = useState('')
   const rows = apply(stickers, {
@@ -249,6 +256,9 @@ function StickerTable({ stickers, onChanged }) {
   })
   return (
     <>
+      {/* The table's confirm lives HERE and not on the row: a row is a <tr>, and
+          a dialog is not a table cell. */}
+      {confirmDialog}
       <ErrorText>{error}</ErrorText>
       <Scroller className="ann-table-wrap" axis="both" style={{ maxHeight: 'min(28em, 60vh)', overflowY: 'auto' }}>
         <table className="ann-table">
@@ -262,7 +272,7 @@ function StickerTable({ stickers, onChanged }) {
           </thead>
           <tbody>
             {rows.map((s) => (
-              <StickerRow key={s.id} sticker={s} onChanged={onChanged} setError={setError} />
+              <StickerRow key={s.id} sticker={s} ask={ask} onChanged={onChanged} setError={setError} />
             ))}
           </tbody>
         </table>
@@ -271,7 +281,7 @@ function StickerTable({ stickers, onChanged }) {
   )
 }
 
-function StickerRow({ sticker, onChanged, setError }) {
+function StickerRow({ sticker, ask, onChanged, setError }) {
   const [name, setName] = useState(sticker.name || '')
   return (
     <tr>
@@ -298,7 +308,7 @@ function StickerRow({ sticker, onChanged, setError }) {
       </td>
       <td className="col-mono">{sticker.annotations + sticker.dialogues}</td>
       <td className="col-actions">
-        <TableActions noun={t('unit.sticker.one')} onDelete={() => deleteSticker(sticker, onChanged, setError)} />
+        <TableActions noun={t('unit.sticker.one')} onDelete={() => deleteSticker(sticker, ask, onChanged, setError)} />
       </td>
     </tr>
   )

@@ -17,6 +17,7 @@ import {
   TableActions,
   TAG_STYLES,
   TagChip,
+  useConfirm,
   useFormHost,
   useIsMobileScreen,
   useScreenBar,
@@ -112,14 +113,16 @@ export default function TagsPage() {
   )
 }
 
-async function deleteTag(tag, onChanged, setError) {
+// THE QUESTION IS ASKED BY THE CALLER'S DIALOG, passed in — see the twin in
+// stickers.jsx. This is not a component and cannot hold one.
+async function deleteTag(tag, ask, onChanged, setError) {
   const uses = tag.annotations + tag.dialogues
   // Two whole sentences rather than one plus an appended clause — see the same
   // pair in stickers.jsx for why the reassurance is not glued on at the end.
-  const ask = uses > 0
+  const question = uses > 0
     ? t('tags.delete.confirm.body-used', { count: uses, n: uses, name: tag.name, noun: t('unit.item', { count: uses }) })
     : t('tags.delete.confirm.body', { name: tag.name })
-  if (!confirm(ask)) return
+  if (!(await ask(question))) return
   const r = await json('DELETE', `/tags/${tag.id}`)
   if (r.ok) onChanged()
   else setError(errText(r, t('error.delete.tag')))
@@ -128,6 +131,7 @@ async function deleteTag(tag, onChanged, setError) {
 // CompactTagCard — the small top-row card: chip + counts + edit/delete, or the
 // inline edit form. Deliberately lighter than the old full card so ~5 fit a row.
 function CompactTagCard({ tag, index, onChanged }) {
+  const { ask, confirmDialog } = useConfirm()
   const [editing, setEditing] = useState(false)
   const [error, setError] = useState('')
   const { practise, practiceDialog } = usePractice()
@@ -165,11 +169,12 @@ function CompactTagCard({ tag, index, onChanged }) {
         <button className="tp-link" onClick={() => setEditing(true)}>
           {t('common.link.edit.label')}
         </button>
-        <button className="tp-link tp-link-danger" onClick={() => deleteTag(tag, onChanged, setError)}>
+        <button className="tp-link tp-link-danger" onClick={() => deleteTag(tag, ask, onChanged, setError)}>
           {t('common.link.delete.label')}
         </button>
       </div>
       {practiceDialog}
+      {confirmDialog}
     </HandCard>
   )
 }
@@ -177,6 +182,7 @@ function CompactTagCard({ tag, index, onChanged }) {
 // TagTable — the full, sortable vocabulary (behind "more"). Scrolls inside its
 // own box so a huge tag list can't bury the sticker manager below it.
 function TagTable({ tags, onChanged }) {
+  const { ask, confirmDialog } = useConfirm()
   const { sort, toggle, apply } = useSort('uses', 'desc')
   const [editingId, setEditingId] = useState(null)
   const [error, setError] = useState('')
@@ -215,7 +221,7 @@ function TagTable({ tags, onChanged }) {
                         : undefined
                     }
                     onEdit={() => setEditingId(row.id)}
-                    onDelete={() => deleteTag(row, onChanged, setError)}
+                    onDelete={() => deleteTag(row, ask, onChanged, setError)}
                   />
                 </td>
               </tr>
@@ -240,6 +246,9 @@ function TagTable({ tags, onChanged }) {
         )}
       </FormModal>
       {practiceDialog}
+      {/* The table's confirm lives here and not on a row: a row is a <tr>, and a
+          dialog is not a table cell. */}
+      {confirmDialog}
     </>
   )
 }

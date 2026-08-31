@@ -57,6 +57,7 @@ import {
   STATUS_META,
   toast,
   Tooltip,
+  useConfirm,
   useCardMenu,
   useColumnsAt,
   usePersistedState,
@@ -523,6 +524,7 @@ const FAV_KINDS = {
 }
 
 export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary, onGoMovies, onGoQuotes, onPending, pendingImport, onReviewImport }) {
+  const { ask, confirmDialog } = useConfirm()
   const [favs, setFavs] = useState([])
   // Favourites sit in Home's reading column, not the full container, so this
   // ladder tracks --home-max rather than --container-max.
@@ -637,7 +639,7 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
     loadFavs()
   }
   async function removeFav(f) {
-    if (!confirm(FAV_KINDS[f.kind].confirm)) return
+    if (!(await ask(FAV_KINDS[f.kind].confirm))) return
     const r = await deleteWithUndo(`${itemPath(f)}/${f.raw.id}`, { reload: loadFavs })
     if (!r.ok) return toast(errText(r, t('error.delete.generic')))
     if (openFav === f.key) setOpenFav(null)
@@ -723,6 +725,7 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
 
   return (
     <div className="home-col flex flex-col gap-4 pt-4" data-screen-label="home-body">
+      {confirmDialog}
       {/* No "?" beside the greeting since 1.4.1 — it is a shell control now — so
           the date and greeting own the row outright. */}
       <div className="px-0.5">

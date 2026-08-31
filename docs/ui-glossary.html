@@ -901,8 +901,8 @@
           </div>
         </div>
         <div class="g-name">ConfirmDialog</div>
-        <div class="g-src">ConfirmDialog — ui.jsx</div>
-        <div class="g-desc">Replaces native <code>confirm()</code>: a <b>hand-card</b> modal (title + optional body + Cancel / confirm buttons) over a dark scrim. Escape or a backdrop click cancels. (Card shown here; the real dialog centres over a full-screen overlay.)</div>
+        <div class="g-src">ConfirmDialog / useConfirm — ui.jsx</div>
+        <div class="g-desc">Replaces native <code>confirm()</code>: a <b>hand-card</b> modal (title + optional body + Cancel / confirm buttons) over a dark scrim. Escape or a backdrop click cancels. (Card shown here; the real dialog centres over a full-screen overlay.)<br><br><b>Reach it through <code>useConfirm</code>.</b> It returns <code>{ ask, confirmDialog }</code> — render the dialog anywhere in the tree and the call site keeps the one line it had: <code>if (!(await ask(question))) return</code>. Thirteen destructive actions were still asking with the browser’s own <code>confirm()</code>, which is untranslated chrome in an app that ships in two languages — and <b>does not exist in jsdom at all</b>, so every one of those deletes returned early in every test that reached it and had never actually run in the suite.</div>
       </div>
       <div class="g-item wide">
         <div class="g-demo" style="display:block">

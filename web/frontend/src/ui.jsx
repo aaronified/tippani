@@ -2921,6 +2921,50 @@ export function Select({
   );
 }
 
+// useConfirm — the browser's confirm(), in this app's dialog and this app's
+// language, with the same shape at the call site.
+//
+// WHY A PROMISE AND NOT A PAIR OF PROPS. Thirteen destructive actions were still
+// written `if (!confirm(ask)) return` — one line, before the work, reading in the
+// order it happens. Rewriting each of them as a pending-item state plus a dialog
+// plus a second handler is thirteen chances to wire the wrong item into the wrong
+// dialog. This keeps the line: `if (!(await ask(question))) return`.
+//
+// AND jsdom HAS NO confirm(), which is the half nobody sees: it warns and returns
+// undefined, so every one of those thirteen paths returned early in every test
+// that reached it. They were not lightly covered, they were uncoverable — the
+// delete under the question has never run in the suite. This one is ordinary DOM.
+//
+// Returns { ask, confirmDialog } — the shape usePractice already uses in this
+// codebase. Put `confirmDialog` anywhere in the component's tree.
+export function useConfirm() {
+  const [state, setState] = useState(null); // {title, body, confirmLabel, resolve}
+  const ask = useCallback(
+    (title, opts) => new Promise((resolve) => setState({ title, ...opts, resolve })),
+    [],
+  );
+  // ANSWERING TWICE MUST NOT REJECT: Escape and the backdrop can both fire on the
+  // way out, and a resolved promise ignores the second — but the state has to go
+  // in one step either way or the dialog flashes back.
+  const answer = (yes) => {
+    setState((cur) => {
+      if (cur) cur.resolve(yes);
+      return null;
+    });
+  };
+  const dialog = (
+    <ConfirmDialog
+      open={!!state}
+      title={state?.title || ""}
+      body={state?.body}
+      confirmLabel={state?.confirmLabel}
+      onConfirm={() => answer(true)}
+      onCancel={() => answer(false)}
+    />
+  );
+  return { ask, confirmDialog: dialog };
+}
+
 // ConfirmDialog — an on-brand confirmation modal (replaces native confirm()):
 // title, optional body, and Cancel / confirm tactile buttons. Escape or a
 // backdrop click cancels. Render it conditionally with `open`.
@@ -2947,7 +2991,14 @@ export function ConfirmDialog({
   // dialogs do.
   useBodyScrollLock(open);
   if (!open) return null;
-  return (
+  // PORTALLED TO <body>, for the reason FormModal states twenty lines down and
+  // this one learned the hard way: a `.hand-card` is `isolation: isolate`, so a
+  // dialog rendered inside one is trapped in that card's stacking context and
+  // every later sibling card paints over it — z-50 and all. Found by looking at a
+  // render of the tag delete, where the question appeared UNDER the tags. It only
+  // went unnoticed this long because every earlier caller happened to render it
+  // at the top of a page; useConfirm exists so that no longer has to be true.
+  return createPortal(
     <div
       className="tp-scrim fixed inset-0 z-50 flex items-center justify-center px-4 py-10"
       onMouseDown={(e) => {
@@ -2976,7 +3027,8 @@ export function ConfirmDialog({
           <StickerButton onClick={onConfirm} disabled={confirmDisabled}>{confirmLabel || t("common.action.confirm.label")}</StickerButton>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

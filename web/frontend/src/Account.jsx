@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { json, errText, coverImgURL, upload } from './api.js'
-import { Card, ErrorText, Field, FieldIconButton, GhostButton, IconDelete, IconKey, IconLogout, IconSwitchUser, IconUserPlus, InfoDot, MonoLabel, NameInput, StickerButton, Tooltip } from './ui.jsx'
+import { Card, ErrorText, Field, FieldIconButton, GhostButton, IconDelete, IconKey, IconLogout, IconSwitchUser, IconUserPlus, InfoDot, MonoLabel, NameInput, StickerButton, Tooltip, useConfirm } from './ui.jsx'
 import { PASSWORD_MAX, PASSWORD_MIN, passwordProblem } from './secret.js'
 import { t, tNodes } from './i18n.js'
 
@@ -455,6 +455,7 @@ export function Profile({ user, onUser, logout }) {
 // its own — the heading and the surrounding Card belong to its host.
 
 export function UserManagement({ me }) {
+  const { ask, confirmDialog } = useConfirm()
   const [users, setUsers] = useState([])
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -493,7 +494,7 @@ export function UserManagement({ me }) {
   }
 
   async function removeUser(u) {
-    if (!confirm(t('account.users.delete.confirm', { name: u.username }))) return
+    if (!(await ask(t('account.users.delete.confirm', { name: u.username })))) return
     setError('')
     const r = await json('DELETE', `/admin/users/${u.id}`)
     if (r.ok) load()
@@ -508,6 +509,7 @@ export function UserManagement({ me }) {
 
   return (
     <div>
+      {confirmDialog}
       <ul className="space-y-1">
         {users.map((u) => {
           const isMe = u.id === me.id

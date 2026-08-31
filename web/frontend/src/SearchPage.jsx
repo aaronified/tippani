@@ -59,6 +59,7 @@ import {
   SortableTh,
   splitCommas,
   Tooltip,
+  useConfirm,
   useAnchoredPosition,
   useBodyScrollLock,
   useColumnsAt,
@@ -984,6 +985,7 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators, 
 // detail pages, so share / edit / delete behave identically. Edits and deletes
 // re-run the search via onChanged.
 function QuoteModal({ kind, hit, authorMap = {}, actorMap = {}, speakerMap = {}, seps, onOpenBook, onOpenMovie, onOpenPerson, onClose, onChanged }) {
+  const { ask, confirmDialog } = useConfirm()
    // The page behind an overlay does not move. Without this a wheel or a swipe
   // running past the end of the dialog scrolls the page you cannot see, which is
   // still scrolled when you close this. Ref-counted, so a dialog opened from
@@ -1059,18 +1061,14 @@ function QuoteModal({ kind, hit, authorMap = {}, actorMap = {}, speakerMap = {},
     return true
   }
   async function remove(x) {
-    if (
-      !confirm(
-        t(
-          isQuote
-            ? 'home.favourites.delete.quote.confirm'
-            : isBook
-              ? 'home.favourites.delete.annotation.confirm'
-              : 'home.favourites.delete.dialogue.confirm',
-        ),
-      )
+    const question = t(
+      isQuote
+        ? 'home.favourites.delete.quote.confirm'
+        : isBook
+          ? 'home.favourites.delete.annotation.confirm'
+          : 'home.favourites.delete.dialogue.confirm',
     )
-      return
+    if (!(await ask(question))) return
     // The modal closes on success, so the Undo refreshes the RESULTS behind it
     // rather than this view — which is where the row would reappear.
     const r = await deleteWithUndo(`${itemPath}/${x.id}`, { reload: onChanged })
@@ -1104,6 +1102,10 @@ function QuoteModal({ kind, hit, authorMap = {}, actorMap = {}, speakerMap = {},
       className="tp-scrim fixed inset-0 z-50 overflow-y-auto px-4 py-10"
       onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
+      {/* Portalled to <body> by ConfirmDialog itself, so it is above this scrim
+          rather than inside it — a question about deleting the thing this modal
+          is showing must not be dismissed by the click that closes it. */}
+      {confirmDialog}
       <div role="dialog" aria-modal="true" aria-label={t('search.hit.title.fallback')} className="mx-auto w-full max-w-2xl">
         <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0" style={{ maxWidth: '60%' }}>

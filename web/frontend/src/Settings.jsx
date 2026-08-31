@@ -74,6 +74,7 @@ import {
   toast,
   Toggle,
   Tooltip,
+  useConfirm,
   useCoverSize,
   useFrameBase,
   useIsMobileScreen,
@@ -676,6 +677,7 @@ const specimenSize = (roleKey) => {
 }
 
 function TypeSettings({ prefs, onSaved }) {
+  const { ask, confirmDialog } = useConfirm()
   const [rows, setRows] = useState(fontState)
   const [openRole, setOpenRole] = useState(null)
   const [err, setErr] = useState('')
@@ -742,7 +744,7 @@ function TypeSettings({ prefs, onSaved }) {
   }
 
   async function removeFont(f) {
-    if (!confirm(t('settings.type.font.remove.confirm', { name: t(f.name) }))) return
+    if (!(await ask(t('settings.type.font.remove.confirm', { name: t(f.name) })))) return
     const r = await json('DELETE', `/fonts/${f.id}`)
     if (!r.ok) return setErr(errText(r, t('error.delete.font')))
     await reloadUploads()
@@ -767,6 +769,7 @@ function TypeSettings({ prefs, onSaved }) {
 
   return (
     <>
+      {confirmDialog}
       <p className="microcopy mb-3">
         {t('settings.type.intro.prose')}
       </p>
@@ -2123,6 +2126,7 @@ function OnboardingCard({ user, onStartTour }) {
 // The code is shown as text rather than a QR: the QR only saves typing, and
 // there is no app to point a camera at it yet. It lands with the app.
 function DevicesCard() {
+  const { ask, confirmDialog } = useConfirm()
   const [devices, setDevices] = useState(null)
   const [pair, setPair] = useState(null) // {code, expires_at} while pairing
   const [busy, setBusy] = useState(false)
@@ -2147,7 +2151,7 @@ function DevicesCard() {
   }
 
   async function revoke(d) {
-    if (!confirm(t('settings.devices.revoke.confirm', { name: d.name }))) return
+    if (!(await ask(t('settings.devices.revoke.confirm', { name: d.name })))) return
     const r = await json('DELETE', `/auth/devices/${d.id}`)
     if (!r.ok) return setErr(errText(r, t('error.revoke.device')))
     setErr('')
@@ -2156,7 +2160,7 @@ function DevicesCard() {
   }
 
   async function revokeAll() {
-    if (!confirm(t('settings.devices.revoke-all.confirm'))) return
+    if (!(await ask(t('settings.devices.revoke-all.confirm')))) return
     const r = await json('POST', '/auth/devices/revoke-all')
     if (!r.ok) return setErr(errText(r, t('error.revoke.devices')))
     setErr('')
@@ -2166,6 +2170,7 @@ function DevicesCard() {
 
   return (
     <Card>
+      {confirmDialog}
       <SectionTitle
         right={devices?.length ? <MonoLabel>{t('settings.devices.paired.count', { n: devices.length })}</MonoLabel> : null}
         info={t('settings.devices.info.body')}
