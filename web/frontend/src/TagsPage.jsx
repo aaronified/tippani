@@ -11,6 +11,7 @@ import {
   HandCard,
   MonoLabel,
   PageHeader,
+  Scroller,
   SortableTh,
   TableActions,
   TAG_STYLES,
@@ -170,7 +171,7 @@ function TagTable({ tags, onChanged }) {
   return (
     <>
       <ErrorText>{error}</ErrorText>
-      <div className="ann-table-wrap" style={{ maxHeight: 420, overflowY: 'auto' }}>
+      <Scroller className="ann-table-wrap" axis="both" style={{ maxHeight: 'min(28em, 60vh)', overflowY: 'auto' }}>
         <table className="ann-table">
           <thead>
             <tr>
@@ -202,7 +203,7 @@ function TagTable({ tags, onChanged }) {
             ))}
           </tbody>
         </table>
-      </div>
+      </Scroller>
       <FormModal open={!!editingRow} onClose={() => setEditingId(null)} title={t('tags.form.edit.title')} maxWidth={460}>
         {editingRow && (
           <TagForm

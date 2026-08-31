@@ -9,6 +9,7 @@ import { groupedShortcuts, withShortcut } from "./keys.js";
 // Cover/Placeholder resolve stored cover/poster paths to the local /covers URL.
 import { coverImgURL } from "./api.js";
 import { t, tNodes } from "./i18n.js";
+import { PROVIDER_MARKS } from "./providerMarks.js";
 
 // ErrorBoundary — a render error anywhere below unmounts only to this fallback
 // instead of white-screening the whole app (there was no boundary before, so
@@ -258,6 +259,261 @@ export function useHideOnScrollDown({
   return active ? hidden : false;
 }
 
+// ---- what the breadcrumb calls the thing you have open ---------------------
+//
+// THE SHELL DRAWS THE CRUMB AND THE SCREEN KNOWS THE TITLE, and they are three
+// components apart. Threading a prop from Shell through Library into BookDetail
+// would put a shell concern in the signature of two screens that have no other
+// reason to care — and the Catalogue would need the identical pair, so the price
+// is paid twice for one string.
+//
+// A tiny store instead, in the shape `toast` already uses here: the screen
+// publishes, the shell subscribes. Publishing null on unmount is not optional —
+// a stale title outliving its screen is a breadcrumb pointing at a work you have
+// closed, which is worse than no breadcrumb.
+let crumbTitle = null
+const crumbSubs = new Set()
+function publishCrumb(v) {
+  crumbTitle = v || null
+  for (const fn of crumbSubs) fn(crumbTitle)
+}
+// Called by whatever screen owns a detail. Cleans up after itself.
+export function useCrumb(title) {
+  useEffect(() => {
+    publishCrumb(title)
+    return () => publishCrumb(null)
+  }, [title])
+}
+// Called by the shell.
+export function useCrumbTitle() {
+  const [v, setV] = useState(crumbTitle)
+  useEffect(() => {
+    crumbSubs.add(setV)
+    setV(crumbTitle)
+    return () => crumbSubs.delete(setV)
+  }, [])
+  return v
+}
+
+// ---- the edge fade: how a scroller says it scrolls ------------------------
+//
+// AN EDGE FADE MEANS THE ROW SCROLLS. Wherever content outruns its box the last
+// EDGE_FADE_X (sideways) or EDGE_FADE_V (down) of it dissolves, and that fade is
+// the whole signal — no arrows, no scrollbar, no counter. A button at the fade is
+// a different promise: it opens the full set in a sheet. So a row may scroll, or
+// open, or both, and a reader can tell which without trying.
+//
+// The corollary is the part that bites: NEVER COLLAPSE A LIST TO FIT. Truncating
+// a person's name because the row is narrow is not a tidier version of scrolling,
+// it is a different and worse answer — the reader cannot tell a shortened name
+// from a short one, so the ellipsis destroys the very thing they were reading.
+//
+// WHY AN ATTRIBUTE AND NOT STATE. `data-scroll-x` / `data-scroll-v` are written
+// straight onto the node. Routing this through `useState` would re-render the
+// subtree on every frame of a swipe, for a change no React tree can express
+// better than one attribute can. The mask that reads it is pure CSS, so the
+// scroll path stays: one read, one compare, and usually no write at all.
+//
+// WHY IT IS MEASURED AT ALL, rather than a gradient that is always on. A fade
+// with nothing behind it is a lie — it promises more content to a row that has
+// none, and the reader learns to distrust every other fade in the app. So the
+// attribute names which ends actually have more: "start", "end", "both", or the
+// attribute is absent and there is no mask.
+//
+// WHAT WATCHES. A ResizeObserver on the scroller AND on its children (the child
+// is what grows when a font finally loads or a label gets longer), re-seated by a
+// MutationObserver when the child list itself changes. All three coalesce into
+// one rAF. This is deliberately not a poll: the prototype this came from ran a
+// 400ms interval that called getComputedStyle on every node in the document —
+// 2.5 full layout passes a second, forever, on a page nobody was touching.
+export const EDGE_FADE_X = 26; // px — a sideways fade is spacing, so it is px
+export const EDGE_FADE_V = "1.6em"; // em — a downward fade must land on the LAST LINE
+const EDGE_SLACK = 1; // a scroller parked at its end can still report 0.4px left
+const DRAG_SLOP = 3; // px of travel before a press counts as a drag, not a click
+
+export function useEdgeScroll(ref, { axis = "x", drag = true } = {}) {
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    // A wrapper can scroll in both directions at once — the annotation tables do,
+    // being wide AND capped in height — and then it wears both attributes.
+    const axes = axis === "both" ? ["x", "v"] : [axis];
+    let ticking = false;
+
+    const measure = () => {
+      ticking = false;
+      for (const a of axes) {
+        const attr = a === "x" ? "data-scroll-x" : "data-scroll-v";
+        const pos = a === "x" ? el.scrollLeft : el.scrollTop;
+        const size = a === "x" ? el.clientWidth : el.clientHeight;
+        const full = a === "x" ? el.scrollWidth : el.scrollHeight;
+        // scrollLeft goes NEGATIVE in a right-to-left row, so compare on distance
+        // travelled rather than on sign — Bengali is a left-to-right script, but
+        // the app is one `dir` attribute away from proving that assumption wrong.
+        const from = Math.abs(pos);
+        const before = from > EDGE_SLACK;
+        const after = from + size < full - EDGE_SLACK;
+        const state = before && after ? "both" : before ? "start" : after ? "end" : "";
+        if (!state) el.removeAttribute(attr);
+        else if (el.getAttribute(attr) !== state) el.setAttribute(attr, state);
+      }
+    };
+    const schedule = () => {
+      if (ticking) return;
+      ticking = true;
+      window.requestAnimationFrame(measure);
+    };
+
+    el.addEventListener("scroll", schedule, { passive: true });
+
+    let ro = null;
+    let mo = null;
+    if (typeof ResizeObserver !== "undefined") {
+      ro = new ResizeObserver(schedule);
+      const seat = () => {
+        ro.disconnect();
+        ro.observe(el);
+        for (const child of el.children) ro.observe(child);
+        schedule();
+      };
+      seat();
+      if (typeof MutationObserver !== "undefined") {
+        // childList only, and not the subtree: anything deeper changes a CHILD's
+        // box, which the ResizeObserver already sees. Watching the subtree would
+        // re-seat the observers on every keystroke inside the row.
+        mo = new MutationObserver(seat);
+        mo.observe(el, { childList: true });
+      }
+    }
+    measure();
+
+    return () => {
+      el.removeEventListener("scroll", schedule);
+      ro?.disconnect();
+      mo?.disconnect();
+      el.removeAttribute("data-scroll-x");
+      el.removeAttribute("data-scroll-v");
+    };
+  }, [ref, axis]);
+
+  // ---- press-and-drag ------------------------------------------------------
+  //
+  // `overflow` alone is a TOUCH-ONLY affordance. A trackpad can swipe sideways
+  // and a wheel can be shift-held, but a plain mouse has no gesture for it at
+  // all — so on that pointer the row is simply stuck, with a fade promising
+  // content it will not give up. Press-and-drag closes that.
+  //
+  // THE LISTENERS ARE ON THE SCROLLER, NOT THE DOCUMENT. `setPointerCapture`
+  // retargets every later move and the release to this element, so a drag that
+  // leaves the row still lands here — which is how the prototype's delegated
+  // document listener is avoided. Nothing in the app listens at rest.
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || !drag) return;
+    const wantX = axis === "x" || axis === "both";
+    const wantV = axis === "v" || axis === "both";
+    let id = null;
+    let originX = 0;
+    let originY = 0;
+    let fromLeft = 0;
+    let fromTop = 0;
+    let moved = false;
+
+    const onDown = (e) => {
+      // Touch scrolls natively, with momentum this cannot reproduce; taking the
+      // gesture away from it would be a downgrade dressed as a feature.
+      if (e.pointerType === "touch" || e.button !== 0) return;
+      // A press that starts inside a field is a text selection, not a drag.
+      if (e.target.closest?.("input, textarea, select, [contenteditable]")) return;
+      el.removeAttribute("data-dragged"); // a drag that ended off-row left this set
+      id = e.pointerId;
+      originX = e.clientX;
+      originY = e.clientY;
+      fromLeft = el.scrollLeft;
+      fromTop = el.scrollTop;
+      moved = false;
+      el.setPointerCapture?.(e.pointerId);
+    };
+
+    const onMove = (e) => {
+      if (e.pointerId !== id) return;
+      const dx = e.clientX - originX;
+      const dy = e.clientY - originY;
+      if (!moved && Math.hypot(dx, dy) < DRAG_SLOP) return;
+      if (!moved) el.setAttribute("data-dragging", "1");
+      moved = true;
+      if (wantX) el.scrollLeft = fromLeft - dx;
+      if (wantV) el.scrollTop = fromTop - dy;
+      e.preventDefault(); // otherwise the drag paints a text selection behind it
+    };
+
+    const onUp = (e) => {
+      if (e.pointerId !== id) return;
+      id = null;
+      el.releasePointerCapture?.(e.pointerId);
+      el.removeAttribute("data-dragging");
+      // The click that follows this release belongs to the drag, not to whatever
+      // sits under the finger at the end of it. Dragging a row of covers must
+      // never open the cover you happened to let go on.
+      if (moved) el.setAttribute("data-dragged", "1");
+    };
+
+    const onClick = (e) => {
+      if (!el.hasAttribute("data-dragged")) return;
+      el.removeAttribute("data-dragged");
+      e.preventDefault();
+      e.stopPropagation();
+    };
+
+    el.addEventListener("pointerdown", onDown);
+    el.addEventListener("pointermove", onMove);
+    el.addEventListener("pointerup", onUp);
+    el.addEventListener("pointercancel", onUp);
+    // Capture phase, so it beats the handler on the card the pointer came to rest
+    // over — by the bubble phase that card has already opened.
+    el.addEventListener("click", onClick, true);
+    return () => {
+      el.removeEventListener("pointerdown", onDown);
+      el.removeEventListener("pointermove", onMove);
+      el.removeEventListener("pointerup", onUp);
+      el.removeEventListener("pointercancel", onUp);
+      el.removeEventListener("click", onClick, true);
+      el.removeAttribute("data-dragging");
+      el.removeAttribute("data-dragged");
+    };
+  }, [ref, axis, drag]);
+}
+
+// Scroller — a plain box that fades at whichever end still has content. Use it
+// wherever the markup is just a wrapper; where the element already carries a ref
+// and a job of its own (the top bar's nav, the help rail), call `useEdgeScroll`
+// on that ref instead of wrapping it in another div.
+export function Scroller({ axis = "x", drag = true, className = "", children, ...rest }) {
+  const ref = useRef(null);
+  useEdgeScroll(ref, { axis, drag });
+  return (
+    <div ref={ref} className={className} {...rest}>
+      {children}
+    </div>
+  );
+}
+
+// The demo stands still, so it states the attribute the hook would have computed —
+// the alternative is a glossary entry for a fade that renders without its fade.
+if (import.meta.env.DEV) {
+  Scroller.glossary = {
+    demo: (h) =>
+      h(
+        Scroller,
+        {
+          "data-scroll-x": "both",
+          style: { maxWidth: 340, whiteSpace: "nowrap", overflowX: "auto" },
+        },
+        "Rabindranath Tagore \u00b7 Satyajit Ray \u00b7 Mahasweta Devi \u00b7 Jibanananda Das \u00b7 Ritwik Ghatak",
+      ),
+  };
+}
+
 // ---- how many columns a board gets ---------------------------------------
 //
 // PAIRED WITH --container-max IN index.css, and neither table means anything
@@ -500,6 +756,35 @@ export function GhostButton(props) {
   return <PlayfulButton base="tp-btn-ghost" {...props} />;
 }
 
+// ---- glossary declarations -------------------------------------------------
+//
+// A `glossary.demo` beside a component is what makes docs/ui-glossary.html render THAT
+// COMPONENT rather than a copy of its markup. The page used to hand-write every sample,
+// which is how it went on showing a topbar with an Import tab that routes.js had already
+// dropped: a picture of a component cannot go stale loudly.
+//
+// The link is the entry's own `src` line, which already names the component — so there is
+// nothing to register and nothing to keep in step. Add a demo here and that entry starts
+// rendering live on the next `make glossary`; leave it off and the entry keeps the markup
+// carried over from the old page. glossary-registry.test.js counts what is still carried,
+// and the count is only allowed to fall.
+//
+// Keep a demo to the HARD case rather than the flattering one — a long name, two authors,
+// an empty cover — because a sample that fits proves nothing.
+//
+// WRAPPED IN `import.meta.env.DEV`, AND THAT IS NOT A DETAIL. These are documentation
+// fixtures: a reader of the app has no use for the string "Add book", and measured, six
+// of them added 228 bytes to the shipped bundle — about 6KB once every component has
+// one. The release that split this bundle into per-screen chunks did so to stop sending
+// people code they never run, and doc samples are exactly that. Vite replaces the flag
+// with `false` in a production build and drops the block; the generator runs against the
+// dev server, where it is true, so it still sees every declaration.
+if (import.meta.env.DEV) {
+  StickerButton.glossary = { demo: (h) => h(StickerButton, null, "Add book") };
+  FilmButton.glossary = { demo: (h) => h(FilmButton, null, "Sign in") };
+  GhostButton.glossary = { demo: (h) => h(GhostButton, null, "Export") };
+}
+
 // ---- type bits (§3) ----
 
 export function MonoLabel({ className = "", children, ...rest }) {
@@ -515,6 +800,10 @@ export function Kicker({ className = "", children, ...rest }) {
       {children}
     </span>
   );
+}
+if (import.meta.env.DEV) {
+  MonoLabel.glossary = { demo: (h) => h(MonoLabel, null, "CH. 3 · P.142") };
+  Kicker.glossary = { demo: (h) => h(Kicker, null, "a marginal annotation") };
 }
 
 // PageHeader — Newsreader 24 title + mono counts + right-side actions (§7).
@@ -1153,7 +1442,10 @@ export function ReadingBadge({ kind = "book", stacked = false }) {
         transform: "rotate(var(--grot))",
       }}
     >
-      {isBook ? <IconReading size={15} /> : <IconWatching size={15} />}
+      {/* isGame is computed above for the aria-label and was then dropped here, so a
+          game announced itself as a game and drew the film glyph. Three activities,
+          three silhouettes — which is the whole reason the shelf marks exist. */}
+      {isGame ? <IconPlaying size={15} /> : isBook ? <IconReading size={15} /> : <IconWatching size={15} />}
     </span>
   );
 }
@@ -3720,6 +4012,11 @@ function HelpRow({ e }) {
 // same swap the shell makes between a tab strip and a bottom bar. Plain anchors, so
 // the browser does the scrolling and the back button undoes it.
 function HelpRail({ sections, active, railRef }) {
+  // TWO SHAPES, ONE RAIL. On a desk it is a sticky column capped at 62vh; on a
+  // phone the media query turns it on its side into a strip. `both` covers each
+  // without asking which one is on screen — only the axis that actually overflows
+  // ever wears a fade.
+  useEdgeScroll(railRef, { axis: "both" });
   return (
     <nav className="help-rail" aria-label={t("common.help.rail.aria")} ref={railRef}>
       {sections.map((sec) => (
@@ -3839,6 +4136,12 @@ export function HelpButton({ title, entries = [], sections = null, active, side 
 export function InlineField({
   label,
   value = "",
+  // `source` is the supplier slug that last wrote this field and `sourceAt` when —
+  // both straight off the record's `field_sources`. Absent means the field has no
+  // row there, which is "we do not know" rather than "nobody has touched it", and
+  // draws nothing at all.
+  source,
+  sourceAt,
   display,
   placeholder,
   hint,
@@ -3934,6 +4237,11 @@ export function InlineField({
         <MonoLabel>{label}</MonoLabel>
         {hint && <InfoDot text={hint} title={label} />}
         <span className="flex-1" />
+        {/* WHO WROTE THIS FIELD, on the field's own row and nowhere else. It sits
+            before the pencil, and only at rest: while you are editing, the row's
+            right-hand end belongs to ✓ and ✕, and a provenance tag that survived
+            into the editor would be reporting on a value you have already left. */}
+        {!editing && source ? <FieldSourceTag source={source} at={sourceAt} /> : null}
         {!editing && !disabled && (
           <FieldIconButton
             icon={<IconEdit />}
@@ -4178,6 +4486,11 @@ export function Placeholder({ kind, className = "", style }) {
       <span className="mono-label ph-label">{kind === undefined ? t("common.badge.cover") : kind}</span>
     </span>
   );
+}
+// g-poster is the glossary page's own sizing class, not the app's — the demo has to
+// stand at poster proportions to show what the hatch looks like at the size it is used.
+if (import.meta.env.DEV) {
+  Placeholder.glossary = { demo: (h) => h(Placeholder, { className: "g-poster" }) };
 }
 
 export function Sprockets({ count = 9 }) {
@@ -5150,6 +5463,36 @@ export function FieldIconButton({
 
 const iconStroke = { width: ICON_SIZE, height: ICON_SIZE, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.85, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": "true" }
 
+// ---- iconFill: the four reasons a glyph may be solid ------------------------
+//
+// THE APP IS WIREFRAME AND STAYS WIREFRAME. `iconStroke` above is the rule; this is the
+// exception, and an exception has to argue for itself. Only four arguments count:
+//
+//   1. It is the ON state of a pair — the favourite, set (IconHeartOn against IconHeart).
+//   2. The glyph names a PLACE rather than a job. That is the whole rail: solid says
+//      "somewhere to go" before the word beside it is read, which is the same thing the
+//      shell says one step later when the active row wears an accent fill.
+//   3. The subject is a silhouette in life, where an outline at 19px turns the shape into
+//      a ring. The mortarboard is the case; a face and a film reel were both rejected,
+//      because each already sits inside something that supplies the ring.
+//   4. The fill carries information — the palette's wells hold the category colours.
+//
+// A key (tick, plus, close, chevron, three dots) is a pen mark with nothing inside to
+// fill, and a letterform (translate, the question mark) becomes a blob at 19px. Neither
+// qualifies. icons-fill.test.jsx fails a filled glyph that is not on the declared list.
+//
+// PHOSPHOR ICONS, MIT — https://github.com/phosphor-icons/core, fill weight, drawn on a
+// 256 box. The box is why these do not need the 1.85 stroke and why they cannot collide
+// with the drawn set in the near-duplicate test: they are a different coordinate space,
+// not a different weight of the same drawing.
+// EVERY FILL OVERRIDES THE viewBox, and the default here is only a fallback. Phosphor
+// draws each glyph to its own margins rather than to a shared one, so straight from
+// the pack the film reel occupies 0.59 of its box and `users` 0.98 — thirteen tabs at
+// thirteen sizes. Each glyph therefore carries a box cropped to its own ink, sized so
+// the long side is 0.82 of it. That is uniform scaling: nothing is stretched, the
+// drawing stays the pack's, and icons.test.jsx holds the 0.82 for the whole rail.
+const iconFill = { width: ICON_SIZE, height: ICON_SIZE, viewBox: "0 0 256 256", fill: "currentColor", stroke: "none", "aria-hidden": "true" }
+
 export function IconBack() { return <svg {...iconStroke}><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg> }
 export function IconFilter() { return <svg {...iconStroke}><path d="M22 3H2l9 9v9l4-2v-7z"/></svg> }
 export function IconExport() { return <svg {...iconStroke}><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 18h16"/></svg> }
@@ -5262,8 +5605,8 @@ export function IconClose() { return <svg {...iconStroke}><path d="M6 6l12 12M18
 // takes a size so one glyph serves both the 18px cover badge (ReadingBadge) and a
 // 24px menu row. The play triangle is filled as well as stroked: an outline alone
 // reads as a stray shape at badge size rather than a mark someone put there.
-export function IconReading({ size = 18 }) { return <svg {...iconStroke} width={size} height={size}><path d="M12 7.2C10.3 5.6 7.6 5 4 5.4v12.3c3.6-.4 6.3.2 8 1.8"/><path d="M12 7.2c1.7-1.6 4.4-2.2 8-1.8v12.3c-3.6-.4-6.3.2-8 1.8"/><path d="M12 7.2v13.3"/></svg> }
-export function IconWatching({ size = 18 }) { return <svg {...iconStroke} width={size} height={size}><path d="M7.5 4.8v14.4L19 12z" fill="currentColor"/></svg> }
+export function IconReading({ size = ICON_SIZE }) { return <svg {...iconFill} viewBox="-8.6 -4.6 273.2 273.2" width={size} height={size}><path d="M240,80V200a8,8,0,0,1-8,8H160a24,24,0,0,0-24,23.94,7.9,7.9,0,0,1-5.12,7.55A8,8,0,0,1,120,232a24,24,0,0,0-24-24H24a8,8,0,0,1-8-8V80a8,8,0,0,1,8-8H88a32,32,0,0,1,32,32v63.73a8.17,8.17,0,0,0,7.47,8.25,8,8,0,0,0,8.53-8V104a32,32,0,0,1,32-32h64A8,8,0,0,1,240,80ZM88.81,56H89a47.92,47.92,0,0,1,36,17.4,4,4,0,0,0,6.08,0A47.92,47.92,0,0,1,167,56h.19a4,4,0,0,0,3.54-5.84,48,48,0,0,0-85.46,0A4,4,0,0,0,88.81,56Z"/></svg> }
+export function IconWatching({ size = ICON_SIZE }) { return <svg {...iconFill} viewBox="1.2 9.2 253.7 253.7" width={size} height={size}><path d="M168,224a8,8,0,0,1-8,8H96a8,8,0,0,1,0-16h64A8,8,0,0,1,168,224ZM232,64V176a24,24,0,0,1-24,24H48a24,24,0,0,1-24-24V64A24,24,0,0,1,48,40H208A24,24,0,0,1,232,64Zm-68,56a8,8,0,0,0-3.41-6.55l-40-28A8,8,0,0,0,108,92v56a8,8,0,0,0,12.59,6.55l40-28A8,8,0,0,0,164,120Z"/></svg> }
 export function IconCalendar({ size = 18 }) { return <svg {...iconStroke} width={size} height={size}><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17"/><path d="M8 3.5v3"/><path d="M16 3.5v3"/></svg> }
 // IconHelp — the "?" every screen's help button wears. Circled so it reads as a
 // standing affordance rather than punctuation someone forgot to delete.
@@ -5402,16 +5745,16 @@ export function IconDialogue({ size = ICON_SIZE }) {
 // IconReel — the Catalogue's film reel, salvaged from the retired cover-size
 // slider.
 export function IconReel({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="6.4" r="1"/><circle cx="17.6" cy="12" r="1"/><circle cx="12" cy="17.6" r="1"/><circle cx="6.4" cy="12" r="1"/></svg> }
-export function IconHome({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><path d="M4 11.2 12 4.5l8 6.7"/><path d="M6 9.8V19a1 1 0 0 0 1 1h3.4v-4.6a1.6 1.6 0 0 1 3.2 0V20H17a1 1 0 0 0 1-1V9.8"/></svg> }
+export function IconHome({ size = ICON_SIZE }) { return <svg {...iconFill} viewBox="6.1 2.1 243.9 243.9" width={size} height={size}><path d="M224,120v96a8,8,0,0,1-8,8H160a8,8,0,0,1-8-8V164a4,4,0,0,0-4-4H108a4,4,0,0,0-4,4v52a8,8,0,0,1-8,8H40a8,8,0,0,1-8-8V120a16,16,0,0,1,4.69-11.31l80-80a16,16,0,0,1,22.62,0l80,80A16,16,0,0,1,224,120Z"/></svg> }
 // IconRecords — stacked cards: the Metadata console, which is every row you have
 // seen from behind.
-export function IconRecords({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><rect x="4.5" y="8.5" width="11.5" height="10" rx="2"/><path d="M7.5 6.2h8A2.5 2.5 0 0 1 18 8.7v7.8"/></svg> }
-export function IconStats({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><rect x="4.5" y="11" width="4" height="7.5" rx="1"/><rect x="10" y="5.5" width="4" height="13" rx="1"/><rect x="15.5" y="8" width="4" height="10.5" rx="1"/></svg> }
-export function IconSliders({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><path d="M4 8h9"/><path d="M17 8h3"/><circle cx="15" cy="8" r="2"/><path d="M4 16h3"/><path d="M11 16h9"/><circle cx="9" cy="16" r="2"/></svg> }
+export function IconRecords({ size = ICON_SIZE }) { return <svg {...iconFill} viewBox="1.2 1.2 253.7 253.7" width={size} height={size}><path d="M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40ZM176,168H80a8,8,0,0,1,0-16h96a8,8,0,0,1,0,16Zm0-32H80a8,8,0,0,1,0-16h96a8,8,0,0,1,0,16Zm0-32H80a8,8,0,0,1,0-16h96a8,8,0,0,1,0,16Z"/></svg> }
+export function IconStats({ size = ICON_SIZE }) { return <svg {...iconFill} viewBox="1.2 -2.8 253.7 253.7" width={size} height={size}><path d="M232,208a8,8,0,0,1-8,8H32a8,8,0,0,1,0-16h8V136a8,8,0,0,1,8-8H72a8,8,0,0,1,8,8v64H96V88a8,8,0,0,1,8-8h32a8,8,0,0,1,8,8V200h16V40a8,8,0,0,1,8-8h40a8,8,0,0,1,8,8V200h8A8,8,0,0,1,232,208Z"/></svg> }
+export function IconSliders({ size = ICON_SIZE }) { return <svg {...iconFill} viewBox="0.4 0.4 255.3 255.3" width={size} height={size}><path d="M216,130.16q.06-2.16,0-4.32l14.92-18.64a8,8,0,0,0,1.48-7.06,107.6,107.6,0,0,0-10.88-26.25,8,8,0,0,0-6-3.93l-23.72-2.64q-1.48-1.56-3-3L186,40.54a8,8,0,0,0-3.94-6,107.29,107.29,0,0,0-26.25-10.86,8,8,0,0,0-7.06,1.48L130.16,40Q128,40,125.84,40L107.2,25.11a8,8,0,0,0-7.06-1.48A107.6,107.6,0,0,0,73.89,34.51a8,8,0,0,0-3.93,6L67.32,64.27q-1.56,1.49-3,3L40.54,70a8,8,0,0,0-6,3.94,107.71,107.71,0,0,0-10.87,26.25,8,8,0,0,0,1.49,7.06L40,125.84Q40,128,40,130.16L25.11,148.8a8,8,0,0,0-1.48,7.06,107.6,107.6,0,0,0,10.88,26.25,8,8,0,0,0,6,3.93l23.72,2.64q1.49,1.56,3,3L70,215.46a8,8,0,0,0,3.94,6,107.71,107.71,0,0,0,26.25,10.87,8,8,0,0,0,7.06-1.49L125.84,216q2.16.06,4.32,0l18.64,14.92a8,8,0,0,0,7.06,1.48,107.21,107.21,0,0,0,26.25-10.88,8,8,0,0,0,3.93-6l2.64-23.72q1.56-1.48,3-3L215.46,186a8,8,0,0,0,6-3.94,107.71,107.71,0,0,0,10.87-26.25,8,8,0,0,0-1.49-7.06ZM128,168a40,40,0,1,1,40-40A40,40,0,0,1,128,168Z"/></svg> }
 // IconImport — into the tray, where IconExport goes down onto a floor. Both are
 // down arrows because that is the convention everywhere; what differs is whether
 // the arrow arrives somewhere or leaves.
-export function IconImport({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><path d="M5 13.5V17a1.5 1.5 0 0 0 1.5 1.5h11A1.5 1.5 0 0 0 19 17v-3.5"/><path d="M12 4v9"/><path d="m8.5 9.5 3.5 3.5 3.5-3.5"/></svg> }
+export function IconImport({ size = ICON_SIZE }) { return <svg {...iconFill} viewBox="10.9 10.9 234.1 234.1" width={size} height={size}><path d="M208,32H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32ZM90.34,114.34a8,8,0,0,1,11.32,0L120,132.69V72a8,8,0,0,1,16,0v60.69l18.34-18.35a8,8,0,0,1,11.32,11.32l-32,32a8,8,0,0,1-11.32,0l-32-32A8,8,0,0,1,90.34,114.34ZM208,208H48V168H76.69L96,187.32A15.89,15.89,0,0,0,107.31,192h41.38A15.86,15.86,0,0,0,160,187.31L179.31,168H208v40Z"/></svg> }
 
 // ---- what a selection can do, as pictures (1.12.0) ------------------------
 //
@@ -5428,7 +5771,7 @@ export function IconHeart({ size = ICON_SIZE }) { return <svg {...iconStroke} wi
 // IconPalette — set the colour category. A drop of ink rather than an artist's
 // palette, because the control it opens is six coloured dots and the glyph should
 // promise the same thing it delivers.
-export function IconPalette({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><path d="M12 3.4c3.6 4.2 5.6 6.9 5.6 9.4a5.6 5.6 0 1 1-11.2 0c0-2.5 2-5.2 5.6-9.4Z"/></svg> }
+export function IconPalette({ size = ICON_SIZE }) { return <svg {...iconFill} viewBox="1.2 -2.8 253.7 253.7" width={size} height={size}><path d="M200.77,53.89A103.27,103.27,0,0,0,128,24h-1.07A104,104,0,0,0,24,128c0,43,26.58,79.06,69.36,94.17A32,32,0,0,0,136,192a16,16,0,0,1,16-16h46.21a31.81,31.81,0,0,0,31.2-24.88,104.43,104.43,0,0,0,2.59-24A103.28,103.28,0,0,0,200.77,53.89ZM84,168a12,12,0,1,1,12-12A12,12,0,0,1,84,168Zm0-56a12,12,0,1,1,12-12A12,12,0,0,1,84,112Zm44-24a12,12,0,1,1,12-12A12,12,0,0,1,128,88Zm44,24a12,12,0,1,1,12-12A12,12,0,0,1,172,112Z"/></svg> }
 // IconQuiz / IconQuizSkip — in the Daily Quiz and out of it, and A PAIR ON
 // PURPOSE. This is one button whose label flips: it reads "Skip in quiz" over a
 // selection that is in and "Add to quiz" over one that is out. A single glyph for
@@ -5456,8 +5799,82 @@ export function IconSeal({ size = ICON_SIZE }) { return <svg {...iconStroke} wid
 // at a different angle.
 export function IconAnthology({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><path d="M9.8 5h9.4"/><path d="M9.8 12h9.4"/><path d="M9.8 19h9.4"/><path d="M7 5c-1.3 0-1.3 6-2.5 7 1.2 1 1.2 7 2.5 7"/></svg> }
 
+// The Library. IconBooks keeps the outline for the shelf and the search result — a
+// book you can act on, rather than the place they live.
+// IconChecks — the rail's Checks row. A page with a pencil on it: the screen is a
+// list of things somebody has to look over, which is what "a note being marked up"
+// means and what neither a tick nor a tray would say. Phosphor `note-pencil`, fill.
+export function IconChecks({ size = ICON_SIZE }) { return <svg {...iconFill} viewBox="10.0 2.0 243.9 243.9" width={size} height={size}><path d="M224,128v80a16,16,0,0,1-16,16H48a16,16,0,0,1-16-16V48A16,16,0,0,1,48,32h80a8,8,0,0,1,0,16H48V208H208V128a8,8,0,0,1,16,0Zm5.66-58.34-96,96A8,8,0,0,1,128,168H96a8,8,0,0,1-8-8V128a8,8,0,0,1,2.34-5.66l96-96a8,8,0,0,1,11.32,0l32,32A8,8,0,0,1,229.66,69.66Zm-17-5.66L192,43.31,179.31,56,200,76.69Z"/></svg> }
+// IconBin — the rail's Bin row, filled because it names a PLACE there. IconDelete
+// stays an outline: it is the VERB, on every row that can destroy something, and the
+// two must not be one drawing or a row's delete button would read as a destination.
+export function IconBin({ size = ICON_SIZE }) { return <svg {...iconFill} viewBox="1.2 -6.8 253.7 253.7" width={size} height={size}><path d="M216,48H176V40a24,24,0,0,0-24-24H104A24,24,0,0,0,80,40v8H40a8,8,0,0,0,0,16h8V208a16,16,0,0,0,16,16H192a16,16,0,0,0,16-16V64h8a8,8,0,0,0,0-16ZM112,168a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Zm48,0a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Zm0-120H96V40a8,8,0,0,1,8-8h48a8,8,0,0,1,8,8Z"/></svg> }
+export function IconNavLibrary({ size = ICON_SIZE }) { return <svg {...iconFill} viewBox="14.1 2.1 243.9 243.9" width={size} height={size}><path d="M231.65,194.55,198.46,36.75a16,16,0,0,0-19-12.39L132.65,34.42a16.08,16.08,0,0,0-12.3,19l33.19,157.8A16,16,0,0,0,169.16,224a16.25,16.25,0,0,0,3.38-.36l46.81-10.06A16.09,16.09,0,0,0,231.65,194.55ZM136,50.15c0-.06,0-.09,0-.09l46.8-10,3.33,15.87L139.33,66Zm10,47.38-3.35-15.9,46.82-10.06,3.34,15.9Zm70,100.41-46.8,10-3.33-15.87L212.67,182,216,197.85C216,197.91,216,197.94,216,197.94ZM104,32H56A16,16,0,0,0,40,48V208a16,16,0,0,0,16,16h48a16,16,0,0,0,16-16V48A16,16,0,0,0,104,32ZM56,48h48V64H56Zm48,160H56V192h48v16Z"/></svg> }
+// The Catalogue. IconReel keeps the outline where a film is the subject rather than
+// the destination.
+export function IconNavCatalogue({ size = ICON_SIZE }) { return <svg {...iconFill} viewBox="0.3 -3.7 263.4 263.4" width={size} height={size}><path d="M232,216H183.36A103.95,103.95,0,1,0,128,232H232a8,8,0,0,0,0-16ZM80,148a20,20,0,1,1,20-20A20,20,0,0,1,80,148Zm48,48a20,20,0,1,1,20-20A20,20,0,0,1,128,196Zm0-96a20,20,0,1,1,20-20A20,20,0,0,1,128,100Zm28,28a20,20,0,1,1,20,20A20,20,0,0,1,156,128Z"/></svg> }
+// The Quotes screen. IconQuote keeps the outline for the five places where a quote is
+// the thing being acted on.
+export function IconNavQuotes({ size = ICON_SIZE }) { return <svg {...iconFill} viewBox="1.2 5.2 253.7 253.7" width={size} height={size}><path d="M116,72v88a48.05,48.05,0,0,1-48,48,8,8,0,0,1,0-16,32,32,0,0,0,32-32v-8H40a16,16,0,0,1-16-16V72A16,16,0,0,1,40,56h60A16,16,0,0,1,116,72ZM216,56H156a16,16,0,0,0-16,16v64a16,16,0,0,0,16,16h60v8a32,32,0,0,1-32,32,8,8,0,0,0,0,16,48.05,48.05,0,0,0,48-48V72A16,16,0,0,0,216,56Z"/></svg> }
+// Anthologies. Stacked sheets: a gathering of lines that live somewhere else.
+export function IconNavAnthologies({ size = ICON_SIZE }) { return <svg {...iconFill} viewBox="-8.5 -8.6 273.2 273.2" width={size} height={size}><path d="M220,169.09l-92,53.65L36,169.09A8,8,0,0,0,28,182.91l96,56a8,8,0,0,0,8.06,0l96-56A8,8,0,1,0,220,169.09Z"/><path d="M220,121.09l-92,53.65L36,121.09A8,8,0,0,0,28,134.91l96,56a8,8,0,0,0,8.06,0l96-56A8,8,0,1,0,220,121.09Z"/><path d="M28,86.91l96,56a8,8,0,0,0,8.06,0l96-56a8,8,0,0,0,0-13.82l-96-56a8,8,0,0,0-8.06,0l-96,56a8,8,0,0,0,0,13.82Z"/></svg> }
+// The Tags screen — the place that lists every tag. IconTag stays the label drawn on a
+// card.
+export function IconNavTags({ size = ICON_SIZE }) { return <svg {...iconFill} viewBox="8.3 8.3 263.4 263.4" width={size} height={size}><path d="M243.31,136,144,36.69A15.86,15.86,0,0,0,132.69,32H40a8,8,0,0,0-8,8v92.69A15.86,15.86,0,0,0,36.69,144L136,243.31a16,16,0,0,0,22.63,0l84.68-84.68a16,16,0,0,0,0-22.63ZM84,96A12,12,0,1,1,96,84,12,12,0,0,1,84,96Z"/></svg> }
+// Search as a DESTINATION. IconSearch has thirteen other callers where it is the verb,
+// and every one of them stays drawn.
+export function IconNavSearch({ size = ICON_SIZE }) { return <svg {...iconFill} viewBox="1.1 1.1 253.7 253.7" width={size} height={size}><path d="M168,112a56,56,0,1,1-56-56A56,56,0,0,1,168,112Zm61.66,117.66a8,8,0,0,1-11.32,0l-50.06-50.07a88,88,0,1,1,11.32-11.31l50.06,50.06A8,8,0,0,1,229.66,229.66ZM112,184a72,72,0,1,0-72-72A72.08,72.08,0,0,0,112,184Z"/></svg> }
+// The account. A card with a face on it rather than the bare head IconPerson draws for
+// a credit.
+export function IconNavProfile({ size = ICON_SIZE }) { return <svg {...iconFill} viewBox="1.2 1.2 253.7 253.7" width={size} height={size}><path d="M112,120a16,16,0,1,1-16-16A16,16,0,0,1,112,120ZM232,56V200a16,16,0,0,1-16,16H40a16,16,0,0,1-16-16V56A16,16,0,0,1,40,40H216A16,16,0,0,1,232,56ZM135.75,166a39.76,39.76,0,0,0-17.19-23.34,32,32,0,1,0-45.12,0A39.84,39.84,0,0,0,56.25,166a8,8,0,0,0,15.5,4c2.64-10.25,13.06-18,24.25-18s21.62,7.73,24.25,18a8,8,0,1,0,15.5-4ZM200,144a8,8,0,0,0-8-8H152a8,8,0,0,0,0,16h40A8,8,0,0,0,200,144Zm0-32a8,8,0,0,0-8-8H152a8,8,0,0,0,0,16h40A8,8,0,0,0,200,112Z"/></svg> }
+// User management. IconUsers keeps the outline for its five non-nav callers.
+export function IconNavUsers({ size = ICON_SIZE }) { return <svg {...iconFill} viewBox="-25.4 -25.4 306.8 306.8" width={size} height={size}><path d="M164.47,195.63a8,8,0,0,1-6.7,12.37H10.23a8,8,0,0,1-6.7-12.37,95.83,95.83,0,0,1,47.22-37.71,60,60,0,1,1,66.5,0A95.83,95.83,0,0,1,164.47,195.63Zm87.91-.15a95.87,95.87,0,0,0-47.13-37.56A60,60,0,0,0,144.7,54.59a4,4,0,0,0-1.33,6A75.83,75.83,0,0,1,147,150.53a4,4,0,0,0,1.07,5.53,112.32,112.32,0,0,1,29.85,30.83,23.92,23.92,0,0,1,3.65,16.47,4,4,0,0,0,3.95,4.64h60.3a8,8,0,0,0,7.73-5.93A8.22,8.22,0,0,0,252.38,195.48Z"/></svg> }
+// THE FAVOURITE, SET. review.jsx already flipped the LABEL between on and off while
+// drawing one icon, so the state lived in the words and nowhere else.
+export function IconHeartOn({ size = ICON_SIZE }) { return <svg {...iconFill} viewBox="-8.6 -0.6 273.2 273.2" width={size} height={size}><path d="M240,102c0,70-103.79,126.66-108.21,129a8,8,0,0,1-7.58,0C119.79,228.66,16,172,16,102A62.07,62.07,0,0,1,78,40c20.65,0,38.73,8.88,50,23.89C139.27,48.88,157.35,40,178,40A62.07,62.07,0,0,1,240,102Z"/></svg> }
+// PRACTISE, AND IT IS NOT THE QUIZ CARD. Nine call sites read practise and drew
+// IconQuiz, so the place you go to study and the card you are asked looked identical.
+// A mortarboard is recognised by its outer shape, which is the whole of rule 3.
+export function IconPractise({ size = ICON_SIZE }) { return <svg {...iconFill} viewBox="-28.1 -20.1 312.2 312.2" width={size} height={size}><path d="M176,207.24a119,119,0,0,0,16-7.73V240a8,8,0,0,1-16,0Zm11.76-88.43-56-29.87a8,8,0,0,0-7.52,14.12L171,128l17-9.06Zm64-29.87-120-64a8,8,0,0,0-7.52,0l-120,64a8,8,0,0,0,0,14.12L32,117.87v48.42a15.91,15.91,0,0,0,4.06,10.65C49.16,191.53,78.51,216,128,216a130,130,0,0,0,48-8.76V130.67L171,128l-43,22.93L43.83,106l0,0L25,96,128,41.07,231,96l-18.78,10-.06,0L188,118.94a8,8,0,0,1,4,6.93v73.64a115.63,115.63,0,0,0,27.94-22.57A15.91,15.91,0,0,0,224,166.29V117.87l27.76-14.81a8,8,0,0,0,0-14.12Z"/></svg> }
+// A GAME UNDERWAY. ReadingBadge computed isGame for its aria-label and then drew the
+// film glyph, so a game announced itself as a game and looked like a film.
+export function IconPlaying({ size = ICON_SIZE }) { return <svg {...iconFill} viewBox="-18.3 -18.3 292.6 292.6" width={size} height={size}><path d="M247.44,173.75a.68.68,0,0,0,0-.14L231.05,89.44c0-.06,0-.12,0-.18A60.08,60.08,0,0,0,172,40H83.89a59.88,59.88,0,0,0-59,49.52L8.58,173.61a.68.68,0,0,0,0,.14,36,36,0,0,0,60.9,31.71l.35-.37L109.52,160h37l39.71,45.09c.11.13.23.25.35.37A36.08,36.08,0,0,0,212,216a36,36,0,0,0,35.43-42.25ZM104,112H96v8a8,8,0,0,1-16,0v-8H72a8,8,0,0,1,0-16h8V88a8,8,0,0,1,16,0v8h8a8,8,0,0,1,0,16Zm40-8a8,8,0,0,1,8-8h24a8,8,0,0,1,0,16H152A8,8,0,0,1,144,104Zm84.37,87.47a19.84,19.84,0,0,1-12.9,8.23A20.09,20.09,0,0,1,198,194.31L167.8,160H172a60,60,0,0,0,51-28.38l8.74,45A19.82,19.82,0,0,1,228.37,191.47Z"/></svg> }
+
+
+// The filled set renders itself into the glossary. A picture of a glyph can go stale;
+// the glyph cannot. Guarded like every other declaration — see the note beside the
+// first ones — so none of this reaches the shipped bundle.
+if (import.meta.env.DEV) {
+  IconHeartOn.glossary = { demo: (h) => h(IconHeartOn, { size: 28 }) };
+  IconHome.glossary = { demo: (h) => h(IconHome, { size: 28 }) };
+  IconNavLibrary.glossary = { demo: (h) => h(IconNavLibrary, { size: 28 }) };
+  IconNavCatalogue.glossary = { demo: (h) => h(IconNavCatalogue, { size: 28 }) };
+  IconNavQuotes.glossary = { demo: (h) => h(IconNavQuotes, { size: 28 }) };
+  IconNavAnthologies.glossary = { demo: (h) => h(IconNavAnthologies, { size: 28 }) };
+  IconNavTags.glossary = { demo: (h) => h(IconNavTags, { size: 28 }) };
+  IconRecords.glossary = { demo: (h) => h(IconRecords, { size: 28 }) };
+  IconStats.glossary = { demo: (h) => h(IconStats, { size: 28 }) };
+  IconSliders.glossary = { demo: (h) => h(IconSliders, { size: 28 }) };
+  IconNavSearch.glossary = { demo: (h) => h(IconNavSearch, { size: 28 }) };
+  IconImport.glossary = { demo: (h) => h(IconImport, { size: 28 }) };
+  IconNavProfile.glossary = { demo: (h) => h(IconNavProfile, { size: 28 }) };
+  IconNavUsers.glossary = { demo: (h) => h(IconNavUsers, { size: 28 }) };
+  IconPractise.glossary = { demo: (h) => h(IconPractise, { size: 28 }) };
+  IconPalette.glossary = { demo: (h) => h(IconPalette, { size: 28 }) };
+  IconReading.glossary = { demo: (h) => h(IconReading, { size: 28 }) };
+  IconWatching.glossary = { demo: (h) => h(IconWatching, { size: 28 }) };
+  IconPlaying.glossary = { demo: (h) => h(IconPlaying, { size: 28 }) };
+}
+
 // NavIcon — the glyph for a nav tab, keyed by the tab key the four lists in
 // routes.js use.
+//
+// EVERY CASE HERE DRAWS A FILL, and five of them look unchanged because they did not
+// need a second glyph: IconHome, IconRecords, IconImport, IconStats and IconSliders
+// had no caller outside this switch, so their own drawing became the filled one. The
+// other eight are used elsewhere as verbs — IconSearch alone has thirteen such call
+// sites — and a verb must not wear the fill that means "somewhere to go", so those
+// have a separate IconNav* twin and keep their outline everywhere else.
 //
 // It lived in App.jsx as `TabIcon` with its own stroke settings, which is how
 // the app came to draw a magnifier, an open book and a tray-download twice each
@@ -5471,18 +5888,18 @@ export function IconAnthology({ size = ICON_SIZE }) { return <svg {...iconStroke
 export function NavIcon({ name }) {
   switch (name) {
     case 'home': return <IconHome />
-    case 'quotes': return <IconQuote />
-    case 'anthologies': return <IconAnthology />
-    case 'library': return <IconBooks />
-    case 'movies': return <IconReel />
+    case 'quotes': return <IconNavQuotes />
+    case 'anthologies': return <IconNavAnthologies />
+    case 'library': return <IconNavLibrary />
+    case 'movies': return <IconNavCatalogue />
     case 'metadata': return <IconRecords />
     case 'import': return <IconImport />
-    case 'search': return <IconSearch />
-    case 'tags': return <IconTag />
+    case 'search': return <IconNavSearch />
+    case 'tags': return <IconNavTags />
     case 'stats': return <IconStats />
     case 'settings': return <IconSliders />
-    case 'profile': return <IconPerson />
-    case 'users': return <IconUsers />
+    case 'profile': return <IconNavProfile />
+    case 'users': return <IconNavUsers />
     default: return null
   }
 }
@@ -5515,6 +5932,118 @@ export const SOURCE_META = {
   tmdb: { name: "vocab.source.tmdb.label", Icon: IconSrcTMDB },
   tvdb: { name: "vocab.source.tvdb.label", Icon: IconSrcTVDB },
 };
+
+if (import.meta.env.DEV) {
+  FieldSourceTag.glossary = {
+    demo: (h) =>
+      h(
+        "div",
+        { style: { display: "flex", flexDirection: "column", gap: 10, width: "100%", maxWidth: 420 } },
+        [
+          ["page count", "google", "2026-02-14"],
+          ["description", "manual", null],
+          ["series", null, null],
+        ].map(([label, source, at]) =>
+          h(
+            "div",
+            { key: label, style: { display: "flex", alignItems: "center", gap: 8 } },
+            h(MonoLabel, null, label),
+            h("span", { style: { flex: 1 } }),
+            h(FieldSourceTag, { source, at }),
+          ),
+        ),
+      ),
+  };
+}
+
+// SOURCE_KEYS / sourceName — the reader's name for a supplier, in ONE place.
+//
+// It lived in CoverPicker.jsx, which was right while a supplier was only ever named on a
+// cover candidate. Per-field provenance names one on every field row, and a second table
+// is how a picker and a field row come to call one company two things.
+//
+// KEYS, NOT SPELLINGS, and the list is the store's: `field_source.source` can hold any of
+// these (internal/httpapi/reverify_handlers.go's knownBookSource / knownMovieSource), so
+// three that the cover picker never sees — imdb, wikipedia and `manual` — are here too.
+const SOURCE_KEYS = {
+  tvdb: "vocab.source.tvdb.label",
+  tmdb: "vocab.source.tmdb.label",
+  igdb: "vocab.source.igdb.label",
+  wikidata: "vocab.source.wikidata.label",
+  google: "vocab.source.google.label",
+  openlibrary: "vocab.source.openlibrary.label",
+  amazon: "vocab.source.amazon.label",
+  wikimedia: "vocab.source.wikimedia.label",
+  fandom: "vocab.source.fandom.label",
+  letterboxd: "vocab.source.letterboxd.label",
+  imdb: "vocab.source.imdb.label",
+  wikipedia: "vocab.source.wikipedia.label",
+  // Not a supplier. `manual` is the store's word for "somebody looked at this and
+  // decided", which it treats as a real answer rather than the absence of one.
+  manual: "vocab.source.manual.label",
+};
+
+// An unknown slug falls through to itself rather than to a missing key.
+export const sourceName = (slug) =>
+  SOURCE_KEYS[slug] ? t(SOURCE_KEYS[slug]) : String(slug || "");
+
+// ProviderMark — a supplier's own mark, drawn as a mask so it wears the row's ink.
+//
+// IT REPLACES A CATEGORY GLYPH, AND THAT REVERSES A DECISION written a few lines above:
+// "these are 16px category glyphs (not brand logos — they match the hand-drawn stroke set
+// and need no licensing)". That held while a supplier's name appeared once, on a look-up
+// row you were already reading. It stops holding now that every FIELD on a record carries
+// the mark of whoever wrote it: at that density the reader is scanning for "which of
+// these did Google write", and a category glyph cannot answer it — five of the twelve
+// suppliers shared one drawing. A real mark is recognised without being read, which is
+// the job. The licensing that note avoided is the price, paid in docs/PROVIDER-MARKS.md.
+//
+// A SLUG WITH NO MARK IS NOT AN ERROR. `manual` has no supplier to draw, and a supplier
+// added tomorrow has no mark until somebody adds one; both fall back to the name.
+export function ProviderMark({ source, size }) {
+  const uri = PROVIDER_MARKS[source];
+  if (!uri) return null;
+  return (
+    <span
+      className="src-mark"
+      aria-hidden="true"
+      style={{
+        WebkitMaskImage: `url("${uri}")`,
+        maskImage: `url("${uri}")`,
+        ...(size ? { width: size, height: size } : null),
+      }}
+    />
+  );
+}
+
+// FieldSourceTag — who wrote this field, on the row that field lives in.
+//
+// WHY PER FIELD AND NOT PER RECORD. A record is assembled: the ISBN came from the scan,
+// the page count from Google Books because Open Library had the wrong edition, the
+// description you wrote. One provenance line for eleven fields cannot say that, and it
+// makes Refetch an all-or-nothing gamble — which is why people stop pressing it.
+//
+// THREE STATES, AND THEY ARE GENUINELY DIFFERENT. A supplier's mark means that supplier
+// wrote it. The accent word means YOU did — `store.SourceManual`, which the database
+// treats as a real answer. NOTHING AT ALL means the field has no row, which is "we do not
+// know" and is not the same as "nobody has touched it".
+export function FieldSourceTag({ source, at }) {
+  if (!source) return null;
+  const name = sourceName(source);
+  const when = at ? ` · ${String(at).slice(0, 10)}` : "";
+  const drawn = !!PROVIDER_MARKS[source];
+  return (
+    <span
+      className="field-src"
+      data-src={drawn ? source : source === "manual" ? "manual" : "none"}
+      title={`${name}${when}`}
+    >
+      <ProviderMark source={source} />
+      {drawn ? null : <span aria-hidden="true">{name}</span>}
+      <span className="sr-only">{name}</span>
+    </span>
+  );
+}
 
 // SourceIcon — the pill replacement, labelled the way InfoDot is: a tooltip for
 // a pointer and a real aria-label for assistive tech. `detail` appends the
@@ -5990,7 +6519,7 @@ export function TableActions({ onCopy, onShare, onPractise, onEdit, onDelete, no
   return (
     <span className="flex items-center justify-end gap-1">
       {onCopy && <FieldIconButton icon={<IconCopy />} ariaLabel={t("common.action.copy.label")} onClick={onCopy} tooltip={t("common.action.copy.row.tip", { noun: what })} />}
-      {onPractise && <FieldIconButton icon={<IconQuiz />} ariaLabel={t("common.action.practise.label")} onClick={onPractise} tooltip={t("common.action.practise.row.tip", { noun: what })} />}
+      {onPractise && <FieldIconButton icon={<IconPractise />} ariaLabel={t("common.action.practise.label")} onClick={onPractise} tooltip={t("common.action.practise.row.tip", { noun: what })} />}
       {onShare && <FieldIconButton icon={<IconShare />} ariaLabel={t("common.action.share.label")} onClick={onShare} tooltip={t("common.action.share.row.tip", { noun: what })} />}
       {onEdit && <FieldIconButton icon={<IconEdit />} ariaLabel={t("common.action.edit.label")} onClick={onEdit} tooltip={t("common.action.edit.row.tip", { noun: what })} />}
       {onDelete && <FieldIconButton icon={<IconDelete />} ariaLabel={t("common.action.delete.label")} onClick={onDelete} tooltip={t("common.action.delete.row.tip", { noun: what })} danger />}

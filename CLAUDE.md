@@ -27,7 +27,7 @@ npm test                              # vitest
 npm run dev                           # Vite dev server, proxies /api -> 127.0.0.1:8080
 npm run build                         # -> ../dist, a COMMITTED artefact the binary embeds
 
-node scripts/glossary-css.mjs --check     # docs/ui-glossary.html's inlined CSS vs. web/dist
+cd web/frontend && npm run glossary:check # docs/ui-glossary.html is generated — `make glossary`
 node scripts/roadmap-data.mjs --check     # docs/roadmap.html vs. docs/data/*.json
 node scripts/doc-map-check.mjs            # DEVELOPMENT.md's file map still matches the tree
 ```
@@ -57,6 +57,29 @@ running (`dockerd &` if not already up in this environment).
 - Docs that go stale with a change and belong in the same PR: `CHANGELOG.md` (user-visible
   changes), `docs/ui-glossary.html` (interface renames), `AI.md` (verification changes),
   `docs/PLAN.md` (design departures).
+
+## Standing UI rules
+
+These are the design pack's, landed in code — they bind new work rather than describing
+old work, so a screen that breaks one is a bug and not a variation.
+
+- **An edge fade means it scrolls; a button at the fade opens the full set.** Use
+  `Scroller` or `useEdgeScroll` — never bare `overflow`, which gives no signal and no
+  mouse gesture. The fade is measured, so a row that fits wears none.
+- **Never truncate a name.** A shortened name and a short name look alike, so an
+  ellipsis on one destroys the thing the row exists to show. It scrolls under the fade,
+  or it wraps. `scripts/screenshots/typescale-baseline.json` records the sites that
+  still do this; the number may fall and never rise.
+- **Spacing is a constant.** `var(--edge)` and `var(--row)`, restated per screen if a
+  screen genuinely differs. A step typed into a row is a bug, and
+  `spacing-debt.test.js` counts how many remain.
+- **No box that holds text is measured in px** — `em`, `ch`, or a share of its
+  container. A fixed size that must hold scaling text is a `max(<px floor>, <em>)`, not
+  a px. Verify with `make typescale`, not by eye.
+- **Every font size answers the type dials** (`typescale.test.js`). If text clips, grow
+  the box; freezing the text is the wrong repair and the suite says so.
+- **A rest state may not depend on anything firing.** Disable every animation and the
+  content is still there — see `entrance-rule.test.js`.
 
 ## Invariants
 

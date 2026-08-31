@@ -637,6 +637,15 @@ export function WorkDetails({ open, onClose, kind, item, onChanged, onDelete }) 
 
 function FieldList({ kind, item, specs, mediaType, busy, genreSuggestions, onSaveField, onSaveAll, onCover, onChanged, onFetch, onDelete, onClose }) {
   const artPath = kind === 'book' ? item.cover_path : item.poster_path
+  // field_sources[] -> { field: { source, at } }, so a row is one lookup rather than a
+  // scan. Empty when the record has none, which is every record until something
+  // fetches or somebody edits it — and an empty tag is the right answer there.
+  const fieldSources = useMemo(() => {
+    const out = {}
+    for (const fs of item?.field_sources || []) if (fs?.field) out[fs.field] = fs
+    return out
+  }, [item])
+
   // THE MASTER SAVE. Every row still saves itself — that is what the panel is
   // for, and changing one field should not cost more than one press. What it
   // did cost was six presses for six fields, so the header offers one.
@@ -768,6 +777,12 @@ function FieldList({ kind, item, specs, mediaType, busy, genreSuggestions, onSav
         {specs.map((spec) => {
           const label = labelFor(spec, mediaType)
           const value = resting(spec, item)
+          // WHO WROTE THIS FIELD. `field_sources` has been on the wire since 0054 and
+          // the client threw it away; this is where it lands. A spec's `key` already
+          // IS the store's field name — title, author, published_year, isbn — so no
+          // translation table stands between them, and one that drifted would be
+          // worse than the absence it replaced.
+          const prov = fieldSources[spec.key]
           if (spec.kind === 'id') {
             // A supplier id edits like any other field, but reads as a link to
             // the record it names — the number itself is only worth looking at
@@ -776,6 +791,8 @@ function FieldList({ kind, item, specs, mediaType, busy, genreSuggestions, onSav
               <InlineField
                 key={spec.key}
                 fieldKey={spec.key}
+                source={prov?.source}
+                sourceAt={prov?.at}
                 label={label}
                 value={value}
                 hint={spec.hint}
@@ -803,6 +820,8 @@ function FieldList({ kind, item, specs, mediaType, busy, genreSuggestions, onSav
               <InlineField
                 key={spec.key}
                 fieldKey={spec.key}
+                source={prov?.source}
+                sourceAt={prov?.at}
                 label={label}
                 value={value}
                 display={value.join(' · ')}
@@ -820,6 +839,8 @@ function FieldList({ kind, item, specs, mediaType, busy, genreSuggestions, onSav
               <InlineField
                 key={spec.key}
                 fieldKey={spec.key}
+                source={prov?.source}
+                sourceAt={prov?.at}
                 label={label}
                 value={value}
                 // THREE MEDIA, NOT TWO. This read `value === 'show' ? 'Show' :
@@ -854,6 +875,8 @@ function FieldList({ kind, item, specs, mediaType, busy, genreSuggestions, onSav
             <InlineField
               key={spec.key}
               fieldKey={spec.key}
+              source={prov?.source}
+              sourceAt={prov?.at}
               label={label}
               value={value}
               hint={spec.hint}

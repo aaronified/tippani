@@ -166,6 +166,56 @@ describe('NavIcon', () => {
 // commands this set actually uses are handled, and arcs are taken at their
 // endpoints — every arc here rounds a corner INWARD, so endpoints give the true
 // extent.
+// The true extent of an SVG elliptical arc — endpoint parameterisation converted to
+// centre form, then the extrema that actually fall inside the swept range. Standard
+// arithmetic (SVG 1.1 F.6.5); it is here rather than approximated because approximating
+// it is what let a clipped glyph ship.
+function arcExtent(x0, y0, rx, ry, rot, large, sweep, x1, y1, see) {
+  see(x0, y0)
+  see(x1, y1)
+  if (!rx || !ry) return
+  rx = Math.abs(rx)
+  ry = Math.abs(ry)
+  const phi = (rot * Math.PI) / 180
+  const cosP = Math.cos(phi)
+  const sinP = Math.sin(phi)
+  const dx2 = (x0 - x1) / 2
+  const dy2 = (y0 - y1) / 2
+  const x1p = cosP * dx2 + sinP * dy2
+  const y1p = -sinP * dx2 + cosP * dy2
+  const lam = (x1p * x1p) / (rx * rx) + (y1p * y1p) / (ry * ry)
+  if (lam > 1) {
+    const k = Math.sqrt(lam)
+    rx *= k
+    ry *= k
+  }
+  const den = rx * rx * y1p * y1p + ry * ry * x1p * x1p
+  const num = rx * rx * ry * ry - rx * rx * y1p * y1p - ry * ry * x1p * x1p
+  let co = den ? Math.sqrt(Math.max(0, num / den)) : 0
+  if (!!large === !!sweep) co = -co
+  const cxp = (co * rx * y1p) / ry
+  const cyp = (-co * ry * x1p) / rx
+  const cx = cosP * cxp - sinP * cyp + (x0 + x1) / 2
+  const cy = sinP * cxp + cosP * cyp + (y0 + y1) / 2
+  const t0 = Math.atan2((y1p - cyp) / ry, (x1p - cxp) / rx)
+  const t1 = Math.atan2((-y1p - cyp) / ry, (-x1p - cxp) / rx)
+  let dt = t1 - t0
+  if (sweep && dt < 0) dt += 2 * Math.PI
+  if (!sweep && dt > 0) dt -= 2 * Math.PI
+  if (!dt) return
+  for (const base of [Math.atan2(-ry * sinP, rx * cosP), Math.atan2(ry * cosP, rx * sinP)]) {
+    for (let n = -4; n <= 4; n++) {
+      const t = base + n * Math.PI
+      const frac = (t - t0) / dt
+      if (frac < 0 || frac > 1) continue
+      see(
+        cx + rx * Math.cos(t) * cosP - ry * Math.sin(t) * sinP,
+        cy + rx * Math.cos(t) * sinP + ry * Math.sin(t) * cosP,
+      )
+    }
+  }
+}
+
 function extentOf(svg) {
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
   const see = (x, y) => {
@@ -202,11 +252,20 @@ function extentOf(svg) {
           break
         case 'H': for (const a of args) { x = rel ? x + a : a; see(x, y) } break
         case 'V': for (const a of args) { y = rel ? y + a : a; see(x, y) } break
-        case 'A': // rx ry rot large sweep x y — endpoint only
+        case 'A': // rx ry rot large sweep x y
+          // THE SWEEP, NOT JUST THE ENDPOINTS. This read the endpoint alone, which is
+          // wrong for exactly the glyphs it matters for: a Phosphor fill draws a disc
+          // as one arc whose two endpoints sit near each other while the curve travels
+          // half the box away. IconNavCatalogue measured 152 wide that way against a
+          // true 216, so the viewBox cropped from it CUT THE DRAWING — the reel lost its
+          // left edge on screen and this test called it correct. Fourteen of nineteen
+          // fills were out; two were clipping.
           for (let i = 0; i + 6 < args.length; i += 7) {
+            const x0 = x
+            const y0 = y
             x = rel ? x + args[i + 5] : args[i + 5]
             y = rel ? y + args[i + 6] : args[i + 6]
-            see(x, y)
+            arcExtent(x0, y0, args[i], args[i + 1], args[i + 2], args[i + 3], args[i + 4], x, y, see)
           }
           break
         case 'C': case 'S': case 'Q': { // endpoints only; none of these glyphs
@@ -226,38 +285,58 @@ function extentOf(svg) {
 }
 
 describe('the nav glyphs carry the same optical weight', () => {
-  const NAV = ['IconQuote', 'IconBooks', 'IconReel', 'IconHome', 'IconStats']
-  const area = (name) => {
-    const Comp = ui[name] // as an element, not a call: most take a `size` prop
-    const { container, unmount } = render(<Comp />)
-    const e = extentOf(container.querySelector('svg'))
+  // MEASURED THROUGH NavIcon, NOT FROM A LIST OF GLYPH NAMES. The old list named
+  // IconQuote, IconBooks and IconReel — which stopped being the nav set the moment the
+  // rail took fills and those three stayed drawn for their verb call sites. A test that
+  // names its subjects by hand goes on measuring the wrong five glyphs and passing.
+  //
+  // AND THE EXTENT IS NORMALISED BY THE viewBox, because the rail is now two coordinate
+  // spaces: the drawn glyphs are on the 24 grid and the Phosphor fills on 256. Raw
+  // coordinates made a filled house measure 192x195 against a drawn one's 16x15 — ten
+  // times the number for the same picture on screen. What matters is the SHARE of its
+  // box a glyph occupies, which is what a reader actually sees.
+  const TABS = ['home', 'library', 'movies', 'quotes', 'anthologies', 'tags',
+    'metadata', 'stats', 'settings', 'search', 'import', 'profile', 'users']
+  const share = (tab) => {
+    const { container, unmount } = render(<ui.NavIcon name={tab} />)
+    const svg = container.querySelector('svg')
+    const box = (svg.getAttribute('viewBox') || '0 0 24 24').split(/\s+/).map(Number)
+    const e = extentOf(svg)
     unmount()
-    return e
+    return { w: e.w / (box[2] || 24), h: e.h / (box[3] || 24) }
   }
 
-  // One test over all five nav glyphs rather than one per glyph: the four range
-  // assertions are identical for each, every glyph is still measured as a loop
-  // iteration, and the aggregate names every out-of-range glyph with its actual
-  // footprint instead of failing on the first.
+  // EVERY FILL CARRIES ITS OWN viewBox, cropped so its LARGEST dimension is 0.82 of the
+  // box. Phosphor's glyphs are drawn to their own margins, not to a shared one — the film
+  // reel occupies 0.59 of its box and `users` 0.98 — so dropped into a rail straight from
+  // the pack they read as thirteen different sizes. Normalising the crop is uniform
+  // scaling: no glyph is stretched, and the drawing is still the pack's.
+  const TARGET = 0.82
+
   it('each nav glyph fills its box like the tabs beside it', () => {
     const offenders = []
-    for (const name of NAV) {
-      const { w, h } = area(name)
-      // The set's own range, measured: nothing narrower than 14 or shorter than 13
-      // of the 24 grid. A glyph under that reads as a smaller icon rather than a
-      // different one.
-      if (w < 14 || h < 13 || w > 19 || h > 19) offenders.push(`${name} ${w}x${h}`)
+    for (const tab of TABS) {
+      const { w, h } = share(tab)
+      // The long side is what the eye measures across a row, so that is what is held
+      // equal. The short side follows the drawing's own aspect — `quotes` is two marks
+      // side by side and is honestly wide and short; what it must not be is SMALLER.
+      const long = Math.max(w, h)
+      if (Math.abs(long - TARGET) > 0.04) offenders.push(`${tab} long side ${long.toFixed(2)}`)
+      if (Math.min(w, h) < 0.45) offenders.push(`${tab} short side ${Math.min(w, h).toFixed(2)}`)
     }
     expect(offenders).toEqual([])
   })
 
-  it('Quotes is no smaller than the two tabs it sits between', () => {
-    // The reported bug, stated as the thing that was actually wrong.
-    const q = area('IconQuote')
-    for (const neighbour of ['IconBooks', 'IconReel']) {
-      const n = area(neighbour)
-      expect(q.w, `Quotes vs ${neighbour} width`).toBeGreaterThanOrEqual(n.w - 1)
-      expect(q.h, `Quotes vs ${neighbour} height`).toBeGreaterThanOrEqual(n.h - 1)
-    }
+  it('no tab is drawn smaller than the tabs it sits between', () => {
+    // The reported bug, stated as the thing that was actually wrong: Quotes read as a
+    // smaller icon than Library and Catalogue on either side of it. Held for the whole
+    // set rather than for one glyph, because the next set will have a different runt.
+    const longs = TABS.map((t) => {
+      const { w, h } = share(t)
+      return [t, Math.max(w, h)]
+    })
+    const smallest = longs.reduce((a, b) => (b[1] < a[1] ? b : a))
+    const largest = longs.reduce((a, b) => (b[1] > a[1] ? b : a))
+    expect(largest[1] - smallest[1], `${smallest[0]} is smaller than ${largest[0]}`).toBeLessThan(0.08)
   })
 })

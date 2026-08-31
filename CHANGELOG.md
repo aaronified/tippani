@@ -9,6 +9,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Every field on a record now says who wrote it.** A record is assembled — the ISBN came
+  from the scan, the page count from Google Books because Open Library had the wrong
+  edition, the description you wrote — and one *Source:* line for the whole record could
+  never say that. Each field carries its supplier's own mark instead, or **You** where you
+  typed it, or nothing at all where nobody knows. The marks are drawn in the app's ink
+  rather than in brand colours, and they are built into the app: nothing is fetched from
+  anybody to draw them.
+
+- **The navigation moved to a rail down the left edge.** Nine destinations in a column
+  instead of a strip across the top, each with the number that matters to it — how many
+  books, how many quotes, how many records still have a gap, whether your quiz streak is
+  alive, which version you are running. It gives every screen the top of the page back,
+  which is where the thing you came to read starts. Below 1180px the rail keeps its
+  glyphs and drops its words; on a phone it stays behind ☰, because nine destinations
+  pinned beside a 390px screen would leave 320px of book.
+
+- **A search field in the top bar, with the scope worn as a pill you can drop.** It says
+  what it will search — *in this book*, *in Library* — and taking the pill off is how you
+  search everything: same field, nothing else to learn. That replaces the magnifier that
+  used to sit there and the hidden right-click that widened it.
+
+- **A breadcrumb**, so a screen says where it sits: *Library / Moby-Dick*. Two levels,
+  which is as deep as this app goes.
+
+- **Checks**, one place for the two lists that ask something of you — imports waiting to
+  be okayed, and quotes with something odd left in them. Both were tiles buried in
+  Settings, which is where you go to change how the app behaves, not to find out it is
+  waiting on you. The bin moved out of Settings for the same reason and now sits in the
+  rail beside it, with its count.
+
+- **A scrolling row now says that it scrolls.** Wherever content outruns its box — the
+  top bar's tabs on a narrow window, an annotation table, the Stats timeline and its
+  year of activity dots, the help rail — the last stretch of it now fades out, and the
+  fade moves to whichever end still has something on it. There is no arrow, no
+  scrollbar and no counter, because the fade is the whole signal. It is measured in
+  pixels sideways and in lines downward: a sideways fade has to clear a thumb, which
+  does not change size, while a downward one has to land on the last line, which moves
+  the moment you change your type size.
+
+- **Those rows can now be dragged with a mouse.** Sideways scrolling used to be a
+  touchpad or touchscreen gesture only, so on a plain mouse the row was simply stuck
+  behind a fade promising content it would not give up. Press and drag anywhere on one
+  and it follows; a drag swallows the click that ends it, so pulling a row along never
+  opens the thing you happened to let go on.
+
 - **Atrium — an eighth material set, with no material in it.** Flat surfaces and the
   accent, nothing composited: the seven others each name four textures and this one names
   none, which makes it the cheapest thing the app can draw and the answer for a machine
@@ -190,6 +235,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **The nav rail is solid now, and a fill has to argue for itself.** Every destination —
+  Home, Library, Catalogue, Quotes, Anthologies, Tags, Metadata, Stats, Settings, Search,
+  Import, the account and Users — draws a filled glyph, because **solid says "somewhere to
+  go" before the word beside it is read**, which is the same thing the shell says one step
+  later when the active row wears an accent fill. Everything else in the app stays drawn at
+  1.85: a key (tick, plus, close, chevron, the three dots) is a pen mark with nothing inside
+  to fill, and a letterform like translate becomes a blob at 19px.
+
+  Four more glyphs earned the exception. **Practise is a mortarboard**, which finally
+  separates *the place you go to study* from *the card you are asked* — nine call sites read
+  "practise" and drew the quiz card, so the two were the same picture. **The favourite fills
+  when it is set**: the quiz card had been flipping its label between on and off while
+  drawing one heart, so the state lived in the words and nowhere else. **The colour control
+  is a palette** whose wells can hold the six category colours, replacing the ink drop. And
+  **a game underway gets a controller** — `ReadingBadge` worked out that a work was a game,
+  said so in its accessible name, and then drew the film glyph anyway.
+
+  The glyphs are **[Phosphor Icons](https://github.com/phosphor-icons/core)**, MIT, and each
+  one is cropped to its own ink so its long side takes the same share of its box. Straight
+  from the pack the film reel filled 0.59 of its box and `users` 0.98 — thirteen tabs at
+  thirteen sizes. Eight of the thirteen keep a drawn twin, because a glyph that is also a
+  verb somewhere else must not wear the fill that means a place: `IconSearch` alone has
+  thirteen such call sites.
+
+- **The UI glossary is generated now, and it had been wrong for a release.**
+  [`docs/ui-glossary.html`](docs/ui-glossary.html) — the page that names every part of
+  the interface — was 150 entries of hand-written markup, and nothing compared it with
+  the app. So it went on offering a **Paper / Film aesthetic** toggle for a whole
+  release after 3.0.0 replaced aesthetics with material sets, driving a
+  `data-aesthetic` attribute that appears *zero* times in the stylesheet; its topbar
+  sample still showed an **Import** tab that is no longer a tab; four of the CSS
+  classes it drew had been deleted from the app; and its buttons were missing
+  `tactile`, the class that makes a button press. Nobody was careless — a document
+  nothing executes has no way to fail.
+
+  It is now built by `make glossary` from the code it describes: entries from a
+  catalogue module, samples from the **real components** where one has a `glossary`
+  declaration beside it, the constants section from the new `src/tokens.js`, and the
+  theme data captured from `theme.js`'s own `applyTheme` rather than mirrored by hand —
+  so the toggles now offer all eight material sets, in both modes, under any accent,
+  and cannot disagree with the app about what any of them looks like. CI fails when the
+  page is stale, and two new test files fail when an entry names a class or a component
+  that no longer exists. Every one of the 150 original descriptions was carried over
+  word for word: they are long, careful and full of recorded history, and the point was
+  to stop them rotting, not to rewrite them.
+
 - **The app no longer downloads itself all at once.** It compiled to a single 1.8MB
   JavaScript file, and a browser can render nothing until it has downloaded, parsed
   and compiled all of it — including Settings, Stats and Metadata, which most sessions
@@ -344,6 +435,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   answer "must I do something about this" rather than to report status.
 
 ### Fixed
+
+- **Correcting a field by hand now records that you did it.** Until now an edit changed the
+  value and left the old supplier's name against it, so a page count you had fixed
+  yourself went on claiming Google Books wrote it — and the next refetch treated it as
+  the supplier's to overwrite. Only the fields you actually change are re-marked; the
+  rest keep their supplier, so a refetch still updates its neighbours.
+
+- **The rail's current row is legible at every accent.** The buttons in this app lift the
+  top of their fill with a little white to read as raised, and pay for it in contrast —
+  the ＋ Add label has been below the readable floor for as long as it has existed. The
+  rail's current row is not a button, so it does not take the lift, and its label clears
+  the floor on every accent, in both themes, on all eight material sets.
+
+- **A character's name is no longer cut off.** It ended in an ellipsis when the row was
+  narrow, which is the one kind of failure a reader cannot see — a shortened name and a
+  short name look exactly alike, so the row was destroying the only thing it was there
+  to show. Long names now scroll under the fade. In the suggestion list, where a
+  sideways drag would fight the click that picks the row, the name wraps to a second
+  line instead.
+
+- **Your avatar's initial was cut off at the top on every screen**, at any type size
+  above the default. The letter itself fitted the badge; the line spacing around it did
+  not, because the badge was inheriting the page's leading and asking for half again as
+  much room as it had.
 
 ### Removed
 

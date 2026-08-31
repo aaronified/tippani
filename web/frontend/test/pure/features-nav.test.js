@@ -274,7 +274,16 @@ describe('hiding a section does not move the routing', () => {
 describe('the shell filters every list it draws', () => {
   const app = readFileSync(new URL('../../src/App.jsx', import.meta.url), 'utf8')
   // Everything after the import block, so the import itself is not counted as a use.
-  const body = app.slice(app.indexOf('const DRAWER_SHORTCUTS'))
+  //
+  // AND WITHOUT COMMENTS. A COMMENT IS NOT A DRAW — typescale.test.js decomments for
+  // the same reason. A note explaining that the rail reads CONTENT_TABS and
+  // UTILITY_TABS failed this test while the code under it was correctly filtered,
+  // which is a test reporting on prose rather than on behaviour.
+  const body = app
+    .slice(app.indexOf('const DRAWER_SHORTCUTS'))
+    .split('\n')
+    .map((l) => (/^\s*(\/\/|\*|\/\*)/.test(l) ? '' : l))
+    .join('\n')
 
   it.each(['CONTENT_TABS', 'UTILITY_TABS', 'DRAWER_TABS', 'BOTTOM_TABS'])('passes %s through visibleTabs', (list) => {
     // The captured text reaches one character back past the name, so a bare

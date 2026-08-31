@@ -66,11 +66,15 @@ import {
   frameCode,
   GhostButton,
   IconBack,
+  IconBin,
+  IconChecks,
   IconMenu,
   IconPlus,
   IconSearch,
   IconSearchGlobe,
+  Kbd,
   NavIcon,
+  ShortcutSheet,
   Sprockets,
   StickerButton,
   toast,
@@ -79,13 +83,13 @@ import {
   Tooltip,
   useBackToClose,
   useBodyScrollLock,
+  useCrumbTitle,
+  useEdgeScroll,
   useFrameBase,
   useHideOnScrollDown,
   useIsMobileScreen,
   usePersistedState,
   useResolvedDark,
-  Kbd,
-  ShortcutSheet,
 } from './ui.jsx'
 import { takeSearchSeed } from './facets.js'
 import { Profile } from './Account.jsx'
@@ -585,77 +589,6 @@ export function Login({ onLogin }) {
 // tabs exist without rendering the shell.
 
 
-// DesktopNav renders in the topbar. It is a real component (not an inline
-// closure in Shell) so a Shell re-render does not remount the Toggle and lose the
-// DOM measurements its sliding thumb is positioned from.
-// tabOptions renders a [key, label, tip] list as Toggle segments (icon + label),
-// carrying the tip through as the segment's hover label.
-function tabOptions(rows) {
-  return rows.map(([key, label, tip]) => [
-    key,
-    <><NavIcon name={key} /> <span className="tab-label">{t(label)}</span></>,
-    t(tip),
-  ])
-}
-
-// DesktopNav: content tabs · divider · utility tabs, all inline.
-//
-// `sections` is what the reader has left switched on (Settings → Features). It is
-// applied through visibleTabs, the one filter all four nav lists share, so the
-// strip and the drawer and the phone bar cannot disagree about what is showing.
-// Toggle already tolerates a `value` matching none of its options by hiding the
-// thumb, which is exactly the render for standing in a hidden section by URL.
-function DesktopNav({ tab, onChange, sections }) {
-  return (
-    <div className="topbar-nav-group">
-      <Toggle className="nav-toggle" ariaLabel={t('shell.nav.primary.aria')} value={tab} onChange={onChange} options={tabOptions(visibleTabs(CONTENT_TABS, sections))} />
-      <span className="nav-divider" aria-hidden="true" />
-      <Toggle className="nav-toggle" ariaLabel={t('shell.nav.tools.aria')} value={tab} onChange={onChange} options={tabOptions(visibleTabs(UTILITY_TABS, sections))} />
-    </div>
-  )
-}
-
-// useIconOnlyNav — the intermediate-width fallback for the always-inline nav:
-// desktop windows come in every size, so the seven labelled tabs collapse to
-// icon-only WHEN they actually start clipping (scrollWidth outgrows the space
-// the bar gives the nav), not at a fixed breakpoint. The full-label width is
-// remembered so the labels come back once the bar is genuinely wide enough
-// again (with a small hysteresis margin so a boundary width can't flap).
-// Requires .topbar-nav { flex: 1 } so clientWidth tracks the AVAILABLE space
-// rather than the (already collapsed) content, and .topbar-nav-group
-// { flex: none } so a tight bar overflows the nav (measurable) instead of
-// squeezing the overflow:hidden toggles, which clips labels mid-glyph without
-// ever tripping the scrollWidth check.
-function useIconOnlyNav() {
-  const ref = useRef(null)
-  const [iconOnly, setIconOnly] = useState(false)
-  const state = useRef({ iconOnly: false, fullWidth: 0 })
-  useEffect(() => {
-    const el = ref.current
-    if (!el) return
-    const check = () => {
-      const s = state.current
-      if (!s.iconOnly) {
-        if (el.scrollWidth > el.clientWidth + 1) {
-          s.fullWidth = el.scrollWidth
-          s.iconOnly = true
-          setIconOnly(true)
-        }
-      } else if (el.clientWidth >= s.fullWidth + 8) {
-        s.iconOnly = false
-        setIconOnly(false)
-      }
-    }
-    check()
-    // Re-check when the available width changes, and once the bundled fonts
-    // land (they change label widths without resizing the nav element).
-    const ro = new ResizeObserver(check)
-    ro.observe(el)
-    document.fonts?.ready?.then(check)
-    return () => ro.disconnect()
-  }, [])
-  return [ref, iconOnly]
-}
 
 // AccountChip — the avatar in both top bars. It opens Profile, full stop.
 //
@@ -663,6 +596,205 @@ function useIconOnlyNav() {
 // the drawer carried the same rows again. Every one of those is a section of
 // Profile now (see Account.jsx), so the menu was a list of one screen's parts
 // standing between the chip and that screen. One tap, and nothing to learn.
+// navBadge — what a destination says about itself, in ONE place.
+//
+// The drawer has answered this since it was written: a total for the collections, and
+// for the three that are not collections, the thing you would actually want to know —
+// how many records have a gap, whether the quiz streak is alive, which version is
+// running. The rail wanted the same answers, and the wrong way to give it them is a
+// second table: two lists of counts is how a rail and a drawer come to disagree about
+// how many books there are, on the same screen, at the same moment.
+//
+// It returns a STRING (or null), not markup, so each caller wears its own class — the
+// drawer's badge and the rail's mono count are different sizes of the same fact.
+export function navBadge(key, { stats, metaIssues, streak, version } = {}) {
+  if (stats) {
+    // stats.quotes counts the utterances table — the standalone quotes, which is
+    // exactly what that row leads to. The other two count works, not quotes.
+    if (key === 'library') return String(stats.books)
+    if (key === 'movies') return String(stats.movies)
+    if (key === 'quotes') return String(stats.quotes)
+    if (key === 'tags') return String(stats.tags)
+    if (key === 'anthologies' && stats.anthologies != null) return String(stats.anthologies)
+  }
+  if (key === 'metadata' && metaIssues != null) {
+    return metaIssues > 0
+      ? t('common.count.phrase', { n: metaIssues, noun: t('unit.issue', { count: metaIssues }) })
+      : t('shell.drawer.metadata.clear.label')
+  }
+  if (key === 'stats' && streak > 0) return t('shell.drawer.stats.streak.label', { n: streak })
+  if (key === 'settings') return t('shell.drawer.settings.version.label', { version: version || 'dev' })
+  return null
+}
+
+// Breadcrumb — where you are, in the bar the rail left empty.
+//
+// TWO LEVELS AND NO MORE. This app is never more than two deep: a screen, or a work
+// inside one. A crumb trail that can only ever be `root / leaf` is a label with a
+// door on it, and pretending otherwise would mean inventing hierarchy the routes do
+// not have.
+function Breadcrumb({ tab, detail, title, onRoot }) {
+  const rootKey = detail?.type === 'movie' ? 'movies' : detail?.type === 'book' ? 'library' : null
+  const rootLabel = rootKey ? t(`nav.tab.${rootKey === 'movies' ? 'movies' : 'library'}.label`) : t('shell.wordmark.label')
+  const leaf = detail ? title : t(`nav.tab.${tab}.label`)
+  if (!leaf) return null
+  return (
+    <nav className="topbar-crumbs" aria-label={t('shell.crumbs.aria')}>
+      <button type="button" className="crumb" onClick={() => onRoot(rootKey)}>{rootLabel}</button>
+      <span className="crumb-sep" aria-hidden="true">/</span>
+      <span className="crumb-here" title={leaf}>{leaf}</span>
+    </nav>
+  )
+}
+
+// TopBarSearch — a field rather than a key, with the scope worn as a pill you can drop.
+//
+// DROPPING THE PILL IS GLOBAL SEARCH. Same field, no pill, everything in range — so
+// the × sits ON the scope rather than beside it as a second "search everywhere" verb.
+// One control, and its presence or absence is the whole state. That replaces the globe
+// this bar used to carry, and the standing `tippani:search:global` preference it read:
+// a scope you can drop every time you want to is a preference you no longer need to set.
+//
+// Enter hands the query and the scope to SearchPage through the keys it already reads
+// (`tippani:search:q`, `:scope`, `:chips`) rather than through a new channel — the
+// search screen is still the thing that searches; this is a better door to it.
+function TopBarSearch({ scope, scopeLabel, onSearch, onDropScope }) {
+  const [q, setQ] = useState('')
+  const ref = useRef(null)
+  const scoped = scope !== 'all'
+  const submit = (e) => {
+    e.preventDefault()
+    onSearch(q, scoped ? scope : 'all')
+  }
+  return (
+    <form className="topbar-search" onSubmit={submit} role="search">
+      <span className="search-icon" aria-hidden="true"><IconSearch /></span>
+      {scoped && (
+        <button
+          type="button"
+          className="scope-pill"
+          title={t('shell.search.scope.drop.tip')}
+          onClick={onDropScope}
+        >
+          <span className="scope-key">{t('shell.search.scope.key')}</span>
+          <span className="scope-val">{scopeLabel}</span>
+          <span className="scope-x" aria-hidden="true">×</span>
+        </button>
+      )}
+      <input
+        ref={ref}
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        placeholder={t(scoped ? 'shell.search.hint.scoped' : 'shell.search.hint.all')}
+        aria-label={t(scoped ? 'shell.search.aria.scoped' : 'shell.search.aria.all')}
+      />
+      <span className="kbd-hint" aria-hidden="true">/</span>
+    </form>
+  )
+}
+
+// NavRail — the design pack's frame: nine destinations down the left edge rather
+// than across the top of every page.
+//
+// WHY A COLUMN AND NOT THE STRIP. A tab strip spends the top of every screen on
+// navigation, and the top of a screen is where the thing you came to read starts.
+// The rail takes the width nothing else was using and gives the page its top back.
+//
+// IT READS THE SAME TWO LISTS THE STRIP DID — CONTENT_TABS, a rule, UTILITY_TABS —
+// through the same `visibleTabs` filter, so the rail and the drawer and the phone
+// bar cannot disagree about what is switched on (Settings → Features). A fifth
+// hand-maintained roster is exactly what routes.js warns against.
+//
+// NOT the app's Toggle, which the desktop strip used. A segmented control is the
+// right shape for a row of peers and the wrong one for a column of destinations:
+// a segment implies "one of these", and this column also holds a rule, the bin and
+// an account. The rows are buttons and the rule is a span — see below.
+function NavRail({ tab, onChange, sections, user, onAccount, onBin, onChecks, brandDot = null, badges = {}, binCount = 0, checkCount = 0 }) {
+  const dark = useResolvedDark()
+  const railRef = useRef(null)
+  // Nine destinations in a short window outrun the column, and the app's own rule
+  // is that a scroller says so. `v` only: the rail never scrolls sideways.
+  useEdgeScroll(railRef, { axis: 'v' })
+
+  const row = ([key, label]) => (
+    <button
+      key={key}
+      type="button"
+      className="rail-row"
+      // aria-current rather than aria-pressed: these are destinations, not toggles,
+      // and "current page" is the thing a reader actually wants announced.
+      aria-current={tab === key ? 'page' : undefined}
+      title={t(label)}
+      onClick={() => onChange(key)}
+    >
+      <span className="rail-icon"><NavIcon name={key} /></span>
+      <span className="rail-label">{t(label)}</span>
+      {badges[key] ? <span className="rail-count">{badges[key]}</span> : null}
+    </button>
+  )
+
+  return (
+    <aside className="rail">
+      <div className="rail-head">
+        {/* Two files rather than one recoloured: a logo is not a glyph that takes
+            currentColor, and tinting the light mark for dark mode is the kind of
+            "close enough" a brand notices first. */}
+        <button type="button" className="rail-brand" onClick={() => onChange('home')} title={t('nav.bottom.home.aria')}>
+          <img src={dark ? '/mark-dark.svg' : '/mark.svg'} alt="" width="34" height="34" />
+          <span className="rail-wordmark">{t('shell.wordmark.label')}</span>
+          {/* The pending-review dot rode the brand in the top bar. The brand moved, so
+              it moves with it — an indicator left behind on a retired control is an
+              indicator nobody sees. */}
+          {brandDot}
+        </button>
+      </div>
+      <nav ref={railRef} className="rail-nav" aria-label={t('shell.nav.primary.aria')}>
+        {visibleTabs(CONTENT_TABS, sections).map(row)}
+        <span className="rail-rule" aria-hidden="true" />
+        {visibleTabs(UTILITY_TABS, sections).map(row)}
+      </nav>
+      <div className="rail-foot">
+        {/* CHECKS — one door to the two lists that ask something of you: imports
+            waiting to be approved, and quotes with something odd left in them. They
+            were two tiles buried in Settings, which is where you go to change how the
+            app behaves, not to find out it is waiting on you. Deliberately NOT called
+            Review: that word is already the quiz and the practice deck. */}
+        <button
+          type="button"
+          className="rail-row"
+          title={t('checks.title')}
+          aria-current={tab === 'checks' ? 'page' : undefined}
+          onClick={onChecks}
+        >
+          <span className="rail-icon"><IconChecks /></span>
+          <span className="rail-label">{t('checks.title')}</span>
+          {checkCount > 0 ? <span className="rail-count">{checkCount}</span> : null}
+        </button>
+        <button
+          type="button"
+          className="rail-row"
+          title={t('bin.title')}
+          aria-current={tab === 'bin' ? 'page' : undefined}
+          onClick={onBin}
+        >
+          <span className="rail-icon"><IconBin /></span>
+          <span className="rail-label">{t('bin.title')}</span>
+          {binCount > 0 ? <span className="rail-count">{binCount}</span> : null}
+        </button>
+        <button
+          type="button"
+          className="rail-row rail-acct"
+          aria-label={t('shell.account.chip.aria', { name: user.username })}
+          onClick={onAccount}
+        >
+          <span className="user-chip" aria-hidden="true"><UserAvatar user={user} /></span>
+          <span className="rail-acct-name">{user.display_name || user.username}</span>
+        </button>
+      </div>
+    </aside>
+  )
+}
+
 function AccountChip({ user, onOpen }) {
   return (
     <Tooltip label={t('shell.account.chip.tip')} side="bottom" className="shrink-0">
@@ -756,7 +888,7 @@ function UserAvatar({ user }) {
 // Drawer — the hamburger nav (§7 redesign): primary nav on mobile, opened by
 // the ☰ button or the avatar chip. Scrim tap / Escape / any navigation closes
 // it. Home carries the pending-review dot; Library/Catalogue show live counts.
-function Drawer({ open, onClose, tab, selectTab, onSearch, onAdd, onAccount, user, stats, pending, pendingImport, streak, update, logout, dark, onUser, sections }) {
+function Drawer({ open, onClose, tab, selectTab, onSearch, onAdd, onAccount, user, stats, pending, pendingImport, streak, metaIssues, update, logout, dark, onUser, sections }) {
   // Metadata "issues" = items the console flags (a book with no cover or no
   // ids; a film/show with no poster, cast or source) — the same predicate the
   // Metadata page uses. Fetched lazily the first time the drawer opens (it's a
@@ -764,16 +896,6 @@ function Drawer({ open, onClose, tab, selectTab, onSearch, onAdd, onAccount, use
   // The nav sheet is the surface a phone reader is most likely to press Back
   // on, because it is the surface they opened to go somewhere else.
   useBackToClose(open, onClose)
-  const [metaIssues, setMetaIssues] = useState(null)
-  useEffect(() => {
-    if (!open || metaIssues !== null) return
-    json('GET', '/metadata/library').then((r) => {
-      if (!r.ok || !r.data) return
-      const books = (r.data.books || []).filter((b) => !b.has_cover || !b.has_ids).length
-      const movies = (r.data.movies || []).filter((m) => !m.has_poster || !m.has_cast || !m.has_source).length
-      setMetaIssues(books + movies)
-    })
-  }, [open, metaIssues])
   useEffect(() => {
     if (!open) return
     const onKey = (e) => { if (e.key === 'Escape') onClose() }
@@ -820,18 +942,8 @@ function Drawer({ open, onClose, tab, selectTab, onSearch, onAdd, onAccount, use
         </span>
       )
     }
-    if (key === 'library' && stats) return <span className="drawer-badge">{stats.books}</span>
-    if (key === 'movies' && stats) return <span className="drawer-badge">{stats.movies}</span>
-    // stats.quotes counts the utterances table — the standalone quotes, which is
-    // exactly what this row leads to. The other two count works, not quotes.
-    if (key === 'quotes' && stats) return <span className="drawer-badge">{stats.quotes}</span>
-    if (key === 'tags' && stats) return <span className="drawer-badge">{stats.tags}</span>
-    if (key === 'metadata' && metaIssues !== null) {
-      return <span className="drawer-badge">{metaIssues > 0 ? t('common.count.phrase', { n: metaIssues, noun: t('unit.issue', { count: metaIssues }) }) : t('shell.drawer.metadata.clear.label')}</span>
-    }
-    if (key === 'stats' && streak > 0) return <span className="drawer-badge">{t('shell.drawer.stats.streak.label', { n: streak })}</span>
-    if (key === 'settings') return <span className="drawer-badge">{t('shell.drawer.settings.version.label', { version: user.version || 'dev' })}</span>
-    return null
+    const label = navBadge(key, { stats, metaIssues, streak, version: user.version })
+    return label ? <span className="drawer-badge">{label}</span> : null
   }
 
   return (
@@ -1097,15 +1209,38 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
   const refreshPendingImport = () => {
     json('GET', '/import/staged?counts=1').then((r) => { if (r.ok) setPendingImport(r.data.pending || 0) })
   }
+  useEffect(() => {
+    json('GET', '/metadata/library').then((r) => {
+      if (!r.ok || !r.data) return
+      const books = (r.data.books || []).filter((b) => !b.has_cover || !b.has_ids).length
+      const movies = (r.data.movies || []).filter((m) => !m.has_poster || !m.has_cast || !m.has_source).length
+      setMetaIssues(books + movies)
+    })
+    json('GET', '/trash').then((r) => { if (r.ok) setBinCount((r.data?.trash || []).length) })
+  }, [])
   const [streak, setStreak] = useState(0) // daily-quiz streak — drawer Stats subtext
   const [stats, setStats] = useState(null) // drawer counts + Home stat tiles
+  // metaIssues — records with a gap in them, badged on the rail's Metadata row and
+  // the drawer's. IT LIVED IN THE DRAWER, which could afford to fetch it only when
+  // opened; the rail is on screen the whole time, so the fetch had to move up here.
+  //
+  // ONCE, AND NOT ON EVERY ROUTE CHANGE. /metadata/library returns the whole record
+  // set, which is the most expensive thing this shell asks for — on an app that runs
+  // itself at GOMEMLIMIT=64MiB beside other people's services, a badge is not worth
+  // repeating it for. The number goes stale within a session and that is the right
+  // trade: it is a nudge towards a screen, not a live readout.
+  const [metaIssues, setMetaIssues] = useState(null)
+  // binCount — entries waiting in the bin, badged on the rail's Bin row. Cheap
+  // enough to ask for once; /trash is a short list by construction, since anything
+  // in it is on its way out.
+  const [binCount, setBinCount] = useState(0)
   // Update-check result, shared so the mobile drawer's "update available" link
   // mirrors the Settings → Updates card. Populated on demand when an admin runs
   // the check (Tippani never contacts GitHub on its own), then cached here for
   // the rest of the session.
   const [update, setUpdate] = useState(null)
   const dark = useResolvedDark()
-  const [navRef, navIconOnly] = useIconOnlyNav()
+
   // Guided feature tour (tour.jsx): null | {step}. Auto-opens once per user —
   // preferences.tour is "" until they finish, skip or postpone it — and can be
   // started/resumed from Settings → Onboarding. Not in the demo build (its
@@ -1382,21 +1517,65 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
   const addFor = detail?.type === 'book' || detail?.type === 'movie' ? { type: detail.type, id: detail.id } : null
   const addLabel = t(addKind === 'quote' ? 'shell.add.quote.label' : addKind === 'film' ? 'shell.add.film.label' : 'shell.add.work.label')
 
+  // The bar's search field, and what its pill says. The scope comes from the SAME
+  // function the old button used, so the field and the search screen cannot disagree
+  // about what "here" means.
+  const detailTitle = useCrumbTitle()
+  const barScope = searchScope(tab, detail)
+  const scopeLabel = (sc) => t(
+    sc === 'books' ? (detail ? 'shell.search.scope.thisbook' : 'nav.tab.library.label')
+      : sc === 'movies' ? (detail ? 'shell.search.scope.thisfilm' : 'nav.tab.movies.label')
+      : sc === 'quotes' ? 'nav.tab.quotes.label'
+      : 'shell.search.scope.all',
+  )
+  // Enter writes the query and the scope to the keys SearchPage already reads, then
+  // goes there. `q` is null when the pill's × is what called this — dropping a scope
+  // must not also wipe a query you have not typed yet.
+  const runSearch = (q, sc) => {
+    try {
+      if (q !== null) localStorage.setItem('tippani:search:q', JSON.stringify(q))
+    } catch { /* private mode — the box keeps whatever it had */ }
+    searchScoped(sc, sc === 'all' ? [] : takeSearchSeed())
+  }
+
   return (
     <div className={'min-h-screen' + (!detail ? ' has-mobile-topbar' : '')}>
+      {/* THE RAIL OWNS THE BRAND, THE DESTINATIONS AND THE ACCOUNT now; the bar keeps
+          the four verbs that act on the screen you are looking at. Neither list is
+          restated — both read routes.js through visibleTabs. */}
+      <NavRail
+        tab={tab}
+        onChange={selectTab}
+        sections={sections}
+        user={user}
+        onAccount={() => setProfileOpen(true)}
+        onBin={() => go('bin', null)}
+        onChecks={() => go('checks', null)}
+        brandDot={brandDot}
+        // Through visibleTabs like every other nav list: a badge computed for a
+        // section the reader has switched off is work done for a row that will not
+        // be drawn, and features-nav.test.js is right to refuse the bare list.
+        badges={Object.fromEntries(
+          [...visibleTabs(CONTENT_TABS, sections), ...visibleTabs(UTILITY_TABS, sections)]
+            .map(([k]) => [k, navBadge(k, { stats, metaIssues, streak, version: user.version })])
+            .filter(([, v]) => v),
+        )}
+        binCount={binCount}
+        // The import queue only. THE STRAY-MARKS COUNT IS DELIBERATELY ABSENT: that
+        // scan reads every quote in the library, and running it on every page load to
+        // draw one badge is exactly the kind of standing cost this app refuses. It is
+        // counted when you open Checks, where you are about to read it anyway.
+        checkCount={pendingImport}
+      />
       <header className="topbar">
         <div className="topbar-inner">
-          <Tooltip shortcut="go-home" label={t('nav.bottom.home.aria')} side="bottom" className="shrink-0">
-            <button type="button" className="brand" onClick={() => selectTab('home')}>
-              {/* the mark matches the 28px nav tab icons so the row reads level */}
-              <img src={dark ? '/mark-dark.svg' : '/mark.svg'} alt="" width="28" height="28" />
-              <span className="wordmark">{t('shell.wordmark.label')}</span>
-              {brandDot}
-            </button>
-          </Tooltip>
-          <nav ref={navRef} aria-label={t('shell.nav.primary.aria')} className={'topbar-nav' + (navIconOnly ? ' icon-only' : '')}>
-            <DesktopNav tab={tab} onChange={selectTab} sections={sections} />
-          </nav>
+          <Breadcrumb tab={tab} detail={detail} title={detailTitle} onRoot={(key) => selectTab(key || 'home')} />
+          <TopBarSearch
+            scope={barScope}
+            scopeLabel={scopeLabel(barScope)}
+            onSearch={(q, sc) => runSearch(q, sc)}
+            onDropScope={() => runSearch(null, 'all')}
+          />
           {/* Add · Search · Help · chip — the same four, in the same order, as the
               phone bar below. Each of the first three reads the current route
               (addSection / searchScope / helpScreen). */}
@@ -1421,35 +1600,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
                 {importBadge}
               </button>
             </Tooltip>
-            {/* Search rides beside ＋ Add as an icon-only pill in the same
-                accent texture — the phone top bar already works this way.
-                (Quote capture lives inside the ＋ Add surface's Capture tab —
-                no separate top-bar pill.) */}
-            <Tooltip
-              shortcut="search"
-              label={t(globalSearch ? 'shell.search.global.tip' : 'nav.tab.search.label')}
-              side="bottom"
-              className="shrink-0"
-              onContextMenu={toggleGlobalSearch}
-            >
-              <button
-                type="button"
-                className="topbar-add-btn tactile icon-only"
-                data-tour="search"
-                data-global={globalSearch ? 'on' : undefined}
-                onClick={openSearch}
-                aria-label={t(globalSearch ? 'shell.search.global.aria' : 'nav.tab.search.label')}
-              >
-                {globalSearch ? <IconSearchGlobe /> : <IconSearch />}
-              </button>
-            </Tooltip>
-            {/* Help moved out of the page headers and into the bar in 1.4.1: it
-                is a shell control like the other three, it was drawn in eleven
-                different places, and on a phone it was competing for the one row
-                a page title also needs. `pill` skins it as the Search button
-                beside it — they are peers in this row and should look it. */}
             <PageHelp screen={help} variant="pill" />
-            <AccountChip user={user} onOpen={() => setProfileOpen(true)} />
           </div>
         </div>
       </header>
@@ -1658,6 +1809,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
       </main>
       <MobileBottomNav tab={tab} selectTab={selectTab} hidden={navHidden} sections={sections} />
       <Drawer
+        metaIssues={metaIssues}
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
         tab={tab}

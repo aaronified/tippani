@@ -4,7 +4,7 @@ import { tzOffsetMinutes, usePractice } from './review.jsx'
 import { coverImgURL, json } from './api.js'
 import { t, tNodes } from './i18n.js'
 import { PersonPortrait, usePeople } from './people.jsx'
-import { ANNOTATION_COLORS, ANNOTATION_HEX, Card, FieldIconButton, fmtHalfLife, IconQuiz, MONTH_KEYS, MonoLabel, mulberry32, PageHeader, STATUS_META, toast, Toggle, Tooltip, useIsMobileScreen, usePersistedState } from './ui.jsx'
+import { ANNOTATION_COLORS, ANNOTATION_HEX, Card, FieldIconButton, fmtHalfLife, IconPractise, IconQuiz, MonoLabel, MONTH_KEYS, mulberry32, PageHeader, Scroller, STATUS_META, toast, Toggle, Tooltip, useEdgeScroll, useIsMobileScreen, usePersistedState } from './ui.jsx'
 
 // StatsPage (§ insights) — a dedicated library-analytics screen, the richer
 // successor to the old Settings "Library stats" card and the intended basis for
@@ -226,6 +226,9 @@ function ActivityCalendar({ data, noun = 'saved', onSearch, accuracy = false }) 
     const el = scroller.current
     if (el) el.scrollLeft = el.scrollWidth
   }, [data, weekCount])
+  // A year of dots is wider than any phone: it needs the fade that says so, and
+  // the drag that lets a mouse reach the far end of it.
+  useEdgeScroll(scroller, { axis: 'x' })
 
   return (
     <>
@@ -563,7 +566,7 @@ function HBar({ swatch, label, labelWidth, n, max, fill, onPractise }) {
       <span className="mono-label" style={{ width: 30, flex: '0 0 auto', textAlign: 'right' }}>{n}</span>
       {onPractise && (
         <FieldIconButton
-          icon={<IconQuiz />}
+          icon={<IconPractise />}
           ariaLabel={t('stats.bar.practise.aria', { name: label })}
           onClick={onPractise}
           tooltip={t('stats.bar.practise.tip', { name: label })}
@@ -1127,7 +1130,7 @@ function TimelineCard({ timeline, onSearch }) {
           ))}
         </select>
       </div>
-      <div className="tl-scroll">
+      <Scroller className="tl-scroll">
         <div className="tl-row">
           {segments.map((seg) =>
             seg.type === 'gap' ? (
@@ -1175,7 +1178,7 @@ function TimelineCard({ timeline, onSearch }) {
             ),
           )}
         </div>
-      </div>
+      </Scroller>
       {/* Two series, so a legend is not optional — identity must never be
           carried by colour alone. The unit line only appears when a dot is worth
           more than one thing; on a small library every dot is one thing and

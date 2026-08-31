@@ -3,7 +3,7 @@ import { json, errText } from './api.js'
 import { t } from './i18n.js'
 import { personImgURL, PersonPortrait, usePeople } from './credits.jsx'
 import { usePractice } from './review.jsx'
-import { useBodyScrollLock, CloseButton, ErrorText, ExpandableDescription, Field, GhostButton, IconCheck, IconClose, IconDelete, IconEdit, IconMerge, IconPlus, IconQuiz, IconRefresh, IconSearch, isPartialDate, Lightbox, MonoLabel, NameInput, PartialDateField, Placeholder, Tooltip } from './ui.jsx'
+import { useBodyScrollLock, CloseButton, ErrorText, ExpandableDescription, Field, GhostButton, IconCheck, IconClose, IconDelete, IconEdit, IconMerge, IconPlus, IconQuiz, IconPractise, IconRefresh, IconSearch, isPartialDate, Lightbox, MonoLabel, NameInput, PartialDateField, Placeholder, Tooltip } from './ui.jsx'
 
 const PRIMARY = 'tp-btn tp-btn-primary'
 
@@ -257,7 +257,7 @@ function PersonView({ person, name, onEdit, onDelete, onPractise }) {
             four on one field, and a reader who has quoted someone's films and
             their memoir means both. */}
         <GhostButton onClick={onPractise} className="mr-auto inline-flex items-center gap-1.5">
-          <IconQuiz /> {t('common.action.practise.label')}
+          <IconPractise /> {t('common.action.practise.label')}
         </GhostButton>
         <GhostButton
           onClick={onDelete}

@@ -613,6 +613,7 @@ vocab.source.amazon.label = Amazon
 vocab.source.tmdb.label = TMDB
 vocab.source.tvdb.label = TheTVDB
 # What a row whose supplier the app does not recognise is called.
+vocab.source.manual.label = You
 vocab.source.unknown.label = unknown source
 
 # ---------------------------------------------------------------------------
@@ -1025,7 +1026,6 @@ shell.restore.toast.done = restored · log in again
 # --- the two nav landmarks. The drawer already claims "Primary", so the phone's
 # floating bar needs a different name or a screen reader lists two of one thing.
 shell.nav.primary.aria = Primary
-shell.nav.tools.aria = Tools
 shell.nav.quick.aria = Quick navigation
 
 # --- the avatar chip, in both top bars and in the drawer's footer.
@@ -1067,6 +1067,16 @@ shell.add.quote.label = Capture a quote
 shell.add.pending.tip = {n} imports awaiting review
 
 # --- Search, and its global mode (right-click on a desktop).
+shell.crumbs.aria = Where you are
+shell.search.scope.thisbook = this book
+shell.search.scope.thisfilm = this film
+shell.search.scope.all = everything
+shell.search.scope.key = in
+shell.search.scope.drop.tip = Search everything instead
+shell.search.hint.scoped = author, tag, a line you half remember…
+shell.search.hint.all = everything — every book, film, quote…
+shell.search.aria.scoped = Search what you are looking at
+shell.search.aria.all = Search everything
 shell.search.global.tip = Searching everything
 shell.search.global.aria = Search everything
 
@@ -3614,6 +3624,7 @@ error.empty.bin = could not empty
 # descriptive rather than an instruction, and there is no "fix all" to name.
 # ---------------------------------------------------------------------------
 cleanup.back.tip = Back to Settings
+checks.title = Checks
 cleanup.title = Stray marks
 # Beside the title: how many quotes were read, so “nothing found” is
 # distinguishable from “nothing looked at”.

@@ -131,12 +131,13 @@ jobs:
             echo "input, and TestDistWasBuiltFromTheseInputs checks it in the go job."
             exit 1
           fi
-      # docs/ui-glossary.html inlines the built stylesheet so its samples are
-      # styled by the rules the app actually ships. Every build renames
-      # index-<hash>.css, so that snapshot rots silently — which is exactly how
-      # the glossary ended up several releases behind before. This runs right
-      # after the build, when web/dist is fresh, and fails if it is stale.
-      - run: node scripts/glossary-css.mjs --check
+      # docs/ui-glossary.html is GENERATED — from the catalogue, from the `glossary`
+      # declarations beside the components, and from src/tokens.js. It also inlines the
+      # built stylesheet, which every build renames, so it rots two ways at once. This
+      # runs right after the build, when web/dist is fresh, and fails if it is stale.
+      # Run `make glossary` and commit the result.
+      - run: npm run glossary:check
+        working-directory: web/frontend
 
   # The roadmap's generated regions are committed, so they can drift from
   # docs/data/*.json if someone edits the data and forgets to re-render. Catch it here

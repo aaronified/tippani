@@ -52,4 +52,9 @@ if [ "$SEED" = 1 ]; then
   node seed.mjs --base-url "http://$BIND"
 fi
 
-node capture.mjs --base-url "http://$BIND" ${ARGS[@]+"${ARGS[@]}"}
+# Firefox refuses to start as root inside another user's X session, and this harness
+# has no use for a display either way. scripts/perf/run-with-server.sh has said this
+# since it was written; this one had not, so a capture run died at browser launch with
+# a message about $XAUTHORITY that says nothing about screenshots.
+env -u XAUTHORITY -u DISPLAY -u WAYLAND_DISPLAY \
+  node capture.mjs --base-url "http://$BIND" ${ARGS[@]+"${ARGS[@]}"}

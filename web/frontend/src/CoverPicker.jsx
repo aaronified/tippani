@@ -19,10 +19,11 @@ import {
   IconSearch,
   IconUpload,
   MonoLabel,
+  normName,
   Placeholder,
   SourceIcon,
+  sourceName,
   Tooltip,
-  normName,
 } from './ui.jsx'
 
 // amazonCoverURL builds Amazon's public image-CDN URL for a cover from an ASIN
@@ -110,29 +111,9 @@ export const hiResPoster = (u) =>
     .replace('/t/p/w342/', '/t/p/original/')
     .replace('/t_cover_small/', '/t_cover_big_2x/')
 
-// SOURCE_BADGE / coverSourceLabel — who answers, per medium and per candidate.
-// Both existed as inline ternaries over TMDB and TheTVDB, written before the
-// Catalogue held games, and both quietly told a lie about every game.
-// Keys, not spellings. This file held TVDB, TMDB, GOOGLE, OPEN LIBRARY and
-// AMAZON as literals — three of them a third spelling of a provider vocab.source.*
-// already names for the metadata screens.
-const SOURCE_KEYS = {
-  tvdb: 'vocab.source.tvdb.label',
-  tmdb: 'vocab.source.tmdb.label',
-  igdb: 'vocab.source.igdb.label',
-  wikidata: 'vocab.source.wikidata.label',
-  google: 'vocab.source.google.label',
-  openlibrary: 'vocab.source.openlibrary.label',
-  amazon: 'vocab.source.amazon.label',
-  wikimedia: 'vocab.source.wikimedia.label',
-  fandom: 'vocab.source.fandom.label',
-  letterboxd: 'vocab.source.letterboxd.label',
-}
-
-// sourceName — the reader's name for a candidate's supplier. An unknown slug
-// falls through to itself rather than to a missing key.
-export const sourceName = (slug) =>
-  SOURCE_KEYS[slug] ? t(SOURCE_KEYS[slug]) : String(slug || '')
+// sourceName moved to ui.jsx when per-field provenance began naming suppliers on every
+// field row: the table was here, the new callers are there, and two tables of supplier
+// names is how a picker and a field row come to call one company two things.
 
 export function coverSourceLabel(mediaType) {
   // Wikidata is the floor under IGDB rather than a second opinion (see

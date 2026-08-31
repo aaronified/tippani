@@ -45,6 +45,7 @@ import {
 import { t } from './i18n.js'
 import {
   ANNOTATION_HEX,
+  BOARD_COLUMNS,
   byLastRead,
   bySeries,
   clampSequence,
@@ -55,6 +56,7 @@ import {
   ErrorText,
   ExpandableText,
   filterChipClass,
+  formatYear,
   FormModal,
   frameCode,
   FrameCode,
@@ -62,7 +64,6 @@ import {
   GhostButton,
   HandCard,
   HandNote,
-  TranslationLine,
   Hearts,
   IconButton,
   IconDelete,
@@ -72,6 +73,7 @@ import {
   IconHelp,
   IconMetadata,
   IconPlus,
+  IconPractise,
   IconQuiz,
   IconSearch,
   IconWatching,
@@ -79,20 +81,22 @@ import {
   Masonry,
   MobileSheet,
   MonoLabel,
-  NameInput,
   MoreMenu,
   mulberry32,
+  NameInput,
   PageHeader,
+  parseYearInput,
   PickMark,
   Placeholder,
   QuizSkipMark,
   QuoteActions,
   QuoteTools,
   ReviewDot,
+  Scroller,
   Select,
   seriesLabel,
-  shelfLabel,
   SheetFooter,
+  shelfLabel,
   splitCommas,
   Sprockets,
   TableActions,
@@ -102,18 +106,17 @@ import {
   Toggle,
   TokenInput,
   Tooltip,
-  BOARD_COLUMNS,
+  TranslationLine,
   useCardMenu,
   useColumnsAt,
   useCoverSize,
-  useFrameBase,
+  useCrumb,
   useFormHost,
+  useFrameBase,
   useIsMobileScreen,
   usePersistedState,
   useReveal,
   ViewToggle,
-  formatYear,
-  parseYearInput,
 } from './ui.jsx'
 
 // CAP_WORDS — how the in-progress cap dialog names ONE pool of catalogue rows.
@@ -1018,6 +1021,8 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce
     : []
 
   const detailTitle = movie ? (movie.title || t('film.title.fallback')) : ''
+  // The shell's breadcrumb names what you have open; this is how it learns.
+  useCrumb(detailTitle)
   const detailMeta = movie ? (movie.director || formatYear(movie.release_year, movie.release_circa) || '') : ''
 
   return (
@@ -1055,7 +1060,7 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce
                   // with no way to ask it. Desktop needs no entry here: the bar is
                   // still up there.
                   { icon: <IconSearch />, label: t('nav.tab.search.label'), onClick: () => onSearch?.() },
-                  { icon: <IconQuiz />, label: t('film.practise.menu.label'), onClick: () => movie && practise({ movie: movie.id, label: movie.title }) },
+                  { icon: <IconPractise />, label: t('film.practise.menu.label'), onClick: () => movie && practise({ movie: movie.id, label: movie.title }) },
                   { icon: <IconDetails />, label: t('common.work.details.title'), onClick: () => setEditing(true) },
                   { icon: <IconHelp size={24} />, label: t('shell.help.menu.label'), onClick: () => setHelpOpen(true) },
                   { icon: <IconDelete />, label: t('common.action.delete.label'), onClick: remove, danger: true },
@@ -1145,7 +1150,7 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce
                       tooltip={t('film.export.tip')}
                     />
                   )}
-                  <IconButton icon={<IconQuiz />} label={t('common.action.practise.label')}
+                  <IconButton icon={<IconPractise />} label={t('common.action.practise.label')}
             ariaLabel={t('film.practise.aria')} onClick={() => practise({ movie: movie.id, label: movie.title })} tooltip={t('film.practise.tip')} />
                   <IconButton icon={<IconDetails />} label={t('common.work.details.title')}
             ariaLabel={t('common.work.details.title')} onClick={() => setEditing(true)} tooltip={t('film.details.tip')} />
@@ -1911,7 +1916,7 @@ function DialogueTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSo
   const arrow = (k) => (sort.col === k ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : '')
   const editingRow = rows.find((d) => d.id === editingId)
   return (
-    <div className="ann-table-wrap">
+    <Scroller className="ann-table-wrap">
       <table className="ann-table">
         <thead>
           <tr>
@@ -1974,7 +1979,7 @@ function DialogueTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSo
           <DialogueForm initial={editingRow} onSubmit={(fields) => save(editingRow.id, fields)} onCancel={() => setEditingId(null)} submitLabel={t('common.action.save.label')} show={show} game={game} cast={cast} actorMap={actorMap} tagSuggestions={Object.keys(tagMap)} stickers={stickers} reloadStickers={reloadStickers} />
         )}
       </FormModal>
-    </div>
+    </Scroller>
   )
 }
 

@@ -8,7 +8,9 @@
     "build": "vite build && node ../../scripts/dist-inputs.mjs",
     "build:demo": "vite build --base=./ --outDir ../../_site/demo",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "glossary": "node scripts/glossary-build.mjs",
+    "glossary:check": "node scripts/glossary-build.mjs --check"
   },
   "dependencies": {
     "@chenglou/pretext": "^0.0.8",

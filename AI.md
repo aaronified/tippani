@@ -232,6 +232,25 @@ worth nothing here and only execution counts. What the repo actually runs:
   every way it can break is silent: a greeting rendering `{name}` literally, a
   commemoration wishing you a happy one, or a country resolving to its neighbour's
   time zone. None of those throw, and none of them fail a build.
+- **Two harnesses run a real browser rather than a DOM emulator**, because the two
+  things they measure do not exist in jsdom. `make perf` measures how long the app
+  holds the main thread per action; `make typescale` turns every type dial to 200%,
+  sets the root font size to 24px, and fails when a screen clips something it did not
+  clip before. The second is a DIFFERENCE and not a threshold on purpose: plenty of
+  this app clips deliberately — a line-clamped intro, an ellipsised path — so a check
+  that failed on all clipping would fail on the design and would be switched off
+  within a week. Its first run found 59 elements, twelve of them the user avatar's
+  initial cut off on every screen in the app at once, because a 38px badge was
+  inheriting the page's 1.55 leading around a letter that grew with the type dial. The
+  first repair froze the letter's size instead, which fixed the clipping by taking it
+  off the dial — and `typescale.test.js`, a guard that predates all this, failed it in
+  the same run. That is the check working: two rules met, and the older one was right.
+  The remaining 47 sit in
+  `scripts/screenshots/typescale-baseline.json` as a ratchet that may fall and never
+  rise. Note what the LITERAL version of the pack's test would have reported here:
+  nothing. Tippani never sets a root font size — `applyTypeScale` writes finished
+  pixels into `--type-*` — so setting the root to 24px alone leaves the app untouched
+  and would have returned a clean bill of health for a stylesheet full of px boxes.
 - **Two guards added in 2.2.0 were each watched to fail before being kept**, which
   is the same standard the rest of this list is held to and is worth naming because
   both protect something invisible. `CASE WHEN ? <> ''` in the cast merge is what
@@ -341,10 +360,10 @@ What that honestly does not cover:
   an archive's recoverability read as absent for exactly the accounts with long
   names. That is the shape of every bug in this class. It does not throw, it does
   not look wrong, and it is only ever wrong for inputs nobody happened to try.
-- **`docs/ui-glossary.html` is half honest by machine now, and half still by
-  hand.** Its oldest failure mode was mechanical: the page inlines the built
+- **`docs/ui-glossary.html` is generated now, and the hand-written half is what
+  had gone wrong.** Its oldest failure mode was mechanical: the page inlines the built
   stylesheet so its samples are styled by real app rules, and every frontend build
-  renames `index-<hash>.css`, so the snapshot rotted silently. `scripts/glossary-css.mjs`
+  renames `index-<hash>.css`, so the snapshot rotted silently. A generator
   regenerates it and CI fails when it is stale, which ends that half — though only
   after 1.5.2 found that it had been regenerating 140KB of stylesheet *inside an
   HTML comment* for two releases, because the page's opening comment named the
@@ -354,10 +373,22 @@ What that honestly does not cover:
   compared were exactly the bytes it had written. A gate that only reads its own
   output cannot fail. It refuses now rather than writing into a comment.
 
-  The *entries* are still written by hand and can still lag — 1.4.0 moved the app's
-  explanatory copy into one registry (`web/frontend/src/help.jsx`) that the in-app
-  help panel reads, and feeding the glossary from the same registry is the remaining
-  half of [the roadmap's help &amp; density section](docs/roadmap.html#help-density).
+  **The entries used to be hand-written too, and they had lagged a full release.**
+  The page went on offering a *Paper / Film aesthetic* toggle after v3 replaced
+  aesthetics with material sets — a control driving an attribute that appears zero
+  times in the stylesheet — and drew four CSS classes the app had deleted. They are
+  now built by `web/frontend/scripts/glossary-build.mjs` from a catalogue module, from
+  `glossary` declarations beside the components (which render the **real** component,
+  so a sample cannot quietly lose a class the way the buttons had lost `tactile`), and
+  from `web/frontend/src/tokens.js` for the constants. `glossary-registry.test.js`
+  fails when an entry names a class or an identifier the source no longer has, and it
+  carries two ratchets — 57 components with no entry (37 of them icon glyphs), and
+  141 of the 171 entries still on carried markup — that may fall and may not rise.
+  Documenting the filled icon set took the glyph figure from 49 to 37 in one pass,
+  which is the ratchet working as intended rather than a number being relaxed. **Those two numbers are the honest
+  measure of what is still undone here**, and they are asserted rather than described.
+  Feeding the *prose* from `web/frontend/src/help.jsx` remains
+  [the roadmap's help &amp; density section](docs/roadmap.html#help-density).
   What 1.6.0 added is the cheaper
   half of that: `web/frontend/test/pure/help.test.jsx` asserts that every screen a
   nav list can reach has an entry, and that a control the app labels is a control

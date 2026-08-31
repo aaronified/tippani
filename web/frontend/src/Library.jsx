@@ -42,6 +42,7 @@ import {
 } from './works.jsx'
 import { t } from './i18n.js'
 import {
+  BOARD_COLUMNS,
   byLastRead,
   bySeries,
   clampSequence,
@@ -54,12 +55,12 @@ import {
   Field,
   FilterChip,
   filterChipClass,
+  formatYear,
   FormModal,
   GenreFilter,
   GhostButton,
   HandCard,
   HandNote,
-  TranslationLine,
   Hearts,
   IconButton,
   IconDelete,
@@ -68,20 +69,23 @@ import {
   IconFilter,
   IconHelp,
   IconPlus,
+  IconPractise,
   IconQuiz,
-  IconSearch,
   IconReading,
+  IconSearch,
   Masonry,
   MobileSheet,
   MonoLabel,
   MoreMenu,
   mulberry32,
   PageHeader,
+  parseYearInput,
   PickMark,
   QuizSkipMark,
   QuoteActions,
   QuoteTools,
   ReviewDot,
+  Scroller,
   Select,
   seriesLabel,
   SheetFooter,
@@ -92,17 +96,16 @@ import {
   todayPartial,
   TokenInput,
   Tooltip,
-  BOARD_COLUMNS,
+  TranslationLine,
   useCardMenu,
   useColumnsAt,
   useCoverSize,
+  useCrumb,
   useFormHost,
   useIsMobileScreen,
   usePersistedState,
   useReveal,
   ViewToggle,
-  formatYear,
-  parseYearInput,
 } from './ui.jsx'
 
 const PRIMARY = 'tp-btn tp-btn-primary' // aesthetic-aware primary (§6)
@@ -816,6 +819,8 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce 
     : []
 
   const detailTitle = book ? (book.title || t('book.title.fallback')) : ''
+  // The shell's breadcrumb names what you have open; this is how it learns.
+  useCrumb(detailTitle)
   const detailAuthor = book && book.author ? book.author : ''
 
   return (
@@ -850,7 +855,7 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce 
                   // with no way to ask it. Desktop needs no entry here: the bar is
                   // still up there.
                   { icon: <IconSearch />, label: t('nav.tab.search.label'), onClick: () => onSearch?.() },
-                  { icon: <IconQuiz />, label: t('book.practise.menu.label'), onClick: () => book && practise({ book: book.id, label: book.title }) },
+                  { icon: <IconPractise />, label: t('book.practise.menu.label'), onClick: () => book && practise({ book: book.id, label: book.title }) },
                   { icon: <IconDetails />, label: t('common.work.details.title'), onClick: () => setEditing(true) },
                   { icon: <IconHelp size={24} />, label: t('shell.help.menu.label'), onClick: () => setHelpOpen(true) },
                   { icon: <IconDelete />, label: t('common.action.delete.label'), onClick: remove, danger: true },
@@ -943,7 +948,7 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce 
                       tooltip={t('book.export.tip')}
                     />
                   )}
-                  <IconButton icon={<IconQuiz />} label={t('common.action.practise.label')}
+                  <IconButton icon={<IconPractise />} label={t('common.action.practise.label')}
             ariaLabel={t('book.practise.aria')} onClick={() => practise({ book: book.id, label: book.title })} tooltip={t('book.practise.tip')} />
                   <IconButton icon={<IconDetails />} label={t('common.work.details.title')}
             ariaLabel={t('common.work.details.title')} onClick={() => setEditing(true)} tooltip={t('book.details.tip')} />
@@ -1518,7 +1523,7 @@ function AnnotationTable({ rows, tagMap, stickers = [], reloadStickers, sort, on
   const arrow = (k) => (sort.col === k ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : '')
   const editingRow = rows.find((a) => a.id === editingId)
   return (
-    <div className="ann-table-wrap">
+    <Scroller className="ann-table-wrap">
       <table className="ann-table">
         <thead>
           <tr>
@@ -1574,7 +1579,7 @@ function AnnotationTable({ rows, tagMap, stickers = [], reloadStickers, sort, on
           <AnnotationForm initial={editingRow} onSubmit={(fields) => save(editingRow.id, fields)} onCancel={() => setEditingId(null)} submitLabel={t('common.action.save.label')} tagSuggestions={Object.keys(tagMap)} stickers={stickers} reloadStickers={reloadStickers} bookId={editingRow.book_id ?? null} />
         )}
       </FormModal>
-    </div>
+    </Scroller>
   )
 }
 

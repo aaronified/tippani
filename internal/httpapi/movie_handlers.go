@@ -901,6 +901,22 @@ func (s *Server) handleUpdateMovie(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer tx.Rollback()
+	// WHAT THE READER IS ABOUT TO CHANGE, read before the write overwrites it — the
+	// same bookkeeping the book path does, and for the same reason: typing over a
+	// value has to re-source that field to you, or a corrected year goes on claiming
+	// TMDB wrote it for ever. Films had this gap too, so fixing one kind and not the
+	// other would leave the asymmetry the provenance table exists to remove.
+	var was struct {
+		title, director, description, series sql.NullString
+		releaseYear                          sql.NullInt64
+	}
+	if err := tx.QueryRow(`
+		SELECT title, director, description, series, release_year
+		  FROM movies WHERE id = ? AND user_id = ?`, id, uid).
+		Scan(&was.title, &was.director, &was.description, &was.series, &was.releaseYear); err != nil && err != sql.ErrNoRows {
+		failErr("update movie: read current", err)
+		return
+	}
 	res, err := tx.Exec(`
 		UPDATE movies SET title = ?, director = ?, release_year = ?, release_circa = ?, description = ?,
 		                  media_type = ?, series = ?, series_index = ?, favorite = ?, imdb_id = ?,
@@ -921,6 +937,35 @@ func (s *Server) handleUpdateMovie(w http.ResponseWriter, r *http.Request) {
 		if _, err := tx.Exec(`UPDATE movies SET poster_path = ?, updated_at = datetime('now') WHERE id = ? AND user_id = ?`,
 			nullable(newPoster), id, uid); err != nil {
 			failErr("update movie: set poster", err)
+			return
+		}
+	}
+	// Every field the reader actually moved is theirs now. Compared rather than
+	// assumed: re-posting the same string is not an edit, and marking it `manual`
+	// would quietly opt the field out of every future refetch.
+	wasYear := ""
+	if was.releaseYear.Valid {
+		wasYear = strconv.FormatInt(was.releaseYear.Int64, 10)
+	}
+	nowYear := ""
+	if req.ReleaseYear != 0 {
+		nowYear = strconv.Itoa(req.ReleaseYear)
+	}
+	var edited []string
+	for _, f := range []struct{ name, was, now string }{
+		{"title", was.title.String, req.Title},
+		{"director", was.director.String, req.Director},
+		{"description", was.description.String, req.Description},
+		{"series", was.series.String, req.Series},
+		{"release_year", wasYear, nowYear},
+	} {
+		if strings.TrimSpace(f.was) != strings.TrimSpace(f.now) {
+			edited = append(edited, f.name)
+		}
+	}
+	if len(edited) > 0 {
+		if err := store.RecordFieldSources(tx, uid, "movie", id, store.SourceManual, "", edited); err != nil {
+			failErr("update movie: record field sources", err)
 			return
 		}
 	}

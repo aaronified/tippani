@@ -7719,3 +7719,367 @@ more selectors, and it ships as **2.2.9 on its own** so v3 is not blamed for a d
 predates it.
 
 <sub>v3.0.0 — `.claude/design-import/v3/` (not in git) · `docs/PLAN.md` · decided 2026-08-25</sub>
+
+### The glossary is generated, because a document nothing executes cannot fail
+
+**Decided.** `docs/ui-glossary.html` is built by `web/frontend/scripts/glossary-build.mjs`
+from the code it describes. The page is no longer edited by hand.
+
+**IT HAD BEEN WRONG FOR A RELEASE, AND THAT IS THE ARGUMENT.** The page still offered a
+*Paper / Film aesthetic* toggle after v3 deleted aesthetics — a control driving a
+`data-aesthetic` attribute that appears zero times in `index.css` and zero times in
+`theme.js`. Its topbar sample showed an Import tab `routes.js` no longer has. Four classes
+it drew (`.bulk-bar`, `.show-toggle`, `.tp-filter-row`, `.bottom-nav-brand`) had been
+deleted; two more (`.bin-back`, `.bottom-nav`) were cited in entries; and two helpers it
+credited, `linkButtonClass` and `deleteButtonClass`, survive only in a comment recording
+that they had no caller left. Its buttons were missing `tactile`, the class that makes a
+button press — the exact drift the page's own `IconButton` entry describes catching once
+before. None of this was carelessness. There was no mechanism, and prose is the half that
+rots because nothing renders it.
+
+**THE SOURCE IS THE CODE, AND THE LINK IS THE ENTRY'S OWN `src` LINE.** Every entry already
+carried one — `InlineField — ui.jsx · .inline-field` — so the documentation had been naming
+its own source all along and nothing was reading it. The generator does: it takes the
+leading identifier, and if that component carries a `glossary` declaration it renders the
+real component instead of a copy of its markup. **Adding the declaration is the whole
+conversion** — no registry to update, no second key to keep in step, and the migration can
+go one component at a time.
+
+**THE THEME DATA IS CAPTURED, NOT MIRRORED.** The old page carried a hand-written copy of
+`theme.js`'s palettes, which is how it ended up with `PALETTES['paper-dark']` after that
+key stopped existing. The generator instead runs `applyTheme()` in a jsdom document and
+keeps the custom properties it actually wrote. There is nothing left to keep in step, so the
+toggles now offer all eight material sets in both modes under any accent — 64 combinations
+the hand-written mirror could never have carried. Stored as a base per mode+accent plus the
+twenty tile properties that differ per set: whole, it cost 151KB; as deltas, 85KB.
+
+**`src/tokens.js` IS THE OTHER HALF.** The constants the page narrated in prose — 44px as
+the touch floor, 999px as a person or a value, the hand-drawn card corner — are authored
+once there and printed into the page from that table, so a number cannot be retyped into
+documentation. **They are not declared as custom properties, and that is deliberate:**
+declaring `--touch-min: 44px` while fifteen rules go on saying `min-height: 44px` would add
+a third name for one number beside the literals it was meant to replace. `tokens.test.js`
+binds each value to the literal the stylesheet still contains; the sweep that turns those
+literals into `var()` belongs with the pass that introduces `ROW` and `EDGE`, where it can
+be reviewed as one change. For the same reason the edge-fade distances are **not** in
+tokens.js yet — nothing reads them, and plumbing with no tap is a thing this document has
+already had to name once.
+
+**THE TWO RATCHETS, RATHER THAN TWO ASPIRATIONS.** 20 ordinary components and 49 `Icon*`
+glyphs have no entry at all — the page has a *Marks* section with two entries and no
+catalogue of the icon set. Filling 69 entries is not what this change is, so the test
+records the numbers that are true today and refuses to let them grow, plus a third
+assertion on their sum so raising one ceiling means lowering the other. The same shape
+holds the 141 entries still on carried markup. A ratchet makes the debt visible and turns
+paying it down into a one-line diff; an aspiration in a comment does neither.
+
+**And the checkers were made to stop crying wolf before they were trusted.** The first cut
+reported `useCardMenu` as a missing `CardMenu`, `skipReason` as a missing `Reason`,
+`ANNOTATION_COLORS` as an undocumented component, `dialogues.season` as a missing CSS class
+and `.dot-*` as a class rather than a wildcard — five false alarms in one run. `ui.jsx`'s
+own icon-import test already records where that ends: a checker nobody believes gets
+deleted. Each matcher was narrowed until every remaining finding was real, and all nine
+that survived were fixed.
+
+<sub>Unreleased — `web/frontend/scripts/glossary-build.mjs` · `web/frontend/scripts/glossary/` · `web/frontend/src/tokens.js` · `web/frontend/src/ui.jsx` · `web/frontend/test/pure/tokens.test.js` · `web/frontend/test/pure/glossary-registry.test.js` · `scripts/glossary-css.mjs` (deleted)</sub>
+
+### A fill has to argue for itself, and only four arguments count
+
+**Decided.** The app is drawn at 1.85 and stays drawn. Nineteen glyphs are solid, each
+because it can name one of four reasons, and `icons-fill.test.jsx` fails any that cannot.
+
+**THE RULE MATTERS BECAUSE THE DEFAULT WAS AN ACCIDENT.** Every glyph used `iconStroke`
+because the one beside it did, not because anything refused a fill — and the moment a pack
+of 82 filled icons is on hand, "the app is wireframe" stops being a description of the set
+and becomes a rule somebody has to keep. Rules like that last exactly as long as the person
+who wrote them is the one adding glyphs. So the exceptions are declared, with their reason,
+and the test names the offender rather than a reviewer having to.
+
+**THE FOUR.** It is the ON state of a pair (the favourite, the three shelf marks). It names
+a PLACE rather than a job, which is the whole rail. Its subject is a silhouette in life,
+where an outline at 19px turns the shape into a ring — the mortarboard, and the face and the
+film reel were both **rejected** because each already sits inside something supplying the
+ring. Or the fill carries information, as the palette's wells hold the category colours.
+
+#### The pack was not the problem; the boxes were
+
+**PHOSPHOR DRAWS EACH GLYPH TO ITS OWN MARGINS.** Dropped into a rail straight from the
+pack, the film reel occupied **0.59** of its box and `users` **0.98** — thirteen tabs at
+thirteen sizes, which is the exact defect `icons.test.jsx` was written for after Quotes
+shipped smaller than the two tabs beside it. Each fill therefore carries a viewBox cropped
+to its own ink and sized so the **long side is 0.82** of the box. That is uniform scaling:
+nothing is stretched, the drawing is still the pack's, and the test holds the 0.82 for the
+whole rail rather than naming five glyphs by hand the way it used to.
+
+**AND THE OLD TEST HAD ALREADY GONE STALE WITHOUT FAILING.** It measured a hardcoded list —
+`IconQuote`, `IconBooks`, `IconReel`, `IconHome`, `IconStats` — which stopped being the nav
+set the moment three of them kept their outline for verb duty. It now measures through
+`NavIcon`, so it cannot go on checking the wrong five and passing.
+
+#### Eight twins, five replacements, and why the split is not arbitrary
+
+A glyph that is also a verb somewhere else **must not** wear the fill that means a place:
+`IconSearch` has thirteen non-nav callers, `IconQuote` five, `IconUsers` five. Those eight
+gained an `IconNav*` twin. The other five — Home, Metadata, Import, Stats, Settings — had
+**no caller outside the switch**, so their own drawing became the filled one. Creating
+thirteen twins would have left five exports with no caller, which this document has already
+had to name as a defect twice.
+
+#### What the fill work found
+
+**A GAME ANNOUNCED ITSELF AS A GAME AND DREW A FILM.** `ReadingBadge` computes `isGame` for
+its aria-label and then branched `isBook ? reading : watching`, so the one medium with its
+own word had no picture of its own. Fixed by the glyph that was being added anyway.
+
+**PRACTISE AND THE QUIZ CARD WERE ONE PICTURE.** Nine call sites read `practise` and drew
+`IconQuiz`. The mortarboard separates the entry point from the card, which is what
+`icons.js` predicted it would do.
+
+**THE FAVOURITE'S STATE LIVED IN ITS LABEL.** `review.jsx` flipped between the on and off
+words while drawing one heart.
+
+#### What was discarded, and one rule bent
+
+**The seal was dropped from the fill set** at the owner's call. **The palette was taken**
+though the repo had a recorded reason for the ink drop — "the control it opens is six
+coloured dots and the glyph should promise the same thing it delivers" — because rule 4 is
+explicitly about that glyph and the draft replaces v3.
+
+**AND RULE 1 IS KNOWINGLY BENT.** It says both halves of a pair must be the same drawing to
+the decimal, and `icons.js` warns that "an outline and a fill from different hands do not
+line up". The shelf marks pair a two-page spread with Phosphor's book-and-person and a play
+triangle with its monitor, which are different pictures rather than one changing state. The
+owner's ruling was that the fills take priority; it is recorded here because the next person
+to see a glyph change shape on a state change should find the reason rather than a bug.
+
+<sub>Unreleased — `web/frontend/src/ui.jsx` · `web/frontend/test/dom/icons-fill.test.jsx` · `web/frontend/test/dom/icons.test.jsx` · `web/frontend/scripts/glossary/catalogue.js` · Phosphor Icons (MIT)</sub>
+
+### An edge fade is measured, not painted — and it names which end still has content
+
+- **Decided** — `useEdgeScroll` writes `data-scroll-x` / `data-scroll-v` onto a scroller as
+  `start`, `end` or `both`, and removes the attribute when nothing overflows. The CSS mask
+  reads that attribute. Sideways the fade is 26px; downward it is `1.6em`.
+- **Why** — the fade is the app's ONLY signal that a row scrolls: no arrow, no scrollbar,
+  no counter. That makes a fade painted on a row that fits a lie the reader can only
+  discover by trying, and once one fade has lied every other fade in the app becomes a
+  maybe. So it is measured. The two units are the same rule seen from two sides: a
+  sideways fade has to clear a thumb, which does not change size when the type does, while
+  a downward one has to land on the last line, which does.
+- **Instead of** — a permanent gradient, which needs no measurement and is the version
+  most apps ship. Also considered and rejected: `animation-timeline: scroll()`, which is
+  genuinely CSS-only but is not in Firefox, and this repo's own harnesses run Firefox.
+- **Approved** — mine, on a batched decision list; the owner chose "all five scrollers,
+  both axes" over a narrower rollout.
+
+### The scroller's listeners live on the scroller, and nothing listens at rest
+
+- **Decided** — press-and-drag attaches `pointerdown` to the scroller itself and uses
+  `setPointerCapture`, so the later moves and the release retarget to that element. A drag
+  past 3px sets `data-dragged`, and a capture-phase click handler swallows the click that
+  ends it.
+- **Why** — `overflow` alone is a touch-only affordance: a plain mouse has no sideways
+  gesture at all, so without this the fade promises content it will not give up. The
+  owner had already ruled "CSS-only, no document pointer listeners" for the material
+  system, on the `make perf` budget. Pointer capture honours that ruling rather than
+  arguing with it — there is no document listener, and nothing is bound while the row
+  sits still.
+- **Instead of** — the prototype's delegated document listener, which is less code and is
+  exactly the thing that ruling was written to prevent.
+
+### ROW and EDGE are custom properties; the other geometry constants are not
+
+- **Decided** — `--edge` and `--row` are declared in `:root` and overridden per screen.
+  The rest of `tokens.js` — 44px, 999px, 9px — stays as literals with a proof.
+- **Why** — the split is the decision rather than an inconsistency. The page body and the
+  top bar are not in the same subtree and must not be able to disagree about the gutter,
+  and a variable is the only way for two such elements to share one number. Nothing
+  equivalent is true of 44px: declaring `--touch-min` while fifteen rules go on saying
+  `min-height: 44px` would add a third name for the same number.
+- **Instead of** — per-screen constants with no shared default, as the pack states them.
+  Rejected because the top bar is not inside a screen, so there would be nothing for it
+  to read.
+- **Approved** — mine, chosen from a list; the honest note is that `--row` has almost no
+  consumers yet. The app still types its vertical step in by hand 177 times across seven
+  Tailwind values, and `spacing-debt.test.js` holds that count as a ratchet so the
+  screen-by-screen pass can spend it and nothing can quietly add to it.
+
+### The 24px-root test is run at the type dial's 200%, because the literal version proves nothing here
+
+- **Decided** — `make typescale` doubles every `--type-*` token the app has written AND
+  sets the root font size to 24px, then fails on anything a screen clips that it did not
+  clip at rest.
+- **Why** — this is a departure from the pack's wording and it is the honest translation
+  rather than a weakening of it. Tippani has no root font size to set: `applyTypeScale`
+  writes finished pixels into `--type-<role>-<step>` on `<html>`, and `body` reads
+  `var(--type-ui-15)`. The literal test would therefore have moved almost nothing and
+  returned a clean bill of health for a stylesheet full of px boxes. The app's own dial
+  goes to 200%, where a 15px label is 30px — harsher than the 24px asked for. Both are
+  applied, so the handful of `rem` values are covered too.
+- **Instead of** — a jsdom test, which cannot work: jsdom performs no layout, so every
+  box fits forever.
+- **Reversal** — none, but a claim of mine is corrected: I reported the app's ellipsis
+  sites as "11, two of them on names". That was `index.css` alone. Tailwind's `truncate`
+  utility adds 38 more in JSX, and the harness found that several of THOSE are on work
+  titles and people's names — the failure the rule exists to prevent. 47 remain, recorded
+  in `scripts/screenshots/typescale-baseline.json`, to be spent by the screen that owns
+  each one.
+
+### Two placeholder findings, reported rather than fixed
+
+- **Decided** — `people.jsx` draws the `.ph` cover hatch where a person's portrait
+  belongs, and an empty cast face draws a flat grey box. Neither was changed.
+- **Why** — the rule says a missing person is a silhouette and a missing anything-else is
+  the hatch, and that "a hatch where a face belongs reads as a broken tile". The person
+  panel is a real violation of it. But the fix needs a silhouette drawing: the pack claims
+  `assets/person-silhouette.svg` is already committed here and it is not, and the owner
+  has since said the person assets are unavailable and to skip them. The cast face is a
+  different matter — its flat box is a DOCUMENTED decision in this repo ("a role without
+  one says so permanently"), and the repo's own rule is that where it already has a
+  component, the repo's name wins. Overriding a recorded decision with a rule from the
+  pack, unasked, would be the wrong way round.
+- **Approved** — reported to the owner as findings at the end of the standing-rules pass.
+
+<sub>Unreleased — `web/frontend/src/ui.jsx` · `web/frontend/src/index.css` · `web/frontend/src/tokens.js` · `web/frontend/src/cast.jsx` · `web/frontend/src/Account.jsx` · `scripts/screenshots/typescale.mjs` · `web/frontend/test/dom/edge-fade.test.jsx` · `web/frontend/test/dom/entrance-rule.test.jsx` · `web/frontend/test/pure/spacing-debt.test.js`</sub>
+
+### The navigation is a rail down the left edge, not a strip across the top
+
+- **Decided** — nine destinations in a fixed column: 236px with words at 1180+, 68px of
+  glyphs above 769, and nothing at all on a phone, which keeps its drawer and bottom bar.
+  The brand, the destinations and the account live there; the top bar keeps the controls
+  that act on the screen you are looking at.
+- **Why** — a tab strip spends the top of every page on navigation, and the top of a page
+  is where the thing you came to read starts. The rail takes width nothing was using and
+  gives every screen its first inch back. It also has room for a number against each
+  destination, which the strip never did.
+- **Instead of** — keeping the strip and restyling it. Rejected because the layout the
+  design pack draws for a work assumes a rail; building the screens inside the old frame
+  would have meant drawing each of them twice.
+- **The rail is `position: fixed` beside a normally-scrolling page**, and NOT the
+  prototype's fixed-height app shell with independently scrolling columns. This app
+  scrolls the window, and that is wired into scroll restoration, the sticky page bars and
+  `useHideOnScrollDown`; a fixed rail is the same picture with none of that rewritten.
+  The work-detail screen may still own real internal scrollers without the shell changing.
+- **769px and not the pack's 700.** The pack calls anything under 700 a phone; this app
+  has drawn that line at 768 since it had a mobile shell, and everything else agrees with
+  it. At 700 the rail, the phone's top bar and the floating bottom nav all showed at once.
+- **Approved** — mine, from a batched decision list, with a render of every width reviewed
+  before anything was committed.
+
+### The bin and Checks are doors in the rail's foot, not tiles in Settings
+
+- **Decided** — the bin and a new **Checks** screen sit below the rule at the foot of the
+  rail, each with its count. Their tiles are gone from Settings. Checks holds the two
+  lists that ask something of you: the import queue and the stray-marks pass.
+- **Why** — Settings is where you go to change how the app behaves, not to discover it is
+  waiting on you. A queue nobody can see from the screen they are on is a queue that is
+  found by accident. `routes.js` already argued that the bin is not a destination — that
+  argument is about the nav strip, and the foot, below the rule, is exactly the place for
+  a door that is not a place you go to read.
+- **Instead of** — calling it *Review*, which is what the pack's shape suggests. Rejected
+  because this app already means the daily quiz and the spaced-repetition deck by that
+  word, and two meanings for one word in one app is how a rename becomes a support
+  question. Also rejected: two separate foot rows, which would have made the foot four
+  rows plus an account and started competing with the destinations above it.
+- **The staging invariant is untouched.** An import still lands in the queue and is
+  approved out of it. What changed is that a waiting one is now visible from every screen.
+
+### The top bar holds where you are and how to leave
+
+- **Decided** — a breadcrumb (`root / leaf`, the leaf capped at `34ch`), a search field
+  carrying the current scope as a dismissable pill, and help. The magnifier key is gone.
+- **Why** — the rail took the brand and the tabs and left an empty strip. What a bar is
+  actually good for is the pair the pack puts back: where you are, and how to leave.
+- **Dropping the scope pill IS global search** — same field, no pill, everything in
+  range. So the `×` lives on the scope rather than beside it as a second "search
+  everywhere" verb: one control, and its presence or absence is the whole state. That
+  replaces the globe and the hidden right-click that toggled `tippani:search:global`.
+- **The phone keeps the magnifier and the preference**, because it has no room for a
+  field. Two models for one feature, and defensible: a scope you can drop on every search
+  is a preference you no longer need to set, and only the wide frame can offer that.
+- **`useCrumb` / `useCrumbTitle`** — a publish/subscribe in the shape `toast` already
+  uses, because the shell draws the crumb and the screen knows the title three components
+  apart. **Instead of** threading a prop from Shell through Library into BookDetail: that
+  puts a shell concern in two screens' signatures and the Catalogue needs the identical
+  pair, so the price is paid twice for one string.
+
+### An icon test that approximated the geometry certified the approximation
+
+- **Decided** — `extentOf` in `icons.test.jsx` computes the true extent of an SVG arc:
+  endpoint parameterisation converted to centre form, then the extrema that fall inside
+  the swept range. Fourteen of the nineteen filled glyphs had their `viewBox` corrected.
+- **Why** — it read an arc by its ENDPOINTS. A Phosphor fill draws a disc as one arc
+  whose endpoints sit near each other while the curve travels half the box away, so
+  `IconNavCatalogue` measured 152 wide against a true 216 — and the `viewBox` cropped from
+  that measurement **cut the drawing**. The film reel lost its left edge on screen, in the
+  rail, and the test called it correct. The owner spotted it by eye.
+- **Reversal** — this corrects the icon pass logged above, which introduced the crop. The
+  0.82 normalisation was sound; the measurement feeding it was not.
+- **Approved** — mine, after watching the corrected test fail on the old value.
+
+<sub>Unreleased — `web/frontend/src/App.jsx` · `web/frontend/src/index.css` · `web/frontend/src/ui.jsx` · `web/frontend/src/routes.js` · `web/frontend/test/dom/icons.test.jsx` · `web/frontend/test/dom/text-readability.test.jsx` · `internal/i18n/en.txt` · `internal/i18n/bn.txt`</sub>
+
+### A field's source is shown per field, with the supplier's own mark
+
+- **Decided** — every row in Details carries the mark of whoever wrote that field, or
+  **You** where the reader typed it, or nothing where the record has no answer. The marks
+  are vendored `data:` URIs painted as CSS masks.
+- **Why** — a record is assembled from several suppliers and one provenance line for
+  eleven fields cannot say which wrote what. It also makes Refetch an all-or-nothing
+  gamble, which is why people stop pressing it.
+- **The data was already there and the client was throwing it away.** `work_field_source`
+  has served `field_sources[]` on both detail endpoints since 0054; nothing in the SPA
+  read the key. So the visible half of this was a UI change, not a schema one.
+- **Three states, and collapsing any two would lose the point.** A supplier's mark means
+  that supplier wrote it. `manual` means somebody decided. NO ROW means we do not know —
+  which the store already argued is a different fact, and the UI now agrees.
+- **Instead of** the pack's `OL` · `GB` · `AZ` initials. The owner asked for marks, and
+  two-letter codes are a second vocabulary to learn for something a logo says instantly.
+
+### Brand marks, which reverses a decision written in the source
+
+- **Decided** — twelve suppliers' own marks, vendored, painted as masks at `--soft`.
+- **Reversal** — `ui.jsx` said the opposite, in words: *"These are 16px category glyphs
+  (not brand logos — they match the hand-drawn stroke set and need no licensing)."* That
+  reasoning held while a supplier was named once, on a look-up row you were already
+  reading. It stops holding when every field carries one: at that density the reader is
+  scanning for "which of these did Google write", and a category glyph cannot answer it —
+  five of the twelve suppliers shared one drawing. A real mark is recognised without being
+  read. The licensing the old note avoided is the price, and it is paid in
+  `docs/PROVIDER-MARKS.md`.
+- **Masks, never `<img>`.** Each mark is an opaque black shape over a `background-color`,
+  so it wears the row's ink and one file serves both themes. A dozen brand hues in one
+  panel would be the loudest thing on a screen made of paper.
+- **Vendored, never hotlinked** — a panel that phones a dozen companies to draw itself is
+  exactly the outbound request this app promises not to make.
+- **Two substitutions, both deliberate**: Open Library shows the Internet Archive's mark
+  (Open Library is an Archive project and that is the mark it publishes under), and
+  Wikimedia shows Wikimedia Commons (the media repository, which is what that source
+  supplies). Both are commented at their entry so neither reads as the wrong file pasted in.
+- **Amazon is the letterform alone, from Font Awesome.** Every published Amazon mark pairs
+  the `a` with the smile, and at 18px the smile is a grey smear — rendered side by side,
+  the letterform alone is indistinguishable from the design pack's 16.7KB raster stencil
+  for **466 bytes**. Font Awesome rather than Simple Icons because Simple Icons WITHDREW
+  Amazon at the company's request: the archived file is still CC0, and re-vendoring
+  something a rights holder asked to have removed is not a thing to do on a technicality.
+
+### Typing over a value re-sources that field to you
+
+- **Decided** — `PUT /books/{id}` and `PUT /movies/{id}` read the row first, compare, and
+  record `manual` for the fields that actually moved.
+- **Why** — without it the tag lies the first time anybody corrects anything, and a
+  corrected value stays flagged as the supplier's for the next refetch to overwrite.
+- **Compared, not taken from the client.** A form that re-posts every field would
+  re-source the whole record on any edit — the same lie in the other direction. One
+  keyed read inside the transaction that is about to write.
+- **Both kinds, not one.** Films had the identical gap; fixing books alone would have left
+  exactly the asymmetry the provenance table exists to remove.
+
+### `sourceName` moved to `ui.jsx`
+
+- **Decided** — the supplier-name table lives in `ui.jsx`; `CoverPicker.jsx` and
+  `ReverifyReview.jsx` import it. It gained `imdb`, `wikipedia` and `manual`.
+- **Why** — it was right in `CoverPicker` while a supplier was only named on a cover
+  candidate. Per-field provenance names one on every field row, and two tables of supplier
+  names is how a picker and a field row come to call one company two things.
+
+<sub>Unreleased — `web/frontend/src/providerMarks.js` · `web/frontend/src/ui.jsx` · `web/frontend/src/WorkDetails.jsx` · `web/frontend/src/CoverPicker.jsx` · `internal/httpapi/book_handlers.go` · `internal/httpapi/movie_handlers.go` · `docs/PROVIDER-MARKS.md`</sub>

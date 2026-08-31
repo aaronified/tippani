@@ -30,7 +30,7 @@ import {
   FormModal,
   HandNote,
   IconEdit,
-  IconHeart,
+  IconHeart, IconHeartOn,
   Kbd,
   MonoLabel,
   toast,
@@ -523,7 +523,7 @@ function CardTools({ card, onPatch }) {
               style={fav ? { color: 'var(--accent-ui)', borderColor: 'var(--accent-ui)' } : undefined}
               onClick={() => setFav((v) => !v)}
             >
-              <IconHeart /> {t(fav ? 'quiz.card.favourite.on.label' : 'quiz.card.favourite.off.label')}
+              {fav ? <IconHeartOn /> : <IconHeart />} {t(fav ? 'quiz.card.favourite.on.label' : 'quiz.card.favourite.off.label')}
             </button>
             <span className="ml-auto flex items-center gap-2">
               <button type="button" className="tp-link" onClick={() => setOpen(false)}>{t('common.action.cancel.label')}</button>

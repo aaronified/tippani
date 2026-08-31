@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { coverImgURL, json, upload, errText } from './api.js'
 import { t } from './i18n.js'
-import { EmptyState, ErrorText, GhostButton, HandCard, MonoLabel, SortableTh, TableActions, Tooltip, useSort } from './ui.jsx'
+import { EmptyState, ErrorText, GhostButton, HandCard, MonoLabel, Scroller, SortableTh, TableActions, Tooltip, useSort } from './ui.jsx'
 
 // Stored sticker files are served from the shared cover route (built directly,
 // like Cover in ui.jsx — these don't go through the json/upload helpers).
@@ -250,7 +250,7 @@ function StickerTable({ stickers, onChanged }) {
   return (
     <>
       <ErrorText>{error}</ErrorText>
-      <div className="ann-table-wrap" style={{ maxHeight: 420, overflowY: 'auto' }}>
+      <Scroller className="ann-table-wrap" axis="both" style={{ maxHeight: 'min(28em, 60vh)', overflowY: 'auto' }}>
         <table className="ann-table">
           <thead>
             <tr>
@@ -266,7 +266,7 @@ function StickerTable({ stickers, onChanged }) {
             ))}
           </tbody>
         </table>
-      </div>
+      </Scroller>
     </>
   )
 }

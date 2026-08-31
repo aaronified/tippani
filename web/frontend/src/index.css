@@ -19,6 +19,49 @@
        be read together. Below 1400px nothing changes: 1180px was chosen for a
        laptop and is still right on one. */
     --container-max: 1180px;
+
+    /* ---- ROW and EDGE: spacing is a constant, never a literal ---------------
+       EDGE is the page's horizontal margin and ROW is the vertical step between
+       rows. A padding typed into a row is a bug rather than a decision: five
+       hand-tuned numbers agree on the day they are written and drift on the next
+       change, and the drift is invisible until somebody screenshots it.
+
+       DECLARED HERE AND NOT ON THE SCREEN, for the same reason --container-max is:
+       the top bar is not inside the page body, and the two must not be able to
+       disagree about where the gutter is. A screen is still free to restate either
+       on its own root — that is what makes them per-screen constants rather than
+       one global — but it then does so against a stated default instead of against
+       nothing.
+
+       THEY STAY IN PX, and that is not an oversight. 20px is a gutter and 44px is
+       a fingertip; neither changes when the reader changes their type size, so
+       neither is measured in a unit that would. The rule that forbids px is about
+       boxes that HOLD TEXT — see the edge-fade section for the other half of it.
+
+       ROW HAS ALMOST NO CONSUMERS YET, and that is honest rather than hidden: the
+       app currently spaces its screens with 155 hand-typed Tailwind `space-y-*`
+       classes across seven different values, which is precisely the drift this
+       constant exists to end. Converting them is the screen-by-screen pass, not
+       this one; `spacing-debt.test.js` holds the count as a ratchet so it can only
+       fall. */
+    --edge: 20px;
+    --row: 12px;
+
+    /* ---- the nav rail's width, and why it is a token ----------------------
+       THREE READERS, none of which can measure the others: the rail itself, the
+       page body that must not sit under it, and the top bar that spans only the
+       page. Written as a literal in each, they drift the first time the rail
+       changes width and the symptom is a page hiding behind its own navigation.
+
+       THE RAIL LOSES ITS WORDS BEFORE THE STREAM LOSES ITS MEASURE. At 820px a
+       236px rail is 29% of the screen spent on somewhere else to be, so it
+       collapses to glyphs — the one thing here whose meaning survives being 68px
+       wide, because these are the same eight destinations the phone teaches. And
+       a phone gets NO rail rather than a narrow one: nine destinations pinned
+       beside a 390px screen would leave 320px of book, so they stay behind ☰,
+       which is the one piece of furniture the wide frames delete rather than
+       shrink. */
+    --rail: 0px;
     /* the reading column on Home: a single stack of cards, so it widens far
        more slowly than a board does */
     --home-max: 42rem;
@@ -234,6 +277,7 @@
     .user-chip::before,
     .drawer::before,
     .mobile-bottom-nav::before,
+    .rail::before,
     .topbar::before,
     .mobile-topbar::before,
     .mobile-sticky-bar::before,
@@ -767,6 +811,68 @@
   /* Track the pointer 1:1 — the material ease is for the release snap, not the
      follow. Same trick as .tp-toggle[data-dragging="1"]. */
   .tp-select-panel[data-dragging="1"] .tp-select-thumb { transition: none; }
+
+  /* ---- the edge fade (§ design): pair with the useEdgeScroll hook ----------
+     AN EDGE FADE MEANS IT SCROLLS, and it is the only thing that says so: no
+     arrow, no scrollbar, no "3 more". A button at the fade is the other
+     affordance and a different promise (it opens the full set in a sheet), so
+     the two must never be worn by the same edge.
+
+     THE FADE NAMES WHICH END HAS MORE. `useEdgeScroll` writes "start", "end" or
+     "both" and removes the attribute when nothing overflows, so a row that fits
+     wears no mask at all. A gradient left permanently on would promise content
+     that is not there, and one lying fade teaches the reader to ignore every
+     honest one.
+
+     SIDEWAYS IS PX, DOWNWARD IS EM, and that asymmetry is the whole rule about
+     type being a setting. 26px sideways is spacing — it is as wide at 24px root
+     as at 15px, because what it has to clear is a thumb, not a word. 1.6em
+     downward has to land on THE LAST LINE, and the last line moves when the
+     reader changes their type size, so it is measured in the same unit the line
+     is. `max-height: 72px` is three lines at exactly one setting; 1.6em is one
+     line at all of them. ---- */
+  [data-scroll-x="end"] {
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 26px), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 26px), transparent);
+  }
+  [data-scroll-x="start"] {
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 26px);
+    mask-image: linear-gradient(to right, transparent, #000 26px);
+  }
+  [data-scroll-x="both"] {
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 26px, #000 calc(100% - 26px), transparent);
+    mask-image: linear-gradient(to right, transparent, #000 26px, #000 calc(100% - 26px), transparent);
+  }
+  [data-scroll-v="end"] {
+    -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 1.6em), transparent);
+    mask-image: linear-gradient(to bottom, #000 calc(100% - 1.6em), transparent);
+  }
+  [data-scroll-v="start"] {
+    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 1.6em);
+    mask-image: linear-gradient(to bottom, transparent, #000 1.6em);
+  }
+  [data-scroll-v="both"] {
+    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 1.6em, #000 calc(100% - 1.6em), transparent);
+    mask-image: linear-gradient(to bottom, transparent, #000 1.6em, #000 calc(100% - 1.6em), transparent);
+  }
+  /* A press-and-drag on a scroller must not paint a selection behind itself, and
+     the cursor has to admit what the row is doing. `data-dragging="1"` is the
+     same flag .tp-toggle and .tp-select-panel already fly. */
+  [data-scroll-x][data-dragging="1"],
+  [data-scroll-v][data-dragging="1"] {
+    cursor: grabbing;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  /* PAPER DOES NOT SCROLL. A mask on a printed page deletes the words under it
+     and leaves no way to reach them, so print gets the whole row, un-faded. */
+  @media print {
+    [data-scroll-x], [data-scroll-v] {
+      -webkit-mask-image: none;
+      mask-image: none;
+      overflow: visible;
+    }
+  }
 
   /* ---- reveal-on-scroll (§5): pair with the useReveal hook ---- */
   .reveal {
@@ -2266,14 +2372,26 @@
   .cast-face-btn.is-empty .cast-face-mark { inset: 0; opacity: 1; }
   .cast-face-btn.is-empty:hover .cast-face-mark { color: var(--ink); }
   .cast-names { display: flex; min-width: 0; flex: 1 1 auto; flex-direction: column; }
-  .cast-character { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--type-ui-15); }
-  /* The character name is a button now (it opens this row's picture editor), and
-     a button inherits neither the truncation nor the type of the span around it.
-     Restated here rather than moved onto the button, because the span is what the
-     flex row measures and the button has to fill it to truncate at the same place. */
+  /* A NAME IS NEVER TRUNCATED. This used to end in an ellipsis, and an ellipsis on
+     a name is the one failure a reader cannot detect: "Alexander Hamilto…" and
+     "Alex" look equally like the whole of what was stored, so the row destroyed
+     the only thing it existed to show. It scrolls under the fade instead — see the
+     edge-fade section, and `useEdgeScroll` in CastRow, which is what puts
+     `data-scroll-x` on this span and lets a mouse drag it. */
+  .cast-character {
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    white-space: nowrap;
+    font-size: var(--type-ui-15);
+    /* The bar would sit ON the actor's name a line below; the fade is the signal. */
+    scrollbar-width: none;
+  }
+  .cast-character::-webkit-scrollbar { display: none; }
+  /* The character name is a button (it opens this row's picture editor), and a
+     button inherits neither the wrapping nor the type of the span around it. */
   .cast-character > button {
-    display: block; max-width: 100%;
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    display: block;
+    white-space: nowrap;
     font-size: inherit; font-family: inherit; text-align: left;
   }
   .cast-actor {
@@ -2302,7 +2420,13 @@
      use. `min-width: 0` on the name is what makes the truncation land on the long
      character name rather than on the actor beside it. */
   .cast-opt { display: flex; align-items: baseline; gap: 10px; }
-  .cast-opt-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* THE OPTION WRAPS RATHER THAN FADING, and it is the one place in the app that
+     answers "never truncate a name" with a second line instead of a scroller. A
+     fade promises a sideways gesture, and inside `role="option"` that gesture
+     cannot be given: a horizontal drag here would have to swallow the click, and
+     the click is the whole purpose of an option. Two lines destroy nothing and ask
+     for nothing. */
+  .cast-opt-name { min-width: 0; overflow-wrap: anywhere; }
   .cast-opt-other {
     margin-left: auto; flex-shrink: 0;
     font-family: var(--font-mono);
@@ -3054,6 +3178,332 @@
   .ann-table .col-actions { white-space: nowrap; text-align: right; }
   .ann-table .col-actions .tp-link { margin-left: 10px; }
 
+  /* ---- a supplier's mark, and the tag it sits in --------------------------
+     A MASK, NEVER AN <img>. Each mark is an opaque black shape; painted as a mask
+     over a background-color it takes the row's own ink — `--soft` at rest, `--ink`
+     under the pointer — so a dozen suppliers do not bring a dozen brand colours to
+     a screen made of paper. It also means one file serves both themes. ---- */
+  .src-mark {
+    display: inline-block;
+    width: 1em; height: 1em;
+    flex: none;
+    background-color: currentColor;
+    -webkit-mask-position: center; mask-position: center;
+    -webkit-mask-size: contain; mask-size: contain;
+    -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+  }
+
+  /* THE TAG INKS ITSELF WHEN THE VALUE IS YOURS. A mark at --faint is quiet enough
+     to read past and loud enough to find; the accent says "you decided this", which
+     is the one state a reader scans a record for. */
+  .field-src {
+    display: inline-flex; align-items: center; gap: 5px;
+    flex: none;
+    min-height: 24px; padding: 0 7px;
+    border: 0; border-radius: 999px;
+    background: transparent;
+    color: var(--faint);
+    font-family: var(--font-mono); font-size: var(--type-mono-9);
+    letter-spacing: .08em; text-transform: uppercase;
+    cursor: default;
+  }
+  .field-src[data-src="manual"] { color: var(--accent-ui); }
+  /* No mark to draw — an unrecorded field, or a supplier added since the mark set.
+     The word carries it, which is what the mark was standing in for anyway. */
+  .field-src[data-src="none"] { color: var(--faint); opacity: .8; }
+
+  /* ---- the nav rail (§ design v3.1) ---------------------------------------
+     THE FRAME THE DESIGN PACK DRAWS. Nine destinations down the left edge instead
+     of across the top, which is the change that gives every screen its width back:
+     a tab strip spends the top of every page on navigation, and the top of a page
+     is where the thing you came to read starts.
+
+     IT IS `position: fixed`, AND THAT IS A DEPARTURE worth stating. The prototype
+     makes the whole app a fixed-height shell with independently scrolling columns.
+     This app scrolls the window, and that is wired into scroll restoration, the
+     sticky page bars, and useHideOnScrollDown — all of which would have to be
+     rewritten to match. A fixed rail beside a normally-scrolling page is the same
+     picture with none of that risk. If the two-column detail screen later needs
+     real internal scrollers, it can own them without the shell changing.
+
+     THE ROWS ARE NOT THE APP'S Toggle. The desktop strip was a segmented control,
+     which is the right shape for a row of peers and the wrong one for a column of
+     destinations: a segment implies "one of these", and the rail also holds a
+     rule, a bin and an account. ---- */
+  /* 769px AND NOT THE PACK'S 700. The prototype calls a phone anything under 700;
+     this app has drawn that line at 768 since it had a mobile shell, and the line is
+     load-bearing — `.topbar` hides and `.mobile-topbar` and the floating bottom nav
+     appear there. At the pack's number the two frames overlap: 700–768 would show the
+     rail AND the phone's top bar AND the bottom nav, three navigations at once. The
+     app's existing breakpoint wins, because it is the one everything else already
+     agrees with. */
+  @media (min-width: 769px) {
+    :root { --rail: 68px; }
+  }
+  @media (min-width: 1180px) {
+    :root { --rail: 236px; }
+  }
+
+  .rail {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 30;
+    width: var(--rail);
+    display: none;
+    flex-direction: column;
+    border-right: 1px solid var(--line);
+    /* THE SAME SURFACE THE DRAWER WEARS, because they are the same object at two
+       widths: a full-height column of destinations. `--raised` was a flat stand-in
+       while the shape was being settled; the shell gradient plus the shell grain
+       (see the material rules further down) is what every other bar in the app is
+       made of, and the rail is the largest of them. */
+    background: linear-gradient(180deg, var(--topbar-top), var(--topbar-bottom));
+    isolation: isolate;
+  }
+  @media (min-width: 769px) { .rail { display: flex; } }
+
+  .rail-head {
+    display: flex; align-items: center;
+    padding: 16px 10px 14px;
+    min-width: 0;
+  }
+  .rail-brand {
+    display: flex; align-items: center; gap: 9px;
+    /* CENTRED AT 68px, LIKE EVERY GLYPH BELOW IT. `justify-content: center` on the
+       head was not enough: this button is the head's only child at width:100%, so
+       centring the head centred a full-width box and the mark still sat at its left
+       edge — a logo half a rail out of line with the nine glyphs under it. */
+    justify-content: center;
+    min-width: 0; width: 100%;
+    padding: 0; border: 0; background: none; cursor: pointer;
+    position: relative;
+    color: inherit;
+  }
+  .rail-head img { display: block; width: 34px; height: 34px; flex: none; }
+  .rail-wordmark {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: var(--type-display-17);
+    color: var(--ink);
+    white-space: nowrap;
+    overflow: hidden;
+  }
+  /* The nav scrolls when nine destinations outrun a short window, and says so with
+     the app's own edge fade — see useEdgeScroll in App.jsx. */
+  .rail-nav {
+    flex: 1; min-height: 0;
+    overflow-y: auto;
+    /* A rail that runs out of room must not hand the leftover scroll to the page
+       behind it — you would close the nav and find the library somewhere you never
+       navigated to. */
+    overscroll-behavior: contain;
+    scrollbar-width: none;
+    display: flex; flex-direction: column; gap: 2px;
+    padding: 0 6px;
+  }
+  .rail-nav::-webkit-scrollbar { display: none; }
+
+  .rail-row {
+    display: flex; align-items: center; gap: 11px;
+    width: 100%;
+    min-height: 44px;               /* the touch floor; a control may be taller */
+    padding: 0;
+    justify-content: center;
+    border: 0;
+    border-radius: 9px;             /* 9px acts, 999px is a person or a value */
+    background: transparent;
+    color: var(--soft);             /* every glyph at rest, everywhere */
+    font-family: var(--font-ui);
+    font-size: var(--type-ui-13);
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color .16s ease, color .16s ease;
+  }
+  .rail-row:hover { background: color-mix(in oklab, var(--ink), transparent 94%); color: var(--ink); }
+  .rail-row:active { background: color-mix(in oklab, var(--ink), transparent 88%); }
+  /* NO WHITE LIFT ON THE CURRENT ROW, unlike .tp-btn-primary and .topbar-add-btn.
+     Those two wear `white 14%` at the top of their gradient to read as a raised
+     control, and both pay for it in contrast — the Add button is a recorded
+     exception at 2.62:1 against a 4.5 floor. This row is not a raised control, it
+     is a place you are standing, so it can take the accent at full strength and
+     keep its label legible. Measured, not judged: text-readability.test.jsx carries
+     a row for it across every accent, mode and material set. */
+  .rail-row[aria-current="page"] {
+    color: var(--on-accent);
+    font-weight: 600;
+    background: color-mix(in oklab, var(--accent), black 6%);
+    text-shadow: 0 1px 1px rgba(0,0,0,.28);
+  }
+  .rail-row[aria-current="page"]:hover { color: var(--on-accent); }
+  html[data-theme="dark"] .rail-row[aria-current="page"] {
+    background: var(--accent-dark);
+  }
+  .rail-icon { width: 20px; flex: none; display: inline-flex; align-items: center; justify-content: center; }
+  .rail-icon svg { width: 19px; height: 19px; }
+  /* Hidden rather than absent at 68px: the label is what a screen reader reads, and
+     an icon-only rail that dropped it would be nine unnamed buttons. The WORDMARK is
+     different — it is decoration beside a mark that already says the same thing, and
+     left showing at 68px it hung a clipped "t" off the logo. */
+  .rail-label, .rail-count, .rail-wordmark { display: none; }
+  .rail-head { justify-content: center; }
+
+  /* A RULE IS NOT A CONTROL. It is a <span>, never a row rendered through the
+     button branch — a 1px unlabelled button between two destinations takes the
+     focus outline and announces itself as an empty control, and pointer-events
+     would have "fixed" it for a mouse only. */
+  /* IT SEPARATES TWO KINDS OF DESTINATION — the places your library lives from the
+     tools that act on it — so it has to be seen. At `--line` on paper it was a hairline
+     against a warm ground and read as a gap rather than a rule, which is the one thing
+     a separator must not do. `--ink` at 14% carries on light; dark needs less, because
+     a light line on a dark ground already has the contrast this one was missing. */
+  .rail-rule {
+    height: 1px;
+    margin: 9px 10px;
+    background: color-mix(in oklab, var(--ink) 14%, transparent);
+    flex: none; display: block;
+  }
+  html[data-theme="dark"] .rail-rule { background: color-mix(in oklab, var(--ink) 22%, transparent); }
+
+
+  .rail-foot {
+    padding: 6px 6px 12px;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--line);
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  /* THE BIN IS NOT A DESTINATION, and routes.js already says so in words: a row for
+     "things you have deleted" beside Library is a standing invitation to browse your
+     own deletions. But /bin is a real route that bookmarks and survives a refresh, so
+     it needs a door — below the rule, where the app's housekeeping lives. */
+  .rail-foot .rail-row { min-height: 40px; font-size: var(--type-ui-12); color: var(--faint); }
+  .rail-foot .rail-row:hover { color: var(--ink); }
+  /* A LIT FOOT ROW IS STILL A LIT ROW. `.rail-foot .rail-row` and
+     `.rail-row[aria-current]` weigh the same, so the later one won and painted a
+     --faint label onto the accent — the bin, while you were standing in it, was the
+     least readable thing in the rail. Stated at both weights rather than by nudging
+     one of them up: the two rules are about different things and should not have to
+     race. */
+  .rail-foot .rail-row[aria-current="page"],
+  .rail-foot .rail-row[aria-current="page"]:hover { color: var(--on-accent); }
+  .rail-foot .rail-row[aria-current="page"] .rail-count { color: var(--on-accent); }
+  .rail-acct { gap: 10px; }
+  .rail-acct .user-chip { width: max(30px, 1.6em); height: max(30px, 1.6em); }
+  .rail-acct-name { display: none; color: var(--soft); font-size: var(--type-ui-13); }
+
+  /* ---- the rail with its words (≥1180) ---- */
+  @media (min-width: 1180px) {
+    .rail-head { padding-left: 16px; padding-right: 16px; justify-content: flex-start; }
+    .rail-brand { justify-content: flex-start; }
+    .rail-wordmark { display: block; }
+    .rail-nav { padding: 0 9px; }
+    .rail-row { justify-content: flex-start; padding: 0 12px; font-size: var(--type-ui-15); }
+    .rail-label {
+      display: block; flex: 1; min-width: 0; text-align: left;
+      overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+    }
+    .rail-count {
+      display: block; flex: none;
+      font-family: var(--font-mono); font-size: var(--type-mono-9);
+      color: var(--faint);
+    }
+    .rail-row[aria-current="page"] .rail-count { color: var(--on-accent); }
+    .rail-foot { padding-left: 9px; padding-right: 9px; }
+    .rail-foot .rail-row { font-size: var(--type-ui-13); }
+    .rail-acct { padding: 0 8px; }
+    .rail-acct-name { display: block; }
+  }
+
+  /* THE WHOLE PAGE STANDS CLEAR OF THE RAIL, and it is body padding rather than a
+     margin on the two things that looked like they needed one. `.container-tp` sets
+     `margin: 0 auto` to centre itself, and a shorthand later in the file beats a
+     longhand earlier in it — so the first cut put `margin-left` on the container,
+     watched it lose, and drew the whole book grid underneath the navigation. Padding
+     the body moves the sticky top bar with it, keeps the container centring inside
+     what is left, and leaves the fixed rail where it is. */
+  @media (min-width: 769px) {
+    body { padding-left: var(--rail); }
+  }
+
+  /* ---- the top bar's contents (§ design v3.1) -----------------------------
+     THE BAR LOST ITS BRAND AND ITS TABS TO THE RAIL and was left an empty strip
+     with three keys floating at its right edge. What the pack puts in it instead
+     is the pair a bar is actually good for: where you are, and how to leave.
+
+     RANGED LEFT, BESIDE THE CRUMB — not pushed to the far edge. `margin-left:auto`
+     pins the field to the right rail, and at 1440 that leaves it sitting alone with
+     four hundred pixels of nothing between it and the thing it belongs to. ---- */
+  .topbar-crumbs { display: flex; align-items: center; gap: 8px; min-width: 0; flex: none; }
+  .crumb {
+    border: 0; background: none; padding: 0; cursor: pointer;
+    white-space: nowrap;
+    font-family: var(--font-ui); font-size: var(--type-ui-13);
+    color: var(--soft);
+    transition: color .16s ease;
+  }
+  .crumb:hover { color: var(--ink); }
+  .crumb-sep { color: var(--faint); font-size: var(--type-ui-13); }
+  .crumb-here {
+    font-family: var(--font-ui); font-size: var(--type-ui-13);
+    color: var(--ink); font-weight: 600;
+    overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+    /* `ch`, NOT px. A breadcrumb leaf is a title, and a title is text — 34ch is
+       thirty-four characters at any type size, where 300px is thirty-four at one. */
+    max-width: 34ch;
+  }
+
+  .topbar-search {
+    display: flex; align-items: center; gap: 7px;
+    flex: 1; max-width: 520px; min-width: 0;
+    min-height: 40px; padding: 0 10px;
+    border-radius: 12px;
+    background: var(--sunk, color-mix(in oklab, var(--ink) 4%, var(--card)));
+    border: 1px solid var(--line);
+  }
+  .topbar-search:focus-within { border-color: var(--ink-border); }
+  .topbar-search > .search-icon { display: inline-flex; color: var(--faint); flex: none; }
+  .topbar-search > .search-icon svg { width: 17px; height: 17px; }
+  .topbar-search input {
+    flex: 1; min-width: 0;
+    border: 0; outline: 0; background: none; padding: 0 2px;
+    font-family: var(--font-display); font-size: var(--type-display-15);
+    color: var(--ink);
+  }
+  /* THE SCOPE IS DISMISSABLE, AND THAT IS THE WHOLE PATTERN. Dropping it IS global
+     search: same field, no pill, everything in range. So the × lives on the pill
+     rather than beside it as a separate "search everywhere" verb — one control,
+     and its presence or absence is the entire state. A scope you cannot drop is
+     not a scope, it is a wall. */
+  .scope-pill {
+    display: inline-flex; align-items: stretch;
+    border: 1px solid var(--line); border-radius: 999px;
+    overflow: hidden; background: var(--card);
+    flex: none; cursor: pointer; padding: 0;
+  }
+  .scope-key {
+    display: inline-flex; align-items: center; padding: 0 7px;
+    font-family: var(--font-mono); font-size: var(--type-mono-9);
+    color: var(--soft); white-space: nowrap;
+    background: color-mix(in oklab, var(--ink), transparent 94%);
+  }
+  .scope-val {
+    display: inline-flex; align-items: center; padding: 0 9px; min-height: 26px;
+    white-space: nowrap; font-size: var(--type-ui-12); color: var(--ink);
+  }
+  .scope-x {
+    display: inline-flex; align-items: center; padding: 0 8px 0 2px;
+    font-size: var(--type-ui-13); color: var(--faint); line-height: 1;
+  }
+  .scope-pill:hover .scope-x { color: var(--ink); }
+  .kbd-hint {
+    flex: none;
+    font-family: var(--font-mono); font-size: var(--type-mono-9);
+    color: var(--faint);
+    border: 1px solid var(--line); border-radius: 5px; padding: 1px 6px;
+  }
+  /* The bar is the page's, not the app's, so it starts where the page starts. */
+  @media (max-width: 900px) { .topbar-search { max-width: none; } }
+  @media (max-width: 768px) { .topbar-crumbs, .topbar-search { display: none; } }
+
   /* ---- shell (§7): topbar, tabs, user chip, container, page header ---- */
   .topbar {
     position: sticky; /* stays visible on scroll */
@@ -3073,7 +3523,7 @@
     align-items: center;
     gap: 18px;
     min-height: 56px;
-    padding: 8px 20px;
+    padding: 8px var(--edge);
   }
   .brand { display: flex; align-items: center; gap: 9px; flex: none; }
   .wordmark {
@@ -3136,7 +3586,12 @@
     align-items: center;
     gap: 6px;
     flex: none;
-    height: 38px;
+    /* The same floor, for the same reason, and it must be the same expression: this
+       button and .user-chip sit in one row and the row has to read level. This one
+       carries a label rather than an initial, so it had the identical latent bug —
+       it simply never reported it, because it has no `overflow: hidden` to clip the
+       label against. It spilled instead. */
+    height: max(38px, 1.6em);
     padding: 0 14px 0 11px;
     border: 1.4px solid transparent;
     border-radius: 10px 7px 9px 8px / 8px 9px 7px 10px;
@@ -3294,8 +3749,16 @@
   .preset-callout.tex-film::before { background-image: url("./textures/metal.webp"); background-size: calc(var(--grain-card) * 0.57); }
 
   .user-chip {
-    width: 38px;               /* matches .topbar-add-btn height so the row reads level */
-    height: 38px;
+    /* 38px IS A FLOOR AND NOT A SIZE, which is the whole of the rule about type
+       being a setting. The badge holds a letter, the letter answers the type dial,
+       and a badge fixed at 38px cut that letter off at the top on every screen in
+       the app at once once the dial was past its default. `max()` keeps 38px for
+       every setting the letter fits in — so nothing moves at the default — and
+       hands the badge more room only when the letter has grown past it. The floor
+       stays px because 38px is a touch target, and a fingertip is the same size
+       whatever the reader has done to their type. */
+    width: max(38px, 1.6em);   /* matches .topbar-add-btn height so the row reads level */
+    height: max(38px, 1.6em);
     border-radius: 32%;        /* squircle, not a circle */
     overflow: hidden;          /* clip an uploaded avatar image to the squircle */
     display: inline-flex;
@@ -3303,6 +3766,15 @@
     justify-content: center;
     font-weight: 600;
     font-size: var(--type-ui-15);
+    /* LINE-HEIGHT, BECAUSE THE LEADING WAS THE BUG AND NOT THE SIZE. At the top of
+       the type dial this letter is 30px, which fits a 38px squircle with room over
+       — but body's 1.55 leading asked for 46px of line box around it, and the
+       initial was cut off at the top on every screen in the app at once. Stating 1
+       here keeps the glyph answering the dial (which every font size in this app
+       must) while letting the badge hold it. A first attempt froze the size at 15px
+       instead; that fixed the clipping by taking the letter off the dial, which is
+       the one thing `typescale.test.js` exists to forbid. */
+    line-height: 1;
     border: 1.4px solid var(--ink-border);
     background: linear-gradient(180deg, color-mix(in oklab, var(--accent), white 14%), var(--accent));
     color: var(--on-accent);
@@ -3412,7 +3884,7 @@
     flex: 1; overflow-y: auto;
     padding: 16px 16px calc(24px + env(safe-area-inset-bottom));
   }
-  .container-tp { max-width: var(--container-max); margin: 0 auto; padding: 4px 20px 64px; }
+  .container-tp { max-width: var(--container-max); margin: 0 auto; padding: 4px var(--edge) 64px; }
   /* Home is a single stack of cards rather than a board, so it reads as a
      column and widens on its own, slower schedule. */
   .home-col { width: 100%; max-width: var(--home-max); margin-inline: auto; }
@@ -3860,6 +4332,10 @@
   .topbar { display: none; }
   .mobile-topbar { display: flex; }
 
+  /* A phone gutter is narrower. Stated once, on EDGE, so the page body and
+     anything else that reads it move together. */
+  :root { --edge: 12px; }
+
   /* No top padding on the container: the shell .mobile-topbar (or, on detail
      screens, the page's .mobile-sticky-bar) must own the very top edge — any
      padding above it shows as a gap until the first scroll. The bottom clears
@@ -3868,7 +4344,7 @@
      not one: if env() ever fails to parse, the plain-px fallback survives —
      otherwise the whole declaration drops and the layered 4px TOP padding
      comes back, which is exactly the gap the note above forbids. */
-  .container-tp { padding: 0 12px 90px; }
+  .container-tp { padding: 0 var(--edge) 90px; }
   .container-tp { padding-bottom: calc(90px + env(safe-area-inset-bottom, 0px)); }
 
   /* Ancestor transforms un-stick position:sticky (the stuck bar rides the
@@ -3982,6 +4458,7 @@ html[data-theme="dark"] .mobile-topbar {
    only thing that had to be added. */
 .drawer,
 .mobile-bottom-nav,
+.rail,
 .topbar,
 .mobile-topbar,
 .mobile-sticky-bar,
@@ -3991,6 +4468,7 @@ html[data-theme="dark"] .mobile-topbar {
 }
 .drawer::before,
 .mobile-bottom-nav::before,
+.rail::before,
 .topbar::before,
 .mobile-topbar::before,
 .mobile-sticky-bar::before,
@@ -4011,6 +4489,7 @@ html[data-theme="dark"] .mobile-topbar {
    just darkens it into mud, where screen lifts the grain into view. */
 html[data-theme="dark"] .drawer::before,
 html[data-theme="dark"] .mobile-bottom-nav::before,
+html[data-theme="dark"] .rail::before,
 html[data-theme="dark"] .topbar::before,
 html[data-theme="dark"] .mobile-topbar::before,
 html[data-theme="dark"] .mobile-sticky-bar::before,
@@ -4022,6 +4501,7 @@ html[data-theme="dark"] .mobile-sheet-footer::before {
 /* The furniture: every bar, drawer and sheet edge in the app is one slot. */
 html .drawer::before,
 html .mobile-bottom-nav::before,
+html .rail::before,
 html .topbar::before,
 html .mobile-topbar::before,
 html .mobile-sticky-bar::before,

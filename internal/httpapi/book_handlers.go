@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"tippani/internal/metadata"
@@ -521,6 +522,29 @@ func (s *Server) handleUpdateBook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer tx.Rollback()
+	// WHAT THE READER IS ABOUT TO CHANGE, read before the write overwrites it.
+	//
+	// TYPING OVER A VALUE RE-SOURCES THAT FIELD TO YOU, which is what makes a source
+	// tag honest: without this you correct a page count by hand and the row goes on
+	// saying Google Books wrote it, for ever. The store already has `manual` as a real
+	// answer meaning "somebody looked at this and decided" — only this path never
+	// wrote it.
+	//
+	// A READ RATHER THAN A DIFF FROM THE CLIENT, because the client's idea of what it
+	// changed is not evidence: a form that re-posts every field would re-source the
+	// whole record on any edit, which is the same lie in the other direction.
+	// One row, by primary key, inside the transaction that is about to write it.
+	var was struct {
+		title, author, description, isbn, series sql.NullString
+		publishedYear                            sql.NullInt64
+	}
+	if err := tx.QueryRow(`
+		SELECT title, author, description, isbn, series, published_year
+		  FROM books WHERE id = ? AND user_id = ?`, id, uid).
+		Scan(&was.title, &was.author, &was.description, &was.isbn, &was.series, &was.publishedYear); err != nil && err != sql.ErrNoRows {
+		failErr("update book", err)
+		return
+	}
 	res, err := tx.Exec(`
 		UPDATE books SET title = ?, author = ?, translator = ?, editor = ?, isbn = ?, asin = ?,
 		                 description = ?, published_year = ?, published_circa = ?,
@@ -549,6 +573,40 @@ func (s *Server) handleUpdateBook(w http.ResponseWriter, r *http.Request) {
 	if err := setGenres(tx, "book", uid, id, req.Genres); err != nil {
 		failErr("update book", err)
 		return
+	}
+	// Every field the reader actually moved is now theirs. Fields they left alone keep
+	// whichever supplier last wrote them, so Refetch can still update its neighbours
+	// without touching what you corrected.
+	//
+	// COMPARED, NOT ASSUMED. Re-posting the same string is not an edit, and marking it
+	// `manual` would quietly opt the field out of every future refetch — the opposite
+	// of what the reader did, which was nothing.
+	wasYear := ""
+	if was.publishedYear.Valid {
+		wasYear = strconv.FormatInt(was.publishedYear.Int64, 10)
+	}
+	nowYear := ""
+	if req.PublishedYear != 0 {
+		nowYear = strconv.Itoa(req.PublishedYear)
+	}
+	var edited []string
+	for _, f := range []struct{ name, was, now string }{
+		{"title", was.title.String, req.Title},
+		{"author", was.author.String, req.Author},
+		{"description", was.description.String, req.Description},
+		{"isbn", was.isbn.String, req.ISBN},
+		{"series", was.series.String, req.Series},
+		{"published_year", wasYear, nowYear},
+	} {
+		if strings.TrimSpace(f.was) != strings.TrimSpace(f.now) {
+			edited = append(edited, f.name)
+		}
+	}
+	if len(edited) > 0 {
+		if err := store.RecordFieldSources(tx, uid, "book", id, store.SourceManual, "", edited); err != nil {
+			failErr("update book", err)
+			return
+		}
 	}
 	// Adopting a looked-up candidate links the book to its source, so the
 	// "no source" gap actually clears (the create path does this; update didn't).

@@ -8,7 +8,7 @@ import {
   IconMetadata,
   IconMoveTo,
   IconPalette,
-  IconQuiz,
+  IconQuiz, IconPractise,
   IconQuizSkip,
   IconSeal,
   IconShare,
@@ -115,7 +115,7 @@ export function actionsFor(kind, item, ctx = {}) {
       id: 'practise',
       label: t('common.action.practise.label'),
       where: OVERFLOW,
-      icon: <IconQuiz />,
+      icon: <IconPractise />,
       tooltip: t('common.action.practise.tip', { subject }),
       // A THEMED ROUND OVER ONE WORK. The endpoint takes a single book or movie
       // id (review_theme.go), which is why this is `single` rather than absent

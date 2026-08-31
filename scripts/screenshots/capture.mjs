@@ -24,7 +24,8 @@
 //
 // See README.md in this directory for the full flag list and the with-server wrapper.
 
-import { writeFileSync, mkdirSync, existsSync } from 'node:fs'
+import { existsSync, mkdirSync, realpathSync, writeFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
 
 // ---- the screen table ----
@@ -35,7 +36,7 @@ import { join } from 'node:path'
 // scaffold has no fixture for, so they are opt-in via --book-id / --movie-id and skipped
 // with a reason otherwise, the same way a state screenshot-runner cannot reach is
 // reported "not captured" rather than guessed at.
-const SCREENS = [
+export const SCREENS = [
   { name: 'home', path: '/' },
   { name: 'library', path: '/library' },
   { name: 'movies', path: '/catalogue' },
@@ -52,7 +53,13 @@ const SCREENS = [
   { name: 'movie-detail', path: (id) => `/catalogue/${id}`, needs: 'movie-id' },
 ]
 
-const AUTH_SCREENS = ['login', 'onboarding']
+export const AUTH_SCREENS = ['login', 'onboarding']
+
+// The scratch account every harness in this directory signs in as. Exported so a
+// second harness reuses it instead of restating it — a third copy of a password is a
+// third thing to forget when it changes, and the failure is a 401 thirty seconds into
+// a run that already built a binary and seeded a library.
+export const HARNESS_ACCOUNT = { username: 'screenshot-bot', password: 'screenshot-bot-pw' }
 
 // THEME_PREF maps a theme name to layout.css.prefers-color-scheme.content-override,
 // the Firefox preference that forces what `prefers-color-scheme` reports to content.
@@ -78,14 +85,14 @@ function parseArgs(argv) {
   const out = {
     baseUrl: 'http://127.0.0.1:8080',
     out: join(import.meta.dirname, 'out'),
-    username: 'screenshot-bot',
+    username: HARNESS_ACCOUNT.username,
     // 17 characters, and it MUST stay inside the app's 8..20 range (PASSWORD_MAX in
     // web/frontend/src/secret.js, enforced again in auth_handlers.go). The old default
     // was 23, which worked only by accident: the form input carries maxLength={20}, so
     // the browser silently dropped the tail and signup and login truncated to the same
     // 20 characters. Anything reaching the API directly — seed.mjs does — sent the full
     // string and was refused with "password must be at most 20 characters".
-    password: 'screenshot-bot-pw',
+    password: HARNESS_ACCOUNT.password,
     screens: null, // null = every reachable screen
     themes: ['light', 'dark'],
     viewport: { width: 1280, height: 900 },
@@ -173,7 +180,7 @@ const FIREFOX_CANDIDATES = [
   '/Applications/Firefox.app/Contents/MacOS/firefox',
 ]
 
-function findFirefox(explicit) {
+export function findFirefox(explicit) {
   // PUPPETEER_EXECUTABLE_PATH is honoured because that is the variable CI images set,
   // and it must win over discovery: a runner with two Firefoxes installed should shoot
   // the one it pinned, not whichever appears first in the list below.
@@ -275,7 +282,7 @@ function freezeClockScript(isoInstant) {
   })()`
 }
 
-async function waitForScreenLabel(page, timeoutMs) {
+export async function waitForScreenLabel(page, timeoutMs) {
   await page.waitForSelector('[data-screen-label]', { timeout: timeoutMs })
   return page.$eval('[data-screen-label]', (el) => el.getAttribute('data-screen-label'))
 }
@@ -285,7 +292,7 @@ async function waitForScreenLabel(page, timeoutMs) {
 // only succeeds against a data directory with no admin yet; login only succeeds
 // against one where --username/--password already exist. Point --base-url at a
 // scratch server (see run-with-server.sh) to get the signup path on the first theme.
-async function ensureSession(page, opts) {
+export async function ensureSession(page, opts) {
   await page.goto(opts.baseUrl + '/', { waitUntil: 'networkidle0' })
   const label = await waitForScreenLabel(page, opts.timeoutMs)
   if (!AUTH_SCREENS.includes(label)) return label // already have a session
@@ -424,7 +431,13 @@ async function main() {
   process.exit(failed.length && captured.length === 0 ? 1 : 0)
 }
 
-main().catch((err) => {
-  console.error(err)
-  process.exit(1)
-})
+// RUN ONLY WHEN RUN, not when imported. typescale.mjs reuses SCREENS and the session
+// helper above rather than restating them — two files answering "what are all the
+// screens?" is the shape of bug where a screen is added to one list and forgotten in
+// the other, and the half that is missing is invisible.
+if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main().catch((err) => {
+    console.error(err)
+    process.exit(1)
+  })
+}

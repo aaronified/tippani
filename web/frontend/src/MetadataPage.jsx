@@ -4,7 +4,7 @@ import { t, tNodes } from './i18n.js'
 import { BookLookupPicker, MovieLookupPicker } from './CoverPicker.jsx'
 import { EditBook } from './Library.jsx'
 import { EditMovie } from './Movies.jsx'
-import { BulkBar, EmptyState, ErrorText, FieldIconButton, GhostButton, HandCard, IconButton, IconCheck, IconDelete, IconEdit, IconMerge, IconMetadata, IconMore, IconOpen, IconRefresh, IconSearch, IconUsers, InfoDot, MonoLabel, NameInput, normName, PageHeader, ProgressBar, splitCommas, Tooltip, useIsMobileScreen } from './ui.jsx'
+import { BulkBar, EmptyState, ErrorText, FieldIconButton, GhostButton, HandCard, IconButton, IconCheck, IconDelete, IconEdit, IconMerge, IconMetadata, IconMore, IconOpen, IconRefresh, IconSearch, IconUsers, InfoDot, MonoLabel, NameInput, normName, PageHeader, ProgressBar, Scroller, splitCommas, Tooltip, useIsMobileScreen } from './ui.jsx'
 import { PersonModal, PersonName, ProviderChips, mergeLinks, parseCreditSeps, parseLinks, splitCredits } from './people.jsx'
 import { ReverifyFlow } from './ReverifyReview.jsx'
 import { editDistance } from './text.js'
@@ -664,7 +664,7 @@ function CatalogueConsole({ books, movies, type, setType, filter, setFilter, onO
           </BulkBar>
           {editing && selBookIds.length > 0 && <BulkEditForm n={selBookIds.length} busy={busy} onApply={bulkEdit} />}
           <ErrorText>{err}</ErrorText>
-          <div className="ann-table-wrap" style={{ maxHeight: 460, overflowY: 'auto' }}>
+          <Scroller className="ann-table-wrap" axis="both" style={{ maxHeight: 'min(30em, 60vh)', overflowY: 'auto' }}>
             {shown.map((x) =>
               x.kind === 'book' ? (
                 <BookRow
@@ -690,7 +690,7 @@ function CatalogueConsole({ books, movies, type, setType, filter, setFilter, onO
                 />
               ),
             )}
-          </div>
+          </Scroller>
         </>
       )}
     </section>
@@ -1536,7 +1536,7 @@ export function PeopleConsole({ onFlash, compact = false, onReverify, onSearch }
           ) : shown.length === 0 ? (
             <EmptyState>{t(PEOPLE_EMPTY[kind])}</EmptyState>
           ) : (
-            <div className="ann-table-wrap" style={{ maxHeight: 420, overflowY: 'auto' }}>
+            <Scroller className="ann-table-wrap" axis="both" style={{ maxHeight: 'min(28em, 60vh)', overflowY: 'auto' }}>
               <table className="ann-table">
                 <thead>
                   <tr>
@@ -1603,7 +1603,7 @@ export function PeopleConsole({ onFlash, compact = false, onReverify, onSearch }
                   ))}
                 </tbody>
               </table>
-            </div>
+            </Scroller>
           )}
         </>
       )}

@@ -588,6 +588,7 @@ vocab.source.amazon.label = অ্যামাজন
 vocab.source.tmdb.label = TMDB
 vocab.source.tvdb.label = TheTVDB
 # What a row whose supplier the app does not recognise is called.
+vocab.source.manual.label = আপনি
 vocab.source.unknown.label = অজানা সূত্র
 
 # ---------------------------------------------------------------------------
@@ -1005,7 +1006,6 @@ shell.restore.toast.done = ফিরিয়ে আনা হয়েছে ·
 # --- the two nav landmarks. The drawer already claims "Primary", so the phone's
 # floating bar needs a different name or a screen reader lists two of one thing.
 shell.nav.primary.aria = মূল
-shell.nav.tools.aria = সরঞ্জাম
 shell.nav.quick.aria = দ্রুত যাতায়াত
 
 # --- the avatar chip, in both top bars and in the drawer's footer.
@@ -1047,6 +1047,16 @@ shell.add.quote.label = উদ্ধৃতি তুলে রাখুন
 shell.add.pending.tip = {n}টা ইমপোর্ট দেখার অপেক্ষায়
 
 # --- Search, and its global mode (right-click on a desktop).
+shell.crumbs.aria = আপনি কোথায় আছেন
+shell.search.scope.thisbook = এই বই
+shell.search.scope.thisfilm = এই চলচ্চিত্র
+shell.search.scope.all = সবকিছু
+shell.search.scope.key = এর মধ্যে
+shell.search.scope.drop.tip = বরং সবকিছুতে খুঁজুন
+shell.search.hint.scoped = লেখক, ট্যাগ, আধা-মনে থাকা কোনও পঙ্‌ক্তি…
+shell.search.hint.all = সবকিছু — সব বই, চলচ্চিত্র, উদ্ধৃতি…
+shell.search.aria.scoped = যা দেখছেন তার মধ্যে খুঁজুন
+shell.search.aria.all = সবকিছুতে খুঁজুন
 shell.search.global.tip = সবকিছুতে খুঁজছে
 shell.search.global.aria = সবকিছুতে খুঁজুন
 
@@ -3623,6 +3633,7 @@ error.empty.bin = খালি করা গেল না
 # label names what was FOUND rather than what to do about it.
 # ---------------------------------------------------------------------------
 cleanup.back.tip = সেটিংসে ফিরুন
+checks.title = পরীক্ষা
 cleanup.title = এলোমেলো চিহ্ন
 # Beside the title: how many quotes were read.
 cleanup.counts.scanned = {n} {noun} পড়া হয়েছে

@@ -176,6 +176,31 @@ const INVENTORY = [
     ink: (k) => over(parse(k.error, k), parse(k.card, k), 0.55),
     paper: T('card') },
 
+  // --- the nav rail: nine destinations, three inks, one paper -------------
+  //
+  // NOTHING MEASURED THIS UNTIL THE RAIL EXISTED, and the rail is now the largest
+  // permanent surface in the app — every screen is read beside it. Its paper is the
+  // shell gradient, so --topbar-bottom is the half these rows are stated against:
+  // it is the darker end in light mode, which is the harder ground for the soft and
+  // faint inks the rail leans on.
+  { id: 'rail destination label', kind: 'text', sample: true, min: 4.5, where: '.rail-row — index.css',
+    ink: T('soft'), paper: T('topbar-bottom') },
+  { id: 'rail destination label, current', kind: 'text', sample: true, min: 4.5, where: '.rail-row[aria-current] — index.css',
+    ink: (k) => parse(k.dark ? k['on-accent-dark'] : k['on-accent'], k),
+    // Flat accent, and darkened a little in light mode. The buttons' `white 14%`
+    // lift is what puts them below the floor; this row does not need to look raised.
+    paper: (k) => parse(k.dark
+      ? k['accent-dark']
+      : 'color-mix(in oklab, var(--accent), black 6%)', k) },
+  { id: 'rail count', kind: 'small', sample: true, min: 3.0, where: '.rail-count — index.css',
+    ink: T('faint'), paper: T('topbar-bottom') },
+  { id: 'rail foot row label', kind: 'small', sample: true, min: 3.0, where: '.rail-foot .rail-row — index.css',
+    ink: T('faint'), paper: T('topbar-bottom') },
+  { id: 'rail account name', kind: 'small', min: 3.0, where: '.rail-acct-name — index.css',
+    ink: T('soft'), paper: T('topbar-bottom') },
+  { id: 'rail wordmark', kind: 'text', min: 4.5, where: '.rail-wordmark — index.css',
+    ink: T('ink'), paper: T('topbar-bottom') },
+
   // --- chips: a label pill, and the same pill made clickable ---
   { id: 'chip label', kind: 'small', sample: true, min: 3.0, where: '.tp-chip — index.css:3449',
     ink: T('soft'), paper: T('raised') },
@@ -245,6 +270,10 @@ function readTokens(set, accent, dark) {
   return {
     dark,
     bg: read('bg'), raised: read('raised'), card: read('card'), 'card-top': read('card-top'),
+    // The shell's paper — the rail, the top bar, the drawer. Collected since the rail
+    // made it the largest surface in the app; `bottom` is the darker end of the
+    // gradient in light mode, which is the harder ground for a soft or faint ink.
+    'topbar-top': read('topbar-top'), 'topbar-bottom': read('topbar-bottom'),
     ink: read('ink'), soft: read('soft'), faint: read('faint'), line: read('line'),
     'ink-border': read('ink-border'), amber: read('amber'), error: read('error'), ok: read('ok'),
     accent: read('accent'), 'accent-dark': read('accent-dark'), 'accent-ui': read('accent-ui'),

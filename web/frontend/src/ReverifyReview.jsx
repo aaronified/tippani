@@ -10,7 +10,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { coverImgURL, errText, json } from './api.js'
 import { t } from './i18n.js'
-import { sourceName } from './CoverPicker.jsx'
+
 import {
   CloseButton,
   EmptyState,
@@ -20,9 +20,10 @@ import {
   MobileSheet,
   MonoLabel,
   ProgressBar,
+  sourceName,
   Tooltip,
-  useIsMobileScreen,
   useBodyScrollLock,
+  useIsMobileScreen,
 } from './ui.jsx'
 
 const CHUNK = 10 // items per preview call (server caps at 15)

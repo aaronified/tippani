@@ -54,7 +54,7 @@ import {
   IconEdit,
   IconExport,
   IconPlus,
-  IconQuiz,
+  IconQuiz, IconPractise,
   MonoLabel,
   MoreMenu,
   PageHeader,
@@ -655,7 +655,7 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
                 is empty: a round over nothing is the one case the dialog can only
                 answer with "nothing here". */}
             <GhostButton
-              icon={<IconQuiz />}
+              icon={<IconPractise />}
               onClick={() => practise({ anthology: id, label: anthology?.title || t('anthologies.read.title.fallback') })}
               disabled={!anthology || rows.length === 0}
             >

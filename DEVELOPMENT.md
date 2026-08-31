@@ -327,11 +327,17 @@ The shared modules do:
 | --- | --- |
 | `roadmap-data.mjs` | Renders `docs/data/*.json` into the marked regions of `docs/roadmap.html`. Backs up first, and refuses to write a page that fails verification. |
 | `roadmap-tracker.mjs` | Reads the issue tracker through `gh` into `docs/data/tracker.json`, so the renderer needs no network. `--audit` writes nothing and fails if the page and the tracker disagree. |
-| `glossary-css.mjs` | Refreshes the built stylesheet that `docs/ui-glossary.html` inlines, so its samples are styled by the rules the app ships. |
+| `web/frontend/scripts/glossary-build.mjs` | Generates `docs/ui-glossary.html`: entries from `scripts/glossary/catalogue.js` and from the `glossary` declarations beside the components, constants from `src/tokens.js`, theme data captured from `theme.js`'s own `applyTheme`, and the built stylesheet inlined so samples are styled by the rules the app ships. Lives under `web/frontend/` rather than in this directory because it renders the real components through Vite and needs that package's `node_modules`. `--check` verifies it. |
 | `site-links.mjs` | Walks an assembled `_site/` and fails on any local `href` or `src` that does not resolve. |
 | `seed-issues.mjs` | Backfills a GitHub issue per roadmap item that predates the automation. |
 | `doc-map-check.mjs` | Checks this document against the tree: every path it names must exist, and every package, script and workflow must be named somewhere in it. |
 | `dist-inputs.mjs` | Records every path `web/dist` is built from, with its hash, into `web/dist-inputs.json`. Run by `npm run build`, so the record cannot be forgotten. `--check` verifies it. The paths outside `web/frontend/` are derived from the imports that escape it, not listed by hand. |
+| `screenshots/typescale.mjs` | Turns every type dial to 200% and the root font size to 24px, then fails when a screen clips something it did not clip at rest. A DIFFERENCE rather than a threshold: parts of this app clip on purpose, so a check that failed on all clipping would fail on the design. Reuses `capture.mjs`'s screen roster and session helper rather than restating them. `scripts/screenshots/typescale-baseline.json` records what each screen still clips, and may fall but never rise. Run it with `make typescale`. |
+
+Third-party marks are recorded in `docs/PROVIDER-MARKS.md`: twelve suppliers' logos,
+vendored into `web/frontend/src/providerMarks.js` as `data:` URIs and painted as CSS
+masks. It names each mark's origin, its licence, the two deliberate substitutions, and
+why Amazon's is the letterform alone.
 
 ### `.github/`
 
@@ -654,9 +660,11 @@ Five failures that are self-inflicted rather than real, in the order they catch 
   like one. Run `make frontend` and commit `web/dist/` and `web/dist-inputs.json` with it.
 - **A Go test passes suspiciously fast.** Check the `-run` filter matched something. A
   filter that matches nothing exits 0 and prints `ok`.
-- **`node scripts/glossary-css.mjs --check` fails.** The stylesheet inlined into
-  `docs/ui-glossary.html` is generated from the built app CSS. Run `make frontend`, then
-  `node scripts/glossary-css.mjs` — do not hand-edit the `<style>` block.
+- **`npm run glossary:check` fails.** `docs/ui-glossary.html` is generated. Run
+  `make frontend` (it inlines the built stylesheet, which every build renames), then
+  `make glossary`. Do not hand-edit the page: an entry is changed in
+  `web/frontend/scripts/glossary/catalogue.js`, a sample by adding a `glossary`
+  declaration beside its component in `ui.jsx`, and a constant in `src/tokens.js`.
 - **`node scripts/roadmap-data.mjs --check` fails.** The page has drifted from
   `docs/data/*.json`. Run the script without `--check`. Never edit the page between the
   `ROADMAP:*` markers.
@@ -672,7 +680,7 @@ four jobs:
 | `go` | `go vet`, the full Go suite — which includes the check that `web/dist` is not stale — and a smoke test that boots the server and health-checks it. |
 | `race` | The five locking tests under `-race` on every push, and the whole suite on the nightly schedule. Asserts each named test actually ran. |
 | `frontend` | `npm test`, `npm run build`, and `git diff --exit-code -- web/dist web/dist-inputs.json`. |
-| `roadmap` | `roadmap-data.mjs --check`, `glossary-css.mjs --check`, and `doc-map-check.mjs`. |
+| `roadmap` | `roadmap-data.mjs --check` and `doc-map-check.mjs`. (The glossary check moved into the `frontend` job, which is where a fresh `web/dist` and `node_modules` exist.) |
 
 The other four workflows are described in [`.github/`](#github) above.
 

@@ -44,6 +44,7 @@ import {
   InfoDot,
   MonoLabel,
   UnsavedFieldsContext,
+  useEdgeScroll,
 } from './ui.jsx'
 
 // The second column's name, from the machine value the server sends. `actor_role`
@@ -283,6 +284,14 @@ export function CastSection({ kind, item, onCastChanged }) {
 // CastRow — one credit. Resting it is two names and a face; editing it is two
 // boxes; and the picture controls are always the row's own, never the panel's.
 function CastRow({ row, role, busy, actor, workTitle, mediaType, onSave, onRemove, onImage, onOpenPerson }) {
+  // A CHARACTER NAME IS NEVER CUT. It used to end in an ellipsis, which is the one
+  // failure a reader cannot see: a shortened name and a short name look identical,
+  // so the row destroyed the only thing it was there to show. Now the name scrolls
+  // under a fade — and press-and-drag means a mouse can reach the end of it, which
+  // `overflow` alone would not have given.
+  const characterRef = useRef(null)
+  useEdgeScroll(characterRef, { axis: 'x' })
+
   const [editing, setEditing] = useState(false)
   const [character, setCharacter] = useState(row.character || '')
   const [who, setWho] = useState(row.actor || '')
@@ -549,7 +558,7 @@ function CastRow({ row, role, busy, actor, workTitle, mediaType, onSave, onRemov
             chosen — and the actor name goes on opening the person, which is where
             an actor's picture is. Same affordance, two destinations, each the one
             its noun implies. */}
-        <span className="cast-character">
+        <span className="cast-character" ref={characterRef}>
           <button
             type="button"
             className="tp-link"

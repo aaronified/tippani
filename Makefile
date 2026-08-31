@@ -12,7 +12,7 @@ TVDB_TOKEN ?=
 LDFLAGS := -s -w -X tippani/internal/buildinfo.Version=$(VERSION) \
 	-X main.defaultTMDBKey=$(TMDB_TOKEN) -X main.defaultTVDBKey=$(TVDB_TOKEN)
 
-.PHONY: build frontend changelog test run clean
+.PHONY: build frontend glossary changelog test run clean typescale
 
 ## build: static binary with the currently built (or placeholder) frontend embedded
 build:
@@ -24,6 +24,20 @@ build:
 ## use. An unlocked install here is how a bundle nobody has run reaches a user.
 frontend:
 	cd web/frontend && npm ci && npm run build
+
+## glossary: regenerate docs/ui-glossary.html from the components and tokens that
+## define the interface. Needs a built web/dist (it inlines the shipped stylesheet)
+## and web/frontend's node_modules (it renders the real components through Vite), so
+## it runs after `make frontend`, not instead of it.
+glossary:
+	cd web/frontend && npm run glossary
+
+## typescale: turn every type dial to 200%, set the root to 24px, and fail if a screen
+## clips anything it did not clip before. Type size is a setting, so a px box drawn
+## around text is a guess that stops being true the moment a reader changes it. The
+## recorded debt lives in scripts/screenshots/typescale-baseline.json and may only fall.
+typescale:
+	bash scripts/screenshots/run-typescale.sh
 
 ## perf: measure main-thread blocking per action against a scratch server, and fail
 ## when any action crosses the budget. See scripts/perf/README.md for what the number

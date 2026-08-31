@@ -53,19 +53,20 @@ import {
   MonoLabel,
   Placeholder,
   QuizSkipMark,
+  Scroller,
   Select,
   skipReason,
   SortableTh,
   splitCommas,
   Tooltip,
   useAnchoredPosition,
+  useBodyScrollLock,
   useColumnsAt,
   useDismiss,
   useIsMobileScreen,
   usePersistedState,
   useSort,
   ViewToggle,
-  useBodyScrollLock,
 } from './ui.jsx'
 
 // ---- the vocabulary, fetched once and held for the session ------------------
@@ -1269,7 +1270,7 @@ function ResultTable({ label, rows, cols, terms, onOpen, bulk, reload }) {
           onDone={() => { setSel(new Set()); reload && reload() }}
         />
       )}
-      <div className="ann-table-wrap">
+      <Scroller className="ann-table-wrap">
         <table className="ann-table">
           <thead>
             <tr>
@@ -1308,7 +1309,7 @@ function ResultTable({ label, rows, cols, terms, onOpen, bulk, reload }) {
             ))}
           </tbody>
         </table>
-      </div>
+      </Scroller>
     </section>
   )
 }

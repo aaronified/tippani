@@ -486,6 +486,11 @@ Standing on the shoulders of:
 
 - **[pretext](https://github.com/chenglou/pretext)** — the text-reflow calculation that lets a quote wrap naturally around a pinned
   sticker (the `FlowQuote` seal).
+- **[Phosphor Icons](https://github.com/phosphor-icons/core)** — the **MIT**-licensed fill weight
+  behind the nineteen solid glyphs: the whole nav rail, the favourite and the three shelf marks in
+  their ON state, the practise mortarboard and the colour palette. Everything else in the interface
+  is drawn by hand at 1.85 in `ui.jsx`, and a fill has to argue its way in — see the *Icons* section
+  of [the UI glossary](docs/ui-glossary.html).
 - **[CC0 Textures](https://cc0-textures.com/)** — the public-domain (CC0) texture packs behind the
   paper·wood·metal·glass surfaces of the paper/film skins.
 - **[Bookcision](https://bookcision.readwise.io/)** and **[Readest](https://github.com/readest/readest)** — I read their highlight / Markdown exports directly as import
