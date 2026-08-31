@@ -392,17 +392,23 @@ type nameCountResp struct {
 }
 
 type statsResp struct {
-	Books         int       `json:"books"`
-	Annotations   int       `json:"annotations"`
-	Movies        int       `json:"movies"`
-	Dialogues     int       `json:"dialogues"`
-	Quotes        int       `json:"quotes"`
-	Tags          int       `json:"tags"`
-	Favorites     int       `json:"favorites"`
-	Genres        int       `json:"genres"`
-	MostAnnotated *statsTop `json:"most_annotated"`
-	MostQuoted    *statsTop `json:"most_quoted"`
-	BusiestMonth  *struct {
+	Books       int `json:"books"`
+	Annotations int `json:"annotations"`
+	Movies      int `json:"movies"`
+	Dialogues   int `json:"dialogues"`
+	Quotes      int `json:"quotes"`
+	Tags        int `json:"tags"`
+	Favorites   int `json:"favorites"`
+	// The four the SHELL asks for rather than the cards: each nav row names the
+	// container and what is inside it.
+	Boards          int       `json:"boards"`
+	Anthologies     int       `json:"anthologies"`
+	AnthologyQuotes int       `json:"anthology_quotes"`
+	Stickers        int       `json:"stickers"`
+	Genres          int       `json:"genres"`
+	MostAnnotated   *statsTop `json:"most_annotated"`
+	MostQuoted      *statsTop `json:"most_quoted"`
+	BusiestMonth    *struct {
 		Month string `json:"month"`
 		Count int    `json:"count"`
 	} `json:"busiest_month"`

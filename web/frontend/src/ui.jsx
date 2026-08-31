@@ -5762,6 +5762,11 @@ const iconFill = { width: ICON_SIZE, height: ICON_SIZE, viewBox: "0 0 256 256", 
 
 export function IconBack() { return <svg {...iconStroke}><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg> }
 export function IconFilter() { return <svg {...iconStroke}><path d="M22 3H2l9 9v9l4-2v-7z"/></svg> }
+// IconSort — three rules of falling length with a down arrow beside them: the order
+// of a list, and the direction it runs in. An OUTLINE, because it names a job rather
+// than a place — the same reason IconFilter beside it is one, and the icon rule's
+// four exceptions do not cover a control.
+export function IconSort() { return <svg {...iconStroke}><path d="M4 6h11"/><path d="M4 12h7"/><path d="M4 18h4"/><path d="M18 5v14"/><path d="M15 16l3 3 3-3"/></svg> }
 export function IconExport() { return <svg {...iconStroke}><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 18h16"/></svg> }
 export function IconEdit() { return <svg {...iconStroke}><path d="M17 3l4 4L7 19H3v-4z"/></svg> }
 export function IconDelete() { return <svg {...iconStroke}><path d="M3 6h18"/><path d="M8 3V2h8v1"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg> }

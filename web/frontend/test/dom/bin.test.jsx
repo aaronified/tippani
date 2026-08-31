@@ -285,7 +285,7 @@ describe('Settings has given the bin up entirely', () => {
 
   it('carries no bin tile, and no piece of one', async () => {
     await settings()
-    expect(screen.queryByText('The bin')).toBeNull()
+    expect(screen.queryByText('Bin')).toBeNull()
     expect(screen.queryByRole('button', { name: 'Open the bin' })).toBeNull()
     expect(screen.queryByText(/entry waiting/)).toBeNull()
     expect(screen.queryByText(/nothing deleted/)).toBeNull()
@@ -324,22 +324,41 @@ describe('Settings has given the bin up entirely', () => {
 describe('the rail and the drawer are the door now', () => {
   const USER_NAV = { username: 'aaron', display_name: 'Aaron', is_admin: false, preferences: {}, version: '1.0.0' }
 
-  it('gives the rail a counted Bin row and a counted Checks row', async () => {
+  // CHECKS CARRIES A PAIR — imports waiting, then marks still open — because the
+  // row leads to two lists and one number cannot say which of them it counted.
+  // The bin leads to one list and keeps one number, which is the distinction
+  // worth asserting in the same test rather than in two.
+  it('gives the rail a counted Bin row and a two-part Checks row', async () => {
     const { NavRail } = await import('../../src/App.jsx')
-    render(<NavRail tab="home" onChange={() => {}} sections={{}} user={USER_NAV} onAccount={() => {}} onBin={() => {}} onChecks={() => {}} binCount={3} checkCount={7} />)
+    render(<NavRail tab="home" onChange={() => {}} sections={{}} user={USER_NAV} onAccount={() => {}} onBin={() => {}} onChecks={() => {}} binCount={3} checkCount={7} strayCount={4} />)
     const bin = screen.getByRole('button', { name: /bin/i })
     expect(within(bin).getByText('3')).toBeTruthy()
     const checks = screen.getByRole('button', { name: /checks/i })
-    expect(within(checks).getByText('7')).toBeTruthy()
+    // textContent, not getByText: the lead is a <b> and the bar its own span, so
+    // the pair is three nodes rather than one string. That IS the change.
+    expect(checks.querySelector('.rail-count').textContent).toBe('7 | 4')
   })
 
   it('gives the drawer the same two rows, with the same counts', async () => {
     const { Drawer } = await import('../../src/App.jsx')
-    render(<Drawer open onClose={() => {}} tab="home" selectTab={() => {}} onSearch={() => {}} onAdd={() => {}} onAccount={() => {}} user={USER_NAV} stats={{}} pending={0} pendingImport={0} streak={0} metaIssues={0} logout={() => {}} dark={false} onUser={() => {}} sections={{}} binCount={3} checkCount={7} />)
+    render(<Drawer open onClose={() => {}} tab="home" selectTab={() => {}} onSearch={() => {}} onAdd={() => {}} onAccount={() => {}} user={USER_NAV} stats={{}} pending={0} pendingImport={0} streak={0} metaIssues={0} logout={() => {}} dark={false} onUser={() => {}} sections={{}} binCount={3} checkCount={7} strayCount={4} />)
     const bin = screen.getByRole('button', { name: /bin/i })
     expect(within(bin).getByText('3')).toBeTruthy()
     const checks = screen.getByRole('button', { name: /checks/i })
-    expect(within(checks).getByText('7')).toBeTruthy()
+    expect(checks.querySelector('.drawer-badge').textContent).toBe('7 | 4')
+  })
+
+  // ZERO ON ONE SIDE IS INFORMATION AND IS SHOWN. "0 | 4" says the queue is clear
+  // and four marks are not, which is the answer; hiding the half that is zero
+  // would leave a lone "4" that could be either list.
+  it('shows a zero half when the other half is not', async () => {
+    const { NavRail } = await import('../../src/App.jsx')
+    render(<NavRail tab="home" onChange={() => {}} sections={{}} user={USER_NAV} onAccount={() => {}} onBin={() => {}} onChecks={() => {}} binCount={0} checkCount={0} strayCount={4} />)
+    const count = screen.getByRole('button', { name: /checks/i }).querySelector('.rail-count')
+    expect(count.textContent).toBe('0 | 4')
+    // The container leads and is the half drawn in bold — read off the element
+    // rather than the class name, so a renamed class fails here too.
+    expect(count.querySelector('b').textContent).toBe('0')
   })
 
   it('draws neither count at zero, on either surface', async () => {

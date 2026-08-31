@@ -786,6 +786,7 @@ common.work-card.count.dialogue.other = {n} সংলাপ
 # --- deleting one work, from its own card. ONE TAP, not a typed phrase: the
 # subject is the cover you just pressed and the bin holds it for thirty days.
 common.work.delete.confirm.title = {title} মুছবেন?
+common.work.delete.confirm.phrase = নিশ্চিত করতে {phrase} লিখে দিন।
 common.work.delete.confirm.body.one = এখান থেকে রাখা {n}টা উদ্ধৃতি সমেত বিনে যাবে — একটাই এন্ট্রি, ফেরালে গোটাটাই ফেরে, নয়তো কিছুই নয়। নিচের বার্তায় আনডু থাকবে।
 common.work.delete.confirm.body.other = এখান থেকে রাখা {n}টা উদ্ধৃতি সমেত বিনে যাবে — একটাই এন্ট্রি, ফেরালে গোটাটাই ফেরে, নয়তো কিছুই নয়। নিচের বার্তায় আনডু থাকবে।
 # The same confirm for a work nothing is quoted from.

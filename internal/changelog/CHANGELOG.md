@@ -25,6 +25,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   glyphs and drops its words; on a phone it stays behind ☰, because nine destinations
   pinned beside a 390px screen would leave 320px of book.
 
+- **Every destination in the rail says what is inside it, not just how many.** Library
+  read "412" and left you to open it to find out whether that was a lot of reading or a
+  lot of shelf. Each row carries the pair now — books and their highlights, titles and
+  their lines, boards and their quotes, anthologies and their entries, tags and their
+  stickers — and **Checks says both of its lists**, imports waiting and marks still
+  open, because one number on a row that leads to two lists cannot say which it counted.
+  **The Anthologies row has a count for the first time**: it has been asking for one
+  since the menu was written and the app has never sent it, so the row simply drew
+  nothing and nobody noticed. **The bin is called Bin.**
+
+- **Deleting a book or a film asks you to type the phrase**, the same one the selection
+  bar has always asked for, and from its cover or from its own page it is now one dialog
+  rather than two that resemble each other. One is a number you can misread too, when
+  the one is a book with two hundred highlights and the tap that destroys it is the tap
+  that opens it.
+
 - **A search field in the top bar, with the scope worn as a pill you can drop.** It says
   what it will search — *in this book*, *in Library* — and taking the pill off is how you
   search everything: same field, nothing else to learn. That replaces the magnifier that

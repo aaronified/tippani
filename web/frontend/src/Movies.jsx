@@ -40,6 +40,7 @@ import {
   statusFilter,
   useBoardWindow,
   wishFilter,
+  WorkDeleteConfirm,
 } from './works.jsx'
 import { t } from './i18n.js'
 import {
@@ -1213,20 +1214,12 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce
       {/* Phone-only route into this screen's help — see the Library twin. */}
       {practiceDialog}
       <ScreenHelpSheet screen="movie-detail" open={helpOpen} onClose={() => setHelpOpen(false)} />
-      {/* Counted, because the count is the fact that decides it. One tap and not
-          a typed phrase, for the reason the catalogue tile records — the subject
-          is the title you are looking at, and the bin holds it whole. */}
-      <ConfirmDialog
+      {/* The catalogue tile's dialog — see the Library twin. */}
+      <WorkDeleteConfirm
         open={asking}
-        title={t('common.work.delete.confirm.title', { title: movie?.title || '' })}
-        body={
-          <p className="microcopy">
-            {lineStats?.total > 0
-              ? t('common.work.delete.confirm.body', { count: lineStats.total, n: lineStats.total })
-              : t('common.work.delete.confirm.body.empty')}
-          </p>
-        }
-        confirmLabel={t('common.work.delete.confirm.action.label')}
+        kind="movie"
+        title={movie?.title || ''}
+        count={lineStats?.total || 0}
         onConfirm={remove}
         onCancel={() => setAsking(false)}
       />

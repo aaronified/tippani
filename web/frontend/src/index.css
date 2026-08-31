@@ -3539,6 +3539,20 @@
     .rail-acct-name { display: block; }
   }
 
+  /* THE PAIR HAS THREE WEIGHTS, NOT ONE. A rail count is read at a glance and
+     "22 | 13" set flat makes the reader work out which number is the shelf and
+     which is what is on it, every time. The container leads and carries the
+     weight; the bar between them gives it up, because a separator that competes
+     with its operands is a third thing to read.
+
+     Colour is deliberately NOT the variable — `.rail-count` already flips to
+     `--on-accent` on the current row, and a lead differentiated by hue would need
+     a second colour for that state and would then have to clear the contrast
+     floor on eight material sets in two themes. Weight and opacity carry it in
+     every state for free. */
+  .nav-count-lead { font-weight: 700; }
+  .nav-count-sep { opacity: .45; font-weight: 400; }
+
   /* THE WHOLE PAGE STANDS CLEAR OF THE RAIL, and it is body padding rather than a
      margin on the two things that looked like they needed one. `.container-tp` sets
      `margin: 0 auto` to centre itself, and a shorthand later in the file beats a

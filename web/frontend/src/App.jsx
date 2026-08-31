@@ -609,15 +609,78 @@ export function Login({ onLogin }) {
 //
 // It returns a STRING (or null), not markup, so each caller wears its own class — the
 // drawer's badge and the rail's mono count are different sizes of the same fact.
+//
+// TWO NUMBERS, NOT ONE, on every destination that holds a container and the things
+// inside it. "412" on Library answered "how many books" and left the question a
+// reader actually has — how much is in there — to a screen they had to open. Now
+// each row says both: books and their highlights, titles and their lines, boards
+// and their quotes, anthologies and their entries, tags and their stickers.
+//
+// ONE SEPARATOR FOR ALL FIVE. A rail where some pairs are divided by a bar and
+// others by a colon reads as two different kinds of fact, and they are the same
+// kind of fact: a container, and its contents.
+//
+// The three utility rows keep their single answer, because they are not containers
+// — a gap count, a streak, a version. Counting them the same way would mean
+// inventing a second number for a row that has one thing to say.
+// SPACED, and the space is not decoration. "22|13" reads as one token at the
+// size a rail count is drawn — a part number, not two facts — and the eye has to
+// stop and find the bar. A space either side lets the two numbers be two numbers.
+const NAV_PAIR = ' | '
+const pair = (a, b) => `${a}${NAV_PAIR}${b}`
+
+// NavCount — the pair, drawn, with the CONTAINER in bold.
+//
+// The first number is the one the row is named for: Library is a shelf of books
+// and the highlights are what is in them. Weighting them equally made the reader
+// decide which was which every time, on a surface they are meant to read at a
+// glance. So the lead carries the weight and the separator gives it up — the same
+// three-value ladder the rest of the app uses for a label, a value and the mark
+// between them.
+//
+// IT TAKES THE STRING navBadge ALREADY RETURNS rather than a pair of numbers.
+// navBadge is the single place both navs read and its contract is a string; a
+// second entry point returning parts would be a second thing to keep in step, for
+// a difference that is presentational and belongs here.
+function NavCount({ value, className }) {
+  const at = value.indexOf(NAV_PAIR)
+  if (at < 0) return <span className={className}>{value}</span>
+  return (
+    <span className={className}>
+      <b className="nav-count-lead">{value.slice(0, at)}</b>
+      <span className="nav-count-sep">{NAV_PAIR}</span>
+      {value.slice(at + NAV_PAIR.length)}
+    </span>
+  )
+}
+
+// checksBadge — the Checks row's pair, in the same shape and by the same rule.
+//
+// IT IS NOT IN navBadge because Checks is not a tab: it has no row in
+// CONTENT_TABS or UTILITY_TABS, it lives in the rail's foot beside the Bin, and
+// its two numbers come from two fetches rather than from `stats`. Putting it in
+// that switch would mean giving navBadge a second source and a key that is not a
+// tab, to save one exported function.
+export function checksBadge(pending, stray) {
+  return pair(pending, stray)
+}
+
 export function navBadge(key, { stats, metaIssues, streak, version } = {}) {
   if (stats) {
     // stats.quotes counts the utterances table — the standalone quotes, which is
-    // exactly what that row leads to. The other two count works, not quotes.
-    if (key === 'library') return String(stats.books)
-    if (key === 'movies') return String(stats.movies)
-    if (key === 'quotes') return String(stats.quotes)
-    if (key === 'tags') return String(stats.tags)
-    if (key === 'anthologies' && stats.anthologies != null) return String(stats.anthologies)
+    // exactly what the Quotes row leads to; boards are the named groups they sit
+    // in, which is what makes that row's left-hand number a "works" count in the
+    // same sense Library's is.
+    if (key === 'library') return pair(stats.books, stats.annotations)
+    if (key === 'movies') return pair(stats.movies, stats.dialogues)
+    if (key === 'quotes') return pair(stats.boards ?? 0, stats.quotes)
+    if (key === 'tags') return pair(stats.tags, stats.stickers ?? 0)
+    // STILL GUARDED ON null, and the guard has been load-bearing: /stats never
+    // sent this key until now, so the row has worn no count at all. An older
+    // server behind a newer bundle is the case it goes on covering.
+    if (key === 'anthologies' && stats.anthologies != null) {
+      return pair(stats.anthologies, stats.anthology_quotes ?? 0)
+    }
   }
   if (key === 'metadata' && metaIssues != null) {
     return metaIssues > 0
@@ -711,7 +774,7 @@ function TopBarSearch({ scope, scopeLabel, onSearch, onDropScope }) {
 // right shape for a row of peers and the wrong one for a column of destinations:
 // a segment implies "one of these", and this column also holds a rule, the bin and
 // an account. The rows are buttons and the rule is a span — see below.
-export function NavRail({ tab, onChange, sections, user, onAccount, onBin, onChecks, brandDot = null, badges = {}, binCount = 0, checkCount = 0 }) {
+export function NavRail({ tab, onChange, sections, user, onAccount, onBin, onChecks, brandDot = null, badges = {}, binCount = 0, checkCount = 0, strayCount = 0 }) {
   const dark = useResolvedDark()
   const railRef = useRef(null)
   // Nine destinations in a short window outrun the column, and the app's own rule
@@ -731,7 +794,7 @@ export function NavRail({ tab, onChange, sections, user, onAccount, onBin, onChe
     >
       <span className="rail-icon"><NavIcon name={key} /></span>
       <span className="rail-label">{t(label)}</span>
-      {badges[key] ? <span className="rail-count">{badges[key]}</span> : null}
+      {badges[key] ? <NavCount className="rail-count" value={badges[key]} /> : null}
     </button>
   )
 
@@ -770,7 +833,13 @@ export function NavRail({ tab, onChange, sections, user, onAccount, onBin, onChe
         >
           <span className="rail-icon"><IconChecks /></span>
           <span className="rail-label">{t('checks.title')}</span>
-          {checkCount > 0 ? <span className="rail-count">{checkCount}</span> : null}
+          {/* BOTH HALVES, ALWAYS, once either has anything in it. A single number
+              on a row that leads to two lists cannot say which list it came
+              from, and "0" beside it is the useful half of the answer — the
+              queue is clear, the marks are not. */}
+          {checkCount > 0 || strayCount > 0 ? (
+            <NavCount className="rail-count" value={checksBadge(checkCount, strayCount)} />
+          ) : null}
         </button>
         <button
           type="button"
@@ -890,7 +959,7 @@ function UserAvatar({ user }) {
 // Drawer — the hamburger nav (§7 redesign): primary nav on mobile, opened by
 // the ☰ button or the avatar chip. Scrim tap / Escape / any navigation closes
 // it. Home carries the pending-review dot; Library/Catalogue show live counts.
-export function Drawer({ open, onClose, tab, selectTab, onSearch, onAdd, onAccount, user, stats, pending, pendingImport, streak, metaIssues, dark, onUser, sections, binCount = 0, checkCount = 0 }) {
+export function Drawer({ open, onClose, tab, selectTab, onSearch, onAdd, onAccount, user, stats, pending, pendingImport, streak, metaIssues, dark, onUser, sections, binCount = 0, checkCount = 0, strayCount = 0 }) {
   // Metadata "issues" = items the console flags (a book with no cover or no
   // ids; a film/show with no poster, cast or source) — the same predicate the
   // Metadata page uses. Fetched lazily the first time the drawer opens (it's a
@@ -945,7 +1014,7 @@ export function Drawer({ open, onClose, tab, selectTab, onSearch, onAdd, onAccou
       )
     }
     const label = navBadge(key, { stats, metaIssues, streak, version: user.version })
-    return label ? <span className="drawer-badge">{label}</span> : null
+    return label ? <NavCount className="drawer-badge" value={label} /> : null
   }
 
   return (
@@ -1033,7 +1102,9 @@ export function Drawer({ open, onClose, tab, selectTab, onSearch, onAdd, onAccou
           >
             <IconChecks />
             {t('checks.title')}
-            {checkCount > 0 ? <span className="drawer-badge">{checkCount}</span> : null}
+            {checkCount > 0 || strayCount > 0 ? (
+              <NavCount className="drawer-badge" value={checksBadge(checkCount, strayCount)} />
+            ) : null}
           </button>
           <button
             type="button"
@@ -1253,6 +1324,11 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
       setMetaIssues(books + movies)
     })
     json('GET', '/trash').then((r) => { if (r.ok) setBinCount((r.data?.trash || []).length) })
+    // STRAY MARKS, THE SECOND HALF OF THE CHECKS COUNT. ?counts=1 is the arm that
+    // does the scan and builds none of the findings — see handleCleanup. Fetched
+    // once on mount for the same reason metaIssues is: it is a nudge towards a
+    // screen, not a live readout, and the screen recounts when you get there.
+    json('GET', '/cleanup?counts=1').then((r) => { if (r.ok) setStrayCount(r.data?.counts?.open || 0) })
   }, [])
   const [streak, setStreak] = useState(0) // daily-quiz streak — drawer Stats subtext
   const [stats, setStats] = useState(null) // drawer counts + Home stat tiles
@@ -1266,6 +1342,9 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
   // repeating it for. The number goes stale within a session and that is the right
   // trade: it is a nudge towards a screen, not a live readout.
   const [metaIssues, setMetaIssues] = useState(null)
+  // strayCount — quotes with something odd still flagged in them, the right-hand
+  // number on the rail's Checks row. Its left-hand number is pendingImport.
+  const [strayCount, setStrayCount] = useState(0)
   // binCount — entries waiting in the bin, badged on the rail's Bin row. Cheap
   // enough to ask for once; /trash is a short list by construction, since anything
   // in it is on its way out.
@@ -1609,6 +1688,7 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
         // draw one badge is exactly the kind of standing cost this app refuses. It is
         // counted when you open Checks, where you are about to read it anyway.
         checkCount={pendingImport}
+        strayCount={strayCount}
       />
       <header className="topbar">
         <div className="topbar-inner">
@@ -1867,6 +1947,7 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
         streak={streak}
         binCount={binCount}
         checkCount={pendingImport}
+        strayCount={strayCount}
         dark={dark}
         onUser={onUser}
       />

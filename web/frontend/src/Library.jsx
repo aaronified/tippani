@@ -38,6 +38,7 @@ import {
   useBoardWindow,
   ANNOTATION_PAGE,
   wishFilter,
+  WorkDeleteConfirm,
 } from './works.jsx'
 import { t } from './i18n.js'
 import {
@@ -1023,22 +1024,14 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce 
           for a "?", so the ⋯ menu opens the same panel the desktop button does. */}
       {practiceDialog}
       <ScreenHelpSheet screen="book-detail" open={helpOpen} onClose={() => setHelpOpen(false)} />
-      {/* Counted, because the count is the fact that decides it: a book with 200
-          highlights and a book with none are the same two clicks and very
-          different acts. One tap and not a typed phrase, for the reason the
-          board's tile records — the subject is the book you are looking at, and
-          the bin holds it whole with an Undo in the toast. */}
-      <ConfirmDialog
+      {/* The board tile's dialog, not a second one that looks like it — deleting
+          a book from its own screen and deleting it from its cover are one act
+          and now one door, phrase and all. */}
+      <WorkDeleteConfirm
         open={asking}
-        title={t('common.work.delete.confirm.title', { title: book?.title || '' })}
-        body={
-          <p className="microcopy">
-            {quoteStats?.total > 0
-              ? t('common.work.delete.confirm.body', { count: quoteStats.total, n: quoteStats.total })
-              : t('common.work.delete.confirm.body.empty')}
-          </p>
-        }
-        confirmLabel={t('common.work.delete.confirm.action.label')}
+        kind="book"
+        title={book?.title || ''}
+        count={quoteStats?.total || 0}
         onConfirm={remove}
         onCancel={() => setAsking(false)}
       />

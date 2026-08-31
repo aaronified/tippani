@@ -5,7 +5,7 @@
 // import cycle — this layer is free to import from both).
 import { useEffect, useRef, useState } from 'react'
 import { DEMO, coverImgURL, errText, json } from './api.js'
-import { t } from './i18n.js'
+import { t, tNodes } from './i18n.js'
 import { CreditFaces, PersonPortrait, splitCredits } from './people.jsx'
 import {
   ConfirmDialog,
@@ -19,6 +19,7 @@ import {
   IconBack,
   IconButton,
   IconExport,
+  IconSort,
   IconFilter,
   MobileSheet,
   MonoLabel,
@@ -48,7 +49,7 @@ import {
 } from './ui.jsx'
 import { actionsFor } from './actions.jsx'
 import { usePractice } from './review.jsx'
-import { useBulkOps } from './bulkOps.jsx'
+import { deletePhrase, useBulkOps } from './bulkOps.jsx'
 import { selectionClick, selectionMenuItems } from './selection.jsx'
 
 // ---- how much of a board is mounted at once --------------------------------
@@ -940,6 +941,75 @@ export function patchMovesTheRow(fields, { fav, color, tag } = {}) {
   )
 }
 
+// WorkDeleteConfirm — the one dialog every single-work delete asks through: the
+// board tile's context menu, a book's detail screen, a film's.
+//
+// A TYPED PHRASE, THE SAME ONE THE BULK BAR ASKS FOR. This reverses the earlier
+// decision recorded here — "one tap, not a typed phrase, and the difference from
+// the bulk bar is the point" — because the reader who owns the app asked for the
+// phrase and the argument against it did not survive being written down. The
+// bar's case was that twelve is a number you can misread; the case it did NOT
+// make is that one is a number you can misread too, when the one is a book with
+// two hundred highlights in it and the tap that destroys it is the same tap that
+// opens it.
+//
+// THE PHRASE IS ENGLISH IN EVERY LANGUAGE, and that was the real objection: this
+// app ships Bengali and deletePhrase composes "delete 1 book" from English
+// literals. It stands as a deliberate, pragmatic choice — an English keyboard is
+// what nearly everyone has, and a phrase nobody can type is a door nobody can
+// open. It is also NOT the work's title, which would have been the prettier
+// prompt and the unusable one: a Bengali title cannot be typed on the keyboard
+// this rule is here to accommodate.
+//
+// THE CHECK IS THE CLIENT'S, and only here. The bulk route takes `confirm` in
+// its body and the server compares it byte for byte; DELETE /books/:id takes no
+// body and is not being given one for a dialog. So this is a guard against the
+// misclick, which is the whole thing it was asked to be — not an authorisation,
+// and it does not pretend to be one.
+export function WorkDeleteConfirm({ open, kind, title, count = 0, onConfirm, onCancel }) {
+  const [typed, setTyped] = useState('')
+  const phrase = deletePhrase(kind, 1)
+  // Cleared on every open, not on close: a dialog dismissed with Escape and
+  // reopened would otherwise arrive already satisfied, which is a typed guard
+  // that only has to be typed once.
+  useEffect(() => {
+    if (open) setTyped('')
+  }, [open])
+  return (
+    <ConfirmDialog
+      open={open}
+      title={t('common.work.delete.confirm.title', { title: title || '' })}
+      body={
+        <div className="space-y-2">
+          {/* Counted, because the count is the fact that decides it: a book with
+              200 highlights and a book with none are the same two clicks and
+              very different acts. */}
+          <p className="microcopy">
+            {count > 0
+              ? t('common.work.delete.confirm.body', { count, n: count })
+              : t('common.work.delete.confirm.body.empty')}
+          </p>
+          <p className="microcopy">
+            {tNodes('common.work.delete.confirm.phrase', { phrase: <b key="phrase">{phrase}</b> })}
+          </p>
+          <input
+            className="tp-input"
+            autoFocus
+            value={typed}
+            placeholder={phrase}
+            aria-label={t('common.selection.delete.confirm.phrase.aria')}
+            onChange={(e) => setTyped(e.target.value)}
+          />
+        </div>
+      }
+      confirmLabel={t('common.work.delete.confirm.action.label')}
+      confirmDisabled={typed.trim().toLowerCase() !== phrase}
+      onConfirm={onConfirm}
+      onCancel={onCancel}
+    />
+  )
+}
+
 export function WorkCard({ kind, item, index = 0, onOpen, people = {}, seps, selection, selectKind = kind, onChanged, onEdit }) {
   const isBook = kind === 'book'
   const isShow = !isBook && (item.media_type || 'movie') === 'show'
@@ -1136,24 +1206,12 @@ export function WorkCard({ kind, item, index = 0, onOpen, people = {}, seps, sel
       </div>
     </button>
   )
-  // ONE TAP, NOT A TYPED PHRASE, and the difference from the bulk bar is the
-  // point rather than an inconsistency. The bar asks you to type "delete 12
-  // books" because twelve is a number you can misread and one Undo covers the
-  // whole lot; here the subject is the cover you just right-clicked, and the bin
-  // holds it with every quote it took, restorable from the toast or from
-  // Settings. That is the same net a single quote's delete has always relied on.
   const confirm = (
-    <ConfirmDialog
+    <WorkDeleteConfirm
       open={asking}
-      title={t('common.work.delete.confirm.title', { title: item.title })}
-      body={
-        <p className="microcopy">
-          {count > 0
-            ? t('common.work.delete.confirm.body', { count, n: count })
-            : t('common.work.delete.confirm.body.empty')}
-        </p>
-      }
-      confirmLabel={t('common.work.delete.confirm.action.label')}
+      kind={kind}
+      title={item.title}
+      count={count}
       onConfirm={() => {
         setAsking(false)
         ops.remove()
@@ -1634,6 +1692,7 @@ export function WorkListScaffold({
   extraModals,
 }) {
   const [mobileFilter, setMobileFilter] = useState(false)
+  const [mobileSort, setMobileSort] = useState(false)
   // A section renders when its setter was supplied. One rule, applied the same
   // way everywhere, so adding a screen to this scaffold is a question of which
   // setters you pass rather than which booleans you remember to set.
@@ -1758,12 +1817,15 @@ export function WorkListScaffold({
         icon: <IconFilter />,
         onClick: () => setMobileFilter((o) => !o),
       },
-      ...(DEMO ? [] : [{
-        id: 'export',
-        label: t('common.action.export.label'),
-        icon: <IconExport />,
-        onClick: onExport,
-      }]),
+      // SORT, NOT EXPORT. Export is a once-in-a-while act and it has a home in the
+      // top bar's ⋯; sort is something you reach for while you are looking at the
+      // board, which is exactly what a dock seat is for.
+      ...(hasSort ? [{
+        id: 'sort',
+        label: t('common.filters.sort.aria'),
+        icon: <IconSort />,
+        onClick: () => setMobileSort((o) => !o),
+      }] : []),
     ] : null,
   })
 
@@ -1876,12 +1938,26 @@ export function WorkListScaffold({
               </div>
             )}
             {trailingMobile}
-            {hasSort && (
-              <div>
-                <MonoLabel className="mb-2 block">{t('common.filters.sort.label')}</MonoLabel>
-                {sortSelect}
-              </div>
-            )}
+          </div>
+        </MobileSheet>
+      )}
+
+      {/* SORT HAS ITS OWN SHEET, and it used to be the last section of the one
+          above. Two dock keys pointing into one sheet would be the same door
+          twice — the thing this app keeps taking out (the second magnifier, the
+          bin tile in Settings) — so filter filters and sort sorts. It is also the
+          honest split: a filter changes WHICH rows you are looking at and a sort
+          changes only their order, and the sheet's own footer says "N shown",
+          which was never true of the sort control sitting under it. */}
+      {mobile && hasSort && (
+        <MobileSheet
+          open={mobileSort}
+          onClose={() => setMobileSort(false)}
+          title={t('common.filters.sort.aria')}
+        >
+          <div>
+            <MonoLabel className="mb-2 block">{t('common.filters.sort.label')}</MonoLabel>
+            {sortSelect}
           </div>
         </MobileSheet>
       )}

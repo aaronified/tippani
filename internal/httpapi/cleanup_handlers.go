@@ -68,7 +68,27 @@ type cleanupResp struct {
 	// ---- not serialised: the walk's own working state ------------------------
 	bucket  string
 	ignored map[cleanupTarget]bool
+	// countsOnly drops the item list and, with it, the cap — see the note on
+	// handleCleanup's ?counts=1.
+	countsOnly bool
 }
+
+// countsOnly answers ?counts=1 — the shape /import/staged already uses for the
+// same reason, and the reason is a badge.
+//
+// THE RAIL NAMES CHECKS WITH TWO NUMBERS, imports waiting and marks still open,
+// and the second of those is this scan. The shell used to refuse to ask for it:
+// building five hundred findings and their work titles on every page load, to
+// print one number, is the standing cost this app turns down. Dropping the list
+// leaves the part that is actually cheap — three indexed reads and a regex pass
+// over text the reader has already stored — and none of the allocation.
+//
+// AND IT IS MORE ACCURATE THAN THE LIST IT OMITS. maxCleanupFindings stops the
+// walk early, which stops the COUNTING early with it, so a library past the cap
+// reports a truncated total to the page that asked for items. With no items
+// there is nothing to cap, so this arm reads every quote and the number it
+// returns is the whole library's.
+func cleanupCountsOnly(r *http.Request) bool { return r.URL.Query().Get("counts") == "1" }
 
 func (s *Server) handleCleanup(w http.ResponseWriter, r *http.Request) {
 	uid := userID(r)
@@ -93,11 +113,12 @@ func (s *Server) handleCleanup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	out := cleanupResp{
-		Rules:   make([]string, 0, len(cleanupRules)),
-		Items:   []cleanupItem{},
-		Counts:  map[string]int{"open": 0, "ignored": 0},
-		bucket:  bucket,
-		ignored: ignored,
+		Rules:      make([]string, 0, len(cleanupRules)),
+		Items:      []cleanupItem{},
+		Counts:     map[string]int{"open": 0, "ignored": 0},
+		bucket:     bucket,
+		ignored:    ignored,
+		countsOnly: cleanupCountsOnly(r),
 	}
 	for _, rule := range cleanupRules {
 		out.Rules = append(out.Rules, rule.ID)
@@ -176,6 +197,11 @@ func (s *Server) scanCleanupRows(rows *sql.Rows, kind string, fields []string, o
 		}
 		out.Scanned++
 
+		// found is still collected under countsOnly and then dropped. The loop is
+		// what computes the counts, so it has to run either way, and it allocates
+		// only for a row that has a finding at all — the minority. A branch here
+		// to save that would be a second place the bucket rule is written, which
+		// is a worse trade than the slice.
 		var found []cleanupFinding
 		for i, field := range fields {
 			for _, f := range scanCleanup(field, texts[i]) {
@@ -193,7 +219,7 @@ func (s *Server) scanCleanupRows(rows *sql.Rows, kind string, fields []string, o
 				}
 			}
 		}
-		if len(found) == 0 {
+		if out.countsOnly || len(found) == 0 {
 			continue
 		}
 		out.Items = append(out.Items, cleanupItem{

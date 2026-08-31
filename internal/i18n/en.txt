@@ -803,9 +803,13 @@ common.work-card.count.quote.other = {n} quotes
 common.work-card.count.dialogue.one = {n} dialogue
 common.work-card.count.dialogue.other = {n} dialogues
 
-# --- deleting one work, from its own card. ONE TAP, not a typed phrase: the
-# subject is the cover you just pressed and the bin holds it for thirty days.
+# --- deleting one work, from its own card or its own screen. A TYPED PHRASE, the
+# same one the bulk bar asks for: one is a number you can misread too, when the
+# one is a book with two hundred highlights and the tap that destroys it is the
+# tap that opens it. The phrase itself is composed in English by deletePhrase and
+# is not a key here — see the note there.
 common.work.delete.confirm.title = Delete {title}?
+common.work.delete.confirm.phrase = Type {phrase} to confirm.
 common.work.delete.confirm.body.one = It goes to the bin with the {n} quote saved from it — one entry, put back together or not at all. The toast offers an Undo.
 common.work.delete.confirm.body.other = It goes to the bin with the {n} quotes saved from it — one entry, put back together or not at all. The toast offers an Undo.
 # The same confirm for a work nothing is quoted from.
@@ -3535,7 +3539,7 @@ unit.game.other = games
 # why the way back is NAMED rather than drawn as a bare arrow.
 # ---------------------------------------------------------------------------
 bin.back.tip = Back to Settings
-bin.title = The bin
+bin.title = Bin
 # What a row calls each kind, and what the chip above the list calls a pile of
 # them. ONE TABLE, TWO ROLES — a row is always singular and a chip always plural
 # — so these are two keys each rather than a .one/.other family, which would
@@ -3558,7 +3562,7 @@ bin.kind.account.plural = Accounts
 bin.keep-for.label = keep for
 bin.retention.aria = How long the bin keeps things
 bin.retention.never.label = Never
-bin.info.title = The bin
+bin.info.title = Bin
 bin.info.body = Everything you delete waits here first, and putting one back returns it exactly as it was — quotes, tags, colours, schedule and cover alike. “Empty now” is for when you wanted something gone today.
 bin.empty-now.label = Empty now
 # The kind filter, which appears only once there is more than one kind to tell
@@ -5616,7 +5620,7 @@ staging.help.approve.what = Approving files the quotes; discarding drops them. R
 # ---------------------------------------------------------------------------
 
 # The help panel’s heading on the bin screen.
-bin.help.title = The bin
+bin.help.title = Bin
 
 # What waits in the bin.
 bin.help.what-is-here.term = What is here

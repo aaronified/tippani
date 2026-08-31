@@ -8127,3 +8127,54 @@ to see a glyph change shape on a state change should find the reason rather than
   names is how a picker and a field row come to call one company two things.
 
 <sub>Unreleased — `web/frontend/src/providerMarks.js` · `web/frontend/src/ui.jsx` · `web/frontend/src/WorkDetails.jsx` · `web/frontend/src/CoverPicker.jsx` · `internal/httpapi/book_handlers.go` · `internal/httpapi/movie_handlers.go` · `docs/PROVIDER-MARKS.md`</sub>
+
+### A single work's delete asks for the typed phrase, in English
+
+- **Decided** — `WorkDeleteConfirm` in `works.jsx` is the one dialog behind all three
+  single-work deletes (board tile, book detail, film detail), and it asks for
+  `deletePhrase(kind, 1)` — "delete 1 book" — the same phrase the selection bar uses.
+- **This reverses a decision recorded here.** The board tile's own note argued *"one tap,
+  not a typed phrase, and the difference from the bulk bar is the point"*, on the grounds
+  that twelve is a number you can misread and one is not. The owner overruled it, and the
+  argument did not survive being written out: one is a number you can misread too, when
+  the one is a book with two hundred highlights and the tap that destroys it is the tap
+  that opens it.
+- **English only, deliberately.** `deletePhrase` composes from English literals and this
+  app ships Bengali. The owner's ruling: *"english only typed phrases are fine since most
+  people have English keyboards. it is pragmatic."* Recorded as a choice so it does not
+  read as an untranslated string somebody forgot.
+- **Not the work's title**, which is the prettier prompt and the unusable one — a Bengali
+  title cannot be typed on the keyboard this rule exists to accommodate.
+- **The check is the client's, and says so.** The bulk route takes `confirm` in its body
+  and the server compares it; `DELETE /books/{id}` takes no body and is not being given
+  one for a dialog. This is a guard against the misclick and does not pretend to be an
+  authorisation.
+
+<sub>Unreleased — `web/frontend/src/works.jsx` · `web/frontend/src/Library.jsx` · `web/frontend/src/Movies.jsx`</sub>
+
+### A nav row names its container and its contents
+
+- **Decided** — every rail and drawer row that leads to a collection carries two numbers
+  joined by `|`: books|highlights, titles|lines, boards|quotes, anthologies|entries,
+  tags|stickers, and imports|marks on Checks. The three utility rows keep one answer,
+  because a gap count, a streak and a version are not containers.
+- **One separator for all six.** The owner wrote `tags:stickers` with a colon and `|`
+  everywhere else; a rail where some pairs use a bar and others a colon reads as two
+  different kinds of fact, and they are the same kind.
+- **The four new counts ride `/stats`**, which the shell already calls on load — four
+  `count(*)` subqueries over indexed `user_id` columns in a statement that was going to
+  run anyway, against four round trips and four more places for the rail and the screen
+  to disagree.
+- **`anthologies` was read and never sent.** `navBadge` has had `stats.anthologies != null`
+  in it since the drawer was written and the endpoint has never carried the key, so that
+  row has drawn no count for its whole life. The guard was right; the payload was missing.
+  Found by needing the number, not by anything failing.
+- **`/cleanup?counts=1`** is how the stray-marks count reached a permanent surface. The
+  shell had *correctly* refused to ask for it: the scan reads every quote, and building
+  500 findings and their work titles on every page load to print one number is the
+  standing cost this app turns down. The counts arm runs the same three indexed reads and
+  builds none of them. It is also **more accurate than the list it omits** —
+  `maxCleanupFindings` stops the walk and takes the totals with it, and with no items
+  there is nothing to cap.
+
+<sub>Unreleased — `internal/httpapi/stats_handlers.go` · `internal/httpapi/cleanup_handlers.go` · `web/frontend/src/App.jsx`</sub>

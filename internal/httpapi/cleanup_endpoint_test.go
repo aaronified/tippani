@@ -262,6 +262,83 @@ func TestTheCleanupSweepSaysWhenItStoppedEarly(t *testing.T) {
 	}
 }
 
+// ?counts=1 — THE ARM THE RAIL'S BADGE USES.
+//
+// It exists so a number on a permanent surface does not cost five hundred
+// findings and their work titles on every page load, and the thing worth testing
+// is that dropping the list did not drop the count with it. The sweep past the
+// cap is the case that separates the two: with items, the walk stops at
+// maxCleanupFindings and the totals stop with it; without them there is nothing
+// to cap, so counts=1 is the arm that answers for the WHOLE library.
+func TestTheCleanupCountsOnlyArmCountsPastTheCap(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+	book := decode[bookDetail](t, c.mustDo("POST", "/books",
+		map[string]any{"title": "A Long Shelf"}, http.StatusCreated))
+
+	const rows = maxCleanupFindings + 5
+	tx, err := srv.Store.DB.Begin()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < rows; i++ {
+		if _, err := tx.Exec(
+			`INSERT INTO annotations (book_id, quote, source, dedupe_hash) VALUES (?, ?, 'manual', ?)`,
+			book.ID, fmt.Sprintf("line %d with a  double space", i), fmt.Sprintf("hash-%d", i)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatal(err)
+	}
+
+	counts := decode[cleanupResp](t, c.mustDo("GET", "/cleanup?counts=1", nil, http.StatusOK))
+	if len(counts.Items) != 0 {
+		t.Errorf("counts=1 returned %d items; the point is that it builds none", len(counts.Items))
+	}
+	if counts.Truncated {
+		t.Error("counts=1 reported truncation; with no items there is nothing to cap")
+	}
+	if counts.Scanned != rows {
+		t.Errorf("scanned=%d, want the whole library (%d)", counts.Scanned, rows)
+	}
+	if counts.Counts["open"] != rows {
+		t.Errorf("open=%d, want one per row (%d) — the cap must not reach the counts",
+			counts.Counts["open"], rows)
+	}
+	// And the listing arm, on the same library, is the one that stops early —
+	// stated here so the difference is a documented contract rather than a
+	// surprise to whoever compares the two numbers.
+	listed := decode[cleanupResp](t, c.mustDo("GET", "/cleanup", nil, http.StatusOK))
+	if !listed.Truncated || listed.Counts["open"] >= counts.Counts["open"] {
+		t.Errorf("the listing arm should stop at the cap and count less: truncated=%v open=%d vs %d",
+			listed.Truncated, listed.Counts["open"], counts.Counts["open"])
+	}
+}
+
+// Under the cap the two arms must agree exactly — a badge that disagreed with
+// the page it opens would be worse than no badge.
+func TestTheCleanupCountsOnlyArmAgreesWithTheList(t *testing.T) {
+	h := newTestServer(t).Handler()
+	c := signupAdmin(t, h)
+	book := decode[bookDetail](t, c.mustDo("POST", "/books",
+		map[string]any{"title": "A Short Shelf"}, http.StatusCreated))
+	for _, q := range []string{"a  double space", "another  one", "clean enough"} {
+		c.mustDo("POST", "/annotations", map[string]any{"book_id": book.ID, "quote": q}, http.StatusCreated)
+	}
+
+	listed := decode[cleanupResp](t, c.mustDo("GET", "/cleanup", nil, http.StatusOK))
+	counts := decode[cleanupResp](t, c.mustDo("GET", "/cleanup?counts=1", nil, http.StatusOK))
+	if listed.Counts["open"] != counts.Counts["open"] || listed.Scanned != counts.Scanned {
+		t.Errorf("the two arms disagree: list open=%d scanned=%d, counts open=%d scanned=%d",
+			listed.Counts["open"], listed.Scanned, counts.Counts["open"], counts.Scanned)
+	}
+	if counts.Counts["open"] == 0 {
+		t.Error("the fixture found nothing, so the agreement above proves nothing")
+	}
+}
+
 // The sweep is behind auth like every other read here — it enumerates the
 // reader's whole library.
 func TestTheCleanupSweepNeedsAReader(t *testing.T) {

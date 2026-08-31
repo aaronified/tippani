@@ -621,7 +621,23 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// FOUR MORE COUNTS THAN THE CARDS NEED, and they are here rather than in four
+	// endpoints of their own because the SHELL asks this question. The rail names
+	// each destination with what is inside it — books and their highlights,
+	// boards and their quotes, anthologies and the entries in them, tags and
+	// stickers — and every one of those is a count(*) over an indexed user_id.
+	// Adding them to a statement the app already runs on every load costs a
+	// scan of four small tables; asking for them separately would have cost four
+	// round trips, four handlers and four chances for the rail and the screen to
+	// disagree about how many boards there are.
+	//
+	// `anthologies` IS NEW AND WAS ALREADY BEING READ. navBadge has had
+	// `stats.anthologies != null` in it since the drawer was written, and this
+	// endpoint has never sent the key — so the Anthologies row has worn no count
+	// for its whole life, silently, because the guard reads absent as "do not
+	// show one". The guard was right; the payload was missing.
 	var books, annotations, movies, dialogues, quotes, tags, favorites int
+	var boards, anthologies, anthologyQuotes, stickers int
 	err = s.Store.DB.QueryRow(`
 		SELECT
 		  (SELECT count(*) FROM books WHERE user_id = ?),
@@ -634,9 +650,17 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		     WHERE b.user_id = ? AND a.favorite = 1)
 		+ (SELECT count(*) FROM dialogues d JOIN movies m ON m.id = d.movie_id
 		     WHERE m.user_id = ? AND d.favorite = 1)
-		+ (SELECT count(*) FROM utterances WHERE user_id = ? AND favorite = 1)`,
-		uid, uid, uid, uid, uid, uid, uid, uid, uid).
-		Scan(&books, &annotations, &movies, &dialogues, &quotes, &tags, &favorites)
+		+ (SELECT count(*) FROM utterances WHERE user_id = ? AND favorite = 1),
+		  (SELECT count(*) FROM boards WHERE user_id = ?),
+		  (SELECT count(*) FROM anthologies WHERE user_id = ?),
+		  -- anthology_entries carries no user_id of its own (0043): it is scoped
+		  -- through its anthology, which is what this join is for.
+		  (SELECT count(*) FROM anthology_entries e
+		     JOIN anthologies a ON a.id = e.anthology_id WHERE a.user_id = ?),
+		  (SELECT count(*) FROM stickers WHERE user_id = ?)`,
+		uid, uid, uid, uid, uid, uid, uid, uid, uid, uid, uid, uid, uid).
+		Scan(&books, &annotations, &movies, &dialogues, &quotes, &tags, &favorites,
+			&boards, &anthologies, &anthologyQuotes, &stickers)
 	if err != nil {
 		internalError(w, r, "scan stats", err)
 		return
@@ -942,6 +966,10 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		"quotes":           quotes,
 		"tags":             tags,
 		"favorites":        favorites,
+		"boards":           boards,
+		"anthologies":      anthologies,
+		"anthology_quotes": anthologyQuotes,
+		"stickers":         stickers,
 		"genres":           genres,
 		"most_annotated":   mostAnnotated,
 		"timeline":         timeline,
