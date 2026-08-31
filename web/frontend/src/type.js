@@ -60,7 +60,20 @@ export const TYPE_STEPS = [9, 11, 12, 13, 15, 17, 19, 22, 26, 30]
 // nobody wants the interface smaller than it was drawn; the owner's answer was
 // "-25% is fine as well", and it is: a dense desktop at a high resolution has
 // room for more than the default shows.
-export const TYPE_FACTORS = [75, 100, 125, 150, 175, 200]
+//
+// 200 WAS REMOVED, and the reason is the rail rather than the type. At double
+// size the nav rail needed 471px of a 1180px window to keep its words readable —
+// two fifths of the screen spent on nine labels — and every list row that carries
+// a title had lost the width to show one. 175 is the last step where the app is
+// still the shape it was drawn as. The dial is a promise that the interface
+// answers to it, and a step the interface cannot honour is worse than an absent
+// one. Anyone parked on 200 is moved to 175 once, by the 3.1.0 one-time pass.
+export const TYPE_FACTORS = [75, 100, 125, 150, 175]
+
+// TYPE_FACTOR_MAX is the top of the dial, read rather than restated — the
+// screenshot harness turns the type up to exactly this and would otherwise carry
+// a second copy of the number to fall out of step with.
+export const TYPE_FACTOR_MAX = TYPE_FACTORS[TYPE_FACTORS.length - 1]
 
 export const TYPE_DEFAULT = 100
 
@@ -127,6 +140,31 @@ export function typeTokens(prefs) {
   return out
 }
 
+// RAIL_WORDS_MAX is the largest interface dial at which the nav rail still shows
+// its words. Above it the rail keeps its glyphs — the icon-only mode it already
+// has below 1180px — rather than growing to fit.
+//
+// MEASURED, NOT CHOSEN, in a real browser at 1280px in both shipped languages:
+//
+//   en  100% fits · 125% fits · 150% Catalogue +6, Metadata +24 · 175% +27, +47
+//   bn  100% fits · 125% fits · 150% fits          · 175% মেটাডেটা +1
+//
+// So 125 is the last position where every label fits in every language, and the
+// number had to be measured because guessing it wrong is invisible: the labels
+// would clip by six pixels and read as slightly odd words rather than as a bug.
+// English is the binding case, which is not the intuition — the Bengali labels are
+// shorter here, not longer.
+//
+// THE ALTERNATIVE WAS LETTING THE RAIL GROW, and that was the wrong half of the
+// trade: at 175% it wanted 413px of a 1180px window, a third of the screen for
+// nine labels, while every row behind it had lost the width to show a title. A
+// reader who turns the type up wants to read the page, not the navigation.
+//
+// IT LIVES HERE rather than in the stylesheet because CSS cannot ask what the dial
+// says: a media query reads the viewport and nothing else, so the comparison has to
+// happen where the factor is known and be handed to CSS as an attribute.
+export const RAIL_WORDS_MAX = 125
+
 // applyTypeScale writes them onto <html>, the same mechanism applyTheme,
 // applyColors and applyFonts already use — which is why a size change needs no
 // reload and no re-render: the properties change and the page re-lays itself out.
@@ -135,4 +173,10 @@ export function applyTypeScale(prefs) {
   const root = document.documentElement
   const tokens = typeTokens(prefs)
   for (const name in tokens) root.style.setProperty(name, tokens[name])
+  // The rail's words follow the INTERFACE dial, because that is the role the
+  // labels are drawn in. An attribute rather than a class: it is a statement
+  // about the document, and index.css keys the whole wide-rail block off it.
+  const ui = factorsFrom(prefs).ui
+  if (ui > RAIL_WORDS_MAX) root.dataset.rail = 'icons'
+  else delete root.dataset.rail
 }

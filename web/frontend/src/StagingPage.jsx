@@ -23,6 +23,7 @@ import {
   IconRuler,
   InfoDot,
   MonoLabel,
+  NameScroll,
   SectionHead,
   Select,
   splitCommas,
@@ -426,8 +427,8 @@ function StagedGroup({ work, items, sel, onToggle, onToggleGroup, onEdit, onOpen
             aria-label={t('staging.group.select.aria', { title: work.title })}
           />
         </Tooltip>
-        <h3 className="display-title truncate" style={{ fontSize: 'var(--type-ui-19)' }}>
-          {work.title}
+        <h3 className="display-title" style={{ fontSize: 'var(--type-ui-19)' }}>
+          <NameScroll>{work.title}</NameScroll>
         </h3>
         <MonoLabel style={{ color: isBook || isStandalone ? 'var(--accent-ui)' : 'var(--amber)' }}>
           {kindTag(work.kind)}

@@ -942,6 +942,9 @@
     gap: 4px;
   }
   .tp-panel-slot-r { justify-content: flex-end; }
+  /* THE PANEL IS NAMED AFTER WHAT IT IS ABOUT — a person, a character, a work —
+     so this is a name and it does not truncate either. Same treatment as the back
+     key beside it and as .cast-character: it scrolls under the fade. */
   .tp-panel-title {
     flex: 0 1 auto;
     min-width: 0;
@@ -952,9 +955,10 @@
     font-size: var(--type-ui-17);
     font-weight: 600;
     text-align: center;
-    overflow: hidden;
     white-space: nowrap;
-    text-overflow: ellipsis;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
   }
   /* The back key names where it goes, not "Back" — walking a stack of five is
      five presses of a key that never says what it will show you. Capped in ch
@@ -970,13 +974,45 @@
     color: var(--soft);
     flex: none;
   }
+  /* .name-scroll — the shared shape of a name that does not truncate. Written
+     once here and worn by NameScroll (ui.jsx), which supplies the measurement:
+     the fade only appears when something is actually behind the edge.
+
+     `min-width: 0` is not decoration. A flex child's default min-width is
+     auto — its content — so a name in a flex row refuses to shrink, pushes the
+     row wider than its container, and never overflows its own box at all. The
+     scroller would then be a box that can never scroll, and the row would break
+     the layout instead of the name. */
+  .name-scroll {
+    display: block;
+    min-width: 0;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    /* A scrollbar under a single line of text is thicker than the text. The fade
+       is the signal, which is the whole premise of the edge-fade section. */
+    scrollbar-width: none;
+  }
+  .name-scroll::-webkit-scrollbar { display: none; }
+
+  /* A NAME IS NEVER TRUNCATED, and the panel you would go back to is named after
+     one. This ended in an ellipsis — "← Charles F…" — which is the failure a
+     reader cannot see, because a shortened name and a short name look alike. It
+     scrolls under the fade instead, exactly as .cast-character does; useEdgeScroll
+     in PanelHost is what writes data-scroll-x onto it. */
   .tp-panel-back-word {
     font-size: var(--type-ui-13);
     font-weight: 500;
-    overflow: hidden;
     white-space: nowrap;
-    text-overflow: ellipsis;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    /* A scrollbar under a 13px word in a 44px header is thicker than the word.
+       The fade is the signal. */
+    scrollbar-width: none;
   }
+  .tp-panel-back-word::-webkit-scrollbar,
+  .tp-panel-title::-webkit-scrollbar { display: none; }
   .tp-panel-body {
     flex: 1;
     min-height: 0;
@@ -2090,11 +2126,12 @@
   .trash-row:first-child { border-top: none; }
   /* The label takes the slack so the buttons stay pinned right, and a long title
      ellipsises rather than pushing them off the card. */
+  /* A BIN ROW IS NAMED AFTER WHAT IT HOLDS — a work's title, a person's name, or
+     for a merge both of them ("M. Bulgakov → Mikhail Bulgakov"). So it does not
+     truncate; NameScroll supplies the measured fade. */
   .trash-label {
     flex: 1 1 auto;
     min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
     font-family: var(--font-display);
     font-weight: var(--font-display-weight);
@@ -3366,20 +3403,20 @@
   @media (min-width: 769px) {
     :root { --rail: 68px; }
   }
-  /* THE WIDE RAIL IS A BOX THAT HOLDS TEXT, so it is not a px. At the 200% type
-     dial "Catalogue" was cut by 53px and "Metadata" by 75px — the standing rule's
-     exact failure, and `make typescale` said so. The floor stays 236px because
-     that is the width the layout was drawn at, and the multiplier lands just
-     UNDER it at the ordinary setting (15.7 x 15px = 235.5px) so nothing moves
-     until the reader turns the type up. Above the floor the rail tracks the dial.
+  /* THE WIDE RAIL KEEPS ITS 236px AND DROPS ITS WORDS, rather than growing.
+     At the top of the type dial its labels no longer fit that column — "Metadata"
+     was cut by 75px, which is the standing rule's exact failure and `make
+     typescale` said so. The first fix grew the rail with the dial and that was the
+     wrong half of the trade: at 175% it wanted 413px of a 1180px window, a third
+     of the screen for nine labels, while every row behind it had lost the width to
+     show a title.
 
-     IT MULTIPLIES --type-ui-15 AND NOT `em`, which is the trap this repo has
-     already written down once: `em` here resolves against the BROWSER root, and
-     the type dial does not move the browser root — it writes finished pixels into
-     --type-*. An em would track a number nothing in this app changes. The 15px
-     fallback keeps the width right in the moment before applyTypeScale runs. */
+     So above RAIL_WORDS_MAX (type.js, measured at 125) the rail falls back to the
+     glyph-only mode it already has below 1180px. applyTypeScale writes
+     [data-rail="icons"] on <html> because a media query can read the viewport and
+     nothing else — the dial's value is only knowable where it is applied. */
   @media (min-width: 1180px) {
-    :root { --rail: max(236px, calc(var(--type-ui-15, 15px) * 15.7)); }
+    :root:not([data-rail="icons"]) { --rail: 236px; }
   }
 
   .rail {
@@ -3528,27 +3565,35 @@
   .rail-acct .user-chip { width: max(30px, 1.6em); height: max(30px, 1.6em); }
   .rail-acct-name { display: none; color: var(--soft); font-size: var(--type-ui-13); }
 
-  /* ---- the rail with its words (≥1180) ---- */
+  /* ---- the rail with its words (≥1180, and only while they fit) ----
+
+     EVERY SELECTOR CARRIES THE GUARD, rather than a second block undoing this one
+     afterwards. An undo-block would restate the icon rail's styles a third time,
+     and the third copy is the one that drifts. Read the prefix as what it says:
+     these are the rules for a rail that is showing words. */
   @media (min-width: 1180px) {
-    .rail-head { padding-left: 16px; padding-right: 16px; justify-content: flex-start; }
-    .rail-brand { justify-content: flex-start; }
-    .rail-wordmark { display: block; }
-    .rail-nav { padding: 0 9px; }
-    .rail-row { justify-content: flex-start; padding: 0 12px; font-size: var(--type-ui-15); }
-    .rail-label {
-      display: block; flex: 1; min-width: 0; text-align: left;
-      overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+    :root:not([data-rail="icons"]) .rail-head { padding-left: 16px; padding-right: 16px; justify-content: flex-start; }
+    :root:not([data-rail="icons"]) .rail-brand { justify-content: flex-start; }
+    :root:not([data-rail="icons"]) .rail-wordmark { display: block; }
+    :root:not([data-rail="icons"]) .rail-nav { padding: 0 9px; }
+    :root:not([data-rail="icons"]) .rail-row { justify-content: flex-start; padding: 0 12px; font-size: var(--type-ui-15); }
+    /* NO ELLIPSIS. A shortened name and a short name look alike, and these are
+       the names of the places the app has. The row is sized so they fit; when the
+       dial outgrows it the whole rail drops to glyphs rather than abbreviating
+       "Metadata" into something that reads like a different word. */
+    :root:not([data-rail="icons"]) .rail-label {
+      display: block; flex: 1; min-width: 0; text-align: left; white-space: nowrap;
     }
-    .rail-count {
+    :root:not([data-rail="icons"]) .rail-count {
       display: block; flex: none;
       font-family: var(--font-mono); font-size: var(--type-mono-9);
       color: var(--faint);
     }
-    .rail-row[aria-current="page"] .rail-count { color: var(--on-accent); }
-    .rail-foot { padding-left: 9px; padding-right: 9px; }
-    .rail-foot .rail-row { font-size: var(--type-ui-13); }
-    .rail-acct { padding: 0 8px; }
-    .rail-acct-name { display: block; }
+    :root:not([data-rail="icons"]) .rail-row[aria-current="page"] .rail-count { color: var(--on-accent); }
+    :root:not([data-rail="icons"]) .rail-foot { padding-left: 9px; padding-right: 9px; }
+    :root:not([data-rail="icons"]) .rail-foot .rail-row { font-size: var(--type-ui-13); }
+    :root:not([data-rail="icons"]) .rail-acct { padding: 0 8px; }
+    :root:not([data-rail="icons"]) .rail-acct-name { display: block; }
   }
 
   /* THE PAIR HAS THREE WEIGHTS, NOT ONE. A rail count is read at a glance and
@@ -5637,19 +5682,24 @@ html[data-theme="dark"] .mobile-sheet-footer {
   overscroll-behavior-x: contain;
   padding-bottom: 4px;
 }
-/* 172px. The plot area is a stack of discrete dots rather than a continuous bar,
-   so the height has to divide by the dot pitch: 110px of plot at a 9px pitch is
-   the 12 dots TIMELINE_MAX_DOTS promises, and this row is that plus the tick row
-   plus the gap between them. It was 160 with a 46px tick row; the tick row is 58px
-   now (see .tl-tick for why) and this went up by the same 12 so the plot still
-   gets its 110. The three numbers are one sum — 172 − 58 − 4 = 110 — and changing
-   any of them alone costs a dot. */
+/* THE PLOT IS 110px AND THE ROW IS THE SUM. The plot area is a stack of discrete
+   dots rather than a continuous bar, so its height has to divide by the dot pitch:
+   110px at a 9px pitch is the 12 dots TIMELINE_MAX_DOTS promises. The row is that
+   plot, plus the tick row, plus the 4px gap between them — one sum, and changing
+   any part of it alone costs a dot.
+
+   IT IS WRITTEN AS THE SUM NOW, rather than as 172. The tick row holds TEXT and
+   therefore is not a px (see --tl-tick), so the total moves with the dial; a
+   hardcoded 172 would have kept the row still while the ticks inside it grew, and
+   `make typescale` found exactly that — fifteen decade labels cut off at the
+   bottom by 13px each, which reads as a chart with no axis rather than as a
+   clipped one. */
 .tl-row {
   display: flex;
   align-items: flex-end;
   gap: 4px;
   min-width: min-content;
-  height: 172px;
+  height: calc(var(--tl-plot) + var(--tl-tick) + 4px);
 }
 .tl-col {
   display: flex;
@@ -5716,6 +5766,24 @@ html[data-theme="dark"] .mobile-sheet-footer {
    and the plot's budget is what is left over, which the note on .tl-row spends
    exactly: 172 − 58 − 4 = 110px, the same 12 dots at a 9px pitch as before. Raise
    one without the other and the chart silently loses a dot off the top. */
+/* --tl-tick is the tick row's height, and a tick is a rotated line of text —
+   `writing-mode: vertical-rl` means its HEIGHT is the length of the word. So this
+   is a box that holds text and does not get to be a px: 58px is the floor the
+   chart was drawn at, and above it the row grows with the interface dial.
+
+   THE MULTIPLIER IS MEASURED, not chosen. At 175% "1790s" overran a 58px tick by
+   13px, so the label needs about 71px there; 11px x 4 lands under the floor at
+   every dial the label already fits and clears 71 comfortably at the top. */
+/* --tl-plot IS ALLOWED TO BE A PX and the tick row is not, which is the whole
+   distinction the standing rule draws: the plot holds DOTS, at a pitch the dots
+   themselves set, and 110px at a 9px pitch is the twelve TIMELINE_MAX_DOTS
+   promises. It is named rather than left inside the row's sum so the test that
+   checks "room for twelve and not thirteen" can read it. */
+:root {
+  --tl-plot: 110px;
+  --tl-tick: max(58px, calc(var(--type-ui-11, 11px) * 4));
+}
+
 .tl-tick {
   font-family: var(--font-ui);
   font-style: var(--font-ui-style);
@@ -5728,7 +5796,7 @@ html[data-theme="dark"] .mobile-sheet-footer {
   color: var(--soft);
   white-space: nowrap;
   writing-mode: vertical-rl;
-  height: 58px;
+  height: var(--tl-tick);
   overflow: hidden;
 }
 /* A tick that jumps to that decade's works on the Search page — the same
@@ -5873,9 +5941,12 @@ html[data-theme="dark"] .mobile-sheet-footer {
 }
 /* Height in step with .tl-tick, because the two ARE one tick row: a gap whose
    caption sits 12px lower than its neighbours' reads as a misaligned chart. */
+/* THE SAME HEIGHT AS THE COLUMN TICK, and now the same variable. It was a second
+   58, which is how "the tick row is one row" survives a change to one of them and
+   fails silently: the two captions simply sit at different baselines. */
 .tl-gap-tick {
   writing-mode: horizontal-tb;
-  height: 58px;
+  height: var(--tl-tick);
   text-align: center;
   color: var(--faint);
 }

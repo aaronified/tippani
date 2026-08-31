@@ -103,9 +103,52 @@ jobs:
           done
           exit $fail
 
-      - name: The whole suite, under -race (nightly)
-        if: github.event_name == 'schedule'
-        run: go test -race -timeout 60m ./...
+  # THE NIGHTLY SWEEP, SHARDED BY PACKAGE. It used to be one job — `go test -race
+  # -timeout 60m ./...` — and it stopped fitting: internal/httpapi alone did not
+  # finish in 55 minutes on an idle machine (see the measurement above). One job
+  # for the whole tree meant one timeout for eleven packages of wildly different
+  # size, so the slowest one set the budget for all of them and a red result named
+  # nothing but "the suite".
+  #
+  # `fail-fast: false` IS THE POINT OF THE MATRIX, not a detail. A race in
+  # internal/store must not cancel the run that would have found the one in
+  # internal/importer; the whole reason to shard is to learn about all of them in
+  # the same night.
+  #
+  # THE LIST IS EXPLICIT AND A TEST KEEPS IT HONEST. A `go list ./...` in a shell
+  # step would be self-maintaining and would also silently drop a package the day
+  # its name changed, with the sweep going green because it swept nothing —
+  # exactly the false green the per-push job's name-check exists to prevent.
+  # TestEveryTestedPackageIsInTheNightlySweep (internal/olog) reads this file and
+  # fails when a package with tests is missing from it.
+  race-nightly:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        pkg:
+          - ./cmd/tippani
+          - ./internal/auth
+          - ./internal/changelog
+          - ./internal/httpapi
+          - ./internal/i18n
+          - ./internal/importer
+          - ./internal/metadata
+          - ./internal/olog
+          - ./internal/search
+          - ./internal/store
+          - ./internal/updater
+          - ./web
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+      # 60m per PACKAGE rather than for the tree. httpapi is the only one that
+      # needs anything like it; the rest finish in minutes and cost nothing by
+      # being allowed the same ceiling.
+      - run: go test -race -timeout 60m ${{ matrix.pkg }}
 
   frontend:
     runs-on: ubuntu-latest

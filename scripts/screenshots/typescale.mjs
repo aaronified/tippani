@@ -14,7 +14,7 @@
 // so changing the browser's root does almost nothing to this app, and a harness built
 // on it would report a clean bill of health for a stylesheet full of px boxes.
 //
-// The app's own equivalent is its type dial, which goes to 200% (TYPE_FACTORS). At
+// The app's own equivalent is its type dial, whose top is TYPE_FACTOR_MAX. At
 // that setting a 15px label is 30px — harsher than the 24px the rule asks for. So this
 // does BOTH: it doubles every type token the app has written, AND sets the root to
 // 24px so the handful of `rem` values are covered too.
@@ -113,20 +113,30 @@ const PROBE = `(() => {
   return out
 })()`
 
-// The 200% dial, applied the way the app applies it. Every token currently on <html>
-// is a finished pixel written by applyTypeScale at 100%, and scaled(px, 200) is
-// exactly px * 2 — so doubling what is there IS the top of the dial, with no second
-// copy of the type table living in this harness to fall out of step.
+// The top of the dial, applied the way the app applies it. Every token currently
+// on <html> is a finished pixel written by applyTypeScale at 100%, and
+// scaled(px, f) is exactly px * f/100 — so multiplying what is there IS the top of
+// the dial, with no second copy of the type table living in this harness.
+//
+// THE FACTOR IS READ FROM type.js RATHER THAN WRITTEN HERE. It used to be a
+// literal 2, and when 3.1.0 withdrew the 200% position that literal became a
+// harness measuring a dial the app no longer has — passing or failing on a size
+// no reader can select. type.js has no imports of its own, so it loads in plain
+// node, and the number can only be wrong in one place now.
+const { TYPE_FACTOR_MAX } = await import('../../web/frontend/src/type.js')
+
 const TURN_IT_UP = `(() => {
   const root = document.documentElement
   const names = [...root.style].filter((n) => n.startsWith('--type-'))
   if (!names.length) return { tokens: 0, note: 'applyTypeScale had written nothing' }
   for (const n of names) {
     const px = parseFloat(root.style.getPropertyValue(n))
-    if (!Number.isNaN(px)) root.style.setProperty(n, Math.round(px * 2) + 'px')
+    if (!Number.isNaN(px)) root.style.setProperty(n, Math.round(px * ${TYPE_FACTOR_MAX} / 100) + 'px')
   }
-  // And the literal instruction from the pack, for the few rem values.
-  root.style.fontSize = '24px'
+  // And the pack's own instruction for the few rem values, moved by the same
+  // proportion: a root left at 24px while the tokens scaled by 1.75 would be two
+  // dials disagreeing inside one measurement.
+  root.style.fontSize = Math.round(16 * ${TYPE_FACTOR_MAX} / 100) + 'px'
   return { tokens: names.length }
 })()`
 
@@ -217,7 +227,7 @@ async function main() {
   const over = report.filter((r) => (r.fresh?.length || 0) > (baseline[r.screen] ?? 0))
   const under = report.filter((r) => (r.fresh?.length || 0) < (baseline[r.screen] ?? 0))
 
-  console.log(`\n${newly} element(s) newly clipped with the type at 200% and the root at 24px`)
+  console.log(`\n${newly} element(s) newly clipped with the type at ${TYPE_FACTOR_MAX}% and the root scaled with it`)
   if (broke) console.log(`${broke} screen(s) could not be checked`)
   for (const r of over) {
     console.log(`OVER   ${r.screen}: ${r.fresh.length}, recorded ${baseline[r.screen] ?? 0}`)

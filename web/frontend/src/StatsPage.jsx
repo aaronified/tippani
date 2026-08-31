@@ -4,7 +4,7 @@ import { tzOffsetMinutes, usePractice } from './review.jsx'
 import { coverImgURL, json } from './api.js'
 import { t, tNodes } from './i18n.js'
 import { PersonPortrait, usePeople } from './people.jsx'
-import { ANNOTATION_COLORS, ANNOTATION_HEX, Card, FieldIconButton, fmtHalfLife, IconPractise, IconQuiz, MonoLabel, MONTH_KEYS, mulberry32, PageHeader, Scroller, STATUS_META, toast, Toggle, Tooltip, useEdgeScroll, useIsMobileScreen, usePersistedState } from './ui.jsx'
+import { ANNOTATION_COLORS, ANNOTATION_HEX, Card, FieldIconButton, fmtHalfLife, IconPractise, IconQuiz, MonoLabel, MONTH_KEYS, mulberry32, NameScroll, PageHeader, Scroller, STATUS_META, toast, Toggle, Tooltip, useEdgeScroll, useIsMobileScreen, usePersistedState } from './ui.jsx'
 
 // StatsPage (§ insights) — a dedicated library-analytics screen, the richer
 // successor to the old Settings "Library stats" card and the intended basis for
@@ -457,11 +457,11 @@ function BreakdownRow({ r, rank, showWorks, art, personMap, onSearch }) {
           <Tooltip label={t('stats.breakdown.name.tip')} side="bottom" className="min-w-0">
             <button
               type="button"
-              className="truncate text-left"
+              className="text-left"
               style={{ fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontWeight: 600, fontSize: 'var(--type-display-15)', background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'inherit' }}
               onClick={() => onSearch?.(r.name)}
             >
-              {r.name}
+              <NameScroll>{r.name}</NameScroll>
             </button>
           </Tooltip>
           <span className="mono-label" style={{ flex: '0 0 auto', color: 'var(--accent-ui)' }}>{r.quotes}</span>
@@ -554,12 +554,12 @@ function HBar({ swatch, label, labelWidth, n, max, fill, onPractise }) {
           button at the end of the row rather than the row itself. A chart you
           can accidentally start a quiz round by brushing against is a chart
           nobody trusts to hold still. */}
-      {/* nowrap: the column is sized to the longest name below, but a name that
-          overruns the cap must ELLIPSISE rather than wrap — a wrapped label
-          pushes its own row taller than its neighbours and the bars stop
-          lining up, which is the one thing a magnitude column has to do. The
-          full name is on the row's title either way. */}
-      <span className="mono-label" style={{ width: labelWidth, flex: '0 0 auto', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</span>
+      {/* nowrap: the column is sized to the longest name below, and a name that
+          overruns the cap SCROLLS under the fade rather than wrapping — a
+          wrapped label pushes its own row taller than its neighbours and the
+          bars stop lining up, which is the one thing a magnitude column has to
+          do. The full name is on the row's title either way. */}
+      <NameScroll className="mono-label" style={{ width: labelWidth, flex: '0 0 auto' }}>{label}</NameScroll>
       <div style={{ flex: 1, height: 8, background: 'var(--line)', borderRadius: 999, overflow: 'hidden' }}>
         <div style={{ height: '100%', width: `${Math.round((100 * n) / max)}%`, background: fill, borderRadius: 999 }} />
       </div>
@@ -650,11 +650,11 @@ function LeaderList({ rows, onSearch }) {
               <Tooltip label={t('stats.tag.tip')} side="bottom" className="min-w-0">
                 <button
                   type="button"
-                  className="truncate text-left"
+                  className="text-left"
                   style={{ fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontWeight: 600, fontSize: 'var(--type-display-15)', background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'inherit' }}
                   onClick={() => onSearch?.(r.name)}
                 >
-                  {r.name}
+                  <NameScroll>{r.name}</NameScroll>
                 </button>
               </Tooltip>
               <span className="mono-label" style={{ flex: '0 0 auto', color: 'var(--accent-ui)' }}>{r.count}</span>
@@ -1266,7 +1266,7 @@ function TimelineKey({ kind, label }) {
 }
 
 // SuperTile — a superlative as a compact tile (the same raised-chip tiling the
-// Overview and Memory grids use): cover thumb · truncated headline · accent
+// Overview and Memory grids use): cover thumb · scrolling headline · accent
 // count · label. With `onOpen` the headline is a doorway (→ Search).
 function SuperTile({ label, title, count, amber, cover, person, onOpen }) {
   return (
@@ -1292,20 +1292,20 @@ function SuperTile({ label, title, count, amber, cover, person, onOpen }) {
               <Tooltip label={t('stats.super.title.tip')} side="top" className="min-w-0">
                 <button
                   type="button"
-                  className="truncate text-left"
+                  className="text-left"
                   style={{ fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontWeight: 600, fontSize: 'var(--type-display-15)', lineHeight: 1.3, background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'inherit' }}
                   onClick={onOpen}
                 >
-                  {title}
+                  <NameScroll>{title}</NameScroll>
                 </button>
               </Tooltip>
             ) : (
-              <span
+              <NameScroll
                 title={title || undefined}
-                style={{ fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontWeight: 600, fontSize: 'var(--type-display-15)', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                style={{ fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontWeight: 600, fontSize: 'var(--type-display-15)', lineHeight: 1.3 }}
               >
                 {title || '—'}
-              </span>
+              </NameScroll>
             )}
             {count != null && (
               <span style={{ flex: '0 0 auto', fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 'var(--type-mono-12)', color: amber ? 'var(--amber)' : 'var(--accent-ui)' }}>

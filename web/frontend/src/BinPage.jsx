@@ -15,6 +15,7 @@ import {
   IconDialogue,
   IconHighlight,
   IconMerge,
+  NameScroll,
   IconPerson,
   IconQuote,
   IconReel,
@@ -382,7 +383,7 @@ export default function BinPage({ onClose }) {
                         <MonoLabel>{TRASH_LABELS[e.kind] ? t(TRASH_LABELS[e.kind]) : e.kind}</MonoLabel>
                       </span>
                     )}
-                    <span className="trash-label">{e.label || t('bin.row.untitled.label')}</span>
+                    <NameScroll className="trash-label">{e.label || t('bin.row.untitled.label')}</NameScroll>
                     <span className="ml-auto flex items-center gap-1">
                       <FieldIconButton
                         icon={<IconRevert />}

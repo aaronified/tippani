@@ -66,15 +66,29 @@ describe('the folded gap is exactly as wide as the columns it replaces', () => {
   })
 })
 
+// custom() reads one custom property off :root. The geometry moved out of literals
+// and into two of them, for a reason the rule states: the plot holds dots and may
+// be a px, the tick row holds TEXT and may not.
+function custom(name) {
+  const m = CSS.match(new RegExp(`\\n\\s*${name}:\\s*([^;]+);`))
+  expect(m, `no :root declaration for ${name}`).toBeTruthy()
+  return m[1].trim()
+}
+
+// The floor inside a `max(<px>, <token expression>)` — what the box is at the
+// designed size, which is the size every number in this file is about.
+function floorOf(expr) {
+  const m = expr.match(/max\(\s*([\d.]+)px/)
+  expect(m, `${expr} is not a max() with a px floor — a box that holds text must have one`).toBeTruthy()
+  return Number(m[1])
+}
+
 describe('the plot has room for the dots it promises', () => {
   // The pitch is one dot plus one gap; the last dot needs no gap after it.
   const dot = px('.tl-dot', 'height')
   const between = px('.tl-dots', 'gap')
   const needed = TIMELINE_MAX_DOTS * dot + (TIMELINE_MAX_DOTS - 1) * between
-
-  // .tl-plot is flex: 1 1 auto inside .tl-row, so its height is what is left after
-  // the tick row and the gap between the two.
-  const plot = px('.tl-row', 'height') - px('.tl-tick', 'height') - px('.tl-col', 'gap')
+  const plot = Number(custom('--tl-plot').replace('px', ''))
 
   it(`fits all ${TIMELINE_MAX_DOTS}`, () => {
     expect(plot).toBeGreaterThanOrEqual(needed)
@@ -85,11 +99,36 @@ describe('the plot has room for the dots it promises', () => {
   it('and is not tall enough for another one', () => {
     expect(plot).toBeLessThan(needed + dot + between)
   })
+
+  // THE ROW IS THE SUM, and it is checked as a sum rather than as a total. The
+  // three numbers used to be one literal 172 with the arithmetic in a comment, and
+  // the tick row has to grow with the type dial — so a fixed total would have kept
+  // the row still while the ticks inside it grew, which is what `make typescale`
+  // caught: fifteen decade labels cut off at the bottom.
+  it('and the row is the plot plus the ticks plus the gap between them', () => {
+    const row = rule('.tl-row')
+    expect(row, '.tl-row no longer states its height as a sum').toMatch(/height:\s*calc\(/)
+    expect(row).toContain('var(--tl-plot)')
+    expect(row).toContain('var(--tl-tick)')
+    expect(row).toContain(`${px('.tl-col', 'gap')}px`)
+  })
 })
 
 describe('the tick row is one row', () => {
+  // Under a column and under a gap — and the same VARIABLE, not the same number.
+  // Two literals that happened to agree is how this rule survives a change to one
+  // of them: nothing errors, the two captions just sit at different baselines.
   it('under a column and under a gap alike', () => {
-    expect(px('.tl-gap-tick', 'height')).toBe(px('.tl-tick', 'height'))
+    expect(rule('.tl-gap-tick')).toMatch(/height:\s*var\(--tl-tick\)/)
+    expect(rule('.tl-tick')).toMatch(/height:\s*var\(--tl-tick\)/)
+  })
+
+  // AND IT IS NOT A PX, because a tick is a rotated line of text and its height is
+  // the length of the word. The floor is what it measures at the designed size.
+  it('grows with the type dial, from a floor', () => {
+    const tick = custom('--tl-tick')
+    expect(tick).toMatch(/var\(--type-ui-\d+/)
+    expect(floorOf(tick)).toBe(58)
   })
 })
 

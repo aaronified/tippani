@@ -351,10 +351,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   written down now, along with the fact that it is not a fault. A new check makes a code
   that is logged but never registered fail the build instead of shipping unlookupable.
 
-- **The navigation rail cut its own labels when text was turned up.** At the 200% type
-  size *Catalogue* lost 53 pixels and *Metadata* 75 — the rail was a fixed 236px box with
-  growing words inside it. It now grows with the text, so the destinations stay readable
-  at every size. 236px is still the floor, so nothing changes at the ordinary setting.
+- **Nothing in the app cuts a name short any more.** Thirty-six places did — a book's
+  title under its cover, an author's name on a group heading, a character and the actor
+  who played them under a film line, a tag, a series, a person in search results. Each
+  ended in an ellipsis, and an ellipsis on a name is the one thing you cannot detect:
+  *Bibhutibhushan Bandyop…* and *Bibhuti* look equally like the whole of what was stored.
+  They scroll under a soft edge now, and the edge only appears when there is actually
+  more to see. The timeline's decade labels grew with the text instead of being cut off
+  at the bottom, and the bin's rows stopped shortening what they hold.
+
+- **The text-size dial stops at 175% instead of 200%.** At double size the app was no
+  longer the shape it was drawn as — the rail wanted two fifths of the window, and every
+  list row had lost the space to show a title. If you were on 200% you are on 175% now;
+  nobody is dropped back to the default.
+
+- **The rail keeps its glyphs instead of its words once text is large.** Above 125% the
+  labels no longer fit their column, so rather than cut them — or grow until the
+  navigation is a third of the screen — it shows the same icons it shows on a narrow
+  window, and gives the page back. Measured in both languages: English is the binding
+  case, not Bengali.
 
 - **Thirteen "are you sure?" questions were still the browser's own.** Deleting a tag, a
   sticker, a font, a paired device, a person, a user account, a favourite, a quote, a

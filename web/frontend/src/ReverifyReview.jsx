@@ -19,6 +19,7 @@ import {
   HandCard,
   MobileSheet,
   MonoLabel,
+  NameScroll,
   ProgressBar,
   sourceName,
   Tooltip,
@@ -119,7 +120,7 @@ function ValueCell({ field, value, fresh }) {
     return (
       <span className="block" style={{ fontSize: 'var(--type-ui-12)' }}>
         {value.slice(0, 6).map((m, i) => (
-          <span key={i} className="block truncate">{m.character || '—'} · {m.actor || '—'}</span>
+          <NameScroll key={i} className="block">{m.character || '—'} · {m.actor || '—'}</NameScroll>
         ))}
         {value.length > 6 && (
           <span className="microcopy">{t('reverify.value.more', { n: value.length - 6 })}</span>
@@ -229,9 +230,9 @@ function ReverifyItemCard({ item, open, onToggleOpen, approvals, onToggleField, 
           onClick={onToggleOpen}
           aria-expanded={open}
         >
-          <span className="min-w-0 truncate font-semibold" style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontSize: 'var(--type-display-15)' }}>
+          <NameScroll className="min-w-0 font-semibold" style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontSize: 'var(--type-display-15)' }}>
             {item.title || item.name}
-          </span>
+          </NameScroll>
           <MonoLabel style={{ fontSize: 'var(--type-display-9)', flex: 'none' }}>{kindChip}{item.source ? ` · ${item.source}` : ''}</MonoLabel>
           <MonoLabel className="ml-auto" style={{ fontSize: 'var(--type-ui-11)', color: 'var(--accent-ui)', flex: 'none' }}>
             {t('reverify.item.approved', { n: approvedCount, total: item.diffs.length })}{' '}

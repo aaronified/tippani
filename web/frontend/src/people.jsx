@@ -3,7 +3,7 @@ import { json, errText } from './api.js'
 import { t } from './i18n.js'
 import { personImgURL, PersonPortrait, usePeople } from './credits.jsx'
 import { usePractice } from './review.jsx'
-import { useBodyScrollLock, CloseButton, ErrorText, ExpandableDescription, Field, GhostButton, IconCheck, IconClose, IconDelete, IconEdit, IconMerge, IconPlus, IconQuiz, IconPractise, IconRefresh, IconSearch, isPartialDate, Lightbox, MonoLabel, NameInput, PartialDateField, Placeholder, Tooltip, useConfirm } from './ui.jsx'
+import { useBodyScrollLock, CloseButton, ErrorText, ExpandableDescription, Field, GhostButton, IconCheck, IconClose, IconDelete, IconEdit, IconMerge, IconPlus, IconQuiz, IconPractise, IconRefresh, IconSearch, isPartialDate, Lightbox, MonoLabel, NameInput, NameScroll, PartialDateField, Placeholder, Tooltip, useConfirm } from './ui.jsx'
 
 const PRIMARY = 'tp-btn tp-btn-primary'
 
@@ -740,7 +740,7 @@ export function PersonModal({ kind, name, onClose, onSaved }) {
             <PersonPortrait person={person} size={40} />
             <div className="min-w-0">
               <MonoLabel>{t(`common.field.${kind}.label`)}</MonoLabel>
-              <h2 className="display-title truncate text-xl">{name}</h2>
+              <h2 className="display-title text-xl"><NameScroll>{name}</NameScroll></h2>
             </div>
           </div>
           <CloseButton onClick={onClose} />

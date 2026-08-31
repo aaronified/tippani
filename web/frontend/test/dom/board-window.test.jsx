@@ -14,7 +14,7 @@
 // permanently truncated library is worse than a slow one.
 
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, act } from '@testing-library/react'
+import { render, screen, act, waitFor } from '@testing-library/react'
 
 const BOOKS = Array.from({ length: 150 }, (_, i) => ({
   id: i + 1,
@@ -78,10 +78,26 @@ const mount = async () => {
 // tiles means counting the covers' own alt text rather than list items.
 const tiles = () => screen.queryAllByRole('img', { name: /cover/i }).length
 
+// THE HELPER USED TO FIRE WHATEVER EXISTED AND SAY NOTHING WHEN THAT WAS NOTHING,
+// which is what made this file flaky under a loaded parallel run. `mount()` resolves
+// as soon as the first tile paints, and the effect that installs the observer runs
+// after the render that learns `total` — so on a slow machine the first call landed
+// in the gap, fired zero observers, and the test measured "one growth" while
+// believing it had asked for two. It failed with 120 tiles and looked like a
+// windowing bug in the app; nothing was wrong with the app.
+//
+// So it waits for an observer, and then insists it fired one. A no-op that reports
+// success is the shape of every silently-passing test.
 const reachTheEnd = async () => {
+  await waitFor(() => expect(observers.length).toBeGreaterThan(0))
+  let fired = 0
   await act(async () => {
-    for (const o of [...observers]) o.cb([{ isIntersecting: true, target: o.el }])
+    for (const o of [...observers]) {
+      fired++
+      o.cb([{ isIntersecting: true, target: o.el }])
+    }
   })
+  expect(fired, 'reachTheEnd fired no observer — the board had nothing watching its end').toBeGreaterThan(0)
 }
 
 describe('the library board is windowed', () => {

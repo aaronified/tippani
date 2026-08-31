@@ -51,6 +51,7 @@ import {
   IconSearch,
   Masonry,
   MonoLabel,
+  NameScroll,
   Placeholder,
   QuizSkipMark,
   Scroller,
@@ -1109,7 +1110,7 @@ function QuoteModal({ kind, hit, authorMap = {}, actorMap = {}, speakerMap = {},
       <div role="dialog" aria-modal="true" aria-label={t('search.hit.title.fallback')} className="mx-auto w-full max-w-2xl">
         <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0" style={{ maxWidth: '60%' }}>
-            <MonoLabel className="block truncate">{title || t('search.hit.title.fallback')}</MonoLabel>
+            <MonoLabel className="block"><NameScroll>{title || t('search.hit.title.fallback')}</NameScroll></MonoLabel>
             {/* Author / actor portrait chips (split) — click one to open the
                 person panel, same as the detail pages. */}
             {creditNames.length > 0 && (
@@ -1624,7 +1625,7 @@ function WorkResult({ kind, g, view, terms, onOpen, onOpenQuote, onOpenPerson, p
                 ) : (
                   <CreditFaces names={splitCredits(h.actor, creditSeps)} map={actorMap} size={22} ring="var(--raised)" />
                 )}
-                <MonoLabel className="block min-w-0 truncate">
+                <MonoLabel className="block min-w-0">
                   {/* The character is a BUTTON. Pressing it narrows the whole
                       search to that speaker, which is what turns "I found the
                       line" into "I found who says it". stopPropagation because
@@ -1635,11 +1636,13 @@ function WorkResult({ kind, g, view, terms, onOpen, onOpenQuote, onOpenPerson, p
                       a two-hander gives two names and two chips — the same split
                       the vocabulary and the grouping use, or pressing one would
                       send a joined name that matches nothing. */}
-                  <CharacterCredits names={splitCredits(h.character, creditSeps)} terms={terms} onFacet={onFacet} />
-                  {h.character && h.actor ? ' · ' : ''}
-                  {h.actor && <Highlight text={h.actor} terms={terms} />}
-                  {episodeLabel(h) ? `  ·  ${episodeLabel(h)}` : ''}
-                  {h.timestamp ? `  ·  ${h.timestamp}` : ''}
+                  <NameScroll>
+                    <CharacterCredits names={splitCredits(h.character, creditSeps)} terms={terms} onFacet={onFacet} />
+                    {h.character && h.actor ? ' · ' : ''}
+                    {h.actor && <Highlight text={h.actor} terms={terms} />}
+                    {episodeLabel(h) ? `  ·  ${episodeLabel(h)}` : ''}
+                    {h.timestamp ? `  ·  ${h.timestamp}` : ''}
+                  </NameScroll>
                 </MonoLabel>
               </span>
             </ChildHit>
@@ -1741,15 +1744,15 @@ function ResultSection({ label, groups, group, view, isMovie, renderItem, people
                 <Tooltip label="Open this person's details" side="bottom" className="min-w-0">
                   <button
                     type="button"
-                    className="display-title truncate"
+                    className="display-title"
                     style={{ fontSize: 'var(--type-ui-17)', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
                     onClick={() => onOpenPerson({ kind: personKind, name: b.label })}
                   >
-                    {b.label}
+                    <NameScroll>{b.label}</NameScroll>
                   </button>
                 </Tooltip>
               ) : (
-                <h3 className="display-title truncate" style={{ fontSize: 'var(--type-ui-17)' }}>{b.label}</h3>
+                <h3 className="display-title" style={{ fontSize: 'var(--type-ui-17)' }}><NameScroll>{b.label}</NameScroll></h3>
               )}
               <MonoLabel style={{ color: 'var(--accent-ui)' }}>{b.items.length}</MonoLabel>
               <span className="h-px flex-1" style={{ background: 'var(--line)' }} />
@@ -1788,11 +1791,11 @@ function PeopleSection({ label, kind, entries, people, onOpenPerson, view, rende
             <Tooltip label="Open this person's details" side="bottom" className="min-w-0">
               <button
                 type="button"
-                className="display-title truncate"
+                className="display-title"
                 style={{ fontSize: 'var(--type-ui-17)', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
                 onClick={() => onOpenPerson({ kind, name: e.name })}
               >
-                {e.name}
+                <NameScroll>{e.name}</NameScroll>
               </button>
             </Tooltip>
             <MonoLabel style={{ color: 'var(--accent-ui)' }}>{e.count}</MonoLabel>
@@ -1830,8 +1833,8 @@ function QuoteHit({ h, terms, onOpen, people = {}, seps }) {
             that opens the quote, and nesting a second one inside it means a
             near-miss opens the wrong thing. The panel is one tap further in. */}
         <CreditFaces names={splitCredits(h.speaker, seps)} map={people} size={22} ring="var(--raised)" />
-        <MonoLabel className="block min-w-0 truncate">
-          {[h.speaker, h.occasion].filter(Boolean).join(' · ')}
+        <MonoLabel className="block min-w-0">
+          <NameScroll>{[h.speaker, h.occasion].filter(Boolean).join(' · ')}</NameScroll>
         </MonoLabel>
       </span>
     </ChildHit>
@@ -1860,16 +1863,16 @@ function TagSection({ tags, terms, onOpenQuote, speakerMap, creditSeps }) {
                 {(h.quote || h.note) && (
                   <MatchWindow text={h.quote || h.note} terms={terms} style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontStyle: 'italic', fontSize: 'var(--type-display-15)', lineHeight: 1.5 }} />
                 )}
-                <MonoLabel className="mt-1 block min-w-0 truncate">
-                  {[h.book_title, h.book_author].filter(Boolean).join(' · ')}
+                <MonoLabel className="mt-1 block min-w-0">
+                  <NameScroll>{[h.book_title, h.book_author].filter(Boolean).join(' · ')}</NameScroll>
                 </MonoLabel>
               </ChildHit>
             ))}
             {(tag.dialogues || []).map((h) => (
               <ChildHit key={`d${h.id}`} color={h.color} hit={h} parent={h.movie_media_type === 'show' ? 'show' : 'film'} onClick={() => onOpenQuote({ kind: 'movie', hit: h })}>
                 <MatchWindow text={h.quote} terms={terms} style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontSize: 'var(--type-display-15)', lineHeight: 1.5 }} />
-                <MonoLabel className="mt-1 block min-w-0 truncate">
-                  {[h.movie_title, h.character].filter(Boolean).join(' · ')}
+                <MonoLabel className="mt-1 block min-w-0">
+                  <NameScroll>{[h.movie_title, h.character].filter(Boolean).join(' · ')}</NameScroll>
                 </MonoLabel>
               </ChildHit>
             ))}

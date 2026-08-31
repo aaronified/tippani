@@ -19,6 +19,7 @@ import {
   IconSearch,
   IconUpload,
   MonoLabel,
+  NameScroll,
   normName,
   Placeholder,
   SourceIcon,
@@ -485,8 +486,8 @@ export function CandidateRow({ cover, title, sub, source, sourceDetail, count = 
     <li className="sheen-raised flex items-center gap-3 rounded-xl px-3 py-2.5" style={{ border: '1px solid var(--line)' }}>
       <CoverPreview url={cover} label="" compact className="w-9 shrink-0" />
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold" title={title}>{title}</p>
-        <p className="truncate text-xs" style={{ color: 'var(--soft)' }}>{sub}</p>
+        <NameScroll as="p" className="text-sm font-semibold" title={title}>{title}</NameScroll>
+        <NameScroll as="p" className="text-xs" style={{ color: 'var(--soft)' }}>{sub}</NameScroll>
       </div>
       {group ? (
         <MonoLabel style={{ flex: 'none', fontSize: 'var(--type-ui-9)' }}>
@@ -587,14 +588,14 @@ export function BookLookupPicker({ isbn, title, author, asin, onPick, auto = fal
                 </button>
               </Tooltip>
               <div className="min-w-0">
-                <p className="truncate text-sm font-semibold" title={c.title}>{c.title}</p>
-                <p className="truncate text-xs" style={{ color: 'var(--soft)' }}>
+                <NameScroll as="p" className="text-sm font-semibold" title={c.title}>{c.title}</NameScroll>
+                <NameScroll as="p" className="text-xs" style={{ color: 'var(--soft)' }}>
                   {[c.author, c.published_year || null].filter(Boolean).join(' · ')}
-                </p>
+                </NameScroll>
                 {c.series && (
-                  <p className="truncate text-xs" style={{ color: 'var(--accent-ui)' }}>
+                  <NameScroll as="p" className="text-xs" style={{ color: 'var(--accent-ui)' }}>
                     {c.series}{c.series_index ? ` #${c.series_index}` : ''}
-                  </p>
+                  </NameScroll>
                 )}
               </div>
               <div className="flex items-center justify-between gap-2">
@@ -712,7 +713,7 @@ export function MovieLookupPicker({ title, year, mediaType = 'movie', tmdbId, tv
                 </button>
               </Tooltip>
               <div className="min-w-0">
-                <p className="truncate text-sm font-semibold" title={c.title}>{c.title}</p>
+                <NameScroll as="p" className="text-sm font-semibold" title={c.title}>{c.title}</NameScroll>
                 {c.release_year ? <p className="truncate text-xs" style={{ color: 'var(--soft)' }}>{c.release_year}</p> : null}
               </div>
               <div className="flex items-center justify-between gap-2">

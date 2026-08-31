@@ -4,7 +4,7 @@ import { t, tNodes } from './i18n.js'
 import { BookLookupPicker, MovieLookupPicker } from './CoverPicker.jsx'
 import { EditBook } from './Library.jsx'
 import { EditMovie } from './Movies.jsx'
-import { BulkBar, EmptyState, ErrorText, FieldIconButton, GhostButton, HandCard, IconButton, IconCheck, IconDelete, IconEdit, IconMerge, IconMetadata, IconMore, IconOpen, IconRefresh, IconSearch, IconUsers, InfoDot, MonoLabel, NameInput, normName, PageHeader, ProgressBar, Scroller, splitCommas, Tooltip, PanelHost, usePanelStack, useConfirm, useIsMobileScreen, useScreenBar } from './ui.jsx'
+import { BulkBar, EmptyState, ErrorText, FieldIconButton, GhostButton, HandCard, IconButton, IconCheck, IconDelete, IconEdit, IconMerge, IconMetadata, IconMore, IconOpen, IconRefresh, IconSearch, IconUsers, InfoDot, MonoLabel, NameInput, NameScroll, normName, PageHeader, ProgressBar, Scroller, splitCommas, Tooltip, PanelHost, usePanelStack, useConfirm, useIsMobileScreen, useScreenBar } from './ui.jsx'
 import { PersonModal, PersonName, ProviderChips, mergeLinks, parseCreditSeps, parseLinks, splitCredits } from './people.jsx'
 import { characterPanel } from './identity.jsx'
 import { ReverifyFlow } from './ReverifyReview.jsx'
@@ -834,11 +834,11 @@ function BookRow({ book, checked, onCheck, open, onToggleLookup, onOpen, onDone 
           <input type="checkbox" checked={checked} onChange={onCheck} />
         </Tooltip>
         <div className="min-w-0 flex-1">
-          <p className="truncate">
+          <NameScroll as="p">
             <b>{book.title}</b>
             {book.author && <span style={{ color: 'var(--soft)' }}> · {book.author}</span>}
             <span className="microcopy"> · {t('common.count.phrase', { n: book.annotation_count, noun: t('unit.quote', { count: book.annotation_count }) })}</span>
-          </p>
+          </NameScroll>
           <GapChips gaps={gaps} />
         </div>
         <ConsoleRowActions
@@ -885,7 +885,7 @@ function MovieRow({ movie, checked, onCheck, open, onToggleLookup, onOpen, onDon
           <input type="checkbox" checked={checked} onChange={onCheck} />
         </Tooltip>
         <div className="min-w-0 flex-1">
-          <p className="truncate">
+          <NameScroll as="p">
             <b>{movie.title}</b>
             {movie.release_year ? <span style={{ color: 'var(--soft)' }}> · {movie.release_year}</span> : null}
             {/* metadata.count.dialogues rather than the shared unit.dialogue: that
@@ -894,7 +894,7 @@ function MovieRow({ movie, checked, onCheck, open, onToggleLookup, onOpen, onDon
             {movie.dialogue_count > 0 && (
               <span className="microcopy"> · {t('metadata.count.dialogues', { count: movie.dialogue_count, n: movie.dialogue_count })}</span>
             )}
-          </p>
+          </NameScroll>
           <GapChips gaps={gaps} />
         </div>
         <ConsoleRowActions
@@ -1045,12 +1045,12 @@ function DuplicateGroup({ group, busy, onMerge }) {
         {group.map((b) => (
           <label key={b.id} className="flex flex-wrap items-center gap-2">
             <input type="radio" name={`keep-${group[0].id}`} checked={keep === b.id} onChange={() => setKeep(b.id)} />
-            <span className="min-w-0 flex-1 truncate text-sm">
+            <NameScroll className="min-w-0 flex-1 text-sm">
               <b>{b.title}</b>
               {b.author && <span style={{ color: 'var(--soft)' }}> · {b.author}</span>}
               {b.year ? <span className="microcopy"> · {b.year}</span> : null}
               <span className="microcopy"> · {t('common.count.phrase', { n: b.annotation_count, noun: t('unit.quote', { count: b.annotation_count }) })}</span>
-            </span>
+            </NameScroll>
             {keep === b.id && <span className="tp-chip shrink-0" style={{ color: 'var(--accent-ui)' }}>{t('metadata.duplicates.keep.label')}</span>}
           </label>
         ))}
@@ -1227,10 +1227,10 @@ function RemapRow({ label, cast, value, onChange }) {
   const sel = value?.custom ? 'custom' : idx >= 0 ? `cast:${idx}` : ''
   return (
     <div className="flex flex-wrap items-center gap-2 py-2" style={{ borderTop: '1px solid var(--line)' }}>
-      <span className="min-w-0 flex-1 truncate">
+      <NameScroll className="min-w-0 flex-1">
         <span style={{ fontWeight: 600 }}>{label.name}</span>
         <span className="microcopy"> · {label.count}</span>
-      </span>
+      </NameScroll>
       <span className="microcopy">→</span>
       <select
         className="tp-input w-auto"

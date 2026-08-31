@@ -81,6 +81,7 @@ import {
   MonoLabel,
   mulberry32,
   NameInput,
+  NameScroll,
   PageHeader,
   parseYearInput,
   PickMark,
@@ -682,14 +683,14 @@ export function DuplicateConfirm({ confirm, busy, onEnrich, onAddSeparate, onCan
             style={{ border: '1px solid var(--line)' }}
           >
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold">
+              <NameScroll as="p" className="text-sm font-semibold">
                 {e.title}
                 {e.release_year ? (
                   <span className="ml-2 font-normal" style={{ color: 'var(--soft)' }}>
                     {e.release_year}
                   </span>
                 ) : null}
-              </p>
+              </NameScroll>
               <p className="truncate text-xs" style={{ color: 'var(--faint)' }}>
                 {[
                   t('movies.duplicate.dialogues', { count: e.dialogue_count, n: e.dialogue_count }),

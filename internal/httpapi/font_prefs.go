@@ -108,7 +108,12 @@ func normalizeFontStyles(raw string) (string, bool) {
 // 0 IS ACCEPTED AND IS NOT A POSITION. It means "not chosen" and renders at 100 —
 // the zero value of the struct, so a reader who has never touched a dial stores
 // nothing, and an upgrade that changed the designed sizes still reaches them.
-var sizeFactors = []int{0, 75, 100, 125, 150, 175, 200}
+//
+// 200 WENT IN 3.1.0 — see TYPE_FACTORS for why (the rail could not honour it) —
+// and a stored 200 is moved to 175 by the one-time pass rather than being
+// refused here, because refusing it would leave a reader's saved preference
+// unwritable without them knowing which field the server was rejecting.
+var sizeFactors = []int{0, 75, 100, 125, 150, 175}
 
 func validSizeFactor(n int) bool {
 	for _, ok := range sizeFactors {

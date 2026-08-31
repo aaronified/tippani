@@ -28,6 +28,7 @@ import {
   IconClose,
   MobileSheet,
   MonoLabel,
+  NameScroll,
   Select,
   PartialDateField,
   isPartialDate,
@@ -611,10 +612,10 @@ export function WorkPicker({ works, value, onChange, onCreate }) {
                 onClick={() => pick(w)}
               >
                 <span className="flex items-center justify-between gap-3">
-                  <span className="truncate">
+                  <NameScroll>
                     {w.title}
                     {w.sub && <span style={{ color: 'var(--soft)' }}> · {w.sub}</span>}
-                  </span>
+                  </NameScroll>
                   <span className="mono-label" style={{ flex: 'none', fontSize: 'var(--type-ui-9)', color: w.kind === 'book' ? 'var(--accent-ui)' : 'var(--amber)' }}>
                     {w.tag}
                   </span>

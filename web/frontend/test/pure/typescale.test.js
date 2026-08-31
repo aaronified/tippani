@@ -83,7 +83,7 @@ describe('no step is lost to rounding', () => {
 
 describe('the dials', () => {
   it('offer a decrease as well as four increases', () => {
-    expect(TYPE_FACTORS).toEqual([75, 100, 125, 150, 175, 200])
+    expect(TYPE_FACTORS).toEqual([75, 100, 125, 150, 175])
     expect(TYPE_FACTORS).toContain(TYPE_DEFAULT)
   })
 

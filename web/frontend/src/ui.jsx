@@ -2965,6 +2965,48 @@ export function useConfirm() {
   return { ask, confirmDialog: dialog };
 }
 
+// NameScroll — a name that scrolls under the fade instead of being cut short.
+//
+// THE RULE IT EXISTS TO KEEP: a shortened name and a short name look alike, so an
+// ellipsis on a name destroys the one thing the row was drawn to show.
+// "Alexander Hamilto…" and "Alex" are indistinguishable to a reader, and neither
+// of them is a name they can act on.
+//
+// WHY A COMPONENT AND NOT A CLASS. The fade is MEASURED — useEdgeScroll writes
+// data-scroll-x only when there is something behind the edge — and a fade with
+// nothing behind it is a lie that makes every other fade in the app a maybe. A
+// bare class cannot measure, so it would paint a fade on every name whether it
+// overflowed or not. Thirty-one sites needed this; thirty-one copies of a ref and
+// a hook is thirty-one chances to forget the measurement.
+//
+// A DRAG INSIDE A BUTTON IS SAFE. useEdgeScroll takes its pointer capture only
+// after 3px of movement, so a press-and-release still reaches whatever is
+// underneath and only a real drag scrolls — the fix that stopped every scroller in
+// the app from eating its own clicks. That is what lets this wrap a name that is
+// also a link.
+//
+// `as` takes an element name for the few places a span is wrong — a table cell,
+// a heading. Everything else gets the default.
+export function NameScroll({ children, as: As = "span", className = "", ...rest }) {
+  const ref = useRef(null);
+  useEdgeScroll(ref, { axis: "x" });
+  return (
+    <As ref={ref} className={`name-scroll ${className}`.trim()} {...rest}>
+      {children}
+    </As>
+  );
+}
+
+if (import.meta.env.DEV) {
+  NameScroll.glossary = {
+    demo: (
+      <div style={{ width: 180 }}>
+        <NameScroll>Bibhutibhushan Bandyopadhyay</NameScroll>
+      </div>
+    ),
+  };
+}
+
 // ConfirmDialog — an on-brand confirmation modal (replaces native confirm()):
 // title, optional body, and Cancel / confirm tactile buttons. Escape or a
 // backdrop click cancels. Render it conditionally with `open`.
@@ -3229,6 +3271,21 @@ export function PanelHost({ stack }) {
   const panel = levels[levels.length - 1] || null;
   const nested = levels.length > 1;
   const parent = nested ? levels[levels.length - 2] : null;
+  // THE PARENT'S NAME SCROLLS RATHER THAN ENDING IN AN ELLIPSIS. It used to read
+  // "← Charles F…", and a shortened name and a short name look alike — which is
+  // the one failure a reader cannot detect, and the reason the cast row's
+  // character name works exactly this way (see .cast-character).
+  //
+  // A DRAG INSIDE A BUTTON IS SAFE HERE and was not always: useEdgeScroll takes
+  // its pointer capture only after 3px of movement, so a press-and-release still
+  // reaches the button and only a real drag scrolls — the same fix that stopped
+  // every scroller in the app eating its own clicks.
+  const backWord = useRef(null);
+  const titleRef = useRef(null);
+  useEdgeScroll(backWord, { axis: "x" });
+  // The title is a name too — the panel is named after the person, character or
+  // work it is about — so it gets the same treatment rather than an ellipsis.
+  useEdgeScroll(titleRef, { axis: "x" });
   useBodyScrollLock(!!panel);
   useEffect(() => {
     if (!panel) return;
@@ -3264,11 +3321,11 @@ export function PanelHost({ stack }) {
                 onClick={back}
               >
                 <IconBack />
-                <span className="tp-panel-back-word">{parent.title}</span>
+                <span className="tp-panel-back-word" ref={backWord}>{parent.title}</span>
               </button>
             )}
           </div>
-          <h2 className="tp-panel-title">{panel.title}</h2>
+          <h2 className="tp-panel-title" ref={titleRef}>{panel.title}</h2>
           <div className="tp-panel-slot tp-panel-slot-r">
             {verb}
             {!nested && (

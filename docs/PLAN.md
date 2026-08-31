@@ -8463,3 +8463,75 @@ to see a glyph change shape on a state change should find the reason rather than
   it stops being a sweep. Not taken here.
 
 <sub>Unreleased — open · `.github/workflows/ci.yml`</sub>
+
+### The type dial stops at 175%, and the rail drops its words rather than growing
+
+*Supersedes the "wide rail is not a px box" entry above, and closes the open question
+beside it. The owner's answer: "Fall back to icon rail. And also get rid of 200%. Max 175%."*
+
+- **200 is gone from `TYPE_FACTORS` and from the server's `sizeFactors`**, and a stored 200
+  becomes 175 through a one-time pass rather than falling to 100. `clampFactor` sends an
+  unknown factor to the DESIGNED size on purpose — a preference from a newer client must
+  not be approximated — but 200 is not a number from the future, it is a position this app
+  offered and withdrew, and a reader who chose it wants large text, not default text.
+- **A new test reads `type.js` from Go** and fails when the two lists disagree. They are one
+  dial in two languages with nothing between them, and the symptom of drift is a setting
+  that silently will not stick.
+- **Above `RAIL_WORDS_MAX` the rail keeps its glyphs.** Measured in a real browser at
+  1280px, in both shipped languages: en 150% cuts *Catalogue* by 6px and *Metadata* by 24;
+  bn only fails at 175%. So 125 is the last position where every label fits everywhere —
+  and **English is the binding case, which is not the intuition.** The number had to be
+  measured because guessing it wrong is invisible: six pixels off a word reads as a
+  slightly odd word.
+- **Growth was the wrong half of the trade** and is reverted. At 175% the growing rail
+  wanted 413px of a 1180px window.
+- **CSS cannot ask what the dial says** — a media query reads the viewport and nothing
+  else — so `applyTypeScale` writes `[data-rail="icons"]` and every selector in the
+  wide-rail block carries the guard. Not an undo-block afterwards: that would be a third
+  copy of the icon rail's styles, and the third copy is the one that drifts.
+
+<sub>Unreleased — `web/frontend/src/type.js` · `index.css` · `internal/httpapi/font_prefs.go` ·
+`internal/store/onetime_3_1_0_type_dial_max.go` · `scripts/screenshots/typescale.mjs`</sub>
+
+### A name is never truncated, and now nothing truncates one
+
+*Closes the second open question. The owner: "Fix them all."*
+
+- **`NameScroll` in `ui.jsx`** is the one mechanism: it renders the element, wears
+  `.name-scroll`, and attaches `useEdgeScroll` so the fade is MEASURED — it appears only
+  when something is behind the edge. A bare class could not measure, and a fade with
+  nothing behind it makes every other fade in the app a maybe.
+- **Thirty-six sites across ten files**, classified first (is this a name, or a count, a
+  date, a path, a sentence?) and converted second. Four were left alone: a release year,
+  a dialogue count, and the wishlist tile's two fixed locale strings.
+- **A fade inside a button is safe here** only because of the earlier pointer-capture fix:
+  capture is taken after 3px of movement, so a press-and-release still reaches the button.
+  That is what makes this legal on the twelve sites that are also doors.
+- **`.tp-panel-title` was caught by the guard, not by the eye.** The new
+  `no-truncated-names.test.js` reads the stylesheet and fails on `text-overflow: ellipsis`
+  in a class that holds a name; it found the panel's own title while it was being written
+  for the back button beside it.
+- **The guard accepts scrolling OR wrapping**, because `.cast-opt-name` wraps — a fade
+  inside `role="option"` would promise a drag that must not fire. Demanding a scroller
+  would have called that correct decision a defect, and did, on its first run.
+- **`make typescale` is green and its baseline is zero.** 47 → 98 (the rail's cost) → 0.
+  The file is a floor now rather than a debt: a screen above zero has introduced a new
+  one, and the answer is to fix it rather than to write the number down.
+
+<sub>Unreleased — `web/frontend/src/ui.jsx` (NameScroll) · ten screens ·
+`test/pure/no-truncated-names.test.js` · `scripts/screenshots/typescale-baseline.json`</sub>
+
+### The nightly `-race` sweep is sharded by package
+
+*Closes the third open question. The owner: "Shard the nightly by package."*
+
+- **One job per package, `fail-fast: false`,** which is the point rather than a detail: a
+  race in `internal/store` must not cancel the run that would have found the one in
+  `internal/importer`. 60m per package rather than for the tree — `httpapi` is the only one
+  that needs it, and the rest cost nothing by being allowed the same ceiling.
+- **The list is explicit and a test keeps it honest.** `go list ./...` in a shell step
+  would be self-maintaining and would also silently drop a renamed package, with the sweep
+  going green because it swept nothing — the same false green that cost this repo v1.7.4.
+  `TestEveryTestedPackageIsInTheNightlySweep` fails in both directions.
+
+<sub>Unreleased — `.github/workflows/ci.yml` · `internal/olog/codes_test.go`</sub>

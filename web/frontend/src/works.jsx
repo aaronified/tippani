@@ -26,6 +26,7 @@ import {
   MonoLabel,
   MoreMenu,
   MultiSelect,
+  NameScroll,
   PageHeader,
   PartialDateField,
   PickMark,
@@ -364,13 +365,13 @@ export function InProgressCapDialog({ open, items, cap, noun, nounPlural = `${no
             {items.map((it) => (
               <li key={it.id} className="flex items-center gap-3">
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate" style={{ color: 'var(--ink)' }}>
+                  <NameScroll className="block" style={{ color: 'var(--ink)' }}>
                     {it.title}
-                  </span>
+                  </NameScroll>
                   {it.meta && (
-                    <span className="block truncate" style={{ fontSize: 'var(--type-ui-13)', color: 'var(--faint)' }}>
+                    <NameScroll className="block" style={{ fontSize: 'var(--type-ui-13)', color: 'var(--faint)' }}>
                       {it.meta}
-                    </span>
+                    </NameScroll>
                   )}
                 </span>
                 <button
@@ -1173,20 +1174,20 @@ export function WorkCard({ kind, item, index = 0, onOpen, people = {}, seps, sel
         {isActive(kind, item) && <ReadingBadge kind={capKeyFor(kind, item)} stacked={isShow} />}
         {item.favorite && <FavBadge />}
       </HandCard>
-      <p className="mt-2.5 truncate" style={{ fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontWeight: 600, fontSize: 'var(--type-display-15)', color: 'var(--ink)' }}>
+      <NameScroll as="p" className="mt-2.5" style={{ fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontWeight: 600, fontSize: 'var(--type-display-15)', color: 'var(--ink)' }}>
         {item.title}
-      </p>
+      </NameScroll>
       <div className="flex items-center gap-1.5">
         {/* Credit face(s): authors / directors, co-credits overlapping (first on top). */}
         <CreditFaces names={splitCredits(credit, seps)} map={people} size={24} ring="var(--bg)" />
-        <p className="min-w-0 truncate text-[13px]" style={{ color: 'var(--soft)' }}>
+        <NameScroll as="p" className="min-w-0 text-[13px]" style={{ color: 'var(--soft)' }}>
           {[credit, year || null].filter(Boolean).join(' · ') || ' '}
-        </p>
+        </NameScroll>
       </div>
       {item.series && (
-        <p className="truncate text-[12px]" style={{ color: 'var(--faint)', fontStyle: 'italic' }}>
+        <NameScroll as="p" className="text-[12px]" style={{ color: 'var(--faint)', fontStyle: 'italic' }}>
           {seriesLabel(item)}
-        </p>
+        </NameScroll>
       )}
       <div className="mt-0.5 flex items-center gap-2">
         {isBook ? (
@@ -1348,16 +1349,16 @@ export function GroupHeading({ label, count, noun, nounPlural, person, onOpenPer
         <Tooltip label={t('common.person.open.tip')} className="min-w-0">
           <button
             type="button"
-            className="display-title truncate"
+            className="display-title"
             style={{ fontSize: 'var(--type-ui-19)', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
             onClick={onOpenPerson}
           >
-            {label}
+            <NameScroll>{label}</NameScroll>
           </button>
         </Tooltip>
       ) : (
-        <h3 className="display-title truncate" style={{ fontSize: 'var(--type-ui-19)' }}>
-          {label}
+        <h3 className="display-title" style={{ fontSize: 'var(--type-ui-19)' }}>
+          <NameScroll>{label}</NameScroll>
         </h3>
       )}
       <MonoLabel style={{ color: 'var(--accent-ui)' }}>
