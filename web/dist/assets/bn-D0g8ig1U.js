@@ -4495,6 +4495,7 @@ settings.updates.failed.prose = আপডেট শুরুই হল না �
 settings.updates.manual.prose = এক ক্লিকে আপডেট করতে Docker সকেট লাগানো থাকা চাই, বা একটা সকেট প্রক্সি সাজানো থাকা চাই (README দেখুন)। নিজে হাতে করতে হলে নিজের হোস্টে এটা চালান:
 settings.updates.copy.label = কপি
 settings.updates.toast.reload = একটু পরে পাতাটা আবার লোড করুন
+settings.updates.toast.same = টিপ্পনী আবার চালু হয়েছে, কিন্তু বিল্ড একই — নতুন ইমেজটা এখনও প্রকাশ পায়নি। কয়েক মিনিট পরে আবার চেষ্টা করুন।
 settings.updates.toast.copied = কমান্ড কপি হয়েছে
 
 # --------------------------------------------------------------- চেঞ্জলগ

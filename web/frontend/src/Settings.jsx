@@ -1516,16 +1516,45 @@ function UpdatesCard({ user, update, onUpdateInfo }) {
       toast(r.data?.error || t('error.update.start'))
       return
     }
-    // Watchtower will stop + recreate this container; poll until the new one
-    // answers, then reload onto the fresh version.
+    // WAIT FOR THE VERSION TO CHANGE, NOT FOR THE SERVER TO ANSWER. This used to
+    // reload on the first successful ping — and the first ping is three seconds
+    // after the apply, while THIS container is still up and answering, because
+    // Watchtower has not stopped it yet. So it reloaded onto the build it was
+    // already running, every time: "it says updating, then refreshes, and nothing
+    // has changed" is exactly what that looks like from the outside.
+    //
+    // AND A RESTART IS NOT A SUCCESS. The check can offer an update on a branch
+    // build because the BRANCH moved, while the IMAGE that tag points at has not
+    // been rebuilt yet — pull, recreate, same version. The reader is told that
+    // happened rather than left to compare two version strings themselves.
     setPhase('restarting')
+    const was = user?.version || ''
+    let down = 0
+    let outcome = 'timeout'
     for (let i = 0; i < 60; i++) {
       await new Promise((res) => setTimeout(res, 3000))
       const ping = await json('GET', '/auth/me')
-      if (ping.ok) return window.location.reload()
+      if (!ping.ok) {
+        // TWO IN A ROW BEFORE IT COUNTS AS GONE. One failed poll is as likely to
+        // be a dropped request as a container being stopped, and a false "it came
+        // back on the same build" is a worse answer than waiting one more turn.
+        down++
+        continue
+      }
+      const now = ping.data?.version || ''
+      if (was && now && now !== was) {
+        outcome = 'new'
+        break
+      }
+      if (down >= 2) {
+        outcome = 'same'
+        break
+      }
+      down = 0
     }
+    if (outcome === 'new') return window.location.reload()
     setPhase('failed')
-    toast(t('settings.updates.toast.reload'))
+    toast(t(outcome === 'same' ? 'settings.updates.toast.same' : 'settings.updates.toast.reload'))
   }
 
   const copyCmd = async () => {

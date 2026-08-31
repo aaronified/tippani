@@ -343,6 +343,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   CAPTCHA from Amazon contributes nothing and says nothing, and the strip still shows
   what the others found.
 
+### Fixed
+
+- **The one-click update reloaded the page before it had updated anything.** It waited
+  three seconds and then asked whether Tippani was answering — and it was, because *this*
+  copy was still running while the new one was being pulled. So it reloaded onto the build
+  it was already on, every time, and the update it had just started finished to an empty
+  room. It now waits for the version that answers to be a different one before it reloads.
+  And if the container comes back on the same build — which happens when the branch has
+  moved but the image behind its tag has not been rebuilt yet — it says so, instead of
+  looking like nothing happened.
+
 ### Changed
 
 - **The nav rail is solid now, and a fill has to argue for itself.** Every destination —

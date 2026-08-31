@@ -4717,6 +4717,7 @@ settings.updates.failed.prose = update didn’t start — check the container lo
 settings.updates.manual.prose = One-click update needs the Docker socket mounted, or a socket proxy configured (see the README). To update by hand, run on your host:
 settings.updates.copy.label = copy
 settings.updates.toast.reload = reload in a moment
+settings.updates.toast.same = Tippani restarted, and it is running the same build — the new image has not been published yet. Try again in a few minutes.
 settings.updates.toast.copied = command copied
 
 # ---------------------------------------------------------------------------
