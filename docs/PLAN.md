@@ -8404,7 +8404,9 @@ to see a glyph change shape on a state change should find the reason rather than
 
 ### The wide rail is not a px box, and `make typescale` is still red
 
-- **Decided** — `--rail` at 1180px+ is `max(236px, calc(var(--type-ui-15, 15px) * 15.75))`.
+- **Decided** — `--rail` at 1180px+ is `max(236px, calc(var(--type-ui-15, 15px) * 15.7))`.
+  The multiplier lands just UNDER the floor at the ordinary setting (15.7 × 15px = 235.5px)
+  so nothing moves until the reader turns the type up.
   The floor is the width the layout was drawn at; above it the rail tracks the dial.
 - **It multiplies `--type-ui-15` and not `em`,** which is the trap AI.md already records:
   `em` at `:root` resolves against the BROWSER root, and the type dial does not move the
@@ -8425,3 +8427,19 @@ to see a glyph change shape on a state change should find the reason rather than
   it, because raising it is the same mistake as freezing the text.
 
 <sub>Unreleased — `web/frontend/src/index.css` · `scripts/screenshots/typescale-baseline.json`</sub>
+
+### OPEN — a growing rail, or the icon rail, once the type is turned up
+
+- **The state.** `--rail` now grows with the dial without a ceiling, so at 200% on a
+  1180px window the rail is about 471px — roughly 40% of the screen. That is the honest
+  reading of "a box that holds text is not a px", and it is also a choice that was taken
+  while it was the only way to stop the labels being cut.
+- **The other answer** is to keep the wide rail bounded and let it fall back to the 68px
+  icon-only rail once the words no longer fit — the app already has that mode and that
+  breakpoint, so at a large dial the reader would get glyphs and their page back instead
+  of a third of the window spent on nine words.
+- **Which is right is a look decision** about what a reader who has doubled their type
+  size actually wants, and it was not put to the owner. Both satisfy the standing rule;
+  only one of them is currently built.
+
+<sub>Unreleased — open · `web/frontend/src/index.css` (`--rail`)</sub>

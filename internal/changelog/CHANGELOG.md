@@ -345,6 +345,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **One warning in the log had no row in the troubleshooting table.** `TIP-META-016` — a
+  speaker remap that rewrote a film line's character and deliberately left its actor
+  alone, because the line names a different number of characters than actors. It is
+  written down now, along with the fact that it is not a fault. A new check makes a code
+  that is logged but never registered fail the build instead of shipping unlookupable.
+
 - **The navigation rail cut its own labels when text was turned up.** At the 200% type
   size *Catalogue* lost 53 pixels and *Metadata* 75 — the rail was a fixed 236px box with
   growing words inside it. It now grows with the text, so the destinations stay readable
