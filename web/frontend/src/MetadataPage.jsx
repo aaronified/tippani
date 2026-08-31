@@ -4,7 +4,7 @@ import { t, tNodes } from './i18n.js'
 import { BookLookupPicker, MovieLookupPicker } from './CoverPicker.jsx'
 import { EditBook } from './Library.jsx'
 import { EditMovie } from './Movies.jsx'
-import { BulkBar, EmptyState, ErrorText, FieldIconButton, GhostButton, HandCard, IconButton, IconCheck, IconDelete, IconEdit, IconMerge, IconMetadata, IconMore, IconOpen, IconRefresh, IconSearch, IconUsers, InfoDot, MonoLabel, NameInput, normName, PageHeader, ProgressBar, Scroller, splitCommas, Tooltip, useIsMobileScreen } from './ui.jsx'
+import { BulkBar, EmptyState, ErrorText, FieldIconButton, GhostButton, HandCard, IconButton, IconCheck, IconDelete, IconEdit, IconMerge, IconMetadata, IconMore, IconOpen, IconRefresh, IconSearch, IconUsers, InfoDot, MonoLabel, NameInput, normName, PageHeader, ProgressBar, Scroller, splitCommas, Tooltip, useIsMobileScreen, useScreenBar } from './ui.jsx'
 import { PersonModal, PersonName, ProviderChips, mergeLinks, parseCreditSeps, parseLinks, splitCredits } from './people.jsx'
 import { ReverifyFlow } from './ReverifyReview.jsx'
 import { editDistance } from './text.js'
@@ -121,6 +121,18 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch }
     }
   }, [lib])
 
+  // ADMIN-ONLY, AND ABSENT RATHER THAN GREYED for the same reason everywhere else
+  // in this menu: a menu row cannot be disabled, so a reader who cannot run this
+  // does not see it. The desktop header draws the same button; on a phone it has
+  // never been reachable at all, and the ⋯ is where it now is.
+  useScreenBar({
+    actions: () => (user?.is_admin
+      ? [
+          { id: 'h-do', heading: t('common.mono.actions.label') },
+          { id: 'fetch', icon: <IconMetadata />, label: t('metadata.fetch.label'), onClick: () => fetchMissingCovers(false) },
+        ]
+      : []),
+  })
   return (
     <section className="space-y-6">
       <div className={mobile ? 'mobile-sticky-bar' : ''}>

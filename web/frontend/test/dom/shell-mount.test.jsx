@@ -43,15 +43,19 @@ describe('the logged-in shell', () => {
     expect(document.querySelector('.rail')).toBeTruthy()
   })
 
-  it('draws the phone header as a header — the drawer key and a title, no verbs', async () => {
+  it('draws the phone header as a header — the drawer, a title, and the ⋯', async () => {
     await mount()
     const bar = document.querySelector('.mobile-topbar')
     expect(bar, 'no phone header').toBeTruthy()
     expect(bar.querySelector('.mobile-topbar-title')).toBeTruthy()
-    // The four glyphs it used to carry went to the dock and the drawer. A verb
-    // creeping back up here is the regression this guards, because the room they
-    // freed is what the title and its sub-line are made of.
-    expect(within(bar).getAllByRole('button')).toHaveLength(1)
+    // EXACTLY TWO, and the number is the guard. The four glyphs this bar used to
+    // carry went to the dock and the drawer, and the room they freed is what the
+    // title and its sub-line are made of — so a verb creeping back up here is
+    // still the regression. The ⋯ is not a verb: it is the one door to every verb,
+    // which is why it costs one seat instead of five.
+    const keys = within(bar).getAllByRole('button')
+    expect(keys).toHaveLength(2)
+    expect(keys[1].getAttribute('aria-haspopup')).toBe('menu')
   })
 
   it('draws the dock, with the accent ＋ in the middle seat', async () => {

@@ -4,7 +4,6 @@ import { episodeLabel } from './text.js'
 import { DEMO, coverImgURL, json, errText, downloadPost } from './api.js'
 import { CoverControls, CoverPreview, MovieLookupPicker, idNum } from './CoverPicker.jsx'
 import { FlowQuote } from './flow.jsx'
-import { ScreenHelpSheet } from './help.jsx'
 import { WorkDetails } from './WorkDetails.jsx'
 import { StickerImg, StickerPicker, useStickers } from './stickers.jsx'
 import { ShareDialog, copyQuote, movieShare } from './share.jsx'
@@ -70,7 +69,6 @@ import {
   IconDetails,
   IconExport,
   IconFilter,
-  IconHelp,
   IconMetadata,
   IconPlus,
   IconPractise,
@@ -81,7 +79,6 @@ import {
   Masonry,
   MobileSheet,
   MonoLabel,
-  MoreMenu,
   mulberry32,
   NameInput,
   PageHeader,
@@ -827,7 +824,6 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce
   const { practise, practiceDialog } = usePractice()
   const [movie, setMovie] = useState(null)
   const [editing, setEditing] = useState(false)
-  const [helpOpen, setHelpOpen] = useState(false) // phone: help opens from the ⋯ menu
   const [error, setError] = useState('')
   const [mobileFilter, setMobileFilter] = useState(false)
   // { kind:'director', name } open in the metadata panel — captured at click time.
@@ -1035,6 +1031,23 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce
   // moving between a book and a film must not have to re-find Filter.
   useScreenBar({
     sub: detailMeta || null,
+    // The Library twin, one word at a time — see BookDetail for the reasoning.
+    actions: () => [
+      { id: 'h-do', heading: t('common.mono.actions.label') },
+      {
+        // The ROW goes in, not just the board's kind: a game's catalogue row and a
+        // film's are the same table, and only media_type tells the label which verb
+        // it is naming.
+        id: 'shelf',
+        icon: <IconWatching size={24} />,
+        label: moveLabel('movie', movie?.status || '', activeWord, movie || {}),
+        onClick: () => pick(activeWord),
+      },
+      { id: 'details', icon: <IconDetails />, label: t('common.work.details.title'), onClick: () => setEditing(true) },
+      { id: 'practise', icon: <IconPractise />, label: t('film.practise.menu.label'), onClick: () => movie && practise({ movie: movie.id, label: movie.title }) },
+      ...(DEMO ? [] : [{ id: 'export', icon: <IconExport />, label: t('film.export.label'), onClick: () => { if (movie) window.location.href = `/api/movies/${movie.id}/export` } }]),
+      { id: 'delete', icon: <IconDelete />, label: t('common.action.delete.label'), onClick: () => setAsking(true), danger: true },
+    ],
     keys: mobile ? [
       {
         id: 'filter',
@@ -1043,26 +1056,10 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce
         onClick: () => setMobileFilter(true),
       },
       {
-        id: 'more',
-        node: (
-          <MoreMenu
-            items={[
-              {
-                // The ROW goes in, not just the board's kind: a game's catalogue
-                // row and a film's are the same table, and only media_type tells
-                // the label which verb it is naming.
-                icon: <IconWatching size={24} />,
-                label: moveLabel('movie', movie?.status || '', activeWord, movie || {}),
-                onClick: () => pick(activeWord),
-              },
-              ...(DEMO ? [] : [{ icon: <IconExport />, label: t('film.export.label'), onClick: () => { if (movie) window.location.href = `/api/movies/${movie.id}/export` } }]),
-              { icon: <IconPractise />, label: t('film.practise.menu.label'), onClick: () => movie && practise({ movie: movie.id, label: movie.title }) },
-              { icon: <IconDetails />, label: t('common.work.details.title'), onClick: () => setEditing(true) },
-              { icon: <IconHelp size={24} />, label: t('shell.help.menu.label'), onClick: () => setHelpOpen(true) },
-              { icon: <IconDelete />, label: t('common.action.delete.label'), onClick: () => setAsking(true), danger: true },
-            ]}
-          />
-        ),
+        id: 'details',
+        label: t('common.work.details.title'),
+        icon: <IconDetails />,
+        onClick: () => setEditing(true),
       },
     ] : null,
   })
@@ -1213,7 +1210,6 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce
       {person && <PersonModal kind={person.kind} name={person.name} onClose={() => setPerson(null)} />}
       {/* Phone-only route into this screen's help — see the Library twin. */}
       {practiceDialog}
-      <ScreenHelpSheet screen="movie-detail" open={helpOpen} onClose={() => setHelpOpen(false)} />
       {/* The catalogue tile's dialog — see the Library twin. */}
       <WorkDeleteConfirm
         open={asking}

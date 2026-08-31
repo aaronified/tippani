@@ -78,6 +78,10 @@ import {
   ShortcutSheet,
   Sprockets,
   StickerButton,
+  ActionMenu,
+  buildScreenActions,
+  IconHelp,
+  IconMore,
   toast,
   ToastHost,
   Toggle,
@@ -95,7 +99,7 @@ import {
 } from './ui.jsx'
 import { takeSearchSeed } from './facets.js'
 import { Profile } from './Account.jsx'
-import { PageHelp } from './help.jsx'
+import { PageHelp, ScreenHelpSheet } from './help.jsx'
 import { t, tNodes } from './i18n.js'
 import { PASSPHRASE_MAX, PASSWORD_MAX, PASSWORD_MIN, passwordProblem, sniffArchiveKey } from './secret.js'
 import { FeatureTour } from './tour.jsx'
@@ -690,6 +694,64 @@ export function navBadge(key, { stats, metaIssues, streak, version } = {}) {
   if (key === 'stats' && streak > 0) return t('shell.drawer.stats.streak.label', { n: streak })
   if (key === 'settings') return t('shell.drawer.settings.version.label', { version: version || 'dev' })
   return null
+}
+
+// ScreenMenu — the ⋯ at the right of both top bars, holding everything the screen
+// you are looking at can do.
+//
+// A MENU BAR, NOT AN OVERFLOW. It lists the whole set, including controls that are
+// also drawn on the page — which view you are in, which sort is running, what the
+// filters are. An overflow menu holds the leftovers and is therefore different on
+// every screen and empty on several; a menu bar is one place a reader can always
+// look, and its shape is the same on all twelve. The cost is deliberate
+// duplication of the visible controls, and it buys the only thing that makes a
+// menu worth opening: you can find something in it without knowing it is there.
+//
+// ONE CONTROL, BOTH VIEWPORTS. It used to be the phone dock's second seat on a
+// work's detail and nowhere at all on a desktop. The dock seat is freed for a verb
+// a thumb actually reaches for.
+//
+// THE ITEMS ARE BUILT WHEN IT OPENS, not when the screen renders — see
+// useScreenBar's note. A menu bar's rows carry state, and a list handed over ahead
+// of time is a list that ticks the view you left.
+function ScreenMenu({ screen, className, glyph = 22 }) {
+  const [open, setOpen] = useState(false)
+  const [helpOpen, setHelpOpen] = useState(false)
+  const ref = useRef(null)
+  // Help is the shell's own row and it is on EVERY screen, appended after whatever
+  // the screen published. It is the one action that is never the screen's to
+  // offer — and a menu claiming to be complete that omitted it would be wrong on
+  // the several screens where the screen itself publishes nothing at all.
+  const items = open
+    ? [
+        ...buildScreenActions(),
+        { id: 'help', icon: <IconHelp size={24} />, label: t('shell.help.menu.label'), onClick: () => setHelpOpen(true) },
+      ]
+    : []
+  return (
+    <div className="relative" ref={ref}>
+      {/* THE ? BUTTON'S OWN SKIN ON A DESKTOP, the phone bar's on a phone. One
+          component, and each bar dresses it — the same arrangement navBadge uses.
+          Caught by looking at a render: the first cut gave this the `.help-btn`
+          RING, which is a hairline in --line, and the ? beside it has worn the Add
+          button's fill since the top bar was built. A bare glyph between two solid
+          controls reads as something bolted on afterwards, whatever it does. */}
+      <Tooltip label={t('shell.screen.menu.tip')} side="bottom" className="shrink-0">
+        <button
+          type="button"
+          className={`${className}${open ? ' is-open' : ''}`}
+          aria-label={t('shell.screen.menu.aria')}
+          aria-haspopup="menu"
+          aria-expanded={open}
+          onClick={() => setOpen((o) => !o)}
+        >
+          <IconMore size={glyph} />
+        </button>
+      </Tooltip>
+      <ActionMenu open={open} items={items} anchorRef={ref} onClose={() => setOpen(false)} returnFocusTo={ref} />
+      <ScreenHelpSheet screen={screen} open={helpOpen} onClose={() => setHelpOpen(false)} />
+    </div>
+  )
 }
 
 // Breadcrumb — where you are, in the bar the rail left empty.
@@ -1724,6 +1786,11 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
               </button>
             </Tooltip>
             <PageHelp screen={help} variant="pill" />
+            {/* ＋ Add · ? · ⋯ — the thing you do most, the thing that explains the
+                screen, and everything else. Help keeps its own pill rather than
+                folding into the menu: it is one press from every screen today and
+                a menu row would make it two. */}
+            <ScreenMenu screen={help} className="topbar-add-btn tactile icon-only" glyph={18} />
           </div>
         </div>
       </header>
@@ -1746,6 +1813,11 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
             <span className="mobile-topbar-title">{detailTitle || t(screenTitleKey(tab))}</span>
             {barSub ? <span className="mobile-topbar-sub">{barSub}</span> : null}
           </span>
+          {/* The same ⋯ as the desktop bar, in the phone bar's own dress. It used
+              to be the dock's second seat on a work's detail and nowhere at all on
+              every other screen; the dock seat it vacates goes to a verb a thumb
+              actually reaches for. */}
+          <ScreenMenu screen={help} className="mobile-topbar-btn" />
         </header>
         <ErrorBoundary key={tab} label={t('shell.error.boundary.screen.label', { name: tab })}>
         <div className="tab-panel">

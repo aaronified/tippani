@@ -4,7 +4,6 @@ import { chapterLabel } from './text.js'
 import { CastCombo, Datalist, useWorkSuggestions } from './suggest.jsx'
 import { CoverControls, BookLookupPicker } from './CoverPicker.jsx'
 import { FlowQuote } from './flow.jsx'
-import { ScreenHelpSheet } from './help.jsx'
 import { WorkDetails } from './WorkDetails.jsx'
 import { StickerImg, StickerPicker, useStickers } from './stickers.jsx'
 import { ShareDialog, bookShare, copyQuote } from './share.jsx'
@@ -67,7 +66,6 @@ import {
   IconDetails,
   IconExport,
   IconFilter,
-  IconHelp,
   IconPlus,
   IconPractise,
   IconQuiz,
@@ -76,7 +74,6 @@ import {
   Masonry,
   MobileSheet,
   MonoLabel,
-  MoreMenu,
   mulberry32,
   PageHeader,
   parseYearInput,
@@ -643,7 +640,6 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce 
   const { practise, practiceDialog } = usePractice()
   const [book, setBook] = useState(null)
   const [editing, setEditing] = useState(false)
-  const [helpOpen, setHelpOpen] = useState(false) // phone: help opens from the ⋯ menu
   const [error, setError] = useState('')
   const [person, setPerson] = useState(null) // author metadata panel
   const [mobileFilter, setMobileFilter] = useState(false)
@@ -845,6 +841,27 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce 
   // thumb has to aim between.
   useScreenBar({
     sub: detailAuthor || null,
+    // THE WHOLE SET, for the top bar's ⋯ . These six were the dock's second seat
+    // and existed on a phone only; they are on both viewports now, and the desktop
+    // screen — which had no menu at all and reached Details through a pencil, help
+    // through the ? and delete through nothing at all — finally has one place that
+    // says what a book's page can do.
+    actions: () => [
+      { id: 'h-do', heading: t('common.mono.actions.label') },
+      {
+        id: 'shelf',
+        icon: <IconReading size={24} />,
+        label: moveLabel('book', book?.status || '', ACTIVE_STATUS.book, book || {}),
+        onClick: () => pick(ACTIVE_STATUS.book),
+      },
+      { id: 'details', icon: <IconDetails />, label: t('common.work.details.title'), onClick: () => setEditing(true) },
+      { id: 'practise', icon: <IconPractise />, label: t('book.practise.menu.label'), onClick: () => book && practise({ book: book.id, label: book.title }) },
+      ...(DEMO ? [] : [{ id: 'export', icon: <IconExport />, label: t('book.export.label'), onClick: () => { if (book) window.location.href = `/api/books/${book.id}/export` } }]),
+      { id: 'delete', icon: <IconDelete />, label: t('common.action.delete.label'), onClick: () => setAsking(true), danger: true },
+    ],
+    // THE DOCK KEEPS FILTER AND GAINS A REAL SECOND VERB. Its ⋯ seat went to the
+    // top bar, and the seat it vacated is worth more as Details — the thing you
+    // press on a book's page after reading it — than as a second door to a menu.
     keys: mobile ? [
       {
         id: 'filter',
@@ -853,25 +870,10 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce 
         onClick: () => setMobileFilter(true),
       },
       {
-        id: 'more',
-        // Rendered by this screen rather than the shell: MoreMenu anchors its
-        // popover to its own trigger.
-        node: (
-          <MoreMenu
-            items={[
-              {
-                icon: <IconReading size={24} />,
-                label: moveLabel('book', book?.status || '', ACTIVE_STATUS.book, book || {}),
-                onClick: () => pick(ACTIVE_STATUS.book),
-              },
-              ...(DEMO ? [] : [{ icon: <IconExport />, label: t('book.export.label'), onClick: () => { if (book) window.location.href = `/api/books/${book.id}/export` } }]),
-              { icon: <IconPractise />, label: t('book.practise.menu.label'), onClick: () => book && practise({ book: book.id, label: book.title }) },
-              { icon: <IconDetails />, label: t('common.work.details.title'), onClick: () => setEditing(true) },
-              { icon: <IconHelp size={24} />, label: t('shell.help.menu.label'), onClick: () => setHelpOpen(true) },
-              { icon: <IconDelete />, label: t('common.action.delete.label'), onClick: () => setAsking(true), danger: true },
-            ]}
-          />
-        ),
+        id: 'details',
+        label: t('common.work.details.title'),
+        icon: <IconDetails />,
+        onClick: () => setEditing(true),
       },
     ] : null,
   })
@@ -1023,7 +1025,6 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce 
       {/* Phone-only route into this screen's help: the sticky bar has no room
           for a "?", so the ⋯ menu opens the same panel the desktop button does. */}
       {practiceDialog}
-      <ScreenHelpSheet screen="book-detail" open={helpOpen} onClose={() => setHelpOpen(false)} />
       {/* The board tile's dialog, not a second one that looks like it — deleting
           a book from its own screen and deleting it from its cover are one act
           and now one door, phrase and all. */}

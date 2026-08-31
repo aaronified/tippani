@@ -540,6 +540,7 @@ common.filters.label = ফিল্টার
 common.filters.genre.aria = ঘরানা দিয়ে ফিল্টার
 common.filters.genre.all.label = সব ঘরানা
 common.filters.reset.aria = সব ফিল্টার তুলে দিন
+common.filters.reset.label = ফিল্টার তুলে দিন
 common.sheet.close.tip = এই প্যানেল বন্ধ করুন
 common.more.aria = আরও কাজ
 common.progress.aria = কতদূর
@@ -2371,6 +2372,7 @@ quotes.export.confirm.body.other = চোখের সামনের {n}টি 
 
 # The lower-case small-caps labels above a control in a filter sheet or a form.
 # Their Title Case twins are common.field.*.label and are different strings.
+common.mono.actions.label = কাজ
 common.mono.colour.label = রং
 common.mono.group.label = ভাগ
 common.mono.tag.label = ট্যাগ
@@ -3180,6 +3182,7 @@ error.reset.practice = প্র্যাকটিসের হিসেব ম�
 
 # The box itself. Note that tag: author: colour: are GRAMMAR, not copy — the box
 # parses them, so they stay as they are in the placeholder too.
+search.clear.label = খোঁজা মুছে দিন
 search.box.placeholder = খুঁজুন, বা লিখুন tag: author: colour:…
 search.box.aria = খোঁজ
 # The dropdown's "show me another five" row.
@@ -4770,6 +4773,9 @@ common.field.sticker.label = স্টিকার
 # The shell's ? — reached from a work page's own ⋯ menu as well as the top bar.
 shell.help.menu.label = এই স্ক্রিনে কী আছে
 
+shell.screen.menu.aria = এই স্ক্রিনে যা যা করা যায়
+shell.screen.menu.tip = এই স্ক্রিনের কাজগুলো
+
 # ---------------------------------------------------------------------------
 # THE LAST FEW, found by sweeping the twenty-five files for a literal still
 # sitting in a label, a title or a placeholder prop.
@@ -5745,6 +5751,7 @@ error.load.tvdb-cast = TheTVDB থেকে কাস্ট পড়া গে�
 # ---- প্রস্তাবের উত্তর (2.2.1) ----------------------------------------------
 # See the English block. মূল কথা: কী বদলাবে তা আগে দেখা যায়, আর বাতিল করলে লেখায়
 # হাত পড়ে না।
+cleanup.bucket.heading = দেখান
 cleanup.bucket.open.label = উত্তর বাকি
 cleanup.bucket.ignored.label = বাতিল ({n})
 cleanup.rescan.label = আবার দেখুন

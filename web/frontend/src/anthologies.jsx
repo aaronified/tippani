@@ -54,6 +54,7 @@ import {
   IconEdit,
   IconExport,
   IconPlus,
+  useScreenBar,
   IconQuiz, IconPractise,
   MonoLabel,
   MoreMenu,
@@ -379,6 +380,14 @@ function AnthologyList({ rows, reload, onOpen }) {
   }
 
   const count = (rows || []).length
+  // The list has exactly one thing you can do to it, and the ⋯ says so rather
+  // than being empty on this screen and full on the next one.
+  useScreenBar({
+    actions: () => [
+      { id: 'h-do', heading: t('common.mono.actions.label') },
+      { id: 'new', icon: <IconPlus />, label: t('anthologies.list.new.label'), onClick: () => setEditing('new') },
+    ],
+  })
   return (
     <section>
       <PageHeader
@@ -635,6 +644,22 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
   }
 
   const rows = entries || []
+  // THE SAME FOUR THE HEADER ROW DRAWS, and deliberately the same four rather
+  // than a different set: the ⋯ is a menu bar, so it lists what the screen can do
+  // whether or not the control is also on the page. Practise is disabled there by
+  // being ABSENT here — a menu row cannot be greyed, and a round over an empty
+  // anthology is the one case the dialog can only answer with "nothing here".
+  useScreenBar({
+    actions: () => [
+      { id: 'h-do', heading: t('common.mono.actions.label') },
+      ...(anthology && rows.length > 0
+        ? [{ id: 'practise', icon: <IconPractise />, label: t('common.action.practise.label'), onClick: () => practise({ anthology: id, label: anthology?.title || t('anthologies.read.title.fallback') }) }]
+        : []),
+      ...(anthology ? [{ id: 'edit', icon: <IconEdit />, label: t('common.action.edit.label'), onClick: () => setEditing(true) }] : []),
+      ...(DEMO ? [] : [{ id: 'export', icon: <IconExport />, label: t('common.action.export.label'), onClick: () => { window.location.href = exportHref(id) } }]),
+      ...(anthology ? [{ id: 'delete', icon: <IconDelete />, label: t('common.action.delete.label'), onClick: () => setDeleting(true), danger: true }] : []),
+    ],
+  })
   return (
     <section className="anthology-read">
       {/* The way back, drawn unconditionally. A detail view takes the phone's top

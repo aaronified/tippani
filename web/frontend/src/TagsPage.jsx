@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { forwardRef, useEffect, useMemo, useRef, useState } from 'react'
 import { json, errText } from './api.js'
 import { t } from './i18n.js'
 import { usePractice } from './review.jsx'
@@ -9,6 +9,7 @@ import {
   FormModal,
   GhostButton,
   HandCard,
+  IconPlus,
   MonoLabel,
   PageHeader,
   Scroller,
@@ -18,6 +19,7 @@ import {
   TagChip,
   useFormHost,
   useIsMobileScreen,
+  useScreenBar,
   useSort,
 } from './ui.jsx'
 import { NewStickerCard, StickerList, useStickers } from './stickers.jsx'
@@ -50,6 +52,23 @@ export default function TagsPage() {
   )
   const top = byUses.slice(0, 5)
 
+  // Tags has no header controls at all — the "＋ New tag" card is a card in the
+  // grid, which is right where it is and unreachable from anywhere else. The ⋯
+  // gives it a name and a keyboard route, which is the whole argument for a menu
+  // bar over an overflow: the row exists because the screen can do the thing, not
+  // because there was nowhere else to put the button.
+  const newTagRef = useRef(null)
+  useScreenBar({
+    actions: () => [
+      { id: 'h-do', heading: t('common.mono.actions.label') },
+      { id: 'new', icon: <IconPlus />, label: t('tags.new.title'), onClick: () => {
+        const card = newTagRef.current
+        if (!card) return
+        card.scrollIntoView({ block: 'center', behavior: 'smooth' })
+        card.querySelector('input, textarea')?.focus()
+      } },
+    ],
+  })
   return (
     <section className="space-y-5">
       <div className={mobile ? 'mobile-sticky-bar' : ''}>
@@ -63,7 +82,7 @@ export default function TagsPage() {
       <ErrorText>{error}</ErrorText>
       {/* Add-cards lead the page: side by side on desktop, stacked on a phone. */}
       <div className="grid gap-4 md:grid-cols-2">
-        <NewTagCard onCreated={load} />
+        <NewTagCard ref={newTagRef} onCreated={load} />
         <NewStickerCard onUploaded={reload} />
       </div>
       {tags && tags.length === 0 && (
@@ -226,9 +245,14 @@ function TagTable({ tags, onChanged }) {
 }
 
 // NewTagCard — dashed "＋ New tag" card (mockup 24) around the shared form.
-function NewTagCard({ onCreated }) {
+//
+// IT TAKES A REF so the ⋯ can send you to it. The card is a card in the grid and
+// that is the right place for it, but a menu row that claims the screen can make
+// a tag has to actually land somewhere — so the row scrolls this into view and
+// puts the cursor in its first field, which is what pressing the card does.
+const NewTagCard = forwardRef(function NewTagCard({ onCreated }, ref) {
   return (
-    <section className="p-5" style={{ border: '1.6px dashed var(--ink-border)', borderRadius: 14 }}>
+    <section ref={ref} className="p-5" style={{ border: '1.6px dashed var(--ink-border)', borderRadius: 14 }}>
       <p className="mb-3 font-semibold" style={{ color: 'var(--accent-ui)' }}>
         {t('tags.new.title')}
       </p>
@@ -243,7 +267,7 @@ function NewTagCard({ onCreated }) {
       />
     </section>
   )
-}
+})
 
 // TagForm serves both create (no initial) and inline edit. onSubmit gets
 // {name, color, style} and returns an error string or null.

@@ -3809,6 +3809,25 @@
   .menu-item:hover { background: color-mix(in oklab, var(--ink) 7%, transparent); }
   .menu-item.active { color: var(--accent-ui); background: color-mix(in srgb, var(--accent) 13%, transparent); }
   .menu-item svg { flex: none; }
+
+  /* THE SCREEN MENU IS A MENU BAR, so it is grouped. A heading is a label and not
+     a control: mono, small, --faint, and no hover of its own — the moment it
+     lights up under the pointer it reads as a row you can press. */
+  .menu-head {
+    padding: 9px 10px 3px;
+    font-family: var(--font-mono);
+    font-style: var(--font-mono-style);
+    font-variant-caps: var(--font-mono-caps);
+    font-size: var(--type-mono-9);
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--faint);
+  }
+  .menu-head:first-child { padding-top: 2px; }
+  /* The tick is pushed to the far end and holds its own width, so the rows in a
+     group line up whether or not any of them is the current one. */
+  .menu-tick { margin-left: auto; padding-left: 12px; color: var(--accent-ui); }
+  [role="menuitemradio"] { padding-right: 8px; }
   /* Cover/poster tiles lift a touch on hover — the card rises and grows a hair,
      the shadow deepens, and the artwork brightens; a small press-down on click.
      Motion is confined to the cover so the title/meta below stay put. */

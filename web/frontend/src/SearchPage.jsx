@@ -64,7 +64,9 @@ import {
   useColumnsAt,
   useDismiss,
   useIsMobileScreen,
+  IconRevert,
   usePersistedState,
+  useScreenBar,
   useSort,
   ViewToggle,
 } from './ui.jsx'
@@ -493,6 +495,19 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators, 
   const [nonce, setNonce] = useState(0) // bump to re-run the search after a bulk action
   const reload = () => setNonce((n) => n + 1)
   const [quote, setQuote] = useState(null) // { kind, hit } — a single quote opened from a result
+  // SEARCH'S ONE SCREEN-LEVEL ACT. Everything else on this page belongs to the
+  // box — the field, the facet dropdown, each chip's own ×  — and clearing the lot
+  // is the thing that has no control of its own, because it is the sum of them.
+  // Absent when there is nothing to clear rather than greyed: a menu row cannot be
+  // disabled, and "Clear" over an empty search does nothing visible.
+  useScreenBar({
+    actions: () => (q || chips.length
+      ? [
+          { id: 'h-do', heading: t('common.mono.actions.label') },
+          { id: 'clear', icon: <IconRevert />, label: t('search.clear.label'), onClick: () => { setQ(''); setChips([]) } },
+        ]
+      : []),
+  })
   const authors = usePeople('author') // name→metadata for author portraits/chips
   const directors = usePeople('director') // name→metadata for director/creator chips
   const actors = usePeople('actor') // name→metadata for actor chips on dialogue hits

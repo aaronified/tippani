@@ -25,6 +25,7 @@ import {
   Tooltip,
   toast,
   useIsMobileScreen,
+  useScreenBar,
 } from './ui.jsx'
 
 // The bin — a page of its own since 1.11.2, and reachable from exactly one place.
@@ -245,6 +246,28 @@ export default function BinPage({ onClose }) {
           .filter(Boolean)
           .join(' · ')
 
+  // KEEP FOR is a choice among four known windows, so it is four rows with the
+  // current one ticked — the case a menu bar handles better than a select, because
+  // the answer is visible without opening a second control. "Empty now" is absent
+  // rather than greyed when the bin is empty: a menu row cannot be disabled, and
+  // the verb has nothing to act on.
+  useScreenBar({
+    actions: () => [
+      { id: 'h-keep', heading: t('bin.keep-for.label') },
+      ...retentionOptions().map(([value, label]) => ({
+        id: `keep-${value}`,
+        label,
+        checked: String(days) === String(value),
+        onClick: () => setWindow(value),
+      })),
+      ...(all.length > 0
+        ? [
+            { id: 'h-do', heading: t('common.mono.actions.label') },
+            { id: 'empty', icon: <IconDelete />, label: t('bin.empty-now.label'), onClick: () => setAsking(true), danger: true },
+          ]
+        : []),
+    ],
+  })
   return (
     <section className="space-y-6" data-screen-label="bin">
       <div className={mobile ? 'mobile-sticky-bar' : ''}>

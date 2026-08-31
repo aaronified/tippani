@@ -329,7 +329,7 @@ function publishBar(v) {
 // to own the element itself — a MoreMenu anchors its popover to its own trigger,
 // so a shell-rendered button could not open one. The shell still owns the SEAT;
 // what sits in it is the screen's.
-export function useScreenBar({ sub = null, keys = null } = {}) {
+export function useScreenBar({ sub = null, keys = null, actions = null } = {}) {
   // Serialised rather than compared by identity: a caller building its key array
   // inline would otherwise republish on every render and re-run every subscriber.
   const stamp = keys ? keys.map((k) => k && k.id).join('|') : ''
@@ -337,6 +337,60 @@ export function useScreenBar({ sub = null, keys = null } = {}) {
     publishBar({ sub, keys })
     return () => publishBar({ sub: null, keys: null })
   }, [sub, stamp]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // `actions` IS A BUILDER, NOT A LIST, AND IT IS NOT PUBLISHED.
+  //
+  // The screen menu is a menu bar: it names which view you are in, which sort is
+  // running, which filters are on. That is STATE, and a list published through the
+  // subscription above would go stale the moment any of it changed — the id stamp
+  // would not move, nothing would re-publish, and the menu would tick the view you
+  // left. Stamping the state instead only moves the problem: every closure in the
+  // list would still have to be covered by the stamp, and the one that was not is
+  // the bug nobody finds.
+  //
+  // So the shell holds a pointer to the CURRENT builder and calls it at the moment
+  // the ⋯ opens. Re-pointed after every render of the owning screen, which is one
+  // assignment; there is nothing to diff, nothing to serialise, and nothing that
+  // can be one render behind. Deliberately no dependency array.
+  useEffect(() => {
+    if (!actions) return undefined
+    screenActions.add(actions)
+    // Removed by identity, so a screen leaving cannot clear the one arriving —
+    // during a transition both are briefly registered, which is correct: the menu
+    // is about to be rebuilt for whichever survives.
+    return () => screenActions.delete(actions)
+  })
+}
+
+// EVERY BUILDER ON SCREEN, NOT ONE. A slot would be right if a screen were always
+// one component, and Checks is the counter-example that was already in the tree:
+// it composes the staging queue and the stray-marks list, both `embedded`, both
+// entitled to publish. With a single slot whichever rendered last would silently
+// win and the other half of the page would have no actions at all — a bug that
+// looks exactly like "that section just does not have any".
+//
+// A Set rather than an array because registration is idempotent and insertion
+// order is what a Set preserves anyway, which is the order the sections are drawn
+// in and therefore the order a reader expects them in the menu.
+const screenActions = new Set()
+
+// buildScreenActions — what the ⋯ should show right now, or [] if nothing on
+// screen has published. Called by the shell when the menu opens.
+export function buildScreenActions() {
+  const out = []
+  for (const build of screenActions) {
+    try {
+      const items = build()
+      if (items && items.length) out.push(...items)
+    } catch (err) {
+      // ONE SECTION'S BUILDER MUST NOT TAKE THE MENU DOWN. The ⋯ is on every
+      // screen, so an exception thrown here is an app-wide dead control rather
+      // than one broken section — and on a composed page it would also lose the
+      // OTHER section's actions, which had nothing to do with it.
+      console.error('[shell] screen actions failed to build', err)
+    }
+  }
+  return out
 }
 // Called by the shell.
 export function useScreenBarState() {
@@ -5846,7 +5900,7 @@ export function IconEyeOff() {
 export function IconGrid() { return <ViewIcon kind="tiles" /> }
 export function IconList() { return <ViewIcon kind="list" /> }
 export function IconTable() { return <ViewIcon kind="table" /> }
-export function IconMore() { return <svg {...iconStroke}><circle cx="12" cy="5" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="19" r="1.4" fill="currentColor" stroke="none"/></svg> }
+export function IconMore({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><circle cx="12" cy="5" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="19" r="1.4" fill="currentColor" stroke="none"/></svg> }
 // IconShare — the node graph, and NOT a tray with an arrow in it.
 //
 // It was that tray, and IconUpload is also a tray with an arrow in it, differing
@@ -6372,7 +6426,10 @@ export function ActionMenu({ open, items = [], anchorRef, at = null, onClose, re
   // a frame later is a menu that can lose a keystroke typed in between.
   useLayoutEffect(() => {
     if (!open) return
-    popRef.current?.querySelector("[role=menuitem]")?.focus()
+    // ^= , not = : a choice row is a menuitemradio, and a selector that named only
+    // menuitem would step straight over every "which view am I in" row — the arrow
+    // keys would skip exactly the part of the menu that is a choice.
+    popRef.current?.querySelector("[role^=menuitem]")?.focus()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
@@ -6383,7 +6440,7 @@ export function ActionMenu({ open, items = [], anchorRef, at = null, onClose, re
   // an index would have to be kept in step with a list that a screen can change
   // while the menu is open.
   const onKeyDown = (e) => {
-    const all = [...(popRef.current?.querySelectorAll("[role=menuitem]") || [])]
+    const all = [...(popRef.current?.querySelectorAll("[role^=menuitem]") || [])]
     if (!all.length) return
     const here = all.indexOf(document.activeElement)
     const go = (i) => {
@@ -6411,12 +6468,29 @@ export function ActionMenu({ open, items = [], anchorRef, at = null, onClose, re
       style={style}
       onKeyDown={onKeyDown}
     >
-      {items.map((it, i) => (
+      {/* The key carries the index as well as the id: a composed page concatenates
+          two sections' items and both are entitled to their own "h-do" heading, so
+          ids are unique within a builder and not across them. */}
+      {items.map((it, i) =>
+        // A HEADING IS NOT AN ITEM. It carries no role, takes no focus and is
+        // skipped by the arrow keys for free, because the key handler above reads
+        // `[role^=menuitem]` off the DOM rather than counting the array. Added for
+        // the screen menu, which is a menu BAR — a dozen rows in four groups, where
+        // an unbroken list of twelve is a list nobody reads to the end of.
+        it.heading ? (
+          <div key={`${it.id || 'h'}-${i}`} className="menu-head" aria-hidden="true">
+            {it.heading}
+          </div>
+        ) : (
         <button
-          key={it.id || i}
+          key={`${it.id || 'i'}-${i}`}
           type="button"
           role="menuitem"
           className="menu-item"
+          // A ROW THAT IS A CHOICE SAYS SO TO A SCREEN READER TOO. `checked` makes
+          // it a menuitemradio, which is what "one of these is the current view" is
+          // — a plain menuitem with a tick drawn on it announces nothing.
+          {...(it.checked == null ? {} : { role: "menuitemradio", "aria-checked": !!it.checked })}
           style={it.danger ? { color: "var(--error)" } : undefined}
           // The menu is in a portal, so it is nowhere near the card in the DOM —
           // but a React event travels the COMPONENT tree, not the DOM tree, and
@@ -6433,11 +6507,42 @@ export function ActionMenu({ open, items = [], anchorRef, at = null, onClose, re
         >
           {it.icon}
           {it.label}
+          {/* The tick sits at the END of the row rather than in the icon slot: the
+              icon says what the row IS and the tick says whether it is on, and
+              putting the second where the first goes loses the first. */}
+          {it.checked ? <span className="menu-tick" aria-hidden="true">✓</span> : null}
         </button>
-      ))}
+        ),
+      )}
     </div>,
     document.body,
   )
+}
+
+// THE REAL MENU, drawn open and in place, rather than a copy of its markup.
+// ActionMenu portals to document.body and positions itself against an anchor, so
+// the demo renders the panel's own shape directly — the three kinds of row are
+// what the entry is about, and each one here is the component's own output.
+if (import.meta.env.DEV) {
+  ActionMenu.glossary = {
+    demo: (h) =>
+      h(
+        "div",
+        { className: "hand-card hc-r2 more-menu", role: "menu", style: { position: "static" } },
+        h("div", { className: "menu-head", key: "h1" }, "show only"),
+        h("button", { className: "menu-item", role: "menuitem", key: "a" }, "favourites"),
+        h("div", { className: "menu-head", key: "h2" }, "sort"),
+        h(
+          "button",
+          { className: "menu-item", role: "menuitemradio", "aria-checked": "true", key: "b" },
+          "Recent",
+          h("span", { className: "menu-tick", key: "t" }, "\u2713"),
+        ),
+        h("button", { className: "menu-item", role: "menuitemradio", "aria-checked": "false", key: "c" }, "Title"),
+        h("div", { className: "menu-head", key: "h3" }, "actions"),
+        h("button", { className: "menu-item", role: "menuitem", key: "d" }, h(IconExport, { key: "i" }), "Export"),
+      ),
+  };
 }
 
 // MoreMenu — the ⋯ trigger, and the menu it opens. The pairing every card row uses.

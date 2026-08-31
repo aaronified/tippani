@@ -561,6 +561,7 @@ common.filters.label = Filters
 common.filters.genre.aria = Filter by genre
 common.filters.genre.all.label = All genres
 common.filters.reset.aria = Reset every filter
+common.filters.reset.label = Reset filters
 common.sheet.close.tip = Close this sheet
 common.more.aria = More actions
 common.progress.aria = progress
@@ -2359,6 +2360,7 @@ quotes.export.confirm.body.other = {n} quotes in view will be exported as a sing
 
 # The lower-case small-caps labels above a control in a filter sheet or a form.
 # Their Title Case twins are common.field.*.label and are different strings.
+common.mono.actions.label = actions
 common.mono.colour.label = colour
 common.mono.group.label = group
 common.mono.tag.label = tag
@@ -3160,6 +3162,7 @@ error.reset.practice = could not reset practice
 
 # The box itself. Note that tag: author: colour: are GRAMMAR, not copy — the box
 # parses them, so they stay as they are in the placeholder too.
+search.clear.label = Clear the search
 search.box.placeholder = Search, or type tag: author: colour:…
 search.box.aria = Search
 # The dropdown's "show me another five" row.
@@ -5067,6 +5070,12 @@ common.field.sticker.label = Sticker
 # The shell's ? — reached from a work page's own ⋯ menu as well as the top bar.
 shell.help.menu.label = What’s on this screen
 
+# --- the ⋯ at the right of the top bar: everything this screen can do, in one
+# place, including the controls also drawn on the page. A menu bar, not an
+# overflow — see ScreenMenu.
+shell.screen.menu.aria = Everything this screen can do
+shell.screen.menu.tip = This screen's actions
+
 # ---------------------------------------------------------------------------
 # THE LAST FEW, found by sweeping the twenty-five files for a literal still
 # sitting in a label, a title or a placeholder prop.
@@ -6047,6 +6056,7 @@ error.load.tvdb-cast = Could not read the cast from TheTVDB.
 # The page reported and fixed nothing; it now offers the rewrite and remembers a
 # refusal. The copy's job is to make accepting safe: the reader must know what will
 # change before they press, and know that ignoring changes nothing at all.
+cleanup.bucket.heading = show
 cleanup.bucket.open.label = To answer
 cleanup.bucket.ignored.label = Ignored ({n})
 cleanup.rescan.label = Look again

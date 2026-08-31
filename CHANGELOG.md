@@ -25,6 +25,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   glyphs and drops its words; on a phone it stays behind ☰, because nine destinations
   pinned beside a 390px screen would leave 320px of book.
 
+- **A ⋯ in the top bar, on every screen, holding everything that screen can do.** It
+  lists the whole set rather than the leftovers — which view you are in, which sort is
+  running, what the filters are, and the verbs — so there is one place to look on every
+  screen instead of a different arrangement of controls on each. The rows that are a
+  choice say which one you are on. On a phone it replaces the ⋯ that used to sit in the
+  bottom bar on a book's or a film's page, and the seat that frees up now opens that
+  work's Details, which is the thing you actually reach for.
+
 - **Every destination in the rail says what is inside it, not just how many.** Library
   read "412" and left you to open it to find out whether that was a lot of reading or a
   lot of shelf. Each row carries the pair now — books and their highlights, titles and

@@ -21,6 +21,7 @@ import {
   Tooltip,
   toast,
   useIsMobileScreen,
+  useScreenBar,
 } from './ui.jsx'
 
 // Stray marks — every quote in the library, read once, and what a page left
@@ -175,6 +176,20 @@ export default function CleanupPage({ onClose, onOpenBook, onOpenMovie, onOpenQu
           }),
         ].join(' · ')
   const ignoredCount = data?.counts?.ignored ?? 0
+
+  // THE TWO BUCKETS ARE A CHOICE among two known values, which is what a ticked
+  // menu row is for, and Rescan is the screen's one verb. Published even when
+  // embedded in Checks: the ⋯ belongs to the shell and names whatever screen is
+  // up, and Checks IS this screen plus the staging queue.
+  useScreenBar({
+    actions: () => [
+      { id: 'h-show', heading: t('cleanup.bucket.heading') },
+      { id: 'b-open', label: t('cleanup.bucket.open.label'), checked: bucket === 'open', onClick: () => { setBucket('open'); setRule('all') } },
+      { id: 'b-ignored', label: t('cleanup.bucket.ignored.label', { n: ignoredCount }), checked: bucket === 'ignored', onClick: () => { setBucket('ignored'); setRule('all') } },
+      { id: 'h-do', heading: t('common.mono.actions.label') },
+      { id: 'rescan', icon: <IconRefresh />, label: t('cleanup.rescan.label'), onClick: () => setNonce((n) => n + 1) },
+    ],
+  })
 
   // Where a row's quote lives. A book highlight and a film line open their work;
   // a standalone quote has none, so it opens the board list it is filed on.

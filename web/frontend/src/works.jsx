@@ -19,6 +19,7 @@ import {
   IconBack,
   IconButton,
   IconExport,
+  IconRevert,
   IconSort,
   IconFilter,
   MobileSheet,
@@ -1808,7 +1809,54 @@ export function WorkListScaffold({
   // The crumb is the one difference: only the arrived-at case publishes a title,
   // since a top-level board's name is already what the shell calls the tab.
   useCrumb(mobile && onBack ? title : null)
+  // THE BOARD'S COMPLETE SET, for the top bar's ⋯ — see ScreenMenu.
+  //
+  // WHAT BECOMES A ROW AND WHAT BECOMES A DOOR. A menu bar can hold a choice
+  // among a handful of known values, so the sort options and the "show only"
+  // toggles are rows with their state on them. It cannot hold a select over forty
+  // genres, every series in the library, or every name credited on the board —
+  // those stay one row that OPENS the sheet they live in. The test is the size of
+  // the value set, not the kind of control: a menu that swallowed the genre list
+  // would be a worse genre picker than the one it replaced.
+  //
+  // NOT PHONE-ONLY, unlike the dock keys below it. The ⋯ is on both viewports and
+  // this is what fills it, so the guard the keys need would empty the menu on
+  // every desktop.
   useScreenBar({
+    actions: () => {
+      const out = []
+      const only = []
+      if (setFav) only.push({ id: 'only-fav', label: t('common.filters.favourites.label'), checked: !!fav, onClick: () => setFav(!fav) })
+      if (setTagged) only.push({ id: 'only-tagged', label: t('common.filters.tagged.label'), checked: !!tagged, onClick: () => setTagged(!tagged) })
+      if (setNoted) only.push({ id: 'only-noted', label: t('common.filters.noted.label'), checked: !!noted, onClick: () => setNoted(!noted) })
+      if (only.length) out.push({ id: 'h-only', heading: t('common.filters.only.label') }, ...only)
+
+      if (hasSort) {
+        out.push({ id: 'h-sort', heading: t('common.filters.sort.label') })
+        for (const [value, label] of sortOptions) {
+          out.push({ id: `sort-${value}`, label, checked: sort === value, onClick: () => setSort(value) })
+        }
+      }
+
+      // The doors, and the verbs. `onReset` is offered whatever the filter state:
+      // a reader who cannot tell whether a filter is on is exactly the reader who
+      // wants this row, and a row that appears only once something is filtered is
+      // a row nobody learns is there.
+      out.push({ id: 'h-do', heading: t('common.mono.actions.label') })
+      // THE ONE PLACE "COMPLETE" IS BOUNDED, and by the width rather than by the
+      // screen. The selects — genre, shelf state, series, who is credited — are
+      // drawn on the page at desktop widths, so a row here would open a sheet
+      // over controls the reader is already looking at. On a phone the same
+      // controls are BEHIND that sheet, so the row is how you reach them.
+      if (mobile && (hasGenre || hasStates || hasSeries || hasCredit || hasWish)) {
+        out.push({ id: 'filters', icon: <IconFilter />, label: t('common.filters.label'), onClick: () => setMobileFilter(true) })
+      }
+      if (onReset) out.push({ id: 'reset', icon: <IconRevert />, label: t('common.filters.reset.label'), onClick: onReset })
+      if (!DEMO && onExport) {
+        out.push({ id: 'export', icon: <IconExport />, label: t('common.action.export.label'), onClick: onExport })
+      }
+      return out
+    },
     sub: mobile ? counts : null,
     keys: mobile ? [
       {
