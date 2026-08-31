@@ -4554,6 +4554,21 @@ metadata.remap.custom.label = custom…
 
 # --- PEOPLE. Every author, actor, director, studio and speaker the library
 # mentions, with a portrait and reference links.
+# --- the character review list (0056). Its own section beside the people one:
+# the two tables answer different questions, and a picker for who wrote a book
+# must never offer a character.
+metadata.characters.title = Characters
+metadata.characters.info.body = Every character as a record of its own — the same one across a novel and its adaptation, with a different picture in each. A name appearing twice is something to look at: nothing here was merged by guessing.
+metadata.characters.column.works = works
+metadata.characters.column.sort = sorts as
+metadata.characters.field.description = Description
+metadata.characters.field.note = Your note
+metadata.characters.edit.title = {name}
+metadata.characters.edit.scope = This is the character across every work. A picture or a description for one particular work belongs to that work's cast row, not here.
+metadata.characters.empty = No characters yet. They arrive with a film's cast, or you can add one on a work.
+metadata.characters.compact.one = {n} character, {unpaired} in no work
+metadata.characters.compact.other = {n} characters, {unpaired} in no work
+
 metadata.people.title = People
 metadata.people.info.body = Photos and reference pages, matched to the right person — an author by their books, an actor or director from a film's credits, a studio from a game's. Actor and director photos need a TMDB key; the rest come from Wikidata.
 # The five toggles. Studios are their own row rather than folded in with

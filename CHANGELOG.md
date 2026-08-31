@@ -25,6 +25,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   glyphs and drops its words; on a phone it stays behind ☰, because nine destinations
   pinned beside a 390px screen would leave 320px of book.
 
+- **A person and a character can now be opened as a record.** Every work they are on,
+  every other spelling that finds them, the dates, a note of your own, and — for a
+  performer — every character they have been linked to, with the work each pairing
+  belongs to. A character's page is the mirror of it: every book and film it appears in,
+  and who played it in each. **Nothing pairs itself.** An actor is linked to a role
+  because you said so, never because two strings matched, which is the difference
+  between a library that knows who somebody is and one that has guessed.
+
 - **A ⋯ in the top bar, on every screen, holding everything that screen can do.** It
   lists the whole set rather than the leftovers — which view you are in, which sort is
   running, what the filters are, and the verbs — so there is one place to look on every

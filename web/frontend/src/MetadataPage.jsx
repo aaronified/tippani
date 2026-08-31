@@ -4,7 +4,7 @@ import { t, tNodes } from './i18n.js'
 import { BookLookupPicker, MovieLookupPicker } from './CoverPicker.jsx'
 import { EditBook } from './Library.jsx'
 import { EditMovie } from './Movies.jsx'
-import { BulkBar, EmptyState, ErrorText, FieldIconButton, GhostButton, HandCard, IconButton, IconCheck, IconDelete, IconEdit, IconMerge, IconMetadata, IconMore, IconOpen, IconRefresh, IconSearch, IconUsers, InfoDot, MonoLabel, NameInput, normName, PageHeader, ProgressBar, Scroller, splitCommas, Tooltip, useIsMobileScreen, useScreenBar } from './ui.jsx'
+import { BulkBar, EmptyState, ErrorText, FieldIconButton, FormModal, GhostButton, HandCard, IconButton, IconCheck, IconDelete, IconEdit, IconMerge, IconMetadata, IconMore, IconOpen, IconRefresh, IconSearch, IconUsers, InfoDot, MonoLabel, NameInput, normName, PageHeader, ProgressBar, Scroller, splitCommas, Tooltip, useIsMobileScreen, useScreenBar } from './ui.jsx'
 import { PersonModal, PersonName, ProviderChips, mergeLinks, parseCreditSeps, parseLinks, splitCredits } from './people.jsx'
 import { ReverifyFlow } from './ReverifyReview.jsx'
 import { editDistance } from './text.js'
@@ -214,6 +214,10 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch }
           <DuplicatesPanel onDone={load} onFlash={setFlash} />
           <SpeakerRemap movies={lib.movies.filter((m) => m.dialogue_count > 0)} onDone={load} user={user} />
           <PeopleConsole onFlash={setFlash} compact />
+          {/* The same one-line summary the people console gives on a phone: a
+              browsable table is not what a 390px column is for, and the count is
+              the part that says whether the screen is worth opening later. */}
+          <CharactersConsole compact />
           <StatsLines stats={stats} />
         </>
       ) : (
@@ -239,6 +243,8 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch }
           />
           <DuplicatesPanel onDone={load} onFlash={setFlash} />
           <PeopleConsole onFlash={setFlash} onReverify={(people) => setReverify({ people })} onSearch={onSearch} />
+          {/* Beside the people list and never inside it — see CharactersConsole. */}
+          <CharactersConsole />
           <SpeakerRemap movies={lib.movies.filter((m) => m.dialogue_count > 0)} onDone={load} user={user} />
         </>
       )}
@@ -1264,6 +1270,193 @@ function RemapRow({ label, cast, value, onChange }) {
         </>
       )}
     </div>
+  )
+}
+
+// ---- characters console ----
+
+// CharactersConsole — every character record in the library, with how many works
+// each is linked to.
+//
+// IT IS ITS OWN LIST BESIDE THE PEOPLE ONE, not a sixth chip inside it. The two
+// tables answer different questions and 0056 kept them apart for that reason: a
+// picker for who wrote a book must never offer Woland, and a picker for who says a
+// line must never offer Bulgakov. Folding characters into the kind toggle would put
+// them one click from every rename that rewrites a credit column.
+//
+// WHAT THIS SCREEN IS FOR. The backfill creates a character record PER WORK rather
+// than resolving by name — eight Harry Potter films become eight Harry Potters —
+// because a wrongly-merged character hides a whole person and a wrongly-split one
+// is visible and mergeable. This list is where it becomes visible. Until the merge
+// endpoint lands it reviews and edits; it does not yet weld.
+//
+// "0 WORKS" IS THE ROW WORTH READING. A character linked to nothing is either one
+// the reader made and has not paired yet, or one whose last cast row went — and
+// both are things only this list can show, because a character with no works
+// appears on no work's page by definition.
+export function CharactersConsole({ compact = false }) {
+  const [rows, setRows] = useState(null)
+  const [q, setQ] = useState('')
+  const [err, setErr] = useState('')
+  const [editing, setEditing] = useState(null) // the row open for edit, or null
+
+  async function load() {
+    const r = await json('GET', '/characters')
+    if (r.ok) setRows(r.data.characters)
+    else setErr(errText(r))
+  }
+  useEffect(() => {
+    load()
+  }, [])
+
+  const shown = useMemo(() => {
+    const s = q.trim().toLowerCase()
+    return (rows || []).filter((c) => !s || c.name.toLowerCase().includes(s))
+  }, [rows, q])
+  const unpaired = (rows || []).filter((c) => c.works === 0).length
+
+  return (
+    <section className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <h2 style={H2}>{t('metadata.characters.title')}</h2>
+        <InfoDot text={t('metadata.characters.info.body')} />
+        {!compact && <MonoLabel>{t('metadata.shown.count', { n: shown.length })}</MonoLabel>}
+        {!compact && (
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            <input
+              className="tp-input w-auto"
+              placeholder={t('metadata.search.placeholder')}
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+            />
+          </div>
+        )}
+      </div>
+      <ErrorText>{err}</ErrorText>
+      {compact ? (
+        <p className="microcopy" style={{ color: 'var(--soft)' }}>
+          {!rows
+            ? t('common.state.loading')
+            : t('metadata.characters.compact', { count: (rows || []).length, n: (rows || []).length, unpaired })}
+        </p>
+      ) : !rows ? (
+        <EmptyState>{t('common.state.loading')}</EmptyState>
+      ) : shown.length === 0 ? (
+        <EmptyState>{t('metadata.characters.empty')}</EmptyState>
+      ) : (
+        <Scroller className="ann-table-wrap" axis="both" style={{ maxHeight: 'min(28em, 60vh)', overflowY: 'auto' }}>
+          <table className="ann-table">
+            <thead>
+              <tr>
+                <th>{t('common.field.name.label')}</th>
+                <th>{t('metadata.characters.column.works')}</th>
+                <th>{t('metadata.characters.column.sort')}</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {shown.map((c) => (
+                <tr key={c.id}>
+                  <td>{c.name}</td>
+                  {/* A count of zero is stated rather than left blank: blank reads
+                      as "not loaded" and this is the row the list exists to surface. */}
+                  <td className="mono-label" style={{ color: c.works === 0 ? 'var(--error)' : 'var(--soft)' }}>
+                    {c.works}
+                  </td>
+                  <td className="microcopy" style={{ color: 'var(--soft)' }}>{c.sort_name || '—'}</td>
+                  <td>
+                    <Tooltip label={t('common.action.edit.label')}>
+                      <FieldIconButton
+                        icon={<IconEdit />}
+                        ariaLabel={t('common.action.edit.label')}
+                        onClick={() => setEditing(c)}
+                      />
+                    </Tooltip>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Scroller>
+      )}
+      {editing && (
+        <CharacterEdit
+          row={editing}
+          onClose={() => setEditing(null)}
+          onSaved={() => {
+            setEditing(null)
+            load()
+          }}
+        />
+      )}
+    </section>
+  )
+}
+
+// CharacterEdit — the record's own fields, in the shell every edit form uses.
+//
+// SEPARATE FROM A WORK'S CAST ROW, and the copy says so: what is edited here is
+// the character across every work, and a per-work picture or description is the
+// cast row's own. The user's ruling was that the distinction has to be "visible
+// and obvious to keep confusion away", and a form that did not say which of the
+// two it was writing would be the exact confusion they meant.
+function CharacterEdit({ row, onClose, onSaved }) {
+  const [name, setName] = useState(row.name)
+  const [sortName, setSortName] = useState(row.sort_name || '')
+  const [description, setDescription] = useState(row.description || '')
+  const [note, setNote] = useState(row.note || '')
+  const [err, setErr] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  async function save() {
+    setBusy(true)
+    const r = await json('PUT', `/characters/${row.id}`, {
+      name,
+      sort_name: sortName,
+      description,
+      note,
+    })
+    setBusy(false)
+    if (!r.ok) return setErr(errText(r))
+    onSaved()
+  }
+
+  return (
+    <FormModal open title={t('metadata.characters.edit.title', { name: row.name })} onClose={onClose}>
+      {/* --row, not a typed step: the spacing constant this app declares, which is
+          what the rule asks for and what spacing-debt.test.js counts down. */}
+      <div style={{ display: 'grid', gap: 'calc(var(--row) * 1.2)' }}>
+        <p className="microcopy" style={{ color: 'var(--soft)' }}>
+          {t('metadata.characters.edit.scope')}
+        </p>
+        {/* The house pattern for a labelled field — a margin on the label rather
+            than a stack around the pair. Four stacks here would have been four more
+            hand-typed steps against a ratchet that only falls. */}
+        <label className="block">
+          <MonoLabel className="mb-1.5 block">{t('common.field.name.label')}</MonoLabel>
+          <input className="tp-input" value={name} onChange={(e) => setName(e.target.value)} />
+        </label>
+        <label className="block">
+          <MonoLabel className="mb-1.5 block">{t('metadata.characters.column.sort')}</MonoLabel>
+          <input className="tp-input" value={sortName} onChange={(e) => setSortName(e.target.value)} />
+        </label>
+        <label className="block">
+          <MonoLabel className="mb-1.5 block">{t('metadata.characters.field.description')}</MonoLabel>
+          <textarea className="tp-input" rows={3} value={description} onChange={(e) => setDescription(e.target.value)} />
+        </label>
+        <label className="block">
+          <MonoLabel className="mb-1.5 block">{t('metadata.characters.field.note')}</MonoLabel>
+          <textarea className="tp-input" rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
+        </label>
+        <ErrorText>{err}</ErrorText>
+        <div className="flex justify-end gap-2">
+          <GhostButton onClick={onClose}>{t('common.action.cancel.label')}</GhostButton>
+          <GhostButton className="tp-btn-primary" disabled={busy || !name.trim()} onClick={save}>
+            {t('common.action.save.label')}
+          </GhostButton>
+        </div>
+      </div>
+    </FormModal>
   )
 }
 

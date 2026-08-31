@@ -1,0 +1,21 @@
+-- 0057: a character's links out.
+--
+-- 0056 gave characters their own table with a sort name, a description, a picture
+-- and a note, and left `links` off. That was an omission rather than a decision:
+-- the owner's ruling for this pass was that a character gets the same machinery a
+-- person gets — "aliases, sort name, merge, links out" — and `people.links` has
+-- carried the reference pages since 0027. A character has them too: a Fandom
+-- article, a Wikipedia entry, a Wookieepedia page. 0055 taught this app to find
+-- the right wiki for a work; the character panel is where that answer belongs.
+--
+-- WHY A NEW FILE AND NOT AN EDIT TO 0056. Shipped migrations are forward-only in
+-- this repo and never edited, and 0056 has been pushed — a database that has
+-- already run it would not get the column from a rewritten copy of a version it
+-- has recorded as applied, and the app would fail on a query for a column that
+-- exists only in the file. The rule exists for exactly this shape of mistake, and
+-- one ALTER is the entire cost of honouring it.
+--
+-- The same JSON-ish string `people.links` holds, and read by the same panel code,
+-- so nothing here needs to teach the client a second format.
+
+ALTER TABLE characters ADD COLUMN links TEXT NOT NULL DEFAULT '';

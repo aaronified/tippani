@@ -4371,6 +4371,18 @@ metadata.remap.nocharacter.label = (চরিত্র নেই)
 metadata.remap.cast.option = {character} — {actor}
 metadata.remap.custom.label = নিজের মতো…
 
+metadata.characters.title = চরিত্র
+metadata.characters.info.body = প্রতিটি চরিত্র নিজস্ব রেকর্ড — উপন্যাস আর তার চলচ্চিত্ররূপে একই চরিত্র, প্রতিটিতে আলাদা ছবি। একই নাম দুবার থাকলে দেখুন: অনুমান করে কিছু মেলানো হয়নি।
+metadata.characters.column.works = কাজ
+metadata.characters.column.sort = যেভাবে সাজে
+metadata.characters.field.description = বিবরণ
+metadata.characters.field.note = আপনার নোট
+metadata.characters.edit.title = {name}
+metadata.characters.edit.scope = এটি প্রতিটি কাজ জুড়ে চরিত্রটি। কোনো একটি নির্দিষ্ট কাজের ছবি বা বিবরণ সেই কাজের কাস্ট সারিতে থাকে, এখানে নয়।
+metadata.characters.empty = এখনও কোনো চরিত্র নেই। চলচ্চিত্রের কাস্টের সঙ্গে আসে, নয়তো কোনো কাজে যোগ করতে পারেন।
+metadata.characters.compact.one = {n}টা চরিত্র, {unpaired}টা কোনো কাজে নেই
+metadata.characters.compact.other = {n}টা চরিত্র, {unpaired}টা কোনো কাজে নেই
+
 metadata.people.title = মানুষ
 # ?? reference page (an IMDb / Wikipedia page about a person) → রেফারেন্স পাতা
 metadata.people.info.body = ছবি আর রেফারেন্স পাতা, ঠিক মানুষটার সঙ্গে মিলিয়ে — লেখককে তাঁর বই দিয়ে, অভিনেতা বা পরিচালককে সিনেমার কাস্ট দিয়ে, স্টুডিওকে গেমের নামে। অভিনেতা আর পরিচালকের ছবির জন্য TMDB কি লাগে; বাকিটা আসে Wikidata থেকে।

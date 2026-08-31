@@ -235,6 +235,25 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /people/rename", s.requireAuth(s.handleRenamePerson))
 	mux.Handle("PUT /people", s.requireAuth(s.handleUpsertPerson))
 	mux.Handle("DELETE /people/{id}", s.requireAuth(s.handleDeletePerson))
+	// ---- identity (0056): a person or a character as a RECORD, reached by id ----
+	//
+	// /people/id/{id} RATHER THAN /people/{id}, because DELETE /people/{id} above
+	// already means something and Go's mux would route the pair to siblings that
+	// disagree about what the segment is. A segment naming the key is cheaper than
+	// renaming a route the client already calls.
+	mux.Handle("GET /people/id/{id}", s.requireAuth(s.handlePersonByID))
+	mux.Handle("PUT /people/id/{id}", s.requireAuth(s.handleUpdatePersonByID))
+	mux.Handle("POST /people/id/{id}/aliases", s.requireAuth(s.handlePersonAlias))
+	mux.Handle("DELETE /people/id/{id}/aliases", s.requireAuth(s.handlePersonAliasDelete))
+	mux.Handle("GET /characters", s.requireAuth(s.handleCharacters))
+	mux.Handle("POST /characters", s.requireAuth(s.handleCreateCharacter))
+	mux.Handle("GET /characters/{id}", s.requireAuth(s.handleCharacterByID))
+	mux.Handle("PUT /characters/{id}", s.requireAuth(s.handleUpdateCharacter))
+	mux.Handle("DELETE /characters/{id}", s.requireAuth(s.handleDeleteCharacter))
+	mux.Handle("POST /characters/{id}/aliases", s.requireAuth(s.handleCharacterAlias))
+	mux.Handle("DELETE /characters/{id}/aliases", s.requireAuth(s.handleCharacterAliasDelete))
+	// The pairing itself: who a role is, and who played it. Never automatic.
+	mux.Handle("PUT /cast/{id}/link", s.requireAuth(s.handleCastLink))
 
 	// Books + annotations (PLAN §3, §5a, §6).
 	// One route for three pickers — a book's cover, a film's poster, a person's
