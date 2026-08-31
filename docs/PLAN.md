@@ -8280,3 +8280,99 @@ to see a glyph change shape on a state change should find the reason rather than
   removes. Both are now a line of microcopy and an × at the chip's own size.
 
 <sub>Unreleased — `web/frontend/src/identity.jsx` · `internal/store/identity.go` (SetCreditAs) · `internal/httpapi/identity_handlers.go`</sub>
+
+### Merging two records writes a reversal into the bin, not a snapshot
+
+- **Decided** — `store.MergePeople` returns a `MergeUndo` and `POST /people/merge` parks
+  it in the bin under a new kind, `person-merge`. `handleRestoreTrash` branches on that
+  kind **before** it decodes a snapshot.
+- **Why it cannot be the generic restore.** Every other bin entry is *rows that were
+  deleted, put them back*. A merge deletes almost nothing — it re-points — so the generic
+  insert-by-insert restore would collide on its first write, because the keys it wants are
+  still held by the rows the merge changed. The payload is therefore a reversal, and the
+  branch that reads it is the only thing that knows how.
+- **The central rule is that no cover changes.** A link with an empty `credit_as` is given
+  the dropped record's *name* as its spelling, so the shelf goes on printing exactly what
+  it printed before. Without this, merging "Orson Welles Jr" into "Orson Welles" would
+  silently rewrite a book's author line — which is the one thing a reader tidying their
+  library is not expecting to happen.
+- **Duplicates collapse to the lowest ordering** and the collapse is recorded in the undo,
+  because a work that credited *both* records must not end up crediting one person twice,
+  and putting the merge back has to know which row it removed and where it sat.
+- **A refusal and a fault are different answers**, so `store.Refusal` says which one is
+  coming back. Both handlers here turned every store error into a `409` carrying
+  `err.Error()` — which reports a broken database as a disagreement about identity and
+  puts the SQL in a toast. "You cannot merge a record into itself" is the reader's to see;
+  a failed write is not.
+- **Widening the bin's `kind` cost a table rebuild** (`0058`), since SQLite cannot ALTER a
+  CHECK. The enumeration was kept rather than dropped: a kind the schema does not know is
+  an entry that lists, sits for thirty days and then fails when somebody presses Undo.
+
+<sub>Unreleased — `internal/store/identity.go` · `internal/httpapi/trash_handlers.go` · `internal/store/migrations/0058_trash_person_merge.sql`</sub>
+
+### Splitting an alias back out gives a record and moves nothing
+
+- **Decided** — `POST /people/id/{id}/split {alias}` makes a new record carrying that
+  spelling and leaves every work where it is.
+- **Why nothing moves.** The alias says *this spelling finds that record*; it does not say
+  which works were credited under it, and the credit rows do not remember. Guessing —
+  taking every work whose `credit_as` matches the alias — would be right often enough to be
+  trusted and wrong often enough to move somebody's books to a person they never wrote for.
+  So the split is the smallest true act: the spelling stops resolving here and starts
+  resolving to a record of its own, and the reader moves the works themselves.
+
+<sub>Unreleased — `internal/store/identity.go` (SplitPersonAlias) · `internal/httpapi/identity_handlers.go`</sub>
+
+### A cast row writes its two records at the moment it is written
+
+- **Decided** — `store.LinkCastRow` runs inside the same transaction as every insert into
+  `work_cast`: the hand-typed Add, the revive of a tombstone, a correction, the provider
+  fetch, and the adoption of characters off a work's own quotes.
+- **Why this was a hole and not a nicety.** 0056's one-time pass gave every *existing* cast
+  row a character and a performer, and nothing in the running app did. A library upgraded
+  on Tuesday had a character list; every role typed on Wednesday was invisible to it, and a
+  quote's speaker had nothing to point at. The model would have been something only the
+  upgrade ever populated.
+- **The character is per work; the performer is resolved by name.** The asymmetry is
+  deliberate and is the backfill's argument moved to the site where rows are actually
+  written: resolving a character by name welds every "Narrator" in the library, while
+  `people` has been one row per human being since 0027 and every credit already resolves
+  into it. A fortieth Narrator is visible and mergeable; the welded one hides thirty-nine.
+- **It fills a null link and never re-points one.** A link already on the row is somebody's
+  deliberate pick in the picker, or one that survived a delete. Correcting the spelling a
+  work prints must not re-aim the record, or a typo fix becomes a silent identity change on
+  every other work that record is on.
+
+<sub>Unreleased — `internal/store/identity.go` (LinkCastRow) · `internal/httpapi/cast_handlers.go` · `internal/httpapi/cast.go` · `internal/httpapi/cast_from_quotes.go`</sub>
+
+### The merge picker says how much hangs off each record
+
+- **Decided** — `GET /people/search` returns a `works` count per hit (credits plus roles),
+  and the panel draws it beside the name.
+- **Why.** The case this control exists to resolve is two records spelled the same, and a
+  list of bare names cannot tell them apart — so the reader would be choosing which of two
+  identical rows to destroy by guessing. It is the rule 0056 already set for the character
+  picker, applied to the other table.
+
+<sub>Unreleased — `internal/httpapi/identity_handlers.go` · `web/frontend/src/identity.jsx`</sub>
+
+### OPEN — there are now two ways to fold two people, and they promise different things
+
+- **The state.** `POST /people/merge` (this pass) re-points link rows, files the dropped
+  name as a spelling, changes no cover and parks a reversal in the bin. The Metadata
+  console's duplicate card still calls `POST /people/rename`, which rewrites the credit
+  STRING on every book and dialogue, drops the row, files no alias and writes no bin entry.
+  Both are on screen, and the second is on the screen a reader uses to tidy duplicates.
+- **Why it was not simply re-pointed at the new endpoint.** `/people/rename` is the only
+  thing that can merge an ACTOR or a SPEAKER: `dialogues.actor` and `utterances.speaker`
+  have no link table, so `work_person` cannot express them and the new merge would silently
+  do nothing for two of the console's five kinds. That is the same blocker the credit work
+  already recorded — *making the rename link-native belongs with the person panel, once
+  `dialogues.actor` and `utterances.speaker` are decided* — and deciding it is the owner's
+  call, not something to settle inside a commit that was closing.
+- **The two candidate answers.** Either give actor and speaker their own link rows (a
+  fifth and sixth `CreditRole`, and the rename becomes link-native for everything), or keep
+  the rename for those two kinds and route the other three through the merge — which leaves
+  one screen with two behaviours and has to say which is which.
+
+<sub>Unreleased — open · `web/frontend/src/MetadataPage.jsx` (DupCard) · `internal/httpapi/people_handlers.go`</sub>

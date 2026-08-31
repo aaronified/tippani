@@ -908,7 +908,10 @@ func wantShapes() []tableShape {
 			Checks: []string{
 				// 'selection' since 0032: a bulk delete is ONE entry holding every row
 				// from every item, so the bin shows one decision rather than forty.
-				"kind IN ('book','movie','annotation','dialogue','quote','account','selection')",
+				// 'person-merge' since 0058, and it is the odd one: every other kind
+				// here is rows that went, and its payload is a REVERSAL rather than a
+				// snapshot — see the migration, and its own branch in the restore.
+				"kind IN ('book','movie','annotation','dialogue','quote','account','selection','person-merge')",
 			},
 			Indexes: []indexShape{
 				{Name: "trash_user_time", Origin: "c", Columns: []string{"user_id", "deleted_at"}},

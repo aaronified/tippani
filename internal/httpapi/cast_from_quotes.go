@@ -141,13 +141,22 @@ func (s *Server) adoptQuoteCharacters(uid int64, kind string, workID int64) {
 		return
 	}
 	for _, c := range add {
-		if _, err := tx.Exec(
+		res, err := tx.Exec(
 			`INSERT INTO work_cast (user_id, kind, work_id, character, character_key, actor, actor_key,
 			                        billing, origin)
 			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			uid, kind, workID, c.name, c.key, c.actor, store.CastKey(c.actor), billing, castReader); err != nil {
+			uid, kind, workID, c.name, c.key, c.actor, store.CastKey(c.actor), billing, castReader)
+		if err != nil {
 			olog.Warnf(olog.CodeCastRowScan, "[cast] adopt %q on %s %d: %v", c.name, kind, workID, err)
 			return
+		}
+		// This path exists because the reader already named the character on a
+		// quote. Giving the row its record here is what lets that quote's speaker
+		// point at something, so the adoption finishes the job it started.
+		if id, ierr := res.LastInsertId(); ierr == nil {
+			if lerr := store.LinkCastRow(tx, uid, id); lerr != nil {
+				olog.Warnf(olog.CodeCastRowScan, "[cast] link adopted %q on %s %d: %v", c.name, kind, workID, lerr)
+			}
 		}
 		billing++
 	}

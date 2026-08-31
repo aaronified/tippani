@@ -3560,6 +3560,8 @@ bin.kind.quote.label = Quote
 bin.kind.quote.plural = Quotes
 bin.kind.account.label = Account
 bin.kind.account.plural = Accounts
+bin.kind.merge.label = Merged people
+bin.kind.merge.plural = Merges
 # The retention control. The three windows are counted with the shared day
 # format, so only “never” needs a word of its own.
 bin.keep-for.label = keep for
@@ -6142,6 +6144,20 @@ identity.alias.none = No other spellings.
 identity.alias.add.label = Add
 identity.alias.add.placeholder = another spelling…
 identity.alias.remove.aria = Remove the spelling {alias}
+identity.alias.split.label = split out
+identity.alias.split.tip = Give this spelling a record of its own. The works stay here — nothing remembers which of them came from where.
+identity.alias.split.done = {alias} has its own record now. Its works stayed where they were.
+identity.merge.title = merge another record into this one
+identity.merge.body = Two records for one human being become one, and this one — {name} — is what survives.
+identity.merge.search.placeholder = find the other record…
+identity.merge.hit.works.one = {n} work
+identity.merge.hit.works.other = {n} works
+identity.merge.confirm.title = Merge {name} into {into}?
+identity.merge.confirm.body = {name} stops being a record. Everything it is credited on moves to {into}, and its name becomes a spelling that finds it — so the next import will not make it again.
+identity.merge.confirm.covers = No cover changes. Every work goes on printing exactly the name it prints today.
+identity.merge.confirm.undo = The bin holds the way back for as long as it holds anything else.
+identity.merge.confirm.action = Merge them
+identity.merge.done = {name} is part of {into} now
 
 # Scope 3: the record itself.
 identity.scope.record.title = the record

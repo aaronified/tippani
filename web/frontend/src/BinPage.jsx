@@ -14,6 +14,7 @@ import {
   IconDelete,
   IconDialogue,
   IconHighlight,
+  IconMerge,
   IconPerson,
   IconQuote,
   IconReel,
@@ -73,6 +74,11 @@ export const TRASH_LABELS = {
   dialogue: 'bin.kind.dialogue.label',
   quote: 'bin.kind.quote.label',
   account: 'bin.kind.account.label',
+  // NOT A DELETION, and the label says so. Every other kind here is "rows that
+  // went"; this one is two records that became one, and what the bin holds is the
+  // way back rather than the record itself — which is why its entry names both
+  // sides ("M. Bulgakov → Mikhail Bulgakov") instead of one title.
+  'person-merge': 'bin.kind.merge.label',
 }
 
 const TRASH_ICONS = {
@@ -82,6 +88,9 @@ const TRASH_ICONS = {
   dialogue: <IconDialogue />,
   quote: <IconQuote />,
   account: <IconPerson />,
+  // The one row here that is not a deletion wears the verb that made it, not a
+  // person: every other glyph in this table names WHAT went, and nothing went.
+  'person-merge': <IconMerge />,
 }
 
 // The plural each kind counts in, for the filter chips. "Film or shows" is not a
@@ -93,6 +102,7 @@ const TRASH_PLURALS = {
   dialogue: 'bin.kind.dialogue.plural',
   quote: 'bin.kind.quote.plural',
   account: 'bin.kind.account.plural',
+  'person-merge': 'bin.kind.merge.plural',
 }
 
 // RETENTION: the offered windows. Never is -1 rather than 0 for the reason the

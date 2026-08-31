@@ -255,6 +255,14 @@ func (s *Server) handleAddCast(kind string) http.HandlerFunc {
 				internalError(w, r, "revive cast row", err)
 				return
 			}
+			// A tombstone may predate 0056, or may have lost its character record to
+			// a delete while it lay there. Filling a null link on the way back is
+			// the difference between a revived row that the character list can see
+			// and one it cannot; a link still on the row is left exactly as it was.
+			if err := store.LinkCastRow(tx, uid, id); err != nil {
+				internalError(w, r, "link revived cast row", err)
+				return
+			}
 			row, err := scanCastRow(tx.QueryRow(`SELECT `+castCols+` FROM work_cast WHERE id = ?`, id))
 			if err != nil {
 				internalError(w, r, "read revived cast row", err)
@@ -298,6 +306,14 @@ func (s *Server) handleAddCast(kind string) http.HandlerFunc {
 			return
 		}
 		id, _ = res.LastInsertId()
+		// THE ROW GETS ITS RECORDS IN THE SAME TRANSACTION that wrote it. A cast
+		// row whose character exists nowhere is a character the review list cannot
+		// show and a quote's speaker cannot point at — which is what the whole of
+		// 0056 was for.
+		if err := store.LinkCastRow(tx, uid, id); err != nil {
+			internalError(w, r, "link cast row", err)
+			return
+		}
 		if err := tx.Commit(); err != nil {
 			internalError(w, r, "add cast: commit", err)
 			return
@@ -385,6 +401,14 @@ func (s *Server) handleUpdateCast(w http.ResponseWriter, r *http.Request) {
 		 WHERE id = ? AND user_id = ?`,
 		req.Character, charKey, req.Actor, actorKey, next, castID, uid); err != nil {
 		internalError(w, r, "update cast", err)
+		return
+	}
+	// A row that predates 0056 gets its records the first time somebody corrects
+	// it. It does NOT get re-pointed: this handler changes what THIS work prints,
+	// and re-aiming the record at whatever the new spelling resolves to would make
+	// a typo fix into a silent identity change on every other work the record is on.
+	if err := store.LinkCastRow(tx, uid, castID); err != nil {
+		internalError(w, r, "link cast row", err)
 		return
 	}
 	row, err := scanCastRow(tx.QueryRow(`SELECT `+castCols+` FROM work_cast WHERE id = ?`, castID))

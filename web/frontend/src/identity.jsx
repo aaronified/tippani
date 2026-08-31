@@ -27,6 +27,7 @@ import { errText, json } from './api.js'
 import { t } from './i18n.js'
 import { ProviderChips } from './people.jsx'
 import {
+  ConfirmDialog,
   EmptyState,
   ErrorText,
   GhostButton,
@@ -118,13 +119,20 @@ function WorkList({ items, empty, line }) {
   )
 }
 
-// AliasRow — the spellings that FIND this record, with the one act that adds one.
+// AliasRow — the spellings that FIND this record, with the acts that add one,
+// remove one, and split one back out.
 //
 // EACH CHIP IS A REASON A CREDIT STRING LANDED HERE rather than making a second
 // record, which is what the copy above it says. A collision comes back as a 409
 // with a sentence, and the sentence is shown rather than a generic failure —
 // "somebody is already called that" is the whole of what the reader needs.
-function AliasRow({ aliases, onAdd, onRemove }) {
+//
+// REMOVE AND SPLIT ARE DIFFERENT ACTS AND BOTH ARE OFFERED. Removing unfiles the
+// spelling and the app stops knowing who it is; splitting gives it a record of its
+// own. A reader who merged two people by mistake wants the second, and the label
+// says what it does and does not do — the works stay where they are, because
+// nothing in the schema remembers which of them came from where.
+function AliasRow({ aliases, onAdd, onRemove, onSplit }) {
   const [draft, setDraft] = useState('')
   return (
     <div style={FIELDS}>
@@ -135,6 +143,19 @@ function AliasRow({ aliases, onAdd, onRemove }) {
         {aliases.map((a) => (
           <span key={a} className="tp-filter-chip" style={{ cursor: 'default' }}>
             {a}
+            {/* SPLIT SITS BEFORE THE ×, because it is the gentler of the two and the
+                one a reader undoing a bad merge is looking for. A word rather than a
+                glyph: there is no picture of "give this spelling its own record". */}
+            {onSplit && (
+              <button
+                type="button"
+                className="tp-link"
+                style={{ marginLeft: '.5em', fontSize: '.85em' }}
+                onClick={() => onSplit(a)}
+              >
+                {t('identity.alias.split.label')}
+              </button>
+            )}
             {/* AN × AT THE CHIP'S OWN SCALE. The first cut used IconDelete, which is
                 a 22px trash can — the same visual weight as the word beside it, on a
                 control whose whole job is to be smaller than what it removes. */}
@@ -152,6 +173,12 @@ function AliasRow({ aliases, onAdd, onRemove }) {
           </span>
         ))}
       </div>
+      {/* THE CAVEAT IS ON THE PAGE, NOT IN A HOVER. "The works stay here" is the
+          load-bearing half of what split does, and a title= says it only to a
+          reader with a mouse — which on a phone is nobody. */}
+      {onSplit && aliases.length > 0 && (
+        <p className="microcopy" style={{ color: 'var(--soft)' }}>{t('identity.alias.split.tip')}</p>
+      )}
       <div className="flex items-center gap-2">
         <input
           className="tp-input"
@@ -169,6 +196,93 @@ function AliasRow({ aliases, onAdd, onRemove }) {
           {t('identity.alias.add.label')}
         </GhostButton>
       </div>
+    </div>
+  )
+}
+
+// MergeControl — fold another record into this one.
+//
+// IT ASKS FIRST, AND THE CONFIRM SAYS WHAT WILL HAPPEN rather than "are you sure".
+// The design pack is explicit that merge is the one destructive operation in this
+// model and that the confirm has to carry the consequence; what a reader needs to
+// know is that the other record goes, that its works come here, and that every
+// cover goes on printing exactly what it prints today. The last of those is the
+// one nobody would think to ask about and the one they would notice first.
+//
+// AND IT SAYS THE BIN HOLDS IT. The pack stops at "asks first"; this app's promise
+// is stronger, and a reader who knows the way back is a reader who will actually
+// tidy their library.
+function MergeControl({ into, onMerged, onError }) {
+  const [q, setQ] = useState('')
+  const [hits, setHits] = useState([])
+  const [pick, setPick] = useState(null)
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    if (!q.trim()) return setHits([])
+    let stale = false
+    json('GET', `/people/search?q=${encodeURIComponent(q.trim())}`).then((r) => {
+      if (stale || !r.ok) return
+      // Never this record: merging something into itself is refused by the server
+      // and offering it here would be a row whose only outcome is an error.
+      setHits((r.data.people || []).filter((p) => p.id !== into.id))
+    })
+    return () => {
+      stale = true
+    }
+  }, [q, into.id])
+
+  const merge = async () => {
+    setBusy(true)
+    const r = await json('POST', '/people/merge', { keep_id: into.id, drop_id: pick.id })
+    setBusy(false)
+    if (!r.ok) return onError(errText(r))
+    toast(t('identity.merge.done', { name: pick.name, into: into.name }))
+    setPick(null)
+    setQ('')
+    onMerged()
+  }
+
+  return (
+    <div style={FIELDS}>
+      <MonoLabel>{t('identity.merge.title')}</MonoLabel>
+      <p className="microcopy" style={{ color: 'var(--soft)' }}>{t('identity.merge.body', { name: into.name })}</p>
+      <input
+        className="tp-input"
+        placeholder={t('identity.merge.search.placeholder')}
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+      />
+      {hits.length > 0 && (
+        <ul style={FIELDS}>
+          {hits.map((p) => (
+            <li key={p.id} className="flex items-baseline gap-2">
+              <button type="button" className="tp-link" onClick={() => setPick(p)}>{p.name}</button>
+              {/* HOW MUCH HANGS OFF THIS RECORD, beside its name. Two people
+                  called the same thing is the case this control exists to
+                  resolve, and the name alone cannot tell them apart. */}
+              <span className="microcopy" style={{ color: 'var(--soft)' }}>
+                {t('identity.merge.hit.works', { n: p.works || 0, count: p.works || 0 })}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <ConfirmDialog
+        open={!!pick}
+        title={t('identity.merge.confirm.title', { name: pick?.name || '', into: into.name })}
+        body={
+          <div style={FIELDS}>
+            <p className="microcopy">{t('identity.merge.confirm.body', { name: pick?.name || '', into: into.name })}</p>
+            <p className="microcopy">{t('identity.merge.confirm.covers')}</p>
+            <p className="microcopy">{t('identity.merge.confirm.undo')}</p>
+          </div>
+        }
+        confirmLabel={t('identity.merge.confirm.action')}
+        confirmDisabled={busy}
+        onConfirm={merge}
+        onCancel={() => setPick(null)}
+      />
     </div>
   )
 }
@@ -245,6 +359,16 @@ function PersonBody({ stack, id, work }) {
     if (!r.ok) return setErr(errText(r))
     load()
   }
+  // SPLIT IS NOT UNDO AND THE TOAST SAYS SO. It hands back a record with the name;
+  // the works stay with this one, because the schema does not remember which of
+  // them was credited to the record that got folded in. Saying that in the toast
+  // is cheaper than a reader discovering it by counting books.
+  const splitAlias = async (alias) => {
+    const r = await json('POST', `/people/id/${id}/split`, { alias })
+    if (!r.ok) return setErr(errText(r))
+    toast(t('identity.alias.split.done', { alias }))
+    load()
+  }
 
   return (
     <div style={{ display: 'grid', gap: 'calc(var(--row) * 1.6)' }}>
@@ -312,7 +436,10 @@ function PersonBody({ stack, id, work }) {
           <ProviderChips links={data.links} />
           <MonoLabel>{t('identity.alias.title')}</MonoLabel>
           <p className="microcopy" style={{ color: 'var(--soft)' }}>{t('identity.alias.body')}</p>
-          <AliasRow aliases={data.aliases || []} onAdd={addAlias} onRemove={removeAlias} />
+          <AliasRow aliases={data.aliases || []} onAdd={addAlias} onRemove={removeAlias} onSplit={splitAlias} />
+          {/* MERGE IS THE ONE DESTRUCTIVE ACT HERE, so it sits at the bottom of the
+              section that is about identity, and it asks before it runs. */}
+          <MergeControl into={data} onMerged={load} onError={setErr} />
         </div>
       </Scope>
 

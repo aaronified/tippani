@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strings"
@@ -300,12 +301,19 @@ func (s *Server) aliasWrite(w http.ResponseWriter, r *http.Request, fn func(*sql
 		return
 	}
 	defer tx.Rollback()
-	if err := fn(tx); err != nil {
-		// EVERY ERROR THIS PATH PRODUCES IS THE READER'S TO SEE. The store's alias
-		// functions fail for exactly three reasons — empty, no such record, already
-		// taken — and all three are sentences a person can act on. Treating them as
-		// 500s would log a fault every time somebody typed a name twice.
-		writeErr(w, http.StatusConflict, err.Error())
+	// THE STORE SAYS WHICH KIND OF ANSWER IT IS. Its refusals — empty, no such
+	// record, already taken — are sentences a reader can act on, and a 500 for them
+	// would log a fault every time somebody typed a name twice. A failed write is
+	// neither, and this used to answer both with a 409 carrying err.Error(), which
+	// reported a broken database as a disagreement about spelling.
+	err = fn(tx)
+	var refused *store.Refusal
+	switch {
+	case errors.As(err, &refused):
+		writeErr(w, http.StatusConflict, refused.Error())
+		return
+	case err != nil:
+		internalError(w, r, "alias", err)
 		return
 	}
 	if err := tx.Commit(); err != nil {
@@ -613,4 +621,199 @@ func (s *Server) identityTarget(w http.ResponseWriter, r *http.Request, table st
 		return 0, 0, false
 	}
 	return uid, id, true
+}
+
+// handleSearchPeople: GET /people/search?q= — records by name, for a picker.
+//
+// IT RETURNS IDS, WHICH IS THE WHOLE POINT AND THE REASON /people/names CANNOT
+// SERVE. That endpoint answers a question about NAMES: its list comes from the
+// credit columns, and a record's id rides along only where the row has been filed
+// under a role. A merge needs the record, and every credited name has had one
+// since 0056 — so this reads the table rather than the columns.
+//
+// THE MATCH IS A FOLDED SUBSTRING, done in Go for the reason CastKey exists:
+// SQLite's lower() is ASCII-only, so a LIKE would find "bulgakov" and miss
+// "БУЛГАКОВ" on the same keystroke. Capped, because a picker shows a shortlist and
+// a reader who cannot see their person types one more letter.
+func (s *Server) handleSearchPeople(w http.ResponseWriter, r *http.Request) {
+	uid := userID(r)
+	q := store.CastKey(strings.TrimSpace(r.URL.Query().Get("q")))
+	// EACH HIT CARRIES ITS WEIGHT, because the one thing this list feeds is the
+	// merge, and merging is destructive. Two records called "John Smith" are
+	// indistinguishable by name — which is exactly the case a reader reaches for
+	// this control to resolve — so the row says how much of the library hangs off
+	// each of them. It is the same rule 0056 set for the character picker: a pick
+	// that destroys something shows what it is about to destroy.
+	//
+	// AND IT IS COUNTED IN A SECOND PASS, over the twenty rows that survived the
+	// filter rather than over every person in the library. The filter folds in Go
+	// (CastKey; SQLite's lower() is ASCII-only — 0048's argument), so SQL cannot
+	// narrow it, and counting in the first query would run two correlated
+	// subqueries per person per keystroke to throw nearly all of them away.
+	rows, err := s.Store.DB.Query(
+		`SELECT id, name FROM people WHERE user_id = ? ORDER BY name COLLATE NOCASE`, uid)
+	if err != nil {
+		internalError(w, r, "search people", err)
+		return
+	}
+	defer rows.Close()
+	type hit struct {
+		ID    int64  `json:"id"`
+		Name  string `json:"name"`
+		Works int    `json:"works"`
+	}
+	out := []hit{}
+	const max = 20
+	for rows.Next() && len(out) < max {
+		var h hit
+		if err := rows.Scan(&h.ID, &h.Name); err != nil {
+			olog.Warnf(olog.CodePeopleRowScan, "[identity] people search row scan failed: %v", err)
+			continue
+		}
+		if q != "" && !strings.Contains(store.CastKey(h.Name), q) {
+			continue
+		}
+		out = append(out, h)
+	}
+	if err := rows.Err(); err != nil {
+		olog.Warnf(olog.CodePeopleRowScan, "[identity] people search iteration failed: %v", err)
+	}
+	for i := range out {
+		if err := s.Store.DB.QueryRow(
+			`SELECT (SELECT count(*) FROM work_person WHERE user_id = ? AND person_id = ?)
+			      + (SELECT count(*) FROM work_cast   WHERE user_id = ? AND actor_id  = ?)`,
+			uid, out[i].ID, uid, out[i].ID).Scan(&out[i].Works); err != nil {
+			// The row still lists, with a zero it did not earn — a hit missing from
+			// the picker is worse than a hit whose weight failed to read, and the
+			// log is where the failure is recorded.
+			olog.Warnf(olog.CodePeopleRowScan, "[identity] people search count for %d: %v", out[i].ID, err)
+		}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"people": out})
+}
+
+// ---- merge, and its undo ----------------------------------------------------
+
+// handleMergePeople: POST /people/merge {keep_id, drop_id}.
+//
+// THE ONE DESTRUCTIVE ACT IN THE IDENTITY MODEL, and the only one that writes a
+// bin entry. The pack's own design stops at "merge asks first, and the confirm
+// says so"; this app's standing promise is that the bin holds what you destroy,
+// which is the stronger of the two, so the merge returns a reversal and parks it
+// where every other undoable act in this app parks one.
+//
+// THE ENTRY IS NOT A SNAPSHOT AND CANNOT USE THE GENERIC RESTORE. A merge does not
+// delete the rows it changes, it re-points them — so the keys are still occupied
+// and the bin's row-by-row INSERT would collide on every one. `person-merge` gets
+// its own branch in handleRestoreTrash, which applies store.UndoPersonMerge.
+func (s *Server) handleMergePeople(w http.ResponseWriter, r *http.Request) {
+	uid := userID(r)
+	var req struct {
+		KeepID int64 `json:"keep_id"`
+		DropID int64 `json:"drop_id"`
+	}
+	if !decodeBody(w, r, &req) {
+		return
+	}
+	tx, err := s.Store.DB.Begin()
+	if err != nil {
+		internalError(w, r, "begin", err)
+		return
+	}
+	defer tx.Rollback()
+
+	// The label is read BEFORE the merge, because one of the two rows is about to
+	// stop existing and the bin's row is what a reader reads to decide whether to
+	// undo it.
+	var keepName, dropName string
+	if err := tx.QueryRow(`SELECT name FROM people WHERE user_id = ? AND id = ?`, uid, req.KeepID).Scan(&keepName); err != nil {
+		writeErr(w, http.StatusNotFound, "not found")
+		return
+	}
+	if err := tx.QueryRow(`SELECT name FROM people WHERE user_id = ? AND id = ?`, uid, req.DropID).Scan(&dropName); err != nil {
+		writeErr(w, http.StatusNotFound, "not found")
+		return
+	}
+
+	// A REFUSAL AND A FAULT ARE DIFFERENT ANSWERS. "You cannot merge a record into
+	// itself" is something the reader can act on and is theirs to see; a database
+	// that failed is neither, and answering both with a 409 carrying err.Error()
+	// reported a broken database as a disagreement about identity and put the SQL
+	// in a toast. store.Refusal is which one the store is returning.
+	undo, err := store.MergePeople(tx, uid, req.KeepID, req.DropID, s.creditSeps(uid))
+	var refused *store.Refusal
+	switch {
+	case errors.As(err, &refused):
+		writeErr(w, http.StatusConflict, refused.Error())
+		return
+	case err != nil:
+		internalError(w, r, "merge people", err)
+		return
+	}
+	payload, err := json.Marshal(undo)
+	if err != nil {
+		internalError(w, r, "merge: write the undo", err)
+		return
+	}
+	res, err := tx.Exec(
+		`INSERT INTO trash (user_id, kind, label, child_count, payload, files)
+		 VALUES (?, 'person-merge', ?, ?, ?, '[]')`,
+		uid, dropName+" → "+keepName, len(undo.Credits), string(payload))
+	if err != nil {
+		internalError(w, r, "merge: park the undo", err)
+		return
+	}
+	trashID, err := res.LastInsertId()
+	if err != nil {
+		internalError(w, r, "merge: park the undo", err)
+		return
+	}
+	if err := tx.Commit(); err != nil {
+		internalError(w, r, "commit", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"ok": true, "id": req.KeepID, "trash_id": trashID, "works": len(undo.Credits),
+	})
+}
+
+// handleSplitAlias: POST /people/id/{id}/split {alias} — one spelling back into a
+// record of its own.
+//
+// IT DOES NOT MOVE THE WORKS, and the response says how many stayed so the client
+// can say so too. That is the pack's documented limit rather than a shortcut:
+// nothing in the schema remembers which work was credited to the record that got
+// folded in, and inventing an answer would be worse than saying there isn't one.
+func (s *Server) handleSplitAlias(w http.ResponseWriter, r *http.Request) {
+	uid, id, ok := s.identityTarget(w, r, "people")
+	if !ok {
+		return
+	}
+	var req struct {
+		Alias string `json:"alias"`
+	}
+	if !decodeBody(w, r, &req) {
+		return
+	}
+	tx, err := s.Store.DB.Begin()
+	if err != nil {
+		internalError(w, r, "begin", err)
+		return
+	}
+	defer tx.Rollback()
+	made, err := store.SplitPersonAlias(tx, uid, id, req.Alias)
+	var refused *store.Refusal
+	switch {
+	case errors.As(err, &refused):
+		writeErr(w, http.StatusConflict, refused.Error())
+		return
+	case err != nil:
+		internalError(w, r, "split alias", err)
+		return
+	}
+	if err := tx.Commit(); err != nil {
+		internalError(w, r, "commit", err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, map[string]any{"id": made})
 }

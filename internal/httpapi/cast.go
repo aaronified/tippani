@@ -461,6 +461,15 @@ func mergeProviderCast(tx *sql.Tx, uid int64, kind string, workID int64, source 
 			// there before — no worse, and not worth failing a refetch over.
 			if newID, ierr := res.LastInsertId(); ierr == nil {
 				seen[newID] = true
+				// A fetched list is the biggest single source of cast rows there is,
+				// so it is also the biggest source of characters — and a fetch that
+				// wrote none would leave the review list showing only what the
+				// upgrade found. The link is best-effort here for the same reason
+				// the id read above is: a refetch that already has the row should
+				// not fail over the record beside it.
+				if lerr := store.LinkCastRow(tx, uid, newID); lerr != nil {
+					olog.Warnf(olog.CodeCastRowScan, "[cast] link %s %d row %d: %v", kind, workID, newID, lerr)
+				}
 			}
 			continue
 		}

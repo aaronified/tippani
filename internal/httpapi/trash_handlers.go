@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"tippani/internal/olog"
+	"tippani/internal/store"
 )
 
 // The bin's endpoints: what is in it, putting one back, and throwing one away.
@@ -184,6 +185,33 @@ func (s *Server) handleRestoreTrash(w http.ResponseWriter, r *http.Request) {
 		return
 	case err != nil:
 		internalError(w, r, "restore: read entry", err)
+		return
+	}
+	// A MERGE IS NOT A SNAPSHOT, AND ITS ENTRY CANNOT TAKE THIS PATH. Everything
+	// below re-INSERTS rows into their tables; a merge deletes almost nothing, it
+	// re-points — so the keys are still occupied and the first insert would collide.
+	// Its payload is a reversal (store.MergeUndo), applied by targeted updates, and
+	// it is read before the snapshot decode because it would not decode as one.
+	if kind == "person-merge" {
+		if err := s.undoPersonMerge(tx, uid, payload); err != nil {
+			olog.Warnf(olog.CodeTrashRestore, "[trash] undoing merge %d for user %d failed: %v", id, uid, err)
+			internalError(w, r, "restore", err)
+			return
+		}
+		res, err := tx.Exec(`DELETE FROM trash WHERE id = ? AND user_id = ?`, id, uid)
+		if err != nil {
+			internalError(w, r, "restore: clear entry", err)
+			return
+		}
+		if n, _ := res.RowsAffected(); n == 0 {
+			writeErr(w, http.StatusNotFound, "not in the bin")
+			return
+		}
+		if err := tx.Commit(); err != nil {
+			internalError(w, r, "restore: commit", err)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "kind": kind})
 		return
 	}
 	var snap snapshot
@@ -515,4 +543,18 @@ func (s *Server) handleEmptyTrash(w http.ResponseWriter, r *http.Request) {
 	n, _ := res.RowsAffected()
 	s.removeParked(parked)
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "removed": n})
+}
+
+// undoPersonMerge applies a parked merge reversal.
+//
+// A SEPARATE FUNCTION SO THE PAYLOAD IS DECODED IN ONE PLACE, and so the shape it
+// decodes into is store.MergeUndo rather than the generic snapshot every other bin
+// entry carries. A payload that will not decode is a corrupt entry, and the reader
+// gets a failure rather than a partial reversal.
+func (s *Server) undoPersonMerge(tx *sql.Tx, uid int64, payload string) error {
+	var u store.MergeUndo
+	if err := json.Unmarshal([]byte(payload), &u); err != nil {
+		return fmt.Errorf("undo merge: unreadable entry: %w", err)
+	}
+	return store.UndoPersonMerge(tx, uid, &u, s.creditSeps(uid))
 }

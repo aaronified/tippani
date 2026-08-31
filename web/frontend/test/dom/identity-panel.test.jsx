@@ -13,6 +13,8 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 let PERSON
 let CHARACTER
 let CALLS
+let HITS
+let MERGED
 
 vi.mock('../../src/api.js', async (orig) => ({
   ...(await orig()),
@@ -25,6 +27,11 @@ vi.mock('../../src/api.js', async (orig) => ({
       // be in the record the reload returns rather than pushed in locally.
       CHARACTER = { ...CHARACTER, aliases: [...CHARACTER.aliases, body.alias].sort() }
       PERSON = { ...PERSON, aliases: [...PERSON.aliases, body.alias].sort() }
+      return { ok: true, data: {} }
+    }
+    if (method === 'GET' && path.startsWith('/people/search')) return { ok: true, data: { people: HITS } }
+    if (method === 'POST' && path === '/people/merge') {
+      MERGED = body
       return { ok: true, data: {} }
     }
     if (method === 'DELETE' && path.includes('/aliases')) {
@@ -45,6 +52,8 @@ const body = (panel) => panel.render()
 
 beforeEach(() => {
   CALLS = []
+  HITS = [{ id: 9, name: 'Orson Welles Jr', works: 2 }]
+  MERGED = null
   PERSON = {
     id: 7,
     name: 'Mikhail Bulgakov',
@@ -170,5 +179,50 @@ describe('the two records reach each other', () => {
     await screen.findByText('Woland')
     act(() => screen.getByText('Woland').click())
     expect(stack.push).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('merging two records into one', () => {
+  // THE COPY IS THE FEATURE HERE, exactly as with the scopes above. Merge is the
+  // one act in this model that destroys a record, and what a reader needs before
+  // they press it is not "are you sure" but the three facts the dialog carries:
+  // the other record goes, its works come here, and no cover changes.
+  it('asks first, and the confirm says what will happen', async () => {
+    const stack = { push: vi.fn(), open: vi.fn() }
+    render(body(personPanel(stack, { id: 7, name: 'Mikhail Bulgakov' })))
+    await screen.findByText('across the library')
+
+    fireEvent.change(screen.getByPlaceholderText('find the other record…'), { target: { value: 'Welles' } })
+    const hit = await screen.findByText('Orson Welles Jr')
+    // A NAME ALONE CANNOT TELL TWO RECORDS APART, which is the case this control
+    // exists to resolve, so each hit says how much hangs off it.
+    expect(screen.getByText('2 works')).toBeTruthy()
+
+    act(() => hit.click())
+    await screen.findByText(/stops being a record/)
+    expect(screen.getByText(/No cover changes/)).toBeTruthy()
+    expect(screen.getByText(/bin holds the way back/)).toBeTruthy()
+    // Nothing has been written yet — the dialog is a question, not a receipt.
+    expect(MERGED).toBeNull()
+
+    act(() => screen.getByText('Merge them').closest('button').click())
+    await waitFor(() => expect(MERGED).toEqual({ keep_id: 7, drop_id: 9 }))
+  })
+
+  it('never offers this record as its own merge target', async () => {
+    HITS = [
+      { id: 7, name: 'Mikhail Bulgakov', works: 2 },
+      { id: 9, name: 'M. Bulgakov', works: 1 },
+    ]
+    const stack = { push: vi.fn(), open: vi.fn() }
+    render(body(personPanel(stack, { id: 7, name: 'Mikhail Bulgakov' })))
+    await screen.findByText('across the library')
+
+    fireEvent.change(screen.getByPlaceholderText('find the other record…'), { target: { value: 'Bulgakov' } })
+    await screen.findByText('M. Bulgakov')
+    // Merging a record into itself is refused by the server, so a row for it here
+    // would be a control whose only possible outcome is an error.
+    expect(screen.queryByText('1 work')).toBeTruthy()
+    expect(screen.queryAllByText('Mikhail Bulgakov')).toHaveLength(0)
   })
 })

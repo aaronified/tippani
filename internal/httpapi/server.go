@@ -257,6 +257,12 @@ func (s *Server) Handler() http.Handler {
 	// "On this work only" — the narrowest write in the identity model, and its own
 	// endpoint so it can never be confused with renaming the record.
 	mux.Handle("PUT /credits", s.requireAuth(s.handleCreditAs))
+	// Merge and its two neighbours: the picker that feeds it, and the way back out
+	// of one. Merge is the only destructive act in the identity model and the only
+	// one that parks an undo in the bin.
+	mux.Handle("GET /people/search", s.requireAuth(s.handleSearchPeople))
+	mux.Handle("POST /people/merge", s.requireAuth(s.handleMergePeople))
+	mux.Handle("POST /people/id/{id}/split", s.requireAuth(s.handleSplitAlias))
 
 	// Books + annotations (PLAN §3, §5a, §6).
 	// One route for three pickers — a book's cover, a film's poster, a person's

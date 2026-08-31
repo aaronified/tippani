@@ -39,6 +39,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   because you said so, never because two strings matched, which is the difference
   between a library that knows who somebody is and one that has guessed.
 
+- **Two records for one person can be folded into one, and put back.** Say which one
+  survives; everything the other was credited on moves across, and its spelling becomes a
+  name that *finds* the record it joined — so the next import does not make it again.
+  **No cover changes**: every work goes on printing exactly the name it prints today, and
+  the bin holds the way back for as long as it holds anything else.
+
+- **And a spelling can be pulled back out** into a record of its own, when the merge was
+  wrong or when one name really was two people. It moves no works: the app does not know
+  which of them belonged to whom, and guessing would file somebody's books under an author
+  who never wrote them. The spelling stops finding the old record and starts finding the
+  new one; the works are yours to move.
+
+- **Adding somebody to a cast now creates the records, not just the names.** A character
+  you type onto a film, one a fetch brings back, or one lifted off a line you saved — each
+  one becomes a record you can open, spell another way, and merge. Before this, only the
+  one-time upgrade ever made them, so a character added after it existed nowhere and no
+  quote could point at it. A character belongs to its work rather than to the library, so
+  a Narrator on a fortieth book is a fortieth record: two of them are visible and can be
+  joined, whereas one shared Narrator would have hidden thirty-nine people.
+
 - **A ⋯ in the top bar, on every screen, holding everything that screen can do.** It
   lists the whole set rather than the leftovers — which view you are in, which sort is
   running, what the filters are, and the verbs — so there is one place to look on every
