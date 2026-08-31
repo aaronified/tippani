@@ -215,3 +215,60 @@ describe('press-and-drag', () => {
     expect(el.scrollLeft).toBe(200)
   })
 })
+
+// POINTER CAPTURE IS A DRAG'S TOOL, AND IT IS TAKEN WHEN THE DRAG STARTS.
+//
+// WHAT WENT WRONG. The hook used to capture on pointerdown — the obvious place,
+// and the reason the move/up listeners can sit on the scroller instead of on the
+// document. But pointer capture retargets the CLICK as well: Gecko dispatches it
+// at the capturing element rather than at the button under the finger, so React,
+// which reads the native event's path, never saw the button and never ran its
+// handler. Every clickable thing inside every scroller in the app was dead — the
+// rail's nine destinations, the annotation tables' rows, the Stats calendar, the
+// cast strip — and the two rail rows that sit OUTSIDE the scrolling <nav> still
+// worked, which is how it was found.
+//
+// jsdom implements neither pointer capture nor the retargeting, so it cannot
+// reproduce the symptom. What it CAN pin is the cause, which is the only part
+// this file could have got wrong: capture must not be taken by a press alone.
+describe('pointer capture', () => {
+  function spy(el) {
+    const taken = []
+    el.setPointerCapture = (id) => taken.push(id)
+    el.releasePointerCapture = () => {}
+    return taken
+  }
+  function press(el, x = 100, y = 0) {
+    const e = new Event('pointerdown', { bubbles: true })
+    Object.assign(e, { pointerId: 1, pointerType: 'mouse', button: 0, clientX: x, clientY: y })
+    act(() => el.dispatchEvent(e))
+  }
+  function drift(el, x, y = 0) {
+    const e = new Event('pointermove', { bubbles: true, cancelable: true })
+    Object.assign(e, { pointerId: 1, clientX: x, clientY: y })
+    act(() => el.dispatchEvent(e))
+  }
+
+  it('is not taken by a press, because a press that never moves is a click', () => {
+    const { container } = render(<Scroller>long</Scroller>)
+    const el = container.firstChild
+    const taken = spy(el)
+    measure(el, { pos: 200, size: 100, full: 400 })
+    press(el)
+    expect(taken).toEqual([])
+    drift(el, 98) // 2px — still under the slop, still a click
+    expect(taken).toEqual([])
+  })
+
+  it('is taken once the drag starts, so a drag that leaves the row still lands here', () => {
+    const { container } = render(<Scroller>long</Scroller>)
+    const el = container.firstChild
+    const taken = spy(el)
+    measure(el, { pos: 200, size: 100, full: 400 })
+    press(el)
+    drift(el, 40)
+    expect(taken).toEqual([1])
+    drift(el, 20) // and only once
+    expect(taken).toEqual([1])
+  })
+})

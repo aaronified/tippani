@@ -467,6 +467,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The rail's destinations open again, and so does everything else you could click
+  inside a scrolling row.** Library, Catalogue, Quotes, Tags, Metadata, Stats and
+  Settings had stopped answering a click since the rail landed — only Checks, the bin
+  and your own name still worked, because those three sit outside the part of the rail
+  that scrolls. The same fault reached further than the rail: the rows of every
+  annotation table, the days on the Stats calendar and the cast strip on a film were all
+  inside a scrolling row too, and all of them had gone quiet. Rows that scroll can be
+  dragged with a plain mouse, and the app was claiming the pointer the moment you
+  pressed rather than once you actually dragged — which quietly handed it the click as
+  well. It now waits until you have moved.
+
 - **Correcting a field by hand now records that you did it.** Until now an edit changed the
   value and left the old supplier's name against it, so a page count you had fixed
   yourself went on claiming Google Books wrote it — and the next refetch treated it as

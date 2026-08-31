@@ -461,6 +461,22 @@ export function useEdgeScroll(ref, { axis = "x", drag = true } = {}) {
   // retargets every later move and the release to this element, so a drag that
   // leaves the row still lands here — which is how the prototype's delegated
   // document listener is avoided. Nothing in the app listens at rest.
+  //
+  // AND THE CAPTURE IS TAKEN ON THE FIRST MOVE PAST THE SLOP, NEVER ON THE PRESS.
+  // This is not a refinement; capturing on pointerdown silently killed every
+  // click inside every scroller in the app. Pointer capture retargets the CLICK
+  // too — Gecko dispatches it at the capturing element rather than at the button
+  // under the finger — so React, which reads the native event's path, never saw
+  // the button and never ran its handler. Measured, not reasoned: a press on a
+  // <button> inside a capturing div reports `click target=nav`, and the button's
+  // own listener does not run. It took out the rail's nine destinations, every
+  // annotation table's rows, the Stats activity calendar and the cast strip,
+  // while the two rail rows OUTSIDE the scrolling <nav> kept working — which is
+  // the shape of the bug report that found it.
+  //
+  // Deferring the capture costs nothing: until the pointer has moved 3px there is
+  // no drag to keep hold of, and a press that never moves is a click, which is
+  // now left alone to be one.
   useEffect(() => {
     const el = ref.current;
     if (!el || !drag) return;
@@ -472,6 +488,7 @@ export function useEdgeScroll(ref, { axis = "x", drag = true } = {}) {
     let fromLeft = 0;
     let fromTop = 0;
     let moved = false;
+    let held = false; // whether this element actually holds the pointer capture
 
     const onDown = (e) => {
       // Touch scrolls natively, with momentum this cannot reproduce; taking the
@@ -486,7 +503,7 @@ export function useEdgeScroll(ref, { axis = "x", drag = true } = {}) {
       fromLeft = el.scrollLeft;
       fromTop = el.scrollTop;
       moved = false;
-      el.setPointerCapture?.(e.pointerId);
+      held = false;
     };
 
     const onMove = (e) => {
@@ -494,7 +511,13 @@ export function useEdgeScroll(ref, { axis = "x", drag = true } = {}) {
       const dx = e.clientX - originX;
       const dy = e.clientY - originY;
       if (!moved && Math.hypot(dx, dy) < DRAG_SLOP) return;
-      if (!moved) el.setAttribute("data-dragging", "1");
+      if (!moved) {
+        el.setAttribute("data-dragging", "1");
+        // NOW it is a drag, so now the capture is worth its cost: from here the
+        // pointer may leave the row and the release still has to land here.
+        el.setPointerCapture?.(e.pointerId);
+        held = true;
+      }
       moved = true;
       if (wantX) el.scrollLeft = fromLeft - dx;
       if (wantV) el.scrollTop = fromTop - dy;
@@ -504,7 +527,8 @@ export function useEdgeScroll(ref, { axis = "x", drag = true } = {}) {
     const onUp = (e) => {
       if (e.pointerId !== id) return;
       id = null;
-      el.releasePointerCapture?.(e.pointerId);
+      if (held) el.releasePointerCapture?.(e.pointerId);
+      held = false;
       el.removeAttribute("data-dragging");
       // The click that follows this release belongs to the drag, not to whatever
       // sits under the finger at the end of it. Dragging a row of covers must
