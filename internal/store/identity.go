@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+
+	"tippani/internal/metadata"
 )
 
 // Identity: the reads and writes that treat a person or a character as a RECORD
@@ -325,6 +327,55 @@ func castRows(db Queryer, q string, args ...any) ([]CastOf, error) {
 		out = append(out, c)
 	}
 	return out, rows.Err()
+}
+
+// ---- how a name prints on ONE work ------------------------------------------
+
+// SetCreditAs changes the spelling a single work prints for one person, and
+// re-derives that work's cached column.
+//
+// THIS IS THE PANEL'S FIRST SCOPE, and the narrowest write in the whole identity
+// model: "on this work only". The design pack is emphatic about why the sentence
+// under the field matters — without it a reader will believe they have just
+// renamed the author on thirty-one other books — and this function is what makes
+// the sentence true. Changing the RECORD's name is a different call in a different
+// section, and it propagates.
+//
+// AN EMPTY STRING IS THE CLEAR, meaning "print the person's own name", which is
+// what credit_as has meant since 0056. It is not a missing value.
+//
+// THE LINK IS ADDRESSED BY ITS NATURAL KEY, because work_person is WITHOUT ROWID
+// and has no surrogate id: (kind, work_id, role) plus the person is what one
+// credit IS. Where somebody is credited twice on one work in one role — which the
+// ordering column allows and a reissue occasionally produces — both rows take the
+// spelling, because the reader picked a person on a work and meant all of them.
+func SetCreditAs(tx *sql.Tx, uid int64, kind string, workID int64, role CreditRole, personID int64, creditAs string, seps metadata.CreditSeps) error {
+	creditAs = strings.TrimSpace(creditAs)
+	// A credit_as identical to the record's own name is stored as empty, so the row
+	// does not claim a deliberate re-crediting that says nothing. Same rule
+	// SetCredits applies when it writes the link in the first place; stating it in
+	// both places is cheaper than one of them drifting.
+	var canonical string
+	switch err := tx.QueryRow(`SELECT name FROM people WHERE user_id = ? AND id = ?`, uid, personID).Scan(&canonical); {
+	case err == sql.ErrNoRows:
+		return fmt.Errorf("credit: no such person")
+	case err != nil:
+		return err
+	}
+	if creditAs == canonical {
+		creditAs = ""
+	}
+	res, err := tx.Exec(
+		`UPDATE work_person SET credit_as = ?
+		  WHERE user_id = ? AND kind = ? AND work_id = ? AND role = ? AND person_id = ?`,
+		creditAs, uid, kind, workID, string(role), personID)
+	if err != nil {
+		return fmt.Errorf("set credit_as: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return fmt.Errorf("credit: not found on this work")
+	}
+	return RecomposeCredit(tx, uid, kind, workID, role, seps)
 }
 
 // ---- linking a performer to a role -----------------------------------------

@@ -25,6 +25,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   glyphs and drops its words; on a phone it stays behind ☰, because nine destinations
   pinned beside a 390px screen would leave 320px of book.
 
+- **The person panel says which of three things you are changing.** How this one book
+  prints a name; what the record is called everywhere; or which other spellings should
+  find it. Each section says so above its own fields, because those are very different
+  acts and the app has no way to ask which one you meant — changing "Mikhail Bulgakov"
+  to "M. Bulgakov" on one cover is not the same as deciding that is their name.
+
 - **A person and a character can now be opened as a record.** Every work they are on,
   every other spelling that finds them, the dates, a note of your own, and — for a
   performer — every character they have been linked to, with the work each pairing

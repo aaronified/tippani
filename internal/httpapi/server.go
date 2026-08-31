@@ -254,6 +254,9 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("DELETE /characters/{id}/aliases", s.requireAuth(s.handleCharacterAliasDelete))
 	// The pairing itself: who a role is, and who played it. Never automatic.
 	mux.Handle("PUT /cast/{id}/link", s.requireAuth(s.handleCastLink))
+	// "On this work only" — the narrowest write in the identity model, and its own
+	// endpoint so it can never be confused with renaming the record.
+	mux.Handle("PUT /credits", s.requireAuth(s.handleCreditAs))
 
 	// Books + annotations (PLAN §3, §5a, §6).
 	// One route for three pickers — a book's cover, a film's poster, a person's

@@ -486,6 +486,55 @@ func (s *Server) handleDeleteCharacter(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// ---- how a name prints on one work -----------------------------------------
+
+// handleCreditAs: PUT /credits {kind, work_id, role, person_id, credit_as}.
+//
+// THE PANEL'S FIRST SCOPE — "on this work only" — and the endpoint is separate
+// from the record update for exactly the reason the field's sub-line exists: these
+// are two different acts with two different blast radii, and a single handler
+// taking both would be one request away from renaming an author on every book
+// they wrote.
+//
+// The work is addressed by its natural key rather than by a link id, because
+// work_person is WITHOUT ROWID and has none — (kind, work_id, role, person_id) is
+// what one credit is.
+func (s *Server) handleCreditAs(w http.ResponseWriter, r *http.Request) {
+	uid := userID(r)
+	var req struct {
+		Kind     string `json:"kind"`
+		WorkID   int64  `json:"work_id"`
+		Role     string `json:"role"`
+		PersonID int64  `json:"person_id"`
+		CreditAs string `json:"credit_as"`
+	}
+	if !decodeBody(w, r, &req) {
+		return
+	}
+	if req.Kind != "book" && req.Kind != "movie" {
+		writeErr(w, http.StatusBadRequest, "kind must be book or movie")
+		return
+	}
+	tx, err := s.Store.DB.Begin()
+	if err != nil {
+		internalError(w, r, "begin", err)
+		return
+	}
+	defer tx.Rollback()
+	if err := store.SetCreditAs(tx, uid, req.Kind, req.WorkID, store.CreditRole(req.Role),
+		req.PersonID, req.CreditAs, s.creditSeps(uid)); err != nil {
+		// Not found covers both "no such credit" and "not yours" — the same rule the
+		// rest of this file follows, and the reason they are indistinguishable.
+		writeErr(w, http.StatusNotFound, err.Error())
+		return
+	}
+	if err := tx.Commit(); err != nil {
+		internalError(w, r, "commit", err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 // ---- the cast pairing ------------------------------------------------------
 
 // handleCastLink: PUT /cast/{id}/link {person_id, character_id} — say who a role

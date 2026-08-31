@@ -4561,10 +4561,6 @@ metadata.characters.title = Characters
 metadata.characters.info.body = Every character as a record of its own — the same one across a novel and its adaptation, with a different picture in each. A name appearing twice is something to look at: nothing here was merged by guessing.
 metadata.characters.column.works = works
 metadata.characters.column.sort = sorts as
-metadata.characters.field.description = Description
-metadata.characters.field.note = Your note
-metadata.characters.edit.title = {name}
-metadata.characters.edit.scope = This is the character across every work. A picture or a description for one particular work belongs to that work's cast row, not here.
 metadata.characters.empty = No characters yet. They arrive with a film's cast, or you can add one on a work.
 metadata.characters.compact.one = {n} character, {unpaired} in no work
 metadata.characters.compact.other = {n} characters, {unpaired} in no work
@@ -6104,3 +6100,62 @@ quotes.form.recipient.placeholder = who it was written to
 quotes.form.work-title.placeholder = the essay or article it is from
 quotes.form.locator.placeholder = page, section, line
 quotes.form.circa.label = The date is approximate
+
+# ---------------------------------------------------------------------------
+# identity.* — the person panel and the character page (0056). THE THREE SCOPES
+# ARE THE SCHEMA, and each section's second line is what stops a reader
+# believing they renamed an author on thirty-one other books. Those lines are
+# not decoration and must not be trimmed to fit.
+# ---------------------------------------------------------------------------
+identity.person.title = Person
+identity.character.title = Character
+identity.person.saved = Saved to the record
+identity.character.saved = Saved to the record
+identity.credit.saved = Saved on {title}
+
+# Scope 1: the credit link, and nothing else.
+identity.scope.work.title = on this work
+identity.scope.work.body = Changes here touch {title} and no other work.
+identity.scope.work.role = Credited as the {role}.
+identity.credit.as.label = Printed on this work as
+identity.credit.as.hint = Leave it empty to print {name}, the name on the record.
+identity.credit.as.on = as {as}
+
+# Scope 2: what the record is in, and what finds it.
+identity.scope.library.title = across the library
+identity.scope.library.body = Everything this person is on, and every spelling that finds them.
+identity.scope.library.character = Every work this character appears in, and every spelling that finds them.
+identity.person.credits.title.one = credited on {n} work
+identity.person.credits.title.other = credited on {n} works
+identity.person.credits.empty = Not credited on anything yet.
+identity.person.roles.title.one = played {n} character
+identity.person.roles.title.other = played {n} characters
+identity.character.appearances.title.one = in {n} work
+identity.character.appearances.title.other = in {n} works
+identity.character.appearances.empty = In no work yet. It appears once a work's cast points at it.
+
+# Aliases.
+identity.links.title = links out
+identity.alias.title = also spelled
+identity.alias.body = A credit typed any of these ways lands on this record instead of making a second one. Nothing here is ever printed.
+identity.alias.none = No other spellings.
+identity.alias.add.label = Add
+identity.alias.add.placeholder = another spelling…
+identity.alias.remove.aria = Remove the spelling {alias}
+
+# Scope 3: the record itself.
+identity.scope.record.title = the record
+identity.scope.record.person = A change here reaches every work this person is on.
+identity.scope.record.character = A change here reaches every work this character is in. A picture or a description for one particular work belongs to that work's cast row.
+identity.field.sort = Sorts as
+identity.field.born = Born
+identity.field.died = Died
+identity.field.note = Your note
+identity.field.description = Description
+
+# The four credited roles, as words. Not unit.*, which is a counted-noun
+# namespace and would have to grow a plural nobody prints.
+unit.role.author = author
+unit.role.translator = translator
+unit.role.editor = editor
+unit.role.director = director

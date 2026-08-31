@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { json, errText } from './api.js'
 import { t, tNodes } from './i18n.js'
 import { BookLookupPicker, MovieLookupPicker } from './CoverPicker.jsx'
 import { EditBook } from './Library.jsx'
 import { EditMovie } from './Movies.jsx'
-import { BulkBar, EmptyState, ErrorText, FieldIconButton, FormModal, GhostButton, HandCard, IconButton, IconCheck, IconDelete, IconEdit, IconMerge, IconMetadata, IconMore, IconOpen, IconRefresh, IconSearch, IconUsers, InfoDot, MonoLabel, NameInput, normName, PageHeader, ProgressBar, Scroller, splitCommas, Tooltip, useIsMobileScreen, useScreenBar } from './ui.jsx'
+import { BulkBar, EmptyState, ErrorText, FieldIconButton, GhostButton, HandCard, IconButton, IconCheck, IconDelete, IconEdit, IconMerge, IconMetadata, IconMore, IconOpen, IconRefresh, IconSearch, IconUsers, InfoDot, MonoLabel, NameInput, normName, PageHeader, ProgressBar, Scroller, splitCommas, Tooltip, PanelHost, usePanelStack, useIsMobileScreen, useScreenBar } from './ui.jsx'
 import { PersonModal, PersonName, ProviderChips, mergeLinks, parseCreditSeps, parseLinks, splitCredits } from './people.jsx'
+import { characterPanel } from './identity.jsx'
 import { ReverifyFlow } from './ReverifyReview.jsx'
 import { editDistance } from './text.js'
 
@@ -1298,7 +1299,12 @@ export function CharactersConsole({ compact = false }) {
   const [rows, setRows] = useState(null)
   const [q, setQ] = useState('')
   const [err, setErr] = useState('')
-  const [editing, setEditing] = useState(null) // the row open for edit, or null
+  // THE PANEL, NOT A FORM OF THIS SCREEN'S OWN. A character record is the same
+  // thing whether you reach it from here or from a work's cast, and the app now
+  // has one surface for a record — the three scopes, the aliases, and the
+  // performer on each appearance. A second edit form here would have been the
+  // second place those distinctions are drawn, and the first place they drift.
+  const stack = usePanelStack()
 
   async function load() {
     const r = await json('GET', '/characters')
@@ -1369,7 +1375,7 @@ export function CharactersConsole({ compact = false }) {
                       <FieldIconButton
                         icon={<IconEdit />}
                         ariaLabel={t('common.action.edit.label')}
-                        onClick={() => setEditing(c)}
+                        onClick={() => stack.open(characterPanel(stack, { id: c.id, name: c.name }))}
                       />
                     </Tooltip>
                   </td>
@@ -1379,85 +1385,28 @@ export function CharactersConsole({ compact = false }) {
           </table>
         </Scroller>
       )}
-      {editing && (
-        <CharacterEdit
-          row={editing}
-          onClose={() => setEditing(null)}
-          onSaved={() => {
-            setEditing(null)
-            load()
-          }}
-        />
-      )}
+      {/* The counts on this list follow whatever the panel changed, so it reloads
+          when the stack empties rather than on every save inside it. */}
+      <PanelHost stack={stack} />
+      <PanelReload stack={stack} onEmpty={load} />
     </section>
   )
 }
 
-// CharacterEdit — the record's own fields, in the shell every edit form uses.
+// PanelReload — reload the list when the panel stack empties.
 //
-// SEPARATE FROM A WORK'S CAST ROW, and the copy says so: what is edited here is
-// the character across every work, and a per-work picture or description is the
-// cast row's own. The user's ruling was that the distinction has to be "visible
-// and obvious to keep confusion away", and a form that did not say which of the
-// two it was writing would be the exact confusion they meant.
-function CharacterEdit({ row, onClose, onSaved }) {
-  const [name, setName] = useState(row.name)
-  const [sortName, setSortName] = useState(row.sort_name || '')
-  const [description, setDescription] = useState(row.description || '')
-  const [note, setNote] = useState(row.note || '')
-  const [err, setErr] = useState('')
-  const [busy, setBusy] = useState(false)
-
-  async function save() {
-    setBusy(true)
-    const r = await json('PUT', `/characters/${row.id}`, {
-      name,
-      sort_name: sortName,
-      description,
-      note,
-    })
-    setBusy(false)
-    if (!r.ok) return setErr(errText(r))
-    onSaved()
-  }
-
-  return (
-    <FormModal open title={t('metadata.characters.edit.title', { name: row.name })} onClose={onClose}>
-      {/* --row, not a typed step: the spacing constant this app declares, which is
-          what the rule asks for and what spacing-debt.test.js counts down. */}
-      <div style={{ display: 'grid', gap: 'calc(var(--row) * 1.2)' }}>
-        <p className="microcopy" style={{ color: 'var(--soft)' }}>
-          {t('metadata.characters.edit.scope')}
-        </p>
-        {/* The house pattern for a labelled field — a margin on the label rather
-            than a stack around the pair. Four stacks here would have been four more
-            hand-typed steps against a ratchet that only falls. */}
-        <label className="block">
-          <MonoLabel className="mb-1.5 block">{t('common.field.name.label')}</MonoLabel>
-          <input className="tp-input" value={name} onChange={(e) => setName(e.target.value)} />
-        </label>
-        <label className="block">
-          <MonoLabel className="mb-1.5 block">{t('metadata.characters.column.sort')}</MonoLabel>
-          <input className="tp-input" value={sortName} onChange={(e) => setSortName(e.target.value)} />
-        </label>
-        <label className="block">
-          <MonoLabel className="mb-1.5 block">{t('metadata.characters.field.description')}</MonoLabel>
-          <textarea className="tp-input" rows={3} value={description} onChange={(e) => setDescription(e.target.value)} />
-        </label>
-        <label className="block">
-          <MonoLabel className="mb-1.5 block">{t('metadata.characters.field.note')}</MonoLabel>
-          <textarea className="tp-input" rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
-        </label>
-        <ErrorText>{err}</ErrorText>
-        <div className="flex justify-end gap-2">
-          <GhostButton onClick={onClose}>{t('common.action.cancel.label')}</GhostButton>
-          <GhostButton className="tp-btn-primary" disabled={busy || !name.trim()} onClick={save}>
-            {t('common.action.save.label')}
-          </GhostButton>
-        </div>
-      </div>
-    </FormModal>
-  )
+// A COMPONENT RATHER THAN AN EFFECT IN THE CONSOLE, so the dependency is the
+// stack's depth and nothing else. Reloading on every save inside the panel would
+// re-sort the table under a reader who is still editing; reloading when they come
+// back out is when the list is next looked at.
+function PanelReload({ stack, onEmpty }) {
+  const depth = stack.stack.length
+  const was = useRef(0)
+  useEffect(() => {
+    if (was.current > 0 && depth === 0) onEmpty()
+    was.current = depth
+  }, [depth, onEmpty])
+  return null
 }
 
 // ---- people console ----

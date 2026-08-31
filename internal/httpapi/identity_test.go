@@ -392,3 +392,105 @@ func TestDeletingACharacterLeavesEveryWorksCastStanding(t *testing.T) {
 		t.Fatalf("the pairing survived the delete: %v", charID)
 	}
 }
+
+// "ON THIS WORK ONLY" HAS TO BE TRUE, because it is a sentence the panel prints
+// under the field. A reader changing how one book credits an author must not
+// discover afterwards that they renamed them on the other thirty.
+func TestChangingHowOneWorkCreditsSomebodyLeavesTheOthersAlone(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+	a := decode[bookDetail](t, c.mustDo("POST", "/books",
+		map[string]any{"title": "The Master and Margarita", "author": "Mikhail Bulgakov"}, http.StatusCreated))
+	b := decode[bookDetail](t, c.mustDo("POST", "/books",
+		map[string]any{"title": "The White Guard", "author": "Mikhail Bulgakov"}, http.StatusCreated))
+	id := personIDFor(t, srv, 1, "Mikhail Bulgakov")
+
+	c.mustDo("PUT", "/credits", map[string]any{
+		"kind": "book", "work_id": a.ID, "role": "author", "person_id": id, "credit_as": "M. Bulgakov",
+	}, http.StatusNoContent)
+
+	first := decode[bookDetail](t, c.mustDo("GET", "/books/"+itoa(a.ID), nil, http.StatusOK))
+	second := decode[bookDetail](t, c.mustDo("GET", "/books/"+itoa(b.ID), nil, http.StatusOK))
+	if first.Author != "M. Bulgakov" {
+		t.Fatalf("this work prints %q", first.Author)
+	}
+	if second.Author != "Mikhail Bulgakov" {
+		t.Fatalf("the OTHER work changed too: %q", second.Author)
+	}
+	// And the record itself is untouched — which is the half a reader cannot see
+	// from the shelf and would only discover on the person's page.
+	got := decode[personDetailResp](t, c.mustDo("GET", "/people/id/"+itoa(id), nil, http.StatusOK))
+	if got.Name != "Mikhail Bulgakov" {
+		t.Fatalf("the record was renamed: %q", got.Name)
+	}
+	creditsMustAgree(t, srv, 1)
+}
+
+// AN EMPTY STRING IS THE CLEAR, and so is the record's own name: neither should
+// leave a row claiming a deliberate re-crediting that says nothing.
+func TestClearingTheWorksOwnSpellingFallsBackToTheRecord(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+	b := decode[bookDetail](t, c.mustDo("POST", "/books",
+		map[string]any{"title": "Solaris", "author": "Stanisław Lem"}, http.StatusCreated))
+	id := personIDFor(t, srv, 1, "Stanisław Lem")
+
+	set := func(as string) {
+		t.Helper()
+		c.mustDo("PUT", "/credits", map[string]any{
+			"kind": "book", "work_id": b.ID, "role": "author", "person_id": id, "credit_as": as,
+		}, http.StatusNoContent)
+	}
+	creditAs := func() string {
+		t.Helper()
+		var v string
+		if err := srv.Store.DB.QueryRow(
+			`SELECT credit_as FROM work_person WHERE kind='book' AND work_id=? AND role='author'`, b.ID).Scan(&v); err != nil {
+			t.Fatal(err)
+		}
+		return v
+	}
+
+	set("S. Lem")
+	if creditAs() != "S. Lem" {
+		t.Fatalf("credit_as %q", creditAs())
+	}
+	set("")
+	if creditAs() != "" {
+		t.Fatalf("the clear left %q", creditAs())
+	}
+	// Typing the record's own name is the same as clearing it: the row would
+	// otherwise read as a deliberate re-crediting to the spelling already in use.
+	set("Stanisław Lem")
+	if creditAs() != "" {
+		t.Fatalf("the record's own name was stored as a re-crediting: %q", creditAs())
+	}
+	after := decode[bookDetail](t, c.mustDo("GET", "/books/"+itoa(b.ID), nil, http.StatusOK))
+	if after.Author != "Stanisław Lem" {
+		t.Fatalf("the book prints %q", after.Author)
+	}
+	creditsMustAgree(t, srv, 1)
+}
+
+// Another account's work is a 404, like every other id-keyed route here — and the
+// credit is addressed by a composite key, which is more integers to guess with.
+func TestChangingACreditNeedsToOwnTheWork(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	alice := signupAdmin(t, h)
+	bob := addUser(t, h, alice, "bob")
+	b := decode[bookDetail](t, alice.mustDo("POST", "/books",
+		map[string]any{"title": "Solaris", "author": "Stanisław Lem"}, http.StatusCreated))
+	id := personIDFor(t, srv, 1, "Stanisław Lem")
+
+	bob.mustDo("PUT", "/credits", map[string]any{
+		"kind": "book", "work_id": b.ID, "role": "author", "person_id": id, "credit_as": "mine",
+	}, http.StatusNotFound)
+
+	after := decode[bookDetail](t, alice.mustDo("GET", "/books/"+itoa(b.ID), nil, http.StatusOK))
+	if after.Author != "Stanisław Lem" {
+		t.Fatalf("bob got through: %q", after.Author)
+	}
+}
