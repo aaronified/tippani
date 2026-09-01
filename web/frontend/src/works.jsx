@@ -39,8 +39,6 @@ import {
   StateTag,
   StatusBar,
   useCrumb,
-  useTwoColumn,
-  useIsMobileScreen,
   useScreenBar,
   ReadingBadge,
   Toggle,
@@ -812,8 +810,9 @@ export function ShelfControl({ kind, item = {}, status, progress = 0, pos, reads
           ×N counter, which on a phone put a 168px-wide bar in the middle of a
           wrapping row of chips: the row broke around it and the state, the track
           and the counter came out on three lines in no particular order. Chips
-          first, then the track — and `.shelf-track` takes the whole line on a
-          narrow screen, so the order is the same every time. */}
+          first, then the track — and `.work-hero-state .shelf-track` takes the
+          whole line UNCONDITIONALLY, because the header is narrow in a 300px
+          column as well as on a phone, so the order is the same every time. */}
       {(status === active || status === 'paused') && (
         <span className="shelf-track">
           <ShelfProgress kind={kind} status={status} progress={progress} pos={pos} />
@@ -1493,162 +1492,6 @@ export function HeroCounts({ counts, noun, tone = 'accent' }) {
   )
 }
 
-// WorkHero — the desktop detail hero shared by books and films: cover/poster
-// column (drop-shadowed), an info column (title · meta slot · counts · favourite
-// hearts · genre chips · description), and an actions column. Returns the three
-// columns as a fragment so the caller owns the flex container (a plain div for
-// books, a Reveal for films). Divergent bits are slots: `cover` (Cover vs
-// Poster), `meta` (the mono/amber credit line), `counts` (what the work is
-// holding — see HeroCounts), `actions` (Export/Edit/Delete), `tags` (the
-// shelf-state chips, which sit on the hearts row so a work's two pieces of
-// personal state — favourite, and what shelf it is on — read together).
-export function WorkHero({
-  cover,
-  shadow = 'drop-shadow(0 12px 22px rgba(0,0,0,.4))',
-  title,
-  // A prop with a default, so callers may override it — but the DEFAULT is a
-  // size like any other and answers the Quotes dial. 26 rather than 28: the scale
-  // has no 28, and 26 is the step it rounds to.
-  titleSize = 'var(--type-display-26)',
-  titleStyle,
-  // The same slot the column arrangement has, and it must exist here too: a
-  // narrow desktop is still a book's page, and a prop this arrangement quietly
-  // dropped would have deleted the year, the language and the series from it.
-  kindRow,
-  meta,
-  counts,
-  favorite,
-  onFavorite,
-  tags,
-  genres = [],
-  onGenre,
-  description,
-  actions,
-  // Accepted and unused: the float and phone arrangements draw progress in the
-  // shelf row's own track, which is where there is room for it. Named so a
-  // caller can pass one set of props to WorkHeroAny without knowing which
-  // arrangement will answer.
-  progress,
-  onPeople,
-  peopleCount,
-}) {
-  const mobile = useIsMobileScreen()
-  // ON A PHONE THE FLOAT IS THE BUG. The desktop layout floats a 144–176px cover
-  // into a wide column and lets everything wrap around it, which is right when
-  // there are 500px to wrap in. On a 320px screen it leaves a ~150px gutter, and
-  // into that gutter go the title, the author chips, the year, the series, the
-  // shelf state, the read counter, the progress track and the hearts — each
-  // wrapping independently, so the identity of the work and the state of it come
-  // out interleaved. Nothing is misplaced; there is simply nowhere to put it.
-  //
-  // So the phone gets a stated ORDER instead of a flow, and the same order for a
-  // book, a film and a show:
-  //
-  //   1. what it is      cover beside title, author and year — one band
-  //   2. where you are   the shelf row: state, read count, then its own track
-  //   3. what it is to you  the heart and the tags
-  //   4. what it is about   genres, then the description
-  //
-  // The cover shrinks to 96px because in this arrangement it is an identifier
-  // rather than the subject — the full-size art is one tap away through it.
-  if (mobile) {
-    return (
-      <div className="work-hero-m">
-        <div className="work-hero-m-top">
-          <div className="work-hero-m-cover">{cover}</div>
-          <div className="min-w-0 flex-1">
-            {kindRow && <div className="work-hero-kind mb-1">{kindRow}</div>}
-            <h1 className="display-title" style={{ fontSize: 'var(--type-ui-22)', lineHeight: 1.2, ...titleStyle }}>
-              {title}
-            </h1>
-            {meta && <div className="mt-1.5">{meta}</div>}
-            {/* Inside the top band, under the credit — this is the one place on a
-                phone where it is legible without opening the filter sheet, and it
-                belongs to the work rather than to the shelf row below. */}
-            {counts && <div className="mt-1.5">{counts}</div>}
-          </div>
-        </div>
-        {(tags || onFavorite) && (
-          <div className="work-hero-m-shelf">
-            <Hearts value={!!favorite} onChange={onFavorite} />
-            {tags}
-          </div>
-        )}
-        <HeroGenres genres={genres} onGenre={onGenre} className="work-hero-genres-row" />
-        <ExpandableDescription text={description} />
-        {/* The desktop action row is deliberately absent: on a phone these live
-            in the sticky bar's ⋯ overflow, and both pages already pass null. */}
-        {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
-      </div>
-    )
-  }
-  // Float layout (not flex): the cover floats left and the actions float right,
-  // so the title / meta / favourite / genres / description flow in normal order
-  // — beside the cover while short, and wrapping full-width UNDER it once the
-  // description is expanded. Native rectangular text-wrap: it reflows on resize
-  // and keeps the text selectable, no measuring needed. `display:flow-root`
-  // clears the floats without clipping the cover's drop-shadow (overflow:hidden
-  // would). A collapsed (clamped) description is its own block beside the cover;
-  // expanding it drops the clamp so its lines wrap around the cover.
-  return (
-    <div style={{ display: 'flow-root' }}>
-      {actions && (
-        <div className="flex flex-wrap justify-end gap-2" style={{ float: 'right', marginLeft: 20, marginBottom: 10 }}>
-          {actions}
-        </div>
-      )}
-      <div className="w-36 sm:w-44" style={{ float: 'left', marginRight: 24, marginBottom: 14, filter: shadow }}>
-        {cover}
-      </div>
-      {/* `clear: right` IS THE WHOLE FIX FOR A NAME TORN IN HALF, and it is worth
-          the sentence. The actions float right; between about 850 and 950px they
-          are wide enough to leave a sliver on the FIRST line and nothing after
-          it, so the title flowed into that sliver: "Moby-Dick; or, The Whale"
-          was drawn as "Moby-", then five buttons, then "Dick; or, The Whale"
-          beside the cover. Nothing clipped and nothing overflowed — the name was
-          all there, in the wrong two places, and every guard in the repo passed.
-          Clearing the right float means the title never shares a line with the
-          toolbar, at any width. The COVER float is deliberately not cleared:
-          text beside the cover is the arrangement, and it is what the whole
-          float layout exists for. `frame-scroll.mjs` measures the band. */}
-      {kindRow && <div className="work-hero-kind" style={{ clear: 'right' }}>{kindRow}</div>}
-      <h1 className="display-title" style={{ fontSize: titleSize, clear: 'right', ...titleStyle }}>
-        {title}
-      </h1>
-      {meta && <div className="mt-2.5">{meta}</div>}
-      {counts && <div className="mt-2">{counts}</div>}
-      <div className="mt-2.5 flex flex-wrap items-center gap-3">
-        <Hearts value={!!favorite} onChange={onFavorite} />
-        {tags}
-      </div>
-      {genres.length > 0 && (
-        <div className="mt-2.5">
-          <HeroGenres genres={genres} onGenre={onGenre} className="work-hero-genres-row" />
-        </div>
-      )}
-      <div className="mt-2.5">
-        <ExpandableDescription text={description} />
-      </div>
-    </div>
-  )
-}
-
-// WorkHeroColumn — the same facts as WorkHero, arranged as a COLUMN.
-//
-// WHY A SECOND ARRANGEMENT AND NOT A BRANCH INSIDE THE FIRST. The pack draws
-// three, and the middle one is the subtle one: the cover sits BESIDE its facts
-// only between 769 and 1179. On a phone it is stacked because there is no room
-// beside it, and at 1180 and up it is stacked again — for the opposite reason,
-// that the hero is now a 300px column and a cover beside anything in 300px is two
-// things that are both too narrow. WorkHero already draws the first two. This
-// draws the third, and the two are separate because a float layout and a column
-// share no structure worth abstracting — only their inputs, which is why the
-// props are deliberately the same names.
-//
-// EVERY ROW THAT CAN OVERFLOW IS A Scroller, never a clamp: the standing rule is
-// that a name is never truncated, and in a 300px column the credits are the row
-// most likely to want to be. It scrolls under its fade, and `onPeople` puts a
-// button AT the fade that opens the full set — which is the rest of that rule.
 // HeroFact — one fact about a work, in the material every such fact shares: the
 // year, the language, a genre, a series. Small, mono, wide-tracked, in --soft.
 //
@@ -1671,15 +1514,15 @@ export function HeroFact({ label, onClick, title }) {
 }
 
 // HeroKindRow — the line above a work's title: WHAT this is, and the two or three
-// facts that place it. "Book · 1967 · Russian". "Film · 1979".
+// facts that place it. "Book · 1967 · Russian". "Film · 1979". "Game · 2011".
 //
 // ONE COMPONENT FOR EVERY KIND OF WORK, and that is the point of it rather than a
 // convenience. A book's page and a film's page were assembling this line
-// separately and had already drifted — the year sat in the credits row on one
+// separately and had already drifted — the year sat in the credit line on one
 // side and nowhere on the other — which is exactly the class of divergence the
 // owner ruled out: a work's detail must come from one source, hardwired so the
-// two cannot fall out of step. Adding a kind (a show, a game) is a row in the
-// caller's `links`, not a second copy of this.
+// two cannot fall out of step. Adding a kind is a row in the caller's `links` and
+// a word in its own map, never a second copy of this.
 //
 // THE FACTS WERE IN THE CREDIT LINE BEFORE THIS, mixed in with the people:
 // "Herman Melville · translator Anna · 1851 · Whales #2" — one sentence in which
@@ -1708,11 +1551,11 @@ export function HeroKindRow({ word, glyph, links = [] }) {
 // in a row that scrolls rather than wraps.
 //
 // NOT CHIPS, AND THE REASON IS WEIGHT. As filled `tp-chip` pills they were the
-// heaviest thing in the hero after the title, sitting two rows below the shelf
+// heaviest thing in the header after the title, sitting two rows below the shelf
 // state and reading as a set of filters somebody had applied. A genre is the same
 // class of fact as the year above it — something this work IS — so it takes the
 // same material and sits directly under the title with the rest of them.
-export function HeroGenres({ genres = [], onGenre, className = 'work-hero-col-genres' }) {
+export function HeroGenres({ genres = [], onGenre, className = 'work-hero-genres' }) {
   if (genres.length === 0) return null
   return (
     <Scroller axis="x" className={className}>
@@ -1723,13 +1566,57 @@ export function HeroGenres({ genres = [], onGenre, className = 'work-hero-col-ge
   )
 }
 
-export function WorkHeroColumn({
+// WorkHero — a work's header. ONE component, ONE markup, at every width and for
+// every kind of work.
+//
+// IT WAS THREE, AND THAT WAS THE MISTAKE. There was a float arrangement for a
+// wide page, a stacked arrangement for a phone, a column arrangement for the
+// two-column frame, and a WorkHeroAny that picked between them — three copies of
+// the same nine facts, which drifted exactly as three copies do: the film side
+// only ever called one of them, so a film never got the column at all, and the
+// year lived in the credit line on one side and nowhere on the other.
+//
+// The design pack settles it, and it settles it against the way this was built.
+// Its `heroCol` is ONE element with ONE set of children at every width; the only
+// thing that branches is `heroSplit`, which stacks the cover above the facts in
+// the two-column frame and on a phone, and puts it beside them in between. That
+// is a stylesheet's job, and it can be a stylesheet's job precisely BECAUSE there
+// is one markup — the reason the old code gave for choosing in JavaScript
+// ("rendering both and hiding one puts two <h1>s in the document") only applied
+// to having two of them.
+//
+// So: one source, hardwired, which is the owner's rule for every work detail —
+// "always from the same source, always, so they never fall out of sync". A book,
+// a film, a show and a game differ in what they pass IN (the kind word, the
+// credit roles, the shelf verbs, the accent), never in what draws it. There is no
+// second component left to forget to update.
+//
+// THE FLOAT IS GONE WITH IT, and the pack never had one. Floating the actions
+// right is what tore a book's name in half — "Moby-Dick; or, The" on one line,
+// five buttons, then the rest of it — a defect that needed `clear: right`, a
+// measured guard and a whole harness to catch. The pack puts the verbs in a row
+// at the FOOT of the hero, where they cannot cut into anything, and the bug has
+// nowhere left to live.
+//
+// The order answers four questions in turn, and it is the same order the phone
+// arrangement stated for itself before this:
+//
+//   1. what it is        the cover, the kind, the year, the title
+//   2. what it is about  its genres
+//   3. what it holds     the count
+//   4. where you are     the shelf state, and progress on the cover's own foot
+//
+// with the people, the description and the verbs beneath.
+export function WorkHero({
   cover,
   shadow = 'drop-shadow(0 12px 22px rgba(0,0,0,.4))',
-  // The line the pack puts above the title: what this is, when, and in what
-  // language — each part a link where the app has a screen to send it to.
+  // The line above the title: what this is, when, in what language, in which
+  // series. See HeroKindRow — it is shared by every kind of work, which is where
+  // "a film's year" and "a book's year" stopped being two different decisions.
   kindRow,
   title,
+  // A prop with a default, so a caller may override it — but the DEFAULT is a
+  // size like any other and answers the Quotes dial.
   titleSize = 'var(--type-display-30)',
   titleStyle,
   meta,
@@ -1742,8 +1629,8 @@ export function WorkHeroColumn({
   description,
   actions,
   // 0..1, or null. Drawn as a 5px strip WELDED TO THE BOTTOM EDGE OF THE COVER —
-  // the pack's `shelfBar`, inside `coverWrap` — so progress reads as part of the
-  // book's own spine rather than as a separate bar somewhere below it.
+  // the pack's `shelfBar`, inside the cover's own wrapper — so progress reads as
+  // part of the book's spine rather than as a separate bar somewhere below it.
   progress = null,
   // The credits row's "and the rest" button. Absent on a work with few enough
   // credits to fit, because a control that opens a list you can already see is
@@ -1752,28 +1639,27 @@ export function WorkHeroColumn({
   peopleCount = 0,
 }) {
   return (
-    <div className="work-hero-col">
-      {/* THE COVER IS AN OBJECT IN THE COLUMN, NOT THE COLUMN. The first cut of
-          this read the pack's "132x196" as a ratio and gave the cover `width:
-          100%` — which at 300px is 2.3x as wide and FIVE TIMES the area, pushed
-          everything else ~290px down, and at 1440x900 put the hero's own two
-          verbs below the fold. The pack means 132px inside a 300px column: the
-          book is the first thing you see, not the only thing. */}
-      <div className="work-hero-col-split">
-        <div className="work-hero-col-cover-wrap">
-          <div className="work-hero-col-cover" style={{ filter: shadow }}>{cover}</div>
+    <div className="work-hero">
+      {/* THE COVER IS AN OBJECT IN THE HEADER, NOT THE HEADER. The pack draws it
+          at 132px, which in the 300px column is 44% of the width with the rest
+          left as air. Read once as a ratio and given `width: 100%`, it was 2.3x
+          as wide, five times the area, and pushed the two verbs the page exists
+          for below the fold at 1440x900. frame-scroll.mjs measures both now. */}
+      <div className="work-hero-split">
+        <div className="work-hero-cover-wrap">
+          <div className="work-hero-cover" style={{ filter: shadow }}>{cover}</div>
           {progress != null && (
-            <div className="work-hero-col-shelfbar" aria-hidden="true">
+            <div className="work-hero-shelfbar" aria-hidden="true">
               <span style={{ width: `${Math.round(Math.max(0, Math.min(1, progress)) * 100)}%` }} />
             </div>
           )}
         </div>
         {/* The facts are their own tier with their own step — 9px against the
-            column's 11px. One gap everywhere makes six unrelated rows; two tiers
+            header's 11px. One gap everywhere makes six unrelated rows; two tiers
             make a block under a title. */}
-        <div className="work-hero-col-facts">
+        <div className="work-hero-facts">
           {kindRow && <div className="work-hero-kind">{kindRow}</div>}
-          <div className="work-hero-col-title">
+          <div className="work-hero-title">
             <h1 className="display-title" style={{ fontSize: titleSize, lineHeight: 1.12, ...titleStyle }}>
               {title}
             </h1>
@@ -1785,19 +1671,19 @@ export function WorkHeroColumn({
               material. As filled chips two rows lower they competed with the
               shelf state for the same weight and read as filters. */}
           <HeroGenres genres={genres} onGenre={onGenre} />
-          {counts && <div className="work-hero-col-counts">{counts}</div>}
-          {tags && <div className="work-hero-col-state">{tags}</div>}
+          {counts && <div className="work-hero-counts">{counts}</div>}
+          {tags && <div className="work-hero-state">{tags}</div>}
         </div>
       </div>
       {/* The credits. A horizontal scroller rather than a wrap, so a long list
-          stays one line and the column keeps its shape — and so the +N has
+          stays one line and the header keeps its shape — and so the +N has
           somewhere to sit. THE BUTTON IS NOT A MEMBER OF THE ROW, so it is not
           inside the scroller: the one control that opens the whole cast must not
           scroll away under the fade. The fade says swipe, the button says tap for
           all of it. */}
       {meta && (
-        <div className="work-hero-col-credits">
-          <Scroller axis="x" className="work-hero-col-credit-row">{meta}</Scroller>
+        <div className="work-hero-credits">
+          <Scroller axis="x" className="work-hero-credit-row">{meta}</Scroller>
           {onPeople && peopleCount > 0 && (
             <button type="button" className="work-hero-more" onClick={onPeople}>
               {t('work.people.more', { n: peopleCount, count: peopleCount })}
@@ -1806,24 +1692,9 @@ export function WorkHeroColumn({
         </div>
       )}
       <ExpandableDescription text={description} />
-      {actions && <div className="work-hero-col-actions">{actions}</div>}
+      {actions && <div className="work-hero-actions">{actions}</div>}
     </div>
   )
-}
-
-// WorkHeroAny — one call site, whichever arrangement the width asks for.
-//
-// THE SCREEN SHOULD NOT KNOW WHICH ONE IT IS DRAWING. A detail page's job is to
-// say what the work IS; choosing between a float and a column is the frame's
-// business, and asking each screen to branch on a width would put the same `if`
-// in Library.jsx and Movies.jsx and let them drift apart by one prop.
-//
-// A COMPONENT RATHER THAN RENDERING BOTH AND HIDING ONE. Two arrangements in the
-// document means two <h1>s — two page titles in the outline, and the book's name
-// read out twice. See TWO_COLUMN_QUERY in ui.jsx, which is the same 1180 the
-// stylesheet uses for the column itself.
-export function WorkHeroAny(props) {
-  return useTwoColumn() ? <WorkHeroColumn {...props} /> : <WorkHero {...props} />
 }
 
 // WorkListScaffold — the shared catalogue list-page shell (Library + Movies):

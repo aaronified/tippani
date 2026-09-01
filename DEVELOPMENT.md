@@ -208,7 +208,7 @@ The route groups themselves, so you can find the noun you want:
 | `taxonomy_handlers.go` | Tags and genres, and the starter vocabulary seeded per account. |
 | `seed_stickers.go` · `assets/stickers/` | The five starter seals, embedded as SVG and copied into each account's own cover store — plus the one-shot backfill that hands them to accounts older than the feature. |
 | `backup_handlers.go` · `backup_recovery.go` | Archive create, download and in-process restore; the per-instance recovery key. |
-| `admin_handlers.go` · `maintenance_handlers.go` · `update_handlers.go` | User management, FTS rebuild and factory reset, and the self-updater. |
+| `admin_handlers.go` · `maintenance_handlers.go` · `update_handlers.go` · `update_progress.go` | User management, FTS rebuild and factory reset, and the self-updater — which writes down which step it reached as it goes, because the apply outlasts the reply and the page cannot otherwise see what happened. |
 | `pairing_handlers.go` · `capabilities_handler.go` · `share_handlers.go` | Phone pairing by QR, the client version handshake, and one-shot share-image downloads. |
 | `cleanup_handlers.go` | The one-pass sweep behind Settings → Stray marks: every quote read once, capped, with what the rules in `cleanup.go` found. Read-only. |
 | `bulk_handlers.go` · `paging.go` · `gzip.go` | Bulk tagging, shared `LIMIT`/`OFFSET`, and response compression. |
@@ -296,7 +296,7 @@ The shared modules do:
 | `share.jsx` · `quoteImage.js` | The share sheet, and rendering a quote to PNG on a 2D canvas in the current styling. |
 | `stickers.jsx` · `flow.jsx` | The sticker library, and the layer that flows quote text around a dragged sticker while keeping it real selectable DOM. |
 | `undo.jsx` | One delete-with-Undo helper, so the seven screens that delete something cannot each forget the offer. |
-| `update.js` | Waiting for the box to come back after an in-app update: poll until the version changes, and end whatever the server does — including never answering. Bounded three ways, because a `fetch` with no timeout is what left the page stuck twice. |
+| `update.js` | Waiting for the box to come back after an in-app update: poll the server's own record of the apply until the version changes or it says it stopped. Bounded three ways, because a `fetch` with no timeout is what left the page stuck. |
 | `actions.jsx` | The one list of what can be done to a quote, per kind, and where each action sits. Read by the card row, the ⋯ overflow and the bulk bar, so they cannot offer different sets. |
 | `selection.jsx` · `SelectionBar.jsx` | Which cards are picked, and the sticky bar that acts on them. The hook drops ids that leave the visible list, so the count it reports is a count it can act on. |
 | `greetings.js` · `epigraphs.js` | The two pools of bundled copy — Home’s greeting and the login screen’s epigraph — each with a rule about what may go in it. |

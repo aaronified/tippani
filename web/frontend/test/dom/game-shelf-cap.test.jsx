@@ -40,13 +40,29 @@ const Movies = (await import('../../src/Movies.jsx')).default
 const inProgress = (n, media_type, status) =>
   Array.from({ length: n }, (_, i) => ({ id: 100 + i, title: `Other ${i + 1}`, media_type, status }))
 
-// Open the detail and press the standing "start it" button, which is where a
-// reader meets the cap.
+// Open the detail and start it, which is where a reader meets the cap.
+//
+// THROUGH THE STATE CHIP, and it moved there: the header used to carry a standing
+// "Mark as watching" button beside four others, and the header now carries two
+// verbs — Details and Practise — because five buttons in a row that splits its
+// width evenly is five squashed buttons. The shelf move was the right one to lose
+// from that row: the chip's own popover holds the WHOLE lifecycle rather than one
+// step of it, and it sits two inches above where the button was.
+//
+// This test still drives the screen rather than the dialog, which is the point of
+// it (the bug was in the props the detail passes, so a test of
+// InProgressCapDialog alone would have been green throughout). It just takes the
+// route a reader takes.
 async function start() {
   render(
     <Movies openId={ROW.id} onOpen={() => {}} onClose={() => {}} creditSeparators=",;&" onAdd={() => {}} dataNonce={0} />,
   )
-  fireEvent.click(await screen.findByRole('button', { name: /^Mark as (playing|watching)$/ }))
+  // A row with no lines and no status reads as Wishlist; the chip is the one
+  // transitions surface, so it opens whatever state the row is in.
+  fireEvent.click(await screen.findByRole('button', { name: /Wishlist|Shelve/ }))
+  // The transitions are menuitems inside the chip's popover, not buttons in a
+  // row — which is the difference this route is testing as much as the words.
+  fireEvent.click(await screen.findByRole('menuitem', { name: /^Mark as (playing|watching)$/ }))
 }
 
 beforeEach(() => {

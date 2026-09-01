@@ -34,20 +34,33 @@
 //               that: the tag moved, the image behind it did not get rebuilt.
 //               Saying so beats reloading onto the build they already had.
 //   'timeout' — it never went away, or never came back, inside the window.
+//   {outcome:'failed', why} — the server recorded that the apply stopped, and at
+//               which step. This is the outcome the reader actually needed and
+//               the one the wait could not produce until the server wrote its
+//               progress down: everything else here is inference from silence.
 export const RESTART_NEW = 'new'
 export const RESTART_SAME = 'same'
 export const RESTART_TIMEOUT = 'timeout'
+// The server said, in so many words, that it stopped — and why. The only outcome
+// that carries a reason, because it is the only one the server got to write down.
+export const RESTART_FAILED = 'failed'
 
-// waitForRestart polls until the box is demonstrably a different box, or until it
-// is out of time.
+// waitForRestart polls until the box is demonstrably a different box, until the
+// server says it stopped, or until it is out of time.
+//
+// ALWAYS `{ outcome, why }`, never a bare string. Only one outcome carries a
+// reason, and a caller that has to remember which one is a caller that will read
+// `.why` off a string and get `undefined` — so every path answers in the same
+// shape.
 //
 // Everything it needs from the outside world is an argument — `ping`, `sleep` and
 // `now` — so the whole decision table is exercisable in milliseconds without a
 // browser, a container or a clock. That is the point of the file.
 //
-//   ping()  → Promise<{ ok, version }>. Never expected to reject; a transport
-//             failure is `{ ok: false }`, which is how "the server is gone" is
-//             said.
+//   ping()  → Promise<{ ok, version, phase, error }>. Never expected to reject; a
+//             transport failure is `{ ok: false }`, which is how "the server is
+//             gone" is said. `phase` and `error` come from the server's own
+//             record of the apply (GET /admin/update/state) — see below.
 //   sleep(ms) → Promise. Injected so a test can run six minutes instantly.
 //   now()   → epoch ms.
 export async function waitForRestart({
@@ -77,13 +90,24 @@ export async function waitForRestart({
       continue
     }
     const version = r.version || ''
-    if (was && version && version !== was) return RESTART_NEW
+    if (was && version && version !== was) return { outcome: RESTART_NEW }
+    // THE SERVER'S OWN ACCOUNT OF THE APPLY, and it is the only thing that can
+    // end this loop honestly. The page almost never hears the apply's answer —
+    // the pull outlasts the server's 60-second write timeout, so the browser's
+    // fetch resolves to no status at all — which left the wait guessing
+    // "probably running" whether the update had started, stalled at identifying
+    // the container, or launched a recreater that died. It waited six minutes
+    // for a version that was never going to change and then said nothing useful.
+    //
+    // A record that says `failed` is the answer, immediately: stop, and hand the
+    // reason up. See internal/httpapi/update_progress.go for the phases.
+    if (r.phase === 'failed' || r.phase === 'unsupported') return { outcome: RESTART_FAILED, why: r.error || '' }
     // NOTHING TO COMPARE AGAINST is not the same as nothing changed. A page kept
     // open across a build whose /auth/me carried no version has no `was`, and
     // there a container that went away and came back IS the news — reporting
     // "same" would be reporting the one thing that cannot be known.
-    if (down >= 2) return was ? RESTART_SAME : RESTART_NEW
+    if (down >= 2) return { outcome: was ? RESTART_SAME : RESTART_NEW }
     down = 0
   }
-  return RESTART_TIMEOUT
+  return { outcome: RESTART_TIMEOUT }
 }

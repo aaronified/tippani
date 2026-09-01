@@ -17,8 +17,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 
-let VERSION // what GET /auth/me answers with, when it answers at all
+let VERSION // what GET /admin/update/state answers with, when it answers at all
 let DOWN // true while the container is being recreated
+// The apply's own record of where it got to (internal/httpapi/update_progress.go).
+// Empty for the ordinary run; a test that wants a stopped apply sets it.
+let PHASE = ''
+let PHASE_ERROR = ''
 let RELOAD
 let TOASTS
 
@@ -28,6 +32,15 @@ vi.mock('../../src/api.js', async (orig) => ({
     if (path === '/auth/me') {
       if (DOWN) return { ok: false, status: 0, data: null }
       return { ok: true, data: { username: 'a', is_admin: true, version: VERSION } }
+    }
+    // THE WAIT ASKS THE SERVER WHAT IT DID, not just whether it is up. The apply's
+    // answer almost never reaches the browser — the pull outlasts the server's
+    // 60-second write timeout — so "is it back yet" and "what did it do" are one
+    // request, and the version comes back in the same reply as the phase so the
+    // two cannot disagree.
+    if (path === '/admin/update/state') {
+      if (DOWN) return { ok: false, status: 0, data: null }
+      return { ok: true, data: { attempted: true, phase: PHASE, error: PHASE_ERROR, current: VERSION } }
     }
     if (path === '/admin/update/check') return { ok: true, data: CHECK }
     if (path === '/admin/update/apply') return { ok: true, data: { ok: true } }
@@ -52,6 +65,8 @@ let CHECK
 beforeEach(() => {
   VERSION = '3.1.0'
   DOWN = false
+  PHASE = ''
+  PHASE_ERROR = ''
   CHECK = {
     current: '3.1.0',
     channel: 'stable',
@@ -117,6 +132,48 @@ describe('waiting for the new version', () => {
     VERSION = '3.1.1'
     await tick(1)
     expect(RELOAD).toHaveBeenCalled()
+  })
+
+  it('stops the moment the server says the apply died, and names the step', async () => {
+    // THE FAILURE THE PAGE COULD NOT SEE, and the one that was reported: "the
+    // page gets stuck on this message, and the app is not even posting any
+    // update command on the docker shell."
+    //
+    // The apply identifies its own container by asking the Engine about the
+    // machine's HOSTNAME, so a compose file that sets `hostname:` gets a 404
+    // there — before a single image is pulled. The page had no way to learn that:
+    // the apply's own answer almost never arrives (the pull outlasts the server's
+    // 60-second write timeout, so the browser's fetch resolves to no status at
+    // all), so it waited six minutes for a version that was never going to
+    // change and then said something about reloading.
+    //
+    // Now the server writes down which step it reached and the page reads it.
+    await startUpdate()
+    await tick(1)
+    expect(RELOAD).not.toHaveBeenCalled()
+
+    PHASE = 'failed'
+    PHASE_ERROR = 'identify this container: inspect self: docker 404'
+    await tick(1)
+
+    expect(RELOAD).not.toHaveBeenCalled()
+    // The Engine's own words, on the card and not only in a toast — this is the
+    // line that gets pasted into an issue.
+    expect(await screen.findByText(/inspect self: docker 404/)).toBeTruthy()
+    expect(TOASTS.join(' ')).toContain('docker 404')
+    // And it is over: no more waiting for a restart that was never started.
+    expect(screen.queryByText(/updating & restarting/)).toBeNull()
+  })
+
+  it('does not stop for a step the apply is still inside', async () => {
+    // "pulling" is not an ending. A record naming a step in progress must read as
+    // keep waiting, or every slow pull reports a failure and invites a second
+    // press — which is the thing the apply lock exists to refuse.
+    await startUpdate()
+    PHASE = 'pulling'
+    await tick(4)
+    expect(screen.getByText(/updating & restarting/)).toBeTruthy()
+    expect(RELOAD).not.toHaveBeenCalled()
   })
 
   it('says so when it comes back on the build it left on', async () => {

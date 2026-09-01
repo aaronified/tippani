@@ -10,8 +10,9 @@
 // The clock, the sleep and the ping are all injected, so six minutes of waiting
 // runs in under a millisecond and "the server never answers" is one line.
 
-import { describe, expect, it } from 'vitest'
-import { RESTART_NEW, RESTART_SAME, RESTART_TIMEOUT, waitForRestart } from '../../src/update.js'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { RESTART_FAILED, RESTART_NEW, RESTART_SAME, RESTART_TIMEOUT, waitForRestart } from '../../src/update.js'
+import { json } from '../../src/api.js'
 
 // A fake clock that only moves when something sleeps on it. Nothing here waits on
 // wall time, so a six-minute window is exercised in full at no cost — and a loop
@@ -55,7 +56,7 @@ describe('waiting for the box to come back', () => {
       now: c.now,
       was: '3.0.0',
     })
-    expect(out).toBe(RESTART_NEW)
+    expect(out.outcome).toBe(RESTART_NEW)
   })
 
   it('ENDS even when every poll hangs for ever', async () => {
@@ -77,7 +78,7 @@ describe('waiting for the box to come back', () => {
       was: '3.0.0',
       windowMs: 60_000,
     })
-    expect(out).toBe(RESTART_TIMEOUT)
+    expect(out.outcome).toBe(RESTART_TIMEOUT)
   })
 
   it('treats a hung poll as one failure, not as an ending', async () => {
@@ -90,7 +91,7 @@ describe('waiting for the box to come back', () => {
       now: c.now,
       was: '3.0.0',
     })
-    expect(out).toBe(RESTART_NEW)
+    expect(out.outcome).toBe(RESTART_NEW)
   })
 
   it('says so when it restarted onto the SAME build', async () => {
@@ -104,7 +105,7 @@ describe('waiting for the box to come back', () => {
       now: c.now,
       was: '3.0.0',
     })
-    expect(out).toBe(RESTART_SAME)
+    expect(out.outcome).toBe(RESTART_SAME)
   })
 
   it('needs two failures in a row, so one dropped request is not a restart', async () => {
@@ -120,7 +121,7 @@ describe('waiting for the box to come back', () => {
       was: '3.0.0',
       windowMs: 60_000,
     })
-    expect(out).toBe(RESTART_TIMEOUT)
+    expect(out.outcome).toBe(RESTART_TIMEOUT)
   })
 
   it('counts a NEW version even when it never saw the box go down', async () => {
@@ -133,7 +134,7 @@ describe('waiting for the box to come back', () => {
       now: c.now,
       was: '3.0.0',
     })
-    expect(out).toBe(RESTART_NEW)
+    expect(out.outcome).toBe(RESTART_NEW)
   })
 
   it('with nothing to compare against, a restart IS the news', async () => {
@@ -147,7 +148,62 @@ describe('waiting for the box to come back', () => {
       now: c.now,
       was: '',
     })
-    expect(out).toBe(RESTART_NEW)
+    expect(out.outcome).toBe(RESTART_NEW)
+  })
+
+  it('stops the moment the server says it stopped, and carries the reason up', async () => {
+    // THE OUTCOME THE READER ACTUALLY NEEDED, and the one this loop could not
+    // produce until the server wrote its progress down. The page almost never
+    // hears the apply's own answer — the pull outlasts the server's 60-second
+    // write timeout, so the fetch resolves to no status at all — so an apply that
+    // died at "identify this container" looked exactly like one still pulling.
+    // Six minutes of waiting, then a message about reloading.
+    const c = fakeClock()
+    const out = await waitForRestart({
+      ping: scripted([
+        up('3.0.0'),
+        { ok: true, version: '3.0.0', phase: 'failed', error: 'identify this container: inspect self: docker 404' },
+      ]),
+      sleep: c.sleep,
+      now: c.now,
+      was: '3.0.0',
+    })
+    expect(out.outcome).toBe(RESTART_FAILED)
+    expect(out.why).toContain('docker 404')
+  })
+
+  it('treats "this box cannot self-update" as an ending too, not as a wait', async () => {
+    // Nothing was attempted — no socket, no proxy. Waiting six minutes for a
+    // restart nobody started is the worst of both answers.
+    const c = fakeClock()
+    const out = await waitForRestart({
+      ping: scripted([{ ok: true, version: '3.0.0', phase: 'unsupported', error: 'no such file: /var/run/docker.sock' }]),
+      sleep: c.sleep,
+      now: c.now,
+      was: '3.0.0',
+    })
+    expect(out.outcome).toBe(RESTART_FAILED)
+    expect(out.why).toContain('docker.sock')
+  })
+
+  it('does not stop for a phase that is still in progress', async () => {
+    // "pulling" is not an ending. A record that names a step the apply is still
+    // inside must read as "keep waiting" — otherwise every slow pull reports a
+    // failure and invites a second press.
+    const c = fakeClock()
+    const out = await waitForRestart({
+      ping: scripted([
+        { ok: true, version: '3.0.0', phase: 'pulling' },
+        { ok: true, version: '3.0.0', phase: 'recreating' },
+        gone,
+        gone,
+        { ok: true, version: '3.1.0', phase: 'launched' },
+      ]),
+      sleep: c.sleep,
+      now: c.now,
+      was: '3.0.0',
+    })
+    expect(out.outcome).toBe(RESTART_NEW)
   })
 
   it('gives up on a box that never goes away at all', async () => {
@@ -162,7 +218,7 @@ describe('waiting for the box to come back', () => {
       was: '3.0.0',
       windowMs: 30_000,
     })
-    expect(out).toBe(RESTART_TIMEOUT)
+    expect(out.outcome).toBe(RESTART_TIMEOUT)
   })
 
   it('spends its whole window and no more', async () => {
@@ -185,5 +241,48 @@ describe('waiting for the box to come back', () => {
     // the loop, so a turn that starts just inside it runs to the end. Overshooting
     // by one turn is the design; overshooting by an unbounded amount was the bug.
     expect(spent).toBeLessThanOrEqual(6 * 60 * 1000 + 3000 + 8000)
+  })
+})
+
+
+// The OTHER half of the bound, and the half the loop cannot supply for itself.
+//
+// waitForRestart's race guarantees each TURN ends. It does not free the socket —
+// the losing fetch is still open, still pending, and on a poll every three
+// seconds for six minutes that is 120 abandoned connections to a box that is
+// trying to boot. The abort signal is what closes them, and it is one line in
+// api.js with no test of its own until now: reasoned about, never run.
+describe('a request with a deadline on it', () => {
+  const realFetch = global.fetch
+  afterEach(() => { global.fetch = realFetch })
+
+  it('gives up on a socket that is accepted and never answered', async () => {
+    // THE SHAPE OF THE BUG, exactly: not a refusal, not an error — a fetch that
+    // resolves never. Without a signal this await would hang the test.
+    global.fetch = vi.fn((_url, opts) => new Promise((_res, rej) => {
+      opts?.signal?.addEventListener('abort', () => rej(opts.signal.reason))
+    }))
+    const r = await json('GET', '/auth/me', undefined, { timeoutMs: 30 })
+    // The same {ok:false, status:0} an unreachable server gives, so every caller
+    // that branches on r.ok needs to know nothing about timeouts.
+    expect(r).toEqual({ ok: false, status: 0, data: null })
+  })
+
+  it('passes a signal only when asked, so nothing else gains a deadline', async () => {
+    // OFF BY DEFAULT is the important half: a timeout on an import or a backup
+    // would abort work the server is really doing, and "took a while" is not an
+    // error anywhere else in this app.
+    global.fetch = vi.fn(async () => new Response('{}', { status: 200 }))
+    await json('GET', '/auth/me')
+    expect(global.fetch.mock.calls[0][1].signal).toBeUndefined()
+    await json('GET', '/auth/me', undefined, { timeoutMs: 5000 })
+    expect(global.fetch.mock.calls[1][1].signal).toBeInstanceOf(AbortSignal)
+  })
+
+  it('does not arm one for a zero or a missing bound', async () => {
+    global.fetch = vi.fn(async () => new Response('{}', { status: 200 }))
+    await json('GET', '/x', undefined, { timeoutMs: 0 })
+    await json('GET', '/x', undefined, {})
+    for (const call of global.fetch.mock.calls) expect(call[1].signal).toBeUndefined()
   })
 })

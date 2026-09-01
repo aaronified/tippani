@@ -148,6 +148,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   did — and a second press while one is running is refused rather than starting a second
   updater alongside the first.
 
+- **The update page now says where the update stopped, instead of waiting for one
+  that never started.** It could not see its own work: pressing *Update* starts two
+  image downloads before the server has anything to say back, and a reply that takes
+  minutes never reaches the browser at all — so whatever really happened, the page
+  had nothing to go on and assumed the update was running. It assumed that when the
+  socket was not mounted, when the image reference could not be found, and when
+  Tippani could not work out which container it was in — the last of which happens
+  before a single download starts, so nothing at all had been asked of Docker.
+  Tippani now writes down which step it is on as it goes — checking Docker,
+  identifying itself, downloading, handing over to the restarter — and the page
+  reads that. A stop is reported the moment it happens, in Docker's own words, and
+  the reason stays on the card rather than vanishing with a notification.
+
 - **The update page no longer gets stuck on "updating & restarting…".** After the two
   fixes above it still stopped there for good, on a browser running on the server itself
   as readily as anywhere else — so it was not the connection this time. While it waits,
@@ -557,6 +570,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   looking like nothing happened.
 
 ### Changed
+
+- **A book, a film, a show and a game all draw their page from one place now.** There
+  were three headers — one for a wide window, one for a phone, one for the two-column
+  layout — and the page picked between them. Three copies of the same nine facts drift
+  the way three copies do, and these had: a **film never got the two-column header at
+  all**, so on a wide screen a book and a film were laid out differently for no reason
+  anybody chose. There is one header now, and where the cover sits is the only thing that
+  changes with the width. A film differs from a book in what it is handed — the word
+  *Film*, who is credited and in what role, and whether it is watched or played — and in
+  nothing else, so a change to one is a change to all of them. **The Catalogue's pages
+  gained everything the last change gave a book's:** the line above the title, people as
+  chips, the big count, progress on the poster's own foot.
+
+- **The quote board stopped cutting itself into columns of syllables.** On a 1080p
+  screen a book's quotes were dealt into four columns about 170px wide — a few words
+  per line — and on a wider screen, five. The board was asking how wide the *window*
+  was, while it actually lives in a column that is the window minus the navigation
+  minus the book's own details, and is then held to a comfortable reading width. It
+  measures itself now: two columns of about 430px each, which is roughly the width a
+  quote wants to be read at. **The table view, meanwhile, now uses the full width of
+  the screen** — a table is scanned across, not read down a measure, and holding it
+  to one squeezed every column and pushed the rest under a scrollbar.
 
 - **A book's page now looks like the design it was drawn from.** The cover was taking the
   whole 300px column instead of sitting in it at 132 — more than twice as wide, five times

@@ -19,6 +19,7 @@ import {
   ACTIVE_STATUS,
   GroupHeading,
   HeroCounts,
+  HeroKindRow,
   InProgressCapDialog,
   SHELF_CAPS,
   ShelfControl,
@@ -44,7 +45,7 @@ import {
 import { t } from './i18n.js'
 import {
   ANNOTATION_HEX,
-  BOARD_COLUMNS,
+  QUOTE_COLUMNS_IN,
   byLastRead,
   bySeries,
   clampSequence,
@@ -107,7 +108,7 @@ import {
   Tooltip,
   TranslationLine,
   useCardMenu,
-  useColumnsAt,
+  useColumnsIn,
   useCoverSize,
   useCrumb,
   useFormHost,
@@ -1034,14 +1035,28 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce
     detailMediaType === 'game' && movie?.publisher ? (
       <span key="publisher">{t('film.credit.publisher.label', { name: movie.publisher })}</span>
     ) : null
+  // THE CREDIT ROW HOLDS PEOPLE AND NOTHING ELSE, the same as a book's. The year
+  // and the series are facts ABOUT the work and belong in the kind row above the
+  // title; a publisher is a fact too, and stays here only because it names an
+  // organisation rather than a date. One row, one kind of thing.
   const metaParts = movie
-    ? [
-        directorNode,
-        publisherNode,
-        formatYear(movie.release_year, movie.release_circa) || null,
-        seriesLabel(movie) || null,
-      ].filter(Boolean)
+    ? [directorNode, publisherNode].filter(Boolean)
     : []
+
+  // THE ONE PLACE A FILM DIFFERS FROM A BOOK. Everything else on this screen is
+  // WorkHero drawing the same nine facts in the same order — the kind word, the
+  // credit roles and the accent are the parameters, and that is the whole of the
+  // "type difference". A show and a game come through here too: CAP_WORDS keys
+  // off media_type, so adding a kind is a row in that map, not a fourth header.
+  const kindRow = movie && (
+    <HeroKindRow
+      word={t(CAP_WORDS[detailMediaType]?.one || CAP_WORDS.movie.one)}
+      links={[
+        { key: 'year', label: formatYear(movie.release_year, movie.release_circa) },
+        { key: 'series', label: seriesLabel(movie) },
+      ]}
+    />
+  )
 
   const detailTitle = movie ? (movie.title || t('film.title.fallback')) : ''
   // The shell's breadcrumb names what you have open; this is how it learns.
@@ -1113,7 +1128,8 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce
           <WorkHero
             cover={<Poster path={movie.poster_path} title={movie.title} zoomable />}
             title={movie.title}
-            titleSize={'var(--type-display-26)'}
+            kindRow={kindRow}
+            progress={movie.progress > 0 ? movie.progress / 100 : null}
             meta={
               metaParts.length > 0 && (
                 <div style={{ ...amberMono, display: 'flex', flexWrap: 'wrap', alignItems: 'center', rowGap: 2 }}>
@@ -1151,35 +1167,28 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce
             }
             genres={movie.genres || []}
             description={movie.description}
+            // TWO STANDING VERBS, THE SAME TWO A BOOK HAS, and each of the three
+            // that left had somewhere better to be. The shelf move is the state
+            // chip's own popover, two inches above this row and holding the whole
+            // lifecycle rather than one step of it. Export and Delete are in the
+            // ⋯ menu this screen already has: export is a thing you do once a
+            // year, and a destructive verb standing beside four constructive ones
+            // is where a mis-click costs a film and all its lines.
+            //
+            // Five buttons was also what would not fit. The row splits its width
+            // evenly between what is in it, so five is five squashed buttons —
+            // which is the arithmetic, and the reason is that a header states a
+            // preference rather than listing everything possible.
+            //
             // Desktop only: on mobile these same actions live in the sticky bar's
             // ⋯ overflow above, and a second standing row just duplicated them.
             actions={
               mobile ? null : (
                 <>
-                  <GhostButton onClick={() => pick(activeWord)} disabled={shelfBusy}>
-                    {moveLabel('movie', movie.status || '', activeWord, movie)}
-                  </GhostButton>
-                  {!DEMO && (
-                    <IconButton
-                        icon={<IconExport />}
-                        label={t('common.action.export.label')}
-            ariaLabel={t('film.export.aria')}
-                        onClick={() => (window.location.href = `/api/movies/${movie.id}/export`)}
-                      tooltip={t('film.export.tip')}
-                    />
-                  )}
-                  <IconButton icon={<IconPractise />} label={t('common.action.practise.label')}
-            ariaLabel={t('film.practise.aria')} onClick={() => practise({ movie: movie.id, label: movie.title })} tooltip={t('film.practise.tip')} />
                   <IconButton icon={<IconDetails />} label={t('common.work.details.title')}
             ariaLabel={t('common.work.details.title')} onClick={() => openDetails()} tooltip={t('film.details.tip')} />
-                  <IconButton
-                      icon={<IconDelete />}
-                      label={t('common.action.delete.label')}
-            ariaLabel={t('film.delete.aria')}
-                      onClick={() => setAsking(true)}
-                      danger
-                    tooltip={t('film.delete.tip')}
-                  />
+                  <IconButton icon={<IconPractise />} label={t('common.action.practise.label')} className="tp-btn-primary"
+            ariaLabel={t('film.practise.aria')} onClick={() => practise({ movie: movie.id, label: movie.title })} tooltip={t('film.practise.tip')} />
                 </>
               )
             }
@@ -1524,7 +1533,21 @@ function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen
   // A show's table opens grouped by episode, which is the order the list view is
   // served in; a film has only its runtime to sort by.
   const [sort, setSort] = useState({ col: show ? 'episode' : 'timestamp', dir: 'asc' })
-  const tileCols = useColumnsAt(BOARD_COLUMNS) // tiles: book-style collage (§8.6)
+  // THE BOARD IS NOT THE WINDOW, and measuring the window is what put four
+  // ~170px columns of syllables on a 1080p screen — the owner's report, twice:
+  // "i see 4 columns in the board tile, all very skinny... the annotations need
+  // at least double the width". useColumnsAt reads window.innerWidth, which was
+  // the same question as "how wide is the container" for as long as every board
+  // sat in the page's one centred container. This one does not: it is the window
+  // MINUS the rail MINUS the hero column, then capped at 880px for measure, so
+  // at 1920 the ladder asked for FIVE columns inside 880px.
+  //
+  // Both the fix and its ladder were written when that was first diagnosed and
+  // NEITHER WAS EVER WIRED — useColumnsIn and QUOTE_COLUMNS_IN sat as dead
+  // exports with no call site anywhere, which is why the board kept doing the
+  // thing its own comment says it must not. Measured against the board, 880px is
+  // two columns of ~430, which is the ~400 a quote wants to be read at.
+  const [tileCols, boardRef] = useColumnsIn(QUOTE_COLUMNS_IN)
   const reqSeq = useRef(0)
   const base = useFrameBase() // frame codes regenerate per mount (§6)
   const toggleSort = (col) => setSort((s) => (s.col === col ? { col, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { col, dir: 'asc' }))
@@ -1783,7 +1806,7 @@ function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen
         // column order so the board never reshuffles. The strip decoration
         // (sprockets/edge/dividers) belongs to the list view.
         <Reveal>
-          <Masonry columns={tileCols} gap={16} seed={boardSeed} lockOrder={expandedId != null} order="source">
+          <Masonry boardRef={boardRef} columns={tileCols} gap={12} seed={boardSeed} lockOrder={expandedId != null} order="source">
             {items.map((d, i) => (
               <Frame
                 key={d.id}

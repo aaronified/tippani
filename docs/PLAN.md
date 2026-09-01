@@ -8653,11 +8653,30 @@ one that argues with it.*
   independently. The phone keeps window scrolling: `100dvh` inside `overflow:hidden` is
   the most reliable mobile layout bug there is, and URL-bar collapse and pull-to-refresh
   come free with the window.
-- **The arrangement is chosen in JavaScript, not hidden in CSS.** `WorkHeroAny` picks
-  `WorkHeroColumn` or `WorkHero` from one media query. Rendering both and hiding one is
-  **two `<h1>`s** in the document — two page titles in the outline and the book's name
-  read out twice. The price is 1180 stated in `ui.jsx` and again in `index.css`, with a
-  comment on each side saying why one number lives in two places.
+- **~~The arrangement is chosen in JavaScript, not hidden in CSS.~~ Reversed, and the
+  reasoning was sound about the wrong thing.** `WorkHeroAny` picked `WorkHeroColumn` or
+  `WorkHero` from one media query, on the grounds that rendering both and hiding one puts
+  **two `<h1>`s** in the document. That is true, and it only applies when there ARE two of
+  them. There were three — a float for a wide page, a stack for a phone, a column for this
+  frame — and three copies of nine facts drift exactly as three copies do: the film side
+  only ever called one, so a film never got the column at all, and the year lived in the
+  credit line on one side and nowhere on the other.
+
+  The design pack settles it against the way this was built: its `heroCol` carries the
+  same children at every width and only `heroSplit` changes, from a stack to a row. So
+  there is **one `WorkHero`, one markup, one `<h1>`**, and the arrangement is three lines
+  of stylesheet — stacked in this frame and on a phone, beside its facts in between. A
+  book, a film, a show and a game differ in what they pass IN (the kind word, the credit
+  roles, the shelf verbs, the accent), never in what draws it, which is the owner's rule
+  for every work detail: always the same source, hardwired, so they cannot fall out of
+  sync. `frame-scroll.mjs` measures the arrangement at 1440, 900 and 390 rather than
+  trusting the media query fired.
+
+  **The float went with it**, and the pack never had one. Floating the actions right is
+  what tore a book's name in half — *Moby-Dick; or, The* on one line, five buttons, then
+  the rest of it — a defect that needed `clear: right`, a measured guard and a whole
+  browser harness to catch. The verbs are a row at the foot of the header now, where they
+  cannot cut into anything.
 - **`← Library` is gone at two columns.** The breadcrumb reads `tippani / <title>` and the
   rail says Library; a third way out earned nothing but a row. This settles one of the two
   redundancies the top-bar phase flagged and explicitly left to the screen passes.
@@ -8733,8 +8752,9 @@ mistake is more useful than the fix.*
 `scripts/screenshots/frame-scroll.mjs` · `Makefile`</sub>
 
 <sub>Unreleased — `web/frontend/src/ui.jsx` (`DetailFrame`, `useScreenOwnsScroll`,
-`useColumnScroll`, `MediaBlock`, `COVER_MIN_W`) · `works.jsx` (`WorkHeroColumn`,
-`WorkHeroAny`) · `Library.jsx` · `App.jsx` · `index.css` · `CoverPicker.jsx` ·
+`useColumnScroll`, `MediaBlock`, `COVER_MIN_W`) · `works.jsx` (`WorkHero`, `HeroKindRow`,
+`HeroGenres`, `HeroFact`) · `Library.jsx` · `Movies.jsx` · `App.jsx` · `index.css` ·
+`CoverPicker.jsx` ·
 `test/pure/cover-floor.test.js` · `test/dom/media-block.test.jsx`</sub>
 
 ### A deadline that cannot reach the connection fails by doing nothing

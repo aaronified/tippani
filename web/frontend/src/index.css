@@ -4357,6 +4357,20 @@
   .tp-detail-stream > * {
     max-width: 880px;
   }
+  /* EXCEPT THE TABLE, WHICH IS SCANNED AND NOT READ. 880px is a MEASURE — the
+     width a line of prose stays comfortable at — and it is exactly right for a
+     board of quote cards. A table is the other thing: six columns of chapter,
+     page, colour, tags and date that a reader runs their eye ACROSS, and holding
+     that to a measure squeezes every column and pushes the rest under a
+     horizontal scrollbar on a screen with 600px going spare. The owner's words:
+     "the table needs to utilise the full width of the screen".
+     `:has` so the head above it widens with it — the pack's own rule is that the
+     head and the rows share one right edge, and a head still at 880 above a table
+     at 1400 reads as two boards. */
+  .tp-detail-stream > .ann-table-wrap,
+  .tp-detail-stream:has(> * > .ann-table-wrap) > * {
+    max-width: none;
+  }
 
   /* ---- the quote board's head, as the pack draws it ------------------------
      ONE ROW, and wrapping is switched OFF rather than tolerated: "nothing left in
@@ -4503,47 +4517,92 @@
     display: none;
   }
 
-  /* ---- the hero column's own stack ---------------------------------------
+  /* ---- A WORK'S HEADER — one rule set, every width, every kind of work -----
+
+     THE ARRANGEMENT BRANCHES HERE AND NOWHERE ELSE. There used to be three hero
+     COMPONENTS — a float for a wide page, a stack for a phone, a column for the
+     two-column frame — picked in JavaScript, and the reason given was that
+     rendering two <h1>s and hiding one is worse than branching. True, and it only
+     applied because there were two of them. The pack has ONE markup: its `heroCol`
+     carries the same children at every width and only `heroSplit` changes, from a
+     stack to a row and back. So the whole arrangement is these few lines, and the
+     film side cannot be given a different header by being forgotten.
+
      Every gap is var(--row) or a share of it — a step typed into one of these
-     rules is what spacing-debt.test.js counts, and the frame already restates
-     --row at 18px for this screen.
+     rules is what spacing-debt.test.js counts.
 
-     TWO STEPS, NOT ONE, and this is the correction the first cut needed. A
-     single var(--row) between every child made six unrelated rows of equal
-     weight: the title had the same distance to its own genres as the shelf state
-     had to the description. The pack uses 11px between BLOCKS (the cover, the
-     credits, the prose, the verbs) and 9px between the FACTS inside the block
-     under the title, which is what makes that group read as one thing with a
-     heading rather than as five strangers. Both are derived from --row so the
-     screen still has exactly one spacing constant.
+     TWO STEPS, NOT ONE. A single var(--row) between every child made six unrelated
+     rows of equal weight: the title had the same distance to its own genres as the
+     shelf state had to the description. The pack uses 11px between BLOCKS (the
+     cover, the credits, the prose, the verbs) and 9px between the FACTS in the
+     block under the title, which is what makes that group read as one thing with
+     a heading rather than as five strangers. Both derive from --row, so the screen
+     still has exactly one spacing constant.
 
-     NOTHING HERE IS A FIXED BOX HOLDING TEXT. The column's width is the frame's
-     --hero-w and everything inside it is measured in em or is free to wrap, so a
-     reader at 175% on the type dial gets a taller column rather than a clipped
-     one. The cover is the one fixed thing, and a picture is not text. */
-  .work-hero-col {
-    --hero-block: calc(var(--row) * 0.6); /* 11 at --row: 18 */
-    --hero-fact: calc(var(--row) * 0.5); /* 9 at --row: 18 */
+     NOTHING HERE IS A FIXED BOX HOLDING TEXT. Everything inside is measured in em
+     or is free to wrap, so a reader at 175% on the type dial gets a taller header
+     rather than a clipped one. The cover is the one fixed thing, and a picture is
+     not text. */
+  .work-hero {
+    /* THE HEADER CARRIES ITS OWN RHYTHM, and it has to. The standing rule allows
+       --row to be restated where a screen genuinely differs, and this is the case
+       one step further in: not a screen at all, but a component that appears on
+       two of them. `.tp-detail` restates --row as 18 and only a BOOK's page is
+       inside `.tp-detail` — so inheriting it gave a film's header 12 and a book's
+       18, gaps of 7.2/6 against 11/9, for no reason anybody chose. One component,
+       one rhythm, whatever page it lands on. */
+    --row: 18px;
+    --hero-block: calc(var(--row) * 0.6); /* 11 */
+    --hero-fact: calc(var(--row) * 0.5); /* 9 */
     display: grid;
     gap: var(--hero-block);
     align-content: start;
+    min-width: 0;
   }
-  .work-hero-col-split,
-  .work-hero-col-facts { display: grid; align-content: start; min-width: 0; }
-  .work-hero-col-split { gap: var(--hero-block); }
-  .work-hero-col-facts { gap: var(--hero-fact); }
+  .work-hero-split,
+  .work-hero-facts { display: grid; align-content: start; min-width: 0; }
+  .work-hero-split { gap: var(--hero-block); }
+  .work-hero-facts { gap: var(--hero-fact); }
 
-  /* THE COVER IS AN OBJECT IN THE COLUMN, NOT THE COLUMN.
-     The pack's 132px sits in a 300px column — 44% of it, left-ranged, with the
-     rest of the width left as air. The first cut read "132x196" as a ratio and
-     gave the cover `width: 100%`, which is 2.3x the width, 5.2x the area, and
-     pushed the two verbs a reader came for below the fold at 1440x900. The book
-     is the first thing you see on this page; it is not the only thing.
+  /* THE ONE BRANCH, AND IT ASKS A QUESTION ABOUT THE CONTAINER, NOT THE WINDOW.
+     The pack's condition is `twoCol || phone` — stacked in the two-column frame
+     and stacked on a phone, beside its facts everywhere in between. `twoCol`
+     there means "this hero is in the 300px column", which is a fact about where
+     the element IS, not about how wide the window is.
 
-     DERIVED FROM --hero-w rather than typed, so the 340px breakpoint gets 150px
-     without a second number to fall out of step with the first. */
-  .work-hero-col-cover-wrap { width: var(--cover-w); display: grid; gap: 0; }
-  .work-hero-col-cover {
+     Written as `(min-width: 769px) and (max-width: 1179px)` it was neither. Only
+     a BOOK's page enters the frame (`.tp-detail`, Library.jsx) — a film's page is
+     a plain column at every width — so above 1180 a film stacked a 132px cover
+     above full-width facts in 1140px of paper, which is the arrangement this
+     rule's own comment calls the most wasteful there is. The window was answering
+     a question only the container can answer.
+
+     So: beside from 769 up, and back to stacked inside the frame, where 300px has
+     no room beside anything. `frame-scroll.mjs` measures BOTH pages now — it only
+     ever loaded /books/:id, which is why the film half went unseen. */
+  @media (min-width: 769px) {
+    .work-hero-split {
+      display: flex;
+      align-items: flex-start;
+      gap: calc(var(--row) * 1.2);
+    }
+    .work-hero-facts { flex: 1; min-width: 0; }
+    .tp-detail .work-hero-split { display: grid; gap: var(--hero-block); }
+    .tp-detail .work-hero-facts { flex: none; }
+  }
+
+  /* THE COVER IS AN OBJECT IN THE HEADER, NOT THE HEADER.
+     The pack draws it at 132px, which inside its 300px column is 44% of the width
+     with the rest left as air. Read once as a ratio and given `width: 100%`, it
+     was 2.3x as wide, 5.2x the area, and pushed the two verbs a reader came for
+     below the fold at 1440x900. The book is the first thing you see on this page;
+     it is not the only thing.
+
+     132px flat is the base — the pack's own number, unconditional — and the
+     two-column frame derives its own from --hero-w so the 340px breakpoint gets
+     150 without a second number to fall out of step with the first. */
+  .work-hero-cover-wrap { width: var(--cover-w, 132px); display: grid; gap: 0; }
+  .work-hero-cover {
     width: 100%;
     aspect-ratio: 2 / 3;
     display: flex;
@@ -4554,22 +4613,21 @@
     border-radius: 3px 7px 4px 6px;
     overflow: hidden;
   }
-  .work-hero-col-cover > * { width: 100%; }
+  .work-hero-cover > * { width: 100%; }
   /* WELDED TO THE COVER'S BOTTOM EDGE, which is the whole point of it. Progress
      drawn as its own bar somewhere below is a fifth row competing with the shelf
      chip that already says "Reading"; drawn as a 5px strip across the foot of the
-     board it reads as how far into THIS book you are, and costs the column five
+     board it reads as how far into THIS book you are, and costs the header five
      pixels instead of a row. */
-  .work-hero-col-shelfbar {
+  .work-hero-shelfbar {
     width: 100%;
     height: 5px;
     border-radius: 0 0 3px 3px;
     overflow: hidden;
     background: color-mix(in oklab, var(--ink), transparent 90%);
   }
-  .work-hero-col-shelfbar > span { display: block; height: 100%; background: var(--accent-ui); }
+  .work-hero-shelfbar > span { display: block; height: 100%; background: var(--accent-ui); }
 
-  .work-hero-col-kind,
   .work-hero-kind {
     display: flex;
     align-items: center;
@@ -4579,16 +4637,16 @@
     color: var(--faint);
     min-width: 0;
   }
-  /* A FACT YOU CAN FOLLOW, and every one of them takes this material: the year,
-     the language, the genres. They are the same KIND of thing — something this
-     work IS, that has a screen behind it — so they are one visual class. Genres
-     as filled chips two rows lower were a second weight competing with the shelf
-     state, and read as filters rather than as facts. */
   .work-hero-kind-word {
     text-transform: uppercase;
     letter-spacing: .14em;
     color: var(--soft);
   }
+  /* A FACT YOU CAN FOLLOW, and every one of them takes this material: the year,
+     the language, a genre, the series. They are the same KIND of thing —
+     something this work IS, that has a screen behind it — so they are one visual
+     class. Genres as filled chips two rows lower were a second weight competing
+     with the shelf state, and read as filters rather than as facts. */
   .work-hero-metalink {
     font-family: var(--font-mono);
     font-variant-numeric: var(--font-mono-figures);
@@ -4608,64 +4666,58 @@
   .work-hero-metalink:focus-visible { color: var(--ink); text-decoration-color: currentColor; }
   /* The same material without the promise — see HeroFact. */
   .work-hero-metalink-flat { text-decoration: none; cursor: default; }
-  /* The genre row in the two arrangements that are NOT the 300px column: the same
-     facts in the same material, in a row that scrolls under its fade rather than
-     wrapping into a block. */
-  .work-hero-genres-row {
-    overflow-x: auto;
-    overscroll-behavior: contain;
-    white-space: nowrap;
-    display: flex;
-    align-items: center;
-    gap: calc(var(--row) * 0.55);
-  }
 
   /* The title and the heart share a line, and the heart never moves: it is the
      one control here whose position a reader learns. `align-items: start` keeps
      it on the title's FIRST line when the title wraps to three. */
-  .work-hero-col-title {
+  .work-hero-title {
     display: flex;
     align-items: start;
     gap: calc(var(--row) * 0.45);
   }
-  .work-hero-col-title > h1 { flex: 1; min-width: 0; text-wrap: pretty; }
-  .work-hero-col-credits { display: flex; align-items: center; gap: calc(var(--row) * 0.4); min-width: 0; }
+  /* overflow-wrap, not truncation: at 175% on the type dial a single long word in
+     a 320px screen has to break somewhere, and the standing rule says grow the
+     box or wrap — never freeze the text and never cut a name. */
+  .work-hero-title > h1 { flex: 1; min-width: 0; text-wrap: pretty; overflow-wrap: break-word; }
+
+  .work-hero-credits { display: flex; align-items: center; gap: calc(var(--row) * 0.4); min-width: 0; }
   /* overscroll-behavior on every scroller, which scroll-containment.test.js
      checks: flinging a credits row to its end must not then start moving the
      column behind it. */
-  .work-hero-col-credit-row { overflow-x: auto; overscroll-behavior: contain; white-space: nowrap; display: flex; align-items: center; gap: 6px; min-width: 0; }
-  /* AT the fade, not beside it — the standing rule's own words. It is a quiet
-     button because the row it belongs to is the subject; this only says there is
-     more of it. */
-  .work-hero-col-more {
-    justify-self: start;
-    font-size: var(--type-ui-12);
-    color: var(--soft);
-  }
+  .work-hero-credit-row { overflow-x: auto; overscroll-behavior: contain; white-space: nowrap; display: flex; align-items: center; gap: 6px; min-width: 0; }
+  /* .work-hero-more (the +N) has its own rule above, with the person chips it
+     summarises — it belongs to that row, not to this one. */
   /* The counts strip and the shelf state. Both are rows of small controls the
-     column stacks like everything else — they had no rule at all, which left
-     them relying on whatever the children happened to lay out as. */
-  .work-hero-col-counts,
-  .work-hero-col-state {
+     header stacks like everything else. */
+  /* THE PROGRESS TRACK TAKES THE WHOLE LINE, and the deleted phone-only rule that
+     used to say so is why this is here. The track is a 168px bar in a row of
+     chips: let it wrap like a chip and the state, the track and the ×N counter
+     come out on three lines in no particular order — which was the bug the
+     original rule fixed, phone-only, because the header was only ever narrow on a
+     phone. It is narrow in a 300px column too. So the rule is unconditional now:
+     chips on one line, track on the next, the same order every time. */
+  .work-hero-state .shelf-track { flex: 1 0 100%; }
+  .work-hero-counts,
+  .work-hero-state {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: calc(var(--row) / 2);
     min-width: 0;
   }
-  .work-hero-col-genres { overflow-x: auto; overscroll-behavior: contain; white-space: nowrap; display: flex; align-items: center; gap: calc(var(--row) * 0.55); }
+  .work-hero-genres { overflow-x: auto; overscroll-behavior: contain; white-space: nowrap; display: flex; align-items: center; gap: calc(var(--row) * 0.55); }
   /* TWO VERBS, TWO WEIGHTS, ONE ROW. `flex: 1 1 0` rather than wrap: two buttons
-     that split the column evenly are a pair of choices; two that wrap to their own
+     that split the width evenly are a pair of choices; two that wrap to their own
      content and leave a ragged tail are a list that ran out of room. Practise is
      the raised one — it is what a reader came to this page to do — and Details is
-     flat beside it, so the row states a preference instead of asking twice. */
-  .work-hero-col-actions { display: flex; gap: 8px; }
-  /* Two levels, because IconButton wraps its button in a Tooltip span: the
-     wrapper takes the half-column and the button fills the wrapper. Stretching
-     only the wrapper leaves two content-width buttons floating in two half
-     columns, which looks like a bug rather than like a layout. */
-  .work-hero-col-actions > * { flex: 1 1 0; min-width: 0; display: flex; }
-  .work-hero-col-actions > * > button { flex: 1 1 auto; min-width: 0; justify-content: center; }
+     flat beside it, so the row states a preference instead of asking twice.
+
+     Two levels, because IconButton wraps its button in a Tooltip span: the
+     wrapper takes its share and the button fills the wrapper. Stretching only the
+     wrapper leaves two content-width buttons floating in two half columns. */
+  .work-hero-actions { display: flex; gap: 8px; }
+  .work-hero-actions > * { flex: 1 1 0; min-width: 0; display: flex; }
+  .work-hero-actions > * > button { flex: 1 1 auto; min-width: 0; justify-content: center; }
 
   /* Two columns from 1180, the pack's own number. Below it the hero is not a
      column at all — its content is folded into the stream by the screen, because
@@ -5914,25 +5966,6 @@ html[data-theme="dark"] .mobile-dock-btn.is-accent {
    So the phone stacks instead, in a stated order, and the SAME order for a
    book, a film and a show: what it is · where you are · what it is to you ·
    what it is about. See the note above WorkHero. */
-.work-hero-m { display: flex; flex-direction: column; gap: 12px; }
-.work-hero-m-top { display: flex; align-items: flex-start; gap: 14px; }
-/* 96px, down from 144. In this arrangement the cover identifies the work rather
-   than being the subject of the screen, and the full-size art is one tap away
-   through it. Fixed rather than fluid so the text column is a known width and
-   the title stops re-wrapping as the cover's aspect ratio changes. */
-.work-hero-m-cover { width: 96px; flex: 0 0 96px; filter: drop-shadow(0 8px 16px rgba(0,0,0,.32)); }
-/* One row for the whole shelf: ♥, the state chip, the ×N counter — then the
-   track, which takes the full line beneath them (see .shelf-track). */
-.work-hero-m-shelf {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
-}
-/* The progress track is a 168px minimum inside a wrapping row of chips, so on a
-   narrow screen it has to own its line rather than push a chip onto the next
-   one. Full width here; inline and unremarkable on a desktop. */
-.work-hero-m-shelf .shelf-track { flex: 1 0 100%; }
 .shelf-track > span { max-width: 100%; }
 
 /* MobileSheet — full-screen filter page on phones */

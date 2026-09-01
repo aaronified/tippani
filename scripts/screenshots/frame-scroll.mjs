@@ -98,12 +98,12 @@ async function measure(page) {
       // jsdom — `getBoundingClientRect` there is all zeroes — so this is the
       // only place in the repo that can see it.
       colW: q('.tp-detail-hero') ? Math.round(q('.tp-detail-hero').clientWidth) : null,
-      coverW: q('.work-hero-col-cover') ? Math.round(q('.work-hero-col-cover').getBoundingClientRect().width) : null,
+      coverW: q('.work-hero-cover') ? Math.round(q('.work-hero-cover').getBoundingClientRect().width) : null,
       // How far the action row's bottom edge falls past what the column shows.
       // <= 0 means a reader sees both verbs without scrolling for them.
       actionsBelow: (() => {
         const col = q('.tp-detail-hero')
-        const acts = q('.work-hero-col-actions')
+        const acts = q('.work-hero-actions')
         if (!col || !acts) return null
         return Math.round(acts.getBoundingClientRect().bottom - col.getBoundingClientRect().bottom)
       })(),
@@ -218,6 +218,134 @@ try {
       failures.push(
         `${size.w}x${size.h}: the stream holds ${m.streamHas}px and scrolls nowhere — ` +
           'its height chain is broken, so it grew to its content instead of scrolling',
+      )
+    }
+  }
+
+  // ---- THE ONE ARRANGEMENT, AT THE THREE WIDTHS IT HAS TO ANSWER ----------
+  //
+  // There used to be three hero COMPONENTS and a hook that picked between them.
+  // There is one now, and where the cover sits is a single stylesheet rule — so
+  // this is the check that the rule fires at the right widths, which is the only
+  // thing that could silently go wrong about it. Stacked in the two-column frame
+  // (no room beside a 300px column), BESIDE its facts in between (stacked there
+  // leaves most of a wide page blank), stacked again on a phone (no room beside
+  // anything). And at every width the cover keeps the pack's 132.
+  // BOTH PAGES, and the film half is the reason this loop exists in its second
+  // form. The arrangement was first written as a width range — 769 to 1179 — on
+  // the assumption that above 1180 every hero is in the 300px column. Only a
+  // BOOK's page enters that column; a film's is a plain page at every width, so
+  // above 1180 a film stacked a 132px cover above full-width facts in 1140px of
+  // paper. The check could not see it, because it only ever loaded /books/:id.
+  //
+  // A film is therefore `beside` at 1440 where a book is `stacked`: same
+  // component, same markup, different container — which is the whole claim the
+  // collapse makes, measured rather than asserted.
+  const ARRANGEMENTS = [
+    ['books', 1440, 'stacked'], ['books', 900, 'beside'], ['books', 390, 'stacked'],
+    ['movies', 1440, 'beside'], ['movies', 900, 'beside'], ['movies', 390, 'stacked'],
+  ]
+  for (const [kind, w, want] of ARRANGEMENTS) {
+    const label = kind === 'books' ? 'book-detail' : 'movie-detail'
+    await page.setViewport({ width: w, height: 900 })
+    await page.goto(`${opts.baseUrl}/${kind}/1`, { waitUntil: 'networkidle0' })
+    await page.waitForSelector(`[data-screen-label="${label}"] h1`, { timeout: opts.timeoutMs })
+    await new Promise((r) => setTimeout(r, 800))
+    const a = await page.evaluate((sel) => {
+      const cover = document.querySelector('.work-hero-cover')
+      const h1 = document.querySelector(`[data-screen-label="${sel}"] h1`)
+      if (!cover || !h1) return null
+      const c = cover.getBoundingClientRect()
+      const t = h1.getBoundingClientRect()
+      return {
+        // Beside: the cover ends before the title starts, horizontally. Stacked:
+        // the cover ends before the title starts, vertically. Measured rather
+        // than read off a class, because a media query that never matched would
+        // leave the class in place and the layout wrong.
+        arrangement: c.right <= t.left + 1 ? 'beside' : c.bottom <= t.top + 1 ? 'stacked' : 'overlapping',
+        coverW: Math.round(c.width),
+        // Nothing may push the page sideways. A 30px display title in a 390px
+        // window is the case that would.
+        overflowX: Math.round(document.documentElement.scrollWidth - document.documentElement.clientWidth),
+        // The header's own rhythm, read off the computed style. It restates
+        // --row rather than inheriting it, because --row is 18 inside the
+        // two-column frame and 12 everywhere else — and only a book's page is
+        // inside it, so an inherited value spaced a film's header at 12 and a
+        // book's at 18 for no reason anybody chose.
+        row: getComputedStyle(document.querySelector('.work-hero')).getPropertyValue('--row').trim(),
+      }
+    }, label)
+    if (!a) {
+      failures.push(`${kind} ${w}x900: the hero drew no cover or no title`)
+      continue
+    }
+    console.log(`${kind} ${w}x900   cover ${a.coverW}px, ${a.arrangement} (want ${want}), --row ${a.row}, overflows ${a.overflowX}px`)
+    if (a.arrangement !== want) {
+      failures.push(`${kind} ${w}x900: the cover is ${a.arrangement} its facts, and here it should be ${want}`)
+    }
+    if (a.coverW < 120 || a.coverW > 180) {
+      failures.push(`${kind} ${w}x900: the cover is ${a.coverW}px — the pack draws 132 and the frame derives at most 150`)
+    }
+    if (a.overflowX > 0) {
+      failures.push(`${kind} ${w}x900: the page scrolls ${a.overflowX}px sideways — something in the hero is wider than the window`)
+    }
+    if (a.row !== '18px') {
+      failures.push(`${kind} ${w}x900: the header's --row is ${a.row || 'unset'} — it must carry its own 18 on every page, not inherit the page's`)
+    }
+  }
+
+  // ---- HOW WIDE ONE QUOTE CARD ACTUALLY IS -------------------------------
+  //
+  // The owner's report, twice: "i see 4 columns in the board tile, all very
+  // skinny, on a 1080p screen. the annotations need at least double the width."
+  // The board asked how wide the WINDOW was while living in a column that is the
+  // window minus the rail minus the hero and then capped for measure, so at 1920
+  // it dealt five columns inside 880px — 163px each, a column of syllables.
+  //
+  // MEASURED AS A CARD, not as a column count, because the count is not the
+  // claim: two columns of 163px would be just as wrong. ~400px is what the ladder
+  // was chosen to produce and what a quote wants to be read at.
+  // BOTH ENDS, because the first attempt at this guard only had a floor and the
+  // over-correction sailed through it: the hook returned 1 for ever (its effect
+  // keyed on a ref object that never changes, so it ran once before the board
+  // existed), the board drew ONE 880px column, and a check asking "is the card at
+  // least 300px" said yes. A measure has an upper bound as well as a lower one —
+  // 880px of quote in a single column is the same mistake in the other direction.
+  const MIN_CARD = 300
+  const MAX_CARD = 620
+  for (const w of [1920, 1440, 1180]) {
+    await page.setViewport({ width: w, height: 900 })
+    await page.goto(`${opts.baseUrl}/books/${opts.bookId}`, { waitUntil: 'networkidle0' })
+    await page.waitForSelector('[data-screen-label="book-detail"]', { timeout: opts.timeoutMs })
+    await new Promise((r) => setTimeout(r, 1500))
+    const b = await page.evaluate(() => {
+      // The masonry deals absolutely-positioned children into columns; the widest
+      // card IS the column width, and counting distinct left edges counts columns.
+      const cards = [...document.querySelectorAll('.tp-detail-stream [style*="position: absolute"]')]
+      if (!cards.length) return null
+      const rects = cards.map((el) => el.getBoundingClientRect())
+      return {
+        card: Math.round(Math.max(...rects.map((r) => r.width))),
+        cols: new Set(rects.map((r) => Math.round(r.left))).size,
+      }
+    })
+    if (!b) {
+      console.log(`${w}x900   board: no cards on screen (an empty fixture book?)`)
+      continue
+    }
+    console.log(`${w}x900   board ${b.cols} column(s), widest card ${b.card}px`)
+    if (b.card < MIN_CARD) {
+      failures.push(
+        `${w}x900: the board is dealing ${b.cols} columns and the widest card is ${b.card}px — ` +
+          `a quote is read, not glanced at, and under ${MIN_CARD} it is a column of syllables`,
+      )
+    }
+    // The floor only above 1180: below it the stream is the whole page and one
+    // column IS the arrangement.
+    if (w > 1180 && b.card > MAX_CARD) {
+      failures.push(
+        `${w}x900: the board is dealing ${b.cols} column(s) at ${b.card}px — ` +
+          'the ladder is not firing, so the board is one over-wide column instead of two',
       )
     }
   }

@@ -872,10 +872,26 @@ export const QUOTE_COLUMNS = [[1900, 5], [1600, 4], [1280, 3], [860, 2]]
 // A ResizeObserver rather than a resize listener: the container changes width when
 // the window does, but ALSO when the rail collapses to glyphs, when the hero
 // column appears at 1180, and when a panel opens — none of which fire `resize`.
-export function useColumnsIn(ref, ladder) {
+// A CALLBACK REF, NOT A useRef, and the first version of this got it wrong in the
+// way that is invisible until something uses it. It took a ref OBJECT and keyed
+// its effect on `[ref]` — and a ref object never changes, so the effect ran once,
+// on mount, when `ref.current` was still null because the board it wanted to
+// measure only renders after the quotes have loaded. It bailed at `if (!el)
+// return` and never ran again: the count stayed at its initial 1 for ever, on
+// every screen, at every width.
+//
+// That is exactly the shape of bug a dead export hides. This hook and its ladder
+// sat written-but-uncalled through several passes, so nothing ever ran the branch
+// that mattered; the first time it was wired, the board drew ONE 880px column and
+// the guard that was supposed to catch a bad ladder passed, because one enormous
+// column is not the failure it was written to look for.
+//
+// Returning [cols, ref] rather than taking one: the ref is state, so an element
+// that arrives late — or is swapped when the view changes — re-runs the effect.
+export function useColumnsIn(ladder) {
+  const [el, setEl] = useState(null);
   const [n, setN] = useState(1);
   useEffect(() => {
-    const el = ref.current;
     if (!el) return;
     const read = (w) => {
       for (const [min, cols] of ladder) if (w >= min) return cols;
@@ -890,8 +906,8 @@ export function useColumnsIn(ref, ladder) {
     return () => ro.disconnect();
     // ladder is a static literal per call site; intentionally not a dep.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ref]);
-  return n;
+  }, [el]);
+  return [n, setEl];
 }
 
 // QUOTE_COLUMNS_IN — the same intent as QUOTE_COLUMNS, measured against the board
@@ -2257,7 +2273,12 @@ export function shuffleSeeded(items, seed, keyOf = (x) => x.key) {
 // WHILE a quote is open (add / filter / breakpoint) from freezing the columns
 // around that one card's expanded height. Heights are rounded for the ordering so
 // sub-pixel jitter can't flip a tie and shuffle the board.
-export function Masonry({ columns = 2, gap = 24, seed = 1, pinnedCount = 0, lockOrder = false, order = "height", className = "", children }) {
+// boardRef — the container element, handed back so a caller can MEASURE it.
+// useColumnsIn needs the width of the board itself, and the board is this div: a
+// caller that wrapped it in one of their own would be measuring a box whose width
+// only happens to match. One ref, no wrapper, and Library and the Catalogue ask
+// the same question of the same element.
+export function Masonry({ boardRef, columns = 2, gap = 24, seed = 1, pinnedCount = 0, lockOrder = false, order = "height", className = "", children }) {
   const items = useMemo(() => Children.toArray(children), [children]);
   const n = items.length;
   const cols = Math.max(1, columns);
@@ -2430,7 +2451,7 @@ export function Masonry({ columns = 2, gap = 24, seed = 1, pinnedCount = 0, lock
   const colW = `calc((100% - ${(cols - 1) * gap}px) / ${cols})`;
   const leftOf = (col) => (cols <= 1 ? "0px" : `calc(${col} * (100% + ${gap}px) / ${cols})`);
   return (
-    <div className={className} style={{ position: "relative", height: height || undefined }}>
+    <div ref={boardRef} className={className} style={{ position: "relative", height: height || undefined }}>
       {items.map((child, i) => {
         const p = pos[i];
         return (

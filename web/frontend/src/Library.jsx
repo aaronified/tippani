@@ -13,7 +13,7 @@ import { usePractice } from './review.jsx'
 import { selectionClick, selectionMenuItems, useSelection } from './selection.jsx'
 import { facetValue, facetValues, publishSearchSeed, seedableChips, withFacet, withFacetValues, workSeedChip } from './facets.js'
 import { SelectionBar } from './SelectionBar.jsx'
-import { PersonChip, PersonModal, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
+import { CharacterFaces, PersonChip, PersonModal, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
 import { nameFor } from './languages.jsx'
 import {
   ACTIVE_STATUS,
@@ -25,7 +25,7 @@ import {
   ShelfControl,
   ShelfDateDialog,
   WorkCard,
-  WorkHeroAny,
+  WorkHero,
   WishlistFolder,
   WorkListScaffold,
   countQuotes,
@@ -43,7 +43,7 @@ import {
 } from './works.jsx'
 import { t } from './i18n.js'
 import {
-  BOARD_COLUMNS,
+  QUOTE_COLUMNS_IN,
   byLastRead,
   bySeries,
   clampSequence,
@@ -99,7 +99,7 @@ import {
   Tooltip,
   TranslationLine,
   useCardMenu,
-  useColumnsAt,
+  useColumnsIn,
   useColumnScroll,
   useCoverSize,
   useCrumb,
@@ -956,7 +956,7 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce 
 
   const heroBlock = book && (
         <div>
-          <WorkHeroAny
+          <WorkHero
             cover={<Cover path={book.cover_path} title={book.title} hero zoomable />}
             shadow="drop-shadow(0 12px 22px rgba(0,0,0,.34))"
             title={book.title}
@@ -1572,6 +1572,24 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
               />
             ))}
           <div className="flex items-center gap-2">
+            {/* THE CHARACTER'S FACE, and a book's card is the last place that was
+                still printing the name and nothing else. A highlight has carried a
+                character since 0047 and `character_images` has ridden the payload
+                since the cast pass (annotation_handlers.go), but this card put the
+                name in the mono locator line beside the chapter and the page — so
+                the one part of that line that is about WHO SPOKE looked exactly
+                like the part about which page it was on.
+
+                The Catalogue's card has drawn the face for as long as it has had
+                one, and drawing it here off the same component is the point: a
+                character is a character whether the words came out of a book or a
+                film. FALLING BACK TO NOTHING rather than to a silhouette — the
+                film side falls back to the ACTOR, and a book's speaker has no
+                actor to stand in for them, so an empty disc would be a picture of
+                nobody. */}
+            {a.character_images?.length > 0 && (
+              <CharacterFaces images={a.character_images} size={24} ring="var(--card)" />
+            )}
             <ReviewDot item={a} />
             {/* Beside the dot, because the two answer one question between them:
                 the dot says how the recall stands, the mark says the quiz is not
@@ -1802,7 +1820,21 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
   }
   // Tiles are a height-packed masonry (1/2/3 cols by width). Newly-added quotes
   // (the pinned prefix of displayRows) stay glued to the top of the board.
-  const tileCols = useColumnsAt(BOARD_COLUMNS)
+  // THE BOARD IS NOT THE WINDOW, and measuring the window is what put four
+  // ~170px columns of syllables on a 1080p screen — the owner's report, twice:
+  // "i see 4 columns in the board tile, all very skinny... the annotations need
+  // at least double the width". useColumnsAt reads window.innerWidth, which was
+  // the same question as "how wide is the container" for as long as every board
+  // sat in the page's one centred container. This one does not: it is the window
+  // MINUS the rail MINUS the hero column, then capped at 880px for measure, so
+  // at 1920 the ladder asked for FIVE columns inside 880px.
+  //
+  // Both the fix and its ladder were written when that was first diagnosed and
+  // NEITHER WAS EVER WIRED — useColumnsIn and QUOTE_COLUMNS_IN sat as dead
+  // exports with no call site anywhere, which is why the board kept doing the
+  // thing its own comment says it must not. Measured against the board, 880px is
+  // two columns of ~430, which is the ~400 a quote wants to be read at.
+  const [tileCols, boardRef] = useColumnsIn(QUOTE_COLUMNS_IN)
   const pinnedShown = useMemo(
     () => (!pinned.length || !items ? 0 : pinned.filter((id) => items.some((x) => x.id === id)).length),
     [pinned, items],
@@ -2138,7 +2170,7 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
         // affordance, no button); doing so collapses any other and locks the column
         // order so the board never reshuffles under the reader.
         <>
-        <Masonry columns={tileCols} gap={16} seed={boardSeed} pinnedCount={pinnedShown} lockOrder={expandedId != null} order="source">
+        <Masonry boardRef={boardRef} columns={tileCols} gap={12} seed={boardSeed} pinnedCount={pinnedShown} lockOrder={expandedId != null} order="source">
           {shownRows.map((a, i) => (
             <AnnotationCard
               key={a.id}

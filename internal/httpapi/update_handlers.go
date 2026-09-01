@@ -192,6 +192,36 @@ func (s *Server) handleUpdateChannel(w http.ResponseWriter, r *http.Request) {
 // After it returns, Watchtower stops and recreates the container, so the client
 // should expect the connection to drop and the app to come back on the new
 // version — it polls for that.
+// handleUpdateState reports the last apply attempt — see update_progress.go for
+// why it has to exist at all.
+//
+// ADMIN ONLY, like the other two: the record names an image, a container and an
+// Engine error, which is the operator's own deployment and nobody else's
+// business. Absent is a 200 with `attempted: false`, not a 404 — "there has
+// never been an update on this box" is an answer, and the page draws it.
+func (s *Server) handleUpdateState(w http.ResponseWriter, r *http.Request) {
+	rec, ok := s.readUpdateProgress()
+	if !ok {
+		writeJSON(w, http.StatusOK, map[string]any{"attempted": false})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"attempted":  true,
+		"phase":      rec.Phase,
+		"started_at": rec.StartedAt,
+		"at":         rec.At,
+		"from":       rec.From,
+		"image":      rec.Image,
+		"container":  rec.Container,
+		"error":      rec.Error,
+		"user":       rec.User,
+		// The version answering RIGHT NOW, in the same reply. The page's whole
+		// question is "is this a different box yet", and asking it in one request
+		// rather than two removes the window where the two disagree.
+		"current": buildinfo.Version,
+	})
+}
+
 func (s *Server) handleUpdateApply(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Confirm string `json:"confirm"`
@@ -212,6 +242,16 @@ func (s *Server) handleUpdateApply(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer s.updateMu.Unlock()
+
+	// WHERE IT GOT TO, written down as it goes — see update_progress.go. The page
+	// that started this almost never hears the answer (the pull outlasts the
+	// server's 60-second write timeout, so the browser's fetch resolves to no
+	// status at all), which left it guessing "probably running" whatever really
+	// happened. Each step below says what it is ABOUT to try before trying it, so
+	// a record that stops at "pulling" names the pull as the thing that did not
+	// come back.
+	prog := s.newUpdateProgress(username(r))
+	prog.step(updatePhaseRequested)
 
 	// THE TWO WAYS THIS HANDLER USED TO BE CUT OFF MID-PULL, and why the symptom
 	// was "it works in a browser on the server and almost never from my laptop".
@@ -241,10 +281,18 @@ func (s *Server) handleUpdateApply(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 
 	d := s.newDocker()
+	prog.step(updatePhaseEngine)
 	if !d.Available(ctx) {
 		// No Engine API → one-click isn't possible; hand back the manual command
 		// so the operator can update by hand.
 		olog.Printf("[update] apply requested by user %d (%s) but the Docker Engine API is unreachable", userID(r), username(r))
+		// NOT "failed": nothing was attempted, and the operator's next move is the
+		// guided command rather than pressing this again. The page says so.
+		_, why := d.Probe(ctx)
+		prog.fail(updatePhaseUnsupported)
+		if why != "" {
+			prog.fail(why)
+		}
 		writeJSON(w, http.StatusConflict, map[string]any{
 			"error":          "the Docker Engine API is not reachable — one-click update needs the socket mounted, or TIPPANI_DOCKER_HOST pointed at a socket proxy (see the README)",
 			"guided_command": guidedUpdateCommand,
@@ -252,20 +300,34 @@ func (s *Server) handleUpdateApply(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+	prog.step(updatePhaseIdentify)
 	_, name, image, err := d.Self(ctx)
 	if err != nil {
+		// THE STEP THAT LOOKS LIKE NOTHING HAPPENING. Self asks the Engine about
+		// the container whose name is this machine's hostname, so a compose file
+		// that sets `hostname:` — or any runtime that does not name the container
+		// after its id — gets a 404 here, BEFORE a single image is pulled. From
+		// the outside that is an update that issued no Docker command at all,
+		// which is exactly how it was reported.
+		prog.fail("identify this container: " + err.Error())
 		codedError(w, r, olog.CodeUpdateEngine, "update identify self", err)
 		return
 	}
+	prog.on(image, name)
 	olog.Alertf("[update] APPLY requested by user %d (%s) — pulling %s and recreating container %q", userID(r), username(r), image, name)
+	prog.step(updatePhasePulling)
 	if err := d.Pull(ctx, image); err != nil {
+		prog.fail("pull " + image + ": " + err.Error())
 		codedError(w, r, olog.CodeUpdateEngine, "update pull image", err)
 		return
 	}
+	prog.step(updatePhaseRecreate)
 	if err := d.RunWatchtower(ctx, name); err != nil {
+		prog.fail("start the recreater: " + err.Error())
 		codedError(w, r, olog.CodeUpdateEngine, "update run recreater", err)
 		return
 	}
+	prog.step(updatePhaseLaunched)
 	olog.Alertf("[update] recreater launched for %q — the container will restart on the new image", name)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"ok":      true,

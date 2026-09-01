@@ -24,7 +24,7 @@ import {
   verifyUpload,
 } from './fonts.js'
 import { SECTIONS, visibleSections } from './routes.js'
-import { RESTART_NEW, RESTART_SAME, waitForRestart } from './update.js'
+import { RESTART_FAILED, RESTART_NEW, RESTART_SAME, waitForRestart } from './update.js'
 import { LanguagePicker } from './locale.jsx'
 import { tourFeatures, tourSteps } from './tour.jsx'
 import { lockedOff, parseQuestions, parseTuning, questionsBlob, questionsFor, REVIEW_DECKS, taxonomy, toggle as toggleQuestion, TUNING_FIELDS, tuningBlob, tuningProblem } from './quiz.js'
@@ -1477,6 +1477,11 @@ function UpdatesCard({ user, update, onUpdateInfo }) {
   const [busy, setBusy] = useState(false)
   const [confirm, setConfirm] = useState('')
   const [phase, setPhase] = useState('idle') // idle | applying | restarting | failed
+  // The step the server said it stopped at, in its own words. Kept on the card
+  // rather than only in a toast: a toast is gone in four seconds and this is the
+  // one sentence the operator has to act on — and, often enough, to paste
+  // somewhere. Empty when the failure had nothing to say.
+  const [failure, setFailure] = useState('')
 
   // WHICH RELEASE LINE THIS BOX FOLLOWS. Not read from a preference the client
   // owns: the server decides the default from the version it is running (a
@@ -1547,16 +1552,36 @@ function UpdatesCard({ user, update, onUpdateInfo }) {
     // handler cannot be tested against a server that has gone away. See update.js
     // for the three bounds and why each is needed; test/pure/update-wait.test.js
     // holds the case that mattered — every poll hangs and the loop still ends.
-    const outcome = await waitForRestart({
+    // ASKING THE SERVER WHAT IT DID, not just whether it is up. /admin/update/state
+    // is the apply's own record of which step it reached (update_progress.go) and
+    // the version answering right now, in one reply — so the two cannot disagree
+    // about whether this is a different box yet. It is the only thing that can end
+    // this wait honestly: the apply's own answer almost never arrives.
+    const { outcome, why } = await waitForRestart({
       ping: async () => {
-        const r = await json('GET', '/auth/me', undefined, { timeoutMs: 8000 })
-        return { ok: r.ok, version: r.data?.version || '' }
+        const r = await json('GET', '/admin/update/state', undefined, { timeoutMs: 8000 })
+        return {
+          ok: r.ok,
+          version: r.data?.current || '',
+          phase: r.data?.phase || '',
+          error: r.data?.error || '',
+        }
       },
       sleep: (ms) => new Promise((res) => setTimeout(res, ms)),
       was: user?.version || '',
     })
     if (outcome === RESTART_NEW) return window.location.reload()
     setPhase('failed')
+    // THE SERVER'S OWN WORDS WHERE THERE ARE ANY. "Something went wrong, try
+    // reloading" is what this said for every one of four different failures, and
+    // three of them are things only the operator can fix — a socket that is not
+    // mounted, a container the Engine cannot identify by hostname, an image that
+    // 404s. Naming the step is the difference between a bug report and a fix.
+    if (outcome === RESTART_FAILED) {
+      setFailure(why || '')
+      return toast(why || t('settings.updates.toast.reload'))
+    }
+    setFailure('')
     toast(t(outcome === RESTART_SAME ? 'settings.updates.toast.same' : 'settings.updates.toast.reload'))
   }
 
@@ -1603,6 +1628,18 @@ function UpdatesCard({ user, update, onUpdateInfo }) {
             ),
           })}
         </p>
+
+        {/* WHERE IT STOPPED, in the server's own words. Four different failures
+            used to arrive as one sentence about reloading, and three of them are
+            things only the operator can fix — a socket that was never mounted, a
+            container the Engine cannot find by hostname, an image reference that
+            404s. It stays on the card after the toast has gone, because this is
+            the line that gets pasted into an issue. */}
+        {failure && phase === 'failed' && (
+          <p className="microcopy" style={{ color: 'var(--error)', whiteSpace: 'pre-wrap' }}>
+            {failure}
+          </p>
+        )}
 
         {phase === 'restarting' ? (
           <p className="microcopy" style={{ color: 'var(--accent-ui)' }}>

@@ -3469,14 +3469,10 @@ film.form.media.movie.label = Movie
 film.title.fallback = Untitled
 film.filter.aria = Filter dialogues
 film.export.label = Export .md
-film.export.aria = Export as Markdown
-film.export.tip = Export as Markdown
 film.practise.aria = Practise this title
 film.practise.menu.label = Practise this title
 film.practise.tip = Quiz me on this title
 film.details.tip = Details and metadata
-film.delete.aria = Delete this title
-film.delete.tip = Delete this title
 film.toast.deleted = title deleted
 # The mono credit line under a title. ⚠ SMALL CAPS IN A NARROW SLOT.
 film.credit.publisher.label = PUB. {name}

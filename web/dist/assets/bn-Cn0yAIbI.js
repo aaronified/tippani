@@ -3486,14 +3486,10 @@ film.form.media.movie.label = সিনেমা
 film.title.fallback = নাম নেই
 film.filter.aria = সংলাপ ফিল্টার করুন
 film.export.label = .md এক্সপোর্ট
-film.export.aria = Markdown হিসেবে এক্সপোর্ট
-film.export.tip = Markdown হিসেবে এক্সপোর্ট
 film.practise.aria = এই টাইটেলটা ঝালিয়ে নিন
 film.practise.menu.label = এই টাইটেলটা ঝালিয়ে নিন
 film.practise.tip = এই টাইটেল নিয়ে কুইজ হোক
 film.details.tip = খুঁটিনাটি আর মেটাডেটা
-film.delete.aria = এই টাইটেলটা মুছুন
-film.delete.tip = এই টাইটেলটা মুছুন
 film.toast.deleted = টাইটেল মোছা হয়েছে
 # The mono credit line under a title. ⚠ SMALL CAPS IN A NARROW SLOT.
 # !! 5 clusters against PUB.'s 4, in the narrow mono credit line — শুধু "প্রকা" if it overflows
