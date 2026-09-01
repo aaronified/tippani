@@ -7308,3 +7308,74 @@ html[data-theme="dark"] .board-cover {
 /* The live swatch row an entry can carry: the app's own .color-dot, painted from
    the reader's own --hl-N, so it is their palette rather than a picture of one. */
 .help-swatches { display: inline-flex; align-items: center; gap: 5px; }
+
+/* ---- the metadata page: rail and body ----
+   The help guide's idiom at page scale — a map you scan beside a body you work
+   in, and on a phone a scrolling row of the same rows above it. The two are
+   deliberately the same shape: a screen that invents a second way to draw "these
+   are the sections" is a screen with two focus rings and two active states.
+   WHAT IS DIFFERENT IS THE NUMBER. A metadata section is worth entering or not
+   depending on how much is in it, so every row wears its count and the rail
+   answers before it is used. The help rail is a table of contents; this one is a
+   dashboard that happens to navigate.
+   SPACING IS THE CONSTANT, not a step typed per rule — see the standing rule and
+   spacing-debt.test.js, which counts the ones that are not. */
+.meta-frame { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--row); }
+.meta-body { display: grid; gap: calc(var(--row) * 1.4); align-content: start; min-width: 0; }
+
+.meta-rail {
+  display: flex; gap: 4px; min-width: 0;
+  /* A ROW FIRST, because that is the narrow case and the narrow case is the
+     default. The two-column arrangement below is the enhancement. */
+  flex-direction: row;
+  overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain;
+  padding-bottom: 6px; border-bottom: 1px solid var(--line);
+}
+.meta-rail-item {
+  display: flex; align-items: center; gap: 8px; flex: none;
+  padding: 7px 11px; border-radius: 9px; border: 1px solid transparent;
+  color: var(--soft); background: none; cursor: pointer;
+  font-family: var(--font-ui); font-style: var(--font-ui-style);
+  font-variant-caps: var(--font-ui-caps); text-transform: var(--font-ui-case);
+  font-variant-numeric: var(--font-ui-figures);
+  font-size: var(--type-ui-15);
+  /* NOT A NAME, so it may sit on one line: these are four fixed words this file
+     ships, and the rail scrolls when four of them do not fit. */
+  white-space: nowrap;
+}
+.meta-rail-item:hover { color: var(--ink); background: var(--raised); }
+.meta-rail-item.is-on { color: var(--ink); font-weight: 600; border-color: var(--accent-ui); }
+.meta-rail-icon { display: inline-flex; color: currentColor; opacity: .75; }
+.meta-rail-icon svg { width: 1.15em; height: 1.15em; }
+/* The count reads as a figure rather than as more of the label: the app's mono
+   face, a tier down, and pushed to the far edge on the desktop rail so a column
+   of them lines up. */
+.meta-rail-count {
+  font-family: var(--font-mono); font-style: var(--font-mono-style);
+  font-variant-caps: var(--font-mono-caps); text-transform: var(--font-mono-case);
+  font-variant-numeric: var(--font-mono-figures);
+  font-size: var(--type-mono-11); color: var(--faint);
+}
+.meta-rail-item.is-on .meta-rail-count { color: var(--soft); }
+/* THE ONLY RED NUMBER ON THE RAIL is the count of gaps, because it is the only
+   one that is a count of problems. A library of 900 books is not a warning. */
+.meta-rail-count.is-warn { color: var(--error); }
+
+@media (min-width: 900px) {
+  .meta-frame { grid-template-columns: minmax(0, 13.5rem) minmax(0, 1fr); gap: calc(var(--row) * 1.6); }
+  .meta-rail {
+    flex-direction: column; align-items: stretch; gap: 1px;
+    overflow-x: visible; overflow-y: visible;
+    /* STICKY, unlike the help rail's, and for the opposite reason: this body is a
+       page-length console rather than a panel of prose, so the map would otherwise
+       scroll away exactly when a reader has gone deep enough to want it. */
+    position: sticky; top: calc(var(--row) * 0.5); align-self: start;
+    border-bottom: 0; border-right: 1px solid var(--line);
+    padding: 0 calc(var(--row) * 0.6) 0 0;
+  }
+  .meta-rail-item { border: 0; border-radius: 7px; padding: 8px 10px; }
+  /* An accent BAR, not a filled pill — the rail is a map, and a filled row in a
+     map reads as a pressed button. Same call the help rail makes. */
+  .meta-rail-item.is-on { box-shadow: inset 2px 0 0 var(--accent-ui); }
+  .meta-rail-label { flex: 1 1 auto; }
+}

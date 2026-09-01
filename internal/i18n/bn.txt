@@ -4312,6 +4312,15 @@ metadata.catalogue.title = ক্যাটালগ
 metadata.catalogue.type.all.label = সব ধরন
 metadata.catalogue.filter.tip = শুধু এই ঘাটতিগুলো দেখান
 metadata.shown.count = {n}টি দেখাচ্ছে
+# THE SECTIONS. This screen was one long scroll of six consoles stacked on top
+# of each other — a catalogue, duplicates, people, characters, a speaker remap —
+# so finding one meant scrolling past the other five, and nothing said how many
+# there were. Each kind of metadata is its own place now.
+metadata.section.overview.label = এক নজরে
+metadata.section.works.label = বই ও ছবি
+metadata.section.people.label = মানুষ
+metadata.section.characters.label = চরিত্র
+metadata.section.aria = কোন মেটাডেটা নিয়ে কাজ
 metadata.search.placeholder = খুঁজুন…
 metadata.catalogue.nomatch = কিছুই মিলল না।
 metadata.select-all.label = যা দেখাচ্ছে সব বাছুন
@@ -4397,8 +4406,8 @@ metadata.characters.info.body = প্রতিটি চরিত্র নি�
 metadata.characters.column.works = কাজ
 metadata.characters.column.sort = যেভাবে সাজে
 metadata.characters.empty = এখনও কোনো চরিত্র নেই। চলচ্চিত্রের কাস্টের সঙ্গে আসে, নয়তো কোনো কাজে যোগ করতে পারেন।
-metadata.characters.compact.one = {n}টা চরিত্র, {unpaired}টা কোনো কাজে নেই
-metadata.characters.compact.other = {n}টা চরিত্র, {unpaired}টা কোনো কাজে নেই
+metadata.characters.summary.one = {n}টা চরিত্র, {unpaired}টা কোনো কাজে নেই
+metadata.characters.summary.other = {n}টা চরিত্র, {unpaired}টা কোনো কাজে নেই
 
 metadata.people.title = মানুষ
 # ?? reference page (an IMDb / Wikipedia page about a person) → রেফারেন্স পাতা
@@ -4418,8 +4427,8 @@ metadata.people.reverify.label = সেভ করাগুলো আবার �
 metadata.people.reverify.tip = সেভ করা প্রতিটা মানুষের পরিচয়, লিঙ্ক আর মুখের ছবি সূত্রের সঙ্গে আবার মিলিয়ে দেখা হয় — কিছু বসার আগেই দেখে নিতে পারবেন
 # The hole is bare and the dash carries the sense, so no marker lands on {noun}
 # (§5.4). Both forms alike: Bengali has no verb agreement to change here.
-metadata.people.compact.one = {n} {noun} — মুখের ছবি বা লিঙ্ক এখনও নেই
-metadata.people.compact.other = {n} {noun} — মুখের ছবি বা লিঙ্ক এখনও নেই
+metadata.people.summary.one = {n} {noun} — মুখের ছবি বা লিঙ্ক এখনও নেই
+metadata.people.summary.other = {n} {noun} — মুখের ছবি বা লিঙ্ক এখনও নেই
 metadata.people.empty.author = লাইব্রেরিতে এখনও কোনও লেখক নেই
 metadata.people.empty.actor = কোনও সংলাপে এখনও কোনও অভিনেতা নেই
 metadata.people.empty.director = কোনও সিনেমায় এখনও কোনও পরিচালক নেই

@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { json, errText } from './api.js'
 import { t, tNodes } from './i18n.js'
 import { BookLookupPicker, MovieLookupPicker } from './CoverPicker.jsx'
 import { bookState, EditBook } from './Library.jsx'
 import { EditMovie } from './Movies.jsx'
-import { BulkBar, EmptyState, ErrorText, FieldIconButton, GhostButton, HandCard, IconButton, IconCheck, IconDelete, IconEdit, IconMerge, IconMetadata, IconMore, IconOpen, IconRefresh, IconSearch, IconUsers, InfoDot, MonoLabel, NameInput, NameScroll, normName, PageHeader, ProgressBar, Scroller, splitCommas, Tooltip, PanelHost, usePanelStack, useConfirm, useIsMobileScreen, useScreenBar } from './ui.jsx'
+import { BulkBar, EmptyState, ErrorText, FieldIconButton, GhostButton, HandCard, IconBooks, IconButton, IconCheck, IconDelete, IconEdit, IconMerge, IconMetadata, IconMore, IconOpen, IconPerson, IconRefresh, IconSearch, IconStats, IconUsers, InfoDot, MonoLabel, NameInput, NameScroll, normName, PageHeader, ProgressBar, Scroller, splitCommas, Tooltip, PanelHost, usePanelStack, useConfirm, useIsMobileScreen, usePersistedState, useScreenBar } from './ui.jsx'
 import { PersonModal, PersonName, ProviderChips, mergeLinks, parseCreditSeps, parseLinks, splitCredits } from './people.jsx'
 import { characterPanel } from './identity.jsx'
 import { ReverifyFlow } from './ReverifyReview.jsx'
@@ -14,6 +14,77 @@ import { editDistance } from './text.js'
 // books / films-shows lists with multi-select bulk actions (fill actors, delete,
 // fetch missing covers) plus per-row review-each look-up, and a per-title speaker
 // remap tool. The point of the tab is doing metadata at scale, not one at a time.
+// ---- THE SECTIONS -----------------------------------------------------------
+//
+// This screen was one long scroll with six consoles stacked on it: a stats strip,
+// the catalogue, duplicates, people, characters and a speaker remap. Reaching the
+// character list meant scrolling past four other consoles, nothing on screen said
+// how many there were, and the phone answered the whole problem by showing almost
+// none of it. The owner's ruling: "each type of metadata would deserve their own
+// in depth page/section."
+//
+// A RAIL, NOT A TAB STRIP, and the difference is the count on each row. The
+// question this screen answers is "what still needs work", and a tab that says
+// only "People" makes a reader open it to find out whether it is worth opening.
+// Every row carries its number, so the screen answers before it is entered.
+//
+// IT IS THE SAME ROWS ON A PHONE. The old phone screen was a different
+// screen — three maintenance buttons, two one-line summaries and no browsable
+// record at all — so "can I fix this from my phone" answered "some of it, and you
+// cannot see which". The rail becomes a scrolling row of the same four, under the
+// app's own edge fade; what changes inside a section is how much of a table a
+// 390px column can hold, and the app's table wrapper already scrolls.
+//
+// THE ORDER IS THE ORDER OF THE QUESTION. "What still needs work" first, because
+// that is why anybody opens this screen, and then the three kinds of record. A
+// fifth row for where the records come from — the key block that is still in
+// Settings — belongs at the end of this list and is not in it yet.
+// THE ICON IS THE ELEMENT, NOT THE COMPONENT. An element in a constant is an
+// ordinary object and React is content to render the same one repeatedly. A
+// component held in a loop variable and then rendered by that variable's name
+// reads to icon-imports.test.js as a component nothing imports — and that sweep
+// catches real omissions, so the cheaper move is to stop looking like one.
+const METADATA_SECTIONS = [
+  ['overview', 'metadata.section.overview.label', <IconStats />],
+  ['works', 'metadata.section.works.label', <IconBooks />],
+  ['people', 'metadata.section.people.label', <IconUsers />],
+  ['characters', 'metadata.section.characters.label', <IconPerson />],
+]
+
+// SectionRail — the doors, each wearing its own number.
+//
+// A count of `null` prints nothing rather than a zero: "0 characters" and "not
+// loaded yet" are different facts and a zero that turns into 41 a moment later is
+// the more misleading of the two. The overview's number is the only one that is a
+// count of PROBLEMS rather than of records, so it is the only one that goes red.
+function SectionRail({ value, onChange, counts }) {
+  return (
+    <Scroller axis="x" className="meta-rail" role="tablist" aria-label={t('metadata.section.aria')}>
+      {METADATA_SECTIONS.map(([k, label, icon]) => {
+        const n = counts[k]
+        const on = value === k
+        return (
+          <button
+            key={k}
+            type="button"
+            role="tab"
+            aria-selected={on}
+            className={`meta-rail-item${on ? ' is-on' : ''}`}
+            onClick={() => onChange(k)}
+          >
+            <span className="meta-rail-icon" aria-hidden="true">{icon}</span>
+            <span className="meta-rail-label">{t(label)}</span>
+            {n != null && (
+              <span className={`meta-rail-count${k === 'overview' && n > 0 ? ' is-warn' : ''}`}>{n}</span>
+            )}
+          </button>
+        )
+      })}
+    </Scroller>
+  )
+}
+
+
 export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch }) {
   const [lib, setLib] = useState(null)
   const [error, setError] = useState('')
@@ -134,6 +205,49 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch }
         ]
       : []),
   })
+  // Persisted per device, like every other view preference in this app: which
+  // metadata you were last working on is a fact about this screen at this desk,
+  // not about the account.
+  const [section, setSection] = usePersistedState('tippani:metasection', 'overview')
+  // A STORED SECTION THAT NO LONGER EXISTS FALLS BACK rather than rendering
+  // nothing. localStorage outlives a release, so a key written by a build whose
+  // section list was different is not a hypothetical — and the failure mode of an
+  // unguarded switch is a blank page with a rail that highlights no row.
+  const sect = METADATA_SECTIONS.some(([k]) => k === section) ? section : 'overview'
+
+  // THE CHARACTER LIST IS THE PAGE'S, NOT THE CONSOLE'S, because the rail has to
+  // print its size before the section is entered — and a list fetched twice is a
+  // list that can disagree with the number beside its own door.
+  const [chars, setChars] = useState(null)
+  const loadChars = useCallback(async () => {
+    const r = await json('GET', '/characters')
+    if (r.ok) setChars(r.data.characters)
+  }, [])
+  // PEOPLE ARE COUNTED BY RECORD, WHICH IS NOT WHAT THE CONSOLE LISTS. The console
+  // asks /people/names — one row per printed spelling, filtered to one role — and
+  // that number would put "31" beside a door to a library of nine people. The rail
+  // says how many records there are; the console still says how many spellings it
+  // is showing.
+  const [peopleCount, setPeopleCount] = useState(null)
+  useEffect(() => {
+    loadChars()
+    json('GET', '/people/records').then((r) => {
+      if (r.ok) setPeopleCount((r.data.people || []).length)
+    })
+  }, [loadChars])
+
+  // The overview's number is a count of GAPS, not of records: it is the sum of
+  // every warned tile, which is the same arithmetic the tiles draw one at a time.
+  const railCounts = {
+    overview: stats
+      ? BOOK_GAPS.reduce((n, g) => n + stats.books[g], 0) +
+        MOVIE_GAPS.reduce((n, g) => n + stats.movies[g], 0) +
+        stats.dialogues.missing_actor
+      : null,
+    works: lib ? lib.books.length + lib.movies.length : null,
+    people: peopleCount,
+    characters: chars ? chars.length : null,
+  }
   return (
     <section className="space-y-6">
       <div className={mobile ? 'mobile-sticky-bar' : ''}>
@@ -181,74 +295,86 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch }
           {flash}
         </p>
       )}
-      {!lib ? (
-        <EmptyState>{t('common.state.loading')}</EmptyState>
-      ) : mobile ? (
-        // Mobile (§5): a maintenance screen, not the at-scale console. Just the
-        // handful of one-tap actions; the big filterable lists are desktop-only,
-        // and the coverage tiles collapse into plain text lines at the bottom.
-        <>
-          {user?.is_admin && (
-            <MobileAction
-              title={t('metadata.mobile.fetch.title')}
-              desc={t('metadata.mobile.fetch.desc')}
-              actionLabel={t('metadata.fetch.label')}
-              icon={<IconMetadata />}
-              busy={busy}
-              onClick={() => fetchMissingCovers(true)}
-            />
+      {/* THE RAIL SITS INSIDE THE FRAME, not above it, so that on a desk it is the
+          left column of a two-column screen and on a phone it is the row across
+          the top. One element, two arrangements, and the section it selects is
+          beside it rather than a scroll below it. */}
+      <div className="meta-frame">
+        <SectionRail value={sect} onChange={setSection} counts={railCounts} />
+        <div className="meta-body">
+          {!lib ? (
+            <EmptyState>{t('common.state.loading')}</EmptyState>
+          ) : sect === 'overview' ? (
+            <>
+              {/* THE TILES ON A DESK, THE SENTENCES ON A PHONE, and both of them
+                  say the same numbers. A tile is a filter button and there is a
+                  catalogue for it to filter; 390px has room for neither, so the
+                  phone gets the lines it always had — but now inside the same
+                  section rather than as the whole of a different screen. */}
+              {mobile ? <StatsLines stats={stats} /> : <StatsStrip stats={stats} onPick={(ty, f) => { setCatType(ty); setCatFilter(f); setSection('works') }} />}
+              {/* THE TWO SWEEPS, AND ON EVERY SCREEN SIZE NOW. Re-verify at library
+                  scale was reachable from a phone and from nowhere else — it was
+                  drawn inside the mobile-only branch — so the screen built for
+                  doing metadata at scale was missing the one action that is
+                  entirely about scale. */}
+              {user?.is_admin && (
+                <MobileAction
+                  title={t('metadata.mobile.fetch.title')}
+                  desc={t('metadata.mobile.fetch.desc')}
+                  actionLabel={t('metadata.fetch.label')}
+                  icon={<IconMetadata />}
+                  busy={busy}
+                  onClick={() => fetchMissingCovers(true)}
+                />
+              )}
+              <MobileAction
+                title={t('metadata.mobile.reverify.title')}
+                desc={t('metadata.mobile.reverify.desc')}
+                actionLabel={t('metadata.reverify.label')}
+                icon={<IconCheck />}
+                busy={!!reverify}
+                onClick={() =>
+                  setReverify({
+                    book_ids: lib.books.filter((b) => b.has_ids).map((b) => b.id),
+                    movie_ids: lib.movies.filter((m) => m.has_source).map((m) => m.id),
+                    people: [],
+                  })
+                }
+              />
+            </>
+          ) : sect === 'works' ? (
+            <>
+              <CatalogueConsole
+                books={lib.books}
+                movies={lib.movies}
+                type={catType}
+                setType={setCatType}
+                filter={catFilter}
+                setFilter={setCatFilter}
+                onOpenBook={onOpenBook}
+                onOpenMovie={onOpenMovie}
+                onDone={load}
+                onFlash={setFlash}
+                onReverify={(selection) => setReverify(selection)}
+              />
+              {/* DUPLICATES ARE A WORKS PROBLEM, so they live under works rather
+                  than in a console of their own halfway down a scroll. */}
+              <DuplicatesPanel onDone={load} onFlash={setFlash} />
+            </>
+          ) : sect === 'people' ? (
+            <PeopleConsole onFlash={setFlash} onReverify={(people) => setReverify({ people })} onSearch={onSearch} />
+          ) : (
+            <>
+              {/* Beside the people list and never inside it — see CharactersConsole. */}
+              <CharactersConsole rows={chars} onReload={loadChars} />
+              {/* THE REMAP IS CHARACTER WORK. It takes the speaker names a film's
+                  lines carry and points them at that film's cast, which is the one
+                  place in the app where a quote's speaker becomes a character. */}
+              <SpeakerRemap movies={lib.movies.filter((m) => m.dialogue_count > 0)} onDone={load} user={user} />
+            </>
           )}
-          <MobileAction
-            title={t('metadata.mobile.reverify.title')}
-            desc={t('metadata.mobile.reverify.desc')}
-            actionLabel={t('metadata.reverify.label')}
-            icon={<IconCheck />}
-            busy={!!reverify}
-            onClick={() =>
-              setReverify({
-                book_ids: lib.books.filter((b) => b.has_ids).map((b) => b.id),
-                movie_ids: lib.movies.filter((m) => m.has_source).map((m) => m.id),
-                people: [],
-              })
-            }
-          />
-          <DuplicatesPanel onDone={load} onFlash={setFlash} />
-          <SpeakerRemap movies={lib.movies.filter((m) => m.dialogue_count > 0)} onDone={load} user={user} />
-          <PeopleConsole onFlash={setFlash} compact />
-          {/* The same one-line summary the people console gives on a phone: a
-              browsable table is not what a 390px column is for, and the count is
-              the part that says whether the screen is worth opening later. */}
-          <CharactersConsole compact />
-          <StatsLines stats={stats} />
-        </>
-      ) : (
-        <>
-          {/* The type parameter is named `ty`, not the single letter it was: this
-              file imports the resolver now, and a parameter of that one letter
-              shadows it silently and legally. locale-shadow.test.js fails the
-              build over it — including over a comment that spells the shape out,
-              which is why this one does not. */}
-          <StatsStrip stats={stats} onPick={(ty, f) => { setCatType(ty); setCatFilter(f) }} />
-          <CatalogueConsole
-            books={lib.books}
-            movies={lib.movies}
-            type={catType}
-            setType={setCatType}
-            filter={catFilter}
-            setFilter={setCatFilter}
-            onOpenBook={onOpenBook}
-            onOpenMovie={onOpenMovie}
-            onDone={load}
-            onFlash={setFlash}
-            onReverify={(selection) => setReverify(selection)}
-          />
-          <DuplicatesPanel onDone={load} onFlash={setFlash} />
-          <PeopleConsole onFlash={setFlash} onReverify={(people) => setReverify({ people })} onSearch={onSearch} />
-          {/* Beside the people list and never inside it — see CharactersConsole. */}
-          <CharactersConsole />
-          <SpeakerRemap movies={lib.movies.filter((m) => m.dialogue_count > 0)} onDone={load} user={user} />
-        </>
-      )}
+        </div>
+      </div>
       {reverify && (
         <ReverifyFlow
           selection={reverify}
@@ -1315,8 +1441,8 @@ function RemapRow({ label, cast, value, onChange }) {
 // the reader made and has not paired yet, or one whose last cast row went — and
 // both are things only this list can show, because a character with no works
 // appears on no work's page by definition.
-export function CharactersConsole({ compact = false }) {
-  const [rows, setRows] = useState(null)
+export function CharactersConsole({ rows = null, onReload = null }) {
+  const [own, setOwn] = useState(null)
   const [q, setQ] = useState('')
   const [err, setErr] = useState('')
   // THE PANEL, NOT A FORM OF THIS SCREEN'S OWN. A character record is the same
@@ -1326,46 +1452,54 @@ export function CharactersConsole({ compact = false }) {
   // second place those distinctions are drawn, and the first place they drift.
   const stack = usePanelStack()
 
-  async function load() {
+  // THE LIST CAN BE HANDED IN OR FETCHED, and which one happens is decided by the
+  // caller rather than by a flag. The metadata page holds it because the rail
+  // prints its size; anywhere else the console is on its own and fetches. Two
+  // fetches of one list is two numbers that can disagree, which is the failure
+  // this shape exists to make impossible rather than merely unlikely.
+  const owned = !onReload
+  const load = useCallback(async () => {
+    if (!owned) return onReload()
     const r = await json('GET', '/characters')
-    if (r.ok) setRows(r.data.characters)
+    if (r.ok) setOwn(r.data.characters)
     else setErr(errText(r))
-  }
+  }, [owned, onReload])
   useEffect(() => {
-    load()
-  }, [])
+    if (owned) load()
+  }, [owned, load])
+  const list = owned ? own : rows
 
   const shown = useMemo(() => {
     const s = q.trim().toLowerCase()
-    return (rows || []).filter((c) => !s || c.name.toLowerCase().includes(s))
-  }, [rows, q])
-  const unpaired = (rows || []).filter((c) => c.works === 0).length
+    return (list || []).filter((c) => !s || c.name.toLowerCase().includes(s))
+  }, [list, q])
+  const unpaired = (list || []).filter((c) => c.works === 0).length
 
   return (
     <section className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         <h2 style={H2}>{t('metadata.characters.title')}</h2>
         <InfoDot text={t('metadata.characters.info.body')} />
-        {!compact && <MonoLabel>{t('metadata.shown.count', { n: shown.length })}</MonoLabel>}
-        {!compact && (
-          <div className="ml-auto flex flex-wrap items-center gap-2">
-            <input
-              className="tp-input w-auto"
-              placeholder={t('metadata.search.placeholder')}
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-            />
-          </div>
-        )}
+        <MonoLabel>{t('metadata.shown.count', { n: shown.length })}</MonoLabel>
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          <input
+            className="tp-input w-auto"
+            placeholder={t('metadata.search.placeholder')}
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
+        </div>
       </div>
       <ErrorText>{err}</ErrorText>
-      {compact ? (
-        <p className="microcopy" style={{ color: 'var(--soft)' }}>
-          {!rows
-            ? t('common.state.loading')
-            : t('metadata.characters.compact', { count: (rows || []).length, n: (rows || []).length, unpaired })}
+      {/* "IN NO WORK" IS THE NUMBER WORTH SEEING, and it is not a column — a
+          character linked to nothing appears on no work's page by definition, so
+          this list is the only place it can be counted at all. */}
+      {list && (
+        <p className="microcopy" style={{ color: unpaired ? 'var(--soft)' : 'var(--accent-ui)' }}>
+          {t('metadata.characters.summary', { count: list.length, n: list.length, unpaired })}
         </p>
-      ) : !rows ? (
+      )}
+      {!list ? (
         <EmptyState>{t('common.state.loading')}</EmptyState>
       ) : shown.length === 0 ? (
         <EmptyState>{t('metadata.characters.empty')}</EmptyState>
@@ -1561,7 +1695,7 @@ const PEOPLE_EMPTY = {
 // anywhere in the app — including right here (each row's name opens it).
 // Links are fetched per row or in bulk for the ones still missing; rows stay
 // listed even when no longer referenced so stale metadata remains manageable.
-export function PeopleConsole({ onFlash, compact = false, onReverify, onSearch }) {
+export function PeopleConsole({ onFlash, onReverify, onSearch }) {
   const [kind, setKind] = useState('author')
   const [rows, setRows] = useState(null)
   const [q, setQ] = useState('')
@@ -1686,7 +1820,7 @@ export function PeopleConsole({ onFlash, compact = false, onReverify, onSearch }
         <h2 style={H2}>{t('metadata.people.title')}</h2>
         {/* §4: the verbose "what this fetches" copy now lives in a tooltip. */}
         <InfoDot text={t('metadata.people.info.body')} />
-        {!compact && <MonoLabel>{t('metadata.shown.count', { n: shown.length })}</MonoLabel>}
+        <MonoLabel>{t('metadata.shown.count', { n: shown.length })}</MonoLabel>
         <div className="ml-auto flex flex-wrap items-center gap-2">
           {/* Studios are their own row, not folded in with directors, because the
               two share movies.director and are told apart only by media_type —
@@ -1697,7 +1831,7 @@ export function PeopleConsole({ onFlash, compact = false, onReverify, onSearch }
               {t(label)}
             </button>
           ))}
-          {!compact && <input className="tp-input w-auto" placeholder={t('metadata.search.placeholder')} value={q} onChange={(e) => setQ(e.target.value)} />}
+          <input className="tp-input w-auto" placeholder={t('metadata.search.placeholder')} value={q} onChange={(e) => setQ(e.target.value)} />
           {/* IconMetadata, the same arrow-landing-in-a-record the covers console
               uses: this fills fields on rows that already exist, which is what
               that drawing says and what tells it apart from IconExport. */}
@@ -1706,7 +1840,7 @@ export function PeopleConsole({ onFlash, compact = false, onReverify, onSearch }
               ? t('metadata.people.fetch.count.label', { n: missing.length })
               : t('metadata.people.fetch.label')}
           </GhostButton>
-          {!compact && onReverify && (
+          {onReverify && (
             /* IconRefresh, matching the re-verify button on the works bulk bar
                above — the same act against a different kind of row. */
             <GhostButton
@@ -1722,102 +1856,103 @@ export function PeopleConsole({ onFlash, compact = false, onReverify, onSearch }
       </div>
       <ErrorText>{err}</ErrorText>
       {bulk && <ProgressBar value={bulk.done} max={bulk.total} label={t('metadata.people.fetch.progress', { done: bulk.done, total: bulk.total })} />}
-      {/* Mobile (§5): no browsable list — just how many still need work. */}
-      {compact ? (
-        <p className="microcopy" style={{ color: 'var(--soft)' }}>
-          {!rows
-            ? t('common.state.loading')
-            : t('metadata.people.compact', {
+      {/* HOW MANY OF THESE STILL NEED WORK, in one sentence above the list. It was
+          the whole of what a phone got and nothing else had it, which is backwards:
+          a table of ninety rows is exactly where a reader cannot count the gaps by
+          eye. When there are none it says so rather than falling silent, because a
+          missing sentence and a finished list look identical. */}
+      {rows && (
+        <p className="microcopy" style={{ color: missing.length ? 'var(--soft)' : 'var(--accent-ui)' }}>
+          {missing.length
+            ? t('metadata.people.summary', {
                 count: missing.length,
                 n: missing.length,
                 noun: t(PEOPLE_NOUNS[kind], { count: missing.length }),
-              })}
+              })
+            : t('metadata.coverage.complete')}
         </p>
+      )}
+      {dupGroups.length > 0 && (
+        <div className="space-y-2">
+          <MonoLabel>{t('metadata.people.dups.count', { n: dupGroups.length })}</MonoLabel>
+          {dupGroups.map((g, i) => (
+            <DupCard key={i} group={g} kind={kind} rowsByName={rowsByName} onMerged={() => load()} />
+          ))}
+        </div>
+      )}
+      {!rows ? (
+        <EmptyState>{t('common.state.loading')}</EmptyState>
+      ) : shown.length === 0 ? (
+        <EmptyState>{t(PEOPLE_EMPTY[kind])}</EmptyState>
       ) : (
-        <>
-          {dupGroups.length > 0 && (
-            <div className="space-y-2">
-              <MonoLabel>{t('metadata.people.dups.count', { n: dupGroups.length })}</MonoLabel>
-              {dupGroups.map((g, i) => (
-                <DupCard key={i} group={g} kind={kind} rowsByName={rowsByName} onMerged={() => load()} />
-              ))}
-            </div>
-          )}
-          {!rows ? (
-            <EmptyState>{t('common.state.loading')}</EmptyState>
-          ) : shown.length === 0 ? (
-            <EmptyState>{t(PEOPLE_EMPTY[kind])}</EmptyState>
-          ) : (
-            <Scroller className="ann-table-wrap" axis="both" style={{ maxHeight: 'min(28em, 60vh)', overflowY: 'auto' }}>
-              <table className="ann-table">
-                <thead>
-                  <tr>
-                    <th>{t('common.field.name.label')}</th>
-                    <th>
-                      {t(kind === 'author'
-                        ? 'metadata.people.column.books'
-                        : kind === 'speaker'
-                          ? 'metadata.people.column.quotes'
-                          : 'metadata.people.column.titles')}
-                    </th>
-                    <th>{t('common.field.links.label')}</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {shown.map((p) => (
-                    <tr key={p.name}>
-                      <td>
-                        <PersonName kind={kind} name={p.name} onOpen={setPerson} />
-                        {p.has_image && (
-                          <span className="mono-label" style={{ marginLeft: 6, color: 'var(--soft)' }} title={t('metadata.people.photo.tip')}>· {t('metadata.people.photo.label')}</span>
-                        )}
-                      </td>
-                      <td>
-                        {/* Work count → search, which matches authors on book
-                            hits and actors on dialogue hits. Saved-but-no-
-                            longer-referenced rows count 0 — nothing to find. */}
-                        {p.count > 0 ? (
-                          <Tooltip label={t('metadata.people.search.tip', { name: p.name })} side="top">
-                            <button
-                              className="tp-link"
-                              onClick={() => onSearch?.(p.name)}
-                            >
-                              {p.count}
-                            </button>
-                          </Tooltip>
-                        ) : (
-                          <span className="microcopy">0</span>
-                        )}
-                      </td>
-                      <td><ProviderChips links={p.links} /></td>
-                      <td className="col-actions">
-                        {/* ONE glyph for both words. `fetch` and `refetch` are the
-                            same act — go and get this person's photo and links —
-                            and the label flips only because the row already has
-                            some. Two drawings for that would say the acts differ. */}
+        <Scroller className="ann-table-wrap" axis="both" style={{ maxHeight: 'min(28em, 60vh)', overflowY: 'auto' }}>
+          <table className="ann-table">
+            <thead>
+              <tr>
+                <th>{t('common.field.name.label')}</th>
+                <th>
+                  {t(kind === 'author'
+                    ? 'metadata.people.column.books'
+                    : kind === 'speaker'
+                      ? 'metadata.people.column.quotes'
+                      : 'metadata.people.column.titles')}
+                </th>
+                <th>{t('common.field.links.label')}</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {shown.map((p) => (
+                <tr key={p.name}>
+                  <td>
+                    <PersonName kind={kind} name={p.name} onOpen={setPerson} />
+                    {p.has_image && (
+                      <span className="mono-label" style={{ marginLeft: 6, color: 'var(--soft)' }} title={t('metadata.people.photo.tip')}>· {t('metadata.people.photo.label')}</span>
+                    )}
+                  </td>
+                  <td>
+                    {/* Work count → search, which matches authors on book
+                        hits and actors on dialogue hits. Saved-but-no-
+                        longer-referenced rows count 0 — nothing to find. */}
+                    {p.count > 0 ? (
+                      <Tooltip label={t('metadata.people.search.tip', { name: p.name })} side="top">
                         <button
-                          className="tp-link tp-link-icon"
-                          disabled={busyName === p.name || !!bulk}
-                          onClick={() => fetchRow(p)}
+                          className="tp-link"
+                          onClick={() => onSearch?.(p.name)}
                         >
-                          <IconRefresh />
-                          <span>
-                            {busyName === p.name
-                              ? t('metadata.people.row.fetch.busy')
-                              : (Object.keys(parseLinks(p.links).known).length > 0 || p.has_image)
-                                ? t('metadata.people.row.refetch.label')
-                                : t('metadata.people.row.fetch.label')}
-                          </span>
+                          {p.count}
                         </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </Scroller>
-          )}
-        </>
+                      </Tooltip>
+                    ) : (
+                      <span className="microcopy">0</span>
+                    )}
+                  </td>
+                  <td><ProviderChips links={p.links} /></td>
+                  <td className="col-actions">
+                    {/* ONE glyph for both words. `fetch` and `refetch` are the
+                        same act — go and get this person's photo and links —
+                        and the label flips only because the row already has
+                        some. Two drawings for that would say the acts differ. */}
+                    <button
+                      className="tp-link tp-link-icon"
+                      disabled={busyName === p.name || !!bulk}
+                      onClick={() => fetchRow(p)}
+                    >
+                      <IconRefresh />
+                      <span>
+                        {busyName === p.name
+                          ? t('metadata.people.row.fetch.busy')
+                          : (Object.keys(parseLinks(p.links).known).length > 0 || p.has_image)
+                            ? t('metadata.people.row.refetch.label')
+                            : t('metadata.people.row.fetch.label')}
+                      </span>
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Scroller>
       )}
       {/* onSaved must reload: a rename/delete/photo/link change from inside the
           modal changes this console's rows. */}

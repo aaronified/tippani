@@ -53,17 +53,23 @@ beforeEach(() => {
 })
 afterEach(() => cleanup())
 
-// The whole page, not the console alone: the console is not exported, and
-// driving the screen a reader actually sees is the more faithful test anyway.
-const mount = async () => {
-  render(<MetadataPage user={{ username: 'alice', is_admin: true }} onOpenBook={() => {}} onOpenMovie={() => {}} onSearch={() => {}} />)
-  await screen.findByText(/A Wizard of Earthsea/)
-}
-
 const press = async (el) => {
   await act(async () => {
     el.click()
   })
+}
+
+// The whole page, not the console alone: the console is not exported, and
+// driving the screen a reader actually sees is the more faithful test anyway.
+//
+// AND THAT INCLUDES WALKING IN. The page opens on its overview now — the coverage
+// numbers and the two library-wide sweeps — and the catalogue is one section
+// along. A test that could still find a book title without pressing anything
+// would be a test proving the sections do not work.
+const mount = async () => {
+  render(<MetadataPage user={{ username: 'alice', is_admin: true }} onOpenBook={() => {}} onOpenMovie={() => {}} onSearch={() => {}} />)
+  await press(await screen.findByRole('tab', { name: /works/i }))
+  await screen.findByText(/A Wizard of Earthsea/)
 }
 
 const selectAll = async () => {

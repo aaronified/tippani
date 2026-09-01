@@ -4484,6 +4484,15 @@ metadata.catalogue.title = Catalogue
 metadata.catalogue.type.all.label = all types
 metadata.catalogue.filter.tip = Show only these gaps
 metadata.shown.count = {n} shown
+# THE SECTIONS. This screen was one long scroll of six consoles stacked on top
+# of each other — a catalogue, duplicates, people, characters, a speaker remap —
+# so finding one meant scrolling past the other five, and nothing said how many
+# there were. Each kind of metadata is its own place now.
+metadata.section.overview.label = Overview
+metadata.section.works.label = Works
+metadata.section.people.label = People
+metadata.section.characters.label = Characters
+metadata.section.aria = Which metadata to work on
 metadata.search.placeholder = search…
 metadata.catalogue.nomatch = nothing matches.
 metadata.select-all.label = select all shown
@@ -4590,8 +4599,8 @@ metadata.characters.info.body = Every character as a record of its own — the s
 metadata.characters.column.works = works
 metadata.characters.column.sort = sorts as
 metadata.characters.empty = No characters yet. They arrive with a film's cast, or you can add one on a work.
-metadata.characters.compact.one = {n} character, {unpaired} in no work
-metadata.characters.compact.other = {n} characters, {unpaired} in no work
+metadata.characters.summary.one = {n} character, {unpaired} in no work
+metadata.characters.summary.other = {n} characters, {unpaired} in no work
 
 metadata.people.title = People
 metadata.people.info.body = Photos and reference pages, matched to the right person — an author by their books, an actor or director from a film's credits, a studio from a game's. Actor and director photos need a TMDB key; the rest come from Wikidata.
@@ -4614,8 +4623,8 @@ metadata.people.reverify.label = Re-verify saved
 metadata.people.reverify.tip = Re-check every saved person's identity, links and portrait against the live sources — review before anything is applied
 # The phone has no browsable list, so it says only how many still need work.
 # {noun} is the countable noun for whichever kind is showing.
-metadata.people.compact.one = {n} {noun} still needs photos or links
-metadata.people.compact.other = {n} {noun} still need photos or links
+metadata.people.summary.one = {n} {noun} still needs photos or links
+metadata.people.summary.other = {n} {noun} still need photos or links
 # What an empty list says. FIVE, one per toggle: the studio line is new, because
 # the table this replaces had four rows and a studio list with nothing in it drew
 # an empty state with nothing in it.
