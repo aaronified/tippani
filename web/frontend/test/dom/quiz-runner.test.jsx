@@ -142,6 +142,11 @@ describe('the leech offer', () => {
 
   it('says nothing until the card has been answered', () => {
     render(<QuizRunner mode="daily" cards={[leechy()]} />)
+    // ANCHORED ON A CARD THAT IS ACTUALLY THERE. Every assertion below is an
+    // absence, and an absence is also what a runner that failed to mount leaves
+    // behind — so without this line the test passes hardest when the screen is
+    // most broken.
+    expect(screen.getByText('Emma'), 'the card did not render at all').toBeTruthy()
     expect(screen.queryByText('Set it aside')).toBeNull()
   })
 
@@ -349,6 +354,9 @@ describe('a "who said this" card', () => {
   // attribution — actor chip and all — directly above its own options.
   it('does not print the character, which is the answer by another name', () => {
     render(<QuizRunner mode="daily" cards={[spk()]} />)
+    // The card is on screen first — see the leech offer above for why an
+    // absence-only assertion needs one.
+    expect(screen.getAllByText('Al Pacino').length, 'the card did not render at all').toBeGreaterThan(0)
     expect(screen.queryByText('Neil')).toBeNull()
     // The film's title is not shown either: it is not asked for, and the meta
     // line that carries it also carries the character.
@@ -461,6 +469,7 @@ describe('a “which quote is from this work?” card', () => {
 
   it('says nothing about where any of them came from until it is answered', () => {
     render(<QuizRunner mode="daily" cards={[which()]} />)
+    expect(screen.getByText('a line of theirs'), 'the card did not render at all').toBeTruthy()
     expect(screen.queryByText(/from Moby-Dick/)).toBeNull()
     expect(seen()).toHaveLength(0)
   })
@@ -571,6 +580,7 @@ describe('a “who wrote this?” card', () => {
   // The title is the answer to a different question and must not be on screen.
   it('does not print the book it is asking about', () => {
     render(<QuizRunner mode="daily" cards={[wrote()]} />)
+    expect(screen.getByText('Who wrote this?'), 'the card did not render at all').toBeTruthy()
     expect(screen.queryByText('The Dispossessed')).toBeNull()
   })
 })

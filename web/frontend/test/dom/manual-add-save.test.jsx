@@ -61,7 +61,10 @@ describe('the form is addressable from outside itself', () => {
   })
 
   it('no longer offers the old text button', () => {
-    render(<ManualTab formId={FORM_ID} title="Middlemarch" setTitle={() => {}} onAdded={() => {}} />)
+    const { container } = render(<ManualTab formId={FORM_ID} title="Middlemarch" setTitle={() => {}} onAdded={() => {}} />)
+    // The tab is on screen first: "no Add book button" is also true of a tab
+    // that threw on mount.
+    expect(container.querySelector('form'), 'the tab did not render at all').not.toBeNull()
     expect(screen.queryByRole('button', { name: /add book/i })).toBeNull()
   })
 })

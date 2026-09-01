@@ -46,6 +46,9 @@ const press = async (label) => {
 describe('the question', () => {
   it('is not on screen until it is asked', () => {
     render(<Subject question="Delete this quote?" />)
+    // The trigger is there — otherwise "no dialog" is also what a subject that
+    // failed to mount says, and this case would pass hardest when nothing works.
+    expect(screen.getByText('do it'), 'the subject did not render at all').toBeTruthy()
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 

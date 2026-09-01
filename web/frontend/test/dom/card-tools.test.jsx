@@ -76,11 +76,18 @@ describe('the panel is unreachable until the card is answered', () => {
       ['cloze', cloze()],
     ]
     const offered = []
+    const blank = []
     for (const [name, card] of CARDS) {
       cleanup()
       render(<QuizRunner mode="daily" cards={[card]} />)
+      // THE CARD IS ON SCREEN FIRST. Everything asserted here is an absence, and
+      // an absence is also what a runner that failed to mount leaves behind — so
+      // a blank screen would report the cleanest possible pass.
+      // Both shapes print the quote, which is the one thing every card has.
+      if (screen.queryByText(/the only way out|it is a truth/) === null) blank.push(name)
       if (screen.queryByText('fix or tag this') !== null) offered.push(name)
     }
+    expect(blank, 'the card did not render at all').toEqual([])
     expect(offered).toEqual([])
   })
 

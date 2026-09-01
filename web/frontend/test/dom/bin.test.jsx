@@ -378,6 +378,10 @@ describe('the rail and the drawer are the door now', () => {
     // what Checks and Bin are drawn in.
     const { Drawer } = await import('../../src/App.jsx')
     render(<Drawer open onClose={() => {}} tab="home" selectTab={() => {}} onSearch={() => {}} onAdd={() => {}} onAccount={() => {}} user={USER_NAV} stats={{}} pending={0} pendingImport={0} streak={0} metaIssues={0} logout={() => {}} dark={false} onUser={() => {}} sections={{}} />)
+    // The drawer is open first. An absence is also what a drawer that threw
+    // leaves behind, so without this the test reads "no Search row" loudest on
+    // the day there is no drawer either.
+    expect(screen.getByRole('button', { name: /bin/i }), 'the drawer did not render at all').toBeTruthy()
     expect(screen.queryByRole('button', { name: /^Search$/ })).toBeNull()
   })
 
