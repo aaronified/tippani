@@ -7482,3 +7482,11 @@ html[data-theme="dark"] .board-cover {
   width: max(20px, 1.5em); aspect-ratio: 3 / 4; object-fit: cover;
   border-radius: 3px; border: 1px solid var(--ink-border);
 }
+/* The per-work editor on an appearance card, and the description it writes. Both
+   full-width inside the card so the fields are not squeezed beside the cover. */
+.char-work-desc { flex-basis: 100%; color: var(--soft); margin-top: 2px; }
+.char-work-form {
+  flex-basis: 100%; display: grid; gap: calc(var(--row) * 0.6);
+  margin-top: calc(var(--row) * 0.4); padding-top: calc(var(--row) * 0.4);
+  border-top: 1px solid var(--line);
+}

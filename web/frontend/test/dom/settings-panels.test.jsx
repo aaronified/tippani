@@ -1,11 +1,17 @@
 // Type and Language marks: a button apiece with a pop-up behind it (1.15.2) —
-// Type on the Appearance card, Language marks on Metadata since the reader moved
-// it there.
+// Type on the Appearance card, Language marks on the Metadata sources block.
 //
-// The move is why this file is not called appearance-panels any more. Both doors
-// are still asserted together, because what they have in common is the SHAPE —
-// a panel too long to stand open on a page read at a glance — and a rule about
-// that shape is worth one file rather than one per card.
+// THEY ARE ON TWO SCREENS NOW. The sources block was a Settings card and moved to
+// the Metadata screen whole, taking the marks door with it — which is exactly what
+// the door's own argument always said should happen: a mark is what a quote with
+// nobody to credit says it IS, and that is the subject of the block rather than of
+// the page it happened to be on.
+//
+// Both doors are still asserted in one file, because what they have in common is
+// the SHAPE — a panel too long to stand open on a page read at a glance — and a
+// rule about that shape is worth one file rather than one per screen. What
+// changed is that "one at a time" is no longer a claim about them: two screens
+// cannot both be open.
 //
 // THE BUG THAT PROMPTED THE MOVE was in the panel, not the layout. Settings'
 // language-mark tray rendered <Field label="Or type one"> and Settings never
@@ -23,7 +29,7 @@
 // runner misses what nothing clicks.
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 
 let PUTS
 
@@ -37,6 +43,7 @@ vi.mock('../../src/api.js', async (orig) => ({
 }))
 
 const { default: Settings } = await import('../../src/Settings.jsx')
+const { MetadataSources } = await import('../../src/MetadataSources.jsx')
 const { applyLanguageMarks } = await import('../../src/languages.jsx')
 
 const USER = { username: 'a', is_admin: false, preferences: {} }
@@ -65,17 +72,27 @@ const page = async () => {
   render(<Settings user={USER} onPreferences={() => {}} update={null} onUpdateInfo={() => {}} onStartTour={() => {}} />)
   await screen.findByText('Appearance')
 }
+// The other door's screen. The block is rendered on its own rather than through
+// the metadata page, for the same reason the key-row cases are: these are about
+// what is behind the button, and a whole console around it is scaffolding.
+const sources = async () => {
+  render(<MetadataSources user={USER} onPreferences={() => {}} />)
+  await screen.findByText('Metadata sources')
+}
 const dialog = () => screen.getByRole('dialog')
 
 describe('the two panels are doors, not cards', () => {
-  it('does not stand either panel open on the settings page', async () => {
+  it('does not stand either panel open on the page it is a door on', async () => {
     // The whole point of the change. Both were cards in the column grid: eleven
     // type roles with a specimen apiece, and a row per language with a tray of
     // flags behind each, permanently unrolled beside cards you read at a glance.
     await page()
     expect(screen.queryByRole('dialog')).toBeNull()
-    // The specimen text of the mono row, and the first language row — the two
-    // things that were on the page before and must not be now.
+    expect(screen.queryByText(/Or type one/)).toBeNull()
+    cleanup()
+    await sources()
+    expect(screen.queryByRole('dialog')).toBeNull()
+    // The first language row — what was on the page before and must not be now.
     expect(screen.queryByText('Bengali')).toBeNull()
     expect(screen.queryByText(/Or type one/)).toBeNull()
   })
@@ -83,6 +100,8 @@ describe('the two panels are doors, not cards', () => {
   it('offers both as buttons that name themselves', async () => {
     await page()
     expect(screen.getByRole('button', { name: 'Type' })).toBeTruthy()
+    cleanup()
+    await sources()
     expect(screen.getByRole('button', { name: 'Language marks' })).toBeTruthy()
   })
 
@@ -91,8 +110,9 @@ describe('the two panels are doors, not cards', () => {
     // only way into two whole panels — a bare letterform on a phone is not an
     // unlabelled button, it is a screen nobody finds — so they opt out the way
     // primary submits and destructive confirms do.
-    await page()
-    for (const name of ['Type', 'Language marks']) {
+    for (const [open, name] of [[page, 'Type'], [sources, 'Language marks']]) {
+      cleanup()
+      await open()
       const b = screen.getByRole('button', { name })
       expect(b.className, name).not.toContain('has-btn-icon')
       expect(b.querySelector('.btn-label-fixed')?.textContent, name).toBe(name)
@@ -100,37 +120,43 @@ describe('the two panels are doors, not cards', () => {
     }
   })
 
-  it('opens one at a time, from two different cards', async () => {
-    // They were one piece of `panel` state on one card, so "one at a time" was
-    // arithmetic. They are two cards' own booleans now, and what enforces it is
-    // the scrim: a FormModal covers the page, so the other card's button is not
-    // reachable while one is open. Asserted rather than assumed — two stacked
-    // scrims trap the page, and this is the sequence that would do it.
+  it('opens exactly one dialog, on either screen', async () => {
+    // Two stacked scrims trap the page, so what is asserted is that a door opens
+    // its own panel and only that. "One at a time" used to be a claim about two
+    // cards sharing a page; they are on two screens now, and the property that
+    // survives is per-screen.
     await page()
     fireEvent.click(screen.getByRole('button', { name: 'Type' }))
+    expect(screen.getAllByRole('dialog')).toHaveLength(1)
     expect(dialog().getAttribute('aria-label')).toBe('Type')
-    fireEvent.click(within(dialog()).getByRole('button', { name: 'Close' }))
+    cleanup()
+    await sources()
     fireEvent.click(screen.getByRole('button', { name: 'Language marks' }))
     expect(screen.getAllByRole('dialog')).toHaveLength(1)
     expect(dialog().getAttribute('aria-label')).toBe('Language marks')
   })
 
-  it('hangs the marks door off Metadata and Type off Appearance', async () => {
+  it('hangs the marks door off the sources block and Type off Appearance', async () => {
     // WHERE each door is, which is the whole of this change and the one thing
-    // the assertions above cannot see: they find a button on the page without
-    // caring which card it sits on. A mark is what a quote with nobody to credit
-    // says it IS — the Metadata card's subject — and not how the app looks.
-    await page()
+    // the assertions above cannot see: they find a button on a page without
+    // caring what it sits under. A mark is what a quote with nobody to credit
+    // says it IS — the sources block's subject — and not how the app looks.
     const heading = (name) =>
       screen.getByRole('button', { name }).closest('.hand-card')?.querySelector('h2')?.textContent || ''
-    expect(heading('Language marks')).toBe('Metadata sources')
+    await page()
     expect(heading('Type')).toBe('Appearance')
+    // AND IT IS NOT ON SETTINGS AT ALL ANY MORE, which is the half a heading
+    // check cannot state: the block left that page.
+    expect(screen.queryByRole('button', { name: 'Language marks' })).toBeNull()
+    cleanup()
+    await sources()
+    expect(heading('Language marks')).toBe('Metadata sources')
   })
 })
 
 describe('the language-mark tray', () => {
   const openTray = async (language = 'Bengali') => {
-    await page()
+    await sources()
     fireEvent.click(screen.getByRole('button', { name: 'Language marks' }))
     // THE WHOLE ROW IS THE TRIGGER (1.16.0). It was a 22px disc beside a name
     // you could not press; the name is inside the button now, which is what this
@@ -147,7 +173,7 @@ describe('the language-mark tray', () => {
   })
 
   it('opens from the row rather than from the glyph', async () => {
-    await page()
+    await sources()
     fireEvent.click(screen.getByRole('button', { name: 'Language marks' }))
     const row = within(dialog()).getByRole('button', { name: /^Bengali/ })
     expect(row.getAttribute('aria-expanded')).toBe('false')
@@ -207,7 +233,7 @@ describe('the language-mark tray', () => {
   })
 
   it('adds a language the starter list never heard of', async () => {
-    await page()
+    await sources()
     fireEvent.click(screen.getByRole('button', { name: 'Language marks' }))
     fireEvent.click(within(dialog()).getByRole('button', { name: 'Add a language' }))
     const input = within(dialog()).getByPlaceholderText(/Yoruba, Swahili/)

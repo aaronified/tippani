@@ -19,7 +19,7 @@
 //   more misleading of the two.
 //
 //   THE PHONE GETS THE SAME DOORS. Not the same contents — a 390px column holds
-//   less of a table, and the coverage tiles become sentences — but the same four
+//   less of a table, and the coverage tiles become sentences — but the same five
 //   sections, reachable, in the same order.
 //
 // AND ONE THAT IS ABOUT DAMAGE: a section name stored by an older build must not
@@ -40,6 +40,9 @@ vi.mock('../../src/api.js', async (orig) => ({
     }
     if (method === 'GET' && path === '/people/records') {
       return { ok: true, data: { people: [{ id: 1, name: 'Le Guin' }, { id: 2, name: 'Bulgakov' }, { id: 3, name: 'Ray' }] } }
+    }
+    if (method === 'GET' && (path === '/metadata/status' || path === '/admin/metadata-keys')) {
+      return { ok: true, data: { tmdb: { source: 'builtin' }, books_lookup: { ok: true } } }
     }
     return { ok: true, data: { people: [], characters: [], groups: [] } }
   }),
@@ -81,7 +84,15 @@ describe('the rail', () => {
   it('names every section, in the order of the question', async () => {
     await mount()
     // The words, not the counts: the order is the claim.
-    expect(rail().map((s) => s.replace(/\d+$/, ''))).toEqual(['Overview', 'Works', 'People', 'Characters'])
+    expect(rail().map((s) => s.replace(/\d+$/, ''))).toEqual(['Overview', 'Works', 'People', 'Characters', 'Sources'])
+  })
+
+  it('leaves the sources door with no number, because it counts no records', async () => {
+    // Every other door counts records or gaps. This one is a set of settings, and
+    // "5 keys" answers a question nobody has — a number there would read as five
+    // of something to work through.
+    await mount()
+    expect(tab(/^Sources/).querySelector('.meta-rail-count')).toBeNull()
   })
 
   it('carries each section’s own number', async () => {
@@ -127,6 +138,17 @@ describe('a section at a time', () => {
     expect(screen.queryByText(/all complete/i)).toBeNull()
   })
 
+  it('puts the API keys behind the sources door, which used to be a settings card', async () => {
+    // The block moved whole: a reader looking at a work filtered by "no source"
+    // had to leave the console, find a settings card, and come back to press
+    // Fetch. It is the last door because it is a setting rather than a thing to
+    // work on.
+    await mount()
+    expect(screen.queryByText('Metadata sources')).toBeNull()
+    await press(tab(/^Sources/))
+    expect(await screen.findByText('Metadata sources')).toBeTruthy()
+  })
+
   it('puts the character list behind the character door and nowhere else', async () => {
     await mount()
     expect(screen.queryByText('Woland')).toBeNull()
@@ -146,7 +168,7 @@ describe('a section at a time', () => {
     // The exact shape of the hazard: a build whose section list was different
     // wrote this key, and the reader upgrades. An unguarded switch renders a rail
     // with no row lit and a body with nothing in it.
-    localStorage.setItem('tippani:metasection', JSON.stringify('sources'))
+    localStorage.setItem('tippani:metasection', JSON.stringify('quizzes'))
     await mount()
     expect(tab(/^Overview/).getAttribute('aria-selected')).toBe('true')
   })
@@ -155,9 +177,9 @@ describe('a section at a time', () => {
 describe('on a phone', () => {
   beforeEach(() => { WIDTH = 390 })
 
-  it('gets the same four doors', async () => {
+  it('gets the same five doors', async () => {
     await mount()
-    expect(rail().map((s) => s.replace(/\d+$/, ''))).toEqual(['Overview', 'Works', 'People', 'Characters'])
+    expect(rail().map((s) => s.replace(/\d+$/, ''))).toEqual(['Overview', 'Works', 'People', 'Characters', 'Sources'])
   })
 
   it('can reach the character list, which used to be desktop-only', async () => {

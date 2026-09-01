@@ -99,8 +99,12 @@ describe('components used in JSX are imported', () => {
   // The reported bug, pinned as itself. The generalised rule above would catch it
   // wherever it moved to, but the tray it broke is a control a reader reaches for
   // deliberately, and naming it keeps the reason this file was widened legible.
-  it('Settings imports the Field its language-mark tray types into', () => {
-    const src = readFileSync(join(SRC, 'Settings.jsx'), 'utf8')
+  it('the language-mark tray’s own file imports the Field it types into', () => {
+    // It was Settings.jsx when the bug was reported; the sources block moved to
+    // MetadataSources.jsx and took the tray with it. Named by the file that holds
+    // it rather than by where it used to live — a case pinned to the wrong file
+    // passes for ever and asserts nothing.
+    const src = readFileSync(join(SRC, 'MetadataSources.jsx'), 'utf8')
     expect(src).toMatch(/<Field\b/)
     expect(declaredIn(src).has('Field')).toBe(true)
   })

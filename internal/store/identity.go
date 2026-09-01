@@ -276,6 +276,11 @@ type CastOf struct {
 	// can be labelled with the right noun. Books leave it empty: the Kind already
 	// says everything there is to say about one.
 	MediaType string `json:"media_type,omitempty"`
+	// What this character is ON THIS WORK, empty when nothing has been written and
+	// the record's own description is what should be shown. Same rule as Image
+	// above, for the same reason: a value substituted here cannot be told apart
+	// from one the work actually holds.
+	Description string `json:"description,omitempty"`
 }
 
 // castWhere is the shared tail of the two cast reads: both halves of the union,
@@ -297,7 +302,7 @@ func castWhere(pred string) string {
 	return `
 		SELECT wc.id, 'book', b.id, b.title, wc.character_id, wc.character,
 		       COALESCE(wc.actor_id, 0), COALESCE(p.name, wc.actor), COALESCE(wc.character_image_path, ''),
-		       COALESCE(b.cover_path, ''), ''
+		       COALESCE(b.cover_path, ''), '', COALESCE(wc.description, '')
 		  FROM work_cast wc
 		  JOIN books b ON b.id = wc.work_id
 		  LEFT JOIN people p ON p.id = wc.actor_id
@@ -305,7 +310,7 @@ func castWhere(pred string) string {
 		UNION ALL
 		SELECT wc.id, 'movie', m.id, m.title, wc.character_id, wc.character,
 		       COALESCE(wc.actor_id, 0), COALESCE(p.name, wc.actor), COALESCE(wc.character_image_path, ''),
-		       COALESCE(m.poster_path, ''), COALESCE(m.media_type, 'movie')
+		       COALESCE(m.poster_path, ''), COALESCE(m.media_type, 'movie'), COALESCE(wc.description, '')
 		  FROM work_cast wc
 		  JOIN movies m ON m.id = wc.work_id
 		  LEFT JOIN people p ON p.id = wc.actor_id
@@ -340,7 +345,7 @@ func castRows(db Queryer, q string, args ...any) ([]CastOf, error) {
 		var c CastOf
 		var charID, actorID sql.NullInt64
 		if err := rows.Scan(&c.CastID, &c.Kind, &c.WorkID, &c.WorkTitle, &charID, &c.Character,
-			&actorID, &c.Actor, &c.Image, &c.Cover, &c.MediaType); err != nil {
+			&actorID, &c.Actor, &c.Image, &c.Cover, &c.MediaType, &c.Description); err != nil {
 			return nil, err
 		}
 		c.CharacterID, c.ActorID = charID.Int64, actorID.Int64

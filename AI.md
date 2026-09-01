@@ -146,16 +146,16 @@ AI-written code fails differently from hand-written code. It compiles, it reads
 well, it is plausibly commented, and it can still be wrong — so plausibility is
 worth nothing here and only execution counts. What the repo actually runs:
 
-- **1,360 Go test functions and 2,245 frontend tests, across 401 test files** — the
+- **1,380 Go test functions and 2,358 frontend tests, across 418 test files** — the
   Go half over real HTTP handlers against a real SQLite database, not mocks.
   Counted, not estimated, and every number here has a command that reproduces it:
 
   ```bash
   grep -rhoE '^func Test[A-Za-z0-9_]+' --include='*_test.go' . | wc -l   # Go functions
   cd web/frontend && npm test                                            # frontend tests
-  find . -name '*_test.go' -not -path './node_modules/*' | wc -l         # 222 Go files
+  find . -name '*_test.go' -not -path './node_modules/*' | wc -l         # 226 Go files
   find ./web/frontend -path '*/node_modules' -prune -o \
-       -type f \( -name '*.test.*' -o -name '*.spec.*' \) -print | wc -l # 179 frontend
+       -type f \( -name '*.test.*' -o -name '*.spec.*' \) -print | wc -l # 192 frontend
   ```
 
   A number in a file like this one is stale the moment it is written, so recount
@@ -164,8 +164,9 @@ worth nothing here and only execution counts. What the repo actually runs:
   recounted at 1.14.2, from 765 / 1,672 / 217 by 1.15.0, from 807 / 1,759 /
   233 by 2.1.1, from 924 / 1,771 / 284 by 2.2.0, from 1,085 / 1,844 / 320
   by 2.3.0, from 1,100 / 1,853 / 323 when they were recounted for 2.2.3, and most
-  recently from 1,153 / 1,977 / 338, from 1,336 / 2,218 / 394, and from
-  1,357 / 2,223 / 398 before this recount — which is why each one now sits beside the command that produces it.
+  recently from 1,153 / 1,977 / 338, from 1,336 / 2,218 / 394, from
+  1,357 / 2,223 / 398, and from 1,360 / 2,245 / 401 before this recount — which is why
+  each one now sits beside the command that produces it.
   The 2.2.4, 2.2.5 and 2.2.6 passes added forty-four cases between them, every one
   for a defect a release review found rather than for a feature — and six of those
   defects were introduced by the pass before. That is the number worth reading

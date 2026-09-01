@@ -1,4 +1,4 @@
-// The Metadata card's key rows.
+// The Metadata sources block's key rows.
 //
 // Six API keys, each of which used to carry a permanent second line reading
 // "•••••••••• saved". That line spends a row of vertical space restating one bit
@@ -31,7 +31,11 @@ vi.mock('../../src/api.js', async (orig) => ({
   }),
 }))
 
-const { default: Settings } = await import('../../src/Settings.jsx')
+// THE BLOCK, NOT THE PAGE IT USED TO BE ON. These rows were a card on Settings
+// and are a section of the Metadata screen now; mounting the block directly is
+// what the move makes possible, and it is what the cases were always about — the
+// old mount rendered a whole settings page to reach six inputs.
+const { MetadataSources } = await import('../../src/MetadataSources.jsx')
 
 const ADMIN = { username: 'a', is_admin: true, preferences: {} }
 
@@ -41,10 +45,8 @@ beforeEach(() => {
   PUTS = []
 })
 
-// The whole page renders, because the card is only reachable through it and the
-// point of several of these cases is what is NOT on the page.
 const page = async () => {
-  render(<Settings user={ADMIN} onPreferences={() => {}} update={null} onUpdateInfo={() => {}} onStartTour={() => {}} />)
+  render(<MetadataSources user={ADMIN} onPreferences={() => {}} />)
   await screen.findByText('Metadata sources')
 }
 

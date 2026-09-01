@@ -601,6 +601,30 @@ function CharacterBody({ stack, id }) {
     load()
   }
 
+  // WHAT THIS CHARACTER IS ON ONE WORK, which is the finer grain 0056 built the
+  // columns for and nothing had ever written. A character legitimately has a
+  // different name on each work — Woland is "the professor" in one chapter and
+  // "Messire" in another, and a film bills a role differently from the novel — and
+  // a different description too. Both are per-row and neither touches the record.
+  const saveAppearance = async (a, fields) => {
+    setBusy(true)
+    const r = await json('PUT', `/cast/${a.cast_id}`, {
+      character: fields.character,
+      // A BOOK IS REFUSED AN ACTOR rather than quietly cleared (0047's line, which
+      // the API follows), so the field is absent for one — not empty.
+      ...(a.kind === 'book' ? {} : { actor: fields.actor }),
+      description: fields.description,
+    })
+    setBusy(false)
+    if (!r.ok) {
+      setErr(errText(r))
+      return false
+    }
+    setErr('')
+    load()
+    return true
+  }
+
   // A picture for ONE work, fetched and stored against that work's cast row. The
   // record's own picture is a separate act — see promote.
   const setWorkImage = async (castID, url) => {
@@ -637,9 +661,11 @@ function CharacterBody({ stack, id }) {
     toast(t('identity.character.works.remove.done', { title: a.work_title }))
     load()
   }
-  const addWork = async (work) => {
+  const addWork = async (work, actor = '') => {
     setBusy(true)
-    const r = await json('POST', `/characters/${id}/works`, { kind: work.kind, work_id: work.id })
+    const r = await json('POST', `/characters/${id}/works`, {
+      kind: work.kind, work_id: work.id, ...(actor ? { actor } : {}),
+    })
     setBusy(false)
     if (!r.ok) return setErr(errText(r))
     setErr('')
@@ -676,6 +702,7 @@ function CharacterBody({ stack, id }) {
                   busy={busy}
                   isFace={!!data.image_path && data.image_path === a.image}
                   onImage={(url) => setWorkImage(a.cast_id, url)}
+                  onSave={(fields) => saveAppearance(a, fields)}
                   onPromote={() => promote(a.cast_id, a.work_title)}
                   onRemove={() => removeWork(a)}
                   onOpenPerson={a.actor_id ? () => stack.push(personPanel(stack, { id: a.actor_id, name: a.actor })) : null}
@@ -764,8 +791,10 @@ function CharacterHead({ record, works, onClear }) {
 // picture of the character the slot is EMPTY rather than filled with the record's
 // own: a panel that silently substitutes cannot then say "this work has none", and
 // "has none" is the state the reader is here to fix.
-function AppearanceCard({ a, busy, isFace, onImage, onPromote, onRemove, onOpenPerson }) {
+function AppearanceCard({ a, busy, isFace, onImage, onSave, onPromote, onRemove, onOpenPerson }) {
   const [confirming, setConfirming] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(null)
   const { faceButton, pictureEditor } = useCharacterPicture({
     row: { id: a.cast_id, character: a.character, actor: a.actor, character_image_path: a.image },
     workTitle: a.work_title,
@@ -774,6 +803,14 @@ function AppearanceCard({ a, busy, isFace, onImage, onPromote, onRemove, onOpenP
     onImage,
   })
   const cover = a.cover ? coverImgURL(a.cover) : ''
+  const open = () => {
+    setDraft({ character: a.character || '', actor: a.actor || '', description: a.description || '' })
+    setEditing(true)
+  }
+  const commit = async () => {
+    if (!draft.character.trim()) return
+    if (await onSave({ ...draft, character: draft.character.trim(), actor: draft.actor.trim() })) setEditing(false)
+  }
   return (
     <div className="char-work">
       <div className="char-work-art">
@@ -784,6 +821,14 @@ function AppearanceCard({ a, busy, isFace, onImage, onPromote, onRemove, onOpenP
         {/* NEVER TRUNCATED — the standing rule, and a title is a name. It wraps. */}
         <span className="char-work-title">{a.work_title}</span>
         <span className="mono-label">{t(`unit.${workNoun(a)}`, { count: 1 })}</span>
+        {/* THE NAME THIS WORK BILLS THEM UNDER, where it differs from the record's.
+            One character legitimately reads differently on each work — a novel's
+            "the professor" is a film's "Woland" — and a card that printed only the
+            record's name would hide the thing the reader came to check. Silent
+            where the two agree, because repeating a name under itself is noise. */}
+        {a.character && a.character !== '' && (
+          <span className="microcopy" style={{ color: 'var(--soft)' }}>{a.character}</span>
+        )}
         {/* THE PERFORMER, WHERE THERE IS ONE. A book character has none, and the
             card says nothing rather than drawing an empty slot — a slot invites a
             value and there is nothing true to put in it. */}
@@ -796,7 +841,13 @@ function AppearanceCard({ a, busy, isFace, onImage, onPromote, onRemove, onOpenP
             )}
           </span>
         ) : null}
+        {a.description && !editing && (
+          <p className="microcopy char-work-desc">{a.description}</p>
+        )}
         <div className="char-work-acts">
+          <button type="button" className="tp-link" disabled={busy} onClick={editing ? () => setEditing(false) : open}>
+            {editing ? t('common.action.cancel.label') : t('common.action.edit.label')}
+          </button>
           {/* PROMOTE IS A JUDGEMENT AND SAYS SO, which is why it is a word rather
               than a glyph: there is no picture of "and this one is what they look
               like". It is absent, not disabled, on a work holding no picture —
@@ -820,6 +871,29 @@ function AppearanceCard({ a, busy, isFace, onImage, onPromote, onRemove, onOpenP
             />
           </Tooltip>
         </div>
+        {/* THE PER-WORK FIELDS, and the scope line above them is not optional. This
+            form writes to one cast row; the identical-looking fields two sections
+            down write to the record and reach every work it is on. A reader who
+            cannot tell those apart will rename a character everywhere by accident,
+            which is the whole reason this file is shaped in scopes. */}
+        {editing && draft && (
+          <div className="char-work-form">
+            <p className="microcopy" style={{ color: 'var(--soft)' }}>
+              {t('identity.character.appearance.scope', { title: a.work_title })}
+            </p>
+            <Field label={t('identity.character.appearance.name')} value={draft.character} onChange={(v) => setDraft({ ...draft, character: v })} />
+            {a.kind !== 'book' && (
+              <Field label={t('common.field.actor.label')} value={draft.actor} onChange={(v) => setDraft({ ...draft, actor: v })} />
+            )}
+            <Field label={t('identity.field.description')} value={draft.description} onChange={(v) => setDraft({ ...draft, description: v })} rows={3} />
+            <p className="microcopy" style={{ color: 'var(--faint)' }}>{t('identity.character.appearance.description.hint')}</p>
+            <div className="flex justify-end">
+              <GhostButton className="tp-btn-primary" disabled={busy || !draft.character.trim()} onClick={commit}>
+                {t('common.action.save.label')}
+              </GhostButton>
+            </div>
+          </div>
+        )}
         {confirming && (
           // An inline confirm rather than a dialog, matching the cast row's: this
           // is one card of several and a modal for one of them would be worse. The
@@ -858,6 +932,17 @@ function AddWork({ busy, have, onAdd }) {
   const [open, setOpen] = useState(false)
   const [q, setQ] = useState('')
   const [all, setAll] = useState(null)
+  // WHO PLAYED THEM, OPTIONALLY, AT THE MOMENT OF TAGGING — the owner's own
+  // ruling: "this lands a character without a tagged actor (which can also be
+  // tagged when adding)". One box above the grid rather than a second step after
+  // the pick: naming the performer is the same thought as naming the film, and a
+  // form that asks afterwards makes it a separate act nobody completes.
+  //
+  // It is DROPPED FOR A BOOK rather than sent and refused. 0047's line is that a
+  // book has characters and not a cast, and the API rejects the field — so a
+  // reader who typed a performer and then picked a novel would get an error about
+  // a box they were told was optional.
+  const [actor, setActor] = useState('')
 
   useEffect(() => {
     if (!open || all) return
@@ -899,6 +984,15 @@ function AddWork({ busy, have, onAdd }) {
         value={q}
         onChange={(e) => setQ(e.target.value)}
       />
+      <label className="block">
+        <MonoLabel className="mb-1.5 block">{t('identity.character.works.add.actor.label')}</MonoLabel>
+        <input
+          className="tp-input"
+          placeholder={t('identity.character.works.add.actor.placeholder')}
+          value={actor}
+          onChange={(e) => setActor(e.target.value)}
+        />
+      </label>
       {!all ? (
         <p className="microcopy" style={{ color: 'var(--faint)' }}>{t('common.state.loading')}</p>
       ) : hits.length === 0 ? (
@@ -916,9 +1010,10 @@ function AddWork({ busy, have, onAdd }) {
               className="char-pick"
               disabled={busy}
               onClick={async () => {
-                await onAdd(w)
+                await onAdd(w, w.kind === 'book' ? '' : actor.trim())
                 setOpen(false)
                 setQ('')
+                setActor('')
               }}
             >
               {w.cover ? <img src={coverImgURL(w.cover)} alt="" loading="lazy" /> : <span className="char-pick-blank" aria-hidden="true" />}

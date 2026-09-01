@@ -61,6 +61,13 @@ const maxWorkCast = 200
 // an actor everywhere else (dialogues.character, dialogues.actor).
 const maxCastName = 128
 
+// maxCastDescription bounds what a reader may write about a character ON ONE
+// WORK. Larger than a name by two orders of magnitude because it is prose and
+// smaller than a quote because it is a note about a role rather than the role's
+// own words — a paragraph, not an essay. It is a cap and not a promise: nothing
+// truncates, the write is refused and the message says so.
+const maxCastDescription = 2000
+
 // actorRole reports what a work's second column holds. Derived from
 // movies.media_type in ONE place, because "a game says voice actor" is exactly
 // the kind of rule that gets added to three of the four sites that need it.
@@ -113,12 +120,20 @@ type castRow struct {
 	// a billing order or a corrected spelling.
 	CharacterID int64 `json:"character_id,omitempty"`
 	ActorID     int64 `json:"actor_id,omitempty"`
+	// What this character is ON THIS WORK, where the reader has written it. 0056
+	// added the column for exactly the case its own note names — a character whose
+	// description is different in the novel and in the film — and nothing had ever
+	// read or written it, so the finer grain existed in the schema and nowhere a
+	// reader could reach. Empty means the record's own description is what should
+	// be shown; the fallback is the caller's to apply, for the same reason
+	// CastOf.Image leaves it to them.
+	Description string `json:"description"`
 }
 
 // castCols is the SELECT list every read here shares, so a column added to the
 // row struct is added in one place rather than in three that drift.
 const castCols = `id, character, actor, person_id, image_url, character_image_url,
-	character_image_path, billing, origin, source, character_id, actor_id`
+	character_image_path, billing, origin, source, character_id, actor_id, description`
 
 func scanCastRow(sc interface{ Scan(...any) error }) (castRow, error) {
 	var c castRow
@@ -129,7 +144,7 @@ func scanCastRow(sc interface{ Scan(...any) error }) (castRow, error) {
 	var cid, aid sql.NullInt64
 	err := sc.Scan(&c.ID, &c.Character, &c.Actor, &c.PersonID, &c.ImageURL,
 		&c.CharacterImageURL, &c.CharacterImagePath, &c.Billing, &c.Origin, &c.Source,
-		&cid, &aid)
+		&cid, &aid, &c.Description)
 	c.CharacterID, c.ActorID = cid.Int64, aid.Int64
 	return c, err
 }

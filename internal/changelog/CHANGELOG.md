@@ -9,6 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **What a character is on ONE work is editable at last.** The name a work bills them
+  under, the performer, and a description that belongs to that appearance rather than to
+  the record — a character reads differently in the novel and in the film, and the columns
+  for saying so had existed since records landed with nothing able to write them. The form
+  says which scope it is in above its fields, because those fields look exactly like the
+  record's two sections down and reach one row instead of every work.
+
+- **A performer can be named while a character is being added to a film.** One box above
+  the picker rather than a step after it — and it is dropped for a book rather than sent
+  and refused, since a book has characters and not a cast.
+
+- **Where metadata comes from is now a section of the Metadata screen.** The API keys,
+  the Google fallback, the separators that decide whether "Gaiman & Pratchett" is one
+  person or two, and the mark a proverb wears where a credit would go were a card on the
+  Settings page — two clicks from every record they configure, so a reader looking at a
+  work filtered by *no source* had to leave the console to fix the reason. Nothing in the
+  block changed in the move; what changed is the screen it is on. Settings is shorter by
+  its tallest card, and its columns are redealt around what is left.
+
 - **The People section lists records, not spellings.** It used to list one row per
   printed name filtered to one role: Bulgakov spelled four ways was four rows of a
   quarter each, and a record no work prints was not in the list at all. One row per

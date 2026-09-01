@@ -4,9 +4,10 @@ import { t, tNodes } from './i18n.js'
 import { BookLookupPicker, MovieLookupPicker } from './CoverPicker.jsx'
 import { bookState, EditBook } from './Library.jsx'
 import { EditMovie } from './Movies.jsx'
-import { BulkBar, EmptyState, ErrorText, FieldIconButton, GhostButton, HandCard, IconBooks, IconButton, IconCheck, IconDelete, IconEdit, IconMerge, IconMetadata, IconMore, IconOpen, IconPerson, IconRefresh, IconSearch, IconStats, IconUsers, InfoDot, MonoLabel, NameInput, NameScroll, normName, PageHeader, ProgressBar, Scroller, splitCommas, Tooltip, PanelHost, usePanelStack, useConfirm, useIsMobileScreen, usePersistedState, useScreenBar } from './ui.jsx'
+import { BulkBar, EmptyState, ErrorText, FieldIconButton, GhostButton, HandCard, IconBooks, IconButton, IconCheck, IconDelete, IconEdit, IconKey, IconMerge, IconMetadata, IconMore, IconOpen, IconPerson, IconRefresh, IconSearch, IconStats, IconUsers, InfoDot, MonoLabel, NameInput, NameScroll, normName, PageHeader, ProgressBar, Scroller, splitCommas, Tooltip, PanelHost, usePanelStack, useConfirm, useIsMobileScreen, usePersistedState, useScreenBar } from './ui.jsx'
 import { PersonModal, personImgURL, ProviderChips, mergeLinks, parseCreditSeps, parseLinks, splitCredits } from './people.jsx'
 import { characterPanel, personPanel } from './identity.jsx'
+import { MetadataSources } from './MetadataSources.jsx'
 import { ReverifyFlow } from './ReverifyReview.jsx'
 import { editDistance } from './text.js'
 
@@ -36,9 +37,11 @@ import { editDistance } from './text.js'
 // 390px column can hold, and the app's table wrapper already scrolls.
 //
 // THE ORDER IS THE ORDER OF THE QUESTION. "What still needs work" first, because
-// that is why anybody opens this screen, and then the three kinds of record. A
-// fifth row for where the records come from — the key block that is still in
-// Settings — belongs at the end of this list and is not in it yet.
+// that is why anybody opens this screen; then the three kinds of record; then
+// where they come from. Sources sits last because it is a setting rather than a
+// thing to work on — it was a card on the Settings page, two clicks from every
+// record it configures, and a reader looking at a work filtered by "no source"
+// had to leave the console to fix the reason.
 // THE ICON IS THE ELEMENT, NOT THE COMPONENT. An element in a constant is an
 // ordinary object and React is content to render the same one repeatedly. A
 // component held in a loop variable and then rendered by that variable's name
@@ -49,6 +52,7 @@ const METADATA_SECTIONS = [
   ['works', 'metadata.section.works.label', <IconBooks />],
   ['people', 'metadata.section.people.label', <IconUsers />],
   ['characters', 'metadata.section.characters.label', <IconPerson />],
+  ['sources', 'metadata.section.sources.label', <IconKey />],
 ]
 
 // SectionRail — the doors, each wearing its own number.
@@ -85,7 +89,7 @@ function SectionRail({ value, onChange, counts }) {
 }
 
 
-export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch }) {
+export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, onPreferences }) {
   const [lib, setLib] = useState(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -247,6 +251,9 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch }
     works: lib ? lib.books.length + lib.movies.length : null,
     people: people ? people.length : null,
     characters: chars ? chars.length : null,
+    // The sources row carries no number. Every other door counts records or gaps;
+    // this one is a set of settings, and "5 keys" answers a question nobody has.
+    sources: null,
   }
   return (
     <section className="space-y-6">
@@ -361,6 +368,8 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch }
                   than in a console of their own halfway down a scroll. */}
               <DuplicatesPanel onDone={load} onFlash={setFlash} />
             </>
+          ) : sect === 'sources' ? (
+            <MetadataSources user={user} onPreferences={onPreferences} />
           ) : sect === 'people' ? (
             <PeopleConsole records={people} onReload={loadPeople} onFlash={setFlash} onReverify={(who) => setReverify({ people: who })} onSearch={onSearch} />
           ) : (

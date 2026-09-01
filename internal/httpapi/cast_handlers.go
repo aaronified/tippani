@@ -37,6 +37,13 @@ import (
 type castEdit struct {
 	Character string `json:"character"`
 	Actor     string `json:"actor"`
+	// A POINTER, unlike the two above, and that asymmetry is the contract rather
+	// than an oversight. The two names are what a cast row IS — an edit that omits
+	// them is not an edit — while the per-work description is one more field on a
+	// row several screens save, and a plain string would let the cast panel's
+	// Save, which has no box for it, clear what the character page wrote. Absent
+	// leaves it; empty clears it.
+	Description *string `json:"description"`
 }
 
 // validate trims both fields and applies the one rule that differs by kind.
@@ -55,6 +62,13 @@ func (e *castEdit) validate(role string) string {
 	}
 	if e.Actor, ok = trimCap(e.Actor, maxCastName); !ok {
 		return "that actor's name is too long"
+	}
+	if e.Description != nil {
+		d, ok := trimCap(*e.Description, maxCastDescription)
+		if !ok {
+			return "that description is too long"
+		}
+		e.Description = &d
 	}
 	if e.Character == "" {
 		// A provider may seed a row with no character — TMDB does it whenever a
@@ -402,11 +416,16 @@ func (s *Server) handleUpdateCast(w http.ResponseWriter, r *http.Request) {
 	if origin == castProvider {
 		next = castCorrected
 	}
+	set := `character = ?, character_key = ?, actor = ?, actor_key = ?,
+	        origin = ?, updated_at = datetime('now')`
+	args := []any{req.Character, charKey, req.Actor, actorKey, next}
+	if req.Description != nil {
+		set += ", description = ?"
+		args = append(args, *req.Description)
+	}
+	args = append(args, castID, uid)
 	if _, err := tx.Exec(
-		`UPDATE work_cast SET character = ?, character_key = ?, actor = ?, actor_key = ?,
-		        origin = ?, updated_at = datetime('now')
-		 WHERE id = ? AND user_id = ?`,
-		req.Character, charKey, req.Actor, actorKey, next, castID, uid); err != nil {
+		`UPDATE work_cast SET `+set+` WHERE id = ? AND user_id = ?`, args...); err != nil {
 		internalError(w, r, "update cast", err)
 		return
 	}

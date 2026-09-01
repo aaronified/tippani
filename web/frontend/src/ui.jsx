@@ -2217,6 +2217,36 @@ export function useWorkView(key) {
   return [v === "list" ? "tiles" : v, setV];
 }
 
+// SectionTitle — a card's heading, with an optional info dot and a right slot.
+//
+// IT LIVED IN Settings.jsx and eight of its cards used it. The ninth moved to the
+// Metadata screen, and a component two screens import is a shared component —
+// importing it from Settings would have pulled that whole route's chunk into
+// this one to draw an <h2>.
+// SectionTitle — a settings card's heading. `info` is the paragraph that used to
+// sit under it: every card on this screen opened with two or three lines of
+// explanation, which on a phone meant scrolling past the prose to reach the one
+// control each card exists for.
+export function SectionTitle({ children, right, info, infoTitle }) {
+  return (
+    <div className="mb-4 flex items-center justify-between gap-3">
+      <div className="flex items-center gap-1.5">
+        <h2 style={{ fontFamily: 'var(--font-ui)', fontStyle: 'var(--font-ui-style)', fontVariantCaps: 'var(--font-ui-caps)', textTransform: 'var(--font-ui-case)', fontVariantNumeric: 'var(--font-ui-figures)', fontSize: 'var(--type-ui-17)', fontWeight: 600 }}>{children}</h2>
+        {info && <InfoDot text={info} title={infoTitle || (typeof children === 'string' ? children : t('settings.card.info.title'))} />}
+      </div>
+      {right}
+    </div>
+  )
+}
+
+// A heading is the one component whose demo can BE the thing: no state, no
+// fetch, and the info dot beside it is half of what the entry is for.
+if (import.meta.env.DEV) {
+  SectionTitle.glossary = {
+    demo: (h) => h(SectionTitle, { info: "Where the facts about a work come from." }, "Metadata sources"),
+  };
+}
+
 export function usePersistedState(key, def) {
   const [v, setV] = useState(() => {
     try {

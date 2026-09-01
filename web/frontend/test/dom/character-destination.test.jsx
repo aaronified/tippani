@@ -41,7 +41,10 @@ vi.mock('../../src/api.js', async (orig) => ({
       return { ok: true, data: { books: [{ id: 1, title: 'The Master and Margarita', cover_path: 'covers/mm.jpg' }, { id: 2, title: 'The White Guard', cover_path: '' }] } }
     }
     if (method === 'GET' && path === '/movies') {
-      return { ok: true, data: { movies: [{ id: 5, title: 'The Master and Margarita (2005)', poster_path: 'covers/mm05.jpg', media_type: 'show' }] } }
+      return { ok: true, data: { movies: [
+        { id: 5, title: 'The Master and Margarita (2005)', poster_path: 'covers/mm05.jpg', media_type: 'show' },
+        { id: 6, title: 'Master i Margarita (2024)', poster_path: '', media_type: 'movie' },
+      ] } }
     }
     if (method === 'DELETE' && path.includes('/works/')) return DROP
     if (method === 'GET' && path.startsWith('/characters/search')) {
@@ -58,12 +61,14 @@ const stack = () => ({ push: vi.fn(), open: vi.fn() })
 const APPEARANCES = [
   {
     cast_id: 11, kind: 'book', work_id: 1, work_title: 'The Master and Margarita',
-    character: 'Woland', actor_id: 0, actor: '', image: '', cover: 'covers/mm.jpg', media_type: '',
+    character: 'the professor', actor_id: 0, actor: '', image: '', cover: 'covers/mm.jpg',
+    media_type: '', description: 'Arrives at Patriarch Ponds with a retinue.',
   },
   {
     cast_id: 12, kind: 'movie', work_id: 5, work_title: 'The Master and Margarita (2005)',
     character: 'Woland', actor_id: 9, actor: 'Oleg Basilashvili',
     image: 'characters/woland-2005.jpg', cover: 'covers/mm05.jpg', media_type: 'show',
+    description: '',
   },
 ]
 
@@ -160,8 +165,33 @@ describe('tagging them onto another work', () => {
     await screen.findByPlaceholderText(/find a book or a film/i)
     const picks = await screen.findAllByRole('button', { name: /The White Guard/ })
     expect(picks.length).toBe(1)
-    // Already in both of these, so neither is on offer.
-    expect(document.querySelectorAll('.char-pick').length).toBe(1)
+    // Already in two of the four, so exactly the other two are on offer.
+    expect(document.querySelectorAll('.char-pick').length).toBe(2)
+    expect(screen.queryByRole('button', { name: /^The Master and Margarita$/ })).toBeNull()
+  })
+
+  it('carries the performer where one is typed, and drops it on a book', async () => {
+    // The owner's ruling: tagging "lands a character without a tagged actor
+    // (which can also be tagged when adding)". One box above the grid rather than
+    // a second step, because naming the performer is the same thought as naming
+    // the film — and DROPPED for a book rather than sent and refused, since the
+    // API rejects an actor on one and the reader was told the box was optional.
+    await open()
+    act(() => screen.getByText('Add to a work').closest('button').click())
+    fireEvent.change(await screen.findByPlaceholderText(/do not know yet/i), { target: { value: 'Oleg Basilashvili' } })
+    act(() => screen.getByRole('button', { name: /Master i Margarita \(2024\)/ }).click())
+    await waitFor(() => expect(CALLS.some(([m, p]) => m === 'POST' && p === '/characters/3/works')).toBe(true))
+    expect(CALLS.find(([m, p]) => m === 'POST' && p === '/characters/3/works')[2].actor).toBe('Oleg Basilashvili')
+
+    // And the same typed name, on a book, is not sent at all.
+    CALLS.length = 0
+    cleanup()
+    await open()
+    act(() => screen.getByText('Add to a work').closest('button').click())
+    fireEvent.change(await screen.findByPlaceholderText(/do not know yet/i), { target: { value: 'Oleg Basilashvili' } })
+    act(() => screen.getByRole('button', { name: /The White Guard/ }).click())
+    await waitFor(() => expect(CALLS.some(([m, p]) => m === 'POST' && p === '/characters/3/works')).toBe(true))
+    expect('actor' in CALLS.find(([m, p]) => m === 'POST' && p === '/characters/3/works')[2]).toBe(false)
   })
 
   it('sends the character’s id and the work, not a name to be resolved', async () => {
@@ -236,6 +266,64 @@ describe('taking them off a work', () => {
     const dialog = await screen.findByRole('dialog')
     const labels = within(dialog).getAllByRole('button').map((b) => b.textContent.toLowerCase())
     expect(labels.some((l) => /remove anyway|proceed|ignore/.test(l))).toBe(false)
+  })
+})
+
+describe('what this character is on ONE work', () => {
+  // 0056 added a per-work name and a per-work description on the cast row for
+  // exactly this — a character reads differently in the novel and in the film —
+  // and nothing had ever written or read either. The finer grain existed in the
+  // schema and nowhere a reader could reach it.
+  it('prints the name this work bills them under, and what it says about them there', async () => {
+    await open()
+    const c = card('The Master and Margarita')
+    expect(within(c).getByText('the professor')).toBeTruthy()
+    expect(within(c).getByText(/Patriarch Ponds/)).toBeTruthy()
+  })
+
+  it('says which scope the form is in, above the fields', async () => {
+    // The load-bearing sentence. These fields look exactly like the record's two
+    // sections down and reach one row instead of every work — a reader who cannot
+    // tell them apart renames a character everywhere by accident.
+    await open()
+    act(() => within(card('The Master and Margarita')).getByText('Edit').click())
+    expect(await screen.findByText(/On The Master and Margarita only/)).toBeTruthy()
+  })
+
+  it('writes to the cast row, never to the record', async () => {
+    await open()
+    const c = card('The Master and Margarita')
+    act(() => within(c).getByText('Edit').click())
+    const desc = await within(c).findByLabelText(/Description/i)
+    fireEvent.change(desc, { target: { value: 'Woland in the novel.' } })
+    act(() => within(c).getByText('Save').closest('button').click())
+    await waitFor(() => expect(
+      CALLS.some(([m, p, b]) => m === 'PUT' && p === '/cast/11' && b.description === 'Woland in the novel.'),
+    ).toBe(true))
+    // The record's own description is a different field with a different blast
+    // radius, and this form must never touch it.
+    expect(CALLS.some(([m, p]) => m === 'PUT' && p === '/characters/3')).toBe(false)
+  })
+
+  it('offers a performer on a film and refuses one on a book', async () => {
+    // 0047's line, which the API enforces: a book has characters, not a cast. The
+    // field is ABSENT rather than disabled — a slot invites a value and there is
+    // nothing true to put in it.
+    await open()
+    act(() => within(card('The Master and Margarita (2005)')).getByText('Edit').click())
+    expect(within(card('The Master and Margarita (2005)')).getByLabelText(/Actor/i)).toBeTruthy()
+    act(() => within(card('The Master and Margarita')).getByText('Edit').click())
+    expect(within(card('The Master and Margarita')).queryByLabelText(/Actor/i)).toBeNull()
+  })
+
+  it('sends no actor at all for a book, rather than an empty one', async () => {
+    await open()
+    const c = card('The Master and Margarita')
+    act(() => within(c).getByText('Edit').click())
+    act(() => within(c).getByText('Save').closest('button').click())
+    await waitFor(() => expect(CALLS.some(([m, p]) => m === 'PUT' && p === '/cast/11')).toBe(true))
+    const [, , body] = CALLS.find(([m, p]) => m === 'PUT' && p === '/cast/11')
+    expect('actor' in body).toBe(false)
   })
 })
 

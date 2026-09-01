@@ -45,66 +45,24 @@ describe('SETTINGS_LAYOUT', () => {
     expect(SETTINGS_LAYOUT[1][0]).toEqual(SETTINGS_CARDS)
   })
 
-  it('keeps colours directly under metadata, in every layout', () => {
-    // Not decoration. Both cards answer "what is this thing labelled with" —
-    // where a work's facts come from, and what the colour on a highlight is
-    // called — so one column reads as one subject. Nothing enforces that but
-    // this: a later card added to the wrong slot separates them and the page
-    // still renders perfectly.
+  it('does not lay out a metadata card, because there is not one any more', () => {
+    // The card moved to the Metadata screen's Sources section, where the keys sit
+    // beside the works they fetch for. A key left in a layout for a card that no
+    // longer exists renders nothing and fails nothing — the render walks the
+    // layout, so the gap is invisible until somebody counts columns.
+    expect(SETTINGS_CARDS).not.toContain('meta')
+    for (const n of WIDTHS) expect(flat(n), String(n)).not.toContain('meta')
+  })
+
+  it('leads a column with colours, which used to be the second half of a pair', () => {
+    // Not decoration, and it is what is LEFT of a rule rather than the rule. The
+    // pairing existed because both cards answered "what is this thing labelled
+    // with"; with the other half gone, what survives is that Colours is a heading
+    // a reader scans for, so it starts a column rather than sitting under one.
     for (const n of WIDTHS) {
-      const col = SETTINGS_LAYOUT[n].find((c) => c.includes('meta'))
-      expect(col, `${n}: no column holds meta`).toBeTruthy()
-      expect(col[col.indexOf('meta') + 1], `${n} columns`).toBe('colors')
+      const col = SETTINGS_LAYOUT[n].find((c) => c.includes('colors'))
+      expect(col, `${n}: no column holds colors`).toBeTruthy()
+      if (n > 1) expect(col[0], `${n} columns`).toBe('colors')
     }
-  })
-})
-
-describe('settingsColumns', () => {
-  const ALL = SETTINGS_CARDS
-  const NON_ADMIN = ALL.filter((k) => k !== 'upd' && k !== 'backup')
-
-  it('returns one array per column', () => {
-    for (const n of WIDTHS) expect(settingsColumns(n, ALL), String(n)).toHaveLength(n)
-  })
-
-  it('keeps every card an admin has', () => {
-    for (const n of WIDTHS) {
-      expect(settingsColumns(n, ALL).flat().sort(), String(n)).toEqual([...ALL].sort())
-    }
-  })
-
-  it('drops the cards a non-admin does not have', () => {
-    for (const n of WIDTHS) {
-      const shown = settingsColumns(n, NON_ADMIN).flat()
-      expect(shown, String(n)).not.toContain('upd')
-      expect(shown, String(n)).not.toContain('backup')
-      expect(shown.sort(), String(n)).toEqual([...NON_ADMIN].sort())
-    }
-  })
-
-  it('leaves the other cards exactly where they were', () => {
-    // The point of the whole change: losing a card must not slide the rest
-    // around. Every card a non-admin does have keeps its column index.
-    for (const n of WIDTHS) {
-      const admin = settingsColumns(n, ALL)
-      const plain = settingsColumns(n, NON_ADMIN)
-      for (const key of NON_ADMIN) {
-        const a = admin.findIndex((col) => col.includes(key))
-        const p = plain.findIndex((col) => col.includes(key))
-        expect(p, `${key} at ${n} columns`).toBe(a)
-      }
-    }
-  })
-
-  it('falls back to the single column for an unknown count', () => {
-    // useColumnCount is capped at 3 today; a wide-mode change could raise it,
-    // and a screen with no cards at all is worse than a narrow one.
-    expect(settingsColumns(4, ALL)).toHaveLength(1)
-    expect(settingsColumns(4, ALL).flat()).toEqual(SETTINGS_CARDS)
-  })
-
-  it('ignores a key that is not in the layout', () => {
-    const cols = settingsColumns(2, [...ALL, 'not-a-card'])
-    expect(cols.flat()).not.toContain('not-a-card')
   })
 })

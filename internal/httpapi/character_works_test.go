@@ -34,9 +34,10 @@ type appearanceOut struct {
 	WorkID    int64  `json:"work_id"`
 	WorkTitle string `json:"work_title"`
 	Actor     string `json:"actor"`
-	Image     string `json:"image"`
-	Cover     string `json:"cover"`
-	MediaType string `json:"media_type"`
+	Image       string `json:"image"`
+	Cover       string `json:"cover"`
+	MediaType   string `json:"media_type"`
+	Description string `json:"description"`
 }
 
 type charDetailFull struct {
@@ -343,5 +344,58 @@ func TestTheAppearanceCarriesTheWorksOwnCoverAndItsKind(t *testing.T) {
 	}
 	if show.Actor != "Oleg Basilashvili" {
 		t.Fatalf("the performer did not come with it: %+v", show)
+	}
+}
+
+// ---- what a character is on ONE work ---------------------------------------
+
+func TestAPerWorkNameAndDescriptionAreTheCastRowsAndNotTheRecords(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	charID, _ := oneWoland(t, c)
+	castID := charDetail(t, c, charID).Appearances[0].CastID
+
+	// 0056 added work_cast.description for exactly the case its own note names — a
+	// character whose description differs between the novel and the film — and
+	// nothing had ever written or read it. The finer grain existed in the schema
+	// and nowhere a reader could reach.
+	c.mustDo("PUT", "/cast/"+itoa(castID), map[string]any{
+		"character": "the professor", "description": "Arrives at Patriarch Ponds.",
+	}, http.StatusOK)
+
+	got := charDetail(t, c, charID).Appearances[0]
+	if got.Description != "Arrives at Patriarch Ponds." {
+		t.Fatalf("the appearance came back with description %q", got.Description)
+	}
+	// AND THE RECORD IS UNTOUCHED. The two fields look identical on screen and
+	// have very different blast radii — one row against every work the record is
+	// on — which is the whole reason the panel says which scope it is in.
+	rec := charDetail(t, c, charID)
+	if rec.Name != "Woland" {
+		t.Fatalf("the record's name changed to %q", rec.Name)
+	}
+}
+
+func TestASaveThatSaysNothingAboutTheDescriptionLeavesItAlone(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	charID, _ := oneWoland(t, c)
+	castID := charDetail(t, c, charID).Appearances[0].CastID
+	c.mustDo("PUT", "/cast/"+itoa(castID), map[string]any{
+		"character": "Woland", "description": "Kept.",
+	}, http.StatusOK)
+
+	// THE POINTER RULE, and the reason this field is a pointer where the two names
+	// are not. The cast panel's own Save sends a character and an actor and has no
+	// box for a description — a plain string field would let that save clear what
+	// the character page wrote, silently, with a 200.
+	c.mustDo("PUT", "/cast/"+itoa(castID), map[string]any{"character": "Woland"}, http.StatusOK)
+	if got := charDetail(t, c, charID).Appearances[0].Description; got != "Kept." {
+		t.Fatalf("a save with no description field left %q", got)
+	}
+	// An empty string is a different instruction from an absent field, and clears.
+	c.mustDo("PUT", "/cast/"+itoa(castID), map[string]any{"character": "Woland", "description": ""}, http.StatusOK)
+	if got := charDetail(t, c, charID).Appearances[0].Description; got != "" {
+		t.Fatalf("an explicit empty description left %q", got)
 	}
 }

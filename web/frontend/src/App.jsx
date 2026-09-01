@@ -1908,6 +1908,7 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
               onOpenBook={openBook}
               onOpenMovie={openMovie}
               onSearch={searchFor}
+              onPreferences={onPreferences}
             />
           </div>
         )}
