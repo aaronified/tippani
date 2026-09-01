@@ -3560,7 +3560,6 @@ unit.game.other = গেম
 # something, and the only one with a single door: the tile in Settings. That is
 # why the way back is NAMED rather than drawn as a bare arrow.
 # ---------------------------------------------------------------------------
-bin.back.tip = সেটিংসে ফিরুন
 bin.title = বিন
 # What a row calls each kind, and what the chip above the list calls a pile of
 # them. Bengali takes no plural marker after a noun, so most pairs are the same
@@ -3579,6 +3578,14 @@ bin.kind.account.label = অ্যাকাউন্ট
 bin.kind.account.plural = অ্যাকাউন্ট
 bin.kind.merge.label = মেলানো ব্যক্তি
 bin.kind.merge.plural = মেলানো
+bin.kind.selection.label = একসঙ্গে মোছা
+bin.kind.selection.plural = একসঙ্গে মোছা
+bin.kind.charmerge.label = মেলানো চরিত্র
+bin.kind.charmerge.plural = চরিত্র মেলানো
+bin.kind.person.label = ব্যক্তি
+bin.kind.person.plural = ব্যক্তিরা
+bin.kind.character.label = চরিত্র
+bin.kind.character.plural = চরিত্রসমূহ
 bin.keep-for.label = কতদিন রাখা হবে
 bin.retention.aria = বিন কতদিন জিনিস রাখবে
 bin.retention.never.label = কখনও নয়
@@ -3624,7 +3631,6 @@ error.empty.bin = খালি করা গেল না
 # NOTHING HERE IS AN INSTRUCTION. The page reports and never edits, so every
 # label names what was FOUND rather than what to do about it.
 # ---------------------------------------------------------------------------
-cleanup.back.tip = সেটিংসে ফিরুন
 checks.title = পরীক্ষা
 cleanup.title = এলোমেলো চিহ্ন
 # Beside the title: how many quotes were read.

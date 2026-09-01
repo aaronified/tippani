@@ -1964,7 +1964,7 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
             Settings, which is where its Back goes. */}
         {tab === 'bin' && (
           <div data-screen-label="bin">
-            <BinPage onClose={() => goBack('settings')} />
+            <BinPage />
           </div>
         )}
         {/* Stray marks, the bin's neighbour in every sense: one door in from
@@ -1974,7 +1974,6 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
         {tab === 'cleanup' && (
           <div data-screen-label="cleanup">
             <CleanupPage
-              onClose={() => goBack('settings')}
               onOpenBook={openBook}
               onOpenMovie={openMovie}
               onOpenQuotes={() => go('quotes', null)}

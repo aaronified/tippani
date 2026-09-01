@@ -8,13 +8,13 @@ import {
   FieldIconButton,
   FilterChip,
   GhostButton,
-  IconBack,
   IconBooks,
   IconChevron,
   IconDelete,
   IconDialogue,
   IconHighlight,
   IconMerge,
+  IconUsers,
   NameScroll,
   IconPerson,
   IconQuote,
@@ -24,7 +24,6 @@ import {
   MonoLabel,
   PageHeader,
   Select,
-  Tooltip,
   toast,
   useIsMobileScreen,
   useScreenBar,
@@ -75,11 +74,23 @@ export const TRASH_LABELS = {
   dialogue: 'bin.kind.dialogue.label',
   quote: 'bin.kind.quote.label',
   account: 'bin.kind.account.label',
+  // SINCE 0032 AND UNLABELLED UNTIL NOW — a bulk delete has been drawing the raw
+  // wire word 'selection' in this list for its whole life, found by the check in
+  // bin-kinds.test.js. It is ONE entry holding every row from every item, so the
+  // bin shows one decision rather than forty, and the word says the act.
+  selection: 'bin.kind.selection.label',
   // NOT A DELETION, and the label says so. Every other kind here is "rows that
   // went"; this one is two records that became one, and what the bin holds is the
   // way back rather than the record itself — which is why its entry names both
   // sides ("M. Bulgakov → Mikhail Bulgakov") instead of one title.
   'person-merge': 'bin.kind.merge.label',
+  'character-merge': 'bin.kind.charmerge.label',
+  // A DELETED RECORD IS "ROWS THAT WENT" AGAIN, so these two read like the kinds
+  // above rather than like the two merges: what the bin holds IS the record, and
+  // the entry names it. A work_cast row has no entry here at all — that is
+  // attribution, and correcting how one work bills somebody stays permanent.
+  'person-delete': 'bin.kind.person.label',
+  'character-delete': 'bin.kind.character.label',
 }
 
 const TRASH_ICONS = {
@@ -89,10 +100,54 @@ const TRASH_ICONS = {
   dialogue: <IconDialogue />,
   quote: <IconQuote />,
   account: <IconPerson />,
+  // Many kinds went at once, so there is no WHAT to draw: like the merges below,
+  // it wears the verb that made it.
+  selection: <IconDelete />,
   // The one row here that is not a deletion wears the verb that made it, not a
   // person: every other glyph in this table names WHAT went, and nothing went.
   'person-merge': <IconMerge />,
+  'character-merge': <IconMerge />,
+  // These two DID delete something, so they wear what went. The app has no mask or
+  // drama glyph, so a character takes IconUsers — a role is a person a work has
+  // more than one of — rather than IconPerson, which would make the two rows
+  // indistinguishable at a glance in a list whose whole job is telling them apart.
+  'person-delete': <IconPerson />,
+  'character-delete': <IconUsers />,
 }
+
+// TRASH_CHILD_NOUN: what an entry's child_count is COUNTING, per kind.
+//
+// EVERY ROW USED TO SAY "quote", and for the content kinds that is right — a binned
+// book holds its highlights. It was never right for a merge, whose count is the
+// works that changed hands, and a render of the new kinds is what made that
+// visible: a merged author read "1 quote" for a book.
+//
+// A kind absent from this table counts NOTHING and its row shows no number. That is
+// the two record deletes, deliberately: what came off a deleted person is its
+// aliases, its cast pairings and its linked lines together, and there is no honest
+// single noun for that mixture. The row says whose record it is, which is the fact
+// a reader is deciding on.
+export const TRASH_CHILD_NOUN = {
+  book: 'unit.quote',
+  movie: 'unit.quote',
+  annotation: 'unit.quote',
+  dialogue: 'unit.quote',
+  quote: 'unit.quote',
+  account: 'unit.quote',
+  selection: 'unit.quote',
+  'person-merge': 'unit.work',
+  'character-merge': 'unit.work',
+}
+
+// TRASH_EXPANDABLE: whose payload the expanded row can actually list.
+//
+// snapshotContents reads a SNAPSHOT — the annotations, dialogues and utterances an
+// entry is holding. The four identity kinds carry a REVERSAL instead, which decodes
+// into that shape as an empty one, so their chevron opened a list with nothing in
+// it. Found on a render; the chevron is now drawn only where there is something
+// behind it, which is the rule the code beside it already states for a single
+// highlight.
+const TRASH_EXPANDABLE = (kind) => TRASH_CHILD_NOUN[kind] === 'unit.quote'
 
 // The plural each kind counts in, for the filter chips. "Film or shows" is not a
 // phrase, which is why this is a table rather than a suffix.
@@ -103,7 +158,11 @@ const TRASH_PLURALS = {
   dialogue: 'bin.kind.dialogue.plural',
   quote: 'bin.kind.quote.plural',
   account: 'bin.kind.account.plural',
+  selection: 'bin.kind.selection.plural',
   'person-merge': 'bin.kind.merge.plural',
+  'character-merge': 'bin.kind.charmerge.plural',
+  'person-delete': 'bin.kind.person.plural',
+  'character-delete': 'bin.kind.character.plural',
 }
 
 // RETENTION: the offered windows. Never is -1 rather than 0 for the reason the
@@ -163,7 +222,7 @@ export function expiryLabel(raw, days) {
   return t('bin.row.expiry.due', { date: asDay(due) })
 }
 
-export default function BinPage({ onClose }) {
+export default function BinPage() {
   const mobile = useIsMobileScreen()
   const [items, setItems] = useState(null) // null = still loading
   const [days, setDays] = useState(30)
@@ -239,7 +298,13 @@ export default function BinPage({ onClose }) {
     return Object.keys(TRASH_LABELS).filter((k) => present.has(k))
   }, [all])
   const shown = kind === 'all' ? all : all.filter((e) => e.kind === kind)
-  const held = all.reduce((n, e) => n + (e.child_count || 0), 0)
+  // "N quotes held" counts only the entries whose children ARE quotes — a merge's
+  // works and a deleted record's aliases are not quotes, and adding them in made
+  // the page's own summary line the largest wrong number on the screen.
+  const held = all.reduce(
+    (n, e) => n + (TRASH_CHILD_NOUN[e.kind] === 'unit.quote' ? e.child_count || 0 : 0),
+    0,
+  )
   // A filter that has outlived what it was filtering — the last book restored, say
   // — would otherwise leave the page reading "no entries" over a bin with things
   // in it. The chip for that kind is already gone by then; the state has to go too.
@@ -282,16 +347,13 @@ export default function BinPage({ onClose }) {
   return (
     <section className="space-y-6" data-screen-label="bin">
       <div className={mobile ? 'mobile-sticky-bar' : ''}>
-        {/* The way back is to SETTINGS, which is the only way in. A page with one
-            door needs that door named — a bare back arrow on a screen nothing in
-            the nav points at leaves you guessing where it goes. */}
-        <Tooltip label={t('bin.back.tip')} side="bottom">
-          <button type="button" className="page-back" onClick={onClose}>
-            <IconBack />
-            {/* The tab's own name, not a second copy of the word. */}
-            <MonoLabel>{t('nav.tab.settings.label')}</MonoLabel>
-          </button>
-        </Tooltip>
+        {/* NO BACK LINK, AND NO DOOR NAMED. This screen used to be reachable only
+            from Settings, so it named that door — "a bare back arrow on a screen
+            nothing in the nav points at leaves you guessing where it goes". The
+            rail and the phone drawer both point at Bin now, and Checks reaches it
+            too, so the arrow pointed at one of several ways in and was wrong for
+            every reader who had not come that way. The crumb and the phone header
+            say where you are; the rail says how to leave. */}
         <PageHeader title={t('bin.title')} counts={counts} />
       </div>
 
@@ -363,7 +425,7 @@ export default function BinPage({ onClose }) {
                         that HOLD something get one: a single highlight has nothing
                         to expand, and a control that opens an empty list is worse
                         than no control. */}
-                    {e.child_count > 0 ? (
+                    {e.child_count > 0 && TRASH_EXPANDABLE(e.kind) ? (
                       <button
                         type="button"
                         className="tp-btn tp-btn-ghost tactile trash-expand"
@@ -408,9 +470,10 @@ export default function BinPage({ onClose }) {
                     {[
                       fmtDeleted(e.deleted_at),
                       e.child_count > 0 &&
+                        TRASH_CHILD_NOUN[e.kind] &&
                         t('common.count.phrase', {
                           n: e.child_count,
-                          noun: t('unit.quote', { count: e.child_count }),
+                          noun: t(TRASH_CHILD_NOUN[e.kind], { count: e.child_count }),
                         }),
                       e.files > 0 && t('bin.row.pictures', { count: e.files }),
                       expiryLabel(e.deleted_at, days),

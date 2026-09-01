@@ -89,6 +89,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   that disagrees with itself about who wrote what. A performer who only *speaks* can be
   deleted and put back; nothing is lost either way.
 
+### Fixed
+
+- **The bin says what each row is counting.** Every row said "quotes" — right for a binned
+  book, which holds its highlights, and wrong for a merge, where the number is the works
+  that changed hands: a merged author read "1 quote" for a book. Merges now count works,
+  a deleted record shows no number at all (what came off it is its other spellings, its
+  roles and its lines together, and there is no honest single word for that), and the
+  page's own "N quotes held" no longer adds any of them in.
+
+- **A bin row only offers to expand when there is something inside it.** The expanded row
+  lists the quotes an entry is holding; a merge holds a way back rather than quotes, so
+  its chevron opened an empty list.
+
+- **A bulk delete's bin row has been showing the raw word `selection` since bulk delete
+  shipped.** It now reads *Bulk delete*, in both languages, with the rest of them.
+
+- **The Bin and the Stray marks pages no longer offer "Back to Settings".** Both used to
+  be reachable only from there, so both named that door. Neither has lived in Settings
+  since Checks was built — the rail, the phone drawer and Checks all reach them now — so
+  the arrow pointed at a page that no longer contains them.
+
 
 - **Six tests that read the source now use the app instead.** Home's favourites wall,
   the shuffled quote card, the "quiz me on this" button and the Shuffle control's

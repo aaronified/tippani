@@ -177,11 +177,19 @@ describe('the bin page', () => {
     expect(screen.getByText('1 entry · 40 quotes held')).toBeTruthy()
   })
 
-  it('names where Back goes, because this page has exactly one door', async () => {
-    const onClose = vi.fn()
-    await page({ onClose })
-    fireEvent.click(screen.getByRole('button', { name: /Settings/ }))
-    expect(onClose).toHaveBeenCalled()
+  // THE DOOR THAT WAS NAMED IS GONE, and this asserted the opposite until the rail
+  // shipped. The page used to be reachable only from Settings, so its back arrow
+  // named that destination — "one door in means the way out has to say where it
+  // goes". Settings lost the tile when Checks was built, and the rail, the phone
+  // drawer and Checks all point here now, so the arrow named a page that no longer
+  // contains this one.
+  //
+  // ANCHORED ON SOMETHING THAT RENDERED, per this suite's own rule: an absence
+  // asserted against a screen that failed to mount passes for the wrong reason.
+  it('names no way back, because Settings is no longer the door', async () => {
+    await page()
+    expect(screen.getByText('1 entry · 40 quotes held')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /Settings/ })).toBeNull()
   })
 })
 

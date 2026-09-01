@@ -7,7 +7,6 @@ import {
   FieldIconButton,
   FilterChip,
   GhostButton,
-  IconBack,
   IconCheck,
   IconClose,
   IconHighlight,
@@ -75,7 +74,7 @@ const KIND_ICONS = {
   quote: <IconQuote />,
 }
 
-export default function CleanupPage({ onClose, onOpenBook, onOpenMovie, onOpenQuotes, embedded = false }) {
+export default function CleanupPage({ onOpenBook, onOpenMovie, onOpenQuotes, embedded = false }) {
   const mobile = useIsMobileScreen()
   const [data, setData] = useState(null) // null = still reading
   const [rule, setRule] = useState('all')
@@ -207,18 +206,11 @@ export default function CleanupPage({ onClose, onOpenBook, onOpenMovie, onOpenQu
   return (
     <section className="space-y-6" data-screen-label="cleanup">
       <div className={mobile && !embedded ? 'mobile-sticky-bar' : ''}>
-        {/* Named, not a bare arrow — the same reason the bin's is. One door in
-            means the way out has to say where it goes. Suppressed when embedded
-            in Checks: the section is not somewhere you navigated to, so there is
-            nothing there to go back FROM. */}
-        {!embedded && (
-          <Tooltip label={t('cleanup.back.tip')} side="bottom">
-            <button type="button" className="page-back" onClick={onClose}>
-              <IconBack />
-              <MonoLabel>{t('nav.tab.settings.label')}</MonoLabel>
-            </button>
-          </Tooltip>
-        )}
+        {/* NO BACK LINK, for the bin's reason. Both screens named Settings as the
+            one door in, and both stopped being reachable from it when Checks was
+            built and Settings lost their tiles — so the arrow pointed at a page
+            that no longer contains this one. The crumb says where you are and the
+            rail says how to leave, on this screen as on every other. */}
         {/* The dot rides in the header rather than on a label row of its own: the
             page has no controls to sit beside, and a lone MonoLabel repeating the
             title above it is a second copy of the same word. */}
