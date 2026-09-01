@@ -1553,7 +1553,14 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 3px 10px;
+    /* 5px VERTICAL, NOT 3, and the pack flags this as its one deliberate
+       departure from the repo's own figure: at 11.5px mono inside a 1.2px border
+       the cap height sits about 1.5px off the ink, so the letters read as pressed
+       against the frame rather than set inside it. The repo's chips live in
+       denser rows where that reads as economy; on a card, beside a quote, it
+       reads as cramped. Horizontal stays at 10, so the row's rhythm is unchanged
+       and only the ink gets air. */
+    padding: 5px 10px;
     font-family: var(--font-mono);
     font-style: var(--font-mono-style);
     font-variant-caps: var(--font-mono-caps);
@@ -1635,12 +1642,23 @@
     color: var(--note);
     transform: rotate(-0.5deg);
   }
-  .hand-note .tick { font-family: var(--font-ui);
- font-weight: var(--font-ui-weight);
- font-style: var(--font-ui-style);
- font-variant-caps: var(--font-ui-caps);
- text-transform: var(--font-ui-case);
- font-variant-numeric: var(--font-ui-figures); color: var(--accent-ui); margin-right: 7px; }
+  /* THE NOTE'S TICK IS DRAWN, NOT TYPED. See HandNote: it was a literal ▍, a
+     letter standing in for a rule, and a font without that glyph puts tofu beside
+     every margin note. 2px wide and as tall as the line it marks — `em`, so it
+     grows with the note rather than against it, which the standing rule requires
+     of anything holding or accompanying text. */
+  .hand-note .tick {
+    display: inline-block;
+    width: 2px;
+    height: 0.95em;
+    margin-right: 7px;
+    border-radius: 1px;
+    background: var(--accent-ui);
+    /* The note is rotated -0.5deg and the tick rides with it; vertical-align
+       keeps the bar centred on the x-height rather than hanging off the
+       baseline, which at 19px hand type is a visible drop. */
+    vertical-align: -0.12em;
+  }
   /* FILM note = a cream paper label, hand-written, taped onto the dark frame
      (§1: "tiles to pasted notes, like the ones pasted on reels"). */
   @media (prefers-reduced-motion: reduce) { .hand-note { transform: none; } }

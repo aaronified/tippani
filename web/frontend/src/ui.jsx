@@ -1680,9 +1680,14 @@ export function HandNote({ className = "", children }) {
     // card-text: the margin note is prose too, and a long press over it selects
     // words rather than the card. See ExpandableText.
     <p className={"hand-note card-text " + className}>
-      <span className="tick" aria-hidden="true">
-        ▍
-      </span>
+      {/* AN EMPTY SPAN, DRAWN BY CSS. It used to carry a literal ▍ (U+258D LEFT
+          FIVE EIGHTHS BLOCK) as text, which is three bets at once: that the
+          reader's font has that glyph, that it draws it as a solid bar rather
+          than a hollow or half-width one, and that it scales with the type dial
+          the way a RULE should — which it does not, because it is a letter. A
+          font without it renders tofu beside every margin note in the library.
+          The pack replaced it with a drawn 2px rule for exactly that reason. */}
+      <span className="tick" aria-hidden="true" />
       {children}
     </p>
   );
@@ -2070,7 +2075,20 @@ function clampProps(canToggle, toggle) {
 // chevron only when it overflows. Click the text (no button) to expand/collapse.
 // Used in the detail hero + person bios so a poster/photo beside it keeps a
 // stable height until the reader opens it.
-export function ExpandableDescription({ text, style, lines = 3, className = "" }) {
+// lines = 4 AND 13px, both the pack's, and both moved rather than argued about:
+// a work's description is background, and at 15px over three lines it competed
+// with the title two rows above it while showing less of itself. Four lines of 13
+// is more words in less height.
+//
+// THE CHEVRON STAYS, and that is a departure from the pack, stated rather than
+// slipped in. The pack folds its description under a mask and makes the prose its
+// own control, with no affordance drawn at all. This app decided the opposite
+// once, everywhere: ClampMore's own comment calls it "the ONLY affordance for a
+// clamped/expandable block now that the show more / show less text buttons are
+// gone everywhere", and four other blocks — Home, flow, review, a person's bio —
+// draw it. Switching one of the five to a different idiom is the divergence this
+// whole pass exists to remove. It is a system decision, not a screen decision.
+export function ExpandableDescription({ text, style, lines = 4, className = "" }) {
   const [open, setOpen] = useState(false);
   const [overflows, setOverflows] = useState(false);
   const ref = useRef(null);
@@ -2096,7 +2114,7 @@ export function ExpandableDescription({ text, style, lines = 3, className = "" }
     >
       <p
         ref={ref}
-        style={{ whiteSpace: "pre-wrap", color: "var(--soft)", fontSize: 'var(--type-ui-15)', lineHeight: 1.55, margin: 0, ...style, ...clamp }}
+        style={{ whiteSpace: "pre-wrap", color: "var(--soft)", fontSize: 'var(--type-ui-13)', lineHeight: 1.6, margin: 0, ...style, ...clamp }}
       >
         {text}
       </p>

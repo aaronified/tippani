@@ -583,6 +583,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   gained everything the last change gave a book's:** the line above the title, people as
   chips, the big count, progress on the poster's own foot.
 
+- **The mark beside a margin note is drawn rather than typed.** It was a block-drawing
+  character standing in for a rule — which meant it took the note's font, so a reader
+  whose handwriting face lacks that character got a small empty box beside every note
+  in their library, and the mark's proportions changed with the font rather than with
+  the note. It is a 2px rule now, the height of the line it marks.
+
+- **A tag has room to breathe.** Its letters sat about a pixel and a half off the frame
+  around them, which reads as cramped on a card beside a quote.
+
+- **A work's description shows more of itself in less space** — four lines at a smaller
+  size instead of three at a larger one. It is background to the title above it and was
+  competing with it.
+
 - **Scroll a work's details and its cover, title and author follow you.** Past the
   point where the title leaves the top of the column, a small bar takes its place
   carrying the poster, the name and who it is by — so a long set of details never
