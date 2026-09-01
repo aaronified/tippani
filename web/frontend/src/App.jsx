@@ -58,6 +58,7 @@ import {
 import { navigateBack, pushRoute, seedRoute } from './history.js'
 import { DEMO, apiURL, coverImgURL, json, uploadWithProgress } from './api.js'
 import {
+  useEscape,
   CloseButton,
   EdgeRow,
   ErrorBoundary,
@@ -956,11 +957,8 @@ function AccountOverlay({ user, onUser, onClose, logout }) {
   // Draws its own overlay rather than going through FormModal or MobileSheet, so
   // it asks for the Back entry itself.
   useBackToClose(true, onClose)
-  useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape') onClose() }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [onClose])
+  // ONE OWNER FOR ESCAPE — see useEscape in ui.jsx.
+  useEscape(true, onClose)
   const body = <Profile user={user} onUser={onUser} logout={logout} />
   if (mobile) {
     return (
@@ -1038,12 +1036,8 @@ export function Drawer({ open, onClose, tab, selectTab, onSearch, onAdd, onAccou
   // The nav sheet is the surface a phone reader is most likely to press Back
   // on, because it is the surface they opened to go somewhere else.
   useBackToClose(open, onClose)
-  useEffect(() => {
-    if (!open) return
-    const onKey = (e) => { if (e.key === 'Escape') onClose() }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [open, onClose])
+  // ONE OWNER FOR ESCAPE — see useEscape in ui.jsx.
+  useEscape(open, onClose)
   // The open drawer owns the viewport — the page behind it must not scroll.
   useBodyScrollLock(open)
   // Swipe-to-close: a deliberate leftward drag anywhere on the drawer pushes it

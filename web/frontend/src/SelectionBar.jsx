@@ -8,6 +8,7 @@ import { KIND_ROUTES, bulkFieldsFor, deletePhrase, overwriteWarning, useBulkOps 
 import { StickerPicker, useStickers } from './stickers.jsx'
 import { capKeyFor } from './works.jsx'
 import {
+  useEscape,
   ColorSwatches,
   ConfirmDialog,
   FieldIconButton,
@@ -128,16 +129,13 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
   // belongs to the dialog, and dismissing the selection underneath it would answer
   // a question nobody asked.
   const inDialog = asking || sealing || tagging || moving || gathering || editingFields
-  useEffect(() => {
-    if (!open || inDialog) return
-    const k = (e) => {
-      if (e.key !== 'Escape') return
-      e.stopPropagation()
-      selection.dismiss?.()
-    }
-    document.addEventListener('keydown', k)
-    return () => document.removeEventListener('keydown', k)
-  }, [open, inDialog, selection])
+  // ONE OWNER FOR ESCAPE — see useEscape in ui.jsx. This bar had written its own
+  // half of the ladder by hand: a stopPropagation and an `inDialog` guard, both
+  // there so a confirm opened FROM the bar could be dismissed without also
+  // dropping the selection behind it. That is exactly what the ladder does now,
+  // for every pair rather than this one, so the guard is a registration
+  // condition instead of a special case inside a handler.
+  useEscape(open && !inDialog, () => selection.dismiss?.())
 
   if (!open || !kind || !KIND_ROUTES[kind]) return null
   const routes = KIND_ROUTES[kind]

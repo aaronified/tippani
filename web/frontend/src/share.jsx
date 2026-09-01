@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useBodyScrollLock, ANNOTATION_HEX, CloseButton, FieldIconButton, GhostButton, IconShare, InfoDot, MonoLabel, Select, Toggle, toast, usePersistedState, useIsMobileScreen } from "./ui.jsx";
+import { useBodyScrollLock, ANNOTATION_HEX, CloseButton, FieldIconButton, GhostButton, IconShare, InfoDot, MonoLabel, Select, Toggle, toast, usePersistedState, useIsMobileScreen, useEscape } from "./ui.jsx";
 import { buildModel, drawQuoteCard, ensureFonts, loadFaceImages, loadTileImage, readTheme, tileImage } from "./quoteImage.js";
 import { t } from "./i18n.js";
 import { DEFAULT_CREDIT_SEPS, splitCredits } from "./people.jsx";
@@ -1030,11 +1030,8 @@ export function ShareDialog({ share, seen, onClose }) {
     setCopied(false);
   }, [share, selected, format]);
 
-  useEffect(() => {
-    const onKey = (e) => e.key === "Escape" && onClose();
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  // ONE OWNER FOR ESCAPE — see useEscape in ui.jsx.
+  useEscape(true, onClose);
 
   async function copy() {
     // copyText falls back to execCommand on insecure origins (self-hosted over

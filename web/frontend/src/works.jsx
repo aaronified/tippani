@@ -39,6 +39,7 @@ import {
   StateTag,
   StatusBar,
   useCrumb,
+  useIsMobileScreen,
   useScrolledPast,
   useScreenBar,
   ReadingBadge,
@@ -1654,6 +1655,23 @@ export function WorkHero({
   // this header lives in a column above 1180 and in the page below it, and one
   // component must not have to be told which). Past that point the bar is
   // visible; before it, nothing.
+  // NOT ON A PHONE, and this shipped wrong for a few hours. The bar has no
+  // business at 390px: the shell's own top bar already sticks at y=0 there and
+  // already carries this work's name and its author (useScreenBar), so a second
+  // sticky bar pinned to the same edge paints BEHIND it — 61px of bar under a
+  // 52px one, so nine pixels of opaque background and a stray hairline protrude
+  // below the shell bar and clip the quotes scrolling under it. On a two-line
+  // title the shell bar grows and the whole thing disappears: mounted, invisible,
+  // and repeating two strings that were already on screen.
+  //
+  // The pack says it directly: "ON A PHONE THE BAR GOES BACK TO NAMING THE
+  // SCREEN… at 390px the hero is BELOW THE FOLD as soon as you scroll, so the bar
+  // is the only thing that still says which book you are in." One bar.
+  //
+  // Gated at the MOUNT rather than in the stylesheet, so a phone also stops
+  // paying for the scroll listener and stops carrying a second copy of the title
+  // in its document.
+  const mobile = useIsMobileScreen()
   const [scrolled, mark] = useScrolledPast()
   return (
     <div className="work-hero">
@@ -1679,7 +1697,7 @@ export function WorkHero({
 
           Drawn only when there is a title to carry — a header with no name is
           not a header worth repeating. */}
-      {title && scrolled && (
+      {title && scrolled && !mobile && (
         <div className="work-hero-mini-slot is-shown" aria-hidden="true">
           <div className="work-hero-mini">
             <div className="work-hero-mini-cover">{cover}</div>

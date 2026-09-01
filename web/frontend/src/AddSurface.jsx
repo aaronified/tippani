@@ -17,6 +17,7 @@ import { ManualMovie, sourceRef, candSourceID, DuplicateConfirm, countOrNull } f
 import ImportPage from './ImportPage.jsx'
 import { PageHelp } from './help.jsx'
 import {
+  useEscape,
   ColorSwatches,
   EmptyState,
   ErrorText,
@@ -438,11 +439,8 @@ function ManualPopup({ kind, onClose, onAdded }) {
   const [mt, setMt] = useState(kind === 'show' ? 'show' : kind === 'game' ? 'game' : 'movie')
   const [title, setTitle] = useState('')
   const [busy, setBusy] = useState(false)
-  useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape') onClose() }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [onClose])
+  // ONE OWNER FOR ESCAPE — see useEscape in ui.jsx.
+  useEscape(true, onClose)
   const heading = t(
     kind === 'book'
       ? 'capture.manual.book.title'
@@ -1252,12 +1250,8 @@ export default function AddSurface({
   // A tab with no save action must not leave the previous tab's Save in the bar.
   useEffect(() => { if (tab !== 'quote') setSaveState(null) }, [tab])
 
-  useEffect(() => {
-    if (!open) return
-    const onKey = (e) => { if (e.key === 'Escape') onClose() }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [open, onClose])
+  // ONE OWNER FOR ESCAPE — see useEscape in ui.jsx.
+  useEscape(open, onClose)
 
   if (!open) return null
 

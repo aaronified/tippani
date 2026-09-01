@@ -29,6 +29,7 @@ import { useStickers } from './stickers.jsx'
 import { categoryVar } from './theme.js'
 import { chapterLabel, episodeLabel } from './text.js'
 import {
+  useEscape,
   BulkBar,
   CloseButton,
   EmptyState,
@@ -1031,11 +1032,12 @@ function QuoteModal({ kind, hit, authorMap = {}, actorMap = {}, speakerMap = {},
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hit.id, kind])
 
-  useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape' && !shareOpen) onClose() }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [onClose, shareOpen])
+  // ONE OWNER FOR ESCAPE — see useEscape in ui.jsx. The `!shareOpen` guard that
+  // used to be inside the handler is gone AND unnecessary: the share sheet
+  // registers after this modal, so it is on top and this one is never called
+  // while it is up. That guard was this file's hand-rolled version of the ladder,
+  // written for one pair of surfaces; the ladder now covers every pair.
+  useEscape(!shareOpen, onClose)
 
   const tagMap = useMemo(() => Object.fromEntries(tags.map((row) => [row.name, row])), [tags])
   const stickerMap = useMemo(() => Object.fromEntries(stickers.map((s) => [s.id, s])), [stickers])

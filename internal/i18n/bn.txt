@@ -750,6 +750,14 @@ common.field.outcome.label = পরিণতি
 
 # --- the shelf chip on a work's page.
 # What the chip says when the work has no shelf state yet.
+# THE QUESTION A DISMISSAL ASKS when there is something to lose. Every way out
+# of a panel used to be unconditional — the ✕, the scrim, Escape, the back
+# gesture — so three rows opened and typed into went to one click outside it.
+# Counted, because "three fields" is a different decision from "one".
+common.unsaved.title = না সেভ করেই বেরোবেন?
+common.unsaved.prose.one = একটা ঘরে এমন বদল আছে যা সেভ করা হয়নি। এখন বেরোলে সেটা মুছে যাবে।
+common.unsaved.prose.other = {n}টা ঘরে এমন বদল আছে যা সেভ করা হয়নি। এখন বেরোলে সেগুলো মুছে যাবে।
+common.unsaved.discard.label = বাদ দিন
 common.shelf.shelve.label = তাকে তুলুন
 common.shelf.wishlist.tip = উইশলিস্টে কেন আছে
 common.shelf.wishlist.explainer.prose = এখান থেকে এখনও কিছু তোলা হয়নি বলেই উইশলিস্টে আছে — নিজে থেকেই, আর একটা উদ্ধৃতি রাখলেই সরে যাবে। নিচের তাকে তোলা আলাদা ব্যাপার।

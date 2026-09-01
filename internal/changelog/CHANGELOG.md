@@ -583,6 +583,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   gained everything the last change gave a book's:** the line above the title, people as
   chips, the big count, progress on the poster's own foot.
 
+- **Escape closes one thing at a time.** Seventeen different parts of the app were each
+  listening for the key independently, and every one of them that recognised it acted —
+  so a single press reached all of them at once. Open a book's details, start editing a
+  row, type, press Escape: the edit was cancelled *and* the panel closed, so the words
+  went and so did the screen you were typing them on. Escape now closes the innermost
+  thing that is open, and only that; press it again for the one underneath.
+
+- **Closing a panel with unsaved changes asks first.** Every way out — the ✕, a click
+  outside, Escape, the phone's back gesture — used to close without a word, so three
+  fields opened and typed into were lost to one stray click. It now says how many are
+  unsaved and offers to keep them. The app already knew the number; nothing had ever
+  asked it on the way out.
+
 - **The mark beside a margin note is drawn rather than typed.** It was a block-drawing
   character standing in for a rule — which meant it took the note's font, so a reader
   whose handwriting face lacks that character got a small empty box beside every note

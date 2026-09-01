@@ -123,6 +123,36 @@ describe('one header, one order', () => {
   })
 })
 
+describe('the compact bar knows which screen it is on', () => {
+  // IT SHIPPED WITHOUT THIS GATE and was wrong on every phone for a few hours.
+  // The shell's own top bar already sticks at y=0 there and already carries the
+  // work's name and its author, so a second sticky bar pinned to the same edge
+  // paints BEHIND it: 61px of bar under a 52px one, so nine pixels of opaque
+  // background and a stray hairline protrude below the shell bar and clip the
+  // quotes scrolling under. On a two-line title it disappears entirely — mounted,
+  // invisible, and repeating two strings already on screen.
+  //
+  // The pack: "ON A PHONE THE BAR GOES BACK TO NAMING THE SCREEN… the bar is the
+  // only thing that still says which book you are in." One bar.
+  //
+  // The default in this file is a PHONE (setScreen(true) in beforeEach), which is
+  // why every other case here proves the absence and this one has to switch.
+  it('never mounts on a phone, however far the header has scrolled', () => {
+    // The hook cannot report "scrolled" in jsdom, so this asserts the gate the
+    // only way a unit test can: the marker is there, and the bar is not.
+    const { container } = hero()
+    expect(container.querySelector('.work-hero-mark'), 'no marker to observe').not.toBeNull()
+    expect(container.querySelector('.work-hero-mini-slot')).toBeNull()
+  })
+
+  it('leaves exactly one copy of the title in the document on a phone', () => {
+    // The cost of the bar is a second copy of the name. A phone must not pay it
+    // for something it will never show.
+    const { container } = hero()
+    expect(container.querySelectorAll('h1, .work-hero-mini-title')).toHaveLength(1)
+  })
+})
+
 describe('progress rides the cover, not a row of its own', () => {
   it('welds a strip to the foot of the cover when there is progress', () => {
     const { container } = hero({ progress: 0.62 })

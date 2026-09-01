@@ -2053,6 +2053,77 @@ export function ClampMore({ open }) {
   );
 }
 
+// ---- ONE OWNER FOR ESCAPE ---------------------------------------------------
+//
+// THE BUG THIS ENDS: press Escape with a panel open and a row being edited inside
+// it, and BOTH close. The draft goes and the panel goes, on one keypress, because
+// seventeen keydown listeners were attached to `document` independently and every
+// one of them that recognised Escape acted on it. None yielded to the others; none
+// stopped propagation. Open Details, press a row's pencil, type, press Escape —
+// you lose the words and the screen you were typing them on.
+//
+// The design pack states the rule in capitals: "ESCAPE CLOSES THE INNERMOST
+// SURFACE, ONE LAYER AT A TIME", with an ordered ladder — confirm, then back one
+// panel, then close the panel, then the popover, then the dialog.
+//
+// So there is ONE document listener, in the CAPTURE phase so it runs before any
+// listener a component still owns, and it stops the event dead. Everything else
+// registers a callback and is only ever called when it is on top.
+//
+// LAST REGISTERED WINS, and the caveat is worth stating because this codebase has
+// already been bitten by it once: React runs a child's effects BEFORE its
+// parent's, so two surfaces that mount already-open in the same commit register
+// child-first and the PARENT ends up on top. That is the wrong way round. It does
+// not bite in practice because nesting here is sequential — a panel is open before
+// anything inside it can be opened, and the thing inside registers later — but a
+// surface that mounts with a child surface already open would need an explicit
+// depth rather than this order.
+const escStack = [];
+let escBound = false;
+
+function escKey(e) {
+  if (e.key !== "Escape") return;
+  const top = escStack[escStack.length - 1];
+  if (!top) return;
+  // Both, and both matter: preventDefault stops the browser's own Escape
+  // behaviour (cancelling an IME composition, leaving fullscreen), and
+  // stopPropagation is what keeps the layers below from acting on the same press.
+  e.preventDefault();
+  e.stopPropagation();
+  top.run();
+}
+
+// useEscape registers one surface's answer to Escape for as long as it is open.
+//
+// `active` is the surface's own open state, so a component may call this
+// unconditionally and register only while it is showing — which is what keeps the
+// stack the same shape as what is on screen.
+export function useEscape(active, onEscape) {
+  const cb = useRef(onEscape);
+  cb.current = onEscape;
+  useEffect(() => {
+    if (!active) return;
+    const entry = { run: () => cb.current?.() };
+    escStack.push(entry);
+    if (!escBound) {
+      document.addEventListener("keydown", escKey, true);
+      escBound = true;
+    }
+    return () => {
+      const i = escStack.indexOf(entry);
+      if (i >= 0) escStack.splice(i, 1);
+    };
+  }, [active]);
+}
+
+// escapeDepth is for the tests: how many surfaces currently claim Escape. A
+// number nobody can read from the DOM, and the one thing that goes quietly wrong
+// — a surface that closes without unregistering leaks a layer, and the NEXT
+// Escape does nothing at all because a dead entry is on top.
+export function escapeDepth() {
+  return escStack.length;
+}
+
 // clampProps builds the shared "click anywhere on the text to toggle" wiring for
 // a clamped block: role/tabindex/handlers only when it can actually toggle
 // (overflowing, or already open so it can collapse).
@@ -3157,7 +3228,9 @@ export function Select({
   useEffect(() => {
     if (!open) return;
     const onKey = (e) => {
-      if (e.key === "Escape") return setOpen(false);
+      // Escape is not handled here — see useEscape, registered below. The arrows
+      // and Enter stay: they are this listbox's own navigation, nobody else
+      // competes for them, and they do not close anything.
       if (e.key === "ArrowDown") {
         e.preventDefault();
         setHi((h) => Math.min(shown.length - 1, h + 1));
@@ -3173,6 +3246,9 @@ export function Select({
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [open, hi, shown, onChange]);
+  // ONE OWNER FOR ESCAPE — see useEscape. An open Select inside a panel used to
+  // close both on one press.
+  useEscape(open, () => setOpen(false));
   return (
     <div
       className={`tp-select ${className}`}
@@ -3383,12 +3459,9 @@ export function ConfirmDialog({
   onConfirm,
   onCancel,
 }) {
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e) => e.key === "Escape" && onCancel && onCancel();
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [open, onCancel]);
+  // ONE OWNER FOR ESCAPE — see useEscape. This dialog used to answer the key
+  // itself, which meant a confirm inside a panel closed both.
+  useEscape(open, () => onCancel && onCancel());
   // Before the early return, because hooks cannot be conditional — which is
   // also why this takes `open` rather than `true` the way the always-mounted
   // dialogs do.
@@ -3664,7 +3737,26 @@ export function PanelHost({ stack }) {
   // a `blocked` reason the form reports while it is open.
   const formId = useId();
   const [blocked, setBlocked] = useState(null); // null = no form registered
-  const host = useMemo(() => ({ formId, setBlocked }), [formId]);
+  // ---- A DISMISSAL MUST NOT DISCARD WHAT YOU TYPED --------------------------
+  //
+  // Every close route was unconditional: the ✕, the scrim, Escape, the back
+  // gesture. The Details panel is a stack of self-saving rows, so a reader who
+  // has opened three of them and typed in all three loses all three to one click
+  // outside the panel — no question, no toast, nothing.
+  //
+  // The machinery to know better already existed and was never read on close:
+  // useUnsavedFields keeps a registry of dirty rows and reports a count, and the
+  // panel's own header uses it to decide whether to draw the ✓. Content publishes
+  // that count here, and the close routes ask before throwing it away.
+  //
+  // A COUNT RATHER THAN A BOOLEAN, because the question is worth asking with a
+  // number in it: "three fields have unsaved changes" is a different decision
+  // from "one".
+  const [dirty, setDirty] = useState(0);
+  const [asking, setAsking] = useState(false);
+  const host = useMemo(() => ({ formId, setBlocked, setDirty }), [formId]);
+  // guarded wraps a close route. Nothing to lose → it just runs.
+  const guard = useCallback((run) => () => (dirty > 0 ? setAsking(() => run) : run()), [dirty]);
   // A reason belongs to the panel that reported it. Walking back to a parent that
   // holds no form must not leave the child's ✓ — or its disabled tooltip — behind.
   //
@@ -3679,13 +3771,26 @@ export function PanelHost({ stack }) {
   if (seenDepth !== depth) {
     setSeenDepth(depth);
     setBlocked(null);
+    // DIRT IS NOT RESET HERE, and the first version's attempt to is worth the
+    // sentence. `blocked` belongs to whichever panel is on top, so it is cleared
+    // whenever the depth moves. Dirt belongs to the CONTENT — and the content
+    // already zeroes it on unmount, so walking to another panel clears it by the
+    // right mechanism.
+    //
+    // Resetting it on a depth change was actively wrong: `open()` walks history
+    // back before it pushes, so the depth settles over more than one commit. The
+    // content mounted, published its count, and a later depth change wiped it —
+    // after which no dismissal asked about anything, because the reset ran once
+    // more than the content's effect did. Every dirty case failed and every clean
+    // one passed, which is the shape of a lifecycle bug rather than a logic one.
   }
-  useEffect(() => {
-    if (!panel) return;
-    const onKey = (e) => e.key === "Escape" && back();
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [panel, back]);
+  // ONE OWNER FOR ESCAPE — see useEscape. `back()` rather than `close()` is the
+  // pack's ladder: one layer at a time, so a panel opened from a panel returns to
+  // the one it came from instead of dropping the whole stack.
+  //
+  // GUARDED, like every other way out. Escape is the fastest of them and the one
+  // most likely to be pressed by reflex.
+  useEscape(!!panel && !asking, guard(back));
   if (!panel) return null;
   // A panel that declares its own verb carries it in the head — Links' ＋. Only
   // ever the panel's OWN verb: the list is what is already there, and adding to
@@ -3694,9 +3799,16 @@ export function PanelHost({ stack }) {
   return createPortal(
     <div
       className="tp-scrim tp-panel-scrim fixed inset-0 z-50 flex justify-center"
-      onMouseDown={(e) => { if (e.target === e.currentTarget) close(); }}
+      onMouseDown={(e) => { if (e.target === e.currentTarget) guard(close)(); }}
     >
       <div
+        // HOW MUCH IS AT STAKE, on the element, because there is no other way to
+        // see it. The count lives in this component's state and reaches the DOM
+        // only as the presence or absence of a question — so a test that wants to
+        // act AFTER the content has published it has nothing to wait for, and
+        // waits on a timer instead. A timer in a test is a guess that passes on a
+        // fast machine. The browser harness can read this too.
+        data-dirty={dirty || undefined}
         role="dialog"
         aria-modal="true"
         aria-label={panel.title}
@@ -3740,7 +3852,7 @@ export function PanelHost({ stack }) {
                 icon={<IconClose />}
                 ariaLabel={t("common.action.close.label")}
                 tooltip={t("common.form.close.tip")}
-                onClick={close}
+                onClick={guard(close)}
               />
             )}
           </div>
@@ -3751,6 +3863,24 @@ export function PanelHost({ stack }) {
           </FormHostContext.Provider>
         </Scroller>
       </div>
+      {/* THE QUESTION, asked only when there is something to lose. It renders
+          inside the panel's own scrim so it sits above it, and it registers with
+          the Escape ladder AFTER the panel — so Escape dismisses the question and
+          leaves the panel and its drafts exactly where they were, which is the
+          answer a reflex press should get. */}
+      <ConfirmDialog
+        open={!!asking}
+        title={t("common.unsaved.title")}
+        body={t("common.unsaved.prose", { n: dirty, count: dirty })}
+        confirmLabel={t("common.unsaved.discard.label")}
+        onConfirm={() => {
+          const run = asking;
+          setAsking(false);
+          setDirty(0);
+          run?.();
+        }}
+        onCancel={() => setAsking(false)}
+      />
     </div>,
     document.body,
   );
@@ -3780,12 +3910,8 @@ export function FormModal({ open = true, onClose, title, maxWidth = 560, saveTip
   // null = no form has registered, so there is nothing to commit and no ✓.
   const [blocked, setBlocked] = useState(null);
   const host = useMemo(() => ({ formId, setBlocked }), [formId]);
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e) => e.key === "Escape" && onClose && onClose();
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+  // ONE OWNER FOR ESCAPE — see useEscape.
+  useEscape(open, () => onClose && onClose());
   // A closed dialog holds no form, so its last blocked reason must not survive
   // into the next thing opened under the same instance.
   useEffect(() => { if (!open) setBlocked(null); }, [open]);
@@ -4355,19 +4481,20 @@ export function useDismiss(open, close, refs, opts = {}) {
       for (const ref of refs) if (ref?.current?.contains(e.target)) return;
       close();
     };
-    const esc = (e) => {
-      if (e.key !== "Escape") return;
-      close();
-      onEscape?.();
-    };
     for (const ev of events) document.addEventListener(ev, away);
-    document.addEventListener("keydown", esc);
     return () => {
       for (const ev of events) document.removeEventListener(ev, away);
-      document.removeEventListener("keydown", esc);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, close, onEscape, events.join(), ...refs]);
+  // ESCAPE IS NOT THIS HOOK'S TO ANSWER ANY MORE — see useEscape. Every popover
+  // in the app runs through here, so this one listener was the loudest voice in
+  // the seventeen: a popover open inside a panel closed the popover AND the
+  // panel, because both heard the same press.
+  useEscape(open, () => {
+    close();
+    onEscape?.();
+  });
 }
 
 // InfoPopover — the small panel an InfoDot opens. Deliberately NOT the
@@ -4419,11 +4546,9 @@ function InfoPopover({ anchor, title, pinned = true, onHold, onLeave, onClose, c
     };
   }, [mobile, anchor]);
 
-  useEffect(() => {
-    const onKey = (e) => e.key === "Escape" && onClose();
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  // ONE OWNER FOR ESCAPE — see useEscape. This popover is mounted only while it
+  // is open, so it registers unconditionally.
+  useEscape(true, onClose);
 
   const body = (
     <>
@@ -4706,12 +4831,8 @@ export function ShortcutSheet({ open, onClose, omit }) {
 export function HelpSheet({ open, title, wide = false, onClose, children }) {
   const mobile = useIsMobileScreen();
   useBodyScrollLock(open);
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e) => e.key === "Escape" && onClose && onClose();
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+  // ONE OWNER FOR ESCAPE — see useEscape.
+  useEscape(open, () => onClose && onClose());
   if (!open) return null;
   if (mobile) {
     return createPortal(
@@ -5498,11 +5619,10 @@ export function Lightbox({ path, title, onClose }) {
   // it is the hook's own body verbatim — so it uses the hook now, and every other
   // overlay in the app inherits what only the Lightbox used to have.
   useBackToClose(true, onClose);
-  useEffect(() => {
-    const onKey = (e) => { if (e.key === "Escape") onClose(); };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // ONE OWNER FOR ESCAPE — see useEscape. Mounted only while open, so it
+  // registers unconditionally; it is the deepest thing on screen when it is up,
+  // and it is now the only thing Escape reaches.
+  useEscape(true, onClose);
   // Portal to <body>: the detail hero has a filter/will-change ancestor, which
   // makes position:fixed anchor to it instead of the viewport — so a plain
   // render would trap the overlay inside the cover's box. The portal escapes it.

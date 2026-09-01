@@ -702,6 +702,17 @@ function FieldList({ kind, item, specs, mediaType, busy, genreSuggestions, onSav
   // is the leaving.
   const unsaved = useUnsavedFields()
   const host = useFormHost('')
+  // TELL THE CHROME WHAT IS AT STAKE. This registry has always known how many
+  // rows are open with an unsaved change in them — the header's ✓ is drawn from
+  // it — and nothing ever read it on the way OUT. So every dismissal was
+  // unconditional: three rows opened and typed into went to one click on the
+  // scrim, with no question asked. See PanelHost's guard.
+  useEffect(() => {
+    host?.setDirty?.(unsaved.count)
+    // Leaving is not discarding: a panel that unmounts because it SAVED must not
+    // leave a count behind for the next thing opened in the same host.
+    return () => host?.setDirty?.(0)
+  }, [host, unsaved.count])
   async function submit(e) {
     // A SUBMIT FROM SOMEBODY ELSE'S FORM IS NOT THIS ONE'S. React's synthetic
     // events bubble through the React tree — a portal does not stop them — so a

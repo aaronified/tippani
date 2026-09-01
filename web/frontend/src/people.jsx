@@ -3,7 +3,7 @@ import { json, errText } from './api.js'
 import { t } from './i18n.js'
 import { personImgURL, PersonPortrait, usePeople } from './credits.jsx'
 import { usePractice } from './review.jsx'
-import { useBodyScrollLock, CloseButton, ErrorText, ExpandableDescription, Field, GhostButton, IconCheck, IconClose, IconDelete, IconEdit, IconMerge, IconPerson, IconPlus, IconQuiz, IconPractise, IconRefresh, IconSearch, isPartialDate, Lightbox, MonoLabel, NameInput, NameScroll, PartialDateField, Placeholder, Tooltip, useConfirm } from './ui.jsx'
+import { useBodyScrollLock, CloseButton, ErrorText, ExpandableDescription, Field, GhostButton, IconCheck, IconClose, IconDelete, IconEdit, IconMerge, IconPerson, IconPlus, IconQuiz, IconPractise, IconRefresh, IconSearch, isPartialDate, Lightbox, MonoLabel, NameInput, NameScroll, PartialDateField, Placeholder, Tooltip, useConfirm, useEscape } from './ui.jsx'
 
 const PRIMARY = 'tp-btn tp-btn-primary'
 
@@ -746,11 +746,9 @@ export function PersonModal({ kind, name, onClose, onSaved }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, person])
 
-  useEffect(() => {
-    const k = (e) => e.key === 'Escape' && onClose()
-    document.addEventListener('keydown', k)
-    return () => document.removeEventListener('keydown', k)
-  }, [onClose])
+  // ONE OWNER FOR ESCAPE — see useEscape in ui.jsx. Mounted only while open, so
+  // it registers unconditionally.
+  useEscape(true, onClose)
 
   async function remove() {
     if (!person) return

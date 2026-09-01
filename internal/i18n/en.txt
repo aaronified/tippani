@@ -772,6 +772,14 @@ common.field.outcome.label = Outcome
 
 # --- the shelf chip on a work's page.
 # What the chip says when the work has no shelf state yet.
+# THE QUESTION A DISMISSAL ASKS when there is something to lose. Every way out
+# of a panel used to be unconditional — the ✕, the scrim, Escape, the back
+# gesture — so three rows opened and typed into went to one click outside it.
+# Counted, because "three fields" is a different decision from "one".
+common.unsaved.title = Leave without saving?
+common.unsaved.prose.one = One field has a change you have not saved. Leaving now discards it.
+common.unsaved.prose.other = {n} fields have changes you have not saved. Leaving now discards them.
+common.unsaved.discard.label = Discard
 common.shelf.shelve.label = Shelve
 common.shelf.wishlist.tip = Why this is on the wishlist
 common.shelf.wishlist.explainer.prose = On the wishlist because nothing is quoted from it yet — automatic, and it clears itself the moment you add a quote. Putting it on a shelf below is a separate thing.

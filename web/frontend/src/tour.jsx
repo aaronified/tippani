@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { json } from './api.js'
 import { visibleSections } from './routes.js'
 import { t, tNodes } from './i18n.js'
-import { FieldIconButton, IconBack, InfoDot, MonoLabel, StickerButton, toast, useIsMobileScreen } from './ui.jsx'
+import { FieldIconButton, IconBack, InfoDot, MonoLabel, StickerButton, toast, useIsMobileScreen, useEscape } from './ui.jsx'
 
 // The guided feature tour (Settings → Onboarding). It auto-opens once per user
 // on their first launch (App.jsx checks preferences.tour === ''), and can be
@@ -375,11 +375,8 @@ export function FeatureTour({ user, startStep = 0, onNavigate, onPreferences, on
   const back = () => i > 0 && setI(i - 1)
 
   // Escape = finish later (the gentlest exit: nothing lost, resume in Settings).
-  useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape') later() }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [i]) // eslint-disable-line react-hooks/exhaustive-deps
+  // ONE OWNER FOR ESCAPE — see useEscape in ui.jsx.
+  useEscape(true, later)
 
   // Desktop placement: under the anchor, else above it, else beside/centered;
   // anchorless steps center. Mobile placement is pure CSS (a bottom sheet).
