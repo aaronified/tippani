@@ -1449,25 +1449,46 @@ export function HeroCounts({ counts, noun, tone = 'accent' }) {
   if (!counts) return null // still loading: no count is better than a wrong one
   const pair = noun || [t('unit.quote.one'), t('unit.quote.other')]
   const { total = 0, favourites = 0, noted = 0, tagged = 0 } = counts
-  const parts = [
-    total === 0
-      ? t('common.hero.counts.empty.label', { noun: pair[1] })
-      : t('common.count.phrase', { n: total, noun: total === 1 ? pair[0] : pair[1] }),
+  // The three qualifiers. They are NOT the same fact as the total — they are
+  // slices of it — so they no longer sit on the same line at the same weight,
+  // which is what made this a wrapping strip where every number looked equally
+  // important and the one you came for was third from the left.
+  const rest = [
     favourites > 0 && t('common.hero.counts.favourites', { count: favourites, n: favourites }),
     noted > 0 && t('common.hero.counts.noted.label', { n: noted }),
     tagged > 0 && t('common.hero.counts.tagged.label', { n: tagged }),
   ].filter(Boolean)
   return (
     <div className={`hero-counts${tone === 'amber' ? ' hero-counts-amber' : ''}`}>
-      {parts.map((p, i) => (
-        <span key={i}>
-          {/* The separator is a sibling rather than a border, because the row
-              wraps on a phone and a border-left would leave a hairline hanging at
-              the start of the second line. */}
-          {i > 0 && <span aria-hidden="true" className="hero-counts-sep">·</span>}
-          <span className={i === 0 ? 'hero-counts-total' : undefined}>{p}</span>
-        </span>
-      ))}
+      {/* ONE BIG NUMBER AND ITS WORD. The pack sets the total in the display face
+          at 21px beside a 13px noun, and it is the right call for a reason the
+          mono strip could not reach: this page exists to show what you have kept
+          out of this book, so the amount you kept is the headline and not an
+          entry in a tally. 22 rather than 21 — the scale has no 21, and every
+          size on screen answers the type dials. */}
+      <div className="hero-counts-lead">
+        {total === 0 ? (
+          <span className="hero-counts-empty">{t('common.hero.counts.empty.label', { noun: pair[1] })}</span>
+        ) : (
+          <>
+            <span className="hero-counts-total">{total}</span>
+            <span className="hero-counts-word">{total === 1 ? pair[0] : pair[1]}</span>
+          </>
+        )}
+      </div>
+      {rest.length > 0 && (
+        <div className="hero-counts-rest">
+          {rest.map((p, i) => (
+            <span key={i}>
+              {/* The separator is a sibling rather than a border, because the row
+                  wraps on a phone and a border-left would leave a hairline hanging
+                  at the start of the second line. */}
+              {i > 0 && <span aria-hidden="true" className="hero-counts-sep">·</span>}
+              {p}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -1490,14 +1511,26 @@ export function WorkHero({
   // has no 28, and 26 is the step it rounds to.
   titleSize = 'var(--type-display-26)',
   titleStyle,
+  // The same slot the column arrangement has, and it must exist here too: a
+  // narrow desktop is still a book's page, and a prop this arrangement quietly
+  // dropped would have deleted the year, the language and the series from it.
+  kindRow,
   meta,
   counts,
   favorite,
   onFavorite,
   tags,
   genres = [],
+  onGenre,
   description,
   actions,
+  // Accepted and unused: the float and phone arrangements draw progress in the
+  // shelf row's own track, which is where there is room for it. Named so a
+  // caller can pass one set of props to WorkHeroAny without knowing which
+  // arrangement will answer.
+  progress,
+  onPeople,
+  peopleCount,
 }) {
   const mobile = useIsMobileScreen()
   // ON A PHONE THE FLOAT IS THE BUG. The desktop layout floats a 144–176px cover
@@ -1524,6 +1557,7 @@ export function WorkHero({
         <div className="work-hero-m-top">
           <div className="work-hero-m-cover">{cover}</div>
           <div className="min-w-0 flex-1">
+            {kindRow && <div className="work-hero-kind mb-1">{kindRow}</div>}
             <h1 className="display-title" style={{ fontSize: 'var(--type-ui-22)', lineHeight: 1.2, ...titleStyle }}>
               {title}
             </h1>
@@ -1540,15 +1574,7 @@ export function WorkHero({
             {tags}
           </div>
         )}
-        {genres.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            {genres.map((g) => (
-              <span key={g} className="tp-chip">
-                {g}
-              </span>
-            ))}
-          </div>
-        )}
+        <HeroGenres genres={genres} onGenre={onGenre} className="work-hero-genres-row" />
         <ExpandableDescription text={description} />
         {/* The desktop action row is deliberately absent: on a phone these live
             in the sticky bar's ⋯ overflow, and both pages already pass null. */}
@@ -1585,6 +1611,7 @@ export function WorkHero({
           toolbar, at any width. The COVER float is deliberately not cleared:
           text beside the cover is the arrangement, and it is what the whole
           float layout exists for. `frame-scroll.mjs` measures the band. */}
+      {kindRow && <div className="work-hero-kind" style={{ clear: 'right' }}>{kindRow}</div>}
       <h1 className="display-title" style={{ fontSize: titleSize, clear: 'right', ...titleStyle }}>
         {title}
       </h1>
@@ -1595,12 +1622,8 @@ export function WorkHero({
         {tags}
       </div>
       {genres.length > 0 && (
-        <div className="mt-2.5 flex flex-wrap gap-1.5">
-          {genres.map((g) => (
-            <span key={g} className="tp-chip">
-              {g}
-            </span>
-          ))}
+        <div className="mt-2.5">
+          <HeroGenres genres={genres} onGenre={onGenre} className="work-hero-genres-row" />
         </div>
       )}
       <div className="mt-2.5">
@@ -1626,19 +1649,88 @@ export function WorkHero({
 // that a name is never truncated, and in a 300px column the credits are the row
 // most likely to want to be. It scrolls under its fade, and `onPeople` puts a
 // button AT the fade that opens the full set — which is the rest of that rule.
+// HeroFact — one fact about a work, in the material every such fact shares: the
+// year, the language, a genre, a series. Small, mono, wide-tracked, in --soft.
+//
+// UNDERLINED ONLY WHEN IT GOES SOMEWHERE. An underline is a promise, and the
+// screens behind these are being built one at a time — a genre has a board to
+// reach and a year does not, yet. Drawing all of them as links would teach a
+// reader that half the line is dead, which is worse than a line that never
+// claimed otherwise.
+export function HeroFact({ label, onClick, title }) {
+  if (!label) return null
+  return onClick ? (
+    <button type="button" className="work-hero-metalink" onClick={onClick} title={title}>
+      {label}
+    </button>
+  ) : (
+    <span className="work-hero-metalink work-hero-metalink-flat" title={title}>
+      {label}
+    </span>
+  )
+}
+
+// HeroKindRow — the line above a work's title: WHAT this is, and the two or three
+// facts that place it. "Book · 1967 · Russian". "Film · 1979".
+//
+// ONE COMPONENT FOR EVERY KIND OF WORK, and that is the point of it rather than a
+// convenience. A book's page and a film's page were assembling this line
+// separately and had already drifted — the year sat in the credits row on one
+// side and nowhere on the other — which is exactly the class of divergence the
+// owner ruled out: a work's detail must come from one source, hardwired so the
+// two cannot fall out of step. Adding a kind (a show, a game) is a row in the
+// caller's `links`, not a second copy of this.
+//
+// THE FACTS WERE IN THE CREDIT LINE BEFORE THIS, mixed in with the people:
+// "Herman Melville · translator Anna · 1851 · Whales #2" — one sentence in which
+// a person, a role word, a year and a series were the same size and a middle dot
+// did all the distinguishing. A person is an object now (see PersonChip) and the
+// facts are a line of their own, above the title where they say what you are
+// looking at before you read its name.
+export function HeroKindRow({ word, glyph, links = [] }) {
+  const parts = links.filter((l) => l && l.label)
+  if (!word && parts.length === 0) return null
+  return (
+    <>
+      {glyph && <span aria-hidden="true">{glyph}</span>}
+      {word && <span className="work-hero-kind-word">{word}</span>}
+      {parts.map((l, i) => (
+        <span key={l.key || i} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          {(word || i > 0) && <span aria-hidden="true">·</span>}
+          <HeroFact label={l.label} onClick={l.onClick} title={l.title} />
+        </span>
+      ))}
+    </>
+  )
+}
+
+// HeroGenres — a work's genres, in the same material as the rest of its facts and
+// in a row that scrolls rather than wraps.
+//
+// NOT CHIPS, AND THE REASON IS WEIGHT. As filled `tp-chip` pills they were the
+// heaviest thing in the hero after the title, sitting two rows below the shelf
+// state and reading as a set of filters somebody had applied. A genre is the same
+// class of fact as the year above it — something this work IS — so it takes the
+// same material and sits directly under the title with the rest of them.
+export function HeroGenres({ genres = [], onGenre, className = 'work-hero-col-genres' }) {
+  if (genres.length === 0) return null
+  return (
+    <Scroller axis="x" className={className}>
+      {genres.map((g) => (
+        <HeroFact key={g} label={g} onClick={onGenre ? () => onGenre(g) : undefined} />
+      ))}
+    </Scroller>
+  )
+}
+
 export function WorkHeroColumn({
   cover,
-  // The SAME default as WorkHero's, and it is not decoration: --detail-pad is
-  // written as max(1.6em, 22px) precisely so the fade's mask does not clip this,
-  // and both index.css and PLAN.md give that as the reason for the number. The
-  // column dropped the prop on the way in, so the cover it was protecting was
-  // flat — a padding defending a shadow nobody was drawing.
   shadow = 'drop-shadow(0 12px 22px rgba(0,0,0,.4))',
   // The line the pack puts above the title: what this is, when, and in what
   // language — each part a link where the app has a screen to send it to.
   kindRow,
   title,
-  titleSize = 'var(--type-display-26)',
+  titleSize = 'var(--type-display-30)',
   titleStyle,
   meta,
   counts,
@@ -1646,8 +1738,13 @@ export function WorkHeroColumn({
   onFavorite,
   tags,
   genres = [],
+  onGenre,
   description,
   actions,
+  // 0..1, or null. Drawn as a 5px strip WELDED TO THE BOTTOM EDGE OF THE COVER —
+  // the pack's `shelfBar`, inside `coverWrap` — so progress reads as part of the
+  // book's own spine rather than as a separate bar somewhere below it.
+  progress = null,
   // The credits row's "and the rest" button. Absent on a work with few enough
   // credits to fit, because a control that opens a list you can already see is
   // furniture — the fade is measured, so a row that fits wears none either.
@@ -1656,37 +1753,57 @@ export function WorkHeroColumn({
 }) {
   return (
     <div className="work-hero-col">
-      <div className="work-hero-col-cover" style={{ filter: shadow }}>{cover}</div>
-      {kindRow && <div className="work-hero-col-kind">{kindRow}</div>}
-      <div className="work-hero-col-title">
-        <h1 className="display-title" style={{ fontSize: titleSize, lineHeight: 1.15, ...titleStyle }}>
-          {title}
-        </h1>
-        <Hearts value={!!favorite} onChange={onFavorite} />
+      {/* THE COVER IS AN OBJECT IN THE COLUMN, NOT THE COLUMN. The first cut of
+          this read the pack's "132x196" as a ratio and gave the cover `width:
+          100%` — which at 300px is 2.3x as wide and FIVE TIMES the area, pushed
+          everything else ~290px down, and at 1440x900 put the hero's own two
+          verbs below the fold. The pack means 132px inside a 300px column: the
+          book is the first thing you see, not the only thing. */}
+      <div className="work-hero-col-split">
+        <div className="work-hero-col-cover-wrap">
+          <div className="work-hero-col-cover" style={{ filter: shadow }}>{cover}</div>
+          {progress != null && (
+            <div className="work-hero-col-shelfbar" aria-hidden="true">
+              <span style={{ width: `${Math.round(Math.max(0, Math.min(1, progress)) * 100)}%` }} />
+            </div>
+          )}
+        </div>
+        {/* The facts are their own tier with their own step — 9px against the
+            column's 11px. One gap everywhere makes six unrelated rows; two tiers
+            make a block under a title. */}
+        <div className="work-hero-col-facts">
+          {kindRow && <div className="work-hero-kind">{kindRow}</div>}
+          <div className="work-hero-col-title">
+            <h1 className="display-title" style={{ fontSize: titleSize, lineHeight: 1.12, ...titleStyle }}>
+              {title}
+            </h1>
+            <Hearts value={!!favorite} onChange={onFavorite} />
+          </div>
+          {/* GENRES ARE LINKS, NOT PILLS, and they sit directly under the title.
+              They are the same KIND of fact as the year and the language above —
+              something this work is, that you can follow — so they take the same
+              material. As filled chips two rows lower they competed with the
+              shelf state for the same weight and read as filters. */}
+          <HeroGenres genres={genres} onGenre={onGenre} />
+          {counts && <div className="work-hero-col-counts">{counts}</div>}
+          {tags && <div className="work-hero-col-state">{tags}</div>}
+        </div>
       </div>
       {/* The credits. A horizontal scroller rather than a wrap, so a long list
           stays one line and the column keeps its shape — and so the +N has
-          somewhere to sit. */}
+          somewhere to sit. THE BUTTON IS NOT A MEMBER OF THE ROW, so it is not
+          inside the scroller: the one control that opens the whole cast must not
+          scroll away under the fade. The fade says swipe, the button says tap for
+          all of it. */}
       {meta && (
         <div className="work-hero-col-credits">
           <Scroller axis="x" className="work-hero-col-credit-row">{meta}</Scroller>
           {onPeople && peopleCount > 0 && (
-            <button type="button" className="tp-btn tp-btn-ghost work-hero-col-more" onClick={onPeople}>
+            <button type="button" className="work-hero-more" onClick={onPeople}>
               {t('work.people.more', { n: peopleCount, count: peopleCount })}
             </button>
           )}
         </div>
-      )}
-      {counts && <div className="work-hero-col-counts">{counts}</div>}
-      {tags && <div className="work-hero-col-state">{tags}</div>}
-      {genres.length > 0 && (
-        <Scroller axis="x" className="work-hero-col-genres">
-          {genres.map((g) => (
-            <span key={g} className="tp-chip">
-              {g}
-            </span>
-          ))}
-        </Scroller>
       )}
       <ExpandableDescription text={description} />
       {actions && <div className="work-hero-col-actions">{actions}</div>}

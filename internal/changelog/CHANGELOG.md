@@ -558,6 +558,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **A book's page now looks like the design it was drawn from.** The cover was taking the
+  whole 300px column instead of sitting in it at 132 — more than twice as wide, five times
+  the area — and everything it pushed down went with it: on a 1440×900 screen the two
+  buttons the page exists for, *Details* and *Practise*, had fallen off the bottom. The
+  cover is an object in the column again, the buttons are back above the fold, and both
+  are now measured in a real browser on every build rather than looked at.
+
+  The rest of the hero changed with it. **Genres sit under the title** as the same kind of
+  small underlined fact as the year and the language, instead of as a row of filled pills
+  two rows lower that read like filters somebody had applied. **The year, the language and
+  the series moved out of the credit line** into a line above the title — that line used
+  to read *Herman Melville · translator Anna · 1851 · Whales #2*, one sentence in which a
+  person, a role word, a year and a series were all the same size with a middle dot doing
+  the distinguishing. **Each credited person is a chip now**, carrying their face and their
+  whole name: their own thing to press, their own door, and never an ellipsis through
+  somebody's name. **The count is one number and its noun** — *128 quotes*, set large — with
+  favourites, notes and tags a tier below rather than beside it at equal weight. Reading
+  progress is a strip welded to the foot of the cover instead of a row of its own. The two
+  buttons carry two weights, so the row states a preference instead of asking twice.
+
 - **The nav rail is solid now, and a fill has to argue for itself.** Every destination —
   Home, Library, Catalogue, Quotes, Anthologies, Tags, Metadata, Stats, Settings, Search,
   Import, the account and Users — draws a filled glyph, because **solid says "somewhere to

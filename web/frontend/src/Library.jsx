@@ -13,11 +13,13 @@ import { usePractice } from './review.jsx'
 import { selectionClick, selectionMenuItems, useSelection } from './selection.jsx'
 import { facetValue, facetValues, publishSearchSeed, seedableChips, withFacet, withFacetValues, workSeedChip } from './facets.js'
 import { SelectionBar } from './SelectionBar.jsx'
-import { PersonCredit, PersonModal, PersonPortrait, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
+import { PersonChip, PersonModal, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
+import { nameFor } from './languages.jsx'
 import {
   ACTIVE_STATUS,
   GroupHeading,
   HeroCounts,
+  HeroKindRow,
   InProgressCapDialog,
   SHELF_CAPS,
   ShelfControl,
@@ -832,29 +834,57 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce 
   //
   // ROLE-LABELLED, unlike the author. On a book's own page an unlabelled name is
   // read as the author, so a bare second face would say the book has two authors.
+  //
+  // A CHIP, NOT A NAME IN A SENTENCE (3.1). Each credited person is now a pill
+  // carrying their face and their whole name — their own hit target and their own
+  // door — because the sentence form gave a person, a role word, a year and a
+  // series the same weight and left a middle dot to do all the distinguishing.
+  // See PersonChip, and the standing rule it exists to keep: no ellipsis on a
+  // person, ever. The row scrolls under its measured fade instead.
   const credited = (kind, value, map) =>
     splitCredits(value || '', parseCreditSeps(creditSeparators)).map((n) => (
-      <PersonCredit key={`${kind}-${n}`} kind={kind} name={n} person={map[n]} size={28} onOpen={setPerson} />
+      <PersonChip key={`${kind}-${n}`} kind={kind} name={n} person={map[n]} onOpen={setPerson} />
     ))
   const roleCredits = (kind, label, value, map) => {
     const people = credited(kind, value, map)
     if (people.length === 0) return null
     return (
-      <span key={kind} className="inline-flex items-center gap-1.5">
+      <span key={kind} className="inline-flex items-center gap-1.5" style={{ flex: 'none' }}>
         <MonoLabel style={{ color: 'var(--faint)' }}>{label}</MonoLabel>
         {people}
       </span>
     )
   }
+  // THE CREDITS ROW HOLDS PEOPLE AND NOTHING ELSE (3.1). It used to read
+  // "Herman Melville · translator Anna · 1851 · Whales #2" — a person, a role
+  // word, a year and a series in one sentence, all the same size, separated by a
+  // middle dot, so the only thing distinguishing somebody's name from a number
+  // was where it happened to fall. The year and the series are facts ABOUT the
+  // book and belong in the kind row above the title with the language; what is
+  // left here is a row of people, each one an object with its own face and its
+  // own door. See HeroKindRow.
   const metaParts = book
     ? [
         ...credited('author', book.author, authorMap),
         roleCredits('translator', t('book.credit.translator.label'), book.translator, translatorMap),
         roleCredits('editor', t('book.credit.editor.label'), book.editor, editorMap),
-        formatYear(book.published_year, book.published_circa) || null,
-        seriesLabel(book) || null,
       ].filter(Boolean)
     : []
+
+  // The kind row: what this is, when it was published, what language it is in,
+  // and which series it belongs to. The language is a link because there is a
+  // board behind it; the year and the series are not, because there is not.
+  const kindRow = book && (
+    <HeroKindRow
+      word={t('unit.book.one')}
+      links={[
+        { key: 'year', label: formatYear(book.published_year, book.published_circa) },
+        { key: 'lang', label: nameFor([book.language]) },
+        { key: 'orig', label: book.orig_language && nameFor([book.orig_language]) ? t('book.hero.language.original', { name: nameFor([book.orig_language]) }) : '' },
+        { key: 'series', label: seriesLabel(book) },
+      ]}
+    />
+  )
 
   const detailTitle = book ? (book.title || t('book.title.fallback')) : ''
   // The shell's breadcrumb names what you have open; this is how it learns.
@@ -930,22 +960,18 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce 
             cover={<Cover path={book.cover_path} title={book.title} hero zoomable />}
             shadow="drop-shadow(0 12px 22px rgba(0,0,0,.34))"
             title={book.title}
-            titleSize={'var(--type-display-26)'}
             titleStyle={{ lineHeight: 1.15 }}
+            kindRow={kindRow}
+            // The progress strip, welded to the foot of the cover rather than
+            // drawn as its own row. Only while there is progress to show: a 0%
+            // track on a book you have not opened is a bar that says nothing.
+            progress={book.progress > 0 ? book.progress / 100 : null}
             meta={
-              metaParts.length > 0 && (
-                // Flex row, vertically centred — the author portrait chips are
-                // taller than the mono text, so a plain inline flow would seat the
-                // text on the baseline and read low against the discs.
-                <div className="mono-label" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', rowGap: 2, fontSize: 'var(--type-ui-12)' }}>
-                  {metaParts.map((p, i) => (
-                    <span key={i} style={{ display: 'inline-flex', alignItems: 'center' }}>
-                      {i > 0 && <span aria-hidden="true" style={{ margin: '0 8px' }}>·</span>}
-                      {p}
-                    </span>
-                  ))}
-                </div>
-              )
+              // NO SEPARATORS BETWEEN CHIPS. The dots were doing the work of
+              // telling one name from the next; a pill with a border does that
+              // by being a pill, and a dot between two of them is punctuation
+              // inside a list of objects.
+              metaParts.length > 0 && metaParts
             }
             // What this book is HOLDING, above the fold. The board's own toolbar
             // count is past the description on a desktop and inside the filter
@@ -994,9 +1020,16 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce 
             actions={
               mobile ? null : (
                 <>
+                  {/* TWO VERBS, TWO WEIGHTS. A row of two identical buttons asks
+                      the same question twice; the pack raises one of them, and the
+                      raised one is Practise — it is what a reader opened this book's
+                      page to do, while Details is where you go to correct a year.
+                      Both stretch to half the column (`flex: 1 1 0` in the row's
+                      own rule) so the pair reads as a choice rather than as a list
+                      that ran out of room. */}
                   <IconButton icon={<IconDetails />} label={t('common.work.details.title')}
             ariaLabel={t('common.work.details.title')} onClick={() => openDetails()} tooltip={t('book.details.tip')} />
-                  <IconButton icon={<IconPractise />} label={t('common.action.practise.label')}
+                  <IconButton icon={<IconPractise />} label={t('common.action.practise.label')} className="tp-btn-primary"
             ariaLabel={t('book.practise.aria')} onClick={() => practise({ book: book.id, label: book.title })} tooltip={t('book.practise.tip')} />
                 </>
               )

@@ -90,6 +90,23 @@ async function measure(page) {
       // which is the same failure as not scrolling, one step later.
       heroFade: q('.tp-detail-hero') ? q('.tp-detail-hero').getAttribute('data-scroll-v') : null,
       streamFade: q('.tp-detail-stream') ? q('.tp-detail-stream').getAttribute('data-scroll-v') : null,
+      // ---- THE HERO'S OWN PROPORTIONS -------------------------------------
+      // Both of these are one defect measured at two points, and it shipped:
+      // the cover was given `width: 100%`, which at 300px is 2.3x the design's
+      // 132 and FIVE TIMES its area, and the ~290px it pushed downward put the
+      // two verbs a reader came for below the fold. Neither half is visible to
+      // jsdom — `getBoundingClientRect` there is all zeroes — so this is the
+      // only place in the repo that can see it.
+      colW: q('.tp-detail-hero') ? Math.round(q('.tp-detail-hero').clientWidth) : null,
+      coverW: q('.work-hero-col-cover') ? Math.round(q('.work-hero-col-cover').getBoundingClientRect().width) : null,
+      // How far the action row's bottom edge falls past what the column shows.
+      // <= 0 means a reader sees both verbs without scrolling for them.
+      actionsBelow: (() => {
+        const col = q('.tp-detail-hero')
+        const acts = q('.work-hero-col-actions')
+        if (!col || !acts) return null
+        return Math.round(acts.getBoundingClientRect().bottom - col.getBoundingClientRect().bottom)
+      })(),
     }
   })
 }
@@ -173,6 +190,29 @@ try {
             'nothing tells the reader there is more',
         )
       }
+    }
+    // THE COVER IS AN OBJECT IN THE COLUMN, NOT THE COLUMN. The pack draws it at
+    // 132 of 300 — 44%. Half is the ceiling rather than the target: it leaves room
+    // for a different column width or a rounded ratio, and still fails the version
+    // that took the whole 300.
+    if (m.coverW !== null && m.colW) {
+      const share = m.coverW / m.colW
+      console.log(`          cover ${m.coverW}px of ${m.colW}px column (${Math.round(share * 100)}%), actions ${m.actionsBelow}px below the fold`)
+      if (share > 0.5) {
+        failures.push(
+          `${size.w}x${size.h}: the cover is ${m.coverW}px of a ${m.colW}px column (${Math.round(share * 100)}%) — ` +
+            'it is meant to be an object in the column, not the column',
+        )
+      }
+    }
+    // AND THE VERBS ARE ABOVE THE FOLD, at the size a desktop actually is. Not
+    // checked at 520: a window that short cannot hold a hero, and demanding it
+    // would be demanding the description be cut instead.
+    if (size.h === 900 && m.actionsBelow !== null && m.actionsBelow > 0) {
+      failures.push(
+        `${size.w}x${size.h}: the hero's action row ends ${m.actionsBelow}px past the bottom of its column — ` +
+          'the two verbs the page is for are below the fold',
+      )
     }
     if (size.h === 520 && m.stream === 0 && m.streamHas > size.h) {
       failures.push(

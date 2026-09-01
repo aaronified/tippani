@@ -1929,14 +1929,33 @@
   }
 
   /* HERO COUNTS — what a work is holding, stated at the top of its own page.
-     Mono, because it is a tally and the credit line above it is already mono; the
-     total carries the accent and the rest sit back in --soft, so the number you
-     came for is the one you see first and the breakdown is there when you look.
+
+     A HEADLINE AND A FOOTNOTE, not a tally. The first cut set all four numbers in
+     one wrapping mono strip at one size, which made "128 quotes" and "3 tagged"
+     the same kind of statement — and this page exists to show what you have kept
+     out of this book, so the amount you kept is the headline. The pack sets the
+     total in the display face beside a small noun and does not print the
+     breakdown at all; the breakdown stays, one tier down, because knowing how
+     many of them you noted is worth a line and is not worth the same line.
 
      Wraps, and the separators are siblings rather than borders precisely because
      of that: a border-left would leave a hairline dangling at the start of the
      second line on a 320px screen. */
-  .hero-counts {
+  .hero-counts { display: grid; gap: 2px; min-width: 0; }
+  .hero-counts-lead { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; min-width: 0; }
+  .hero-counts-total {
+    font-family: var(--font-display);
+    font-style: var(--font-display-style);
+    font-variant-caps: var(--font-display-caps);
+    font-variant-numeric: var(--font-display-figures);
+    font-size: var(--type-display-22);
+    font-weight: 600;
+    line-height: 1;
+    color: var(--accent-ui);
+  }
+  .hero-counts-word { font-size: var(--type-ui-13); color: var(--soft); }
+  .hero-counts-empty,
+  .hero-counts-rest {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -1951,7 +1970,6 @@
     letter-spacing: .08em;
     color: var(--soft);
   }
-  .hero-counts-total { color: var(--accent-ui); }
   .hero-counts-sep { margin: 0 8px; color: var(--faint); }
   /* The film side asks for amber by prop rather than by inheriting a page class,
      because there is no page class to inherit — the Catalogue's credit line sets
@@ -4308,6 +4326,7 @@
      next person rather than a bug now.) */
   .tp-detail {
     --hero-w: 300px;
+    --cover-w: calc(var(--hero-w) * 0.44); /* the pack's 132 in its 300 */
     --detail-pad: max(1.6em, 22px);
     --row: 18px;
     display: flex;
@@ -4465,16 +4484,22 @@
      design pack authors `scrollbar-width: none` on its own credits row for
      exactly this reason.
 
-     THE TWO DETAIL COLUMNS ARE EXEMPT. They are not lists — they are the page —
-     and a reader scrolling a book's whole set of quotes uses the bar to judge
+     THE STREAM IS THE ONE EXEMPTION. It is not a list — it is the page — and a
+     reader working through a book's whole set of quotes uses the bar to judge
      where they are and to drag there. The fade tells you there is more; on
-     something that long it does not tell you how much more. */
-  [data-scroll-x]:not(.tp-detail-hero):not(.tp-detail-stream),
-  [data-scroll-v]:not(.tp-detail-hero):not(.tp-detail-stream) {
+     something that long it does not tell you how much more.
+
+     THE HERO COLUMN IS NOT EXEMPT, and was, wrongly. It is one screen of facts
+     about one book, not a thousand rows: there is nothing to judge your position
+     within, so the bar bought nothing and spent a strip of a 300px column. The
+     pack authors `scrollbar-width: none` on its own hero column for that reason,
+     and the owner asked for scrollbars off wherever a fade already says it. */
+  [data-scroll-x]:not(.tp-detail-stream),
+  [data-scroll-v]:not(.tp-detail-stream) {
     scrollbar-width: none;
   }
-  [data-scroll-x]:not(.tp-detail-hero):not(.tp-detail-stream)::-webkit-scrollbar,
-  [data-scroll-v]:not(.tp-detail-hero):not(.tp-detail-stream)::-webkit-scrollbar {
+  [data-scroll-x]:not(.tp-detail-stream)::-webkit-scrollbar,
+  [data-scroll-v]:not(.tp-detail-stream)::-webkit-scrollbar {
     display: none;
   }
 
@@ -4483,42 +4508,132 @@
      rules is what spacing-debt.test.js counts, and the frame already restates
      --row at 18px for this screen.
 
+     TWO STEPS, NOT ONE, and this is the correction the first cut needed. A
+     single var(--row) between every child made six unrelated rows of equal
+     weight: the title had the same distance to its own genres as the shelf state
+     had to the description. The pack uses 11px between BLOCKS (the cover, the
+     credits, the prose, the verbs) and 9px between the FACTS inside the block
+     under the title, which is what makes that group read as one thing with a
+     heading rather than as five strangers. Both are derived from --row so the
+     screen still has exactly one spacing constant.
+
      NOTHING HERE IS A FIXED BOX HOLDING TEXT. The column's width is the frame's
      --hero-w and everything inside it is measured in em or is free to wrap, so a
      reader at 175% on the type dial gets a taller column rather than a clipped
      one. The cover is the one fixed thing, and a picture is not text. */
   .work-hero-col {
+    --hero-block: calc(var(--row) * 0.6); /* 11 at --row: 18 */
+    --hero-fact: calc(var(--row) * 0.5); /* 9 at --row: 18 */
     display: grid;
-    gap: var(--row);
+    gap: var(--hero-block);
     align-content: start;
   }
+  .work-hero-col-split,
+  .work-hero-col-facts { display: grid; align-content: start; min-width: 0; }
+  .work-hero-col-split { gap: var(--hero-block); }
+  .work-hero-col-facts { gap: var(--hero-fact); }
+
+  /* THE COVER IS AN OBJECT IN THE COLUMN, NOT THE COLUMN.
+     The pack's 132px sits in a 300px column — 44% of it, left-ranged, with the
+     rest of the width left as air. The first cut read "132x196" as a ratio and
+     gave the cover `width: 100%`, which is 2.3x the width, 5.2x the area, and
+     pushed the two verbs a reader came for below the fold at 1440x900. The book
+     is the first thing you see on this page; it is not the only thing.
+
+     DERIVED FROM --hero-w rather than typed, so the 340px breakpoint gets 150px
+     without a second number to fall out of step with the first. */
+  .work-hero-col-cover-wrap { width: var(--cover-w); display: grid; gap: 0; }
   .work-hero-col-cover {
-    /* The pack's 132x196 is a ratio, not a size: the column is what decides how
-       wide the cover is, so it takes the width it is given and keeps the shape. */
     width: 100%;
     aspect-ratio: 2 / 3;
     display: flex;
     align-items: flex-start;
+    /* Asymmetric, and deliberately so: four different corner radii read as a
+       printed board that has been handled, where 4px on all four reads as a UI
+       card. The pack calls it out; it is not a typo. */
+    border-radius: 3px 7px 4px 6px;
+    overflow: hidden;
   }
   .work-hero-col-cover > * { width: 100%; }
-  .work-hero-col-kind {
-    font-size: var(--type-ui-12);
+  /* WELDED TO THE COVER'S BOTTOM EDGE, which is the whole point of it. Progress
+     drawn as its own bar somewhere below is a fifth row competing with the shelf
+     chip that already says "Reading"; drawn as a 5px strip across the foot of the
+     board it reads as how far into THIS book you are, and costs the column five
+     pixels instead of a row. */
+  .work-hero-col-shelfbar {
+    width: 100%;
+    height: 5px;
+    border-radius: 0 0 3px 3px;
+    overflow: hidden;
+    background: color-mix(in oklab, var(--ink), transparent 90%);
+  }
+  .work-hero-col-shelfbar > span { display: block; height: 100%; background: var(--accent-ui); }
+
+  .work-hero-col-kind,
+  .work-hero-kind {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    font-size: var(--type-mono-11);
+    color: var(--faint);
+    min-width: 0;
+  }
+  /* A FACT YOU CAN FOLLOW, and every one of them takes this material: the year,
+     the language, the genres. They are the same KIND of thing — something this
+     work IS, that has a screen behind it — so they are one visual class. Genres
+     as filled chips two rows lower were a second weight competing with the shelf
+     state, and read as filters rather than as facts. */
+  .work-hero-kind-word {
+    text-transform: uppercase;
+    letter-spacing: .14em;
     color: var(--soft);
   }
+  .work-hero-metalink {
+    font-family: var(--font-mono);
+    font-variant-numeric: var(--font-mono-figures);
+    font-size: var(--type-mono-11);
+    letter-spacing: .06em;
+    color: var(--soft);
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    white-space: nowrap;
+    text-decoration: underline;
+    text-decoration-color: var(--line);
+    text-underline-offset: 3px;
+  }
+  .work-hero-metalink:hover,
+  .work-hero-metalink:focus-visible { color: var(--ink); text-decoration-color: currentColor; }
+  /* The same material without the promise — see HeroFact. */
+  .work-hero-metalink-flat { text-decoration: none; cursor: default; }
+  /* The genre row in the two arrangements that are NOT the 300px column: the same
+     facts in the same material, in a row that scrolls under its fade rather than
+     wrapping into a block. */
+  .work-hero-genres-row {
+    overflow-x: auto;
+    overscroll-behavior: contain;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: calc(var(--row) * 0.55);
+  }
+
   /* The title and the heart share a line, and the heart never moves: it is the
      one control here whose position a reader learns. `align-items: start` keeps
      it on the title's FIRST line when the title wraps to three. */
   .work-hero-col-title {
     display: flex;
     align-items: start;
-    justify-content: space-between;
-    gap: calc(var(--row) * 0.5);
+    gap: calc(var(--row) * 0.45);
   }
-  .work-hero-col-credits { display: grid; gap: calc(var(--row) * 0.3); }
+  .work-hero-col-title > h1 { flex: 1; min-width: 0; text-wrap: pretty; }
+  .work-hero-col-credits { display: flex; align-items: center; gap: calc(var(--row) * 0.4); min-width: 0; }
   /* overscroll-behavior on every scroller, which scroll-containment.test.js
      checks: flinging a credits row to its end must not then start moving the
      column behind it. */
-  .work-hero-col-credit-row { overflow-x: auto; overscroll-behavior: contain; white-space: nowrap; }
+  .work-hero-col-credit-row { overflow-x: auto; overscroll-behavior: contain; white-space: nowrap; display: flex; align-items: center; gap: 6px; min-width: 0; }
   /* AT the fade, not beside it — the standing rule's own words. It is a quiet
      button because the row it belongs to is the subject; this only says there is
      more of it. */
@@ -4538,8 +4653,19 @@
     gap: calc(var(--row) / 2);
     min-width: 0;
   }
-  .work-hero-col-genres { overflow-x: auto; overscroll-behavior: contain; white-space: nowrap; display: flex; gap: 6px; }
-  .work-hero-col-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .work-hero-col-genres { overflow-x: auto; overscroll-behavior: contain; white-space: nowrap; display: flex; align-items: center; gap: calc(var(--row) * 0.55); }
+  /* TWO VERBS, TWO WEIGHTS, ONE ROW. `flex: 1 1 0` rather than wrap: two buttons
+     that split the column evenly are a pair of choices; two that wrap to their own
+     content and leave a ragged tail are a list that ran out of room. Practise is
+     the raised one — it is what a reader came to this page to do — and Details is
+     flat beside it, so the row states a preference instead of asking twice. */
+  .work-hero-col-actions { display: flex; gap: 8px; }
+  /* Two levels, because IconButton wraps its button in a Tooltip span: the
+     wrapper takes the half-column and the button fills the wrapper. Stretching
+     only the wrapper leaves two content-width buttons floating in two half
+     columns, which looks like a bug rather than like a layout. */
+  .work-hero-col-actions > * { flex: 1 1 0; min-width: 0; display: flex; }
+  .work-hero-col-actions > * > button { flex: 1 1 auto; min-width: 0; justify-content: center; }
 
   /* Two columns from 1180, the pack's own number. Below it the hero is not a
      column at all — its content is folded into the stream by the screen, because

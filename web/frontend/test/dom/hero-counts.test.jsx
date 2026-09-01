@@ -26,12 +26,37 @@ import { HeroCounts, countQuotes, minusQuote } from '../../src/works.jsx'
 
 const q = (over = {}) => ({ favorite: false, note: '', tags: [], ...over })
 
-// The rendered line as one string, which is how it is read.
-function line(counts, props = {}) {
+// TWO READINGS, because there are now two tiers and conflating them is what the
+// old single-string helper did. `lead` is the headline — the number you came for
+// and its noun — and `rest` is the breakdown one tier down. A helper that glued
+// them into one string could not tell "12 quotes, 3 of them favourites" from a
+// flat row of four equal numbers, which is precisely the difference this design
+// turns on.
+function lead(counts, props = {}) {
   cleanup()
   const { container } = render(<HeroCounts counts={counts} {...props} />)
   const el = container.querySelector('.hero-counts')
-  return el ? el.textContent : null
+  if (!el) return null
+  const num = el.querySelector('.hero-counts-total')
+  const word = el.querySelector('.hero-counts-word')
+  // The space is CSS (a flex gap), so it is supplied here rather than read: the
+  // two spans are separate boxes and textContent would run them together.
+  if (num && word) return `${num.textContent} ${word.textContent}`
+  return el.querySelector('.hero-counts-empty')?.textContent ?? null
+}
+
+// The breakdown, or null when there is nothing to break down.
+function rest(counts, props = {}) {
+  cleanup()
+  const { container } = render(<HeroCounts counts={counts} {...props} />)
+  return container.querySelector('.hero-counts-rest')?.textContent ?? null
+}
+
+// Still rendered at all? The whole component is absent while counts are loading.
+function present(counts, props = {}) {
+  cleanup()
+  const { container } = render(<HeroCounts counts={counts} {...props} />)
+  return !!container.querySelector('.hero-counts')
 }
 
 describe('counting a list of quotes', () => {
@@ -67,41 +92,55 @@ describe('the line it prints', () => {
   it('says nothing at all while the counts are still loading', () => {
     // null, not zero. A hero that flashes "no quotes yet" before the quotes land
     // tells you the book is empty, briefly and wrongly, on every visit.
-    expect(line(null)).toBeNull()
+    expect(present(null)).toBe(false)
   })
 
   it('names the wishlist state instead of printing a zero', () => {
-    expect(line({ total: 0, favourites: 0, noted: 0, tagged: 0 })).toBe('no quotes yet')
+    expect(lead({ total: 0, favourites: 0, noted: 0, tagged: 0 })).toBe('no quotes yet')
   })
 
   it('drops the three that are zero and keeps the total', () => {
-    expect(line({ total: 7, favourites: 0, noted: 0, tagged: 0 })).toBe('7 quotes')
+    expect(lead({ total: 7, favourites: 0, noted: 0, tagged: 0 })).toBe('7 quotes')
+    // Not "an empty breakdown row": no row at all, so the headline has nothing
+    // hanging under it.
+    expect(rest({ total: 7, favourites: 0, noted: 0, tagged: 0 })).toBeNull()
   })
 
   it('prints every part that has something in it', () => {
-    const t = line({ total: 12, favourites: 3, noted: 5, tagged: 8 })
-    expect(t).toContain('12 quotes')
-    expect(t).toContain('3 favourites')
-    expect(t).toContain('5 noted')
-    expect(t).toContain('8 tagged')
+    const c = { total: 12, favourites: 3, noted: 5, tagged: 8 }
+    expect(lead(c)).toBe('12 quotes')
+    const r = rest(c)
+    expect(r).toContain('3 favourites')
+    expect(r).toContain('5 noted')
+    expect(r).toContain('8 tagged')
+    // AND THE HEADLINE IS NOT IN THE BREAKDOWN. The three qualifiers are slices
+    // of the total, so putting the total among them makes four peers again.
+    expect(r).not.toContain('12')
   })
 
   it('says one quote, not 1 quotes', () => {
-    expect(line({ total: 1, favourites: 1 })).toBe('1 quote·1 favourite')
+    expect(lead({ total: 1, favourites: 1 })).toBe('1 quote')
+    expect(rest({ total: 1, favourites: 1 })).toBe('1 favourite')
   })
 
   it('takes the film side’s word for what it is counting', () => {
-    expect(line({ total: 4 }, { noun: ['line', 'lines'] })).toBe('4 lines')
-    expect(line({ total: 0 }, { noun: ['line', 'lines'] })).toBe('no lines yet')
+    expect(lead({ total: 4 }, { noun: ['line', 'lines'] })).toBe('4 lines')
+    expect(lead({ total: 0 }, { noun: ['line', 'lines'] })).toBe('no lines yet')
   })
 
-  it('carries the accent on the total and nothing else', () => {
-    // The number you came for is the one you see first; the breakdown sits back.
+  it('carries the accent on the number and nothing else', () => {
+    // The number you came for is the one you see first; its noun sits beside it
+    // at a quarter the size and the breakdown sits back below. The accent marks
+    // the NUMBER — a coloured noun would make the pair one blob of colour and
+    // undo the size difference that does the work.
     cleanup()
     render(<HeroCounts counts={{ total: 9, favourites: 2 }} />)
     const marked = document.querySelectorAll('.hero-counts-total')
     expect(marked).toHaveLength(1)
-    expect(marked[0].textContent).toBe('9 quotes')
+    expect(marked[0].textContent).toBe('9')
+    expect(document.querySelector('.hero-counts-word').textContent).toBe('quotes')
+    // The breakdown is a sibling of the headline, not a member of it.
+    expect(document.querySelector('.hero-counts-total').closest('.hero-counts-rest')).toBeNull()
   })
 
   it('asks for amber by prop, because there is no page class to inherit', () => {
