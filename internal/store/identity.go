@@ -267,6 +267,15 @@ type CastOf struct {
 	// the work has none must be able to SAY so, and a value already substituted
 	// here cannot be told apart from one the work actually holds.
 	Image string `json:"image,omitempty"`
+	// Cover is the WORK's own picture — a book's cover, a film's poster. It is here
+	// because a list of appearances that prints only titles is a list a reader has
+	// to read; the shelf they know is a shelf of spines, and the row they are
+	// looking for is recognised before it is read.
+	Cover string `json:"cover,omitempty"`
+	// MediaType tells a film from a show from a game on the movie side, so a row
+	// can be labelled with the right noun. Books leave it empty: the Kind already
+	// says everything there is to say about one.
+	MediaType string `json:"media_type,omitempty"`
 }
 
 // castWhere is the shared tail of the two cast reads: both halves of the union,
@@ -276,21 +285,31 @@ type CastOf struct {
 // work_cast CARRIES ITS OWN user_id (0048), so this scopes on the row rather than
 // through a parent. That is not only tidier: it is what lets the union cover books
 // and movies with the same predicate on both sides.
+// A TOMBSTONE IS NOT AN APPEARANCE. 0048 keeps a deleted pair as a row so that a
+// provider refetch cannot bring it back, which means `origin = 'removed'` is the
+// table's word for "this is not on the list any more". Reading it as one was the
+// bug under "I removed this work and it is still there": both directions of this
+// query answered from the tombstone, so untagging a character from a work changed
+// nothing a reader could see. handlePeopleRecords already excluded them on its
+// side of the same table; these two did not, and the two halves of one screen
+// disagreed about how many works a record was in.
 func castWhere(pred string) string {
 	return `
 		SELECT wc.id, 'book', b.id, b.title, wc.character_id, wc.character,
-		       COALESCE(wc.actor_id, 0), COALESCE(p.name, wc.actor), COALESCE(wc.character_image_path, '')
+		       COALESCE(wc.actor_id, 0), COALESCE(p.name, wc.actor), COALESCE(wc.character_image_path, ''),
+		       COALESCE(b.cover_path, ''), ''
 		  FROM work_cast wc
 		  JOIN books b ON b.id = wc.work_id
 		  LEFT JOIN people p ON p.id = wc.actor_id
-		 WHERE wc.user_id = ? AND wc.kind = 'book' AND ` + pred + `
+		 WHERE wc.user_id = ? AND wc.kind = 'book' AND wc.origin <> 'removed' AND ` + pred + `
 		UNION ALL
 		SELECT wc.id, 'movie', m.id, m.title, wc.character_id, wc.character,
-		       COALESCE(wc.actor_id, 0), COALESCE(p.name, wc.actor), COALESCE(wc.character_image_path, '')
+		       COALESCE(wc.actor_id, 0), COALESCE(p.name, wc.actor), COALESCE(wc.character_image_path, ''),
+		       COALESCE(m.poster_path, ''), COALESCE(m.media_type, 'movie')
 		  FROM work_cast wc
 		  JOIN movies m ON m.id = wc.work_id
 		  LEFT JOIN people p ON p.id = wc.actor_id
-		 WHERE wc.user_id = ? AND wc.kind = 'movie' AND ` + pred + `
+		 WHERE wc.user_id = ? AND wc.kind = 'movie' AND wc.origin <> 'removed' AND ` + pred + `
 		 ORDER BY 4`
 }
 
@@ -321,7 +340,7 @@ func castRows(db Queryer, q string, args ...any) ([]CastOf, error) {
 		var c CastOf
 		var charID, actorID sql.NullInt64
 		if err := rows.Scan(&c.CastID, &c.Kind, &c.WorkID, &c.WorkTitle, &charID, &c.Character,
-			&actorID, &c.Actor, &c.Image); err != nil {
+			&actorID, &c.Actor, &c.Image, &c.Cover, &c.MediaType); err != nil {
 			return nil, err
 		}
 		c.CharacterID, c.ActorID = charID.Int64, actorID.Int64

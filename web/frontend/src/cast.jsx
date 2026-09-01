@@ -281,56 +281,48 @@ export function CastSection({ kind, item, onCastChanged }) {
   )
 }
 
-// CastRow — one credit. Resting it is two names and a face; editing it is two
-// boxes; and the picture controls are always the row's own, never the panel's.
-function CastRow({ row, role, busy, actor, workTitle, mediaType, onSave, onRemove, onImage, onOpenPerson }) {
-  // A CHARACTER NAME IS NEVER CUT. It used to end in an ellipsis, which is the one
-  // failure a reader cannot see: a shortened name and a short name look identical,
-  // so the row destroyed the only thing it was there to show. Now the name scrolls
-  // under a fade — and press-and-drag means a mouse can reach the end of it, which
-  // `overflow` alone would not have given.
-  const characterRef = useRef(null)
-  useEdgeScroll(characterRef, { axis: 'x' })
-
-  const [editing, setEditing] = useState(false)
-  const [character, setCharacter] = useState(row.character || '')
-  const [who, setWho] = useState(row.actor || '')
+// usePicturePicker — a face you press, and the editor it opens.
+//
+// TWO NODES AND NOT A COMPONENT, because its callers put them in different places:
+// a cast row leads with the face and drops the editor below the whole row, while
+// the character page puts the face on a card and the editor under it. A component
+// returning both would have to be rendered twice or wrapped, and a wrapper is a
+// box neither layout has room for.
+//
+// WHY IT IS SHARED. The app has exactly one thing that knows how to look for a
+// picture of somebody — `POST /images/search`, plus the browser tab it opens where
+// no supplier is configured — and three screens want it: a work's cast row, a
+// character's page, a person's record. The parts that differ are the search body
+// and the fallback query, so those are parameters and everything else is here. A
+// second implementation would be a second place the ladder, the two fallbacks and
+// the no-supplier tab have to agree, and they would agree until one was edited.
+//
+// PersonForm (people.jsx) still carries its own, deliberately: its picker does not
+// write, it fills a field a form submit later sends with eight others. Same
+// controls, a different lifecycle, and folding them together would mean this hook
+// growing a "do not save yet" mode.
+export function usePicturePicker({ face, label, urlLabel, busy, search, fallbackQuery, onPicked }) {
   const [urlOpen, setUrlOpen] = useState(false)
   const [url, setUrl] = useState('')
-  const [confirming, setConfirming] = useState(false)
   const [pics, setPics] = useState(null) // null = never asked; [] = asked, nothing found
   const [picsBusy, setPicsBusy] = useState(false)
   const applyURL = async () => {
-    await onImage(url.trim())
+    await onPicked(url.trim())
     setUrl('')
     setUrlOpen(false)
   }
 
-  // THE PICTURE OF A ROLE, WHICH ALMOST NOTHING HAS. TheTVDB carries an image per
-  // character and is the only supplier that does, so every TMDB-sourced row,
+  // A PICTURE OF A ROLE IS SOMETHING ALMOST NOTHING HAS. TheTVDB carries an image
+  // per character and is the only supplier that does, so every TMDB-sourced row,
   // every game's typed voice cast and every character in a book has never had one
-  // available at all — and this row's answer was to send the reader to a browser
+  // available at all — and the answer used to be sending the reader to a browser
   // tab with two words in the search box.
   //
-  // The sentence the server builds is "ACTOR as CHARACTER in TITLE", which is how
-  // a still is captioned wherever pictures of one are published; the tab this
-  // replaces searched the character and the title alone, which finds the poster.
-  // With no supplier configured it opens that tab, unchanged, for the same reason
-  // the people console does: one control, whatever the install can do.
+  // With no supplier configured it still opens that tab, unchanged, for the same
+  // reason the people console does: one control, whatever the install can do.
   async function findPicture() {
     setPicsBusy(true)
-    const r = await json('POST', '/images/search', {
-      kind: 'character',
-      name: row.character || '',
-      actor: row.actor || '',
-      title: workTitle || '',
-      media_type: mediaType || '',
-      // THE ROW ID, WHICH IS WHAT REACHES TheTVDB. The server reads this row
-      // back scoped to the reader, follows it to the work's TheTVDB id and asks
-      // for the character's own art — the picture of the role, which no search
-      // engine has and which this button could not previously get at all.
-      cast_id: row.id || 0,
-    }).catch(() => ({ ok: false }))
+    const r = await json('POST', '/images/search', search()).catch(() => ({ ok: false }))
     setPicsBusy(false)
     // ANY RUNG. See people.jsx: the ladder has more suppliers than the two this
     // test used to name, and a character strip is commonly configured with no
@@ -338,7 +330,7 @@ function CastRow({ row, role, busy, actor, workTitle, mediaType, onSave, onRemov
     const configured = r.ok && Object.values(r.data?.sources || {}).some(Boolean)
     if (!configured) {
       window.open(
-        `https://www.google.com/search?tbm=isch&q=${encodeURIComponent([row.character, workTitle].filter(Boolean).join(' '))}`,
+        `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(fallbackQuery)}`,
         '_blank', 'noopener',
       )
       return
@@ -346,32 +338,11 @@ function CastRow({ row, role, busy, actor, workTitle, mediaType, onSave, onRemov
     setPics(r.data?.images || [])
   }
 
-  // The role in costume if we have it, the actor's headshot if not. Upstream's own
-  // fallback — see the file header.
-  const face = row.character_image_path
-    ? coverImgURL(row.character_image_path)
-    : actor?.image_path
-      ? personImgURL(actor.image_path)
-      : ''
-
-  // THE PICTURE TRAVELS WITH THE ROW INTO EDITING, and it did not.
-  //
-  // Editing swapped the whole row for two text boxes, which took the face button
-  // with it — so the reader who pressed the pencil BECAUSE they wanted to fix a
-  // character's picture arrived at a form with no picture in it, and the report
-  // was, again, that there is no way to add one. It also moved every field 44px
-  // left of the rows above and below it, because those start with a 34px face and
-  // a 10px gap and this one started with a text box: an edit that shunts its own
-  // row sideways reads as a layout fault before it reads as a mode.
-  //
-  // One face button and one picture editor, defined once and rendered by both
-  // states, is the whole fix. The editor still opens BELOW the row (flex-basis
-  // 100%), so it does not squeeze the boxes it now sits under.
   const faceButton = (
     <button
       type="button"
       className={'cast-face-btn' + (face ? '' : ' is-empty')}
-      aria-label={t('cast.picture.aria', { name: row.character || '' })}
+      aria-label={label}
       aria-expanded={urlOpen}
       disabled={busy}
       onClick={() => setUrlOpen((v) => !v)}
@@ -384,6 +355,127 @@ function CastRow({ row, role, busy, actor, workTitle, mediaType, onSave, onRemov
       <span className="cast-face-mark" aria-hidden="true"><IconPicture size={16} /></span>
     </button>
   )
+
+  const pictureEditor = urlOpen && (
+    <span className="cast-row-url">
+      {/* THE SAME OFFER THE PERSON EDITOR MAKES, and for the same reason: asking
+          somebody to go and find a picture without helping them look is the
+          difference between a field and a chore. */}
+      <button
+        type="button"
+        className="tp-link tp-link-icon"
+        style={{ fontSize: 'var(--type-ui-11)' }}
+        disabled={picsBusy}
+        onClick={findPicture}
+      >
+        <IconSearch />
+        <span>{picsBusy ? t('common.state.loading') : t('people.form.image-search')}</span>
+      </button>
+      <input
+        className="tp-input"
+        placeholder={t('cast.picture.placeholder')}
+        aria-label={urlLabel}
+        value={url}
+        onChange={(e) => setUrl(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key !== 'Enter' || busy || !url.trim()) return
+          e.preventDefault()
+          applyURL()
+        }}
+      />
+      <GhostButton type="button" disabled={busy || !url.trim()} onClick={applyURL}>
+        {t('common.action.apply.label')}
+      </GhostButton>
+      {pics && (
+        <span className="cast-row-pics">
+          <span className="microcopy">
+            {pics.length ? t('cast.picture.pick.prose') : t('cast.picture.pick.none')}
+          </span>
+          <span className="flex flex-wrap gap-2">
+            {pics.map((im) => (
+              <button
+                key={im.url}
+                type="button"
+                className="cover-pick"
+                aria-label={t('cast.picture.pick.use', { source: im.source })}
+                disabled={busy}
+                onClick={async () => {
+                  // The full-size original is stored; the thumbnail was only ever
+                  // what the page was allowed to draw.
+                  setPics(null)
+                  setUrlOpen(false)
+                  await onPicked(im.url)
+                }}
+              >
+                <img src={im.thumb || im.url} alt="" loading="lazy" />
+                <span className="microcopy">{im.source}</span>
+              </button>
+            ))}
+          </span>
+        </span>
+      )}
+    </span>
+  )
+
+  return { faceButton, pictureEditor, open: urlOpen, setOpen: setUrlOpen }
+}
+
+// useCharacterPicture — the picker, wearing what a CHARACTER needs.
+//
+// The role in costume if we have it, the actor's headshot if not: upstream's own
+// fallback, and the reason the face is computed here rather than in the generic
+// hook — only this caller has two places to look.
+//
+// The sentence the server builds is "ACTOR as CHARACTER in TITLE", which is how a
+// still is captioned wherever pictures of one are published. THE ROW ID IS WHAT
+// REACHES TheTVDB: the server reads the row back scoped to the reader, follows it
+// to the work's TheTVDB id and asks for the character's own art — the picture of
+// the role, which no search engine has.
+export function useCharacterPicture({ row, actor, workTitle, mediaType, busy, onImage }) {
+  const face = row.character_image_path
+    ? coverImgURL(row.character_image_path)
+    : actor?.image_path
+      ? personImgURL(actor.image_path)
+      : ''
+  return usePicturePicker({
+    face,
+    label: t('cast.picture.aria', { name: row.character || '' }),
+    urlLabel: t('cast.picture.url.aria', { name: row.character || '' }),
+    busy,
+    onPicked: onImage,
+    fallbackQuery: [row.character, workTitle].filter(Boolean).join(' '),
+    search: () => ({
+      kind: 'character',
+      name: row.character || '',
+      actor: row.actor || actor?.name || '',
+      title: workTitle || '',
+      media_type: mediaType || '',
+      cast_id: row.id || 0,
+    }),
+  })
+}
+
+// CastRow — one credit. Resting it is two names and a face; editing it is two
+// boxes; and the picture controls are always the row's own, never the panel's.
+
+function CastRow({ row, role, busy, actor, workTitle, mediaType, onSave, onRemove, onImage, onOpenPerson }) {
+  // A CHARACTER NAME IS NEVER CUT. It used to end in an ellipsis, which is the one
+  // failure a reader cannot see: a shortened name and a short name look identical,
+  // so the row destroyed the only thing it was there to show. Now the name scrolls
+  // under a fade — and press-and-drag means a mouse can reach the end of it, which
+  // `overflow` alone would not have given.
+  const characterRef = useRef(null)
+  useEdgeScroll(characterRef, { axis: 'x' })
+
+  const [editing, setEditing] = useState(false)
+  const [character, setCharacter] = useState(row.character || '')
+  const [who, setWho] = useState(row.actor || '')
+  const [confirming, setConfirming] = useState(false)
+  // THE PICTURE EDITOR IS A HOOK, because two screens need exactly this control
+  // and neither can host the other's DOM. See useCharacterPicture.
+  const { faceButton, pictureEditor, open: urlOpen, setOpen: setUrlOpen } = useCharacterPicture({
+    row, actor, workTitle, mediaType, busy, onImage,
+  })
 
   // REPORTS WHETHER IT LANDED, because the panel's ✓ awaits it before closing and
   // a refused write must stop the close — the same contract a field row keeps.
@@ -418,72 +510,6 @@ function CastRow({ row, role, busy, actor, workTitle, mediaType, onSave, onRemov
     return () => host.register(id, null)
   }, [host, dirty, row.id])
 
-  const pictureEditor = urlOpen && (
-    <span className="cast-row-url">
-      {/* THE SAME OFFER THE PERSON EDITOR MAKES, and for the same reason:
-          asking somebody to go and find a picture without helping them look
-          is the difference between a field and a chore. In the app where a
-          picture source is configured, in a tab where none is — see
-          findPicture. */}
-      <button
-        type="button"
-        className="tp-link tp-link-icon"
-        style={{ fontSize: 'var(--type-ui-11)' }}
-        disabled={picsBusy}
-        onClick={findPicture}
-      >
-        <IconSearch />
-        <span>{picsBusy ? t('common.state.loading') : t('people.form.image-search')}</span>
-      </button>
-      <input
-        className="tp-input"
-        placeholder={t('cast.picture.placeholder')}
-        aria-label={t('cast.picture.url.aria', { name: row.character || '' })}
-        value={url}
-        onChange={(e) => setUrl(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key !== 'Enter' || busy || !url.trim()) return
-          e.preventDefault()
-          applyURL()
-        }}
-      />
-      <GhostButton
-        type="button"
-        disabled={busy || !url.trim()}
-        onClick={applyURL}
-      >
-        {t('common.action.apply.label')}
-      </GhostButton>
-      {pics && (
-        <span className="cast-row-pics">
-          <span className="microcopy">
-            {pics.length ? t('cast.picture.pick.prose') : t('cast.picture.pick.none')}
-          </span>
-          <span className="flex flex-wrap gap-2">
-            {pics.map((im) => (
-              <button
-                key={im.url}
-                type="button"
-                className="cover-pick"
-                aria-label={t('cast.picture.pick.use', { source: im.source })}
-                disabled={busy}
-                onClick={async () => {
-                  // The full-size original is stored; the thumbnail was only
-                  // ever what the page was allowed to draw.
-                  setPics(null)
-                  setUrlOpen(false)
-                  await onImage(im.url)
-                }}
-              >
-                <img src={im.thumb || im.url} alt="" loading="lazy" />
-                <span className="microcopy">{im.source}</span>
-              </button>
-            ))}
-          </span>
-        </span>
-      )}
-    </span>
-  )
 
   if (editing) {
     return (

@@ -4608,6 +4608,7 @@ metadata.people.info.body = Photos and reference pages, matched to the right per
 # directors: the two share one stored column and are told apart only by media
 # type, so listing them together would offer a studio for renaming as a director.
 metadata.people.kind.author.label = Authors
+metadata.people.kind.all.label = All
 metadata.people.kind.actor.label = Actors
 metadata.people.kind.director.label = Directors
 metadata.people.kind.studio.label = Studios
@@ -4633,13 +4634,14 @@ metadata.people.empty.actor = no actors on any dialogue yet
 metadata.people.empty.director = no directors on any film yet
 metadata.people.empty.studio = no studios on any game yet
 metadata.people.empty.speaker = nobody has said anything yet
+metadata.people.empty.all = no people in the library yet
 # The table. Name and Links are shared field names; the middle column's head
 # changes with the kind, because what it counts does.
-metadata.people.column.books = Books
 metadata.people.column.quotes = Quotes
-metadata.people.column.titles = Titles
-metadata.people.photo.label = photo
-metadata.people.photo.tip = photo saved
+metadata.people.column.roles = Roles
+metadata.people.column.works = Works
+metadata.people.also = also {names}
+metadata.people.portrait.aria = Portrait for {name}
 metadata.people.search.tip = Search the library for “{name}”
 # ONE GLYPH, two words: fetch and refetch are the same act — go and get this
 # person's photo and links — and the word flips only because the row already has
@@ -5006,6 +5008,8 @@ unit.studio.one = studio
 unit.studio.other = studios
 unit.speaker.one = speaker
 unit.speaker.other = speakers
+unit.person.one = person
+unit.person.other = people
 
 # --- from settings ---
 # The toast that follows a backup offers the copy. "Export" is the neighbouring
@@ -6168,6 +6172,11 @@ identity.person.credits.title.other = credited on {n} works
 identity.person.credits.empty = Not credited on anything yet.
 identity.person.roles.title.one = played {n} character
 identity.person.roles.title.other = played {n} characters
+identity.person.portrait.title = portrait
+identity.person.portrait.none = No picture yet. Search for one, or paste an address.
+identity.person.portrait.aria = Portrait for {name}
+identity.person.portrait.url.aria = Picture address for {name}
+identity.person.portrait.clear.label = remove the picture
 identity.character.appearances.title.one = in {n} work
 identity.character.appearances.title.other = in {n} works
 identity.character.appearances.empty = In no work yet. It appears once a work's cast points at it.
@@ -6204,6 +6213,32 @@ identity.field.born = Born
 identity.field.died = Died
 identity.field.note = Your note
 identity.field.description = Description
+identity.merge.body.character = Two records for one character become one, and this one — {name} — is what survives.
+identity.character.head.aliases.one = {n} other spelling
+identity.character.head.aliases.other = {n} other spellings
+identity.character.face.none = No picture chosen yet. Promote one from a work below.
+identity.character.promote.label = use this one
+identity.character.promote.current = their face
+identity.character.promote.clear.label = clear their picture
+identity.character.promote.done = {title}'s picture is what this character looks like now
+identity.character.promote.cleared = The character has no picture of their own again
+identity.character.works.add.label = Add to a work
+identity.character.works.add.placeholder = find a book or a film…
+identity.character.works.add.none = Nothing matches, or they are already in everything that does.
+identity.character.works.add.done = Added to {title}
+identity.character.works.remove.label = Take off this work
+identity.character.works.remove.aria = Take this character off {title}
+identity.character.works.remove.confirm = Take them off {title}?
+identity.character.works.remove.done = Taken off {title}
+identity.character.drop.title.one = {n} quote on {title} still names {name}
+identity.character.drop.title.other = {n} quotes on {title} still name {name}
+identity.character.drop.body.one = A character named on a work's own quote is put back on its cast every time the work is opened, so the line has to say somebody else first.
+identity.character.drop.body.other = A character named on a work's own quotes is put back on its cast every time the work is opened, so the lines have to say somebody else first.
+identity.character.drop.replace.label = Say this instead
+identity.character.drop.replace.placeholder = another character…
+identity.character.drop.replace.action = Rename them and remove
+identity.character.drop.clear.action.one = or leave the quote with no speaker
+identity.character.drop.clear.action.other = or leave the quotes with no speaker
 
 # The four credited roles, as words. Not unit.*, which is a counted-noun
 # namespace and would have to grow a plural nobody prints.
@@ -6211,3 +6246,6 @@ unit.role.author = author
 unit.role.translator = translator
 unit.role.editor = editor
 unit.role.director = director
+unit.role.actor = actor
+unit.role.studio = studio
+unit.role.speaker = speaker

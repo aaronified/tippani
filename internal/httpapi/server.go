@@ -255,6 +255,13 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /characters/{id}", s.requireAuth(s.handleCharacterByID))
 	mux.Handle("PUT /characters/{id}", s.requireAuth(s.handleUpdateCharacter))
 	mux.Handle("DELETE /characters/{id}", s.requireAuth(s.handleDeleteCharacter))
+	// The character page's own three verbs. They carry the character's ID where the
+	// cast endpoints carry a NAME, which is the whole difference — see
+	// character_works.go's header on why a name would file the row under a record
+	// the reader never chose.
+	mux.Handle("POST /characters/{id}/works", s.requireAuth(s.handleCharacterAddWork))
+	mux.Handle("DELETE /characters/{id}/works/{cast}", s.requireAuth(s.handleCharacterDropWork))
+	mux.Handle("PUT /characters/{id}/image", s.requireAuth(s.handleCharacterImage))
 	mux.Handle("POST /characters/{id}/aliases", s.requireAuth(s.handleCharacterAlias))
 	mux.Handle("DELETE /characters/{id}/aliases", s.requireAuth(s.handleCharacterAliasDelete))
 	// The pairing itself: who a role is, and who played it. Never automatic.

@@ -314,14 +314,21 @@ func (s *Server) handleAddCast(kind string) http.HandlerFunc {
 			internalError(w, r, "link cast row", err)
 			return
 		}
+		// READ BACK RATHER THAN HAND-BUILT, which the revive branch above has always
+		// done and this one did not. LinkCastRow has just written character_id and
+		// actor_id onto the row, and a body assembled from the request cannot carry
+		// them — so the one reply that says "here is your new cast row" was the one
+		// reply with no way to open the character it had just created.
+		row, err := scanCastRow(tx.QueryRow(`SELECT `+castCols+` FROM work_cast WHERE id = ?`, id))
+		if err != nil {
+			internalError(w, r, "read new cast row", err)
+			return
+		}
 		if err := tx.Commit(); err != nil {
 			internalError(w, r, "add cast: commit", err)
 			return
 		}
-		writeJSON(w, http.StatusCreated, castRow{
-			ID: id, Character: req.Character, Actor: req.Actor,
-			Billing: billing, Origin: castReader,
-		})
+		writeJSON(w, http.StatusCreated, row)
 	}
 }
 

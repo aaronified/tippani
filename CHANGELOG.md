@@ -9,6 +9,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The People section lists records, not spellings.** It used to list one row per
+  printed name filtered to one role: Bulgakov spelled four ways was four rows of a
+  quarter each, and a record no work prints was not in the list at all. One row per
+  person now, with the other spellings named under it and the counts that are actually
+  theirs — 12 works, 128 quotes, rather than four rows of three books. The chips start on
+  **All**, because a role is derived from a credit and a record nothing credits belongs to
+  no role, which is exactly the row a review list exists to surface.
+
+- **A person's name opens their record from the metadata screen.** The credits, the
+  characters they have played, the spellings that find them, the merge and the split were
+  not reachable from that screen at all; the name opened the enrichment modal instead.
+  That modal is still there, reached from the row's own face, which is where a portrait
+  belongs.
+
+- **A portrait can be set on the record itself.** It was only ever settable by name, which
+  lands on the first of two people who share one — so choosing a face for the second put
+  it on the first, silently. The picture control on a person's record is the same one a
+  character and a cast row use: search where a supplier is configured, a pasted address
+  where none is, and the picture saves as soon as it is chosen.
+
+- **The metadata screen has four sections instead of one long scroll.** Overview, Works,
+  People, Characters, behind a rail that says how much is in each — so "is it worth
+  opening the character list" is answered before you open it. The number beside Overview
+  is a count of *gaps* and is the only one that goes red; a library of 900 books is not a
+  warning. **And a phone gets the same four.** It used to get a different screen
+  altogether — three maintenance buttons, two summary lines, no browsable record at all —
+  so "can I fix this from my phone" answered "some of it, and you cannot see which".
+
+- **Re-verify the whole library is reachable from a desk.** It was drawn inside the
+  phone-only half of that screen, so the console built for doing metadata at scale offered
+  its one library-scale sweep on phones and nowhere else.
+
+- **The character page is where a character is now finished.** Every work they are in is a
+  card wearing that work's own cover, with the picture that work holds of them sitting on
+  it, the performer who played them there, and three acts: change this work's picture,
+  make one of them the character's own face, or take the work off. A character with no
+  picture of their own says so and points at the works that have one — nothing is promoted
+  automatically, because eight Harry Potters are eight records until you decide they are
+  not, and auto-picking the first still would put a face on that decision.
+
+- **A character can be added to a work from their own page**, which is the other half of
+  being able to take one off. It files the row under *this* record rather than under
+  whatever the work already spells the same way — the distinction the whole identity model
+  exists for, and one a name-based add cannot make.
+
+- **Taking a character off a work is refused while that work's quotes still name them**,
+  with the number, and with the two ways forward: rewrite those lines to say somebody
+  else, or leave them with no speaker. Doing nothing is not offered because it does not
+  work — a character named on a work's own line is put back on its cast every time the
+  work is opened. A line that named three characters loses one and keeps the other two.
+
+- **Characters can be merged and spellings split back out from the character page.** The
+  endpoints have been there since records landed; only the person page ever offered them,
+  so a reader who welded two Wolands together had a way back on one of the two tables.
+
 - **Every field on a record now says who wrote it.** A record is assembled — the ISBN came
   from the scan, the page count from Google Books because Open Library had the wrong
   edition, the description you wrote — and one *Source:* line for the whole record could
@@ -107,6 +162,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   wide.
 
 ### Fixed
+
+- **Fetching links for one of two people with the same name wrote them onto the other.**
+  The console saved through the name-keyed upsert, which resolves to the lowest id where a
+  name is shared. It writes by record id now.
+
+- **A character stayed on a work its cast row had been removed from.** The work_cast
+  table keeps a deleted pair as a tombstone so a provider refetch cannot bring it back,
+  and the character page read those tombstones as appearances — so "in 3 works" counted
+  rows nothing draws, and a removal changed nothing you could see. The people list already
+  excluded them; the two halves of one screen disagreed about how many works a record was
+  in.
+
+- **Adding a cast row gave back a row with no record on it.** The reply was assembled from
+  the request rather than read back, so the one response that says "here is your new cast
+  row" was the one with no way to open the character it had just created.
 
 - **Ordinary saves were quietly throwing away fields you had filled in.** Every save of a
   book or a film sends the whole record back, so anything the app forgot to include was

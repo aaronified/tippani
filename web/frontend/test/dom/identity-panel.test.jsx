@@ -147,8 +147,20 @@ describe('the aliases are what find the record', () => {
     const stack = { push: vi.fn(), open: vi.fn() }
     render(body(characterPanel(stack, { id: 3, name: 'Woland' })))
     const chip = (await screen.findByText('Messire')).closest('span')
-    act(() => within(chip).getByRole('button').click())
+    // TWO CONTROLS ON THE CHIP NOW, and the × is the second: characters offer
+    // split-out as well, which 0056 shipped an endpoint for and only the person
+    // panel ever wired up. So a reader who welded two Wolands together had a way
+    // back on one of the two tables.
+    act(() => within(chip).getByLabelText(/Remove the spelling Messire/).click())
     await waitFor(() => expect(screen.queryByText('Messire')).toBeNull())
+  })
+
+  it('offers split-out on a character, not only on a person', async () => {
+    const stack = { push: vi.fn(), open: vi.fn() }
+    render(body(characterPanel(stack, { id: 3, name: 'Woland' })))
+    const chip = (await screen.findByText('Messire')).closest('span')
+    act(() => within(chip).getByText('split out').click())
+    await waitFor(() => expect(CALLS.some(([m, p, b]) => m === 'POST' && p === '/characters/3/split' && b.alias === 'Messire')).toBe(true))
   })
 })
 
@@ -163,10 +175,14 @@ describe('the two records reach each other', () => {
     act(() => screen.getByText('Oleg Basilashvili').click())
     expect(stack.push).toHaveBeenCalledTimes(1)
 
-    // A BOOK CHARACTER HAS NO PERFORMER, and the row draws nothing rather than an
+    // A BOOK CHARACTER HAS NO PERFORMER, and the card draws nothing rather than an
     // empty slot — a slot invites a value and there is nothing true to put in it.
-    const bookRow = screen.getByText('The Master and Margarita').closest('li')
-    expect(within(bookRow).queryAllByRole('button')).toHaveLength(0)
+    // Asserted against the performer specifically rather than "no buttons at all":
+    // the card carries its own picture control and its own removal now, and a
+    // count of buttons would pass or fail on either of those instead.
+    const bookCard = screen.getByText('The Master and Margarita').closest('.char-work')
+    expect(within(bookCard).queryByText('Oleg Basilashvili')).toBeNull()
+    expect(within(bookCard).queryByRole('link')).toBeNull()
   })
 
   it('a performer pushes the character', async () => {

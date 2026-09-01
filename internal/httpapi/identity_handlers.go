@@ -155,10 +155,21 @@ func (s *Server) handleUpdatePersonByID(w http.ResponseWriter, r *http.Request) 
 	var req struct {
 		Name     *string `json:"name"`
 		SortName *string `json:"sort_name"`
+		Bio      *string `json:"bio"`
 		Born     *string `json:"born"`
 		Died     *string `json:"died"`
 		Links    *string `json:"links"`
 		Note     *string `json:"note"`
+		// THE PORTRAIT, BY RECORD ID. It has only ever been settable through
+		// `PUT /people`, which upserts by (kind, name) and lands on the LOWEST id
+		// where two records share one — so choosing a picture for the second of two
+		// namesakes put it on the first, and the record panel, which is the one
+		// surface that knows which record it is looking at, could not offer a
+		// portrait at all. Same two fields and the same fetcher as the upsert: a URL
+		// the reader chose is fetched with no host allowlist, because their picture
+		// is wherever they found it.
+		ImageURL   string `json:"image_url"`
+		ClearImage bool   `json:"clear_image"`
 	}
 	if !decodeBody(w, r, &req) {
 		return
@@ -170,8 +181,33 @@ func (s *Server) handleUpdatePersonByID(w http.ResponseWriter, r *http.Request) 
 		writeErr(w, http.StatusBadRequest, "a name is required")
 		return
 	}
+	// THE FETCH HAPPENS BEFORE THE TRANSACTION, and it has to: it is a network
+	// round trip, and holding SQLite's single write lock open across one would
+	// block every other writer for as long as the far end takes to answer.
+	var oldImage, newImage string
+	changeImage := req.ClearImage || req.ImageURL != ""
+	if changeImage {
+		if err := s.Store.DB.QueryRow(
+			`SELECT image_path FROM people WHERE id = ? AND user_id = ?`, id, uid).Scan(&oldImage); err != nil {
+			internalError(w, r, "read portrait", err)
+			return
+		}
+		if req.ImageURL != "" {
+			name, ferr := s.fetchUserImage(r.Context(), req.ImageURL, s.coversDir())
+			if ferr != nil {
+				olog.Errorf(olog.CodePeopleImageFetch, "[identity] person %d image fetch failed: %v", id, ferr)
+				writeErr(w, http.StatusBadGateway,
+					"couldn't fetch that image — check the URL points directly at a JPG/PNG/WebP/GIF under 2 MB")
+				return
+			}
+			newImage = name
+		}
+	}
+
 	tx, err := s.Store.DB.Begin()
 	if err != nil {
+		// The file was fetched for a write that is not going to happen.
+		s.removeCoverFile(newImage)
 		internalError(w, r, "begin", err)
 		return
 	}
@@ -187,10 +223,15 @@ func (s *Server) handleUpdatePersonByID(w http.ResponseWriter, r *http.Request) 
 	}
 	put("name", req.Name)
 	put("sort_name", req.SortName)
+	put("bio", req.Bio)
 	put("born", req.Born)
 	put("died", req.Died)
 	put("links", req.Links)
 	put("note", req.Note)
+	if changeImage {
+		set = append(set, "image_path = ?")
+		args = append(args, newImage)
+	}
 	if len(set) > 0 {
 		// The column names are literals above, never input.
 		args = append(args, id, uid)
@@ -227,8 +268,15 @@ func (s *Server) handleUpdatePersonByID(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 	if err := tx.Commit(); err != nil {
+		s.removeCoverFile(newImage)
 		internalError(w, r, "commit", err)
 		return
+	}
+	// THE OLD FILE GOES AFTER THE COMMIT, never before: a delete that ran first
+	// and a write that then failed would leave the record pointing at a file that
+	// is gone, which reads as a broken portrait rather than as a failed save.
+	if changeImage && oldImage != "" && oldImage != newImage {
+		s.removeCoverFile(oldImage)
 	}
 	s.handlePersonByID(w, r)
 }
@@ -378,7 +426,8 @@ func (s *Server) handleCharacters(w http.ResponseWriter, r *http.Request) {
 	olog.Tracef("[identity] characters uid=%d", uid)
 	rows, err := s.Store.DB.Query(`
 		SELECT `+characterCols+`,
-		       (SELECT count(*) FROM work_cast wc WHERE wc.user_id = c.user_id AND wc.character_id = c.id)
+		       (SELECT count(*) FROM work_cast wc WHERE wc.user_id = c.user_id AND wc.character_id = c.id
+		                                            AND wc.origin <> 'removed')
 		  FROM characters c WHERE c.user_id = ?
 		 ORDER BY CASE WHEN c.sort_name <> '' THEN c.sort_name ELSE c.name END COLLATE NOCASE, c.id`, uid)
 	if err != nil {

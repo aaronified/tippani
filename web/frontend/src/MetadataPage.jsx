@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { json, errText } from './api.js'
+import { coverImgURL, errText, json } from './api.js'
 import { t, tNodes } from './i18n.js'
 import { BookLookupPicker, MovieLookupPicker } from './CoverPicker.jsx'
 import { bookState, EditBook } from './Library.jsx'
 import { EditMovie } from './Movies.jsx'
 import { BulkBar, EmptyState, ErrorText, FieldIconButton, GhostButton, HandCard, IconBooks, IconButton, IconCheck, IconDelete, IconEdit, IconMerge, IconMetadata, IconMore, IconOpen, IconPerson, IconRefresh, IconSearch, IconStats, IconUsers, InfoDot, MonoLabel, NameInput, NameScroll, normName, PageHeader, ProgressBar, Scroller, splitCommas, Tooltip, PanelHost, usePanelStack, useConfirm, useIsMobileScreen, usePersistedState, useScreenBar } from './ui.jsx'
-import { PersonModal, PersonName, ProviderChips, mergeLinks, parseCreditSeps, parseLinks, splitCredits } from './people.jsx'
-import { characterPanel } from './identity.jsx'
+import { PersonModal, personImgURL, ProviderChips, mergeLinks, parseCreditSeps, parseLinks, splitCredits } from './people.jsx'
+import { characterPanel, personPanel } from './identity.jsx'
 import { ReverifyFlow } from './ReverifyReview.jsx'
 import { editDistance } from './text.js'
 
@@ -223,18 +223,18 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch }
     const r = await json('GET', '/characters')
     if (r.ok) setChars(r.data.characters)
   }, [])
-  // PEOPLE ARE COUNTED BY RECORD, WHICH IS NOT WHAT THE CONSOLE LISTS. The console
-  // asks /people/names — one row per printed spelling, filtered to one role — and
-  // that number would put "31" beside a door to a library of nine people. The rail
-  // says how many records there are; the console still says how many spellings it
-  // is showing.
-  const [peopleCount, setPeopleCount] = useState(null)
+  // AND THE PEOPLE LIST FOR THE SAME REASON. The rail says how many records there
+  // are, which is a different question from how many rows the console is showing
+  // — that one is filtered by role and by the search box, and it says so itself.
+  const [people, setPeople] = useState(null)
+  const loadPeople = useCallback(async () => {
+    const r = await json('GET', '/people/records')
+    if (r.ok) setPeople(r.data.people || [])
+  }, [])
   useEffect(() => {
     loadChars()
-    json('GET', '/people/records').then((r) => {
-      if (r.ok) setPeopleCount((r.data.people || []).length)
-    })
-  }, [loadChars])
+    loadPeople()
+  }, [loadChars, loadPeople])
 
   // The overview's number is a count of GAPS, not of records: it is the sum of
   // every warned tile, which is the same arithmetic the tiles draw one at a time.
@@ -245,7 +245,7 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch }
         stats.dialogues.missing_actor
       : null,
     works: lib ? lib.books.length + lib.movies.length : null,
-    people: peopleCount,
+    people: people ? people.length : null,
     characters: chars ? chars.length : null,
   }
   return (
@@ -362,7 +362,7 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch }
               <DuplicatesPanel onDone={load} onFlash={setFlash} />
             </>
           ) : sect === 'people' ? (
-            <PeopleConsole onFlash={setFlash} onReverify={(people) => setReverify({ people })} onSearch={onSearch} />
+            <PeopleConsole records={people} onReload={loadPeople} onFlash={setFlash} onReverify={(who) => setReverify({ people: who })} onSearch={onSearch} />
           ) : (
             <>
               {/* Beside the people list and never inside it — see CharactersConsole. */}
@@ -1517,7 +1517,19 @@ export function CharactersConsole({ rows = null, onReload = null }) {
             <tbody>
               {shown.map((c) => (
                 <tr key={c.id}>
-                  <td>{c.name}</td>
+                  {/* THE FACE BESIDE THE NAME, where the record has chosen one. A
+                      list of forty characters is a list of forty names that look
+                      alike — "Narrator", "Narrator", "Narrator" — and the picture
+                      is the fastest thing in the row to tell two of them apart.
+                      Where there is none the slot is absent rather than a grey
+                      rectangle: an empty box in every row of a list is noise, and
+                      the works column already says which rows need work. */}
+                  <td>
+                    <span className="char-name">
+                      {c.image_path && <img className="char-name-face" src={coverImgURL(c.image_path)} alt="" loading="lazy" />}
+                      <span>{c.name}</span>
+                    </span>
+                  </td>
                   {/* A count of zero is stated rather than left blank: blank reads
                       as "not loaded" and this is the row the list exists to surface. */}
                   <td className="mono-label" style={{ color: c.works === 0 ? 'var(--error)' : 'var(--soft)' }}>
@@ -1605,28 +1617,30 @@ function nearDupGroups(names) {
 // THE RENAME ENDPOINT STAYS AND IS STILL RIGHT for what it is for — correcting a
 // misspelling everywhere, which is a statement about the spelling rather than
 // about identity. The person panel is where a reader asks for that.
-function DupCard({ group, kind, rowsByName, onMerged }) {
+function DupCard({ group, onMerged }) {
+  // The likeliest keeper: the one with a portrait, then the one carrying more of
+  // the library. A reader can override it — that is what the radios are for — and
+  // the default matters because most of these are accepted as offered.
   const def = [...group].sort((a, b) =>
-    (rowsByName[b]?.has_image ? 1 : 0) - (rowsByName[a]?.has_image ? 1 : 0) || b.length - a.length)[0]
-  const [keep, setKeep] = useState(def)
+    (b.image_path ? 1 : 0) - (a.image_path ? 1 : 0) || (b.works || 0) - (a.works || 0) || b.name.length - a.name.length)[0]
+  const [keep, setKeep] = useState(def.id)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
+  const keeper = group.find((p) => p.id === keep) || def
 
+  // ONE ENDPOINT NOW, WHERE THERE WERE TWO. The card used to fall back to
+  // POST /people/rename for a spelling with no record behind it, because the list
+  // was keyed by printed name and a pre-upgrade library could hold one the server
+  // had not resolved. This list is keyed by record, so every row in a group IS a
+  // record and there is nothing left for the fallback to catch — a rename here
+  // would have rewritten a name across the library where a merge folds two
+  // records and leaves every cover printing what it prints.
   async function merge() {
     setBusy(true)
     setErr('')
-    const keepID = rowsByName[keep]?.person_id
-    for (const n of group) {
-      if (n === keep) continue
-      const dropID = rowsByName[n]?.person_id
-      // A SPELLING WITH NO RECORD FALLS BACK TO THE RENAME, rather than being
-      // skipped in silence. Every credited name has had a record since the
-      // identity model landed, so this is the pre-upgrade library and the odd row
-      // the server could not resolve — and for those the old behaviour is still
-      // the only one available.
-      const r = keepID && dropID && keepID !== dropID
-        ? await json('POST', '/people/merge', { keep_id: keepID, drop_id: dropID })
-        : await json('POST', '/people/rename', { kind, from: n, to: keep })
+    for (const p of group) {
+      if (p.id === keep) continue
+      const r = await json('POST', '/people/merge', { keep_id: keep, drop_id: p.id })
       if (!r.ok) { setBusy(false); return setErr(errText(r, t('error.merge.failed'))) }
     }
     setBusy(false)
@@ -1637,19 +1651,25 @@ function DupCard({ group, kind, rowsByName, onMerged }) {
     <HandCard variant={2} style={{ padding: '12px 14px' }}>
       <MonoLabel>{t('metadata.people.dup.title')}</MonoLabel>
       <div className="mt-1.5 flex flex-col gap-1">
-        {group.map((n) => (
-          <label key={n} className="flex items-center gap-2" style={{ cursor: 'pointer' }}>
-            <input type="radio" name={`dup-${kind}-${group.join('|')}`} checked={keep === n} onChange={() => setKeep(n)} />
-            <span>{n}</span>
-            {rowsByName[n]?.has_image && <span className="mono-label" style={{ color: 'var(--soft)' }}>· {t('metadata.people.photo.label')}</span>}
+        {group.map((p) => (
+          <label key={p.id} className="flex items-center gap-2" style={{ cursor: 'pointer' }}>
+            <input type="radio" name={`dup-${group.map((x) => x.id).join('-')}`} checked={keep === p.id} onChange={() => setKeep(p.id)} />
+            {p.image_path && <img className="person-dup-face" src={personImgURL(p.image_path)} alt="" loading="lazy" />}
+            <span>{p.name}</span>
+            {/* HOW MUCH HANGS OFF EACH, because that is what the choice is about:
+                folding the record with 12 books into the one with none loses
+                nothing, and the reader cannot tell which is which from the name. */}
+            <span className="mono-label" style={{ color: 'var(--soft)' }}>
+              · {t('identity.merge.hit.works', { n: p.works || 0, count: p.works || 0 })}
+            </span>
           </label>
         ))}
       </div>
       <div className="mt-2 flex items-center gap-3">
         {/* Same glyph and the same keepLabel as the book merge above: one act,
-            two consoles, and it rewrites names across the library either way. */}
+            two consoles. */}
         <GhostButton type="button" icon={<IconMerge />} keepLabel disabled={busy} onClick={merge}>
-          {busy ? t('metadata.people.merge.busy') : t('metadata.people.merge.label', { name: keep })}
+          {busy ? t('metadata.people.merge.busy') : t('metadata.people.merge.label', { name: keeper.name })}
         </GhostButton>
         <ErrorText>{err}</ErrorText>
       </div>
@@ -1657,9 +1677,20 @@ function DupCard({ group, kind, rowsByName, onMerged }) {
   )
 }
 
-// PEOPLE_KINDS — the five toggles, as [stored kind, the key that names it]. Keys
-// again, resolved at the chip that draws one, for the reason GAP_KEYS gives.
-const PEOPLE_KINDS = [
+// PEOPLE_ROLES — the chips, as [stored role, the key that names it]. Keys rather
+// than words, because the words are resolved at render — see GAP_KEYS.
+//
+// ALL LEADS, and it is not decoration. A record's roles are DERIVED from its
+// credits, so a record the reader made by hand, or one whose last credit was
+// deleted, belongs to no role at all — and those are exactly the rows a review
+// list exists to surface. Defaulting to Authors hid them.
+//
+// Studios are their own chip, not folded in with directors, because the two share
+// movies.director and are told apart only by media_type — listing them together
+// would offer a studio for renaming as a director, which rewrites the wrong half
+// of the catalogue.
+const PEOPLE_ROLES = [
+  ['all', 'metadata.people.kind.all.label'],
   ['author', 'metadata.people.kind.author.label'],
   ['actor', 'metadata.people.kind.actor.label'],
   ['director', 'metadata.people.kind.director.label'],
@@ -1667,16 +1698,16 @@ const PEOPLE_KINDS = [
   ['speaker', 'metadata.people.kind.speaker.label'],
 ]
 
-// The countable noun each kind is counted in, for the mobile one-liner — shared
-// nouns, because a director is a director wherever the app counts them. STUDIO IS
-// NEW: the inline map this replaces had four rows, so the studio chip read
-// "5 undefineds still need photos or links".
-const PEOPLE_NOUNS = {
+// The countable noun a role is named by, one per row. Shared nouns, because a
+// director is a director wherever the app counts them.
+const PEOPLE_ROLE_NOUN = {
   author: 'unit.author',
   actor: 'unit.actor',
   director: 'unit.director',
   studio: 'unit.studio',
   speaker: 'unit.speaker',
+  translator: 'unit.translator',
+  editor: 'unit.editor',
 }
 
 // What an empty list says, per kind. Same missing fifth row as above: a studio
@@ -1689,102 +1720,123 @@ const PEOPLE_EMPTY = {
   speaker: 'metadata.people.empty.speaker',
 }
 
-// PeopleConsole — every author/actor referenced in the library, with their
-// external reference pages (IMDb · TMDB · TheTVDB · Wikipedia · Open Library).
-// This metadata backs the person popup that opens when a name is clicked
-// anywhere in the app — including right here (each row's name opens it).
-// Links are fetched per row or in bulk for the ones still missing; rows stay
-// listed even when no longer referenced so stale metadata remains manageable.
-export function PeopleConsole({ onFlash, onReverify, onSearch }) {
-  const [kind, setKind] = useState('author')
-  const [rows, setRows] = useState(null)
+// PeopleConsole — every person RECORD in the library, with the works and the
+// quotes hanging off each.
+//
+// KEYED BY RECORD, WHICH IT WAS NOT. It listed `/people/names`: one row per
+// printed spelling, filtered to one role. That answers "which names does my
+// library print", which is the right question for a re-verify sweep and the wrong
+// one for a review list — Bulgakov spelled four ways was four rows of a quarter
+// each, and a record no work prints was not in the list at all. The list beside it
+// has been record-keyed since characters got a table, and two lists under one
+// heading keyed differently is the thing a reader notices first.
+//
+// SO THE COUNTS ARE NOW TRUE. `works` is credits plus cast appearances and
+// `quotes` is the two link columns, both per record — a merged Bulgakov reads 12
+// and 128 here where the spelling list showed four rows of three books each.
+//
+// AND THE NAME OPENS THE RECORD. It used to open the enrichment modal, which edits
+// a bio and a portrait under a (kind, name) pair; the record panel — the credits,
+// the roles this person has played, the spellings that find them, the merge and
+// the split — was not reachable from this screen at all. It is the name's
+// destination now, and the modal keeps the portrait, reached from the row's own
+// face.
+export function PeopleConsole({ onFlash, onReverify, onSearch, records = null, onReload = null }) {
+  const [role, setRole] = useState('all')
+  const [own, setOwn] = useState(null)
   const [q, setQ] = useState('')
-  const [busyName, setBusyName] = useState('')
+  const [busyID, setBusyID] = useState(0)
   const [bulk, setBulk] = useState(null) // {done, total} while bulk-fetching
   const [err, setErr] = useState('')
-  // {kind, name} captured at click time, so flipping the Authors/Actors toggle
-  // while the modal is open can't re-key it.
+  // {kind, name} captured at click time, for the portrait editor.
   const [person, setPerson] = useState(null)
+  const stack = usePanelStack()
 
-  async function load(k = kind) {
-    const r = await json('GET', `/people/names?kind=${k}`)
-    if (r.ok) setRows(r.data.people)
+  // HANDED IN OR FETCHED, decided by the caller — the same arrangement the
+  // character console has and for the same reason: the metadata page prints this
+  // list's size on the rail beside its door, and a list read twice is two numbers
+  // that can disagree.
+  const owned = !onReload
+  const load = useCallback(async () => {
+    if (!owned) return onReload()
+    const r = await json('GET', '/people/records')
+    if (r.ok) setOwn(r.data.people || [])
     else setErr(errText(r))
-  }
+  }, [owned, onReload])
   useEffect(() => {
-    setRows(null)
-    setErr('')
-    load(kind)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [kind])
+    if (owned) load()
+  }, [owned, load])
+  const rows = owned ? own : records
 
+  const inRole = (p) => role === 'all' || (p.kinds || []).includes(role)
   const shown = useMemo(() => {
-    const s = q.trim().toLowerCase()
-    return (rows || []).filter((p) => !s || p.name.toLowerCase().includes(s))
-  }, [rows, q])
-  // A row still needs work if it has no provider links OR no stored photo.
-  const noLinks = (p) => Object.keys(parseLinks(p.links).known).length === 0
-  const missing = shown.filter((p) => noLinks(p) || !p.has_image)
-  // Near-duplicate clusters (typos / transliterations of one person) to offer a
-  // one-click merge — computed over the full list, not the search filter.
-  // A GROUP WHOSE SPELLINGS ALREADY POINT AT ONE RECORD IS NOT A DUPLICATE, and
-  // dropping it here is what makes the card honest after a merge. A merge leaves
-  // every work printing what it printed — that is the promise — so "Bob Peck" and
-  // "Robert Peck" both stay in this list afterwards, look exactly as alike as they
-  // did, and the card would offer to merge them again for ever. person_id is what
-  // says they are already the same person.
-  const dupGroups = useMemo(() => {
-    const byName = Object.fromEntries((rows || []).map((p) => [p.name, p]))
-    return nearDupGroups((rows || []).map((p) => p.name)).filter((g) => {
-      const ids = new Set(g.map((n) => byName[n]?.person_id).filter(Boolean))
-      // Fewer than two distinct records means there is nothing left to merge.
-      // An unresolved spelling (no id at all) keeps the group, because a name the
-      // server could not resolve is exactly the one worth looking at.
-      return ids.size !== 1 || g.some((n) => !byName[n]?.person_id)
+    const term = q.trim().toLowerCase()
+    return (rows || []).filter(inRole).filter((p) => {
+      if (!term) return true
+      // THE SPELLINGS ARE SEARCHED TOO, which is the point of storing them: a
+      // reader looking for "M. Bulgakov" is looking for the record that answers to
+      // it, and a search that only reads the canonical name would tell them it is
+      // not there.
+      return p.name.toLowerCase().includes(term) || (p.spellings || []).some((sp) => sp.toLowerCase().includes(term))
     })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, q, role])
+
+  // A row still needs work if it has no provider links OR no stored portrait.
+  const noLinks = (p) => Object.keys(parseLinks(p.links).known).length === 0
+  const missing = shown.filter((p) => noLinks(p) || !p.image_path)
+
+  // Near-duplicate clusters over RECORDS, not spellings. The old list computed
+  // them over printed names, so two spellings of one record looked like two people
+  // and the card offered to merge something into itself for ever; the guard that
+  // dropped those groups is unnecessary now, because a record IS the identity the
+  // comparison is about.
+  const dupGroups = useMemo(() => {
+    const byName = {}
+    for (const p of rows || []) byName[p.name] = byName[p.name] || p
+    const names = Object.keys(byName)
+    return nearDupGroups(names)
+      .map((g) => g.map((n) => byName[n]).filter(Boolean))
+      .filter((g) => g.length >= 2)
   }, [rows])
-  const rowsByName = useMemo(() => Object.fromEntries((rows || []).map((p) => [p.name, p])), [rows])
 
   // fetchOne resolves the RIGHT person (book/credits disambiguation), fetches
   // their portrait and pins the identity via POST /people/portrait, then merges
   // the identity-resolved links into the row (bio/born untouched). Returns an
-  // error string or null, like the form handlers do. This is what makes the
-  // console pick the correct namesake — the old /people/lookup ranked by work
-  // count and grabbed the wrong "David Reich".
+  // error string or null, like the form handlers do.
+  //
+  // IT STILL SPEAKS THE (kind, name) LANGUAGE, because the portrait ladder does:
+  // an author is resolved from their books and an actor from a film's credits, and
+  // the record's own roles are what say which. The first role is used, defaulting
+  // to author for a record that carries none — which is most of them, since a role
+  // is derived from a credit and an unreferenced record has no credit.
   async function fetchOne(p) {
+    const kind = (p.kinds || [])[0] || 'author'
     const r = await json('POST', '/people/portrait', { kind, name: p.name })
     if (!r.ok) return errText(r)
     const cur = r.data.person && r.data.person.id ? r.data.person : null
-    // Prefer the links the portrait resolved from the same identity; fall back to
-    // a plain lookup (e.g. actors, or an author with no confident match).
     let linksMap = r.data.links && Object.keys(r.data.links).length ? r.data.links : null
     if (!linksMap) {
       const l = await json('POST', '/people/lookup', { kind, name: p.name })
       if (l.ok) linksMap = l.data.links
     }
     const merged = mergeLinks(cur?.links ?? p.links, linksMap)
-    // The portrait may have stored an image even when there are no links — only
-    // the link save is conditional; a clean run still counts as success.
     if (merged && merged !== (cur?.links ?? p.links ?? '')) {
-      const s = await json('PUT', '/people', {
-        kind,
-        name: p.name,
-        bio: cur?.bio || '',
-        born: cur?.born || '',
-        links: merged,
-        source: cur?.source || 'portrait',
-        source_id: cur?.source_id || '',
-      })
-      if (!s.ok) return errText(s)
+      // THE RECORD, BY ID. The old console wrote through PUT /people, which upserts
+      // by (kind, name) and lands on the LOWEST id where two records share a name —
+      // so fetching links for the second of two namesakes wrote them onto the
+      // first. The record endpoint cannot make that mistake.
+      const save = await json('PUT', `/people/id/${p.id}`, { links: merged })
+      if (!save.ok) return errText(save)
     }
     return null
   }
 
   async function fetchRow(p) {
-    setBusyName(p.name)
+    setBusyID(p.id)
     setErr('')
     const e = await fetchOne(p)
-    setBusyName('')
+    setBusyID(0)
     if (e) setErr(t('metadata.people.row.error', { name: p.name, error: e }))
     load()
   }
@@ -1808,8 +1860,8 @@ export function PeopleConsole({ onFlash, onReverify, onSearch }) {
     // The joining space is CODE, not the head of a value: the parser trims both
     // halves of a line, so a value that starts with a space loses it.
     onFlash(
-      t('metadata.people.fetch.flash', { ok: missing.length - failed, failed }) +
-        (firstErr ? ` ${t('metadata.people.fetch.flash.reason', { error: firstErr })}` : ''),
+      t('metadata.people.fetch.flash', { ok: done - failed, failed }) +
+        (firstErr ? ' ' + t('metadata.people.fetch.flash.reason', { error: firstErr }) : ''),
     )
     load()
   }
@@ -1822,12 +1874,12 @@ export function PeopleConsole({ onFlash, onReverify, onSearch }) {
         <InfoDot text={t('metadata.people.info.body')} />
         <MonoLabel>{t('metadata.shown.count', { n: shown.length })}</MonoLabel>
         <div className="ml-auto flex flex-wrap items-center gap-2">
-          {/* Studios are their own row, not folded in with directors, because the
-              two share movies.director and are told apart only by media_type —
-              listing them together would offer a studio for renaming as a
-              director, which rewrites the wrong half of the catalogue. */}
-          {PEOPLE_KINDS.map(([k, label]) => (
-            <button key={k} className={'tp-filter-chip' + (kind === k ? ' active' : '')} onClick={() => setKind(k)}>
+          {/* ALL FIRST, because a record's roles are DERIVED from its credits and a
+              record with none — one the reader made, or one whose last credit went
+              — belongs to no chip. Filtering to a role by default hid exactly the
+              rows this list exists to surface. */}
+          {PEOPLE_ROLES.map(([k, label]) => (
+            <button key={k} className={'tp-filter-chip' + (role === k ? ' active' : '')} onClick={() => setRole(k)}>
               {t(label)}
             </button>
           ))}
@@ -1845,9 +1897,9 @@ export function PeopleConsole({ onFlash, onReverify, onSearch }) {
                above — the same act against a different kind of row. */
             <GhostButton
               icon={<IconRefresh />}
-              disabled={!!bulk || !(rows || []).some((p) => p.saved)}
+              disabled={!!bulk || shown.length === 0}
               title={t('metadata.people.reverify.tip')}
-              onClick={() => onReverify((rows || []).filter((p) => p.saved).map((p) => ({ kind, name: p.name })))}
+              onClick={() => onReverify(shown.map((p) => ({ kind: (p.kinds || [])[0] || 'author', name: p.name })))}
             >
               {t('metadata.people.reverify.label')}
             </GhostButton>
@@ -1867,7 +1919,7 @@ export function PeopleConsole({ onFlash, onReverify, onSearch }) {
             ? t('metadata.people.summary', {
                 count: missing.length,
                 n: missing.length,
-                noun: t(PEOPLE_NOUNS[kind], { count: missing.length }),
+                noun: t('unit.person', { count: missing.length }),
               })
             : t('metadata.coverage.complete')}
         </p>
@@ -1876,86 +1928,47 @@ export function PeopleConsole({ onFlash, onReverify, onSearch }) {
         <div className="space-y-2">
           <MonoLabel>{t('metadata.people.dups.count', { n: dupGroups.length })}</MonoLabel>
           {dupGroups.map((g, i) => (
-            <DupCard key={i} group={g} kind={kind} rowsByName={rowsByName} onMerged={() => load()} />
+            <DupCard key={i} group={g} onMerged={load} />
           ))}
         </div>
       )}
       {!rows ? (
         <EmptyState>{t('common.state.loading')}</EmptyState>
       ) : shown.length === 0 ? (
-        <EmptyState>{t(PEOPLE_EMPTY[kind])}</EmptyState>
+        <EmptyState>{t(role === 'all' ? 'metadata.people.empty.all' : PEOPLE_EMPTY[role])}</EmptyState>
       ) : (
         <Scroller className="ann-table-wrap" axis="both" style={{ maxHeight: 'min(28em, 60vh)', overflowY: 'auto' }}>
           <table className="ann-table">
             <thead>
               <tr>
                 <th>{t('common.field.name.label')}</th>
-                <th>
-                  {t(kind === 'author'
-                    ? 'metadata.people.column.books'
-                    : kind === 'speaker'
-                      ? 'metadata.people.column.quotes'
-                      : 'metadata.people.column.titles')}
-                </th>
+                <th>{t('metadata.people.column.roles')}</th>
+                <th>{t('metadata.people.column.works')}</th>
+                <th>{t('metadata.people.column.quotes')}</th>
                 <th>{t('common.field.links.label')}</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
               {shown.map((p) => (
-                <tr key={p.name}>
-                  <td>
-                    <PersonName kind={kind} name={p.name} onOpen={setPerson} />
-                    {p.has_image && (
-                      <span className="mono-label" style={{ marginLeft: 6, color: 'var(--soft)' }} title={t('metadata.people.photo.tip')}>· {t('metadata.people.photo.label')}</span>
-                    )}
-                  </td>
-                  <td>
-                    {/* Work count → search, which matches authors on book
-                        hits and actors on dialogue hits. Saved-but-no-
-                        longer-referenced rows count 0 — nothing to find. */}
-                    {p.count > 0 ? (
-                      <Tooltip label={t('metadata.people.search.tip', { name: p.name })} side="top">
-                        <button
-                          className="tp-link"
-                          onClick={() => onSearch?.(p.name)}
-                        >
-                          {p.count}
-                        </button>
-                      </Tooltip>
-                    ) : (
-                      <span className="microcopy">0</span>
-                    )}
-                  </td>
-                  <td><ProviderChips links={p.links} /></td>
-                  <td className="col-actions">
-                    {/* ONE glyph for both words. `fetch` and `refetch` are the
-                        same act — go and get this person's photo and links —
-                        and the label flips only because the row already has
-                        some. Two drawings for that would say the acts differ. */}
-                    <button
-                      className="tp-link tp-link-icon"
-                      disabled={busyName === p.name || !!bulk}
-                      onClick={() => fetchRow(p)}
-                    >
-                      <IconRefresh />
-                      <span>
-                        {busyName === p.name
-                          ? t('metadata.people.row.fetch.busy')
-                          : (Object.keys(parseLinks(p.links).known).length > 0 || p.has_image)
-                            ? t('metadata.people.row.refetch.label')
-                            : t('metadata.people.row.fetch.label')}
-                      </span>
-                    </button>
-                  </td>
-                </tr>
+                <PersonRow
+                  key={p.id}
+                  p={p}
+                  busy={busyID === p.id || !!bulk}
+                  onOpen={() => stack.open(personPanel(stack, { id: p.id, name: p.name }))}
+                  onPortrait={() => setPerson({ kind: (p.kinds || [])[0] || 'author', name: p.name })}
+                  onSearch={onSearch}
+                  onFetch={() => fetchRow(p)}
+                />
               ))}
             </tbody>
           </table>
         </Scroller>
       )}
-      {/* onSaved must reload: a rename/delete/photo/link change from inside the
-          modal changes this console's rows. */}
+      <PanelHost stack={stack} />
+      <PanelReload stack={stack} onEmpty={load} />
+      {/* onSaved must reload: a portrait or a link change from inside the modal
+          changes this console's rows. */}
       {person && (
         <PersonModal
           kind={person.kind}
@@ -1965,5 +1978,74 @@ export function PeopleConsole({ onFlash, onReverify, onSearch }) {
         />
       )}
     </section>
+  )
+}
+
+// PersonRow — one record.
+//
+// THE FACE IS THE PORTRAIT EDITOR, exactly as a cast row's face is that role's
+// picture editor. It was a word — "· photo" — beside the name, which says a
+// portrait exists and shows neither it nor a way to change it; a list of ninety
+// names is where a face is worth most, because it is the fastest thing in a row
+// to recognise.
+function PersonRow({ p, busy, onOpen, onPortrait, onSearch, onFetch }) {
+  const face = p.image_path ? personImgURL(p.image_path) : ''
+  const roles = (p.kinds || []).map((k) => t(PEOPLE_ROLE_NOUN[k] || 'unit.person', { count: 1 }))
+  return (
+    <tr>
+      <td>
+        <span className="person-name-cell">
+          <button
+            type="button"
+            className={'person-face-btn' + (face ? '' : ' is-empty')}
+            aria-label={t('metadata.people.portrait.aria', { name: p.name })}
+            onClick={onPortrait}
+          >
+            {face ? <img src={face} alt="" loading="lazy" /> : <span aria-hidden="true" />}
+          </button>
+          <span className="person-name-text">
+            <button type="button" className="tp-link" onClick={onOpen}>{p.name}</button>
+            {/* THE OTHER SPELLINGS, UNDER THE NAME. This is what one record standing
+                for four rows looks like, and without it the merged list reads as if
+                three names went missing. */}
+            {(p.spellings || []).length > 0 && (
+              <span className="microcopy" style={{ color: 'var(--faint)' }}>
+                {t('metadata.people.also', { names: p.spellings.join(' · ') })}
+              </span>
+            )}
+          </span>
+        </span>
+      </td>
+      <td className="microcopy" style={{ color: 'var(--soft)' }}>{roles.join(' · ') || '—'}</td>
+      <td>
+        {/* Work count → search, which matches authors on book hits and actors on
+            dialogue hits. A record nothing references counts 0 — nothing to find. */}
+        {p.works > 0 && onSearch ? (
+          <Tooltip label={t('metadata.people.search.tip', { name: p.name })} side="top">
+            <button className="tp-link" onClick={() => onSearch(p.name)}>{p.works}</button>
+          </Tooltip>
+        ) : (
+          <span className="microcopy">{p.works || 0}</span>
+        )}
+      </td>
+      <td className="mono-label" style={{ color: 'var(--soft)' }}>{p.quotes || 0}</td>
+      <td><ProviderChips links={p.links} /></td>
+      <td className="col-actions">
+        {/* ONE glyph for both words. `fetch` and `refetch` are the same act — go
+            and get this person's photo and links — and the label flips only because
+            the row already has some. Two drawings for that would say the acts
+            differ. */}
+        <button className="tp-link tp-link-icon" disabled={busy} onClick={onFetch}>
+          <IconRefresh />
+          <span>
+            {busy
+              ? t('metadata.people.row.fetch.busy')
+              : (Object.keys(parseLinks(p.links).known).length > 0 || p.image_path)
+                ? t('metadata.people.row.refetch.label')
+                : t('metadata.people.row.fetch.label')}
+          </span>
+        </button>
+      </td>
+    </tr>
   )
 }
