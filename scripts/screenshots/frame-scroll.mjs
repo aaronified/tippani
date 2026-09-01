@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// Does the work detail's frame actually scroll, and does it clip?
+// The work detail screen, measured in a real browser: does its frame scroll,
+// does it clip, and is the book's own name drawn in one piece?
 //
 // THE FAILURE THIS EXISTS FOR is a screen that opts out of the window's scroll
 // and then gives nothing back. That screen locks the document at 100dvh and asks
@@ -65,6 +66,13 @@ const SIZES = [
   { w: 1440, h: 520, label: 'a short window, where the stream MUST overflow' },
 ]
 
+// THE NAME IS CHECKED ACROSS THE OTHER ARRANGEMENT'S WHOLE BAND, not at one
+// width, because what breaks it is a float fitting on one line and not the next
+// — which is a property of the exact number, not of the layout. 900 is where it
+// was caught; its neighbours 1000 and 800 were both fine, which is precisely why
+// one sample would have said the screen was well.
+const NAME_WIDTHS = [1179, 1100, 1000, 950, 900, 850, 800, 780]
+
 async function measure(page) {
   return page.evaluate(() => {
     const q = (s) => document.querySelector(s)
@@ -82,6 +90,48 @@ async function measure(page) {
       // which is the same failure as not scrolling, one step later.
       heroFade: q('.tp-detail-hero') ? q('.tp-detail-hero').getAttribute('data-scroll-v') : null,
       streamFade: q('.tp-detail-stream') ? q('.tp-detail-stream').getAttribute('data-scroll-v') : null,
+    }
+  })
+}
+
+// A NAME'S LINES ALL START IN THE SAME PLACE, or something has cut into it.
+//
+// THE DEFECT THIS CATCHES, seen at exactly 1179x820 down to about 950: the hero
+// floats its action buttons right and its cover left, and where the buttons left
+// a sliver on the first line the title flowed into it — so "Moby-Dick; or, The
+// Whale" was drawn as "Moby-" on one line, then five buttons, then "Dick; or,
+// The Whale" beside the cover. The book's name torn in half with a toolbar in the
+// tear. Nothing clipped, nothing overflowed, every existing guard passed: the
+// name was all there, in the wrong two places.
+//
+// It is measured rather than eyeballed because it is a property of the exact
+// width. The test is simple and general — group the title's client rects into
+// lines by their top edge, take each line's left edge, and fail when they
+// disagree. A title that wraps is fine; a title that wraps AROUND something is
+// not.
+async function nameIsWhole(page) {
+  return page.evaluate(() => {
+    const h1 = document.querySelector('[data-screen-label="book-detail"] h1')
+    if (!h1) return { ok: false, why: 'the detail drew no title at all' }
+    const range = document.createRange()
+    range.selectNodeContents(h1)
+    const rects = [...range.getClientRects()].filter((r) => r.width > 0 && r.height > 0)
+    if (!rects.length) return { ok: false, why: 'the title has no drawn text' }
+    // One entry per line, keyed by rounded top; the value is that line's left.
+    const lines = new Map()
+    for (const r of rects) {
+      const key = Math.round(r.top)
+      lines.set(key, Math.min(lines.has(key) ? lines.get(key) : Infinity, Math.round(r.left)))
+    }
+    const lefts = [...lines.values()]
+    const spread = Math.max(...lefts) - Math.min(...lefts)
+    return {
+      ok: spread <= 1,
+      spread,
+      lines: lefts.length,
+      text: h1.textContent.trim().slice(0, 60),
+      why: `the title is drawn on ${lefts.length} lines starting at ${lefts.join('px, ')}px — ` +
+        'a float has cut into the name',
     }
   })
 }
@@ -131,6 +181,18 @@ try {
       )
     }
   }
+
+  // The other arrangement's whole band. Height is fixed and irrelevant here —
+  // what is being asked is a question about width.
+  for (const w of NAME_WIDTHS) {
+    await page.setViewport({ width: w, height: 820 })
+    await page.goto(`${opts.baseUrl}/books/${opts.bookId}`, { waitUntil: 'networkidle0' })
+    await page.waitForSelector('[data-screen-label="book-detail"] h1', { timeout: opts.timeoutMs })
+    await new Promise((r) => setTimeout(r, 600))
+    const n = await nameIsWhole(page)
+    console.log(`${w}x820   title on ${n.lines ?? '?'} line(s), left spread ${n.spread ?? '?'}px  ${n.ok ? 'whole' : 'BROKEN'}`)
+    if (!n.ok) failures.push(`${w}x820: ${n.why}  (“${n.text ?? ''}”)`)
+  }
 } finally {
   await browser.close()
 }
@@ -140,4 +202,4 @@ if (failures.length) {
   for (const f of failures) console.error('  - ' + f)
   process.exit(1)
 }
-console.log('\nframe-scroll: the frame is bounded and both columns scroll')
+console.log('\nframe-scroll: the frame is bounded, both columns scroll, and the name is whole at every width')

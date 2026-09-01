@@ -108,6 +108,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A book's name is no longer broken in half by the buttons beside it.** In a window
+  around 850–950px wide, the row of actions on a work's page left just enough space on the
+  first line for the title to start there and finish underneath — so *Moby-Dick; or, The
+  Whale* was drawn as "Moby-", then five buttons, then "Dick; or, The Whale". Nothing was
+  missing and nothing overflowed; the name was simply in two places with a toolbar in the
+  gap. The title now always starts below the actions, at every width.
+
 - **Updating from Settings now works from any device, not just a browser on the server.**
   Pressing *Update* starts two image downloads before the server has anything to say back,
   and on a slow line that is minutes of silence — which is exactly the kind of request a

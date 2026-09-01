@@ -1574,7 +1574,18 @@ export function WorkHero({
       <div className="w-36 sm:w-44" style={{ float: 'left', marginRight: 24, marginBottom: 14, filter: shadow }}>
         {cover}
       </div>
-      <h1 className="display-title" style={{ fontSize: titleSize, ...titleStyle }}>
+      {/* `clear: right` IS THE WHOLE FIX FOR A NAME TORN IN HALF, and it is worth
+          the sentence. The actions float right; between about 850 and 950px they
+          are wide enough to leave a sliver on the FIRST line and nothing after
+          it, so the title flowed into that sliver: "Moby-Dick; or, The Whale"
+          was drawn as "Moby-", then five buttons, then "Dick; or, The Whale"
+          beside the cover. Nothing clipped and nothing overflowed — the name was
+          all there, in the wrong two places, and every guard in the repo passed.
+          Clearing the right float means the title never shares a line with the
+          toolbar, at any width. The COVER float is deliberately not cleared:
+          text beside the cover is the arrangement, and it is what the whole
+          float layout exists for. `frame-scroll.mjs` measures the band. */}
+      <h1 className="display-title" style={{ fontSize: titleSize, clear: 'right', ...titleStyle }}>
         {title}
       </h1>
       {meta && <div className="mt-2.5">{meta}</div>}
