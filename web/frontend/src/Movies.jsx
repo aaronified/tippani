@@ -1129,6 +1129,7 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce
             cover={<Poster path={movie.poster_path} title={movie.title} zoomable />}
             title={movie.title}
             kindRow={kindRow}
+            miniSub={detailMeta || null}
             progress={movie.progress > 0 ? movie.progress / 100 : null}
             meta={
               metaParts.length > 0 && (

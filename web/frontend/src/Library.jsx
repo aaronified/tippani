@@ -88,6 +88,7 @@ import {
   ReviewDot,
   Scroller,
   Select,
+  StickerButton,
   seriesLabel,
   SheetFooter,
   splitCommas,
@@ -962,6 +963,7 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce 
             title={book.title}
             titleStyle={{ lineHeight: 1.15 }}
             kindRow={kindRow}
+            miniSub={detailAuthor || null}
             // The progress strip, welded to the foot of the cover rather than
             // drawn as its own row. Only while there is progress to show: a 0%
             // track on a book you have not opened is a bar that says nothing.
@@ -1728,6 +1730,15 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
   const [color, setColor] = useState('') // filter, '' = all
   const [tag, setTag] = useState('') // filter by NAME, '' = all
   const [fav, setFav] = useState(false)
+  // NOTED AND TAGGED, the pack's other two chips (its fourth, "unread", means
+  // nothing for a quote). CLIENT-SIDE, unlike colour/tag/favourite: those three
+  // are query parameters the server already understands, and adding two more
+  // would be a handler change and a store change for a filter over a set that is
+  // already in the browser. The unfiltered counts stay correct either way — they
+  // are recorded on an unfiltered REQUEST, and these two do not change the
+  // request.
+  const [noted, setNoted] = useState(false)
+  const [tagged, setTagged] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [total, setTotal] = useState(null) // unfiltered count for "N quotes · M shown"
   // The same unfiltered set, counted four ways for the hero (see countQuotes).
@@ -1766,7 +1777,19 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
   }, [stats])
 
   const { stickers, reload: reloadStickers } = useStickers()
-  const filtering = Boolean(color || tag || fav)
+  const filtering = Boolean(color || tag || fav || noted || tagged)
+  // THE CHIPS, DECLARED ONCE AND DRAWN TWICE — the desktop row and the phone's
+  // filter sheet. Written inline in both places they had already drifted to one
+  // chip on each; a screen that offers a different set of filters depending on
+  // the device is offering a different board.
+  //
+  // The pack draws four. Its fourth is "unread", which means nothing for a
+  // quote, so three is the whole set here.
+  const quoteChips = [
+    { on: fav, set: setFav, label: t('common.filters.favourites.label'), tip: t('common.favourite.filter.tip') },
+    { on: noted, set: setNoted, label: t('common.filters.noted.label'), tip: t('common.filters.noted.tip', { noun: t('unit.quote.other') }) },
+    { on: tagged, set: setTagged, label: t('common.filters.tagged.label'), tip: t('common.filters.tagged.tip', { noun: t('unit.quote.other') }) },
+  ]
   // Chips take colour + style from the tag object (name-keyed map).
   const tagMap = useMemo(() => Object.fromEntries(tags.map((row) => [row.name, row])), [tags])
   // Attached stickers resolve id → image for the card seal.
@@ -1778,9 +1801,18 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
     setPinned([])
     setSort((s) => (s.col === col ? { col, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { col, dir: 'asc' }))
   }
+  // The two client-side chips, applied before the sort so every view and the
+  // "N shown" count see the same set.
+  const chipRows = useMemo(() => {
+    if (!items) return items
+    if (!noted && !tagged) return items
+    return items.filter(
+      (a) => (!noted || (a.note || '').trim().length > 0) && (!tagged || (a.tags || []).length > 0),
+    )
+  }, [items, noted, tagged])
   // Client-side sort for the table view only; list/tiles keep server (recent) order.
   const sortedRows = useMemo(() => {
-    const arr = items ? [...items] : []
+    const arr = chipRows ? [...chipRows] : []
     if (view !== 'table' || sort.col === 'default') return arr
     const dir = sort.dir === 'asc' ? 1 : -1
     const val = (a) => {
@@ -1803,7 +1835,7 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
       return a.id - b.id
     })
     return arr
-  }, [items, view, sort])
+  }, [chipRows, view, sort])
   // What every view actually renders: the current order (server-recent for
   // list/tiles, the chosen column for table) with freshly-added items pinned on
   // top. sortedRows already returns a server-order copy of items for non-table
@@ -1852,6 +1884,7 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
     () => displayRows.slice(0, Math.max(rowsWin.count, pinnedShown)),
     [displayRows, rowsWin.count, pinnedShown],
   )
+
   // One board seed drives both the masonry jitter and each card's clamp height,
   // so the two stay in step and a given book always lays out the same way.
   const boardSeed = book?.id || bookId || 1
@@ -2030,11 +2063,15 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
               </div>
             )}
             <div>
+              {/* The same three the desktop row draws — see there for why they
+                  are FilterChips. A phone that offers one filter and a desktop
+                  that offers three is the divergence this screen keeps finding
+                  in itself; the list is written once and read twice. */}
               <MonoLabel className="mb-2 block">show only</MonoLabel>
               <div className="flex flex-wrap items-center gap-2">
-                <button onClick={() => setFav(!fav)} className={filterChipClass(fav)} title={t('common.favourite.filter.tip')}>
-                  ♥ favourites
-                </button>
+                {quoteChips.map((c) => (
+                  <FilterChip key={c.label} active={c.on} label={c.label} tooltip={c.tip} onClick={() => c.set(!c.on)} />
+                ))}
               </div>
             </div>
             <div>
@@ -2084,10 +2121,28 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
                 />
               </>
             )}
+            {/* THREE CHIPS, NOT ONE, and every one of them announces its state.
+                The pack draws four; its fourth is "unread", which means nothing
+                for a quote, so three is the whole set here.
+
+                FilterChip rather than a hand-rolled <button>: it sets
+                aria-pressed, and its own comment says why — "a toggle that only
+                announces its state in one of the two states is a toggle a screen
+                reader reads as a plain button half the time". The one that was
+                here was that button, and it carried its ♥ as a CHARACTER in the
+                label, so the mark sized and coloured as text and was read out as
+                a word.
+
+                ON-CHIPS FIRST. A switched-on filter that has scrolled out of
+                sight under the fade is a board quietly hiding rows for a reason
+                nothing on screen still says. */}
             <Scroller axis="x" className="board-head-chips">
-              <button onClick={() => setFav(!fav)} className={filterChipClass(fav)} title={t('common.favourite.filter.tip')}>
-                ♥ favourites
-              </button>
+              {quoteChips
+                .slice()
+                .sort((a, b) => Number(b.on) - Number(a.on))
+                .map((c) => (
+                  <FilterChip key={c.label} active={c.on} label={c.label} tooltip={c.tip} onClick={() => c.set(!c.on)} />
+                ))}
             </Scroller>
           </div>
           <div className="board-head-verbs">
@@ -2096,7 +2151,14 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
                 this book as the target — the shell's ＋ knows which page it is
                 on. This is the desktop route to it; the phone's is the ＋ in the
                 detail bar above. */}
-            <GhostButton onClick={() => onAdd?.('quote', { type: 'book', id: bookId })}>{t('book.quotes.capture.label')}</GhostButton>
+            {/* THE ACCENT BELONGS TO THE ONE CONTROL THAT ADDS SOMETHING — the
+                pack's own words about this row, in the comment on a view toggle
+                it decided not to draw here at all. Add was a ghost button while
+                the toggle beside it wore the accent gradient, so the row's
+                loudest element was a lens. (The toggle's own accent is
+                .tp-toggle-thumb, which every toggle in the app shares; moving
+                View into the ⋯ is the pack's answer and is a separate change.) */}
+            <StickerButton onClick={() => onAdd?.('quote', { type: 'book', id: bookId })}>{t('book.quotes.capture.label')}</StickerButton>
           </div>
         </div>
       )}

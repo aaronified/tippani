@@ -583,6 +583,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   gained everything the last change gave a book's:** the line above the title, people as
   chips, the big count, progress on the poster's own foot.
 
+- **Scroll a work's details and its cover, title and author follow you.** Past the
+  point where the title leaves the top of the column, a small bar takes its place
+  carrying the poster, the name and who it is by — so a long set of details never
+  leaves you wondering which book you are looking at. It appears only when there is
+  something to appear for, and it never moves the page under you.
+
+- **A book's quotes can be filtered by notes and by tags, not just by favourites.**
+  Two of the three chips the design calls for were missing; there was one, and on a
+  phone the filter sheet offered the same one. All three are on both now, a switched-on
+  filter sorts to the front so it cannot scroll out of sight, and each one tells a
+  screen reader whether it is on — which none of them did. The button that adds a
+  quote also takes the accent it should have had: it was a quiet outline while the
+  view switch beside it wore the brightest colour in the row.
+
 - **The quote board stopped cutting itself into columns of syllables.** On a 1080p
   screen a book's quotes were dealt into four columns about 170px wide — a few words
   per line — and on a wider screen, five. The board was asking how wide the *window*

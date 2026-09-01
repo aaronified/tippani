@@ -4628,6 +4628,74 @@
   }
   .work-hero-shelfbar > span { display: block; height: 100%; background: var(--accent-ui); }
 
+  /* ---- THE COMPACT BAR, once the header has scrolled away -----------------
+     The owner's request rather than the pack's: "when the hero section is
+     scrolled down, the poster, title and author needs to morph into a small top
+     bar in that section."
+
+     A STICKY SLOT OF ZERO HEIGHT with the bar absolutely inside it. A sticky bar
+     that joins the flow when it appears pushes everything below it down by its
+     own height — a jump under the reader's thumb in the middle of a scroll, and
+     the one thing a bar that exists to steady you must not do. This one occupies
+     no layout at all, ever, so appearing and disappearing move nothing.
+
+     `top: 0` is the top of the SCROLLPORT, so it lands flush against the visible
+     edge of the column rather than under its padding. */
+  .work-hero-mini-slot { position: sticky; top: 0; height: 0; z-index: 3; }
+  .work-hero-mini {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+    background: var(--bg);
+    border-bottom: 1px solid var(--line);
+  }
+  /* The cover at a thumbnail. Not a share of --cover-w: this is an identifier at
+     a glance, and the ratio is what makes it read as the same book. */
+  .work-hero-mini-cover { width: 30px; flex: none; aspect-ratio: 2 / 3; border-radius: 2px 3px 2px 3px; overflow: hidden; }
+  .work-hero-mini-cover > * { width: 100%; height: 100%; }
+  .work-hero-mini-text { min-width: 0; display: grid; gap: 1px; }
+  /* ONE LINE EACH, and this is the one place in the app where a name is allowed
+     to be cut — because it is not the name, it is a REPEAT of a name that is
+     three inches above it and comes back the moment you scroll up. The standing
+     rule protects the row whose whole job is to show the name; this row's job is
+     to say which page you are still on. */
+  .work-hero-mini-title {
+    font-family: var(--font-display);
+    font-style: var(--font-display-style);
+    font-variant-caps: var(--font-display-caps);
+    font-size: var(--type-display-15);
+    font-weight: 600;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .work-hero-mini-sub {
+    font-size: var(--type-ui-11);
+    color: var(--soft);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  /* THE MARKER NEEDS REAL AREA, and a zero-height one is why the bar would not
+     appear. An IntersectionObserver fires on a CHANGE of intersection, and a box
+     with no area never intersects anything — so the callback ran once at mount,
+     said "not intersecting", and was never called again however far the column
+     scrolled. Every measurement said the marker was above the top; nothing ever
+     told the hook.
+
+     1x1 and ABSOLUTELY POSITIONED, pinned to the bottom edge of the title row: it
+     has area to observe and costs the grid neither a row nor a gap, which a 1px
+     child in flow would. Bottom, because the bar exists for the moment the title
+     has gone. */
+  .work-hero-title { position: relative; }
+  .work-hero-mark { position: absolute; left: 0; bottom: 0; width: 1px; height: 1px; }
+
   .work-hero-kind {
     display: flex;
     align-items: center;

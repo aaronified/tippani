@@ -39,6 +39,7 @@ import {
   StateTag,
   StatusBar,
   useCrumb,
+  useScrolledPast,
   useScreenBar,
   ReadingBadge,
   Toggle,
@@ -1637,9 +1638,58 @@ export function WorkHero({
   // furniture — the fade is measured, so a row that fits wears none either.
   onPeople,
   peopleCount = 0,
+  // The one line the compact bar carries under the title once the header has
+  // scrolled away — the author, the director, whoever this work is by. A string,
+  // not the credit chips: at 13px in a bar 44px tall a row of faces is a row of
+  // dots, and what the bar is FOR is telling you what you are still looking at.
+  miniSub,
 }) {
+  // WHEN THE HEADER SCROLLS AWAY, WHAT IT WAS SAYING DOES NOT. The owner's
+  // request: "when the hero section is scrolled down, the poster, title and
+  // author needs to morph into a small top bar in that section."
+  //
+  // The pack does not draw this — it is the owner's own, so the design is here.
+  // A marker sits below the title block and reports when it leaves the top of
+  // whatever is scrolling it (useScrolledPast finds that for itself, because
+  // this header lives in a column above 1180 and in the page below it, and one
+  // component must not have to be told which). Past that point the bar is
+  // visible; before it, nothing.
+  const [scrolled, mark] = useScrolledPast()
   return (
     <div className="work-hero">
+      {/* A STICKY SLOT OF ZERO HEIGHT, with the bar absolutely inside it, and
+          that shape is the whole trick: a sticky bar that joins the flow when it
+          appears pushes everything below it down by its own height, which as a
+          reader is a jump under your thumb in the middle of a scroll. This one
+          never occupies a pixel of layout, so showing and hiding it costs
+          nothing and the content behind it does not move.
+
+          MOUNTED ONLY WHILE IT IS SHOWN, rather than always present and faded
+          out, and the reason is not performance. A bar that is always in the
+          document puts a SECOND COPY OF THE TITLE there — invisible, but found
+          by anything that looks for the name by its text, which broke nine tests
+          the moment it landed and would have broken every future one that asks
+          "is the book's name on this page". aria-hidden keeps it out of the
+          accessibility tree; it cannot keep it out of the document. Mounting on
+          demand means there is exactly one title at rest, which is the truth.
+
+          It costs the fade — the bar appears rather than easing in — and that is
+          the right way round: a rest state may not depend on anything firing,
+          and this content now does not.
+
+          Drawn only when there is a title to carry — a header with no name is
+          not a header worth repeating. */}
+      {title && scrolled && (
+        <div className="work-hero-mini-slot is-shown" aria-hidden="true">
+          <div className="work-hero-mini">
+            <div className="work-hero-mini-cover">{cover}</div>
+            <div className="work-hero-mini-text">
+              <div className="work-hero-mini-title">{title}</div>
+              {miniSub && <div className="work-hero-mini-sub">{miniSub}</div>}
+            </div>
+          </div>
+        </div>
+      )}
       {/* THE COVER IS AN OBJECT IN THE HEADER, NOT THE HEADER. The pack draws it
           at 132px, which in the 300px column is 44% of the width with the rest
           left as air. Read once as a ratio and given `width: 100%`, it was 2.3x
@@ -1664,7 +1714,21 @@ export function WorkHero({
               {title}
             </h1>
             <Hearts value={!!favorite} onChange={onFavorite} />
+            {/* THE MARKER, INSIDE THE TITLE ROW AND PINNED TO ITS BOTTOM EDGE.
+                The bar repeats the poster, the title and the author, so it is
+                wanted from the moment THOSE have gone — not when the whole block
+                of facts has, which is what putting it below the split meant: on a
+                1440x380 window the column offered 367px of scroll and the marker
+                sat 368px down, so the bar could not appear at all. A control
+                unreachable at every real size is one that was never built.
+
+                1x1 and absolute (see the stylesheet): an IntersectionObserver
+                fires on a CHANGE of intersection and a zero-area box never
+                intersects anything, so a marker with no height was observed once
+                and never again. */}
+            <span ref={mark} aria-hidden="true" className="work-hero-mark" />
           </div>
+
           {/* GENRES ARE LINKS, NOT PILLS, and they sit directly under the title.
               They are the same KIND of fact as the year and the language above —
               something this work is, that you can follow — so they take the same

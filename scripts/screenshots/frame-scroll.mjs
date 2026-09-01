@@ -294,6 +294,114 @@ try {
     }
   }
 
+  // ---- THE COMPACT BAR, WHICH ONLY A REAL BROWSER CAN SEE ------------------
+  //
+  // The owner's request: "when the hero section is scrolled down, the poster,
+  // title and author needs to morph into a small top bar in that section."
+  //
+  // jsdom stubs IntersectionObserver with a class whose callback is never called,
+  // so every assertion about this in the unit suite is vacuously true — the bar
+  // can never appear there, in either direction. This is the only place it can be
+  // watched arriving.
+  //
+  // AND THE THING IT MUST NOT DO IS MOVE THE PAGE. A sticky bar that joins the
+  // flow pushes everything below it down by its own height, which as a reader is
+  // a jump under your thumb mid-scroll. The scroll position is read before and
+  // after, and they have to agree.
+  let miniSeen = false
+  // THE INVARIANT, IN BOTH DIRECTIONS, rather than "scroll and hope a bar turns
+  // up". Whether the fixture's hero is tall enough to push its own marker off the
+  // top depends on the cover, the type dial and the window — at 1440x520 there is
+  // 218px of scroll room and the cover alone is 225px, so it CANNOT happen there,
+  // and a check that demanded a bar would be demanding a bug.
+  //
+  // What is actually claimed is: the bar is present exactly when the marker is
+  // above the top of the column, and never otherwise. That is checkable at any
+  // height and is never vacuous — where the marker cannot be pushed off, it
+  // asserts the bar stays away, which is the half that was wrong first (the bar
+  // appeared at rest on every short window, because "not intersecting" is true
+  // below the fold as well as above it).
+  // 340 IS IN THE LIST BECAUSE THE OTHERS CANNOT REACH IT. The fixture book has a
+  // short description and three credits, so its header is ~748px and the marker
+  // sits 368px down — which means the column has to be shorter than 380px before
+  // it can push its own marker off the top. At 380 it misses by ONE PIXEL. A real
+  // book with a paragraph of description and six genres clears it on any laptop;
+  // the fixture does not, and a check that only ever asserted "no bar" would be
+  // half a check. So one height is chosen to make it fire.
+  for (const [w, h] of [[1440, 900], [1440, 520], [1440, 380], [1440, 340]]) {
+    await page.setViewport({ width: w, height: h })
+    await page.goto(`${opts.baseUrl}/books/${opts.bookId}`, { waitUntil: 'networkidle0' })
+    await page.waitForSelector('[data-screen-label="book-detail"] h1', { timeout: opts.timeoutMs })
+    await new Promise((r) => setTimeout(r, 1200))
+    const mini = await page.evaluate(async () => {
+      const col = document.querySelector('.tp-detail-hero')
+      const mark = document.querySelector('.work-hero-mark')
+      if (!col || !mark) return { why: !col ? 'no hero column' : 'no marker in the header' }
+      const read = () => {
+        const bar = document.querySelector('.work-hero-mini')
+        return {
+          bar: !!bar && bar.getBoundingClientRect().height > 0,
+          above: mark.getBoundingClientRect().top < col.getBoundingClientRect().top,
+        }
+      }
+      // A second copy of the name in the document is the cost of this bar, so it
+      // may not be paid until it is wanted.
+      const rest = { ...read(), titles: document.querySelectorAll('[data-screen-label="book-detail"] h1, .work-hero-mini-title').length }
+      col.scrollTop = col.scrollHeight
+      await new Promise((r) => setTimeout(r, 450))
+      const at = col.scrollTop
+      const bottom = read()
+      await new Promise((r) => setTimeout(r, 250))
+      return {
+        rest,
+        bottom,
+        room: Math.round(col.scrollHeight - col.clientHeight),
+        // How far the marker sits below the top of the column at rest. The bar
+        // can only ever appear when the column has more scroll room than this.
+        markOffset: Math.round(mark.getBoundingClientRect().top - col.getBoundingClientRect().top + col.scrollTop),
+
+        moved: Math.abs(col.scrollTop - at),
+        hasCover: !!document.querySelector('.work-hero-mini-cover'),
+      }
+    })
+    if (mini.why) {
+      failures.push(`${w}x${h}: ${mini.why}`)
+      continue
+    }
+    console.log(
+      `${w}x${h}   compact bar: ${mini.room}px of room, marker ${mini.markOffset}px down · at rest bar=${mini.rest.bar} above=${mini.rest.above} ` +
+        `titles=${mini.rest.titles} · scrolled bar=${mini.bottom.bar} above=${mini.bottom.above} · moved ${mini.moved}px`,
+    )
+    for (const [when, r] of [['at rest', mini.rest], ['scrolled to the end', mini.bottom]]) {
+      if (r.bar !== r.above) {
+        failures.push(
+          `${w}x${h}: ${when}, the marker is ${r.above ? '' : 'not '}above the top of the column and the compact bar is ` +
+            `${r.bar ? 'shown' : 'absent'} — it must be shown exactly when the header it repeats has gone`,
+        )
+      }
+    }
+    if (mini.rest.titles !== 1) {
+      failures.push(`${w}x${h}: ${mini.rest.titles} copies of the title in the document at rest — there must be exactly one`)
+    }
+    if (mini.bottom.bar) miniSeen = true
+    if (mini.bottom.bar && !mini.hasCover) {
+      failures.push(`${w}x${h}: the compact bar is shown but carries no cover — it is meant to carry the poster`)
+    }
+    // A sticky bar that joins the flow pushes everything below it down by its own
+    // height: a jump under the reader's thumb, mid-scroll, from the one element
+    // that exists to steady them.
+    if (mini.moved > 1) {
+      failures.push(`${w}x${h}: the column moved ${mini.moved}px when the bar appeared — it must cost no layout`)
+    }
+  }
+
+  if (!miniSeen) {
+    failures.push(
+      'the compact bar never appeared at any height — the invariant held, but only in its "stay away" ' +
+        'half, which is a check that would pass on a bar that had been deleted',
+    )
+  }
+
   // ---- HOW WIDE ONE QUOTE CARD ACTUALLY IS -------------------------------
   //
   // The owner's report, twice: "i see 4 columns in the board tile, all very

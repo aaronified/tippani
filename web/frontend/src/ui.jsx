@@ -853,6 +853,77 @@ export function useColumnScroll(ref, key) {
 export const BOARD_COLUMNS = [[1900, 5], [1600, 4], [1280, 3], [640, 2]]
 export const QUOTE_COLUMNS = [[1900, 5], [1600, 4], [1280, 3], [860, 2]]
 
+// useScrolledPast — has this point scrolled out of the top of whatever is
+// scrolling it? Returns [past, ref]; put the ref on a marker and the answer
+// follows it.
+//
+// IT FINDS ITS OWN SCROLLER, by walking up for the first ancestor whose computed
+// overflow-y actually scrolls, and falls back to the window when there is none.
+// That matters more here than it looks: a work's header lives in a column that
+// scrolls independently above 1180 and in a page that scrolls with the window
+// below it, and the one component drawing that header must not have to be told
+// which — a prop saying "here is my scroll container" is the second thing a
+// caller can get wrong.
+//
+// ---- AN INTERSECTIONOBSERVER CANNOT ANSWER THIS, and it took a browser to show
+// it. The obvious build is an observer on the marker: not intersecting, and above
+// the root's top, means scrolled past. It is wrong in the case that matters, and
+// wrong SILENTLY — every measurement agreed the marker was above the top and
+// nothing ever told the hook.
+//
+// An observer fires on a CHANGE of intersection. On a window short enough that
+// the marker starts below the fold, the marker goes from below the root to above
+// the root WITHOUT EVER INTERSECTING IT: the state is false at the start and
+// false at the end, so there is no change, so there is no callback. Measured in
+// Firefox at 1440x340 — the observer fired exactly once, at mount, and never
+// again however far the column scrolled. And the shorter the window, the more
+// certainly this happens, which is precisely the window where a compact header is
+// worth having.
+//
+// So: a passive scroll listener and a rect comparison, coalesced to one read per
+// frame. React bails out of a set that does not change the value, so the steady
+// state costs a comparison and nothing else.
+export function useScrolledPast() {
+  const [past, setPast] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    let root = el.parentElement;
+    while (root && root !== document.body) {
+      const oy = getComputedStyle(root).overflowY;
+      if (oy === "auto" || oy === "scroll") break;
+      root = root.parentElement;
+    }
+    if (root === document.body) root = null; // the window is the scroller
+    const scroller = root || window;
+    let raf = 0;
+    const read = () => {
+      raf = 0;
+      if (!ref.current) return;
+      const top = root ? root.getBoundingClientRect().top : 0;
+      setPast(ref.current.getBoundingClientRect().top < top);
+    };
+    const onScroll = () => {
+      if (!raf) raf = requestAnimationFrame(read);
+    };
+    read();
+    scroller.addEventListener("scroll", onScroll, { passive: true });
+    // The answer changes on a resize with no scroll at all: the column grows, the
+    // marker comes back into view, and nothing scrolled.
+    window.addEventListener("resize", onScroll, { passive: true });
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+      scroller.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+    };
+    // The marker is rendered unconditionally on the first render, so there is
+    // nothing to re-key on — unlike useColumnsIn's board, which mounts late.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return [past, ref];
+}
+
 // useColumnsIn — the column count for a board that does NOT span the window.
 //
 // WHY useColumnsAt IS NOT ENOUGH ANY MORE, and it is worth saying plainly because
