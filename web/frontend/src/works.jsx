@@ -1617,6 +1617,12 @@ export function WorkHero({
 // button AT the fade that opens the full set — which is the rest of that rule.
 export function WorkHeroColumn({
   cover,
+  // The SAME default as WorkHero's, and it is not decoration: --detail-pad is
+  // written as max(1.6em, 22px) precisely so the fade's mask does not clip this,
+  // and both index.css and PLAN.md give that as the reason for the number. The
+  // column dropped the prop on the way in, so the cover it was protecting was
+  // flat — a padding defending a shadow nobody was drawing.
+  shadow = 'drop-shadow(0 12px 22px rgba(0,0,0,.4))',
   // The line the pack puts above the title: what this is, when, and in what
   // language — each part a link where the app has a screen to send it to.
   kindRow,
@@ -1639,7 +1645,7 @@ export function WorkHeroColumn({
 }) {
   return (
     <div className="work-hero-col">
-      <div className="work-hero-col-cover">{cover}</div>
+      <div className="work-hero-col-cover" style={{ filter: shadow }}>{cover}</div>
       {kindRow && <div className="work-hero-col-kind">{kindRow}</div>}
       <div className="work-hero-col-title">
         <h1 className="display-title" style={{ fontSize: titleSize, lineHeight: 1.15, ...titleStyle }}>

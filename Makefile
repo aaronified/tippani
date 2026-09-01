@@ -12,7 +12,7 @@ TVDB_TOKEN ?=
 LDFLAGS := -s -w -X tippani/internal/buildinfo.Version=$(VERSION) \
 	-X main.defaultTMDBKey=$(TMDB_TOKEN) -X main.defaultTVDBKey=$(TVDB_TOKEN)
 
-.PHONY: build frontend glossary changelog test run clean typescale
+.PHONY: build frontend glossary changelog test run clean typescale frame-scroll
 
 ## build: static binary with the currently built (or placeholder) frontend embedded
 build:
@@ -38,6 +38,13 @@ glossary:
 ## recorded debt lives in scripts/screenshots/typescale-baseline.json and may only fall.
 typescale:
 	bash scripts/screenshots/run-typescale.sh
+
+## frame-scroll: open a book's detail in a real browser and fail if the locked page
+## clips or a column cannot scroll. jsdom has no layout, so the vitest suite cannot
+## see this at all — test/pure/screen-scroll-chain.test.js guards the stylesheet half,
+## and this measures the result.
+frame-scroll:
+	bash scripts/screenshots/run-frame-scroll.sh
 
 ## perf: measure main-thread blocking per action against a scratch server, and fail
 ## when any action crosses the budget. See scripts/perf/README.md for what the number

@@ -65,7 +65,7 @@
     "web/frontend/src/history.js": "13604d919e7e8f7cdd3f637895907b2ff30425282e3049c6a3fa5524f2f3be19",
     "web/frontend/src/i18n.js": "6056197526bb55ee44f4a4c3be19304e9c48bf83af8e98f6c44dfa80fd82afe5",
     "web/frontend/src/identity.jsx": "f153a8b4802d47fe8b5a3f3bf0ebb3f17710b652c1eec2c9a02f4a6802c24359",
-    "web/frontend/src/index.css": "9054ffd4b681e80e698c0dfc85877fcb006614d3a640bb305a89e153eaa38ecd",
+    "web/frontend/src/index.css": "bb9985f8a92744110c23d1e9ceeacb048e4d26b746d61c9162e3e2e4f15f30ca",
     "web/frontend/src/keys.js": "75e1fd35adf3747681c0ddd7aff0b71d01d8961cd890e5525be6d4dd85d5fd9a",
     "web/frontend/src/languages.jsx": "869532cdca1124db41a7447cd9a05588698bb37dd78c230af38f0de3a3af7b12",
     "web/frontend/src/locale.jsx": "3c27a6f83604ccbaa173750f33fbd08ea2add93b6239ef1627af1969ea56b174",
@@ -117,9 +117,9 @@
     "web/frontend/src/tokens.js": "3f21045159a3304c079ed97f902709696e27c57df7f1115214871d7891564886",
     "web/frontend/src/tour.jsx": "1f6c462e783701b16fe660bcdb270acb759a3e8f29c830750ad4aea449220cc4",
     "web/frontend/src/type.js": "42a611ce846b7d8493821b93314c59ca104f95b557b02dbb0d4a9698a35083af",
-    "web/frontend/src/ui.jsx": "c938076ed28d413b25b7bd3d323d52252e5f792d4d2cf9a4cfae88012a2e046f",
+    "web/frontend/src/ui.jsx": "5664918f9ce716e923bc2d17047afb36b6f3c0b27d0826b9584705023ff857c7",
     "web/frontend/src/undo.jsx": "27dd04ac24e09c8b53b5caee551b7ecd575ae012aa087fa87e3d31ed767e0834",
-    "web/frontend/src/works.jsx": "a6e71b525baae81604ca622147db3bac6e92e00d56ac81343debb3741588f2e9",
+    "web/frontend/src/works.jsx": "4f969e8b99d2b6f31f88926b4cb784e42c7eaa0678f9510b8759738d6ddb0514",
     "web/frontend/vite.config.js": "e68566c44bb7553c2567ffeb6da9c308065ed32bebe1b2a625148cbd387c55d8"
   }
 }

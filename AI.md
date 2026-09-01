@@ -146,7 +146,7 @@ AI-written code fails differently from hand-written code. It compiles, it reads
 well, it is plausibly commented, and it can still be wrong — so plausibility is
 worth nothing here and only execution counts. What the repo actually runs:
 
-- **1,357 Go test functions and 2,238 frontend tests, across 400 test files** — the
+- **1,360 Go test functions and 2,245 frontend tests, across 401 test files** — the
   Go half over real HTTP handlers against a real SQLite database, not mocks.
   Counted, not estimated, and every number here has a command that reproduces it:
 
@@ -155,7 +155,7 @@ worth nothing here and only execution counts. What the repo actually runs:
   cd web/frontend && npm test                                            # frontend tests
   find . -name '*_test.go' -not -path './node_modules/*' | wc -l         # 222 Go files
   find ./web/frontend -path '*/node_modules' -prune -o \
-       -type f \( -name '*.test.*' -o -name '*.spec.*' \) -print | wc -l # 178 frontend
+       -type f \( -name '*.test.*' -o -name '*.spec.*' \) -print | wc -l # 179 frontend
   ```
 
   A number in a file like this one is stale the moment it is written, so recount
@@ -261,6 +261,18 @@ worth nothing here and only execution counts. What the repo actually runs:
   fresh database the pass writes nothing whether the guard is there or not, so
   inverting the guard left the obvious test green and only a direct call with a
   populated database caught it.
+- **A green suite is evidence about whatever the suite can see, and no more.** A screen
+  was built to lock the document and scroll two columns inside it, marked done on 2,238
+  passing frontend tests, and did not scroll at all: one link in its chain of heights was
+  missing, so both columns grew to their content and the locked body cut off everything
+  past the first screen. **jsdom has no layout** — `scrollHeight` is a constant 0 there —
+  so not one of those 2,238 tests could have failed on it, and none of them was about it.
+  The sentence "done, suite green" was true and irrelevant in the same breath. The repair
+  is two guards rather than one, because a single one cannot cover this:
+  `screen-scroll-chain.test.js` reads the stylesheet and fails when a link is deleted, and
+  `make frame-scroll` opens the page in Firefox and fails on a clipped page or a column
+  that cannot scroll. **Before claiming a layout works, measure the layout** — the
+  browser harness exists for exactly the class of failure the unit suite is blind to.
 - **Two numbers that must agree read each other rather than a copy.** The threshold
   that decides whether a cover is worth replacing is the server's
   (`lowResCoverWidth`); the client draws the same fact in red. Written as a comment

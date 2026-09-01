@@ -4191,12 +4191,13 @@
      move independently while the page underneath both of them is the scroller,
      which is the whole reason the flag exists.
 
-     100dvh AND NOT 100vh: on a phone the two differ by the URL bar, and vh
-     measures the taller one — so a locked page would sit exactly one URL bar
-     taller than the screen and scroll nowhere useful. The phone does not take
-     this path at all (works.jsx passes false below 769px), and dvh is here so
-     that the tablet width, which does, is right on a browser with a collapsing
-     chrome.
+     100dvh AND NOT 100vh: the two differ by the browser's own collapsing chrome,
+     and vh measures the taller one — so a locked page would sit exactly one URL
+     bar taller than the screen and scroll nowhere useful. Nothing below 1180px
+     takes this path at all (Library.jsx passes `wide`, which is
+     TWO_COLUMN_QUERY), so no phone or tablet reaches it today; dvh is here
+     because a 1180px-wide window on a browser with collapsing chrome is not
+     hypothetical, and because the correct unit costs nothing.
 
      THE CONTAINER'S CAP AND PADDING GO. The pack computes this screen's stream
      as the window minus the rail minus the hero, capped at 880 for measure — so
@@ -4209,21 +4210,82 @@
     height: 100dvh;
     overflow: hidden;
   }
-  html[data-scroll='screen'] .container-tp {
-    max-width: none;
-    margin: 0;
-    padding: 0;
+  /* THE CHAIN FROM THE VIEWPORT TO THE COLUMNS HAS TO BE UNBROKEN, and one
+     missing link costs the whole thing SILENTLY — which is exactly what shipped
+     the first time.
+     ...
+     `.container-tp { height: 100% }` was the whole of it, and a percentage height
+     resolves against a parent that has one. Its parent is Tailwind's
+     `.min-h-screen`, which is min-height and nothing else, so the chain ended one
+     element above where it started: main grew to its content, every box below it
+     grew with it, both columns ended up exactly as tall as what was in them —
+     `scrollHeight - clientHeight = 0`, no scrollbar, nothing to drag — and the
+     body's own `overflow: hidden` then cut off everything past the first screen.
+     A book's quotes were unreachable and the page looked deliberate.
+     Measured in Firefox at 1440x900: body 900px holding 1062px, and not one
+     scrollable box in the chain.
+     ...
+     So every link is stated here, and each one needs BOTH halves: a definite
+     height from above (`flex: 1`) and permission to be shorter than its content
+     (`min-height: 0`, without which a flex item's automatic minimum size is its
+     content and it grows anyway). The chain is
+     `.min-h-screen -> main.container-tp -> .tab-panel -> [data-screen-label] ->
+     .tp-detail -> the two columns`, and `frame-scroll.mjs` measures it in a real
+     browser because jsdom has no layout and cannot fail on any of this. */
+  /* #root IS PART OF THE CHAIN and is the easiest link to forget, because it is
+     the one element the app never styles: index.html declares it, React mounts
+     into it, and nothing has ever needed it to have a size. Skip it and
+     `.min-h-screen`'s `height: 100%` resolves against an auto-height parent —
+     which is `auto`, which is how the first attempt at this chain measured
+     1062px inside a 900px window and still looked like it had been written.
+     `min-height: 0` here is deliberately not relied on for .min-h-screen: that
+     is a Tailwind utility, `@layer utilities` sorts after `@layer components`,
+     and a layer beats specificity — so the class keeps its 100vh floor whatever
+     this says, and the height is written to agree with it rather than fight it. */
+  html[data-scroll='screen'] #root {
+    height: 100%;
+  }
+  html[data-scroll='screen'] .min-h-screen {
     height: 100%;
     display: flex;
     flex-direction: column;
   }
-  /* min-height:0 is what lets a flex child be SHORTER than its content and
-     scroll, instead of growing to fit it and pushing the lock off the bottom of
-     the screen. Without it the columns are the right width and never scroll. */
-  html[data-scroll='screen'] .container-tp > * {
+  /* The bar is sticky, so it is still in flow and still a flex item — and it is
+     the one that must keep its own height rather than share the leftovers. */
+  html[data-scroll='screen'] .topbar { flex: none; }
+  html[data-scroll='screen'] .container-tp {
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  /* EVERY SCREEN SECTION ON THE WAY DOWN, not just the first one. A book detail
+     is nested inside the Library screen's own [data-screen-label], so a child
+     combinator here reached the wrapper and stopped one element above the
+     section that actually holds the frame — the chain looked complete in the
+     stylesheet and was broken in the page. A descendant selector is right
+     because only one screen is mounted at a time. */
+  html[data-scroll='screen'] .container-tp > *,
+  html[data-scroll='screen'] .tab-panel [data-screen-label],
+  html[data-scroll='screen'] .tp-detail {
     flex: 1;
     min-height: 0;
   }
+  /* A block box does not pass a bounded height to what is inside it: it would
+     simply overflow, invisibly, into a body that is hiding its overflow. Every
+     container on the way down therefore becomes a column. */
+  html[data-scroll='screen'] .tab-panel,
+  html[data-scroll='screen'] .tab-panel [data-screen-label] {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  /* The phone bar is display:none at this width — this is belt and braces, so a
+     future breakpoint change cannot hand it half the screen. */
+  html[data-scroll='screen'] .container-tp > .mobile-topbar { flex: none; }
 
   /* ---- THE WORK DETAIL'S TWO COLUMNS -------------------------------------
      Geometry as custom properties on the frame's own root, not as numbers in the
@@ -4325,6 +4387,17 @@
     justify-self: start;
     font-size: var(--type-ui-12);
     color: var(--soft);
+  }
+  /* The counts strip and the shelf state. Both are rows of small controls the
+     column stacks like everything else — they had no rule at all, which left
+     them relying on whatever the children happened to lay out as. */
+  .work-hero-col-counts,
+  .work-hero-col-state {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: calc(var(--row) / 2);
+    min-width: 0;
   }
   .work-hero-col-genres { overflow-x: auto; overscroll-behavior: contain; white-space: nowrap; display: flex; gap: 6px; }
   .work-hero-col-actions { display: flex; flex-wrap: wrap; gap: 8px; }

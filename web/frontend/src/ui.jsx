@@ -339,11 +339,12 @@ export function useCrumbTitle() {
 // yet and must keep scrolling the way they always have. A global change here
 // would silently re-lay-out nine screens nobody has looked at.
 //
-// AND IT IS DESKTOP-ONLY BY THE CALLER'S CHOICE. On a phone there is one column,
-// so independence buys nothing structural — while a body locked at 100dvh is the
-// most reliable mobile layout bug there is, and takes URL-bar collapse and
-// pull-to-refresh with it. The hook does what it is told; works.jsx passes false
-// below 769px.
+// AND IT IS DESKTOP-ONLY BY THE CALLER'S CHOICE. On one column, independence
+// buys nothing structural — while a body locked at 100dvh is the most reliable
+// mobile layout bug there is, and takes URL-bar collapse and pull-to-refresh with
+// it. The hook does what it is told: Library.jsx passes `wide`, which is
+// TWO_COLUMN_QUERY, so everything below 1180px — phone and tablet alike — keeps
+// the window scroller it has always had.
 let screenScroll = false
 const scrollSubs = new Set()
 function publishScreenScroll(v) {
@@ -796,10 +797,34 @@ export function useColumnScroll(ref, key) {
     const el = ref.current
     if (!el || !key) return
     const y = columnScroll.get(key)
-    // INSTANT, for App.jsx's stated reason: gliding to a remembered position
-    // scrolls the whole column past a reader to land where they already were.
-    if (y) el.scrollTo({ top: y, behavior: 'instant' })
+    let stop = false
+    // THE COLUMN IS NOT TALL ENOUGH TO HOLD THE POSITION YET, and a scrollTo that
+    // arrives early does not fail — it CLAMPS, silently, to the top. The stream's
+    // quotes are fetched after mount, so at the moment this effect first runs the
+    // column holds a filter bar and nothing else, and a single restore attempt is
+    // a restore to 0 every time: the memory looked implemented and remembered
+    // nothing. App.jsx's window restore has retried across frames for exactly this
+    // reason since it was written; this is that loop, per column.
+    //
+    // ~0.7s of frames is the same cap, and the same reasoning: a list that has not
+    // arrived by then is not arriving, and spinning longer would scroll a reader
+    // who has already started reading somewhere else.
+    let tries = 0
+    const attempt = () => {
+      if (stop || !ref.current) return
+      const node = ref.current
+      if (node.scrollHeight - node.clientHeight >= y || tries > 40) {
+        // INSTANT, for App.jsx's stated reason: gliding to a remembered position
+        // scrolls the whole column past a reader to land where they already were.
+        node.scrollTo({ top: y, behavior: 'instant' })
+        return
+      }
+      tries++
+      requestAnimationFrame(attempt)
+    }
+    if (y) requestAnimationFrame(attempt)
     return () => {
+      stop = true
       // Read on unmount rather than on every scroll event: the number is only ever
       // wanted once, and a listener on a column being flung is a write per frame.
       columnScroll.set(key, el.scrollTop)
