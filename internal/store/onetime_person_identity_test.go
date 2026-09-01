@@ -1,6 +1,7 @@
 package store
 
 import (
+	"database/sql"
 	"path/filepath"
 	"testing"
 
@@ -217,5 +218,106 @@ func TestPersonIdentityBackfillLinksTheCast(t *testing.T) {
 	}
 	if n != 2 {
 		t.Fatalf("expected one character per work, got %d", n)
+	}
+}
+
+// The 3.1.0 quote-person pass, on the only kind of database it exists for.
+//
+// IT IS SKIPPED ON A FRESH INSTALL, which is right — a database created after
+// 0059 has never held an unlinked quote — and which means every other test in
+// this package runs past it without exercising a line. So this one seeds the
+// shape a real upgraded library has: film lines and standalone quotes carrying
+// names, and nothing pointing at anybody.
+func TestQuotePersonBackfillLinksAnExistingLibrary(t *testing.T) {
+	s := openForBackfill(t)
+	mustExecT(t, s, `INSERT INTO users (id, username, password_hash) VALUES (1, 'alice', 'x')`)
+	// An author who also acts: the pass runs AFTER 3.1.0-person-identity (they
+	// sort by name), so this must resolve to the record that pass created rather
+	// than making a second Ursula K. Le Guin.
+	mustExecT(t, s, `INSERT INTO books (id, user_id, title, author)
+	                 VALUES (1, 1, 'A Wizard of Earthsea', 'Ursula K. Le Guin')`)
+	mustExecT(t, s, `INSERT INTO movies (id, user_id, title) VALUES (1, 1, 'Jurassic Park')`)
+	mustExecT(t, s, `INSERT INTO dialogues (id, movie_id, quote, character, actor, dedupe_hash)
+	                 VALUES (1, 1, 'Clever girl', 'Muldoon', 'Bob Peck', 'h1')`)
+	// A line the cast autofill credited to two performers. It has no single
+	// speaker, so the pass must leave it unlinked rather than file it under
+	// whichever name came first.
+	mustExecT(t, s, `INSERT INTO dialogues (id, movie_id, quote, character, actor, dedupe_hash)
+	                 VALUES (2, 1, 'Hold on to your butts', 'Arnold, Muldoon', 'Samuel L. Jackson, Bob Peck', 'h2')`)
+	mustExecT(t, s, `INSERT INTO utterances (id, user_id, quote, speaker, dedupe_hash)
+	                 VALUES (1, 1, 'The unread story is not a story', 'Ursula K. Le Guin', 'h3')`)
+	// Narration: a real answer, and it must not acquire a record.
+	mustExecT(t, s, `INSERT INTO utterances (id, user_id, quote, speaker, dedupe_hash)
+	                 VALUES (2, 1, 'A borrowed line', '', 'h4')`)
+
+	migrateThroughAndUpgrade(t, s)
+
+	linked := func(q string, args ...any) int64 {
+		t.Helper()
+		var id sql.NullInt64
+		if err := s.DB.QueryRow(q, args...).Scan(&id); err != nil {
+			t.Fatal(err)
+		}
+		return id.Int64
+	}
+	peck := linked(`SELECT actor_id FROM dialogues WHERE id = 1`)
+	if peck == 0 {
+		t.Fatalf("the upgrade left a named line pointing at nobody")
+	}
+	var name string
+	if err := s.DB.QueryRow(`SELECT name FROM people WHERE id = ?`, peck).Scan(&name); err != nil {
+		t.Fatal(err)
+	}
+	if name != "Bob Peck" {
+		t.Fatalf("the line was linked to %q", name)
+	}
+	if id := linked(`SELECT actor_id FROM dialogues WHERE id = 2`); id != 0 {
+		t.Errorf("a two-hander was attributed to one performer (%d)", id)
+	}
+	if id := linked(`SELECT speaker_id FROM utterances WHERE id = 2`); id != 0 {
+		t.Errorf("an unattributed quote acquired a speaker (%d)", id)
+	}
+
+	// ONE RECORD FOR THE AUTHOR WHO IS ALSO A SPEAKER. This is what the pass
+	// ordering buys: the credit pass created her, and this one resolved into that
+	// record by name rather than creating a second of her.
+	var n int
+	if err := s.DB.QueryRow(
+		`SELECT COUNT(*) FROM people WHERE user_id = 1 AND name = 'Ursula K. Le Guin'`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if n != 1 {
+		t.Fatalf("one person became %d across the two passes", n)
+	}
+	speaker := linked(`SELECT speaker_id FROM utterances WHERE id = 1`)
+	var credited int64
+	if err := s.DB.QueryRow(
+		`SELECT person_id FROM work_person WHERE user_id = 1 AND kind = 'book' AND work_id = 1 AND role = 'author'`).
+		Scan(&credited); err != nil {
+		t.Fatal(err)
+	}
+	if speaker != credited {
+		t.Fatalf("her quote points at %d and her book at %d", speaker, credited)
+	}
+
+	// And the library agrees with itself afterwards, which is the invariant the
+	// pass exists to establish.
+	if d, err := QuoteLinksAgree(s.DB, 1, metadata.DefaultCreditSeps); err != nil || len(d) != 0 {
+		t.Fatalf("after the upgrade the library disagrees with itself: %+v %v", d, err)
+	}
+}
+
+// A FRESH INSTALL RECORDS THE PASS AND DOES NOTHING, which is the other half of
+// the contract: it must not be asked again, and it must not do work on a
+// database that cannot have any.
+func TestQuotePersonBackfillIsANoOpOnAFreshInstall(t *testing.T) {
+	s := openIdentity(t) // s.Migrate(), i.e. a database created at head
+	var done int
+	if err := s.DB.QueryRow(
+		`SELECT COUNT(*) FROM one_time_passes WHERE name = '3.1.0-quote-person'`).Scan(&done); err != nil {
+		t.Fatal(err)
+	}
+	if done != 1 {
+		t.Fatalf("the pass recorded itself %d times on a fresh install", done)
 	}
 }

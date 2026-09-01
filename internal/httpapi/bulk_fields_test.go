@@ -185,3 +185,88 @@ func TestFindAndReplaceReachesABookCharacter(t *testing.T) {
 		t.Fatalf("the replace did not reach the character: %+v", got)
 	}
 }
+
+// TestEveryQuotePersonKindIsAKindBulkTagKnows — the third table in the same
+// vocabulary, walked against the one that resolves a kind to a table.
+//
+// quotePersonKind translates bulkTag's word for a quote kind into store's, so a
+// bulk edit of `actor` or `speaker` can re-point the row at a person (0059). It
+// is looked up as quotePersonKind[kind] where `kind` came from quoteBulkKinds,
+// so a spelling that drifts from that table is not an error — it is a miss, and
+// a miss means a bulk edit over five thousand rows quietly writes the name and
+// leaves every one of them pointing at whoever they used to.
+//
+// This is the guard bulk_handlers.go's own comment promises, and it is the same
+// check as the one above because it is the same class of bug: two tables in one
+// file naming one concept differently, where the wrong answer is silence.
+func TestEveryQuotePersonKindIsAKindBulkTagKnows(t *testing.T) {
+	if len(quotePersonKind) == 0 {
+		t.Fatal("quotePersonKind is empty — this test is measuring nothing")
+	}
+	for kind, qk := range quotePersonKind {
+		if _, ok := quoteBulkKinds[kind]; !ok {
+			t.Errorf("quotePersonKind names kind %q, which bulkTag has never heard of "+
+				"(quoteBulkKinds has %v) — a bulk edit of that kind would never re-link", kind, kindNames())
+		}
+		if qk == "" {
+			t.Errorf("quotePersonKind[%q] maps to the empty store kind", kind)
+		}
+	}
+	// AND IN THE OTHER DIRECTION, which is the half that actually caught
+	// something worth catching. Every kind that has a person-bearing FIELD must
+	// have an entry here, or the field is settable in bulk and never re-linked.
+	for _, field := range []string{"actor", "speaker"} {
+		for _, kind := range quoteFieldKinds[field] {
+			if _, ok := quotePersonKind[kind]; !ok {
+				t.Errorf("%q is bulk-settable on kind %q and that kind has no quotePersonKind entry — "+
+					"the column moves and the link does not", field, kind)
+			}
+		}
+	}
+}
+
+// TestEveryReplaceKindIsAKindTheTablesKnow — the same walk for find-and-replace,
+// and the one whose absence shipped a 500.
+//
+// replaceFields said "quote" while quoteBulkKinds said "utterance", so
+// `kind: "quote"` passed validation, took a zero-value spec with Table == "",
+// and died on `SELECT ... FROM  WHERE ...`. Four of the eleven fields this
+// endpoint offers could not run at all. The keys now speak the tables'
+// vocabulary and replaceKind translates the reader's word once; this is what
+// stops a third spelling arriving quietly.
+func TestEveryReplaceKindIsAKindTheTablesKnow(t *testing.T) {
+	if len(replaceFields) == 0 {
+		t.Fatal("replaceFields is empty — this test is measuring nothing")
+	}
+	for kind, fields := range replaceFields {
+		spec, ok := quoteBulkKinds[kind]
+		if !ok {
+			t.Errorf("replaceFields names kind %q, which quoteBulkKinds has never heard of "+
+				"(it has %v) — every replace on that kind answers 500", kind, kindNames())
+			continue
+		}
+		if spec.Table == "" {
+			t.Errorf("replaceFields[%q] resolves to a spec with no table", kind)
+		}
+		if len(fields) == 0 {
+			t.Errorf("replaceFields[%q] offers no fields", kind)
+		}
+	}
+	// EVERY WIRE WORD THE API DOCUMENTS REACHES A TABLE. The error string is the
+	// contract a client reads, so the kinds it names are the kinds that must work
+	// — and "quote" is the one that did not.
+	for wire := range replaceWireKinds {
+		fields, ok := replaceFields[replaceKind(wire)]
+		if !ok || len(fields) == 0 {
+			t.Errorf("the API says kind may be %q and nothing answers to it", wire)
+		}
+	}
+	// AND NOTHING ELSE DOES. Re-keying replaceFields to the tables' vocabulary
+	// would otherwise have made `kind: "utterance"` start working, which is a
+	// widened API arriving as a side effect of an internal rename.
+	for _, wire := range []string{"utterance", "book", "movie", ""} {
+		if replaceKind(wire) != "" {
+			t.Errorf("%q is not a documented kind and replace accepts it", wire)
+		}
+	}
+}

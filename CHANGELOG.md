@@ -60,13 +60,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   written, which is the point of the exercise.
 
 - **A film line's actor and a quote's speaker now point at a record too.** They were the
-  last two names in the app that were only ever text, so a performer's page showed the
-  films they were credited on and none of the lines they actually said. Now every quote
-  that names one person is joined to them: rename the record and their quotes follow;
-  fold two records together and every line moves across while **going on printing exactly
-  the name it printed** — the same promise a cover gets. A line credited to two performers
-  is left unattached rather than filed under whichever came first, because there is no
-  honest single answer to who said it.
+  last two names in the app that were only ever text, so nothing could tell two performers
+  of the same name apart or keep a rename from coming undone. Every quote that names one
+  person is now joined to them: rename the record and their quotes follow; fold two records
+  together and every line moves across while **going on printing exactly the name it
+  printed** — the same promise a cover gets; pull a spelling back out and its quotes come
+  with it. A line credited to two performers is left unattached rather than filed under
+  whichever came first, because there is no honest single answer to who said it.
+  **Nothing on screen has changed yet**: this is the record underneath, and the person
+  panel starts listing those quotes when that screen is rebuilt.
 
 - **The duplicate card on the Metadata console merges the two records instead of renaming
   one to the other.** It used to pick a spelling and rewrite it across every work in the

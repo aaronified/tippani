@@ -1618,6 +1618,8 @@ Credits are stored exactly as they arrive and split only when read, so a wrong s
 
 **The cost, stated:** the resolve/sync/merge machinery now exists twice, once per shape — `credits.go` for works, `quote_person.go` for quotes. That is the same trade 0056 took for characters, and it is paid the same way: the two files are written in parallel so a divergence shows up in a diff.
 
+**NOTHING READS THE COLUMNS YET, and that is deliberate rather than unfinished.** `GET /people/id/{id}` returns credits and roles; the person panel renders those. The link is what makes a rename, a merge and a split correct *underneath* — which is a data problem that had to be solved before the screen could be drawn on top of it — and the panel starts listing a performer's lines when that screen is rebuilt (commit 2b). The write side is complete and its invariant is walked; the read side is one query in a screen that is being redesigned anyway, and adding it now would be designing that panel by accident.
+
 <sub>`internal/store/migrations/0059_quote_person.sql` · `internal/store/quote_person.go` · `internal/store/onetime_3_1_0_quote_person.go`</sub>
 
 ### One quote names one speaker; a line credited to two performers links to neither

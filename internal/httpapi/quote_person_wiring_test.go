@@ -36,7 +36,12 @@ func quoteLinksMustAgree(t *testing.T, srv *Server, uid int64) {
 	}
 }
 
-// linesOf is the person panel's question: which quotes does this record hold?
+// linesOf asks the question the person panel WILL ask: which quotes does this
+// record hold? Asked of the database rather than of an endpoint because no
+// endpoint answers it yet — 0059 lands the link, and the screen that reads it is
+// rebuilt with the person panel. Naming that plainly here matters: a helper
+// called "the person panel's question" reads as though the panel is wired, and
+// it is not.
 func linesOf(t *testing.T, srv *Server, personID int64) int {
 	t.Helper()
 	var n int
@@ -383,4 +388,130 @@ func TestPeopleNamesCarriesTheRecordEachSpellingResolvesTo(t *testing.T) {
 	if after["Bob Peck"] != robert || after["Robert Peck"] != robert {
 		t.Fatalf("after the merge the spellings resolve to %v, want both at %d", after, robert)
 	}
+}
+
+// THE FOUR SITES THE TWO TESTS ABOVE DO NOT REACH, and the reason this block
+// exists: the file's own header says fourteen places write those columns, and a
+// walk that only ever runs after a typed create is a walk that certifies the one
+// path nobody was worried about. An import, a cast refill and a speaker remap all
+// write `actor` without a reader ever typing it, and each of them is a bulk write
+// over a whole film.
+
+// A film's cast filling in the actor on lines that arrived without one — the
+// retroactive half of the autofill rule, reached from the cast, the resync and
+// the re-verify apply.
+func TestFillingActorsFromTheCastLinksTheLinesItFills(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	m := decode[movieDetail](t, c.mustDo("POST", "/movies",
+		map[string]any{"title": "Jurassic Park"}, http.StatusCreated))
+	// A line with a character and NO actor, which is what an import leaves behind
+	// when it lands before the cast exists.
+	c.mustDo("POST", "/dialogues", map[string]any{
+		"movie_id": m.ID, "quote": "Clever girl", "character": "Muldoon",
+	}, http.StatusCreated)
+	if n := linesOf(t, srv, 0); n != 0 {
+		t.Fatalf("a line with no actor is already linked to something")
+	}
+
+	// Naming who plays the role is what fills it.
+	c.mustDo("POST", "/movies/"+itoa(m.ID)+"/cast", map[string]any{
+		"character": "Muldoon", "actor": "Bob Peck",
+	}, http.StatusCreated)
+	c.mustDo("POST", "/movies/"+itoa(m.ID)+"/remap-speakers", map[string]any{
+		"mappings": []map[string]any{}, "refill": true,
+	}, http.StatusOK)
+
+	var printed string
+	if err := srv.Store.DB.QueryRow(`SELECT COALESCE(actor, '') FROM dialogues WHERE movie_id = ?`, m.ID).Scan(&printed); err != nil {
+		t.Fatal(err)
+	}
+	if printed != "Bob Peck" {
+		t.Fatalf("the refill wrote %q — this test is no longer exercising the fill", printed)
+	}
+	if n := linesOf(t, srv, personID(t, srv, 1, "Bob Peck")); n != 1 {
+		t.Fatalf("the filled line reached %d of the actor's panel, want 1", n)
+	}
+	quoteLinksMustAgree(t, srv, 1)
+}
+
+// Remapping a film's speakers — the ONE path that deliberately rewrites an actor
+// the reader already had, and therefore the one that can leave a link pointing at
+// the person the line no longer names.
+func TestRemappingSpeakersMovesTheLinkWithTheName(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	m := decode[movieDetail](t, c.mustDo("POST", "/movies",
+		map[string]any{"title": "V for Vendetta"}, http.StatusCreated))
+	c.mustDo("POST", "/dialogues", map[string]any{
+		"movie_id": m.ID, "quote": "Who are you?", "character": "Evey", "actor": "N. Portman",
+	}, http.StatusCreated)
+	old := personID(t, srv, 1, "N. Portman")
+
+	c.mustDo("POST", "/movies/"+itoa(m.ID)+"/remap-speakers", map[string]any{
+		"mappings": []map[string]any{{"from": "Evey", "character": "Evey Hammond", "actor": "Natalie Portman"}},
+	}, http.StatusOK)
+
+	if n := linesOf(t, srv, old); n != 0 {
+		t.Fatalf("the old spelling kept %d line(s) after the remap", n)
+	}
+	if n := linesOf(t, srv, personID(t, srv, 1, "Natalie Portman")); n != 1 {
+		t.Fatalf("the remapped performer holds %d lines, want 1", n)
+	}
+	quoteLinksMustAgree(t, srv, 1)
+}
+
+// An import, all the way through the staging queue it has to be approved out of.
+// Both arms: the lines that land, and the enrichment a second copy of the same
+// file performs on the ones already there.
+func TestImportedLinesAndQuotesReachTheirPeople(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	const page = `<html><body><script id="__NEXT_DATA__" type="application/json">` +
+		`{"props":{"pageProps":{"contentData":{"data":{"title":{"id":"tt0434409",` +
+		`"titleText":{"text":"V for Vendetta","__typename":"TitleText"},` +
+		`"releaseYear":{"year":2005,"endYear":null,"__typename":"YearRange"},` +
+		`"titleType":{"id":"movie","text":"Movie","isSeries":false,"__typename":"TitleType"},` +
+		`"quotes":{"total":1,"edges":[` +
+		`{"node":{"__typename":"TitleQuote","id":"qt1","displayableArticle":{"body":{"plainText":"\n* V: People should not be afraid of their governments.\n","__typename":"Markdown"}}}}` +
+		`]}}}}}}}</script></body></html>`
+
+	if rec := c.importApprove("/import/imdb-quotes", "v.htm", []byte(page)); rec.Code != http.StatusOK {
+		t.Fatalf("import: %d %s", rec.Code, rec.Body)
+	}
+	// The imported line names a CHARACTER and no actor, so it links to nobody —
+	// which is the correct answer and not the one worth asserting. Naming the
+	// performer on the cast and refilling is what puts it in a panel.
+	var movieID int64
+	if err := srv.Store.DB.QueryRow(`SELECT id FROM movies WHERE user_id = 1`).Scan(&movieID); err != nil {
+		t.Fatal(err)
+	}
+	c.mustDo("POST", "/movies/"+itoa(movieID)+"/cast", map[string]any{
+		"character": "V", "actor": "Hugo Weaving",
+	}, http.StatusCreated)
+	c.mustDo("POST", "/movies/"+itoa(movieID)+"/remap-speakers", map[string]any{
+		"mappings": []map[string]any{}, "refill": true,
+	}, http.StatusOK)
+	if n := linesOf(t, srv, personID(t, srv, 1, "Hugo Weaving")); n != 1 {
+		t.Fatalf("the imported line holds %d links to its performer, want 1", n)
+	}
+	quoteLinksMustAgree(t, srv, 1)
+
+	// THE ENRICHMENT ARM. The same file again: every line collides, and the
+	// COALESCE backfill fills whatever was still blank. A caller that has just
+	// written a COALESCE does not know what landed, which is exactly why the
+	// linker reads the column back rather than being told.
+	if rec := c.importApprove("/import/imdb-quotes", "v.htm", []byte(page)); rec.Code != http.StatusOK {
+		t.Fatalf("re-import: %d %s", rec.Code, rec.Body)
+	}
+	if n := linesOf(t, srv, personID(t, srv, 1, "Hugo Weaving")); n != 1 {
+		t.Fatalf("the re-import left the performer holding %d lines", n)
+	}
+	quoteLinksMustAgree(t, srv, 1)
 }

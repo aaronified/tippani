@@ -67,11 +67,23 @@ var replaceFields = map[string][]string{
 	"utterance":  {"quote", "note", "speaker", "occasion", "place", "medium"},
 }
 
+// replaceWireKinds is what a REQUEST may say, which is not the same set as the
+// keys of replaceFields and has to be stated rather than inferred.
+//
+// Re-keying the table above meant `kind: "utterance"` would have started
+// resolving, where it had always been a 400 — a widened API nobody asked for,
+// arriving as a side effect of an internal rename. The wire vocabulary is a
+// contract with whatever calls this; it changes when somebody decides it should.
+var replaceWireKinds = map[string]bool{"annotation": true, "dialogue": true, "quote": true}
+
 // replaceKind turns the word the API speaks into the word the tables use. "quote"
 // is the bin's name for a standalone quote and the one every /quotes route wears,
 // so it stays the wire word; "utterance" is the table's. One direction, one
 // place.
 func replaceKind(wire string) string {
+	if !replaceWireKinds[wire] {
+		return ""
+	}
 	if wire == "quote" {
 		return "utterance"
 	}
