@@ -110,6 +110,13 @@ func (g *gzipResponseWriter) Flush() {
 	}
 }
 
+// Unwrap lets http.ResponseController reach the connection through the gzip
+// wrapper — see statusRecorder.Unwrap for what its absence costs. Flush is NOT
+// delegated that way: this type implements http.Flusher itself, and the
+// controller finds the outermost implementation before it unwraps, so the gzip
+// buffer is still flushed in order.
+func (g *gzipResponseWriter) Unwrap() http.ResponseWriter { return g.ResponseWriter }
+
 // gzipResponses compresses eligible responses for clients that accept it.
 func gzipResponses(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -132,4 +139,8 @@ var (
 	_ http.ResponseWriter = (*gzipResponseWriter)(nil)
 	_ http.Flusher        = (*gzipResponseWriter)(nil)
 	_ io.Closer           = (*gzipResponseWriter)(nil)
+	// The one ResponseController reads. A compile-time assertion because the
+	// method is found by shape at runtime: drop it and nothing fails to build,
+	// nothing logs, and every deadline in the package silently stops working.
+	_ interface{ Unwrap() http.ResponseWriter } = (*gzipResponseWriter)(nil)
 )

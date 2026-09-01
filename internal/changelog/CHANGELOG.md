@@ -89,7 +89,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   that disagrees with itself about who wrote what. A performer who only *speaks* can be
   deleted and put back; nothing is lost either way.
 
+- **A book's page is two columns on a wide screen, and each one scrolls on its own.** The
+  cover, the title, the credits and the shelf controls stay where you left them while the
+  quotes move beside them — so scrolling to the two-hundredth highlight no longer scrolls
+  the book itself off the top. Below 1180px nothing changes: the hero folds back above the
+  quotes and the window scrolls, which is what a phone wants and what the desktop had.
+  Each column also remembers where you were, so stepping into a quote and coming back
+  lands you where you were rather than at the top of both.
+
+- **A cover now tells you how big it actually is.** The picture, its real pixel size under
+  it, and the four ways to change it — Fetch, Search, Upload, Paste URL — as one block
+  rather than a thumbnail beside a row of buttons. The size goes red when the picture is
+  small enough that Fetch would replace it with a better one, which is the *same* test the
+  app uses everywhere else: the red is a promise something can be done about it, not an
+  opinion about what a good cover looks like. A picture that is still loading, or one your
+  browser is not allowed to draw, says nothing rather than claiming to be zero pixels
+  wide.
+
 ### Fixed
+
+- **Updating from Settings now works from any device, not just a browser on the server.**
+  Pressing *Update* starts two image downloads before the server has anything to say back,
+  and on a slow line that is minutes of silence — which is exactly the kind of request a
+  sleeping phone, a Wi-Fi hand-off or a reverse proxy quietly gives up on. When that
+  happened the download was abandoned halfway and nothing was updated, with no error
+  anywhere to say so; over a cable on the machine itself the connection usually held long
+  enough, which is why it looked like it worked *there* and nowhere else. The update no
+  longer depends on the browser that asked for it staying connected: once you press the
+  button it runs to the end. The page also stops reporting a failure when it merely lost
+  the connection — it waits for Tippani to come back on the new version, as it already
+  did — and a second press while one is running is refused rather than starting a second
+  updater alongside the first.
+
+- **Long backups, restores and large uploads can finish.** Three of them said in so many
+  words that they had lifted the server's one-minute reply limit for the job, and none of
+  them actually had: the call that lifts it was reaching a wrapper that could not pass it
+  on, and it failed by doing nothing and saying nothing. So a restore of a big library
+  could complete and still report an error, and an upload over about thirty seconds was cut
+  off. The limit is now genuinely lifted where those jobs say it is.
 
 - **The bin says what each row is counting.** Every row said "quotes" — right for a binned
   book, which holds its highlights, and wrong for a merge, where the number is the works

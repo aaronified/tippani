@@ -261,6 +261,19 @@ worth nothing here and only execution counts. What the repo actually runs:
   fresh database the pass writes nothing whether the guard is there or not, so
   inverting the guard left the obvious test green and only a direct call with a
   populated database caught it.
+- **A fix can be present, commented, and inert.** Three handlers cleared the server's
+  60s write deadline for a long job with `http.NewResponseController(w).SetWriteDeadline`,
+  each with a comment explaining why it was needed. All three did nothing: the controller
+  walks the response-writer chain by calling `Unwrap()`, this package wraps every response
+  twice, neither wrapper implemented it, and the `http.ErrNotSupported` that came back was
+  discarded with `_ =` at every call site — because there is nothing useful a handler can
+  do with it. Nothing logged, nothing failed, and the source read as though the problem
+  had been handled. It was found only by writing a throwaway probe that built the real
+  middleware chain over a real connection and printed what the call returned, which is the
+  general lesson: **when a fix cannot fail loudly, the only way to know it works is to ask
+  it.** The permanent version of that probe is now a test, and it asks both with and
+  without gzip, because a fix to one wrapper and not the other passes for browsers and
+  fails for everything else.
 - **A green suite is evidence about whatever the suite can see, and no more.** A screen
   was built to lock the document and scroll two columns inside it, marked done on 2,238
   passing frontend tests, and did not scroll at all: one link in its chain of heights was

@@ -1514,7 +1514,17 @@ function UpdatesCard({ user, update, onUpdateInfo }) {
     if (confirm !== 'UPDATE') return
     setPhase('applying')
     const r = await json('POST', '/admin/update/apply', { confirm: 'UPDATE' })
-    if (!r.ok) {
+    // NO RESPONSE IS NOT A REFUSAL. The apply pulls two images and creates a
+    // container before it writes a byte, which on a slow line is minutes — and a
+    // request that sends nothing for minutes is exactly the one an intermediary
+    // gives up on: a sleeping phone, a Wi-Fi roam, a reverse proxy's own read
+    // timeout. The server no longer cares (it detached the work from this
+    // connection), so the update is very likely running right now, and telling
+    // the reader it failed would be a lie that invites a second apply.
+    //
+    // status 0 is send()'s "the fetch never came back at all"; a real refusal
+    // arrives with a status and a reason and is still reported as one.
+    if (!r.ok && r.status !== 0) {
       setPhase('failed')
       toast(r.data?.error || t('error.update.start'))
       return

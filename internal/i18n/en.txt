@@ -4738,7 +4738,7 @@ settings.updates.notes.label = release notes ↗
 # a bold node and is never translated.
 settings.updates.confirm.prose = Type {word} to pull {version} and restart the container:
 settings.updates.apply.label = Update & restart now
-settings.updates.apply.busy = Starting…
+settings.updates.apply.busy = Pulling the new image — this can take a few minutes…
 settings.updates.failed.prose = update didn’t start — check the container logs, or update by hand below
 settings.updates.manual.prose = One-click update needs the Docker socket mounted, or a socket proxy configured (see the README). To update by hand, run on your host:
 settings.updates.copy.label = copy

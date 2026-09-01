@@ -108,6 +108,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Updating from Settings now works from any device, not just a browser on the server.**
+  Pressing *Update* starts two image downloads before the server has anything to say back,
+  and on a slow line that is minutes of silence — which is exactly the kind of request a
+  sleeping phone, a Wi-Fi hand-off or a reverse proxy quietly gives up on. When that
+  happened the download was abandoned halfway and nothing was updated, with no error
+  anywhere to say so; over a cable on the machine itself the connection usually held long
+  enough, which is why it looked like it worked *there* and nowhere else. The update no
+  longer depends on the browser that asked for it staying connected: once you press the
+  button it runs to the end. The page also stops reporting a failure when it merely lost
+  the connection — it waits for Tippani to come back on the new version, as it already
+  did — and a second press while one is running is refused rather than starting a second
+  updater alongside the first.
+
+- **Long backups, restores and large uploads can finish.** Three of them said in so many
+  words that they had lifted the server's one-minute reply limit for the job, and none of
+  them actually had: the call that lifts it was reaching a wrapper that could not pass it
+  on, and it failed by doing nothing and saying nothing. So a restore of a big library
+  could complete and still report an error, and an upload over about thirty seconds was cut
+  off. The limit is now genuinely lifted where those jobs say it is.
+
 - **The bin says what each row is counting.** Every row said "quotes" — right for a binned
   book, which holds its highlights, and wrong for a merge, where the number is the works
   that changed hands: a merged author read "1 quote" for a book. Merges now count works,

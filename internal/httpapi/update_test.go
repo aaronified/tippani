@@ -6,23 +6,33 @@ package httpapi
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"tippani/internal/buildinfo"
 )
 
 // fakeDocker records what apply would do without a real Engine API.
+//
+// IT HONOURS THE CONTEXT, which is the whole point of three of the tests below:
+// a real pull is an HTTP request on that context, so a dead one pulls nothing.
+// A fake that ignored it would pass whether or not the handler had detached
+// itself from the client's connection, which is the bug being guarded.
 type fakeDocker struct {
-	avail   bool
-	why     string
-	name    string
-	image   string
-	selfErr error
-	pulled  []string
-	watched []string
+	mu       sync.Mutex
+	avail    bool
+	why      string
+	name     string
+	image    string
+	selfErr  error
+	pullHook func(context.Context) error // runs inside Pull, before the ctx check
+	pulled   []string
+	watched  []string
 }
 
 func (f *fakeDocker) Available(context.Context) bool       { return f.avail }
@@ -30,13 +40,41 @@ func (f *fakeDocker) Probe(context.Context) (bool, string) { return f.avail, f.w
 func (f *fakeDocker) Self(context.Context) (string, string, string, error) {
 	return "id123", f.name, f.image, f.selfErr
 }
-func (f *fakeDocker) Pull(_ context.Context, ref string) error {
+func (f *fakeDocker) Pull(ctx context.Context, ref string) error {
+	if f.pullHook != nil {
+		if err := f.pullHook(ctx); err != nil {
+			return err
+		}
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.pulled = append(f.pulled, ref)
 	return nil
 }
-func (f *fakeDocker) RunWatchtower(_ context.Context, target string) error {
+func (f *fakeDocker) RunWatchtower(ctx context.Context, target string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.watched = append(f.watched, target)
 	return nil
+}
+
+// pulls / watched read the recorded calls under the lock — one apply runs on a
+// second goroutine in TestOnlyOneUpdateRunsAtATime.
+func (f *fakeDocker) pulls() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]string(nil), f.pulled...)
+}
+func (f *fakeDocker) recreated() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]string(nil), f.watched...)
 }
 
 func mockGitHub(t *testing.T, tag string) *httptest.Server {
@@ -404,5 +442,138 @@ func TestAReleaseBuildStaysOnStableUnlessAsked(t *testing.T) {
 		if p == "/repos/aaronified/tippani/releases" {
 			t.Fatal("stable channel must not read the pre-release list")
 		}
+	}
+}
+
+// ---- the update has to survive the connection it was asked over --------------
+//
+// THE REPORT THIS WAS WRITTEN FOR: "I still cannot update from settings.
+// Sometimes it works if I do it in a browser on the server itself, but almost
+// never from a different device." Apply pulls two images and creates a container
+// before it writes a byte — minutes on a slow line — and two separate mechanisms
+// cut that off, both of them far likelier over a network than over loopback.
+
+// A long apply outlives the server's WriteTimeout, so its answer still arrives.
+//
+// This drives the REAL handler chain over a REAL connection on purpose. A
+// recorder cannot have a write deadline, and the deadline is cleared through
+// http.ResponseController, which reaches the connection only if every wrapper in
+// that chain implements Unwrap — so a test that bypassed the chain would have
+// passed for the entire time the clearing did nothing at all.
+func TestAnUpdateOutlivesTheServersWriteTimeout(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+	fake := &fakeDocker{
+		avail: true, name: "tippani", image: "ghcr.io/aaronified/tippani:latest",
+		// Longer than the deadline below: this is the pull that used to make the
+		// final JSON undeliverable.
+		pullHook: func(context.Context) error { time.Sleep(250 * time.Millisecond); return nil },
+	}
+	srv.newDocker = func() UpdateDocker { return fake }
+
+	ts := httptest.NewUnstartedServer(h)
+	ts.Config.WriteTimeout = 100 * time.Millisecond
+	ts.Start()
+	defer ts.Close()
+
+	req, err := http.NewRequest("POST", ts.URL+"/api/admin/update/apply",
+		strings.NewReader(`{"confirm":"UPDATE"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(c.cookie)
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("the apply's answer never arrived — the write deadline still applies: %v", err)
+	}
+	defer res.Body.Close()
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		t.Fatalf("the apply's answer was cut off mid-body: %v", err)
+	}
+	if res.StatusCode != 200 || !strings.Contains(string(body), `"ok":true`) {
+		t.Fatalf("apply over a short WriteTimeout: %d %s", res.StatusCode, body)
+	}
+	if got := fake.recreated(); len(got) != 1 || got[0] != "tippani" {
+		t.Fatalf("did not launch the recreater: %v", got)
+	}
+}
+
+// The client going away does not abandon an update already under way.
+//
+// A request that sends nothing for minutes is exactly the one an intermediary
+// gives up on — a sleeping phone, a Wi-Fi roam, a reverse proxy's read timeout, a
+// closed tab — and r.Context() dies with the connection. Tied to it, the pull was
+// simply dropped and nothing was updated. A cancelled request context stands in
+// for all of those here.
+func TestAnUpdateSurvivesTheClientGoingAway(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+	fake := &fakeDocker{avail: true, name: "tippani", image: "ghcr.io/aaronified/tippani:latest"}
+	srv.newDocker = func() UpdateDocker { return fake }
+
+	req := httptest.NewRequest("POST", "/api/admin/update/apply",
+		strings.NewReader(`{"confirm":"UPDATE"}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(c.cookie)
+	ctx, cancel := context.WithCancel(req.Context())
+	cancel() // the connection is already gone by the time the pull would start
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req.WithContext(ctx))
+
+	// One pull here, not two: the fake stands in for RunWatchtower, and it is the
+	// REAL one that pulls the updater image as its first act.
+	if got := fake.pulls(); len(got) != 1 || got[0] != "ghcr.io/aaronified/tippani:latest" {
+		t.Fatalf("the pull was abandoned with the client: %v", got)
+	}
+	if rec.Code != 200 {
+		t.Fatalf("apply after the client left: %d %s", rec.Code, rec.Body)
+	}
+	if got := fake.recreated(); len(got) != 1 || got[0] != "tippani" {
+		t.Fatalf("the recreater never launched: %v", got)
+	}
+}
+
+// A second apply while one is running is refused rather than raced.
+//
+// Two one-shot recreaters aimed at the same container is not a theoretical
+// concurrency worry: pressing the button again is the natural response to an
+// update that appears to have done nothing, which is precisely how this used to
+// look from the outside.
+func TestOnlyOneUpdateRunsAtATime(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+	inside, release := make(chan struct{}), make(chan struct{})
+	var once sync.Once
+	fake := &fakeDocker{
+		avail: true, name: "tippani", image: "ghcr.io/aaronified/tippani:latest",
+		pullHook: func(context.Context) error {
+			once.Do(func() { close(inside); <-release })
+			return nil
+		},
+	}
+	srv.newDocker = func() UpdateDocker { return fake }
+
+	done := make(chan int, 1)
+	go func() {
+		rec := c.do("POST", "/admin/update/apply", map[string]any{"confirm": "UPDATE"})
+		done <- rec.Code
+	}()
+	<-inside // the first apply is holding the lock, inside its first pull
+
+	second := c.do("POST", "/admin/update/apply", map[string]any{"confirm": "UPDATE"})
+	if second.Code != http.StatusConflict {
+		t.Fatalf("a second apply was allowed to run alongside the first: %d %s", second.Code, second.Body)
+	}
+	close(release)
+	if code := <-done; code != 200 {
+		t.Fatalf("the first apply: %d", code)
+	}
+	if got := fake.recreated(); len(got) != 1 {
+		t.Fatalf("more than one recreater was launched: %v", got)
 	}
 }

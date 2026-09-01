@@ -203,7 +203,41 @@ func (s *Server) handleUpdateApply(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, `confirmation required: send {"confirm":"UPDATE"}`)
 		return
 	}
-	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Minute)
+	// ONLY ONE UPDATE AT A TIME. Two applies race two one-shot recreaters at the
+	// same container, and the second one is the natural thing to do when the first
+	// appears to have done nothing — which, before the two fixes below, is exactly
+	// what it appeared to have done.
+	if !s.updateMu.TryLock() {
+		writeErr(w, http.StatusConflict, "an update is already running")
+		return
+	}
+	defer s.updateMu.Unlock()
+
+	// THE TWO WAYS THIS HANDLER USED TO BE CUT OFF MID-PULL, and why the symptom
+	// was "it works in a browser on the server and almost never from my laptop".
+	//
+	// It pulls two images and creates a container before it writes a single byte,
+	// which on a slow line is minutes.
+	//
+	//   1. The server sets WriteTimeout = 60s (cmd/tippani/main.go). Generous for
+	//      every other endpoint, short for this one: the final writeJSON lands
+	//      after the deadline and never reaches the client, so the page reports a
+	//      failure for an update that may well have started.
+	//   2. r.Context() is cancelled when the CONNECTION DROPS, and a request that
+	//      sends nothing for minutes is exactly the request an intermediary gives
+	//      up on: a phone that sleeps, a Wi-Fi roam, a reverse proxy's own read
+	//      timeout, a closed tab. Over loopback on the box itself that essentially
+	//      never happens. From another device it happens routinely — and a pull
+	//      two minutes in was simply abandoned, leaving nothing updated and no
+	//      trace beyond the APPLY line in the log with no "recreater launched"
+	//      after it.
+	//
+	// WithoutCancel keeps the request's VALUES (the request id and the identity
+	// the logger reads) and drops only the cancellation, so the 10 minutes below
+	// is the real bound. No goroutine outlives the request: the handler still runs
+	// the work itself and still answers, to whoever is left listening.
+	_ = http.NewResponseController(w).SetWriteDeadline(time.Time{})
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 10*time.Minute)
 	defer cancel()
 
 	d := s.newDocker()

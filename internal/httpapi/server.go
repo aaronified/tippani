@@ -87,6 +87,10 @@ type Server struct {
 	// would race on the backups dir and the swap. TryLock → 409 when busy.
 	backupMu sync.Mutex
 
+	// updateMu serializes POST /admin/update/apply (update_handlers.go). Two
+	// concurrent applies launch two one-shot recreaters at the same container.
+	updateMu sync.Mutex
+
 	// locales caches the parsed contents of <DataDir>/Locales, re-read when a file
 	// there changes. Not a sync.Once like internal/changelog's: those bytes are
 	// embedded and cannot move, these are edited under a running server and design
@@ -573,6 +577,21 @@ func (r *statusRecorder) Write(b []byte) (int, error) {
 	r.bytes += n
 	return n, err
 }
+
+// Unwrap is what lets http.ResponseController reach the CONNECTION through this
+// wrapper, and it is not optional politeness.
+//
+// WITHOUT IT, EVERY SetWriteDeadline/SetReadDeadline IN THIS PACKAGE IS A NO-OP
+// THAT REPORTS NOTHING. ResponseController walks the writer chain by calling
+// Unwrap; a wrapper that does not implement it ends the walk and every method
+// returns http.ErrNotSupported — which every call site here discards with `_ =`,
+// because there is nothing useful to do with it. So backup, restore and the
+// multi-GB upload each carried a comment saying the deadline had been cleared
+// for them, and none of them had cleared anything: the server's 60s WriteTimeout
+// and 30s ReadTimeout (cmd/tippani/main.go) still applied to all three.
+// TestTheWriteDeadlineReachesTheConnection is the guard, and it fails on the day
+// a new wrapper is added to this chain without this method.
+func (r *statusRecorder) Unwrap() http.ResponseWriter { return r.ResponseWriter }
 
 // logRequests logs one line per request (method, path, status, duration, size,
 // client) to stdout — visible in `docker logs`. /healthz is skipped so the
