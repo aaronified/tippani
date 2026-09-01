@@ -676,6 +676,11 @@ unit.item.one = item
 unit.item.other = items
 unit.work.one = work
 unit.work.other = works
+
+# The hero column's credits row scrolls under its fade; this is the button AT
+# the fade that opens the whole set (the standing rule's second half).
+work.people.more.one = and {n} more
+work.people.more.other = and {n} more
 unit.issue.one = issue
 unit.issue.other = issues
 unit.actor.one = actor
@@ -4081,6 +4086,21 @@ cover.pick.none = no {nouns} found
 cover.pick.use = Use this {noun} — {source} · {res}
 cover.pending = new {noun} — applies when you Save
 cover.clearing = {noun} will be removed on Save
+
+# ---------------------------------------------------------------------------
+# MediaBlock — a picture, its true size, and the verbs that change it.
+#
+# THE SIZE IS THE POINT. A reader deciding whether to replace their cover is
+# deciding on this number, so it is stated rather than implied, and it goes red
+# only when the app can actually do something about it — the floor here is the
+# server's own refetch threshold (COVER_MIN_W / lowResCoverWidth), not a second
+# opinion about what a good cover is.
+# ---------------------------------------------------------------------------
+media.dims = {w}×{h} px
+media.dims.tip = The image's real pixel size, measured as it loaded
+media.dims.low.tip = Narrower than {floor} px — Fetch will swap it for a larger one
+media.dims.low.side.tip = Under {floor} px on its shorter side — too small to crop to a circle
+media.dims.none.tip = No picture yet
 
 # One compact look-up match, shared by the Add surface and the edition picker.
 cover.candidate.editions = {n} eds

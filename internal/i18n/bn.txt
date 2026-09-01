@@ -651,6 +651,9 @@ unit.item.one = জিনিস
 unit.item.other = জিনিস
 unit.work.one = উৎস
 unit.work.other = উৎস
+
+work.people.more.one = আরও {n} জন
+work.people.more.other = আরও {n} জন
 unit.issue.one = সমস্যা
 unit.issue.other = সমস্যা
 unit.actor.one = অভিনেতা
@@ -4001,6 +4004,16 @@ cover.pick.none = কোনও {nouns} পাওয়া গেল না
 cover.pick.use = এই {noun} নিন — {source} · {res}
 cover.pending = নতুন {noun} — সেভ করলে বসবে
 cover.clearing = সেভ করলে {noun} সরে যাবে
+
+# ---------------------------------------------------------------------------
+# MediaBlock — a picture, its true size, and the verbs that change it. See en.txt
+# for why the floor is the server's refetch threshold and not a second opinion.
+# ---------------------------------------------------------------------------
+media.dims = {w}×{h} px
+media.dims.tip = ছবিটির আসল পিক্সেল মাপ, লোড হওয়ার সময় মাপা
+media.dims.low.tip = {floor} px-এর চেয়ে সরু — ফেচ করলে বড় ছবি বসবে
+media.dims.low.side.tip = ছোট দিকটা {floor} px-এর কম — গোল করে কাটার মতো যথেষ্ট নয়
+media.dims.none.tip = এখনও কোনও ছবি নেই
 
 cover.candidate.editions = {n}টি সংস্করণ
 cover.candidate.show-editions = সংস্করণগুলো দেখান

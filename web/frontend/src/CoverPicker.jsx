@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react'
 import { coverImgURL, json, upload, errText } from './api.js'
 import { t } from './i18n.js'
 import {
+  COVER_MIN_W,
   ErrorText,
   FieldIconButton,
   GhostButton,
@@ -18,6 +19,7 @@ import {
   IconPlus,
   IconSearch,
   IconUpload,
+  MediaBlock,
   MonoLabel,
   NameScroll,
   normName,
@@ -36,15 +38,12 @@ export function amazonCoverURL(asin) {
   return a ? `https://images-na.ssl-images-amazon.com/images/P/${a}.01.jpg` : ''
 }
 
-// LOW_RES_W mirrors the server's refetch threshold (lowResCoverWidth): covers
-// narrower than this are the thumbnail-sized ones worth avoiding when a bigger
-// option is on offer.
-const LOW_RES_W = 500
-
-// resLabel formats measured natural dimensions as "W×H"; "" until the image
-// loads (or if it fails to).
+// resLabel states measured natural dimensions; "" until the image loads (or if
+// it fails to). ONE SPELLING, shared with the media block: a candidate badge
+// reading "1000×1500" beside a block reading "1000×1500 px" is the same fact in
+// two hands, and the pair drift the first time either is touched.
 function resLabel(dim) {
-  return dim && dim.w ? `${dim.w}×${dim.h}` : ''
+  return dim && dim.w ? t('media.dims', { w: dim.w, h: dim.h }) : ''
 }
 
 // CoverPreview renders a pending remote URL or the locally-stored file at 2:3.
@@ -58,7 +57,7 @@ export function CoverPreview({ url, label, showRes = false, compact = false, cla
   const [broke, setBroke] = useState(false)
   const [dim, setDim] = useState(null)
   if (url && !broke) {
-    const lowRes = dim && dim.w > 0 && dim.w < LOW_RES_W
+    const lowRes = dim && dim.w > 0 && dim.w < COVER_MIN_W
     const img = (
       <img
         src={url}
@@ -271,115 +270,125 @@ export function CoverControls({
     }
   }
 
+  // THE FOUR VERBS, IN THE PACK'S ORDER — Fetch, Search, Upload, Paste URL —
+  // which is roughly the order of effort: ask the catalogue that already knows
+  // this edition, then ask every source at once, then go and find a file, then
+  // type an address. Remove is a fifth and deliberately not one of the four: it
+  // is not a way of ACQUIRING a picture, and a destructive verb sitting in a
+  // 2x2 of constructive ones is where a mis-click costs a cover. It appears
+  // only when there is something to remove, so the common case is the 2x2.
+  const verbs = [
+    onFetchMeta && (
+      <FieldIconButton
+        icon={<IconMetadata />}
+        ariaLabel={t('cover.fetch-meta.aria')}
+        aria-pressed={!!fetchMetaOpen}
+        onClick={onFetchMeta}
+        tooltip={t('cover.fetch-meta.tip')}
+        boxed
+        active={!!fetchMetaOpen}
+      />
+    ),
+    <FieldIconButton
+      icon={<IconSearch />}
+      ariaLabel={t('cover.search.aria', { nouns })}
+      onClick={searchCovers}
+      disabled={searching}
+      // NAMED BY WHAT ACTUALLY ANSWERS. A game's lookup goes to IGDB — it has
+      // since 0040, and the request below already carries the media type — but
+      // the button said "Search TMDB & TheTVDB", which is a promise about a
+      // supplier that is never asked.
+      tooltip={kind === 'movies' ? coverSourceLabel(search?.mediaType) : t('cover.search.books.tip')}
+      boxed
+      busy={searching}
+    />,
+    <Tooltip label={busy ? t('common.action.upload.busy') : t('cover.upload.tip', { noun })}>
+      <label className={'field-icon-btn field-icon-btn-boxed tactile' + (busy ? ' is-busy' : '')} aria-label={t('cover.upload.aria', { noun })}>
+        <IconUpload />
+        <input type="file" accept="image/*" className="hidden" onChange={onFile} disabled={busy} />
+      </label>
+    </Tooltip>,
+    <FieldIconButton
+      icon={<IconLink />}
+      ariaLabel={t('cover.url.aria')}
+      aria-pressed={urlOpen}
+      onClick={() => setUrlOpen((v) => !v)}
+      tooltip={t('cover.url.tip')}
+      boxed
+      active={urlOpen}
+    />,
+    (currentPath || coverUrl) && !clearCover && (
+      <FieldIconButton
+        icon={<IconDelete />}
+        ariaLabel={t('cover.remove.aria', { noun })}
+        onClick={onClear}
+        boxed
+        danger
+      />
+    ),
+  ].filter(Boolean)
+
   return (
-    <div className="flex items-start gap-4" style={{ border: '1px solid var(--line)', borderRadius: 12, padding: 14 }}>
-      <CoverPreview url={previewUrl} label={label} />
-      <div className="min-w-0 flex-1 space-y-2">
-        <MonoLabel className="block">{label}</MonoLabel>
-        {/* §7 declutter: cover controls collapse to icon buttons with tooltips
-            (upload · fetch metadata · paste URL · search covers · remove) so the
-            edit form stops burning a whole labelled row on them. */}
-        <div className="cover-ctl-row">
-          <Tooltip label={busy ? t('common.action.upload.busy') : t('cover.upload.tip', { noun })}>
-            <label className={'field-icon-btn field-icon-btn-boxed tactile' + (busy ? ' is-busy' : '')} aria-label={t('cover.upload.aria', { noun })}>
-              <IconUpload />
-              <input type="file" accept="image/*" className="hidden" onChange={onFile} disabled={busy} />
-            </label>
-          </Tooltip>
-          {onFetchMeta && (
-            <FieldIconButton
-              icon={<IconMetadata />}
-              ariaLabel={t('cover.fetch-meta.aria')}
-              aria-pressed={!!fetchMetaOpen}
-              onClick={onFetchMeta}
-              tooltip={t('cover.fetch-meta.tip')}
-              boxed
-              active={!!fetchMetaOpen}
-            />
-          )}
-          <FieldIconButton
-            icon={<IconLink />}
-            ariaLabel={t('cover.url.aria')}
-            aria-pressed={urlOpen}
-            onClick={() => setUrlOpen((v) => !v)}
-            tooltip={t('cover.url.tip')}
-            boxed
-            active={urlOpen}
+    <MediaBlock
+      src={previewUrl}
+      alt=""
+      label={label}
+      verbs={verbs}
+      // A picture staged by its own address cannot be drawn by a page whose
+      // img-src is 'self' — the server fetches it on save. Without this the
+      // block would fall back to the hatch and read as "no cover".
+      blocked={<span className="tp-media-blocked"><MonoLabel>{t('cover.preview.blocked')}</MonoLabel></span>}
+    >
+      {urlOpen && (
+        <div className="flex gap-2">
+          <input
+            className="tp-input"
+            placeholder={t('cover.url.placeholder')}
+            value={urlText}
+            onChange={(e) => setUrlText(e.target.value)}
           />
           <FieldIconButton
-            icon={<IconSearch />}
-            ariaLabel={t('cover.search.aria', { nouns })}
-            onClick={searchCovers}
-            disabled={searching}
-            // NAMED BY WHAT ACTUALLY ANSWERS. A game's lookup goes to IGDB —
-            // it has since 0040, and the request below already carries the
-            // media type — but the button said "Search TMDB & TheTVDB", which
-            // is a promise about a supplier that is never asked.
-            tooltip={kind === 'movies' ? coverSourceLabel(search?.mediaType) : t('cover.search.books.tip')}
-            boxed
-            busy={searching}
+            icon={<IconCheck />}
+            ariaLabel={t('cover.url.use.aria')}
+            onClick={() => {
+                if (urlText.trim()) onSetUrl(urlText.trim())
+                setUrlOpen(false)
+                setUrlText('')
+              }}
+            tooltip={t('cover.url.use.tip')}
+            ok
+            className="shrink-0"
           />
-          {(currentPath || coverUrl) && !clearCover && (
-            <FieldIconButton
-              icon={<IconDelete />}
-              ariaLabel={t('cover.remove.aria', { noun })}
-              onClick={onClear}
-              boxed
-              danger
-            />
-          )}
         </div>
-        {urlOpen && (
-          <div className="flex gap-2 pt-1">
-            <input
-              className="tp-input"
-              placeholder={t('cover.url.placeholder')}
-              value={urlText}
-              onChange={(e) => setUrlText(e.target.value)}
-            />
-            <FieldIconButton
-              icon={<IconCheck />}
-              ariaLabel={t('cover.url.use.aria')}
-              onClick={() => {
-                  if (urlText.trim()) onSetUrl(urlText.trim())
-                  setUrlOpen(false)
-                  setUrlText('')
+      )}
+      {covers && (
+        <div className="tp-media-strip">
+          <MonoLabel className="block">
+            {covers.length ? t('cover.pick.prose', { noun }) : t('cover.pick.none', { nouns })}
+          </MonoLabel>
+          <div className="flex flex-wrap gap-2">
+            {covers.map((c) => (
+              <CoverPickThumb
+                key={c.url}
+                url={c.thumb || c.url}
+                source={c.source}
+                noun={noun}
+                onPick={() => {
+                  onSetUrl(c.url)
+                  setPreviewFor({ url: c.url, thumb: c.thumb })
+                  setCovers(null)
                 }}
-              tooltip={t('cover.url.use.tip')}
-              ok
-              className="shrink-0"
-            />
+              />
+            ))}
           </div>
-        )}
-        {covers && (
-          <div className="space-y-1.5 pt-1">
-            <MonoLabel className="block">
-              {covers.length ? t('cover.pick.prose', { noun }) : t('cover.pick.none', { nouns })}
-            </MonoLabel>
-            <div className="flex flex-wrap gap-2">
-              {covers.map((c) => (
-                <CoverPickThumb
-                  key={c.url}
-                  url={c.thumb || c.url}
-                  source={c.source}
-                  noun={noun}
-                  onPick={() => {
-                    onSetUrl(c.url)
-                    setPreviewFor({ url: c.url, thumb: c.thumb })
-                    setCovers(null)
-                  }}
-                />
-              ))}
-            </div>
-          </div>
-        )}
-        {coverUrl && <p className="microcopy">{t('cover.pending', { noun })}</p>}
-        {clearCover && (
-          <p className="microcopy" style={{ color: 'var(--error)' }}>{t('cover.clearing', { noun })}</p>
-        )}
-        <ErrorText>{err}</ErrorText>
-      </div>
-    </div>
+        </div>
+      )}
+      {coverUrl && <p className="microcopy">{t('cover.pending', { noun })}</p>}
+      {clearCover && (
+        <p className="microcopy" style={{ color: 'var(--error)' }}>{t('cover.clearing', { noun })}</p>
+      )}
+      <ErrorText>{err}</ErrorText>
+    </MediaBlock>
   )
 }
 
@@ -390,7 +399,7 @@ function CoverPickThumb({ url, source, noun, onPick }) {
   const [dim, setDim] = useState(null)
   const [hide, setHide] = useState(false)
   if (hide) return null
-  const lowRes = dim && dim.w > 0 && dim.w < LOW_RES_W
+  const lowRes = dim && dim.w > 0 && dim.w < COVER_MIN_W
   return (
     <Tooltip
       label={t('cover.pick.use', {

@@ -166,6 +166,33 @@ export function useIsMobileScreen() {
   return mobile;
 }
 
+// TWO_COLUMN_QUERY is the width at which the work detail becomes two columns —
+// the pack's own 1180, and the same number index.css uses for .tp-detail-hero.
+//
+// A JS BREAKPOINT HERE AND A MEDIA QUERY THERE, which looks like the constant
+// living in two places and is the lesser of the two wrongs. The frame's geometry
+// is CSS because a stylesheet can be tested and never re-renders; but WHICH hero
+// component renders cannot be CSS, because rendering both and hiding one would
+// put two <h1>s in the document — two page titles in the outline, and a screen
+// reader reading the book's name twice. One number, stated twice, with this
+// comment on both sides.
+export const TWO_COLUMN_QUERY = "(min-width: 1180px)";
+
+export function useTwoColumn() {
+  const [wide, setWide] = useState(
+    () => typeof window !== "undefined" && !!window.matchMedia?.(TWO_COLUMN_QUERY).matches,
+  );
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const media = window.matchMedia(TWO_COLUMN_QUERY);
+    const sync = () => setWide(media.matches);
+    sync();
+    media.addEventListener?.("change", sync);
+    return () => media.removeEventListener?.("change", sync);
+  }, []);
+  return wide;
+}
+
 export const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
 
 // useHideOnScrollDown — auto-hide for the floating mobile bottom bar.
@@ -291,6 +318,60 @@ export function useCrumbTitle() {
     crumbSubs.add(setV)
     setV(crumbTitle)
     return () => crumbSubs.delete(setV)
+  }, [])
+  return v
+}
+
+// ---- a screen that owns its own scrolling -----------------------------------
+//
+// EVERY SCREEN IN THIS APP SCROLLS THE WINDOW, and the work detail is the first
+// one that cannot. The pack draws it as two columns that scroll independently —
+// the hero stays put while the quotes move — and independence is impossible while
+// the thing doing the scrolling is the page underneath both of them.
+//
+// SO THE SCREEN DECLARES IT AND THE SHELL ACTS ON IT, in the store shape the crumb
+// above already uses, rather than a prop threaded from App through Library into
+// BookDetail. Two screens would carry a shell concern in their signature for a
+// fact neither of them uses, and the Catalogue needs the identical pair.
+//
+// IT IS OPT-IN PER SCREEN, and that is the whole point of the flag rather than a
+// stylesheet rule: Library, Quotes and the Catalogue have not had their passes
+// yet and must keep scrolling the way they always have. A global change here
+// would silently re-lay-out nine screens nobody has looked at.
+//
+// AND IT IS DESKTOP-ONLY BY THE CALLER'S CHOICE. On a phone there is one column,
+// so independence buys nothing structural — while a body locked at 100dvh is the
+// most reliable mobile layout bug there is, and takes URL-bar collapse and
+// pull-to-refresh with it. The hook does what it is told; works.jsx passes false
+// below 769px.
+let screenScroll = false
+const scrollSubs = new Set()
+function publishScreenScroll(v) {
+  screenScroll = !!v
+  for (const fn of scrollSubs) fn(screenScroll)
+}
+
+// useScreenOwnsScroll — called by the screen. `on` may be false, so one caller can
+// hold the hook unconditionally and decide by width, which is what the rules of
+// hooks require of it.
+//
+// PUBLISHING FALSE ON UNMOUNT IS NOT OPTIONAL, for the crumb's reason one step
+// worse: a stale crumb is a wrong word, and a stale lock is a page that cannot be
+// scrolled at all on a screen with no other scroller in it.
+export function useScreenOwnsScroll(on) {
+  useEffect(() => {
+    publishScreenScroll(on)
+    return () => publishScreenScroll(false)
+  }, [on])
+}
+
+// Called by the shell.
+export function useScreenScroll() {
+  const [v, setV] = useState(screenScroll)
+  useEffect(() => {
+    scrollSubs.add(setV)
+    setV(screenScroll)
+    return () => scrollSubs.delete(setV)
   }, [])
   return v
 }
@@ -644,6 +725,86 @@ if (import.meta.env.DEV) {
         "Rabindranath Tagore \u00b7 Satyajit Ray \u00b7 Mahasweta Devi \u00b7 Jibanananda Das \u00b7 Ritwik Ghatak",
       ),
   };
+}
+
+// ---- the work detail's frame ------------------------------------------------
+//
+// TWO COLUMNS THAT SCROLL INDEPENDENTLY, which is the pack's own drawing and the
+// reason the screen opts out of window scrolling at all: the hero stays put while
+// the quotes move. It lives here rather than in a screen because both detail
+// components call it — a book's and a film's — and the first screen to reach a
+// shared piece must not be the one that designs it.
+//
+// GEOMETRY IS CUSTOM PROPERTIES IN index.css, NOT NUMBERS HERE, and the two-column
+// switch is a media query rather than a measured width. A JS breakpoint would
+// re-render the whole stream on every resize frame to change one layout, and it
+// would put a constant in a place `spacing-debt.test.js` cannot count.
+//
+// BOTH COLUMNS ARE Scroller, never bare overflow — the standing rule, and here it
+// earns its keep twice over: a column with no fade is a column a reader does not
+// know continues. The fade is a mask and a mask CLIPS, so `--detail-pad` is at
+// least the fade's own 1.6em: a cover's drop-shadow inside that band would be cut
+// off at the top of the hero and look flat on this screen and nowhere else.
+// useEdgeScroll DIRECTLY RATHER THAN Scroller, and it is not a shortcut past the
+// rule — the rule names both. Scroller owns its ref internally and spreads the
+// caller's props AFTER it, so a `ref` passed in would clobber the one the hook
+// needs and the column would silently lose its fade. The frame needs those refs
+// for the per-column scroll memory below, so it holds them itself.
+export function DetailFrame({ hero, stream, heroRef, streamRef, streamProps = {}, className = '', ...rest }) {
+  // The refs are OPTIONAL. A caller that wants the per-column scroll memory owns
+  // them and passes them in; one that only wants the frame should not have to
+  // create two refs it never reads. Both are made unconditionally either way,
+  // because a hook behind an `if` is not a hook.
+  const ownHero = useRef(null)
+  const ownStream = useRef(null)
+  const heroEl = heroRef || ownHero
+  const streamEl = streamRef || ownStream
+  useEdgeScroll(heroEl, { axis: 'v', drag: false })
+  useEdgeScroll(streamEl, { axis: 'v', drag: false })
+  return (
+    <div className={`tp-detail ${className}`.trim()} {...rest}>
+      <div ref={heroEl} className="tp-detail-hero">{hero}</div>
+      <div ref={streamEl} className="tp-detail-stream" {...streamProps}>{stream}</div>
+    </div>
+  )
+}
+
+// The glossary's page is a scrolling column of its own, so the demo states a
+// height — a frame that means "fill the screen" would otherwise fill the entry.
+if (import.meta.env.DEV) {
+  DetailFrame.glossary = {
+    demo: (h) =>
+      h(DetailFrame, {
+        style: { height: 220 },
+        hero: h('div', null, 'The cover, the title, the credits — the column that stays put.'),
+        stream: h('div', null, 'The quotes, which move independently of it.'),
+      }),
+  }
+}
+
+// useColumnScroll — one column's place, remembered per work.
+//
+// THE SHELL'S RESTORATION CANNOT SERVE THIS. App.jsx remembers `window.scrollY`
+// against a list path, and on this screen the window does not scroll and there are
+// TWO positions rather than one. It is also deliberately not persisted: a reader
+// coming back to a book tomorrow wants the top of it, and a reader who stepped
+// into a quote and pressed Back wants where they were. A module Map answers the
+// second and forgets the first on reload, which is the right pair.
+const columnScroll = new Map()
+export function useColumnScroll(ref, key) {
+  useEffect(() => {
+    const el = ref.current
+    if (!el || !key) return
+    const y = columnScroll.get(key)
+    // INSTANT, for App.jsx's stated reason: gliding to a remembered position
+    // scrolls the whole column past a reader to land where they already were.
+    if (y) el.scrollTo({ top: y, behavior: 'instant' })
+    return () => {
+      // Read on unmount rather than on every scroll event: the number is only ever
+      // wanted once, and a listener on a column being flung is a write per frame.
+      columnScroll.set(key, el.scrollTop)
+    }
+  }, [ref, key])
 }
 
 // ---- how many columns a board gets ---------------------------------------
@@ -5121,6 +5282,169 @@ export function Lightbox({ path, title, onClose }) {
     </div>,
     document.body,
   );
+}
+
+// ---- the media block: a picture, its true size, and the verbs that change it ----
+
+// THE ONE COVER FLOOR. Both halves of the app read this number and it answers
+// exactly one question: WILL FETCH REPLACE THIS PICTURE WITH A BIGGER ONE?
+//
+// The server answers that in `lowResCoverWidth` (internal/httpapi/metadata_handlers.go)
+// and it answers it on WIDTH ALONE — a refetch swaps stored art only for a wider
+// image, and the `low_res_cover` gap Metadata counts is the same test. So the red
+// ink here has to be that test too, or the block calls a cover unusable and the one
+// button offered to repair it declines. The design pack asked for 400x600; the
+// height half would ink a 600x500 cover red with nothing on the server willing to
+// change it, which is a promise the app cannot keep, and the 400 would leave a
+// 450-wide cover un-inked here while Metadata lists it as a gap. One number, one
+// question. `cover-floor.test.js` pins it to the Go constant so they cannot drift.
+export const COVER_MIN_W = 500;
+
+// A FACE IS A DIFFERENT QUESTION, and nothing on the server acts on it: portraits
+// have no refetch threshold, so this is the pack's own floor and answers only
+// "is there enough picture here to crop". Read as a MINIMUM SIDE rather than a
+// width, because a round crop takes the shorter one.
+export const PORTRAIT_MIN_SIDE = 400;
+
+// mediaLow — is this picture under its floor? A rectangle is judged on width (see
+// COVER_MIN_W); a circle on its shorter side, because that is what the crop keeps.
+// A missing picture is 0x0, which is under every floor, and deliberately so: it is
+// not usable either, and saying so in the same ink is one rule rather than two.
+export function mediaLow(dim, floor, shape) {
+  if (!dim) return false;
+  return (shape === "round" ? Math.min(dim.w, dim.h) : dim.w) < floor;
+}
+
+// MediaBlock — one picture, stated at its true size, with the verbs that change
+// it, drawn as a single object rather than a thumbnail beside a toolbar.
+//
+// WHY THE SIZE IS MEASURED AND NOT ASKED FOR. `naturalWidth`/`naturalHeight` are
+// the dimensions of the bytes the browser actually loaded, which are the stored
+// file's: /covers/{name} is an `http.ServeFile` of it (covers_handler.go) and no
+// resizing sits in front. The day that route learns a `?w=` variant this line
+// becomes a confident lie — and it is the exact number a reader uses to decide
+// whether to replace their cover, so that change has to bring a real size with it.
+//
+// WHY `verbs` ARE NODES AND NOT DESCRIPTORS. Upload is a <label> wrapping a hidden
+// file input, not a button; no descriptor shape holds all four without a special
+// case for it. The grid enforces the two columns and the 36px minimum instead, so
+// the block still reads as one object whatever the caller hands it.
+export function MediaBlock({
+  shape = "rect",
+  src,
+  alt = "",
+  label = "",
+  floor = COVER_MIN_W,
+  verbs = [],
+  blocked = null,
+  children,
+  className = "",
+}) {
+  const [dim, setDim] = useState(null);
+  const [broke, setBroke] = useState(false);
+  const round = shape === "round";
+  // A NEW PICTURE IS NOT THE OLD ONE'S SIZE. Both bits of measured state belong
+  // to whatever `src` currently is, so both are dropped when it changes —
+  // otherwise pasting a second URL states the first one's pixels, and one bad
+  // URL leaves the block stuck on "blocked" for every good one after it.
+  useEffect(() => {
+    setDim(null);
+    setBroke(false);
+  }, [src]);
+
+  // THREE STATES, AND ONLY ONE OF THEM IS RED.
+  //   no picture at all  -> 0x0 px, under every floor, and inked: it is not
+  //                         usable either, which is one rule rather than two.
+  //   loading, or failed -> no line. A picture the page could not DRAW (a
+  //                         pasted URL from a host the CSP will not allow) has
+  //                         a perfectly good size that this page cannot read,
+  //                         and "0x0 px" in red would be a plain lie about it.
+  //   drawn              -> what it actually measured.
+  const has = !!src && !broke;
+  const size = !src ? { w: 0, h: 0 } : broke ? null : dim;
+  const low = mediaLow(size, floor, shape);
+
+  const pic = has ? (
+    <img
+      src={src}
+      alt={alt}
+      onLoad={(e) => setDim({ w: e.target.naturalWidth, h: e.target.naturalHeight })}
+      onError={() => setBroke(true)}
+    />
+  ) : broke && blocked ? (
+    blocked
+  ) : round ? (
+    // The pack's rule: a silhouette for a missing face, the hatch for everything
+    // else. They are not interchangeable — a hatched circle reads as a broken
+    // image where a silhouette reads as a person nobody has photographed yet.
+    <span className="tp-media-face" aria-hidden="true"><IconPerson size={44} /></span>
+  ) : (
+    <Placeholder kind={label || t("common.badge.cover")} />
+  );
+
+  return (
+    <div className={("tp-media " + className).trim()}>
+      <div className="tp-media-pic-col">
+        <span className={"tp-media-pic" + (round ? " is-round" : "")}>{pic}</span>
+        {size && (
+          // The line is inked, and colour alone is not a message — so the reason
+          // is also the line's accessible name. Three of them, because "under
+          // 500px wide" is wrong for a circle and wrong again for no picture.
+          <Tooltip label={!has ? t("media.dims.none.tip") : !low ? t("media.dims.tip") : t(round ? "media.dims.low.side.tip" : "media.dims.low.tip", { floor })}>
+            <span className={"tp-media-dims" + (low ? " is-low" : "")}>
+              {t("media.dims", { w: size.w, h: size.h })}
+            </span>
+          </Tooltip>
+        )}
+      </div>
+      <div className="tp-media-side">
+        {label && <MonoLabel className="block">{label}</MonoLabel>}
+        {verbs.length > 0 && (
+          <div className="tp-media-verbs">
+            {/* Index keys: a caller's verb list is written out longhand and never
+                reordered, and the nodes carry no keys of their own. */}
+            {verbs.map((v, i) => (
+              <span className="tp-media-verb" key={i}>{v}</span>
+            ))}
+          </div>
+        )}
+      </div>
+      {/* Children.toArray drops the false branches of a caller's conditionals,
+          which is the difference between "there is a drawer open" and "there are
+          four things that are not open" — the latter would still lay out a row
+          and its gap. */}
+      {Children.toArray(children).length > 0 && <div className="tp-media-extra">{children}</div>}
+    </div>
+  );
+}
+
+// Both shapes, because only the rectangle has a caller in the app today — the
+// portrait half lands with the person panel, and until then this page is where
+// it is seen at all.
+if (import.meta.env.DEV) {
+  MediaBlock.glossary = {
+    demo: (h) => {
+      // The real four, in the real order, drawn with the real glyphs: a page
+      // that documents the 2x2 with stand-in characters documents a 2x2 that
+      // does not exist anywhere.
+      const verbs = [
+        [IconMetadata, "Fetch"],
+        [IconSearch, "Search"],
+        [IconUpload, "Upload"],
+        [IconLink, "Paste URL"],
+      ].map(([Icon, name]) =>
+        h(
+          "button",
+          { type: "button", className: "field-icon-btn field-icon-btn-boxed tactile", "aria-label": name },
+          h(Icon, null),
+        ),
+      );
+      return h("div", { style: { display: "grid", gap: 14 } }, [
+        h(MediaBlock, { key: "r", label: "Cover", verbs }),
+        h(MediaBlock, { key: "c", shape: "round", floor: PORTRAIT_MIN_SIDE, verbs }),
+      ]);
+    },
+  };
 }
 
 // Cover renders a locally-served cover/poster image (GET /covers/{file}), or

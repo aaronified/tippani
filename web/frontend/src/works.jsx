@@ -34,10 +34,12 @@ import {
   QuizSkipMark,
   SHELF_META,
   Select,
+  Scroller,
   SheetFooter,
   StateTag,
   StatusBar,
   useCrumb,
+  useTwoColumn,
   useIsMobileScreen,
   useScreenBar,
   ReadingBadge,
@@ -1595,6 +1597,99 @@ export function WorkHero({
       </div>
     </div>
   )
+}
+
+// WorkHeroColumn — the same facts as WorkHero, arranged as a COLUMN.
+//
+// WHY A SECOND ARRANGEMENT AND NOT A BRANCH INSIDE THE FIRST. The pack draws
+// three, and the middle one is the subtle one: the cover sits BESIDE its facts
+// only between 769 and 1179. On a phone it is stacked because there is no room
+// beside it, and at 1180 and up it is stacked again — for the opposite reason,
+// that the hero is now a 300px column and a cover beside anything in 300px is two
+// things that are both too narrow. WorkHero already draws the first two. This
+// draws the third, and the two are separate because a float layout and a column
+// share no structure worth abstracting — only their inputs, which is why the
+// props are deliberately the same names.
+//
+// EVERY ROW THAT CAN OVERFLOW IS A Scroller, never a clamp: the standing rule is
+// that a name is never truncated, and in a 300px column the credits are the row
+// most likely to want to be. It scrolls under its fade, and `onPeople` puts a
+// button AT the fade that opens the full set — which is the rest of that rule.
+export function WorkHeroColumn({
+  cover,
+  // The line the pack puts above the title: what this is, when, and in what
+  // language — each part a link where the app has a screen to send it to.
+  kindRow,
+  title,
+  titleSize = 'var(--type-display-26)',
+  titleStyle,
+  meta,
+  counts,
+  favorite,
+  onFavorite,
+  tags,
+  genres = [],
+  description,
+  actions,
+  // The credits row's "and the rest" button. Absent on a work with few enough
+  // credits to fit, because a control that opens a list you can already see is
+  // furniture — the fade is measured, so a row that fits wears none either.
+  onPeople,
+  peopleCount = 0,
+}) {
+  return (
+    <div className="work-hero-col">
+      <div className="work-hero-col-cover">{cover}</div>
+      {kindRow && <div className="work-hero-col-kind">{kindRow}</div>}
+      <div className="work-hero-col-title">
+        <h1 className="display-title" style={{ fontSize: titleSize, lineHeight: 1.15, ...titleStyle }}>
+          {title}
+        </h1>
+        <Hearts value={!!favorite} onChange={onFavorite} />
+      </div>
+      {/* The credits. A horizontal scroller rather than a wrap, so a long list
+          stays one line and the column keeps its shape — and so the +N has
+          somewhere to sit. */}
+      {meta && (
+        <div className="work-hero-col-credits">
+          <Scroller axis="x" className="work-hero-col-credit-row">{meta}</Scroller>
+          {onPeople && peopleCount > 0 && (
+            <button type="button" className="tp-btn tp-btn-ghost work-hero-col-more" onClick={onPeople}>
+              {t('work.people.more', { n: peopleCount, count: peopleCount })}
+            </button>
+          )}
+        </div>
+      )}
+      {counts && <div className="work-hero-col-counts">{counts}</div>}
+      {tags && <div className="work-hero-col-state">{tags}</div>}
+      {genres.length > 0 && (
+        <Scroller axis="x" className="work-hero-col-genres">
+          {genres.map((g) => (
+            <span key={g} className="tp-chip">
+              {g}
+            </span>
+          ))}
+        </Scroller>
+      )}
+      <ExpandableDescription text={description} />
+      {actions && <div className="work-hero-col-actions">{actions}</div>}
+    </div>
+  )
+}
+
+// WorkHeroAny — one call site, whichever arrangement the width asks for.
+//
+// THE SCREEN SHOULD NOT KNOW WHICH ONE IT IS DRAWING. A detail page's job is to
+// say what the work IS; choosing between a float and a column is the frame's
+// business, and asking each screen to branch on a width would put the same `if`
+// in Library.jsx and Movies.jsx and let them drift apart by one prop.
+//
+// A COMPONENT RATHER THAN RENDERING BOTH AND HIDING ONE. Two arrangements in the
+// document means two <h1>s — two page titles in the outline, and the book's name
+// read out twice. See TWO_COLUMN_QUERY in ui.jsx, which is the same 1180 the
+// stylesheet uses for the column itself.
+export function WorkHeroAny(props) {
+  return useTwoColumn() ? <WorkHeroColumn {...props} /> : <WorkHero {...props} />
 }
 
 // WorkListScaffold — the shared catalogue list-page shell (Library + Movies):

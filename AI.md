@@ -146,7 +146,7 @@ AI-written code fails differently from hand-written code. It compiles, it reads
 well, it is plausibly commented, and it can still be wrong — so plausibility is
 worth nothing here and only execution counts. What the repo actually runs:
 
-- **1,357 Go test functions and 2,223 frontend tests, across 398 test files** — the
+- **1,357 Go test functions and 2,238 frontend tests, across 400 test files** — the
   Go half over real HTTP handlers against a real SQLite database, not mocks.
   Counted, not estimated, and every number here has a command that reproduces it:
 
@@ -155,7 +155,7 @@ worth nothing here and only execution counts. What the repo actually runs:
   cd web/frontend && npm test                                            # frontend tests
   find . -name '*_test.go' -not -path './node_modules/*' | wc -l         # 222 Go files
   find ./web/frontend -path '*/node_modules' -prune -o \
-       -type f \( -name '*.test.*' -o -name '*.spec.*' \) -print | wc -l # 176 frontend
+       -type f \( -name '*.test.*' -o -name '*.spec.*' \) -print | wc -l # 178 frontend
   ```
 
   A number in a file like this one is stale the moment it is written, so recount
@@ -164,8 +164,8 @@ worth nothing here and only execution counts. What the repo actually runs:
   recounted at 1.14.2, from 765 / 1,672 / 217 by 1.15.0, from 807 / 1,759 /
   233 by 2.1.1, from 924 / 1,771 / 284 by 2.2.0, from 1,085 / 1,844 / 320
   by 2.3.0, from 1,100 / 1,853 / 323 when they were recounted for 2.2.3, and most
-  recently from 1,153 / 1,977 / 338, and from 1,336 / 2,218 / 394 before this
-  recount — which is why each one now sits beside the command that produces it.
+  recently from 1,153 / 1,977 / 338, from 1,336 / 2,218 / 394, and from
+  1,357 / 2,223 / 398 before this recount — which is why each one now sits beside the command that produces it.
   The 2.2.4, 2.2.5 and 2.2.6 passes added forty-four cases between them, every one
   for a defect a release review found rather than for a feature — and six of those
   defects were introduced by the pass before. That is the number worth reading
@@ -261,6 +261,17 @@ worth nothing here and only execution counts. What the repo actually runs:
   fresh database the pass writes nothing whether the guard is there or not, so
   inverting the guard left the obvious test green and only a direct call with a
   populated database caught it.
+- **Two numbers that must agree read each other rather than a copy.** The threshold
+  that decides whether a cover is worth replacing is the server's
+  (`lowResCoverWidth`); the client draws the same fact in red. Written as a comment
+  saying "mirrors the server", it drifted for as long as nobody looked, and a design
+  handoff then proposed a third value for the same question — at which point the
+  interface could call a cover unusable while the one button offered to repair it
+  declined. `cover-floor.test.js` parses the Go constant out of its own source file
+  and asserts the JS export equals it, which is `bin-kinds.test.js`'s shape applied
+  to a scalar: **read the authority, never a transcription of it.** The same test
+  also asserts the client keeps no second copy of the number, because the drift
+  surface a check like this closes is the copy, not the disagreement.
 - **The committed SPA is checked against the sources it was built from**, by
   `web/dist_inputs_test.go` against the hashes in `web/dist-inputs.json` that
   `npm run build` writes. This one is here because the guard it backs up was

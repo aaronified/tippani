@@ -89,6 +89,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   that disagrees with itself about who wrote what. A performer who only *speaks* can be
   deleted and put back; nothing is lost either way.
 
+- **A book's page is two columns on a wide screen, and each one scrolls on its own.** The
+  cover, the title, the credits and the shelf controls stay where you left them while the
+  quotes move beside them — so scrolling to the two-hundredth highlight no longer scrolls
+  the book itself off the top. Below 1180px nothing changes: the hero folds back above the
+  quotes and the window scrolls, which is what a phone wants and what the desktop had.
+  Each column also remembers where you were, so stepping into a quote and coming back
+  lands you where you were rather than at the top of both.
+
+- **A cover now tells you how big it actually is.** The picture, its real pixel size under
+  it, and the four ways to change it — Fetch, Search, Upload, Paste URL — as one block
+  rather than a thumbnail beside a row of buttons. The size goes red when the picture is
+  small enough that Fetch would replace it with a better one, which is the *same* test the
+  app uses everywhere else: the red is a promise something can be done about it, not an
+  opinion about what a good cover looks like. A picture that is still loading, or one your
+  browser is not allowed to draw, says nothing rather than claiming to be zero pixels
+  wide.
+
 ### Fixed
 
 - **The bin says what each row is counting.** Every row said "quotes" — right for a binned

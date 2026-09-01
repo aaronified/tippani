@@ -3180,7 +3180,6 @@
      replacing the old wide labelled button row. These use the dense icon button
      (.field-icon-btn + -boxed) — they had their own 40px class until 1.6.0,
      which made three icon-button sizes in an app that wants two. */
-  .cover-ctl-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
   /* Look-up matches ("Browse other matches" / movie search): a compact card
      grid (~3 columns) instead of full-width rows, cover on top. */
   .lookup-grid {
@@ -3267,6 +3266,86 @@
     color: #fff;
     background: color-mix(in srgb, var(--error) 82%, rgba(0, 0, 0, .5));
   }
+
+  /* ---- MediaBlock: one picture, its measured size, and the verbs ------------
+     Two columns — the picture with its size stated underneath, and the field's
+     label plus the verb grid beside it — so the whole thing reads as one object
+     rather than a thumbnail that happens to sit near a toolbar. Anything the
+     caller hangs below (a URL field, a candidate strip, a pending note) spans
+     both columns. */
+  .tp-media {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 10px 14px;
+    align-items: start;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 14px;
+  }
+  .tp-media-pic-col { display: grid; justify-items: center; gap: 6px; }
+  .tp-media-side { display: grid; gap: 8px; min-width: 0; }
+  /* The picture box holds no text, but the PLACEHOLDER inside it does — so the
+     width is a px floor with an em beside it, per the standing rule, and the
+     hatch's word still fits when the type dial is turned up. */
+  .tp-media-pic { display: block; width: max(108px, 6.8em); }
+  .tp-media-pic > img,
+  .tp-media-pic > .ph,
+  .tp-media-pic > .tp-media-blocked,
+  .tp-media-pic > .tp-media-face {
+    display: block;
+    width: 100%;
+    aspect-ratio: 2 / 3;
+    object-fit: cover;
+    border-radius: 8px;
+  }
+  .tp-media-pic > img { border: 1px solid var(--ink-border); }
+  .tp-media-pic.is-round { width: max(118px, 7.4em); }
+  /* Shape carries the kind: a portrait is round, a cover is the rectangle, and
+     the two are not interchangeable. */
+  .tp-media-pic.is-round > img,
+  .tp-media-pic.is-round > .tp-media-face { aspect-ratio: 1; border-radius: 999px; }
+  .tp-media-face {
+    display: grid;
+    place-items: center;
+    color: var(--faint);
+    background: var(--raised);
+    border: 1px dashed var(--ink-border);
+  }
+  .tp-media-dims {
+    font-family: var(--font-mono);
+    font-style: var(--font-mono-style);
+    font-variant-caps: var(--font-mono-caps);
+    text-transform: var(--font-mono-case);
+    font-variant-numeric: var(--font-mono-figures);
+    font-size: var(--type-mono-9);
+    line-height: 1.4;
+    letter-spacing: .02em;
+    color: var(--soft);
+    white-space: nowrap;
+  }
+  /* Under the floor. The ink is the whole point of the line, so it is the app's
+     error colour and not a quieter cousin of it. */
+  .tp-media-dims.is-low { color: var(--error); font-weight: 600; }
+  /* Two columns is what makes the canonical four verbs a 2x2. A caller with a
+     fifth (Remove, which is not an acquire verb and so is not one of the four)
+     gets a third row rather than a cramped one. */
+  .tp-media-verbs { display: grid; grid-template-columns: repeat(2, minmax(36px, max-content)); gap: 8px; }
+  .tp-media-verb { display: flex; }
+  .tp-media-verb > * { flex: 1; min-width: 36px; min-height: 36px; }
+  /* The note a pasted remote URL gets instead of a picture: the page's img-src
+     is 'self', so the only place that address can be fetched is the server. */
+  .tp-media-blocked {
+    display: grid;
+    place-items: center;
+    padding: 0 4px;
+    text-align: center;
+    color: var(--soft);
+    background: var(--raised);
+    border: 1px dashed var(--ink-border);
+  }
+  .tp-media-blocked .mono-label { font-size: var(--type-ui-9); line-height: 1.3; }
+  .tp-media-extra { grid-column: 1 / -1; display: grid; gap: 8px; min-width: 0; }
+  .tp-media-strip { display: grid; gap: 6px; min-width: 0; }
 
   /* ---- determinate progress (ProgressBar): recessed track, accent fill ---- */
   .progress-track {
@@ -4101,6 +4180,168 @@
     padding: 16px 16px calc(24px + env(safe-area-inset-bottom));
   }
   .container-tp { max-width: var(--container-max); margin: 0 auto; padding: 4px var(--edge) 64px; }
+
+  /* ---- A SCREEN THAT OWNS ITS SCROLLING ----------------------------------
+     Stamped on <html> by the shell when the screen in front has published
+     useScreenOwnsScroll. Every other screen scrolls the window and is untouched;
+     this is opt-in because Library, Quotes and the Catalogue have not had their
+     passes yet.
+
+     THE DOCUMENT STOPS SCROLLING SO SOMETHING INSIDE IT CAN. Two columns cannot
+     move independently while the page underneath both of them is the scroller,
+     which is the whole reason the flag exists.
+
+     100dvh AND NOT 100vh: on a phone the two differ by the URL bar, and vh
+     measures the taller one — so a locked page would sit exactly one URL bar
+     taller than the screen and scroll nowhere useful. The phone does not take
+     this path at all (works.jsx passes false below 769px), and dvh is here so
+     that the tablet width, which does, is right on a browser with a collapsing
+     chrome.
+
+     THE CONTAINER'S CAP AND PADDING GO. The pack computes this screen's stream
+     as the window minus the rail minus the hero, capped at 880 for measure — so
+     the page cap would only be bounding the hero and the gutters, and the 880
+     already does the job the cap was doing. The cost is real and is stated in
+     PLAN.md: --container-max's own comment says the page body and the top bar
+     must not disagree about where the gutter is, and on this screen they now do. */
+  html[data-scroll='screen'],
+  html[data-scroll='screen'] body {
+    height: 100dvh;
+    overflow: hidden;
+  }
+  html[data-scroll='screen'] .container-tp {
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+  /* min-height:0 is what lets a flex child be SHORTER than its content and
+     scroll, instead of growing to fit it and pushing the lock off the bottom of
+     the screen. Without it the columns are the right width and never scroll. */
+  html[data-scroll='screen'] .container-tp > * {
+    flex: 1;
+    min-height: 0;
+  }
+
+  /* ---- THE WORK DETAIL'S TWO COLUMNS -------------------------------------
+     Geometry as custom properties on the frame's own root, not as numbers in the
+     component: a step typed into a rule is the thing spacing-debt.test.js counts,
+     and a constant here can be read by a stylesheet test and restated by one
+     media query instead of by a JS branch that re-renders the stream on every
+     resize frame.
+
+     --edge and --row ARE RESTATED, which the standing rule allows when a screen
+     genuinely differs — and this one does: it is the app's only screen with no
+     page gutter of its own, because each column carries its own padding instead.
+
+     --detail-pad IS AT LEAST THE FADE'S OWN 1.6em. The vertical edge fade is a
+     mask, and a mask clips as well as fades: a cover's drop-shadow inside that
+     band would be cut off at the top of the hero column and read as flat on this
+     screen and nowhere else. The padding keeps anything that paints outside its
+     own box clear of it. (A mask also establishes a containing block, so a
+     position:fixed descendant added inside a column later would be trapped by it.
+     Everything overlaid today is portalled, which is why this is a note for the
+     next person rather than a bug now.) */
+  .tp-detail {
+    --hero-w: 300px;
+    --detail-pad: max(1.6em, 22px);
+    --row: 18px;
+    display: flex;
+    height: 100%;
+    min-height: 0;
+  }
+  .tp-detail-hero,
+  .tp-detail-stream {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    min-height: 0;
+  }
+  .tp-detail-hero {
+    display: none;
+    flex: 0 0 var(--hero-w);
+    padding: var(--detail-pad) 20px 40px;
+    border-right: 1px solid var(--line);
+  }
+  .tp-detail-stream {
+    flex: 1;
+    min-width: 0;
+    padding: var(--detail-pad) 26px 40px;
+  }
+  /* THE MEASURE CAP, and it is what makes the page cap unnecessary here. The
+     stream fills whatever the window leaves beside the rail and the hero, and
+     then stops widening at a readable line — which is the only thing
+     --container-max was doing for this screen anyway. */
+  .tp-detail-stream > * {
+    max-width: 880px;
+  }
+
+  /* ---- the hero column's own stack ---------------------------------------
+     Every gap is var(--row) or a share of it — a step typed into one of these
+     rules is what spacing-debt.test.js counts, and the frame already restates
+     --row at 18px for this screen.
+
+     NOTHING HERE IS A FIXED BOX HOLDING TEXT. The column's width is the frame's
+     --hero-w and everything inside it is measured in em or is free to wrap, so a
+     reader at 175% on the type dial gets a taller column rather than a clipped
+     one. The cover is the one fixed thing, and a picture is not text. */
+  .work-hero-col {
+    display: grid;
+    gap: var(--row);
+    align-content: start;
+  }
+  .work-hero-col-cover {
+    /* The pack's 132x196 is a ratio, not a size: the column is what decides how
+       wide the cover is, so it takes the width it is given and keeps the shape. */
+    width: 100%;
+    aspect-ratio: 2 / 3;
+    display: flex;
+    align-items: flex-start;
+  }
+  .work-hero-col-cover > * { width: 100%; }
+  .work-hero-col-kind {
+    font-size: var(--type-ui-12);
+    color: var(--soft);
+  }
+  /* The title and the heart share a line, and the heart never moves: it is the
+     one control here whose position a reader learns. `align-items: start` keeps
+     it on the title's FIRST line when the title wraps to three. */
+  .work-hero-col-title {
+    display: flex;
+    align-items: start;
+    justify-content: space-between;
+    gap: calc(var(--row) * 0.5);
+  }
+  .work-hero-col-credits { display: grid; gap: calc(var(--row) * 0.3); }
+  /* overscroll-behavior on every scroller, which scroll-containment.test.js
+     checks: flinging a credits row to its end must not then start moving the
+     column behind it. */
+  .work-hero-col-credit-row { overflow-x: auto; overscroll-behavior: contain; white-space: nowrap; }
+  /* AT the fade, not beside it — the standing rule's own words. It is a quiet
+     button because the row it belongs to is the subject; this only says there is
+     more of it. */
+  .work-hero-col-more {
+    justify-self: start;
+    font-size: var(--type-ui-12);
+    color: var(--soft);
+  }
+  .work-hero-col-genres { overflow-x: auto; overscroll-behavior: contain; white-space: nowrap; display: flex; gap: 6px; }
+  .work-hero-col-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+  /* Two columns from 1180, the pack's own number. Below it the hero is not a
+     column at all — its content is folded into the stream by the screen, because
+     a 300px column beside nothing is a margin. */
+  /* 1180 is also ui.jsx's TWO_COLUMN_QUERY, and the comment there says why one
+     number is stated in both places: which hero COMPONENT renders cannot be a
+     stylesheet decision, because rendering both and hiding one puts two <h1>s in
+     the document. */
+  @media (min-width: 1180px) {
+    .tp-detail-hero { display: block; }
+  }
+  @media (min-width: 1440px) {
+    .tp-detail { --hero-w: 340px; }
+  }
   /* Home is a single stack of cards rather than a board, so it reads as a
      column and widens on its own, slower schedule. */
   .home-col { width: 100%; max-width: var(--home-max); margin-inline: auto; }

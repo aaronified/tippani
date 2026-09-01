@@ -8635,3 +8635,65 @@ beside it. The owner's answer: "Fall back to icon rail. And also get rid of 200%
   `TestEveryTestedPackageIsInTheNightlySweep` fails in both directions.
 
 <sub>Unreleased — `.github/workflows/ci.yml` · `internal/olog/codes_test.go`</sub>
+
+### The work detail is two columns, and it opts out of the window's scroll
+
+*The first real page overhaul of the v3.1 design pass. Departures from the pack are
+named here because a screen that quietly disagrees with its own handoff is worse than
+one that argues with it.*
+
+- **This screen is full-bleed; `--container-max` does not apply to it.** The 880px
+  measure cap on the stream already does the job the container cap was doing — bound the
+  line length — so the container would only have been bounding the hero and the gutters.
+  **The cost is stated rather than discovered:** `--container-max`'s own comment says the
+  page body and the top bar must not disagree about where the gutter is, and on this
+  screen they now do. This sets the pattern for Library, Quotes and Catalogue.
+- **The document is locked at ≥1180px** — `html[data-scroll='screen']`, published by
+  `useScreenOwnsScroll` and stamped by the shell — so the two columns can scroll
+  independently. The phone keeps window scrolling: `100dvh` inside `overflow:hidden` is
+  the most reliable mobile layout bug there is, and URL-bar collapse and pull-to-refresh
+  come free with the window.
+- **The arrangement is chosen in JavaScript, not hidden in CSS.** `WorkHeroAny` picks
+  `WorkHeroColumn` or `WorkHero` from one media query. Rendering both and hiding one is
+  **two `<h1>`s** in the document — two page titles in the outline and the book's name
+  read out twice. The price is 1180 stated in `ui.jsx` and again in `index.css`, with a
+  comment on each side saying why one number lives in two places.
+- **`← Library` is gone at two columns.** The breadcrumb reads `tippani / <title>` and the
+  rail says Library; a third way out earned nothing but a row. This settles one of the two
+  redundancies the top-bar phase flagged and explicitly left to the screen passes.
+- **`--detail-pad` is `max(1.6em, 22px)` because the edge fade is a `mask-image`, and a
+  mask CLIPS as well as fades.** A cover's drop-shadow inside that band would be cut off —
+  which throws nothing, and simply makes covers look flat on this screen and nowhere else.
+
+### One cover floor, and it is the server's
+
+*A departure from the handoff, taken deliberately. The pack asked for 400×600.*
+
+- **The floor is 500px and it is a WIDTH**, because that is the only test that exists.
+  `lowResCoverWidth` decides whether a refetch replaces stored art and it decides on width
+  alone; Metadata's *low-res* gap counts the same test. The red ink on a cover's stated
+  size is therefore that test too — **red is a promise that Fetch can do something about
+  it**, not a second opinion about what a good cover looks like.
+- **Both halves of the pack's number were wrong for this app, in opposite directions.** A
+  height half would ink a 600×500 cover red with nothing on the server willing to change
+  it; 400 would leave a 450-wide cover un-inked here while Metadata already lists it as a
+  gap. `cover-floor.test.js` parses the Go constant and asserts the JS export equals it,
+  so this cannot drift back into two numbers — and asserts the client keeps no second copy,
+  because the copy is the drift surface, not the disagreement.
+- **A portrait's floor is a different question and keeps the pack's 400**, read as a
+  minimum SIDE rather than a width because a round crop takes the shorter one. Nothing on
+  the server acts on it, and the comment says so.
+- **The stated size is measured, not fetched**, and the invariant it rests on is written at
+  the measurement site: `/covers/{name}` is a plain `http.ServeFile`, so the bytes the
+  browser measured are the stored file's. The day that route learns a `?w=` variant, the
+  number becomes a confident lie about the exact figure a reader uses to decide whether to
+  replace their cover — so that change has to bring a real size with it.
+- **Remove is not one of the four verbs.** Fetch · Search · Upload · Paste URL are ways of
+  *acquiring* a picture; a destructive verb inside a 2×2 of constructive ones is where a
+  mis-click costs a cover. It sits below them and only when there is something to remove,
+  so the common case is the 2×2 the pack drew.
+
+<sub>Unreleased — `web/frontend/src/ui.jsx` (`DetailFrame`, `useScreenOwnsScroll`,
+`useColumnScroll`, `MediaBlock`, `COVER_MIN_W`) · `works.jsx` (`WorkHeroColumn`,
+`WorkHeroAny`) · `Library.jsx` · `App.jsx` · `index.css` · `CoverPicker.jsx` ·
+`test/pure/cover-floor.test.js` · `test/dom/media-block.test.jsx`</sub>

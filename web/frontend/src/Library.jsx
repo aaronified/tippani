@@ -23,7 +23,7 @@ import {
   ShelfControl,
   ShelfDateDialog,
   WorkCard,
-  WorkHero,
+  WorkHeroAny,
   WishlistFolder,
   WorkListScaffold,
   countQuotes,
@@ -97,10 +97,14 @@ import {
   useCardMenu,
   useColumnsAt,
   useCoverSize,
+  DetailFrame,
+  useColumnScroll,
   useCrumb,
   useScreenBar,
   useFormHost,
   useIsMobileScreen,
+  useTwoColumn,
+  useScreenOwnsScroll,
   usePersistedState,
   useReveal,
   ViewToggle,
@@ -664,6 +668,10 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce 
   const { map: editorMap } = usePeople('editor')
   const reveal = useReveal()
   const mobile = useIsMobileScreen()
+  // One ref per column, so each remembers its own place — the shell's restoration
+  // knows only window.scrollY, and on this screen the window does not scroll.
+  const heroCol = useRef(null)
+  const streamCol = useRef(null)
 
   async function load() {
     const r = await json('GET', `/books/${id}`)
@@ -878,21 +886,21 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce 
     ] : null,
   })
 
-  return (
-    <section ref={reveal} className="reveal space-y-6 md:pt-4" data-screen-label="book-detail">
-      {!mobile && (
-        <button
-          className="mono-label"
-          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '6px 0' }}
-          onClick={onClose}
-        >
-          ← Library
-        </button>
-      )}
-      <ErrorText>{error}</ErrorText>
-      {book && (
+  // THE FRAME, AND WHAT IT COSTS THE BACK LINK. At two columns the screen owns its
+  // scrolling and the hero becomes a column of its own; below that it is the page
+  // it has always been. The `← LIBRARY` button is drawn only in the second case,
+  // which resolves one of the two redundancies the top-bar phase flagged and left
+  // for the screen passes: on a wide detail the crumb already says `tippani /
+  // <title>` and the rail already says Library, so a third way to leave was a
+  // control earning nothing but a row.
+  const wide = useTwoColumn()
+  useScreenOwnsScroll(wide)
+  useColumnScroll(heroCol, book ? `book:${book.id}:hero` : null)
+  useColumnScroll(streamCol, book ? `book:${book.id}:stream` : null)
+
+  const heroBlock = book && (
         <div>
-          <WorkHero
+          <WorkHeroAny
             cover={<Cover path={book.cover_path} title={book.title} hero zoomable />}
             shadow="drop-shadow(0 12px 22px rgba(0,0,0,.34))"
             title={book.title}
@@ -980,6 +988,27 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce 
             }
           />
         </div>
+  )
+  const streamBlock = book && (
+    <Annotations bookId={book.id} book={book} authorMap={authorMap} seps={parseCreditSeps(creditSeparators)} onStats={setQuoteStats} mobileFilterOpen={mobileFilter} onMobileFilterOpen={setMobileFilter} onAdd={onAdd} dataNonce={dataNonce} />
+  )
+
+  return (
+    <section ref={reveal} className={wide ? 'reveal' : 'reveal space-y-6 md:pt-4'} data-screen-label="book-detail">
+      {!mobile && !wide && (
+        <button
+          className="mono-label"
+          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '6px 0' }}
+          onClick={onClose}
+        >
+          ← Library
+        </button>
+      )}
+      <ErrorText>{error}</ErrorText>
+      {wide ? (
+        <DetailFrame heroRef={heroCol} streamRef={streamCol} hero={heroBlock} stream={streamBlock} />
+      ) : (
+        heroBlock
       )}
       {book && (
         <WorkDetails
@@ -1020,7 +1049,9 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce 
         onCancel={() => setPending(null)}
         onConfirm={() => { const p = pending; setPending(null); save(p.status, p.date) }}
       />
-      {book && <Annotations bookId={book.id} book={book} authorMap={authorMap} seps={parseCreditSeps(creditSeparators)} onStats={setQuoteStats} mobileFilterOpen={mobileFilter} onMobileFilterOpen={setMobileFilter} onAdd={onAdd} dataNonce={dataNonce} />}
+      {/* At two columns the stream is inside the frame above; here it is the page
+          continuing below the hero, which is what it has always been. */}
+      {!wide && streamBlock}
       {person && <PersonModal kind={person.kind} name={person.name} onClose={() => setPerson(null)} />}
       {/* Phone-only route into this screen's help: the sticky bar has no room
           for a "?", so the ⋯ menu opens the same panel the desktop button does. */}

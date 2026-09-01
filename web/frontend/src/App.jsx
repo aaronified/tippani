@@ -89,6 +89,7 @@ import {
   useBackToClose,
   useBodyScrollLock,
   useCrumbTitle,
+  useScreenScroll,
   useEdgeScroll,
   useScreenBarState,
   useFrameBase,
@@ -1328,6 +1329,20 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
   const [tab, setTab] = useState(initialTab)
   useEffect(warmScreens, [])
   const [detail, setDetail] = useState(initial.detail) // {type: 'book' | 'movie', id}
+  // WHETHER THE SCREEN IN FRONT IS DOING ITS OWN SCROLLING. Published by the
+  // screen (useScreenOwnsScroll), read here, and stamped on <html> so the answer
+  // is a CSS state rather than a class this file has to thread into three
+  // wrappers. The work detail is the first screen to say yes; see ui.jsx for why
+  // it is opt-in rather than a stylesheet rule.
+  const screenOwnsScroll = useScreenScroll()
+  useEffect(() => {
+    const root = document.documentElement
+    if (screenOwnsScroll) root.setAttribute('data-scroll', 'screen')
+    else root.removeAttribute('data-scroll')
+    // Cleared on unmount as well as on change: the attribute outliving the shell
+    // is a document that cannot scroll and nothing left to un-say it.
+    return () => root.removeAttribute('data-scroll')
+  }, [screenOwnsScroll])
   // Profile is one screen with everything in it now (see AccountOverlay), so
   // this is open/closed rather than which-of-two-views.
   const [profileOpen, setProfileOpen] = useState(false)
@@ -1523,6 +1538,13 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
     // gliding to a REMEMBERED position is worse: it scrolls the whole board past
     // them to land where they already were. Smooth is for a scroll the reader
     // asked for; neither of these is one.
+    // A SCREEN THAT OWNS ITS SCROLL IS NOT THE WINDOW'S TO RESTORE. The work
+    // detail locks the document at 100dvh and scrolls its own columns, so
+    // scrollHeight - innerHeight is 0 forever: the retry loop below would spin its
+    // full ~0.7s of frames on every arrival and then scroll a document that cannot
+    // move. It has its own per-column memory (useColumnScroll), which is the only
+    // thing that knows there are two positions to keep rather than one.
+    if (screenOwnsScroll) return
     const y = detail ? null : scrollMem.get(statePath(tab, null))
     if (y == null) {
       window.scrollTo({ top: 0, behavior: 'instant' })
@@ -1541,7 +1563,7 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
     }
     requestAnimationFrame(attempt)
     return () => { stop = true }
-  }, [tab, detail])
+  }, [tab, detail, screenOwnsScroll])
 
   // go() updates state AND pushes a history entry so the URL + back/forward track.
   function go(nextTab, nextDetail) {
