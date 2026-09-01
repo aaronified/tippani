@@ -77,13 +77,10 @@ describe('the anthology theme', () => {
     expect(themeQuery({ anthology: 12, label: 'Anything' })).toBe('anthology=12')
   })
 
-  it('has a button on the anthology screen', () => {
-    // The other half of "unreachable": the parameter working and nothing setting
-    // it is the same feature nobody can use.
-    const src = readFileSync(join(SRC, 'anthologies.jsx'), 'utf8')
-    expect(src, 'no practise button on the anthology screen').toContain('usePractice')
-    expect(src).toMatch(/practise\(\{\s*anthology:/)
-    // And the dialog is rendered, or the button opens nothing.
-    expect(src, 'usePractice wired up but practiceDialog never drawn').toContain('{practiceDialog}')
-  })
+  // THE OTHER HALF OF "UNREACHABLE" — a parameter that works and nothing sets —
+  // is asserted where it can be seen: test/dom/practise-this-work.test.jsx opens
+  // an anthology, presses the button and reads what the round asks the server
+  // for. This file used to scrape anthologies.jsx for the strings `usePractice`
+  // and `{practiceDialog}`, which proves the code is present and nothing about
+  // whether a reader can start the round.
 })

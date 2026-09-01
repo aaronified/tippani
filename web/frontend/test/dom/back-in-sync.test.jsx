@@ -139,14 +139,21 @@ describe('every back arrow in App is wired to goBack', () => {
     ).toEqual([])
   })
 
-  it('and covers the five destinations that have one', () => {
-    // DEDUPED, because two screens now share one destination: the bin and Stray
-    // marks are both pages nothing in the nav points at, and both go back to the
-    // Settings tile that is their only door. Counted rather than listed, so a
-    // third such page still has to be wired — it just does not have to be named
-    // twice here.
-    const back = [...src.matchAll(/goBack\('([a-z]+)'\)/g)].map((m) => m[1])
-    expect([...new Set(back)].sort()).toEqual(['anthologies', 'library', 'movies', 'quotes', 'settings'])
-    expect(back.filter((t) => t === 'settings')).toHaveLength(2)
+  it('and every close arrow in the file goes through it', () => {
+    // THE RULE, NOT A CENSUS. This used to assert the exact five destinations —
+    // `['anthologies', 'library', 'movies', 'quotes', 'settings']` — and a count
+    // of two for settings, so adding a sixth screen failed a test that had
+    // nothing to say about the sixth screen and everything to say about the day
+    // the list was written. What matters is that no arrow escapes the rule, and
+    // that is what an exception list cannot state.
+    // NAVIGATING arrows only. `onClose` is also how a sheet, a drawer and a
+    // popover dismiss themselves, and those set local state and go nowhere; the
+    // two functions that move the app are `go` and `goBack`.
+    const closes = [...src.matchAll(/onClose=\{\(\) => (go|goBack)\(/g)].map((m) => m[1])
+    expect(closes.length, 'no navigating onClose found — the pattern has gone stale').toBeGreaterThan(3)
+    expect(
+      [...new Set(closes)].filter((fn) => fn !== 'goBack'),
+      'a close arrow that navigates FORWARDS — the reported bug',
+    ).toEqual([])
   })
 })

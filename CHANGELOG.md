@@ -51,6 +51,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   who never wrote them. The spelling stops finding the old record and starts finding the
   new one; the works are yours to move.
 
+- **Six tests that read the source now use the app instead.** Home's favourites wall,
+  the shuffled quote card, the "quiz me on this" button and the Shuffle control's
+  position were all checked by searching the JavaScript for a function name — which
+  passes for code that is present and never runs, and fails for a rename that changes
+  nothing a reader sees. They now open the screen, press the control and read what is on
+  it. Nothing about the app changed; two of the four found a real gap while being
+  written, which is the point of the exercise.
+
 - **A film line's actor and a quote's speaker now point at a record too.** They were the
   last two names in the app that were only ever text, so a performer's page showed the
   films they were credited on and none of the lines they actually said. Now every quote
