@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { json, errText } from './api.js'
 import { t, tNodes } from './i18n.js'
 import { BookLookupPicker, MovieLookupPicker } from './CoverPicker.jsx'
-import { EditBook } from './Library.jsx'
+import { bookState, EditBook } from './Library.jsx'
 import { EditMovie } from './Movies.jsx'
 import { BulkBar, EmptyState, ErrorText, FieldIconButton, GhostButton, HandCard, IconButton, IconCheck, IconDelete, IconEdit, IconMerge, IconMetadata, IconMore, IconOpen, IconRefresh, IconSearch, IconUsers, InfoDot, MonoLabel, NameInput, NameScroll, normName, PageHeader, ProgressBar, Scroller, splitCommas, Tooltip, PanelHost, usePanelStack, useConfirm, useIsMobileScreen, useScreenBar } from './ui.jsx'
 import { PersonModal, PersonName, ProviderChips, mergeLinks, parseCreditSeps, parseLinks, splitCredits } from './people.jsx'
@@ -782,7 +782,11 @@ function ConsoleRowActions({ editing, onEdit, lookingUp, onLookup, onOpen, noun 
   )
 }
 
-function BookRow({ book, checked, onCheck, open, onToggleLookup, onOpen, onDone }) {
+// Exported for metadata-apply.test.jsx. `apply` is the most destructive request
+// the app makes — it rewrites a whole book from a search result — and reaching it
+// through the page means stubbing the console's own fetches to say nothing about
+// the one call under test.
+export function BookRow({ book, checked, onCheck, open, onToggleLookup, onOpen, onDone }) {
   const [err, setErr] = useState('')
   const [editing, setEditing] = useState(false)
   const noun = t('unit.book', { count: 1 })
@@ -804,11 +808,24 @@ function BookRow({ book, checked, onCheck, open, onToggleLookup, onOpen, onDone 
     const b = cur.data
     // Base metadata (incl. source link so the "no source" gap clears). No cover
     // here — a flaky candidate cover URL must not discard the metadata merge.
+    // THE BOOK FIRST, THE CANDIDATE ON TOP, and this is the site where getting it
+    // wrong cost the most. The list below names what a match can IMPROVE; what it
+    // is silent about it used to CLEAR, because PUT is full-state — so applying a
+    // match wiped the translator, the editor, both languages and the circa flag.
+    //
+    // The translator is the one that could not be undone. store.SetCredits
+    // DELETEs every work_person row for a role before re-inserting from the names
+    // it is given, and an absent translator is zero names — so the link went, and
+    // `credit_as` went with it. That column is how a work prints a name
+    // DIFFERENTLY from the person's own record, so re-typing the translator
+    // afterwards gives you a fresh link with no per-work spelling: the deliberate
+    // one is gone for good. `b` is a GET /books/:id detail, so it carries every
+    // one of these.
     const base = {
+      ...bookState(b),
       title: c.title || b.title,
       author: c.author || b.author || '',
       isbn: c.isbn13 || b.isbn || '',
-      asin: b.asin || '',
       description: c.description || b.description || '',
       published_year: c.published_year || b.published_year || 0,
       // take genres/series from the candidate when it has them (the whole point
@@ -816,7 +833,6 @@ function BookRow({ book, checked, onCheck, open, onToggleLookup, onOpen, onDone 
       genres: (c.genres && c.genres.length ? c.genres : b.genres) || [],
       series: c.series || b.series || '',
       series_index: c.series_index || b.series_index || 0,
-      favorite: !!b.favorite,
       source: c.source || undefined,
       source_id: c.source_id || undefined,
     }

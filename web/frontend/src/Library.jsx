@@ -164,7 +164,7 @@ function bookGenres(b) {
 
 // bookState is the full PUT body for a book (PUT is full-state) — used by the
 // detail-header ♥ so a single-field change carries every other field intact.
-function bookState(b) {
+export function bookState(b) {
   return {
     title: b.title,
     author: b.author || '',
@@ -177,6 +177,15 @@ function bookState(b) {
     asin: b.asin || '',
     description: b.description || '',
     published_year: b.published_year || 0,
+    // THE CIRCA FLAG AND THE TWO LANGUAGES, and the reason is the same for all
+    // three: the server's UPDATE writes them unconditionally, so a body that
+    // does not name them writes the zero value over whatever was there. The
+    // languages have been storable since 0047 and no client has ever sent them,
+    // which means a reader whose import filled them lost both the first time
+    // they pressed the ♥ — and "c. 380 BCE" became "380 BCE" beside it.
+    published_circa: !!b.published_circa,
+    language: b.language || '',
+    orig_language: b.orig_language || '',
     genres: b.genres || [],
     series: b.series || '',
     series_index: b.series_index || 0,
@@ -1170,7 +1179,14 @@ export function EditBook({ book, onSaved, onCancel }) {
     }
     setBusy(true)
     setError('')
+    // THE RECORD FIRST, THE FORM ON TOP. This body used to be a hand-written list
+    // of the boxes this form happens to draw, which is a different list from the
+    // one the server writes — so every save through this form cleared the two
+    // languages, and `favorite` was carried through only because somebody
+    // noticed that one. Spreading bookState makes the two lists the same list,
+    // and full-state-put.test.js is watching that one rather than this one.
     const r = await json('PUT', `/books/${book.id}`, {
+      ...bookState(book),
       title: title.trim(),
       author: author.trim(),
       translator: translator.trim(),
@@ -1183,11 +1199,6 @@ export function EditBook({ book, onSaved, onCancel }) {
       series: series.trim(),
       series_index: Number(seriesIndex) || 0,
       description: description.trim(),
-      // favorite is edited on the detail header, not here — but PUT is
-      // full-state, so carry the current value through. (Shelf status and the
-      // read log are not part of this body at all: PUT /books/:id cannot touch
-      // them, so an ordinary save can never rewrite reading history.)
-      favorite: !!book.favorite,
       cover_url: coverUrl || undefined,
       clear_cover: clearCover || undefined,
     })

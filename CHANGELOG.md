@@ -108,6 +108,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Ordinary saves were quietly throwing away fields you had filled in.** Every save of a
+  book or a film sends the whole record back, so anything the app forgot to include was
+  erased — and it had forgotten several. Pressing the ♥ on a book cleared **both its
+  languages** and turned *c. 1851* into *1851*; the same on a film cleared *c. 1942*.
+  Saving a book from the Edit form cleared both languages again; saving a film cleared its
+  **IMDb id**.
+
+  **Applying a metadata match was the worst of them, and the only one you could not put
+  right.** That screen exists to make a record *more* complete, and it was sending only
+  the handful of fields a search result can improve — so the **translator**, the
+  **editor**, both languages and the circa flag went every time you used it. The
+  translator and editor are people, not text: clearing one deletes the link to that
+  person's record, and with it the spelling that book used for them. Retyping the name
+  afterwards makes a new link with no spelling of its own, so a deliberate one was gone
+  for good.
+
+  All of it is fixed, and the app now checks itself two ways: one guard reads what the
+  server stores and fails if any save leaves a field out, and another reads the code and
+  fails if a new save is written the old way.
+
 - **A book's name is no longer broken in half by the buttons beside it.** In a window
   around 850–950px wide, the row of actions on a work's page left just enough space on the
   first line for the title to start there and finish underneath — so *Moby-Dick; or, The

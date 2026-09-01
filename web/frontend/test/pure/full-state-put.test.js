@@ -23,9 +23,10 @@
 // argue with this file.
 
 import { describe, expect, it } from 'vitest'
-import { annotationState } from '../../src/Library.jsx'
-import { dialogueState } from '../../src/Movies.jsx'
+import { annotationState, bookState } from '../../src/Library.jsx'
+import { dialogueState, movieState } from '../../src/Movies.jsx'
 import { utteranceState } from '../../src/Quotes.jsx'
+import { fullState } from '../../src/WorkDetails.jsx'
 
 // What the server stores and accepts on each kind's PUT, as of 0051. Read-only
 // columns are deliberately absent: `id`, `created_at`, `updated_at`, `source` and
@@ -50,6 +51,30 @@ const STORED = {
     'category', 'language', 'board_id',
     'sticker_id', 'sticker_x', 'sticker_y',
   ],
+  // THE WORKS THEMSELVES, added after the same defect was found on them — and it
+  // had been live longer and cost more. `books.language` and `orig_language` have
+  // been storable since 0047 and no client had ever sent them, so an import
+  // filled them and the reader's next ♥ wiped both; `published_circa` and
+  // `release_circa` went the same way, turning "c. 380 BCE" into "380 BCE".
+  //
+  // The shelf columns are absent for the reason the quote kinds' are: status,
+  // progress and the read/watch log belong to PUT /:kind/:id/status, so an
+  // ordinary save cannot rewrite a history.
+  book: [
+    'title', 'author', 'translator', 'editor', 'isbn', 'asin', 'description',
+    'published_year', 'published_circa', 'language', 'orig_language',
+    'genres', 'series', 'series_index', 'favorite',
+  ],
+  // imdb_id IS full-state and belongs here. tmdb_id / tvdb_id / igdb_id are
+  // POINTERS in movieReq — nil leaves the column alone — so sending 0 for one is
+  // how the API spells "clear it". Adding them here "for symmetry" would make
+  // every ♥ on a film erase the ids it was looked up by, which is the opposite
+  // of the repair this list exists for.
+  movie: [
+    'title', 'director', 'publisher', 'release_year', 'release_circa',
+    'description', 'genres', 'media_type', 'series', 'series_index',
+    'favorite', 'imdb_id',
+  ],
 }
 
 // A row with something recognisable in every stored field, so a dropped one shows
@@ -69,27 +94,45 @@ const filled = (fields) => {
   return row
 }
 
+// A LIST PER KIND, not one function. A book is saved by two different builders —
+// bookState for the ♥ and the shelf, fullState for the Details panel — and they
+// are written out separately in two files. Checking one and not the other leaves
+// the other free to drift, which is how they came to disagree in the first place.
 const STATE = {
-  annotation: annotationState,
-  dialogue: dialogueState,
-  quote: utteranceState,
+  annotation: [annotationState],
+  dialogue: [dialogueState],
+  quote: [utteranceState],
+  book: [bookState, (r) => fullState('book', r)],
+  movie: [movieState, (r) => fullState('movie', r)],
 }
+
+// A builder's own name, for the failure message — an anonymous arrow says
+// nothing about which of a kind's two builders dropped the field.
+const NAMES = {
+  book: ['bookState', "fullState('book')"],
+  movie: ['movieState', "fullState('movie')"],
+}
+const nameOf = (kind, i) => NAMES[kind]?.[i] || STATE[kind][i].name || `builder ${i}`
 
 describe('the object a card saves carries everything the row stores', () => {
   for (const [kind, fields] of Object.entries(STORED)) {
     it(`${kind}: no stored field is dropped`, () => {
-      const body = STATE[kind](filled(fields))
-      const missing = fields.filter((f) => !(f in body))
-      expect(missing, `${kind} would clear these on every ♥, colour pick and drag`).toEqual([])
+      STATE[kind].forEach((build, i) => {
+        const body = build(filled(fields))
+        const missing = fields.filter((f) => !(f in body))
+        expect(missing, `${nameOf(kind, i)} would clear these on every ♥, colour pick and drag`).toEqual([])
+      })
     })
 
     // A key that is PRESENT but undefined is the same loss with extra steps: JSON
     // .stringify drops it, so the request body is identical to one that never
     // named the field.
     it(`${kind}: and none of them arrives as undefined`, () => {
-      const body = STATE[kind](filled(fields))
-      const vanishing = Object.keys(body).filter((k) => body[k] === undefined)
-      expect(vanishing, `${kind}: JSON.stringify drops these, so the server never sees them`).toEqual([])
+      STATE[kind].forEach((build, i) => {
+        const body = build(filled(fields))
+        const vanishing = Object.keys(body).filter((k) => body[k] === undefined)
+        expect(vanishing, `${nameOf(kind, i)}: JSON.stringify drops these, so the server never sees them`).toEqual([])
+      })
     })
   }
 
@@ -108,15 +151,19 @@ describe('the object a card saves carries everything the row stores', () => {
   // would take the card down rather than send a blank field.
   it('a sparse row does not throw', () => {
     for (const kind of Object.keys(STATE)) {
-      expect(() => STATE[kind]({ id: 1, quote: 'just the words' }), kind).not.toThrow()
+      STATE[kind].forEach((build, i) => {
+        expect(() => build({ id: 1, quote: 'just the words' }), nameOf(kind, i)).not.toThrow()
+      })
     }
   })
 })
 
 describe('the translation reaches every kind (0051)', () => {
   it('is carried by all three, since a recolour must not erase it', () => {
-    for (const kind of Object.keys(STATE)) {
-      const body = STATE[kind]({ quote: 'x', translation: 'what it says' })
+    // The three QUOTE kinds. A book and a film have no translation column —
+    // 0051 put it on the quote, not on the work it came from.
+    for (const kind of ['annotation', 'dialogue', 'quote']) {
+      const body = STATE[kind][0]({ quote: 'x', translation: 'what it says' })
       expect(body.translation, `${kind} drops the translation`).toBe('what it says')
     }
   })

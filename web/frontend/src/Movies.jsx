@@ -256,7 +256,7 @@ function Poster({ path, title, className = '', zoomable = false }) {
 
 // movieState is the full PUT body for a movie (PUT is full-state, and omitting
 // tmdb_id keeps it on the manual-update path) — used by the detail-header ♥.
-function movieState(m) {
+export function movieState(m) {
   return {
     title: m.title,
     director: m.director || '',
@@ -265,6 +265,10 @@ function movieState(m) {
     // clear who published it. The same trap as imdb_id below.
     publisher: m.publisher || '',
     release_year: m.release_year || 0,
+    // The circa flag is full-state like the year it qualifies, so leaving it out
+    // turned "c. 1942" into "1942" on the next ♥ — the same trap as the ids
+    // below, on the field nobody thought of as a field.
+    release_circa: !!m.release_circa,
     description: m.description || '',
     genres: m.genres || [],
     media_type: m.media_type || 'movie',
@@ -1289,7 +1293,12 @@ export function EditMovie({ movie, onSaved, onCancel }) {
     if (!title.trim()) return setError(t('error.validate.title-required.lower'))
     setBusy(true)
     setError('')
+    // THE RECORD FIRST, THE FORM ON TOP — see EditBook's submit for why. Here it
+    // is `imdb_id` that the hand-written list forgot: a plain full-state string
+    // (unlike the two ids below, which are pointers), so saving this form used to
+    // clear the IMDb id every time.
     const r = await json('PUT', `/movies/${movie.id}`, {
+      ...movieState(movie),
       title: title.trim(),
       media_type: mediaType,
       director: director.trim(),
@@ -1302,9 +1311,9 @@ export function EditMovie({ movie, onSaved, onCancel }) {
       series: series.trim(),
       series_index: Number(seriesIndex) || 0,
       description: description.trim(),
-      // favorite is edited on the detail header — carry it (PUT is full-state).
-      favorite: !!movie.favorite,
-      // An emptied field sends 0, which is how the API spells "clear it".
+      // An emptied field sends 0, which is how the API spells "clear it". These
+      // two are POINTERS server-side, so they are the form's to send and are
+      // deliberately not in movieState.
       tmdb_id: idNum(tmdbId),
       tvdb_id: idNum(tvdbId),
       poster_url: posterUrl || undefined,

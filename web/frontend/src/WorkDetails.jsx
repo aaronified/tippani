@@ -233,7 +233,7 @@ export const MOVIE_FIELDS = [
 // one-field save has to carry every other field through untouched. Shelf status,
 // progress and the read log are deliberately absent from both — they belong to
 // PUT /:kind/:id/status, so editing a field here can never rewrite a history.
-function fullState(kind, it) {
+export function fullState(kind, it) {
   if (kind === 'book') {
     return {
       title: it.title,
@@ -245,6 +245,12 @@ function fullState(kind, it) {
       description: it.description || '',
       published_year: it.published_year || 0,
       published_circa: !!it.published_circa,
+      // Storable since 0047 and never once sent by a client, so every save from
+      // this panel cleared them. The rows that edit them arrive in the same pass
+      // as this line, and a row whose save destroys the field it edits would be
+      // worse than no row at all.
+      language: it.language || '',
+      orig_language: it.orig_language || '',
       genres: it.genres || [],
       series: it.series || '',
       series_index: it.series_index || 0,
