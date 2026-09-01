@@ -16,7 +16,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 
-let PUTS, OK, CLOSED, CHANGED
+let PUTS, OK, CHANGED
 
 vi.mock('../../src/api.js', async (orig) => ({
   ...(await orig()),
@@ -37,7 +37,8 @@ vi.mock('../../src/api.js', async (orig) => ({
   }),
 }))
 
-const { WorkDetails } = await import('../../src/WorkDetails.jsx')
+const { workDetailsPanel } = await import('../../src/WorkDetails.jsx')
+const { PanelHarness, resetPanelHistory } = await import('../panel-harness.jsx')
 
 const ITEM = {
   id: 7, title: 'Solaris', author: 'Stanisław Lem', translator: '', editor: '',
@@ -48,19 +49,45 @@ const ITEM = {
 beforeEach(() => {
   PUTS = []
   OK = true
-  CLOSED = 0
   CHANGED = []
+  resetPanelHistory()
 })
 
-const panel = () => render(
-  <WorkDetails
-    open
-    kind="book"
-    item={ITEM}
-    onClose={() => { CLOSED += 1 }}
-    onChanged={(rec) => CHANGED.push(rec)}
-  />,
-)
+// MOUNTED THROUGH THE PANEL STACK, because that is where this form now lives and
+// the master ✓ belongs to the CHROME rather than to the form. Rendering
+// WorkDetails bare would leave useFormHost with no host, no form id, and no ✓ at
+// all — which is precisely the regression this file is here to catch, so it must
+// not be the thing this file does.
+const panel = () => {
+  const r = render(
+    <PanelHarness
+      panel={(stack) =>
+        workDetailsPanel(stack, {
+          kind: 'book',
+          item: ITEM,
+          onChanged: (rec) => CHANGED.push(rec),
+          onDelete: null,
+        })
+      }
+    />,
+  )
+  return r
+}
+
+// The panel opens on the frame after mount (open() walks history first), so every
+// case waits for a row of the form before touching it.
+const shown = () => waitFor(() => expect(screen.getByRole('button', { name: /Edit Title/i })).toBeTruthy())
+
+// CLOSING IS NOW OBSERVED, NOT COUNTED. The panel dismisses itself through the
+// stack — onClose calls stack.close(), which walks history back — so what a test
+// can see is the panel gone from the page, which is also what a reader sees.
+//
+// THE CHROME, NOT A ROW. Asking for the Title row's pencil looks equivalent and
+// is not: opening a row REPLACES its pencil with an input, so a panel with a row
+// open would read as closed and three cases about exactly that state would pass
+// for the wrong reason.
+const isOpen = () => document.querySelector('.tp-panel') !== null
+const closed = () => waitFor(() => expect(isOpen()).toBe(false))
 
 // A row is opened by its pencil and typed into by its input.
 const openRow = (label) => {
@@ -72,6 +99,10 @@ const typeIn = (label, text) => {
   return box
 }
 const masterSave = () => screen.getByLabelText('Save')
+// The ✓ belongs to the chrome and appears one render after the body: the form
+// registers itself in an effect, which is the only way the panel learns there is
+// anything to commit.
+const waitForSave = () => screen.findByLabelText('Save')
 
 describe('the master save', () => {
   // IT IS NEVER GREYED, and it used to be greyed almost always. "Nothing to save"
@@ -80,9 +111,10 @@ describe('the master save', () => {
   // done — and a ✓ that is inert whenever you have finished is a ✓ that appears to
   // do nothing. The owner reported exactly that. So it means DONE: commit whatever
   // is open, then leave.
-  it('is never disabled, with nothing open or with a row untouched', () => {
+  it('is never disabled, with nothing open or with a row untouched', async () => {
     panel()
-    expect(masterSave().disabled).toBe(false)
+    await shown()
+    expect((await waitForSave()).disabled).toBe(false)
     openRow('Title')
     expect(masterSave().disabled).toBe(false)
   })
@@ -92,24 +124,27 @@ describe('the master save', () => {
   // row nobody edited, every time somebody closed the panel.
   it('closes without writing when there is nothing to save', async () => {
     panel()
+    await shown()
     openRow('Title') // open, unchanged
     fireEvent.click(masterSave())
-    await waitFor(() => expect(CLOSED).toBe(1))
+    await closed()
     expect(PUTS).toEqual([])
   })
 
   it('saves what is open AND closes the panel', async () => {
     panel()
+    await shown()
     openRow('Title')
     typeIn('Title', 'Solaris (1961)')
     fireEvent.click(masterSave())
     await waitFor(() => expect(PUTS.length).toBe(1))
     expect(PUTS[0].body.title).toBe('Solaris (1961)')
-    await waitFor(() => expect(CLOSED).toBe(1))
+    await closed()
   })
 
   it('sends every edited field in ONE request', async () => {
     panel()
+    await shown()
     openRow('Title')
     typeIn('Title', 'Solaris (1961)')
     openRow('Author')
@@ -129,6 +164,7 @@ describe('the master save', () => {
   // exactly as they stand rather than being dropped from the body.
   it('carries the untouched fields through', async () => {
     panel()
+    await shown()
     openRow('Title')
     typeIn('Title', 'Solaris (1961)')
     fireEvent.click(masterSave())
@@ -143,6 +179,7 @@ describe('the master save', () => {
   it('leaves the rows open when the server refuses', async () => {
     OK = false
     panel()
+    await shown()
     openRow('Title')
     typeIn('Title', 'Solaris (1961)')
     fireEvent.click(masterSave())
@@ -152,12 +189,13 @@ describe('the master save', () => {
     // AND THE PANEL STAYS UP. The ✓ closes on success, so the failure path has to
     // be the one thing it does not do — closing over a refused write would take
     // the error message and the drafts off the screen together.
-    expect(CLOSED).toBe(0)
+    expect(isOpen(), 'the panel closed when it should not have').toBe(true)
   })
 
   // The per-row ✓ is what the panel is for, and it does not go away.
-  it('does not replace the row own save', () => {
+  it('does not replace the row own save', async () => {
     panel()
+    await shown()
     openRow('Title')
     expect(screen.getAllByLabelText(/save/i).length).toBeGreaterThan(1)
   })
@@ -178,30 +216,33 @@ describe('the master save', () => {
 describe('Enter inside the panel', () => {
   const enter = (el) => fireEvent.keyDown(el, { key: 'Enter', bubbles: true, cancelable: true })
 
-  it('does not submit the form from a text input', () => {
+  it('does not submit the form from a text input', async () => {
     panel()
+    await shown()
     openRow('Title')
     const box = screen.getByLabelText(/^Title$/i)
     // InlineField commits the row on Enter and prevents the default itself; the
     // form-level guard is what covers every OTHER input in the panel.
     expect(enter(box)).toBe(false) // false = something called preventDefault
-    expect(CLOSED).toBe(0)
+    expect(isOpen(), 'the panel closed when it should not have').toBe(true)
   })
 
-  it('is prevented for an input the panel does not own', () => {
+  it('is prevented for an input the panel does not own', async () => {
     // A box added to this panel later — the cast panel's, the cover URL's — gets
     // the guard whether or not whoever added it thought about Enter. That is the
     // point of putting it on the <form> rather than on each control.
     panel()
+    await shown()
     const form = document.querySelector('form')
     const stray = document.createElement('input')
     form.appendChild(stray)
     expect(enter(stray)).toBe(false)
-    expect(CLOSED).toBe(0)
+    expect(isOpen(), 'the panel closed when it should not have').toBe(true)
   })
 
-  it('leaves a textarea alone, which needs its newline', () => {
+  it('leaves a textarea alone, which needs its newline', async () => {
     panel()
+    await shown()
     const form = document.querySelector('form')
     const area = document.createElement('textarea')
     form.appendChild(area)
@@ -226,6 +267,7 @@ describe('Enter inside the panel', () => {
 describe('a submit from somewhere else', () => {
   it('is ignored, so a nested form cannot close the panel', async () => {
     panel()
+    await shown()
     openRow('Title')
     typeIn('Title', 'Solaris (1961)')
     const form = document.querySelector('form')
@@ -235,17 +277,18 @@ describe('a submit from somewhere else', () => {
     // form submits: target is the inner form, currentTarget the outer.
     fireEvent.submit(inner)
     await new Promise((r) => setTimeout(r, 0))
-    expect(CLOSED, 'a nested form closed the panel').toBe(0)
+    expect(isOpen(), 'a nested form closed the panel').toBe(true)
     expect(PUTS, 'a nested form wrote the record').toEqual([])
   })
 
   it('and the panel still submits itself', async () => {
     panel()
+    await shown()
     openRow('Title')
     typeIn('Title', 'Solaris (1961)')
     fireEvent.click(masterSave())
     await waitFor(() => expect(PUTS.length).toBe(1))
-    await waitFor(() => expect(CLOSED).toBe(1))
+    await closed()
   })
 })
 
@@ -263,6 +306,7 @@ describe('a cast change reaches the record', () => {
   // "People" button and the owner could not find the cast at all.
   const openPeople = async () => {
     panel()
+    await shown()
     await screen.findByText('Ahab')
   }
 
@@ -303,18 +347,27 @@ describe('the fetch screen carries the cast fetches', () => {
     id: 12, title: 'Stalker', director: 'Andrei Tarkovsky', media_type: 'movie',
     release_year: 1979, genres: [], series: '', series_index: 0, tmdb_id: 0, tvdb_id: 4321,
   }
-  const film = (onChanged) => render(
-    <WorkDetails
-      open
-      kind="movie"
-      item={FILM}
-      onClose={() => {}}
-      onChanged={onChanged || (() => {})}
-    />,
-  )
+  const film = (onChanged) =>
+    render(
+      <PanelHarness
+        panel={(stack) =>
+          workDetailsPanel(stack, {
+            kind: 'movie',
+            item: FILM,
+            onChanged: onChanged || (() => {}),
+            onDelete: null,
+          })
+        }
+      />,
+    )
+
+  // The panel opens a frame after mount, so each case waits for its first row.
+  const filmShown = () => waitFor(() => expect(screen.getAllByRole('button', { name: /Fetch metadata/i }).length).toBeGreaterThan(0))
 
   it('offers them where the other fetch is, not inside the People panel', async () => {
     film()
+
+    await filmShown()
     // The People panel is open on arrival and must NOT be where these live any
     // more — that is half the claim, and the half a positive-only test misses.
     // The panel's own row, from the mocked /cast read above — MonoLabel's heading
@@ -334,6 +387,8 @@ describe('the fetch screen carries the cast fetches', () => {
   it('hands the host a new record carrying the fetched cast', async () => {
     const seen = []
     film((rec) => seen.push(rec))
+
+    await filmShown()
     fireEvent.click(screen.getAllByRole('button', { name: /Fetch metadata/i })[0])
     fireEvent.click(await screen.findByRole('button', { name: /Cast from TheTVDB/ }))
 

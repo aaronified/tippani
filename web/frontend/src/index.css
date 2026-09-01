@@ -4339,6 +4339,145 @@
     max-width: 880px;
   }
 
+  /* ---- the quote board's head, as the pack draws it ------------------------
+     ONE ROW, and wrapping is switched OFF rather than tolerated: "nothing left in
+     it is wide enough to need a second line". What used to be here wrapped into
+     two bands of chrome above the quotes somebody came to read.
+
+     The overflow lands on the CHIPS, which is the only part of the row that can
+     afford to lose its right edge — a setting that scrolled out of sight would
+     hide the state you filtered by. */
+  .board-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: nowrap;
+    padding-bottom: 14px;
+  }
+  .board-head-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+  }
+  /* A hairline between the controls and the chips: one is a setting you change,
+     the other a filter you toggle, and without it they read as one row of eight
+     similar pills. */
+  .board-head-rule {
+    width: 1px;
+    height: max(26px, 1.7em);
+    background: var(--line);
+    flex: none;
+    margin: 0 2px;
+  }
+  .board-head-chips {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    flex: 1;
+    min-width: 0;
+    overflow-x: auto;
+    /* Flinging this row to its end must not then start moving the column behind
+       it — the standing rule every scroller in the app answers to. */
+    overscroll-behavior: contain;
+  }
+  .board-head-chips > * { flex: none; }
+  .board-head-verbs {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex: none;
+    margin-left: auto;
+  }
+
+  /* ---- a credit, as an object ---------------------------------------------
+     The design pack's `personChip`: a pill carrying a small round face and the
+     whole name. The hero's credits used to be one sentence — name, role word,
+     year, series — where a person and a number looked alike and a middle dot was
+     all that separated them. Each person is a thing now.
+
+     `flex: none` AND `white-space: nowrap` together are the no-truncation rule:
+     the chip may be wider than the column, and the row it sits in scrolls under a
+     measured fade. A name cut to "Bulgak…" is the row deciding which part of
+     somebody's name did not matter. */
+  .person-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex: none;
+    min-height: max(38px, 2.4em);
+    padding: 0 13px 0 5px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--card);
+    color: var(--ink);
+    font-size: var(--type-ui-13);
+    cursor: pointer;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .5);
+    transition: border-color .15s ease, background .15s ease;
+  }
+  .person-chip:hover, .person-chip:focus-visible { border-color: var(--accent-ui); }
+  /* The face is always drawn — a silhouette when there is no photograph — so the
+     row is a run of equal shapes rather than a ragged mix of two designs. */
+  .person-chip-face {
+    display: grid;
+    place-items: center;
+    width: max(24px, 1.5em);
+    height: max(24px, 1.5em);
+    flex: none;
+    overflow: hidden;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: var(--bg);
+    color: var(--faint);
+  }
+  .person-chip-face img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .person-chip-name { white-space: nowrap; }
+
+  /* +3. NINE-PIXEL CORNERS, not round, and the pack says why: round is a person
+     or a value, 9px is something that acts. Dashed, because what it opens is the
+     rest of a list rather than a thing of its own. */
+  .work-hero-more {
+    flex: none;
+    min-height: 44px;
+    min-width: 44px;
+    padding: 0 10px;
+    border-radius: 9px;
+    border: 1px dashed var(--line);
+    background: transparent;
+    color: var(--soft);
+    font-family: var(--font-mono);
+    font-style: var(--font-mono-style);
+    font-variant-caps: var(--font-mono-caps);
+    text-transform: var(--font-mono-case);
+    font-variant-numeric: var(--font-mono-figures);
+    font-size: var(--type-mono-11);
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .work-hero-more:hover, .work-hero-more:focus-visible { color: var(--ink); border-color: var(--ink-border); }
+
+  /* ---- A MEASURED FADE IS THE AFFORDANCE, so the scrollbar is noise ----------
+     Every scroller in this app that wears an edge fade says "there is more this
+     way" by fading. A scrollbar under a row of chips says it a second time, in a
+     control nobody drags, and costs the row several pixels of its own height. The
+     design pack authors `scrollbar-width: none` on its own credits row for
+     exactly this reason.
+
+     THE TWO DETAIL COLUMNS ARE EXEMPT. They are not lists — they are the page —
+     and a reader scrolling a book's whole set of quotes uses the bar to judge
+     where they are and to drag there. The fade tells you there is more; on
+     something that long it does not tell you how much more. */
+  [data-scroll-x]:not(.tp-detail-hero):not(.tp-detail-stream),
+  [data-scroll-v]:not(.tp-detail-hero):not(.tp-detail-stream) {
+    scrollbar-width: none;
+  }
+  [data-scroll-x]:not(.tp-detail-hero):not(.tp-detail-stream)::-webkit-scrollbar,
+  [data-scroll-v]:not(.tp-detail-hero):not(.tp-detail-stream)::-webkit-scrollbar {
+    display: none;
+  }
+
   /* ---- the hero column's own stack ---------------------------------------
      Every gap is var(--row) or a share of it — a step typed into one of these
      rules is what spacing-debt.test.js counts, and the frame already restates

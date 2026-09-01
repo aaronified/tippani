@@ -29,7 +29,6 @@ import {
   ErrorText,
   Field,
   FieldIconButton,
-  FormModal,
   GhostButton,
   IconBack,
   IconCheck,
@@ -323,7 +322,7 @@ function blank(v, kind) {
   return String(v ?? '').trim() === ''
 }
 
-export function WorkDetails({ open, onClose, kind, item, onChanged, onDelete }) {
+export function WorkDetails({ onClose, kind, item, onChanged, onDelete }) {
   const path = kind === 'book' ? 'books' : 'movies'
   // The medium, which decides three things on this screen: what the credit is
   // called, which supplier ids are worth showing, and what "Type" reads as.
@@ -336,15 +335,17 @@ export function WorkDetails({ open, onClose, kind, item, onChanged, onDelete }) 
   const [error, setError] = useState('')
   const [genreSuggestions, setGenreSuggestions] = useState([])
 
-  useEffect(() => {
-    if (!open) return
-    json('GET', '/genres').then((r) => { if (r.ok) setGenreSuggestions(r.data.genres || []) })
-  }, [open])
-  // Re-opening the panel always lands on the field list, never on a half-done
+  // NO `open` PROP ANY MORE: the panel stack mounts this only while it is open, so
+  // mounting IS opening. What used to be "reset whenever open goes true" is now an
+  // unconditional reset on mount, which is the same guarantee with nothing to keep
+  // in step — re-opening always lands on the field list rather than on a half-done
   // merge from last time.
   useEffect(() => {
-    if (open) { setView('fields'); setMerge(null); setError('') }
-  }, [open])
+    json('GET', '/genres').then((r) => { if (r.ok) setGenreSuggestions(r.data.genres || []) })
+    setView('fields')
+    setMerge(null)
+    setError('')
+  }, [])
 
   if (!item) return null
 
@@ -543,12 +544,16 @@ export function WorkDetails({ open, onClose, kind, item, onChanged, onDelete }) 
     setView('fields')
   }
 
-  const title = t(
-    view === 'merge' ? 'common.work.merge.title' : view === 'lookup' ? 'common.work.lookup.title' : 'common.work.details.title',
-  )
-
+  // THE PANEL'S TITLE IS FIXED AT "DETAILS" and the two sub-views name themselves
+  // in the body. `panel.title` is read from the immutable stack entry, so a title
+  // that changed with `view` could not survive the move — and the repair that
+  // looks obvious, pushing lookup and merge as their own panels, would move
+  // `save`, `busy` and `error` out of one component into three closures, which is
+  // a second change wearing this one's clothes. Nothing becomes unnamed: the
+  // lookup draws its own heading row and the merge draws its source label, each
+  // already with its own back key.
   return (
-    <FormModal open={open} onClose={onClose} title={title} maxWidth={620} saveTip={t('common.work.details.done.tip')}>
+    <>
       <ErrorText>{error}</ErrorText>
 
       {view === 'fields' && (
@@ -635,8 +640,32 @@ export function WorkDetails({ open, onClose, kind, item, onChanged, onDelete }) 
           onResync={kind === 'movie' ? () => resync(merge.candidate) : null}
         />
       )}
-    </FormModal>
+    </>
   )
+}
+
+// workDetailsPanel — the descriptor a screen opens, in identity.jsx's idiom.
+//
+// `wide` because this is a form of a dozen rows rather than a list of links, and
+// `saveTip` is what the panel's ✓ says when the form has no objection of its own.
+// `onClose` closes the WHOLE stack rather than walking back one: the field list's
+// own ✓ means "I am finished here", and a Details panel is never opened from
+// inside another one.
+export function workDetailsPanel(stack, { kind, item, onChanged, onDelete }) {
+  return {
+    title: t('common.work.details.title'),
+    wide: true,
+    saveTip: t('common.work.details.done.tip'),
+    render: () => (
+      <WorkDetails
+        kind={kind}
+        item={item}
+        onChanged={onChanged}
+        onDelete={onDelete}
+        onClose={() => stack.close()}
+      />
+    ),
+  }
 }
 
 // ---- the resting view ------------------------------------------------------

@@ -4,7 +4,7 @@ import { chapterLabel } from './text.js'
 import { CastCombo, Datalist, useWorkSuggestions } from './suggest.jsx'
 import { CoverControls, BookLookupPicker } from './CoverPicker.jsx'
 import { FlowQuote } from './flow.jsx'
-import { WorkDetails } from './WorkDetails.jsx'
+import { workDetailsPanel } from './WorkDetails.jsx'
 import { StickerImg, StickerPicker, useStickers } from './stickers.jsx'
 import { ShareDialog, bookShare, copyQuote } from './share.jsx'
 import { deleteWithUndo } from './undo.jsx'
@@ -48,6 +48,7 @@ import {
   ColorSwatches,
   ConfirmDialog,
   Cover,
+  DetailFrame,
   EmptyState,
   ErrorText,
   ExpandableText,
@@ -69,13 +70,14 @@ import {
   IconPlus,
   IconPractise,
   IconQuiz,
-  IconReading,
+  IconReadAgain,
   IconSearch,
   Masonry,
   MobileSheet,
   MonoLabel,
   mulberry32,
   PageHeader,
+  PanelHost,
   parseYearInput,
   PickMark,
   QuizSkipMark,
@@ -96,17 +98,17 @@ import {
   TranslationLine,
   useCardMenu,
   useColumnsAt,
-  useCoverSize,
-  DetailFrame,
   useColumnScroll,
+  useCoverSize,
   useCrumb,
-  useScreenBar,
   useFormHost,
   useIsMobileScreen,
-  useTwoColumn,
-  useScreenOwnsScroll,
+  usePanelStack,
   usePersistedState,
   useReveal,
+  useScreenBar,
+  useScreenOwnsScroll,
+  useTwoColumn,
   ViewToggle,
 } from './ui.jsx'
 
@@ -652,7 +654,22 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce 
   // on this" is the obvious thing to want had no way to ask.
   const { practise, practiceDialog } = usePractice()
   const [book, setBook] = useState(null)
-  const [editing, setEditing] = useState(false)
+  // THE DETAILS SURFACE IS A PANEL NOW, so what used to be a boolean is the
+  // stack itself. Its own useEffect closes it when the id changes, the way
+  // setEditing(false) used to.
+  const detailsStack = usePanelStack()
+  // Every door into Details — the ⋯ menu, the header key, the phone dock — opens
+  // the same descriptor. `open` rather than `push`: this is "show me this", so it
+  // replaces whatever a previous control left open instead of burying it.
+  const openDetails = () => {
+    if (!book) return
+    detailsStack.open(workDetailsPanel(detailsStack, {
+      kind: 'book',
+      item: book,
+      onChanged: setBook,
+      onDelete: remove,
+    }))
+  }
   const [error, setError] = useState('')
   const [person, setPerson] = useState(null) // author metadata panel
   const [mobileFilter, setMobileFilter] = useState(false)
@@ -689,7 +706,7 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce 
   }
   useEffect(() => {
     setBook(null)
-    setEditing(false)
+    detailsStack.close()
     setQuoteStats(null)
     load()
   }, [id])
@@ -867,11 +884,11 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce 
       { id: 'h-do', heading: t('common.mono.actions.label') },
       {
         id: 'shelf',
-        icon: <IconReading size={24} />,
+        icon: <IconReadAgain size={24} />,
         label: moveLabel('book', book?.status || '', ACTIVE_STATUS.book, book || {}),
         onClick: () => pick(ACTIVE_STATUS.book),
       },
-      { id: 'details', icon: <IconDetails />, label: t('common.work.details.title'), onClick: () => setEditing(true) },
+      { id: 'details', icon: <IconDetails />, label: t('common.work.details.title'), onClick: () => openDetails() },
       { id: 'practise', icon: <IconPractise />, label: t('book.practise.menu.label'), onClick: () => book && practise({ book: book.id, label: book.title }) },
       ...(DEMO ? [] : [{ id: 'export', icon: <IconExport />, label: t('book.export.label'), onClick: () => { if (book) window.location.href = `/api/books/${book.id}/export` } }]),
       { id: 'delete', icon: <IconDelete />, label: t('common.action.delete.label'), onClick: () => setAsking(true), danger: true },
@@ -890,7 +907,7 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce 
         id: 'details',
         label: t('common.work.details.title'),
         icon: <IconDetails />,
-        onClick: () => setEditing(true),
+        onClick: () => openDetails(),
       },
     ] : null,
   })
@@ -963,35 +980,24 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce 
             // bar's ⋯ overflow above. Everything but the shelf move is a glyph
             // now — the row used to be four wide word-buttons floated over the
             // description, which is the one thing on the page worth reading.
+            // TWO STANDING VERBS, and each of the three that left had somewhere
+            // better to be. The shelf move is the state chip's own popover, two
+            // inches above this row and holding the whole lifecycle rather than
+            // one step of it. Export and Delete are in the ⋯ menu, which every
+            // screen now has: export is a thing you do once a year, and a
+            // destructive verb standing beside four constructive ones is where a
+            // mis-click costs a book and all its quotes.
+            //
+            // Five buttons was also what pushed this row below the fold in the
+            // hero COLUMN, so the actions a reader came for were the one thing
+            // they had to scroll to find.
             actions={
               mobile ? null : (
                 <>
-                  {/* The one shelf action worth a standing button; the rest of
-                      the lifecycle lives in the state chip's popover. */}
-                  <GhostButton onClick={() => pick(ACTIVE_STATUS.book)} disabled={shelfBusy}>
-                    {moveLabel('book', book.status || '', ACTIVE_STATUS.book, book)}
-                  </GhostButton>
-                  {!DEMO && (
-                    <IconButton
-                        icon={<IconExport />}
-                        label={t('common.action.export.label')}
-            ariaLabel={t('book.export.aria')}
-                        onClick={() => (window.location.href = `/api/books/${book.id}/export`)}
-                      tooltip={t('book.export.tip')}
-                    />
-                  )}
+                  <IconButton icon={<IconDetails />} label={t('common.work.details.title')}
+            ariaLabel={t('common.work.details.title')} onClick={() => openDetails()} tooltip={t('book.details.tip')} />
                   <IconButton icon={<IconPractise />} label={t('common.action.practise.label')}
             ariaLabel={t('book.practise.aria')} onClick={() => practise({ book: book.id, label: book.title })} tooltip={t('book.practise.tip')} />
-                  <IconButton icon={<IconDetails />} label={t('common.work.details.title')}
-            ariaLabel={t('common.work.details.title')} onClick={() => setEditing(true)} tooltip={t('book.details.tip')} />
-                  <IconButton
-                      icon={<IconDelete />}
-                      label={t('common.action.delete.label')}
-            ariaLabel={t('book.delete.aria')}
-                      onClick={() => setAsking(true)}
-                      danger
-                    tooltip={t('book.delete.tip')}
-                  />
                 </>
               )
             }
@@ -1019,16 +1025,10 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce 
       ) : (
         heroBlock
       )}
-      {book && (
-        <WorkDetails
-          open={editing}
-          onClose={() => setEditing(false)}
-          kind="book"
-          item={book}
-          onChanged={setBook}
-          onDelete={remove}
-        />
-      )}
+      {/* THE PANEL HOST IS A SIBLING OF THE PAGE, never inside the detail card:
+          it portals to <body>, and a .hand-card is `isolation: isolate`, so a
+          host mounted inside one would be trapped in its stacking context. */}
+      <PanelHost stack={detailsStack} />
       <InProgressCapDialog
         open={!!capPool}
         items={(capPool || []).map((b) => ({ id: b.id, title: b.title, meta: [b.author, formatYear(b.published_year, b.published_circa) || null].filter(Boolean).join(' · ') }))}
@@ -1979,30 +1979,60 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
           </div>
         </MobileSheet>
       )}
+      {/* THE BOARD'S HEAD IS ONE ROW, and the pack switches wrapping OFF rather
+          than tolerating it: "nothing left in it is wide enough to need a second
+          line". It used to wrap into two — a FILTER caption, six colour dots, a
+          tag select and a favourites chip on one line, then the count, the view
+          switch and Add on the next — which is two bands of chrome above the
+          quotes somebody came to read.
+
+          THE STRUCTURE IS THE PACK'S. A settings field and the category control
+          sit OUTSIDE the scroller, so a setting cannot scroll out of sight while
+          the chips do; the chip row is `flex: 1; min-width: 0` and takes all the
+          overflow, because it is the only part that can afford to lose its right
+          edge; the verbs are `flex: none` on the end.
+
+          THE COUNT IS GONE FROM HERE. "3 quotes" is a property of the WORK, and
+          the hero already states it beside how many are favourites, noted and
+          tagged — this was the same fact twice on one screen, and the pack moves
+          it to the hero for exactly that reason.
+
+          THE CAPTION IS GONE TOO. Six coloured dots under the word FILTER did not
+          need the word; the controls say what they are. The pack drops captions
+          first when the row is tight, and this row is tight at 1180 by design. */}
       {!mobile && (
-        <div className="flex flex-wrap items-center gap-3">
-          <MonoLabel>{t('book.quotes.filter.label')}</MonoLabel>
-          <ColorSwatches value={color} onChange={(c) => setColor(c === color ? '' : c)} />
-          {tags.length > 0 && (
-            <Select
-              ariaLabel={t('common.filters.tag.aria')}
-              value={tag}
-              onChange={setTag}
-              options={[['', t('common.filters.tag.all.label')], ...tags.map((row) => [row.name, row.name])]}
-            />
-          )}
-          <button onClick={() => setFav(!fav)} className={filterChipClass(fav)} title={t('common.favourite.filter.tip')}>
-            ♥ favourites
-          </button>
-          <span className="ml-auto flex items-center gap-3 view-toggle-row">
-            <MonoLabel>{countsLabel}</MonoLabel>
+        <div className="board-head">
+          <div className="board-head-left">
+            {/* A colour is a filing decision with six values, so it opens a list
+                rather than sitting there as six toggles — which makes it a
+                control, and a control keeps its own place beside the field
+                instead of scrolling away among the chips. */}
+            <ColorSwatches mini value={color} onChange={(c) => setColor(c === color ? '' : c)} ariaLabel={t('common.colour.category.aria')} />
+            {tags.length > 0 && (
+              <>
+                <span className="board-head-rule" aria-hidden="true" />
+                <Select
+                  ariaLabel={t('common.filters.tag.aria')}
+                  value={tag}
+                  onChange={setTag}
+                  options={[['', t('common.filters.tag.all.label')], ...tags.map((row) => [row.name, row.name])]}
+                />
+              </>
+            )}
+            <Scroller axis="x" className="board-head-chips">
+              <button onClick={() => setFav(!fav)} className={filterChipClass(fav)} title={t('common.favourite.filter.tip')}>
+                ♥ favourites
+              </button>
+            </Scroller>
+          </div>
+          <div className="board-head-verbs">
             <ViewToggle value={view} onChange={setView} />
             {/* Both form factors now open the ONE Add surface, on Capture with
                 this book as the target — the shell's ＋ knows which page it is
                 on. This is the desktop route to it; the phone's is the ＋ in the
                 detail bar above. */}
             <GhostButton onClick={() => onAdd?.('quote', { type: 'book', id: bookId })}>{t('book.quotes.capture.label')}</GhostButton>
-          </span>
+          </div>
         </div>
       )}
 

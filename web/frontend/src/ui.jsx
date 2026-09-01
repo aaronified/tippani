@@ -853,6 +853,55 @@ export function useColumnScroll(ref, key) {
 export const BOARD_COLUMNS = [[1900, 5], [1600, 4], [1280, 3], [640, 2]]
 export const QUOTE_COLUMNS = [[1900, 5], [1600, 4], [1280, 3], [860, 2]]
 
+// useColumnsIn — the column count for a board that does NOT span the window.
+//
+// WHY useColumnsAt IS NOT ENOUGH ANY MORE, and it is worth saying plainly because
+// the ladder above was correct for years. It reads `window.innerWidth`, which was
+// the same question as "how wide is the container" for as long as every board sat
+// in the page's one centred container. The work detail broke that: its quote board
+// lives in a stream column that is the window MINUS the rail MINUS the hero, and
+// then capped at 880px for measure. On a 1920px screen the ladder therefore asked
+// for FIVE columns inside 880px — 176px each, a column of syllables, which is the
+// exact failure QUOTE_COLUMNS' own comment says it exists to prevent.
+//
+// So this measures the element instead, and the ladder it takes is in CONTAINER
+// pixels rather than viewport ones. The arithmetic the comment above calls "the
+// one that matters" — container ÷ columns ≈ one card wide — is now the arithmetic
+// actually being done.
+//
+// A ResizeObserver rather than a resize listener: the container changes width when
+// the window does, but ALSO when the rail collapses to glyphs, when the hero
+// column appears at 1180, and when a panel opens — none of which fire `resize`.
+export function useColumnsIn(ref, ladder) {
+  const [n, setN] = useState(1);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const read = (w) => {
+      for (const [min, cols] of ladder) if (w >= min) return cols;
+      return 1;
+    };
+    const ro = new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect?.width || el.clientWidth;
+      if (w > 0) setN(read(w));
+    });
+    ro.observe(el);
+    setN(read(el.clientWidth || 0));
+    return () => ro.disconnect();
+    // ladder is a static literal per call site; intentionally not a dep.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ref]);
+  return n;
+}
+
+// QUOTE_COLUMNS_IN — the same intent as QUOTE_COLUMNS, measured against the board
+// rather than the window, and DELIBERATELY MORE GENEROUS. The rungs are set from
+// the owner's own report: on a 1080p screen the board was drawing four columns of
+// about 170px and "the annotations need at least double the width". A quote is
+// read, not glanced at, so its card gets ~400px — which in this screen's 880px
+// stream is two columns, and on a board that spans a whole page is still five.
+export const QUOTE_COLUMNS_IN = [[2000, 5], [1600, 4], [1200, 3], [800, 2]];
+
 // useColumnsAt — the live column count for a Masonry, from a [minWidthPx, cols]
 // ladder (largest breakpoint first; below the smallest ⇒ 1 column). Mirrors the
 // Tailwind breakpoints the old CSS-column boards used, e.g. [[1280,3],[640,2]].
@@ -1976,6 +2025,22 @@ export function ExpandableDescription({ text, style, lines = 3, className = "" }
 // usePersistedState mirrors a JSON-serialisable value in localStorage (per
 // device) — used for view mode and per-tile sizing, which are viewport prefs
 // rather than identity prefs (unlike theme/accent, which live server-side).
+// useWorkView — the remembered tiles/table setting for a work's board.
+//
+// ONE FUNCTION FOR BOTH SCREENS, deliberately. A book's board and a film's board
+// are the same board, and their view preference is the same preference under two
+// storage keys; written out twice they are two places for the retirement of List
+// to be half-done. This is the smallest piece of the "one source" rule that could
+// be moved without waiting for the rest of it.
+//
+// AND IT MIGRATES. Anyone who chose List before it was retired has "list" sitting
+// in localStorage, and a value the toggle can no longer produce is a screen with
+// no way back to the two that are left.
+export function useWorkView(key) {
+  const [v, setV] = usePersistedState(key, "tiles");
+  return [v === "list" ? "tiles" : v, setV];
+}
+
 export function usePersistedState(key, def) {
   const [v, setV] = useState(() => {
     try {
@@ -5615,6 +5680,13 @@ export function ViewIcon({ kind }) {
 
 // ViewToggle — the shared tiles / list / table switch (Library annotations +
 // Catalogue dialogues), so both quote surfaces offer the same views.
+// TWO VIEWS, NOT THREE. List was a middle setting nobody chose: a tile board
+// already reads as a list at one column, and a table is what you switch to when
+// you want to compare rows rather than read them. The third option cost a third
+// of the switch's width to offer a fourth of a difference.
+//
+// A stored "list" survives in localStorage from before, which is what
+// useWorkView migrates — see below.
 export function ViewToggle({ value, onChange }) {
   return (
     <Toggle
@@ -5626,12 +5698,6 @@ export function ViewToggle({ value, onChange }) {
           "tiles",
           <>
             <ViewIcon kind="tiles" /> {t("common.view.tiles.label")}
-          </>,
-        ],
-        [
-          "list",
-          <>
-            <ViewIcon kind="list" /> {t("common.view.list.label")}
           </>,
         ],
         [
@@ -6438,6 +6504,22 @@ export function IconClose() { return <svg {...iconStroke}><path d="M6 6l12 12M18
 // 24px menu row. The play triangle is filled as well as stroked: an outline alone
 // reads as a stray shape at badge size rather than a mark someone put there.
 export function IconReading({ size = ICON_SIZE }) { return <svg {...iconFill} viewBox="-8.6 -4.6 273.2 273.2" width={size} height={size}><path d="M240,80V200a8,8,0,0,1-8,8H160a24,24,0,0,0-24,23.94,7.9,7.9,0,0,1-5.12,7.55A8,8,0,0,1,120,232a24,24,0,0,0-24-24H24a8,8,0,0,1-8-8V80a8,8,0,0,1,8-8H88a32,32,0,0,1,32,32v63.73a8.17,8.17,0,0,0,7.47,8.25,8,8,0,0,0,8.53-8V104a32,32,0,0,1,32-32h64A8,8,0,0,1,240,80ZM88.81,56H89a47.92,47.92,0,0,1,36,17.4,4,4,0,0,0,6.08,0A47.92,47.92,0,0,1,167,56h.19a4,4,0,0,0,3.54-5.84,48,48,0,0,0-85.46,0A4,4,0,0,0,88.81,56Z"/></svg> }
+// IconReadAgain — an open book with NO FILL, for the shelf-move VERB.
+//
+// FILL IS A STATE, STROKE IS AN ACT, and this app already draws the line that way
+// everywhere else. IconReading is a filled book because it marks what a work IS —
+// the shelf chip, the help entry beside it. "Read it again" is something you DO,
+// and it was borrowing the state mark, so a menu of five stroke verbs had one
+// solid glyph in it that read as a badge rather than a button.
+export function IconReadAgain({ size = ICON_SIZE }) {
+  return (
+    <svg {...iconStroke} width={size} height={size}>
+      <path d="M12 7.1C10.6 5.8 8.7 5.1 6.7 5.1H3.6v11.6h3.1c2 0 3.9.7 5.3 2" />
+      <path d="M12 7.1c1.4-1.3 3.3-2 5.3-2h3.1v11.6h-3.1c-2 0-3.9.7-5.3 2" />
+      <path d="M12 7.1v11.6" />
+    </svg>
+  );
+}
 export function IconWatching({ size = ICON_SIZE }) { return <svg {...iconFill} viewBox="1.2 9.2 253.7 253.7" width={size} height={size}><path d="M168,224a8,8,0,0,1-8,8H96a8,8,0,0,1,0-16h64A8,8,0,0,1,168,224ZM232,64V176a24,24,0,0,1-24,24H48a24,24,0,0,1-24-24V64A24,24,0,0,1,48,40H208A24,24,0,0,1,232,64Zm-68,56a8,8,0,0,0-3.41-6.55l-40-28A8,8,0,0,0,108,92v56a8,8,0,0,0,12.59,6.55l40-28A8,8,0,0,0,164,120Z"/></svg> }
 export function IconCalendar({ size = 18 }) { return <svg {...iconStroke} width={size} height={size}><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17"/><path d="M8 3.5v3"/><path d="M16 3.5v3"/></svg> }
 // IconHelp — the "?" every screen's help button wears. Circled so it reads as a

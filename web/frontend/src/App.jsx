@@ -715,7 +715,13 @@ export function navBadge(key, { stats, metaIssues, streak, version } = {}) {
 // THE ITEMS ARE BUILT WHEN IT OPENS, not when the screen renders — see
 // useScreenBar's note. A menu bar's rows carry state, and a list handed over ahead
 // of time is a list that ticks the view you left.
-function ScreenMenu({ screen, className, glyph = 22 }) {
+// `withHelp` is false where a ? already stands beside this menu. Help is on every
+// screen and must be reachable from every screen — but the desktop bar draws it as
+// its own pill two controls away, and listing it here as well is the same door
+// twice in one corner of one bar. The phone bar has no room for a ? and keeps the
+// row, which is why this is a prop the CALLER answers rather than a media query:
+// each bar knows what else it is drawing.
+function ScreenMenu({ screen, className, glyph = 22, withHelp = true }) {
   const [open, setOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
   const ref = useRef(null)
@@ -726,7 +732,9 @@ function ScreenMenu({ screen, className, glyph = 22 }) {
   const items = open
     ? [
         ...buildScreenActions(),
-        { id: 'help', icon: <IconHelp size={24} />, label: t('shell.help.menu.label'), onClick: () => setHelpOpen(true) },
+        ...(withHelp
+          ? [{ id: 'help', icon: <IconHelp size={24} />, label: t('shell.help.menu.label'), onClick: () => setHelpOpen(true) }]
+          : []),
       ]
     : []
   return (
@@ -1811,8 +1819,11 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
             {/* ＋ Add · ? · ⋯ — the thing you do most, the thing that explains the
                 screen, and everything else. Help keeps its own pill rather than
                 folding into the menu: it is one press from every screen today and
-                a menu row would make it two. */}
-            <ScreenMenu screen={help} className="topbar-add-btn tactile icon-only" glyph={18} />
+                a menu row would make it two — and for the same reason it is NOT
+                also a row inside the menu, which would be the same door twice
+                within three controls of itself. The phone's bar has no pill and
+                keeps the row. */}
+            <ScreenMenu screen={help} className="topbar-add-btn tactile icon-only" glyph={18} withHelp={false} />
           </div>
         </div>
       </header>

@@ -15,7 +15,8 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { WorkDetails } from '../../src/WorkDetails.jsx'
+import { workDetailsPanel } from '../../src/WorkDetails.jsx'
+import { PanelHarness, resetPanelHistory } from '../panel-harness.jsx'
 import { MovieLookupPicker } from '../../src/CoverPicker.jsx'
 
 let CALLS = []
@@ -43,31 +44,39 @@ const MOVIE = {
 const puts = () => CALLS.filter(([m, p]) => m === 'PUT' && p === '/movies/1')
 const lookups = () => CALLS.filter(([, p]) => p === '/movies/lookup')
 
-function open(item = MOVIE) {
-  return render(<WorkDetails open kind="movie" item={item} onChanged={() => {}} />)
+// Through the panel stack, because that is where this form lives now — and the
+// stack pushes on the frame AFTER mount (open() walks history back first), so
+// opening is something to await rather than something that has happened.
+async function open(item = MOVIE) {
+  const r = render(
+    <PanelHarness panel={(stack) => workDetailsPanel(stack, { kind: 'movie', item, onChanged: () => {}, onDelete: null })} />,
+  )
+  await waitFor(() => expect(document.querySelector('.tp-panel')).toBeTruthy())
+  return r
 }
 
 beforeEach(() => {
   CALLS = []
+  resetPanelHistory()
 })
 
 describe('the supplier id rows are editable', () => {
   it('offers a pencil on both ids, not a disabled row', async () => {
-    open()
+    await open()
     // The whole point of the change: an edit control that was not there before.
     expect(screen.getByLabelText(/edit tmdb id/i)).toBeTruthy()
     expect(screen.getByLabelText(/edit thetvdb id/i)).toBeTruthy()
   })
 
-  it('still reads as a link to the record when one is set', () => {
-    open()
+  it('still reads as a link to the record when one is set', async () => {
+    await open()
     const link = screen.getByRole('link', { name: /65754/ })
     expect(link.getAttribute('href')).toBe('https://www.themoviedb.org/movie/65754')
   })
 
   it('sends a typed id as a number, not the string the field holds', async () => {
     const user = userEvent.setup()
-    open()
+    await open()
     await user.click(screen.getByLabelText(/edit thetvdb id/i))
     await user.type(screen.getByRole('textbox'), '11111')
     await user.click(screen.getByLabelText(/save thetvdb id/i))
@@ -77,7 +86,7 @@ describe('the supplier id rows are editable', () => {
 
   it('carries the other id through untouched on a one-field save', async () => {
     const user = userEvent.setup()
-    open()
+    await open()
     await user.click(screen.getByLabelText(/edit thetvdb id/i))
     await user.type(screen.getByRole('textbox'), '11111')
     await user.click(screen.getByLabelText(/save thetvdb id/i))
@@ -88,7 +97,7 @@ describe('the supplier id rows are editable', () => {
 
   it('sends 0 — the API spelling of "clear it" — for an emptied field', async () => {
     const user = userEvent.setup()
-    open()
+    await open()
     await user.click(screen.getByLabelText(/edit tmdb id/i))
     await user.clear(screen.getByRole('textbox'))
     await user.click(screen.getByLabelText(/save tmdb id/i))
@@ -98,7 +107,7 @@ describe('the supplier id rows are editable', () => {
 
   it('refuses to send a value that is not a whole positive id', async () => {
     const user = userEvent.setup()
-    open()
+    await open()
     await user.click(screen.getByLabelText(/edit tmdb id/i))
     await user.clear(screen.getByRole('textbox'))
     await user.type(screen.getByRole('textbox'), '-4.5')

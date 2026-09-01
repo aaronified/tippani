@@ -7,6 +7,16 @@
 import { useEffect } from 'react'
 import { PanelHost, usePanelStack } from '../src/ui.jsx'
 
+// HISTORY IS THE STACK'S ONLY MUTATOR, and it is shared by every case in a file.
+// A panel left open when a case ends unmounts and walks history back — but that
+// walk is asynchronous, so the next case can start with a stale `tpPanelDepth`
+// still on the current entry, and its own open() then computes the wrong depth.
+// The symptom is a panel that will not close in one case and passes in isolation.
+// Call this in beforeEach, beside cleanup().
+export function resetPanelHistory() {
+  window.history.replaceState(null, '')
+}
+
 // `panel` is the descriptor under test; it is opened on mount, which is what a
 // screen's own control does. `onStack` hands the stack back so a test can push a
 // second level or close from outside.

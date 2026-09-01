@@ -552,7 +552,6 @@ settings.updates.version.dev = dev
 # --- the tiles / list / table switch.
 common.view.toggle.aria = View
 common.view.tiles.label = Tiles
-common.view.list.label = List
 common.view.table.label = Table
 
 # --- tables and filter rows.
@@ -2759,8 +2758,6 @@ error.load.practice = add a few quotes first
 
 # The three views.
 common.work.details.title = Details
-common.work.lookup.title = Fetch metadata
-common.work.merge.title = Choose what to keep
 # On the header ✓ while nothing has been edited. Five words.
 common.work.details.done.tip = Save and close
 common.work.fetch.label = Fetch metadata
@@ -3322,14 +3319,10 @@ library.export.confirm.body = {a} · {b} in view will be exported as one Markdow
 book.title.fallback = Untitled
 book.filter.aria = Filter annotations
 book.export.label = Export .md
-book.export.aria = Export as Markdown
-book.export.tip = Export as Markdown
 book.practise.aria = Practise this book
 book.practise.menu.label = Practise this book
 book.practise.tip = Quiz me on this book
 book.details.tip = Details and metadata
-book.delete.aria = Delete this book
-book.delete.tip = Delete this book
 book.toast.deleted = book deleted
 # The role labels beside a second or third credit on a book's page. An
 # UNLABELLED name reads as the author, so these two are always labelled.
@@ -3373,7 +3366,6 @@ book.table.sort.tip = Sort by this column
 # The highlights board on a book's page.
 book.quotes.counts.shown = {a} · {n} shown
 book.quotes.filter.title = Filter annotations
-book.quotes.filter.label = filter
 book.quotes.capture.label = ＋ Capture a quote
 book.quotes.empty = no annotations yet — the ＋ in the bar above captures your first
 book.quotes.nomatch = no annotations match the filters

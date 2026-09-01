@@ -629,6 +629,8 @@ export const SECTIONS = [
         desc: "The colour category. Phosphor `palette`. Replaces the ink drop: rule 4 is about a fill that holds the six category colours, and an outline has nowhere to put them." },
       { name: "IconReading", src: "IconReading — ui.jsx · rule 1 · the ON state of a pair",
         desc: "A book underway. Phosphor `book-open-user`. A shelf mark is the ON state of a work." },
+      { name: "IconReadAgain", src: "IconReadAgain — ui.jsx · rule 1 · the OFF state, and the verb",
+        desc: "An open book with <b>no fill</b>, for the shelf-move VERB. Fill is a state and stroke is an act, which is the line this set draws everywhere else — <code>IconReading</code> is solid because it marks what a work <i>is</i> (the shelf chip, the help entry beside it). \"Read it again\" is something you <i>do</i>, and it was borrowing the state mark, so a menu of five stroke verbs carried one solid glyph that read as a badge rather than a button." },
       { name: "IconWatching", src: "IconWatching — ui.jsx · rule 1 · the ON state of a pair",
         desc: "A film or show underway. Phosphor `monitor-play`. A shelf mark is the ON state of a work." },
       { name: "IconPlaying", src: "IconPlaying — ui.jsx · rule 1 · the ON state of a pair",

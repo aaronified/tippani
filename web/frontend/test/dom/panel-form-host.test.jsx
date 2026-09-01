@@ -14,7 +14,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { useFormHost } from '../../src/ui.jsx'
-import { PanelHarness } from '../panel-harness.jsx'
+import { PanelHarness, resetPanelHistory } from '../panel-harness.jsx'
 
 // A form exactly as a real one is written: it asks the host for an id, reports
 // whether it is ready, and wears the id it is given.
@@ -38,7 +38,7 @@ const save = () => screen.queryByLabelText('Save')
 const opened = () => waitFor(() => expect(screen.getByText(/the form body|just a list/)).toBeTruthy())
 const savedKey = () => screen.findByLabelText('Save')
 
-beforeEach(cleanup)
+beforeEach(() => { cleanup(); resetPanelHistory() })
 
 describe('a panel that hosts a form', () => {
   it('draws the key, and pressing it submits the form', async () => {
@@ -82,5 +82,37 @@ describe('a panel that hosts a form', () => {
     )
     await opened()
     expect((await savedKey()).disabled).toBe(false)
+  })
+})
+
+// The port's own case, kept apart from the ported ones on purpose.
+//
+// details-save-all.test.jsx and supplier-ids.test.jsx were both rewritten onto
+// the harness in the same change that moved WorkDetails onto the stack. Every
+// assertion in them survived verbatim, which is the point — but a regression in
+// the SHELL could still hide inside a rewrite of the tests that watch it. So the
+// shell has a case of its own that no port touched.
+describe('the work detail lives on the stack', () => {
+  it('opens as a panel titled Details, with a ✓ its form registered', async () => {
+    const { workDetailsPanel } = await import('../../src/WorkDetails.jsx')
+    render(
+      <PanelHarness
+        panel={(stack) =>
+          workDetailsPanel(stack, {
+            kind: 'book',
+            item: { id: 1, title: 'Solaris', genres: [] },
+            onChanged: () => {},
+            onDelete: null,
+          })
+        }
+      />,
+    )
+    await waitFor(() => expect(document.querySelector('.tp-panel')).toBeTruthy())
+    // A panel, not a dialog card: the two are different chrome and the whole
+    // move was from one to the other.
+    expect(document.querySelector('.tp-panel-title').textContent).toBe('Details')
+    expect(document.querySelector('.hand-card.hc-r2'), 'still a FormModal').toBeNull()
+    // And the key the port would otherwise have deleted in silence.
+    expect(await screen.findByLabelText('Save')).toBeTruthy()
   })
 })

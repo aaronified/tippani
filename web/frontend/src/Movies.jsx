@@ -4,7 +4,7 @@ import { episodeLabel } from './text.js'
 import { DEMO, coverImgURL, json, errText, downloadPost } from './api.js'
 import { CoverControls, CoverPreview, MovieLookupPicker, idNum } from './CoverPicker.jsx'
 import { FlowQuote } from './flow.jsx'
-import { WorkDetails } from './WorkDetails.jsx'
+import { workDetailsPanel } from './WorkDetails.jsx'
 import { StickerImg, StickerPicker, useStickers } from './stickers.jsx'
 import { ShareDialog, copyQuote, movieShare } from './share.jsx'
 import { deleteWithUndo } from './undo.jsx'
@@ -57,8 +57,8 @@ import {
   filterChipClass,
   formatYear,
   FormModal,
-  frameCode,
   FrameCode,
+  frameCode,
   GenreFilter,
   GhostButton,
   HandCard,
@@ -83,6 +83,7 @@ import {
   NameInput,
   NameScroll,
   PageHeader,
+  PanelHost,
   parseYearInput,
   PickMark,
   Placeholder,
@@ -109,12 +110,13 @@ import {
   useColumnsAt,
   useCoverSize,
   useCrumb,
-  useScreenBar,
   useFormHost,
   useFrameBase,
   useIsMobileScreen,
+  usePanelStack,
   usePersistedState,
   useReveal,
+  useScreenBar,
   ViewToggle,
 } from './ui.jsx'
 
@@ -828,7 +830,22 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce
   // engine keys the theme on the movies row rather than on the medium.
   const { practise, practiceDialog } = usePractice()
   const [movie, setMovie] = useState(null)
-  const [editing, setEditing] = useState(false)
+  // THE DETAILS SURFACE IS A PANEL NOW, so what used to be a boolean is the
+  // stack itself. Its own useEffect closes it when the id changes, the way
+  // setEditing(false) used to.
+  const detailsStack = usePanelStack()
+  // Every door into Details — the ⋯ menu, the header key, the phone dock — opens
+  // the same descriptor. `open` rather than `push`: this is "show me this", so it
+  // replaces whatever a previous control left open instead of burying it.
+  const openDetails = () => {
+    if (!movie) return
+    detailsStack.open(workDetailsPanel(detailsStack, {
+      kind: 'movie',
+      item: movie,
+      onChanged: setMovie,
+      onDelete: remove,
+    }))
+  }
   const [error, setError] = useState('')
   const [mobileFilter, setMobileFilter] = useState(false)
   // { kind:'director', name } open in the metadata panel — captured at click time.
@@ -865,7 +882,7 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce
   }
   useEffect(() => {
     setMovie(null)
-    setEditing(false)
+    detailsStack.close()
     setLineStats(null)
     load()
   }, [id])
@@ -1048,7 +1065,7 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce
         label: moveLabel('movie', movie?.status || '', activeWord, movie || {}),
         onClick: () => pick(activeWord),
       },
-      { id: 'details', icon: <IconDetails />, label: t('common.work.details.title'), onClick: () => setEditing(true) },
+      { id: 'details', icon: <IconDetails />, label: t('common.work.details.title'), onClick: () => openDetails() },
       { id: 'practise', icon: <IconPractise />, label: t('film.practise.menu.label'), onClick: () => movie && practise({ movie: movie.id, label: movie.title }) },
       ...(DEMO ? [] : [{ id: 'export', icon: <IconExport />, label: t('film.export.label'), onClick: () => { if (movie) window.location.href = `/api/movies/${movie.id}/export` } }]),
       { id: 'delete', icon: <IconDelete />, label: t('common.action.delete.label'), onClick: () => setAsking(true), danger: true },
@@ -1064,7 +1081,7 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce
         id: 'details',
         label: t('common.work.details.title'),
         icon: <IconDetails />,
-        onClick: () => setEditing(true),
+        onClick: () => openDetails(),
       },
     ] : null,
   })
@@ -1154,7 +1171,7 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce
                   <IconButton icon={<IconPractise />} label={t('common.action.practise.label')}
             ariaLabel={t('film.practise.aria')} onClick={() => practise({ movie: movie.id, label: movie.title })} tooltip={t('film.practise.tip')} />
                   <IconButton icon={<IconDetails />} label={t('common.work.details.title')}
-            ariaLabel={t('common.work.details.title')} onClick={() => setEditing(true)} tooltip={t('film.details.tip')} />
+            ariaLabel={t('common.work.details.title')} onClick={() => openDetails()} tooltip={t('film.details.tip')} />
                   <IconButton
                       icon={<IconDelete />}
                       label={t('common.action.delete.label')}
@@ -1169,16 +1186,8 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce
           />
         </Reveal>
       )}
-      {movie && (
-        <WorkDetails
-          open={editing}
-          onClose={() => setEditing(false)}
-          kind="movie"
-          item={movie}
-          onChanged={setMovie}
-          onDelete={remove}
-        />
-      )}
+      {/* A sibling of the page, never inside the detail card — see BookDetail. */}
+      <PanelHost stack={detailsStack} />
       <InProgressCapDialog
         open={!!capPool}
         items={(capPool || []).map((m) => ({ id: m.id, title: m.title, meta: [m.director, formatYear(m.release_year, m.release_circa) || null].filter(Boolean).join(' · ') }))}

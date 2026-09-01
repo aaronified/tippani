@@ -3,7 +3,7 @@ import { json, errText } from './api.js'
 import { t } from './i18n.js'
 import { personImgURL, PersonPortrait, usePeople } from './credits.jsx'
 import { usePractice } from './review.jsx'
-import { useBodyScrollLock, CloseButton, ErrorText, ExpandableDescription, Field, GhostButton, IconCheck, IconClose, IconDelete, IconEdit, IconMerge, IconPlus, IconQuiz, IconPractise, IconRefresh, IconSearch, isPartialDate, Lightbox, MonoLabel, NameInput, NameScroll, PartialDateField, Placeholder, Tooltip, useConfirm } from './ui.jsx'
+import { useBodyScrollLock, CloseButton, ErrorText, ExpandableDescription, Field, GhostButton, IconCheck, IconClose, IconDelete, IconEdit, IconMerge, IconPerson, IconPlus, IconQuiz, IconPractise, IconRefresh, IconSearch, isPartialDate, Lightbox, MonoLabel, NameInput, NameScroll, PartialDateField, Placeholder, Tooltip, useConfirm } from './ui.jsx'
 
 const PRIMARY = 'tp-btn tp-btn-primary'
 
@@ -175,6 +175,45 @@ export function PersonCredit({ kind, name, person, size = 28, onOpen, nameClassN
       <PersonPortrait person={person} size={size} />
       <PersonName kind={kind} name={name} onOpen={onOpen} className={nameClassName} style={nameStyle} />
     </span>
+  )
+}
+
+// PersonChip — one credit, as the design pack draws it: a pill carrying a small
+// round face and the whole name, in a row that scrolls sideways under its fade.
+//
+// A CHIP RATHER THAN A LINK IN A SENTENCE. The hero used to read
+// "Herman Melville · translator Anna · 1851 · Whales #2" — one line where a
+// person, a role word, a year and a series all looked alike, and the only thing
+// separating a name from a number was a middle dot. Each person is an object
+// now: their own hit target, their own face, their own door.
+//
+// NO ELLIPSIS ON A PERSON, which is the standing rule and the reason `flex: none`
+// and `white-space: nowrap` are both here. The chip is allowed to be wider than
+// the column; the row it sits in scrolls and wears a measured fade. A name cut to
+// "Bulgak…" is the row deciding which part of somebody's name did not matter.
+//
+// THE FACE IS ALWAYS DRAWN, silhouette when there is no photograph — the pack's
+// rule, and it is what keeps the chips a column of equal shapes rather than a
+// ragged mix of two designs.
+export function PersonChip({ kind, name, person, onOpen, title }) {
+  if (!name) return null
+  return (
+    <button
+      type="button"
+      className="person-chip tactile"
+      title={title || `${name} — details`}
+      onClick={(e) => {
+        e.stopPropagation()
+        onOpen?.({ kind, name })
+      }}
+    >
+      <span className="person-chip-face" aria-hidden="true">
+        {person?.image_path
+          ? <img src={personImgURL(person.image_path)} alt="" />
+          : <IconPerson size={15} />}
+      </span>
+      <span className="person-chip-name">{name}</span>
+    </button>
   )
 }
 

@@ -531,7 +531,6 @@ settings.updates.version.dev = dev
 # --- the tiles / list / table switch.
 common.view.toggle.aria = ভিউ
 common.view.tiles.label = টাইল
-common.view.list.label = তালিকা
 common.view.table.label = টেবিল
 
 # --- tables and filter rows.
@@ -2770,8 +2769,6 @@ error.load.practice = আগে কয়েকটা উদ্ধৃতি র�
 
 # The three views.
 common.work.details.title = খুঁটিনাটি
-common.work.lookup.title = মেটাডেটা আনুন
-common.work.merge.title = কী কী রাখবেন
 # On the header ✓ while nothing has been edited. Five words.
 common.work.details.done.tip = সেভ করে বন্ধ
 common.work.fetch.label = মেটাডেটা আনুন
@@ -3339,14 +3336,10 @@ library.export.confirm.body = চোখের সামনের {a} · {b} — 
 book.title.fallback = নাম নেই
 book.filter.aria = দাগ ফিল্টার করুন
 book.export.label = .md এক্সপোর্ট
-book.export.aria = Markdown হিসেবে এক্সপোর্ট
-book.export.tip = Markdown হিসেবে এক্সপোর্ট
 book.practise.aria = এই বইটা ঝালিয়ে নিন
 book.practise.menu.label = এই বইটা ঝালিয়ে নিন
 book.practise.tip = এই বই নিয়ে কুইজ হোক
 book.details.tip = খুঁটিনাটি আর মেটাডেটা
-book.delete.aria = এই বইটা মুছুন
-book.delete.tip = এই বইটা মুছুন
 book.toast.deleted = বই মোছা হয়েছে
 # The role labels beside a second or third credit on a book's page. An
 # UNLABELLED name reads as the author, so these two are always labelled.
@@ -3390,7 +3383,6 @@ book.table.sort.tip = এই কলাম ধরে সাজান
 # The highlights board on a book's page.
 book.quotes.counts.shown = {a} · {n} দেখাচ্ছে
 book.quotes.filter.title = দাগ ফিল্টার করুন
-book.quotes.filter.label = ফিল্টার
 book.quotes.capture.label = ＋ একটা উদ্ধৃতি তুলে রাখুন
 book.quotes.empty = এখনও কোনও দাগ নেই — উপরের বারের ＋ দিয়ে প্রথমটা তুলে রাখুন
 book.quotes.nomatch = এই ফিল্টারে কোনও দাগ মিলল না
