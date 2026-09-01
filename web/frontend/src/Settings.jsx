@@ -24,6 +24,7 @@ import {
   verifyUpload,
 } from './fonts.js'
 import { SECTIONS, visibleSections } from './routes.js'
+import { RESTART_NEW, RESTART_SAME, waitForRestart } from './update.js'
 import { LanguagePicker } from './locale.jsx'
 import { tourFeatures, tourSteps } from './tour.jsx'
 import { lockedOff, parseQuestions, parseTuning, questionsBlob, questionsFor, REVIEW_DECKS, taxonomy, toggle as toggleQuestion, TUNING_FIELDS, tuningBlob, tuningProblem } from './quiz.js'
@@ -1541,33 +1542,22 @@ function UpdatesCard({ user, update, onUpdateInfo }) {
     // been rebuilt yet — pull, recreate, same version. The reader is told that
     // happened rather than left to compare two version strings themselves.
     setPhase('restarting')
-    const was = user?.version || ''
-    let down = 0
-    let outcome = 'timeout'
-    for (let i = 0; i < 60; i++) {
-      await new Promise((res) => setTimeout(res, 3000))
-      const ping = await json('GET', '/auth/me')
-      if (!ping.ok) {
-        // TWO IN A ROW BEFORE IT COUNTS AS GONE. One failed poll is as likely to
-        // be a dropped request as a container being stopped, and a false "it came
-        // back on the same build" is a worse answer than waiting one more turn.
-        down++
-        continue
-      }
-      const now = ping.data?.version || ''
-      if (was && now && now !== was) {
-        outcome = 'new'
-        break
-      }
-      if (down >= 2) {
-        outcome = 'same'
-        break
-      }
-      down = 0
-    }
-    if (outcome === 'new') return window.location.reload()
+    // THE WAIT IS ITS OWN MODULE, and it had to become one: this is the third fix
+    // to it and the first two shipped unproven because twenty lines inside a click
+    // handler cannot be tested against a server that has gone away. See update.js
+    // for the three bounds and why each is needed; test/pure/update-wait.test.js
+    // holds the case that mattered — every poll hangs and the loop still ends.
+    const outcome = await waitForRestart({
+      ping: async () => {
+        const r = await json('GET', '/auth/me', undefined, { timeoutMs: 8000 })
+        return { ok: r.ok, version: r.data?.version || '' }
+      },
+      sleep: (ms) => new Promise((res) => setTimeout(res, ms)),
+      was: user?.version || '',
+    })
+    if (outcome === RESTART_NEW) return window.location.reload()
     setPhase('failed')
-    toast(t(outcome === 'same' ? 'settings.updates.toast.same' : 'settings.updates.toast.reload'))
+    toast(t(outcome === RESTART_SAME ? 'settings.updates.toast.same' : 'settings.updates.toast.reload'))
   }
 
   const copyCmd = async () => {

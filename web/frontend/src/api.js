@@ -48,12 +48,28 @@ async function send(url, opts) {
   return parse(res)
 }
 
-export async function json(method, url, body) {
+// timeoutMs — A FETCH THAT NEVER RESOLVES IS A SCREEN THAT NEVER MOVES, and one
+// screen in this app polls in a loop where that is fatal rather than annoying.
+//
+// fetch has no timeout of its own. It rejects on a transport failure, which is
+// the case send() already handles — but a connection that is ACCEPTED and then
+// never answered is not a failure, it is an open socket, and the promise simply
+// stays pending. That is not a hypothetical: Docker's port proxy keeps listening
+// on the host port while the container behind it is being recreated, so every
+// poll aimed at a restarting Tippani — from the box itself as readily as from a
+// laptop — can be accepted by something that will never reply.
+//
+// So the update poll (Settings.jsx) passes a bound and gets the same
+// {ok:false, status:0} an unreachable server gives it. OFF BY DEFAULT: a timeout
+// on an import or a backup would abort work the server is really doing, and
+// "took a while" is not an error anywhere else in this app.
+export async function json(method, url, body, { timeoutMs } = {}) {
   const opts = { method }
   if (body !== undefined) {
     opts.headers = { 'Content-Type': 'application/json' }
     opts.body = JSON.stringify(body)
   }
+  if (timeoutMs > 0) opts.signal = AbortSignal.timeout(timeoutMs)
   return send(url, opts)
 }
 

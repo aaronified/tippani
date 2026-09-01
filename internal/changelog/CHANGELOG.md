@@ -148,6 +148,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   did — and a second press while one is running is refused rather than starting a second
   updater alongside the first.
 
+- **The update page no longer gets stuck on "updating & restarting…".** After the two
+  fixes above it still stopped there for good, on a browser running on the server itself
+  as readily as anywhere else — so it was not the connection this time. While it waits,
+  the page asks Tippani every three seconds whether it is back yet, and one of those
+  questions could go unanswered *without ever failing*: a container being replaced leaves
+  its port open with nothing behind it, so the request was accepted and then simply never
+  replied to. The page had no time limit on a single question, so it waited on that one
+  for ever and stopped asking any more. The wait is now bounded three separate ways, any
+  one of which is enough to end it, and it gives up after six minutes with an explanation
+  rather than sitting there.
+
 - **Long backups, restores and large uploads can finish.** Three of them said in so many
   words that they had lifted the server's one-minute reply limit for the job, and none of
   them actually had: the call that lifts it was reaching a wrapper that could not pass it

@@ -296,6 +296,7 @@ The shared modules do:
 | `share.jsx` · `quoteImage.js` | The share sheet, and rendering a quote to PNG on a 2D canvas in the current styling. |
 | `stickers.jsx` · `flow.jsx` | The sticker library, and the layer that flows quote text around a dragged sticker while keeping it real selectable DOM. |
 | `undo.jsx` | One delete-with-Undo helper, so the seven screens that delete something cannot each forget the offer. |
+| `update.js` | Waiting for the box to come back after an in-app update: poll until the version changes, and end whatever the server does — including never answering. Bounded three ways, because a `fetch` with no timeout is what left the page stuck twice. |
 | `actions.jsx` | The one list of what can be done to a quote, per kind, and where each action sits. Read by the card row, the ⋯ overflow and the bulk bar, so they cannot offer different sets. |
 | `selection.jsx` · `SelectionBar.jsx` | Which cards are picked, and the sticky bar that acts on them. The hook drops ids that leave the visible list, so the count it reports is a count it can act on. |
 | `greetings.js` · `epigraphs.js` | The two pools of bundled copy — Home’s greeting and the login screen’s epigraph — each with a rule about what may go in it. |
