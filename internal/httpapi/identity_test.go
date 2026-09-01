@@ -36,6 +36,18 @@ type personDetailResp struct {
 		WorkTitle string `json:"work_title"`
 		Character string `json:"character"`
 	} `json:"roles"`
+	// The quotes that POINT AT this record, and how many further ones name it
+	// alongside somebody else — 0059's read side, exercised in
+	// identity_reads_test.go. On this struct rather than a second one: one payload
+	// has one shape, and two would drift the first time a field was added.
+	Lines []struct {
+		ID        int64  `json:"id"`
+		Kind      string `json:"kind"`
+		Text      string `json:"text"`
+		Name      string `json:"name"`
+		WorkTitle string `json:"work_title"`
+	} `json:"lines"`
+	SharedLines int `json:"shared_lines"`
 }
 
 type characterDetailResp struct {
@@ -377,7 +389,10 @@ func TestDeletingACharacterLeavesEveryWorksCastStanding(t *testing.T) {
 	castID, _ := res.LastInsertId()
 	c.mustDo("PUT", "/cast/"+itoa(castID)+"/link", map[string]any{"character_id": ch.ID}, http.StatusNoContent)
 
-	c.mustDo("DELETE", "/characters/"+itoa(ch.ID), nil, http.StatusNoContent)
+	// 200 with the bin entry's id, not 204: a global character record is authored
+	// rather than attribution, so deleting one is undoable and the response says
+	// where the way back is.
+	c.mustDo("DELETE", "/characters/"+itoa(ch.ID), nil, http.StatusOK)
 
 	var name string
 	var charID any

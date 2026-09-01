@@ -39,6 +39,17 @@ type personDetail struct {
 	Kinds   []string         `json:"kinds"`
 	Credits []store.CreditOf `json:"credits"`
 	Roles   []store.CastOf   `json:"roles"`
+	// Lines are the quotes that POINT AT this record — 0059's dialogues.actor_id
+	// and utterances.speaker_id, which were written from the day they landed and
+	// read by nothing until here.
+	//
+	// SharedLines is how many further quotes name this person ALONGSIDE SOMEBODY
+	// ELSE and are therefore not linked at all. It is reported rather than folded
+	// into the list because the linker's refusal to guess is deliberate — a
+	// two-hander has no honest single speaker — and a panel that listed only the
+	// linked ones would be quietly wrong about how many lines this person has.
+	Lines       []store.QuoteLine `json:"lines"`
+	SharedLines int               `json:"shared_lines"`
 }
 
 // characterRow is the global record. Deliberately NOT personRow with a flag: a
@@ -107,8 +118,23 @@ func (s *Server) handlePersonByID(w http.ResponseWriter, r *http.Request) {
 		internalError(w, r, "read roles", err)
 		return
 	}
+	// CAPPED, AND THE COUNT IS NOT. personLineCap bounds what the panel draws; the
+	// shared count walks the unlinked rows whatever the cap, because it is the
+	// number that would otherwise be silently wrong.
+	if out.Lines, out.SharedLines, err = store.PersonLines(s.Store.DB, uid, id, s.creditSeps(uid), personLineCap); err != nil {
+		internalError(w, r, "read lines", err)
+		return
+	}
 	writeJSON(w, http.StatusOK, out)
 }
+
+// personLineCap is how many of a person's lines the record carries.
+//
+// A PANEL, NOT A SEARCH RESULT. Somebody with four hundred linked lines wants the
+// recent ones and a way to see the rest, and the way to see the rest is the search
+// screen, which is built for it. Fifty is enough that a normal record is complete
+// and a heavy one is obviously truncated.
+const personLineCap = 50
 
 // handleUpdatePersonByID: PUT /people/id/{id} — the identity fields.
 //
@@ -507,11 +533,96 @@ func (s *Server) handleDeleteCharacter(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if _, err := s.Store.DB.Exec(`DELETE FROM characters WHERE id = ? AND user_id = ?`, id, uid); err != nil {
-		internalError(w, r, "delete character", err)
+	var name string
+	if err := s.Store.DB.QueryRow(
+		`SELECT name FROM characters WHERE id = ? AND user_id = ?`, id, uid).Scan(&name); err != nil {
+		internalError(w, r, "load character", err)
 		return
 	}
-	w.WriteHeader(http.StatusNoContent)
+	trashID, err := s.binRecord(w, r, "character", uid, id, name)
+	if err != nil {
+		return // binRecord has answered
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "trash_id": trashID})
+}
+
+// binRecord deletes a person or a character into the bin, parking its portrait.
+//
+// ONE FUNCTION OVER BOTH TABLES, unlike the two merges beside it: the transaction,
+// the refusal handling, the payload write and the file parking are identical, and
+// the only thing that differs is which store call runs. The merges are written out
+// twice because their MEANINGS differ table by table; there is no meaning here.
+//
+// THE FILE IS PARKED AFTER THE COMMIT, never before — the repo's rule for every
+// binned delete: write the snapshot, delete, commit, only then touch the
+// filesystem. A rename that happens before a rollback is a picture lost for a row
+// that is still there.
+//
+// It answers the request itself on every failure path and returns the error so the
+// caller can stop; a caller that wrote a second response would be the one bug this
+// shape cannot have.
+func (s *Server) binRecord(w http.ResponseWriter, r *http.Request, kind string, uid, id int64, label string) (int64, error) {
+	tx, err := s.Store.DB.Begin()
+	if err != nil {
+		internalError(w, r, "begin", err)
+		return 0, err
+	}
+	defer tx.Rollback()
+
+	var undo *store.RecordDeleteUndo
+	var image string
+	if kind == "person" {
+		undo, image, err = store.DeletePersonRecord(tx, uid, id)
+	} else {
+		undo, image, err = store.DeleteCharacterRecord(tx, uid, id)
+	}
+	var refused *store.Refusal
+	switch {
+	case errors.As(err, &refused):
+		// "Still credited on 6 works" is something the reader can act on and is
+		// theirs to see; a database that failed is neither. store.Refusal is which
+		// one this is — handleMergePeople's note, and the same 409.
+		writeErr(w, http.StatusConflict, refused.Error())
+		return 0, err
+	case err != nil:
+		internalError(w, r, "delete "+kind, err)
+		return 0, err
+	}
+	payload, err := json.Marshal(undo)
+	if err != nil {
+		internalError(w, r, "delete: write the undo", err)
+		return 0, err
+	}
+	files := "[]"
+	if image != "" {
+		if b, err := json.Marshal([]string{image}); err == nil {
+			files = string(b)
+		}
+	}
+	// child_count is what came off the record with it — the aliases, the cast rows
+	// and the quotes — so the bin row can say how much this delete moved.
+	children := len(undo.Aliases) + len(undo.Cast) + len(undo.Screen) + len(undo.Utterance)
+	res, err := tx.Exec(
+		`INSERT INTO trash (user_id, kind, label, child_count, payload, files)
+		 VALUES (?, ?, ?, ?, ?, ?)`,
+		uid, kind+"-delete", label, children, string(payload), files)
+	if err != nil {
+		internalError(w, r, "delete: park the undo", err)
+		return 0, err
+	}
+	trashID, err := res.LastInsertId()
+	if err != nil {
+		internalError(w, r, "delete: park the undo", err)
+		return 0, err
+	}
+	if err := tx.Commit(); err != nil {
+		internalError(w, r, "commit", err)
+		return 0, err
+	}
+	if image != "" {
+		s.parkFiles([]string{image})
+	}
+	return trashID, nil
 }
 
 // ---- how a name prints on one work -----------------------------------------
@@ -701,7 +812,8 @@ func (s *Server) handleSearchPeople(w http.ResponseWriter, r *http.Request) {
 	for i := range out {
 		if err := s.Store.DB.QueryRow(
 			`SELECT (SELECT count(*) FROM work_person WHERE user_id = ? AND person_id = ?)
-			      + (SELECT count(*) FROM work_cast   WHERE user_id = ? AND actor_id  = ?)`,
+			      + (SELECT count(*) FROM work_cast   WHERE user_id = ? AND actor_id  = ?
+			                                            AND origin <> 'removed')`,
 			uid, out[i].ID, uid, out[i].ID).Scan(&out[i].Works); err != nil {
 			// The row still lists, with a zero it did not earn — a hit missing from
 			// the picker is worse than a hit whose weight failed to read, and the
@@ -836,4 +948,392 @@ func (s *Server) handleSplitAlias(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusCreated, map[string]any{"id": made})
+}
+
+// ---- the character half of merge, split and the picker ----------------------
+//
+// WRITTEN IN PARALLEL WITH THE PERSON HANDLERS ABOVE for the reason 0056 gives and
+// store/identity.go repeats: two things meant to behave alike stay auditable side
+// by side, and a helper taking a table would hide the moment one of them stopped.
+// Read each against its twin; every difference below is a fact about characters.
+
+// handleSearchCharacters: GET /characters/search?q= — records by name, for the
+// merge picker. handleSearchPeople's twin, and the same folded-substring match in
+// Go for the same reason (SQLite's lower() is ASCII-only, so a LIKE would find
+// "woland" and miss "ВОЛАНД" on the same keystroke).
+//
+// A NOTE ON THE ROUTE, because it is the one place the two halves could not be
+// spelt alike. `/people/search` has no wildcard sibling — 0056 put the record
+// under `/people/id/{id}` precisely so `DELETE /people/{id}` could keep its
+// meaning — whereas `GET /characters/{id}` does exist. Go's mux resolves the pair
+// by specificity, and a literal segment beats a wildcard, so `/characters/search`
+// is reached and never arrives at handleCharacterByID as an id of "search".
+func (s *Server) handleSearchCharacters(w http.ResponseWriter, r *http.Request) {
+	uid := userID(r)
+	q := store.CastKey(strings.TrimSpace(r.URL.Query().Get("q")))
+	// EACH HIT CARRIES ITS WEIGHT, for handleSearchPeople's reason: the one thing
+	// this list feeds is a merge, merging is destructive, and two characters called
+	// "The Narrator" are indistinguishable by name — which is the case a reader
+	// reaches for this control to resolve. A pick that destroys something shows
+	// what it is about to destroy.
+	//
+	// The weight is APPEARANCES rather than works-plus-cast: a character reaches a
+	// work only through the cast, so one count says everything the person half
+	// needs two for.
+	rows, err := s.Store.DB.Query(
+		`SELECT id, name FROM characters WHERE user_id = ? ORDER BY name COLLATE NOCASE`, uid)
+	if err != nil {
+		internalError(w, r, "search characters", err)
+		return
+	}
+	defer rows.Close()
+	type hit struct {
+		ID    int64  `json:"id"`
+		Name  string `json:"name"`
+		Works int    `json:"works"`
+	}
+	out := []hit{}
+	const max = 20
+	for rows.Next() && len(out) < max {
+		var h hit
+		if err := rows.Scan(&h.ID, &h.Name); err != nil {
+			olog.Warnf(olog.CodePeopleRowScan, "[identity] character search row scan failed: %v", err)
+			continue
+		}
+		if q != "" && !strings.Contains(store.CastKey(h.Name), q) {
+			continue
+		}
+		out = append(out, h)
+	}
+	if err := rows.Err(); err != nil {
+		olog.Warnf(olog.CodePeopleRowScan, "[identity] character search iteration failed: %v", err)
+	}
+	// Counted in a second pass over the twenty that survived, not over every
+	// character in the library — handleSearchPeople's note, and its arithmetic.
+	for i := range out {
+		// `origin <> 'removed'` matches what PeopleOfWork counts as a cast, so the
+		// number in the picker and the number of rows the panel draws cannot differ
+		// by a tombstone — 0048 keeps a removed row rather than deleting it.
+		if err := s.Store.DB.QueryRow(
+			`SELECT count(*) FROM work_cast
+			  WHERE user_id = ? AND character_id = ? AND origin <> 'removed'`,
+			uid, out[i].ID).Scan(&out[i].Works); err != nil {
+			// The row still lists, with a zero it did not earn: a hit missing from the
+			// picker is worse than a hit whose weight failed to read.
+			olog.Warnf(olog.CodePeopleRowScan, "[identity] character search count for %d: %v", out[i].ID, err)
+		}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"characters": out})
+}
+
+// handleMergeCharacters: POST /characters/merge {keep_id, drop_id}.
+//
+// THE SECOND DESTRUCTIVE ACT IN THE IDENTITY MODEL, and it parks an undo for the
+// first one's reason: this app's standing promise is that the bin holds what you
+// destroy. 0060 gave the bin the kind, and `character-merge` has its own branch in
+// handleRestoreTrash beside `person-merge` — a reversal, not a snapshot, because a
+// merge re-points rows rather than deleting them and the generic restore's INSERT
+// would collide on keys that are all still occupied.
+//
+// WHY THIS EXISTS AT ALL is the 3.1.0 backfill's promise: it creates one character
+// record PER WORK on purpose, so that eight Harry Potters are visible and can be
+// welded rather than forty Narrators silently becoming one. The visible half
+// shipped in 3.1.0 and this is the half that makes the promise keepable.
+func (s *Server) handleMergeCharacters(w http.ResponseWriter, r *http.Request) {
+	uid := userID(r)
+	var req struct {
+		KeepID int64 `json:"keep_id"`
+		DropID int64 `json:"drop_id"`
+	}
+	if !decodeBody(w, r, &req) {
+		return
+	}
+	tx, err := s.Store.DB.Begin()
+	if err != nil {
+		internalError(w, r, "begin", err)
+		return
+	}
+	defer tx.Rollback()
+
+	// Read BEFORE the merge: one of the two rows is about to stop existing, and the
+	// bin's label is what a reader reads to decide whether to undo it.
+	var keepName, dropName string
+	if err := tx.QueryRow(`SELECT name FROM characters WHERE user_id = ? AND id = ?`, uid, req.KeepID).Scan(&keepName); err != nil {
+		writeErr(w, http.StatusNotFound, "not found")
+		return
+	}
+	if err := tx.QueryRow(`SELECT name FROM characters WHERE user_id = ? AND id = ?`, uid, req.DropID).Scan(&dropName); err != nil {
+		writeErr(w, http.StatusNotFound, "not found")
+		return
+	}
+
+	// A refusal and a fault are different answers — handleMergePeople's note.
+	undo, err := store.MergeCharacters(tx, uid, req.KeepID, req.DropID)
+	var refused *store.Refusal
+	switch {
+	case errors.As(err, &refused):
+		writeErr(w, http.StatusConflict, refused.Error())
+		return
+	case err != nil:
+		internalError(w, r, "merge characters", err)
+		return
+	}
+	payload, err := json.Marshal(undo)
+	if err != nil {
+		internalError(w, r, "merge: write the undo", err)
+		return
+	}
+	// child_count is the APPEARANCES that changed hands, which is what the person
+	// half puts there too — the number the bin row shows is "how much this moved".
+	res, err := tx.Exec(
+		`INSERT INTO trash (user_id, kind, label, child_count, payload, files)
+		 VALUES (?, 'character-merge', ?, ?, ?, '[]')`,
+		uid, dropName+" → "+keepName, len(undo.Cast), string(payload))
+	if err != nil {
+		internalError(w, r, "merge: park the undo", err)
+		return
+	}
+	trashID, err := res.LastInsertId()
+	if err != nil {
+		internalError(w, r, "merge: park the undo", err)
+		return
+	}
+	if err := tx.Commit(); err != nil {
+		internalError(w, r, "commit", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"ok": true, "id": req.KeepID, "trash_id": trashID, "works": len(undo.Cast),
+	})
+}
+
+// handleSplitCharacterAlias: POST /characters/{id}/split {alias}.
+//
+// handleSplitAlias's twin, and partial in the same way: the appearances stay with
+// the record they are on, because nothing in the schema remembers which of them
+// came from the record that was folded in. The response says how many stayed so
+// the client can say so too.
+func (s *Server) handleSplitCharacterAlias(w http.ResponseWriter, r *http.Request) {
+	uid, id, ok := s.identityTarget(w, r, "characters")
+	if !ok {
+		return
+	}
+	var req struct {
+		Alias string `json:"alias"`
+	}
+	if !decodeBody(w, r, &req) {
+		return
+	}
+	tx, err := s.Store.DB.Begin()
+	if err != nil {
+		internalError(w, r, "begin", err)
+		return
+	}
+	defer tx.Rollback()
+	made, err := store.SplitCharacterAlias(tx, uid, id, req.Alias)
+	var refused *store.Refusal
+	switch {
+	case errors.As(err, &refused):
+		writeErr(w, http.StatusConflict, refused.Error())
+		return
+	case err != nil:
+		internalError(w, r, "split character alias", err)
+		return
+	}
+	if err := tx.Commit(); err != nil {
+		internalError(w, r, "commit", err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, map[string]any{"id": made})
+}
+
+// handleWorkPeople: GET /books|movies/{id}/people — everyone attached to one work.
+//
+// THE DOOR THE IDENTITY MODEL HAD NO DOOR FOR. 0056 gave credits and cast records
+// to point at, and 0059 gave quotes one too, but every person link on every screen
+// still opened a name; there was nowhere a reader could stand on a work and see
+// the RECORDS behind it. This is what the ⋯ menu's People entry opens.
+//
+// CURRIED BY KIND, like handleListCast beside it, and for the same reason: the two
+// routes are two literals in the mux and the kind is therefore never parsed out of
+// a path segment that a caller controls.
+//
+// It reads and never writes. The one write this panel offers is the pairing, which
+// is PUT /cast/{id}/link — its own endpoint since 0056, so that "who this role is"
+// can never become a side effect of saving something else.
+func (s *Server) handleWorkPeople(kind string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		workID, ok := pathID(r)
+		if !ok {
+			writeErr(w, http.StatusBadRequest, "invalid id")
+			return
+		}
+		uid := userID(r)
+		if _, ok := s.castWork(uid, kind, workID); !ok {
+			writeErr(w, http.StatusNotFound, "not found")
+			return
+		}
+		out, err := store.PeopleOfWork(s.Store.DB, uid, kind, workID)
+		if err != nil {
+			internalError(w, r, "work people", err)
+			return
+		}
+		writeJSON(w, http.StatusOK, out)
+	}
+}
+
+// ---- the record-keyed people list -------------------------------------------
+
+// personRecord is one people row with everything the Metadata review list ranks by.
+type personRecord struct {
+	personRow
+	SortName string `json:"sort_name"`
+	// Spellings are every OTHER way this record is reached or printed — its aliases,
+	// and the credit_as values works use for it. What makes one row here able to
+	// stand for the several rows the spelling-keyed list used to show.
+	Spellings []string `json:"spellings"`
+	Works     int      `json:"works"`
+	Quotes    int      `json:"quotes"`
+}
+
+// handlePeopleRecords: GET /people/records — one row per record, not per spelling.
+//
+// WHY THIS EXISTS BESIDE /people/names, WHICH IS NOT RETIRED. They answer two
+// questions and the screen was asking the wrong one. /people/names answers "which
+// names does my library PRINT": it groups the credit columns, splits them, and a
+// record's id rides along. That is the right question for a re-verify sweep and
+// the wrong one for a review list, because one record with three aliases is three
+// rows in it and a record no work prints is not in it at all.
+//
+// The character list beside it has been record-keyed since it was built. Two lists
+// under one heading keyed differently is the thing a reader notices first.
+//
+// THE COUNTS ARE PER RECORD AND THAT IS THE POINT: `works` is credits plus cast
+// appearances, `quotes` is 0059's two link columns. A merged Bulgakov reads 12 and
+// 128 here where the spelling list showed four rows of a quarter each.
+func (s *Server) handlePeopleRecords(w http.ResponseWriter, r *http.Request) {
+	uid := userID(r)
+	olog.Tracef("[identity] people records uid=%d", uid)
+	rows, err := s.Store.DB.Query(`
+		SELECT `+personCols+`, p.sort_name,
+		       (SELECT count(*) FROM work_person wp WHERE wp.user_id = p.user_id AND wp.person_id = p.id)
+		     + (SELECT count(*) FROM work_cast   wc WHERE wc.user_id = p.user_id AND wc.actor_id  = p.id
+		                                              AND wc.origin <> 'removed'),
+		       (SELECT count(*) FROM utterances u WHERE u.user_id = p.user_id AND u.speaker_id = p.id)
+		     + (SELECT count(*) FROM dialogues d JOIN movies m ON m.id = d.movie_id
+		         WHERE m.user_id = p.user_id AND d.actor_id = p.id)
+		  FROM people p WHERE p.user_id = ?
+		 ORDER BY CASE WHEN p.sort_name <> '' THEN p.sort_name ELSE p.name END COLLATE NOCASE, p.id`, uid)
+	if err != nil {
+		internalError(w, r, "list person records", err)
+		return
+	}
+	defer rows.Close()
+	out := []personRecord{}
+	for rows.Next() {
+		var v personRecord
+		if err := rows.Scan(&v.ID, &v.Name, &v.Bio, &v.ImagePath, &v.Born, &v.Died,
+			&v.Links, &v.Source, &v.SourceID, &v.SortName, &v.Works, &v.Quotes); err != nil {
+			olog.Warnf(olog.CodePeopleRowScan, "[identity] person record scan failed: %v", err)
+			continue
+		}
+		out = append(out, v)
+	}
+	if err := rows.Err(); err != nil {
+		olog.Warnf(olog.CodePeopleRowScan, "[identity] person record iteration failed: %v", err)
+	}
+	// THE ROLES AND THE SPELLINGS IN THREE MORE QUERIES, NOT THREE PER PERSON.
+	//
+	// They are lists, so they cannot be columns on the statement above — a
+	// group_concat of two of them in one row is a string this would have to take
+	// apart again, with a separator that either appears in a name or is one more
+	// thing to escape. But a read per person is a read per person, and this is the
+	// screen with the most of them: a library with six hundred credited names would
+	// have made eighteen hundred round trips to draw one list. Each of the three
+	// reads the whole account once and is bucketed by id here.
+	// THE ROLES ARE DERIVED FROM THE LINKS, NOT READ FROM person_kinds.
+	//
+	// 0027's table is written by the enrichment upsert — PUT /people, the modal that
+	// saves a bio and a portrait under a (kind, name) — and NOT by the credit path
+	// that 0056 introduced. So a record created by adding a book is filed under no
+	// role at all, which is most records in any library: reading the table here
+	// would have shown an empty roles cell on nearly every row. 0056's own note
+	// says person_kinds "becomes derivable from the credit rows; check before
+	// keeping it", and this is that check coming back derived.
+	//
+	// person_kinds is left alone rather than dropped: the `kind=` endpoints are a
+	// namespace for saved enrichment and still mean what they meant.
+	kinds := s.personListsBy(`SELECT person_id, role FROM work_person WHERE user_id = ?
+	                          UNION
+	                          SELECT actor_id, 'actor' FROM work_cast
+	                           WHERE user_id = ? AND actor_id IS NOT NULL AND origin <> 'removed'
+	                          UNION
+	                          SELECT speaker_id, 'speaker' FROM utterances
+	                           WHERE user_id = ? AND speaker_id IS NOT NULL
+	                          UNION
+	                          SELECT d.actor_id, 'actor' FROM dialogues d
+	                            JOIN movies m ON m.id = d.movie_id
+	                           WHERE m.user_id = ? AND d.actor_id IS NOT NULL
+	                          ORDER BY 2`, "roles", uid, uid, uid, uid)
+	aliases := s.personListsBy(`SELECT person_id, alias FROM person_alias
+	                             WHERE user_id = ? ORDER BY alias_key`, "aliases", uid)
+	// A CREDIT_AS IS NOT AN ALIAS, and the schema is right to keep them apart: an
+	// alias says "this spelling FINDS this record", a credit_as says "this cover
+	// PRINTS it this way". A list asking "is this one person or several" wants both
+	// on one line, because both are spellings of them a reader will meet.
+	credited := s.personListsBy(`SELECT DISTINCT person_id, credit_as FROM work_person
+	                              WHERE user_id = ? AND credit_as <> '' ORDER BY credit_as`, "credit spellings", uid)
+	for i := range out {
+		out[i].Kinds = kinds[out[i].ID]
+		out[i].Spellings = foldSpellings(out[i].Name, aliases[out[i].ID], credited[out[i].ID])
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"people": out})
+}
+
+// personListsBy runs one (person_id, value) query for the whole account and buckets
+// it by id, in the order the query returns them. `what` names the read in the log
+// and nothing else.
+//
+// A FAILED READ RETURNS AN EMPTY MAP RATHER THAN AN ERROR, because the caller is a
+// review list: a record missing from it is worse than a record whose other
+// spellings failed to read, and the log is where the failure is recorded.
+func (s *Server) personListsBy(q, what string, args ...any) map[int64][]string {
+	out := map[int64][]string{}
+	rows, err := s.Store.DB.Query(q, args...)
+	if err != nil {
+		olog.Warnf(olog.CodePeopleRowScan, "[identity] person record %s: %v", what, err)
+		return out
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id int64
+		var v string
+		if err := rows.Scan(&id, &v); err != nil {
+			olog.Warnf(olog.CodePeopleRowScan, "[identity] person record %s scan: %v", what, err)
+			return out
+		}
+		out[id] = append(out[id], v)
+	}
+	if err := rows.Err(); err != nil {
+		olog.Warnf(olog.CodePeopleRowScan, "[identity] person record %s iteration: %v", what, err)
+	}
+	return out
+}
+
+// foldSpellings merges a record's aliases with the spellings its covers print,
+// deduplicated by the folded key and without the record's own name.
+func foldSpellings(name string, lists ...[]string) []string {
+	seen := map[string]bool{store.CastKey(name): true}
+	out := []string{}
+	for _, list := range lists {
+		for _, v := range list {
+			v = strings.TrimSpace(v)
+			if v == "" || seen[store.CastKey(v)] {
+				continue
+			}
+			seen[store.CastKey(v)] = true
+			out = append(out, v)
+		}
+	}
+	return out
 }

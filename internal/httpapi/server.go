@@ -260,9 +260,21 @@ func (s *Server) Handler() http.Handler {
 	// Merge and its two neighbours: the picker that feeds it, and the way back out
 	// of one. Merge is the only destructive act in the identity model and the only
 	// one that parks an undo in the bin.
+	// One row per RECORD, where /people/names above answers one row per printed
+	// spelling. Two questions, and the review list was asking the wrong one — see
+	// handlePeopleRecords.
+	mux.Handle("GET /people/records", s.requireAuth(s.handlePeopleRecords))
 	mux.Handle("GET /people/search", s.requireAuth(s.handleSearchPeople))
 	mux.Handle("POST /people/merge", s.requireAuth(s.handleMergePeople))
 	mux.Handle("POST /people/id/{id}/split", s.requireAuth(s.handleSplitAlias))
+	// The same three for the other table. `/characters/search` and
+	// `/characters/merge` sit beside the wildcard `/characters/{id}` registered
+	// above, which is well defined and not an accident: Go's mux picks the most
+	// specific pattern, and a literal segment beats a wildcard — so neither ever
+	// arrives at handleCharacterByID as an id of "search" or "merge".
+	mux.Handle("GET /characters/search", s.requireAuth(s.handleSearchCharacters))
+	mux.Handle("POST /characters/merge", s.requireAuth(s.handleMergeCharacters))
+	mux.Handle("POST /characters/{id}/split", s.requireAuth(s.handleSplitCharacterAlias))
 
 	// Books + annotations (PLAN §3, §5a, §6).
 	// One route for three pickers — a book's cover, a film's poster, a person's
@@ -296,6 +308,11 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /books/{id}/chapters", s.requireAuth(s.handleBookChapters))
 	mux.Handle("POST /books/{id}/cast", s.requireAuth(s.handleAddCast("book")))
 	mux.Handle("GET /movies/{id}/cast", s.requireAuth(s.handleListCast("movie")))
+	// Everyone attached to one work — its credits by role, its cast with each
+	// performer beside their character, and the people its own quotes point at.
+	// The ⋯ menu's People entry opens this; see handleWorkPeople.
+	mux.Handle("GET /books/{id}/people", s.requireAuth(s.handleWorkPeople("book")))
+	mux.Handle("GET /movies/{id}/people", s.requireAuth(s.handleWorkPeople("movie")))
 	mux.Handle("POST /movies/{id}/cast", s.requireAuth(s.handleAddCast("movie")))
 	mux.Handle("PUT /cast/{id}", s.requireAuth(s.handleUpdateCast))
 	mux.Handle("DELETE /cast/{id}", s.requireAuth(s.handleDeleteCast))

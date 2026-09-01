@@ -927,7 +927,14 @@ func wantShapes() []tableShape {
 				// 'person-merge' since 0058, and it is the odd one: every other kind
 				// here is rows that went, and its payload is a REVERSAL rather than a
 				// snapshot — see the migration, and its own branch in the restore.
-				"kind IN ('book','movie','annotation','dialogue','quote','account','selection','person-merge')",
+				// 'character-merge' since 0060 is its twin, for the other identity
+				// table, and shares that branch — as do 'person-delete' and
+				// 'character-delete', which are reversals for the same reason: a
+				// record delete nulls the cast rows and quotes that pointed at it,
+				// and putting those back is an UPDATE the generic restore cannot do.
+				// The wrapped line in the migration is stored with its newline and
+				// indent collapsed to one space, so that is what is pinned.
+				"kind IN ('book','movie','annotation','dialogue','quote','account','selection', 'person-merge','character-merge','person-delete','character-delete')",
 			},
 			Indexes: []indexShape{
 				{Name: "trash_user_time", Origin: "c", Columns: []string{"user_id", "deleted_at"}},

@@ -98,17 +98,39 @@ type castRow struct {
 	Billing            int    `json:"billing"`
 	Origin             string `json:"origin"`
 	Source             string `json:"source"`
+	// The two identity links 0056 added, and the reason a cast row can be a DOOR
+	// rather than only a pair of strings: character_id names the record in
+	// `characters`, actor_id the record in `people`.
+	//
+	// NEITHER IS PersonID ABOVE, which is the trap this row already contains and
+	// the reason 0056 refused to spend that name a second time: PersonID is the
+	// PROVIDER's id for the performer, a string in TMDB's or TheTVDB's id space.
+	// Two columns of that name meaning two id spaces on one row is how a join goes
+	// to the wrong table.
+	//
+	// Reported, and NOT accepted — the pairing is written by PUT /cast/{id}/link,
+	// which exists so that "who this role is" can never be a side effect of saving
+	// a billing order or a corrected spelling.
+	CharacterID int64 `json:"character_id,omitempty"`
+	ActorID     int64 `json:"actor_id,omitempty"`
 }
 
 // castCols is the SELECT list every read here shares, so a column added to the
 // row struct is added in one place rather than in three that drift.
 const castCols = `id, character, actor, person_id, image_url, character_image_url,
-	character_image_path, billing, origin, source`
+	character_image_path, billing, origin, source, character_id, actor_id`
 
 func scanCastRow(sc interface{ Scan(...any) error }) (castRow, error) {
 	var c castRow
+	// NULLABLE, both of them: work_cast.character_id and actor_id are ON DELETE SET
+	// NULL and a book character never has a performer at all, so a plain int64
+	// destination fails the scan on every unpaired row — which is most of them on a
+	// library that has not been through the cast panel.
+	var cid, aid sql.NullInt64
 	err := sc.Scan(&c.ID, &c.Character, &c.Actor, &c.PersonID, &c.ImageURL,
-		&c.CharacterImageURL, &c.CharacterImagePath, &c.Billing, &c.Origin, &c.Source)
+		&c.CharacterImageURL, &c.CharacterImagePath, &c.Billing, &c.Origin, &c.Source,
+		&cid, &aid)
+	c.CharacterID, c.ActorID = cid.Int64, aid.Int64
 	return c, err
 }
 

@@ -1606,6 +1606,8 @@ Credits are stored exactly as they arrive and split only when read, so a wrong s
 
 **Instead of** one table with `kind`, which `person-instructions.md` proposes and which halves the code. The cost of two tables is that aliases, merge and links exist twice; that is paid in Go, once, over two tables, with the two resolve functions written out in parallel so a divergence shows up in a diff.
 
+**One half of this was superseded and the column is dead.** `annotations.speaker_cast_id` and `dialogues.speaker_cast_id` were declared here and have never been written or read: 0059 linked a quote's speaker to `people` instead, on a data-safety ground it states in full below. The columns are left in place rather than dropped — a migration to remove two unused nullable columns costs a table rebuild on every reader's database and buys nothing — but nothing should be built on them without reading 0059's entry first.
+
 <sub>`internal/store/migrations/0056_person_identity.sql`</sub>
 
 ### A quote's speaker is a column on the quote, not a `work_person` row
@@ -1618,7 +1620,9 @@ Credits are stored exactly as they arrive and split only when read, so a wrong s
 
 **The cost, stated:** the resolve/sync/merge machinery now exists twice, once per shape — `credits.go` for works, `quote_person.go` for quotes. That is the same trade 0056 took for characters, and it is paid the same way: the two files are written in parallel so a divergence shows up in a diff.
 
-**NOTHING READS THE COLUMNS YET, and that is deliberate rather than unfinished.** `GET /people/id/{id}` returns credits and roles; the person panel renders those. The link is what makes a rename, a merge and a split correct *underneath* — which is a data problem that had to be solved before the screen could be drawn on top of it — and the panel starts listing a performer's lines when that screen is rebuilt (commit 2b). The write side is complete and its invariant is walked; the read side is one query in a screen that is being redesigned anyway, and adding it now would be designing that panel by accident.
+**The read side has now landed.** `GET /people/id/{id}` carries `lines` — the quotes pointing at the record, capped at 50 — and `shared_lines`, which is how many *further* quotes name the record alongside somebody else and are therefore unlinked. The count is computed the way the linker computes its answer, `metadata.SplitCredits` under the account's own separators folded against the record's name and aliases, rather than by a looser rule such as a `LIKE`: a second rule here would report a number `QuoteLinksAgree` disagrees with, and the two would drift the moment either changed. The cap bounds what a panel draws; the count is not capped, because it is the number that would otherwise be silently wrong.
+
+<sub>`internal/store/quote_person.go` (`PersonLines`) · `internal/httpapi/identity_handlers.go`</sub>
 
 <sub>`internal/store/migrations/0059_quote_person.sql` · `internal/store/quote_person.go` · `internal/store/onetime_3_1_0_quote_person.go`</sub>
 
@@ -1651,6 +1655,58 @@ Credits are stored exactly as they arrive and split only when read, so a wrong s
 **Why.** The bin's snapshot is a `SELECT *` taken before the delete, and `handleDeleteDialogue` runs the orphan sweep immediately after binning — so the actor whose last line this was can be gone by the time the reader presses undo. With `foreign_keys(1)` the insert then fails the constraint and rolls back the **whole** restore, losing the quote to protect a number. Re-deriving is also the better answer rather than merely the safe one: the name is still on the row, so the person is re-created exactly as a fresh write would create them — which is what `gcOrphanPeople` already says a person row is ("a reference row that re-fetches, not part of the quote") — and an entry binned before 0059 comes back linked rather than bare.
 
 <sub>`internal/httpapi/trash_handlers.go`</sub>
+
+### A character merge is the person merge with three things a character does not have
+
+**Decided.** `store.MergeCharacters` / `UndoCharacterMerge` / `SplitCharacterAlias` are written out in parallel with their person twins rather than shared through an interface, and migration 0060 gives the bin a `character-merge` kind with its own branch in `handleRestoreTrash` beside `person-merge`.
+
+**Why it is shorter, item by item, so the difference cannot be read as a shortcut.** A character has no credits: nothing composes a derived column out of `characters` — `work_cast.character` holds the printed name in its own row — so there is no `credit_as` to carry through, no recompose afterwards, and no cache that can drift from the links. **There is no collapse step**, and its absence is deliberate: the person half collapses a work that now credits one person twice in one role because the recomposed column would print the name twice on a cover, whereas a film billing Woland once as "Woland" and once as "the professor" is two cast rows and both are true. And no quote points at a character — `speaker_cast_id` was never written — so nothing answers to `MergeUndo.Screen` and `Utterance`.
+
+**What it keeps** is the rule that makes a merge safe to offer at all: `work_cast.character` is never touched, so a work goes on billing what it billed, and the dropped record's own name becomes an alias of the survivor so the next cast import resolves rather than manufacturing the record again.
+
+**Instead of** leaving characters merge-less, which is what shipped in 3.1.0 and which left the backfill's central promise unkept: it creates one character record *per work* deliberately, so that eight Harry Potters are visible **and mergeable** rather than forty Narrators silently welding into one. The visible half shipped and the weldable half did not.
+
+**One shared helper, and why it is not a copy.** `rowAsMap` and `insertRow` take the table name, guarded by an `identityTables` allow-list because both interpolate it. The parallel-copy rule exists so two *meanings* cannot drift apart, and a row copier has no meaning to drift — one copy of it is the version that cannot disagree with itself.
+
+<sub>`internal/store/migrations/0060_trash_character_merge.sql` · `internal/store/identity.go` · `internal/httpapi/identity_handlers.go`</sub>
+
+### A global record delete is binned; a cast row's is not
+
+**Decided.** `DELETE /people/{id}` and `DELETE /characters/{id}` write a `person-delete` / `character-delete` bin entry and are undoable. `DELETE /cast/{id}` stays permanent. Both new kinds are reversals sharing the merges' branch in `handleRestoreTrash`, and 0060 enumerates all four.
+
+**Why.** The owner's own distinction: *a work-character is attribution; a global character is not mere attribution*. A `work_cast` row says how one work bills somebody, and deleting it is a correction to that work. A `people` or `characters` row is **authored** — a sort name that was a judgement, a description, a portrait, every alias filed and every merge those aliases record — and that is what a bin is for. This overrides an earlier call in this same pass that left both permanent by analogy with `trash.go`'s "a person is a reference row"; that reading was about a row the app *re-fetches*, and it stopped being true when 0056 made the record the thing a reader edits.
+
+**Why a delete is a reversal and not a snapshot.** It does insert its row back — but two of the three things it disturbs are `ON DELETE SET NULL` columns on rows that still exist: the cast rows and the quotes that pointed at the record. Putting those back is an UPDATE by id, and the bin's generic restore would return the record and leave every one of them pointing at nothing.
+
+**Deleting a person who is still credited is REFUSED**, with the count: *"still credited on 6 works"*. `work_person.person_id` is `ON DELETE CASCADE`, so the delete would take the credit link rows with it while `books.author` went on printing the name — the faithful-column promise means nothing recomposes it — leaving the library in exactly the state `CreditsAgree` calls drift for as long as the entry sat in the bin, where a support check would report a fault that was really somebody's delete. The cast and quote links are *not* refused, because they are `SET NULL`: nothing cascades, nothing is recomposed, and every id is recorded and put back. A performer with lines but no credits is deletable and restorable.
+
+**A restored alias is `INSERT OR IGNORE`.** A spelling the record held may have been filed under somebody else during the thirty days it was in the bin, and the alias tables are keyed on the key alone. Taking it back would be a restore silently unfiling a decision made after the delete; the record returns without that one spelling instead.
+
+<sub>`internal/store/identity.go` · `internal/httpapi/trash_handlers.go` · `internal/httpapi/people_handlers.go`</sub>
+
+### The people review list is keyed on records; `/people/names` keeps its own question
+
+**Decided.** `GET /people/records` returns one row per `people` row, with works and quotes counted per record and every other spelling it answers to. `GET /people/names` is not retired.
+
+**Why.** They answer two questions and the review screen was asking the wrong one. `/people/names` answers *which names does my library print*: it groups the credit columns, splits them, and a record's id rides along. That is right for a re-verify sweep and wrong for a review list, where one record with three aliases becomes three rows and a record no work prints does not appear at all. The character list beside it has been record-keyed since it was built, and two lists under one heading keyed differently is the thing a reader notices first. A merged Bulgakov reads 12 works and 128 quotes on one row where the spelling list showed four rows of a quarter each.
+
+**The record's PORTRAIT, BIO AND PROVIDER LOOKUP are still keyed `(kind, name)`, and that is 2b-2's work rather than an oversight.** `POST /people/lookup`, `POST /people/portrait` and `PUT /people` all address a person by their displayed name; `PUT /people/id/{id}` deliberately takes only the identity fields. Porting those three to the record is half of the answer given when the panel was chosen to replace the modal, and the id-keyed routes are **not** in this commit — building a portrait endpoint with no caller would repeat exactly what 0059 was criticised for, shipping a write-only surface and describing it as done. They land with the panel that calls them, and until they do a portrait saved from the modal is still saved by name, with the ambiguity that implies now that two records may genuinely share one.
+
+**A record's roles are DERIVED from its links, not read from `person_kinds`.** 0027's table is written by the enrichment upsert — `PUT /people`, the modal that saves a bio and a portrait under a `(kind, name)` — and **not** by the credit path 0056 introduced. So a record created by adding a book is filed under no role at all, which is most records in any library, and reading the table here would have drawn an empty roles cell on nearly every row. 0056's own note asked for exactly this check — *"`person_kinds` becomes derivable from the credit rows; check before keeping it"* — and this is it coming back derived: `work_person.role`, plus `actor` from a cast pairing or a linked film line, plus `speaker` from a linked standalone quote. The table is left in place rather than dropped, because the `kind=` endpoints are a namespace for saved enrichment and still mean what they meant.
+
+**`credit_as` is folded in with the aliases, though the schema keeps them apart.** An alias says *this spelling finds this record*; a `credit_as` says *this cover prints it this way*. Both are spellings of the person that a reader will meet, and a list asking "is this one person or several" wants them on one line.
+
+<sub>`internal/httpapi/identity_handlers.go`</sub>
+
+### Everyone on one work is one read, not three the client stitches
+
+**Decided.** `GET /books/{id}/people` and `GET /movies/{id}/people` return a work's credits by role, its cast with both record ids on each row, and the people its own quotes point at with a line count each. Curried by kind like `handleListCast` beside it, so the kind is never parsed out of a caller-controlled segment.
+
+**Why.** This is the door the identity model had no door for. 0056 gave credits and cast records to point at and 0059 gave quotes one too, and every person link on every screen still opened a *name* — there was nowhere a reader could stand on a work and see the records behind it. Three reads rather than a join because they are three different attachments: a credit is a role on the work, a cast row is a character with a performer beside them, a speaker is a person some quote points at. A join would have to invent a shape that flattens all three.
+
+**A book reports no speakers, and that is the schema being honest** rather than a branch that skips the query: `annotations` has no person column at all. It reads and never writes — the one write this surface offers is the pairing, which stays `PUT /cast/{id}/link` so that *who this role is* can never become a side effect of saving a billing order.
+
+<sub>`internal/store/identity.go` (`PeopleOfWork`) · `internal/httpapi/identity_handlers.go`</sub>
 
 ### The 3.1.0 backfill splits credits and refuses to weld characters
 

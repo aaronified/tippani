@@ -1312,22 +1312,19 @@ func (s *Server) handleDeletePerson(w http.ResponseWriter, r *http.Request) {
 	}
 	uid := userID(r)
 	olog.Tracef("[people] handleDeletePerson uid=%d id=%d", uid, id)
-	var image string
-	err := s.Store.DB.QueryRow(`SELECT image_path FROM people WHERE id = ? AND user_id = ?`, id, uid).Scan(&image)
-	switch {
+	var name string
+	switch err := s.Store.DB.QueryRow(
+		`SELECT name FROM people WHERE id = ? AND user_id = ?`, id, uid).Scan(&name); {
 	case errors.Is(err, sql.ErrNoRows):
 		writeErr(w, http.StatusNotFound, "not found")
 		return
 	case err != nil:
-		internalError(w, r, "load person image", err)
+		internalError(w, r, "load person", err)
 		return
 	}
-	if _, err := s.Store.DB.Exec(`DELETE FROM people WHERE id = ? AND user_id = ?`, id, uid); err != nil {
-		internalError(w, r, "delete person", err)
-		return
+	trashID, err := s.binRecord(w, r, "person", uid, id, name)
+	if err != nil {
+		return // binRecord has answered
 	}
-	if image != "" {
-		s.removeCoverFile(image) // best-effort
-	}
-	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "trash_id": trashID})
 }

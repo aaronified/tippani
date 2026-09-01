@@ -517,3 +517,168 @@ func RepointQuotesSpelled(tx *sql.Tx, uid, fromID, toID int64, key string) (int,
 	}
 	return moved, nil
 }
+
+// ---- the read side ----------------------------------------------------------
+
+// QuoteLine is one quote a person is linked to, as their record lists it.
+type QuoteLine struct {
+	ID   int64     `json:"id"`
+	Kind QuoteKind `json:"kind"`
+	Text string    `json:"text"`
+	// The spelling THIS quote prints, which is not always the record's name — a
+	// merge re-points ids and never edits a spelling, so a line credited to "Bob
+	// Peck" goes on saying so after Bob Peck is merged into Robert Peck. Showing
+	// it is the honest thing: the reader asked to see this person's lines, and
+	// this is how the line names them.
+	Name string `json:"name"`
+	// The film a screen line belongs to. An utterance belongs to no work, so both
+	// are zero and empty there — a standalone quote is the thing it is.
+	WorkID    int64  `json:"work_id,omitempty"`
+	WorkTitle string `json:"work_title,omitempty"`
+}
+
+// PersonLines returns the quotes LINKED to a person, and a count of the further
+// quotes that name them alongside somebody else.
+//
+// THE ORDER IS SCREEN LINES THEN STANDALONE ONES, each newest first, and it is not
+// one merged recency order. The two live in two tables with two id spaces, so
+// interleaving them would mean sorting on created_at in Go over the whole set
+// before the cap could be applied — and a person is in practice a film performer
+// or a quoted speaker rather than both, so the merge would almost always be
+// sorting one list against nothing. Said here because the cap below therefore
+// takes screen lines first, which is a thing a caller can see.
+//
+// THE SECOND NUMBER IS THE POINT OF THIS FUNCTION. SyncQuotePerson deliberately
+// leaves a two-hander unlinked — autofillActor credits a line naming two
+// characters to both their performers, and there is no honest single answer — so a
+// link-only query silently omits exactly the lines a reader is most likely to go
+// looking for. Returning the count lets the panel say "and 3 more name them
+// alongside somebody else" instead of quietly being wrong about how many there are.
+//
+// THE COUNT IS COMPUTED THE WAY THE LINKER COMPUTES ITS ANSWER — metadata.SplitCredits
+// with the ACCOUNT'S OWN separators, then a fold-compare against the record's name
+// and every alias it holds. A second, looser rule here (a LIKE, say) would report a
+// number the linker disagrees with, and the two would drift the moment either
+// changed. It scans only the rows that are unlinked AND print a name, which is the
+// two-handers and nothing else.
+//
+// `limit` caps the listed lines, not the count: a reader with four hundred linked
+// lines wants the recent ones and the total, and the panel says which it is showing.
+func PersonLines(db Queryer, uid, personID int64, seps metadata.CreditSeps, limit int) ([]QuoteLine, int, error) {
+	keys, err := personSpellings(db, uid, personID)
+	if err != nil {
+		return nil, 0, err
+	}
+	out := []QuoteLine{}
+
+	// ---- the linked ones -----------------------------------------------------
+	rows, err := db.Query(
+		`SELECT d.id, d.quote, d.actor, m.id, m.title
+		   FROM dialogues d JOIN movies m ON m.id = d.movie_id
+		  WHERE m.user_id = ? AND d.actor_id = ?
+		  ORDER BY d.id DESC`, uid, personID)
+	if err != nil {
+		return nil, 0, fmt.Errorf("person lines: screen: %w", err)
+	}
+	for rows.Next() {
+		l := QuoteLine{Kind: KindScreen}
+		if err := rows.Scan(&l.ID, &l.Text, &l.Name, &l.WorkID, &l.WorkTitle); err != nil {
+			rows.Close()
+			return nil, 0, err
+		}
+		out = append(out, l)
+	}
+	err = rows.Err()
+	rows.Close()
+	if err != nil {
+		return nil, 0, err
+	}
+
+	urows, err := db.Query(
+		`SELECT id, quote, speaker FROM utterances
+		  WHERE user_id = ? AND speaker_id = ? ORDER BY id DESC`, uid, personID)
+	if err != nil {
+		return nil, 0, fmt.Errorf("person lines: utterance: %w", err)
+	}
+	for urows.Next() {
+		l := QuoteLine{Kind: KindUtterance}
+		if err := urows.Scan(&l.ID, &l.Text, &l.Name); err != nil {
+			urows.Close()
+			return nil, 0, err
+		}
+		out = append(out, l)
+	}
+	err = urows.Err()
+	urows.Close()
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// ---- the ones that name somebody else too --------------------------------
+	shared := 0
+	for _, q := range []struct {
+		sql  string
+		args []any
+	}{
+		{`SELECT d.actor FROM dialogues d JOIN movies m ON m.id = d.movie_id
+		   WHERE m.user_id = ? AND d.actor_id IS NULL AND d.actor IS NOT NULL AND d.actor <> ''`, []any{uid}},
+		{`SELECT speaker FROM utterances
+		   WHERE user_id = ? AND speaker_id IS NULL AND speaker <> ''`, []any{uid}},
+	} {
+		srows, err := db.Query(q.sql, q.args...)
+		if err != nil {
+			return nil, 0, fmt.Errorf("person lines: shared: %w", err)
+		}
+		for srows.Next() {
+			var printed string
+			if err := srows.Scan(&printed); err != nil {
+				srows.Close()
+				return nil, 0, err
+			}
+			for _, part := range metadata.SplitCredits(printed, seps) {
+				if keys[CastKey(part)] {
+					shared++
+					break
+				}
+			}
+		}
+		err = srows.Err()
+		srows.Close()
+		if err != nil {
+			return nil, 0, err
+		}
+	}
+
+	if limit > 0 && len(out) > limit {
+		out = out[:limit]
+	}
+	return out, shared, nil
+}
+
+// personSpellings is every folded spelling that resolves to one record — its own
+// name and each alias. The set personAnswersTo asks one question of, read once
+// here because the caller asks it of every unlinked quote in the account.
+func personSpellings(db Queryer, uid, personID int64) (map[string]bool, error) {
+	keys := map[string]bool{}
+	var name string
+	switch err := db.QueryRow(`SELECT name FROM people WHERE id = ? AND user_id = ?`, personID, uid).Scan(&name); {
+	case err == sql.ErrNoRows:
+		return keys, nil
+	case err != nil:
+		return nil, fmt.Errorf("read person %d: %w", personID, err)
+	}
+	keys[CastKey(name)] = true
+	rows, err := db.Query(`SELECT alias FROM person_alias WHERE user_id = ? AND person_id = ?`, uid, personID)
+	if err != nil {
+		return nil, fmt.Errorf("read aliases of person %d: %w", personID, err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var a string
+		if err := rows.Scan(&a); err != nil {
+			return nil, err
+		}
+		keys[CastKey(a)] = true
+	}
+	return keys, rows.Err()
+}

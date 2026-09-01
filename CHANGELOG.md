@@ -51,6 +51,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   who never wrote them. The spelling stops finding the old record and starts finding the
   new one; the works are yours to move.
 
+- **Characters can be folded together and pulled apart too, the same way people can.**
+  When the app gave every credit and every cast list a record to point at, it made one
+  character record *per work* on purpose — eight films of Harry Potter became eight Harry
+  Potters — because the alternative is every "Narrator" in the library silently welding
+  into one person across forty books. That was only half a promise: they were visible and
+  there was no way to weld the ones that really are the same character. Now there is. Say
+  which record survives, and every book and film the other appeared in moves across while
+  **going on billing exactly the name it bills today**; the folded-in spelling becomes one
+  that *finds* the surviving record, so the next cast import does not make it again; and
+  the bin holds the way back for as long as it holds anything else. A spelling can be
+  pulled back out into a record of its own, which moves no appearances, for the same
+  reason splitting a person moves no works.
+
+- **A performer's record now knows the lines they said.** The link was written when film
+  lines and quotes were given records to point at, and nothing read it. Their record lists
+  those quotes — each keeping the spelling it was written with, which is not always the
+  record's name once two have been merged — and says how many *further* lines name them
+  **alongside somebody else**. Those are deliberately left unattached, because a line
+  credited to two performers has no honest single speaker; counting them is the difference
+  between a panel that is complete and one that is quietly short.
+
+  **Still nothing on screen has changed.** This and the character merge above are the
+  record underneath; the screens that draw them are the next piece of work.
+
+- **Deleting a person or a character now goes to the bin.** They used to go for good.
+  A cast row on one work is attribution — how *that* film bills somebody — and deleting
+  one is still a correction to that film, permanent as it always was. But the record
+  behind it is something you wrote: the way it files, the description, the portrait you
+  picked, every other spelling you told the app should find it, and every merge those
+  spellings remember. Undo brings all of it back, including the cast rows and the quotes
+  that had quietly stopped pointing anywhere when it went.
+
+  **A person who is still credited on a work is not deleted at all** — you are told how
+  many, and asked to deal with the credits first. Deleting them would have taken their
+  credits with them while every cover went on printing their name, which is a library
+  that disagrees with itself about who wrote what. A performer who only *speaks* can be
+  deleted and put back; nothing is lost either way.
+
+
 - **Six tests that read the source now use the app instead.** Home's favourites wall,
   the shuffled quote card, the "quiz me on this" button and the Shuffle control's
   position were all checked by searching the JavaScript for a function name — which

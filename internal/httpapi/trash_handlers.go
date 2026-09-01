@@ -216,11 +216,24 @@ func (s *Server) handleRestoreTrash(w http.ResponseWriter, r *http.Request) {
 	// A MERGE IS NOT A SNAPSHOT, AND ITS ENTRY CANNOT TAKE THIS PATH. Everything
 	// below re-INSERTS rows into their tables; a merge deletes almost nothing, it
 	// re-points — so the keys are still occupied and the first insert would collide.
-	// Its payload is a reversal (store.MergeUndo), applied by targeted updates, and
-	// it is read before the snapshot decode because it would not decode as one.
-	if kind == "person-merge" {
-		if err := s.undoPersonMerge(tx, uid, payload); err != nil {
-			olog.Warnf(olog.CodeTrashRestore, "[trash] undoing merge %d for user %d failed: %v", id, uid, err)
+	// Its payload is a reversal (store.MergeUndo, store.CharacterMergeUndo), applied
+	// by targeted updates, and it is read before the snapshot decode because it
+	// would not decode as one.
+	//
+	// A RECORD DELETE IS NOT A SNAPSHOT EITHER, and for a reason worth stating
+	// separately: it DOES insert its row back, but two of the three things it
+	// disturbed are `ON DELETE SET NULL` columns on rows that still exist — the cast
+	// rows and the quotes that pointed at the record — and putting those back is an
+	// UPDATE by id. Taking the generic path would return the record and leave every
+	// one of them pointing at nothing.
+	//
+	// FOUR KINDS, ONE BRANCH, chosen by the entry's own kind rather than by trying
+	// each decoder: a payload that will not decode is a corrupt entry and the reader
+	// must see that, which a fall-through to another shape would turn into a silent
+	// no-op on an entry they pressed Undo on.
+	if undo, ok := identityReversals[kind]; ok {
+		if err := undo(s, tx, uid, payload); err != nil {
+			olog.Warnf(olog.CodeTrashRestore, "[trash] undoing %s %d for user %d failed: %v", kind, id, uid, err)
 			internalError(w, r, "restore", err)
 			return
 		}
@@ -237,6 +250,10 @@ func (s *Server) handleRestoreTrash(w http.ResponseWriter, r *http.Request) {
 			internalError(w, r, "restore: commit", err)
 			return
 		}
+		// The portrait comes back after the commit, the mirror of the delete parking
+		// it after its own — see parkFiles. A merge carries no files and this is a
+		// no-op for one.
+		s.unparkFiles(fileList(files))
 		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "kind": kind})
 		return
 	}
@@ -597,4 +614,55 @@ func (s *Server) undoPersonMerge(tx *sql.Tx, uid int64, payload string) error {
 		return fmt.Errorf("undo merge: unreadable entry: %w", err)
 	}
 	return store.UndoPersonMerge(tx, uid, &u, s.creditSeps(uid))
+}
+
+// identityReversals are the bin kinds whose payload is a REVERSAL rather than a
+// snapshot, each with the function that applies it.
+//
+// A TABLE RATHER THAN A CHAIN OF ifs, because the set is the same set 0060's CHECK
+// enumerates and a kind that is in one and not the other is the failure that
+// migration's header is about: an entry that lists, sits for thirty days, and fails
+// when somebody presses Undo. Two lists side by side is still two lists, but this
+// one is three lines and reads as a list, which the four-way if it replaced did not.
+var identityReversals = map[string]func(*Server, *sql.Tx, int64, string) error{
+	"person-merge":     (*Server).undoPersonMerge,
+	"character-merge":  (*Server).undoCharacterMerge,
+	"person-delete":    (*Server).undoPersonDelete,
+	"character-delete": (*Server).undoCharacterDelete,
+}
+
+// undoPersonDelete and undoCharacterDelete put a binned record back.
+//
+// ONE PAYLOAD SHAPE OVER BOTH TABLES — store.RecordDeleteUndo — unlike the merges,
+// whose halves are written out separately because their meanings differ. A delete
+// captures the row and the things that pointed at it, which is the same list either
+// side with some fields empty.
+func (s *Server) undoPersonDelete(tx *sql.Tx, uid int64, payload string) error {
+	var u store.RecordDeleteUndo
+	if err := json.Unmarshal([]byte(payload), &u); err != nil {
+		return fmt.Errorf("undo delete: unreadable entry: %w", err)
+	}
+	return store.UndoPersonDelete(tx, uid, &u)
+}
+
+func (s *Server) undoCharacterDelete(tx *sql.Tx, uid int64, payload string) error {
+	var u store.RecordDeleteUndo
+	if err := json.Unmarshal([]byte(payload), &u); err != nil {
+		return fmt.Errorf("undo delete: unreadable entry: %w", err)
+	}
+	return store.UndoCharacterDelete(tx, uid, &u)
+}
+
+// undoCharacterMerge is undoPersonMerge for the other table.
+//
+// NO CREDIT SEPARATORS, and that is the whole difference. A person merge ends by
+// recomposing the derived credit columns, which needs the account's own idea of
+// what separates two names; nothing composes a column out of characters, so there
+// is nothing here to recompose and nothing to read the preference for.
+func (s *Server) undoCharacterMerge(tx *sql.Tx, uid int64, payload string) error {
+	var u store.CharacterMergeUndo
+	if err := json.Unmarshal([]byte(payload), &u); err != nil {
+		return fmt.Errorf("undo merge: unreadable entry: %w", err)
+	}
+	return store.UndoCharacterMerge(tx, uid, &u)
 }

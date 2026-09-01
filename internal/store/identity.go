@@ -641,7 +641,7 @@ func MergePeople(tx *sql.Tx, uid, keepID, dropID int64, seps metadata.CreditSeps
 	}
 	undo := &MergeUndo{KeepID: keepID, DropID: dropID, Filled: map[string]any{}}
 
-	if undo.Person, err = personRowAsMap(tx, uid, dropID); err != nil {
+	if undo.Person, err = rowAsMap(tx, "people", uid, dropID); err != nil {
 		return nil, err
 	}
 
@@ -797,6 +797,28 @@ func MergePeople(tx *sql.Tx, uid, keepID, dropID int64, seps metadata.CreditSeps
 	}
 
 	// ---- aliases -------------------------------------------------------------
+	//
+	// THE KEY'S OWNER IS READ BEFORE ANY ALIAS MOVES, and the order is load-bearing.
+	// If the dropped record already held an alias equal to its OWN name — reachable
+	// by renaming a record onto one of its own spellings — then the loop below moves
+	// that row to the survivor, and a read taken afterwards would record the SURVIVOR
+	// as what the key held before. Undo would then re-park the spelling on the
+	// survivor it had just taken it off, leaving the reader with a restored record
+	// that its own name no longer finds.
+	nameKey := CastKey(dropName)
+	var nameAliasWas *AliasWas
+	if dropName != "" && CastKey(keepName) != nameKey {
+		var was AliasWas
+		switch err := tx.QueryRow(
+			`SELECT person_id, alias FROM person_alias WHERE user_id = ? AND alias_key = ?`, uid, nameKey).
+			Scan(&was.PersonID, &was.Alias); {
+		case err == nil:
+			nameAliasWas = &was
+		case errors.Is(err, sql.ErrNoRows):
+		default:
+			return nil, fmt.Errorf("merge name alias: read: %w", err)
+		}
+	}
 	arows, err := tx.Query(`SELECT alias_key FROM person_alias WHERE user_id = ? AND person_id = ?`, uid, dropID)
 	if err != nil {
 		return nil, err
@@ -821,27 +843,17 @@ func MergePeople(tx *sql.Tx, uid, keepID, dropID int64, seps metadata.CreditSeps
 		}
 	}
 	// The dropped name itself, so the next import resolves rather than re-creating.
-	if key := CastKey(dropName); dropName != "" && CastKey(keepName) != key {
-		// READ THE KEY'S CURRENT OWNER FIRST. The write below is an upsert, so it can
-		// take a spelling somebody else already holds; an undo that only deletes
-		// would then destroy an alias this merge never made.
-		var was AliasWas
-		switch err := tx.QueryRow(
-			`SELECT person_id, alias FROM person_alias WHERE user_id = ? AND alias_key = ?`, uid, key).
-			Scan(&was.PersonID, &was.Alias); {
-		case err == nil:
-			undo.NameAliasWas = &was
-		case errors.Is(err, sql.ErrNoRows):
-		default:
-			return nil, fmt.Errorf("merge name alias: read: %w", err)
-		}
+	// The upsert can take a spelling a THIRD record already holds, which is why the
+	// reversal carries what the key held — read above, before the loop moved any.
+	if dropName != "" && CastKey(keepName) != nameKey {
+		undo.NameAliasWas = nameAliasWas
 		if _, err := tx.Exec(
 			`INSERT INTO person_alias (user_id, alias_key, alias, person_id) VALUES (?, ?, ?, ?)
 			 ON CONFLICT (user_id, alias_key) DO UPDATE SET alias = excluded.alias, person_id = excluded.person_id`,
-			uid, key, dropName, keepID); err != nil {
+			uid, nameKey, dropName, keepID); err != nil {
 			return nil, fmt.Errorf("merge name alias: %w", err)
 		}
-		undo.NameAlias = key
+		undo.NameAlias = nameKey
 	}
 
 	// ---- the survivor's blanks ----------------------------------------------
@@ -875,7 +887,7 @@ func MergePeople(tx *sql.Tx, uid, keepID, dropID int64, seps metadata.CreditSeps
 // key is still occupied, which is exactly why the bin's generic restore cannot do
 // this and this function exists.
 func UndoPersonMerge(tx *sql.Tx, uid int64, u *MergeUndo, seps metadata.CreditSeps) error {
-	if err := insertPersonRow(tx, u.Person); err != nil {
+	if err := insertRow(tx, "people", u.Person); err != nil {
 		return fmt.Errorf("undo merge: person: %w", err)
 	}
 	for _, c := range u.Collapsed {
@@ -957,10 +969,264 @@ func UndoPersonMerge(tx *sql.Tx, uid int64, u *MergeUndo, seps metadata.CreditSe
 	return recomposeCredits(tx, uid, u.Credits, seps)
 }
 
+// ---- merge: the character half ----------------------------------------------
+//
+// WRITTEN IN PARALLEL WITH THE PERSON HALF ABOVE rather than shared through an
+// interface — the call 0056 already made for ResolvePerson/ResolveCharacter, for
+// the same reason. Two functions meant to behave alike are auditable side by side
+// in a diff; an interface hides the moment one of them stops.
+//
+// IT IS SHORTER THAN ITS TWIN, AND EVERY DIFFERENCE IS A FACT ABOUT THE SCHEMA
+// rather than a shortcut. Read them as a list of things a character does not have:
+//
+//   - A CHARACTER HAS NO CREDITS. Nothing composes a derived column out of
+//     characters; work_cast.character holds the printed name in its own row. So
+//     there is no credit_as to carry through, no recompose afterwards, and no
+//     cache that can drift from the links.
+//   - A WORK MAY LEGITIMATELY BILL ONE CHARACTER TWICE once they are merged.
+//     Woland billed once as "Woland" and once as "the professor" is two cast rows
+//     and both are true. The person half collapses its duplicate because a work
+//     crediting one person twice would print the name twice on the shelf; there
+//     is no such printing here, so THERE IS NO COLLAPSE STEP and its absence is
+//     deliberate rather than missing.
+//   - NO QUOTE POINTS AT A CHARACTER. 0056 added speaker_cast_id and nothing has
+//     ever written it; 0059 linked quotes to `people` instead. So there is nothing
+//     here answering to MergeUndo's Screen and Utterance.
+//
+// WHAT IT KEEPS is the rule that makes a merge safe to offer at all: MERGING TWO
+// RECORDS MUST NOT CHANGE WHAT ANY WORK PRINTS. work_cast.character is never
+// touched, so a film that billed "the professor" goes on billing it. The dropped
+// record's own name becomes an alias of the survivor, which is what stops the next
+// cast import manufacturing the record again — the same guard, for the same
+// reason, as the person half's.
+
+// characterMergeFillable are the survivor's columns a merge may borrow from the
+// record it folds in, and only where the survivor's own is empty. Its person twin
+// is mergeFillable; the lists differ because the tables do — a character has a
+// description and no bio, no born/died, and no provider source.
+var characterMergeFillable = []string{"sort_name", "description", "image_path", "image_url", "note"}
+
+// CharacterAliasWas is AliasWas for the other table. See it, and MergeUndo's note
+// on why a reversal has to know what a key held before the merge took it.
+type CharacterAliasWas struct {
+	CharacterID int64  `json:"character_id"`
+	Alias       string `json:"alias"`
+}
+
+// CharacterMergeUndo is MergeUndo for the other table: the same reversal shape,
+// carrying the fields a character has and none of the ones it does not.
+type CharacterMergeUndo struct {
+	KeepID    int64          `json:"keep_id"`
+	DropID    int64          `json:"drop_id"`
+	Character map[string]any `json:"character"` // the whole dropped row, id included
+	// Cast are the work_cast rows that changed hands, by id. COLLECTED BEFORE THE
+	// DELETE, exactly as MergeUndo.Screen is and for the identical reason:
+	// work_cast.character_id is ON DELETE SET NULL, so the delete at the end of
+	// MergeCharacters would otherwise null every one of them with nothing raised,
+	// and an undo that never knew about them could not put a single row back.
+	Cast []int64 `json:"cast"`
+	// Aliases moved from the dropped record to the survivor; NameAlias is the one
+	// the merge CREATED out of the dropped record's own name.
+	Aliases      []string           `json:"aliases"`
+	NameAlias    string             `json:"name_alias"`
+	NameAliasWas *CharacterAliasWas `json:"name_alias_was,omitempty"`
+	// Filled is the survivor's own columns as they stood before the merge borrowed
+	// values from the dropped record, so undo can put the blanks back.
+	Filled map[string]any `json:"filled"`
+}
+
+// MergeCharacters folds `dropID` into `keepID` and returns how to put it back.
+func MergeCharacters(tx *sql.Tx, uid, keepID, dropID int64) (*CharacterMergeUndo, error) {
+	if keepID == dropID {
+		return nil, refuse("merge: a record cannot be merged into itself")
+	}
+	keepName, err := characterName(tx, uid, keepID)
+	if err != nil {
+		return nil, err
+	}
+	dropName, err := characterName(tx, uid, dropID)
+	if err != nil {
+		return nil, err
+	}
+	undo := &CharacterMergeUndo{KeepID: keepID, DropID: dropID, Filled: map[string]any{}}
+
+	if undo.Character, err = rowAsMap(tx, "characters", uid, dropID); err != nil {
+		return nil, err
+	}
+
+	// ---- the cast ------------------------------------------------------------
+	crows, err := tx.Query(`SELECT id FROM work_cast WHERE user_id = ? AND character_id = ?`, uid, dropID)
+	if err != nil {
+		return nil, err
+	}
+	for crows.Next() {
+		var id int64
+		if err := crows.Scan(&id); err != nil {
+			crows.Close()
+			return nil, err
+		}
+		undo.Cast = append(undo.Cast, id)
+	}
+	err = crows.Err()
+	crows.Close()
+	if err != nil {
+		return nil, err
+	}
+	for _, id := range undo.Cast {
+		if _, err := tx.Exec(`UPDATE work_cast SET character_id = ? WHERE id = ? AND user_id = ?`, keepID, id, uid); err != nil {
+			return nil, fmt.Errorf("merge cast: %w", err)
+		}
+	}
+
+	// ---- aliases -------------------------------------------------------------
+	//
+	// THE KEY'S OWNER IS READ BEFORE ANY ALIAS MOVES — MergePeople's note, and the
+	// same ordering. A dropped record holding an alias equal to its own name would
+	// otherwise have that row moved to the survivor first, and undo would re-park the
+	// spelling on the survivor rather than giving it back.
+	nameKey := CastKey(dropName)
+	var nameAliasWas *CharacterAliasWas
+	if dropName != "" && CastKey(keepName) != nameKey {
+		var was CharacterAliasWas
+		switch err := tx.QueryRow(
+			`SELECT character_id, alias FROM character_alias WHERE user_id = ? AND alias_key = ?`, uid, nameKey).
+			Scan(&was.CharacterID, &was.Alias); {
+		case err == nil:
+			nameAliasWas = &was
+		case errors.Is(err, sql.ErrNoRows):
+		default:
+			return nil, fmt.Errorf("merge name alias: read: %w", err)
+		}
+	}
+	arows, err := tx.Query(`SELECT alias_key FROM character_alias WHERE user_id = ? AND character_id = ?`, uid, dropID)
+	if err != nil {
+		return nil, err
+	}
+	for arows.Next() {
+		var k string
+		if err := arows.Scan(&k); err != nil {
+			arows.Close()
+			return nil, err
+		}
+		undo.Aliases = append(undo.Aliases, k)
+	}
+	err = arows.Err()
+	arows.Close()
+	if err != nil {
+		return nil, err
+	}
+	for _, k := range undo.Aliases {
+		if _, err := tx.Exec(
+			`UPDATE character_alias SET character_id = ? WHERE user_id = ? AND alias_key = ?`, keepID, uid, k); err != nil {
+			return nil, fmt.Errorf("merge aliases: %w", err)
+		}
+	}
+	// The dropped name itself, so the next cast import resolves rather than
+	// re-creating the record this merge just removed. The upsert can take a spelling
+	// a THIRD record already holds, which is why the reversal carries what the key
+	// held — read above, before the loop moved any.
+	if dropName != "" && CastKey(keepName) != nameKey {
+		undo.NameAliasWas = nameAliasWas
+		if _, err := tx.Exec(
+			`INSERT INTO character_alias (user_id, alias_key, alias, character_id) VALUES (?, ?, ?, ?)
+			 ON CONFLICT (user_id, alias_key) DO UPDATE SET alias = excluded.alias, character_id = excluded.character_id`,
+			uid, nameKey, dropName, keepID); err != nil {
+			return nil, fmt.Errorf("merge name alias: %w", err)
+		}
+		undo.NameAlias = nameKey
+	}
+
+	// ---- the survivor's blanks ----------------------------------------------
+	for _, col := range characterMergeFillable {
+		var mine, theirs string
+		// The column names come from characterMergeFillable, never from input.
+		if err := tx.QueryRow(
+			`SELECT COALESCE((SELECT `+col+` FROM characters WHERE id = ?), ''),
+			        COALESCE((SELECT `+col+` FROM characters WHERE id = ?), '')`, keepID, dropID).
+			Scan(&mine, &theirs); err != nil {
+			return nil, err
+		}
+		if mine != "" || theirs == "" {
+			continue
+		}
+		undo.Filled[col] = mine
+		if _, err := tx.Exec(`UPDATE characters SET `+col+` = ? WHERE id = ? AND user_id = ?`, theirs, keepID, uid); err != nil {
+			return nil, fmt.Errorf("merge fill %s: %w", col, err)
+		}
+	}
+
+	if _, err := tx.Exec(`DELETE FROM characters WHERE id = ? AND user_id = ?`, dropID, uid); err != nil {
+		return nil, fmt.Errorf("merge delete: %w", err)
+	}
+	return undo, nil
+}
+
+// UndoCharacterMerge puts a character merge back, from the reversal
+// MergeCharacters returned. Updates by key, never an insert of a snapshot — the
+// argument is UndoPersonMerge's and it is the reason both exist.
+func UndoCharacterMerge(tx *sql.Tx, uid int64, u *CharacterMergeUndo) error {
+	if err := insertRow(tx, "characters", u.Character); err != nil {
+		return fmt.Errorf("undo merge: character: %w", err)
+	}
+	for _, id := range u.Cast {
+		if _, err := tx.Exec(`UPDATE work_cast SET character_id = ? WHERE id = ? AND user_id = ?`, u.DropID, id, uid); err != nil {
+			return fmt.Errorf("undo merge: cast: %w", err)
+		}
+	}
+	for _, k := range u.Aliases {
+		if _, err := tx.Exec(
+			`UPDATE character_alias SET character_id = ? WHERE user_id = ? AND alias_key = ?`, u.DropID, uid, k); err != nil {
+			return fmt.Errorf("undo merge: aliases: %w", err)
+		}
+	}
+	if u.NameAlias != "" {
+		// PUT BACK WHAT WAS THERE, if anything was — UndoPersonMerge's note, word
+		// for word: the alias loop above has already run, so a key that was the
+		// dropped record's own spelling points at it again by now and this restates
+		// it harmlessly; a key that belonged to a THIRD record is only restored
+		// here, and deleting it would be the merge quietly destroying an alias it
+		// never made.
+		if w := u.NameAliasWas; w != nil {
+			if _, err := tx.Exec(
+				`UPDATE character_alias SET character_id = ?, alias = ? WHERE user_id = ? AND alias_key = ?`,
+				w.CharacterID, w.Alias, uid, u.NameAlias); err != nil {
+				return fmt.Errorf("undo merge: name alias: %w", err)
+			}
+		} else if _, err := tx.Exec(
+			`DELETE FROM character_alias WHERE user_id = ? AND alias_key = ?`, uid, u.NameAlias); err != nil {
+			return fmt.Errorf("undo merge: name alias: %w", err)
+		}
+	}
+	for col, was := range u.Filled {
+		if !characterFillableColumn(col) {
+			// A payload naming a column this code does not fill is either corrupt or
+			// from a future version; skipping is the only safe reading, and it must
+			// never reach the UPDATE below, which interpolates the name.
+			continue
+		}
+		if _, err := tx.Exec(`UPDATE characters SET `+col+` = ? WHERE id = ? AND user_id = ?`, was, u.KeepID, uid); err != nil {
+			return fmt.Errorf("undo merge: fill %s: %w", col, err)
+		}
+	}
+	return nil
+}
+
 // ---- small shared parts ----------------------------------------------------
 
 func fillableColumn(col string) bool {
 	for _, c := range mergeFillable {
+		if c == col {
+			return true
+		}
+	}
+	return false
+}
+
+// characterFillableColumn is fillableColumn over the other table's list. Kept as
+// its own function rather than one taking the list, so that the two guards read
+// as the two lists do: a column added to either is one edit in one place.
+func characterFillableColumn(col string) bool {
+	for _, c := range characterMergeFillable {
 		if c == col {
 			return true
 		}
@@ -988,6 +1254,18 @@ func personName(tx *sql.Tx, uid, id int64) (string, error) {
 	return n, nil
 }
 
+// characterName is personName for the other table.
+func characterName(tx *sql.Tx, uid, id int64) (string, error) {
+	var n string
+	switch err := tx.QueryRow(`SELECT name FROM characters WHERE user_id = ? AND id = ?`, uid, id).Scan(&n); {
+	case err == sql.ErrNoRows:
+		return "", fmt.Errorf("merge: no such character")
+	case err != nil:
+		return "", err
+	}
+	return n, nil
+}
+
 func personKindList(tx *sql.Tx, id int64) ([]string, error) {
 	rows, err := tx.Query(`SELECT kind FROM person_kinds WHERE person_id = ? ORDER BY kind`, id)
 	if err != nil {
@@ -1008,8 +1286,31 @@ func personKindList(tx *sql.Tx, id int64) ([]string, error) {
 // personRowAsMap reads one people row whole, so undo can put it back with its id.
 // Column-driven, so a future migration's new column travels without being named
 // here — a hand-listed set is the shape that silently drops a value.
-func personRowAsMap(tx *sql.Tx, uid, id int64) (map[string]any, error) {
-	rows, err := tx.Query(`SELECT * FROM people WHERE user_id = ? AND id = ?`, uid, id)
+// identityTables are the only two tables rowAsMap and insertRow will name, and
+// the guard exists because both interpolate the name into a statement.
+//
+// THE NAME IS A LITERAL AT EVERY CALL SITE — "people" or "characters", four of
+// them — so this can only ever fire on a programming mistake. It is here because
+// the alternative reading is the one that goes wrong later: a helper that
+// interpolates whatever it is handed is one refactor away from being handed
+// something a caller derived, and the check costs a map lookup on a path that
+// runs once per merge.
+var identityTables = map[string]bool{"people": true, "characters": true}
+
+// rowAsMap reads one whole row of `table` as a map, for a merge's reversal
+// payload. Its person and character callers want the same thing over two tables
+// with different columns, and SELECT * is what makes the payload survive a column
+// being added later without this function learning about it.
+//
+// Parameterised by table rather than written twice, unlike MergeCharacters beside
+// it: the parallel-copy rule exists so that two MEANINGS cannot drift apart, and
+// there is no meaning here to drift — this is a row copy, and one copy of a row
+// copier is the version that cannot disagree with itself.
+func rowAsMap(tx *sql.Tx, table string, uid, id int64) (map[string]any, error) {
+	if !identityTables[table] {
+		return nil, fmt.Errorf("rowAsMap: %q is not an identity table", table)
+	}
+	rows, err := tx.Query(`SELECT * FROM `+table+` WHERE user_id = ? AND id = ?`, uid, id)
 	if err != nil {
 		return nil, err
 	}
@@ -1019,7 +1320,7 @@ func personRowAsMap(tx *sql.Tx, uid, id int64) (map[string]any, error) {
 		return nil, err
 	}
 	if !rows.Next() {
-		return nil, fmt.Errorf("merge: no such person")
+		return nil, fmt.Errorf("merge: no such row in %s", table)
 	}
 	vals := make([]any, len(cols))
 	ptrs := make([]any, len(cols))
@@ -1042,14 +1343,20 @@ func personRowAsMap(tx *sql.Tx, uid, id int64) (map[string]any, error) {
 	return out, rows.Err()
 }
 
-// insertPersonRow puts a whole people row back, whatever columns it carries.
+// insertRow puts a whole row back into `table`, whatever columns it carries.
 //
 // THE COLUMN LIST COMES FROM THE TABLE, not from the payload, so a payload naming
 // something that is not a column cannot reach the statement — the keys are
 // interpolated, and a bin entry is data the app wrote but a restore is a read of
 // something that has been sitting on disk.
-func insertPersonRow(tx *sql.Tx, row map[string]any) error {
-	cols, err := tx.Query(`SELECT name FROM pragma_table_info('people')`)
+//
+// Parameterised by table for rowAsMap's reason: this is a row writer, and there is
+// no meaning in it that two copies could keep honest.
+func insertRow(tx *sql.Tx, table string, row map[string]any) error {
+	if !identityTables[table] {
+		return fmt.Errorf("insertRow: %q is not an identity table", table)
+	}
+	cols, err := tx.Query(`SELECT name FROM pragma_table_info(?)`, table)
 	if err != nil {
 		return err
 	}
@@ -1080,10 +1387,10 @@ func insertPersonRow(tx *sql.Tx, row map[string]any) error {
 		args = append(args, v)
 	}
 	if len(names) == 0 {
-		return fmt.Errorf("undo merge: the payload names no columns of people")
+		return fmt.Errorf("undo merge: the payload names no columns of %s", table)
 	}
 	_, err = tx.Exec(
-		`INSERT INTO people (`+strings.Join(names, ", ")+`) VALUES (`+strings.Join(marks, ", ")+`)`, args...)
+		`INSERT INTO `+table+` (`+strings.Join(names, ", ")+`) VALUES (`+strings.Join(marks, ", ")+`)`, args...)
 	return err
 }
 
@@ -1167,4 +1474,466 @@ func SplitPersonAlias(tx *sql.Tx, uid, personID int64, alias string) (int64, err
 		return 0, err
 	}
 	return newID, nil
+}
+
+// SplitCharacterAlias is SplitPersonAlias for the other table.
+//
+// SAME PARTIALNESS, SAME REASON, and it is worth restating rather than pointing
+// at: nothing in the schema remembers which cast rows came from the record that
+// got folded in, so this hands back a record with the name and the appearances
+// stay where they are. A reader who splits "the professor" back out of Woland
+// gets an empty character and re-points the cast rows themselves — which only
+// they can do, because only they know which billing was which.
+//
+// WHAT IT DOES NOT DO, and its twin does: re-point the quotes printing that
+// spelling. RepointQuotesSpelled exists because 0059 linked quotes to `people`;
+// no quote has ever pointed at a character, so there is nothing here to move.
+// The absence is the schema's, not an omission.
+//
+// UNDO IS THE SAME ACT IN REVERSE — filing the alias again is exactly the state
+// it was in — which is why this one carries no reversal payload either.
+func SplitCharacterAlias(tx *sql.Tx, uid, characterID int64, alias string) (int64, error) {
+	alias = strings.TrimSpace(alias)
+	if alias == "" {
+		return 0, refuse("split: no spelling given")
+	}
+	key := CastKey(alias)
+	var owner int64
+	var stored string
+	switch err := tx.QueryRow(
+		`SELECT character_id, alias FROM character_alias WHERE user_id = ? AND alias_key = ?`, uid, key).
+		Scan(&owner, &stored); {
+	case err == sql.ErrNoRows:
+		return 0, refuse("split: nothing is spelled that way")
+	case err != nil:
+		return 0, err
+	}
+	if owner != characterID {
+		// Scoped like every other write here: a stale id in a client must not split
+		// a spelling off somebody else's record.
+		return 0, refuse("split: that spelling belongs to another record")
+	}
+	if holder, err := characterNameHolder(tx, uid, key); err != nil {
+		return 0, err
+	} else if holder != 0 {
+		return 0, refuse("split: a character is already called that")
+	}
+	if _, err := tx.Exec(`DELETE FROM character_alias WHERE user_id = ? AND alias_key = ?`, uid, key); err != nil {
+		return 0, err
+	}
+	res, err := tx.Exec(`INSERT INTO characters (user_id, name) VALUES (?, ?)`, uid, stored)
+	if err != nil {
+		return 0, fmt.Errorf("split: create: %w", err)
+	}
+	return res.LastInsertId()
+}
+
+// ---- a work's people --------------------------------------------------------
+
+// WorkCredit is one person credited on one work, in one role.
+//
+// The inverse of CreditOf: that answers "which works is this person in", this
+// answers "who is on this work", and they are two questions because the panels
+// that ask them are two panels.
+type WorkCredit struct {
+	Role     string `json:"role"`
+	Ordering int    `json:"ordering"`
+	PersonID int64  `json:"person_id"`
+	Name     string `json:"name"` // the record's own name
+	// CreditAs is what THIS work prints, where it differs. The scope-1 field: a
+	// reader editing it is saying "this cover spells it this way", not "this person
+	// is called this", and the panel has to be able to show the difference.
+	CreditAs string `json:"credit_as,omitempty"`
+}
+
+// WorkCastRow is a cast row as the People panel needs it: the pairing, plus every
+// other spelling the character answers to.
+//
+// ITS OWN TYPE RATHER THAN A FIELD ON CastOf, which two other readers already
+// return. An alias list is a fact this surface needs and the other two do not, and
+// a field that is populated by one of three producers is a field every caller has
+// to know the provenance of.
+//
+// THE ALIASES ARE THE RECORD'S, WHEREVER THEY WERE FILED. A character record is
+// library-wide, so one Woland brings every spelling it has ever answered to and not
+// only the ones recorded against this book — which is the answer given when this
+// was asked, and the reason the highlight can find "Messire" in a novel that never
+// bills that name.
+type WorkCastRow struct {
+	CastOf
+	CharacterAliases []string `json:"character_aliases,omitempty"`
+}
+
+// WorkPeople is everything a work's People panel draws.
+type WorkPeople struct {
+	Credits []WorkCredit  `json:"credits"`
+	Cast    []WorkCastRow `json:"cast"`
+	// Speakers are the people this work's own QUOTES point at, with how many lines
+	// each. Distinct from Cast: being billed on a film and having said one of the
+	// lines a reader kept are different facts, and a reader looking for "who says
+	// the things I saved" is asking the second one.
+	//
+	// EMPTY FOR A BOOK, and not by omission. 0059 linked dialogues.actor_id and
+	// utterances.speaker_id; `annotations` has no person column at all — a book
+	// highlight's speaker was to be work_cast.speaker_cast_id, which 0056 declared
+	// and nothing has ever written.
+	Speakers []WorkSpeaker `json:"speakers"`
+}
+
+// WorkSpeaker is one person the work's quotes name, and how many of them do.
+type WorkSpeaker struct {
+	PersonID int64  `json:"person_id"`
+	Name     string `json:"name"`
+	Lines    int    `json:"lines"`
+}
+
+// PeopleOfWork reads every person and character attached to one work.
+//
+// THREE READS AND NOT A JOIN, because they are three different attachments and a
+// join would have to invent a shape that flattens them: a credit is a role on the
+// work, a cast row is a character with a performer beside them, and a speaker is a
+// person some quote points at. A panel draws three lists; this returns three.
+func PeopleOfWork(db Queryer, uid int64, kind string, workID int64) (*WorkPeople, error) {
+	out := &WorkPeople{Credits: []WorkCredit{}, Cast: []WorkCastRow{}, Speakers: []WorkSpeaker{}}
+
+	rows, err := db.Query(
+		`SELECT wp.role, wp.ordering, wp.person_id, p.name, wp.credit_as
+		   FROM work_person wp JOIN people p ON p.id = wp.person_id
+		  WHERE wp.user_id = ? AND wp.kind = ? AND wp.work_id = ?
+		  ORDER BY wp.role, wp.ordering`, uid, kind, workID)
+	if err != nil {
+		return nil, fmt.Errorf("work people: credits: %w", err)
+	}
+	for rows.Next() {
+		var c WorkCredit
+		if err := rows.Scan(&c.Role, &c.Ordering, &c.PersonID, &c.Name, &c.CreditAs); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		out.Credits = append(out.Credits, c)
+	}
+	err = rows.Err()
+	rows.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	// The cast, in billing order — the order the work itself puts them in, which is
+	// the one a reader recognises.
+	crows, err := db.Query(
+		`SELECT wc.id, wc.character, wc.character_id, wc.actor, wc.actor_id
+		   FROM work_cast wc
+		  WHERE wc.user_id = ? AND wc.kind = ? AND wc.work_id = ? AND wc.origin <> 'removed'
+		  ORDER BY wc.billing, wc.id`, uid, kind, workID)
+	if err != nil {
+		return nil, fmt.Errorf("work people: cast: %w", err)
+	}
+	for crows.Next() {
+		var c WorkCastRow
+		var cid, aid sql.NullInt64
+		if err := crows.Scan(&c.CastID, &c.Character, &cid, &c.Actor, &aid); err != nil {
+			crows.Close()
+			return nil, err
+		}
+		c.Kind, c.WorkID = kind, workID
+		c.CharacterID, c.ActorID = cid.Int64, aid.Int64
+		out.Cast = append(out.Cast, c)
+	}
+	err = crows.Err()
+	crows.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	// ONE QUERY FOR EVERY CHARACTER'S ALIASES, not one per row. A cast can be forty
+	// names, and a per-row read is forty round trips for a list that is drawn in
+	// one go. Joined through the work's own cast so the scan is bounded by this
+	// work rather than by the library's alias table.
+	if len(out.Cast) > 0 {
+		byID := map[int64][]string{}
+		arows, err := db.Query(
+			`SELECT ca.character_id, ca.alias
+			   FROM character_alias ca
+			  WHERE ca.user_id = ? AND ca.character_id IN (
+			        SELECT character_id FROM work_cast
+			         WHERE user_id = ? AND kind = ? AND work_id = ? AND character_id IS NOT NULL)
+			  ORDER BY ca.alias_key`, uid, uid, kind, workID)
+		if err != nil {
+			return nil, fmt.Errorf("work people: character aliases: %w", err)
+		}
+		for arows.Next() {
+			var id int64
+			var alias string
+			if err := arows.Scan(&id, &alias); err != nil {
+				arows.Close()
+				return nil, err
+			}
+			byID[id] = append(byID[id], alias)
+		}
+		err = arows.Err()
+		arows.Close()
+		if err != nil {
+			return nil, err
+		}
+		for i := range out.Cast {
+			out.Cast[i].CharacterAliases = byID[out.Cast[i].CharacterID]
+		}
+	}
+
+	// A film's own lines. A book takes this arm and finds nothing, which is the
+	// schema being honest rather than a branch that skips the query.
+	if kind == "movie" {
+		srows, err := db.Query(
+			`SELECT d.actor_id, p.name, count(*)
+			   FROM dialogues d JOIN movies m ON m.id = d.movie_id
+			   JOIN people p ON p.id = d.actor_id
+			  WHERE m.user_id = ? AND d.movie_id = ? AND d.actor_id IS NOT NULL
+			  GROUP BY d.actor_id, p.name ORDER BY count(*) DESC, p.name COLLATE NOCASE`, uid, workID)
+		if err != nil {
+			return nil, fmt.Errorf("work people: speakers: %w", err)
+		}
+		for srows.Next() {
+			var sp WorkSpeaker
+			if err := srows.Scan(&sp.PersonID, &sp.Name, &sp.Lines); err != nil {
+				srows.Close()
+				return nil, err
+			}
+			out.Speakers = append(out.Speakers, sp)
+		}
+		err = srows.Err()
+		srows.Close()
+		if err != nil {
+			return nil, err
+		}
+	}
+	return out, nil
+}
+
+// ---- delete, and its undo ---------------------------------------------------
+//
+// A GLOBAL RECORD IS NOT ATTRIBUTION, which is the owner's own sentence and the
+// reason these exist. A `work_cast` row says how one work bills somebody, and
+// deleting it is a correction to that work — it stays permanent. A `people` or
+// `characters` row is something a reader AUTHORS: a sort name they judged, a
+// description they wrote, a portrait they picked, every alias they filed and every
+// merge those aliases record. Losing that to a misclick is the thing the bin is
+// for.
+//
+// IT IS A REVERSAL AND NOT A SNAPSHOT, for the reason 0058 gives: two of the three
+// things a delete disturbs are `ON DELETE SET NULL` columns on rows that still
+// exist, so putting them back is an UPDATE by id and not an INSERT. The bin's
+// generic restore would re-insert the record and leave every cast row and every
+// quote still pointing at nothing.
+
+// AliasRow is one filed spelling, whole, because undo re-inserts it.
+type AliasRow struct {
+	Key   string `json:"key"`
+	Alias string `json:"alias"`
+}
+
+// RecordDeleteUndo is everything needed to put a deleted person or character back.
+//
+// ONE TYPE OVER BOTH TABLES, unlike the two merges. A merge has to reason about
+// what each table MEANS — credits, collapsing, which columns may be borrowed — and
+// that is why its two halves are written out separately. A delete captures the row
+// and the things that pointed at it, which is the same list either side of the
+// fence with some fields empty; two copies of it would differ only in which fields
+// stayed nil, and that is not a divergence worth being able to see in a diff.
+type RecordDeleteUndo struct {
+	ID  int64          `json:"id"`
+	Row map[string]any `json:"row"`
+	// Kinds is person_kinds, which a character does not have.
+	Kinds   []string   `json:"kinds,omitempty"`
+	Aliases []AliasRow `json:"aliases,omitempty"`
+	// Cast are the work_cast rows whose actor_id (person) or character_id
+	// (character) the delete nulled. COLLECTED BEFORE THE DELETE, because the
+	// foreign key nulls them with nothing raised and nothing recorded.
+	Cast []int64 `json:"cast,omitempty"`
+	// Screen and Utterance are 0059's quote links, person only — no quote has ever
+	// pointed at a character.
+	Screen    []int64 `json:"screen,omitempty"`
+	Utterance []int64 `json:"utterance,omitempty"`
+}
+
+// DeletePersonRecord bins a person, and refuses while any work still credits them.
+//
+// THE REFUSAL IS THE POINT, and it protects an invariant rather than the reader's
+// feelings. `work_person.person_id` is `ON DELETE CASCADE`, so deleting a credited
+// person takes their credit link rows with them — while `books.author` goes on
+// printing the name, because the faithful-column promise means nothing recomposes
+// it. The library is then in exactly the state CreditsAgree calls drift, for as
+// long as the entry sits in the bin, and a support check against that function
+// would report a fault that is really somebody's delete.
+//
+// So the delete says what it would cost instead: "still credited on 6 works". The
+// reader removes the credits or merges the record, both of which are acts that say
+// what happened to those books. This also matches what a person row already is
+// everywhere else in this app — gcOrphanPeople sweeps exactly the UNATTACHED ones,
+// and trash.go calls a person "a reference row".
+//
+// THE CAST AND THE QUOTES ARE NOT REFUSED, because they are `SET NULL`: nothing
+// cascades, nothing is recomposed, and every id is recorded here and put back on
+// undo. A performer with lines but no credits is deletable and restorable.
+func DeletePersonRecord(tx *sql.Tx, uid, id int64) (*RecordDeleteUndo, string, error) {
+	// COUNTED IN WORKS, NOT IN LINK ROWS. One person who is both the author and the
+	// translator of one book holds two rows, and "still credited on 2 works" would
+	// be the refusal naming a number the reader cannot find on their shelf.
+	var credits int
+	if err := tx.QueryRow(
+		`SELECT count(*) FROM (SELECT DISTINCT kind, work_id FROM work_person
+		                        WHERE user_id = ? AND person_id = ?)`, uid, id).Scan(&credits); err != nil {
+		return nil, "", err
+	}
+	if credits > 0 {
+		return nil, "", refuse("delete: still credited on %d work(s)", credits)
+	}
+	row, err := rowAsMap(tx, "people", uid, id)
+	if err != nil {
+		return nil, "", err
+	}
+	u := &RecordDeleteUndo{ID: id, Row: row}
+	image, _ := row["image_path"].(string)
+
+	if u.Kinds, err = personKindList(tx, id); err != nil {
+		return nil, "", err
+	}
+	if u.Aliases, err = aliasRows(tx,
+		`SELECT alias_key, alias FROM person_alias WHERE user_id = ? AND person_id = ?`, uid, id); err != nil {
+		return nil, "", err
+	}
+	if u.Cast, err = idList(tx, `SELECT id FROM work_cast WHERE user_id = ? AND actor_id = ?`, uid, id); err != nil {
+		return nil, "", err
+	}
+	if u.Screen, err = idsPointingAtPerson(tx, uid, KindScreen, id); err != nil {
+		return nil, "", err
+	}
+	if u.Utterance, err = idsPointingAtPerson(tx, uid, KindUtterance, id); err != nil {
+		return nil, "", err
+	}
+	if _, err := tx.Exec(`DELETE FROM people WHERE id = ? AND user_id = ?`, id, uid); err != nil {
+		return nil, "", fmt.Errorf("delete person: %w", err)
+	}
+	return u, image, nil
+}
+
+// UndoPersonDelete puts a binned person back, with everything that pointed at them.
+func UndoPersonDelete(tx *sql.Tx, uid int64, u *RecordDeleteUndo) error {
+	if err := insertRow(tx, "people", u.Row); err != nil {
+		return fmt.Errorf("undo delete: person: %w", err)
+	}
+	for _, k := range u.Kinds {
+		if _, err := tx.Exec(`INSERT OR IGNORE INTO person_kinds (person_id, kind) VALUES (?, ?)`, u.ID, k); err != nil {
+			return fmt.Errorf("undo delete: roles: %w", err)
+		}
+	}
+	for _, a := range u.Aliases {
+		// OR IGNORE, NOT A PLAIN INSERT. A spelling this record held may have been
+		// filed under somebody else during the thirty days it was in the bin, and the
+		// alias table's primary key is the key alone. Taking it back would be this
+		// restore silently unfiling a decision the reader made after the delete; the
+		// record comes back without that one spelling instead.
+		if _, err := tx.Exec(
+			`INSERT OR IGNORE INTO person_alias (user_id, alias_key, alias, person_id) VALUES (?, ?, ?, ?)`,
+			uid, a.Key, a.Alias, u.ID); err != nil {
+			return fmt.Errorf("undo delete: aliases: %w", err)
+		}
+	}
+	for _, id := range u.Cast {
+		if _, err := tx.Exec(`UPDATE work_cast SET actor_id = ? WHERE id = ? AND user_id = ?`, u.ID, id, uid); err != nil {
+			return fmt.Errorf("undo delete: cast: %w", err)
+		}
+	}
+	for _, id := range u.Screen {
+		if _, err := tx.Exec(`UPDATE dialogues SET actor_id = ? WHERE id = ?`, u.ID, id); err != nil {
+			return fmt.Errorf("undo delete: screen quotes: %w", err)
+		}
+	}
+	for _, id := range u.Utterance {
+		if _, err := tx.Exec(`UPDATE utterances SET speaker_id = ? WHERE id = ? AND user_id = ?`, u.ID, id, uid); err != nil {
+			return fmt.Errorf("undo delete: quotes: %w", err)
+		}
+	}
+	return nil
+}
+
+// DeleteCharacterRecord bins a character.
+//
+// NO REFUSAL, and the difference from the person half is the schema's: nothing
+// composes a derived column out of characters, so there is no cache a delete can
+// put out of step. `work_cast.character_id` is SET NULL and every id is recorded
+// here; the work goes on billing the name in its own column either way.
+func DeleteCharacterRecord(tx *sql.Tx, uid, id int64) (*RecordDeleteUndo, string, error) {
+	row, err := rowAsMap(tx, "characters", uid, id)
+	if err != nil {
+		return nil, "", err
+	}
+	u := &RecordDeleteUndo{ID: id, Row: row}
+	image, _ := row["image_path"].(string)
+
+	if u.Aliases, err = aliasRows(tx,
+		`SELECT alias_key, alias FROM character_alias WHERE user_id = ? AND character_id = ?`, uid, id); err != nil {
+		return nil, "", err
+	}
+	if u.Cast, err = idList(tx, `SELECT id FROM work_cast WHERE user_id = ? AND character_id = ?`, uid, id); err != nil {
+		return nil, "", err
+	}
+	if _, err := tx.Exec(`DELETE FROM characters WHERE id = ? AND user_id = ?`, id, uid); err != nil {
+		return nil, "", fmt.Errorf("delete character: %w", err)
+	}
+	return u, image, nil
+}
+
+// UndoCharacterDelete puts a binned character back, with the cast rows it was on.
+func UndoCharacterDelete(tx *sql.Tx, uid int64, u *RecordDeleteUndo) error {
+	if err := insertRow(tx, "characters", u.Row); err != nil {
+		return fmt.Errorf("undo delete: character: %w", err)
+	}
+	for _, a := range u.Aliases {
+		// OR IGNORE — UndoPersonDelete's note, and the same alias table rule.
+		if _, err := tx.Exec(
+			`INSERT OR IGNORE INTO character_alias (user_id, alias_key, alias, character_id) VALUES (?, ?, ?, ?)`,
+			uid, a.Key, a.Alias, u.ID); err != nil {
+			return fmt.Errorf("undo delete: aliases: %w", err)
+		}
+	}
+	for _, id := range u.Cast {
+		if _, err := tx.Exec(`UPDATE work_cast SET character_id = ? WHERE id = ? AND user_id = ?`, u.ID, id, uid); err != nil {
+			return fmt.Errorf("undo delete: cast: %w", err)
+		}
+	}
+	return nil
+}
+
+func aliasRows(tx *sql.Tx, q string, args ...any) ([]AliasRow, error) {
+	rows, err := tx.Query(q, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []AliasRow
+	for rows.Next() {
+		var a AliasRow
+		if err := rows.Scan(&a.Key, &a.Alias); err != nil {
+			return nil, err
+		}
+		out = append(out, a)
+	}
+	return out, rows.Err()
+}
+
+func idList(tx *sql.Tx, q string, args ...any) ([]int64, error) {
+	rows, err := tx.Query(q, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		out = append(out, id)
+	}
+	return out, rows.Err()
 }
