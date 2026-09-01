@@ -146,7 +146,7 @@ AI-written code fails differently from hand-written code. It compiles, it reads
 well, it is plausibly commented, and it can still be wrong — so plausibility is
 worth nothing here and only execution counts. What the repo actually runs:
 
-- **1,328 Go test functions and 2,218 frontend tests, across 394 test files** — the
+- **1,329 Go test functions and 2,218 frontend tests, across 394 test files** — the
   Go half over real HTTP handlers against a real SQLite database, not mocks.
   Counted, not estimated, and every number here has a command that reproduces it:
 

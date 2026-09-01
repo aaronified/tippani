@@ -370,3 +370,52 @@ func TestTheLinkerWillNotTouchAnotherAccountsQuote(t *testing.T) {
 		t.Fatalf("account 2's walk sees account 1's quotes: %+v", d)
 	}
 }
+
+// WHAT COUNTS AS A NAME IS metadata.SplitCredits' ANSWER, NOT THIS FILE'S — which
+// is the boundary worth pinning, because the obvious "improvement" here is a bug.
+//
+// A blank, or a string that is only whitespace, reduces to nothing and links to
+// nobody. Anything else is taken at face value and gets a record, INCLUDING text
+// that does not look like a person: "et al" on its own, or a stray piece of
+// punctuation. That is not an oversight. SetCredits does exactly the same with a
+// book whose author field holds the same characters, and a quote linker that
+// second-guessed the splitter would make the two disagree about what a name is —
+// so a reader would get a person record from typing something into `author` and
+// no record from typing it into `actor`. A junk record is visible in the person
+// list and can be deleted; a rule that only one of the two writers follows is
+// not visible anywhere.
+func TestWhatCountsAsANameIsTheSplittersAnswer(t *testing.T) {
+	s := openIdentity(t)
+	seedQuotes(t, s)
+
+	for _, c := range []struct {
+		printed string
+		links   bool
+		why     string
+	}{
+		{"", false, "an unattributed line names nobody"},
+		{"   ", false, "whitespace reduces to nothing"},
+		{"Bob Peck", true, "the ordinary case"},
+		{"Sammy Davis, Jr.", true, "a suffix is not a second person"},
+		{"Bob Peck, Samuel L. Jackson", false, "two performers have no single speaker"},
+		// Taken at face value, exactly as books.author would take it.
+		{"et al", true, "the splitter keeps it, so the linker keeps it"},
+	} {
+		if _, err := s.DB.Exec(`UPDATE dialogues SET actor = ? WHERE id = 2`, c.printed); err != nil {
+			t.Fatal(err)
+		}
+		syncAll(t, s)
+		var link sql.NullInt64
+		if err := s.DB.QueryRow(`SELECT actor_id FROM dialogues WHERE id = 2`).Scan(&link); err != nil {
+			t.Fatal(err)
+		}
+		if link.Valid != c.links {
+			t.Errorf("%q linked=%v, want %v — %s", c.printed, link.Valid, c.links, c.why)
+		}
+		// And whichever way it went, the walk agrees with it. A rule the linker
+		// follows and the invariant does not is drift reported on correct data.
+		if d, err := QuoteLinksAgree(s.DB, 1, metadata.DefaultCreditSeps); err != nil || len(d) != 0 {
+			t.Errorf("%q is reported as drift: %+v %v", c.printed, d, err)
+		}
+	}
+}
