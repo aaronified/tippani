@@ -3473,6 +3473,38 @@ export function PanelHost({ stack }) {
   // work it is about — so it gets the same treatment rather than an ellipsis.
   useEdgeScroll(titleRef, { axis: "x" });
   useBodyScrollLock(!!panel);
+  // A PANEL CAN HOST A FORM, and it has to, or a form moved onto this stack loses
+  // its save key without a word.
+  //
+  // A form does not draw its own ✓. `useFormHost` registers the form with
+  // whatever chrome is above it, takes that chrome's id to wear on its <form>,
+  // and reports a REASON it cannot be saved yet (or "" for ready); the chrome
+  // draws one submit key bound to that id. Until now the only chrome that did
+  // this was FormModal, so moving WorkDetails onto the panel stack would have
+  // returned null from useFormHost, left the <form> with no id, and silently
+  // deleted the one control that commits every open row in a single request.
+  //
+  // IT CANNOT BE THE DESCRIPTOR'S `headVerb`. That is a value captured in the
+  // immutable stack entry when the panel is pushed, and this key has to react to
+  // a `blocked` reason the form reports while it is open.
+  const formId = useId();
+  const [blocked, setBlocked] = useState(null); // null = no form registered
+  const host = useMemo(() => ({ formId, setBlocked }), [formId]);
+  // A reason belongs to the panel that reported it. Walking back to a parent that
+  // holds no form must not leave the child's ✓ — or its disabled tooltip — behind.
+  //
+  // RESET DURING RENDER, NOT IN AN EFFECT, and the ordering is the whole reason.
+  // A child's effects run BEFORE its parent's, so an effect keyed on the depth
+  // would fire immediately after the form inside registered itself and undo it —
+  // which is exactly what the first version did: the panel opened, the form
+  // reported ready, and the ✓ was wiped in the same commit. Comparing against the
+  // last-seen depth in render happens before any child effect has run.
+  const depth = levels.length;
+  const [seenDepth, setSeenDepth] = useState(depth);
+  if (seenDepth !== depth) {
+    setSeenDepth(depth);
+    setBlocked(null);
+  }
   useEffect(() => {
     if (!panel) return;
     const onKey = (e) => e.key === "Escape" && back();
@@ -3513,6 +3545,20 @@ export function PanelHost({ stack }) {
           </div>
           <h2 className="tp-panel-title" ref={titleRef}>{panel.title}</h2>
           <div className="tp-panel-slot tp-panel-slot-r">
+            {/* Before the panel's own verb and before the ✕: the order is
+                commit, then add, then leave. */}
+            {blocked !== null && (
+              <IconButton
+                icon={<IconCheck />}
+                type="submit"
+                form={formId}
+                ariaLabel={t("common.action.save.label")}
+                tooltip={blocked || panel.saveTip || t("common.action.save.label")}
+                disabled={!!blocked}
+                style={{ width: 34, height: 34, padding: 0, flexShrink: 0 }}
+                wrapClassName="shrink-0"
+              />
+            )}
             {verb}
             {!nested && (
               <IconButton
@@ -3525,7 +3571,9 @@ export function PanelHost({ stack }) {
           </div>
         </div>
         <Scroller axis="v" className="tp-panel-body">
-          {typeof panel.render === "function" ? panel.render() : panel.render}
+          <FormHostContext.Provider value={host}>
+            {typeof panel.render === "function" ? panel.render() : panel.render}
+          </FormHostContext.Provider>
         </Scroller>
       </div>
     </div>,
