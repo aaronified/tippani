@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"tippani/internal/metadata"
 	"tippani/internal/olog"
 	"tippani/internal/store"
 )
@@ -268,7 +269,13 @@ func autofillActor(q castQuerier, kind string, workID int64, character, actor st
 // resolve is now a query of its own against work_cast rather than a walk over an
 // unmarshalled blob, so the loop would otherwise be reading and writing on the
 // same connection while its own Rows is still open.
-func refillMovieActors(tx *sql.Tx, movieID int64) (int, error) {
+//
+// IT LINKS WHAT IT FILLS, and only what it fills. 0059 gave the actor column a
+// record to point at, and a name written here is a name like any other — a line
+// the cast filled in must reach the performer's panel exactly as a typed one
+// does. Syncing just the rows it wrote rather than the whole film keeps the cost
+// proportional to the fill: a resync that changes nothing writes nothing.
+func refillMovieActors(tx *sql.Tx, uid, movieID int64, seps metadata.CreditSeps) (int, error) {
 	rows, err := tx.Query(
 		`SELECT id, COALESCE(character, '') FROM dialogues WHERE movie_id = ? AND (actor IS NULL OR actor = '')`,
 		movieID)
@@ -305,6 +312,9 @@ func refillMovieActors(tx *sql.Tx, movieID int64) (int, error) {
 	for _, f := range fills {
 		if _, err := tx.Exec(
 			`UPDATE dialogues SET actor = ?, updated_at = datetime('now') WHERE id = ?`, f.actor, f.id); err != nil {
+			return 0, err
+		}
+		if err := store.SyncQuotePerson(tx, uid, store.KindScreen, f.id, seps); err != nil {
 			return 0, err
 		}
 	}
@@ -525,6 +535,10 @@ func (s *Server) handleCreateDialogue(w http.ResponseWriter, r *http.Request) {
 		internalError(w, r, "set tags", err)
 		return
 	}
+	if err := store.SyncQuotePerson(tx, uid, store.KindScreen, id, s.creditSeps(uid)); err != nil {
+		internalError(w, r, "link actor", err)
+		return
+	}
 	if err := tx.Commit(); err != nil {
 		internalError(w, r, "commit tx", err)
 		return
@@ -721,6 +735,10 @@ func (s *Server) handleUpdateDialogue(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := setTags(tx, "dialogue", uid, id, req.Tags); err != nil {
 		internalError(w, r, "set tags", err)
+		return
+	}
+	if err := store.SyncQuotePerson(tx, uid, store.KindScreen, id, s.creditSeps(uid)); err != nil {
+		internalError(w, r, "link actor", err)
 		return
 	}
 	if err := tx.Commit(); err != nil {

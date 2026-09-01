@@ -813,9 +813,20 @@ func (s *Server) handlePeopleNames(w http.ResponseWriter, r *http.Request) {
 	rows.Close()
 
 	type nameRow struct {
-		Name     string `json:"name"`
-		Saved    bool   `json:"saved"`
-		ID       int64  `json:"id,omitempty"`
+		Name  string `json:"name"`
+		Saved bool   `json:"saved"`
+		ID    int64  `json:"id,omitempty"`
+		// PersonID is the RECORD this spelling resolves to, which is not the same
+		// question `ID` answers. `ID` is "there is saved metadata filed under this
+		// role", so it is empty for most names; since 0056 every credited name has
+		// a record whether anybody saved anything about it or not, and this is it.
+		//
+		// IT IS WHAT LETS THE DUPLICATE CARD MERGE RECORDS RATHER THAN RENAME
+		// STRINGS. A rename rewrites the spelling on every work; a merge keeps
+		// each work printing what it printed and points them at one record — which
+		// is what a reader means by "these two are the same person" and what
+		// /people/merge does. Without an id per row the card had no record to name.
+		PersonID int64  `json:"person_id,omitempty"`
 		Links    string `json:"links"`
 		HasImage bool   `json:"has_image"` // a portrait is stored — lets the console flag who still needs one
 		Count    int64  `json:"count"`     // works referencing this name (books / distinct titles); 0 for saved-only rows
@@ -854,6 +865,69 @@ func (s *Server) handlePeopleNames(w http.ResponseWriter, r *http.Request) {
 		olog.Warnf(olog.CodePeopleRowScan, "[people] saved names row iteration failed: %v", err)
 	}
 	prows.Close()
+
+	// ONE PASS OVER THE ACCOUNT'S RECORDS, not a resolve per row. This list is a
+	// whole library's worth of names and the console redraws it on every kind
+	// toggle; two statements beat two thousand.
+	//
+	// THE ALIAS ARM MATTERS MORE THAN THE NAME ARM HERE. A spelling that was
+	// merged away still prints on its works — that is the faithful-column promise
+	// — so it appears in this list under a name no `people` row carries, and
+	// without the aliases it would come back with no record and the duplicate card
+	// would offer to merge it a second time.
+	resolved := map[string]int64{}
+	if prows, err := s.Store.DB.Query(
+		`SELECT id, name FROM people WHERE user_id = ? ORDER BY id DESC`, uid); err == nil {
+		for prows.Next() {
+			var id int64
+			var name string
+			if err := prows.Scan(&id, &name); err != nil {
+				continue
+			}
+			// ORDER BY id DESC and an unconditional write, so the LOWEST id wins —
+			// the same tie-break ResolvePerson makes, because two records may
+			// legitimately share a name and the two must not disagree about which
+			// one a bare spelling means.
+			//
+			// FILED UNDER BOTH FOLDS. byName keys on strings.ToLower, which is this
+			// endpoint's own; store.CastKey also collapses whitespace, which is
+			// what actually resolves a credit. A record called "Le  Guin" with two
+			// spaces must be found under either, and neither fold is the wrong one
+			// to have written — they answer different questions.
+			resolved[strings.ToLower(strings.TrimSpace(name))] = id
+			resolved[store.CastKey(name)] = id
+		}
+		prows.Close()
+	} else {
+		olog.Warnf(olog.CodePeopleRowScan, "[people] resolving names to records failed: %v", err)
+	}
+	if arows, err := s.Store.DB.Query(
+		`SELECT person_id, alias FROM person_alias WHERE user_id = ?`, uid); err == nil {
+		for arows.Next() {
+			var id int64
+			var alias string
+			if err := arows.Scan(&id, &alias); err != nil {
+				continue
+			}
+			// A NAME BEATS AN ALIAS, exactly as ResolvePerson orders them: a record
+			// actually called this is a better answer than one that answers to it.
+			for _, key := range []string{strings.ToLower(strings.TrimSpace(alias)), store.CastKey(alias)} {
+				if _, taken := resolved[key]; !taken {
+					resolved[key] = id
+				}
+			}
+		}
+		arows.Close()
+	} else {
+		olog.Warnf(olog.CodePeopleRowScan, "[people] resolving aliases to records failed: %v", err)
+	}
+	for key, row := range byName {
+		if id := resolved[key]; id != 0 {
+			row.PersonID = id
+		} else {
+			row.PersonID = resolved[store.CastKey(row.Name)]
+		}
+	}
 
 	out := make([]nameRow, 0, len(byName))
 	for _, row := range byName {
@@ -1202,6 +1276,21 @@ func (s *Server) handleRenamePerson(w http.ResponseWriter, r *http.Request) {
 		if p.img != "" {
 			freed = append(freed, p.img)
 		}
+	}
+	// 0059: THE QUOTE LINKS ARE RE-DERIVED LAST, AFTER THE DELETE LOOP ABOVE, and
+	// the order is the whole point rather than tidiness.
+	//
+	// dialogues.actor_id and utterances.speaker_id are ON DELETE SET NULL, so
+	// every `DELETE FROM people` a few lines up silently nulls the links of the
+	// duplicate records this rename folded away. Re-deriving beside SyncAllCredits
+	// — the obvious place, three statements earlier — would have those deletes
+	// wipe the links it had just made, and nothing would error.
+	//
+	// The whole account for the same reason SyncAllCredits takes the whole
+	// account: `rewrites` carries ids without saying which table each came from.
+	if err := store.SyncAllQuotePeople(tx, uid, seps); err != nil {
+		internalError(w, r, "rename: resync quote people", err)
+		return
 	}
 	if err := tx.Commit(); err != nil {
 		internalError(w, r, "rename commit", err)

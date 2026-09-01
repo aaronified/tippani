@@ -836,6 +836,13 @@ func wantShapes() []tableShape {
 				// identity, and it is what lets two films of one book show the same
 				// character with two faces. Nullable — narration has no speaker.
 				{Name: "speaker_cast_id", Type: "INTEGER"},
+				// 0059. WHO said it, where speaker_cast_id above says WHICH CAST ROW —
+				// and the two are not the same question. A cast row is a character in
+				// this film; an actor is a person, and a line can name one without the
+				// other (a documentary's interviewee is in no cast). `actor` beside it
+				// stays as the printed spelling, because dialogues_fts is
+				// external-content FTS5 and cannot index a joined table.
+				{Name: "actor_id", Type: "INTEGER"},
 			},
 			Checks: []string{
 				"color IN ('yellow','blue','pink','orange','green','purple')",
@@ -844,11 +851,20 @@ func wantShapes() []tableShape {
 				{Name: autoIndexName, Unique: true, Origin: "u", Columns: []string{"movie_id", "dedupe_hash"}},
 				{Name: "idx_dlg_movie", Origin: "c", Columns: []string{"movie_id"}},
 				{Name: "idx_dialogues_speaker", Origin: "c", Columns: []string{"speaker_cast_id"}},
+				// PARTIAL, unlike its neighbour: a linked actor is a minority of the
+				// rows, so an index over the NULLs would mostly list quotes the query
+				// "everything this person said" can never want. See 0059.
+				{Name: "idx_dialogues_actor_id", Origin: "c", Partial: true, Columns: []string{"actor_id"}},
 			},
 			FKs: []fkShape{
 				{From: "movie_id", Table: "movies", To: "id", OnDelete: "CASCADE", OnUpdate: "NO ACTION"},
 				// SET NULL: removing somebody from a cast must not delete their lines.
 				{From: "speaker_cast_id", Table: "work_cast", To: "id", OnDelete: "SET NULL", OnUpdate: "NO ACTION"},
+				// SET NULL again, and for the stronger reason: deleting a PERSON must
+				// never delete a quote. The line survives with the name still printed
+				// on it and nothing pointing at a record — the state the whole library
+				// was in before 0056.
+				{From: "actor_id", Table: "people", To: "id", OnDelete: "SET NULL", OnUpdate: "NO ACTION"},
 				{From: "sticker_id", Table: "stickers", To: "id", OnDelete: "SET NULL", OnUpdate: "NO ACTION"},
 			},
 			Triggers: []string{

@@ -230,7 +230,7 @@ func backfillImportMovie(tx *sql.Tx, uid, movieID int64, m importer.MovieHeader,
 // same reason: the staging queue hands this loop a title the *user* picked when
 // they retarget a misdetected file, and the dedupe, fill-empty enrichment and
 // tag-union rules stay one implementation.
-func writeMovieDialogues(tx *sql.Tx, uid, movieID int64, dialogues []importer.Dialogue) (int, int, error) {
+func writeMovieDialogues(tx *sql.Tx, uid, movieID int64, dialogues []importer.Dialogue, seps metadata.CreditSeps) (int, int, error) {
 	// The media type, since only a show's lines may carry an episode. The actor
 	// autofill used to be fed from here too — it read the title's stored TMDB blob —
 	// and now queries the cast mapping per line instead (0048), which is what lets
@@ -388,23 +388,40 @@ func writeMovieDialogues(tx *sql.Tx, uid, movieID int64, dialogues []importer.Di
 			if err != nil {
 				return 0, 0, err
 			}
-			if n, _ := upd.RowsAffected(); n > 0 {
+			n, _ := upd.RowsAffected()
+			if n > 0 {
 				enriched++
 			}
-			if len(d.Tags) > 0 {
-				// The row already holding the slot — not the id reserved above, which
-				// this ignored insert left attached to nothing.
+			// The row already holding the slot — not the id reserved above, which
+			// this ignored insert left attached to nothing.
+			//
+			// Looked up whenever there is something to do with it, which is now the
+			// enrichment as well as the tags: a COALESCE that just filled a blank
+			// actor is exactly the write 0059's link has to follow, and it is
+			// precisely the write whose result the caller does not know without
+			// reading it back.
+			if n > 0 || len(d.Tags) > 0 {
 				var existingID int64
 				if err := tx.QueryRow(`SELECT id FROM dialogues WHERE movie_id = ? AND dedupe_hash = ?`,
 					movieID, hash).Scan(&existingID); err == nil {
-					if err := addTags(tx, "dialogue", uid, existingID, d.Tags); err != nil {
-						return 0, 0, err
+					if len(d.Tags) > 0 {
+						if err := addTags(tx, "dialogue", uid, existingID, d.Tags); err != nil {
+							return 0, 0, err
+						}
+					}
+					if n > 0 {
+						if err := store.SyncQuotePerson(tx, uid, store.KindScreen, existingID, seps); err != nil {
+							return 0, 0, err
+						}
 					}
 				}
 			}
 			continue
 		}
 		added++
+		if err := store.SyncQuotePerson(tx, uid, store.KindScreen, did, seps); err != nil {
+			return 0, 0, err
+		}
 		if len(d.Tags) > 0 {
 			if err := setTags(tx, "dialogue", uid, did, d.Tags); err != nil {
 				return 0, 0, err

@@ -169,6 +169,21 @@ var binnableKinds = map[string]quoteBulkKind{
 	"movie":      {Table: "movies"},
 }
 
+// quotePersonKind names the two quote kinds whose row points at a person, in
+// bulkTag's own vocabulary. An annotation is absent because a book highlight has
+// no name column of its own — 0056 gave it speaker_cast_id for the case where it
+// does have a speaker, and that is a cast row rather than a spelling.
+//
+// A THIRD TABLE ONLY BECAUSE THE VOCABULARIES DIFFER: store speaks "screen" and
+// "utterance" (item_reviews' words), bulkTag speaks "dialogue" and "utterance".
+// The translation lives here rather than in a switch so there is one place to
+// look, and TestEveryQuotePersonKindIsAKindBulkTagKnows walks it against
+// quoteBulkKinds for the same reason the table below is walked.
+var quotePersonKind = map[string]store.QuoteKind{
+	"dialogue":  store.KindScreen,
+	"utterance": store.KindUtterance,
+}
+
 // quoteFieldKinds names, per optional field, the kinds that actually have the
 // column. One table, so "which fields does a dialogue take" has one answer and
 // adding a column means editing a list rather than remembering a switch.
@@ -472,6 +487,21 @@ func (s *Server) bulkTag(w http.ResponseWriter, r *http.Request, kind string) {
 		if err := bulkSetChild(tx, table, "board_id", *req.BoardID, owned); err != nil {
 			internalError(w, r, "bulk tag: board", err)
 			return
+		}
+	}
+	// THE PERSON LINK FOLLOWS THE COLUMN, and this is the one write site where the
+	// column can move for five thousand rows at once. Driven off `owned` rather
+	// than off which field was set, because SyncQuotePerson reads the row: a
+	// selection whose speaker did not change costs one SELECT each and writes
+	// nothing, and the alternative — deciding here which of the sorted columns was
+	// a person — is a second list to keep in step with quoteFieldKinds. See 0059.
+	if k, ok := quotePersonKind[kind]; ok {
+		seps := s.creditSeps(uid)
+		for _, id := range owned {
+			if err := store.SyncQuotePerson(tx, uid, k, id, seps); err != nil {
+				internalError(w, r, "bulk tag: link person", err)
+				return
+			}
 		}
 	}
 	if err := tx.Commit(); err != nil {

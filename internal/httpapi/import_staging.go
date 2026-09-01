@@ -1012,7 +1012,7 @@ func (s *Server) handleApproveStaged(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if destKind == stagedKindQuotes {
-			added, err := writeUtterances(tx, uid, stagedAsUtterances(quotes))
+			added, err := writeUtterances(tx, uid, stagedAsUtterances(quotes), s.creditSeps(uid))
 			if err != nil {
 				var ce importClientError
 				if errors.As(err, &ce) {
@@ -1053,7 +1053,7 @@ func (s *Server) handleApproveStaged(w http.ResponseWriter, r *http.Request) {
 				codedError(w, r, olog.CodeImportApprove, "approve staged: backfill title", err)
 				return
 			}
-			added, enriched, err := writeMovieDialogues(tx, uid, destID, stagedAsDialogues(quotes))
+			added, enriched, err := writeMovieDialogues(tx, uid, destID, stagedAsDialogues(quotes), s.creditSeps(uid))
 			if err != nil {
 				var ce importClientError
 				if errors.As(err, &ce) {

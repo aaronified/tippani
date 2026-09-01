@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"tippani/internal/olog"
+	"tippani/internal/store"
 )
 
 // Find and replace across a selection — preview, then apply.
@@ -44,10 +45,37 @@ import (
 // and page are deliberately NOT here — they are locators, and a locator is
 // corrected by the bulk field editor (one value for the selection) rather than by
 // a substring rewrite across four hundred different ones.
+// THE KEYS ARE bulkTag'S VOCABULARY — annotation, dialogue, UTTERANCE — and this
+// table said "quote" until it was found to 500.
+//
+// quoteBulkKinds is what resolves a kind to a table here, and it has always
+// called the third kind "utterance"; `replaceFields["quote"]` therefore passed
+// validation, took a ZERO-VALUE spec with Table == "", and died on
+// `SELECT ... FROM  WHERE ...` before reaching any write. Find-and-replace on a
+// standalone quote's speaker, occasion, place or medium — four of the eleven
+// fields this endpoint offers — could not run at all, and answered 500 rather
+// than saying so. Nothing shipped calls it yet, which is why it was never
+// reported.
+//
+// It is the SAME MISTAKE quoteFieldKinds documents one file over, made a second
+// time in a second table, which is the argument for translating the reader's word
+// exactly once. replaceKind does that, and a test walks these keys against
+// quoteBulkKinds so a third spelling cannot arrive quietly.
 var replaceFields = map[string][]string{
 	"annotation": {"quote", "note", "character"},
 	"dialogue":   {"quote", "note", "character", "actor"},
-	"quote":      {"quote", "note", "speaker", "occasion", "place", "medium"},
+	"utterance":  {"quote", "note", "speaker", "occasion", "place", "medium"},
+}
+
+// replaceKind turns the word the API speaks into the word the tables use. "quote"
+// is the bin's name for a standalone quote and the one every /quotes route wears,
+// so it stays the wire word; "utterance" is the table's. One direction, one
+// place.
+func replaceKind(wire string) string {
+	if wire == "quote" {
+		return "utterance"
+	}
+	return wire
 }
 
 type replaceReq struct {
@@ -88,7 +116,8 @@ func (s *Server) replace(w http.ResponseWriter, r *http.Request, apply bool) {
 	if !decodeBody(w, r, &req) {
 		return
 	}
-	fields, ok := replaceFields[req.Kind]
+	kind := replaceKind(req.Kind)
+	fields, ok := replaceFields[kind]
 	if !ok {
 		writeErr(w, http.StatusBadRequest, "kind must be annotation, dialogue or quote")
 		return
@@ -116,7 +145,7 @@ func (s *Server) replace(w http.ResponseWriter, r *http.Request, apply bool) {
 	uid := userID(r)
 	olog.Tracef("[replace] kind=%s field=%s apply=%v ids=%d", req.Kind, req.Field, apply, len(req.IDs))
 
-	spec := quoteBulkKinds[req.Kind]
+	spec := quoteBulkKinds[kind]
 	var owned []int64
 	var err error
 	if spec.ParentCol == "" {
@@ -190,12 +219,25 @@ func (s *Server) replace(w http.ResponseWriter, r *http.Request, apply bool) {
 		return
 	}
 	defer tx.Rollback()
+	// The person link follows the column here as it does everywhere else (0059).
+	// A find-and-replace over `actor` or `speaker` is precisely the rewrite that
+	// re-attributes a line — correcting one spelling across four hundred rows is
+	// the use this endpoint exists for — so a row it changed and did not re-link
+	// would leave the person panel showing the name nobody types any more.
+	personKind, links := quotePersonKind[kind]
+	seps := s.creditSeps(uid)
 	for _, c := range changes {
 		if _, err := tx.Exec(
 			`UPDATE `+spec.Table+` SET `+req.Field+` = ?, updated_at = datetime('now') WHERE id = ?`,
 			c.after, c.id); err != nil {
 			internalError(w, r, "replace: update", err)
 			return
+		}
+		if links {
+			if err := store.SyncQuotePerson(tx, uid, personKind, c.id, seps); err != nil {
+				internalError(w, r, "replace: link person", err)
+				return
+			}
 		}
 	}
 	if err := tx.Commit(); err != nil {

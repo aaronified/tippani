@@ -570,6 +570,14 @@ type MergeUndo struct {
 	// credit one person twice in one role. Whole, because undo re-inserts them.
 	Collapsed []MergedCredit `json:"collapsed"`
 	Cast      []int64        `json:"cast"`
+	// Screen and Utterance are the QUOTES that named the dropped record — 0059's
+	// dialogues.actor_id and utterances.speaker_id. Collected before the delete
+	// rather than after, because the foreign key is ON DELETE SET NULL: the delete
+	// at the end of MergePeople would otherwise null them all with nothing raised
+	// and nothing recorded, and an undo that never knew about them could not put
+	// a single line back.
+	Screen    []int64 `json:"screen"`
+	Utterance []int64 `json:"utterance"`
 	// Aliases moved from the dropped record to the survivor; NameAlias is the one
 	// the merge CREATED out of the dropped record's own name, which undo removes
 	// rather than re-points.
@@ -735,6 +743,37 @@ func MergePeople(tx *sql.Tx, uid, keepID, dropID int64, seps metadata.CreditSeps
 		}
 	}
 
+	// ---- the quotes ----------------------------------------------------------
+	//
+	// The same three steps the cast gets — collect, re-point, record — and for the
+	// stronger reason: work_cast.actor_id is SET NULL too, but a cast row without a
+	// performer is still a cast row, whereas a quote that stops pointing at anybody
+	// vanishes from the person panel that is the merge's whole purpose.
+	//
+	// THE PRINTED NAME IS NOT TOUCHED, which is deliberate and is the faithful
+	// spelling promise 0059 states: a line credited to "Bob Peck" goes on saying
+	// so after Bob Peck is merged into Robert Peck. The alias the merge records
+	// out of the dropped record's own name is what keeps the link stable
+	// afterwards — see personAnswersTo in quote_person.go, which is the function
+	// that would otherwise re-resolve that spelling into a fresh record on the
+	// next edit and undo this one quote at a time.
+	if undo.Screen, err = idsPointingAtPerson(tx, uid, KindScreen, dropID); err != nil {
+		return nil, err
+	}
+	if undo.Utterance, err = idsPointingAtPerson(tx, uid, KindUtterance, dropID); err != nil {
+		return nil, err
+	}
+	for _, id := range undo.Screen {
+		if _, err := tx.Exec(`UPDATE dialogues SET actor_id = ? WHERE id = ?`, keepID, id); err != nil {
+			return nil, fmt.Errorf("merge screen quotes: %w", err)
+		}
+	}
+	for _, id := range undo.Utterance {
+		if _, err := tx.Exec(`UPDATE utterances SET speaker_id = ? WHERE id = ? AND user_id = ?`, keepID, id, uid); err != nil {
+			return nil, fmt.Errorf("merge quotes: %w", err)
+		}
+	}
+
 	// ---- roles ---------------------------------------------------------------
 	if undo.Kinds, err = personKindList(tx, dropID); err != nil {
 		return nil, err
@@ -858,6 +897,16 @@ func UndoPersonMerge(tx *sql.Tx, uid int64, u *MergeUndo, seps metadata.CreditSe
 	for _, id := range u.Cast {
 		if _, err := tx.Exec(`UPDATE work_cast SET actor_id = ? WHERE id = ? AND user_id = ?`, u.DropID, id, uid); err != nil {
 			return fmt.Errorf("undo merge: cast: %w", err)
+		}
+	}
+	for _, id := range u.Screen {
+		if _, err := tx.Exec(`UPDATE dialogues SET actor_id = ? WHERE id = ?`, u.DropID, id); err != nil {
+			return fmt.Errorf("undo merge: screen quotes: %w", err)
+		}
+	}
+	for _, id := range u.Utterance {
+		if _, err := tx.Exec(`UPDATE utterances SET speaker_id = ? WHERE id = ? AND user_id = ?`, u.DropID, id, uid); err != nil {
+			return fmt.Errorf("undo merge: quotes: %w", err)
 		}
 	}
 	for _, k := range u.Kinds {
@@ -1107,5 +1156,15 @@ func SplitPersonAlias(tx *sql.Tx, uid, personID int64, alias string) (int64, err
 	if err != nil {
 		return 0, fmt.Errorf("split: create: %w", err)
 	}
-	return res.LastInsertId()
+	newID, err := res.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+	// 0059: THE QUOTES PRINTING THAT SPELLING COME WITH IT — see
+	// RepointQuotesSpelled for why a quote can be moved without asking where a
+	// work cannot, and for why leaving them behind is not the conservative choice.
+	if _, err := RepointQuotesSpelled(tx, uid, personID, newID, key); err != nil {
+		return 0, err
+	}
+	return newID, nil
 }

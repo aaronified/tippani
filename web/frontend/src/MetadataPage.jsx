@@ -1438,9 +1438,23 @@ function nearDupGroups(names) {
   return Object.values(groups).filter((g) => g.length >= 2)
 }
 
-// DupCard offers to merge one near-duplicate cluster: pick the spelling to keep,
-// and every other name in the group is renamed to it across the whole library
-// (POST /people/rename), folding their saved metadata in.
+// DupCard offers to merge one near-duplicate cluster: pick the record to keep,
+// and every other in the group is MERGED into it (POST /people/merge).
+//
+// IT USED TO RENAME (POST /people/rename), and the difference is what the reader
+// sees on their shelves afterwards. A rename rewrites the spelling on every work
+// in the library: pick "Ursula K. Le Guin" and forty covers that print "Ursula
+// LeGuin" stop saying so. A merge says the two records are one person and leaves
+// every work printing exactly what it printed — the same promise a book's cover
+// gets — while the person panel gathers all of it under one record.
+//
+// AND IT IS UNDOABLE. A merge parks a reversal in the bin; a rename is a
+// rewrite of four hundred strings with nothing to press. That is the stronger
+// reason of the two.
+//
+// THE RENAME ENDPOINT STAYS AND IS STILL RIGHT for what it is for — correcting a
+// misspelling everywhere, which is a statement about the spelling rather than
+// about identity. The person panel is where a reader asks for that.
 function DupCard({ group, kind, rowsByName, onMerged }) {
   const def = [...group].sort((a, b) =>
     (rowsByName[b]?.has_image ? 1 : 0) - (rowsByName[a]?.has_image ? 1 : 0) || b.length - a.length)[0]
@@ -1451,9 +1465,18 @@ function DupCard({ group, kind, rowsByName, onMerged }) {
   async function merge() {
     setBusy(true)
     setErr('')
+    const keepID = rowsByName[keep]?.person_id
     for (const n of group) {
       if (n === keep) continue
-      const r = await json('POST', '/people/rename', { kind, from: n, to: keep })
+      const dropID = rowsByName[n]?.person_id
+      // A SPELLING WITH NO RECORD FALLS BACK TO THE RENAME, rather than being
+      // skipped in silence. Every credited name has had a record since the
+      // identity model landed, so this is the pre-upgrade library and the odd row
+      // the server could not resolve — and for those the old behaviour is still
+      // the only one available.
+      const r = keepID && dropID && keepID !== dropID
+        ? await json('POST', '/people/merge', { keep_id: keepID, drop_id: dropID })
+        : await json('POST', '/people/rename', { kind, from: n, to: keep })
       if (!r.ok) { setBusy(false); return setErr(errText(r, t('error.merge.failed'))) }
     }
     setBusy(false)
@@ -1554,7 +1577,22 @@ export function PeopleConsole({ onFlash, compact = false, onReverify, onSearch }
   const missing = shown.filter((p) => noLinks(p) || !p.has_image)
   // Near-duplicate clusters (typos / transliterations of one person) to offer a
   // one-click merge — computed over the full list, not the search filter.
-  const dupGroups = useMemo(() => nearDupGroups((rows || []).map((p) => p.name)), [rows])
+  // A GROUP WHOSE SPELLINGS ALREADY POINT AT ONE RECORD IS NOT A DUPLICATE, and
+  // dropping it here is what makes the card honest after a merge. A merge leaves
+  // every work printing what it printed — that is the promise — so "Bob Peck" and
+  // "Robert Peck" both stay in this list afterwards, look exactly as alike as they
+  // did, and the card would offer to merge them again for ever. person_id is what
+  // says they are already the same person.
+  const dupGroups = useMemo(() => {
+    const byName = Object.fromEntries((rows || []).map((p) => [p.name, p]))
+    return nearDupGroups((rows || []).map((p) => p.name)).filter((g) => {
+      const ids = new Set(g.map((n) => byName[n]?.person_id).filter(Boolean))
+      // Fewer than two distinct records means there is nothing left to merge.
+      // An unresolved spelling (no id at all) keeps the group, because a name the
+      // server could not resolve is exactly the one worth looking at.
+      return ids.size !== 1 || g.some((n) => !byName[n]?.person_id)
+    })
+  }, [rows])
   const rowsByName = useMemo(() => Object.fromEntries((rows || []).map((p) => [p.name, p])), [rows])
 
   // fetchOne resolves the RIGHT person (book/credits disambiguation), fetches

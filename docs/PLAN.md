@@ -1608,6 +1608,48 @@ Credits are stored exactly as they arrive and split only when read, so a wrong s
 
 <sub>`internal/store/migrations/0056_person_identity.sql`</sub>
 
+### A quote's speaker is a column on the quote, not a `work_person` row
+
+**Decided.** Migration 0059 adds `dialogues.actor_id` and `utterances.speaker_id`, both `ON DELETE SET NULL`, each with a partial index. The printed `actor` / `speaker` strings stay. `store.SyncQuotePerson` is the only thing that writes the ids, `QuoteLinksAgree` walks both tables asserting the name and the record describe one person, and a 3.1.0 one-time pass links what already exists.
+
+**Why.** `work_person` is keyed `(user_id, kind, work_id, role, ordering)` — it says *this work is credited to this person*. An actor on a dialogue is not a credit on the film: two lines of one film routinely name two actors, and a standalone quote has no work at all. So the link belongs on the quote, which is where the column already was. The strings stay for the reason `books.author` stayed — `dialogues_fts` and `utterances_fts` are external-content FTS5 and cannot index a joined table.
+
+**Instead of** two more `CreditRole` values on `work_person` with `kind = 'dialogue'`, which was the shape first proposed and approved in outline, and which reuses `SetCredits`, `RecomposeCredit` and the merge's re-pointing wholesale. It was dropped on a **data-safety** ground found while wiring it: the bin snapshots a quote with `SELECT *` and restores it row by row, so a column comes back for free while a polymorphic link table needs its own place in `restoreOrder`, its own entry in the snapshot writer, and two `AFTER DELETE` triggers — new plumbing on the one path whose failure loses a reader's quote. `work_person` also has no foreign key on `work_id`, so a deleted quote would orphan its rows silently, which is a leak `books` and `movies` already have and this would have multiplied by every quote in the library.
+
+**The cost, stated:** the resolve/sync/merge machinery now exists twice, once per shape — `credits.go` for works, `quote_person.go` for quotes. That is the same trade 0056 took for characters, and it is paid the same way: the two files are written in parallel so a divergence shows up in a diff.
+
+<sub>`internal/store/migrations/0059_quote_person.sql` · `internal/store/quote_person.go` · `internal/store/onetime_3_1_0_quote_person.go`</sub>
+
+### One quote names one speaker; a line credited to two performers links to neither
+
+**Decided.** `SyncQuotePerson` splits the printed name with the account's own separators and links only when it yields exactly one component. A joined actor leaves the row unlinked rather than pointing at the first name in it.
+
+**Why.** `autofillActor` genuinely writes joined actors: a line naming two characters is credited to both their performers, comma-joined. There is no honest single answer to "who said this", and taking the first would put a two-hander into one performer's panel while hiding it from the other's. 0056 had already decided a quote points at one speaker when it gave both tables a single `speaker_cast_id`, so this is that decision applied to the second column rather than a new one. The split is `metadata.SplitCredits` rather than a comma test, so a performer billed "Davis, Jr." stays one person under an account that has the comma separator on.
+
+**The gap, named:** those lines are missing from the performer's panel. The rename's string surgery still reaches them — it rewrites a name as a *component* inside a joined credit, which is exactly what that handler is built for — so nothing the app could otherwise do is lost.
+
+<sub>`internal/store/quote_person.go`</sub>
+
+### A merge leaves the spelling; a record rename moves it
+
+**Decided.** `MergePeople` re-points every quote id to the survivor and records them for undo, and never touches the printed name. `handleUpdatePersonByID` does the opposite: renaming the record rewrites `actor` / `speaker` on every quote linked to it.
+
+**Why.** They are different claims. A merge says *these two records are one person*, which is silent about how any work spells it — the faithful-column promise. A rename says *this person's name is spelt this way*, which is a statement about the spelling, and leaving the old one printed would have a record answering to a name none of its quotes carries. That state is not merely untidy: `personAnswersTo` would return false for every one of those quotes, so the next unrelated edit to any of them would resolve the old spelling into a **brand-new record** — splitting one person into two, one quote at a time, from a write the reader made about something else.
+
+**A rename by name is still a rename.** `POST /people/rename` goes on rewriting strings, because correcting a misspelling everywhere is what it is for. What changed is that the duplicate card no longer uses it: two spellings of one person are a merge.
+
+**Ordering that is load-bearing:** `SyncAllQuotePeople` runs at the *end* of `handleRenamePerson`, after its delete loop. The foreign key is `SET NULL`, so re-deriving beside `SyncAllCredits` — three statements earlier, the obvious place — would have those deletes wipe the links it had just made, with nothing raised.
+
+<sub>`internal/store/quote_person.go` · `internal/store/identity.go` · `internal/httpapi/people_handlers.go`</sub>
+
+### A restored quote is re-linked from its name, not from the id in the snapshot
+
+**Decided.** `restoreSnapshot` drops `actor_id` / `speaker_id` from a `dialogues` or `utterances` row on the way in and calls `SyncQuotePerson` after the insert.
+
+**Why.** The bin's snapshot is a `SELECT *` taken before the delete, and `handleDeleteDialogue` runs the orphan sweep immediately after binning — so the actor whose last line this was can be gone by the time the reader presses undo. With `foreign_keys(1)` the insert then fails the constraint and rolls back the **whole** restore, losing the quote to protect a number. Re-deriving is also the better answer rather than merely the safe one: the name is still on the row, so the person is re-created exactly as a fresh write would create them — which is what `gcOrphanPeople` already says a person row is ("a reference row that re-fetches, not part of the quote") — and an entry binned before 0059 comes back linked rather than bare.
+
+<sub>`internal/httpapi/trash_handlers.go`</sub>
+
 ### The 3.1.0 backfill splits credits and refuses to weld characters
 
 **Decided.** The one-time pass splits existing credit strings with `metadata.SplitCredits` under **each account's own** separator preference, and creates a character record **per work** rather than resolving by name.

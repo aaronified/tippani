@@ -51,6 +51,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   who never wrote them. The spelling stops finding the old record and starts finding the
   new one; the works are yours to move.
 
+- **A film line's actor and a quote's speaker now point at a record too.** They were the
+  last two names in the app that were only ever text, so a performer's page showed the
+  films they were credited on and none of the lines they actually said. Now every quote
+  that names one person is joined to them: rename the record and their quotes follow;
+  fold two records together and every line moves across while **going on printing exactly
+  the name it printed** — the same promise a cover gets. A line credited to two performers
+  is left unattached rather than filed under whichever came first, because there is no
+  honest single answer to who said it.
+
+- **The duplicate card on the Metadata console merges the two records instead of renaming
+  one to the other.** It used to pick a spelling and rewrite it across every work in the
+  library, which is a very large edit to make from a small card and nothing you could
+  press to undo. Now it says the two are one person and leaves each book, film and quote
+  printing what it printed — and the bin holds the way back. It also stops offering the
+  merge once you have made it: two spellings of one record look exactly as alike
+  afterwards as they did before, and the card used to keep asking.
+
+- **Find and replace works on a standalone quote again.** Its four quote-only fields —
+  speaker, occasion, place and medium — were listed as available and answered with an
+  error instead, for every one of them, because two parts of the app called that kind of
+  quote by different names. Nothing shipped had a button for it yet, which is why nobody
+  hit it.
+
 - **Adding somebody to a cast now creates the records, not just the names.** A character
   you type onto a film, one a fetch brings back, or one lifted off a line you saved — each
   one becomes a record you can open, spell another way, and merge. Before this, only the

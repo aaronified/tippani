@@ -9,6 +9,7 @@ import (
 
 	"tippani/internal/metadata"
 	"tippani/internal/olog"
+	"tippani/internal/store"
 )
 
 // handleMetadataLibrary powers the Metadata tab's review lists: every book and
@@ -372,12 +373,19 @@ func (s *Server) handleRemapSpeakers(w http.ResponseWriter, r *http.Request) {
 			internalError(w, r, "remap speakers: update", err)
 			return
 		}
+		// A remap is the ONE path that deliberately rewrites an actor the reader
+		// already had, so it is also the one that can leave a link pointing at the
+		// person the line no longer names. See 0059.
+		if err := store.SyncQuotePerson(tx, uid, store.KindScreen, d.id, seps); err != nil {
+			internalError(w, r, "remap speakers: link actor", err)
+			return
+		}
 		remapped++
 	}
 
 	refilled := 0
 	if req.Refill {
-		if refilled, err = refillMovieActors(tx, id); err != nil {
+		if refilled, err = refillMovieActors(tx, uid, id, seps); err != nil {
 			internalError(w, r, "remap speakers: refill", err)
 			return
 		}

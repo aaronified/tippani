@@ -179,6 +179,26 @@ func (s *Server) handleUpdatePersonByID(w http.ResponseWriter, r *http.Request) 
 			internalError(w, r, "recompose credits", err)
 			return
 		}
+		// 0059: THE QUOTES THIS RECORD IS LINKED TO FOLLOW THE SAME RENAME, and
+		// they have to. Leaving them printing the old spelling would leave the
+		// record answering to a name none of its quotes carries — and the next
+		// ordinary edit to any of those quotes would then resolve that old
+		// spelling into a BRAND NEW person, splitting one record into two, one
+		// quote at a time, from a write the reader made about something else.
+		_, quotes, err := store.RenameQuotePeople(tx, uid, id, strings.TrimSpace(*req.Name))
+		if err != nil {
+			internalError(w, r, "rename person on quotes", err)
+			return
+		}
+		// A renamed speaker changes a standalone quote's identity, because
+		// UtteranceDedupeHash folds the speaker in. Only when one actually moved:
+		// the rehash is an account-wide pass and most renames touch no quote.
+		if quotes > 0 {
+			if err := rehashRenamedQuotes(tx, uid); err != nil {
+				internalError(w, r, "rehash quotes", err)
+				return
+			}
+		}
 	}
 	if err := tx.Commit(); err != nil {
 		internalError(w, r, "commit", err)

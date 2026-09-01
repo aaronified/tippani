@@ -60,6 +60,32 @@ var vocabularyTables = map[string]bool{"tags": true, "genres": true}
 // actor_key), which the restore preserves exactly.
 var idNotIdentity = map[string]bool{"work_cast": true}
 
+// relinkOnRestore names the tables whose person link is DROPPED on the way back
+// in and re-derived from the name the row still carries (0059).
+//
+// A DANGLING LINK WOULD ROLL BACK THE WHOLE RESTORE. dialogues.actor_id and
+// utterances.speaker_id are real foreign keys and the pool runs with
+// foreign_keys(1), while the snapshot is a SELECT * taken before the delete —
+// and handleDeleteDialogue calls gcOrphanPeople immediately after binning, so
+// the actor whose last line this was can be gone by the time the reader presses
+// undo. The insert would then fail the constraint and lose the quote to protect
+// a number, which is the same failure idNotIdentity exists to prevent one table
+// over.
+//
+// RE-DERIVING IS ALSO THE RIGHT ANSWER, not merely the safe one. The name is
+// still printed on the row, SyncQuotePerson resolves it exactly as a fresh write
+// would — creating the person again if the GC took them, which is precisely what
+// gcOrphanPeople's own comment says a person row is for ("a reference row that
+// re-fetches, not part of the quote") — and an entry binned BEFORE 0059 carries
+// no such column at all and comes back linked rather than bare.
+var relinkOnRestore = map[string]struct {
+	kind store.QuoteKind
+	col  string
+}{
+	"dialogues":  {store.KindScreen, "actor_id"},
+	"utterances": {store.KindUtterance, "speaker_id"},
+}
+
 // remapColumn names, per join table, the column holding a vocabulary id that may
 // have to be re-pointed on the way back in.
 var remapColumn = map[string]struct{ col, kind string }{
@@ -342,6 +368,10 @@ func (s *Server) restoreSnapshot(tx *sql.Tx, uid int64, snap snapshot) error {
 	if err != nil {
 		return err
 	}
+	// Read once for the walk: a whole-account restore visits every quote in the
+	// library, and loading a preferences document per row would be the same answer
+	// fetched thousands of times.
+	seps := s.creditSeps(uid)
 	for _, table := range restoreOrder {
 		rows := snap[table]
 		if len(rows) == 0 || table == "users" || vocabularyTables[table] {
@@ -372,8 +402,18 @@ func (s *Server) restoreSnapshot(tx *sql.Tx, uid int64, snap snapshot) error {
 			if idNotIdentity[table] {
 				delete(row, "id")
 			}
+			if rl, ok := relinkOnRestore[table]; ok {
+				delete(row, rl.col)
+			}
 			if err := insertRow(tx, table, cols, row); err != nil {
 				return fmt.Errorf("%s: %w", table, err)
+			}
+			if rl, ok := relinkOnRestore[table]; ok {
+				if id, ok := intOf(row["id"]); ok {
+					if err := store.SyncQuotePerson(tx, uid, rl.kind, id, seps); err != nil {
+						return fmt.Errorf("%s: relink person: %w", table, err)
+					}
+				}
 			}
 			if idFloorTables[table] {
 				if n, ok := intOf(row["id"]); ok {

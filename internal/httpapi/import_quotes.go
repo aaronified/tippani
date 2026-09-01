@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"tippani/internal/importer"
+	"tippani/internal/metadata"
 	"tippani/internal/olog"
 	"tippani/internal/store"
 )
@@ -257,7 +258,7 @@ func stageUtterances(tx *sql.Tx, workID int64, us []importer.Utterance) (int, er
 // validator the CRUD endpoint uses. A date the calendar refuses (30 February)
 // is dropped rather than failing the whole approval: the quote is the thing
 // worth keeping, and a refused date is recoverable by hand.
-func writeUtterances(tx *sql.Tx, uid int64, us []importer.Utterance) (int, error) {
+func writeUtterances(tx *sql.Tx, uid int64, us []importer.Utterance, seps metadata.CreditSeps) (int, error) {
 	added := 0
 	// One id reservation for the batch (idBlock, id_floor.go).
 	ids := newIDBlock(tx, "utterances", len(us))
@@ -353,6 +354,9 @@ func writeUtterances(tx *sql.Tx, uid int64, us []importer.Utterance) (int, error
 			continue
 		}
 		added++
+		if err := store.SyncQuotePerson(tx, uid, store.KindUtterance, id, seps); err != nil {
+			return added, err
+		}
 		if err := setTags(tx, "utterance", uid, id, u.Tags); err != nil {
 			return added, err
 		}

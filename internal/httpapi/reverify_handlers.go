@@ -1271,7 +1271,7 @@ func (s *Server) applyReverifyMovie(ctx context.Context, uid, id int64, set map[
 			return "", errors.New("write failed")
 		}
 		// A refreshed cast can name speakers for dialogues whose actor is blank.
-		if _, ferr := refillMovieActors(tx, id); ferr != nil {
+		if _, ferr := refillMovieActors(tx, uid, id, s.creditSeps(uid)); ferr != nil {
 			olog.Warnf(olog.CodeMetaReverifyApply, "[meta] re-verify movie %d actor refill failed: %v", id, ferr)
 		}
 	}

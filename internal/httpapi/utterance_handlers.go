@@ -401,6 +401,10 @@ func (s *Server) handleCreateUtterance(w http.ResponseWriter, r *http.Request) {
 		internalError(w, r, "set tags", err)
 		return
 	}
+	if err := store.SyncQuotePerson(tx, uid, store.KindUtterance, id, s.creditSeps(uid)); err != nil {
+		internalError(w, r, "link speaker", err)
+		return
+	}
 	if err := tx.Commit(); err != nil {
 		internalError(w, r, "commit tx", err)
 		return
@@ -606,6 +610,10 @@ func (s *Server) handleUpdateUtterance(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := setTags(tx, "utterance", uid, id, req.Tags); err != nil {
 		internalError(w, r, "set tags", err)
+		return
+	}
+	if err := store.SyncQuotePerson(tx, uid, store.KindUtterance, id, s.creditSeps(uid)); err != nil {
+		internalError(w, r, "link speaker", err)
 		return
 	}
 	if err := tx.Commit(); err != nil {
