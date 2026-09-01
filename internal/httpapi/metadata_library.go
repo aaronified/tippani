@@ -376,6 +376,10 @@ func (s *Server) handleRemapSpeakers(w http.ResponseWriter, r *http.Request) {
 		// A remap is the ONE path that deliberately rewrites an actor the reader
 		// already had, so it is also the one that can leave a link pointing at the
 		// person the line no longer names. See 0059.
+		if err := store.SyncQuoteCast(tx, uid, "movie", d.id, seps); err != nil {
+			internalError(w, r, "remap speakers: link speaker", err)
+			return
+		}
 		if err := store.SyncQuotePerson(tx, uid, store.KindScreen, d.id, seps); err != nil {
 			internalError(w, r, "remap speakers: link actor", err)
 			return

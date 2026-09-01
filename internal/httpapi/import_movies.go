@@ -413,12 +413,18 @@ func writeMovieDialogues(tx *sql.Tx, uid, movieID int64, dialogues []importer.Di
 						if err := store.SyncQuotePerson(tx, uid, store.KindScreen, existingID, seps); err != nil {
 							return 0, 0, err
 						}
+						if err := store.SyncQuoteCast(tx, uid, "movie", existingID, seps); err != nil {
+							return 0, 0, err
+						}
 					}
 				}
 			}
 			continue
 		}
 		added++
+		if err := store.SyncQuoteCast(tx, uid, "movie", did, seps); err != nil {
+			return 0, 0, err
+		}
 		if err := store.SyncQuotePerson(tx, uid, store.KindScreen, did, seps); err != nil {
 			return 0, 0, err
 		}

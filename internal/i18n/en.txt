@@ -6181,6 +6181,12 @@ identity.person.portrait.clear.label = remove the picture
 identity.character.appearances.title.one = in {n} work
 identity.character.appearances.title.other = in {n} works
 identity.character.appearances.empty = In no work yet. It appears once a work's cast points at it.
+identity.lines.title.one = {n} quote
+identity.lines.title.other = {n} quotes
+identity.lines.empty.person = Nothing in the library is credited to them yet.
+identity.lines.empty.character = Nothing in the library is attributed to them yet.
+identity.lines.shared.one = And {n} more names them alongside somebody else, so it is not filed under either.
+identity.lines.shared.other = And {n} more name them alongside somebody else, so they are not filed under either.
 
 # Aliases.
 identity.links.title = links out

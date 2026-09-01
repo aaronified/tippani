@@ -78,6 +78,11 @@ beforeEach(() => {
   CHARACTER = {
     id: 3, name: 'Woland', sort_name: '', description: '', note: '', image_path: '',
     aliases: ['Messire'], appearances: APPEARANCES,
+    lines: [
+      { id: 1, kind: 'highlight', text: "Manuscripts don't burn", name: 'Woland', work_id: 1, work_title: 'The Master and Margarita' },
+      { id: 2, kind: 'screen', text: 'Never talk to strangers', name: 'Woland', work_id: 5, work_title: 'The Master and Margarita (2005)' },
+    ],
+    shared_lines: 3,
   }
 })
 afterEach(() => cleanup())
@@ -324,6 +329,25 @@ describe('what this character is on ONE work', () => {
     await waitFor(() => expect(CALLS.some(([m, p]) => m === 'PUT' && p === '/cast/11')).toBe(true))
     const [, , body] = CALLS.find(([m, p]) => m === 'PUT' && p === '/cast/11')
     expect('actor' in body).toBe(false)
+  })
+})
+
+describe('what this character has said', () => {
+  // THE QUESTION THE FOLD COULD NEVER ANSWER. "Which quotes are this role's" has
+  // no honest answer over a text column — the fold is Go, not SQL — so the panel
+  // could not list them until a quote's speaker became a cast row it points at.
+  it('lists the quotes that point at them, from both shelves', async () => {
+    await open()
+    expect(await screen.findByText(/Manuscripts don't burn/)).toBeTruthy()
+    expect(screen.getByText(/Never talk to strangers/)).toBeTruthy()
+  })
+
+  it('says how many more name them alongside somebody else', async () => {
+    // Not a footnote. The linker refuses to guess on a two-hander, so a list of
+    // only the linked ones is quietly wrong about how much somebody has said —
+    // and "quietly wrong" on a count is worse than a smaller list.
+    await open()
+    expect(await screen.findByText(/3 more name them alongside somebody else/)).toBeTruthy()
   })
 })
 

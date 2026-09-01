@@ -184,6 +184,20 @@ var quotePersonKind = map[string]store.QuoteKind{
 	"utterance": store.KindUtterance,
 }
 
+// quoteCastKind names the quote kinds whose row points at a CAST ROW, which is a
+// different set from the one above and that is the whole reason it is a second
+// table. An annotation is here and absent from quotePersonKind — a book highlight
+// has a speaker and not a performer — and an utterance is the mirror: a standalone
+// quote has a speaker and no work for a cast to belong to.
+//
+// The value is the work kind work_cast is keyed on, not one of store's quote
+// kinds, because that is what SyncQuoteCast takes: the link is per (work, role)
+// and the table it reads is chosen by which shelf the work is on.
+var quoteCastKind = map[string]string{
+	"annotation": "book",
+	"dialogue":   "movie",
+}
+
 // quoteFieldKinds names, per optional field, the kinds that actually have the
 // column. One table, so "which fields does a dialogue take" has one answer and
 // adding a column means editing a list rather than remembering a switch.
@@ -500,6 +514,17 @@ func (s *Server) bulkTag(w http.ResponseWriter, r *http.Request, kind string) {
 		for _, id := range owned {
 			if err := store.SyncQuotePerson(tx, uid, k, id, seps); err != nil {
 				internalError(w, r, "bulk tag: link person", err)
+				return
+			}
+		}
+	}
+	// The same sweep for the cast link, over the kinds that have one — see
+	// quoteCastKind, which is a different set for a reason it states.
+	if wk, ok := quoteCastKind[kind]; ok {
+		seps := s.creditSeps(uid)
+		for _, id := range owned {
+			if err := store.SyncQuoteCast(tx, uid, wk, id, seps); err != nil {
+				internalError(w, r, "bulk tag: link speaker", err)
 				return
 			}
 		}

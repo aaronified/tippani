@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A character's page lists what they have said.** Every quote in the library filed
+  under them, from books and films alike, with the work each came from — and a line
+  saying how many further quotes name them *alongside somebody else*, because a quote
+  with two speakers is filed under neither and a list that quietly omitted those would
+  be wrong about how much somebody has said. A person's page gains the same list.
+
+- **A quote's speaker and a cast row are the same record now.** The app used to work out
+  which role a line's speaker was by folding the text and matching it, in three separate
+  places, every time it needed the answer — and could not ask the question in reverse at
+  all. The link is written where the name is written, so a rename carries it, an emptied
+  speaker clears it, and a line naming two characters is filed under neither rather than
+  arbitrarily under the first. Libraries already in use are caught up the first time each
+  work's cast is opened; nothing to run.
+
 - **What a character is on ONE work is editable at last.** The name a work bills them
   under, the performer, and a description that belongs to that appearance rather than to
   the record — a character reads differently in the novel and in the film, and the columns

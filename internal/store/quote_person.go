@@ -40,6 +40,11 @@ type QuoteKind string
 const (
 	KindScreen    QuoteKind = "screen"    // dialogues.actor
 	KindUtterance QuoteKind = "utterance" // utterances.speaker
+	// KindHighlight is a book's own line. It is NOT in quotePersonColumn below and
+	// never will be — a novel has speakers and no performers, which is the whole
+	// asymmetry the two links exist for — but a QuoteLine has to be able to say it
+	// is one, because CharacterLines returns highlights and dialogues together.
+	KindHighlight QuoteKind = "highlight" // annotations.character
 )
 
 // quotePersonColumn maps a kind to the two columns and the ownership test.

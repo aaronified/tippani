@@ -94,6 +94,9 @@ func (s *Server) adoptQuoteCharacters(uid int64, kind string, workID int64) {
 		return
 	}
 	if len(named) == 0 {
+		// NOT NOTHING TO DO EITHER: a work whose last speaker was just cleared still
+		// has quotes carrying a link to the row they used to name. See linkQuotes.
+		s.linkQuotes(uid, kind, workID)
 		return
 	}
 
@@ -121,6 +124,11 @@ func (s *Server) adoptQuoteCharacters(uid int64, kind string, workID int64) {
 		add = append(add, c)
 	}
 	if len(add) == 0 {
+		// NOTHING NEW TO ADOPT IS NOT NOTHING TO DO. The link from a quote to its
+		// cast row still has to be reconciled — a library that was in use before
+		// that column was written has thousands of quotes no save path will touch
+		// again — and this is the read where the two tables meet. See linkQuotes.
+		s.linkQuotes(uid, kind, workID)
 		return
 	}
 
@@ -165,6 +173,38 @@ func (s *Server) adoptQuoteCharacters(uid int64, kind string, workID int64) {
 		return
 	}
 	olog.Printf("[cast] %s %d: %d character(s) adopted from its own quotes", kind, workID, len(add))
+	s.linkQuotes(uid, kind, workID)
+}
+
+// linkQuotes points every quote on one work at the cast row it names.
+//
+// IT RUNS HERE BECAUSE THIS IS WHERE THE TWO TABLES ALREADY MEET. `speaker_cast_id`
+// has existed on all three quote tables since characters got records and nothing
+// ever wrote one, so the app has been re-deriving "which cast row is this line's
+// speaker" by folding a text column, in three places, on every read that needed
+// it — and could not answer the reverse question at all. The write path now sets
+// the link as it sets the name (store.SyncQuoteCast); this is the same act over a
+// work's whole history, on the read that was already reconciling it.
+//
+// SEPARATE TRANSACTION FROM THE ADOPTION ABOVE, and after it: the rows have to
+// exist before a quote can point at one, and a failure to link must not roll back
+// an adoption that succeeded. Best-effort in the same direction as everything else
+// in this file — a missing link costs a join, and the fold that predates it still
+// answers every question it answered before.
+func (s *Server) linkQuotes(uid int64, kind string, workID int64) {
+	tx, err := s.Store.DB.Begin()
+	if err != nil {
+		olog.Warnf(olog.CodeCastRowScan, "[cast] link quotes begin for %s %d: %v", kind, workID, err)
+		return
+	}
+	defer tx.Rollback()
+	if err := store.LinkWorkQuotesToCast(tx, uid, kind, workID, s.creditSeps(uid)); err != nil {
+		olog.Warnf(olog.CodeCastRowScan, "[cast] link quotes for %s %d: %v", kind, workID, err)
+		return
+	}
+	if err := tx.Commit(); err != nil {
+		olog.Warnf(olog.CodeCastRowScan, "[cast] link quotes commit for %s %d: %v", kind, workID, err)
+	}
 }
 
 // quoteCharacter is one name as it was typed on a line, folded, with the actor

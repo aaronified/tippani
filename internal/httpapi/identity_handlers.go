@@ -69,6 +69,17 @@ type characterDetail struct {
 	characterRow
 	Aliases     []string       `json:"aliases"`
 	Appearances []store.CastOf `json:"appearances"`
+	// Lines are the quotes that POINT AT this character through their cast row —
+	// the question the fold could never answer, because "which quotes are this
+	// role's" has no honest answer over a text column. See store/quote_cast.go.
+	//
+	// SharedLines is how many further quotes name this character ALONGSIDE somebody
+	// else and are therefore not linked at all. Reported rather than folded in,
+	// exactly as the person panel does it: the linker's refusal to guess on a
+	// two-hander is deliberate, and a list of only the linked ones would be quietly
+	// wrong about how much this character has said.
+	Lines       []store.QuoteLine `json:"lines"`
+	SharedLines int               `json:"shared_lines"`
 }
 
 const characterCols = `c.id, c.name, c.sort_name, c.description, c.image_path, c.note, c.links`
@@ -474,6 +485,11 @@ func (s *Server) handleCharacterByID(w http.ResponseWriter, r *http.Request) {
 	}
 	if out.Appearances, err = store.CharacterAppearances(s.Store.DB, uid, id); err != nil {
 		internalError(w, r, "read appearances", err)
+		return
+	}
+	if out.Lines, out.SharedLines, err = store.CharacterLines(
+		s.Store.DB, uid, id, s.creditSeps(uid), personLineCap); err != nil {
+		internalError(w, r, "read character lines", err)
 		return
 	}
 	writeJSON(w, http.StatusOK, out)

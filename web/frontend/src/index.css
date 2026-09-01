@@ -7490,3 +7490,7 @@ html[data-theme="dark"] .board-cover {
   margin-top: calc(var(--row) * 0.4); padding-top: calc(var(--row) * 0.4);
   border-top: 1px solid var(--line);
 }
+/* One quote on a person's or a character's record. The text leads; who said it
+   and where sit under it a tier down. */
+.identity-line { display: grid; gap: 2px; min-width: 0; }
+.identity-line-text { font-size: var(--type-ui-13); line-height: 1.5; }

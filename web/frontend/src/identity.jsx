@@ -31,6 +31,7 @@ import {
   ConfirmDialog,
   EmptyState,
   ErrorText,
+  ExpandableText,
   FieldIconButton,
   GhostButton,
   IconDelete,
@@ -313,6 +314,47 @@ function useRecord(path) {
   return { data, err, setErr, load }
 }
 
+// Lines — the quotes that point at this record.
+//
+// THE HALF THE PANEL HAS BEEN MISSING. The person record has carried its linked
+// lines since the day the link landed and nothing drew them; the character record
+// could not carry them at all until the cast link was written. Both do now, and
+// they are the same list with the same two caveats, so they are one component.
+//
+// THE SHARED COUNT IS NOT A FOOTNOTE. The linker refuses to guess on a line that
+// names two speakers — there is no honest single answer — so a list of only the
+// linked ones is quietly wrong about how much somebody has said. The sentence says
+// how many are missing and why, which is the difference between a list a reader
+// can trust and one they cannot.
+//
+// A QUOTE IS NEVER TRUNCATED WITH AN ELLIPSIS. It wraps and it clamps, and the
+// clamp is the app's own ExpandableText rather than an overflow — a cut sentence
+// and a short sentence look alike, which is the same failure the name rule names.
+function Lines({ lines, shared, empty }) {
+  if (!lines.length && !shared) {
+    return <p className="microcopy" style={{ color: 'var(--faint)' }}>{empty}</p>
+  }
+  return (
+    <div style={FIELDS}>
+      <ul style={FIELDS}>
+        {lines.map((l) => (
+          <li key={`${l.kind}-${l.id}`} className="identity-line">
+            <ExpandableText className="identity-line-text" lines={2} text={l.text} />
+            <span className="microcopy" style={{ color: 'var(--soft)' }}>
+              {[l.name, l.work_title].filter(Boolean).join(' · ')}
+            </span>
+          </li>
+        ))}
+      </ul>
+      {shared > 0 && (
+        <p className="microcopy" style={{ color: 'var(--faint)' }}>
+          {t('identity.lines.shared', { n: shared, count: shared })}
+        </p>
+      )}
+    </div>
+  )
+}
+
 // ---- the person ------------------------------------------------------------
 
 // Portrait — the record's own face, and the one control that changes it.
@@ -492,6 +534,10 @@ function PersonBody({ stack, id, work }) {
               for them here would be the second place that machinery lives; showing
               what is stored costs nothing and is the half the panel is missing
               without it. */}
+          {/* WHAT THEY SAID, which the record has carried since the link landed
+              and nothing has ever drawn. */}
+          <MonoLabel>{t('identity.lines.title', { n: (data.lines || []).length, count: (data.lines || []).length })}</MonoLabel>
+          <Lines lines={data.lines || []} shared={data.shared_lines || 0} empty={t('identity.lines.empty.person')} />
           <MonoLabel>{t('identity.links.title')}</MonoLabel>
           <ProviderChips links={data.links} />
           <MonoLabel>{t('identity.alias.title')}</MonoLabel>
@@ -711,6 +757,11 @@ function CharacterBody({ stack, id }) {
             </div>
           )}
           <AddWork busy={busy} have={works} onAdd={addWork} />
+          {/* THE QUESTION THE FOLD COULD NEVER ANSWER. "Which quotes are this
+              role's" has no honest answer over a text column, and this list is the
+              whole reason the speaker link is a column rather than a match. */}
+          <MonoLabel>{t('identity.lines.title', { n: (data.lines || []).length, count: (data.lines || []).length })}</MonoLabel>
+          <Lines lines={data.lines || []} shared={data.shared_lines || 0} empty={t('identity.lines.empty.character')} />
           <MonoLabel>{t('identity.alias.title')}</MonoLabel>
           <p className="microcopy" style={{ color: 'var(--soft)' }}>{t('identity.alias.body')}</p>
           <AliasRow aliases={data.aliases || []} onAdd={addAlias} onRemove={removeAlias} onSplit={splitAlias} />

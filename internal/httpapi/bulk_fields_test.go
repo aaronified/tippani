@@ -225,6 +225,40 @@ func TestEveryQuotePersonKindIsAKindBulkTagKnows(t *testing.T) {
 	}
 }
 
+// TestEveryCharacterBearingKindHasACastLink — the fourth table, walked the same
+// way, and it is a DIFFERENT set from the one above on purpose.
+//
+// A book highlight has a speaker and no performer; a standalone quote has a
+// speaker and no work for a cast to belong to. So quoteCastKind holds annotation
+// and dialogue where quotePersonKind holds dialogue and utterance, and a reader of
+// either table who assumed they were the same list would wire the wrong half.
+//
+// THE FAILURE IT GUARDS IS THE SAME SILENCE. quoteCastKind[kind] is a lookup that
+// MISSES rather than errors, so a spelling that drifts means a bulk edit of five
+// thousand characters writes every name and leaves every speaker_cast_id pointing
+// at whoever the line used to name.
+func TestEveryCharacterBearingKindHasACastLink(t *testing.T) {
+	if len(quoteCastKind) == 0 {
+		t.Fatal("quoteCastKind is empty — this test is measuring nothing")
+	}
+	for kind, wk := range quoteCastKind {
+		if _, ok := quoteBulkKinds[kind]; !ok {
+			t.Errorf("quoteCastKind names kind %q, which bulkTag has never heard of "+
+				"(quoteBulkKinds has %v)", kind, kindNames())
+		}
+		if wk != "book" && wk != "movie" {
+			t.Errorf("quoteCastKind[%q] maps to %q, which is not a work_cast kind", kind, wk)
+		}
+	}
+	// And the other direction: every kind whose `character` is bulk-settable must
+	// have an entry, or the column moves and the link does not.
+	for _, kind := range quoteFieldKinds["character"] {
+		if _, ok := quoteCastKind[kind]; !ok {
+			t.Errorf("character is bulk-settable on kind %q and that kind has no quoteCastKind entry", kind)
+		}
+	}
+}
+
 // TestEveryReplaceKindIsAKindTheTablesKnow — the same walk for find-and-replace,
 // and the one whose absence shipped a 500.
 //

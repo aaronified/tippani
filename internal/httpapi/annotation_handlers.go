@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"tippani/internal/olog"
+	"tippani/internal/store"
 )
 
 // annotationReq is quoteReq plus the book locator: where in the book the
@@ -264,6 +265,14 @@ func (s *Server) handleCreateAnnotation(w http.ResponseWriter, r *http.Request) 
 		internalError(w, r, "set tags", err)
 		return
 	}
+	// THE SPEAKER IS A CAST ROW AND NOT ONLY A STRING. See store/quote_cast.go: the
+	// column has existed since characters got records and nothing wrote it, so every
+	// reader of "which cast row said this" folded the text instead — three folds
+	// that could disagree, and no way to ask the question in reverse.
+	if err := store.SyncQuoteCast(tx, uid, "book", id, s.creditSeps(uid)); err != nil {
+		internalError(w, r, "link annotation speaker", err)
+		return
+	}
 	if err := tx.Commit(); err != nil {
 		internalError(w, r, "commit tx", err)
 		return
@@ -461,6 +470,11 @@ func (s *Server) handleUpdateAnnotation(w http.ResponseWriter, r *http.Request) 
 	}
 	if err := setTags(tx, "annotation", uid, id, req.Tags); err != nil {
 		internalError(w, r, "set tags", err)
+		return
+	}
+	// The speaker link follows the name it was edited to — see the create path.
+	if err := store.SyncQuoteCast(tx, uid, "book", id, s.creditSeps(uid)); err != nil {
+		internalError(w, r, "link annotation speaker", err)
 		return
 	}
 	if err := tx.Commit(); err != nil {

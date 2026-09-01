@@ -389,6 +389,16 @@ func (s *Server) rewriteQuoteCharacters(tx *sql.Tx, uid int64, kind string, line
 			`UPDATE `+table+` SET character = ? WHERE id = ?`, strings.Join(out, sep), l.ID); err != nil {
 			return err
 		}
+		// AND THE LINK FOLLOWS THE NAME, in the same transaction that changed it.
+		// The row this quote pointed at is about to be tombstoned, and a link left
+		// on a tombstone is a quote whose speaker is a deletion — invisible on every
+		// list and still joined. Leaving it for the next cast-list read would be
+		// leaving the library inconsistent between two requests, and on the "clear"
+		// path there would be no next read to fix it: adoption returns early when no
+		// quote names anybody, which is exactly the state clearing produces.
+		if err := store.SyncQuoteCast(tx, uid, kind, l.ID, seps); err != nil {
+			return err
+		}
 	}
 	return nil
 }

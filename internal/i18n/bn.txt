@@ -5853,6 +5853,12 @@ identity.person.portrait.clear.label = ছবিটা সরান
 identity.character.appearances.title.one = {n}টা কাজে আছে
 identity.character.appearances.title.other = {n}টা কাজে আছে
 identity.character.appearances.empty = এখনও কোনো কাজে নেই। কোনো কাজের কাস্ট এর দিকে তাকালে যুক্ত হবে।
+identity.lines.title.one = {n}টা উদ্ধৃতি
+identity.lines.title.other = {n}টা উদ্ধৃতি
+identity.lines.empty.person = লাইব্রেরিতে এখনও এদের নামে কিছু নেই।
+identity.lines.empty.character = লাইব্রেরিতে এখনও এদের নামে কিছু নেই।
+identity.lines.shared.one = আরও {n}টায় এদের সঙ্গে আরেকজনের নামও আছে, তাই সেটা কারও নামেই তোলা নেই।
+identity.lines.shared.other = আরও {n}টায় এদের সঙ্গে আরেকজনের নামও আছে, তাই সেগুলো কারও নামেই তোলা নেই।
 
 identity.links.title = বাইরের লিংক
 identity.alias.title = অন্য বানান

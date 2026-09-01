@@ -78,12 +78,22 @@ var idNotIdentity = map[string]bool{"work_cast": true}
 // gcOrphanPeople's own comment says a person row is for ("a reference row that
 // re-fetches, not part of the quote") — and an entry binned BEFORE 0059 carries
 // no such column at all and comes back linked rather than bare.
+// THE CAST LINK IS THE SAME HAZARD AND THE SAME ANSWER. `speaker_cast_id` is a
+// real foreign key into work_cast, and a work_cast row can be gone by the time a
+// quote comes back — 0048's triggers reap a work's whole cast when the work is
+// deleted, and adoption creates rows only on a list read. So it is dropped on the
+// way in and re-derived from the character the row still prints, exactly as the
+// person link is. `castKind` is empty for a table that has no work to hang a cast
+// on, which is what an utterance is.
 var relinkOnRestore = map[string]struct {
-	kind store.QuoteKind
-	col  string
+	kind     store.QuoteKind
+	col      string
+	castKind string
+	castCol  string
 }{
-	"dialogues":  {store.KindScreen, "actor_id"},
-	"utterances": {store.KindUtterance, "speaker_id"},
+	"dialogues":   {store.KindScreen, "actor_id", "movie", "speaker_cast_id"},
+	"utterances":  {store.KindUtterance, "speaker_id", "", ""},
+	"annotations": {"", "", "book", "speaker_cast_id"},
 }
 
 // remapColumn names, per join table, the column holding a vocabulary id that may
@@ -420,15 +430,27 @@ func (s *Server) restoreSnapshot(tx *sql.Tx, uid int64, snap snapshot) error {
 				delete(row, "id")
 			}
 			if rl, ok := relinkOnRestore[table]; ok {
-				delete(row, rl.col)
+				if rl.col != "" {
+					delete(row, rl.col)
+				}
+				if rl.castCol != "" {
+					delete(row, rl.castCol)
+				}
 			}
 			if err := insertRow(tx, table, cols, row); err != nil {
 				return fmt.Errorf("%s: %w", table, err)
 			}
 			if rl, ok := relinkOnRestore[table]; ok {
 				if id, ok := intOf(row["id"]); ok {
-					if err := store.SyncQuotePerson(tx, uid, rl.kind, id, seps); err != nil {
-						return fmt.Errorf("%s: relink person: %w", table, err)
+					if rl.kind != "" {
+						if err := store.SyncQuotePerson(tx, uid, rl.kind, id, seps); err != nil {
+							return fmt.Errorf("%s: relink person: %w", table, err)
+						}
+					}
+					if rl.castKind != "" {
+						if err := store.SyncQuoteCast(tx, uid, rl.castKind, id, seps); err != nil {
+							return fmt.Errorf("%s: relink speaker: %w", table, err)
+						}
 					}
 				}
 			}
