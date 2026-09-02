@@ -12,7 +12,7 @@
 // page, and that the pieces a reader depends on to get anywhere are in it.
 
 import { describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, within } from '@testing-library/react'
+import { fireEvent, render, waitFor, within } from '@testing-library/react'
 
 vi.mock('../../src/api.js', async (orig) => ({
   ...(await orig()),
@@ -76,6 +76,84 @@ describe('the logged-in shell', () => {
     // Nothing behind it on the first screen of a session: disabled, not absent.
     // Dropping it would slide Search into the seat it holds everywhere else.
     expect(keys[0].disabled).toBe(true)
+  })
+
+  // ── THE WAY BACK UP. A work with 128 quotes is a long way down and a phone has
+  // no scrollbar to drag and no Home key to press.
+  describe('the back-to-top key', () => {
+    // The key is drawn at every width and hidden by CSS above the breakpoint, as
+    // the dock is — but its scroll listener is gated on the viewport, so these
+    // have to be on a phone to arm it.
+    const asPhone = () => {
+      window.matchMedia = (media) => ({
+        matches: /max-width/.test(media), media, onchange: null,
+        addEventListener() {}, removeEventListener() {},
+        addListener() {}, removeListener() {}, dispatchEvent: () => false,
+      })
+    }
+    const key = () => document.querySelector('.to-top')
+    const scrollTo = (y, height) => {
+      Object.defineProperty(document.documentElement, 'scrollHeight', { value: height, configurable: true })
+      Object.defineProperty(window, 'innerHeight', { value: 800, configurable: true })
+      window.scrollY = y
+      fireEvent.scroll(window)
+    }
+
+    it('is drawn but away until there is a way back worth offering', async () => {
+      asPhone()
+      await mount()
+      expect(key(), 'no key in the tree').toBeTruthy()
+      // Away, not absent: opacity and pointer-events, so nothing can tab into a
+      // key that is not on screen.
+      expect(key().className).not.toContain('is-on')
+      expect(key().tabIndex).toBe(-1)
+    })
+
+    it('arrives a quarter of the way down a long page', async () => {
+      asPhone()
+      await mount()
+      // 8000 − 800 = 7200 of travel; a quarter is 1800.
+      scrollTo(2000, 8000)
+      await waitFor(() => expect(key().className).toContain('is-on'))
+      expect(key().tabIndex).toBe(0)
+    })
+
+    // THE TWO NEGATIVES ARE ASSERTED AS TRANSITIONS, armed first and then
+    // watched to go away. A waitFor on a negative is satisfied by the frame
+    // before the measurement lands, so it would pass against any rule at all.
+    it('leaves again on a page with nothing to come back from', async () => {
+      asPhone()
+      await mount()
+      scrollTo(2000, 8000)
+      await waitFor(() => expect(key().className).toContain('is-on'))
+      // MEASURED AGAINST THE SCROLLABLE DISTANCE, not a pixel count: what makes
+      // a page long is how far there is to come back, so a short book never
+      // grows the key however far down it you are. 1000 − 800 is 200 of travel.
+      scrollTo(150, 1000)
+      await waitFor(() => expect(key().className).not.toContain('is-on'))
+    })
+
+    it('holds off inside the first thumb-length of a barely-scrollable page', async () => {
+      asPhone()
+      await mount()
+      scrollTo(2000, 8000)
+      await waitFor(() => expect(key().className).toContain('is-on'))
+      // 1400 − 800 = 600 of travel, so a quarter is 150 — under the 200 floor.
+      // Without that floor a page you can barely scroll arms the key in its
+      // first thumb-length, which is where it is least use and most in the way.
+      scrollTo(170, 1400)
+      await waitFor(() => expect(key().className).not.toContain('is-on'))
+      // And it does arrive once you are past the floor on that same page.
+      scrollTo(240, 1400)
+      await waitFor(() => expect(key().className).toContain('is-on'))
+    })
+
+    it('drops into the dock’s place when the dock leaves', async () => {
+      asPhone()
+      await mount()
+      // "So the corner never holds two things and never sits empty."
+      expect(key().getAttribute('data-dock')).toBe('here')
+    })
   })
 
   it('has no hairline after the ＋', async () => {

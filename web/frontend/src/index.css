@@ -5843,6 +5843,45 @@ html[data-theme="dark"] .mobile-dock-btn.is-accent {
 }
 /* A dead Back on the first screen of a session. Drawn, not dropped: removing it
    would slide Search out of the seat it holds on every other screen. */
+/* ── THE WAY BACK UP, on a phone.
+   Above the dock, and it drops into the dock's place when the dock slides away —
+   the pack's reason: "so the corner never holds two things and never sits empty".
+   Both offsets are measured from the gesture inset so the key clears a home bar.
+
+   OPACITY AND POINTER-EVENTS, NEVER display:none. The key keeps its place, its
+   transition has something to animate between, and — the part that matters —
+   nothing can tab into a key that is not on screen (tabIndex handles the same
+   thing from the other side). Its visibility is a boolean, not a cue, so with
+   every animation disabled it is exactly where it is. */
+.to-top {
+  position: fixed;
+  right: var(--edge);
+  z-index: 60;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  color: var(--soft);
+  background: var(--card);
+  border: 1px solid var(--ink-border);
+  box-shadow: 0 12px 26px -14px rgba(41, 38, 29, .5);
+  cursor: pointer;
+  opacity: 0;
+  transform: translateY(8px);
+  pointer-events: none;
+  transition: opacity .18s ease, transform .18s ease, bottom .22s ease, background .12s ease, color .12s ease;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 62px);
+}
+.to-top[data-dock="away"] { bottom: calc(env(safe-area-inset-bottom, 0px) + 8px); }
+.to-top.is-on { opacity: 1; transform: none; pointer-events: auto; }
+@media (hover: hover) {
+  .to-top:hover { color: var(--ink); background: color-mix(in oklab, var(--ink) 8%, var(--card)); }
+}
+.to-top:active { transform: scale(.96); }
+html[data-theme="dark"] .to-top { box-shadow: 0 12px 26px -14px rgba(0, 0, 0, .7); }
+
 .mobile-dock-btn:disabled { opacity: .34; pointer-events: none; }
 .mobile-dock-btn {
   position: relative;
@@ -5896,6 +5935,8 @@ html[data-theme="dark"] .mobile-dock-btn.is-accent {
 
 @media (max-width: 768px) {
   .mobile-dock { display: flex; }
+  /* Drawn only where the dock is, which is the only place it has a position. */
+  .to-top { display: inline-flex; }
   /* The toast is the only other bottom-anchored fixed element, and at z 70 it
      would draw on top of the bar. Lift it clear: 62px bar + 14px gap + 10px. */
   .toast {

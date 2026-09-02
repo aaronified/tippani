@@ -70,6 +70,7 @@ import {
   IconBack,
   IconBin,
   IconBoards,
+  IconChevron,
   IconChecks,
   IconMenu,
   IconPlus,
@@ -90,6 +91,7 @@ import {
   Toggle,
   Tooltip,
   useBackToClose,
+  useBackToTop,
   useBodyScrollLock,
   useCrumbTitle,
   useScreenScroll,
@@ -1344,6 +1346,42 @@ function DockMenu({ icon, label, items }) {
   )
 }
 
+// BackToTop — the phone's way back up a long board.
+//
+// PHONE ONLY, and that is the pack's scoping rather than an oversight: a desk has
+// a scrollbar to drag, a Home key, and a window that is usually showing a third
+// of the page at once. A thumb has none of those, which is why the key is drawn
+// where the thumb is.
+//
+// IT SITS ABOVE THE DOCK AND DROPS WHEN THE DOCK LEAVES — the pack's own reason:
+// "so the corner never holds two things and never sits empty". Both positions are
+// measured from the gesture inset, so the key clears a home bar on the hardware
+// that has one.
+//
+// NOT `display: none` WHEN IT IS AWAY. Opacity and pointer-events, so the button
+// keeps its place in the layout and its transition has something to animate
+// between — and, more to the point, so nothing can tab into a key that is not
+// there. A rest state that depended on the transition firing would be the rule
+// this repo tests for; disable every animation and the key is still exactly where
+// it is, visible or not, because its visibility is a boolean and not a cue.
+function BackToTop({ show, dockHidden, onClick }) {
+  return (
+    <Tooltip label={t('shell.totop.aria')} side="top">
+      <button
+        type="button"
+        className={'to-top' + (show ? ' is-on' : '')}
+        aria-label={t('shell.totop.aria')}
+        aria-hidden={show ? undefined : true}
+        tabIndex={show ? 0 : -1}
+        data-dock={dockHidden ? 'away' : 'here'}
+        onClick={onClick}
+      >
+        <IconChevron open size={20} />
+      </button>
+    </Tooltip>
+  )
+}
+
 // Shell is the logged-in frame (§7): on desktop a topbar with the (tappable)
 // mark + wordmark, tab strip and user-initial chip; on a phone a slim top bar
 // whose ☰ drawer owns primary nav — logo taps Home, ＋ captures a quote. A
@@ -1496,6 +1534,9 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
   // visibility is CSS (display:none above the breakpoint), so rotating a tablet
   // never remounts it. Any shell overlay pins it visible.
   const mobile = useIsMobileScreen()
+  // The way back up, on the one form factor with no other one. Reset per route
+  // like the dock's own hide is, because a new screen starts at a new offset.
+  const { show: showTop, toTop } = useBackToTop({ enabled: mobile })
   const navHidden = useHideOnScrollDown({
     enabled: mobile,
     forceShow: drawerOpen || addOpen || profileOpen || !!tourState,
@@ -2120,6 +2161,12 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
         </div>
         </ErrorBoundary>
       </main>
+      {/* Drawn unconditionally and hidden by CSS above the breakpoint, exactly as
+          the dock beside it is and for the dock's own stated reason: "the bar's
+          visibility is CSS, so rotating a tablet never remounts it". Only the
+          scroll listener is gated on the viewport — there is no point measuring a
+          page for a key that cannot be drawn. */}
+      <BackToTop show={showTop} dockHidden={navHidden} onClick={toTop} />
       <MobileDock
         keys={barKeys || homeKeys}
         hidden={navHidden}

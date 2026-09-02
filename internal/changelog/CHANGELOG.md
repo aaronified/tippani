@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A phone has a way back to the top of a long board.** A work with a hundred quotes was
+  a minute of flicking to get back up: no scrollbar to drag, no Home key to press. The
+  key arrives a quarter of the way down — measured against how far there is to come
+  back, so a short work never grows one — and drops into the dock's place when the dock
+  slides away, so the corner never holds two things and never sits empty.
+
+
 - **A quote can be duplicated.** *Duplicate* in a quote's ⋯ opens the capture form on a
   copy — the words, the note, the colour, the tags and the locator all carried across —
   titled *Duplicate this quote*, with a line saying that Save writes a new one and the

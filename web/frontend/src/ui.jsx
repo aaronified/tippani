@@ -287,6 +287,57 @@ export function useHideOnScrollDown({
   return active ? hidden : false;
 }
 
+// useBackToTop — whether the way back is worth offering, and the way back.
+//
+// A WORK WITH 128 QUOTES IS A LONG WAY DOWN, and on a phone the way back was a
+// minute of flicking: there is no scrollbar to drag and no Home key to press. The
+// app had no such control on any screen; the only scrollTo in the tree is the
+// shell's own scroll-restore.
+//
+// MEASURED AGAINST THE SCROLLABLE DISTANCE, NOT A PIXEL COUNT, which is the pack's
+// rule and the part worth keeping: "what makes a page long is how far there is to
+// come back, so a short book never grows the key and a long one gets it a quarter
+// down". A fixed 600px trigger would put the key on a three-quote book that has
+// 600px of hero.
+//
+// 260 and 0.25 are the pack's numbers. The floor of 200 stops a page that is
+// barely scrollable from arming the key in its first thumb-length.
+//
+// SMOOTH ONLY WHEN MOTION IS WANTED. A reader who has asked for less of it gets
+// the jump, which is the same answer every other transition in the app gives —
+// and a 4000px smooth scroll is the single longest animation this app can play.
+export function useBackToTop({ enabled = true } = {}) {
+  const [show, setShow] = useState(false)
+  useEffect(() => {
+    if (!enabled) {
+      setShow(false)
+      return undefined
+    }
+    let ticking = false
+    const measure = () => {
+      ticking = false
+      const max = document.documentElement.scrollHeight - window.innerHeight
+      setShow(max > 260 && window.scrollY > Math.max(200, max * 0.25))
+    }
+    const onScroll = () => {
+      if (ticking) return
+      ticking = true
+      window.requestAnimationFrame(measure)
+    }
+    // Measured once on mount as well as on scroll: arriving at a remembered
+    // offset (the shell restores one per route) is a scroll that never fires.
+    measure()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [enabled])
+  const toTop = useCallback(() => {
+    const smooth = !window.matchMedia?.(REDUCED_MOTION_QUERY).matches
+    window.scrollTo({ top: 0, behavior: smooth ? 'smooth' : 'auto' })
+    setShow(false)
+  }, [])
+  return { show, toTop }
+}
+
 // ---- what the breadcrumb calls the thing you have open ---------------------
 //
 // THE SHELL DRAWS THE CRUMB AND THE SCREEN KNOWS THE TITLE, and they are three

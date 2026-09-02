@@ -1074,6 +1074,7 @@ shell.add.film.label = Add a film or show
 shell.add.quote.label = Capture a quote
 shell.dock.boards.label = Boards
 shell.dock.tools.label = Tools
+shell.totop.aria = Back to the top
 # The same button when an import is waiting in the pending queue.
 shell.add.pending.tip = {n} imports awaiting review
 

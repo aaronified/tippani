@@ -1049,6 +1049,7 @@ shell.add.film.label = সিনেমা বা শো যোগ করুন
 shell.add.quote.label = উদ্ধৃতি তুলে রাখুন
 shell.dock.boards.label = বোর্ড
 shell.dock.tools.label = সরঞ্জাম
+shell.totop.aria = উপরে ফিরুন
 # The same button when an import is waiting in the pending queue.
 shell.add.pending.tip = {n}টা ইমপোর্ট দেখার অপেক্ষায়
 
