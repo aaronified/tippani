@@ -20,7 +20,7 @@ import { coverImgURL, errText, json } from './api.js'
 import { t } from './i18n.js'
 import { chapterMeta, episodeLabel } from './text.js'
 import { forgetDailyDeck } from './daily.js'
-import { DEFAULT_CREDIT_SEPS, PersonPortrait, splitCredits, usePeople } from './credits.jsx'
+import { CreditFaces, DEFAULT_CREDIT_SEPS, splitCredits, usePeople } from './credits.jsx'
 import { REVIEW_BULK_KIND } from './bulkOps.jsx'
 import {
   ClampMore,
@@ -258,7 +258,7 @@ function QuizOption({ opt, om, personMaps, isWork, revealed, disabled, onPick, s
                 rule would live on opposite sides of the wire. */}
             {!isWork && om?.person && (
               <span className="mt-1.5 flex" style={{ fontStyle: 'normal' }}>
-                <PersonChip name={om.person} person={personMaps[om.kind]?.[om.person]} size={18} />
+                <PersonChip name={om.person} map={personMaps[om.kind]} size={18} />
               </span>
             )}
             {/* WHERE THIS ONE CAME FROM, once the card is graded. Three of the
@@ -316,14 +316,31 @@ function WorkArt({ path, size = 30 }) {
 // PersonChip — a display-only person credit (portrait + name pill) for quiz
 // prompts and options: the answer buttons own the tap, so unlike PersonCredit
 // nothing here is clickable. Renders the pill even without a saved portrait.
-function PersonChip({ name, person, size = 20 }) {
+//
+// A CREDIT CAN NAME SEVERAL PEOPLE, AND THIS DREW NONE OF THEM. The portrait was
+// looked up by the WHOLE credit string, so a book by two authors asked the map
+// for a person called "Le Guin & Lem" — nobody — and the option lost its face
+// entirely. A co-written book is exactly the card where a face helps most: the
+// four options are four strings that all look like lists of names.
+//
+// SO IT IS THE SAME CLUSTER THE REST OF THE APP DRAWS: overlapping portraits,
+// first credited name on top, one ring in the surface colour cutting each disc
+// out of the one beneath. Not a second overlap written here — CreditFaces is
+// what a book tile, a quote card and Home already use, and a cluster that
+// drifted between the quiz and the library would be two answers to "who is
+// this" on two screens.
+//
+// The ring is --raised because that is what this pill is filled with; a cluster
+// ringed in the page colour inside a raised pill reads as holes punched in it.
+function PersonChip({ name, map, size = 20 }) {
   if (!name) return null
+  const names = splitCredits(name, DEFAULT_CREDIT_SEPS)
   return (
     <span
       className="inline-flex items-center gap-1.5"
       style={{ background: 'var(--raised)', border: '1px solid var(--line)', borderRadius: 999, padding: '2px 9px 2px 4px', maxWidth: '100%' }}
     >
-      <PersonPortrait person={person} size={size} />
+      <CreditFaces names={names.length ? names : [name]} map={map} size={size} ring="var(--raised)" />
       <span className="mono-label" style={{ fontSize: 'var(--type-ui-11)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {name}
       </span>
@@ -376,7 +393,7 @@ function SourceLines({ card, maps = {} }) {
         {people.length > 0 && (
           <div className="mt-1.5 flex flex-wrap gap-1.5">
             {people.map((p) => (
-              <PersonChip key={p.kind + p.name} name={p.name} person={maps[p.kind]?.[p.name]} />
+              <PersonChip key={p.kind + p.name} name={p.name} map={maps[p.kind]} />
             ))}
           </div>
         )}

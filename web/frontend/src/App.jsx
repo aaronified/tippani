@@ -1416,9 +1416,14 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [addSec, setAddSec] = useState('book')
   const [addTarget, setAddTarget] = useState(null) // {type:'book'|'movie', id} | null
-  const openAdd = (sec = 'book', target = null) => {
+  // A DRAFT THE SURFACE OPENS ON, and only Duplicate ever sets one. Everything
+  // else opens cold, deliberately — see the work picker's own note on why a
+  // silently pre-filled form invites mis-filed quotes.
+  const [addFields, setAddFields] = useState(null)
+  const openAdd = (sec = 'book', target = null, fields = null) => {
     setAddSec(sec)
     setAddTarget(target)
+    setAddFields(fields)
     setAddOpen(true)
   }
   // dataNonce ticks whenever the shell's Add surface writes anything — a work, a
@@ -2158,6 +2163,7 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
         open={addOpen}
         initialSection={addSec}
         initialTarget={addTarget}
+        initialFields={addFields}
         pendingImport={pendingImport}
         sections={sections}
         onReviewImport={() => { setAddOpen(false); selectTab('staging') }}

@@ -666,7 +666,7 @@ export function WorkPicker({ works, value, onChange, onCreate }) {
 const SITTING_KEY = 'tippani:lastCapture'
 const SITTING_MS = 30 * 60 * 1000
 
-export function CaptureQuote({ initialTarget = null, initialStandalone = false, onCaptured, onWorkCreated, onSaveState }) {
+export function CaptureQuote({ initialTarget = null, initialFields = null, initialStandalone = false, onCaptured, onWorkCreated, onSaveState }) {
   // The page behind an overlay does not move. Without this a wheel or a swipe
   // that runs past the end of the dialog scrolls the page you cannot see, and it
   // is still scrolled when you close this. Ref-counted, so a dialog opened from
@@ -697,7 +697,15 @@ export function CaptureQuote({ initialTarget = null, initialStandalone = false, 
     // 0047's five, which the edit form gained in this release and this one needs for
     // the same reason: a letter's recipient and an essay's page are known at the
     // moment the quote is typed, not later.
-    region: '', recipient: '', workTitle: '', locator: '', circa: false })
+    region: '', recipient: '', workTitle: '', locator: '', circa: false,
+    // A DUPLICATE ARRIVES SEEDED, and the seed is applied LAST so it wins over
+    // the sitting's remembered colour and tags: the reader is copying a
+    // particular quote, not continuing a session.
+    //
+    // Applied at INITIALISATION rather than in an effect. An effect would land a
+    // frame after the first paint, which is a form the reader can start typing
+    // into and then watch overwrite itself.
+    ...(initialFields || {}) })
   // "This came from nothing" is a MODE rather than an entry in the work picker.
   // The picker is search-first, so a synthetic "no book or film" row would only
   // surface for someone who typed words matching it — which is nobody, since it
@@ -879,6 +887,17 @@ export function CaptureQuote({ initialTarget = null, initialStandalone = false, 
 
   return (
     <div className="flex flex-col gap-3.5">
+      {/* ONE LINE NAMING WHAT CAME ACROSS, above a form that is already full.
+          Every box holds another quote's words, and the reader has to be able to
+          tell at a glance that this is a COPY rather than the original opened for
+          editing — the title says which record Save writes and this says which
+          parts of the old one are sitting in the boxes. Without it the safest
+          reading of a full form is "I am editing the thing I pressed". */}
+      {initialFields && (
+        <p className="microcopy" style={{ color: 'var(--accent-ui)' }}>
+          {t('capture.form.duplicate.prose')}
+        </p>
+      )}
       <div className="tp-field">
         <div className="flex items-center justify-between gap-2">
           <MonoLabel>{t(standalone ? 'capture.form.standalone.label' : 'capture.form.target.label')}</MonoLabel>
@@ -1199,6 +1218,13 @@ export default function AddSurface({
   open,
   initialSection = 'book',
   initialTarget = null,
+  // A DRAFT TO OPEN ON, rather than a blank form. Only the duplicate verb sets
+  // it; everything else opens cold, which is what the picker's own note argues
+  // for ("a search-first picker with a silently pre-filled work invites
+  // mis-filed quotes"). Its PRESENCE is also what tells this surface it is a
+  // duplicate — one fact, not a boolean beside the data that would let the two
+  // disagree.
+  initialFields = null,
   onClose,
   onAdded,
   onOpenMovie,
@@ -1255,7 +1281,13 @@ export default function AddSurface({
 
   if (!open) return null
 
-  const title = t(tab === 'quote' ? 'capture.title.quote' : tab === 'import' ? 'capture.title.import' : 'capture.title.add')
+  // THE TITLE NAMES THE RECORD SAVE IS GOING TO WRITE, and on a duplicate that is
+  // the one thing that must never be ambiguous: every box on the form is full of
+  // another quote's words, and "Capture a quote" over that is a form that looks
+  // like it is editing the thing it copied.
+  const title = initialFields
+    ? t('capture.title.duplicate')
+    : t(tab === 'quote' ? 'capture.title.quote' : tab === 'import' ? 'capture.title.import' : 'capture.title.add')
   // Save is a ✓ in the title bar and is disabled — visibly, not silently — until
   // every must-fill field is filled. The reason is in its tooltip, because a
   // greyed control that will not say why is worse than one that is not there.
@@ -1299,6 +1331,7 @@ export default function AddSurface({
       {tab === 'quote' && (
         <CaptureQuote
           initialTarget={initialTarget}
+          initialFields={initialFields}
           initialStandalone={initialSection === 'standalone'}
           onCaptured={onCaptured}
           onWorkCreated={onWorkCreated}

@@ -198,6 +198,12 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, on
   const [backupNow, setBackupNow] = useState(false)
   const [updateNow, setUpdateNow] = useState(false)
   useScreenBar({
+    // WHO YOU ARE, UNDER THE WORD "SETTINGS". It was a mono label inside
+    // .page-header, and on a phone that header has its <h1> visually hidden —
+    // so "admin" became the only thing left in it and took a whole sticky row to
+    // say one word. The shell's own bar already draws the screen's name with a
+    // sub-line under it, which is where a caption for a title belongs.
+    sub: mobile ? (user.is_admin ? t('account.users.admin.chip') : user.username) : null,
     keys: mobile && user.is_admin ? [
       { id: 'backup', label: t('settings.backup.now.label'), icon: <IconArchive />, onClick: () => setBackupNow(true) },
       { id: 'update', label: t('settings.updates.now.label'), icon: <IconRefresh />, onClick: () => setUpdateNow(true) },
@@ -231,7 +237,13 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, on
         {/* 'admin' is a ROLE, and the users list already names it — so this
             draws that same word rather than a second copy of it. The username
             beside it is data, not copy. */}
-        <PageHeader title={t('nav.tab.settings.label')} counts={user.is_admin ? t('account.users.admin.chip') : user.username} />
+        {/* The counts slot is empty on a phone: the same word is the shell bar's
+            sub-line there, and saying it twice on one screen is what put it on a
+            row of its own. */}
+        <PageHeader
+          title={t('nav.tab.settings.label')}
+          counts={mobile ? null : (user.is_admin ? t('account.users.admin.chip') : user.username)}
+        />
       </div>
       <Appearance prefs={user.preferences} onPreferences={onPreferences} />
       {/* align-items:start so a short column stays short instead of stretching

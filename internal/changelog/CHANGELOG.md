@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A quote can be duplicated.** *Duplicate* in a quote's ⋯ opens the capture form on a
+  copy — the words, the note, the colour, the tags and the locator all carried across —
+  titled *Duplicate this quote*, with a line saying that Save writes a new one and the
+  original is untouched. Nothing is created until you save: a duplicate you abandon is a
+  duplicate that never existed.
+
 - **The metadata page's sections are tabs across the top, and a dropdown on a phone.**
   They were a 13.5rem left column from 900px up — a sixth of a console screen spent on
   five words, in front of content that is almost entirely tables. On a phone the strip
@@ -58,6 +64,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   gestures a reader has to already know.
 
 ### Fixed
+
+- **The quiz shows a face for every person a credit names.** A book by two authors asked
+  the portrait map for somebody called "Le Guin & Lem" — nobody — so the option lost its
+  face entirely, on exactly the card where a face helps most: four options that all look
+  like lists of names. It draws the same overlapping cluster the library, the catalogue
+  and a quote card do.
+
+- **A phone's Settings header stops spending a row on one word.** "admin" was a label
+  inside a page header whose title is hidden on a phone, so it was the only thing left in
+  it. It is the shell bar's sub-line now, under the word *Settings*.
 
 - **One-click update: the container is actually recreated now.** The update pulled the
   new image, said the recreater had launched, and left the container running the build

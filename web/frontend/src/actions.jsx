@@ -182,6 +182,31 @@ export function actionsFor(kind, item, ctx = {}) {
       run: () => ctx.favourite(item),
     },
     {
+      id: 'duplicate',
+      label: t('common.action.duplicate.label'),
+      // THE ONE ROW IN THIS MENU THAT EXPLAINS ITSELF, and it has to: "Duplicate"
+      // is unambiguous about the verb and silent about the scope, and the scope is
+      // the whole question. What comes across is everything except the fact that
+      // Save writes a NEW record — so the sub-line lists what carries rather than
+      // leaving a reader to press it and find out.
+      sub: t('common.action.duplicate.sub'),
+      where: OVERFLOW,
+      icon: <IconCopy />,
+      tooltip: t('common.action.duplicate.tip'),
+      // IT OPENS THE FORM ON A COPY AND CREATES NOTHING UNTIL SAVE — a duplicate
+      // you abandon is a duplicate that never existed. That is why this is not a
+      // POST with an undo behind it: a reader duplicates a quote in order to
+      // CHANGE it, so the form is the point rather than a step after it.
+      //
+      // Duplicating forty quotes is not this action forty times; it is a thing
+      // nobody wants, and the form has one set of boxes.
+      single: true,
+      // Not a work. "Another copy of this book" is a second edition or a re-read,
+      // and neither is a record this form can write.
+      available: !isWork && !!ctx.duplicate,
+      run: () => ctx.duplicate(item),
+    },
+    {
       id: 'board',
       label: t('common.action.board.label'),
       where: OVERFLOW,

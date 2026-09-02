@@ -15,10 +15,21 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 let SENT
 let RESP
 
+// The portrait map every person chip on a card is drawn from. Real rows, with
+// image paths, because a chip with no photo behind it renders no photo — and a
+// test that asserts nothing about the pictures cannot tell a working cluster
+// from a broken lookup.
+const PEOPLE = [
+  { id: 1, kind: 'author', name: 'Ursula K. Le Guin', image_path: 'leguin.jpg' },
+  { id: 2, kind: 'author', name: 'Stanisław Lem', image_path: 'lem.jpg' },
+  { id: 3, kind: 'author', name: 'Austen', image_path: 'austen.jpg' },
+]
+
 vi.mock('../../src/api.js', async (orig) => ({
   ...(await orig()),
   json: vi.fn(async (method, path, body) => {
     SENT.push({ method, path, body })
+    if (path.startsWith('/people')) return { ok: true, data: { people: PEOPLE } }
     // RESP lets one case stand in a different reply — a cloze grade comes back
     // with the words and, when it was one, the fact that it was a synonym.
     return { ok: true, data: RESP || { ok: true, stability: 7, status: 'remembered' } }
@@ -26,6 +37,7 @@ vi.mock('../../src/api.js', async (orig) => ({
 }))
 
 const { QuizRunner } = await import('../../src/review.jsx')
+
 
 const mcq = (over = {}) => ({
   kind: 'book', id: 1, direction: 'source', quote: 'the only way out is through',
@@ -582,5 +594,65 @@ describe('a “who wrote this?” card', () => {
     render(<QuizRunner mode="daily" cards={[wrote()]} />)
     expect(screen.getByText('Who wrote this?'), 'the card did not render at all').toBeTruthy()
     expect(screen.queryByText('The Dispossessed')).toBeNull()
+  })
+})
+
+// ── A CREDIT THAT NAMES SEVERAL PEOPLE.
+//
+// The option's portrait was looked up by the WHOLE credit string, so a book by
+// two authors asked the map for a person called "Le Guin & Lem" — nobody — and
+// the option lost its face entirely. That is exactly the card where a face helps
+// most: four options that all look like lists of names.
+describe('an option that is more than one person', () => {
+  const who = (over = {}) => ({
+    kind: 'book', id: 3, direction: 'author', quote: 'the only way out is through',
+    title: 'The Left Hand of Darkness', author: 'Ursula K. Le Guin & Stanisław Lem',
+    color: 'yellow',
+    options: ['Ursula K. Le Guin & Stanisław Lem', 'Austen', 'Eliot'],
+    answer: 0,
+    option_meta: [
+      { person: 'Ursula K. Le Guin & Stanisław Lem', kind: 'author' },
+      { person: 'Austen', kind: 'author' },
+      { person: 'Eliot', kind: 'author' },
+    ],
+    ...over,
+  })
+
+  // The portraits inside one option's chip, by the file each is drawn from.
+  const facesIn = (label) => {
+    const btn = screen.getAllByText(label).map((el) => el.closest('button')).find(Boolean)
+    expect(btn, label).toBeTruthy()
+    return [...btn.querySelectorAll('img')].map((img) => img.getAttribute('src'))
+  }
+
+  it('draws a portrait for EACH person a credit names', async () => {
+    render(<QuizRunner mode="daily" cards={[who()]} />)
+    // The whole point: two names, two faces. Before this the map was asked for a
+    // person called "Ursula K. Le Guin & Stanisław Lem" and the option wore none.
+    await waitFor(() => {
+      const src = facesIn(/Le Guin & Stanisław Lem/)
+      expect(src.some((s) => s.includes('leguin.jpg')), 'no face for the first author').toBe(true)
+      expect(src.some((s) => s.includes('lem.jpg')), 'no face for the second author').toBe(true)
+    })
+  })
+
+  it('overlaps them, first credited name on top', async () => {
+    render(<QuizRunner mode="daily" cards={[who()]} />)
+    await waitFor(() => expect(facesIn(/Le Guin & Stanisław Lem/).length).toBe(2))
+    const btn = screen.getAllByText(/Le Guin & Stanisław Lem/).map((el) => el.closest('button')).find(Boolean)
+    const discs = [...btn.querySelectorAll('img')].map((img) => img.parentElement)
+    // The cluster the rest of the app draws: the second disc is pulled back over
+    // the first, and the first keeps the higher z-index.
+    expect(discs[0].style.marginLeft).toBe('0px')
+    expect(discs[1].style.marginLeft.startsWith('-')).toBe(true)
+    expect(Number(discs[0].style.zIndex)).toBeGreaterThan(Number(discs[1].style.zIndex))
+  })
+
+  it('still draws the one face on a single-name option', async () => {
+    render(<QuizRunner mode="daily" cards={[who()]} />)
+    await waitFor(() => expect(facesIn('Austen')).toEqual([expect.stringContaining('austen.jpg')]))
+    // Twice in the DOM: the option's own label, and the chip under it that
+    // states the credit. That pairing is what this card has always had.
+    expect(screen.getAllByText('Austen')).toHaveLength(2)
   })
 })

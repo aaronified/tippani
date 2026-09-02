@@ -68,6 +68,48 @@ const page = (user = ADMIN) => {
 const keys = () => (BAR.keys || []).map((k) => k.id)
 const press = (id) => act(() => (BAR.keys || []).find((k) => k.id === id).onClick())
 
+// ── WHO YOU ARE, UNDER THE WORD "SETTINGS".
+//
+// It was a mono label inside .page-header, whose <h1> is visually hidden on a
+// phone — so "admin" became the only thing left in that header and took a whole
+// sticky row to say one word. A caption for a title belongs under the title, and
+// the shell bar already draws one.
+describe('the Settings header on a phone', () => {
+  it('publishes the role as the bar’s sub-line', async () => {
+    asPhone()
+    page()
+    await waitFor(() => expect(BAR.sub).toMatch(/admin/i))
+  })
+
+  it('says it once, not twice', async () => {
+    asPhone()
+    page()
+    await waitFor(() => expect(BAR.sub).toMatch(/admin/i))
+    // Not also in the page header, which is where it used to be — the same fact
+    // in two places on one screen is what cost the row.
+    expect(document.querySelector('.page-header .mono-label')).toBeNull()
+  })
+
+  it('names a reader who is not an admin by their username', async () => {
+    asPhone()
+    page(READER)
+    await waitFor(() => expect(BAR.sub).toBe('aaron'))
+  })
+
+  it('leaves the desktop header alone', async () => {
+    window.matchMedia = (media) => ({
+      matches: false, media, onchange: null,
+      addEventListener() {}, removeEventListener() {},
+      addListener() {}, removeListener() {}, dispatchEvent: () => false,
+    })
+    page()
+    // On a desk the <h1> is visible and the label sits beside it, which is the
+    // arrangement every other page header has.
+    await waitFor(() => expect(document.querySelector('.page-header .mono-label')).toBeTruthy())
+    expect(BAR.sub).toBeNull()
+  })
+})
+
 describe('the Settings dock', () => {
   it('carries the page’s two verbs and nothing else', async () => {
     asPhone()

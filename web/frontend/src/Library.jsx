@@ -1553,7 +1553,7 @@ function AnnotationBoard({
   rows, view, tagMap, stickerMap, stickers, reloadStickers, editingId, setEditingId,
   save, patch, remove, onCopy, onShare, selection, sort, onSort,
   columns, clamp, expandedId, onToggleExpand, boardRef = null, pinnedCount = 0, seed = 1,
-  tview = 'both',
+  tview = 'both', onDuplicate,
 }) {
   if (view === 'table') {
     return (
@@ -1594,6 +1594,7 @@ function AnnotationBoard({
       tagSuggestions={Object.keys(tagMap)}
       selection={selection}
       tview={tview}
+      onDuplicate={onDuplicate}
       {...(expandable
         ? { expanded: expandedId === a.id, onToggleExpand: () => onToggleExpand(a.id) }
         : null)}
@@ -1808,6 +1809,35 @@ export function showsTranslationLine(a, tview) {
   return tview !== 'quote' && tview !== 'translation' && !!a.translation
 }
 
+// duplicateSeed — the draft the Add surface opens on when a quote is duplicated.
+//
+// KEYED BY THE WIRE FIELD NAME, so the form does not have to know which fields a
+// duplicate fills: add a key here and the box arrives seeded.
+//
+// THE WORDS COME ACROSS TOO, and that is the pack's call rather than an
+// oversight: "the reader is usually keeping most of a sentence and changing a
+// clause, so an empty box would be a worse start than a full one."
+//
+// WHAT IS NOT HERE IS NOT AN OMISSION. The capture form has no translation, no
+// language and no sticker box — those are the edit form's — so seeding them would
+// put values in a draft nothing can show and nothing will send. The menu row's
+// sub-line names what actually carries, for exactly that reason.
+//
+// `tags` is a COMMA STRING because that is what the form's box holds; the row
+// carries an array. One of the two conversions this function exists to do.
+export function duplicateSeed(a) {
+  return {
+    quote: a.quote || '',
+    note: a.note || '',
+    chapter: a.chapter || '',
+    chapter_no: a.chapter_no == null ? '' : String(a.chapter_no),
+    location: a.location || '',
+    character: a.character || '',
+    color: a.color || 'yellow',
+    tags: (a.tags || []).join(', '),
+  }
+}
+
 function ActionRow({ acts, a, color, onColor, patch, actionsAlwaysVisible }) {
   // `acts` is built by the card, from the registry (actions.jsx) — one list per
   // card, rendered in three places: this row, the ⋯, and the context menu. Built
@@ -1855,7 +1885,7 @@ function ActionRow({ acts, a, color, onColor, patch, actionsAlwaysVisible }) {
 // colour dots are keyed to the same two selectors. A bespoke wrapper would look
 // right on a desktop screenshot and silently lose the aesthetic toggle, the
 // hover affordances and the 320px layout all at once.
-export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, setEditingId, save, patch, remove, onCopy, onShare, quoteLines = 6, tagSuggestions = [], actionsAlwaysVisible = false, editInline = false, expanded, onToggleExpand, meta, form: Form = AnnotationForm, selection, selectKind = 'annotation', onMoveBoard, tview = 'both' }) {
+export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, setEditingId, save, patch, remove, onCopy, onShare, quoteLines = 6, tagSuggestions = [], actionsAlwaysVisible = false, editInline = false, expanded, onToggleExpand, meta, form: Form = AnnotationForm, selection, selectKind = 'annotation', onMoveBoard, onDuplicate, tview = 'both' }) {
   const sticker = a.sticker_id != null ? stickerMap[a.sticker_id] : null
   const body = quoteBody(a, tview)
   // Accordion mode (tiles board): the parent owns which quote is open, so one
@@ -1908,6 +1938,11 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
     // no board — which is what keeps "Move to board" off a Library card without
     // this file knowing anything about boards.
     setBoard: onMoveBoard,
+    // Gated on the callback, like setBoard above it: the same card is drawn on
+    // four surfaces and only the ones with a route to the Add surface can offer
+    // this. A kind test here would be a control that is right about the board
+    // and silently absent inside the search modal.
+    duplicate: onDuplicate,
     remove,
   })
   // SELECT IS THE FIRST ITEM IN THE MENU, and that is what makes the context menu
@@ -2528,6 +2563,11 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
   const board = {
     view,
     tview,
+    // DUPLICATE OPENS THE SHELL'S ONE ADD SURFACE, on Capture, with this book as
+    // the target and the copied quote in the boxes. Nothing is written until Save
+    // — a duplicate you abandon is a duplicate that never existed — which is why
+    // it is a form and not a POST with an undo behind it.
+    onDuplicate: onAdd ? (row) => onAdd('quote', { type: 'book', id: bookId }, duplicateSeed(row)) : undefined,
     tagMap,
     stickerMap,
     stickers,
