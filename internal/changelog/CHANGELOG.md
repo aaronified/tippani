@@ -201,6 +201,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **An imported highlight's speaker was not linked to the cast.** Every other path that
+  writes a quote files it under the role that said it; the book importer wrote the name
+  and stopped, so a shelf built by import — which is most shelves — had a character page
+  listing nothing until somebody happened to open each book's cast list. Both arms are
+  covered: the quote that arrives new, and the one that arrives as a duplicate and donates
+  the speaker the stored copy was missing.
+
+- **Adding a cast row discarded the description sent with it.** The field was accepted,
+  trimmed and length-checked, then left off the insert — so "add this character with this
+  note" saved the character, dropped the note, and replied with the empty description it
+  had just failed to store. Editing the row afterwards had always worked, which is what
+  made it hard to see.
+
 - **Saving an API key threw after it had already been saved.** The metadata sources
   block moved to its own file and left one helper behind its import, so every key save
   and the Google-fallback toggle wrote the value and then crashed — the field simply

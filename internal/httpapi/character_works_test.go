@@ -399,3 +399,45 @@ func TestASaveThatSaysNothingAboutTheDescriptionLeavesItAlone(t *testing.T) {
 		t.Fatalf("an explicit empty description left %q", got)
 	}
 }
+
+// A PART PLAYED TWICE ON ONE FILM. `idx_work_cast_pair` is unique on
+// (kind, work_id, character_key, actor_key), so two live rows may share a folded
+// character name as long as their performers differ — young and old Vito, a part
+// recast between seasons, a role dubbed by a second voice. Selecting the quotes to
+// refuse over BY NAME made those two rows one: taking either off the film counted,
+// and offered to rewrite, the other one's lines. This is the case the speaker link
+// exists to answer, and the first place in the app that depends on it rather than
+// merely maintaining it.
+func TestRemovingOneOfTwoCastRowsForOnePartLeavesTheOthersQuotesAlone(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	movieID := idOf(t, c.mustDo("POST", "/movies", map[string]any{"title": "The Godfather"}, http.StatusCreated).Body.Bytes())
+	first := decode[castOut](t, c.mustDo("POST", "/movies/"+itoa(movieID)+"/cast",
+		map[string]any{"character": "Vito Corleone", "actor": "Marlon Brando"}, http.StatusCreated))
+	second := decode[castOut](t, c.mustDo("POST", "/movies/"+itoa(movieID)+"/cast",
+		map[string]any{"character": "Vito Corleone", "actor": "Robert De Niro"}, http.StatusCreated))
+	if first.CharacterID == 0 || first.CharacterID != second.CharacterID {
+		t.Fatalf("one part should be one record: %d and %d", first.CharacterID, second.CharacterID)
+	}
+
+	line := decode[dialogueRow](t, c.mustDo("POST", "/dialogues", map[string]any{
+		"movie_id": movieID, "quote": "I'm gonna make him an offer he can't refuse",
+		"character": "Vito Corleone", "actor": "Marlon Brando",
+	}, http.StatusCreated))
+	if got := speakerCast(t, srv, "dialogues", line.ID); got != first.ID {
+		t.Fatalf("the line linked to %d, want Brando's row %d", got, first.ID)
+	}
+
+	// De Niro's row has no lines of its own, so the removal has nothing to ask
+	// about and goes straight through. By name it had two.
+	c.mustDo("DELETE", "/characters/"+itoa(second.CharacterID)+"/works/"+itoa(second.ID), nil, http.StatusOK)
+
+	if got := speakerCast(t, srv, "dialogues", line.ID); got != first.ID {
+		t.Fatalf("the surviving row's line now points at %d, want %d", got, first.ID)
+	}
+	for _, d := range decode[dlgList](t, c.mustDo("GET", "/dialogues?movie_id="+itoa(movieID), nil, http.StatusOK)).Dialogues {
+		if d.ID == line.ID && d.Character != "Vito Corleone" {
+			t.Fatalf("the quote's speaker was rewritten to %q", d.Character)
+		}
+	}
+}

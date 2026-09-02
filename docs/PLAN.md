@@ -2256,6 +2256,50 @@ The rename's blast radius is the larger one: `metadata.ReplaceCredit` matches a 
 
 <sub>0042 — `internal/metadata/igdb.go`, `internal/metadata/wikidata_games.go`, `internal/httpapi/movie_handlers.go`, `internal/httpapi/game_publisher_test.go`</sub>
 
+### The Metadata screen is five sections behind a rail, and a phone gets the same five
+
+**Decided.** `MetadataPage` renders a `SectionRail` — Overview, Works, People, Characters, Sources — as a `role="tablist"` inside a `Scroller`, beside the body above 900px and stacked under it. Each door carries a count; Overview's is a sum of gaps and is the only one inked as a warning; Sources has none. The section is remembered per user, and a persisted value that no longer names a section falls back to Overview rather than rendering nothing.
+
+**Why.** The screen had grown into one scroll holding a summary, a work table, a people table, a character list and four maintenance sweeps, and the question a reader actually arrives with — *is it worth opening the character list* — could only be answered by scrolling to it. A count on the door answers it before the door opens. The rail is also what made the phone case tractable: the phone used to get a **different screen** — three maintenance buttons and two summary lines, with no browsable record at all — so "can I fix this from my phone" answered "some of it, and you cannot see which". One rail that stacks is one screen with two arrangements, which is a layout decision; two screens is two products.
+
+**A count of gaps goes red; a count of things does not.** 900 books is not a warning and inking it as one teaches a reader to ignore the colour. Only Overview's number is a gap count, so only Overview's number can be red.
+
+**Instead of.** Routed sub-pages, one URL each — the sections share a fetch, a bulk bar and a panel stack, and four routes would either refetch on every switch or hoist that state above the router for no gain the reader can see. A `<select>` on the phone — it hides the counts, which are the reason the rail exists. Leaving Sources on Settings: see the entry below.
+
+**Approved.** The owner's brief, which asked for each kind of metadata to have its own in-depth section rather than a shared scroll.
+
+<sub>3.1.0 — `web/frontend/src/MetadataPage.jsx` · `web/frontend/src/index.css` · `web/frontend/test/dom/metadata-sections.test.jsx` · `scripts/screenshots/frame-scroll.mjs`</sub>
+
+### Where metadata comes from moved from Settings to Metadata, whole and unchanged
+
+**Decided.** The API-key block, the Google fallback, the credit separators and the language marks left `Settings.jsx` for `MetadataSources.jsx` and are the fifth section of the Metadata screen. The code moved verbatim; Settings' remaining cards are redealt around the gap.
+
+**Why.** Every one of those settings configures something the Metadata screen is *looking at* — a work filtered by *no source*, a name split by a separator — and the fix for what you are looking at sat two navigations away on a different screen. A reader who had just filtered the catalogue by "no source" had to leave the console to fix the reason it was empty.
+
+**Instead of.** Duplicating the block on both screens — two forms writing one settings row, which is the defect class this log carries five times. A link from Metadata to Settings — a link to a form is not a form, and the reader would still lose their filter.
+
+**Nothing in the block changed in the move,** deliberately: a move and a redesign in one commit is a redesign whose regressions look like a move.
+
+<sub>3.1.0 — `web/frontend/src/MetadataSources.jsx` · `web/frontend/src/Settings.jsx` · `web/frontend/src/MetadataPage.jsx`</sub>
+
+### A character's page is the destination, and a work is taken off it only after its quotes are dealt with
+
+**Decided.** `identity.jsx` renders a character as a head — the record's own face, its aliases, its appearance count — over one card per work, each wearing that work's cover with the picture that work holds of the character on it. Each card edits the billed name, the performer and the per-work description; the three acts are *replace this work's picture*, *promote it to the record's own face*, and *remove the work*. `DELETE /characters/{id}/works/{castID}` answers **409** while quotes on that work name the character, and the dialog it raises offers to rename them all to somebody else or to clear the speaker.
+
+**Why.** The brief: this is the complete character metadata destination. Before it, a character was a name in a cast row on one work's panel — there was no screen that could answer "which works is this character in, and which of them has a picture of them", and the merge that folds two Woland records into one had nowhere to be offered from.
+
+**A removal that silently orphaned quotes was the failure to avoid.** Taking a character off a work leaves every quote on that work still printing their name, pointing at a cast row that is now a tombstone. Refusing is not enough on its own — it makes the reader hunt the quotes down by hand — so the refusal comes with the two acts that resolve it, and both run in one transaction with the removal.
+
+**A quote is claimed by the cast row it is LINKED to, not by every quote whose text folds to the same key.** `quotesNaming` reads `speaker_cast_id` and falls back to the fold only for a quote that has no live link. Without that, removing *Woland/Basilashvili* from a film offered to rewrite the quotes belonging to *Woland/Gaft* on the same film, because both fold to the same character key — a data-loss bug behind a confirmation dialog that read as if it knew what it was doing.
+
+**Nothing is promoted automatically.** A character with no face of their own says so and points at the works that hold one. Eight Harry Potters are eight records until the reader decides otherwise, and auto-picking the first still would put a face on that decision.
+
+**Instead of.** A flat table of appearances — the cover is what makes a card recognisable, and this is a screen for recognising. Cascading the removal to the quotes — a delete that also edits text the reader did not ask about is the shape of change nobody can undo.
+
+**Approved.** The owner's brief, including the ruling that a cast row and a quote's speaker are one thing in the backend.
+
+<sub>3.1.0 — `web/frontend/src/identity.jsx` · `internal/httpapi/character_works.go` · `internal/store/quote_cast.go` · `internal/httpapi/character_works_test.go` · `web/frontend/test/dom/character-destination.test.jsx`</sub>
+
 ## 7. Search and the Full-Text Index
 
 Search is FTS5 external-content indexes maintained by triggers, which buys me not storing every quote twice and costs a corruption mode that took four attempts to recover from. Every query string is escaped on the way in, and the facet work is planned so that a malformed query is impossible to send rather than merely rejected.

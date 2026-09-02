@@ -1035,7 +1035,7 @@ func (s *Server) handleApproveStaged(w http.ResponseWriter, r *http.Request) {
 				}
 				dupes = append(dupes, hints...)
 			}
-			added, enriched, err := writeBookAnnotations(tx, uid, work.Source, destID, stagedAsAnnotations(quotes))
+			added, enriched, err := writeBookAnnotations(tx, uid, work.Source, destID, stagedAsAnnotations(quotes), s.creditSeps(uid))
 			if err != nil {
 				var ce importClientError
 				if errors.As(err, &ce) {

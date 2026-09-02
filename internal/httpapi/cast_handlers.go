@@ -261,11 +261,19 @@ func (s *Server) handleAddCast(kind string) http.HandlerFunc {
 			// next fetch must go on matching it — to a live row now instead of to
 			// a tombstone. 'corrected' because the row is the reader's again and a
 			// refetch may no longer rewrite the name on it.
+			// The description follows the pointer's contract here too: sent, it lands
+			// on the revived row; absent, the tombstone's own description survives,
+			// which is the same "absent leaves it" the PUT means.
+			set := `character = ?, character_key = ?, actor = ?, actor_key = ?, origin = ?`
+			args := []any{req.Character, charKey, req.Actor, actorKey, castCorrected}
+			if req.Description != nil {
+				set += `, description = ?`
+				args = append(args, *req.Description)
+			}
+			args = append(args, id, uid)
 			if _, err := tx.Exec(
-				`UPDATE work_cast SET character = ?, character_key = ?, actor = ?, actor_key = ?,
-				        origin = ?, updated_at = datetime('now')
-				 WHERE id = ? AND user_id = ?`,
-				req.Character, charKey, req.Actor, actorKey, castCorrected, id, uid); err != nil {
+				`UPDATE work_cast SET `+set+`, updated_at = datetime('now')
+				 WHERE id = ? AND user_id = ?`, args...); err != nil {
 				internalError(w, r, "revive cast row", err)
 				return
 			}
@@ -310,11 +318,19 @@ func (s *Server) handleAddCast(kind string) http.HandlerFunc {
 			internalError(w, r, "next billing", err)
 			return
 		}
+		// `description` IS ON THE INSERT because it is on the body: castEdit accepts
+		// it, PUT honours it, and a POST that dropped it made "add the character,
+		// then describe it" two requests where the caller had sent one — silently,
+		// with a 201 carrying the empty description back.
+		desc := ""
+		if req.Description != nil {
+			desc = *req.Description
+		}
 		res, err := tx.Exec(
 			`INSERT INTO work_cast (user_id, kind, work_id, character, character_key, actor, actor_key,
-			                        billing, origin)
-			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			uid, kind, workID, req.Character, charKey, req.Actor, actorKey, billing, castReader)
+			                        billing, origin, description)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			uid, kind, workID, req.Character, charKey, req.Actor, actorKey, billing, castReader, desc)
 		if err != nil {
 			internalError(w, r, "add cast", err)
 			return

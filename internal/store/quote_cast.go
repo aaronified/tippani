@@ -14,7 +14,8 @@ import (
 // The owner's ruling, in their words: "both of those should be the same thing
 // anyway in the backend". PLAN.md decided it when characters got their own table
 // — "a quote's speaker points at the CAST ROW rather than at the character" —
-// and 0056 added `speaker_cast_id` to all three quote tables to hold it. Nothing
+// and 0056 added `speaker_cast_id` to the two work-bound quote tables to hold it.
+// Nothing
 // ever wrote one. The column has been NULL on every row of every library since.
 //
 // WHAT THE APP DID INSTEAD, and why it is not the same. A quote names its speaker
@@ -223,6 +224,9 @@ func LinkWorkQuotesToCast(tx *sql.Tx, uid int64, kind string, workID int64, seps
 		return fmt.Errorf("read work cast: %w", err)
 	}
 	byKey := map[string]int64{}
+	// Every live row's own key, so a link already pointing at one can be checked
+	// against the name without a second query per quote.
+	liveKeys := map[int64]string{}
 	for rows.Next() {
 		var id int64
 		var key string
@@ -230,6 +234,7 @@ func LinkWorkQuotesToCast(tx *sql.Tx, uid int64, kind string, workID int64, seps
 			rows.Close()
 			return err
 		}
+		liveKeys[id] = key
 		// First wins, which is billing order — see SyncQuoteCast.
 		if key != "" && byKey[key] == 0 {
 			byKey[key] = id
@@ -264,10 +269,23 @@ func LinkWorkQuotesToCast(tx *sql.Tx, uid int64, kind string, workID int64, seps
 		}
 		var want sql.NullInt64
 		named := strings.TrimSpace(character.String)
+		var key string
 		if parts := metadata.SplitCredits(named, seps); len(parts) == 1 {
-			if id := byKey[CastKey(strings.TrimSpace(parts[0]))]; id != 0 {
+			key = CastKey(strings.TrimSpace(parts[0]))
+			if id := byKey[key]; id != 0 {
 				want = sql.NullInt64{Int64: id, Valid: true}
 			}
+		}
+		// A LINK THAT STILL ANSWERS TO THE NAME IS LEFT ALONE — the first of the
+		// three rules SyncQuoteCast states, and this pass was breaking it on every
+		// cast-list read. Two live rows on one work may share a folded name with
+		// different performers (`idx_work_cast_pair` permits exactly that, and it is
+		// the recast case this table was designed around); `byKey` keeps the
+		// lowest-billed of them, so a quote pointed at the OTHER one was dragged
+		// across every time anybody opened the work. A sweep must not overrule the
+		// per-quote rule it exists to apply in bulk.
+		if have.Valid && liveKeys[have.Int64] == key && key != "" {
+			continue
 		}
 		if want.Valid != have.Valid || want.Int64 != have.Int64 {
 			changes = append(changes, change{id: id, cast: want})

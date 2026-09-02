@@ -246,7 +246,7 @@ func (s *Server) handleCharacterDropWork(w http.ResponseWriter, r *http.Request)
 		internalError(w, r, "read cast row", err)
 		return
 	}
-	quoted, err := s.quotesNaming(uid, kind, workID, charKey)
+	quoted, err := s.quotesNaming(uid, kind, workID, castID, charKey)
 	if err != nil {
 		internalError(w, r, "count quotes", err)
 		return
@@ -305,21 +305,42 @@ type quotedLine struct {
 	Character string
 }
 
-// quotesNaming returns the work's quotes whose character column names the folded
-// key, in the order they were written.
+// quotesNaming returns the quotes on this work that belong to ONE cast row.
 //
-// THE FOLD IS DONE IN GO, as it is everywhere else this table is matched: 0048
-// says in capitals that SQLite's lower() has no Unicode tables, so a WHERE on the
-// key would match ASCII and quietly miss every other alphabet.
-func (s *Server) quotesNaming(uid int64, kind string, workID int64, charKey string) ([]quotedLine, error) {
+// THE ROW, NOT THE NAME, AND THE DIFFERENCE IS DATA. `idx_work_cast_pair` is unique
+// on (kind, work_id, character_key, actor_key), so two LIVE rows on one work may
+// share a folded character name as long as their performers differ — which is the
+// recast case work_cast was designed around and quote_cast.go describes in as many
+// words: young and old Vito, a part recast between seasons. Selecting by name alone
+// meant taking one of those two off a work rewrote or cleared the OTHER one's lines
+// as well, silently, in a flow whose whole purpose is to ask before it touches a
+// quote. That is destruction of the reader's own words by a control that promised
+// to count them first.
+//
+// So the link decides, where there is one — which is what the link is for, and the
+// first thing in the app to depend on it rather than merely maintain it:
+//
+//   POINTING AT THIS ROW is this row's line, whatever the text says.
+//   POINTING AT ANOTHER LIVE ROW is not, however the name folds.
+//   POINTING AT NOTHING falls back to the fold, because that is the un-caught-up
+//   history and the genuinely ambiguous line, and leaving those out would let a
+//   removal proceed past quotes it was supposed to refuse over.
+//
+// A tombstoned target counts as pointing at nothing: the row it named is not on the
+// list any more, so the line is the fold's to claim.
+func (s *Server) quotesNaming(uid int64, kind string, workID int64, castID int64, charKey string) ([]quotedLine, error) {
 	if charKey == "" {
 		return nil, nil
 	}
-	q := `SELECT id, character FROM annotations WHERE book_id = ? AND TRIM(character) <> '' ORDER BY id`
+	col, table := "book_id", "annotations"
 	if kind != "book" {
-		q = `SELECT id, character FROM dialogues WHERE movie_id = ? AND TRIM(character) <> '' ORDER BY id`
+		col, table = "movie_id", "dialogues"
 	}
-	rows, err := s.Store.DB.Query(q, workID)
+	rows, err := s.Store.DB.Query(
+		`SELECT q.id, q.character, q.speaker_cast_id, COALESCE(wc.origin, '')
+		   FROM `+table+` q
+		   LEFT JOIN work_cast wc ON wc.id = q.speaker_cast_id AND wc.user_id = ?
+		  WHERE q.`+col+` = ? AND TRIM(q.character) <> '' ORDER BY q.id`, uid, workID)
 	if err != nil {
 		return nil, err
 	}
@@ -328,8 +349,16 @@ func (s *Server) quotesNaming(uid int64, kind string, workID int64, charKey stri
 	out := []quotedLine{}
 	for rows.Next() {
 		var l quotedLine
-		if err := rows.Scan(&l.ID, &l.Character); err != nil {
+		var linked sql.NullInt64
+		var origin string
+		if err := rows.Scan(&l.ID, &l.Character, &linked, &origin); err != nil {
 			return nil, err
+		}
+		if linked.Valid && origin != "" && origin != castRemoved {
+			if linked.Int64 == castID {
+				out = append(out, l)
+			}
+			continue
 		}
 		for _, n := range metadata.SplitCredits(l.Character, seps) {
 			if store.CastKey(n) == charKey {

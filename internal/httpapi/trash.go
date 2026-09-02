@@ -902,6 +902,22 @@ var accountTables = []string{
 	"genres", "tags", "stickers", "people", "person_kinds", "characters",
 	"person_alias", "character_alias",
 	"books", "movies",
+	// work_cast BEFORE the quote tables, and this moved. It used to sit with
+	// work_reads on the ground that "nothing walks to them" — true of both when
+	// that was written, and no longer true of this one: a quote's speaker points at
+	// a cast row now, and `relinkOnRestore` re-derives that pointer as each quote
+	// comes back. Restored after the quotes, it re-derived against an empty table,
+	// so every work- or account-level restore returned a library whose quotes had
+	// lost their speakers — the single-quote path worked, which is exactly the kind
+	// of gap that looks fine in the case anybody tests by hand.
+	//
+	// Nothing forces the old position: work_cast reaches `books` and `movies` by a
+	// polymorphic (kind, work_id) pair with no foreign key at all, and its two real
+	// ones — character_id, actor_id — point at tables already restored above. The
+	// delete walks this list backwards, and speaker_cast_id is ON DELETE SET NULL
+	// rather than RESTRICT, so removing a cast row before its quotes is permitted
+	// and is what already happened.
+	"work_cast",
 	// boards BEFORE utterances, because this list is in RESTORE order (parents
 	// first) and the delete walks it backwards. utterances.board_id is ON DELETE
 	// RESTRICT — the rule that no quote is ever orphaned — so a delete that
@@ -918,12 +934,10 @@ var accountTables = []string{
 	"anthologies", "anthology_entries",
 	"book_genres", "movie_genres",
 	"annotation_tags", "dialogue_tags", "utterance_tags",
-	// work_cast beside work_reads, and for the same reason: both hang off a work
-	// by a polymorphic (kind, work_id) pair with no foreign key, so nothing walks
-	// to them. A cast row is also the only thing here that a reader TYPED about a
-	// work rather than about a quote — a voice actor no provider lists exists
-	// nowhere else at all.
-	"item_reviews", "work_reads", "work_cast",
+	// work_reads hangs off a work by a polymorphic (kind, work_id) pair with no
+	// foreign key, so nothing walks to it. Its neighbour work_cast used to be on
+	// this line for the same reason and has moved up — see there.
+	"item_reviews", "work_reads",
 	// work_field_source with them, and for a third version of the same reason:
 	// it hangs off a work by the same polymorphic (kind, work_id) pair, so nothing
 	// walks to it either. Worth KEEPING rather than skipping — it records which

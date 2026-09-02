@@ -256,7 +256,7 @@ func workExclusion(tx *sql.Tx, table string, id int64) (int, error) {
 // staging queue hand this loop a book the *user* picked — retargeting a
 // misdetected file — while the dedupe, fill-empty enrichment and tag-union rules
 // below stay the single implementation for every path into the library.
-func writeBookAnnotations(tx *sql.Tx, uid int64, source string, bookID int64, anns []importer.Annotation) (int, int, error) {
+func writeBookAnnotations(tx *sql.Tx, uid int64, source string, bookID int64, anns []importer.Annotation, seps metadata.CreditSeps) (int, int, error) {
 	added, enriched := 0, 0
 	// The work's quiz opt-out, inherited by every row this loop writes. See
 	// workExclusion: without it, excluding a book and then importing into it put
@@ -350,23 +350,42 @@ func writeBookAnnotations(tx *sql.Tx, uid int64, source string, bookID int64, an
 			if err != nil {
 				return 0, 0, err
 			}
-			if n, _ := upd.RowsAffected(); n > 0 {
+			n, _ := upd.RowsAffected()
+			if n > 0 {
 				enriched++
 			}
-			if len(a.Tags) > 0 {
-				// The row that holds the slot, which is NOT the id reserved above:
-				// this insert was ignored, so that id belongs to nothing.
+			// The row that holds the slot, which is NOT the id reserved above:
+			// this insert was ignored, so that id belongs to nothing.
+			//
+			// Read back whenever there is anything to do with it, which is now the
+			// enrichment as well as the tags: the CASE WHEN above may have just
+			// filled a blank `character`, and that is exactly the write 0059's
+			// speaker link has to follow — a write whose result this loop cannot
+			// know without asking.
+			if n > 0 || len(a.Tags) > 0 {
 				var existingID int64
 				if err := tx.QueryRow(`SELECT id FROM annotations WHERE book_id = ? AND dedupe_hash = ?`,
 					bookID, store.DedupeHash(text)).Scan(&existingID); err == nil {
-					if err := addTags(tx, "annotation", uid, existingID, a.Tags); err != nil {
-						return 0, 0, err
+					if len(a.Tags) > 0 {
+						if err := addTags(tx, "annotation", uid, existingID, a.Tags); err != nil {
+							return 0, 0, err
+						}
+					}
+					if n > 0 {
+						if err := store.SyncQuoteCast(tx, uid, "book", existingID, seps); err != nil {
+							return 0, 0, err
+						}
 					}
 				}
 			}
 			continue
 		}
 		added++
+		// A quote's speaker is a cast row, not only a string (store/quote_cast.go),
+		// and an import is a path that writes a quote like any other.
+		if err := store.SyncQuoteCast(tx, uid, "book", annID, seps); err != nil {
+			return 0, 0, err
+		}
 		if len(a.Tags) > 0 {
 			if err := setTags(tx, "annotation", uid, annID, a.Tags); err != nil {
 				return 0, 0, err

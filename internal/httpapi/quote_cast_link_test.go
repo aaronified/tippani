@@ -7,8 +7,10 @@ import (
 
 // A quote's speaker and a cast row are one thing, end to end.
 //
-// THE STATE THIS REPLACES. `speaker_cast_id` has been on all three quote tables
-// since characters got their own records, and nothing has ever written one — the
+// THE STATE THIS REPLACES. `speaker_cast_id` has been on `annotations` and
+// `dialogues` since characters got their own records — the two quote tables that
+// hang off a work, which is what a cast row belongs to; a standalone quote has no
+// work and no cast to point into — and nothing has ever written one — the
 // column was NULL on every row of every library. Everything that needed to know
 // which cast row a line's speaker was re-derived it by FOLDING the character text
 // and matching `work_cast.character_key`: the picture on a chip, the adoption that
