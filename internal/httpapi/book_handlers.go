@@ -33,6 +33,11 @@ type bookReq struct {
 	// and Margarita" and "The Master and Margarita: A Novel" two works.
 	Subtitle  string `json:"subtitle"`
 	Publisher string `json:"publisher"`
+	// 0062. Whitespace-separated URLs, the same column and the same format a
+	// person and a character already carry, read by the one parser the client
+	// has: each is filed under the provider whose host it matches and the rest
+	// are kept whole.
+	Links string `json:"links"`
 	// The extent of the work, not the denominator of a read — see 0061 and
 	// `position`. 0 means unknown, the same encoding published_year uses.
 	Pages          int      `json:"pages"`
@@ -122,6 +127,14 @@ func (b *bookReq) validate() string {
 	if b.Pages < 0 {
 		return "a page count cannot be negative"
 	}
+	// CAPPED, unlike a person's, and the difference is where the value comes
+	// from: a person's links are assembled by the app from a fetch, and a work's
+	// are pasted into a box. 4000 is about forty addresses — more than any record
+	// wants and small enough that the column cannot become somewhere to keep a
+	// document.
+	if b.Links, ok = trimCap(b.Links, 4000); !ok {
+		return "that is too many links"
+	}
 	return ""
 }
 
@@ -146,6 +159,7 @@ type bookDetail struct {
 	Subtitle   string `json:"subtitle"`
 	Publisher  string `json:"publisher"`
 	Pages      int    `json:"pages"`
+	Links      string `json:"links"`
 	ISBN       string `json:"isbn"`
 	ASIN       string `json:"asin"`
 	Description    string `json:"description"`
@@ -174,14 +188,14 @@ func (s *Server) fetchBook(uid, id int64) (*bookDetail, error) {
 	err := s.Store.DB.QueryRow(`
 		SELECT id, title, COALESCE(author, ''), translator, editor, COALESCE(isbn, ''), COALESCE(asin, ''),
 		       COALESCE(description, ''), COALESCE(published_year, 0), published_circa,
-		       language, orig_language, subtitle, publisher, pages, COALESCE(cover_path, ''),
+		       language, orig_language, subtitle, publisher, pages, links, COALESCE(cover_path, ''),
 		       COALESCE(series, ''), COALESCE(series_index, 0), favorite, status, progress,
 		       pos_unit, pos, pos_total, created_at
 		FROM books WHERE id = ? AND user_id = ?`, id, uid).
 		Scan(&b.ID, &b.Title, &b.Author, &b.Translator, &b.Editor, &b.ISBN, &b.ASIN,
 			&b.Description, &b.PublishedYear, &b.PublishedCirca,
 			// No COALESCE on any of these: NOT NULL DEFAULT (0047, 0061).
-			&b.Language, &b.OrigLanguage, &b.Subtitle, &b.Publisher, &b.Pages, &b.CoverPath,
+			&b.Language, &b.OrigLanguage, &b.Subtitle, &b.Publisher, &b.Pages, &b.Links, &b.CoverPath,
 			&b.Series, &b.SeriesIndex, &b.Favorite, &b.Status, &b.Progress,
 			&b.Unit, &b.Pos, &b.PosTotal, &b.CreatedAt)
 	if err != nil {
@@ -290,8 +304,8 @@ func (s *Server) handleCreateBook(w http.ResponseWriter, r *http.Request) {
 		INSERT INTO books (id, updated_at, user_id, title, author, translator, editor, isbn, asin, cover_path,
 		                   description, published_year, published_circa, language, orig_language,
 		                   google_id, openlibrary_id, source_metadata,
-		                   series, series_index, favorite, subtitle, publisher, pages)
-		VALUES (?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
+		                   series, series_index, favorite, subtitle, publisher, pages, links)
+		VALUES (?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
 		id, uid, req.Title, nullable(req.Author), req.Translator, req.Editor, nullable(req.ISBN), nullable(req.ASIN),
 		nullable(coverPath), nullable(req.Description), nullableInt(req.PublishedYear), req.PublishedCirca,
 		// Plain strings — NOT NULL DEFAULT '' (0047), so nullable("") would be the
@@ -301,7 +315,7 @@ func (s *Server) handleCreateBook(w http.ResponseWriter, r *http.Request) {
 		nullable(req.Series), nullableFloat(req.SeriesIndex), req.Favorite,
 		// 0061's three, plain values on NOT NULL DEFAULT columns like the languages
 		// above them.
-		req.Subtitle, req.Publisher, req.Pages)
+		req.Subtitle, req.Publisher, req.Pages, req.Links)
 	if err != nil {
 		s.removeCoverFile(coverPath)
 		internalError(w, r, "insert book", err)
@@ -585,14 +599,14 @@ func (s *Server) handleUpdateBook(w http.ResponseWriter, r *http.Request) {
 		publishedYear                            sql.NullInt64
 		// Plain, not Null: 0061's three are NOT NULL DEFAULT, so a pointer here
 		// would be describing a state the column cannot be in.
-		subtitle, publisher string
-		pages               int
+		subtitle, publisher, links string
+		pages                      int
 	}
 	if err := tx.QueryRow(`
-		SELECT title, author, description, isbn, series, published_year, subtitle, publisher, pages
+		SELECT title, author, description, isbn, series, published_year, subtitle, publisher, pages, links
 		  FROM books WHERE id = ? AND user_id = ?`, id, uid).
 		Scan(&was.title, &was.author, &was.description, &was.isbn, &was.series, &was.publishedYear,
-			&was.subtitle, &was.publisher, &was.pages); err != nil && err != sql.ErrNoRows {
+			&was.subtitle, &was.publisher, &was.pages, &was.links); err != nil && err != sql.ErrNoRows {
 		failErr("update book", err)
 		return
 	}
@@ -600,13 +614,13 @@ func (s *Server) handleUpdateBook(w http.ResponseWriter, r *http.Request) {
 		UPDATE books SET title = ?, author = ?, translator = ?, editor = ?, isbn = ?, asin = ?,
 		                 description = ?, published_year = ?, published_circa = ?,
 		                 language = ?, orig_language = ?,
-		                 subtitle = ?, publisher = ?, pages = ?,
+		                 subtitle = ?, publisher = ?, pages = ?, links = ?,
 		                 series = ?, series_index = ?, favorite = ?, updated_at = datetime('now')
 		WHERE id = ? AND user_id = ?`,
 		req.Title, nullable(req.Author), req.Translator, req.Editor, nullable(req.ISBN), nullable(req.ASIN),
 		nullable(req.Description), nullableInt(req.PublishedYear), req.PublishedCirca,
 		req.Language, req.OrigLanguage, // plain strings, see the create path
-		req.Subtitle, req.Publisher, req.Pages,
+		req.Subtitle, req.Publisher, req.Pages, req.Links,
 		nullable(req.Series), nullableFloat(req.SeriesIndex), req.Favorite, id, uid)
 	if err != nil {
 		failErr("update book", err)
@@ -661,6 +675,7 @@ func (s *Server) handleUpdateBook(w http.ResponseWriter, r *http.Request) {
 		{"subtitle", was.subtitle, req.Subtitle},
 		{"publisher", was.publisher, req.Publisher},
 		{"pages", itoaZeroBlank(was.pages), itoaZeroBlank(req.Pages)},
+		{"links", was.links, req.Links},
 	} {
 		if strings.TrimSpace(f.was) != strings.TrimSpace(f.now) {
 			edited = append(edited, f.name)
@@ -740,6 +755,7 @@ func bookFieldsFrom(req *bookReq, coverPath string) []string {
 	add(strings.TrimSpace(req.Subtitle) != "", "subtitle")
 	add(strings.TrimSpace(req.Publisher) != "", "publisher")
 	add(req.Pages != 0, "pages")
+	add(strings.TrimSpace(req.Links) != "", "links")
 	add(len(req.Genres) > 0, "genres")
 	add(strings.TrimSpace(coverPath) != "", "cover")
 	return f

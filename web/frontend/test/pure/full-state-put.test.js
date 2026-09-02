@@ -63,7 +63,7 @@ const STORED = {
   book: [
     'title', 'author', 'translator', 'editor', 'isbn', 'asin', 'description',
     'published_year', 'published_circa', 'language', 'orig_language',
-    'subtitle', 'publisher', 'pages',
+    'subtitle', 'publisher', 'pages', 'links',
     'genres', 'series', 'series_index', 'favorite',
   ],
   // imdb_id IS full-state and belongs here. tmdb_id / tvdb_id / igdb_id are
@@ -72,7 +72,7 @@ const STORED = {
   // every ♥ on a film erase the ids it was looked up by, which is the opposite
   // of the repair this list exists for.
   movie: [
-    'title', 'director', 'publisher', 'release_year', 'release_circa',
+    'title', 'director', 'publisher', 'links', 'release_year', 'release_circa',
     'description', 'genres', 'media_type', 'series', 'series_index',
     'favorite', 'imdb_id',
   ],

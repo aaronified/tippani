@@ -33,7 +33,9 @@ type Book struct {
 	// for any of them.
 	Subtitle  string
 	Publisher string
-	Pages     int    // the EXTENT of the work; Pos/PosTotal below are the read
+	Pages     int // the EXTENT of the work; Pos/PosTotal below are the read
+	// 0062, read from Tippani's own frontmatter only, like the fields above it.
+	Links string
 	ISBN      string // as found in the file; callers normalize to ISBN-13
 	ASIN         string
 	Series       string  // series name, when the file carries one
@@ -362,7 +364,10 @@ type MovieHeader struct {
 	// `director` alone could not: re-importing a catalogue export written before
 	// the split would have nowhere to put the second credit and would silently
 	// drop it, which is how an export stops being a backup.
-	Publisher   string
+	Publisher string
+	// 0062, and here for the reason Publisher is: an export that could not carry
+	// it back would stop being a backup.
+	Links       string
 	Genres      []string
 	Series      string  // collection / franchise name, when the file carries one
 	SeriesIndex float64 // position within it (0 = unknown)

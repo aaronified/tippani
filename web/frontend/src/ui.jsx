@@ -6709,6 +6709,23 @@ export function IconSearch() { return <svg {...iconStroke}><circle cx="11" cy="1
 // everything". An equator and one meridian are enough: at 28px a third line is
 // a smudge, and the silhouette has to stay the search icon's or the button
 // stops being recognisable as Search.
+// IconGlobe — "a web page", which is a KIND of link and not a missing one.
+//
+// An equator and one meridian, the same two lines IconSearchGlobe draws inside
+// its lens, at the plain size: a third parallel is a smudge at 18px, and the two
+// glyphs have to read as the same world in two places. It is deliberately not a
+// dashed box and not inked with --error — a reader who linked to the open web has
+// not done anything wrong, and a failure colour would say they had.
+export function IconGlobe({ size = ICON_SIZE }) {
+  return (
+    <svg {...iconStroke} width={size} height={size}>
+      <circle cx="12" cy="12" r="8.4"/>
+      <path d="M3.6 12h16.8"/>
+      <path d="M12 3.6c2 2.3 3.1 5.2 3.1 8.4s-1.1 6.1-3.1 8.4c-2-2.3-3.1-5.2-3.1-8.4s1.1-6.1 3.1-8.4"/>
+    </svg>
+  )
+}
+
 export function IconSearchGlobe() {
   return (
     <svg {...iconStroke}>

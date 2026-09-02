@@ -162,6 +162,8 @@ func parseFrontmatter(lines []string) (*Result, error) {
 			res.Book.Subtitle = val
 		case "publisher":
 			res.Book.Publisher = val
+		case "links", "link":
+			res.Book.Links = val
 		case "page_count", "page count", "pagecount", "extent":
 			// parseCount's `nil` and a zero mean the same thing on this column —
 			// "the file didn't say" — because a book of no pages is not a thing.

@@ -267,6 +267,9 @@ export function movieState(m) {
     // rest — so the detail-header ♥ has to carry it or favouriting a game would
     // clear who published it. The same trap as imdb_id below.
     publisher: m.publisher || '',
+    // 0062, and here for the reason the publisher is: unconditional in the
+    // server's UPDATE, so a body that omits it clears it.
+    links: m.links || '',
     release_year: m.release_year || 0,
     // The circa flag is full-state like the year it qualifies, so leaving it out
     // turned "c. 1942" into "1942" on the next ♥ — the same trap as the ids

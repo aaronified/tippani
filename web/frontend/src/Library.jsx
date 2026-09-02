@@ -196,6 +196,7 @@ export function bookState(b) {
     subtitle: b.subtitle || '',
     publisher: b.publisher || '',
     pages: b.pages || 0,
+    links: b.links || '',
     genres: b.genres || [],
     series: b.series || '',
     series_index: b.series_index || 0,

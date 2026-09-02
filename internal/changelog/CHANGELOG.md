@@ -199,6 +199,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   browser is not allowed to draw, says nothing rather than claiming to be zero pixels
   wide.
 
+- **A work can link out.** There was nowhere on a book or a film to keep an address, so a
+  reader who wanted its Letterboxd entry, its fandom wiki or a review kept it in the note
+  on one of its quotes. Details has a **Links** row now: paste any address from any site
+  and it says what it read before it stores it — *"Reads as IMDb — www.imdb.com"* — so a
+  field that silently transforms what you typed is not a field you check afterwards. A
+  site the app knows is drawn with that site's own mark; anything else is kept whole under
+  a globe, which is a kind of link rather than a mistake. Adding is its own small
+  screen — the list is what is already there, and adding to it is not another member of
+  it. There is deliberately no fixed
+  list of slots with "not linked" beside half of it: a novel with a film adaptation
+  legitimately wants a TMDB page, and an obscure catalogue is not a special case.
+
+- **A game's publisher survived the import queue at last.** The Markdown parser read it,
+  the column existed, and the queue between them had no slot — so importing a catalogue
+  export dropped it in silence, reporting a successful import with matching counts.
+
 - **The Details panel shows what you just saved.** It was showing what the record said
   when you opened it: the panel's contents are fixed at the moment it is pushed, so
   saving the title left the row snapping back to the old one — and every later save on

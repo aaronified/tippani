@@ -282,6 +282,10 @@ func (s *Server) renderBookExport(b *bookDetail) (string, error) {
 		kv{"subtitle", b.Subtitle},
 		kv{"publisher", b.Publisher},
 		kv{"page_count", zeroBlank(b.Pages)},
+		// 0062, and on ONE line: the stored column is whitespace-separated
+		// already, and frontmatter here is one key per line. A file that wrapped
+		// them would need a list parser for a value the reader can read.
+		kv{"links", linksFrontmatter(b.Links)},
 		kv{"isbn", b.ISBN},
 		kv{"year", zeroBlank(b.PublishedYear)},
 		kv{"genres", strings.Join(b.Genres, ", ")},
@@ -407,6 +411,7 @@ func (s *Server) renderMovieExport(m *movieDetail) (string, error) {
 		// Games only in practice, and empty lines are dropped by writeFrontmatter,
 		// so a film's export is byte-identical to what it was before 0042.
 		kv{"publisher", m.Publisher},
+		kv{"links", linksFrontmatter(m.Links)},
 		kv{"year", zeroBlank(m.ReleaseYear)},
 		kv{"genres", strings.Join(m.Genres, ", ")},
 		kv{"collection", seriesFrontmatter(m.Series, m.SeriesIndex)},
@@ -798,4 +803,14 @@ func chapterHeading(no float64, name string) string {
 		return n
 	}
 	return n + " · " + name
+}
+
+// linksFrontmatter flattens a work's stored links onto one line.
+//
+// The column is already whitespace-separated, so this is a re-join rather than a
+// format: it collapses the newlines a fetch writes into the single space a
+// frontmatter value can hold, and drops the blanks. The importer splits on
+// whitespace either way, so a hand-written file may use whichever it likes.
+func linksFrontmatter(links string) string {
+	return strings.Join(strings.Fields(links), " ")
 }

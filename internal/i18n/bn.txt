@@ -4761,6 +4761,7 @@ error.validate.restore-word = নিশ্চিত করতে RESTORE লি�
 common.field.title.label = নাম
 common.field.subtitle.label = উপশিরোনাম
 common.field.people.label = মানুষ
+common.field.links.label = লিঙ্ক
 common.field.people.characters.summary = {n}টি চরিত্র|{n}টি চরিত্র
 common.field.author.label = লেখক
 common.field.translator.label = অনুবাদক
@@ -5938,3 +5939,17 @@ unit.role.director = পরিচালক
 unit.role.actor = অভিনেতা
 unit.role.studio = স্টুডিও
 unit.role.speaker = বক্তা
+
+# A work's links out (0062). See workLinks.jsx.
+links.web.label = একটি ওয়েব পাতা
+links.web.count = {n}টি ওয়েব পাতা|{n}টি ওয়েব পাতা
+links.empty = এখনও কোনও লিঙ্ক নেই। নিচে একটি বসান — যেকোনও সাইটের যেকোনও ঠিকানা।
+links.paste.label = লিঙ্ক বসান
+links.paste.placeholder = imdb.com/title/tt0084787
+links.paste.hint = যেকোনও ঠিকানা। যোগ করার আগে সেটি কী হিসেবে পড়া হচ্ছে তা এখানে দেখা যাবে।
+links.reading = {name} হিসেবে পড়া হচ্ছে — {host}
+links.reading.none = এটি এখনও কোনও ঠিকানা নয়।
+links.already = এটি ইতিমধ্যেই এই রেকর্ডে আছে।
+links.add.aria = এই লিঙ্কটি যোগ করুন
+links.remove.aria = {name} লিঙ্কটি সরান
+links.info = যেকোনও সাইটের যেকোনও ঠিকানা। অ্যাপের চেনা সাইট হলে সেই সাইটের চিহ্ন দিয়ে আঁকা হয়; বাকিগুলি গ্লোবের নিচে গোটা রাখা হয় — সেটি ভুল নয়, এক ধরনের লিঙ্ক। যোগ করার সঙ্গে সঙ্গেই সেভ হয়।

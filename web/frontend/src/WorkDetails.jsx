@@ -24,6 +24,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { coverImgURL, errText, json } from './api.js'
 import { CastFills, CastSection } from './cast.jsx'
 import { DEFAULT_CREDIT_SEPS, splitCredits } from './credits.jsx'
+import { PasteLink, WorkLinks, linksSummary } from './workLinks.jsx'
 import { t } from './i18n.js'
 import { BookLookupPicker, CoverControls, CoverPreview, MovieLookupPicker, hiResPoster, idNum } from './CoverPicker.jsx'
 import {
@@ -36,7 +37,9 @@ import {
   IconCheck,
   IconClose,
   IconDelete,
+  IconButton,
   IconMetadata,
+  IconPlus,
   IconUsers,
   InfoDot,
   formatYear,
@@ -123,6 +126,9 @@ const BOOK_FIELDS = [
     get label() { return t('common.field.asin.label') },
     get hint() { return t('book.field.asin.info') },
   },
+  // LAST, which is the handoff's own position for it: a link is where you go
+  // NEXT, so it sits under the record rather than in it.
+  { key: 'links', kind: 'links', get label() { return t('common.field.links.label') }, get hint() { return t('links.info') } },
 ]
 
 // THE CREDIT ROWS, WHICH ARE NOT ROWS OF THE FORM. They live behind the People
@@ -283,6 +289,7 @@ export const MOVIE_FIELDS = [
     // no link, because it invites the one click that proves it broken.
     get hint() { return t('film.field.igdb-id.info') },
   },
+  { key: 'links', kind: 'links', get label() { return t('common.field.links.label') }, get hint() { return t('links.info') } },
 ]
 
 // fullState mirrors bookState / movieState on the pages: PUT is full-state, so a
@@ -314,6 +321,7 @@ export function fullState(kind, it) {
       subtitle: it.subtitle || '',
       publisher: it.publisher || '',
       pages: it.pages || 0,
+      links: it.links || '',
       genres: it.genres || [],
       series: it.series || '',
       series_index: it.series_index || 0,
@@ -325,6 +333,9 @@ export function fullState(kind, it) {
     director: it.director || '',
     // 0042 — a game's publisher, full-state like everything else here.
     publisher: it.publisher || '',
+    // 0062 — and unconditional in the server's UPDATE like the publisher, so an
+    // omission here is a deletion.
+    links: it.links || '',
     release_year: it.release_year || 0,
     release_circa: !!it.release_circa,
     description: it.description || '',
@@ -963,6 +974,63 @@ export function workPeoplePanel(stack, props) {
   }
 }
 
+// WorkLinksHost — the links list, which owns its record like every other panel
+// body does (useWorkRecord's header says why) and writes the whole column on each
+// removal.
+function WorkLinksHost({ kind, item, onChanged, onAdd }) {
+  const spec = { key: 'links', label: t('common.field.links.label') }
+  const { rec, busy, saveField } = useWorkRecord({ kind, initial: item, onChanged, specs: [spec] })
+  return (
+    <WorkLinks
+      value={rec.links || ''}
+      busy={busy}
+      onSave={(next) => saveField(spec, next)}
+      onEmptyAdd={onAdd}
+    />
+  )
+}
+
+function PasteLinkHost({ kind, item, onChanged, onDone }) {
+  const spec = { key: 'links', label: t('common.field.links.label') }
+  const { rec, busy, saveField } = useWorkRecord({ kind, initial: item, onChanged, specs: [spec] })
+  return (
+    <PasteLink
+      value={rec.links || ''}
+      busy={busy}
+      onSave={(next) => saveField(spec, next)}
+      onDone={onDone}
+    />
+  )
+}
+
+// A PANEL MAY CARRY ONE VERB IN ITS HEADER, AND ONLY ITS OWN (§1.12): `+` on
+// Links. The list is what is already there, and adding to it is not another
+// member of it — so the paste box is its own surface rather than a last row
+// pretending to be a link.
+export function pasteLinkPanel(stack, props) {
+  return {
+    title: t('links.paste.label'),
+    saveTip: t('links.add.aria'),
+    render: () => <PasteLinkHost {...props} onDone={() => stack.back()} />,
+  }
+}
+
+export function workLinksPanel(stack, props) {
+  const add = () => stack.push(pasteLinkPanel(stack, props))
+  return {
+    title: t('common.field.links.label'),
+    headVerb: (
+      <IconButton
+        icon={<IconPlus />}
+        ariaLabel={t('links.paste.label')}
+        tooltip={t('links.paste.label')}
+        onClick={add}
+      />
+    ),
+    render: () => <WorkLinksHost {...props} onAdd={add} />,
+  }
+}
+
 // peopleSummary — what the People row reads at rest.
 //
 // THE NAMES, NOT A COUNT. "6 people" is a number a reader has to open the panel
@@ -1169,6 +1237,21 @@ function FieldList({ kind, item, stack, specs, creditSpecs, mediaType, busy, gen
                 onOpen={() => stack?.push(workPeoplePanel(stack, {
                   kind, item, creditSpecs, mediaType, onChanged,
                 }))}
+              />
+            )
+          }
+          if (spec.kind === 'links') {
+            return (
+              <BigField
+                key={spec.key}
+                label={label}
+                hint={spec.hint}
+                // NO SOURCE TAG, and the handoff says why: the links under this
+                // row come from a dozen places and one of them is a pasted
+                // address, so one tag over the lot would be describing none of
+                // them. The answers are one level down, one per link.
+                display={linksSummary(item.links)}
+                onOpen={() => stack?.push(workLinksPanel(stack, { kind, item, onChanged }))}
               />
             )
           }

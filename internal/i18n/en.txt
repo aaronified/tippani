@@ -5065,6 +5065,7 @@ error.validate.restore-word = Type RESTORE to confirm
 common.field.title.label = Title
 common.field.subtitle.label = Subtitle
 common.field.people.label = People
+common.field.links.label = Links
 common.field.people.characters.summary = {n} character|{n} characters
 common.field.author.label = Author
 common.field.translator.label = Translator
@@ -6270,3 +6271,17 @@ unit.role.director = director
 unit.role.actor = actor
 unit.role.studio = studio
 unit.role.speaker = speaker
+
+# A work's links out (0062). See workLinks.jsx.
+links.web.label = A web page
+links.web.count = {n} web page|{n} web pages
+links.empty = No links yet. Paste one below — any address, from any site.
+links.paste.label = Paste a link
+links.paste.placeholder = imdb.com/title/tt0084787
+links.paste.hint = Any address. What it is read as appears here before it is added.
+links.reading = Reads as {name} — {host}
+links.reading.none = That is not an address yet.
+links.already = Already on this record.
+links.add.aria = Add this link
+links.remove.aria = Remove the {name} link
+links.info = Any address, from any site. One that matches a site the app knows is drawn with that site’s mark; anything else is kept whole under a globe, which is a kind of link rather than a mistake. Links are saved as you add them.

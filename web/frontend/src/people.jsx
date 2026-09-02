@@ -19,12 +19,32 @@ export { DEFAULT_CREDIT_SEPS, parseCreditSeps, personImgURL, PersonPortrait, spl
 // The middle column is the KEY that names the provider, not the name itself:
 // vocab.source.* already carries these five for the metadata screens, and a
 // provider has one name in this app wherever it is drawn.
+// THE LIST IS WHAT CAN BE RECOGNISED, NOT WHAT MAY BE ADDED. Every one of these
+// has a mark in providerMarks.js and a name in vocab.source.*, so a link to one
+// is drawn with its own glyph; a URL matching none of them is kept whole and
+// wears the globe, which is a legitimate kind of link rather than a failure — a
+// review, an author's own site, a scan somebody hosted. Adding a row here buys a
+// glyph and a name, and nothing about it decides what a reader may paste.
 export const PROVIDERS = [
   ['imdb', 'vocab.source.imdb.label', /(^|\.)imdb\.com$/i],
   ['tmdb', 'vocab.source.tmdb.label', /(^|\.)themoviedb\.org$/i],
   ['tvdb', 'vocab.source.tvdb.label', /(^|\.)thetvdb\.com$/i],
+  ['letterboxd', 'vocab.source.letterboxd.label', /(^|\.)letterboxd\.com$/i],
+  ['igdb', 'vocab.source.igdb.label', /(^|\.)igdb\.com$/i],
   ['wikipedia', 'vocab.source.wikipedia.label', /(^|\.)wikipedia\.org$/i],
+  // FANDOM SITS ALONGSIDE WIKIPEDIA, NOT INSTEAD OF IT. Wikipedia covers the
+  // book; a fandom wiki covers what is inside it — characters, places,
+  // timelines — and a reader chasing a name and a reader checking a publication
+  // date want different pages. `wikia.com` is the old domain and still redirects.
+  ['fandom', 'vocab.source.fandom.label', /(^|\.)(fandom|wikia)\.com$/i],
+  ['wikidata', 'vocab.source.wikidata.label', /(^|\.)wikidata\.org$/i],
+  ['wikimedia', 'vocab.source.wikimedia.label', /(^|\.)wikimedia\.org$/i],
   ['openlibrary', 'vocab.source.openlibrary.label', /(^|\.)openlibrary\.org$/i],
+  // Google BOOKS specifically. A plain google.com result is a search, not a
+  // record, and filing one under the name of a catalogue would be a lie about
+  // what the link is.
+  ['google', 'vocab.source.google.label', /(^|\.)books\.google\.[a-z.]+$/i],
+  ['amazon', 'vocab.source.amazon.label', /(^|\.)amazon\.[a-z.]+$/i],
 ]
 
 // parseLinks splits the stored free-text links field into recognised provider

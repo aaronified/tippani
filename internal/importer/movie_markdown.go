@@ -199,6 +199,8 @@ func parseMovieFrontmatter(lines []string) (*MovieResult, error) {
 			res.Movie.Director = val
 		case "publisher", "published by":
 			res.Movie.Publisher = val
+		case "links", "link":
+			res.Movie.Links = val
 		case "year":
 			if n, err := strconv.Atoi(val); err == nil {
 				res.Movie.Year = n

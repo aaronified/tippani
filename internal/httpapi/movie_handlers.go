@@ -59,7 +59,10 @@ type movieReq struct {
 	// Publisher is the OTHER company credit a game has (0042). Its own field
 	// rather than a second meaning for Director, because collapsing the two is
 	// the bug that migration exists to end.
-	Publisher    string   `json:"publisher"`
+	Publisher string `json:"publisher"`
+	// 0062 — the work's links out, same column and same format as a person's and
+	// a character's. See the migration for why it is free text.
+	Links        string   `json:"links"`
 	ReleaseYear  int      `json:"release_year"`
 	ReleaseCirca bool     `json:"release_circa"`
 	Description  string   `json:"description"`
@@ -95,6 +98,12 @@ func (m *movieReq) validate() string {
 	}
 	if idOrZero(m.IGDBID) < 0 {
 		return "igdb_id must be a positive number"
+	}
+	// 0062's cap, and bookReq.validate says why it is capped where a person's is
+	// not: this one is pasted into a box rather than assembled from a fetch.
+	var lok bool
+	if m.Links, lok = trimCap(m.Links, 4000); !lok {
+		return "that is too many links"
 	}
 	return ""
 }
@@ -215,6 +224,7 @@ type movieDetail struct {
 	Title        string                `json:"title"`
 	Director     string                `json:"director"`
 	Publisher    string                `json:"publisher"`
+	Links        string                `json:"links"`
 	ReleaseYear  int                   `json:"release_year"`
 	ReleaseCirca bool                  `json:"release_circa"`
 	TMDBID       int64                 `json:"tmdb_id"`
@@ -243,13 +253,13 @@ func (s *Server) fetchMovie(uid, id int64) (*movieDetail, error) {
 		       COALESCE(tvdb_id, 0), COALESCE(igdb_id, 0), media_type, COALESCE(poster_path, ''), COALESCE(description, ''),
 		       COALESCE(series, ''), COALESCE(series_index, 0), favorite, status, progress,
 		       pos_unit, pos, pos_total, season, season_total, created_at,
-		       COALESCE(imdb_id, ''), publisher, COALESCE(fandom_wiki, '')
+		       COALESCE(imdb_id, ''), publisher, COALESCE(fandom_wiki, ''), links
 		FROM movies WHERE id = ? AND user_id = ?`, id, uid).
 		Scan(&m.ID, &m.Title, &m.Director, &m.ReleaseYear, &m.ReleaseCirca, &m.TMDBID,
 			&m.TVDBID, &m.IGDBID, &m.MediaType, &m.PosterPath, &m.Description,
 			&m.Series, &m.SeriesIndex, &m.Favorite, &m.Status, &m.Progress,
 			&m.Unit, &m.Pos, &m.PosTotal, &m.Season, &m.SeasonTotal,
-			&m.CreatedAt, &m.IMDbID, &m.Publisher, &m.FandomWiki)
+			&m.CreatedAt, &m.IMDbID, &m.Publisher, &m.FandomWiki, &m.Links)
 	if err != nil {
 		return nil, err
 	}
@@ -348,11 +358,11 @@ func (s *Server) handleCreateMovie(w http.ResponseWriter, r *http.Request) {
 	}
 	if _, err := tx.Exec(`
 		INSERT INTO movies (id, updated_at, user_id, title, director, release_year, release_circa, description,
-		                    media_type, series, series_index, favorite, imdb_id, publisher)
-		VALUES (?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		                    media_type, series, series_index, favorite, imdb_id, publisher, links)
+		VALUES (?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		id, uid, req.Title, nullable(req.Director), nullableInt(req.ReleaseYear), req.ReleaseCirca,
 		nullable(req.Description), req.MediaType, nullable(req.Series),
-		nullableFloat(req.SeriesIndex), req.Favorite, normaliseIMDb(req.IMDbID), req.Publisher); err != nil {
+		nullableFloat(req.SeriesIndex), req.Favorite, normaliseIMDb(req.IMDbID), req.Publisher, req.Links); err != nil {
 		internalError(w, r, "create movie: insert", err)
 		return
 	}
@@ -931,11 +941,11 @@ func (s *Server) handleUpdateMovie(w http.ResponseWriter, r *http.Request) {
 	res, err := tx.Exec(`
 		UPDATE movies SET title = ?, director = ?, release_year = ?, release_circa = ?, description = ?,
 		                  media_type = ?, series = ?, series_index = ?, favorite = ?, imdb_id = ?,
-		                  publisher = ?, updated_at = datetime('now')
+		                  publisher = ?, links = ?, updated_at = datetime('now')
 		WHERE id = ? AND user_id = ?`,
 		req.Title, nullable(req.Director), nullableInt(req.ReleaseYear), req.ReleaseCirca,
 		nullable(req.Description), req.MediaType, nullable(req.Series),
-		nullableFloat(req.SeriesIndex), req.Favorite, normaliseIMDb(req.IMDbID), req.Publisher, id, uid)
+		nullableFloat(req.SeriesIndex), req.Favorite, normaliseIMDb(req.IMDbID), req.Publisher, req.Links, id, uid)
 	if err != nil {
 		failErr("update movie: exec", err)
 		return

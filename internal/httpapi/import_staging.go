@@ -281,6 +281,7 @@ func stageBookWork(tx *sql.Tx, batchID int64, b importer.Book) (int64, error) {
 			                         subtitle = CASE WHEN subtitle = '' THEN ? ELSE subtitle END,
 			                         publisher = CASE WHEN publisher = '' THEN ? ELSE publisher END,
 			                         pages = CASE WHEN pages = 0 THEN ? ELSE pages END,
+			                         links = CASE WHEN links = '' THEN ? ELSE links END,
 			                         status = CASE WHEN status = '' THEN ? ELSE status END,
 			                         progress = max(progress, ?),
 			                         pos_json = CASE WHEN pos_json = '' THEN ? ELSE pos_json END,
@@ -292,7 +293,7 @@ func stageBookWork(tx *sql.Tx, batchID int64, b importer.Book) (int64, error) {
 			// The two languages are NOT NULL DEFAULT '' (0047), so `CASE WHEN col = ''`
 			// rather than COALESCE — the same reason spelled out at enrichStagedQuote.
 			b.Language, b.OrigLanguage,
-			b.Subtitle, b.Publisher, b.Pages, // 0061, on the same fill-empty-only terms
+			b.Subtitle, b.Publisher, b.Pages, b.Links, // 0061 and 0062, fill-empty-only
 			b.Status, b.Progress, encodePos(bookShelf(b).Pos), encodeReads(b.Reads),
 			encodeCast(b.Cast), id); err != nil {
 			return 0, err
@@ -304,13 +305,13 @@ func stageBookWork(tx *sql.Tx, batchID int64, b importer.Book) (int64, error) {
 	}
 	res, err := tx.Exec(
 		`INSERT INTO staged_works (batch_id, kind, title, author, translator, editor,
-		                           language, orig_language, subtitle, publisher, pages,
+		                           language, orig_language, subtitle, publisher, pages, links,
 		                           isbn, asin, series, series_index,
 		                           status, progress, pos_json, reads_json, cast_json)
-		 VALUES (?, 'book', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		 VALUES (?, 'book', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		batchID, b.Title, nullable(b.Author), nullable(b.Translator), nullable(b.Editor),
 		b.Language, b.OrigLanguage, // plain strings: NOT NULL DEFAULT '' (0047)
-		b.Subtitle, b.Publisher, b.Pages, // and 0061's
+		b.Subtitle, b.Publisher, b.Pages, b.Links, // and 0061's and 0062's
 		nullable(b.ISBN), nullable(b.ASIN),
 		nullable(b.Series), nullableFloat(b.SeriesIndex),
 		b.Status, b.Progress, encodePos(bookShelf(b).Pos), encodeReads(b.Reads),
@@ -338,6 +339,8 @@ func stageMovieWork(tx *sql.Tx, batchID int64, m importer.MovieHeader) (int64, e
 			`UPDATE staged_works SET director = COALESCE(director, ?), imdb_id = COALESCE(imdb_id, ?),
 			                         series = COALESCE(series, ?), series_index = COALESCE(series_index, ?),
 			                         genres = CASE WHEN genres = '' THEN ? ELSE genres END,
+			                         publisher = CASE WHEN publisher = '' THEN ? ELSE publisher END,
+			                         links = CASE WHEN links = '' THEN ? ELSE links END,
 			                         status = CASE WHEN status = '' THEN ? ELSE status END,
 			                         progress = max(progress, ?),
 			                         pos_json = CASE WHEN pos_json = '' THEN ? ELSE pos_json END,
@@ -346,6 +349,11 @@ func stageMovieWork(tx *sql.Tx, batchID int64, m importer.MovieHeader) (int64, e
 			  WHERE id = ?`,
 			nullable(m.Director), nullable(m.IMDbID), nullable(m.Series),
 			nullableFloat(m.SeriesIndex), strings.Join(m.Genres, ", "),
+			// A GAME'S PUBLISHER WAS BEING LOST HERE, and had been since staging
+			// and 0042 met: the parser read it, the library column existed, and the
+			// queue between them had no slot — so an import of a catalogue export
+			// dropped it in silence, with matching counts. 0062's links join it.
+			m.Publisher, m.Links,
 			m.Status, m.Progress, encodePos(movieShelf(m).Pos), encodeReads(m.Reads),
 			encodeCast(m.Cast), id); err != nil {
 			return 0, err
@@ -358,11 +366,11 @@ func stageMovieWork(tx *sql.Tx, batchID int64, m importer.MovieHeader) (int64, e
 	res, err := tx.Exec(
 		`INSERT INTO staged_works
 		   (batch_id, kind, title, series, series_index, release_year, imdb_id, director, genres,
-		    status, progress, pos_json, reads_json, cast_json)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		    publisher, links, status, progress, pos_json, reads_json, cast_json)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		batchID, kind, m.Title, nullable(m.Series), nullableFloat(m.SeriesIndex),
 		nullableInt(m.Year), nullable(m.IMDbID), nullable(m.Director),
-		strings.Join(m.Genres, ", "), m.Status, m.Progress,
+		strings.Join(m.Genres, ", "), m.Publisher, m.Links, m.Status, m.Progress,
 		encodePos(movieShelf(m).Pos), encodeReads(m.Reads), encodeCast(m.Cast))
 	if err != nil {
 		return 0, err
@@ -1173,6 +1181,7 @@ type stagedWorkForApproval struct {
 	Subtitle    string
 	Publisher   string
 	Pages       int
+	Links       string
 	ISBN        string
 	ASIN        string
 	Series      string
@@ -1199,7 +1208,7 @@ func (w stagedWorkForApproval) book() importer.Book {
 	return importer.Book{
 		Title: w.Title, Author: w.Author, Translator: w.Translator, Editor: w.Editor,
 		Language: w.Language, OrigLanguage: w.OrigLanguage,
-		Subtitle: w.Subtitle, Publisher: w.Publisher, Pages: w.Pages,
+		Subtitle: w.Subtitle, Publisher: w.Publisher, Pages: w.Pages, Links: w.Links,
 		ISBN: w.ISBN, ASIN: w.ASIN,
 		Series: w.Series, SeriesIndex: w.SeriesIndex,
 		Status: w.Status, Progress: w.Progress, Reads: w.Reads, Cast: w.Cast,
@@ -1211,6 +1220,7 @@ func (w stagedWorkForApproval) header() importer.MovieHeader {
 	return importer.MovieHeader{
 		Title: w.Title, Year: w.ReleaseYear, IMDbID: w.IMDbID,
 		MediaType: importMediaType(w.Kind), Director: w.Director, Genres: w.Genres,
+		Publisher: w.Publisher, Links: w.Links,
 		Series: w.Series, SeriesIndex: w.SeriesIndex,
 		Status: w.Status, Progress: w.Progress, Reads: w.Reads, Cast: w.Cast,
 		Pos: w.Pos.Pos, PosTotal: w.Pos.PosTotal,
@@ -1233,7 +1243,7 @@ func loadStagedForApproval(tx *sql.Tx, picked stagedSelection) ([]stagedWorkForA
 		rows, err := tx.Query(`
 			SELECT w.id, w.kind, w.title, COALESCE(w.author, ''),
 			       COALESCE(w.translator, ''), COALESCE(w.editor, ''),
-			       w.language, w.orig_language, w.subtitle, w.publisher, w.pages,
+			       w.language, w.orig_language, w.subtitle, w.publisher, w.pages, w.links,
 			       COALESCE(w.isbn, ''),
 			       COALESCE(w.asin, ''), COALESCE(w.series, ''), COALESCE(w.series_index, 0),
 			       COALESCE(w.release_year, 0), COALESCE(w.imdb_id, ''), COALESCE(w.director, ''),
@@ -1252,7 +1262,7 @@ func loadStagedForApproval(tx *sql.Tx, picked stagedSelection) ([]stagedWorkForA
 			var genres, posJSON, readsJSON, castJSON string
 			if err := rows.Scan(&wk.ID, &wk.Kind, &wk.Title, &wk.Author,
 				&wk.Translator, &wk.Editor, &wk.Language, &wk.OrigLanguage,
-				&wk.Subtitle, &wk.Publisher, &wk.Pages, &wk.ISBN, &wk.ASIN,
+				&wk.Subtitle, &wk.Publisher, &wk.Pages, &wk.Links, &wk.ISBN, &wk.ASIN,
 				&wk.Series, &wk.SeriesIndex, &wk.ReleaseYear, &wk.IMDbID, &wk.Director,
 				&genres, &wk.Status, &wk.Progress, &posJSON, &readsJSON, &castJSON,
 				&wk.TargetKind, &wk.TargetID, &wk.Source); err != nil {

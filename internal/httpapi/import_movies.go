@@ -185,6 +185,16 @@ func backfillImportMovie(tx *sql.Tx, uid, movieID int64, m importer.MovieHeader,
 			return err
 		}
 	}
+	// 0062, on the same NULLIF terms as the publisher above and for the same
+	// reason. A link list the reader has already built is not overwritten by a
+	// file: fill-empty-only means an import fills a blank and never edits.
+	if m.Links != "" {
+		if _, err := tx.Exec(
+			`UPDATE movies SET links = COALESCE(NULLIF(links, ''), ?), updated_at = datetime('now') WHERE id = ?`,
+			m.Links, movieID); err != nil {
+			return err
+		}
+	}
 	if m.Series != "" {
 		if _, err := tx.Exec(
 			`UPDATE movies SET series = COALESCE(series, ?), series_index = COALESCE(series_index, ?), updated_at = datetime('now')
