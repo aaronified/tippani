@@ -39,8 +39,8 @@ keys, working from a per-key dossier — the English, the context comment, the s
 that renders it, its budget — rather than from the English alone, with the brief that the
 app should read as if it had been written in Bengali first: say what a control does where
 the English only names it, and use the written Bengali of today (ডিভাইস, ট্যাপ, এনক্রিপ্ট,
-ফন্ট, রিলোড) rather than a coined native word nobody says. The register, the orthography and
-the দাগ / সংলাপ / উক্তি / উদ্ধৃতি system were kept; every term that changed is listed at the
+ফন্ট, রিলোড) rather than a coined native word nobody says. The register and the orthography were kept, and the
+owner retired দাগ — a book highlight is an উদ্ধৃতি like any quote; every term that changed is listed at the
 foot of the style sheet under "v3 decisions", and the header of `bn.txt` now says outright
 that it is not a translation of `en.txt`. The checks in the table below were run again over
 the result, and an independent rating pass read it against the brief before it landed.

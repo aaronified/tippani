@@ -18,9 +18,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   স্টিকার, a key is a চাবি, the calendar is the ক্যালেন্ডার the help panel already called it);
   the classifier টা throughout, দুটো and কটা without the apostrophe. Where the English is a
   bare label the Bengali may say what the thing is for, because that is the sentence a
-  Bengali speaker would use for the same job. The register, orthography and the
-  দাগ / সংলাপ / উক্তি / উদ্ধৃতি system in `docs/plans/bengali-style.md` stand; every term that
-  changed is recorded at its foot under "v3 decisions". The tour's demo book is now the
+  Bengali speaker would use for the same job. The register and orthography in
+  `docs/plans/bengali-style.md` stand, and three terms changed at the owner's word: a book
+  highlight is an উদ্ধৃতি like any other quote (দাগ, which reads as a stain, is retired), the bin
+  is the ডাস্টবিন, and the text of a quote is a বাক্য. Every term that changed is recorded at the
+  sheet's foot under "v3 decisions". The tour's demo book is now the
   first song of গীতাঞ্জলি rather than a translated English quotation; the demo film stays
   Casablanca, because a film line is a quotation too.
 

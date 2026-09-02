@@ -144,7 +144,14 @@ so using it for the object collides head-on with the app's own name: *টিপ�
 
 Nothing else. Not the object, not the field, not the count.
 
-### 2.2 A book HIGHLIGHT (the app's "annotation") → **দাগ**
+### 2.2 A book HIGHLIGHT (the app's "annotation") → **উদ্ধৃতি** (v3; দাগ retired)
+
+**Superseded by the owner in v3.** দাগ reads as a stain and a scratch before it reads as a
+highlight, and the owner ruled it out: a book highlight is an **উদ্ধৃতি** like every other
+quote, the word the app already used for the umbrella and for anthologies. Where a screen must
+tell the kinds apart, the film line is still **সংলাপ** and the standalone quote **উক্তি**, so
+"বইয়ের উদ্ধৃতি, সিনেমার সংলাপ আর একলা উক্তি" is the shape. The original reasoning stays below
+for the record; do not act on it.
 
 **Reasoning.** দাগ is what a Bengali reader literally does to a book — *বইয়ে দাগ দেওয়া* —
 and the app's object is precisely the metonymy English performs with *highlight*: the mark
@@ -195,7 +202,7 @@ for the screen. Bengali splits it and is clearer for it:
 | Concept | Bengali | Where |
 | --- | --- | --- |
 | All three kinds, as one class | **উদ্ধৃতি** | `unit.quote`, quote cards, anthologies, search, stats totals |
-| A book highlight | **দাগ** | Library, a book's page, `unit.highlight` |
+| A book highlight | **উদ্ধৃতি** (v3; was দাগ) | Library, a book's page, `unit.highlight` |
 | A film / show / game line | **সংলাপ** | Catalogue, a title's page, `unit.dialogue` |
 | A standalone utterance | **উক্তি** | the Quotes tab, boards, `nav.tab.quotes` |
 | The practice, and the app | **টিপ্পনী** | brand, epigraphs, tour |
@@ -254,7 +261,7 @@ than three times.
 | work (the thing a quote came from) | উৎস | The app's own quiz calls it "the source" — *কোন উৎস থেকে* |
 | series / collection / franchise | সিরিজ | **One word for both** — `en.txt` itself says a collection is "the film side of the Library's series". *হ্যারি পটার সিরিজ* is what a Bengali says |
 | quote (all three kinds) | উদ্ধৃতি | §2.5 |
-| highlight / annotation | দাগ | §2.2 |
+| highlight / annotation | উদ্ধৃতি | §2.2 — v3, the owner's call; দাগ retired |
 | dialogue / film line | সংলাপ | §2.3 |
 | standalone quote | উক্তি | §2.4 |
 | note (the reader's own) | নোট | টীকা and টিপ্পনী are both barred (§2.1); নোট is what a Bengali says |
@@ -269,7 +276,7 @@ than three times.
 | poster | পোস্টার | |
 | picture / image (the share format) | ছবি | |
 | portrait (a person's photo) | মুখের ছবি | Distinguished from ছবি because the share sheet shows both at once |
-| bin | বিন | |
+| bin | ডাস্টবিন | v3: the word on every Bengali street corner; বিন alone is a bean |
 | proverb | প্রবাদ | |
 | speech | ভাষণ | |
 | letter (correspondence) | চিঠি | |
@@ -394,7 +401,7 @@ The button-grammar rule is in §5.4. These are the words.
 | Flip and self-mark | উল্টে নিজে বিচার | |
 | Who said this? | কে বলেছে? | |
 | Name the source | কোন উৎস? | |
-| Pick the quote | কোন লাইনটা? | |
+| Pick the quote | কোন বাক্যটা? | v3: a quote's text is a বাক্য, not a লাইন |
 | due now | এখনই দেখে নেওয়ার পালা | v3: a state line about a card, not an alarm |
 | set it aside | সরিয়ে রাখুন | |
 
@@ -440,7 +447,7 @@ in three persons is exactly the drift this sheet exists to prevent.
 | Account | অ্যাকাউন্ট | |
 | Search (the tab) | খোঁজ | |
 | Pending import | অপেক্ষায় ইমপোর্ট | |
-| The bin | বিন | |
+| The bin | ডাস্টবিন | v3 |
 | Activity (the calendar) | ক্যালেন্ডার | v3: the help panel had always called the same grid *Calendar*; heading, tab tip and help term now say one word. রোজনামচা was lovely and nobody looked for it |
 | Memory | স্মৃতি | |
 | Breakdown | কে কত | Deliberately non-literal: the section is "the authors and tags your library leans on", and this is how a Bengali subhead says it. `breakdown kind` → *কীসের হিসেব* |
@@ -988,7 +995,10 @@ The third pass (2.2.x) rewrote **every** line of `bn.txt` — 3,385 keys — fro
 dossier: the English, the context comment above it, the source line that renders it and
 its budget. Its brief was that the app should read as if it had been written in Bengali
 first, in **the written Bengali of today**. Everything above still holds — চলিত, আপনি with
-the pronoun dropped, Kolkata orthography, দাগ / সংলাপ / উক্তি / উদ্ধৃতি, টিপ্পনী reserved.
+the pronoun dropped, Kolkata orthography, সংলাপ / উক্তি / উদ্ধৃতি, টিপ্পনী reserved — with the
+owner's three late rulings: a book highlight is **উদ্ধৃতি** (দাগ retired), the bin is **ডাস্টবিন**,
+and the text of a quote is a **বাক্য** where the English says "line" (লাইন stays for a line of a
+form, a credit line, a line break).
 What follows is what the pass added or changed, so nobody re-decides it.
 
 ### v3.1 The loanword rule, sharpened
