@@ -121,4 +121,34 @@ describe('the Settings dock', () => {
     fireEvent.submit(box.closest('form'))
     await waitFor(() => expect(applied).toBe(start + 1))
   })
+
+  // A RUNNING UPDATE IS NOT A BUTTON. "Pulling the new image — this can take a
+  // few minutes…" was the button's LABEL, so a 140px control on a phone was asked
+  // to hold a sentence and pushed the row off the screen.
+  it('says a running update in prose, not on a control', async () => {
+    asPhone()
+    page()
+    await waitFor(() => expect(keys()).toContain('update'))
+    press('update')
+    const sheet = await waitFor(() => {
+      const el = document.querySelector('.mobile-sheet-card')
+      expect(el).toBeTruthy()
+      return el
+    })
+    const box = await within(sheet).findByPlaceholderText('UPDATE')
+    fireEvent.change(box, { target: { value: 'UPDATE' } })
+    fireEvent.submit(box.closest('form'))
+
+    const line = await screen.findAllByText(/pulling the new image/i)
+    expect(line.length).toBeGreaterThan(0)
+    // Prose, not a control — and the form is gone, because once the pull has
+    // started there is nothing on that row left to decide.
+    for (const el of line) expect(el.closest('button')).toBeNull()
+    // Re-queried: the sheet re-renders, and a node captured before the submit is
+    // not the one on screen after it.
+    await waitFor(() => {
+      const live = document.querySelector('.mobile-sheet-card')
+      expect(within(live).queryByPlaceholderText('UPDATE')).toBeNull()
+    })
+  })
 })

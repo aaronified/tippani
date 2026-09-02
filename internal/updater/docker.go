@@ -21,9 +21,31 @@ import (
 // DefaultDockerSock is the Engine-API unix socket; override with
 // TIPPANI_DOCKER_SOCK. DefaultUpdaterImage is the one-shot recreater; override
 // with TIPPANI_UPDATER_IMAGE (e.g. to pin a digest).
+//
+// ---- WHY NOT containrrr/watchtower ANY MORE ---------------------------------
+//
+// It was the default until this release, and on a current Docker host it cannot
+// work at all. Watchtower 1.7.1 is the last release of that project (2023) and
+// its Engine client negotiates API 1.25; Docker Engine's own floor has since
+// risen, and a modern daemon answers:
+//
+//	client version 1.25 is too old. Minimum supported API version is 1.40
+//
+// after which the helper panics on a nil metric and exits. THE FAILURE IS
+// INVISIBLE FROM HERE. The helper is detached and AutoRemove, so its stderr goes
+// nowhere this process reads — the app logs "recreater launched", the container
+// is never recreated, and the only symptom is the version failing to change,
+// which reads as "the update did nothing" rather than as "the updater is broken".
+// That is exactly what it looked like to the operator who reported it: four
+// applies in an hour, four successful pulls, and a container still on the image
+// it started on.
+//
+// nickfedor/watchtower is the maintained continuation of the same project — same
+// flags, same behaviour, same one-shot contract — and negotiates the daemon's own
+// API version. Nothing else in this file changes.
 const (
 	DefaultDockerSock   = "/var/run/docker.sock"
-	DefaultUpdaterImage = "containrrr/watchtower"
+	DefaultUpdaterImage = "nickfedor/watchtower"
 )
 
 func DockerSock() string   { return envOr("TIPPANI_DOCKER_SOCK", DefaultDockerSock) }

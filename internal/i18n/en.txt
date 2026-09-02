@@ -4482,6 +4482,11 @@ metadata.gap.no-source.label = no source
 metadata.gap.no-cast.label = no cast
 metadata.gap.no-director.label = no director
 metadata.gap.no-actor.label = no actor
+metadata.issues.title = Everything that needs work
+metadata.issues.none = Nothing is missing. Every record this page can check is complete.
+metadata.issue.people-thin.label = people with no portrait or link
+metadata.issue.people-dup.label = people who may be the same person
+metadata.issue.chars-dup.label = characters who may be the same character
 # And a row with nothing missing at all.
 metadata.row.complete = complete ✓
 metadata.row.nocover.aria = No cover stored
@@ -4610,6 +4615,10 @@ metadata.characters.info.body = Every character as a record of its own — the s
 metadata.characters.column.works = works
 metadata.characters.column.sort = sorts as
 metadata.characters.empty = No characters yet. They arrive with a film's cast, or you can add one on a work.
+metadata.characters.work.aria = Which work
+metadata.characters.work.all.label = every work
+metadata.characters.work.none.label = in no work
+metadata.characters.work.filter.placeholder = Find a work
 metadata.characters.summary.one = {n} character, {unpaired} in no work
 metadata.characters.summary.other = {n} characters, {unpaired} in no work
 

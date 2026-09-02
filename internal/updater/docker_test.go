@@ -283,3 +283,73 @@ func TestProbeNamesWhatItLookedFor(t *testing.T) {
 		}
 	})
 }
+
+// TestDefaultUpdaterImageIsMaintained pins WHICH helper recreates the container,
+// because getting that wrong is a silent no-op rather than an error.
+//
+// containrrr/watchtower was the default until 3.x and on a current Docker host it
+// cannot work at all: 1.7.1 is that project's last release (2023), its Engine
+// client negotiates API 1.25, and a modern daemon refuses anything below 1.40 —
+// after which the helper panics and exits. THE APP CANNOT SEE ANY OF THAT. The
+// helper is detached and AutoRemove, so its stderr goes nowhere this process
+// reads; the log says "recreater launched", the container is never recreated, and
+// the only symptom is a version that does not change.
+//
+// So the assertion is about the NAME, which is the whole of the fix, and it is
+// spelled out rather than compared to a constant: a test that reads
+// DefaultUpdaterImage twice would pass whatever it was changed to.
+func TestDefaultUpdaterImageIsMaintained(t *testing.T) {
+	if DefaultUpdaterImage != "nickfedor/watchtower" {
+		t.Fatalf("DefaultUpdaterImage = %q, want the maintained fork", DefaultUpdaterImage)
+	}
+	if UpdaterImage() != "nickfedor/watchtower" {
+		t.Fatalf("UpdaterImage() = %q with no override set", UpdaterImage())
+	}
+	t.Setenv("TIPPANI_UPDATER_IMAGE", "example/pinned@sha256:deadbeef")
+	if UpdaterImage() != "example/pinned@sha256:deadbeef" {
+		t.Fatalf("UpdaterImage() ignored TIPPANI_UPDATER_IMAGE: %q", UpdaterImage())
+	}
+}
+
+// TestRunWatchtowerPullsTheImageItRuns: the create body names the same image the
+// pull asked for. They are two calls with one string between them, and a helper
+// created from an image that was never pulled is a create that 404s on a host
+// that has never seen it.
+func TestRunWatchtowerPullsTheImageItRuns(t *testing.T) {
+	var pulled string
+	var createBody map[string]any
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/images/create" && r.Method == http.MethodPost:
+			pulled = r.URL.Query().Get("fromImage") + ":" + r.URL.Query().Get("tag")
+			w.WriteHeader(200)
+			io.WriteString(w, `{"status":"ok"}`)
+		case strings.HasPrefix(r.URL.Path, "/containers/") && strings.HasSuffix(r.URL.Path, "/json"):
+			w.Header().Set("Content-Type", "application/json")
+			io.WriteString(w, `{"Id":"abc","Name":"/tippani","Config":{"Image":"x"},"NetworkSettings":{"Networks":{}}}`)
+		case r.URL.Path == "/containers/create" && r.Method == http.MethodPost:
+			json.NewDecoder(r.Body).Decode(&createBody)
+			w.WriteHeader(201)
+			io.WriteString(w, `{"Id":"wt1"}`)
+		case r.URL.Path == "/containers/wt1/start" && r.Method == http.MethodPost:
+			w.WriteHeader(204)
+		default:
+			w.WriteHeader(200)
+		}
+	}))
+	defer ts.Close()
+
+	d := NewDocker("tcp://" + strings.TrimPrefix(ts.URL, "http://"))
+	if err := d.RunWatchtower(context.Background(), "tippani"); err != nil {
+		t.Fatalf("RunWatchtower: %v", err)
+	}
+	if createBody == nil {
+		t.Fatal("no create recorded")
+	}
+	if createBody["Image"] != DefaultUpdaterImage {
+		t.Errorf("created from %v, want %s", createBody["Image"], DefaultUpdaterImage)
+	}
+	if !strings.HasPrefix(pulled, DefaultUpdaterImage) {
+		t.Errorf("pulled %q, want the image it then runs (%s)", pulled, DefaultUpdaterImage)
+	}
+}

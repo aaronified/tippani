@@ -70,10 +70,28 @@ func (s *Server) loadCharacterImages(uid int64, kind string, refs []characterIma
 		args = append(args, id)
 	}
 	out := map[string]string{}
+	// THE RECORD'S OWN PICTURE IS THE FALLBACK, and leaving it out was a bug you
+	// could only find by merging: set a character's picture on the book you are
+	// reading, merge that record with the same character in another book, and the
+	// second book's quotes drew no face at all. The merge joins the RECORDS — it
+	// does not, and must not, copy a per-work picture onto every appearance, since
+	// "what this character looks like in THIS work" is the finer grain the column
+	// exists for.
+	//
+	// So the per-work picture wins where there is one and the record's default
+	// stands in where there is not, which is what "default" has meant on the
+	// record since it gained the field. The row is still omitted when neither
+	// exists: the chip's job is to show the faces there ARE, and the client's
+	// actor fallback needs to be able to tell "no picture" from "no character".
 	rows, err := s.Store.DB.Query(
-		`SELECT work_id, character_key, character_image_path FROM work_cast
-		 WHERE user_id = ? AND kind = ? AND character_image_path <> '' AND origin <> 'removed'
-		   AND work_id IN (`+strings.Join(in, ",")+`)`, args...)
+		`SELECT wc.work_id, wc.character_key,
+		        CASE WHEN wc.character_image_path <> '' THEN wc.character_image_path
+		             ELSE COALESCE(c.image_path, '') END
+		   FROM work_cast wc
+		   LEFT JOIN characters c ON c.id = wc.character_id AND c.user_id = wc.user_id
+		  WHERE wc.user_id = ? AND wc.kind = ? AND wc.origin <> 'removed'
+		    AND (wc.character_image_path <> '' OR COALESCE(c.image_path, '') <> '')
+		    AND wc.work_id IN (`+strings.Join(in, ",")+`)`, args...)
 	if err != nil {
 		olog.Warnf(olog.CodeCastRowScan, "[cast] character images for %d %s work(s): %v", len(ids), kind, err)
 		return nil

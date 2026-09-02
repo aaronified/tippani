@@ -49,6 +49,15 @@ vi.mock('../../src/api.js', async (orig) => ({
 }))
 
 const { default: MetadataPage } = await import('../../src/MetadataPage.jsx')
+const { useScreenBarState } = await import('../../src/ui.jsx')
+
+// What the page hands the shell's dock, read through a probe rather than a getter
+// so the test sees exactly what a subscriber sees.
+let BAR = { sub: null, keys: null }
+const Probe = () => {
+  BAR = useScreenBarState()
+  return null
+}
 
 // A book with two gaps on it, so the overview has something to count.
 const book = (id, title, cover = '') => ({
@@ -74,8 +83,23 @@ afterEach(() => cleanup())
 
 const press = async (el) => { await act(async () => el.click()) }
 const mount = async () => {
-  render(<MetadataPage user={{ username: 'alice', is_admin: true }} onOpenBook={() => {}} onOpenMovie={() => {}} onSearch={() => {}} />)
-  await screen.findAllByRole('tab')
+  render(<><MetadataPage user={{ username: 'alice', is_admin: true }} onOpenBook={() => {}} onOpenMovie={() => {}} onSearch={() => {}} /><Probe /></>)
+  if (WIDTH <= 768) await screen.findByLabelText(/which metadata/i)
+  else await screen.findAllByRole('tab')
+}
+
+// ── THE PHONE'S RAIL IS A FIELD. Five tabs on a 390px strip showed two and a
+// half; the section a reader is not in was behind a scroll gesture with no
+// arrow. So the phone's doors are options, and a test opens them the way a thumb
+// does: press the field, then the row.
+const openSections = async () => { await press(screen.getByLabelText(/which metadata/i)) }
+const phoneDoors = async () => {
+  await openSections()
+  return screen.getAllByRole('option').map((o) => o.textContent)
+}
+const phoneDoor = async (name) => {
+  await openSections()
+  await press(screen.getByRole('option', { name }))
 }
 const rail = () => screen.getAllByRole('tab').map((b) => b.textContent)
 const tab = (name) => screen.getByRole('tab', { name })
@@ -204,13 +228,75 @@ describe('on a phone', () => {
 
   it('gets the same five doors', async () => {
     await mount()
-    expect(rail().map((s) => s.replace(/\d+$/, ''))).toEqual(['Overview', 'Works', 'People', 'Characters', 'Sources'])
+    // A field, not a strip: five tabs at 390px show two and a half of themselves.
+    expect(screen.queryAllByRole('tab')).toHaveLength(0)
+    const doors = await phoneDoors()
+    expect(doors.map((s) => s.replace(/\s*·.*$/, ''))).toEqual(['Overview', 'Works', 'People', 'Characters', 'Sources'])
+  })
+
+  it('carries each door\u2019s number into the field, because that is why it is a rail', async () => {
+    await mount()
+    const doors = await phoneDoors()
+    // The counts do not survive being turned into a dropdown — they are the
+    // reason the rail is a rail and not a tab strip.
+    expect(doors.find((d) => d.startsWith('Works'))).toMatch(/·\s*2/)
+    expect(doors.find((d) => d.startsWith('Characters'))).toMatch(/·\s*2/)
+    // Sources counts settings, not records, so it still carries none.
+    expect(doors.find((d) => d.startsWith('Sources'))).toBe('Sources')
   })
 
   it('can reach the character list, which used to be desktop-only', async () => {
     await mount()
-    await press(tab(/^Characters/))
+    await phoneDoor(/^Characters/)
     expect(await screen.findByText('Woland')).toBeTruthy()
+  })
+
+  // ── EVERYTHING THAT NEEDS WORK, from the dock.
+  //
+  // The desktop answers this with a wall of tiles, each a filter button into the
+  // console beside it. The phone had the same numbers as sentences and nothing to
+  // press — reading "1 with no series" and having no way to reach that one.
+  describe('the issues sheet', () => {
+    const dockKey = (id) => {
+      const k = (BAR.keys || []).find((x) => x.id === id)
+      expect(k, id).toBeTruthy()
+      return k
+    }
+
+    it('publishes the two halves of this page\u2019s job to the dock', async () => {
+      await mount()
+      expect((BAR.keys || []).map((k) => k.id)).toEqual(['issues', 'fetch'])
+    })
+
+    it('offers no fetch to a reader who cannot run one', async () => {
+      render(<><MetadataPage user={{ username: 'bob', is_admin: false }} onOpenBook={() => {}} onOpenMovie={() => {}} onSearch={() => {}} /><Probe /></>)
+      await screen.findByLabelText(/which metadata/i)
+      // Reading what is incomplete is a question anybody may ask; going out to
+      // five providers and writing the answers back is not.
+      expect((BAR.keys || []).map((k) => k.id)).toEqual(['issues'])
+    })
+
+    it('lists only what is actually wrong, and every row is a door', async () => {
+      await mount()
+      await act(async () => dockKey('issues').onClick())
+      const rows = [...document.querySelectorAll('.meta-issue-row')].map((el) => el.textContent)
+      // The fixture's two books have no cover and no series; everything else
+      // about them is complete. Fourteen gap tokens exist and eleven of them are
+      // zero — a sheet of zeroes is a sheet that teaches a reader to stop
+      // reading it.
+      expect(rows.filter((r) => /cover/i.test(r))).toHaveLength(1)
+      expect(rows.filter((r) => /series/i.test(r))).toHaveLength(1)
+      expect(rows.some((r) => /year|genre|author/i.test(r))).toBe(false)
+
+      // AND IT IS A SUPERSET OF THE DESKTOP TILES. The three people in the
+      // fixture have neither a portrait nor a link, which the coverage strip has
+      // never counted — it only ever looked at the catalogue.
+      expect(rows.some((r) => /portrait or link/i.test(r))).toBe(true)
+
+      await press([...document.querySelectorAll('.meta-issue-row')].find((el) => /series/i.test(el.textContent)))
+      // It lands on the works console, filtered to the gap it named.
+      expect(screen.getByLabelText(/which metadata/i).textContent).toMatch(/^Works/)
+    })
   })
 
   it('reads the coverage as sentences rather than as filter tiles', async () => {

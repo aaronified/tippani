@@ -5855,7 +5855,15 @@ html[data-theme="dark"] .mobile-dock-btn.is-accent {
   cursor: pointer;
   transition: color .15s ease, background .15s ease;
 }
-.mobile-dock-btn:hover,
+/* HOVER IS GATED ON A POINTER THAT CAN HOVER, and this is the bug it fixes: on a
+   touch screen a tapped element KEEPS :hover until something else is tapped, so
+   the key you just pressed stayed lit for as long as you looked at the result —
+   "the press effect is staying on the icon even after the action has completed",
+   which is exactly what sticky hover looks like from the outside.
+   `:active` is unconditional: that one is the press itself and ends with it. */
+@media (hover: hover) {
+  .mobile-dock-btn:hover { color: var(--ink); }
+}
 .mobile-dock-btn:active { color: var(--ink); }
 /* The active state carries three cues so colour is never the only one: the icon
    rides on the accent fill (TabIcon strokes currentColor), the pill itself, and
@@ -7410,23 +7418,44 @@ html[data-theme="dark"] .board-cover {
    one that is a count of problems. A library of 900 books is not a warning. */
 .meta-rail-count.is-warn { color: var(--error); }
 
+/* THE RAIL IS A ROW AT EVERY WIDTH ABOVE A PHONE. It used to become a 13.5rem
+   left column at 900px and up — a sixth of a console screen spent on five words,
+   in front of content that is almost entirely TABLES, the one thing that wants
+   every pixel of width there is. Five short words fit across the top of any desk,
+   and the body below them gets the whole frame.
+
+   STICKY, which the left column was and for the same reason: the body is a
+   page-length console, so the map would otherwise scroll away exactly when a
+   reader has gone deep enough to want it. A row can do that too, and the row is
+   the thing the phone's dropdown replaces one-for-one. */
 @media (min-width: 900px) {
-  .meta-frame { grid-template-columns: minmax(0, 13.5rem) minmax(0, 1fr); gap: calc(var(--row) * 1.6); }
   .meta-rail {
-    flex-direction: column; align-items: stretch; gap: 1px;
-    overflow-x: visible; overflow-y: visible;
-    /* STICKY, unlike the help rail's, and for the opposite reason: this body is a
-       page-length console rather than a panel of prose, so the map would otherwise
-       scroll away exactly when a reader has gone deep enough to want it. */
-    position: sticky; top: calc(var(--row) * 0.5); align-self: start;
-    border-bottom: 0; border-right: 1px solid var(--line);
-    padding: 0 calc(var(--row) * 0.6) 0 0;
+    position: sticky; top: 0; z-index: 3;
+    background: var(--bg); padding-top: calc(var(--row) * 0.25);
   }
-  .meta-rail-item { border: 0; border-radius: 7px; padding: 8px 10px; }
-  /* An accent BAR, not a filled pill — the rail is a map, and a filled row in a
-     map reads as a pressed button. Same call the help rail makes. */
-  .meta-rail-item.is-on { box-shadow: inset 2px 0 0 var(--accent-ui); }
-  .meta-rail-label { flex: 1 1 auto; }
+}
+
+/* THE ISSUE ROWS, on the phone's sheet. A row rather than a tile because 390px
+   fits one column, and a door rather than a line because the whole complaint
+   about the coverage sentences was that you could read "3 with no author" and
+   have no way to reach those three. */
+.meta-issue-row {
+  display: flex; align-items: baseline; gap: 12px; width: 100%; text-align: left;
+  padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px;
+  background: var(--card); color: var(--ink); cursor: pointer;
+  font-family: var(--font-ui); font-style: var(--font-ui-style);
+  font-variant-caps: var(--font-ui-caps); text-transform: var(--font-ui-case);
+  font-variant-numeric: var(--font-ui-figures);
+  font-size: var(--type-ui-15);
+}
+.meta-issue-row:hover { background: var(--raised); }
+.meta-issue-label { flex: 1 1 auto; min-width: 0; }
+.meta-issue-count {
+  flex: none;
+  font-family: var(--font-mono); font-style: var(--font-mono-style);
+  font-variant-caps: var(--font-mono-caps); text-transform: var(--font-mono-case);
+  font-variant-numeric: var(--font-mono-figures);
+  font-size: var(--type-mono-13); color: var(--error);
 }
 
 /* ---- the character page ----
@@ -7533,6 +7562,13 @@ html[data-theme="dark"] .board-cover {
   color: var(--faint);
 }
 .person-face-btn:hover img, .person-face-btn:hover > svg { border-color: var(--accent-ui); }
+/* THE ROLE MARKS. A row of small glyphs that must not wrap the cell open: three
+   roles is the most any record has, and three 18px marks are narrower than the
+   shortest of the three words they stand for. */
+.person-roles-cell { white-space: nowrap; }
+.person-role-mark { display: inline-flex; align-items: center; color: var(--soft); margin-right: 6px; }
+.person-role-mark:last-child { margin-right: 0; }
+.person-role-mark svg { display: block; }
 .person-dup-face {
   width: max(20px, 1.5em); aspect-ratio: 3 / 4; object-fit: cover;
   border-radius: 3px; border: 1px solid var(--ink-border);

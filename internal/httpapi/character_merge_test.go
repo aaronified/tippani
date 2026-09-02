@@ -476,3 +476,93 @@ func TestDeletingAnUncreditedPerformerIsUndoableAndBringsTheirLinesBack(t *testi
 	}
 	creditsMustAgree(t, srv, 1)
 }
+
+// THE MERGED RECORD'S PICTURE REACHES BOTH BOOKS' QUOTES.
+//
+// The owner's report: set a character's default picture on the book you are
+// reading, merge that record with the same character in another book, and the
+// second book's quotes drew no face at all while the first book's did.
+//
+// The merge joins RECORDS — it does not, and must not, copy a per-work picture
+// onto every appearance, because "what this character looks like in THIS work" is
+// the finer grain `work_cast.character_image_path` exists for. What was missing is
+// the other half of that arrangement: with no per-work picture, the record's own
+// is what a quote should show. Without it "default" named a field nothing read.
+func TestAMergedCharacterPictureReachesEveryBooksQuotes(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	keep, drop, bookA, bookB := twoWolands(t, srv, c)
+
+	// The record's own picture — what "set the default image for a character"
+	// writes. Set through the store, because the route that fills it fetches bytes.
+	if _, err := srv.Store.DB.Exec(
+		`UPDATE characters SET image_path = ? WHERE id = ?`, "woland.jpg", keep); err != nil {
+		t.Fatal(err)
+	}
+	c.mustDo("POST", "/characters/merge", map[string]any{"keep_id": keep, "drop_id": drop}, 200)
+
+	// One quote in each book, both naming him.
+	for _, book := range []int64{bookA, bookB} {
+		c.mustDo("POST", "/annotations", map[string]any{
+			"book_id": book, "quote": "Manuscripts don't burn.", "character": "Woland",
+		}, http.StatusCreated)
+	}
+
+	type ann struct {
+		BookID          int64 `json:"book_id"`
+		CharacterImages []struct {
+			Name string `json:"name"`
+			Path string `json:"path"`
+		} `json:"character_images"`
+	}
+	got := decode[struct {
+		Annotations []ann `json:"annotations"`
+	}](t, c.mustDo("GET", "/annotations", nil, 200))
+	if len(got.Annotations) != 2 {
+		t.Fatalf("want the two quotes back, got %d", len(got.Annotations))
+	}
+	for _, a := range got.Annotations {
+		if len(a.CharacterImages) != 1 {
+			t.Fatalf("book %d: %d faces on the quote, want the merged record's one", a.BookID, len(a.CharacterImages))
+		}
+		if a.CharacterImages[0].Path != "woland.jpg" {
+			t.Fatalf("book %d: face = %q, want the record's own picture", a.BookID, a.CharacterImages[0].Path)
+		}
+	}
+}
+
+// AND THE PER-WORK PICTURE STILL WINS, which is the half the fallback must not
+// eat: a character drawn differently in the novel and in the film is the reason
+// the column is per-appearance at all.
+func TestAWorksOwnCharacterPictureBeatsTheRecordsDefault(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	keep, drop, bookA, _ := twoWolands(t, srv, c)
+	if _, err := srv.Store.DB.Exec(
+		`UPDATE characters SET image_path = ? WHERE id = ?`, "record.jpg", keep); err != nil {
+		t.Fatal(err)
+	}
+	c.mustDo("POST", "/characters/merge", map[string]any{"keep_id": keep, "drop_id": drop}, 200)
+	if _, err := srv.Store.DB.Exec(
+		`UPDATE work_cast SET character_image_path = ? WHERE kind = 'book' AND work_id = ?`,
+		"in-this-book.jpg", bookA); err != nil {
+		t.Fatal(err)
+	}
+	c.mustDo("POST", "/annotations", map[string]any{
+		"book_id": bookA, "quote": "Manuscripts don't burn.", "character": "Woland",
+	}, http.StatusCreated)
+
+	got := decode[struct {
+		Annotations []struct {
+			CharacterImages []struct {
+				Path string `json:"path"`
+			} `json:"character_images"`
+		} `json:"annotations"`
+	}](t, c.mustDo("GET", "/annotations", nil, 200))
+	if len(got.Annotations) != 1 || len(got.Annotations[0].CharacterImages) != 1 {
+		t.Fatalf("want one quote with one face, got %+v", got.Annotations)
+	}
+	if p := got.Annotations[0].CharacterImages[0].Path; p != "in-this-book.jpg" {
+		t.Fatalf("face = %q, want the picture stored against this work's cast row", p)
+	}
+}

@@ -9,6 +9,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The metadata page's sections are tabs across the top, and a dropdown on a phone.**
+  They were a 13.5rem left column from 900px up — a sixth of a console screen spent on
+  five words, in front of content that is almost entirely tables. On a phone the strip
+  showed two and a half of five tabs, so the section you were not in sat behind a
+  gesture with no arrow; a field states the one you are in and opens the rest.
+
+- **The metadata page's dock carries *Everything that needs work* and *Fetch*.** The
+  first opens one list of every gap in the library — the catalogue's, and also the
+  people and character problems the desktop coverage tiles have never counted — with
+  every row a door to the console that fixes it. Only what is actually wrong is listed.
+
+- **The people console fits a phone.** The links and quotes columns go (the name opens
+  the record, which holds both), the roles become glyphs, fetch loses its word, the six
+  role chips become a field, and the table stops being a scroller inside a scroller.
+
+- **The characters console filters by work.** The backfill makes one character record
+  per work — eight films of a series are eight Harrys — so "everybody in this one film"
+  is the list a reader wants, and the only control was a name box. *In no work* is a
+  choice too: those rows appear on no work's page by definition.
+
 - **A quote's translation is a reading setting now.** A translated quote is two texts,
   and the board always drew both. **Quote text** in a book's ⋯ chooses which — *Both*,
   *Quote only*, or *Translation only* — and the choice sticks. Asked for the translation
@@ -36,6 +56,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Selecting quotes can be found by looking.** A **Select quotes** row starts the mode
   with nothing picked. The other two ways in — a long press and a Ctrl-click — are
   gestures a reader has to already know.
+
+### Fixed
+
+- **One-click update: the container is actually recreated now.** The update pulled the
+  new image, said the recreater had launched, and left the container running the build
+  it started on — on every current Docker host. The one-shot helper was
+  `containrrr/watchtower`, whose last release (2023) speaks Engine API 1.25 while a
+  modern daemon refuses anything below 1.40; it died before doing any work, and because
+  it runs detached and self-removing, Tippani never saw the error. The maintained fork
+  is the default now. `TIPPANI_UPDATER_IMAGE` still overrides it, and
+  `docs/troubleshoot.md` describes the symptom for anyone on an older build.
+
+- **A merged character's picture reaches every book they are in.** Setting a
+  character's default picture and then merging that record with the same character in
+  another book left the second book's quotes drawing no face at all. The merge joins
+  the *records* — it deliberately does not copy a per-work picture onto every
+  appearance, since "what this character looks like in *this* work" is what the
+  per-work column is for — but with no per-work picture, the record's own is now what
+  a quote shows. A work that has its own still wins.
+
+- **A phone's dock key stops looking pressed after you press it.** On a touch screen
+  the last-tapped element keeps `:hover` until something else is tapped, so the key
+  stayed lit for as long as you looked at what it had done.
+
+- **A running update no longer pushes the Settings card off a phone screen.** "Pulling
+  the new image — this can take a few minutes…" was the *label* of a 140px button. It is
+  a line of prose now, and the confirmation form goes while the update runs: once the
+  pull has started there is nothing on that row left to decide.
+
 
 ### Changed
 

@@ -1262,6 +1262,55 @@ function UpdatesCard({ user, update, onUpdateInfo, asking = false, onAsking }) {
   }, [asking])
 
   const canApply = !!(info?.update_available && info?.can_self_update)
+
+  // THE TYPED CONFIRMATION, written once and drawn twice — on the card and in the
+  // sheet the dock's key opens. They already shared `confirm` and `apply`; sharing
+  // the markup too is what stops one of them growing a fix the other does not get,
+  // which is exactly what happened to the busy state below.
+  //
+  // A RUNNING UPDATE IS NOT A BUTTON. "Pulling the new image — this can take a few
+  // minutes…" was the button's LABEL, so a control 140px wide on a phone was
+  // asked to hold a sentence and pushed the row off the screen. It is prose now,
+  // and the form goes: once the pull has started there is nothing on this row
+  // left to decide, so a disabled input and a disabled button are two dead
+  // controls under a sentence that has replaced them.
+  // RESTARTING COUNTS AS RUNNING. The two phases are one thing to a reader — the
+  // update is happening — and only the sentence differs; offering the form back
+  // between them would be a second Update button under a page that is already
+  // waiting for the box to come back.
+  const running = phase === 'applying' || phase === 'restarting'
+  const confirmUpdate = (
+    <div style={{ display: 'grid', gap: 'calc(var(--row) * 0.6)' }}>
+      {/* UPDATE is not copy: it is the word the server compares byte for byte, so
+          it stays Latin in every language and is supplied as a node rather than
+          living in the value. */}
+      <p className="microcopy">
+        {tNodes('settings.updates.confirm.prose', { word: <b key="word">UPDATE</b>, version: info?.latest })}
+      </p>
+      {running ? (
+        <p className="microcopy" style={{ color: 'var(--accent-ui)' }}>
+          {t(phase === 'restarting' ? 'settings.updates.restarting.prose' : 'settings.updates.apply.busy')}
+        </p>
+      ) : (
+        <form className="flex flex-wrap items-center gap-2" onSubmit={(e) => { e.preventDefault(); apply() }}>
+          {/* The placeholder is the typed confirmation itself, not a label. */}
+          <input
+            className="tp-input"
+            style={{ maxWidth: 140, fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)' }}
+            placeholder="UPDATE"
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+          />
+          <StickerButton disabled={confirm !== 'UPDATE'}>
+            {t('settings.updates.apply.label')}
+          </StickerButton>
+        </form>
+      )}
+      {phase === 'failed' && (
+        <p className="microcopy" style={{ color: 'var(--error)' }}>{t('settings.updates.failed.prose')}</p>
+      )}
+    </div>
+  )
   const updatePrompt = asking && (
     <PromptFrame
       title={t('settings.updates.now.label')}
@@ -1285,32 +1334,7 @@ function UpdatesCard({ user, update, onUpdateInfo, asking = false, onAsking }) {
         {!busy && info?.update_available && !info.can_self_update && (
           <p className="microcopy">{t('settings.updates.manual.prose')}</p>
         )}
-        {canApply && (
-          <>
-            <p className="microcopy">
-              {tNodes('settings.updates.confirm.prose', { word: <b key="word">UPDATE</b>, version: info.latest })}
-            </p>
-            <form
-              className="flex flex-wrap items-center gap-2"
-              onSubmit={(e) => { e.preventDefault(); apply() }}
-            >
-              <input
-                className="tp-input"
-                autoFocus
-                style={{ maxWidth: 140, fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)' }}
-                placeholder="UPDATE"
-                value={confirm}
-                onChange={(e) => setConfirm(e.target.value)}
-              />
-              <StickerButton disabled={confirm !== 'UPDATE' || phase === 'applying'}>
-                {phase === 'applying' ? t('settings.updates.apply.busy') : t('settings.updates.apply.label')}
-              </StickerButton>
-            </form>
-          </>
-        )}
-        {phase === 'failed' && (
-          <p className="microcopy" style={{ color: 'var(--error)' }}>{t('settings.updates.failed.prose')}</p>
-        )}
+        {canApply && confirmUpdate}
       </div>
     </PromptFrame>
   )
@@ -1437,39 +1461,7 @@ function UpdatesCard({ user, update, onUpdateInfo, asking = false, onAsking }) {
                 </p>
 
                 {info.can_self_update ? (
-                  <div className="space-y-2">
-                    {/* UPDATE is not copy: it is the word the server compares
-                        byte for byte, so it stays Latin in every language and is
-                        supplied as a node rather than living in the value. */}
-                    <p className="microcopy">
-                      {tNodes('settings.updates.confirm.prose', {
-                        word: <b key="word">UPDATE</b>,
-                        version: info.latest,
-                      })}
-                    </p>
-                    <div className="flex flex-wrap items-center gap-2">
-                      {/* The placeholder is the typed confirmation itself, not a
-                          label — see above. */}
-                      <input
-                        className="tp-input"
-                        style={{ maxWidth: 140, fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)' }}
-                        placeholder="UPDATE"
-                        value={confirm}
-                        onChange={(e) => setConfirm(e.target.value)}
-                      />
-                      <StickerButton
-                        onClick={apply}
-                        disabled={confirm !== 'UPDATE' || phase === 'applying'}
-                      >
-                        {phase === 'applying' ? t('settings.updates.apply.busy') : t('settings.updates.apply.label')}
-                      </StickerButton>
-                    </div>
-                    {phase === 'failed' && (
-                      <p className="microcopy" style={{ color: 'var(--error)' }}>
-                        {t('settings.updates.failed.prose')}
-                      </p>
-                    )}
-                  </div>
+                  confirmUpdate
                 ) : (
                   <div className="space-y-2">
                     <p className="microcopy">

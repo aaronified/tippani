@@ -4,7 +4,7 @@ import { t, tNodes } from './i18n.js'
 import { BookLookupPicker, MovieLookupPicker } from './CoverPicker.jsx'
 import { bookState, EditBook } from './Library.jsx'
 import { EditMovie } from './Movies.jsx'
-import { BulkBar, EmptyState, ErrorText, FieldIconButton, GhostButton, HandCard, IconBooks, IconButton, IconCheck, IconDelete, IconEdit, IconKey, IconMerge, IconMetadata, IconMore, IconOpen, IconPerson, IconRefresh, IconSearch, IconStats, IconUsers, InfoDot, MonoLabel, NameInput, NameScroll, normName, PageHeader, ProgressBar, Scroller, splitCommas, Tooltip, PanelHost, usePanelStack, useConfirm, useIsMobileScreen, usePersistedState, useScreenBar } from './ui.jsx'
+import { BulkBar, EmptyState, ErrorText, FieldIconButton, GhostButton, HandCard, IconBooks, IconButton, IconCheck, IconChecks, IconDelete, IconEdit, IconKey, IconMerge, IconMetadata, IconMore, IconOpen, IconPerson, IconRefresh, IconSearch, IconStats, IconUsers, InfoDot, MonoLabel, NameInput, NameScroll, normName, PageHeader, MobileSheet, ProgressBar, IconQuote, IconReel, Scroller, Select, splitCommas, Tooltip, PanelHost, usePanelStack, useConfirm, useIsMobileScreen, usePersistedState, useScreenBar } from './ui.jsx'
 import { PersonModal, personImgURL, ProviderChips, mergeLinks, parseCreditSeps, parseLinks, splitCredits } from './people.jsx'
 import { characterPanel, personPanel } from './identity.jsx'
 import { MetadataSources } from './MetadataSources.jsx'
@@ -62,7 +62,32 @@ const METADATA_SECTIONS = [
 // loaded yet" are different facts and a zero that turns into 41 a moment later is
 // the more misleading of the two. The overview's number is the only one that is a
 // count of PROBLEMS rather than of records, so it is the only one that goes red.
-function SectionRail({ value, onChange, counts }) {
+//
+// TABS ON TOP, ON EVERY WIDTH ABOVE A PHONE. It was a left column at 900px and
+// up, which spent 13.5rem of a console screen on five words — and the consoles
+// under it are TABLES, the one kind of content that wants every pixel of width it
+// can get. Five short words fit across the top of any desk.
+//
+// AND A DROPDOWN ON A PHONE. A scrolling strip of five tabs on a 390px screen
+// shows two and a half of them, so the section you are not in is behind a gesture
+// with no arrow — which is the edge-fade rule working exactly as designed and
+// still being the wrong control for this. A field states the section you are in
+// and opens the whole list, in the width of one row.
+function SectionRail({ value, onChange, counts, mobile }) {
+  if (mobile) {
+    const label = ([k, lbl]) => {
+      const n = counts[k]
+      return n == null ? t(lbl) : `${t(lbl)} · ${n}`
+    }
+    return (
+      <Select
+        ariaLabel={t('metadata.section.aria')}
+        value={value}
+        onChange={onChange}
+        options={METADATA_SECTIONS.map((row) => [row[0], label(row), t(row[1])])}
+      />
+    )
+  }
   return (
     <Scroller axis="x" className="meta-rail" role="tablist" aria-label={t('metadata.section.aria')}>
       {METADATA_SECTIONS.map(([k, label, icon]) => {
@@ -209,7 +234,24 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
           { id: 'fetch', icon: <IconMetadata />, label: t('metadata.fetch.label'), onClick: () => fetchMissingCovers(false) },
         ]
       : []),
+    // ── THE PHONE'S TWO SEATS, and they are the two halves of this page's job:
+    // find out what is wrong, and fill in what is missing.
+    //
+    // FETCH IS ADMIN-ONLY AND ISSUES IS NOT. Reading what is incomplete is a
+    // question anybody with the page open may ask; going out to five providers
+    // and writing the answers back is not.
+    keys: mobile ? [
+      { id: 'issues', label: t('metadata.issues.title'), icon: <IconChecks size={24} />, onClick: () => setIssuesOpen(true) },
+      ...(user?.is_admin ? [{
+        id: 'fetch',
+        label: t('metadata.fetch.label'),
+        icon: <IconMetadata />,
+        disabled: busy,
+        onClick: () => fetchMissingCovers(true),
+      }] : []),
+    ] : null,
   })
+  const [issuesOpen, setIssuesOpen] = useState(false)
   // Persisted per device, like every other view preference in this app: which
   // metadata you were last working on is a fact about this screen at this desk,
   // not about the account.
@@ -256,6 +298,9 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
     // this one is a set of settings, and "5 keys" answers a question nobody has.
     sources: null,
   }
+  // Built here rather than inside the sheet: the sheet is mounted only while open,
+  // and the count belongs to the page whether or not anybody is looking at it.
+  const issues = libraryIssues({ stats, people, chars })
   return (
     <section className="space-y-6">
       <div className={mobile ? 'mobile-sticky-bar' : ''}>
@@ -308,7 +353,7 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
           the top. One element, two arrangements, and the section it selects is
           beside it rather than a scroll below it. */}
       <div className="meta-frame">
-        <SectionRail value={sect} onChange={setSection} counts={railCounts} />
+        <SectionRail value={sect} onChange={setSection} counts={railCounts} mobile={mobile} />
         <div className="meta-body">
           {!lib ? (
             <EmptyState>{t('common.state.loading')}</EmptyState>
@@ -385,6 +430,35 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
           )}
         </div>
       </div>
+      {/* THE ISSUE SHEET, opened from the dock. Rows rather than tiles, because a
+          390px screen fits one column and a tile wall wants three — and every row
+          is a door, which is the half the phone's coverage lines never had. */}
+      {mobile && issuesOpen && (
+        <MobileSheet open onClose={() => setIssuesOpen(false)} title={t('metadata.issues.title')}>
+          {issues.length === 0 ? (
+            <p className="microcopy">{t('metadata.issues.none')}</p>
+          ) : (
+            <div style={{ display: 'grid', gap: 'var(--row)' }}>
+              {issues.map((row) => (
+                <button
+                  key={row.id}
+                  type="button"
+                  className="meta-issue-row"
+                  onClick={() => {
+                    if (row.go.type) setCatType(row.go.type)
+                    if (row.go.filter) setCatFilter(row.go.filter)
+                    setSection(row.go.section)
+                    setIssuesOpen(false)
+                  }}
+                >
+                  <span className="meta-issue-label">{row.label}</span>
+                  <span className="meta-issue-count">{row.n}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </MobileSheet>
+      )}
       {reverify && (
         <ReverifyFlow
           selection={reverify}
@@ -496,6 +570,49 @@ function StatsLines({ stats }) {
       ])}
     </div>
   )
+}
+
+// ── EVERYTHING THAT NEEDS WORK, IN ONE LIST.
+//
+// The desktop answers this with StatsStrip: a wall of tiles, each a filter button
+// into the console below it. A phone has room for neither the wall nor the console
+// beside it, so it had StatsLines — the same numbers as sentences, and nothing to
+// press. Reading "3 with no author" and having no way to reach those three is the
+// worst half of both designs.
+//
+// SO THE PHONE GETS THE LIST AS ROWS, and every row is a door. It is a superset of
+// the tiles, because the tiles only ever covered the CATALOGUE: three of these
+// six groups are problems in the people and character records, which the strip
+// has never counted and which are exactly the kind of thing nobody goes looking
+// for.
+//
+// ONLY WHAT IS ACTUALLY WRONG. A row reading "0" is a row that teaches a reader
+// to stop reading the list, and a sheet of fourteen zeroes says nothing at all —
+// so an empty sheet says so in one sentence instead.
+function libraryIssues({ stats, people, chars }) {
+  const out = []
+  const add = (id, label, n, go) => { if (n > 0) out.push({ id, label, n, go }) }
+  if (stats) {
+    for (const g of BOOK_GAPS) add(`b-${g}`, gapLabel(g), stats.books[g], { section: 'works', type: 'book', filter: g })
+    for (const g of MOVIE_GAPS) add(`m-${g}`, gapLabel(g), stats.movies[g], { section: 'works', type: 'movie', filter: g })
+    // A LINE WITH NO ACTOR IS FIXED IN THE CHARACTER SECTION, by the remap — the
+    // works console has no filter that can find it, because it is a property of a
+    // quote rather than of the film it came from.
+    add('d-actor', gapLabel('no_actor'), stats.dialogues.missing_actor, { section: 'characters' })
+  }
+  if (people) {
+    // The same test the people console runs on its own rows: no provider link, or
+    // no stored portrait. Counted here so the number is visible before the section
+    // is entered, which is the whole reason this list exists.
+    const thin = people.filter((p) => Object.keys(parseLinks(p.links).known).length === 0 || !p.image_path)
+    add('p-thin', t('metadata.issue.people-thin.label'), thin.length, { section: 'people' })
+    const names = [...new Set(people.map((p) => p.name))]
+    add('p-dup', t('metadata.issue.people-dup.label'), nearDupGroups(names).length, { section: 'people' })
+  }
+  if (chars) {
+    add('c-dup', t('metadata.issue.chars-dup.label'), nearDupGroups([...new Set(chars.map((c) => c.name))]).length, { section: 'characters' })
+  }
+  return out
 }
 
 const H2 = { fontFamily: 'var(--font-ui)', fontStyle: 'var(--font-ui-style)', fontVariantCaps: 'var(--font-ui-caps)', textTransform: 'var(--font-ui-case)', fontVariantNumeric: 'var(--font-ui-figures)', fontSize: 'var(--type-ui-17)', fontWeight: 600 }
@@ -1451,6 +1568,10 @@ function RemapRow({ label, cast, value, onChange }) {
 
 // ---- characters console ----
 
+// workRefKey — the value a work filter is keyed by. Not the title: a novel and its
+// film share one, and so do two editions of the same book.
+const workRefKey = (w) => `${w.kind}:${w.id}`
+
 // CharactersConsole — every character record in the library, with how many works
 // each is linked to.
 //
@@ -1471,8 +1592,20 @@ function RemapRow({ label, cast, value, onChange }) {
 // both are things only this list can show, because a character with no works
 // appears on no work's page by definition.
 export function CharactersConsole({ rows = null, onReload = null }) {
+  const mobile = useIsMobileScreen()
   const [own, setOwn] = useState(null)
   const [q, setQ] = useState('')
+  // WHICH WORK, and it is the question this list could not answer.
+  //
+  // The backfill makes a character record PER WORK — eight films of one series
+  // are eight Harrys — so the list a reader actually wants is "everybody in this
+  // one film", and the only control here was a name box. Searching "Harry" gave
+  // them all eight and no way to tell which was which.
+  //
+  // '' is every work; '~none' is the rows worth reading — a character linked to
+  // nothing, which appears on no work's page by definition and can therefore be
+  // found nowhere else at all.
+  const [work, setWork] = useState('')
   const [err, setErr] = useState('')
   // THE PANEL, NOT A FORM OF THIS SCREEN'S OWN. A character record is the same
   // thing whether you reach it from here or from a work's cast, and the app now
@@ -1500,9 +1633,42 @@ export function CharactersConsole({ rows = null, onReload = null }) {
 
   const shown = useMemo(() => {
     const s = q.trim().toLowerCase()
-    return (list || []).filter((c) => !s || c.name.toLowerCase().includes(s))
-  }, [list, q])
+    return (list || [])
+      .filter((c) => !s || c.name.toLowerCase().includes(s))
+      .filter((c) => {
+        if (!work) return true
+        const in_ = c.works_in || []
+        if (work === '~none') return in_.length === 0
+        return in_.some((w) => workRefKey(w) === work)
+      })
+  }, [list, q, work])
   const unpaired = (list || []).filter((c) => c.works === 0).length
+
+  // THE WORKS THAT ACTUALLY HAVE CHARACTERS, built from the list itself rather
+  // than from the library. A dropdown of nine hundred books, of which eleven have
+  // a cast, is a dropdown a reader scrolls past the answer in — and this console
+  // is also mounted on its own, where there is no library list to read.
+  //
+  // Titles collide (two editions, a film and its novel), so the value is the
+  // kind and the id and only the WORDS are the title.
+  const workOptions = useMemo(() => {
+    const seen = new Map()
+    for (const c of list || []) {
+      for (const w of c.works_in || []) {
+        const k = workRefKey(w)
+        if (!seen.has(k)) seen.set(k, w.title)
+      }
+    }
+    const rowsOut = [...seen.entries()].sort((a, b) => a[1].localeCompare(b[1]))
+    return [
+      ['', t('metadata.characters.work.all.label')],
+      // Offered whatever the count, including zero: a list with none of these is
+      // a list where the reader learns the filter exists and that it is empty,
+      // which is the fact the summary line above states in words.
+      ['~none', t('metadata.characters.work.none.label')],
+      ...rowsOut,
+    ]
+  }, [list])
 
   return (
     <section className="space-y-3">
@@ -1511,8 +1677,17 @@ export function CharactersConsole({ rows = null, onReload = null }) {
         <InfoDot text={t('metadata.characters.info.body')} />
         <MonoLabel>{t('metadata.shown.count', { n: shown.length })}</MonoLabel>
         <div className="ml-auto flex flex-wrap items-center gap-2">
+          <Select
+            ariaLabel={t('metadata.characters.work.aria')}
+            value={work}
+            onChange={setWork}
+            filter={workOptions.length > 12}
+            filterPlaceholder={t('metadata.characters.work.filter.placeholder')}
+            options={workOptions}
+          />
           <input
             className="tp-input w-auto"
+            style={mobile ? { minWidth: 0, flex: '1 1 8em' } : undefined}
             placeholder={t('metadata.search.placeholder')}
             value={q}
             onChange={(e) => setQ(e.target.value)}
@@ -1727,6 +1902,26 @@ const PEOPLE_ROLES = [
   ['speaker', 'metadata.people.kind.speaker.label'],
 ]
 
+// THE ROLE AS A GLYPH, because the cell holding it is a table column and the words
+// are three of the longest in this app's vocabulary. "author · translator · editor"
+// wraps to three lines in a narrow column, which is what made a list of people
+// look raggedly spaced — some rows one line tall and some three.
+//
+// A GLYPH IS NOT ENOUGH ON ITS OWN, so each carries the word in a tooltip and in
+// an sr-only span: this is the app's rule for every icon-only control, and a role
+// is exactly the kind of thing a reader has no prior drawing for.
+//
+// One rendering, both viewports. A cell drawn as words on a desk and as glyphs on
+// a phone is two cells to keep in step, and the desk wants the width just as much
+// — the thing under this heading is a table.
+const PEOPLE_ROLE_ICON = {
+  author: IconBooks, // they wrote the books
+  actor: IconPerson, // they appear in them
+  director: IconReel, // they made them
+  studio: IconUsers, // an organisation rather than a person, which is the whole distinction
+  speaker: IconQuote, // a quote's speaker
+}
+
 // The countable noun a role is named by, one per row. Shared nouns, because a
 // director is a director wherever the app counts them.
 const PEOPLE_ROLE_NOUN = {
@@ -1771,6 +1966,7 @@ const PEOPLE_EMPTY = {
 // destination now, and the modal keeps the portrait, reached from the row's own
 // face.
 export function PeopleConsole({ onFlash, onReverify, onSearch, records = null, onReload = null }) {
+  const mobile = useIsMobileScreen()
   const [role, setRole] = useState('all')
   const [own, setOwn] = useState(null)
   const [q, setQ] = useState('')
@@ -1907,11 +2103,24 @@ export function PeopleConsole({ onFlash, onReverify, onSearch, records = null, o
               record with none — one the reader made, or one whose last credit went
               — belongs to no chip. Filtering to a role by default hid exactly the
               rows this list exists to surface. */}
-          {PEOPLE_ROLES.map(([k, label]) => (
-            <button key={k} className={'tp-filter-chip' + (role === k ? ' active' : '')} onClick={() => setRole(k)}>
-              {t(label)}
-            </button>
-          ))}
+          {/* SIX CHIPS WRAP TO THREE LINES AT 390px, above a table that is already
+              the densest thing on the screen. A field states the role you are
+              filtered to and opens the rest — the same call the section rail
+              makes one level up, and for the same reason. */}
+          {mobile ? (
+            <Select
+              ariaLabel={t('metadata.people.column.roles')}
+              value={role}
+              onChange={setRole}
+              options={PEOPLE_ROLES.map(([k, label]) => [k, t(label)])}
+            />
+          ) : (
+            PEOPLE_ROLES.map(([k, label]) => (
+              <button key={k} className={'tp-filter-chip' + (role === k ? ' active' : '')} onClick={() => setRole(k)}>
+                {t(label)}
+              </button>
+            ))
+          )}
           <input className="tp-input w-auto" placeholder={t('metadata.search.placeholder')} value={q} onChange={(e) => setQ(e.target.value)} />
           {/* IconMetadata, the same arrow-landing-in-a-record the covers console
               uses: this fills fields on rows that already exist, which is what
@@ -1966,15 +2175,24 @@ export function PeopleConsole({ onFlash, onReverify, onSearch, records = null, o
       ) : shown.length === 0 ? (
         <EmptyState>{t(role === 'all' ? 'metadata.people.empty.all' : PEOPLE_EMPTY[role])}</EmptyState>
       ) : (
-        <Scroller className="ann-table-wrap" axis="both" style={{ maxHeight: 'min(28em, 60vh)', overflowY: 'auto' }}>
+        /* NO INNER VERTICAL SCROLLER ON A PHONE. A 60vh box inside a page that
+           also scrolls is two scrolls under one thumb, and the inner one wins
+           every gesture that starts over the table — which on a phone is all of
+           them. The desk keeps it: there the window is short and the console is
+           long, which is the case the box was measured for. */
+        <Scroller
+          className="ann-table-wrap"
+          axis={mobile ? 'x' : 'both'}
+          style={mobile ? undefined : { maxHeight: 'min(28em, 60vh)', overflowY: 'auto' }}
+        >
           <table className="ann-table">
             <thead>
               <tr>
                 <th>{t('common.field.name.label')}</th>
                 <th>{t('metadata.people.column.roles')}</th>
                 <th>{t('metadata.people.column.works')}</th>
-                <th>{t('metadata.people.column.quotes')}</th>
-                <th>{t('common.field.links.label')}</th>
+                {!mobile && <th>{t('metadata.people.column.quotes')}</th>}
+                {!mobile && <th>{t('common.field.links.label')}</th>}
                 <th></th>
               </tr>
             </thead>
@@ -1988,6 +2206,7 @@ export function PeopleConsole({ onFlash, onReverify, onSearch, records = null, o
                   onPortrait={() => setPerson({ kind: (p.kinds || [])[0] || 'author', name: p.name })}
                   onSearch={onSearch}
                   onFetch={() => fetchRow(p)}
+                  mobile={mobile}
                 />
               ))}
             </tbody>
@@ -2017,9 +2236,15 @@ export function PeopleConsole({ onFlash, onReverify, onSearch, records = null, o
 // portrait exists and shows neither it nor a way to change it; a list of ninety
 // names is where a face is worth most, because it is the fastest thing in a row
 // to recognise.
-function PersonRow({ p, busy, onOpen, onPortrait, onSearch, onFetch }) {
+function PersonRow({ p, busy, onOpen, onPortrait, onSearch, onFetch, mobile = false }) {
   const face = p.image_path ? personImgURL(p.image_path) : ''
-  const roles = (p.kinds || []).map((k) => t(PEOPLE_ROLE_NOUN[k] || 'unit.person', { count: 1 }))
+  const roles = (p.kinds || []).map((k) => [k, t(PEOPLE_ROLE_NOUN[k] || 'unit.person', { count: 1 })])
+  const fetched = Object.keys(parseLinks(p.links).known).length > 0 || !!p.image_path
+  const fetchLabel = busy
+    ? t('metadata.people.row.fetch.busy')
+    : fetched
+      ? t('metadata.people.row.refetch.label')
+      : t('metadata.people.row.fetch.label')
   return (
     <tr>
       <td>
@@ -2045,7 +2270,23 @@ function PersonRow({ p, busy, onOpen, onPortrait, onSearch, onFetch }) {
           </span>
         </span>
       </td>
-      <td className="microcopy" style={{ color: 'var(--soft)' }}>{roles.join(' · ') || '—'}</td>
+      <td className="person-roles-cell">
+        {roles.length === 0 ? (
+          <span className="microcopy" style={{ color: 'var(--faint)' }}>—</span>
+        ) : (
+          roles.map(([k, word]) => {
+            const Glyph = PEOPLE_ROLE_ICON[k] || IconPerson
+            return (
+              <Tooltip key={k} label={word} side="top">
+                <span className="person-role-mark" tabIndex={0}>
+                  <Glyph size={18} />
+                  <span className="sr-only">{word}</span>
+                </span>
+              </Tooltip>
+            )
+          })
+        )}
+      </td>
       <td>
         {/* Work count → search, which matches authors on book hits and actors on
             dialogue hits. A record nothing references counts 0 — nothing to find. */}
@@ -2057,23 +2298,26 @@ function PersonRow({ p, busy, onOpen, onPortrait, onSearch, onFetch }) {
           <span className="microcopy">{p.works || 0}</span>
         )}
       </td>
-      <td className="mono-label" style={{ color: 'var(--soft)' }}>{p.quotes || 0}</td>
-      <td><ProviderChips links={p.links} /></td>
+      {/* THE TWO COLUMNS A PHONE DROPS. Quotes is a count the person's own panel
+          states, and the links cell is a wrapping strip of marks — the widest
+          thing in the row and the one that made rows two and three lines tall
+          for no reading anybody does from a list. Neither is lost: the name opens
+          the record, which holds both. */}
+      {!mobile && <td className="mono-label" style={{ color: 'var(--soft)' }}>{p.quotes || 0}</td>}
+      {!mobile && <td><ProviderChips links={p.links} /></td>}
       <td className="col-actions">
         {/* ONE glyph for both words. `fetch` and `refetch` are the same act — go
             and get this person's photo and links — and the label flips only because
             the row already has some. Two drawings for that would say the acts
-            differ. */}
-        <button className="tp-link tp-link-icon" disabled={busy} onClick={onFetch}>
-          <IconRefresh />
-          <span>
-            {busy
-              ? t('metadata.people.row.fetch.busy')
-              : (Object.keys(parseLinks(p.links).known).length > 0 || p.image_path)
-                ? t('metadata.people.row.refetch.label')
-                : t('metadata.people.row.fetch.label')}
-          </span>
-        </button>
+            differ.
+            And on a phone the word goes too: the glyph is the same one, the label
+            rides the tooltip and the aria-label, and the row gets the width. */}
+        <Tooltip label={fetchLabel} side="top">
+          <button className="tp-link tp-link-icon" disabled={busy} onClick={onFetch} aria-label={mobile ? fetchLabel : undefined}>
+            <IconRefresh />
+            {!mobile && <span>{fetchLabel}</span>}
+          </button>
+        </Tooltip>
       </td>
     </tr>
   )

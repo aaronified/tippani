@@ -446,24 +446,86 @@ func (s *Server) handleCharacters(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer rows.Close()
-	type row struct {
-		characterRow
-		Works int `json:"works"`
-	}
-	out := []row{}
+	out := []characterListRow{}
+	byID := map[int64]*characterListRow{}
 	for rows.Next() {
-		var v row
+		var v characterListRow
 		if err := rows.Scan(&v.ID, &v.Name, &v.SortName, &v.Description, &v.ImagePath,
 			&v.Note, &v.Links, &v.Works); err != nil {
 			olog.Warnf(olog.CodePeopleRowScan, "[identity] character row scan failed: %v", err)
 			continue
 		}
+		v.WorksIn = []characterWorkRef{}
 		out = append(out, v)
 	}
 	if err := rows.Err(); err != nil {
 		olog.Warnf(olog.CodePeopleRowScan, "[identity] character iteration failed: %v", err)
 	}
+	for i := range out {
+		byID[out[i].ID] = &out[i]
+	}
+	if err := attachCharacterWorks(s.Store.DB, uid, byID); err != nil {
+		// NOT FATAL. The list is useful without the filter and useless without the
+		// list, so a failure here costs the dropdown and nothing else.
+		olog.Warnf(olog.CodePeopleRowScan, "[identity] character works failed: %v", err)
+	}
 	writeJSON(w, http.StatusOK, map[string]any{"characters": out})
+}
+
+// characterListRow is one row of GET /characters.
+type characterListRow struct {
+	characterRow
+	Works int `json:"works"`
+	// WHICH works, not just how many. The console filters this list by work, and
+	// the count alone cannot answer "show me everybody in Solaris" — the
+	// alternative was one request per row to /characters/{id}, which on a library
+	// of four hundred characters is four hundred requests to draw a dropdown.
+	//
+	// The pairs are attached from ONE extra query rather than a correlated
+	// subquery per row: a character appears in a handful of works, so the whole
+	// set is smaller than the character list it hangs off.
+	WorksIn []characterWorkRef `json:"works_in"`
+}
+
+// characterWorkRef is one work a character appears in, in the shape the console's
+// filter needs: enough to name the work and to tell two works of different kinds
+// with the same title apart.
+type characterWorkRef struct {
+	Kind  string `json:"kind"`
+	ID    int64  `json:"id"`
+	Title string `json:"title"`
+}
+
+// attachCharacterWorks fills every row's WorksIn in one pass over work_cast.
+//
+// DISTINCT, because a character cast twice on one work is one appearance as far as
+// "which works is this character in" is concerned — the `works` count beside it
+// deliberately answers the other question and counts rows.
+func attachCharacterWorks(db *sql.DB, uid int64, byID map[int64]*characterListRow) error {
+	rows, err := db.Query(`
+		SELECT DISTINCT wc.character_id, 'book', b.id, b.title
+		  FROM work_cast wc JOIN books b ON b.id = wc.work_id
+		 WHERE wc.user_id = ? AND wc.kind = 'book' AND wc.origin <> 'removed' AND wc.character_id IS NOT NULL
+		UNION ALL
+		SELECT DISTINCT wc.character_id, 'movie', m.id, m.title
+		  FROM work_cast wc JOIN movies m ON m.id = wc.work_id
+		 WHERE wc.user_id = ? AND wc.kind = 'movie' AND wc.origin <> 'removed' AND wc.character_id IS NOT NULL
+		 ORDER BY 4 COLLATE NOCASE`, uid, uid)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var cid int64
+		var ref characterWorkRef
+		if err := rows.Scan(&cid, &ref.Kind, &ref.ID, &ref.Title); err != nil {
+			return err
+		}
+		if r := byID[cid]; r != nil {
+			r.WorksIn = append(r.WorksIn, ref)
+		}
+	}
+	return rows.Err()
 }
 
 // handleCharacterByID: GET /characters/{id} — one record and every work it is in.

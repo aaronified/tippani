@@ -45,6 +45,41 @@ which Compose keeps in list form, leaving tracing silently off.
 | --- | --- | --- | --- |
 | `TIP-UPDATE-001` | A Docker Engine API call failed during self-update (identify self, pull the image, or launch the recreater). | The socket/proxy lacks a needed permission (a socket proxy must allow `CONTAINERS=1`, `IMAGES=1`, `POST=1`), the registry was unreachable, or the container name could not be resolved. | Read the `[error]` line for the Engine's status and message. For a socket proxy, verify the permission env vars on the proxy container; for the raw socket, verify the mount and the `group_add` gid. The guided manual command in Settings always works meanwhile. |
 
+### The update runs, the version does not change
+
+Not an error code, because nothing here fails: the log shows `APPLY requested…`,
+then `recreater launched…`, the image pulls, and the container goes on running the
+build it started on. Settings reports the restart happened without the version
+moving.
+
+The recreater is a one-shot Watchtower, launched detached and `AutoRemove`, so
+**Tippani never sees its output** — if it dies, the app has nothing to report.
+Before 3.x the default helper was `containrrr/watchtower`, whose last release
+(1.7.1, 2023) negotiates Docker Engine API 1.25. A current daemon refuses it —
+
+```
+client version 1.25 is too old. Minimum supported API version is 1.40
+```
+
+— and the helper then panics and exits without touching anything.
+
+Newer builds default to `nickfedor/watchtower`, the maintained continuation, which
+negotiates the daemon's own API version. If you are on an older Tippani, or you
+pinned the helper yourself, set it explicitly:
+
+```yaml
+environment:
+  TIPPANI_UPDATER_IMAGE: nickfedor/watchtower
+```
+
+To confirm what the helper is doing, run it in the foreground once — the same
+command Tippani runs, minus the detach:
+
+```sh
+docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+  nickfedor/watchtower --run-once --cleanup <your container name>
+```
+
 ## STORE — database lifecycle, integrity, repair
 
 | Code | Meaning | Likely cause | What to do |
