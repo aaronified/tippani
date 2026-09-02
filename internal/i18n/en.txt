@@ -2768,6 +2768,7 @@ error.load.practice = add a few quotes first
 common.work.details.title = Details
 # On the header ✓ while nothing has been edited. Five words.
 common.work.details.done.tip = Save and close
+common.work.people.done.tip = Done
 common.work.fetch.label = Fetch metadata
 common.work.lookup.back.aria = Back to the fields
 common.work.lookup.pick.label = pick the closest match
@@ -5063,6 +5064,8 @@ error.validate.restore-word = Type RESTORE to confirm
 # first property a per-screen key would lose.
 common.field.title.label = Title
 common.field.subtitle.label = Subtitle
+common.field.people.label = People
+common.field.people.characters.summary = {n} character|{n} characters
 common.field.author.label = Author
 common.field.translator.label = Translator
 common.field.editor.label = Editor

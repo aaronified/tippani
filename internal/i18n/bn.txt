@@ -2779,6 +2779,7 @@ error.load.practice = আগে কয়েকটা উদ্ধৃতি র�
 common.work.details.title = খুঁটিনাটি
 # On the header ✓ while nothing has been edited. Five words.
 common.work.details.done.tip = সেভ করে বন্ধ
+common.work.people.done.tip = হয়ে গেছে
 common.work.fetch.label = মেটাডেটা আনুন
 common.work.lookup.back.aria = ঘরগুলোয় ফিরুন
 common.work.lookup.pick.label = সবচেয়ে কাছের মিলটা বাছুন
@@ -4759,6 +4760,8 @@ error.validate.restore-word = নিশ্চিত করতে RESTORE লি�
 # first property a per-screen key would lose.
 common.field.title.label = নাম
 common.field.subtitle.label = উপশিরোনাম
+common.field.people.label = মানুষ
+common.field.people.characters.summary = {n}টি চরিত্র|{n}টি চরিত্র
 common.field.author.label = লেখক
 common.field.translator.label = অনুবাদক
 common.field.editor.label = সম্পাদক

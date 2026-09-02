@@ -20,11 +20,16 @@
 // and a render test would have needed the whole panel to prove less.
 
 import { describe, expect, it } from 'vitest'
-import { MEDIA_TYPES, MOVIE_FIELDS, labelFor, specsFor } from '../../src/WorkDetails.jsx'
+import { MEDIA_TYPES, MOVIE_FIELDS, creditSpecsFor, labelFor, specsFor } from '../../src/WorkDetails.jsx'
 import { hiResPoster, coverSourceLabel } from '../../src/CoverPicker.jsx'
 
 const keys = (mt) => specsFor(MOVIE_FIELDS, mt).map((s) => s.key)
-const labelOf = (key, mt) => labelFor(MOVIE_FIELDS.find((s) => s.key === key), mt)
+// BOTH LISTS. The credits moved behind the People door and stayed specs, so the
+// per-medium label rule has to hold wherever a spec lives — a rule that applied
+// only to the fields still drawn on the form would let a game's Studio go back to
+// reading Director the moment it moved.
+const ALL_MOVIE_SPECS = MOVIE_FIELDS.concat(creditSpecsFor('movie'))
+const labelOf = (key, mt) => labelFor(ALL_MOVIE_SPECS.find((s) => s.key === key), mt)
 
 describe('which fields a medium shows', () => {
   it('gives a game the IGDB id and none of the film ids', () => {

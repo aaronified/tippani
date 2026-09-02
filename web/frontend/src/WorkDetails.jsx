@@ -23,9 +23,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { coverImgURL, errText, json } from './api.js'
 import { CastFills, CastSection } from './cast.jsx'
+import { DEFAULT_CREDIT_SEPS, splitCredits } from './credits.jsx'
 import { t } from './i18n.js'
 import { BookLookupPicker, CoverControls, CoverPreview, MovieLookupPicker, hiResPoster, idNum } from './CoverPicker.jsx'
 import {
+  BigField,
   ErrorText,
   Field,
   FieldIconButton,
@@ -62,6 +64,14 @@ import {
 // PERSON, because the two capitalise differently: a title keeps its small words
 // small ("The Wheel of Time") and a name must not, since half of those words are
 // whole names in other languages ("Nguyen Van An"). See ui.jsx's SMALL_WORDS.
+// ONE LIST, ORDERED BY WHAT A READER LOOKS FOR — the handoff's D_ORDER, and not
+// by which editor a field happens to open. Sorting by editor put the record in
+// implementation order: it told the reader which rows open a sheet, which is the
+// app's problem and not theirs, and it buried People and Description — the two
+// things most often wanted — under ISBN and ASIN. Identity first, then who made
+// it, then what it is about, then the edition's facts, then the catalogue
+// numbers. No section headings: "Fields" over a list of fields inside a panel
+// called Details is the panel's title said twice.
 const BOOK_FIELDS = [
   { key: 'title', get label() { return t('common.field.title.label') }, nameCase: true },
   // NOT nameCase. A subtitle is a sentence more often than it is a name — "A
@@ -72,6 +82,55 @@ const BOOK_FIELDS = [
     get label() { return t('common.field.subtitle.label') },
     get hint() { return t('book.field.subtitle.info') },
   },
+  // NOT A VALUE, so not a row that edits one: a work's people are a list with
+  // roles, faces and their own actions, and the three credit boxes plus the cast
+  // live behind this one door. See workPeoplePanel.
+  { key: 'people', kind: 'people', get label() { return t('common.field.people.label') } },
+  { key: 'description', get label() { return t('common.field.description.label') }, kind: 'long', sheet: true },
+  { key: 'genres', get label() { return t('common.field.genres.label') }, kind: 'tokens', sheet: true },
+  { key: 'published_year', get label() { return t('common.field.year.label') }, kind: 'year', circaKey: 'published_circa' },
+  // THE TWO LANGUAGES, storable since 0047 and never once editable from a screen.
+  // The hero has printed them for releases and the only way to put one there was
+  // an import file — a field the app can show, can search by and cannot be told.
+  { key: 'language', get label() { return t('common.field.language.label') } },
+  { key: 'orig_language', get label() { return t('common.field.orig-language.label') } },
+  {
+    key: 'publisher',
+    get label() { return t('common.field.publisher.label') },
+    nameCase: true,
+    get hint() { return t('book.field.publisher.info') },
+  },
+  {
+    key: 'series',
+    get label() { return t('common.field.series.label') },
+    nameCase: true,
+    get hint() { return t('book.field.series.info') },
+  },
+  { key: 'series_index', get label() { return t('common.field.series-no.label') }, kind: 'number' },
+  {
+    key: 'pages',
+    get label() { return t('common.field.pages.label') },
+    kind: 'count',
+    get hint() { return t('book.field.pages.info') },
+  },
+  {
+    key: 'isbn',
+    get label() { return t('common.field.isbn.label') },
+    get hint() { return t('book.field.isbn.info') },
+  },
+  {
+    key: 'asin',
+    get label() { return t('common.field.asin.label') },
+    get hint() { return t('book.field.asin.info') },
+  },
+]
+
+// THE CREDIT ROWS, WHICH ARE NOT ROWS OF THE FORM. They live behind the People
+// door with the cast, because "who made this" and "who is in it" are one question
+// and the reader asks it in one place. They are still SPECS — same shape, same
+// coercion, same provenance tag, and the merge screen reads this list beside the
+// other so that a lookup match can still propose an author.
+const BOOK_CREDIT_FIELDS = [
   {
     key: 'author',
     get label() { return t('common.field.author.label') },
@@ -90,44 +149,15 @@ const BOOK_FIELDS = [
     nameCase: true,
     get hint() { return t('book.field.editor.info') },
   },
-  { key: 'published_year', get label() { return t('common.field.year.label') }, kind: 'year', circaKey: 'published_circa' },
-  {
-    key: 'series',
-    get label() { return t('common.field.series.label') },
-    nameCase: true,
-    get hint() { return t('book.field.series.info') },
-  },
-  { key: 'series_index', get label() { return t('common.field.series-no.label') }, kind: 'number' },
-  {
-    key: 'isbn',
-    get label() { return t('common.field.isbn.label') },
-    get hint() { return t('book.field.isbn.info') },
-  },
-  {
-    key: 'asin',
-    get label() { return t('common.field.asin.label') },
-    get hint() { return t('book.field.asin.info') },
-  },
-  {
-    key: 'publisher',
-    get label() { return t('common.field.publisher.label') },
-    nameCase: true,
-    get hint() { return t('book.field.publisher.info') },
-  },
-  {
-    key: 'pages',
-    get label() { return t('common.field.pages.label') },
-    kind: 'count',
-    get hint() { return t('book.field.pages.info') },
-  },
-  // THE TWO LANGUAGES, storable since 0047 and never once editable from a screen.
-  // The hero has printed them for releases and the only way to put one there was
-  // an import file — a field the app can show, can search by and cannot be told.
-  { key: 'language', get label() { return t('common.field.language.label') } },
-  { key: 'orig_language', get label() { return t('common.field.orig-language.label') } },
-  { key: 'genres', get label() { return t('common.field.genres.label') }, kind: 'tokens' },
-  { key: 'description', get label() { return t('common.field.description.label') }, kind: 'long' },
 ]
+
+const MOVIE_CREDIT_FIELDS = [
+  { key: 'director', get label() { return t('common.field.director.label') }, nameCase: true },
+]
+
+export function creditSpecsFor(kind) {
+  return kind === 'book' ? BOOK_CREDIT_FIELDS : MOVIE_CREDIT_FIELDS
+}
 
 // MEDIA_LABELS — the words that change with the MEDIUM rather than with the kind.
 //
@@ -195,7 +225,12 @@ export const MOVIE_FIELDS = [
     kind: 'mediaType',
     get hint() { return t('film.field.media-type.info') },
   },
-  { key: 'director', get label() { return t('common.field.director.label') }, nameCase: true },
+  // The same door a book has, holding the same two halves: the credits and the
+  // cast. A film's cast pairs a character with a performer; a book's does not.
+  { key: 'people', kind: 'people', get label() { return t('common.field.people.label') } },
+  { key: 'description', get label() { return t('common.field.description.label') }, kind: 'long', sheet: true },
+  { key: 'genres', get label() { return t('common.field.genres.label') }, kind: 'tokens', sheet: true },
+  { key: 'release_year', get label() { return t('common.field.year.label') }, kind: 'year', circaKey: 'release_circa' },
   {
     key: 'publisher',
     get label() { return t('common.field.publisher.label') },
@@ -203,7 +238,6 @@ export const MOVIE_FIELDS = [
     media: ['game'],
     get hint() { return t('film.field.publisher.info') },
   },
-  { key: 'release_year', get label() { return t('common.field.year.label') }, kind: 'year', circaKey: 'release_circa' },
   {
     key: 'series',
     get label() { return t('common.field.collection.label') },
@@ -249,8 +283,6 @@ export const MOVIE_FIELDS = [
     // no link, because it invites the one click that proves it broken.
     get hint() { return t('film.field.igdb-id.info') },
   },
-  { key: 'genres', get label() { return t('common.field.genres.label') }, kind: 'tokens' },
-  { key: 'description', get label() { return t('common.field.description.label') }, kind: 'long' },
 ]
 
 // fullState mirrors bookState / movieState on the pages: PUT is full-state, so a
@@ -360,62 +392,83 @@ function blank(v, kind) {
   return String(v ?? '').trim() === ''
 }
 
-export function WorkDetails({ onClose, kind, item, onChanged, onDelete }) {
+// useWorkRecord — the record a panel body is looking at, and the writes to it.
+//
+// A PANEL BODY MUST OWN ITS RECORD, and this is what it cost to learn. A panel's
+// descriptor is captured when it is PUSHED: `render: () => <WorkDetails item={…}/>`
+// closes over the record as it stood at that moment, and the stack entry is
+// immutable, so a page that re-renders with a newer record does not reach it. The
+// panel stack also renders only its TOP entry, so opening a sheet unmounts the
+// body underneath and walking back mounts a fresh one from that same captured
+// prop. Both together meant: save the title, watch the row snap back to the old
+// one, and every later save restate the record as it stood when Details opened.
+//
+// So the prop is a SEED and not the truth. The body reads the work back on mount
+// — one GET, the same thing identity.jsx's panels do — writes from what it read,
+// and reports upward so the page behind it stays in step. Walking back into a
+// body refetches, which is why a sheet's save is visible the moment you return.
+function useWorkRecord({ kind, initial, onChanged, specs, creditSpecs }) {
   const path = kind === 'book' ? 'books' : 'movies'
-  // The medium, which decides three things on this screen: what the credit is
-  // called, which supplier ids are worth showing, and what "Type" reads as.
-  // `book` has no media type of its own, so it is its own answer.
-  const mediaType = kind === 'book' ? 'book' : item?.media_type || 'movie'
-  const specs = specsFor(kind === 'book' ? BOOK_FIELDS : MOVIE_FIELDS, mediaType)
-  const [view, setView] = useState('fields') // fields | lookup | merge
-  const [merge, setMerge] = useState(null) // { rows, candidate }
+  const [rec, setRec] = useState(initial)
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
-  const [genreSuggestions, setGenreSuggestions] = useState([])
-
-  // NO `open` PROP ANY MORE: the panel stack mounts this only while it is open, so
-  // mounting IS opening. What used to be "reset whenever open goes true" is now an
-  // unconditional reset on mount, which is the same guarantee with nothing to keep
-  // in step — re-opening always lands on the field list rather than on a half-done
-  // merge from last time.
+  const id = initial?.id
   useEffect(() => {
-    json('GET', '/genres').then((r) => { if (r.ok) setGenreSuggestions(r.data.genres || []) })
-    setView('fields')
-    setMerge(null)
-    setError('')
-  }, [])
+    if (!id) return undefined
+    let live = true
+    json('GET', `/${path}/${id}`).then((r) => {
+      // Silent on failure, deliberately: the seed is a real record and the panel
+      // is usable from it. A red line over a form that is working, because a
+      // freshness check did not answer, would be the worse of the two states.
+      //
+      // AND ONLY IF IT IS THE SAME RECORD. Adopting whatever came back would let
+      // a reply the panel did not expect — an error body, a redirect, a stub —
+      // blank a form the reader is looking at, which is a worse failure than the
+      // staleness this read exists to end.
+      if (live && r.ok && r.data && r.data.id === id) setRec(r.data)
+    })
+    return () => { live = false }
+  }, [path, id])
 
-  if (!item) return null
+  // BOTH DIRECTIONS ON EVERY WRITE. Setting only the local copy leaves the page
+  // behind the panel stale; calling only upward leaves the row you just saved
+  // showing what it used to say.
+  const emit = (next) => {
+    if (!next) return
+    setRec(next)
+    onChanged?.(next)
+  }
 
-  // save PUTs the whole record with `patch` applied. One field or ten — the
-  // merge screen uses the same call, so there is one write path to reason about.
   async function save(patch, label) {
     setBusy(label || 'save')
     setError('')
-    const r = await json('PUT', `/${path}/${item.id}`, { ...fullState(kind, item), ...patch })
+    const r = await json('PUT', `/${path}/${rec.id}`, { ...fullState(kind, rec), ...patch })
     setBusy('')
     if (!r.ok) {
       setError(errText(r, t('error.save.generic')))
       return false
     }
-    onChanged?.(r.data)
+    emit(r.data)
     return true
   }
 
-  // Returns whether the write landed, so InlineField keeps the editor (and what
-  // was typed) open when it did not.
+  function specFor(key) {
+    return (specs || []).find((sp) => sp.key === key) || (creditSpecs || []).find((sp) => sp.key === key)
+  }
+
   // saveAll — every open, edited row committed in ONE request.
   //
   // Merged into a single patch rather than looped over saveField, and that is
   // the whole correctness argument. Each row PUTs the FULL record with its own
   // field changed, so six rows saving themselves is six full-state writes over
   // the top of each other: in parallel the last reply wins, and in sequence each
-  // one still reads `item` as it was before the previous reply landed. Either
-  // way five edits are silently lost behind five toasts saying they were saved.
+  // one still reads the record as it was before the previous reply landed.
+  // Either way five edits are silently lost behind five toasts saying they were
+  // saved.
   async function saveAll(entries, closeAll) {
     const patch = {}
     for (const e of entries) {
-      const spec = specs.find((s) => s.key === e.key)
+      const spec = specFor(e.key)
       if (!spec) continue
       const next = coerce(spec, e.get())
       // A year writes two columns, so coerce hands back a patch rather than a
@@ -426,7 +479,7 @@ export function WorkDetails({ onClose, kind, item, onChanged, onDelete }) {
     }
     if ('title' in patch && !String(patch.title).trim()) {
       setError(t('error.validate.title-required'))
-      return
+      return false
     }
     if (!Object.keys(patch).length) return true
     if (await save(patch)) {
@@ -457,6 +510,39 @@ export function WorkDetails({ onClose, kind, item, onChanged, onDelete }) {
     if (ok) toast(t('common.work.field-saved.toast', { field: spec.label.toLowerCase() }))
     return ok
   }
+
+  return { rec, path, busy, setBusy, error, setError, emit, save, saveField, saveAll }
+}
+
+export function WorkDetails({ onClose, kind, item: seed, onChanged, onDelete, stack }) {
+  // The medium, which decides three things on this screen: what the credit is
+  // called, which supplier ids are worth showing, and what "Type" reads as.
+  // `book` has no media type of its own, so it is its own answer.
+  const mediaType = kind === 'book' ? 'book' : seed?.media_type || 'movie'
+  const specs = specsFor(kind === 'book' ? BOOK_FIELDS : MOVIE_FIELDS, mediaType)
+  // The credits are edited behind the People door, and the merge screen reads
+  // them beside the form's own list — a match proposing an author must still be
+  // offerable, and a spec that left the form must not leave the proposal.
+  const creditSpecs = creditSpecsFor(kind)
+  const { rec: item, path, busy, setBusy, error, setError, emit, save, saveField, saveAll } =
+    useWorkRecord({ kind, initial: seed, onChanged, specs, creditSpecs })
+  const [view, setView] = useState('fields') // fields | lookup | merge
+  const [merge, setMerge] = useState(null) // { rows, candidate }
+  const [genreSuggestions, setGenreSuggestions] = useState([])
+
+  // NO `open` PROP ANY MORE: the panel stack mounts this only while it is open, so
+  // mounting IS opening. What used to be "reset whenever open goes true" is now an
+  // unconditional reset on mount, which is the same guarantee with nothing to keep
+  // in step — re-opening always lands on the field list rather than on a half-done
+  // merge from last time.
+  useEffect(() => {
+    json('GET', '/genres').then((r) => { if (r.ok) setGenreSuggestions(r.data.genres || []) })
+    setView('fields')
+    setMerge(null)
+    setError('')
+  }, [])
+
+  if (!item) return null
 
   // ---- adopting a match ----------------------------------------------------
   // Building the merge rows is the whole difference from the old behaviour: the
@@ -509,7 +595,7 @@ export function WorkDetails({ onClose, kind, item, onChanged, onDelete }) {
   // is noise on a phone screen.
   function buildRows(cand, artUrl) {
     const rows = []
-    for (const spec of specs) {
+    for (const spec of specs.concat(creditSpecs)) {
       // A match proposes the fields it actually carries — including, since the
       // mixing change, the id of the record it IS (see proposeMovie). The OTHER
       // suppliers' ids are still deliberately absent: adopting one without the
@@ -582,7 +668,7 @@ export function WorkDetails({ onClose, kind, item, onChanged, onDelete }) {
     })
     setBusy('')
     if (!r.ok) return setError(errText(r, t('error.sync.source')))
-    onChanged?.(r.data)
+    emit(r.data)
     toast(t('common.work.resync.toast'))
     setMerge(null)
     setView('fields')
@@ -604,7 +690,9 @@ export function WorkDetails({ onClose, kind, item, onChanged, onDelete }) {
         <FieldList
           kind={kind}
           item={item}
+          stack={stack}
           specs={specs}
+          creditSpecs={creditSpecs}
           mediaType={mediaType}
           busy={busy}
           genreSuggestions={genreSuggestions}
@@ -612,7 +700,7 @@ export function WorkDetails({ onClose, kind, item, onChanged, onDelete }) {
           onSaveAll={saveAll}
           onClose={onClose}
           onCover={(patch) => save(patch, 'cover')}
-          onChanged={onChanged}
+          onChanged={emit}
           onFetch={() => setView('lookup')}
           onDelete={onDelete}
         />
@@ -666,7 +754,7 @@ export function WorkDetails({ onClose, kind, item, onChanged, onDelete }) {
                 // A NEW RECORD CARRYING THE NEW CAST, which is the same contract
                 // the People panel keeps — handing back `item` would be a state set
                 // to the same reference, which React bails out of.
-                onFilled={(cast) => onChanged?.({ ...item, cast: cast || [] })}
+                onFilled={(cast) => emit({ ...item, cast: cast || [] })}
               />
             </div>
           )}
@@ -688,6 +776,217 @@ export function WorkDetails({ onClose, kind, item, onChanged, onDelete }) {
   )
 }
 
+// ---- the two sheets, and the door with the people behind it ----------------
+
+// fieldSheetPanel — one field, its own surface, the panel's own ✓.
+//
+// A SHEET IS NOT A SECOND KIND OF ROW. The pencil is the same pencil; what
+// differs is only that a description needs several lines and room to reread, and
+// a token list needs its own filtered picker. Both were being edited in the
+// gap under a 44px label, which is the shape the handoff calls a letterbox.
+//
+// It registers a form with the panel chrome exactly as the field list does, so
+// the ✓ in the header commits it, Escape and the scrim ask before discarding,
+// and a failed write keeps the sheet open with what was typed still in it.
+function FieldSheet({ kind, item, spec, label, genreSuggestions, onChanged, onDone }) {
+  // ITS OWN RECORD, for useWorkRecord's stated reason: this panel unmounted the
+  // form underneath it, so a save written from the form's captured copy would
+  // restate the work as it stood when Details opened.
+  const { rec, busy, error, saveField } = useWorkRecord({
+    kind, initial: item, onChanged, specs: [spec],
+  })
+  const value = resting(spec, rec)
+  const [draft, setDraft] = useState(value)
+  const [seeded, setSeeded] = useState(false)
+  // The read-back lands a frame later, and a draft nobody has touched follows it.
+  useEffect(() => {
+    if (seeded) return
+    setDraft(value)
+  }, [value, seeded])
+  const host = useFormHost('')
+  // The chrome's guard reads a COUNT of unsaved things, and a sheet holds one.
+  useEffect(() => {
+    const dirty = spec.kind === 'tokens'
+      ? JSON.stringify([...(draft || [])]) !== JSON.stringify([...(value || [])])
+      : String(draft ?? '') !== String(value ?? '')
+    host?.setDirty?.(dirty ? 1 : 0)
+    return () => host?.setDirty?.(0)
+  }, [host, draft, value, spec.kind])
+
+  async function submit(e) {
+    // Somebody else's submit is not this one's — see the field list's own note.
+    if (e.target !== e.currentTarget) return
+    e.preventDefault()
+    if (await saveField(spec, draft) === false) return
+    host?.setDirty?.(0)
+    onDone()
+  }
+
+  const edit = (next) => {
+    setSeeded(true)
+    setDraft(next)
+  }
+
+  return (
+    <form id={host?.formId} onSubmit={submit} style={{ display: 'grid', gap: 'var(--row)' }}>
+      <ErrorText>{error}</ErrorText>
+      <MonoLabel>{label}</MonoLabel>
+      {spec.kind === 'tokens' ? (
+        <TokenInput
+          value={draft || []}
+          onChange={edit}
+          suggestions={genreSuggestions}
+          placeholder={t('common.field.genres.placeholder')}
+          ariaLabel={label}
+          transform={titleCaseGenre}
+        />
+      ) : (
+        // TWELVE ROWS, not four. This is the whole reason the field has a surface
+        // of its own: a blurb is read while it is being corrected, and four rows
+        // of a nine-hundred-pixel panel is a slot to type into rather than a page
+        // to read.
+        <textarea
+          className="tp-input"
+          rows={12}
+          value={draft ?? ''}
+          aria-label={label}
+          disabled={!!busy}
+          onChange={(e) => edit(e.target.value)}
+        />
+      )}
+    </form>
+  )
+}
+
+export function fieldSheetPanel(stack, { kind, item, spec, label, genreSuggestions, onChanged }) {
+  return {
+    title: label,
+    saveTip: t('common.action.save.label'),
+    render: () => (
+      <FieldSheet
+        kind={kind}
+        item={item}
+        spec={spec}
+        label={label}
+        genreSuggestions={genreSuggestions}
+        onChanged={onChanged}
+        onDone={() => stack.back()}
+      />
+    ),
+  }
+}
+
+// WorkPeople — the credits and the cast, which are one question asked in one
+// place.
+//
+// A WORK'S PEOPLE ARE NOT A VALUE. Three text boxes and a twenty-row cast list
+// sitting among Year, ISBN and Series told the reader that "author" is the same
+// size of edit as "series number", and put the list nobody can miss above the
+// form rather than in it. Behind one door they are what they are: a list of
+// people with roles, faces and actions of their own.
+function WorkPeople({ kind, item, creditSpecs, mediaType, onChanged, onDone }) {
+  // ITS OWN RECORD, like the sheets: pushing this panel unmounts the form under
+  // it, so both the values these rows show and the full state they write have to
+  // come from a read this panel made rather than from the form's captured copy.
+  const { rec, busy, error, saveField, saveAll } = useWorkRecord({
+    kind, initial: item, onChanged, creditSpecs,
+  })
+  const fieldSources = useMemo(() => {
+    const out = {}
+    for (const fs of rec?.field_sources || []) if (fs?.field) out[fs.field] = fs
+    return out
+  }, [rec])
+  const unsaved = useUnsavedFields()
+  const host = useFormHost('')
+  useEffect(() => {
+    host?.setDirty?.(unsaved.count)
+    return () => host?.setDirty?.(0)
+  }, [host, unsaved.count])
+
+  async function submit(e) {
+    if (e.target !== e.currentTarget) return
+    e.preventDefault()
+    const entries = unsaved.collect()
+    for (const e2 of entries) {
+      if (e2.save && (await e2.save()) === false) return
+    }
+    if (unsaved.count && !(await saveAll(entries, unsaved.closeAll))) return
+    onDone()
+  }
+  const swallowEnter = (e) => {
+    if (e.key !== 'Enter' || !(e.target instanceof HTMLInputElement)) return
+    if (e.target.form === e.currentTarget) e.preventDefault()
+  }
+
+  return (
+    <form id={host?.formId} onSubmit={submit} onKeyDown={swallowEnter} style={{ display: 'grid', gap: 'var(--row)' }}>
+      <UnsavedFieldsContext.Provider value={unsaved.host}>
+        <ErrorText>{error}</ErrorText>
+        <div>
+          {creditSpecs.map((spec) => {
+            const prov = fieldSources[spec.key]
+            return (
+              <InlineField
+                key={spec.key}
+                fieldKey={spec.key}
+                source={prov?.source}
+                sourceAt={prov?.at}
+                label={labelFor(spec, mediaType)}
+                value={resting(spec, rec)}
+                hint={spec.hint}
+                busy={!!busy}
+                nameCase={!!spec.nameCase}
+                onSave={(d) => saveField(spec, d)}
+              />
+            )
+          })}
+        </div>
+        {/* THE WORK'S CHARACTERS, who plays them, and both of their pictures.
+            Books included: a book's cast is the characters the reader names, and
+            0048 has stored them for as long as a film's. What is film-only is the
+            FETCH, and that gate is inside the panel where it belongs. */}
+        <CastSection
+          kind={kind}
+          item={rec}
+          onCastChanged={(cast) => onChanged?.({ ...rec, cast: cast || [] })}
+        />
+      </UnsavedFieldsContext.Provider>
+    </form>
+  )
+}
+
+export function workPeoplePanel(stack, props) {
+  return {
+    title: t('common.field.people.label'),
+    saveTip: t('common.work.people.done.tip'),
+    render: () => <WorkPeople {...props} onDone={() => stack.back()} />,
+  }
+}
+
+// peopleSummary — what the People row reads at rest.
+//
+// THE NAMES, NOT A COUNT. "6 people" is a number a reader has to open the panel
+// to understand; the names are the answer they came for, and a work with four
+// credits has four short strings. The character count follows because a cast is
+// genuinely a quantity at that point — twenty names on a resting row would be the
+// panel drawn twice.
+//
+// NOTHING IS TRUNCATED: the row wraps. A shortened name and a short name look
+// alike, which is the one failure a reader cannot detect.
+export function peopleSummary(item, creditSpecs, seps = DEFAULT_CREDIT_SEPS) {
+  const names = []
+  for (const spec of creditSpecs) {
+    for (const n of splitCredits(String(item?.[spec.key] || ''), seps)) {
+      if (n && !names.includes(n)) names.push(n)
+    }
+  }
+  const cast = (item?.cast || []).filter((c) => c && c.origin !== 'removed').length
+  const parts = []
+  if (names.length) parts.push(names.join(' · '))
+  if (cast) parts.push(t('common.field.people.characters.summary', { n: cast, count: cast }))
+  return parts.join(' — ')
+}
+
 // workDetailsPanel — the descriptor a screen opens, in identity.jsx's idiom.
 //
 // `wide` because this is a form of a dozen rows rather than a list of links, and
@@ -704,6 +1003,7 @@ export function workDetailsPanel(stack, { kind, item, onChanged, onDelete }) {
       <WorkDetails
         kind={kind}
         item={item}
+        stack={stack}
         onChanged={onChanged}
         onDelete={onDelete}
         onClose={() => stack.close()}
@@ -714,7 +1014,7 @@ export function workDetailsPanel(stack, { kind, item, onChanged, onDelete }) {
 
 // ---- the resting view ------------------------------------------------------
 
-function FieldList({ kind, item, specs, mediaType, busy, genreSuggestions, onSaveField, onSaveAll, onCover, onChanged, onFetch, onDelete, onClose }) {
+function FieldList({ kind, item, stack, specs, creditSpecs, mediaType, busy, genreSuggestions, onSaveField, onSaveAll, onCover, onChanged, onFetch, onDelete, onClose }) {
   const artPath = kind === 'book' ? item.cover_path : item.poster_path
   // field_sources[] -> { field: { source, at } }, so a row is one lookup rather than a
   // scan. Empty when the record has none, which is every record until something
@@ -821,27 +1121,16 @@ function FieldList({ kind, item, specs, mediaType, busy, genreSuggestions, onSav
         clearCover={false}
         onSetUrl={(u) => onCover(kind === 'book' ? { cover_url: u } : { poster_url: u })}
         onClear={(reset) => { if (reset !== true) onCover({ clear_cover: true }) }}
-        onUploaded={(rec) => onChanged?.(rec)}
+        onUploaded={(next) => onChanged?.(next)}
         search={kind === 'book'
           ? { isbn: item.isbn, title: item.title, author: item.author, asin: item.asin }
           : { title: item.title, year: item.release_year, mediaType: item.media_type || 'movie', tmdbId: item.tmdb_id, tvdbId: item.tvdb_id, igdbId: item.igdb_id }}
       />
 
-      {/* THE WORK'S PEOPLE — its characters, who plays them, and both of their
-          pictures. Books included: a book's cast is characters the reader names,
-          and 0048 has stored them for as long as a film's. What is film-only is
-          the FETCH, and that gate is inside the panel where it belongs (cast.jsx)
-          rather than being restated here. */}
-      {/* A NEW RECORD, CARRYING THE NEW CAST. Handing back `item` itself — which is
-          what the first repair did — is a state set to the same reference, which
-          React bails out of: nothing re-renders and nothing refetches, so the
-          panel's edits reached the boards that read `movie.cast` only after a
-          manual reload. Never undefined, and never the same object. */}
-      <CastSection
-        kind={kind}
-        item={item}
-        onCastChanged={(cast) => onChanged?.({ ...item, cast: cast || [] })}
-      />
+      {/* THE CAST MOVED BEHIND THE PEOPLE DOOR, with the credits it belongs
+          beside. It used to sit HERE, above the form — twenty rows of a film's
+          cast between the cover and the first field, which is the list nobody can
+          miss printed over the record nobody could reach. See workPeoplePanel. */}
 
       <div className="flex flex-wrap items-center gap-2">
         <GhostButton type="button" onClick={onFetch} disabled={!!busy}>
@@ -867,6 +1156,38 @@ function FieldList({ kind, item, specs, mediaType, busy, genreSuggestions, onSav
         {specs.map((spec) => {
           const label = labelFor(spec, mediaType)
           const value = resting(spec, item)
+          const prov0 = fieldSources[spec.key]
+          // THE FOUR THAT KEEP A SHEET, each for its own stated reason (BigField).
+          // The row is InlineField's resting row to the pixel; only what the
+          // pencil opens is different.
+          if (spec.kind === 'people') {
+            return (
+              <BigField
+                key={spec.key}
+                label={label}
+                display={peopleSummary(item, creditSpecs)}
+                onOpen={() => stack?.push(workPeoplePanel(stack, {
+                  kind, item, creditSpecs, mediaType, onChanged,
+                }))}
+              />
+            )
+          }
+          if (spec.sheet) {
+            return (
+              <BigField
+                key={spec.key}
+                label={label}
+                source={prov0?.source}
+                sourceAt={prov0?.at}
+                hint={spec.hint}
+                display={spec.kind === 'tokens' ? (value || []).join(' · ') : value}
+                disabled={!!busy}
+                onOpen={() => stack?.push(fieldSheetPanel(stack, {
+                  kind, item, spec, label, genreSuggestions, onChanged,
+                }))}
+              />
+            )
+          }
           // WHO WROTE THIS FIELD. `field_sources` has been on the wire since 0054 and
           // the client threw it away; this is where it lands. A spec's `key` already
           // IS the store's field name — title, author, published_year, isbn — so no

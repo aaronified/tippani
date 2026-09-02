@@ -5302,6 +5302,44 @@ export function InlineField({
   );
 }
 
+// BigField — a Details row whose editor is a SHEET rather than the row itself.
+//
+// FOUR FIELDS KEEP THEIR PANEL, and the handoff names each one's reason so that
+// nobody adds a fifth by feel: a description is prose and editing it in a 44px
+// row means reading it through a letterbox; genres are a token input with a
+// filter list of their own; a cover is a grid of pictures with no text to type;
+// people are not a value at all but a list of rows with roles and their own
+// actions. Everything else edits where it stands.
+//
+// THE AFFORDANCE IS ONE AFFORDANCE. This is InlineField's resting row, to the
+// pixel — same label, same provenance tag, same pencil in the same place — and
+// only what the pencil OPENS differs. A reader is not being asked to learn which
+// rows are cheap; the size of the thing decides where it opens and says nothing
+// about it beforehand.
+export function BigField({ label, display, placeholder, hint, source, sourceAt, onOpen, disabled = false, editLabel }) {
+  const filled = display != null && display !== "" && !(Array.isArray(display) && display.length === 0);
+  return (
+    <div className="inline-field">
+      <div className="inline-field-head">
+        <MonoLabel>{label}</MonoLabel>
+        {hint && <InfoDot text={hint} title={label} />}
+        <span className="flex-1" />
+        {source ? <FieldSourceTag source={source} at={sourceAt} /> : null}
+        {!disabled && (
+          <FieldIconButton
+            icon={<IconEdit />}
+            ariaLabel={editLabel || t("common.action.edit.field.aria", { field: String(label).toLowerCase() })}
+            onClick={onOpen}
+          />
+        )}
+      </div>
+      <div className={"inline-field-value" + (filled ? "" : " is-empty")}>
+        {filled ? display : placeholder || t("common.field.inline.placeholder")}
+      </div>
+    </div>
+  );
+}
+
 // ---- spaced-repetition status dot (v0.5.0) ----
 
 // STATUS_META — the three repetition statuses (renamed for clarity) plus the

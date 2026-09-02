@@ -13,8 +13,8 @@
     "web/frontend/vite.config.js"
   ],
   "sha256": {
-    "internal/i18n/bn.txt": "b3350096c7a007c99fc376b04a19e4621744227b57b422eb1fd9423acab5df00",
-    "internal/i18n/en.txt": "00669353cc182c9ddeeef9e1ef30a54b9085092a8779876571ccab882b155b67",
+    "internal/i18n/bn.txt": "ff349e4fa5edff109c926c9eccaac41ee1e83fa93d3c678f7c91e17bcf0e5596",
+    "internal/i18n/en.txt": "423d47468ae8b6c3383bfbbfa1df880e015cd9b4c029a0bdbe020b74660494e8",
     "web/frontend/index.html": "faa8bb6fc81705b9d9d395a62a9d474414a029c571723bf099f84cb624ce906c",
     "web/frontend/package-lock.json": "d7afffc5b73c431c604bfaff5760d6ef244d1f74b187575d213f3ad353c18715",
     "web/frontend/package.json": "21c5acbd140400ead3efd99595afe0510ae0d6e84099621f9c39d34195a30ed6",
@@ -46,7 +46,7 @@
     "web/frontend/src/StagingPage.jsx": "677a08d594e4f70f61a7ee86cdcbe3040f5de6cf6f639e0bbcc91944d37dfbc0",
     "web/frontend/src/StatsPage.jsx": "1eec3391e12eed60de85774f341ce1f6a87e923cec23afc22e6f795ed4524b3e",
     "web/frontend/src/TagsPage.jsx": "f9c04fc17ca01c182c0c011eb6e896cc32abc4bde20ce580c3f83a079b71465f",
-    "web/frontend/src/WorkDetails.jsx": "690f9f226540bc91dce4b13580717071c554a9c9cb54e695d8de35dc57f59e51",
+    "web/frontend/src/WorkDetails.jsx": "8faebf2884f9a561849c137e9d73df7e178721c901f02afe1ea93ec51b215f7a",
     "web/frontend/src/actions.jsx": "6dd6471bf014a22a616850985f3b46695eb87db770c01d24be290e8678979148",
     "web/frontend/src/anthologies.jsx": "31d06bb57e8a7cc49900dcbf484e88b478755fb1147b5426a8051cc014522b21",
     "web/frontend/src/api.js": "247cfbbd19d9a65b6114b9ae141e85115827616133090dae3b11e09387be0729",
@@ -119,7 +119,7 @@
     "web/frontend/src/tokens.js": "3f21045159a3304c079ed97f902709696e27c57df7f1115214871d7891564886",
     "web/frontend/src/tour.jsx": "59286e57558ac8f72ce62331c6f3d9ee86673fff743ae364335d094968bb8c9d",
     "web/frontend/src/type.js": "42a611ce846b7d8493821b93314c59ca104f95b557b02dbb0d4a9698a35083af",
-    "web/frontend/src/ui.jsx": "b6afe757c60bdc7d0f4d38a55a65e5a985854eda39c42328465e44211cdee4b6",
+    "web/frontend/src/ui.jsx": "0435495607005ec0c0491f73b6cd03323813a3339075b8874cc545914cb8b597",
     "web/frontend/src/undo.jsx": "27dd04ac24e09c8b53b5caee551b7ecd575ae012aa087fa87e3d31ed767e0834",
     "web/frontend/src/update.js": "cac7b1e2a4b8bfce7d2658505ebd0bcbb6b1bb4aef9e7422cf5826949c69b8a4",
     "web/frontend/src/works.jsx": "138bc51ca836101d0c4cacfd0e980da354641b0e74d346ed36035def8d584b4a",

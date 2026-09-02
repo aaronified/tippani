@@ -5370,6 +5370,38 @@ Library and Catalogue never met it because they pass `'annotation'` and `'dialog
 
 <sub>3.1.0 — `web/frontend/src/identity.jsx` · `internal/i18n/en.txt` · `internal/i18n/bn.txt`</sub>
 
+### A panel body owns its record, because a panel's props are frozen when it is pushed
+
+**Decided.** `useWorkRecord` reads the work back on mount, holds it, writes full state from what it read, and reports every result both to its own copy and to the page above. `WorkDetails`, `WorkPeople` and `FieldSheet` each use it. The prop they are handed is a SEED, named `initial`, not the truth. A read-back is adopted only when `r.data.id` matches the record asked for.
+
+**Why — and this was live, unreported, and mine.** A panel descriptor is captured when it is PUSHED: `render: () => <WorkDetails item={…}/>` closes over the record as it stood at that moment, and the stack entry is immutable, so a page re-rendering with a newer record never reaches it. `PanelHost` also renders only its TOP entry, so opening a sheet UNMOUNTS the body underneath and walking back mounts a fresh one from that same frozen prop. Two facts that were each harmless became one defect when Details moved onto the panel stack: save the title and the row snapped back to the old one; save a second field and its full-state body restated the first field as it was before; edit a description in its own sheet and the row that opened it still showed the old text.
+
+Nothing errored and every toast said "saved", which is the shape of failure this repo keeps finding — and the reason the fix comes with a test that saves twice and reads the SECOND request's body.
+
+**Read back rather than plumbed through.** The alternative is a live reference the page updates and the descriptor closes over, which makes every screen that opens a panel responsible for a ref it cannot see the use of, and still does not survive the unmount. One GET per panel open is what identity.jsx's panels already pay, and it also fixes a second thing for free: a Details opened from a stale list row shows the record as it now is.
+
+**Only if it is the same record.** An unexpected reply — an error body, a stub, a redirect — must not blank a form the reader is looking at. That is a worse failure than the staleness the read exists to end.
+
+<sub>3.1.0 — `web/frontend/src/WorkDetails.jsx` · `web/frontend/test/dom/work-details-order.test.jsx`</sub>
+
+### Details is one list in relevance order, and four fields keep a sheet
+
+**Decided.** `BOOK_FIELDS` and `MOVIE_FIELDS` are ordered title · subtitle · people · description · genres · year · language · publisher · series · pages · isbn — the handoff's `D_ORDER`. `people` is one row opening `workPeoplePanel`, which holds the credit specs (`BOOK_CREDIT_FIELDS` / `MOVIE_CREDIT_FIELDS`) and `CastSection`. `description` and `genres` carry `sheet: true` and open `fieldSheetPanel`. `BigField` draws all three rows and is `InlineField`'s resting row to the pixel.
+
+**Why.** Sorting the record by which editor a field opens sorts it by implementation: it tells the reader which rows are cheap, which is the app's problem and not theirs, and it had buried People and Description — the two things most often wanted — under ISBN and ASIN. No section headings either: "Fields" over a list of fields inside a panel called Details is the panel's title said twice.
+
+**A WORK'S PEOPLE ARE NOT A VALUE,** which is why they are a door and not a row that edits one. Three text boxes sitting between Year and Series said that naming the author is the same size of edit as a series number; the cast sat *above* the form, so a film opened with twenty cast rows between its cover and its first field. Both halves answer one question — who made this, and who is in it — so they are behind one door and the row prints the names.
+
+**The credits stayed SPECS.** They kept their shape, their coercion, their provenance tag and their place in the merge proposal, which reads both lists: a lookup match offering an author must still be offerable, and a spec that left the form must not leave the proposal. The per-medium label rule is tested against both lists for the same reason — one that applied only to the fields still drawn on the form would let a game's Studio go back to reading Director the moment it moved.
+
+**Four fields keep a sheet, each for its own reason,** and the reasons are written down so that nobody adds a fifth by feel: a description is prose and editing it under a 44px label means reading it through a letterbox; genres are a token input with a filter list of their own; a cover is a grid of pictures with no text to type; people are a list of rows with roles and actions. The description's sheet is twelve rows rather than four — a blurb is read while it is corrected.
+
+**THE AFFORDANCE IS ONE AFFORDANCE.** `BigField` is `InlineField`'s resting row exactly: same label, same source tag, same pencil in the same place. Only what the pencil opens differs, and nothing announces it. A reader is not asked to learn which rows are cheap before pressing one.
+
+**Instead of.** A "Longer fields" heading over the four — that is the implementation order with a label on it. Leaving description and genres editing in the row, which is where the app had put them: it went further than the pack here and the pack's reason still holds, because the row's four-line textarea is a slot to type into rather than a page to read. Making the People panel a third kind of surface — it is a panel on the same stack, with the same ✓, the same unsaved-work guard and the same back word.
+
+<sub>3.1.0 — `web/frontend/src/WorkDetails.jsx` · `web/frontend/src/ui.jsx` · `web/frontend/test/dom/details-save-all.test.jsx` · `web/frontend/test/dom/work-details-order.test.jsx` · `web/frontend/scripts/glossary/catalogue.js`</sub>
+
 ## 14. Boards, Cards, Charts and Popups
 
 A popup that places itself in CSS is correct exactly once, and a board that re-packs while you read moves everything you were not looking at — both were fixed by one primitive rather than nine local patches. Charts are here too, because most chart decisions turned out to be about what a number means.

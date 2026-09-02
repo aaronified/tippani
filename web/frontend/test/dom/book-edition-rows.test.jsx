@@ -20,6 +20,12 @@ vi.mock('../../src/api.js', async (orig) => ({
       PUTS.push({ path, body })
       return { ok: true, data: { ...ITEM, ...body } }
     }
+    // THE PANEL READS ITS RECORD BACK ON MOUNT (useWorkRecord). A mock that did
+    // not answer this would leave every case running against the seed, which is
+    // the exact staleness the read was added to end.
+    if (method === 'GET' && /^\/(books|movies)\/\d+$/.test(path)) {
+      return { ok: true, data: ITEM }
+    }
     if (method === 'GET' && path.endsWith('/cast')) {
       return { ok: true, data: { cast: [], actor_role: 'none' } }
     }

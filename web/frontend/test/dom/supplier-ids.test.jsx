@@ -20,6 +20,7 @@ import { PanelHarness, resetPanelHistory } from '../panel-harness.jsx'
 import { MovieLookupPicker } from '../../src/CoverPicker.jsx'
 
 let CALLS = []
+let STORED
 
 vi.mock('../../src/api.js', async (orig) => ({
   ...(await orig()),
@@ -27,7 +28,11 @@ vi.mock('../../src/api.js', async (orig) => ({
     CALLS.push([method, path, body])
     if (path === '/genres') return { ok: true, data: { genres: [] } }
     if (path === '/movies/lookup') return { ok: true, data: { candidates: [] } }
-    return { ok: true, data: { id: 1, title: 'Persuasion', ...(body || {}) } }
+    // THE PANEL READS ITS RECORD BACK ON MOUNT (useWorkRecord), so the mock has
+    // to be a server that remembers: answering a GET with a stub would hand the
+    // form a film with no ids on it and every case below would be about that.
+    if (method === 'PUT') STORED = { ...STORED, ...(body || {}) }
+    return { ok: true, data: STORED }
   }),
 }))
 
@@ -57,6 +62,7 @@ async function open(item = MOVIE) {
 
 beforeEach(() => {
   CALLS = []
+  STORED = { ...MOVIE }
   resetPanelHistory()
 })
 

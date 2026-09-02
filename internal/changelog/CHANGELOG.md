@@ -199,6 +199,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   browser is not allowed to draw, says nothing rather than claiming to be zero pixels
   wide.
 
+- **The Details panel shows what you just saved.** It was showing what the record said
+  when you opened it: the panel's contents are fixed at the moment it is pushed, so
+  saving the title left the row snapping back to the old one — and every later save on
+  that panel restated the record as it stood when Details opened, quietly undoing the
+  earlier ones. The panel reads the work when it opens now, writes from what it read, and
+  tells the page behind it. A field edited in its own sheet is on the row the moment you
+  come back.
+
+- **Details is one list in the order a reader looks things up.** Title, subtitle, people,
+  description, genres, year, language, publisher, series, pages, ISBN — not sorted by which
+  editor a field happens to open, which is the app's problem and not yours, and which had
+  buried People and Description under ISBN and ASIN. No headings: "Fields" over a list of
+  fields inside a panel called Details is the panel's title said twice.
+
+- **A work's people are one row, and everything about them is behind it.** The three credit
+  boxes and the cast list used to sit in two different places — the credits among Year and
+  Series as though naming the author were the same size of edit as a series number, and the
+  cast above the form, twenty rows of a film's cast between the cover and the first field.
+  They are one door now, because "who made this" and "who is in it" is one question.
+
+- **Description and genres get a surface of their own.** A blurb is read while it is being
+  corrected, and four rows of a nine-hundred-pixel panel is a slot to type into rather than
+  a page to read; genres are a token list with their own filter. Everything that fits on a
+  row still edits on the row — the pencil is the same pencil, and the size of the thing
+  decides where it opens.
+
 - **A book can hold its subtitle, its publisher and how long it is.** Three facts every
   lookup has always returned and the app threw away on arrival: Google Books sends a
   subtitle, a publisher and a page count on every volume, Open Library sends all three

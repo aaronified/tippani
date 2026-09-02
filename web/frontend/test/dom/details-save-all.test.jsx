@@ -26,6 +26,12 @@ vi.mock('../../src/api.js', async (orig) => ({
       return OK ? { ok: true, data: { ...ITEM, ...body } } : { ok: false, status: 500, data: {} }
     }
     // The People section's own reads, so the panel can be driven from here.
+    // THE PANEL READS ITS RECORD BACK ON MOUNT (useWorkRecord). A mock that did
+    // not answer this would leave every case running against the seed, which is
+    // the exact staleness the read was added to end.
+    if (method === 'GET' && /^\/(books|movies)\/\d+$/.test(path)) {
+      return { ok: true, data: path.startsWith('/movies') ? FILM : ITEM }
+    }
     if (method === 'GET' && path.endsWith('/cast')) {
       return { ok: true, data: { cast: [{ id: 1, character: 'Ahab', actor: '' }], actor_role: 'none' } }
     }
@@ -44,6 +50,13 @@ const ITEM = {
   id: 7, title: 'Solaris', author: 'Stanisław Lem', translator: '', editor: '',
   isbn: '', asin: '', description: '', published_year: 1961, published_circa: false,
   genres: [], series: '', series_index: 0, favorite: false,
+}
+
+// MODULE SCOPE, because the api mock answers the panel's record read-back with
+// it and a mock hoisted above the file cannot see a describe's local.
+const FILM = {
+  id: 12, title: 'Stalker', director: 'Andrei Tarkovsky', media_type: 'movie',
+  release_year: 1979, genres: [], series: '', series_index: 0, tmdb_id: 0, tvdb_id: 4321,
 }
 
 beforeEach(() => {
@@ -142,13 +155,17 @@ describe('the master save', () => {
     await closed()
   })
 
+  // TWO ROWS OF THIS FORM, and Author is no longer one of them: the credits moved
+  // behind the People door with the cast they belong beside, and that panel keeps
+  // its own master save. Title and Series are the pair now.
   it('sends every edited field in ONE request', async () => {
     panel()
     await shown()
     openRow('Title')
     typeIn('Title', 'Solaris (1961)')
-    openRow('Author')
-    typeIn('Author', 'Stanislaw Lem')
+    // "Series #" also matches /Edit Series/, so this one is anchored.
+    fireEvent.click(screen.getByRole('button', { name: /^Edit series$/i }))
+    typeIn('Series', 'Lem')
 
     fireEvent.click(masterSave())
 
@@ -157,7 +174,7 @@ describe('the master save', () => {
     // second would carry the first field's ORIGINAL value alongside its own.
     expect(PUTS.length).toBe(1)
     expect(PUTS[0].body.title).toBe('Solaris (1961)')
-    expect(PUTS[0].body.author).toBe('Stanislaw Lem')
+    expect(PUTS[0].body.series).toBe('Lem')
   })
 
   // Full-state, like every other write here: the fields nobody touched go back
@@ -302,11 +319,15 @@ describe('a submit from somewhere else', () => {
 // page was reloaded by hand. Neither failure is visible from inside the panel, and
 // asserting the argument at the panel cannot see either.
 describe('a cast change reaches the record', () => {
-  // The panel opens with the work now — it spent a release collapsed behind a
-  // "People" button and the owner could not find the cast at all.
+  // BEHIND THE PEOPLE DOOR, which is one press and not a collapsed section. The
+  // cast spent a release hidden behind a "People" button *inside* the form and
+  // the owner could not find it at all; then it sat above the form, twenty rows
+  // deep, between the cover and the first field. It is a row of the form now, in
+  // the handoff's own order, and the row says what is behind it.
   const openPeople = async () => {
     panel()
     await shown()
+    fireEvent.click(screen.getByRole('button', { name: /Edit people/i }))
     await screen.findByText('Ahab')
   }
 
@@ -343,10 +364,6 @@ describe('a cast change reaches the record', () => {
 // the real dialog: press the button a reader presses, and look for the control on
 // the screen it lands on.
 describe('the fetch screen carries the cast fetches', () => {
-  const FILM = {
-    id: 12, title: 'Stalker', director: 'Andrei Tarkovsky', media_type: 'movie',
-    release_year: 1979, genres: [], series: '', series_index: 0, tmdb_id: 0, tvdb_id: 4321,
-  }
   const film = (onChanged) =>
     render(
       <PanelHarness
@@ -368,12 +385,16 @@ describe('the fetch screen carries the cast fetches', () => {
     film()
 
     await filmShown()
-    // The People panel is open on arrival and must NOT be where these live any
-    // more — that is half the claim, and the half a positive-only test misses.
-    // The panel's own row, from the mocked /cast read above — MonoLabel's heading
-    // is upper-cased by CSS, so its DOM text is not what it looks like.
+    // NOT IN THE PEOPLE PANEL — that is half the claim, and the half a
+    // positive-only test misses. Opened here on purpose: the cast list is
+    // genuinely inside it (the panel's own row, from the mocked /cast read
+    // above), and the two fetches are genuinely not.
+    fireEvent.click(screen.getByRole('button', { name: /Edit people/i }))
     expect(await screen.findByText('Ahab')).toBeTruthy()
     expect(screen.queryByRole('button', { name: /Cast from TheTVDB/ })).toBeNull()
+    // Back to the form, where the fetch actually lives.
+    fireEvent.click(screen.getByRole('button', { name: /Back to/i }))
+    await filmShown()
 
     // The first of two: the ID rows below carry their own "fetch metadata" links.
     fireEvent.click(screen.getAllByRole('button', { name: /Fetch metadata/i })[0])
