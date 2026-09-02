@@ -33,6 +33,7 @@ import {
   ErrorText,
   Field,
   FieldIconButton,
+  FieldSourceTag,
   GhostButton,
   IconCheck,
   IconClose,
@@ -494,6 +495,14 @@ export function useCharacterPicture({ row, actor, workTitle, mediaType, busy, on
   })
 }
 
+// A row's provenance, from `work_cast.origin` and `work_cast.source`.
+//
+// `origin` is NOT NULL DEFAULT 'provider', so there is always an answer and a row
+// carrying no `source` under it is a supplier row whose slug was never stored —
+// rare, and the tag draws nothing rather than inventing "unknown".
+const rowSource = (row) => (row.origin === 'reader' ? 'manual' : row.source || '')
+const rowNote = (row) => (row.origin === 'corrected' ? t('cast.source.corrected.note') : '')
+
 // CastRow — one credit. Resting it is two names and a face; editing it is two
 // boxes; and the picture controls are always the row's own, never the panel's.
 
@@ -650,6 +659,20 @@ function CastRow({ row, role, busy, actor, workTitle, mediaType, onSave, onRemov
         )}
       </span>
       <span className="cast-row-acts">
+        {/* WHERE THIS ROW CAME FROM, on the row itself.
+            The credit fields above this list have worn their supplier since 0054
+            — author from Google Books, director from TMDB, the ones you typed in
+            the accent — and the cast list underneath them wore nothing, while
+            `work_cast.origin` has kept the answer in four states since 0048 and no
+            screen had ever read it. So the panel said "line by line" for eleven
+            fields and then showed twenty lines with no line.
+
+            THE FOUR STATES ARE NOT THREE. `provider` is the supplier's, untouched.
+            `corrected` is the supplier's, edited by the reader — the mark stays the
+            supplier's, because that is where the row came from, and the note says
+            what happened since. `reader` is yours, drawn in the accent like a
+            field you typed. `removed` is a tombstone and is never in this list. */}
+        <FieldSourceTag source={rowSource(row)} note={rowNote(row)} />
         {/* The character's picture is reached by pressing the picture — see the
             face button above. What is left here is the row's text and its life. */}
         <FieldIconButton

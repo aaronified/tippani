@@ -13,8 +13,8 @@
     "web/frontend/vite.config.js"
   ],
   "sha256": {
-    "internal/i18n/bn.txt": "14d63a0e979e826f20481c4c8c4950985389e05cd6a386c4c6d56e409b746c6e",
-    "internal/i18n/en.txt": "2737029aaf51cdda7720d046a8baeae5e4839904a9bb408b70d55757d970e118",
+    "internal/i18n/bn.txt": "467017c3b8a9f84fd1826b29d0c0d8a6a4a89f5a3b1e3d7a6aa00d2de821ff59",
+    "internal/i18n/en.txt": "a16594e5fd8185e7534c593fb8917647e7308f6207b615aefb519cb5d2d97746",
     "web/frontend/index.html": "faa8bb6fc81705b9d9d395a62a9d474414a029c571723bf099f84cb624ce906c",
     "web/frontend/package-lock.json": "d7afffc5b73c431c604bfaff5760d6ef244d1f74b187575d213f3ad353c18715",
     "web/frontend/package.json": "21c5acbd140400ead3efd99595afe0510ae0d6e84099621f9c39d34195a30ed6",
@@ -53,7 +53,7 @@
     "web/frontend/src/api.js": "247cfbbd19d9a65b6114b9ae141e85115827616133090dae3b11e09387be0729",
     "web/frontend/src/boards.jsx": "70aacfe193857399e3c1c275eab2896021f0a329b493f24e88b545671bfdf1a3",
     "web/frontend/src/bulkOps.jsx": "a0400a83a6cb692f4f72dd889b0eb2319e3c96def190327da8c7c78df5263d50",
-    "web/frontend/src/cast.jsx": "1e03f9ddce7ea6bd2722719fbd3385305acadc65188c609fb9a8abedff8c9871",
+    "web/frontend/src/cast.jsx": "cdb42122b7facef1eea794ab835f248167804758a99c8edbf9c3083cbd476d6d",
     "web/frontend/src/credits.jsx": "8ca0a1fbd2bbdff241b55cf67fb22c3da382d8e623c2edc752cf3f4277b58fce",
     "web/frontend/src/daily.js": "a589a1d1e2f7d6ac928df3d8d7f52e4ddb7481219ec312e71db82d5efed79670",
     "web/frontend/src/demo/install.js": "175b71cb62c52d23f7b1f19b1b7765cbb8e8722359fe474aa6e645714053f4d6",
@@ -120,7 +120,7 @@
     "web/frontend/src/tokens.js": "3f21045159a3304c079ed97f902709696e27c57df7f1115214871d7891564886",
     "web/frontend/src/tour.jsx": "59286e57558ac8f72ce62331c6f3d9ee86673fff743ae364335d094968bb8c9d",
     "web/frontend/src/type.js": "42a611ce846b7d8493821b93314c59ca104f95b557b02dbb0d4a9698a35083af",
-    "web/frontend/src/ui.jsx": "46e187532d0e79f1a425adb59b64c62058b24df77a334b00960b13fd58415a48",
+    "web/frontend/src/ui.jsx": "9b578f7de1cc2b33bf1535f6ee1c0153773e6e7a6a58442a5367b26e27900ab6",
     "web/frontend/src/undo.jsx": "27dd04ac24e09c8b53b5caee551b7ecd575ae012aa087fa87e3d31ed767e0834",
     "web/frontend/src/update.js": "cac7b1e2a4b8bfce7d2658505ebd0bcbb6b1bb4aef9e7422cf5826949c69b8a4",
     "web/frontend/src/workKinds.js": "b1190bb6c364df72f4c8f5fcf7ca3779cc9837ba68f1de1b4c62279dca9b1244",

@@ -6147,6 +6147,7 @@ cast.role.voice.label = কণ্ঠশিল্পী
 cast.add.aria = একটা চরিত্র যোগ করুন
 cast.empty.prose = এখনও কোনও কাস্ট জমা নেই। সূত্র থেকে আনুন, বা একটা চরিত্র নিজে যোগ করুন।
 cast.unnamed.label = (নাম নেই)
+cast.source.corrected.note = আপনার সংশোধন করা
 cast.picture.aria = {name}-এর ছবি
 cast.picture.url.aria = {name}-এর ছবির URL
 cast.picture.placeholder = https://… ছবির URL

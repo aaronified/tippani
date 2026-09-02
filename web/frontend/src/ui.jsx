@@ -7403,20 +7403,29 @@ export function ProviderMark({ source, size }) {
 // wrote it. The accent word means YOU did — `store.SourceManual`, which the database
 // treats as a real answer. NOTHING AT ALL means the field has no row, which is "we do not
 // know" and is not the same as "nobody has touched it".
-export function FieldSourceTag({ source, at }) {
+//
+// `note` is a fourth thing a source can be, and only the cast list has it: a row
+// SEEDED by a supplier and then corrected by the reader, which the schema keeps as
+// its own origin because a refetch may rewrite the supplier's own facts on it and
+// may never touch the two names. The mark stays the supplier's — that is where the
+// row came from — and the note says what happened to it since. It reaches the
+// tooltip and the screen reader, not the row, because a cast list is twenty rows
+// and a word repeated on each is a word nobody reads.
+export function FieldSourceTag({ source, at, note }) {
   if (!source) return null;
   const name = sourceName(source);
   const when = at ? ` · ${String(at).slice(0, 10)}` : "";
+  const said = note ? `${name} · ${note}` : name;
   const drawn = !!PROVIDER_MARKS[source];
   return (
     <span
       className="field-src"
       data-src={drawn ? source : source === "manual" ? "manual" : "none"}
-      title={`${name}${when}`}
+      title={`${said}${when}`}
     >
       <ProviderMark source={source} />
       {drawn ? null : <span aria-hidden="true">{name}</span>}
-      <span className="sr-only">{name}</span>
+      <span className="sr-only">{said}</span>
     </span>
   );
 }

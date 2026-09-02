@@ -6114,6 +6114,7 @@ cast.role.voice.label = Voice actor
 cast.add.aria = Add a character
 cast.empty.prose = No cast on file yet. Fetch one, or add a character.
 cast.unnamed.label = (unnamed)
+cast.source.corrected.note = corrected by you
 cast.picture.aria = Picture for {name}
 cast.picture.url.aria = Image URL for {name}
 cast.picture.placeholder = https://… image URL

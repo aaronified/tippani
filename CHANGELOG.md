@@ -91,6 +91,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Every cast row says where it came from.** The credit fields in a work's Details have
+  worn their supplier for releases — author from Google Books, director from TMDB, the
+  ones you typed in the accent — and the cast list directly underneath them wore nothing,
+  though the answer has been stored per row all along. Four states, and they are not
+  three: a row the supplier listed, a row it listed and you then corrected — which keeps
+  the supplier's mark, because that is still where it came from, and says in its label
+  that you corrected it — and a row you typed, in the accent like a field you filled in.
+  A supplier row whose name was never recorded still says nothing, rather than *unknown*:
+  a source named that was never stored is one you would go looking for.
+
 - **A character's name opens the character, on the work you pressed it from.** On a
   work's cast list the character name opened the row's *picture editor* — the right
   answer while a character was flat text with a still attached, and the wrong one since
