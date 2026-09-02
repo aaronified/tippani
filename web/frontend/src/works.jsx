@@ -2118,17 +2118,18 @@ export function WorkListScaffold({
         icon: <IconFilter />,
         onClick: () => setMobileFilter((o) => !o),
       },
-      // EXPORT, NOT SORT — the owner's call, and the reason the sort could give up
-      // the seat is that it moved INTO the sheet the key beside it opens. Sorting
-      // and filtering are one visit to one surface again: you open the filters,
-      // decide what you are looking at and what order it is in, and press Done.
-      // Export is the one verb on this screen with nowhere else to be on a phone.
-      ...(!DEMO && onExport ? [{
-        id: 'export',
-        label: t('common.action.export.label'),
-        icon: <IconExport />,
-        onClick: onExport,
-      }] : []),
+      // THE WAY TO THE OTHER BOARDS, in the seat Export had. Both of the reasons
+      // Export was put here have since gone: the sort moved into the sheet the
+      // key beside it opens, which is what freed the seat — and Export is in this
+      // screen's own ⋯ four rows up, so it was the one verb here that already had
+      // somewhere else to be. What a reader on a board actually wants from the
+      // dock is the OTHER boards: the rail is a desktop control and the drawer is
+      // at the top of a phone, which is the far end from the thumb.
+      //
+      // `{ id: 'nav' }` is a placeholder the shell swaps for its own boards key —
+      // only the shell knows which sections are switched on and only the shell
+      // can change tab, so this screen names the seat rather than building it.
+      { id: 'nav' },
     ] : null,
   })
 

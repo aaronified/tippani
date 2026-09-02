@@ -1833,48 +1833,68 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
   // glyph, filled, because at that point it names a place rather than a list of
   // them — and a menu of one is the dead control this repo keeps arguing against.
   const boardRows = SECTIONS.filter((sec) => sections[sec.tab])
-  const homeKeys =
-    tab === 'home' && !detail
-      ? [
-          boardRows.length === 1
-            ? {
-                id: 'boards',
-                label: t(boardRows[0].label),
-                icon: <NavIcon name={boardRows[0].tab} />,
-                onClick: () => selectTab(boardRows[0].tab),
-              }
-            : {
-                id: 'boards',
-                node: (
-                  <DockMenu
-                    icon={<IconBoards />}
-                    label={t('shell.dock.boards.label')}
-                    items={boardRows.map((sec) => ({
-                      id: sec.tab,
-                      icon: <NavIcon name={sec.tab} />,
-                      label: t(sec.label),
-                      onClick: () => selectTab(sec.tab),
-                    }))}
-                  />
-                ),
-              },
-          {
-            id: 'tools',
-            node: (
-              <DockMenu
-                icon={<IconTools />}
-                label={t('shell.dock.tools.label')}
-                items={HOME_TOOLS.map(([key, label]) => ({
-                  id: key,
-                  icon: <NavIcon name={key} />,
-                  label: t(label),
-                  onClick: () => selectTab(key),
-                }))}
-              />
-            ),
-          },
-        ]
-      : null
+  // THE WAY TO THE OTHER BOARDS, as one seat. Built here rather than by the
+  // screens because only the shell knows which sections are switched on and only
+  // the shell can change tab — a screen that wanted this would have to be handed
+  // both, which is two props to every screen for one key.
+  const boardsKey =
+    boardRows.length === 1
+      ? {
+          id: 'boards',
+          label: t(boardRows[0].label),
+          icon: <NavIcon name={boardRows[0].tab} />,
+          onClick: () => selectTab(boardRows[0].tab),
+        }
+      : {
+          id: 'boards',
+          node: (
+            <DockMenu
+              icon={<IconBoards />}
+              label={t('shell.dock.boards.label')}
+              items={boardRows.map((sec) => ({
+                id: sec.tab,
+                icon: <NavIcon name={sec.tab} />,
+                label: t(sec.label),
+                onClick: () => selectTab(sec.tab),
+              }))}
+            />
+          ),
+        }
+  const toolsKey = {
+    id: 'tools',
+    node: (
+      <DockMenu
+        icon={<IconTools />}
+        label={t('shell.dock.tools.label')}
+        items={HOME_TOOLS.map(([key, label]) => ({
+          id: key,
+          icon: <NavIcon name={key} />,
+          label: t(label),
+          onClick: () => selectTab(key),
+        }))}
+      />
+    ),
+  }
+
+  // WHAT THE DOCK'S TWO SEATS HOLD, and the answer is now the same everywhere by
+  // default rather than on Home alone.
+  //
+  // The owner's rule: "for locations that do not have context menu, just use the
+  // home context menu in mobile." A screen with nothing of its own to offer used
+  // to publish nothing and get two EMPTY seats — on the Bin, on Tags, on Checks,
+  // on every screen that is a list and no more. Two blanks beside Back, Search
+  // and ＋ is not restraint, it is a dock with holes in it, and the two keys Home
+  // already has are the two that are useful from anywhere: where else can I go,
+  // and what is this library's own machinery.
+  //
+  // A SCREEN MAY ASK FOR THE NAV SEAT BY NAME. `{ id: 'nav' }` in a screen's own
+  // keys is a placeholder the shell swaps for the boards key above — which is how
+  // the Library, the Catalogue and the Quotes page keep their filter in the first
+  // seat and get the way out in the second, without being handed `sections` and
+  // `selectTab` to build it themselves.
+  const dockKeys = (barKeys || [boardsKey, toolsKey]).map((k) =>
+    k && k.id === 'nav' ? boardsKey : k,
+  )
   // Back is dead on the first screen of a session. It is still drawn — see
   // MobileDock — so Search never slides into the seat it always occupies.
   const canGoBack = (window.history.state?.tpDepth || 0) > 0 || !!detail
@@ -2168,7 +2188,7 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
           page for a key that cannot be drawn. */}
       <BackToTop show={showTop} dockHidden={navHidden} onClick={toTop} />
       <MobileDock
-        keys={barKeys || homeKeys}
+        keys={dockKeys}
         hidden={navHidden}
         canBack={canGoBack}
         onBack={() => window.history.back()}

@@ -206,14 +206,23 @@ describe('the phone\u2019s two doors', () => {
     expect(screen.getByLabelText(/^Sort$/i)).toBeTruthy()
   })
 
-  it('gives the seat the sort vacated to Export', async () => {
+  it('gives the seat the sort vacated to the way out', async () => {
     asPhone()
     await board()
     const ids = (screenBarNow().keys || []).map((k) => k.id)
-    // Two seats, and neither of them is a second door to the sheet the first
-    // one opens. Export is the one verb on this screen with nowhere else to be
-    // on a phone.
-    expect(ids).toEqual(['filter', 'export'])
+    // Two seats, and neither is a second door to the sheet the first one opens.
+    //
+    // THE SECOND WAS EXPORT AND IS NOW THE BOARDS KEY. Both of Export's claims to
+    // it had gone: the sort moved into the filter sheet, which is what freed the
+    // seat, and Export is in this screen's own ⋯ , so it was the one verb here
+    // that already had somewhere else to be. What a reader on a board wants from
+    // a thumb is the OTHER boards — the rail is a desktop control and the drawer
+    // is at the top of the screen.
+    //
+    // `nav` is what the SCREEN publishes; the shell swaps it for its own boards
+    // key, because only the shell knows which sections are switched on. Asserted
+    // as published, since that is the contract this screen owns.
+    expect(ids).toEqual(['filter', 'nav'])
   })
 
   it('stops repeating the page in the \u22ef', async () => {

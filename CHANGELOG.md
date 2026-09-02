@@ -75,6 +75,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   book's translator and editor, a show's creator, a game's studio and its publisher,
   which is plain text because a publisher has no page to open.
 
+- **Every phone screen has the two navigation keys, and a board's second key is the way
+  to the other boards.** The dock seats five and three never move, so the last two are
+  the screen's — and a screen with nothing of its own to offer published nothing and got
+  two empty seats. On the Bin, on Tags, on Checks, on every screen that is a list and no
+  more, the dock had holes in it. Those two seats now hold what Home has always put
+  there: where else can I go, and this library's own machinery.
+
+  On the Library, the Catalogue and the Quotes page the second seat was *Export*, and
+  both of the reasons it was there had gone — the sort it replaced had moved into the
+  filter sheet, and Export is four rows up in the screen's own ⋯ , so it was the one verb
+  on the row that already had somewhere else to be. It holds the other boards now, which
+  is the thing a thumb cannot otherwise reach: the rail is a desktop control and the
+  drawer is at the top of the screen, the far end from where your hand is.
+
 ### Added
 
 - **A phone has a way back to the top of a long board.** A work with a hundred quotes was

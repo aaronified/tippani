@@ -27,7 +27,7 @@
     "web/frontend/public/mark.svg": "fce406e4046c0ac0885f679b22e9dab9dfb35d0fb92a6a94ad2894ac3bbe0ff8",
     "web/frontend/src/Account.jsx": "a6a933355aee512da75d9df25ba0a6c4928cb77dca681f7843fc70b4807f410f",
     "web/frontend/src/AddSurface.jsx": "e06c0d33570b1a0317cca97b7d8e053558bdc229383f2864cb8ea05304085ca1",
-    "web/frontend/src/App.jsx": "4dacffc516951bc880e659c055052f6158f5c8100abedabeb2f671fb70c77ab0",
+    "web/frontend/src/App.jsx": "23261570ab33eac9356c0541737c3a6cbadbbdee78b89e7cd530bebd4fda788f",
     "web/frontend/src/BinPage.jsx": "27f0cff0d30f59812540da5852d717ccc480674c0154bcde1300455355c906f0",
     "web/frontend/src/ChecksPage.jsx": "d8ea57329cb535ef6f45fd8511788350b14c6264ec18d7de57cc2e437bfe3566",
     "web/frontend/src/CleanupPage.jsx": "4235cf8476b5027bc8694138467236703454cc54b0700391fcb18dc73efe80b7",
@@ -125,7 +125,7 @@
     "web/frontend/src/update.js": "cac7b1e2a4b8bfce7d2658505ebd0bcbb6b1bb4aef9e7422cf5826949c69b8a4",
     "web/frontend/src/workKinds.js": "b1190bb6c364df72f4c8f5fcf7ca3779cc9837ba68f1de1b4c62279dca9b1244",
     "web/frontend/src/workLinks.jsx": "9c4e87220b933d780307ae4d14dd9b541ff2e8fac180da8d82a192ad1b205ddc",
-    "web/frontend/src/works.jsx": "0c80d0a146d94f2d0b2bf2fad656b249e508b417072697b10f43c0a396ecc86d",
+    "web/frontend/src/works.jsx": "dc0edad770ad7a135cb3db56570236b8198b88774905fbc96c89542417998557",
     "web/frontend/vite.config.js": "e68566c44bb7553c2567ffeb6da9c308065ed32bebe1b2a625148cbd387c55d8"
   }
 }
