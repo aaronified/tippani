@@ -6,8 +6,31 @@
 // crash, it just makes the component compute the wrong thing quietly, which is
 // exactly the failure mode a test suite is supposed to remove.
 
-import { cleanup } from '@testing-library/react'
+import { cleanup, configure } from '@testing-library/react'
 import { afterEach, beforeEach, vi } from 'vitest'
+
+// ---- waitFor's OWN deadline, which is not vitest's.
+//
+// vitest.config.js raises testTimeout to 20s, and its comment explains exactly
+// why: these files render whole screens, jsdom is an order of magnitude slower
+// than a browser, and running forty of them across every core at once pushes the
+// slowest past a deadline it clears easily on its own.
+//
+// THAT RAISE ONLY COVERED HALF OF IT. Testing Library keeps a deadline of its
+// own — asyncUtilTimeout, 1000ms by default — and every waitFor / findBy in the
+// suite was still governed by that. So the symptom moved rather than going away:
+// instead of "Test timed out", a busy run reports the last assertion inside a
+// waitFor, which reads like a component that never rendered and is nothing of
+// the sort. Five files took turns failing that way on a full run and every one
+// of them passed alone.
+//
+// It has the same shape the config's comment calls the worst a failure can have,
+// for the same reason, so it gets the same answer. 5s is not slack for a slow
+// test to hide in: a component that genuinely never renders still fails, five
+// seconds later. It is the margin between "this code is wrong" and "this laptop
+// was busy", and a suite that goes red for the second reason is a suite nobody
+// reads. ----
+configure({ asyncUtilTimeout: 5000 })
 
 // The default locale, pinned — see pin-locale.js. vitest.config.js pins TZ with an
 // env var; the locale cannot be done that way and has to be pinned in the

@@ -379,7 +379,16 @@ describe('the fetch screen carries the cast fetches', () => {
     )
 
   // The panel opens a frame after mount, so each case waits for its first row.
-  const filmShown = () => waitFor(() => expect(screen.getAllByRole('button', { name: /Fetch metadata/i }).length).toBeGreaterThan(0))
+  //
+  // EXACT, and that is the fix for a 1-in-6 flake. The cover strip carries a
+  // fetch of its own — "fetch metadata by edition", a different act on a
+  // different subject — and it used to announce itself with these same two
+  // words. So `getAll(...)[0]` took whichever of the two had mounted first, the
+  // cover strip's read being the slower one, and every so often the click landed
+  // on the wrong control and opened nothing. Both are named for what they do now,
+  // and this addresses one of them.
+  const fetchRow = () => screen.getByRole('button', { name: 'Fetch metadata' })
+  const filmShown = () => waitFor(() => expect(fetchRow()).toBeTruthy())
 
   it('offers them where the other fetch is, not inside the People panel', async () => {
     film()
@@ -396,8 +405,7 @@ describe('the fetch screen carries the cast fetches', () => {
     fireEvent.click(screen.getByRole('button', { name: /Back to/i }))
     await filmShown()
 
-    // The first of two: the ID rows below carry their own "fetch metadata" links.
-    fireEvent.click(screen.getAllByRole('button', { name: /Fetch metadata/i })[0])
+    fireEvent.click(fetchRow())
     expect(await screen.findByRole('button', { name: /Cast from TheTVDB/ })).toBeTruthy()
     expect(screen.getByRole('button', { name: /Cast from IMDb/ })).toBeTruthy()
   })
@@ -410,7 +418,7 @@ describe('the fetch screen carries the cast fetches', () => {
     film((rec) => seen.push(rec))
 
     await filmShown()
-    fireEvent.click(screen.getAllByRole('button', { name: /Fetch metadata/i })[0])
+    fireEvent.click(fetchRow())
     fireEvent.click(await screen.findByRole('button', { name: /Cast from TheTVDB/ }))
 
     await waitFor(() => expect(seen.length).toBeGreaterThan(0))

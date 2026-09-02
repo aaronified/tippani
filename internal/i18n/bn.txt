@@ -4134,7 +4134,7 @@ cover.preview.blocked = এখানে দেখানো গেল না — 
 
 cover.upload.tip = {noun} হিসেবে ছবি আপলোড করুন
 cover.upload.aria = {noun} হিসেবে ছবি আপলোড করুন
-cover.fetch-meta.aria = মেটাডেটা আনুন
+cover.fetch-meta.aria = সংস্করণ ধরে মেটাডেটা আনুন
 cover.fetch-meta.tip = সংস্করণ ধরে মেটাডেটা আনুন
 cover.url.aria = ছবির URL বসান
 cover.url.tip = ছবির একটা URL বসান

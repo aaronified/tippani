@@ -4079,7 +4079,7 @@ cover.preview.blocked = preview blocked — will fetch on save
 
 cover.upload.tip = Upload a {noun} image
 cover.upload.aria = Upload {noun} image
-cover.fetch-meta.aria = Fetch metadata
+cover.fetch-meta.aria = Fetch metadata by edition
 cover.fetch-meta.tip = Fetch metadata by edition
 cover.url.aria = Paste image URL
 cover.url.tip = Paste an image URL

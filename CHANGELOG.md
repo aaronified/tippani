@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **The cover strip's fetch and the panel's fetch no longer answer to the same name.**
+  Both announced themselves to a screen reader as *Fetch metadata*, on one panel, doing
+  two different things to two different subjects — one asks the supplier about this
+  edition, the other fetches the record. The first now says what it does: *Fetch metadata
+  by edition*, which is what its own tooltip had said all along.
+
 ### Changed
 
 - **A film, show or game page is the book page now — the same screen, with the type
