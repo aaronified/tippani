@@ -14,9 +14,10 @@
 <p align="center"><em>ṭippaṇī · टिप्पणी · টিপ্পনী — a marginal annotation</em></p>
 
 <p align="center">
-  A self-hosted, multi-user home for your <strong>book highlights</strong>, <strong>movie dialogues</strong> and <strong>quotes from anywhere else</strong> —<br>
-  paste or bulk-import quotes, tag · colour · favourite them, auto-fetch covers &amp; metadata,<br>
-  search everything instantly, and export it all back out as Obsidian-friendly Markdown.
+  A self-hosted, multi-user home for your <strong>book highlights</strong>, <strong>film dialogue</strong> and
+  <strong>quotes from anywhere else</strong>.<br>
+  Capture or bulk-import them, tag · colour · favourite them, fetch covers and metadata, search everything
+  instantly,<br>remember them with a daily quiz, and export it all back out as Obsidian-friendly Markdown.
 </p>
 
 <p align="center">
@@ -29,180 +30,141 @@
 </p>
 
 <p align="center">
-  🎭 <a href="https://aaronified.github.io/tippani/demo/">Interactive demo</a> — a read-only click-around with dummy data
-  that tracks the current frontend (it rebuilds whenever the UI changes). Writes are disabled; everything else is
-  the real interface.
-</p>
-
-<p align="center">
-  🗺 <strong><a href="https://aaronified.github.io/tippani/roadmap.html">The roadmap</a></strong> — everything planned,
-  every bug I already know about, and the things I have<br>
-  <a href="https://aaronified.github.io/tippani/roadmap.html#aside">set aside on purpose</a>. Worth reading before you
-  ask for something, and it takes requests:<br>
-  <a href="https://github.com/aaronified/tippani/issues/new?template=feature_request.yml"><strong>request a feature</strong></a>
-  ·
-  <a href="https://github.com/aaronified/tippani/issues/new?template=bug_report.yml"><strong>report a bug</strong></a>
-  — once I accept one, it lists itself on the roadmap and delists itself when it is fixed.
-</p>
-
-<p align="center">
-  📓 <strong><a href="docs/PLAN.md">The design log</a></strong> — how Tippani is built and why: one entry
-  per decision, each with the alternatives<br>
-  considered and the trade-offs behind it. Every feature listed below has one.
+  🎭 <a href="https://aaronified.github.io/tippani/demo/"><strong>Interactive demo</strong></a> — the real interface on
+  dummy data, writes disabled, rebuilt whenever the UI changes<br>
+  🗺 <a href="https://aaronified.github.io/tippani/roadmap.html"><strong>Roadmap</strong></a> — everything ahead in
+  priority order, the known bugs, and what is
+  <a href="https://aaronified.github.io/tippani/roadmap.html#aside">set aside on purpose</a>;
+  <a href="https://github.com/aaronified/tippani/issues/new?template=feature_request.yml">request a feature</a> ·
+  <a href="https://github.com/aaronified/tippani/issues/new?template=bug_report.yml">report a bug</a><br>
+  📓 <a href="docs/PLAN.md"><strong>Design log</strong></a> — how it is built and why: one entry per decision, with the
+  alternatives considered and the trade-offs behind it
 </p>
 
 ---
 
-Built for low-powered NAS boxes that already run a hundred other things: a single static Go
-binary (~12 MB, `linux/amd64`), SQLite + FTS5, **~25 MB idle RSS** (the budget I hold it
-within; set `GOMEMLIMIT` to cap it — the systemd unit uses 64 MiB), and **zero background jobs** (no pollers, timers, or
-cron). It serves plain HTTP on port 8080 for your LAN — bring your own TLS via a reverse proxy /
-Tailscale / Netbird / Twingate, or hand it a PEM pair (`TIPPANI_TLS_CERT`/`_KEY`, hot-reloaded)
-and it serves HTTPS itself. No Node at runtime;
-metadata lookups are on-demand and optional (nothing external is required to run); covers and
-posters are served from your own disk.
+Built for a low-powered NAS that already runs a hundred other things: **one static Go binary** (~12 MB),
+SQLite with FTS5, **~25 MB idle RSS**, and **zero background jobs** — no pollers, timers or cron. It speaks
+plain HTTP on port 8080 for your LAN and takes TLS whichever way you already have it: a reverse proxy,
+Tailscale, or a PEM pair it serves and hot-reloads itself. No Node at runtime; metadata lookups are on-demand
+and optional; covers and posters are served from your own disk. Tippani was **written with AI assistance** and
+**contains no AI** — no model calls, nothing sent anywhere. Both halves are set out in [`AI.md`](AI.md).
 
-**[The roadmap](https://aaronified.github.io/tippani/roadmap.html)** holds the open backlog in
-priority order, the known bugs, and the
-[features refused on purpose](https://aaronified.github.io/tippani/roadmap.html#aside), so the
-boundaries are stated rather than left as gaps. **[`docs/PLAN.md`](docs/PLAN.md)** documents how the
-app is built and why. Release history is in [`CHANGELOG.md`](CHANGELOG.md), and
-[`DEVELOPMENT.md`](DEVELOPMENT.md) covers building, changing or forking it — including the
-pull-request conventions and the handful of strings that still carry my name. Tippani was **written
-with AI assistance**; the app itself **contains no AI** — no model calls, nothing sent anywhere.
-Both halves of that are set out in [`AI.md`](AI.md).
+## What it does
 
-## Screenshots
-
-> ⚠️ Under active development — these screenshots may lag behind the current UI.
-
+<!-- The carousel. One strip of cards wider than the page, so GitHub gives it a horizontal scroll: each card is
+     one thing a reader does with the app, with the screen that does it. Real screenshots, one skin/theme/accent
+     combination per shot. -->
 <table>
   <tr>
-    <td width="38%"><img src="docs/img/library-paper-light.jpg" alt="Books — paper / light theme: a grid of real book covers with genre filters"></td>
-    <td width="38%"><img src="docs/img/catalogue-film-dark.jpg" alt="Catalogue — film / dark theme: a grid of movie & show posters with dialogue counts"></td>
-    <td width="24%"><img src="docs/img/quotes-mobile-paper-light.jpg" alt="Quotes on a phone — paper / light theme: standalone quotes in Bengali, Hindi and English, each with its script mark and translation"></td>
-  </tr>
-  <tr>
-    <td width="38%"><img src="docs/img/search-film-light.jpg" alt="Search — film / light theme: a misspelled query corrected automatically, with results across books and annotations"></td>
-    <td width="38%"><img src="docs/img/import-paper-dark.jpg" alt="Import — paper / dark theme: cards for Markdown, Bookcision, Hardcover, Goodreads, IMDb and Kindle imports"></td>
-    <td width="24%"><img src="docs/img/home-mobile-film-dark.jpg" alt="Home on a phone — film / dark theme: the Daily Quiz, Practice and library stats"></td>
+    <td valign="top" width="440">
+      <img src="docs/img/library-paper-light.jpg" width="440" alt="The Library — paper skin, light theme: a grid of real book covers with genre filters and a colour bar under each cover">
+      <br><br><strong>📚 Keep your book highlights</strong><br>
+      <sub>Six colour categories you name, tags, chapter and page, a ♥, series. Browse as masonry, list or a
+      sortable table; group by series, author, decade or genre; shelve as reading · paused · abandoned ·
+      finished.</sub>
+    </td>
+    <td valign="top" width="440">
+      <img src="docs/img/catalogue-film-dark.jpg" width="440" alt="The Catalogue — film skin, dark theme: a grid of film and show posters with dialogue counts">
+      <br><br><strong>🎬 Films, shows and games too</strong><br>
+      <sub>A line with its timestamp, character and auto-filled actor. A show's lines carry the episode and
+      read as <em>S2E6</em>; a game's carry the act and the quest. Posters, details and the cast come from TMDB,
+      TheTVDB and IMDb; characters get pictures of their own.</sub>
+    </td>
+    <td valign="top" width="440">
+      <img src="docs/img/quotes-mobile-paper-light.jpg" width="215" alt="Quotes on a phone — paper skin, light theme: standalone quotes in Bengali, Hindi and English, each with its script mark and translation"> <img src="docs/img/home-mobile-film-dark.jpg" width="215" alt="Home on a phone — film skin, dark theme: the Daily Quiz, Practice and the library's counts">
+      <br><br><strong>💬 Quotes from anywhere else</strong> · <strong>🧠 Remember what you kept</strong><br>
+      <sub>Speeches, letters, essays, proverbs, something a friend said — on boards you make; a proverb board
+      asks which languages it holds and puts the translation first. Then a daily quiz and a practice mode:
+      spaced repetition along the forgetting curve, five question types including a server-graded
+      fill-in-the-blank, and a skip for the shopping list you saved as a quote.</sub>
+    </td>
+    <td valign="top" width="440">
+      <img src="docs/img/search-film-light.jpg" width="440" alt="Search — film skin, light theme: a misspelled query corrected automatically, with results in sections across books and highlights">
+      <br><br><strong>🔎 Find it instantly</strong><br>
+      <sub>Full-text across titles, people, quotes, notes, tags and dialogue, returned in sections by what
+      matched, typo-tolerant. Type <code>tag:</code>, <code>author:</code>, <code>colour:</code> or any of
+      sixteen fields and your own library's words drop down as chips.</sub>
+    </td>
+    <td valign="top" width="440">
+      <img src="docs/img/import-paper-dark.jpg" width="440" alt="Import — paper skin, dark theme: cards for Markdown, Bookcision, Hardcover, Goodreads, IMDb and Kindle imports">
+      <br><br><strong>📥 Import, then approve</strong><br>
+      <sub>Markdown from Tippani or Readest, Kindle three ways (Bookcision, the notebook, <code>My
+      Clippings.txt</code>), saved Goodreads and Hardcover pages, IMDb quote pages. Everything waits in a
+      pending queue where you correct a whole file at once; importing the same file twice adds nothing.</sub>
+    </td>
   </tr>
 </table>
 
-<p align="center"><sub>All four skins, one per desktop shot — Books (paper · light) · Catalogue (film · dark) · Search (film · light) · Import (paper · dark), each on a different accent. Mobile — Quotes (paper · light) &amp; the Home Daily Quiz (film · dark).</sub></p>
+<p align="center"><sub>Five cards — scroll sideways for the rest. Paper and Film skins, light and dark, four accents, one
+combination per shot. Screenshots lag the interface now and then; <a href="https://aaronified.github.io/tippani/demo/">the
+demo</a> never does.</sub></p>
 
-## Features
+### And the rest
 
-- 📚 **Books & annotations** — quotes and notes with six colour categories, tags, chapter and page, a
-  favourite ♥ and series metadata; browse as masonry, list or sortable table, and group by series,
-  author, decade or genre.
-- 🎬 **Movies, shows & games** — lines with a timestamp, character and auto-filled actor. A show's
-  lines carry the episode, so they read as *S2E6* and sort through the run rather than by the clock.
-- 💬 **Quotes from anywhere else, on boards you make** — a speech, a letter, a song, a proverb,
-  something a friend said. A board describes what it holds, so a proverb board asks which languages it
-  covers and puts the translation first on the form.
-- 📖 **Anthologies** — quotes gathered into a reading order with your own prose between them, drawn
-  from all three kinds at once. Six switches control what each passage shows, in the reading view and
-  in the Markdown export alike.
-- 🎨 **Colour categories** — six highlight colours, named by you: a tag says what a quote is *about*,
-  its colour says what *kind* of note it is. Renaming one changes every label in the app and nothing in
-  your exports.
-- 🔖 **Shelves** — *reading* · *paused* · *abandoned* · *completed*, shown as a colour bar beneath the
-  cover, with progress as a percentage, a page or a season and episode, and every reread kept as its
-  own dated entry.
-- 🧠 **Daily Quiz & Practice** — spaced repetition across books, films and standalone quotes, each
-  independently switchable. Every quote carries a memory half-life and returns along the Ebbinghaus
-  forgetting curve, asked one of five ways including a server-graded fill-in-the-blank.
-- 🎲 **Shuffle & on this day** — one quote at random from anywhere in your library, and whatever you
-  saved on this date in earlier years. Neither affects your review schedule.
-- 😴 **Skip something in the quiz without deleting it** — for a shopping list, or a reference manual
-  whose highlights are all page numbers. Applied to a book, it covers every highlight you add to it
-  afterwards.
-- 📊 **Stats** — an activity calendar, a recall breakdown, a decade timeline and superlatives, each of
-  them clickable straight through to the quotes behind it.
-- 🔎 **Instant search** — full-text search across titles, people, genres, series, quotes, notes, tags
-  and dialogue, returned in sections by what matched, with a typo-tolerant fallback when a search finds
-  nothing.
-- 🏷 **Say which field you meant** — type `tag:`, `author:`, `colour:` or any of sixteen fields and a
-  dropdown offers your own library's words, narrowing as you type. Each choice becomes a chip you can
-  remove.
-- 🧭 **A search that knows where you are** — searching from a filtered shelf arrives filtered, and from
-  a book's own page it is scoped to that book. Every chip is removable, so narrowing costs nothing.
-- ☑️ **Multiselect on everything** — tick a card's corner, Ctrl-click, or press and hold on a phone,
-  then set the colour, ♥, tags, a sticker or a shelf across the whole selection, or fill in missing
-  metadata for all of it at once.
-- 🩹 **Fill only the gaps** — fetch metadata for a selection and write only the fields that are empty,
-  so a description you wrote or a cover you chose is never overwritten. *Re-verify* is the other half:
-  it shows every difference and waits for you to approve the ones you want.
-- 🖼 **Metadata & covers** — books from Google Books and Open Library, films and shows from TMDB and
-  TheTVDB. Artwork is fetched at full resolution and served from your own disk, never hotlinked.
-- 👤 **People** — authors, actors, directors, translators, editors and speakers are all real records
-  with portraits, a biography and a page of their own; one person can be an author on one book and a
-  translator on another.
-- 📥 **Bulk import** — Tippani and Readest Markdown, Kindle Bookcision, your Kindle notebook, the
-  device's own `My Clippings.txt`, saved Goodreads and Hardcover pages, and IMDb quote pages.
-  Importing the same file twice adds nothing.
-- 🧺 **Nothing lands until you approve it** — an import parses into a pending queue and waits there as
-  long as you like. Correct a whole file at once — tags, colour, chapter, actor, or moving quotes onto
-  the right work — then approve, discard, or come back to it.
-- 📤 **Export** — any single work, a filtered set, your standalone quotes, or the whole library, as
-  Obsidian-friendly Markdown that imports cleanly back in.
-- 📨 **Share a quote** — formatted for Markdown, WhatsApp, plain text or Reddit, or rendered as an
-  image in your current theme. Images are generated on your own machine and can carry the credited
-  person as a portrait backdrop.
-- 🏷️ **Stickers** — a heart, a star and three faces are included; upload your own transparent PNG or
-  SVG and pin one to any quote as a seal the text flows around.
-- 🗑️ **A thirty-day bin** — every deletion is recoverable, and comes back with its tags, colours,
-  review history and cover picture intact. Keep things for 7, 30 or 90 days, or indefinitely.
-- 🌐 **English and Bengali, with room for more** — both ship in the box, and neither is a fallback for
-  the other. Any further language is a single file of text you can drop in and edit without rebuilding
-  anything.
-- 🔤 **Choose the type** — six typefaces in named roles, each previewed doing its own job, with two
-  alternates each and your own uploads accepted. Bold, italic, small caps and lining figures are set
-  per role, and every bundled face ships with the app.
-- 🎨 **Two skins, and they are made of something** — Paper is a note lifted off a desk, Film a frame on
-  a light table, each with real texture in every card, button and bar. If your system asks for higher
-  contrast, the texture drops away and nothing else moves.
-- 📱 **Phone-first ergonomics** — an installable PWA with a drawer, a Home screen one tap from the
-  logo, quote capture one ❝ tap away, full-screen filter sheets, 44 px touch targets and no horizontal
-  scrolling.
-- 👌 **A long press that knows what it is on** — hold a control for its label, hold a card to select
-  it, and hold the *words* of a quote for nothing at all, because that is how your phone selects text.
-- ⌨️ **Keyboard shortcuts** — printed on the buttons that share their job, so nothing has to be
-  memorised or looked up, and `?` lists them all. Typing is never a shortcut.
-- 🧭 **A guided tour** — a walk through every feature on first run, using its own sample content rather
-  than your library, and resumable from Settings whenever you stopped.
-- 🔐 **Multi-user** — isolated libraries per person, and a Profile screen behind the avatar for your
-  photo, name, password and account switching. Admins can add members, hand over admin, and step down.
-- 📲 **Paired devices** — a one-time pairing code that a native client exchanges for a long-lived
-  token, so a phone never holds your password. Changing your password signs out browsers and leaves
-  paired devices alone.
-- 🔗 **Real URLs** — every tab and detail view has its own address, so back and forward work and a link
-  opens straight onto the view.
-- 🔄 **In-app updates** — Settings checks GitHub for a newer release when you ask it to, never on its
-  own. Mount the Docker socket and one click pulls and restarts; otherwise it gives you the exact
-  command to run.
-- 💾 **Backup & restore, encrypted** — one click builds a dated AES-256-GCM archive of your whole data
-  directory, and restore puts it back in place without needing the Docker socket, from here or from a
-  file taken off another Tippani server. Your password opens it on any machine, and changing your
-  password does not orphan the archives this server already made.
-- 🕒 **Sort by when you last read it** — the Library and Catalogue sort by the most recent date you had
-  the thing in your hands, whether or not you finished it.
-- 🪶 **Frugal** — one static binary, SQLite, no background jobs and no cron; built to sit quietly on a
-  NAS that is already busy.
+<table>
+  <tr>
+    <td valign="top" width="33%">📖 <strong>Anthologies</strong> — quotes in a reading order with your own prose between them, drawn from all three kinds at once. Six switches decide what each passage shows, on screen and in the Markdown alike.</td>
+    <td valign="top" width="33%">🎨 <strong>Colour categories</strong> — a tag says what a quote is <em>about</em>, its colour says what <em>kind</em> of note it is. Rename one and every label in the app follows; your exports do not change.</td>
+    <td valign="top" width="33%">🔖 <strong>A read log</strong> — progress as a page, a percentage or a season and episode; every reread its own dated entry; and a sort by when you last had the thing in your hands.</td>
+  </tr>
+  <tr>
+    <td valign="top">🎲 <strong>Shuffle and on this day</strong> — one quote at random from anywhere in your library, and whatever you saved on this date in earlier years. Neither touches your review schedule.</td>
+    <td valign="top">📊 <strong>Stats</strong> — a capture calendar, a memory breakdown, a decade timeline and superlatives, each of them a doorway straight through to the quotes behind it.</td>
+    <td valign="top">🧭 <strong>Search that knows where you are</strong> — from a filtered shelf it arrives filtered; from a book's own page it is scoped to that book. Every chip is removable, so narrowing costs nothing.</td>
+  </tr>
+  <tr>
+    <td valign="top">☑️ <strong>Multiselect on everything</strong> — tick a card's corner, Ctrl-click, or hold on a phone, then set the colour, ♥, tags, a sticker, a shelf, a board or any one field across the whole selection.</td>
+    <td valign="top">🩹 <strong>Fill only the gaps</strong> — fetch metadata for a selection and write nothing but the empty fields, so a description you wrote is never overwritten. <em>Re-verify</em> shows every difference and waits for your tick.</td>
+    <td valign="top">👤 <strong>People, characters included</strong> — authors, actors, directors, translators, speakers and the characters themselves are real records with a portrait, a bio and a page of their own; one person can be an author here and a translator there.</td>
+  </tr>
+  <tr>
+    <td valign="top">📨 <strong>Share a quote</strong> — as Markdown, WhatsApp, plain text or Reddit, or as an image drawn on your own machine in your theme, with the credited person's portrait as a backdrop.</td>
+    <td valign="top">📤 <strong>Export</strong> — one work, a filtered set, your standalone quotes or the whole library, as Obsidian-friendly Markdown that imports cleanly back in.</td>
+    <td valign="top">🏷️ <strong>Stickers</strong> — a heart, a star and three faces to start with; upload a transparent PNG or SVG and pin it to a quote so the text flows around it.</td>
+  </tr>
+  <tr>
+    <td valign="top">🧹 <strong>Stray marks</strong> — footnote numbers, pronunciation glosses, double spaces and invisible characters your quotes picked up on the way in, listed with the fix offered and your refusals remembered.</td>
+    <td valign="top">🗑️ <strong>A bin, not a delete</strong> — everything comes back with its tags, colours, review history and cover intact. Keep things for 7, 30 or 90 days, or for ever.</td>
+    <td valign="top">🌐 <strong>English and Bengali</strong> — both ship in the box and neither is a fallback for the other. Any further language is one text file you drop in, without rebuilding anything.</td>
+  </tr>
+  <tr>
+    <td valign="top">🔤 <strong>Type, your way</strong> — six roles, each face previewed doing its own job, two alternates each and your own uploads accepted; bold, italic, small caps and tabular figures per role; text size on a dial.</td>
+    <td valign="top">🎞 <strong>Two skins made of something</strong> — Paper is a note lifted off a desk, Film a frame on a light table, with real texture in every card, button and bar. Ask your system for more contrast and the texture drops away.</td>
+    <td valign="top">📱 <strong>Phone-first</strong> — an installable PWA with a drawer, capture one ❝ tap away, full-screen filter sheets, 44 px targets, an icon badge for due cards and waiting imports, and files that open straight into import.</td>
+  </tr>
+  <tr>
+    <td valign="top">👌 <strong>A long press that knows what it is on</strong> — hold a control for its label, hold a card to select it, and hold the <em>words</em> of a quote for nothing at all, because that is how your phone selects text.</td>
+    <td valign="top">⌨️ <strong>Keyboard shortcuts</strong> — printed on the buttons that share their job, so nothing has to be memorised; <code>?</code> lists them all, and typing is never a shortcut.</td>
+    <td valign="top">🎓 <strong>A guided tour</strong> — a walk through every feature on first run, on its own sample content rather than your library, resumable from Settings wherever you stopped.</td>
+  </tr>
+  <tr>
+    <td valign="top">🔐 <strong>Multi-user</strong> — a fully isolated library per person, a profile behind the avatar for photo, name, password and account switching. Admins hand over admin, and step down.</td>
+    <td valign="top">📲 <strong>Paired devices</strong> — a one-time pairing code that a native client swaps for a long-lived token, so a phone never holds your password. Changing your password signs out browsers and leaves paired phones alone.</td>
+    <td valign="top">🔗 <strong>Real URLs</strong> — every tab and detail view has its own address, so back and forward work and a link opens straight onto the view.</td>
+  </tr>
+  <tr>
+    <td valign="top">🔄 <strong>Updates when you ask</strong> — Settings checks GitHub for a newer release on demand, never on its own. With the Docker socket, one click pulls and restarts; without it, you get the exact command to run.</td>
+    <td valign="top">💾 <strong>Encrypted backup and restore</strong> — one click builds a dated AES-256-GCM archive of the whole data directory; restore it here or on another Tippani, and a password change never orphans an archive this server made.</td>
+    <td valign="top">🗣 <strong>Quotes carry their own facts</strong> — a speaker, an occasion, a date that may be only a year, and per kind: who a letter was written to, which essay a line is from, a proverb's region and its translation.</td>
+  </tr>
+</table>
 
-> **Roadmap** — an **Android app** that photographs a page and turns it into a highlight, with OCR
-> **on the device**; more ways in (Kobo, Apple Books, Readwise and read-later imports; a PWA
-> **share-target** and a page-HTML **bookmarklet**); opt-in AI summaries (OpenAI-compatible) with push
-> notifications; a [Homepage](https://gethomepage.dev) dashboard widget; collections and tag shelves;
-> passkeys, 2FA and per-user API tokens; an **EPUB** anthology export; and quiet, opt-in
-> **achievements** — reading milestones plus one gentle spaced-repetition streak.
-> See [the roadmap](https://aaronified.github.io/tippani/roadmap.html).
+> **Ahead:** an Android app that photographs a page and turns it into a highlight with OCR on the device; more
+> ways in — Kobo, Apple Books and Readwise imports, a PWA share-target, a bookmarklet; collections and tag
+> shelves; passkeys, 2FA and API tokens; an EPUB anthology export; a [Homepage](https://gethomepage.dev) widget;
+> opt-in AI summaries; and quiet, opt-in achievements.
+> **[The roadmap](https://aaronified.github.io/tippani/roadmap.html)** has all of it, in priority order.
 
-## Quick start (Docker Compose)
+## Quick start
 
-Pull the prebuilt image from GHCR (multi-arch — see the platform note below). Save this as
-`docker-compose.yml`:
+**One command:**
+
+```sh
+docker run -d --name tippani --restart unless-stopped -p 8080:8080 -v tippani-data:/data ghcr.io/aaronified/tippani:latest
+```
+
+**Compose** — the repo's [`docker-compose.yml`](docker-compose.yml), minus its comments:
 
 ```yaml
 services:
@@ -211,147 +173,27 @@ services:
     container_name: tippani
     restart: unless-stopped
     ports:
-      # Reachable on your LAN. First-run onboarding is unauthenticated (the first
-      # visitor claims admin) — onboard promptly, or prefix with 127.0.0.1: to
-      # bind host-local and front it with a reverse proxy/VPN.
       - "8080:8080"
     volumes:
-      # /data holds the SQLite DB + downloaded covers. Use the named volume
-      # below, OR bind-mount any host folder you already back up, e.g.:
-      #   - /srv/tippani:/data
       - tippani-data:/data
-    # environment:
-    #   TIPPANI_COOKIE_SECURE: "1"   # when a TLS-terminating proxy is in front
-    #   TIPPANI_TRUSTED_PROXY: "1"   # to trust X-Forwarded-For for the login limiter
-    #   GOMAXPROCS: "1"              # NAS-friendly runtime caps (reasoning in docs/PLAN.md)
-    #   GOMEMLIMIT: "64MiB"
-    #   GOGC: "200"
 
-# Only needed if you use the named volume above; delete this block when you
-# bind-mount a host folder instead.
 volumes:
   tippani-data:
 ```
 
-Then:
-
 ```sh
 docker compose up -d
 ```
 
-…or grab the file and start in one go:
+<sub>The image is multi-arch: <code>linux/amd64</code> is the tested platform; <code>linux/arm64</code> is published
+and <strong>untested</strong> — the binary is pure Go and the page is byte-identical, so try it and report back.</sub>
 
-```sh
-curl -O https://raw.githubusercontent.com/aaronified/tippani/main/docker-compose.yml
-docker compose up -d
-```
+Open `http://<host>:8080` and **create the admin account**. Onboarding is unauthenticated until the first
+user exists — whoever reaches the port first claims admin — so do it right away (the Port row below says how
+to keep it host-local meanwhile). The admin adds everyone else from **Settings → Users**.
 
-Open `http://<nas-ip>:8080` and **create the admin account** on the first-run onboarding screen;
-the admin adds any further users from inside the app. When a TLS-terminating proxy sits in front,
-set `TIPPANI_COOKIE_SECURE=1`.
-
-> **First-run security:** onboarding is unauthenticated — whoever reaches the port first while the
-> user table is empty becomes the admin. On a shared LAN, bring the stack up and create your admin
-> right away (or bind host-local with `127.0.0.1:8080:8080` until you have). After that, onboarding
-> closes and all routes require a login.
-
-> **Platforms:** published as a multi-arch image — `linux/amd64` is the tested arch; `linux/arm64`
-> is built and published too but is **untested**. arm64 NAS owners (Synology/QNAP/Pi): give it a
-> try and report back. Neither arch is emulated to build: the binary is pure Go and cross-compiles,
-> and the frontend bundle is built once on the native runner, so both images serve byte-identical
-> assets. What is untested on arm64 is the binary, not the page.
-
-## Build from source
-
-Requires Go 1.26+ (Node only to rebuild the frontend, and only on your dev machine).
-
-```sh
-make build                         # -> bin/tippani (CGO_ENABLED=0, static)
-./bin/tippani serve                # http://127.0.0.1:8080, then onboard in the browser
-```
-
-Bootstrap a user without the browser (the first user created becomes the admin):
-
-```sh
-printf '%s\n' 'a-long-password' | ./bin/tippani user add alice
-```
-
-Rebuild the frontend after changing it (re-embeds into the binary):
-
-```sh
-make frontend    # builds the SPA into web/dist
-make build       # re-embed
-```
-
-## Configuration
-
-| Env | Default | Meaning |
-| :-- | :-- | :-- |
-| `TIPPANI_BIND` | `127.0.0.1:8080` | Listen address (binary default). The Docker image sets `0.0.0.0:8080` so the published port is LAN-reachable; override to bind elsewhere |
-| `TIPPANI_DATA` | `./data` | Data dir (SQLite DB + downloaded covers/posters) |
-| `TIPPANI_TLS_CERT` | *(unset)* | Path to a PEM certificate (full chain). With `TIPPANI_TLS_KEY`, Tippani serves **HTTPS directly** — see below |
-| `TIPPANI_TLS_KEY` | *(unset)* | Path to the PEM private key. Both or neither; the pair **hot-reloads** when the files change |
-| `TIPPANI_COOKIE_SECURE` | `0` | Set `1` when TLS terminates in front of the app (implied automatically when the TLS pair above is set) |
-| `TIPPANI_TRUSTED_PROXY` | `0` | Set `1` to trust `X-Forwarded-For` for login rate limiting |
-| `TIPPANI_DOCKER_HOST` | *(unset)* | Engine API endpoint for one-click updates: `tcp://host:port` for a **docker-socket-proxy**, or `unix:///path`. Wins over the socket path below |
-| `TIPPANI_DOCKER_SOCK` | `/var/run/docker.sock` | Engine API unix-socket path for one-click updates (only relevant with the socket mounted) |
-| `TIPPANI_LOG_LEVEL` | `info` | Set `debug` for verbose per-operation `[trace]` logging when diagnosing an issue; errors carry lookup codes documented in [`docs/troubleshoot.md`](docs/troubleshoot.md) |
-
-**Metadata API keys — TMDB, TheTVDB, Google Books — are configured in the app**, not via environment:
-sign in → **Settings → metadata keys**, and paste a TMDB v3 key or v4 read token from
-[themoviedb.org](https://www.themoviedb.org/settings/api) (TheTVDB and Google Books keys are optional —
-TMDB alone covers most catalogues). There is also an optional built-in TMDB slot (`defaultTMDBKey` in
-[`cmd/tippani/main.go`](cmd/tippani/main.go)) for shipping a Jellyfin-style shared app key — **currently
-empty**, so until a key is saved (or that constant is filled) movie lookup answers `503` and manual
-entry still works. Everything else works with no key.
-
-> [!CAUTION]
-> **Amazon cookie (optional, use at your own risk).** Under **Settings → Amazon (advanced)** an admin
-> may paste an Amazon session cookie to enrich book metadata (description + genres) by scraping the
-> product page. This is **off by default and entirely optional** — book covers (keyless image CDN) and
-> Kindle highlight import (a file *you* export) both work with no cookie. The cookie is stored
-> write-only and never shown back, but be aware it **grants access to your Amazon account** and that
-> automated scraping is **against Amazon's Conditions of Use**: the account whose cookie you supply
-> bears that risk, so only you can decide to enable it. Tippani never ships, shares, or centralises the
-> cookie, and only ever uses it on your own behalf.
-
-Runtime tuning for a shared NAS (see [`deploy/tippani.service`](deploy/tippani.service)):
-`GOMAXPROCS=1`, `GOMEMLIMIT=64MiB`, `GOGC=200`.
-
-Backup: nightly `sqlite3 data/tippani.db "VACUUM INTO 'backup.db'"` from cron, off-peak — that
-gives you a plain database file you can inspect. The in-app archive is the whole data directory and
-is encrypted (see *Backup & restore* above); the two are complementary, not alternatives.
-
-### Serving HTTPS directly (optional)
-
-By default Tippani speaks plain HTTP and you terminate TLS one layer up (reverse proxy, Tailscale,
-VPN). If you'd rather skip the proxy container, hand Tippani a certificate and it serves HTTPS
-itself:
-
-```yaml
-    volumes:
-      - tippani-data:/data
-      - /srv/certs/tippani:/certs:ro     # cert.pem + key.pem, however you renew them
-    environment:
-      TIPPANI_TLS_CERT: /certs/cert.pem  # full chain, PEM
-      TIPPANI_TLS_KEY: /certs/key.pem
-```
-
-- **Bring your own certificate.** A cert from your home CA (trusted on your devices — this is what
-  makes the browser padlock, PWA install and clipboard APIs light up), a
-  [`tailscale cert`](https://tailscale.com/kb/1153/enabling-https), or a wildcard your existing
-  ACME tooling renews. Tippani deliberately does **not** speak ACME itself — a renewal loop is a
-  background job with a third-party dependency, and Tippani ships with zero of those.
-- **Renewals need no restart.** The pair re-loads on the next TLS handshake after the files change;
-  a botched write keeps serving the previous pair and logs `TIP-HTTP-001` instead of dropping HTTPS.
-- **Secure cookies are implied** — no need to also set `TIPPANI_COOKIE_SECURE`.
-- The container healthcheck adapts automatically. A self-signed cert works too, with the usual
-  browser warnings — trusted certs are what remove them.
-
-### One-click updates through a socket proxy (optional)
-
-The in-app update can talk to a [docker-socket-proxy](https://github.com/Tecnativa/docker-socket-proxy)
-instead of the raw socket, so no socket file is ever mounted into Tippani:
+**Compose, with one-click updates through a socket proxy** — keeps the Docker socket out of Tippani's
+container (admin-only, Settings → Updates):
 
 ```yaml
 services:
@@ -368,75 +210,116 @@ services:
 
   tippani:
     image: ghcr.io/aaronified/tippani:latest
+    container_name: tippani
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - tippani-data:/data
     environment:
       TIPPANI_DOCKER_HOST: tcp://dockerproxy:2375
     networks: [default, tippani-internal]
-    # …ports/volumes as usual; no docker.sock mount, no group_add needed
 
 networks:
   tippani-internal:
     internal: true    # the proxy is reachable only from inside the stack
+
+volumes:
+  tippani-data:
 ```
 
 > [!WARNING]
-> **Be honest about what this buys.** The update flow must be allowed to *create and start
-> containers*, and that permission is host-root-equivalent in the wrong hands (a container can be
-> created with the host filesystem mounted). The proxy still helps — no socket file in the app
-> container, the exec/volumes/secrets/swarm endpoints stay blocked, and the API is only reachable
-> on an internal network — but treat it as a **hardened version of the same opt-in trade-off** as
-> the socket mount, not a removal of it.
+> **What the proxy buys, honestly.** An update must be allowed to *create and start containers*, and that
+> permission is host-root-equivalent in the wrong hands. The proxy still helps — no socket file in the app
+> container, the exec/volumes/secrets/swarm endpoints stay blocked, the API is reachable only inside the
+> stack — but it is a hardened version of the same opt-in trade-off as the socket mount, not a removal of it.
 
-## Users
+### Configuration
 
-The **first user** is the admin, created either by the browser onboarding screen on first run or
-by the CLI when the database is still empty. The admin manages everyone else from the in-app
-**Users** panel (add / remove); onboarding closes automatically once a user exists.
+Everything the container and the binary accept. Metadata API keys — TMDB, TheTVDB, Google Books — are set
+**in the app** under Settings → Metadata sources, not here: a TMDB v3 key or v4 read token from
+[themoviedb.org](https://www.themoviedb.org/settings/api) covers most catalogues, and everything else works
+with no key at all.
 
-The CLI remains available for bootstrapping and scripting:
+| Option | Default | What it does |
+| :-- | :-- | :-- |
+| **Port** | | |
+| `8080` | published as `8080:8080` | Plain HTTP for your LAN. Publish `127.0.0.1:8080:8080` to keep it host-local behind a proxy or VPN. Inside the container the bind is `0.0.0.0:8080`. |
+| **Volumes** | | |
+| `/data` | named volume `tippani-data` | Everything Tippani owns: `tippani.db` (SQLite), `MediaCover/` (covers and posters), `Locales/` (translations and their template), the backup archive. Bind-mount any folder you already back up — it must be writable by uid 65532, which the image runs as. |
+| `/certs` (any path, `:ro`) | *not mounted* | A PEM certificate (full chain) and key, named by the two `TLS` variables. Tippani then **serves HTTPS itself**: the pair re-loads on the next handshake after a renewal (a botched write keeps the old pair and logs `TIP-HTTP-001`), secure cookies are implied, and the healthcheck adapts. Worth doing on a LAN: a certificate your devices trust is what lights up the padlock, PWA install and the clipboard APIs — from a home CA, `tailscale cert`, or a wildcard your ACME tooling already renews; self-signed works with the usual warnings. Tippani does not speak ACME itself — a renewal loop is a background job, and there are none. |
+| `/var/run/docker.sock` | *not mounted* | Lets Settings → Updates pull the new image and restart the container in one click. It also hands the container control of your Docker host: mount it `:ro`, add `group_add: ["<your docker gid>"]` because the image is non-root, and know it only works on a moving tag such as `:latest`. Or use the proxy stack above. |
+| **Environment** | | |
+| `TIPPANI_BIND` | `127.0.0.1:8080` — image: `0.0.0.0:8080` | Listen address, `host:port`. |
+| `TIPPANI_DATA` | `./data` — image: `/data` | Data directory. |
+| `TIPPANI_TLS_CERT` / `TIPPANI_TLS_KEY` | *(unset)* | Paths to the PEM certificate and private key — both or neither. See `/certs`. |
+| `TIPPANI_COOKIE_SECURE` | `0` | `1` when TLS terminates in a proxy in front. Implied when the TLS pair is set. |
+| `TIPPANI_TRUSTED_PROXY` | `0` | `1` to trust `X-Forwarded-For` in the login rate limiter. |
+| `TIPPANI_DOCKER_HOST` | *(unset)* | Engine API for updates: `tcp://dockerproxy:2375` for a socket proxy, or `unix:///path`. Wins over the socket path. |
+| `TIPPANI_DOCKER_SOCK` | `/var/run/docker.sock` | Where the mounted socket is, if not the default path. |
+| `TIPPANI_UPDATER_IMAGE` | `containrrr/watchtower` | The one-shot image the update runs to recreate the container. Pin a digest if you like. |
+| `TIPPANI_LOG_LEVEL` | `info` | `debug` for per-operation `[trace]` lines. Every logged `TIP-*` code has a row in [`docs/troubleshoot.md`](docs/troubleshoot.md). |
+| `GOMAXPROCS` · `GOMEMLIMIT` · `GOGC` | Go's defaults | Runtime caps for a busy NAS. The systemd unit ships `1` · `64MiB` · `200`; the reasoning is in the design log. |
+| **Commands** — `docker exec -i tippani /tippani …`, or the binary | | |
+| `serve` | the default | Start the server. |
+| `user add <name>` | | Create a user, password read from stdin — the CLI way to bootstrap an empty instance. |
+| `user passwd <name>` | | Reset a password, read from stdin. |
+| `user del <name>` | | Delete a user and everything in their library. |
+| `healthcheck` | | Probe `/healthz` on the configured port and exit 0 when healthy. The image runs it every 30 s. |
+| `version` | | Print the build version. |
+
+> [!CAUTION]
+> **Amazon cookie — optional, at your own risk.** Under Settings → Amazon (advanced) an admin may paste an
+> Amazon session cookie to enrich book metadata (description and genres) by scraping the product page. It is
+> off by default; covers and Kindle import work without it. The cookie is stored write-only and never shown
+> back, but it grants access to your Amazon account, and automated scraping is against Amazon's Conditions of
+> Use — only you can decide to enable it. Tippani never ships, shares or centralises it.
+
+**A plain-file backup too.** Beside the in-app archive, `sqlite3 tippani.db "VACUUM INTO 'backup.db'"` from
+cron, off-peak, gives you a database file you can inspect — run it on the host against the `/data` mount, since
+the image is distroless and carries no `sqlite3`.
+
+### Without Docker
+
+Go 1.26+ builds it; Node is only needed to rebuild the frontend, and only on your dev machine.
 
 ```sh
-tippani user add <name>      # password read from stdin (first user -> admin)
-tippani user passwd <name>
-tippani user del <name>      # cascades to that user's books/annotations
+make build                                                        # -> bin/tippani, static, CGO_ENABLED=0
+./bin/tippani serve                                               # http://127.0.0.1:8080, then onboard in the browser
+printf '%s\n' 'a-long-password' | ./bin/tippani user add alice   # or bootstrap the admin from the CLI
 ```
 
-Each user has a fully isolated library — a security property, not a layout choice; the
-reasoning is in [docs/PLAN.md](docs/PLAN.md#2-ownership-authentication-and-exposure).
-Passwords change in-app via `POST /auth/password`.
-
-## Layout
-
-A map of the tree — every package, script and workflow, what each one is for, and which
-file holds which rule — is in **[DEVELOPMENT.md](DEVELOPMENT.md#where-things-live)**. It
-lives there once rather than in both places, because two maps of the same tree disagree
-eventually and the copy nobody edits is the one people read.
-
-That file also covers forking this as your own, including renaming the module path.
+[`deploy/tippani.service`](deploy/tippani.service) is a hardened non-root systemd unit with the runtime caps
+above, and [`deploy/Caddyfile.example`](deploy/Caddyfile.example) puts TLS and basic auth in front of it.
+Building, changing and forking — the map of the tree, the pull-request conventions, renaming the module — is
+[`DEVELOPMENT.md`](DEVELOPMENT.md); release history is [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Attribution
 
 Book metadata comes from [Google Books](https://books.google.com/) and
 [Open Library](https://openlibrary.org/); book covers and author images from
-[Amazon](https://www.amazon.com/). All movie and show metadata and posters come from the
-[TMDB](https://www.themoviedb.org/) and [TheTVDB](https://thetvdb.com/) APIs — this product uses
-the TMDB and TheTVDB APIs but is not endorsed or certified by either. Author/actor reference
-links resolve through Open Library, TMDB, and [Wikidata](https://www.wikidata.org/) (for the
-Wikipedia hop), and link out to IMDb, TMDB, TheTVDB, Wikipedia, and Open Library.
+[Amazon](https://www.amazon.com/). All film and show metadata and posters come from the
+[TMDB](https://www.themoviedb.org/) and [TheTVDB](https://thetvdb.com/) APIs — this product uses the
+TMDB and TheTVDB APIs but is not endorsed or certified by either. Author and actor reference links resolve
+through Open Library, TMDB and [Wikidata](https://www.wikidata.org/) (for the Wikipedia hop), and link out
+to IMDb, TMDB, TheTVDB, Wikipedia and Open Library. [IMDb](https://www.imdb.com/) pages are also read, on
+request, for a game's cast and for quote-page imports.
 
 Standing on the shoulders of:
 
-- **[pretext](https://github.com/chenglou/pretext)** — the text-reflow calculation that lets a quote wrap naturally around a pinned
-  sticker (the `FlowQuote` seal).
-- **[CC0 Textures](https://cc0-textures.com/)** — the public-domain (CC0) texture packs behind the
-  paper·wood·metal·glass surfaces of the paper/film skins.
-- **[Bookcision](https://bookcision.readwise.io/)** and **[Readest](https://github.com/readest/readest)** — I read their highlight / Markdown exports directly as import
-  sources; thanks to both apps for making Kindle and cross-device highlights portable.
-- **[Fontsource](https://fontsource.org/)**, and the type designers behind the eighteen families
-  that ship in the build — Newsreader, Source Serif 4, Literata, Hanken Grotesk, Inter, Public Sans,
-  IBM Plex Mono, JetBrains Mono, Source Code Pro, Caveat, Kalam, Gloria Hallelujah, Noto Serif
-  Bengali, Hind Siliguri, Tiro Bangla, Noto Serif Devanagari, Hind and Tiro Devanagari Hindi. Every
-  one is under the **SIL Open Font License 1.1**, and every one is bundled rather than fetched.
+- **[pretext](https://github.com/chenglou/pretext)** — the text-reflow calculation that lets a quote wrap
+  naturally around a pinned sticker.
+- **[CC0 Textures](https://cc0-textures.com/)** — the public-domain texture packs behind the paper · wood ·
+  metal · glass surfaces of the two skins.
+- **[Bookcision](https://bookcision.readwise.io/)** and **[Readest](https://github.com/readest/readest)** —
+  their highlight and Markdown exports are read directly as import sources; thanks to both for making Kindle
+  and cross-device highlights portable.
+- **[Fontsource](https://fontsource.org/)**, and the type designers behind the eighteen families that ship in
+  the build — Newsreader, Source Serif 4, Literata, Hanken Grotesk, Inter, Public Sans, IBM Plex Mono,
+  JetBrains Mono, Source Code Pro, Caveat, Kalam, Gloria Hallelujah, Noto Serif Bengali, Hind Siliguri, Tiro
+  Bangla, Noto Serif Devanagari, Hind and Tiro Devanagari Hindi. Every one is under the **SIL Open Font
+  License 1.1**, and every one is bundled rather than fetched.
 
 ## License
 
-MIT — see [`LICENSE`](LICENSE). On how the code was written, see [`AI.md`](AI.md).
+MIT — see [`LICENSE`](LICENSE).
