@@ -1676,11 +1676,30 @@ export function HighlightSpan({ children }) {
 }
 
 // HandNote — Caveat + accent tick on paper; Newsreader italic on film (§3/§6).
-export function HandNote({ className = "", children }) {
+// A NOTE ALWAYS FOLDS AT TWO LINES, and the pack's reason is the whole of it: "it
+// is a margin remark, not a second quote — if it needs more room than the thing it
+// annotates, it is an annotation of its own." Unfolded, a paragraph-length note
+// printed in full in 19px hand type and was routinely taller than the quote it
+// was about, which inverts the card.
+//
+// `lines` is a prop because one caller genuinely differs: the quiz card's note is
+// the thing being read rather than a remark beside it.
+export function HandNote({ className = "", lines = 2, children }) {
+  const [open, setOpen] = useState(false)
+  const { ref, canToggle, clamp } = useClamped({ lines, open, watch: children })
   return (
     // card-text: the margin note is prose too, and a long press over it selects
     // words rather than the card. See ExpandableText.
-    <p className={"hand-note card-text " + className}>
+    //
+    // THE CLAMP IS ON THE <p> AND THE CONTROL IS ON A WRAPPER, which is the shape
+    // the other three clamped blocks take: a -webkit-box cannot hold a chevron
+    // beside its own text without the chevron counting as one of the lines.
+    <div
+      className={`clampable${canToggle ? ' is-clickable' : ''}`}
+      aria-expanded={canToggle ? open : undefined}
+      {...clampProps(canToggle, () => setOpen((o) => !o))}
+    >
+    <p ref={ref} style={clamp || undefined} className={"hand-note card-text " + className}>
       {/* AN EMPTY SPAN, DRAWN BY CSS. It used to carry a literal ▍ (U+258D LEFT
           FIVE EIGHTHS BLOCK) as text, which is three bets at once: that the
           reader's font has that glyph, that it draws it as a solid bar rather
@@ -1691,6 +1710,12 @@ export function HandNote({ className = "", children }) {
       <span className="tick" aria-hidden="true" />
       {children}
     </p>
+      {canToggle && (
+        <Tooltip label={t(open ? "common.action.show-less.label" : "common.clamp.text.more.tip")} side="bottom" className="flex w-full justify-center">
+          <ClampMore open={open} />
+        </Tooltip>
+      )}
+    </div>
   );
 }
 
@@ -2128,6 +2153,53 @@ export function escapeDepth() {
 // clampProps builds the shared "click anywhere on the text to toggle" wiring for
 // a clamped block: role/tabindex/handlers only when it can actually toggle
 // (overflowing, or already open so it can collapse).
+// useClamped — the measurement every clamped block was making for itself.
+//
+// THREE COPIES OF THIS EFFECT, character for character: ExpandableText,
+// ExpandableDescription, and — the moment the margin note learned to fold — a
+// fourth. Each read `scrollHeight > clientHeight + 2` on its own ref, held its
+// own `overflows` state, and built the same `-webkit-box` object. The number 2 is
+// a fudge for sub-pixel line heights and it appeared three times, which is three
+// places for it to become 2, 2 and 3.
+//
+// `watch` IS THE CONTENT, and it has to be passed rather than inferred: a
+// ResizeObserver watches the BORDER box, which for a clamped element is pinned at
+// N lines — so content changing from two words to two paragraphs does not fire
+// it. The observer covers the box getting narrower; this covers the text getting
+// longer. Callers whose children are nodes pass those nodes and re-measure per
+// render, which is correct and cheap on the surfaces that do it; callers with a
+// string pass the string and re-measure only when it changes, which is the case
+// that runs two hundred times on a board.
+function useClamped({ lines, open, watch }) {
+  const [overflows, setOverflows] = useState(false)
+  const ref = useRef(null)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return undefined
+    // Assigning the same boolean is a no-op React bails out of, so this cannot
+    // loop even though the effect runs on every content change.
+    const check = () => setOverflows(el.scrollHeight > el.clientHeight + 2)
+    check()
+    const ro = new ResizeObserver(check)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [watch, open, lines])
+  // `lines: 0` MEANS DO NOT FOLD, and it is a real answer rather than a missing
+  // one: the quiz card's note is the thing being read, not a remark beside
+  // something else, so it takes no clamp and offers no control.
+  if (!lines) return { ref, canToggle: false, clamp: null }
+  return {
+    ref,
+    // OPEN COUNTS AS TOGGLEABLE. Once expanded the box no longer overflows, so a
+    // test on `overflows` alone would take the control away at the moment it is
+    // needed to close it again.
+    canToggle: overflows || open,
+    clamp: open
+      ? null
+      : { display: '-webkit-box', WebkitLineClamp: lines, WebkitBoxOrient: 'vertical', overflow: 'hidden' },
+  }
+}
+
 function clampProps(canToggle, toggle) {
   if (!canToggle) return {};
   return {
@@ -2162,22 +2234,8 @@ function clampProps(canToggle, toggle) {
 // whole pass exists to remove. It is a system decision, not a screen decision.
 export function ExpandableDescription({ text, style, lines = 4, className = "" }) {
   const [open, setOpen] = useState(false);
-  const [overflows, setOverflows] = useState(false);
-  const ref = useRef(null);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const check = () => setOverflows(el.scrollHeight > el.clientHeight + 2);
-    check();
-    const ro = new ResizeObserver(check);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [text, open, lines]);
+  const { ref, canToggle, clamp } = useClamped({ lines, open, watch: text });
   if (!text) return null;
-  const canToggle = overflows || open;
-  const clamp = open
-    ? null
-    : { display: "-webkit-box", WebkitLineClamp: lines, WebkitBoxOrient: "vertical", overflow: "hidden" };
   return (
     <div
       className={`clampable${canToggle ? " is-clickable" : ""} ${className}`.trim()}
@@ -2281,27 +2339,8 @@ export function ExpandableText({ text, lines = 5, style, className = "", open: o
   const controlled = openProp !== undefined;
   const open = controlled ? openProp : openState;
   const toggle = () => (controlled ? onToggle?.() : setOpenState((o) => !o));
-  const [overflows, setOverflows] = useState(false);
-  const ref = useRef(null);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const check = () => setOverflows(el.scrollHeight > el.clientHeight + 2);
-    check();
-    const ro = new ResizeObserver(check);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [text, open, lines]);
+  const { ref, canToggle, clamp } = useClamped({ lines, open, watch: text });
   if (!text) return null;
-  const canToggle = overflows || open;
-  const clamp = open
-    ? null
-    : {
-        display: "-webkit-box",
-        WebkitLineClamp: lines,
-        WebkitBoxOrient: "vertical",
-        overflow: "hidden",
-      };
   return (
     <div
       // `card-text` is the region a card's long-press hands to the browser, so a

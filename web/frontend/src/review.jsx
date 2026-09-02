@@ -158,7 +158,11 @@ function QuoteBlock({ card }) {
       >
         {ClozeText(card.quote || card.note)}
       </p>
-      {card.note && card.quote && <HandNote className="mt-2">{card.note}</HandNote>}
+      {/* THE ONE CALLER THAT DOES NOT FOLD. On a quiz card the note is what is
+          being read — it is the answer's own margin, not a remark beside a quote
+          you are looking at — and a chevron on it would be a control in the
+          middle of a card that already owns every tap. */}
+      {card.note && card.quote && <HandNote className="mt-2" lines={0}>{card.note}</HandNote>}
     </blockquote>
   )
 }

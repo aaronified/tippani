@@ -65,6 +65,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A margin note folds at two lines.** It is a remark beside a quote, not a second
+  quote — and unfolded, a paragraph-length note printed in full in 19px hand type was
+  routinely taller than the thing it annotates. The quiz card's note still prints whole,
+  because there it is what you are reading.
+
+
 - **A phone can arrange a book's board at all.** The whole board header was
   desktop-only, so grouping, the sort column and the direction were reachable from one
   of two viewports — a phone-only reader sat permanently at the defaults. The pack's own
