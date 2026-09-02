@@ -42,6 +42,7 @@ import {
   wishFilter,
   WorkDeleteConfirm,
 } from './works.jsx'
+import { KINDS, bookGenres, specFor } from './workKinds.js'
 import { t } from './i18n.js'
 import {
   ActionMenu,
@@ -156,24 +157,6 @@ const groupOptions = () => [
 
 // countOf is "3 books" / "1 quote", from the shared unit table.
 const countOf = (n, unit) => t('common.count.phrase', { n, noun: t(unit, { count: n }) })
-
-// Title-case every word: "science FICTION" → "Science Fiction".
-function titleCase(s) {
-  return s.replace(/\S+/g, (w) => w[0].toUpperCase() + w.slice(1).toLowerCase())
-}
-
-// bookGenres normalises a book's genres for filtering/display: split any
-// comma-joined value, trim, Title-Case, and dedupe — so casing and combined
-// strings don't spawn duplicate chips ("fantasy" vs "Fantasy").
-function bookGenres(b) {
-  const out = []
-  for (const raw of b.genres || [])
-    for (const part of String(raw).split(',')) {
-      const g = titleCase(part.trim())
-      if (g && !out.includes(g)) out.push(g)
-    }
-  return out
-}
 
 // bookState is the full PUT body for a book (PUT is full-state) — used by the
 // detail-header ♥ so a single-field change carries every other field intact.
@@ -670,6 +653,11 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce 
   // person's panel and from a colour on Stats, so the one screen where "quiz me
   // on this" is the obvious thing to want had no way to ask.
   const { practise, practiceDialog } = usePractice()
+  // Everything this screen says about its own kind, from the one table all four
+  // work pages read. A book needs no loaded row to resolve it — a book has no
+  // media_type, so its side IS its kind — which is the one asymmetry with the
+  // catalogue side worth knowing about.
+  const spec = specFor('book', null)
   const [book, setBook] = useState(null)
   // THE DETAILS SURFACE IS A PANEL NOW, so what used to be a boolean is the
   // stack itself. Its own useEffect closes it when the id changes, the way
@@ -1036,7 +1024,7 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce 
             // count is past the description on a desktop and inside the filter
             // sheet on a phone, which is a scroll away on the page whose entire
             // subject is how much you have kept out of this book.
-            counts={<HeroCounts counts={quoteStats} noun={[t('unit.quote.one'), t('unit.quote.other')]} />}
+            counts={<HeroCounts counts={quoteStats} noun={[t(spec.quoteUnit.one), t(spec.quoteUnit.other)]} tone={spec.countsTone} />}
             favorite={book.favorite}
             onFavorite={(v) => patch({ favorite: v })}
             // Shelf state, beside the hearts: the state chip (its popover holds
@@ -1130,10 +1118,10 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce 
         open={!!capPool}
         items={(capPool || []).map((b) => ({ id: b.id, title: b.title, meta: [b.author, formatYear(b.published_year, b.published_circa) || null].filter(Boolean).join(' · ') }))}
         cap={SHELF_CAPS.book}
-        noun={t('unit.book.one')}
-        nounPlural={t('unit.book.other')}
+        noun={t(spec.capWords.one)}
+        nounPlural={t(spec.capWords.other)}
         verb={t('common.shelf.reading.book.label')}
-        pastLabel={t('book.shelf.cap.past.label')}
+        pastLabel={t(spec.capWords.past)}
         busyId={capBusyId}
         error={capError}
         onRelease={releaseReading}
@@ -1145,10 +1133,10 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce 
         title={pending ? moveLabel('book', book?.status || '', pending.status, book || {}) : ''}
         label={t(
           pending?.status === ACTIVE_STATUS.book
-            ? 'book.shelf.started.label'
+            ? spec.shelfDate.active
             : pending?.status === 'abandoned'
-              ? 'book.shelf.abandoned.label'
-              : 'book.shelf.finished.label',
+              ? spec.shelfDate.abandoned
+              : spec.shelfDate.completed,
         )}
         value={pending?.date || ''}
         onChange={(v) => setPending((p) => (p ? { ...p, date: v } : p))}
@@ -1707,7 +1695,9 @@ function AnnotationBoard({
 //
 // The other four are the pack's, plus `chapter`, which the table has sorted by
 // since it had a header row and which is the reading order of a book.
-export const SORT_DIMS = ['default', 'date', 'chapter', 'location', 'length', 'category']
+// The list itself is the kind table's now, so the film board can offer its own
+// six without a second copy of this comment.
+export const SORT_DIMS = KINDS.book.sortDims
 
 // sortValue is the comparable for one dimension.
 //
@@ -1778,8 +1768,8 @@ export function sortAnnotations(rows, sort) {
   return has.concat(missing)
 }
 
-// GROUP_DIMS — what a board of quotes can be bucketed by.
-export const GROUP_DIMS = ['none', 'chapter', 'color', 'tag', 'date']
+// GROUP_DIMS — what a board of quotes can be bucketed by. Also the kind table's.
+export const GROUP_DIMS = KINDS.book.groupDims
 
 // dayOf floors a timestamp to its day. Grouping by the instant a quote was added
 // would make every group hold one quote, which is a list with headings.
@@ -1858,7 +1848,7 @@ export const TEXT_VIEWS = ['both', 'quote', 'translation']
 
 // VIEW_KINDS — the three the board actually renders, in the order the menu lists
 // them. AnnotationBoard has always drawn all three; only the toggle narrowed it.
-export const VIEW_KINDS = ['tiles', 'list', 'table']
+export const VIEW_KINDS = KINDS.book.views
 
 // quoteBody — WHICH TEXT GOES IN THE BIG TYPE, given the setting.
 //
@@ -2173,13 +2163,13 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
   )
 }
 
-const TABLE_COLS = [
-  { key: 'quote', get label() { return t('book.table.quote.label') } },
-  { key: 'chapter', get label() { return t('book.table.chapter.label') } },
-  { key: 'location', get label() { return t('book.table.location.label') } },
-  { key: 'date', get label() { return t('book.table.date.label') } },
-  { key: 'favorite', get label() { return t('book.table.favourite.label') } },
-]
+// The columns are the kind table's; the getter is what keeps a label out of
+// module-load time, so it resolves in whichever language is applied when the
+// header is drawn rather than the one that happened to load first.
+const TABLE_COLS = KINDS.book.tableCols.map((c) => ({
+  key: c.key,
+  get label() { return t(c.labelKey) },
+}))
 
 function AnnotationTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSort, editingId, setEditingId, save, remove, onCopy, onShare, tview = 'both' }) {
   const arrow = (k) => (sort.col === k ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : '')

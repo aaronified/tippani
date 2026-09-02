@@ -287,6 +287,7 @@ The shared modules do:
 | `api.js` | The whole server surface in one small file: URL prefixing, the four request helpers, cover URLs, and the demo flag. |
 | `ui.jsx` | The shared component library — every card, control, icon, overlay and hook the screens are assembled from. Large, and imported by everything. |
 | `works.jsx` | What books and films share: the shelf vocabulary, work cards, hero headers, grouping. |
+| `workKinds.js` | **What a book, a film, a show and a game differ BY**, as one table — routes, nouns, shelf words, facts, credits, board copy, locators, speaker. Locale keys rather than words, so nothing resolves at module load. A fifth media type is a row here; something that cannot be a value in it is a genuine difference of medium. Imports `i18n.js` and nothing else. |
 | `people.jsx` | Credit splitting, the name→metadata cache, portraits, and the person modal. |
 | `theme.js` | The two aesthetics × light/dark, the accent, label density, and the six nameable colour categories, written onto `<html>` as data attributes and custom properties. |
 | `i18n.js` | **Every user-facing string, by key.** `t('some.key')` and nothing else — no English literal at a call site and no fallback argument. Holds the parser (agreeing with Go's, over one shared fixture), the §8 fallback chain, coverage, and the pseudo-locale. Shaped like `theme.js`: frozen tables, one applier, pure readers — plus one subscription, because `GET /locales` lands after the first paint. |

@@ -42,6 +42,7 @@ import {
   wishFilter,
   WorkDeleteConfirm,
 } from './works.jsx'
+import { KINDS, specFor } from './workKinds.js'
 import { t } from './i18n.js'
 import {
   ANNOTATION_HEX,
@@ -121,27 +122,22 @@ import {
   ViewToggle,
 } from './ui.jsx'
 
-// CAP_WORDS — how the in-progress cap dialog names ONE pool of catalogue rows.
+// The in-progress cap dialog's nouns now come from the kind table's `capWords`,
+// which absorbed the CAP_WORDS that used to live here — and gained the `book` row
+// it never had, so the books side reads the same lookup instead of naming its two
+// words inline.
 //
-// Three pools share this screen (films, shows, games — see SHELF_CAPS), and the
-// dialog says three things about whichever one is full: what the rows are
-// counted in, and what settling one is called. Games had no arm at all, so a
-// fourth game opened a dialog reading "The shelf holds 3 films at a time" with
-// three buttons offering to mark a game as watched.
-//
-// A TABLE RATHER THAN THE TERNARIES IT REPLACES. They were already two-way
+// The table it came from was written because the ternaries before it were two-way
 // (`capKey === 'show' ? … : …`) with the film arm doubling as the fallback, which
-// is exactly the shape that swallows a third media type silently. Keyed on
-// capKeyFor's answer, a fourth one is a row here and a miss is a lookup that
-// comes back undefined rather than a game quietly called a film.
+// is exactly the shape that swallows a third media type silently: a fourth game
+// opened a dialog reading "The shelf holds 3 films at a time" with three buttons
+// offering to mark a game as watched. Keyed on capKeyFor's answer, a fifth kind
+// is a row rather than an arm — and now it is a row on the one table every work
+// page reads, so the same is true of every other word on the screen.
 //
 // The settled word is shared with the transitions menu on purpose: a game is
 // "Mark as played" there (moveLabel) and must not be something else here.
-const CAP_WORDS = {
-  movie: { one: 'unit.film.one', other: 'unit.film.other', past: 'film.shelf.cap.past.label' },
-  show: { one: 'unit.show.one', other: 'unit.show.other', past: 'film.shelf.cap.past.label' },
-  game: { one: 'unit.game.one', other: 'unit.game.other', past: 'common.shelf.move.completed.played.label' },
-}
+const capWordsFor = (capKey) => (KINDS[capKey] || KINDS.movie).capWords
 
 // Movies — the reel wall (§8.6, mockups 12–14) + movie detail with the
 // filmstrip (§8.7 + §6 recipe, mockups 15–16). Dialogues mirror annotations
@@ -874,6 +870,10 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce
   // console tells them apart only by kind — asking for 'director' on a game
   // returns the film directors, so every studio would draw a blank face chip.
   const detailMediaType = movie?.media_type || 'movie'
+  // Everything this screen says about its own kind, from the one table all four
+  // work pages read. Resolved from the loaded row, so a show and a game get
+  // their own words the moment the row lands and the film's until then.
+  const detailSpec = specFor('movie', movie)
   const creditKind = personKindFor(detailMediaType)
   const { map: directorMap } = usePeople(creditKind) // name→metadata, for the credit face chip
   const mobile = useIsMobileScreen()
@@ -910,7 +910,7 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce
   // The cap dialog's nouns for this pool. Falls back to the film row for a
   // media_type nobody has taught this screen yet, which is the one case where a
   // slightly broad word beats a blank dialog.
-  const capWords = CAP_WORDS[capKey] || CAP_WORDS.movie
+  const capWords = capWordsFor(capKey)
 
   async function save(status, date) {
     setShelfBusy(true)
@@ -1053,7 +1053,7 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce
   // off media_type, so adding a kind is a row in that map, not a fourth header.
   const kindRow = movie && (
     <HeroKindRow
-      word={t(CAP_WORDS[detailMediaType]?.one || CAP_WORDS.movie.one)}
+      word={t(detailSpec.capWords.one)}
       links={[
         { key: 'year', label: formatYear(movie.release_year, movie.release_circa) },
         { key: 'series', label: seriesLabel(movie) },
@@ -1155,7 +1155,7 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce
             // What this title is HOLDING, above the fold. Amber rather than the
             // app accent, because the credit line directly above it is amber and
             // two accents on one card read as two unrelated systems.
-            counts={<HeroCounts counts={lineStats} noun={[t('unit.line.one'), t('unit.line.other')]} tone="amber" />}
+            counts={<HeroCounts counts={lineStats} noun={[t(detailSpec.quoteUnit.one), t(detailSpec.quoteUnit.other)]} tone={detailSpec.countsTone} />}
             favorite={movie.favorite}
             onFavorite={(v) => patch({ favorite: v })}
             // Shelf state beside the hearts: the state chip (transitions and, while
@@ -1229,10 +1229,10 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce
         title={pending ? moveLabel('movie', movie?.status || '', pending.status, movie || {}) : ''}
         label={t(
           pending?.status === activeWord
-            ? 'film.shelf.started.label'
+            ? detailSpec.shelfDate.active
             : pending?.status === 'abandoned'
-              ? 'film.shelf.abandoned.label'
-              : 'film.shelf.finished.label',
+              ? detailSpec.shelfDate.abandoned
+              : detailSpec.shelfDate.completed,
         )}
         value={pending?.date || ''}
         onChange={(v) => setPending((p) => (p ? { ...p, date: v } : p))}
