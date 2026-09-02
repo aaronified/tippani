@@ -13,8 +13,8 @@
     "web/frontend/vite.config.js"
   ],
   "sha256": {
-    "internal/i18n/bn.txt": "c3dd95700df0dfba9e2e78886fa81746168326329eb461b979a8d5192c3f5f1e",
-    "internal/i18n/en.txt": "6e65a733d056ff125ed70d3488f3f8814f1489a8c4edc2f65822e8fb8790586b",
+    "internal/i18n/bn.txt": "b66454985439a3368f1667dfdabbf79ec107f4064e279d6907e3554f7ceac130",
+    "internal/i18n/en.txt": "50c8e971acceca6fc8b811da1e8f76bea263c3321cb9c64f5040194eea99c621",
     "web/frontend/index.html": "faa8bb6fc81705b9d9d395a62a9d474414a029c571723bf099f84cb624ce906c",
     "web/frontend/package-lock.json": "d7afffc5b73c431c604bfaff5760d6ef244d1f74b187575d213f3ad353c18715",
     "web/frontend/package.json": "21c5acbd140400ead3efd99595afe0510ae0d6e84099621f9c39d34195a30ed6",
@@ -34,10 +34,10 @@
     "web/frontend/src/CoverPicker.jsx": "8433527caf5ec9bd37c97872412ddc83d4e7a0f8a440113d90e9b035ed1c21fb",
     "web/frontend/src/Home.jsx": "826b1355c421d97d37cbb6065500a2f3df66d1d7430f6afe99dab15595c72945",
     "web/frontend/src/ImportPage.jsx": "ad49164e027e7d89f366320d97ceab1c59f2bb2faf0263eaec8d599c616f112e",
-    "web/frontend/src/Library.jsx": "9232168f2dcc7360896319801f715d96fa3787ccd571c428ac9995b5ae42f150",
+    "web/frontend/src/Library.jsx": "55745a772f2c1c3cc954574aca36cc5a1d8357010c172a2a3a082833b2968b28",
     "web/frontend/src/MetadataPage.jsx": "90dace5f2c1cd36beafef097c718ba0396747c0c05b5921dad8a18cb3213e85b",
     "web/frontend/src/MetadataSources.jsx": "33efd7e4a39fdd431a8302e826300b3960ced4d162ef599e53cf61a5ab7caa25",
-    "web/frontend/src/Movies.jsx": "37889703ea2fe816e8c00c95a30215b2d4d512c20745c5e6ed0793a9ca5536f1",
+    "web/frontend/src/Movies.jsx": "f2fbc974dea34840974ee4a445345e97ea45a4a817afe669f200d60d5ee4818b",
     "web/frontend/src/Quotes.jsx": "0b5bffe74cf4c781d844ac6b06a3ebed06c4646d775009b328f55901caa47ce8",
     "web/frontend/src/ReverifyReview.jsx": "0d365502d0ac6e368253ae1f13b7c4d27ed44e007af16968df57a6b3eb7f2615",
     "web/frontend/src/SearchPage.jsx": "93aac702f5e72c90a1316f1d497020c5453387a03ef4de7eb1d0cf2bdceca92b",
@@ -66,7 +66,7 @@
     "web/frontend/src/history.js": "13604d919e7e8f7cdd3f637895907b2ff30425282e3049c6a3fa5524f2f3be19",
     "web/frontend/src/i18n.js": "6056197526bb55ee44f4a4c3be19304e9c48bf83af8e98f6c44dfa80fd82afe5",
     "web/frontend/src/identity.jsx": "124cd2f96b83142307f15cf874151f091d4b4051bf5698ad3e412045db0e5295",
-    "web/frontend/src/index.css": "f0b06a26b82b65377449c64d4ebc98f1e98287d89649674fc5f39b6fc048df86",
+    "web/frontend/src/index.css": "159be40cb24b598ba2c313317b6315f6c73a520ee9fb3a522cfdb63687724c27",
     "web/frontend/src/keys.js": "75e1fd35adf3747681c0ddd7aff0b71d01d8961cd890e5525be6d4dd85d5fd9a",
     "web/frontend/src/languages.jsx": "869532cdca1124db41a7447cd9a05588698bb37dd78c230af38f0de3a3af7b12",
     "web/frontend/src/locale.jsx": "3c27a6f83604ccbaa173750f33fbd08ea2add93b6239ef1627af1969ea56b174",
@@ -123,7 +123,7 @@
     "web/frontend/src/undo.jsx": "27dd04ac24e09c8b53b5caee551b7ecd575ae012aa087fa87e3d31ed767e0834",
     "web/frontend/src/update.js": "cac7b1e2a4b8bfce7d2658505ebd0bcbb6b1bb4aef9e7422cf5826949c69b8a4",
     "web/frontend/src/workLinks.jsx": "9c4e87220b933d780307ae4d14dd9b541ff2e8fac180da8d82a192ad1b205ddc",
-    "web/frontend/src/works.jsx": "9b68633cd4c4ff8fc464f208aacb96841f40f168540742b992be581b2ece0ca9",
+    "web/frontend/src/works.jsx": "e122da6bc1562e11f244666bfa82a75fe792ac4624c1d43990e45c832fcde642",
     "web/frontend/vite.config.js": "e68566c44bb7553c2567ffeb6da9c308065ed32bebe1b2a625148cbd387c55d8"
   }
 }

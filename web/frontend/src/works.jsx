@@ -1633,6 +1633,21 @@ export function WorkHero({
   // the pack's `shelfBar`, inside the cover's own wrapper — so progress reads as
   // part of the book's spine rather than as a separate bar somewhere below it.
   progress = null,
+  // WHICH SHELF THE WORK IS ON, and the bar's colour and its very presence both
+  // come from it now. Two things were wrong without it, and the pack spends a
+  // paragraph on the first: "SHELF_META's colour, not the accent — an
+  // accent-coloured bar says 'this is Tippani', which the reader already knows,
+  // instead of 'you are reading this'." So a paused book and a reading one were
+  // the same colour, which is the one distinction the bar exists to draw.
+  //
+  // And it was gated on `progress > 0`, so a completed book, an abandoned one and
+  // one on the wishlist had NO bar at all — the three states with nothing to
+  // report as a percentage are exactly the three the strip could have told you
+  // about at a glance. StatusBar has drawn every state correctly on the board's
+  // tiles since it was written (solid for a settled state, partial for one in
+  // flight); the hero was the one surface with its own copy of the idea.
+  shelf = '',
+  shelfKind = 'book',
   // The credits row's "and the rest" button. Absent on a work with few enough
   // credits to fit, because a control that opens a list you can already see is
   // furniture — the fade is measured, so a row that fits wears none either.
@@ -1715,11 +1730,26 @@ export function WorkHero({
       <div className="work-hero-split">
         <div className="work-hero-cover-wrap">
           <div className="work-hero-cover" style={{ filter: shadow }}>{cover}</div>
-          {progress != null && (
+          {/* THE BOARD'S OWN BAR, in the hero. Not aria-hidden any more either:
+              StatusBar carries a real label ("Reading — 62%"), and the strip was
+              the only thing on the page saying where a completed book stands. */}
+          {shelf ? (
+            <div className="work-hero-shelfbar-wrap">
+              <StatusBar
+                state={shelf}
+                kind={shelfKind}
+                progress={Math.round(Math.max(0, Math.min(1, progress ?? 0)) * 100)}
+                radius={3}
+              />
+            </div>
+          ) : progress != null ? (
+            // No shelf state and a position all the same — an imported book whose
+            // status was never set. The neutral strip is right there: there is no
+            // state for it to be the colour of.
             <div className="work-hero-shelfbar" aria-hidden="true">
               <span style={{ width: `${Math.round(Math.max(0, Math.min(1, progress)) * 100)}%` }} />
             </div>
-          )}
+          ) : null}
         </div>
         {/* The facts are their own tier with their own step — 9px against the
             header's 11px. One gap everywhere makes six unrelated rows; two tiers

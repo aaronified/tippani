@@ -205,3 +205,69 @@ describe('the board can be put in order', () => {
     await waitFor(() => expect(document.querySelectorAll('.ann-groups > section').length).toBe(2))
   })
 })
+
+// ── A PHONE CAN ARRANGE THE BOARD AT ALL, which it could not.
+//
+// The whole board-head is desktop-only and GroupSortField had exactly one call
+// site inside it, so a reader on a phone could not group by chapter, change the
+// sort column or flip the direction — the values sat in localStorage at whatever
+// a desktop session last left them, which for a phone-only reader is permanently
+// the defaults. The feature shipped and was reachable from one of two viewports.
+describe('the phone’s arrangement strip', () => {
+  const asPhone = () => {
+    window.matchMedia = (media) => ({
+      matches: true, media, onchange: null,
+      addEventListener() {}, removeEventListener() {},
+      addListener() {}, removeListener() {}, dispatchEvent: () => false,
+    })
+  }
+
+  it('carries the arrangement and the direction, in words rather than boxes', async () => {
+    asPhone()
+    board()
+    const trigger = await screen.findByLabelText(/^Group quotes by$/i)
+    // The pack's band: "both controls lose their boxes and keep only their
+    // words", so the trigger states both halves at once.
+    expect(trigger.className).toContain('board-strip-trigger')
+    expect(trigger.textContent.toLowerCase()).toMatch(/none/)
+    expect(trigger.textContent.toLowerCase()).toMatch(/recent/)
+    expect(document.querySelector('.board-strip')).toBeTruthy()
+    // And no desktop head on a phone — that is what left the phone with nothing.
+    expect(document.querySelector('.board-head')).toBeNull()
+  })
+
+  it('flips the direction in one tap, never in a sheet', async () => {
+    asPhone()
+    board()
+    await screen.findByLabelText(/^Group quotes by$/i)
+    const key = document.querySelector('.board-strip-dir')
+    expect(key, 'no direction key on the strip').toBeTruthy()
+    expect(key.getAttribute('aria-label')).toMatch(/ascending/i)
+    fireEvent.click(key)
+    await waitFor(() =>
+      expect(document.querySelector('.board-strip-dir').getAttribute('aria-label')).toMatch(/descending/i))
+    // One bit, one tap: the menu behind the trigger must not offer it a second
+    // time three taps deep.
+    fireEvent.click(screen.getByLabelText(/^Group quotes by$/i))
+    fireEvent.click(await screen.findByRole('menuitem', { name: /^Sort/ }))
+    expect(screen.queryByRole('menuitemradio', { name: 'Descending' })).toBeNull()
+  })
+
+  it('groups the board from the phone, which is the hole this closes', async () => {
+    asPhone()
+    board()
+    await screen.findByLabelText(/^Group quotes by$/i)
+    expect(document.querySelectorAll('.ann-groups > section').length).toBe(0)
+    await groupBy('by chapter')
+    await waitFor(() => expect(document.querySelectorAll('.ann-groups > section').length).toBe(3))
+  })
+
+  it('says how many rows a filter is holding back, and only then', async () => {
+    asPhone()
+    board()
+    await screen.findByLabelText(/^Group quotes by$/i)
+    // Unfiltered, the strip says nothing about counts: the hero already states
+    // the total, and repeating it is the same fact twice on one screen.
+    expect(document.querySelector('.board-strip .mono-label')).toBeNull()
+  })
+})

@@ -3370,6 +3370,8 @@ book.credit.editor.label = সম্পা.
 # the language it was WRITTEN in, beside the language it is printed in. Marked,
 # because two bare language names side by side say nothing about which is which.
 book.hero.language.original = মূল {name}
+book.hero.year.tip = {year} সালের সবকিছু
+book.hero.series.tip = {name}-এর সবকিছু
 # The date-confirm dialog's own word for what just happened to the shelf.
 book.shelf.started.label = পড়া শুরু
 book.shelf.abandoned.label = ছেড়ে দেওয়া
@@ -5995,6 +5997,7 @@ book.sort.dir.label = ক্রম
 book.sort.dir.asc.label = ছোট থেকে বড়
 book.sort.dir.desc.label = বড় থেকে ছোট
 book.sort.menu.label = সাজানো
+book.strip.shown.label = {total}টির মধ্যে {n}টি দেখানো হচ্ছে
 book.select.menu.label = উদ্ধৃতি বাছাই
 book.text.menu.label = উদ্ধৃতির লেখা
 book.text.both.label = দুটোই

@@ -3353,6 +3353,8 @@ book.credit.editor.label = ed.
 # the language it was WRITTEN in, beside the language it is printed in. Marked,
 # because two bare language names side by side say nothing about which is which.
 book.hero.language.original = orig. {name}
+book.hero.year.tip = Everything from {year}
+book.hero.series.tip = Everything in {name}
 # The date-confirm dialog's own word for what just happened to the shelf.
 book.shelf.started.label = Started
 book.shelf.abandoned.label = Gave up
@@ -6327,6 +6329,7 @@ book.sort.dir.label = Direction
 book.sort.dir.asc.label = Ascending
 book.sort.dir.desc.label = Descending
 book.sort.menu.label = Sort
+book.strip.shown.label = {n} of {total} shown
 book.select.menu.label = Select quotes
 book.text.menu.label = quote text
 book.text.both.label = Both

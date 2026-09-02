@@ -886,17 +886,51 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce 
       ].filter(Boolean)
     : []
 
-  // The kind row: what this is, when it was published, what language it is in,
-  // and which series it belongs to. The language is a link because there is a
-  // board behind it; the year and the series are not, because there is not.
+  // ── THE FACTS BESIDE THE KIND ARE DOORS, and until now not one of them was.
+  //
+  // The pack's rule: "year and language are stored, shared and searchable, so
+  // each is a way into a filtered search rather than a caption." The plumbing has
+  // been here the whole time — HeroFact renders a button when it is handed an
+  // onClick and a flat span when it is not — and this call site handed it none,
+  // so every fact fell through to the flat span. The comment that stood here
+  // claimed the language was a link "because there is a board behind it", which
+  // was the opposite of what the code did.
+  //
+  // THE LANGUAGE IS THE ONE THAT STAYS FLAT, and the reason is the server: there
+  // is no `language` facet (see FACET_FIELDS), so a language door would be a
+  // control that can only fail. Year, series and genre all have one. Adding the
+  // facet is the missing half of that door and is not this change.
+  //
+  // A DOOR REPLACES THE WORK CHIP RATHER THAN NARROWING IT. "Books from 1967"
+  // means across the library — a year door that also carried `book:this` would
+  // search one book for the year it was published in, which is a question with
+  // one answer and no reason to ask.
+  const searchBy = onSearch
+    ? (field, value, label) => {
+        publishSearchSeed([{ field, value: String(value), label: label || String(value) }])
+        onSearch()
+      }
+    : null
   const kindRow = book && (
     <HeroKindRow
       word={t('unit.book.one')}
       links={[
-        { key: 'year', label: formatYear(book.published_year, book.published_circa) },
+        {
+          key: 'year',
+          label: formatYear(book.published_year, book.published_circa),
+          // The circa flag is a fact about the DATE, not a value the facet can
+          // take, so the door sends the year and the label keeps the "c.".
+          onClick: searchBy && book.published_year ? () => searchBy('year', book.published_year) : undefined,
+          title: book.published_year ? t('book.hero.year.tip', { year: book.published_year }) : undefined,
+        },
         { key: 'lang', label: nameFor([book.language]) },
         { key: 'orig', label: book.orig_language && nameFor([book.orig_language]) ? t('book.hero.language.original', { name: nameFor([book.orig_language]) }) : '' },
-        { key: 'series', label: seriesLabel(book) },
+        {
+          key: 'series',
+          label: seriesLabel(book),
+          onClick: searchBy && book.series ? () => searchBy('series', book.series) : undefined,
+          title: book.series ? t('book.hero.series.tip', { name: book.series }) : undefined,
+        },
       ]}
     />
   )
@@ -982,9 +1016,15 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce 
             kindRow={kindRow}
             miniSub={detailAuthor || null}
             // The progress strip, welded to the foot of the cover rather than
-            // drawn as its own row. Only while there is progress to show: a 0%
-            // track on a book you have not opened is a bar that says nothing.
+            // drawn as its own row — and it is the SHELF's colour now, drawn
+            // whenever the book is on a shelf at all. What stood here was "only
+            // while there is progress to show: a 0% track on a book you have not
+            // opened is a bar that says nothing", which is true of a book with no
+            // status and wrong for the three settled states: a completed book has
+            // no percentage and is exactly the case the strip can report best.
             progress={book.progress > 0 ? book.progress / 100 : null}
+            shelf={book.status || ''}
+            shelfKind="book"
             meta={
               // NO SEPARATORS BETWEEN CHIPS. The dots were doing the work of
               // telling one name from the next; a pill with a border does that
@@ -1018,6 +1058,11 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce 
               />
             }
             genres={bookGenres(book)}
+            // A GENRE IS THE SAME SPECIES OF FACT AS THE YEAR beside it, so it is
+            // the same kind of door. HeroGenres has taken this callback since it
+            // was written and no work page passed one, which left a row of facts
+            // that look pressable and are not.
+            onGenre={searchBy ? (g) => searchBy('genre', g) : undefined}
             description={book.description}
             // Desktop only: on mobile these same actions live in the sticky bar's
             // ⋯ overflow above, and a second standing row just duplicated them.
@@ -1453,7 +1498,7 @@ function CategoryFilter({ value, onChange }) {
 // the pack spends a paragraph on that exact confusion: grouping "was an
 // underlined word sitting in the chip scroller: same size, same row, same species
 // as 'favourites'".
-function GroupSortField({ groupBy, onGroup, sort, onSort }) {
+function GroupSortField({ groupBy, onGroup, sort, onSort, compact = false }) {
   const [pop, setPop] = useState(null)
   const ref = useRef(null)
   const groupLabel = t(`book.group.${GROUP_DIMS.includes(groupBy) ? groupBy : 'none'}.label`)
@@ -1470,8 +1515,12 @@ function GroupSortField({ groupBy, onGroup, sort, onSort }) {
             keepOpen: true,
             onClick: () => onSort((cur) => ({ col: d, dir: cur.dir })),
           })),
-          { id: 'h-dir', heading: t('book.sort.dir.label') },
-          ...['asc', 'desc'].map((d) => ({
+          // NO DIRECTION SECTION ON A PHONE. The strip beside this trigger carries
+          // it as a key, on the pack's own rule — "direction is one bit, so it is
+          // one tap and never a sheet" — and a bit that is one tap on the strip
+          // must not also be three taps inside a menu.
+          ...(compact ? [] : [{ id: 'h-dir', heading: t('book.sort.dir.label') }]),
+          ...(compact ? [] : ['asc', 'desc']).map((d) => ({
             id: `d-${d}`,
             // THE BARS ARE THE GIVEAWAY, not the arrow: they grow for ascending
             // and shrink for descending, so the glyph IS the order rather than a
@@ -1501,8 +1550,29 @@ function GroupSortField({ groupBy, onGroup, sort, onSort }) {
             onClick: () => setPop('sort'),
           },
         ]
+  // TWO TRIGGERS, ONE MENU. The desk's is the app's inset field with its GROUP
+  // caption; the phone's is the pack's underlined word — "a strip that states the
+  // count should not be as tall as a toolbar, so both controls lose their boxes
+  // and keep only their words". Same rows behind both, so the two viewports
+  // cannot end up offering different arrangements.
+  //
+  // AND THE PHONE'S TRIGGER STATES BOTH HALVES, because it is the only thing on
+  // that strip that can: "chapter · location" is the whole arrangement in the
+  // width of two words, where the desk has room for a caption and a field.
   return (
-    <div className="tp-select board-head-group" ref={ref}>
+    <div className={compact ? 'relative board-strip-sort' : 'tp-select board-head-group'} ref={ref}>
+      {compact ? (
+        <button
+          type="button"
+          className="board-strip-trigger"
+          aria-haspopup="menu"
+          aria-expanded={pop != null}
+          aria-label={t('book.group.aria')}
+          onClick={() => setPop((p) => (p ? null : 'group'))}
+        >
+          {groupLabel} · {sortLabel}
+        </button>
+      ) : (
       <button
         type="button"
         className="tp-select-trigger tactile"
@@ -1528,6 +1598,7 @@ function GroupSortField({ groupBy, onGroup, sort, onSort }) {
           <path d="m4 6 4 4 4-4" />
         </svg>
       </button>
+      )}
       <ActionMenu
         open={pop != null}
         items={items}
@@ -2410,6 +2481,12 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
     [displayRows, rowsWin.count, pinnedShown],
   )
 
+  // HOW MANY THE FILTERS ARE HOLDING BACK. displayRows is what passes them;
+  // `total` is the unfiltered count the fetch reported. Not shownRows, which is
+  // the WINDOW — a board that has only drawn its first page is not a board that
+  // is hiding the rest, and saying so would report a filter nobody set.
+  const hidden = total != null ? Math.max(0, total - displayRows.length) : 0
+
   // One board seed drives both the masonry jitter and each card's clamp height,
   // so the two stay in step and a given book always lays out the same way.
   const boardSeed = book?.id || bookId || 1
@@ -2658,6 +2735,43 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
           THE CAPTION IS GONE TOO. Six coloured dots under the word FILTER did not
           need the word; the controls say what they are. The pack drops captions
           first when the row is tight, and this row is tight at 1180 by design. */}
+      {/* ── THE PHONE'S ARRANGEMENT STRIP, and the hole it closes is not cosmetic.
+          The whole board-head is desktop-only, and GroupSortField had exactly one
+          call site inside it — so a reader on a phone could not group by chapter,
+          could not change the sort column and could not flip the direction AT
+          ALL. The values sat in localStorage at whatever a desktop session last
+          left them, which for a phone-only reader means permanently at the
+          defaults. Sorting and grouping were shipped and then reachable from one
+          of the two viewports.
+
+          THE PACK'S OWN BAND, between the hero and the stream: "a strip that
+          states the count should not be as tall as a toolbar, so both controls
+          lose their boxes and keep only their words". A hairline above and below,
+          the arrangement underlined on the right, and the direction as a key —
+          "direction is one bit, so it is one tap and never a sheet".
+
+          IT STATES WHAT IS HIDDEN RATHER THAN WHAT EXISTS. The pack's strip
+          carries "142 quotes", and the app's hero already says that beside how
+          many are favourites, noted and tagged — the same fact twice on one
+          screen, which is why the desktop head dropped it. What the hero cannot
+          say is that a filter is currently hiding half the board, so that is what
+          this says, and only while something is actually hidden. */}
+      {mobile && (
+        <div className="board-strip">
+          {hidden > 0 && (
+            <MonoLabel>{t('book.strip.shown.label', { n: displayRows.length, total })}</MonoLabel>
+          )}
+          <GroupSortField groupBy={groupBy} onGroup={setGroupBy} sort={sort} onSort={setSort} compact />
+          <button
+            type="button"
+            className="board-strip-dir"
+            aria-label={t(sort.dir === 'asc' ? 'book.sort.dir.asc.label' : 'book.sort.dir.desc.label')}
+            onClick={() => setSort((cur) => ({ col: cur.col, dir: cur.dir === 'asc' ? 'desc' : 'asc' }))}
+          >
+            {sort.dir === 'asc' ? <IconSortAsc size={16} /> : <IconSortDesc size={16} />}
+          </button>
+        </div>
+      )}
       {!mobile && (
         <div className="board-head">
           <div className="board-head-left">

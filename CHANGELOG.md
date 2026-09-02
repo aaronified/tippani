@@ -65,6 +65,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A phone can arrange a book's board at all.** The whole board header was
+  desktop-only, so grouping, the sort column and the direction were reachable from one
+  of two viewports — a phone-only reader sat permanently at the defaults. The pack's own
+  band now sits between the description and the quotes: how many rows a filter is
+  holding back, the arrangement underlined on the right, and the direction as a key,
+  because "direction is one bit, so it is one tap and never a sheet".
+
+- **A book's facts are doors again.** The year, the series and each genre open a search
+  filtered to them — the component has taken that callback since it was written and the
+  book page passed none, so every fact fell through to a flat caption. The language
+  stays flat, and honestly: the server has no language facet, so that door would be a
+  control that can only fail.
+
+- **The strip under a cover is the shelf's colour, and it is drawn for every shelf.** It
+  was the accent — so a paused book and one you are reading looked identical — and gated
+  on having a percentage, so a completed book, an abandoned one and one on the wishlist
+  had no strip at all. Those are exactly the three the strip can report best. It carries
+  a real label now too ("Reading — 62%").
+
+
 - **The quiz shows a face for every person a credit names.** A book by two authors asked
   the portrait map for somebody called "Le Guin & Lem" — nobody — so the option lost its
   face entirely, on exactly the card where a face helps most: four options that all look

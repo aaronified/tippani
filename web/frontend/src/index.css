@@ -4702,6 +4702,11 @@
     background: color-mix(in oklab, var(--ink), transparent 90%);
   }
   .work-hero-shelfbar > span { display: block; height: 100%; background: var(--accent-ui); }
+  /* The wrapper StatusBar sits in when the work HAS a shelf state. The clip is
+     the wrapper's job because StatusBar is the board's component and must not
+     grow a hero-shaped corner radius: it is handed the radius it needs and this
+     keeps the fill inside it. */
+  .work-hero-shelfbar-wrap { overflow: hidden; border-radius: 0 0 3px 3px; }
 
   /* ---- THE COMPACT BAR, once the header has scrolled away -----------------
      The owner's request rather than the pack's: "when the hero section is
@@ -7433,6 +7438,66 @@ html[data-theme="dark"] .board-cover {
     position: sticky; top: 0; z-index: 3;
     background: var(--bg); padding-top: calc(var(--row) * 0.25);
   }
+}
+
+/* ── THE PHONE'S ARRANGEMENT STRIP.
+   A band between the hero and the stream: a hairline top and bottom, and inside
+   it only words. The pack's own reason: "a strip that states the count should not
+   be as tall as a toolbar, so both controls lose their boxes and keep only their
+   words." So there is no field and no pill here — the trigger is underlined text
+   and the direction is a bare glyph.
+
+   SPACING IS THE CONSTANT (see the standing rule): the strip is padded from
+   --edge on the sides so it lines up with the cards under it, and the vertical is
+   a fraction of --row rather than a step typed in. */
+.board-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: calc(var(--row) * 0.25) var(--edge);
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+/* The arrangement, underlined so it reads as a thing you can press without
+   wearing a box. Pushed to the end: the count is the fact and this is the
+   control, and a control at the far edge is where a thumb expects one. */
+.board-strip-sort { margin-left: auto; }
+.board-strip-trigger {
+  border: 0;
+  background: none;
+  min-height: 36px;
+  padding: 0 4px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-style: var(--font-mono-style);
+  font-variant-caps: var(--font-mono-caps);
+  font-variant-numeric: var(--font-mono-figures);
+  font-size: var(--type-mono-11);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--soft);
+  white-space: nowrap;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: color-mix(in oklab, var(--soft), transparent 65%);
+}
+/* One bit, one tap. 34×36 is the pack's, and it is under the 44px rule on
+   purpose: the strip is 36px tall by design and a 44px key would make the band
+   as tall as the toolbar it is deliberately not. */
+.board-strip-dir {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 36px;
+  flex: none;
+  border: 0;
+  background: none;
+  color: var(--soft);
+  cursor: pointer;
+}
+@media (hover: hover) {
+  .board-strip-trigger:hover, .board-strip-dir:hover { color: var(--ink); }
 }
 
 /* THE ISSUE ROWS, on the phone's sheet. A row rather than a tile because 390px

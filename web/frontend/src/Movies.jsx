@@ -1134,6 +1134,12 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce
             kindRow={kindRow}
             miniSub={detailMeta || null}
             progress={movie.progress > 0 ? movie.progress / 100 : null}
+            // The same strip as a book's, for the same reason — see WorkHero.
+            // 'movie' is the WORDING side, not the medium: shelfLabel picks the
+            // film phrasing for every movies-table row, and which of "watching"
+            // or "playing" a game gets is already decided by its stored status.
+            shelf={movie.status || ''}
+            shelfKind="movie"
             meta={
               metaParts.length > 0 && (
                 <div style={{ ...amberMono, display: 'flex', flexWrap: 'wrap', alignItems: 'center', rowGap: 2 }}>
