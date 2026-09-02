@@ -469,6 +469,69 @@ try {
     console.log(`${w}x820   title on ${n.lines ?? '?'} line(s), left spread ${n.spread ?? '?'}px  ${n.ok ? 'whole' : 'BROKEN'}`)
     if (!n.ok) failures.push(`${w}x820: ${n.why}  (“${n.text ?? ''}”)`)
   }
+  // ---- the metadata screen's own frame ------------------------------------
+  //
+  // WHY IT IS HERE AT ALL. That screen grew a rail beside a body — two columns on
+  // a desk, a scrolling row of the same doors on a phone — and every claim in that
+  // sentence is a layout claim, which is precisely the class jsdom cannot answer:
+  // it has no layout, so a unit test can prove the rail RENDERS and can never prove
+  // it is a column, that it stays put while the body scrolls, or that it scrolls
+  // under a fade when five doors do not fit 390px.
+  //
+  // THE PHONE CASE IS THE ONE WORTH MEASURING. A row of five that overflows and
+  // does not scroll is a screen with two sections a reader cannot reach, and it
+  // looks exactly like a screen with three sections.
+  for (const [w, h, want] of [[1280, 900, 'beside'], [980, 900, 'beside'], [860, 900, 'stacked'], [390, 780, 'stacked']]) {
+    await page.setViewport({ width: w, height: h })
+    await page.goto(`${opts.baseUrl}/metadata`, { waitUntil: 'networkidle0' })
+    await page.waitForSelector('.meta-rail', { timeout: opts.timeoutMs })
+    await new Promise((r) => setTimeout(r, 500))
+    const m = await page.evaluate(() => {
+      const frame = document.querySelector('.meta-frame')
+      const rail = document.querySelector('.meta-rail')
+      const body = document.querySelector('.meta-body')
+      if (!frame || !rail || !body) return null
+      const r = rail.getBoundingClientRect()
+      const b = body.getBoundingClientRect()
+      const items = [...rail.querySelectorAll('.meta-rail-item')]
+      return {
+        doors: items.length,
+        // BESIDE means the body starts to the right of the rail's right edge; a
+        // tolerance of 1px, because a fractional grid track is not a stack.
+        arrangement: b.left >= r.right - 1 ? 'beside' : 'stacked',
+        railW: Math.round(r.width),
+        overflows: rail.scrollWidth > rail.clientWidth + 1,
+        // The measured attribute the fade is painted from. Absent means the hook
+        // decided nothing overflows, which is only correct when nothing does.
+        fade: rail.getAttribute('data-scroll-x') || '',
+        // Every door reachable: the last one's right edge inside the scrollable
+        // extent rather than inside the visible box.
+        lastRight: items.length ? Math.round(items[items.length - 1].getBoundingClientRect().right - r.left + rail.scrollLeft) : 0,
+        scrollW: rail.scrollWidth,
+      }
+    })
+    if (!m) {
+      failures.push(`${w}x${h}: the metadata frame did not render`)
+      continue
+    }
+    console.log(
+      `${w}x${h}   metadata rail ${m.doors} door(s), ${m.arrangement}, ${m.railW}px` +
+        `${m.overflows ? `, scrolls (fade "${m.fade}")` : ''}`,
+    )
+    if (m.doors !== 5) failures.push(`${w}x${h}: the rail drew ${m.doors} door(s), want 5`)
+    if (m.arrangement !== want) {
+      failures.push(`${w}x${h}: the rail is ${m.arrangement} beside its body, want ${want}`)
+    }
+    // A ROW THAT OVERFLOWS AND WEARS NO FADE IS THE BUG THE STANDING RULE NAMES:
+    // the fade is the only signal that a row scrolls, so an overflow without one
+    // is doors nobody can find.
+    if (m.overflows && !m.fade) {
+      failures.push(`${w}x${h}: the rail overflows (${m.scrollW}px in ${m.railW}px) and wears no edge fade`)
+    }
+    if (m.lastRight > m.scrollW + 1) {
+      failures.push(`${w}x${h}: the last door ends at ${m.lastRight}px, past the ${m.scrollW}px it can scroll to`)
+    }
+  }
 } finally {
   await browser.close()
 }
@@ -478,4 +541,4 @@ if (failures.length) {
   for (const f of failures) console.error('  - ' + f)
   process.exit(1)
 }
-console.log('\nframe-scroll: the frame is bounded, both columns scroll, and the name is whole at every width')
+console.log('\nframe-scroll: the frame is bounded, both columns scroll, the name is whole at every width, and the metadata rail is reachable at each')

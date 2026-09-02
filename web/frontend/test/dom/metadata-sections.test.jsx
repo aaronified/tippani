@@ -26,7 +26,7 @@
 // be able to render a blank page. localStorage outlives a release.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, render, screen, within } from '@testing-library/react'
 
 let LIB
 let WIDTH = 1280
@@ -51,9 +51,9 @@ vi.mock('../../src/api.js', async (orig) => ({
 const { default: MetadataPage } = await import('../../src/MetadataPage.jsx')
 
 // A book with two gaps on it, so the overview has something to count.
-const book = (id, title) => ({
+const book = (id, title, cover = '') => ({
   id, title, author: 'Le Guin', series: '', isbn: '', asin: '',
-  has_cover: false, low_res_cover: false, has_ids: true, has_author: true,
+  has_cover: !!cover, cover_path: cover, low_res_cover: false, has_ids: true, has_author: true,
   has_series: false, has_year: true, has_genre: true, has_source: true, links: '',
 })
 
@@ -136,6 +136,31 @@ describe('a section at a time', () => {
     expect(await screen.findByText(/A Wizard of Earthsea/)).toBeTruthy()
     // And the overview is gone rather than merely scrolled past.
     expect(screen.queryByText(/all complete/i)).toBeNull()
+  })
+
+  it('shows each work’s own cover, and marks the gap where there is none', async () => {
+    // The list whose subject is the picture showed no pictures: two of its filters
+    // are `no_cover` and `low_res`, and a reader checking a low-res flag had to
+    // open every row to see the thing being flagged. The empty slot keeps its
+    // space and says what it is, because here the absence IS the finding.
+    // The console opens on the works that still need something, so both rows here
+    // are missing their source — which is what keeps the one that HAS a cover in
+    // the list at all, and is the case worth drawing: a row flagged for a reason
+    // that is not its picture.
+    LIB = {
+      books: [
+        { ...book(1, 'A Wizard of Earthsea', 'covers/earthsea.jpg'), has_ids: false },
+        { ...book(2, 'The Dispossessed'), has_ids: false },
+      ],
+      movies: [],
+    }
+    await mount()
+    await press(tab(/^Works/))
+    const withArt = (await screen.findByText('A Wizard of Earthsea')).closest('div.flex')
+    expect(withArt.querySelector('img.meta-row-art')).toBeTruthy()
+    const without = screen.getByText('The Dispossessed').closest('div.flex')
+    expect(without.querySelector('img.meta-row-art')).toBeNull()
+    expect(within(without).getByLabelText(/No cover stored/)).toBeTruthy()
   })
 
   it('puts the API keys behind the sources door, which used to be a settings card', async () => {

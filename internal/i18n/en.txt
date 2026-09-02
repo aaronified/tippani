@@ -4476,6 +4476,8 @@ metadata.gap.no-director.label = no director
 metadata.gap.no-actor.label = no actor
 # And a row with nothing missing at all.
 metadata.row.complete = complete ✓
+metadata.row.nocover.aria = No cover stored
+metadata.row.noposter.aria = No poster stored
 
 # --- THE CATALOGUE, books and films and shows in one list. The type dropdown's
 # other three rows are unit.book / unit.film / unit.show — the app's own nouns,

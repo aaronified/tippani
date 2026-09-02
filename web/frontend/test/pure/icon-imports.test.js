@@ -22,6 +22,26 @@
 // to be read properly too — default imports, namespace imports and locally
 // declared components are all real ways a name arrives, and treating any of them
 // as missing would make this file cry wolf until somebody deleted it.
+//
+// AND THE CLASS ESCAPED A SECOND TIME, THROUGH A CALL RATHER THAN A TAG. Moving the
+// metadata sources block out of Settings into its own file left `toast(...)` behind
+// its import: two call sites, both inside async handlers after a successful PUT, so
+// every API-key save threw a ReferenceError AFTER writing the key and the field
+// simply never showed as saved. Nothing caught it — the rule above reads `<Foo`
+// and a helper is called, not rendered; the DOM tests that mount the block never
+// press Save with a mocked-ok server; and the module parses, so the build is clean.
+//
+// The lesson is the one this file already learned once: a test that catches one
+// SPELLING of a bug it has named as a class is not catching the class. A component
+// and a helper arrive by exactly the same mechanism — an import — and go missing
+// the same way. So the sweep reads calls too.
+//
+// IT IS A NAMED LIST AND NOT EVERY IDENTIFIER, deliberately. `foo()` in a file is
+// usually a local, a method, or a built-in, and a rule that flagged all of them
+// would need to model scope to be useful — which is a linter, and this project has
+// none for a stated reason. What it checks instead is the app's own shared
+// vocabulary: the helpers every screen imports from a handful of modules. A name on
+// that list appearing in a file that does not declare it is never right.
 
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -57,7 +77,12 @@ const declaredIn = (src) => {
       if (m2[1] !== 'as') names.add(m2[1])
     }
   }
-  for (const m of src.matchAll(/^\s*(?:export\s+)?(?:default\s+)?(?:async\s+)?(?:function|const|let|var|class)\s+([A-Z]\w*)/gm)) {
+  // TOP-LEVEL DECLARATIONS, ANY CASE. It read only capitalised names while it only
+  // asked about components; the helper sweep below asks about `toast` and
+  // `personImgURL`, and the file that DEFINES one of those must not be reported as
+  // failing to import it. Lowercase locals are a real way a name arrives, exactly
+  // as capitalised ones are.
+  for (const m of src.matchAll(/^\s*(?:export\s+)?(?:default\s+)?(?:async\s+)?(?:function|const|let|var|class)\s+([A-Za-z_$][\w$]*)/gm)) {
     names.add(m[1])
   }
   // A component taken as a prop and renamed on the way in, which is how
@@ -94,6 +119,50 @@ describe('components used in JSX are imported', () => {
     // Named rather than counted: the fix is always "add it to the import", and
     // knowing which file and which component is the whole of the work.
     expect(missing).toEqual([])
+  })
+
+  // THE SHARED HELPERS, by name. Each of these is exported from exactly one module
+  // and imported by many screens, so a call to one in a file that neither imports
+  // nor declares it is a ReferenceError waiting for a click. Kept as a literal list
+  // for the reason the header gives; adding to it is one line and is worth doing
+  // whenever a helper starts being imported by more than about three files.
+  const HELPERS = [
+    'toast', 'json', 'errText', 'apiURL', 'coverImgURL', 'personImgURL',
+    'tNodes', 'createPortal', 'normName', 'splitCommas', 'editDistance',
+    'useEdgeScroll', 'useConfirm', 'useEscape', 'useIsMobileScreen',
+    'usePersistedState', 'useScreenBar', 'usePanelStack',
+  ]
+
+  it('has no undefined helper CALL in any screen', () => {
+    // The same rule as above with the same shape of answer, over calls rather than
+    // tags. `t(` is deliberately absent from the list: it is in every file and its
+    // single letter matches too much to be read this way.
+    const missing = []
+    for (const file of FILES) {
+      const src = readFileSync(join(SRC, file), 'utf8')
+      const have = declaredIn(src)
+      for (const name of HELPERS) {
+        if (have.has(name)) continue
+        // A call, not a mention: the name followed by an opening bracket, with a
+        // word boundary in front so `setToast(` and `.toast(` do not match.
+        if (new RegExp(`(^|[^\\w.$])${name}\\s*\\(`, 'm').test(src)) {
+          missing.push(`${file}: ${name}() is called and never imported`)
+        }
+      }
+    }
+    expect(missing).toEqual([])
+  })
+
+  it('would have caught it: toast() called beside an import that is not it', () => {
+    // The detector against the bug rather than against the tree, which is this
+    // file's own habit — a clean tree passes whether the rule works or not.
+    const broken = "import { Card, Toggle } from './ui.jsx'\nasync function save() { await put(); toast('saved') }"
+    expect(declaredIn(broken).has('toast')).toBe(false)
+    expect(/(^|[^\w.$])toast\s*\(/m.test(broken)).toBe(true)
+    // And it does not fire on a local of a similar name, which is what would make
+    // the rule noise rather than a guard.
+    const fine = "const setToast = () => {}\nsetToast('x')\nthis.toast('y')"
+    expect(/(^|[^\w.$])toast\s*\(/m.test(fine)).toBe(false)
   })
 
   // The reported bug, pinned as itself. The generalised rule above would catch it

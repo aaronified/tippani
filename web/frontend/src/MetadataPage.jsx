@@ -921,6 +921,23 @@ function ConsoleRowActions({ editing, onEdit, lookingUp, onLookup, onOpen, noun 
 // the app makes — it rewrites a whole book from a search result — and reaching it
 // through the page means stubbing the console's own fetches to say nothing about
 // the one call under test.
+// RowArt — the work's own cover beside its row.
+//
+// THE LIST WHOSE SUBJECT IS THE PICTURE SHOWED NO PICTURES. This console exists to
+// answer "which of these is missing or wrong", one of its filters is `no_cover` and
+// another is `low_res`, and a reader checking a low-res flag had to open each row
+// to see the thing being flagged. A spine is also the fastest way to recognise a
+// row in a list of nine hundred titles.
+//
+// A MISSING COVER IS A MARKED SLOT AND NOT A BLANK ONE. This is the only list in
+// the app where "there is no picture" is the finding rather than a shrug, so the
+// gap keeps its space and says what it is — the row is in the list BECAUSE of it.
+function RowArt({ path, alt }) {
+  return path
+    ? <img className="meta-row-art" src={coverImgURL(path)} alt="" loading="lazy" />
+    : <span className="meta-row-art is-empty" role="img" aria-label={alt} />
+}
+
 export function BookRow({ book, checked, onCheck, open, onToggleLookup, onOpen, onDone }) {
   const [err, setErr] = useState('')
   const [editing, setEditing] = useState(false)
@@ -984,6 +1001,7 @@ export function BookRow({ book, checked, onCheck, open, onToggleLookup, onOpen, 
         <Tooltip label={t('metadata.row.select.tip', { noun })} side="top">
           <input type="checkbox" checked={checked} onChange={onCheck} />
         </Tooltip>
+        <RowArt path={book.cover_path} alt={t('metadata.row.nocover.aria')} />
         <div className="min-w-0 flex-1">
           <NameScroll as="p">
             <b>{book.title}</b>
@@ -1035,6 +1053,7 @@ function MovieRow({ movie, checked, onCheck, open, onToggleLookup, onOpen, onDon
         <Tooltip label={t('metadata.row.select.tip', { noun })} side="top">
           <input type="checkbox" checked={checked} onChange={onCheck} />
         </Tooltip>
+        <RowArt path={movie.poster_path} alt={t('metadata.row.noposter.aria')} />
         <div className="min-w-0 flex-1">
           <NameScroll as="p">
             <b>{movie.title}</b>

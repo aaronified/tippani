@@ -4307,6 +4307,8 @@ metadata.gap.no-cast.label = কাস্ট নেই
 metadata.gap.no-director.label = পরিচালক নেই
 metadata.gap.no-actor.label = অভিনেতা নেই
 metadata.row.complete = পুরো ✓
+metadata.row.nocover.aria = প্রচ্ছদ নেই
+metadata.row.noposter.aria = পোস্টার নেই
 
 metadata.catalogue.title = ক্যাটালগ
 metadata.catalogue.type.all.label = সব ধরন

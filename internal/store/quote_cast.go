@@ -306,8 +306,16 @@ func LinkWorkQuotesToCast(tx *sql.Tx, uid int64, kind string, workID int64, seps
 // account's own separators, folded against this character's name and every alias —
 // because a looser rule here would report a number the linker disagrees with.
 //
+// THE ORDER IS BOOK LINES THEN SCREEN ONES, each newest first, and it is not one
+// merged recency order — the same call PersonLines makes and for the same reason.
+// The two live in two tables with two id spaces, so interleaving them would mean
+// sorting on created_at in Go over the whole set before the cap could be applied,
+// and a character is in practice in a novel or in its adaptations rather than
+// equally in both. Said out loud because the cap therefore takes book lines first,
+// which is a thing a caller can see.
+//
 // `limit` caps the listed lines and not the count: a reader with four hundred
-// linked lines wants the recent ones and the total.
+// linked lines wants a screenful and the total.
 func CharacterLines(db Queryer, uid, characterID int64, seps metadata.CreditSeps, limit int) ([]QuoteLine, int, error) {
 	keys, err := characterSpellings(db, uid, characterID)
 	if err != nil {

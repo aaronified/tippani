@@ -21,13 +21,21 @@ func (s *Server) handleMetadataLibrary(w http.ResponseWriter, r *http.Request) {
 	olog.Tracef("[meta] handleMetadataLibrary uid=%v", uid)
 
 	type bookItem struct {
-		ID              int64  `json:"id"`
-		Title           string `json:"title"`
-		Author          string `json:"author"`
-		Series          string `json:"series"`
-		ISBN            string `json:"isbn"` // passed to the look-up picker to seed a stronger match
-		ASIN            string `json:"asin"`
-		HasCover        bool   `json:"has_cover"`
+		ID       int64  `json:"id"`
+		Title    string `json:"title"`
+		Author   string `json:"author"`
+		Series   string `json:"series"`
+		ISBN     string `json:"isbn"` // passed to the look-up picker to seed a stronger match
+		ASIN     string `json:"asin"`
+		HasCover bool   `json:"has_cover"`
+		// THE PATH AS WELL AS THE BOOLEAN. The console has always known whether a
+		// work HAS a cover and never what it looks like, so a list whose whole
+		// subject is "which of these is missing its picture" showed no pictures — a
+		// reader checking a low-res flag had to open each row to see the thing being
+		// flagged. The boolean stays: it is what the gap chips and the coverage
+		// tiles count, and a path is not an answer to "is there one" for a file that
+		// may have gone.
+		CoverPath       string `json:"cover_path"`
 		LowResCover     bool   `json:"low_res_cover"` // stored cover narrower than the refetch threshold
 		HasIDs          bool   `json:"has_ids"`       // linked to a source (isbn/asin/google/openlibrary)
 		HasAuthor       bool   `json:"has_author"`
@@ -65,6 +73,7 @@ func (s *Server) handleMetadataLibrary(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		it.HasCover = cover != ""
+		it.CoverPath = cover
 		// coverWidth reads only the image header; 0 (webp/svg/missing) is
 		// treated as unknown, not low-res, so it isn't flagged falsely.
 		if cover != "" {
@@ -86,16 +95,19 @@ func (s *Server) handleMetadataLibrary(w http.ResponseWriter, r *http.Request) {
 		// The supplier ids, like the book row's isbn/asin above: the console's
 		// look-up picker passes them on so a search here pins the same record
 		// the work page would.
-		TMDBID        int64 `json:"tmdb_id"`
-		TVDBID        int64 `json:"tvdb_id"`
-		HasPoster     bool  `json:"has_poster"`
-		LowResPoster  bool  `json:"low_res_poster"`
-		HasCast       bool  `json:"has_cast"`
-		HasSource     bool  `json:"has_source"` // tmdb_id or tvdb_id
-		HasDirector   bool  `json:"has_director"`
-		HasYear       bool  `json:"has_year"`
-		HasGenre      bool  `json:"has_genre"`
-		DialogueCount int   `json:"dialogue_count"`
+		TMDBID    int64 `json:"tmdb_id"`
+		TVDBID    int64 `json:"tvdb_id"`
+		HasPoster bool  `json:"has_poster"`
+		// See the book row's CoverPath: the same fact, and the same reason.
+		PosterPath string `json:"poster_path"`
+
+		LowResPoster  bool `json:"low_res_poster"`
+		HasCast       bool `json:"has_cast"`
+		HasSource     bool `json:"has_source"` // tmdb_id or tvdb_id
+		HasDirector   bool `json:"has_director"`
+		HasYear       bool `json:"has_year"`
+		HasGenre      bool `json:"has_genre"`
+		DialogueCount int  `json:"dialogue_count"`
 	}
 	movies := []movieItem{}
 	mrows, err := s.Store.DB.Query(`
@@ -131,6 +143,7 @@ func (s *Server) handleMetadataLibrary(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		it.HasPoster = poster != ""
+		it.PosterPath = poster
 		if poster != "" {
 			if wpx := s.coverWidth(poster); wpx > 0 && wpx < lowResCoverWidth {
 				it.LowResPoster = true

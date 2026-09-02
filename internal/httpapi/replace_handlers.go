@@ -237,6 +237,14 @@ func (s *Server) replace(w http.ResponseWriter, r *http.Request, apply bool) {
 	// the use this endpoint exists for — so a row it changed and did not re-link
 	// would leave the person panel showing the name nobody types any more.
 	personKind, links := quotePersonKind[kind]
+	// AND THE CAST LINK, over the kinds that have one. This endpoint rewrites
+	// `character` on annotations and dialogues — correcting one spelling across four
+	// hundred rows is exactly what it is for — so a row it changed and did not
+	// re-link would leave the character page listing lines that no longer name them.
+	// It self-heals on the next cast-list read, which is precisely why it has to be
+	// done here as well: "wrong until somebody opens the film" is not a state to
+	// leave a library in after a write the reader asked for.
+	castKind, castLinks := quoteCastKind[kind]
 	seps := s.creditSeps(uid)
 	for _, c := range changes {
 		if _, err := tx.Exec(
@@ -248,6 +256,12 @@ func (s *Server) replace(w http.ResponseWriter, r *http.Request, apply bool) {
 		if links {
 			if err := store.SyncQuotePerson(tx, uid, personKind, c.id, seps); err != nil {
 				internalError(w, r, "replace: link person", err)
+				return
+			}
+		}
+		if castLinks {
+			if err := store.SyncQuoteCast(tx, uid, castKind, c.id, seps); err != nil {
+				internalError(w, r, "replace: link speaker", err)
 				return
 			}
 		}

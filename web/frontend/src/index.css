@@ -7494,3 +7494,19 @@ html[data-theme="dark"] .board-cover {
    and where sit under it a tier down. */
 .identity-line { display: grid; gap: 2px; min-width: 0; }
 .identity-line-text { font-size: var(--type-ui-13); line-height: 1.5; }
+/* The work's own cover beside its row in the metadata catalogue. This is the one
+   list in the app where a MISSING picture is the finding rather than a shrug —
+   two of its filters are about exactly that — so the empty slot keeps its space
+   and wears a mark instead of collapsing. */
+.meta-row-art {
+  flex: none; display: block; width: max(28px, 2em); aspect-ratio: 2 / 3;
+  object-fit: cover; border-radius: 4px; border: 1px solid var(--ink-border);
+}
+.meta-row-art.is-empty {
+  background: repeating-linear-gradient(
+    -45deg,
+    color-mix(in srgb, var(--error) 9%, transparent) 0 4px,
+    transparent 4px 8px
+  );
+  border-color: color-mix(in srgb, var(--error) 32%, var(--line));
+}

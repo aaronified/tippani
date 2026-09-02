@@ -1906,7 +1906,23 @@ That was sound about the id and wrong about the search that produces it: it defe
 
 <sub>`internal/httpapi/lookup_handlers.go` · `internal/metadata/tmdb.go` · `internal/metadata/tvdb.go`</sub>
 
+### Where the facts come from lives beside the records it configures
+
+**Decided.** The metadata sources block — the eight provider keys, the Google fallback, the credit separators and the language-marks door — is a section of the **Metadata screen**, not a card on Settings. `SETTINGS_LAYOUT` is redealt around its absence and `SectionTitle` moves to `ui.jsx`, because eight Settings cards and one other screen now use it.
+
+**Why.** Everything on that block configures the screen it was two clicks away from. A reader looking at a work the catalogue had filed under *no source* had to leave the console, find a settings card, fix the key and come back to press Fetch — and the card's own comments were already making that argument without following it, since the credit separators were justified by "a lookup returns 'Gaiman & Pratchett' as one string" and the marks door by "a language mark is what a quote with nobody to credit says it is". Both sentences are about the records, not about the app's settings.
+
+**What it costs.** Settings loses its tallest card — 780px of a page whose column balance is a measurement written down beside the layout — so the layout is not the old one minus a row. It is redealt, and the new numbers are recorded the same way. Two pinned rules went with the card: *colours sits directly under metadata*, which had nothing left to pair with, and *the marks door hangs off Metadata*, which is now a claim about a different screen. Both tests were rewritten to assert what survives rather than deleted.
+
+**Instead of** leaving it on Settings and linking to it from the console, which was the cheaper move and is the wrong one: a link is a promise that the thing is elsewhere, and the reason it was hard to find is that it *was* elsewhere.
+
+**Nothing in the block changed in the move** — same components, same copy, same endpoints. A move that also rewrites is a move nobody can review. The one thing that did change was an accident and is worth recording: `toast` was called by two handlers and left behind by the import, so every key save threw after a successful PUT. `icon-imports.test.js` read JSX tags only and could not see a helper CALL; it reads a named list of shared helpers now, which is the same class-not-spelling widening that file already did once.
+
+<sub>`web/frontend/src/MetadataSources.jsx` · `web/frontend/src/Settings.jsx` (`SETTINGS_LAYOUT`) · `web/frontend/test/pure/icon-imports.test.js`</sub>
+
 ### A status chip appears only where there is something to say, and "working" is silence
+
+<sub>These four entries decided the sources block's contents while it was a card on the Settings page. It is a section of the Metadata screen now — see *Where the facts come from lives beside the records it configures* — and every decision below is unchanged by the move; only the screen is different.</sub>
 
 **Decided.** The chip row under Metadata sources carries a chip for a **failed** book lookup, and for TMDB running on the shared built-in key or on no key at all. A working lookup produces **no chip**, a lookup nobody has tried yet produces **no chip**, and the row itself is not rendered when both are absent.
 
@@ -1928,7 +1944,7 @@ The distinction is real and the chip was still the "OK" mistake wearing a duller
 
 ### The IGDB pair gets two rows and one warning, and the warning is only for half a pair
 
-**Decided.** Settings → Metadata sources carries an **IGDB client id** and an **IGDB secret** row, write-only like the other secrets and saved independently. Neither set renders nothing. Exactly one set renders a line naming the blank half.
+**Decided.** The Metadata screen's Sources section carries an **IGDB client id** and an **IGDB secret** row, write-only like the other secrets and saved independently. Neither set renders nothing. Exactly one set renders a line naming the blank half.
 
 **Why it was missing, which is the part worth recording.** 1.15.1 shipped the games board, the IGDB lookup, the settings *endpoint* (`igdb_client_id` / `igdb_secret`), a GET that reports the halves separately, and an Add-sheet warning naming the screen to go and fix it on. The two rows on that screen were the only piece that did not land, and nothing failed: the handler had tests, the lookup had tests, the warning had a test, and the reader had no field. **Games were the one feature in the app whose key could only be set by editing the database** — while every layer under it reported itself healthy.
 
@@ -4845,7 +4861,7 @@ Two mechanisms for explaining a control both widened the page and neither worked
 
 ### Standing explanatory prose moved into info dots, repeatedly, across four releases — label and state stay, explanation moves
 
-**Decided.** The rule is a three-way split: a **label** (what this control is) and its **state** (what is true right now) stay on the page; an **explanation** (why it exists, what the trade-off is) moves into an info dot. Applied in 0.6.9 (Settings help), 1.4.0 (Settings' Devices, Metadata sources, Onboarding and Multi-author credits; the Metadata console's duplicates, speaker remap and mobile actions; Profile's maintenance tools; the Practice card; the tour's step copy), and again in 1.7.2 (each share format's syntax reference; the colour-categories microcopy).
+**Decided.** The rule is a three-way split: a **label** (what this control is) and its **state** (what is true right now) stay on the page; an **explanation** (why it exists, what the trade-off is) moves into an info dot. Applied in 0.6.9 (Settings help), 1.4.0 (Settings' Devices, Onboarding and Multi-author credits, and the metadata sources block; the Metadata console's duplicates, speaker remap and mobile actions; Profile's maintenance tools; the Practice card; the tour's step copy), and again in 1.7.2 (each share format's syntax reference; the colour-categories microcopy).
 
 **Why.** Tippani explained itself in standing prose — Settings card copy, drawer subtexts, microcopy under every control. It is good writing and there is a lot of it, and on a 390px screen it meant scrolling past the explanation to reach the single control each card exists for. On the tour specifically, six steps were a scrolling paragraph and the paragraph was the part people skipped.
 
@@ -7131,7 +7147,7 @@ There is a second cost, and it is the one that made this concrete. Decisions tak
 
 **The rejected alternative was re-pinning existing titles.** It is the only thing that would give an existing library character art without the reader lifting a finger, and it costs a search-and-match against TheTVDB for every title — a network call each, from inside `Migrate()`, where a failure has to be swallowed and a wrong match cannot be reviewed. It would also overwrite provider facts on rows nobody asked about, and this repo has no background worker to do it outside a request. So a pin stays a decision the reader made, and character art arrives one title at a time on re-verify.
 
-**What that costs, plainly: an upgraded library sees no character art until each title is re-verified.** The mitigation is the notice rather than the fix — Settings → Metadata sources says how many titles are still pinned to TMDB alone, and stops saying it when the count reaches zero. Self-clearing, so there is no dismissal to store and none to go stale.
+**What that costs, plainly: an upgraded library sees no character art until each title is re-verified.** The mitigation is the notice rather than the fix — the Metadata screen's Sources section says how many titles are still pinned to TMDB alone, and stops saying it when the count reaches zero. Self-clearing, so there is no dismissal to store and none to go stale.
 
 **A fresh install is never told.** A notice about a change you never lived through is a sentence the interface made up, so the notice is gated on a marker written by a one-time pass that only fires on a database which already existed (`OneTimeEnv.FreshInstall`). That guard needed its own test: on a genuinely fresh database the pass writes nothing whether the guard is there or not, so inverting it left the obvious test green.
 

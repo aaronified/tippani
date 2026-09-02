@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The metadata catalogue shows each work's cover.** The one list whose subject is the
+  picture — two of its filters are *no cover* and *low-res* — showed no pictures, so
+  checking a flag meant opening every row to see the thing being flagged. A work with
+  none keeps the space and marks it, because here the absence is the finding.
+
 - **A character's page lists what they have said.** Every quote in the library filed
   under them, from books and films alike, with the work each came from — and a line
   saying how many further quotes name them *alongside somebody else*, because a quote
@@ -195,6 +200,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   wide.
 
 ### Fixed
+
+- **Saving an API key threw after it had already been saved.** The metadata sources
+  block moved to its own file and left one helper behind its import, so every key save
+  and the Google-fallback toggle wrote the value and then crashed — the field simply
+  never showed as stored. The sweep that reads every screen for a component it renders
+  and never imports now reads shared helper *calls* too, which is the class this
+  belonged to and the second time that class has got past it.
 
 - **Fetching links for one of two people with the same name wrote them onto the other.**
   The console saved through the name-keyed upsert, which resolves to the lowest id where a
