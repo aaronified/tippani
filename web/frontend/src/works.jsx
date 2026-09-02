@@ -20,7 +20,6 @@ import {
   IconButton,
   IconExport,
   IconRevert,
-  IconSort,
   IconFilter,
   MobileSheet,
   MonoLabel,
@@ -1876,7 +1875,6 @@ export function WorkListScaffold({
   extraModals,
 }) {
   const [mobileFilter, setMobileFilter] = useState(false)
-  const [mobileSort, setMobileSort] = useState(false)
   // A section renders when its setter was supplied. One rule, applied the same
   // way everywhere, so adding a screen to this scaffold is a question of which
   // setters you pass rather than which booleans you remember to set.
@@ -2007,19 +2005,15 @@ export function WorkListScaffold({
   // every desktop.
   useScreenBar({
     actions: () => {
+      // NO "SHOW ONLY" AND NO "SORT" HERE ANY MORE, on the owner's call, and it
+      // is the menu-bar principle running out of room rather than being wrong.
+      // A menu bar earns its duplication by being one place a reader can always
+      // look — but on this screen every one of those rows is already reachable
+      // twice: the chips and the sort select are on the page at desktop widths,
+      // and behind the Filter key on a phone, where the sort now lives in the
+      // same sheet. Three doors to one control is not findability, it is a menu
+      // a reader stops reading because most of it is a copy of the page.
       const out = []
-      const only = []
-      if (setFav) only.push({ id: 'only-fav', label: t('common.filters.favourites.label'), checked: !!fav, onClick: () => setFav(!fav) })
-      if (setTagged) only.push({ id: 'only-tagged', label: t('common.filters.tagged.label'), checked: !!tagged, onClick: () => setTagged(!tagged) })
-      if (setNoted) only.push({ id: 'only-noted', label: t('common.filters.noted.label'), checked: !!noted, onClick: () => setNoted(!noted) })
-      if (only.length) out.push({ id: 'h-only', heading: t('common.filters.only.label') }, ...only)
-
-      if (hasSort) {
-        out.push({ id: 'h-sort', heading: t('common.filters.sort.label') })
-        for (const [value, label] of sortOptions) {
-          out.push({ id: `sort-${value}`, label, checked: sort === value, onClick: () => setSort(value) })
-        }
-      }
 
       // The doors, and the verbs. `onReset` is offered whatever the filter state:
       // a reader who cannot tell whether a filter is on is exactly the reader who
@@ -2031,7 +2025,7 @@ export function WorkListScaffold({
       // drawn on the page at desktop widths, so a row here would open a sheet
       // over controls the reader is already looking at. On a phone the same
       // controls are BEHIND that sheet, so the row is how you reach them.
-      if (mobile && (hasGenre || hasStates || hasSeries || hasCredit || hasWish)) {
+      if (mobile && (hasGenre || hasStates || hasSeries || hasCredit || hasWish || hasSort)) {
         out.push({ id: 'filters', icon: <IconFilter />, label: t('common.filters.label'), onClick: () => setMobileFilter(true) })
       }
       if (onReset) out.push({ id: 'reset', icon: <IconRevert />, label: t('common.filters.reset.label'), onClick: onReset })
@@ -2048,14 +2042,16 @@ export function WorkListScaffold({
         icon: <IconFilter />,
         onClick: () => setMobileFilter((o) => !o),
       },
-      // SORT, NOT EXPORT. Export is a once-in-a-while act and it has a home in the
-      // top bar's ⋯; sort is something you reach for while you are looking at the
-      // board, which is exactly what a dock seat is for.
-      ...(hasSort ? [{
-        id: 'sort',
-        label: t('common.filters.sort.aria'),
-        icon: <IconSort />,
-        onClick: () => setMobileSort((o) => !o),
+      // EXPORT, NOT SORT — the owner's call, and the reason the sort could give up
+      // the seat is that it moved INTO the sheet the key beside it opens. Sorting
+      // and filtering are one visit to one surface again: you open the filters,
+      // decide what you are looking at and what order it is in, and press Done.
+      // Export is the one verb on this screen with nowhere else to be on a phone.
+      ...(!DEMO && onExport ? [{
+        id: 'export',
+        label: t('common.action.export.label'),
+        icon: <IconExport />,
+        onClick: onExport,
       }] : []),
     ] : null,
   })
@@ -2169,26 +2165,23 @@ export function WorkListScaffold({
               </div>
             )}
             {trailingMobile}
-          </div>
-        </MobileSheet>
-      )}
+            {/* THE ORDER, LAST IN THE FILTER SHEET. It had a sheet of its own and
+                a dock key of its own, on the argument that "a filter changes
+                WHICH rows you are looking at and a sort changes only their
+                order". True, and not worth a second surface: both answer "what am
+                I looking at" in one sitting, and two keys side by side opening
+                two sheets that look identical is a phone asking a reader to
+                remember which of two doors held the thing they wanted.
 
-      {/* SORT HAS ITS OWN SHEET, and it used to be the last section of the one
-          above. Two dock keys pointing into one sheet would be the same door
-          twice — the thing this app keeps taking out (the second magnifier, the
-          bin tile in Settings) — so filter filters and sort sorts. It is also the
-          honest split: a filter changes WHICH rows you are looking at and a sort
-          changes only their order, and the sheet's own footer says "N shown",
-          which was never true of the sort control sitting under it. */}
-      {mobile && hasSort && (
-        <MobileSheet
-          open={mobileSort}
-          onClose={() => setMobileSort(false)}
-          title={t('common.filters.sort.aria')}
-        >
-          <div>
-            <MonoLabel className="mb-2 block">{t('common.filters.sort.label')}</MonoLabel>
-            {sortSelect}
+                LAST, because it is the only section here that cannot change the
+                count the footer states. Everything above it narrows the board;
+                this one rearranges what is left. */}
+            {hasSort && (
+              <div>
+                <MonoLabel className="mb-2 block">{t('common.filters.sort.label')}</MonoLabel>
+                {sortSelect}
+              </div>
+            )}
           </div>
         </MobileSheet>
       )}

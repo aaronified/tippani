@@ -32,6 +32,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **A worklist's phone dock offers Export, and the order moved into the filter sheet.**
+  Sorting and filtering are one visit to one surface again: two keys side by side
+  opening two sheets that looked identical asked a reader to remember which door held
+  the thing they wanted. The screen's ⋯ drops its *show only* and *sort* sections for
+  the same reason — both were already reachable twice.
+
+- **The filter sheet's Reset is a bordered button with a word on it.** It was a 34px
+  glyph key in a footer whose other control is a filled primary, so the one thing on the
+  sheet that throws work away was also the quietest thing on it.
+
 - **A book's board header is one row of the things that arrange it.** The view moved
   into the screen's ⋯ (it was the widest control in the row and the least often
   changed), and the sort folded into the grouping's menu, where it states the current

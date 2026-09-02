@@ -13,8 +13,8 @@
     "web/frontend/vite.config.js"
   ],
   "sha256": {
-    "internal/i18n/bn.txt": "c84677f0302025ba68cf332529ab7dc2c06cf737e6eefe231420f696b29a938e",
-    "internal/i18n/en.txt": "1c384ef2036b71243c92bf7cdfd232ec16603c53c4cbabebeb56cede00141619",
+    "internal/i18n/bn.txt": "20ce29fc017b99309968b0a53631339814f3a61b8574e332e810d42e4706ea5e",
+    "internal/i18n/en.txt": "f90d537d6607b187d4dab9112f75c600356c29e62a8688e7f3912c5eb184e6ae",
     "web/frontend/index.html": "faa8bb6fc81705b9d9d395a62a9d474414a029c571723bf099f84cb624ce906c",
     "web/frontend/package-lock.json": "d7afffc5b73c431c604bfaff5760d6ef244d1f74b187575d213f3ad353c18715",
     "web/frontend/package.json": "21c5acbd140400ead3efd99595afe0510ae0d6e84099621f9c39d34195a30ed6",
@@ -119,11 +119,11 @@
     "web/frontend/src/tokens.js": "3f21045159a3304c079ed97f902709696e27c57df7f1115214871d7891564886",
     "web/frontend/src/tour.jsx": "59286e57558ac8f72ce62331c6f3d9ee86673fff743ae364335d094968bb8c9d",
     "web/frontend/src/type.js": "42a611ce846b7d8493821b93314c59ca104f95b557b02dbb0d4a9698a35083af",
-    "web/frontend/src/ui.jsx": "0c1b4cbb3aebb7db8534b35ef87464c8403bb66d904e4b7ca249d214cad6d520",
+    "web/frontend/src/ui.jsx": "b69cb9ee6963fef23b30e372af94879783ef8bf7270661856d20698bbcfc9f77",
     "web/frontend/src/undo.jsx": "27dd04ac24e09c8b53b5caee551b7ecd575ae012aa087fa87e3d31ed767e0834",
     "web/frontend/src/update.js": "cac7b1e2a4b8bfce7d2658505ebd0bcbb6b1bb4aef9e7422cf5826949c69b8a4",
     "web/frontend/src/workLinks.jsx": "9c4e87220b933d780307ae4d14dd9b541ff2e8fac180da8d82a192ad1b205ddc",
-    "web/frontend/src/works.jsx": "138bc51ca836101d0c4cacfd0e980da354641b0e74d346ed36035def8d584b4a",
+    "web/frontend/src/works.jsx": "9b68633cd4c4ff8fc464f208aacb96841f40f168540742b992be581b2ece0ca9",
     "web/frontend/vite.config.js": "e68566c44bb7553c2567ffeb6da9c308065ed32bebe1b2a625148cbd387c55d8"
   }
 }

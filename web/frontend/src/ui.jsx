@@ -8008,8 +8008,22 @@ export function MobileSheet({ open, onClose, title, actions, children, footer, d
 export function SheetFooter({ count, onReset, onDone }) {
   return (
     <>
+      {/* RESET IS A REAL BUTTON, bordered and worded, and it wears the delete
+          tint. It was a 34px glyph key in a footer whose other control is a
+          110px filled primary — so the one thing on this sheet that throws work
+          away was also the quietest thing on it, and a reader had to already
+          know what an anticlockwise arrow meant. It is not destructive of DATA,
+          which is why it is a tinted ghost rather than a filled slab: the tint
+          is the app's whole vocabulary for "this undoes something".
+
+          `keepLabel`, so the word survives the labels preference resolving to
+          off on a phone — which is the only place this footer is drawn. A
+          reader who has switched words off everywhere still loses it, which is
+          the rule: an app default may not stand over an answered question. */}
       {onReset && (
-        <FieldIconButton icon={<IconRevert />} ariaLabel={t("common.filters.reset.aria")} onClick={onReset} />
+        <GhostButton icon={<IconRevert />} keepLabel className="tp-btn-danger" onClick={onReset}>
+          {t("common.filters.reset.label")}
+        </GhostButton>
       )}
       {count != null && <span className="microcopy">{count}</span>}
       <button type="button" className="tp-btn tp-btn-primary ml-auto" style={{ minWidth: 110 }} onClick={onDone}>

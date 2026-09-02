@@ -539,7 +539,6 @@ common.table.sort.tip = এই কলাম দিয়ে সাজান
 common.filters.label = ফিল্টার
 common.filters.genre.aria = ঘরানা দিয়ে ফিল্টার
 common.filters.genre.all.label = সব ঘরানা
-common.filters.reset.aria = সব ফিল্টার তুলে দিন
 common.filters.reset.label = ফিল্টার তুলে দিন
 common.sheet.close.tip = এই প্যানেল বন্ধ করুন
 common.more.aria = আরও কাজ

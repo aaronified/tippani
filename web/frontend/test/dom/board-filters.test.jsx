@@ -182,8 +182,49 @@ describe('reset', () => {
     press('annotated')
     expect(shown()).toEqual(['Dispossessed'])
 
-    press('Reset every filter')
+    // The footer's reset is a bordered, worded button now rather than a 34px
+    // glyph key: it is the one control on this sheet that throws work away and
+    // it was the quietest thing on it.
+    press('Reset filters')
     expect(shown()).toEqual(['Dispossessed', 'Earthsea', 'Solaris'])
     expect(seeded()).toEqual([])
+  })
+})
+
+// ── ONE SHEET, ONE VISIT. The order used to have a sheet of its own and a dock
+// key of its own, beside a Filters key opening a sheet that looked identical.
+describe('the phone\u2019s two doors', () => {
+  it('puts the order in the filter sheet rather than a second one', async () => {
+    asPhone()
+    await board()
+    expect(screen.queryByLabelText(/^Sort$/i)).toBeNull()
+    openFiltersFromTheDock()
+    // Last section in the sheet: everything above it narrows the board and can
+    // change the count the footer states, and this one only rearranges.
+    const sheet = document.querySelector('.mobile-sheet, [class*="sheet"]')
+    expect(sheet).toBeTruthy()
+    expect(screen.getByLabelText(/^Sort$/i)).toBeTruthy()
+  })
+
+  it('gives the seat the sort vacated to Export', async () => {
+    asPhone()
+    await board()
+    const ids = (screenBarNow().keys || []).map((k) => k.id)
+    // Two seats, and neither of them is a second door to the sheet the first
+    // one opens. Export is the one verb on this screen with nowhere else to be
+    // on a phone.
+    expect(ids).toEqual(['filter', 'export'])
+  })
+
+  it('stops repeating the page in the \u22ef', async () => {
+    asPhone()
+    await board()
+    const { buildScreenActions } = await import('../../src/ui.jsx')
+    const labels = buildScreenActions().map((r) => r.heading || r.label).join(' | ')
+    // The chips and the sort select are already reachable twice — on the page at
+    // desktop widths, behind the Filter key on a phone. A third door is a menu a
+    // reader stops reading because most of it is a copy of what is on screen.
+    expect(labels).not.toMatch(/show only/i)
+    expect(labels).not.toMatch(/recently added/i)
   })
 })

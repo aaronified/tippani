@@ -560,7 +560,6 @@ common.table.sort.tip = Sort by this column
 common.filters.label = Filters
 common.filters.genre.aria = Filter by genre
 common.filters.genre.all.label = All genres
-common.filters.reset.aria = Reset every filter
 common.filters.reset.label = Reset filters
 common.sheet.close.tip = Close this sheet
 common.more.aria = More actions
