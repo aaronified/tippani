@@ -234,7 +234,10 @@ than three times.
 - **`common.count.phrase = {n} {noun}` stays bare — no classifier.** A count slot in Bengali
   is legitimately written *12 বই*, and a shared phrase cannot carry both টি (objects) and জন
   (people). Where a *sentence* needs a classifier, the writer of that sentence supplies it:
-  *এখানে 12টি উক্তি রাখা আছে।*
+  *এখানে 12টা উক্তি রাখা আছে।*
+- **The classifier is টা, and জন for people (v3).** 12টা, দুটো, তিনটে, কটা — spelled without
+  an apostrophe, as today’s print spells them. টি is the newsprint register this sheet keeps out,
+  and the earlier passes had mixed the two on one screen.
 - **A shared key gets one word.** The whole point of `common.*` is that the add form, the
   bulk bar, the table head and the export heading spell a thing the same way. If a shared
   key's Bengali does not fit one of its sites, mark it `# ?? ` — do not fork it.
@@ -257,7 +260,7 @@ than three times.
 | note (the reader's own) | নোট | টীকা and টিপ্পনী are both barred (§2.1); নোট is what a Bengali says |
 | tag | ট্যাগ | |
 | sticker | স্টিকার | |
-| seal (a sticker pinned to a quote) | সিল | |
+| seal (a sticker pinned to a quote) | স্টিকার | v3: one word for the file and the pinned copy — সিল read as a rubber stamp, and the reader pins "a sticker" |
 | board | বোর্ড | |
 | anthology | সংকলন | The exact Bengali word for a curated gathering of writings. Do not use সংকলন for anything else |
 | entry (of an anthology, of the bin) | এন্ট্রি | |
@@ -345,10 +348,10 @@ The button-grammar rule is in §5.4. These are the words.
 | sort | সাজান | |
 | group by | ভাগ | *কী দিয়ে ভাগ করা হবে* |
 | select / deselect | বাছুন / বাছাই তুলুন | **Not নির্বাচন করুন** (bureaucratic) |
-| show / hide | দেখান / লুকিয়ে রাখুন | |
+| show / hide | দেখান / লুকান | v3: the one-word imperative on a button; লুকিয়ে রাখুন only where a sentence means "keep it hidden" |
 | close | বন্ধ করুন | |
 | confirm | নিশ্চিত করুন | |
-| done | শেষ | |
+| done (the button that closes a step) | হয়ে গেছে | v3: শেষ is the shelf state (§3.6); a button that says "I am finished here" says হয়ে গেছে |
 | got it | বুঝেছি | |
 | fetch (metadata) | আনুন | *মেটাডেটা আনুন* |
 | fill gaps | ফাঁক ভরান | |
@@ -361,7 +364,7 @@ The button-grammar rule is in §5.4. These are the words.
 | reveal | দেখান | |
 | move up / move down | উপরে তুলুন / নিচে নামান | |
 | shelve | তাকে তুলুন | |
-| reload | আবার লোড করুন | |
+| reload | রিলোড করুন | v3: the word a Bengali says at a browser |
 | log out / sign in | লগ আউট / লগ ইন | |
 | reset | আগের মতো করুন | **Not রিসেট করুন** where "back to defaults" is meant |
 
@@ -438,7 +441,7 @@ in three persons is exactly the drift this sheet exists to prevent.
 | Search (the tab) | খোঁজ | |
 | Pending import | অপেক্ষায় ইমপোর্ট | |
 | The bin | বিন | |
-| Activity (the calendar) | রোজনামচা | A daily ledger — which is what the heatmap is |
+| Activity (the calendar) | ক্যালেন্ডার | v3: the help panel had always called the same grid *Calendar*; heading, tab tip and help term now say one word. রোজনামচা was lovely and nobody looked for it |
 | Memory | স্মৃতি | |
 | Breakdown | কে কত | Deliberately non-literal: the section is "the authors and tags your library leans on", and this is how a Bengali subhead says it. `breakdown kind` → *কীসের হিসেব* |
 | Superlatives | সবচেয়ে | |
@@ -449,7 +452,7 @@ in three persons is exactly the drift this sheet exists to prevent.
 | Section | বিভাগ | |
 | Screen | স্ক্রিন | |
 | Tab | ট্যাব | |
-| Tab strip | ট্যাব সারি | |
+| Tab strip | ট্যাব-সারি | |
 | Top bar / bottom bar | উপরের বার / নিচের বার | |
 | Drawer | ড্রয়ার | |
 | Chip | চিপ | |
@@ -457,8 +460,8 @@ in three persons is exactly the drift this sheet exists to prevent.
 | Toast (in prose only) | বার্তা | Never a label; it appears inside sentences like "The toast offers an Undo" → *নিচের বার্তায় আনডু থাকবে* |
 | View (tiles / list / table) | ভিউ | |
 | Tiles / List / Table | টাইল / তালিকা / টেবিল | |
-| Info dot | ইনফো ফুটকি | ফুটকি is the homely Bengali for a small dot |
-| Status dot | স্মৃতির ফুটকি | |
+| Info dot | ইনফো ডট | v3: ডট wherever a dot is meant. ফুটকি is homely and dated — nobody under sixty says it about a screen |
+| Status dot | স্মৃতির ডট | |
 | Hover label | হোভার লেবেল | |
 | Keyboard shortcut | কীবোর্ড শর্টকাট | |
 | Long press | চেপে ধরা | |
@@ -469,7 +472,7 @@ in three persons is exactly the drift this sheet exists to prevent.
 | Light / Dark | হালকা / গাঢ় | |
 | Match system | সিস্টেম যেমন | |
 | Accent | অ্যাকসেন্ট | |
-| Type (the typography card) | হরফ | The Bengali word for letterform. Distinct from ধরন |
+| Type (the typography card) | ফন্ট | v3: the card’s title is the thing it sets. হরফ stays for a *script* or letterform in prose — রোমান হরফে, বাংলা হরফ |
 | Font | ফন্ট | |
 | Backup / restore | ব্যাকআপ / ফিরিয়ে আনা | |
 | Password / passphrase / username | পাসওয়ার্ড / পাসফ্রেজ / ইউজারনেম | |
@@ -903,25 +906,25 @@ reason. Then mark the key `# ?? `.)*
 | row (of a table) | সারি | |
 | outcome (finished / abandoned) | পরিণতি | The read log's third column |
 | interface (the font role) | ইন্টারফেস | Marked `# ?? ` — a mouthful, but the role's name |
-| default (colour slot 1's name) | ডিফল্ট | Marked `# ?? ` — সাধারণ may read better beside five Bengali category names |
+| default (colour slot 1's name) | সাধারণ | v3 settled the `# ?? `: beside five Bengali category names the loan read as the odd one out, and "the ordinary slot" is what this one is |
 | flip card | উল্টানো কার্ড | §3.5 has *flip and self-mark* → উল্টে নিজে বিচার; the card itself needed a noun |
-| adaptive (the interval mode) | মানানসই | And the card's title *মানিয়ে নেওয়া ফাঁক*. Marked `# ?? ` |
+| adaptive (the interval mode) | অ্যাডাপ্টিভ | v3: the loan is the word the reader has met in every app that has the feature; card title *অ্যাডাপ্টিভ ফাঁক* |
 | ladder (the 7 → 30 → 100 interval ladder) | সিঁড়ি | The metaphor is the same one in Bengali |
 | appearance (the Settings card) | চেহারা | |
 | help (the sheet) | সাহায্য | |
-| style (a font modifier, and the sticker field) | ধাঁচ | Distinct from ধরন (type) and হরফ (letterform) |
+| style (the font-modifier card, a tag’s drawing style) | স্টাইল | v3. ধাঁচ survives only in the typeface notes, where it means a face’s look (*চৌকো ধাঁচ*) |
 | auto | অটো | |
 | tools (the second nav landmark) | সরঞ্জাম | |
 | unit (progress unit) | একক | |
 | BCE / circa | খ্রি.পূ. / আনু. | Both go BEFORE the year in Bengali, which is why en.txt keys all four year shapes |
-| lining figures | সারিবদ্ধ সংখ্যা | Says what `tabular-nums` does rather than naming the feature |
+| tabular figures (the English said "lining" until v3) | সারিবদ্ধ সংখ্যা | Says what `tabular-nums` does rather than naming the feature — which is why the Bengali did not have to change when the English was corrected |
 | Latin (the script) | লাতিন | |
 
 ### From the migration of the eight unreached files
 
 | English | Bengali | Reason |
 | --- | --- | --- |
-| flyout (a tag chip shape) | নিশান | The shape is a pennant, notched to a point underneath. Marked `# ?? ` — ফ্লাইআউট is a loan that means nothing away from a screen |
+| flyout (a tag chip shape) | নিশান | The shape is a pennant, notched to a point underneath. ফ্লাইআউট is a loan that means nothing away from a screen; v3 kept নিশান |
 | banner (a tag chip shape) | ব্যানার | A horizontal strip notched on the right; the loan is what a Bengali says for a strip that hangs |
 
 ### From the last three screens (StagingPage, MetadataPage, Settings)
@@ -933,7 +936,7 @@ except where noted.
 | --- | --- | --- |
 | queue (the list of things waiting) | অপেক্ষার তালিকা | §3.7 has *Pending import* → অপেক্ষায় ইমপোর্ট but no word for the queue itself. Shortened to তালিকা where the header already says the rest. **Note it now does two jobs** — তালিকা is also §3.7's *List view* |
 | staged (held in the pending queue) | জমা | §5.2's own worked example uses *জমা থাকে* for a thing being held somewhere, which is exactly this state |
-| field (a form or table column) | ফিল্ড | ঘর is taken by রঙের ঘর (§3.3), and ফিল্ড is what a Bengali says about a form |
+| field (a form box or table column) | ঘর | v3: ঘর is what a Bengali calls a box on a form. রঙের ঘর keeps its own row, and the two never meet in one sentence |
 | group (a cluster of rows) | গ্রুপ | Passes §4.1's conversation test outright. বিভাগ is §3.7's *Section*, and দল — which one agent reached for independently — also means a team or a party, which is misleading about two copies of one book. **One word, used by both screens** |
 | formula (the location arithmetic) | ফর্মুলা | সূত্র is taken for a metadata source (§3.7) |
 | operation (an arithmetic op in a Select) | কাজ | প্রক্রিয়া is the noticeboard register §1.1 keeps out, and the slot is mono, so one short word |
@@ -951,11 +954,11 @@ except where noted.
 | look up (ask the sources about one row) | খুঁজে দেখুন | Distinct from খোঁজ (the Search tab) and from আনুন (*fetch*): this one only looks |
 | remap (re-point a speaker at a cast member) | বদল | নতুন করে বসানো is accurate and unusable on a heading |
 | mapping (one label paired with one member) | জোড়া | Also used by `error.validate.mapping-required` |
-| reference page (an external page about a person) | রেফারেন্স পাতা | পরিচিতির পাতা loses that these are external |
+| reference page (an external page about a person) | তথ্যসূত্রের পাতা | v3: says what the link is for; পরিচিতির পাতা loses that these are external |
 | amp (the & chip's spoken name) | অ্যান্ড চিহ্ন | অ্যাম্পারস্যান্ড is unreadable in a chip's aria and names a glyph nobody says aloud |
 | and (the “and” chip's spoken name) | “and” শব্দ | The chip draws the English word the splitter actually matches (§8), so the Latin stays and only the frame around it is Bengali |
 | roadmap | রোডম্যাপ | পরিকল্পনা is form-Bengali; রোডম্যাপ is what people say about a project's plan |
-| pairing code | জোড়ার কোড | Two words under §6.3 mono pressure, but কোড alone does not say what it is a code for |
+| pairing code | পেয়ারিং কোড | v3, with pair / unpair → *পেয়ার করুন / আনপেয়ার করুন*: the phone’s own Bluetooth screen taught the reader these words |
 
 ### From the stray-marks pass (`cleanup.*`)
 
@@ -964,15 +967,123 @@ constraint was length as much as sense.
 
 | English | Bengali | Reason |
 | --- | --- | --- |
-| stray marks (the screen) | এলোমেলো চিহ্ন | *এলোমেলো* is what a Bengali says about something that has got in where it does not belong; অবাঞ্ছিত is form-Bengali |
+| stray marks (the screen) | বাড়তি চিহ্ন | v3: the marks are *extra* rather than untidy — বাড়তি says what the page finds. অবাঞ্ছিত is form-Bengali |
 | footnote | পাদটীকা | A school word every reader owns, and the only Bengali for it. Not টীকা alone, which §2.2 keeps clear of টিপ্পনী |
 | punctuation | যতিচিহ্ন | Also a school word. চিহ্ন alone is any mark at all |
-| space (the typographic one) | ফাঁক | Already in `bn.txt` from spaced repetition (§3), and it is what a Bengali calls the gap |
+| space (the typographic one) | স্পেস | v3: *জোড়া স্পেস*, *নো-ব্রেক স্পেস* — the key on the keyboard is what the reader knows. ফাঁক stays for the spaced-repetition interval |
 | hyphen | হাইফেন | §4's gap-filling loan: Bengali has no everyday word for the mark, and যোজক চিহ্ন needs a gloss |
 | pronunciation gloss | উচ্চারণের নির্দেশ | *উচ্চারণ* is everyday; the *নির্দেশ* is what makes it a dictionary's note rather than the act of speaking |
 | invisible (of a character) | অদৃশ্য | Everyday, and exactly the point: the character is there and cannot be seen |
-| dot (of an ellipsis) | ফুটকি | The rule's copy names three dots rather than borrowing “ellipsis”, which nobody says |
+| dot (of an ellipsis) | ডট | The rule's copy names three dots rather than borrowing “ellipsis”, which nobody says. v3: ডট, like every other dot |
 
 **Already in `bn.txt` from an earlier pass and therefore NOT marked**, listed only so
 nobody re-decides them: Updates আপডেট · Changelog চেঞ্জলগ · version ভার্সন · release
-রিলিজ · API key কি · archive key চাবি · cookie কুকি · pair / unpair জুড়ুন / খুলে নিন.
+রিলিজ · cookie কুকি. **Changed in v3:** API key and archive key are both **চাবি** (কি was a homonym of the question particle, and the two keys are one idea) · pair / unpair **পেয়ার করুন / আনপেয়ার করুন**.
+
+---
+
+## v3 decisions
+
+The third pass (2.2.x) rewrote **every** line of `bn.txt` — 3,385 keys — from a per-key
+dossier: the English, the context comment above it, the source line that renders it and
+its budget. Its brief was that the app should read as if it had been written in Bengali
+first, in **the written Bengali of today**. Everything above still holds — চলিত, আপনি with
+the pronoun dropped, Kolkata orthography, দাগ / সংলাপ / উক্তি / উদ্ধৃতি, টিপ্পনী reserved.
+What follows is what the pass added or changed, so nobody re-decides it.
+
+### v3.1 The loanword rule, sharpened
+
+§4 said a loan passes when a Bengali would say it in conversation. The earlier passes still
+reached for a coined native word where the loan is what people actually write today. v3
+rules the other way, and these are now binding:
+
+| Say | Not | Where |
+| --- | --- | --- |
+| ডিভাইস | যন্ত্র | the phone, the paired device, "this device" |
+| ট্যাপ করুন / ট্যাপ | ছুঁলে, টোকা দিন, চাপুন (for a touchscreen) | every touch instruction. চেপে ধরুন stays for long-press; চাপুন stays for a keyboard key |
+| এনক্রিপ্ট করা | তালাবন্ধ, সাংকেতিক | backups, the recovery key |
+| ডট | ফুটকি | the info dot, the memory dot, the calendar’s day, an ellipsis |
+| ফন্ট | হরফ (as the card or the file) | the Type card, uploads, the face list. হরফ = a script or letterform in prose |
+| স্টাইল | ধাঁচ | the font-modifier card, a tag’s drawing style |
+| ফরম্যাট | ধাঁচ | the share sheet’s Markdown / WhatsApp / plain / Reddit / image formats |
+| সাধারণ লেখা | সাদা টেক্সট, সাদা লেখা | the plain-text format |
+| পটভূমি | ব্যাকড্রপ | the portrait behind a shared image |
+| রিলোড করুন / রিস্টার্ট | আবার লোড করুন | the browser, the server |
+| লিংক | লিঙ্ক | spelling — the one today’s print uses |
+| স্ক্রিন | পর্দা | a screen of the app (§3.7 already said so; the older values had not caught up) |
+| সিলেক্ট করা | বেছে নেওয়া | selecting *text* in an ebook or a browser. বাছুন stays for selecting cards |
+| ইনডেক্স | সূচি | the search index |
+| পেয়ার / আনপেয়ার | জুড়ুন / খুলে নিন | the Android app and this account |
+| কনট্রাস্ট, টেক্সচার, কন্ট্রোল, রুটিন, কোয়েস্ট, স্পেস, হাইফেন | বৈসাদৃশ্য, বুনোট, নিয়ন্ত্রণ, সময়সূচি, অভিযান, ফাঁক, যোজক | as themselves |
+
+Spelling that goes with it: **দুটো, তিনটে, কটা** — no apostrophe (দু’ / ক’ is a
+generation older); **কোনও, এখনও, হয়নি, -গুলো, হিসেব, রং / রঙের, সবচেয়ে** as §1 already had them.
+
+### v3.2 One word per thing
+
+Six writers had left two or three Bengali words for one English one. These are now single:
+
+| English | Bengali | Retired |
+| --- | --- | --- |
+| key (API key, recovery key) | চাবি | কি |
+| seal | স্টিকার | সিল |
+| Done (the button) | হয়ে গেছে | শেষ, ঠিক আছে |
+| Hide | লুকান | লুকিয়ে রাখুন |
+| Default (colour slot 1) | সাধারণ | ডিফল্ট |
+| Adaptive | অ্যাডাপ্টিভ | মানানসই |
+| Stray marks | বাড়তি চিহ্ন | এলোমেলো চিহ্ন |
+| Coverage | ঘাটতি | — |
+| field (a form box) | ঘর | ফিল্ড |
+| Activity / the calendar | ক্যালেন্ডার | রোজনামচা |
+| toast (in prose) | বার্তা | — |
+| queue | অপেক্ষার তালিকা | — |
+| schedule (the review schedule) | রুটিন | সময়সূচি |
+| progress | কতদূর | — |
+
+### v3.3 New terms
+
+| English | Bengali | Reason |
+| --- | --- | --- |
+| Bio | জীবনী | The person page’s paragraph |
+| Identity (the person page’s links block) | পরিচয় | |
+| portrait | মুখের ছবি | Unchanged, and now used everywhere the English says portrait |
+| reference pages | তথ্যসূত্রের পাতা | Says what they are for |
+| preview | যেমন দেখাবে | A phrase, because প্রিভিউ names a feature and this names what the reader sees |
+| Plain (the share format) | সাধারণ লেখা | |
+| Backdrop | পটভূমি | |
+| Show me (the flip card’s reveal) | দেখি | First person, like the grades (§3.5) |
+| Shuffle (a random quote) | হঠাৎ একটা | Says what happens rather than naming the mechanism |
+| Recent (the sort) | নতুন আগে | *newest first*, which is what the sort does |
+| ungrouped | ভাগ নেই | |
+| Quest (a game’s locator) | কোয়েস্ট | The gamer’s own word; অভিযান is an expedition |
+| in rotation (a quote the quiz draws) | কুইজে ঘুরছে | |
+| unattributed | সংগৃহীত | The word Bengali anthologies print under a line with no author |
+| optional (a placeholder) | — ঐচ্ছিক | In prose: *না দিলেও চলে* |
+| decade | {year}-র দশক | *1990-র দশক*; the English "1990s" has no Bengali shape |
+| holidays | proper-noun days transliterated (বাস্তিল, ওয়েটাঙ্গি, আনজ্যাক); common-noun names by meaning (*শুভ স্বাধীনতা দিবস*) | A greeting is read aloud in the reader’s head |
+
+### v3.4 Specimens and demo copy
+
+- **The tour’s demo book** is গীতাঞ্জলি, song 1 — *আমার মাথা নত করে দাও হে তোমার চরণধুলার তলে।*
+  (রবীন্দ্রনাথ ঠাকুর, meta *গান 1*). A Bengali reader’s first sight of a highlight should be a
+  line they know. **The demo film stays Casablanca**, in English: a film line is a quotation
+  too, and translating it would show the reader something the app never does.
+- **Font-role samples**: the display, ui and hand roles show Latin, because those faces are
+  Latin-only and Bengali in them falls through to the Bengali face (§8.5, `fonts.js`); the
+  mono sample mixes both, because a locator line does.
+- **Swatch names** are the colours a Bengali names things by, not translations of the hex:
+  রোদ, কমলা, গোলাপি, পেঁয়াজি, লাল, ফিকে বেগুনি, বেগুনি, অপরাজিতা, আকাশি, ময়ূরকণ্ঠী, পুদিনা,
+  পান্না, কচি পাতা, শ্যাওলা, মেটে, পাথর. Accents: পোড়ামাটি, গেরুয়া, জলপাই, স্লেট.
+
+### v3.5 The file itself
+
+- `bn.txt` says in its header that it is **not a translation of `en.txt`**, declares no
+  `_fallback` (both languages ship in the box; neither is the other’s floor), and keeps
+  `en.txt`’s key order, banners and context comments so the two read side by side.
+- Comments starting **`# bn:`** record a decision the English side has no reason to make —
+  why a specimen stays Latin, why one Bengali word serves two English ones. They are the
+  only comments in the file that are not `en.txt`’s. The `# ??` / `# !!` markers of §7 are
+  still the convention for doubt and overflow; v3 hands in none.
+- The checks of `docs/plans/multilingual.md` were run again over the result: 0 সাধু markers,
+  0 তুমি outside the Tagore line, 0 Bengali digits, 0 placeholder mismatches, every
+  `.help.*` and `.info.body` inside its budget.

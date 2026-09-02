@@ -264,7 +264,7 @@ vocab.font-style.italic.label = Italic
 vocab.font-style.smallcaps.label = Small caps
 vocab.font-style.allcaps.label = All caps
 # `font-variant-numeric: tabular-nums` — figures that line up in a column.
-vocab.font-style.figures.label = Lining figures
+vocab.font-style.figures.label = Tabular figures
 
 # --- vocab.gesture.* — the eleven touch gestures, drawn as a clip with the word
 # beside it. It names the gesture, never the instruction: "Long press", not
@@ -2263,7 +2263,8 @@ quotes.starter.already.label = already there
 # The capture / edit form for a standalone quote.
 # "When" rather than "Date": a year alone is a complete answer here.
 quotes.form.when.label = When
-# WHERE IT IS FILED, which is a board — the word is historical.
+# What sort of line it is — speech, letter, essay, proverb or other. Not WHERE it is filed:
+# that is the board, chosen on the board itself.
 quotes.form.kind.label = Kind
 
 # The board being read.
@@ -3065,8 +3066,8 @@ stats.super.of.label = {done} of {total}
 stats.super.title.tip = Search for this title
 # "Month YYYY" — the month a busiest-month tile names.
 stats.month.label = {name} {n}
-# The twelve months, spelled out. Only used for that tile and the calendar's
-# x axis, which shows the FIRST THREE LETTERS of whatever is written here.
+# The twelve months, spelled out, for that tile. (The calendar’s x axis takes its own
+# short forms from common.month.*, so nothing is sliced from these.)
 vocab.month.1.label = January
 vocab.month.2.label = February
 vocab.month.3.label = March

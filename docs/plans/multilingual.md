@@ -34,6 +34,17 @@ below rather than from the English alone. Their fragments were staged in
 `internal/i18n/parts/`, merged into `bn.txt` in `en.txt`'s key order, and **deleted**; the
 merge is in the 2.1.1 history if it is ever needed.
 
+**A third pass rewrote the whole file (v3, 2.2.x).** One writer, every one of the 3,385
+keys, working from a per-key dossier — the English, the context comment, the source line
+that renders it, its budget — rather than from the English alone, with the brief that the
+app should read as if it had been written in Bengali first: say what a control does where
+the English only names it, and use the written Bengali of today (ডিভাইস, ট্যাপ, এনক্রিপ্ট,
+ফন্ট, রিলোড) rather than a coined native word nobody says. The register, the orthography and
+the দাগ / সংলাপ / উক্তি / উদ্ধৃতি system were kept; every term that changed is listed at the
+foot of the style sheet under "v3 decisions", and the header of `bn.txt` now says outright
+that it is not a translation of `en.txt`. The checks in the table below were run again over
+the result, and an independent rating pass read it against the brief before it landed.
+
 What the merge was checked against, after the fact and mechanically, because six writers is
 six registers unless something proves otherwise:
 
@@ -65,7 +76,7 @@ other ten months survived and made it look fine. Fixed in 2.1.1 by taking the ax
 
 ### 1. The style sheet is a decision, not a suggestion
 
-[`bengali-style.md`](bengali-style.md), 918 lines, beside this file. It is what stops three
+[`bengali-style.md`](bengali-style.md), beside this file. It is what stops three
 parallel writers producing three registers in one interface. Its load-bearing calls:
 
 - **চলিত, not সাধু** — modern colloquial. Software Bengali drifts into literary register and

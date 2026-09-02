@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **The Bengali interface has been written again, from the code rather than from the
+  English.** Every one of the 3,385 strings in `bn.txt` was rewritten for what its key
+  does — the control it labels, the state it describes, the sentence the English was trying
+  to say — in the written Bengali of today: ডিভাইস, ট্যাপ, এনক্রিপ্ট, ফন্ট, স্টাইল, ফরম্যাট,
+  রিলোড, লিংক, ডট where the earlier passes had যন্ত্র, ছোঁয়া, তালাবন্ধ, হরফ, ধাঁচ, ফুটকি; one
+  word per thing across the whole app where six writers had left two or three (a seal is a
+  স্টিকার, a key is a চাবি, the calendar is the ক্যালেন্ডার the help panel already called it);
+  the classifier টা throughout, দুটো and কটা without the apostrophe. Where the English is a
+  bare label the Bengali may say what the thing is for, because that is the sentence a
+  Bengali speaker would use for the same job. The register, orthography and the
+  দাগ / সংলাপ / উক্তি / উদ্ধৃতি system in `docs/plans/bengali-style.md` stand; every term that
+  changed is recorded at its foot under "v3 decisions". The tour's demo book is now the
+  first song of গীতাঞ্জলি rather than a translated English quotation; the demo film stays
+  Casablanca, because a film line is a quotation too.
+
+### Fixed
+
+- **The Type card called its figures option "Lining figures".** The switch applies
+  `tabular-nums` — figures that line up in a column — so it now says Tabular figures; the
+  Bengali (সারিবদ্ধ সংখ্যা) had said what it does all along.
+
 ## [2.2.9] - 2026-08-25
 
 ### Fixed
