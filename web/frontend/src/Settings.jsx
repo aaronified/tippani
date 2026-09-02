@@ -63,6 +63,7 @@ import {
   useFrameBase,
   useIsMobileScreen,
   useBodyScrollLock,
+  useScreenBar,
   SectionTitle,
 } from './ui.jsx'
 
@@ -182,6 +183,26 @@ export function settingsColumns(ncols, presentKeys) {
 export default function Settings({ user, onPreferences, update, onUpdateInfo, onStartTour }) {
   const mobile = useIsMobileScreen()
   const ncols = useColumnCount()
+  // ── THE PHONE'S TWO SEATS, and they are the two verbs on this page.
+  //
+  // Everything else in Settings is a preference — you change it where it is
+  // drawn, and a dock key pointing at a toggle would be a door to a switch. These
+  // two are ACTS: make an archive now, install the release now. Both live in
+  // admin-only cards six cards down a scroll on a phone, which is the distance
+  // this pair closes.
+  //
+  // THE KEY DOES NOT SKIP THE DECISION. Backup still asks for the credential that
+  // seals the archive and the update still asks for the word UPDATE typed out —
+  // a one-tap update on a phone is precisely the accident that confirmation
+  // exists to prevent. What the key skips is the scrolling.
+  const [backupNow, setBackupNow] = useState(false)
+  const [updateNow, setUpdateNow] = useState(false)
+  useScreenBar({
+    keys: mobile && user.is_admin ? [
+      { id: 'backup', label: t('settings.backup.now.label'), icon: <IconArchive />, onClick: () => setBackupNow(true) },
+      { id: 'update', label: t('settings.updates.now.label'), icon: <IconRefresh />, onClick: () => setUpdateNow(true) },
+    ] : null,
+  })
   const cards = {
     onboard: <OnboardingCard user={user} onStartTour={onStartTour} />,
     features: <FeaturesCard prefs={user.preferences} onSaved={onPreferences} />,
@@ -198,8 +219,8 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, on
     // whichever bucket you last looked at.
     ...(user.is_admin
       ? {
-          upd: <UpdatesCard user={user} update={update} onUpdateInfo={onUpdateInfo} />,
-          backup: <BackupCard user={user} />,
+          upd: <UpdatesCard user={user} update={update} onUpdateInfo={onUpdateInfo} asking={updateNow} onAsking={setUpdateNow} />,
+          backup: <BackupCard user={user} asking={backupNow} onAsking={setBackupNow} />,
         }
       : {}),
   }
@@ -1104,7 +1125,7 @@ function SRDeepControls({ p, set, onClose }) {
 // queries GitHub on demand (never automatically); if a newer release exists it
 // offers a one-click update when the Docker socket is mounted (pull + recreate
 // via a one-shot Watchtower), and otherwise shows the manual command to run.
-function UpdatesCard({ user, update, onUpdateInfo }) {
+function UpdatesCard({ user, update, onUpdateInfo, asking = false, onAsking }) {
   const current = user?.version || t('settings.updates.version.dev')
   const [logOpen, setLogOpen] = useState(false)
   const [info, setInfo] = useState(update || null) // check result (seeded from the shared session cache)
@@ -1224,8 +1245,79 @@ function UpdatesCard({ user, update, onUpdateInfo }) {
     toast(ok ? t('settings.updates.toast.copied') : t('error.copy.manual'))
   }
 
+  // ── THE DOCK'S "UPDATE NOW", WHICH IS THIS CARD SEEN FROM A THUMB.
+  //
+  // A phone reaches Settings and then scrolls past six cards to find out whether
+  // there is anything to install. The key skips the scroll; it does NOT skip the
+  // decision. The confirmation is the same typed word the card asks for, because
+  // that word is compared byte for byte by the server and a one-tap update on a
+  // phone is exactly the accident it exists to prevent.
+  //
+  // IT CHECKS FIRST IF IT HAS TO. Opening on a stale "nothing to do" would be the
+  // key lying about the thing it is for — and the check is one request, so it is
+  // cheaper than making the reader press twice to learn the same fact.
+  useEffect(() => {
+    if (asking && !info && !busy) check()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [asking])
+
+  const canApply = !!(info?.update_available && info?.can_self_update)
+  const updatePrompt = asking && (
+    <PromptFrame
+      title={t('settings.updates.now.label')}
+      closeLabel={t('common.action.cancel.label')}
+      closeTip={t('settings.prompt.close.tip')}
+      busy={phase === 'applying' || phase === 'restarting'}
+      dismissOnScrim={false}
+      onClose={() => onAsking?.(false)}
+    >
+      <div style={{ display: 'grid', gap: 'var(--row)' }}>
+        {busy && <p className="microcopy">{t('settings.updates.check.busy')}</p>}
+        {!busy && info && !info.update_available && !info.check_error && (
+          <p className="microcopy">{t('settings.updates.current.label')}</p>
+        )}
+        {!busy && info?.check_error && (
+          <p className="microcopy">{t('settings.updates.unreachable.prose', { error: info.check_error })}</p>
+        )}
+        {/* AN UPDATE THIS BOX CANNOT INSTALL ITSELF sends the reader to the card,
+            which is where the command to run is printed. Repeating it here would
+            be a second copy of a shell line somebody has to get exactly right. */}
+        {!busy && info?.update_available && !info.can_self_update && (
+          <p className="microcopy">{t('settings.updates.manual.prose')}</p>
+        )}
+        {canApply && (
+          <>
+            <p className="microcopy">
+              {tNodes('settings.updates.confirm.prose', { word: <b key="word">UPDATE</b>, version: info.latest })}
+            </p>
+            <form
+              className="flex flex-wrap items-center gap-2"
+              onSubmit={(e) => { e.preventDefault(); apply() }}
+            >
+              <input
+                className="tp-input"
+                autoFocus
+                style={{ maxWidth: 140, fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)' }}
+                placeholder="UPDATE"
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+              />
+              <StickerButton disabled={confirm !== 'UPDATE' || phase === 'applying'}>
+                {phase === 'applying' ? t('settings.updates.apply.busy') : t('settings.updates.apply.label')}
+              </StickerButton>
+            </form>
+          </>
+        )}
+        {phase === 'failed' && (
+          <p className="microcopy" style={{ color: 'var(--error)' }}>{t('settings.updates.failed.prose')}</p>
+        )}
+      </div>
+    </PromptFrame>
+  )
+
   return (
     <Card>
+      {updatePrompt}
       <SectionTitle>{t('settings.updates.title')}</SectionTitle>
       <div className="space-y-3">
         <div className="flex items-baseline gap-2">
@@ -1473,7 +1565,6 @@ function ChangelogEntry({ text }) {
 }
 
 function ChangelogDialog({ current, onClose }) {
-  const mobile = useIsMobileScreen()
   const [data, setData] = useState(null)
   const [error, setError] = useState('')
   // Only the newest is open on arrival. Seventy releases expanded is a scroll bar
@@ -1549,10 +1640,40 @@ function ChangelogDialog({ current, onClose }) {
     </div>
   )
 
+  return (
+    <PromptFrame
+      title={t('settings.changelog.title')}
+      closeLabel={t('common.action.close.label')}
+      closeTip={t('settings.changelog.close.tip')}
+      maxWidth={640}
+      onClose={onClose}
+    >
+      {body}
+    </PromptFrame>
+  )
+}
+
+// PromptFrame — the shape all four of this page's dialogs already were.
+//
+// FOUR COPIES OF ONE FRAME. The changelog, the restore prompt, the backup prompt
+// and now the update prompt each ended with the same forty lines: a MobileSheet
+// on a phone, a scrim with a hand-card and a 640/460 cap on a desk, a display
+// title, a CloseButton with a tooltip. They drifted in exactly the way that
+// costs nothing until it costs everything — one of them locks body scroll, one
+// takes Escape, one refuses a scrim dismiss while busy — so the differences are
+// PARAMETERS here rather than four independent decisions.
+//
+// It lives in this file rather than in ui.jsx on purpose. There are five of these
+// frames in the app; the other one is inside ui.jsx's own FormModal, which has a
+// registered form and a ✓ in its header and is a different thing wearing the same
+// coat. Pulling all five together is a change to every dialog in the app, and this
+// is a change to one page.
+function PromptFrame({ title, closeLabel, closeTip, busy = false, maxWidth = 460, dismissOnScrim = true, onClose, children }) {
+  const mobile = useIsMobileScreen()
   if (mobile) {
     return createPortal(
-      <MobileSheet open onClose={onClose} title={t('settings.changelog.title')}>
-        {body}
+      <MobileSheet open onClose={busy ? () => {} : onClose} title={title} dismissOnScrim={dismissOnScrim && !busy}>
+        {children}
       </MobileSheet>,
       document.body,
     )
@@ -1562,19 +1683,17 @@ function ChangelogDialog({ current, onClose }) {
       className="tp-scrim fixed inset-0 z-50 flex items-start justify-center overflow-y-auto px-4 py-10"
       role="dialog"
       aria-modal="true"
-      aria-label={t('settings.changelog.title')}
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose()
-      }}
+      aria-label={title}
+      onMouseDown={(e) => { if (e.target === e.currentTarget && !busy) onClose() }}
     >
-      <div className="hand-card hc-r2 w-full" style={{ maxWidth: 640, padding: '18px 20px 20px' }}>
+      <div className="hand-card hc-r2 w-full" style={{ maxWidth, padding: '18px 20px 20px' }}>
         <div className="mb-3 flex items-center gap-2">
-          <h2 className="display-title flex-1" style={{ fontSize: 'var(--type-ui-19)' }}>{t('settings.changelog.title')}</h2>
-          <Tooltip label={t('common.action.close.label')} side="bottom">
-            <CloseButton onClick={onClose} tooltip={t('settings.changelog.close.tip')} />
+          <h2 className="display-title flex-1" style={{ fontSize: 'var(--type-ui-19)' }}>{title}</h2>
+          <Tooltip label={closeLabel} side="bottom">
+            <CloseButton onClick={onClose} label={closeLabel} tooltip={closeTip} disabled={busy} />
           </Tooltip>
         </div>
-        {body}
+        {children}
       </div>
     </div>,
     document.body,
@@ -1964,7 +2083,6 @@ function RestorePrompt({ meta, me, busyLabel, onCancel, onConfirm }) {
   // still scrolled when you close this. Ref-counted, so a dialog opened from
   // inside a sheet does not unlock the sheet on its way out.
   useBodyScrollLock(true)
- const mobile = useIsMobileScreen()
   const key = meta?.key || 'none'
   // `recoverable` (from the server for the kept archive, sniffed from the header
   // for a chosen file) means this box can open it with YOUR current password,
@@ -2075,33 +2193,17 @@ function RestorePrompt({ meta, me, busyLabel, onCancel, onConfirm }) {
     </form>
   )
 
-  if (mobile) {
-    return createPortal(
-      <MobileSheet open onClose={busyLabel ? () => {} : onCancel} title={t('settings.restore.title')} dismissOnScrim={false}>
-        {body}
-      </MobileSheet>,
-      document.body,
-    )
-  }
-  return createPortal(
-    <div
-      className="tp-scrim fixed inset-0 z-50 flex items-start justify-center overflow-y-auto px-4 py-10"
-      role="dialog"
-      aria-modal="true"
-      aria-label={t('settings.restore.title')}
-      onMouseDown={(e) => { if (e.target === e.currentTarget && !busyLabel) onCancel() }}
+  return (
+    <PromptFrame
+      title={t('settings.restore.title')}
+      closeLabel={t('common.action.cancel.label')}
+      closeTip={t('settings.prompt.close.tip')}
+      busy={!!busyLabel}
+      dismissOnScrim={false}
+      onClose={onCancel}
     >
-      <div className="hand-card hc-r2 w-full" style={{ maxWidth: 460, padding: '18px 20px 20px' }}>
-        <div className="mb-3 flex items-center gap-2">
-          <h2 className="display-title flex-1" style={{ fontSize: 'var(--type-ui-19)' }}>{t('settings.restore.title')}</h2>
-          <Tooltip label={t('common.action.cancel.label')} side="bottom">
-            <CloseButton onClick={onCancel} label={t('common.action.cancel.label')} tooltip={t('settings.prompt.close.tip')} disabled={!!busyLabel} />
-          </Tooltip>
-        </div>
-        {body}
-      </div>
-    </div>,
-    document.body,
+      {body}
+    </PromptFrame>
   )
 }
 
@@ -2116,7 +2218,6 @@ function BackupPrompt({ me, busy, onCancel, onConfirm }) {
   // still scrolled when you close this. Ref-counted, so a dialog opened from
   // inside a sheet does not unlock the sheet on its way out.
   useBodyScrollLock(true)
- const mobile = useIsMobileScreen()
   const [usePhrase, setUsePhrase] = useState(false)
   const [password, setPassword] = useState('')
   const [passphrase, setPassphrase] = useState('')
@@ -2186,44 +2287,31 @@ function BackupPrompt({ me, busy, onCancel, onConfirm }) {
     </form>
   )
 
-  if (mobile) {
-    return createPortal(
-      <MobileSheet open onClose={busy ? () => {} : onCancel} title={t('settings.backup.prompt.title')} dismissOnScrim={false}>
-        {body}
-      </MobileSheet>,
-      document.body,
-    )
-  }
-  return createPortal(
-    <div
-      className="tp-scrim fixed inset-0 z-50 flex items-start justify-center overflow-y-auto px-4 py-10"
-      role="dialog"
-      aria-modal="true"
-      aria-label={t('settings.backup.prompt.title')}
-      onMouseDown={(e) => { if (e.target === e.currentTarget && !busy) onCancel() }}
+  return (
+    <PromptFrame
+      title={t('settings.backup.prompt.title')}
+      closeLabel={t('common.action.cancel.label')}
+      closeTip={t('settings.prompt.close.tip')}
+      busy={busy}
+      dismissOnScrim={false}
+      onClose={onCancel}
     >
-      <div className="hand-card hc-r2 w-full" style={{ maxWidth: 460, padding: '18px 20px 20px' }}>
-        <div className="mb-3 flex items-center gap-2">
-          <h2 className="display-title flex-1" style={{ fontSize: 'var(--type-ui-19)' }}>{t('settings.backup.prompt.title')}</h2>
-          <Tooltip label={t('common.action.cancel.label')} side="bottom">
-            <CloseButton onClick={onCancel} label={t('common.action.cancel.label')} tooltip={t('settings.prompt.close.tip')} disabled={busy} />
-          </Tooltip>
-        </div>
-        {body}
-      </div>
-    </div>,
-    document.body,
+      {body}
+    </PromptFrame>
   )
 }
 
 const fmtWhen = (iso) => new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
 const fmtSize = (n) => (n >= 1 << 20 ? `${(n / (1 << 20)).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`)
 
-function BackupCard({ user }) {
+function BackupCard({ user, asking = false, onAsking }) {
   const [backup, setBackup] = useState(null) // {name, created, size, key, account} | null
   const [loaded, setLoaded] = useState(false)
   const [busy, setBusy] = useState(false) // creating
-  const [asking, setAsking] = useState(false) // backup prompt open
+  // CONTROLLED, because the phone's dock opens it too. "Back up now" is one of
+  // the two things somebody comes to this page on a phone to do, and it was six
+  // cards down a scroll.
+  const setAsking = (v) => onAsking?.(v)
   // ONE restore, with a source. 'server' = the archive kept here; 'file' = one
   // chosen from disk (from this server or another). The two used to be separate
   // blocks with separate warnings and separate confirmations.

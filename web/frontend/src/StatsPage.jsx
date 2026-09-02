@@ -302,7 +302,7 @@ const activityStreams = () => [
   { key: 'quiz', label: t('stats.activity.quiz.label'), noun: t('stats.activity.quiz.noun'), clickable: false, accuracy: true, empty: t('stats.activity.quiz.empty') },
   { key: 'practice', label: t('stats.activity.practice.label'), noun: t('stats.activity.practice.noun'), clickable: false, accuracy: true, empty: t('stats.activity.practice.empty') },
 ]
-function ActivityCard({ saves, quiz, practice, onSearch, onResetPractice }) {
+export function ActivityCard({ saves, quiz, practice, onSearch, onResetPractice }) {
   const [stream, setStream] = useState('saves')
   const streams = activityStreams()
   const meta = streams.find((s) => s.key === stream) || streams[0]
@@ -311,19 +311,30 @@ function ActivityCard({ saves, quiz, practice, onSearch, onResetPractice }) {
   const hasPractice = (practice || []).length > 0
   return (
     <Card>
+      {/* THE LENS KEEPS ITS PLACE. This row held the count, the reset link and
+          the stream toggle, and the link is drawn on ONE of the three streams —
+          so choosing Practice on a phone made the row wrap and the toggle move
+          out from under the thumb that had just pressed it. A control that
+          jumps because of what it was set to is the worst kind: the reader's
+          next press lands on whatever slid into the gap.
+
+          Two children, always, and the toggle is always the second. */}
       <div className="mb-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
         <MonoLabel>{t('stats.activity.title', { n: total, noun: meta.noun })}</MonoLabel>
-        <div className="flex items-center gap-3">
-          {stream === 'practice' && hasPractice && onResetPractice && (
-            <button type="button" className="tp-link" onClick={onResetPractice}>{t('stats.activity.practice.reset.label')}</button>
-          )}
-          <Toggle ariaLabel={t('stats.activity.stream.aria')} value={stream} onChange={setStream} options={streams.map((s) => [s.key, s.label])} />
-        </div>
+        <Toggle ariaLabel={t('stats.activity.stream.aria')} value={stream} onChange={setStream} options={streams.map((s) => [s.key, s.label])} />
       </div>
       {total === 0 ? (
         <p className="tp-empty" style={{ padding: '16px 0' }}>{meta.empty}</p>
       ) : (
         <ActivityCalendar data={series} noun={meta.noun} accuracy={meta.accuracy} onSearch={meta.clickable ? onSearch : undefined} />
+      )}
+      {/* AFTER THE THING IT DESTROYS, which is also where it stops competing
+          with the lens. Emptying a practice history is a decision you reach
+          having looked at the grid, not one you make on the way to it. */}
+      {stream === 'practice' && hasPractice && onResetPractice && (
+        <div className="mt-3 flex justify-end">
+          <button type="button" className="tp-link" onClick={onResetPractice}>{t('stats.activity.practice.reset.label')}</button>
+        </div>
       )}
     </Card>
   )

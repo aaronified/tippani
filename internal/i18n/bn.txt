@@ -4531,6 +4531,7 @@ settings.updates.available.prose = {version} বেরিয়েছে (এখ
 settings.updates.notes.label = রিলিজ নোট ↗
 settings.updates.confirm.prose = {version} নামিয়ে কন্টেনার আবার চালু করতে {word} লিখুন:
 settings.updates.apply.label = এখনই আপডেট করে চালু করুন
+settings.updates.now.label = এখনই আপডেট
 settings.updates.apply.busy = নতুন ইমেজ নামানো হচ্ছে — কয়েক মিনিট লাগতে পারে…
 settings.updates.failed.prose = আপডেট শুরুই হল না — কন্টেনারের লগ দেখুন, বা নিচের পথে নিজে হাতে করুন
 settings.updates.manual.prose = এক ক্লিকে আপডেট করতে Docker সকেট লাগানো থাকা চাই, বা একটা সকেট প্রক্সি সাজানো থাকা চাই (README দেখুন)। নিজে হাতে করতে হলে নিজের হোস্টে এটা চালান:

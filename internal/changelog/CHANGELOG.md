@@ -19,6 +19,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   toggle offered two, so *List* was a setting you could hold and not choose. It costs a
   menu row and no header width.
 
+- **Settings has *Back up now* and *Update now* on the phone's dock.** They are the
+  page's only two verbs — everything else on it is a preference you change where it is
+  drawn — and both live in admin cards six cards down a scroll. Neither key skips the
+  decision: the backup still asks for the credential that seals the archive, and the
+  update still asks for the word UPDATE typed out, after checking whether there is
+  anything to install.
+
 - **The phone's dock has two more seats on Home.** The screen where a session starts
   published none of its own. One opens the boards you keep things in — Library,
   Catalogue, Quotes, Anthologies, whichever are switched on — and collapses into that
@@ -37,6 +44,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   opening two sheets that looked identical asked a reader to remember which door held
   the thing they wanted. The screen's ⋯ drops its *show only* and *sort* sections for
   the same reason — both were already reachable twice.
+
+- **The Stats activity card's stream toggle stays put.** It shared a wrapping row with
+  a reset link drawn on only one of the three streams, so choosing *practice* on a phone
+  moved the toggle out from under the thumb that had just pressed it. The reset sits
+  under the grid it empties now, which is where the decision is actually reached.
 
 - **The filter sheet's Reset is a bordered button with a word on it.** It was a 34px
   glyph key in a footer whose other control is a filled primary, so the one thing on the
