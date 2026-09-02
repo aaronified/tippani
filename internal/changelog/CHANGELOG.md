@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A character billed twice on one work opens the row you pressed.** A film can list the
+  same character with two performers — young and old, a voice beside a face — and both
+  rows point at one character record. The page was told only which *work* you came from,
+  so it led with whichever billing came first: press the second and you landed on a card
+  naming a performer you had not pressed, with the one you did press listed below as
+  though it were another work. It is told the row now.
+
 - **Dismissing a dialog no longer dismisses what opened it.** Reported from a work's
   Details: open People, tap an actor, dismiss the person — and the People panel went with
   it. A panel is dismissed by the phone's back gesture, because that is what the panel

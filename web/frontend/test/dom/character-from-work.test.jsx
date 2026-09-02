@@ -35,6 +35,7 @@ vi.mock('../../src/api.js', async (orig) => ({
   json: vi.fn(async (method, path, body) => {
     CALLS.push([method, path, body])
     if (method === 'GET' && path.endsWith('/cast')) return { ok: true, data: { cast: CAST, actor_role: 'actor' } }
+    if (method === 'GET' && path === '/movies/5') return { ok: true, data: FILM }
     if (method === 'GET' && path === '/characters/3') return { ok: true, data: CHARACTER }
     if (method === 'GET' && path.startsWith('/people')) return { ok: true, data: { people: [] } }
     if (method === 'GET' && path === '/books') return { ok: true, data: { books: [] } }
@@ -45,6 +46,7 @@ vi.mock('../../src/api.js', async (orig) => ({
 
 const { CastSection } = await import('../../src/cast.jsx')
 const { characterPanel } = await import('../../src/identity.jsx')
+const { workPeoplePanel } = await import('../../src/WorkDetails.jsx')
 
 const FILM = { id: 5, title: 'The Master and Margarita (2005)', media_type: 'show' }
 
@@ -61,6 +63,16 @@ const APPEARANCES = [
   {
     cast_id: 11, kind: 'movie', work_id: 5, work_title: 'The Master and Margarita (2005)',
     character: 'Woland', actor_id: 9, actor: 'Oleg Basilashvili', image: '', cover: '',
+    media_type: 'show', description: '',
+  },
+  // THE SAME CHARACTER, THE SAME WORK, A SECOND PERFORMER. Not a contrivance:
+  // `idx_work_cast_pair` is unique on (kind, work_id, character_key, actor_key),
+  // so a film that bills a part twice — young and old, or a voice beside a face —
+  // is two rows on one work, both linked to one `characters` record. The panel has
+  // to be told WHICH row, and the case at the foot of this file is why.
+  {
+    cast_id: 31, kind: 'movie', work_id: 5, work_title: 'The Master and Margarita (2005)',
+    character: 'Woland (voice)', actor_id: 14, actor: 'Valentin Gaft', image: '', cover: '',
     media_type: 'show', description: '',
   },
   {
@@ -129,7 +141,7 @@ const scope = (tone) => document.querySelector(`.identity-scope.is-${tone}`)
 const card = (title) => screen.getByText(title).closest('.char-work')
 
 describe('the character page, opened from a work', () => {
-  const FROM_FILM = { kind: 'movie', id: 5, title: 'The Master and Margarita (2005)' }
+  const FROM_FILM = { kind: 'movie', id: 5, title: 'The Master and Margarita (2005)', castId: 11 }
 
   it('leads with that work, in a scope of its own', async () => {
     await openPage(FROM_FILM)
@@ -138,13 +150,34 @@ describe('the character page, opened from a work', () => {
     expect(within(here).getByText('The Master and Margarita (2005)')).toBeTruthy()
   })
 
-  it('does not draw that work twice', async () => {
+  it('does not draw the row it lifted twice', async () => {
     await openPage(FROM_FILM)
     // A card in both sections invites the reader to edit the wrong one, and the
-    // two edit the same row.
-    expect(screen.getAllByText('The Master and Margarita (2005)')).toHaveLength(1)
-    expect(within(scope('library')).queryByText('The Master and Margarita (2005)')).toBeNull()
+    // two edit the same row. Counted by the BILLING rather than the work title,
+    // because the sibling row is on the same film and legitimately still listed
+    // below — it is a different cast row and a different thing to edit.
+    expect(screen.getAllByText('Oleg Basilashvili')).toHaveLength(1)
+    expect(within(scope('library')).queryByText('Oleg Basilashvili')).toBeNull()
     expect(within(scope('library')).getByText('The Master and Margarita')).toBeTruthy()
+  })
+
+  it('lifts the row it was given, not the first one on that work', async () => {
+    // THE BUG THIS CASE EXISTS FOR. Matching on (kind, work_id) alone finds the
+    // first billing on the film, so pressing the second row opened the panel on
+    // its sibling — the reader lands on a card naming a performer they did not
+    // press, with the one they did press listed below as another work.
+    await openPage({ ...FROM_FILM, castId: 31 })
+    const here = scope('work')
+    expect(within(here).getByText('Woland (voice)'), 'lifted the wrong billing').toBeTruthy()
+    expect(within(here).queryByText('Oleg Basilashvili'), 'lifted the sibling row').toBeNull()
+    // And the one that was not pressed is still reachable, below.
+    expect(within(scope('library')).getByText('Oleg Basilashvili')).toBeTruthy()
+  })
+
+  it('still finds the work when the caller knows no row', async () => {
+    // The fallback is not dead code: a caller may know the work and not the row.
+    await openPage({ kind: 'movie', id: 5, title: 'The Master and Margarita (2005)' })
+    expect(scope('work'), 'no work scope without a cast id').toBeTruthy()
   })
 
   it('counts what is left below it, rather than the whole record', async () => {
@@ -181,7 +214,49 @@ describe('the same page, opened from the console', () => {
     // Absent rather than present and empty: there is no work to be on, and a
     // heading claiming otherwise is a heading about nothing.
     expect(scope('work'), 'a work scope with no work to scope to').toBeNull()
-    expect(within(scope('library')).getByText('The Master and Margarita (2005)')).toBeTruthy()
-    expect(within(scope('library')).getByText('The Master and Margarita')).toBeTruthy()
+    // ALL THREE APPEARANCES, including both of the film's two billings — nothing
+    // has been lifted, so nothing is missing from the grid.
+    const lib = within(scope('library'))
+    expect(lib.getAllByText('The Master and Margarita (2005)')).toHaveLength(2)
+    expect(lib.getByText('Oleg Basilashvili')).toBeTruthy()
+    expect(lib.getByText('Valentin Gaft')).toBeTruthy()
+    expect(lib.getByText('The Master and Margarita')).toBeTruthy()
+  })
+})
+
+// ---- the wiring between them ------------------------------------------------
+//
+// THE HALF NEITHER GROUP ABOVE COVERS, and the half the bug was in. The door
+// group renders CastSection with a stub opener and asserts what the stub is
+// handed; the arrival group renders the panel with a descriptor written by hand.
+// Between them sits `workPeoplePanel`, which turns the one into the other — and
+// dropping `castId` there broke nothing in either group, because neither of them
+// runs it. So this drives the real chain end to end: press the name in the cast
+// list, take the descriptor the stack was actually pushed, and render THAT.
+
+describe('pressing a character in a work’s People panel', () => {
+  it('opens the panel on the row that was pressed', async () => {
+    // A second billing of Woland, so "the row that was pressed" is a question
+    // with two possible answers and the wrong one is reachable.
+    CAST = [
+      ...ROWS,
+      { id: 31, character: 'Woland (voice)', actor: 'Valentin Gaft', character_id: 3, character_image_url: '', character_image_path: '' },
+    ]
+    const s = stack()
+    render(workPeoplePanel(s, {
+      kind: 'movie', item: FILM, creditSpecs: [], mediaType: 'show', onChanged: () => {},
+    }).render())
+    const second = await screen.findByText('Woland (voice)')
+    fireEvent.click(second)
+
+    expect(s.push, 'the People panel pushed nothing').toHaveBeenCalledTimes(1)
+    cleanup()
+    render(s.push.mock.calls[0][0].render())
+    await screen.findByText('The Master and Margarita')
+
+    const here = scope('work')
+    expect(here, 'the pushed panel had no work scope, so no row was named').toBeTruthy()
+    expect(within(here).getByText('Woland (voice)'), 'opened on the wrong billing').toBeTruthy()
+    expect(within(here).queryByText('Oleg Basilashvili')).toBeNull()
   })
 })

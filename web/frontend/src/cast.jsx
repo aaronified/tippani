@@ -93,10 +93,11 @@ const IMAGE_FILL_CAP = 20
 // picture hook out of this file, so building the panel here would close the cycle
 // — and the caller is the one holding the stack to push onto anyway.
 //
-// OPTIONAL, and the only caller today always passes it. The guard is for a caller
-// that has no stack to push onto: without one the name falls back to the picture
-// editor rather than becoming a link that does nothing, which is the same rule the
-// unlinked row follows below.
+// OPTIONAL, and stated as fact rather than justified by a caller that does not
+// exist: the one production caller always passes it, and what the guard actually
+// buys is that this section still renders standalone — which is how the source
+// test drives it, and what stops an omission becoming a crash instead of the
+// pre-2.3.x behaviour.
 export function CastSection({ kind, item, onCastChanged, onOpenCharacter }) {
   const path = kind === 'book' ? 'books' : 'movies'
   const [rows, setRows] = useState(null) // null while loading

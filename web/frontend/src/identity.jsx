@@ -65,6 +65,13 @@ export function personPanel(stack, { id, name, work = null }) {
 // characterPanel — the same, for the other table, and `work` does the same job it
 // does above: opened from a work's cast list there IS a work to be on, and that
 // appearance leads rather than sitting somewhere in a grid of eight.
+//
+// `work.castId` NAMES THE ROW, and a caller that has it must pass it. A work can
+// bill one character TWICE — `idx_work_cast_pair` is unique on
+// (kind, work_id, character_key, actor_key), so the young Vito and the old Vito
+// are two rows on one film, both pointing at one `characters` record — and a
+// lookup by work alone cannot tell them apart. It returns the first, so pressing
+// the second row lifted the first and then counted its sibling among "the others".
 export function characterPanel(stack, { id, name, work = null }) {
   return {
     title: name || t('identity.character.title'),
@@ -539,7 +546,10 @@ function PersonBody({ stack, id, work }) {
                         onClick={() => stack.push(characterPanel(stack, {
                           id: r.character_id,
                           name: r.character,
-                          work: { kind: r.kind, id: r.work_id, title: r.work_title },
+                          // `cast_id` rather than the work alone: this row IS a
+                          // cast row, and a performer's roles list is exactly
+                          // where a twice-billed character shows up as two rows.
+                          work: { kind: r.kind, id: r.work_id, title: r.work_title, castId: r.cast_id },
                         }))}
                       >
                         {r.character}
@@ -759,7 +769,16 @@ function CharacterBody({ stack, id, work }) {
   // scope, and the grid below says "the others". Not a copy in both places: a card
   // that appears twice invites the reader to edit the wrong one, and the two edit
   // the same row.
-  const here = work ? works.find((a) => a.kind === work.kind && a.work_id === work.id) : null
+  //
+  // BY ROW FIRST, BY WORK ONLY AS A FALLBACK. The fallback is not dead code: a
+  // caller may legitimately know the work and not the row — "this character, on
+  // this film" from somewhere that never touched the cast table — and for the
+  // overwhelmingly common case of one billing per work the two agree.
+  const here = !work
+    ? null
+    : (work.castId && works.find((a) => a.cast_id === work.castId))
+      || works.find((a) => a.kind === work.kind && a.work_id === work.id)
+      || null
   const elsewhere = here ? works.filter((a) => a.cast_id !== here.cast_id) : works
 
   return (

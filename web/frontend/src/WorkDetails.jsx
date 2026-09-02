@@ -987,7 +987,11 @@ export function workPeoplePanel(stack, props) {
         onOpenCharacter={(row) => stack.push(characterPanel(stack, {
           id: row.character_id,
           name: row.character,
-          work: { kind: props.kind, id: props.item.id, title: props.item.title },
+          // THE ROW, not just the work. One work can bill a character twice — two
+          // performers for one part — and both rows point at one record, so a
+          // panel told only the work lifts whichever comes first and leaves the
+          // reader looking at the sibling of the row they pressed.
+          work: { kind: props.kind, id: props.item.id, title: props.item.title, castId: row.id },
         }))}
       />
     ),

@@ -9600,6 +9600,21 @@ distinct to drive home the difference. use short infodots and subtext to clarify
   hook out of `cast.jsx`, so the import would close a cycle; the caller holds the stack
   anyway, so `CastSection` takes a function of the row.
 
+- **AND THE SCOPE IS KEYED ON THE CAST ROW, NOT THE WORK** — corrected after the first
+  version shipped with the weaker key. `idx_work_cast_pair` is unique on
+  `(kind, work_id, character_key, actor_key)`, so one work may bill one character twice:
+  the young Vito and the old Vito are two rows on one film, both linked to one record.
+  Looking the appearance up by `(kind, work_id)` returns the first, so pressing the
+  second row lifted its sibling and then counted the row you actually pressed among "the
+  others". The lookup takes `castId` first and falls back to the work, which is not dead
+  code — a caller may know the work and not the row, and where a work bills a character
+  once the two agree.
+- **The wiring between the two halves had no test, which is how it got in.** One group of
+  cases rendered the cast list with a stub opener; another rendered the panel from a
+  descriptor written by hand. `workPeoplePanel` turns the first into the second, and
+  dropping `castId` there broke neither. There is now a case that presses the name in the
+  cast list, takes the descriptor the stack was actually pushed, and renders that.
+
 <sub>Unreleased — `web/frontend/src/cast.jsx` · `identity.jsx` · `WorkDetails.jsx` ·
 `index.css` · `internal/i18n/{en,bn}.txt` · `test/dom/character-from-work.test.jsx`</sub>
 
