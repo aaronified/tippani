@@ -354,7 +354,7 @@ The button-grammar rule is in §5.4. These are the words.
 | done (the button that closes a step) | হয়ে গেছে | v3: শেষ is the shelf state (§3.6); a button that says "I am finished here" says হয়ে গেছে |
 | got it | বুঝেছি | |
 | fetch (metadata) | আনুন | *মেটাডেটা আনুন* |
-| fill gaps | ফাঁক ভরান | |
+| fill gaps | শূন্যস্থান পূরণ | v3, the owner’s call: the exam-paper phrase fits a form with empty boxes too, and ফাঁক stays with the review interval |
 | re-verify | আবার মিলিয়ে দেখুন | |
 | merge | এক করুন | |
 | re-sync | আবার সব আনুন | |
@@ -390,12 +390,12 @@ The button-grammar rule is in §5.4. These are the words.
 | not yet reviewed | এখনও রিভিশন হয়নি | |
 | Got it / Forgot (the grades) | পেরেছি / ভুলে গেছি | **First person** — these are your own answers |
 | Multiple choice | বহুনির্বাচনী | The school word every Bengali knows |
-| Fill in the blank | শূন্যস্থান পূরণ | The exam-paper phrase. Deliberately different from ফাঁক ভরান (metadata) so the two never read as one feature |
+| Fill in the blank | শূন্যস্থান পূরণ | The exam-paper phrase. Since v3 the metadata action shares it; the screens are far enough apart that the context carries the difference |
 | Flip and self-mark | উল্টে নিজে বিচার | |
 | Who said this? | কে বলেছে? | |
 | Name the source | কোন উৎস? | |
 | Pick the quote | কোন লাইনটা? | |
-| due now | এখনই দরকার | |
+| due now | এখনই দেখে নেওয়ার পালা | v3: a state line about a card, not an alarm |
 | set it aside | সরিয়ে রাখুন | |
 
 **Whose fact is it?** A shelf state describes the *book* (§3.6 — পড়া চলছে). A memory state
@@ -416,7 +416,7 @@ in three persons is exactly the drift this sheet exists to prevent.
 | Completed | শেষ | |
 | Mark as read / watched / played | পড়া শেষ / দেখা শেষ / খেলা শেষ | |
 | Read it again / Watch it again | আবার পড়ুন / আবার দেখুন | |
-| Pick it back up / Carry on watching | আবার ধরুন / দেখা চালান | |
+| Pick it back up / Carry on watching | আবার হাতে নিন / দেখা চালিয়ে যান | v3 |
 | Give up on it | ছেড়ে দিন | |
 | progress | কতদূর | *কতদূর পড়েছেন* — the native phrase, and short |
 | read log / watch log | পড়ার খাতা / দেখার খাতা | খাতা = a ledger. **Not হিসেব**, which is the Stats tab |
@@ -899,15 +899,15 @@ reason. Then mark the key `# ?? `.)*
 | English | Bengali | Reason |
 | --- | --- | --- |
 | move (to a board, to a shelf) | পাঠান | §3.4 gives *remove* → সরান, so Move cannot also be সরান. *বোর্ডে পাঠান* is what a Bengali says |
-| set (the small commit button in the progress editor) | দিন | *apply* is already বসান; this button just puts a number in |
+| set (the small commit button in the progress editor) | রাখুন | *apply* is already বসান; this button just keeps a number. v3: রাখুন, not দিন |
 | window (a pop-up over the screen) | উইন্ডো | §3.7 has প্যানেল for a full-screen sheet; a floating window is not that |
 | item | জিনিস | The generic countable. আইটেম is an avoidable loan |
 | issue (a metadata console finding) | সমস্যা | |
 | row (of a table) | সারি | |
-| outcome (finished / abandoned) | পরিণতি | The read log's third column |
+| outcome (finished / abandoned) | কী হল | The read log's third column. v3: a column head asks the question; পরিণতি is a verdict |
 | interface (the font role) | ইন্টারফেস | Marked `# ?? ` — a mouthful, but the role's name |
 | default (colour slot 1's name) | সাধারণ | v3 settled the `# ?? `: beside five Bengali category names the loan read as the odd one out, and "the ordinary slot" is what this one is |
-| flip card | উল্টানো কার্ড | §3.5 has *flip and self-mark* → উল্টে নিজে বিচার; the card itself needed a noun |
+| flip card | উল্টে দেখার কার্ড | §3.5 has *flip and self-mark* → উল্টে নিজে বিচার; the card itself needed a noun. v3: the card you turn over to look |
 | adaptive (the interval mode) | অ্যাডাপ্টিভ | v3: the loan is the word the reader has met in every app that has the feature; card title *অ্যাডাপ্টিভ ফাঁক* |
 | ladder (the 7 → 30 → 100 interval ladder) | সিঁড়ি | The metaphor is the same one in Bengali |
 | appearance (the Settings card) | চেহারা | |
@@ -1014,6 +1014,7 @@ rules the other way, and these are now binding:
 | সিলেক্ট করা | বেছে নেওয়া | selecting *text* in an ebook or a browser. বাছুন stays for selecting cards |
 | ইনডেক্স | সূচি | the search index |
 | পেয়ার / আনপেয়ার | জুড়ুন / খুলে নিন | the Android app and this account |
+| Google Books, Open Library, Amazon, Wikipedia, Wikidata | গুগল বুকস, ওপেন লাইব্রেরি, অ্যামাজন, উইকিপিডিয়া, উইকিডেটা | the source badges and every sentence that names one — Latin, like TMDB and IMDb, so a hint and the badge it points at agree (§8.3 still permits transliteration; v3 simply does not use it) |
 | কনট্রাস্ট, টেক্সচার, কন্ট্রোল, রুটিন, কোয়েস্ট, স্পেস, হাইফেন | বৈসাদৃশ্য, বুনোট, নিয়ন্ত্রণ, সময়সূচি, অভিযান, ফাঁক, যোজক | as themselves |
 
 Spelling that goes with it: **দুটো, তিনটে, কটা** — no apostrophe (দু’ / ক’ is a

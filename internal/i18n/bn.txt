@@ -214,7 +214,7 @@ vocab.font-role.display.label = উদ্ধৃতি
 vocab.font-role.display.what = রোমান হরফে লেখা উদ্ধৃতি আর নাম — ইংরেজি লাইনগুলো এই ফন্টে দেখা যায়।
 vocab.font-role.display.sample = It is a truth universally acknowledged
 vocab.font-role.ui.label = ইন্টারফেস
-vocab.font-role.ui.what = বোতাম আর লেবেলের রোমান হরফ — সংখ্যা, ISBN, TMDB id-এর মতো অংশগুলো।
+vocab.font-role.ui.what = বোতাম, ঘর, যা যা ট্যাপ করেন — তার রোমান হরফ, আর সংখ্যা, ISBN, TMDB id-এর মতো অংশগুলো।
 vocab.font-role.ui.sample = Add to quiz · Move to board · Fill gaps
 vocab.font-role.mono.label = লেবেল
 vocab.font-role.mono.what = ছোট হরফের লাইনগুলো — অধ্যায়-পৃষ্ঠার ঠিকানা, তারিখ, গোনাগুনতি।
@@ -370,7 +370,7 @@ common.action.favourite.on.label = প্রিয়তে রাখুন
 common.action.favourite.off.label = প্রিয় থেকে সরান
 # The tick on a card or a row, which names what is being picked.
 common.action.select.aria = {name} বাছুন
-common.action.deselect.aria = {name} বাছাই থেকে সরান
+common.action.deselect.aria = বাছাই তুলুন: {name}
 # What the tick calls the thing when its caller did not name it.
 common.select.target.fallback = এটা
 
@@ -619,14 +619,14 @@ common.language-mark.aria = {name} ভাষায়
 # vocab.source.* — the metadata suppliers. PROPER NOUNS: DO NOT TRANSLATE.
 # Transliterating into the reader's script is fine; renaming is not.
 # ---------------------------------------------------------------------------
-vocab.source.google.label = গুগল বুকস
-vocab.source.openlibrary.label = ওপেন লাইব্রেরি
-vocab.source.wikipedia.label = উইকিপিডিয়া
+vocab.source.google.label = Google Books
+vocab.source.openlibrary.label = Open Library
+vocab.source.wikipedia.label = Wikipedia
 
 # The floor under IGDB for games rather than a second opinion, so it is named.
-vocab.source.wikidata.label = উইকিডেটা
+vocab.source.wikidata.label = Wikidata
 
-vocab.source.amazon.label = অ্যামাজন
+vocab.source.amazon.label = Amazon
 vocab.source.tmdb.label = TMDB
 vocab.source.tvdb.label = TheTVDB
 # What a row whose supplier the app does not recognise is called.
@@ -733,7 +733,7 @@ common.group.unknown-year.label = সাল জানা নেই
 common.group.unknown-credit.label = জানা নেই
 common.group.none.label = নেই
 # A decade heading: 1920 becomes "1920s".
-common.group.decade.label = {year}-এর দশক
+common.group.decade.label = {year}-র দশক
 # The tooltip on a group heading that names a person.
 common.person.open.tip = এঁর খুঁটিনাটি দেখুন
 
@@ -899,8 +899,8 @@ common.action.export.shown.tip = যা দেখা যাচ্ছে, এক�
 # deliberate one.
 # ---------------------------------------------------------------------------
 error.save.generic = সেভ করা গেল না
-error.save.read = এই পড়ার হিসেবটা সেভ করা গেল না
-error.save.watch = এই দেখার হিসেবটা সেভ করা গেল না
+error.save.read = পড়ার খাতায় এটা সেভ করা গেল না
+error.save.watch = দেখার খাতায় এটা সেভ করা গেল না
 error.validate.partial-date = YYYY, YYYY-MM বা YYYY-MM-DD — এই তিন আকারের একটায় লিখুন
 error.validate.episodes-total = এই সিজনে কটা এপিসোড?
 error.validate.pages-total = বইটায় মোট কটা পৃষ্ঠা?
@@ -970,7 +970,7 @@ common.toast.restored.label = ফিরিয়ে আনা হয়েছে
 error.generic = কিছু একটা গোলমাল হয়েছে
 
 # The one-word wait every screen shows while a fetch is in flight.
-common.state.loading = আসছে…
+common.state.loading = লোড হচ্ছে…
 
 # The round sticker a quote flows around, on a board that lets you move it.
 common.sticker.drag.tip = টেনে সরান
@@ -1650,7 +1650,7 @@ quiz.question.source.hint = উদ্ধৃতিটা দেখিয়ে �
 quiz.question.quote.label = কোন লাইনটা?
 quiz.question.quote.hint = উল্টোটা: উৎসটা দেখিয়ে জিজ্ঞেস করে এই লাইনগুলোর কোনটা সেখান থেকে এসেছে। চারটে থেকে বেছে নেওয়ার প্রশ্ন।
 quiz.question.cloze.label = শূন্যস্থান পূরণ
-quiz.question.cloze.hint = উদ্ধৃতি থেকে একটা টুকরো মুছে দিয়ে সেটা টাইপ করতে বলে। সার্ভার মিলিয়ে দেখে, বানান বা যতিচিহ্নের ভুলে ছাড় দেয়। বহুনির্বাচনীর চেয়ে দাম বেশি, আর না পারলে খরচও কম।
+quiz.question.cloze.hint = উদ্ধৃতির একটা টুকরো শূন্যস্থান করে দিয়ে সেটা টাইপ করতে বলে। সার্ভার মিলিয়ে দেখে, বানান বা যতিচিহ্নের ভুলে ছাড় দেয়। বহুনির্বাচনীর চেয়ে দাম বেশি, আর না পারলে খরচও কম।
 quiz.question.speaker.label = কে বলেছে?
 quiz.question.speaker.hint = শুধু সিনেমা, শো আর গেমে — বইয়ে তো অভিনেতা নেই, তাই দাগ নিয়ে এই প্রশ্ন কখনও ওঠে না।
 quiz.question.flip.label = উল্টে নিজে বিচার
@@ -1670,8 +1670,8 @@ quiz.tuning.cloze-grow.label = টাইপ করা উত্তরে বা�
 quiz.tuning.cloze-grow.hint = শূন্যস্থান পূরণে ভরসা করার কিছু থাকে না, অথচ বহুনির্বাচনীতে চার ভাগের তিন ভাগ কাজ আগেই করা থাকে। ঠিক হলে টাইপ করা উত্তরের দাম তাই কতটা বেশি — সেটাই এই সংখ্যা।
 quiz.tuning.cloze-shrink.label = আর ভুল হলে খরচ
 quiz.tuning.cloze-shrink.hint = অন্য অর্ধেকটা, আর এটাই একে উদার না করে ন্যায্য করে: ডেকের সবচেয়ে কঠিন প্রশ্নে আটকে যাওয়া উদ্ধৃতি ভুলে যাওয়ার দুর্বল প্রমাণ, কিন্তু চারটের মধ্যে চিনতে না পারা জোরালো প্রমাণ।
-quiz.tuning.cloze-words.label = একাধিক শব্দের ফাঁক কবে থেকে
-quiz.tuning.cloze-words.hint = উদ্ধৃতি এতদিন মনে না থাকা পর্যন্ত ফাঁক একটা শব্দই লুকায়, তারপরই গোটা টুকরো লুকাতে পারে। 1 করে দিলে চওড়া ফাঁক গোড়া থেকেই আসবে।
+quiz.tuning.cloze-words.label = একাধিক শব্দের শূন্যস্থান কবে থেকে
+quiz.tuning.cloze-words.hint = উদ্ধৃতি এতদিন মনে না থাকা পর্যন্ত শূন্যস্থানে একটা শব্দই লুকায়, তারপরই গোটা টুকরো লুকাতে পারে। 1 করে দিলে চওড়া শূন্যস্থান গোড়া থেকেই আসবে।
 quiz.tuning.ladder-1.label = সিঁড়ির ধাপ 1
 quiz.tuning.ladder-1.hint = বাঁধা সিঁড়ির প্রথম ধাপ, আর ভুল হলে কার্ড এখানেই নেমে আসে। অ্যাডাপ্টিভ ফাঁক চালু থাকলে এটা ধরা হয় না।
 quiz.tuning.ladder-2.label = সিঁড়ির ধাপ 2
@@ -1735,7 +1735,7 @@ common.selection.edit.overwrite.differ = {n}টা বদলে যাবে —
 
 # Failures, keyed by WHAT failed rather than by where.
 error.apply.generic = বসানো গেল না
-error.fill.generic = ফাঁক ভরা গেল না
+error.fill.generic = শূন্যস্থান পূরণ করা গেল না
 error.delete.generic = মোছা গেল না
 error.undo.generic = আনডু করা গেল না
 
@@ -1762,7 +1762,7 @@ common.action.share.tip = {subject} শেয়ার করুন
 common.action.edit.tip = {subject} এডিট করুন
 common.action.delete.tip = {subject} মুছুন
 # Fetch only what is MISSING and touch nothing else.
-common.action.fill.label = ফাঁক ভরান
+common.action.fill.label = শূন্যস্থান পূরণ
 common.action.fill.tip = ফাঁকা ঘরগুলো ভরান
 # While it is fetching.
 # A themed quiz round over one book or one title.
@@ -2812,7 +2812,7 @@ book.field.translator.info = বইটা এই ভাষায় কে এ�
 book.field.editor.info = ভিতরে কী থাকবে কে বেছেছেন — সংকলন বা রচনাসমগ্র অনেক সময় এই নামটার জন্যই কেনা হয়। লেখকের লাইনের মতো একই চিহ্নে ভাগ হয়।
 book.field.series.info = বইটা কোন সিরিজের। লাইব্রেরিতে বই এই ধরে ভাগ হয়, আর নিচের নম্বর ধরে সাজে।
 book.field.isbn.info = দশ অঙ্ক বা তেরো, হাইফেন সমেত — পুরনো বইয়ের দশ অঙ্কের ISBN তেরো অঙ্কের চেহারায় রাখা হয়। কাজে লাগে শুধু বই খুঁজতে: ভালো কভার বা বিবরণ এর মিল থেকেই আসে।
-book.field.asin.info = অ্যামাজনের নিজের নম্বর, Kindle-এ কেনা বা পড়া যে কোনও বইয়ের পাতায় থাকে। কোনও চাবি বা কুকি ছাড়াই এটা দিয়ে কভার আনা যায়।
+book.field.asin.info = Amazon-এর নিজের নম্বর, Kindle-এ কেনা বা পড়া যে কোনও বইয়ের পাতায় থাকে। কোনও চাবি বা কুকি ছাড়াই এটা দিয়ে কভার আনা যায়।
 book.fetch.info.body = বইটা খোঁজে Google Books, Open Library আর Amazon-এ, তারপর প্রতিটা ঘর আপনার কাছে যা আছে তার পাশে রেখে দেখায় — যেটুকু চান, সেটুকুই নিন।
 
 # THE INFO DOT ON EACH CATALOGUE FIELD. A Catalogue row is a film, a show or a
@@ -2902,7 +2902,7 @@ capture.lookup.empty = কিছু মিলল না
 capture.lookup.edition.none.label = সংস্করণের খবর নেই
 # ⚠ NAMES A SUPPLIER AND A SETTING. A game still searches WITHOUT a key — this
 # says what you are getting rather than that the lookup is off.
-capture.lookup.nokey.game = IGDB-র চাবি নেই — তাই খোঁজা হচ্ছে উইকিডেটায়, যেখানে কভারের ছবি প্রায় থাকেই না। সেটিংসে Twitch-এর client id আর secret দিলে পুরো খবর আসে; “নিজে হাতে যোগ করুন” সবসময়ই চলে।
+capture.lookup.nokey.game = IGDB-র চাবি নেই — তাই খোঁজা হচ্ছে Wikidata-য়, যেখানে কভারের ছবি প্রায় থাকেই না। সেটিংসে Twitch-এর client id আর secret দিলে পুরো খবর আসে; “নিজে হাতে যোগ করুন” সবসময়ই চলে।
 capture.lookup.nokey.film = সিনেমা খোঁজার চাবি বসানো নেই — নিচের “নিজে হাতে যোগ করুন” সবসময়ই চলে।
 # The two doors to hand entry: a real button once the lookup has let you down,
 # and a link that is always there.
@@ -2964,7 +2964,7 @@ error.validate.quote-or-note = একটা উদ্ধৃতি বা এক�
 error.validate.target-required = একটা বই, সিনেমা বা শো বাছুন
 error.validate.season-required = এপিসোড দিলে সিজনটাও দিন
 
-error.lookup.failed = খোঁজা গেল না
+error.lookup.failed = খুঁজে পাওয়া গেল না
 error.add.book = বই যোগ করা গেল না
 error.add.title = টাইটেল যোগ করা গেল না
 error.enrich.title = টাইটেলটার মেটাডেটা আনা গেল না
@@ -3197,7 +3197,7 @@ search.filters.narrow.aria = {field} ফিল্টার করুন
 # On a value with no hits under the current search. Greyed, not hidden, and
 # still pressable: a value that disappears leaves you doubting your own library.
 search.filters.dead.tip = এই খোঁজে এটার কিছু মিলছে না
-search.filters.clear.label = সব সরান
+search.filters.clear.label = সব তুলে দিন
 
 # The two empty states, which are different questions. The first is "you have
 # not typed anything"; the second is "there is nothing there".
@@ -3269,10 +3269,10 @@ search.hit.work.tip = উৎসটা খুলুন
 search.hit.work.aria = {title} খুলুন
 
 
-error.search.failed = খোঁজা গেল না
+error.search.failed = খুঁজে পাওয়া গেল না
 error.bulk.failed = একসঙ্গে কাজটা করা গেল না
 error.validate.tag-required = অন্তত একটা ট্যাগ লিখুন
-error.validate.field-required = আগে একটা ঘর বাছুন
+error.validate.field-required = আগে একটা ঘর ভরুন
 
 # ---------------------------------------------------------------------------
 # THE LIBRARY (Library.jsx) — books, and every highlight kept from them.
@@ -3309,7 +3309,7 @@ library.group.genre.label = ঘরানা
 
 # Exporting the board.
 library.export.confirm.title = লাইব্রেরি এক্সপোর্ট
-library.export.confirm.body = চোখের সামনের {a} · {b} — প্রতি বইয়ে একটা করে Markdown ফাইল, এক ডাউনলোডেই (টিপ্পনীতে আবার ইমপোর্ট করা যায়)।
+library.export.confirm.body = চোখের সামনের {a} · {b} এক্সপোর্ট হবে — প্রতি বইয়ে একটা করে Markdown ফাইল, এক ডাউনলোডেই (টিপ্পনীতে আবার ইমপোর্ট করা যায়)।
 
 # A BOOK'S OWN PAGE.
 book.title.fallback = নামহীন
@@ -3342,7 +3342,7 @@ book.form.edit.title = বই এডিট করুন
 # sentence per form, because the word for "title" is not the same in both.
 book.form.missing.hint = সেভ করতে বইয়ের নাম লাগবে।
 book.form.translator.placeholder = অনুবাদটা কার
-book.form.editor.placeholder = ভিতরে কী থাকবে কে বেছেছেন
+book.form.editor.placeholder = কে সম্পাদনা করেছেন
 book.form.series.placeholder = যেমন Discworld
 book.form.series-no.placeholder = যেমন 5
 
@@ -3356,7 +3356,7 @@ common.locator.chapter.label = অধ্যা. {name}
 common.locator.page.short.label = পৃ.{n}
 
 # THE HIGHLIGHTS TABLE on a book's page.
-book.table.quote.label = উদ্ধৃতি
+book.table.quote.label = দাগ
 book.table.chapter.label = অধ্যায়
 book.table.location.label = লোকেশন
 book.table.date.label = তারিখ
@@ -3394,7 +3394,7 @@ movies.header.title = সিনেমা আর শো
 movies.header.counts = {a} · {b}
 # Beside the title on a wide screen: whether a lookup is even possible.
 movies.header.nokey.label = TMDB-র চাবি নেই — নিজে হাতে যোগ করুন
-movies.header.lookup.label = খোঁজা যায় নাম + সালে
+movies.header.lookup.label = খোঁজা যায় নাম + সাল দিয়ে
 movies.board.empty = এখনও কোনও টাইটেল নেই — TMDB/TVDB-তে খুঁজে নিন, বা নিজে হাতে যোগ করুন।
 movies.board.nomatch = এই ফিল্টারে কোনও টাইটেল মিলল না
 movies.group.residual.director.label = পরিচালক অজানা
@@ -3422,7 +3422,7 @@ movies.group.genre.label = ঘরানা
 # a dialog that lies about what it is going to write.
 movies.export.confirm.title = ক্যাটালগ এক্সপোর্ট
 movies.export.confirm.body = চোখের সামনের {a} একটাই Markdown ফাইলে এক্সপোর্ট হবে।
-movies.export.count.none = 0 টাইটেল
+movies.export.count.none = 0টা টাইটেল
 movies.export.count.movies.one = {n}টা সিনেমা
 movies.export.count.movies.other = {n}টা সিনেমা
 movies.export.count.shows.one = {n}টা শো
@@ -3440,7 +3440,7 @@ movies.duplicate.dialogues.one = {n}টা সংলাপ
 movies.duplicate.dialogues.other = {n}টা সংলাপ
 movies.duplicate.poster.yes = পোস্টার আছে
 movies.duplicate.poster.no = পোস্টার নেই
-movies.duplicate.enrich.label = এটারই ফাঁক ভরান
+movies.duplicate.enrich.label = এটারই শূন্যস্থান পূরণ করুন
 movies.duplicate.separate.label = আলাদা টাইটেল হিসেবে যোগ করুন
 
 # The hand-entry and edit forms for a Catalogue title.
@@ -3565,7 +3565,7 @@ bin.kind.account.plural = অ্যাকাউন্ট
 # format, so only “never” needs a word of its own.
 bin.keep-for.label = কতদিন রাখবে
 bin.retention.aria = বিন কতদিন জিনিস রাখবে
-bin.retention.never.label = কখনও না
+bin.retention.never.label = খালি না করা পর্যন্ত
 bin.info.title = বিন
 bin.info.body = মুছে ফেলা সবকিছু আগে এখানে এসে জমে, আর ফিরিয়ে আনলে ঠিক যেমন ছিল তেমনই ফেরে — উদ্ধৃতি, ট্যাগ, রং, রিভিশনের রুটিন, কভার সমেত। আজই কিছু চিরতরে সরাতে চাইলে “এখনই খালি করুন”।
 bin.empty-now.label = এখনই খালি করুন
@@ -3603,7 +3603,7 @@ bin.row.contents.empty = ভিতরে কোনও উদ্ধৃতি ন�
 # Beside the page title: how many entries, and how many quotes went with them.
 bin.counts.held = {n} {noun} জমা আছে
 bin.confirm.title = বিন খালি করবেন?
-bin.confirm.body = এতে {count} আর তাদের সঙ্গের ছবিগুলো চিরতরে যাবে। এটার কোনও আনডু নেই।
+bin.confirm.body = এতে {count} আর সঙ্গে থাকা ছবিগুলো চিরতরে যাবে। এটার কোনও আনডু নেই।
 bin.confirm.label = খালি করুন
 bin.toast.gone.label = চলে গেছে
 bin.toast.emptied.label = বিন খালি হয়েছে
@@ -3636,17 +3636,17 @@ cleanup.state.truncated = প্রথম {count} — কয়েকটা স�
 # THE RULES, one label and one line each. The label names what was found, never
 # what to do about it: nothing here fixes anything.
 cleanup.rule.invisible.label = অদৃশ্য অক্ষর
-cleanup.rule.invisible.body = যে ফাঁক বা হাইফেন চোখেই পড়ে না — HTML, জাস্টিফাই করা PDF, বা দুলাইনে ভাঙা শব্দ থেকে আসে।
-cleanup.rule.edge-space.label = দুপ্রান্তে ফাঁক
-cleanup.rule.edge-space.body = উদ্ধৃতির শুরুতে বা শেষে একটা ফাঁক — কার্ড সেটা লুকিয়ে রাখে, খোঁজ রাখে না।
-cleanup.rule.double-space.label = জোড়া ফাঁক
-cleanup.rule.double-space.body = পাশাপাশি দুই বা তার বেশি ফাঁক — জাস্টিফাই করা লেখার ফেলে যাওয়া, নয়তো দাঁড়ির পরে ইচ্ছে করে দেওয়া।
-cleanup.rule.space-before-punctuation.label = যতিচিহ্নের আগে ফাঁক
-cleanup.rule.space-before-punctuation.body = কমা, দাঁড়ি বা বন্ধনীর ঠিক আগে একটা ফাঁক। ফরাসি ভাষায় এটা ইচ্ছে করেই দেওয়া হয়।
+cleanup.rule.invisible.body = যে স্পেস বা হাইফেন চোখেই পড়ে না — HTML, জাস্টিফাই করা PDF, বা দুলাইনে ভাঙা শব্দ থেকে আসে।
+cleanup.rule.edge-space.label = দুপ্রান্তে স্পেস
+cleanup.rule.edge-space.body = উদ্ধৃতির শুরুতে বা শেষে একটা স্পেস — কার্ড সেটা লুকিয়ে রাখে, খোঁজ রাখে না।
+cleanup.rule.double-space.label = জোড়া স্পেস
+cleanup.rule.double-space.body = পাশাপাশি দুই বা তার বেশি স্পেস — জাস্টিফাই করা লেখার ফেলে যাওয়া, নয়তো দাঁড়ির পরে ইচ্ছে করে দেওয়া।
+cleanup.rule.space-before-punctuation.label = যতিচিহ্নের আগে স্পেস
+cleanup.rule.space-before-punctuation.body = কমা, দাঁড়ি বা বন্ধনীর ঠিক আগে একটা স্পেস। ফরাসি ভাষায় এটা ইচ্ছে করেই দেওয়া হয়।
 cleanup.rule.reference-mark.label = পাদটীকার নম্বর
 cleanup.rule.reference-mark.body = পাতার ফেলে যাওয়া রেফারেন্স — উপরে বসা ছোট সংখ্যা, বন্ধনীর ভিতরে সংখ্যা, বা শেষ শব্দের গায়ে সেঁটে থাকা অঙ্ক।
 cleanup.rule.pronunciation.label = উচ্চারণের নির্দেশ
-cleanup.rule.pronunciation.body = অভিধানের উচ্চারণ-নির্দেশ, শব্দটার সঙ্গেই চলে এসেছে।
+cleanup.rule.pronunciation.body = অভিধানের উচ্চারণের নির্দেশ, শব্দটার সঙ্গেই চলে এসেছে।
 cleanup.rule.hyphen-break.label = লাইন ভাঙার হাইফেন
 cleanup.rule.hyphen-break.body = দুলাইনে ভাঙা শব্দ আবার জোড়া লেগেছে, কিন্তু হাইফেনটা ভিতরে রয়ে গেছে।
 cleanup.rule.repeated-punctuation.label = দুবার যতিচিহ্ন
@@ -3681,9 +3681,9 @@ reverify.title = মেটাডেটা আবার মিলিয়ে দ
 reverify.checking.prose = প্রতিটা বই-সিনেমা তার বাঁধা সূত্রের সঙ্গে আবার মিলিয়ে দেখা হচ্ছে — মেনে না নেওয়া পর্যন্ত কিছুই লেখা হবে না।
 reverify.checking.progress = দেখা হচ্ছে · {done}/{total}
 # The tally across the top once the checking is done.
-reverify.summary = {checked} দেখা হল · {changed}টায় বদল · {clean} আগের মতোই ঠিক
-reverify.summary.skipped = {n} বাদ (বাঁধা id নেই)
-reverify.summary.failed = {n} পারা গেল না
+reverify.summary = {checked}টা দেখা হল · {changed}টায় বদল · {clean}টা আগের মতোই ঠিক
+reverify.summary.skipped = {n}টা বাদ (বাঁধা id নেই)
+reverify.summary.failed = {n}টা পারা গেল না
 reverify.clean = যা যা দেখা হল, সব আগে থেকেই ঠিক ✓
 # One item's card.
 reverify.item.open.tip = কী কী বদল হবে, দেখান
@@ -3751,7 +3751,7 @@ import.source.bookcision.step.2 = Bookcision বুকমার্কলেট �
 import.source.bookcision.step.3 = বুকমার্কলেট এড়াতে চান? Kindle নোটবুক কার্ড দিয়ে সেভ করা পাতাটাই সরাসরি আনুন (রং থেকে যায়)।
 
 import.source.hardcover-html.title = Hardcover
-import.source.hardcover-html.desc = একটা বইয়ের জন্য আপনার পড়ার জার্নালের পাতা।
+import.source.hardcover-html.desc = Hardcover-এ একটা বইয়ের পড়ার জার্নালের পাতা।
 import.source.hardcover-html.step.1 = নিজের জার্নালের পাতা খুলুন, যেমন hardcover.app/books/<book>/journals/@you
 import.source.hardcover-html.step.2 = পাতাটা ওয়েব পেজ হিসেবে সেভ করুন, শুধু HTML (Ctrl+S / ⌘S)।
 import.source.hardcover-html.step.3 = সেভ করা .html এখানে ছাড়ুন।
@@ -3769,17 +3769,17 @@ import.source.imdb-quotes.step.2 = পাতাটা ওয়েব পেজ 
 import.source.imdb-quotes.step.3 = সেভ করা .html এখানে ছাড়ুন।
 
 import.source.kindle-notebook.title = Kindle নোটবুক
-import.source.kindle-notebook.desc = আপনার Kindle-এর Notes & Highlights পাতা — রং আর লোকেশন সঙ্গে আসে।
+import.source.kindle-notebook.desc = Kindle-এর Notes & Highlights পাতা — রং আর লোকেশন সঙ্গে আসে।
 import.source.kindle-notebook.step.1 = read.amazon.com/notebook খুলে বইটা বাছুন।
 import.source.kindle-notebook.step.2 = পাতাটা ওয়েব পেজ হিসেবে সেভ করুন, শুধু HTML (Ctrl+S / ⌘S)।
 import.source.kindle-notebook.step.3 = সেভ করা .html এখানে ছাড়ুন।
 
 # The filename on the device. Latin in every language, per §8.
 import.source.kindle-clippings.title = My Clippings
-import.source.kindle-clippings.desc = Kindle ডিভাইসের নিজের ফাইল — এক বারে সব বই, দাগ আর নোট সমেত।
+import.source.kindle-clippings.desc = Kindle ডিভাইসের নিজের ফাইল — একবারে সব বই, দাগ আর নোট সমেত।
 import.source.kindle-clippings.step.1 = USB দিয়ে Kindle লাগান।
 import.source.kindle-clippings.step.2 = ডিভাইস থেকে documents/My Clippings.txt কপি করুন।
-import.source.kindle-clippings.step.3 = এখানে ছাড়ুন — ফাইলের সব বই এক বারেই আসবে।
+import.source.kindle-clippings.step.3 = এখানে ছাড়ুন — ফাইলের সব বই একবারেই আসবে।
 # Not keyed as .info or .hint on purpose: this is a caveat under a chip, not a
 # dot's body, and it is longer than the 240 those are held to.
 import.source.kindle-clippings.caveat = Kindle এই ফরম্যাটের কথা কোথাও লিখে রাখেনি, আর ভাষা অনুযায়ী বদলায়ও — তাই অন্য ভাষার ডিভাইস (বা অচেনা ফার্মওয়্যার) এমন রেকর্ড বানাতে পারে, যা এটা ভুল পড়ে। কিছুই আন্দাজে ধরা হয় না: যা পড়া যায় না তা বাদ যায়, আর গুনে জানানো হয়।
@@ -3831,7 +3831,7 @@ import.clippings.malformed.other = {n}টা রেকর্ড পড়া গ
 
 # The contract of the screen, stated in place so the absence of “12 added” reads
 # as intended rather than as a failure. {queue} is the queue's own name, in bold.
-import.nothing-lands.body = ইমপোর্ট করা সব আগে {queue}-এ আসে আর আপনি সায় না দেওয়া পর্যন্ত সেখানেই থাকে — লাইব্রেরি, খোঁজ বা রিভিশনের ডেকে কিছুই ঢোকে না। ওখানে গোটা ফাইল এক বারে দেখে নিন: অধ্যায় আর লোকেশন একসঙ্গে ঠিক করুন, উদ্ধৃতি ঠিক বই বা সিনেমার নামে পাঠান, তারপর মেনে নিন বা ফেলে দিন।
+import.nothing-lands.body = ইমপোর্ট করা সব আগে {queue}-এ আসে আর আপনি সায় না দেওয়া পর্যন্ত সেখানেই থাকে — লাইব্রেরি, খোঁজ বা রিভিশনের ডেকে কিছুই ঢোকে না। ওখানে গোটা ফাইল একবারে দেখে নিন: অধ্যায় আর লোকেশন একসঙ্গে ঠিক করুন, উদ্ধৃতি ঠিক বই বা সিনেমার নামে পাঠান, তারপর মেনে নিন বা ফেলে দিন।
 # Why imports are save-the-page-and-upload rather than paste-a-URL — a natural
 # question, answered once and collapsed. {emphasis} is “on their page”, italic.
 import.why-upload.summary = সেভ করা পাতা আপলোড করতে বলছি, URL দিলেই হত না?
@@ -3871,7 +3871,7 @@ account.name.done = নাম বদলে গেছে।
 
 account.password.label = পাসওয়ার্ড বদলান
 account.password.info.title = পাসওয়ার্ড বদলান
-account.password.info.body = {min}–{max} অক্ষর: বর্ণ, সংখ্যা আর যতিচিহ্ন, অ্যাকসেন্ট-দেওয়া অক্ষর নয়। এটাই ব্যাকআপ আর্কাইভের চাবিও, তাই অন্য মেশিনে টাইপ করা যাওয়া চাই। বদলালে বাকি ব্রাউজার লগ আউট হয়ে যায়; পেয়ার করা ফোন থেকে যায়।
+account.password.info.body = {min}–{max} অক্ষর: বর্ণ, সংখ্যা আর যতিচিহ্ন, অ্যাকসেন্ট-দেওয়া অক্ষর নয়। এটাই ব্যাকআপ আর্কাইভের চাবিও, তাই অন্য মেশিনেও টাইপ করা যায় এমন হওয়া চাই। বদলালে বাকি ব্রাউজার লগ আউট হয়ে যায়; পেয়ার করা ফোন থেকে যায়।
 account.password.current.placeholder = এখনকার পাসওয়ার্ড
 account.password.new.placeholder = নতুন পাসওয়ার্ড ({min}–{max})
 account.password.repeat.placeholder = নতুন পাসওয়ার্ড আবার
@@ -3899,15 +3899,15 @@ account.logout.action = লগ আউট
 account.maintenance.label = দেখভাল
 account.reindex.title = খোঁজের ইনডেক্স আবার বানান
 account.reindex.info.title = খোঁজের ইনডেক্স আবার বানান
-account.reindex.info.body = লাইব্রেরি থেকে খোঁজার ইনডেক্স নতুন করে বানিয়ে “search failed / internal error” সারায়। কিছু নষ্ট হয় না — বই, উদ্ধৃতি বা সেটিংসে হাত পড়ে না।
+account.reindex.info.body = লাইব্রেরি থেকে খোঁজার ইনডেক্স নতুন করে বানিয়ে “খুঁজে পাওয়া গেল না / internal error” সারায়। কিছু নষ্ট হয় না — বই, উদ্ধৃতি বা সেটিংসে হাত পড়ে না।
 account.reindex.action = আবার বানান
 account.reindex.busy = বানানো হচ্ছে…
 account.reindex.done = খোঁজের ইনডেক্স আবার তৈরি হল — খোঁজ এখন কাজ করা উচিত।
-account.reindex.partial = কিছু ইনডেক্স এতটাই নষ্ট যে আবার বানানো গেল না ({failed})। খোঁজ তাতেও না সারলে পুরো রিসেটই বাকি রাস্তা।
+account.reindex.partial = কিছু ইনডেক্স এতটাই নষ্ট যে আবার বানানো গেল না ({failed})। খোঁজ তাতেও না সারলে সব ডেটা মুছে নতুন করে শুরু করাই বাকি রাস্তা।
 
 account.reset.title = সব ডেটা মুছে দিন
 account.reset.info.title = সব ডেটা মুছে দিন
-account.reset.info.body = সবকিছু চিরতরে মুছে যায় — প্রত্যেক অ্যাকাউন্ট, সব বই-সিনেমা, উদ্ধৃতি, ট্যাগ, মানুষ, স্টিকার, কভার, চাবি আর পছন্দ — আর টিপ্পনী প্রথম দিনের সেটআপে ফিরে যায়। কোনও ব্যাকআপ নেওয়া হয় না, আর এটা আর ফেরানো যায় না।
+account.reset.info.body = সবকিছু চিরতরে মুছে যায় — প্রত্যেক অ্যাকাউন্ট, সব বই-সিনেমা, উদ্ধৃতি, ট্যাগ, মানুষ, স্টিকার, কভার, চাবি আর পছন্দ — আর টিপ্পনী প্রথম দিনের সেটআপে ফিরে যায়। কোনও ব্যাকআপ নেওয়া হয় না, আর এটা ফেরানোরও উপায় নেই।
 account.reset.open = সব ডেটা মুছে দিন…
 account.reset.confirm.prose = সব মুছে ফেলতে চান, তা নিশ্চিত করতে {word} লিখুন:
 account.reset.submit = সব মুছে নতুন করে শুরু করুন
@@ -3995,7 +3995,7 @@ people.form.image-url.placeholder = https://… ছবির লিংক বস
 # language.
 people.form.links.placeholder.1 = https://en.wikipedia.org/wiki/…
 people.form.links.placeholder.2 = https://openlibrary.org/authors/…
-people.form.links.hint = প্রতি লাইনে একটা লিংক — চেনা সাইট (উইকিপিডিয়া, ওপেন লাইব্রেরি, IMDb, TMDB, TheTVDB) নিজে থেকেই নাম পায়; বাকিগুলো যেমন আছে তেমনই দেখায়।
+people.form.links.hint = প্রতি লাইনে একটা লিংক — চেনা সাইট (Wikipedia, Open Library, IMDb, TMDB, TheTVDB) নিজে থেকেই নাম পায়; বাকিগুলো যেমন আছে তেমনই দেখায়।
 
 # The library-wide rename: the fix for two transliterations of one person.
 people.rename.label = গোটা লাইব্রেরি জুড়ে নাম বদলান
@@ -4057,7 +4057,7 @@ cover.search.aria = {nouns} খুঁজুন
 # “Search TMDB & TheTVDB” — a promise about a supplier that is never asked.
 cover.search.books.tip = Google Books, Open Library আর Amazon-এ খুঁজুন
 cover.search.screen.tip = TMDB আর TheTVDB-তে খুঁজুন
-cover.search.game.tip = IGDB আর উইকিডেটায় খুঁজুন
+cover.search.game.tip = IGDB আর Wikidata-য় খুঁজুন
 cover.remove.aria = {noun} সরান
 cover.pick.prose = একটা {noun} বাছুন — মাপ দেখানো আছে; বড় হলে ছবি বেশি স্পষ্ট
 cover.pick.none = কোনও {nouns} পাওয়া গেল না
@@ -4554,7 +4554,7 @@ metadata.remap.custom.label = নিজে লিখুন…
 # --- PEOPLE. Every author, actor, director, studio and speaker the library
 # mentions, with a portrait and reference links.
 metadata.people.title = মানুষ
-metadata.people.info.body = ছবি আর তথ্যসূত্রের পাতা, ঠিক মানুষটার সঙ্গে মিলিয়ে — লেখককে তাঁর বই দিয়ে, অভিনেতা বা পরিচালককে সিনেমার কাস্ট দিয়ে, স্টুডিওকে গেমের নামে। অভিনেতা আর পরিচালকের ছবির জন্য TMDB-র চাবি লাগে; বাকিটা আসে উইকিডেটা থেকে।
+metadata.people.info.body = ছবি আর তথ্যসূত্রের পাতা, ঠিক মানুষটার সঙ্গে মিলিয়ে — লেখককে তাঁর বই দিয়ে, অভিনেতা বা পরিচালককে সিনেমার কাস্ট দিয়ে, স্টুডিওকে গেমের নামে। অভিনেতা আর পরিচালকের ছবির জন্য TMDB-র চাবি লাগে; বাকিটা আসে Wikidata থেকে।
 # The five toggles. Studios are their own row rather than folded in with
 # directors: the two share one stored column and are told apart only by media
 # type, so listing them together would offer a studio for renaming as a director.
@@ -4844,7 +4844,7 @@ settings.prompt.close.tip = বাতিল করে বন্ধ করুন
 # THE METADATA CARD — the status chips, and the key fields under them.
 # ---------------------------------------------------------------------------
 settings.metadata.title = মেটাডেটার সূত্র
-settings.metadata.info.body = বইয়ের জন্য কোনও চাবি লাগে না: গুগল বুকস আর ওপেন লাইব্রেরি, দুটো মিলিয়ে। সিনেমা আর শো প্রথমে TheTVDB দেখে, তারপর TMDB; গেম চলে IGDB-র জোড়া চাবিতে, যার পিছনে সঙ্গে-আসা কিছু নেই। প্রতিটা ঘর আলাদা সেভ হয়, আর নিজে হাতে লেখা সবসময়ই চলে।
+settings.metadata.info.body = বইয়ের জন্য কোনও চাবি লাগে না: Google Books আর Open Library, দুটো মিলিয়ে। সিনেমা আর শো প্রথমে TheTVDB দেখে, তারপর TMDB; গেম চলে IGDB-র জোড়া চাবিতে, যার পিছনে সঙ্গে-আসা কিছু নেই। প্রতিটা ঘর আলাদা সেভ হয়, আর নিজে হাতে লেখা সবসময়ই চলে।
 # Three chips, and only where a key field cannot answer: that lookups are
 # failing, that they are running on the shared built-in key or on nothing at
 # all, and that titles are still pinned to the source that used to be default.
@@ -4930,7 +4930,7 @@ common.field.favourite.label = প্রিয়
 # Re-fetching covers and metadata across the whole library (POST /covers/refetch).
 error.refetch.covers = কভার আবার আনা গেল না
 # The duplicate-title scan (GET /metadata/duplicates).
-error.scan.duplicates = ডুপ্লিকেট খোঁজা গেল না
+error.scan.duplicates = ডুপ্লিকেট খুঁজে পাওয়া গেল না
 # Merging, both kinds: two books into one, and two spellings of one person into
 # one name. One act, one error.
 error.merge.failed = এক করা গেল না
@@ -5124,7 +5124,7 @@ home.help.grade.what = “দেখি” উত্তরটা দেখিয�
 # The edit link on an already-answered quiz card.
 home.help.fix-or-tag.term = ঠিক করুন বা ট্যাগ দিন
 home.help.fix-or-tag.what = উত্তর দেওয়া কার্ডে: বানান শুধরে নিন, ট্যাগ বদলান, বা ♥ দিন — রাউন্ড ছেড়ে না বেরিয়েই।
-home.help.fix-or-tag.more = উত্তর দেওয়ার পরেই আসে, কারণ এডিট ফর্মে উদ্ধৃতি আর তার উৎস দুটোই দেখা যায় — বেশির ভাগ কার্ডে ওটাই তো উত্তর। শূন্যস্থানের কার্ডে ফাঁকটা পরেও ফাঁকই থাকে: যে কথাগুলো চাওয়া হয়েছিল, সেগুলো লুকিয়ে রাখা সার্ভারের কাজ, কার্ড নিজে নতুন করে আঁকতে পারে না।
+home.help.fix-or-tag.more = উত্তর দেওয়ার পরেই আসে, কারণ এডিট ফর্মে উদ্ধৃতি আর তার উৎস দুটোই দেখা যায় — বেশির ভাগ কার্ডে ওটাই তো উত্তর। শূন্যস্থানের কার্ডে শূন্যস্থানটা পরেও ফাঁকাই থাকে: যে কথাগুলো চাওয়া হয়েছিল, সেগুলো লুকিয়ে রাখা সার্ভারের কাজ, কার্ড নিজে নতুন করে আঁকতে পারে না।
 
 # The letter or flag a proverb card leads with instead of a face.
 home.help.language-mark.term = ভাষার চিহ্ন
@@ -5647,8 +5647,8 @@ bin.help.kinds.more = খোঁজের চিপগুলোর মতোই, 
 
 # How long a deleted thing waits before it goes for good.
 bin.help.keep-for.term = কতদিন রাখবে
-bin.help.keep-for.what = 7, 30 বা 90 দিন, নয়তো কখনও না।
-bin.help.keep-for.more = ঘড়ি চলে সার্ভারের সময়ে, আর শুধু সার্ভার চালু থাকলেই — তাই এক সপ্তাহ বন্ধ থাকা সার্ভার কারও তিরিশ দিনের এক সপ্তাহ খরচ করেনি; সেই জন্যই সারিতে উল্টো গোনা নয়, কবে যাওয়ার কথা সেই তারিখটা লেখা থাকে। “কখনও না” বাছলে নিজে বিন খালি না করা পর্যন্ত সব থেকে যায়।
+bin.help.keep-for.what = 7, 30 বা 90 দিন, নয়তো নিজে খালি না করা পর্যন্ত।
+bin.help.keep-for.more = ঘড়ি চলে সার্ভারের সময়ে, আর শুধু সার্ভার চালু থাকলেই — তাই এক সপ্তাহ বন্ধ থাকা সার্ভার কারও তিরিশ দিনের এক সপ্তাহ খরচ করেনি; সেই জন্যই সারিতে উল্টো গোনা নয়, কবে যাওয়ার কথা সেই তারিখটা লেখা থাকে। “খালি না করা পর্যন্ত” বাছলে সবই থাকে, যতদিন না নিজে বিন খালি করেন।
 
 # Emptying the whole bin.
 bin.help.empty-now.term = এখনই খালি করুন
@@ -5910,7 +5910,7 @@ common.help.selecting.what = একসঙ্গে অনেকগুলো ক�
 common.help.selecting.how.1 = কার্ডের কোণে টিক দিন, Ctrl চেপে ক্লিক করুন, বা তার নিজের মেনু থেকে “বাছুন”।
 common.help.selecting.how.2 = Shift চেপে ক্লিক করলে টানা কয়েকটা বাছা হয়। সব বাছলে স্ক্রিনে যা আছে তাই ওঠে, ফিল্টারে লুকোনো কিছু নয়।
 common.help.selecting.how.3 = একটা বার আসে: সারিতে তিনটে আইকন, বাকিগুলো ⋯-এর পিছনে। চেপে ধরলে নাম দেখায়।
-common.help.selecting.more = উদ্ধৃতির উপরে: সারিতে রং, ♥ আর কুইজের সুইচ; ⋯-এর পিছনে ট্যাগ, একটা স্টিকার, অন্য বোর্ড আর মুছে ফেলা। বই, সিনেমা আর শোয়ের উপরে: ফাঁক ভরান, তাকে তুলুন, কুইজের সুইচ, আর ⋯-এর পিছনে মুছে ফেলা। ঠিক একটা বাছলে এডিট আসে; দ্বিতীয়টা বাছলেই চলে যায়। নিজে বন্ধ না করা পর্যন্ত বারটা থাকে, বাছাই শূন্য হলেও। মুছতে গেলে কী হবে সেটা টাইপ করে দিতে হয়, আর গোটাটা বিনে যায় একটাই এন্ট্রি হয়ে, একটাই আনডু নিয়ে।
+common.help.selecting.more = উদ্ধৃতির উপরে: সারিতে রং, ♥ আর কুইজের সুইচ; ⋯-এর পিছনে ট্যাগ, একটা স্টিকার, অন্য বোর্ড আর মুছে ফেলা। বই, সিনেমা আর শোয়ের উপরে: শূন্যস্থান পূরণ, তাকে তুলুন, কুইজের সুইচ, আর ⋯-এর পিছনে মুছে ফেলা। ঠিক একটা বাছলে এডিট আসে; দ্বিতীয়টা বাছলেই চলে যায়। নিজে বন্ধ না করা পর্যন্ত বারটা থাকে, বাছাই শূন্য হলেও। মুছতে গেলে কী হবে সেটা টাইপ করে দিতে হয়, আর গোটাটা বিনে যায় একটাই এন্ট্রি হয়ে, একটাই আনডু নিয়ে।
 
 # Favouriting one quote from its own menu.
 common.help.favourite.term = একটাকে প্রিয় করা
@@ -5919,7 +5919,7 @@ common.help.favourite.more = কার্ডের ♥-ও একই কাজ �
 
 # The right-click menu on a book, film or show cover.
 common.help.cover-menu.term = কভারের নিজের মেনু
-common.help.cover-menu.what = বোর্ডে বই, সিনেমা বা শোয়ে ডান-ক্লিক করুন — ফোনে চেপে ধরুন — মেনুতে থাকে বাছুন, ফাঁক ভরান, কুইজের সুইচ, এডিট আর মুছুন।
+common.help.cover-menu.what = বোর্ডে বই, সিনেমা বা শোয়ে ডান-ক্লিক করুন — ফোনে চেপে ধরুন — মেনুতে থাকে বাছুন, শূন্যস্থান পূরণ, কুইজের সুইচ, এডিট আর মুছুন।
 common.help.cover-menu.more = ওখানে যা যা আছে, ঠিক একটা জিনিস বাছলে বাছাইয়ের বারও তাই করতে পারত — সেটাই আসল কথা: বার আর কভার এখন একই তালিকা পড়ে। মুছতে গেলে আগে জিজ্ঞেস করে, আর সঙ্গে কটা উদ্ধৃতি যাবে বলে দেয়; তারপরের বার্তায় আনডু থাকে।
 
 # The selection-bar toggle that takes things out of the Daily Quiz.
@@ -5928,7 +5928,7 @@ common.help.skip-in-quiz.what = যা রাখেন সব নিয়ে �
 common.help.skip-in-quiz.more = সেগুলো বেছে “কুইজ থেকে বাদ দিন” ট্যাপ করলে রোজকার কুইজ আর ওখান থেকে টানে না, অথচ কিছুই মোছে না। একটা বইয়ে করলে পরে ওই বইয়ে যত দাগ রাখবেন সবেতেই খাটে। যেগুলো আগে থেকেই বাদ, সেগুলো বাছলে বোতামে লেখা ওঠে “কুইজে দিন” — তাই কোন দিকে আছে সেটা পড়েই বোঝা যায়।
 
 # The selection-bar action that fetches only the EMPTY fields.
-common.help.fill-gaps.term = ফাঁক ভরান
+common.help.fill-gaps.term = শূন্যস্থান পূরণ
 common.help.fill-gaps.what = বই, সিনেমা বা শো বেছে নিলে: প্রত্যেকটার মেটাডেটা এনে শুধু যে ঘরগুলো ফাঁকা সেগুলোই ভরে দেয়।
 common.help.fill-gaps.more = নিজের লেখা বিবরণ, নিজের শুধরে দেওয়া সাল, নিজের বাছা কভার — কোনওটাতেই হাত পড়ে না, তাই আগে থেকে দেখে নেওয়ার দরকারও নেই। মেটাডেটার “আবার মিলিয়ে দেখুন” এর উল্টো দিক: সে প্রতিটা অমিল দেখায়, আর আপনি যেগুলো বিশ্বাস করেন সেগুলোয় টিক দেওয়ার অপেক্ষায় থাকে।
 
