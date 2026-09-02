@@ -4010,6 +4010,16 @@
   /* The tick is pushed to the far end and holds its own width, so the rows in a
      group line up whether or not any of them is the current one. */
   .menu-tick { margin-left: auto; padding-left: 12px; color: var(--accent-ui); }
+  /* THE VALUE AND THE TICK SHARE ONE SLOT at the row's end, and whichever comes
+     first takes the free space — a row is a choice OR a door to one, never both,
+     but the rule is written rather than assumed so a row that grows the second
+     one does not stack two right margins. */
+  .menu-meta { margin-left: auto; padding-left: 12px; font-family: var(--font-mono); font-style: var(--font-mono-style); font-size: var(--type-mono-11); color: var(--faint); }
+  .menu-meta + .menu-tick { margin-left: 0; }
+  /* A label with a sub-line becomes the row's growing column, so the value at the
+     end still sits at the end. */
+  .menu-item-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .menu-sub { font-size: var(--type-ui-12); font-weight: 400; color: var(--soft); }
   [role="menuitemradio"] { padding-right: 8px; }
   /* Cover/poster tiles lift a touch on hover — the card rises and grows a hair,
      the shadow deepens, and the artwork brightens; a small press-down on click.
@@ -5829,14 +5839,6 @@ html[data-theme="dark"] .mobile-dock-btn.is-accent {
 /* A dead Back on the first screen of a session. Drawn, not dropped: removing it
    would slide Search out of the seat it holds on every other screen. */
 .mobile-dock-btn:disabled { opacity: .34; pointer-events: none; }
-/* Divides the three keys that never change from the two the screen owns. */
-.mobile-dock-rule {
-  width: 1px;
-  align-self: stretch;
-  margin: 6px 5px;
-  background: var(--line);
-  flex: none;
-}
 .mobile-dock-btn {
   position: relative;
   width: 56px; /* ≥44px hit target in both axes */

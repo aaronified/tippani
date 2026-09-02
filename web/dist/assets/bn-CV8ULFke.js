@@ -531,6 +531,7 @@ settings.updates.version.dev = dev
 # --- the tiles / list / table switch.
 common.view.toggle.aria = ভিউ
 common.view.tiles.label = টাইল
+common.view.list.label = তালিকা
 common.view.table.label = টেবিল
 
 # --- tables and filter rows.
@@ -2385,6 +2386,7 @@ quotes.export.confirm.body.other = চোখের সামনের {n}টি 
 common.mono.actions.label = কাজ
 common.mono.colour.label = রং
 common.mono.group.label = ভাগ
+common.mono.view.label = দৃশ্য
 common.mono.sort.label = ক্রম
 common.mono.tag.label = ট্যাগ
 common.mono.speaker.label = বক্তা
@@ -5967,13 +5969,22 @@ book.group.chapter.numbered.label = অধ্যায় {n}
 book.group.chapter.none.label = অধ্যায় নেই
 book.group.tag.none.label = ট্যাগ নেই
 book.group.date.none.label = তারিখ নেই
-book.sort.aria = উদ্ধৃতির ক্রম
 book.sort.default.label = সাম্প্রতিক
 book.sort.date.label = যোগ করার তারিখ
 book.sort.chapter.label = অধ্যায়
 book.sort.location.label = অবস্থান
 book.sort.length.label = দৈর্ঘ্য
 book.sort.category.label = শ্রেণি
-book.sort.dir.asc.aria = ছোট থেকে বড়
-book.sort.dir.desc.aria = বড় থেকে ছোট
+book.sort.dir.label = ক্রম
+book.sort.dir.asc.label = ছোট থেকে বড়
+book.sort.dir.desc.label = বড় থেকে ছোট
+book.sort.menu.label = সাজানো
+book.select.menu.label = উদ্ধৃতি বাছাই
+book.text.menu.label = উদ্ধৃতির লেখা
+book.text.both.label = দুটোই
+book.text.both.sub = মূল লেখা, তার নিচে অনুবাদ
+book.text.quote.label = শুধু উদ্ধৃতি
+book.text.quote.sub = যা লেখা হয়েছিল
+book.text.translation.label = শুধু অনুবাদ
+book.text.translation.sub = যা বোঝায়
 `;export{e as default};

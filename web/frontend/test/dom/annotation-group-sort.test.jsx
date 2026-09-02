@@ -27,6 +27,16 @@ vi.mock('../../src/api.js', async (orig) => ({
 }))
 
 const { default: Library } = await import('../../src/Library.jsx')
+const { buildScreenActions } = await import('../../src/ui.jsx')
+
+// The board publishes its settings into the screen's \u22ef, which the shell draws
+// and this test does not mount. buildScreenActions is what the shell calls when
+// the menu opens, so reading it is reading the menu.
+const screenAction = (name) => {
+  const row = buildScreenActions().find((it) => !it.heading && name.test(String(it.label)))
+  expect(row, String(name)).toBeTruthy()
+  return row
+}
 
 const board = () =>
   render(<Library openId={1} onOpen={() => {}} onClose={() => {}} creditSeparators=",;&" onAdd={() => {}} onSearch={() => {}} dataNonce={0} />)
@@ -47,6 +57,20 @@ const pick = async (label, option) => {
   fireEvent.click(screen.getByLabelText(new RegExp(`^${label}$`, 'i')))
   const opt = await screen.findByRole('option', { name: option })
   fireEvent.click(opt)
+}
+
+// The arrangement is a MENU now, not two selects and a key: the grouping is the
+// field and the ordering is the row at the end of its menu. A test presses what a
+// reader presses — the field, then the row.
+const openGroup = () => fireEvent.click(screen.getByLabelText(/^Group quotes by$/i))
+const groupBy = async (option) => {
+  openGroup()
+  fireEvent.click(await screen.findByRole('menuitemradio', { name: option }))
+}
+const sortBy = async (option) => {
+  openGroup()
+  fireEvent.click(await screen.findByRole('menuitem', { name: /^Sort/ }))
+  fireEvent.click(await screen.findByRole('menuitemradio', { name: option }))
 }
 
 // A COLOUR IS A FILING DECISION WITH SIX VALUES. The header's comment has said
@@ -86,17 +110,47 @@ describe('the category filter', () => {
 })
 
 describe('the board can be put in order', () => {
-  it('offers a sort and a grouping beside the view, where a setting belongs', async () => {
+  it('puts the ordering in the grouping\u2019s menu, not beside it in the header', async () => {
     board()
-    expect(await screen.findByLabelText(/^Sort quotes by$/i)).toBeTruthy()
-    expect(screen.getByLabelText(/^Group quotes by$/i)).toBeTruthy()
-    // And the direction is its own key rather than a two-value select.
-    expect(screen.getByRole('button', { name: /Ascending/i })).toBeTruthy()
+    const field = await screen.findByLabelText(/^Group quotes by$/i)
+    // ONE FIELD, not two selects and a direction key. The header carries the
+    // grouping because that is what changes what the page looks like; the
+    // ordering is the row at the end of its menu.
+    expect(field.getAttribute('aria-haspopup')).toBe('menu')
+    expect(screen.queryByLabelText(/^Sort quotes by$/i)).toBeNull()
+
+    openGroup()
+    // The row states the current ordering without being pressed, which is the
+    // whole reason it can afford to be a row rather than a control.
+    const row = await screen.findByRole('menuitem', { name: /^Sort/ })
+    expect(row.textContent).toMatch(/Recent/i)
+    expect(row.textContent).toMatch(/Ascending/i)
+
+    // And it swaps what the popover lists rather than opening a second one.
+    fireEvent.click(row)
+    expect(await screen.findByRole('menuitemradio', { name: 'Chapter' })).toBeTruthy()
+    expect(screen.getByRole('menuitemradio', { name: 'Descending' })).toBeTruthy()
+  })
+
+  it('sets the column and the direction in one visit to the menu', async () => {
+    board()
+    await screen.findByLabelText(/^Group quotes by$/i)
+    openGroup()
+    fireEvent.click(await screen.findByRole('menuitem', { name: /^Sort/ }))
+    // TWO QUESTIONS, ONE VISIT. A menu that shut after the column would make the
+    // direction cost two more presses than the thing it belongs to.
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Length' }))
+    const desc = await screen.findByRole('menuitemradio', { name: 'Descending' })
+    fireEvent.click(desc)
+    await waitFor(() => {
+      expect(screen.getByRole('menuitemradio', { name: 'Length' }).getAttribute('aria-checked')).toBe('true')
+      expect(screen.getByRole('menuitemradio', { name: 'Descending' }).getAttribute('aria-checked')).toBe('true')
+    })
   })
 
   it('reorders the cards a reader is looking at, not only the table', async () => {
     board()
-    await screen.findByLabelText(/^Sort quotes by$/i)
+    await screen.findByLabelText(/^Group quotes by$/i)
     // Default: the server's order, so the first card is the first row.
     await waitFor(() => expect(seen('The whale.')).toBe(true))
     const before = drawn().findIndex((s) => s.includes('Call me Ishmael'))
@@ -105,7 +159,7 @@ describe('the board can be put in order', () => {
 
     // By chapter: Two before Ten, which is the reading order and the reverse of
     // what the board opened with.
-    await pick('Sort quotes by', 'Chapter')
+    await sortBy('Chapter')
     await waitFor(() => {
       const rows = drawn()
       const two = rows.findIndex((s) => s.includes('Call me Ishmael'))
@@ -120,7 +174,7 @@ describe('the board can be put in order', () => {
     await screen.findByLabelText(/^Group quotes by$/i)
     expect(document.querySelectorAll('.ann-groups > section').length).toBe(0)
 
-    await pick('Group quotes by', 'by chapter')
+    await groupBy('by chapter')
     await waitFor(() => {
       // Three buckets: Two, Ten, and the one quote with no chapter.
       expect(document.querySelectorAll('.ann-groups > section').length).toBe(3)
@@ -139,12 +193,15 @@ describe('the board can be put in order', () => {
   it('keeps grouping when the view changes, because it is not a view', async () => {
     board()
     await screen.findByLabelText(/^Group quotes by$/i)
-    await pick('Group quotes by', 'by category')
+    await groupBy('by category')
     await waitFor(() => expect(document.querySelectorAll('.ann-groups > section').length).toBe(2))
     // The table view draws the same two sections. A control that worked in one
     // view and silently did nothing in another would be worse than no control.
-    // The view toggle's options are tabs, which is what a Toggle draws.
-    fireEvent.click(screen.getByRole('tab', { name: /table/i }))
+    //
+    // THE VIEW IS IN THE SCREEN'S \u22ef NOW, which the shell draws and this test
+    // does not mount — so it is pressed where it is published, which is the same
+    // list the shell renders and therefore the same claim.
+    screenAction(/^Table$/).onClick()
     await waitFor(() => expect(document.querySelectorAll('.ann-groups > section').length).toBe(2))
   })
 })

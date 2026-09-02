@@ -1292,7 +1292,11 @@ function MobileDock({ keys, hidden, canBack, onBack, onSearch, onAdd, addLabel, 
           {addBadge}
         </button>
       </Tooltip>
-      {seats.length > 0 && <span className="mobile-dock-rule" aria-hidden="true" />}
+      {/* NO RULE AFTER THE ＋ . It was drawn to separate the shell's three fixed
+          keys from whatever the screen contributes, but the ＋ already separates
+          them — it is the one accent seat in the row, and a hairline beside
+          something that loud is a second divider doing the first one's job. The
+          owner's call, and the row reads cleaner without it. */}
       {seats.map(key)}
     </nav>
   )

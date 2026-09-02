@@ -44,8 +44,8 @@ import {
 } from './works.jsx'
 import { t } from './i18n.js'
 import {
+  ActionMenu,
   ANNOTATION_COLORS,
-  FieldIconButton,
   QUOTE_COLUMNS_IN,
   byLastRead,
   bySeries,
@@ -68,6 +68,7 @@ import {
   HandNote,
   Hearts,
   IconButton,
+  IconCheck,
   IconDelete,
   IconDetails,
   IconExport,
@@ -77,10 +78,9 @@ import {
   IconQuiz,
   IconReadAgain,
   IconSearch,
+  IconSliders,
   Masonry,
   MobileSheet,
-  IconSortAsc,
-  IconSortDesc,
   MonoLabel,
   mulberry32,
   PageHeader,
@@ -117,6 +117,7 @@ import {
   useScreenBar,
   useScreenOwnsScroll,
   useTwoColumn,
+  ViewIcon,
   ViewToggle,
 } from './ui.jsx'
 
@@ -923,6 +924,9 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce 
     // through the ? and delete through nothing at all — finally has one place that
     // says what a book's page can do.
     actions: () => [
+      // The board publishes its own section AHEAD of this one — see Annotations —
+      // so this heading separates what can be done to the BOOK from how its quotes
+      // are drawn. Two sections, two subjects, one menu.
       { id: 'h-do', heading: t('common.mono.actions.label') },
       {
         id: 'shelf',
@@ -1423,6 +1427,112 @@ function CategoryFilter({ value, onChange }) {
   )
 }
 
+// GroupSortField — the board's arrangement, in one field.
+//
+// GROUPING AND SORTING ARE ONE DECISION MADE TWICE. "By chapter, in reading
+// order" is a single thought, and it was two controls plus a direction key
+// sitting side by side in the header — three things to press for one intent,
+// and the widest group in a row the design pack keeps to a single line.
+//
+// So the grouping is the field, and the ordering is the row at the end of its
+// menu. The pack's words: "the grouping is a field on the page, so the sort is
+// the row at the end of its menu rather than a second control competing for the
+// header". The field states the current grouping without being opened, which is
+// the job a control earns its width with; the ordering states itself as that
+// row's value, so one press away is still one glance away.
+//
+// ONE POPOVER, TWO CONTENTS, rather than a menu that opens a second menu beside
+// itself. `pop` says which is showing and the trigger is the anchor for both, so
+// going from Group to Sort is the same rectangle changing what it lists — a
+// desk's version of the phone pushing a sheet.
+//
+// A FIELD, NOT A CHIP. It carries the app's Select shape — the inset field with a
+// caption and a chevron — because a chip is a filter and this is a setting, and
+// the pack spends a paragraph on that exact confusion: grouping "was an
+// underlined word sitting in the chip scroller: same size, same row, same species
+// as 'favourites'".
+function GroupSortField({ groupBy, onGroup, sort, onSort }) {
+  const [pop, setPop] = useState(null)
+  const ref = useRef(null)
+  const groupLabel = t(`book.group.${GROUP_DIMS.includes(groupBy) ? groupBy : 'none'}.label`)
+  const sortLabel = t(`book.sort.${SORT_DIMS.includes(sort.col) ? sort.col : 'default'}.label`)
+  const dirLabel = t(sort.dir === 'desc' ? 'book.sort.dir.desc.label' : 'book.sort.dir.asc.label')
+  const items =
+    pop === 'sort'
+      ? [
+          { id: 'h-by', heading: t('common.mono.sort.label') },
+          ...SORT_DIMS.map((d) => ({
+            id: `s-${d}`,
+            label: t(`book.sort.${d}.label`),
+            checked: sort.col === d,
+            keepOpen: true,
+            onClick: () => onSort((cur) => ({ col: d, dir: cur.dir })),
+          })),
+          { id: 'h-dir', heading: t('book.sort.dir.label') },
+          ...['asc', 'desc'].map((d) => ({
+            id: `d-${d}`,
+            label: t(`book.sort.dir.${d}.label`),
+            checked: sort.dir === d,
+            keepOpen: true,
+            onClick: () => onSort((cur) => ({ col: cur.col, dir: d })),
+          })),
+        ]
+      : [
+          ...GROUP_DIMS.map((d) => ({
+            id: `g-${d}`,
+            label: t(`book.group.${d}.label`),
+            checked: groupBy === d,
+            onClick: () => onGroup(d),
+          })),
+          {
+            id: 'sort',
+            icon: <IconSliders />,
+            label: t('book.sort.menu.label'),
+            meta: `${sortLabel} · ${dirLabel}`,
+            // The one row that does NOT close the popover — it swaps what the
+            // popover is showing. Set after the menu's own close runs, which is
+            // why it is a state change and not a second ActionMenu.
+            onClick: () => setPop('sort'),
+          },
+        ]
+  return (
+    <div className="tp-select board-head-group" ref={ref}>
+      <button
+        type="button"
+        className="tp-select-trigger tactile"
+        aria-haspopup="menu"
+        aria-expanded={pop != null}
+        aria-label={t('book.group.aria')}
+        onClick={() => setPop((p) => (p ? null : 'group'))}
+      >
+        <MonoLabel>{t('common.mono.group.label')}</MonoLabel>
+        <span>{groupLabel}</span>
+        <svg
+          className="tp-select-chev"
+          width="14"
+          height="14"
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.7"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="m4 6 4 4 4-4" />
+        </svg>
+      </button>
+      <ActionMenu
+        open={pop != null}
+        items={items}
+        anchorRef={ref}
+        onClose={() => setPop(null)}
+        returnFocusTo={ref}
+      />
+    </div>
+  )
+}
+
 // AnnotationBoard — one set of quotes, drawn in whichever view is chosen.
 //
 // IT EXISTS BECAUSE OF GROUPING. A grouped board draws its view once per section,
@@ -1437,11 +1547,13 @@ function AnnotationBoard({
   rows, view, tagMap, stickerMap, stickers, reloadStickers, editingId, setEditingId,
   save, patch, remove, onCopy, onShare, selection, sort, onSort,
   columns, clamp, expandedId, onToggleExpand, boardRef = null, pinnedCount = 0, seed = 1,
+  tview = 'both',
 }) {
   if (view === 'table') {
     return (
       <AnnotationTable
         rows={rows}
+        tview={tview}
         tagMap={tagMap}
         stickers={stickers}
         reloadStickers={reloadStickers}
@@ -1475,6 +1587,7 @@ function AnnotationBoard({
       quoteLines={lines}
       tagSuggestions={Object.keys(tagMap)}
       selection={selection}
+      tview={tview}
       {...(expandable
         ? { expanded: expandedId === a.id, onToggleExpand: () => onToggleExpand(a.id) }
         : null)}
@@ -1654,6 +1767,41 @@ export function groupAnnotations(rows, dim) {
   return out
 }
 
+// ── WHICH TEXT ───────────────────────────────────────────────────────────────
+//
+// TEXT_VIEWS is the reader's answer to "a quote here is two texts". `both` is the
+// board as it has always drawn: the words, then the translation under them.
+//
+// THE SUB-LINE IS PART OF THE SETTING, not decoration on it. "Quote only" and
+// "Translation only" are unambiguous once you know a quote can carry a
+// translation, and the whole difficulty is that most readers do not — the second
+// line is where that fact is stated, in the one place someone is looking for it.
+export const TEXT_VIEWS = ['both', 'quote', 'translation']
+
+// VIEW_KINDS — the three the board actually renders, in the order the menu lists
+// them. AnnotationBoard has always drawn all three; only the toggle narrowed it.
+export const VIEW_KINDS = ['tiles', 'list', 'table']
+
+// quoteBody — WHICH TEXT GOES IN THE BIG TYPE, given the setting.
+//
+// A FALLBACK, NOT A BLANK. "Translation only" on a quote with no translation
+// falls back to the quote rather than showing an empty card. The alternative —
+// honouring the setting exactly — empties every untranslated quote on the board,
+// which on a library where translations are the exception is a setting that looks
+// like a bug that has deleted your highlights. The setting says which text to
+// PREFER; a card still has to say something.
+export function quoteBody(a, tview) {
+  if (tview === 'translation' && a.translation) return a.translation
+  return a.quote
+}
+
+// showsTranslationLine — whether the second line under the words is drawn. Only
+// in `both`: in `translation` the translation IS the words, and drawing it twice
+// is the failure this pair exists to avoid.
+export function showsTranslationLine(a, tview) {
+  return tview !== 'quote' && tview !== 'translation' && !!a.translation
+}
+
 function ActionRow({ acts, a, color, onColor, patch, actionsAlwaysVisible }) {
   // `acts` is built by the card, from the registry (actions.jsx) — one list per
   // card, rendered in three places: this row, the ⋯, and the context menu. Built
@@ -1701,8 +1849,9 @@ function ActionRow({ acts, a, color, onColor, patch, actionsAlwaysVisible }) {
 // colour dots are keyed to the same two selectors. A bespoke wrapper would look
 // right on a desktop screenshot and silently lose the aesthetic toggle, the
 // hover affordances and the 320px layout all at once.
-export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, setEditingId, save, patch, remove, onCopy, onShare, quoteLines = 6, tagSuggestions = [], actionsAlwaysVisible = false, editInline = false, expanded, onToggleExpand, meta, form: Form = AnnotationForm, selection, selectKind = 'annotation', onMoveBoard }) {
+export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, setEditingId, save, patch, remove, onCopy, onShare, quoteLines = 6, tagSuggestions = [], actionsAlwaysVisible = false, editInline = false, expanded, onToggleExpand, meta, form: Form = AnnotationForm, selection, selectKind = 'annotation', onMoveBoard, tview = 'both' }) {
   const sticker = a.sticker_id != null ? stickerMap[a.sticker_id] : null
+  const body = quoteBody(a, tview)
   // Accordion mode (tiles board): the parent owns which quote is open, so one
   // expands at a time. Elsewhere (list, search modal) each card keeps its own.
   const accordion = typeof onToggleExpand === 'function'
@@ -1827,10 +1976,14 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
         </FormModal>
       )}
         <div className="space-y-2">
-          {a.quote &&
+          {/* WHAT THE BIG TYPE SAYS is the reader's setting, not always the
+              original — see quoteBody. Defaulting to 'both' means every other
+              surface that renders this card (the search modal, the Catalogue,
+              a film's dialogue board) is untouched. */}
+          {body &&
             (sticker ? (
               <FlowQuote
-                text={a.quote}
+                text={body}
                 quoteStyle={QUOTE_STYLE}
                 stickerKey={`s${sticker.id}`}
                 maxLines={quoteLines} /* collapsed → small corner badge; expanded →
@@ -1843,7 +1996,7 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
               />
             ) : (
               <ExpandableText
-                text={a.quote}
+                text={body}
                 lines={quoteLines}
                 style={QUOTE_STYLE}
                 open={accordion ? !!expanded : undefined}
@@ -1887,7 +2040,7 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
               Drawn here rather than inside each kind's `meta` node so that all
               three kinds — and the search modal, which asks utteranceMeta for a
               plain string — show it identically. */}
-          {a.translation && <TranslationLine>{a.translation}</TranslationLine>}
+          {showsTranslationLine(a, tview) && <TranslationLine>{a.translation}</TranslationLine>}
           {a.note && <HandNote>{a.note}</HandNote>}
           {a.tags && a.tags.length > 0 && (
             <div className="flex flex-wrap gap-2 pt-1">
@@ -1916,7 +2069,7 @@ const TABLE_COLS = [
   { key: 'favorite', get label() { return t('book.table.favourite.label') } },
 ]
 
-function AnnotationTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSort, editingId, setEditingId, save, remove, onCopy, onShare }) {
+function AnnotationTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSort, editingId, setEditingId, save, remove, onCopy, onShare, tview = 'both' }) {
   const arrow = (k) => (sort.col === k ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : '')
   const editingRow = rows.find((a) => a.id === editingId)
   return (
@@ -1939,7 +2092,11 @@ function AnnotationTable({ rows, tagMap, stickers = [], reloadStickers, sort, on
           {rows.map((a) => (
             <tr key={a.id}>
               <td className="col-quote">
-                <ExpandableText text={a.quote || a.note} lines={2} style={QUOTE_STYLE} />
+                {/* The table honours the same setting the cards do — it is the
+                    one view where the translation was never drawn at all, so a
+                    reader who asked for "translation only" here used to get the
+                    original back with no sign the setting had done anything. */}
+                <ExpandableText text={quoteBody(a, tview) || a.note} lines={2} style={QUOTE_STYLE} />
                 {a.tags && a.tags.length > 0 && (
                   <div className="mt-1.5 flex flex-wrap gap-1.5">
                     {a.tags.map((name) => {
@@ -2031,6 +2188,12 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
   // to be saved is a board you scroll rather than read.
   const [sort, setSort] = usePersistedState('tippani:annsort', { col: 'default', dir: 'asc' })
   const [groupBy, setGroupBy] = usePersistedState('tippani:anngroup', 'none')
+  // WHICH TEXT, not which layout — and the two are settings of the same kind, so
+  // they sit together in the menu. A translated quote is two texts, and which one
+  // a reader wants changes per sitting: the original when they can read it, the
+  // translation when they cannot, both when they are comparing them. Nothing on
+  // this board could ask for that before; it always drew both.
+  const [tview, setTview] = usePersistedState('tippani:anntext', 'both')
   // Ids of annotations added this session, most-recent first. They're floated to
   // the top of the pile (overriding the current order) so the user sees their
   // addition — until they sort, which clears the pin (see toggleSort).
@@ -2116,6 +2279,61 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
     selection.clear()
     load()
   }
+
+  // ── WHAT THE BOARD PUTS IN THE SCREEN'S ⋯ .
+  //
+  // A SECOND SECTION IN THE SAME MENU, published by the board rather than by the
+  // page around it, because these are settings of the LIST and the page's own
+  // section is about the WORK. buildScreenActions concatenates every publisher for
+  // exactly this — "on a composed page" is its own note — and a child's effect
+  // runs before its parent's, so this section leads.
+  //
+  // THE VIEW LIVES HERE NOW, and the design pack's argument is the one that moved
+  // it: "on the surface it was the widest group in the header — a 210px
+  // three-option strip — and it broke the row onto three lines at 720px. It is
+  // also the control changed least often: you pick a view and read for an hour. A
+  // setting that costs the most width and earns the least use belongs behind ⋯."
+  //
+  // AND LIST IS BACK, on this board. ViewToggle dropped it for a reason that was
+  // entirely about the switch — "the third option cost a third of the switch's
+  // width to offer a fourth of a difference" — and a menu row costs no width at
+  // all. The renderer never stopped drawing it; `list` was a setting you could
+  // hold and not choose.
+  //
+  // RADIO ROWS, NOT ROWS THAT OPEN FURTHER MENUS. The pack's ⋯ nests because its
+  // popover stack can; this is the shell's menu, whose own note says what it is
+  // for — "it names which view you are in, which sort is running, what the filters
+  // are". Ticked rows under a heading say that outright, at one press instead of
+  // two.
+  useScreenBar({
+    actions: () => [
+      { id: 'h-view', heading: t('common.mono.view.label') },
+      ...VIEW_KINDS.map((v) => ({
+        id: `view-${v}`,
+        icon: <ViewIcon kind={v} />,
+        label: t(`common.view.${v}.label`),
+        checked: view === v,
+        onClick: () => setView(v),
+      })),
+      { id: 'h-text', heading: t('book.text.menu.label') },
+      ...TEXT_VIEWS.map((k) => ({
+        id: `text-${k}`,
+        label: t(`book.text.${k}.label`),
+        sub: t(`book.text.${k}.sub`),
+        checked: tview === k,
+        onClick: () => setTview(k),
+      })),
+      // THE THIRD DOOR INTO SELECTING, and the only one that can be found by
+      // looking. The other two — a long press and a Ctrl-click — are gestures a
+      // reader has to already know, on a board where nothing says the mode exists.
+      // Hidden while the mode is running: a row offering to start what is already
+      // started is the dead control the selection menu's own note argues against.
+      ...(selection.active
+        ? []
+        : [{ id: 'select', icon: <IconCheck />, label: t('book.select.menu.label'), onClick: () => selection.begin('annotation') }]),
+    ],
+  })
+
   // Tiles are a height-packed masonry (1/2/3 cols by width). Newly-added quotes
   // (the pinned prefix of displayRows) stay glued to the top of the board.
   // THE BOARD IS NOT THE WINDOW, and measuring the window is what put four
@@ -2303,6 +2521,7 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
   // does not change per section is bundled here.
   const board = {
     view,
+    tview,
     tagMap,
     stickerMap,
     stickers,
@@ -2396,6 +2615,14 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
       {!mobile && (
         <div className="board-head">
           <div className="board-head-left">
+            {/* HOW IT IS ARRANGED COMES FIRST, before what it is filtered to: the
+                pack's left group is "what you are looking at and how it is
+                grouped", and the grouping is the part that changes what the whole
+                page looks like. Outside the scroller, because a setting that can
+                scroll out of sight is a page arranged by something nothing on
+                screen still says. */}
+            <GroupSortField groupBy={groupBy} onGroup={setGroupBy} sort={sort} onSort={setSort} />
+            <span className="board-head-rule" aria-hidden="true" />
             {/* A COLOUR IS A FILING DECISION WITH SIX VALUES, SO IT OPENS A LIST
                 rather than sitting there as six toggles — which is what this
                 comment has said since the row was drawn, over a control that was
@@ -2443,41 +2670,6 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
             </Scroller>
           </div>
           <div className="board-head-verbs">
-            {/* ORDER AND GROUPING, OUTSIDE THE SCROLLER, beside the view. They are
-                settings rather than filters — chosen once and then read for an
-                hour — so they keep their own place instead of scrolling away
-                among the chips, which is the same rule the colour control four
-                lines up follows.
-
-                GROUPING AND SORTING ARE ONE DECISION MADE TWICE, which is why
-                they sit together: "by chapter, in reading order" is one thought.
-                The direction is its own key rather than a second Select, because
-                it has two values and a two-value select is a toggle with a lid. */}
-            <label className="board-head-set">
-              <MonoLabel>{t('common.mono.group.label')}</MonoLabel>
-              <Select
-                ariaLabel={t('book.group.aria')}
-                value={groupBy}
-                onChange={setGroupBy}
-                options={GROUP_DIMS.map((d) => [d, t(`book.group.${d}.label`)])}
-              />
-            </label>
-            <label className="board-head-set">
-              <MonoLabel>{t('common.mono.sort.label')}</MonoLabel>
-              <Select
-                ariaLabel={t('book.sort.aria')}
-                value={sort.col}
-                onChange={(col) => setSort((cur) => ({ col, dir: cur.dir }))}
-                options={SORT_DIMS.map((d) => [d, t(`book.sort.${d}.label`)])}
-              />
-            </label>
-            <FieldIconButton
-              icon={sort.dir === 'asc' ? <IconSortAsc /> : <IconSortDesc />}
-              ariaLabel={t(sort.dir === 'asc' ? 'book.sort.dir.asc.aria' : 'book.sort.dir.desc.aria')}
-              tooltip={t(sort.dir === 'asc' ? 'book.sort.dir.asc.aria' : 'book.sort.dir.desc.aria')}
-              onClick={() => setSort((cur) => ({ col: cur.col, dir: cur.dir === 'asc' ? 'desc' : 'asc' }))}
-            />
-            <ViewToggle value={view} onChange={setView} />
             {/* Both form factors now open the ONE Add surface, on Capture with
                 this book as the target — the shell's ＋ knows which page it is
                 on. This is the desktop route to it; the phone's is the ＋ in the

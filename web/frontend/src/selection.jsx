@@ -145,6 +145,18 @@ export function useSelection(orderedIds = []) {
     [visible, toggle],
   )
 
+  // begin enters the mode with NOTHING PICKED — the menu's door in, beside the
+  // long-press and the Ctrl-click. It exists because the other two doors both
+  // require a card: a reader who wants to start picking has to guess a gesture on
+  // a row, and a menu row that says "Select quotes" is the one way in that can be
+  // FOUND rather than known. Nothing is picked because the reader has not picked
+  // anything — the bar stands at zero, which is exactly the state `open` was split
+  // from `count > 0` to make expressible.
+  const begin = useCallback((itemKind) => {
+    setOpen(true)
+    setKind((k) => k || itemKind || null)
+  }, [])
+
   const selectAll = useCallback(
     (itemKind) => {
       setOpen(true)
@@ -179,6 +191,7 @@ export function useSelection(orderedIds = []) {
     isSelected: (id) => ids.has(id),
     toggle,
     extendTo,
+    begin,
     selectAll,
     deselectAll,
     dismiss,

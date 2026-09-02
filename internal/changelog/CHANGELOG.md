@@ -9,6 +9,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A quote's translation is a reading setting now.** A translated quote is two texts,
+  and the board always drew both. **Quote text** in a book's ⋯ chooses which — *Both*,
+  *Quote only*, or *Translation only* — and the choice sticks. Asked for the translation
+  alone, a quote that has none shows its own words rather than an empty card, and the
+  table view honours it, which is the one place the translation was never drawn at all.
+
+- **The list view is reachable again.** The board has always drawn three views; the
+  toggle offered two, so *List* was a setting you could hold and not choose. It costs a
+  menu row and no header width.
+
+- **Selecting quotes can be found by looking.** A **Select quotes** row starts the mode
+  with nothing picked. The other two ways in — a long press and a Ctrl-click — are
+  gestures a reader has to already know.
+
+### Changed
+
+- **A book's board header is one row of the things that arrange it.** The view moved
+  into the screen's ⋯ (it was the widest control in the row and the least often
+  changed), and the sort folded into the grouping's menu, where it states the current
+  order without being opened. Grouping and ordering are one decision made twice —
+  "by chapter, in reading order" — and were three controls side by side.
+
+- **The phone's dock drops the hairline after ＋.** The accent key already separates the
+  shell's fixed seats from the screen's.
+
 - **The metadata catalogue shows each work's cover.** The one list whose subject is the
   picture — two of its filters are *no cover* and *low-res* — showed no pictures, so
   checking a flag meant opening every row to see the thing being flagged. A work with

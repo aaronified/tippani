@@ -7435,12 +7435,34 @@ export function ActionMenu({ open, items = [], anchorRef, at = null, onClose, re
           // one, so nothing written here could have stopped it.
           onClick={(e) => {
             e.stopPropagation()
-            close()
+            // A PICK ANSWERS THE QUESTION, SO THE MENU LEAVES — except where the
+            // next pick is likely, which is a menu holding more than one question.
+            // "Sort by length" and "descending" are two decisions made in one
+            // visit, and a menu that shuts between them makes the second one cost
+            // two more presses than the first.
+            if (!it.keepOpen) close()
             it.onClick()
           }}
         >
           {it.icon}
-          {it.label}
+          {/* A SUB-LINE IS PART OF THE LABEL, not a second column. "Both / the
+              original, then the translation under it" is one row saying one thing
+              at two lengths, and a reader who already knows what "Both" means
+              never has to read the second line. Only drawn when a row has one, so
+              every menu in the app keeps its single-line rows. */}
+          {it.sub ? (
+            <span className="menu-item-text">
+              <span>{it.label}</span>
+              <span className="menu-sub">{it.sub}</span>
+            </span>
+          ) : (
+            it.label
+          )}
+          {/* THE ROW ANSWERS ITSELF WITHOUT BEING OPENED. A row that leads to a
+              choice states the current one here — "View · Tiles" — which is the
+              second job the control it replaced was doing by simply being visible.
+              Faint and mono, so it reads as a value rather than a second label. */}
+          {it.meta ? <span className="menu-meta">{it.meta}</span> : null}
           {/* The tick sits at the END of the row rather than in the icon slot: the
               icon says what the row IS and the tick says whether it is on, and
               putting the second where the first goes loses the first. */}
