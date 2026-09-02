@@ -40,6 +40,13 @@ type BookCandidate struct {
 	CoverURL      string   `json:"cover_url"`
 	Series        string   `json:"series"`       // franchise/series name, where the source has it
 	SeriesIndex   float64  `json:"series_index"` // position within the series (0 = unknown)
+	// 0061. All three have been in both providers' replies since the beginning
+	// and were parsed by neither: Google carries `subtitle`, `publisher` and
+	// `pageCount`; Open Library's search doc carries `subtitle`, `publisher` and
+	// `number_of_pages_median`. Nothing new is fetched to fill them.
+	Subtitle  string `json:"subtitle"`
+	Publisher string `json:"publisher"`
+	Pages     int    `json:"pages"` // 0 = the source did not say
 
 	// Both provider ids, not just the one in SourceID. A merged candidate is
 	// assembled from two providers and has two identities; keeping only the
@@ -325,6 +332,33 @@ func mergeSameBook(cands []BookCandidate) []BookCandidate {
 		if c.Series != "" && (out.Series == "" || (out.SeriesIndex == 0 && c.SeriesIndex != 0)) {
 			out.Series, out.SeriesIndex = c.Series, c.SeriesIndex
 		}
+		// GOOGLE WINS THE EDITION FACTS, which is the mirror image of the title
+		// rule three lines up rather than a contradiction of it. Open Library
+		// describes the WORK — every publisher that ever printed it, the median
+		// extent across all of them — and Google describes the copy in your hand,
+		// which is what a publisher and a page count are questions about. Where
+		// Google is silent, OL's answer is better than none.
+		if c.Source == "google" {
+			if c.Publisher != "" {
+				out.Publisher = c.Publisher
+			}
+			if c.Pages != 0 {
+				out.Pages = c.Pages
+			}
+			if c.Subtitle != "" {
+				out.Subtitle = c.Subtitle
+			}
+		} else {
+			if out.Publisher == "" {
+				out.Publisher = c.Publisher
+			}
+			if out.Pages == 0 {
+				out.Pages = c.Pages
+			}
+			if out.Subtitle == "" {
+				out.Subtitle = c.Subtitle
+			}
+		}
 		out.Genres = unionGenres(out.Genres, c.Genres)
 		if c.GoogleID != "" {
 			out.GoogleID = c.GoogleID
@@ -428,6 +462,8 @@ func searchGoogle(ctx context.Context, q, key string) ([]BookCandidate, error) {
 				Authors             []string `json:"authors"`
 				Description         string   `json:"description"`
 				PublishedDate       string   `json:"publishedDate"`
+				Publisher           string   `json:"publisher"`
+				PageCount           int      `json:"pageCount"`
 				Categories          []string `json:"categories"`
 				IndustryIdentifiers []struct {
 					Type       string `json:"type"`
@@ -466,8 +502,15 @@ func searchGoogle(ctx context.Context, q, key string) ([]BookCandidate, error) {
 			ISBN13:        isbn13,
 			Description:   vi.Description,
 			PublishedYear: leadingYear(vi.PublishedDate),
-			Genres:        vi.Categories,
-			CoverURL:      bestGoogleCover(vi.ImageLinks),
+			// The subtitle is NOT dropped where deriveSeriesFromTitle read a series
+			// out of it: "Reaper's Gale: Malazan Book of the Fallen 7" is both the
+			// series and the edition's subtitle line, and which of the two a reader
+			// wants on the record is theirs to decide from a field they can see.
+			Subtitle:  vi.Subtitle,
+			Publisher: vi.Publisher,
+			Pages:     vi.PageCount,
+			Genres:    vi.Categories,
+			CoverURL:  bestGoogleCover(vi.ImageLinks),
 			Series:        gName,
 			SeriesIndex:   gIdx,
 		})
@@ -528,7 +571,7 @@ func GoogleHiResCover(raw string) string {
 // title=). isbnEcho is stamped onto candidates when the query was by ISBN (OL
 // docs don't echo the queried ISBN back).
 func searchOpenLibrary(ctx context.Context, params url.Values, isbnEcho string) ([]BookCandidate, error) {
-	params.Set("fields", "key,title,author_name,first_publish_year,cover_i,subject,series")
+	params.Set("fields", "key,title,subtitle,author_name,first_publish_year,cover_i,subject,series,publisher,number_of_pages_median")
 	params.Set("limit", "10")
 	u := openLibraryBase + "/search.json?" + params.Encode()
 	body, status, err := httpGet(ctx, u, "")
@@ -542,11 +585,19 @@ func searchOpenLibrary(ctx context.Context, params url.Values, isbnEcho string) 
 		Docs []struct {
 			Key              string   `json:"key"`
 			Title            string   `json:"title"`
+			Subtitle         string   `json:"subtitle"`
 			AuthorName       []string `json:"author_name"`
 			FirstPublishYear int      `json:"first_publish_year"`
 			CoverI           int64    `json:"cover_i"`
 			Subject          []string `json:"subject"`
 			Series           []string `json:"series"`
+			// A WORK doc aggregates every edition, so both of these are plural and
+			// neither is the edition in hand: `publisher` is every house that has
+			// ever printed it and the median page count is exactly that. The first
+			// publisher and the median extent are the honest reading of a work-level
+			// record, and Google's edition-level answer beats both in the merge.
+			Publisher []string `json:"publisher"`
+			Pages     int      `json:"number_of_pages_median"`
 		} `json:"docs"`
 	}
 	if err := json.Unmarshal(body, &r); err != nil {
@@ -572,6 +623,9 @@ func searchOpenLibrary(ctx context.Context, params url.Values, isbnEcho string) 
 			SourceID:      d.Key,
 			OpenLibraryID: d.Key,
 			Title:         d.Title,
+			Subtitle:      d.Subtitle,
+			Publisher:     firstOf(d.Publisher),
+			Pages:         d.Pages,
 			Author:        strings.Join(d.AuthorName, ", "),
 			ISBN13:        isbnEcho, // OL docs don't echo the queried ISBN back
 			PublishedYear: d.FirstPublishYear,
@@ -582,4 +636,16 @@ func searchOpenLibrary(ctx context.Context, params url.Values, isbnEcho string) 
 		})
 	}
 	return out, nil
+}
+
+// firstOf is the first non-blank entry of a provider's plural field. Open
+// Library answers with a list wherever a work has had several — publishers,
+// mostly — and the first is the one its own record leads with.
+func firstOf(vals []string) string {
+	for _, v := range vals {
+		if s := strings.TrimSpace(v); s != "" {
+			return s
+		}
+	}
+	return ""
 }

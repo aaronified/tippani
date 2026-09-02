@@ -54,7 +54,7 @@ import {
 
 // ---- field specs -----------------------------------------------------------
 // One row per stored field. `kind` picks the editor and the coercion on save:
-//   text (default) · long (textarea) · year · number · tokens · id
+//   text (default) · long (textarea) · year · number · count · tokens · id
 // `hint` is the InfoDot beside the label — where the ISBN/ASIN/TMDB explanation
 // went when it came off the hero.
 
@@ -64,6 +64,14 @@ import {
 // whole names in other languages ("Nguyen Van An"). See ui.jsx's SMALL_WORDS.
 const BOOK_FIELDS = [
   { key: 'title', get label() { return t('common.field.title.label') }, nameCase: true },
+  // NOT nameCase. A subtitle is a sentence more often than it is a name — "A
+  // Novel", "The Life of Samuel Johnson" — and title-casing it would capitalise
+  // the small words a title keeps small.
+  {
+    key: 'subtitle',
+    get label() { return t('common.field.subtitle.label') },
+    get hint() { return t('book.field.subtitle.info') },
+  },
   {
     key: 'author',
     get label() { return t('common.field.author.label') },
@@ -100,6 +108,23 @@ const BOOK_FIELDS = [
     get label() { return t('common.field.asin.label') },
     get hint() { return t('book.field.asin.info') },
   },
+  {
+    key: 'publisher',
+    get label() { return t('common.field.publisher.label') },
+    nameCase: true,
+    get hint() { return t('book.field.publisher.info') },
+  },
+  {
+    key: 'pages',
+    get label() { return t('common.field.pages.label') },
+    kind: 'count',
+    get hint() { return t('book.field.pages.info') },
+  },
+  // THE TWO LANGUAGES, storable since 0047 and never once editable from a screen.
+  // The hero has printed them for releases and the only way to put one there was
+  // an import file — a field the app can show, can search by and cannot be told.
+  { key: 'language', get label() { return t('common.field.language.label') } },
+  { key: 'orig_language', get label() { return t('common.field.orig-language.label') } },
   { key: 'genres', get label() { return t('common.field.genres.label') }, kind: 'tokens' },
   { key: 'description', get label() { return t('common.field.description.label') }, kind: 'long' },
 ]
@@ -250,6 +275,13 @@ export function fullState(kind, it) {
       // worse than no row at all.
       language: it.language || '',
       orig_language: it.orig_language || '',
+      // 0061, and on this list for exactly the reason the two above it are: the
+      // server's UPDATE writes every column it names unconditionally, so a body
+      // that omits one clears it. A field added to the form and not added here is
+      // a field the next ♥ press deletes.
+      subtitle: it.subtitle || '',
+      publisher: it.publisher || '',
+      pages: it.pages || 0,
       genres: it.genres || [],
       series: it.series || '',
       series_index: it.series_index || 0,
@@ -295,6 +327,12 @@ function coerce(spec, draft) {
     return spec.circaKey ? { [spec.key]: year, [spec.circaKey]: circa } : year
   }
   if (spec.kind === 'number') return Number(String(draft).trim()) || 0
+  // A COUNT IS NOT A NUMBER, and the difference is a 400 the reader cannot read.
+  // `series_index` is deliberately fractional — Discworld 22.5 is a real book —
+  // while a page count is a whole non-negative one, and the server's field is an
+  // int: sending 480.5 fails the JSON decode before any validation gets to say
+  // something useful about it. Rounded here, where the typo is.
+  if (spec.kind === 'count') return Math.max(0, Math.round(Number(String(draft).trim()) || 0))
   // A supplier id is a positive whole number or nothing at all; 0 is how the
   // API spells "clear it", so an emptied field and a typo both land there
   // rather than sending a fraction the server would only reject.
@@ -307,7 +345,7 @@ function resting(spec, it) {
   const v = it?.[spec.key]
   if (spec.kind === 'tokens') return v || []
   if (spec.kind === 'year') return formatYear(v, spec.circaKey ? it?.[spec.circaKey] : false)
-  if (spec.kind === 'number' || spec.kind === 'id') return v ? String(v) : ''
+  if (spec.kind === 'number' || spec.kind === 'count' || spec.kind === 'id') return v ? String(v) : ''
   return v == null ? '' : String(v)
 }
 
@@ -318,7 +356,7 @@ function resting(spec, it) {
 // pre-tick, and a match that also has no year would propose "0" as a change.
 function blank(v, kind) {
   if (Array.isArray(v)) return v.length === 0
-  if (kind === 'year' || kind === 'number' || kind === 'id') return !Number(v)
+  if (kind === 'year' || kind === 'number' || kind === 'count' || kind === 'id') return !Number(v)
   return String(v ?? '').trim() === ''
 }
 
@@ -433,6 +471,12 @@ export function WorkDetails({ onClose, kind, item, onChanged, onDelete }) {
       series_index: c.series_index || 0,
       genres: c.genres || [],
       description: c.description || '',
+      // 0061. The suppliers have always sent these and the app always dropped
+      // them; a match that carries a publisher and does not offer it is a match
+      // silently declining to fill the blank it can fill.
+      subtitle: c.subtitle || '',
+      publisher: c.publisher || '',
+      pages: c.pages || 0,
     }
     return buildRows(cand, c.cover_url || '')
   }
@@ -929,7 +973,7 @@ function FieldList({ kind, item, specs, mediaType, busy, genreSuggestions, onSav
               busy={!!busy}
               nameCase={!!spec.nameCase}
               multiline={spec.kind === 'long'}
-              inputMode={spec.kind === 'number' ? 'decimal' : undefined}
+              inputMode={spec.kind === 'number' ? 'decimal' : spec.kind === 'count' ? 'numeric' : undefined}
               maxLength={spec.kind === 'year' ? 12 : undefined}
               onSave={(d) => onSaveField(spec, d)}
               // A text field can carry a link too — the IMDb id is a string

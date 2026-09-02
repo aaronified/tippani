@@ -154,6 +154,20 @@ func parseFrontmatter(lines []string) (*Result, error) {
 			res.Book.Language = val
 		case "orig_language", "orig language", "original language", "original_language":
 			res.Book.OrigLanguage = val
+		// 0061. `page_count` is spelled apart from `page`/`pages` below, which have
+		// meant the reading position since 0024 — one word could not carry both
+		// "how long the book is" and "where I am in it", and the older meaning is
+		// the one already in every exported file.
+		case "subtitle":
+			res.Book.Subtitle = val
+		case "publisher":
+			res.Book.Publisher = val
+		case "page_count", "page count", "pagecount", "extent":
+			// parseCount's `nil` and a zero mean the same thing on this column —
+			// "the file didn't say" — because a book of no pages is not a thing.
+			if n := parseCount(val); n != nil {
+				res.Book.Pages = *n
+			}
 		case "isbn":
 			res.Book.ISBN = val
 		case "series":

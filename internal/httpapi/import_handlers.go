@@ -460,7 +460,10 @@ func upsertImportBook(tx *sql.Tx, uid int64, b importer.Book, seps metadata.Cred
 			                            translator = COALESCE(NULLIF(translator, ''), ?),
 			                            editor = COALESCE(NULLIF(editor, ''), ?),
 			                            language = COALESCE(NULLIF(language, ''), ?),
-			                            orig_language = COALESCE(NULLIF(orig_language, ''), ?)
+			                            orig_language = COALESCE(NULLIF(orig_language, ''), ?),
+			                            subtitle = COALESCE(NULLIF(subtitle, ''), ?),
+			                            publisher = COALESCE(NULLIF(publisher, ''), ?),
+			                            pages = COALESCE(NULLIF(pages, 0), ?)
 			                        WHERE id = ?`,
 			nullable(isbn), nullable(b.ASIN), nullable(b.Author),
 			nullable(b.Series), nullableFloat(b.SeriesIndex),
@@ -468,7 +471,10 @@ func upsertImportBook(tx *sql.Tx, uid int64, b importer.Book, seps metadata.Cred
 			// under the same rule: what is already on the row wins, and an import can
 			// only fill a blank. A reader who corrected a bad `orig_language` by hand
 			// must not have the old file's value put back on the next re-import.
-			b.Translator, b.Editor, b.Language, b.OrigLanguage, id); err != nil {
+			b.Translator, b.Editor, b.Language, b.OrigLanguage,
+			// 0061's three take the same NULLIF form, `pages` included: it is NOT NULL
+			// DEFAULT 0, so 0 is its "unset" the way '' is the others'.
+			b.Subtitle, b.Publisher, b.Pages, id); err != nil {
 			return 0, false, err
 		}
 		// Shelf state is its own backfill (fill-empty-only, never clearing) so a
@@ -492,10 +498,12 @@ func upsertImportBook(tx *sql.Tx, uid int64, b importer.Book, seps metadata.Cred
 	}
 	if _, err := tx.Exec(
 		`INSERT INTO books (id, updated_at, user_id, title, author, translator, editor,
-		                    language, orig_language, isbn, asin, series, series_index)
-		 VALUES (?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		                    language, orig_language, subtitle, publisher, pages,
+		                    isbn, asin, series, series_index)
+		 VALUES (?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		id, uid, b.Title, nullable(b.Author), b.Translator, b.Editor,
 		b.Language, b.OrigLanguage, // plain strings: NOT NULL DEFAULT '' (0047)
+		b.Subtitle, b.Publisher, b.Pages, // and 0061's, on the same terms
 		nullable(isbn), nullable(b.ASIN),
 		nullable(b.Series), nullableFloat(b.SeriesIndex)); err != nil {
 		return 0, false, err

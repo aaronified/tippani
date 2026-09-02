@@ -275,6 +275,13 @@ func (s *Server) renderBookExport(b *bookDetail) (string, error) {
 		// book with neither exports byte-for-byte as it did before.
 		kv{"language", b.Language},
 		kv{"orig_language", b.OrigLanguage},
+		// 0061's three. `page_count` and NOT `pages`, which the importer has bound to
+		// the READING POSITION since 0024 and still does: "page: 120/480" is where
+		// somebody is, and this is how long the book is. Two facts, and the one word
+		// they both wanted was already spoken for.
+		kv{"subtitle", b.Subtitle},
+		kv{"publisher", b.Publisher},
+		kv{"page_count", zeroBlank(b.Pages)},
 		kv{"isbn", b.ISBN},
 		kv{"year", zeroBlank(b.PublishedYear)},
 		kv{"genres", strings.Join(b.Genres, ", ")},

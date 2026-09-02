@@ -191,6 +191,11 @@ export function bookState(b) {
     published_circa: !!b.published_circa,
     language: b.language || '',
     orig_language: b.orig_language || '',
+    // 0061's three, here for the same reason: unconditional in the server's
+    // UPDATE, so an omission is a deletion.
+    subtitle: b.subtitle || '',
+    publisher: b.publisher || '',
+    pages: b.pages || 0,
     genres: b.genres || [],
     series: b.series || '',
     series_index: b.series_index || 0,

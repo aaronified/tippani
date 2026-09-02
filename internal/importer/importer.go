@@ -28,7 +28,13 @@ type Book struct {
 	// translation fills both differently.
 	Language     string
 	OrigLanguage string
-	ISBN         string // as found in the file; callers normalize to ISBN-13
+	// 0061, and read from Tippani's own frontmatter only for the same reason as
+	// the four above: a Kindle clippings file and a Goodreads CSV have no source
+	// for any of them.
+	Subtitle  string
+	Publisher string
+	Pages     int    // the EXTENT of the work; Pos/PosTotal below are the read
+	ISBN      string // as found in the file; callers normalize to ISBN-13
 	ASIN         string
 	Series       string  // series name, when the file carries one
 	SeriesIndex  float64 // position within it (0 = unknown)

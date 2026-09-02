@@ -63,6 +63,7 @@ const STORED = {
   book: [
     'title', 'author', 'translator', 'editor', 'isbn', 'asin', 'description',
     'published_year', 'published_circa', 'language', 'orig_language',
+    'subtitle', 'publisher', 'pages',
     'genres', 'series', 'series_index', 'favorite',
   ],
   // imdb_id IS full-state and belongs here. tmdb_id / tvdb_id / igdb_id are
@@ -88,6 +89,9 @@ const filled = (fields) => {
   // `||` on a zero, and Number() on a chapter number.
   Object.assign(row, {
     favorite: true, tags: ['a-tag'], chapter_no: 12.5,
+    // A count, not a string: `pages: 'value-of-pages' || 0` is truthy and would
+    // pass a builder that had dropped the field's number-ness.
+    pages: 503,
     season: 0, episode: 0, board_id: 3,
     sticker_id: 4, sticker_x: 0.5, sticker_y: 0.25,
   })

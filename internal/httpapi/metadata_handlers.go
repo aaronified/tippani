@@ -506,13 +506,24 @@ func (s *Server) handleCoversRefetch(w http.ResponseWriter, r *http.Request) {
 
 		// Metadata backfill (fill-empty), only when the identity is trustworthy.
 		if cand != nil && (isbnN != "" || b.asin != "") {
+			// 0061's three join the fill-empty backfill on the same terms as the
+			// three above, in the NULLIF/zero spelling their NOT NULL DEFAULT
+			// columns need — `COALESCE('', x)` is `''`, which would report an
+			// enrichment while donating nothing (see enrichStagedQuote).
 			res, uerr := s.Store.DB.Exec(`UPDATE books SET
 				author = COALESCE(author, ?),
 				description = COALESCE(description, ?),
 				published_year = COALESCE(published_year, ?),
+				subtitle = COALESCE(NULLIF(subtitle, ''), ?),
+				publisher = COALESCE(NULLIF(publisher, ''), ?),
+				pages = COALESCE(NULLIF(pages, 0), ?),
 				updated_at = datetime('now')
-				WHERE id = ? AND (author IS NULL OR description IS NULL OR published_year IS NULL)`,
-				nullable(cand.Author), nullable(cand.Description), nullableInt(cand.PublishedYear), b.id)
+				WHERE id = ? AND (author IS NULL OR description IS NULL OR published_year IS NULL
+				                  OR (subtitle = '' AND ? <> '') OR (publisher = '' AND ? <> '')
+				                  OR (pages = 0 AND ? <> 0))`,
+				nullable(cand.Author), nullable(cand.Description), nullableInt(cand.PublishedYear),
+				cand.Subtitle, cand.Publisher, cand.Pages,
+				b.id, cand.Subtitle, cand.Publisher, cand.Pages)
 			if uerr == nil {
 				if n, _ := res.RowsAffected(); n > 0 {
 					enriched++

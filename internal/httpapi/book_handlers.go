@@ -20,8 +20,22 @@ type bookReq struct {
 	// The other two people a book is by (0034). Verbatim credit strings like
 	// `author`, so "Richard Pevear, Larissa Volokhonsky" splits into two people
 	// through the same separator preference the author line uses.
-	Translator     string   `json:"translator"`
-	Editor         string   `json:"editor"`
+	Translator string `json:"translator"`
+	Editor     string `json:"editor"`
+	// 0061 — the three the design pack's form names and this record could not
+	// hold. Both suppliers have returned all three on every lookup since the
+	// beginning and the app dropped them on the floor.
+	//
+	// Subtitle is its own field rather than part of the title because the two
+	// answer different questions: a title identifies the WORK and is what the
+	// dedupe, the lookup match and every export key on; a subtitle belongs to the
+	// EDITION and changes between printings. Folding it in would make "The Master
+	// and Margarita" and "The Master and Margarita: A Novel" two works.
+	Subtitle  string `json:"subtitle"`
+	Publisher string `json:"publisher"`
+	// The extent of the work, not the denominator of a read — see 0061 and
+	// `position`. 0 means unknown, the same encoding published_year uses.
+	Pages          int      `json:"pages"`
 	ISBN           string   `json:"isbn"`
 	ASIN           string   `json:"asin"`
 	Description    string   `json:"description"`
@@ -64,6 +78,8 @@ func (b *bookReq) validate() string {
 	b.ASIN = strings.TrimSpace(b.ASIN)
 	b.Description = strings.TrimSpace(b.Description)
 	b.Series = strings.TrimSpace(b.Series)
+	b.Subtitle = strings.TrimSpace(b.Subtitle)
+	b.Publisher = strings.TrimSpace(b.Publisher)
 	if b.Title == "" {
 		return "title is required"
 	}
@@ -89,6 +105,23 @@ func (b *bookReq) validate() string {
 	if b.OrigLanguage, ok = trimCap(b.OrigLanguage, 100); !ok {
 		return "original language is too long"
 	}
+	// Capped where the title is not, and that asymmetry is deliberate: a title is
+	// what the reader typed and the app has never second-guessed its length, while
+	// a subtitle is what a SUPPLIER sends — and Amazon's routinely carries the
+	// edition, the series and the imprint in one string. 500 is longer than any
+	// real subtitle and shorter than a description arriving in the wrong field.
+	if b.Subtitle, ok = trimCap(b.Subtitle, 500); !ok {
+		return "that subtitle is too long"
+	}
+	if b.Publisher, ok = trimCap(b.Publisher, 200); !ok {
+		return "that publisher's name is too long"
+	}
+	// NEGATIVE IS THE ONLY REFUSAL. A ceiling would be a guess about what a long
+	// book is, and the longest thing anybody shelves — a collected works, an
+	// omnibus scan — is exactly the row that would hit it. Zero is "not known".
+	if b.Pages < 0 {
+		return "a page count cannot be negative"
+	}
 	return ""
 }
 
@@ -108,10 +141,13 @@ type bookDetail struct {
 	Author       string              `json:"author"`
 	// Present HERE and absent from the list row on purpose — see the list
 	// handler's own note. This is the shape the work's own page reads.
-	Translator     string `json:"translator"`
-	Editor         string `json:"editor"`
-	ISBN           string `json:"isbn"`
-	ASIN           string `json:"asin"`
+	Translator string `json:"translator"`
+	Editor     string `json:"editor"`
+	Subtitle   string `json:"subtitle"`
+	Publisher  string `json:"publisher"`
+	Pages      int    `json:"pages"`
+	ISBN       string `json:"isbn"`
+	ASIN       string `json:"asin"`
 	Description    string `json:"description"`
 	PublishedYear  int    `json:"published_year"`
 	PublishedCirca bool   `json:"published_circa"`
@@ -138,14 +174,14 @@ func (s *Server) fetchBook(uid, id int64) (*bookDetail, error) {
 	err := s.Store.DB.QueryRow(`
 		SELECT id, title, COALESCE(author, ''), translator, editor, COALESCE(isbn, ''), COALESCE(asin, ''),
 		       COALESCE(description, ''), COALESCE(published_year, 0), published_circa,
-		       language, orig_language, COALESCE(cover_path, ''),
+		       language, orig_language, subtitle, publisher, pages, COALESCE(cover_path, ''),
 		       COALESCE(series, ''), COALESCE(series_index, 0), favorite, status, progress,
 		       pos_unit, pos, pos_total, created_at
 		FROM books WHERE id = ? AND user_id = ?`, id, uid).
 		Scan(&b.ID, &b.Title, &b.Author, &b.Translator, &b.Editor, &b.ISBN, &b.ASIN,
 			&b.Description, &b.PublishedYear, &b.PublishedCirca,
-			// No COALESCE on either: NOT NULL DEFAULT '' (0047).
-			&b.Language, &b.OrigLanguage, &b.CoverPath,
+			// No COALESCE on any of these: NOT NULL DEFAULT (0047, 0061).
+			&b.Language, &b.OrigLanguage, &b.Subtitle, &b.Publisher, &b.Pages, &b.CoverPath,
 			&b.Series, &b.SeriesIndex, &b.Favorite, &b.Status, &b.Progress,
 			&b.Unit, &b.Pos, &b.PosTotal, &b.CreatedAt)
 	if err != nil {
@@ -254,15 +290,18 @@ func (s *Server) handleCreateBook(w http.ResponseWriter, r *http.Request) {
 		INSERT INTO books (id, updated_at, user_id, title, author, translator, editor, isbn, asin, cover_path,
 		                   description, published_year, published_circa, language, orig_language,
 		                   google_id, openlibrary_id, source_metadata,
-		                   series, series_index, favorite)
-		VALUES (?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
+		                   series, series_index, favorite, subtitle, publisher, pages)
+		VALUES (?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
 		id, uid, req.Title, nullable(req.Author), req.Translator, req.Editor, nullable(req.ISBN), nullable(req.ASIN),
 		nullable(coverPath), nullable(req.Description), nullableInt(req.PublishedYear), req.PublishedCirca,
 		// Plain strings — NOT NULL DEFAULT '' (0047), so nullable("") would be the
 		// violation rather than the empty value. Same trap on every 0047 column.
 		req.Language, req.OrigLanguage,
 		googleID, openlibraryID, sourceMeta,
-		nullable(req.Series), nullableFloat(req.SeriesIndex), req.Favorite)
+		nullable(req.Series), nullableFloat(req.SeriesIndex), req.Favorite,
+		// 0061's three, plain values on NOT NULL DEFAULT columns like the languages
+		// above them.
+		req.Subtitle, req.Publisher, req.Pages)
 	if err != nil {
 		s.removeCoverFile(coverPath)
 		internalError(w, r, "insert book", err)
@@ -544,11 +583,16 @@ func (s *Server) handleUpdateBook(w http.ResponseWriter, r *http.Request) {
 	var was struct {
 		title, author, description, isbn, series sql.NullString
 		publishedYear                            sql.NullInt64
+		// Plain, not Null: 0061's three are NOT NULL DEFAULT, so a pointer here
+		// would be describing a state the column cannot be in.
+		subtitle, publisher string
+		pages               int
 	}
 	if err := tx.QueryRow(`
-		SELECT title, author, description, isbn, series, published_year
+		SELECT title, author, description, isbn, series, published_year, subtitle, publisher, pages
 		  FROM books WHERE id = ? AND user_id = ?`, id, uid).
-		Scan(&was.title, &was.author, &was.description, &was.isbn, &was.series, &was.publishedYear); err != nil && err != sql.ErrNoRows {
+		Scan(&was.title, &was.author, &was.description, &was.isbn, &was.series, &was.publishedYear,
+			&was.subtitle, &was.publisher, &was.pages); err != nil && err != sql.ErrNoRows {
 		failErr("update book", err)
 		return
 	}
@@ -556,11 +600,13 @@ func (s *Server) handleUpdateBook(w http.ResponseWriter, r *http.Request) {
 		UPDATE books SET title = ?, author = ?, translator = ?, editor = ?, isbn = ?, asin = ?,
 		                 description = ?, published_year = ?, published_circa = ?,
 		                 language = ?, orig_language = ?,
+		                 subtitle = ?, publisher = ?, pages = ?,
 		                 series = ?, series_index = ?, favorite = ?, updated_at = datetime('now')
 		WHERE id = ? AND user_id = ?`,
 		req.Title, nullable(req.Author), req.Translator, req.Editor, nullable(req.ISBN), nullable(req.ASIN),
 		nullable(req.Description), nullableInt(req.PublishedYear), req.PublishedCirca,
 		req.Language, req.OrigLanguage, // plain strings, see the create path
+		req.Subtitle, req.Publisher, req.Pages,
 		nullable(req.Series), nullableFloat(req.SeriesIndex), req.Favorite, id, uid)
 	if err != nil {
 		failErr("update book", err)
@@ -612,6 +658,9 @@ func (s *Server) handleUpdateBook(w http.ResponseWriter, r *http.Request) {
 		{"isbn", was.isbn.String, req.ISBN},
 		{"series", was.series.String, req.Series},
 		{"published_year", wasYear, nowYear},
+		{"subtitle", was.subtitle, req.Subtitle},
+		{"publisher", was.publisher, req.Publisher},
+		{"pages", itoaZeroBlank(was.pages), itoaZeroBlank(req.Pages)},
 	} {
 		if strings.TrimSpace(f.was) != strings.TrimSpace(f.now) {
 			edited = append(edited, f.name)
@@ -688,6 +737,9 @@ func bookFieldsFrom(req *bookReq, coverPath string) []string {
 	add(req.PublishedYear != 0, "published_year")
 	add(strings.TrimSpace(req.Series) != "", "series")
 	add(strings.TrimSpace(req.ISBN) != "", "isbn")
+	add(strings.TrimSpace(req.Subtitle) != "", "subtitle")
+	add(strings.TrimSpace(req.Publisher) != "", "publisher")
+	add(req.Pages != 0, "pages")
 	add(len(req.Genres) > 0, "genres")
 	add(strings.TrimSpace(coverPath) != "", "cover")
 	return f
@@ -706,4 +758,17 @@ func bookCreateSource(req *bookReq) (source, sourceID string) {
 		return s, strings.TrimSpace(req.SourceID)
 	}
 	return store.SourceManual, ""
+}
+
+// itoaZeroBlank prints a count for the edit comparison above, with 0 as the empty
+// string: the comparison is between "what was there" and "what is there now", and
+// on a column whose unset value IS zero, "0" and "" are the same answer. Printing
+// the digit would make clearing a page count read as an edit from 480 to 0 rather
+// than to nothing — true, but it would then also make an untouched blank compare
+// equal to itself only by luck of formatting.
+func itoaZeroBlank(n int) string {
+	if n == 0 {
+		return ""
+	}
+	return strconv.Itoa(n)
 }

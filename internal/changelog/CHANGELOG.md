@@ -199,6 +199,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   browser is not allowed to draw, says nothing rather than claiming to be zero pixels
   wide.
 
+- **A book can hold its subtitle, its publisher and how long it is.** Three facts every
+  lookup has always returned and the app threw away on arrival: Google Books sends a
+  subtitle, a publisher and a page count on every volume, Open Library sends all three
+  too, and there was nowhere to put any of them. They are rows on Details now, they come
+  back from a look-up, a re-verify offers them across a whole shelf, and they survive the
+  export and the re-import a library is actually rebuilt from. The subtitle is its own
+  field rather than part of the title, because two printings of one book differ there and
+  are still one book.
+
+- **The two languages are editable at last.** A book has carried "the edition I read" and
+  "what it was written in" for four releases; the hero printed them, search could filter
+  by them, and the only way to put one there was an import file.
+
 - **Six default faces instead of one.** Everybody without a photograph wore the same
   silhouette, so a People table of ninety names was ninety copies of one drawing — and
   the face, which is the fastest thing in a row to recognise, recognised nothing. There

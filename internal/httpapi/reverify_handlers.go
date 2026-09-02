@@ -258,14 +258,17 @@ func reverifyLookupError(what string, err error) string {
 func (s *Server) reverifyBook(ctx context.Context, uid, id int64, gkey, cookie, domain string) reverifyItem {
 	it := reverifyItem{Type: "book", ID: id, Status: "ok", Diffs: []fieldDiff{}}
 	var title, author, isbn, asin, googleID, desc, series, cover, rawMeta string
-	var year int
+	var subtitle, publisher string
+	var year, pages int
 	var seriesIdx float64
 	err := s.Store.DB.QueryRow(`
 		SELECT title, COALESCE(author,''), COALESCE(isbn,''), COALESCE(asin,''), COALESCE(google_id,''),
 		       COALESCE(description,''), COALESCE(published_year,0), COALESCE(series,''),
-		       COALESCE(series_index,0), COALESCE(cover_path,''), COALESCE(source_metadata,'')
+		       COALESCE(series_index,0), COALESCE(cover_path,''), COALESCE(source_metadata,''),
+		       subtitle, publisher, pages
 		FROM books WHERE id = ? AND user_id = ?`, id, uid).
-		Scan(&title, &author, &isbn, &asin, &googleID, &desc, &year, &series, &seriesIdx, &cover, &rawMeta)
+		Scan(&title, &author, &isbn, &asin, &googleID, &desc, &year, &series, &seriesIdx, &cover, &rawMeta,
+			&subtitle, &publisher, &pages)
 	if errors.Is(err, sql.ErrNoRows) {
 		it.Status = "not_found"
 		return it
@@ -361,6 +364,15 @@ func (s *Server) reverifyBook(ctx context.Context, uid, id int64, gkey, cookie, 
 	if cand.ISBN13 != "" && cand.ISBN13 != isbnN {
 		d = append(d, fieldDiff{Field: "isbn", Stored: isbnN, Fresh: cand.ISBN13})
 	}
+	// 0061's three. diffStr already declines to offer a blank fresh value over a
+	// stored one, which is the rule that matters here: Open Library's work record
+	// often has no publisher for a book Google knows the imprint of, and a
+	// re-verify must not offer to erase what is there.
+	d = diffStr(d, "subtitle", subtitle, cand.Subtitle)
+	d = diffStr(d, "publisher", publisher, cand.Publisher)
+	if cand.Pages != 0 && cand.Pages != pages {
+		d = append(d, fieldDiff{Field: "pages", Stored: pages, Fresh: cand.Pages})
+	}
 	// Cover: offered when the fresh source has art AND the stored one is
 	// missing or below the low-res threshold — a good stored cover is never
 	// churned. Stored = the local file (client renders it), fresh = the URL.
@@ -410,6 +422,9 @@ var bookAltPickers = map[string]func(*metadata.BookCandidate) any{
 	"series_index":   func(c *metadata.BookCandidate) any { return c.SeriesIndex },
 	"genres":         func(c *metadata.BookCandidate) any { return cappedGenres(c.Genres) },
 	"cover":          func(c *metadata.BookCandidate) any { return c.CoverURL },
+	"subtitle":       func(c *metadata.BookCandidate) any { return c.Subtitle },
+	"publisher":      func(c *metadata.BookCandidate) any { return c.Publisher },
+	"pages":          func(c *metadata.BookCandidate) any { return c.Pages },
 	// isbn is absent for the reason tmdb_id is on the film side: it is the
 	// identity the lookup was made BY, so every supplier necessarily agrees.
 }
@@ -873,7 +888,8 @@ func isUniqueErr(err error) bool {
 // proportionate guard and a second fetch is not.
 func (s *Server) applyReverifyBook(ctx context.Context, uid, id int64, set map[string]json.RawMessage, source string, sources map[string]string) (note string, err error) {
 	allowed := map[string]bool{"title": true, "author": true, "description": true, "published_year": true,
-		"genres": true, "series": true, "series_index": true, "isbn": true, "cover": true}
+		"genres": true, "series": true, "series_index": true, "isbn": true, "cover": true,
+		"subtitle": true, "publisher": true, "pages": true}
 	for k := range set {
 		if !allowed[k] {
 			return "", errors.New("unknown field for a book: " + k)
@@ -925,6 +941,26 @@ func (s *Server) applyReverifyBook(ctx context.Context, uid, id int64, set map[s
 		}
 		cols = append(cols, "published_year = ?")
 		args = append(args, nullableInt(y))
+	}
+	// 0061's two strings bind non-nullable, unlike author and series above: their
+	// columns are NOT NULL DEFAULT '', so `nullable()` would send the NULL the
+	// column refuses rather than the empty value it wants.
+	for _, f := range []struct{ key, col string }{{"subtitle", "subtitle"}, {"publisher", "publisher"}} {
+		if v, present, derr := decodeSet[string](set, f.key); derr != nil {
+			return "", derr
+		} else if present {
+			cols = append(cols, f.col+" = ?")
+			args = append(args, strings.TrimSpace(v))
+		}
+	}
+	if n, present, derr := decodeSet[int](set, "pages"); derr != nil {
+		return "", derr
+	} else if present {
+		if n < 0 {
+			return "", errors.New("a page count cannot be negative")
+		}
+		cols = append(cols, "pages = ?")
+		args = append(args, n)
 	}
 	if f, present, derr := decodeSet[float64](set, "series_index"); derr != nil {
 		return "", derr

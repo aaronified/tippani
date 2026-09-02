@@ -13,8 +13,8 @@
     "web/frontend/vite.config.js"
   ],
   "sha256": {
-    "internal/i18n/bn.txt": "70738247fdca2da1384911a56359c06d3302d011babf3d556aeacfa013214c14",
-    "internal/i18n/en.txt": "df453eb311a74211a8c096dfe36089df4c73886f6e0cebf73f67a5124dac2c7b",
+    "internal/i18n/bn.txt": "b3350096c7a007c99fc376b04a19e4621744227b57b422eb1fd9423acab5df00",
+    "internal/i18n/en.txt": "00669353cc182c9ddeeef9e1ef30a54b9085092a8779876571ccab882b155b67",
     "web/frontend/index.html": "faa8bb6fc81705b9d9d395a62a9d474414a029c571723bf099f84cb624ce906c",
     "web/frontend/package-lock.json": "d7afffc5b73c431c604bfaff5760d6ef244d1f74b187575d213f3ad353c18715",
     "web/frontend/package.json": "21c5acbd140400ead3efd99595afe0510ae0d6e84099621f9c39d34195a30ed6",
@@ -34,7 +34,7 @@
     "web/frontend/src/CoverPicker.jsx": "8433527caf5ec9bd37c97872412ddc83d4e7a0f8a440113d90e9b035ed1c21fb",
     "web/frontend/src/Home.jsx": "826b1355c421d97d37cbb6065500a2f3df66d1d7430f6afe99dab15595c72945",
     "web/frontend/src/ImportPage.jsx": "ad49164e027e7d89f366320d97ceab1c59f2bb2faf0263eaec8d599c616f112e",
-    "web/frontend/src/Library.jsx": "a7d990154d657f61393e81a2d18fe8932b5ae6828d860c20261f96648e8e1973",
+    "web/frontend/src/Library.jsx": "3058d6ad6b540c81e90ee13d8b38464f221184f35ff7030b6984f35291ce2bec",
     "web/frontend/src/MetadataPage.jsx": "e834d718905136e86cec1c62c905e0c9957e29bb3a0aa4e75224a7d59b83203e",
     "web/frontend/src/MetadataSources.jsx": "33efd7e4a39fdd431a8302e826300b3960ced4d162ef599e53cf61a5ab7caa25",
     "web/frontend/src/Movies.jsx": "9edbf6c96c5793398c22e5c46845d942ac604dca9f03d3f6c7def350f3bdfa13",
@@ -46,7 +46,7 @@
     "web/frontend/src/StagingPage.jsx": "677a08d594e4f70f61a7ee86cdcbe3040f5de6cf6f639e0bbcc91944d37dfbc0",
     "web/frontend/src/StatsPage.jsx": "1eec3391e12eed60de85774f341ce1f6a87e923cec23afc22e6f795ed4524b3e",
     "web/frontend/src/TagsPage.jsx": "f9c04fc17ca01c182c0c011eb6e896cc32abc4bde20ce580c3f83a079b71465f",
-    "web/frontend/src/WorkDetails.jsx": "cfd0011ea60c643f329a93ce8edf09d0af1329933d72c496cb0028a51fbde39c",
+    "web/frontend/src/WorkDetails.jsx": "690f9f226540bc91dce4b13580717071c554a9c9cb54e695d8de35dc57f59e51",
     "web/frontend/src/actions.jsx": "6dd6471bf014a22a616850985f3b46695eb87db770c01d24be290e8678979148",
     "web/frontend/src/anthologies.jsx": "31d06bb57e8a7cc49900dcbf484e88b478755fb1147b5426a8051cc014522b21",
     "web/frontend/src/api.js": "247cfbbd19d9a65b6114b9ae141e85115827616133090dae3b11e09387be0729",

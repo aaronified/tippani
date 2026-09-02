@@ -2822,6 +2822,9 @@ book.field.translator.info = Who brought it into this language. They get a portr
 book.field.editor.info = Who chose what is in it — the credit an anthology or a collected edition is often bought for. Same separators as the author line.
 book.field.series.info = The series or franchise this book belongs to. Books group by it in the Library, and sort by the number below.
 book.field.isbn.info = Ten digits or thirteen, hyphens and all — an older book’s ten-digit ISBN is kept as its thirteen-digit form. Only used to look the book up: a better cover or description comes from a match on it.
+book.field.subtitle.info = The line under the title on the cover — "A Novel", "The Life of Samuel Johnson". It belongs to this edition rather than to the work, which is why it is not part of the title: two printings of one book differ here and are still one book.
+book.field.publisher.info = The house that put out the copy you have. Open Library answers for the work and lists every publisher it has ever had; Google answers for the edition, so its answer wins where there is one.
+book.field.pages.info = How long the book is, as its publisher states it. Not the same as the page you are on — that lives with the reading progress, and it is counted against whichever edition you are actually holding.
 book.field.asin.info = Amazon’s own identifier, on the product page of anything you bought or read on a Kindle. A cover can be fetched from it with no key or cookie at all.
 book.fetch.info.body = Searches Google Books, Open Library and Amazon for this book, then lets you compare each field against what you already have and take only what you want.
 
@@ -5059,10 +5062,12 @@ error.validate.restore-word = Type RESTORE to confirm
 # heading agree — which they do in English today, by accident, and which is the
 # first property a per-screen key would lose.
 common.field.title.label = Title
+common.field.subtitle.label = Subtitle
 common.field.author.label = Author
 common.field.translator.label = Translator
 common.field.editor.label = Editor
 common.field.year.label = Year
+common.field.pages.label = Pages
 common.field.series.label = Series
 common.field.series-no.label = Series #
 common.field.isbn.label = ISBN

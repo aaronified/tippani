@@ -2836,6 +2836,9 @@ book.field.translator.info = কে একে এই ভাষায় এন�
 book.field.editor.info = ভিতরে কী থাকবে কে বেছেছেন — সংকলন বা রচনাসমগ্র অনেক সময় এই নামটার জন্যই কেনা হয়। লেখকের লাইনের মতোই একই চিহ্নে ভাগ হয়।
 book.field.series.info = এই বই কোন সিরিজের। লাইব্রেরিতে বইগুলো এই ধরে ভাগ হয়, আর নিচের নম্বর ধরে সাজে।
 book.field.isbn.info = দশ অঙ্ক বা তেরো, হাইফেন সমেত — পুরনো বইয়ের দশ অঙ্কের ISBN তেরো অঙ্কের চেহারায় রাখা হয়। কাজে লাগে শুধু বই খুঁজতে: ভালো কভার বা বিবরণ ওই মিল থেকেই আসে।
+book.field.subtitle.info = প্রচ্ছদে নামের নিচের লাইনটি — "একটি উপন্যাস", "শঙ্খ ঘোষের জীবন"। এটি রচনার নয়, এই সংস্করণের; তাই নামের অংশ নয়: একই বইয়ের দুই ছাপায় এটি আলাদা হতে পারে, বই তবু একটিই।
+book.field.publisher.info = আপনার হাতের কপিটি যে প্রকাশনা থেকে বেরিয়েছে। Open Library গোটা রচনার হিসেব দেয় এবং তার সব প্রকাশকের নাম রাখে; Google দেয় এই সংস্করণের হিসেব, তাই তার উত্তরই আগে।
+book.field.pages.info = প্রকাশক অনুযায়ী বইটি কত পৃষ্ঠার। আপনি কোন পৃষ্ঠায় আছেন সেটি আলাদা — তা পড়ার অগ্রগতির সঙ্গে থাকে, এবং আপনার হাতের সংস্করণ ধরে গোনা হয়।
 book.field.asin.info = অ্যামাজনের নিজের নম্বর, Kindle-এ কেনা বা পড়া যে কোনও বইয়ের পাতায় পাবেন। কোনও কি বা কুকি ছাড়াই এটা দিয়ে কভার আনা যায়।
 book.fetch.info.body = এই বইটা খোঁজে Google Books, Open Library আর Amazon-এ, তারপর প্রতিটা ঘর আপনার কাছে যা আছে তার সঙ্গে মিলিয়ে দেখায় — যেটুকু দরকার সেটুকুই নেবেন।
 
@@ -4755,10 +4758,12 @@ error.validate.restore-word = নিশ্চিত করতে RESTORE লি�
 # heading agree — which they do in English today, by accident, and which is the
 # first property a per-screen key would lose.
 common.field.title.label = নাম
+common.field.subtitle.label = উপশিরোনাম
 common.field.author.label = লেখক
 common.field.translator.label = অনুবাদক
 common.field.editor.label = সম্পাদক
 common.field.year.label = সাল
+common.field.pages.label = পৃষ্ঠা
 common.field.series.label = সিরিজ
 common.field.series-no.label = সিরিজে নম্বর
 common.field.isbn.label = ISBN
