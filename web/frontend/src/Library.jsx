@@ -79,6 +79,8 @@ import {
   IconReadAgain,
   IconSearch,
   IconSliders,
+  IconSortAsc,
+  IconSortDesc,
   Masonry,
   MobileSheet,
   MonoLabel,
@@ -1471,6 +1473,10 @@ function GroupSortField({ groupBy, onGroup, sort, onSort }) {
           { id: 'h-dir', heading: t('book.sort.dir.label') },
           ...['asc', 'desc'].map((d) => ({
             id: `d-${d}`,
+            // THE BARS ARE THE GIVEAWAY, not the arrow: they grow for ascending
+            // and shrink for descending, so the glyph IS the order rather than a
+            // direction a reader has to translate.
+            icon: d === 'asc' ? <IconSortAsc /> : <IconSortDesc />,
             label: t(`book.sort.dir.${d}.label`),
             checked: sort.dir === d,
             keepOpen: true,

@@ -1070,6 +1070,8 @@ shell.drawer.role.user.label = self-hosted
 shell.add.work.label = Add or import
 shell.add.film.label = Add a film or show
 shell.add.quote.label = Capture a quote
+shell.dock.boards.label = Boards
+shell.dock.tools.label = Tools
 # The same button when an import is waiting in the pending queue.
 shell.add.pending.tip = {n} imports awaiting review
 

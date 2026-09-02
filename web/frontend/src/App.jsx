@@ -69,11 +69,13 @@ import {
   GhostButton,
   IconBack,
   IconBin,
+  IconBoards,
   IconChecks,
   IconMenu,
   IconPlus,
   IconSearch,
   IconSearchGlobe,
+  IconTools,
   Kbd,
   NavIcon,
   ShortcutSheet,
@@ -1302,6 +1304,46 @@ function MobileDock({ keys, hidden, canBack, onBack, onSearch, onAdd, addLabel, 
   )
 }
 
+// HOME_TOOLS — the three screens ABOUT the library rather than in it, behind the
+// dock's second key. Tags is deliberately not among them: a tag is a thing you
+// file quotes under, so its page belongs with the boards conceptually and with
+// the drawer practically — this key is the settings family, and stretching it to
+// four rows would make it "the rest of the drawer" instead of a group.
+const HOME_TOOLS = [
+  ['settings', 'nav.tab.settings.label'],
+  ['stats', 'nav.tab.stats.label'],
+  ['metadata', 'nav.tab.metadata.label'],
+]
+
+// DockMenu — one dock seat that opens a list instead of going somewhere.
+//
+// IT DRAWS THE DOCK'S OWN BUTTON rather than reaching for MoreMenu, which renders
+// an IconButton: a seat that is 4px shorter than the four beside it is the kind of
+// difference nobody can name and everybody sees. ActionMenu underneath is the
+// same menu every card and the screen ⋯ opens, so the rows, the arrow keys and
+// the dismiss rules are not written twice.
+function DockMenu({ icon, label, items }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+  return (
+    <div className="relative" ref={ref}>
+      <Tooltip label={label} side="top">
+        <button
+          type="button"
+          className="mobile-dock-btn"
+          aria-label={label}
+          aria-haspopup="menu"
+          aria-expanded={open}
+          onClick={() => setOpen((o) => !o)}
+        >
+          {icon}
+        </button>
+      </Tooltip>
+      <ActionMenu open={open} items={items} anchorRef={ref} onClose={() => setOpen(false)} returnFocusTo={ref} />
+    </div>
+  )
+}
+
 // Shell is the logged-in frame (§7): on desktop a topbar with the (tappable)
 // mark + wordmark, tab strip and user-initial chip; on a phone a slim top bar
 // whose ☰ drawer owns primary nav — logo taps Home, ＋ captures a quote. A
@@ -1730,6 +1772,63 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
   // whichever screen owns them. Both are null on a screen that publishes neither,
   // which is the resting state and draws nothing.
   const { sub: barSub, keys: barKeys } = useScreenBarState()
+  // ── HOME'S TWO SEATS, and Home is the one screen that publishes none of its
+  // own — it is where a session starts and where a thumb has nothing to reach
+  // for but Back, Search and ＋ .
+  //
+  // NAVIGATION AND TOOLS, in that order, because that is the order of consequence:
+  // one goes to the boards this reader keeps things in, the other to the three
+  // screens ABOUT those things. The drawer holds both lists and always has; the
+  // point of these is that the ☰ is at the top of a phone and the thumb is at the
+  // bottom.
+  //
+  // THE FIRST KEY COLLAPSES. With one section switched on there is nothing to
+  // choose between, so the key becomes that section's own door — its own rail
+  // glyph, filled, because at that point it names a place rather than a list of
+  // them — and a menu of one is the dead control this repo keeps arguing against.
+  const boardRows = SECTIONS.filter((sec) => sections[sec.tab])
+  const homeKeys =
+    tab === 'home' && !detail
+      ? [
+          boardRows.length === 1
+            ? {
+                id: 'boards',
+                label: t(boardRows[0].label),
+                icon: <NavIcon name={boardRows[0].tab} />,
+                onClick: () => selectTab(boardRows[0].tab),
+              }
+            : {
+                id: 'boards',
+                node: (
+                  <DockMenu
+                    icon={<IconBoards />}
+                    label={t('shell.dock.boards.label')}
+                    items={boardRows.map((sec) => ({
+                      id: sec.tab,
+                      icon: <NavIcon name={sec.tab} />,
+                      label: t(sec.label),
+                      onClick: () => selectTab(sec.tab),
+                    }))}
+                  />
+                ),
+              },
+          {
+            id: 'tools',
+            node: (
+              <DockMenu
+                icon={<IconTools />}
+                label={t('shell.dock.tools.label')}
+                items={HOME_TOOLS.map(([key, label]) => ({
+                  id: key,
+                  icon: <NavIcon name={key} />,
+                  label: t(label),
+                  onClick: () => selectTab(key),
+                }))}
+              />
+            ),
+          },
+        ]
+      : null
   // Back is dead on the first screen of a session. It is still drawn — see
   // MobileDock — so Search never slides into the seat it always occupies.
   const canGoBack = (window.history.state?.tpDepth || 0) > 0 || !!detail
@@ -2017,7 +2116,7 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
         </ErrorBoundary>
       </main>
       <MobileDock
-        keys={barKeys}
+        keys={barKeys || homeKeys}
         hidden={navHidden}
         canBack={canGoBack}
         onBack={() => window.history.back()}

@@ -19,6 +19,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   toggle offered two, so *List* was a setting you could hold and not choose. It costs a
   menu row and no header width.
 
+- **The phone's dock has two more seats on Home.** The screen where a session starts
+  published none of its own. One opens the boards you keep things in — Library,
+  Catalogue, Quotes, Anthologies, whichever are switched on — and collapses into that
+  section's own door when only one is. The other opens Settings, Stats and Metadata. The
+  ☰ has held both lists all along; the difference is that the drawer is at the top of a
+  phone and the thumb is at the bottom.
+
 - **Selecting quotes can be found by looking.** A **Select quotes** row starts the mode
   with nothing picked. The other two ways in — a long press and a Ctrl-click — are
   gestures a reader has to already know.

@@ -1045,6 +1045,8 @@ shell.drawer.role.user.label = নিজের সার্ভার
 shell.add.work.label = যোগ করুন বা ইমপোর্ট
 shell.add.film.label = সিনেমা বা শো যোগ করুন
 shell.add.quote.label = উদ্ধৃতি তুলে রাখুন
+shell.dock.boards.label = বোর্ড
+shell.dock.tools.label = সরঞ্জাম
 # The same button when an import is waiting in the pending queue.
 shell.add.pending.tip = {n}টা ইমপোর্ট দেখার অপেক্ষায়
 

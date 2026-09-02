@@ -12,7 +12,7 @@
 // page, and that the pieces a reader depends on to get anywhere are in it.
 
 import { describe, expect, it, vi } from 'vitest'
-import { render, within } from '@testing-library/react'
+import { fireEvent, render, within } from '@testing-library/react'
 
 vi.mock('../../src/api.js', async (orig) => ({
   ...(await orig()),
@@ -76,5 +76,51 @@ describe('the logged-in shell', () => {
     // Nothing behind it on the first screen of a session: disabled, not absent.
     // Dropping it would slide Search into the seat it holds everywhere else.
     expect(keys[0].disabled).toBe(true)
+  })
+
+  it('has no hairline after the ＋', async () => {
+    await mount()
+    // The accent key already separates the shell's fixed seats from the screen's;
+    // a divider beside something that loud is a second one doing the first's job.
+    expect(document.querySelector('.mobile-dock-rule')).toBeNull()
+  })
+
+  // ── HOME'S TWO SEATS. Home publishes none of its own and is where a session
+  // starts, so the dock's last two are the shell's: the boards, and the tools.
+  describe('the dock on Home', () => {
+    const dockKeys = () => [...document.querySelectorAll('.mobile-dock button')]
+
+    it('fills both screen seats, because Home publishes neither', async () => {
+      await mount()
+      const keys = dockKeys()
+      expect(keys).toHaveLength(5)
+      // Back, search, ＋ , then the two that open lists.
+      expect(keys[3].getAttribute('aria-haspopup')).toBe('menu')
+      expect(keys[4].getAttribute('aria-haspopup')).toBe('menu')
+    })
+
+    it('offers the boards this reader has switched on, and nothing else', async () => {
+      await mount()
+      const boards = dockKeys()[3]
+      expect(boards.getAttribute('aria-label')).toMatch(/boards/i)
+      fireEvent.click(boards)
+      const rows = [...document.querySelectorAll('[role=menu] [role=menuitem]')].map((el) => el.textContent)
+      // The default preference bag: three sections on, anthologies off — so a
+      // menu of three, and the one that is off is not in it.
+      expect(rows).toHaveLength(3)
+      expect(rows.join(' ')).not.toMatch(/antholog/i)
+    })
+
+    it('puts the three screens ABOUT the library behind the second key', async () => {
+      await mount()
+      const tools = dockKeys()[4]
+      expect(tools.getAttribute('aria-label')).toMatch(/tools/i)
+      fireEvent.click(tools)
+      const rows = [...document.querySelectorAll('[role=menu] [role=menuitem]')].map((el) => el.textContent)
+      expect(rows).toHaveLength(3)
+      // Tags is deliberately not among them — this key is the settings family,
+      // and a fourth row would make it "the rest of the drawer" instead.
+      expect(rows.join(' ')).not.toMatch(/tags/i)
+    })
   })
 })
