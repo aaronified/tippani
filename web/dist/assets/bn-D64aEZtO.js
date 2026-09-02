@@ -1,4 +1,4 @@
-# tippani — Bengali. The format is documented at the top of en.txt beside this
+const e=`# tippani — Bengali. The format is documented at the top of en.txt beside this
 # file, and the short version for a translator is in README.md.
 #
 # THE STYLE SHEET IS THE LAW: docs/plans/bengali-style.md — the register (চলিত
@@ -199,7 +199,7 @@ vocab.accent.olive.label = জলপাই
 vocab.accent.slate.label = স্লেট
 
 # --- vocab.font-role.* — the six jobs type does in this app, in Settings → Type.
-# `.sample` is the specimen line, set in the face being offered, so it must be
+# \`.sample\` is the specimen line, set in the face being offered, so it must be
 # text this role would actually carry — not a translation of the English one.
 # bn: The display, ui and hand faces are Latin-only; Bengali text in those roles
 # falls through to the Bengali face (fonts.js, "the Indic faces sit inside the
@@ -232,8 +232,8 @@ vocab.font-role.devanagari.what = হিন্দি, মরাঠি, সংস
 vocab.font-role.devanagari.sample = जो बीत गई सो बात गई
 
 # --- vocab.face.* — the eighteen bundled typefaces, in Settings → Type.
-# `.name` is the face's own name: DO NOT TRANSLATE it, though transliterating it
-# into the reader's script is fine. `.note` is the one-line reason to pick it.
+# \`.name\` is the face's own name: DO NOT TRANSLATE it, though transliterating it
+# into the reader's script is fine. \`.note\` is the one-line reason to pick it.
 vocab.face.newsreader.name = Newsreader
 vocab.face.newsreader.note = সঙ্গে যেটা আসে
 vocab.face.source-serif-4.name = Source Serif 4
@@ -278,7 +278,7 @@ vocab.font-style.bold.label = বোল্ড
 vocab.font-style.italic.label = ইটালিক
 vocab.font-style.smallcaps.label = স্মল ক্যাপস
 vocab.font-style.allcaps.label = অল ক্যাপস
-# `font-variant-numeric: tabular-nums` — figures that line up in a column.
+# \`font-variant-numeric: tabular-nums\` — figures that line up in a column.
 vocab.font-style.figures.label = সারিবদ্ধ সংখ্যা
 
 # --- vocab.gesture.* — the eleven touch gestures, drawn as a clip with the word
@@ -316,7 +316,7 @@ vocab.tag-style.reel.label = রিল
 # common.action.* — THE SHARED VERBS. One key per act, however many objects it
 # is performed on: 24 copies of "could not save" is 24 chances for a translator
 # to phrase one failure three ways, and the same is true of every verb here.
-# `.busy` is the transient state of the same button.
+# \`.busy\` is the transient state of the same button.
 # ---------------------------------------------------------------------------
 
 common.action.save.label = সেভ
@@ -646,7 +646,7 @@ shell.error.boundary.body = বাকি অ্যাপটা ঠিকই চ�
 # The same line when the crashed area has a name. {name} is that name.
 shell.error.boundary.named.body = {name} — বাকি অ্যাপটা ঠিকই চলছে।
 
-# The legend for every keyboard shortcut at once, opened by `?`.
+# The legend for every keyboard shortcut at once, opened by \`?\`.
 shell.shortcuts.title = কীবোর্ড শর্টকাট
 shell.shortcuts.intro.prose = এখানকার প্রতিটা শর্টকাট সেই বোতামের গায়েও লেখা থাকে, যে বোতাম একই কাজ করে — তাই মুখস্থ না রাখলেও চলে। কিছু টাইপ করার সময় শর্টকাট কাজ করে না।
 # {mode} is the name of the Practice mode, in bold; {key} is a drawn key cap.
@@ -2477,15 +2477,15 @@ share.format.whatsapp.name = WhatsApp
 share.format.whatsapp.what = WhatsApp চ্যাটের ফরম্যাট — এক অক্ষরের মোড়ক; হেডিং বা লিংকের চিহ্ন চলে না (খালি URL আপনিই লিংক হয়)।
 # bn: The three markup hints stay Latin: they are the literal characters a reader
 # types, and only the Plain hint describes a shape rather than showing syntax.
-share.format.whatsapp.hint = *bold*  _italic_  ~strike~  > quote  ```code```
+share.format.whatsapp.hint = *bold*  _italic_  ~strike~  > quote  \`\`\`code\`\`\`
 share.format.plaintext.name = সাধারণ লেখা
 share.format.plaintext.what = Twitter/X বা SMS-এর সাধারণ লেখা — কিছুই সাজে না, তাই উদ্ধৃতির দুপাশে “বাঁকা উদ্ধৃতিচিহ্ন”, নিচে — দিয়ে শুরু নামের লাইন।
 share.format.plaintext.hint = মার্কআপ নেই · “…” · — লেখক, নাম · #ট্যাগ
 share.format.markdown.name = Markdown
 share.format.markdown.what = পুরোদস্তুর Markdown — GitHub, Obsidian, Notion আর বেশির ভাগ এডিটরে সেজে ওঠে।
-share.format.markdown.hint = **bold**  *italic*  ~~strike~~  > quote  `code`  [text](url)
+share.format.markdown.hint = **bold**  *italic*  ~~strike~~  > quote  \`code\`  [text](url)
 share.format.reddit.name = Reddit
-share.format.reddit.what = Reddit-এর markdown (পুরনো আর নতুন দুটোতেই) — Markdown-এর মতোই, `> ` দিয়ে উদ্ধৃতি আর [text](url) দিয়ে লিংক।
+share.format.reddit.what = Reddit-এর markdown (পুরনো আর নতুন দুটোতেই) — Markdown-এর মতোই, \`> \` দিয়ে উদ্ধৃতি আর [text](url) দিয়ে লিংক।
 share.format.reddit.hint = **bold**  *italic*  ~~strike~~  > quote  [text](url)
 # The picture has no syntax to describe, so its help says what the thing IS.
 share.format.image.name = ছবি
@@ -2528,12 +2528,12 @@ share.field.translation.label = অনুবাদ
 # no speaker, no occasion, no date and no place, so every other field on the meta
 # line is empty and a shared proverb arrives as words from nowhere.
 #
-# `legend` is the WHOLE CLAUSE with a {value} hole, not a noun with the language
+# \`legend\` is the WHOLE CLAUSE with a {value} hole, not a noun with the language
 # glued in front of it: the article and the word order belong to the translator,
 # and Bengali puts the noun last and has no "a". The hole is spelled {value}
 # because that is what every phrase token on the meta line is handed — the same
 # mechanism as the "played by {value}" credit — and a token written {language}
-# renders the braces to the reader. `label` is the tick in the share dialog,
+# renders the braces to the reader. \`label\` is the tick in the share dialog,
 # which names the thing rather than the sentence.
 share.field.proverb.label = ধরন
 share.field.proverb.legend = {value} প্রবাদ
@@ -4117,7 +4117,7 @@ error.save.links = লিংক সেভ করা গেল না
 #
 # ONE NOUN, TWO WORDS, AND THE CODE USED TO LOWER-CASE IT. The component knew it
 # was handling a “COVER” or a “POSTER” and built every sentence around
-# `label.toLowerCase()` — English casing as grammar, in a language that has no
+# \`label.toLowerCase()\` — English casing as grammar, in a language that has no
 # case where Bengali is concerned. The noun is now a key and the sentences take
 # it as {noun}, with {nouns} for the plural.
 #
@@ -4209,7 +4209,7 @@ error.validate.lookup-fields = আগে নাম, ISBN বা ASIN দিন
 # not disagree about what the place is called.
 #
 # FOUR PLURAL FAMILIES REPLACED FOUR JAVASCRIPT TERNARIES. The English built its
-# own -s ("quote${n === 1 ? '' : 's'}"), and the Home-screen card built three at
+# own -s ("quote\${n === 1 ? '' : 's'}"), and the Home-screen card built three at
 # once — quote/quotes, is/are, it/them. A locale file has a plural category per
 # language, so the count picks the form and no language is stuck with English's
 # two.
@@ -5470,7 +5470,7 @@ search.help.colon.more = টাইপ করার সঙ্গে সঙ্গ�
 # Escaping a colon with a backslash so the word stays plain text.
 search.help.escaped-colon.term = শব্দটাই যখন বোঝাতে চান
 search.help.escaped-colon.what = তেরোটা সাধারণ শব্দ এখন ঘরের নাম, আর “note:” তো লোকে এমনিই লেখে।
-search.help.escaped-colon.more = কোলনের আগে একটা ব্যাকস্ল্যাশ দিন — note\: to self — তাহলে ওটা সাধারণ লেখাই থাকে: কোনও তালিকা নামে না, আর কথাগুলো যেমন লেখা ঠিক তেমনই খোঁজা হয়। শুধু ওই কোলনটাতেই এটা খাটে, তাই খোঁজের অন্য কোথাও ব্যাকস্ল্যাশ থাকলে সেটা আপনার খোঁজা একটা অক্ষরই থেকে যায়।
+search.help.escaped-colon.more = কোলনের আগে একটা ব্যাকস্ল্যাশ দিন — note\\: to self — তাহলে ওটা সাধারণ লেখাই থাকে: কোনও তালিকা নামে না, আর কথাগুলো যেমন লেখা ঠিক তেমনই খোঁজা হয়। শুধু ওই কোলনটাতেই এটা খাটে, তাই খোঁজের অন্য কোথাও ব্যাকস্ল্যাশ থাকলে সেটা আপনার খোঁজা একটা অক্ষরই থেকে যায়।
 
 # Whether a second chip of one field narrows or widens.
 search.help.two-chips.term = এক ঘরের দুটো চিপ
@@ -6356,3 +6356,4 @@ book.text.quote.label = শুধু উদ্ধৃতি
 book.text.quote.sub = যা লেখা হয়েছিল
 book.text.translation.label = শুধু অনুবাদ
 book.text.translation.sub = যা বোঝায়
+`;export{e as default};

@@ -117,6 +117,9 @@ everything in order. Three examples from 2.1.x, all of them in the history:
   mechanically: key set, placeholder parity, nothing lost, and on the 442 keys
   where writers disagreed, that the file holds one of *their* readings rather than
   an invented third. The register checks are in `docs/plans/multilingual.md`.
+  In 2.2.x one agent rewrote every string again from a per-key dossier of the code
+  that renders it, and a second, independent agent rated the result against the
+  brief before it was committed.
 - **The roadmap audit** ran one reader per section and then **four sceptic agents
   whose instruction was to refute the first pass**, not to agree with it. They
   overturned or amended **ten of thirty-three findings**. Acting on the first pass
