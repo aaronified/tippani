@@ -3411,8 +3411,8 @@ book.credit.editor.label = সম্পা.
 # the language it was WRITTEN in, beside the language it is printed in. Marked,
 # because two bare language names side by side say nothing about which is which.
 book.hero.language.original = মূল {name}
-book.hero.year.tip = {year} সালের সবকিছু
-book.hero.series.tip = {name}-এর সবকিছু
+common.hero.year.tip = {year} সালের সবকিছু
+common.hero.series.tip = {name}-এর সবকিছু
 # The date-confirm dialog's own word for what just happened to the shelf.
 book.shelf.started.label = পড়া শুরু
 book.shelf.abandoned.label = ছেড়ে দেওয়া
@@ -3512,10 +3512,6 @@ movies.export.count.shows.one = {n}টা শো
 movies.export.count.shows.other = {n}টা শো
 movies.export.count.games.one = {n}টা গেম
 movies.export.count.games.other = {n}টা গেম
-
-# The poster, full screen.
-movies.poster.fullscreen.aria = পুরো স্ক্রিনে পোস্টার দেখুন: {title}
-movies.poster.fullscreen.plain.aria = পুরো স্ক্রিনে পোস্টার দেখুন
 
 # A LOOKUP THAT FOUND SOMETHING YOU ALREADY HAVE. The two ways out are named
 # rather than implied: fill the gaps in what you have, or keep them apart.
@@ -5201,9 +5197,6 @@ shell.screen.menu.tip = এই স্ক্রিনের কাজগুলো
 # ---------------------------------------------------------------------------
 # The ♥ filter chip, on the Library board and the Catalogue board.
 common.favourite.filter.tip = শুধু প্রিয়
-# The poster on a title's own page, before it is opened full screen.
-movies.poster.open.tip = পোস্টারটা পুরো স্ক্রিনে দেখুন
-
 
 # ===========================================================================
 # THE HELP PANEL — the "?" every screen carries, in 16 sections plus the shell.

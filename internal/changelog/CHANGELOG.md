@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **A film, show or game page is the book page now — the same screen, with the type
+  differences it actually has.** The two were separate files that had drifted into
+  separate screens: on a wide window a book put its cover beside a scrolling column of
+  quotes and each column remembered its place, while a film was a page you scrolled past
+  the poster to reach the lines. A book's year, series and genre opened a search; a film's
+  looked exactly as pressable and did nothing at all. A book's credits were people with
+  faces and their own pages; a film's were underlined names in a sentence with a comma
+  between them. The way back said *Movies*, a name the board had not carried for
+  releases. All of that is one screen from here, so the next improvement to a work page
+  arrives on all four kinds at once instead of on whichever one it was written for.
+
+  What each kind still keeps is what actually differs: the noun (quotes, or lines), the
+  poster's own placeholder word, the shelf words — a game is *played*, and counted
+  against its own three rather than a film's two — the locators, and the credit roles: a
+  book's translator and editor, a show's creator, a game's studio and its publisher,
+  which is plain text because a publisher has no page to open.
+
 ### Added
 
 - **A phone has a way back to the top of a long board.** A work with a hundred quotes was

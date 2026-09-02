@@ -1,48 +1,35 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { DEMO, json, errText, downloadPost } from './api.js'
+import { json, errText, downloadPost } from './api.js'
 import { chapterLabel } from './text.js'
 import { CastCombo, Datalist, useWorkSuggestions } from './suggest.jsx'
 import { CoverControls, BookLookupPicker } from './CoverPicker.jsx'
 import { FlowQuote } from './flow.jsx'
-import { workDetailsPanel } from './WorkDetails.jsx'
 import { StickerImg, StickerPicker, useStickers } from './stickers.jsx'
 import { ShareDialog, bookShare, copyQuote } from './share.jsx'
 import { deleteWithUndo } from './undo.jsx'
 import { actionsFor, atOverflow, atRow } from './actions.jsx'
-import { usePractice } from './review.jsx'
 import { selectionClick, selectionMenuItems, useSelection } from './selection.jsx'
-import { facetValue, facetValues, publishSearchSeed, seedableChips, withFacet, withFacetValues, workSeedChip } from './facets.js'
+import { facetValue, facetValues, publishSearchSeed, seedableChips, withFacet, withFacetValues } from './facets.js'
 import { SelectionBar } from './SelectionBar.jsx'
-import { CharacterFaces, PersonChip, PersonModal, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
-import { nameFor } from './languages.jsx'
+import { CharacterFaces, PersonModal, parseCreditSeps, usePeople } from './people.jsx'
 import { categoryHidden, categoryName } from './theme.js'
 import {
-  ACTIVE_STATUS,
   GroupHeading,
-  HeroCounts,
-  HeroKindRow,
-  InProgressCapDialog,
-  SHELF_CAPS,
-  ShelfControl,
-  ShelfDateDialog,
   WorkCard,
-  WorkHero,
   WishlistFolder,
   WorkListScaffold,
   countQuotes,
   groupWorks,
-  isActive,
   minusQuote,
-  moveLabel,
   patchMovesTheRow,
   pinInProgress,
   statusFilter,
   useBoardWindow,
   ANNOTATION_PAGE,
   wishFilter,
-  WorkDeleteConfirm,
 } from './works.jsx'
-import { KINDS, bookGenres, specFor } from './workKinds.js'
+import { KINDS, bookGenres } from './workKinds.js'
+import WorkDetail from './WorkDetail.jsx'
 import { t } from './i18n.js'
 import {
   ActionMenu,
@@ -54,31 +41,18 @@ import {
   ColorSwatches,
   ConfirmDialog,
   Cover,
-  DetailFrame,
   EmptyState,
   ErrorText,
   ExpandableText,
   Field,
   FilterChip,
-  filterChipClass,
   formatYear,
   FormModal,
-  GenreFilter,
   GhostButton,
   HandCard,
   HandNote,
   Hearts,
-  IconButton,
   IconCheck,
-  IconDelete,
-  IconDetails,
-  IconExport,
-  IconFilter,
-  IconPlus,
-  IconPractise,
-  IconQuiz,
-  IconReadAgain,
-  IconSearch,
   IconSliders,
   IconSortAsc,
   IconSortDesc,
@@ -86,8 +60,6 @@ import {
   MobileSheet,
   MonoLabel,
   mulberry32,
-  PageHeader,
-  PanelHost,
   parseYearInput,
   PickMark,
   QuizSkipMark,
@@ -97,29 +69,20 @@ import {
   Scroller,
   Select,
   StickerButton,
-  seriesLabel,
   SheetFooter,
-  splitCommas,
   TableActions,
   TagChip,
   titleCaseGenre,
-  todayPartial,
   TokenInput,
   Tooltip,
   TranslationLine,
   useCardMenu,
   useColumnsIn,
-  useColumnScroll,
   useCoverSize,
-  useCrumb,
   useFormHost,
   useIsMobileScreen,
-  usePanelStack,
   usePersistedState,
-  useReveal,
   useScreenBar,
-  useScreenOwnsScroll,
-  useTwoColumn,
   ViewIcon,
   ViewToggle,
 } from './ui.jsx'
@@ -646,522 +609,33 @@ export function ManualTab({ onAdded, formId, title, setTitle, onBusy }) {
 
 // ---- book detail (§8.5, mockups 08–09) ----
 
-function BookDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce }) {
-  // A THEMED ROUND OVER THIS BOOK. The engine has taken `?book=` since themed
-  // practice shipped (review_theme.go) and the action registry has carried a
-  // Practise entry for a work all along — it was only ever offered from a
-  // person's panel and from a colour on Stats, so the one screen where "quiz me
-  // on this" is the obvious thing to want had no way to ask.
-  const { practise, practiceDialog } = usePractice()
-  // Everything this screen says about its own kind, from the one table all four
-  // work pages read. A book needs no loaded row to resolve it — a book has no
-  // media_type, so its side IS its kind — which is the one asymmetry with the
-  // catalogue side worth knowing about.
-  const spec = specFor('book', null)
-  const [book, setBook] = useState(null)
-  // THE DETAILS SURFACE IS A PANEL NOW, so what used to be a boolean is the
-  // stack itself. Its own useEffect closes it when the id changes, the way
-  // setEditing(false) used to.
-  const detailsStack = usePanelStack()
-  // Every door into Details — the ⋯ menu, the header key, the phone dock — opens
-  // the same descriptor. `open` rather than `push`: this is "show me this", so it
-  // replaces whatever a previous control left open instead of burying it.
-  const openDetails = () => {
-    if (!book) return
-    detailsStack.open(workDetailsPanel(detailsStack, {
-      kind: 'book',
-      item: book,
-      onChanged: setBook,
-      onDelete: remove,
-    }))
-  }
-  const [error, setError] = useState('')
-  const [person, setPerson] = useState(null) // author metadata panel
-  const [mobileFilter, setMobileFilter] = useState(false)
-  // Live unfiltered quote counts, reported up by <Annotations> — total, plus how
-  // many are favourited / noted / tagged. The total drives the Wishlist tag, so
-  // adding this book's first quote retracts the tag on the spot rather than at the
-  // next visit; all four print in the hero (see HeroCounts). null until the quotes
-  // land, and a hero with no counts prints none rather than printing zeroes.
-  const [quoteStats, setQuoteStats] = useState(null)
-  const quoteCount = quoteStats?.total ?? null
-  // Shelf machinery. `pending` is a transition waiting on its date prompt;
-  // `capPool` the books already reading, held while the cap dialog is open.
-  const [pending, setPending] = useState(null) // { status, date }
-  const [capPool, setCapPool] = useState(null)
-  const [capBusyId, setCapBusyId] = useState(null)
-  const [capError, setCapError] = useState('')
-  const [shelfBusy, setShelfBusy] = useState(false)
-  const { map: authorMap } = usePeople('author') // name→metadata, for author face icons
-  // The two other book credits (1.12.0). Loaded on the BOOK PAGE only — the
-  // Library board never draws them, so it never pays for them either.
-  const { map: translatorMap } = usePeople('translator')
-  const { map: editorMap } = usePeople('editor')
-  const reveal = useReveal()
-  const mobile = useIsMobileScreen()
-  // One ref per column, so each remembers its own place — the shell's restoration
-  // knows only window.scrollY, and on this screen the window does not scroll.
-  const heroCol = useRef(null)
-  const streamCol = useRef(null)
-
-  async function load() {
-    const r = await json('GET', `/books/${id}`)
-    if (r.ok) setBook(r.data)
-    else setError(errText(r))
-  }
-  useEffect(() => {
-    setBook(null)
-    detailsStack.close()
-    setQuoteStats(null)
-    load()
-  }, [id])
-
-  // From inside a book, Search means search this book. The chip shows the title
-  // and sends the id — waiting for the title is why this seeds off `book`
-  // rather than off `id`, and why pressing Search before the page has loaded
-  // simply searches everything rather than seeding a chip reading "#42".
-  useEffect(() => {
-    publishSearchSeed(book ? [workSeedChip('book', book.id, book.title)] : [])
-    return () => publishSearchSeed([])
-  }, [book])
-
-  // ---- shelf transitions -----------------------------------------------------
-  // save is the one path to the status endpoint; every route below funnels here.
-  async function save(status, date) {
-    setShelfBusy(true)
-    // Carry the current position through: a transition is about the status, and
-    // the server derives progress from the position when one is set.
-    const body = {
-      status,
-      progress: book?.progress || 0,
-      pos_unit: book?.pos_unit || '',
-      pos: book?.pos || 0,
-      pos_total: book?.pos_total || 0,
-    }
-    if (status === ACTIVE_STATUS.book) body.started_at = date || ''
-    else if (status === 'completed' || status === 'abandoned') body.finished_at = date || ''
-    const r = await json('PUT', `/books/${id}/status`, body)
-    setShelfBusy(false)
-    if (r.ok) setBook(r.data)
-    else setError(errText(r, t('error.save.generic')))
-  }
-
-  // pick routes the state the user chose. Starting to read checks the soft cap
-  // first, so the choice to run long is made in front of what is already on the
-  // shelf; reading, completing and abandoning then ask for their date. Pausing
-  // and clearing need neither — nothing about the log changes.
-  async function pick(next) {
-    if (!book) return
-    if (next === ACTIVE_STATUS.book && book.status !== 'paused') {
-      const r = await json('GET', '/books')
-      if (!r.ok) return setError(errText(r))
-      const pool = (r.data.books || []).filter((b) => isActive('book', b) && b.id !== book.id)
-      if (pool.length >= SHELF_CAPS.book) {
-        setCapError('')
-        setCapPool(pool)
-        return
-      }
-    }
-    if (next === '' || next === 'paused') return save(next, '')
-    setPending({ status: next, date: todayPartial() })
-  }
-
-  // Settling another book from inside the cap dialog: mark it read as of today
-  // (the dialog says so, and its own page can correct the date), then carry on
-  // into the transition that was blocked once the shelf has room.
-  async function releaseReading(item) {
-    setCapBusyId(item.id)
-    const err = await setBookStatus(item.id, { status: 'completed', finished_at: todayPartial() })
-    setCapBusyId(null)
-    if (err) return setCapError(err)
-    const left = capPool.filter((b) => b.id !== item.id)
-    if (left.length < SHELF_CAPS.book) {
-      setCapPool(null)
-      setPending({ status: ACTIVE_STATUS.book, date: todayPartial() })
-      return
-    }
-    setCapPool(left)
-  }
-
-  // Progress rides the status endpoint with the status unchanged rather than
-  // needing a route of its own. `patch` is either { progress } or a page position
-  // ({ pos_unit, pos, pos_total }) — the server derives the percentage from the
-  // latter, so a physical book's page count is the authoritative number.
-  async function saveProgress(patch) {
-    setShelfBusy(true)
-    const r = await json('PUT', `/books/${id}/status`, { status: book.status, ...patch })
-    setShelfBusy(false)
-    if (r.ok) setBook(r.data)
-    else setError(errText(r, t('error.save.generic')))
-  }
-
-  // THE BROWSER'S OWN confirm() WAS DOING THIS, and it was the last one on the
-  // screen: an English-only string in an app that ships Bengali, unstyleable,
-  // and drawn by the OS rather than by the app. The board's tile has asked
-  // properly since it got a context menu — same ConfirmDialog, same copy — so
-  // this is not a new surface, it is the detail screen finally using the one
-  // that exists. One act, one door.
-  const [asking, setAsking] = useState(false)
-  async function remove() {
-    setAsking(false)
-    // No reload on the Undo: this view closes on a successful delete, so the book
-    // coming back has to be found again from the shelf. The toast still offers it,
-    // and the Bin is the other way in.
-    const r = await deleteWithUndo(`/books/${id}`, { label: t('book.toast.deleted') })
-    if (r.ok) onClose()
-    else setError(errText(r))
-  }
-
-  // patch PUTs the book's full current state with one field changed (♥ clicks
-  // in the header), mirroring the annotation-card pattern.
-  async function patch(fields) {
-    const r = await json('PUT', `/books/${id}`, { ...bookState(book), ...fields })
-    if (r.ok) setBook(r.data)
-    else setError(errText(r, t('error.save.generic')))
-  }
-
-  // Meta parts: each author is a clickable PersonName (opens the metadata
-  // panel) — a joined multi-author credit renders one link per person (§11);
-  // the rest are plain, interleaved with " · ".
-  //
-  // ISBN and ASIN deliberately do NOT appear here any more. They are catalogue
-  // plumbing — nobody reads a book page to check its ISBN — and they cost the
-  // credit line two segments above the quotes you came for. Both live in the
-  // Details panel now, each with an InfoDot saying what it is for.
-  //
-  // THE OTHER TWO CREDITS APPEAR HERE AND NOWHERE ELSE (1.12.0). A translator and
-  // an editor are real people with portraits and pages, and this is the one screen
-  // where the question "whose English is this?" is being asked. They are
-  // deliberately absent from the Library board and from a quote's credit chips: a
-  // tile has room for one credit, and a quote is attributed to whoever wrote it.
-  //
-  // ROLE-LABELLED, unlike the author. On a book's own page an unlabelled name is
-  // read as the author, so a bare second face would say the book has two authors.
-  //
-  // A CHIP, NOT A NAME IN A SENTENCE (3.1). Each credited person is now a pill
-  // carrying their face and their whole name — their own hit target and their own
-  // door — because the sentence form gave a person, a role word, a year and a
-  // series the same weight and left a middle dot to do all the distinguishing.
-  // See PersonChip, and the standing rule it exists to keep: no ellipsis on a
-  // person, ever. The row scrolls under its measured fade instead.
-  const credited = (kind, value, map) =>
-    splitCredits(value || '', parseCreditSeps(creditSeparators)).map((n) => (
-      <PersonChip key={`${kind}-${n}`} kind={kind} name={n} person={map[n]} onOpen={setPerson} />
-    ))
-  const roleCredits = (kind, label, value, map) => {
-    const people = credited(kind, value, map)
-    if (people.length === 0) return null
-    return (
-      <span key={kind} className="inline-flex items-center gap-1.5" style={{ flex: 'none' }}>
-        <MonoLabel style={{ color: 'var(--faint)' }}>{label}</MonoLabel>
-        {people}
-      </span>
-    )
-  }
-  // THE CREDITS ROW HOLDS PEOPLE AND NOTHING ELSE (3.1). It used to read
-  // "Herman Melville · translator Anna · 1851 · Whales #2" — a person, a role
-  // word, a year and a series in one sentence, all the same size, separated by a
-  // middle dot, so the only thing distinguishing somebody's name from a number
-  // was where it happened to fall. The year and the series are facts ABOUT the
-  // book and belong in the kind row above the title with the language; what is
-  // left here is a row of people, each one an object with its own face and its
-  // own door. See HeroKindRow.
-  const metaParts = book
-    ? [
-        ...credited('author', book.author, authorMap),
-        roleCredits('translator', t('book.credit.translator.label'), book.translator, translatorMap),
-        roleCredits('editor', t('book.credit.editor.label'), book.editor, editorMap),
-      ].filter(Boolean)
-    : []
-
-  // ── THE FACTS BESIDE THE KIND ARE DOORS, and until now not one of them was.
-  //
-  // The pack's rule: "year and language are stored, shared and searchable, so
-  // each is a way into a filtered search rather than a caption." The plumbing has
-  // been here the whole time — HeroFact renders a button when it is handed an
-  // onClick and a flat span when it is not — and this call site handed it none,
-  // so every fact fell through to the flat span. The comment that stood here
-  // claimed the language was a link "because there is a board behind it", which
-  // was the opposite of what the code did.
-  //
-  // THE LANGUAGE IS THE ONE THAT STAYS FLAT, and the reason is the server: there
-  // is no `language` facet (see FACET_FIELDS), so a language door would be a
-  // control that can only fail. Year, series and genre all have one. Adding the
-  // facet is the missing half of that door and is not this change.
-  //
-  // A DOOR REPLACES THE WORK CHIP RATHER THAN NARROWING IT. "Books from 1967"
-  // means across the library — a year door that also carried `book:this` would
-  // search one book for the year it was published in, which is a question with
-  // one answer and no reason to ask.
-  const searchBy = onSearch
-    ? (field, value, label) => {
-        publishSearchSeed([{ field, value: String(value), label: label || String(value) }])
-        onSearch()
-      }
-    : null
-  const kindRow = book && (
-    <HeroKindRow
-      word={t('unit.book.one')}
-      links={[
-        {
-          key: 'year',
-          label: formatYear(book.published_year, book.published_circa),
-          // The circa flag is a fact about the DATE, not a value the facet can
-          // take, so the door sends the year and the label keeps the "c.".
-          onClick: searchBy && book.published_year ? () => searchBy('year', book.published_year) : undefined,
-          title: book.published_year ? t('book.hero.year.tip', { year: book.published_year }) : undefined,
-        },
-        { key: 'lang', label: nameFor([book.language]) },
-        { key: 'orig', label: book.orig_language && nameFor([book.orig_language]) ? t('book.hero.language.original', { name: nameFor([book.orig_language]) }) : '' },
-        {
-          key: 'series',
-          label: seriesLabel(book),
-          onClick: searchBy && book.series ? () => searchBy('series', book.series) : undefined,
-          title: book.series ? t('book.hero.series.tip', { name: book.series }) : undefined,
-        },
-      ]}
-    />
-  )
-
-  const detailTitle = book ? (book.title || t('book.title.fallback')) : ''
-  // The shell's breadcrumb names what you have open; this is how it learns.
-  useCrumb(detailTitle)
-  const detailAuthor = book && book.author ? book.author : ''
-
-  // ── WHAT THE PHONE'S TWO BARS CARRY WHILE THIS SCREEN IS OPEN.
-  //
-  // This replaced MobileDetailBar, which was a whole second top bar drawn INSIDE
-  // the page — a back key, a title, a meta line and three controls, duplicating
-  // the shell's bar rather than extending it, on the one device with no room for
-  // two. The title and the sub-line go up to the header; the verbs go down to the
-  // dock, where a thumb is. Back is the dock's own leftmost key and Search is
-  // beside it on every screen, so neither is declared here.
-  //
-  // TWO SEATS, and the second is More precisely because there are more than two
-  // things: shelf, export, practise, help and delete are a menu, not five keys a
-  // thumb has to aim between.
-  useScreenBar({
-    sub: detailAuthor || null,
-    // THE WHOLE SET, for the top bar's ⋯ . These six were the dock's second seat
-    // and existed on a phone only; they are on both viewports now, and the desktop
-    // screen — which had no menu at all and reached Details through a pencil, help
-    // through the ? and delete through nothing at all — finally has one place that
-    // says what a book's page can do.
-    actions: () => [
-      // The board publishes its own section AHEAD of this one — see Annotations —
-      // so this heading separates what can be done to the BOOK from how its quotes
-      // are drawn. Two sections, two subjects, one menu.
-      { id: 'h-do', heading: t('common.mono.actions.label') },
-      {
-        id: 'shelf',
-        icon: <IconReadAgain size={24} />,
-        label: moveLabel('book', book?.status || '', ACTIVE_STATUS.book, book || {}),
-        onClick: () => pick(ACTIVE_STATUS.book),
-      },
-      { id: 'details', icon: <IconDetails />, label: t('common.work.details.title'), onClick: () => openDetails() },
-      { id: 'practise', icon: <IconPractise />, label: t('book.practise.menu.label'), onClick: () => book && practise({ book: book.id, label: book.title }) },
-      ...(DEMO ? [] : [{ id: 'export', icon: <IconExport />, label: t('book.export.label'), onClick: () => { if (book) window.location.href = `/api/books/${book.id}/export` } }]),
-      { id: 'delete', icon: <IconDelete />, label: t('common.action.delete.label'), onClick: () => setAsking(true), danger: true },
-    ],
-    // THE DOCK KEEPS FILTER AND GAINS A REAL SECOND VERB. Its ⋯ seat went to the
-    // top bar, and the seat it vacated is worth more as Details — the thing you
-    // press on a book's page after reading it — than as a second door to a menu.
-    keys: mobile ? [
-      {
-        id: 'filter',
-        label: t('book.filter.aria'),
-        icon: <IconFilter />,
-        onClick: () => setMobileFilter(true),
-      },
-      {
-        id: 'details',
-        label: t('common.work.details.title'),
-        icon: <IconDetails />,
-        onClick: () => openDetails(),
-      },
-    ] : null,
-  })
-
-  // THE FRAME, AND WHAT IT COSTS THE BACK LINK. At two columns the screen owns its
-  // scrolling and the hero becomes a column of its own; below that it is the page
-  // it has always been. The `← LIBRARY` button is drawn only in the second case,
-  // which resolves one of the two redundancies the top-bar phase flagged and left
-  // for the screen passes: on a wide detail the crumb already says `tippani /
-  // <title>` and the rail already says Library, so a third way to leave was a
-  // control earning nothing but a row.
-  const wide = useTwoColumn()
-  useScreenOwnsScroll(wide)
-  useColumnScroll(heroCol, book ? `book:${book.id}:hero` : null)
-  useColumnScroll(streamCol, book ? `book:${book.id}:stream` : null)
-
-  const heroBlock = book && (
-        <div>
-          <WorkHero
-            cover={<Cover path={book.cover_path} title={book.title} hero zoomable />}
-            shadow="drop-shadow(0 12px 22px rgba(0,0,0,.34))"
-            title={book.title}
-            titleStyle={{ lineHeight: 1.15 }}
-            kindRow={kindRow}
-            miniSub={detailAuthor || null}
-            // The progress strip, welded to the foot of the cover rather than
-            // drawn as its own row — and it is the SHELF's colour now, drawn
-            // whenever the book is on a shelf at all. What stood here was "only
-            // while there is progress to show: a 0% track on a book you have not
-            // opened is a bar that says nothing", which is true of a book with no
-            // status and wrong for the three settled states: a completed book has
-            // no percentage and is exactly the case the strip can report best.
-            progress={book.progress > 0 ? book.progress / 100 : null}
-            shelf={book.status || ''}
-            shelfKind="book"
-            meta={
-              // NO SEPARATORS BETWEEN CHIPS. The dots were doing the work of
-              // telling one name from the next; a pill with a border does that
-              // by being a pill, and a dot between two of them is punctuation
-              // inside a list of objects.
-              metaParts.length > 0 && metaParts
-            }
-            // What this book is HOLDING, above the fold. The board's own toolbar
-            // count is past the description on a desktop and inside the filter
-            // sheet on a phone, which is a scroll away on the page whose entire
-            // subject is how much you have kept out of this book.
-            counts={<HeroCounts counts={quoteStats} noun={[t(spec.quoteUnit.one), t(spec.quoteUnit.other)]} tone={spec.countsTone} />}
-            favorite={book.favorite}
-            onFavorite={(v) => patch({ favorite: v })}
-            // Shelf state, beside the hearts: the state chip (its popover holds
-            // the transitions and, while reading, the progress field) and the ×N
-            // read counter. A set status wins over the derived Wishlist tag.
-            tags={
-              <ShelfControl
-                kind="book"
-                item={book}
-                status={book.status}
-                progress={book.progress}
-                pos={book}
-                reads={book.reads}
-                onReadsChanged={load}
-                wishlist={quoteCount === 0}
-                busy={shelfBusy}
-                onSelect={pick}
-                onProgress={saveProgress}
-              />
-            }
-            genres={bookGenres(book)}
-            // A GENRE IS THE SAME SPECIES OF FACT AS THE YEAR beside it, so it is
-            // the same kind of door. HeroGenres has taken this callback since it
-            // was written and no work page passed one, which left a row of facts
-            // that look pressable and are not.
-            onGenre={searchBy ? (g) => searchBy('genre', g) : undefined}
-            description={book.description}
-            // Desktop only: on mobile these same actions live in the sticky bar's
-            // ⋯ overflow above, and a second standing row just duplicated them.
-            // Desktop only: on mobile these same actions live in the sticky
-            // bar's ⋯ overflow above. Everything but the shelf move is a glyph
-            // now — the row used to be four wide word-buttons floated over the
-            // description, which is the one thing on the page worth reading.
-            // TWO STANDING VERBS, and each of the three that left had somewhere
-            // better to be. The shelf move is the state chip's own popover, two
-            // inches above this row and holding the whole lifecycle rather than
-            // one step of it. Export and Delete are in the ⋯ menu, which every
-            // screen now has: export is a thing you do once a year, and a
-            // destructive verb standing beside four constructive ones is where a
-            // mis-click costs a book and all its quotes.
-            //
-            // Five buttons was also what pushed this row below the fold in the
-            // hero COLUMN, so the actions a reader came for were the one thing
-            // they had to scroll to find.
-            actions={
-              mobile ? null : (
-                <>
-                  {/* TWO VERBS, TWO WEIGHTS. A row of two identical buttons asks
-                      the same question twice; the pack raises one of them, and the
-                      raised one is Practise — it is what a reader opened this book's
-                      page to do, while Details is where you go to correct a year.
-                      Both stretch to half the column (`flex: 1 1 0` in the row's
-                      own rule) so the pair reads as a choice rather than as a list
-                      that ran out of room. */}
-                  <IconButton icon={<IconDetails />} label={t('common.work.details.title')}
-            ariaLabel={t('common.work.details.title')} onClick={() => openDetails()} tooltip={t('book.details.tip')} />
-                  <IconButton icon={<IconPractise />} label={t('common.action.practise.label')} className="tp-btn-primary"
-            ariaLabel={t('book.practise.aria')} onClick={() => practise({ book: book.id, label: book.title })} tooltip={t('book.practise.tip')} />
-                </>
-              )
-            }
-          />
-        </div>
-  )
-  const streamBlock = book && (
-    <Annotations bookId={book.id} book={book} authorMap={authorMap} seps={parseCreditSeps(creditSeparators)} onStats={setQuoteStats} mobileFilterOpen={mobileFilter} onMobileFilterOpen={setMobileFilter} onAdd={onAdd} dataNonce={dataNonce} />
-  )
-
+// BookDetail — the library's work page, which is WorkDetail with `side` set.
+// Everything that used to be here is in WorkDetail.jsx now: this screen was the
+// one the merged component was lifted out of, so what moved is unchanged and the
+// catalogue side is what gained the two columns, the hero's doors and the rest.
+//
+// The BOARD is still this file's — `Annotations` is folded next — so it comes in
+// as a render prop.
+function BookDetail(props) {
   return (
-    <section ref={reveal} className={wide ? 'reveal' : 'reveal space-y-6 md:pt-4'} data-screen-label="book-detail">
-      {!mobile && !wide && (
-        <button
-          className="mono-label"
-          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '6px 0' }}
-          onClick={onClose}
-        >
-          ← Library
-        </button>
+    <WorkDetail
+      {...props}
+      side="book"
+      stateBuilder={(book, fields) => ({ ...bookState(book), ...fields })}
+      renderBoard={({ item, seps, creditMaps, mobileFilter, setMobileFilter, onStats, onAdd, dataNonce }) => (
+        <Annotations
+          bookId={item.id}
+          book={item}
+          authorMap={creditMaps[0]}
+          seps={seps}
+          onStats={onStats}
+          mobileFilterOpen={mobileFilter}
+          onMobileFilterOpen={setMobileFilter}
+          onAdd={onAdd}
+          dataNonce={dataNonce}
+        />
       )}
-      <ErrorText>{error}</ErrorText>
-      {wide ? (
-        <DetailFrame heroRef={heroCol} streamRef={streamCol} hero={heroBlock} stream={streamBlock} />
-      ) : (
-        heroBlock
-      )}
-      {/* THE PANEL HOST IS A SIBLING OF THE PAGE, never inside the detail card:
-          it portals to <body>, and a .hand-card is `isolation: isolate`, so a
-          host mounted inside one would be trapped in its stacking context. */}
-      <PanelHost stack={detailsStack} />
-      <InProgressCapDialog
-        open={!!capPool}
-        items={(capPool || []).map((b) => ({ id: b.id, title: b.title, meta: [b.author, formatYear(b.published_year, b.published_circa) || null].filter(Boolean).join(' · ') }))}
-        cap={SHELF_CAPS.book}
-        noun={t(spec.capWords.one)}
-        nounPlural={t(spec.capWords.other)}
-        verb={t('common.shelf.reading.book.label')}
-        pastLabel={t(spec.capWords.past)}
-        busyId={capBusyId}
-        error={capError}
-        onRelease={releaseReading}
-        onCancel={() => setCapPool(null)}
-        onProceed={() => { setCapPool(null); setPending({ status: ACTIVE_STATUS.book, date: todayPartial() }) }}
-      />
-      <ShelfDateDialog
-        open={!!pending}
-        title={pending ? moveLabel('book', book?.status || '', pending.status, book || {}) : ''}
-        label={t(
-          pending?.status === ACTIVE_STATUS.book
-            ? spec.shelfDate.active
-            : pending?.status === 'abandoned'
-              ? spec.shelfDate.abandoned
-              : spec.shelfDate.completed,
-        )}
-        value={pending?.date || ''}
-        onChange={(v) => setPending((p) => (p ? { ...p, date: v } : p))}
-        onCancel={() => setPending(null)}
-        onConfirm={() => { const p = pending; setPending(null); save(p.status, p.date) }}
-      />
-      {/* At two columns the stream is inside the frame above; here it is the page
-          continuing below the hero, which is what it has always been. */}
-      {!wide && streamBlock}
-      {person && <PersonModal kind={person.kind} name={person.name} onClose={() => setPerson(null)} />}
-      {/* Phone-only route into this screen's help: the sticky bar has no room
-          for a "?", so the ⋯ menu opens the same panel the desktop button does. */}
-      {practiceDialog}
-      {/* The board tile's dialog, not a second one that looks like it — deleting
-          a book from its own screen and deleting it from its cover are one act
-          and now one door, phrase and all. */}
-      <WorkDeleteConfirm
-        open={asking}
-        kind="book"
-        title={book?.title || ''}
-        count={quoteStats?.total || 0}
-        onConfirm={remove}
-        onCancel={() => setAsking(false)}
-      />
-    </section>
+    />
   )
 }
 

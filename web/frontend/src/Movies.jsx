@@ -1,51 +1,37 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { categoryVar } from './theme.js'
 import { episodeLabel } from './text.js'
-import { DEMO, coverImgURL, json, errText, downloadPost } from './api.js'
-import { CoverControls, CoverPreview, MovieLookupPicker, idNum } from './CoverPicker.jsx'
+import { json, errText, downloadPost } from './api.js'
+import { CoverControls, MovieLookupPicker, idNum } from './CoverPicker.jsx'
 import { FlowQuote } from './flow.jsx'
-import { workDetailsPanel } from './WorkDetails.jsx'
 import { StickerImg, StickerPicker, useStickers } from './stickers.jsx'
 import { ShareDialog, copyQuote, movieShare } from './share.jsx'
 import { deleteWithUndo } from './undo.jsx'
 import { actionsFor, atOverflow, atRow } from './actions.jsx'
 import { selectionClick, selectionMenuItems, useSelection } from './selection.jsx'
-import { facetValue, facetValues, publishSearchSeed, seedableChips, withFacet, withFacetValues, workSeedChip } from './facets.js'
+import { facetValue, facetValues, publishSearchSeed, seedableChips, withFacet, withFacetValues } from './facets.js'
 import { SelectionBar } from './SelectionBar.jsx'
 import { useCharacterArt } from './cast.jsx'
-import { CharacterFaces, CreditFaces, PersonCredit, PersonModal, PersonName, parseCreditSeps, splitCredits, usePeople, usePortraitFill } from './people.jsx'
-import { usePractice } from './review.jsx'
+import { CharacterFaces, CreditFaces, PersonModal, PersonName, parseCreditSeps, splitCredits, usePeople, usePortraitFill } from './people.jsx'
 import {
-  ACTIVE_STATUS,
   GroupHeading,
-  HeroCounts,
-  HeroKindRow,
-  InProgressCapDialog,
-  SHELF_CAPS,
-  ShelfControl,
-  ShelfDateDialog,
   WorkCard,
-  WorkHero,
   WorkListScaffold,
   capKeyFor,
   countQuotes,
-  creditLabelFor,
   creditNounFor,
-  personKindFor,
   groupWorks,
-  isActive,
   moveLabel,
   patchMovesTheRow,
   pinInProgress,
   statusFilter,
   useBoardWindow,
   wishFilter,
-  WorkDeleteConfirm,
 } from './works.jsx'
-import { KINDS, specFor } from './workKinds.js'
+import { KINDS } from './workKinds.js'
+import WorkDetail from './WorkDetail.jsx'
 import { t } from './i18n.js'
 import {
-  ANNOTATION_HEX,
   QUOTE_COLUMNS_IN,
   byLastRead,
   bySeries,
@@ -61,49 +47,30 @@ import {
   FormModal,
   FrameCode,
   frameCode,
-  GenreFilter,
   GhostButton,
   HandCard,
   HandNote,
   Hearts,
-  IconButton,
-  IconDelete,
-  IconDetails,
-  IconExport,
-  IconFilter,
   IconMetadata,
-  IconPlus,
-  IconPractise,
-  IconQuiz,
-  IconSearch,
-  IconWatching,
-  Lightbox,
   Masonry,
   MobileSheet,
   MonoLabel,
   mulberry32,
   NameInput,
   NameScroll,
-  PageHeader,
-  PanelHost,
   parseYearInput,
   PickMark,
-  Placeholder,
   QuizSkipMark,
   QuoteActions,
   QuoteTools,
   ReviewDot,
   Scroller,
   Select,
-  seriesLabel,
   SheetFooter,
-  shelfLabel,
-  splitCommas,
   Sprockets,
   TableActions,
   TagChip,
   titleCaseGenre,
-  todayPartial,
   Toggle,
   TokenInput,
   Tooltip,
@@ -111,14 +78,11 @@ import {
   useCardMenu,
   useColumnsIn,
   useCoverSize,
-  useCrumb,
   useFormHost,
   useFrameBase,
   useIsMobileScreen,
-  usePanelStack,
   usePersistedState,
   useReveal,
-  useScreenBar,
   ViewToggle,
 } from './ui.jsx'
 
@@ -218,39 +182,6 @@ const amberMono = {
   letterSpacing: '.12em',
   textTransform: 'uppercase',
   color: 'var(--amber)',
-}
-
-// Poster renders the locally-served poster (GET /covers/{file}) or the
-// striped POSTER placeholder (§6), always 2:3 and full-width.
-function Poster({ path, title, className = '', zoomable = false }) {
-  const [zoom, setZoom] = useState(false)
-  if (path) {
-    const img = (
-      <img
-        src={coverImgURL(path)}
-        alt={title ? `Poster of ${title}` : ''}
-        className={'block w-full object-cover ' + className}
-        style={{ aspectRatio: '2 / 3', border: '1px solid var(--line)', borderRadius: 8 }}
-      />
-    )
-    if (!zoomable) return img
-    return (
-      <>
-        <Tooltip label={t('movies.poster.open.tip')} className="w-full">
-          <button
-            type="button"
-            className="cover-zoom-btn"
-            aria-label={title ? t('movies.poster.fullscreen.aria', { title }) : t('movies.poster.fullscreen.plain.aria')}
-            onClick={() => setZoom(true)}
-          >
-            {img}
-          </button>
-        </Tooltip>
-        {zoom && <Lightbox path={path} title={title} onClose={() => setZoom(false)} />}
-      </>
-    )
-  }
-  return <Placeholder kind={t('common.badge.poster')} className={'w-full ' + className} />
 }
 
 // movieState is the full PUT body for a movie (PUT is full-state, and omitting
@@ -825,434 +756,36 @@ export function MediaTypeToggle({ value, onChange }) {
 
 // ---- movie detail (§8.7): poster header + filmstrip of dialogues ----
 
-function MovieDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce }) {
-  // A themed round over this title — films, shows and games alike, since the
-  // engine keys the theme on the movies row rather than on the medium.
-  const { practise, practiceDialog } = usePractice()
-  const [movie, setMovie] = useState(null)
-  // THE DETAILS SURFACE IS A PANEL NOW, so what used to be a boolean is the
-  // stack itself. Its own useEffect closes it when the id changes, the way
-  // setEditing(false) used to.
-  const detailsStack = usePanelStack()
-  // Every door into Details — the ⋯ menu, the header key, the phone dock — opens
-  // the same descriptor. `open` rather than `push`: this is "show me this", so it
-  // replaces whatever a previous control left open instead of burying it.
-  const openDetails = () => {
-    if (!movie) return
-    detailsStack.open(workDetailsPanel(detailsStack, {
-      kind: 'movie',
-      item: movie,
-      onChanged: setMovie,
-      onDelete: remove,
-    }))
-  }
-  const [error, setError] = useState('')
-  const [mobileFilter, setMobileFilter] = useState(false)
-  // { kind:'director', name } open in the metadata panel — captured at click time.
-  const [person, setPerson] = useState(null)
-  // Live unfiltered dialogue count, reported up by <Dialogues>: it decides the
-  // Wishlist tag, so the first dialogue retracts the tag straight away.
-  // Live unfiltered dialogue counts, reported up by <Dialogues> — total, plus how
-  // many are favourited / noted / tagged. The total decides the Wishlist tag; all
-  // four print in the hero (see HeroCounts). null until the lines land, and a hero
-  // with no counts prints none rather than printing zeroes.
-  const [lineStats, setLineStats] = useState(null)
-  const lineCount = lineStats?.total ?? null
-  // Shelf machinery, mirroring the Library's: `pending` is a transition waiting
-  // on its date, `capPool` the titles already watching while the cap dialog is up.
-  const [pending, setPending] = useState(null) // { status, date }
-  const [capPool, setCapPool] = useState(null)
-  const [capBusyId, setCapBusyId] = useState(null)
-  const [capError, setCapError] = useState('')
-  const [shelfBusy, setShelfBusy] = useState(false)
-  // The primary credit's people map. The KIND follows the media type, because a
-  // game's studio and a film's director share movies.director and the people
-  // console tells them apart only by kind — asking for 'director' on a game
-  // returns the film directors, so every studio would draw a blank face chip.
-  const detailMediaType = movie?.media_type || 'movie'
-  // Everything this screen says about its own kind, from the one table all four
-  // work pages read. Resolved from the loaded row, so a show and a game get
-  // their own words the moment the row lands and the film's until then.
-  const detailSpec = specFor('movie', movie)
-  const creditKind = personKindFor(detailMediaType)
-  const { map: directorMap } = usePeople(creditKind) // name→metadata, for the credit face chip
-  const mobile = useIsMobileScreen()
-  const creditSeps = useMemo(() => parseCreditSeps(creditSeparators), [creditSeparators])
-
-  async function load() {
-    const r = await json('GET', `/movies/${id}`)
-    if (r.ok) setMovie(r.data)
-    else setError(errText(r))
-  }
-  useEffect(() => {
-    setMovie(null)
-    detailsStack.close()
-    setLineStats(null)
-    load()
-  }, [id])
-
-  // Mirrors BookDetail: from inside a film, Search means search this film. Chip
-  // shows the title, wire carries the id.
-  useEffect(() => {
-    publishSearchSeed(movie ? [workSeedChip('movie', movie.id, movie.title)] : [])
-    return () => publishSearchSeed([])
-  }, [movie])
-
-  // ---- shelf transitions ------------------------------------------------------
-  // The films and shows caps are separate pools (2 · 5): a binge-watched series
-  // should not crowd out the one film you have on the go.
-  const capKey = movie ? capKeyFor('movie', movie) : 'movie'
-  // The in-progress word for THIS row. 'watching' for a film or a show,
-  // 'playing' for a game — the catalogue holds both, so a single ACTIVE_STATUS
-  // .movie would offer a game the wrong verb and then fail the server's
-  // validation with a 400 the reader cannot act on.
-  const activeWord = ACTIVE_STATUS[capKey]
-  // The cap dialog's nouns for this pool. Falls back to the film row for a
-  // media_type nobody has taught this screen yet, which is the one case where a
-  // slightly broad word beats a blank dialog.
-  const capWords = capWordsFor(capKey)
-
-  async function save(status, date) {
-    setShelfBusy(true)
-    // Carry the current position through — a transition is about the status, and
-    // a show's season/episode is what the server derives its percentage from.
-    const body = {
-      status,
-      progress: movie?.progress || 0,
-      pos_unit: movie?.pos_unit || '',
-      pos: movie?.pos || 0,
-      pos_total: movie?.pos_total || 0,
-      season: movie?.season || 0,
-      season_total: movie?.season_total || 0,
-    }
-    if (status === activeWord) body.started_at = date || ''
-    else if (status === 'completed' || status === 'abandoned') body.finished_at = date || ''
-    const r = await json('PUT', `/movies/${id}/status`, body)
-    setShelfBusy(false)
-    if (r.ok) setMovie(r.data)
-    else setError(errText(r, t('error.save.generic')))
-  }
-
-  async function pick(next) {
-    if (!movie) return
-    if (next === activeWord && movie.status !== 'paused') {
-      const r = await json('GET', '/movies')
-      if (!r.ok) return setError(errText(r))
-      const pool = (r.data.movies || []).filter(
-        (m) => isActive('movie', m) && m.id !== movie.id && capKeyFor('movie', m) === capKey,
-      )
-      if (pool.length >= SHELF_CAPS[capKey]) {
-        setCapError('')
-        setCapPool(pool)
-        return
-      }
-    }
-    if (next === '' || next === 'paused') return save(next, '')
-    setPending({ status: next, date: todayPartial() })
-  }
-
-  async function releaseWatching(item) {
-    setCapBusyId(item.id)
-    const err = await setMovieStatus(item.id, { status: 'completed', finished_at: todayPartial() })
-    setCapBusyId(null)
-    if (err) return setCapError(err)
-    const left = capPool.filter((m) => m.id !== item.id)
-    if (left.length < SHELF_CAPS[capKey]) {
-      setCapPool(null)
-      setPending({ status: activeWord, date: todayPartial() })
-      return
-    }
-    setCapPool(left)
-  }
-
-  // `patch` is either { progress } or a season/episode position — the server
-  // derives the percentage from the latter (whole earlier seasons counting in
-  // full), so a show's bar advances as you work through the run.
-  async function saveProgress(patch) {
-    setShelfBusy(true)
-    const r = await json('PUT', `/movies/${id}/status`, { status: movie.status, ...patch })
-    setShelfBusy(false)
-    if (r.ok) setMovie(r.data)
-    else setError(errText(r, t('error.save.generic')))
-  }
-
-  // The browser's own confirm() was asking this, in English, in an app that
-  // ships Bengali. Same ConfirmDialog and same copy the catalogue tile has used
-  // since it got a context menu — see BookDetail's for the full note.
-  const [asking, setAsking] = useState(false)
-  async function remove() {
-    setAsking(false)
-    // As with a book: this view closes, so there is nothing here to reload.
-    const r = await deleteWithUndo(`/movies/${id}`, { label: t('film.toast.deleted') })
-    if (r.ok) onClose()
-    else setError(errText(r))
-  }
-
-  // patch PUTs the movie's full current state with one field changed (♥).
-  async function patch(fields) {
-    const r = await json('PUT', `/movies/${id}`, { ...movieState(movie), ...fields })
-    if (r.ok) setMovie(r.data)
-    else setError(errText(r, t('error.save.generic')))
-  }
-
-  const isShow = movie && (movie.media_type || 'movie') === 'show'
-  // "DIR./CREATED BY/STUDIO X · YEAR · Series #n" — the mono credit line.
-  // The director/creator/studio name(s) are clickable (open the People panel),
-  // styled to inherit the amber mono voice; co-credits split like book authors do.
-  // detailMediaType / creditKind are computed above, beside the usePeople call
-  // they also select.
-  const dirNames = movie?.director ? splitCredits(movie.director, creditSeps) : []
-  // The credit line mixes portrait chips (tall) with mono text, so it lays out as
-  // an inline flex row that vertically CENTRES everything — otherwise the text
-  // sits on the baseline and reads low against the face discs.
-  const directorNode =
-    dirNames.length > 0 ? (
-      <span key="director" style={{ display: 'inline-flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 6, rowGap: 2 }}>
-        <span>{creditLabelFor(detailMediaType)}</span>
-        {dirNames.map((n, i) => (
-          <Fragment key={n}>
-            {i > 0 && <span aria-hidden="true" style={{ marginLeft: -2 }}>,</span>}
-            <PersonCredit
-              kind={creditKind}
-              name={n}
-              person={directorMap[n]}
-              size={28}
-              onOpen={setPerson}
-              nameClassName=""
-              nameStyle={{ font: 'inherit', color: 'inherit', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 2 }}
-            />
-          </Fragment>
-        ))}
-      </span>
-    ) : null
-  // The TMDB / TheTVDB ids used to ride this line as two more segments. They are
-  // supplier plumbing — what a re-sync pulls from — not something anyone reads a
-  // film page to learn, so they moved into the Details panel, where each carries
-  // an InfoDot explaining what it is and a link out to the source record.
-  // PUB. sits after the studio and before the year, which is the order the two
-  // credits are read in — who made it, then who put it out. Plain mono text
-  // rather than a PersonCredit chip: a publisher has no `people` row, no logo and
-  // no panel to open (0042), so a clickable name would promise a page that does
-  // not exist. Games only, for the same reason the form's box is.
-  const publisherNode =
-    detailMediaType === 'game' && movie?.publisher ? (
-      <span key="publisher">{t('film.credit.publisher.label', { name: movie.publisher })}</span>
-    ) : null
-  // THE CREDIT ROW HOLDS PEOPLE AND NOTHING ELSE, the same as a book's. The year
-  // and the series are facts ABOUT the work and belong in the kind row above the
-  // title; a publisher is a fact too, and stays here only because it names an
-  // organisation rather than a date. One row, one kind of thing.
-  const metaParts = movie
-    ? [directorNode, publisherNode].filter(Boolean)
-    : []
-
-  // THE ONE PLACE A FILM DIFFERS FROM A BOOK. Everything else on this screen is
-  // WorkHero drawing the same nine facts in the same order — the kind word, the
-  // credit roles and the accent are the parameters, and that is the whole of the
-  // "type difference". A show and a game come through here too: CAP_WORDS keys
-  // off media_type, so adding a kind is a row in that map, not a fourth header.
-  const kindRow = movie && (
-    <HeroKindRow
-      word={t(detailSpec.capWords.one)}
-      links={[
-        { key: 'year', label: formatYear(movie.release_year, movie.release_circa) },
-        { key: 'series', label: seriesLabel(movie) },
-      ]}
-    />
-  )
-
-  const detailTitle = movie ? (movie.title || t('film.title.fallback')) : ''
-  // The shell's breadcrumb names what you have open; this is how it learns.
-  useCrumb(detailTitle)
-  const detailMeta = movie ? (movie.director || formatYear(movie.release_year, movie.release_circa) || '') : ''
-
-  // The phone's two bars while this screen is open — see BookDetail for why the
-  // in-page MobileDetailBar went. Same two seats, and deliberately so: a reader
-  // moving between a book and a film must not have to re-find Filter.
-  useScreenBar({
-    sub: detailMeta || null,
-    // The Library twin, one word at a time — see BookDetail for the reasoning.
-    actions: () => [
-      { id: 'h-do', heading: t('common.mono.actions.label') },
-      {
-        // The ROW goes in, not just the board's kind: a game's catalogue row and a
-        // film's are the same table, and only media_type tells the label which verb
-        // it is naming.
-        id: 'shelf',
-        icon: <IconWatching size={24} />,
-        label: moveLabel('movie', movie?.status || '', activeWord, movie || {}),
-        onClick: () => pick(activeWord),
-      },
-      { id: 'details', icon: <IconDetails />, label: t('common.work.details.title'), onClick: () => openDetails() },
-      { id: 'practise', icon: <IconPractise />, label: t('film.practise.menu.label'), onClick: () => movie && practise({ movie: movie.id, label: movie.title }) },
-      ...(DEMO ? [] : [{ id: 'export', icon: <IconExport />, label: t('film.export.label'), onClick: () => { if (movie) window.location.href = `/api/movies/${movie.id}/export` } }]),
-      { id: 'delete', icon: <IconDelete />, label: t('common.action.delete.label'), onClick: () => setAsking(true), danger: true },
-    ],
-    keys: mobile ? [
-      {
-        id: 'filter',
-        label: t('film.filter.aria'),
-        icon: <IconFilter />,
-        onClick: () => setMobileFilter(true),
-      },
-      {
-        id: 'details',
-        label: t('common.work.details.title'),
-        icon: <IconDetails />,
-        onClick: () => openDetails(),
-      },
-    ] : null,
-  })
-
+// MovieDetail — the catalogue's work page, which is WorkDetail with `side`
+// set. Everything that used to be here is in WorkDetail.jsx now, because it was
+// the books side's screen typed out a second time and the two had drifted: no
+// two-column frame, no doors on the year or the series, a credit row that was a
+// sentence rather than people, a back link naming a board this app renamed.
+//
+// The BOARD is still this file's — `Dialogues` is folded next — so it comes in
+// as a render prop. A film, a show and a game all arrive here: which one it is
+// comes off `media_type` on the loaded row, so nothing above this line has to
+// know, and every kind fact is a row in workKinds.js.
+function MovieDetail(props) {
   return (
-    <section className="space-y-6 md:pt-5" data-screen-label="movie-detail">
-      {!mobile && (
-        <button
-          onClick={onClose}
-          style={{
-            background: 'none',
-            border: 'none',
-            padding: '2px 0',
-            fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)',
-            fontSize: 'var(--type-mono-12)',
-            letterSpacing: '.1em',
-            color: 'var(--soft)',
-          }}
-        >
-          {/* The board's own name, which has been Catalogue since it started
-              holding shows and games. This still read "Movies" — the one label
-              on the way back to a screen that calls itself something else. */}
-          ← Catalogue
-        </button>
+    <WorkDetail
+      {...props}
+      side="movie"
+      stateBuilder={(movie, fields) => ({ ...movieState(movie), ...fields })}
+      renderBoard={({ item, seps, mobileFilter, setMobileFilter, onStats, onAdd, dataNonce }) => (
+        <Dialogues
+          movieId={item.id}
+          cast={item.cast || []}
+          movie={item}
+          creditSeps={seps}
+          onStats={onStats}
+          mobileFilterOpen={mobileFilter}
+          onMobileFilterOpen={setMobileFilter}
+          onAdd={onAdd}
+          dataNonce={dataNonce}
+        />
       )}
-      <ErrorText>{error}</ErrorText>
-      {movie && (
-        <Reveal>
-          <WorkHero
-            cover={<Poster path={movie.poster_path} title={movie.title} zoomable />}
-            title={movie.title}
-            kindRow={kindRow}
-            miniSub={detailMeta || null}
-            progress={movie.progress > 0 ? movie.progress / 100 : null}
-            // The same strip as a book's, for the same reason — see WorkHero.
-            // 'movie' is the WORDING side, not the medium: shelfLabel picks the
-            // film phrasing for every movies-table row, and which of "watching"
-            // or "playing" a game gets is already decided by its stored status.
-            shelf={movie.status || ''}
-            shelfKind="movie"
-            meta={
-              metaParts.length > 0 && (
-                <div style={{ ...amberMono, display: 'flex', flexWrap: 'wrap', alignItems: 'center', rowGap: 2 }}>
-                  {metaParts.map((part, i) => (
-                    <Fragment key={i}>
-                      {i > 0 && <span aria-hidden="true" style={{ margin: '0 8px' }}>·</span>}
-                      {part}
-                    </Fragment>
-                  ))}
-                </div>
-              )
-            }
-            // What this title is HOLDING, above the fold. Amber rather than the
-            // app accent, because the credit line directly above it is amber and
-            // two accents on one card read as two unrelated systems.
-            counts={<HeroCounts counts={lineStats} noun={[t(detailSpec.quoteUnit.one), t(detailSpec.quoteUnit.other)]} tone={detailSpec.countsTone} />}
-            favorite={movie.favorite}
-            onFavorite={(v) => patch({ favorite: v })}
-            // Shelf state beside the hearts: the state chip (transitions and, while
-            // watching, the progress field in its popover) and the ×N watch counter.
-            tags={
-              <ShelfControl
-                kind="movie"
-                item={movie}
-                status={movie.status}
-                progress={movie.progress}
-                pos={movie}
-                reads={movie.reads}
-                onReadsChanged={load}
-                wishlist={lineCount === 0}
-                busy={shelfBusy}
-                onSelect={pick}
-                onProgress={saveProgress}
-              />
-            }
-            genres={movie.genres || []}
-            description={movie.description}
-            // TWO STANDING VERBS, THE SAME TWO A BOOK HAS, and each of the three
-            // that left had somewhere better to be. The shelf move is the state
-            // chip's own popover, two inches above this row and holding the whole
-            // lifecycle rather than one step of it. Export and Delete are in the
-            // ⋯ menu this screen already has: export is a thing you do once a
-            // year, and a destructive verb standing beside four constructive ones
-            // is where a mis-click costs a film and all its lines.
-            //
-            // Five buttons was also what would not fit. The row splits its width
-            // evenly between what is in it, so five is five squashed buttons —
-            // which is the arithmetic, and the reason is that a header states a
-            // preference rather than listing everything possible.
-            //
-            // Desktop only: on mobile these same actions live in the sticky bar's
-            // ⋯ overflow above, and a second standing row just duplicated them.
-            actions={
-              mobile ? null : (
-                <>
-                  <IconButton icon={<IconDetails />} label={t('common.work.details.title')}
-            ariaLabel={t('common.work.details.title')} onClick={() => openDetails()} tooltip={t('film.details.tip')} />
-                  <IconButton icon={<IconPractise />} label={t('common.action.practise.label')} className="tp-btn-primary"
-            ariaLabel={t('film.practise.aria')} onClick={() => practise({ movie: movie.id, label: movie.title })} tooltip={t('film.practise.tip')} />
-                </>
-              )
-            }
-          />
-        </Reveal>
-      )}
-      {/* A sibling of the page, never inside the detail card — see BookDetail. */}
-      <PanelHost stack={detailsStack} />
-      <InProgressCapDialog
-        open={!!capPool}
-        items={(capPool || []).map((m) => ({ id: m.id, title: m.title, meta: [m.director, formatYear(m.release_year, m.release_circa) || null].filter(Boolean).join(' · ') }))}
-        cap={SHELF_CAPS[capKey]}
-        noun={t(capWords.one)}
-        nounPlural={t(capWords.other)}
-        // The state chip and this dialog have to agree about the verb, so both
-        // read it off `activeWord` — which is ACTIVE_STATUS[capKey], the pool's
-        // own in-progress word — rather than naming a key twice.
-        verb={shelfLabel(activeWord, 'movie')}
-        pastLabel={t(capWords.past)}
-        busyId={capBusyId}
-        error={capError}
-        onRelease={releaseWatching}
-        onCancel={() => setCapPool(null)}
-        onProceed={() => { setCapPool(null); setPending({ status: activeWord, date: todayPartial() }) }}
-      />
-      <ShelfDateDialog
-        open={!!pending}
-        title={pending ? moveLabel('movie', movie?.status || '', pending.status, movie || {}) : ''}
-        label={t(
-          pending?.status === activeWord
-            ? detailSpec.shelfDate.active
-            : pending?.status === 'abandoned'
-              ? detailSpec.shelfDate.abandoned
-              : detailSpec.shelfDate.completed,
-        )}
-        value={pending?.date || ''}
-        onChange={(v) => setPending((p) => (p ? { ...p, date: v } : p))}
-        onCancel={() => setPending(null)}
-        onConfirm={() => { const p = pending; setPending(null); save(p.status, p.date) }}
-      />
-      {movie && <Dialogues movieId={movie.id} cast={movie.cast || []} movie={movie} creditSeps={creditSeps} onStats={setLineStats} mobileFilterOpen={mobileFilter} onMobileFilterOpen={setMobileFilter} onAdd={onAdd} dataNonce={dataNonce} />}
-      {person && <PersonModal kind={person.kind} name={person.name} onClose={() => setPerson(null)} />}
-      {/* Phone-only route into this screen's help — see the Library twin. */}
-      {practiceDialog}
-      {/* The catalogue tile's dialog — see the Library twin. */}
-      <WorkDeleteConfirm
-        open={asking}
-        kind="movie"
-        title={movie?.title || ''}
-        count={lineStats?.total || 0}
-        onConfirm={remove}
-        onCancel={() => setAsking(false)}
-      />
-    </section>
+    />
   )
 }
 

@@ -100,11 +100,26 @@ export const KINDS = {
     },
 
     // ---- the hero ----
+    // WHICH COLUMN THE ARTWORK IS IN. Named rather than probed: `cover_path ||
+    // poster_path` happens to work only because no row carries both, which is a
+    // fact about today's schema and not a rule anybody wrote down.
+    coverField: 'cover_path',
     coverBadge: 'common.badge.cover',
-    coverAlt: 'common.cover.alt',
-    coverZoomTip: 'common.cover.zoom.tip',
-    coverZoomAria: 'common.cover.zoom.aria',
+    // The drop shadow lifts a book off the page. A poster is a printed sheet on
+    // a light table and wears none — the one place the two artworks differ.
+    coverShadow: 'drop-shadow(0 12px 22px rgba(0,0,0,.34))',
     countsTone: 'accent',
+    // The credit row's role labels take the medium's mono voice. The PEOPLE in it
+    // are chips either way — that is the standing rule and not a per-kind choice.
+    creditTone: null,
+    // The board this work came from, named by the SAME key the nav tab uses, so
+    // the way back and the tab it leads to can never disagree about what the
+    // board is called. The film's read "← Movies" for a release after the
+    // catalogue was renamed, for exactly that reason.
+    backTab: 'nav.tab.library.label',
+    // Which glyph the shelf's one-press move wears. A string, not a component:
+    // this table must not import ui.jsx.
+    shelfIcon: 'read-again',
     titleFallback: 'book.title.fallback',
     yearField: 'published_year',
     circaField: 'published_circa',
@@ -120,7 +135,7 @@ export const KINDS = {
       { field: 'translator', personKind: 'translator', labelKey: 'book.credit.translator.label' },
       { field: 'editor', personKind: 'editor', labelKey: 'book.credit.editor.label' },
     ],
-    miniSub: (b) => b.author || '',
+    creditOf: (b) => b.author || '',
 
     // ---- the board ----
     board: {
@@ -190,12 +205,12 @@ export const KINDS = {
       detailsTip: 'book.details.tip',
       export: 'book.export.label',
       deletedToast: 'book.toast.deleted',
-      yearTip: 'book.hero.year.tip',
-      seriesTip: 'book.hero.series.tip',
+      // "Everything from 1967" and "Everything in Hainish" are true of a film as
+      // well as a book, so the pair moved out of book.* rather than being copied
+      // into film.* — one sentence, one place to fix it.
+      yearTip: 'common.hero.year.tip',
+      seriesTip: 'common.hero.series.tip',
       origLanguage: 'book.hero.language.original',
-      // `back` lands with the shared shell: "← Library" is a hardcoded English
-      // string on both screens today, so the key does not exist yet and naming
-      // it here would fail locale-complete before anything renders it.
     },
   },
 
@@ -240,13 +255,15 @@ export const KINDS = {
       abandoned: 'film.shelf.abandoned.label',
     },
 
+    coverField: 'poster_path',
     coverBadge: 'common.badge.poster',
-    coverAlt: 'common.cover.alt',
-    coverZoomTip: 'common.cover.zoom.tip',
-    coverZoomAria: 'common.cover.zoom.aria',
-    // Amber rather than accent: the film hero's credit line above the counts is
+    coverShadow: null,
+    // Amber rather than accent: the credit row's labels above the counts are
     // amber, and two accents on one card read as two unrelated systems.
     countsTone: 'amber',
+    creditTone: 'amber',
+    backTab: 'nav.tab.movies.label',
+    shelfIcon: 'watching',
     titleFallback: 'film.title.fallback',
     yearField: 'release_year',
     circaField: 'release_circa',
@@ -256,7 +273,7 @@ export const KINDS = {
     factDoors: { year: 'year', series: 'series', genre: 'genre' },
     genres: (m) => m.genres || [],
     credits: [{ field: 'director', personKind: 'director', labelKey: 'common.badge.director' }],
-    miniSub: (m) => m.director || '',
+    creditOf: (m) => m.director || '',
 
     board: {
       filterTitle: 'film.lines.filter.title',
@@ -315,9 +332,12 @@ export const KINDS = {
       export: 'film.export.label',
       deletedToast: 'film.toast.deleted',
       origLanguage: null,
-      // back / yearTip / seriesTip land with the shared shell and the hero's
-      // doors: a film's year and series are dead facts today, so there is no tip
-      // for either and no key to name.
+      // A film's year and series were dead facts — HeroFact draws a button when
+      // handed a callback and a flat span when not, and this screen handed it
+      // none, so they looked pressable and were not. Same tips as a book's,
+      // because the sentence does not mention the medium.
+      yearTip: 'common.hero.year.tip',
+      seriesTip: 'common.hero.series.tip',
     },
   },
 

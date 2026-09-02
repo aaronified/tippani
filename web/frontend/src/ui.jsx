@@ -5982,7 +5982,12 @@ if (import.meta.env.DEV) {
 // Cover renders a locally-served cover/poster image (GET /covers/{file}), or
 // the striped placeholder. Remote images are never hotlinked (CSP 'self').
 // `zoomable` (detail heroes) makes a real cover open the full-screen Lightbox.
-export function Cover({ path, title, large = false, hero = false, zoomable = false }) {
+// `badge` is the word the PLACEHOLDER wears when there is no artwork — COVER for
+// a book, POSTER for a film. It absorbed Movies.jsx's `Poster`, which was this
+// component with three differences: an 8px radius instead of 6, --line instead
+// of --ink-border, and an alt attribute reading `Poster of ${title}` in English
+// in an app that ships Bengali. One artwork component, one placeholder word.
+export function Cover({ path, title, large = false, hero = false, zoomable = false, badge = 'common.badge.cover' }) {
   const [zoom, setZoom] = useState(false);
   // hero: fills its (sized) wrapper at 2:3 — used by the detail header, where the
   // wrapper controls width and adds the drop shadow.
@@ -6016,7 +6021,7 @@ export function Cover({ path, title, large = false, hero = false, zoomable = fal
         </>
       );
     }
-    return <Placeholder kind={t("common.badge.cover")} className="w-full" />;
+    return <Placeholder kind={t(badge)} className="w-full" />;
   }
   const size = large ? "h-36 w-24" : "h-14 w-10";
   if (path) {
@@ -6030,7 +6035,7 @@ export function Cover({ path, title, large = false, hero = false, zoomable = fal
     );
   }
   return (
-    <Placeholder kind={large ? t("common.badge.cover") : ""} className={size + " shrink-0"} />
+    <Placeholder kind={large ? t(badge) : ""} className={size + " shrink-0"} />
   );
 }
 
