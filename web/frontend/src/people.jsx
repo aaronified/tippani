@@ -4,7 +4,7 @@ import { t } from './i18n.js'
 import { personImgURL, PersonPortrait, usePeople } from './credits.jsx'
 import { usePractice } from './review.jsx'
 import { Silhouette } from './silhouette.jsx'
-import { useBodyScrollLock, CloseButton, ErrorText, ExpandableDescription, Field, GhostButton, IconCheck, IconClose, IconDelete, IconEdit, IconMerge, IconPlus, IconQuiz, IconPractise, IconRefresh, IconSearch, isPartialDate, Lightbox, MonoLabel, NameInput, NameScroll, PartialDateField, Placeholder, Tooltip, useConfirm, useEscape } from './ui.jsx'
+import { useBodyScrollLock, CloseButton, ErrorText, ExpandableDescription, Field, GhostButton, IconCheck, IconClose, IconDelete, IconEdit, IconMerge, IconPlus, IconQuiz, IconPractise, IconRefresh, IconSearch, isPartialDate, Lightbox, MonoLabel, NameInput, NameScroll, PartialDateField, Placeholder, Tooltip, useConfirm, useEscape, useBackToClose } from './ui.jsx'
 
 const PRIMARY = 'tp-btn tp-btn-primary'
 
@@ -600,6 +600,13 @@ export function PersonModal({ kind, name, onClose, onSaved }) {
   // still scrolled when you close this. Ref-counted, so a dialog opened from
   // inside a sheet does not unlock the sheet on its way out.
   useBodyScrollLock(true)
+
+  // ITS OWN BACK ENTRY, or the press that dismisses it dismisses whatever opened
+  // it. Reported from the Details panel: open People, tap an actor, dismiss the
+  // person — and the People panel went too. usePanelStack pushes a history entry
+  // per panel and this surface pushed none, so on a phone the back gesture walked
+  // straight past it to the panel underneath. A submenu owes its own entry.
+  useBackToClose(true, onClose)
 
  const [person, setPerson] = useState(null)
   const [loading, setLoading] = useState(true)

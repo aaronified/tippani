@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Dismissing a dialog no longer dismisses what opened it.** Reported from a work's
+  Details: open People, tap an actor, dismiss the person — and the People panel went with
+  it. A panel is dismissed by the phone's back gesture, because that is what the panel
+  stack listens to, and six dialogs pushed nothing onto that stack at all: back walked
+  straight past them to whatever was underneath, and the dialog only vanished because its
+  parent unmounted. The person's page, the paste-a-link popup, Add, the re-verify flow, a
+  search result's quote, Settings' prompts and the share sheet each own their own step
+  now, so one press closes the thing you were looking at.
+
 - **One-click updates work again on a Compose stack whose service and container are
   named differently.** The update's first step asks Docker to inspect this container, and
   it asked by the process's hostname — which Compose sets to the SERVICE name, not the

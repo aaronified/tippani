@@ -65,6 +65,7 @@ import {
   useBodyScrollLock,
   useScreenBar,
   SectionTitle,
+  useBackToClose,
 } from './ui.jsx'
 
 // Settings (§8.11): Appearance, Metadata sources, review/credits prefs, and
@@ -1687,6 +1688,12 @@ function ChangelogDialog({ current, onClose }) {
 // is a change to one page.
 function PromptFrame({ title, closeLabel, closeTip, busy = false, maxWidth = 460, dismissOnScrim = true, onClose, children }) {
   const mobile = useIsMobileScreen()
+  // ITS OWN BACK ENTRY — see PersonModal — and desktop-only, because the mobile
+  // branch is a MobileSheet which takes one for itself. Above the early return,
+  // or it would be a hook behind a condition. `busy` is honoured the way the
+  // sheet honours it one line below: a back press during an apply must not
+  // dismiss the thing reporting the apply.
+  useBackToClose(!mobile, () => { if (!busy) onClose?.() })
   if (mobile) {
     return createPortal(
       <MobileSheet open onClose={busy ? () => {} : onClose} title={title} dismissOnScrim={dismissOnScrim && !busy}>

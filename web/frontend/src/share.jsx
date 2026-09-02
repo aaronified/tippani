@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useBodyScrollLock, ANNOTATION_HEX, CloseButton, FieldIconButton, GhostButton, IconShare, InfoDot, MonoLabel, Select, Toggle, toast, usePersistedState, useIsMobileScreen, useEscape } from "./ui.jsx";
+import { useBodyScrollLock, ANNOTATION_HEX, CloseButton, FieldIconButton, GhostButton, IconShare, InfoDot, MonoLabel, Select, Toggle, toast, usePersistedState, useIsMobileScreen, useEscape, useBackToClose } from "./ui.jsx";
 import { buildModel, drawQuoteCard, ensureFonts, loadFaceImages, loadTileImage, readTheme, tileImage } from "./quoteImage.js";
 import { t } from "./i18n.js";
 import { DEFAULT_CREDIT_SEPS, splitCredits } from "./people.jsx";
@@ -985,6 +985,9 @@ function QuoteImagePanel({ share, selected, onShared, actionRef }) {
 
 // ---- the dialog --------------------------------------------------------
 export function ShareDialog({ share, seen, onClose }) {
+  // ITS OWN BACK ENTRY — see PersonModal. Mounted only while open, and the one
+  // scrim in this file, so it registers unconditionally.
+  useBackToClose(true, onClose)
    // The page behind an overlay does not move. Without this a wheel or a swipe
   // running past the end of the dialog scrolls the page you cannot see, which is
   // still scrolled when you close this. Ref-counted, so a dialog opened from

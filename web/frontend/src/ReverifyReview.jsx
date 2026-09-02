@@ -25,6 +25,7 @@ import {
   Tooltip,
   useBodyScrollLock,
   useIsMobileScreen,
+  useBackToClose,
 } from './ui.jsx'
 
 const CHUNK = 10 // items per preview call (server caps at 15)
@@ -266,6 +267,11 @@ function ReverifyItemCard({ item, open, onToggleOpen, approvals, onToggleField, 
 }
 
 export function ReverifyFlow({ selection, onClose, onFlash, onDone }) {
+  // ITS OWN BACK ENTRY — see PersonModal. A surface that pushes none is dismissed
+  // by the press that was meant for it AND by whatever is underneath, because the
+  // panel stack and the screen both keep entries and this one kept nothing.
+  useBackToClose(true, onClose)
+
    // The page behind an overlay does not move. Without this a wheel or a swipe
   // running past the end of the dialog scrolls the page you cannot see, which is
   // still scrolled when you close this. Ref-counted, so a dialog opened from

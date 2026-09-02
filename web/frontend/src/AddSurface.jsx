@@ -40,6 +40,7 @@ import {
   useBodyScrollLock,
   useAnchoredPosition,
   useDismiss,
+  useBackToClose,
 } from './ui.jsx'
 
 // One card, four kinds. "Film", "Show" and "Game" all map to the movies flow
@@ -425,6 +426,11 @@ export function AddLookup({ initialKind = 'book', onAdded, onCreated, initialQue
 const MANUAL_FORM_ID = 'manual-add-form'
 
 function ManualPopup({ kind, onClose, onAdded }) {
+  // ITS OWN BACK ENTRY — see PersonModal. A surface that pushes none is dismissed
+  // by the press that was meant for it AND by whatever is underneath, because the
+  // panel stack and the screen both keep entries and this one kept nothing.
+  useBackToClose(true, onClose)
+
    // The page behind an overlay does not move. Without this a wheel or a swipe
   // running past the end of the dialog scrolls the page you cannot see, which is
   // still scrolled when you close this. Ref-counted, so a dialog opened from
@@ -1250,6 +1256,10 @@ export default function AddSurface({
   // tab has nothing to save (look-up adds per row; import reports inline).
   const [saveState, setSaveState] = useState(null)
   const mobile = useIsMobileScreen()
+  // ITS OWN BACK ENTRY — see PersonModal, and desktop-only for the reason
+  // FormModal gives: the mobile branch below is a MobileSheet, which takes the
+  // entry for itself, and two markers for one dialog is two presses to close it.
+  useBackToClose(open && !mobile, onClose)
   // Short labels on a phone (the three-segment slider can't fit the full words).
   const tabOptions = (mobile
     ? [

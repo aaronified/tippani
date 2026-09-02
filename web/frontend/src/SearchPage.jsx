@@ -72,6 +72,7 @@ import {
   useScreenBar,
   useSort,
   ViewToggle,
+  useBackToClose,
 } from './ui.jsx'
 
 // ---- the vocabulary, fetched once and held for the session ------------------
@@ -987,6 +988,10 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators, 
 // detail pages, so share / edit / delete behave identically. Edits and deletes
 // re-run the search via onChanged.
 function QuoteModal({ kind, hit, authorMap = {}, actorMap = {}, speakerMap = {}, seps, onOpenBook, onOpenMovie, onOpenPerson, onClose, onChanged }) {
+  // ITS OWN BACK ENTRY — see PersonModal. A surface that pushes none is dismissed
+  // by the press that was meant for it AND by whatever is underneath, because the
+  // panel stack and the screen both keep entries and this one kept nothing.
+  useBackToClose(true, onClose)
   const { ask, confirmDialog } = useConfirm()
    // The page behind an overlay does not move. Without this a wheel or a swipe
   // running past the end of the dialog scrolls the page you cannot see, which is
