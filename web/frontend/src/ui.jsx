@@ -10,6 +10,7 @@ import { groupedShortcuts, withShortcut } from "./keys.js";
 import { coverImgURL } from "./api.js";
 import { t, tNodes } from "./i18n.js";
 import { PROVIDER_MARKS } from "./providerMarks.js";
+import { Silhouette } from "./silhouette.jsx";
 
 // ErrorBoundary — a render error anywhere below unmounts only to this fallback
 // instead of white-screening the whole app (there was no boundary before, so
@@ -5731,6 +5732,11 @@ export function MediaBlock({
   shape = "rect",
   src,
   alt = "",
+  // Whose face this is, when it is a face: the placeholder is one of six and the
+  // name is what picks it (silhouette.jsx). A round block with no name still
+  // draws a silhouette — it just draws the same one every time, which is what
+  // the app did everywhere before §1.8.
+  name = "",
   label = "",
   floor = COVER_MIN_W,
   verbs = [],
@@ -5775,7 +5781,7 @@ export function MediaBlock({
     // The pack's rule: a silhouette for a missing face, the hatch for everything
     // else. They are not interchangeable — a hatched circle reads as a broken
     // image where a silhouette reads as a person nobody has photographed yet.
-    <span className="tp-media-face" aria-hidden="true"><IconPerson size={44} /></span>
+    <span className="tp-media-face" aria-hidden="true"><Silhouette name={name || alt} /></span>
   ) : (
     <Placeholder kind={label || t("common.badge.cover")} />
   );

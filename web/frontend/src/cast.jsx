@@ -28,6 +28,7 @@ import { useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { coverImgURL, errText, json } from './api.js'
 import { t } from './i18n.js'
 import { PersonModal, personImgURL, usePeople, usePortraitFill } from './people.jsx'
+import { Silhouette } from './silhouette.jsx'
 import {
   ErrorText,
   Field,
@@ -301,7 +302,11 @@ export function CastSection({ kind, item, onCastChanged }) {
 // write, it fills a field a form submit later sends with eight others. Same
 // controls, a different lifecycle, and folding them together would mean this hook
 // growing a "do not save yet" mode.
-export function usePicturePicker({ face, label, urlLabel, busy, search, fallbackQuery, onPicked }) {
+// `faceName` is whose face this is — the character on a cast row, the person on a
+// portrait — and it exists only to pick one of the six silhouettes (§1.8). It is
+// NOT `label`: that is a sentence for a screen reader, and hashing a sentence
+// would give one character two faces the day its aria-label was reworded.
+export function usePicturePicker({ face, faceName = '', label, urlLabel, busy, search, fallbackQuery, onPicked }) {
   const [urlOpen, setUrlOpen] = useState(false)
   const [url, setUrl] = useState('')
   const [pics, setPics] = useState(null) // null = never asked; [] = asked, nothing found
@@ -350,7 +355,14 @@ export function usePicturePicker({ face, label, urlLabel, busy, search, fallback
       {face ? (
         <img className="cast-face" src={face} alt="" />
       ) : (
-        <span className="cast-face is-empty" aria-hidden="true" />
+        // NOT A BLANK PLATE ANY MORE. An empty face used to be a grey rectangle
+        // under a full-size picture icon, which said "press me" and said nothing
+        // about what the row is; §1.8's silhouette says "a person, unphotographed"
+        // and the verb moves to the strip the filled rows already use — so the
+        // affordance is still permanent for an empty row without owning the box.
+        <span className="cast-face is-empty" aria-hidden="true">
+          <Silhouette name={faceName} />
+        </span>
       )}
       <span className="cast-face-mark" aria-hidden="true"><IconPicture size={16} /></span>
     </button>
@@ -439,6 +451,7 @@ export function useCharacterPicture({ row, actor, workTitle, mediaType, busy, on
       : ''
   return usePicturePicker({
     face,
+    faceName: row.character || '',
     label: t('cast.picture.aria', { name: row.character || '' }),
     urlLabel: t('cast.picture.url.aria', { name: row.character || '' }),
     busy,

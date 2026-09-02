@@ -6175,7 +6175,6 @@ identity.person.credits.title.other = credited on {n} works
 identity.person.credits.empty = Not credited on anything yet.
 identity.person.roles.title.one = played {n} character
 identity.person.roles.title.other = played {n} characters
-identity.person.portrait.title = portrait
 identity.person.portrait.none = No picture yet. Search for one, or paste an address.
 identity.person.portrait.aria = Portrait for {name}
 identity.person.portrait.url.aria = Picture address for {name}

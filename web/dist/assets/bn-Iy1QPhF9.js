@@ -5847,7 +5847,6 @@ identity.person.credits.title.other = {n}টায় কৃতিত্ব
 identity.person.credits.empty = এখনও কোথাও কৃতিত্ব নেই।
 identity.person.roles.title.one = {n}টা চরিত্র
 identity.person.roles.title.other = {n}টা চরিত্র
-identity.person.portrait.title = ছবি
 identity.person.portrait.none = এখনও কোনো ছবি নেই। খুঁজে নিন, নয়তো একটা ঠিকানা বসান।
 identity.person.portrait.aria = {name}-এর ছবি
 identity.person.portrait.url.aria = {name}-এর ছবির ঠিকানা

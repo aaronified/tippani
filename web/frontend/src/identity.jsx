@@ -27,6 +27,7 @@ import { coverImgURL, errText, json } from './api.js'
 import { t } from './i18n.js'
 import { useCharacterPicture, usePicturePicker } from './cast.jsx'
 import { personImgURL, ProviderChips } from './people.jsx'
+import { Silhouette } from './silhouette.jsx'
 import {
   ConfirmDialog,
   EmptyState,
@@ -366,6 +367,7 @@ function Lines({ lines, shared, empty }) {
 function Portrait({ person, busy, onPicked, onClear }) {
   const { faceButton, pictureEditor } = usePicturePicker({
     face: person.image_path ? personImgURL(person.image_path) : '',
+    faceName: person.name,
     label: t('identity.person.portrait.aria', { name: person.name }),
     urlLabel: t('identity.person.portrait.url.aria', { name: person.name }),
     busy,
@@ -377,8 +379,11 @@ function Portrait({ person, busy, onPicked, onClear }) {
     <div style={FIELDS}>
       <div className="flex flex-wrap items-center gap-3">
         {faceButton}
+        {/* NO LABEL ON THE PORTRAIT — handoff §1.4. A round face with its picture
+            verbs under a panel titled with the person's name does not need the
+            word "Photograph"; a cover keeps its label because it sits among eleven
+            other named fields and this does not. */}
         <div className="flex flex-col gap-1">
-          <MonoLabel>{t('identity.person.portrait.title')}</MonoLabel>
           {person.image_path ? (
             <button type="button" className="tp-link" style={{ fontSize: 'var(--type-ui-12)', color: 'var(--error)' }} disabled={busy} onClick={onClear}>
               {t('identity.person.portrait.clear.label')}
@@ -813,7 +818,7 @@ function CharacterHead({ record, works, onClear }) {
   return (
     <div className="char-head">
       <div className={'char-head-face' + (face ? '' : ' is-empty')}>
-        {face ? <img src={face} alt="" /> : <span aria-hidden="true" />}
+        {face ? <img src={face} alt="" /> : <Silhouette name={record.name} />}
       </div>
       <div className="char-head-facts">
         <h2 className="char-head-name">{record.name}</h2>

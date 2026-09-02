@@ -199,6 +199,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   browser is not allowed to draw, says nothing rather than claiming to be zero pixels
   wide.
 
+- **Six default faces instead of one.** Everybody without a photograph wore the same
+  silhouette, so a People table of ninety names was ninety copies of one drawing — and
+  the face, which is the fastest thing in a row to recognise, recognised nothing. There
+  are six now, chosen by the person's own name: the same character wears the same face on
+  a chip, in the table, on their record and beside their quotes, and it never changes,
+  because a face that changes is a face you cannot learn. They are drawn rather than
+  loaded, so they take the theme in both modes and can never be mistaken for a photograph
+  somebody actually uploaded. An empty cast picture stops being a grey rectangle and
+  becomes a person nobody has photographed yet, with the same one press to fix it.
+
+- **The portrait on a person's record lost its label.** A round face with four picture
+  verbs under a panel titled with the person's name does not need the word "portrait"
+  over it; a cover keeps its label because it sits among eleven other named fields.
+
 ### Fixed
 
 - **An imported highlight's speaker was not linked to the cast.** Every other path that

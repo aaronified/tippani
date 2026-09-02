@@ -3,7 +3,8 @@ import { json, errText } from './api.js'
 import { t } from './i18n.js'
 import { personImgURL, PersonPortrait, usePeople } from './credits.jsx'
 import { usePractice } from './review.jsx'
-import { useBodyScrollLock, CloseButton, ErrorText, ExpandableDescription, Field, GhostButton, IconCheck, IconClose, IconDelete, IconEdit, IconMerge, IconPerson, IconPlus, IconQuiz, IconPractise, IconRefresh, IconSearch, isPartialDate, Lightbox, MonoLabel, NameInput, NameScroll, PartialDateField, Placeholder, Tooltip, useConfirm, useEscape } from './ui.jsx'
+import { Silhouette } from './silhouette.jsx'
+import { useBodyScrollLock, CloseButton, ErrorText, ExpandableDescription, Field, GhostButton, IconCheck, IconClose, IconDelete, IconEdit, IconMerge, IconPlus, IconQuiz, IconPractise, IconRefresh, IconSearch, isPartialDate, Lightbox, MonoLabel, NameInput, NameScroll, PartialDateField, Placeholder, Tooltip, useConfirm, useEscape } from './ui.jsx'
 
 const PRIMARY = 'tp-btn tp-btn-primary'
 
@@ -210,7 +211,7 @@ export function PersonChip({ kind, name, person, onOpen, title }) {
       <span className="person-chip-face" aria-hidden="true">
         {person?.image_path
           ? <img src={personImgURL(person.image_path)} alt="" />
-          : <IconPerson size={15} />}
+          : <Silhouette name={name} />}
       </span>
       <span className="person-chip-name">{name}</span>
     </button>

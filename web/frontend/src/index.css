@@ -2540,7 +2540,11 @@
     width: 34px; height: 42px; flex: none; object-fit: cover;
     border-radius: 5px; border: 1px solid var(--ink-border);
   }
-  .cast-face.is-empty { background: color-mix(in srgb, var(--soft) 16%, transparent); }
+  .cast-face.is-empty {
+    display: grid; place-items: center; padding: 12% 18% 0;
+    background: color-mix(in srgb, var(--soft) 16%, transparent);
+    color: var(--faint);
+  }
   /* THE FACE IS THE CONTROL. It used to be a static <img> beside an unlabelled
      refresh arrow in the row's action cluster, and the owner's report was that
      character pictures could be neither seen nor edited "anywhere" — which was
@@ -2567,9 +2571,16 @@
   .cast-face-btn:not(.is-empty):hover .cast-face-mark,
   .cast-face-btn:not(.is-empty):focus-visible .cast-face-mark { opacity: 1; }
   /* A ROLE WITHOUT ONE says so permanently, because there is nothing else in the
-     row to say it and the blank box was the whole complaint. */
-  .cast-face-btn.is-empty .cast-face-mark { inset: 0; opacity: 1; }
-  .cast-face-btn.is-empty:hover .cast-face-mark { color: var(--ink); }
+     row to say it and the blank box was the whole complaint. The box is no longer
+     blank — it wears one of the six silhouettes — so the verb takes the same
+     bottom strip a filled row uses on hover, kept always-on here: the affordance
+     survives, and the face underneath is allowed to say whose it is. */
+  .cast-face-btn.is-empty .cast-face-mark {
+    inset: auto 0 0 0; height: 15px; opacity: 1;
+    color: var(--bg); background: color-mix(in srgb, var(--ink) 62%, transparent);
+    border-radius: 0 0 4px 4px;
+  }
+  .cast-face-btn.is-empty:hover .cast-face-mark { background: var(--ink); }
   .cast-names { display: flex; min-width: 0; flex: 1 1 auto; flex-direction: column; }
   /* A NAME IS NEVER TRUNCATED. This used to end in an ellipsis, and an ellipsis on
      a name is the one failure a reader cannot detect: "Alexander Hamilto…" and
@@ -4471,6 +4482,11 @@
   .person-chip:hover, .person-chip:focus-visible { border-color: var(--accent-ui); }
   /* The face is always drawn — a silhouette when there is no photograph — so the
      row is a run of equal shapes rather than a ragged mix of two designs. */
+  /* §1.8'S SIX DEFAULT PORTRAITS. A mask rather than an <img>: it is filled with
+     the box's own `currentColor`, so it takes the theme in both modes, scales with
+     the box, and can never be mistaken for a photograph somebody uploaded. */
+  .tp-silhouette { display: block; width: 100%; height: 100%; }
+
   .person-chip-face {
     display: grid;
     place-items: center;
@@ -7396,6 +7412,8 @@ html[data-theme="dark"] .board-cover {
   background: color-mix(in srgb, var(--soft) 14%, transparent);
 }
 .char-head-face img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.char-head-face.is-empty { display: grid; place-items: end center; color: var(--faint); }
+.char-head-face.is-empty .tp-silhouette { width: 76%; height: 82%; }
 .char-head-facts { display: grid; gap: 3px; min-width: 0; align-content: start; }
 /* A NAME IS NEVER TRUNCATED — the standing rule. It wraps; the box grows. */
 .char-head-name {
@@ -7472,12 +7490,16 @@ html[data-theme="dark"] .board-cover {
   flex: none; padding: 0; border: 0; background: none; line-height: 0; cursor: pointer;
   border-radius: 4px;
 }
-.person-face-btn img, .person-face-btn > span {
+.person-face-btn img, .person-face-btn > svg {
   display: block; width: max(24px, 1.8em); aspect-ratio: 3 / 4; object-fit: cover;
   border-radius: 4px; border: 1px solid var(--ink-border);
 }
-.person-face-btn.is-empty > span { background: color-mix(in srgb, var(--soft) 16%, transparent); }
-.person-face-btn:hover img, .person-face-btn:hover > span { border-color: var(--accent-ui); }
+.person-face-btn.is-empty > svg {
+  padding: 8% 14% 0;
+  background: color-mix(in srgb, var(--soft) 16%, transparent);
+  color: var(--faint);
+}
+.person-face-btn:hover img, .person-face-btn:hover > svg { border-color: var(--accent-ui); }
 .person-dup-face {
   width: max(20px, 1.5em); aspect-ratio: 3 / 4; object-fit: cover;
   border-radius: 3px; border: 1px solid var(--ink-border);
