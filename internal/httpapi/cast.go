@@ -102,6 +102,20 @@ type castRow struct {
 	// names a file on this disk, and a refetch leaves it alone. Filled on demand
 	// by POST /cast/{id}/image, so it is empty until something needs the picture.
 	CharacterImagePath string `json:"character_image_path"`
+	// THE RECORD'S OWN DEFAULT, under the per-work picture. Reported and never
+	// accepted: it is written by PUT /characters/{id}/image, which is the reader
+	// promoting one appearance's still to "this is what they look like".
+	//
+	// IT IS HERE BECAUSE OF THE MERGE. Fold two same-named characters together and
+	// the appearance that had the still keeps it while every other appearance has
+	// none — so the work you merged FROM drew a face and the work you merged INTO
+	// drew nothing, which is exactly what was reported. The quote card had the same
+	// hole and was fixed in cast_images.go; this is the other reader of the same
+	// data, and leaving it would be the same bug reported twice.
+	//
+	// The fallback is the CALLER's to apply, like Description below — a row states
+	// what is stored at each grain and the surface decides which to draw.
+	CharacterRecordImage string `json:"character_record_image,omitempty"`
 	Billing            int    `json:"billing"`
 	Origin             string `json:"origin"`
 	Source             string `json:"source"`
@@ -132,8 +146,14 @@ type castRow struct {
 
 // castCols is the SELECT list every read here shares, so a column added to the
 // row struct is added in one place rather than in three that drift.
+// The last column is a correlated subquery rather than a join, and deliberately:
+// every one of the six reads that share this list selects `FROM work_cast`
+// unaliased, so a join would have to be added — and every column qualified — in
+// all six. A cast list is a few dozen rows.
 const castCols = `id, character, actor, person_id, image_url, character_image_url,
-	character_image_path, billing, origin, source, character_id, actor_id, description`
+	character_image_path, billing, origin, source, character_id, actor_id, description,
+	COALESCE((SELECT ch.image_path FROM characters ch
+	           WHERE ch.id = work_cast.character_id AND ch.user_id = work_cast.user_id), '')`
 
 func scanCastRow(sc interface{ Scan(...any) error }) (castRow, error) {
 	var c castRow
@@ -144,7 +164,7 @@ func scanCastRow(sc interface{ Scan(...any) error }) (castRow, error) {
 	var cid, aid sql.NullInt64
 	err := sc.Scan(&c.ID, &c.Character, &c.Actor, &c.PersonID, &c.ImageURL,
 		&c.CharacterImageURL, &c.CharacterImagePath, &c.Billing, &c.Origin, &c.Source,
-		&cid, &aid, &c.Description)
+		&cid, &aid, &c.Description, &c.CharacterRecordImage)
 	c.CharacterID, c.ActorID = cid.Int64, aid.Int64
 	return c, err
 }

@@ -847,6 +847,14 @@ function CharacterHead({ record, works, onClear }) {
 // picture of the character the slot is EMPTY rather than filled with the record's
 // own: a panel that silently substitutes cannot then say "this work has none", and
 // "has none" is the state the reader is here to fix.
+//
+// SO THIS ROW IS BUILT BY HAND AND MUST STAY THAT WAY. useCharacterPicture grew a
+// middle rung — the record's own default, under the per-work picture — for the
+// benefit of a WORK's cast panel, where a merged character should show a face.
+// Here that rung is exactly wrong, and the reason it is absent is that this
+// object never carries `character_record_image`. Spreading the appearance row in
+// to "simplify" this would turn every empty slot on this panel into the record's
+// face and take away the one thing the panel is for.
 function AppearanceCard({ a, busy, isFace, onImage, onSave, onPromote, onRemove, onOpenPerson }) {
   const [confirming, setConfirming] = useState(false)
   const [editing, setEditing] = useState(false)

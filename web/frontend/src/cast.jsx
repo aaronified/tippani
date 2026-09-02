@@ -444,11 +444,24 @@ export function usePicturePicker({ face, faceName = '', label, urlLabel, busy, s
 // to the work's TheTVDB id and asks for the character's own art — the picture of
 // the role, which no search engine has.
 export function useCharacterPicture({ row, actor, workTitle, mediaType, busy, onImage }) {
+  // THREE RUNGS, AND THE MIDDLE ONE IS NEW. What this work stores for the role,
+  // then what the RECORD says the character looks like, then the performer's
+  // headshot.
+  //
+  // THE MERGE IS WHY THE MIDDLE RUNG EXISTS. Fold two same-named characters
+  // together and only the appearance that had the still keeps one — so the work
+  // you merged from drew a face and the work you merged into drew nothing. The
+  // record's default is a picture of the CHARACTER, promoted by the reader from
+  // one of their appearances, so it outranks the actor's headshot: the headshot
+  // answers "who plays them", which is a different question and the one a book
+  // cannot ask at all.
   const face = row.character_image_path
     ? coverImgURL(row.character_image_path)
-    : actor?.image_path
-      ? personImgURL(actor.image_path)
-      : ''
+    : row.character_record_image
+      ? coverImgURL(row.character_record_image)
+      : actor?.image_path
+        ? personImgURL(actor.image_path)
+        : ''
   return usePicturePicker({
     face,
     faceName: row.character || '',

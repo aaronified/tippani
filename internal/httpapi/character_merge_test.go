@@ -566,3 +566,189 @@ func TestAWorksOwnCharacterPictureBeatsTheRecordsDefault(t *testing.T) {
 		t.Fatalf("face = %q, want the picture stored against this work's cast row", p)
 	}
 }
+
+// THE OWNER'S EXACT SEQUENCE, both ways round.
+//
+// "I set the default image for a character from a book and then merged it with
+// another character in another book (same name). The merge was successful, but
+// the second book is not showing the character image chip there at all. The first
+// book does."
+//
+// Three things have to hold together for that to come out right, and each was a
+// separate place it could fail:
+//
+//   1. PUT /characters/{id}/image promotes an APPEARANCE's picture to the record
+//      — the reader's judgement about which of eight stills is them.
+//   2. A merge carries image_path onto the survivor when the survivor has none
+//      (characterMergeFillable), so it does not matter which of the two records
+//      the reader happened to keep.
+//   3. A quote's chip falls back to the record's picture when the work it is on
+//      has no per-work one — which is the half that was missing, and the reason
+//      only the first book drew a face.
+//
+// So this drives the whole sequence rather than any one of them, and it does it
+// in BOTH merge directions: keeping the record that has the picture, and keeping
+// the one that does not.
+func TestTheOwnersMergeSequenceLeavesBothBooksDrawingAFace(t *testing.T) {
+	for _, keepHasIt := range []bool{true, false} {
+		name := "keeping the record with the picture"
+		if !keepHasIt {
+			name = "keeping the record without it"
+		}
+		t.Run(name, func(t *testing.T) {
+			srv := newTestServer(t)
+			c := signupAdmin(t, srv.Handler())
+			a, b, bookA, bookB := twoWolands(t, srv, c)
+
+			// Book A's cast row gets a stored still, the way POST /cast/{id}/image
+			// leaves it. Written through the store because the route fetches bytes.
+			var castA int64
+			if err := srv.Store.DB.QueryRow(
+				`SELECT id FROM work_cast WHERE user_id = 1 AND kind = 'book' AND work_id = ?`, bookA).Scan(&castA); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := srv.Store.DB.Exec(
+				`UPDATE work_cast SET character_image_path = ? WHERE id = ?`, "woland-still.jpg", castA); err != nil {
+				t.Fatal(err)
+			}
+
+			// THE READER'S ACT: promote that appearance to the record's default.
+			// `a` is book A's record — the one the still hangs off.
+			promoted := decode[struct {
+				ImagePath string `json:"image_path"`
+			}](t, c.mustDo("PUT", "/characters/"+itoa(a)+"/image", map[string]any{"cast_id": castA}, 200))
+			if promoted.ImagePath != "woland-still.jpg" {
+				t.Fatalf("promote stored %q", promoted.ImagePath)
+			}
+
+			keep, drop := a, b
+			if !keepHasIt {
+				keep, drop = b, a
+			}
+			c.mustDo("POST", "/characters/merge", map[string]any{"keep_id": keep, "drop_id": drop}, 200)
+
+			// Whichever survived must hold the picture: the merge fills the
+			// survivor's blanks from the record it folds in.
+			var recImage string
+			if err := srv.Store.DB.QueryRow(
+				`SELECT image_path FROM characters WHERE id = ?`, keep).Scan(&recImage); err != nil {
+				t.Fatal(err)
+			}
+			if recImage != "woland-still.jpg" {
+				t.Fatalf("the surviving record's default is %q, want the promoted still", recImage)
+			}
+
+			for _, book := range []int64{bookA, bookB} {
+				c.mustDo("POST", "/annotations", map[string]any{
+					"book_id": book, "quote": "Manuscripts don't burn.", "character": "Woland",
+				}, http.StatusCreated)
+			}
+
+			got := decode[struct {
+				Annotations []struct {
+					BookID          int64 `json:"book_id"`
+					CharacterImages []struct {
+						Name string `json:"name"`
+						Path string `json:"path"`
+					} `json:"character_images"`
+				} `json:"annotations"`
+			}](t, c.mustDo("GET", "/annotations", nil, 200))
+			if len(got.Annotations) != 2 {
+				t.Fatalf("want the two quotes back, got %d", len(got.Annotations))
+			}
+			for _, q := range got.Annotations {
+				which := "the first book"
+				if q.BookID == bookB {
+					which = "the second book"
+				}
+				if len(q.CharacterImages) != 1 {
+					t.Fatalf("%s: %d faces on the quote, want one", which, len(q.CharacterImages))
+				}
+				if q.CharacterImages[0].Path != "woland-still.jpg" {
+					t.Fatalf("%s: face = %q", which, q.CharacterImages[0].Path)
+				}
+				if q.CharacterImages[0].Name != "Woland" {
+					t.Fatalf("%s: the chip is named %q", which, q.CharacterImages[0].Name)
+				}
+			}
+		})
+	}
+}
+
+// AND THE WORK'S CAST PANEL DRAWS THE SAME FACE, which is the other reader of the
+// same data and the place a half-applied fix would have left the bug standing.
+//
+// A cast row states what is stored at each grain — this work's picture of the
+// role, and the record's own default — and the surface decides which to draw. The
+// row had only the first, so a merged character's appearance on the work you
+// merged INTO reported nothing and the panel had nothing to fall back to (a book
+// has no performer either, so the actor rung is empty by definition).
+func TestACastRowCarriesTheCharacterRecordsOwnPicture(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	a, b, bookA, bookB := twoWolands(t, srv, c)
+
+	var castA int64
+	if err := srv.Store.DB.QueryRow(
+		`SELECT id FROM work_cast WHERE user_id = 1 AND kind = 'book' AND work_id = ?`, bookA).Scan(&castA); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := srv.Store.DB.Exec(
+		`UPDATE work_cast SET character_image_path = ? WHERE id = ?`, "woland-still.jpg", castA); err != nil {
+		t.Fatal(err)
+	}
+	c.mustDo("PUT", "/characters/"+itoa(a)+"/image", map[string]any{"cast_id": castA}, 200)
+	c.mustDo("POST", "/characters/merge", map[string]any{"keep_id": a, "drop_id": b}, 200)
+
+	type castResp struct {
+		Cast []struct {
+			Character            string `json:"character"`
+			CharacterImagePath   string `json:"character_image_path"`
+			CharacterRecordImage string `json:"character_record_image"`
+		} `json:"cast"`
+	}
+	// Book B: no picture of its own, and the record's default reported beside it.
+	got := decode[castResp](t, c.mustDo("GET", "/books/"+itoa(bookB)+"/cast", nil, 200))
+	if len(got.Cast) != 1 {
+		t.Fatalf("book B has %d cast rows", len(got.Cast))
+	}
+	if got.Cast[0].CharacterImagePath != "" {
+		t.Fatalf("book B's row has its own picture %q — the fixture is wrong", got.Cast[0].CharacterImagePath)
+	}
+	if got.Cast[0].CharacterRecordImage != "woland-still.jpg" {
+		t.Fatalf("book B's row reports record image %q, want the promoted still", got.Cast[0].CharacterRecordImage)
+	}
+
+	// Book A: its own picture, AND the record's — the surface prefers the first,
+	// and the row does not decide that for it.
+	gotA := decode[castResp](t, c.mustDo("GET", "/books/"+itoa(bookA)+"/cast", nil, 200))
+	if gotA.Cast[0].CharacterImagePath != "woland-still.jpg" {
+		t.Fatalf("book A lost its own picture: %q", gotA.Cast[0].CharacterImagePath)
+	}
+	if gotA.Cast[0].CharacterRecordImage != "woland-still.jpg" {
+		t.Fatalf("book A's row reports record image %q", gotA.Cast[0].CharacterRecordImage)
+	}
+}
+
+// A row with no character record linked reports no default, rather than the
+// first thing a loose subquery happened to find. character_id is nullable — most
+// rows on a library that has not been through the cast panel carry none.
+func TestAnUnlinkedCastRowReportsNoRecordPicture(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	film := newMovie(t, c, map[string]any{"title": "Solaris"}).ID
+	c.mustDo("POST", "/movies/"+itoa(film)+"/cast",
+		map[string]any{"character": "Kris Kelvin", "actor": "Donatas Banionis"}, http.StatusCreated)
+	got := decode[struct {
+		Cast []struct {
+			CharacterID          int64  `json:"character_id"`
+			CharacterRecordImage string `json:"character_record_image"`
+		} `json:"cast"`
+	}](t, c.mustDo("GET", "/movies/"+itoa(film)+"/cast", nil, 200))
+	if len(got.Cast) != 1 {
+		t.Fatalf("%d cast rows", len(got.Cast))
+	}
+	if got.Cast[0].CharacterRecordImage != "" {
+		t.Fatalf("an unlinked row reported %q", got.Cast[0].CharacterRecordImage)
+	}
+}

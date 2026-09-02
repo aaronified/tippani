@@ -532,3 +532,40 @@ describe('the cast fetches', () => {
     expect(got.map((c) => c.character)).toEqual(['Amanda Waller', 'Harley Quinn'])
   })
 })
+
+// ── THE FACE LADDER, and the middle rung is the one the merge needed.
+//
+// The owner's report: a character whose default picture was set on one book, then
+// merged with the same character in another, drew a face on the first book and
+// nothing on the second. The row carries what is stored at each grain — this
+// work's picture of the role, and the record's own default — and this panel
+// decides which to draw.
+describe('a cast row’s face', () => {
+  const faceSrc = () => {
+    const img = document.querySelector('.cast-face-btn img')
+    return img ? img.getAttribute('src') : null
+  }
+
+  it('prefers what THIS work stores for the role', async () => {
+    CAST = [{ id: 11, character: 'Woland', actor: '', character_image_path: 'in-this-book.jpg', character_record_image: 'the-record.jpg', character_image_url: '' }]
+    await openPanel(BOOK, 'book')
+    await waitFor(() => expect(faceSrc()).toContain('in-this-book.jpg'))
+  })
+
+  it('falls back to the record’s own default, which is what a merge leaves behind', async () => {
+    // The appearance the merge folded in has no picture of its own; the record
+    // does, because the reader promoted one.
+    CAST = [{ id: 11, character: 'Woland', actor: '', character_image_path: '', character_record_image: 'the-record.jpg', character_image_url: '' }]
+    await openPanel(BOOK, 'book')
+    await waitFor(() => expect(faceSrc()).toContain('the-record.jpg'))
+  })
+
+  it('draws nothing when neither grain has one', async () => {
+    CAST = [{ id: 11, character: 'Woland', actor: '', character_image_path: '', character_record_image: '', character_image_url: '' }]
+    await openPanel(BOOK, 'book')
+    await flush()
+    // A book has no performer either, so the actor rung is empty by definition —
+    // and an empty slot is the state the reader is here to fix.
+    expect(faceSrc()).toBeNull()
+  })
+})

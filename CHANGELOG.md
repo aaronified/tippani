@@ -104,13 +104,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   is the default now. `TIPPANI_UPDATER_IMAGE` still overrides it, and
   `docs/troubleshoot.md` describes the symptom for anyone on an older build.
 
-- **A merged character's picture reaches every book they are in.** Setting a
-  character's default picture and then merging that record with the same character in
-  another book left the second book's quotes drawing no face at all. The merge joins
-  the *records* — it deliberately does not copy a per-work picture onto every
-  appearance, since "what this character looks like in *this* work" is what the
-  per-work column is for — but with no per-work picture, the record's own is now what
-  a quote shows. A work that has its own still wins.
+- **A merged character's picture reaches every book they are in — on the cast list as
+  well as on the quotes.** Setting a character's default picture and then merging that
+  record with the same character in another book left the second book drawing no face at
+  all. The merge joins the *records* — it deliberately does not copy a per-work picture
+  onto every appearance, since "what this character looks like in *this* work" is what
+  the per-work column is for — but with no per-work picture, the record's own is now what
+  both surfaces show. A work that has its own still wins, and the character's own panel
+  still leaves the slot empty on purpose, because "this work has none" is the state you
+  open it to fix.
 
 - **A phone's dock key stops looking pressed after you press it.** On a touch screen
   the last-tapped element keeps `:hover` until something else is tapped, so the key
