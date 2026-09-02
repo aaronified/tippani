@@ -62,6 +62,16 @@ wants attribution — so:
 **TheTVDB is the only raster-free exception left** — it is in no open pack and was
 supplied by hand with the design pack.
 
+## These are not the attribution logos
+
+A mark here is a **source indicator** — an 18px monochrome glyph, recoloured to the app's
+ink, saying which supplier a field came from. An **attribution logo** is a different
+object with a different job: the supplier's own file, in the supplier's own colours,
+unmodified, displayed because their licence requires it. TMDB and TheTVDB both require
+one; their files live in `docs/img/providers/` and are shown in the README's Attribution
+section beside the wording each of them asks for. Nothing in this file satisfies that
+obligation and nothing in it is meant to.
+
 ## Two substitutions, neither a mistake
 
 - **`openlibrary` shows the Internet Archive's mark.** Open Library is an Internet

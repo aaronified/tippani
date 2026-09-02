@@ -322,14 +322,52 @@ Building, changing and forking — the map of the tree, the pull-request convent
 
 ## Attribution
 
+<!-- The two marks below are each supplier's OWN file, committed unmodified, because
+     each licence asks for the logo rather than for a mention. TMDB publishes five
+     approved SVGs at themoviedb.org/about/logos-attribution; this is "primary short".
+     TheTVDB publishes two at thetvdb.com/api-information (Attribution), one for a dark
+     ground and one for a light one — hence the <picture>, so the README reads in both
+     of GitHub's themes. Their wording is theirs verbatim, and their link goes where
+     their own sample sends it. Nobody else here requires a mark, and three of them
+     would be wrong to carry one: see the note below. -->
+
+<table>
+  <tr>
+    <td width="230" align="center">
+      <a href="https://www.themoviedb.org/"><img src="docs/img/providers/tmdb.svg" width="190" alt="TMDB"></a>
+    </td>
+    <td><sub>Film, show and game metadata, posters and cast. <b>This product uses the TMDB API but is not
+    endorsed or certified by TMDB.</b></sub></td>
+  </tr>
+  <tr>
+    <td width="230" align="center">
+      <a href="https://thetvdb.com/subscribe"><picture>
+        <source media="(prefers-color-scheme: dark)" srcset="docs/img/providers/thetvdb-dark.png">
+        <img src="docs/img/providers/thetvdb-light.png" width="150" alt="TheTVDB">
+      </picture></a>
+    </td>
+    <td><sub><b>Metadata provided by TheTVDB. Please consider adding missing information or
+    subscribing.</b> Show and film records, episode data, and the per-character images no other
+    source has.</sub></td>
+  </tr>
+</table>
+
 Book metadata comes from [Google Books](https://books.google.com/) and
 [Open Library](https://openlibrary.org/); book covers and author images from
-[Amazon](https://www.amazon.com/). All film and show metadata and posters come from the
-[TMDB](https://www.themoviedb.org/) and [TheTVDB](https://thetvdb.com/) APIs — this product uses the
-TMDB and TheTVDB APIs but is not endorsed or certified by either. Author and actor reference links resolve
-through Open Library, TMDB and [Wikidata](https://www.wikidata.org/) (for the Wikipedia hop), and link out
-to IMDb, TMDB, TheTVDB, Wikipedia and Open Library. [IMDb](https://www.imdb.com/) pages are also read, on
-request, for a game's cast and for quote-page imports.
+[Amazon](https://www.amazon.com/). Author and actor reference links resolve through Open Library,
+TMDB and [Wikidata](https://www.wikidata.org/) (for the Wikipedia hop), and link out to IMDb, TMDB,
+TheTVDB, Wikipedia and Open Library. [IMDb](https://www.imdb.com/) pages are also read, on request,
+for a game's cast and for quote-page imports.
+
+**Why only two logos.** A mark is a claim, so it goes only where the supplier's own terms ask for
+one. TMDB and TheTVDB do. Open Library and Wikidata publish open data and ask for a credit, not a
+badge. Amazon's image CDN and IMDb's pages are read without any agreement that would license their
+marks, and a logo there would suggest a partnership that does not exist — the plain sentences above
+say what is actually read, which is the honest version. Every logo here is the supplier's own file,
+committed unchanged, and none is recoloured, cropped or redrawn. The small monochrome
+glyphs *inside* the app are a different object doing a different job — a source indicator
+in the app's own ink, not an attribution mark — and their origins and licences are set out
+in [`docs/PROVIDER-MARKS.md`](docs/PROVIDER-MARKS.md).
 
 Standing on the shoulders of:
 
