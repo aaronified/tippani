@@ -353,3 +353,173 @@ func TestRunWatchtowerPullsTheImageItRuns(t *testing.T) {
 		t.Errorf("pulled %q, want the image it then runs (%s)", pulled, DefaultUpdaterImage)
 	}
 }
+
+// ---- identifying self -------------------------------------------------------
+//
+// THE FAILURE THESE ARE WRITTEN FROM, in the operator's words: "Update didn't
+// start", and in the log, `update identify self: inspect self: docker 404`. The
+// container was running, the socket was reachable, the ping passed — and the
+// very first step of the update asked the daemon to inspect a container by this
+// process's HOSTNAME, which under Compose is the service name rather than the
+// container name or its id. No container answers to it, so 404, and the message
+// named the symptom and none of the cause.
+//
+// Nothing covered this: engineFake answers every /containers/*/json the same
+// way, so the old test suite could not tell which reference had been asked for,
+// and the one comment about it said Self() "keys off the process hostname, so the
+// inspect shape is exercised via targetNetworks instead" — which is to say it was
+// not exercised at all. Every case below asserts the REFERENCE, because that is
+// the only thing that was ever wrong.
+
+// engineInspect records which container reference each inspect asked about, and
+// answers 404 for anything not in `known`.
+func engineInspect(t *testing.T, known map[string]bool) (*httptest.Server, *[]string) {
+	t.Helper()
+	var asked []string
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.HasPrefix(r.URL.Path, "/containers/") || !strings.HasSuffix(r.URL.Path, "/json") {
+			t.Errorf("unexpected engine call: %s %s", r.Method, r.URL.Path)
+			w.WriteHeader(500)
+			return
+		}
+		ref := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/containers/"), "/json")
+		asked = append(asked, ref)
+		if !known[ref] {
+			w.WriteHeader(404)
+			io.WriteString(w, `{"message":"No such container"}`)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		io.WriteString(w, `{"Id":"`+ref+`","Name":"/tippani","Config":{"Image":"ghcr.io/owner/tippani:v3"}}`)
+	}))
+	t.Cleanup(ts.Close)
+	return ts, &asked
+}
+
+const fakeID = "3f1a9c2b7e8d4f6a0b5c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a"
+
+// procFile writes one fake /proc file and points selfIDFromProc at it.
+func procFile(t *testing.T, body string) {
+	t.Helper()
+	p := filepath.Join(t.TempDir(), "procfile")
+	if err := os.WriteFile(p, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	old := selfIDFiles
+	selfIDFiles = []string{p}
+	t.Cleanup(func() { selfIDFiles = old })
+}
+
+func TestSelfReadsTheIDFromProcRatherThanTheHostname(t *testing.T) {
+	// A real cgroup-v2 mountinfo line: the id is on the SOURCE side of the
+	// bind-mount the daemon makes for /etc/hostname.
+	procFile(t, "1234 1200 0:64 /containers/"+fakeID+"/hostname /etc/hostname rw,relatime shared:1 - ext4 /dev/sda1 rw\n")
+	// The daemon knows the id and knows nothing called "tippani" — which is the
+	// operator's case exactly: a compose service named tippani whose container
+	// is named something else.
+	ts, asked := engineInspect(t, map[string]bool{fakeID: true})
+	d := NewDocker("tcp://" + strings.TrimPrefix(ts.URL, "http://"))
+
+	id, name, image, err := d.Self(context.Background())
+	if err != nil {
+		t.Fatalf("Self: %v", err)
+	}
+	if id != fakeID {
+		t.Errorf("id = %q, want the id from /proc", id)
+	}
+	if name != "tippani" || image != "ghcr.io/owner/tippani:v3" {
+		t.Errorf("name/image = %q / %q", name, image)
+	}
+	// ONE CALL, and it used the id. Asking the hostname first would have spent a
+	// 404 on every update on every host.
+	if len(*asked) != 1 || (*asked)[0] != fakeID {
+		t.Errorf("inspected %v, want exactly [%s]", *asked, fakeID)
+	}
+}
+
+func TestSelfReadsCgroupV1Layout(t *testing.T) {
+	// The older shape, still what a v1 host prints. Same rule finds it.
+	procFile(t, "11:memory:/docker/"+fakeID+"\n10:cpu:/docker/"+fakeID+"\n")
+	ts, asked := engineInspect(t, map[string]bool{fakeID: true})
+	d := NewDocker("tcp://" + strings.TrimPrefix(ts.URL, "http://"))
+	if _, _, _, err := d.Self(context.Background()); err != nil {
+		t.Fatalf("Self: %v", err)
+	}
+	if len(*asked) != 1 || (*asked)[0] != fakeID {
+		t.Errorf("inspected %v, want [%s]", *asked, fakeID)
+	}
+}
+
+func TestSelfFallsBackToTheHostnameWhenProcHasNoID(t *testing.T) {
+	// cgroup v2 outside Docker's own layout says this and nothing more, which is
+	// why the hostname has to stay as a fallback rather than being replaced.
+	procFile(t, "0::/\n")
+	host, err := os.Hostname()
+	if err != nil {
+		t.Skip("no hostname on this machine")
+	}
+	ts, asked := engineInspect(t, map[string]bool{host: true})
+	d := NewDocker("tcp://" + strings.TrimPrefix(ts.URL, "http://"))
+	if _, _, _, err := d.Self(context.Background()); err != nil {
+		t.Fatalf("Self: %v", err)
+	}
+	if len(*asked) != 1 || (*asked)[0] != host {
+		t.Errorf("inspected %v, want [%s]", *asked, host)
+	}
+}
+
+func TestSelfTriesBothAndSaysSoWhenNeitherAnswers(t *testing.T) {
+	procFile(t, "1234 1200 0:64 /containers/"+fakeID+"/hostname /etc/hostname rw - ext4 /dev/sda1 rw\n")
+	host, err := os.Hostname()
+	if err != nil {
+		t.Skip("no hostname on this machine")
+	}
+	// The daemon knows neither.
+	ts, asked := engineInspect(t, map[string]bool{})
+	d := NewDocker("tcp://" + strings.TrimPrefix(ts.URL, "http://"))
+
+	_, _, _, err = d.Self(context.Background())
+	if err == nil {
+		t.Fatal("Self succeeded against a daemon that knows no container")
+	}
+	// BOTH ARE TRIED before giving up: the id may be stale in a nested runtime
+	// and the hostname may be the answer, or the other way round.
+	if len(*asked) != 2 || (*asked)[0] != fakeID || (*asked)[1] != host {
+		t.Errorf("inspected %v, want [%s %s]", *asked, fakeID, host)
+	}
+	// AND THE ERROR NAMES WHAT IT LOOKED FOR. The reported failure was a bare
+	// "docker 404", which tells an operator nothing they can act on; the next
+	// question is always "404 for what".
+	for _, want := range []string{fakeID, host} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error %q does not name %q", err, want)
+		}
+	}
+}
+
+func TestSelfIDPatternIgnoresShortHex(t *testing.T) {
+	// A short id, a name, a timestamp — none of them 64 hex characters, so none
+	// of them is mistaken for an id. This is what keeps the "any 64-hex run"
+	// rule honest rather than lucky.
+	procFile(t, "0::/system.slice/docker-abc123.scope\n11:name=systemd:/user.slice\n")
+	if got := selfIDFromProc(); got != "" {
+		t.Errorf("selfIDFromProc() = %q, want empty", got)
+	}
+}
+
+func TestSelfIDReadsBothProcFilesByDefault(t *testing.T) {
+	// Every case above injects its own file, so none of them touches the real
+	// list — and dropping /proc/self/cgroup from it survived a mutation run
+	// undetected. It matters: mountinfo carries the id on a cgroup-v2 host and
+	// /proc/self/cgroup carries it on a v1 one, so a list with only the first
+	// works everywhere the author tested and nowhere older.
+	want := []string{"/proc/self/mountinfo", "/proc/self/cgroup"}
+	if len(selfIDFiles) != len(want) {
+		t.Fatalf("selfIDFiles = %v, want %v", selfIDFiles, want)
+	}
+	for i, w := range want {
+		if selfIDFiles[i] != w {
+			t.Errorf("selfIDFiles[%d] = %q, want %q", i, selfIDFiles[i], w)
+		}
+	}
+}

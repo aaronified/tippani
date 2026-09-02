@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **One-click updates work again on a Compose stack whose service and container are
+  named differently.** The update's first step asks Docker to inspect this container, and
+  it asked by the process's hostname — which Compose sets to the SERVICE name, not the
+  container's. Where the two differ no container answers to it, so every update died at
+  the first step with `inspect self: docker 404` and the app reported only that the
+  update did not start. It reads its own container id out of `/proc` now, which is true
+  regardless of what anybody named anything; the hostname stays as the fallback, and when
+  neither works the error says which two it looked for.
+
+- **"Update now" in the phone's dock always checks.** It checked only when nothing had
+  been fetched yet, so the first press asked GitHub and every press after it answered
+  from that first reply — however old. A key called *Update now* that reads from cache is
+  a key telling you that you are up to date about a release that shipped an hour ago.
+
 - **The cover strip's fetch and the panel's fetch no longer answer to the same name.**
   Both announced themselves to a screen reader as *Fetch metadata*, on one panel, doing
   two different things to two different subjects — one asks the supplier about this

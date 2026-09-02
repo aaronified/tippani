@@ -43,7 +43,7 @@ which Compose keeps in list form, leaving tracing silently off.
 
 | Code | Meaning | Likely cause | What to do |
 | --- | --- | --- | --- |
-| `TIP-UPDATE-001` | A Docker Engine API call failed during self-update (identify self, pull the image, or launch the recreater). | The socket/proxy lacks a needed permission (a socket proxy must allow `CONTAINERS=1`, `IMAGES=1`, `POST=1`), the registry was unreachable, or the container name could not be resolved. | Read the `[error]` line for the Engine's status and message. For a socket proxy, verify the permission env vars on the proxy container; for the raw socket, verify the mount and the `group_add` gid. The guided manual command in Settings always works meanwhile. |
+| `TIP-UPDATE-001` | A Docker Engine API call failed during self-update (identify self, pull the image, or launch the recreater). | The socket/proxy lacks a needed permission (a socket proxy must allow `CONTAINERS=1`, `IMAGES=1`, `POST=1`), the registry was unreachable, or the container name could not be resolved. | Read the `[error]` line for the Engine's status and message. For a socket proxy, verify the permission env vars on the proxy container; for the raw socket, verify the mount and the `group_add` gid. A message reading `inspect self: docker 404 for <a> and <b>` names the two references it looked for — its own id from `/proc` and its hostname — and means the daemon knows neither, which normally means this process is not in a container that daemon can see. The guided manual command in Settings always works meanwhile. |
 
 ### The update runs, the version does not change
 

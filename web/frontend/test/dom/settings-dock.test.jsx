@@ -23,10 +23,11 @@ const AVAILABLE = {
 }
 
 let applied = 0
+let checks = 0
 vi.mock('../../src/api.js', async (orig) => ({
   ...(await orig()),
   json: vi.fn(async (method, path) => {
-    if (path === '/admin/update/check') return { ok: true, data: AVAILABLE }
+    if (path === '/admin/update/check') { checks++; return { ok: true, data: AVAILABLE } }
     if (path === '/admin/update/apply') { applied++; return { ok: true, data: {} } }
     if (path === '/admin/backup') return { ok: true, data: { backup: null } }
     return { ok: true, data: {} }
@@ -192,5 +193,82 @@ describe('the Settings dock', () => {
       const live = document.querySelector('.mobile-sheet-card')
       expect(within(live).queryByPlaceholderText('UPDATE')).toBeNull()
     })
+  })
+})
+
+// ── THE KEY ASKS, EVERY TIME.
+//
+// The owner's words: "the settings update shortcut must also always search for
+// updates when clicked." It did not. The effect behind it read `if (asking &&
+// !info && !busy) check()` — only when nothing had been fetched yet — so the
+// first press checked and every press after it opened on whatever that first
+// check had said. The card stays mounted for a whole Settings visit and this key
+// is reachable from every screen, so the stale answer was the ordinary case: a
+// release ships, the reader presses Update now, and is told they are up to date.
+describe('the update key always checks', () => {
+  it('asks again on a second press rather than answering from the first', async () => {
+    asPhone()
+    checks = 0
+    page()
+    await waitFor(() => expect(keys()).toContain('update'))
+
+    press('update')
+    await waitFor(() => expect(checks).toBe(1))
+    // Close it without applying, the way a reader who saw "up to date" would.
+    const sheet1 = await waitFor(() => {
+      const el = document.querySelector('.mobile-sheet-card')
+      expect(el, 'no sheet opened').toBeTruthy()
+      return el
+    })
+    // The key SETS the prompt open rather than toggling it, so a second press
+    // while it is up is a no-op — the reader closes it and presses again, which
+    // is the sequence this is about.
+    fireEvent.click(within(sheet1).getByRole('button', { name: /^close$/i }))
+    await waitFor(() => expect(document.querySelector('.mobile-sheet-card')).toBeNull())
+
+    // Second press: a fresh request, not the first answer again.
+    press('update')
+    await waitFor(() => expect(checks).toBe(2))
+  })
+
+  // WHAT THIS CAN AND CANNOT ASSERT, said plainly. While an apply is running the
+  // prompt refuses to close — PromptFrame takes busy and dismissOnScrim={false} —
+  // and the dock key SETS the prompt open rather than toggling it, so pressing it
+  // again is a no-op. There is therefore no route from the interface to a
+  // re-check mid-apply, and a test claiming to prove the phase guard would pass
+  // whether the guard were there or not (it does: removing it changes nothing
+  // here). The guard stays because it is correct if the close path ever gains a
+  // way out; what this case asserts is the property that IS reachable — the key
+  // cannot disturb a running update.
+  it('leaves a running update alone when the key is pressed again', async () => {
+    asPhone()
+    checks = 0
+    applied = 0 // module-level, shared with the cases above
+    page()
+    await waitFor(() => expect(keys()).toContain('update'))
+    press('update')
+    await waitFor(() => expect(checks).toBe(1))
+
+    // Scoped to the sheet, the way the case above does it: the card behind draws
+    // the same confirmation off the same state.
+    const sheet = await waitFor(() => {
+      const el = document.querySelector('.mobile-sheet-card')
+      expect(el, 'no sheet opened').toBeTruthy()
+      return el
+    })
+    const box = await within(sheet).findByPlaceholderText('UPDATE')
+    fireEvent.change(box, { target: { value: 'UPDATE' } })
+    fireEvent.submit(box.closest('form'))
+    await waitFor(() => expect(applied).toBe(1))
+
+    // The prompt is saying "pulling the new image". Pressing the key again must
+    // leave both the prose and the request count where they are.
+    const after = checks
+    const running = document.querySelector('.mobile-sheet-card').textContent
+    press('update')
+    await new Promise((r) => setTimeout(r, 30))
+    expect(checks).toBe(after)
+    expect(document.querySelector('.mobile-sheet-card').textContent).toBe(running)
+    expect(applied).toBe(1)
   })
 })

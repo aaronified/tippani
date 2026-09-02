@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
 	"sort"
 	"strings"
 	"syscall"
@@ -188,22 +189,81 @@ func (d *Docker) Probe(ctx context.Context) (bool, string) {
 	return true, ""
 }
 
-// Self identifies this container from the process hostname (Docker sets it to
-// the short container id unless overridden) and returns its id, name (no leading
-// slash) and current image reference.
-func (d *Docker) Self(ctx context.Context) (id, name, image string, err error) {
-	host, err := os.Hostname()
-	if err != nil {
-		return "", "", "", err
+// selfIDFiles are where a container's own 64-hex id can be read out of /proc.
+// Overridden in tests; nothing else should touch them.
+var selfIDFiles = []string{"/proc/self/mountinfo", "/proc/self/cgroup"}
+
+var containerIDPat = regexp.MustCompile(`[0-9a-f]{64}`)
+
+// selfIDFromProc reads this container's own id out of /proc, which is where it
+// is regardless of what anybody set the hostname to.
+//
+// TWO FILES, BECAUSE ONE OF THEM STOPPED CARRYING IT. Under cgroup v1 the id was
+// the last path segment in /proc/self/cgroup; under cgroup v2 that file says
+// `0::/` and nothing else, which is why the hostname was ever used at all. What
+// survives both is /proc/self/mountinfo: the daemon bind-mounts /etc/hostname,
+// /etc/hosts and /etc/resolv.conf out of /var/lib/docker/containers/<id>/, and
+// mountinfo prints the SOURCE side of every mount — so the id is in there on any
+// host that has those three files, which is every Docker host.
+//
+// A 64-hex run is the id. Nothing else in either file is 64 hex characters, and
+// requiring the surrounding path would tie this to one storage driver's layout.
+func selfIDFromProc() string {
+	for _, f := range selfIDFiles {
+		b, err := os.ReadFile(f)
+		if err != nil {
+			continue
+		}
+		if m := containerIDPat.Find(b); m != nil {
+			return string(m)
+		}
 	}
-	resp, err := d.do(ctx, http.MethodGet, "/containers/"+url.PathEscape(host)+"/json", nil)
-	if err != nil {
-		return "", "", "", err
+	return ""
+}
+
+// Self identifies this container and returns its id, name (no leading slash) and
+// current image reference.
+//
+// IT ASKS /proc FIRST AND THE HOSTNAME SECOND, and that order is the fix for a
+// reported failure rather than a preference. The comment here used to say Docker
+// sets the hostname to the short container id "unless overridden" — and Compose
+// overrides it: a compose service gets its SERVICE NAME as its hostname, which is
+// only also a container name when `container_name` happens to match the service.
+// Where it does not, `GET /containers/<hostname>/json` is a 404 and the whole
+// update fails at the first step with `inspect self: docker 404`, which names the
+// symptom and none of the cause.
+//
+// The id in /proc is not a guess about anybody's configuration, so it goes first.
+// The hostname stays as the fallback for the one case /proc cannot answer — a
+// process that is not in a container at all, or a runtime that lays out neither
+// file the way Docker does — and both are named in the error when neither works,
+// because the operator's next question is "what did it look for".
+func (d *Docker) Self(ctx context.Context) (id, name, image string, err error) {
+	host, _ := os.Hostname()
+	tried := make([]string, 0, 2)
+	var resp *http.Response
+	for _, ref := range []string{selfIDFromProc(), host} {
+		if ref == "" {
+			continue
+		}
+		tried = append(tried, ref)
+		r, err := d.do(ctx, http.MethodGet, "/containers/"+url.PathEscape(ref)+"/json", nil)
+		if err != nil {
+			return "", "", "", err
+		}
+		if r.StatusCode == http.StatusOK {
+			resp = r
+			break
+		}
+		r.Body.Close()
+	}
+	if resp == nil {
+		if len(tried) == 0 {
+			return "", "", "", errors.New("inspect self: no container id in /proc and no hostname")
+		}
+		return "", "", "", fmt.Errorf("inspect self: docker 404 for %s — is this process in a container the daemon can see?", strings.Join(tried, " and "))
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return "", "", "", fmt.Errorf("inspect self: docker %d", resp.StatusCode)
-	}
 	var c struct {
 		ID     string `json:"Id"`
 		Name   string `json:"Name"`

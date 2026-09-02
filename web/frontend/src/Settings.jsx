@@ -1265,11 +1265,24 @@ function UpdatesCard({ user, update, onUpdateInfo, asking = false, onAsking }) {
   // that word is compared byte for byte by the server and a one-tap update on a
   // phone is exactly the accident it exists to prevent.
   //
-  // IT CHECKS FIRST IF IT HAS TO. Opening on a stale "nothing to do" would be the
-  // key lying about the thing it is for — and the check is one request, so it is
-  // cheaper than making the reader press twice to learn the same fact.
+  // IT ALWAYS CHECKS, and the `!info` that used to be in this condition is the
+  // bug it fixes. "Check first if it has to" meant: only when nothing had been
+  // fetched yet — so the FIRST press checked and every press after it opened on
+  // whatever the last check had said, however long ago. The card is on screen for
+  // as long as a Settings visit lasts and this key is reached from every screen,
+  // so the stale case was the common one: press it, read "you are up to date",
+  // and be told that about a release that shipped an hour earlier.
+  //
+  // A key called "Update now" that answers from cache is the key lying about the
+  // one thing it is for. The check is a single request against GitHub, which is
+  // cheaper than a reader pressing twice to learn the same fact — and cheaper
+  // still than trusting the wrong answer.
+  //
+  // Not while one is already in flight, and not while an apply is running: the
+  // phases below drive the prompt's own copy, and re-checking under them would
+  // replace "pulling the new image" with a version comparison nobody asked for.
   useEffect(() => {
-    if (asking && !info && !busy) check()
+    if (asking && !busy && phase !== 'applying' && phase !== 'restarting') check()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [asking])
 
