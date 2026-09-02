@@ -248,7 +248,13 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
         icon: <IconMetadata />,
         disabled: busy,
         onClick: () => fetchMissingCovers(true),
-      }] : []),
+      }] : [
+        // A READER WHO IS NOT AN ADMIN HAS ONE VERB HERE, and the seat beside it
+        // was a blank — the exact hole the shell's default fills on screens that
+        // publish nothing at all. A screen that publishes SOME keys opts out of
+        // that default wholesale, so the second seat has to be asked for by name.
+        { id: 'nav' },
+      ]),
     ] : null,
   })
   const [issuesOpen, setIssuesOpen] = useState(false)

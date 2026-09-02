@@ -91,9 +91,12 @@ const IMAGE_FILL_CAP = 20
 //
 // A FUNCTION FROM ABOVE RATHER THAN THE PANEL ITSELF. identity.jsx imports the
 // picture hook out of this file, so building the panel here would close the cycle
-// — and the caller is the one holding the stack to push onto anyway. A section
-// rendered without it keeps the old behaviour, which is what the metadata console
-// wants: it is already inside the characters list.
+// — and the caller is the one holding the stack to push onto anyway.
+//
+// OPTIONAL, and the only caller today always passes it. The guard is for a caller
+// that has no stack to push onto: without one the name falls back to the picture
+// editor rather than becoming a link that does nothing, which is the same rule the
+// unlinked row follows below.
 export function CastSection({ kind, item, onCastChanged, onOpenCharacter }) {
   const path = kind === 'book' ? 'books' : 'movies'
   const [rows, setRows] = useState(null) // null while loading
@@ -497,10 +500,22 @@ export function useCharacterPicture({ row, actor, workTitle, mediaType, busy, on
 
 // A row's provenance, from `work_cast.origin` and `work_cast.source`.
 //
-// `origin` is NOT NULL DEFAULT 'provider', so there is always an answer and a row
-// carrying no `source` under it is a supplier row whose slug was never stored —
-// rare, and the tag draws nothing rather than inventing "unknown".
-const rowSource = (row) => (row.origin === 'reader' ? 'manual' : row.source || '')
+// `origin` is NOT NULL DEFAULT 'provider', so there is always an answer. A row
+// carrying no `source` is one whose supplier slug was never stored, and what to do
+// about that depends on which origin it is:
+//
+//   provider   draw nothing. Naming a supplier that was never recorded is worse
+//              than silence — the reader would go looking for it.
+//   corrected  draw it as YOURS. The row was seeded by somebody and then edited by
+//              you, and with no slug to show, "you edited this" is the only true
+//              half left. Silence would drop it, and the correction is the half
+//              that matters: it is what a refetch is forbidden to overwrite.
+const rowSource = (row) => (
+  row.origin === 'reader' ? 'manual'
+    : row.source ? row.source
+      : row.origin === 'corrected' ? 'manual'
+        : ''
+)
 const rowNote = (row) => (row.origin === 'corrected' ? t('cast.source.corrected.note') : '')
 
 // CastRow — one credit. Resting it is two names and a face; editing it is two

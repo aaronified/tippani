@@ -50,6 +50,9 @@ const ROWS = [
   // A supplier row whose slug was never stored. Rare, and the honest answer is
   // nothing — "unknown source" on a row is a fact the app does not have.
   { id: 14, character: 'the Wife', actor: 'Alisa Freyndlikh', origin: 'provider', source: '' },
+  // The same absence on a CORRECTED row, where the answer is the opposite — see
+  // the case at the foot of this file.
+  { id: 15, character: 'the Boy', actor: 'Natasha Abramova', origin: 'corrected', source: '' },
 ]
 
 beforeEach(() => {
@@ -108,5 +111,17 @@ describe('every cast row says where it came from', () => {
     // stored, and a tag naming a supplier that was never recorded is worse than no
     // tag — the reader would go looking for it.
     expect(tag('the Wife'), 'invented a source for a row that has none').toBeNull()
+  })
+
+  it('still says a correction is yours when the supplier under it has no name', async () => {
+    await list()
+    // THE OPPOSITE ANSWER TO THE ROW ABOVE, on the same absence, and the reason is
+    // which half survives. On a `provider` row with no slug there is nothing true
+    // left to say. On a `corrected` one there is: you edited it, and that is the
+    // half a refetch is forbidden to overwrite — the one a reader is scanning for.
+    // Falling silent here would drop the more important of the two facts.
+    const t = tag('the Boy')
+    expect(t, 'a correction with no supplier under it vanished').toBeTruthy()
+    expect(t.getAttribute('data-src')).toBe('manual')
   })
 })

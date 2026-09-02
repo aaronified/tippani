@@ -75,7 +75,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   book's translator and editor, a show's creator, a game's studio and its publisher,
   which is plain text because a publisher has no page to open.
 
+- **Every phone screen has the two navigation keys, and a board's second key is the way
+  to the other boards.** The dock seats five and three never move, so the last two are
+  the screen's — and a screen with nothing of its own to offer published nothing and got
+  two empty seats. On the Bin, on Tags, on Checks, on every screen that is a list and no
+  more, the dock had holes in it. Those two seats now hold what Home has always put
+  there: where else can I go, and this library's own machinery.
+
+  On the Library, the Catalogue and the Quotes page the second seat was *Export*, and
+  both of the reasons it was there had gone — the sort it replaced had moved into the
+  filter sheet, and Export is four rows up in the screen's own ⋯ , so it was the one verb
+  on the row that already had somewhere else to be. It holds the other boards now, which
+  is the thing a thumb cannot otherwise reach: the rail is a desktop control and the
+  drawer is at the top of the screen, the far end from where your hand is.
+
 ### Added
+
+- **Every cast row says where it came from.** The credit fields in a work's Details have
+  worn their supplier for releases — author from Google Books, director from TMDB, the
+  ones you typed in the accent — and the cast list directly underneath them wore nothing,
+  though the answer has been stored per row all along. Four states, and they are not
+  three: a row the supplier listed, a row it listed and you then corrected — which keeps
+  the supplier's mark, because that is still where it came from, and says in its label
+  that you corrected it — and a row you typed, in the accent like a field you filled in.
+  A supplier row whose name was never recorded still says nothing, rather than *unknown*:
+  a source named that was never stored is one you would go looking for.
+
+- **A character's name opens the character, on the work you pressed it from.** On a
+  work's cast list the character name opened the row's *picture editor* — the right
+  answer while a character was flat text with a still attached, and the wrong one since
+  the character became a record with a page of its own. A reader pressing V is asking who
+  V is. It opens the character now; the picture is still behind the face beside it, which
+  was always the more obvious of the two doors. A row nothing has linked to a record yet
+  keeps the picture editor, because a link to a page that does not exist is worse than
+  the affordance it replaces.
+
+  The page arrives differently depending on where you came from, because the question is
+  different. From the metadata console it is "who is this", and it draws every work at
+  once, as before. From a film's cast list you have already said which work you mean, so
+  that appearance is lifted out and given the first section — inked down its edge, and
+  the only section that is — with the rest listed below as *and 3 other works*. The same
+  door is on an actor's page, where each role already names its work.
+
+  Each of the three sections now carries a dot saying which grain it is: one row in one
+  work's cast, one record across however many works, and the record itself. The sentence
+  under each heading has always said what saving there *changes*; the dot says what the
+  section *is*, which is the half a reader needs first to read the other one correctly.
 
 - **A phone has a way back to the top of a long board.** A work with a hundred quotes was
   a minute of flicking to get back up: no scrollbar to drag, no Home key to press. The

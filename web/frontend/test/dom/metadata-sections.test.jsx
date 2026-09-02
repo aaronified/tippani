@@ -273,7 +273,13 @@ describe('on a phone', () => {
       await screen.findByLabelText(/which metadata/i)
       // Reading what is incomplete is a question anybody may ask; going out to
       // five providers and writing the answers back is not.
-      expect((BAR.keys || []).map((k) => k.id)).toEqual(['issues'])
+      //
+      // AND THE SEAT FETCH LEAVES IS NOT A BLANK. A screen that publishes SOME
+      // keys opts out of the shell's default pair wholesale, so this reader had
+      // one verb and one empty seat beside it — the exact hole the default was
+      // introduced to close. `nav` is the placeholder the shell swaps for its
+      // boards key; what matters to this case is that fetch is not here.
+      expect((BAR.keys || []).map((k) => k.id)).toEqual(['issues', 'nav'])
     })
 
     it('lists only what is actually wrong, and every row is a door', async () => {

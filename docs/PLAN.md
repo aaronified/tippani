@@ -9526,3 +9526,110 @@ same one.*
 
 <sub>Unreleased — `web/frontend/src/ui.jsx` · `App.jsx` · `index.css` ·
 `internal/i18n/{en,bn}.txt` · `test/dom/shell-mount.test.jsx`</sub>
+
+### The dock's two seats stop being Home's, and Export gives one back
+
+*The owner's ask, in two halves: "on library, catalogue, replace the phone hamburger menu
+export with the navigate menu you have made for home (it should be in that same
+position). same for quotes/proberb/speech etc collections in the quotes page." and "for
+locations that do not have context menu, just use the home context menu in mobile."*
+
+**This reverses two decisions in this document, both of them mine and both recorded
+above.** Named here rather than quietly amended in place, because an entry that changes
+under you is worse than one that is wrong.
+
+- **"Published by the shell, not by Home"** was right about the publisher and wrong about
+  the scope. `homeKeys` was built in the shell and then gated on `tab === 'home' &&
+  !detail`, so every screen that published nothing — the Bin, Tags, Checks, Stats,
+  Settings for a reader who is not an admin — drew two empty seats beside Back, Search
+  and ＋. Two blanks is not restraint, it is a dock with holes in it. The gate is gone:
+  the shell's two keys are the DEFAULT, and a screen's own keys override them. Nothing
+  about the original reasoning changes; it simply stopped one screen short.
+- **"Export takes the seat"** is withdrawn, and both of the reasons I gave for it have
+  since expired. The claim was that Export "is the one verb on a worklist with nowhere
+  else to be on a phone" — it is four rows up in the same screen's ⋯ , which is on every
+  viewport, so it had somewhere else to be at the moment I wrote that. And the seat only
+  came free because the sort moved into the filter sheet, which is the same entry. What a
+  thumb genuinely cannot otherwise reach is the OTHER boards: the rail is a desktop
+  control and the drawer is at the top of the screen, the far end from the hand.
+- **A screen names the seat rather than building it.** `{ id: 'nav' }` in a screen's own
+  keys is a placeholder the shell swaps for its boards key. The alternative was handing
+  every screen `sections` and `selectTab` — two props everywhere for one key, at nine
+  call sites, and the screen that forgets is the screen that had blanks before. One line
+  in `WorkListScaffold` covers the Library, the Catalogue, the Quotes page and the
+  boards; one line in `MetadataPage` covers the seat a non-admin reader had blank there.
+- **REJECTED: publishing the two keys from each screen that wants them.** Same two keys
+  nine times, needing two pieces of shell state at each site. A default belongs where the
+  seats are drawn.
+
+<sub>Unreleased — `web/frontend/src/App.jsx` · `works.jsx` · `MetadataPage.jsx` ·
+`test/dom/dock-nav.test.jsx` · `test/dom/board-filters.test.jsx`</sub>
+
+### A character's name stops opening a picture, and the page it opens knows which work
+
+*The owner's ask: "the character should open the character screen (for the work). the work
+and book level character screens should have similar structure, but it must be visually
+distinct to drive home the difference. use short infodots and subtext to clarify this."*
+
+- **This supersedes "Both names are controls, and each leads to its own picture" (2.3.0).**
+  That entry was right that the character name should not lead to the actor, and it picked
+  the wrong destination: the picture editor. It was defensible while a character was flat
+  text with a still attached — 0056 had given it a record, but nothing had given the record
+  a door. A reader pressing a character's name is asking who the character is.
+- **The picture editor has not moved**, which is what makes the change cheap: it is what
+  the face beside the name opens, and that was always the more obvious of the two doors.
+  A row whose `character_id` is null keeps the picture editor on its name, because a link
+  to a page that does not exist is worse than the affordance it replaces.
+- **The page is scoped by where you came from.** A character record is library-wide and
+  the page drew it that way — one grid of every appearance, in query order. From the
+  metadata console that is right. From a film's cast list it is not: the reader has
+  already said which work they mean and the card they want is one of eight. So the
+  appearance they arrived through is lifted out and given the first scope. LIFTED, not
+  copied: a card in two sections invites the reader to edit the wrong one, and the two
+  edit the same row.
+- **Three grains, said twice over.** The sentence under each heading has always said what
+  saving there CHANGES; a dot now says what the section IS — one row in one work's cast,
+  one record across however many works, the record itself. A reader who has not yet
+  worked out that a character exists twice cannot read the blast-radius sentence
+  correctly, so the dot has to come first.
+- **An inked edge rather than a card**, and only on the narrow scope. A card would make
+  the first section a different KIND of thing from the two below it, and it is not — it
+  is the same panel at a finer grain. Marking only the narrowest means the ink reads as
+  "narrow" rather than "important".
+- **REJECTED: building the panel inside `cast.jsx`.** `identity.jsx` imports the picture
+  hook out of `cast.jsx`, so the import would close a cycle; the caller holds the stack
+  anyway, so `CastSection` takes a function of the row.
+
+<sub>Unreleased — `web/frontend/src/cast.jsx` · `identity.jsx` · `WorkDetails.jsx` ·
+`index.css` · `internal/i18n/{en,bn}.txt` · `test/dom/character-from-work.test.jsx`</sub>
+
+### The twelfth line in Details, and the fourth state a cast row has
+
+*The owner's ask: "the metadata needs to show the source, line wise."*
+
+- **Eleven of the twelve lines already did.** Every credit field has carried its supplier
+  since 0054; the cast list drawn directly beneath them carried nothing, while
+  `work_cast.origin` had held the answer since 0048 and no screen had ever read the
+  column. The panel was line-by-line for eleven fields and then showed twenty lines with
+  no line on them.
+- **Four states, not the tag's usual three, and the extra one is the argument.**
+  `corrected` — seeded by a supplier, then edited by the reader — keeps the SUPPLIER's
+  mark, because that is where the row came from and a refetch still owns its billing and
+  its ids; a note says what has happened since. Collapsed into `provider` it tells the
+  reader a refetch will overwrite their correction; collapsed into `reader` it hides that
+  there is an upstream row underneath at all.
+- **The note reaches the tooltip and the screen reader, not the row.** A cast list is
+  twenty rows deep and a word repeated on each is a word nobody reads.
+- **A missing supplier slug is answered two different ways, by origin.** On a `provider`
+  row: nothing, because naming a supplier that was never recorded is a supplier the
+  reader would go looking for. On a `corrected` row: the accent, because "you edited
+  this" is the only true half left and it is the half a refetch is forbidden to
+  overwrite. Falling silent there would drop the more important of the two facts.
+- **NOT BUILT, and named so it is not mistaken for done:** handoff §1.2's last clause —
+  "tapping it opens that field's candidates with the value each source is offering, side
+  by side". The data is already end to end (`fieldAlt{source, value}` per field, rendered
+  side by side by `ReverifyReview.jsx`); what is missing is the door from a Details
+  field's tag into it.
+
+<sub>Unreleased — `web/frontend/src/cast.jsx` · `ui.jsx` ·
+`internal/i18n/{en,bn}.txt` · `test/dom/cast-source.test.jsx`</sub>
