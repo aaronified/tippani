@@ -37,6 +37,7 @@ import {
   GhostButton,
   IconDelete,
   IconPlus,
+  InfoDot,
   MonoLabel,
   Scroller,
   toast,
@@ -61,12 +62,14 @@ export function personPanel(stack, { id, name, work = null }) {
   }
 }
 
-// characterPanel — the same, for the other table.
-export function characterPanel(stack, { id, name }) {
+// characterPanel — the same, for the other table, and `work` does the same job it
+// does above: opened from a work's cast list there IS a work to be on, and that
+// appearance leads rather than sitting somewhere in a grid of eight.
+export function characterPanel(stack, { id, name, work = null }) {
   return {
     title: name || t('identity.character.title'),
     wide: true,
-    render: () => <CharacterBody stack={stack} id={id} />,
+    render: () => <CharacterBody stack={stack} id={id} work={work} />,
   }
 }
 
@@ -77,11 +80,19 @@ export function characterPanel(stack, { id, name }) {
 // THE SENTENCE IS THE POINT. A heading alone ("On this work") is a label a reader
 // skims; the line under it is what stops them believing they renamed somebody
 // everywhere. It is not optional and there is no variant without one.
-function Scope({ title, scope, children }) {
+function Scope({ title, scope, hint, tone, children }) {
   return (
-    <section style={STACK}>
+    <section style={STACK} className={tone ? `identity-scope is-${tone}` : 'identity-scope'}>
       <div>
-        <MonoLabel>{title}</MonoLabel>
+        <span className="identity-scope-head">
+          <MonoLabel>{title}</MonoLabel>
+          {/* THE DOT IS FOR THE GRAIN, and the sentence under it for the blast
+              radius. They are two different questions — "what IS this section
+              about" and "what does saving here change" — and the second read
+              alone leaves a reader who has not yet worked out that a character
+              exists twice: once on a cast row and once as a record. */}
+          {hint ? <InfoDot text={hint} title={title} /> : null}
+        </span>
         <p className="microcopy" style={{ color: 'var(--soft)', marginTop: 2 }}>{scope}</p>
       </div>
       {children}
@@ -520,7 +531,16 @@ function PersonBody({ stack, id, work }) {
                       <button
                         type="button"
                         className="tp-link"
-                        onClick={() => stack.push(characterPanel(stack, { id: r.character_id, name: r.character }))}
+                        // WITH THE WORK, because the row names one. "Woland ·
+                        // The Master and Margarita (2005)" is a question about
+                        // that role on that work, and a page that opened on a
+                        // grid of eight would make the reader find again the row
+                        // they had just pressed.
+                        onClick={() => stack.push(characterPanel(stack, {
+                          id: r.character_id,
+                          name: r.character,
+                          work: { kind: r.kind, id: r.work_id, title: r.work_title },
+                        }))}
                       >
                         {r.character}
                       </button>
@@ -605,7 +625,7 @@ function PersonBody({ stack, id, work }) {
 // name the character — see character_works.go — and the refusal opens the dialog
 // that offers the two ways forward.
 
-function CharacterBody({ stack, id }) {
+function CharacterBody({ stack, id, work }) {
   const { data, err, setErr, load } = useRecord(`/characters/${id}`)
   const [form, setForm] = useState(null)
   const [busy, setBusy] = useState(false)
@@ -727,6 +747,20 @@ function CharacterBody({ stack, id }) {
   if (err && !data) return <ErrorText>{err}</ErrorText>
   if (!data || !form) return <EmptyState>{t('common.state.loading')}</EmptyState>
   const works = data.appearances || []
+  // THE APPEARANCE THE READER CAME IN THROUGH, when they came in through one.
+  //
+  // A character record is a library-wide thing and this panel has always drawn it
+  // that way: one grid of every work, in whatever order the query returned. That
+  // is the right shape from the metadata console, where the question is "who is
+  // this". It is the wrong shape from a film's cast list, where the reader has
+  // already said which work they mean and the card they want is one of eight.
+  //
+  // So the work they arrived from is lifted OUT of the grid and given the first
+  // scope, and the grid below says "the others". Not a copy in both places: a card
+  // that appears twice invites the reader to edit the wrong one, and the two edit
+  // the same row.
+  const here = work ? works.find((a) => a.kind === work.kind && a.work_id === work.id) : null
+  const elsewhere = here ? works.filter((a) => a.cast_id !== here.cast_id) : works
 
   return (
     <div style={{ display: 'grid', gap: 'calc(var(--row) * 1.6)' }}>
@@ -739,14 +773,56 @@ function CharacterBody({ stack, id }) {
           fact, and it is the opposite. */}
       <CharacterHead record={data} works={works} onClear={() => promote(0, '')} />
 
-      <Scope title={t('identity.scope.library.title')} scope={t('identity.scope.library.character')}>
+      {/* SCOPE 0 — this character ON THE WORK THE READER CAME FROM, and only when
+          they came from one. It is the same card the grid below draws, because it
+          is the same row and a second layout for it would be a second place the
+          picture ladder and the per-work description have to agree. What differs
+          is where it sits and what it wears: first, alone, and inked — see
+          `.identity-scope.is-work` in the CSS for why the ink rather than a box. */}
+      {here && (
+        <Scope
+          tone="work"
+          title={t('identity.scope.work.title')}
+          hint={t('identity.scope.work.hint.character')}
+          scope={t('identity.scope.work.body', { title: here.work_title })}
+        >
+          <div className="char-works is-one">
+            <AppearanceCard
+              a={here}
+              busy={busy}
+              isFace={!!data.image_path && data.image_path === here.image}
+              onImage={(url) => setWorkImage(here.cast_id, url)}
+              onSave={(fields) => saveAppearance(here, fields)}
+              onPromote={() => promote(here.cast_id, here.work_title)}
+              onRemove={() => removeWork(here)}
+              onOpenPerson={here.actor_id ? () => stack.push(personPanel(stack, { id: here.actor_id, name: here.actor })) : null}
+            />
+          </div>
+        </Scope>
+      )}
+
+      <Scope
+        tone="library"
+        title={t('identity.scope.library.title')}
+        hint={t('identity.scope.library.hint.character')}
+        scope={t('identity.scope.library.character')}
+      >
         <div style={FIELDS}>
-          <MonoLabel>{t('identity.character.appearances.title', { n: works.length, count: works.length })}</MonoLabel>
-          {works.length === 0 ? (
-            <p className="microcopy" style={{ color: 'var(--faint)' }}>{t('identity.character.appearances.empty')}</p>
+          {/* THE COUNT COUNTS EVERY WORK, including the one lifted out above — a
+              character in eight films is in eight films whichever one you opened
+              it from. The heading changes to say which set is DRAWN below it. */}
+          <MonoLabel>
+            {here
+              ? t('identity.character.appearances.others', { n: elsewhere.length, count: elsewhere.length })
+              : t('identity.character.appearances.title', { n: works.length, count: works.length })}
+          </MonoLabel>
+          {elsewhere.length === 0 ? (
+            <p className="microcopy" style={{ color: 'var(--faint)' }}>
+              {here ? t('identity.character.appearances.only') : t('identity.character.appearances.empty')}
+            </p>
           ) : (
             <div className="char-works">
-              {works.map((a) => (
+              {elsewhere.map((a) => (
                 <AppearanceCard
                   key={a.cast_id}
                   a={a}
@@ -779,7 +855,12 @@ function CharacterBody({ stack, id }) {
         </div>
       </Scope>
 
-      <Scope title={t('identity.scope.record.title')} scope={t('identity.scope.record.character')}>
+      <Scope
+        tone="record"
+        title={t('identity.scope.record.title')}
+        hint={t('identity.scope.record.hint.character')}
+        scope={t('identity.scope.record.character')}
+      >
         <div style={FIELDS}>
           <Field label={t('common.field.name.label')} value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
           <Field label={t('identity.field.sort')} value={form.sort_name} onChange={(v) => setForm({ ...form, sort_name: v })} />

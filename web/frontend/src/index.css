@@ -2597,7 +2597,8 @@
     scrollbar-width: none;
   }
   .cast-character::-webkit-scrollbar { display: none; }
-  /* The character name is a button (it opens this row's picture editor), and a
+  /* The character name is a button (it opens the character's own page, or this
+     row's picture editor where nothing has linked it to a record yet), and a
      button inherits neither the wrapping nor the type of the span around it. */
   .cast-character > button {
     display: block;
@@ -7679,6 +7680,39 @@ html[data-theme="dark"] .board-cover {
   font-size: var(--type-ui-19); font-weight: 600; line-height: 1.25;
   overflow-wrap: anywhere;
 }
+
+/* ---- the three grains of an identity panel -------------------------------
+   A character exists three times over and a reader has to be able to tell which
+   one they are editing: the CAST ROW (this work's billing, picture, description),
+   the LIST of every work it turns up in, and the RECORD every appearance falls
+   back to. The heading and the sentence under it say so in words; these say it
+   before the words are read.
+
+   AN INKED EDGE RATHER THAN A BOX. A card around the first scope would make it a
+   different KIND of thing from the two below it, and it is not — it is the same
+   panel at a finer grain. A rule down the side is the smallest mark that survives
+   being scrolled past, and it is the accent only on the scope whose blast radius
+   is one work: the two wider ones stay quiet, so the ink means "narrow" rather
+   than "important". */
+.identity-scope-head { display: flex; align-items: center; gap: 6px; }
+.identity-scope.is-work {
+  border-inline-start: 2px solid var(--accent-ui);
+  padding-inline-start: var(--edge);
+  /* The wash is barely there on purpose — enough that the eye groups the section,
+     not enough to read as a selected state. */
+  background: linear-gradient(to right, color-mix(in srgb, var(--accent-ui) 6%, transparent), transparent 12rem);
+  border-radius: 0 8px 8px 0;
+}
+.identity-scope.is-library,
+.identity-scope.is-record {
+  border-inline-start: 2px solid var(--ink-border);
+  padding-inline-start: var(--edge);
+}
+
+/* ONE CARD, NOT A GRID OF ONE. The appearance lifted into the work scope is a
+   single row and the auto-fill below would stretch it across the panel, which
+   reads as a card that lost its neighbours rather than one singled out. */
+.char-works.is-one { grid-template-columns: minmax(0, 22rem); }
 
 /* auto-fill rather than a column count: the panel is `wide` on a desk and full
    width on a phone, and the same rule has to hold both without a breakpoint. */

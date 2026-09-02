@@ -91,6 +91,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A character's name opens the character, on the work you pressed it from.** On a
+  work's cast list the character name opened the row's *picture editor* — the right
+  answer while a character was flat text with a still attached, and the wrong one since
+  the character became a record with a page of its own. A reader pressing V is asking who
+  V is. It opens the character now; the picture is still behind the face beside it, which
+  was always the more obvious of the two doors. A row nothing has linked to a record yet
+  keeps the picture editor, because a link to a page that does not exist is worse than
+  the affordance it replaces.
+
+  The page arrives differently depending on where you came from, because the question is
+  different. From the metadata console it is "who is this", and it draws every work at
+  once, as before. From a film's cast list you have already said which work you mean, so
+  that appearance is lifted out and given the first section — inked down its edge, and
+  the only section that is — with the rest listed below as *and 3 other works*. The same
+  door is on an actor's page, where each role already names its work.
+
+  Each of the three sections now carries a dot saying which grain it is: one row in one
+  work's cast, one record across however many works, and the record itself. The sentence
+  under each heading has always said what saving there *changes*; the dot says what the
+  section *is*, which is the half a reader needs first to read the other one correctly.
+
 - **A phone has a way back to the top of a long board.** A work with a hundred quotes was
   a minute of flicking to get back up: no scrollbar to drag, no Home key to press. The
   key arrives a quarter of the way down — measured against how far there is to come

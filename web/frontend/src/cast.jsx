@@ -85,7 +85,15 @@ const IMAGE_FILL_CAP = 20
 // whose name says "the record changed" must never be called by something that
 // means "the cast changed" — and a callback that cannot say WHAT changed is a
 // callback the host cannot act on.
-export function CastSection({ kind, item, onCastChanged }) {
+// `onOpenCharacter` takes a cast row and opens that character's own page — the
+// door the character NAME is now, rather than the picture editor it used to open.
+//
+// A FUNCTION FROM ABOVE RATHER THAN THE PANEL ITSELF. identity.jsx imports the
+// picture hook out of this file, so building the panel here would close the cycle
+// — and the caller is the one holding the stack to push onto anyway. A section
+// rendered without it keeps the old behaviour, which is what the metadata console
+// wants: it is already inside the characters list.
+export function CastSection({ kind, item, onCastChanged, onOpenCharacter }) {
   const path = kind === 'book' ? 'books' : 'movies'
   const [rows, setRows] = useState(null) // null while loading
   const [role, setRole] = useState('none')
@@ -250,6 +258,11 @@ export function CastSection({ kind, item, onCastChanged }) {
               onRemove={() => remove(c.id)}
               onImage={(u) => setImage(c.id, u)}
               onOpenPerson={c.actor ? () => setPerson({ kind: 'actor', name: c.actor }) : null}
+              // BOTH HALVES REQUIRED. `character_id` is nullable — 0056 links the
+              // pair on demand and a library that has not been through the
+              // characters console has rows with none — so a row with no record
+              // has no page to open and keeps the picture editor instead.
+              onOpenCharacter={onOpenCharacter && c.character_id ? () => onOpenCharacter(c) : null}
             />
           ))}
         </ul>
@@ -484,7 +497,7 @@ export function useCharacterPicture({ row, actor, workTitle, mediaType, busy, on
 // CastRow — one credit. Resting it is two names and a face; editing it is two
 // boxes; and the picture controls are always the row's own, never the panel's.
 
-function CastRow({ row, role, busy, actor, workTitle, mediaType, onSave, onRemove, onImage, onOpenPerson }) {
+function CastRow({ row, role, busy, actor, workTitle, mediaType, onSave, onRemove, onImage, onOpenPerson, onOpenCharacter }) {
   // A CHARACTER NAME IS NEVER CUT. It used to end in an ellipsis, which is the one
   // failure a reader cannot see: a shortened name and a short name look identical,
   // so the row destroyed the only thing it was there to show. Now the name scrolls
@@ -595,28 +608,33 @@ function CastRow({ row, role, busy, actor, workTitle, mediaType, onSave, onRemov
           which renders below the names rather than in a popup. */}
       {faceButton}
       <span className="cast-names">
-        {/* THE TWO NAMES NOW LEAD TO THE TWO PICTURES, which is the thing they
-            always looked like they did and did not.
+        {/* THE TWO NAMES LEAD TO THE TWO RECORDS, each the one its noun implies.
 
             Hugo Weaving is a person and V is a part he played, and the app has
-            stored those as two pictures since 0049 — `people.image_path` is his,
-            globally, and `work_cast.character_image_path` is V's, on this work.
-            But only the ACTOR name was a link, so both names led to the actor:
-            the character was flat text, and the only way to its picture was to
-            work out that the little round face to the left was a button.
+            stored those as two records since 0056 — `people` is his and
+            `characters` is V's. The actor name has always opened the person. The
+            character name opened this row's PICTURE EDITOR, which was the right
+            answer while a character was flat text with a still attached and is
+            the wrong one now that it is a record with a page: the reader who
+            presses a character's name is asking who the character is, and got a
+            box for pasting an image address.
 
-            So the character name opens the row's picture editor — the same one
-            the face opens, which is where a character picture is searched for and
-            chosen — and the actor name goes on opening the person, which is where
-            an actor's picture is. Same affordance, two destinations, each the one
-            its noun implies. */}
+            So it opens the character, scoped to this work — see characterPanel's
+            `work`, which lifts this appearance to the top of that page so the
+            reader lands on the row they pressed rather than on one of eight.
+
+            THE PICTURE EDITOR HAS NOT MOVED. It is what the face to the left
+            opens, which is where it always was and the more obvious of the two
+            doors anyway. On a row with no character record — nothing has linked
+            it yet — the name keeps opening the editor, because a link to a page
+            that does not exist is worse than the affordance it replaces. */}
         <span className="cast-character" ref={characterRef}>
           <button
             type="button"
             className="tp-link"
-            aria-expanded={urlOpen}
+            aria-expanded={onOpenCharacter ? undefined : urlOpen}
             disabled={busy}
-            onClick={() => setUrlOpen((v) => !v)}
+            onClick={onOpenCharacter || (() => setUrlOpen((v) => !v))}
           >
             {row.character || t('cast.unnamed.label')}
           </button>
