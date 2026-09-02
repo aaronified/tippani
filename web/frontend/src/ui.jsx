@@ -6716,6 +6716,31 @@ export function IconSearch() { return <svg {...iconStroke}><circle cx="11" cy="1
 // glyphs have to read as the same world in two places. It is deliberately not a
 // dashed box and not inked with --error — a reader who linked to the open web has
 // not done anything wrong, and a failure colour would say they had.
+// IconSortAsc / IconSortDesc — which end of the order is at the top.
+//
+// THREE BARS AND AN ARROW, and the bars are the giveaway rather than decoration:
+// an arrow alone says "up" and not "smallest first", and the pair have to be
+// told apart at a glance in a row where they occupy the same 34px. The bars grow
+// downward for ascending and shrink for descending, so the picture IS the order
+// the board is in — a reader does not have to remember which way the arrow means.
+export function IconSortAsc({ size = ICON_SIZE }) {
+  return (
+    <svg {...iconStroke} width={size} height={size}>
+      <path d="M4 7h5"/><path d="M4 12h8"/><path d="M4 17h11"/>
+      <path d="M19 5v14"/><path d="M16.2 16.2 19 19l2.8-2.8"/>
+    </svg>
+  )
+}
+
+export function IconSortDesc({ size = ICON_SIZE }) {
+  return (
+    <svg {...iconStroke} width={size} height={size}>
+      <path d="M4 7h11"/><path d="M4 12h8"/><path d="M4 17h5"/>
+      <path d="M19 19V5"/><path d="M16.2 7.8 19 5l2.8 2.8"/>
+    </svg>
+  )
+}
+
 export function IconGlobe({ size = ICON_SIZE }) {
   return (
     <svg {...iconStroke} width={size} height={size}>

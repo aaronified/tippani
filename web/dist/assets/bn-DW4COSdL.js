@@ -2385,6 +2385,7 @@ quotes.export.confirm.body.other = চোখের সামনের {n}টি 
 common.mono.actions.label = কাজ
 common.mono.colour.label = রং
 common.mono.group.label = ভাগ
+common.mono.sort.label = ক্রম
 common.mono.tag.label = ট্যাগ
 common.mono.speaker.label = বক্তা
 common.mono.medium.label = মাধ্যম
@@ -5953,4 +5954,26 @@ links.already = এটি ইতিমধ্যেই এই রেকর্ড�
 links.add.aria = এই লিঙ্কটি যোগ করুন
 links.remove.aria = {name} লিঙ্কটি সরান
 links.info = যেকোনও সাইটের যেকোনও ঠিকানা। অ্যাপের চেনা সাইট হলে সেই সাইটের চিহ্ন দিয়ে আঁকা হয়; বাকিগুলি গ্লোবের নিচে গোটা রাখা হয় — সেটি ভুল নয়, এক ধরনের লিঙ্ক। যোগ করার সঙ্গে সঙ্গেই সেভ হয়।
+
+# Ordering and grouping a book's board of quotes. See Library.jsx.
+book.category.any.label = যেকোনও শ্রেণি
+book.group.aria = উদ্ধৃতি সাজান
+book.group.none.label = কিছু না
+book.group.chapter.label = অধ্যায় অনুযায়ী
+book.group.color.label = শ্রেণি অনুযায়ী
+book.group.tag.label = ট্যাগ অনুযায়ী
+book.group.date.label = যোগ করার তারিখ অনুযায়ী
+book.group.chapter.numbered.label = অধ্যায় {n}
+book.group.chapter.none.label = অধ্যায় নেই
+book.group.tag.none.label = ট্যাগ নেই
+book.group.date.none.label = তারিখ নেই
+book.sort.aria = উদ্ধৃতির ক্রম
+book.sort.default.label = সাম্প্রতিক
+book.sort.date.label = যোগ করার তারিখ
+book.sort.chapter.label = অধ্যায়
+book.sort.location.label = অবস্থান
+book.sort.length.label = দৈর্ঘ্য
+book.sort.category.label = শ্রেণি
+book.sort.dir.asc.aria = ছোট থেকে বড়
+book.sort.dir.desc.aria = বড় থেকে ছোট
 `;export{e as default};

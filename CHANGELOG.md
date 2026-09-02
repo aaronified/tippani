@@ -199,6 +199,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   browser is not allowed to draw, says nothing rather than claiming to be zero pixels
   wide.
 
+- **The category filter says which category.** It was six coloured dots to try. You name
+  your own categories, so a dot on its own cannot say whether the blue one is "Fact" or
+  "Disagree" — the control names the one the board is filtered to now, with its colour
+  beside the name rather than instead of it.
+
+- **A book's quotes can be put in order and cut into sections.** There was no grouping at
+  all, and the only sort was the table view's clickable column headers — so the two card
+  views, which is where you actually read, showed three hundred highlights in whatever
+  order they happened to be saved with nothing on screen offering another. **Order** by
+  date added, chapter, location, length or category, either direction; **group** by
+  chapter, category, tag or date, with the same headings the shelf uses.
+
+  Each dimension runs in the order it is actually read in rather than alphabetically:
+  chapters in reading order (the number where there is one, then the named ones),
+  categories in the order the swatches are drawn, days newest first, tags biggest first.
+  A quote missing the thing you sorted by sinks to the bottom whichever way the arrow
+  points — it is not "location zero" — and a quote with three tags appears under all
+  three. Grouping is not a view: a section holds whichever view you chose.
+
 - **A work can link out.** There was nowhere on a book or a film to keep an address, so a
   reader who wanted its Letterboxd entry, its fandom wiki or a review kept it in the note
   on one of its quotes. Details has a **Links** row now: paste any address from any site

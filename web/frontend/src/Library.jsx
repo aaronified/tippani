@@ -15,6 +15,7 @@ import { facetValue, facetValues, publishSearchSeed, seedableChips, withFacet, w
 import { SelectionBar } from './SelectionBar.jsx'
 import { CharacterFaces, PersonChip, PersonModal, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
 import { nameFor } from './languages.jsx'
+import { categoryHidden, categoryName } from './theme.js'
 import {
   ACTIVE_STATUS,
   GroupHeading,
@@ -43,6 +44,8 @@ import {
 } from './works.jsx'
 import { t } from './i18n.js'
 import {
+  ANNOTATION_COLORS,
+  FieldIconButton,
   QUOTE_COLUMNS_IN,
   byLastRead,
   bySeries,
@@ -76,6 +79,8 @@ import {
   IconSearch,
   Masonry,
   MobileSheet,
+  IconSortAsc,
+  IconSortDesc,
   MonoLabel,
   mulberry32,
   PageHeader,
@@ -1383,6 +1388,272 @@ function locSortVal(a) {
   const m = String(a.location || '').match(/\d+/)
   return m ? parseInt(m[0], 10) : -1
 }
+// CategoryFilter — which category the board is filtered to, named rather than
+// guessed at from a coloured dot.
+//
+// The swatch alone cannot say what it is for: a reader names their own categories
+// (theme.js), so the blue one might be "Fact" or "Disagree" or nothing at all,
+// and a row of six dots asks them to remember which. The dot rides WITH the name
+// here, which is what the colour is good at — recognising the one you already
+// know — rather than being asked to carry the meaning on its own.
+//
+// HIDDEN SLOTS STAY HIDDEN, except the one currently chosen: a filter set to a
+// category the reader has since retired must still be able to say so, or the
+// board is narrowed by something with no entry in its own control.
+function CategoryFilter({ value, onChange }) {
+  const opt = (tok, label) => [
+    tok,
+    <span className="cat-opt" key={tok}>
+      <span className="cat-opt-dot" style={tok ? { background: `var(--${tok})` } : undefined} aria-hidden="true" />
+      <span>{label}</span>
+    </span>,
+    label,
+  ]
+  const options = [
+    opt('', t('book.category.any.label')),
+    ...ANNOTATION_COLORS.filter((c) => !categoryHidden(c) || c === value).map((c) => opt(c, categoryName(c))),
+  ]
+  return (
+    <Select
+      ariaLabel={t('common.colour.category.aria')}
+      value={value}
+      onChange={onChange}
+      options={options}
+    />
+  )
+}
+
+// AnnotationBoard — one set of quotes, drawn in whichever view is chosen.
+//
+// IT EXISTS BECAUSE OF GROUPING. A grouped board draws its view once per section,
+// so the three renderers had to stop being three blocks in the middle of a
+// screen: two copies of "how a quote is drawn" is two places for a card prop to
+// go missing, silently, in the view the author was not looking at.
+//
+// The window and the sentinel stay OUTSIDE it, with the caller — an ungrouped
+// board windows its rows and a grouped one windows its sections, which is the
+// caller's decision and not this component's.
+function AnnotationBoard({
+  rows, view, tagMap, stickerMap, stickers, reloadStickers, editingId, setEditingId,
+  save, patch, remove, onCopy, onShare, selection, sort, onSort,
+  columns, clamp, expandedId, onToggleExpand, boardRef = null, pinnedCount = 0, seed = 1,
+}) {
+  if (view === 'table') {
+    return (
+      <AnnotationTable
+        rows={rows}
+        tagMap={tagMap}
+        stickers={stickers}
+        reloadStickers={reloadStickers}
+        sort={sort}
+        onSort={onSort}
+        editingId={editingId}
+        setEditingId={setEditingId}
+        save={save}
+        remove={remove}
+        onCopy={onCopy}
+        onShare={onShare}
+      />
+    )
+  }
+  const card = (a, i, lines, expandable) => (
+    <AnnotationCard
+      key={a.id}
+      a={a}
+      variant={i % 4}
+      tagMap={tagMap}
+      stickerMap={stickerMap}
+      stickers={stickers}
+      reloadStickers={reloadStickers}
+      editing={editingId === a.id}
+      setEditingId={setEditingId}
+      save={save}
+      patch={patch}
+      remove={remove}
+      onCopy={onCopy}
+      onShare={onShare}
+      quoteLines={lines}
+      tagSuggestions={Object.keys(tagMap)}
+      selection={selection}
+      {...(expandable
+        ? { expanded: expandedId === a.id, onToggleExpand: () => onToggleExpand(a.id) }
+        : null)}
+    />
+  )
+  if (view === 'list') {
+    return <div className="space-y-4">{rows.map((a, i) => card(a, i, 5, false))}</div>
+  }
+  // Masonry board in SOURCE order (newest first; newly-added quotes ride on top
+  // via the pinned prefix until refresh) — equal-width columns dealt onto the
+  // shortest pile. Each card clamps to a seeded per-card 3–5 lines with no
+  // three-in-a-row the same; since the layout keeps source order, those sizes
+  // vary the board without banding by height, and a quote shorter than its clamp
+  // just shows in full. Clicking a quote expands it; doing so collapses any other
+  // and locks the column order so the board never reshuffles under the reader.
+  return (
+    <Masonry
+      boardRef={boardRef}
+      columns={columns}
+      gap={12}
+      seed={seed}
+      pinnedCount={pinnedCount}
+      lockOrder={expandedId != null}
+      order="source"
+    >
+      {rows.map((a, i) => card(a, i, clamp?.[i], true))}
+    </Masonry>
+  )
+}
+
+// ---- ordering and grouping a board of quotes -------------------------------
+
+// SORT_DIMS — what a board of quotes can be put in order by, and how.
+//
+// `default` is the order the server sent (created_at DESC), and it stays a named
+// option rather than being folded into `date`: it is what pinning rides on — a
+// quote saved a moment ago sits on top until something else is chosen — and it is
+// the only one of these that is not a property of the quote at all.
+//
+// The other four are the pack's, plus `chapter`, which the table has sorted by
+// since it had a header row and which is the reading order of a book.
+export const SORT_DIMS = ['default', 'date', 'chapter', 'location', 'length', 'category']
+
+// sortValue is the comparable for one dimension.
+//
+// STRINGS THROUGHOUT WHERE A DIMENSION MIXES KINDS, because the comparator uses
+// `<` and JavaScript will happily tell you that '' is less than 2. A chapter is
+// a number for some quotes and a name for others; encoding the rank in the first
+// character keeps "numbered chapters, then named ones" a fact about the value
+// rather than a fact about the comparator.
+function sortValue(a, col) {
+  switch (col) {
+    case 'quote': return (a.quote || a.note || '').toLowerCase()
+    // Sorted on the NUMBER when there is one, which is the point of splitting it
+    // out: text put chapter 10 between 1 and 2. Numbered chapters come first, in
+    // order; named ones follow alphabetically, which is the only order they have.
+    case 'chapter':
+      return a.chapter_no != null
+        ? `0${Math.max(0, a.chapter_no).toFixed(4).padStart(16, '0')}`
+        : `1${(a.chapter || '').toLowerCase()}`
+    case 'location': return locSortVal(a)
+    case 'date': return annDate(a)
+    case 'favorite': return a.favorite ? 1 : 0
+    // LENGTH IS OF THE WORDS, not of the row: a note is not part of how long a
+    // quote is, and a two-line quote with a page of notes under it is still a
+    // short quote. A note-only row has no quote and sorts as nothing.
+    case 'length': return (a.quote || '').length
+    // The colour WHEEL's order and not the word's, because the swatches are drawn
+    // in that order everywhere else in the app and a category list that ran
+    // blue-orange-pink-yellow would be a second answer to "which order are the
+    // colours in".
+    case 'category': return Math.max(0, ANNOTATION_COLORS.indexOf(a.color || 'yellow'))
+    default: return 0
+  }
+}
+
+// hasValue — whether this quote has anything to be ordered by on this dimension.
+//
+// MISSING SINKS RATHER THAN FLOATS, AND IN BOTH DIRECTIONS, which is why it is a
+// partition and not a sentinel. A quote with no location is not "location zero",
+// and a board that opened with every unlocated quote on top would look broken;
+// flip the arrow and a sentinel would put them all on top of the OTHER end
+// instead, which is the same complaint in a mirror. Three dimensions can be
+// absent: a chapter, a locator and a date. A colour and a length always exist.
+function hasValue(a, col) {
+  if (col === 'chapter') return a.chapter_no != null || !!(a.chapter || '').trim()
+  if (col === 'location') return locSortVal(a) >= 0
+  if (col === 'date') return !!annDate(a)
+  return true
+}
+
+// sortAnnotations orders a board. `default` keeps the server's order, reversed
+// when the direction is flipped — "recent" ascending is oldest first, which is a
+// real thing to ask for and the only honest reading of the arrow.
+export function sortAnnotations(rows, sort) {
+  const arr = [...rows]
+  if (sort.col === 'default') return sort.dir === 'asc' ? arr : arr.reverse()
+  const dir = sort.dir === 'asc' ? 1 : -1
+  const has = arr.filter((a) => hasValue(a, sort.col))
+  const missing = arr.filter((a) => !hasValue(a, sort.col))
+  has.sort((a, b) => {
+    const x = sortValue(a, sort.col)
+    const y = sortValue(b, sort.col)
+    if (x < y) return -dir
+    if (x > y) return dir
+    // The id breaks every tie, so a board with forty quotes on one page is in a
+    // stable order rather than whatever the sort happened to do this time.
+    return a.id - b.id
+  })
+  return has.concat(missing)
+}
+
+// GROUP_DIMS — what a board of quotes can be bucketed by.
+export const GROUP_DIMS = ['none', 'chapter', 'color', 'tag', 'date']
+
+// dayOf floors a timestamp to its day. Grouping by the instant a quote was added
+// would make every group hold one quote, which is a list with headings.
+function dayOf(a) {
+  return String(annDate(a) || '').slice(0, 10)
+}
+
+// groupAnnotations buckets a board, in the order each dimension is actually read
+// in — and that is why this is not groupWorks.
+//
+// `groupWorks` orders its buckets by LABEL, which is right for a shelf of series
+// and authors and wrong for all four of these: chapters run in reading order,
+// colours run in the order the swatches are drawn, days run newest first, and
+// tags run by how many quotes wear them. Four dimensions, four orders, none of
+// them alphabetical — bending groupWorks to take them would have been a fifth
+// option on a function that already takes eight, and the result would order a
+// shelf and a board by rules neither call site could read off it.
+//
+// A quote with several tags appears under each of them, exactly as a book with
+// several genres does. Everything else is single-valued, and a quote missing the
+// value lands in a residual bucket that always sinks to the end.
+export function groupAnnotations(rows, dim) {
+  if (dim === 'none' || !GROUP_DIMS.includes(dim)) return null
+  const map = new Map()
+  const add = (key, label, row, order, residual) => {
+    let g = map.get(key)
+    if (!g) {
+      g = { key, label, items: [], order, residual: !!residual }
+      map.set(key, g)
+    }
+    g.items.push(row)
+  }
+  for (const a of rows) {
+    if (dim === 'chapter') {
+      const name = (a.chapter || '').trim()
+      const n = a.chapter_no
+      if (name || n != null) {
+        const label = name || t('book.group.chapter.numbered.label', { n })
+        // Numbered chapters in reading order; named ones after them, alphabetical.
+        add(label, label, a, n != null ? n : Number.MAX_SAFE_INTEGER, false)
+      } else add('~none', t('book.group.chapter.none.label'), a, Infinity, true)
+    } else if (dim === 'color') {
+      const tok = a.color || 'yellow'
+      add(tok, categoryName(tok), a, Math.max(0, ANNOTATION_COLORS.indexOf(tok)), false)
+    } else if (dim === 'tag') {
+      const tags = a.tags || []
+      if (tags.length) tags.forEach((tg) => add(tg, tg, a, 0, false))
+      else add('~none', t('book.group.tag.none.label'), a, Infinity, true)
+    } else {
+      const d = dayOf(a)
+      if (d) add(d, fmtDate(d), a, -new Date(`${d}T00:00:00`).getTime(), false)
+      else add('~none', t('book.group.date.none.label'), a, Infinity, true)
+    }
+  }
+  const out = [...map.values()]
+  out.sort((x, y) => {
+    if (x.residual !== y.residual) return x.residual ? 1 : -1
+    // Tags have no order of their own, so the biggest group leads — the same
+    // rule a shelf grouped by genre uses, and for the same reason.
+    if (dim === 'tag') return y.items.length - x.items.length || x.label.localeCompare(y.label)
+    return x.order - y.order || x.label.localeCompare(y.label)
+  })
+  return out
+}
+
 function ActionRow({ acts, a, color, onColor, patch, actionsAlwaysVisible }) {
   // `acts` is built by the card, from the registry (actions.jsx) — one list per
   // card, rendered in three places: this row, the ⋯, and the context menu. Built
@@ -1754,7 +2025,12 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
   const [stats, setStats] = useState(null)
   const [error, setError] = useState('')
   const [view, setView] = usePersistedState('tippani:annview', 'tiles') // list | tiles | table
-  const [sort, setSort] = useState({ col: 'default', dir: 'asc' }) // table only; default = server (recent)
+  // ONE ORDER FOR EVERY VIEW. This was `table only`, and the two card views —
+  // which is where a reader actually reads — had no order to choose at all and no
+  // way to group. A board of three hundred highlights in the order they happened
+  // to be saved is a board you scroll rather than read.
+  const [sort, setSort] = usePersistedState('tippani:annsort', { col: 'default', dir: 'asc' })
+  const [groupBy, setGroupBy] = usePersistedState('tippani:anngroup', 'none')
   // Ids of annotations added this session, most-recent first. They're floated to
   // the top of the pile (overriding the current order) so the user sees their
   // addition — until they sort, which clears the pin (see toggleSort).
@@ -1816,37 +2092,21 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
       (a) => (!noted || (a.note || '').trim().length > 0) && (!tagged || (a.tags || []).length > 0),
     )
   }, [items, noted, tagged])
-  // Client-side sort for the table view only; list/tiles keep server (recent) order.
-  const sortedRows = useMemo(() => {
-    const arr = chipRows ? [...chipRows] : []
-    if (view !== 'table' || sort.col === 'default') return arr
-    const dir = sort.dir === 'asc' ? 1 : -1
-    const val = (a) => {
-      switch (sort.col) {
-        case 'quote': return (a.quote || a.note || '').toLowerCase()
-        // Sorted on the NUMBER when there is one, which is the point of splitting it
-        // out: text put chapter 10 between 1 and 2. Numbered chapters come first, in
-        // order; named ones follow alphabetically, which is the only order they have.
-        case 'chapter': return a.chapter_no ? a.chapter_no : (a.chapter || '').toLowerCase()
-        case 'location': return locSortVal(a)
-        case 'date': return annDate(a)
-        case 'favorite': return a.favorite ? 1 : 0
-        default: return 0
-      }
-    }
-    arr.sort((a, b) => {
-      const x = val(a), y = val(b)
-      if (x < y) return -dir
-      if (x > y) return dir
-      return a.id - b.id
-    })
-    return arr
-  }, [chipRows, view, sort])
+  // The chosen order, in every view — see sortAnnotations, which is where the
+  // dimensions and their tie-breaks live.
+  const sortedRows = useMemo(() => sortAnnotations(chipRows || [], sort), [chipRows, sort])
   // What every view actually renders: the current order (server-recent for
   // list/tiles, the chosen column for table) with freshly-added items pinned on
   // top. sortedRows already returns a server-order copy of items for non-table
   // views, so this is the single source of truth for all three.
   const displayRows = useMemo(() => pinToTop(sortedRows, pinned), [sortedRows, pinned])
+  // The buckets, when there are any. null when grouping is off, which is what
+  // every renderer below tests — one branch rather than a group of one.
+  const groups = useMemo(() => groupAnnotations(displayRows, groupBy), [displayRows, groupBy])
+  // Groups are windowed like the Library's are: each section's own board stops at
+  // the page size, and a hundred small sections is still the whole book mounted,
+  // so the bound has to exist at both levels or neither.
+  const groupWin = useBoardWindow(groups ? groups.length : 0, groups, 8)
   // Over the visible order, so changing a filter drops the ids that left the board.
   // The table view has no tickmarks — a row is already a row of controls — so the
   // selection is offered on the two CARD views, which is where a long press means
@@ -2037,6 +2297,31 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
       ? t('book.quotes.counts.shown', { a: countOf(total, 'unit.quote'), n: items.length })
       : countOf(items.length, 'unit.quote')
 
+  // ONE RENDERER FOR THE THREE VIEWS, and the reason is grouping: a grouped board
+  // draws the same view once per section, and two copies of "how a quote is drawn"
+  // is two places for a card prop to go missing. Everything a board needs that
+  // does not change per section is bundled here.
+  const board = {
+    view,
+    tagMap,
+    stickerMap,
+    stickers,
+    reloadStickers,
+    editingId,
+    setEditingId,
+    save,
+    patch,
+    remove: setAsking,
+    onCopy: copyOne,
+    onShare: setShareTarget,
+    selection,
+    sort,
+    onSort: toggleSort,
+    columns: tileCols,
+    expandedId,
+    onToggleExpand: toggleExpanded,
+  }
+
   return (
     <div className="space-y-4">
       {mobile && (
@@ -2111,11 +2396,17 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
       {!mobile && (
         <div className="board-head">
           <div className="board-head-left">
-            {/* A colour is a filing decision with six values, so it opens a list
-                rather than sitting there as six toggles — which makes it a
-                control, and a control keeps its own place beside the field
-                instead of scrolling away among the chips. */}
-            <ColorSwatches mini value={color} onChange={(c) => setColor(c === color ? '' : c)} ariaLabel={t('common.colour.category.aria')} />
+            {/* A COLOUR IS A FILING DECISION WITH SIX VALUES, SO IT OPENS A LIST
+                rather than sitting there as six toggles — which is what this
+                comment has said since the row was drawn, over a control that was
+                six toggles. Six dots side by side are six switches a reader has
+                to try; one control that names the category it is filtering by
+                answers "what am I looking at" without being pressed, and it is
+                the only thing here that can, because the swatch has no word.
+
+                A control rather than a chip, so it keeps its own place beside the
+                grouping instead of scrolling away among the filters. */}
+            <CategoryFilter value={color} onChange={setColor} />
             {tags.length > 0 && (
               <>
                 <span className="board-head-rule" aria-hidden="true" />
@@ -2152,6 +2443,40 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
             </Scroller>
           </div>
           <div className="board-head-verbs">
+            {/* ORDER AND GROUPING, OUTSIDE THE SCROLLER, beside the view. They are
+                settings rather than filters — chosen once and then read for an
+                hour — so they keep their own place instead of scrolling away
+                among the chips, which is the same rule the colour control four
+                lines up follows.
+
+                GROUPING AND SORTING ARE ONE DECISION MADE TWICE, which is why
+                they sit together: "by chapter, in reading order" is one thought.
+                The direction is its own key rather than a second Select, because
+                it has two values and a two-value select is a toggle with a lid. */}
+            <label className="board-head-set">
+              <MonoLabel>{t('common.mono.group.label')}</MonoLabel>
+              <Select
+                ariaLabel={t('book.group.aria')}
+                value={groupBy}
+                onChange={setGroupBy}
+                options={GROUP_DIMS.map((d) => [d, t(`book.group.${d}.label`)])}
+              />
+            </label>
+            <label className="board-head-set">
+              <MonoLabel>{t('common.mono.sort.label')}</MonoLabel>
+              <Select
+                ariaLabel={t('book.sort.aria')}
+                value={sort.col}
+                onChange={(col) => setSort((cur) => ({ col, dir: cur.dir }))}
+                options={SORT_DIMS.map((d) => [d, t(`book.sort.${d}.label`)])}
+              />
+            </label>
+            <FieldIconButton
+              icon={sort.dir === 'asc' ? <IconSortAsc /> : <IconSortDesc />}
+              ariaLabel={t(sort.dir === 'asc' ? 'book.sort.dir.asc.aria' : 'book.sort.dir.desc.aria')}
+              tooltip={t(sort.dir === 'asc' ? 'book.sort.dir.asc.aria' : 'book.sort.dir.desc.aria')}
+              onClick={() => setSort((cur) => ({ col: cur.col, dir: cur.dir === 'asc' ? 'desc' : 'asc' }))}
+            />
             <ViewToggle value={view} onChange={setView} />
             {/* Both form factors now open the ONE Add surface, on Capture with
                 this book as the target — the shell's ＋ knows which page it is
@@ -2185,87 +2510,42 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
           onEdit={setEditingId}
         />
       )}
-      {items && items.length > 0 && view === 'table' && (
-        <AnnotationTable
-          rows={displayRows}
-          tagMap={tagMap}
-          stickers={stickers}
-          reloadStickers={reloadStickers}
-          sort={sort}
-          onSort={toggleSort}
-          editingId={editingId}
-          setEditingId={setEditingId}
-          save={save}
-          remove={setAsking}
-          onCopy={copyOne}
-          onShare={setShareTarget}
-        />
-      )}
-      {items && items.length > 0 && view === 'list' && (
-        <div className="space-y-4">
-          {shownRows.map((a, i) => (
-            <AnnotationCard
-              key={a.id}
-              a={a}
-              variant={i % 4}
-              tagMap={tagMap}
-              stickerMap={stickerMap}
-              stickers={stickers}
-              reloadStickers={reloadStickers}
-              editing={editingId === a.id}
-              setEditingId={setEditingId}
-              save={save}
-              patch={patch}
-              remove={setAsking}
-              onCopy={copyOne}
-              onShare={setShareTarget}
-              quoteLines={5}
-              tagSuggestions={Object.keys(tagMap)}
-              selection={selection}
-            />
+      {/* GROUPED, AND THE HEADINGS ARE THE SAME HEADINGS the shelf uses — a
+          reader who has grouped a library by author and a book by chapter has met
+          one control, not two. Each section holds the view the reader chose, so
+          grouping is orthogonal to it: a control that worked in one view and
+          silently did nothing in another would be worse than no control. */}
+      {/* GROUPED, AND THE HEADINGS ARE THE SAME HEADINGS the shelf uses — a
+          reader who has grouped a library by author and a book by chapter has met
+          one control, not two. Each section holds the view the reader chose, so
+          grouping is orthogonal to it: a control that worked in one view and
+          silently did nothing in another would be worse than no control. */}
+      {items && items.length > 0 && groups && (
+        // Spaced from the constant rather than from a typed step: a section break
+        // is two and a half rows, and the row is `--row` wherever it is measured.
+        <div className="ann-groups" style={{ display: 'grid', gap: 'calc(var(--row) * 2.5)' }}>
+          {groups.slice(0, groupWin.count).map((g) => (
+            <section key={g.key}>
+              <GroupHeading
+                label={g.label}
+                count={g.items.length}
+                noun={t('unit.quote.one')}
+                nounPlural={t('unit.quote.other')}
+              />
+              <AnnotationBoard {...board} rows={g.items.slice(0, ANNOTATION_PAGE)} clamp={clampLines} seed={boardSeed} />
+            </section>
           ))}
-          {/* aria-hidden and empty: a scroll position, not content. See BookGrid. */}
-          {rowsWin.more && <div ref={rowsWin.sentinel} aria-hidden="true" className="h-px" />}
+          {groupWin.more && <div ref={groupWin.sentinel} aria-hidden="true" className="h-px" />}
         </div>
       )}
-      {items && items.length > 0 && view === 'tiles' && (
-        // Masonry board in SOURCE order (newest first; newly-added quotes ride on
-        // top via the pinned prefix until refresh) — equal-width columns dealt onto
-        // the shortest pile. Each card clamps to a seeded per-card 3–5 lines with no
-        // three-in-a-row the same (clampLines); since the layout keeps source order,
-        // those sizes vary the board without banding by height, and a quote shorter
-        // than its clamp just shows in full. Clicking a quote expands it (chevron
-        // affordance, no button); doing so collapses any other and locks the column
-        // order so the board never reshuffles under the reader.
+      {items && items.length > 0 && !groups && (
         <>
-        <Masonry boardRef={boardRef} columns={tileCols} gap={12} seed={boardSeed} pinnedCount={pinnedShown} lockOrder={expandedId != null} order="source">
-          {shownRows.map((a, i) => (
-            <AnnotationCard
-              key={a.id}
-              a={a}
-              variant={i % 4}
-              tagMap={tagMap}
-              stickerMap={stickerMap}
-              stickers={stickers}
-              reloadStickers={reloadStickers}
-              editing={editingId === a.id}
-              setEditingId={setEditingId}
-              save={save}
-              patch={patch}
-              remove={setAsking}
-              onCopy={copyOne}
-              onShare={setShareTarget}
-              quoteLines={clampLines[i]}
-              tagSuggestions={Object.keys(tagMap)}
-              expanded={expandedId === a.id}
-              onToggleExpand={() => toggleExpanded(a.id)}
-              selection={selection}
-            />
-          ))}
-        </Masonry>
-        {/* Outside the Masonry, which positions its children absolutely — a sentinel
-            inside it would be placed as a card and never reach the bottom of the board. */}
-        {rowsWin.more && <div ref={rowsWin.sentinel} aria-hidden="true" className="h-px" />}
+          <AnnotationBoard {...board} rows={shownRows} clamp={clampLines} seed={boardSeed} boardRef={boardRef} pinnedCount={pinnedShown} />
+          {/* aria-hidden and empty: a scroll position, not content. See BookGrid.
+              OUTSIDE the board, because the tiles view positions its children
+              absolutely — a sentinel inside it would be placed as a card and never
+              reach the bottom. */}
+          {rowsWin.more && <div ref={rowsWin.sentinel} aria-hidden="true" className="h-px" />}
         </>
       )}
 
