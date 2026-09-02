@@ -7,7 +7,7 @@
 // presses, and read the cards off the board.
 
 import { describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 
 const ROWS = [
   { id: 1, book_id: 1, quote: 'The whale.', chapter: 'Ten', chapter_no: 10, color: 'blue', tags: ['craft'], created_at: '2024-03-01 10:00:00' },
@@ -27,7 +27,15 @@ vi.mock('../../src/api.js', async (orig) => ({
 }))
 
 const { default: Library } = await import('../../src/Library.jsx')
-const { buildScreenActions } = await import('../../src/ui.jsx')
+const { buildScreenActions, useScreenBarState } = await import('../../src/ui.jsx')
+
+// What the board hands the shell's dock. Read through a probe rather than a
+// getter, so the test sees exactly what a subscriber sees.
+let BAR = { sub: null, keys: null }
+const Probe = () => {
+  BAR = useScreenBarState()
+  return null
+}
 
 // The board publishes its settings into the screen's \u22ef, which the shell draws
 // and this test does not mount. buildScreenActions is what the shell calls when
@@ -39,7 +47,12 @@ const screenAction = (name) => {
 }
 
 const board = () =>
-  render(<Library openId={1} onOpen={() => {}} onClose={() => {}} creditSeparators=",;&" onAdd={() => {}} onSearch={() => {}} dataNonce={0} />)
+  render(
+    <>
+      <Library openId={1} onOpen={() => {}} onClose={() => {}} creditSeparators=",;&" onAdd={() => {}} onSearch={() => {}} dataNonce={0} />
+      <Probe />
+    </>,
+  )
 
 // The quotes on the board, in the order they are drawn. Read off the cards
 // rather than off any state: the order a reader sees is the claim.
@@ -262,12 +275,32 @@ describe('the phone’s arrangement strip', () => {
     await waitFor(() => expect(document.querySelectorAll('.ann-groups > section').length).toBe(3))
   })
 
-  it('says how many rows a filter is holding back, and only then', async () => {
+  // THE COUNT IS THIS STRIP'S NOW, and it used to be the hero's. This case read
+  // "unfiltered, the strip says nothing about counts: the hero already states the
+  // total" — true until the phone header stopped stating it, which is the pack's
+  // own arrangement: "142 quotes" belongs in the strip and the header belongs to
+  // the book. What stayed conditional is the SHAPE, so that is what this asserts.
+  it('counts the board, and says how many a filter is holding back', async () => {
     asPhone()
     board()
     await screen.findByLabelText(/^Group quotes by$/i)
-    // Unfiltered, the strip says nothing about counts: the hero already states
-    // the total, and repeating it is the same fact twice on one screen.
-    expect(document.querySelector('.board-strip .mono-label')).toBeNull()
+    const strip = () => document.querySelector('.board-strip .mono-label')
+    // At rest: a plain count of what is on the board.
+    await waitFor(() => expect(strip()).toBeTruthy())
+    expect(strip().textContent).toMatch(/^3 quotes$/i)
+    // Narrowed: how many of how many, which is the fact with nowhere else to go
+    // now that the hero no longer carries either number. The chips live in the
+    // phone's filter sheet, and its door is a key published to the dock — which
+    // this test does not render, so the key is pressed through the store the
+    // shell subscribes to.
+    const key = (BAR.keys || []).find((k) => k.id === 'filter')
+    expect(key, 'the board published no filter key').toBeTruthy()
+    act(() => key.onClick())
+    // `tagged` rather than a server facet: this file's mock answers every
+    // /annotations request with the same three rows, so only a chip the BOARD
+    // applies itself can actually narrow anything here. One of the three carries
+    // a tag.
+    fireEvent.click(await screen.findByRole('button', { name: /^tagged$/i }))
+    await waitFor(() => expect(strip().textContent).toMatch(/1 of 3/i))
   })
 })

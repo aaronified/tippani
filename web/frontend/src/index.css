@@ -4634,10 +4634,28 @@
     align-content: start;
     min-width: 0;
   }
-  .work-hero-split,
-  .work-hero-facts { display: grid; align-content: start; min-width: 0; }
-  .work-hero-split { gap: var(--hero-block); }
-  .work-hero-facts { gap: var(--hero-fact); }
+  .work-hero-facts { display: grid; align-content: start; min-width: 0; gap: var(--hero-fact); }
+
+  /* THE COVER SITS BESIDE ITS FACTS, INCLUDING ON A PHONE, and that last part is
+     a correction. The rule below used to read `twoCol || phone` — stacked in the
+     300px column and stacked at 390px, beside its facts in between — which is
+     what the wide pack implies and what the PHONE pack does not do. Its heroTop
+     is `display:flex;gap:13px;align-items:flex-start` with a 96px cover column
+     and `flex:1;min-width:0` beside it, so the kind row, the title, the genres
+     and the shelf state all sit to the RIGHT of a small cover.
+     
+     The difference is not cosmetic. Stacked, a 132px cover on a 390px screen
+     leaves 240px of empty paper beside it and pushes the title, the state and
+     both verbs down by the full height of a 2:3 board — so on the screen with
+     the least room, the arrangement spent the most of it. Beside, the whole
+     header fits above the fold. */
+  .work-hero-split {
+    display: flex;
+    align-items: flex-start;
+    gap: 13px;
+    min-width: 0;
+  }
+  .work-hero-facts { flex: 1; min-width: 0; }
 
   /* THE ONE BRANCH, AND IT ASKS A QUESTION ABOUT THE CONTAINER, NOT THE WINDOW.
      The pack's condition is `twoCol || phone` — stacked in the two-column frame
@@ -4656,12 +4674,9 @@
      no room beside anything. `frame-scroll.mjs` measures BOTH pages now — it only
      ever loaded /books/:id, which is why the film half went unseen. */
   @media (min-width: 769px) {
-    .work-hero-split {
-      display: flex;
-      align-items: flex-start;
-      gap: calc(var(--row) * 1.2);
-    }
-    .work-hero-facts { flex: 1; min-width: 0; }
+    .work-hero-split { gap: calc(var(--row) * 1.2); }
+    /* Back to stacked in the 300px column, which has no room beside anything.
+       This is the one place `twoCol` was right. */
     .tp-detail .work-hero-split { display: grid; gap: var(--hero-block); }
     .tp-detail .work-hero-facts { flex: none; }
   }
@@ -5379,6 +5394,80 @@
   /* A phone gutter is narrower. Stated once, on EDGE, so the page body and
      anything else that reads it move together. */
   :root { --edge: 12px; }
+
+  /* THE HEADER'S OWN THREE PHONE NUMBERS, and all three are the pack's. A 96px
+     cover rather than 132 (the board is an object beside the facts here, not the
+     header itself), a 7px step down the facts column rather than 9, and a 13px
+     channel between the two — its `heroTop` gap. Restated on the component, which
+     the standing rule allows where a screen genuinely differs, and this is the
+     screen the pack drew separately. */
+  .work-hero {
+    --cover-w: 96px;
+    --hero-fact: 7px;
+    --hero-title: var(--type-display-22);
+  }
+  .work-hero-split { gap: 13px; }
+
+  /* THE COUNT IS IN THE STRIP, so it is not also in the header. The phone pack
+     puts "142 quotes" in the filter strip directly below the hero and in the
+     sticky bar above it, and has no counts row in the header at all — which is
+     the right call at 390px, where the two lines it takes ("3 quotes", then "1
+     favourite · 2 noted · 3 tagged") push the shelf state and both verbs down a
+     row each to restate a number that is already on screen twice. The strip
+     carries it unconditionally now; see the board's own strip. */
+  .work-hero-counts { display: none; }
+
+  /* THE LAST READ IS A DATE, NOT A CHIP. The pack's stateRow is a swatched chip
+     for the shelf and, pushed to the right of it, a quiet mono date one step
+     further back — state on the left, history on the right. It opens the same
+     read log the ×N chip does; what changes is that it stops competing with the
+     chip beside it for the same weight. */
+  .work-hero-state .shelf-last-read { margin-left: auto; }
+  .work-hero-state .shelf-last-read > * > button {
+    background: none;
+    border: 0;
+    box-shadow: none;
+    padding: 0 2px;
+    min-height: 44px;
+    color: var(--faint);
+    font-family: var(--font-mono);
+    font-weight: var(--font-mono-weight);
+    font-style: var(--font-mono-style);
+    font-variant-caps: var(--font-mono-caps);
+    text-transform: var(--font-mono-case);
+    font-variant-numeric: var(--font-mono-figures);
+    font-size: var(--type-mono-11);
+    letter-spacing: .06em;
+    text-decoration: underline;
+    text-decoration-color: var(--line);
+    text-underline-offset: 3px;
+  }
+  /* No swatch: the colour is the shelf's fact and it is already on the chip. */
+  .work-hero-state .shelf-last-read > * > button > span[aria-hidden] { display: none; }
+
+  /* BOTH VERBS ARE GHOSTS HERE. The phone pack draws Details and Practise in one
+     shared `btnGhostWide` — same border, same ground, no fill — and the wide pack
+     raises Practise with the CARD's material while saying in as many words that
+     the pair gets "a primary without either going accent". A solid accent well at
+     390px is the loudest object on the screen, sitting under a header whose whole
+     job is the book. */
+  .work-hero-actions .tp-btn-primary,
+  .work-hero-actions .tp-btn-primary:hover:not(:disabled) {
+    border-color: var(--ink-border);
+    color: var(--ink);
+    background: linear-gradient(180deg, color-mix(in oklab, var(--card-top), white 2%), transparent);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.35), 0 1px 1px rgba(41,38,29,.1), 0 3px 6px -3px rgba(41,38,29,.22);
+    filter: none;
+  }
+  html[data-theme="dark"] .work-hero-actions .tp-btn-primary {
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 1px 2px rgba(0,0,0,.4), 0 4px 8px -3px rgba(0,0,0,.5);
+  }
+  /* The sticker material rides in a ::before, so clearing the background alone
+     leaves the texture painted over the ghost ground and the pair still reads as
+     two different objects. */
+  .work-hero-actions .tp-btn-primary::before { display: none; }
+  /* And the paper tilt, which is the sticker's and not this button's here. */
+  html .work-hero-actions .tp-btn-primary { transform: none; }
 
   /* No top padding on the container: the shell .mobile-topbar (or, on detail
      screens, the page's .mobile-sticky-bar) must own the very top edge — any

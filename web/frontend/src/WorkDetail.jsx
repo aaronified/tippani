@@ -550,6 +550,10 @@ export default function WorkDetail({
         // counter. A set status wins over the derived Wishlist tag.
         tags={
           <ShelfControl
+            // One row on a phone — the pack's stateRow — rather than a chip, a
+            // second chip and a full-width track on three lines of a five-row
+            // header. See ShelfControl.
+            compact={mobile}
             kind={spec.side}
             item={item}
             status={item.status}
@@ -581,10 +585,14 @@ export default function WorkDetail({
         // COLUMN, so the actions a reader came for were the one thing they had to
         // scroll to find.
         //
-        // Desktop only: on a phone these same actions live in the top bar's ⋯,
-        // and a second standing row just duplicated them.
+        // ON A PHONE TOO, and that was the phone pack's own arrangement all
+        // along: `heroActions` is two full-width ghost buttons at the foot of the
+        // header, and the phone comp has no ⋯ in its bar at all — the rest lives
+        // in the drawer. Withholding them here left a 390px screen whose two
+        // verbs were both behind a menu, on the device where a menu costs the
+        // most; the ⋯ keeps its copies for the same reason the desktop does.
         actions={
-          mobile ? null : (
+          (
             <>
               {/* TWO VERBS, TWO WEIGHTS. A row of two identical buttons asks the
                   same question twice; the pack raises one of them, and the raised
@@ -592,9 +600,15 @@ export default function WorkDetail({
                   while Details is where you go to correct a year. Both stretch to
                   half the column (`flex: 1 1 0` in the row's own rule) so the pair
                   reads as a choice rather than as a list that ran out of room. */}
+              {/* keepLabel, because the pack draws the WORDS on both. These two are
+                  the page's only standing verbs and the phone comp gives each an
+                  icon and its name in a 44px well; auto-hiding the label at 390px
+                  left a reader two unlabelled glyphs where the design has two
+                  sentences-worth of button. */}
               <IconButton
                 icon={<IconDetails />}
                 label={t('common.work.details.title')}
+                keepLabel
                 ariaLabel={t('common.work.details.title')}
                 onClick={() => openDetails()}
                 tooltip={t(spec.detail.detailsTip)}
@@ -602,6 +616,7 @@ export default function WorkDetail({
               <IconButton
                 icon={<IconPractise />}
                 label={t('common.action.practise.label')}
+                keepLabel
                 className="tp-btn-primary"
                 ariaLabel={t(spec.detail.practiseAria)}
                 onClick={() => practise({ [spec.practiseParam]: item.id, label: item.title })}

@@ -31,6 +31,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **A work's header on a phone is the one the design pack drew.** It was stacked — a
+  132px cover alone on a row with 240px of empty paper beside it, and the title, the
+  shelf state and both verbs pushed down by the full height of a 2:3 board. So on the
+  screen with the least room, the arrangement spent the most of it. The cover is 96px and
+  sits BESIDE its facts now, which is what the pack has always shown: kind, year and
+  language on one line, then the title with the ♥, then the genres, then the shelf.
+
+  Four things follow from the room that frees. The title takes the pack's smaller step,
+  so it stops running to three lines. The shelf state is one chip — *Reading · 42%* —
+  with the last read's date quiet beside it, instead of a chip, a second chip, a
+  full-width bar and a percentage on four separate rows; everything is still one tap
+  away, in the same popovers. The count moves to the strip above the quotes, where the
+  pack puts it. And **Details and Practise are on the phone at last** — the two verbs the
+  page exists for were desktop-only and reachable at 390px only through a menu, on the
+  device where a menu costs the most. Both are drawn as the pack draws them, neither
+  filled: the wide pack asks for "a primary without either going accent", and a solid
+  accent slab was the loudest object on the screen.
+
 - **A film, show or game page is the book page now — the same screen, with the type
   differences it actually has.** The two were separate files that had drifted into
   separate screens: on a wide window a book put its cover beside a scrolling column of

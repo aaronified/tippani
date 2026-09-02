@@ -25,12 +25,21 @@ import { afterEach, beforeEach, vi } from 'vitest'
 // of them passed alone.
 //
 // It has the same shape the config's comment calls the worst a failure can have,
-// for the same reason, so it gets the same answer. 5s is not slack for a slow
-// test to hide in: a component that genuinely never renders still fails, five
+// for the same reason, so it gets the same answer. This is not slack for a slow
+// test to hide in: a component that genuinely never renders still fails, eight
 // seconds later. It is the margin between "this code is wrong" and "this laptop
 // was busy", and a suite that goes red for the second reason is a suite nobody
-// reads. ----
-configure({ asyncUtilTimeout: 5000 })
+// reads.
+//
+// WHY 8s AND NOT 5. 5s was the first figure and it was not enough: one file that
+// mounts the whole Details panel and drives two async screens through it kept
+// losing the race on a full run while passing six times out of six alone. The
+// ceiling that matters is vitest's own testTimeout of 20s — an asyncUtilTimeout
+// above it could never fire, and one far below it turns every slow render into a
+// misleading assertion failure instead of an honest timeout. 8s leaves room for
+// two sequential waits in one test and still reports a real hang inside the
+// outer limit. ----
+configure({ asyncUtilTimeout: 8000 })
 
 // The default locale, pinned — see pin-locale.js. vitest.config.js pins TZ with an
 // env var; the locale cannot be done that way and has to be pinned in the

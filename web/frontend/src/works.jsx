@@ -733,7 +733,15 @@ function ReadForm({ initial, busy, onCancel, onSave, onDelete }) {
   )
 }
 
-export function ShelfControl({ kind, item = {}, status, progress = 0, pos, reads = [], wishlist, onSelect, onProgress, onReadsChanged, busy }) {
+// `compact` is the PHONE HEADER'S shape, and it is one row rather than three.
+// The pack's stateRow is a single chip reading "Reading · 62% · 2×" with the last
+// read's date quiet beside it; at rest this control draws a state chip, a ×N chip
+// and a full-width progress track on its own line, which is three rows of a
+// header that has five. Nothing becomes unreachable: the chip's popover still
+// holds the progress editor and the transitions, and the date opens the same read
+// log the ×N did — the facts are folded into the label instead of being spelled
+// out as separate objects.
+export function ShelfControl({ kind, item = {}, status, progress = 0, pos, reads = [], wishlist, onSelect, onProgress, onReadsChanged, busy, compact = false }) {
   // Per ROW, not per kind: this control is what offers "start playing" on a game
   // and "start watching" on a film, and both are movies-table rows.
   const active = activeStatusFor(kind, item)
@@ -779,9 +787,27 @@ export function ShelfControl({ kind, item = {}, status, progress = 0, pos, reads
       </StateTag>
     )
   }
+  // The in-progress figure, said once. Where a work counts in its own units
+  // ("p. 117/500", "E06/10") that IS the position and the percentage adds
+  // nothing; where it does not, the percentage is all there is.
+  const inFlight = status === active || status === 'paused'
+  const figure = inFlight ? positionLabel(pos) || `${progress}%` : ''
+  // The most recent read with an end. The pack puts its date at the right of the
+  // state row, one step further back than the shelf itself.
+  const lastFinished = [...reads].reverse().find((r) => r.outcome === 'finished' && r.finished_at)
+  const lastRead = lastFinished ? formatPartialDate(lastFinished.finished_at) : ''
+
   return (
     <>
-      <StateTag state={state} label={shelfLabel(state, kind)} tip={t('common.shelf.change.tip')}>
+      <StateTag
+        state={state}
+        label={compact
+          ? [shelfLabel(state, kind), figure, finished > 0 ? t('common.shelf.reads.label', { n: finished }) : '']
+              .filter(Boolean)
+              .join(' · ')
+          : shelfLabel(state, kind)}
+        tip={t('common.shelf.change.tip')}
+      >
         {(close) => (
           <>
             {status === active && (
@@ -802,8 +828,19 @@ export function ShelfControl({ kind, item = {}, status, progress = 0, pos, reads
       {/* The log is always reachable, not only once something has been finished.
           Recording that you read a book in 2009 is the whole point of editing
           history, and gating the way in on the history already existing made it
-          impossible for exactly the books it matters for. */}
-      <StateTag state={state} label={t('common.shelf.reads.label', { n: finished })} tip={t('common.shelf.read-log.tip')}>
+          impossible for exactly the books it matters for.
+
+          COMPACT WEARS THE DATE INSTEAD OF THE COUNT, because the count has moved
+          into the chip beside it and a control that repeats its neighbour is
+          furniture. Same popover, same log — only the word on the door changes,
+          and it falls back to ×N where nothing has been finished yet. */}
+      <StateTag
+        state={state}
+        label={compact && lastRead ? lastRead : t('common.shelf.reads.label', { n: finished })}
+        tip={t('common.shelf.read-log.tip')}
+        className={compact ? 'shelf-last-read' : undefined}
+        quiet={compact}
+      >
         <ReadLog kind={kind} workId={item.id} reads={reads} onChanged={onReadsChanged} />
       </StateTag>
       {/* Any in-progress work shows its track, in its own units.
@@ -814,7 +851,9 @@ export function ShelfControl({ kind, item = {}, status, progress = 0, pos, reads
           first, then the track — and `.work-hero-state .shelf-track` takes the
           whole line UNCONDITIONALLY, because the header is narrow in a 300px
           column as well as on a phone, so the order is the same every time. */}
-      {(status === active || status === 'paused') && (
+      {/* Not in compact: the figure is in the chip's own label there, and the bar
+          it would draw is the same bar already welded under the cover. */}
+      {!compact && inFlight && (
         <span className="shelf-track">
           <ShelfProgress kind={kind} status={status} progress={progress} pos={pos} />
         </span>
@@ -1618,7 +1657,14 @@ export function WorkHero({
   title,
   // A prop with a default, so a caller may override it — but the DEFAULT is a
   // size like any other and answers the Quotes dial.
-  titleSize = 'var(--type-display-30)',
+  //
+  // TWO STEPS, ONE TOKEN. The phone pack sets this title at 23px against 30 on a
+  // wide page, and 30px of display face beside a 96px cover at 390px is two lines
+  // of title before the reader reaches a single fact. --hero-title carries the
+  // phone's step (22, the scale's own neighbour of the pack's 23 — the scale is
+  // the app's constraint and 23 is not on it) and falls back to 30 everywhere
+  // else, so the size stays a token and the switch stays in the stylesheet.
+  titleSize = 'var(--hero-title, var(--type-display-30))',
   titleStyle,
   meta,
   counts,

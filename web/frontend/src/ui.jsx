@@ -2020,7 +2020,7 @@ export function ReadingBadge({ kind = "book", stacked = false }) {
 // hearts. Clicking opens a popover under it: the transitions menu for a state you
 // set, or a one-line explanation for the derived wishlist tag. `children` may be
 // a function receiving `close`, for popovers whose items dismiss it.
-export function StateTag({ state, label, tip, children }) {
+export function StateTag({ state, label, tip, className = "", quiet = false, children }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   // Left-aligned, unlike MoreMenu: this chip sits at the start of a row, and
@@ -2035,17 +2035,20 @@ export function StateTag({ state, label, tip, children }) {
   // detail and the board are speaking about the same thing.
   const color = (SHELF_META[state] || {}).color || "var(--soft)";
   return (
-    <span className="relative" ref={ref} style={{ display: "inline-flex" }}>
+    <span className={`relative ${className}`.trim()} ref={ref} style={{ display: "inline-flex" }}>
       <Tooltip label={tip} side="bottom">
         <button
           type="button"
           className="tp-chip tp-chip-btn"
-          style={{ gap: 6, color, borderColor: "color-mix(in srgb, currentColor 45%, transparent)" }}
+          style={quiet ? { gap: 6 } : { gap: 6, color, borderColor: "color-mix(in srgb, currentColor 45%, transparent)" }}
           aria-expanded={open}
           aria-haspopup="true"
           onClick={() => setOpen((o) => !o)}
         >
-          <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: 2, background: color, flex: "none" }} />
+          {/* The swatch is the shelf's colour said a second time. Where this chip
+              is NOT about the shelf state — the compact header's last-read date —
+              a coloured square in front of a date is a colour with no referent. */}
+          {!quiet && <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: 2, background: color, flex: "none" }} />}
           {label}
         </button>
       </Tooltip>
@@ -6647,14 +6650,14 @@ const ICON_SIZE = 24
 // worked around: the Add sheet's ✓ is one of these and wore `.field-icon-btn-ok`,
 // the 34px family's colour class, to go green. One family borrowing another's
 // stylesheet for a colour is how two families stop being two families.
-export function IconButton({ icon, label, ariaLabel, tooltip, tipSide = "top", danger = false, ok = false, className = "", wrapClassName = "", onClick, style, ...rest }) {
+export function IconButton({ icon, label, ariaLabel, tooltip, tipSide = "top", danger = false, ok = false, keepLabel = false, className = "", wrapClassName = "", onClick, style, ...rest }) {
   const tip = tooltip === undefined ? ariaLabel : tooltip
   const named = label != null && label !== ""
   return (
     <Tooltip label={tip} side={tipSide} className={wrapClassName}>
       <button
         type="button"
-        className={`tp-btn tp-btn-ghost tactile flex items-center justify-center rounded-full${named ? " has-btn-icon" : ""}${danger ? " tp-btn-danger" : ""}${ok ? " tp-btn-ok" : ""} ${className}`}
+        className={`tp-btn tp-btn-ghost tactile flex items-center justify-center rounded-full${named && !keepLabel ? " has-btn-icon" : ""}${named && keepLabel ? " has-fixed-label" : ""}${danger ? " tp-btn-danger" : ""}${ok ? " tp-btn-ok" : ""} ${className}`}
         style={named
           ? { height: 44, flexShrink: 0, ...style }
           : { width: 44, height: 44, padding: 0, flexShrink: 0, ...style }}
@@ -6665,7 +6668,7 @@ export function IconButton({ icon, label, ariaLabel, tooltip, tipSide = "top", d
         {named ? (
           <>
             <span className="btn-icon">{icon}</span>
-            <span className="btn-label">{label}</span>
+            <span className={keepLabel ? "btn-label-fixed" : "btn-label"}>{label}</span>
           </>
         ) : (
           icon

@@ -2222,9 +2222,18 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
           this says, and only while something is actually hidden. */}
       {mobile && (
         <div className="board-strip">
-          {hidden > 0 && (
-            <MonoLabel>{t('book.strip.shown.label', { n: displayRows.length, total })}</MonoLabel>
-          )}
+          {/* UNCONDITIONAL NOW, and the note above says why it was not. It read
+              "the hero already says that beside how many are favourites, noted and
+              tagged" — true until the header stopped saying it on a phone, which
+              is the pack's own arrangement: the count belongs in this strip and
+              the header belongs to the book. What is still conditional is the
+              SHAPE: a plain count at rest, and how many of how many while a filter
+              is hiding some, because that second fact has nowhere else to appear. */}
+          <MonoLabel>
+            {hidden > 0
+              ? t('book.strip.shown.label', { n: displayRows.length, total })
+              : countOf(displayRows.length, 'unit.quote')}
+          </MonoLabel>
           <GroupSortField groupBy={groupBy} onGroup={setGroupBy} sort={sort} onSort={setSort} compact />
           <button
             type="button"
