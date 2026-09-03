@@ -6340,8 +6340,13 @@ unit.role.speaker = বক্তা
 # A work's links out (0062). See workLinks.jsx.
 links.web.label = একটা ওয়েবপেজ
 links.web.count = {n}টা ওয়েবপেজ|{n}টা ওয়েবপেজ
-links.empty = এখনও কোনও লিংক নেই। নিচে একটা বসান — যে কোনও সাইটের যে কোনও ঠিকানা।
-links.paste.label = লিংক বসান
+links.empty = এখনও কোনও লিংক নেই। একটা যোগ করুন — এই রেকর্ডের যে পাতা আছে, নয়তো যে কোনও সাইটের যে কোনও ঠিকানা।
+links.paste.label = লিংক যোগ করুন
+# The derived list at the top of the add panel: the pages this record's own
+# pinned ids can already address. Absent when there are none left to add.
+links.suggest.heading = এই রেকর্ডের যে পাতাগুলো আছে
+links.suggest.or = নয়তো একটা বসান
+links.suggest.tip = এই রেকর্ডের {name} পাতাটা যোগ করুন
 links.paste.placeholder = imdb.com/title/tt0084787
 links.paste.hint = যে কোনও ঠিকানা। যোগ করার আগে সেটা কী হিসেবে পড়া হচ্ছে তা এখানে দেখা যাবে।
 links.reading = {name} হিসেবে পড়া হচ্ছে — {host}

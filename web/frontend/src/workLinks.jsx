@@ -18,6 +18,17 @@
 // open web, and it is also why there is no WorldCat slot: an obscure catalogue is
 // not a special case, it is just a URL.
 //
+// AND THE LIST YOU PICK FROM IS THE PAGES THIS RECORD CAN ALREADY ADDRESS, which
+// is the shape that survives the paragraph above. The pack asks for "appending a
+// provider by picking it from a list"; a list of the twelve marks with "not
+// linked" beside eight of them is the roster of absences this panel exists to
+// avoid. A record pinned to TheTVDB, though, HAS a TheTVDB page — the id is
+// sitting in the row — and making the reader copy that address out of a browser
+// is the app declining to do arithmetic it can do. So the list is derived from
+// the record's own pinned ids, one press appends, and a site the record cannot
+// address is simply not in it. The paste box is unchanged and is still the way in
+// for everything else, which is most things.
+//
 // WHAT IS NOT BUILT, said plainly: the pack's per-link provenance (`auto` · `you`)
 // is not here. Nothing fetches a WORK's links yet — a person's are assembled from
 // a lookup, a work's are all pasted — so a tag on every row would say the same
@@ -53,6 +64,117 @@ export function readLink(raw) {
   if (!host || host.indexOf('.') < 0) return null
   const hit = PROVIDERS.find(([, , re]) => re.test(host))
   return { url, host, slug: hit ? hit[0] : '', name: hit ? t(hit[1]) : t('links.web.label') }
+}
+
+// PROVIDER_URLS — the canonical page each site addresses a record BY, and the one
+// place the app writes such an address.
+//
+// ONE TABLE BECAUSE THERE WERE ABOUT TO BE TWO. The Details rows for a TMDB,
+// TheTVDB or IMDb id already drew their number as a link, with the template
+// inline in each spec; the pickable list below needs the same three plus the
+// book side's. Two copies of "where does TheTVDB keep a series" is the drift the
+// picker tables in reverify_handlers.go are a table for, so the specs call this
+// now and nothing else builds a provider address.
+//
+// SOME SITES ARE ABSENT AND EACH FOR ITS OWN REASON, none of them "not got round
+// to it":
+//
+//   letterboxd, igdb   addressed by SLUG, not by the numeric id the row stores.
+//                      IGDB's api gives an id; its website wants `/games/dune`.
+//                      A guessed slug is a 404 that looks like a link.
+//   wikipedia,         a WORK stores no id for any of them. A person's arrive
+//   wikidata,          from a lookup and live in their own links column; a work's
+//   wikimedia          would have to be searched for, and a search result is not
+//                      an address.
+//   amazon             the marketplace is an admin setting this panel cannot see,
+//                      and `amazon.com` for a reader who buys on `.co.uk` is a
+//                      different edition at a real URL — wrong in the way that
+//                      looks right. The paste box takes it in one gesture.
+//
+// A GAME'S MEDIA TYPE MAPS TO `movie` ON TMDB and that is not a bug to fix here:
+// TMDB has no games, so a game cannot carry a tmdb_id, and the branch is never
+// reached. The mapping is the one the Details rows already used, moved rather
+// than rewritten.
+const screenPath = (it) => ((it.media_type || 'movie') === 'show' ? 'tv' : 'movie')
+const tvdbPath = (it) => ((it.media_type || 'movie') === 'show' ? 'series' : 'movie')
+
+// An Open Library key arrives as a PATH — `/works/OL123W` — because that is what
+// the API calls it. A bare `OL123W` is accepted too: a reader who typed the id
+// into the field wrote the half they can see.
+function openLibraryURL(it) {
+  const key = String(it.openlibrary_id || '').trim()
+  if (key) {
+    return key.startsWith('/') ? `https://openlibrary.org${key}` : `https://openlibrary.org/works/${key}`
+  }
+  // AND THE ISBN IS AN ADDRESS THERE, which is the point of offering it: Open
+  // Library redirects `/isbn/<n>` to the edition, so a book with nothing but the
+  // number off its own back cover still has a page to link.
+  const isbn = String(it.isbn || '').replace(/[^0-9Xx]/g, '')
+  return isbn ? `https://openlibrary.org/isbn/${isbn}` : ''
+}
+
+const PROVIDER_URLS = {
+  imdb: (it) => (it.imdb_id ? `https://www.imdb.com/title/${it.imdb_id}/` : ''),
+  tmdb: (it) => (it.tmdb_id ? `https://www.themoviedb.org/${screenPath(it)}/${it.tmdb_id}` : ''),
+  tvdb: (it) => (it.tvdb_id ? `https://thetvdb.com/dereferrer/${tvdbPath(it)}/${it.tvdb_id}` : ''),
+  // THE WIKI AND NOT A PAGE ON IT. `movies.fandom_wiki` names which wiki a work
+  // lives on (0055) and nothing stores its article title, so this is the wiki's
+  // front page — which is a legitimate link and the honest one: "the fandom wiki
+  // for this" is what the reader wanted, and its search box is one press away.
+  fandom: (it) => (it.fandom_wiki ? `https://${String(it.fandom_wiki).trim()}.fandom.com` : ''),
+  openlibrary: openLibraryURL,
+  google: (it) => (it.google_id ? `https://books.google.com/books?id=${encodeURIComponent(it.google_id)}` : ''),
+}
+
+// providerURL is the single reader of that table. An unknown slug answers '' the
+// same way a missing id does, because both mean "no address for this here".
+export function providerURL(slug, item) {
+  const f = PROVIDER_URLS[slug]
+  return f ? f(item || {}) : ''
+}
+
+// derivedLinks lists the pages this record can address and has not linked yet, in
+// the app's own provider order.
+//
+// ALREADY-LINKED SITES DROP OUT rather than drawing as ticked or greyed. A row
+// you cannot press is the roster of absences again, one item at a time, and the
+// list this one is FOR is "what can I add". When there is nothing left to add the
+// list is gone and the paste box is the whole panel, which is what it was before.
+//
+// Compared by URL and not by provider, for the reason PasteLink states: two
+// different Wikipedia pages on one record is a legitimate thing, so "has a link
+// to this site" is not the same question as "has THIS address".
+export function derivedLinks(item, value) {
+  const have = new Set(linkRows(value).map((r) => r.url))
+  return PROVIDERS.map(([slug, labelKey]) => ({ slug, name: t(labelKey), url: providerURL(slug, item) }))
+    .filter((r) => r.url && !have.has(r.url))
+}
+
+// SuggestedLink — one derivable page, as a button that adds it.
+function SuggestedLink({ slug, name, url, busy, onAdd }) {
+  return (
+    <li>
+      <button
+        type="button"
+        className="work-link-offer tactile"
+        disabled={!!busy}
+        title={t('links.suggest.tip', { name })}
+        onClick={onAdd}
+      >
+        <span className="work-link-mark" aria-hidden="true">
+          {slug ? <ProviderMark source={slug} /> : <IconGlobe size={17} />}
+        </span>
+        <span className="work-link-names">
+          <MonoLabel>{name}</MonoLabel>
+          {/* The address in full, for the same reason the stored rows show theirs:
+              this is a link about to be added and the reader is entitled to read
+              it first. Never truncated. */}
+          <span className="work-link-url">{url}</span>
+        </span>
+        <span className="work-link-take" aria-hidden="true"><IconPlus /></span>
+      </button>
+    </li>
+  )
 }
 
 // LinkRow — one stored link. The mark, the provider's name over the address, the
@@ -127,12 +249,30 @@ export function linkRows(value) {
   ]
 }
 
-// PasteLink — the + panel. One box, the reading under it, and the panel's own ✓.
-export function PasteLink({ value, busy, onSave, onDone }) {
+// PasteLink — the + panel: the pages this record can already address, and a box
+// for everything else.
+//
+// THE DERIVED LIST IS IN HERE RATHER THAN IN A HEADER VERB OF ITS OWN, and §1.12
+// is why: a panel carries one verb and only its own, and Links already spends it
+// on `+`. Two ways to add a link are not two verbs — they are the same verb done
+// two ways, so they belong behind the one press that means "add". The cheap way
+// goes first because it is one press against a paste, and the box below is
+// unchanged for the site the record cannot address, which is most sites.
+export function PasteLink({ item, value, busy, onSave, onDone }) {
   const [draft, setDraft] = useState('')
   const reading = readLink(draft)
   const rows = linkRows(value)
+  const suggested = derivedLinks(item || {}, value)
   const host = useFormHost(reading ? '' : t('links.reading.none'))
+
+  // append is the one writer, so the button and the box cannot disagree about
+  // what adding means — the de-dupe, the join and the failure are all here.
+  async function append(url) {
+    if (!rows.some((r) => r.url === url)) {
+      if (await onSave([...rows.map((r) => r.url), url].join('\n')) === false) return false
+    }
+    return true
+  }
 
   async function submit(e) {
     if (e.target !== e.currentTarget) return
@@ -142,14 +282,33 @@ export function PasteLink({ value, busy, onSave, onDone }) {
     // provider: two different Wikipedia pages on one record is a legitimate thing
     // — an author and their book — and refusing the second would be this panel
     // deciding what a record may say.
-    if (!rows.some((r) => r.url === reading.url)) {
-      if (await onSave([...rows.map((r) => r.url), reading.url].join('\n')) === false) return
-    }
+    if (!(await append(reading.url))) return
     onDone()
+  }
+
+  // A PICK CLOSES ITS PANEL (§1.11). Pressing a derived page is a whole decision
+  // — there is nothing left to type and nothing to confirm — so leaving the panel
+  // open would ask the reader to find the ✕ for a job that is done.
+  async function take(url) {
+    if (await append(url)) onDone()
   }
 
   return (
     <form id={host?.formId} onSubmit={submit} style={{ display: 'grid', gap: 'var(--row)' }}>
+      {suggested.length > 0 && (
+        <div style={{ display: 'grid', gap: 'var(--row)' }}>
+          <MonoLabel>{t('links.suggest.heading')}</MonoLabel>
+          <ul className="work-link-list">
+            {suggested.map((r) => (
+              <SuggestedLink key={r.url} {...r} busy={busy} onAdd={() => take(r.url)} />
+            ))}
+          </ul>
+          {/* The box below is not a fallback and does not read as one: it is the
+              way in for every site with no id in the row, which is most of the
+              web. The label says which half you are in. */}
+          <MonoLabel>{t('links.suggest.or')}</MonoLabel>
+        </div>
+      )}
       <input
         className="tp-input"
         value={draft}

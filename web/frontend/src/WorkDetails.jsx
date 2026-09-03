@@ -26,7 +26,7 @@ import { CastFills, CastSection } from './cast.jsx'
 import { DEFAULT_CREDIT_SEPS, splitCredits } from './credits.jsx'
 import { characterPanel } from './identity.jsx'
 import { OFFERED_FIELDS, fieldOffersPanel } from './fieldOffers.jsx'
-import { PasteLink, WorkLinks, linksSummary } from './workLinks.jsx'
+import { PasteLink, WorkLinks, linksSummary, providerURL } from './workLinks.jsx'
 import { t } from './i18n.js'
 import { BookLookupPicker, CoverControls, CoverPreview, MovieLookupPicker, hiResPoster, idNum } from './CoverPicker.jsx'
 import {
@@ -260,7 +260,7 @@ export const MOVIE_FIELDS = [
     kind: 'id',
     media: ['movie', 'show'],
     get hint() { return t('film.field.tmdb-id.info') },
-    href: (it) => `https://www.themoviedb.org/${(it.media_type || 'movie') === 'show' ? 'tv' : 'movie'}/${it.tmdb_id}`,
+    href: (it) => providerURL('tmdb', it),
   },
   {
     key: 'tvdb_id',
@@ -270,7 +270,7 @@ export const MOVIE_FIELDS = [
     media: ['movie', 'show'],
     get hint() { return t('film.field.tvdb-id.info') },
     // The dereferrer resolves a bare numeric id to the right series/movie page.
-    href: (it) => `https://thetvdb.com/dereferrer/${(it.media_type || 'movie') === 'show' ? 'series' : 'movie'}/${it.tvdb_id}`,
+    href: (it) => providerURL('tvdb', it),
   },
   {
     key: 'imdb_id',
@@ -278,7 +278,7 @@ export const MOVIE_FIELDS = [
     sourceKey: 'vocab.source.imdb.label',
     media: ['movie', 'show'],
     get hint() { return t('film.field.imdb-id.info') },
-    href: (it) => `https://www.imdb.com/title/${it.imdb_id}/`,
+    href: (it) => providerURL('imdb', it),
   },
   {
     key: 'igdb_id',
@@ -1032,6 +1032,11 @@ function PasteLinkHost({ kind, item, onChanged, onDone }) {
   const { rec, busy, saveField } = useWorkRecord({ kind, initial: item, onChanged, specs: [spec] })
   return (
     <PasteLink
+      // THE WHOLE RECORD AND NOT JUST THE LINKS, because the pages this panel can
+      // offer are derived from the row's own pinned ids — a tmdb_id, an OL key, a
+      // fandom wiki. `rec` rather than `item`: this panel re-reads, so a lookup
+      // that pinned an id a moment ago is already in it.
+      item={rec}
       value={rec.links || ''}
       busy={busy}
       onSave={(next) => saveField(spec, next)}

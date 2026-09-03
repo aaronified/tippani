@@ -89,6 +89,29 @@ describe('a fieldtag with a door', () => {
     expect(btn.title).toContain('2026-01-02')
   })
 
+  // AND THE SCREEN READER HEARS IT TOO. The mark is decorative and the only text
+  // inside is the sr-only supplier name, so without an explicit name the button
+  // announced "TMDB, button" — indistinguishable from the label it must not be
+  // mistaken for. A tooltip is not an accessible name.
+  it('names what it opens to a screen reader, not only to a pointer', () => {
+    render(<FieldSourceTag source="tmdb" onOpen={() => {}} />)
+    const name = screen.getByRole('button').getAttribute('aria-label') || ''
+    expect(name.toLowerCase()).toContain('source')
+    expect(name).toContain('TMDB')
+  })
+
+  // TWO WRITERS ON ONE RECORD. The panel's ✓ collects every open row while a take
+  // would rewrite one field from a supplier; the pencil beside this tag has always
+  // been gated on the same flag, and the tag was not because it was not pressable.
+  it('is gated while the panel master save is collecting', () => {
+    const onOpen = vi.fn()
+    render(<FieldSourceTag source="tmdb" onOpen={onOpen} disabled />)
+    const btn = screen.getByRole('button')
+    expect(btn.disabled).toBe(true)
+    fireEvent.click(btn)
+    expect(onOpen).not.toHaveBeenCalled()
+  })
+
   // A DOOR ONTO AN EMPTY ROOM IS WORSE THAN A LABEL, which is what the offered
   // set is for: a supplier id names its own supplier and a cover is not a field.
   it('is offered only for fields a supplier can answer for', () => {

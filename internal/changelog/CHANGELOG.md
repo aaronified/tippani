@@ -17,6 +17,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   one rewrites that field and nothing else. Re-verify could not answer this and still
   cannot: it reports what has CHANGED, and a description tagged TMDB has by definition not
   changed from TMDB, so the field you pressed was the one field its table was empty for.
+  **It needs a mark to press**, so a field nothing has ever written has no door — the way to
+  fill those is still Look up or Fill gaps, which is what they are for.
+
+- **The Links panel offers the pages a record already has.** A film pinned to TheTVDB *has*
+  a TheTVDB page — the id is in the row — so copying that address out of a browser was the
+  app declining to do arithmetic it could do. Adding a link now leads with those pages, each
+  wearing its site's mark and showing the whole address before you take it; one press
+  appends. It is derived from the record's own ids rather than being a list of every site
+  with "not linked" beside most of them, so a site the record cannot address is simply not
+  offered — and the paste box behind it is unchanged, which is still the way in for
+  everything else.
 
 - **The re-verify reviewer's columns wear their suppliers' marks.** Four columns of values
   with the supplier's name in small caps above each is the densest place in the app for the

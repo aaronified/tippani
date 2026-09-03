@@ -3585,6 +3585,9 @@
   }
   .field-src.is-door:hover,
   .field-src.is-door:focus-visible { color: var(--ink); border-color: var(--ink); }
+  /* Gated while the panel's master save is collecting: two writers on one record.
+     The ring goes rather than fading, so it reads as the label it becomes. */
+  .field-src.is-door:disabled { cursor: default; border-color: transparent; }
 
   /* THE OFFERS PANEL — one row per supplier, and the row it is measured against.
      A grid rather than a flex column so the mark, the name and the value line up
@@ -4681,6 +4684,28 @@
   .work-link-names { display: grid; gap: 2px; min-width: 0; flex: 1 1 auto; }
   .work-link-url { overflow-wrap: anywhere; text-align: left; }
   .work-link-add { display: grid; gap: 6px; }
+
+  /* A PAGE THIS RECORD CAN ALREADY ADDRESS, offered as a press. It is the stored
+     row's layout with the ✕ replaced by a `+`, and deliberately so: the reader is
+     about to make one of these into the other, and a second layout would hide
+     that. The ring says it is pressable at rest rather than on hover, for the
+     reason .field-src.is-door does — a touchscreen never hovers. */
+  .work-link-offer {
+    display: flex; align-items: flex-start; gap: 11px;
+    width: 100%;
+    padding: 7px 9px;
+    border: 1px solid var(--line); border-radius: 10px;
+    background: transparent;
+    text-align: left;
+    cursor: pointer;
+  }
+  .work-link-offer:hover, .work-link-offer:focus-visible { border-color: var(--ink); }
+  .work-link-offer:disabled { cursor: default; opacity: .55; }
+  .work-link-offer .work-link-url { color: var(--faint); }
+  .work-link-take {
+    flex: none; display: inline-flex; align-items: center; justify-content: center;
+    width: max(22px, 1.4em); height: max(22px, 1.4em); color: var(--soft);
+  }
 
   /* §1.8'S SIX DEFAULT PORTRAITS. A mask rather than an <img>: it is filled with
      the box's own `currentColor`, so it takes the theme in both modes, scales with

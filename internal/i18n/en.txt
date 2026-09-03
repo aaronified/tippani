@@ -6324,8 +6324,13 @@ unit.role.speaker = speaker
 # A work's links out (0062). See workLinks.jsx.
 links.web.label = A web page
 links.web.count = {n} web page|{n} web pages
-links.empty = No links yet. Paste one below — any address, from any site.
-links.paste.label = Paste a link
+links.empty = No links yet. Add one — a page this record already has, or any address from any site.
+links.paste.label = Add a link
+# The derived list at the top of the add panel: the pages this record's own
+# pinned ids can already address. Absent when there are none left to add.
+links.suggest.heading = PAGES THIS RECORD HAS
+links.suggest.or = OR PASTE ONE
+links.suggest.tip = Add the {name} page for this record
 links.paste.placeholder = imdb.com/title/tt0084787
 links.paste.hint = Any address. What it is read as appears here before it is added.
 links.reading = Reads as {name} — {host}

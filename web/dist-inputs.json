@@ -13,8 +13,8 @@
     "web/frontend/vite.config.js"
   ],
   "sha256": {
-    "internal/i18n/bn.txt": "96b465d02df7d119b6cfc95ba7cd0b8dc24453268568e7fab643ffa55695631a",
-    "internal/i18n/en.txt": "5611ea25e884b99c98f2a58cd85e5d5d0f8ea20ac5a0927414605ef5f2f67ff0",
+    "internal/i18n/bn.txt": "98a5883be398556ba28b5e00bc0ba906f7367d9fcc1868e503d13dcc381035c8",
+    "internal/i18n/en.txt": "326f08721a4621d602975f2aae3d53da9b72965b094350b4356a401d76b226cc",
     "web/frontend/index.html": "faa8bb6fc81705b9d9d395a62a9d474414a029c571723bf099f84cb624ce906c",
     "web/frontend/package-lock.json": "d7afffc5b73c431c604bfaff5760d6ef244d1f74b187575d213f3ad353c18715",
     "web/frontend/package.json": "21c5acbd140400ead3efd99595afe0510ae0d6e84099621f9c39d34195a30ed6",
@@ -47,7 +47,7 @@
     "web/frontend/src/StatsPage.jsx": "0392cc9ad66384c500c1f3e978ae83514ef1d785d7142376ee41cb3da49999e8",
     "web/frontend/src/TagsPage.jsx": "f9c04fc17ca01c182c0c011eb6e896cc32abc4bde20ce580c3f83a079b71465f",
     "web/frontend/src/WorkDetail.jsx": "6b34c64e4da83cdfc0479ce13fd473e9a54fe67bbd31dd232d4dd5b8c49c530b",
-    "web/frontend/src/WorkDetails.jsx": "88dfacb45b7c11595d7b961203dd0a695862a4e3eaea9656c00a774ad185e052",
+    "web/frontend/src/WorkDetails.jsx": "00175647664d59ebbe471ff5f93cd6e336e1e7b78c91d8e79eb632493293f300",
     "web/frontend/src/actions.jsx": "284da0cb2adf982d143bf4eabcae00f84e1054ea63f8d560b496c5e889020091",
     "web/frontend/src/anthologies.jsx": "31d06bb57e8a7cc49900dcbf484e88b478755fb1147b5426a8051cc014522b21",
     "web/frontend/src/api.js": "247cfbbd19d9a65b6114b9ae141e85115827616133090dae3b11e09387be0729",
@@ -68,7 +68,7 @@
     "web/frontend/src/history.js": "13604d919e7e8f7cdd3f637895907b2ff30425282e3049c6a3fa5524f2f3be19",
     "web/frontend/src/i18n.js": "6056197526bb55ee44f4a4c3be19304e9c48bf83af8e98f6c44dfa80fd82afe5",
     "web/frontend/src/identity.jsx": "0ff312014ad165cca152faa06281cc49ac8f6ebfaf5d1d180217947c6b9423de",
-    "web/frontend/src/index.css": "372c93e5df67c61bb676156a1c42d428025adf8c3bbd40d6d22a88ba9ba80d23",
+    "web/frontend/src/index.css": "f7458b60319e181c2f1c645a771d41f4813068fabf520c36c078145706c0729f",
     "web/frontend/src/keys.js": "75e1fd35adf3747681c0ddd7aff0b71d01d8961cd890e5525be6d4dd85d5fd9a",
     "web/frontend/src/languages.jsx": "869532cdca1124db41a7447cd9a05588698bb37dd78c230af38f0de3a3af7b12",
     "web/frontend/src/locale.jsx": "3c27a6f83604ccbaa173750f33fbd08ea2add93b6239ef1627af1969ea56b174",
@@ -121,11 +121,11 @@
     "web/frontend/src/tokens.js": "3f21045159a3304c079ed97f902709696e27c57df7f1115214871d7891564886",
     "web/frontend/src/tour.jsx": "59286e57558ac8f72ce62331c6f3d9ee86673fff743ae364335d094968bb8c9d",
     "web/frontend/src/type.js": "42a611ce846b7d8493821b93314c59ca104f95b557b02dbb0d4a9698a35083af",
-    "web/frontend/src/ui.jsx": "e1c2e1e91f0ca800b54bb2646d0d89ea0781a2d3261cceb1ec0d5decc5252c79",
+    "web/frontend/src/ui.jsx": "445dc6977f0b8a26e7aea401d99a5a919e8c03b68265c8a353569478e876f80e",
     "web/frontend/src/undo.jsx": "27dd04ac24e09c8b53b5caee551b7ecd575ae012aa087fa87e3d31ed767e0834",
     "web/frontend/src/update.js": "cac7b1e2a4b8bfce7d2658505ebd0bcbb6b1bb4aef9e7422cf5826949c69b8a4",
     "web/frontend/src/workKinds.js": "b1190bb6c364df72f4c8f5fcf7ca3779cc9837ba68f1de1b4c62279dca9b1244",
-    "web/frontend/src/workLinks.jsx": "9c4e87220b933d780307ae4d14dd9b541ff2e8fac180da8d82a192ad1b205ddc",
+    "web/frontend/src/workLinks.jsx": "b0d3c8f4b47b136ec830dab977e20d32f5f087e5404fb05fd85076841133e363",
     "web/frontend/src/works.jsx": "dc0edad770ad7a135cb3db56570236b8198b88774905fbc96c89542417998557",
     "web/frontend/vite.config.js": "e68566c44bb7553c2567ffeb6da9c308065ed32bebe1b2a625148cbd387c55d8"
   }

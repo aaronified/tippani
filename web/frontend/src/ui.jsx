@@ -5351,7 +5351,7 @@ export function InlineField({
             before the pencil, and only at rest: while you are editing, the row's
             right-hand end belongs to ✓ and ✕, and a provenance tag that survived
             into the editor would be reporting on a value you have already left. */}
-        {!editing && source ? <FieldSourceTag source={source} at={sourceAt} onOpen={sourceOpen} /> : null}
+        {!editing && source ? <FieldSourceTag source={source} at={sourceAt} onOpen={sourceOpen} disabled={busy || disabled} /> : null}
         {!editing && !disabled && (
           <FieldIconButton
             icon={<IconEdit />}
@@ -5443,7 +5443,7 @@ export function BigField({ label, display, placeholder, hint, source, sourceAt, 
         <MonoLabel>{label}</MonoLabel>
         {hint && <InfoDot text={hint} title={label} />}
         <span className="flex-1" />
-        {source ? <FieldSourceTag source={source} at={sourceAt} onOpen={sourceOpen} /> : null}
+        {source ? <FieldSourceTag source={source} at={sourceAt} onOpen={sourceOpen} disabled={disabled} /> : null}
         {!disabled && (
           <FieldIconButton
             icon={<IconEdit />}
@@ -7444,7 +7444,7 @@ export function ProviderMark({ source, size }) {
 // has always been, because most tags — a cast row's twenty of them, a credit on
 // a work with nothing pinned — have nothing behind them and a button that opens
 // an empty panel is worse than a label.
-export function FieldSourceTag({ source, at, note, onOpen, openLabel }) {
+export function FieldSourceTag({ source, at, note, onOpen, openLabel, disabled = false }) {
   if (!source) return null;
   const name = sourceName(source);
   const when = at ? ` · ${String(at).slice(0, 10)}` : "";
@@ -7465,6 +7465,7 @@ export function FieldSourceTag({ source, at, note, onOpen, openLabel }) {
       </span>
     );
   }
+  const does = openLabel || t("common.field.source.open.tip");
   return (
     <button
       type="button"
@@ -7472,7 +7473,18 @@ export function FieldSourceTag({ source, at, note, onOpen, openLabel }) {
       data-src={data}
       // The tooltip says what pressing it does, because the mark alone reads as
       // a label and a label is not something anybody tries to press.
-      title={`${openLabel || t("common.field.source.open.tip")} — ${said}${when}`}
+      title={`${does} — ${said}${when}`}
+      // AND SO DOES THE ACCESSIBLE NAME. The mark is decorative and the only
+      // text inside is the sr-only supplier, so without this a screen reader
+      // announced "Google Books, button" — indistinguishable from the label this
+      // must not be mistaken for. A tooltip is not an accessible name, and every
+      // FieldIconButton beside it carries an explicit one.
+      aria-label={`${does} — ${said}`}
+      // A TAKE DURING A MASTER SAVE is two writers on one record: the panel's ✓
+      // is collecting every open row while this would rewrite one field from a
+      // supplier. The pencil two lines below has always been gated on the same
+      // flag; the tag was not, because it was not pressable.
+      disabled={!!disabled}
       onClick={onOpen}
     >
       {inside}

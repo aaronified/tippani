@@ -66,8 +66,10 @@ const openLinks = async () => {
 // row pretending to be a link.
 const openPaste = async () => {
   await openLinks()
-  // The header verb, not the empty state's button — this record has links.
-  fireEvent.click(screen.getByRole('button', { name: /^Paste a link$/i }))
+  // The header verb, not the empty state's button — this record has links. It is
+  // "Add a link" and not "Paste a link" since the panel gained the derived list:
+  // pasting is one of the two ways in behind that one verb, not the verb itself.
+  fireEvent.click(screen.getByRole('button', { name: /^Add a link$/i }))
   // The panel is named after the verb too, so the box is asked for by tag.
   return waitFor(() => {
     const el = document.querySelector('.tp-panel input.tp-input')

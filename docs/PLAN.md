@@ -2334,7 +2334,9 @@ The rename's blast radius is the larger one: `metadata.ReplaceCredit` matches a 
 
 **Free text and not a `work_link` table.** A table would let a link carry its own provenance and ordering, and would also make "any site on any record" a vocabulary somebody has to extend before a reader can paste a URL. One column, one parser (`parseLinks`), one merge and one panel shape for people, characters and works; three shapes would be three chances to disagree about what a stored link is. Capped at 4000 characters where a person's is not, because this one is pasted into a box rather than assembled from a fetch.
 
-**WHAT IS NOT BUILT, and it is in the source as well.** The pack's per-link provenance (`auto` · `you`) is absent. Nothing fetches a WORK's links yet — a person's are assembled from a lookup, a work's are all pasted — so a tag on every row would print the same word every time, which is not a tag. The column is the same free text a person's is, so the distinction can be drawn the day something fetches them.
+**WHAT IS NOT BUILT, and it is in the source as well.** The pack's per-link provenance (`auto` · `you`) is absent. Nothing fetches a WORK's links yet — a person's are assembled from a lookup, a work's are all pasted — so a tag on every row would print the same word every time, which is not a tag. The column is the same free text a person's is, so the distinction can be drawn the day something fetches them. **The pack's other unbuilt clause, the list you pick a provider from, is built — see the entry at the end of this document**, and it is what makes the provenance question live: a derived page is one the app wrote.
+
+**AND THE LOOKUP AND COVER ROWS KEEP THEIR BARE SUPPLIER NAMES**, which is a decision rather than a gap. A source mark is recognised without being read, and that is worth paying a licence for where the reader is SCANNING for a supplier among many — every field of a record, four columns of a diff, a list of pages to add. A lookup candidate and a cover thumbnail each name one supplier, once, on a row already being read for its own sake; there the name is not a thing to find, it is a caption. Marks everywhere would spend the recognition they buy.
 
 **And it uncovered one.** `staged_works` had no `publisher`, so a game's publisher was lost between the parse and the approval — read by the importer, storable in `movies`, and dropped in the queue between them, with a successful import and matching counts to say nothing had happened. That is 0042's own defect class arriving one layer down. Fixed with the links, and tested by importing a catalogue export of a game.
 
@@ -9663,7 +9665,7 @@ can check the verdict rather than trust it.*
 | --- | --- | --- |
 | 1.1 | Details is a form, not a corridor of sheets | **built.** `WorkDetails.jsx`'s spec list is the pack's order exactly — title · subtitle · people · description · genres · year · language · publisher · series · pages · isbn · links — and the four fields the pack exempts (description, genres, people, cover) are the four carrying `sheet: true` or their own `kind` |
 | 1.2 | metadata source is per field | **built**, and the cast list joined it this release. The last clause — tapping a tag opens that field's candidates — is **built too now**; see "The door behind a field's mark" |
-| 1.3 | links out, on works and people | **built** for paste-and-parse, the globe, and the two provenances. **Appending a provider by picking it from a list is not** — and is on the prototype's own Part 4 as unbuilt there too |
+| 1.3 | links out, on works and people | **built** for paste-and-parse, the globe, and the two provenances. Appending a provider by picking it from a list is **built too now**, though not as the pack draws it; see "The list you pick a link from" |
 | 1.4 | a picture is not a field | **built.** `CoverPicker.jsx`'s `resLabel` measures `naturalWidth`/`naturalHeight` and inks below the floor, which is the part of the pack most easily faked and was not |
 | 1.5 | quotes carry their speaker | **stored and never shown.** 0056 gave `annotations` and `dialogues` a `speaker_cast_id` into `work_cast`, 0059 added the person columns beside it, and the trash and merge both maintain them — but the column is not serialised by any handler, so no client can draw the chip. The data has been right for three migrations and the feature does not exist |
 | 1.6 | books have characters | **built.** `CastSection` serves both sides; the fetch is the only film-only part |
@@ -9682,9 +9684,10 @@ handler field and a chip, not a feature. §1.2's tap is second, and is also most
 draws the candidates side by side. §1.3's provider list is third and is the only one that
 is genuinely new work.
 
-**Two of the three are now closed** — §1.5's chip and §1.2's tap, each with its own entry
-below. §1.2 turned out NOT to be mostly a door, and the sentence above was wrong about
-why: see that entry. §1.3's provider list is still open.
+**All three are now closed**, each with its own entry below. §1.2 turned out NOT to be
+mostly a door, and the sentence above was wrong about why: see that entry. §1.3 is built
+but deliberately not as the pack draws it, which is its entry's whole argument. That
+leaves 1.11 and 1.12's help placement, which are a render and a ruling rather than work.
 
 **Two rows are honestly unfinished rather than answered**, and are left saying so: 1.11,
 and the help placement in 1.12. Both need the screen rather than the source, and a
@@ -9919,3 +9922,55 @@ second of the three gaps the prototype sweep named.
 `web/frontend/src/fieldOffers.jsx` · `ui.jsx` · `WorkDetails.jsx` · `ReverifyReview.jsx` ·
 `index.css` · `internal/i18n/{en,bn}.txt` · `test/pure/offers-fields.test.js` ·
 `test/dom/field-offers.test.jsx` · `internal/httpapi/field_offers_test.go`</sub>
+
+### The list you pick a link from, and the roster it is deliberately not
+
+*The owner's ask: "complete 1.3, the provider list."* handoff §1.3's last clause, and the
+third of the three gaps the prototype sweep named — the one it called "the only one that is
+genuinely new work".
+
+- **THE PACK ASKS FOR A LIST OF PROVIDERS AND §1.3 ALREADY REFUSED ONE.** The entry above
+  says it in capitals: *the list is what is added, not what exists* — no fixed roster with
+  "not linked" beside half of it, because a panel made mostly of absences decides for the
+  reader which sites their record may have and is wrong about it. Twelve marks with eight
+  of them inert is exactly that panel. So the clause could be built as drawn or built as
+  meant, and it is built as meant.
+- **A RECORD PINNED TO TheTVDB HAS A TheTVDB PAGE.** The id is sitting in the row. Making
+  the reader open a browser, find the title and copy the address back is the app declining
+  to do arithmetic it can do — and it is the same arithmetic the Details id rows have been
+  doing since they learned to draw a number as a link. So the list is DERIVED: every site
+  the record's own pinned ids can address, in the app's own provider order, minus what is
+  already linked. A site with no id in the row is not in the list, so there is nothing inert
+  in it and nothing for the reader to read past.
+- **SOME SITES ARE ABSENT AND EACH FOR ITS OWN REASON**, written down because the next
+  reader will otherwise "finish the table" with a template that looks plausible.
+  Letterboxd and IGDB address a record by SLUG while the row stores a number — IGDB's API
+  gives an id and its website wants `/games/dune`, and a guessed slug is a 404 that looks
+  like a link. A work stores no Wikipedia, Wikidata or Wikimedia id at all: a person's
+  arrive from a lookup and live in their own column, and a work's would have to be searched
+  for, which produces a result rather than an address. And Amazon's marketplace is an admin
+  setting this panel cannot see, so `.com` for a reader who buys on `.co.uk` is a real page
+  for a different edition — wrong in the way that looks right. All four remain one paste
+  away, which is the point of the box being untouched.
+- **THE FANDOM OFFER IS THE WIKI AND NOT A PAGE ON IT.** 0055 remembers which wiki a work
+  lives on and nothing stores its article title. The front page is the honest answer and the
+  one the reader wanted — "the fandom wiki for this" — with its search box one press away; a
+  derived article slug would be a guess wearing a mark.
+- **IT IS INSIDE THE ADD PANEL, NOT A SECOND HEADER VERB.** §1.12 allows a panel one verb
+  and Links spends it on `+`. Two ways to add a link are not two verbs — they are one verb
+  done two ways — so both live behind the one press that means "add", cheap way first. This
+  also settles §1.11 for this panel: pressing a derived page is a whole decision with
+  nothing left to type, so it appends and pops.
+- **ONE TABLE, AND THERE WERE ABOUT TO BE TWO.** The Details rows for a TMDB, TheTVDB or
+  IMDb id each carried their template inline. `providerURL` is the one writer of a provider
+  address now and those three specs call it, so "where does TheTVDB keep a series" has one
+  answer in the codebase rather than two that agree until one is edited.
+- **The rater's three non-defect findings are recorded rather than fixed.** A field with no
+  provenance row still has no door (faithful to §1.2's "tapping *it*", and now said in the
+  changelog); the lookup and cover rows keep bare supplier names, argued in the entry above;
+  and the pack's `auto` · `you` per-link provenance stays unbuilt, though a derived page is
+  the first work link the app itself wrote, so the question is now live.
+
+<sub>Unreleased — `web/frontend/src/workLinks.jsx` · `WorkDetails.jsx` · `index.css` ·
+`internal/i18n/{en,bn}.txt` · `scripts/glossary/catalogue.js` ·
+`test/pure/provider-urls.test.js` · `test/dom/link-suggest.test.jsx`</sub>
