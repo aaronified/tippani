@@ -379,11 +379,11 @@ The button-grammar rule is in §5.4. These are the words.
 
 | English | Bengali | Note |
 | --- | --- | --- |
-| quiz | প্রশ্নোত্তর | v3.6 — the owner's ruling; কুইজ retired |
-| Daily quiz | দৈনিক প্রশ্নোত্তর | v3.6 — the owner reversed the "not দৈনিক" rule below |
-| Practice (the named mode) | অনুশীলন | v3.6 — the section is named অনুশীলন; the verb stays ঝালিয়ে নিন |
+| quiz | অনুশীলনী | v3.7 — কুইজ, then প্রশ্নোত্তর, now অনুশীলনী: the exercise set as a whole. প্রশ্নোত্তর is now one of its two card types |
+| Daily quiz | দৈনিক অনুশীলনী | v3.6 — the owner reversed the "not দৈনিক" rule below |
+| Practice (the named mode) | ঝালাই | v3.7 — প্র্যাকটিস, then অনুশীলন, now ঝালাই, because অনুশীলন went to Review. The verb stays ঝালিয়ে নিন |
 | practise (the verb on a button) | ঝালিয়ে নিন | **Bengali wins here.** `en.txt` says the Practice/Practise split is one "no other language can reproduce" — Bengali reproduces it exactly, with a noun for the mode and a native verb for the act |
-| review (the schedule, the deck) | রিভিশন | What every Bengali student calls precisely this |
+| review (the schedule, the deck) | অনুশীলন | v3.7 — রিভিশন retired, then রুটিন. The schedule itself is দিনপঞ্জি, so "review schedule" is অনুশীলনের দিনপঞ্জি |
 | deck | ডেক | |
 | card | কার্ড | |
 | streak | টানা | *টানা 12 দিন* |
@@ -1168,3 +1168,54 @@ the set of contributors is ever added, that is its word.
 **টি is not banned.** খুঁটিনাটি, ছুটির, সৃষ্টি, পোড়ামাটি and the verb টিকে থাকা all contain
 the syllable and none is a classifier. The sweep was written word by word for exactly that
 reason, and the seventeen forms it touched are listed in the commit.
+
+### v3.7a The three-way split, and why it took four rulings
+
+The owner asked the right question — if অনুশীলন is the noun and ঝালিয়ে নিন the verb, what is
+left for রিভিশন to do? — and the answer turned out to be a whole vocabulary rather than one
+word. The app has **three** things where English has two names and one of them is overloaded:
+
+| The thing | English | Bengali |
+| --- | --- | --- |
+| The exercise set the app deals you | Quiz / Daily quiz | **অনুশীলনী** |
+| The spaced-repetition system both draw on | Review | **অনুশীলন** |
+| The schedule inside it | schedule | **দিনপঞ্জি** |
+| The unlimited, skippable twin | Practice | **ঝালাই** |
+| Doing it to one book, from its menu | practise | **ঝালিয়ে নিন** |
+| The card type that asks a question | Multiple choice | **প্রশ্নোত্তর** |
+| The card type that blanks a phrase | Fill in the blank | **শূন্যস্থান পূরণ** |
+
+Review could not fold into Practice, and one string proves it: `home.practice.info.body`
+says Practice *leaves your review schedule alone*. Collapse the two and that sentence
+contradicts itself. অনুশীলন and অনুশীলনী are one letter apart and mean the right two things
+— the discipline, and the exercise set — which is why the owner's split works where a
+translator's would not have.
+
+Three sites needed more than a substitution, and they are the ones to watch if this is ever
+swept again:
+
+- `common.status.unseen.label` "Not yet reviewed" → **এখনও অনুশীলনে ওঠেনি**. অনুশীলন হয়নি is
+  not Bengali; a card has not yet *come up*.
+- `home.daily.empty.summary` "add or review more quotes" → the verb, **ঝালিয়ে নিন**.
+- `stats.activity.quiz.noun` "reviewed" → **অনুশীলন**, a bare noun beside its siblings জমা
+  and ঝালাই. দিনপঞ্জি cannot be counted: *ক্যালেন্ডার · 42 দিনপঞ্জি* is not a sentence.
+
+`common.action.fill.label` finally moved too. "Fill gaps" and the cloze card had both ended
+up as শূন্যস্থান পূরণ, which put a metadata fetch on the selection bar under the name of a
+quiz card. It is **ঘাটতি ভরান** now — ঘাটতি is already `metadata.coverage.title`'s word for
+exactly what it fills.
+
+### v3.7b The names that are not translations
+
+Eight Appearance textures, and the owner rejected the dictionary answer for five of them:
+**ইস্কুল** not বিদ্যালয় (a texture named after a place wants the spoken word), **খাদান** not
+পাথরখাদান, **তাঁতঘর** not শিল্পশালা, **বাঁধাইয়ের দোকান** not বাঁধাইখানা, **চলচ্চিত্রের রিল**
+not ফিল্ম সংযোজন. পাণ্ডুলিপি, অফিস and অলিন্দ stood.
+
+Four more section names went the same way: **রূপচর্চা** for Appearance, **নকশা** for Material,
+**যন্ত্রপাতি** for Devices — the loanword rule does not reach that one — and **কী বদলেছে**
+for the Changelog, which is what a changelog is for.
+
+The full register is recorded in `docs/PLAN.md` under "The Bengali names, as the owner ruled
+them", because a naming decision is the one design choice a later session cannot re-derive
+from the code.

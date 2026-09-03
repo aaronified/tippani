@@ -121,7 +121,7 @@ locale.pseudo.name = সিউডো
 
 nav.tab.home.label = হোম
 # Hover label on the desktop strip, which collapses to icons.
-nav.tab.home.tip = আজকের রিভিশন
+nav.tab.home.tip = আজকের অনুশীলন
 nav.tab.library.label = গ্রন্থাগার
 nav.tab.library.tip = বইয়ের সংগ্রহ
 # The films / shows / games section. Its URL is /catalogue.
@@ -144,7 +144,7 @@ nav.tab.search.label = খোঁজ
 
 # The floating phone nav is icon-only, so each row's name is read aloud rather
 # than shown.
-nav.bottom.home.aria = হোমে যান, আজকের রিভিশনে
+nav.bottom.home.aria = হোমে যান, আজকের অনুশীলনে
 
 # The info-dot body under each switch in Settings → Features, saying what the
 # section you are about to hide actually holds.
@@ -479,7 +479,7 @@ common.info.dot.aria = আরও জানুন: {name}
 common.kbd.then.label = তারপর
 # The word between the two caps of one quiz action in the shortcut sheet, where the
 # daily key is followed by the Practice one. Lower case: it labels a cap, not a row.
-common.kbd.practice.label = অনুশীলন
+common.kbd.practice.label = ঝালাই
 
 # --- help, from any screen.
 common.help.sheet.title = সাহায্য
@@ -496,7 +496,7 @@ common.help.button.aria = সাহায্য: {name}
 common.status.remembered.label = মনে আছে
 common.status.forgetting.label = ভুলছেন
 common.status.probably-forgotten.label = সম্ভবত ভুলে গেছেন
-common.status.unseen.label = এখনও রিভিশন হয়নি
+common.status.unseen.label = এখনও অনুশীলনে ওঠেনি
 # {name} is the state above, {detail} the clause after it.
 common.status.tip = {name} · {detail}
 common.status.new.detail = এই সপ্তাহে যোগ হয়েছে
@@ -522,8 +522,8 @@ common.slider.days.format.other = {n} দিন
 # --- the struck flash card on a row the quiz will not draw. {kind} is the word
 # for the work it hangs off — book, film, show.
 # bn: সমেত attaches to a bare hole; {kind}-এর সঙ্গে would need a marker the frame cannot see.
-common.quiz-skip.with-work.label = {kind} সমেত প্রশ্নোত্তরে নেই
-common.quiz-skip.alone.label = প্রশ্নোত্তরে নেই
+common.quiz-skip.with-work.label = {kind} সমেত অনুশীলনীতে নেই
+common.quiz-skip.alone.label = অনুশীলনীতে নেই
 
 # --- covers and posters.
 common.cover.alt = কভার: {title}
@@ -650,7 +650,7 @@ shell.error.boundary.named.body = {name} — বাকি অ্যাপটা 
 shell.shortcuts.title = কীবোর্ড শর্টকাট
 shell.shortcuts.intro.prose = এখানকার প্রতিটা শর্টকাট সেই বোতামের গায়েও লেখা থাকে, যে বোতাম একই কাজ করে — তাই মুখস্থ না রাখলেও চলে। কিছু টাইপ করার সময় শর্টকাট কাজ করে না।
 # {mode} is the name of the Practice mode, in bold; {key} is a drawn key cap.
-shell.shortcuts.practice.prose = প্রশ্নোত্তরের কার্ডে যে ধরনের প্রশ্ন, সেই ধরনের শর্টকাটেই কার্ডটা সাড়া দেয়। {mode} মোডে একই শর্টকাটের সঙ্গে {key} চেপে রাখতে হয় — দৈনিক ডেক আপনার নিজের রুটিন, তার নম্বর পাকা; তাই যে মোডে ঝুঁকি কম, বাড়তি আঙুলটা সেখানেই লাগে।
+shell.shortcuts.practice.prose = অনুশীলনীর কার্ডে যে ধরনের প্রশ্ন, সেই ধরনের শর্টকাটেই কার্ডটা সাড়া দেয়। {mode} মোডে একই শর্টকাটের সঙ্গে {key} চেপে রাখতে হয় — দৈনিক ডেক আপনার নিজের দিনপঞ্জি, তার নম্বর পাকা; তাই যে মোডে ঝুঁকি কম, বাড়তি আঙুলটা সেখানেই লাগে।
 
 # ---------------------------------------------------------------------------
 # unit.* — EVERY COUNTABLE NOUN'S FORMS, and nothing else. The only namespace
@@ -937,7 +937,7 @@ vocab.key.shift.label = Shift
 # ---------------------------------------------------------------------------
 shell.shortcut.group.anywhere.label = সব জায়গায়
 shell.shortcut.group.go-to.label = যাতায়াত
-shell.shortcut.group.mcq.label = বহুনির্বাচনী
+shell.shortcut.group.mcq.label = প্রশ্নোত্তর
 shell.shortcut.group.flip.label = উল্টে দেখার কার্ড
 shell.shortcut.group.cloze.label = শূন্যস্থান পূরণ
 shell.shortcut.search.label = খোঁজ
@@ -1166,9 +1166,9 @@ settings.colours.reset.tip = আগের রঙে ফিরুন
 
 # --- which quotes the quiz draws from. The chip names the SCREEN (nav.tab.*)
 # and the tooltip says what that screen's quotes are.
-settings.review-scope.title = রিভিশনে যা যা থাকবে
-settings.review-scope.info.title = রিভিশনে যা যা থাকবে
-settings.review-scope.info.body = দৈনিক প্রশ্নোত্তর আর অনুশীলন কোন কোন ধরনের উদ্ধৃতি থেকে প্রশ্ন তুলবে — দুটোর জন্য আলাদা করে। বক্তাও নেই, উপলক্ষও নেই — এমন উদ্ধৃতি ডেকে ঢোকে না, কারণ কথাগুলো ছাড়া মনে রাখার কিছু নেই। গত এক সপ্তাহে রাখা কিছুও ঢোকে না।
+settings.review-scope.title = অনুশীলনে যা যা থাকবে
+settings.review-scope.info.title = অনুশীলনে যা যা থাকবে
+settings.review-scope.info.body = দৈনিক অনুশীলনী আর ঝালাই কোন কোন ধরনের উদ্ধৃতি থেকে প্রশ্ন তুলবে — দুটোর জন্য আলাদা করে। বক্তাও নেই, উপলক্ষও নেই — এমন উদ্ধৃতি ডেকে ঢোকে না, কারণ কথাগুলো ছাড়া মনে রাখার কিছু নেই। গত এক সপ্তাহে রাখা কিছুও ঢোকে না।
 settings.review-scope.books.tip = বইয়ের উদ্ধৃতি
 settings.review-scope.movies.tip = সিনেমা, শো আর গেমের সংলাপ
 settings.review-scope.quotes.tip = ভাষণ, চিঠি, আর বাকি সব
@@ -1215,18 +1215,18 @@ settings.languages.name.label = ভাষার নাম
 settings.languages.name.placeholder = ইওরুবা, সোয়াহিলি, তামিল…
 
 # --- the quiz panel.
-settings.quiz.info.body = এগুলো দৈনিক প্রশ্নোত্তর আর অনুশীলন — দুটোকেই চালায়। কার্ড ফিরে আসার ফাঁকটা বাঁধা সিঁড়ি বেয়ে ওঠে — 7, 30, তারপর 100 দিন — ঠিক মনে করতে পারলে এক ধাপ, আর একবার ভুললেই সোজা 7-এ নেমে যায়।
-settings.quiz.per-day.label = দৈনিক প্রশ্নোত্তরে দিনে কটা কার্ড
+settings.quiz.info.body = এগুলো দৈনিক অনুশীলনী আর ঝালাই — দুটোকেই চালায়। কার্ড ফিরে আসার ফাঁকটা বাঁধা সিঁড়ি বেয়ে ওঠে — 7, 30, তারপর 100 দিন — ঠিক মনে করতে পারলে এক ধাপ, আর একবার ভুললেই সোজা 7-এ নেমে যায়।
+settings.quiz.per-day.label = দৈনিক অনুশীলনীতে দিনে কটা কার্ড
 settings.quiz.in-depth.label = খুঁটিনাটি সেটিংস
 settings.quiz.in-depth.tip = দুই ডেকের প্রতিটা প্রশ্ন-ধরন
-settings.quiz.panel.title = প্রশ্নোত্তরের খুঁটিনাটি
+settings.quiz.panel.title = অনুশীলনীর খুঁটিনাটি
 # {name} is the deck — Daily quiz, or Practice.
 settings.quiz.deck.title = {name} যা জিজ্ঞেস করে
 settings.quiz.deck.daily.info.body = দৈনিক ডেকের খাতা গোড়া থেকে শেষ পর্যন্ত সার্ভার দেখে, তাই নিজে-নম্বর-দেওয়ার কার্ড এখানে আসে না। সেই কারণেই উল্টে দেখার কার্ডটা এই তালিকায় বন্ধ করা নেই — একেবারেই নেই।
-settings.quiz.deck.practice.info.body = অনুশীলন শুরু হয় উল্টে দেখার কার্ড দিয়ে, বাকিগুলো ঘুরিয়ে ফিরিয়ে আসে। অনুশীলনে স্কোর চালু করলে ওই কার্ডটা বাদ পড়ে, কারণ নিজে দেওয়া নম্বর কেউ মিলিয়ে দেখে না।
-settings.quiz.practice-counts.title = অনুশীলনেও রুটিন বদলায়
-settings.quiz.practice-counts.aria = অনুশীলনেও রুটিন বদলায়
-settings.quiz.practice-counts.info.body = এমনিতে অনুশীলন শুধু ঝালিয়ে নেওয়ার জন্য। এটা চালু করলে অনুশীলনের ঠিক উত্তরও দৈনিক প্রশ্নোত্তরের মতোই স্মৃতির অর্ধায়ু বাড়িয়ে দেয়।
+settings.quiz.deck.practice.info.body = ঝালাই শুরু হয় উল্টে দেখার কার্ড দিয়ে, বাকিগুলো ঘুরিয়ে ফিরিয়ে আসে। ঝালাইয়ে স্কোর চালু করলে ওই কার্ডটা বাদ পড়ে, কারণ নিজে দেওয়া নম্বর কেউ মিলিয়ে দেখে না।
+settings.quiz.practice-counts.title = ঝালাইতেও দিনপঞ্জি বদলায়
+settings.quiz.practice-counts.aria = ঝালাইতেও দিনপঞ্জি বদলায়
+settings.quiz.practice-counts.info.body = এমনিতে ঝালাই শুধু ঝালিয়ে নেওয়ার জন্য। এটা চালু করলে ঝালাইয়ের ঠিক উত্তরও দৈনিক অনুশীলনীর মতোই স্মৃতির অর্ধায়ু বাড়িয়ে দেয়।
 settings.quiz.submit.title = প্রতিটা উত্তর নিশ্চিত করুন
 settings.quiz.submit.aria = প্রতিটা উত্তর নিশ্চিত করুন
 settings.quiz.submit.info.body = এমনিতে একবার ট্যাপ করলেই উত্তর জমা পড়ে যায়। এটা চালু করলে ট্যাপ মানে শুধু বেছে রাখা — মত বদলাতে পারেন, জমা পড়ে আলাদা বোতামে। উল্টে দেখার কার্ডে কিছু বদলায় না: ওখানে দেখা আর নম্বর দেওয়া এমনিতেই দুটো ধাপ।
@@ -1239,8 +1239,8 @@ settings.quiz.adaptive.ladder.label = সিঁড়ি
 settings.quiz.adaptive.on.label = অ্যাডাপ্টিভ
 settings.quiz.seen.title = চোখে পড়লে অর্ধায়ু বাড়ে
 settings.quiz.seen.label = চোখে পড়লে অর্ধায়ু বাড়ে
-settings.quiz.seen.info.body = উদ্ধৃতি “চোখে পড়া” বলতে — অনুশীলন করা, শেয়ার করা, প্রিয়তে রাখা, বা উত্তর দেওয়া কোনও কার্ডের বিকল্পগুলোর মধ্যে সেটাকে পাওয়া — তাতে অর্ধায়ু একটু বাড়ে, দৈনিক প্রশ্নোত্তরের হিসেবের বাইরে। 1.0×-এ রাখলে এটা বন্ধ থাকে।
-settings.quiz.tuning.title = রুটিন কীভাবে এগোয়
+settings.quiz.seen.info.body = উদ্ধৃতি “চোখে পড়া” বলতে — ঝালাই করা, শেয়ার করা, প্রিয়তে রাখা, বা উত্তর দেওয়া কোনও কার্ডের বিকল্পগুলোর মধ্যে সেটাকে পাওয়া — তাতে অর্ধায়ু একটু বাড়ে, দৈনিক অনুশীলনীর হিসেবের বাইরে। 1.0×-এ রাখলে এটা বন্ধ থাকে।
+settings.quiz.tuning.title = দিনপঞ্জি কীভাবে এগোয়
 settings.quiz.tuning.info.body = প্রতিটা উত্তরে এগুলো উদ্ধৃতির অর্ধায়ুকে গুণ করে, আর এদের সীমা বাঁধা: 1-এর কম গুণক থাকলে ঠিক উত্তরেও ফাঁক ছোট হয়ে যেত — দেখে গোলমাল বোঝা যেত না, শুধু একই উদ্ধৃতি চিরকাল ঘুরেফিরে আসত।
 settings.quiz.reset.label = আগের মতো করুন
 settings.quiz.reset.tip = এই প্যানেলের সব বদল ফিরিয়ে দিন
@@ -1258,7 +1258,7 @@ settings.labels.info.body = আইকনওয়ালা বোতাম প�
 settings.labels.auto.label = অটো
 
 # --- Appearance.
-settings.appearance.title = চেহারা
+settings.appearance.title = রূপচর্চা
 settings.appearance.theme.title = থিম
 settings.appearance.theme.light.label = হালকা
 settings.appearance.theme.dark.label = গাঢ়
@@ -1269,14 +1269,14 @@ settings.appearance.match.aria = সিস্টেমের থিম মেন
 # binding on a cover. Independent of light/dark -- every set works in both -- so
 # these are PLACES, not moods. Translate each as the room it is, not word for
 # word: the English is already the room's name rather than a description.
-settings.appearance.material.title = উপাদান
+settings.appearance.material.title = নকশা
 settings.material.manuscript.label = পাণ্ডুলিপি
-settings.material.film-assembly.label = ফিল্ম সংযোজন
+settings.material.film-assembly.label = চলচ্চিত্রের রিল
 settings.material.office.label = অফিস
-settings.material.school.label = স্কুল
-settings.material.atelier.label = শিল্পশালা
-settings.material.bindery.label = বাঁধাইখানা
-settings.material.quarry.label = পাথরখাদান
+settings.material.school.label = ইস্কুল
+settings.material.atelier.label = তাঁতঘর
+settings.material.bindery.label = বাঁধাইয়ের দোকান
+settings.material.quarry.label = খাদান
 settings.material.atrium.label = অলিন্দ
 settings.appearance.accent.title = অ্যাকসেন্ট
 # {name} is one of the vocab.accent.* words.
@@ -1676,8 +1676,8 @@ greeting.dateline.format = {weekday} · {date}
 # The two decks, named. "Practice" is the name of a FEATURE here, not the verb
 # on a button — that one is common.action.practise.label and will be a
 # different word.
-quiz.daily.label = দৈনিক প্রশ্নোত্তর
-quiz.practice.label = অনুশীলন
+quiz.daily.label = দৈনিক অনুশীলনী
+quiz.practice.label = ঝালাই
 
 # The five question types. .label is the row in Settings, .hint its info dot.
 quiz.question.source.label = কোন উৎস?
@@ -1685,7 +1685,7 @@ quiz.question.source.hint = উদ্ধৃতিটা দেখিয়ে �
 quiz.question.quote.label = কোন বাক্যটা?
 quiz.question.quote.hint = উল্টোটা: উৎসটা দেখিয়ে জিজ্ঞেস করে এই বাক্যগুলোর কোনটা সেখান থেকে এসেছে। চারটে থেকে বেছে নেওয়ার প্রশ্ন।
 quiz.question.cloze.label = শূন্যস্থান পূরণ
-quiz.question.cloze.hint = উদ্ধৃতির একটা টুকরো শূন্যস্থান করে দিয়ে সেটা টাইপ করতে বলে। সার্ভার মিলিয়ে দেখে, বানান বা যতিচিহ্নের ভুলে ছাড় দেয়। বহুনির্বাচনীর চেয়ে দাম বেশি, আর না পারলে খরচও কম।
+quiz.question.cloze.hint = উদ্ধৃতির একটা টুকরো শূন্যস্থান করে দিয়ে সেটা টাইপ করতে বলে। সার্ভার মিলিয়ে দেখে, বানান বা যতিচিহ্নের ভুলে ছাড় দেয়। প্রশ্নোত্তরের চেয়ে দাম বেশি, আর না পারলে খরচও কম।
 quiz.question.cloze-mcq.label = শূন্যস্থান পূরণ — বেছে নিয়ে
 quiz.question.cloze-mcq.hint = সেই একই শূন্যস্থান, তবে টাইপ করার বাক্সের বদলে চারটে টুকরো থেকে বেছে নিতে হয়। বাকি তিনটে আপনার নিজেরই অন্য উদ্ধৃতি থেকে কাটা সত্যিকারের টুকরো, তাই সেগুলোর মাপ আর ধরন একই রকম।
 quiz.question.speaker.label = কে বলেছে?
@@ -1693,7 +1693,7 @@ quiz.question.speaker.hint = যেখানেই বক্তা লেখা 
 quiz.question.author.label = কে লিখেছে?
 quiz.question.author.hint = শুধু বইয়ে — সিনেমার সংলাপ কে লিখেছেন সেটা কোথাও লেখা থাকে না, তাই সেখানে প্রশ্নটা কে বলেছে। ভুল উত্তরগুলো আসে এই বইয়ের সবচেয়ে কাছের বইগুলোর লেখকদের থেকে।
 quiz.question.flip.label = উল্টে নিজে বিচার
-quiz.question.flip.hint = উদ্ধৃতি দেখায়, তারপর উৎসটা খুলে দেখায়, আর জিজ্ঞেস করে মনে ছিল কি না। উত্তর কেউ মেলায় না, তাই এটা শুধু অনুশীলনে — আর অনুশীলনে স্কোর চালু করলে সেখান থেকেও বাদ যায়।
+quiz.question.flip.hint = উদ্ধৃতি দেখায়, তারপর উৎসটা খুলে দেখায়, আর জিজ্ঞেস করে মনে ছিল কি না। উত্তর কেউ মেলায় না, তাই এটা শুধু ঝালাইয়ে — আর ঝালাইয়ে স্কোর চালু করলে সেখান থেকেও বাদ যায়।
 # The two axes every question type sits on, appended to its tooltip: WHAT is
 # being asked, and HOW you answer it. Two questions sharing a class are the same
 # question asked two ways — which is what a flat row of chips cannot show.
@@ -1717,7 +1717,7 @@ quiz.tuning.grow.hint = শুধু অ্যাডাপ্টিভ ফাঁ
 quiz.tuning.shrink.label = ভুল হলে কমে
 quiz.tuning.shrink.hint = শুধু অ্যাডাপ্টিভ ফাঁকে। ভুল হলে অর্ধায়ু গোড়ায় না ফিরে এই সংখ্যায় গুণ হয় — 0.5 মানে অর্ধেক। 1 বা তার বেশি রাখা যায় না, তাতে ভুলে গেলে উল্টে ফাঁক বেড়ে যেত।
 quiz.tuning.cloze-grow.label = টাইপ করা উত্তরে বাড়ে
-quiz.tuning.cloze-grow.hint = শূন্যস্থান পূরণে ভরসা করার কিছু থাকে না, অথচ বহুনির্বাচনীতে চার ভাগের তিন ভাগ কাজ আগেই করা থাকে। ঠিক হলে টাইপ করা উত্তরের দাম তাই কতটা বেশি — সেটাই এই সংখ্যা।
+quiz.tuning.cloze-grow.hint = শূন্যস্থান পূরণে ভরসা করার কিছু থাকে না, অথচ প্রশ্নোত্তরে চার ভাগের তিন ভাগ কাজ আগেই করা থাকে। ঠিক হলে টাইপ করা উত্তরের দাম তাই কতটা বেশি — সেটাই এই সংখ্যা।
 quiz.tuning.cloze-shrink.label = আর ভুল হলে খরচ
 quiz.tuning.cloze-shrink.hint = অন্য অর্ধেকটা, আর এটাই একে উদার না করে ন্যায্য করে: ডেকের সবচেয়ে কঠিন প্রশ্নে আটকে যাওয়া উদ্ধৃতি ভুলে যাওয়ার দুর্বল প্রমাণ, কিন্তু চারটের মধ্যে চিনতে না পারা জোরালো প্রমাণ।
 quiz.tuning.cloze-synonym.label = সমার্থক শব্দের দাম
@@ -1814,16 +1814,16 @@ common.action.share.tip = {subject} শেয়ার করুন
 common.action.edit.tip = {subject} এডিট করুন
 common.action.delete.tip = {subject} মুছুন
 # Fetch only what is MISSING and touch nothing else.
-common.action.fill.label = শূন্যস্থান পূরণ
+common.action.fill.label = ঘাটতি ভরান
 common.action.fill.tip = ফাঁকা ঘরগুলো ভরান
 # While it is fetching.
 # A themed quiz round over one book or one title.
 common.action.practise.tip = {subject} নিয়ে ঝালিয়ে নিন
 # The quiz toggle, which flips to name what pressing it will do.
-common.action.review.add.label = প্রশ্নোত্তরে দিন
-common.action.review.add.tip = আবার প্রশ্নোত্তরে ফেরান
-common.action.review.skip.label = প্রশ্নোত্তর থেকে বাদ দিন
-common.action.review.skip.tip = প্রশ্নোত্তরের বাইরে রাখুন
+common.action.review.add.label = অনুশীলনীতে দিন
+common.action.review.add.tip = আবার অনুশীলনীতে ফেরান
+common.action.review.skip.label = অনুশীলনী থেকে বাদ দিন
+common.action.review.skip.tip = অনুশীলনীর বাইরে রাখুন
 # The other flipping pair: .on when the row is NOT a favourite yet, .off when
 # it already is. Bengali negation is a different construction, so both are keys.
 common.action.favourite.menu.on.label = প্রিয়তে রাখুন
@@ -1878,8 +1878,8 @@ common.selection.toast.fields-set.one = 1টা রেকর্ড বদলা�
 common.selection.toast.fields-set.other = {n}টা রেকর্ড বদলাল
 common.selection.toast.favourited = {n}টা প্রিয়তে গেল
 common.selection.toast.moved = {n}টা পাঠানো হল
-common.selection.toast.back-in-quiz = আবার প্রশ্নোত্তরে
-common.selection.toast.skipping = {n}টা প্রশ্নোত্তর থেকে বাদ
+common.selection.toast.back-in-quiz = আবার অনুশীলনীতে
+common.selection.toast.skipping = {n}টা অনুশীলনী থেকে বাদ
 # Gathering into an anthology. A quote already there is SKIPPED, not an error,
 # so the second form reports both numbers rather than claiming they all landed.
 common.selection.toast.gathered = {n}টা জড়ো হল
@@ -2008,7 +2008,7 @@ error.validate.name-blank = নাম দিতে হবে
 
 # Step "welcome".
 tour.step.welcome.title = টিপ্পনীতে স্বাগত
-tour.step.welcome.prose = রেখে দেওয়ার মতো বাক্যগুলোর ঠিকানা টিপ্পনী — বইয়ের উদ্ধৃতি আর সিনেমার সংলাপ, সঙ্গে কভার, ট্যাগ, সঙ্গে সঙ্গে খোঁজ আর দৈনিক স্মৃতির প্রশ্নোত্তর। এই ট্যুরে ফিচারগুলো একটা একটা করে দেখানো হবে।
+tour.step.welcome.prose = রেখে দেওয়ার মতো বাক্যগুলোর ঠিকানা টিপ্পনী — বইয়ের উদ্ধৃতি আর সিনেমার সংলাপ, সঙ্গে কভার, ট্যাগ, সঙ্গে সঙ্গে খোঁজ আর দৈনিক স্মৃতির অনুশীলনী। এই ট্যুরে ফিচারগুলো একটা একটা করে দেখানো হবে।
 tour.step.welcome.more = “পরেরটা” এক ধাপ এগোয়, “ট্যুর বাদ দিন” এখানেই থামিয়ে দেয়, আর “বাকিটা পরে” জায়গাটা মনে রাখে — সেটিংস → প্রথম পরিচয়-এ আবার ধরার বোতাম থাকে। এর জন্য আপনার কোনও ফাইল লাগে না: সব উদাহরণ ভিতরেই আছে। উপরের বারে একটা “?” আছে — যে স্ক্রিনে থাকুন, সেখানকার প্রতিটা বোতাম কী করে তার তালিকা ওখানে। এই ট্যুর এক নজরে দেখা, ওটা দরকারমতো দেখে নেওয়ার জায়গা।
 
 # Step "add".
@@ -2042,14 +2042,14 @@ tour.step.share.blurb = শেয়ার প্যানেল (WhatsApp/Markd
 tour.step.share.title = একটা বাক্য শেয়ার করুন, গোটাটা এক্সপোর্ট
 tour.step.share.prose = যে কোনও উদ্ধৃতি এক ট্যাপে শেয়ার হয় — লেখা হিসেবে, নয়তো আপনার নিজের সাজে আঁকা {em1} হিসেবে।
 tour.step.share.em1.label = ছবির কার্ড
-tour.step.share.more = শেয়ারের ফরম্যাট: পুরোদস্তুর Markdown, WhatsApp, সাধারণ লেখা বা Reddit — সঙ্গে একটা ছবি, যেটা এই ডিভাইসেই আঁকা হয় (কোথাও আপলোড হয় না) আর তৈরি হতে হতে চোখের সামনেই দেখা যায়। এক্সপোর্ট যত ছোট বা বড় খুশি — একটা বই বা সিনেমা, ফিল্টার করা একগুচ্ছ, বা গোটা গ্রন্থাগার — Obsidian-এ খাপ খাওয়া Markdown হিসেবে, যা ইমপোর্টে ফিরিয়ে দিলে অবিকল ফিরে আসে।
+tour.step.share.more = শেয়ারের ফরম্যাট: পুরোদস্তুর Markdown, WhatsApp, সাধারণ লেখা বা Reddit — সঙ্গে একটা ছবি, যেটা এই যন্ত্রপাতিতেই আঁকা হয় (কোথাও আপলোড হয় না) আর তৈরি হতে হতে চোখের সামনেই দেখা যায়। এক্সপোর্ট যত ছোট বা বড় খুশি — একটা বই বা সিনেমা, ফিল্টার করা একগুচ্ছ, বা গোটা গ্রন্থাগার — Obsidian-এ খাপ খাওয়া Markdown হিসেবে, যা ইমপোর্টে ফিরিয়ে দিলে অবিকল ফিরে আসে।
 
 # Step "quiz".
-tour.step.quiz.name = দৈনিক প্রশ্নোত্তর আর অনুশীলন
+tour.step.quiz.name = দৈনিক অনুশীলনী আর ঝালাই
 tour.step.quiz.blurb = নিজের উদ্ধৃতি নিয়ে ফাঁক রেখে পুনরাবৃত্তি — ভুলতে শুরু করলেই কার্ড আবার সামনে আসে
 tour.step.quiz.title = দৈনিক অভ্যাস
-tour.step.quiz.prose = হোম রোজ নিজের উদ্ধৃতি নিয়ে ছোট একটা প্রশ্নোত্তর সাজিয়ে দেয় — ভুলতে শুরু করার ঠিক মুখেই কার্ডটা আবার সামনে এসে পড়ে। দিনে দু-তিন মিনিট।
-tour.step.quiz.more = প্রতিটা উদ্ধৃতির গায়ে স্মৃতির ডট — মনে আছে, ভুলছেন, না সম্ভবত ভুলে গেছেন — আর সৎ উত্তরই ওটাকে নাড়ায়। অনুশীলন তার যমজ: যত খুশি চলে, যে কোনও কার্ড বাদ দেওয়া যায়, নিজের আলাদা স্কোর রাখে, আর এমনিতে রিভিশনের রুটিনে হাত দেয় না। কটা কার্ড, কভার দেখাবে কি না, একবার চোখে পড়লে অর্ধায়ু কতটা বাড়বে — সবই সেটিংসে।
+tour.step.quiz.prose = হোম রোজ নিজের উদ্ধৃতি নিয়ে ছোট একটা অনুশীলনী সাজিয়ে দেয় — ভুলতে শুরু করার ঠিক মুখেই কার্ডটা আবার সামনে এসে পড়ে। দিনে দু-তিন মিনিট।
+tour.step.quiz.more = প্রতিটা উদ্ধৃতির গায়ে স্মৃতির ডট — মনে আছে, ভুলছেন, না সম্ভবত ভুলে গেছেন — আর সৎ উত্তরই ওটাকে নাড়ায়। ঝালাই তার যমজ: যত খুশি চলে, যে কোনও কার্ড বাদ দেওয়া যায়, নিজের আলাদা স্কোর রাখে, আর এমনিতে অনুশীলনের দিনপঞ্জিতে হাত দেয় না। কটা কার্ড, কভার দেখাবে কি না, একবার চোখে পড়লে অর্ধায়ু কতটা বাড়বে — সবই সেটিংসে।
 
 # Step "search".
 tour.step.search.name = সঙ্গে সঙ্গে খোঁজ
@@ -2079,7 +2079,7 @@ tour.step.metadata.more = ঘাটতির টাইলগুলোই ফি�
 tour.step.stats.name = পরিসংখ্যান
 tour.step.stats.blurb = কবে কী তুলেছেন তার ক্যালেন্ডার, স্মৃতির হাল, আর লেখক/অভিনেতা/পরিচালক/ট্যাগে কে কত
 tour.step.stats.title = সংখ্যায় আপনার গ্রন্থাগার
-tour.step.stats.prose = কবে কী তুলেছেন তার ক্যালেন্ডার, প্রশ্নোত্তর থেকে পাওয়া স্মৃতির হাল, আর গ্রন্থাগার যাঁদের আর যে ট্যাগগুলোর উপর ভর দিয়ে দাঁড়িয়ে।
+tour.step.stats.prose = কবে কী তুলেছেন তার ক্যালেন্ডার, অনুশীলনী থেকে পাওয়া স্মৃতির হাল, আর গ্রন্থাগার যাঁদের আর যে ট্যাগগুলোর উপর ভর দিয়ে দাঁড়িয়ে।
 tour.step.stats.more = এই স্ক্রিনের সবই দরজা, নিছক হিসেব নয়: ক্যালেন্ডারের একটা ডটে ট্যাপ করলে সেদিন যা যা যোগ হয়েছিল তা খোঁজে খুলে যায়, আর বই, লেখক, অভিনেতা, পরিচালক বা ট্যাগ — সবই একই ভাবে ট্যাপ করে খোলা যায়।
 
 # Step "appearance".
@@ -2490,7 +2490,7 @@ share.format.reddit.what = Reddit-এর markdown (পুরনো আর নত
 share.format.reddit.hint = **bold**  *italic*  ~~strike~~  > quote  [text](url)
 # The picture has no syntax to describe, so its help says what the thing IS.
 share.format.image.name = ছবি
-share.format.image.what = উদ্ধৃতিটার একটা ছবি — চারটে সাজের যেটা বাছবেন, সেই সাজে, এই ডিভাইসেই আঁকা। কিছুই আপলোড হয় না, যিনি কথাটা বলেছেন তাঁর ছবিও ডিভাইস ছেড়ে কোথাও যায় না। নিচে যা যা চান টিক দিন, তারপর ডাউনলোড করুন বা সোজা ক্লিপবোর্ডে কপি করুন।
+share.format.image.what = উদ্ধৃতিটার একটা ছবি — চারটে সাজের যেটা বাছবেন, সেই সাজে, এই যন্ত্রপাতিতেই আঁকা। কিছুই আপলোড হয় না, যিনি কথাটা বলেছেন তাঁর ছবিও যন্ত্রপাতি ছেড়ে কোথাও যায় না। নিচে যা যা চান টিক দিন, তারপর ডাউনলোড করুন বা সোজা ক্লিপবোর্ডে কপি করুন।
 
 # THE TICK LABELS under "include" — one per part of the quote the reader can
 # keep or drop. They name the same columns the forms do, but they are the
@@ -2563,8 +2563,8 @@ share.image.theme.info.body = ছবিটা দেখতে কেমন হ�
 # differs in the drawing.
 share.image.theme.light.label = হালকা
 share.image.theme.dark.label = গাঢ়
-share.image.material.label = উপাদান
-share.image.material.aria = ছবির উপাদান
+share.image.material.label = নকশা
+share.image.material.aria = ছবির নকশা
 # How a credited person appears. Offered only when somebody credited has a photo.
 share.image.facekind.label = মুখ
 share.image.facekind.aria = কার ছবি কার্ডে আঁকা হবে
@@ -2607,7 +2607,7 @@ common.action.copy.done.label = কপি হয়েছে ✓
 common.toast.copied = কপি হয়েছে
 
 error.copy.generic = কপি করা গেল না
-error.render.image = এই ডিভাইসে ছবিটা আঁকা গেল না
+error.render.image = এই যন্ত্রপাতিতে ছবিটা আঁকা গেল না
 
 # ---------------------------------------------------------------------------
 # THE QUIZ CARD (review.jsx)
@@ -2673,7 +2673,7 @@ quiz.grade.got.label = পেরেছি
 quiz.leech.count.label = {n} বার ভুলে গেছেন
 quiz.leech.keep.label = জিজ্ঞেস করতে থাকুক
 quiz.leech.aside.action.label = সরিয়ে রাখুন
-quiz.leech.aside.label = প্রশ্নোত্তরের বাইরে
+quiz.leech.aside.label = অনুশীলনীর বাইরে
 
 # The verdict after an answer. A flip card was not right or wrong — it was
 # recalled or it was not, and the READER said so, which is why it gets its own
@@ -2714,7 +2714,7 @@ common.toast.saved = সেভ হয়েছে
 # the shipped English used a contraction at these two sites and this pass is a
 # migration rather than a copy edit — collapse them if the copy is ever revised.
 error.save.quiz-card = সেভ করা গেল না
-error.save.quiz-answer = সেভ করা গেল না — এই উত্তরটা রিভিশনের হিসেবে ধরা হবে না
+error.save.quiz-answer = সেভ করা গেল না — এই উত্তরটা দিনপঞ্জির হিসেবে ধরা হবে না
 error.load.quiz-card = এই উদ্ধৃতিটা আনা গেল না
 error.setaside.generic = সরিয়ে রাখা গেল না
 
@@ -2724,17 +2724,17 @@ error.setaside.generic = সরিয়ে রাখা গেল না
 # ---------------------------------------------------------------------------
 
 # THE DAILY QUIZ CARD.
-home.daily.title = দৈনিক প্রশ্নোত্তর
+home.daily.title = দৈনিক অনুশীলনী
 # {n} consecutive days with a finished deck.
 home.daily.streak.label = টানা {n} দিন
 home.daily.loading = আজকের কার্ড জড়ো হচ্ছে…
 # A failed fetch must NOT masquerade as "all caught up".
-home.daily.error = আজকের প্রশ্নোত্তর আনা গেল না — রিলোড করে আবার দেখুন
+home.daily.error = আজকের অনুশীলনী আনা গেল না — রিলোড করে আবার দেখুন
 # Two different good outcomes: you finished today's deck, or there was none.
 home.daily.done.label = আজকের মতো শেষ ✓
 home.daily.done.summary = {got} মনে ছিল · {missed} আবার ফিরবে · কাল আবার
 home.daily.empty.label = আজ কিছু বাকি নেই
-home.daily.empty.summary = আরও উদ্ধৃতি জমান বা রিভিশন করুন — রুটিন তৈরি হবে
+home.daily.empty.summary = আরও উদ্ধৃতি জমান বা ঝালিয়ে নিন — দিনপঞ্জি তৈরি হবে
 
 # "WHERE YOU STAND" — a count per memory status, with the explainer under it.
 home.states.title = স্মৃতির হাল
@@ -2745,8 +2745,8 @@ home.states.help.label = এগুলো কীভাবে চলে
 # {curve} and {spaced} are links to Wikipedia; {remembered} {forgetting} and
 # {forgotten} are the three status words in bold, and they must match
 # common.status.*.label, which is what the dots on every card say.
-home.states.help.adaptive.prose = প্রতিটা উদ্ধৃতির নিজের একটা স্মৃতির “অর্ধায়ু” আছে। মনে করতে পারলে সেটা আড়াই গুণ লম্বা হয় — 100 দিন পর্যন্ত — আর ভুলে গেলে গোড়ায় না ফিরে অর্ধেক হয়: এই হল সেই চেনা {curve}, আর তার উপরেই দাঁড়িয়ে {spaced}। মনে পড়ার সম্ভাবনা যতক্ষণ বেশি, উদ্ধৃতিটা {remembered}; সম্ভাবনা পড়তে থাকলে {forgetting}; অর্ধেকের নিচে নামলে {forgotten} — আর তখনই দৈনিক প্রশ্নোত্তর ওটাকে ফিরিয়ে আনে। সবে সেভ করা উদ্ধৃতি প্রথম সপ্তাহটা মনে-আছে বলেই ধরা হয়, তারপর সে-ও সারিতে ঢোকে। যে কোনও জায়গায় উদ্ধৃতির ডটে মাউস রাখলে বা ট্যাপ করলে তার অর্ধায়ু দেখা যায়।
-home.states.help.ladder.prose = প্রতিটা উদ্ধৃতির নিজের একটা স্মৃতির “অর্ধায়ু” আছে। মনে করতে পারলেই সেটা বাঁধা সিঁড়ি বেয়ে এক ধাপ ওঠে — এক সপ্তাহ, তারপর 30 আর 100 দিন — আর একবার ভুললেই সোজা সেই এক সপ্তাহে নেমে আসে: এই হল সেই চেনা {curve}, আর তার উপরেই দাঁড়িয়ে {spaced}। মনে পড়ার সম্ভাবনা যতক্ষণ বেশি, উদ্ধৃতিটা {remembered}; সম্ভাবনা পড়তে থাকলে {forgetting}; অর্ধেকের নিচে নামলে {forgotten} — আর তখনই দৈনিক প্রশ্নোত্তর ওটাকে ফিরিয়ে আনে। সবে সেভ করা উদ্ধৃতি প্রথম সপ্তাহটা মনে-আছে বলেই ধরা হয়, তারপর সে-ও সারিতে ঢোকে। যে কোনও জায়গায় উদ্ধৃতির ডটে মাউস রাখলে বা ট্যাপ করলে তার অর্ধায়ু দেখা যায়।
+home.states.help.adaptive.prose = প্রতিটা উদ্ধৃতির নিজের একটা স্মৃতির “অর্ধায়ু” আছে। মনে করতে পারলে সেটা আড়াই গুণ লম্বা হয় — 100 দিন পর্যন্ত — আর ভুলে গেলে গোড়ায় না ফিরে অর্ধেক হয়: এই হল সেই চেনা {curve}, আর তার উপরেই দাঁড়িয়ে {spaced}। মনে পড়ার সম্ভাবনা যতক্ষণ বেশি, উদ্ধৃতিটা {remembered}; সম্ভাবনা পড়তে থাকলে {forgetting}; অর্ধেকের নিচে নামলে {forgotten} — আর তখনই দৈনিক অনুশীলনী ওটাকে ফিরিয়ে আনে। সবে সেভ করা উদ্ধৃতি প্রথম সপ্তাহটা মনে-আছে বলেই ধরা হয়, তারপর সে-ও সারিতে ঢোকে। যে কোনও জায়গায় উদ্ধৃতির ডটে মাউস রাখলে বা ট্যাপ করলে তার অর্ধায়ু দেখা যায়।
+home.states.help.ladder.prose = প্রতিটা উদ্ধৃতির নিজের একটা স্মৃতির “অর্ধায়ু” আছে। মনে করতে পারলেই সেটা বাঁধা সিঁড়ি বেয়ে এক ধাপ ওঠে — এক সপ্তাহ, তারপর 30 আর 100 দিন — আর একবার ভুললেই সোজা সেই এক সপ্তাহে নেমে আসে: এই হল সেই চেনা {curve}, আর তার উপরেই দাঁড়িয়ে {spaced}। মনে পড়ার সম্ভাবনা যতক্ষণ বেশি, উদ্ধৃতিটা {remembered}; সম্ভাবনা পড়তে থাকলে {forgetting}; অর্ধেকের নিচে নামলে {forgotten} — আর তখনই দৈনিক অনুশীলনী ওটাকে ফিরিয়ে আনে। সবে সেভ করা উদ্ধৃতি প্রথম সপ্তাহটা মনে-আছে বলেই ধরা হয়, তারপর সে-ও সারিতে ঢোকে। যে কোনও জায়গায় উদ্ধৃতির ডটে মাউস রাখলে বা ট্যাপ করলে তার অর্ধায়ু দেখা যায়।
 # The two link texts inside those paragraphs.
 home.states.help.curve.label = ভুলে যাওয়ার রেখা
 home.states.help.spaced.label = ফাঁক রেখে পুনরাবৃত্তি
@@ -2756,19 +2756,19 @@ home.states.help.forgetting.label = ভুলছেন
 home.states.help.forgotten.label = সম্ভবত ভুলে গেছেন
 
 # THE PRACTICE CARD — unlimited, skippable, and schedule-neutral by default.
-home.practice.title = অনুশীলন
-home.practice.info.title = অনুশীলন
-home.practice.info.body = গোটা গ্রন্থাগার জুড়ে যত খুশি মনে করার অভ্যাস, যে কোনও কার্ড বাদ দেওয়া যায়। সেটিংসে চালু না করলে রিভিশনের রুটিনে হাত পড়ে না, আর এর স্কোর মুছলেও শেখার ইতিহাস কিছুই হারায় না।
+home.practice.title = ঝালাই
+home.practice.info.title = ঝালাই
+home.practice.info.body = গোটা গ্রন্থাগার জুড়ে যত খুশি মনে করার অভ্যাস, যে কোনও কার্ড বাদ দেওয়া যায়। সেটিংসে চালু না করলে অনুশীলনের দিনপঞ্জিতে হাত পড়ে না, আর এর স্কোর মুছলেও শেখার ইতিহাস কিছুই হারায় না।
 home.practice.unlimited.label = যত খুশি
-home.practice.start.label = অনুশীলন শুরু করুন
+home.practice.start.label = ঝালাই শুরু করুন
 home.practice.start.busy = লোড হচ্ছে…
 # The lifetime practice score. {n} answered, {percent} of them recalled.
 home.practice.score.label = {n}টা উত্তর · {percent}% মনে ছিল
-home.practice.reset.aria = অনুশীলনের স্কোর মুছুন
-home.practice.reset.tip = অনুশীলনের স্কোর মুছে দিন
-home.practice.end.label = অনুশীলন শেষ করুন
+home.practice.reset.aria = ঝালাইয়ের স্কোর মুছুন
+home.practice.reset.tip = ঝালাইয়ের স্কোর মুছে দিন
+home.practice.end.label = ঝালাই শেষ করুন
 home.practice.round.summary = রাউন্ড শেষ — {got} মনে ছিল · {missed} পারেননি
-home.practice.toast.reset = অনুশীলনের স্কোর মুছে গেল
+home.practice.toast.reset = ঝালাইয়ের স্কোর মুছে গেল
 
 # THE TWO COUNT TILES, which are DOORS: pressing one opens that screen.
 home.tile.library.tip = গ্রন্থাগার খুলুন
@@ -3082,15 +3082,15 @@ stats.activity.stream.aria = ক্যালেন্ডারে কী দে�
 stats.activity.saves.label = জমা
 stats.activity.saves.noun = জমা
 stats.activity.saves.empty = এখনও কিছু জমা হয়নি
-stats.activity.quiz.label = প্রশ্নোত্তর
-stats.activity.quiz.noun = রিভিশন
-stats.activity.quiz.empty = প্রশ্নোত্তরের কোনও উত্তর এখনও নেই
-stats.activity.practice.label = অনুশীলন
-stats.activity.practice.noun = অনুশীলন
+stats.activity.quiz.label = অনুশীলনী
+stats.activity.quiz.noun = অনুশীলন
+stats.activity.quiz.empty = অনুশীলনীর কোনও উত্তর এখনও নেই
+stats.activity.practice.label = ঝালাই
+stats.activity.practice.noun = ঝালাই
 # Practice is the one stream a reader can empty on purpose, so its empty state
 # has to read as the reset having worked rather than as a chart that failed.
-stats.activity.practice.empty = অনুশীলনের কোনও হিসেব নেই
-stats.activity.practice.reset.label = অনুশীলনের হিসেব মুছুন
+stats.activity.practice.empty = ঝালাইয়ের কোনও হিসেব নেই
+stats.activity.practice.reset.label = ঝালাইয়ের হিসেব মুছুন
 # What one day says on hover. {date} is already formatted by the device.
 stats.activity.day.saves.tip = {date}: {n} {noun}
 # The two review streams count ANSWERS, where the tally alone is the less
@@ -3108,7 +3108,7 @@ stats.activity.legend.more.label = বেশি
 
 # WHERE THE WHOLE LIBRARY STANDS ON THE FORGETTING CURVE.
 stats.memory.title = স্মৃতি
-stats.memory.rotation.label = {total}-এর {done}টা প্রশ্নোত্তরে ঘুরছে
+stats.memory.rotation.label = {total}-এর {done}টা অনুশীলনীতে ঘুরছে
 stats.memory.half-life.label = গড় অর্ধায়ু
 stats.memory.streak.label = দীর্ঘতম ধারা
 stats.memory.streak.value = {n} দিন
@@ -3147,7 +3147,7 @@ stats.colours.empty = এখনও কোনও উদ্ধৃতি নেই
 # One magnitude row. {name} is the category as the READER named it.
 stats.bar.tip = {name}: {n}
 stats.bar.practise.aria = {name} ঝালিয়ে নিন
-stats.bar.practise.tip = {name} নিয়ে প্রশ্নোত্তর হোক
+stats.bar.practise.tip = {name} নিয়ে অনুশীলনী হোক
 
 # Top tags, and what any ranked list says when it holds nothing.
 stats.top-tags.title = সবচেয়ে চলা ট্যাগ
@@ -3231,8 +3231,8 @@ vocab.month.10.label = অক্টোবর
 vocab.month.11.label = নভেম্বর
 vocab.month.12.label = ডিসেম্বর
 
-stats.toast.practice-reset = অনুশীলনের হিসেব মুছে গেল
-error.reset.practice = অনুশীলনের হিসেব মোছা গেল না
+stats.toast.practice-reset = ঝালাইয়ের হিসেব মুছে গেল
+error.reset.practice = ঝালাইয়ের হিসেব মোছা গেল না
 # The box itself. Note that tag: author: colour: are GRAMMAR, not copy — the box
 # parses them, so they stay as they are in the placeholder too.
 search.clear.label = খোঁজা মুছে দিন
@@ -3405,7 +3405,7 @@ book.filter.aria = উদ্ধৃতি ফিল্টার করুন
 book.export.label = .md এক্সপোর্ট
 book.practise.aria = এই বইটা ঝালিয়ে নিন
 book.practise.menu.label = এই বইটা ঝালিয়ে নিন
-book.practise.tip = এই বই নিয়ে প্রশ্নোত্তর হোক
+book.practise.tip = এই বই নিয়ে অনুশীলনী হোক
 book.details.tip = খুঁটিনাটি আর মেটাডেটা
 book.toast.deleted = বই মোছা হয়েছে
 # The role labels beside a second or third credit on a book's page. An
@@ -3554,7 +3554,7 @@ film.filter.aria = সংলাপ ফিল্টার করুন
 film.export.label = .md এক্সপোর্ট
 film.practise.aria = এই টাইটেলটা ঝালিয়ে নিন
 film.practise.menu.label = এই টাইটেলটা ঝালিয়ে নিন
-film.practise.tip = এই টাইটেল নিয়ে প্রশ্নোত্তর হোক
+film.practise.tip = এই টাইটেল নিয়ে অনুশীলনী হোক
 film.details.tip = খুঁটিনাটি আর মেটাডেটা
 film.toast.deleted = টাইটেল মোছা হয়েছে
 # The mono credit line under a title. ⚠ SMALL CAPS IN A NARROW SLOT.
@@ -3651,7 +3651,7 @@ bin.keep-for.label = কতদিন রাখবে
 bin.retention.aria = ডাস্টবিন কতদিন জিনিস রাখবে
 bin.retention.never.label = খালি না করা পর্যন্ত
 bin.info.title = ডাস্টবিন
-bin.info.body = মুছে ফেলা সবকিছু আগে এখানে এসে জমে, আর ফিরিয়ে আনলে ঠিক যেমন ছিল তেমনই ফেরে — উদ্ধৃতি, ট্যাগ, রং, রিভিশনের রুটিন, কভার সমেত। আজই কিছু চিরতরে সরাতে চাইলে “এখনই খালি করুন”।
+bin.info.body = মুছে ফেলা সবকিছু আগে এখানে এসে জমে, আর ফিরিয়ে আনলে ঠিক যেমন ছিল তেমনই ফেরে — উদ্ধৃতি, ট্যাগ, রং, দিনপঞ্জি, কভার সমেত। আজই কিছু চিরতরে সরাতে চাইলে “এখনই খালি করুন”।
 bin.empty-now.label = এখনই খালি করুন
 # The kind filter, which appears only once there is more than one kind to tell
 # apart. {kind} is a plural from the table above, lower-cased by the caller.
@@ -3712,7 +3712,7 @@ cleanup.info.title = বাড়তি চিহ্ন
 cleanup.info.body = পাতা থেকে কপি করা উদ্ধৃতির সঙ্গে সেই পাতার আসবাবও চলে আসে, আর কার্ডে তার কিছুই চোখে পড়ে না। এখানে শুধু খুঁজে দেখানো হয়, কিছু বদলানো হয় না — নিচের প্রতিটা নিয়মই কখনও কারও আসল লেখাকে ভুল ধরতে পারে, তাই সিদ্ধান্ত আপনার।
 cleanup.state.loading = সব উদ্ধৃতি পড়া হচ্ছে…
 cleanup.state.clean = দেখার কিছু নেই — প্রতিটা উদ্ধৃতি যেমন লেখা, তেমনই আছে
-cleanup.state.clean-rule = এই ধরনের কিছু পাওয়া যায়নি
+cleanup.state.clean-rule = এই নিয়মে কিছু পাওয়া যায়নি
 # When the cap was reached. A silently shortened list is indistinguishable from a
 # clean library, so the page says it out loud.
 cleanup.state.truncated = প্রথম {count} — কয়েকটা সামলে নিয়ে বাকিগুলোর জন্য আবার দেখুন
@@ -3859,13 +3859,13 @@ import.source.kindle-notebook.step.3 = সেভ করা .html এখানে
 
 # The filename on the device. Latin in every language, per §8.
 import.source.kindle-clippings.title = My Clippings
-import.source.kindle-clippings.desc = Kindle ডিভাইসের নিজের ফাইল — একবারে সব বই, উদ্ধৃতি আর নোট সমেত।
+import.source.kindle-clippings.desc = Kindle যন্ত্রপাতির নিজের ফাইল — একবারে সব বই, উদ্ধৃতি আর নোট সমেত।
 import.source.kindle-clippings.step.1 = USB দিয়ে Kindle লাগান।
-import.source.kindle-clippings.step.2 = ডিভাইস থেকে documents/My Clippings.txt কপি করুন।
+import.source.kindle-clippings.step.2 = যন্ত্রপাতি থেকে documents/My Clippings.txt কপি করুন।
 import.source.kindle-clippings.step.3 = এখানে ছাড়ুন — ফাইলের সব বই একবারেই আসবে।
 # Not keyed as .info or .hint on purpose: this is a caveat under a chip, not a
 # dot's body, and it is longer than the 240 those are held to.
-import.source.kindle-clippings.caveat = Kindle এই ফরম্যাটের কথা কোথাও লিখে রাখেনি, আর ভাষা অনুযায়ী বদলায়ও — তাই অন্য ভাষার ডিভাইস (বা অচেনা ফার্মওয়্যার) এমন রেকর্ড বানাতে পারে, যা এটা ভুল পড়ে। কিছুই আন্দাজে ধরা হয় না: যা পড়া যায় না তা বাদ যায়, আর গুনে জানানো হয়।
+import.source.kindle-clippings.caveat = Kindle এই ফরম্যাটের কথা কোথাও লিখে রাখেনি, আর ভাষা অনুযায়ী বদলায়ও — তাই অন্য ভাষার যন্ত্রপাতি (বা অচেনা ফার্মওয়্যার) এমন রেকর্ড বানাতে পারে, যা এটা ভুল পড়ে। কিছুই আন্দাজে ধরা হয় না: যা পড়া যায় না তা বাদ যায়, আর গুনে জানানো হয়।
 
 # The honest chip beside a format that can misread a file.
 import.experimental.label = পরীক্ষামূলক
@@ -3914,7 +3914,7 @@ import.clippings.malformed.other = {n}টা রেকর্ড পড়া গ
 
 # The contract of the screen, stated in place so the absence of “12 added” reads
 # as intended rather than as a failure. {queue} is the queue's own name, in bold.
-import.nothing-lands.body = ইমপোর্ট করা সব আগে {queue}-এ আসে আর আপনি সায় না দেওয়া পর্যন্ত সেখানেই থাকে — গ্রন্থাগার, খোঁজ বা রিভিশনের ডেকে কিছুই ঢোকে না। ওখানে গোটা ফাইল একবারে দেখে নিন: অধ্যায় আর লোকেশন একসঙ্গে ঠিক করুন, উদ্ধৃতি ঠিক বই বা সিনেমার নামে পাঠান, তারপর মেনে নিন বা ফেলে দিন।
+import.nothing-lands.body = ইমপোর্ট করা সব আগে {queue}-এ আসে আর আপনি সায় না দেওয়া পর্যন্ত সেখানেই থাকে — গ্রন্থাগার, খোঁজ বা অনুশীলনের ডেকে কিছুই ঢোকে না। ওখানে গোটা ফাইল একবারে দেখে নিন: অধ্যায় আর লোকেশন একসঙ্গে ঠিক করুন, উদ্ধৃতি ঠিক বই বা সিনেমার নামে পাঠান, তারপর মেনে নিন বা ফেলে দিন।
 # Why imports are save-the-page-and-upload rather than paste-a-URL — a natural
 # question, answered once and collapsed. {emphasis} is “on their page”, italic.
 import.why-upload.summary = সেভ করা পাতা আপলোড করতে বলছি, URL দিলেই হত না?
@@ -3976,7 +3976,7 @@ account.switch.busy = বদলানো হচ্ছে…
 
 account.logout.title = লগ আউট
 account.logout.info.title = লগ আউট
-account.logout.info.body = শুধু এই ব্রাউজারের সেশন শেষ হয়। বাকি ব্রাউজার লগ ইন থাকে, আর পেয়ার করা ফোন নিজের টোকেন রেখে দেয় — ওটাকেও বাদ দিতে চাইলে সেটিংস › ডিভাইস থেকে আনপেয়ার করুন।
+account.logout.info.body = শুধু এই ব্রাউজারের সেশন শেষ হয়। বাকি ব্রাউজার লগ ইন থাকে, আর পেয়ার করা ফোন নিজের টোকেন রেখে দেয় — ওটাকেও বাদ দিতে চাইলে সেটিংস › যন্ত্রপাতি থেকে আনপেয়ার করুন।
 account.logout.action = লগ আউট
 
 account.maintenance.label = দেখভাল
@@ -4776,7 +4776,7 @@ metadata.people.merge.busy = এক করা হচ্ছে…
 settings.card.info.title = এটা কী
 
 # --- the quiz card's own heading, which was the last literal left on it.
-settings.quiz.title = দৈনিক প্রশ্নোত্তর আর অনুশীলন
+settings.quiz.title = দৈনিক অনুশীলনী আর ঝালাই
 
 # --- Features: the heading beside the dot that was already keyed.
 settings.features.title = ফিচার
@@ -4841,11 +4841,11 @@ settings.updates.toast.copied = কমান্ড কপি হয়েছে
 # ---------------------------------------------------------------------------
 # THE CHANGELOG DIALOG — the release history out of the binary itself.
 # ---------------------------------------------------------------------------
-settings.changelog.title = চেঞ্জলগ
+settings.changelog.title = কী বদলেছে
 # Which release you are actually running, marked on its own row.
 settings.changelog.running.label = চলছে
 settings.changelog.unlisted.prose = আপনি চালাচ্ছেন {version}, যা উপরের তালিকায় নেই — রিলিজের বাইরে বানানো একটা বিল্ড।
-settings.changelog.close.tip = চেঞ্জলগ বন্ধ করুন
+settings.changelog.close.tip = “কী বদলেছে” বন্ধ করুন
 
 # ---------------------------------------------------------------------------
 # ONBOARDING — the guided tour's home.
@@ -4864,26 +4864,26 @@ settings.onboarding.pick.prose = ট্যুর ওই স্ক্রিনে
 # ---------------------------------------------------------------------------
 # DEVICES — pair a phone with this account, and unpair it again.
 # ---------------------------------------------------------------------------
-settings.devices.title = ডিভাইস
-settings.devices.info.body = Android অ্যাপটাকে এই অ্যাকাউন্টের সঙ্গে পেয়ার করে। এখানে আনপেয়ার না করা পর্যন্ত ডিভাইস পেয়ার থাকে — পাসওয়ার্ড বদলালে ব্রাউজার লগ আউট হয়, কিন্তু ফোনে ইচ্ছে করেই হাত পড়ে না, যাতে সাধারণ পাসওয়ার্ড বদলে পেয়ারিং চুপচাপ খুলে না যায়।
+settings.devices.title = যন্ত্রপাতি
+settings.devices.info.body = Android অ্যাপটাকে এই অ্যাকাউন্টের সঙ্গে পেয়ার করে। এখানে আনপেয়ার না করা পর্যন্ত যন্ত্রপাতি পেয়ার থাকে — পাসওয়ার্ড বদলালে ব্রাউজার লগ আউট হয়, কিন্তু ফোনে ইচ্ছে করেই হাত পড়ে না, যাতে সাধারণ পাসওয়ার্ড বদলে পেয়ারিং চুপচাপ খুলে না যায়।
 settings.devices.paired.count = {n}টা পেয়ার করা
 settings.devices.code.label = পেয়ারিং কোড
 settings.devices.code.info.title = পেয়ারিং কোড
-settings.devices.code.info.body = পাঁচ মিনিটের মধ্যে অ্যাপে লিখুন। একবারই কাজ করে, তারপর ফুরিয়ে যায় — দ্বিতীয় ডিভাইসের জন্য আবার নতুন করে পেয়ারিং শুরু করুন।
+settings.devices.code.info.body = পাঁচ মিনিটের মধ্যে অ্যাপে লিখুন। একবারই কাজ করে, তারপর ফুরিয়ে যায় — দ্বিতীয় যন্ত্রপাতির জন্য আবার নতুন করে পেয়ারিং শুরু করুন।
 settings.devices.code.copy.aria = পেয়ারিং কোড কপি করুন
 settings.devices.code.copy.tip = কোড কপি করুন
 settings.devices.code.done.aria = পেয়ারিং শেষ
-settings.devices.pair.label = ডিভাইস পেয়ার করুন
-settings.devices.revoke-all.aria = সব ডিভাইস আনপেয়ার করুন
-settings.devices.revoke-all.confirm = সব ডিভাইস আনপেয়ার করবেন? প্রত্যেকটা এখনই কাজ করা বন্ধ করে দেবে।
+settings.devices.pair.label = যন্ত্রপাতি পেয়ার করুন
+settings.devices.revoke-all.aria = সব যন্ত্রপাতি আনপেয়ার করুন
+settings.devices.revoke-all.confirm = সব যন্ত্রপাতি আনপেয়ার করবেন? প্রত্যেকটা এখনই কাজ করা বন্ধ করে দেবে।
 # {name} is the device's own name, as the phone reported it.
 settings.devices.revoke.aria = {name} আনপেয়ার করুন
 settings.devices.revoke.confirm = “{name}” আনপেয়ার করবেন? এখনই কাজ করা বন্ধ করে দেবে।
 settings.devices.last-seen.label = শেষ দেখা {when}
 settings.devices.never.label = কখনও ব্যবহার হয়নি
-settings.devices.empty.prose = এখনও কোনও ডিভাইস পেয়ার করা হয়নি।
-settings.devices.toast.unpaired = ডিভাইস আনপেয়ার হল
-settings.devices.toast.all-unpaired = সব ডিভাইস আনপেয়ার হল
+settings.devices.empty.prose = এখনও কোনও যন্ত্রপাতি পেয়ার করা হয়নি।
+settings.devices.toast.unpaired = যন্ত্রপাতি আনপেয়ার হল
+settings.devices.toast.all-unpaired = সব যন্ত্রপাতি আনপেয়ার হল
 
 
 
@@ -5094,13 +5094,13 @@ error.check.updates = আপডেট আছে কি না দেখা গ�
 error.update.start = আপডেট শুরুই হল না
 # A clipboard write the browser refused — the command is still on screen.
 error.copy.manual = কপি করা গেল না — নিজে সিলেক্ট করে কপি করুন
-error.load.changelog = চেঞ্জলগ আনা গেল না
+error.load.changelog = “কী বদলেছে” আনা গেল না
 
 # Devices.
-error.load.devices = ডিভাইসের তালিকা আনা গেল না
+error.load.devices = যন্ত্রপাতির তালিকা আনা গেল না
 error.pair.device = পেয়ারিং শুরু করা গেল না
-error.revoke.device = ডিভাইসটা আনপেয়ার করা গেল না
-error.revoke.devices = ডিভাইসগুলো আনপেয়ার করা গেল না
+error.revoke.device = যন্ত্রপাতিটা আনপেয়ার করা গেল না
+error.revoke.devices = যন্ত্রপাতি আনপেয়ার করা গেল না
 
 # Backup and restore. "data intact" is the load-bearing half: a restore that
 # failed changed nothing.
@@ -5241,22 +5241,22 @@ common.favourite.filter.tip = শুধু প্রিয়
 home.help.greeting.term = শুভেচ্ছা
 home.help.greeting.what = তারিখ, আর আপনার ঘড়ি ধরে দিনের সময়, ছুটির দিন বা কোনও বিশেষ দিন বুঝে বেছে নেওয়া এক লাইন শুভেচ্ছা। পাতা রিলোড করলেই বদলে যায়।
 
-home.help.daily-quiz.term = দৈনিক প্রশ্নোত্তর
+home.help.daily-quiz.term = দৈনিক অনুশীলনী
 home.help.daily-quiz.what = নিজের উদ্ধৃতি নিয়ে ছোট একটা রাউন্ড — উত্তর বেছে নেওয়ার ধাঁচে। ভুলতে শুরু করার ঠিক মুখেই কার্ডটা আবার সামনে এসে পড়ে।
 home.help.daily-quiz.more = উত্তর দিলে ওই উদ্ধৃতির স্মৃতির অর্ধায়ু বদলে যায়।
 
 # The named mode beside the Daily Quiz — unlimited and off the schedule.
-home.help.practice.term = অনুশীলন
-home.help.practice.what = প্রশ্নোত্তরেরই যমজ, তবে যত খুশি চলে আর যে কোনও কার্ড বাদ দেওয়া যায়। নিজের আলাদা স্কোর রাখে, আর এমনিতে রিভিশনের রুটিনে হাত দেয় না (সেটিংসে বদলানো যায়)।
+home.help.practice.term = ঝালাই
+home.help.practice.what = অনুশীলনীরই যমজ, তবে যত খুশি চলে আর যে কোনও কার্ড বাদ দেওয়া যায়। নিজের আলাদা স্কোর রাখে, আর এমনিতে অনুশীলনের দিনপঞ্জিতে হাত দেয় না (সেটিংসে বদলানো যায়)।
 
 # The verb on a button: a round about one book, person or tag.
 home.help.practise.term = ঝালিয়ে নিন
 home.help.practise.what = একটা জিনিস নিয়েই এক রাউন্ড।
-home.help.practise.more = বই বা সিনেমার নিজের মেনুতে, মানুষের প্যানেলে, ট্যাগের পাশে, পরিসংখ্যানের রঙের সারিতে — যেখানেই জিনিসটার নাম আছে। রাউন্ডটা যে স্ক্রিনে ছিলেন তার উপরেই খোলে, শেষে সেখানেই ফেরায়। দৈনিক প্রশ্নোত্তরের এমন এক-বিষয়ের রূপ নেই, ইচ্ছে করেই: ওই ডেকটাই তো রুটিন, ছেঁকে নিলে যেগুলোর সত্যিই পালা সেগুলো জিজ্ঞেসই হত না, অথচ টানার হিসেবে দিনটা উঠে যেত।
+home.help.practise.more = বই বা সিনেমার নিজের মেনুতে, মানুষের প্যানেলে, ট্যাগের পাশে, পরিসংখ্যানের রঙের সারিতে — যেখানেই জিনিসটার নাম আছে। রাউন্ডটা যে স্ক্রিনে ছিলেন তার উপরেই খোলে, শেষে সেখানেই ফেরায়। দৈনিক অনুশীলনীর এমন এক-বিষয়ের রূপ নেই, ইচ্ছে করেই: ওই ডেকটাই তো দিনপঞ্জি, ছেঁকে নিলে যেগুলোর সত্যিই পালা সেগুলো জিজ্ঞেসই হত না, অথচ টানার হিসেবে দিনটা উঠে যেত।
 
 # The three grading buttons on a quiz card.
 home.help.grade.term = দেখি / পেরেছি / ভুলে গেছি
-home.help.grade.what = “দেখি” উত্তরটা দেখিয়ে দেয়; তারপর সৎভাবে বলুন, মনে ছিল কি না। ওই সৎ উত্তরের উপরেই গোটা রুটিন দাঁড়িয়ে।
+home.help.grade.what = “দেখি” উত্তরটা দেখিয়ে দেয়; তারপর সৎভাবে বলুন, মনে ছিল কি না। ওই সৎ উত্তরের উপরেই গোটা দিনপঞ্জি দাঁড়িয়ে।
 
 # The edit link on an already-answered quiz card.
 home.help.fix-or-tag.term = ঠিক করুন বা ট্যাগ দিন
@@ -5270,7 +5270,7 @@ home.help.language-mark.more = সঙ্গে যেটা আসে সেট�
 
 # The memory dot every quote card wears.
 home.help.status-dot.term = স্মৃতির ডট
-home.help.status-dot.what = প্রতিটা উদ্ধৃতির গায়ে একটা থাকে: মনে আছে, ভুলছেন, সম্ভবত ভুলে গেছেন, বা এখনও রিভিশন হয়নি। মাউস রাখলে বা ট্যাপ করলে স্মৃতির অর্ধায়ু দেখায়।
+home.help.status-dot.what = প্রতিটা উদ্ধৃতির গায়ে একটা থাকে: মনে আছে, ভুলছেন, সম্ভবত ভুলে গেছেন, বা এখনও অনুশীলনে ওঠেনি। মাউস রাখলে বা ট্যাপ করলে স্মৃতির অর্ধায়ু দেখায়।
 
 home.help.favourites.term = প্রিয়
 home.help.favourites.what = যে বাক্যগুলোয় ♥ দিয়েছেন — বইয়ের উদ্ধৃতি, সিনেমার সংলাপ আর একলা উক্তি একসঙ্গে, প্রতিবার এলেই নতুন করে সাজানো।
@@ -5387,7 +5387,7 @@ book.help.copy.more = শেয়ার প্যানেলের সাধ�
 
 book.help.share.term = শেয়ার
 book.help.share.what = বাক্যটার একটা ছবি — খুললে ওটাই সামনে আসে — বা শুধু কথাগুলো Markdown, WhatsApp, সাধারণ লেখা বা Reddit ফরম্যাটে।
-book.help.share.more = চারটে সাজের যেটা বাছবেন, সেই সাজে ছবিটা আপনার ডিভাইসেই আঁকা হয়, কোথাও যায় না। পটভূমিতে লেখকের ছবি থাকতে পারে — কার্ডের কিনারা থেকে ছড়িয়ে আসা, উদ্ধৃতির নিজের রঙে ছোপানো, কথা শুরুর আগেই মিলিয়ে যাওয়া। নিচের নামের মতো ওটাও “লেখক” টিকে বাঁধা, তাই সেটা তুলে দিলে পটভূমিও যায়।
+book.help.share.more = চারটে সাজের যেটা বাছবেন, সেই সাজে ছবিটা আপনার যন্ত্রপাতিতেই আঁকা হয়, কোথাও যায় না। পটভূমিতে লেখকের ছবি থাকতে পারে — কার্ডের কিনারা থেকে ছড়িয়ে আসা, উদ্ধৃতির নিজের রঙে ছোপানো, কথা শুরুর আগেই মিলিয়ে যাওয়া। নিচের নামের মতো ওটাও “লেখক” টিকে বাঁধা, তাই সেটা তুলে দিলে পটভূমিও যায়।
 
 book.help.export.term = .md এক্সপোর্ট
 book.help.export.what = এই বই আর তার সব উদ্ধৃতি, Markdown হয়ে।
@@ -5554,7 +5554,7 @@ quotes.help.all-quotes.what = বোর্ডগুলোর উপরে আট
 quotes.help.all-quotes.more = এর নাম বদলানো, লুকানো বা মুছে ফেলা যায় না।
 
 quotes.help.hide-board.term = বোর্ড লুকানো
-quotes.help.hide-board.what = তালিকা থেকে গুটিয়ে রাখে, ভিতরের কিছুতে হাত পড়ে না — উক্তিগুলো “সব উক্তি”-তে থাকে, খোঁজে থাকে, রিভিশনের ডেকেও থাকে।
+quotes.help.hide-board.what = তালিকা থেকে গুটিয়ে রাখে, ভিতরের কিছুতে হাত পড়ে না — উক্তিগুলো “সব উক্তি”-তে থাকে, খোঁজে থাকে, অনুশীলনের ডেকেও থাকে।
 quotes.help.hide-board.more = আপনি না লুকালে কোনও বোর্ড লুকায় না; খালি বোর্ডও নিজের জায়গায় থাকে, কারণ সদ্য বানানো বোর্ড তো খালিই — ঠিক তখনই মিলিয়ে গেলে সেটা সাহায্যের উল্টো হত।
 
 quotes.help.delete-board.term = বোর্ড মুছে ফেলা
@@ -5565,7 +5565,7 @@ quotes.help.occasion.term = উপলক্ষ
 quotes.help.occasion.what = কথাগুলো কোথায় বলা হয়েছিল। এটাই ঠিকানা, আর পৃষ্ঠা নম্বর যা পারে না তা পারে — দুটো উক্তিকে আলাদা করা: একই বাক্য দুই উপলক্ষে মানে দুটো উক্তি, একটা নয়।
 
 quotes.help.speaker.term = বক্তা
-quotes.help.speaker.what = কে বলেছেন। বইয়ে লেখক যেখানে দাঁড়ায় এ সেখানেই, রিভিশনের ডেক এটাই মনে করতে বলে, আর অন্য সবার মতোই মুখের ছবি আর জীবনী পায়।
+quotes.help.speaker.what = কে বলেছেন। বইয়ে লেখক যেখানে দাঁড়ায় এ সেখানেই, অনুশীলনের ডেক এটাই মনে করতে বলে, আর অন্য সবার মতোই মুখের ছবি আর জীবনী পায়।
 quotes.help.speaker.more = আপনার বেছে দেওয়া চিহ্নে ভাগ করা দুটো নাম মানে দুজন বক্তা — এখানেও, অন্য সব জায়গার মতোই।
 
 # The partial-date field on a standalone quote.
@@ -5574,7 +5574,7 @@ quotes.help.when.what = আধা তারিখেও চলে: শুধু 
 
 # Saving a quote with nobody to credit.
 quotes.help.no-attribution.term = নাম ছাড়া উক্তি
-quotes.help.no-attribution.what = দিব্যি রেখে দেওয়া যায়, আর রিভিশনের ডেকে ঢোকে না — সামনে যে কথাগুলো আছে সেগুলো ছাড়া মনে করার কিছুই তো নেই।
+quotes.help.no-attribution.what = দিব্যি রেখে দেওয়া যায়, আর অনুশীলনের ডেকে ঢোকে না — সামনে যে কথাগুলো আছে সেগুলো ছাড়া মনে করার কিছুই তো নেই।
 
 # The name under a line, which opens the person.
 quotes.help.speaker-credit.term = বক্তার নাম
@@ -5706,10 +5706,10 @@ metadata.help.bulk-edit.what = বাছা প্রতিটা সারি�
 
 stats.help.calendar.term = ক্যালেন্ডার
 stats.help.calendar.what = যেদিন কিছু তুলে রেখেছেন সেদিনে একটা ডট। একটা দিনে ট্যাপ করলে সেদিনের তোলা জিনিসগুলোই খোঁজে খুলে যায়।
-stats.help.calendar.more = ক্যালেন্ডার প্রশ্নোত্তর বা অনুশীলনে ঘুরিয়ে দিলে উত্তর গোনে — সেই দিনগুলোয় কটা উত্তর দিয়েছেন আর কটা ঠিক, দুটোই বলে, কারণ শুধু সংখ্যা দেখে ছোপানো ডটে সব ভুল হওয়া দিন আর সব ঠিক হওয়া দিন একরকম দেখায়। অনুশীলনের স্কোর মুছে দিলে ওই ধারাটা পুরো খালি হয়, যাতে মাউস রাখলে বাসি কিছু না দেখায়।
+stats.help.calendar.more = ক্যালেন্ডার অনুশীলনী বা ঝালাইয়ে ঘুরিয়ে দিলে উত্তর গোনে — সেই দিনগুলোয় কটা উত্তর দিয়েছেন আর কটা ঠিক, দুটোই বলে, কারণ শুধু সংখ্যা দেখে ছোপানো ডটে সব ভুল হওয়া দিন আর সব ঠিক হওয়া দিন একরকম দেখায়। ঝালাইয়ের স্কোর মুছে দিলে ওই ধারাটা পুরো খালি হয়, যাতে মাউস রাখলে বাসি কিছু না দেখায়।
 
 stats.help.memory.term = স্মৃতি
-stats.help.memory.what = সোজা প্রশ্নোত্তর থেকেই স্বাস্থ্যের খবর: কটা উদ্ধৃতি মনে আছে, কটা হাত ফসকাচ্ছে, কটা সম্ভবত গেছে, আর টানা কদিন চলছে।
+stats.help.memory.what = সোজা অনুশীলনী থেকেই স্বাস্থ্যের খবর: কটা উদ্ধৃতি মনে আছে, কটা হাত ফসকাচ্ছে, কটা সম্ভবত গেছে, আর টানা কদিন চলছে।
 
 # The most-quoted lists: authors, speakers, actors, directors, tags.
 stats.help.breakdowns.term = কে কত
@@ -5757,7 +5757,7 @@ bin.help.title = ডাস্টবিন
 # What waits in the bin.
 bin.help.what-is-here.term = এখানে কী আছে
 bin.help.what-is-here.what = যা মোছেন সবই আগে এখানেই জমা থাকে — গোটা বই তার সব উদ্ধৃতি নিয়ে, সিনেমা তার সংলাপ নিয়ে, বা শুধু একটা উদ্ধৃতি।
-bin.help.what-is-here.more = ফিরিয়ে আনলে ঠিক আগের চেহারাতেই ফেরে: সেই উদ্ধৃতি, সেই ট্যাগ, সেই রং, সেই রিভিশনের রুটিন, আর কভারের ছবিটাও — সেটা ফেলে না দিয়ে ছবির ভাঁড়ারের এক কোণে রেখে দেওয়া হয়। মুছে ফেলা অ্যাকাউন্টও এভাবেই গোটাটা থাকে, যে অ্যাডমিন মুছেছেন তাঁরই ডাস্টবিনে।
+bin.help.what-is-here.more = ফিরিয়ে আনলে ঠিক আগের চেহারাতেই ফেরে: সেই উদ্ধৃতি, সেই ট্যাগ, সেই রং, সেই অনুশীলনের দিনপঞ্জি, আর কভারের ছবিটাও — সেটা ফেলে না দিয়ে ছবির ভাঁড়ারের এক কোণে রেখে দেওয়া হয়। মুছে ফেলা অ্যাকাউন্টও এভাবেই গোটাটা থাকে, যে অ্যাডমিন মুছেছেন তাঁরই ডাস্টবিনে।
 
 # How the bin is reached — the Settings tile, and nothing else.
 bin.help.getting-here.term = এখানে আসার পথ
@@ -5807,9 +5807,9 @@ checks.help.imports.more = এটা ইচ্ছে করেই, আর বদ
 checks.help.marks.term = চিহ্ন দেখে নিন
 checks.help.marks.what = যে উদ্ধৃতিতে লেখকের নয়, পাতার নিজের কিছু রয়ে গেছে — পাদটীকার নম্বর, সফট হাইফেন, জোড়া স্পেস।
 checks.help.marks.more = কার্ডে এর কিছুই দেখা যায় না, অথচ সবই খোঁজের ইনডেক্সে থাকে — তাই চোখের সামনের কথা খুঁজেও মাঝে মাঝে কিছু পাওয়া যায় না। স্ক্রিনের এই অর্ধেকটা কখনও কিছু লেখে না: সারিতে ট্যাপ করলে উদ্ধৃতিটা যে উৎসে আছে সেটা খোলে, এডিট হয় ওখানেই।
-checks.help.not-review.term = রিভিশন বলা হয় না কেন
-checks.help.not-review.what = রিভিশন মানে তো আগে থেকেই দৈনিক প্রশ্নোত্তর আর অনুশীলনের ডেক, আর এক অ্যাপে একটা শব্দের দুটো মানে চলে না।
-checks.help.not-review.more = যাচাই হল অ্যাপের চোখে যা পড়েছে, আর সে আপনাকে জিজ্ঞেস করছে। রিভিশন হল আপনি যা নিয়ে অ্যাপকে পরীক্ষা নিতে বলেছেন। দুটোর এক নাম হলে কীসের কথা, বোঝা যেত না।
+checks.help.not-review.term = অনুশীলন বলা হয় না কেন
+checks.help.not-review.what = অনুশীলন মানে তো আগে থেকেই দৈনিক অনুশীলনী আর ঝালাইয়ের ডেক, আর এক অ্যাপে একটা শব্দের দুটো মানে চলে না।
+checks.help.not-review.more = যাচাই হল অ্যাপের চোখে যা পড়েছে, আর সে আপনাকে জিজ্ঞেস করছে। অনুশীলন হল আপনি যা নিয়ে অ্যাপকে পরীক্ষা নিতে বলেছেন। দুটোর এক নাম হলে কীসের কথা, বোঝা যেত না।
 
 # What the page is for.
 cleanup.help.what-is-here.term = এখানে কী আছে
@@ -5869,7 +5869,7 @@ settings.help.button-labels.more = শুধু বোতাম নয়, ফ�
 # Which sections of the app are switched on.
 settings.help.features.term = ফিচার
 settings.help.features.what = অ্যাপের কোন বিভাগগুলো চোখের সামনে চান — গ্রন্থাগার, ক্যাটালগ, উক্তি।
-settings.help.features.more = একটা বন্ধ করলে তার ট্যাব যায় ট্যাব-সারি, ড্রয়ার আর ফোনের বার থেকে, হোমের টাইল যায়, খোঁজের চিপ যায়, আর ＋ ওই ধরনটা আর দেয় না। আর কিছুই বদলায় না: প্রতিটা বই, সিনেমা আর উক্তি ঠিক যেখানে আছে সেখানেই থাকে, রিভিশনের ডেক আগের মতোই টানে, লিংক বা বুকমার্ক দিলে খোলেও — তাই আবার চালু করলে সব যেমন রেখেছিলেন তেমনই পাবেন।
+settings.help.features.more = একটা বন্ধ করলে তার ট্যাব যায় ট্যাব-সারি, ড্রয়ার আর ফোনের বার থেকে, হোমের টাইল যায়, খোঁজের চিপ যায়, আর ＋ ওই ধরনটা আর দেয় না। আর কিছুই বদলায় না: প্রতিটা বই, সিনেমা আর উক্তি ঠিক যেখানে আছে সেখানেই থাকে, অনুশীলনের ডেক আগের মতোই টানে, লিংক বা বুকমার্ক দিলে খোলেও — তাই আবার চালু করলে সব যেমন রেখেছিলেন তেমনই পাবেন।
 
 # The guided tour card.
 settings.help.onboarding.term = প্রথম পরিচয়
@@ -5903,21 +5903,21 @@ settings.help.upload-font.term = ফন্ট আপলোড
 settings.help.upload-font.what = প্রতিটা সারিতে সঙ্গে আসা তিনটে ফন্টের পাশেই। ফাইলটা আপনার নিজের সার্ভারে থাকে, সেখানে খোলা হয় না — পড়ে শুধু ব্রাউজার।
 settings.help.upload-font.more = তারপর একটা পরীক্ষা মেপে দেখে ফন্টটা সত্যিই ওই সারির লিপি আঁকে কি না, কারণ বাংলার ফন্টের জায়গায় বাংলা নেই এমন কিছু বসালে প্রতিটা বাংলা উদ্ধৃতি বাক্স হয়ে যায়। এটা সাবধানবাণী, বাধা নয়: দু দিকেই এটাকে ঠকানো যায়, আর ফন্টটা তো আপনার।
 
-settings.help.review.term = রিভিশন
+settings.help.review.term = অনুশীলন
 settings.help.review.what = কার্ডে থাকে একবার বসিয়ে দিলেই হয় এমন দুটো — দিনে কটা কার্ড, আর তিন রকম উদ্ধৃতির কোনগুলো থেকে টানবে। বাকি সব “খুঁটিনাটি সেটিংস”-এর পিছনে।
 settings.help.review.more = তিনটে মাধ্যম আলাদা আলাদা — সিনেমার সংলাপ বাদ দিয়ে শুধু বই আর একলা উক্তি, এটাও একটা ঠিক উত্তর। বক্তা নেই, উপলক্ষ নেই — এমন উক্তি যা-ই বাছুন বাইরেই থাকে, আর গত এক সপ্তাহে রাখা কিছুও।
 
 # The folded second half of the Review card.
 settings.help.in-depth.term = খুঁটিনাটি সেটিংস
 settings.help.in-depth.what = কোন ডেক কোন প্রশ্ন করতে পারবে, ডেক-পিছু প্রতি ধরনে একটা সুইচ — সঙ্গে অ্যাডাপ্টিভ ফাঁক, নিশ্চিত করার ধাপ, আর একবার চোখে পড়ার দাম কত।
-settings.help.in-depth.more = নিচের “আগের মতো করুন” প্রতিটাকেই ফিরিয়ে দেয়, বেশির ভাগকে নয়। তিনটে কাজ এ করবে না: দৈনিক প্রশ্নোত্তর কখনও নিজে নম্বর দেওয়ার কার্ড দেয় না, কারণ মিলিয়ে দেওয়া আর নিজে দেওয়া নম্বর মিশে গেলে স্কোরটা আর কোনওটাই থাকে না; যে ধরনের প্রশ্ন সে চেনে না তা আটকায় না, চুপচাপ ছেড়ে দেয়, তাই নতুন ভার্সনের ব্যাকআপও ফেরে; আর কোনও ডেককে প্রশ্নহীন রাখা যায় না।
+settings.help.in-depth.more = নিচের “আগের মতো করুন” প্রতিটাকেই ফিরিয়ে দেয়, বেশির ভাগকে নয়। তিনটে কাজ এ করবে না: দৈনিক অনুশীলনী কখনও নিজে নম্বর দেওয়ার কার্ড দেয় না, কারণ মিলিয়ে দেওয়া আর নিজে দেওয়া নম্বর মিশে গেলে স্কোরটা আর কোনওটাই থাকে না; যে ধরনের প্রশ্ন সে চেনে না তা আটকায় না, চুপচাপ ছেড়ে দেয়, তাই নতুন ভার্সনের ব্যাকআপও ফেরে; আর কোনও ডেককে প্রশ্নহীন রাখা যায় না।
 
 # Which characters split one author line into two people.
 settings.help.credit-separators.term = একাধিক লেখকের নাম
 settings.help.credit-separators.what = কোন চিহ্নে “Gaiman & Pratchett” ভেঙে দুজন মানুষ হবে — মেটাডেটার সূত্রের কার্ডের একেবারে নিচে।
 settings.help.credit-separators.more = বইয়ে লেখকের লাইনটা কখনও নতুন করে লেখা হয় না, তাই যখন খুশি এটা বদলানো যায়।
 
-settings.help.devices.term = ডিভাইস
+settings.help.devices.term = যন্ত্রপাতি
 settings.help.devices.what = Android অ্যাপটাকে এই অ্যাকাউন্টের সঙ্গে পেয়ার করুন, আবার আনপেয়ারও করুন।
 
 # The Settings tile that opens the bin.
@@ -5942,7 +5942,7 @@ settings.help.backup-download.term = শেষটা ডাউনলোড ক�
 settings.help.backup-download.what = সার্ভারে যে আর্কাইভটা আছে সেটাই হাতে দেয়। সত্যিকারের লিংক, তাই মাউসের মাঝের বোতামে ক্লিক বা “save link as” কাজ করে।
 settings.help.backup-download.more = সবচেয়ে নতুন আর্কাইভটাই শুধু রাখা হয় — নতুন ব্যাকআপ নিলে সেটা আগেরটার জায়গা নেয়।
 
-settings.help.changelog.term = চেঞ্জলগ
+settings.help.changelog.term = কী বদলেছে
 settings.help.changelog.what = প্রতিটা রিলিজ, নতুনটা আগে, বাইনারির ভিতর থেকেই — তাই নেট বন্ধ থাকলেও, শুধু LAN-এ থাকা মেশিনেও, ফায়ারওয়ালের পিছনেও চলে।
 settings.help.changelog.more = খুললে শুধু নতুনটাই খোলা থাকে; বাকিগুলো গোটানো। আপনি সত্যিই কোন ভার্সন চালাচ্ছেন সেটা চিহ্নিত করা থাকে — GitHub-এর লিংক এই একটা কথাই বলতে পারে না। যে বিল্ড আপনার কাছে আছে সেখানেই থামে: যে ভার্সন বসাননি তাতে কী আছে জানতে হলে উপরের ভার্সন নম্বরটা রিলিজের পাতায় নিয়ে যাবে।
 
@@ -6060,7 +6060,7 @@ common.help.selecting.what = একসঙ্গে অনেকগুলো ক�
 common.help.selecting.how.1 = কার্ডের কোণে টিক দিন, Ctrl চেপে ক্লিক করুন, বা তার নিজের মেনু থেকে “বাছুন”।
 common.help.selecting.how.2 = Shift চেপে ক্লিক করলে টানা কয়েকটা বাছা হয়। সব বাছলে স্ক্রিনে যা আছে তাই ওঠে, ফিল্টারে লুকোনো কিছু নয়।
 common.help.selecting.how.3 = একটা বার আসে: সারিতে তিনটে আইকন, বাকিগুলো ⋯-এর পিছনে। চেপে ধরলে নাম দেখায়।
-common.help.selecting.more = উদ্ধৃতির উপরে: সারিতে রং, ♥ আর প্রশ্নোত্তরের সুইচ; ⋯-এর পিছনে ট্যাগ, একটা স্টিকার, অন্য বোর্ড আর মুছে ফেলা। বই, সিনেমা আর শোয়ের উপরে: শূন্যস্থান পূরণ, তাকে তুলুন, প্রশ্নোত্তরের সুইচ, ⋯-এর পিছনে মুছে ফেলা। ঠিক একটা বাছলে এডিট আসে; দ্বিতীয়টা বাছলেই চলে যায়। নিজে বন্ধ না করা পর্যন্ত বারটা থাকে, বাছাই শূন্য হলেও। মুছতে গেলে কী হবে সেটা টাইপ করে দিতে হয়, আর গোটাটা ডাস্টবিনে যায় একটাই এন্ট্রি হয়ে, একটাই আনডু নিয়ে।
+common.help.selecting.more = উদ্ধৃতির উপরে: সারিতে রং, ♥ আর অনুশীলনীর সুইচ; ⋯-এর পিছনে ট্যাগ, একটা স্টিকার, অন্য বোর্ড আর মুছে ফেলা। বই, সিনেমা আর শোয়ের উপরে: শূন্যস্থান পূরণ, তাকে তুলুন, অনুশীলনীর সুইচ, ⋯-এর পিছনে মুছে ফেলা। ঠিক একটা বাছলে এডিট আসে; দ্বিতীয়টা বাছলেই চলে যায়। নিজে বন্ধ না করা পর্যন্ত বারটা থাকে, বাছাই শূন্য হলেও। মুছতে গেলে কী হবে সেটা টাইপ করে দিতে হয়, আর গোটাটা ডাস্টবিনে যায় একটাই এন্ট্রি হয়ে, একটাই আনডু নিয়ে।
 
 # Favouriting one quote from its own menu.
 common.help.favourite.term = একটাকে প্রিয় করা
@@ -6069,16 +6069,16 @@ common.help.favourite.more = কার্ডের ♥-ও একই কাজ �
 
 # The right-click menu on a book, film or show cover.
 common.help.cover-menu.term = কভারের নিজের মেনু
-common.help.cover-menu.what = বোর্ডে বই, সিনেমা বা শোয়ে ডান-ক্লিক করুন — ফোনে চেপে ধরুন — মেনুতে থাকে বাছুন, শূন্যস্থান পূরণ, প্রশ্নোত্তরের সুইচ, এডিট আর মুছুন।
+common.help.cover-menu.what = বোর্ডে বই, সিনেমা বা শোয়ে ডান-ক্লিক করুন — ফোনে চেপে ধরুন — মেনুতে থাকে বাছুন, শূন্যস্থান পূরণ, অনুশীলনীর সুইচ, এডিট আর মুছুন।
 common.help.cover-menu.more = ওখানে যা যা আছে, ঠিক একটা জিনিস বাছলে বাছাইয়ের বারও তাই করতে পারত — সেটাই আসল কথা: বার আর কভার এখন একই তালিকা পড়ে। মুছতে গেলে আগে জিজ্ঞেস করে, আর সঙ্গে কটা উদ্ধৃতি যাবে বলে দেয়; তারপরের বার্তায় আনডু থাকে।
 
 # The selection-bar toggle that takes things out of the Daily Quiz.
-common.help.skip-in-quiz.term = প্রশ্নোত্তর থেকে বাদ দিন
+common.help.skip-in-quiz.term = অনুশীলনী থেকে বাদ দিন
 common.help.skip-in-quiz.what = যা রাখেন সব নিয়ে তো পরীক্ষা দেওয়ার নয় — উদ্ধৃতি করে রাখা বাজারের ফর্দ, বা যে রেফারেন্স বইয়ের সব উদ্ধৃতিই স্রেফ পৃষ্ঠার নম্বর।
-common.help.skip-in-quiz.more = সেগুলো বেছে “প্রশ্নোত্তর থেকে বাদ দিন” ট্যাপ করলে দৈনিক প্রশ্নোত্তর আর ওখান থেকে টানে না, অথচ কিছুই মোছে না। একটা বইয়ে করলে পরে ওই বইয়ে যত উদ্ধৃতি রাখবেন সবেতেই খাটে। যেগুলো আগে থেকেই বাদ, সেগুলো বাছলে বোতামে লেখা ওঠে “প্রশ্নোত্তরে দিন” — তাই কোন দিকে আছে সেটা পড়েই বোঝা যায়।
+common.help.skip-in-quiz.more = সেগুলো বেছে “অনুশীলনী থেকে বাদ দিন” ট্যাপ করলে দৈনিক অনুশীলনী আর ওখান থেকে টানে না, অথচ কিছুই মোছে না। একটা বইয়ে করলে পরে ওই বইয়ে যত উদ্ধৃতি রাখবেন সবেতেই খাটে। যেগুলো আগে থেকেই বাদ, সেগুলো বাছলে বোতামে লেখা ওঠে “অনুশীলনীতে দিন” — তাই কোন দিকে আছে সেটা পড়েই বোঝা যায়।
 
 # The selection-bar action that fetches only the EMPTY fields.
-common.help.fill-gaps.term = শূন্যস্থান পূরণ
+common.help.fill-gaps.term = ঘাটতি ভরান
 common.help.fill-gaps.what = বই, সিনেমা বা শো বেছে নিলে: প্রত্যেকটার মেটাডেটা এনে শুধু যে ঘরগুলো ফাঁকা সেগুলোই ভরে দেয়।
 common.help.fill-gaps.more = নিজের লেখা বিবরণ, নিজের শুধরে দেওয়া সাল, নিজের বাছা কভার — কোনওটাতেই হাত পড়ে না, তাই আগে থেকে দেখে নেওয়ার দরকারও নেই। মেটাডেটার “আবার মিলিয়ে দেখুন” এর উল্টো দিক: সে প্রতিটা অমিল দেখায়, আর আপনি যেগুলো বিশ্বাস করেন সেগুলোয় টিক না দিলে কিছুই বসায় না।
 
@@ -6091,7 +6091,7 @@ common.help.info-dots.more = ডেস্কটপে মাউস রাখল�
 
 # Tippani added to a phone’s home screen.
 common.help.installed-app.term = ফোনে বসানো অ্যাপ
-common.help.installed-app.what = ফোনের হোম স্ক্রিনে টিপ্পনী রাখলে সঙ্গে তিনটে জিনিস আসে। আইকনটা চেপে ধরলেই উদ্ধৃতি তুলে রাখুন, দৈনিক প্রশ্নোত্তর আর যাচাই বাকি ইমপোর্ট।
+common.help.installed-app.what = ফোনের হোম স্ক্রিনে টিপ্পনী রাখলে সঙ্গে তিনটে জিনিস আসে। আইকনটা চেপে ধরলেই উদ্ধৃতি তুলে রাখুন, দৈনিক অনুশীলনী আর যাচাই বাকি ইমপোর্ট।
 common.help.installed-app.more = ফাইল ম্যানেজারে কোনও .md, My Clippings.txt বা Bookcision-এর .json-এ ট্যাপ করলে সোজা যাচাই বাকি ইমপোর্টে খুলে যায়, যে উইন্ডোটা খোলাই ছিল তাতেই। আর আইকনের গায়ে একটা ব্যাজ থাকে — কটা কার্ডের সময় হয়েছে আর কটা ইমপোর্ট বাকি। সেটা বসে অ্যাপ খোলার সময়, পিছনে চলতে থাকা কিছু দিয়ে নয়: এখানে কিছুই নিজে থেকে জেগে ওঠে না।
 
 # The ☰ drawer button, phone only.
@@ -6114,7 +6114,7 @@ common.help.long-press.more = কোনও কন্ট্রোলে চেপ
 # The shortcuts, and the sheet ? opens.
 common.help.keyboard.term = কীবোর্ড
 common.help.keyboard.what = যে কোনও জায়গায় ? চাপলে গোটা তালিকা। / খোঁজে, N উদ্ধৃতি তুলে রাখে, আর G-র পর H, L, C, Q বা S নিয়ে যায় হোম, গ্রন্থাগার, ক্যাটালগ, উক্তি বা পরিসংখ্যানে।
-common.help.keyboard.more = প্রশ্নোত্তরে 1 আর 2 নম্বর দেয়, আর Space উল্টানো কার্ডের উত্তর দেখিয়ে দেয়। প্রতিটা শর্টকাট যে বোতামের কাজ করে তার গায়েও লেখা আছে, তাই কোনওটা খুঁজে পেতে মুখস্থ রাখার দরকার নেই।
+common.help.keyboard.more = অনুশীলনীতে 1 আর 2 নম্বর দেয়, আর Space উল্টানো কার্ডের উত্তর দেখিয়ে দেয়। প্রতিটা শর্টকাট যে বোতামের কাজ করে তার গায়েও লেখা আছে, তাই কোনওটা খুঁজে পেতে মুখস্থ রাখার দরকার নেই।
 
 # The always-visible desktop tab strip that stands in for the drawer.
 common.help.tab-strip.term = ট্যাব-সারি
