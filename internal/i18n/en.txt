@@ -6367,3 +6367,9 @@ metadata.prune.confirm.cta = Prune
 metadata.prune.toast.one = {n} record pruned — it is in the bin
 metadata.prune.toast.other = {n} records pruned — they are in the bin
 error.prune = could not prune
+
+# ---- a bin entry's works, and the face an identity entry took ------------
+# One row per book or film inside an entry — a bulk delete is one entry, and the
+# title with its own count is the only thing in it a reader can recognise.
+bin.row.work.quotes.one = {n} quote
+bin.row.work.quotes.other = {n} quotes

@@ -6384,3 +6384,7 @@ metadata.prune.confirm.cta = সরান
 metadata.prune.toast.one = {n}টা রেকর্ড সরানো হল — ডাস্টবিনে আছে
 metadata.prune.toast.other = {n}টা রেকর্ড সরানো হল — ডাস্টবিনে আছে
 error.prune = সরানো গেল না
+
+# ---- a bin entry's works, and the face an identity entry took ------------
+bin.row.work.quotes.one = {n}টা উদ্ধৃতি
+bin.row.work.quotes.other = {n}টা উদ্ধৃতি

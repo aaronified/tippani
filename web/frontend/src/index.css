@@ -2213,6 +2213,61 @@
     color: var(--faint);
   }
   .trash-kind svg { width: 15px; height: 15px; }
+  /* THE WORKS INSIDE AN ENTRY, and the face an identity entry took.
+     A wrapping row of covers rather than a list, because the cover IS the row:
+     a reader looking for one book out of a deleted shelf recognises the spine
+     before they read the title, which is the whole reason the flat list of quote
+     texts was unusable at this size. Sized in em so the covers grow with the
+     type dials, per the standing rule — the shelf that holds them is a share of
+     the card and not a measurement. */
+  .trash-works {
+    margin: 8px 0 2px;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--edge, 12px);
+  }
+  .trash-works > li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    flex: 0 1 16em;
+  }
+  /* Cover fills its container, so the container is what sizes it — 3em rather
+     than a px width, because the row it sits in grows with the type dials. */
+  .trash-work-cover { flex: 0 0 auto; width: 3em; }
+  .trash-work-name {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+  /* ROUND, like every other portrait in the app — a square face here would read
+     as a cover, which is the one thing it is not. */
+  .trash-face {
+    margin: 8px 0 2px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+  .trash-face img,
+  .trash-face-blank {
+    width: 2.5em;
+    height: 2.5em;
+    border-radius: 999px;
+    object-fit: cover;
+    flex: 0 0 auto;
+  }
+  .trash-face-blank {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--line);
+    color: var(--faint);
+  }
   .trash-contents {
     margin: 6px 0 2px;
     padding: 0;

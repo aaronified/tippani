@@ -162,12 +162,29 @@ func (s *Server) handleGetTrashEntry(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	t.Files = len(fileList(files))
+	// AN IDENTITY ENTRY'S PAYLOAD IS NOT A SNAPSHOT, and reading it as one was
+	// why "Mikhail Bulgakov" expanded to nothing: the unmarshal failed, the
+	// handler 500'd, and the chevron had promised something. Those kinds are
+	// answered from the reversal instead, and the snapshot path is not attempted.
+	if rec := snapshotRecord(t.Kind, payload); rec != nil {
+		writeJSON(w, http.StatusOK, map[string]any{
+			"entry": t, "contents": []map[string]any{}, "works": []trashWork{}, "record": rec,
+		})
+		return
+	}
 	var snap snapshot
 	if err := json.Unmarshal([]byte(payload), &snap); err != nil {
 		internalError(w, r, "read trash payload", err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"entry": t, "contents": snapshotContents(snap)})
+	writeJSON(w, http.StatusOK, map[string]any{
+		"entry":    t,
+		"contents": snapshotContents(snap),
+		// The works the entry is holding, so a bulk delete expands into the five
+		// books it took rather than into every line inside them.
+		"works":  snapshotWorks(snap),
+		"record": nil,
+	})
 }
 
 // snapshotContents flattens a payload into the lines a reader would recognise:

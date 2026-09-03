@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
-import { errText, json } from './api.js'
+import { coverImgURL, errText, json } from './api.js'
 import { t } from './i18n.js'
 import {
   Card,
   ConfirmDialog,
+  Cover,
   EmptyState,
   FieldIconButton,
   FilterChip,
@@ -229,6 +230,12 @@ export default function BinPage() {
   const [days, setDays] = useState(30)
   const [open, setOpen] = useState(null) // the expanded entry id
   const [contents, setContents] = useState({}) // id -> [{text, color}]
+  // WHAT AN ENTRY IS, beside what it holds. A bulk delete's flat list of quote
+  // texts is unreadable at scale — "5 books" expanded into 340 lines with nothing
+  // saying which book each came from — so the works come with it, one row per
+  // cover, and an identity entry brings the face it took.
+  const [works, setWorks] = useState({}) // id -> [{kind, id, title, cover, quotes}]
+  const [record, setRecord] = useState({}) // id -> {kind, name, image_path}
   const [busy, setBusy] = useState(false)
   const [asking, setAsking] = useState(false) // "empty it" confirmation
   const [kind, setKind] = useState('all')
@@ -263,6 +270,8 @@ export default function BinPage() {
     // contents failed to load must not draw as an entry holding nothing.
     if (!r.ok) return toast(errText(r, t('error.load.bin')))
     setContents((c) => ({ ...c, [id]: r.data.contents || [] }))
+    setWorks((w) => ({ ...w, [id]: r.data.works || [] }))
+    setRecord((m) => ({ ...m, [id]: r.data.record || null }))
   }
 
   async function putBack(entry) {
@@ -503,16 +512,57 @@ export default function BinPage() {
                       .join(' · ')}
                   </p>
                   {open === e.id && (
-                    <ul className="trash-contents">
-                      {(contents[e.id] || []).map((q, i) => (
-                        <li key={i} style={{ borderLeftColor: `var(--hl-${colorSlot(q.color)})` }}>
-                          {q.text}
-                        </li>
-                      ))}
-                      {contents[e.id] && contents[e.id].length === 0 && (
-                        <li className="microcopy">{t('bin.row.contents.empty')}</li>
+                    <>
+                      {/* THE WORKS FIRST, because they are what a reader is
+                          looking for. A shelf deleted in bulk is one entry, and
+                          the title with its own count is the only thing in it
+                          that can be recognised at a glance. */}
+                      {(works[e.id] || []).length > 0 && (
+                        <ul className="trash-works">
+                          {works[e.id].map((w) => (
+                            <li key={`${w.kind}:${w.id}`}>
+                              <span className="trash-work-cover">
+                                <Cover path={w.cover} title={w.title} />
+                              </span>
+                              <span className="trash-work-name">
+                                <NameScroll text={w.title} />
+                                <span className="microcopy">
+                                  {t('bin.row.work.quotes', { count: w.quotes, n: w.quotes })}
+                                </span>
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
                       )}
-                    </ul>
+                      {/* A FACE IS THE WHOLE OF WHAT AN IDENTITY ENTRY IS. These
+                          rows used to expand to nothing at all: their payload is
+                          a reversal, not a snapshot, so the list had no shape to
+                          read and the chevron promised something it could not
+                          show. Round, like every other portrait in the app. */}
+                      {record[e.id] && (
+                        <div className="trash-face">
+                          {record[e.id].image_path ? (
+                            <img src={coverImgURL(record[e.id].image_path)} alt="" />
+                          ) : (
+                            <span className="trash-face-blank" aria-hidden="true"><IconPerson /></span>
+                          )}
+                          <NameScroll text={record[e.id].name} />
+                        </div>
+                      )}
+                      <ul className="trash-contents">
+                        {(contents[e.id] || []).map((q, i) => (
+                          <li key={i} style={{ borderLeftColor: `var(--hl-${colorSlot(q.color)})` }}>
+                            {q.text}
+                          </li>
+                        ))}
+                        {contents[e.id]
+                          && contents[e.id].length === 0
+                          && (works[e.id] || []).length === 0
+                          && !record[e.id] && (
+                          <li className="microcopy">{t('bin.row.contents.empty')}</li>
+                        )}
+                      </ul>
+                    </>
                   )}
                 </li>
               ))}

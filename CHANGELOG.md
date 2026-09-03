@@ -77,7 +77,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   alike. English can afford that; Bengali names the three separately, so the noun is now a
   slot the locale fills.
 
+### Fixed
+
+- **Expanding a deleted person or character in the bin returned an error.** Their entry's
+  payload is a reversal, not a snapshot, and the handler read every entry as a snapshot —
+  so the one request the chevron makes failed outright, and the row expanded to nothing with
+  no way to tell that anything had gone wrong. Those entries now show what they took: the
+  name and the portrait, round, as everywhere else in the app.
+
 ### Added
+
+- **A bin entry shows the works inside it, with each one's own count.** A shelf deleted in
+  bulk is one entry, and expanding it used to give you a flat list of every quote inside
+  every book — 340 lines with nothing saying which book each came from, which is no use to
+  someone trying to find one title. It now lists the books and films themselves: cover,
+  name, and the number of quotes that went with that one.
 
 - **Prune, in Metadata, for the saved records nothing points at any more.** A person kept
   for their portrait outlives the works that credited them; the per-work character backfill
