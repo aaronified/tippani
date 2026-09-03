@@ -44,6 +44,45 @@ type castEdit struct {
 	// Save, which has no box for it, clear what the character page wrote. Absent
 	// leaves it; empty clears it.
 	Description *string `json:"description"`
+	// ── 0063'S SIX, ALL POINTERS, and Description's reason applies to each of
+	// them with more force: five screens save this row now — the cast panel, and
+	// the character screen in each of its four scopes — and no one of them has a
+	// box for every field. A plain string would let the cast panel's Save, which
+	// has boxes for two names, clear the note a film screen wrote about a dub.
+	// Absent leaves it; empty clears it.
+	CreditNote   *string `json:"credit_note"`
+	CreditLang   *string `json:"credit_lang"`
+	Part         *string `json:"part"`
+	FirstAppears *string `json:"first_appears"`
+	AgeHere      *string `json:"age_here"`
+	Aliases      *string `json:"aliases"`
+}
+
+// creditFields pairs each of 0063's optional fields with its column and its cap,
+// so the validator and the set-builder walk one list. Two loops over two
+// hand-written lists is how a field arrives that validates and never stores.
+func (e *castEdit) creditFields() []struct {
+	col string
+	val **string
+	cap int
+} {
+	return []struct {
+		col string
+		val **string
+		cap int
+	}{
+		{"credit_note", &e.CreditNote, maxCastDescription},
+		// A LANGUAGE IS SHORT AND A NOTE IS NOT. Capping the language at a name's
+		// length is not tidiness: this field is what tells two otherwise identical
+		// dub rows apart, and a paragraph in it reads as a note in the wrong box.
+		{"credit_lang", &e.CreditLang, maxCastName},
+		{"part", &e.Part, maxCastName},
+		{"first_appears", &e.FirstAppears, maxCastName},
+		{"age_here", &e.AgeHere, maxCastName},
+		// The per-work spellings, one per line, so this takes a description's cap
+		// rather than a name's — it holds several names.
+		{"aliases", &e.Aliases, maxCastDescription},
+	}
 }
 
 // validate trims both fields and applies the one rule that differs by kind.
@@ -69,6 +108,16 @@ func (e *castEdit) validate(role string) string {
 			return "that description is too long"
 		}
 		e.Description = &d
+	}
+	for _, f := range e.creditFields() {
+		if *f.val == nil {
+			continue
+		}
+		v, ok := trimCap(**f.val, f.cap)
+		if !ok {
+			return "that " + f.col + " is too long"
+		}
+		*f.val = &v
 	}
 	if e.Character == "" {
 		// A provider may seed a row with no character — TMDB does it whenever a
@@ -438,6 +487,13 @@ func (s *Server) handleUpdateCast(w http.ResponseWriter, r *http.Request) {
 	if req.Description != nil {
 		set += ", description = ?"
 		args = append(args, *req.Description)
+	}
+	for _, f := range req.creditFields() {
+		if *f.val == nil {
+			continue
+		}
+		set += ", " + f.col + " = ?"
+		args = append(args, **f.val)
 	}
 	args = append(args, castID, uid)
 	if _, err := tx.Exec(

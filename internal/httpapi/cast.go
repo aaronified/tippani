@@ -142,6 +142,31 @@ type castRow struct {
 	// be shown; the fallback is the caller's to apply, for the same reason
 	// CastOf.Image leaves it to them.
 	Description string `json:"description"`
+	// ── 0063'S SIX, and they divide into two questions the row used to conflate.
+	//
+	// WHAT IS PECULIAR ABOUT THIS CASTING: `credit_note` and `credit_lang`. They
+	// belong to the CREDIT — not to the person, who is the same person in every
+	// work, and not to the character, who is the same character in every
+	// performance of them. A film's Hindi dub and its on-screen actor are two rows
+	// whose only difference is these two fields, and without them the second row
+	// reads as a duplicate of the first.
+	//
+	// WHAT THIS CHARACTER IS IN THIS WORK: `part`, `first_appears`, `age_here` and
+	// `aliases`. Harry is the protagonist of the book, the lead of the film and
+	// playable in the game; the locator vocabulary is the work's own (a page, a
+	// timestamp, a quest); and the spellings are per work, because the book calls
+	// him Undesirable No. 1 and the film's credits do not.
+	//
+	// `aliases` IS NOT character_alias. That table is the IDENTITY's spellings —
+	// what should find the record anywhere in the library, unique per user. These
+	// are one work's, they claim no uniqueness, and two films may credit him
+	// differently and both be right.
+	CreditNote   string `json:"credit_note"`
+	CreditLang   string `json:"credit_lang"`
+	Part         string `json:"part"`
+	FirstAppears string `json:"first_appears"`
+	AgeHere      string `json:"age_here"`
+	Aliases      string `json:"aliases"`
 }
 
 // castCols is the SELECT list every read here shares, so a column added to the
@@ -152,6 +177,7 @@ type castRow struct {
 // all six. A cast list is a few dozen rows.
 const castCols = `id, character, actor, person_id, image_url, character_image_url,
 	character_image_path, billing, origin, source, character_id, actor_id, description,
+	credit_note, credit_lang, part, first_appears, age_here, aliases,
 	COALESCE((SELECT ch.image_path FROM characters ch
 	           WHERE ch.id = work_cast.character_id AND ch.user_id = work_cast.user_id), '')`
 
@@ -164,7 +190,9 @@ func scanCastRow(sc interface{ Scan(...any) error }) (castRow, error) {
 	var cid, aid sql.NullInt64
 	err := sc.Scan(&c.ID, &c.Character, &c.Actor, &c.PersonID, &c.ImageURL,
 		&c.CharacterImageURL, &c.CharacterImagePath, &c.Billing, &c.Origin, &c.Source,
-		&cid, &aid, &c.Description, &c.CharacterRecordImage)
+		&cid, &aid, &c.Description,
+		&c.CreditNote, &c.CreditLang, &c.Part, &c.FirstAppears, &c.AgeHere, &c.Aliases,
+		&c.CharacterRecordImage)
 	c.CharacterID, c.ActorID = cid.Int64, aid.Int64
 	return c, err
 }
