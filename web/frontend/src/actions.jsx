@@ -60,6 +60,19 @@ export const KINDS = ['book', 'movie', 'annotation', 'dialogue', 'quote']
 const subjectOf = (kind) =>
   t(kind === 'book' ? 'common.subject.book.label' : kind === 'movie' ? 'common.subject.movie.label' : 'common.subject.quote.label')
 
+// THE NOUN FOR THE THING BEING COPIED, because English has one word for it and
+// other languages have three. "A copy of the quote" covers a highlight, a film
+// line and a proverb alike; Bengali names each of them separately, so the noun is
+// a slot the locale fills rather than a word baked into the sentence. The kinds
+// come from `unit.*`, which already carries them for the counts.
+const duplicateNoun = (kind, item) =>
+  (kind === 'movie'
+    ? t('unit.dialogue.one')
+    : item?.kind === 'proverb'
+      ? t('vocab.quote-kind.proverb.label')
+      : t('unit.quote.one')
+  ).toLowerCase()
+
 // actionsFor lists what can be done to one item, in the order a surface should
 // show them. Filtering by `ctx` happens here so no caller has to remember which
 // actions its screen supports.
@@ -189,7 +202,7 @@ export function actionsFor(kind, item, ctx = {}) {
       // the whole question. What comes across is everything except the fact that
       // Save writes a NEW record — so the sub-line lists what carries rather than
       // leaving a reader to press it and find out.
-      sub: t('common.action.duplicate.sub'),
+      sub: t('common.action.duplicate.sub', { kind: duplicateNoun(kind, item) }),
       where: OVERFLOW,
       icon: <IconCopy />,
       tooltip: t('common.action.duplicate.tip'),

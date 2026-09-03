@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Seven Bengali terms, on the owner's reading of the app.** The Library is a গ্রন্থাগার,
+  Stats a পরিসংখ্যান, the quiz a প্রশ্নোত্তর, the practice section অনুশীলন, the daily one
+  দৈনিক, an optional field ঐচ্ছিক rather than a sentence saying you may leave it out, and the
+  Checks screen তথ্য বিন্যাস. The verb on the practise button stays ঝালিয়ে নিন — the mode is
+  renamed, the act is not. হিসেব keeps the one job it was always good at: a record you can
+  count, not the screen that shows them.
+
+- **The 341 strings v3 added after the Bengali rewrite now read in the same voice as the
+  other 3,331.** They had arrived correct and formal — এটি, সেটি, একটি, সংরক্ষণ — which is a
+  different language from the one the rest of the app speaks. গুলি and এবং were left where
+  they stood: not every formal word is the wrong one.
+
+- **Duplicate says what it is copying.** The sub-line under it read "a copy with the same
+  note, tags, colour and locator" for a book's highlight, a film's line and a proverb
+  alike. English can afford that; Bengali names the three separately, so the noun is now a
+  slot the locale fills.
+
 ### Fixed
 
 - **The Quotes shelf list says when it could not be read.** A failed request left it

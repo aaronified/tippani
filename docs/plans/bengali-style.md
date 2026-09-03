@@ -379,9 +379,9 @@ The button-grammar rule is in §5.4. These are the words.
 
 | English | Bengali | Note |
 | --- | --- | --- |
-| quiz | কুইজ | |
-| Daily quiz | রোজকার কুইজ | **Not দৈনিক** (newsprint) |
-| Practice (the named mode) | প্র্যাকটিস | A proper noun for a mode |
+| quiz | প্রশ্নোত্তর | v3.6 — the owner's ruling; কুইজ retired |
+| Daily quiz | দৈনিক প্রশ্নোত্তর | v3.6 — the owner reversed the "not দৈনিক" rule below |
+| Practice (the named mode) | অনুশীলন | v3.6 — the section is named অনুশীলন; the verb stays ঝালিয়ে নিন |
 | practise (the verb on a button) | ঝালিয়ে নিন | **Bengali wins here.** `en.txt` says the Practice/Practise split is one "no other language can reproduce" — Bengali reproduces it exactly, with a noun for the mode and a native verb for the act |
 | review (the schedule, the deck) | রিভিশন | What every Bengali student calls precisely this |
 | deck | ডেক | |
@@ -435,13 +435,14 @@ in three persons is exactly the drift this sheet exists to prevent.
 | English | Bengali | Note |
 | --- | --- | --- |
 | Home | হোম | |
-| Library | লাইব্রেরি | |
+| Library | গ্রন্থাগার | v3.6 — the owner's ruling; লাইব্রেরি retired |
 | Catalogue | ক্যাটালগ | |
 | Quotes (the tab) | উক্তি | §2.5 — the tab holds only standalone quotes |
 | Anthologies | সংকলন | |
 | Tags | ট্যাগ | |
 | Metadata | মেটাডেটা | |
-| Stats | হিসেব | Warm and native for a screen of counts |
+| Checks (the screen) | তথ্য বিন্যাস | v3.6 — folds Stray marks and pending imports; `checks.title` |
+| Stats | পরিসংখ্যান | v3.6. হিসেব stays for a *record* — অনুশীলনের হিসেব, ঘাটতির হিসেব — and হিসেবে ("as") is a different word entirely |
 | Settings | সেটিংস | |
 | Profile | প্রোফাইল |  |
 | Account | অ্যাকাউন্ট | |
@@ -1098,3 +1099,43 @@ Six writers had left two or three Bengali words for one English one. These are n
 - The checks of `docs/plans/multilingual.md` were run again over the result: 0 সাধু markers,
   0 তুমি outside the Tagore line, 0 Bengali digits, 0 placeholder mismatches, every
   `.help.*` and `.info.body` inside its budget.
+
+### v3.6 The owner's terminology pass
+
+Seven rulings, taken after the rewrite merged and read on screen. Each replaces a choice
+this sheet had argued for, so the argument is struck rather than annotated: a term the owner
+has ruled on is settled, and a later reader should not find two defences of the same word.
+
+| Thing | Was | Is | Why |
+| --- | --- | --- | --- |
+| Library | লাইব্রেরি | **গ্রন্থাগার** | |
+| Stats | হিসেব | **পরিসংখ্যান** | হিসেব survives where it means a *record*, not the screen |
+| Quiz | কুইজ | **প্রশ্নোত্তর** | |
+| Daily | রোজকার | **দৈনিক** | Reverses this sheet's own "newsprint" objection |
+| Practice (the section) | প্র্যাকটিস | **অনুশীলন** | The verb on the button stays ঝালিয়ে নিন |
+| Optional | না দিলেও চলে | **ঐচ্ছিক** | Six characters against twelve, and it is nearly always in a placeholder or an aria label — a space-sensitive slot |
+| Checks (the screen) | পরীক্ষা | **তথ্য বিন্যাস** | The screen v3 built from Stray marks and pending imports |
+
+The quote kinds were re-stated and are unchanged: **উক্তি** the Quotes tab, **উদ্ধৃতি** an
+extracted line from a book, letter, essay or speech, **প্রবাদ** a proverb, **সংলাপ** a line
+from a film, show or game.
+
+**The register words are the owner's call, not this sheet's.** The 341 keys v3 added after
+the rewrite drifted formal, and the fix was not a rule — it was a list put to the owner ten
+at a time, each item carrying its key, its English and its current Bengali. What came back
+did not all go one way: `এটি`→`এটা`, `সেটি`→`সেটা`, `একটি`→`একটা`, `সংরক্ষণ`→`সেভ`,
+`অনুলিপি`→`নকল করুন`, `ওয়েব পাতা`→`ওয়েবপেজ` — but `গুলি` and `এবং` were left standing.
+`দৈনিক` is the reason the list exists: this sheet had reasoned its way to the wrong word and
+nothing in the file could have caught it. **Do not sweep a register word without asking.**
+
+Two sweeps that a plain find-and-replace gets wrong, recorded so the next one does not:
+
+- `সেটি` → `সেটা` must be anchored `সেটি(?!ং)`. Thirty-three keys hold **সেটিংস**, and an
+  unanchored sweep renames Settings to `সেটাংস` on every screen.
+- `হিসেব` → `পরিসংখ্যান` is six sites, not thirty. Twenty-six keys carry `হিসেবে` meaning
+  *as* (`Markdown হিসেবে এক্সপোর্ট`), and another thirteen carry `হিসেব` meaning a *count or
+  a record*. Only the screen's own name changed.
+
+`common.action.duplicate.sub` took a **`{kind}` slot** rather than a noun: English says "a
+copy of the quote" for a highlight, a film line and a proverb alike, and Bengali names each
+one. The slot is filled in `actions.jsx` from `unit.*`, which already carried the three.
