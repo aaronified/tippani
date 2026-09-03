@@ -77,6 +77,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   alike. English can afford that; Bengali names the three separately, so the noun is now a
   slot the locale fills.
 
+### Changed
+
+- **Four screens stop drawing a second bar on a phone.** Settings, Metadata, Stats and Bin
+  each pinned their own header directly under the shell's — which already names the screen
+  and has a line under the name for whatever the screen wants to add. Settings' was the
+  clearest waste: on a phone that header's title is hidden and its caption had already moved
+  to the shell's sub-line, so the row was pinned to say nothing. The counts they carried are
+  now that sub-line, and Metadata's note about being the scaled-down console sits beside the
+  section select, which is the thing it explains. Nothing changes on a desk.
+
 ### Fixed
 
 - **The Quotes shelf list says when it could not be read.** A failed request left it

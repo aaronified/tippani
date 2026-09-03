@@ -343,6 +343,9 @@ export default function BinPage() {
   // rather than greyed when the bin is empty: a menu row cannot be disabled, and
   // the verb has nothing to act on.
   useScreenBar({
+    // The count that was the page header's on a desk is the shell bar's sub-line
+    // on a phone, where the header itself no longer draws.
+    sub: mobile ? counts || null : null,
     actions: () => [
       { id: 'h-keep', heading: t('bin.keep-for.label') },
       ...retentionOptions().map(([value, label]) => ({
@@ -361,16 +364,18 @@ export default function BinPage() {
   })
   return (
     <section className="space-y-6" data-screen-label="bin">
-      <div className={mobile ? 'mobile-sticky-bar' : ''}>
-        {/* NO BACK LINK, AND NO DOOR NAMED. This screen used to be reachable only
-            from Settings, so it named that door — "a bare back arrow on a screen
-            nothing in the nav points at leaves you guessing where it goes". The
-            rail and the phone drawer both point at Bin now, and Checks reaches it
-            too, so the arrow pointed at one of several ways in and was wrong for
-            every reader who had not come that way. The crumb and the phone header
-            say where you are; the rail says how to leave. */}
-        <PageHeader title={t('bin.title')} counts={counts} />
-      </div>
+      {/* NO BACK LINK, AND NO DOOR NAMED. This screen used to be reachable only
+          from Settings, so it named that door — "a bare back arrow on a screen
+          nothing in the nav points at leaves you guessing where it goes". The
+          rail and the phone drawer both point at Bin now, and Checks reaches it
+          too, so the arrow pointed at one of several ways in and was wrong for
+          every reader who had not come that way. The crumb and the phone header
+          say where you are; the rail says how to leave.
+
+          AND NO HEADER AT ALL ON A PHONE: the shell bar names the screen and
+          carries the count as its sub-line, so a sticky row here said the same
+          thing a second time, one row lower. */}
+      {!mobile && <PageHeader title={t('bin.title')} counts={counts} />}
 
       <Card>
         <div className="space-y-4">

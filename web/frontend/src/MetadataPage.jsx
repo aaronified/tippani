@@ -79,13 +79,25 @@ function SectionRail({ value, onChange, counts, mobile }) {
       const n = counts[k]
       return n == null ? t(lbl) : `${t(lbl)} · ${n}`
     }
+    // The dot rides with the select rather than in a header, because the header
+    // is gone on a phone and this note is about the phone's own arrangement —
+    // one row, the control and the explanation of it.
     return (
-      <Select
-        ariaLabel={t('metadata.section.aria')}
-        value={value}
-        onChange={onChange}
-        options={METADATA_SECTIONS.map((row) => [row[0], label(row), t(row[1])])}
-      />
+      <div className="flex items-center gap-2">
+        <span className="grow min-w-0">
+          <Select
+            ariaLabel={t('metadata.section.aria')}
+            value={value}
+            onChange={onChange}
+            options={METADATA_SECTIONS.map((row) => [row[0], label(row), t(row[1])])}
+          />
+        </span>
+        <InfoDot
+          side="bottom"
+          title={t('metadata.mobile.info.title')}
+          text={t('metadata.mobile.info.body')}
+        />
+      </div>
     )
   }
   return (
@@ -228,6 +240,9 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
   // does not see it. The desktop header draws the same button; on a phone it has
   // never been reachable at all, and the ⋯ is where it now is.
   useScreenBar({
+    // The count that the page header carries on a desk. On a phone the header
+    // does not draw, so it goes where the screen's name already is.
+    sub: mobile ? t('metadata.counts.mobile') : null,
     actions: () => (user?.is_admin
       ? [
           { id: 'h-do', heading: t('common.mono.actions.label') },
@@ -309,36 +324,31 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
   const issues = libraryIssues({ stats, people, chars })
   return (
     <section className="space-y-6">
-      <div className={mobile ? 'mobile-sticky-bar' : ''}>
-        {/* The tab's own name for the title, not a second copy of the word. */}
+      {/* NO HEADER ON A PHONE. The shell bar draws "Metadata" and takes the count
+          as its sub-line, so this header was a second sticky row saying the same
+          two things one row lower. The phone's note about this being the
+          scaled-down console went with it, to the dot beside the section select
+          — where the thing it explains actually is. The tab's own name for the
+          title, not a second copy of the word. */}
+      {!mobile && (
         <PageHeader
           title={t('nav.tab.metadata.label')}
-          counts={mobile ? t('metadata.counts.mobile') : t('metadata.counts.desktop')}
+          counts={t('metadata.counts.desktop')}
           right={
-            <>
-              {mobile ? (
-                <InfoDot
-                  side="bottom"
-                  title={t('metadata.mobile.info.title')}
-                  text={t('metadata.mobile.info.body')}
-                />
-              ) : (
-                user?.is_admin && (
-                  <IconButton
-                    icon={<IconMetadata />}
-                    label={t('metadata.fetch.label')}
-            ariaLabel={t('metadata.fetch.aria')}
-                    tooltip={t('metadata.fetch.tip')}
-                    tipSide="bottom"
-                    onClick={() => fetchMissingCovers(false)}
-                    disabled={busy}
-                  />
-                )
-              )}
-            </>
+            user?.is_admin && (
+              <IconButton
+                icon={<IconMetadata />}
+                label={t('metadata.fetch.label')}
+                ariaLabel={t('metadata.fetch.aria')}
+                tooltip={t('metadata.fetch.tip')}
+                tipSide="bottom"
+                onClick={() => fetchMissingCovers(false)}
+                disabled={busy}
+              />
+            )
           }
-      />
-      </div>
+        />
+      )}
       <ErrorText>{error}</ErrorText>
       {busy && progress && (
         <ProgressBar

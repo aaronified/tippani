@@ -234,18 +234,18 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, on
   const columns = settingsColumns(ncols, Object.keys(cards))
   return (
     <section className="space-y-6">
-      <div className={mobile ? 'mobile-sticky-bar' : ''}>
-        {/* 'admin' is a ROLE, and the users list already names it — so this
-            draws that same word rather than a second copy of it. The username
-            beside it is data, not copy. */}
-        {/* The counts slot is empty on a phone: the same word is the shell bar's
-            sub-line there, and saying it twice on one screen is what put it on a
-            row of its own. */}
+      {/* NO PAGE HEADER ON A PHONE, not even an empty one. The shell's bar draws
+          "Settings" with a sub-line under it, and this header's <h1> is hidden
+          there — so once the caption moved to that sub-line, a whole sticky row
+          was being spent to say nothing, directly under the row that says it.
+          'admin' is a ROLE and the users list already names it, so the desktop
+          counts draws that same word rather than a second copy of it. */}
+      {!mobile && (
         <PageHeader
           title={t('nav.tab.settings.label')}
-          counts={mobile ? null : (user.is_admin ? t('account.users.admin.chip') : user.username)}
+          counts={user.is_admin ? t('account.users.admin.chip') : user.username}
         />
-      </div>
+      )}
       <Appearance prefs={user.preferences} onPreferences={onPreferences} />
       {/* align-items:start so a short column stays short instead of stretching
           its last card to match the tallest column. */}

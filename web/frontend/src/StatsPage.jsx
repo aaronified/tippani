@@ -4,7 +4,7 @@ import { tzOffsetMinutes, usePractice } from './review.jsx'
 import { coverImgURL, errText, json } from './api.js'
 import { t, tNodes } from './i18n.js'
 import { PersonPortrait, useCharacterFaces, usePeople } from './people.jsx'
-import { ANNOTATION_COLORS, ANNOTATION_HEX, Card, ErrorText, FieldIconButton, fmtHalfLife, IconPractise, IconQuiz, MonoLabel, MONTH_KEYS, mulberry32, NameScroll, PageHeader, Scroller, STATUS_META, toast, Toggle, Tooltip, useEdgeScroll, useIsMobileScreen, usePersistedState } from './ui.jsx'
+import { ANNOTATION_COLORS, ANNOTATION_HEX, Card, ErrorText, FieldIconButton, fmtHalfLife, IconPractise, IconQuiz, MonoLabel, MONTH_KEYS, mulberry32, NameScroll, PageHeader, Scroller, STATUS_META, toast, Toggle, Tooltip, useEdgeScroll, useIsMobileScreen, usePersistedState, useScreenBar } from './ui.jsx'
 
 // StatsPage (§ insights) — a dedicated library-analytics screen, the richer
 // successor to the old Settings "Library stats" card and the intended basis for
@@ -1469,14 +1469,21 @@ export default function StatsPage({ onSearch }) {
     else toast(t('error.reset.practice'))
   }
   const twoCol = { display: 'grid', gridTemplateColumns: mobile ? '1fr' : '1fr 1fr', gap: 24 }
+  // One string, two homes: the page header's counts slot on a desk, the shell
+  // bar's sub-line on a phone. Empty until the read lands, and useScreenBar
+  // republishes when it does.
+  const headerCounts = s
+    ? t('stats.header.counts', { n: (s.annotations || 0) + (s.dialogues || 0) + (s.quotes || 0) })
+    : ''
+  useScreenBar({ sub: mobile ? headerCounts || null : null })
   return (
     <section className="space-y-6">
-      <div className={mobile ? 'mobile-sticky-bar' : ''}>
-        <PageHeader
-          title={t('nav.tab.stats.label')}
-          counts={s ? t('stats.header.counts', { n: (s.annotations || 0) + (s.dialogues || 0) + (s.quotes || 0) }) : ''}
-        />
-      </div>
+      {/* On a phone the count is the shell bar's sub-line (useScreenBar above),
+          not a sticky row of its own under the row that already names the
+          screen. */}
+      {!mobile && (
+        <PageHeader title={t('nav.tab.stats.label')} counts={headerCounts} />
+      )}
       {!s && err ? (
         <Card><ErrorText>{err}</ErrorText></Card>
       ) : !s ? (
