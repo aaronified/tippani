@@ -182,13 +182,34 @@ export function PersonCredit({ kind, name, person, size = 28, onOpen, nameClassN
 // the alternative is this component importing a second URL builder and choosing
 // between them on a `kind` string, which is a branch that would be wrong the first
 // time a third kind of picture appeared.
-export function PersonChip({ kind, name, person, onOpen, onPress, title, faceName, faceSrc }) {
+// `sub` — A SECOND LINE, and the reason the chip has one. A film line's speaker is
+// two facts, the character and whoever played them, and one line held both as
+// "Woland — Oleg Basilashvili": long, and on a card beside three other chips it
+// read as a single unfamiliar name with punctuation in it. Stacked, the eye takes
+// the character first and the actor as the caption it is, which is the order a
+// reader wants them in.
+//
+// `clip` — AND THIS ONE DEPARTS FROM A STANDING RULE, on the owner's instruction.
+// "Never truncate a name" is the pack's, and it is right nearly everywhere: a
+// shortened name and a short name look alike. Here the chips must not wrap — a row
+// that reflows moves every other chip when one name is long — and a scroller per
+// chip inside a row of chips is a gesture nobody would find. So a long name ends
+// in an ellipsis with the whole of it on the `title`, and this is recorded as a
+// departure in PLAN.md rather than left to look like an oversight.
+const CHIP_CHARS = 18
+const clip = (v) => {
+  const s = String(v || '').trim()
+  return s.length > CHIP_CHARS ? s.slice(0, CHIP_CHARS - 1).trimEnd() + '…' : s
+}
+
+export function PersonChip({ kind, name, person, onOpen, onPress, title, faceName, faceSrc, sub }) {
   if (!name) return null
+  const full = sub ? `${name} — ${sub}` : name
   return (
     <button
       type="button"
-      className="person-chip tactile"
-      title={title || `${name} — details`}
+      className={'person-chip tactile' + (sub ? ' is-stacked' : '')}
+      title={title || `${full} — details`}
       onClick={(e) => {
         e.stopPropagation()
         if (onPress) onPress()
@@ -200,7 +221,14 @@ export function PersonChip({ kind, name, person, onOpen, onPress, title, faceNam
           ? <img src={faceSrc || personImgURL(person.image_path)} alt="" />
           : <Silhouette name={faceName || name} />}
       </span>
-      <span className="person-chip-name">{name}</span>
+      {sub ? (
+        <span className="person-chip-lines">
+          <span className="person-chip-name">{clip(name)}</span>
+          <span className="person-chip-sub">{clip(sub)}</span>
+        </span>
+      ) : (
+        <span className="person-chip-name">{clip(name)}</span>
+      )}
     </button>
   )
 }

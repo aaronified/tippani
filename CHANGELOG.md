@@ -79,6 +79,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A quote's speaker had no face when only the actor had a portrait.** A book highlight's
+  speaker chip drew the character's picture or nothing at all, so a character with no image
+  of their own showed no face even when the person who played them had one on file. Two
+  characters on one line, one with a character image and one with only an actor image,
+  showed exactly one face — and the one that was missing looked like missing data. The film
+  card had the fall-back already; the two cards now climb the same ladder.
+
+- **The work detail's header no longer touches the top bar on a phone.** Its padding was a
+  Tailwind step that only applied from 768px up, so on a phone the cover's top edge and the
+  bar's bottom edge were at the same pixel.
+
+### Changed
+
+- **A film line's speaker chip is two lines: the character, and under it whoever played
+  them.** One line held "Woland — Oleg Basilashvili", which beside three other chips reads
+  as a single unfamiliar name with punctuation in it. A long name in one of these chips now
+  ends in an ellipsis with the whole of it on hover — the one place in the app that clips a
+  name, because these chips must not wrap and a reflow moves every other chip on the row.
+
+### Fixed
+
 - **Expanding a deleted person or character in the bin returned an error.** Their entry's
   payload is a reversal, not a snapshot, and the handler read every entry as a snapshot —
   so the one request the chevron makes failed outright, and the row expanded to nothing with

@@ -50,6 +50,17 @@ type quoteSpeakerCast struct {
 	// This work's picture of them, falling back to the record's default — the same
 	// ladder, and for the same merge reason, that loadCharacterImages spells out.
 	Image string `json:"image,omitempty"`
+	// WHO PLAYED THEM, and their portrait. Two fields rather than folding the
+	// portrait into Image above, because the card wants BOTH: the chip is two
+	// lines, the character over the actor, and a character with no picture of
+	// their own should wear the face of whoever played them rather than no face
+	// at all. Folding them would have made that fall-back invisible to the client
+	// and unable to say whose face it was showing.
+	//
+	// Empty on a book, where work_cast.actor_id is null by design (0056) — a
+	// novel bills a character and nobody plays them.
+	Actor      string `json:"actor,omitempty"`
+	ActorImage string `json:"actor_image,omitempty"`
 }
 
 // loadQuoteSpeakers resolves cast ids to the chip's payload. Empty map rather
@@ -88,9 +99,11 @@ func (s *Server) loadQuoteSpeakers(uid int64, castIDs []int64) map[int64]quoteSp
 		`SELECT wc.id, COALESCE(wc.character_id, 0), COALESCE(wc.character, ''),
 		        COALESCE(c.name, ''),
 		        CASE WHEN wc.character_image_path <> '' THEN wc.character_image_path
-		             ELSE COALESCE(c.image_path, '') END
+		             ELSE COALESCE(c.image_path, '') END,
+		        COALESCE(wc.actor, ''), COALESCE(p.image_path, '')
 		   FROM work_cast wc
 		   LEFT JOIN characters c ON c.id = wc.character_id AND c.user_id = wc.user_id
+		   LEFT JOIN people p ON p.id = wc.actor_id AND p.user_id = wc.user_id
 		  WHERE wc.user_id = ? AND wc.origin <> 'removed'
 		    AND wc.id IN (`+strings.Join(in, ",")+`)`, args...)
 	if err != nil {
@@ -102,7 +115,7 @@ func (s *Server) loadQuoteSpeakers(uid int64, castIDs []int64) map[int64]quoteSp
 	for rows.Next() {
 		var sp quoteSpeakerCast
 		var record string
-		if err := rows.Scan(&sp.CastID, &sp.CharacterID, &sp.Name, &record, &sp.Image); err != nil {
+		if err := rows.Scan(&sp.CastID, &sp.CharacterID, &sp.Name, &record, &sp.Image, &sp.Actor, &sp.ActorImage); err != nil {
 			olog.Warnf(olog.CodeCastRowScan, "[cast] quote speaker row scan failed: %v", err)
 			continue
 		}

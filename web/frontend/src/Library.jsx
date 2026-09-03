@@ -1461,7 +1461,13 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
       // The billing is printed and the RECORD's name is hashed — handoff 1.8, so
       // one character does not change face between a novel and its adaptation.
       faceName={sp.record_name || sp.name}
-      faceSrc={sp.image ? coverImgURL(sp.image) : ''}
+      // THE FACE FALLS BACK TO THE ACTOR'S, which is the bug this fixes: a
+      // character with no picture of their own drew no face at all, even when
+      // the person who played them had a portrait on file. Two characters on one
+      // line, one with a character image and one with only an actor image, showed
+      // exactly one face — and the missing one looked like missing data.
+      faceSrc={sp.image ? coverImgURL(sp.image) : sp.actor_image ? coverImgURL(sp.actor_image) : ''}
+      sub={sp.actor || ''}
       title={t('common.quote.speaker.tip', { name: sp.name })}
       onPress={() => onOpenCharacter(sp)}
     />

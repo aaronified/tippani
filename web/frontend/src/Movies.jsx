@@ -1714,6 +1714,10 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
       name={sp.name}
       faceName={sp.record_name || sp.name}
       faceSrc={speakerFace}
+      // THE ACTOR ON THE SECOND LINE. This card drew the performer beside the
+      // chip as loose text; stacked inside the pill it reads as the caption to
+      // the character rather than as a second, unrelated name on the row.
+      sub={sp.actor || d.actor || ''}
       title={t('common.quote.speaker.tip', { name: sp.name })}
       onPress={() => onOpenCharacter(sp)}
     />

@@ -662,7 +662,12 @@ export default function WorkDetail({
   })
 
   return (
-    <section ref={reveal} className={wide ? 'reveal' : 'reveal space-y-6 md:pt-4'} data-screen-label={spec.screenLabel}>
+    /* THE HEADER NEEDS AIR UNDER THE BAR, and md:pt-4 only ever gave it on a
+       desk — so on a phone the cover's top edge touched the shell bar exactly
+       (measured: hero top 65, bar bottom 65) and the whole header read as
+       constricted. One class, both widths, and --edge rather than a Tailwind
+       step because that is the app's spacing constant. */
+    <section ref={reveal} className={wide ? 'reveal' : 'reveal space-y-6 screen-air'} data-screen-label={spec.screenLabel}>
       {!mobile && !wide && (
         <button
           className="mono-label"

@@ -4331,6 +4331,12 @@
     padding: 16px 16px calc(24px + env(safe-area-inset-bottom));
   }
   .container-tp { max-width: var(--container-max); margin: 0 auto; padding: 4px var(--edge) 64px; }
+  /* AIR UNDER THE TOP BAR, for a screen whose first element is the thing you came
+     to read. `.container-tp`'s 4px is enough for a screen that opens on a header
+     or a filter strip and not enough for one that opens on a cover: on a phone the
+     work detail's hero sat exactly against the bar's bottom edge. One step, the
+     app's own, so it moves with --edge rather than beside it. */
+  .screen-air { padding-top: var(--edge); }
 
   /* ---- A SCREEN THAT OWNS ITS SCROLLING ----------------------------------
      Stamped on <html> by the shell when the screen in front has published
@@ -4598,6 +4604,22 @@
     transition: border-color .15s ease, background .15s ease;
   }
   .person-chip:hover, .person-chip:focus-visible { border-color: var(--accent-ui); }
+  /* THE STACKED CHIP: the character over whoever played them. Two lines in the
+     same pill rather than two pills, because they are one fact about one line of
+     dialogue — and one pill per fact keeps a card of four speakers readable.
+     The pill grows taller by an em rather than by a pixel count, so it moves with
+     the type dials like everything else that holds text. */
+  .person-chip.is-stacked { min-height: max(44px, 3.2em); padding-top: 3px; padding-bottom: 3px; }
+  .person-chip-lines { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; line-height: 1.2; }
+  /* The actor is the caption, one step back — state on top, attribution under it,
+     the same weighting the shelf row uses for its date. */
+  .person-chip-sub { font-size: var(--type-ui-11); color: var(--faint); }
+  /* A CLIPPED NAME, WHICH THIS APP OTHERWISE NEVER DOES — the owner's call, and
+     the reason is the row: chips here must not wrap, because a reflow moves every
+     other chip when one name is long. The whole name is on the button's `title`,
+     and the clip is done in JS at a character count rather than by text-overflow
+     so the ellipsis lands at the same place whatever the type dial says. */
+  .person-chip-name, .person-chip-sub { white-space: nowrap; }
   /* The face is always drawn — a silhouette when there is no photograph — so the
      row is a run of equal shapes rather than a ragged mix of two designs. */
   /* A WORK'S LINKS OUT (§1.3). The mark, the site's name over the address, and a
