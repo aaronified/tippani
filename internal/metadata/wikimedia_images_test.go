@@ -92,6 +92,68 @@ func TestTheWikimediaCharacterRungTakesTheRoleAndRefusesTheWork(t *testing.T) {
 	}
 }
 
+// THE WORK RANKS ABOVE THE CHARACTER, AND THE CHARACTER IS STILL THERE.
+//
+// This is the shape the real API returns and the one the fixtures above never
+// had: every query in that test resolves to exactly ONE article, so a caller
+// that read only the first result passed every case. Wikipedia ranks "Woland
+// The Master and Margarita" with the NOVEL on top — it matches more of the query
+// than the character's article does — and the character second. The rung is
+// right to refuse the novel, whose lead image is a book cover; it was wrong to
+// stop there, and stopping there is why no character search ever returned
+// anything for a work that has an article of its own.
+//
+// The second half is the same failure with the work absent from the results
+// entirely: three unrelated hits under the qualified query, and the character's
+// own article reachable only by searching the bare name.
+func TestTheCharacterRungReadsPastTheWorksOwnArticle(t *testing.T) {
+	stubWikipedia(t,
+		map[string][]string{
+			// The novel first, the character second — the real ranking.
+			"Woland The Master and Margarita": {"The Master and Margarita", "Woland", "Behemoth (cat)"},
+			// Nothing usable under the qualified query; the bare name finds them.
+			"Behemoth The Master and Margarita": {"The Master and Margarita"},
+			"Behemoth":                          {"Behemoth (The Master and Margarita)"},
+		},
+		map[string]string{
+			"The Master and Margarita":            "https://upload.wikimedia.org/COVER.jpg",
+			"Woland":                              "https://upload.wikimedia.org/woland.jpg",
+			"Behemoth (The Master and Margarita)": "https://upload.wikimedia.org/behemoth-cat.jpg",
+		})
+
+	for _, tc := range []struct {
+		character, work, want, why string
+	}{
+		{"Woland", "The Master and Margarita", "https://upload.wikimedia.org/woland.jpg",
+			"the novel ranks first and is refused; the character is the next result and must be used"},
+		{"Behemoth", "The Master and Margarita", "https://upload.wikimedia.org/behemoth-cat.jpg",
+			"no candidate under the qualified query survives, so the bare name is tried and its qualifier fits the work"},
+	} {
+		got := WikimediaCharacterImages(context.Background(), tc.character, tc.work)
+		if len(got) != 1 || got[0].URL != tc.want {
+			t.Errorf("%s: got %+v, want %q — %s", tc.character, got, tc.want, tc.why)
+		}
+	}
+}
+
+// A PORTRAIT SEARCH READS PAST A DISAMBIGUATION PAGE for the same reason: the
+// top hit for a common name is often the page that lists the people rather than
+// one of them, and it carries no image at all.
+func TestAPortraitSearchReadsPastAPageWithNoImage(t *testing.T) {
+	stubWikipedia(t,
+		map[string][]string{
+			"Anna Kavan": {"Anna Kavan (disambiguation)", "Anna Kavan"},
+		},
+		map[string]string{
+			// The disambiguation page has no lead image, which is the usual case.
+			"Anna Kavan": "https://upload.wikimedia.org/kavan.jpg",
+		})
+	got := WikimediaPortraitImages(context.Background(), "Anna Kavan", "", "")
+	if len(got) != 1 || got[0].URL != "https://upload.wikimedia.org/kavan.jpg" {
+		t.Fatalf("got %+v, want the article under the disambiguation page", got)
+	}
+}
+
 // THE STORED ARTICLE SHORT-CIRCUITS THE SEARCH, which is the whole reason this
 // rung is trustworthy for an author: their record already carries the exact
 // article, so no name is ever handed to a search engine and the namesake problem

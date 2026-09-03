@@ -69,6 +69,57 @@ func TestFandomAsksTheWorksOwnWikiAndIsSilentWhenThereIsNone(t *testing.T) {
 	}
 }
 
+// THE NAME AS STORED IS NOT THE ARTICLE'S TITLE, and that used to end the search.
+//
+// This rung asked the wiki for `titles=<the name as stored>`, which finds an
+// article only when the two agree exactly. A reader's "Agent Smith" against an
+// article called "Smith (The Matrix)", a "Prince Myshkin" against "Lev
+// Nikolayevich Myshkin", every character billed by a nickname: all missed, and a
+// miss was reported as "this wiki has no picture of them". Wikipedia's rung has
+// always searched; this one was the one asked to guess the title.
+func TestFandomSearchesWhenTheExactTitleMisses(t *testing.T) {
+	var paths []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		paths = append(paths, q.Get("list")+":"+q.Get("titles")+q.Get("srsearch"))
+		if q.Get("list") == "search" {
+			if q.Get("srsearch") == "Agent Smith" {
+				_, _ = w.Write([]byte(`{"query":{"search":[{"title":"Smith (The Matrix)"}]}}`))
+				return
+			}
+			_, _ = w.Write([]byte(`{"query":{"search":[]}}`))
+			return
+		}
+		title, _ := url.QueryUnescape(q.Get("titles"))
+		if title == "Smith (The Matrix)" {
+			_, _ = w.Write([]byte(`{"query":{"pages":[{"original":{"source":"https://static.wikia.nocookie.net/smith.jpg"}}]}}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"query":{"pages":[{"missing":true}]}}`))
+	}))
+	defer srv.Close()
+	SetFandomAndScrapeBasesForTest(t, srv.URL, "")
+
+	got := FandomCharacterImages(context.Background(), "Agent Smith", "matrix")
+	if len(got) != 1 || got[0].URL != "https://static.wikia.nocookie.net/smith.jpg" {
+		t.Fatalf("got %+v, want the article the search found", got)
+	}
+	if got[0].Source != "fandom" {
+		t.Errorf("hit does not name its source: %+v", got[0])
+	}
+	// The exact title is still tried FIRST, because when it hits it is the right
+	// article by definition and costs one request instead of two.
+	if len(paths) < 2 || paths[0] != ":Agent Smith" {
+		t.Errorf("the exact title was not tried first: %v", paths)
+	}
+
+	// AND A SEARCH THAT FINDS NOTHING IS STILL NOTHING. The fallback must not turn
+	// "no such character" into a picture of whatever the wiki ranked first.
+	if got := FandomCharacterImages(context.Background(), "Nobody At All", "matrix"); len(got) != 0 {
+		t.Errorf("a search with no results produced a hit: %+v", got)
+	}
+}
+
 // FANDOM AS A RECORD SOURCE, not only a picture one. The same wiki that has a
 // character's portrait has an article about the work, and its opening paragraph
 // is a description written by people who care about the thing.

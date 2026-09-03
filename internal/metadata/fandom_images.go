@@ -156,6 +156,88 @@ func FandomCharacterImages(ctx context.Context, character, wiki string) []ImageH
 	p := r.Query.Pages[0]
 	src := strings.TrimSpace(p.Original.Source)
 	if p.Missing || src == "" {
+		// THE EXACT TITLE MISSED, AND THAT WAS THE END OF IT — the third reason
+		// a character image search "almost never yields any result". This asks
+		// the wiki for `titles=<the name as stored>`, which finds an article only
+		// when the two agree exactly: a reader's "Agent Smith" against an article
+		// called "Smith (The Matrix)", a "Prince Myshkin" against "Lev Nikolayevich
+		// Myshkin", and every character billed by a nickname, all missed.
+		//
+		// Wikipedia's rung has always searched (list=search). Fandom runs the same
+		// MediaWiki API and was the one asked to guess the title. So: the exact
+		// title first, because when it hits it is the right article by definition,
+		// then the search.
+		return fandomSearchCharacter(ctx, character, slug)
+	}
+	return []ImageHit{{URL: src, Source: "fandom"}}
+}
+
+// fandomSearchCharacter is the rung under the exact title: ask the wiki to find
+// the article, then read its lead image.
+//
+// NO NAME GATE, unlike the Wikipedia rung, and the difference is the corpus. A
+// Fandom wiki is about ONE work: everything on it is a subject of that story, so
+// a search for a character cannot come back with a nuclear test or a
+// disambiguation page the way an encyclopaedia can. What it can come back with is
+// the wrong character, which is why only the top hit is taken here — the ranking
+// within a single work's wiki is the whole of the evidence available, and reading
+// further down would be offering a second guess as though it were an answer.
+func fandomSearchCharacter(ctx context.Context, character, slug string) []ImageHit {
+	q := url.Values{
+		"action": {"query"}, "list": {"search"}, "srsearch": {character},
+		"srlimit": {"1"}, "srnamespace": {"0"}, "format": {"json"}, "formatversion": {"2"},
+	}
+	base := strings.Replace(fandomHostFmt, "%s", slug, 1)
+	body, status, err := httpGet(ctx, base+"/api.php?"+q.Encode(), "")
+	if err != nil || status != 200 {
+		return nil
+	}
+	var r struct {
+		Query struct {
+			Search []struct {
+				Title string `json:"title"`
+			} `json:"search"`
+		} `json:"query"`
+	}
+	if json.Unmarshal(body, &r) != nil || len(r.Query.Search) == 0 {
+		return nil
+	}
+	title := strings.TrimSpace(r.Query.Search[0].Title)
+	if title == "" || strings.EqualFold(title, character) {
+		// Equal to what we already asked for by title, and that missed — so there
+		// is nothing new to fetch and a second identical request is waste.
+		return nil
+	}
+	return fandomLeadImage(ctx, title, slug)
+}
+
+// fandomLeadImage reads one article's lead image, by exact title.
+func fandomLeadImage(ctx context.Context, title, slug string) []ImageHit {
+	q := url.Values{
+		"action": {"query"}, "prop": {"pageimages"}, "piprop": {"original"},
+		"titles": {title}, "format": {"json"}, "formatversion": {"2"}, "redirects": {"1"},
+	}
+	base := strings.Replace(fandomHostFmt, "%s", slug, 1)
+	body, status, err := httpGet(ctx, base+"/api.php?"+q.Encode(), "")
+	if err != nil || status != 200 {
+		return nil
+	}
+	var r struct {
+		Query struct {
+			Pages []struct {
+				Missing  bool `json:"missing"`
+				Original struct {
+					Source string `json:"source"`
+				} `json:"original"`
+			} `json:"pages"`
+		} `json:"query"`
+	}
+	if json.Unmarshal(body, &r) != nil || len(r.Query.Pages) == 0 {
+		return nil
+	}
+	p := r.Query.Pages[0]
+	src := strings.TrimSpace(p.Original.Source)
+	if p.Missing || src == "" {
 		return nil
 	}
 	return []ImageHit{{URL: src, Source: "fandom"}}

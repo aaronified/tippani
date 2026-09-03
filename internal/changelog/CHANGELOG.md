@@ -90,6 +90,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Tailwind step that only applied from 768px up, so on a phone the cover's top edge and the
   bar's bottom edge were at the same pixel.
 
+- **The character picture search returned nothing, on every source at once.** Three separate
+  faults, each of which alone would have emptied the strip. Wikipedia's search was asked for
+  three candidate articles and handed back only the first, which for a role is almost always
+  the *work's* own article — the exact answer the caller's next line then refuses, so the
+  rung threw away its own two remaining candidates to fail on the one it had already
+  rejected; it now walks every candidate, and asks the role's name with the work's title
+  before asking it bare. Fandom looked up an article by exact title and stopped, so any
+  character whose page carries a qualifier — the great majority — missed by one word; a miss
+  now falls back to the wiki's own search. And a portrait search gave up on the first
+  article with no image on it rather than trying the next.
+
 ### Changed
 
 - **A film line's speaker chip is two lines: the character, and under it whoever played

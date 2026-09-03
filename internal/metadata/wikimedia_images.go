@@ -63,14 +63,28 @@ func wikipediaHost(host string) bool {
 	return err == nil && u.Host != "" && u.Host == host
 }
 
-// wikipediaSearchTitle returns the best-matching English Wikipedia article title
-// for a free-text query, or "". One call, top hit only: the ranking is the whole
-// value being bought here, and reading further down the list would be second-
-// guessing it with a worse heuristic.
-func wikipediaSearchTitle(ctx context.Context, query string) string {
+// wikipediaSearchTitles returns the English Wikipedia article titles that match a
+// free-text query, best first, or nil.
+//
+// IT USED TO RETURN ONLY THE TOP HIT, and that was the bug behind "the character
+// image search almost never yields any result". The reasoning was that the
+// ranking is the value being bought and reading further down would be
+// second-guessing it — which is right when the caller wants whatever Wikipedia
+// thinks is best, and wrong when the caller has a rule the top hit can fail.
+//
+// A character search has exactly that rule. "Woland The Master and Margarita"
+// ranks the NOVEL first, because the novel's article matches more of the query
+// than the character's does — and WikimediaCharacterImages then refuses it, by
+// design, because a work's lead image is its cover. The character's own article
+// was the second or third result: this function asked for three, was handed
+// three, and threw two away before the caller could look at them.
+//
+// srlimit is still 3. The fix is not more results, it is letting the caller see
+// the ones already paid for.
+func wikipediaSearchTitles(ctx context.Context, query string) []string {
 	query = strings.TrimSpace(query)
 	if query == "" {
-		return ""
+		return nil
 	}
 	q := url.Values{
 		"action": {"query"}, "list": {"search"}, "srsearch": {query},
@@ -78,7 +92,7 @@ func wikipediaSearchTitle(ctx context.Context, query string) string {
 	}
 	body, status, err := httpGet(ctx, wikipediaBase+"/w/api.php?"+q.Encode(), "")
 	if err != nil || status != 200 {
-		return ""
+		return nil
 	}
 	var r struct {
 		Query struct {
@@ -88,9 +102,15 @@ func wikipediaSearchTitle(ctx context.Context, query string) string {
 		} `json:"query"`
 	}
 	if json.Unmarshal(body, &r) != nil || len(r.Query.Search) == 0 {
-		return ""
+		return nil
 	}
-	return strings.TrimSpace(r.Query.Search[0].Title)
+	out := make([]string, 0, len(r.Query.Search))
+	for _, hit := range r.Query.Search {
+		if t := strings.TrimSpace(hit.Title); t != "" {
+			out = append(out, t)
+		}
+	}
+	return out
 }
 
 // articleURL builds the article address WikipediaImageURL expects from a title.
@@ -133,10 +153,18 @@ func WikimediaPortraitImages(ctx context.Context, name, wikiURL, qid string) []I
 		// A PERSON'S NAME IS ITS OWN SEARCH and needs no extra context: unlike a
 		// role, an actor's article is titled with their name, so a title that does
 		// not contain the name is a different subject and is refused.
-		title := wikipediaSearchTitle(ctx, name)
-		_, qual := splitTitleQualifier(title)
-		if nameMatchesTitle(name, title) && portraitQualifierFits(qual) {
-			add(WikipediaImageURL(ctx, articleURL(title)))
+		// The candidates, not just the first: a name whose top hit is a
+		// disambiguation page or a namesake used to end the search, when the
+		// person asked for was the result underneath.
+		for _, title := range wikipediaSearchTitles(ctx, name) {
+			_, qual := splitTitleQualifier(title)
+			if !nameMatchesTitle(name, title) || !portraitQualifierFits(qual) {
+				continue
+			}
+			if img := WikipediaImageURL(ctx, articleURL(title)); img != "" {
+				add(img)
+				break
+			}
 		}
 	}
 	return out
@@ -154,21 +182,41 @@ func WikimediaCharacterImages(ctx context.Context, character, workTitle string) 
 	if character == "" {
 		return nil
 	}
-	query := character
+	// TWO QUERIES, AND THE SECOND IS WHY THIS FINDS ANYTHING AT ALL.
+	//
+	// The work is the context that makes the search find the right Woland, so it
+	// goes first. It is also what makes the search rank the NOVEL above the
+	// character — the novel's article matches more of the query — which the gates
+	// below then refuse, correctly, because a work's lead image is its cover. With
+	// one query and one candidate that refusal WAS the answer: no image, ever, for
+	// any character whose work has an article of its own. Which is all of them.
+	//
+	// So: the qualified query for its ranking, then the bare name for the case
+	// where every one of the qualified query's results was about the work. Both
+	// walk their candidates, and the first that survives the gates and has a
+	// picture wins.
+	queries := []string{character}
 	if w := strings.TrimSpace(workTitle); w != "" {
-		query = character + " " + w
+		queries = []string{character + " " + w, character}
 	}
-	title := wikipediaSearchTitle(ctx, query)
-	_, qual := splitTitleQualifier(title)
-	if title == "" || isTheWorkItself(title, workTitle) ||
-		!nameMatchesTitle(character, title) || !characterQualifierFits(qual, workTitle) {
-		return nil
+	tried := map[string]bool{}
+	for _, query := range queries {
+		for _, title := range wikipediaSearchTitles(ctx, query) {
+			if tried[title] {
+				continue
+			}
+			tried[title] = true
+			_, qual := splitTitleQualifier(title)
+			if isTheWorkItself(title, workTitle) ||
+				!nameMatchesTitle(character, title) || !characterQualifierFits(qual, workTitle) {
+				continue
+			}
+			if img := WikipediaImageURL(ctx, articleURL(title)); img != "" {
+				return []ImageHit{{URL: img, Source: "wikimedia"}}
+			}
+		}
 	}
-	img := WikipediaImageURL(ctx, articleURL(title))
-	if img == "" {
-		return nil
-	}
-	return []ImageHit{{URL: img, Source: "wikimedia"}}
+	return nil
 }
 
 // splitTitleQualifier cuts a Wikipedia title into its subject and its
