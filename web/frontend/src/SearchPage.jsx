@@ -7,11 +7,14 @@ import {
   FACET_FIELDS,
   FACET_MENU_PAGE,
   facetOptions,
+  fieldMenuOptions,
+  fieldPartial,
   liftFacet,
   makeChip,
   narrowFacetOptions,
   readSearchBox,
   removeChipAt,
+  replaceFieldPartial,
   sameChip,
   searchQueryString,
 } from './facets.js'
@@ -190,7 +193,22 @@ export function SearchBox({ q, setQ, chips, setChips, mobile, draft, options, on
   //
   // The menu opens only when there is something to offer, and the positioning
   // hook has to agree with that or it measures an element never rendered.
-  const menuOpen = open && !!draft && options.length > 0
+  const valueMenuOpen = open && !!draft && options.length > 0
+  // THE FIELD MENU, and it is the same menu wearing a different list.
+  //
+  // The box has parsed `tag:` since facets landed and never told anybody: the
+  // placeholder names three of the sixteen fields and vanishes the moment you
+  // type, and the filters panel that lists them all is a different surface you
+  // have to know to open. So the grammar was something a reader either arrived
+  // knowing or never found. Pressing the box now offers the whole list.
+  //
+  // It gives way to the value menu rather than competing with it — once a word
+  // carries a colon, fieldPartial returns null and this closes — so the two are
+  // one interaction: name the field, then choose its value, without the box ever
+  // showing two menus or none.
+  const fieldOptions = draft ? [] : fieldMenuOptions(fieldPartial(q))
+  const fieldMenuOpen = open && !draft && fieldOptions.length > 0
+  const menuOpen = valueMenuOpen || fieldMenuOpen
   const { popRef, style } = useAnchoredPosition(menuOpen, boxRef, { matchWidth: true, minHeight: 120 })
   useDismiss(menuOpen, () => setOpen(false), [boxRef, popRef], { event: 'pointerdown' })
 
@@ -202,18 +220,34 @@ export function SearchBox({ q, setQ, chips, setChips, mobile, draft, options, on
     inputRef.current?.focus()
   }
 
+  // Naming a field does NOT close the menu: it rewrites the word into `name:`,
+  // which makes a draft, which opens the value menu in the same breath. Closing
+  // and reopening would flash, and would cost a second press for the half of the
+  // interaction that is the actual question.
+  const pickField = (f) => {
+    setQ(replaceFieldPartial(q, f.name))
+    setHi(0)
+    inputRef.current?.focus()
+  }
+
   // The visible page, and the keyboard is bounded by IT rather than by the whole
   // ranked list — arrowing past the last visible row would otherwise highlight
   // something nobody can see. Instead it reveals the next page, which is the
   // same gesture as pressing More and one the hands already know.
-  const page = options.slice(0, shown)
-  const hasMore = options.length > shown
+  // THE FIELD LIST IS NOT PAGED. Five at a time is right for a vocabulary of
+  // hundreds — `book:` over a real library — and wrong for a closed list of
+  // sixteen whose whole purpose here is to be seen. A reader paging through the
+  // grammar five rows at a time has not been told what is possible.
+  const page = valueMenuOpen ? options.slice(0, shown) : fieldOptions
+  const hasMore = valueMenuOpen && options.length > shown
   const more = () => setShown((n) => n + FACET_MENU_PAGE)
 
   const onKey = (e) => {
     if (menuOpen && (e.key === 'Enter' || e.key === 'Tab')) {
       e.preventDefault()
-      pick(page[hi] || page[0])
+      const chosen = page[hi] || page[0]
+      if (valueMenuOpen) pick(chosen)
+      else pickField(chosen)
     } else if (menuOpen && e.key === 'ArrowDown') {
       e.preventDefault()
       if (hi === page.length - 1 && hasMore) more()
@@ -262,7 +296,7 @@ export function SearchBox({ q, setQ, chips, setChips, mobile, draft, options, on
       </div>
       {menuOpen && createPortal(
         <ul ref={popRef} className="token-menu" style={style}>
-          {page.map((o, i) => (
+          {valueMenuOpen ? page.map((o, i) => (
             <li key={`${draft.field}:${o.value}`}>
               <button
                 type="button"
@@ -271,6 +305,30 @@ export function SearchBox({ q, setQ, chips, setChips, mobile, draft, options, on
                 onClick={() => pick(o)}
               >
                 {draft.field}:{o.label}
+              </button>
+            </li>
+          )) : page.map((f, i) => (
+            <li key={f.name}>
+              <button
+                type="button"
+                className={'token-opt token-opt-field' + (i === hi ? ' hi' : '')}
+                onMouseEnter={() => setHi(i)}
+                onClick={() => pickField(f)}
+              >
+                {/* data-grammar: this is the QUERY LANGUAGE, not copy. `tag:` is
+                    what the box parses and is the same in every locale — the
+                    pseudo-locale sweep in screens-i18n.test.jsx skips anything
+                    marked this way, because an accented `ŧäǧ:` would be a field
+                    the parser rejects. */}
+                <span className="search-field-name" data-grammar="">{f.name}:</span>
+                {/* THE COMBINING RULE, on the row that teaches the field. Two
+                    tags narrow and two authors widen, and a reader who learns
+                    the grammar here should learn that with it — `combine` has
+                    been in facets.js since it landed, described in its own
+                    comment as "the copy the help screen quotes". */}
+                <span className="search-field-rule">
+                  {t(f.combine === 'and' ? 'search.field.and.hint' : 'search.field.or.hint')}
+                </span>
               </button>
             </li>
           ))}

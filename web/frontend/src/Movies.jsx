@@ -12,7 +12,7 @@ import { selectionClick, selectionMenuItems, useSelection } from './selection.js
 import { facetValue, facetValues, publishSearchSeed, seedableChips, withFacet, withFacetValues } from './facets.js'
 import { SelectionBar } from './SelectionBar.jsx'
 import { useCharacterArt } from './cast.jsx'
-import { CharacterFaces, CreditFaces, PersonChip, PersonModal, PersonName, parseCreditSeps, splitCredits, usePeople, usePortraitFill } from './people.jsx'
+import { CharacterFaces, CreditFaces, PersonChip, PersonModal, PersonName, parseCreditSeps, personImgURL, splitCredits, usePeople, usePortraitFill } from './people.jsx'
 import {
   GroupHeading,
   WorkCard,
@@ -1698,12 +1698,22 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
   // See AnnotationCard, and quote_speaker.go for why `speaker_cast` is not
   // `character`.
   const sp = d.speaker_cast
+  // THE CHARACTER'S PICTURE, AND THE ACTOR'S ONLY AS A FALLBACK — the owner's
+  // ruling, and it is what this card already did with a separate row of discs
+  // (CharacterFaces, then CreditFaces). Folding it into the chip means one face on
+  // the row instead of a face beside a face: the still of the role if the work or
+  // the record has one, the performer's headshot if not, and the hashed silhouette
+  // under both, which is the ladder cast.jsx climbs.
+  const spActor = sp ? actorMap[sp.actor] || actorMap[d.actor] : null
+  const speakerFace = sp?.image
+    ? coverImgURL(sp.image)
+    : spActor?.image_path ? personImgURL(spActor.image_path) : ''
   const speakerChip = sp && sp.character_id && onOpenCharacter ? (
     <PersonChip
       kind="character"
       name={sp.name}
       faceName={sp.record_name || sp.name}
-      faceSrc={sp.image ? coverImgURL(sp.image) : ''}
+      faceSrc={speakerFace}
       title={t('common.quote.speaker.tip', { name: sp.name })}
       onPress={() => onOpenCharacter(sp)}
     />
@@ -1767,6 +1777,13 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
             onToggle={accordion ? onToggleExpand : undefined}
           />
         ))}
+      {/* ITS OWN LINE, ABOVE THE CREDIT ROW — see AnnotationCard, which does the
+          same and for the same reason: a 38px pill sharing a row with two 8px dots
+          and a line of mono text makes the tallest object set the height of the
+          quietest one, and pushes the runtime off to the right of a name. Above
+          it, the frame reads down the way it is written: the line, then who said
+          it, then where in the runtime. */}
+      {speakerChip && <Scroller axis="x" className="mt-1.5 block">{speakerChip}</Scroller>}
       <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
         <span className="inline-flex items-center gap-2">
           {/* THE CHARACTER'S FACE, NOT THE ACTOR'S (2.2.0). A line is spoken by a
@@ -1780,19 +1797,23 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
               anybody. `character_images` is absent rather than empty when there is
               nothing stored, so this tells "no picture" from "no character" and a
               library with no character art looks exactly as it did before. */}
-          {d.character_images?.length ? (
+          {/* ONLY WHERE THE CHIP IS NOT ALREADY DRAWING ONE. A line with a stored
+              speaker has one, and the chip carries their face and their name — so
+              these discs beside it were the same person twice, once labelled and
+              once not. They stay for the lines the chip cannot speak for: an
+              ensemble line names several characters and the linker refuses to
+              guess between them, and then this row is the only thing that says
+              who is in it. */}
+          {!speakerChip && (d.character_images?.length ? (
             <CharacterFaces images={d.character_images} size={24} ring="var(--card)" />
           ) : (
             <CreditFaces names={actorNames} map={actorMap} size={24} ring="var(--card)" />
-          )}
+          ))}
           <ReviewDot item={d} />
           {/* The library's twin — see AnnotationCard. `show` is already the prop
               that tells this frame which kind of thing it is inside, so the mark
               can say "its show" rather than calling every episode a film. */}
           <QuizSkipMark item={d} parent={show ? 'show' : 'film'} />
-          {/* Above the credit line, as on a book's card and as both prototypes
-              draw it: who said it, then where in the runtime it was said. */}
-          {speakerChip && <Scroller axis="x" className="block">{speakerChip}</Scroller>}
           <span style={amberMono}>
             {creditParts.map((p, i) => (
               <span key={i}>

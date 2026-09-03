@@ -185,3 +185,65 @@ describe('the face on the chip', () => {
     expect(drawn, 'hashed the billing rather than the record').toBe(asRecord)
   })
 })
+
+// ---- one face on the row, not two ------------------------------------------
+//
+// THE OWNER'S REPORT: "the character chip + actor buttons plus their individual
+// picture chips are messing around in the annotation cards… only character images
+// should be there, actor images will be a fallback."
+//
+// Both cards already drew a row of small face discs beside the line — the
+// character's on a book, the character's-then-the-actor's on a film. Adding the
+// chip put the same person on the card twice: once as a disc with no name, once
+// as a pill with one. The discs are not deleted, because they still answer the
+// line the chip cannot speak for.
+
+describe('the face on a card', () => {
+  // COUNTED AS IMAGES, because the disc row has no class of its own — it is a
+  // FaceStack, an inline-flex span of <img>. The chip's own face is a silhouette
+  // in these fixtures (`image: ''`), so every character image on the card belongs
+  // to the discs and the right number of them is none.
+  const discFaces = () => document.querySelectorAll('img[src*="characters/"]')
+
+  it('is the chip alone when the line has one speaker', async () => {
+    book({ character_images: [{ name: 'Woland', path: 'characters/w.jpg' }] })
+    expect(document.querySelectorAll('.person-chip')).toHaveLength(1)
+    expect(discFaces(), 'the disc row is still drawn behind the chip').toHaveLength(0)
+  })
+
+  it('is the chip alone on a film line too', async () => {
+    film({ character_images: [{ name: 'the Stalker', path: 'characters/s.jpg' }] })
+    expect(document.querySelectorAll('.person-chip')).toHaveLength(1)
+    expect(discFaces(), 'the disc row is still drawn behind the chip').toHaveLength(0)
+  })
+
+  it('falls back to the discs on a line the chip cannot speak for', async () => {
+    // An ensemble line: the linker refuses to guess, so there is no chip and the
+    // discs are the only thing left saying who is in it.
+    book({ speaker_cast: undefined, character_images: [{ name: 'Rick', path: 'characters/r.jpg' }] })
+    expect(document.querySelector('.person-chip')).toBeNull()
+    expect(discFaces().length, 'the discs went too, so nothing says who is in the line').toBeGreaterThan(0)
+  })
+
+  it('wears the actor’s headshot when the character has no picture of their own', async () => {
+    // THE FALLBACK, on the film side, and the ladder is the character's still →
+    // the record's default → the performer. A book has no actor to fall back to
+    // and lands on the hashed silhouette instead.
+    film(
+      { speaker_cast: { cast_id: 11, character_id: 3, name: 'the Stalker', image: '' }, actor: 'Aleksandr Kaydanovskiy' },
+      { actorMap: { 'Aleksandr Kaydanovskiy': { name: 'Aleksandr Kaydanovskiy', image_path: 'people/ak.jpg' } } },
+    )
+    const img = document.querySelector('.person-chip img')
+    expect(img, 'the chip drew no face at all').toBeTruthy()
+    expect(img.getAttribute('src')).toContain('people/ak.jpg')
+  })
+
+  it('prefers the character’s own still over the actor’s headshot', async () => {
+    film(
+      { speaker_cast: { cast_id: 11, character_id: 3, name: 'the Stalker', image: 'characters/stalker.jpg' }, actor: 'Aleksandr Kaydanovskiy' },
+      { actorMap: { 'Aleksandr Kaydanovskiy': { name: 'Aleksandr Kaydanovskiy', image_path: 'people/ak.jpg' } } },
+    )
+    const img = document.querySelector('.person-chip img')
+    expect(img.getAttribute('src'), 'the performer won over the role').toContain('characters/stalker.jpg')
+  })
+})

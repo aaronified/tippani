@@ -73,13 +73,27 @@ const KEYSHAPE = /^[a-z][a-z0-9-]*(?:\.[a-z0-9-]+)+$/
 // The attributes a human reads.
 const SPOKEN = ['title', 'placeholder', 'aria-label', 'alt']
 
+// GRAMMAR IS NOT COPY, and it is the one exemption this sweep has.
+//
+// The search box parses `tag:`, `author:`, `book:` — sixteen field names that are
+// the QUERY LANGUAGE. They are identical in every locale by definition: translated
+// into the pseudo-locale they would read `ŧäǧ:`, which the parser rejects, so
+// "untranslated" is the correct state rather than an oversight. Anything the app
+// marks `data-grammar` is skipped here.
+//
+// It is an ATTRIBUTE ON THE ELEMENT rather than a list of strings in this file,
+// deliberately: a list would have to be kept in step with FACET_FIELDS, and the
+// day somebody adds a seventeenth field the list is what would be forgotten. The
+// screen declares what it is, and this reads the declaration.
+const isGrammar = (node) => !!node?.parentElement?.closest?.('[data-grammar]')
+
 // Everything on the page that a reader can see or hear, as {where, text}.
 function spokenStrings() {
   const out = []
   const walk = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT)
   for (let n = walk.nextNode(); n; n = walk.nextNode()) {
     const text = n.textContent.trim()
-    if (text) out.push({ where: `<${n.parentElement?.tagName.toLowerCase() || '?'}>`, text })
+    if (text && !isGrammar(n)) out.push({ where: `<${n.parentElement?.tagName.toLowerCase() || '?'}>`, text })
   }
   for (const el of document.body.querySelectorAll('*')) {
     for (const attr of SPOKEN) {

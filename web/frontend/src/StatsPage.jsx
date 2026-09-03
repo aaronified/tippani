@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { CAT_NAME_MAX, categoryName, categoryVar } from './theme.js'
 import { tzOffsetMinutes, usePractice } from './review.jsx'
-import { coverImgURL, json } from './api.js'
+import { coverImgURL, errText, json } from './api.js'
 import { t, tNodes } from './i18n.js'
-import { PersonPortrait, usePeople } from './people.jsx'
-import { ANNOTATION_COLORS, ANNOTATION_HEX, Card, FieldIconButton, fmtHalfLife, IconPractise, IconQuiz, MonoLabel, MONTH_KEYS, mulberry32, NameScroll, PageHeader, Scroller, STATUS_META, toast, Toggle, Tooltip, useEdgeScroll, useIsMobileScreen, usePersistedState } from './ui.jsx'
+import { PersonPortrait, useCharacterFaces, usePeople } from './people.jsx'
+import { ANNOTATION_COLORS, ANNOTATION_HEX, Card, ErrorText, FieldIconButton, fmtHalfLife, IconPractise, IconQuiz, MonoLabel, MONTH_KEYS, mulberry32, NameScroll, PageHeader, Scroller, STATUS_META, toast, Toggle, Tooltip, useEdgeScroll, useIsMobileScreen, usePersistedState } from './ui.jsx'
 
 // StatsPage (§ insights) — a dedicated library-analytics screen, the richer
 // successor to the old Settings "Library stats" card and the intended basis for
@@ -408,10 +408,13 @@ const BREAKDOWN_KINDS = [
   // one character is played by several actors across adaptations, and a BOOK has
   // characters and no actors at all — which is the case that settles it.
   //
-  // No `person` key, so no portrait chip: a character is not a row in the People
-  // console and has no portrait, page or rename there. Its picture lives on the
-  // work's cast row (0049/0050), which this section does not read.
-  { key: 'characters', get label() { return t('stats.breakdown.characters.label') }, works: true },
+  // NO `person` KEY, BECAUSE A CHARACTER IS NOT ONE — 0056 gave them their own
+  // table, and this row's portrait comes from `characters.image_path` rather than
+  // from the People console. The note that used to sit here said a character "has
+  // no portrait" and stopped being true the moment that column landed: the reader
+  // can promote any appearance's still to the record, and every screen but this
+  // one drew the result.
+  { key: 'characters', get label() { return t('stats.breakdown.characters.label') }, works: true, character: true },
   // A speaker spans occasions the way an author spans books, so `works` is on.
   // The portrait comes from the People console like every other person kind.
   { key: 'speakers', get label() { return t('stats.breakdown.speakers.label') }, works: true, person: 'speaker' },
@@ -436,15 +439,19 @@ const ROW_SEGS = [
 // count, a stacked status bar (proportions), and a mono sub-line spelling
 // every non-zero status out (never colour alone). The name is a doorway: it
 // opens that entity on the Search page.
-function BreakdownRow({ r, rank, showWorks, art, personMap, onSearch }) {
+function BreakdownRow({ r, rank, showWorks, art, personMap, characterMap, onSearch, onPractise }) {
   const segs = ROW_SEGS.map(([key, of]) => [key, of(r)]).filter(([, n]) => n > 0)
   const statusText = ([key, n]) => t('stats.breakdown.status.label', { n, name: t(STATUS_META[key].label).toLowerCase() })
   const barTip = segs.map(statusText).join(' · ')
   const portrait = personMap ? personMap[r.name] : null
+  // A CHARACTER'S STILL, WHICH IS NOT A HEADSHOT. It is stored under the cover
+  // root and read with coverImgURL — the same ladder cast.jsx climbs — so it
+  // cannot go through PersonPortrait, which builds a person's URL.
+  const face = characterMap?.[r.name]?.image_path || ''
   // Kinds that carry art (covers / portraits) always reserve a fixed-width art
   // column, image or not, so the name + status bar start at the same x and the
   // bar is the same width whether or not a given entity has an image.
-  const showArtCol = art || !!personMap
+  const showArtCol = art || !!personMap || !!characterMap
   return (
     <div className="flex gap-2">
       <span className="mono-label" style={{ flex: '0 0 auto', width: 20, textAlign: 'right', paddingTop: 2, color: 'var(--faint)' }}>
@@ -460,6 +467,12 @@ function BreakdownRow({ r, rank, showWorks, art, personMap, onSearch }) {
             />
           ) : portrait ? (
             <PersonPortrait person={portrait} size={24} />
+          ) : face ? (
+            <img
+              src={coverImgURL(face)}
+              alt=""
+              style={{ width: 24, height: 24, objectFit: 'cover', borderRadius: 999, border: '1px solid var(--ink-border)' }}
+            />
           ) : null}
         </span>
       )}
@@ -476,6 +489,14 @@ function BreakdownRow({ r, rank, showWorks, art, personMap, onSearch }) {
             </button>
           </Tooltip>
           <span className="mono-label" style={{ flex: '0 0 auto', color: 'var(--accent-ui)' }}>{r.quotes}</span>
+          {onPractise && (
+            <FieldIconButton
+              icon={<IconPractise />}
+              ariaLabel={t('stats.bar.practise.aria', { name: r.name })}
+              onClick={() => onPractise(r)}
+              tooltip={t('stats.bar.practise.tip', { name: r.name })}
+            />
+          )}
         </div>
         {segs.length > 0 && (
           <div title={barTip} style={{ display: 'flex', gap: 2, height: 6, marginTop: 3 }}>
@@ -500,8 +521,9 @@ function BreakdownRow({ r, rank, showWorks, art, personMap, onSearch }) {
 // headlined by the best-remembered and most-forgotten entity of that kind.
 // Joined credits ("Gaiman & Pratchett") are split server-side (§11). Rows wear
 // cover thumbs / portrait chips and click through to Search.
-function BreakdownCard({ breakdown, personMaps, onSearch }) {
+function BreakdownCard({ breakdown, personMaps, characterMap, onSearch }) {
   const [kind, setKind] = useState('authors')
+  const { practise, practiceDialog } = usePractice()
   const meta = BREAKDOWN_KINDS.find((m) => m.key === kind) || BREAKDOWN_KINDS[0]
   const k = breakdown?.[kind] || { count: 0, top: [] }
   return (
@@ -547,11 +569,21 @@ function BreakdownCard({ breakdown, personMaps, onSearch }) {
               showWorks={meta.works}
               art={meta.art}
               personMap={meta.person ? personMaps?.[meta.person] : null}
+              characterMap={meta.character ? characterMap : null}
               onSearch={onSearch}
+              // ABSENT WHERE THERE IS NO ROUND TO START, rather than greyed. A
+              // themed round is narrowed by one of six keys (review.jsx's
+              // themeKeys) and only `person` is reachable from a breakdown row:
+              // the work kinds are named by TITLE here and `book`/`movie` take an
+              // id the server does not send with these rows, and `series` and
+              // `characters` have no theme key at all. A button that opened an
+              // unnarrowed round would be the whole deck wearing this row's name.
+              onPractise={meta.person ? (row) => practise({ person: row.name, label: row.name }) : undefined}
             />
           ))}
         </div>
       )}
+      {practiceDialog}
     </Card>
   )
 }
@@ -646,7 +678,7 @@ function Colors({ colors }) {
 // LeaderList — ranked rows (rank · name · value · accent bar) used by Top
 // tags: ~5 rows tall, the rest scrolls (the server sends up to 50). Names
 // click through to Search.
-function LeaderList({ rows, onSearch }) {
+function LeaderList({ rows, onSearch, onPractise }) {
   if (!rows || rows.length === 0) return <p className="tp-empty" style={{ padding: '16px 0' }}>{t('stats.list.empty')}</p>
   const max = Math.max(1, ...rows.map((r) => r.count))
   return (
@@ -669,6 +701,18 @@ function LeaderList({ rows, onSearch }) {
                 </button>
               </Tooltip>
               <span className="mono-label" style={{ flex: '0 0 auto', color: 'var(--accent-ui)' }}>{r.count}</span>
+              {/* The colour rows have had this since they were the only named
+                  theme with no page of its own; a tag is a theme too, and the
+                  round it starts is the one the reader is already looking at the
+                  count for. Same glyph, same corner of the row. */}
+              {onPractise && (
+                <FieldIconButton
+                  icon={<IconPractise />}
+                  ariaLabel={t('stats.bar.practise.aria', { name: r.name })}
+                  onClick={() => onPractise(r)}
+                  tooltip={t('stats.bar.practise.tip', { name: r.name })}
+                />
+              )}
             </div>
             <div style={{ height: 6, background: 'var(--line)', borderRadius: 999, overflow: 'hidden', marginTop: 3 }}>
               <div style={{ height: '100%', width: `${Math.round((100 * r.count) / max)}%`, background: 'var(--accent-ui)', borderRadius: 999 }} />
@@ -682,10 +726,12 @@ function LeaderList({ rows, onSearch }) {
 
 // TopList — a labelled leaderboard card (Top tags).
 function TopList({ label, rows, onSearch }) {
+  const { practise, practiceDialog } = usePractice()
   return (
     <Card>
       <SectionHead label={label} />
-      <LeaderList rows={rows} onSearch={onSearch} />
+      <LeaderList rows={rows} onSearch={onSearch} onPractise={(r) => practise({ tag: r.name, label: r.name })} />
+      {practiceDialog}
     </Card>
   )
 }
@@ -1352,7 +1398,14 @@ function Superlatives({ s, personMaps, onSearch }) {
   return (
     <Card>
       <SectionHead label={t('stats.super.title')} />
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 12 }}>
+      {/* A LOWER FLOOR, so nine tiles stop stacking. 190px was the widest track on
+          this page — wider than the Overview's 118 and the Memory grid's 148 for
+          tiles carrying no more text — and it needed 392px before it would give a
+          second column at all, so a phone and a narrow window drew a column of
+          nine. `max(168px, 12em)` is the app's own idiom for a box that must hold
+          scaling text: the px is a floor, the em is what actually governs once the
+          reader turns the type dial up. */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(max(168px, 12em), 1fr))', gap: 12 }}>
         <SuperTile label={t('stats.super.most-annotated.label')} title={s.most_annotated?.title} count={s.most_annotated?.count} cover={s.most_annotated?.cover_path} onOpen={open(s.most_annotated?.title)} />
         <SuperTile label={t('stats.super.most-quoted-work.label')} title={s.most_quoted?.title} count={s.most_quoted?.count} cover={s.most_quoted?.cover_path} onOpen={open(s.most_quoted?.title)} />
         <SuperTile label={t('stats.super.most-quoted-person.label')} title={topPerson?.name} count={topPerson?.quotes} person={face(topPerson?.name)} onOpen={open(topPerson?.name)} />
@@ -1374,12 +1427,16 @@ function Superlatives({ s, personMaps, onSearch }) {
 
 export default function StatsPage({ onSearch }) {
   const [s, setS] = useState(null)
+  const [err, setErr] = useState('')
   const mobile = useIsMobileScreen()
   // People-console portraits for the person breakdown kinds' chips.
   const authors = usePeople('author')
   const directors = usePeople('director')
   const actors = usePeople('actor')
   const speakers = usePeople('speaker')
+  // The other identity table — see useCharacterFaces on why it is not a fifth
+  // usePeople call.
+  const characterMap = useCharacterFaces()
   // `any` is every portrait regardless of the role it was saved under. The
   // people endpoint requires a kind, but all four maps are already loaded here,
   // and 0027 made a person ONE row keyed by name — so the same human has the
@@ -1395,7 +1452,16 @@ export default function StatsPage({ onSearch }) {
   }
   // The offset is only for the streak: which local day counts as today is the
   // one thing on this page that depends on where the reader is standing.
-  const loadStats = () => json('GET', `/stats?offset=${tzOffsetMinutes()}`).then((r) => { if (r.ok) setS(r.data) })
+  // A FAILED REQUEST IS NOT A SLOW ONE. This read `if (r.ok) setS(r.data)` with no
+  // else, so `s` stayed null and the branch below went on printing "loading…" for
+  // as long as the page was open — a whole screen dead, with nothing to tell a
+  // reader whether to wait or to reload. This file had no error state at all; the
+  // house pattern is MetadataPage's, which sets one.
+  const loadStats = () => json('GET', `/stats?offset=${tzOffsetMinutes()}`).then((r) => {
+    if (!r.ok) return setErr(errText(r, t('error.load.stats')))
+    setErr('')
+    setS(r.data)
+  })
   useEffect(() => { loadStats() }, [])
   async function resetPractice() {
     const r = await json('DELETE', '/review/practice')
@@ -1411,7 +1477,9 @@ export default function StatsPage({ onSearch }) {
           counts={s ? t('stats.header.counts', { n: (s.annotations || 0) + (s.dialogues || 0) + (s.quotes || 0) }) : ''}
         />
       </div>
-      {!s ? (
+      {!s && err ? (
+        <Card><ErrorText>{err}</ErrorText></Card>
+      ) : !s ? (
         <Card><p className="tp-empty" style={{ padding: '32px 0' }}>{t('common.action.load.busy')}</p></Card>
       ) : (
         <div className="space-y-6">
@@ -1430,7 +1498,7 @@ export default function StatsPage({ onSearch }) {
           <Superlatives s={s} personMaps={personMaps} onSearch={onSearch} />
           <TimelineCard timeline={s.timeline} onSearch={onSearch} />
           <div style={twoCol}>
-            <BreakdownCard breakdown={s.breakdown} personMaps={personMaps} onSearch={onSearch} />
+            <BreakdownCard breakdown={s.breakdown} personMaps={personMaps} characterMap={characterMap} onSearch={onSearch} />
             <div className="space-y-6">
               <Colors colors={s.colors} />
               <TopList label={t('stats.top-tags.title')} rows={s.top_tags} onSearch={onSearch} />

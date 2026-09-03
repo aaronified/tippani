@@ -7,7 +7,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Reset on a quotes board clears every filter.** It called a setter that has not existed
+  since the medium column became a kind, so pressing it threw before it reached Kind and
+  Language — and those two are remembered per device, so the filters Reset failed to clear
+  survived a reload too. Nothing on screen said anything, because the failure was inside
+  the press.
+
+- **A game's line keeps what you type into it.** Editing one from Home drew a Timestamp
+  box — which the server discards for a game — and hid Act and Quest, the only two fields
+  that say where in a game a line happens. Home asked whether a work was a *show* and let
+  everything else fall through as a film, so a game's favourite also wore the FILM badge
+  and offered "Open this film".
+
+- **The Bin says when it could not read itself.** A failed request drew the empty state:
+  *nothing deleted*, on the one screen whose job is to hold what you deleted. It also
+  stopped asserting a retention period it never received.
+
+- **Stats says when it could not load.** A failed request left it reading *loading…* for
+  as long as the page stayed open, with no way to tell a slow network from a broken one.
+
+- **One face on a quote card, not two.** The speaker's chip and the older row of face
+  discs were drawing the same person side by side, once with a name and once without,
+  crowded onto the same line as the locator. The chip stands alone now and sits on its own
+  line above it; the discs stay for the lines the chip cannot speak for, where several
+  characters are named and nothing can say which of them spoke. A film line's chip falls
+  back to the performer's headshot when the role has no picture of its own.
+
+- **Names stop being clipped top and bottom.** Every scrolling name in the app sat in a box
+  that clipped its own text vertically — a CSS rule about the other axis, which cannot be
+  left visible once one axis scrolls. Worst on the Stats superlatives, where a tight line
+  height on a display face sheared the tops and tails off the biggest names on the screen.
+
 ### Added
+
+- **The search box says what it can parse.** It has understood `tag:`, `author:`, `book:`
+  and thirteen more since facets landed, and never told anybody: the placeholder names
+  three of them and vanishes the moment you type. Pressing the box now lists every field
+  it accepts, each saying whether stacking two of them narrows a search or widens it.
+  Typing narrows the list, and picking one hands straight over to its values.
+
+- **The Stats breakdown and Top tags start a practice round, as the colour rows already
+  did.** Every person row — authors, directors, actors, speakers — and every tag now
+  carries the same practise key beside its count. The rows that cannot narrow a round
+  (works, series, characters) draw no key rather than a dead one.
+
+- **A character in the Stats breakdown wears their own picture.** Characters got records
+  with pictures some releases ago and this list never read them, so the one breakdown
+  about characters was the one with no faces in it.
 
 - **A quote says who spoke it, and pressing the name opens them.** A line's speaker has
   been stored since the character records landed and no screen ever showed it — the app

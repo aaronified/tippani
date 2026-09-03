@@ -2792,6 +2792,7 @@ common.badge.quote = উদ্ধৃতি
 home.favourites.open.book.aria = এই বইটা খুলুন
 home.favourites.open.film.aria = এই সিনেমাটা খুলুন
 home.favourites.open.show.aria = এই শোটা খুলুন
+home.favourites.open.game.aria = এই গেমটি খুলুন
 home.favourites.open.quotes.aria = উক্তির পাতায় যান
 home.favourites.collapse.tip = এই উদ্ধৃতিটা গুটিয়ে নিন
 
@@ -3246,6 +3247,8 @@ search.clear.label = খোঁজা মুছে দিন
 # parses them, so they stay as they are in the placeholder too.
 search.box.placeholder = খুঁজুন, বা লিখুন tag: author: colour:…
 search.box.aria = খোঁজ
+search.field.and.hint = সংকীর্ণ করে
+search.field.or.hint = প্রসারিত করে
 # The dropdown's "show me another five" row.
 search.box.more.label = আরও ({n})
 # A facet already applied, as a removable pill.
@@ -5043,6 +5046,8 @@ settings.keys.toast.cleared = মুছে গেল
 
 # --- from staging ---
 error.load.import-queue = ইমপোর্টের অপেক্ষার তালিকা পড়া গেল না
+error.load.bin = রিসাইকল বিন পড়া গেল না
+error.load.stats = আপনার পরিসংখ্যান লোড করা গেল না
 error.apply.edit = এডিট বসানো গেল না
 error.approve.generic = মেনে নেওয়া গেল না
 error.discard.generic = ফেলে দেওয়া গেল না

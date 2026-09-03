@@ -1082,7 +1082,14 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
         setNoted(false)
         setTag('')
         setSpeaker('')
-        setMedium('')
+        // KIND AND LANGUAGE, and this line used to read `setMedium('')` — a setter
+        // that has not existed since 0053 renamed the column's meaning. Nothing
+        // caught it: there is no ESLint in this project, the handler is only
+        // reached by pressing Reset, and a ReferenceError inside an onClick takes
+        // the press and not the page. So Reset half-worked, and the two filters it
+        // failed to clear are `usePersistedState` — they survived a reload too.
+        setKind('')
+        setLanguage('')
         setSort('recent')
         setGroupBy('none')
       }}

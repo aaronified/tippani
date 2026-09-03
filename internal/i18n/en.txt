@@ -2742,6 +2742,7 @@ common.badge.quote = QUOTE
 home.favourites.open.book.aria = Open this book
 home.favourites.open.film.aria = Open this film
 home.favourites.open.show.aria = Open this show
+home.favourites.open.game.aria = Open this game
 home.favourites.open.quotes.aria = Go to your quotes
 home.favourites.collapse.tip = Collapse this quote
 
@@ -3190,6 +3191,8 @@ error.reset.practice = could not reset practice
 search.clear.label = Clear the search
 search.box.placeholder = Search, or type tag: author: colour:…
 search.box.aria = Search
+search.field.and.hint = narrows
+search.field.or.hint = widens
 # The dropdown's "show me another five" row.
 search.box.more.label = More ({n})
 # A facet already applied, as a removable pill.
@@ -5007,6 +5010,8 @@ settings.keys.toast.cleared = cleared
 
 # --- from staging ---
 error.load.import-queue = could not read the import queue
+error.load.bin = could not read the bin
+error.load.stats = could not load your statistics
 error.apply.edit = could not apply the edit
 error.approve.generic = could not approve
 error.discard.generic = could not discard

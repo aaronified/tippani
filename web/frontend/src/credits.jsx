@@ -176,6 +176,31 @@ export function usePeople(kind) {
   return { map, reload }
 }
 
+// useCharacterFaces — the same shape as usePeople, for the other identity table.
+//
+// A CHARACTER IS NOT A PERSON HERE, which is the whole reason this exists beside
+// the hook above rather than as a fifth `kind` passed to it. 0056 gave characters
+// their own table: a book has characters and no actors, one character is played by
+// several actors across adaptations, and a character's picture is a still from a
+// work rather than a headshot — so it is stored under the COVER root and read with
+// `coverImgURL`, where a person's goes through `personImgURL`. Two tables, two
+// roots, two hooks.
+export function useCharacterFaces() {
+  const [map, setMap] = useState({})
+  useEffect(() => {
+    let alive = true
+    json('GET', '/characters').then((r) => {
+      if (!alive || !r.ok) return
+      // Keyed by NAME, like usePeople, because that is what a stats row carries —
+      // the breakdown counts a character's quotes by the name on the line, and has
+      // no id to hand back.
+      setMap(Object.fromEntries((r.data.characters || []).map((c) => [c.name, c])))
+    })
+    return () => { alive = false }
+  }, [])
+  return map
+}
+
 // usePortraitFill — the portraits a screen is about to draw, fetched because it
 // is about to draw them.
 //

@@ -189,6 +189,61 @@ export function liftFacet(text, draft) {
 export const FACET_MENU_PAGE = 5
 export const FACET_MENU_MAX = 50
 
+// ---- the field menu: what you can type, before you know you can type it -----
+//
+// THE BOX HAS ALWAYS PARSED `tag:` AND NEVER SAID SO. The placeholder names three
+// of the sixteen fields and the filters panel lists them all, but the panel is a
+// different surface and the placeholder disappears the moment you type — so the
+// grammar was something a reader either already knew or never found. Pressing the
+// box now offers the whole list, which is the cheapest possible place to teach it:
+// at the moment of asking, in the control being asked.
+//
+// fieldPartial reads the WORD BEING TYPED when it is not yet a field. Empty when
+// the box is empty (so a bare click offers everything), empty when the word
+// already carries a colon (that is readFacetDraft's business, and the value menu
+// takes over), and otherwise the fragment to narrow the list by.
+export function fieldPartial(text) {
+  const s = String(text || '')
+  if (/\s$/.test(s)) return ''
+  const word = s.split(/\s+/).pop() || ''
+  // A colon anywhere in the word means it is a field being VALUED, not named.
+  // Escaped colons included: `tag\:` is somebody typing a literal colon, and
+  // offering them a field list over it would be answering a question they are
+  // not asking.
+  //
+  // BELT AND BRACES, SAID OUT LOUD. The menu is already closed by then — SearchBox
+  // asks for options only when there is no draft — so removing this line changes
+  // nothing a reader sees, and a mutation run proved exactly that. It stays
+  // because replaceFieldPartial below calls this and has to be right without a
+  // caller's guard standing in front of it.
+  return word.includes(':') ? null : word
+}
+
+// The fields a reader may type, narrowed by what they have typed so far.
+//
+// `typed: false` fields are absent rather than listed-and-inert — added_from and
+// added_to are real chips that arrive from the Stats calendar and a hand-edited
+// URL, and there is genuinely no vocabulary to offer for them, so a row here
+// would open a menu with nothing in it.
+export function fieldMenuOptions(partial) {
+  if (partial == null) return []
+  const p = partial.toLowerCase()
+  return FACET_FIELDS
+    .filter((f) => f.typed !== false)
+    .filter((f) => !p || f.name.startsWith(p))
+}
+
+// replaceFieldPartial swaps the half-typed word for `name:`, leaving whatever
+// came before it alone — the same surgery liftFacet does at the other end of the
+// interaction, and for the same reason: the box is one string and only the word
+// under the cursor is being answered.
+export function replaceFieldPartial(text, name) {
+  const s = String(text || '')
+  const partial = fieldPartial(s)
+  const head = partial ? s.slice(0, s.length - partial.length) : s
+  return `${head}${name}:`
+}
+
 export function readSearchBox(q, vocabulary) {
   const draft = readFacetDraft(q)
   const options = draft

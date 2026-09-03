@@ -396,11 +396,19 @@ function bookFav(a) {
 
 function screenFav(d, movieMap) {
   const m = movieMap[d.movie_id] || {}
-  const isShow = (m.media_type || 'movie') === 'show'
+  // THREE MEDIA, NOT TWO. This asked `=== 'show'` and let everything else fall to
+  // the film leg, so a game's line wore the FILM badge on the one screen that
+  // draws favourites from all three. `game` has been a first-class media type
+  // since 0040 — workKinds.js names it, the catalogue filters on it, the server
+  // deletes a game's timestamp — and Home was never swept. MEDIA_BADGE below is
+  // the table that already knew; this is it used a second time rather than a
+  // second two-way question written out.
+  const media = m.media_type || 'movie'
   return {
     key: `screen:${d.id}`,
     kind: 'screen',
-    media: t(isShow ? 'common.badge.show' : 'common.badge.film'),
+    media: t(MEDIA_BADGE[media] || 'common.badge.film'),
+    media_type: media,
     // A dialogue has carried a colour for as long as the other two kinds have,
     // and this was the one builder that did not pass it on — so every film line
     // on Home wore the default yellow bar whatever colour it actually is, and
@@ -412,7 +420,8 @@ function screenFav(d, movieMap) {
     source: [m.title, d.character].filter(Boolean).join(' · '),
     meta: [m.title, episodeLabel(d), d.character, d.timestamp].filter(Boolean).join(' · '),
     createdAt: d.created_at,
-    openLabel: t(isShow ? 'home.favourites.open.show.aria' : 'home.favourites.open.film.aria'),
+    // The same three-way as the badge above — a game's tile said "Open this film".
+    openLabel: t(`home.favourites.open.${OPEN_ARIA[media] || 'film'}.aria`),
     workId: d.movie_id,
     raw: d, // the untouched row — share/edit/delete need the full state
     movie: m, // parent title/year for the share payload
@@ -968,6 +977,13 @@ function FavouriteTile({
           onCancel={onEditCancel}
           submitLabel={t('common.action.save.label')}
           show={f.movie?.media_type === 'show'}
+          // A GAME'S LINE LOSES WHAT YOU TYPE WITHOUT THIS. `game` swaps the
+          // timestamp for act and quest — see DialogueForm, which calls it "a fix
+          // rather than an addition" — and Home asked only the `show` question. So
+          // editing a game's line from here drew a Timestamp box the server
+          // deletes on save (dialogue_handlers.go) and hid the two fields that are
+          // the only way to say where in the game the line is.
+          game={f.movie?.media_type === 'game'}
           tagSuggestions={tagSuggestions}
           stickers={stickers}
           reloadStickers={reloadStickers}
@@ -1208,6 +1224,11 @@ function SerendipityRow({ onOpenBook, onOpenMovie, onGoQuotes, people, seps, onO
 // MEDIA_BADGE — what the strip along the top of a serendipity card says. The
 // three screen kinds name themselves; a book and a standalone quote wear the same
 // badge their favourite tile does, so one quote reads the same on both boards.
+// OPEN_ARIA — which noun the tile's open control says out loud, per media type.
+// A table rather than a chain of ternaries because there are three answers and the
+// chain that had two is what let a game read as a film in three separate places.
+const OPEN_ARIA = { movie: 'film', show: 'show', game: 'game' }
+
 const MEDIA_BADGE = {
   movie: 'common.badge.film',
   show: 'common.badge.show',
@@ -1272,7 +1293,19 @@ function SerendipityCard({ q, onOpen, people = {}, seps, onOpenPerson, actions }
     })
     : []
 
-  const openLabel = t(`home.favourites.open.${q.kind === 'book' ? 'book' : q.kind === 'quote' ? 'quotes' : q.media_type === 'show' ? 'show' : 'film'}.aria`)
+  // The same three-way as the badge above, and for the same reason: "Open this
+  // film" on a game is the screen reader being told the wrong thing about the row
+  // it is on.
+  // ON ONE LINE, and that is not a formatting preference: token-scan.js reads a
+  // `${...}` hole out of a template with a regex, so a leg broken across lines is
+  // a key the coverage tests cannot see — every member of the family then reads as
+  // dead copy. The choice is a variable, not a wrapped template.
+  const openKind = q.kind === 'book' ? 'book'
+    : q.kind === 'quote' ? 'quotes'
+      : q.media_type === 'show' ? 'show'
+        : q.media_type === 'game' ? 'game'
+          : 'film'
+  const openLabel = t(`home.favourites.open.${openKind}.aria`)
   // The cover is a doorway when there is somewhere to go and a picture when there
   // is not — a standalone quote has no work behind it, and a button that answers
   // a tap with nothing is worse than no button.

@@ -1610,6 +1610,13 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
                 onToggle={accordion ? onToggleExpand : undefined}
               />
             ))}
+          {/* ITS OWN LINE, ABOVE THE LOCATOR ROW — not inside it. The chip is a
+              38px pill and the row beside it holds two 8px dots and a line of mono
+              text, so putting them together made the tallest object on the card
+              set the height of its quietest line and pushed the locator off to the
+              right of a name. Above it, the card reads down the way it is written:
+              the words, then who said them, then where they were. */}
+          {speakerChip && <Scroller axis="x" className="block">{speakerChip}</Scroller>}
           <div className="flex items-center gap-2">
             {/* THE CHARACTER'S FACE, and a book's card is the last place that was
                 still printing the name and nothing else. A highlight has carried a
@@ -1626,7 +1633,14 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
                 film side falls back to the ACTOR, and a book's speaker has no
                 actor to stand in for them, so an empty disc would be a picture of
                 nobody. */}
-            {a.character_images?.length > 0 && (
+            {/* ONLY WHEN THE CHIP IS NOT DRAWING THE SAME PERSON. A line with a
+                stored speaker has exactly one, and the chip carries their face and
+                their name — so the disc row beside it was the same character twice
+                on one card, once with a name and once without. The discs stay for
+                the lines the chip cannot speak for: an ensemble line names several
+                characters, the linker refuses to guess between them, and then this
+                row is the only thing saying who is in it. */}
+            {!speakerChip && a.character_images?.length > 0 && (
               <CharacterFaces images={a.character_images} size={24} ring="var(--card)" />
             )}
             <ReviewDot item={a} />
@@ -1638,11 +1652,6 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
                 This card serves annotations AND standalone quotes; only the
                 first has a work to inherit from, so only it names one. */}
             <QuizSkipMark item={a} parent={selectKind === 'annotation' ? 'book' : ''} />
-            {/* THE CHIP SITS ABOVE THE LOCATOR, which is where both prototypes put
-                it: after the words, the translation and the note, and immediately
-                before the line saying where in the book you were. Who said it is
-                about the words; the locator is about the page. */}
-            {speakerChip && <Scroller axis="x" className="block">{speakerChip}</Scroller>}
             {metaLine && <MonoLabel className="block">{metaLine}</MonoLabel>}
           </div>
           {/* WHAT IT SAYS, then what you thought — in that order, and the order is

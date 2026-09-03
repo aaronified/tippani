@@ -993,6 +993,20 @@
     /* A scrollbar under a single line of text is thicker than the text. The fade
        is the signal, which is the whole premise of the edge-fade section. */
     scrollbar-width: none;
+    /* THE OTHER AXIS CLIPS, AND NOTHING HERE ASKED IT TO.
+       `overflow-x: auto` with `overflow-y: visible` is not a state CSS has: the
+       spec computes the visible axis to `auto` the moment its partner is not
+       visible. So this box has always clipped VERTICALLY to the line box, and a
+       caller setting a tight `line-height` on a display face — the superlative
+       tiles set 1.3 on --type-display-15 — had the tops and tails of its letters
+       sheared off. Reported as "horrible clipping"; it was every ascender and
+       descender on the screen's most prominent names.
+       The padding gives the scrollport room the line box does not have, and the
+       matching negative margin gives it back to the layout, so nothing moves. In
+       `em` because it has to scale with whatever text the caller put in here —
+       a px pair would clip again at the top of the type dial. */
+    padding-block: 0.2em;
+    margin-block: -0.2em;
   }
   .name-scroll::-webkit-scrollbar { display: none; }
 
@@ -3501,6 +3515,26 @@
   /* No mark to draw — an unrecorded field, or a supplier added since the mark set.
      The word carries it, which is what the mark was standing in for anyway. */
   .field-src[data-src="none"] { color: var(--faint); opacity: .8; }
+
+  /* The field menu's two halves: the grammar on the left, what it does to a
+     search on the right. The name is the thing you are here to learn, so it takes
+     the row's voice; the rule is a gloss and sits back in --faint at the far end,
+     where it cannot be mistaken for part of what you would type. */
+  /* The shared row is `display: block`, which is right for a value — one string,
+     wrapping if it must. A field row has two parts that must sit on one line with
+     the gloss pushed to the far end, so it is a flex row and says so with its own
+     class rather than by changing the row every other menu in the app uses. */
+  .token-opt-field { display: flex; align-items: baseline; }
+  .search-field-name { font-family: var(--font-mono); }
+  .search-field-rule {
+    margin-inline-start: auto;
+    padding-inline-start: 1em;
+    color: var(--faint);
+    font-family: var(--font-mono);
+    font-size: var(--type-mono-9);
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
 
   /* ---- the nav rail (§ design v3.1) ---------------------------------------
      THE FRAME THE DESIGN PACK DRAWS. Nine destinations down the left edge instead

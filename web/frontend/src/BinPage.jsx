@@ -24,6 +24,7 @@ import {
   MonoLabel,
   PageHeader,
   Select,
+  ErrorText,
   toast,
   useIsMobileScreen,
   useScreenBar,
@@ -231,10 +232,21 @@ export default function BinPage() {
   const [busy, setBusy] = useState(false)
   const [asking, setAsking] = useState(false) // "empty it" confirmation
   const [kind, setKind] = useState('all')
+  const [err, setErr] = useState('')
 
   async function load() {
     const r = await json('GET', '/trash')
-    if (!r.ok) return setItems([])
+    // A FAILURE IS NOT AN EMPTY BIN, and on this screen the difference is the
+    // whole point of the screen. `setItems([])` drew the empty state, which reads
+    // "nothing deleted — anything you delete waits here first": a reader whose
+    // request failed was told their deleted work is gone. `items` stays null so
+    // no branch below claims anything, and the error says what happened.
+    //
+    // `days` IS LEFT ALONE for the same reason. GET /trash is its only source, so
+    // defaulting it here would have the header and the ⋯ both asserting a
+    // retention nothing reported.
+    if (!r.ok) return setErr(errText(r, t('error.load.bin')))
+    setErr('')
     setItems(r.data.trash || [])
     setDays(r.data.days ?? 30)
   }
@@ -247,7 +259,10 @@ export default function BinPage() {
     setOpen(id)
     if (contents[id]) return
     const r = await json('GET', `/trash/${id}`)
-    if (r.ok) setContents((c) => ({ ...c, [id]: r.data.contents || [] }))
+    // The row's own list, and the same rule at the smaller grain: an entry whose
+    // contents failed to load must not draw as an entry holding nothing.
+    if (!r.ok) return toast(errText(r, t('error.load.bin')))
+    setContents((c) => ({ ...c, [id]: r.data.contents || [] }))
   }
 
   async function putBack(entry) {
@@ -407,7 +422,8 @@ export default function BinPage() {
             </div>
           )}
 
-          {items === null && <p className="microcopy">{t('bin.state.loading')}</p>}
+          <ErrorText>{err}</ErrorText>
+          {items === null && !err && <p className="microcopy">{t('bin.state.loading')}</p>}
           {items !== null && all.length === 0 && (
             <EmptyState>{t('bin.state.empty')}</EmptyState>
           )}
