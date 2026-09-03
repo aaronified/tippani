@@ -21,6 +21,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   different language from the one the rest of the app speaks. গুলি and এবং were left where
   they stood: not every formal word is the wrong one.
 
+- **Bengali stopped saying that objects wait for you.** অপেক্ষা presumes someone alive
+  doing the waiting, so *imports waiting*, *quotes waiting*, *it waits in the bin* and
+  *waiting for you to tick* all read as though the app's furniture had feelings. Forty-one
+  strings now say বাকি or পড়ে থাকা, and Pending import is যাচাই বাকি ইমপোর্ট.
+
+- **The Checks screen is যাচাইকরণ.** Six more register words settled with it — কোনও,
+  প্রতিটা, the টা classifier, যে কোনও, সেভ, গুলো — while ব্যক্তি and চলচ্চিত্র were left
+  where they stood. "Credit" gave up কৃতিত্ব, which is credit in the sense of honour, for
+  the নাম phrasing fifteen other strings had been using all along.
+
 - **Thirty-one Bengali help entries a rater caught.** The worst of them said the wrong
   thing: the game-cast note told you a game's *name* was missing when the English says its
   credits are, the keyboard shortcut for Stats still named a screen called হিসেব, and the

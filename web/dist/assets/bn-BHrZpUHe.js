@@ -1064,7 +1064,7 @@ shell.restore.toast.done = ফিরিয়ে আনা হয়েছে ·
 # --- the two nav landmarks. The drawer already claims "Primary", so the phone's
 # floating bar needs a different name or a screen reader lists two of one thing.
 shell.nav.primary.aria = মূল
-shell.nav.dock.aria = এই স্ক্রিনের কাজগুলি
+shell.nav.dock.aria = এই স্ক্রিনের কাজগুলো
 
 # --- the avatar chip, in both top bars and in the drawer's footer.
 shell.account.chip.tip = নিজের প্রোফাইল
@@ -1084,7 +1084,7 @@ shell.drawer.close.aria = মেনু বন্ধ করুন
 shell.drawer.tagline.label = টিপ্পনী · মার্জিনে লেখা কথা
 # What the one Add row can reach, as a badge beside it.
 shell.drawer.add.badge.label = বই-সিনেমা · উদ্ধৃতি · ইমপোর্ট
-shell.drawer.pending.label = অপেক্ষায় ইমপোর্ট
+shell.drawer.pending.label = যাচাই বাকি ইমপোর্ট
 # The Metadata row's badge when the console has nothing to fix.
 shell.drawer.metadata.clear.label = সব ঠিক আছে
 shell.drawer.stats.streak.label = টানা {n} দিন
@@ -1100,7 +1100,7 @@ shell.dock.boards.label = বোর্ড
 shell.dock.tools.label = সরঞ্জাম
 shell.totop.aria = উপরে ফিরুন
 # The same button when an import is waiting in the pending queue.
-shell.add.pending.tip = {n}টা ইমপোর্ট দেখে নেওয়ার অপেক্ষায়
+shell.add.pending.tip = {n}টা ইমপোর্ট দেখে নেওয়া বাকি
 # --- Search, and its global mode (right-click on a desktop).
 shell.crumbs.aria = আপনি কোথায় আছেন
 shell.search.scope.thisbook = এই বই
@@ -1254,7 +1254,7 @@ settings.features.locked.prose = শেষ বিভাগটা থাকতে
 # --- button labels: whether a glyph shows its words.
 settings.labels.title = বোতামের লেখা
 settings.labels.info.title = বোতামের লেখা
-settings.labels.info.body = আইকনওয়ালা বোতাম পাশের কথাটা দেখাতেও পারে, বাদও দিতে পারে। অটো ডেস্কটপে দেখায়, ফোনে লুকায়। লুকোনো কথা স্ক্রিন রিডার তবু পড়ে শোনায়, আর প্রতিটা আইকন হোভারে বা চেপে ধরলে নিজের নাম বলে।
+settings.labels.info.body = আইকনওয়ালা বোতাম পাশের কথাটা দেখাতেও পারে, বাদও দিতে পারে। অটো ডেস্কটপে দেখায়, ফোনে লুকায়। লুকোনও কথা স্ক্রিন রিডার তবু পড়ে শোনায়, আর প্রতিটা আইকন হোভারে বা চেপে ধরলে নিজের নাম বলে।
 settings.labels.auto.label = অটো
 
 # --- Appearance.
@@ -2020,7 +2020,7 @@ tour.step.add.em1.label = বই
 tour.step.add.em2.label = সিনেমা বা শো
 tour.step.add.em3.label = উদ্ধৃতি
 tour.step.add.em4.label = ইমপোর্ট
-tour.step.add.more = বই খোঁজা যায় নাম, লেখক বা ISBN দিয়ে, সিনেমা TMDB/TheTVDB-তে — কভার আর খুঁটিনাটি আপনা থেকেই এসে যায়। ইমপোর্ট পড়তে পারে Markdown আর Readest-এর এক্সপোর্ট, Kindle Bookcision আর Kindle-এর নোটবুক, Goodreads আর Hardcover-এর পাতা, আর IMDb-র উদ্ধৃতির পাতা। ইমপোর্ট করা সব আগে অপেক্ষায় ইমপোর্টে জমা পড়ে, আপনি সায় না দেওয়া পর্যন্ত সেখানেই থাকে — একসঙ্গে অধ্যায় আর লোকেশন ঠিক করুন, উদ্ধৃতি ঠিক বই-সিনেমার নামে সরান, তারপর মেনে নিন বা ফেলে দিন। কটা অপেক্ষায় আছে তা ＋-এর গায়ে সংখ্যায় লেখা থাকে, আর একই ফাইল আবার দিলে কিছুই দুবার হয় না। ড্রয়ারের যোগ করুন এরই সাদা যমজ — কোথা থেকে শুরু করলেন সে খবর রাখে না, কোনও ঘর আগে থেকে ভরা থাকে না।
+tour.step.add.more = বই খোঁজা যায় নাম, লেখক বা ISBN দিয়ে, সিনেমা TMDB/TheTVDB-তে — কভার আর খুঁটিনাটি আপনা থেকেই এসে যায়। ইমপোর্ট পড়তে পারে Markdown আর Readest-এর এক্সপোর্ট, Kindle Bookcision আর Kindle-এর নোটবুক, Goodreads আর Hardcover-এর পাতা, আর IMDb-র উদ্ধৃতির পাতা। ইমপোর্ট করা সব আগে যাচাই বাকি ইমপোর্টে জমা পড়ে, আপনি সায় না দেওয়া পর্যন্ত সেখানেই থাকে — একসঙ্গে অধ্যায় আর লোকেশন ঠিক করুন, উদ্ধৃতি ঠিক বই-সিনেমার নামে সরান, তারপর মেনে নিন বা ফেলে দিন। কটা বাকি আছে তা ＋-এর গায়ে সংখ্যায় লেখা থাকে, আর একই ফাইল আবার দিলে কিছুই দুবার হয় না। ড্রয়ারের যোগ করুন এরই সাদা যমজ — কোথা থেকে শুরু করলেন সে খবর রাখে না, কোনও ঘর আগে থেকে ভরা থাকে না।
 
 # Step "library".
 tour.step.library.name = গ্রন্থাগার — বই আর উদ্ধৃতি
@@ -2094,7 +2094,7 @@ tour.step.appearance.prose = কাগজ না ফিল্ম, হালক�
 tour.step.keys.name = মেটাডেটার চাবি আর Amazon কুকি
 tour.step.keys.blurb = TMDB/TheTVDB/Google Books-এর চাবি, আর ইচ্ছে হলে Amazon কুকি (অ্যাডমিন)
 tour.step.keys.title = মেটাডেটার চাবি আর Amazon কুকি
-tour.step.keys.prose = খোঁজাখুঁজি চলে ওই আলো-পড়া কার্ডে জমানো চাবিগুলোর জোরে। সেখানে প্রতিটা ঘর আলাদা করে এডিট আর সেভ হয়, আর প্রত্যেকের পাশে নিজের ইনফো ডট — কোথা থেকে সেই চাবি মিলবে, তা ওতেই লেখা। এখনই বসিয়ে দিন — ট্যুর অপেক্ষা করবে — নয়তো “পরেরটা” টিপে পরে বসান।
+tour.step.keys.prose = খোঁজাখুঁজি চলে ওই আলো-পড়া কার্ডে জমানো চাবিগুলোর জোরে। সেখানে প্রতিটা ঘর আলাদা করে এডিট আর সেভ হয়, আর প্রত্যেকের পাশে নিজের ইনফো ডট — কোথা থেকে সেই চাবি মিলবে, তা ওতেই লেখা। এখনই বসিয়ে দিন — ট্যুর থেমেই থাকবে — নয়তো “পরেরটা” টিপে পরে বসান।
 tour.step.keys.more = TMDB (সিনেমা আর শো) সচরাচর গোড়া থেকেই চালু, ভিতরে বসানো সবার-জন্য-এক চাবিতে; নিজের বিনা পয়সার v3 চাবি মেলে themoviedb.org → Settings → API-তে। TheTVDB ঐচ্ছিক, তবে বহু বছর ধরে চলা শোয়ের বেলায় সেটাই ভালো: thetvdb.com → Dashboard → API keys। Google Books-ও ঐচ্ছিক — দিনে হাজারখানেক খোঁজ পেরোলে তবে কাজে লাগে। Amazon কুকিও ঐচ্ছিক, আর একটু ভিতরের জিনিস — Kindle/ASIN বইয়ের বিবরণ আর ঘরানা ছাড়া কিছু আনে না, কভার এমনিতেই আসে। বইয়ের জন্য কোনও চাবিই লাগে না: Google Books আর Open Library চাবি ছাড়াই চলে, আর নিজে হাতে লিখে দেওয়া তো সবসময়ই চলে।
 
 # Step "backup".
@@ -2182,7 +2182,7 @@ quotes.starter.others.description = রেখে দেওয়ার মতো
 quotes.board.new.label = নতুন বোর্ড
 quotes.board.all.label = সব উক্তি
 # The toggle that folds hidden boards back in. "In use" is the default view.
-quotes.board.hidden.aria = লুকোনো বোর্ড
+quotes.board.hidden.aria = লুকোনও বোর্ড
 quotes.board.hidden.inuse.label = চালু
 quotes.board.hidden.all.label = সব {n}
 # What a reader with no standalone quotes lands on. {em1} is the New board
@@ -2319,7 +2319,7 @@ anthologies.toast.entry-removed = এন্ট্রি সরানো হয�
 # both halves is what makes it a question somebody can answer.
 anthologies.delete.confirm.title = {title} মুছবেন?
 anthologies.delete.confirm.body = ভূমিকাটা যাবে, আর {n} {noun} — প্রতিটার উপরে লেখা নোটও। উদ্ধৃতিগুলো নিজেরা যেখানে ছিল ঠিক সেখানেই থাকবে।
-anthologies.delete.confirm.note = এটা ডাস্টবিনে গিয়ে অপেক্ষা করে না, তাই ফিরিয়ে আনারও কিছু থাকে না।
+anthologies.delete.confirm.note = এটা ডাস্টবিনে গিয়ে পড়ে থাকে না, তাই ফিরিয়ে আনারও কিছু থাকে না।
 
 # THE ADD-TO-ANTHOLOGY SHEET, opened from the selection bar on three different
 # screens, so common.* rather than anthologies.*.
@@ -2571,7 +2571,7 @@ share.image.facekind.aria = কার ছবি কার্ডে আঁকা 
 share.image.facekind.actor.label = অভিনেতা
 share.image.facekind.character.label = চরিত্র
 share.image.facekind.info.title = মুখ
-share.image.facekind.info.body = কার্ডে কার ছবি যাবে: যিনি অভিনয় করেছেন, নাকি যে চরিত্রটি তিনি করেছেন। দুটোরই ছবি জমা থাকলে তবেই এটা আসে — সংলাপটা প্রায়ই চরিত্রেরই, অভিনেতার নয়।
+share.image.facekind.info.body = কার্ডে কার ছবি যাবে: যিনি অভিনয় করেছেন, নাকি যে চরিত্রটা তিনি করেছেন। দুটোরই ছবি জমা থাকলে তবেই এটা আসে — সংলাপটা প্রায়ই চরিত্রেরই, অভিনেতার নয়।
 # How a credited person appears. Offered only when somebody credited has a photo.
 share.image.portrait.label = মুখের ছবি
 share.image.portrait.aria = মুখের ছবি
@@ -2793,7 +2793,7 @@ common.badge.quote = উদ্ধৃতি
 home.favourites.open.book.aria = এই বইটা খুলুন
 home.favourites.open.film.aria = এই সিনেমাটা খুলুন
 home.favourites.open.show.aria = এই শোটা খুলুন
-home.favourites.open.game.aria = এই গেমটি খুলুন
+home.favourites.open.game.aria = এই গেমটা খুলুন
 home.favourites.open.quotes.aria = উক্তির পাতায় যান
 home.favourites.collapse.tip = এই উদ্ধৃতিটা গুটিয়ে নিন
 
@@ -2887,9 +2887,9 @@ book.field.translator.info = বইটা এই ভাষায় কে এ�
 book.field.editor.info = ভিতরে কী থাকবে কে বেছেছেন — সংকলন বা রচনাসমগ্র অনেক সময় এই নামটার জন্যই কেনা হয়। লেখকের লাইনের মতো একই চিহ্নে ভাগ হয়।
 book.field.series.info = বইটা কোন সিরিজের। গ্রন্থাগারে বই এই ধরে ভাগ হয়, আর নিচের নম্বর ধরে সাজে।
 book.field.isbn.info = দশ অঙ্ক বা তেরো, হাইফেন সমেত — পুরনো বইয়ের দশ অঙ্কের ISBN তেরো অঙ্কের চেহারায় রাখা হয়। কাজে লাগে শুধু বই খুঁজতে: ভালো কভার বা বিবরণ এর মিল থেকেই আসে।
-book.field.subtitle.info = প্রচ্ছদে নামের নিচের লাইনটি — "একটা উপন্যাস", "শঙ্খ ঘোষের জীবন"। এটা রচনার নয়, এই সংস্করণের; তাই নামের অংশ নয়: একই বইয়ের দুই ছাপায় এটা আলাদা হতে পারে, বই তবু একটাই।
-book.field.publisher.info = আপনার হাতের কপিটি যে প্রকাশনা থেকে বেরিয়েছে। Open Library গোটা রচনার হিসেব দেয় এবং তার সব প্রকাশকের নাম রাখে; Google দেয় এই সংস্করণের হিসেব, তাই তার উত্তরই আগে।
-book.field.pages.info = প্রকাশক অনুযায়ী বইটি কত পৃষ্ঠার। আপনি কোন পৃষ্ঠায় আছেন সেটা আলাদা — তা পড়ার অগ্রগতির সঙ্গে থাকে, এবং আপনার হাতের সংস্করণ ধরে গোনা হয়।
+book.field.subtitle.info = প্রচ্ছদে নামের নিচের লাইনটা — "একটা উপন্যাস", "শঙ্খ ঘোষের জীবন"। এটা রচনার নয়, এই সংস্করণের; তাই নামের অংশ নয়: একই বইয়ের দুই ছাপায় এটা আলাদা হতে পারে, বই তবু একটাই।
+book.field.publisher.info = আপনার হাতের কপিটা যে প্রকাশনা থেকে বেরিয়েছে। Open Library গোটা রচনার হিসেব দেয় এবং তার সব প্রকাশকের নাম রাখে; Google দেয় এই সংস্করণের হিসেব, তাই তার উত্তরই আগে।
+book.field.pages.info = প্রকাশক অনুযায়ী বইটা কত পৃষ্ঠার। আপনি কোন পৃষ্ঠায় আছেন সেটা আলাদা — তা পড়ার অগ্রগতির সঙ্গে থাকে, এবং আপনার হাতের সংস্করণ ধরে গোনা হয়।
 book.field.asin.info = Amazon-এর নিজের নম্বর, Kindle-এ কেনা বা পড়া যে কোনও বইয়ের পাতায় থাকে। কোনও চাবি বা কুকি ছাড়াই এটা দিয়ে কভার আনা যায়।
 book.fetch.info.body = বইটা খোঁজে Google Books, Open Library আর Amazon-এ, তারপর প্রতিটা ঘর আপনার কাছে যা আছে তার পাশে রেখে দেখায় — যেটুকু চান, সেটুকুই নিন।
 
@@ -2948,7 +2948,7 @@ error.validate.title-required = একটা নাম দিতে হবে
 capture.title.add = যোগ করুন
 capture.title.quote = তুলে রাখুন
 capture.title.duplicate = এই উদ্ধৃতির নকল
-capture.form.duplicate.prose = প্রতিটি ঘরে আপনি যে উদ্ধৃতিতে চেপেছেন তার কপি আছে। সেভ করলে নতুন একটা লেখা হবে; মূলটি অপরিবর্তিত থাকবে।
+capture.form.duplicate.prose = প্রতিটা ঘরে আপনি যে উদ্ধৃতিতে চেপেছেন তার কপি আছে। সেভ করলে নতুন একটা লেখা হবে; মূলটা অপরিবর্তিত থাকবে।
 capture.title.import = ইমপোর্ট
 capture.dialog.aria = গ্রন্থাগারে যোগ করুন
 capture.tabs.aria = যোগ, তুলে রাখা বা ইমপোর্ট
@@ -3030,8 +3030,8 @@ capture.toast.dialogue = সংলাপ তুলে রাখা হল
 capture.toast.quote = উক্তি তুলে রাখা হল
 
 # An import already waiting, shown on the Import tab.
-capture.import.pending.one = {n}টা উদ্ধৃতি অপেক্ষায় — তালিকাটা দেখে নিন
-capture.import.pending.other = {n}টা উদ্ধৃতি অপেক্ষায় — তালিকাটা দেখে নিন
+capture.import.pending.one = {n}টা উদ্ধৃতি বাকি — তালিকাটা দেখে নিন
+capture.import.pending.other = {n}টা উদ্ধৃতি বাকি — তালিকাটা দেখে নিন
 
 
 # What must be filled before a capture can save. Each doubles as the tooltip on
@@ -3436,7 +3436,7 @@ book.form.series.placeholder = যেমন Discworld
 book.form.series-no.placeholder = যেমন 5
 
 # ONE HIGHLIGHT, as a card. This card is drawn on four screens, so common.*.
-common.quote.speaker.tip = {name} বলেছেন — চরিত্রটি খুলুন
+common.quote.speaker.tip = {name} বলেছেন — চরিত্রটা খুলুন
 common.quote.edit.title = উদ্ধৃতি এডিট করুন
 common.quote.pick.label = এই উদ্ধৃতি
 # The chapter and page locator under a highlight. ⚠ "CH." here is spelled the
@@ -3702,7 +3702,7 @@ error.empty.bin = খালি করা গেল না
 # NOTHING HERE IS AN INSTRUCTION. The page reports and never edits, so every
 # label names what was FOUND rather than what to do about it.
 # ---------------------------------------------------------------------------
-checks.title = তথ্য বিন্যাস
+checks.title = যাচাইকরণ
 
 cleanup.title = বাড়তি চিহ্ন
 # Beside the title: how many quotes were read, so “nothing found” is
@@ -3882,24 +3882,24 @@ import.format.none = কোনও ফরম্যাট মিলল না
 # the file count and the quote count pluralise independently.
 import.summary.files.one = {n}টা ফাইল
 import.summary.files.other = {n}টা ফাইল
-import.summary.quotes.one = {n}টা উদ্ধৃতি অপেক্ষায়
-import.summary.quotes.other = {n}টা উদ্ধৃতি অপেক্ষায়
+import.summary.quotes.one = {n}টা উদ্ধৃতি বাকি
+import.summary.quotes.other = {n}টা উদ্ধৃতি বাকি
 import.summary.arrow = {files} → {quotes} · গ্রন্থাগারে এখনও কিছু ঢোকেনি
 # One row per file.
-import.row.staged.one = {n}টা উদ্ধৃতি অপেক্ষায়
-import.row.staged.other = {n}টা উদ্ধৃতি অপেক্ষায়
-import.row.duplicate = ⚠ এই বইটা আপনার কাছে আগেই আছে বলে মনে হচ্ছে: {titles} — অপেক্ষায় ইমপোর্টে উদ্ধৃতিগুলো ওটার নামেই পাঠান, নয়তো আলাদা বই হিসেবে মেনে নিন
+import.row.staged.one = {n}টা উদ্ধৃতি বাকি
+import.row.staged.other = {n}টা উদ্ধৃতি বাকি
+import.row.duplicate = ⚠ এই বইটা আপনার কাছে আগেই আছে বলে মনে হচ্ছে: {titles} — যাচাই বাকি ইমপোর্টে উদ্ধৃতিগুলো ওটার নামেই পাঠান, নয়তো আলাদা বই হিসেবে মেনে নিন
 # The hand-over to the queue.
-import.review.one = অপেক্ষায় থাকা {n}টা উদ্ধৃতি দেখুন
-import.review.other = অপেক্ষায় থাকা {n}টা উদ্ধৃতি দেখুন
-import.review.absent = দেখে মেনে নিতে “অপেক্ষায় ইমপোর্ট” খুলুন
+import.review.one = বাকি পড়ে থাকা {n}টা উদ্ধৃতি দেখুন
+import.review.other = বাকি পড়ে থাকা {n}টা উদ্ধৃতি দেখুন
+import.review.absent = দেখে মেনে নিতে “যাচাই বাকি ইমপোর্ট” খুলুন
 
 # Where one parsed work will land. Two keys rather than one with an optional
 # parenthetical, so neither language has to build a bracket.
 import.work.joins = আগের “{title}”-এর সঙ্গে জুড়বে
 import.work.joins-year = আগের “{title}” ({year})-এর সঙ্গে জুড়বে
 import.work.new = নতুন একটা {kind}
-import.work.ambiguous = ⚠ “{title}” নামে আপনার {n}টা টাইটেল আছে — অপেক্ষায় ইমপোর্টে দেখা যাবে কোনটা বাছা হল, আর সরানোও যাবে
+import.work.ambiguous = ⚠ “{title}” নামে আপনার {n}টা টাইটেল আছে — যাচাই বাকি ইমপোর্টে দেখা যাবে কোনটা বাছা হল, আর সরানোও যাবে
 
 # What a My Clippings.txt import dropped, and why. A best-effort parser that
 # quietly returns fewer quotes than the file held is worse than one that says so.
@@ -3926,7 +3926,7 @@ error.import.failed = ইমপোর্ট করা গেল না
 # The queue's own name, which the import screen also puts in bold in its
 # standing note. ONE KEY, so the two screens cannot disagree about what the
 # place is called.
-staging.title = অপেক্ষায় ইমপোর্ট
+staging.title = যাচাই বাকি ইমপোর্ট
 
 # ---------------------------------------------------------------------------
 # PROFILE — Account.jsx. Everything about “you on this server”, in the order you
@@ -4165,7 +4165,7 @@ cover.clearing = সেভ করলে {noun} সরে যাবে
 # for why the floor is the server's refetch threshold and not a second opinion.
 # ---------------------------------------------------------------------------
 media.dims = {w}×{h} px
-media.dims.tip = ছবিটির আসল পিক্সেল মাপ, লোড হওয়ার সময় মাপা
+media.dims.tip = ছবিটার আসল পিক্সেল মাপ, লোড হওয়ার সময় মাপা
 media.dims.low.tip = {floor} px-এর চেয়ে সরু — ফেচ করলে বড় ছবি বসবে
 media.dims.low.side.tip = ছোট দিকটা {floor} px-এর কম — গোল করে কাটার মতো যথেষ্ট নয়
 media.dims.none.tip = এখনও কোনও ছবি নেই
@@ -4232,17 +4232,17 @@ staging.badge.quotes = উক্তি
 # The three states before the list. "nothing waiting" sits in the header's counts
 # slot; "nothing staged" is the empty state under it; the third is what a batch
 # filter says when the file it points at has no rows left.
-staging.state.loading = অপেক্ষার তালিকা পড়া হচ্ছে…
-staging.state.empty-counts = কিছু অপেক্ষায় নেই
+staging.state.loading = যাচাইয়ের তালিকা পড়া হচ্ছে…
+staging.state.empty-counts = কিছু বাকি নেই
 staging.state.empty = কিছুই জমা নেই — ইমপোর্ট আগে এখানেই আসে, আর আপনি সায় না দেওয়া পর্যন্ত এখানেই থাকে
 staging.state.empty-file = ওই ফাইলে জমা কোনও উদ্ধৃতি নেই
 
 # The header's counts. A batch can hold works and no quotes at all (a book
 # exported with none), which is why there are two of these rather than one.
-staging.counts.quotes.one = {n}টা উদ্ধৃতি অপেক্ষায়
-staging.counts.quotes.other = {n}টা উদ্ধৃতি অপেক্ষায়
-staging.counts.works.one = {n}টা উৎস অপেক্ষায়, কোনও উদ্ধৃতি নেই
-staging.counts.works.other = {n}টা উৎস অপেক্ষায়, কোনও উদ্ধৃতি নেই
+staging.counts.quotes.one = {n}টা উদ্ধৃতি বাকি
+staging.counts.quotes.other = {n}টা উদ্ধৃতি বাকি
+staging.counts.works.one = {n}টা উৎস বাকি, কোনও উদ্ধৃতি নেই
+staging.counts.works.other = {n}টা উৎস বাকি, কোনও উদ্ধৃতি নেই
 
 # The batch filter. It is a FILTER and not a view: the queue stays one list and
 # this narrows it to the file being worked through. {name} is the uploaded
@@ -4278,7 +4278,7 @@ staging.bulk.approve.label = {n}টা মেনে নিন
 staging.discard.label = ফেলে দিন
 staging.discard.confirm.title.one = জমা {n}টা উদ্ধৃতি ফেলে দেবেন?
 staging.discard.confirm.title.other = জমা {n}টা উদ্ধৃতি ফেলে দেবেন?
-staging.discard.confirm.body = গ্রন্থাগারে না ঢুকেই অপেক্ষার তালিকা থেকে চলে যাবে।
+staging.discard.confirm.body = গ্রন্থাগারে না ঢুকেই যাচাইয়ের তালিকা থেকে চলে যাবে।
 
 # THE FLASH LINE beside the header — what the last bulk POST did. Every action
 # funnels through one request, so these are one family rather than a toast per
@@ -4445,10 +4445,10 @@ staging.form.timestamp.placeholder = 01:02:03
 # count surfaces outside the Add surface too. ⚠ THE LABEL IS A MONO SLOT, and it
 # is lower case where staging.title is not — the two are different roles, not two
 # spellings of one.
-staging.card.label = অপেক্ষায় ইমপোর্ট
+staging.card.label = যাচাই বাকি ইমপোর্ট
 # bn: আপনার stays here: it is your approval the queue is waiting on, and that is the whole sentence (§1.3).
-staging.card.body.one = ইমপোর্ট করা {n}টা উদ্ধৃতি আপনার সায়ের অপেক্ষায় — গ্রন্থাগারে এখনও কিছুই ঢোকেনি।
-staging.card.body.other = ইমপোর্ট করা {n}টা উদ্ধৃতি আপনার সায়ের অপেক্ষায় — গ্রন্থাগারে এখনও কিছুই ঢোকেনি।
+staging.card.body.one = ইমপোর্ট করা {n}টা উদ্ধৃতি আপনার সায় পাওয়া বাকি — গ্রন্থাগারে এখনও কিছুই ঢোকেনি।
+staging.card.body.other = ইমপোর্ট করা {n}টা উদ্ধৃতি আপনার সায় পাওয়া বাকি — গ্রন্থাগারে এখনও কিছুই ঢোকেনি।
 staging.card.review.label = {n}টা দেখে নিন
 
 # ---------------------------------------------------------------------------
@@ -4673,16 +4673,16 @@ metadata.remap.nocharacter.label = (চরিত্র নেই)
 metadata.remap.cast.option = {character} — {actor}
 metadata.remap.custom.label = নিজে লিখুন…
 metadata.characters.title = চরিত্র
-metadata.characters.info.body = প্রতিটি চরিত্র নিজস্ব রেকর্ড — উপন্যাস আর তার চলচ্চিত্ররূপে একই চরিত্র, প্রতিটিতে আলাদা ছবি। একই নাম দুবার থাকলে দেখুন: অনুমান করে কিছু মেলানো হয়নি।
+metadata.characters.info.body = প্রতিটা চরিত্র নিজস্ব রেকর্ড — উপন্যাস আর তার চলচ্চিত্ররূপে একই চরিত্র, প্রতিটাতে আলাদা ছবি। একই নাম দুবার থাকলে দেখুন: অনুমান করে কিছু মেলানো হয়নি।
 metadata.characters.column.works = কাজ
 metadata.characters.column.sort = যেভাবে সাজে
-metadata.characters.empty = এখনও কোনো চরিত্র নেই। চলচ্চিত্রের কাস্টের সঙ্গে আসে, নয়তো কোনো কাজে যোগ করতে পারেন।
+metadata.characters.empty = এখনও কোনও চরিত্র নেই। চলচ্চিত্রের কাস্টের সঙ্গে আসে, নয়তো কোনও কাজে যোগ করতে পারেন।
 metadata.characters.work.aria = কোন সৃষ্টি
 metadata.characters.work.all.label = সব সৃষ্টি
-metadata.characters.work.none.label = কোনো সৃষ্টিতে নেই
+metadata.characters.work.none.label = কোনও সৃষ্টিতে নেই
 metadata.characters.work.filter.placeholder = সৃষ্টি খুঁজুন
-metadata.characters.summary.one = {n}টা চরিত্র, {unpaired}টা কোনো কাজে নেই
-metadata.characters.summary.other = {n}টা চরিত্র, {unpaired}টা কোনো কাজে নেই
+metadata.characters.summary.one = {n}টা চরিত্র, {unpaired}টা কোনও কাজে নেই
+metadata.characters.summary.other = {n}টা চরিত্র, {unpaired}টা কোনও কাজে নেই
 
 # --- PEOPLE. Every author, actor, director, studio and speaker the library
 # mentions, with a portrait and reference links.
@@ -4813,7 +4813,7 @@ settings.updates.check.label = আপডেট আছে কি না দেখ
 settings.updates.check.busy = দেখা হচ্ছে…
 settings.updates.channel.title = রিলিজের ধারা
 settings.updates.channel.aria = কোন ধারার রিলিজ অনুসরণ করা হবে
-settings.updates.channel.info.body = স্থিতিশীল ধারায় শুধু শেষ হওয়া রিলিজ আসে। প্রি-রিলিজ ধারায় রিলিজ ক্যান্ডিডেট আর ব্রাঞ্চের বিল্ডও আসে — নতুনতর, আর ভাঙার আশঙ্কাও বেশি। কোনো ধারাতেই কিছু নিজে থেকে বসে না।
+settings.updates.channel.info.body = স্থিতিশীল ধারায় শুধু শেষ হওয়া রিলিজ আসে। প্রি-রিলিজ ধারায় রিলিজ ক্যান্ডিডেট আর ব্রাঞ্চের বিল্ডও আসে — নতুনতর, আর ভাঙার আশঙ্কাও বেশি। কোনও ধারাতেই কিছু নিজে থেকে বসে না।
 settings.updates.channel.stable.label = স্থিতিশীল
 settings.updates.channel.prerelease.label = প্রি-রিলিজ
 settings.updates.channel.implied.prerelease.prose = আপনি একটা প্রি-রিলিজ বিল্ড চালাচ্ছেন, তাই এই ধারাটাই আপনাআপনি ধরা হয়েছে — শুধু শেষ হওয়া রিলিজ চাইলে স্থিতিশীলে যান
@@ -5048,7 +5048,7 @@ settings.keys.toast.cleared = মুছে গেল
 # ===========================================================================
 
 # --- from staging ---
-error.load.import-queue = ইমপোর্টের অপেক্ষার তালিকা পড়া গেল না
+error.load.import-queue = ইমপোর্টের যাচাইয়ের তালিকা পড়া গেল না
 error.load.bin = রিসাইকল বিন পড়া গেল না
 error.load.stats = আপনার পরিসংখ্যান লোড করা গেল না
 error.load.favourites = আপনার পছন্দের লেখাগুলো পড়া গেল না
@@ -5187,7 +5187,7 @@ common.field.bio.label = জীবনী
 common.field.born.label = জন্ম
 common.field.died.label = মৃত্যু
 common.field.links.label = লিংক
-common.field.people.characters.summary = {n}টি চরিত্র|{n}টি চরিত্র
+common.field.people.characters.summary = {n}টা চরিত্র|{n}টা চরিত্র
 common.field.identity.label = পরিচয়
 # Identifiers, which appear as themselves in every language.
 common.field.tmdb-id.label = TMDB id
@@ -5640,7 +5640,7 @@ anthologies.help.remove.what = অংশটা এই সংকলন থেক�
 
 anthologies.help.delete.term = সংকলন মুছে ফেলা
 anthologies.help.delete.what = ভূমিকা আর প্রতিটা এন্ট্রির নোট চলে যায়। উদ্ধৃতিগুলো যেখানে ছিল ঠিক সেখানেই থাকে।
-anthologies.help.delete.more = অ্যাপে এই একটাই মোছা যা ডাস্টবিনে গিয়ে অপেক্ষা করে না, তাই আগে জিজ্ঞেস করে, আর কথাটা বলেও দেয়। যা হারায় তা এই জড়ো করা নিয়ে আপনার নিজের লেখা — বাক্যগুলো নয়, ওগুলো তো সংকলনের কখনও ছিলই না।
+anthologies.help.delete.more = অ্যাপে এই একটাই মোছা যা ডাস্টবিনে গিয়ে পড়ে থাকে না, তাই আগে জিজ্ঞেস করে, আর কথাটা বলেও দেয়। যা হারায় তা এই জড়ো করা নিয়ে আপনার নিজের লেখা — বাক্যগুলো নয়, ওগুলো তো সংকলনের কখনও ছিলই না।
 
 anthologies.help.export.term = এক্সপোর্ট
 anthologies.help.export.what = গোটা সংকলন Markdown হয়ে: ভূমিকা, তারপর এক এক করে এন্ট্রি — উদ্ধৃতির উপরে আপনার নোট, নিচে কার কথা।
@@ -5734,7 +5734,7 @@ stats.help.counts.more = উপরের মোট সংখ্যাটা এ�
 # ---------------------------------------------------------------------------
 
 # The help panel’s heading on the import staging screen.
-staging.help.title = অপেক্ষায় ইমপোর্ট
+staging.help.title = যাচাই বাকি ইমপোর্ট
 
 # Why an import waits here instead of landing in the library.
 staging.help.why.term = এটা কেন আছে
@@ -5771,7 +5771,7 @@ bin.help.row.more = যে সারিতে কিছু আছে সেট�
 
 bin.help.restore.term = ফিরিয়ে আনুন
 bin.help.restore.what = গোটা এন্ট্রিটা একবারেই ফিরিয়ে দেয়, ঠিক আগের চেহারায়।
-bin.help.restore.more = অ্যাপের অন্য সব একরকম সারির মতো নয় — এখানে বোতামগুলো মাউস রাখার অপেক্ষায় লুকিয়ে থাকে না: আপনি তো এখানে এসেছেনই কিছু হারিয়ে।
+bin.help.restore.more = অ্যাপের অন্য সব একরকম সারির মতো নয় — এখানে বোতামগুলো মাউস রাখার আগে লুকিয়ে থাকে না: আপনি তো এখানে এসেছেনই কিছু হারিয়ে।
 
 # Throwing one entry away now, with no undo.
 bin.help.purge.term = চিরতরে মুছুন
@@ -5799,9 +5799,9 @@ bin.help.empty-now.what = প্রতিটা এন্ট্রি আর ত
 cleanup.help.title = বাড়তি চিহ্ন
 # What the page is for.
 checks.help.what-is-here.term = এখানে কী আছে
-checks.help.what-is-here.what = আপনার সায়ের অপেক্ষায় দুটো তালিকা, এক স্ক্রিনে: ফাইল থেকে ইমপোর্ট করা উদ্ধৃতি, আর যেগুলোয় কিছু একটা খটকা লাগছে।
-checks.help.what-is-here.more = দুটিই আলাদা পাতা ছিল, কেবল সেটিংসের একটা টাইল থেকে পৌঁছনো যেত — অথচ সেটিংসে যান অ্যাপের আচরণ বদলাতে, চল্লিশটি উদ্ধৃতি পনেরো দিন ধরে আটকে আছে তা জানতে নয়। রেল আর ☰ মেনুর সংখ্যাটিই এগুলিকে খুঁজে পাওয়ার উপায়; এই স্ক্রিনেই সেগুলি আসে।
-checks.help.imports.term = অপেক্ষায় ইমপোর্ট
+checks.help.what-is-here.what = আপনার সায় পাওয়া বাকি দুটো তালিকা, এক স্ক্রিনে: ফাইল থেকে ইমপোর্ট করা উদ্ধৃতি, আর যেগুলোয় কিছু একটা খটকা লাগছে।
+checks.help.what-is-here.more = দুটোই আলাদা পাতা ছিল, কেবল সেটিংসের একটা টাইল থেকে পৌঁছনো যেত — অথচ সেটিংসে যান অ্যাপের আচরণ বদলাতে, চল্লিশটা উদ্ধৃতি পনেরো দিন ধরে আটকে আছে তা জানতে নয়। রেল আর ☰ মেনুর সংখ্যাটাই এগুলোকে খুঁজে পাওয়ার উপায়; এই স্ক্রিনেই সেগুলো আসে।
+checks.help.imports.term = ইমপোর্ট যাচাই করা বাকি
 checks.help.imports.what = ইমপোর্ট করা কিছুই সোজা গ্রন্থাগারে যায় না। এখানে এসে নামে, আর আপনি মেনে না নেওয়া পর্যন্ত যত দিন খুশি বসে থাকে।
 checks.help.imports.more = এটা ইচ্ছে করেই, আর বদলাবে না: ভুল বইয়ের নামে এক হাজার উদ্ধৃতির ফাইল পরে খুলে ঠিক করার চেয়ে এখানে ফেলে দেওয়া ঢের সহজ। গোটা ব্যাচ, একটা উৎস, বা এক এক সারি মেনে নিন — আর তার আগে যা খুশি এডিট করুন।
 checks.help.marks.term = চিহ্ন দেখে নিন
@@ -6015,13 +6015,13 @@ capture.help.save.more = দরকারি ঘরগুলো ভরা না 
 # The ＋’s bulk-import tab.
 capture.help.import.term = ইমপোর্ট
 capture.help.import.what = Markdown আর Readest-এর এক্সপোর্ট, Kindle Bookcision আর Kindle-এর নোটবুক, Goodreads আর Hardcover-এর পাতা, IMDb-র উদ্ধৃতির পাতা।
-capture.help.import.more = সবই আগে অপেক্ষায় ইমপোর্টে নামে।
+capture.help.import.more = সবই আগে যাচাই বাকি ইমপোর্টে নামে।
 
 # The accessible name of the little diagram in the Import entry — a screen reader reads this instead of the three boxes.
-capture.help.import.flow.aria = ফাইল আগে অপেক্ষায় ইমপোর্টে যায়, আপনি মেনে নিলে তবেই গ্রন্থাগারে পৌঁছয়
+capture.help.import.flow.aria = ফাইল আগে যাচাই বাকি ইমপোর্টে যায়, আপনি মেনে নিলে তবেই গ্রন্থাগারে পৌঁছয়
 # The three boxes of that diagram, in order, then the arrow between the last two. Each sits in a fixed 52-68px box in a mono face, so a long word will not fit — abbreviate rather than overflow.
 capture.help.import.flow.file.label = ফাইল
-capture.help.import.flow.pending.label = অপেক্ষায়
+capture.help.import.flow.pending.label = বাকি
 capture.help.import.flow.library.label = গ্রন্থাগার
 capture.help.import.flow.approve.label = মেনে নিন
 
@@ -6038,7 +6038,7 @@ common.help.title = সবখানে
 # The ＋ in the top bar.
 common.help.topbar.add.term = যোগ করুন (＋)
 common.help.topbar.add.what = ভিতরে ঢোকার একটাই পথ, আর সে জানে আপনি কোথায় আছেন: গ্রন্থাগারে বই, ক্যাটালগে সিনেমা বা শো, আর যে উৎসের পাতা খোলা তার নামে উদ্ধৃতি।
-common.help.topbar.add.more = খুঁজে আনা, তুলে রাখা আর একসঙ্গে ইমপোর্ট — সবই ওই এক জায়গার আলাদা ট্যাব, আর তার গায়ের ব্যাজ বলে কটা ইমপোর্ট দেখার অপেক্ষায়। একটা সেভ করার পর পরেরটা ওখান থেকেই শুরু হয় — সেই রং, সেই ট্যাগ, আর পরের আধ ঘণ্টা সেই উৎসই — তাই এক পাতা থেকে ছটা উদ্ধৃতি তোলা মানে ছবার গোটা ফর্ম ভরা নয়। কথাগুলো অবশ্য কখনও বয়ে আসে না।
+common.help.topbar.add.more = খুঁজে আনা, তুলে রাখা আর একসঙ্গে ইমপোর্ট — সবই ওই এক জায়গার আলাদা ট্যাব, আর তার গায়ের ব্যাজ বলে কটা ইমপোর্ট দেখা বাকি। একটা সেভ করার পর পরেরটা ওখান থেকেই শুরু হয় — সেই রং, সেই ট্যাগ, আর পরের আধ ঘণ্টা সেই উৎসই — তাই এক পাতা থেকে ছটা উদ্ধৃতি তোলা মানে ছবার গোটা ফর্ম ভরা নয়। কথাগুলো অবশ্য কখনও বয়ে আসে না।
 
 # The magnifier in the top bar.
 common.help.topbar.search.term = খোঁজ
@@ -6058,7 +6058,7 @@ common.help.topbar.avatar.what = সোজা প্রোফাইল খুল
 common.help.selecting.term = একসঙ্গে কয়েকটা বাছা
 common.help.selecting.what = একসঙ্গে অনেকগুলো কার্ডে কাজ করুন — উদ্ধৃতি, বই, সিনেমা, শো সবেতেই।
 common.help.selecting.how.1 = কার্ডের কোণে টিক দিন, Ctrl চেপে ক্লিক করুন, বা তার নিজের মেনু থেকে “বাছুন”।
-common.help.selecting.how.2 = Shift চেপে ক্লিক করলে টানা কয়েকটা বাছা হয়। সব বাছলে স্ক্রিনে যা আছে তাই ওঠে, ফিল্টারে লুকোনো কিছু নয়।
+common.help.selecting.how.2 = Shift চেপে ক্লিক করলে টানা কয়েকটা বাছা হয়। সব বাছলে স্ক্রিনে যা আছে তাই ওঠে, ফিল্টারে লুকোনও কিছু নয়।
 common.help.selecting.how.3 = একটা বার আসে: সারিতে তিনটে আইকন, বাকিগুলো ⋯-এর পিছনে। চেপে ধরলে নাম দেখায়।
 common.help.selecting.more = উদ্ধৃতির উপরে: সারিতে রং, ♥ আর প্রশ্নোত্তরের সুইচ; ⋯-এর পিছনে ট্যাগ, একটা স্টিকার, অন্য বোর্ড আর মুছে ফেলা। বই, সিনেমা আর শোয়ের উপরে: শূন্যস্থান পূরণ, তাকে তুলুন, প্রশ্নোত্তরের সুইচ, ⋯-এর পিছনে মুছে ফেলা। ঠিক একটা বাছলে এডিট আসে; দ্বিতীয়টা বাছলেই চলে যায়। নিজে বন্ধ না করা পর্যন্ত বারটা থাকে, বাছাই শূন্য হলেও। মুছতে গেলে কী হবে সেটা টাইপ করে দিতে হয়, আর গোটাটা ডাস্টবিনে যায় একটাই এন্ট্রি হয়ে, একটাই আনডু নিয়ে।
 
@@ -6080,7 +6080,7 @@ common.help.skip-in-quiz.more = সেগুলো বেছে “প্রশ�
 # The selection-bar action that fetches only the EMPTY fields.
 common.help.fill-gaps.term = শূন্যস্থান পূরণ
 common.help.fill-gaps.what = বই, সিনেমা বা শো বেছে নিলে: প্রত্যেকটার মেটাডেটা এনে শুধু যে ঘরগুলো ফাঁকা সেগুলোই ভরে দেয়।
-common.help.fill-gaps.more = নিজের লেখা বিবরণ, নিজের শুধরে দেওয়া সাল, নিজের বাছা কভার — কোনওটাতেই হাত পড়ে না, তাই আগে থেকে দেখে নেওয়ার দরকারও নেই। মেটাডেটার “আবার মিলিয়ে দেখুন” এর উল্টো দিক: সে প্রতিটা অমিল দেখায়, আর আপনি যেগুলো বিশ্বাস করেন সেগুলোয় টিক দেওয়ার অপেক্ষায় থাকে।
+common.help.fill-gaps.more = নিজের লেখা বিবরণ, নিজের শুধরে দেওয়া সাল, নিজের বাছা কভার — কোনওটাতেই হাত পড়ে না, তাই আগে থেকে দেখে নেওয়ার দরকারও নেই। মেটাডেটার “আবার মিলিয়ে দেখুন” এর উল্টো দিক: সে প্রতিটা অমিল দেখায়, আর আপনি যেগুলো বিশ্বাস করেন সেগুলোয় টিক না দিলে কিছুই বসায় না।
 
 # The circled i beside a control.
 common.help.info-dots.term = ইনফো ডট
@@ -6091,12 +6091,12 @@ common.help.info-dots.more = ডেস্কটপে মাউস রাখল�
 
 # Tippani added to a phone’s home screen.
 common.help.installed-app.term = ফোনে বসানো অ্যাপ
-common.help.installed-app.what = ফোনের হোম স্ক্রিনে টিপ্পনী রাখলে সঙ্গে তিনটে জিনিস আসে। আইকনটা চেপে ধরলেই উদ্ধৃতি তুলে রাখুন, দৈনিক প্রশ্নোত্তর আর অপেক্ষায় ইমপোর্ট।
-common.help.installed-app.more = ফাইল ম্যানেজারে কোনও .md, My Clippings.txt বা Bookcision-এর .json-এ ট্যাপ করলে সোজা অপেক্ষায় ইমপোর্টে খুলে যায়, যে উইন্ডোটা খোলাই ছিল তাতেই। আর আইকনের গায়ে একটা ব্যাজ থাকে — কটা কার্ডের সময় হয়েছে আর কটা ইমপোর্ট অপেক্ষায়। সেটা বসে অ্যাপ খোলার সময়, পিছনে চলতে থাকা কিছু দিয়ে নয়: এখানে কিছুই নিজে থেকে জেগে ওঠে না।
+common.help.installed-app.what = ফোনের হোম স্ক্রিনে টিপ্পনী রাখলে সঙ্গে তিনটে জিনিস আসে। আইকনটা চেপে ধরলেই উদ্ধৃতি তুলে রাখুন, দৈনিক প্রশ্নোত্তর আর যাচাই বাকি ইমপোর্ট।
+common.help.installed-app.more = ফাইল ম্যানেজারে কোনও .md, My Clippings.txt বা Bookcision-এর .json-এ ট্যাপ করলে সোজা যাচাই বাকি ইমপোর্টে খুলে যায়, যে উইন্ডোটা খোলাই ছিল তাতেই। আর আইকনের গায়ে একটা ব্যাজ থাকে — কটা কার্ডের সময় হয়েছে আর কটা ইমপোর্ট বাকি। সেটা বসে অ্যাপ খোলার সময়, পিছনে চলতে থাকা কিছু দিয়ে নয়: এখানে কিছুই নিজে থেকে জেগে ওঠে না।
 
 # The ☰ drawer button, phone only.
 common.help.topbar.menu.term = মেনু (☰)
-common.help.topbar.menu.what = ড্রয়ার: সব স্ক্রিন, নিজের প্রোফাইল, আর অপেক্ষায় থাকা ইমপোর্টের তালিকা।
+common.help.topbar.menu.what = ড্রয়ার: সব স্ক্রিন, নিজের প্রোফাইল, আর যাচাই বাকি ইমপোর্টের তালিকা।
 common.help.topbar.menu.more = এর “যোগ করুন” আর “খোঁজ” ইচ্ছে করেই কোনও প্রসঙ্গ ধরে না — যে পাতা থেকেই আসুন, কিছুই আগে থেকে ভরা থাকে না। বন্ধ করতে বাঁ দিকে সোয়াইপ করুন, বা বাইরে ট্যাপ করুন।
 
 # The floating phone nav.
@@ -6168,7 +6168,7 @@ cast.fill.heading.label = শুধু কাস্ট
 cast.fill.tvdb.label = TheTVDB থেকে কাস্ট
 cast.fill.done.prose = {title} — এখন কাস্টে {n} জন।
 cast.fill.match.prose = এই শিরোনামে এখনও TheTVDB-র আইডি নেই — কোন রেকর্ডটা এটাই তা বেছে নিন, সঙ্গে অভিনেতা আর চরিত্রের ছবিও আসবে:
-cast.fill.match.none = এই শিরোনামের সঙ্গে মেলে এমন কোনো রেকর্ড TheTVDB-তে নেই — আইডি জানা থাকলে বিবরণে নিজে হাতে বসান।
+cast.fill.match.none = এই শিরোনামের সঙ্গে মেলে এমন কোনও রেকর্ড TheTVDB-তে নেই — আইডি জানা থাকলে বিবরণে নিজে হাতে বসান।
 cast.fill.info.title = কাস্ট আনা
 cast.fill.info.body = পোশাক-পরা চরিত্রের ছবি একমাত্র TheTVDB দেয়, আর তার জন্য এই টাইটেলটা ওদের রেকর্ডের সঙ্গে মেলানো থাকতে হয়। গেমের কাস্ট আছে IMDb-তে, যে পাতাটা দেখছেন সেটাই সে নেয়। দু ক্ষেত্রেই আপনার টাইপ করা নাম কখনও মোছা হয় না।
 cast.info.title = মানুষদের কথা
@@ -6220,12 +6220,12 @@ quotes.form.locator.placeholder = পৃষ্ঠা, অনুচ্ছেদ, 
 quotes.form.circa.label = তারিখটা আন্দাজ
 identity.person.title = ব্যক্তি
 identity.character.title = চরিত্র
-identity.person.saved = রেকর্ডে সংরক্ষিত
-identity.character.saved = রেকর্ডে সংরক্ষিত
-identity.credit.saved = {title}-এ সংরক্ষিত
+identity.person.saved = রেকর্ডে সেভ হল
+identity.character.saved = রেকর্ডে সেভ হল
+identity.credit.saved = {title}-এ সেভ হল
 identity.scope.work.title = এই কাজে
-identity.scope.work.body = এখানকার পরিবর্তন কেবল {title}-এ লাগে, অন্য কোনো কাজে নয়।
-identity.scope.work.role = {role} হিসেবে কৃতিত্ব।
+identity.scope.work.body = এখানকার পরিবর্তন কেবল {title}-এ লাগে, অন্য কোনও কাজে নয়।
+identity.scope.work.role = {role} হিসেবে নাম আছে।
 identity.scope.work.hint.character = একটা কাজের কাস্টের একটা সারি। যে নামে এখানে পরিচয় দেওয়া হয়েছে, এখানকার ছবি আর বিবরণ — সবই এই কাজের, অন্য কোথাও যায় না।
 identity.credit.as.label = এই কাজে যেভাবে ছাপা হয়
 identity.credit.as.hint = খালি রাখলে রেকর্ডের নাম {name} ছাপা হবে।
@@ -6233,22 +6233,22 @@ identity.credit.as.on = {as} নামে
 identity.scope.library.title = গোটা গ্রন্থাগার জুড়ে
 identity.scope.library.body = এই ব্যক্তি যা যা কাজে আছেন, আর যে যে বানানে তাঁকে পাওয়া যায়।
 identity.scope.library.character = এই চরিত্র যে যে কাজে আছে, আর যে যে বানানে তাকে পাওয়া যায়।
-identity.scope.library.hint.character = একটাই রেকর্ড, কাজ যতগুলিই হোক। এখানে যা তালিকাভুক্ত, তা প্রতিটি কাজ থেকে দেখা সেই একই চরিত্র।
-identity.person.credits.title.one = {n}টায় কৃতিত্ব
-identity.person.credits.title.other = {n}টায় কৃতিত্ব
-identity.person.credits.empty = এখনও কোথাও কৃতিত্ব নেই।
+identity.scope.library.hint.character = একটাই রেকর্ড, কাজ যতগুলোই হোক। এখানে যা তালিকাভুক্ত, তা প্রতিটা কাজ থেকে দেখা সেই একই চরিত্র।
+identity.person.credits.title.one = {n}টা উৎসে নাম
+identity.person.credits.title.other = {n}টা উৎসে নাম
+identity.person.credits.empty = এখনও কোথাও নাম নেই।
 identity.person.roles.title.one = {n}টা চরিত্র
 identity.person.roles.title.other = {n}টা চরিত্র
-identity.person.portrait.none = এখনও কোনো ছবি নেই। খুঁজে নিন, নয়তো একটা ঠিকানা বসান।
+identity.person.portrait.none = এখনও কোনও ছবি নেই। খুঁজে নিন, নয়তো একটা ঠিকানা বসান।
 identity.person.portrait.aria = {name}-এর ছবি
 identity.person.portrait.url.aria = {name}-এর ছবির ঠিকানা
 identity.person.portrait.clear.label = ছবিটা সরান
 identity.character.appearances.title.one = {n}টা কাজে আছে
 identity.character.appearances.title.other = {n}টা কাজে আছে
-identity.character.appearances.others.one = আর {n}টি অন্য কাজ
-identity.character.appearances.others.other = আর {n}টি অন্য কাজ
-identity.character.appearances.empty = এখনও কোনো কাজে নেই। কোনো কাজের কাস্ট এর দিকে তাকালে যুক্ত হবে।
-identity.character.appearances.only = এখনও পর্যন্ত কেবল উপরের কাজটিতেই।
+identity.character.appearances.others.one = আর {n}টা অন্য কাজ
+identity.character.appearances.others.other = আর {n}টা অন্য কাজ
+identity.character.appearances.empty = এখনও কোনও কাজে নেই। কোনও কাজের কাস্ট এর দিকে তাকালে যুক্ত হবে।
+identity.character.appearances.only = এখনও পর্যন্ত কেবল উপরের কাজটাতেই।
 identity.lines.title.one = {n}টা উদ্ধৃতি
 identity.lines.title.other = {n}টা উদ্ধৃতি
 identity.lines.empty.person = গ্রন্থাগারে এখনও এদের নামে কিছু নেই।
@@ -6257,29 +6257,29 @@ identity.lines.shared.one = আরও {n}টায় এদের সঙ্গ�
 identity.lines.shared.other = আরও {n}টায় এদের সঙ্গে আরেকজনের নামও আছে, তাই সেগুলো কারও নামেই তোলা নেই।
 identity.links.title = বাইরের লিংক
 identity.alias.title = অন্য বানান
-identity.alias.body = এর যেকোনো বানানে কৃতিত্ব লেখা হলে নতুন রেকর্ড না বানিয়ে এখানেই আসবে। এর কোনোটাই ছাপা হয় না।
-identity.alias.none = অন্য কোনো বানান নেই।
+identity.alias.body = এর যে কোনও বানানে নাম লেখা হলে নতুন রেকর্ড না বানিয়ে এখানেই আসবে। এর কোনওটাই ছাপা হয় না।
+identity.alias.none = অন্য কোনও বানান নেই।
 identity.alias.add.label = যোগ করুন
 identity.alias.add.placeholder = আরেকটা বানান…
-identity.alias.remove.aria = {alias} বানানটি সরান
+identity.alias.remove.aria = {alias} বানানটা সরান
 identity.alias.split.label = আলাদা করুন
-identity.alias.split.tip = এই বানানটিকে নিজস্ব রেকর্ড দিন। কাজগুলো এখানেই থাকবে — কোনটা কোথা থেকে এসেছিল তা কিছুতেই মনে রাখা নেই।
+identity.alias.split.tip = এই বানানটাকে নিজস্ব রেকর্ড দিন। কাজগুলো এখানেই থাকবে — কোনটা কোথা থেকে এসেছিল তা কিছুতেই মনে রাখা নেই।
 identity.alias.split.done = {alias} এখন নিজের রেকর্ড পেল। এর কাজগুলো যেখানে ছিল সেখানেই আছে।
 identity.merge.title = আরেকটা রেকর্ড এতে মেলান
 identity.merge.body = একজন মানুষের দুটো রেকর্ড এক হয়ে যাবে, আর টিকে থাকবে এটাই — {name}।
-identity.merge.search.placeholder = অন্য রেকর্ডটি খুঁজুন…
-identity.merge.hit.works.one = {n}টি কাজ
-identity.merge.hit.works.other = {n}টি কাজ
+identity.merge.search.placeholder = অন্য রেকর্ডটা খুঁজুন…
+identity.merge.hit.works.one = {n}টা কাজ
+identity.merge.hit.works.other = {n}টা কাজ
 identity.merge.confirm.title = {name}-কে {into}-এ মেলাবেন?
-identity.merge.confirm.body = {name} আর আলাদা রেকর্ড থাকবে না। এর সব কৃতিত্ব {into}-এ চলে যাবে, আর এর নামটা এমন এক বানান হবে যা একে খুঁজে দেয় — তাই পরের ইমপোর্টে আবার তৈরি হবে না।
-identity.merge.confirm.covers = কোনো প্রচ্ছদ বদলাবে না। প্রতিটি কাজ আজ যে নাম ছাপে, তা-ই ছাপবে।
+identity.merge.confirm.body = {name} আর আলাদা রেকর্ড থাকবে না। এর নামে যা যা আছে সব {into}-এ চলে যাবে, আর এর নামটা এমন এক বানান হবে যা একে খুঁজে দেয় — তাই পরের ইমপোর্টে আবার তৈরি হবে না।
+identity.merge.confirm.covers = কোনও প্রচ্ছদ বদলাবে না। প্রতিটা কাজ আজ যে নাম ছাপে, তা-ই ছাপবে।
 identity.merge.confirm.undo = বিন ফেরার পথটা ধরে রাখবে, বাকি সবকিছুর মতোই।
 identity.merge.confirm.action = মিলিয়ে দিন
 identity.merge.done = {name} এখন {into}-এর অংশ
 identity.scope.record.title = রেকর্ড
-identity.scope.record.person = এখানকার পরিবর্তন এই ব্যক্তির প্রতিটি কাজে পৌঁছায়।
-identity.scope.record.character = এখানকার পরিবর্তন এই চরিত্রের প্রতিটি কাজে পৌঁছায়। কোনো একটা নির্দিষ্ট কাজের ছবি বা বিবরণ সেই কাজের কাস্ট সারিতে থাকে।
-identity.scope.record.hint.character = চরিত্রটি নিজে, কোনো কাজ ছাড়াই — প্রতিটি উপস্থিতি যে নামে ফিরে যায়।
+identity.scope.record.person = এখানকার পরিবর্তন এই ব্যক্তির প্রতিটা কাজে পৌঁছায়।
+identity.scope.record.character = এখানকার পরিবর্তন এই চরিত্রের প্রতিটা কাজে পৌঁছায়। কোনও একটা নির্দিষ্ট কাজের ছবি বা বিবরণ সেই কাজের কাস্ট সারিতে থাকে।
+identity.scope.record.hint.character = চরিত্রটা নিজে, কোনও কাজ ছাড়াই — প্রতিটা উপস্থিতি যে নামে ফিরে যায়।
 identity.field.sort = যেভাবে সাজে
 identity.field.born = জন্ম
 identity.field.died = মৃত্যু
@@ -6288,13 +6288,13 @@ identity.field.description = বিবরণ
 identity.merge.body.character = এক চরিত্রের দুটো রেকর্ড এক হয়ে যাবে, আর টিকে থাকবে এইটা — {name}।
 identity.character.head.aliases.one = আরও {n}টা বানান
 identity.character.head.aliases.other = আরও {n}টা বানান
-identity.character.face.none = এখনও কোনো ছবি বাছা হয়নি। নিচের কোনো কাজ থেকে একটা তুলে দিন।
+identity.character.face.none = এখনও কোনও ছবি বাছা হয়নি। নিচের কোনও কাজ থেকে একটা তুলে দিন।
 identity.character.promote.label = এইটাই থাক
 identity.character.promote.current = এদের চেহারা
 identity.character.promote.clear.label = ছবিটা সরিয়ে দিন
 identity.character.promote.done = এখন থেকে {title}-এর ছবিটাই এই চরিত্রের চেহারা
-identity.character.promote.cleared = চরিত্রটার নিজের কোনো ছবি আর নেই
-identity.character.works.add.label = কোনো কাজে যোগ করুন
+identity.character.promote.cleared = চরিত্রটার নিজের কোনও ছবি আর নেই
+identity.character.works.add.label = কোনও কাজে যোগ করুন
 identity.character.works.add.placeholder = বই বা ছবি খুঁজুন…
 identity.character.works.add.none = কিছু মিলল না, নয়তো যা মেলে তার সবগুলোতেই এরা আছে।
 identity.character.works.add.actor.label = অভিনয়ে (শুধু ছবি ও সিরিজে)
@@ -6309,8 +6309,8 @@ identity.character.appearance.name = এই কাজে যে নামে
 identity.character.appearance.description.hint = খালি রাখলে রেকর্ডের নিজের বিবরণটাই দেখাবে।
 identity.character.drop.title.one = {title}-এর {n}টা উদ্ধৃতিতে এখনও {name}-এর নাম আছে
 identity.character.drop.title.other = {title}-এর {n}টা উদ্ধৃতিতে এখনও {name}-এর নাম আছে
-identity.character.drop.body.one = কোনো কাজের উদ্ধৃতিতে যে চরিত্রের নাম থাকে, কাজটা খুললেই সে আবার কাস্টে ফিরে আসে — তাই আগে লাইনটাকে অন্য কারও নাম বলতে হবে।
-identity.character.drop.body.other = কোনো কাজের উদ্ধৃতিতে যে চরিত্রের নাম থাকে, কাজটা খুললেই সে আবার কাস্টে ফিরে আসে — তাই আগে লাইনগুলোকে অন্য কারও নাম বলতে হবে।
+identity.character.drop.body.one = কোনও কাজের উদ্ধৃতিতে যে চরিত্রের নাম থাকে, কাজটা খুললেই সে আবার কাস্টে ফিরে আসে — তাই আগে লাইনটাকে অন্য কারও নাম বলতে হবে।
+identity.character.drop.body.other = কোনও কাজের উদ্ধৃতিতে যে চরিত্রের নাম থাকে, কাজটা খুললেই সে আবার কাস্টে ফিরে আসে — তাই আগে লাইনগুলোকে অন্য কারও নাম বলতে হবে।
 identity.character.drop.replace.label = বদলে এইটা লেখা হোক
 identity.character.drop.replace.placeholder = অন্য চরিত্র…
 identity.character.drop.replace.action = নাম বদলে সরিয়ে দিন
@@ -6325,19 +6325,19 @@ unit.role.studio = স্টুডিও
 unit.role.speaker = বক্তা
 # A work's links out (0062). See workLinks.jsx.
 links.web.label = একটা ওয়েবপেজ
-links.web.count = {n}টি ওয়েবপেজ|{n}টি ওয়েবপেজ
-links.empty = এখনও কোনও লিংক নেই। নিচে একটা বসান — যেকোনও সাইটের যেকোনও ঠিকানা।
+links.web.count = {n}টা ওয়েবপেজ|{n}টা ওয়েবপেজ
+links.empty = এখনও কোনও লিংক নেই। নিচে একটা বসান — যে কোনও সাইটের যে কোনও ঠিকানা।
 links.paste.label = লিংক বসান
 links.paste.placeholder = imdb.com/title/tt0084787
-links.paste.hint = যেকোনও ঠিকানা। যোগ করার আগে সেটা কী হিসেবে পড়া হচ্ছে তা এখানে দেখা যাবে।
+links.paste.hint = যে কোনও ঠিকানা। যোগ করার আগে সেটা কী হিসেবে পড়া হচ্ছে তা এখানে দেখা যাবে।
 links.reading = {name} হিসেবে পড়া হচ্ছে — {host}
 links.reading.none = এটা এখনও কোনও ঠিকানা নয়।
 links.already = এটা ইতিমধ্যেই এই রেকর্ডে আছে।
-links.add.aria = এই লিংকটি যোগ করুন
-links.remove.aria = {name} লিংকটি সরান
-links.info = যেকোনও সাইটের যেকোনও ঠিকানা। অ্যাপের চেনা সাইট হলে সেই সাইটের চিহ্ন দিয়ে আঁকা হয়; বাকিগুলো গ্লোবের নিচে গোটা রাখা হয় — সেটা ভুল নয়, এক ধরনের লিংক। যোগ করার সঙ্গে সঙ্গেই সেভ হয়।
+links.add.aria = এই লিংকটা যোগ করুন
+links.remove.aria = {name} লিংকটা সরান
+links.info = যে কোনও সাইটের যে কোনও ঠিকানা। অ্যাপের চেনা সাইট হলে সেই সাইটের চিহ্ন দিয়ে আঁকা হয়; বাকিগুলো গ্লোবের নিচে গোটা রাখা হয় — সেটা ভুল নয়, এক ধরনের লিংক। যোগ করার সঙ্গে সঙ্গেই সেভ হয়।
 # Ordering and grouping a book's board of quotes. See Library.jsx.
-book.category.any.label = যেকোনও শ্রেণি
+book.category.any.label = যে কোনও শ্রেণি
 book.group.aria = উদ্ধৃতি সাজান
 book.group.none.label = কিছু না
 book.group.chapter.label = অধ্যায় অনুযায়ী
@@ -6358,7 +6358,7 @@ book.sort.dir.label = ক্রম
 book.sort.dir.asc.label = ছোট থেকে বড়
 book.sort.dir.desc.label = বড় থেকে ছোট
 book.sort.menu.label = সাজানো
-book.strip.shown.label = {total}টির মধ্যে {n}টি দেখানো হচ্ছে
+book.strip.shown.label = {total}টার মধ্যে {n}টা দেখানো হচ্ছে
 book.select.menu.label = উদ্ধৃতি বাছাই
 book.text.menu.label = উদ্ধৃতির লেখা
 book.text.both.label = দুটোই

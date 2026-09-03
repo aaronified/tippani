@@ -441,7 +441,7 @@ in three persons is exactly the drift this sheet exists to prevent.
 | Anthologies | সংকলন | |
 | Tags | ট্যাগ | |
 | Metadata | মেটাডেটা | |
-| Checks (the screen) | তথ্য বিন্যাস | v3.6 — folds Stray marks and pending imports; `checks.title` |
+| Checks (the screen) | যাচাইকরণ | v3.6 — folds Stray marks and pending imports; `checks.title` |
 | Stats | পরিসংখ্যান | v3.6. হিসেব stays for a *record* — অনুশীলনের হিসেব, ঘাটতির হিসেব — and হিসেবে ("as") is a different word entirely |
 | Settings | সেটিংস | |
 | Profile | প্রোফাইল |  |
@@ -1114,7 +1114,7 @@ has ruled on is settled, and a later reader should not find two defences of the 
 | Daily | রোজকার | **দৈনিক** | Reverses this sheet's own "newsprint" objection |
 | Practice (the section) | প্র্যাকটিস | **অনুশীলন** | The verb on the button stays ঝালিয়ে নিন |
 | Optional | না দিলেও চলে | **ঐচ্ছিক** | Six characters against twelve, and it is nearly always in a placeholder or an aria label — a space-sensitive slot |
-| Checks (the screen) | পরীক্ষা | **তথ্য বিন্যাস** | The screen v3 built from Stray marks and pending imports |
+| Checks (the screen) | পরীক্ষা | **যাচাইকরণ** | The screen v3 built from Stray marks and pending imports |
 
 The quote kinds were re-stated and are unchanged: **উক্তি** the Quotes tab, **উদ্ধৃতি** an
 extracted line from a book, letter, essay or speech, **প্রবাদ** a proverb, **সংলাপ** a line
@@ -1139,3 +1139,32 @@ Two sweeps that a plain find-and-replace gets wrong, recorded so the next one do
 `common.action.duplicate.sub` took a **`{kind}` slot** rather than a noun: English says "a
 copy of the quote" for a highlight, a film line and a proverb alike, and Bengali names each
 one. The slot is filled in `actions.jsx` from `unit.*`, which already carried the three.
+
+### v3.7 The second batch, and one rule the batches produced
+
+Ten register words went to the owner with their keys and their English. Six were taken
+(`কোনো`→`কোনও`, `প্রতিটি`→`প্রতিটা`, noun+`টি`→noun+`টা`, `{n}টি`→`{n}টা`, `যেকোনও`→`যে
+কোনও`, `সংরক্ষিত`→`সেভ`), two were refused (`ব্যক্তি` and `চলচ্চিত্র` stand), and two came
+back as different words than either side proposed. **`গুলি` was reversed** — wave 1 had left
+it standing, batch 3 moved it to `গুলো`; the sheet records the reversal rather than the
+first answer, because the file is what the last ruling says.
+
+**The Checks screen is যাচাইকরণ**, not তথ্য বিন্যাস — also a reversal, taken once the screen
+was read rather than described.
+
+**অপেক্ষা is not for objects.** The owner's rule, and it is a real one: Bengali অপেক্ষা
+presumes someone alive doing the waiting, so *imports waiting*, *quotes waiting*, *it waits
+in the bin* and *waiting for you to tick* all anthropomorphised. Forty-one sites now say
+**বাকি** (a thing still to be done) or **পড়ে থাকা** (a thing left lying), and Pending import
+is **যাচাই বাকি ইমপোর্ট** — which the Checks screen's own name now answers to.
+
+**"Credit" was never one word here.** Fifteen strings already said নাম — যাঁর নাম আছে, নামের
+ক্রমে, এই নাম যেখানে যেখানে আছে — and six later ones said কৃতিত্ব, which is *credit* in the
+sense of honour, not of a name on a work. All six moved to the নাম phrasing. শিল্পীরা was
+offered for it and does not fit these six: they are *credited as the {role}* and *credited on
+{n} works*, about one person, where শিল্পীরা is a plural noun for a cast. If a heading for
+the set of contributors is ever added, that is its word.
+
+**টি is not banned.** খুঁটিনাটি, ছুটির, সৃষ্টি, পোড়ামাটি and the verb টিকে থাকা all contain
+the syllable and none is a classifier. The sweep was written word by word for exactly that
+reason, and the seventeen forms it touched are listed in the commit.
