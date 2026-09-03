@@ -3431,6 +3431,7 @@ book.form.series.placeholder = যেমন Discworld
 book.form.series-no.placeholder = যেমন 5
 
 # ONE HIGHLIGHT, as a card. This card is drawn on four screens, so common.*.
+common.quote.speaker.tip = {name} বলেছেন — চরিত্রটি খুলুন
 common.quote.edit.title = উদ্ধৃতি এডিট করুন
 common.quote.pick.label = এই উদ্ধৃতি
 # The chapter and page locator under a highlight. ⚠ "CH." here is spelled the

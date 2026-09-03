@@ -147,7 +147,17 @@ func TestQuoteKindsDifferOnlyByLocator(t *testing.T) {
 	// listed here rather than exempted because the pair has to move together — a
 	// kind that gains Character and not its pictures is a chip that silently falls
 	// back to the actor on one screen and not another.
-	wantAnn := []string{"BookAuthor", "BookID", "BookTitle", "Chapter", "ChapterNo", "Character", "CharacterImages", "Location"}
+	// SpeakerCast (3.1.0) is the third member of that group and joins it on the
+	// same argument, with one addition worth stating because the two look alike.
+	// Character and CharacterImages answer WHO IS NAMED on the line, derived from
+	// its own text; SpeakerCast answers WHO SAID IT, resolved from the stored
+	// `speaker_cast_id` link. A line can name a room full of people and be spoken
+	// by one of them, so the second is not derivable from the first and both
+	// belong. It stays off quoteRow for Character's reason exactly: an utterance
+	// has no cast table to point into — 0056 gave the column to `annotations` and
+	// `dialogues` and to nothing else — so promoting it would put a permanently
+	// null field on the third kind.
+	wantAnn := []string{"BookAuthor", "BookID", "BookTitle", "Chapter", "ChapterNo", "Character", "CharacterImages", "Location", "SpeakerCast"}
 	// Season/Episode are locators too: which episode of a show the line is from
 	// (0025). A film leaves them null — its timestamp is the whole locator. Act,
 	// Quest and EpisodeName (0047) are the same argument for the other two media: a
@@ -155,7 +165,7 @@ func TestQuoteKindsDifferOnlyByLocator(t *testing.T) {
 	// has a name as well as a number.
 	wantDlg := []string{
 		"Act", "Actor", "Character", "CharacterImages", "Episode", "EpisodeName",
-		"MovieID", "Quest", "Season", "Timestamp",
+		"MovieID", "Quest", "Season", "SpeakerCast", "Timestamp",
 	}
 
 	if got := own(reflect.TypeOf(annotationRow{})); !reflect.DeepEqual(got, wantAnn) {

@@ -1013,9 +1013,16 @@ func UndoPersonMerge(tx *sql.Tx, uid int64, u *MergeUndo, seps metadata.CreditSe
 //     crediting one person twice would print the name twice on the shelf; there
 //     is no such printing here, so THERE IS NO COLLAPSE STEP and its absence is
 //     deliberate rather than missing.
-//   - NO QUOTE POINTS AT A CHARACTER. 0056 added speaker_cast_id and nothing has
-//     ever written it; 0059 linked quotes to `people` instead. So there is nothing
-//     here answering to MergeUndo's Screen and Utterance.
+//   - A QUOTE POINTS AT A CAST ROW, NOT AT A CHARACTER. This paragraph used to
+//     say nothing had ever written speaker_cast_id; SyncQuoteCast and
+//     LinkWorkQuotesToCast both do, and 3.1.0 draws the result on the card. It
+//     still needs nothing here, and for a better reason than "unwritten": the
+//     link names a `work_cast` row, and a character merge folds the CHARACTER
+//     records while leaving every cast row where it is. So a quote linked to the
+//     merged-away character's row goes on pointing at that row, which now carries
+//     the surviving character_id — the link is correct before and after without
+//     being touched. That is why there is nothing here answering to MergeUndo's
+//     Screen and Utterance.
 //
 // WHAT IT KEEPS is the rule that makes a merge safe to offer at all: MERGING TWO
 // RECORDS MUST NOT CHANGE WHAT ANY WORK PRINTS. work_cast.character is never

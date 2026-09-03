@@ -3375,6 +3375,7 @@ book.form.series.placeholder = e.g. Discworld
 book.form.series-no.placeholder = e.g. 5
 
 # ONE HIGHLIGHT, as a card. This card is drawn on four screens, so common.*.
+common.quote.speaker.tip = Spoken by {name} — open the character
 common.quote.edit.title = Edit quote
 common.quote.pick.label = this quote
 # The chapter and page locator under a highlight. ⚠ "CH." here is spelled the

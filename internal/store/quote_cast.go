@@ -308,6 +308,55 @@ func LinkWorkQuotesToCast(tx *sql.Tx, uid int64, kind string, workID int64, seps
 	return nil
 }
 
+// LinkAllQuotesToCast runs the per-work linker over every work in one account.
+//
+// THE MISSING SIBLING OF SyncAllQuotePeople, and it is missing for a reason worth
+// stating: until now nothing needed it. LinkWorkQuotesToCast is called when a
+// work's cast list is READ, which is the moment the answer can have changed, and
+// that was enough while the link fed only the character page's own list of lines.
+// It stops being enough the moment a quote CARD draws its speaker: a reader who
+// has never opened a work's People panel would see no chip on any of its lines,
+// and would have no way to know that opening a panel elsewhere is what fills them
+// in.
+//
+// It walks works rather than quotes because that is the grain the linker has: one
+// pass reads a work's cast once and answers every quote on it. A per-quote loop
+// would re-read the same cast for every line of the same book.
+func LinkAllQuotesToCast(tx *sql.Tx, uid int64, seps metadata.CreditSeps) error {
+	for _, w := range []struct{ kind, table string }{
+		{"book", "books"},
+		{"movie", "movies"},
+	} {
+		rows, err := tx.Query(`SELECT id FROM `+w.table+` WHERE user_id = ? ORDER BY id`, uid)
+		if err != nil {
+			return fmt.Errorf("read %s ids: %w", w.table, err)
+		}
+		var ids []int64
+		for rows.Next() {
+			var id int64
+			if err := rows.Scan(&id); err != nil {
+				rows.Close()
+				return err
+			}
+			ids = append(ids, id)
+		}
+		err = rows.Err()
+		rows.Close()
+		if err != nil {
+			return err
+		}
+		// Collected before linking rather than linked inside the cursor: the linker
+		// WRITES to the same connection, and holding a read cursor open across its
+		// writes is the shape SQLite is least forgiving about.
+		for _, id := range ids {
+			if err := LinkWorkQuotesToCast(tx, uid, w.kind, id, seps); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 // CharacterLines returns the quotes LINKED to a character, and a count of the
 // further quotes that name them alongside somebody else.
 //

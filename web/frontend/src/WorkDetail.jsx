@@ -70,6 +70,7 @@ import {
   useTwoColumn,
 } from './ui.jsx'
 import { workDetailsPanel } from './WorkDetails.jsx'
+import { characterPanel } from './identity.jsx'
 import {
   ACTIVE_STATUS,
   HeroCounts,
@@ -629,6 +630,24 @@ export default function WorkDetail({
     </div>
   )
 
+  // A QUOTE'S SPEAKER CHIP OPENS THE CHARACTER, and this is the only place on the
+  // board's side of the tree that can reach a panel stack — `detailsStack` above,
+  // whose PanelHost is already mounted as a body-level sibling below.
+  //
+  // `open` rather than `push`, matching openDetails: the chip means "show me
+  // this", so it replaces whatever a previous control left open instead of burying
+  // it under a stack the reader has to walk back out of.
+  //
+  // `castId` is not optional. A work may bill one character twice — two performers
+  // for one part — and both rows point at one record, so a panel told only the
+  // work lifts whichever appearance comes first. That was a real bug; see
+  // characterPanel, which now takes the row.
+  const openCharacter = (sp) => detailsStack.open(characterPanel(detailsStack, {
+    id: sp.character_id,
+    name: sp.name,
+    work: { kind: spec.side, id: item.id, title: item.title, castId: sp.cast_id },
+  }))
+
   const streamBlock = item && renderBoard({
     item,
     spec,
@@ -639,6 +658,7 @@ export default function WorkDetail({
     onStats: setQuoteStats,
     onAdd,
     dataNonce,
+    openCharacter,
   })
 
   return (

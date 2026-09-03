@@ -102,6 +102,13 @@ type annotationRow struct {
 	// reader can add a cast row on a book (0048) and give it a picture (0050), and
 	// nobody plays Ahab but somebody has drawn him.
 	CharacterImages []characterImage `json:"character_images,omitempty"`
+	// WHO SAID IT, as opposed to who is NAMED on the line above. `speaker_cast_id`
+	// has been stored since 0056 and serialised by nothing since — see
+	// quote_speaker.go for why the two are different questions and why this cannot
+	// be derived from CharacterImages. It rides beside Character for that field's
+	// own stated reason: an utterance has no cast to point into, so promoting it to
+	// quoteRow would put a permanently null field on the third kind.
+	SpeakerCast *quoteSpeakerCast `json:"speaker_cast,omitempty"`
 	// The book's exclusion is NOT here beside the title and the author, though it
 	// is borrowed from the same row: it is quoteRow.WorkReviewExcluded, shared
 	// with dialogues. See that field for why the parity test settled it.
@@ -109,22 +116,26 @@ type annotationRow struct {
 
 func (s *Server) fetchAnnotation(uid, id int64) (*annotationRow, error) {
 	var a annotationRow
+	// Scanned into a local rather than onto the row: the column is the LINK and
+	// what ships is the resolved chip, so annotationRow never carries the raw id.
+	var castID int64
 	err := s.Store.DB.QueryRow(`
 		SELECT a.id, a.book_id, b.title, COALESCE(b.author, ''),
 		       COALESCE(a.quote, ''), COALESCE(a.note, ''), a.translation, a.color,
 		       COALESCE(a.chapter, ''), COALESCE(a.chapter_no, 0), COALESCE(a.location, ''),
 		       a.character, a.favorite,
 		       COALESCE(a.noted_at, ''), a.sticker_id, a.sticker_x, a.sticker_y, a.created_at, a.updated_at,
-		       a.review_excluded, b.review_excluded
+		       a.review_excluded, b.review_excluded, COALESCE(a.speaker_cast_id, 0)
 		FROM annotations a JOIN books b ON b.id = a.book_id
 		WHERE a.id = ? AND b.user_id = ?`, id, uid).
 		Scan(&a.ID, &a.BookID, &a.BookTitle, &a.BookAuthor, &a.Quote, &a.Note, &a.Translation, &a.Color,
 			&a.Chapter, &a.ChapterNo, &a.Location, &a.Character,
 			&a.Favorite, &a.NotedAt, &a.StickerID, &a.StickerX, &a.StickerY, &a.CreatedAt, &a.UpdatedAt,
-			&a.ReviewExcluded, &a.WorkReviewExcluded)
+			&a.ReviewExcluded, &a.WorkReviewExcluded, &castID)
 	if err != nil {
 		return nil, err
 	}
+	a.SpeakerCast = speakerFor(s.loadQuoteSpeakers(uid, []int64{castID}), castID)
 	a.Tags = []string{}
 	rows, err := s.Store.DB.Query(`
 		SELECT t.name FROM annotation_tags at JOIN tags t ON t.id = at.tag_id
@@ -296,7 +307,7 @@ func (s *Server) handleListAnnotations(w http.ResponseWriter, r *http.Request) {
 		       a.character, a.favorite,
 		       COALESCE(a.noted_at, ''), a.sticker_id, a.sticker_x, a.sticker_y, a.created_at, a.updated_at,
 		       r.item_id IS NOT NULL, COALESCE(r.stability, 0), COALESCE(r.last_reviewed_at, ''), COALESCE(r.last_result, ''),
-		       a.review_excluded, b.review_excluded
+		       a.review_excluded, b.review_excluded, COALESCE(a.speaker_cast_id, 0)
 		FROM annotations a JOIN books b ON b.id = a.book_id
 		LEFT JOIN item_reviews r ON r.kind = 'book' AND r.item_id = a.id
 		WHERE b.user_id = ?`
@@ -339,14 +350,19 @@ func (s *Server) handleListAnnotations(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 	items := []annotationRow{}
+	// Parallel to `items`, because the link is a column and the chip is a join:
+	// the ids are collected in the scan loop and resolved in one query after it,
+	// exactly as the character pictures below are.
+	castIDs := []int64{}
 	for rows.Next() {
 		var a annotationRow
+		var castID int64
 		a.Tags = []string{}
 		if err := rows.Scan(&a.ID, &a.BookID, &a.BookTitle, &a.BookAuthor, &a.Quote, &a.Note, &a.Translation, &a.Color,
 			&a.Chapter, &a.ChapterNo, &a.Location, &a.Character,
 			&a.Favorite, &a.NotedAt, &a.StickerID, &a.StickerX, &a.StickerY, &a.CreatedAt, &a.UpdatedAt,
 			&a.Reviewed, &a.Stability, &a.LastReviewedAt, &a.LastResult,
-			&a.ReviewExcluded, &a.WorkReviewExcluded); err != nil {
+			&a.ReviewExcluded, &a.WorkReviewExcluded, &castID); err != nil {
 			// Never silently drop a row: a scan error means the SELECT and the
 			// annotationRow struct drifted apart (e.g. a migration added a column),
 			// which would otherwise show up as a mysteriously short/empty list with a
@@ -356,9 +372,15 @@ func (s *Server) handleListAnnotations(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		items = append(items, a)
+		castIDs = append(castIDs, castID)
 	}
 	if err := rows.Err(); err != nil {
 		olog.Warnf(olog.CodeAnnoRowScan, "[annotations] list row iteration failed: %v", err)
+	}
+	if found := s.loadQuoteSpeakers(uid, castIDs); len(found) > 0 {
+		for i := range items {
+			items[i].SpeakerCast = speakerFor(found, castIDs[i])
+		}
 	}
 	// One query fills every row's character pictures, the same shape the tag lists
 	// below use. Best-effort: a library with no character art renders as it did.

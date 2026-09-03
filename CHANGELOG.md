@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **A quote says who spoke it, and pressing the name opens them.** A line's speaker has
+  been stored since the character records landed and no screen ever showed it — the app
+  could answer "which lines are this character's" from the character's own page and could
+  not put a face on the line itself. Now a book highlight and a film line both carry a
+  chip: the character as this work bills them, their picture, and a press that opens that
+  character on this work.
+
+  Who *said* it is not who is *named* on it. A line can mention a room full of people and
+  be spoken by one of them, so the chip is the one stored speaker while the text below
+  goes on naming everyone; where a line names two people nothing is attributed at all,
+  because a confident wrong answer on a card is worse than none. A film line keeps its
+  performer beside the chip — the role and the actor are two different people, which is
+  the whole reason both are stored.
+
+  Upgrading fills these in for the works whose cast the app already knows. A work whose
+  People panel has never been opened has no cast to point at yet, and its lines go on
+  printing the character in text until it is.
+
 ### Fixed
 
 - **A character billed twice on one work opens the row you pressed.** A film can list the

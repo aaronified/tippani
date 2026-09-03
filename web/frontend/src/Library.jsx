@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { json, errText, downloadPost } from './api.js'
+import { coverImgURL, json, errText, downloadPost } from './api.js'
 import { chapterLabel } from './text.js'
 import { CastCombo, Datalist, useWorkSuggestions } from './suggest.jsx'
 import { CoverControls, BookLookupPicker } from './CoverPicker.jsx'
@@ -11,7 +11,7 @@ import { actionsFor, atOverflow, atRow } from './actions.jsx'
 import { selectionClick, selectionMenuItems, useSelection } from './selection.jsx'
 import { facetValue, facetValues, publishSearchSeed, seedableChips, withFacet, withFacetValues } from './facets.js'
 import { SelectionBar } from './SelectionBar.jsx'
-import { CharacterFaces, PersonModal, parseCreditSeps, usePeople } from './people.jsx'
+import { CharacterFaces, PersonChip, PersonModal, parseCreditSeps, usePeople } from './people.jsx'
 import { categoryHidden, categoryName } from './theme.js'
 import {
   GroupHeading,
@@ -622,13 +622,14 @@ function BookDetail(props) {
       {...props}
       side="book"
       stateBuilder={(book, fields) => ({ ...bookState(book), ...fields })}
-      renderBoard={({ item, seps, creditMaps, mobileFilter, setMobileFilter, onStats, onAdd, dataNonce }) => (
+      renderBoard={({ item, seps, creditMaps, mobileFilter, setMobileFilter, onStats, onAdd, dataNonce, openCharacter }) => (
         <Annotations
           bookId={item.id}
           book={item}
           authorMap={creditMaps[0]}
           seps={seps}
           onStats={onStats}
+          onOpenCharacter={openCharacter}
           mobileFilterOpen={mobileFilter}
           onMobileFilterOpen={setMobileFilter}
           onAdd={onAdd}
@@ -1086,7 +1087,7 @@ function AnnotationBoard({
   rows, view, tagMap, stickerMap, stickers, reloadStickers, editingId, setEditingId,
   save, patch, remove, onCopy, onShare, selection, sort, onSort,
   columns, clamp, expandedId, onToggleExpand, boardRef = null, pinnedCount = 0, seed = 1,
-  tview = 'both', onDuplicate,
+  tview = 'both', onDuplicate, onOpenCharacter,
 }) {
   if (view === 'table') {
     return (
@@ -1126,6 +1127,7 @@ function AnnotationBoard({
       quoteLines={lines}
       tagSuggestions={Object.keys(tagMap)}
       selection={selection}
+      onOpenCharacter={onOpenCharacter}
       tview={tview}
       onDuplicate={onDuplicate}
       {...(expandable
@@ -1420,7 +1422,7 @@ function ActionRow({ acts, a, color, onColor, patch, actionsAlwaysVisible }) {
 // colour dots are keyed to the same two selectors. A bespoke wrapper would look
 // right on a desktop screenshot and silently lose the aesthetic toggle, the
 // hover affordances and the 320px layout all at once.
-export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, setEditingId, save, patch, remove, onCopy, onShare, quoteLines = 6, tagSuggestions = [], actionsAlwaysVisible = false, editInline = false, expanded, onToggleExpand, meta, form: Form = AnnotationForm, selection, selectKind = 'annotation', onMoveBoard, onDuplicate, tview = 'both' }) {
+export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, setEditingId, save, patch, remove, onCopy, onShare, quoteLines = 6, tagSuggestions = [], actionsAlwaysVisible = false, editInline = false, expanded, onToggleExpand, meta, form: Form = AnnotationForm, selection, selectKind = 'annotation', onMoveBoard, onDuplicate, tview = 'both', onOpenCharacter }) {
   const sticker = a.sticker_id != null ? stickerMap[a.sticker_id] : null
   const body = quoteBody(a, tview)
   // Accordion mode (tiles board): the parent owns which quote is open, so one
@@ -1439,6 +1441,31 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
     setPendingColor(c)
     if ((await patch(a, { color: c })) === false) setPendingColor(null)
   }
+  // WHO SAID IT, AS A CHIP RATHER THAN AS TEXT, when the line's speaker resolves
+  // to a character record. `speaker_cast` is the stored link — who SPOKE the line —
+  // which is a different question from `character`, the text naming everyone the
+  // line mentions; see quote_speaker.go on the server.
+  //
+  // THREE CONDITIONS, AND EACH IS A REAL STATE. No link: an old line, or one whose
+  // speaker was never matched, and the text below still names them. No
+  // `character_id`: a cast row nothing has linked to a record, so there is no page
+  // to open and a chip would be a dead control — cast.jsx settles the same question
+  // the same way. No `onOpenCharacter`: this card also draws on Home, in Search and
+  // on the standalone board, none of which own a panel stack, and a chip that
+  // cannot open anything is worse there than the text they already show.
+  const sp = a.speaker_cast
+  const speakerChip = sp && sp.character_id && onOpenCharacter ? (
+    <PersonChip
+      kind="character"
+      name={sp.name}
+      // The billing is printed and the RECORD's name is hashed — handoff 1.8, so
+      // one character does not change face between a novel and its adaptation.
+      faceName={sp.record_name || sp.name}
+      faceSrc={sp.image ? coverImgURL(sp.image) : ''}
+      title={t('common.quote.speaker.tip', { name: sp.name })}
+      onPress={() => onOpenCharacter(sp)}
+    />
+  ) : null
   // `meta` undefined falls back to the book locator; '' means "no line at all",
   // which is why the test is against undefined rather than falsiness.
   const metaLine =
@@ -1449,7 +1476,11 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
           // carried a character since 0047 and no card showed it, so the box
           // looked like it wrote nowhere — see the share payload, which had the
           // same gap.
-          a.character,
+          //
+          // DROPPED WHEN THE CHIP DRAWS IT, which is the SearchPage precedent
+          // (`omitSpeaker`): naming one person twice on one card is the reader
+          // reading the same fact twice and wondering what the difference is.
+          speakerChip ? null : a.character,
           chapterLabel(a) && t('common.locator.chapter.label', { name: chapterLabel(a) }),
           a.location && t('common.locator.page.short.label', { n: a.location }),
           d,
@@ -1607,6 +1638,11 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
                 This card serves annotations AND standalone quotes; only the
                 first has a work to inherit from, so only it names one. */}
             <QuizSkipMark item={a} parent={selectKind === 'annotation' ? 'book' : ''} />
+            {/* THE CHIP SITS ABOVE THE LOCATOR, which is where both prototypes put
+                it: after the words, the translation and the note, and immediately
+                before the line saying where in the book you were. Who said it is
+                about the words; the locator is about the page. */}
+            {speakerChip && <Scroller axis="x" className="block">{speakerChip}</Scroller>}
             {metaLine && <MonoLabel className="block">{metaLine}</MonoLabel>}
           </div>
           {/* WHAT IT SAYS, then what you thought — in that order, and the order is
@@ -1733,7 +1769,7 @@ function pinToTop(arr, pinnedIds) {
   return [...top, ...arr.filter((x) => !pset.has(x.id))]
 }
 
-function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilterOpen, onMobileFilterOpen, onAdd, dataNonce }) {
+function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilterOpen, onMobileFilterOpen, onAdd, dataNonce, onOpenCharacter }) {
   const [items, setItems] = useState(null)
   const [tags, setTags] = useState([]) // tag objects: {id, name, color, style, …}
   const [shareTarget, setShareTarget] = useState(null) // annotation being shared
@@ -2104,6 +2140,9 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
   const board = {
     view,
     tview,
+    // Undefined on every surface but a work's own page, and the card checks: a
+    // chip that cannot open anything is worse than the text it would replace.
+    onOpenCharacter,
     // DUPLICATE OPENS THE SHELL'S ONE ADD SURFACE, on Capture, with this book as
     // the target and the copied quote in the boxes. Nothing is written until Save
     // — a duplicate you abandon is a duplicate that never existed — which is why

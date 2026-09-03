@@ -179,10 +179,12 @@ func (s *Server) adoptQuoteCharacters(uid int64, kind string, workID int64) {
 // linkQuotes points every quote on one work at the cast row it names.
 //
 // IT RUNS HERE BECAUSE THIS IS WHERE THE TWO TABLES ALREADY MEET. `speaker_cast_id`
-// has existed on all three quote tables since characters got records and nothing
-// ever wrote one, so the app has been re-deriving "which cast row is this line's
-// speaker" by folding a text column, in three places, on every read that needed
-// it — and could not answer the reverse question at all. The write path now sets
+// has existed on the two WORK-BOUND quote tables since characters got records —
+// `annotations` and `dialogues`, and not `utterances`, which has no work and so no
+// cast to point into — and nothing ever wrote one, so the app had been re-deriving
+// "which cast row is this line's speaker" by folding a text column, in three
+// places, on every read that needed it, and could not answer the reverse question
+// at all. The write path now sets
 // the link as it sets the name (store.SyncQuoteCast); this is the same act over a
 // work's whole history, on the read that was already reconciling it.
 //

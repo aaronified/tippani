@@ -341,6 +341,10 @@ type dialogueRow struct {
 	// the client). Omitted entirely when there is none, which is the ordinary
 	// case: the chip then falls back to the actor's headshot.
 	CharacterImages []characterImage `json:"character_images,omitempty"`
+	// WHO SAID IT, which is not the same question as who is NAMED above — see
+	// quote_speaker.go. Beside Character for that field's own reason: an utterance
+	// has no cast to point into, so this cannot be promoted to quoteRow.
+	SpeakerCast *quoteSpeakerCast `json:"speaker_cast,omitempty"`
 	// The film's exclusion is quoteRow.WorkReviewExcluded, shared with
 	// annotations rather than spelled movie_review_excluded here.
 }
@@ -360,7 +364,8 @@ const dialogueCols = `d.id, d.movie_id, d.quote, COALESCE(d.note, ''), d.transla
 	d.favorite, d.sticker_id, d.sticker_x, d.sticker_y,
 	COALESCE(d.noted_at, ''), d.created_at, d.updated_at,
 	r.item_id IS NOT NULL, COALESCE(r.stability, 0), COALESCE(r.last_reviewed_at, ''), COALESCE(r.last_result, ''),
-	d.review_excluded, m.review_excluded`
+	d.review_excluded, m.review_excluded,
+	COALESCE(d.speaker_cast_id, 0)`
 
 // dialogueOrder is the one true dialogue order, used by the list and the export
 // so a file reads in the order the screen shows: through the run, then through
@@ -398,6 +403,9 @@ const dialogueReviewJoin = ` LEFT JOIN item_reviews r ON r.kind = 'screen' AND r
 
 func (s *Server) fetchDialogue(uid, id int64) (*dialogueRow, error) {
 	var d dialogueRow
+	// A local, not a field: the column is the link and what ships is the resolved
+	// chip. See the annotation side, which does the same.
+	var castID int64
 	err := s.Store.DB.QueryRow(`
 		SELECT `+dialogueCols+`
 		FROM dialogues d JOIN movies m ON m.id = d.movie_id`+dialogueReviewJoin+`
@@ -408,10 +416,11 @@ func (s *Server) fetchDialogue(uid, id int64) (*dialogueRow, error) {
 			&d.Favorite, &d.StickerID, &d.StickerX, &d.StickerY,
 			&d.NotedAt, &d.CreatedAt, &d.UpdatedAt,
 			&d.Reviewed, &d.Stability, &d.LastReviewedAt, &d.LastResult,
-			&d.ReviewExcluded, &d.WorkReviewExcluded)
+			&d.ReviewExcluded, &d.WorkReviewExcluded, &castID)
 	if err != nil {
 		return nil, err
 	}
+	d.SpeakerCast = speakerFor(s.loadQuoteSpeakers(uid, []int64{castID}), castID)
 	d.Tags = []string{}
 	rows, err := s.Store.DB.Query(`
 		SELECT t.name FROM dialogue_tags dt JOIN tags t ON t.id = dt.tag_id
@@ -607,8 +616,12 @@ func (s *Server) handleListDialogues(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 	items := []dialogueRow{}
+	// Parallel to `items` — the link is a column, the chip is a join, and the join
+	// is made once after the loop exactly as the character pictures below are.
+	castIDs := []int64{}
 	for rows.Next() {
 		var d dialogueRow
+		var castID int64
 		d.Tags = []string{}
 		if err := rows.Scan(&d.ID, &d.MovieID, &d.Quote, &d.Note, &d.Translation, &d.Color, &d.Character,
 			&d.Actor, &d.Timestamp, &d.Season, &d.Episode,
@@ -616,16 +629,22 @@ func (s *Server) handleListDialogues(w http.ResponseWriter, r *http.Request) {
 			&d.Favorite, &d.StickerID, &d.StickerX, &d.StickerY,
 			&d.NotedAt, &d.CreatedAt, &d.UpdatedAt,
 			&d.Reviewed, &d.Stability, &d.LastReviewedAt, &d.LastResult,
-			&d.ReviewExcluded, &d.WorkReviewExcluded); err != nil {
+			&d.ReviewExcluded, &d.WorkReviewExcluded, &castID); err != nil {
 			// See annotation_handlers: never silently drop a row — a scan error is a
 			// SELECT/struct drift and would present as an unexplained empty list.
 			olog.Warnf(olog.CodeDlgRowScan, "[dialogues] list row scan failed (schema/query drift?): %v", err)
 			continue
 		}
 		items = append(items, d)
+		castIDs = append(castIDs, castID)
 	}
 	if err := rows.Err(); err != nil {
 		olog.Warnf(olog.CodeDlgRowScan, "[dialogues] list row iteration failed: %v", err)
+	}
+	if found := s.loadQuoteSpeakers(uid, castIDs); len(found) > 0 {
+		for i := range items {
+			items[i].SpeakerCast = speakerFor(found, castIDs[i])
+		}
 	}
 	// One query fills every row's character pictures, in the shape the tag lists
 	// below use. Best-effort: a page with no character art renders exactly as it

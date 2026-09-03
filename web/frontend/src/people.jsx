@@ -159,7 +159,30 @@ export function PersonCredit({ kind, name, person, size = 28, onOpen, nameClassN
 // THE FACE IS ALWAYS DRAWN, silhouette when there is no photograph — the pack's
 // rule, and it is what keeps the chips a column of equal shapes rather than a
 // ragged mix of two designs.
-export function PersonChip({ kind, name, person, onOpen, title }) {
+// TWO OPTIONAL PROPS, BOTH FOR THE CHARACTER CASE, and neither changes a pixel of
+// what a person's chip already draws.
+//
+// `onPress` — because a character is opened BY ID and a person by name. `onOpen`
+// hands back `{kind, name}`, which is what PersonModal takes and what every
+// existing caller wants; a `characters` record is reached with its own id, and
+// resolving a name to get there is how a reader lands on somebody else's Woland.
+//
+// `faceName` — WHICH NAME THE FACE IS HASHED FROM, which is not always the name
+// printed on the chip. The pack is explicit (handoff 1.8): hash the canonical
+// name, never the billing, "otherwise a person changes face between two books". A
+// novel billing "the professor" and a film billing "Woland" are one record, and
+// the two must wear one face. So the label takes the billing and the silhouette
+// takes the record's name, defaulting to the label where there is only one name —
+// which is every existing caller, unchanged.
+//
+// `faceSrc` — AN ALREADY-RESOLVED PICTURE, because a character's is not a person's.
+// `person.image_path` goes through personImgURL and a character's still goes
+// through the cover builder instead — cast.jsx has always drawn it that way, since
+// the two live under different roots. Resolving it at the call site is honest:
+// the alternative is this component importing a second URL builder and choosing
+// between them on a `kind` string, which is a branch that would be wrong the first
+// time a third kind of picture appeared.
+export function PersonChip({ kind, name, person, onOpen, onPress, title, faceName, faceSrc }) {
   if (!name) return null
   return (
     <button
@@ -168,13 +191,14 @@ export function PersonChip({ kind, name, person, onOpen, title }) {
       title={title || `${name} — details`}
       onClick={(e) => {
         e.stopPropagation()
-        onOpen?.({ kind, name })
+        if (onPress) onPress()
+        else onOpen?.({ kind, name })
       }}
     >
       <span className="person-chip-face" aria-hidden="true">
-        {person?.image_path
-          ? <img src={personImgURL(person.image_path)} alt="" />
-          : <Silhouette name={name} />}
+        {faceSrc || person?.image_path
+          ? <img src={faceSrc || personImgURL(person.image_path)} alt="" />
+          : <Silhouette name={faceName || name} />}
       </span>
       <span className="person-chip-name">{name}</span>
     </button>

@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { categoryVar } from './theme.js'
 import { episodeLabel } from './text.js'
-import { json, errText, downloadPost } from './api.js'
+import { coverImgURL, json, errText, downloadPost } from './api.js'
 import { CoverControls, MovieLookupPicker, idNum } from './CoverPicker.jsx'
 import { FlowQuote } from './flow.jsx'
 import { StickerImg, StickerPicker, useStickers } from './stickers.jsx'
@@ -12,7 +12,7 @@ import { selectionClick, selectionMenuItems, useSelection } from './selection.js
 import { facetValue, facetValues, publishSearchSeed, seedableChips, withFacet, withFacetValues } from './facets.js'
 import { SelectionBar } from './SelectionBar.jsx'
 import { useCharacterArt } from './cast.jsx'
-import { CharacterFaces, CreditFaces, PersonModal, PersonName, parseCreditSeps, splitCredits, usePeople, usePortraitFill } from './people.jsx'
+import { CharacterFaces, CreditFaces, PersonChip, PersonModal, PersonName, parseCreditSeps, splitCredits, usePeople, usePortraitFill } from './people.jsx'
 import {
   GroupHeading,
   WorkCard,
@@ -772,13 +772,14 @@ function MovieDetail(props) {
       {...props}
       side="movie"
       stateBuilder={(movie, fields) => ({ ...movieState(movie), ...fields })}
-      renderBoard={({ item, seps, mobileFilter, setMobileFilter, onStats, onAdd, dataNonce }) => (
+      renderBoard={({ item, seps, mobileFilter, setMobileFilter, onStats, onAdd, dataNonce, openCharacter }) => (
         <Dialogues
           movieId={item.id}
           cast={item.cast || []}
           movie={item}
           creditSeps={seps}
           onStats={onStats}
+          onOpenCharacter={openCharacter}
           mobileFilterOpen={mobileFilter}
           onMobileFilterOpen={setMobileFilter}
           onAdd={onAdd}
@@ -1039,7 +1040,7 @@ export function dialogueState(d) {
 // edge row (TIPPANI · SAFETY FILM + runtime-random frame code) → frame cards
 // separated by divider rows carrying the next code → closing sprockets.
 // Server orders by (timestamp IS NULL), timestamp, id — rendered as served.
-function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen, onMobileFilterOpen, onAdd, dataNonce }) {
+function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen, onMobileFilterOpen, onAdd, dataNonce, onOpenCharacter }) {
   // Only a series carries an episode locator: a film is one runtime, so its
   // timestamp already says where a line is. Drives the form fields, the Episode
   // column, and nothing else — the credit line reads the row's own numbers, so a
@@ -1371,6 +1372,7 @@ function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen
                 onCopy={() => copyOne(d)}
                 onShare={() => setShareTarget(d)}
                 onOpenPerson={setPerson}
+                onOpenCharacter={onOpenCharacter}
                 actorMap={actorMap}
                 seps={creditSeps}
                 quoteLines={clampLines[i]}
@@ -1409,6 +1411,7 @@ function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen
                 onCopy={() => copyOne(d)}
                 onShare={() => setShareTarget(d)}
                 onOpenPerson={setPerson}
+                onOpenCharacter={onOpenCharacter}
                 actorMap={actorMap}
                 seps={creditSeps}
                 quoteLines={5}
@@ -1606,7 +1609,7 @@ function DialogueTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSo
 // same dialogue on its film's page was "a textured card" versus "an untextured
 // rectangle". It is now "a torn-edged card" versus "a square lit panel", which
 // is a difference you can mean.
-export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, show = false, game = false, cast = [], onEdit, onCancelEdit, onSave, onPatch, onDelete, onCopy, onShare, onOpenPerson, actorMap = {}, seps, actionsAlwaysVisible = false, editInline = false, wrapClass = 'mx-4 my-1.5', quoteLines = 6, expanded, onToggleExpand, selection, selectKind = 'dialogue' }) {
+export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, show = false, game = false, cast = [], onEdit, onCancelEdit, onSave, onPatch, onDelete, onCopy, onShare, onOpenPerson, actorMap = {}, seps, actionsAlwaysVisible = false, editInline = false, wrapClass = 'mx-4 my-1.5', quoteLines = 6, expanded, onToggleExpand, selection, selectKind = 'dialogue', onOpenCharacter }) {
   // wrapClass carries the frame's outer spacing: the strip (list) view indents
   // frames from the film edges (mx-4 my-1.5); the masonry (tiles) view drops it
   // so the card fills its column slot and the masonry gap does the spacing.
@@ -1690,8 +1693,33 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
         ))}
       </span>
     ) : null
+  // WHO SAID IT, AS A CHIP, when the stored link resolves to a character record —
+  // the same three conditions the book card applies, for the same three reasons.
+  // See AnnotationCard, and quote_speaker.go for why `speaker_cast` is not
+  // `character`.
+  const sp = d.speaker_cast
+  const speakerChip = sp && sp.character_id && onOpenCharacter ? (
+    <PersonChip
+      kind="character"
+      name={sp.name}
+      faceName={sp.record_name || sp.name}
+      faceSrc={sp.image ? coverImgURL(sp.image) : ''}
+      title={t('common.quote.speaker.tip', { name: sp.name })}
+      onPress={() => onOpenCharacter(sp)}
+    />
+  ) : null
   // Coarse to fine: which episode, who says it, then where in the runtime.
-  const creditParts = [episodeLabel(d) || null, d.character || null, actorCredit, d.timestamp || null].filter(Boolean)
+  //
+  // THE ACTOR STAYS BESIDE THE CHIP and only the character text goes. They are two
+  // different people — the role and the performer — which is 0056's whole point,
+  // and this frame has always drawn both. What the chip replaces is the character
+  // TEXT, because that is the one thing it now says better.
+  const creditParts = [
+    episodeLabel(d) || null,
+    speakerChip ? null : d.character || null,
+    actorCredit,
+    d.timestamp || null,
+  ].filter(Boolean)
   // Attached sticker → corner seal the line flows around (same as book
   // annotations). Nothing else competes for the top-right corner: the favourite
   // ♥ lives in the action row at the foot of the frame, where a book
@@ -1762,6 +1790,9 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
               that tells this frame which kind of thing it is inside, so the mark
               can say "its show" rather than calling every episode a film. */}
           <QuizSkipMark item={d} parent={show ? 'show' : 'film'} />
+          {/* Above the credit line, as on a book's card and as both prototypes
+              draw it: who said it, then where in the runtime it was said. */}
+          {speakerChip && <Scroller axis="x" className="block">{speakerChip}</Scroller>}
           <span style={amberMono}>
             {creditParts.map((p, i) => (
               <span key={i}>
