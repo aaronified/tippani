@@ -618,11 +618,22 @@ function BoardTile({ board, onOpen, onEdit, onDelete, onToggleHidden }) {
 // Hidden boards are FETCHED and folded rather than filtered away by the server:
 // hiding is a view the reader can switch off, and a list that had to be
 // re-requested to show them would make the toggle feel like a different screen.
-export function BoardList({ boards, total, reload, onOpen }) {
+// `loadError` and `error` are two different failures and are kept apart on
+// purpose: one says the shelf could not be READ, the other that a hide or a save
+// could not be WRITTEN. Folding them into one string would let a failed toggle
+// take the whole list off the screen.
+export function BoardList({ boards, total, loadError = '', reload, onOpen }) {
   const [showHidden, setShowHidden] = useState(false)
   const [editing, setEditing] = useState(null) // board | 'new'
   const [deleting, setDeleting] = useState(null)
   const [error, setError] = useState('')
+  // NOTHING BELOW MAY ASSERT A COUNT UNTIL THIS IS TRUE. `boards` is null both
+  // while the request is in flight and after it fails, and the screen used to
+  // treat that null as an empty array: the header read "0 boards", the pinned All
+  // tile read "0 quotes", and the empty card was suppressed by its own
+  // `boards != null` guard. So a reader with forty boards and an expired session
+  // got a page that looked like it had loaded and was working.
+  const loaded = boards != null
 
   const visible = (boards || []).filter((b) => showHidden || !b.hidden)
   const hiddenCount = (boards || []).filter((b) => b.hidden).length
@@ -662,10 +673,12 @@ export function BoardList({ boards, total, reload, onOpen }) {
     <section>
       <PageHeader
         title={t('nav.tab.quotes.label')}
-        counts={t('common.count.phrase', {
-          n: (boards || []).length,
-          noun: t('unit.board', { count: (boards || []).length }),
-        })}
+        counts={loaded
+          ? t('common.count.phrase', {
+              n: boards.length,
+              noun: t('unit.board', { count: boards.length }),
+            })
+          : ''}
         right={
           <span className="flex items-center gap-2">
             {hiddenCount > 0 && (
@@ -685,8 +698,10 @@ export function BoardList({ boards, total, reload, onOpen }) {
           </span>
         }
       />
-      <ErrorText>{error}</ErrorText>
+      <ErrorText>{loadError || error}</ErrorText>
+      {!loaded && !loadError && <p className="microcopy">{t('quotes.board.list.loading')}</p>}
 
+      {loaded && (
       <div className="board-grid">
         {/* Pinned, and first: a collection has to stay browsable as a whole. It
             is not a board — no menu, nothing to rename — which is why it is
@@ -708,8 +723,9 @@ export function BoardList({ boards, total, reload, onOpen }) {
           />
         ))}
       </div>
+      )}
 
-      {boards != null && boards.length === 0 && (
+      {loaded && boards.length === 0 && (
         <Card className="mt-4">
           {/* The screen a reader with no standalone quotes actually lands on,
               and until 1.14.2 it named neither Proverbs nor Speeches — so the

@@ -2123,6 +2123,28 @@ export function useCoverSize(key, def = 150, min = 96, max = 240) {
 // that points down when text is hidden and flips up when expanded; the block
 // itself is the click target (see .clampable). aria-hidden — the wrapping block
 // carries role="button" + aria-expanded for assistive tech.
+// onActivate — the keyboard half of a div wearing role="button".
+//
+// THE BUG IT ENDS: Home's two count tiles carried `role="button"` and
+// `tabIndex={0}` and no key handler at all, so a keyboard reader could tab to a
+// thing that announced itself as a button, press Enter, press Space, and nothing
+// would happen. A control that answers a pointer and ignores a keyboard is worse
+// than one that is plainly not a control, because the reader has been told it is.
+//
+// A helper rather than a third hand-written copy: flow.jsx already had the same
+// four lines and Home should not have invented them again. Space is preventDefault
+// -ed because on a div it scrolls the page, which is the browser's answer to the
+// key rather than the control's.
+export function onActivate(fn) {
+  if (!fn) return undefined;
+  return (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      fn(e);
+    }
+  };
+}
+
 export function ClampMore({ open }) {
   return (
     <span aria-hidden="true" className="clamp-more" data-open={open ? "1" : "0"}>

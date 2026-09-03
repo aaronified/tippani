@@ -2146,6 +2146,7 @@ quotes.board.hidden.inuse.label = In use
 quotes.board.hidden.all.label = All {n}
 # What a reader with no standalone quotes lands on. {em1} is the New board
 # button, named again in bold so the sentence points at a real control.
+quotes.board.list.loading = reading your boards…
 quotes.board.list.empty = No boards yet. {em1} offers the three to start from — Proverbs, Speeches and Others — and takes any name you like instead. The ＋ in the top bar saves a quote and makes the first one for you.
 
 # The board form, new and editing.
@@ -2750,6 +2751,7 @@ home.favourites.collapse.tip = Collapse this quote
 # years. Neither moves a schedule.
 home.shuffle.label = Shuffle
 home.shuffle.tip = One line, at random
+home.shuffle.empty = nothing to shuffle yet — save a highlight, a line or a quote first
 home.onthisday.title = On this day · {n}
 
 # The edit form a favourite tile opens in place, per kind, and its delete
@@ -4601,6 +4603,7 @@ metadata.speakers.pick.placeholder = — choose a title —
 # and the brackets stay brackets.
 metadata.speakers.option.year = ({year})
 metadata.speakers.nocast = ⚠ This title has no cast yet — look it up above first, then come back to remap.
+metadata.speakers.loading = reading this title’s cast and speakers…
 metadata.speakers.nolabels = No speaker labels on this title’s dialogues.
 metadata.speakers.map.label = Speaker labels → cast
 metadata.speakers.apply.label = Apply remap
@@ -5012,6 +5015,8 @@ settings.keys.toast.cleared = cleared
 error.load.import-queue = could not read the import queue
 error.load.bin = could not read the bin
 error.load.stats = could not load your statistics
+error.load.favourites = could not read your favourites
+error.load.shuffle = could not fetch a line
 error.apply.edit = could not apply the edit
 error.approve.generic = could not approve
 error.discard.generic = could not discard

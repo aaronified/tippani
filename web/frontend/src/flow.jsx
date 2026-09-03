@@ -15,7 +15,7 @@ import { t } from './i18n.js'
 // import() (its own chunk); until it loads — and under prefers-reduced-motion, or
 // with no seal — we fall back to a plain paragraph with the seal floated.
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { ClampMore } from './ui.jsx'
+import { ClampMore, onActivate } from './ui.jsx'
 
 // How far a seal may spill past the quote block into the inter-card gutter —
 // roughly half the gap between cards, so it breathes without touching a neighbour.
@@ -247,7 +247,7 @@ export function FlowQuote({ text, sticker, stickerKey = '', quoteStyle, radius =
       tabIndex={canToggle ? 0 : undefined}
       aria-expanded={canToggle ? open : undefined}
       onClick={canToggle ? toggle : undefined}
-      onKeyDown={canToggle ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle() } } : undefined}
+      onKeyDown={canToggle ? onActivate(toggle) : undefined}
     >
       {state ? (
         <>

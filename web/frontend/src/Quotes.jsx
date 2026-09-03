@@ -679,12 +679,16 @@ function QuoteBoard({ items, columns, card }) {
 }
 
 export default function QuotesPage({ creditSeparators, openId = null, onOpen, onClose }) {
-  const { boards, total, reload: reloadBoards } = useBoards()
+  // `loadError` is destructured and passed on, which it was not: useBoards has
+  // returned an error since it was written and the shelf list dropped it on the
+  // floor, so a failed GET /boards left `boards` null for ever and the screen drew
+  // a working-looking page with one tile on it.
+  const { boards, total, error: loadError, reload: reloadBoards } = useBoards()
   // TWO LEVELS, like the Library. No board open means the shelf list; a board
   // open means that board's quotes. The board is NOT a filter — see boards.jsx
   // for what treating it as one cost.
   if (openId == null) {
-    return <BoardList boards={boards} total={total} reload={reloadBoards} onOpen={onOpen} />
+    return <BoardList boards={boards} total={total} loadError={loadError} reload={reloadBoards} onOpen={onOpen} />
   }
   return (
     <BoardQuotes

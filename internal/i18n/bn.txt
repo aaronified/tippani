@@ -2187,6 +2187,7 @@ quotes.board.hidden.inuse.label = চালু
 quotes.board.hidden.all.label = সব {n}
 # What a reader with no standalone quotes lands on. {em1} is the New board
 # button, named again in bold so the sentence points at a real control.
+quotes.board.list.loading = আপনার বোর্ডগুলো পড়া হচ্ছে…
 quotes.board.list.empty = এখনও কোনও বোর্ড নেই। {em1} শুরু করার তিনটে এগিয়ে দেয় — প্রবাদ, ভাষণ আর অন্যান্য — চাইলে নিজের পছন্দের নামও দিতে পারেন। উপরের বারের ＋ দিয়ে একটা উক্তি সেভ করলে প্রথম বোর্ডটা আপনা থেকেই তৈরি হয়ে যায়।
 
 # The board form, new and editing.
@@ -2800,6 +2801,7 @@ home.favourites.collapse.tip = এই উদ্ধৃতিটা গুটি�
 # years. Neither moves a schedule.
 home.shuffle.label = হঠাৎ একটা
 home.shuffle.tip = যে কোনও একটা বাক্য, হঠাৎ করে
+home.shuffle.empty = এখনও কিছু নেই — আগে একটা হাইলাইট, সংলাপ বা উক্তি সেভ করুন
 home.onthisday.title = আজকের দিনে · {n}
 
 # The edit form a favourite tile opens in place, per kind, and its delete
@@ -4657,6 +4659,7 @@ metadata.speakers.pick.placeholder = — একটা টাইটেল বা�
 # and the brackets stay brackets.
 metadata.speakers.option.year = ({year})
 metadata.speakers.nocast = ⚠ এই টাইটেলে এখনও কাস্ট নেই — আগে উপরে খুঁজে দেখুন, তারপর ফিরে এসে মেলান।
+metadata.speakers.loading = এই টাইটেলের কাস্ট ও বক্তারা পড়া হচ্ছে…
 metadata.speakers.nolabels = এই টাইটেলের সংলাপে বক্তার কোনও লেবেল নেই।
 metadata.speakers.map.label = বক্তার লেবেল → কাস্ট
 metadata.speakers.apply.label = নামগুলো বদলে দিন
@@ -5048,6 +5051,8 @@ settings.keys.toast.cleared = মুছে গেল
 error.load.import-queue = ইমপোর্টের অপেক্ষার তালিকা পড়া গেল না
 error.load.bin = রিসাইকল বিন পড়া গেল না
 error.load.stats = আপনার পরিসংখ্যান লোড করা গেল না
+error.load.favourites = আপনার পছন্দের লেখাগুলো পড়া গেল না
+error.load.shuffle = একটা বাক্য আনা গেল না
 error.apply.edit = এডিট বসানো গেল না
 error.approve.generic = মেনে নেওয়া গেল না
 error.discard.generic = ফেলে দেওয়া গেল না

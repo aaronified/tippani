@@ -34,6 +34,7 @@ import {
   ClampMore,
   ColorSwatches,
   clampSequence,
+  ErrorText,
   FieldIconButton,
   formatPartialDate,
   formatYear,
@@ -50,6 +51,7 @@ import {
   MonoLabel,
   mulberry32,
   NavIcon,
+  onActivate,
   Placeholder,
   QuoteActions,
   QuoteTools,
@@ -535,6 +537,13 @@ const FAV_KINDS = {
 export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary, onGoMovies, onGoQuotes, onPending, pendingImport, onReviewImport }) {
   const { ask, confirmDialog } = useConfirm()
   const [favs, setFavs] = useState([])
+  // THE WALL VANISHING IS NOT AN ANSWER. Every branch of loadFavs is guarded
+  // `if (r.ok && r.data)`, which is right for a partial failure and wrong for a
+  // total one: with all three content requests failing, `list` came out empty,
+  // `favs.length > 0` went false, and the section simply was not on the page.
+  // A reader with two hundred hearted lines and an expired session saw exactly
+  // the Home of a reader who has hearted nothing.
+  const [favsError, setFavsError] = useState('')
   // Favourites sit in Home's reading column, not the full container, so this
   // ladder tracks --home-max rather than --container-max.
   const favCols = useColumnsAt([[1400, 3], [640, 2]])
@@ -588,6 +597,11 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
       json('GET', '/quotes?favorite=1'),
       json('GET', '/movies'),
     ]).then(([ra, rd, rq, rm]) => {
+      // THE THREE CONTENT REQUESTS, and only those. /movies is a lookup for a
+      // film tile's title, so its failure costs a subtitle rather than a tile,
+      // and counting it here would put an error over a wall that had loaded.
+      const failed = [ra, rd, rq].filter((r) => !(r.ok && r.data))
+      setFavsError(failed.length === 3 ? errText(failed[0], t('error.load.favourites')) : '')
       // Guard .data, not just .ok: a 2xx response with a non-JSON/empty body
       // (an SPA/HTML fallback from a reverse proxy, or a session-expiry redirect
       // resolved to a 200 page) leaves .data null. Dereferencing .data.movies
@@ -607,6 +621,9 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
       setFavs(shuffleSeeded(list, favSeed))
     }).catch((e) => {
       console.error('favourites load failed', e)
+      // The catch logged and stopped, which is a message to a console nobody has
+      // open. Whatever threw, the wall is not what the reader is looking at.
+      setFavsError(t('error.load.favourites'))
     })
   }
   useEffect(() => {
@@ -773,7 +790,7 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
       <div className={onGoLibrary && onGoMovies ? 'grid grid-cols-2 gap-2.5' : ''}>
         {onGoLibrary && (
         <Tooltip label={t('home.tile.library.tip')} className="flex items-stretch">
-          <HandCard variant={1} className="cursor-pointer w-full" style={{ padding: '13px 15px' }} onClick={onGoLibrary} role="button" tabIndex={0}>
+          <HandCard variant={1} className="cursor-pointer w-full" style={{ padding: '13px 15px' }} onClick={onGoLibrary} onKeyDown={onActivate(onGoLibrary)} role="button" tabIndex={0}>
             <p style={{ fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontWeight: 600, fontSize: 'var(--type-display-26)' }}>
               {stats ? stats.books : '–'}
             </p>
@@ -785,7 +802,7 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
         )}
         {onGoMovies && (
         <Tooltip label={t('home.tile.movies.tip')} className="flex items-stretch">
-          <HandCard variant={2} className="cursor-pointer w-full" style={{ padding: '13px 15px' }} onClick={onGoMovies} role="button" tabIndex={0}>
+          <HandCard variant={2} className="cursor-pointer w-full" style={{ padding: '13px 15px' }} onClick={onGoMovies} onKeyDown={onActivate(onGoMovies)} role="button" tabIndex={0}>
             <p style={{ fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontWeight: 600, fontSize: 'var(--type-display-26)' }}>
               {stats ? stats.movies : '–'}
             </p>
@@ -816,15 +833,18 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
         actions={serendipityActions}
       />
 
-      {favs.length > 0 && (
+      {(favs.length > 0 || favsError) && (
         <section>
           <div className="mb-2.5 flex items-center gap-3">
             <h2 style={{ fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontWeight: 600, fontSize: 'var(--type-display-19)' }}>
               {t('home.favourites.title')}
             </h2>
             <span aria-hidden="true" className="h-px flex-1" style={{ background: 'var(--line)' }} />
-            <MonoLabel>{t('home.favourites.count.label', { n: favs.length })}</MonoLabel>
+            {/* No count over a wall nobody could read — "0 favourites" beside
+                an error is the same false claim in smaller type. */}
+            {!favsError && <MonoLabel>{t('home.favourites.count.label', { n: favs.length })}</MonoLabel>}
           </div>
+          <ErrorText>{favsError}</ErrorText>
           <Masonry columns={favCols} gap={10} order="source">
             {favs.slice(0, favsShown).map((f, i) => (
               <FavouriteTile
@@ -1149,11 +1169,22 @@ function SerendipityRow({ onOpenBook, onOpenMovie, onGoQuotes, people, seps, onO
     return () => { stale = true }
   }, [])
 
+  // TWO WAYS TO PRESS THIS AND GET NOTHING, and neither said anything. A failed
+  // request fell through the `if (r.ok)` and left the previous card — or no card
+  // — exactly where it was, so the button read as broken; and a library with
+  // nothing in it answered 200 with no quote, setting `shuffled` to null, which
+  // looks identical. A toast rather than an ErrorText because the control is a
+  // button and not a screen: there is no region here whose state this is.
   const shuffle = async () => {
     setBusy(true)
     const r = await json('GET', '/shuffle')
     setBusy(false)
-    if (r.ok) setShuffled(r.data?.quote || null)
+    if (!r.ok) return toast(errText(r, t('error.load.shuffle')))
+    const q = r.data?.quote || null
+    // Not an error — an empty library is a true and ordinary answer, and the
+    // reader is told what would make the button work.
+    if (!q) return toast(t('home.shuffle.empty'))
+    setShuffled(q)
   }
 
   // Where a card goes when you press it: its parent, or the Quotes screen for a

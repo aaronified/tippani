@@ -9,6 +9,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The Quotes shelf list says when it could not be read.** A failed request left it
+  drawing a page that looked like it had worked: a heading counting zero boards, an
+  *All quotes* tile claiming zero quotes, and no message anywhere. The three states —
+  reading, failed, and genuinely empty — now look like three different things.
+
+- **Home says when your favourites could not be read.** The wall is drawn only when it
+  has something on it, so three failed requests took the whole section off the page and
+  told nobody. A reader with two hundred hearted lines and an expired session saw exactly
+  the Home of a reader who has hearted none.
+
+- **Shuffle answers when you press it.** A failed request left the screen exactly as it
+  was, and so did an empty library, so the button read as broken in both cases. It now
+  says which one happened.
+
+- **The speaker remap stops answering before it has asked.** Choosing a title showed
+  *this title has no cast* and *no speaker labels*, in amber, about a title it had not
+  yet read — and then took both back. Choosing a second title left the first one's
+  speaker rows underneath the new name, and a failed read was reported as an empty cast,
+  which is advice to go and fill in a cast that may already be complete.
+
+- **Home's two count tiles work from the keyboard.** They announce themselves as buttons
+  to a screen reader and had no key handler at all, so Enter and Space did nothing.
+
 - **Reset on a quotes board clears every filter.** It called a setter that has not existed
   since the medium column became a kind, so pressing it threw before it reached Kind and
   Language — and those two are remembered per device, so the filters Reset failed to clear

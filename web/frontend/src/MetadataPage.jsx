@@ -1401,7 +1401,11 @@ export function remapLabels(dialogues, seps) {
     .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
 }
 
-function SpeakerRemap({ movies, onDone, user }) {
+// Exported for its test, like remapLabels above it. The alternative is reaching
+// this panel through MetadataPage — which means an admin user, a tab, and a
+// catalogue load — and a test that spends four steps arriving is a test of the
+// route rather than of the panel.
+export function SpeakerRemap({ movies, onDone, user }) {
   const [movieId, setMovieId] = useState('')
   const [cast, setCast] = useState([])
   const [labels, setLabels] = useState([])
@@ -1409,21 +1413,41 @@ function SpeakerRemap({ movies, onDone, user }) {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const [msg, setMsg] = useState('')
+  // THE SCREEN USED TO ANSWER BEFORE IT HAD ASKED. Picking a film set `movieId`
+  // and then awaited two requests, and for that whole round trip `cast` and
+  // `labels` were still the arrays they had been — so on the FIRST pick both were
+  // empty and the panel showed "this film has no cast" and "no speaker labels"
+  // about a film it had not read a byte of, in amber, and then took them back.
+  // On a SECOND pick it was worse than wrong: the previous film's labels stayed
+  // under the new film's name, offering rows to remap that the selected film does
+  // not contain.
+  const [loading, setLoading] = useState(false)
+  // A request that is no longer the answer to the question on screen. Switching
+  // films twice quickly leaves two flights racing, and without this the slower —
+  // the FIRST — wins, painting film A's cast under film B.
+  const flight = useRef(0)
 
   async function loadMovie(id) {
+    const mine = ++flight.current
     setErr('')
     setMsg('')
     setMaps({})
+    setCast([])
+    setLabels([])
     if (!id) {
-      setCast([])
-      setLabels([])
+      setLoading(false)
       return
     }
+    setLoading(true)
     const [mr, dr] = await Promise.all([json('GET', `/movies/${id}`), json('GET', `/dialogues?movie_id=${id}`)])
-    setCast((mr.ok && mr.data.cast) || [])
-    if (dr.ok) {
-      setLabels(remapLabels(dr.data.dialogues, parseCreditSeps(user?.preferences?.creditSeparators)))
-    }
+    if (mine !== flight.current) return
+    setLoading(false)
+    // A FAILED READ IS NOT AN EMPTY CAST. `(mr.ok && mr.data.cast) || []` turned
+    // any failure into the amber line below, which tells the reader to go and fill
+    // in a cast that may already be there.
+    if (!mr.ok || !dr.ok) return setErr(errText(mr.ok ? dr : mr, t('error.load.cast')))
+    setCast(mr.data.cast || [])
+    setLabels(remapLabels(dr.data.dialogues, parseCreditSeps(user?.preferences?.creditSeparators)))
   }
   useEffect(() => {
     loadMovie(movieId)
@@ -1477,13 +1501,20 @@ function SpeakerRemap({ movies, onDone, user }) {
         ))}
       </select>
 
-      {movieId && cast.length === 0 && (
+      {/* AT PANEL LEVEL, and it used to sit inside the `labels.length > 0` block
+          below — so the one failure that leaves no labels, a failed read, was the
+          one failure that could not be reported. An error slot reachable only on
+          success is not an error slot. It serves the apply errors too: this card
+          is four rows tall and there is nowhere in it that is far away. */}
+      <ErrorText>{err}</ErrorText>
+      {movieId && loading && <p className="microcopy">{t('metadata.speakers.loading')}</p>}
+      {movieId && !loading && !err && cast.length === 0 && (
         <p className="microcopy" style={{ color: 'var(--amber, var(--accent-ui))' }}>
           {t('metadata.speakers.nocast')}
         </p>
       )}
-      {movieId && labels.length === 0 && <p className="microcopy">{t('metadata.speakers.nolabels')}</p>}
-      {movieId && labels.length > 0 && (
+      {movieId && !loading && !err && labels.length === 0 && <p className="microcopy">{t('metadata.speakers.nolabels')}</p>}
+      {movieId && !loading && labels.length > 0 && (
         <>
           <MonoLabel className="block">{t('metadata.speakers.map.label')}</MonoLabel>
           <div>
@@ -1509,7 +1540,6 @@ function SpeakerRemap({ movies, onDone, user }) {
               </span>
             )}
           </div>
-          <ErrorText>{err}</ErrorText>
         </>
       )}
     </HandCard>
