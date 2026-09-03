@@ -117,6 +117,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Tailwind step that only applied from 768px up, so on a phone the cover's top edge and the
   bar's bottom edge were at the same pixel.
 
+- **And its vertical spacing is even now, in the ink rather than only in the numbers.** Every
+  declared step was already honoured exactly, which is why the first look at this reported
+  the unevenness and left it. The shelf-state row is the cause: its chips are 34px tall on a
+  desk and 44px on a phone — a thumb measurement, not a type one — around a 13px line, so
+  its ink sat 8px inside its own box at top and bottom and every gap it took part in *read*
+  as 19px where the rows beside it read 11. It spends that air out of the gap now, so the
+  space you see between the shelf state and its neighbours is the space the header declares.
+
 - **The character picture search returned nothing, on every source at once.** Three separate
   faults, each of which alone would have emptied the strip. Wikipedia's search was asked for
   three candidate articles and handed back only the first, which for a role is almost always

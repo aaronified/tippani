@@ -9862,9 +9862,33 @@ vertical spaces are "highly uneven". The declared steps are honoured exactly: 11
 the hero's blocks and 9px (7 on a phone, the pack's own number) between the facts, at
 every child, at both widths. What is uneven is the INK: a row of pills carries ~10px of its
 own padding inside its box, so a chip row reads ~31px from its neighbour where a text row
-reads ~9px. Equalising that means subtracting each padded row's own air, which is a step
-typed into a row — the thing `spacing-debt.test.js` counts — so it wants the pack's number
-rather than a guess.
+reads ~9px.
+
+**FIXED, and the first version of this paragraph stopped one step short of the answer.** It
+said equalising that "means subtracting each padded row's own air, which is a step typed
+into a row", and left it awaiting a number. Both halves were wrong. There is no number to
+ask for — the air is *derivable*: `.tp-filter-chip` is 34px on a desk and 44px on a phone
+around a 13px line, so the ink sits ~8px (13 on a phone) inside the box. And it is not a
+step typed into a row: it is ONE CONSTANT ON THE COMPONENT, `--hero-pill-air`, which is
+exactly what the standing rule allows and what `.work-hero`'s own `--row: 18px` already
+does. The row pulls itself in by that constant and the INK gap comes out at the declared
+number — 11px against a text row, and 11px against another chip row, where the boxes then
+overlap in padding nobody can see.
+
+**THE STATE ROW ALONE IS COMPENSATED**, and that is asserted rather than left to judgement:
+it is the only child of the facts column whose children are sized for a THUMB. The genres
+are `.tp-chip` at 2px of padding and the counts are a baseline-aligned line of text, so
+compensating either would pull a correct row out of true. `hero-rhythm.test.js` pins the
+relationship — the pull is the constant and never a typed number, the constant is declared
+once per width, and it tracks the chip's own height so that a chip and its compensation
+cannot drift apart.
+
+**Verified by derivation rather than in a browser, and that is stated because it is a
+weaker verification.** The repo's own harness for this (`run-frame-scroll.sh`) drives
+Firefox, which the container this landed in does not have, and a hand-rolled Chromium probe
+could not reach the work-detail route. What the test checks is the relationship in the
+stylesheet, which is the same bargain `no-truncated-names.test.js` strikes: jsdom has no
+layout, so the declaration is the defect and the declaration is greppable.
 
 ### The door behind a field's mark, and the question re-verify cannot answer
 

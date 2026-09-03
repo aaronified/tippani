@@ -4813,6 +4813,20 @@
     --row: 18px;
     --hero-block: calc(var(--row) * 0.6); /* 11 */
     --hero-fact: calc(var(--row) * 0.5); /* 9 */
+    /* THE AIR A TOUCH-SIZED CHIP CARRIES AROUND ITS OWN INK, and the reason the
+       hero's rhythm read as uneven while every declared step was honoured
+       exactly.
+       A `.tp-filter-chip` is 34px tall on a desk and 44px on a phone — a THUMB
+       measurement, not a type one — around a 13px line. So the shelf-state row's
+       box is right and its ink sits 8px (13px on a phone) inside the box at top
+       and bottom. Every gap it takes part in therefore reads as 19px where the
+       text rows beside it read 11, and no amount of correcting --hero-block fixes
+       that: the number was never wrong, the row was carrying its own air ON TOP
+       of it.
+       ONE CONSTANT ON THE COMPONENT, which is what the standing rule allows and
+       what --row above already does — not a step typed into a row, which is the
+       thing spacing-debt.test.js counts. */
+    --hero-pill-air: 8px;
     display: grid;
     gap: var(--hero-block);
     align-content: start;
@@ -5053,6 +5067,17 @@
     min-width: 0;
   }
   .work-hero-genres { overflow-x: auto; overscroll-behavior: contain; white-space: nowrap; display: flex; align-items: center; gap: calc(var(--row) * 0.55); }
+
+  /* A ROW OF TOUCH-SIZED CHIPS SPENDS ITS OWN AIR OUT OF THE GAP, not on top of
+     it. Pulling the box in by exactly the air inside it makes the INK gap equal
+     the declared one — 11px against a text row, and 11px against another chip
+     row, where the boxes then overlap in padding nobody can see.
+     WHY THE STATE ROW ALONE. It is the only child of the facts column whose
+     children are sized for a thumb: the genres are `.tp-chip` at 2px of padding
+     and the counts are a baseline-aligned line of text, so neither carries air
+     worth reclaiming. Listing all three would be correcting rows that are already
+     right. */
+  .work-hero-facts > .work-hero-state { margin-block: calc(var(--hero-pill-air) * -1); }
   /* TWO VERBS, TWO WEIGHTS, ONE ROW. `flex: 1 1 0` rather than wrap: two buttons
      that split the width evenly are a pair of choices; two that wrap to their own
      content and leave a ragged tail are a list that ran out of room. Practise is
@@ -5588,6 +5613,8 @@
   .work-hero {
     --cover-w: 96px;
     --hero-fact: 7px;
+    /* 44px of thumb around the same 13px line — see --hero-pill-air. */
+    --hero-pill-air: 13px;
     --hero-title: var(--type-display-22);
   }
   .work-hero-split { gap: 13px; }
