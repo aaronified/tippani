@@ -3440,6 +3440,9 @@ book.form.series-no.placeholder = যেমন 5
 
 # ONE HIGHLIGHT, as a card. This card is drawn on four screens, so common.*.
 common.quote.speaker.tip = {name} বলেছেন — চরিত্রটা খুলুন
+# The other chips on a line: named on it, but not the one the app has stored as
+# having spoken it, so there is no record to open behind them.
+common.quote.named.tip = এই লাইনে {name}-এর নাম আছে
 common.quote.edit.title = উদ্ধৃতি এডিট করুন
 common.quote.pick.label = এই উদ্ধৃতি
 # The chapter and page locator under a highlight. ⚠ "CH." here is spelled the

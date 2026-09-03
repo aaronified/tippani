@@ -6,24 +6,32 @@
 // it and a character saying it is the whole meaning of the line."
 //
 // The storage had been right for three migrations and no handler serialised it, so
-// what these cases hold is the whole chain: the payload's shape, the three states
-// in which no chip may be drawn, and what the chip hands back when pressed.
+// what these cases hold is the whole chain: the payload's shape, which chips press
+// and which do not, and what a chip hands back when pressed.
 //
-// THE THREE ABSENCES ARE THE INTERESTING HALF, and each is a different real state
-// rather than an edge case being tidied away:
+// THE THREE ABSENCES, AND WHAT BECAME OF THEM. This file was written when a line
+// drew at most ONE chip and a chip was a DOOR, so three states drew none and the
+// card fell back to its character text or to a row of faceless discs: no link, no
+// `characters` record behind the link, no panel stack to open into. Two owner
+// rulings have since made the chip a NAME that sometimes opens:
 //
-//   NO LINK — an old line, or one whose speaker the linker refused to guess at
-//   because the line names two people. The card keeps printing the character text
-//   it always printed.
+//   "if there are multiple speakers or characters in an annotation, then they
+//   both shall have their own character/people chip" — so a line the linker
+//   refused to guess at draws a chip PER NAMED CHARACTER, and not one of those
+//   has a record behind it. A chip that opens nothing is now the ordinary case,
+//   and the state that used to draw none would now hide every name on the row
+//   but the linked one.
 //
-//   NO RECORD — a cast row nothing has linked to a `characters` row, which is most
-//   rows on a library that has never been through the characters console. There is
-//   no page to open, so a chip would be a dead control; cast.jsx settles the same
-//   question the same way for the name on a cast row.
+//   "same character pills should be there in the favourite section of the
+//   homepage" — Home owns no panel stack, so the no-opener state draws them too.
 //
-//   NO OPENER — this card also draws on Home, in Search and on the standalone
-//   board, and none of those owns a panel stack. A chip that cannot open anything
-//   is worse there than the text they already show.
+// WHAT SURVIVES OF THE RULE IS THE PRESS: a chip with no record, or on a surface
+// with nowhere to open, is drawn and is not a button — a span, so the keyboard
+// walks past it. The one state that still draws nothing is a line naming nobody.
+//
+// `speaker-chips-row.test.jsx` holds the ROW; what this file holds is what the two
+// CARDS do around it — the meta line that must stop repeating the name, the
+// performer that must not be dropped with it, and the discs the chips replaced.
 //
 // AND ONE THING THAT IS NOT AN ABSENCE: the film card keeps its ACTOR beside the
 // chip and drops only the character text. They are two different people — the role
@@ -116,18 +124,25 @@ describe('a book quote’s speaker', () => {
     expect(screen.getByText(/Woland/)).toBeTruthy()
   })
 
-  it('falls back to the text when the cast row has no record behind it', async () => {
+  it('keeps the name and drops the press when the cast row has no record', async () => {
     book({ speaker_cast: { ...SPEAKER, character_id: 0 } })
-    expect(chip(), 'a chip that opens a page which does not exist').toBeNull()
-    expect(screen.getByText(/Woland/)).toBeTruthy()
+    const c = chip()
+    expect(c, 'the name went out with the door').toBeTruthy()
+    expect(within(c).getByText('Woland')).toBeTruthy()
+    expect(c.tagName, 'a chip that opens nothing is announced as a button').toBe('SPAN')
+    fireEvent.click(c)
+    expect(opened, 'pressed a chip with no page behind it').toHaveLength(0)
   })
 
-  it('falls back to the text on a surface with nowhere to open it', async () => {
+  it('keeps the name and drops the press on a surface with nowhere to open it', async () => {
     // Home, Search and the standalone board render this card and own no panel
-    // stack, so they pass no opener.
+    // stack, so they pass no opener. The owner's ruling put these pills on Home's
+    // favourites, so what is withheld there is the press and not the chip.
     book({}, { onOpenCharacter: undefined })
-    expect(chip(), 'drew a chip on a surface that cannot open a character').toBeNull()
-    expect(screen.getByText(/Woland/)).toBeTruthy()
+    const c = chip()
+    expect(c, 'the favourites tile lost its pill').toBeTruthy()
+    expect(within(c).getByText('Woland')).toBeTruthy()
+    expect(c.tagName).toBe('SPAN')
   })
 })
 
@@ -192,18 +207,22 @@ describe('the face on the chip', () => {
 // picture chips are messing around in the annotation cards… only character images
 // should be there, actor images will be a fallback."
 //
-// Both cards already drew a row of small face discs beside the line — the
+// Both cards had drawn a row of small face discs beside the line — the
 // character's on a book, the character's-then-the-actor's on a film. Adding the
 // chip put the same person on the card twice: once as a disc with no name, once
-// as a pill with one. The discs are not deleted, because they still answer the
-// line the chip cannot speak for.
+// as a pill with one. The discs survived that round as the only thing left
+// speaking for an ensemble line; the multi-chip ruling took that job off them, so
+// on the CHARACTER side they are gone. The film card keeps `CreditFaces` — the
+// PEOPLE named in the line, a different row from the characters in it — and only
+// where no chip is drawn at all.
 
 describe('the face on a card', () => {
   // COUNTED AS IMAGES, because the disc row has no class of its own — it is a
-  // FaceStack, an inline-flex span of <img>. The chip's own face is a silhouette
-  // in these fixtures (`image: ''`), so every character image on the card belongs
-  // to the discs and the right number of them is none.
-  const discFaces = () => document.querySelectorAll('img[src*="characters/"]')
+  // FaceStack, an inline-flex span of <img>. A chip's own face is an <img> too
+  // once the character has a picture, so the count excludes anything inside a
+  // chip: without that the assertions below would pass on the chips themselves.
+  const discFaces = () => [...document.querySelectorAll('img[src*="characters/"]')]
+    .filter((i) => !i.closest('.person-chip'))
 
   it('is the chip alone when the line has one speaker', async () => {
     book({ character_images: [{ name: 'Woland', path: 'characters/w.jpg' }] })
@@ -217,12 +236,21 @@ describe('the face on a card', () => {
     expect(discFaces(), 'the disc row is still drawn behind the chip').toHaveLength(0)
   })
 
-  it('falls back to the discs on a line the chip cannot speak for', async () => {
-    // An ensemble line: the linker refuses to guess, so there is no chip and the
-    // discs are the only thing left saying who is in it.
-    book({ speaker_cast: undefined, character_images: [{ name: 'Rick', path: 'characters/r.jpg' }] })
-    expect(document.querySelector('.person-chip')).toBeNull()
-    expect(discFaces().length, 'the discs went too, so nothing says who is in the line').toBeGreaterThan(0)
+  it('is a chip per named character on the line the chip could not speak for', async () => {
+    // AN ENSEMBLE LINE, which is the case the discs existed for: the linker
+    // refuses to guess between two names, so nothing is stored. A stack of discs
+    // said how MANY people were in the line and not one of their names, which is
+    // the one thing a reader wants from it.
+    book({
+      speaker_cast: undefined,
+      character_images: [{ name: 'Rick', path: 'characters/r.jpg' }, { name: 'Ilsa', path: '' }],
+    })
+    expect([...document.querySelectorAll('.person-chip-name')].map((n) => n.textContent))
+      .toEqual(['Rick', 'Ilsa'])
+    expect(discFaces(), 'the discs are still drawn behind the chips').toHaveLength(0)
+    // A CHARACTER WITH NO PICTURE IS STILL A CHIP — the discs dropped them, since
+    // a disc with no picture is a picture of nobody, and a chip carries the name.
+    expect(document.querySelectorAll('.person-chip')).toHaveLength(2)
   })
 
   it('wears the actor’s headshot when the character has no picture of their own', async () => {

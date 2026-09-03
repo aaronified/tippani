@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { json, errText } from './api.js'
+import { coverImgURL, json, errText } from './api.js'
 import { t } from './i18n.js'
 import { personImgURL, PersonPortrait, usePeople } from './credits.jsx'
 import { usePractice } from './review.jsx'
 import { Silhouette } from './silhouette.jsx'
-import { useBodyScrollLock, CloseButton, ErrorText, ExpandableDescription, Field, GhostButton, IconCheck, IconClose, IconDelete, IconEdit, IconMerge, IconPlus, IconQuiz, IconPractise, IconRefresh, IconSearch, isPartialDate, Lightbox, MonoLabel, NameInput, NameScroll, PartialDateField, Placeholder, Tooltip, useConfirm, useEscape, useBackToClose } from './ui.jsx'
+import { useBodyScrollLock, CloseButton, ErrorText, ExpandableDescription, Field, GhostButton, IconCheck, IconClose, IconDelete, IconEdit, IconMerge, IconPlus, IconQuiz, IconPractise, IconRefresh, IconSearch, isPartialDate, Lightbox, MonoLabel, NameInput, NameScroll, PartialDateField, Placeholder, Scroller, Tooltip, useConfirm, useEscape, useBackToClose } from './ui.jsx'
 
 const PRIMARY = 'tp-btn tp-btn-primary'
 
@@ -205,10 +205,16 @@ const clip = (v) => {
 export function PersonChip({ kind, name, person, onOpen, onPress, title, faceName, faceSrc, sub }) {
   if (!name) return null
   const full = sub ? `${name} — ${sub}` : name
+  // A CHIP THAT OPENS NOTHING IS A LABEL, NOT A CONTROL — so it is a span, and
+  // the keyboard walks past it rather than stopping on a press that never
+  // happens. This used to be settled by drawing no chip at all, which was right
+  // while a line drew at most one; on a row of chips it would have hidden every
+  // name but the linked one, which is the opposite of what the row is for.
+  const Tag = onPress || onOpen ? 'button' : 'span'
   return (
-    <button
-      type="button"
-      className={'person-chip tactile' + (sub ? ' is-stacked' : '')}
+    <Tag
+      type={Tag === 'button' ? 'button' : undefined}
+      className={'person-chip' + (Tag === 'button' ? ' tactile' : '') + (sub ? ' is-stacked' : '')}
       title={title || `${full} — details`}
       onClick={(e) => {
         e.stopPropagation()
@@ -229,8 +235,130 @@ export function PersonChip({ kind, name, person, onOpen, onPress, title, faceNam
       ) : (
         <span className="person-chip-name">{clip(name)}</span>
       )}
-    </button>
+    </Tag>
   )
+}
+
+// SpeakerChips — EVERY CHARACTER NAMED ON A LINE GETS A CHIP OF ITS OWN.
+//
+// WHAT THIS REPLACES, and the code it replaces said so itself: a line with one
+// resolvable speaker drew one chip, and an ensemble line — several characters,
+// which the linker deliberately refuses to guess between — drew a row of small
+// FACELESS DISCS instead. "An ensemble line names several characters, the linker
+// refuses to guess between them, and then this row is the only thing saying who
+// is in it." A stack of discs says how MANY people are in a line and not one of
+// their names, which is the one thing a reader wants from it.
+//
+// So the row is chips now, one per name, in the order the reader typed them.
+//
+// NO NEW DATA. `character_images` has ridden the quote payload since the cast
+// pass and is already one entry per named character, each with the picture stored
+// for them — the server splits on the reader's own separators and folds each name
+// against the work's cast, because the fold cannot be done in SQL and must not be
+// done twice (cast_images.go). This draws what was already arriving.
+//
+// THE DOOR STAYS WHERE THERE IS ONE. `speaker_cast` is the stored link — who
+// SPOKE the line, exactly one or none — and it is the only entry that carries a
+// character record, whoever played them, and therefore a page to open. That chip
+// keeps its two lines and its press; the rest are a face and a name, which is
+// what the discs were trying to be. A chip that opened nothing would be the dead
+// control cast.jsx and the single chip already refuse to draw.
+//
+// IT SCROLLS UNDER A FADE rather than wrapping. A card's chip row is beside the
+// quote, and a row that wraps to three lines pushes the words a reader came for
+// down the card — so it is a Scroller, measured, which is the app's standing rule
+// for anything that might not fit.
+export function SpeakerChips({ images = [], speaker = null, onOpenCharacter = null }) {
+  const rows = chipRows(images, speaker)
+  if (rows.length === 0) return null
+  return (
+    <Scroller axis="x" className="speaker-chips">
+      {rows.map((r) => (
+        <PersonChip
+          key={r.key}
+          kind="character"
+          name={r.name}
+          // The billing prints and the RECORD's name is hashed for the
+          // silhouette — handoff 1.8, so one character does not change face
+          // between a novel and its adaptation.
+          faceName={r.faceName}
+          faceSrc={r.faceSrc}
+          sub={r.sub}
+          title={r.title}
+          onPress={r.onPress}
+        />
+      ))}
+    </Scroller>
+  )
+}
+
+// chipRows folds the stored speaker into the list of named characters.
+//
+// THE SPEAKER LEADS, because who said it is the first thing about a line and the
+// rest are who else is in it. It is matched by FOLDED NAME rather than by
+// position: the speaker link is stored and the names are typed, so the two agree
+// on spelling only after the same fold the server used.
+//
+// A SPEAKER NAMED NOWHERE ON THE LINE IS STILL DRAWN. It is a stored fact and the
+// line's text is free — somebody may have edited the words and left the link — so
+// dropping it would hide the one thing about the line the app is sure of.
+export function chipRows(images, speaker) {
+  const sp = speaker && speaker.name ? speaker : null
+  const spKey = sp ? creditKey(sp.name) : ''
+  const out = []
+  if (sp) {
+    out.push({
+      key: 'speaker',
+      name: sp.name,
+      faceName: sp.record_name || sp.name,
+      // THE FACE FALLS BACK TO THE ACTOR'S: a character with no picture of their
+      // own wears the face of whoever played them rather than no face at all.
+      faceSrc: sp.image ? coverImgURL(sp.image) : sp.actor_image ? coverImgURL(sp.actor_image) : '',
+      sub: sp.actor || '',
+      title: t('common.quote.speaker.tip', { name: sp.name }),
+      // Only where the card has a stack to open into and a record to open — the
+      // three conditions the single chip already kept.
+      onPress: sp.character_id && speaker.onOpen ? () => speaker.onOpen(sp) : undefined,
+    })
+  }
+  // DUPLICATE NAMES FOLD. A reader who typed "Woland, Woland" made a mistake, and
+  // two identical chips beside each other look like a rendering fault rather than
+  // like their typing. The speaker's key seeds the set, which is also what keeps
+  // it from being drawn twice.
+  const seen = new Set(spKey ? [spKey] : [])
+  for (const c of images || []) {
+    const name = (c?.name || '').trim()
+    const key = creditKey(name)
+    if (!name || seen.has(key)) continue
+    seen.add(key)
+    out.push({
+      key: 'named:' + name,
+      name,
+      faceName: name,
+      faceSrc: c.path ? coverImgURL(c.path) : '',
+      // NO SECOND LINE HERE, and its absence is information: the two-line chip
+      // means "this character, played by that person", which is a fact the app
+      // holds only for the stored speaker. A blank second line would claim the
+      // others had no performer rather than that nobody has said.
+      sub: '',
+      title: t('common.quote.named.tip', { name }),
+      onPress: undefined,
+    })
+  }
+  return out
+}
+
+// creditKey folds a typed name the way the server's store.CastKey does for the
+// one comparison this file makes — the speaker against the names on the line.
+//
+// IT IS NOT store.CastKey AND MUST NOT PRETEND TO BE. That fold is Go's, over
+// typographic punctuation and Unicode case, and cast_images.go says in capitals
+// why it cannot be reimplemented here. What this needs is narrower: whether two
+// strings on ONE line are the same name, where both came from the same reader
+// typing. Lowercase and collapsed whitespace answers that, and a miss costs one
+// duplicate chip rather than a wrong lookup.
+function creditKey(s) {
+  return String(s || '').trim().toLowerCase().replace(/\s+/g, ' ')
 }
 
 // lifespanLabel renders a person's years: "1920 – 2001" when both are known,

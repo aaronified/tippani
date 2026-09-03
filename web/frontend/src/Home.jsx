@@ -17,10 +17,10 @@ import { PendingImportCard } from './StagingPage.jsx'
 import { QuizRunner, tzOffsetMinutes } from './review.jsx'
 import { dailyDeck } from './daily.js'
 import {
-  CharacterFaces,
   CreditFaces,
   PersonCredit,
   PersonModal,
+  SpeakerChips,
   parseCreditSeps,
   splitCredits,
   usePeople,
@@ -1043,9 +1043,19 @@ function FavouriteTile({
                     Falls back to the person when the role has no stored picture,
                     which is most roles — so a library with no character art looks
                     exactly as it did. */}
+                {/* THE SAME CHIPS THE CARDS DRAW, on the owner's ruling, and for
+                    the reason the discs were replaced everywhere else: a stack of
+                    faceless discs says how MANY characters a line names and not
+                    one of their names. A favourite is a line the reader chose to
+                    keep, so who is in it is the last thing to leave unlabelled.
+                    NO DOOR HERE. This tile is itself the press — it opens the
+                    quote — and Home owns no panel stack to open a character into,
+                    which is the third of the three conditions the chip already
+                    kept. So the chips are faces and names, and the tile stays one
+                    target rather than becoming a row of competing ones. */}
                 {!open &&
                   (f.raw?.character_images?.length ? (
-                    <CharacterFaces images={f.raw.character_images} size={18} ring="var(--card)" />
+                    <SpeakerChips images={f.raw.character_images} speaker={f.raw.speaker_cast} />
                   ) : (
                     <CreditFaces names={peopleNames} map={peopleMap} size={18} ring="var(--card)" />
                   ))}

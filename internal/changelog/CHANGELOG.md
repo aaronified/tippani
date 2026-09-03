@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A line that names three characters now wears three chips.** A highlight or a dialogue
+  whose speaker the app could work out showed one pill with their name and face; a line
+  naming several people — where it deliberately declines to guess which of them said it —
+  showed a row of small faceless circles instead. That row told you how MANY people were in
+  the line and not one of their names. Every name on the line now gets its own pill, the
+  one who said it first, and the row masks at its edge and side-scrolls when there are more
+  than fit. A character with no picture keeps their pill, since a pill carries a name. The
+  same pills are now on the homepage's favourites. Pressing one opens that character where
+  there is a character page to open and somewhere to open it — the rest are labels, and no
+  longer look like buttons that do nothing.
+
+- **A plus card at the end of the works carousel on a character's or a performer's own
+  page**, for adding a work they appear in. Only on their own page: inside a book, that
+  strip is the *other* works they turn up in, and adding there would read as adding a work
+  to the book you are reading.
+
 - **Press the little mark beside a field and see what every source has for it.** A record is
   assembled — the year from one supplier, the description from another, the publisher you
   typed — and until now the mark on each row could only be read. It is a button on the

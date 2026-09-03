@@ -304,7 +304,18 @@ export function CreditRow({
 // subject is one identity's whole life across media, and the honest reading of it
 // is chronological. The medium is on every tile — badge and cover shape — so it
 // never needed a heading of its own.
-export function AppearanceStrip({ tiles, hint }) {
+// `onAdd` PUTS A PLUS CARD AT THE END OF THE STRIP, and only the global scopes
+// pass one — the owner's instruction. It belongs there and nowhere else: on a
+// global record "add a work" means linking this identity to another work in the
+// library, which is a thing the identity owns. On a LOCAL scope the strip is the
+// same identity's other appearances seen from inside one work, and an add there
+// would read as adding a work to the book you are already in.
+//
+// AT THE END RATHER THAN THE START, because the strip's order is the release
+// order and a control at the front would claim a place in it. It is the last
+// thing you reach, which is where you are when you have looked at all of them and
+// found the one you wanted missing.
+export function AppearanceStrip({ tiles, hint, onAdd, addLabel, addTitle, addIcon }) {
   return (
     <div className="cs-strip">
       <Scroller className="cs-tiles">
@@ -334,6 +345,17 @@ export function AppearanceStrip({ tiles, hint }) {
             </button>
           </div>
         ))}
+        {onAdd ? (
+          <button type="button" className="cs-tile cs-tile-add tactile" title={addTitle} onClick={onAdd}>
+            {/* THE SHAPE OF A CONTROL, NOT OF A COVER. It takes the tile's width
+                so the row keeps its rhythm, and a dashed square corner rather
+                than a work's own — the same distinction the links panel draws
+                between a link and "add a link": round means a value, and this is
+                not one. */}
+            <span className="cs-tile-add-art">{addIcon}</span>
+            <span className="cs-tile-add-label">{addLabel}</span>
+          </button>
+        ) : null}
       </Scroller>
       {hint ? <span className="cs-strip-hint">{hint}</span> : null}
     </div>

@@ -3384,6 +3384,9 @@ book.form.series-no.placeholder = e.g. 5
 
 # ONE HIGHLIGHT, as a card. This card is drawn on four screens, so common.*.
 common.quote.speaker.tip = Spoken by {name} — open the character
+# The other chips on a line: named on it, but not the one the app has stored as
+# having spoken it, so there is no record to open behind them.
+common.quote.named.tip = {name} is named on this line
 common.quote.edit.title = Edit quote
 common.quote.pick.label = this quote
 # The chapter and page locator under a highlight. ⚠ "CH." here is spelled the

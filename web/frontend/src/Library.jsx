@@ -11,7 +11,7 @@ import { actionsFor, atOverflow, atRow } from './actions.jsx'
 import { selectionClick, selectionMenuItems, useSelection } from './selection.jsx'
 import { facetValue, facetValues, publishSearchSeed, seedableChips, withFacet, withFacetValues } from './facets.js'
 import { SelectionBar } from './SelectionBar.jsx'
-import { CharacterFaces, PersonChip, PersonModal, parseCreditSeps, usePeople } from './people.jsx'
+import { PersonModal, SpeakerChips, chipRows, parseCreditSeps, usePeople } from './people.jsx'
 import { categoryHidden, categoryName } from './theme.js'
 import {
   GroupHeading,
@@ -1453,25 +1453,21 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
   // the same way. No `onOpenCharacter`: this card also draws on Home, in Search and
   // on the standalone board, none of which own a panel stack, and a chip that
   // cannot open anything is worse there than the text they already show.
+  // A CHIP PER CHARACTER, and the row scrolls under a fade when it does not fit.
+  // The speaker leads and keeps its two lines and its door; everyone else the
+  // line names gets a face and a name. See SpeakerChips, which both cards share
+  // so that a book's and a film's cannot drift apart — they did once, and that
+  // divergence is how the missing-face bug survived.
   const sp = a.speaker_cast
-  const speakerChip = sp && sp.character_id && onOpenCharacter ? (
-    <PersonChip
-      kind="character"
-      name={sp.name}
-      // The billing is printed and the RECORD's name is hashed — handoff 1.8, so
-      // one character does not change face between a novel and its adaptation.
-      faceName={sp.record_name || sp.name}
-      // THE FACE FALLS BACK TO THE ACTOR'S, which is the bug this fixes: a
-      // character with no picture of their own drew no face at all, even when
-      // the person who played them had a portrait on file. Two characters on one
-      // line, one with a character image and one with only an actor image, showed
-      // exactly one face — and the missing one looked like missing data.
-      faceSrc={sp.image ? coverImgURL(sp.image) : sp.actor_image ? coverImgURL(sp.actor_image) : ''}
-      sub={sp.actor || ''}
-      title={t('common.quote.speaker.tip', { name: sp.name })}
-      onPress={() => onOpenCharacter(sp)}
+  const speaker = sp ? { ...sp, onOpen: onOpenCharacter } : null
+  const chipCount = chipRows(a.character_images, speaker).length
+  const chips = (
+    <SpeakerChips
+      images={a.character_images}
+      speaker={speaker}
+      onOpenCharacter={onOpenCharacter}
     />
-  ) : null
+  )
   // `meta` undefined falls back to the book locator; '' means "no line at all",
   // which is why the test is against undefined rather than falsiness.
   const metaLine =
@@ -1486,7 +1482,11 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
           // DROPPED WHEN THE CHIP DRAWS IT, which is the SearchPage precedent
           // (`omitSpeaker`): naming one person twice on one card is the reader
           // reading the same fact twice and wondering what the difference is.
-          speakerChip ? null : a.character,
+          // OMITTED WHERE A CHIP ALREADY SAYS IT, which is now any line with a
+          // chip at all rather than only one with a stored speaker: naming the
+          // same people twice on one card is the reader reading the same fact
+          // twice and wondering what the difference is.
+          chipCount ? null : a.character,
           chapterLabel(a) && t('common.locator.chapter.label', { name: chapterLabel(a) }),
           a.location && t('common.locator.page.short.label', { n: a.location }),
           d,
@@ -1622,7 +1622,7 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
               set the height of its quietest line and pushed the locator off to the
               right of a name. Above it, the card reads down the way it is written:
               the words, then who said them, then where they were. */}
-          {speakerChip && <Scroller axis="x" className="block">{speakerChip}</Scroller>}
+          {chips}
           <div className="flex items-center gap-2">
             {/* THE CHARACTER'S FACE, and a book's card is the last place that was
                 still printing the name and nothing else. A highlight has carried a
@@ -1639,16 +1639,12 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
                 film side falls back to the ACTOR, and a book's speaker has no
                 actor to stand in for them, so an empty disc would be a picture of
                 nobody. */}
-            {/* ONLY WHEN THE CHIP IS NOT DRAWING THE SAME PERSON. A line with a
-                stored speaker has exactly one, and the chip carries their face and
-                their name — so the disc row beside it was the same character twice
-                on one card, once with a name and once without. The discs stay for
-                the lines the chip cannot speak for: an ensemble line names several
-                characters, the linker refuses to guess between them, and then this
-                row is the only thing saying who is in it. */}
-            {!speakerChip && a.character_images?.length > 0 && (
-              <CharacterFaces images={a.character_images} size={24} ring="var(--card)" />
-            )}
+            {/* THE DISC ROW IS GONE, and the comment it replaces explains why it
+                was there: it drew the ensemble lines the single chip could not
+                speak for. A stack of faceless discs says how MANY characters a
+                line names and not one of their names, which is the one thing a
+                reader wants from it — so those lines get a chip each now, above,
+                and there is nothing left for the discs to cover. */}
             <ReviewDot item={a} />
             {/* Beside the dot, because the two answer one question between them:
                 the dot says how the recall stands, the mark says the quiz is not

@@ -4633,6 +4633,28 @@
      the chip may be wider than the column, and the row it sits in scrolls under a
      measured fade. A name cut to "Bulgak…" is the row deciding which part of
      somebody's name did not matter. */
+  /* A CHIP PER CHARACTER NAMED ON A LINE, side by side, scrolling under the
+     fade when the row does not fit.
+     WHY IT SCROLLS RATHER THAN WRAPS: this row sits beside the quote on a card,
+     and a row that wraps to three lines pushes the words a reader came for down
+     the card. The fade and the press-and-drag come from Scroller — measured, so a
+     row of two wears none — which is the app's standing rule for anything that
+     might not fit. The gap is the app's own step; nothing is typed in per card. */
+  .speaker-chips {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--row) * 0.45);
+    min-width: 0;
+    /* THE OVERFLOW IS WHAT MAKES THE FADE APPEAR, and its absence is silent:
+       useEdgeScroll compares scrollWidth against clientWidth, so a box with no
+       overflow grows to fit its chips, the two are equal for ever, and no
+       `data-scroll-x` is ever written for the 26px mask to hang off. Contained,
+       so running out of row does not scroll the card behind it. */
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    padding-bottom: 2px;
+  }
+
   .person-chip {
     display: inline-flex;
     align-items: center;
@@ -4650,6 +4672,11 @@
     transition: border-color .15s ease, background .15s ease;
   }
   .person-chip:hover, .person-chip:focus-visible { border-color: var(--accent-ui); }
+  /* THE LABEL FORM of the same pill — every chip on an ensemble line but the
+     linked speaker. It must not wear the hand cursor or light up on hover: a
+     highlight that leads nowhere is a promise the row cannot keep. */
+  span.person-chip { cursor: default; }
+  span.person-chip:hover { border-color: var(--line); }
   /* THE STACKED CHIP: the character over whoever played them. Two lines in the
      same pill rather than two pills, because they are one fact about one line of
      dialogue — and one pill per fact keeps a card of four speakers readable.
@@ -8359,4 +8386,23 @@ html[data-theme="dark"] .board-cover {
     font-family: var(--font-mono); font-size: var(--type-mono-9);
     color: var(--accent-ui); letter-spacing: .1em; line-height: 1.4;
   }
+  /* THE PLUS CARD AT THE END OF A GLOBAL STRIP. A control's shape and not a
+     cover's: the tile's width so the row keeps its rhythm, a dashed square corner
+     so it cannot be mistaken for a work, and no picture — there is nothing to
+     show a picture OF yet. */
+  .cs-tile-add {
+    border: 0; background: transparent; padding: 0;
+    align-items: stretch; text-align: left; cursor: pointer;
+    color: var(--soft);
+  }
+  .cs-tile-add-art {
+    width: 100%; aspect-ratio: 112 / 166;
+    display: flex; align-items: center; justify-content: center;
+    border: 1px dashed var(--line); border-radius: 4px;
+    background: transparent;
+  }
+  .cs-tile-add:hover .cs-tile-add-art,
+  .cs-tile-add:focus-visible .cs-tile-add-art { border-color: var(--ink-border); color: var(--ink); }
+  .cs-tile-add-label { font-size: var(--type-ui-13); line-height: 1.35; }
+
   .cs-strip-hint { font-size: var(--type-ui-12); color: var(--faint); padding: 0 10px; line-height: 1.45; text-wrap: pretty; }

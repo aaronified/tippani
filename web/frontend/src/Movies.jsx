@@ -12,7 +12,7 @@ import { selectionClick, selectionMenuItems, useSelection } from './selection.js
 import { facetValue, facetValues, publishSearchSeed, seedableChips, withFacet, withFacetValues } from './facets.js'
 import { SelectionBar } from './SelectionBar.jsx'
 import { useCharacterArt } from './cast.jsx'
-import { CharacterFaces, CreditFaces, PersonChip, PersonModal, PersonName, parseCreditSeps, personImgURL, splitCredits, usePeople, usePortraitFill } from './people.jsx'
+import { CreditFaces, PersonModal, PersonName, SpeakerChips, chipRows, parseCreditSeps, personImgURL, splitCredits, usePeople, usePortraitFill } from './people.jsx'
 import {
   GroupHeading,
   WorkCard,
@@ -1705,23 +1705,26 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
   // the record has one, the performer's headshot if not, and the hashed silhouette
   // under both, which is the ladder cast.jsx climbs.
   const spActor = sp ? actorMap[sp.actor] || actorMap[d.actor] : null
-  const speakerFace = sp?.image
-    ? coverImgURL(sp.image)
-    : spActor?.image_path ? personImgURL(spActor.image_path) : ''
-  const speakerChip = sp && sp.character_id && onOpenCharacter ? (
-    <PersonChip
-      kind="character"
-      name={sp.name}
-      faceName={sp.record_name || sp.name}
-      faceSrc={speakerFace}
-      // THE ACTOR ON THE SECOND LINE. This card drew the performer beside the
-      // chip as loose text; stacked inside the pill it reads as the caption to
-      // the character rather than as a second, unrelated name on the row.
-      sub={sp.actor || d.actor || ''}
-      title={t('common.quote.speaker.tip', { name: sp.name })}
-      onPress={() => onOpenCharacter(sp)}
-    />
-  ) : null
+  // A CHIP PER CHARACTER, the speaker leading. Shared with the book card so the
+  // two cannot drift — they did once, and that divergence is how the
+  // missing-face bug survived on one side after being fixed on the other.
+  //
+  // THE FILM SIDE HANDS IN ITS OWN SPEAKER FACE, because its ladder has a rung
+  // the book's has not: this page holds the work's actors in `actorMap`, so a
+  // character with no still of their own can wear the performer's headshot. The
+  // other named characters have no performer the card knows of, so they take the
+  // hashed silhouette — which is the honest answer rather than somebody else's
+  // face.
+  const speaker = sp
+    ? {
+        ...sp,
+        image: sp.image || '',
+        actor_image: !sp.image && spActor?.image_path ? spActor.image_path : sp.actor_image || '',
+        actor: sp.actor || d.actor || '',
+        onOpen: onOpenCharacter,
+      }
+    : null
+  const chipCount = chipRows(d.character_images, speaker).length
   // Coarse to fine: which episode, who says it, then where in the runtime.
   //
   // THE ACTOR STAYS BESIDE THE CHIP and only the character text goes. They are two
@@ -1730,7 +1733,7 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
   // TEXT, because that is the one thing it now says better.
   const creditParts = [
     episodeLabel(d) || null,
-    speakerChip ? null : d.character || null,
+    chipCount ? null : d.character || null,
     actorCredit,
     d.timestamp || null,
   ].filter(Boolean)
@@ -1787,7 +1790,11 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
           quietest one, and pushes the runtime off to the right of a name. Above
           it, the frame reads down the way it is written: the line, then who said
           it, then where in the runtime. */}
-      {speakerChip && <Scroller axis="x" className="mt-1.5 block">{speakerChip}</Scroller>}
+      <SpeakerChips
+        images={d.character_images}
+        speaker={speaker}
+        onOpenCharacter={onOpenCharacter}
+      />
       <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
         <span className="inline-flex items-center gap-2">
           {/* THE CHARACTER'S FACE, NOT THE ACTOR'S (2.2.0). A line is spoken by a
@@ -1801,18 +1808,16 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
               anybody. `character_images` is absent rather than empty when there is
               nothing stored, so this tells "no picture" from "no character" and a
               library with no character art looks exactly as it did before. */}
-          {/* ONLY WHERE THE CHIP IS NOT ALREADY DRAWING ONE. A line with a stored
-              speaker has one, and the chip carries their face and their name — so
-              these discs beside it were the same person twice, once labelled and
-              once not. They stay for the lines the chip cannot speak for: an
-              ensemble line names several characters and the linker refuses to
-              guess between them, and then this row is the only thing that says
-              who is in it. */}
-          {!speakerChip && (d.character_images?.length ? (
-            <CharacterFaces images={d.character_images} size={24} ring="var(--card)" />
-          ) : (
+          {/* THE CHARACTER DISCS ARE GONE and the ACTOR DISCS STAY, which is the
+              distinction the old pair of branches was reaching for. A stack of
+              faceless discs says how MANY characters a line names and not one of
+              their names, and every one of those lines now has a chip each above.
+              The actors are a different fact — the performers rather than the
+              roles, which is 0056's whole point — so they still stand in on the
+              lines where no character resolves at all. */}
+          {chipCount === 0 && (
             <CreditFaces names={actorNames} map={actorMap} size={24} ring="var(--card)" />
-          ))}
+          )}
           <ReviewDot item={d} />
           {/* The library's twin — see AnnotationCard. `show` is already the prop
               that tells this frame which kind of thing it is inside, so the mark

@@ -34,9 +34,11 @@ type quoteSpeakerCast struct {
 	CastID int64 `json:"cast_id"`
 	// The `characters` record behind the row, and the chip's whole destination.
 	// Zero when the row has never been linked to one, in which case the client
-	// draws no chip: a link to a page that does not exist is worse than the
-	// affordance it replaces, and the card's existing character TEXT is still
-	// there to fall back to.
+	// draws the chip WITHOUT its press: a link to a page that does not exist is
+	// worse than no link, but the name is still the thing the row exists to show
+	// — and on a line naming several characters none of the others has a record
+	// behind it either, so a chip that does not open is the ordinary case rather
+	// than a broken one.
 	CharacterID int64 `json:"character_id,omitempty"`
 	// WHAT THIS WORK BILLS THEM AS, which is the name to print. `work_cast`'s own
 	// column, never rewritten by a merge — a novel's "the professor" is a film's
