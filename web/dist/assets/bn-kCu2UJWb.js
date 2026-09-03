@@ -1814,7 +1814,7 @@ common.action.share.tip = {subject} শেয়ার করুন
 common.action.edit.tip = {subject} এডিট করুন
 common.action.delete.tip = {subject} মুছুন
 # Fetch only what is MISSING and touch nothing else.
-common.action.fill.label = ঘাটতি ভরান
+common.action.fill.label = শূন্যস্থান পূরণ
 common.action.fill.tip = ফাঁকা ঘরগুলো ভরান
 # While it is fetching.
 # A themed quiz round over one book or one title.
@@ -6078,7 +6078,7 @@ common.help.skip-in-quiz.what = যা রাখেন সব নিয়ে �
 common.help.skip-in-quiz.more = সেগুলো বেছে “অনুশীলনী থেকে বাদ দিন” ট্যাপ করলে দৈনিক অনুশীলনী আর ওখান থেকে টানে না, অথচ কিছুই মোছে না। একটা বইয়ে করলে পরে ওই বইয়ে যত উদ্ধৃতি রাখবেন সবেতেই খাটে। যেগুলো আগে থেকেই বাদ, সেগুলো বাছলে বোতামে লেখা ওঠে “অনুশীলনীতে দিন” — তাই কোন দিকে আছে সেটা পড়েই বোঝা যায়।
 
 # The selection-bar action that fetches only the EMPTY fields.
-common.help.fill-gaps.term = ঘাটতি ভরান
+common.help.fill-gaps.term = শূন্যস্থান পূরণ
 common.help.fill-gaps.what = বই, সিনেমা বা শো বেছে নিলে: প্রত্যেকটার মেটাডেটা এনে শুধু যে ঘরগুলো ফাঁকা সেগুলোই ভরে দেয়।
 common.help.fill-gaps.more = নিজের লেখা বিবরণ, নিজের শুধরে দেওয়া সাল, নিজের বাছা কভার — কোনওটাতেই হাত পড়ে না, তাই আগে থেকে দেখে নেওয়ার দরকারও নেই। মেটাডেটার “আবার মিলিয়ে দেখুন” এর উল্টো দিক: সে প্রতিটা অমিল দেখায়, আর আপনি যেগুলো বিশ্বাস করেন সেগুলোয় টিক না দিলে কিছুই বসায় না।
 

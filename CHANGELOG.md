@@ -28,11 +28,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the unlimited skippable twin is ঝালাই. The two card types took the names that describe
   them: প্রশ্নোত্তর where a question is asked, শূন্যস্থান পূরণ where a phrase is blanked out.
 
-- **"Fill gaps" stopped calling itself a quiz card.** It and the cloze card had both ended
-  up as শূন্যস্থান পূরণ, so selecting three books offered you what looked like a quiz and
-  fetched metadata instead. It is ঘাটতি ভরান now, which is already the word on the coverage
-  tiles it fills.
-
 - **The text-size info dot is a small i again.** Every other dot in the app is; that one sat
   inside an uppercased label and inherited it, because the dot's own case rule resolves to
   `inherit` by default. A glyph is not a word and no longer takes the case dial.

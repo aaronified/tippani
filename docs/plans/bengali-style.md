@@ -1200,10 +1200,14 @@ swept again:
 - `stats.activity.quiz.noun` "reviewed" → **অনুশীলন**, a bare noun beside its siblings জমা
   and ঝালাই. দিনপঞ্জি cannot be counted: *ক্যালেন্ডার · 42 দিনপঞ্জি* is not a sentence.
 
-`common.action.fill.label` finally moved too. "Fill gaps" and the cloze card had both ended
-up as শূন্যস্থান পূরণ, which put a metadata fetch on the selection bar under the name of a
-quiz card. It is **ঘাটতি ভরান** now — ঘাটতি is already `metadata.coverage.title`'s word for
-exactly what it fills.
+`common.action.fill.label` **stays শূন্যস্থান পূরণ**, the same words as the cloze card, and
+that is a ruling rather than an oversight. A rater raised it twice: the two controls are a
+metadata fetch and a quiz card, they meet on different screens, and one name for both means
+the selection bar offers what reads as a quiz. ঘাটতি ভরান was tried — ঘাটতি is already
+`metadata.coverage.title`'s word for exactly what Fill gaps fills — and the owner put it
+back. Both controls fill in a blank, and Bengali has one phrase for that. Do not "fix" it
+again; if the collision ever has to break, the English labels are what differ ("Fill gaps"
+against "Fill in the blank") and that is where the split belongs.
 
 ### v3.7b The names that are not translations
 

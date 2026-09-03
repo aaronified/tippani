@@ -9764,7 +9764,7 @@ it happened, because the reversals are the entries most likely to be "corrected"
 | — practise (the verb on a button) | ঝালিয়ে নিন | unchanged throughout |
 | Daily | দৈনিক | was রোজকার — reverses the style sheet's own "newsprint" objection |
 | Optional | ঐচ্ছিক | was না দিলেও চলে; six characters against twelve, and nearly always in a placeholder |
-| Fill gaps (the metadata fetch) | ঘাটতি ভরান | was শূন্যস্থান পূরণ, which now belongs to the cloze card alone |
+| Fill gaps (the metadata fetch) | শূন্যস্থান পূরণ | Deliberately the same words as the cloze card. The owner was shown the collision and kept it: both controls fill in a blank, and Bengali has one phrase for that |
 | the bin | ডাস্টবিন | |
 | a rule (Stray marks) | নিয়ম | |
 | a credit | নাম | was কৃতিত্ব, which is credit in the sense of honour |
