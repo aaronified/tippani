@@ -21,6 +21,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   different language from the one the rest of the app speaks. গুলি and এবং were left where
   they stood: not every formal word is the wrong one.
 
+- **Thirty-one Bengali help entries a rater caught.** The worst of them said the wrong
+  thing: the game-cast note told you a game's *name* was missing when the English says its
+  credits are, the keyboard shortcut for Stats still named a screen called হিসেব, and the
+  whole Checks panel argued about why it is not called "রিভিউ" — a word the Bengali app
+  has never used, because the review schedule is রিভিশন. The rest were the seams a
+  translation leaves: *waits here* rendered as অপেক্ষা করে where Bengali says জমা থাকে,
+  *cut across* carried over word for word, and one entry using উদ্ধৃতি twice in a sentence
+  where it had to mean two different things.
+
 - **Duplicate says what it is copying.** The sub-line under it read "a copy with the same
   note, tags, colour and locator" for a book's highlight, a film's line and a proverb
   alike. English can afford that; Bengali names the three separately, so the noun is now a
