@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A character's own page, and a performer's, rebuilt to the design pack.** Both now read
+  in the order the thing itself does: who this is — the name with every spelling under it,
+  how it files in a list, when it was born — then where it is written up outside the app,
+  then the works, then the two acts that end the page. The works were a grid of cards and
+  are now a shelf you scroll, one tile per work with its own cover and the face this work
+  gives the character; pressing a tile opens that work's card, where its picture, the
+  promotion to the record and the removal all still live. A character's birth year and a
+  record's links had both been stored and served for a while with nowhere to type them, and
+  now have a field each. A performer's shelf finally shows everything: what they played and
+  what they wrote, in one strip, where before the two came from different sections and the
+  games among them were labelled films.
+
 - **A line that names three characters now wears three chips.** A highlight or a dialogue
   whose speaker the app could work out showed one pill with their name and face; a line
   naming several people — where it deliberately declines to guess which of them said it —

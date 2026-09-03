@@ -125,7 +125,7 @@ describe('the two doors on a row', () => {
     act(() => within(row('Mikhail Bulgakov')).getByText('Mikhail Bulgakov').click())
     // The panel is pushed onto this console's own stack, so what is asserted is
     // that the record page is on screen rather than the enrichment modal.
-    expect(await screen.findByText(/across the library/i)).toBeTruthy()
+    expect(await screen.findByText('The person')).toBeTruthy()
   })
 
   it('opens the portrait editor from the face', async () => {

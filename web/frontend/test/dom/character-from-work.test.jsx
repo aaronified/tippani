@@ -214,13 +214,17 @@ describe('the same page, opened from the console', () => {
     // Absent rather than present and empty: there is no work to be on, and a
     // heading claiming otherwise is a heading about nothing.
     expect(scope('work'), 'a work scope with no work to scope to').toBeNull()
-    // ALL THREE APPEARANCES, including both of the film's two billings — nothing
-    // has been lifted, so nothing is missing from the grid.
-    const lib = within(scope('library'))
-    expect(lib.getAllByText('The Master and Margarita (2005)')).toHaveLength(2)
-    expect(lib.getByText('Oleg Basilashvili')).toBeTruthy()
-    expect(lib.getByText('Valentin Gaft')).toBeTruthy()
-    expect(lib.getByText('The Master and Margarita')).toBeTruthy()
+    // ALL THREE APPEARANCES, ON THE STRIP, including both of the film's two
+    // billings — nothing has been lifted, so nothing is missing from the shelf.
+    // The grid this replaces is now each tile's own editor; see identityGlobal.jsx.
+    const titles = [...document.querySelectorAll('.cs-tile-title')].map((n) => n.textContent)
+    expect(titles.filter((ti) => ti === 'The Master and Margarita (2005)')).toHaveLength(2)
+    expect(titles).toContain('The Master and Margarita')
+    // AND EACH PERFORMER IS NAMED, on the face's own title — the tile carries the
+    // fact and the card behind it carries the door.
+    const faces = [...document.querySelectorAll('.cs-tile-chip')].map((f) => f.getAttribute('title') || '')
+    expect(faces.some((ti) => /Oleg Basilashvili/.test(ti))).toBe(true)
+    expect(faces.some((ti) => /Valentin Gaft/.test(ti))).toBe(true)
   })
 })
 

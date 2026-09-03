@@ -88,30 +88,80 @@ beforeEach(() => {
 afterEach(() => cleanup())
 
 const open = async () => {
+  shown = ''
   render(body(characterPanel(stack(), { id: 3, name: 'Woland' })))
   await screen.findByText('The Master and Margarita')
 }
-const card = (title) => screen.getByText(title).closest('.char-work')
+
+// Which work's card the strip currently has open. Tracked rather than read back
+// off the DOM because one title here is a prefix of the other — "The Master and
+// Margarita" and "The Master and Margarita (2005)" — so a substring test on the
+// open card would answer the wrong question exactly half the time.
+let shown = ''
+
+// tile — one work on the strip, by the title it prints.
+const tile = (title) => [...document.querySelectorAll('.cs-tile')]
+  .find((c) => c.querySelector('.cs-tile-title')?.textContent === title)
+
+// card — that work's EDITOR, which is behind its tile.
+//
+// WHY IT IS BEHIND ONE NOW. The design pack's global screen draws the works as a
+// strip and nothing else: every per-work act — this work's picture, promoting it
+// to the record, taking the character off the work — belongs to `char-book` /
+// `char-film` / `char-game`, the local screens, which are not built. Dropping the
+// controls until they are would leave a reader unable to promote a picture at
+// all; drawing the cards under the strip would list every work twice. So the tile
+// opens its own card, the same row→editor shape the name row above it uses, and
+// this helper presses the tile before reaching for the card.
+const card = (title) => {
+  const t = tile(title)
+  if (!t) throw new Error(`no tile for ${title}`)
+  // IDEMPOTENT, because the disclosure is a toggle: pressing the tile that is
+  // already open closes it, so a test that reaches for the same card twice would
+  // shut it on the second call.
+  if (shown !== title) {
+    act(() => { fireEvent.click(t.querySelector('.cs-tile-art')) })
+    shown = title
+  }
+  const c = document.querySelector('.char-work')
+  // CALL THIS OUTSIDE act(), NOT INSIDE ONE. The press above is itself wrapped,
+  // and React defers a nested flush until the outermost act() exits — so
+  // `act(() => within(card(t)).getByText(…).click())` queries a DOM that has not
+  // been re-rendered yet and finds nothing. Take the card first, then press.
+  if (!c) throw new Error(`the tile for ${title} did not open its card — was card() called inside act()?`)
+  return c
+}
 
 describe('every work they are in, as a shelf rather than a list', () => {
   it('draws each work’s own cover, so the row is recognised before it is read', async () => {
     await open()
-    const covers = [...document.querySelectorAll('.char-work-cover')]
+    // DIRECT CHILDREN ONLY: the face chip lives inside the same button, so a
+    // descendant selector counts a character's portrait as a work's cover.
+    const covers = [...document.querySelectorAll('.cs-tile-art > img')]
     expect(covers).toHaveLength(2)
-    expect(covers.every((c) => c.tagName === 'IMG' && c.getAttribute('src'))).toBe(true)
+    expect(covers.every((c) => c.getAttribute('src'))).toBe(true)
   })
 
   it('says which kind of work each one is', async () => {
     await open()
-    // A series is not a film, and the card says so from media_type rather than
+    // A series is not a film, and the badge says so from media_type rather than
     // calling everything on the movies table a film.
-    expect(within(card('The Master and Margarita (2005)')).getByText(/show|series/i)).toBeTruthy()
-    expect(within(card('The Master and Margarita')).getByText(/book/i)).toBeTruthy()
+    expect(within(tile('The Master and Margarita (2005)')).getByText(/show|series/i)).toBeTruthy()
+    expect(within(tile('The Master and Margarita')).getByText(/book/i)).toBeTruthy()
   })
 
   it('carries the performer for the work that has one, as a door to their record', async () => {
     const s = stack()
     render(body(characterPanel(s, { id: 3, name: 'Woland' })))
+    await screen.findByText('The Master and Margarita')
+    // THE DOOR IS ON THE CARD BEHIND THE TILE. The strip is a shelf and its tiles
+    // carry the performer's NAME on the face's own title — see identityGlobal.jsx
+    // — so the fact is on the shelf and the door is one press in, which is where
+    // the pack puts it (the local screen's credit row).
+    const t = [...document.querySelectorAll('.cs-tile')]
+      .find((c) => /played by Oleg Basilashvili/.test(c.querySelector('.cs-tile-chip')?.getAttribute('title') || ''))
+    expect(t, 'no tile names the performer').toBeTruthy()
+    act(() => t.querySelector('.cs-tile-art').click())
     const who = await screen.findByText('Oleg Basilashvili')
     act(() => who.click())
     expect(s.push).toHaveBeenCalledTimes(1)
@@ -138,7 +188,8 @@ describe('the picture on each work, and the one that is the record’s', () => {
 
   it('promotes a work’s picture to the record by its cast row', async () => {
     await open()
-    act(() => within(card('The Master and Margarita (2005)')).getByText(/use this one/i).click())
+    const _c1 = card('The Master and Margarita (2005)')
+    act(() => within(_c1).getByText(/use this one/i).click())
     await waitFor(() => expect(CALLS.some(([m, p, b]) => m === 'PUT' && p === '/characters/3/image' && b.cast_id === 12)).toBe(true))
   })
 
@@ -152,7 +203,8 @@ describe('the picture on each work, and the one that is the record’s', () => {
 
   it('replaces one work’s picture through the cast row, never the record', async () => {
     await open()
-    act(() => within(card('The Master and Margarita (2005)')).getByRole('button', { name: /picture/i }).click())
+    const _c2 = card('The Master and Margarita (2005)')
+    act(() => within(_c2).getByRole('button', { name: /picture/i }).click())
     const url = await screen.findByPlaceholderText(/https?:|url|address|link/i)
     fireEvent.change(url, { target: { value: 'https://example.test/woland.jpg' } })
     act(() => screen.getByText('Apply').closest('button').click())
@@ -216,16 +268,20 @@ describe('tagging them onto another work', () => {
 describe('taking them off a work', () => {
   it('asks once, then removes when nothing quotes them', async () => {
     await open()
-    act(() => within(card('The Master and Margarita')).getByLabelText(/Take this character off/).click())
-    act(() => within(card('The Master and Margarita')).getByText('Remove').closest('button').click())
+    const _c3 = card('The Master and Margarita')
+    act(() => within(_c3).getByLabelText(/Take this character off/).click())
+    const _c4 = card('The Master and Margarita')
+    act(() => within(_c4).getByText('Remove').closest('button').click())
     await waitFor(() => expect(CALLS.some(([m, p]) => m === 'DELETE' && p === '/characters/3/works/11')).toBe(true))
   })
 
   it('turns the server’s refusal into a question that carries the count', async () => {
     DROP = { ok: false, status: 409, data: { quotes: 12 } }
     await open()
-    act(() => within(card('The Master and Margarita')).getByLabelText(/Take this character off/).click())
-    act(() => within(card('The Master and Margarita')).getByText('Remove').closest('button').click())
+    const _c5 = card('The Master and Margarita')
+    act(() => within(_c5).getByLabelText(/Take this character off/).click())
+    const _c6 = card('The Master and Margarita')
+    act(() => within(_c6).getByText('Remove').closest('button').click())
     // THE NUMBER IS THE DECISION. Rewriting twelve lines is not the same act as
     // rewriting one, and a bare "conflict" would make the reader guess.
     const dialog = await screen.findByRole('dialog')
@@ -236,8 +292,10 @@ describe('taking them off a work', () => {
   it('replaces the speaker on every quote and then removes', async () => {
     DROP = { ok: false, status: 409, data: { quotes: 2 } }
     await open()
-    act(() => within(card('The Master and Margarita')).getByLabelText(/Take this character off/).click())
-    act(() => within(card('The Master and Margarita')).getByText('Remove').closest('button').click())
+    const _c7 = card('The Master and Margarita')
+    act(() => within(_c7).getByLabelText(/Take this character off/).click())
+    const _c8 = card('The Master and Margarita')
+    act(() => within(_c8).getByText('Remove').closest('button').click())
     const dialog = await screen.findByRole('dialog')
     fireEvent.change(within(dialog).getByPlaceholderText(/another character/i), { target: { value: 'Messire' } })
     DROP = { ok: true, status: 200, data: { quotes: 2 } }
@@ -250,8 +308,10 @@ describe('taking them off a work', () => {
   it('offers clearing the speaker as the other way out', async () => {
     DROP = { ok: false, status: 409, data: { quotes: 2 } }
     await open()
-    act(() => within(card('The Master and Margarita')).getByLabelText(/Take this character off/).click())
-    act(() => within(card('The Master and Margarita')).getByText('Remove').closest('button').click())
+    const _c9 = card('The Master and Margarita')
+    act(() => within(_c9).getByLabelText(/Take this character off/).click())
+    const _c10 = card('The Master and Margarita')
+    act(() => within(_c10).getByText('Remove').closest('button').click())
     const dialog = await screen.findByRole('dialog')
     DROP = { ok: true, status: 200, data: { quotes: 2 } }
     act(() => within(dialog).getByText(/no speaker/i).click())
@@ -266,8 +326,10 @@ describe('taking them off a work', () => {
     // the lines alone undoes itself — offering it would be offering a no-op.
     DROP = { ok: false, status: 409, data: { quotes: 2 } }
     await open()
-    act(() => within(card('The Master and Margarita')).getByLabelText(/Take this character off/).click())
-    act(() => within(card('The Master and Margarita')).getByText('Remove').closest('button').click())
+    const _c11 = card('The Master and Margarita')
+    act(() => within(_c11).getByLabelText(/Take this character off/).click())
+    const _c12 = card('The Master and Margarita')
+    act(() => within(_c12).getByText('Remove').closest('button').click())
     const dialog = await screen.findByRole('dialog')
     const labels = within(dialog).getAllByRole('button').map((b) => b.textContent.toLowerCase())
     expect(labels.some((l) => /remove anyway|proceed|ignore/.test(l))).toBe(false)
@@ -291,7 +353,8 @@ describe('what this character is on ONE work', () => {
     // sections down and reach one row instead of every work — a reader who cannot
     // tell them apart renames a character everywhere by accident.
     await open()
-    act(() => within(card('The Master and Margarita')).getByText('Edit').click())
+    const _c13 = card('The Master and Margarita')
+    act(() => within(_c13).getByText('Edit').click())
     expect(await screen.findByText(/On The Master and Margarita only/)).toBeTruthy()
   })
 
@@ -315,9 +378,11 @@ describe('what this character is on ONE work', () => {
     // field is ABSENT rather than disabled — a slot invites a value and there is
     // nothing true to put in it.
     await open()
-    act(() => within(card('The Master and Margarita (2005)')).getByText('Edit').click())
+    const _c14 = card('The Master and Margarita (2005)')
+    act(() => within(_c14).getByText('Edit').click())
     expect(within(card('The Master and Margarita (2005)')).getByLabelText(/Actor/i)).toBeTruthy()
-    act(() => within(card('The Master and Margarita')).getByText('Edit').click())
+    const _c15 = card('The Master and Margarita')
+    act(() => within(_c15).getByText('Edit').click())
     expect(within(card('The Master and Margarita')).queryByLabelText(/Actor/i)).toBeNull()
   })
 
@@ -364,3 +429,4 @@ describe('merging a duplicate in', () => {
     expect(CALLS.some(([, p]) => p.startsWith('/people/search'))).toBe(false)
   })
 })
+

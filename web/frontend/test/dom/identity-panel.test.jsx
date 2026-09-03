@@ -50,6 +50,19 @@ const { personPanel, characterPanel } = await import('../../src/identity.jsx')
 // what this file is about, so it is rendered directly.
 const body = (panel) => panel.render()
 
+// openSpellings — press the name row, which is what reveals the chips.
+//
+// THE ROW IS THE DISPLAY AND THE CHIPS ARE ITS EDITOR, which is how the design
+// pack draws every row it has: the row lists every spelling as its second line,
+// so a chip list open beneath it printed each alias twice and left the reader
+// working out whether the two lists were the same thing. Split is a verb per
+// spelling and cannot live in a single line of them, so the chips stayed — behind
+// the press rather than beside it.
+const openSpellings = async (label) => {
+  const row = (await screen.findByText(label)).closest('.cs-row')
+  act(() => row.click())
+}
+
 beforeEach(() => {
   CALLS = []
   HITS = [{ id: 9, name: 'Orson Welles Jr', works: 2 }]
@@ -121,8 +134,20 @@ describe('a person panel says which scope you are in', () => {
   it('leaves the work scope out entirely when there is no work', async () => {
     const stack = { push: vi.fn(), open: vi.fn() }
     render(body(personPanel(stack, { id: 7, name: 'Mikhail Bulgakov' })))
-    await screen.findByText('across the library')
+    await screen.findByText('The person')
     expect(screen.queryByText('on this work')).toBeNull()
+  })
+
+  // AND THE GLOBAL SCREEN STILL SAYS SO, which is what this whole file is for.
+  // The design pack draws `people-global` with no sentence under its first
+  // heading and `char-global` with one, over the same three rows and the same
+  // blast radius — so the sentence is kept on both. Losing it here would leave
+  // the record's name editable with nothing saying it reaches every work.
+  it('says the record reaches every work, on the screen that edits it', async () => {
+    const stack = { push: vi.fn(), open: vi.fn() }
+    render(body(personPanel(stack, { id: 7, name: 'Mikhail Bulgakov' })))
+    await screen.findByText('The person')
+    expect(screen.getByText(/reach every work/i), 'the blast radius went unsaid').toBeTruthy()
   })
 
   it('writes the work spelling to /credits and the record to /people/id', async () => {
@@ -156,18 +181,24 @@ describe('the aliases are what find the record', () => {
   it('adds one and shows it back from the reload, not from local state', async () => {
     const stack = { push: vi.fn(), open: vi.fn() }
     render(body(characterPanel(stack, { id: 3, name: 'Woland' })))
-    await screen.findByText('Messire')
+    await openSpellings('Canonical name')
+    // TWICE ON SCREEN BY DESIGN: the name row lists every spelling and the chip
+    // below it is that row's editor, so a count is not the assertion — that the
+    // reload brought the new one back is.
+    await screen.findAllByText('Messire')
 
     fireEvent.change(screen.getByPlaceholderText('another spelling…'), { target: { value: 'the professor' } })
     act(() => screen.getByText('Add').closest('button').click())
-    await screen.findByText('the professor')
+    await screen.findAllByText('the professor')
     expect(CALLS.some(([m, p, b]) => m === 'POST' && p === '/characters/3/aliases' && b.alias === 'the professor')).toBe(true)
   })
 
   it('removes one by its own chip', async () => {
     const stack = { push: vi.fn(), open: vi.fn() }
     render(body(characterPanel(stack, { id: 3, name: 'Woland' })))
-    const chip = (await screen.findByText('Messire')).closest('span')
+    await openSpellings('Canonical name')
+    const chip = [...document.querySelectorAll('.tp-chip, .alias-chip')]
+      .find((c) => /Messire/.test(c.textContent)) || (await screen.findAllByText('Messire')).at(-1).closest('span')
     // TWO CONTROLS ON THE CHIP NOW, and the × is the second: characters offer
     // split-out as well, which 0056 shipped an endpoint for and only the person
     // panel ever wired up. So a reader who welded two Wolands together had a way
@@ -179,7 +210,9 @@ describe('the aliases are what find the record', () => {
   it('offers split-out on a character, not only on a person', async () => {
     const stack = { push: vi.fn(), open: vi.fn() }
     render(body(characterPanel(stack, { id: 3, name: 'Woland' })))
-    const chip = (await screen.findByText('Messire')).closest('span')
+    await openSpellings('Canonical name')
+    const chip = [...document.querySelectorAll('.tp-chip, .alias-chip')]
+      .find((c) => /Messire/.test(c.textContent)) || (await screen.findAllByText('Messire')).at(-1).closest('span')
     act(() => within(chip).getByText('split out').click())
     await waitFor(() => expect(CALLS.some(([m, p, b]) => m === 'POST' && p === '/characters/3/split' && b.alias === 'Messire')).toBe(true))
   })
@@ -188,22 +221,44 @@ describe('the aliases are what find the record', () => {
 describe('the two records reach each other', () => {
   // The owner's ruling: a character page names its performer, and an actor's page
   // lists every character they have played. Both directions come off work_cast.
-  it('a character pushes the performer, and only where one is linked', async () => {
+  // WHERE THE DOOR IS NOW, and it moved rather than closed. The pack's global
+  // strip tile does not name the performer: that is the local screen's CreditRow,
+  // which has the picker, the open and the remove on it. So a character's own
+  // screen reaches the performer through the appearance — press the work, land on
+  // that work's screen, press the credit — and the FACT is kept where the door
+  // used to be, on the tile face's own title, so it did not vanish meanwhile.
+  it('a character reaches the performer through the appearance, and names them on the tile', async () => {
     const stack = { push: vi.fn(), open: vi.fn() }
-    render(body(characterPanel(stack, { id: 3, name: 'Woland' })))
-    await screen.findByText('Oleg Basilashvili')
+    const { container } = render(body(characterPanel(stack, { id: 3, name: 'Woland' })))
+    await screen.findByText('Canonical name')
 
+    const faces = [...container.querySelectorAll('.cs-tile-chip')]
+      .map((f) => f.getAttribute('title'))
+    expect(faces.some((ti) => /Oleg Basilashvili/.test(ti || '')), 'the performer is named nowhere').toBe(true)
+    // The book appearance has no performer, so its own tile says only the name —
+    // an empty "played by" would claim nobody had filled it in.
+    expect(faces.filter((ti) => /played by/.test(ti || ''))).toHaveLength(1)
+
+    // THE TILE OPENS ITS OWN CARD rather than pushing a panel — see identity.jsx's
+    // `openWork` for why — and the performer's door is on that card. The FILM's
+    // tile, not the first on the strip: the book appearance has no performer, so
+    // its card has no door and `container.querySelector` would find it first.
+    const film = [...container.querySelectorAll('.cs-tile')]
+      .find((c) => /played by/.test(c.querySelector('.cs-tile-chip')?.getAttribute('title') || ''))
+    act(() => film.querySelector('.cs-tile-art').click())
     act(() => screen.getByText('Oleg Basilashvili').click())
     expect(stack.push).toHaveBeenCalledTimes(1)
 
-    // A BOOK CHARACTER HAS NO PERFORMER, and the card draws nothing rather than an
-    // empty slot — a slot invites a value and there is nothing true to put in it.
-    // Asserted against the performer specifically rather than "no buttons at all":
-    // the card carries its own picture control and its own removal now, and a
-    // count of buttons would pass or fail on either of those instead.
-    const bookCard = screen.getByText('The Master and Margarita').closest('.char-work')
-    expect(within(bookCard).queryByText('Oleg Basilashvili')).toBeNull()
-    expect(within(bookCard).queryByRole('link')).toBeNull()
+    // A BOOK CHARACTER HAS NO PERFORMER, and its tile says nothing rather than
+    // leaving an empty slot — a slot invites a value and there is nothing true to
+    // put in it. Asserted against the performer specifically rather than "no
+    // second line at all": every tile carries the work's title and this
+    // character's billing on it, and a count of lines would pass or fail on those.
+    const bookTile = [...container.querySelectorAll('.cs-tile')]
+      .find((c) => /The Master and Margarita$/m.test(c.querySelector('.cs-tile-title')?.textContent || ''))
+    expect(bookTile, 'the book appearance is not on the strip').toBeTruthy()
+    expect(bookTile.textContent).not.toContain('Oleg Basilashvili')
+    expect(bookTile.querySelector('.cs-tile-chip').getAttribute('title')).not.toMatch(/played by/)
   })
 
   it('a performer pushes the character', async () => {
@@ -227,13 +282,15 @@ describe('merging two records into one', () => {
   it('asks first, and the confirm says what will happen', async () => {
     const stack = { push: vi.fn(), open: vi.fn() }
     render(body(personPanel(stack, { id: 7, name: 'Mikhail Bulgakov' })))
-    await screen.findByText('across the library')
+    await screen.findByText('The person')
 
     fireEvent.change(screen.getByPlaceholderText('find the other record…'), { target: { value: 'Welles' } })
     const hit = await screen.findByText('Orson Welles Jr')
     // A NAME ALONE CANNOT TELL TWO RECORDS APART, which is the case this control
     // exists to resolve, so each hit says how much hangs off it.
-    expect(screen.getByText('2 works')).toBeTruthy()
+    // SCOPED TO THE MERGE CONTROL. "2 works" is also the screen's own crumb now,
+    // and the fact under test is what the CANDIDATE carries.
+    expect(within(document.getElementById('person-merge')).getByText('2 works')).toBeTruthy()
 
     act(() => hit.click())
     await screen.findByText(/stops being a record/)
@@ -253,14 +310,17 @@ describe('merging two records into one', () => {
     ]
     const stack = { push: vi.fn(), open: vi.fn() }
     render(body(personPanel(stack, { id: 7, name: 'Mikhail Bulgakov' })))
-    await screen.findByText('across the library')
+    await screen.findByText('The person')
 
     fireEvent.change(screen.getByPlaceholderText('find the other record…'), { target: { value: 'Bulgakov' } })
     await screen.findByText('M. Bulgakov')
     // Merging a record into itself is refused by the server, so a row for it here
     // would be a control whose only possible outcome is an error.
-    expect(screen.queryByText('1 work')).toBeTruthy()
-    expect(screen.queryAllByText('Mikhail Bulgakov')).toHaveLength(0)
+    const list = within(document.getElementById('person-merge'))
+    expect(list.queryByText('1 work')).toBeTruthy()
+    // Scoped for the same reason: this record's name is on its own header and in
+    // its name row, and neither of those is an offer to merge into itself.
+    expect(list.queryAllByText('Mikhail Bulgakov')).toHaveLength(0)
   })
 })
 
@@ -275,7 +335,7 @@ describe('a panel’s lines wear the same pills the cards do', () => {
   it('names every character on the line, on a performer’s record', async () => {
     const stack = { push: vi.fn(), open: vi.fn() }
     const { container } = render(body(personPanel(stack, { id: 7, name: 'Mikhail Bulgakov' })))
-    await screen.findByText('across the library')
+    await screen.findByText('The person')
     const line = await waitFor(() => {
       const el = container.querySelector('.identity-line')
       expect(el).toBeTruthy()
@@ -289,7 +349,7 @@ describe('a panel’s lines wear the same pills the cards do', () => {
   it('stops repeating those names in the microcopy, and keeps the work', async () => {
     const stack = { push: vi.fn(), open: vi.fn() }
     const { container } = render(body(personPanel(stack, { id: 7, name: 'Mikhail Bulgakov' })))
-    await screen.findByText('across the library')
+    await screen.findByText('The person')
     const line = await waitFor(() => {
       const el = container.querySelector('.identity-line')
       expect(el).toBeTruthy()

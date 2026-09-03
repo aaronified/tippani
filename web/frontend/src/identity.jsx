@@ -26,6 +26,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { coverImgURL, errText, json } from './api.js'
 import { t } from './i18n.js'
 import { useCharacterPicture, usePicturePicker } from './cast.jsx'
+import { CharacterGlobal, PersonGlobal } from './identityGlobal.jsx'
 import { personImgURL, ProviderChips, SpeakerChips } from './people.jsx'
 import { Silhouette } from './silhouette.jsx'
 import {
@@ -107,17 +108,31 @@ function Scope({ title, scope, hint, tone, children }) {
   )
 }
 
-function Field({ label, value, onChange, rows = 0 }) {
+// `inputId` EXISTS FOR THE ROWS ABOVE IT. The pack's screens print a saved value
+// as a row and let you press it; the editor is one field further down. Rather
+// than a second copy of the value inside the row, the row is a shortcut — press
+// it and the caret lands in the field that owns it — so there is one place the
+// value is typed and one place it is read.
+function Field({ label, value, onChange, rows = 0, inputId }) {
   return (
     <label className="block">
       <MonoLabel className="mb-1.5 block">{label}</MonoLabel>
       {rows > 0 ? (
-        <textarea className="tp-input" rows={rows} value={value} onChange={(e) => onChange(e.target.value)} />
+        <textarea id={inputId} className="tp-input" rows={rows} value={value} onChange={(e) => onChange(e.target.value)} />
       ) : (
-        <input className="tp-input" value={value} onChange={(e) => onChange(e.target.value)} />
+        <input id={inputId} className="tp-input" value={value} onChange={(e) => onChange(e.target.value)} />
       )}
     </label>
   )
+}
+
+// focusField — the shortcut a pack row performs. Scrolled into view first,
+// because a caret that lands off-screen reads as a press that did nothing.
+function focusField(id) {
+  const el = typeof document === 'undefined' ? null : document.getElementById(id)
+  if (!el) return
+  el.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  el.focus()
 }
 
 // WorkList — the works a record is in, as rows that open nothing.
@@ -437,6 +452,8 @@ function Portrait({ person, busy, onPicked, onClear }) {
 function PersonBody({ stack, id, work }) {
   const { data, err, setErr, load } = useRecord(`/people/id/${id}`)
   const [creditAs, setCreditAs] = useState('')
+  // Same disclosure as the character screen, for the same reason. See there.
+  const [names, setNames] = useState(false)
   const [form, setForm] = useState(null)
   const [busy, setBusy] = useState(false)
 
@@ -447,6 +464,9 @@ function PersonBody({ stack, id, work }) {
       sort_name: data.sort_name || '',
       born: data.born || '',
       died: data.died || '',
+      // The pack's screen shows the links as a pill strip, and there was nowhere
+      // to type one: the panel drew ProviderChips off the same column read-only.
+      links: data.links || '',
       note: data.note || '',
     })
     if (work) {
@@ -511,6 +531,88 @@ function PersonBody({ stack, id, work }) {
     if (!r.ok) return setErr(errText(r))
     toast(t('identity.alias.split.done', { alias }))
     load()
+  }
+
+  // ---- people-global, the pack's own screen --------------------------------
+  //
+  // Same split as the character side: no work means this is `people-global`, and
+  // the pack's vocabulary draws it. `people-work` — the credit spelling, which
+  // the pack does not draw at all — keeps the panel's older presentation below.
+  if (!work) {
+    return (
+      <div style={{ display: 'grid', gap: 'calc(var(--row) * 1.6)' }}>
+        <ErrorText>{err}</ErrorText>
+        <PersonGlobal
+          record={data}
+          credits={data.credits || []}
+          roles={data.roles || []}
+          // WHAT THEY DO BEFORE HOW MUCH OF IT, which is the pack's crumb —
+          // "performer · author · 3 works". `roles` is what they PLAYED (cast
+          // rows, so its `kind` is the shelf and not a role name, which is the
+          // trap here); `credits` is what they MADE, and its `role` is the noun.
+          kinds={[
+            // `unit.role.actor` AND NOT A NEW "performer" NOUN. The pack's crumb
+            // says "performer"; the app's own vocabulary — work_person.role, the
+            // unit.role.* family, every cast screen — says actor, and one thing
+            // with two names in one interface is the glossary's whole complaint.
+            ...((data.roles || []).length ? [t('unit.role.actor', { count: 1 })] : []),
+            ...[...new Set((data.credits || []).map((c) => c.role))].map((r) => t(`unit.role.${r}`, { count: 1 })),
+          ]}
+          portrait={data.image_path ? personImgURL(data.image_path) : ''}
+          portraitActions={
+            data.image_path ? (
+              <GhostButton onClick={() => setPortrait('')} disabled={busy}>
+                {t('identity.person.portrait.clear.label')}
+              </GhostButton>
+            ) : null
+          }
+          onNames={() => setNames((v) => !v)}
+          onSort={() => focusField('person-sort')}
+          onBorn={() => focusField('person-born')}
+          onLinkAdd={() => focusField('person-links')}
+          onOpenWork={(c) => stack.push(personPanel(stack, {
+            id, name: data.name, work: { kind: c.kind, id: c.work_id, title: c.title, role: c.role },
+          }))}
+          // A ROLE TILE OPENS THE CHARACTER — the owner's ruling read in the
+          // direction a reader travels. Where the cast row points at no record
+          // there is nothing to open, so it opens that work's credit instead.
+          onOpenRole={(a) => stack.push(a.character_id
+            ? characterPanel(stack, {
+              id: a.character_id, name: a.character,
+              work: { kind: a.kind, id: a.work_id, title: a.work_title, media_type: a.media_type, castId: a.cast_id },
+            })
+            : personPanel(stack, { id, name: data.name, work: { kind: a.kind, id: a.work_id, title: a.work_title, role: 'performer' } }))}
+          onMerge={() => focusField('person-merge')}
+        >
+          <MonoLabel>{t('identity.lines.title', { n: (data.lines || []).length, count: (data.lines || []).length })}</MonoLabel>
+          <Lines lines={data.lines || []} shared={data.shared_lines || 0} empty={t('identity.lines.empty.person')} />
+          {names ? (
+            <>
+              <MonoLabel>{t('identity.alias.title')}</MonoLabel>
+              <p className="microcopy" style={{ color: 'var(--soft)' }}>{t('identity.alias.body')}</p>
+              <AliasRow aliases={data.aliases || []} onAdd={addAlias} onRemove={removeAlias} onSplit={splitAlias} />
+            </>
+          ) : null}
+          <div style={FIELDS}>
+            <Portrait person={data} busy={busy} onPicked={setPortrait} onClear={() => setPortrait('')} />
+            <Field inputId="person-name" label={t('common.field.name.label')} value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
+            <Field inputId="person-sort" label={t('identity.field.sort')} value={form.sort_name} onChange={(v) => setForm({ ...form, sort_name: v })} />
+            <Field inputId="person-born" label={t('identity.field.born')} value={form.born} onChange={(v) => setForm({ ...form, born: v })} />
+            <Field inputId="person-died" label={t('identity.field.died')} value={form.died} onChange={(v) => setForm({ ...form, died: v })} />
+            <Field inputId="person-links" label={t('identity.field.links')} value={form.links} onChange={(v) => setForm({ ...form, links: v })} rows={2} />
+            <Field inputId="person-note" label={t('identity.field.note')} value={form.note} onChange={(v) => setForm({ ...form, note: v })} rows={2} />
+            <div className="flex justify-end">
+              <GhostButton className="tp-btn-primary" disabled={busy || !form.name.trim()} onClick={save}>
+                {t('common.action.save.label')}
+              </GhostButton>
+            </div>
+          </div>
+          <div id="person-merge">
+            <MergeControl into={data} onMerged={load} onError={setErr} />
+          </div>
+        </PersonGlobal>
+      </div>
+    )
   }
 
   return (
@@ -659,12 +761,33 @@ function CharacterBody({ stack, id, work }) {
   const [busy, setBusy] = useState(false)
   // The removal a work refused, with the number of quotes standing in its way.
   const [drop, setDrop] = useState(null)
+  // THE NAME ROW IS A DISPLAY AND ITS EDITOR IS BEHIND IT, which is the pack's
+  // model for every row it draws. It is also the only way the two can coexist:
+  // the row lists every spelling as its second line, so an always-open chip list
+  // under it printed each alias twice and a reader had to work out whether the
+  // two lists were the same thing.
+  const [names, setNames] = useState(false)
+  // WHICH APPEARANCE'S CARD IS OPEN, by cast row.
+  //
+  // THE STRIP IS THE SHELF AND THE CARD IS ITS EDITOR. The pack's global screen
+  // draws the works as a strip of tiles and nothing else: every per-work act —
+  // this work's picture, promoting it to the record, taking the character off the
+  // work — belongs to `char-book` / `char-film` / `char-game`, which are the
+  // local screens and are not built yet. Dropping the controls now would leave a
+  // reader unable to promote a picture at all, and drawing the cards under the
+  // strip would list every work twice. So the tile opens its own card, which is
+  // the same row→editor shape the name row above it uses.
+  const [openWork, setOpenWork] = useState(0)
 
   useEffect(() => {
     if (!data) return
     setForm({
       name: data.name || '',
       sort_name: data.sort_name || '',
+      // 0063's column, and the record's links, which the pack's screen shows as a
+      // row and a pill strip — both were already served and neither had a field.
+      born: data.born || '',
+      links: data.links || '',
       description: data.description || '',
       note: data.note || '',
     })
@@ -798,6 +921,107 @@ function CharacterBody({ stack, id, work }) {
       || works.find((a) => a.kind === work.kind && a.work_id === work.id)
       || null
   const elsewhere = here ? works.filter((a) => a.cast_id !== here.cast_id) : works
+
+  // ---- char-global, the pack's own screen ----------------------------------
+  //
+  // OPENED WITH NO WORK, this is `char-global` and it is drawn by the pack's
+  // vocabulary in the pack's order — see identityGlobal.jsx for what moved and
+  // for the departures. The three local scopes still wear the panel's older
+  // presentation; they are the next increment, and the split is here rather than
+  // inside the screen so neither has to carry the other's shape.
+  //
+  // EVERY HANDLER STAYS ABOVE THIS LINE. The screen fetches nothing and saves
+  // nothing; it is handed finished functions, which is why it can be rendered
+  // from a fixture in a test.
+  if (!here) {
+    return (
+      <div style={{ display: 'grid', gap: 'calc(var(--row) * 1.6)' }}>
+        <ErrorText>{err}</ErrorText>
+        <CharacterGlobal
+          record={data}
+          works={works}
+          portraitActions={
+            data.image_path ? (
+              <GhostButton onClick={() => promote(0, '')} disabled={busy}>
+                {t('identity.character.promote.clear.label')}
+              </GhostButton>
+            ) : null
+          }
+          onNames={() => setNames((v) => !v)}
+          onSort={() => focusField('char-sort')}
+          onBorn={() => focusField('char-born')}
+          onLinkAdd={() => focusField('char-links')}
+          // THE TILE OPENS ITS OWN CARD — see `openWork` above for why that
+          // rather than pushing the work's screen. The pack opens an exhaustive
+          // chooser here (the owner's widening: every character in the work,
+          // every person credited on it, and the work itself); that chooser and
+          // the local screens are the next increment.
+          onOpenWork={(a) => setOpenWork((cur) => (cur === a.cast_id ? 0 : a.cast_id))}
+          onAddWork={() => focusField('char-add-work')}
+          onMerge={() => focusField('char-merge')}
+        >
+          {/* THE SECTIONS THE PACK DOES NOT DRAW, and the editors its rows are
+              shortcuts into. Both are argued in identityGlobal.jsx's header. */}
+          <MonoLabel>{t('identity.lines.title', { n: (data.lines || []).length, count: (data.lines || []).length })}</MonoLabel>
+          <Lines lines={data.lines || []} shared={data.shared_lines || 0} empty={t('identity.lines.empty.character')} />
+          {/* SPLIT HAS NOWHERE TO LIVE IN A ROW OF NAMES — it is a verb per
+              spelling, and the row is one line of them — so the chips stay, as
+              the row's editor rather than as a section of their own. */}
+          {names ? (
+            <>
+              <MonoLabel>{t('identity.alias.title')}</MonoLabel>
+              <p className="microcopy" style={{ color: 'var(--soft)' }}>{t('identity.alias.body')}</p>
+              <AliasRow aliases={data.aliases || []} onAdd={addAlias} onRemove={removeAlias} onSplit={splitAlias} />
+            </>
+          ) : null}
+          {/* The opened tile's card, with every per-work act on it. */}
+          {works.filter((a) => a.cast_id === openWork).map((a) => (
+            <div className="char-works is-one" key={a.cast_id}>
+              <AppearanceCard
+                a={a}
+                busy={busy}
+                isFace={!!data.image_path && data.image_path === a.image}
+                onImage={(url) => setWorkImage(a.cast_id, url)}
+                onSave={(fields) => saveAppearance(a, fields)}
+                onPromote={() => promote(a.cast_id, a.work_title)}
+                onRemove={() => removeWork(a)}
+                onOpenPerson={a.actor_id ? () => stack.push(personPanel(stack, { id: a.actor_id, name: a.actor })) : null}
+              />
+            </div>
+          ))}
+          <div id="char-add-work"><AddWork busy={busy} have={works} onAdd={addWork} /></div>
+          <div style={FIELDS}>
+            <Field inputId="char-name" label={t('common.field.name.label')} value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
+            <Field inputId="char-sort" label={t('identity.field.sort')} value={form.sort_name} onChange={(v) => setForm({ ...form, sort_name: v })} />
+            <Field inputId="char-born" label={t('identity.field.born')} value={form.born} onChange={(v) => setForm({ ...form, born: v })} />
+            <Field inputId="char-links" label={t('identity.field.links')} value={form.links} onChange={(v) => setForm({ ...form, links: v })} rows={2} />
+            <Field inputId="char-desc" label={t('identity.field.description')} value={form.description} onChange={(v) => setForm({ ...form, description: v })} rows={3} />
+            <Field inputId="char-note" label={t('identity.field.note')} value={form.note} onChange={(v) => setForm({ ...form, note: v })} rows={2} />
+            <div className="flex justify-end">
+              <GhostButton className="tp-btn-primary" disabled={busy || !form.name.trim()} onClick={save}>
+                {t('common.action.save.label')}
+              </GhostButton>
+            </div>
+          </div>
+          <div id="char-merge">
+            <MergeControl into={data} table="characters" onMerged={load} onError={setErr} />
+          </div>
+        </CharacterGlobal>
+        {/* THE REFUSAL'S DIALOG BELONGS TO EVERY SCREEN THAT CAN REMOVE, and this
+            one can: leaving it to the branch below meant a removal the server
+            refused — the character still speaks on twelve lines — showed nothing
+            at all here, so the press looked like it had failed silently. */}
+        <DropWorkDialog
+          drop={drop}
+          name={data.name}
+          busy={busy}
+          onCancel={() => setDrop(null)}
+          onClear={() => removeWork(drop.appearance, '?quotes=clear')}
+          onReplace={(to) => removeWork(drop.appearance, `?quotes=replace&to=${encodeURIComponent(to)}`)}
+        />
+      </div>
+    )
+  }
 
   return (
     <div style={{ display: 'grid', gap: 'calc(var(--row) * 1.6)' }}>

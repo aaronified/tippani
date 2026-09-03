@@ -219,6 +219,11 @@ type CreditOf struct {
 	Role     string `json:"role"`
 	CreditAs string `json:"credit_as,omitempty"` // the spelling THIS work prints
 	Cover    string `json:"cover,omitempty"`
+	// WHICH OF THE MOVIE SHELF'S THREE, so a tile can wear the right badge. A
+	// person's works are drawn as a strip on their own screen and a game credited
+	// to them badged "film" is simply wrong; books leave it empty, their kind
+	// already saying everything about them. Same field, same reason, as CastOf's.
+	MediaType string `json:"media_type,omitempty"`
 }
 
 // PersonCredits lists every work crediting a person, both kinds, ordered by role
@@ -229,11 +234,11 @@ type CreditOf struct {
 // problem. The kind literal is what tells them apart afterwards.
 func PersonCredits(db Queryer, uid, personID int64) ([]CreditOf, error) {
 	rows, err := db.Query(`
-		SELECT 'book', b.id, b.title, wp.role, wp.credit_as, COALESCE(b.cover_path, '')
+		SELECT 'book', b.id, b.title, wp.role, wp.credit_as, COALESCE(b.cover_path, ''), ''
 		  FROM work_person wp JOIN books b ON b.id = wp.work_id
 		 WHERE wp.user_id = ? AND wp.kind = 'book' AND wp.person_id = ?
 		UNION ALL
-		SELECT 'movie', m.id, m.title, wp.role, wp.credit_as, COALESCE(m.poster_path, '')
+		SELECT 'movie', m.id, m.title, wp.role, wp.credit_as, COALESCE(m.poster_path, ''), COALESCE(m.media_type, '')
 		  FROM work_person wp JOIN movies m ON m.id = wp.work_id
 		 WHERE wp.user_id = ? AND wp.kind = 'movie' AND wp.person_id = ?
 		 ORDER BY 4, 3`, uid, personID, uid, personID)
@@ -244,7 +249,7 @@ func PersonCredits(db Queryer, uid, personID int64) ([]CreditOf, error) {
 	out := []CreditOf{}
 	for rows.Next() {
 		var c CreditOf
-		if err := rows.Scan(&c.Kind, &c.WorkID, &c.Title, &c.Role, &c.CreditAs, &c.Cover); err != nil {
+		if err := rows.Scan(&c.Kind, &c.WorkID, &c.Title, &c.Role, &c.CreditAs, &c.Cover, &c.MediaType); err != nil {
 			return nil, err
 		}
 		out = append(out, c)
