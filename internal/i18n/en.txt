@@ -6351,3 +6351,19 @@ book.text.quote.label = Quote only
 book.text.quote.sub = What was written
 book.text.translation.label = Translation only
 book.text.translation.sub = What it says
+
+# ---- PRUNE: the saved records nothing points at ---------------------------
+# One endpoint, two consoles. The button draws nothing at zero, so every string
+# here is only ever seen when there is something to clear.
+metadata.prune.count.label = Prune {n}
+metadata.prune.tip = Remove every saved person and character that no work points at
+metadata.prune.confirm.title = Prune {n} records?
+metadata.prune.confirm.body = {people} and {characters}, and nothing in your library points at any of them. Names, portraits and notes go to the bin, so this can be undone one record at a time.
+metadata.prune.confirm.people.one = {n} person
+metadata.prune.confirm.people.other = {n} people
+metadata.prune.confirm.characters.one = {n} character
+metadata.prune.confirm.characters.other = {n} characters
+metadata.prune.confirm.cta = Prune
+metadata.prune.toast.one = {n} record pruned — it is in the bin
+metadata.prune.toast.other = {n} records pruned — they are in the bin
+error.prune = could not prune

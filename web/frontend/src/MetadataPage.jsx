@@ -4,7 +4,7 @@ import { t, tNodes } from './i18n.js'
 import { BookLookupPicker, MovieLookupPicker } from './CoverPicker.jsx'
 import { bookState, EditBook } from './Library.jsx'
 import { EditMovie } from './Movies.jsx'
-import { BulkBar, EmptyState, ErrorText, FieldIconButton, GhostButton, HandCard, IconBooks, IconButton, IconCheck, IconChecks, IconDelete, IconEdit, IconKey, IconMerge, IconMetadata, IconMore, IconOpen, IconPerson, IconRefresh, IconSearch, IconStats, IconUsers, InfoDot, MonoLabel, NameInput, NameScroll, normName, PageHeader, MobileSheet, ProgressBar, IconQuote, IconReel, Scroller, Select, splitCommas, Tooltip, PanelHost, usePanelStack, useConfirm, useIsMobileScreen, usePersistedState, useScreenBar } from './ui.jsx'
+import { BulkBar, EmptyState, ErrorText, FieldIconButton, GhostButton, HandCard, IconBooks, IconButton, IconCheck, IconChecks, IconDelete, IconEdit, IconKey, IconMerge, IconMetadata, IconMore, IconOpen, IconPerson, IconRefresh, IconSearch, IconStats, IconUsers, InfoDot, MonoLabel, NameInput, NameScroll, normName, PageHeader, MobileSheet, ProgressBar, IconQuote, IconReel, Scroller, Select, splitCommas, toast, Tooltip, PanelHost, usePanelStack, useConfirm, useIsMobileScreen, usePersistedState, useScreenBar } from './ui.jsx'
 import { PersonModal, personImgURL, ProviderChips, mergeLinks, parseCreditSeps, parseLinks, splitCredits } from './people.jsx'
 import { characterPanel, personPanel } from './identity.jsx'
 import { MetadataSources } from './MetadataSources.jsx'
@@ -1612,6 +1612,70 @@ function RemapRow({ label, cast, value, onChange }) {
   )
 }
 
+// PruneButton — clear every saved record nothing points at.
+//
+// TWO CONSOLES, ONE BUTTON, because the sweep is one endpoint: a person with no
+// credits and a character with no cast rows are the same problem, and a reader
+// standing in either list wants the same thing done. Rendering it in both places
+// rather than picking one means neither list is the wrong place to look.
+//
+// IT COUNTS BEFORE IT OFFERS. A button that says "Prune" and then reports nothing
+// to do is a button that teaches you not to press it, so this draws nothing at all
+// at zero — and when it draws, it says how many, which is also what the confirm
+// has to say to be answerable.
+//
+// The confirm names the two kinds separately. "23 records" is a number a reader
+// cannot check; "4 people and 19 characters" is one they can recognise, and the
+// characters are usually the surprise — the per-work backfill makes eight Harry
+// Potters and seven of them end up pointing at nothing.
+function PruneButton({ onDone, onFlash }) {
+  const [orphans, setOrphans] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const { ask, confirmDialog } = useConfirm()
+  const load = useCallback(async () => {
+    const r = await json('GET', '/people/orphans')
+    if (r.ok) setOrphans({ people: (r.data.people || []).length, characters: (r.data.characters || []).length })
+  }, [])
+  useEffect(() => { load() }, [load])
+  const total = orphans ? orphans.people + orphans.characters : 0
+  if (total === 0) return null
+  const run = async () => {
+    const ok = await ask(t('metadata.prune.confirm.title', { n: total }), {
+      body: t('metadata.prune.confirm.body', {
+        people: t('metadata.prune.confirm.people', { count: orphans.people, n: orphans.people }),
+        characters: t('metadata.prune.confirm.characters', { count: orphans.characters, n: orphans.characters }),
+      }),
+      confirmLabel: t('metadata.prune.confirm.cta'),
+    })
+    if (!ok) return
+    setBusy(true)
+    const r = await json('POST', '/people/prune')
+    setBusy(false)
+    if (!r.ok) return toast(errText(r, t('error.prune')))
+    const n = (r.data.people || 0) + (r.data.characters || 0)
+    toast(t('metadata.prune.toast', { count: n, n }))
+    // The count and the list both go stale in one act, so both are re-read.
+    load()
+    onFlash?.('')
+    onDone?.()
+  }
+  return (
+    <>
+      <GhostButton
+        icon={<IconDelete />}
+        keepLabel
+        disabled={busy}
+        style={{ color: 'var(--error)' }}
+        title={t('metadata.prune.tip')}
+        onClick={run}
+      >
+        {t('metadata.prune.count.label', { n: total })}
+      </GhostButton>
+      {confirmDialog}
+    </>
+  )
+}
+
 // ---- characters console ----
 
 // workRefKey — the value a work filter is keyed by. Not the title: a novel and its
@@ -1738,6 +1802,9 @@ export function CharactersConsole({ rows = null, onReload = null }) {
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
+          {/* The same button as the people console's, and the same sweep — a
+              character in no work is the other half of what it clears. */}
+          <PruneButton onDone={load} />
         </div>
       </div>
       <ErrorText>{err}</ErrorText>
@@ -2188,6 +2255,7 @@ export function PeopleConsole({ onFlash, onReverify, onSearch, records = null, o
               {t('metadata.people.reverify.label')}
             </GhostButton>
           )}
+          <PruneButton onDone={load} onFlash={onFlash} />
         </div>
       </div>
       <ErrorText>{err}</ErrorText>

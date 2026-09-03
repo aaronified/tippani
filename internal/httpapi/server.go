@@ -235,6 +235,11 @@ func (s *Server) Handler() http.Handler {
 	// keyed by (kind, name) and matched to books/films by exact author/actor.
 	mux.Handle("GET /people", s.requireAuth(s.handlePeople))
 	mux.Handle("GET /people/names", s.requireAuth(s.handlePeopleNames))
+	// The records nothing points at, and the sweep that clears them. Both live
+	// under /people because a character is a person-shaped record here and the
+	// prune takes both — see identity_prune.go.
+	mux.Handle("GET /people/orphans", s.requireAuth(s.handleOrphans))
+	mux.Handle("POST /people/prune", s.requireAuth(s.handlePrune))
 	mux.Handle("POST /people/lookup", s.requireAuth(s.handlePersonLookup))
 	mux.Handle("POST /people/portrait", s.requireAuth(s.handlePersonPortrait))
 	mux.Handle("POST /people/rename", s.requireAuth(s.handleRenamePerson))

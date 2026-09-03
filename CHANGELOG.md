@@ -77,6 +77,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   alike. English can afford that; Bengali names the three separately, so the noun is now a
   slot the locale fills.
 
+### Added
+
+- **Prune, in Metadata, for the saved records nothing points at any more.** A person kept
+  for their portrait outlives the works that credited them; the per-work character backfill
+  makes eight Harry Potters and seven of them end up linked to nothing. There has been no
+  way to clear either but one delete at a time. The button sits in both the people and the
+  characters console, draws nothing at all when there is nothing stranded, says how many
+  when there is, and names both kinds in the confirm — "4 people and 19 characters" is a
+  number you can recognise where "23 records" is not. Everything it takes goes to the bin
+  as its own entry, so a name comes back on its own.
+
+  A record is stranded only when every number the list shows against it is zero: no
+  credits, no cast rows, and no quote pointing at it. A speaker with a standalone quote has
+  no work behind them and is emphatically not an orphan.
+
 ### Changed
 
 - **Four screens stop drawing a second bar on a phone.** Settings, Metadata, Stats and Bin

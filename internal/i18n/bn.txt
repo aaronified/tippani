@@ -6367,3 +6367,20 @@ book.text.quote.label = শুধু উদ্ধৃতি
 book.text.quote.sub = যা লেখা হয়েছিল
 book.text.translation.label = শুধু অনুবাদ
 book.text.translation.sub = যা বোঝায়
+
+# ---- PRUNE: the saved records nothing points at ---------------------------
+# bn: "orphan" has no good Bengali for a record — অনাথ is for a child. পড়ে থাকা
+# is the owner's own word for a thing left lying (v3.7), so the button says what
+# it clears rather than naming a category.
+metadata.prune.count.label = {n}টা সরান
+metadata.prune.tip = কোনও উৎসের সঙ্গে যোগ নেই এমন প্রতিটা সেভ করা মানুষ আর চরিত্র সরিয়ে দেয়
+metadata.prune.confirm.title = {n}টা রেকর্ড সরাবেন?
+metadata.prune.confirm.body = {people} আর {characters} — গ্রন্থাগারের কিছুই এদের দিকে তাকায় না। নাম, ছবি আর নোট ডাস্টবিনে যাবে, তাই এক এক করে ফিরিয়ে আনা যাবে।
+metadata.prune.confirm.people.one = {n} জন মানুষ
+metadata.prune.confirm.people.other = {n} জন মানুষ
+metadata.prune.confirm.characters.one = {n}টা চরিত্র
+metadata.prune.confirm.characters.other = {n}টা চরিত্র
+metadata.prune.confirm.cta = সরান
+metadata.prune.toast.one = {n}টা রেকর্ড সরানো হল — ডাস্টবিনে আছে
+metadata.prune.toast.other = {n}টা রেকর্ড সরানো হল — ডাস্টবিনে আছে
+error.prune = সরানো গেল না
