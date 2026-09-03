@@ -944,7 +944,7 @@ shell.shortcut.search.label = খোঁজ
 shell.shortcut.capture.label = উদ্ধৃতি তুলে রাখুন
 shell.shortcut.help.label = কীবোর্ড শর্টকাট
 shell.shortcut.go-home.label = হোমে যান
-shell.shortcut.go-library.label = গ্রন্থাগারতে যান
+shell.shortcut.go-library.label = গ্রন্থাগারে যান
 shell.shortcut.go-catalogue.label = ক্যাটালগে যান
 shell.shortcut.go-quotes.label = উক্তিতে যান
 shell.shortcut.go-anthologies.label = সংকলনে যান
@@ -1282,7 +1282,7 @@ settings.appearance.accent.title = অ্যাকসেন্ট
 # {name} is one of the vocab.accent.* words.
 settings.appearance.accent.tip = {name} অ্যাকসেন্ট বসান
 settings.appearance.accent.aria = {name} অ্যাকসেন্ট
-settings.appearance.book-size.label = গ্রন্থাগারর কভারের মাপ
+settings.appearance.book-size.label = গ্রন্থাগারের কভারের মাপ
 settings.appearance.film-size.label = ক্যাটালগের পোস্টারের মাপ
 
 # The global dial. It RENORMALISES rather than multiplying: moving it writes
@@ -2015,7 +2015,7 @@ tour.step.welcome.more = “পরেরটা” এক ধাপ এগোয�
 tour.step.add.name = যোগ আর ইমপোর্ট
 tour.step.add.blurb = একটাই ＋ — বই, সিনেমা আর শো যোগ করে, উদ্ধৃতি তুলে রাখে, বা একসঙ্গে অনেক উদ্ধৃতি ইমপোর্ট করে
 tour.step.add.title = সবকিছুর জন্য একটাই ＋
-tour.step.add.prose = ভিতরে ঢোকার রাস্তা একটাই — ওই ＋, আর সে জানে আপনি কোথায় দাঁড়িয়ে: গ্রন্থাগারতে {em1}, ক্যাটালগে {em2}, যে বই বা সিনেমা খোলা তার নামে {em3}। একসঙ্গে অনেক {em4} ওই একই পাতার আরেকটা ট্যাব।
+tour.step.add.prose = ভিতরে ঢোকার রাস্তা একটাই — ওই ＋, আর সে জানে আপনি কোথায় দাঁড়িয়ে: গ্রন্থাগারে {em1}, ক্যাটালগে {em2}, যে বই বা সিনেমা খোলা তার নামে {em3}। একসঙ্গে অনেক {em4} ওই একই পাতার আরেকটা ট্যাব।
 tour.step.add.em1.label = বই
 tour.step.add.em2.label = সিনেমা বা শো
 tour.step.add.em3.label = উদ্ধৃতি
@@ -2034,7 +2034,7 @@ tour.step.catalogue.name = ক্যাটালগ — সিনেমা আ�
 tour.step.catalogue.blurb = মনে রাখার মতো বাক্য — সঙ্গে সময়, চরিত্র, আর আপনা থেকে বসে যাওয়া অভিনেতার নাম
 tour.step.catalogue.title = ক্যাটালগ
 tour.step.catalogue.prose = সিনেমা আর শো-র সংলাপও ঠিক এভাবেই থাকে — প্রতিটা সংলাপের সঙ্গে সময় আর চরিত্র। একটা সংলাপ দেখতে এই রকম:
-tour.step.catalogue.more = অভিনেতার নাম টাইটেলের কাস্ট থেকে আপনা থেকেই বসে যায়, আপনি শুধু চরিত্রটা লিখবেন। শো-র সঙ্গে সিজন আর এপিসোডও থাকে। বাকি সব গ্রন্থাগারর মতোই: সেই ট্যাগ, প্রিয়, ভিউ আর ভাগ।
+tour.step.catalogue.more = অভিনেতার নাম টাইটেলের কাস্ট থেকে আপনা থেকেই বসে যায়, আপনি শুধু চরিত্রটা লিখবেন। শো-র সঙ্গে সিজন আর এপিসোডও থাকে। বাকি সব গ্রন্থাগারের মতোই: সেই ট্যাগ, প্রিয়, ভিউ আর ভাগ।
 
 # Step "share".
 tour.step.share.name = শেয়ার আর এক্সপোর্ট
@@ -2057,7 +2057,7 @@ tour.step.search.blurb = বানান ভুল হলেও চলে — �
 tour.step.search.title = যে কোনও বাক্য আবার খুঁজে পান
 tour.step.search.prose = যা কিছু জমিয়েছেন, তার সবটার ভিতরে খোঁজ চলে সঙ্গে সঙ্গে, আর {em1} — কীসের সঙ্গে মিলল সেই ধরে ফল ভাগ হয়ে আসে। গ্রন্থাগার বা ক্যাটালগ থেকে শুরু করলে খোঁজ ওই দিকটায় বাঁধা থাকে; ড্রয়ারের খোঁজ সেই বাঁধন খুলে দেয়।
 tour.step.search.em1.label = বানান ভুল হলেও চলে
-tour.step.search.more = খোঁজে নাম, লেখক, পরিচালক, ঘরানা, সিরিজ, উদ্ধৃতি, নোট, ট্যাগ আর সংলাপ — ফলের বিভাগও সেই ধাঁচে: বই, সিনেমা, মানুষ, উদ্ধৃতি, সংলাপ, নোট, ট্যাগ, ঘরানা। একটা দশক (“1990s”) বা একটা দিন (“2026-07-14”) লিখেও খোঁজা যায়, তখন সে সময় যা তুলেছিলেন তাই আসে। ফল গ্রন্থাগারর মতোই ভাগ করুন, যেখানে আছে সেখানেই খুলে শেয়ার বা এডিট করুন, বা কয়েকটায় টিক দিয়ে একসঙ্গে ট্যাগ বা ঘর বদলান। শেষ খোঁজটা মনে থাকে।
+tour.step.search.more = খোঁজে নাম, লেখক, পরিচালক, ঘরানা, সিরিজ, উদ্ধৃতি, নোট, ট্যাগ আর সংলাপ — ফলের বিভাগও সেই ধাঁচে: বই, সিনেমা, মানুষ, উদ্ধৃতি, সংলাপ, নোট, ট্যাগ, ঘরানা। একটা দশক (“1990s”) বা একটা দিন (“2026-07-14”) লিখেও খোঁজা যায়, তখন সে সময় যা তুলেছিলেন তাই আসে। ফল গ্রন্থাগারের মতোই ভাগ করুন, যেখানে আছে সেখানেই খুলে শেয়ার বা এডিট করুন, বা কয়েকটায় টিক দিয়ে একসঙ্গে ট্যাগ বা ঘর বদলান। শেষ খোঁজটা মনে থাকে।
 
 # Step "tags".
 tour.step.tags.name = ট্যাগ আর স্টিকার
@@ -2071,7 +2071,7 @@ tour.step.tags.more = একটা ট্যাগ আঁকা হতে পা
 tour.step.metadata.name = মেটাডেটা আর মানুষ
 tour.step.metadata.blurb = কোন ঘরে কত ঘাটতি, একসঙ্গে সারাই, ডুপ্লিকেট এক করা; মানুষ — মুখের ছবি আর লিংক সমেত
 tour.step.metadata.title = তাক গুছিয়ে রাখুন
-tour.step.metadata.prose = গোটা গ্রন্থাগারতে কী কী নেই এই স্ক্রিন দেখিয়ে দেয়, আর একসঙ্গে সারিয়েও দেয়। {em1} পান মুখের ছবি আর রেফারেন্স লিংক — যেখানেই হোক, লেখক বা অভিনেতার নামে ট্যাপ করলেই।
+tour.step.metadata.prose = গোটা গ্রন্থাগারে কী কী নেই এই স্ক্রিন দেখিয়ে দেয়, আর একসঙ্গে সারিয়েও দেয়। {em1} পান মুখের ছবি আর রেফারেন্স লিংক — যেখানেই হোক, লেখক বা অভিনেতার নামে ট্যাপ করলেই।
 tour.step.metadata.em1.label = মানুষ
 tour.step.metadata.more = ঘাটতির টাইলগুলোই ফিল্টার: “কভার নেই” ট্যাপ করলে ঠিক সেই বইগুলোই তালিকায় আসে। সেখান থেকে বাছাই করে একসঙ্গে ঠিক করা যায়, ডুপ্লিকেট টাইটেল এক করা যায়, বক্তার নাম কাস্টের সঙ্গে জোড়া যায়, আর বাঁধা বই-সিনেমা সূত্রের সঙ্গে আবার মিলিয়ে দেখা যায় — কিছু লেখার আগেই। যে কভার আর মেটাডেটা নেই তা আনা হয় কিস্তিতে কিস্তিতে, সামনে সত্যিকারের একটা কতদূর-বার নিয়ে। মানুষের নাম গিয়ে মেলে IMDb, TMDB, TheTVDB, Wikipedia আর Open Library-তে।
 
@@ -2883,9 +2883,9 @@ common.work.resync.toast = সূত্র থেকে সব আবার আ�
 
 # THE INFO DOT ON EACH BOOK FIELD.
 book.field.author.info = এক লাইনে একাধিক লেখক থাকতে পারেন — কোন চিহ্নে তাঁরা আলাদা মানুষ হবেন, সেটিংস ঠিক করে।
-book.field.translator.info = বইটা এই ভাষায় কে এনেছেন। লেখকের মতোই তাঁর মুখের ছবি আর নিজের পাতা থাকে, নাম দেখা যায় এই বইয়ের পাতায় — কিন্তু গ্রন্থাগারর বোর্ডে বা উদ্ধৃতিতে নয়, সেখানে একটা নামই লাইনের সবটা।
+book.field.translator.info = বইটা এই ভাষায় কে এনেছেন। লেখকের মতোই তাঁর মুখের ছবি আর নিজের পাতা থাকে, নাম দেখা যায় এই বইয়ের পাতায় — কিন্তু গ্রন্থাগারের বোর্ডে বা উদ্ধৃতিতে নয়, সেখানে একটা নামই লাইনের সবটা।
 book.field.editor.info = ভিতরে কী থাকবে কে বেছেছেন — সংকলন বা রচনাসমগ্র অনেক সময় এই নামটার জন্যই কেনা হয়। লেখকের লাইনের মতো একই চিহ্নে ভাগ হয়।
-book.field.series.info = বইটা কোন সিরিজের। গ্রন্থাগারতে বই এই ধরে ভাগ হয়, আর নিচের নম্বর ধরে সাজে।
+book.field.series.info = বইটা কোন সিরিজের। গ্রন্থাগারে বই এই ধরে ভাগ হয়, আর নিচের নম্বর ধরে সাজে।
 book.field.isbn.info = দশ অঙ্ক বা তেরো, হাইফেন সমেত — পুরনো বইয়ের দশ অঙ্কের ISBN তেরো অঙ্কের চেহারায় রাখা হয়। কাজে লাগে শুধু বই খুঁজতে: ভালো কভার বা বিবরণ এর মিল থেকেই আসে।
 book.field.subtitle.info = প্রচ্ছদে নামের নিচের লাইনটি — "একটা উপন্যাস", "শঙ্খ ঘোষের জীবন"। এটা রচনার নয়, এই সংস্করণের; তাই নামের অংশ নয়: একই বইয়ের দুই ছাপায় এটা আলাদা হতে পারে, বই তবু একটাই।
 book.field.publisher.info = আপনার হাতের কপিটি যে প্রকাশনা থেকে বেরিয়েছে। Open Library গোটা রচনার হিসেব দেয় এবং তার সব প্রকাশকের নাম রাখে; Google দেয় এই সংস্করণের হিসেব, তাই তার উত্তরই আগে।
@@ -2950,7 +2950,7 @@ capture.title.quote = তুলে রাখুন
 capture.title.duplicate = এই উদ্ধৃতির নকল
 capture.form.duplicate.prose = প্রতিটি ঘরে আপনি যে উদ্ধৃতিতে চেপেছেন তার কপি আছে। সেভ করলে নতুন একটা লেখা হবে; মূলটি অপরিবর্তিত থাকবে।
 capture.title.import = ইমপোর্ট
-capture.dialog.aria = গ্রন্থাগারতে যোগ করুন
+capture.dialog.aria = গ্রন্থাগারে যোগ করুন
 capture.tabs.aria = যোগ, তুলে রাখা বা ইমপোর্ট
 # The three tabs. The SHORT set is what fits a phone's three-segment slider —
 # keep those to one word.
@@ -3884,7 +3884,7 @@ import.summary.files.one = {n}টা ফাইল
 import.summary.files.other = {n}টা ফাইল
 import.summary.quotes.one = {n}টা উদ্ধৃতি অপেক্ষায়
 import.summary.quotes.other = {n}টা উদ্ধৃতি অপেক্ষায়
-import.summary.arrow = {files} → {quotes} · গ্রন্থাগারতে এখনও কিছু ঢোকেনি
+import.summary.arrow = {files} → {quotes} · গ্রন্থাগারে এখনও কিছু ঢোকেনি
 # One row per file.
 import.row.staged.one = {n}টা উদ্ধৃতি অপেক্ষায়
 import.row.staged.other = {n}টা উদ্ধৃতি অপেক্ষায়
@@ -4261,7 +4261,7 @@ staging.approve-all.label = সব মেনে নিন
 staging.approve-all.count.label = {n}টাই মেনে নিন
 staging.discard-all.label = সব ফেলে দিন
 staging.discard-all.confirm.title = জমা সবকিছু ফেলে দেবেন?
-staging.discard-all.confirm.body = সব ফাইলের জমা {n}টা উদ্ধৃতিই চলে যাবে। গ্রন্থাগারর কিছুতে হাত পড়বে না।
+staging.discard-all.confirm.body = সব ফাইলের জমা {n}টা উদ্ধৃতিই চলে যাবে। গ্রন্থাগারের কিছুতে হাত পড়বে না।
 
 # THE BULK BAR, over the checked rows. The colour swatches, the two favourite
 # buttons, the three panel toggles, and the pair that ends the selection.
@@ -4278,7 +4278,7 @@ staging.bulk.approve.label = {n}টা মেনে নিন
 staging.discard.label = ফেলে দিন
 staging.discard.confirm.title.one = জমা {n}টা উদ্ধৃতি ফেলে দেবেন?
 staging.discard.confirm.title.other = জমা {n}টা উদ্ধৃতি ফেলে দেবেন?
-staging.discard.confirm.body = গ্রন্থাগারতে না ঢুকেই অপেক্ষার তালিকা থেকে চলে যাবে।
+staging.discard.confirm.body = গ্রন্থাগারে না ঢুকেই অপেক্ষার তালিকা থেকে চলে যাবে।
 
 # THE FLASH LINE beside the header — what the last bulk POST did. Every action
 # funnels through one request, so these are one family rather than a toast per
@@ -4358,7 +4358,7 @@ staging.fields.panel.title = বাছা {n}টা এডিট করুন
 staging.fields.set.placeholder = {field} বসান (ফাঁকা = মুছে যাবে)
 staging.fields.add-tags.aria = যে ট্যাগ যোগ হবে
 staging.fields.remove-tags.label = ট্যাগ সরান
-staging.fields.remove-tags.info = গ্রন্থাগারতে একসঙ্গে ট্যাগ শুধু যোগই করা যায়, সরানো যায় না। জমা ট্যাগ মেনে নেওয়ার আগে পর্যন্ত নিছক লেখা, তাই এখানে তুলেও নেওয়া যায়।
+staging.fields.remove-tags.info = গ্রন্থাগারে একসঙ্গে ট্যাগ শুধু যোগই করা যায়, সরানো যায় না। জমা ট্যাগ মেনে নেওয়ার আগে পর্যন্ত নিছক লেখা, তাই এখানে তুলেও নেওয়া যায়।
 staging.fields.remove-tags.placeholder = কোন ট্যাগ সরবে…
 staging.fields.remove-tags.aria = যে ট্যাগ সরবে
 staging.fields.apply.label = {n}টায় বসান
@@ -4367,7 +4367,7 @@ staging.fields.apply.label = {n}টায় বসান
 # onto the other kind is the repair for a misdetected file, and a staged row keeps
 # both locator sets so the move is reversible.
 staging.move.panel.title = বাছা {n}টা পাঠান
-staging.move.library.label = গ্রন্থাগারর কোনও বই-সিনেমায়
+staging.move.library.label = গ্রন্থাগারের কোনও বই-সিনেমায়
 staging.move.library.info = ধরন বদলেও চলে — বইয়ের উদ্ধৃতি সিনেমায় পাঠানো যায়, আবার ফেরানোও যায়। মেনে নেওয়ার সময় যেখানে যাচ্ছে সেখানকার লোকেশনই পড়া হয়।
 # The button, before and after something is picked. Two keys, so neither language
 # has to build "Move to" plus a noun out of two fragments.
@@ -4447,8 +4447,8 @@ staging.form.timestamp.placeholder = 01:02:03
 # spellings of one.
 staging.card.label = অপেক্ষায় ইমপোর্ট
 # bn: আপনার stays here: it is your approval the queue is waiting on, and that is the whole sentence (§1.3).
-staging.card.body.one = ইমপোর্ট করা {n}টা উদ্ধৃতি আপনার সায়ের অপেক্ষায় — গ্রন্থাগারতে এখনও কিছুই ঢোকেনি।
-staging.card.body.other = ইমপোর্ট করা {n}টা উদ্ধৃতি আপনার সায়ের অপেক্ষায় — গ্রন্থাগারতে এখনও কিছুই ঢোকেনি।
+staging.card.body.one = ইমপোর্ট করা {n}টা উদ্ধৃতি আপনার সায়ের অপেক্ষায় — গ্রন্থাগারে এখনও কিছুই ঢোকেনি।
+staging.card.body.other = ইমপোর্ট করা {n}টা উদ্ধৃতি আপনার সায়ের অপেক্ষায় — গ্রন্থাগারে এখনও কিছুই ঢোকেনি।
 staging.card.review.label = {n}টা দেখে নিন
 
 # ---------------------------------------------------------------------------
@@ -4510,7 +4510,7 @@ metadata.fetch.flash.uptodate = সব আগে থেকেই ঠিক আ�
 # point; both are held to the same voice by hand.
 metadata.mobile.run.label = চালান
 metadata.mobile.fetch.title = কভার আর মেটাডেটা আনুন
-metadata.mobile.fetch.desc = এই সার্ভারের সব গ্রন্থাগারতে যে কভার, পোস্টার, লেখক, বিবরণ, সাল আর ঘরানা নেই, সেগুলো ভরে দেয়। শুধু ফাঁকা ঘরই ভরে — যা আছে তা বদলায় না — আর প্রতিটায় বড়জোর পাঁচটা ঘরানা রাখে, যাতে কোনও সূত্র বাজে ট্যাগের তলায় একটা বই বা সিনেমাকে চাপা দিতে না পারে।
+metadata.mobile.fetch.desc = এই সার্ভারের সব গ্রন্থাগারে যে কভার, পোস্টার, লেখক, বিবরণ, সাল আর ঘরানা নেই, সেগুলো ভরে দেয়। শুধু ফাঁকা ঘরই ভরে — যা আছে তা বদলায় না — আর প্রতিটায় বড়জোর পাঁচটা ঘরানা রাখে, যাতে কোনও সূত্র বাজে ট্যাগের তলায় একটা বই বা সিনেমাকে চাপা দিতে না পারে।
 metadata.mobile.reverify.title = মেটাডেটা আবার মিলিয়ে দেখুন
 metadata.mobile.reverify.desc = পিন করা প্রতিটা বই, সিনেমা আর শো সূত্রের সঙ্গে আবার মিলিয়ে দেখে। প্রতিটা প্রস্তাবিত বদল নিজে দেখে মেনে না নেওয়া পর্যন্ত কিছুই লেখা হয় না।
 metadata.reverify.label = আবার মিলিয়ে দেখুন
@@ -4713,18 +4713,18 @@ metadata.people.summary.other = {n} {noun} — মুখের ছবি বা 
 # What an empty list says. FIVE, one per toggle: the studio line is new, because
 # the table this replaces had four rows and a studio list with nothing in it drew
 # an empty state with nothing in it.
-metadata.people.empty.author = গ্রন্থাগারতে এখনও কোনও লেখক নেই
+metadata.people.empty.author = গ্রন্থাগারে এখনও কোনও লেখক নেই
 metadata.people.empty.actor = কোনও সংলাপে এখনও অভিনেতার নাম নেই
 metadata.people.empty.director = কোনও সিনেমায় এখনও পরিচালকের নাম নেই
 metadata.people.empty.studio = কোনও গেমে এখনও স্টুডিওর নাম নেই
 metadata.people.empty.speaker = এখনও কেউ কিছু বলেননি
-metadata.people.empty.all = গ্রন্থাগারতে এখনও কেউ নেই
+metadata.people.empty.all = গ্রন্থাগারে এখনও কেউ নেই
 metadata.people.column.quotes = উদ্ধৃতি
 metadata.people.column.roles = ভূমিকা
 metadata.people.column.works = কাজ
 metadata.people.also = আরও {names}
 metadata.people.portrait.aria = {name}-এর ছবি
-metadata.people.search.tip = গ্রন্থাগারতে “{name}” খুঁজুন
+metadata.people.search.tip = গ্রন্থাগারে “{name}” খুঁজুন
 # ONE GLYPH, two words: fetch and refetch are the same act — go and get this
 # person's photo and links — and the word flips only because the row already has
 # some of it.
@@ -5302,7 +5302,7 @@ library.help.shelf-state.what = পড়া চলছে, থেমে আছ�
 
 library.help.sort.term = সাজান
 library.help.sort.what = নতুন আগে, নাম, লেখক, সিরিজ, বা শেষ কবে পড়া — শেষ কবে বইটা হাতে ছিল সেই তারিখ, শেষ করে থাকুন, মাঝপথে থাকুন, বা ছেড়ে দিয়ে থাকুন।
-library.help.sort.more = যে বইগুলোর পড়ার খাতায় কিছুই লেখা নেই, সেগুলো শেষে বসে, বর্ণানুক্রমে — উদ্ধৃতি রাখার গ্রন্থাগারর বেশির ভাগ বই-ই তো কোনওদিন খাতায় ওঠেনি।
+library.help.sort.more = যে বইগুলোর পড়ার খাতায় কিছুই লেখা নেই, সেগুলো শেষে বসে, বর্ণানুক্রমে — উদ্ধৃতি রাখার গ্রন্থাগারের বেশির ভাগ বই-ই তো কোনওদিন খাতায় ওঠেনি।
 
 library.help.group-by.term = ভাগ
 library.help.group-by.what = সিরিজ, লেখক, দশক বা ঘরানা ধরে বোর্ডটাকে ভাগে ভাগে দেখুন।
@@ -5339,7 +5339,7 @@ movies.help.shelf-state.what = দেখা চলছে, থেমে আছে
 movies.help.shelf-state.more = গেমের বেলায় দেখা নয়, খেলা চলছে আর খেলা শেষ; একটা গেম ঢুকলেই দুটো কথাই ফিল্টারে দেখা যায়।
 
 movies.help.collection.term = সিরিজ
-movies.help.collection.what = এক সুতোয় বাঁধা টাইটেলের দল — গ্রন্থাগারর সিরিজেরই সিনেমার দিক।
+movies.help.collection.what = এক সুতোয় বাঁধা টাইটেলের দল — গ্রন্থাগারের সিরিজেরই সিনেমার দিক।
 
 movies.help.sort.term = সাজান
 movies.help.sort.what = নতুন আগে, নাম, সাল, সিরিজ, বা শেষ কবে দেখা — শেষ কবে চালিয়েছিলেন সেই তারিখ, শেষ করে থাকুন বা না থাকুন।
@@ -5460,12 +5460,12 @@ search.help.box.term = খোঁজার ঘর
 search.help.box.what = বানান একটু ভুল হলেও চলে, আর ফল আসে সঙ্গে সঙ্গে। শেষ খোঁজটা মনে রাখে।
 
 search.help.filters.term = ফিল্টার
-search.help.filters.what = কোলনের ব্যাকরণটাই, কিছু মনে না রেখে: প্রতিটা ঘর, গ্রন্থাগারতে যে যে মান আছে সবগুলো, আর দ্বিতীয়টা বাছলে খোঁজ ছোট হবে না বড়।
+search.help.filters.what = কোলনের ব্যাকরণটাই, কিছু মনে না রেখে: প্রতিটা ঘর, গ্রন্থাগারে যে যে মান আছে সবগুলো, আর দ্বিতীয়টা বাছলে খোঁজ ছোট হবে না বড়।
 search.help.filters.more = একটা মানে ট্যাপ করলে ঠিক সেই চিপই তৈরি হয় যেটা টাইপ করলে হত — দুটো আসলে এক জিনিস, দু দিক থেকে দেখা। প্রতিটা মানের পাশে লেখা থাকে এখনকার খোঁজে সেটা কটা ফল দেবে — 0 হলে মিলিয়ে না গিয়ে ধূসর হয়ে থাকে, তাতেই বোঝা যায় কোন চিপটা তুলে দিতে হবে।
 
 # The field:value grammar and its dropdown.
 search.help.colon.term = কোলন কী করে
-search.help.colon.what = ঘরের নাম আর একটা কোলন লিখুন, নিচে যে তালিকা নামবে তাতে আপনার গ্রন্থাগারতে সত্যিই যে কথাগুলো আছে সেগুলোই থাকবে।
+search.help.colon.what = ঘরের নাম আর একটা কোলন লিখুন, নিচে যে তালিকা নামবে তাতে আপনার গ্রন্থাগারে সত্যিই যে কথাগুলো আছে সেগুলোই থাকবে।
 search.help.colon.how.1 = tag: author: colour: speaker: actor: character: director: genre: series: shelf:
 search.help.colon.how.2 = year: favourite: note: wishlist: book: movie: — একবারে পাঁচটা দেখায়, বাকিগুলো “আরও”-তে।
 search.help.colon.how.3 = একটা বাছলে সেটা নিচে চিপ হয়ে বসে, আর ঘরটা আবার খালি লেখার জায়গা হয়ে যায়।
@@ -5648,7 +5648,7 @@ anthologies.help.export.more = সত্যিকারের একটা ল�
 
 # Turning the whole section off in Settings → Features.
 anthologies.help.feature-switch.term = বন্ধ করে দেওয়া
-anthologies.help.feature-switch.what = সেটিংস → ফিচার। শুরুতে বন্ধই থাকে, কারণ বেশির ভাগ গ্রন্থাগারতে সংকলন কখনও তৈরিই হয় না।
+anthologies.help.feature-switch.what = সেটিংস → ফিচার। শুরুতে বন্ধই থাকে, কারণ বেশির ভাগ গ্রন্থাগারে সংকলন কখনও তৈরিই হয় না।
 anthologies.help.feature-switch.more = বন্ধ করলে শুধু ট্যাবটা যায়, আর কিছুই নয় — সংকলনগুলো থাকে, URL দিলে খোলেও, আর আবার চালু করলে প্রতিটাকে যেখানে রেখেছিলেন সেখানেই পাবেন।
 
 # ---------------------------------------------------------------------------
@@ -5719,7 +5719,7 @@ stats.help.breakdowns.more = প্রতিটাই একটা দরজা 
 # When the works are FROM, by decade, century or year.
 stats.help.timeline.term = সময়রেখা
 stats.help.timeline.what = উৎসগুলো কোন সময়ের, আপনি কবে তুলে রেখেছিলেন তা নয়।
-stats.help.timeline.more = দশক, শতক বা সাল — যেভাবে খুশি পড়া যায়, কারণ যে গ্রন্থাগারতে 380 BCE-র জিনিসও আছে আর গত বছরেরও, তার ভাগ এক মাপের হলে কিছুই বোঝা যেত না।
+stats.help.timeline.more = দশক, শতক বা সাল — যেভাবে খুশি পড়া যায়, কারণ যে গ্রন্থাগারে 380 BCE-র জিনিসও আছে আর গত বছরেরও, তার ভাগ এক মাপের হলে কিছুই বোঝা যেত না।
 
 stats.help.superlatives.term = সবচেয়ে
 stats.help.superlatives.what = সবচেয়ে বেশি উদ্ধৃতি তোলা বই, সবচেয়ে বেশি সংলাপ তোলা সিনেমা, যাঁর কথা সবচেয়ে বেশি রাখেন, সবচেয়ে ব্যস্ত মাস, আর যিনি বারবার হাত ফসকান।
@@ -5738,14 +5738,14 @@ staging.help.title = অপেক্ষায় ইমপোর্ট
 
 # Why an import waits here instead of landing in the library.
 staging.help.why.term = এটা কেন আছে
-staging.help.why.what = ইমপোর্ট আগে এখানেই নামে, আর আপনার সায় না পাওয়া পর্যন্ত বসে থাকে — ভুল পড়া কিছু যাতে গ্রন্থাগারতে না পৌঁছয়।
+staging.help.why.what = ইমপোর্ট আগে এখানেই নামে, আর আপনার সায় না পাওয়া পর্যন্ত বসে থাকে — ভুল পড়া কিছু যাতে গ্রন্থাগারে না পৌঁছয়।
 
 staging.help.bulk-fix.term = একসঙ্গে ঠিক করুন
 staging.help.bulk-fix.what = অনেক সারিতে একসঙ্গে অধ্যায় আর লোকেশন শুধরে নিন, বা উদ্ধৃতিগুলো ঠিক বই বা সিনেমার নিচে সরিয়ে দিন।
 
 # The Approve / discard pair.
 staging.help.approve.term = মেনে নিন / ফেলে দিন
-staging.help.approve.what = মেনে নিলে উদ্ধৃতিগুলো গ্রন্থাগারতে ঢুকে যায়; ফেলে দিলে যায় না। একই ফাইল আবার ইমপোর্ট করলে কিছু দুবার হয় না।
+staging.help.approve.what = মেনে নিলে উদ্ধৃতিগুলো গ্রন্থাগারে ঢুকে যায়; ফেলে দিলে যায় না। একই ফাইল আবার ইমপোর্ট করলে কিছু দুবার হয় না।
 
 # ---------------------------------------------------------------------------
 # bin.help.* — the "?" panel’s section for The bin.
@@ -5802,7 +5802,7 @@ checks.help.what-is-here.term = এখানে কী আছে
 checks.help.what-is-here.what = আপনার জন্য অপেক্ষমাণ দুটি তালিকা, এক স্ক্রিনে: ফাইল থেকে ইমপোর্ট করা উদ্ধৃতি, আর যেসবে কিছু একটা অস্বাভাবিক লাগছে।
 checks.help.what-is-here.more = দুটিই আলাদা পাতা ছিল, কেবল সেটিংসের একটা টাইল থেকে পৌঁছনো যেত — অথচ সেটিংসে যান অ্যাপের আচরণ বদলাতে, চল্লিশটি উদ্ধৃতি পনেরো দিন ধরে আটকে আছে তা জানতে নয়। রেল আর ☰ মেনুর সংখ্যাটিই এগুলিকে খুঁজে পাওয়ার উপায়; এই স্ক্রিনেই সেগুলি আসে।
 checks.help.imports.term = অপেক্ষমাণ ইমপোর্ট
-checks.help.imports.what = ইমপোর্ট করা কিছুই সরাসরি আপনার গ্রন্থাগারতে যায় না। সেটা এখানে আসে এবং আপনি অনুমোদন না করা পর্যন্ত যত দিন খুশি থাকে।
+checks.help.imports.what = ইমপোর্ট করা কিছুই সরাসরি আপনার গ্রন্থাগারে যায় না। সেটা এখানে আসে এবং আপনি অনুমোদন না করা পর্যন্ত যত দিন খুশি থাকে।
 checks.help.imports.more = এটা ইচ্ছাকৃত এবং বদলাবে না: ভুল বই যুক্ত এক হাজার হাইলাইটের ফাইল পরে ঠিক করার চেয়ে এখানে বাতিল করা অনেক সহজ। গোটা ব্যাচ, একটা রচনা, বা আলাদা সারি অনুমোদন করুন — এবং তার আগে যা খুশি সম্পাদনা করুন।
 checks.help.marks.term = দেখার মতো চিহ্ন
 checks.help.marks.what = যেসব উদ্ধৃতি লেখকের নয়, পাতার নিজস্ব কিছু বহন করছে — পাদটীকার সংখ্যা, নরম হাইফেন, জোড়া স্পেস।
@@ -5813,13 +5813,13 @@ checks.help.not-review.more = চেক হল অ্যাপ যা লক্�
 
 # What the page is for.
 cleanup.help.what-is-here.term = এখানে কী আছে
-cleanup.help.what-is-here.what = গ্রন্থাগারর প্রতিটা উদ্ধৃতি একবার পড়া হয়, আর তার মধ্যে যা লেখকের নয়, পাতার — সেটাই দেখানো হয়।
+cleanup.help.what-is-here.what = গ্রন্থাগারের প্রতিটা উদ্ধৃতি একবার পড়া হয়, আর তার মধ্যে যা লেখকের নয়, পাতার — সেটাই দেখানো হয়।
 cleanup.help.what-is-here.more = হাতে টাইপ করা উদ্ধৃতি পরিষ্কারই থাকে। ইবুক, PDF বা ব্রাউজারে লেখা সিলেক্ট করে আনা উদ্ধৃতির সঙ্গে পাতার আসবাবও চলে আসে — পাদটীকার নম্বর, উচ্চারণের টীকা, জোড়া স্পেস, সফট হাইফেন — কার্ডে যার কিছুই দেখা যায় না, অথচ খোঁজের ইনডেক্সে সবই থাকে। চোখের সামনের কথা খুঁজেও মাঝে মাঝে না পাওয়ার কারণ এটাই।
 
 # The one thing it deliberately does not do.
 cleanup.help.no-fix.term = কেন নিজে থেকে কিছু ঠিক করা হয় না
 cleanup.help.no-fix.what = প্রতিটা নিয়মেরই এমন ব্যতিক্রম আছে যা আসলে কারও সত্যিকারের লেখা, তাই প্রতিটা সিদ্ধান্ত আপনার।
-cleanup.help.no-fix.more = কোনও বাক্য সত্যিই সংখ্যা দিয়ে শেষ হতে পারে, কোনও উদ্ধৃতিতে সত্যিই বন্ধনীর মধ্যে মন্তব্য থাকতে পারে, আর এক ভাষা যাকে অদৃশ্য বলে অন্য ভাষায় সেটাই দরকারি অক্ষর। একটা বোতামে সব বদলে দেওয়া মানে আন্দাজের ভরসায়, চুপচাপ, আপনার নিজের লেখা এডিট করা — যে গ্রন্থাগারর গোটা মানেটাই হল কথাগুলো আপনার।
+cleanup.help.no-fix.more = কোনও বাক্য সত্যিই সংখ্যা দিয়ে শেষ হতে পারে, কোনও উদ্ধৃতিতে সত্যিই বন্ধনীর মধ্যে মন্তব্য থাকতে পারে, আর এক ভাষা যাকে অদৃশ্য বলে অন্য ভাষায় সেটাই দরকারি অক্ষর। একটা বোতামে সব বদলে দেওয়া মানে আন্দাজের ভরসায়, চুপচাপ, আপনার নিজের লেখা এডিট করা — যে গ্রন্থাগারের গোটা মানেটাই হল কথাগুলো আপনার।
 
 # How the page is reached.
 cleanup.help.getting-here.term = এখানে আসার পথ
@@ -6018,7 +6018,7 @@ capture.help.import.what = Markdown আর Readest-এর এক্সপোর�
 capture.help.import.more = সবই আগে অপেক্ষায় ইমপোর্টে নামে।
 
 # The accessible name of the little diagram in the Import entry — a screen reader reads this instead of the three boxes.
-capture.help.import.flow.aria = ফাইল আগে অপেক্ষায় ইমপোর্টে যায়, আপনি মেনে নিলে তবেই গ্রন্থাগারতে পৌঁছয়
+capture.help.import.flow.aria = ফাইল আগে অপেক্ষায় ইমপোর্টে যায়, আপনি মেনে নিলে তবেই গ্রন্থাগারে পৌঁছয়
 # The three boxes of that diagram, in order, then the arrow between the last two. Each sits in a fixed 52-68px box in a mono face, so a long word will not fit — abbreviate rather than overflow.
 capture.help.import.flow.file.label = ফাইল
 capture.help.import.flow.pending.label = অপেক্ষায়
@@ -6037,7 +6037,7 @@ common.help.title = সবখানে
 
 # The ＋ in the top bar.
 common.help.topbar.add.term = যোগ করুন (＋)
-common.help.topbar.add.what = ভিতরে ঢোকার একটাই পথ, আর সে জানে আপনি কোথায় আছেন: গ্রন্থাগারতে বই, ক্যাটালগে সিনেমা বা শো, আর যে উৎসের পাতা খোলা তার নামে উদ্ধৃতি।
+common.help.topbar.add.what = ভিতরে ঢোকার একটাই পথ, আর সে জানে আপনি কোথায় আছেন: গ্রন্থাগারে বই, ক্যাটালগে সিনেমা বা শো, আর যে উৎসের পাতা খোলা তার নামে উদ্ধৃতি।
 common.help.topbar.add.more = খুঁজে আনা, তুলে রাখা আর একসঙ্গে ইমপোর্ট — সবই ওই এক জায়গার আলাদা ট্যাব, আর তার গায়ের ব্যাজ বলে কটা ইমপোর্ট দেখার অপেক্ষায়। একটা সেভ করার পর পরেরটা ওখান থেকেই শুরু হয় — সেই রং, সেই ট্যাগ, আর পরের আধ ঘণ্টা সেই উৎসই — তাই এক পাতা থেকে ছটা উদ্ধৃতি তোলা মানে ছবার গোটা ফর্ম ভরা নয়। কথাগুলো অবশ্য কখনও বয়ে আসে না।
 
 # The magnifier in the top bar.
@@ -6251,8 +6251,8 @@ identity.character.appearances.empty = এখনও কোনো কাজে �
 identity.character.appearances.only = এখনও পর্যন্ত কেবল উপরের কাজটিতেই।
 identity.lines.title.one = {n}টা উদ্ধৃতি
 identity.lines.title.other = {n}টা উদ্ধৃতি
-identity.lines.empty.person = গ্রন্থাগারতে এখনও এদের নামে কিছু নেই।
-identity.lines.empty.character = গ্রন্থাগারতে এখনও এদের নামে কিছু নেই।
+identity.lines.empty.person = গ্রন্থাগারে এখনও এদের নামে কিছু নেই।
+identity.lines.empty.character = গ্রন্থাগারে এখনও এদের নামে কিছু নেই।
 identity.lines.shared.one = আরও {n}টায় এদের সঙ্গে আরেকজনের নামও আছে, তাই সেটা কারও নামেই তোলা নেই।
 identity.lines.shared.other = আরও {n}টায় এদের সঙ্গে আরেকজনের নামও আছে, তাই সেগুলো কারও নামেই তোলা নেই।
 identity.links.title = বাইরের লিংক
