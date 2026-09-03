@@ -1254,7 +1254,7 @@ settings.features.locked.prose = শেষ বিভাগটা থাকতে
 # --- button labels: whether a glyph shows its words.
 settings.labels.title = বোতামের লেখা
 settings.labels.info.title = বোতামের লেখা
-settings.labels.info.body = আইকনওয়ালা বোতাম পাশের কথাটা দেখাতেও পারে, বাদও দিতে পারে। অটো ডেস্কটপে দেখায়, ফোনে লুকায়। লুকোনও কথা স্ক্রিন রিডার তবু পড়ে শোনায়, আর প্রতিটা আইকন হোভারে বা চেপে ধরলে নিজের নাম বলে।
+settings.labels.info.body = আইকনওয়ালা বোতাম পাশের কথাটা দেখাতেও পারে, বাদও দিতে পারে। অটো ডেস্কটপে দেখায়, ফোনে লুকায়। লুকোনো কথা স্ক্রিন রিডার তবু পড়ে শোনায়, আর প্রতিটা আইকন হোভারে বা চেপে ধরলে নিজের নাম বলে।
 settings.labels.auto.label = অটো
 
 # --- Appearance.
@@ -2182,7 +2182,7 @@ quotes.starter.others.description = রেখে দেওয়ার মতো
 quotes.board.new.label = নতুন বোর্ড
 quotes.board.all.label = সব উক্তি
 # The toggle that folds hidden boards back in. "In use" is the default view.
-quotes.board.hidden.aria = লুকোনও বোর্ড
+quotes.board.hidden.aria = লুকোনো বোর্ড
 quotes.board.hidden.inuse.label = চালু
 quotes.board.hidden.all.label = সব {n}
 # What a reader with no standalone quotes lands on. {em1} is the New board
@@ -5479,7 +5479,7 @@ search.help.escaped-colon.more = কোলনের আগে একটা ব�
 # Whether a second chip of one field narrows or widens.
 search.help.two-chips.term = এক ঘরের দুটো চিপ
 search.help.two-chips.what = দুটো ট্যাগে খোঁজ ছোট হয়: tag:stoicism tag:death দুটোই যার গায়ে, সেই উদ্ধৃতিগুলোই আনে — দ্বিতীয় চিপে ট্যাপ মানেই তো আরও ছেঁকে নেওয়া।
-search.help.two-chips.more = দুটো রঙে খোঁজ বড় হয়: একটা উদ্ধৃতির রং একটাই, তাই দুটো চাইলে এমন কিছু চাওয়া হত যা কিছুই নয় — খোঁজটা বরাবর খালি ফিরত, আর মনে হত ভেঙে গেছে। তাক, সিরিজ, সাল আর যে কোনও নামের বেলাতেও তাই — একটাই থাকে, তাই দ্বিতীয়টার মানে “বা”। ঘর বুঝে বদলায়, কারণ একটা নিয়মে দুটো চলে না।
+search.help.two-chips.more = দুটো রঙে খোঁজ বড় হয়: একটা উদ্ধৃতির রং একটাই, তাই দুটো চাইলে এমন কিছু চাওয়া হত যা কিছুই নয় — খোঁজটা বরাবর খালি ফিরত, আর মনে হত ভেঙে গেছে। তাক, সিরিজ, সাল আর যে কোনও নামের ঘরেও তাই — একটাই থাকে, তাই দ্বিতীয়টার মানে “বা”। ঘর বুঝে বদলায়, কারণ একটা নিয়মে দুটো চলে না।
 
 # A colour chip carries the reader’s own name for the slot.
 search.help.colour-names.term = রং, তার নিজের নামে
@@ -5577,7 +5577,7 @@ quotes.help.no-attribution.term = নাম ছাড়া উক্তি
 quotes.help.no-attribution.what = দিব্যি রেখে দেওয়া যায়, আর রিভিশনের ডেকে ঢোকে না — সামনে যে কথাগুলো আছে সেগুলো ছাড়া মনে করার কিছুই তো নেই।
 
 # The name under a line, which opens the person.
-quotes.help.speaker-credit.term = নিচের নাম
+quotes.help.speaker-credit.term = বক্তার নাম
 quotes.help.speaker-credit.what = বাক্যের নিচের নামটা একটা দরজা, বইয়ে লেখকের নাম যেমন: পাশে তাঁর মুখের ছবি, আর ট্যাপ করলেই তিনি কে ছিলেন তা খুলে যায়।
 quotes.help.speaker-credit.more = দুজনের নামে থাকা বাক্যে দুটো মুখ আর দুটো দরজা।
 
@@ -5799,7 +5799,7 @@ bin.help.empty-now.what = প্রতিটা এন্ট্রি আর ত
 cleanup.help.title = বাড়তি চিহ্ন
 # What the page is for.
 checks.help.what-is-here.term = এখানে কী আছে
-checks.help.what-is-here.what = আপনার সায় পাওয়া বাকি দুটো তালিকা, এক স্ক্রিনে: ফাইল থেকে ইমপোর্ট করা উদ্ধৃতি, আর যেগুলোয় কিছু একটা খটকা লাগছে।
+checks.help.what-is-here.what = আপনার দেখা বাকি দুটো তালিকা, এক স্ক্রিনে: ফাইল থেকে ইমপোর্ট করা উদ্ধৃতি, আর যেগুলোয় কিছু একটা খটকা লাগছে।
 checks.help.what-is-here.more = দুটোই আলাদা পাতা ছিল, শুধু সেটিংসের একটা টাইল থেকে পৌঁছনো যেত — অথচ সেটিংসে যান অ্যাপের আচরণ বদলাতে, চল্লিশটা উদ্ধৃতি দু সপ্তাহ আটকে আছে জানতে নয়। বাঁ দিকের বার আর ☰ মেনুর সংখ্যাটাই এগুলো খুঁজে পাওয়ার পথ; এই স্ক্রিনেই সেগুলো আসে।
 checks.help.imports.term = ইমপোর্ট যাচাই করা বাকি
 checks.help.imports.what = ইমপোর্ট করা কিছুই সোজা গ্রন্থাগারে যায় না। এখানে এসে নামে, আর আপনি মেনে না নেওয়া পর্যন্ত যত দিন খুশি বসে থাকে।
@@ -5809,7 +5809,7 @@ checks.help.marks.what = যে উদ্ধৃতিতে লেখকের �
 checks.help.marks.more = কার্ডে এর কিছুই দেখা যায় না, অথচ সবই খোঁজের ইনডেক্সে থাকে — তাই চোখের সামনের কথা খুঁজেও মাঝে মাঝে কিছু পাওয়া যায় না। স্ক্রিনের এই অর্ধেকটা কখনও কিছু লেখে না: সারিতে ট্যাপ করলে উদ্ধৃতিটা যে উৎসে আছে সেটা খোলে, এডিট হয় ওখানেই।
 checks.help.not-review.term = রিভিশন বলা হয় না কেন
 checks.help.not-review.what = রিভিশন মানে তো আগে থেকেই দৈনিক প্রশ্নোত্তর আর অনুশীলনের ডেক, আর এক অ্যাপে একটা শব্দের দুটো মানে চলে না।
-checks.help.not-review.more = এখানকার খটকা অ্যাপের চোখে পড়েছে, আর সে আপনাকে জিজ্ঞেস করছে। রিভিশন হল আপনি যা নিয়ে অ্যাপকে পরীক্ষা নিতে বলেছেন। দুটোর এক নাম হলে কীসের কথা, বোঝা যেত না।
+checks.help.not-review.more = যাচাই হল অ্যাপের চোখে যা পড়েছে, আর সে আপনাকে জিজ্ঞেস করছে। রিভিশন হল আপনি যা নিয়ে অ্যাপকে পরীক্ষা নিতে বলেছেন। দুটোর এক নাম হলে কীসের কথা, বোঝা যেত না।
 
 # What the page is for.
 cleanup.help.what-is-here.term = এখানে কী আছে
@@ -5938,7 +5938,7 @@ settings.help.backup-now.what = আর্কাইভটা বানিয়�
 settings.help.backup-now.more = এটা আর ডাউনলোড করে না: ব্যাকআপ নেওয়া আর তার একটা কপি হাতে রাখা দুটো আলাদা কাজ, আর প্রতিবার দুটোই করায় চান বা না চান কয়েক মেগাবাইটের একটা ফাইল ডাউনলোডে গিয়ে পড়ত। কাজ হয়েছে বলে যে বার্তা আসে, তাতেই চাইলে কপিটা নেওয়ার পথ থাকে।
 
 # The link that hands over the archive already on the server.
-settings.help.backup-download.term = ব্যাকআপ ডাউনলোড
+settings.help.backup-download.term = শেষটা ডাউনলোড করুন
 settings.help.backup-download.what = সার্ভারে যে আর্কাইভটা আছে সেটাই হাতে দেয়। সত্যিকারের লিংক, তাই মাউসের মাঝের বোতামে ক্লিক বা “save link as” কাজ করে।
 settings.help.backup-download.more = সবচেয়ে নতুন আর্কাইভটাই শুধু রাখা হয় — নতুন ব্যাকআপ নিলে সেটা আগেরটার জায়গা নেয়।
 
@@ -6021,7 +6021,7 @@ capture.help.import.more = সবই আগে যাচাই বাকি ই�
 capture.help.import.flow.aria = ফাইল আগে যাচাই বাকি ইমপোর্টে যায়, আপনি মেনে নিলে তবেই গ্রন্থাগারে পৌঁছয়
 # The three boxes of that diagram, in order, then the arrow between the last two. Each sits in a fixed 52-68px box in a mono face, so a long word will not fit — abbreviate rather than overflow.
 capture.help.import.flow.file.label = ফাইল
-capture.help.import.flow.pending.label = বাকি
+capture.help.import.flow.pending.label = যাচাই
 capture.help.import.flow.library.label = গ্রন্থাগার
 capture.help.import.flow.approve.label = মেনে নিন
 
@@ -6058,7 +6058,7 @@ common.help.topbar.avatar.what = সোজা প্রোফাইল খুল
 common.help.selecting.term = একসঙ্গে কয়েকটা বাছা
 common.help.selecting.what = একসঙ্গে অনেকগুলো কার্ডে কাজ করুন — উদ্ধৃতি, বই, সিনেমা, শো সবেতেই।
 common.help.selecting.how.1 = কার্ডের কোণে টিক দিন, Ctrl চেপে ক্লিক করুন, বা তার নিজের মেনু থেকে “বাছুন”।
-common.help.selecting.how.2 = Shift চেপে ক্লিক করলে টানা কয়েকটা বাছা হয়। সব বাছলে স্ক্রিনে যা আছে তাই ওঠে, ফিল্টারে লুকোনও কিছু নয়।
+common.help.selecting.how.2 = Shift চেপে ক্লিক করলে টানা কয়েকটা বাছা হয়। সব বাছলে স্ক্রিনে যা আছে তাই ওঠে, ফিল্টারে লুকোনো কিছু নয়।
 common.help.selecting.how.3 = একটা বার আসে: সারিতে তিনটে আইকন, বাকিগুলো ⋯-এর পিছনে। চেপে ধরলে নাম দেখায়।
 common.help.selecting.more = উদ্ধৃতির উপরে: সারিতে রং, ♥ আর প্রশ্নোত্তরের সুইচ; ⋯-এর পিছনে ট্যাগ, একটা স্টিকার, অন্য বোর্ড আর মুছে ফেলা। বই, সিনেমা আর শোয়ের উপরে: শূন্যস্থান পূরণ, তাকে তুলুন, প্রশ্নোত্তরের সুইচ, ⋯-এর পিছনে মুছে ফেলা। ঠিক একটা বাছলে এডিট আসে; দ্বিতীয়টা বাছলেই চলে যায়। নিজে বন্ধ না করা পর্যন্ত বারটা থাকে, বাছাই শূন্য হলেও। মুছতে গেলে কী হবে সেটা টাইপ করে দিতে হয়, আর গোটাটা ডাস্টবিনে যায় একটাই এন্ট্রি হয়ে, একটাই আনডু নিয়ে।
 

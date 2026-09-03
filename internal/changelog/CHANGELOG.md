@@ -21,6 +21,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   different language from the one the rest of the app speaks. গুলি and এবং were left where
   they stood: not every formal word is the wrong one.
 
+- **A find-and-replace put a non-word on three screens.** Making every কোনো into কোনও also
+  reached inside লুকোনো, so the hidden-boards label, the button-labels note and the
+  selection help all read লুকোনও — which is not a word. The other seven sweeps were audited
+  the same way and are clean: সেটিংস survived its anchor, যতগুলিই and যেকোনো came out right.
+
 - **The search help said thirteen field names where the app has sixteen.** English and
   Bengali both, and the two lines immediately above it list all sixteen — so a reader who
   counted found the panel wrong about the screen it was describing.
