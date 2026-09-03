@@ -754,13 +754,18 @@ export function useEdgeScroll(ref, { axis = "x", drag = true } = {}) {
 // wherever the markup is just a wrapper; where the element already carries a ref
 // and a job of its own (the top bar's nav, the help rail), call `useEdgeScroll`
 // on that ref instead of wrapping it in another div.
-export function Scroller({ axis = "x", drag = true, className = "", children, ...rest }) {
+// `as` because a scrolling row is not always allowed to be a div: the chip row on
+// a favourite tile draws INSIDE that tile's button, whose content model is
+// phrasing only, and a div there is invalid markup. A span with `display: flex`
+// lays out identically, so the caller picks the element and the behaviour is the
+// same either way.
+export function Scroller({ as: Tag = "div", axis = "x", drag = true, className = "", children, ...rest }) {
   const ref = useRef(null);
   useEdgeScroll(ref, { axis, drag });
   return (
-    <div ref={ref} className={className} {...rest}>
+    <Tag ref={ref} className={className} {...rest}>
       {children}
-    </div>
+    </Tag>
   );
 }
 

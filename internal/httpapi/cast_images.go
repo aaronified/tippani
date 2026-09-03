@@ -39,10 +39,10 @@ import (
 // characterImage is one character on a quote and the picture stored for them.
 // `Name` is the character as the reader typed them on the line, not as the cast
 // row spells them: the line is what they are looking at.
-type characterImage struct {
-	Name string `json:"name"`
-	Path string `json:"path"`
-}
+// AN ALIAS RATHER THAN A TWIN. store.QuoteLine carries the same list for the
+// identity panels' lines, and the fold that builds it lives here — so one type
+// serves both and there is no pair of identical structs to keep in step.
+type characterImage = store.LineFace
 
 // characterImageRef is one row's claim on the lookup: which work, and the raw
 // character text off the line.
@@ -116,22 +116,36 @@ func characterImageKey(workID int64, foldedName string) string {
 	return strconv.FormatInt(workID, 10) + "\x1f" + foldedName
 }
 
-// characterImagesFor turns one row's raw character text into the list its chip
-// draws: one entry per character named on the line that HAS a picture, in the
-// order the reader typed them.
+// characterImagesFor turns one row's raw character text into the list its chips
+// draw: ONE ENTRY PER CHARACTER NAMED ON THE LINE, in the order the reader typed
+// them, each carrying that character's picture or an empty path when there is
+// none.
 //
-// Characters with no stored picture are left out rather than included empty. The
-// chip's job is to show the faces there are — the actor fallback is the client's
-// decision and it needs to be able to tell "no picture" from "no character".
+// IT USED TO EMIT ONLY THE ONES WITH A PICTURE, and that was right while the
+// client drew a row of face discs: a disc with no picture is a picture of
+// nobody. The client now draws a CHIP per entry — a face and a NAME — and a chip
+// reads without a picture, so a name dropped here is a name the card cannot
+// show. Worse, the card stops printing its own character text once any chip
+// draws, so "Rick, Ilsa, Sam" with one stored portrait showed one chip and lost
+// two names outright.
+//
+// "no picture" is still distinguishable from "no character", which is what the
+// old shape was protecting: an entry that exists with an empty path is a
+// character nobody has a picture of, and no entry at all is a name the line does
+// not carry. The client's ladder (this picture → the performer's → a hashed
+// silhouette) needs exactly that.
 func characterImagesFor(found map[string]string, seps metadata.CreditSeps, workID int64, character string) []characterImage {
-	if len(found) == 0 || strings.TrimSpace(character) == "" {
+	if strings.TrimSpace(character) == "" {
 		return nil
 	}
 	var out []characterImage
 	for _, name := range metadata.SplitCredits(character, seps) {
-		if path := found[characterImageKey(workID, store.CastKey(name))]; path != "" {
-			out = append(out, characterImage{Name: name, Path: path})
-		}
+		out = append(out, characterImage{
+			Name: name,
+			// Absent from `found` is the ordinary case, not a failure: most
+			// libraries have art for a handful of characters and none for the rest.
+			Path: found[characterImageKey(workID, store.CastKey(name))],
+		})
 	}
 	return out
 }

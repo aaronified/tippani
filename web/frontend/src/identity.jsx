@@ -26,7 +26,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { coverImgURL, errText, json } from './api.js'
 import { t } from './i18n.js'
 import { useCharacterPicture, usePicturePicker } from './cast.jsx'
-import { personImgURL, ProviderChips } from './people.jsx'
+import { personImgURL, ProviderChips, SpeakerChips } from './people.jsx'
 import { Silhouette } from './silhouette.jsx'
 import {
   ConfirmDialog,
@@ -359,8 +359,26 @@ function Lines({ lines, shared, empty }) {
         {lines.map((l) => (
           <li key={`${l.kind}-${l.id}`} className="identity-line">
             <ExpandableText className="identity-line-text" lines={2} text={l.text} />
+            {/* THE SAME PILLS THE CARDS AND HOME WEAR, on the owner's ruling. The
+                line's own microcopy stops repeating the names once the chips
+                carry them and keeps the WORK, which the chips never say.
+
+                NO DOOR, and here the reason is not Home's: this panel is already
+                about the record whose lines these are, so the chip that would
+                open a character is the page the reader is standing on. The other
+                names on the line have no record behind them at all — the linker
+                refuses to guess on an ensemble line, which is why they are chips
+                rather than links in the first place.
+
+                An utterance wears none: a standalone quote has a speaker and no
+                cast, so there is nobody else on the line to name. */}
+            {/* Its own air: `.identity-line` is a grid whose other children are
+                single lines of text at a 2px gap, and a 38px pill row in that
+                rhythm reads cramped. The row's spacing to its neighbours is the
+                caller's, which is why it comes in as a class. */}
+            <SpeakerChips images={l.character_images} className="my-1" />
             <span className="microcopy" style={{ color: 'var(--soft)' }}>
-              {[l.name, l.work_title].filter(Boolean).join(' · ')}
+              {[l.character_images?.length ? null : l.name, l.work_title].filter(Boolean).join(' · ')}
             </span>
           </li>
         ))}

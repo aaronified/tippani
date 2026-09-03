@@ -210,17 +210,27 @@ export function PersonChip({ kind, name, person, onOpen, onPress, title, faceNam
   // happens. This used to be settled by drawing no chip at all, which was right
   // while a line drew at most one; on a row of chips it would have hidden every
   // name but the linked one, which is the opposite of what the row is for.
-  const Tag = onPress || onOpen ? 'button' : 'span'
+  const opens = onPress || onOpen
+  const Tag = opens ? 'button' : 'span'
   return (
     <Tag
-      type={Tag === 'button' ? 'button' : undefined}
-      className={'person-chip' + (Tag === 'button' ? ' tactile' : '') + (sub ? ' is-stacked' : '')}
+      type={opens ? 'button' : undefined}
+      className={'person-chip' + (opens ? ' tactile' : '') + (sub ? ' is-stacked' : '')}
       title={title || `${full} — details`}
-      onClick={(e) => {
-        e.stopPropagation()
-        if (onPress) onPress()
-        else onOpen?.({ kind, name })
-      }}
+      // NO HANDLER AT ALL ON A LABEL, and that is the point rather than a
+      // tidy-up: the handler stops propagation, so a label chip drawn inside
+      // something that IS pressable — a favourite tile, whose whole head is one
+      // button — would swallow the tile's press and do nothing with it. A chip
+      // that opens nothing must let the click reach whatever is behind it.
+      onClick={
+        opens
+          ? (e) => {
+              e.stopPropagation()
+              if (onPress) onPress()
+              else onOpen({ kind, name })
+            }
+          : undefined
+      }
     >
       <span className="person-chip-face" aria-hidden="true">
         {faceSrc || person?.image_path
@@ -268,11 +278,18 @@ export function PersonChip({ kind, name, person, onOpen, onPress, title, faceNam
 // quote, and a row that wraps to three lines pushes the words a reader came for
 // down the card — so it is a Scroller, measured, which is the app's standing rule
 // for anything that might not fit.
-export function SpeakerChips({ images = [], speaker = null, onOpenCharacter = null }) {
+export function SpeakerChips({ images = [], speaker = null, onOpenCharacter = null, className = '' }) {
   const rows = chipRows(images, speaker)
   if (rows.length === 0) return null
   return (
-    <Scroller axis="x" className="speaker-chips">
+    // A SPAN, because this row draws inside the favourite tile's button on Home
+    // and a div is not allowed there. `.speaker-chips` sets `display: flex`, so
+    // the element makes no difference to the layout.
+    // `className` is the CALLER'S spacing, not the row's: the film frame puts a
+    // step above the row and the book card does not, because on the book card the
+    // block above it already carries one. The row owns everything inside it and
+    // nothing outside it.
+    <Scroller as="span" axis="x" className={('speaker-chips ' + className).trim()}>
       {rows.map((r) => (
         <PersonChip
           key={r.key}

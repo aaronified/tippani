@@ -1794,6 +1794,7 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
         images={d.character_images}
         speaker={speaker}
         onOpenCharacter={onOpenCharacter}
+        className="mt-1.5"
       />
       <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
         <span className="inline-flex items-center gap-2">

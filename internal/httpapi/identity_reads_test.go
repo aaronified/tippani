@@ -85,6 +85,75 @@ func TestALinkedLineKeepsTheSpellingItPrints(t *testing.T) {
 	}
 }
 
+// A PANEL'S LINES WEAR THE SAME CHARACTER CHIPS THE CARDS DO — the owner's
+// ruling, which put the pills on Home's favourites and on the character and
+// person pages together with the annotation cards.
+//
+// THE TWO SIDES ARE NOT SYMMETRICAL, AND THAT ASYMMETRY IS WHY THIS CASE EXISTS.
+// A character's lines are linked THROUGH work_cast, so the name the line prints
+// is already its character text; a person's are linked through `actor_id`, so
+// the name it prints is the PERFORMER and the characters have to be carried
+// separately. Fold the printed name on the person's side and the page matches
+// "Claude Rains" against a cast keyed by character and draws nothing at all.
+func TestAPanelsLinesCarryEveryCharacterNamedOnThem(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+
+	m := decode[movieDetail](t, c.mustDo("POST", "/movies",
+		map[string]any{"title": "Casablanca"}, http.StatusCreated))
+	c.mustDo("POST", "/dialogues", map[string]any{
+		"movie_id": m.ID, "quote": "Round up the usual suspects.",
+		"character": "Renault, Rick", "actor": "Claude Rains",
+	}, http.StatusCreated)
+
+	// THE PERFORMER'S SIDE.
+	who := personID(t, srv, 1, "Claude Rains")
+	person := decode[personDetailResp](t, c.mustDo("GET", "/people/id/"+itoa(who), nil, 200))
+	if len(person.Lines) != 1 {
+		t.Fatalf("the performer holds %d lines, want the one", len(person.Lines))
+	}
+	// IN THE ORDER THE LINE NAMES THEM, which is not alphabetical and not the
+	// cast's order — the reader typed it.
+	if got := faceNames(person.Lines[0]); len(got) != 2 || got[0] != "Renault" || got[1] != "Rick" {
+		t.Errorf("a performer's line names %v, want [Renault Rick] — the CHARACTERS, not the actor", got)
+	}
+
+	// THE CHARACTER'S SIDE. A line naming two characters is one the linker
+	// refuses to resolve, so it is counted as shared rather than listed; this
+	// single-speaker line is the one a character's panel actually lists.
+	//
+	// THE CAST ROW COMES FIRST, and that ordering is the feature rather than test
+	// scaffolding: a line is linked to a character through work_cast, so a record
+	// the reader has not put in the cast has no lines to list. SyncQuoteCast runs
+	// on the write below and finds the row this one makes.
+	cast := decode[castRow](t, c.mustDo("POST", "/movies/"+itoa(m.ID)+"/cast",
+		map[string]any{"character": "Rick", "actor": "Humphrey Bogart"}, http.StatusCreated))
+	if cast.CharacterID == 0 {
+		t.Fatal("the cast row points at no character record")
+	}
+	c.mustDo("POST", "/dialogues", map[string]any{
+		"movie_id": m.ID, "quote": "I was misinformed.", "character": "Rick",
+	}, http.StatusCreated)
+	got := decode[characterDetailResp](t, c.mustDo("GET", "/characters/"+itoa(cast.CharacterID), nil, 200))
+	if len(got.Lines) == 0 {
+		t.Fatal("the character's panel lists no lines at all")
+	}
+	for _, l := range got.Lines {
+		if got := faceNames(l); len(got) == 0 {
+			t.Errorf("the character's line %q carries no names at all", l.Text)
+		}
+	}
+}
+
+// faceNames is a line's chip row, in order.
+func faceNames(l lineResp) []string {
+	out := []string{}
+	for _, f := range l.CharacterImages {
+		out = append(out, f.Name)
+	}
+	return out
+}
+
 // ---- the record-keyed people list -------------------------------------------
 
 type personRecordResp struct {

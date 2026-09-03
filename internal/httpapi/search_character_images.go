@@ -27,9 +27,6 @@ func (s *Server) fillSearchCharacterImages(uid int64, res *searchResults) {
 		}
 	}
 	found := s.loadCharacterImages(uid, "movie", refs)
-	if len(found) == 0 {
-		return
-	}
 	seps := s.creditSeps(uid)
 	for _, hits := range groups {
 		for i := range hits {

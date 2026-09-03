@@ -67,6 +67,16 @@ beforeEach(() => {
       { kind: 'book', work_id: 2, title: 'The White Guard', role: 'author', credit_as: 'M. Bulgakov' },
     ],
     roles: [],
+    lines: [
+      {
+        id: 1, kind: 'screen', text: 'Round up the usual suspects.', name: 'Claude Rains',
+        work_title: 'Casablanca',
+        // The roster, which on a PERSON's record is not the name the line prints
+        // — that one is the performer. See identity_reads_test.go.
+        character_images: [{ name: 'Renault', path: 'renault.jpg' }, { name: 'Rick', path: '' }],
+      },
+    ],
+    shared_lines: 0,
   }
   CHARACTER = {
     id: 3,
@@ -79,6 +89,17 @@ beforeEach(() => {
       { cast_id: 11, kind: 'book', work_id: 1, work_title: 'The Master and Margarita', character: 'Woland', actor_id: 0, actor: '' },
       { cast_id: 12, kind: 'movie', work_id: 5, work_title: 'The Master and Margarita (2005)', character: 'Woland', actor_id: 9, actor: 'Oleg Basilashvili' },
     ],
+    lines: [
+      // The FILM's title, not the book's: the appearance cards above already print
+      // 'The Master and Margarita' exactly, and a fixture that repeats a string
+      // another case looks up by exact text makes that case ambiguous rather than
+      // wrong — which is a fixture bug that reads like a regression.
+      { id: 4, kind: 'screen', text: 'Manuscripts don’t burn.', name: 'Woland', work_title: 'The Master and Margarita (2005)', character_images: [{ name: 'Woland', path: 'w.jpg' }] },
+      // AN UTTERANCE WEARS NO CHIPS: a standalone quote has a speaker and no
+      // cast, so there is nobody else on the line to name.
+      { id: 5, kind: 'utterance', text: 'Everything will turn out right.', name: 'Woland', work_title: '' },
+    ],
+    shared_lines: 2,
   }
 })
 afterEach(() => cleanup())
@@ -240,5 +261,67 @@ describe('merging two records into one', () => {
     // would be a control whose only possible outcome is an error.
     expect(screen.queryByText('1 work')).toBeTruthy()
     expect(screen.queryAllByText('Mikhail Bulgakov')).toHaveLength(0)
+  })
+})
+
+// ---- the pills on a panel's lines -------------------------------------------
+//
+// THE OWNER'S RULING: "same character pills should be there in the favourite
+// section of the homepage / and in the character / actor page (only globals)."
+describe('a panel’s lines wear the same pills the cards do', () => {
+  const chipNames = (root) =>
+    [...root.querySelectorAll('.person-chip-name')].map((n) => n.textContent)
+
+  it('names every character on the line, on a performer’s record', async () => {
+    const stack = { push: vi.fn(), open: vi.fn() }
+    const { container } = render(body(personPanel(stack, { id: 7, name: 'Mikhail Bulgakov' })))
+    await screen.findByText('across the library')
+    const line = await waitFor(() => {
+      const el = container.querySelector('.identity-line')
+      expect(el).toBeTruthy()
+      return el
+    })
+    // THE CHARACTERS, NOT THE PERFORMER, and this is the assertion the server
+    // asymmetry is about: the name this line PRINTS is "Claude Rains".
+    expect(chipNames(line)).toEqual(['Renault', 'Rick'])
+  })
+
+  it('stops repeating those names in the microcopy, and keeps the work', async () => {
+    const stack = { push: vi.fn(), open: vi.fn() }
+    const { container } = render(body(personPanel(stack, { id: 7, name: 'Mikhail Bulgakov' })))
+    await screen.findByText('across the library')
+    const line = await waitFor(() => {
+      const el = container.querySelector('.identity-line')
+      expect(el).toBeTruthy()
+      return el
+    })
+    const micro = line.querySelector('.microcopy').textContent
+    // The WORK is the one thing the chips never say, so it stays.
+    expect(micro).toContain('Casablanca')
+    expect(micro, 'the printed name is repeated beside the chips').not.toContain('Claude Rains')
+  })
+
+  it('opens nothing, because the panel is already the record’s', async () => {
+    // NOT HOME'S REASON. There the tile is the press; here the chip that would
+    // open a character IS the page the reader is standing on, and the other names
+    // on the line have no record behind them at all.
+    const stack = { push: vi.fn(), open: vi.fn() }
+    const { container } = render(body(characterPanel(stack, { id: 3, name: 'Woland' })))
+    await waitFor(() => expect(container.querySelector('.identity-line')).toBeTruthy())
+    const chips = [...container.querySelectorAll('.person-chip')]
+    expect(chips.length).toBeGreaterThan(0)
+    expect([...new Set(chips.map((c) => c.tagName))]).toEqual(['SPAN'])
+  })
+
+  it('draws no row at all on a line that belongs to no work', async () => {
+    const stack = { push: vi.fn(), open: vi.fn() }
+    const { container } = render(body(characterPanel(stack, { id: 3, name: 'Woland' })))
+    await waitFor(() => expect(container.querySelector('.identity-line')).toBeTruthy())
+    const lines = [...container.querySelectorAll('.identity-line')]
+    const utterance = lines.find((l) => /turn out right/.test(l.textContent))
+    expect(utterance, 'the standalone quote is not listed').toBeTruthy()
+    expect(utterance.querySelector('.speaker-chips'), 'a standalone quote has no cast').toBeNull()
+    // And its microcopy keeps the printed name, since no chip is saying it.
+    expect(utterance.querySelector('.microcopy').textContent).toContain('Woland')
   })
 })

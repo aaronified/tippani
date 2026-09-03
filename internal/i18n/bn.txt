@@ -6266,6 +6266,7 @@ identity.character.appearances.others.one = আর {n}টা অন্য কা
 identity.character.appearances.others.other = আর {n}টা অন্য কাজ
 identity.character.appearances.empty = এখনও কোনও কাজে নেই। কোনও কাজের কাস্ট এর দিকে তাকালে যুক্ত হবে।
 identity.character.appearances.only = এখনও পর্যন্ত কেবল উপরের কাজটাতেই।
+identity.works.add.label = কাজ যোগ করুন
 identity.lines.title.one = {n}টা উদ্ধৃতি
 identity.lines.title.other = {n}টা উদ্ধৃতি
 identity.lines.empty.person = গ্রন্থাগারে এখনও এদের নামে কিছু নেই।

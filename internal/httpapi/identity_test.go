@@ -40,14 +40,25 @@ type personDetailResp struct {
 	// alongside somebody else — 0059's read side, exercised in
 	// identity_reads_test.go. On this struct rather than a second one: one payload
 	// has one shape, and two would drift the first time a field was added.
-	Lines []struct {
-		ID        int64  `json:"id"`
-		Kind      string `json:"kind"`
-		Text      string `json:"text"`
-		Name      string `json:"name"`
-		WorkTitle string `json:"work_title"`
-	} `json:"lines"`
-	SharedLines int `json:"shared_lines"`
+	Lines       []lineResp `json:"lines"`
+	SharedLines int        `json:"shared_lines"`
+}
+
+// lineResp is one line in a panel's list. NAMED, and shared by both records,
+// for the reason the field above gives: the person's list and the character's
+// are the same payload, and two inline copies of it would drift the first time
+// one gained a field. CharacterImages is what that warning was about — it was
+// added for the chips and only one of the two would have got it.
+type lineResp struct {
+	ID              int64  `json:"id"`
+	Kind            string `json:"kind"`
+	Text            string `json:"text"`
+	Name            string `json:"name"`
+	WorkTitle       string `json:"work_title"`
+	CharacterImages []struct {
+		Name string `json:"name"`
+		Path string `json:"path"`
+	} `json:"character_images"`
 }
 
 type characterDetailResp struct {
@@ -62,6 +73,8 @@ type characterDetailResp struct {
 		WorkTitle string `json:"work_title"`
 		Actor     string `json:"actor"`
 	} `json:"appearances"`
+	Lines       []lineResp `json:"lines"`
+	SharedLines int        `json:"shared_lines"`
 }
 
 // personIDFor finds the record a credit string resolved to, which is how every

@@ -540,6 +540,27 @@ type QuoteLine struct {
 	// are zero and empty there — a standalone quote is the thing it is.
 	WorkID    int64  `json:"work_id,omitempty"`
 	WorkTitle string `json:"work_title,omitempty"`
+	// WHO THE LINE NAMES, as the reader typed it, and NOT the same thing as Name
+	// above. On a character's page Name is already the character text; on a
+	// person's it is the PERFORMER text, because that is how a person's lines are
+	// linked — so the characters have to be carried separately or an actor's page
+	// has nothing to draw a character chip from. Empty on an utterance: a
+	// standalone quote has a speaker and no cast.
+	Characters string `json:"-"`
+	// EVERY CHARACTER NAMED ON THE LINE, each with their picture or an empty path
+	// — the same list the quote cards carry, so a panel's lines draw the same
+	// chips the cards do. Filled by the HANDLER and not here: the pictures hang
+	// off work_cast and the fold is per (work, name), a lookup httpapi already
+	// owns and batches across a whole page. See cast_images.go.
+	CharacterImages []LineFace `json:"character_images,omitempty"`
+}
+
+// LineFace is one name on a line and the picture stored for them. It lives here
+// rather than in httpapi because QuoteLine carries it, and httpapi's own
+// characterImage is an alias of it so the one lookup serves both.
+type LineFace struct {
+	Name string `json:"name"`
+	Path string `json:"path"`
 }
 
 // PersonLines returns the quotes LINKED to a person, and a count of the further
@@ -578,7 +599,7 @@ func PersonLines(db Queryer, uid, personID int64, seps metadata.CreditSeps, limi
 
 	// ---- the linked ones -----------------------------------------------------
 	rows, err := db.Query(
-		`SELECT d.id, d.quote, d.actor, m.id, m.title
+		`SELECT d.id, d.quote, d.actor, m.id, m.title, d.character
 		   FROM dialogues d JOIN movies m ON m.id = d.movie_id
 		  WHERE m.user_id = ? AND d.actor_id = ?
 		  ORDER BY d.id DESC`, uid, personID)
@@ -587,7 +608,7 @@ func PersonLines(db Queryer, uid, personID int64, seps metadata.CreditSeps, limi
 	}
 	for rows.Next() {
 		l := QuoteLine{Kind: KindScreen}
-		if err := rows.Scan(&l.ID, &l.Text, &l.Name, &l.WorkID, &l.WorkTitle); err != nil {
+		if err := rows.Scan(&l.ID, &l.Text, &l.Name, &l.WorkID, &l.WorkTitle, &l.Characters); err != nil {
 			rows.Close()
 			return nil, 0, err
 		}

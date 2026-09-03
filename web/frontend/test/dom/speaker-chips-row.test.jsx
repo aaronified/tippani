@@ -122,6 +122,45 @@ describe('the stored speaker among them', () => {
     expect(tags, 'the speaker opens; the others are labels').toEqual(['BUTTON', 'SPAN', 'SPAN'])
   })
 
+  // AND DOES NOT SWALLOW THE PRESS OF WHATEVER IS BEHIND IT. Home's favourite
+  // tile is one button from its label to its faces, and the chips draw inside it
+  // — so a label chip that stopped propagation (which the pressable form must do,
+  // or opening a character would also toggle the tile) turned the row into a dead
+  // strip across the middle of the tile: click a name, nothing happens at all.
+  it('lets the click reach the tile it is drawn inside', () => {
+    const onTile = vi.fn()
+    render(
+      <button type="button" onClick={onTile}>
+        <SpeakerChips images={IMAGES} />
+      </button>,
+    )
+    fireEvent.click(chips()[0])
+    expect(onTile, 'the chip ate the tile’s press').toHaveBeenCalledTimes(1)
+  })
+
+  // THE ROW IS A SPAN, for the same reason: it draws inside that button, whose
+  // content model is phrasing only, and a <div> there is invalid markup that the
+  // browser is free to reparent out of the button.
+  it('is an element a button is allowed to contain', () => {
+    const { container } = render(<SpeakerChips images={IMAGES} />)
+    expect(container.querySelector('.speaker-chips').tagName).toBe('SPAN')
+  })
+
+  // AND THE PRESSABLE ONE STILL DOES SWALLOW IT, which is the other half: on a
+  // card the chip opens a character and must not also toggle the card it sits on.
+  it('keeps the press to itself when it has one', () => {
+    const onTile = vi.fn()
+    const onOpen = vi.fn()
+    render(
+      <button type="button" onClick={onTile}>
+        <SpeakerChips images={[]} speaker={{ ...SPEAKER, onOpen }} />
+      </button>,
+    )
+    fireEvent.click(chips()[0])
+    expect(onOpen).toHaveBeenCalledTimes(1)
+    expect(onTile, 'opening a character also pressed the card').not.toHaveBeenCalled()
+  })
+
   // A SPEAKER NAMED NOWHERE ON THE LINE IS STILL DRAWN: it is a stored fact and
   // the line's text is free, so somebody may have edited the words and left the
   // link. Dropping it would hide the one thing the app is sure of.

@@ -142,7 +142,60 @@ func (s *Server) handlePersonByID(w http.ResponseWriter, r *http.Request) {
 		internalError(w, r, "read lines", err)
 		return
 	}
+	s.fillLineFaces(uid, out.Lines)
 	writeJSON(w, http.StatusOK, out)
+}
+
+// fillLineFaces gives a panel's lines the same character chips the quote cards
+// wear — the owner's ruling, which put the pills on the character and person
+// pages alongside Home's favourites.
+//
+// TWO LOOKUPS, ONE PER SHELF, because a picture hangs off a work_cast row and the
+// two shelves are two work kinds; an utterance belongs to no work and so wears no
+// chip, which is correct rather than a gap — a standalone quote has a speaker and
+// no cast to name anyone else on the line.
+//
+// Best-effort in the same way the card lists are: a panel renders whether or not
+// this resolves, and it writes through the slice, so the caller keeps its shape.
+func (s *Server) fillLineFaces(uid int64, lines []store.QuoteLine) {
+	if len(lines) == 0 {
+		return
+	}
+	byKind := map[string][]characterImageRef{}
+	for _, l := range lines {
+		if l.WorkID == 0 || strings.TrimSpace(l.Characters) == "" {
+			continue
+		}
+		k := shelfOf(l.Kind)
+		if k == "" {
+			continue
+		}
+		byKind[k] = append(byKind[k], characterImageRef{WorkID: l.WorkID, Character: l.Characters})
+	}
+	found := map[string]map[string]string{}
+	for k, refs := range byKind {
+		found[k] = s.loadCharacterImages(uid, k, refs)
+	}
+	seps := s.creditSeps(uid)
+	for i := range lines {
+		k := shelfOf(lines[i].Kind)
+		if k == "" {
+			continue
+		}
+		lines[i].CharacterImages = characterImagesFor(found[k], seps, lines[i].WorkID, lines[i].Characters)
+	}
+}
+
+// shelfOf maps a line's kind to the work kind its pictures are filed under.
+// Empty for an utterance, which belongs to no work.
+func shelfOf(k store.QuoteKind) string {
+	switch k {
+	case store.KindHighlight:
+		return "book"
+	case store.KindScreen:
+		return "movie"
+	}
+	return ""
 }
 
 // personLineCap is how many of a person's lines the record carries.
@@ -655,6 +708,7 @@ func (s *Server) handleCharacterByID(w http.ResponseWriter, r *http.Request) {
 		internalError(w, r, "read character lines", err)
 		return
 	}
+	s.fillLineFaces(uid, out.Lines)
 	writeJSON(w, http.StatusOK, out)
 }
 

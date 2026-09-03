@@ -6242,6 +6242,7 @@ identity.character.appearances.others.one = and {n} other work
 identity.character.appearances.others.other = and {n} other works
 identity.character.appearances.empty = In no work yet. It appears once a work's cast points at it.
 identity.character.appearances.only = Only the work above, so far.
+identity.works.add.label = Add a work
 identity.lines.title.one = {n} quote
 identity.lines.title.other = {n} quotes
 identity.lines.empty.person = Nothing in the library is credited to them yet.

@@ -390,11 +390,14 @@ func (s *Server) handleListAnnotations(w http.ResponseWriter, r *http.Request) {
 			refs = append(refs, characterImageRef{WorkID: a.BookID, Character: a.Character})
 		}
 	}
-	if found := s.loadCharacterImages(uid, "book", refs); len(found) > 0 {
-		seps := s.creditSeps(uid)
-		for i := range items {
-			items[i].CharacterImages = characterImagesFor(found, seps, items[i].BookID, items[i].Character)
-		}
+	// NOT GATED ON HAVING FOUND ANY. The list is the roster of who each line
+	// names, and the pictures are a property of its entries — gating on the
+	// pictures meant a reader with no character art at all got no chips on any
+	// line, which is most readers and every new library.
+	found := s.loadCharacterImages(uid, "book", refs)
+	seps := s.creditSeps(uid)
+	for i := range items {
+		items[i].CharacterImages = characterImagesFor(found, seps, items[i].BookID, items[i].Character)
 	}
 
 	// One query fills all tag lists (tags are per-user, so this can't leak).

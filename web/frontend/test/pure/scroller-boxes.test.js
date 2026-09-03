@@ -59,10 +59,13 @@ function scrollers() {
     let m
     while ((m = re.exec(text))) {
       const attrs = m[1]
-      const cls = attrs.match(/className="([^"]+)"/)
-      // A className built from a prop or an expression — works.jsx's carousel
-      // takes one from its caller — cannot be resolved here. Counted so the
-      // sweep can say how many it skipped rather than shrinking silently.
+      // Either a plain literal, or the leading literal of an expression that
+      // appends the caller's own classes — `className={('speaker-chips ' + extra)}`
+      // — where the row's OWN class is the first quoted word. A className built
+      // entirely from a prop (works.jsx's carousel takes one from its caller)
+      // cannot be resolved here; counted, so the sweep says how many it skipped
+      // rather than shrinking silently.
+      const cls = attrs.match(/className="([^"]+)"/) || attrs.match(/className=\{[^}]*['"]([A-Za-z][\w-]*)/)
       if (!cls) {
         out.push({ file: f, cls: null })
         continue

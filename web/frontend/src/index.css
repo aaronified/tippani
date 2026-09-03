@@ -4652,6 +4652,10 @@
        so running out of row does not scroll the card behind it. */
     overflow-x: auto;
     overscroll-behavior-x: contain;
+    /* CLEARANCE, NOT RHYTHM, which is why it is a hairline and not a step: a
+       box that scrolls sideways computes its vertical overflow to `auto` too, so
+       the chips' focus ring would be clipped by the very box that carries them.
+       The row's spacing to what is above it belongs to the caller. */
     padding-bottom: 2px;
   }
 

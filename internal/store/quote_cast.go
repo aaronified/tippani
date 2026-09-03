@@ -399,12 +399,12 @@ func CharacterLines(db Queryer, uid, characterID int64, seps metadata.CreditSeps
 		sql  string
 		kind QuoteKind
 	}{
-		{`SELECT a.id, a.quote, a.character, b.id, b.title
+		{`SELECT a.id, a.quote, a.character, b.id, b.title, a.character
 		    FROM annotations a JOIN books b ON b.id = a.book_id
 		    JOIN work_cast wc ON wc.id = a.speaker_cast_id
 		   WHERE b.user_id = ? AND wc.character_id = ? AND wc.origin <> 'removed'
 		   ORDER BY a.id DESC`, KindHighlight},
-		{`SELECT d.id, d.quote, d.character, m.id, m.title
+		{`SELECT d.id, d.quote, d.character, m.id, m.title, d.character
 		    FROM dialogues d JOIN movies m ON m.id = d.movie_id
 		    JOIN work_cast wc ON wc.id = d.speaker_cast_id
 		   WHERE m.user_id = ? AND wc.character_id = ? AND wc.origin <> 'removed'
@@ -416,7 +416,11 @@ func CharacterLines(db Queryer, uid, characterID int64, seps metadata.CreditSeps
 		}
 		for rows.Next() {
 			l := QuoteLine{Kind: q.kind}
-			if err := rows.Scan(&l.ID, &l.Text, &l.Name, &l.WorkID, &l.WorkTitle); err != nil {
+			// `character` twice, once as the name this line PRINTS and once as the
+			// roster the chips are built from. They are the same column here and
+			// two different ones on a person's page, so the field pair is what
+			// lets one handler fold both.
+			if err := rows.Scan(&l.ID, &l.Text, &l.Name, &l.WorkID, &l.WorkTitle, &l.Characters); err != nil {
 				rows.Close()
 				return nil, 0, err
 			}

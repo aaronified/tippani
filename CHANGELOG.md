@@ -15,10 +15,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   showed a row of small faceless circles instead. That row told you how MANY people were in
   the line and not one of their names. Every name on the line now gets its own pill, the
   one who said it first, and the row masks at its edge and side-scrolls when there are more
-  than fit. A character with no picture keeps their pill, since a pill carries a name. The
-  same pills are now on the homepage's favourites. Pressing one opens that character where
-  there is a character page to open and somewhere to open it — the rest are labels, and no
-  longer look like buttons that do nothing.
+  than fit. A character with no picture keeps their pill, since a pill carries a name — and
+  so does a library with no character pictures at all, which used to get no pills anywhere.
+  The same pills are now on the homepage's favourites and on a character's and a
+  performer's own page, where each line lists who is in it instead of repeating the one
+  name it was filed under. Pressing one opens that character where there is a character
+  page to open and somewhere to open it — the rest are labels, and no longer look like
+  buttons that do nothing.
 
 - **A plus card at the end of the works carousel on a character's or a performer's own
   page**, for adding a work they appear in. Only on their own page: inside a book, that

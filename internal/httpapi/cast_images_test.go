@@ -96,10 +96,66 @@ func TestADialogueArrivesWithItsCharacterPictures(t *testing.T) {
 		t.Errorf("the typographic fold failed: %+v — a plain lowercase would do this",
 			d.CharacterImages)
 	}
-	// A character with no picture is ABSENT, not present-and-empty: the client has
-	// to tell "no picture" from "no character" to know whether to fall back.
-	if n := len(byQuote["Nothing to see."].CharacterImages); n != 0 {
-		t.Errorf("a character with no stored picture produced %d entr(ies)", n)
+	// A CHARACTER WITH NO PICTURE IS PRESENT WITH AN EMPTY PATH, which is the
+	// reversal of what this case used to assert. It read "absent, not
+	// present-and-empty", on the reasoning that a face row must be able to tell
+	// "no picture" from "no character" — and the empty path tells it just as well,
+	// while dropping the entry told the client nothing about a character it was
+	// then unable to name. The card stops printing its own character text once any
+	// chip draws, so a dropped name is a name the reader loses.
+	extra := byQuote["Nothing to see."].CharacterImages
+	if len(extra) != 1 {
+		t.Fatalf("a character with no stored picture produced %d entr(ies), want 1", len(extra))
+	}
+	if extra[0].Name != "Uncredited Extra" || extra[0].Path != "" {
+		t.Errorf("got %+v, want the name with an empty path", extra[0])
+	}
+}
+
+// A LIBRARY WITH NO CHARACTER ART AT ALL STILL GETS THE ROSTER, which is the
+// case the picture gate hid. All three fill sites ran the fold inside
+// `if found := loadCharacterImages(...); len(found) > 0`, so a reader who had
+// never stored a single character picture — most readers, and every new library —
+// got `character_images` on no line whatsoever. The client draws a chip per entry
+// and the card stops printing its own character text once any chip draws, so the
+// two states that gate produced were "chips for the pictured names only" and "no
+// chips at all", and the second is not an empty state: it is a card that names
+// nobody where the reader typed three names.
+func TestALineNamesItsCharactersWithNoStoredArtAnywhere(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+	film := decode[movieDetail](t, c.mustDo("POST", "/movies",
+		map[string]any{"title": "Casablanca"}, http.StatusCreated)).ID
+
+	c.mustDo("POST", "/dialogues", map[string]any{
+		"movie_id": film, "quote": "Round up the usual suspects.",
+		"character": "Rick, Ilsa, Sam",
+	}, http.StatusCreated)
+
+	type row struct {
+		CharacterImages []struct {
+			Name string `json:"name"`
+			Path string `json:"path"`
+		} `json:"character_images"`
+	}
+	got := decode[struct {
+		Dialogues []row `json:"dialogues"`
+	}](t, c.mustDo("GET", "/dialogues?movie_id="+itoa(film), nil, http.StatusOK))
+	if len(got.Dialogues) != 1 {
+		t.Fatalf("want one line, got %d", len(got.Dialogues))
+	}
+	names := []string{}
+	for _, ci := range got.Dialogues[0].CharacterImages {
+		if ci.Path != "" {
+			t.Errorf("%s carries a path %q on a library with no art", ci.Name, ci.Path)
+		}
+		names = append(names, ci.Name)
+	}
+	// IN THE ORDER THE READER TYPED THEM, and all three of them: the row is what
+	// the card shows instead of the text it no longer prints.
+	if len(names) != 3 || names[0] != "Rick" || names[1] != "Ilsa" || names[2] != "Sam" {
+		t.Errorf("got %v, want [Rick Ilsa Sam]", names)
 	}
 }
 

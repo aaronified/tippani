@@ -336,10 +336,11 @@ type dialogueRow struct {
 	gameRef
 	// See dialogueReq.EpisodeName for why this is not inside episodeRef.
 	EpisodeName string `json:"episode_name"`
-	// The picture stored for each character named on this line, in the order they
-	// are named (0050; cast_images.go says why the server resolves this and not
-	// the client). Omitted entirely when there is none, which is the ordinary
-	// case: the chip then falls back to the actor's headshot.
+	// EVERY CHARACTER NAMED ON THIS LINE, in the order they are named, each with
+	// the picture stored for them or an empty path when there is none (0050;
+	// cast_images.go says why the server resolves this and not the client, and why
+	// a pictureless character is listed rather than dropped). Omitted entirely
+	// only when the line names nobody.
 	CharacterImages []characterImage `json:"character_images,omitempty"`
 	// WHO SAID IT, which is not the same question as who is NAMED above — see
 	// quote_speaker.go. Beside Character for that field's own reason: an utterance
@@ -655,11 +656,13 @@ func (s *Server) handleListDialogues(w http.ResponseWriter, r *http.Request) {
 			refs = append(refs, characterImageRef{WorkID: d.MovieID, Character: d.Character})
 		}
 	}
-	if found := s.loadCharacterImages(uid, "movie", refs); len(found) > 0 {
-		seps := s.creditSeps(uid)
-		for i := range items {
-			items[i].CharacterImages = characterImagesFor(found, seps, items[i].MovieID, items[i].Character)
-		}
+	// Unconditional, for the reason annotation_handlers.go gives at the same
+	// place: the list is who the line NAMES, and a library with no art still has
+	// names on its lines.
+	found := s.loadCharacterImages(uid, "movie", refs)
+	seps := s.creditSeps(uid)
+	for i := range items {
+		items[i].CharacterImages = characterImagesFor(found, seps, items[i].MovieID, items[i].Character)
 	}
 
 	// One query fills all tag lists (tags are per-user, so this can't leak).

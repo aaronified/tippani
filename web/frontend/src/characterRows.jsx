@@ -29,6 +29,7 @@
 //   more; Scroller fades when the row actually overflows, which is right in both
 //   cases a count gets wrong, and is the app's standing rule.
 import { coverImgURL } from './api.js'
+import { t } from './i18n.js'
 import { Silhouette } from './silhouette.jsx'
 import { NameScroll, ProviderMark, Scroller, Tooltip } from './ui.jsx'
 
@@ -315,33 +316,33 @@ export function CreditRow({
 // order and a control at the front would claim a place in it. It is the last
 // thing you reach, which is where you are when you have looked at all of them and
 // found the one you wanted missing.
-export function AppearanceStrip({ tiles, hint, onAdd, addLabel, addTitle, addIcon }) {
+export function AppearanceStrip({ tiles, hint, onAdd, addLabel, addTitle, addIcon = '+' }) {
   return (
     <div className="cs-strip">
       <Scroller className="cs-tiles">
-        {tiles.map((t) => (
-          <div className="cs-tile" key={t.key}>
+        {tiles.map((w) => (
+          <div className="cs-tile" key={w.key}>
             <button
               type="button"
-              className={'cs-tile-art' + (t.kind === 'book' ? ' is-book' : '')}
-              title={t.artTitle}
-              onClick={t.onOpen}
+              className={'cs-tile-art' + (w.kind === 'book' ? ' is-book' : '')}
+              title={w.artTitle}
+              onClick={w.onOpen}
             >
-              {t.cover ? <img src={coverImgURL(t.cover)} alt="" loading="lazy" /> : null}
-              <span className="cs-tile-badge">{t.badge}</span>
+              {w.cover ? <img src={coverImgURL(w.cover)} alt="" loading="lazy" /> : null}
+              <span className="cs-tile-badge">{w.badge}</span>
               {/* NO CHIP WHERE THERE IS NO PERSON-IN-THE-WORK. On a work somebody
                   WROTE they are the maker, not somebody inside it, and a
                   silhouette there would claim a character nobody has named. */}
-              {t.face !== false ? (
-                <span className="cs-tile-chip" title={t.faceTitle}>
-                  {t.face ? <img src={coverImgURL(t.face)} alt="" loading="lazy" /> : <Silhouette name={t.faceName} />}
+              {w.face !== false ? (
+                <span className="cs-tile-chip" title={w.faceTitle}>
+                  {w.face ? <img src={coverImgURL(w.face)} alt="" loading="lazy" /> : <Silhouette name={w.faceName} />}
                 </span>
               ) : null}
             </button>
-            <button type="button" className="cs-tile-cap" onClick={t.onOpen}>
-              <span className="cs-tile-title">{t.title}</span>
-              {t.meta ? <span className="cs-tile-meta">{t.meta}</span> : null}
-              {t.count ? <span className="cs-tile-count">{t.count}</span> : null}
+            <button type="button" className="cs-tile-cap" onClick={w.onOpen}>
+              <span className="cs-tile-title">{w.title}</span>
+              {w.meta ? <span className="cs-tile-meta">{w.meta}</span> : null}
+              {w.count ? <span className="cs-tile-count">{w.count}</span> : null}
             </button>
           </div>
         ))}
@@ -352,8 +353,12 @@ export function AppearanceStrip({ tiles, hint, onAdd, addLabel, addTitle, addIco
                 than a work's own — the same distinction the links panel draws
                 between a link and "add a link": round means a value, and this is
                 not one. */}
-            <span className="cs-tile-add-art">{addIcon}</span>
-            <span className="cs-tile-add-label">{addLabel}</span>
+            <span className="cs-tile-add-art" aria-hidden="true">{addIcon}</span>
+            {/* THE COPY HAS A DEFAULT so a second caller cannot invent a second
+                wording for one control. The TIP is the caller's, because it is
+                the only part that differs: a character appears in a work, a
+                person is credited on one. */}
+            <span className="cs-tile-add-label">{addLabel || t('identity.works.add.label')}</span>
           </button>
         ) : null}
       </Scroller>

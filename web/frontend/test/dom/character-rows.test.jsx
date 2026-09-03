@@ -286,3 +286,43 @@ describe('a section heading', () => {
     expect(document.querySelector('.cs-section-note')).toBeNull()
   })
 })
+
+// ---- the add tile -----------------------------------------------------------
+//
+// THE OWNER'S INSTRUCTION: "in the character / actor page (only globals), do have
+// a plus card in the works carousel (to add new works when needed)."
+describe('the works strip’s add tile', () => {
+  const tiles = [
+    { key: 'a', title: 'The Master and Margarita', badge: 'book', kind: 'book', faceName: 'Woland', onOpen: () => {} },
+  ]
+
+  it('is absent unless the strip is given something to add to', () => {
+    // A LOCAL SCOPE GETS NONE. There the strip is this identity's OTHER
+    // appearances seen from inside one work, so an add would read as adding a
+    // work to the book you are already in.
+    const { container } = render(<AppearanceStrip tiles={tiles} />)
+    expect(container.querySelector('.cs-tile-add')).toBeNull()
+  })
+
+  it('sits after every work, because the strip’s order is the release order', () => {
+    const onAdd = vi.fn()
+    const { container } = render(<AppearanceStrip tiles={tiles} onAdd={onAdd} addTitle="Add a work this character appears in" />)
+    const cells = [...container.querySelectorAll('.cs-tiles > *')]
+    expect(cells).toHaveLength(2)
+    expect(cells[1].classList.contains('cs-tile-add'), 'the control displaced the earliest appearance').toBe(true)
+    fireEvent.click(cells[1])
+    expect(onAdd).toHaveBeenCalledTimes(1)
+  })
+
+  it('wears the app’s own wording rather than the caller’s invention', () => {
+    // ONE CONTROL, ONE LABEL: two callers (the character page and the person
+    // page) would otherwise word the same button two ways. Only the TIP differs,
+    // because a character appears IN a work and a person is credited ON one.
+    const { container } = render(<AppearanceStrip tiles={tiles} onAdd={() => {}} addTitle="tip" />)
+    expect(container.querySelector('.cs-tile-add-label').textContent.trim()).not.toBe('')
+    expect(container.querySelector('.cs-tile-add').title).toBe('tip')
+    // The glyph is decoration beside that label, so it is hidden from a reader
+    // who is being read to rather than announced as "plus".
+    expect(container.querySelector('.cs-tile-add-art').getAttribute('aria-hidden')).toBe('true')
+  })
+})
