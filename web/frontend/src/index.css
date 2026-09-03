@@ -8013,3 +8013,323 @@ html[data-theme="dark"] .board-cover {
   );
   border-color: color-mix(in srgb, var(--error) 32%, var(--line));
 }
+
+  /* ═══ THE CHARACTER AND PERSON SCREENS ═══
+     The design pack's own prototype, five scopes of one object: the identity, the
+     same character local to a book, a film and a game, and the person behind a
+     credit. Its row vocabulary is nine kinds and they are all here, because a
+     screen assembled from nine named rows is the thing that made four scopes one
+     object rather than four screens.
+
+     THE PACK'S PIXEL SIZES ARE SNAPPED TO THE TYPE SCALE, on the owner's ruling:
+     nine of its font sizes are half-steps (14.5, 12.5, 10.5 …) and the app's ten
+     steps exist so every size answers the reader's text-size dial, which a raw px
+     cannot. Largest shift is 1px. See docs/PLAN.md.
+
+     AND NO NAME ENDS IN AN ELLIPSIS, also the owner's ruling and the bigger
+     departure: the pack sets `text-overflow: ellipsis` on a row's label, a
+     credit's name and the header title. A shortened name and a short name look
+     alike. They wear NameScroll instead — which holds the row height exactly as
+     nowrap does, so a credit row still cannot reflow and move its neighbours. */
+
+  /* The header: the work's own cover with the medium's glyph laid on it, the
+     title, and the crumb. No qualifier chip — the crumb and the cover already say
+     the scope, and the pack's chip printed its own screen ids. */
+  .cs-head {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px; border-bottom: 1px solid var(--line);
+    background: var(--card-top); flex: none;
+  }
+  .cs-scope-slot {
+    width: 44px; flex: none;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .cs-scope-art {
+    width: 32px; height: 44px; position: relative; overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+    border: 1px solid var(--line); border-radius: 4px;
+    background: var(--raised);
+    box-shadow: 0 6px 12px -9px rgba(var(--sh), .8);
+  }
+  /* A BOOK TAKES THE APP'S HAND-DRAWN CORNER and a poster or box art is
+     square-cut, which is the pack's own way of carrying the medium in the shape
+     as well as in the badge. */
+  .cs-scope-art.is-book { border-radius: 3px 7px 4px 6px; }
+  .cs-scope-art img { width: 100%; height: 100%; object-fit: cover; }
+  .cs-scope-overlay {
+    position: relative;
+    width: 24px; height: 24px; border-radius: 7px;
+    display: inline-flex; align-items: center; justify-content: center;
+    color: var(--ink);
+    background: color-mix(in oklab, var(--card), transparent 8%);
+    border: 1px solid var(--line);
+  }
+  .cs-scope-globe {
+    width: 44px; height: 44px;
+    display: inline-flex; align-items: center; justify-content: center;
+    color: var(--soft);
+  }
+  .cs-head-names { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .cs-title { font-family: var(--font-display); font-size: var(--type-display-19); line-height: 1.2; }
+  .cs-crumb {
+    font-family: var(--font-mono); font-size: var(--type-mono-11);
+    color: var(--faint); letter-spacing: .1em;
+  }
+
+  /* The portrait block: the face, the stated pixel size, and the four ways a
+     picture arrives. The fourth is the only one that leaves this work. */
+  .cs-portrait { display: flex; align-items: center; gap: 16px; padding: 0 10px 4px; }
+  .cs-face {
+    width: max(96px, 7.4em); height: max(96px, 7.4em);
+    border-radius: 50%; flex: none; overflow: hidden;
+    border: 1.4px solid var(--ink-border); background: var(--raised);
+    display: flex; align-items: flex-end; justify-content: center;
+    box-shadow: 0 14px 26px -18px rgba(var(--sh), .7);
+  }
+  .cs-face img { width: 100%; height: 100%; object-fit: cover; }
+  .cs-portrait-side { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+  /* A PICTURE FIELD CANNOT BE JUDGED FROM A THUMBNAIL, so the app states the
+     pixels and inks the statement when they are under the floor — the part of the
+     pack most easily faked. */
+  .cs-px {
+    font-family: var(--font-mono); font-size: var(--type-mono-11);
+    color: var(--faint); letter-spacing: .1em;
+  }
+  .cs-px.is-soft { color: var(--error); }
+  .cs-face-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+
+  /* A section heading, and the prose that sometimes goes under it. */
+  .cs-head-row { display: flex; flex-direction: column; gap: 3px; padding: 16px 10px 6px; }
+  .cs-section {
+    font-family: var(--font-mono); font-size: var(--type-mono-11);
+    color: var(--faint); letter-spacing: .14em; text-transform: uppercase;
+  }
+  .cs-section-note {
+    font-size: var(--type-ui-13); color: var(--soft);
+    line-height: 1.55; text-wrap: pretty;
+  }
+
+  /* THE HEADING IS THE CONTROL, on the section that has exactly two answers:
+     performed or voiced. A heading, a paragraph and a row of buttons stacked
+     three deep is what this replaces. */
+  .cs-seg { display: flex; align-items: center; gap: 6px; padding: 10px 10px 6px; }
+  .cs-seg .cs-section { flex: 1; min-width: 0; }
+  .cs-seg-opt {
+    min-height: 34px; padding: 0 13px; border-radius: 999px;
+    font-size: var(--type-ui-12); white-space: nowrap;
+    border: 1px solid var(--line); background: var(--raised); color: var(--soft);
+    cursor: pointer;
+  }
+  .cs-seg-opt[aria-pressed="true"] {
+    border-color: var(--ink-border); color: var(--ink);
+    background: color-mix(in oklab, var(--accent), transparent 84%);
+  }
+
+  /* An ordinary row: 52px, an icon or a face, a label over a subtitle, and a
+     badge or a count at the far end. */
+  .cs-row-wrap { display: flex; align-items: stretch; gap: 4px; padding: 0 4px; }
+  .cs-row {
+    flex: 1; min-width: 0;
+    display: flex; align-items: center; gap: 11px;
+    min-height: max(52px, 3.4em); padding: 9px 12px;
+    border: 0; border-radius: 9px; background: transparent;
+    text-align: left; color: var(--ink); cursor: pointer;
+  }
+  .cs-row:hover, .cs-row:focus-visible { background: color-mix(in oklab, var(--ink), transparent 94%); }
+  .cs-row.is-danger { color: var(--error); }
+  .cs-row.is-danger:hover { background: color-mix(in oklab, var(--error), transparent 90%); }
+  .cs-row.is-tinted { background: color-mix(in oklab, var(--accent), transparent 95%); }
+  .cs-row-icon {
+    width: 20px; flex: none;
+    display: inline-flex; align-items: center; justify-content: center;
+    color: var(--soft);
+  }
+  .cs-row.is-danger .cs-row-icon { color: var(--error); }
+  .cs-row-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; text-align: left; }
+  .cs-row-label { font-size: var(--type-ui-15); line-height: 1.3; }
+  .cs-row-sub { font-size: var(--type-ui-12); color: var(--soft); line-height: 1.45; text-wrap: pretty; }
+  .cs-row-badge {
+    font-family: var(--font-mono); font-size: var(--type-mono-9);
+    color: var(--accent-ui); letter-spacing: .14em; text-transform: uppercase;
+    flex: none; padding: 3px 7px; border-radius: 6px; white-space: nowrap;
+    border: 1px solid color-mix(in oklab, var(--accent-ui), transparent 62%);
+  }
+  .cs-row-meta { flex: none; font-size: var(--type-ui-13); color: var(--soft); }
+  .cs-row-meta.is-mono {
+    font-family: var(--font-mono); font-size: var(--type-mono-12); letter-spacing: .08em;
+  }
+
+  /* THREE SHORT ANSWERS ON ONE LINE. A part, a locator and an age given a row
+     each took 150px of height and read as three unrelated decisions; side by side
+     they are what they are — the facts of this character in this work. */
+  .cs-facts { display: flex; gap: 6px; padding: 2px 6px; }
+  .cs-fact {
+    flex: 1; min-width: 0;
+    display: flex; flex-direction: column; gap: 3px;
+    align-items: flex-start; justify-content: center;
+    min-height: max(52px, 3.4em); padding: 7px 10px;
+    border: 0; border-radius: 9px; background: transparent;
+    color: var(--ink); cursor: pointer; text-align: left;
+  }
+  .cs-fact:hover, .cs-fact:focus-visible { background: color-mix(in oklab, var(--ink), transparent 94%); }
+  .cs-fact-label {
+    font-family: var(--font-mono); font-size: var(--type-mono-9);
+    color: var(--faint); letter-spacing: .13em; text-transform: uppercase;
+    white-space: nowrap;
+  }
+  /* NO CLAMP ON A VALUE, which is the pack's own note and worth keeping: a
+     shrink-wrapped nowrap span resolves from min-content on a re-render, and the
+     clamp turns "Protagonist" into "Protagoni…" in every export and screenshot
+     while the live box measures fine. */
+  .cs-fact-value { font-size: var(--type-ui-15); line-height: 1.25; }
+
+  /* Two counts, side by side. ONE LINE AND NOT A STACKED CARD: a glyph, a number
+     and its unit stacked into 78px read as a tile with something missing. */
+  .cs-pair { display: flex; gap: 8px; padding: 2px 10px; }
+  .cs-count {
+    flex: 1; min-width: 0;
+    display: flex; align-items: center; justify-content: center; gap: 9px;
+    min-height: max(44px, 2.9em); padding: 0 13px; border-radius: 9px;
+    border: 1px solid var(--line); background: var(--raised);
+    color: var(--ink); cursor: pointer;
+  }
+  .cs-count:hover, .cs-count:focus-visible { border-color: var(--ink-border); }
+  .cs-count-icon { color: var(--faint); display: inline-flex; flex: none; }
+  .cs-count-fig {
+    font-family: var(--font-display); font-size: var(--type-display-19);
+    line-height: 1; flex: none;
+  }
+  .cs-count-cap {
+    font-family: var(--font-mono); font-size: var(--type-mono-9);
+    color: var(--faint); letter-spacing: .13em; text-transform: uppercase; line-height: 1;
+  }
+
+  /* LINKS ARE ROUND PILLS AND THE MARK IS THE POINT. "Links · 4 · Wikipedia ·
+     Fandom" was a row that could only be read: you could not tell which four,
+     could not open one, and the subtitle truncated the moment a fifth arrived.
+     ROUND MEANS A VALUE HERE, so "Add a link" takes the 9px corner and the dashed
+     border of a control and cannot be mistaken for a fifth link. */
+  .cs-pills { display: flex; flex-wrap: wrap; gap: 8px; padding: 2px 10px 6px; }
+  .cs-pill {
+    display: inline-flex; align-items: center; gap: 8px;
+    min-height: max(44px, 2.9em); padding: 0 15px 0 12px;
+    white-space: nowrap; font-size: var(--type-ui-13);
+    border: 1px solid var(--line); border-radius: 999px;
+    background: var(--raised); color: var(--ink); cursor: pointer;
+  }
+  .cs-pill:hover, .cs-pill:focus-visible { border-color: var(--ink-border); }
+  .cs-pill.is-add {
+    border-radius: 9px; border-style: dashed; background: transparent; color: var(--soft);
+  }
+  .cs-pill-mark { display: inline-flex; align-items: center; justify-content: center; flex: none; color: var(--soft); }
+
+  /* A PERFORMER CREDIT IS THREE TARGETS IN ONE ROW, and there can be several of
+     them. One "Played by" row with one name was wrong twice over: a character can
+     be played by more than one performer in the same work — a de-aged shot, a
+     stunt double, a voice over a body — so credits are a LIST with an add row;
+     and a name that both changes the casting and opens the person is one hit
+     target doing two unrelated jobs. So the row splits where the jobs split. */
+  .cs-credit { display: flex; align-items: stretch; gap: 4px; padding: 0 4px; }
+  .cs-credit-pick {
+    flex: none; display: flex; align-items: center; gap: 3px;
+    min-height: max(48px, 3.1em); padding: 0 4px 0 6px;
+    border: 0; border-radius: 9px; background: transparent; color: var(--ink); cursor: pointer;
+  }
+  .cs-credit-pick:hover, .cs-credit-pick:focus-visible { background: color-mix(in oklab, var(--ink), transparent 94%); }
+  .cs-credit-face {
+    width: max(34px, 2.2em); height: max(34px, 2.2em);
+    border-radius: 50%; flex: none; overflow: hidden;
+    border: 1px solid var(--line); background: var(--raised);
+    display: flex; align-items: flex-end; justify-content: center;
+  }
+  .cs-credit-face img { width: 100%; height: 100%; object-fit: cover; }
+  .cs-credit-caret { display: inline-flex; color: var(--faint); flex: none; }
+  .cs-credit-name {
+    flex: 1; min-width: 0;
+    display: flex; flex-direction: column; gap: 1px; justify-content: center;
+    min-height: max(48px, 3.1em); padding: 4px 8px;
+    border: 0; border-radius: 9px; background: transparent;
+    text-align: left; color: var(--ink); cursor: pointer;
+  }
+  .cs-credit-name:hover, .cs-credit-name:focus-visible { background: color-mix(in oklab, var(--ink), transparent 94%); }
+  .cs-credit-text { font-size: var(--type-ui-15); line-height: 1.3; }
+  /* A CREDIT WITH NOBODY NAMED IS A LEGITIMATE STATE — a mute animated short
+     performs nobody — so it renders in faint rather than being hidden. */
+  .cs-credit-text.is-empty { color: var(--faint); font-style: italic; }
+  .cs-credit-note { font-size: var(--type-ui-12); color: var(--soft); line-height: 1.45; text-wrap: pretty; }
+  .cs-credit-key {
+    width: 40px; flex: none; min-height: max(52px, 3.4em);
+    border: 0; border-radius: 9px; background: transparent;
+    display: inline-flex; align-items: center; justify-content: center;
+    color: var(--soft); cursor: pointer;
+  }
+  .cs-credit-key:hover, .cs-credit-key:focus-visible { background: color-mix(in oklab, var(--ink), transparent 94%); color: var(--ink); }
+  .cs-credit-key.is-danger { color: var(--faint); }
+  .cs-credit-key.is-danger:hover { background: color-mix(in oklab, var(--error), transparent 90%); color: var(--error); }
+
+  /* THE APPEARANCE CAROUSEL. A work is a COVER before it is a row of text, and
+     seventeen of them as list rows is four screens of scrolling in a panel that
+     also holds the identity. So each medium is one strip: covers at 112px, the
+     caption under the art, and the fade is the whole signal that there is more —
+     measured by Scroller rather than counted, on the owner's ruling. */
+  .cs-strip { display: flex; flex-direction: column; gap: 6px; padding: 2px 0 6px; }
+  /* THE STRIP STOPS ITS SCROLL AT ITS OWN EDGE. Without this, dragging the last
+     tile past the end scrolls the panel behind it — the reader reaches the end of
+     the works and the screen moves instead. `overscroll-behavior` is the rule
+     scroll-containment.test.js keeps, and a strip is exactly the shape it exists
+     for: a sideways scroller inside a vertical one. */
+  .cs-tiles {
+    display: flex; gap: 12px; align-items: flex-start;
+    overflow-x: auto; overscroll-behavior-x: contain;
+    padding: 2px 10px 4px;
+  }
+  .cs-tile { width: max(112px, 7em); flex: none; display: flex; flex-direction: column; gap: 7px; }
+  .cs-tile-art {
+    width: 100%; aspect-ratio: 112 / 166; flex: none; position: relative; overflow: hidden;
+    border: 1px solid var(--line); border-radius: 4px; background: var(--raised);
+    box-shadow: 0 10px 18px -14px rgba(var(--sh), .7);
+    cursor: pointer;
+  }
+  .cs-tile-art.is-book { border-radius: 3px 7px 4px 6px; }
+  .cs-tile-art img { width: 100%; height: 100%; object-fit: cover; }
+  .cs-tile-badge {
+    position: absolute; left: 6px; bottom: 6px;
+    width: 26px; height: 26px; border-radius: 7px;
+    display: inline-flex; align-items: center; justify-content: center;
+    color: var(--ink);
+    background: color-mix(in oklab, var(--card), transparent 12%);
+    border: 1px solid var(--line);
+  }
+  /* THE LOCAL FACE, ON THE WORK'S OWN COVER. The strip is about ONE character, so
+     the cover alone is the wrong picture: it says which work and nothing about who
+     they are in it. Round means a person everywhere in this app, so a chip in the
+     corner cannot be misread as part of the artwork — and it is the WORK-LOCAL
+     portrait, so a book with no illustration shows a silhouette while the film
+     beside it shows its still. */
+  .cs-tile-chip {
+    position: absolute; right: 6px; top: 6px;
+    width: 30px; height: 30px; border-radius: 50%; overflow: hidden;
+    display: flex; align-items: flex-end; justify-content: center;
+    background: var(--raised);
+    border: 1.4px solid var(--ink-border);
+    box-shadow: 0 4px 10px -6px rgba(var(--sh), .9);
+  }
+  .cs-tile-chip img { width: 100%; height: 100%; object-fit: cover; }
+  .cs-tile-cap {
+    display: flex; flex-direction: column; gap: 2px;
+    border: 0; background: transparent; padding: 0;
+    text-align: left; color: var(--ink); cursor: pointer;
+  }
+  .cs-tile-cap:hover .cs-tile-title { color: var(--accent-ui); }
+  .cs-tile-title { font-size: var(--type-ui-13); line-height: 1.35; }
+  .cs-tile-meta {
+    font-family: var(--font-mono); font-size: var(--type-mono-9);
+    color: var(--faint); letter-spacing: .1em; line-height: 1.4;
+  }
+  /* THE COUNT IS WHY THE WORK IS IN THE LIST. A tile with no number says the
+     character appears; the number says how much of them you have actually kept. */
+  .cs-tile-count {
+    font-family: var(--font-mono); font-size: var(--type-mono-9);
+    color: var(--accent-ui); letter-spacing: .1em; line-height: 1.4;
+  }
+  .cs-strip-hint { font-size: var(--type-ui-12); color: var(--faint); padding: 0 10px; line-height: 1.45; text-wrap: pretty; }
