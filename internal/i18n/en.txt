@@ -5442,7 +5442,7 @@ search.help.colon.more = The dropdown narrows as you type and forgives a typo. A
 
 # Escaping a colon with a backslash so the word stays plain text.
 search.help.escaped-colon.term = When you meant the word
-search.help.escaped-colon.what = Thirteen ordinary words are field names now, and “note:” is a thing people write.
+search.help.escaped-colon.what = Sixteen ordinary words are field names now, and “note:” is a thing people write.
 search.help.escaped-colon.more = Put a backslash before the colon — note\: to self — and it stays plain text: no dropdown, and the words are searched exactly as they read. Only that colon is affected, so a backslash anywhere else in the query is still a character you are looking for.
 
 # Whether a second chip of one field narrows or widens.

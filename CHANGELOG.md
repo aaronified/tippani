@@ -21,6 +21,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   different language from the one the rest of the app speaks. গুলি and এবং were left where
   they stood: not every formal word is the wrong one.
 
+- **The search help said thirteen field names where the app has sixteen.** English and
+  Bengali both, and the two lines immediately above it list all sixteen — so a reader who
+  counted found the panel wrong about the screen it was describing.
+
+- **Twenty-two more Bengali help entries, read without the English this time.** The fault
+  a second pass finds is not mistranslation, it is an entry that cannot be worked from: a
+  fold that says "switch it to quiz or practice" about a control its own sentence never
+  mentioned, a capture panel that says "with a key or without" when nothing there has said
+  what key, two search entries whose verb read as *shrinks two tags* rather than *two tags
+  narrow the search*, and a `.term` in the index that read as "download the end".
+
 - **Bengali stopped saying that objects wait for you.** অপেক্ষা presumes someone alive
   doing the waiting, so *imports waiting*, *quotes waiting*, *it waits in the bin* and
   *waiting for you to tick* all read as though the app's furniture had feelings. Forty-one
