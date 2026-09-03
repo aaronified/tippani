@@ -197,6 +197,7 @@ The route groups themselves, so you can find the noun you want:
 | `people_handlers.go` · `portrait_handlers.go` | Credited people — bios, external links, and pinning a person to a stable external id so a re-fetch cannot drift to a namesake. |
 | `search_handler.go` | The FTS5 search across all five content tables, with facets and the zero-hit fuzzy pass. |
 | `review_handlers.go` | The spaced-repetition engine: both decks, the grading path, the interval ladder. |
+| `names.go` | A record's name and every other spelling of it, as ONE field whose first line prints — so promoting an alias is a line move rather than a two-box dance that can fail halfway. Whole-list in one transaction; 0063's `seq` is what makes the order the reader's. |
 | `review_questions.go` | The one place the deck repertoire rules live: which question types a deck may ask, and the three that stop a reader configuring it into something that can ask them nothing. Mirrored client-side in `web/frontend/src/quiz.js`, which a test keeps in step by reading this file. |
 | `shelf.go` · `read_history_handlers.go` | Shelf status, the legal transitions, and the read log. |
 | `stats_handlers.go` | Everything the Stats page draws. |
@@ -204,6 +205,7 @@ The route groups themselves, so you can find the noun you want:
 | `import_handlers.go` · `import_quotes.go` · `import_movies.go` · `import_staged_bulk.go` · `import_dupes.go` | Upload, stage, bulk-edit and de-duplicate. |
 | `metadata_handlers.go` · `metadata_library.go` · `metadata_bulk.go` · `lookup_handlers.go` · `reverify_handlers.go` | Source keys, the coverage console, bulk correction, one-off lookups, and the preview-then-apply re-verify flow. |
 | `cast.go` · `cast_handlers.go` | A work's cast: the row every screen reads, and the six fields 0063 added to it — two about the CREDIT (its note and the language of that performance) and four about the character in THIS work (part, first appearance, age, and the spellings this work uses). All six take the optional-pointer contract, because five screens save this row and none has a box for every field. |
+| `whos_in_it.go` | Everything behind one carousel tile: the work's own page, every character linked to it, and everybody it credits in any role — plus, per character, how many quotes of theirs this work holds and in how many distinct places. One request, because a chooser opens on a press. |
 | `field_offers.go` | What every supplier says about every field, whether or not it differs from what is stored. A different question from the re-verify diff, and the reason it cannot be answered by it: a field's tag names a supplier BECAUSE that supplier wrote the value, so the diff for it is empty by construction. |
 | `image_search_handlers.go` | The picture strip behind all three pickers — a cover, a poster, a portrait. A different question from a catalogue lookup: these suppliers search for PICTURES, and none of them is required. |
 | `covers_handler.go` · `avatar_handlers.go` · `sticker_handlers.go` | The three image kinds, all under `<DataDir>/MediaCover`. |

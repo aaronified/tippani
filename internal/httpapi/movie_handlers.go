@@ -46,6 +46,12 @@ type movieReq struct {
 	// present empty string clears it, which re-arms the probe.
 	FandomWiki *string `json:"fandom_wiki"`
 	IGDBID     *int64  `json:"igdb_id"` // games (0040); same pointer contract as the two above
+	// CastRole is a POINTER for FandomWiki's reason and one of its own: it is a
+	// field exactly one screen has a control for, and every other writer of this
+	// record — the cast panel's save, a re-sync, the metadata console — would
+	// clear it by omission if it were full-state. nil leaves it; an empty string
+	// hands the question back to the medium.
+	CastRole *string `json:"cast_role"`
 	// IMDbID is full-state like the ordinary fields rather than a pointer like
 	// the two above, and the difference is what each id is FOR. Those two are
 	// what a re-sync pulls from, so an old client omitting one must not wipe it;
@@ -219,7 +225,14 @@ type movieDetail struct {
 	FieldSources []store.FieldSource `json:"field_sources,omitempty"`
 	// Which Fandom wiki this work is on — resolved by a probe or typed by the
 	// reader. Returned so a wrong guess can be seen and corrected.
-	FandomWiki   string                `json:"fandom_wiki"`
+	FandomWiki string `json:"fandom_wiki"`
+	// WHETHER THIS WORK PERFORMS OR VOICES ITS CAST (0063), where the reader has
+	// said. Empty means "ask the medium" — the derivation actorRole has always
+	// made — and it is empty on every row until somebody decides otherwise. It is
+	// the work's fact and not the credit's: an animated film voices its whole
+	// cast, and asking per credit would put the same question twenty times on one
+	// screen. The one credit that differs says so in its own note.
+	CastRole     string                `json:"cast_role"`
 	ID           int64                 `json:"id"`
 	Title        string                `json:"title"`
 	Director     string                `json:"director"`
@@ -253,13 +266,13 @@ func (s *Server) fetchMovie(uid, id int64) (*movieDetail, error) {
 		       COALESCE(tvdb_id, 0), COALESCE(igdb_id, 0), media_type, COALESCE(poster_path, ''), COALESCE(description, ''),
 		       COALESCE(series, ''), COALESCE(series_index, 0), favorite, status, progress,
 		       pos_unit, pos, pos_total, season, season_total, created_at,
-		       COALESCE(imdb_id, ''), publisher, COALESCE(fandom_wiki, ''), links
+		       COALESCE(imdb_id, ''), publisher, COALESCE(fandom_wiki, ''), links, cast_role
 		FROM movies WHERE id = ? AND user_id = ?`, id, uid).
 		Scan(&m.ID, &m.Title, &m.Director, &m.ReleaseYear, &m.ReleaseCirca, &m.TMDBID,
 			&m.TVDBID, &m.IGDBID, &m.MediaType, &m.PosterPath, &m.Description,
 			&m.Series, &m.SeriesIndex, &m.Favorite, &m.Status, &m.Progress,
 			&m.Unit, &m.Pos, &m.PosTotal, &m.Season, &m.SeasonTotal,
-			&m.CreatedAt, &m.IMDbID, &m.Publisher, &m.FandomWiki, &m.Links)
+			&m.CreatedAt, &m.IMDbID, &m.Publisher, &m.FandomWiki, &m.Links, &m.CastRole)
 	if err != nil {
 		return nil, err
 	}
@@ -998,6 +1011,23 @@ func (s *Server) handleUpdateMovie(w http.ResponseWriter, r *http.Request) {
 			`UPDATE movies SET fandom_wiki = ?, updated_at = datetime('now') WHERE id = ? AND user_id = ?`,
 			strings.TrimSpace(*req.FandomWiki), id, uid); err != nil {
 			failErr("update movie: set fandom wiki", err)
+			return
+		}
+	}
+	// Performed or voiced (0063), and it writes on its own for the wiki's reason.
+	// VALIDATED RATHER THAN STORED RAW: the column is open text, and a value
+	// outside the two the app knows would make a cast list draw a column with no
+	// name. An empty string is legal and means "ask the medium".
+	if req.CastRole != nil {
+		v := strings.TrimSpace(*req.CastRole)
+		if v != "" && v != actorRoleActor && v != actorRoleVoice {
+			fail(http.StatusBadRequest, "a cast is performed or voiced — nothing else")
+			return
+		}
+		if _, err := tx.Exec(
+			`UPDATE movies SET cast_role = ?, updated_at = datetime('now') WHERE id = ? AND user_id = ?`,
+			v, id, uid); err != nil {
+			failErr("update movie: set cast role", err)
 			return
 		}
 	}

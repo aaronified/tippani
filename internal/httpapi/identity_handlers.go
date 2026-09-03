@@ -63,6 +63,12 @@ type characterRow struct {
 	ImagePath   string `json:"image_path"`
 	Note        string `json:"note"`
 	Links       string `json:"links"`
+	// IN-WORLD, WHERE A WORK STATES IT (0063). A person has had `born` and `died`
+	// since the table existed, because a person is a person; a character had
+	// neither, so a birthday a book prints on the page had nowhere to go. Only
+	// `born`: a character's death is a plot point and belongs in the description a
+	// reader writes, not in a field the app prints beside their name.
+	Born string `json:"born"`
 }
 
 type characterDetail struct {
@@ -82,11 +88,11 @@ type characterDetail struct {
 	SharedLines int               `json:"shared_lines"`
 }
 
-const characterCols = `c.id, c.name, c.sort_name, c.description, c.image_path, c.note, c.links`
+const characterCols = `c.id, c.name, c.sort_name, c.description, c.image_path, c.note, c.links, c.born`
 
 func scanCharacter(sc interface{ Scan(...any) error }) (characterRow, error) {
 	var c characterRow
-	err := sc.Scan(&c.ID, &c.Name, &c.SortName, &c.Description, &c.ImagePath, &c.Note, &c.Links)
+	err := sc.Scan(&c.ID, &c.Name, &c.SortName, &c.Description, &c.ImagePath, &c.Note, &c.Links, &c.Born)
 	return c, err
 }
 
@@ -353,7 +359,7 @@ func (s *Server) handlePersonAlias(w http.ResponseWriter, r *http.Request) {
 	if !decodeBody(w, r, &req) {
 		return
 	}
-	s.aliasWrite(w, r, func(tx *sql.Tx) error {
+	s.aliasWrite204(w, r, func(tx *sql.Tx) error {
 		return store.AddPersonAlias(tx, uid, id, req.Alias)
 	})
 }
@@ -365,7 +371,7 @@ func (s *Server) handlePersonAliasDelete(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	alias := r.URL.Query().Get("alias")
-	s.aliasWrite(w, r, func(tx *sql.Tx) error {
+	s.aliasWrite204(w, r, func(tx *sql.Tx) error {
 		return store.RemovePersonAlias(tx, uid, id, alias)
 	})
 }
@@ -381,9 +387,85 @@ func (s *Server) handleCharacterAlias(w http.ResponseWriter, r *http.Request) {
 	if !decodeBody(w, r, &req) {
 		return
 	}
-	s.aliasWrite(w, r, func(tx *sql.Tx) error {
+	s.aliasWrite204(w, r, func(tx *sql.Tx) error {
 		return store.AddCharacterAlias(tx, uid, id, req.Alias)
 	})
+}
+
+// ---- the name field ---------------------------------------------------------
+
+// handleCharacterNames: PUT /characters/{id}/names — the whole field at once.
+// handlePersonNames does the same on the other table.
+//
+// ONE REQUEST BECAUSE IT IS ONE FIELD. The design pack edits a record's name and
+// its spellings as a single multi-line box whose first line prints, so promoting
+// an alias is a line move. Saved as several requests it could fail halfway and
+// leave a record whose printing name is in neither place — see store/names.go.
+//
+// The existing per-alias verbs stay: the chips in the metadata console add and
+// remove one spelling at a time, which is a different gesture and a legitimate
+// one, and neither writes a position.
+func (s *Server) handleCharacterNames(w http.ResponseWriter, r *http.Request) {
+	uid, id, ok := s.identityTarget(w, r, "characters")
+	if !ok {
+		return
+	}
+	lines, ok := decodeNameLines(w, r)
+	if !ok {
+		return
+	}
+	// THE RECORD COMES BACK, unlike the per-alias verbs' 204. This is a FIELD
+	// save — the screen's box redraws from what the server stored, the same
+	// contract every other row on that panel keeps — and the field's whole point
+	// is that the printing name may have moved, which a 204 cannot report.
+	if !s.aliasWrite(w, r, func(tx *sql.Tx) error {
+		return store.SetCharacterNames(tx, uid, id, lines)
+	}) {
+		return
+	}
+	s.handleCharacterByID(w, r)
+}
+
+func (s *Server) handlePersonNames(w http.ResponseWriter, r *http.Request) {
+	uid, id, ok := s.identityTarget(w, r, "people")
+	if !ok {
+		return
+	}
+	lines, ok := decodeNameLines(w, r)
+	if !ok {
+		return
+	}
+	if !s.aliasWrite(w, r, func(tx *sql.Tx) error {
+		return store.SetPersonNames(tx, uid, id, lines)
+	}) {
+		return
+	}
+	s.handlePersonByID(w, r)
+}
+
+// decodeNameLines takes the field's value either way it is sent.
+//
+// A LIST OR A STRING, and both because the field IS a string on the screen while
+// a list is what the store wants — so the client may send whichever it has
+// without either side splitting the other's lines. The split is here so there is
+// exactly one rule about what a line break is, rather than one in the client and
+// one in Go that agree until somebody pastes text with a carriage return in it.
+func decodeNameLines(w http.ResponseWriter, r *http.Request) ([]string, bool) {
+	var req struct {
+		Lines []string `json:"lines"`
+		Text  *string  `json:"text"`
+	}
+	if !decodeBody(w, r, &req) {
+		return nil, false
+	}
+	if req.Text != nil {
+		return strings.Split(strings.ReplaceAll(*req.Text, "\r\n", "\n"), "\n"), true
+	}
+	if len(req.Lines) == 0 {
+		writeErr(w, http.StatusBadRequest, "a record needs a name")
+		return nil, false
+	}
+	return req.Lines, true
 }
 
 func (s *Server) handleCharacterAliasDelete(w http.ResponseWriter, r *http.Request) {
@@ -392,18 +474,23 @@ func (s *Server) handleCharacterAliasDelete(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	alias := r.URL.Query().Get("alias")
-	s.aliasWrite(w, r, func(tx *sql.Tx) error {
+	s.aliasWrite204(w, r, func(tx *sql.Tx) error {
 		return store.RemoveCharacterAlias(tx, uid, id, alias)
 	})
 }
 
 // aliasWrite runs one alias change in its own transaction and turns the store's
 // refusals into a 409 the panel can print.
-func (s *Server) aliasWrite(w http.ResponseWriter, r *http.Request, fn func(*sql.Tx) error) {
+// IT REPORTS WHETHER IT ANSWERED, so a caller that wants to serve the record
+// instead of a 204 can. The per-alias verbs ignore the bool and keep the 204
+// they have always sent — one chip added is not a field save and the console
+// does not redraw from it — while the name field's own verbs re-serve, because
+// their whole point is that the printing name may have moved.
+func (s *Server) aliasWrite(w http.ResponseWriter, r *http.Request, fn func(*sql.Tx) error) bool {
 	tx, err := s.Store.DB.Begin()
 	if err != nil {
 		internalError(w, r, "begin", err)
-		return
+		return false
 	}
 	defer tx.Rollback()
 	// THE STORE SAYS WHICH KIND OF ANSWER IT IS. Its refusals — empty, no such
@@ -416,16 +503,25 @@ func (s *Server) aliasWrite(w http.ResponseWriter, r *http.Request, fn func(*sql
 	switch {
 	case errors.As(err, &refused):
 		writeErr(w, http.StatusConflict, refused.Error())
-		return
+		return false
 	case err != nil:
 		internalError(w, r, "alias", err)
-		return
+		return false
 	}
 	if err := tx.Commit(); err != nil {
 		internalError(w, r, "commit", err)
-		return
+		return false
 	}
-	w.WriteHeader(http.StatusNoContent)
+	return true
+}
+
+// aliasWrite204 is aliasWrite for the callers whose answer is "done": it sends
+// the 204 they have always sent. Separate rather than a flag, so a caller cannot
+// commit a write and then forget to answer at all.
+func (s *Server) aliasWrite204(w http.ResponseWriter, r *http.Request, fn func(*sql.Tx) error) {
+	if s.aliasWrite(w, r, fn) {
+		w.WriteHeader(http.StatusNoContent)
+	}
 }
 
 // ---- characters ------------------------------------------------------------
@@ -450,8 +546,13 @@ func (s *Server) handleCharacters(w http.ResponseWriter, r *http.Request) {
 	byID := map[int64]*characterListRow{}
 	for rows.Next() {
 		var v characterListRow
+		// EVERY COLUMN OF characterCols AND THEN THE COUNT. Scanned by hand rather
+		// than through scanCharacter because of that trailing count, which is why
+		// 0063's `born` had to be added here too — the shared SELECT list grew and
+		// this destination list did not, so every read answered "expected 9
+		// destination arguments" and the character list came back empty.
 		if err := rows.Scan(&v.ID, &v.Name, &v.SortName, &v.Description, &v.ImagePath,
-			&v.Note, &v.Links, &v.Works); err != nil {
+			&v.Note, &v.Links, &v.Born, &v.Works); err != nil {
 			olog.Warnf(olog.CodePeopleRowScan, "[identity] character row scan failed: %v", err)
 			continue
 		}
@@ -616,6 +717,7 @@ func (s *Server) handleUpdateCharacter(w http.ResponseWriter, r *http.Request) {
 		Description *string `json:"description"`
 		Note        *string `json:"note"`
 		Links       *string `json:"links"`
+		Born        *string `json:"born"`
 	}
 	if !decodeBody(w, r, &req) {
 		return
@@ -637,6 +739,7 @@ func (s *Server) handleUpdateCharacter(w http.ResponseWriter, r *http.Request) {
 	put("description", req.Description)
 	put("note", req.Note)
 	put("links", req.Links)
+	put("born", req.Born)
 	if len(set) > 0 {
 		args = append(args, id, uid)
 		if _, err := s.Store.DB.Exec(

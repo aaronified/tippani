@@ -163,20 +163,26 @@ func RemoveCharacterAlias(tx *sql.Tx, uid, characterID int64, alias string) erro
 	return err
 }
 
-// PersonAliases lists a record's other spellings, alphabetically.
+// PersonAliases lists a record's other spellings — the reader's order where they
+// have given one, alphabetically among the rows nobody placed.
 //
-// NOT "IN THE ORDER THEY WERE ADDED", which is what a list of chips would ideally
-// show and what this asked for first: 0056 declared both alias tables WITHOUT
-// ROWID, so there is no insertion order to sort by. Alphabetical is the honest
-// second choice — stable, and it makes a long list findable, which insertion order
-// does not.
+// IT USED TO BE ALPHABETICAL FULL STOP, and the reasoning is worth keeping
+// because half of it still holds: 0056 declared both alias tables WITHOUT ROWID,
+// so there is no insertion order to sort by, and alphabetical was the honest
+// second choice. 0063 gave them a `seq` written by the one field that edits a
+// name and its spellings together, so there is now a chosen order to prefer —
+// and `(seq = 0)` sorting first in SQLite means an unplaced row lands AFTER every
+// placed one, which is where a merge's contribution belongs. A record whose field
+// has never been saved has every row at 0 and comes back exactly as before.
 func PersonAliases(db Queryer, uid, personID int64) ([]string, error) {
-	return aliasList(db, `SELECT alias FROM person_alias WHERE user_id = ? AND person_id = ? ORDER BY alias_key`, uid, personID)
+	return aliasList(db, `SELECT alias FROM person_alias WHERE user_id = ? AND person_id = ?
+	                      ORDER BY (seq = 0), seq, alias_key`, uid, personID)
 }
 
 // CharacterAliases is PersonAliases for the other table.
 func CharacterAliases(db Queryer, uid, characterID int64) ([]string, error) {
-	return aliasList(db, `SELECT alias FROM character_alias WHERE user_id = ? AND character_id = ? ORDER BY alias_key`, uid, characterID)
+	return aliasList(db, `SELECT alias FROM character_alias WHERE user_id = ? AND character_id = ?
+	                      ORDER BY (seq = 0), seq, alias_key`, uid, characterID)
 }
 
 // Queryer is the half of *sql.DB and *sql.Tx these reads need, so a handler can

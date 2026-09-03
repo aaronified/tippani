@@ -149,13 +149,13 @@ func (s *Server) castWork(uid int64, kind string, workID int64) (role string, ok
 		}
 		return actorRoleNone, true
 	}
-	var mediaType string
+	var mediaType, castRole string
 	if err := s.Store.DB.QueryRow(
-		`SELECT COALESCE(media_type, 'movie') FROM movies WHERE id = ? AND user_id = ?`,
-		workID, uid).Scan(&mediaType); err != nil {
+		`SELECT COALESCE(media_type, 'movie'), cast_role FROM movies WHERE id = ? AND user_id = ?`,
+		workID, uid).Scan(&mediaType, &castRole); err != nil {
 		return "", false
 	}
-	return actorRole(kind, mediaType), true
+	return actorRoleOr(kind, mediaType, castRole), true
 }
 
 // castOwner reads one row's identity, scoped to the caller. A row that is not
@@ -184,14 +184,36 @@ func (s *Server) castOwner(uid, castID int64) (kind string, workID int64, origin
 // whose real answer was either the 409 "already on this list" or a coded error
 // naming the check that failed. sql.ErrNoRows is the only "no" there is.
 func castPairTaken(tx *sql.Tx, uid int64, kind string, workID int64, charKey, actorKey string, exclude int64) (id int64, origin string, found bool, err error) {
+	// A CREDIT WITH NOBODY NAMED IS NOT A PAIR, so no LIVE row can take it (0063).
+	//
+	// This guard and idx_work_cast_pair were one rule in two places, and 0063
+	// changed the rule in one of them: a work may hold any number of credits
+	// waiting for a name — the design pack's film screen holds two, a flashback
+	// nobody has cast and a dub nobody has named — while a named duplicate stays
+	// refused, which is what the refetch merge relies on. Leaving this half
+	// behind made the index permissive and the request still a 409, which is the
+	// worse of the two failures: the schema says yes and the app says no.
+	//
+	// A TOMBSTONE IS STILL FOUND, and this is the half that must not be lost with
+	// it. ON A BOOK EVERY CHARACTER HAS AN EMPTY actor_key — a novel has speakers,
+	// not a cast — so a blanket "an empty name is never taken" stops the revival
+	// path for every book character there is: delete Behemoth, add Behemoth, and
+	// instead of the row coming back with its description you get a second row and
+	// a tombstone nobody can reach. The index never covered tombstones either, so
+	// nothing about 0063 touches them.
+	where, args := `AND actor_key = ?`, []any{actorKey}
+	if actorKey == "" {
+		where, args = `AND actor_key = '' AND origin = ?`, []any{castRemoved}
+	}
 	// A LIVE ROW IS REPORTED IN PREFERENCE TO A TOMBSTONE. The pair unique is
 	// partial, so one live row and any number of tombstones can share a pair, and
 	// the answer that matters is "is this pair on the list now?".
-	err = tx.QueryRow(
-		`SELECT id, origin FROM work_cast
-		 WHERE user_id = ? AND kind = ? AND work_id = ? AND character_key = ? AND actor_key = ? AND id <> ?
-		 ORDER BY CASE origin WHEN ? THEN 1 ELSE 0 END, id LIMIT 1`,
-		uid, kind, workID, charKey, actorKey, exclude, castRemoved).Scan(&id, &origin)
+	q := `SELECT id, origin FROM work_cast
+	       WHERE user_id = ? AND kind = ? AND work_id = ? AND character_key = ? ` + where + ` AND id <> ?
+	       ORDER BY CASE origin WHEN ? THEN 1 ELSE 0 END, id LIMIT 1`
+	all := append([]any{uid, kind, workID, charKey}, args...)
+	all = append(all, exclude, castRemoved)
+	err = tx.QueryRow(q, all...).Scan(&id, &origin)
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
 		return 0, "", false, nil

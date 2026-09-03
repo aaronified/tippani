@@ -254,6 +254,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /people/id/{id}", s.requireAuth(s.handlePersonByID))
 	mux.Handle("PUT /people/id/{id}", s.requireAuth(s.handleUpdatePersonByID))
 	mux.Handle("POST /people/id/{id}/aliases", s.requireAuth(s.handlePersonAlias))
+	mux.Handle("PUT /people/id/{id}/names", s.requireAuth(s.handlePersonNames))
 	mux.Handle("DELETE /people/id/{id}/aliases", s.requireAuth(s.handlePersonAliasDelete))
 	mux.Handle("GET /characters", s.requireAuth(s.handleCharacters))
 	mux.Handle("POST /characters", s.requireAuth(s.handleCreateCharacter))
@@ -268,6 +269,9 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("DELETE /characters/{id}/works/{cast}", s.requireAuth(s.handleCharacterDropWork))
 	mux.Handle("PUT /characters/{id}/image", s.requireAuth(s.handleCharacterImage))
 	mux.Handle("POST /characters/{id}/aliases", s.requireAuth(s.handleCharacterAlias))
+	// The whole name field at once (0063): line one prints, the rest are the
+	// ordered spellings. The per-alias verbs above stay for the console's chips.
+	mux.Handle("PUT /characters/{id}/names", s.requireAuth(s.handleCharacterNames))
 	mux.Handle("DELETE /characters/{id}/aliases", s.requireAuth(s.handleCharacterAliasDelete))
 	// The pairing itself: who a role is, and who played it. Never automatic.
 	mux.Handle("PUT /cast/{id}/link", s.requireAuth(s.handleCastLink))
@@ -330,6 +334,11 @@ func (s *Server) Handler() http.Handler {
 	// The ⋯ menu's People entry opens this; see handleWorkPeople.
 	mux.Handle("GET /books/{id}/people", s.requireAuth(s.handleWorkPeople("book")))
 	mux.Handle("GET /movies/{id}/people", s.requireAuth(s.handleWorkPeople("movie")))
+	// Everything behind one carousel tile: the work's own page, every character
+	// linked to it, and everybody it credits — plus the two counts a character
+	// screen prints. One request, because a chooser opens on a press.
+	mux.Handle("GET /books/{id}/whos-in-it", s.requireAuth(s.handleWhosInIt("book")))
+	mux.Handle("GET /movies/{id}/whos-in-it", s.requireAuth(s.handleWhosInIt("movie")))
 	mux.Handle("POST /movies/{id}/cast", s.requireAuth(s.handleAddCast("movie")))
 	mux.Handle("PUT /cast/{id}", s.requireAuth(s.handleUpdateCast))
 	mux.Handle("DELETE /cast/{id}", s.requireAuth(s.handleDeleteCast))

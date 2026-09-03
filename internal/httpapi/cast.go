@@ -71,9 +71,31 @@ const maxCastDescription = 2000
 // actorRole reports what a work's second column holds. Derived from
 // movies.media_type in ONE place, because "a game says voice actor" is exactly
 // the kind of rule that gets added to three of the four sites that need it.
+//
+// THE DERIVATION IS THE DEFAULT AND NOT THE ANSWER (0063). It is right about the
+// common case and wrong about several real ones: an animated film casts voices, a
+// motion-capture performance is a performer whose voice is somebody else, and a
+// game can do both. So a work may say otherwise, and `movies.cast_role` holds
+// what it said — empty meaning "ask the medium", which is every row that exists
+// and every row nobody has an opinion about.
+//
+// A BOOK IS NOT ASKED. It performs nobody, so an override there would be a value
+// the schema deliberately has no column for; the kind check stays first.
 func actorRole(kind, mediaType string) string {
+	return actorRoleOr(kind, mediaType, "")
+}
+
+// actorRoleOr is actorRole with the work's own answer, where it has given one.
+// An unrecognised stored value falls back to the derivation rather than being
+// served: the column is open text and a typo must not make a screen draw a
+// column with no name.
+func actorRoleOr(kind, mediaType, override string) string {
 	if kind == "book" {
 		return actorRoleNone
+	}
+	switch override {
+	case actorRoleActor, actorRoleVoice:
+		return override
 	}
 	if mediaType == "game" {
 		return actorRoleVoice
