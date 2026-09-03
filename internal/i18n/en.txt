@@ -443,6 +443,9 @@ common.field.filter.none = nothing matches
 # What a row with nothing in it says, in the inline editors on a work's page.
 common.field.inline.placeholder = not set
 common.field.colour.label = Colour
+# The provenance mark on a field's row, when it can be pressed: it opens what
+# each source has for that one field. See fieldOffers.jsx.
+common.field.source.open.tip = See what each source has for this field
 
 # --- the pop-up form frame.
 common.form.close.tip = Close without saving
@@ -3747,6 +3750,18 @@ error.reverify.preview = preview failed
 error.reverify.apply = apply failed
 error.reverify.interrupted = the check was interrupted — check your connection and reopen Re-verify
 error.reverify.apply-interrupted = apply was interrupted — check your connection and try again (already-applied items stay applied)
+
+# ---------------------------------------------------------------------------
+# THE FIELD'S CANDIDATES — fieldOffers.jsx. One field, and what every supplier
+# says about it. Reached by pressing the provenance mark on a Details row.
+offers.prose = What each source has for {field}
+# The row holding the value already on the record. It wears the mark of whoever
+# wrote it and this word instead of their name.
+offers.column.stored = KEPT
+offers.take.tip = Take {source}'s answer for this field
+offers.taken.toast = {field} now comes from {source}
+offers.none.prose = No source has another answer for this field.
+offers.unpinned.prose = This record is not pinned to a source, so there is nothing to ask. Use Look up to pin it first.
 
 # ---------------------------------------------------------------------------
 # IMPORT — ImportPage.jsx. Seven source formats, each a card with a how-to, and

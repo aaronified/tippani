@@ -25,6 +25,7 @@ import { coverImgURL, errText, json } from './api.js'
 import { CastFills, CastSection } from './cast.jsx'
 import { DEFAULT_CREDIT_SEPS, splitCredits } from './credits.jsx'
 import { characterPanel } from './identity.jsx'
+import { OFFERED_FIELDS, fieldOffersPanel } from './fieldOffers.jsx'
 import { PasteLink, WorkLinks, linksSummary } from './workLinks.jsx'
 import { t } from './i18n.js'
 import { BookLookupPicker, CoverControls, CoverPreview, MovieLookupPicker, hiResPoster, idNum } from './CoverPicker.jsx'
@@ -896,7 +897,7 @@ export function fieldSheetPanel(stack, { kind, item, spec, label, genreSuggestio
 // size of edit as "series number", and put the list nobody can miss above the
 // form rather than in it. Behind one door they are what they are: a list of
 // people with roles, faces and actions of their own.
-function WorkPeople({ kind, item, creditSpecs, mediaType, onChanged, onDone, onOpenCharacter }) {
+function WorkPeople({ kind, item, creditSpecs, mediaType, stack, onChanged, onDone, onOpenCharacter }) {
   // ITS OWN RECORD, like the sheets: pushing this panel unmounts the form under
   // it, so both the values these rows show and the full state they write have to
   // come from a read this panel made rather than from the form's captured copy.
@@ -937,13 +938,24 @@ function WorkPeople({ kind, item, creditSpecs, mediaType, onChanged, onDone, onO
         <div>
           {creditSpecs.map((spec) => {
             const prov = fieldSources[spec.key]
+            const label = labelFor(spec, mediaType)
+            // THE SAME DOOR THE DETAILS LIST HAS. An author and a director are
+            // fields the suppliers disagree about as readily as a year, and this
+            // panel is where those two rows live — leaving them out would make the
+            // door a property of which panel a field happens to be drawn in.
+            const offers = stack && prov?.source && OFFERED_FIELDS.has(spec.key)
+              ? () => stack.push(fieldOffersPanel(stack, {
+                  kind, item, field: spec.key, label, storedSource: prov.source, onChanged,
+                }))
+              : undefined
             return (
               <InlineField
                 key={spec.key}
                 fieldKey={spec.key}
                 source={prov?.source}
                 sourceAt={prov?.at}
-                label={labelFor(spec, mediaType)}
+                sourceOpen={offers}
+                label={label}
                 value={resting(spec, rec)}
                 hint={spec.hint}
                 busy={!!busy}
@@ -975,6 +987,7 @@ export function workPeoplePanel(stack, props) {
     render: () => (
       <WorkPeople
         {...props}
+        stack={stack}
         onDone={() => stack.back()}
         // A CHARACTER'S PAGE, PUSHED ON TOP OF THIS LIST rather than replacing it:
         // the reader presses V, reads who V is, and Back puts them back among the
@@ -1116,6 +1129,18 @@ function FieldList({ kind, item, stack, specs, creditSpecs, mediaType, busy, gen
     for (const fs of item?.field_sources || []) if (fs?.field) out[fs.field] = fs
     return out
   }, [item])
+
+  // THE DOOR BEHIND EVERY TAG — handoff §1.2's last clause. One opener rather
+  // than a prop per row: the panel needs the field name, its label and the
+  // supplier currently credited, and every branch below already has all three in
+  // hand. Absent when there is no stack (the glossary renders this list without
+  // one), which leaves each tag the plain label it has always been.
+  const openOffers = (spec, label, prov) =>
+    stack && prov?.source && OFFERED_FIELDS.has(spec.key)
+      ? () => stack.push(fieldOffersPanel(stack, {
+          kind, item, field: spec.key, label, storedSource: prov.source, onChanged,
+        }))
+      : undefined
 
   // THE MASTER SAVE. Every row still saves itself — that is what the panel is
   // for, and changing one field should not cost more than one press. What it
@@ -1286,6 +1311,7 @@ function FieldList({ kind, item, stack, specs, creditSpecs, mediaType, busy, gen
                 label={label}
                 source={prov0?.source}
                 sourceAt={prov0?.at}
+                sourceOpen={openOffers(spec, label, prov0)}
                 hint={spec.hint}
                 display={spec.kind === 'tokens' ? (value || []).join(' · ') : value}
                 disabled={!!busy}
@@ -1311,6 +1337,7 @@ function FieldList({ kind, item, stack, specs, creditSpecs, mediaType, busy, gen
                 fieldKey={spec.key}
                 source={prov?.source}
                 sourceAt={prov?.at}
+                sourceOpen={openOffers(spec, label, prov)}
                 label={label}
                 value={value}
                 hint={spec.hint}
@@ -1340,6 +1367,7 @@ function FieldList({ kind, item, stack, specs, creditSpecs, mediaType, busy, gen
                 fieldKey={spec.key}
                 source={prov?.source}
                 sourceAt={prov?.at}
+                sourceOpen={openOffers(spec, label, prov)}
                 label={label}
                 value={value}
                 display={value.join(' · ')}
@@ -1359,6 +1387,7 @@ function FieldList({ kind, item, stack, specs, creditSpecs, mediaType, busy, gen
                 fieldKey={spec.key}
                 source={prov?.source}
                 sourceAt={prov?.at}
+                sourceOpen={openOffers(spec, label, prov)}
                 label={label}
                 value={value}
                 // THREE MEDIA, NOT TWO. This read `value === 'show' ? 'Show' :
@@ -1395,6 +1424,7 @@ function FieldList({ kind, item, stack, specs, creditSpecs, mediaType, busy, gen
               fieldKey={spec.key}
               source={prov?.source}
               sourceAt={prov?.at}
+              sourceOpen={openOffers(spec, label, prov)}
               label={label}
               value={value}
               hint={spec.hint}

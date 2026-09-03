@@ -133,12 +133,12 @@ func (s *Server) handleMetadataFill(w http.ResponseWriter, r *http.Request) {
 	results := []fillResult{}
 	filled, failed := 0, 0
 	for _, id := range req.BookIDs {
-		res := s.fillOne(ctx, uid, s.reverifyBook(ctx, uid, id, gkey, cookie, domain))
+		res := s.fillOne(ctx, uid, s.reverifyBook(ctx, uid, id, gkey, cookie, domain, false))
 		results = append(results, res)
 		countFill(&filled, &failed, res)
 	}
 	for _, id := range req.MovieIDs {
-		res := s.fillOne(ctx, uid, s.reverifyMovie(ctx, uid, id, tmdb, tvdb))
+		res := s.fillOne(ctx, uid, s.reverifyMovie(ctx, uid, id, tmdb, tvdb, false))
 		results = append(results, res)
 		countFill(&filled, &failed, res)
 	}

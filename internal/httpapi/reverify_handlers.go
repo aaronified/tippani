@@ -130,7 +130,14 @@ type reverifyItem struct {
 	// field from these; Source is Sources[0].
 	Sources []string    `json:"sources,omitempty"`
 	Diffs   []fieldDiff `json:"diffs"`
-	Error   string      `json:"error,omitempty"`
+	// Offers is what every supplier has to say about every field, asked for by
+	// the `offers` flag and absent otherwise. It is NOT a subset or a superset of
+	// Diffs: a field can be offered without differing (the tag says TMDB because
+	// TMDB wrote it, and TheTVDB still has another answer) and can differ without
+	// being offered (a cast list, which is a panel and not a row). See
+	// field_offers.go for why the two questions cannot share one answer.
+	Offers []fieldDiff `json:"offers,omitempty"`
+	Error  string      `json:"error,omitempty"`
 }
 
 // handleMetadataReverify: POST /metadata/reverify
@@ -144,6 +151,12 @@ func (s *Server) handleMetadataReverify(w http.ResponseWriter, r *http.Request) 
 			Kind string `json:"kind"`
 			Name string `json:"name"`
 		} `json:"people"`
+		// Offers asks each item for what every supplier says about every field,
+		// not only about the fields that differ. Sent by the Details field
+		// picker, which is asking a different question — see field_offers.go —
+		// and by nothing else, so the reviewer and the filler carry no extra
+		// payload for a list they never read.
+		Offers bool `json:"offers"`
 	}
 	if !decodeBody(w, r, &req) {
 		return
@@ -175,10 +188,10 @@ func (s *Server) handleMetadataReverify(w http.ResponseWriter, r *http.Request) 
 	ctx := r.Context()
 	items := []reverifyItem{}
 	for _, id := range req.BookIDs {
-		items = append(items, s.reverifyBook(ctx, uid, id, gkey, cookie, domain))
+		items = append(items, s.reverifyBook(ctx, uid, id, gkey, cookie, domain, req.Offers))
 	}
 	for _, id := range req.MovieIDs {
-		items = append(items, s.reverifyMovie(ctx, uid, id, tmdb, tvdb))
+		items = append(items, s.reverifyMovie(ctx, uid, id, tmdb, tvdb, req.Offers))
 	}
 	for _, p := range req.People {
 		items = append(items, s.reverifyPerson(ctx, uid, strings.TrimSpace(p.Kind), strings.TrimSpace(p.Name)))
@@ -255,7 +268,7 @@ func reverifyLookupError(what string, err error) string {
 	return "lookup failed — try again in a moment"
 }
 
-func (s *Server) reverifyBook(ctx context.Context, uid, id int64, gkey, cookie, domain string) reverifyItem {
+func (s *Server) reverifyBook(ctx context.Context, uid, id int64, gkey, cookie, domain string, withOffers bool) reverifyItem {
 	it := reverifyItem{Type: "book", ID: id, Status: "ok", Diffs: []fieldDiff{}}
 	var title, author, isbn, asin, googleID, desc, series, cover, rawMeta string
 	var subtitle, publisher string
@@ -386,6 +399,19 @@ func (s *Server) reverifyBook(ctx context.Context, uid, id int64, gkey, cookie, 
 		attachBookAlts(d, bookSrcs)
 	}
 	it.Diffs = d
+	// WHAT IS ON OFFER, which is not what has changed. One supplier is enough
+	// here, unlike the alts above: the choice a field picker draws is between the
+	// stored value and a supplier's, so a single supplier still gives the reader
+	// something to take.
+	if withOffers {
+		it.Offers = offersFrom(map[string]any{
+			"title": title, "author": author, "description": desc,
+			"published_year": year, "series": series, "series_index": seriesIdx,
+			"genres": genres, "subtitle": subtitle, "publisher": publisher, "pages": pages,
+		}, pickerFields(bookAltPickers), func(f string) []fieldAlt {
+			return bookAltsFor(bookSrcs, bookAltPickers[f])
+		})
+	}
 	return it
 }
 
@@ -429,20 +455,29 @@ var bookAltPickers = map[string]func(*metadata.BookCandidate) any{
 	// identity the lookup was made BY, so every supplier necessarily agrees.
 }
 
+// bookAltsFor is altsFor for the book side, whose suppliers arrive as candidates
+// rather than as fetchedSources. Extracted from attachBookAlts when the offers
+// pass needed the same loop: two copies of "ask every supplier for one field"
+// is the drift the picker tables exist to prevent.
+func bookAltsFor(cands []metadata.BookCandidate, pick func(*metadata.BookCandidate) any) []fieldAlt {
+	var out []fieldAlt
+	for j := range cands {
+		v := pick(&cands[j])
+		if isEmptyValue(v) {
+			continue
+		}
+		out = append(out, fieldAlt{Source: cands[j].Source, Value: v})
+	}
+	return out
+}
+
 func attachBookAlts(diffs []fieldDiff, cands []metadata.BookCandidate) {
 	for i := range diffs {
 		pick, ok := bookAltPickers[diffs[i].Field]
 		if !ok {
 			continue
 		}
-		var alts []fieldAlt
-		for j := range cands {
-			v := pick(&cands[j])
-			if isEmptyValue(v) {
-				continue
-			}
-			alts = append(alts, fieldAlt{Source: cands[j].Source, Value: v})
-		}
+		alts := bookAltsFor(cands, pick)
 		if len(alts) < 2 {
 			continue
 		}
@@ -450,7 +485,7 @@ func attachBookAlts(diffs []fieldDiff, cands []metadata.BookCandidate) {
 	}
 }
 
-func (s *Server) reverifyMovie(ctx context.Context, uid, id int64, tmdb *metadata.TMDB, tvdb *metadata.TVDB) reverifyItem {
+func (s *Server) reverifyMovie(ctx context.Context, uid, id int64, tmdb *metadata.TMDB, tvdb *metadata.TVDB, withOffers bool) reverifyItem {
 	it := reverifyItem{Type: "movie", ID: id, Status: "ok", Diffs: []fieldDiff{}}
 	var title, director, desc, mediaType, series, poster, fandomWiki string
 	var year int
@@ -567,6 +602,16 @@ func (s *Server) reverifyMovie(ctx context.Context, uid, id int64, tmdb *metadat
 		attachMovieAlts(d, fetched)
 	}
 	it.Diffs = d
+	// See the book side: one supplier is a choice here even though it is not a
+	// choice in `alts`.
+	if withOffers {
+		it.Offers = offersFrom(map[string]any{
+			"title": title, "director": director, "description": desc,
+			"release_year": year, "series": series, "genres": genres,
+		}, pickerFields(movieAltPickers), func(f string) []fieldAlt {
+			return altsFor(fetched, movieAltPickers[f])
+		})
+	}
 	return it
 }
 
@@ -886,12 +931,27 @@ func isUniqueErr(err error) bool {
 // see knownBookSource. The worst a wrong value buys is a mislabelled line in the
 // reader's own provenance for their own book, which is why validation is the
 // proportionate guard and a second fetch is not.
+// The fields an apply may write, per kind.
+//
+// LIFTED OUT OF THE TWO APPLIERS so that a test can hold them up against the
+// picker tables. Every field a Details row OFFERS has to be one this route can
+// write, or the picker draws a button that fails — and the offer list and the
+// write list live in different files, which is exactly how two lists drift.
+// Inside the function the check could not be read by anything but itself.
+var reverifyBookFields = map[string]bool{
+	"title": true, "author": true, "description": true, "published_year": true,
+	"genres": true, "series": true, "series_index": true, "isbn": true, "cover": true,
+	"subtitle": true, "publisher": true, "pages": true,
+}
+
+var reverifyMovieFields = map[string]bool{
+	"title": true, "director": true, "description": true, "release_year": true,
+	"genres": true, "series": true, "cast": true, "poster": true, "tmdb_id": true, "tvdb_id": true,
+}
+
 func (s *Server) applyReverifyBook(ctx context.Context, uid, id int64, set map[string]json.RawMessage, source string, sources map[string]string) (note string, err error) {
-	allowed := map[string]bool{"title": true, "author": true, "description": true, "published_year": true,
-		"genres": true, "series": true, "series_index": true, "isbn": true, "cover": true,
-		"subtitle": true, "publisher": true, "pages": true}
 	for k := range set {
-		if !allowed[k] {
+		if !reverifyBookFields[k] {
 			return "", errors.New("unknown field for a book: " + k)
 		}
 	}
@@ -1087,10 +1147,8 @@ func txOwnsRow(tx *sql.Tx, table string, uid, id int64) bool {
 }
 
 func (s *Server) applyReverifyMovie(ctx context.Context, uid, id int64, set map[string]json.RawMessage, sources map[string]string) (note string, err error) {
-	allowed := map[string]bool{"title": true, "director": true, "description": true, "release_year": true,
-		"genres": true, "series": true, "cast": true, "poster": true, "tmdb_id": true, "tvdb_id": true}
 	for k := range set {
-		if !allowed[k] {
+		if !reverifyMovieFields[k] {
 			return "", errors.New("unknown field for a movie: " + k)
 		}
 	}

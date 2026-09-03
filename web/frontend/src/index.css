@@ -3575,6 +3575,49 @@
      The word carries it, which is what the mark was standing in for anyway. */
   .field-src[data-src="none"] { color: var(--faint); opacity: .8; }
 
+  /* A TAG YOU CAN PRESS. The ring is the whole signal and it is drawn at rest,
+     not on hover: a mark that only looks pressable once the pointer is on it is a
+     mark nobody with a touchscreen ever discovers. It stays a hairline so a row
+     of eleven of them does not read as a row of eleven buttons. */
+  .field-src.is-door {
+    cursor: pointer;
+    border: 1px solid var(--line);
+  }
+  .field-src.is-door:hover,
+  .field-src.is-door:focus-visible { color: var(--ink); border-color: var(--ink); }
+
+  /* THE OFFERS PANEL — one row per supplier, and the row it is measured against.
+     A grid rather than a flex column so the mark, the name and the value line up
+     down the panel; the value takes what is left and wraps, because a description
+     is prose and this is the one place two of them are read side by side. */
+  .offer-row {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    align-items: start;
+    gap: 4px 10px;
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: transparent;
+    text-align: left;
+    cursor: pointer;
+  }
+  .offer-row:hover, .offer-row:focus-visible { border-color: var(--ink); }
+  .offer-row[data-kept="1"] { cursor: default; border-style: dashed; }
+  .offer-row[data-kept="1"]:hover { border-color: var(--line); }
+  .offer-row-src {
+    display: inline-flex; align-items: center; gap: 5px;
+    color: var(--faint);
+    font-family: var(--font-mono); font-size: var(--type-mono-9);
+    letter-spacing: .08em; text-transform: uppercase;
+  }
+  /* The value is the thing being chosen, so it is the row's voice — and it is
+     never clipped: a description cut off at one line is two suppliers that look
+     identical. */
+  .offer-row-value { grid-column: 2; min-width: 0; overflow-wrap: anywhere; }
+  .offer-row-value.is-empty { color: var(--faint); font-style: italic; }
+
   /* The field menu's two halves: the grammar on the left, what it does to a
      search on the right. The name is the thing you are here to learn, so it takes
      the row's voice; the rule is a gloss and sits back in --faint at the far end,

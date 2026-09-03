@@ -465,6 +465,9 @@ common.field.filter.none = কিছু মিলল না
 # What a row with nothing in it says, in the inline editors on a work's page.
 common.field.inline.placeholder = দেওয়া নেই
 common.field.colour.label = রং
+# The provenance mark on a field's row, when it can be pressed: it opens what
+# each source has for that one field. See fieldOffers.jsx.
+common.field.source.open.tip = এই ফিল্ড নিয়ে কে কী বলছে দেখুন
 
 # --- the pop-up form frame.
 common.form.close.tip = সেভ না করেই বন্ধ করুন
@@ -3802,6 +3805,17 @@ error.reverify.preview = আগে থেকে দেখানো গেল ন
 error.reverify.apply = বসানো গেল না
 error.reverify.interrupted = মিলিয়ে দেখা মাঝপথে থেমে গেছে — কানেকশন দেখে নিয়ে আবার খুলুন
 error.reverify.apply-interrupted = বসানো মাঝপথে থেমে গেছে — কানেকশন দেখে আবার চেষ্টা করুন (যা বসে গেছে, বসাই থাকবে)
+
+# ---------------------------------------------------------------------------
+# ফিল্ডের প্রার্থীরা — fieldOffers.jsx. একটা ফিল্ড, আর প্রত্যেক জোগানদারের বয়ান।
+# ডিটেলসের সারিতে নামের ছাপে চাপ দিলে খোলে।
+offers.prose = {field} নিয়ে কে কী বলছে
+# রেকর্ডে এখন যা আছে, সেই সারি। যে লিখেছিল তার ছাপ থাকে, নামের বদলে এই কথাটা।
+offers.column.stored = যা আছে
+offers.take.tip = এই ফিল্ডে {source}-এর বয়ান নিন
+offers.taken.toast = {field} এখন {source} থেকে আসছে
+offers.none.prose = এই ফিল্ড নিয়ে আর কোনও জোগানদারের আলাদা বয়ান নেই।
+offers.unpinned.prose = এই রেকর্ড কোনও জোগানদারের সঙ্গে বাঁধা নেই, তাই জিজ্ঞেস করার কিছু নেই। আগে খুঁজে নিয়ে বেঁধে ফেলুন।
 
 # ---------------------------------------------------------------------------
 # IMPORT — ImportPage.jsx. Seven source formats, each a card with a how-to, and

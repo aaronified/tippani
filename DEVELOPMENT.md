@@ -203,6 +203,7 @@ The route groups themselves, so you can find the noun you want:
 | `export_handlers.go` · `export_quotes.go` | Markdown export per work and for the whole library, and the standalone-quote `type:`. |
 | `import_handlers.go` · `import_quotes.go` · `import_movies.go` · `import_staged_bulk.go` · `import_dupes.go` | Upload, stage, bulk-edit and de-duplicate. |
 | `metadata_handlers.go` · `metadata_library.go` · `metadata_bulk.go` · `lookup_handlers.go` · `reverify_handlers.go` | Source keys, the coverage console, bulk correction, one-off lookups, and the preview-then-apply re-verify flow. |
+| `field_offers.go` | What every supplier says about every field, whether or not it differs from what is stored. A different question from the re-verify diff, and the reason it cannot be answered by it: a field's tag names a supplier BECAUSE that supplier wrote the value, so the diff for it is empty by construction. |
 | `image_search_handlers.go` | The picture strip behind all three pickers — a cover, a poster, a portrait. A different question from a catalogue lookup: these suppliers search for PICTURES, and none of them is required. |
 | `covers_handler.go` · `avatar_handlers.go` · `sticker_handlers.go` | The three image kinds, all under `<DataDir>/MediaCover`. |
 | `taxonomy_handlers.go` | Tags and genres, and the starter vocabulary seeded per account. |
@@ -290,6 +291,7 @@ The shared modules do:
 | `WorkDetail.jsx` | **The one work page** — a book, a film, a show and a game. `side` picks the endpoint family; `media_type` on the loaded row picks the kind; every difference is a row in `workKinds.js`. Not `WorkDetails.jsx`, which is the editable Details PANEL this screen opens. |
 | `workKinds.js` | **What a book, a film, a show and a game differ BY**, as one table — routes, nouns, shelf words, facts, credits, board copy, locators, speaker. Locale keys rather than words, so nothing resolves at module load. A fifth media type is a row here; something that cannot be a value in it is a genuine difference of medium. Imports `i18n.js` and nothing else. |
 | `people.jsx` | Credit splitting, the name→metadata cache, portraits, and the person modal. |
+| `fieldOffers.jsx` | The door on a field's provenance mark: one field, and what each supplier is offering for it, side by side. Picking one rewrites that field alone and records whose answer it was. |
 | `theme.js` | The two aesthetics × light/dark, the accent, label density, and the six nameable colour categories, written onto `<html>` as data attributes and custom properties. |
 | `i18n.js` | **Every user-facing string, by key.** `t('some.key')` and nothing else — no English literal at a call site and no fallback argument. Holds the parser (agreeing with Go's, over one shared fixture), the §8 fallback chain, coverage, and the pseudo-locale. Shaped like `theme.js`: frozen tables, one applier, pure readers — plus one subscription, because `GET /locales` lands after the first paint. |
 | `locale.jsx` | The one control that changes the language, used twice: the first-run screen and a Settings row. Applies the choice itself; the caller supplies the save. |

@@ -5248,6 +5248,10 @@ export function InlineField({
   // draws nothing at all.
   source,
   sourceAt,
+  // `sourceOpen` makes the provenance tag a door — the field's candidates, with
+  // what each supplier is offering. Absent on most rows, and then the tag is the
+  // label it has always been. See fieldOffers.jsx.
+  sourceOpen,
   display,
   placeholder,
   hint,
@@ -5347,7 +5351,7 @@ export function InlineField({
             before the pencil, and only at rest: while you are editing, the row's
             right-hand end belongs to ✓ and ✕, and a provenance tag that survived
             into the editor would be reporting on a value you have already left. */}
-        {!editing && source ? <FieldSourceTag source={source} at={sourceAt} /> : null}
+        {!editing && source ? <FieldSourceTag source={source} at={sourceAt} onOpen={sourceOpen} /> : null}
         {!editing && !disabled && (
           <FieldIconButton
             icon={<IconEdit />}
@@ -5431,7 +5435,7 @@ export function InlineField({
 // only what the pencil OPENS differs. A reader is not being asked to learn which
 // rows are cheap; the size of the thing decides where it opens and says nothing
 // about it beforehand.
-export function BigField({ label, display, placeholder, hint, source, sourceAt, onOpen, disabled = false, editLabel }) {
+export function BigField({ label, display, placeholder, hint, source, sourceAt, sourceOpen, onOpen, disabled = false, editLabel }) {
   const filled = display != null && display !== "" && !(Array.isArray(display) && display.length === 0);
   return (
     <div className="inline-field">
@@ -5439,7 +5443,7 @@ export function BigField({ label, display, placeholder, hint, source, sourceAt, 
         <MonoLabel>{label}</MonoLabel>
         {hint && <InfoDot text={hint} title={label} />}
         <span className="flex-1" />
-        {source ? <FieldSourceTag source={source} at={sourceAt} /> : null}
+        {source ? <FieldSourceTag source={source} at={sourceAt} onOpen={sourceOpen} /> : null}
         {!disabled && (
           <FieldIconButton
             icon={<IconEdit />}
@@ -7433,22 +7437,46 @@ export function ProviderMark({ source, size }) {
 // row came from — and the note says what happened to it since. It reaches the
 // tooltip and the screen reader, not the row, because a cast list is twenty rows
 // and a word repeated on each is a word nobody reads.
-export function FieldSourceTag({ source, at, note }) {
+//
+// `onOpen` IS THE DOOR, and it is handoff §1.2's last clause: "tapping it opens
+// that field's candidates with the value each source is offering, side by side".
+// A tag with one becomes a button and says so; a tag without one is the span it
+// has always been, because most tags — a cast row's twenty of them, a credit on
+// a work with nothing pinned — have nothing behind them and a button that opens
+// an empty panel is worse than a label.
+export function FieldSourceTag({ source, at, note, onOpen, openLabel }) {
   if (!source) return null;
   const name = sourceName(source);
   const when = at ? ` · ${String(at).slice(0, 10)}` : "";
   const said = note ? `${name} · ${note}` : name;
   const drawn = !!PROVIDER_MARKS[source];
-  return (
-    <span
-      className="field-src"
-      data-src={drawn ? source : source === "manual" ? "manual" : "none"}
-      title={`${said}${when}`}
-    >
+  const inside = (
+    <>
       <ProviderMark source={source} />
       {drawn ? null : <span aria-hidden="true">{name}</span>}
       <span className="sr-only">{said}</span>
-    </span>
+    </>
+  );
+  const data = drawn ? source : source === "manual" ? "manual" : "none";
+  if (!onOpen) {
+    return (
+      <span className="field-src" data-src={data} title={`${said}${when}`}>
+        {inside}
+      </span>
+    );
+  }
+  return (
+    <button
+      type="button"
+      className="field-src is-door tactile"
+      data-src={data}
+      // The tooltip says what pressing it does, because the mark alone reads as
+      // a label and a label is not something anybody tries to press.
+      title={`${openLabel || t("common.field.source.open.tip")} — ${said}${when}`}
+      onClick={onOpen}
+    >
+      {inside}
+    </button>
   );
 }
 

@@ -9644,7 +9644,9 @@ distinct to drive home the difference. use short infodots and subtext to clarify
   "tapping it opens that field's candidates with the value each source is offering, side
   by side". The data is already end to end (`fieldAlt{source, value}` per field, rendered
   side by side by `ReverifyReview.jsx`); what is missing is the door from a Details
-  field's tag into it.
+  field's tag into it. **Built in the entry below** — and it needed more than a door,
+  because the diff those alternatives hang off is empty for exactly the field whose tag
+  you would press.
 
 <sub>Unreleased — `web/frontend/src/cast.jsx` · `ui.jsx` ·
 `internal/i18n/{en,bn}.txt` · `test/dom/cast-source.test.jsx`</sub>
@@ -9660,7 +9662,7 @@ can check the verdict rather than trust it.*
 | § | Claim | Verdict |
 | --- | --- | --- |
 | 1.1 | Details is a form, not a corridor of sheets | **built.** `WorkDetails.jsx`'s spec list is the pack's order exactly — title · subtitle · people · description · genres · year · language · publisher · series · pages · isbn · links — and the four fields the pack exempts (description, genres, people, cover) are the four carrying `sheet: true` or their own `kind` |
-| 1.2 | metadata source is per field | **built**, and the cast list joined it this release. **The last clause is not built:** tapping a tag opens that field's candidates with the value each source is offering |
+| 1.2 | metadata source is per field | **built**, and the cast list joined it this release. The last clause — tapping a tag opens that field's candidates — is **built too now**; see "The door behind a field's mark" |
 | 1.3 | links out, on works and people | **built** for paste-and-parse, the globe, and the two provenances. **Appending a provider by picking it from a list is not** — and is on the prototype's own Part 4 as unbuilt there too |
 | 1.4 | a picture is not a field | **built.** `CoverPicker.jsx`'s `resLabel` measures `naturalWidth`/`naturalHeight` and inks below the floor, which is the part of the pack most easily faked and was not |
 | 1.5 | quotes carry their speaker | **stored and never shown.** 0056 gave `annotations` and `dialogues` a `speaker_cast_id` into `work_cast`, 0059 added the person columns beside it, and the trash and merge both maintain them — but the column is not serialised by any handler, so no client can draw the chip. The data has been right for three migrations and the feature does not exist |
@@ -9679,6 +9681,10 @@ handler field and a chip, not a feature. §1.2's tap is second, and is also most
 `fieldAlt{source, value}` is already computed per field and `ReverifyReview.jsx` already
 draws the candidates side by side. §1.3's provider list is third and is the only one that
 is genuinely new work.
+
+**Two of the three are now closed** — §1.5's chip and §1.2's tap, each with its own entry
+below. §1.2 turned out NOT to be mostly a door, and the sentence above was wrong about
+why: see that entry. §1.3's provider list is still open.
 
 **Two rows are honestly unfinished rather than answered**, and are left saying so: 1.11,
 and the help placement in 1.12. Both need the screen rather than the source, and a
@@ -9856,3 +9862,60 @@ own padding inside its box, so a chip row reads ~31px from its neighbour where a
 reads ~9px. Equalising that means subtracting each padded row's own air, which is a step
 typed into a row — the thing `spacing-debt.test.js` counts — so it wants the pack's number
 rather than a guess.
+
+### The door behind a field's mark, and the question re-verify cannot answer
+
+*The owner's ask: "the metadata is supposed to be provider specific with mix and match.
+The detail screen in the prototype had all that. The app does not have that feature. The
+provider icons were supposed to work here as well."* handoff §1.2's last clause, and the
+second of the three gaps the prototype sweep named.
+
+- **The sweep called this "mostly a door" and that was wrong.** Its reasoning: the
+  candidates are already computed per field (`fieldAlt{source, value}`) and
+  `ReverifyReview.jsx` already draws them side by side, so all that was missing was a way
+  in. What that missed is WHICH fields carry candidates. `attachBookAlts` and
+  `attachMovieAlts` hang alternatives on the DIFFS, and `diffStr` emits no diff when the
+  preferred supplier agrees with what is stored. A field's mark reads "TMDB" *because* TMDB
+  wrote the value — so stored equals TMDB's answer by construction, and the diff for it is
+  empty. The door would have opened on an empty room for every field it was worth pressing,
+  and only worked on the fields whose marks say somebody else.
+- **So there are two questions, not one.** Re-verify asks *what has changed*; a field
+  picker asks *what is on offer*. `offers` is a flag on the same route rather than a route
+  of its own, and the reason is drift: a second endpoint would have to repeat the row read,
+  the identity ladder and the per-supplier fetch — about 150 lines per kind, all of it the
+  code whose own comments keep warning about exactly this — to add one loop at the end. The
+  flag is off for the reviewer and for the unattended filler, so neither pays for a list it
+  never reads.
+- **The offers pass walks the same picker tables the diff does** (`bookAltPickers`,
+  `movieAltPickers`), which is those tables' whole purpose: a field that can be reviewed and
+  a field that can be offered must not be able to drift apart. One supplier is enough here,
+  unlike in `alts` — the choice being drawn is between the record and a supplier, so a
+  single supplier is still something to take.
+- **A door onto an empty room is worse than a label**, so three kinds of field do not get
+  one: a supplier id (TheTVDB's opinion of a TMDB id is not an alternative anybody can
+  weigh), a picture (§1.4 — not a field), and a cast (a panel, not a value). The client's
+  `OFFERED_FIELDS` decides which marks become buttons, and `offers-fields.test.js` reads the
+  Go picker tables out of the source and fails if the two lists disagree — the same
+  cross-language pin the locale tests use, for the same reason.
+- **A panel and not a popover.** Two descriptions read side by side is prose: it wants the
+  width of a sheet, a scroll of its own, and identical behaviour on a phone. The stack gives
+  all three plus the back gesture every other door on this screen already uses; a popover
+  would have been a second navigation to learn, anchored to an 18px mark.
+- **The kept row wears the mark and not the supplier's name.** It is the tag the reader
+  pressed, so dropping it would open the panel having lost the one fact that got them
+  there — but what the row is FOR is the value on the record, so the word beside the mark
+  says so. It is also the one row that is not a button: "keep it" is what closing the panel
+  already means, and a button for it would be a second way to do nothing.
+- **The marks reached the reviewer too**, which is the other half of the owner's ask. Four
+  columns of values under supplier names in small caps is the densest place in the app for
+  "which of these did Google write", and `docs/PROVIDER-MARKS.md` argues that a mark is
+  recognised without being read. It was already true of every field row and was not true of
+  the one grid built for comparing suppliers.
+- **Two applier whitelists were lifted to package scope** so a test could hold them up
+  against the picker tables. Every field a row offers has to be one the apply route will
+  write, or the panel draws a button that fails — and the two lists live in different files.
+
+<sub>Unreleased — `internal/httpapi/field_offers.go` · `reverify_handlers.go` ·
+`web/frontend/src/fieldOffers.jsx` · `ui.jsx` · `WorkDetails.jsx` · `ReverifyReview.jsx` ·
+`index.css` · `internal/i18n/{en,bn}.txt` · `test/pure/offers-fields.test.js` ·
+`test/dom/field-offers.test.jsx` · `internal/httpapi/field_offers_test.go`</sub>

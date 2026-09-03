@@ -21,6 +21,7 @@ import {
   MonoLabel,
   NameScroll,
   ProgressBar,
+  ProviderMark,
   sourceName,
   Tooltip,
   useBodyScrollLock,
@@ -94,7 +95,7 @@ function emptyStored(v) {
   return Array.isArray(v) && v.length === 0
 }
 
-function ValueCell({ field, value, fresh }) {
+export function ValueCell({ field, value, fresh }) {
   if (value == null || value === '' || (Array.isArray(value) && value.length === 0)) {
     return <span className="microcopy">—</span>
   }
@@ -197,7 +198,13 @@ function FieldDiffRow({ diff, picked, onToggle, onChoose }) {
                   borderRadius: 6,
                 }}
               >
-                <MonoLabel className="mb-1 block" style={{ fontSize: 'var(--type-ui-9)', color: on ? 'var(--accent-ui)' : 'var(--faint)' }}>
+                {/* THE SUPPLIER'S OWN MARK, not only its name. The reader is
+                    scanning a grid of four columns for "which of these did Google
+                    write", and a mark is recognised without being read — which is
+                    the argument docs/PROVIDER-MARKS.md makes for carrying them at
+                    all, and this is the densest place in the app it applies to. */}
+                <MonoLabel className="mb-1 flex items-center gap-1" style={{ fontSize: 'var(--type-ui-9)', color: on ? 'var(--accent-ui)' : 'var(--faint)' }}>
+                  <ProviderMark source={a.source} size={13} />
                   {sourceName(a.source)}
                 </MonoLabel>
                 <ValueCell field={diff.field} value={a.value} fresh={on} />

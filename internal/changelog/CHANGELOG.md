@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Press the little mark beside a field and see what every source has for it.** A record is
+  assembled — the year from one supplier, the description from another, the publisher you
+  typed — and until now the mark on each row could only be read. It is a button on the
+  fields a supplier can answer for: it opens that one field with the value on the record at
+  the top and one row per source underneath, each wearing that source's own mark, and taking
+  one rewrites that field and nothing else. Re-verify could not answer this and still
+  cannot: it reports what has CHANGED, and a description tagged TMDB has by definition not
+  changed from TMDB, so the field you pressed was the one field its table was empty for.
+
+- **The re-verify reviewer's columns wear their suppliers' marks.** Four columns of values
+  with the supplier's name in small caps above each is the densest place in the app for the
+  question "which of these did Google write", and a mark is recognised without being read —
+  which is the argument for carrying brand marks at all.
+
 ### Changed
 
 - **Seven Bengali terms, on the owner's reading of the app.** The Library is a গ্রন্থাগার,
