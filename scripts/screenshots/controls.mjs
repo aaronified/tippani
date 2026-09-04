@@ -80,6 +80,39 @@ let pressed = 0
 
 try {
   const page = await browser.newPage()
+  // WHAT A PRESS CAN DO THAT THE DOCUMENT NEVER SHOWS. Four effects leave no
+  // trace in the DOM at all, and counting a control that has one as dead is how
+  // this probe would have reported "Upload sticker" — a button whose whole job is
+  // `fileRef.current.click()` on a hidden <input type=file>, opening the
+  // operating system's own picker. Same for Copy (the clipboard), Share
+  // (navigator.share, or the clipboard again), and any verb whose result is a
+  // request whose reply has not landed inside the settle window.
+  //
+  // Installed before any script runs, and only ever INCREMENTED — the probe reads
+  // the counters, it does not need the values, and a counter cannot be mistaken
+  // for a rendering change.
+  await page.evaluateOnNewDocument(() => {
+    window.__tpFx = { file: 0, clip: 0, share: 0, net: 0 }
+    const click = HTMLElement.prototype.click
+    HTMLElement.prototype.click = function () {
+      if (this instanceof HTMLInputElement && this.type === 'file') window.__tpFx.file++
+      return click.apply(this, arguments)
+    }
+    if (navigator.clipboard?.writeText) {
+      const w = navigator.clipboard.writeText.bind(navigator.clipboard)
+      navigator.clipboard.writeText = (...a) => { window.__tpFx.clip++; return w(...a) }
+    }
+    const exec = document.execCommand?.bind(document)
+    if (exec) document.execCommand = (cmd, ...a) => { if (cmd === 'copy' || cmd === 'cut') window.__tpFx.clip++; return exec(cmd, ...a) }
+    if (navigator.share) {
+      const sh = navigator.share.bind(navigator)
+      navigator.share = (...a) => { window.__tpFx.share++; return sh(...a) }
+    }
+    const f = window.fetch
+    window.fetch = (...a) => { window.__tpFx.net++; return f(...a) }
+    const open = XMLHttpRequest.prototype.open
+    XMLHttpRequest.prototype.open = function () { window.__tpFx.net++; return open.apply(this, arguments) }
+  })
   await page.setViewport({ width: opts.width, height: opts.height, deviceScaleFactor: 1 })
   await emulateEngineMedia(page, engine.browser, 'light')
   await ensureSession(page, {
@@ -102,6 +135,8 @@ try {
       scroll: Math.round((document.querySelector('.tp-panel-body') || document.scrollingElement).scrollTop),
       text: top.textContent.replace(/\s+/g, ' ').trim().slice(0, 600),
       toasts: document.querySelectorAll('[class*=toast]').length,
+      // The four effects that never reach the document — see the hooks above.
+      fx: JSON.stringify(window.__tpFx || {}),
       // A DISCLOSURE'S EFFECT IS ON ITSELF. A ⋯ that opens a menu changes
       // `aria-expanded` and may render the menu outside the scope being watched,
       // so without this the honest control reads as dead.
@@ -118,21 +153,40 @@ try {
   const differs = (a, b) => a.url !== b.url || a.panels !== b.panels || a.dialogs !== b.dialogs
     || a.inputs !== b.inputs || a.focus !== b.focus || a.scroll !== b.scroll
     || a.text !== b.text || a.toasts !== b.toasts || a.expanded !== b.expanded
+    || a.fx !== b.fx
 
   // Enumerate the controls on whatever is currently on screen. A panel, when one
   // is open, otherwise the page — so a modal's own controls are judged against
   // the modal and not against the screen behind it.
   const list = () => page.evaluate(() => {
     const scope = document.querySelector('.tp-panel') || document.querySelector('[role=dialog]') || document.body
+    const seen = new Map()
     return [...scope.querySelectorAll('button, [role=button], a[href], summary')]
       .filter((b) => b.offsetParent !== null || b.tagName === 'SUMMARY')
       .map((b, i) => {
         const r = b.getBoundingClientRect()
+        const name = (b.getAttribute('aria-label') || b.textContent.replace(/\s+/g, ' ').trim() || b.title || '(unnamed)').slice(0, 40)
+        const nth = seen.get(name) || 0
+        seen.set(name, nth + 1)
         return {
           i,
-          name: (b.getAttribute('aria-label') || b.textContent.replace(/\s+/g, ' ').trim() || b.title || '(unnamed)').slice(0, 40),
+          nth,
+          name,
           says: b.disabled === true || b.getAttribute('aria-disabled') === 'true',
-          current: b.getAttribute('aria-current') === 'page' || b.classList.contains('is-current'),
+          // WHERE YOU ALREADY ARE, and `active` is on this list because CLAUDE.md
+          // puts it there: "A chip's on-state class is `active`. `.tp-filter-chip
+          // .active` is what the stylesheet styles; `is-on` belongs to other
+          // things". Pressing the filter you are already on, or the tab you are
+          // already looking at, changes nothing and is not a broken control —
+          // the destination is simply the current one. Without this the probe
+          // reports every "All" chip in the app, which is how a checker earns a
+          // reputation for crying wolf and then gets switched off.
+          current: b.getAttribute('aria-current') === 'page'
+            || b.getAttribute('aria-pressed') === 'true'
+            || b.getAttribute('aria-selected') === 'true'
+            || b.classList.contains('is-current')
+            || b.classList.contains('active')
+            || b.classList.contains('is-on'),
           href: b.getAttribute('href') || '',
           w: Math.round(r.width),
           h: Math.round(r.height),
@@ -175,15 +229,25 @@ try {
       if (c.current) continue
       await reopen()
       const before = await shot()
-      const ok = await page.evaluate((idx) => {
+      // BY NAME AND OCCURRENCE, NOT BY INDEX. `reopen()` rebuilds the DOM before
+      // every press, and an index into the previous build is only valid while
+      // exactly the same controls come back in exactly the same order — which a
+      // lazily-loaded cover grid and a list whose length depends on a fetch do
+      // not promise. Twenty-three controls were reported unreachable on one run
+      // for that reason alone, none of them actually gone. The accessible name
+      // plus which one of that name it is survives a re-render, which is also how
+      // a person would say which control they meant.
+      const ok = await page.evaluate(({ name, nth }) => {
         const scope = document.querySelector('.tp-panel') || document.querySelector('[role=dialog]') || document.body
-        const b = [...scope.querySelectorAll('button, [role=button], a[href], summary')]
-          .filter((x) => x.offsetParent !== null || x.tagName === 'SUMMARY')[idx]
+        const named = [...scope.querySelectorAll('button, [role=button], a[href], summary')]
+          .filter((x) => x.offsetParent !== null || x.tagName === 'SUMMARY')
+          .filter((x) => ((x.getAttribute('aria-label') || x.textContent.replace(/\s+/g, ' ').trim() || x.title || '(unnamed)').slice(0, 40)) === name)
+        const b = named[nth]
         if (!b) return false
         b.scrollIntoView({ block: 'center' })
         b.click()
         return true
-      }, c.i)
+      }, { name: c.name, nth: c.nth })
       // NOT PRESSED IS NOT PASSED. The index is re-resolved after `reopen`, so a
       // control that has moved or gone leaves the press unmade — and a `continue`
       // there quietly drops it from a run whose whole claim is "every control".
