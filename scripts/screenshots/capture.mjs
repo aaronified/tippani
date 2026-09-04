@@ -24,7 +24,7 @@
 //
 // See README.md in this directory for the full flag list and the with-server wrapper.
 
-import { existsSync, mkdirSync, realpathSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, realpathSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
 
@@ -101,6 +101,7 @@ function parseArgs(argv) {
     seedRandom: true,
     headless: true,
     firefox: null, // null = discover
+    browser: null, // null = TIPPANI_BROWSER, else firefox
     locale: 'en-US',
     timezone: 'UTC',
     bookId: null,
@@ -123,6 +124,7 @@ function parseArgs(argv) {
     else if (a === '--no-seed-random') out.seedRandom = false
     else if (a === '--headed') out.headless = false
     else if (a === '--firefox') out.firefox = next()
+    else if (a === '--browser') out.browser = next()
     else if (a === '--locale') out.locale = next()
     else if (a === '--timezone') out.timezone = next()
     else if (a === '--book-id') out.bookId = next()
@@ -158,7 +160,8 @@ function printHelp() {
   --screens a,b,c        only these screens (default: every one in SCREENS)
   --themes light,dark    theme(s) to capture, one browser per theme (default both)
   --viewport 1280x900    fixed viewport (default 1280x900)
-  --firefox <path>       Firefox binary (default: discovered; see FIREFOX_CANDIDATES)
+  --browser <engine>     firefox (default) or chrome; also TIPPANI_BROWSER
+  --firefox <path>       browser binary (default: discovered for the chosen engine)
   --locale <tag>         pinned page locale (default en-US)
   --timezone <tz>        pinned page timezone (default UTC)
   --book-id <id>         required to reach book-detail
@@ -181,24 +184,130 @@ const FIREFOX_CANDIDATES = [
   '/Applications/Firefox.app/Contents/MacOS/firefox',
 ]
 
-export function findFirefox(explicit) {
-  // PUPPETEER_EXECUTABLE_PATH is honoured because that is the variable CI images set,
-  // and it must win over discovery: a runner with two Firefoxes installed should shoot
-  // the one it pinned, not whichever appears first in the list below.
-  const wanted = explicit || process.env.PUPPETEER_EXECUTABLE_PATH || process.env.FIREFOX_PATH
+// AND WHERE A CHROMIUM IS, for the machines that cannot have the other one.
+//
+// WHY THIS EXISTS AT ALL. The harness is Firefox-first and stays that way — the
+// captures in the docs were shot on Gecko and an engine change moves every one of
+// them by a subpixel or two, which is a diff nobody asked for. But a container
+// that cannot install Firefox cannot run the harness at all, and "cannot measure"
+// is how a measured defect goes three rounds without being fixed: the agent
+// sandbox this was added from has no Firefox and no way to get one (Mozilla's
+// download host is refused by its proxy, and Ubuntu ships firefox only as a snap).
+// So the engine is a TOGGLE, defaulting to Firefox, and nothing changes for anyone
+// who has one.
+const CHROME_CANDIDATES = [
+  '/usr/bin/chromium',
+  '/usr/bin/chromium-browser',
+  '/usr/bin/google-chrome',
+  '/usr/bin/google-chrome-stable',
+  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+  '/Applications/Chromium.app/Contents/MacOS/Chromium',
+]
+
+// Playwright's browser cache, which is what the agent images actually ship. The
+// directory is versioned (`chromium-1194`), so it is discovered rather than named.
+function playwrightChromiums() {
+  const root = process.env.PLAYWRIGHT_BROWSERS_PATH || '/opt/pw-browsers'
+  try {
+    return readdirSync(root)
+      .filter((d) => d.startsWith('chromium'))
+      .sort()
+      .reverse()
+      .flatMap((d) => [
+        join(root, d, 'chrome-linux', 'chrome'),
+        join(root, d, 'chrome-linux', 'headless_shell'),
+        join(root, d, 'Chromium.app', 'Contents', 'MacOS', 'Chromium'),
+      ])
+  } catch {
+    return []
+  }
+}
+
+// engineOf — which engine a toggle names. `chrome` is puppeteer's own word for the
+// Chromium family, so it is the one used here rather than inventing `chromium`.
+export function engineOf(explicit) {
+  const want = String(explicit || process.env.TIPPANI_BROWSER || 'firefox').toLowerCase()
+  if (want === 'firefox' || want === 'gecko') return 'firefox'
+  if (want === 'chrome' || want === 'chromium') return 'chrome'
+  console.error(`unknown browser ${want} — use firefox or chrome`)
+  process.exit(1)
+}
+
+// findBrowser returns what puppeteer.launch needs: which engine, and the binary.
+//
+// PUPPETEER_EXECUTABLE_PATH is honoured because that is the variable CI images set,
+// and it must win over discovery: a runner with two browsers installed should shoot
+// the one it pinned, not whichever appears first in the lists above.
+export function findBrowser(explicit, browserOpt) {
+  const engine = engineOf(browserOpt)
+  const wanted = explicit || process.env.PUPPETEER_EXECUTABLE_PATH
+    || (engine === 'firefox' ? process.env.FIREFOX_PATH : process.env.CHROME_PATH)
   if (wanted) {
     if (!existsSync(wanted)) {
-      console.error(`Firefox not found at ${wanted}`)
+      console.error(`${engine} not found at ${wanted}`)
       process.exit(1)
     }
-    return wanted
+    return { browser: engine, executablePath: wanted }
   }
-  const found = FIREFOX_CANDIDATES.find((p) => existsSync(p))
+  const candidates = engine === 'firefox'
+    ? FIREFOX_CANDIDATES
+    : [...playwrightChromiums(), ...CHROME_CANDIDATES]
+  const found = candidates.find((p) => existsSync(p))
   if (!found) {
-    console.error(`no Firefox found. Tried:\n  ${FIREFOX_CANDIDATES.join('\n  ')}\nPass --firefox <path> or set PUPPETEER_EXECUTABLE_PATH.`)
+    console.error(`no ${engine} found. Tried:\n  ${candidates.join('\n  ')}\n`
+      + `Pass --firefox <path>, set PUPPETEER_EXECUTABLE_PATH, or switch engines with `
+      + `--browser ${engine === 'firefox' ? 'chrome' : 'firefox'} / TIPPANI_BROWSER.`)
     process.exit(1)
   }
-  return found
+  return { browser: engine, executablePath: found }
+}
+
+// The old name, kept so nothing that only wants a path has to change.
+export function findFirefox(explicit) {
+  return findBrowser(explicit).executablePath
+}
+
+// launchOptions — the engine-specific half of puppeteer.launch, and the reason
+// this is a function rather than an object literal at each call site.
+//
+// THE TWO PREFERENCES ARE NOT PORTABLE. Firefox reads the colour scheme and the
+// reduced-motion flag from the PROFILE, so they are set at launch and a theme
+// change is a relaunch. Chrome has no such preference: the same two facts are
+// emulated per page, through the DevTools protocol, by emulateMediaFeatures below.
+// Passing extraPrefsFirefox to Chrome is silently ignored — which would have shot
+// every "dark" capture in light, and that is exactly the kind of quiet wrong
+// answer a screenshot harness must not produce.
+export function launchOptions({ browser, executablePath }, { theme = 'light', headless = true, viewport } = {}) {
+  const base = { browser, executablePath, headless }
+  if (viewport) base.defaultViewport = viewport
+  // CHROME REFUSES TO START AS ROOT with its sandbox on, and the containers this
+  // engine exists for run as root. The flag is added only when we ACTUALLY are
+  // root, so a developer running the harness on their own desktop keeps the
+  // sandbox — dropping it unconditionally would trade a real protection for the
+  // convenience of a case that machine is not in. Firefox has no such rule.
+  if (browser === 'chrome' && typeof process.getuid === 'function' && process.getuid() === 0) {
+    base.args = [...(base.args || []), '--no-sandbox']
+  }
+  if (browser === 'firefox') {
+    base.extraPrefsFirefox = {
+      'layout.css.prefers-color-scheme.content-override': THEME_PREF[theme],
+      // So the app's own matchMedia('(prefers-reduced-motion: reduce)') checks —
+      // web/frontend/src/flow.jsx and ui.jsx both branch on it — see what
+      // NO_MOTION_CSS is already enforcing, rather than the two disagreeing.
+      'ui.prefersReducedMotion': 1,
+    }
+  }
+  return base
+}
+
+// emulateEngineMedia — the Chrome half of the same two facts, applied per page.
+// A no-op on Firefox, where the profile already carries them.
+export async function emulateEngineMedia(page, browser, theme = 'light') {
+  if (browser !== 'chrome') return
+  await page.emulateMediaFeatures([
+    { name: 'prefers-color-scheme', value: theme === 'dark' ? 'dark' : 'light' },
+    { name: 'prefers-reduced-motion', value: 'reduce' },
+  ])
 }
 
 // Kill CSS transitions/animations and the caret so no capture lands mid-motion —
@@ -362,8 +471,8 @@ async function main() {
     process.exit(1)
   }
 
-  const executablePath = findFirefox(opts.firefox)
-  console.log(`firefox   ${executablePath}`)
+  const engine = findBrowser(opts.firefox, opts.browser)
+  console.log(`${engine.browser.padEnd(9)} ${engine.executablePath}`)
 
   const requested = opts.screens
     ? SCREENS.filter((s) => opts.screens.includes(s.name))
@@ -381,20 +490,12 @@ async function main() {
   for (const theme of opts.themes) {
     // One browser per theme — see THEME_PREF: Firefox reads preferences when the
     // profile starts, so a theme change is a relaunch and not a call on the page.
-    const browser = await puppeteer.launch({
-      browser: 'firefox',
-      executablePath,
-      headless: opts.headless,
-      extraPrefsFirefox: {
-        'layout.css.prefers-color-scheme.content-override': THEME_PREF[theme],
-        // So the app's own matchMedia('(prefers-reduced-motion: reduce)') checks —
-        // web/frontend/src/flow.jsx and ui.jsx both branch on it — see what
-        // NO_MOTION_CSS is already enforcing, rather than the two disagreeing.
-        'ui.prefersReducedMotion': 1,
-      },
-    })
+    const browser = await puppeteer.launch(launchOptions(engine, { theme, headless: opts.headless }))
     try {
       const page = await browser.newPage()
+      // On Chrome the theme and the motion flag are per-page rather than in the
+      // profile — see emulateEngineMedia. A no-op on Firefox.
+      await emulateEngineMedia(page, engine.browser, theme)
       // FORWARD THE PAGE'S OWN ERRORS. Without this a screen that throws on
       // mount reports as "Waiting failed: 15000ms exceeded" on a selector — a
       // timeout, which reads as a slow server rather than as a broken build, and

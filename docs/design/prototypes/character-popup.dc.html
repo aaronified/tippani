@@ -1,0 +1,1422 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&family=Hanken+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Caveat:wght@400;600&family=Tiro+Bangla&display=swap" rel="stylesheet">
+  <script src="icons.js"></script>
+  <script src="assets/glyphs/providers.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; }
+    a { color: inherit; text-underline-offset: 3px; }
+    a:hover { color: var(--accent-ui); }
+    button:focus:not(:focus-visible) { outline: none !important; }
+    [data-strip] { cursor: grab; scrollbar-width: none; }
+    [data-strip]::-webkit-scrollbar { display: none; }
+    [data-art] { cursor: grab; }
+  </style>
+</helmet>
+
+<div style="{{ stage }}" ref="{{ stageRef }}">
+  <div style="{{ rowStyle }}">
+  <sc-for list="{{ sheets }}" as="s" hint-placeholder-count="4">
+    <div id="{{ s.id }}" data-char-scope="{{ s.scope }}" data-screen-label="{{ s.qualifier }}" role="dialog" aria-label="{{ s.aria }}" style="{{ sheet }}">
+
+      <div style="display:flex;align-items:center;gap:10px;padding:8px;border-bottom:1px solid var(--line);background:var(--card-top);flex:none">
+        <span style="{{ s.scopeSlot }}" title="{{ s.scopeTitle }}">
+          <span style="{{ s.scopeArt }}"><span style="{{ s.scopeOverlay }}">{{ s.scopeGlyph }}</span></span>
+        </span>
+        <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+          <span style="{{ titleStyle }}">{{ s.title }}</span>
+          <span style="{{ crumbStyle }}">{{ s.crumb }}</span>
+        </span>
+        <span style="{{ s.qualStyle }}">{{ s.qualifier }}</span>
+        <button type="button" aria-label="Close" title="Close" style="{{ keyStyle }}" style-hover="background:var(--ihg);color:var(--ihc)" style-active="background:var(--iag);transform:var(--iat)" style-focus="outline:2px solid var(--ink-border);outline-offset:2px" onClick="{{ s.closeClick }}">{{ closeGlyph }}</button>
+      </div>
+
+      <div style="display:flex;flex-direction:column;padding:14px 6px 16px">
+
+        <sc-if value="{{ s.hasPortrait }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;align-items:center;gap:16px;padding:0 10px 4px">
+          <span style="{{ faceBox }}"><span style="{{ s.faceInner }}"></span></span>
+          <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:8px">
+            <span style="{{ s.pxStyle }}">{{ s.pxText }}</span>
+            <span style="display:flex;gap:6px;flex-wrap:wrap">
+              <sc-for list="{{ s.faceActions }}" as="a" hint-placeholder-count="4">
+                <button type="button" title="{{ a.title }}" style="{{ a.style }}" style-hover="filter:var(--ihf);box-shadow:var(--ihs);border-color:var(--ihb)" style-active="filter:var(--iaf);box-shadow:var(--ias);border-color:var(--iab);transform:var(--iat)" style-focus="outline:2px solid var(--ink-border);outline-offset:2px" onClick="{{ a.onClick }}">
+                  <span style="{{ a.iconStyle }}">{{ a.icon }}</span>
+                  <span>{{ a.label }}</span>
+                </button>
+              </sc-for>
+            </span>
+          </span>
+        </div>
+        </sc-if>
+
+        <sc-for list="{{ s.rows }}" as="r" hint-placeholder-count="14">
+          <div style="{{ r.wrap }}">
+            <sc-if value="{{ r.isHead }}" hint-placeholder-val="{{ false }}">
+              <span style="{{ r.headStyle }}">{{ r.label }}</span>
+              <sc-if value="{{ r.note }}" hint-placeholder-val="{{ false }}">
+                <span style="{{ r.noteStyle }}">{{ r.note }}</span>
+              </sc-if>
+            </sc-if>
+
+            <sc-if value="{{ r.isStrip }}" hint-placeholder-val="{{ false }}">
+              <div style="{{ r.stripStyle }}" data-strip="1" ref="{{ r.stripRef }}" onPointerDown="{{ r.onStripDown }}" onClickCapture="{{ swallowClick }}">
+                <sc-for list="{{ r.tiles }}" as="t" hint-placeholder-count="6">
+                  <div style="{{ t.style }}">
+                    <div style="{{ t.artStyle }}" data-art="1" title="{{ t.dragHint }}" onPointerDown="{{ t.onArtDown }}">
+                      <span style="{{ t.badgeStyle }}">{{ t.badge }}</span>
+                      <sc-if value="{{ t.hasFace }}" hint-placeholder-val="{{ true }}">
+                        <span style="{{ t.localFaceStyle }}" title="{{ t.localFaceTitle }}"><span style="{{ t.localFaceInner }}"></span></span>
+                      </sc-if>
+                    </div>
+                    <button type="button" style="{{ t.capStyle }}" style-hover="color:var(--accent-ui)" style-focus="outline:2px solid var(--ink-border);outline-offset:2px" onClick="{{ t.onClick }}">
+                      <span style="{{ t.titleStyle }}">{{ t.title }}</span>
+                      <span style="{{ t.metaStyle }}">{{ t.meta }}</span>
+                      <span style="{{ t.quotesStyle }}">{{ t.quotes }}</span>
+                    </button>
+                  </div>
+                </sc-for>
+              </div>
+              <sc-if value="{{ r.stripHint }}" hint-placeholder-val="{{ false }}">
+                <span style="{{ r.stripHintStyle }}">{{ r.stripHint }}</span>
+              </sc-if>
+            </sc-if>
+
+            <sc-if value="{{ r.isCredit }}" hint-placeholder-val="{{ false }}">
+              <button type="button" title="{{ r.pickTitle }}" style="{{ r.pickStyle }}" style-hover="background:var(--ihg)" style-active="background:var(--iag);transform:var(--iat)" style-focus="outline:2px solid var(--ink-border);outline-offset:2px" onClick="{{ r.onPick }}">
+                <span style="{{ r.creditFace }}"><span style="{{ r.creditFaceInner }}"></span></span>
+                <span style="{{ r.caretStyle }}">{{ r.caret }}</span>
+              </button>
+              <button type="button" title="{{ r.openTitle }}" style="{{ r.nameStyle }}" style-hover="background:var(--ihg)" style-active="background:var(--iag);transform:var(--iat)" style-focus="outline:2px solid var(--ink-border);outline-offset:2px" onClick="{{ r.onOpen }}">
+                <span style="{{ r.nameText }}">{{ r.name }}</span>
+                <sc-if value="{{ r.note }}" hint-placeholder-val="{{ false }}">
+                  <span style="{{ r.noteText }}">{{ r.note }}</span>
+                </sc-if>
+              </button>
+              <button type="button" aria-label="Note on this credit" title="Note on this credit" style="{{ r.noteKey }}" style-hover="background:var(--ihg);color:var(--ihc)" style-active="background:var(--iag);transform:var(--iat)" style-focus="outline:2px solid var(--ink-border);outline-offset:2px" onClick="{{ r.onNote }}">{{ r.noteGlyph }}</button>
+              <button type="button" aria-label="Remove this credit" title="Remove this credit" style="{{ r.delKey }}" style-hover="background:var(--ihg);color:var(--error)" style-active="background:var(--iag);transform:var(--iat)" style-focus="outline:2px solid var(--ink-border);outline-offset:2px" onClick="{{ r.onDelete }}">{{ r.delGlyph }}</button>
+            </sc-if>
+
+            <sc-if value="{{ r.isSeg }}" hint-placeholder-val="{{ false }}">
+              <sc-if value="{{ r.label }}" hint-placeholder-val="{{ false }}">
+                <span style="{{ r.headStyle }}">{{ r.label }}</span>
+              </sc-if>
+              <sc-for list="{{ r.opts }}" as="o" hint-placeholder-count="2">
+                <button type="button" aria-pressed="{{ o.on }}" style="{{ o.style }}" style-hover="filter:var(--ihf);box-shadow:var(--ihs);border-color:var(--ihb)" style-active="filter:var(--iaf);transform:var(--iat)" style-focus="outline:2px solid var(--ink-border);outline-offset:2px" onClick="{{ o.onClick }}">{{ o.label }}</button>
+              </sc-for>
+            </sc-if>
+
+            <sc-if value="{{ r.isFacts }}" hint-placeholder-val="{{ false }}">
+              <sc-for list="{{ r.cells }}" as="c" hint-placeholder-count="3">
+                <button type="button" style="{{ c.style }}" style-hover="background:var(--ihg)" style-active="background:var(--iag);transform:var(--iat)" style-focus="outline:2px solid var(--ink-border);outline-offset:2px" onClick="{{ c.onClick }}">
+                  <span style="{{ c.labelStyle }}">{{ c.label }}</span>
+                  <span style="{{ c.valueStyle }}">{{ c.value }}</span>
+                </button>
+              </sc-for>
+            </sc-if>
+
+            <sc-if value="{{ r.isPills }}" hint-placeholder-val="{{ false }}">
+              <sc-for list="{{ r.pills }}" as="p" hint-placeholder-count="4">
+                <button type="button" style="{{ p.style }}" style-hover="filter:var(--ihf);box-shadow:var(--ihs);border-color:var(--ihb)" style-active="filter:var(--iaf);box-shadow:var(--ias);border-color:var(--iab);transform:var(--iat)" style-focus="outline:2px solid var(--ink-border);outline-offset:2px" onClick="{{ p.onClick }}">
+                  <span style="{{ p.markStyle }}">{{ p.glyph }}</span>
+                  <span style="{{ p.labelStyle }}">{{ p.label }}</span>
+                </button>
+              </sc-for>
+            </sc-if>
+
+            <sc-if value="{{ r.isPair }}" hint-placeholder-val="{{ false }}">
+              <sc-for list="{{ r.pair }}" as="c" hint-placeholder-count="2">
+                <button type="button" style="{{ c.style }}" style-hover="filter:var(--ihf);box-shadow:var(--ihs);border-color:var(--ihb)" style-active="filter:var(--iaf);box-shadow:var(--ias);border-color:var(--iab);transform:var(--iat)" style-focus="outline:2px solid var(--ink-border);outline-offset:2px" onClick="{{ c.onClick }}">
+                  <span style="{{ c.iconStyle }}">{{ c.icon }}</span>
+                  <span style="{{ c.figStyle }}">{{ c.fig }}</span>
+                  <span style="{{ c.capStyle }}">{{ c.label }}</span>
+                </button>
+              </sc-for>
+            </sc-if>
+
+            <sc-if value="{{ r.isRow }}" hint-placeholder-val="{{ true }}">
+              <button type="button" style="{{ r.style }}" style-hover="background:var(--ihg)" style-active="background:var(--iag);transform:var(--iat)" style-focus="outline:2px solid var(--ink-border);outline-offset:2px" onClick="{{ r.onClick }}">
+                <sc-if value="{{ r.icon }}" hint-placeholder-val="{{ false }}">
+                  <span style="{{ r.iconStyle }}">{{ r.icon }}</span>
+                </sc-if>
+                <sc-if value="{{ r.face }}" hint-placeholder-val="{{ false }}">
+                  <span style="{{ faceChip }}"><span style="{{ r.faceChipInner }}"></span></span>
+                </sc-if>
+                <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;text-align:left">
+                  <span style="{{ r.labelStyle }}">{{ r.label }}</span>
+                  <sc-if value="{{ r.sub }}" hint-placeholder-val="{{ false }}">
+                    <span style="{{ r.subStyle }}">{{ r.sub }}</span>
+                  </sc-if>
+                </span>
+                <sc-if value="{{ r.badge }}" hint-placeholder-val="{{ false }}">
+                  <span style="{{ r.badgeStyle }}">{{ r.badge }}</span>
+                </sc-if>
+                <sc-if value="{{ r.meta }}" hint-placeholder-val="{{ false }}">
+                  <span style="{{ r.metaStyle }}">{{ r.meta }}</span>
+                </sc-if>
+              </button>
+            </sc-if>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-for>
+  </div>
+
+  <sc-if value="{{ pickerOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="{{ confirmScrim }}" onClick="{{ closePicker }}">
+      <div role="dialog" aria-modal="true" aria-label="{{ pickerTitle }}" style="{{ pickerBox }}" onClick="{{ stopBubble }}">
+        <span style="{{ confirmTitleStyle }}">{{ pickerTitle }}</span>
+        <span style="{{ hintStyle }}">{{ pickerHint }}</span>
+
+        <sc-if value="{{ pickerIsPerson }}" hint-placeholder-val="{{ true }}">
+          <input style="{{ pickerInput }}" value="{{ pickerQ }}" placeholder="Search or type a name" aria-label="Search or type a name" onChange="{{ setPickerQ }}" />
+          <div style="{{ pickerList }}">
+            <sc-for list="{{ pickerPeople }}" as="p" hint-placeholder-count="4">
+              <button type="button" style="{{ p.style }}" style-hover="filter:var(--ihf);box-shadow:var(--ihs);border-color:var(--ihb)" style-active="filter:var(--iaf);transform:var(--iat)" style-focus="outline:2px solid var(--ink-border);outline-offset:2px" onClick="{{ p.onClick }}">
+                <span style="{{ p.faceStyle }}"><span style="{{ p.faceInner }}"></span></span>
+                <span style="{{ p.labelWrap }}">
+                  <span style="{{ p.nameStyle }}">{{ p.name }}</span>
+                  <span style="{{ p.metaStyle }}">{{ p.meta }}</span>
+                </span>
+              </button>
+            </sc-for>
+          </div>
+          <sc-if value="{{ pickerCanAdd }}" hint-placeholder-val="{{ false }}">
+            <button type="button" style="{{ pickerAdd }}" style-hover="filter:var(--ihf)" style-active="transform:var(--iat)" style-focus="outline:2px solid var(--ink-border);outline-offset:2px" onClick="{{ pickerAddClick }}">{{ pickerAddLabel }}</button>
+          </sc-if>
+        </sc-if>
+
+        <sc-if value="{{ pickerIsChoose }}" hint-placeholder-val="{{ false }}">
+          <div style="{{ pickerRows }}">
+            <sc-for list="{{ pickerOptions }}" as="o" hint-placeholder-count="2">
+              <button type="button" style="{{ o.style }}" style-hover="filter:var(--ihf);box-shadow:var(--ihs);border-color:var(--ihb)" style-active="filter:var(--iaf);transform:var(--iat)" style-focus="outline:2px solid var(--ink-border);outline-offset:2px" onClick="{{ o.onClick }}">
+                <sc-if value="{{ o.hasFace }}" hint-placeholder-val="{{ true }}">
+                  <span style="{{ o.faceStyle }}"><span style="{{ o.faceInner }}"></span></span>
+                </sc-if>
+                <sc-if value="{{ o.icon }}" hint-placeholder-val="{{ false }}">
+                  <span style="{{ o.iconStyle }}">{{ o.icon }}</span>
+                </sc-if>
+                <span style="{{ o.labelWrap }}">
+                  <span style="{{ o.nameStyle }}">{{ o.label }}</span>
+                  <sc-if value="{{ o.sub }}" hint-placeholder-val="{{ false }}">
+                    <span style="{{ o.subStyle }}">{{ o.sub }}</span>
+                  </sc-if>
+                </span>
+                <sc-if value="{{ o.meta }}" hint-placeholder-val="{{ false }}">
+                  <span style="{{ o.metaStyle }}">{{ o.meta }}</span>
+                </sc-if>
+              </button>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ pickerHasLang }}" hint-placeholder-val="{{ false }}">
+          <span style="{{ pickerFieldLabel }}">Language of this performance</span>
+          <div style="{{ pickerList }}">
+            <sc-for list="{{ pickerLangs }}" as="l" hint-placeholder-count="5">
+              <button type="button" aria-pressed="{{ l.on }}" style="{{ l.style }}" style-hover="filter:var(--ihf);box-shadow:var(--ihs);border-color:var(--ihb)" style-active="filter:var(--iaf);transform:var(--iat)" style-focus="outline:2px solid var(--ink-border);outline-offset:2px" onClick="{{ l.onClick }}">{{ l.label }}</button>
+            </sc-for>
+          </div>
+          <span style="{{ pickerFieldLabel }}">Note</span>
+        </sc-if>
+
+        <sc-if value="{{ pickerIsNote }}" hint-placeholder-val="{{ false }}">
+          <textarea style="{{ pickerArea }}" value="{{ pickerQ }}" placeholder="{{ pickerAreaPh }}" aria-label="Note on this credit" onChange="{{ setPickerQ }}"></textarea>
+        </sc-if>
+
+        <div style="{{ pickerFoot }}">
+          <button type="button" style="{{ pickerSave }}" style-hover="filter:var(--ihf)" style-active="filter:var(--iaf);transform:var(--iat)" style-focus="outline:2px solid var(--ink-border);outline-offset:2px" onClick="{{ pickerSaveClick }}">{{ pickerSaveLabel }}</button>
+          <button type="button" style="{{ confirmCancel }}" style-hover="filter:var(--ihf);box-shadow:var(--ihs);border-color:var(--ihb)" style-active="filter:var(--iaf);transform:var(--iat)" style-focus="outline:2px solid var(--ink-border);outline-offset:2px" onClick="{{ closePicker }}">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ confirmOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="{{ confirmScrim }}" onClick="{{ cancelConfirm }}">
+      <div role="dialog" aria-modal="true" aria-label="{{ confirmTitle }}" style="{{ confirmBox }}" onClick="{{ stopBubble }}">
+        <span style="{{ confirmBadge }}">{{ confirmScope }}</span>
+        <span style="{{ confirmTitleStyle }}">{{ confirmTitle }}</span>
+        <p style="{{ confirmBodyStyle }}">{{ confirmBody }}</p>
+        <div style="{{ confirmRow }}">
+          <button type="button" style="{{ confirmDanger }}" style-hover="filter:var(--ihf)" style-active="filter:var(--iaf);transform:var(--iat)" style-focus="outline:2px solid var(--ink-border);outline-offset:2px" onClick="{{ runConfirm }}">{{ confirmVerb }}</button>
+          <button type="button" style="{{ confirmCancel }}" style-hover="filter:var(--ihf);box-shadow:var(--ihs);border-color:var(--ihb)" style-active="filter:var(--iaf);box-shadow:var(--ias);border-color:var(--iab);transform:var(--iat)" style-focus="outline:2px solid var(--ink-border);outline-offset:2px" onClick="{{ cancelConfirm }}">Keep it local</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <div style="{{ toastStyle }}">{{ toastMsg }}</div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1728,&quot;height&quot;:2200},&quot;mode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Light&quot;,&quot;Dark&quot;],&quot;default&quot;:&quot;Dark&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Appearance&quot;},&quot;accent&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;options&quot;:[&quot;#B4482D&quot;,&quot;#C8992B&quot;,&quot;#3F7D5A&quot;,&quot;#2F6D8F&quot;],&quot;default&quot;:&quot;#B4482D&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Appearance&quot;},&quot;typeSize&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;16&quot;,&quot;18&quot;,&quot;20&quot;,&quot;24&quot;],&quot;default&quot;:&quot;16&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Type&quot;},&quot;scopeTint&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Appearance&quot;}}">
+class Component extends DCLogic {
+  state = { toast: null, W: 0, order: {}, drag: null, confirm: null, picker: null, pq: '',
+    credKind: {} }
+
+  // ── PUSHING A LOCAL PICTURE UP TO THE IDENTITY IS THE ONE EDIT THAT LEAVES THE SCREEN.
+  //
+  // Every other control on a local screen changes one work; this one reaches all seventeen,
+  // and it sits inches from the button that does not. So it asks — and the ask is shaped so
+  // the dangerous answer is the one you have to travel to: the red verb sits on the LEFT,
+  // opposite the side a confirm normally lands on, and Cancel keeps the position your thumb
+  // is already resting at.
+  // The performer picker and the credit note are the same sheet in two modes — both answer
+  // one question about one credit, and two dialogs for that would drift apart.
+  openPicker = (cfg) => () =>
+    this.setState({ picker: cfg, pq: cfg.value || '', plang: cfg.langValue || '' })
+  closePicker = () => this.setState({ picker: null, pq: '' })
+  setPq = (e) => this.setState({ pq: e.target.value })
+
+  ask = (cfg) => () => this.setState({ confirm: cfg })
+  cancelConfirm = () => this.setState({ confirm: null })
+  runConfirm = () => {
+    const c = this.state.confirm
+    this.setState({ confirm: null, toast: this.flash(c ? c.done : 'Done') })
+  }
+  stopBubble = (e) => e.stopPropagation()
+
+  say = (msg) => () => {
+    clearTimeout(this._t)
+    this.setState({ toast: msg })
+    this._t = setTimeout(() => this.setState({ toast: null }), 2800)
+  }
+  flash = (msg) => {
+    clearTimeout(this._t)
+    this._t = setTimeout(() => this.setState({ toast: null }), 2800)
+    return msg
+  }
+
+  // Four 560px columns, zoomed to the frame — a quarter of a narrow window cannot hold a
+  // 118px portrait beside a paragraph, and zoom re-lays out rather than scaling pixels.
+  stageRef = (el) => {
+    this._el = el
+    if (!el || this._ro) return
+    this._ro = new ResizeObserver(() => {
+      const w = this._el ? this._el.clientWidth : 0
+      if (w && Math.abs(w - this.state.W) > 1) this.setState({ W: w })
+    })
+    this._ro.observe(el)
+    this.setState({ W: el.clientWidth })
+  }
+  stripRef = (m) => (el) => { this._strips = this._strips || {}; this._strips[m] = el }
+
+  // ── TWO DRAGS ON ONE STRIP, TOLD APART BY WHAT YOU GRABBED.
+  //
+  // THE COVER IS THE SORT HANDLE — you drag the thing you are moving — and dragging anywhere
+  // else (a gap, a caption, the padding) scrolls the strip, because overflow-x alone is a
+  // touch-only affordance and these are phones drawn on a desk. Both swallow the click past
+  // 3px, so a drag never opens the work you dragged.
+  //
+  // Every delta divides by the row's zoom: clientX is viewport pixels while the tiles are
+  // laid out in zoomed CSS pixels, and an undivided delta sorts the wrong distance.
+  artDown = (medium, i, len) => (e) => {
+    if (e.button != null && e.button !== 0) return
+    e.stopPropagation()
+    this._drag = { kind: 'sort', medium, from: i, len, x0: e.clientX, moved: false }
+    this.bind()
+  }
+  stripDown = (medium) => (e) => {
+    if (this._drag || (e.button != null && e.button !== 0)) return
+    const el = (this._strips || {})[medium]
+    if (!el) return
+    this._drag = { kind: 'scroll', medium, el, x0: e.clientX, sl0: el.scrollLeft, moved: false }
+    this.bind()
+  }
+  bind = () => {
+    window.addEventListener('pointermove', this.dragMove)
+    window.addEventListener('pointerup', this.dragUp)
+    window.addEventListener('pointercancel', this.dragUp)
+  }
+  unbind = () => {
+    window.removeEventListener('pointermove', this.dragMove)
+    window.removeEventListener('pointerup', this.dragUp)
+    window.removeEventListener('pointercancel', this.dragUp)
+  }
+  dragMove = (e) => {
+    const d = this._drag; if (!d) return
+    const dx = (e.clientX - d.x0) / (this._zoom || 1)
+    if (!d.moved && Math.abs(dx) < 3) return
+    d.moved = true
+    if (d.kind === 'scroll') { d.el.scrollLeft = d.sl0 - dx; return }
+    const step = this._step || 124
+    const to = Math.max(0, Math.min(d.len - 1, d.from + Math.round(dx / step)))
+    this.setState({ drag: { medium: d.medium, from: d.from, to, dx } })
+  }
+  dragUp = () => {
+    const d = this._drag
+    this.unbind()
+    this._drag = null
+    if (!d) return
+    this._swallow = d.moved
+    setTimeout(() => { this._swallow = false }, 0)
+    if (d.kind !== 'sort') return
+    const st = this.state.drag
+    if (st && st.to !== st.from) {
+      this.setState((s) => {
+        // The default order lives in render (items.map) and must be carried here, or the
+        // first drag splices an empty array and hands render an undefined index.
+        const cur = (s.order[st.medium] || (this._orders || {})[st.medium] || []).slice()
+        if (!cur.length) return { drag: null }
+        const [m] = cur.splice(st.from, 1)
+        cur.splice(st.to, 0, m)
+        return { order: { ...s.order, [st.medium]: cur }, drag: null,
+          toast: this.flash('Reordered — the identity’s own order, not any work’s') }
+      })
+    } else this.setState({ drag: null })
+  }
+  swallowClick = (e) => { if (this._swallow) { e.preventDefault(); e.stopPropagation() } }
+
+  componentWillUnmount() { clearTimeout(this._t); this.unbind(); if (this._ro) this._ro.disconnect() }
+
+  renderVals() {
+    const LIB = window.TippaniIcons || { ICONS: {}, HATCH: '', SILHOUETTE: '', icon: null }
+    const ico = (n, s) => (LIB.icon && LIB.ICONS[n] ? LIB.icon(React, n, s || 19) : null)
+    // ── TWO GLYPHS THE PACK DOES NOT HAVE, DRAWN TO ITS OWN CONVENTIONS (24 box, 1.85
+    // stroke, round caps) rather than borrowed from something that means another thing.
+    //   · A GAME IS A CONTROLLER — icons.js already has one under `nowPlaying`, so that is
+    //     used verbatim rather than redrawn; the repo's icon test fails near-duplicates.
+    //   · A SERIES IS A TELEVISION. `device` is a phone and reads as "this device"; the
+    //     lined card reads as metadata. A screen on a stand with a rabbit-ear V is the one
+    //     shape nothing else in the set claims.
+    const tv = (size) => React.createElement('svg', { width: size, height: size,
+      viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.85,
+      strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': 'true' }, [
+      React.createElement('rect', { key: 'b', x: 2.5, y: 7.5, width: 19, height: 13, rx: 2 }),
+      React.createElement('path', { key: 'a', d: 'M8 3.2 12 7.5l4-4.3' }),
+    ])
+    const controller = (size) => ico('nowPlaying', size) || tv(size)
+
+    const dark = (this.props.mode || 'Dark') !== 'Light'
+    const accent = this.props.accent || '#B4482D'
+    const rootPx = parseFloat(this.props.typeSize) || 16
+    const tint = this.props.scopeTint !== false
+
+    const P = dark
+      ? { bg: '#262019', raised: '#2A231C', card: '#2F2820', cardTop: '#352D23',
+          ink: '#EFE6D4', soft: '#B3A48C', faint: '#9A8C74', line: '#453B2D',
+          inkBorder: 'rgba(239,230,212,.4)', error: '#C96B5B', sh: '0,0,0',
+          bevelHi: 'rgba(255,255,255,.07)', bevelMid: 'rgba(255,255,255,.05)' }
+      : { bg: '#F4EDDE', raised: '#FBF6EA', card: '#FFFEF9', cardTop: '#FFFFFC',
+          ink: '#221C16', soft: '#6A5F50', faint: '#8A7C68', line: '#E4DAC7',
+          inkBorder: 'rgba(41,38,29,.6)', error: '#A93B26', sh: '41,38,29',
+          bevelHi: 'rgba(255,255,255,.75)', bevelMid: 'rgba(255,255,255,.35)' }
+
+    const lum = (hex) => {
+      const m = /^#?([0-9a-f]{6})$/i.exec(hex); if (!m) return .3
+      const n = parseInt(m[1], 16)
+      const ch = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => {
+        const c = v / 255; return c <= .04045 ? c / 12.92 : ((c + .055) / 1.055) ** 2.4
+      })
+      return .2126 * ch[0] + .7152 * ch[1] + .0722 * ch[2]
+    }
+    const accentUI = dark && lum(accent) <= .32
+      ? `color-mix(in oklab,${accent},white 42%)` : accent
+
+    const tokens =
+      `--u:${(rootPx / 16).toFixed(4)};--bg:${P.bg};--raised:${P.raised};--card:${P.card};` +
+      `--card-top:${P.cardTop};--ink:${P.ink};--soft:${P.soft};--faint:${P.faint};` +
+      `--line:${P.line};--ink-border:${P.inkBorder};--error:${P.error};--sh:${P.sh};` +
+      `--bevel-hi:${P.bevelHi};--bevel-mid:${P.bevelMid};--accent:${accent};--accent-ui:${accentUI};` +
+      `--font-display:'Newsreader','Tiro Bangla',Georgia,serif;` +
+      `--font-ui:'Hanken Grotesk','Tiro Bangla',system-ui,sans-serif;` +
+      `--font-mono:'IBM Plex Mono',ui-monospace,monospace;` +
+      `--font-hand:'Caveat','Tiro Bangla',cursive;`
+
+    const mono = (px, col) => `font-family:var(--font-mono);font-size:calc(${px}px*var(--u,1));` +
+      `color:${col};letter-spacing:.08em;font-weight:500`
+    const btnReset = 'background:0 0;border:0;padding:0;cursor:pointer;font:inherit'
+    const TR = 'transition:background .12s ease,color .12s ease,border-color .12s ease,' +
+      'box-shadow .12s ease,filter .12s ease,transform .09s ease;'
+    const GHOST = '--ihg:color-mix(in oklab,var(--ink),transparent 94%);--ihc:var(--ink);' +
+      '--iag:color-mix(in oklab,var(--ink),transparent 88%);--iat:scale(.99);'
+    const RAISED = '--ihf:brightness(.955);--ihb:var(--ink-border);' +
+      '--ihs:0 11px 20px -12px rgba(var(--sh),.7),inset 0 1px var(--bevel-mid);' +
+      '--iaf:brightness(.9);--iab:var(--ink-border);--iat:translateY(1.5px);' +
+      '--ias:inset 0 2px 5px -1px rgba(0,0,0,.3);'
+    // A missing cover, still or poster is the .ph hatch — never the silhouette, which means
+    // a person nobody has named.
+    const HATCH = LIB.HATCH || 'background:var(--raised)'
+    const SILH = LIB.SILHOUETTE || 'background:var(--faint)'
+    const BOOK_R = 'border-radius:3px 7px 4px 6px'
+    const FLAT_R = 'border-radius:4px'
+
+    // ═══ ONE CHARACTER SCREEN, FOUR SCOPES. The qualifier decides the header's art, the
+    // locator vocabulary (page · timestamp · quest) and the performer pairing (none · actor ·
+    // voice). Everything under the identity heading is the same object in all four.
+    const head = (label, note) => ({ isHead: true, isRow: false, isPair: false, isStrip: false,
+      label, note: note || '',
+      wrap: 'display:flex;flex-direction:column;gap:3px;padding:16px 10px 6px',
+      headStyle: mono(11, 'var(--faint)') + ';letter-spacing:.14em;text-transform:uppercase',
+      noteStyle: 'font-family:var(--font-ui);font-size:calc(12.5px*var(--u,1));' +
+        'color:var(--soft);line-height:1.55;text-wrap:pretty' })
+
+    const row = (label, o = {}) => ({
+      isRow: true, isHead: false, isPair: false, isStrip: false,
+      label, sub: o.sub || '', meta: o.meta || '', badge: o.badge || '',
+      icon: o.icon ? (o.icon === 'controller' ? controller(19)
+        : o.icon === 'tv' ? tv(19) : ico(o.icon, 19)) : null,
+      face: !!o.face,
+      faceChipInner: o.faceCss ? 'width:100%;height:100%;' + o.faceCss
+        : 'width:88%;height:92%;' + SILH,
+      onClick: o.onClick || this.say(o.say || label),
+      wrap: 'display:flex;align-items:stretch;gap:4px;padding:0 4px',
+      style: btnReset + ';flex:1;min-width:0;display:flex;align-items:center;gap:11px;' +
+        'min-height:52px;padding:9px 12px;border-radius:9px;text-align:left;' +
+        (o.danger
+          ? 'color:var(--error);--ihg:color-mix(in oklab,var(--error),transparent 90%);' +
+            '--ihc:var(--error);--iag:color-mix(in oklab,var(--error),transparent 82%);--iat:scale(.99);'
+          : 'color:var(--ink);' + GHOST) +
+        (o.badge && tint ? 'background:color-mix(in oklab,var(--accent),transparent 95%);' : '') +
+        TR,
+      iconStyle: 'width:20px;flex:none;display:inline-flex;align-items:center;justify-content:center;' +
+        (o.danger ? 'color:var(--error)' : 'color:var(--soft)'),
+      labelStyle: 'font-family:var(--font-ui);font-size:calc(14.5px*var(--u,1));line-height:1.3;' +
+        'overflow:hidden;text-overflow:ellipsis;white-space:nowrap',
+      subStyle: 'font-family:var(--font-ui);font-size:calc(12px*var(--u,1));color:var(--soft);' +
+        'line-height:1.45;text-wrap:pretty',
+      badgeStyle: mono(9.5, 'var(--accent-ui)') + ';letter-spacing:.14em;text-transform:uppercase;' +
+        'flex:none;padding:3px 7px;border-radius:6px;white-space:nowrap;' +
+        'border:1px solid color-mix(in oklab,var(--accent-ui),transparent 62%)',
+      metaStyle: (o.mono ? mono(12, 'var(--soft)')
+        : 'font-family:var(--font-ui);font-size:calc(13px*var(--u,1));color:var(--soft)') +
+        ';flex:none;white-space:nowrap',
+    })
+
+    // ── A PERFORMER CREDIT IS THREE TARGETS IN ONE ROW, AND THERE CAN BE SEVERAL OF THEM.
+    //
+    // One "Played by" row with one name was wrong twice over. A character can be played by
+    // more than one performer in the same work — a de-aged shot, a stunt double, a voice over
+    // a body — so credits are a LIST with an add row, not a field. And a name that both
+    // changes the casting and opens the person is one hit target doing two unrelated jobs.
+    //
+    // So the row splits where the two jobs split: the PORTRAIT on the left picks who it is
+    // (it is the thing you are replacing, and it wears a caret to say so), the NAME on the
+    // right opens that person's own record, and the pencil at the end notes what is peculiar
+    // about this credit — "voice only", "flashback", "uncredited". A credit with nobody named
+    // is a legitimate state, so it renders in faint rather than being hidden.
+    const credit = (name, o = {}) => ({
+      isCredit: true, isRow: false, isHead: false, isPair: false, isPills: false, isStrip: false,
+      name: name || 'Not named yet',
+      // THE LANGUAGE BELONGS TO THE CREDIT, NOT TO THE WORK. One film carries a dozen dubs,
+      // each a different person saying the same lines, so the language sits beside the note
+      // on the credit itself — and it shows in front of the note, because "Hindi" is the
+      // first thing that tells two otherwise identical rows apart.
+      note: [o.lang, o.note].filter(Boolean).join(' · '),
+      wrap: 'display:flex;align-items:stretch;gap:4px;padding:0 4px',
+      pickTitle: name ? `Change this credit (now ${name})` : 'Choose who plays this character here',
+      openTitle: name ? `Open ${name}’s record` : 'Nobody named on this credit yet',
+      onPick: this.openPicker({ mode: 'person', value: name,
+        title: o.pickTitle || 'Who plays this character here?',
+        hint: 'People the app already knows, or type a name it does not.',
+        done: o.pickDone || 'Performer set on this credit' }),
+      onOpen: name
+        ? this.say(`${name} — opens people-global, the person’s own record`)
+        : this.say('Nobody named yet — the portrait picks someone'),
+      onNote: this.openPicker({ mode: 'note', value: o.note || '',
+        lang: !!o.voice, langValue: o.lang || '',
+        title: o.voice ? 'This voice credit' : 'Note on this credit',
+        hint: 'What is peculiar about this casting — it belongs to the credit, not to the ' +
+          'person and not to the character.',
+        done: o.voice ? 'Voice credit saved' : 'Credit note saved' }),
+      pickStyle: btnReset + ';flex:none;display:flex;align-items:center;gap:3px;min-height:48px;' +
+        'padding:0 4px 0 6px;border-radius:9px;color:var(--ink);' + GHOST + TR,
+      creditFace: 'width:34px;height:34px;border-radius:50%;flex:none;overflow:hidden;' +
+        'border:1px solid var(--line);background:var(--raised);display:flex;' +
+        'align-items:flex-end;justify-content:center',
+      creditFaceInner: o.faceCss ? 'width:100%;height:100%;' + o.faceCss
+        : 'width:88%;height:92%;' + SILH,
+      caret: ico('chev', 13),
+      caretStyle: 'display:inline-flex;color:var(--faint);flex:none',
+      nameStyle: btnReset + ';flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;' +
+        'justify-content:center;min-height:48px;padding:4px 8px;border-radius:9px;' +
+        'text-align:left;color:var(--ink);' + GHOST + TR,
+      nameText: 'font-family:var(--font-ui);font-size:calc(14.5px*var(--u,1));line-height:1.3;' +
+        'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;' +
+        (name ? '' : 'color:var(--faint);font-style:italic'),
+      noteText: 'font-family:var(--font-ui);font-size:calc(12px*var(--u,1));color:var(--soft);' +
+        'line-height:1.45;text-wrap:pretty',
+      noteGlyph: ico('edit', 18),
+      noteKey: btnReset + ';width:40px;flex:none;min-height:52px;border-radius:9px;' +
+        'display:inline-flex;align-items:center;justify-content:center;color:var(--soft);' +
+        GHOST + TR,
+      // A CREDIT LIST CAN BE EMPTY, and that is a real state rather than a broken one: a
+      // mute animated short performs nobody, and forcing one name into it would be inventing
+      // a person. So every credit is removable down to none.
+      delGlyph: ico('close', 17),
+      onDelete: this.say(name
+        ? `${name} removed from this credit — their own record is untouched`
+        : 'Empty credit removed — a work may perform nobody at all'),
+      delKey: btnReset + ';width:40px;flex:none;min-height:52px;border-radius:9px;' +
+        'display:inline-flex;align-items:center;justify-content:center;color:var(--faint);' +
+        '--ihg:color-mix(in oklab,var(--error),transparent 90%);--ihc:var(--error);' +
+        '--iag:color-mix(in oklab,var(--error),transparent 82%);--iat:scale(.97);' + TR,
+    })
+
+    // ── WHETHER THEY ARE PERFORMED OR VOICED IS THE WORK'S FACT, NOT THE SCHEMA'S.
+    //
+    // Live action casts a performer; an animated film casts a voice; a game can do both, and
+    // motion capture is a performer whose voice is somebody else. One field with two possible
+    // names, so the section names itself — and the toggle is two words rather than a dropdown
+    // because there are exactly two answers.
+    const credKind = (id, dflt) => this.state.credKind[id] || dflt
+    // The heading IS the control: one line holding the section's name and the two words it
+    // can be, instead of a heading, a paragraph and a row of buttons stacked three deep.
+    const seg = (id, options, dflt, label) => ({ isSeg: true, isRow: false, isHead: false,
+      isPair: false, isPills: false, isStrip: false, isCredit: false,
+      label: label || '',
+      headStyle: mono(11, 'var(--faint)') + ';letter-spacing:.14em;text-transform:uppercase;' +
+        'flex:1;min-width:0',
+      wrap: 'display:flex;align-items:center;gap:6px;padding:10px 10px 6px',
+      opts: options.map((label) => {
+        const on = credKind(id, dflt) === label
+        return { label, on,
+          onClick: () => this.setState((s) => ({ credKind: { ...s.credKind, [id]: label } })),
+          style: btnReset + ';min-height:34px;padding:0 13px;border-radius:999px;' +
+            'font-size:calc(12px*var(--u,1));white-space:nowrap;border:1px solid ' +
+            (on ? 'var(--ink-border)' : 'var(--line)') + ';' +
+            (on ? `background:color-mix(in oklab,${accent},transparent 84%);color:var(--ink);`
+              : 'background:var(--raised);color:var(--soft);') + RAISED + TR }
+      }) })
+
+    // ── ONE FIELD FOR THE NAME AND EVERY OTHER NAME.
+    //
+    // "Called here" and "Also called here" were two rows editing one fact: what this work
+    // calls the character. Splitting them made the canonical name look like a different KIND
+    // of thing from its aliases, when it is only the first of them — and it left a film and
+    // a game with no alias field at all, so a credited spelling had nowhere to go.
+    //
+    // So: one multi-line value, one name per line, and the FIRST LINE IS THE ONE THAT PRINTS.
+    // Promoting an alias is then a line move rather than a two-field dance, and the row shows
+    // the split it produces: the printing name as the value, the rest underneath.
+    const names = (label, lines) => row(label, {
+      meta: lines[0],
+      sub: lines.length > 1 ? lines.slice(1).join(' · ') : 'no other spellings here',
+      onClick: this.openPicker({ mode: 'note', value: lines.join('\n'),
+        title: label,
+        hint: 'One name per line. The first line is the name that prints on quotes and ' +
+          'credits; the rest are spellings search will find.',
+        placeholder: 'Harry\nUndesirable No. 1\nহ্যারি পটার',
+        done: 'Names saved — the first line prints' }),
+    })
+
+    // ── LINKS ARE PILLS, AND THE MARK IS THE POINT.
+    //
+    // "Links · 4 · Wikipedia · Fandom" was a row that could only be read: you could not tell
+    // which four, could not open one, and the subtitle truncated the moment a fifth arrived.
+    // A pill per link, wearing the site's own mark, is the whole set at a glance and one tap
+    // to any of them. A site with no mark takes the globe rather than a hand-drawn lookalike
+    // — the honest signal for "somewhere else on the web".
+    //
+    // ROUND MEANS A VALUE HERE, so the links are round and "Add a link" takes the 9px corner
+    // and 44px floor of a control: it cannot be mistaken for a fifth link.
+    const MARKS = window.SiteMarks || {}
+    const pillBase = 'display:inline-flex;align-items:center;gap:8px;min-height:44px;' +
+      'padding:0 15px 0 12px;white-space:nowrap;font-size:calc(13px*var(--u,1));' +
+      'border:1px solid var(--line);background:var(--raised);color:var(--ink);'
+    const pills = (items) => ({ isPills: true, isHead: false, isRow: false, isPair: false,
+      isStrip: false,
+      wrap: 'display:flex;flex-wrap:wrap;gap:8px;padding:2px 10px 6px',
+      pills: items.map(([label, key, sub]) => ({
+        label,
+        glyph: key === 'add' ? ico('add', 17)
+          : MARKS[key]
+            ? React.createElement('span', { style: {
+              width: 16, height: 16, display: 'block',
+              background: 'currentColor',
+              WebkitMask: `url("${MARKS[key]}") center/100% 100% no-repeat`,
+              mask: `url("${MARKS[key]}") center/100% 100% no-repeat`,
+            } })
+            : ico('globe', 17),
+        onClick: this.say(sub || label),
+        style: btnReset + ';' + pillBase +
+          (key === 'add'
+            ? 'border-radius:9px;color:var(--soft);border-style:dashed;background:0 0;'
+            : 'border-radius:999px;') + RAISED + TR,
+        markStyle: 'display:inline-flex;align-items:center;justify-content:center;flex:none;' +
+          (key === 'add' ? 'color:var(--soft)' : 'color:var(--soft)'),
+        labelStyle: 'line-height:1',
+      })) })
+
+    // ── THREE SHORT ANSWERS, ONE LINE. A part, a locator and an age are a word, a reference
+    // and a number: given a row each they took 150px of height and read as three unrelated
+    // decisions, and each needed a sentence explaining why it was there. Side by side they
+    // are what they are — the facts of him in this work — and the label carries the meaning
+    // the prose was carrying.
+    const facts = (cells) => ({ isFacts: true, isRow: false, isHead: false, isPair: false,
+      isPills: false, isStrip: false, isCredit: false, isSeg: false,
+      wrap: 'display:flex;gap:6px;padding:2px 6px',
+      cells: cells.map(([label, value, mono_]) => ({
+        label, value,
+        onClick: this.say(`${label} — ${value}`),
+        style: btnReset + ';flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;' +
+          'align-items:flex-start;justify-content:center;min-height:52px;padding:7px 10px;' +
+          'border-radius:9px;color:var(--ink);' + GHOST + TR,
+        labelStyle: mono(9.5, 'var(--faint)') + ';letter-spacing:.13em;text-transform:uppercase;' +
+          'white-space:nowrap',
+        valueStyle: (mono_ ? mono(12, 'var(--ink)')
+          : 'font-family:var(--font-ui);font-size:calc(14px*var(--u,1));color:var(--ink)') +
+          // NO CLAMP ON A VALUE — a shrink-wrapped nowrap span resolves from min-content on a
+          // DOM re-render, and the clamp turns "Protagonist" into "Protagoni…" in every
+          // export and review screenshot while the live box measures fine.
+          ';line-height:1.25;white-space:nowrap',
+      })) })
+
+    const pair = (cells, scopeMsg) => ({ isPair: true, isHead: false, isRow: false, isStrip: false,
+      wrap: 'display:flex;gap:8px;padding:2px 10px',
+      pair: cells.map(([label, icon, fig]) => ({
+        label, fig,
+        icon: icon === 'controller' ? controller(17) : ico(icon, 17),
+        onClick: this.say(`${label} — ${scopeMsg}`),
+        // ONE LINE, NOT A STACKED CARD. Three short things — a glyph, a number and its unit —
+        // stacked into 78px of height read as a tile with something missing. Side by side
+        // they read as the sentence they are: 37 quotes.
+        style: btnReset + ';flex:1;min-width:0;display:flex;align-items:center;' +
+          'justify-content:center;gap:9px;' +
+          'min-height:44px;padding:0 13px;border-radius:9px;color:var(--ink);' +
+          'border:1px solid var(--line);background:var(--raised);' + RAISED + TR,
+        iconStyle: 'color:var(--faint);display:inline-flex;flex:none',
+        figStyle: 'font-family:var(--font-display);font-size:calc(19px*var(--u,1));' +
+          'line-height:1;color:var(--ink);flex:none',
+        capStyle: mono(10, 'var(--faint)') + ';letter-spacing:.13em;text-transform:uppercase;' +
+          'line-height:1',
+      })) })
+
+    // ── THE APPEARANCE CAROUSEL. A work is a COVER before it is a row of text, and seventeen
+    // of them as list rows is four screens of scrolling in a panel that also has to hold the
+    // identity. So each medium is one strip: covers at 112px, the caption under the art, the
+    // strip scrolling sideways under a 26px edge fade — the fade is the whole signal that
+    // there is more, with no arrows and no counter.
+    //
+    // ORDER IS THE IDENTITY'S OWN, which is why it is draggable: publication order is not
+    // reading order and neither is the order you care about. Sorting here changes nothing
+    // inside any work.
+    const TILE = 112
+    const TGAP = 12
+    this._step = TILE + TGAP
+
+    // sortable: false where the order MEANS something already. Release order is a fact about
+    // the works, not a preference — so that strip only scrolls, and dragging a cover drags
+    // the strip rather than pretending the sequence is yours to arrange.
+    const strip = (medium, items, hint, sortable) => {
+      this._orders = this._orders || {}
+      if (!this._orders[medium]) this._orders[medium] = items.map((_, i) => i)
+      const order = (this.state.order[medium] || this._orders[medium])
+        .filter((i) => !!items[i])
+      const d = this.state.drag && this.state.drag.medium === medium ? this.state.drag : null
+      const scrolls = items.length >= 4
+      return {
+        isStrip: true, isHead: false, isRow: false, isPair: false,
+        wrap: 'display:flex;flex-direction:column;gap:6px;padding:2px 0 6px',
+        stripRef: this.stripRef(medium),
+        onStripDown: this.stripDown(medium),
+        stripStyle: `display:flex;gap:${TGAP}px;align-items:flex-start;overflow-x:auto;` +
+          'padding:2px 10px 4px;' +
+          (scrolls
+            ? '-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 26px,' +
+              '#000 calc(100% - 26px),transparent 100%);' +
+              'mask-image:linear-gradient(90deg,transparent 0,#000 26px,' +
+              '#000 calc(100% - 26px),transparent 100%);'
+            : ''),
+        stripHint: hint || '',
+        stripHintStyle: 'font-size:calc(11.5px*var(--u,1));color:var(--faint);padding:0 10px;' +
+          'line-height:1.45;text-wrap:pretty',
+        tiles: order.map((srcIdx, pos) => {
+          const [title, meta, kind, quotes, artCss, faceCss, choose] = items[srcIdx]
+          const BADGE = { book: 'books', film: 'play', game: 'controller', show: 'tv' }
+          const badgeKind = BADGE[kind] || kind
+          let shift = 0
+          if (d) {
+            if (pos === d.from) shift = d.dx
+            else if (d.from < d.to && pos > d.from && pos <= d.to) shift = -(TILE + TGAP)
+            else if (d.from > d.to && pos >= d.to && pos < d.from) shift = TILE + TGAP
+          }
+          const lifted = d && pos === d.from
+          return {
+            title, meta,
+            badge: badgeKind === 'controller' ? controller(14)
+              : badgeKind === 'tv' ? tv(14) : ico(badgeKind, 14),
+            dragHint: sortable ? 'Drag the cover to reorder' : 'Drag to scroll',
+            onArtDown: sortable ? this.artDown(medium, pos, order.length) : this.stripDown(medium),
+            // A WORK CAN HOLD MORE THAN ONE OF HIS ROLES, so a tile on a performer's strip
+            // cannot assume what you meant by tapping it: two characters in one film, or the
+            // film itself. When there is a choice, it asks; when there is only one thing
+            // behind the tile, it just opens it.
+            onClick: choose
+              ? this.openPicker({ mode: 'choose', title,
+                hint: choose.hint || 'What do you want to open?',
+                options: choose.options })
+              : this.say(`${title} — opens char-${kind}`),
+            style: `width:${TILE}px;flex:none;display:flex;flex-direction:column;gap:7px;` +
+              `transform:translateX(${shift.toFixed(1)}px)` +
+              (lifted ? ' scale(1.03) rotate(-1.2deg);z-index:3;position:relative;'
+                : ';transition:transform .16s cubic-bezier(.22,.72,.3,1);'),
+            artStyle: `width:${TILE}px;height:166px;flex:none;position:relative;` +
+              'overflow:hidden;border:1px solid var(--line);' +
+              // SHAPE CARRIES THE MEDIUM alongside the badge: a book takes the app's
+              // hand-drawn corner, a poster or box art is square-cut.
+              (kind === 'book' ? BOOK_R : FLAT_R) + ';' + (artCss || HATCH) + ';' +
+              (lifted
+                ? 'box-shadow:0 22px 34px -18px rgba(var(--sh),.85);border-color:var(--ink-border);'
+                : 'box-shadow:0 10px 18px -14px rgba(var(--sh),.7);'),
+            // ── THE LOCAL FACE, ON THE WORK'S OWN COVER.
+            //
+            // The strip is about ONE character, so the cover alone is the wrong picture: it
+            // says which work and nothing about who he is in it. A round chip in the top
+            // corner is that answer — round means a person everywhere in this app, so it
+            // cannot be misread as part of the artwork — and it is the WORK-LOCAL portrait,
+            // which is the whole point: a book with no illustration of him shows a
+            // silhouette while the film beside it shows its still.
+            localFaceStyle: 'position:absolute;right:6px;top:6px;width:30px;height:30px;' +
+              'border-radius:50%;overflow:hidden;display:flex;align-items:flex-end;' +
+              'justify-content:center;background:var(--raised);' +
+              'border:1.4px solid var(--ink-border);box-shadow:0 4px 10px -6px rgba(var(--sh),.9)',
+            // NO CHIP WHERE THERE IS NO PERSON-IN-THE-WORK. On a work he WROTE he is the
+            // maker, not somebody inside it, and a silhouette there would claim a character
+            // nobody has named.
+            hasFace: faceCss !== false,
+            localFaceInner: faceCss
+              ? 'width:100%;height:100%;' + faceCss
+              : 'width:88%;height:92%;' + SILH,
+            localFaceTitle: `Harry in ${title} — this work’s own portrait`,
+            badgeStyle: 'position:absolute;left:6px;bottom:6px;width:26px;height:26px;' +
+              'border-radius:7px;display:inline-flex;align-items:center;justify-content:center;' +
+              'color:var(--ink);background:color-mix(in oklab,var(--card),transparent 12%);' +
+              'border:1px solid var(--line)',
+            capStyle: btnReset + ';display:flex;flex-direction:column;gap:2px;text-align:left;' +
+              'color:var(--ink);' + TR,
+            titleStyle: 'font-family:var(--font-ui);font-size:calc(12.5px*var(--u,1));' +
+              'line-height:1.35;max-height:calc(2 * 1.35em);overflow:hidden',
+            metaStyle: mono(9.5, 'var(--faint)') + ';letter-spacing:.1em;line-height:1.4;' +
+              'max-height:calc(2 * 1.4em);overflow:hidden',
+            // THE COUNT IS WHY THE WORK IS IN THE LIST. A tile with no number on it says he
+            // appears; the number says how much of him you have actually kept.
+            quotes,
+            quotesStyle: mono(10, 'var(--accent-ui)') + ';letter-spacing:.1em;line-height:1.4',
+          }
+        }),
+      }
+    }
+
+    // ── ONE CAROUSEL, ALL SEVENTEEN WORKS, IN RELEASE ORDER.
+    //
+    // Four strips under four medium headings said "a book is one kind of thing and a film is
+    // another" — which is the phone's Library/Catalogue/Games split, not this screen's
+    // subject. Here the subject is ONE identity's whole life across media, and the honest
+    // reading of it is chronological: the first film lands between books four and five, and
+    // the game and the series sit at the end. The medium is on every tile — badge and cover
+    // shape — so it never needed a heading of its own.
+    // ── REAL PICTURES, CROPPED IN CSS RATHER THAN CUT INTO FILES.
+    //
+    // Each of these is one source frame serving two shapes: a 2:3 poster and a round face
+    // chip. background-position does the cropping, so the same URL can be a wide still on
+    // the left of a strip and a head-and-shoulders circle on the right of a cover — and a
+    // recrop is one number, not a new asset. FILM_STILL is taken from the frame's right
+    // side, where he is; GAME_ART is the box art as it comes.
+    const FILM_STILL = 'https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Fi.ytimg.com%2Fvi%2F_ihVsEYQP8E%2Fmaxresdefault.jpg&f=1&nofb=1&ipt=0d4103034f59bf4f6b721fd33d7cdbe5b6703562ccaf314e5b9848a045e0b1fb'
+    const GAME_ART = 'https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Fimages.squarespace-cdn.com%2Fcontent%2Fv1%2F5c71c7d8aadd342945360ba1%2F1573857413480-QFN13VQTB6PT8YKMXE93%2FPC.jpg&f=1&nofb=1&ipt=d2b818cfde1541c6f2c6bf2b966c9686ed1c314edcc2592cb1b44cd7477ddf56'
+    const GAME_FACE = 'https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2F1.bp.blogspot.com%2F-HRsEF9LaaBQ%2FV170BfSrHfI%2FAAAAAAAABAk%2FGsmOHkIMB4ospOY3l0m1UmPKMYlaiKchwCLcB%2Fs1600%2FHarry-Potter-And-The-Deathly-Hallows-Part-1-Free-Download.jpg&f=1&nofb=1&ipt=335ac26ca32075f7a286e9a220c17ebfb6cf2d8e6e72f999306c95dbfca41d47'
+    const img = (url, pos) => `background-image:url("${url}");background-size:cover;` +
+      `background-position:${pos};background-repeat:no-repeat;`
+    const FILM_POSTER_SRC = 'https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Fwww.themoviedb.org%2Ft%2Fp%2Foriginal%2FgboH1EjQOtkMK8i9FTsTvY2iCOc.jpg&f=1&nofb=1&ipt=f18387368f4c111ac82089b581b63f94e04f58f52aaf48347c0cf37d5abad275'
+    const BOOK_COVER_SRC = 'https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Fmedia.harrypotterfanzone.com%2Fdeathly-hallows-us-childrens-edition-2013.jpg&f=1&nofb=1&ipt=a16d21a6022d749e616a1ad146ea708c3439b9d1bf81fa4c89610a14b47f8dbb'
+    // The still is the CHARACTER (cropped to his side of the frame); the poster and the cover
+    // are the WORK. Two different pictures answering two different questions, which is why a
+    // tile carries both.
+    // The book's Harry is an ILLUSTRATION, not a photograph — which is exactly right: a book
+    // has no performer, so its picture of him is somebody's drawing rather than a still.
+    const BOOK_FACE_SRC = 'https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Fw7.pngwing.com%2Fpngs%2F586%2F651%2Fpng-transparent-harry-potter-and-the-deathly-hallows-fan-art-harry-potter-fictional-character-cartoon-painting.png&f=1&nofb=1&ipt=2a9880303cefa4cbc2280325a02cf1da223470ab03f107151211215508087815'
+    const BOOK_FACE = img(BOOK_FACE_SRC, '50% 22%')
+    // The identity's own portrait — the face the app falls back to wherever a work has set
+    // none of its own.
+    const GLOBAL_FACE_SRC = 'https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Fstatic0.cbrimages.com%2Fwordpress%2Fwp-content%2Fuploads%2F2024%2F05%2Fharry-potter-characters.jpg%3Fq%3D49%26fit%3Dcrop%26w%3D266%26h%3D350%26dpr%3D2&f=1&nofb=1&ipt=adb71303ece7449af7f51ed15effaecaac5306b61dc6c45d8845e606562dfd6a'
+    const GLOBAL_FACE = img(GLOBAL_FACE_SRC, '50% 24%')
+    // THE PERFORMER'S OWN PHOTOGRAPH, not a still from the film — because it is a picture of
+    // a person who exists outside it, and that is the whole distinction the row is making.
+    const ACTOR_SRC = 'https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Fresize.elle.fr%2Fportrait%2Fvar%2Fplain_site%2Fstorage%2Fimages%2Fpersonnalites%2Fdaniel-radcliffe%2F103506767-1-fre-FR%2FDaniel-Radcliffe.jpg&f=1&nofb=1&ipt=c5fc1ae56fe18e0cd0cb3c533f21e5b7d6c15880b20ad39c6aafa62159061a6e'
+    const ACTOR_FACE = img(ACTOR_SRC, '50% 18%')
+    const VOICE_SRC = 'https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Fstatic.wikia.nocookie.net%2Fharrypotter%2Fimages%2F8%2F8d%2FAdam_Sopp_1.jpg%2Frevision%2Flatest%2Fscale-to-width-down%2F1200%3Fcb%3D20230322001018&f=1&nofb=1&ipt=3cff0838b51d0d6ddda114a584e29484e646a406ca7d0bc72c5c1695e0ed7106'
+    const VOICE_FACE = img(VOICE_SRC, '50% 20%')
+    const AKIMBO_SRC = 'https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Fstatic1.srcdn.com%2Fwordpress%2Fwp-content%2Fuploads%2F2024%2F07%2F2knnf7bwrcem4bcfkdie0t4u25s.jpg&f=1&nofb=1&ipt=9aaef2e4cf847b8172c0ee4f8835c54a9a3515b5d23ba6e992171ad6c95ceca2'
+    const AKIMBO_ART = img(AKIMBO_SRC, '50% 40%')
+    const JUNGLE_ART = img('https://m.media-amazon.com/images/S/compressed.photo.goodreads.com/books/1559534640i/46135884.jpg', '50% 50%')
+    const AKIMBO_CHAR_SRC = 'https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Fblog-fluxkompensator.de%2Fwp-content%2Fuploads%2F2020%2F11%2FGuns_Akimbo_Top-e1611162789639.jpg&f=1&nofb=1&ipt=2585bf361baf63d58b08b957ae515282f95e5ccade30a61469273e235c6a0692'
+    const AKIMBO_FACE = img(AKIMBO_CHAR_SRC, '50% 26%')
+    const FILM_FACE = img(FILM_STILL, '78% 34%')
+    const FILM_ART = img(FILM_POSTER_SRC, '50% 50%')
+    const BOOK_ART = img(BOOK_COVER_SRC, '50% 50%')
+    const GAME_POSTER = img(GAME_ART, '50% 50%')
+    const GAME_CHAR = img(GAME_FACE, '50% 26%')
+
+    // ONLY THE WORKS THAT HAVE A RECORD. Seventeen tiles were seventeen promises: fourteen
+    // of them held nothing but a title, and a strip of empty covers reads as a broken fetch
+    // rather than as "you have not filed anything from these yet". Three works, three real
+    // records — the three screens beside this one — and each tile carries the count that is
+    // the reason it is in the list.
+    // EVERY GLOBAL STRIP OPENS THE SAME CHOOSER. A cover on a global record leads to more
+    // than one thing — the work, the record local to it, and whoever is credited in it — so
+    // the tap asks instead of guessing, here exactly as on a person's strip.
+    const WORK_HINT = 'The work, the record local to it, and its credits.'
+    const ALL = [
+      ['Deathly Hallows', '2007 · Harry', 'book', '37 quotes', BOOK_ART, BOOK_FACE,
+        { hint: WORK_HINT, options: [
+          { label: 'Deathly Hallows', sub: 'the book’s own record', icon: 'books', meta: '2007',
+            done: 'Opens the book' },
+          { label: 'Harry Potter', sub: 'char-book · the record local to this work',
+            faceCss: BOOK_FACE, meta: '37 quotes', done: 'Opens char-book' },
+        ] }],
+      ['Deathly Hallows – Part 2', '2011 · Radcliffe', 'film', '12 quotes', FILM_ART, FILM_FACE,
+        { hint: WORK_HINT, options: [
+          { label: 'Deathly Hallows – Part 2', sub: 'the film’s own record', icon: 'play',
+            meta: '2011', done: 'Opens the film' },
+          { label: 'Harry Potter', sub: 'char-film · the record local to this work',
+            faceCss: FILM_FACE, meta: '12 quotes', done: 'Opens char-film' },
+          { label: 'Daniel Radcliffe', sub: 'performer · people-global', faceCss: ACTOR_FACE,
+            done: 'Opens people-global — Daniel Radcliffe' },
+        ] }],
+      ['Deathly Hallows – Part 2', '2011 · Sopp', 'game', '4 quotes', GAME_POSTER, GAME_CHAR,
+        { hint: WORK_HINT, options: [
+          { label: 'Deathly Hallows – Part 2', sub: 'the game’s own record', icon: 'controller',
+            meta: '2011', done: 'Opens the game' },
+          { label: 'Harry Potter', sub: 'char-game · the record local to this work',
+            faceCss: GAME_CHAR, meta: '4 quotes', done: 'Opens char-game' },
+          { label: 'Adam Sopp', sub: 'voice · people-global', faceCss: VOICE_FACE,
+            done: 'Opens people-global — Adam Sopp' },
+        ] }],
+    ]
+
+    // The identity's own fields, edited in one place only: char-global. No portrait row —
+    // the picture is already at the top of that screen, with its own button.
+    const idRows = () => [
+      names('Canonical name', ['Harry Potter', 'The Boy Who Lived', 'The Chosen One']),
+      row('Sort name', { meta: 'Potter, Harry', sub: 'How the identity files in a list' }),
+      row('Born', { meta: '31 July 1980', sub: 'In-world, where a work states it' }),
+    ]
+    // ── ON A LOCAL SCREEN THE IDENTITY IS A DOOR, NOT A FORM.
+    //
+    // Five read-only rows badged GLOBAL restated the global screen inside every local one:
+    // the same name, sort name and dates three times over, none of them editable here, all
+    // of them competing with the fields that ARE this book's. One row, wearing the identity's
+    // own portrait so you can see whose record you are about to open, and the counts as its
+    // subtitle — everything else is one tap away where it belongs.
+    const idBlock = () => [
+      head('The identity', 'Edits here reach every work.'),
+      row('Open the global record', { face: true, faceCss: GLOBAL_FACE, meta: '3 works',
+        badge: 'global',
+        sub: 'The character, out of any one work',
+        say: 'Opens char-global — the identity, and every work under it' }),
+    ]
+
+    // Everyone the app already knows. Two have photographs and four do not, which is the
+    // normal state of a library — the picker has to look right with a row of silhouettes.
+    const PEOPLE = [
+      ['Daniel Radcliffe', 'Harry in the film', ACTOR_FACE],
+      ['Adam Sopp', 'Harry in the game', VOICE_FACE],
+      ['Rupert Grint', 'Ron in the film', ''],
+      ['Emma Watson', 'Hermione in the film', ''],
+      ['Toby Papworth', 'baby Harry, first film', ''],
+      ['শঙ্খ ঘোষ চট্টোপাধ্যায়', 'translator, Bengali edition', ''],
+    ]
+
+    const SCREENS = [
+      {
+        id: 'char-global', scope: 'global', qualifier: 'char-global', art: null,
+        faceCss: GLOBAL_FACE, glyph: 'globe', px: [266, 350],
+        aria: 'Harry Potter — the identity',
+        scopeTitle: 'Global — the identity every work shares',
+        title: 'Harry Potter',
+        crumb: '1 book · 1 film · 1 game',
+        rows: [
+          head('The identity'),
+          ...idRows(),
+          head('Links', 'Where this character is written up outside the app.'),
+          pills([
+            ['Wikipedia', 'wikipedia', 'en.wikipedia.org/wiki/Harry_Potter_(character)'],
+            ['Wikidata', 'wikidata', 'Q3244512'],
+            ['Fandom', 'fandom', 'harrypotter.fandom.com/wiki/Harry_Potter'],
+            ['hp-lexicon.org', 'other', 'No mark for this one — the globe means somewhere else on the web'],
+            ['Add a link', 'add', 'Paste a URL — the provider is read off the address'],
+          ]),
+          head('Appearances · 3 works'),
+          strip('works', ALL, 'Drag sideways to scroll — the order is the release order.'),
+          head('The identity itself'),
+          row('Merge with another character', { icon: 'merge',
+            sub: 'Two identities become one; their work records come across untouched' }),
+            // ── NO BULK REMOVAL FROM THE GLOBAL RECORD.
+          //
+          // "Delete" here would reach into three works at once and quietly strip a name off
+          // each — the one edit on this screen whose damage you could not see before it
+          // happened. So the verb states the reach and then hands back the list: each work
+          // is unlinked by its own tap, and the identity only goes once nothing is left
+          // holding it. Slower on purpose, and the slowness is the safety.
+          row('Remove from all works', { icon: 'trash', danger: true,
+            sub: 'Unlinked one work at a time — nothing is removed in bulk',
+            onClick: this.openPicker({ mode: 'choose',
+              title: 'This removes the character from every work',
+              hint: 'Nothing is done in bulk: unlink each work yourself, then the identity ' +
+                'can go. Each unlink leaves that work’s own record, quotes and pictures ' +
+                'exactly where they are.',
+              options: [
+                { label: 'Deathly Hallows', sub: 'book · unlink this work', icon: 'books',
+                  meta: '37 quotes', done: 'Book unlinked — 2 works still hold the identity' },
+                { label: 'Deathly Hallows – Part 2', sub: 'film · unlink this work',
+                  icon: 'play', meta: '12 quotes',
+                  done: 'Film unlinked — 2 works still hold the identity' },
+                { label: 'Deathly Hallows – Part 2', sub: 'game · unlink this work',
+                  icon: 'controller', meta: '4 quotes',
+                  done: 'Game unlinked — 2 works still hold the identity' },
+                { label: 'Delete the identity', sub: 'Available once no work is linked',
+                  icon: 'close', done: 'Still linked to 3 works — unlink them first' },
+              ] }) }),
+        ],
+      },
+      {
+        id: 'char-book', scope: 'book', qualifier: 'char-book', art: 'book', artCss: BOOK_ART,
+        faceCss: BOOK_FACE, glyph: 'openBook', px: [820, 820],
+        aria: 'Harry Potter in Harry Potter and the Deathly Hallows',
+        scopeTitle: 'Book-local — only this book changes',
+        title: 'Harry Potter',
+        crumb: 'in Harry Potter and the Deathly Hallows · book 7 of 7',
+        rows: [
+          // NO HEADING OVER THE LOCAL FIELDS. The crumb already says which book you are in
+          // and the qualifier says the scope; a heading repeating it pushed the first real
+          // field a screenful down. The identity below still needs its heading, because
+          // that is where the scope CHANGES.
+          names('Called here', ['Harry', 'Undesirable No. 1', 'The Boy Who Lived', 'হ্যারি পটার']),
+          facts([['Part', 'Protagonist'], ['First appears', 'CH 1 · PAGE 9', true],
+            ['Age here', '17']]),
+          row('Note', { icon: 'edit', meta: 'none', sub: 'Yours, private, this work only' }),
+          pair([['Quotes', 'quote', '37'], ['Chapters', 'openBook', '19']],
+            'the count in this work'),
+          ...idBlock(),
+          head('Remove'),
+          row('Remove from this book', { icon: 'trash', danger: true,
+            // GENERIC AND PRONOUN-FREE. A subtitle that names the other works has to be
+            // rewritten every time the library changes, and a "he" has to be rewritten the
+            // first time this screen holds somebody else.
+            sub: 'Other works retain the global character',
+            say: 'Removed from this book' }),
+        ],
+      },
+      {
+        id: 'char-film', scope: 'film', qualifier: 'char-film', art: 'film', artCss: FILM_ART,
+        faceCss: FILM_FACE, glyph: 'play', px: [1280, 720],
+        aria: 'Harry Potter in Deathly Hallows – Part 2',
+        scopeTitle: 'Film-local — only this film changes',
+        title: 'Harry Potter',
+        crumb: 'in Deathly Hallows – Part 2 · film 8 of 8 · 2011',
+        rows: [
+          names('Credited as', ['Harry Potter', 'Harry', 'The Boy Who Lived']),
+          seg('film', ['Played by', 'Voiced by'], 'Played by', credKind('film', 'Played by')),
+          credit('Daniel Radcliffe', { faceCss: ACTOR_FACE,
+            voice: credKind('film', 'Played by') === 'Voiced by',
+            note: 'age 17 · and the epilogue at 36',
+            pickTitle: 'Who plays this character in Part 2?' }),
+          credit('', { note: 'Godric’s Hollow flashback, age 11 — nobody named yet',
+            voice: credKind('film', 'Played by') === 'Voiced by',
+            pickTitle: 'Who plays the flashback?' }),
+          row('Add another performer', { icon: 'userPlus',
+            onClick: this.openPicker({ mode: 'person', title: 'Add a performer to this film',
+              hint: 'People the app already knows, or type a name it does not.',
+              done: 'Performer added to this credit list' }) }),
+          // ── DUBS ARE THEIR OWN LIST, AND ONLY WHERE THERE ARE ANY.
+          //
+          // A dub is not a second performer of the same kind: the on-screen actor is one
+          // person and each dubbed language is another, all saying the same lines. Filed
+          // together they would read as a cast of eleven Harrys. Separate, the language does
+          // the sorting — which is why the language lives on the credit.
+          head('Dubbed by'),
+          credit('Rajesh Kava', { voice: true, lang: 'Hindi', note: 'dub · all releases',
+            pickTitle: 'Who dubs this character in Hindi?' }),
+          credit('', { voice: true, lang: 'Bengali', note: 'dub · nobody named yet',
+            pickTitle: 'Who dubs this character in Bengali?' }),
+          row('Add a dubbing credit', { icon: 'userPlus',
+            onClick: this.openPicker({ mode: 'person', title: 'Add a dubbing credit',
+              hint: 'Pick the person first; the language is set on the credit itself.',
+              done: 'Dubbing credit added' }) }),
+          facts([['Part', 'Lead'], ['First appears', '00:02:14', true], ['Age here', '17']]),
+          row('Note', { icon: 'edit', meta: 'none', sub: 'Yours, private, this work only' }),
+          pair([['Quotes', 'quote', '12'], ['Scenes', 'details', '41']],
+            'the count in this work'),
+          ...idBlock(),
+          head('Remove'),
+          row('Remove from this film', { icon: 'trash', danger: true,
+            sub: 'Other works retain the global character; people keep their records',
+            say: 'Removed from this film' }),
+        ],
+      },
+      {
+        id: 'char-game', scope: 'game', qualifier: 'char-game', art: 'game', artCss: GAME_POSTER,
+        faceCss: GAME_CHAR, glyph: 'controller', px: [900, 900],
+        aria: 'Harry Potter in Deathly Hallows – Part 2, the game',
+        scopeTitle: 'Game-local — only this game changes',
+        title: 'Harry Potter',
+        crumb: 'in Deathly Hallows – Part 2 · the game · 2011',
+        rows: [
+          names('Called here', ['Harry', 'Harry Potter']),
+          // A VOICE IS A PERFORMER TOO, and a different one from the film's: same character,
+          // same year, another human being. Which is the case that makes the pairing local
+          // rather than global — an identity cannot hold two people in one slot.
+          seg('game', ['Played by', 'Voiced by'], 'Voiced by', credKind('game', 'Voiced by')),
+          credit('Adam Sopp', { faceCss: VOICE_FACE, voice: true, lang: 'English',
+            note: 'all acts', pickTitle: 'Who voices this character in the game?' }),
+          row('Add another voice', { icon: 'userPlus',
+            onClick: this.openPicker({ mode: 'person', title: 'Add a voice to this game',
+              hint: 'People the app already knows, or type a name it does not.',
+              done: 'Voice added to this credit list' }) }),
+          facts([['Part', 'Playable'], ['First appears', 'ACT I · SEVEN POTTERS', true]]),
+          row('Note', { icon: 'edit', meta: 'none', sub: 'Yours, private, this work only' }),
+          pair([['Quotes', 'quote', '4'], ['Quests', 'controller', '22']],
+            'the count in this work'),
+          ...idBlock(),
+          head('Remove'),
+          row('Remove from this game', { icon: 'trash', danger: true,
+            sub: 'Other works retain the global character; people keep their records',
+            say: 'Removed from this game' }),
+        ],
+      },
+    ]
+
+    // ── THE PERFORMER'S OWN SCREEN, BUILT LIKE char-global BECAUSE IT IS THE SAME KIND OF
+    // THING: a person who exists across works. He is never local to one — a film casts him,
+    // it does not own him — so there is no actor-book / actor-film pair to write.
+    SCREENS.push({
+      // PEOPLE-GLOBAL, NOT ACTOR-GLOBAL. "Actor" is a role someone holds on one work, and
+      // this record is the person: Radcliffe performs in two films and WROTE a book, and a
+      // screen named after one of those roles cannot hold the other. One kind of record for
+      // everybody — author, translator, narrator, performer, voice — and the roles are
+      // credits on it.
+      id: 'people-global', scope: 'person', qualifier: 'people-global', art: null,
+      faceCss: ACTOR_FACE, glyph: 'globe', px: [1200, 1600],
+      aria: 'Daniel Radcliffe — the person, all roles',
+      scopeTitle: 'Global — one person, shared by every work that credits them in any role',
+      title: 'Daniel Radcliffe',
+      crumb: 'performer · author · 3 works',
+      rows: [
+        head('The person'),
+        names('Name', ['Daniel Radcliffe', 'Dan Radcliffe', 'ড্যানিয়েল র‍্যাডক্লিফ']),
+        row('Sort name', { meta: 'Radcliffe, Daniel', sub: 'How the person files in a list' }),
+        row('Born', { meta: '23 July 1989' }),
+        head('Links'),
+        pills([
+          ['Wikipedia', 'wikipedia', 'en.wikipedia.org/wiki/Daniel_Radcliffe'],
+          ['IMDb', 'imdb', 'nm0705356'],
+          ['TMDb', 'themoviedatabase', '10980'],
+          ['Add a link', 'add', 'Paste a URL — the provider is read off the address'],
+        ]),
+        // THREE WORKS, THREE DIFFERENT RELATIONS TO HIM — which is the whole argument for a
+        // performer having a record of his own. Harry and Miles share nothing but him and
+        // neither of them is him; Jungle he wrote, so he is not inside it at all.
+        head('Works · 3'),
+        strip('plays', [
+          ['Deathly Hallows – Part 2', '2011 · as Harry', 'film', '12 quotes',
+            FILM_ART, FILM_FACE, {
+              hint: 'The work, the characters played in it, and the credit itself. A work with ' +
+                'two roles lists both characters here — which is why this is a list.',
+              options: [
+                { label: 'Deathly Hallows – Part 2', sub: 'the film’s own record', icon: 'play',
+                  meta: '2011', done: 'Opens the film' },
+                { label: 'Harry Potter', sub: 'the character, local to this work',
+                  faceCss: FILM_FACE, meta: '12 quotes',
+                  done: 'Opens char-film — Harry in Part 2' },
+                { label: 'The credit — performer', faceCss: ACTOR_FACE, meta: 'age 17',
+                  sub: 'The note lives on the credit',
+                  done: 'Opens the credit itself' },
+              ] }],
+          ['Guns Akimbo', '2019 · as Miles', 'film', '6 quotes', AKIMBO_ART, AKIMBO_FACE,
+            { hint: 'The work, the character played in it, and the credit itself.', options: [
+              { label: 'Guns Akimbo', sub: 'the film’s own record', icon: 'play', meta: '2019',
+                done: 'Opens the film' },
+              { label: 'Miles', sub: 'the character, local to this work',
+                faceCss: AKIMBO_FACE, meta: '6 quotes',
+                done: 'Opens char-film — Miles in Guns Akimbo' },
+              { label: 'The credit — performer', faceCss: ACTOR_FACE, meta: 'lead',
+                sub: 'Role, note and language sit on the credit',
+                done: 'Opens the credit itself' },
+            ] }],
+          ['Jungle', '2019 · author', 'book', '9 quotes', JUNGLE_ART, false,
+            { hint: 'Written, not performed — so there is no character in it, and the ' +
+              'credit is a maker’s.', options: [
+              { label: 'Jungle', sub: 'the book’s own record', icon: 'books', meta: '2019',
+                done: 'Opens the book' },
+              { label: 'The credit — author', faceCss: ACTOR_FACE,
+                sub: 'A maker, not somebody inside the work', done: 'Opens the author credit' },
+            ] }],
+        ]),
+        // NO CHARACTER LIST UNDER THE STRIP. The tiles already lead to his characters — one
+        // tap, and the chooser names them where a work holds more than one. A row repeating
+        // "Harry Potter" is a second door to the same room, and it only holds the one
+        // character the first work happened to have.
+        head('This person'),
+        row('Merge with another person', { icon: 'merge',
+          sub: 'Their credits and spellings come across into one record' }),
+        row('Delete this person', { icon: 'trash', danger: true,
+          sub: 'The credits go; the works and the characters stay',
+          say: 'Deleted — the film keeps the character, with nobody named' }),
+      ],
+    })
+
+    const pq = (this.state.pq || '').trim().toLowerCase()
+    const COL = 470
+    const GAP = 16
+    const rowW = COL * SCREENS.length + GAP * (SCREENS.length - 1)
+    const avail = (this.state.W || rowW + 40) - 40
+    // A ZOOM FLOOR, BECAUSE UNREADABLE IS NOT FITTED. Below .55 a 14.5px label renders under
+    // 8px; past that the row keeps its size and the stage scrolls sideways instead.
+    const zoom = Math.max(.55, Math.min(1, avail / rowW))
+    this._zoom = zoom
+
+    return {
+      stageRef: this.stageRef,
+      swallowClick: this.swallowClick,
+      stage: `${tokens}min-height:100vh;background:var(--bg);color:var(--ink);` +
+        'font-family:var(--font-ui);padding:24px 20px 90px;position:relative;overflow-x:auto',
+      rowStyle: `display:flex;align-items:flex-start;gap:${GAP}px;width:${rowW}px;` +
+        `zoom:${zoom.toFixed(4)}`,
+      sheet: `width:${COL}px;flex:none;display:flex;flex-direction:column;border-radius:16px;` +
+        'overflow:hidden;border:1px solid var(--line);background:var(--card);' +
+        'box-shadow:0 30px 64px -28px rgba(var(--sh),.8),inset 0 1px var(--bevel-hi)',
+      titleStyle: 'font-family:var(--font-display);font-size:calc(19px*var(--u,1));' +
+        'color:var(--ink);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis',
+      crumbStyle: mono(10.5, 'var(--faint)') + ';letter-spacing:.1em;overflow:hidden;' +
+        'text-overflow:ellipsis;white-space:nowrap',
+      closeGlyph: ico('close', 21),
+      keyStyle: btnReset + ';width:44px;height:44px;flex:none;border-radius:9px;' +
+        'display:inline-flex;align-items:center;justify-content:center;color:var(--soft);' +
+        GHOST + TR,
+      faceBox: 'width:118px;height:118px;border-radius:50%;flex:none;overflow:hidden;' +
+        'border:1.4px solid var(--ink-border);background:var(--raised);display:flex;' +
+        'align-items:flex-end;justify-content:center;' +
+        'box-shadow:0 14px 26px -18px rgba(var(--sh),.7)',
+      faceInner: 'width:82%;height:88%;' + SILH,
+      faceChip: 'width:30px;height:30px;border-radius:50%;flex:none;overflow:hidden;' +
+        'border:1px solid var(--line);background:var(--raised);display:flex;' +
+        'align-items:flex-end;justify-content:center',
+      faceChipInner: 'width:88%;height:88%;' + SILH,
+      hintStyle: 'font-size:calc(12.5px*var(--u,1));color:var(--soft);line-height:1.55;text-wrap:pretty',
+      sheets: SCREENS.map((s) => ({
+        id: s.id, scope: s.scope, qualifier: s.qualifier, aria: s.aria,
+        title: s.title, crumb: s.crumb, scopeTitle: s.scopeTitle,
+        scopeGlyph: s.glyph === 'controller' ? controller(s.art ? 17 : 21)
+          : s.glyph === 'tv' ? tv(s.art ? 17 : 21) : ico(s.glyph, s.art ? 17 : 21),
+        scopeSlot: 'width:44px;flex:none;display:inline-flex;align-items:center;justify-content:center',
+        // ── THE HEADER'S GLYPH SITS ON THE WORK'S OWN COVER on a local screen. The medium is
+        // the first thing you need and the work is the second; one 32×44 thumbnail with the
+        // glyph laid on it says both in the slot a back key would otherwise hold. The global
+        // screen keeps a bare globe, because a globe has no cover to sit on.
+        scopeArt: s.art
+          ? 'width:32px;height:44px;position:relative;overflow:hidden;display:flex;' +
+            'align-items:center;justify-content:center;border:1px solid var(--line);' +
+            (s.art === 'book' ? BOOK_R : FLAT_R) + ';' + (s.artCss || HATCH) + ';' +
+            'box-shadow:0 6px 12px -9px rgba(var(--sh),.8)'
+          : 'width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;' +
+            'color:var(--soft)',
+        scopeOverlay: s.art
+          ? 'width:24px;height:24px;border-radius:7px;display:inline-flex;align-items:center;' +
+            'justify-content:center;color:var(--ink);' +
+            'background:color-mix(in oklab,var(--card),transparent 8%);border:1px solid var(--line)'
+          : 'display:inline-flex;align-items:center;justify-content:center',
+        qualStyle: mono(9.5, s.scope === 'global' ? 'var(--accent-ui)' : 'var(--faint)') +
+          ';letter-spacing:.14em;text-transform:uppercase;flex:none;padding:4px 8px;' +
+          'border-radius:6px;white-space:nowrap;border:1px solid ' +
+          (s.scope === 'global'
+            ? 'color-mix(in oklab,var(--accent-ui),transparent 62%)' : 'var(--line)'),
+        closeClick: this.say(`${s.qualifier} — closes back to whatever opened it`),
+        hasPortrait: !s.noPortrait,
+        faceInner: s.faceCss ? 'width:100%;height:100%;' + s.faceCss
+          : 'width:82%;height:88%;' + SILH,
+        // ── THE REPO'S MEDIA BLOCK, ITS FOUR BUTTONS AND ITS STATED SIZE.
+        //
+        // A picture field cannot be judged from a thumbnail, so the app states the pixels
+        // and says so when they are under the floor — a 266-wide portrait is not "a
+        // portrait", it is a portrait that will look soft on a share card. Fetch, Upload and
+        // Paste URL are the three ways a picture arrives, kept in the repo's order; the
+        // fourth is the one this screen adds, and it is the only one that leaves the work.
+        pxText: (() => {
+          const [w, h] = s.px || [0, 0]
+          if (!w) return 'no picture — nothing to size'
+          return w >= 400 && h >= 400
+            ? `${w} × ${h} px`
+            : `${w} × ${h} px · under 400 × 400, soft on a share card`
+        })(),
+        pxStyle: mono(10.5, (s.px && s.px[0] >= 400 && s.px[1] >= 400)
+          ? 'var(--faint)' : 'var(--error)') + ';letter-spacing:.1em',
+        faceActions: [
+          ['Fetch', 'refresh', 'Look for a better one at the sources', false],
+          ['Upload', 'upload', 'A file from this machine', false],
+          ['Paste URL', 'open', 'From the web, by address', false],
+          ...(s.scope === 'global' || s.scope === 'person' ? []
+            : [['Set for the identity', 'globe', 'Use this everywhere', true]]),
+        ].map(([label, icon, title, danger]) => ({ label, title,
+          icon: icon === 'controller' ? controller(15) : ico(icon, 15),
+          iconStyle: 'display:inline-flex;flex:none;color:' + (danger ? 'var(--error)' : 'var(--soft)'),
+          onClick: danger
+            ? this.ask({
+              scope: 'every work',
+              title: 'Use this picture for the identity?',
+              body: 'It becomes the character’s portrait everywhere — every work that has ' +
+                'not set one of its own, and every list, chip and share image that falls ' +
+                'back to the identity. This work keeps its own picture either way.',
+              verb: 'Yes, set it everywhere',
+              done: 'Identity portrait replaced — works without their own follow it',
+            })
+            : this.say(`${label} — sets this work’s picture only`),
+          style: btnReset + ';display:inline-flex;align-items:center;gap:6px;' +
+            'min-height:38px;padding:0 12px;border-radius:9px;white-space:nowrap;' +
+            'font-size:calc(12.5px*var(--u,1));background:var(--raised);border:1px solid ' +
+            (danger ? 'color-mix(in oklab,var(--error),transparent 55%);border-style:dashed;color:var(--error);'
+              : 'var(--line);color:var(--ink);') + RAISED + TR })),
+        rows: s.rows,
+      })),
+      pickerOpen: !!this.state.picker,
+      pickerTitle: (this.state.picker || {}).title || '',
+      pickerHint: (this.state.picker || {}).hint || '',
+      pickerIsPerson: !!this.state.picker && this.state.picker.mode === 'person',
+      pickerIsNote: !!this.state.picker && this.state.picker.mode === 'note',
+      pickerIsChoose: !!this.state.picker && this.state.picker.mode === 'choose',
+      pickerRows: 'display:flex;flex-direction:column;gap:8px',
+      pickerAreaPh: (this.state.picker || {}).placeholder || 'voice only · flashback · uncredited',
+      pickerHasLang: !!(this.state.picker && this.state.picker.lang),
+      pickerFieldLabel: mono(10.5, 'var(--faint)') + ';letter-spacing:.14em;' +
+        'text-transform:uppercase',
+      pickerLangs: ['English', 'Hindi', 'Bengali', 'Japanese', 'French', 'Other…']
+        .map((label) => {
+          const on = (this.state.plang || '') === label
+          return { label, on,
+            onClick: () => this.setState({ plang: label }),
+            style: btnReset + ';min-height:40px;padding:0 14px;border-radius:999px;' +
+              'font-size:calc(12.5px*var(--u,1));white-space:nowrap;border:1px solid ' +
+              (on ? 'var(--ink-border)' : 'var(--line)') + ';' +
+              (on ? `background:color-mix(in oklab,${accent},transparent 84%);color:var(--ink);`
+                : 'background:var(--raised);color:var(--soft);') + RAISED + TR }
+        }),
+      pickerOptions: (((this.state.picker || {}).options) || []).map((o) => ({
+        label: o.label, sub: o.sub || '', meta: o.meta || '',
+        hasFace: !!o.faceCss,
+        icon: o.icon ? ico(o.icon, 19) : null,
+        onClick: () => this.setState({ picker: null, pq: '', toast: this.flash(o.done || o.label) }),
+        style: btnReset + ';display:flex;align-items:center;gap:11px;min-height:56px;' +
+          'padding:8px 14px;border-radius:11px;text-align:left;color:var(--ink);' +
+          'border:1px solid var(--line);background:var(--raised);' + RAISED + TR,
+        faceStyle: 'width:38px;height:38px;border-radius:50%;flex:none;overflow:hidden;' +
+          'border:1px solid var(--line);background:var(--card);display:flex;' +
+          'align-items:flex-end;justify-content:center',
+        faceInner: 'width:100%;height:100%;' + (o.faceCss || SILH),
+        iconStyle: 'width:20px;flex:none;display:inline-flex;align-items:center;' +
+          'justify-content:center;color:var(--soft)',
+        labelWrap: 'flex:1;min-width:0;display:flex;flex-direction:column;gap:2px',
+        nameStyle: 'font-size:calc(14.5px*var(--u,1));line-height:1.3',
+        subStyle: 'font-size:calc(12px*var(--u,1));color:var(--soft);line-height:1.45',
+        metaStyle: mono(10, 'var(--faint)') + ';letter-spacing:.1em;flex:none;white-space:nowrap',
+      })),
+      pickerQ: this.state.pq,
+      setPickerQ: this.setPq,
+      closePicker: this.closePicker,
+      pickerPeople: PEOPLE
+        .filter(([n]) => !pq || n.toLowerCase().indexOf(pq) > -1)
+        .map(([name, meta, faceCss]) => ({
+          name, meta,
+          onClick: () => this.setState({ picker: null, pq: '',
+            toast: this.flash(`${name} set on this credit — their own record is unchanged`) }),
+          style: btnReset + ';display:flex;align-items:center;gap:10px;min-height:52px;' +
+            'padding:6px 14px 6px 6px;border-radius:999px;text-align:left;color:var(--ink);' +
+            'border:1px solid var(--line);background:var(--raised);' + RAISED + TR,
+          faceStyle: 'width:38px;height:38px;border-radius:50%;flex:none;overflow:hidden;' +
+            'border:1px solid var(--line);background:var(--card);display:flex;' +
+            'align-items:flex-end;justify-content:center',
+          faceInner: faceCss ? 'width:100%;height:100%;' + faceCss : 'width:88%;height:92%;' + SILH,
+          labelWrap: 'display:flex;flex-direction:column;gap:1px;min-width:0',
+          nameStyle: 'font-size:calc(13.5px*var(--u,1));line-height:1.3;white-space:nowrap',
+          metaStyle: mono(9.5, 'var(--faint)') + ';letter-spacing:.1em;white-space:nowrap',
+        })),
+      // A NAME THE APP DOES NOT KNOW IS A NORMAL ANSWER, not an error state — most casts
+      // arrive one unknown person at a time.
+      pickerCanAdd: !!pq && !PEOPLE.some(([n]) => n.toLowerCase() === pq),
+      pickerAddLabel: `Add “${this.state.pq.trim()}” as a new person`,
+      pickerAddClick: () => this.setState({ picker: null, pq: '',
+        toast: this.flash(`${this.state.pq.trim()} added — a new person, credited here`) }),
+      pickerSaveLabel: this.state.picker && this.state.picker.mode === 'note' ? 'Save note' : 'Done',
+      pickerSaveClick: () => {
+        const c = this.state.picker
+        this.setState({ picker: null, pq: '', toast: this.flash(c ? c.done : 'Saved') })
+      },
+      pickerBox: 'width:min(460px,100%);max-height:82vh;overflow-y:auto;display:flex;' +
+        'flex-direction:column;gap:10px;padding:20px;border-radius:14px;' +
+        'border:1px solid var(--line);background:var(--card);' +
+        'box-shadow:0 34px 70px -30px rgba(var(--sh),.9),inset 0 1px var(--bevel-hi)',
+      pickerInput: 'width:100%;min-height:46px;padding:0 14px;border-radius:9px;' +
+        'font:inherit;font-size:calc(14px*var(--u,1));color:var(--ink);' +
+        'border:1px solid var(--line);background:var(--raised)',
+      pickerArea: 'width:100%;min-height:110px;padding:12px 14px;border-radius:9px;' +
+        'font:inherit;font-size:calc(14px*var(--u,1));color:var(--ink);line-height:1.5;' +
+        'border:1px solid var(--line);background:var(--raised);resize:vertical',
+      pickerList: 'display:flex;flex-wrap:wrap;gap:8px',
+      pickerAdd: btnReset + ';min-height:44px;padding:0 15px;border-radius:9px;' +
+        'align-self:flex-start;font-size:calc(13px*var(--u,1));color:var(--accent-ui);' +
+        'border:1px dashed color-mix(in oklab,var(--accent-ui),transparent 55%);background:0 0;' + TR,
+      pickerFoot: 'display:flex;align-items:center;justify-content:space-between;gap:10px;' +
+        'padding-top:4px',
+      // A CHOOSER HAS NO SAVE. Picking IS the answer, so the footer keeps only the way out.
+      pickerSave: (this.state.picker && this.state.picker.mode === 'choose'
+        ? 'display:none;' : '') +
+        btnReset + ';min-height:44px;padding:0 16px;border-radius:9px;' +
+        'font-size:calc(13.5px*var(--u,1));font-weight:600;color:var(--on-accent,#FBF6EA);' +
+        `background:${accent};border:1px solid ${accent};` +
+        '--ihf:brightness(1.06);--iaf:brightness(.94);--iat:translateY(1.5px);' + TR,
+      confirmOpen: !!this.state.confirm,
+      confirmScope: (this.state.confirm || {}).scope || '',
+      confirmTitle: (this.state.confirm || {}).title || '',
+      confirmBody: (this.state.confirm || {}).body || '',
+      confirmVerb: (this.state.confirm || {}).verb || 'Yes',
+      cancelConfirm: this.cancelConfirm,
+      runConfirm: this.runConfirm,
+      stopBubble: this.stopBubble,
+      confirmScrim: 'position:fixed;inset:0;z-index:120;display:flex;align-items:center;' +
+        'justify-content:center;padding:24px;background:rgba(21,16,12,.5)',
+      confirmBox: 'width:min(440px,100%);display:flex;flex-direction:column;gap:10px;' +
+        'padding:20px;border-radius:14px;border:1px solid var(--line);background:var(--card);' +
+        'box-shadow:0 34px 70px -30px rgba(var(--sh),.9),inset 0 1px var(--bevel-hi)',
+      confirmBadge: mono(9.5, 'var(--error)') + ';letter-spacing:.14em;text-transform:uppercase;' +
+        'align-self:flex-start;padding:3px 8px;border-radius:6px;' +
+        'border:1px solid color-mix(in oklab,var(--error),transparent 60%)',
+      confirmTitleStyle: 'font-family:var(--font-display);font-size:calc(20px*var(--u,1));' +
+        'line-height:1.25;color:var(--ink);text-wrap:pretty',
+      confirmBodyStyle: 'margin:0;font-size:calc(13px*var(--u,1));line-height:1.55;' +
+        'color:var(--soft);text-wrap:pretty',
+      // THE RED VERB SITS OPPOSITE, and Cancel keeps the place a thumb already rests on.
+      confirmRow: 'display:flex;align-items:center;justify-content:space-between;gap:10px;' +
+        'padding-top:6px',
+      confirmDanger: btnReset + ';min-height:44px;padding:0 16px;border-radius:9px;' +
+        'font-size:calc(13.5px*var(--u,1));font-weight:600;white-space:nowrap;' +
+        'color:#FBF6EA;background:var(--error);border:1px solid var(--error);' +
+        '--ihf:brightness(1.06);--iaf:brightness(.94);--iat:translateY(1.5px);' + TR,
+      confirmCancel: btnReset + ';min-height:44px;padding:0 16px;border-radius:9px;' +
+        'font-size:calc(13.5px*var(--u,1));white-space:nowrap;color:var(--ink);' +
+        'border:1px solid var(--line);background:var(--raised);' + RAISED + TR,
+      toastMsg: this.state.toast || '',
+      toastStyle: 'position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:90;' +
+        'max-width:min(560px,86vw);padding:11px 16px;border-radius:10px;' +
+        'border:1px solid var(--line);background:var(--card-top);color:var(--ink);' +
+        'font-size:calc(13px*var(--u,1));line-height:1.4;text-align:center;' +
+        'box-shadow:0 20px 40px -22px rgba(var(--sh),.8);transition:opacity .18s ease;' +
+        (this.state.toast ? 'opacity:1' : 'opacity:0;pointer-events:none'),
+    }
+  }
+}
+
+</script>
+</body>
+</html>

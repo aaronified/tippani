@@ -27,6 +27,14 @@ Two of the kit's rules bind work in this repo even when no kit skill is running:
   session's prompts verbatim and never the target; act on its findings before reporting,
   and report the score as given.
 
+## The design pack
+
+`docs/design/` holds the prototypes and handoff documents this app is being built to —
+`handoff/handoff.md` first, then the companion for the area in hand, and the `.dc.html`
+prototypes for what a screen should look like. They live in the repo because an upload
+does not survive a session reset: read them there rather than asking for them again.
+`docs/design/README.md` indexes the lot.
+
 ## Commands
 
 ```bash

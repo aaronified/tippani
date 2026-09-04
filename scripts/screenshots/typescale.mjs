@@ -30,7 +30,7 @@ import { fileURLToPath } from 'node:url'
 
 import puppeteer from 'puppeteer-core'
 
-import { HARNESS_ACCOUNT, SCREENS, ensureSession, findFirefox } from './capture.mjs'
+import { HARNESS_ACCOUNT, SCREENS, emulateEngineMedia, ensureSession, findBrowser, launchOptions } from './capture.mjs'
 
 function parseArgs(argv) {
   const out = {
@@ -40,6 +40,7 @@ function parseArgs(argv) {
     timeoutMs: 30000,
     screens: null,
     firefox: null,
+    browser: null,
     bookId: null,
     movieId: null,
     json: null,
@@ -55,6 +56,7 @@ function parseArgs(argv) {
     else if (a === '--timeout') out.timeoutMs = Number(next())
     else if (a === '--screens') out.screens = next().split(',').map((s) => s.trim())
     else if (a === '--firefox') out.firefox = next()
+    else if (a === '--browser') out.browser = next()
     else if (a === '--book-id') out.bookId = next()
     else if (a === '--movie-id') out.movieId = next()
     else if (a === '--json') out.json = next()
@@ -69,6 +71,7 @@ function parseArgs(argv) {
   --baseline <file>      a screen may not clip MORE than this file records (default:
                          typescale-baseline.json beside this script). Pass --baseline
                          none to fail on any new clipping at all.
+  --browser <engine>     firefox (default) or chrome; also TIPPANI_BROWSER
   --firefox <path>       default: discovered`)
       process.exit(0)
     }
@@ -181,14 +184,12 @@ async function main() {
     ? SCREENS.filter((s) => opts.screens.includes(s.name))
     : SCREENS.filter((s) => !s.needs || (s.needs === 'book-id' ? opts.bookId : opts.movieId))
 
-  const browser = await puppeteer.launch({
-    browser: 'firefox',
-    executablePath: findFirefox(opts.firefox),
-    headless: true,
-  })
+  const engine = findBrowser(opts.firefox, opts.browser)
+  const browser = await puppeteer.launch(launchOptions(engine, { headless: true }))
   const report = []
   try {
     const page = await browser.newPage()
+    await emulateEngineMedia(page, engine.browser)
     await page.setViewport({ width: 1280, height: 900 })
     await ensureSession(page, opts)
     for (const screen of wanted) {

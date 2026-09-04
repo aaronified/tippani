@@ -26,7 +26,7 @@ import { fileURLToPath } from 'node:url'
 
 import puppeteer from 'puppeteer-core'
 
-import { HARNESS_ACCOUNT, ensureSession, findFirefox } from './capture.mjs'
+import { HARNESS_ACCOUNT, emulateEngineMedia, ensureSession, findBrowser, launchOptions } from './capture.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 
@@ -154,15 +154,14 @@ async function nameIsWhole(page) {
 }
 
 const opts = parseArgs(process.argv.slice(2))
-const browser = await puppeteer.launch({
-  browser: 'firefox',
-  executablePath: findFirefox(),
-  headless: true,
-  defaultViewport: { width: SIZES[0].w, height: SIZES[0].h },
-})
+const engine = findBrowser(opts.firefox, opts.browser)
+const browser = await puppeteer.launch(
+  launchOptions(engine, { headless: true, viewport: { width: SIZES[0].w, height: SIZES[0].h } }),
+)
 const failures = []
 try {
   const page = await browser.newPage()
+  await emulateEngineMedia(page, engine.browser)
   await ensureSession(page, opts)
   for (const size of SIZES) {
     await page.setViewport({ width: size.w, height: size.h })
