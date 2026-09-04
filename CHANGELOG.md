@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **The spaces down a work's header are even now, and the shelf row is one line.** The
+  gaps were correct as declared and wrong as seen: every one-line fact in the header
+  carried the leading a paragraph gets, so a 9px step read as 11. The facts are set
+  tighter and the step is now the gap you actually see. The shelf row — where a book sits,
+  how far in you are, when you last read it — was a chip, a second chip and a
+  full-width bar stacked three deep on a desk; it is the single line it already was on a
+  phone, at every width. Nothing is lost with the bar: the chip still carries the
+  percentage, and the whole reading history is one tap away where it always was.
+
 ### Added
 
 - **A favourite on the homepage says which work it came from, and shows it.** The kind badge

@@ -4844,26 +4844,18 @@
     --row: 18px;
     --hero-block: calc(var(--row) * 0.6); /* 11 */
     --hero-fact: calc(var(--row) * 0.5); /* 9 */
-    /* THE AIR A TOUCH-SIZED CHIP CARRIES AROUND ITS OWN INK, and the reason the
-       hero's rhythm read as uneven while every declared step was honoured
-       exactly.
-       A `.tp-filter-chip` is 34px tall on a desk and 44px on a phone — a THUMB
-       measurement, not a type one — around a 13px line. So the shelf-state row's
-       box is right and its ink sits 8px (13px on a phone) inside the box at top
-       and bottom. Every gap it takes part in therefore reads as 19px where the
-       text rows beside it read 11, and no amount of correcting --hero-block fixes
-       that: the number was never wrong, the row was carrying its own air ON TOP
-       of it.
-       ONE CONSTANT ON THE COMPONENT, which is what the standing rule allows and
-       what --row above already does — not a step typed into a row, which is the
-       thing spacing-debt.test.js counts. */
-    --hero-pill-air: 8px;
     display: grid;
     gap: var(--hero-block);
     align-content: start;
     min-width: 0;
   }
-  .work-hero-facts { display: grid; align-content: start; min-width: 0; gap: var(--hero-fact); }
+  .work-hero-facts {
+    display: grid; align-content: start; min-width: 0; gap: var(--hero-fact);
+    /* The leading every one-line fact in the column takes — see the ink note
+       below the rows. Declared here, on the component, beside the gap it has
+       to agree with. */
+    --hero-lh: 1.15;
+  }
 
   /* THE COVER SITS BESIDE ITS FACTS, INCLUDING ON A PHONE, and that last part is
      a correction. The rule below used to read `twoCol || phone` — stacked in the
@@ -5108,7 +5100,29 @@
      and the counts are a baseline-aligned line of text, so neither carries air
      worth reclaiming. Listing all three would be correcting rows that are already
      right. */
-  .work-hero-facts > .work-hero-state { margin-block: calc(var(--hero-pill-air) * -1); }
+  /* ---- THE HERO PACKS TO ITS INK ------------------------------------------
+     MEASURED AGAINST THE PROTOTYPE, not argued from its source. Rendered (see
+     docs/design/prototypes, which need their support.js to run), the pack's
+     facts column reads 9.5 / 9.6 / 9.0px ink-to-ink against its declared 9px
+     step, because every text row in it sits at 0.0-0.5px of leading. The app's
+     rows carried 2.0px top and bottom and so read 11.0 / 11.6 / 9.0.
+
+     A HEADER IS NOT PROSE. Body leading is for paragraphs a reader travels
+     through; these are four one-line facts, and the difference is the whole of
+     the error. One constant, restated on the component as the standing rule
+     allows — not a step typed into a row.
+
+     AND THE STATE ROW IS LEFT ALONE, which is the opposite of what stood here.
+     --hero-pill-air pulled it by 8px (13 on a phone) on the theory that a
+     touch-sized row must be trimmed back to the rhythm. The prototype says no:
+     its state row is 44px around a 12px chip, carries 16px of air on each side,
+     and sits 24px from the count above it — deliberately, because a thumb
+     target is not a line of type. The pull made that gap 7.1px, tighter than
+     every text gap around it, which is why the column read as uneven AFTER the
+     fix as before. The constant is gone rather than corrected. */
+  .work-hero-kind,
+  .work-hero-genres,
+  .work-hero-counts { line-height: var(--hero-lh); }
   /* TWO VERBS, TWO WEIGHTS, ONE ROW. `flex: 1 1 0` rather than wrap: two buttons
      that split the width evenly are a pair of choices; two that wrap to their own
      content and leave a ragged tail are a list that ran out of room. Practise is
@@ -5644,8 +5658,6 @@
   .work-hero {
     --cover-w: 96px;
     --hero-fact: 7px;
-    /* 44px of thumb around the same 13px line — see --hero-pill-air. */
-    --hero-pill-air: 13px;
     --hero-title: var(--type-display-22);
   }
   .work-hero-split { gap: 13px; }

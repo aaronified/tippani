@@ -551,10 +551,19 @@ export default function WorkDetail({
         // counter. A set status wins over the derived Wishlist tag.
         tags={
           <ShelfControl
-            // One row on a phone — the pack's stateRow — rather than a chip, a
-            // second chip and a full-width track on three lines of a five-row
-            // header. See ShelfControl.
-            compact={mobile}
+            // ONE ROW AT EVERY WIDTH — the pack's stateRow, and it was already
+            // written: `compact` is exactly this control minus the full-width
+            // progress track, and the hero asked for it on a phone only. The
+            // desk header therefore drew a chip, a second chip and a track on
+            // three lines, 59.8px where the rendered prototype's is 44px on one
+            // line — the largest single departure from its density, and the
+            // owner's instruction was to close it.
+            //
+            // NOTHING IS LOST WITH THE TRACK. The compact chip carries the same
+            // percentage as a word, and the reads count becomes the "read 3d
+            // ago" the pack puts at the right end of the row; the full history
+            // is a tap away in the shelf popover either way.
+            compact
             kind={spec.side}
             item={item}
             status={item.status}

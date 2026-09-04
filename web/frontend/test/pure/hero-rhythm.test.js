@@ -1,35 +1,48 @@
-// THE HERO'S RHYTHM IS EVEN IN THE INK, not just in the declared gap.
+// THE HERO'S RHYTHM, PINNED TO WHAT THE PROTOTYPE ACTUALLY MEASURES.
 //
-// THE COMPLAINT THIS ANSWERS, and why the first investigation got it wrong. The
-// hero's vertical spaces read as "highly uneven". Measured, every declared step
-// was honoured exactly — 11px between the hero's blocks, 9px between the facts
-// (7 on a phone) — so the first pass recorded the unevenness as optical and left
-// it, which was a true observation and an unfinished job.
+// THE COMPLAINT, AND THREE WRONG ANSWERS TO IT. The hero's vertical spaces read
+// as "highly uneven". Every declared step was honoured exactly — 11px between
+// the hero's blocks, 9px between the facts, 7 on a phone — so the first pass
+// filed the unevenness as optical and left it. The second pulled the shelf-state
+// row in by a constant derived from `.tp-filter-chip`'s height, on the theory
+// that a touch-sized row must be trimmed back into the rhythm. The third argued
+// from the prototype's SOURCE, because the prototype would not render.
 //
-// WHAT IS ACTUALLY WRONG. `.tp-filter-chip` is 34px tall on a desk and 44px on a
-// phone. That is a THUMB measurement, not a type one, and it wraps a 13px line —
-// so the shelf-state row's box is correct while its ink sits about 8px (13 on a
-// phone) inside the box, top and bottom. Every gap that row takes part in
-// therefore READS as 19px where the text rows beside it read 11. Correcting
-// --hero-block cannot fix that: the number was never wrong, the row was spending
-// its own air on top of it.
+// WHAT SETTLED IT. docs/design/prototypes now carries its support.js, so the
+// pack renders and can be measured. Its facts column, at 1480px:
 //
-// THE FIX IS THAT THE ROW SPENDS ITS AIR OUT OF THE GAP — a negative block margin
-// equal to the air inside it, so the INK gap comes out at the declared number
-// against a text row and against another chip row alike.
+//     Book · 1967 · Russian     box 13.0   air 0.5/0.5   → ink gap 9.5
+//     The Master and Margarita  box 67.2   air 0.0/0.6   → ink gap 9.6
+//     satire magical realism    box 12.0   air 0.0/0.0   → ink gap 9.0
+//     128 quotes                box 23.0   air 0.0/-1.0  → ink gap 24.0
+//     Reading · 62% · read 3d   box 44.0   air 16.0/16.0
 //
-// WHY A STYLESHEET TEST. jsdom has no layout, so it cannot measure an ink gap;
-// the browser harness the repo keeps for this (`run-frame-scroll.sh`) needs
-// Firefox. What IS checkable everywhere is the RELATIONSHIP: that the row's pull
-// is exactly the constant, that the constant is declared at both widths, and that
-// the pull is not typed in as a number beside it. That is the same bargain
-// no-truncated-names.test.js strikes — the declaration is the defect, and the
-// declaration is greppable.
+// Two facts fall out of that, and both are the opposite of the second attempt:
+//
+//   TEXT ROWS HUG THEIR INK. 0.0-0.5px of leading, so the declared 9px IS the
+//   seen gap. The app's rows carried 2.0px top and bottom and so read 11.0.
+//   That difference — body leading on a header's one-line facts — was the error.
+//
+//   THE TOUCH ROW IS LEFT BREATHING. 44px around a 12px chip, 16px of air each
+//   side, 24px from the count above it. The pull made that gap 7.1px, tighter
+//   than every text gap around it, which is why the column still read as uneven
+//   after the "fix". A thumb target is not a line of type, and the pack does not
+//   pretend otherwise.
+//
+// WHY A STYLESHEET TEST. jsdom has no layout, so it cannot measure an ink gap.
+// The browser harness that can is scripts/screenshots/ — now engine-selectable,
+// so it runs on Chromium where Firefox cannot be installed. What is checkable
+// everywhere is the RELATIONSHIP: that the leading is one constant on the
+// component, that no row is pulled, and that the state row is the one-line
+// control. The same bargain no-truncated-names.test.js strikes — the declaration
+// is the defect, and the declaration is greppable.
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-const css = readFileSync(join(process.env.TIPPANI_SRC, 'index.css'), 'utf8')
+const src = process.env.TIPPANI_SRC
+const css = readFileSync(join(src, 'index.css'), 'utf8')
+const workDetail = readFileSync(join(src, 'WorkDetail.jsx'), 'utf8')
 
 // The declaration block for a selector, as written.
 function blockFor(sel) {
@@ -38,64 +51,64 @@ function blockFor(sel) {
   return css.slice(at, css.indexOf('}', at))
 }
 
-describe('the hero pill-air constant', () => {
-  it('is declared on the component, beside the rhythm it corrects', () => {
-    const hero = blockFor('.work-hero')
-    expect(hero, '.work-hero is not declared any more').not.toBeNull()
-    // ONE CONSTANT ON THE COMPONENT is what the standing rule allows — and what
-    // --row above it already does. A step typed into a row is the thing
+describe("the hero's text rows", () => {
+  it('take their leading from one constant on the component', () => {
+    const facts = blockFor('.work-hero-facts')
+    expect(facts, '.work-hero-facts is not declared any more').not.toBeNull()
+    // ONE CONSTANT ON THE COMPONENT is what the standing rule allows, and what
+    // --row beside it already does. A leading typed into a row is the thing
     // spacing-debt.test.js counts.
-    expect(hero).toMatch(/--hero-pill-air:\s*\d+px/)
-    expect(hero, 'the block rhythm is still derived from --row').toMatch(/--hero-block:\s*calc\(var\(--row\)/)
+    expect(facts).toMatch(/--hero-lh:\s*[\d.]+/)
   })
 
-  it('is restated for the phone, where the chip is 44px rather than 34', () => {
-    // The chip grows for a thumb at the narrow width, so the air it carries grows
-    // with it. A single constant for both widths would over-pull on a desk or
-    // under-pull on a phone.
-    const decls = [...css.matchAll(/--hero-pill-air:\s*(\d+)px/g)].map((m) => Number(m[1]))
-    expect(decls.length, 'declared once per width').toBe(2)
-    const [desk, phone] = decls
-    expect(phone, 'the phone carries more air, because its chip is taller').toBeGreaterThan(desk)
+  it('is tighter than body leading, which is what packs the column', () => {
+    const facts = blockFor('.work-hero-facts')
+    const lh = Number(facts.match(/--hero-lh:\s*([\d.]+)/)[1])
+    // The measured target is ~0px of air on a one-line fact. Body leading in
+    // this app is ~1.45 and carried 2px top and bottom; anything at or above it
+    // puts the error straight back.
+    expect(lh).toBeLessThan(1.3)
+    // And not so tight that a descender clips — the type suite owns legibility,
+    // but a floor here says the number is a leading and not a crop.
+    expect(lh).toBeGreaterThanOrEqual(1.1)
   })
 
-  it('matches the air a filter chip actually carries at each width', () => {
-    // Derived rather than asserted as a magic pair: (min-height − line) / 2,
-    // where the line is a 13px face at the app's own body leading. If somebody
-    // changes the chip's height, this is the test that says the constant moved
-    // with it — a chip and a compensation that disagree are worse than neither.
-    const chipHeights = [...css.matchAll(/\.tp-filter-chip\s*\{[^}]*min-height:\s*(\d+)px/g)]
-      .map((m) => Number(m[1]))
-    expect(chipHeights.length, 'the chip declares a height per width').toBe(2)
-    const airs = [...css.matchAll(/--hero-pill-air:\s*(\d+)px/g)].map((m) => Number(m[1]))
-    for (let i = 0; i < 2; i++) {
-      // A 13px face leads at roughly 1.3 in this app, so the ink is ~17px. The
-      // tolerance is 2px: the point is that the constant tracks the chip, not
-      // that it is computed to the pixel from a line-height nobody declares here.
-      const expected = Math.round((chipHeights[i] - 17) / 2)
-      expect(Math.abs(airs[i] - expected), `--hero-pill-air ${airs[i]}px against a ${chipHeights[i]}px chip`)
-        .toBeLessThanOrEqual(2)
-    }
+  it('applies it to every text row in the column and to none of the others', () => {
+    // The rows that are ONE LINE OF TYPE. The title is excluded on purpose: its
+    // leading is set inline on the h1 by WorkHero (titleSize + 1.12), and a rule
+    // aimed at it from here loses to that and reads as though it worked.
+    const rule = css.match(/\.work-hero-kind,\s*\.work-hero-genres,\s*\.work-hero-counts\s*\{([^}]*)\}/)
+    expect(rule, 'the text rows no longer share one leading').not.toBeNull()
+    expect(rule[1]).toMatch(/line-height:\s*var\(--hero-lh\)/)
   })
 })
 
-describe('the row that carries the air', () => {
-  it('pulls itself in by exactly the constant, never by a typed number', () => {
-    const rule = css.match(/\.work-hero-facts\s*>\s*\.work-hero-state\s*\{([^}]*)\}/)
-    expect(rule, 'the state row no longer spends its own air').not.toBeNull()
-    expect(rule[1]).toMatch(/margin-block:\s*calc\(var\(--hero-pill-air\)\s*\*\s*-1\)/)
-    // A raw negative px here would be the step the rule forbids, and it would
-    // stop tracking the chip at the other width.
-    expect(rule[1], 'a typed pull instead of the constant').not.toMatch(/margin-block:\s*-\d+px/)
+describe('the touch-sized state row', () => {
+  it('is never pulled back into the rhythm', () => {
+    // THE ASSERTION THAT KEEPS THE SECOND ATTEMPT FROM COMING BACK. The
+    // prototype gives this row 16px of air on each side and a 24px gap above it.
+    // A negative block margin on any child of the facts column is the defect.
+    const pulls = [...css.matchAll(/\.work-hero-facts\s*>\s*\.([a-z-]+)\s*\{([^}]*)\}/g)]
+      .filter(([, , body]) => /margin-block:\s*(calc\([^)]*\*\s*-|-)/.test(body))
+      .map(([, cls]) => cls)
+    expect(pulls, 'a facts row is spending its air out of the gap again').toEqual([])
   })
 
-  // THE STATE ROW ALONE, and this is the assertion that stops the fix spreading
-  // to rows that are already right: the genres are `.tp-chip` at 2px of padding
-  // and the counts are a baseline-aligned line of text. Compensating those would
-  // pull correct rows out of true.
-  it('is the only child of the facts column that is compensated', () => {
-    const pulls = [...css.matchAll(/\.work-hero-facts\s*>\s*\.([a-z-]+)\s*\{[^}]*--hero-pill-air/g)]
-      .map((m) => m[1])
-    expect(pulls).toEqual(['work-hero-state'])
+  it('has no compensation constant left to reach for', () => {
+    // --hero-pill-air was the constant the pull was derived from. Its presence
+    // as a DECLARATION (not in prose explaining why it went) would mean the
+    // approach is still wired up somewhere.
+    expect(css).not.toMatch(/--hero-pill-air:\s*\d/)
+  })
+
+  it('is the one-line control at every width, as the pack draws it', () => {
+    // `compact` is ShelfControl minus the full-width progress track. The hero
+    // asked for it on a phone only, so the desk header drew a chip, a second
+    // chip and a track on three lines — 59.8px measured, against the rendered
+    // prototype's 44px on one line, the largest single departure from its
+    // density. A width-conditional here is that regression.
+    expect(workDetail).not.toMatch(/compact=\{mobile\}/)
+    expect(workDetail, 'the hero no longer asks for the one-line shelf row')
+      .toMatch(/<ShelfControl[\s\S]{0,900}?\n\s*compact\n/)
   })
 })
