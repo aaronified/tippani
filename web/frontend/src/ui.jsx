@@ -4072,26 +4072,55 @@ export function PanelHost({ stack }) {
           <h2 className="tp-panel-title" ref={titleRef}>{panel.title}</h2>
           <div className="tp-panel-slot tp-panel-slot-r">
             {/* Before the panel's own verb and before the ✕: the order is
-                commit, then add, then leave. */}
+                commit, then add, then leave.
+
+                THE ARMED SLOT AND THE COUNT ARE THE SAME ONES `FormModal` DRAWS,
+                and until now this head drew a plain ✓ that never changed. That is
+                only half the standing rule — the tick is supposed to take the
+                accent fill AND a badge counting what the press will write, "the
+                moment the substance differs from what is stored", because a
+                control that looks identical armed and unarmed teaches the reader
+                to stop reading it. A panel is where most of this app's editing
+                happens, so the half that was missing was the half that mattered:
+                the Details panel is a stack of self-saving rows and its head said
+                nothing about how many of them were waiting.
+
+                `dirty` is the panel's own count, published by its content through
+                `setDirty` and already driving the unsaved question below — so the
+                number was on hand the whole time and only the drawing was
+                missing. */}
             {blocked !== null && (
-              <IconButton
-                icon={<IconCheck />}
-                type="submit"
-                form={formId}
-                ariaLabel={t("common.action.save.label")}
-                tooltip={blocked || panel.saveTip || t("common.action.save.label")}
-                disabled={!!blocked}
-                style={{ width: 34, height: 34, padding: 0, flexShrink: 0 }}
-                wrapClassName="shrink-0"
-              />
+              <span className={"tp-tick-slot" + (dirty > 0 ? " is-armed" : "")}>
+                <IconButton
+                  icon={<IconCheck />}
+                  type="submit"
+                  form={formId}
+                  ariaLabel={t("common.action.save.label")}
+                  tooltip={blocked || panel.saveTip || t("common.action.save.label")}
+                  disabled={!!blocked}
+                  style={{ width: 34, height: 34, padding: 0, flexShrink: 0 }}
+                  wrapClassName="shrink-0"
+                />
+                {dirty > 0 ? <span className="tp-tick-count" aria-hidden="true">{dirty}</span> : null}
+              </span>
             )}
             {verb}
             {!nested && (
+              /* AND THE CROSS IS RED WHEN IT IS THE DISCARDING HALF. "The cross
+                 is red… the repo's danger colour is how the app says so
+                 everywhere else" — but only where there is a pair to be half of.
+                 A panel holding no form has no ✓ beside it and its ✕ is a plain
+                 way out, so painting that one red would warn about closing a list
+                 of rows; a panel with a registered form and unsaved substance in
+                 it is a press away from losing work, and says so. `FormModal`
+                 takes the same thing as `closeDanger`, from callers that know
+                 they hold a form. */
               <IconButton
                 icon={<IconClose />}
                 ariaLabel={t("common.action.close.label")}
                 tooltip={t("common.form.close.tip")}
                 onClick={guard(close)}
+                style={blocked !== null && dirty > 0 ? { color: 'var(--error)' } : undefined}
               />
             )}
           </div>
@@ -7838,12 +7867,29 @@ export function MoreMenu({ items, icon, label, ariaLabel, tooltip, disabled = fa
           the Button labels preference like any other control. Left unset it is the
           bare glyph it has always been — which is right for the ⋯ itself, whose
           whole job is to be the thing with no name. */}
+      {/* IT SAYS IT OPENS A MENU, AND WHETHER IT IS OPEN. `ScreenMenu` in App.jsx
+          has carried both since it was written and this — every ⋯ on every card,
+          which is most of the menu triggers in the app — carried neither. To
+          anything reading the page rather than looking at it, a control that
+          opens a list of verbs was indistinguishable from one that does a thing:
+          a screen reader announces "More actions, button" and nothing about the
+          menu, and no state when it opens. `IconButton` spreads its rest onto the
+          <button>, so both ride straight through.
+
+          Found by the control probe, which reported it as doing nothing at all —
+          `ActionMenu` portals its list to <body>, so with no `aria-expanded` on
+          the trigger there was no evidence anywhere near it that a press had
+          landed. That the probe and a screen reader were both blind to the same
+          press is not a coincidence; they were looking for the same missing
+          thing. */}
       <IconButton
         icon={icon || <IconMore />}
         label={label}
         ariaLabel={ariaLabel || t("common.more.aria")}
         tooltip={tooltip}
         disabled={disabled}
+        aria-haspopup="menu"
+        aria-expanded={open && !disabled}
         onClick={() => setOpen((o) => !o)}
       />
       <ActionMenu

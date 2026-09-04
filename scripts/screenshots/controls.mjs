@@ -18,9 +18,13 @@
 // asserts the one handler that was fixed; written as a property, it asks the
 // question of every control that exists, including the ones nobody has looked at.
 //
-// AND THE TOUCH FLOOR WITH IT, because it is the same kind of claim: 44px is the
-// repo's own number, stated in `CLAUDE.md` and repeated through `index.css`, and
-// a control below it on a phone is one a thumb cannot reliably hit.
+// AND THE TOUCH FLOOR WITH IT, because it is the same kind of claim. 44px is the
+// design pack's number — `docs/design/handoff/design-system.md` line 180, "44px
+// touch targets", with `.tp-btn`'s `min-height:44px` beside it at line 134 — and
+// `index.css` says why it is one of the handful of sizes that stays in px: "20px
+// is a gutter and 44px is a fingertip; neither changes when the reader changes
+// their type size". A control below it on a phone is one a thumb cannot reliably
+// hit.
 //
 // WHAT COUNTS AS "SOMETHING HAPPENED": a new dialog or panel, one closing, the
 // route changing, focus moving, the surface scrolling, or the surface's own text
@@ -140,8 +144,15 @@ try {
       // A DISCLOSURE'S EFFECT IS ON ITSELF. A ⋯ that opens a menu changes
       // `aria-expanded` and may render the menu outside the scope being watched,
       // so without this the honest control reads as dead.
-      expanded: [...document.querySelectorAll('[aria-expanded],[aria-pressed],details')]
-        .map((e) => `${e.getAttribute('aria-expanded') ?? ''}${e.getAttribute('aria-pressed') ?? ''}${e.open ?? ''}`).join('|'),
+      // `aria-checked` IS IN HERE FOR THE SAME REASON THE OTHER TWO ARE, and
+      // leaving it out reported eleven working controls on one screen. A tag
+      // style, an annotation kind and a colour are all `role=radio` with
+      // `aria-checked`: pressing one moves a 2px border and a chip preview, and
+      // nothing else on the page changes at all — no dialog, no route, no text.
+      // Without the attribute in the fingerprint the whole radiogroup reads as
+      // dead, and with it a press is visible exactly when it moved the choice.
+      expanded: [...document.querySelectorAll('[aria-expanded],[aria-pressed],[aria-checked],[aria-selected],details')]
+        .map((e) => `${e.getAttribute('aria-expanded') ?? ''}${e.getAttribute('aria-pressed') ?? ''}${e.getAttribute('aria-checked') ?? ''}${e.getAttribute('aria-selected') ?? ''}${e.open ?? ''}`).join('|'),
       // AND A MENU THAT OPENS EMPTY IS ITS OWN DEFECT, not a pass: the reader
       // pressed a door and got a blank. Counted so it can be reported.
       menuItems: [...document.querySelectorAll('[role=menu]')]
@@ -154,6 +165,13 @@ try {
     || a.inputs !== b.inputs || a.focus !== b.focus || a.scroll !== b.scroll
     || a.text !== b.text || a.toasts !== b.toasts || a.expanded !== b.expanded
     || a.fx !== b.fx
+    // COLLECTED AND NEVER COMPARED, which is its own small lesson: both of these
+    // were read on every press so an EMPTY menu could be reported, and neither was
+    // in this list — so a control whose only effect was opening a menu depended on
+    // `expanded` catching it, and a trigger that carries no `aria-expanded` (the
+    // phone drawer is one) read as dead. A field gathered for one purpose is not
+    // automatically serving the other.
+    || a.menus !== b.menus || a.menuItems !== b.menuItems
 
   // Enumerate the controls on whatever is currently on screen. A panel, when one
   // is open, otherwise the page — so a modal's own controls are judged against
@@ -166,11 +184,19 @@ try {
       .map((b, i) => {
         const r = b.getBoundingClientRect()
         const name = (b.getAttribute('aria-label') || b.textContent.replace(/\s+/g, ' ').trim() || b.title || '(unnamed)').slice(0, 40)
-        const nth = seen.get(name) || 0
-        seen.set(name, nth + 1)
+        // THE KEY IS THE NAME WITH ITS NUMBERS MASKED. A library tile's accessible
+        // name is its title, author, year AND quote count run together — "COVER
+        // Middlemarch George Eliot · 1871 0 quotes" — and a press earlier in the
+        // run that adds a quote changes the last of those. The row is the same
+        // row; only the tally moved. Matching on the digits made thirteen tiles
+        // unfindable on the second look and reported them as vanished.
+        const key = name.replace(/\d+/g, '#')
+        const nth = seen.get(key) || 0
+        seen.set(key, nth + 1)
         return {
           i,
           nth,
+          key,
           name,
           says: b.disabled === true || b.getAttribute('aria-disabled') === 'true',
           // WHERE YOU ALREADY ARE, and `active` is on this list because CLAUDE.md
@@ -184,6 +210,7 @@ try {
           current: b.getAttribute('aria-current') === 'page'
             || b.getAttribute('aria-pressed') === 'true'
             || b.getAttribute('aria-selected') === 'true'
+            || b.getAttribute('aria-checked') === 'true'
             || b.classList.contains('is-current')
             || b.classList.contains('active')
             || b.classList.contains('is-on'),
@@ -237,17 +264,24 @@ try {
       // for that reason alone, none of them actually gone. The accessible name
       // plus which one of that name it is survives a re-render, which is also how
       // a person would say which control they meant.
-      const ok = await page.evaluate(({ name, nth }) => {
+      const ok = await page.evaluate(({ key, nth }) => {
         const scope = document.querySelector('.tp-panel') || document.querySelector('[role=dialog]') || document.body
-        const named = [...scope.querySelectorAll('button, [role=button], a[href], summary')]
+        // AND THE PAGE IS WALKED TO THE BOTTOM FIRST. A list that renders as you
+        // reach it has not rendered anything below the fold on a fresh load, so a
+        // control enumerated after an earlier press had scrolled the surface is
+        // simply not in the document yet — which reads as "vanished" and is
+        // "not built yet".
+        const box = document.querySelector('.tp-panel-body') || document.scrollingElement
+        if (box) box.scrollTop = box.scrollHeight
+        const find = () => [...scope.querySelectorAll('button, [role=button], a[href], summary')]
           .filter((x) => x.offsetParent !== null || x.tagName === 'SUMMARY')
-          .filter((x) => ((x.getAttribute('aria-label') || x.textContent.replace(/\s+/g, ' ').trim() || x.title || '(unnamed)').slice(0, 40)) === name)
-        const b = named[nth]
+          .filter((x) => ((x.getAttribute('aria-label') || x.textContent.replace(/\s+/g, ' ').trim() || x.title || '(unnamed)').slice(0, 40)).replace(/\d+/g, '#') === key)
+        const b = find()[nth]
         if (!b) return false
         b.scrollIntoView({ block: 'center' })
         b.click()
         return true
-      }, { name: c.name, nth: c.nth })
+      }, { key: c.key, nth: c.nth })
       // NOT PRESSED IS NOT PASSED. The index is re-resolved after `reopen`, so a
       // control that has moved or gone leaves the press unmade — and a `continue`
       // there quietly drops it from a run whose whole claim is "every control".

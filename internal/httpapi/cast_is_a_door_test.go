@@ -15,11 +15,21 @@ import (
 // they press it.
 //
 // WHY IT IS WRITTEN OVER THE ENDPOINTS AND NOT OVER ONE FUNCTION. There are four
-// ways a cast row comes into existence — a provider fetch, a name adopted off a
-// quote line, a row added by hand, and "add a work to this character" — and three
-// of them shipped without setting the column. A test per writer is a test per
-// fix; asking the question of every route that can create a row is the property,
-// and a fifth route added tomorrow has to answer it too.
+// ways a cast row comes into existence — a row added by hand, a name adopted off
+// a quote line, "add a work to this character", and a provider fetch. A test per
+// writer is a test per fix; asking the question of the routes themselves is the
+// property, and the sweep at the end of the first case asks it of every row the
+// work holds however it got there, so a fifth route reaching that work has to
+// answer too.
+//
+// WHAT IT DOES NOT REACH, stated rather than implied. The provider fetch
+// (`cast.go`) needs a stubbed TMDB or TheTVDB and is not exercised here, so this
+// file covers THREE of the four writers by name. That is a gap and not a
+// technicality: a fetched cast is the biggest single source of cast rows there
+// is. Until it has a stub, `LinkCastRow` being the one mechanism all four share
+// is what carries it — neutering that function's character branch fails every
+// case below, which is the evidence that the property is about the mechanism and
+// not about three call sites.
 //
 // IT ALSO REPLACES A TEST THAT COULD NOT FAIL. `internal/store/onetime_cast_records_test.go`
 // asserted the same column through a one-time pass, and with that pass's body
@@ -80,6 +90,42 @@ func TestEveryRouteThatCreatesACastRowMakesItADoor(t *testing.T) {
 	}
 	if adopted.CharacterID == 0 {
 		t.Error("a cast row adopted from a quote line has no character record — its chip opens nothing")
+	}
+
+	// ── ROUTE 3: a work added FROM the character's own screen, which arrives at
+	// the table from the opposite direction — the character record exists first
+	// and the cast row is made to point at it. It is the one writer that has
+	// always had an id to hand, which is exactly why it is worth asserting: a
+	// route that cannot get this wrong today is a route whose next edit can.
+	if byHand.CharacterID == 0 {
+		t.Fatal("no character record to add a work to")
+	}
+	second := decode[struct{ ID int64 }](t, c.mustDo("POST", "/movies",
+		map[string]any{"title": "Passage to Marseille", "media_type": "movie"}, http.StatusCreated))
+	c.mustDo("POST", "/characters/"+itoa(byHand.CharacterID)+"/works",
+		map[string]any{"kind": "movie", "work_id": second.ID, "actor": "Humphrey Bogart"}, http.StatusOK)
+	other := decode[doorList](t, c.mustDo("GET", "/movies/"+itoa(second.ID)+"/cast", nil, http.StatusOK))
+	if len(other.Cast) == 0 {
+		t.Fatal("adding a work to a character wrote no cast row")
+	}
+	for _, r := range other.Cast {
+		if r.CharacterID == 0 {
+			t.Errorf("the row \"add a work to this character\" wrote (%q) opens nothing", r.Character)
+		}
+		// AND IT OPENS THE CHARACTER YOU ADDED THE WORK TO, which on this route is
+		// the whole question and is NOT the same one as above. `LinkCastRow` fills
+		// a null id by resolving the NAME within the work, so a row that lost its
+		// id here still comes back a door — pointing at a record the reader never
+		// chose, or at a fresh one that splits the character in two. Asking only
+		// "is there an id" passes on exactly that: the mutation that replaces this
+		// INSERT's id with nil leaves every row openable and every name intact,
+		// and the only visible symptom is a character quietly becoming two.
+		// character_works.go's own comment names the hazard — "under the wrong
+		// record — silently, and permanently".
+		if r.CharacterID != byHand.CharacterID {
+			t.Errorf("added a work to character %d and the row landed on character %d — the reader's choice was resolved away",
+				byHand.CharacterID, r.CharacterID)
+		}
 	}
 
 	// ── AND EVERY ROW THE WORK HOLDS, however it got there. The sweep is the

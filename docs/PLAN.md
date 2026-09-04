@@ -10473,8 +10473,16 @@ without being expounded upon, and this is the largest deviation in the app.*
     is a verb per spelling and a line in a text box cannot carry one.
   - **A "Save" button is not half of the standing pair**, and all three identity sheets
     had one. The globals' fix is different from the local one's and smaller: their fields
-    become a `<form>` joining the panel head through `useFormHost`, so the ✓ `PanelHost`
-    already draws arms with a count and the red ✕ asks before discarding. Why that must
+    become a `<form>` joining the panel head through `useFormHost`. **The first version of
+    this said the ✓ `PanelHost` "already draws" arms with a count and that its ✕ is red,
+    and neither was true**: that head drew a bare `IconButton` with no `tp-tick-slot`, no
+    `is-armed` and no count badge, and its ✕ had no `var(--error)` — all of which existed
+    only in `FormModal`. Half the standing rule was missing from the surface where most of
+    this app's editing happens, and asserting it in three places did not put it there. It
+    is built now, with the count `PanelHost` was already publishing to its own unsaved
+    question, and `test/dom/panel-tick-pair.test.jsx` renders a panel and looks at the
+    head — four of its five cases fail against the version that shipped an hour earlier.
+    Why the form must
     be a component rather than a hook call at the top of the body is argued at
     `GlobalFields` — `useFormHost` cannot say "there is no form here", so a hook at the
     top of a body rendering three scopes draws a ✓ on all three and two of them submit

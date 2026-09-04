@@ -449,10 +449,23 @@ Three things came out of building it that reading had not shown:
   spelling and a line in a box cannot carry one — a departure the file already argues.
 - **A "Save" button is not half of a pair.** The two GLOBAL sheets carried the same
   block, and there the fix is smaller and different: the fields become a `<form>` that
-  joins the panel's head through `useFormHost`, so the ✓ that `PanelHost` already draws
-  arms with a count and the red ✕ asks before discarding. `GlobalFields` in
-  `identity.jsx` carries the argument for why that has to be a component rather than a
-  hook call at the top of the body.
+  joins the panel's head through `useFormHost`. `GlobalFields` in `identity.jsx` carries
+  the argument for why that has to be a component rather than a hook call at the top of
+  the body.
+
+  **And a claim made here, in `docs/PLAN.md` and in `a94e141`'s message was false when it
+  was written.** All three said the ✓ `PanelHost` draws "arms with a count" and that its
+  ✕ is red. It did neither: a bare `IconButton`, no `tp-tick-slot`, no `is-armed`, no
+  count badge, no `var(--error)` — those live in `FormModal` and nowhere else. So the
+  work that moved three sheets onto the panel's pair moved them onto half a pair, on the
+  surface where most of this app's editing happens. Built now, out of the count
+  `PanelHost` was already publishing to its own unsaved question, so only the drawing was
+  ever missing. `test/dom/panel-tick-pair.test.jsx` renders a panel and looks at its head;
+  four of its five cases fail against the version that shipped an hour before it.
+
+  The lesson is the one §2.2 keeps restating: `tick-pair.test.js` scans for callers that
+  PASS a `dirty` prop, so a surface that takes the count and draws nothing with it passes
+  every case it has. A test that reads source cannot see an absence in a render.
 
 What is NOT done here: the pack's picker is a search-or-type field offering people the
 app already knows (`pickerPeople`, `PEOPLE` at line 921), and this one is a plain box.
