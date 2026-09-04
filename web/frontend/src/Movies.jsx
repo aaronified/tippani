@@ -31,6 +31,7 @@ import {
 import { KINDS } from './workKinds.js'
 import WorkDetail from './WorkDetail.jsx'
 import { t } from './i18n.js'
+import { usePersonOpener } from './personOpen.jsx'
 import {
   QUOTE_COLUMNS_IN,
   byLastRead,
@@ -84,6 +85,8 @@ import {
   usePersistedState,
   useReveal,
   ViewToggle,
+  PanelHost,
+  usePanelStack,
 } from './ui.jsx'
 
 // The in-progress cap dialog's nouns now come from the kind table's `capWords`,
@@ -1055,6 +1058,13 @@ function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen
   const [tags, setTags] = useState([]) // tag objects: {id, name, color, style, …}
   const [shareTarget, setShareTarget] = useState(null) // dialogue being shared
   const [person, setPerson] = useState(null) // actor metadata panel ({ kind, name })
+  // THE PERSON'S OWN SCREEN, REACHABLE FROM HERE AT LAST. A film's PLAYED BY line and its director
+  // was handed `setPerson` straight, so it opened the older panel whatever the
+  // person's record held — this screen had no panel host at all, which is why the
+  // pack's person screen looked absent rather than unreachable. See
+  // personOpen.jsx: the id decides which of the two surfaces answers.
+  const personStack = usePanelStack()
+  const openPerson = usePersonOpener(personStack, setPerson)
   const [tag, setTag] = useState('') // filter by NAME, '' = all
   const [fav, setFav] = useState(false)
   const [color, setColor] = useState('') // '' = all colours
@@ -1371,7 +1381,7 @@ function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen
                 onDelete={() => setAsking(d)}
                 onCopy={() => copyOne(d)}
                 onShare={() => setShareTarget(d)}
-                onOpenPerson={setPerson}
+                onOpenPerson={openPerson}
                 onOpenCharacter={onOpenCharacter}
                 actorMap={actorMap}
                 seps={creditSeps}
@@ -1410,7 +1420,7 @@ function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen
                 onDelete={() => setAsking(d)}
                 onCopy={() => copyOne(d)}
                 onShare={() => setShareTarget(d)}
-                onOpenPerson={setPerson}
+                onOpenPerson={openPerson}
                 onOpenCharacter={onOpenCharacter}
                 actorMap={actorMap}
                 seps={creditSeps}
@@ -1455,6 +1465,10 @@ function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen
         onConfirm={() => remove(asking)}
         onCancel={() => setAsking(null)}
       />
+      {/* THE HOST FOR THE PERSON'S OWN SCREEN. Without it the router
+          above opens a panel into nothing, which is a dead press — the exact
+          failure this whole change is about. */}
+      <PanelHost stack={personStack} />
       {person && <PersonModal kind={person.kind} name={person.name} onClose={() => setPerson(null)} />}
     </div>
   )
@@ -1683,7 +1697,10 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
           <Fragment key={n}>
             {i > 0 && ', '}
             {onOpenPerson ? (
-              <PersonName kind="actor" name={n} onOpen={onOpenPerson} className="" style={actorInherit}>
+              // `actorMap` is already in hand for the faces below; handing it to
+              // the name too is what makes this credit open the person's own
+              // screen rather than the modal that predates it.
+              <PersonName kind="actor" name={n} person={actorMap[n]} onOpen={onOpenPerson} className="" style={actorInherit}>
                 {n}
               </PersonName>
             ) : (

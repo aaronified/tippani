@@ -4172,22 +4172,31 @@ cover.candidate.add.aria = {action} {title}
 
 # The book edition picker.
 cover.editions.busy = finding editions…
-cover.editions.prose = pick the right edition — replaces the fields below
 cover.editions.close.aria = Close the picker
 cover.editions.browse = Browse other matches…
 cover.editions.looking = Looking up…
 cover.editions.none = no matches — try editing the title or ISBN
-cover.editions.use.tip = Use this edition
 cover.editions.use.aria = Use {title}
 cover.editions.use.exact = Use: {title}
 
 # The film / show / game picker.
 cover.movie.search.aria = Search
-cover.movie.use.tip = Use this match
+lookup.matches.label = Matches · {n}
+lookup.again.label = Search again
+lookup.again.how.label = Search again
+lookup.again.by-title.label = By title
+lookup.again.by-id.label = By id
+lookup.again.by-id.pinned = Pinned to {ids}. Change it in the Ids strip on the Details panel — one editor for every id, so two screens cannot disagree about one.
+lookup.again.by-id.none = No supplier id on this record yet. Add one in the Ids strip on the Details panel and the search can name a record exactly.
+lookup.again.run.label = Search
+lookup.again.run.tip = Search again using {by}
+lookup.searched-by = searched by {by}
+lookup.searched-by.nothing = nothing to search by yet
+common.work.merge.differ = {n} fields differ
+common.work.merge.take.none = Nothing ticked
 cover.movie.none = no matches found
 # Says why a match you did not search for is sitting at the top. {ids} is a list
 # of supplier ids, which are Latin in every language.
-cover.movie.by-id = searching by id · {ids}
 
 error.validate.lookup-fields = enter a title, ISBN, or ASIN first
 
@@ -6368,6 +6377,9 @@ identity.section.dubbedby = Dubbed by
 # credits a de-aged shot or a second voice the reader has not named, and hiding
 # the row would lose the note beside it — the only record the casting exists.
 identity.credit.unnamed = Not named yet
+identity.credit.add.dub.lang.label = Dubbed in which language
+identity.credit.add.save.label = Add the credit
+identity.credit.add.save.tip = Adds a second performer on this character in this work. A language makes it a dubbing credit.
 identity.credit.add.performer = Add another performer
 identity.credit.add.voice = Add another voice
 identity.credit.add.dub = Add a dubbing credit

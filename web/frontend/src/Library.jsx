@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { coverImgURL, json, errText, downloadPost } from './api.js'
 import { chapterLabel } from './text.js'
+import { usePersonOpener } from './personOpen.jsx'
 import { CastCombo, Datalist, useWorkSuggestions } from './suggest.jsx'
 import { CoverControls, BookLookupPicker } from './CoverPicker.jsx'
 import { FlowQuote } from './flow.jsx'
@@ -85,6 +86,8 @@ import {
   useScreenBar,
   ViewIcon,
   ViewToggle,
+  PanelHost,
+  usePanelStack,
 } from './ui.jsx'
 
 const PRIMARY = 'tp-btn tp-btn-primary' // aesthetic-aware primary (§6)
@@ -253,6 +256,13 @@ function BookList({ onOpen, onOpenMovie, creditSeparators, dataNonce }) {
   const mobile = useIsMobileScreen()
   const authors = usePeople('author') // name→metadata, for author-group portraits
   const [person, setPerson] = useState(null) // { kind, name } open in the metadata panel
+  // THE PERSON'S OWN SCREEN, REACHABLE FROM HERE AT LAST. A shelf's author credits
+  // was handed `setPerson` straight, so it opened the older panel whatever the
+  // person's record held — this screen had no panel host at all, which is why the
+  // pack's person screen looked absent rather than unreachable. See
+  // personOpen.jsx: the id decides which of the two surfaces answers.
+  const personStack = usePanelStack()
+  const openPerson = usePersonOpener(personStack, setPerson)
 
   // A search started from a filtered shelf searches the filtered shelf. The
   // board publishes what it is currently showing; the shell reads it at the
@@ -469,6 +479,11 @@ function BookList({ onOpen, onOpenMovie, creditSeparators, dataNonce }) {
       }
       extraModals={
         <>
+          {/* THE HOST FOR THE PERSON'S OWN SCREEN, OUTSIDE the legacy modal's
+              guard. Inside it the host mounts only while the OLD panel is open,
+              so the new one opens into nothing — a dead press, which is the exact
+              failure this whole change is about. */}
+          <PanelHost stack={personStack} />
           {person && (
             <PersonModal kind={person.kind} name={person.name} onClose={() => setPerson(null)} onSaved={authors.reload} />
           )}
@@ -504,7 +519,7 @@ function BookList({ onOpen, onOpenMovie, creditSeparators, dataNonce }) {
                   noun={t('unit.book.one')}
                   nounPlural={t('unit.book.other')}
                   person={isAuthor ? authors.map[g.label] : null}
-                  onOpenPerson={isAuthor ? () => setPerson({ kind: 'author', name: g.label }) : undefined}
+                  onOpenPerson={isAuthor ? () => openPerson({ kind: 'author', name: g.label, person: authors.map[g.label] }) : undefined}
                 />
                 <BookGrid books={g.items} coverSize={coverSize} onOpen={onOpen} authorMap={authors.map} seps={creditSeps} selection={selection} onChanged={afterBulk} onEdit={setEditWork} />
               </section>

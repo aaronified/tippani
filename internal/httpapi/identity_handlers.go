@@ -648,6 +648,23 @@ type characterWorkRef struct {
 	Kind  string `json:"kind"`
 	ID    int64  `json:"id"`
 	Title string `json:"title"`
+	// THE MEDIUM AND THE PERFORMER-VERB OVERRIDE, because the client cannot
+	// derive either and had been guessing at both.
+	//
+	// `leadingRole` on the client answers "Played by or Voiced by" from
+	// `work.cast_role` first and the medium second — the same order the server's
+	// own actorRoleOr uses, and for the same reason: an animated feature is a film
+	// whose cast is voiced, and no medium can know that. But `work` there is an
+	// object each CALLER builds by hand (Home's favourite tile, the film frame,
+	// the work page), and not one of them had a cast_role to put in it. So the
+	// override was unreadable from every screen: pressing "Voiced by" wrote the
+	// column, the panel reloaded, and the control sprang back to "Played by"
+	// because nothing on the wire ever mentioned it.
+	//
+	// Serving it here is what stops that being every caller's problem to
+	// remember. Empty on a book, which has no performers at all.
+	MediaType string `json:"media_type,omitempty"`
+	CastRole  string `json:"cast_role,omitempty"`
 }
 
 // attachCharacterWorks fills every row's WorksIn in one pass over work_cast.
@@ -657,11 +674,12 @@ type characterWorkRef struct {
 // deliberately answers the other question and counts rows.
 func attachCharacterWorks(db *sql.DB, uid int64, byID map[int64]*characterListRow) error {
 	rows, err := db.Query(`
-		SELECT DISTINCT wc.character_id, 'book', b.id, b.title
+		SELECT DISTINCT wc.character_id, 'book', b.id, b.title, '', ''
 		  FROM work_cast wc JOIN books b ON b.id = wc.work_id
 		 WHERE wc.user_id = ? AND wc.kind = 'book' AND wc.origin <> 'removed' AND wc.character_id IS NOT NULL
 		UNION ALL
-		SELECT DISTINCT wc.character_id, 'movie', m.id, m.title
+		SELECT DISTINCT wc.character_id, 'movie', m.id, m.title,
+		       COALESCE(m.media_type, ''), COALESCE(m.cast_role, '')
 		  FROM work_cast wc JOIN movies m ON m.id = wc.work_id
 		 WHERE wc.user_id = ? AND wc.kind = 'movie' AND wc.origin <> 'removed' AND wc.character_id IS NOT NULL
 		 ORDER BY 4 COLLATE NOCASE`, uid, uid)
@@ -672,7 +690,7 @@ func attachCharacterWorks(db *sql.DB, uid int64, byID map[int64]*characterListRo
 	for rows.Next() {
 		var cid int64
 		var ref characterWorkRef
-		if err := rows.Scan(&cid, &ref.Kind, &ref.ID, &ref.Title); err != nil {
+		if err := rows.Scan(&cid, &ref.Kind, &ref.ID, &ref.Title, &ref.MediaType, &ref.CastRole); err != nil {
 			return err
 		}
 		if r := byID[cid]; r != nil {

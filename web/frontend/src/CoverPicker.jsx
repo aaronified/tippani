@@ -5,6 +5,10 @@
 import { useEffect, useState } from 'react'
 import { coverImgURL, json, upload, errText } from './api.js'
 import { t } from './i18n.js'
+// SectionHead comes from the character screens because that is where the pack's
+// section heading was first built; it is the app's one heading for "a named group
+// of rows", and the match picker is one.
+import { SectionHead, SegHead } from './characterRows.jsx'
 import {
   COVER_MIN_W,
   ErrorText,
@@ -555,10 +559,101 @@ export function CandidateRow({ cover, title, sub, source, sourceDetail, count = 
 // `auto` runs the lookup as soon as the picker opens (§7: "Fetch metadata"
 // opens this edition picker instead of silently applying a guess, folding in the
 // old "Browse other matches" button). `onClose` dismisses the opened picker.
+// ---- THE MATCH PICKER'S OWN ROW ------------------------------------------
+//
+// A CANDIDATE IS A PROPOSAL, NOT AN OVERWRITE, and the pack draws it as a ROW:
+// a small piece of artwork, the title, one mono line of what tells it apart, and
+// the supplier's own mark. What this replaces is a GRID of cards, each with a
+// full-width cover — which on the phone this screen is designed for first put one
+// candidate per screenful, so comparing three matches meant scrolling past three
+// posters and remembering them.
+//
+// THE MARK RATHER THAN A LETTERED PILL, which is the pack's word for it and the
+// app's own rule: `.tp-chip` reading "TMDB" is a fourth typeface in a row that
+// already has three, where SourceIcon is the same glyph this supplier wears on
+// every field row and in the Ids strip. It also carries the id in its label, so
+// "TMDB · #603" is one hover rather than a second line.
+//
+// THE PICTURE IS MEASURED, through CoverPreview's own showRes badge — the pack's
+// reason in its own words: "the reason to prefer one match over another is often
+// only its artwork, and 342 x 513 is the difference between a share card and a
+// blur". The badge inks itself --error under the floor, which is the same signal
+// the record's own cover wears.
+export function MatchRow({ art, title, meta, note, source, detail, onPick, pickTitle, aria }) {
+  return (
+    <li className="match-row">
+      <Tooltip label={pickTitle}>
+        <button type="button" className="match-pick" aria-label={aria} onClick={onPick}>
+          <CoverPreview url={art} label="" showRes className="match-art" />
+          <span className="match-text">
+            {/* NameScroll, not a clamp: a title is a name, and the standing rule
+                is that it scrolls under a fade rather than being cut. Two matches
+                of one film differ in their last few words often enough that the
+                end of the line is the part worth reading. */}
+            <NameScroll as="span" className="match-title" title={title}>{title}</NameScroll>
+            {meta ? <span className="match-meta">{meta}</span> : null}
+            {note ? <span className="match-note">{note}</span> : null}
+          </span>
+          <span className="match-mark" aria-hidden="true">
+            <SourceIcon source={source} detail={detail} />
+          </span>
+        </button>
+      </Tooltip>
+    </li>
+  )
+}
+
+// mediaWord — the reader's noun for a medium. `movies.media_type` holds "movie",
+// "show" and "game"; the interface has said "film" since 1.0, so the column value
+// is not printable as it stands. An unknown value prints nothing rather than
+// itself: a raw slug on a candidate row would be the one word on the screen that
+// came from the database instead of from the locale.
+const MEDIA_UNIT = { movie: 'unit.film.one', show: 'unit.show.one', game: 'unit.game.one' }
+function mediaWord(mt) {
+  const key = MEDIA_UNIT[String(mt || '').trim().toLowerCase()]
+  return key ? t(key) : ''
+}
+
+// MatchList — the count, then the rows. The count is the pack's `Matches · 3` and
+// it earns its line: a lookup that came back with one hit and a lookup that came
+// back with nine look the same until you scroll, and the second is the one where
+// the reader should read before pressing.
+export function MatchList({ n, children }) {
+  return (
+    <>
+      <SectionHead label={t('lookup.matches.label', { n, count: n })} />
+      <ul className="match-list">{children}</ul>
+    </>
+  )
+}
+
+// SearchAgain — the pack's second head on this surface, and the reason it is
+// BELOW the results rather than above them: the reader arrived here from a search
+// that already ran. The controls that re-run it are what you want after reading
+// the matches, not before, and putting them first made the top of the screen a
+// form on a screen whose subject is a list.
+export function SearchAgain({ children }) {
+  return (
+    <>
+      <SectionHead label={t('lookup.again.label')} />
+      {children}
+    </>
+  )
+}
+
 export function BookLookupPicker({ isbn, title, author, asin, onPick, auto = false, onClose }) {
   const [cands, setCands] = useState(null)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
+
+  // WHAT THE SEARCH IS ABOUT TO USE, read off the same four fields `look` sends —
+  // one list rather than two, so the crumb cannot drift from the request.
+  const usedBy = [
+    isbn && isbn.trim() ? t('common.field.isbn.label') : '',
+    title && title.trim() ? t('common.field.title.label') : '',
+    author && author.trim() ? t('common.field.author.label') : '',
+    asin && asin.trim() ? t('common.field.asin.label') : '',
+  ].filter(Boolean)
 
   async function look() {
     setBusy(true)
@@ -590,8 +685,13 @@ export function BookLookupPicker({ isbn, title, author, asin, onPick, auto = fal
     <div className="space-y-2">
       {auto ? (
         <div className="flex items-center justify-between gap-2">
+          {/* THE CRUMB: what the search actually used. It was "searching for a
+              match", which is true of every search — and a book lookup fires off
+              the record's ISBN, title, author and ASIN in whatever combination it
+              has, so which of them answered is the difference between a match to
+              trust and one to read twice. */}
           <MonoLabel className="block">
-            {busy ? t('cover.editions.busy') : t('cover.editions.prose')}
+            {busy ? t('cover.editions.busy') : t('lookup.searched-by', { by: usedBy.join(' · ') })}
           </MonoLabel>
           {onClose && (
             <FieldIconButton
@@ -609,52 +709,50 @@ export function BookLookupPicker({ isbn, title, author, asin, onPick, auto = fal
       <ErrorText>{err}</ErrorText>
       {cands && cands.length === 0 && <p className="microcopy">{t('cover.editions.none')}</p>}
       {cands && cands.length > 0 && (
-        <ul className="lookup-grid">
+        <MatchList n={cands.length}>
           {cands.map((c, i) => (
-            <li key={i} className="lookup-card">
-              <Tooltip label={t('cover.editions.use.tip')}>
-                <button type="button" className="lookup-card-cover" aria-label={t('cover.editions.use.aria', { title: c.title })} onClick={() => onPick(c)}>
-                  <CoverPreview url={c.cover_url} label="" showRes className="w-full" />
-                </button>
-              </Tooltip>
-              <div className="min-w-0">
-                <NameScroll as="p" className="text-sm font-semibold" title={c.title}>{c.title}</NameScroll>
-                <NameScroll as="p" className="text-xs" style={{ color: 'var(--soft)' }}>
-                  {[c.author, c.published_year || null].filter(Boolean).join(' · ')}
-                </NameScroll>
-                {c.series && (
-                  <NameScroll as="p" className="text-xs" style={{ color: 'var(--accent-ui)' }}>
-                    {c.series}{c.series_index ? ` #${c.series_index}` : ''}
-                  </NameScroll>
-                )}
-              </div>
-              <div className="flex items-center justify-between gap-2">
-                <span className="tp-chip shrink-0" style={{ fontSize: 'var(--type-ui-9)' }}>{sourceName(c.source)}</span>
-                <FieldIconButton
-                  icon={<IconCheck />}
-                  ariaLabel={t('cover.editions.use.aria', { title: c.title })}
-                  onClick={() => onPick(c)}
-                  tooltip={t('cover.editions.use.exact', { title: c.title })}
-                  ok
-                  className="shrink-0"
-                />
-              </div>
-            </li>
+            <MatchRow
+              key={i}
+              art={c.cover_url}
+              title={c.title}
+              // THE LINE THAT TELLS TWO EDITIONS APART: who wrote it and when it
+              // came out. The series rides on it too rather than on a third line
+              // of its own — "Discworld #22" is the same kind of fact as the year.
+              meta={[c.author, c.published_year || null,
+                c.series ? `${c.series}${c.series_index ? ` #${c.series_index}` : ''}` : null]
+                .filter(Boolean).join(' · ')}
+              source={c.source}
+              detail={c.isbn13 || c.isbn || ''}
+              onPick={() => onPick(c)}
+              pickTitle={t('cover.editions.use.exact', { title: c.title })}
+              aria={t('cover.editions.use.aria', { title: c.title })}
+            />
           ))}
-        </ul>
+        </MatchList>
+      )}
+      {/* SEARCH AGAIN, and for a book it is one button rather than two: the
+          lookup is driven by the record's own ISBN, title, author and ASIN, so
+          there is nothing here to type over. A reader who corrected the title in
+          the form behind this screen had no way to re-run without closing the
+          picker and opening it again, which is the gap this closes. */}
+      {auto && cands && (
+        <SearchAgain>
+          <div className="match-tools">
+            <IconButton
+              icon={<IconSearch />}
+              label={t('lookup.again.run.label')}
+              ariaLabel={t('lookup.again.run.label')}
+              onClick={look}
+              disabled={busy}
+              tooltip={t('lookup.again.run.tip', { by: usedBy.join(' · ') })}
+            />
+          </div>
+        </SearchAgain>
       )}
     </div>
   )
 }
 
-// MovieLookupPicker searches TMDB + TVDB (title + year, for the given
-// media_type) and, on pick, hands the whole candidate back so the caller can
-// re-sync from its source (poster, cast, genres, details).
-//
-// `tmdbId` / `tvdbId` are the ids stored on the title, and they ride along with
-// the title rather than replacing it: the server fetches each named record and
-// lists it first, then the title hits underneath. They are props, not fields —
-// like the ISBN on the book picker, they are edited where they live.
 export function MovieLookupPicker({ title, year, mediaType = 'movie', tmdbId, tvdbId, onPick, auto = false }) {
   const [q, setQ] = useState(title || '')
   const [yr, setYr] = useState(year ? String(year) : '')
@@ -662,6 +760,11 @@ export function MovieLookupPicker({ title, year, mediaType = 'movie', tmdbId, tv
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const [warn, setWarn] = useState('')
+  // WHICH WAY THE READER IS SEARCHING AGAIN — the pack's two tools on this
+  // surface. It opens on 'title' unless the record is pinned to a supplier id,
+  // because an id names one record exactly and is the mode that answers when a
+  // title search cannot tell two films of one name apart.
+  const [mode, setMode] = useState('title')
   const pinned = [idNum(tmdbId) && `TMDB #${idNum(tmdbId)}`, idNum(tvdbId) && `TVDB #${idNum(tvdbId)}`].filter(Boolean)
 
   // §7: opening the edition picker (from the Fetch-metadata icon) auto-runs the
@@ -708,61 +811,125 @@ export function MovieLookupPicker({ title, year, mediaType = 'movie', tmdbId, tv
     }
   }
 
+  // WHAT THE SEARCH USED, which is the pack's crumb for this surface. It named
+  // only the pinned ids before ("searching by id · TMDB #603") and said nothing at
+  // all on the ordinary case — so a search that quietly fell back to the title had
+  // the same silent crumb as one that named a record exactly.
+  const usedBy = [
+    q.trim() ? t('common.field.title.label') : '',
+    yr ? t('common.field.year.label') : '',
+    ...pinned,
+  ].filter(Boolean)
+
   return (
     <div className="space-y-2">
-      <div className="flex gap-2">
-        <input className="tp-input" placeholder={t('common.field.title.label')} value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={onEnter} />
-        <input className="tp-input w-24 shrink-0" placeholder={t('common.field.year.label')} inputMode="numeric" value={yr} onChange={(e) => setYr(e.target.value)} onKeyDown={onEnter} />
-        <FieldIconButton
-          icon={<IconSearch />}
-          ariaLabel={t('cover.movie.search.aria')}
-          onClick={look}
-          disabled={busy}
-          tooltip={coverSourceLabel(mediaType)}
-          className="shrink-0"
-        />
-      </div>
       {/* A SUPPLIER THAT REFUSED WHILE THE OTHER ANSWERED. Not an ErrorText: the
           results below it are real, and painting them red would say the opposite.
           The server sends this string only for a rejected key with hits to
           explain — see handleMovieLookup. */}
       {warn && <p className="microcopy" style={{ color: 'var(--error)' }}>{warn}</p>}
-      {/* Says why a match you did not search for is sitting at the top. */}
-      {pinned.length > 0 && (
-        <MonoLabel className="block">{t('cover.movie.by-id', { ids: pinned.join(' · ') })}</MonoLabel>
-      )}
+      <MonoLabel className="block">
+        {busy
+          ? t('cover.editions.busy')
+          : t('lookup.searched-by', { by: usedBy.join(' · ') || t('lookup.searched-by.nothing') })}
+      </MonoLabel>
       <ErrorText>{err}</ErrorText>
       {cands && cands.length === 0 && <p className="microcopy">{t('cover.movie.none')}</p>}
       {cands && cands.length > 0 && (
-        <ul className="lookup-grid">
+        <MatchList n={cands.length}>
           {cands.map((c) => (
-            <li key={`${c.source}-${c.source_id || c.tmdb_id}`} className="lookup-card">
-              <Tooltip label={t('cover.movie.use.tip')}>
-                <button type="button" className="lookup-card-cover" aria-label={t('cover.editions.use.aria', { title: c.title })} onClick={() => onPick(c)}>
-                  <CoverPreview url={c.poster_url} label="" showRes className="w-full" />
-                </button>
-              </Tooltip>
-              <div className="min-w-0">
-                <NameScroll as="p" className="text-sm font-semibold" title={c.title}>{c.title}</NameScroll>
-                {c.release_year ? <p className="truncate text-xs" style={{ color: 'var(--soft)' }}>{c.release_year}</p> : null}
-              </div>
-              <div className="flex items-center justify-between gap-2">
-                <span className="tp-chip shrink-0" style={{ color: 'var(--amber)', fontSize: 'var(--type-ui-9)' }}>
-                  {sourceName(c.source || 'tmdb')}
-                </span>
-                <FieldIconButton
-                  icon={<IconCheck />}
-                  ariaLabel={t('cover.editions.use.aria', { title: c.title })}
-                  onClick={() => onPick(c)}
-                  tooltip={t('cover.editions.use.exact', { title: c.title })}
-                  ok
-                  className="shrink-0"
-                />
-              </div>
-            </li>
+            <MatchRow
+              key={`${c.source}-${c.source_id || c.tmdb_id}`}
+              art={c.poster_url}
+              title={c.title}
+              // THE YEAR AND THE MEDIUM, which is what tells two same-titled
+              // matches apart — and the pack's line has a third fact, the
+              // director, that is NOT here on purpose. A lookup response carries
+              // no credits: TMDB serves them from a second endpoint per title, so
+              // naming the director on a list of nine hits is nine extra outbound
+              // calls for a line nobody has asked to sort by. The medium does the
+              // work it was there for — a film and a game of one name are the
+              // pair this list actually has to separate.
+              // `unit.*` is the app's noun for a medium, and 'movie' on the wire
+              // is 'film' in the interface — the store's column value is not the
+              // reader's word for it, which is exactly what a lookup table is for.
+              meta={[c.release_year || null, mediaWord(c.media_type)].filter(Boolean).join(' · ')}
+              source={c.source || 'tmdb'}
+              detail={c.source_id || (c.tmdb_id ? String(c.tmdb_id) : '')}
+              onPick={() => onPick(c)}
+              pickTitle={t('cover.editions.use.exact', { title: c.title })}
+              aria={t('cover.editions.use.aria', { title: c.title })}
+            />
           ))}
-        </ul>
+        </MatchList>
       )}
+      {/* SEARCH AGAIN, BELOW THE MATCHES, and two ways rather than one because
+          those are the two the reader has: type over the query, or name a record
+          exactly. SegHead is the app's control for a choice with two answers —
+          "two words rather than a dropdown because there are two answers" — and
+          the ids get their own mode because they are the mode that WORKS when the
+          title search cannot tell two films apart, which is the whole reason the
+          fields are editable. */}
+      <SearchAgain>
+        <SegHead
+          label={t('lookup.again.how.label')}
+          options={[['title', t('lookup.again.by-title.label')], ['id', t('lookup.again.by-id.label')]]}
+          value={mode}
+          onPick={setMode}
+        />
+        {mode === 'title' ? (
+          <div className="flex gap-2">
+            <input
+              className="tp-input"
+              placeholder={t('common.field.title.label')}
+              aria-label={t('common.field.title.label')}
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              onKeyDown={onEnter}
+            />
+            <input
+              className="tp-input w-24 shrink-0"
+              placeholder={t('common.field.year.label')}
+              aria-label={t('common.field.year.label')}
+              inputMode="numeric"
+              value={yr}
+              onChange={(e) => setYr(e.target.value)}
+              onKeyDown={onEnter}
+            />
+            <FieldIconButton
+              icon={<IconSearch />}
+              ariaLabel={t('cover.movie.search.aria')}
+              onClick={look}
+              disabled={busy}
+              tooltip={coverSourceLabel(mediaType)}
+              className="shrink-0"
+            />
+          </div>
+        ) : (
+          // THE IDS ARE THE RECORD'S, NOT A SECOND COPY. Editing one here would be
+          // a third writer of a column the Ids strip already owns, and two editors
+          // of one field is how they come to disagree. So this mode SHOWS what the
+          // search is pinned to and says where to change it — which is the honest
+          // version of the pack's "TMDB, TVDB or IGDB id".
+          <div style={{ display: 'grid', gap: 'calc(var(--row) * 0.4)' }}>
+            <p className="microcopy">
+              {pinned.length
+                ? t('lookup.again.by-id.pinned', { ids: pinned.join(' · ') })
+                : t('lookup.again.by-id.none')}
+            </p>
+            <div className="match-tools">
+              <IconButton
+                icon={<IconSearch />}
+                label={t('lookup.again.run.label')}
+                ariaLabel={t('lookup.again.run.label')}
+                onClick={look}
+                disabled={busy || !pinned.length}
+                tooltip={t('lookup.again.run.tip', { by: pinned.join(' · ') })}
+              />
+            </div>
+          </div>
+        )}
+      </SearchAgain>
     </div>
   )
 }

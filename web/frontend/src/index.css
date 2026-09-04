@@ -3343,6 +3343,63 @@
     cursor: pointer;
     border-radius: 8px;
   }
+  /* ---- THE MATCH PICKER'S ROWS --------------------------------------------
+     The pack's second surface draws a candidate as a ROW: 44px of artwork, the
+     title, one mono line of what tells it apart, the supplier's mark. What it
+     replaces is `.lookup-grid` above — a card per candidate with a full-width
+     cover — which is still right on the Add surface, where a reader is choosing
+     a picture and has one work in mind. Here they are choosing a RECORD from
+     three that may share a title, and on a phone the grid put one of them per
+     screenful.
+
+     The artwork is 44px wide rather than the card's full column, which is the
+     pack's own number and is not a thumbnail of convenience: 44 is the touch
+     floor, so the picture is also the press. */
+  .match-list { display: flex; flex-direction: column; gap: calc(var(--row) * 0.4); }
+  .match-row { display: flex; min-width: 0; }
+  .match-pick {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    /* A share of the row, not a step: --row is the screen's rhythm and this is a
+       row of it. */
+    padding: calc(var(--row) * 0.5) calc(var(--row) * 0.6);
+    border: 1px solid var(--line);
+    border-radius: 11px;
+    background: var(--raised, transparent);
+    text-align: left;
+    color: var(--ink);
+    cursor: pointer;
+    transition: border-color .15s ease, background-color .15s ease;
+  }
+  .match-pick:hover { border-color: var(--accent-ui); }
+  .match-pick:focus-visible { outline: 2px solid var(--accent-ui); outline-offset: 2px; }
+  /* max(px floor, em) rather than a px: the artwork holds no text, but the row
+     beside it does, so at 175% on the type dial a fixed 44 would be a stamp
+     beside a paragraph. */
+  .match-art { flex: none; width: max(44px, 3em); }
+  .match-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: calc(var(--row) * 0.16); }
+  .match-title {
+    font-family: var(--font-display);
+    font-size: var(--type-ui-15);
+    line-height: 1.25;
+    text-wrap: pretty;
+  }
+  .match-meta, .match-note {
+    font-family: var(--font-mono);
+    font-variant-numeric: var(--font-mono-figures);
+    font-size: var(--type-mono-11);
+    letter-spacing: .1em;
+    color: var(--faint);
+    line-height: 1.4;
+  }
+  .match-note { color: var(--accent-ui); }
+  .match-mark { flex: none; display: inline-flex; align-items: center; }
+  /* The Search-again controls, on one wrapping line. `tools` in the pack. */
+  .match-tools { display: flex; align-items: center; flex-wrap: wrap; gap: calc(var(--row) * 0.45); }
+
   /* ---- look-up candidate rows (the Add surface's results list) ----
      Source is a 16px mark, not a "GOOGLE BOOKS" pill, and Add is a borderless
      "+": together the pill and the bordered word button ate ~145px of a ~256px

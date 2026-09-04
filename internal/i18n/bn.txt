@@ -4215,22 +4215,31 @@ cover.candidate.add.aria = {action} {title}
 
 # The book edition picker.
 cover.editions.busy = সংস্করণ খোঁজা হচ্ছে…
-cover.editions.prose = ঠিক সংস্করণটা বাছুন — নিচের ঘরগুলো বদলে যাবে
 cover.editions.close.aria = এই তালিকা বন্ধ করুন
 cover.editions.browse = অন্য মিলগুলো দেখুন…
 cover.editions.looking = খোঁজা হচ্ছে…
 cover.editions.none = কিছু মিলল না — নাম বা ISBN বদলে দেখুন
-cover.editions.use.tip = এই সংস্করণটা নিন
 cover.editions.use.aria = {title} নিন
 cover.editions.use.exact = নিন: {title}
 
 # The film / show / game picker.
 cover.movie.search.aria = খুঁজুন
-cover.movie.use.tip = এই মিলটা নিন
+lookup.matches.label = মিল · {n}
+lookup.again.label = আবার খুঁজুন
+lookup.again.how.label = আবার খুঁজুন
+lookup.again.by-title.label = নাম ধরে
+lookup.again.by-id.label = id ধরে
+lookup.again.by-id.pinned = {ids}-এ বাঁধা। বদলাতে হলে বিবরণ প্যানেলের id-র সারিতে যান — সব id-র একটাই ঘর, তাই দুই পর্দার হিসেব আলাদা হয় না।
+lookup.again.by-id.none = এই রেকর্ডে এখনও কোনও সরবরাহকারীর id নেই। বিবরণ প্যানেলের id-র সারিতে একটা দিলে খোঁজ ঠিক একটা রেকর্ডকেই চিনবে।
+lookup.again.run.label = খুঁজুন
+lookup.again.run.tip = {by} দিয়ে আবার খুঁজুন
+lookup.searched-by = খোঁজা হয়েছে {by} দিয়ে
+lookup.searched-by.nothing = এখনও খোঁজার কিছু নেই
+common.work.merge.differ = {n}টা ঘরে অমিল
+common.work.merge.take.none = কিছুই টিক করা নেই
 cover.movie.none = কিছু মিলল না
 # Says why a match you did not search for is sitting at the top. {ids} is a list
 # of supplier ids, which are Latin in every language.
-cover.movie.by-id = id ধরে খোঁজা হচ্ছে · {ids}
 
 error.validate.lookup-fields = আগে নাম, ISBN বা ASIN দিন
 
@@ -6348,6 +6357,9 @@ identity.seg.played = অভিনয়ে
 identity.seg.voiced = কণ্ঠে
 identity.section.dubbedby = ডাবিংয়ে
 identity.credit.unnamed = এখনও নাম দেওয়া হয়নি
+identity.credit.add.dub.lang.label = কোন ভাষায় ডাব
+identity.credit.add.save.label = ক্রেডিট যোগ করুন
+identity.credit.add.save.tip = এই কাজে এই চরিত্রের আরও একজন অভিনেতা যোগ করে। ভাষা দিলে সেটা ডাবিং ক্রেডিট হয়ে যায়।
 identity.credit.add.performer = আরও একজন অভিনেতা যোগ করুন
 identity.credit.add.voice = আরও একটা কণ্ঠ যোগ করুন
 identity.credit.add.dub = ডাবিংয়ের কৃতিত্ব যোগ করুন

@@ -90,9 +90,19 @@ describe('the stored speaker among them', () => {
     expect(chips().length).toBe(1)
   })
 
+  // THE HANDLER IS THE PROP, NOT A KEY ON THE SPEAKER, and this case is why the
+  // change was safe to make: it was the ONLY "caller" in the repo passing
+  // `speaker.onOpen`. All three real ones — Home's favourite tile, the Library's
+  // book card, the film frame — hand the raw `speaker_cast` object straight off
+  // the wire plus an `onOpenCharacter` prop, exactly as the named rows use. So
+  // the speaker row's guard (`sp.character_id && speaker.onOpen`) was false on
+  // every screen in the app, and the stacked chip a reader presses first was the
+  // one chip that could never open. This test passed throughout, because its
+  // fixture supplied the key nothing else did — a test that documented a contract
+  // no production caller kept, and therefore guarded nothing.
   it('keeps its second line and its door, which the others do not have', () => {
     const onOpen = vi.fn()
-    render(<SpeakerChips images={IMAGES} speaker={{ ...SPEAKER, onOpen }} />)
+    render(<SpeakerChips images={IMAGES} speaker={SPEAKER} onOpenCharacter={onOpen} />)
     const lead = chips()[0]
     // The actor is the caption to the character — a fact the app holds only for
     // the stored speaker, so a blank second line on the others would claim they
@@ -107,7 +117,7 @@ describe('the stored speaker among them', () => {
   // kept are kept here: no record, or no stack to open into, and it does not press.
   it('does not press when there is no record behind it', () => {
     const onOpen = vi.fn()
-    render(<SpeakerChips images={[]} speaker={{ ...SPEAKER, character_id: 0, onOpen }} />)
+    render(<SpeakerChips images={[]} speaker={{ ...SPEAKER, character_id: 0 }} onOpenCharacter={onOpen} />)
     fireEvent.click(chips()[0])
     expect(onOpen).not.toHaveBeenCalled()
   })
@@ -124,13 +134,16 @@ describe('the stored speaker among them', () => {
   // character popup. What is left is the one case with genuinely nowhere to go,
   // which says so with aria-disabled rather than by becoming a different element.
   it('is a control, every one of them', () => {
-    render(<SpeakerChips images={IMAGES} speaker={{ ...SPEAKER, onOpen: () => {} }} />)
+    render(<SpeakerChips images={IMAGES} speaker={SPEAKER} onOpenCharacter={() => {}} />)
     expect(chips().map((c) => c.tagName)).toEqual(['BUTTON', 'BUTTON', 'BUTTON'])
   })
 
   it('says which of them has nowhere to go, rather than looking identical', () => {
-    // These fixtures carry no cast row, so only the stored speaker opens.
-    render(<SpeakerChips images={IMAGES} speaker={{ ...SPEAKER, onOpen: () => {} }} />)
+    // These fixtures carry no cast row, so only the stored speaker opens — and
+    // the handler is the PROP, which is what every real caller passes. Written as
+    // `speaker.onOpen` this case asserted the lead was live while the app drew it
+    // dead, because production hands the raw wire object and never that key.
+    render(<SpeakerChips images={IMAGES} speaker={SPEAKER} onOpenCharacter={() => {}} />)
     expect(chips().map((c) => c.getAttribute('aria-disabled')))
       .toEqual([null, 'true', 'true'])
   })

@@ -21,13 +21,15 @@ shipped plans stayed here afterwards and reintroduced it one directory over —
 along with twenty-three entries in the log whose grey line still read *planned*
 for features that had been running for months.
 
-Six are open now. `screen-audit.md` is the newest and the odd one: it is not a
-feature but the unfixed half of an adversarial pass over every screen, and it is
+Seven are open now, and two of them are odd ones of the same kind:
+`screen-audit.md` and `codebase-audit.md` are not features but the unfixed halves
+of adversarial passes — the first over every screen, the second over the code
+itself (duplications, latent defects, and what the tests do not guard). They are
 here because the directory's promise — *this is not built yet* — is exactly true of
-it, and because a list of found-and-unfixed defects is the one artefact that leaves
+them, and because a list of found-and-unfixed defects is the one artefact that leaves
 no trace in the tree. A fixed defect leaves a commit, a test and a changelog entry;
-an unfixed one leaves nothing. It retires the same way everything here does: when
-its list is empty, delete it.
+an unfixed one leaves nothing. They retire the same way everything here does: when
+the list is empty, delete it.
 
 The other five — `anthologies.md` and `access.md` for roadmap §4 and §6,
 `entry-helpers.md` and `episodes.md`, which no roadmap section owns, and

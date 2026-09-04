@@ -71,7 +71,15 @@ describe('the credited mode', () => {
     screen.getByRole('button', { name: /Subhas Chandra Bose/ }).click()
     // The kind matters: 'speaker' is its own people kind as of 1.5.0, and
     // opening the panel on 'author' would show a different person's record.
-    expect(onOpenPerson).toHaveBeenCalledWith({ kind: 'speaker', name: 'Subhas Chandra Bose' })
+    expect(onOpenPerson).toHaveBeenCalledWith(expect.objectContaining({ kind: 'speaker', name: 'Subhas Chandra Bose' }))
+    // AND THE RECORD RIDES ALONG, which is the whole point of the third key: the
+    // caller routes on `person.id` — a name with a record opens the pack's person
+    // screen, a name without one opens the older panel, which is the only surface
+    // that can create the row. PersonName handed back {kind, name} alone for a
+    // release, so every credit drawn as a PersonCredit opened the legacy modal
+    // however complete the person's record was, and the person screens looked
+    // absent rather than unreachable.
+    expect(onOpenPerson.mock.calls[0][0].person).toBeTruthy()
   })
 
   it('shows the saved portrait', () => {

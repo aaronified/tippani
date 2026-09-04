@@ -73,6 +73,7 @@ import {
 } from './ui.jsx'
 import { workDetailsPanel } from './WorkDetails.jsx'
 import { characterPanel } from './identity.jsx'
+import { usePersonOpener } from './personOpen.jsx'
 import {
   ACTIVE_STATUS,
   HeroCounts,
@@ -152,7 +153,13 @@ export default function WorkDetail({
     }))
   }
   const [error, setError] = useState('')
-  const [person, setPerson] = useState(null) // a credit's metadata panel
+  const [person, setPerson] = useState(null) // a credit's LEGACY metadata panel
+  // A CREDIT CHIP OPENS THE PERSON'S OWN SCREEN. It was handed `setPerson`
+  // directly, so every author, translator, editor, director and studio on this
+  // page opened the older panel however complete their record was — and this
+  // screen has had a panel stack since the details panel landed, so the surface
+  // was one line away the whole time.
+  const openPerson = usePersonOpener(detailsStack, setPerson)
   const [mobileFilter, setMobileFilter] = useState(false)
   // Live unfiltered quote counts, reported up by the board — total, plus how many
   // are favourited / noted / tagged. The total drives the Wishlist tag, so this
@@ -353,7 +360,7 @@ export default function WorkDetail({
             )
           }
           const people = splitCredits(String(value), seps).map((n) => (
-            <PersonChip key={`${role.field}-${n}`} kind={role.personKind} name={n} person={creditMaps[i]?.[n] } onOpen={setPerson} />
+            <PersonChip key={`${role.field}-${n}`} kind={role.personKind} name={n} person={creditMaps[i]?.[n] } onOpen={openPerson} />
           ))
           if (people.length === 0) return null
           if (!role.labelKey) return <Fragment key={role.field}>{people}</Fragment>

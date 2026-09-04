@@ -149,7 +149,20 @@ export function CharacterLocal({
 }) {
   // The sub-line under the name: what else this work calls them. Stored as the
   // reader typed it, so it is split on the same separator the pack prints.
-  const role = leadingRole(scope, work)
+  // THE ROLE COMES FROM THE SERVED ROW, not from the caller's object.
+  //
+  // `work` here is built by hand at each call site — Home's favourite tile, the
+  // film frame, the work page — and not one of them puts a `cast_role` in it. So
+  // `leadingRole(scope, work)` could only ever fall through to the medium, and
+  // the Played by / Voiced by control was unmovable: pressing "Voiced by" wrote
+  // the column, the sheet reloaded, and the segment sprang back to "Played by".
+  // A write that works and a screen that denies it.
+  //
+  // `works` is the server's own list of this character's appearances (CastOf),
+  // which now carries cast_role. Falling back to `work` keeps every caller that
+  // renders this sheet from a fixture — the tests do — working unchanged.
+  const servedWork = works.find((w) => w.work_id === work?.id && w.kind === work?.kind)
+  const role = leadingRole(scope, servedWork || work)
   const { cast, dubs } = creditsFor(works, here)
   const creditVerbs = {
     onOpen: (a) => onOpenCredit?.(a),

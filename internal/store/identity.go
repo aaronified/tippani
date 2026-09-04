@@ -287,6 +287,21 @@ type CastOf struct {
 	// can be labelled with the right noun. Books leave it empty: the Kind already
 	// says everything there is to say about one.
 	MediaType string `json:"media_type,omitempty"`
+	// CastRole IS THE PERFORMER-VERB OVERRIDE, and serving it here is what makes
+	// the Played by / Voiced by control on the character sheet work at all.
+	//
+	// The client's `leadingRole` answers that question from `cast_role` first and
+	// the medium second — the same order as actorRoleOr, and for the same reason:
+	// an animated feature is a film whose cast is voiced and no medium can know
+	// that. It was reading the field off an object each CALLER builds by hand,
+	// and not one of them had a cast_role to put in it. So pressing "Voiced by"
+	// wrote `movies.cast_role`, the sheet reloaded, and the control sprang back —
+	// a write that worked and a screen that denied it, which is worse than a
+	// control that does nothing.
+	//
+	// Empty on a book: nobody plays a novel's character, and the whole performer
+	// block is absent there.
+	CastRole string `json:"cast_role,omitempty"`
 	// What this character is ON THIS WORK, empty when nothing has been written and
 	// the record's own description is what should be shown. Same rule as Image
 	// above, for the same reason: a value substituted here cannot be told apart
@@ -343,7 +358,7 @@ func castWhere(pred string) string {
 	return `
 		SELECT wc.id, 'book', b.id, b.title, wc.character_id, wc.character,
 		       COALESCE(wc.actor_id, 0), COALESCE(p.name, wc.actor), COALESCE(wc.character_image_path, ''),
-		       COALESCE(b.cover_path, ''), '', COALESCE(wc.description, ''),
+		       COALESCE(b.cover_path, ''), '', '', COALESCE(wc.description, ''),
 		       COALESCE(wc.part, ''), COALESCE(wc.first_appears, ''), COALESCE(wc.age_here, ''),
 		       COALESCE(wc.credit_note, ''), COALESCE(wc.credit_lang, ''), COALESCE(wc.aliases, '')
 		  FROM work_cast wc
@@ -353,7 +368,8 @@ func castWhere(pred string) string {
 		UNION ALL
 		SELECT wc.id, 'movie', m.id, m.title, wc.character_id, wc.character,
 		       COALESCE(wc.actor_id, 0), COALESCE(p.name, wc.actor), COALESCE(wc.character_image_path, ''),
-		       COALESCE(m.poster_path, ''), COALESCE(m.media_type, 'movie'), COALESCE(wc.description, ''),
+		       COALESCE(m.poster_path, ''), COALESCE(m.media_type, 'movie'),
+		       COALESCE(m.cast_role, ''), COALESCE(wc.description, ''),
 		       COALESCE(wc.part, ''), COALESCE(wc.first_appears, ''), COALESCE(wc.age_here, ''),
 		       COALESCE(wc.credit_note, ''), COALESCE(wc.credit_lang, ''), COALESCE(wc.aliases, '')
 		  FROM work_cast wc
@@ -390,7 +406,7 @@ func castRows(db Queryer, q string, args ...any) ([]CastOf, error) {
 		var c CastOf
 		var charID, actorID sql.NullInt64
 		if err := rows.Scan(&c.CastID, &c.Kind, &c.WorkID, &c.WorkTitle, &charID, &c.Character,
-			&actorID, &c.Actor, &c.Image, &c.Cover, &c.MediaType, &c.Description,
+			&actorID, &c.Actor, &c.Image, &c.Cover, &c.MediaType, &c.CastRole, &c.Description,
 			&c.Part, &c.FirstAppears, &c.AgeHere, &c.CreditNote, &c.CreditLang, &c.Aliases); err != nil {
 			return nil, err
 		}

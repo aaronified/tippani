@@ -37,6 +37,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The rows on a character's page do what they say.** Six of them — Credited as, Part,
+  First appears, Age here and both notes — did nothing when pressed, because the fields
+  they reach live in a fold that was never opened, and a field inside a closed fold cannot
+  take a caret. Two more, Add another performer and Add a dubbing credit, pointed at an
+  editor that did not exist anywhere; there is one now, and a language typed into it is
+  what makes the credit a dub rather than a second name in the original cast.
+- **A person's own page is reachable from every credit in the app.** It existed and could
+  be opened from two screens; everywhere else — a film's cast line, a book's author, all
+  twelve credit places on Search, the Library's author groups, the cast panel, a work
+  page's credit chips — pressing a name opened the older panel instead, however complete
+  that person's record was. So the page looked absent rather than unreachable, which is
+  the same thing from the outside. There is one router now and every credit uses it: a
+  name with a record opens the record, a name without one opens the panel that can create
+  it, and the press after that lands on the page.
+- **A character pill opens the character.** The stacked pill — the character with the
+  performer under it, which is the first one on a film line and the one most likely to be
+  pressed — was dead on Home, on the Library's book cards and on the film frame alike.
+  Every named pill beside it worked, which is why it read as "some of them open and some
+  do not" rather than as one thing being broken.
+- **A panel can open another panel again.** Pressing a door that a panel itself offers —
+  a character's global record, the performer behind a credit, the person picker — closed
+  everything and opened nothing. Anything reached straight off a card was unaffected,
+  which is why this looked like three unbuilt controls rather than one fault.
+- **Played by / Voiced by holds what you set it to.** Pressing "Voiced by" saved the
+  change and then sprang back to "Played by", because nothing in the answer the app read
+  back ever mentioned it. An animated film is a film whose cast is voiced, and that is now
+  a choice that sticks.
+- **The portrait on a character's page opens its picker.** Pressing the face did nothing
+  at all: the control was drawn and the panel it reveals was never put on the screen.
 - **The heart sits on the title's line on a work's page.** It is a 44-pixel target beside
   a 25-pixel line of text, and the two were aligned by their top edges — so beside a
   one-line title the heart drew ten pixels low, and the row it shares with the title grew

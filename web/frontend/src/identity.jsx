@@ -117,9 +117,26 @@ function Field({ label, value, onChange, rows = 0, inputId }) {
 
 // focusField — the shortcut a pack row performs. Scrolled into view first,
 // because a caret that lands off-screen reads as a press that did nothing.
+//
+// IT OPENS WHATEVER THE FIELD IS FOLDED INSIDE, and without that it did nothing
+// at all on this panel's local sheet. The six per-work fields live in a
+// `<details className="cs-local-fields">` with no `open` attribute and no
+// stylesheet rule to force one — so `getElementById` found them and neither
+// `scrollIntoView` nor `focus()` could act, because a closed disclosure does not
+// render its children and an unrendered element is not a focusable area. Pressing
+// "Credited as", Part, First appears, Age here or either Note row therefore did
+// NOTHING, on a panel whose whole shape is "the row states the value, press it to
+// change it". Six of that sheet's rows read as unbuilt from one missing attribute.
+//
+// Every closed ancestor is opened rather than just the nearest, because nesting
+// one disclosure in another is a thing this file may do later and a half-opened
+// chain is the same dead press with a harder cause.
 function focusField(id) {
   const el = typeof document === 'undefined' ? null : document.getElementById(id)
   if (!el) return
+  for (let n = el.parentElement; n; n = n.parentElement) {
+    if (n.tagName === 'DETAILS' && !n.open) n.open = true
+  }
   el.scrollIntoView({ block: 'center', behavior: 'smooth' })
   el.focus()
 }
@@ -1035,6 +1052,15 @@ function CharacterBody({ stack, id, work, onSearch = null }) {
   // The portrait's controls: the picture picker this work already had, plus the
   // pack's "Set for the identity" — which is `promote`, the verb that makes one
   // work's picture the record's own.
+  // AND `pictureEditor` GOES WITH IT, which is the half this sheet left out.
+  //
+  // usePicturePicker returns a PAIR: the face is the trigger and the editor is
+  // what the trigger reveals — the URL field, the upload, the provider search.
+  // This sheet took the button alone, so pressing the portrait toggled a block
+  // that was not on the page: no dialog, no field, no request, nothing. Pressing
+  // every control on this panel is how it was found, and it was indistinguishable
+  // from a feature nobody had built. The person sheet above destructures both,
+  // which is why the same picker works there and not here.
   const localPortraitActions = here ? (
     <>
       {localPicture.faceButton}
@@ -1045,6 +1071,7 @@ function CharacterBody({ stack, id, work, onSearch = null }) {
       >
         {t('identity.character.promote.label')}
       </GhostButton>
+      {localPicture.pictureEditor}
     </>
   ) : null
 
@@ -1062,6 +1089,41 @@ function CharacterBody({ stack, id, work, onSearch = null }) {
         <Field inputId="char-age" label={t('identity.facts.age')} value={form.here_age ?? (here.age_here || '')} onChange={(v) => setForm({ ...form, here_age: v })} />
         <Field inputId="char-crednote" label={t('identity.row.note.label')} value={form.here_note ?? (here.credit_note || '')} onChange={(v) => setForm({ ...form, here_note: v })} rows={2} />
         <Field inputId="char-aliases" label={t('identity.local.fields.aliases')} value={form.here_aliases ?? (here.aliases || '')} onChange={(v) => setForm({ ...form, here_aliases: v })} />
+        {/* THE TWO ADD ROWS HAD NOWHERE TO GO, and these are the fields they were
+            always meant to reach. `onAddCredit` and `onAddDub` both focused
+            `char-addcredit`, an id NOTHING in the repo carried — so "Add another
+            performer" and "Add a dubbing credit" were pressable, focusable and
+            did nothing at all, on a sheet where three other rows were dead for a
+            different reason. Two rows promising an editor that did not exist.
+            
+            A DUB IS A LANGUAGE, which is the whole of the distinction: credit_lang
+            carries it and creditsFor splits on it, so there is no is_dub column
+            and no second table. That is why the dub field is a language box and
+            not a second name box — a dub with no language recorded is not a dub
+            anybody can name. */}
+        {here.kind !== 'book' && (
+          <>
+            <Field
+              inputId="char-addcredit"
+              label={t('identity.credit.add.performer')}
+              value={form.add_actor ?? ''}
+              onChange={(v) => setForm({ ...form, add_actor: v })}
+            />
+            <Field
+              inputId="char-adddub"
+              label={t('identity.credit.add.dub.lang.label')}
+              value={form.add_lang ?? ''}
+              onChange={(v) => setForm({ ...form, add_lang: v })}
+            />
+            <GhostButton
+              disabled={busy || !String(form.add_actor || '').trim()}
+              onClick={() => addCredit(here, form.add_actor, form.add_lang)}
+              title={t('identity.credit.add.save.tip')}
+            >
+              {t('identity.credit.add.save.label')}
+            </GhostButton>
+          </>
+        )}
         <GhostButton
           disabled={busy}
           onClick={async () => {
@@ -1099,6 +1161,33 @@ function CharacterBody({ stack, id, work, onSearch = null }) {
     setBusy(false)
     if (!r.ok) { setErr(errText(r)); return }
     setErr('')
+    load()
+  }
+  // ADD ONE CREDIT TO THIS WORK'S CASTING OF THIS CHARACTER, which is the verb
+  // the two add rows name and the only one this sheet lacked. Its opposite,
+  // removeCredit, has been here the whole time.
+  //
+  // A NEW CAST ROW, not an edit of `here`. A work can bill one character twice —
+  // 0063 re-cut `idx_work_cast_pair` for exactly that, a young Vito and an old
+  // one, an on-screen performer and a dub — so a second performer is a second
+  // row rather than a second name in one. The character is `here`'s, because
+  // that is what this sheet is about.
+  //
+  // THE LANGUAGE IS WHAT MAKES IT A DUB. Empty and it joins the original cast;
+  // filled and creditsFor sorts it under "Dubbed by" — one field, no flag.
+  const addCredit = async (a, actor, lang) => {
+    const name = String(actor || '').trim()
+    if (!name) return
+    setBusy(true)
+    const path = a.kind === 'book' ? `/books/${a.work_id}/cast` : `/movies/${a.work_id}/cast`
+    const body = { character: a.character || data.name, actor: name }
+    if (String(lang || '').trim()) body.credit_lang = String(lang).trim()
+    const r = await json('POST', path, body)
+    setBusy(false)
+    if (!r.ok) { setErr(errText(r)); return }
+    setErr('')
+    // The boxes empty so the next name does not arrive on top of the last one.
+    setForm((f) => ({ ...f, add_actor: '', add_lang: '' }))
     load()
   }
   const removeCredit = async (a) => {
@@ -1142,7 +1231,7 @@ function CharacterBody({ stack, id, work, onSearch = null }) {
           onCreditNote={() => focusField('char-crednote')}
           onCreditRemove={removeCredit}
           onAddCredit={() => focusField('char-addcredit')}
-          onAddDub={() => focusField('char-addcredit')}
+          onAddDub={() => focusField('char-adddub')}
         >
           {localFields}
         </CharacterLocal>

@@ -17,6 +17,7 @@ import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { LanguageMark } from './languages.jsx'
 import { json, errText, downloadPost } from './api.js'
 import { t } from './i18n.js'
+import { usePersonOpener } from './personOpen.jsx'
 import { QUOTE_KINDS, quoteKindLabel, quoteKindMeta, quoteKindOptions } from './quoteKind.js'
 import { AnnotationCard, fmtDate } from './Library.jsx'
 import { CreditFaces, DEFAULT_CREDIT_SEPS, PersonModal, PersonName, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
@@ -50,6 +51,8 @@ import {
   useIsMobileScreen,
   usePersistedState,
   toast,
+  PanelHost,
+  usePanelStack,
 } from './ui.jsx'
 
 const PRIMARY = 'tp-btn tp-btn-primary' // aesthetic-aware primary (§6)
@@ -249,7 +252,10 @@ export function utteranceMeta(u, { people, seps, onOpenPerson, omitSpeaker } = {
           {names.map((n, i) => (
             <Fragment key={n}>
               {i > 0 && ', '}
-              <PersonName kind="speaker" name={n} onOpen={onOpenPerson} className="" style={SPEAKER_LINK} />
+              {/* The same map the faces beside it use, so the name and the
+                  portrait agree about which person this is — and the press lands
+                  on their screen rather than on the older panel. */}
+              <PersonName kind="speaker" name={n} person={people?.[n]} onOpen={onOpenPerson} className="" style={SPEAKER_LINK} />
             </Fragment>
           ))}
         </>
@@ -754,6 +760,13 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
   // has to repaint the chip behind it, the way Library reloads its authors.
   const { map: speakerMap, reload: reloadSpeakers } = usePeople('speaker')
   const [person, setPerson] = useState(null) // { kind, name } open in the metadata panel
+  // THE PERSON'S OWN SCREEN, REACHABLE FROM HERE AT LAST. A standalone quote's speaker
+  // was handed `setPerson` straight, so it opened the older panel whatever the
+  // person's record held — this screen had no panel host at all, which is why the
+  // pack's person screen looked absent rather than unreachable. See
+  // personOpen.jsx: the id decides which of the two surfaces answers.
+  const personStack = usePanelStack()
+  const openPerson = usePersonOpener(personStack, setPerson)
   const seps = useMemo(() => parseCreditSeps(creditSeparators), [creditSeparators])
   const mobile = useIsMobileScreen()
   const columns = useColumnsAt(QUOTE_COLUMNS)
@@ -1119,6 +1132,11 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
               onClose={() => setShareFor(null)}
             />
           )}
+          {/* THE HOST FOR THE PERSON'S OWN SCREEN, OUTSIDE the legacy modal's
+              guard. Inside it the host mounts only while the OLD panel is open,
+              so the new one opens into nothing — a dead press, which is the exact
+              failure this whole change is about. */}
+          <PanelHost stack={personStack} />
           {person && (
             <PersonModal
               kind={person.kind}
@@ -1167,7 +1185,7 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
                   noun={t('unit.quote.one')}
                   nounPlural={t('unit.quote.other')}
                   person={isSpeaker ? speakerMap[g.label] : null}
-                  onOpenPerson={isSpeaker ? () => setPerson({ kind: 'speaker', name: g.label }) : undefined}
+                  onOpenPerson={isSpeaker ? () => openPerson({ kind: 'speaker', name: g.label, person: speakerMap[g.label] }) : undefined}
                 />
                 <QuoteBoard items={g.items} columns={columns} card={card} />
               </section>

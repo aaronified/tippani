@@ -222,9 +222,24 @@ export function ProviderChips({ links }) {
 }
 
 
-// PersonName renders a name as a link that opens the metadata panel. onOpen is
-// given { kind, name } — parents keep a single [person,setPerson] + PersonModal.
-export function PersonName({ kind, name, onOpen, className = 'tp-link', style, children }) {
+// PersonName renders a name as a link that opens the person's screen.
+//
+// onOpen IS GIVEN THE RECORD AS WELL AS THE NAME — { kind, name, person } — and
+// that third key is the whole difference between the pack's person screen and the
+// modal that predates it. A caller routes on the id: a name with a record opens
+// the record BY ID, a name without one opens the older surface, which is the only
+// thing that can CREATE a `people` row for a credited name nobody has saved.
+//
+// IT HANDED BACK ONLY { kind, name } FOR A RELEASE AFTER PersonChip stopped, and
+// the two disagreeing is the whole of a report: every credit drawn as a
+// PersonCredit — a favourite's expanded tile, a book's author line, a film's
+// director — opened the OLD panel while a chip on the same person opened the new
+// screen. The person screens looked absent rather than unreachable, because
+// nothing on the way there says which of two surfaces you are about to get.
+//
+// `person` is optional and a caller that does not have one is unchanged: an
+// undefined third key routes exactly as the two-key call did.
+export function PersonName({ kind, name, person, onOpen, className = 'tp-link', style, children }) {
   if (!name) return null
   return (
     <button
@@ -233,7 +248,7 @@ export function PersonName({ kind, name, onOpen, className = 'tp-link', style, c
       style={style}
       onClick={(e) => {
         e.stopPropagation()
-        onOpen({ kind, name })
+        onOpen({ kind, name, person })
       }}
       title={`${name} — details`}
     >
@@ -262,7 +277,10 @@ export function PersonCredit({ kind, name, person, size = 28, onOpen, nameClassN
   return (
     <span className={('inline-flex items-center gap-1.5 ' + className).trim()} style={{ verticalAlign: 'middle' }}>
       <PersonPortrait person={person} size={size} />
-      <PersonName kind={kind} name={name} onOpen={onOpen} className={nameClassName} style={nameStyle} />
+      {/* THE RECORD RIDES THROUGH. PersonCredit already resolves it for the
+          portrait, so withholding it from the name was the door and the face
+          disagreeing about the same person. */}
+      <PersonName kind={kind} name={name} person={person} onOpen={onOpen} className={nameClassName} style={nameStyle} />
     </span>
   )
 }
@@ -498,9 +516,23 @@ export function chipRows(images, speaker, onOpen) {
       faceSrc: sp.image ? coverImgURL(sp.image) : sp.actor_image ? coverImgURL(sp.actor_image) : '',
       sub: sp.actor || '',
       title: t('common.quote.speaker.tip', { name: sp.name }),
-      // Only where the card has a stack to open into and a record to open — the
-      // three conditions the single chip already kept.
-      onPress: sp.character_id && speaker.onOpen ? () => speaker.onOpen(sp) : undefined,
+      // THE HANDLER IS THE ONE THIS FUNCTION WAS HANDED, and reading it off the
+      // speaker object instead is the whole of a report: "the character pills
+      // still don't open anything".
+      //
+      // `speaker.onOpen` is a key no caller sets. All three of them — Home's
+      // favourite tile, the Library's book card, the film frame — pass the RAW
+      // API object (`speaker_cast`, straight off the wire) plus an
+      // `onOpenCharacter` prop, exactly as the named rows below do. So the
+      // speaker row's guard was false on every screen in the app, and the
+      // stacked chip a reader presses first — the character with its performer
+      // under it — was the one chip that could never open. The named rows worked,
+      // which is why it read as "some pills work and some don't".
+      //
+      // `sp` already carries what the caller needs: quoteSpeakerCast serves
+      // cast_id, character_id, name and record_name. The named rows below build
+      // that shape by hand from their own columns; this row IS that shape.
+      onPress: sp.character_id && onOpen ? () => onOpen(sp) : undefined,
     })
   }
   // DUPLICATE NAMES FOLD. A reader who typed "Woland, Woland" made a mistake, and

@@ -27,6 +27,7 @@
 import { useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { coverImgURL, errText, json } from './api.js'
 import { t } from './i18n.js'
+import { usePersonOpener } from './personOpen.jsx'
 import { PersonModal, personImgURL, usePeople, usePortraitFill } from './people.jsx'
 import { Silhouette } from './silhouette.jsx'
 import {
@@ -47,6 +48,8 @@ import {
   MonoLabel,
   UnsavedFieldsContext,
   useEdgeScroll,
+  PanelHost,
+  usePanelStack,
 } from './ui.jsx'
 
 // The second column's name, from the machine value the server sends. `actor_role`
@@ -112,6 +115,13 @@ export function CastSection({ kind, item, onCastChanged, onOpenCharacter }) {
   const [open, setOpen] = useState(true)
   const [adding, setAdding] = useState(false)
   const [person, setPerson] = useState(null) // the actor whose own panel is open
+  // THE PERSON'S OWN SCREEN, REACHABLE FROM HERE AT LAST. The performer behind a cast row
+  // was handed `setPerson` straight, so it opened the older panel whatever the
+  // person's record held — this screen had no panel host at all, which is why the
+  // pack's person screen looked absent rather than unreachable. See
+  // personOpen.jsx: the id decides which of the two surfaces answers.
+  const personStack = usePanelStack()
+  const openPerson = usePersonOpener(personStack, setPerson)
   // ONLY WHERE THERE IS AN ACTOR TO LOOK UP. This map exists to put a headshot
   // beside a cast row's second column, and a book has no second column — the API
   // refuses one — so asking for a book's people was a request per opening whose
@@ -262,7 +272,7 @@ export function CastSection({ kind, item, onCastChanged, onOpenCharacter }) {
               onSave={(f) => save(c.id, f)}
               onRemove={() => remove(c.id)}
               onImage={(u) => setImage(c.id, u)}
-              onOpenPerson={c.actor ? () => setPerson({ kind: 'actor', name: c.actor }) : null}
+              onOpenPerson={c.actor ? () => openPerson({ kind: 'actor', name: c.actor, person: actorMap[c.actor] }) : null}
               // BOTH HALVES REQUIRED. `character_id` is nullable — 0056 links the
               // pair on demand and a library that has not been through the
               // characters console has rows with none — so a row with no record
@@ -282,6 +292,11 @@ export function CastSection({ kind, item, onCastChanged, onOpenCharacter }) {
         />
       )}
 
+      {/* THE HOST FOR THE PERSON'S OWN SCREEN, OUTSIDE the legacy modal's
+          guard. Inside it the host mounts only while the OLD panel is open,
+          so the new one opens into nothing — a dead press, which is the exact
+          failure this whole change is about. */}
+      <PanelHost stack={personStack} />
       {person && (
         <PersonModal
           kind={person.kind}

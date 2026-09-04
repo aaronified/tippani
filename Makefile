@@ -12,7 +12,7 @@ TVDB_TOKEN ?=
 LDFLAGS := -s -w -X tippani/internal/buildinfo.Version=$(VERSION) \
 	-X main.defaultTMDBKey=$(TMDB_TOKEN) -X main.defaultTVDBKey=$(TVDB_TOKEN)
 
-.PHONY: build frontend glossary changelog test run clean typescale frame-scroll
+.PHONY: build frontend glossary changelog test run clean typescale frame-scroll panel-depth hero-control
 
 ## build: static binary with the currently built (or placeholder) frontend embedded
 build:
@@ -45,6 +45,21 @@ typescale:
 ## and this measures the result.
 frame-scroll:
 	bash scripts/screenshots/run-frame-scroll.sh
+
+## panel-depth: press a door a PANEL itself offers and fail if the second panel is
+## not on screen afterwards. `open()` walks history back before pushing, and jsdom
+## dispatches popstate on a schedule that does not lose to a frame callback — so
+## test/dom/panel-opens-panel.test.jsx passes against the broken ordering and only
+## a real browser can see it.
+panel-depth:
+	bash scripts/screenshots/run-panel-depth.sh
+
+## hero-control: measure the heart beside a work's title against the title's own
+## optical centre, for a one-line title AND a wrapped one. The pair is the point:
+## a 44px tap target beside a 25px line hangs below it, and a two-line title hides
+## that because the title's box is then the taller of the two.
+hero-control:
+	bash scripts/screenshots/run-hero-control.sh
 
 ## perf: measure main-thread blocking per action against a scratch server, and fail
 ## when any action crosses the budget. See scripts/perf/README.md for what the number

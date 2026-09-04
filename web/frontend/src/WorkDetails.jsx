@@ -835,6 +835,11 @@ export function WorkDetails({ onClose, kind, item: seed, onChanged, onDelete, st
               ariaLabel={t('common.work.lookup.back.aria')}
               onClick={() => setView('fields')}
             />
+            {/* "PICK THE MATCH", which is the pack's title for this surface —
+                it read "pick the closest match", and "closest" is the word that
+                made a reader think one of them had to be taken. Nothing here
+                writes; the crumb saying what the search used is the picker's own,
+                because only it knows what it sent. */}
             <MonoLabel>{t('common.work.lookup.pick.label')}</MonoLabel>
             <InfoDot title={t('common.work.lookup.info.title')} text={t('common.work.lookup.info.body')} />
           </div>
@@ -1768,6 +1773,13 @@ function MergeScreen({ kind, rows, candidate, busy, onBack, onApply, onResync })
   const sourceLabel = kind === 'book'
     ? (candidate?.source || '').toUpperCase()
     : `${(candidate?.source || 'tmdb').toUpperCase()} #${candidate?.source === 'tvdb' ? candidate?.source_id : candidate?.tmdb_id || candidate?.source_id}`
+  // THE CRUMB SAYS HOW MUCH IS AT STAKE, which the pack writes as "TMDB #12445 ·
+  // 5 fields differ". The source alone said where the answer came from and
+  // nothing about the size of the decision — and this screen only ever lists the
+  // fields that DIFFER, so the count is the length of the list a reader is about
+  // to read. One differing field and eleven look identical until you scroll.
+  const crumb = [sourceLabel, t('common.work.merge.differ', { n: rows.length, count: rows.length })]
+    .filter(Boolean).join(' · ')
 
   return (
     <div className="space-y-3">
@@ -1777,7 +1789,7 @@ function MergeScreen({ kind, rows, candidate, busy, onBack, onApply, onResync })
           ariaLabel={t('common.work.merge.back.aria')}
           onClick={onBack}
         />
-        <MonoLabel>{sourceLabel}</MonoLabel>
+        <MonoLabel>{crumb}</MonoLabel>
         <InfoDot title={t('common.work.merge.info.title')} text={t('common.work.merge.info.body')} />
         <span className="flex-1" />
         <FieldIconButton
@@ -1814,11 +1826,16 @@ function MergeScreen({ kind, rows, candidate, busy, onBack, onApply, onResync })
                   <span className="merge-art">
                     <span className="merge-art-side">
                       <MonoLabel>{t('common.work.merge.yours.label')}</MonoLabel>
-                      {r.current ? <CoverPreview url={r.current} label="" className="w-16" /> : <Placeholder kind={t('common.badge.none')} className="w-16" />}
+                      {/* A PICTURE OFFERED IS A PICTURE MEASURED — the pack's
+                          rule, and this pair is the one place in the app that
+                          offered two and measured neither. 342 x 513 against
+                          2000 x 3000 is the whole reason to keep yours, and the
+                          badge inks itself red under the floor. */}
+                      {r.current ? <CoverPreview url={r.current} label="" showRes className="w-16" /> : <Placeholder kind={t('common.badge.none')} className="w-16" />}
                     </span>
                     <span className="merge-art-side">
                       <MonoLabel style={{ color: 'var(--accent-ui)' }}>{t('common.work.merge.theirs.label')}</MonoLabel>
-                      <CoverPreview url={r.next} label="" className="w-16" />
+                      <CoverPreview url={r.next} label="" showRes className="w-16" />
                     </span>
                   </span>
                 ) : (
@@ -1838,10 +1855,17 @@ function MergeScreen({ kind, rows, candidate, busy, onBack, onApply, onResync })
       </div>
 
       <div className="flex flex-wrap items-center gap-2 pt-1">
+        {/* "NOTHING TICKED" RATHER THAN "TAKE 0", which is the pack's own label
+            and the difference between a button that is off and a button that is
+            broken. Disabled either way — there is nothing to write — but a
+            greyed "Take 0 fields" reads as a count that failed to load, where the
+            words say what the reader has to do about it. */}
         <StickerButton type="button" disabled={!!busy || chosen === 0} onClick={() => onApply(state)}>
           {busy === 'merge'
             ? t('common.action.apply.busy')
-            : t('common.work.merge.take', { count: chosen, n: chosen })}
+            : chosen === 0
+              ? t('common.work.merge.take.none')
+              : t('common.work.merge.take', { count: chosen, n: chosen })}
         </StickerButton>
         {onResync && (
           <>

@@ -12,7 +12,8 @@ import { AnnotationForm, annotationState, annDate, fmtDate } from './Library.jsx
 import { DialogueForm, dialogueState } from './Movies.jsx'
 import { UtteranceForm, utteranceState } from './Quotes.jsx'
 import { t, tNodes } from './i18n.js'
-import { characterPanel, personPanel } from './identity.jsx'
+import { characterPanel } from './identity.jsx'
+import { usePersonOpener } from './personOpen.jsx'
 import { quoteKindMeta } from './quoteKind.js'
 import { PendingImportCard } from './StagingPage.jsx'
 import { QuizRunner, tzOffsetMinutes } from './review.jsx'
@@ -578,22 +579,11 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
   const { map: speakerMap } = usePeople('speaker') // speaker faces on standalone-quote favourites
   const [person, setPerson] = useState(null) // {kind, name} open in the LEGACY metadata panel
 
-  // A PILL OPENS THE PACK'S PERSON SCREEN, not the panel that predates it.
-  //
-  // Two surfaces exist and they are reached differently. `personPanel` is the
-  // pack's — the name and every spelling of it, how it files, when it was born or
-  // founded, its links, every work it is credited on — and it is reached BY ID.
-  // `PersonModal` is the older one, reached by kind+name, and it is the only
-  // surface that can create a `people` row for a credited name nobody has saved:
-  // it fetches a portrait and a bio on open and writes the row.
-  //
-  // So the id decides. A name with a record opens the record; a name without one
-  // opens the thing that can make it, and once it has, the next press lands on
-  // the pack's screen. Nothing to choose and nothing lost.
-  const openPerson = (p) => {
-    if (p?.person?.id) stack.open(personPanel(stack, { id: p.person.id, name: p.name }))
-    else setPerson({ kind: p.kind, name: p.name })
-  }
+  // A PILL OPENS THE PACK'S PERSON SCREEN, not the panel that predates it — and
+  // the routing lives in personOpen.jsx now rather than here. It was written on
+  // this screen and used by this screen alone, which is why the pack's person
+  // screen was reachable from Home and from nowhere else in the app.
+  const openPerson = usePersonOpener(stack, setPerson)
   const seps = parseCreditSeps(user?.preferences?.creditSeparators)
   // "Where you stand" lives in the Daily Quiz card but is fed by BOTH cards —
   // every /review/answer response carries fresh counts, so the row ticks live.

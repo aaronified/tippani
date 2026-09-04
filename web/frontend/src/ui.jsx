@@ -3782,6 +3782,14 @@ export function usePanelStack() {
   // The handler is registered once and must not close over a stale stack.
   const depthRef = useRef(0);
   depthRef.current = stack.length;
+  // The cancel function for an open() that is waiting for its pop. See open().
+  const pendingOpen = useRef(null);
+
+  // A PENDING OPEN DOES NOT SURVIVE THE SCREEN. Leaving mid-flight would
+  // otherwise push a panel into a host that is gone.
+  useEffect(() => () => {
+    if (pendingOpen.current) pendingOpen.current();
+  }, []);
 
   useEffect(() => {
     const onPop = (e) => {
@@ -3814,12 +3822,86 @@ export function usePanelStack() {
   // open() is push() onto an empty stack — the prototype's openPanel, which
   // REPLACES rather than deepens, so a control that means "show me this" cannot
   // accidentally bury whatever a previous one left open.
+  //
+  // IT WAITS FOR THE POP RATHER THAN GUESSING AT IT, and the previous line —
+  // `requestAnimationFrame(() => push(panel))` — is the bug this replaces. Its
+  // own comment said "the push waits for the pop to land", which a frame callback
+  // does not do: rAF fires before the next paint, `popstate` is dispatched by the
+  // browser on its own schedule, and in Chromium the frame wins. So the push
+  // landed first, the pop arrived second with `want = 0`, and the handler above
+  // truncated away the panel that had just been opened.
+  //
+  // WHAT THAT COST, measured by pressing every control on the character panel:
+  // "Open the global record", the performer's name and the person picker all
+  // CLOSED the panel and opened nothing — three controls that read as unbuilt,
+  // from one line. Every open() from inside a panel had it; only an open() from a
+  // screen with nothing already open was unaffected, which is why the surfaces
+  // reached straight off a card always worked and the ones a panel offers never
+  // did.
+  //
+  // A one-shot popstate listener is the fix: the stack's own handler is
+  // registered first, so it has already truncated by the time this one pushes.
+  // The timeout is a belt: a `go` that cannot move (a history the app does not
+  // own) would otherwise leave the press dead, and a late push onto an empty
+  // stack is exactly what was wanted anyway.
   const open = useCallback((panel) => {
     const n = depthRef.current;
-    if (n > 0) window.history.go(-n);
-    // After the go, the popstate above empties the stack; pushing in the same
-    // tick would race it, so the push waits for the pop to land.
-    requestAnimationFrame(() => push(panel));
+    if (n === 0) {
+      push(panel);
+      return;
+    }
+    // ONE PENDING OPEN AT A TIME, CANCELLED ON UNMOUNT, AND ONLY THE POP WE
+    // ASKED FOR COUNTS. Three failures come from getting any of those wrong, and
+    // the first version of this fix had all three:
+    //
+    //   UNMOUNTED IN THE WINDOW. `land` still fired, pushed, and wrote a
+    //   tpPanelDepth into history with no host mounted — the URL unchanged, so
+    //   the reader gained a phantom entry whose Back press changes nothing they
+    //   can see. `cancel` on unmount is what stops it.
+    //
+    //   A BACK PRESS IN THE WINDOW. `land` ran on the FIRST popstate to arrive,
+    //   whoever caused it, so pressing Back opened a panel instead of closing
+    //   one. The depth test below is the discriminator: our own `go(-n)` lands
+    //   with the stack empty, and any other pop does not.
+    //
+    //   A DOUBLE TAP. Two opens each registered a lander and one pop satisfied
+    //   both, giving depth 2 where open() promises 1 — the property this
+    //   function exists for. The second call cancels the first.
+    if (pendingOpen.current) pendingOpen.current();
+    let settled = false;
+    const stop = () => {
+      settled = true;
+      window.removeEventListener("popstate", land);
+      clearTimeout(timer);
+      if (pendingOpen.current === cancel) pendingOpen.current = null;
+    };
+    const cancel = () => {
+      if (!settled) stop();
+    };
+    function land() {
+      if (settled) return;
+      stop();
+      // THE STATE DECIDES WHETHER THIS POP WAS OURS, not the ref. `depthRef` is
+      // assigned during RENDER, and the stack's own popstate handler runs before
+      // this one and only calls setStack — so at this moment the ref still holds
+      // the depth from before the pop, and testing it here rejected every pop
+      // including ours. The functional setter sees the truncation that actually
+      // happened: our `go(-n)` empties the stack, and a pop somebody else caused
+      // (a Back press inside the 250ms window, another stack's close) leaves
+      // something on it. Where it does, their intent wins and this open is
+      // abandoned rather than pushed on top of wherever they went.
+      setStack((cur) => {
+        if (cur.length !== 0) return cur;
+        window.history.pushState(
+          { ...window.history.state, tpPanelDepth: 1 }, "",
+        );
+        return [panel];
+      });
+    }
+    const timer = setTimeout(land, 250);
+    window.addEventListener("popstate", land);
+    pendingOpen.current = cancel;
+    window.history.go(-n);
   }, [push]);
 
   const back = useCallback(() => {
@@ -7357,11 +7439,17 @@ function IconSrcOpenLibrary() { return <svg {...srcStroke}><path d="M3.5 20h17"/
 function IconSrcAmazon() { return <svg {...srcStroke}><path d="M3.5 8 12 4l8.5 4-8.5 4z"/><path d="M3.5 8v8l8.5 4 8.5-4V8"/></svg> }
 function IconSrcTMDB() { return <svg {...srcStroke}><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 5v14"/><path d="M17 5v14"/><path d="M3 12h18"/></svg> }
 function IconSrcTVDB() { return <svg {...srcStroke}><rect x="3" y="7.5" width="18" height="12" rx="2"/><path d="m8 3.5 4 4 4-4"/></svg> }
+// IGDB HAD NO MARK, and a game match drew the question mark below instead. Games
+// arrive through the same lookup as films — a candidate carries `source: "igdb"` —
+// so the one supplier whose matches are always games was the one the picker could
+// not name. A pad, because that is what the medium is played on.
+function IconSrcIGDB() { return <svg {...srcStroke}><rect x="2.5" y="7.5" width="19" height="11" rx="4.5"/><path d="M7 11v4"/><path d="M5 13h4"/><path d="M15.5 12.5v.01"/><path d="M18 14.5v.01"/></svg> }
 function IconSrcUnknown() { return <svg {...srcStroke}><circle cx="12" cy="12" r="8.5"/><path d="M12 16.5v.01"/><path d="M12 13.5v-1a2.5 2.5 0 1 0-2.5-2.5"/></svg> }
 
 // SOURCE_META — slug → {name, Icon}. Slugs mirror the Go side exactly:
 // metadata.BookCandidate.Source is "google" | "openlibrary" | "amazon";
-// movie candidates carry "tmdb" | "tvdb".
+// movie candidates carry "tmdb" | "tvdb" | "igdb" — a game is looked up through the
+// same endpoint as a film, so all three appear on one picker.
 // `name` holds a key. The values are proper nouns and are marked DO NOT
 // TRANSLATE in the locale file — keying them is what makes that a property of the
 // string rather than a hope about whoever opens the file.
@@ -7371,6 +7459,7 @@ export const SOURCE_META = {
   amazon: { name: "vocab.source.amazon.label", Icon: IconSrcAmazon },
   tmdb: { name: "vocab.source.tmdb.label", Icon: IconSrcTMDB },
   tvdb: { name: "vocab.source.tvdb.label", Icon: IconSrcTVDB },
+  igdb: { name: "vocab.source.igdb.label", Icon: IconSrcIGDB },
 };
 
 if (import.meta.env.DEV) {

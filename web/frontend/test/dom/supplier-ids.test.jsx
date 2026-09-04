@@ -178,9 +178,19 @@ describe('a stored id steers the next search', () => {
     expect(body.tvdb_id).toBe(11111)
   })
 
-  it('says which ids it is searching by, so a pinned first match is explained', async () => {
+  it('says what it searched by, so a pinned first match is explained', async () => {
+    // THE CRUMB NAMES EVERY INPUT NOW, not only a pinned id. It used to say
+    // nothing at all on the ordinary case, so a search that quietly fell back to
+    // the title looked identical to one that named a record exactly — and the
+    // pack's crumb for this surface is "searched by title · year · TMDB id".
     render(<MovieLookupPicker auto title="Persuasion" tmdbId={65754} onPick={() => {}} />)
-    expect(screen.getByText(/searching by id/i).textContent).toContain('TMDB #65754')
+    // AWAIT THE SEARCH. The crumb reads "searching…" while the lookup is in
+    // flight, so asserting on it synchronously tested the busy state and called
+    // it the crumb.
+    await waitFor(() => expect(lookups()).toHaveLength(1))
+    const crumb = await waitFor(() => screen.getByText(/searched by/i))
+    expect(crumb.textContent).toContain('TMDB #65754')
+    expect(crumb.textContent).toMatch(/title/i)
   })
 
   it('omits an unset id rather than sending a zero the server would reject', async () => {
@@ -188,7 +198,10 @@ describe('a stored id steers the next search', () => {
     await waitFor(() => expect(lookups()).toHaveLength(1))
     expect(lookups()[0][2].tmdb_id).toBeUndefined()
     expect(lookups()[0][2].tvdb_id).toBeUndefined()
-    expect(screen.queryByText(/searching by id/i)).toBeNull()
+    // The crumb still renders — it names the title — but it must not claim an id
+    // the record does not have.
+    const crumb = await waitFor(() => screen.getByText(/searched by/i))
+    expect(crumb.textContent).not.toMatch(/#/)
   })
 
   it('searches on open with an id and no title at all', async () => {

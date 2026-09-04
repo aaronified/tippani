@@ -19,6 +19,7 @@ import {
   searchQueryString,
 } from './facets.js'
 import { t, tNodes } from './i18n.js'
+import { usePersonOpener } from './personOpen.jsx'
 import { quoteKindMeta } from './quoteKind.js'
 import { AnnotationCard, annotationState, annDate, fmtDate } from './Library.jsx'
 import { Frame, dialogueState } from './Movies.jsx'
@@ -76,6 +77,8 @@ import {
   useSort,
   ViewToggle,
   useBackToClose,
+  PanelHost,
+  usePanelStack,
 } from './ui.jsx'
 
 // ---- the vocabulary, fetched once and held for the session ------------------
@@ -575,6 +578,13 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators, 
   const actors = usePeople('actor') // name→metadata for actor chips on dialogue hits
   const speakers = usePeople('speaker') // name→metadata for speaker chips on quote hits
   const [person, setPerson] = useState(null) // { kind, name } open in the metadata panel
+  // THE PERSON'S OWN SCREEN, REACHABLE FROM HERE AT LAST. All twelve credit sites on this screen
+  // was handed `setPerson` straight, so it opened the older panel whatever the
+  // person's record held — this screen had no panel host at all, which is why the
+  // pack's person screen looked absent rather than unreachable. See
+  // personOpen.jsx: the id decides which of the two surfaces answers.
+  const personStack = usePanelStack()
+  const openPerson = usePersonOpener(personStack, setPerson)
   const mobile = useIsMobileScreen()
   const creditSeps = useMemo(() => parseCreditSeps(creditSeparators), [creditSeparators])
 
@@ -650,7 +660,7 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators, 
 
   // The two card renderers every section shares (a group in, a keyed card out).
   const renderBook = (g) => (
-    <WorkResult key={`b${g.id}`} kind="book" g={g} view={view} terms={terms} onOpen={onOpenBook} onOpenQuote={setQuote} onOpenPerson={setPerson} people={authors.map} creditSeps={creditSeps} />
+    <WorkResult key={`b${g.id}`} kind="book" g={g} view={view} terms={terms} onOpen={onOpenBook} onOpenQuote={setQuote} onOpenPerson={openPerson} people={authors.map} creditSeps={creditSeps} />
   )
   // WHICH FACE A DIALOGUE HIT WEARS, decided by the SECTION it is in (2.2.0).
   //
@@ -663,7 +673,7 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators, 
   // Defaults to the character, because that is who speaks a line. The actor is
   // still named on the credit line beside it either way.
   const renderMovie = (g, face = 'character') => (
-    <WorkResult key={`m${g.id}`} kind="movie" g={g} view={view} terms={terms} onOpen={onOpenMovie} onOpenQuote={setQuote} onOpenPerson={setPerson} people={directors.map} actorMap={actors.map} creditSeps={creditSeps} onFacet={addFacet} face={face} />
+    <WorkResult key={`m${g.id}`} kind="movie" g={g} view={view} terms={terms} onOpen={onOpenMovie} onOpenQuote={setQuote} onOpenPerson={openPerson} people={directors.map} actorMap={actors.map} creditSeps={creditSeps} onFacet={addFacet} face={face} />
   )
   const renderMovieActorFace = (g) => renderMovie(g, 'actor')
 
@@ -814,7 +824,7 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators, 
                   view={view}
                   isMovie={false}
                   people={authors.map}
-                  onOpenPerson={setPerson}
+                  onOpenPerson={openPerson}
                   creditSeps={creditSeps}
                   renderItem={renderBook}
                 />
@@ -827,7 +837,7 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators, 
                   view={view}
                   isMovie
                   people={directors.map}
-                  onOpenPerson={setPerson}
+                  onOpenPerson={openPerson}
                   renderItem={renderMovie}
                 />
               )}
@@ -839,7 +849,7 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators, 
                   view={view}
                   isMovie={false}
                   people={authors.map}
-                  onOpenPerson={setPerson}
+                  onOpenPerson={openPerson}
                   creditSeps={creditSeps}
                   renderItem={renderBook}
                   count={r.annotations?.length || 0}
@@ -853,7 +863,7 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators, 
                   view={view}
                   isMovie
                   people={directors.map}
-                  onOpenPerson={setPerson}
+                  onOpenPerson={openPerson}
                   renderItem={renderMovie}
                   count={r.dialogues?.length || 0}
                 />
@@ -866,7 +876,7 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators, 
               kind="author"
               entries={results.authors.map((a) => ({ name: a.name, count: a.books.length, groups: groupBooks({ books: a.books, annotations: [] }) }))}
               people={authors.map}
-              onOpenPerson={setPerson}
+              onOpenPerson={openPerson}
               view={view}
               render={renderBook}
             />
@@ -877,7 +887,7 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators, 
               kind="director"
               entries={results.directors.map((d) => ({ name: d.name, count: d.movies.length, groups: groupMovies({ movies: d.movies, dialogues: [] }) }))}
               people={directors.map}
-              onOpenPerson={setPerson}
+              onOpenPerson={openPerson}
               view={view}
               render={renderMovie}
             />
@@ -888,7 +898,7 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators, 
               kind="actor"
               entries={results.actors.map((a) => ({ name: a.name, count: a.dialogues.length, groups: groupMovies({ movies: [], dialogues: a.dialogues }) }))}
               people={actors.map}
-              onOpenPerson={setPerson}
+              onOpenPerson={openPerson}
               view={view}
               render={renderMovieActorFace}
             />
@@ -1019,11 +1029,16 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators, 
           seps={creditSeps}
           onOpenBook={onOpenBook}
           onOpenMovie={onOpenMovie}
-          onOpenPerson={setPerson}
+          onOpenPerson={openPerson}
           onClose={() => setQuote(null)}
           onChanged={reload}
         />
       )}
+      {/* THE HOST FOR THE PERSON'S OWN SCREEN, OUTSIDE the legacy modal's
+          guard. Inside it the host mounts only while the OLD panel is open,
+          so the new one opens into nothing — a dead press, which is the exact
+          failure this whole change is about. */}
+      <PanelHost stack={personStack} />
       {person && (
         <PersonModal
           kind={person.kind}
