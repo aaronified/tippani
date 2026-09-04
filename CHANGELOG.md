@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A favourite on the homepage says which work it came from, and shows it.** The kind badge
+  (film, book, show, game) sat alone at the top of the tile and the work's title sat under
+  the quote in small caps, so the two halves of one fact were at opposite ends of the card.
+  The badge and the title are now one line at the top; open the tile and the work's own
+  cover or poster appears beside them, with the badge above the title so the two lines fill
+  the picture's height. A long title fades under the edge rather than being cut. Nothing
+  changed inside a work's own pages: you are already there.
+
+- **Every pill on a card is a door.** A character pill opens that work's character page,
+  and on the homepage the author of a book and the speaker of a quote are pills too —
+  they were a row of faceless circles, which tells you how many people are behind a line
+  and not one of their names. A character the app has in the cast but has no picture for
+  opens just as well as one it has a portrait for; before, it was left out of the row
+  entirely.
+
 - **A character's own page, and a performer's, rebuilt to the design pack.** Both now read
   in the order the thing itself does: who this is — the name with every spelling under it,
   how it files in a list, when it was born — then where it is written up outside the app,

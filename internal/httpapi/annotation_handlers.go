@@ -84,13 +84,19 @@ func favoriteFilter(w http.ResponseWriter, r *http.Request, alias string, q *str
 // half.
 type annotationRow struct {
 	quoteRow
-	BookID     int64   `json:"book_id"`
-	BookTitle  string  `json:"book_title"`  // parent attribution for cross-book lists
-	BookAuthor string  `json:"book_author"` // "" if unknown
-	Chapter    string  `json:"chapter"`
-	ChapterNo  float64 `json:"chapter_no"`
-	Location   string  `json:"location"`
-	Character  string  `json:"character"` // 0047; see annotationReq.Character
+	BookID     int64  `json:"book_id"`
+	BookTitle  string `json:"book_title"`  // parent attribution for cross-book lists
+	BookAuthor string `json:"book_author"` // "" if unknown
+	// THE BOOK'S OWN COVER, for a cross-book list that draws the work rather than
+	// only naming it — Home's favourites put a thumbnail beside the kind badge.
+	// It rides the JOIN this query already makes rather than a second lookup: the
+	// film side gets its poster from the /movies list Home already fetches, and a
+	// second request for books would be a third round trip for one thumbnail.
+	BookCover string  `json:"book_cover,omitempty"`
+	Chapter   string  `json:"chapter"`
+	ChapterNo float64 `json:"chapter_no"`
+	Location  string  `json:"location"`
+	Character string  `json:"character"` // 0047; see annotationReq.Character
 	// The stored picture for each character named on this line (0050). It rides
 	// BESIDE Character rather than in quoteRow for the identical reason Character
 	// does: the third kind has no characters at all — a standalone quote has a
@@ -120,7 +126,7 @@ func (s *Server) fetchAnnotation(uid, id int64) (*annotationRow, error) {
 	// what ships is the resolved chip, so annotationRow never carries the raw id.
 	var castID int64
 	err := s.Store.DB.QueryRow(`
-		SELECT a.id, a.book_id, b.title, COALESCE(b.author, ''),
+		SELECT a.id, a.book_id, b.title, COALESCE(b.author, ''), COALESCE(b.cover_path, ''),
 		       COALESCE(a.quote, ''), COALESCE(a.note, ''), a.translation, a.color,
 		       COALESCE(a.chapter, ''), COALESCE(a.chapter_no, 0), COALESCE(a.location, ''),
 		       a.character, a.favorite,
@@ -128,7 +134,7 @@ func (s *Server) fetchAnnotation(uid, id int64) (*annotationRow, error) {
 		       a.review_excluded, b.review_excluded, COALESCE(a.speaker_cast_id, 0)
 		FROM annotations a JOIN books b ON b.id = a.book_id
 		WHERE a.id = ? AND b.user_id = ?`, id, uid).
-		Scan(&a.ID, &a.BookID, &a.BookTitle, &a.BookAuthor, &a.Quote, &a.Note, &a.Translation, &a.Color,
+		Scan(&a.ID, &a.BookID, &a.BookTitle, &a.BookAuthor, &a.BookCover, &a.Quote, &a.Note, &a.Translation, &a.Color,
 			&a.Chapter, &a.ChapterNo, &a.Location, &a.Character,
 			&a.Favorite, &a.NotedAt, &a.StickerID, &a.StickerX, &a.StickerY, &a.CreatedAt, &a.UpdatedAt,
 			&a.ReviewExcluded, &a.WorkReviewExcluded, &castID)
@@ -301,7 +307,7 @@ func (s *Server) handleListAnnotations(w http.ResponseWriter, r *http.Request) {
 	olog.Tracef("[anno] handleListAnnotations uid=%v book_id=%q color=%q tag=%q", uid,
 		r.URL.Query().Get("book_id"), r.URL.Query().Get("color"), r.URL.Query().Get("tag"))
 	q := `
-		SELECT a.id, a.book_id, b.title, COALESCE(b.author, ''),
+		SELECT a.id, a.book_id, b.title, COALESCE(b.author, ''), COALESCE(b.cover_path, ''),
 		       COALESCE(a.quote, ''), COALESCE(a.note, ''), a.translation, a.color,
 		       COALESCE(a.chapter, ''), COALESCE(a.chapter_no, 0), COALESCE(a.location, ''),
 		       a.character, a.favorite,
@@ -358,7 +364,7 @@ func (s *Server) handleListAnnotations(w http.ResponseWriter, r *http.Request) {
 		var a annotationRow
 		var castID int64
 		a.Tags = []string{}
-		if err := rows.Scan(&a.ID, &a.BookID, &a.BookTitle, &a.BookAuthor, &a.Quote, &a.Note, &a.Translation, &a.Color,
+		if err := rows.Scan(&a.ID, &a.BookID, &a.BookTitle, &a.BookAuthor, &a.BookCover, &a.Quote, &a.Note, &a.Translation, &a.Color,
 			&a.Chapter, &a.ChapterNo, &a.Location, &a.Character,
 			&a.Favorite, &a.NotedAt, &a.StickerID, &a.StickerX, &a.StickerY, &a.CreatedAt, &a.UpdatedAt,
 			&a.Reviewed, &a.Stability, &a.LastReviewedAt, &a.LastResult,

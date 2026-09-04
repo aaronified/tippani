@@ -44,6 +44,21 @@ import (
 // serves both and there is no pair of identical structs to keep in step.
 type characterImage = store.LineFace
 
+// castFace is what the fold FINDS for one name on a line: the picture to draw,
+// and the two ids the chip needs to open something.
+//
+// THE IDS ARE THE WHOLE REASON THIS IS A STRUCT. A chip is a door — the owner's
+// ruling, "all chips will be buttons, that's their function" — and it opens the
+// work-level character popup, which is keyed on the CAST ROW rather than the
+// record: a work can bill one character twice (the young Vito and the old one),
+// so the record id alone does not name a screen. Both ride along because the
+// query that finds the picture already has them.
+type castFace struct {
+	Path        string
+	CastID      int64
+	CharacterID int64
+}
+
 // characterImageRef is one row's claim on the lookup: which work, and the raw
 // character text off the line.
 type characterImageRef struct {
@@ -55,7 +70,7 @@ type characterImageRef struct {
 // for it — empty map when there is nothing to find, never an error the caller has
 // to care about. A missing picture is the normal case, so this is best-effort:
 // the chip falls back to the actor and the page renders either way.
-func (s *Server) loadCharacterImages(uid int64, kind string, refs []characterImageRef) map[string]string {
+func (s *Server) loadCharacterImages(uid int64, kind string, refs []characterImageRef) map[string]castFace {
 	if len(refs) == 0 {
 		return nil
 	}
@@ -69,7 +84,7 @@ func (s *Server) loadCharacterImages(uid int64, kind string, refs []characterIma
 		in = append(in, "?")
 		args = append(args, id)
 	}
-	out := map[string]string{}
+	out := map[string]castFace{}
 	// THE RECORD'S OWN PICTURE IS THE FALLBACK, and leaving it out was a bug you
 	// could only find by merging: set a character's picture on the book you are
 	// reading, merge that record with the same character in another book, and the
@@ -80,17 +95,22 @@ func (s *Server) loadCharacterImages(uid int64, kind string, refs []characterIma
 	//
 	// So the per-work picture wins where there is one and the record's default
 	// stands in where there is not, which is what "default" has meant on the
-	// record since it gained the field. The row is still omitted when neither
-	// exists: the chip's job is to show the faces there ARE, and the client's
-	// actor fallback needs to be able to tell "no picture" from "no character".
+	// record since it gained the field.
+	//
+	// AND EVERY CAST ROW COMES BACK NOW, not only the ones with a picture. That
+	// filter was right while this fed a row of faces — a face with no picture is
+	// nothing to draw — and wrong the moment the chip became a door: a character
+	// the reader has in the cast but has never found a portrait for is exactly as
+	// openable as one they have, and dropping the row here left the chip with a
+	// name, no face and nowhere to go. The empty path still says "no picture".
 	rows, err := s.Store.DB.Query(
 		`SELECT wc.work_id, wc.character_key,
 		        CASE WHEN wc.character_image_path <> '' THEN wc.character_image_path
-		             ELSE COALESCE(c.image_path, '') END
+		             ELSE COALESCE(c.image_path, '') END,
+		        wc.id, COALESCE(wc.character_id, 0)
 		   FROM work_cast wc
 		   LEFT JOIN characters c ON c.id = wc.character_id AND c.user_id = wc.user_id
 		  WHERE wc.user_id = ? AND wc.kind = ? AND wc.origin <> 'removed'
-		    AND (wc.character_image_path <> '' OR COALESCE(c.image_path, '') <> '')
 		    AND wc.work_id IN (`+strings.Join(in, ",")+`)`, args...)
 	if err != nil {
 		olog.Warnf(olog.CodeCastRowScan, "[cast] character images for %d %s work(s): %v", len(ids), kind, err)
@@ -99,12 +119,13 @@ func (s *Server) loadCharacterImages(uid int64, kind string, refs []characterIma
 	defer rows.Close()
 	for rows.Next() {
 		var workID int64
-		var key, path string
-		if err := rows.Scan(&workID, &key, &path); err != nil {
+		var key string
+		var f castFace
+		if err := rows.Scan(&workID, &key, &f.Path, &f.CastID, &f.CharacterID); err != nil {
 			olog.Warnf(olog.CodeCastRowScan, "[cast] character image row scan failed: %v", err)
 			continue
 		}
-		out[characterImageKey(workID, key)] = path
+		out[characterImageKey(workID, key)] = f
 	}
 	return out
 }
@@ -134,17 +155,21 @@ func characterImageKey(workID int64, foldedName string) string {
 // character nobody has a picture of, and no entry at all is a name the line does
 // not carry. The client's ladder (this picture → the performer's → a hashed
 // silhouette) needs exactly that.
-func characterImagesFor(found map[string]string, seps metadata.CreditSeps, workID int64, character string) []characterImage {
+func characterImagesFor(found map[string]castFace, seps metadata.CreditSeps, workID int64, character string) []characterImage {
 	if strings.TrimSpace(character) == "" {
 		return nil
 	}
 	var out []characterImage
 	for _, name := range metadata.SplitCredits(character, seps) {
+		// Absent from `found` is the ordinary case, not a failure: a reader can
+		// type any name on a line, and only the ones the work's cast knows have a
+		// row behind them. Those get a door; the rest are a name and a face.
+		f := found[characterImageKey(workID, store.CastKey(name))]
 		out = append(out, characterImage{
-			Name: name,
-			// Absent from `found` is the ordinary case, not a failure: most
-			// libraries have art for a handful of characters and none for the rest.
-			Path: found[characterImageKey(workID, store.CastKey(name))],
+			Name:        name,
+			Path:        f.Path,
+			CastID:      f.CastID,
+			CharacterID: f.CharacterID,
 		})
 	}
 	return out

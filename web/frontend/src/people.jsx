@@ -205,32 +205,33 @@ const clip = (v) => {
 export function PersonChip({ kind, name, person, onOpen, onPress, title, faceName, faceSrc, sub }) {
   if (!name) return null
   const full = sub ? `${name} — ${sub}` : name
-  // A CHIP THAT OPENS NOTHING IS A LABEL, NOT A CONTROL — so it is a span, and
-  // the keyboard walks past it rather than stopping on a press that never
-  // happens. This used to be settled by drawing no chip at all, which was right
-  // while a line drew at most one; on a row of chips it would have hidden every
-  // name but the linked one, which is the opposite of what the row is for.
+  // EVERY CHIP IS A BUTTON — the owner's ruling, in their words: "all chips will
+  // be buttons as well! that's their function." A chip names a character and a
+  // character has a screen; the row is a row of doors.
+  //
+  // A SPAN WAS TRIED AND OVERRULED. The argument for it was that a chip with
+  // nothing behind it takes a tab stop and is announced as a press that never
+  // happens — true, and the answer is to give it something behind it rather than
+  // to demote it. What is left of that reasoning is the one case below where a
+  // press genuinely has no destination: the handler is still attached, so the
+  // press never falls through to whatever the chip is drawn inside.
   const opens = onPress || onOpen
-  const Tag = opens ? 'button' : 'span'
   return (
-    <Tag
-      type={opens ? 'button' : undefined}
-      className={'person-chip' + (opens ? ' tactile' : '') + (sub ? ' is-stacked' : '')}
+    <button
+      type="button"
+      className={'person-chip tactile' + (sub ? ' is-stacked' : '')}
       title={title || `${full} — details`}
-      // NO HANDLER AT ALL ON A LABEL, and that is the point rather than a
-      // tidy-up: the handler stops propagation, so a label chip drawn inside
-      // something that IS pressable — a favourite tile, whose whole head is one
-      // button — would swallow the tile's press and do nothing with it. A chip
-      // that opens nothing must let the click reach whatever is behind it.
-      onClick={
-        opens
-          ? (e) => {
-              e.stopPropagation()
-              if (onPress) onPress()
-              else onOpen({ kind, name })
-            }
-          : undefined
-      }
+      // STOPPED WHETHER OR NOT IT OPENS. A chip is drawn inside things that are
+      // themselves pressable, and a chip press that also toggled the card under
+      // it would be two answers to one click.
+      onClick={(e) => {
+        e.stopPropagation()
+        if (onPress) onPress()
+        else onOpen?.({ kind, name })
+      }}
+      // A chip with no destination is still a chip, and says so rather than
+      // looking identical to one that opens.
+      aria-disabled={opens ? undefined : true}
     >
       <span className="person-chip-face" aria-hidden="true">
         {faceSrc || person?.image_path
@@ -245,7 +246,7 @@ export function PersonChip({ kind, name, person, onOpen, onPress, title, faceNam
       ) : (
         <span className="person-chip-name">{clip(name)}</span>
       )}
-    </Tag>
+    </button>
   )
 }
 
@@ -279,7 +280,7 @@ export function PersonChip({ kind, name, person, onOpen, onPress, title, faceNam
 // down the card — so it is a Scroller, measured, which is the app's standing rule
 // for anything that might not fit.
 export function SpeakerChips({ images = [], speaker = null, onOpenCharacter = null, className = '' }) {
-  const rows = chipRows(images, speaker)
+  const rows = chipRows(images, speaker, onOpenCharacter)
   if (rows.length === 0) return null
   return (
     // A SPAN, because this row draws inside the favourite tile's button on Home
@@ -319,7 +320,41 @@ export function SpeakerChips({ images = [], speaker = null, onOpenCharacter = nu
 // A SPEAKER NAMED NOWHERE ON THE LINE IS STILL DRAWN. It is a stored fact and the
 // line's text is free — somebody may have edited the words and left the link — so
 // dropping it would hide the one thing about the line the app is sure of.
-export function chipRows(images, speaker) {
+// PeopleChips — the same row, for PEOPLE rather than characters.
+//
+// THE OWNER'S RULING: "the author/speaker etc should also be pilled like this on
+// home favourites section (not needed in work details because we are already
+// reading the works of a specific author there)." A film line's favourite tile
+// names its characters; a book's names its author and a standalone quote names
+// whoever said it, and those were a row of faceless discs — which says how MANY
+// people are behind a line and not one of their names, the same complaint that
+// retired the discs beside the quote cards.
+//
+// A SEPARATE COMPONENT AND NOT A FLAG ON SpeakerChips, because the two rows are
+// about two different tables. A character chip opens the work-level character
+// popup, keyed on a cast row; a person chip opens that person's record, keyed on
+// nothing but their name — the panel resolves it. Folding them together would
+// mean one component with two destinations and two id shapes.
+export function PeopleChips({ names = [], map = {}, kind = 'author', onOpen = null, className = '' }) {
+  if (!names.length) return null
+  return (
+    <Scroller as="span" axis="x" className={('speaker-chips ' + className).trim()}>
+      {names.map((n) => (
+        <PersonChip
+          key={n}
+          kind={kind}
+          name={n}
+          person={map[n]}
+          faceName={n}
+          title={t('common.quote.named.tip', { name: n })}
+          onOpen={onOpen || undefined}
+        />
+      ))}
+    </Scroller>
+  )
+}
+
+export function chipRows(images, speaker, onOpen) {
   const sp = speaker && speaker.name ? speaker : null
   const spKey = sp ? creditKey(sp.name) : ''
   const out = []
@@ -353,13 +388,22 @@ export function chipRows(images, speaker) {
       name,
       faceName: name,
       faceSrc: c.path ? coverImgURL(c.path) : '',
+      castId: c.cast_id || 0,
+      characterId: c.character_id || 0,
       // NO SECOND LINE HERE, and its absence is information: the two-line chip
       // means "this character, played by that person", which is a fact the app
       // holds only for the stored speaker. A blank second line would claim the
       // others had no performer rather than that nobody has said.
       sub: '',
       title: t('common.quote.named.tip', { name }),
-      onPress: undefined,
+      // THE WORK-LEVEL CHARACTER POPUP, which is what a character chip opens.
+      // `cast_id` names the screen rather than `character_id` alone: a work can
+      // bill one character twice and the record id does not tell the two apart.
+      // A name the work's cast does not know has no row and so no door — the
+      // chip is still drawn, since the line names them.
+      onPress: c.character_id && onOpen ? () => onOpen({
+        cast_id: c.cast_id, character_id: c.character_id, name, record_name: name,
+      }) : undefined,
     })
   }
   return out

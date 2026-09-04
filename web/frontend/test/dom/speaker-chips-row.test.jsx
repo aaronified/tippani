@@ -112,53 +112,70 @@ describe('the stored speaker among them', () => {
     expect(onOpen).not.toHaveBeenCalled()
   })
 
-  // AND IS NOT A BUTTON EITHER, which is the half a click test cannot see: a
-  // button that does nothing still takes a tab stop and is still announced as a
-  // press. On an ensemble line every chip but the linked one is in this state, so
-  // a row of five names would have cost five dead stops on the way past it.
-  it('is not announced as a control, on the row or beside it', () => {
+  // EVERY CHIP IS A BUTTON — the owner's ruling, in their words: "all chips will
+  // be buttons as well! that's their function."
+  //
+  // WHAT THIS REPLACES, because the reasoning is worth keeping in view. A chip
+  // with nothing behind it was drawn as a span, on the argument that a button
+  // which does nothing still takes a tab stop and is still announced as a press.
+  // The ruling overturns the conclusion rather than the observation: the answer
+  // is to give the chip something behind it. It has one now — every name the
+  // work's cast knows carries its cast row, and the chip opens that work's
+  // character popup. What is left is the one case with genuinely nowhere to go,
+  // which says so with aria-disabled rather than by becoming a different element.
+  it('is a control, every one of them', () => {
     render(<SpeakerChips images={IMAGES} speaker={{ ...SPEAKER, onOpen: () => {} }} />)
-    const tags = chips().map((c) => c.tagName)
-    expect(tags, 'the speaker opens; the others are labels').toEqual(['BUTTON', 'SPAN', 'SPAN'])
+    expect(chips().map((c) => c.tagName)).toEqual(['BUTTON', 'BUTTON', 'BUTTON'])
   })
 
-  // AND DOES NOT SWALLOW THE PRESS OF WHATEVER IS BEHIND IT. Home's favourite
-  // tile is one button from its label to its faces, and the chips draw inside it
-  // — so a label chip that stopped propagation (which the pressable form must do,
-  // or opening a character would also toggle the tile) turned the row into a dead
-  // strip across the middle of the tile: click a name, nothing happens at all.
-  it('lets the click reach the tile it is drawn inside', () => {
-    const onTile = vi.fn()
-    render(
-      <button type="button" onClick={onTile}>
-        <SpeakerChips images={IMAGES} />
-      </button>,
-    )
-    fireEvent.click(chips()[0])
-    expect(onTile, 'the chip ate the tile’s press').toHaveBeenCalledTimes(1)
+  it('says which of them has nowhere to go, rather than looking identical', () => {
+    // These fixtures carry no cast row, so only the stored speaker opens.
+    render(<SpeakerChips images={IMAGES} speaker={{ ...SPEAKER, onOpen: () => {} }} />)
+    expect(chips().map((c) => c.getAttribute('aria-disabled')))
+      .toEqual([null, 'true', 'true'])
   })
 
-  // THE ROW IS A SPAN, for the same reason: it draws inside that button, whose
-  // content model is phrasing only, and a <div> there is invalid markup that the
-  // browser is free to reparent out of the button.
-  it('is an element a button is allowed to contain', () => {
-    const { container } = render(<SpeakerChips images={IMAGES} />)
-    expect(container.querySelector('.speaker-chips').tagName).toBe('SPAN')
-  })
-
-  // AND THE PRESSABLE ONE STILL DOES SWALLOW IT, which is the other half: on a
-  // card the chip opens a character and must not also toggle the card it sits on.
-  it('keeps the press to itself when it has one', () => {
-    const onTile = vi.fn()
+  // AND ONE THAT DOES OPEN, because that is the whole point of the ruling: a
+  // named character the work's cast knows carries its cast row down to the chip.
+  it('opens the work’s character popup for a name the cast knows', () => {
     const onOpen = vi.fn()
     render(
-      <button type="button" onClick={onTile}>
-        <SpeakerChips images={[]} speaker={{ ...SPEAKER, onOpen }} />
-      </button>,
+      <SpeakerChips
+        images={[{ name: 'Behemoth', path: '', cast_id: 42, character_id: 7 }]}
+        onOpenCharacter={onOpen}
+      />,
     )
     fireEvent.click(chips()[0])
-    expect(onOpen).toHaveBeenCalledTimes(1)
-    expect(onTile, 'opening a character also pressed the card').not.toHaveBeenCalled()
+    // THE CAST ROW NAMES THE SCREEN, not the record: a work can bill one
+    // character twice and the record id cannot tell the two apart.
+    expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ cast_id: 42, character_id: 7 }))
+  })
+
+  // IT KEEPS THE PRESS TO ITSELF, ALWAYS. A chip is drawn beside things that are
+  // themselves pressable, and one click must not be two answers.
+  //
+  // THE ROW IS NEVER NESTED INSIDE A BUTTON ANY MORE, which is the structural
+  // half of the same ruling: Home's favourite tile used to wrap its whole head
+  // AND this row in one <button>, and a <button> inside a <button> is invalid
+  // markup that the parser hoists out — the chips escape the row and lay out as
+  // loose text. The row moved out of the tile's head instead.
+  it('does not let the press fall through to what it is drawn beside', () => {
+    const onSurface = vi.fn()
+    render(
+      <div onClick={onSurface}>
+        <SpeakerChips images={IMAGES} />
+      </div>,
+    )
+    fireEvent.click(chips()[0])
+    expect(onSurface, 'one click, two answers').not.toHaveBeenCalled()
+  })
+
+  // THE ROW IS STILL A SPAN. Nothing nests it inside a button now, but a span
+  // with `display: flex` lays out identically and stays legal wherever it is put
+  // — and this row is put on three surfaces with three different parents.
+  it('is an element any parent is allowed to contain', () => {
+    const { container } = render(<SpeakerChips images={IMAGES} />)
+    expect(container.querySelector('.speaker-chips').tagName).toBe('SPAN')
   })
 
   // A SPEAKER NAMED NOWHERE ON THE LINE IS STILL DRAWN: it is a stored fact and

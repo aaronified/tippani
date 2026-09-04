@@ -561,6 +561,13 @@ type QuoteLine struct {
 type LineFace struct {
 	Name string `json:"name"`
 	Path string `json:"path"`
+	// THE TWO IDS A CHIP OPENS ON. The owner's ruling is that every chip is a
+	// button, and what it opens is the work-level character popup — which is
+	// keyed on the CAST ROW, not the record: a work can bill one character twice
+	// and the record id alone does not name a screen. Zero on a name the work's
+	// cast does not know, which is the one case with nothing to open.
+	CastID      int64 `json:"cast_id,omitempty"`
+	CharacterID int64 `json:"character_id,omitempty"`
 }
 
 // PersonLines returns the quotes LINKED to a person, and a count of the further

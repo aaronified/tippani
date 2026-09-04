@@ -364,13 +364,17 @@ describe('a panel’s lines wear the same pills the cards do', () => {
   it('opens nothing, because the panel is already the record’s', async () => {
     // NOT HOME'S REASON. There the tile is the press; here the chip that would
     // open a character IS the page the reader is standing on, and the other names
-    // on the line have no record behind them at all.
+    // on the line have no cast row behind them in this payload.
+    //
+    // EVERY CHIP IS STILL A BUTTON — the owner's ruling — so what says "nowhere
+    // to go" is aria-disabled rather than a different element.
     const stack = { push: vi.fn(), open: vi.fn() }
     const { container } = render(body(characterPanel(stack, { id: 3, name: 'Woland' })))
     await waitFor(() => expect(container.querySelector('.identity-line')).toBeTruthy())
     const chips = [...container.querySelectorAll('.person-chip')]
     expect(chips.length).toBeGreaterThan(0)
-    expect([...new Set(chips.map((c) => c.tagName))]).toEqual(['SPAN'])
+    expect([...new Set(chips.map((c) => c.tagName))]).toEqual(['BUTTON'])
+    expect(chips.every((c) => c.getAttribute('aria-disabled') === 'true')).toBe(true)
   })
 
   it('draws no row at all on a line that belongs to no work', async () => {

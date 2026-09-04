@@ -157,7 +157,15 @@ func TestQuoteKindsDifferOnlyByLocator(t *testing.T) {
 	// has no cast table to point into — 0056 gave the column to `annotations` and
 	// `dialogues` and to nothing else — so promoting it would put a permanently
 	// null field on the third kind.
-	wantAnn := []string{"BookAuthor", "BookID", "BookTitle", "Chapter", "ChapterNo", "Character", "CharacterImages", "Location", "SpeakerCast"}
+	// BookCover joins the parent-attribution group (BookID / BookTitle /
+	// BookAuthor) rather than quoteRow, and the asymmetry it looks like is one
+	// that already existed. Home's favourites draw the work beside the kind badge,
+	// and the film side takes BOTH its title and its poster from the /movies list
+	// Home already fetches — so a Poster on dialogueRow would be a second copy of
+	// something already in hand, and an utterance has no work to have a cover of.
+	// The book side has no such lookup, and one column on a JOIN this query
+	// already makes is cheaper than a third round trip for one thumbnail.
+	wantAnn := []string{"BookAuthor", "BookCover", "BookID", "BookTitle", "Chapter", "ChapterNo", "Character", "CharacterImages", "Location", "SpeakerCast"}
 	// Season/Episode are locators too: which episode of a show the line is from
 	// (0025). A film leaves them null — its timestamp is the whole locator. Act,
 	// Quest and EpisodeName (0047) are the same argument for the other two media: a

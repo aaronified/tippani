@@ -12,6 +12,7 @@ import { AnnotationForm, annotationState, annDate, fmtDate } from './Library.jsx
 import { DialogueForm, dialogueState } from './Movies.jsx'
 import { UtteranceForm, utteranceState } from './Quotes.jsx'
 import { t, tNodes } from './i18n.js'
+import { characterPanel } from './identity.jsx'
 import { quoteKindMeta } from './quoteKind.js'
 import { PendingImportCard } from './StagingPage.jsx'
 import { QuizRunner, tzOffsetMinutes } from './review.jsx'
@@ -20,6 +21,7 @@ import {
   CreditFaces,
   PersonCredit,
   PersonModal,
+  PeopleChips,
   SpeakerChips,
   parseCreditSeps,
   splitCredits,
@@ -50,6 +52,9 @@ import {
   Masonry,
   MonoLabel,
   mulberry32,
+  NameScroll,
+  PanelHost,
+  usePanelStack,
   NavIcon,
   onActivate,
   Placeholder,
@@ -387,6 +392,12 @@ function bookFav(a) {
     text: a.quote || a.note,
     note: a.quote ? a.note : '',
     tags: a.tags || [],
+    // THE WORK, AS THE HEADER NOW DRAWS IT: its own cover and its own title,
+    // beside the kind badge. `source` below stops carrying the title because of
+    // it — see the tile, where the rule is that the line under a card never
+    // repeats what the header and the chips already say.
+    workTitle: a.book_title,
+    cover: a.book_cover || '',
     source: [a.book_title, a.book_author].filter(Boolean).join(' · '),
     meta,
     createdAt: a.created_at,
@@ -419,6 +430,10 @@ function screenFav(d, movieMap) {
     text: d.quote || d.note,
     note: d.quote ? d.note : '',
     tags: d.tags || [],
+    workTitle: m.title || '',
+    // The poster comes off the /movies lookup this tile already needs for the
+    // title, so it costs no request of its own.
+    cover: m.poster_path || '',
     source: [m.title, d.character].filter(Boolean).join(' · '),
     meta: [m.title, episodeLabel(d), d.character, d.timestamp].filter(Boolean).join(' · '),
     createdAt: d.created_at,
@@ -536,6 +551,12 @@ const FAV_KINDS = {
 
 export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary, onGoMovies, onGoQuotes, onPending, pendingImport, onReviewImport }) {
   const { ask, confirmDialog } = useConfirm()
+  // HOME OPENS PANELS NOW. `usePanelStack` is the app's one idiom for a surface
+  // that opens another (PLAN.md: "a panel is a plain {title, render} descriptor,
+  // and a factory takes the stack so a panel can push its sibling"), and Home was
+  // the last screen drawing people and characters with nowhere to send a press.
+  // The owner's ruling — every chip is a button — is what needed it.
+  const stack = usePanelStack()
   const [favs, setFavs] = useState([])
   // THE WALL VANISHING IS NOT AN ANSWER. Every branch of loadFavs is guarded
   // `if (r.ok && r.data)`, which is right for a partial failure and wrong for a
@@ -752,6 +773,9 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
   return (
     <div className="home-col flex flex-col gap-4 pt-4" data-screen-label="home-body">
       {confirmDialog}
+      {/* The panel a chip opens. One host for the screen, as MetadataPage and
+          WorkDetail already do — Back is the browser's. */}
+      <PanelHost stack={stack} />
       {/* No "?" beside the greeting since 1.4.1 — it is a shell control now — so
           the date and greeting own the row outright. */}
       <div className="px-0.5">
@@ -887,6 +911,20 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
                 actorMap={actorMap}
                 seps={seps}
                 onOpenPerson={setPerson}
+                // A CHARACTER PILL OPENS THE WORK-LEVEL CHARACTER POPUP — the
+                // owner's ruling. `castId` names the screen rather than the
+                // record id alone: a work can bill one character twice.
+                onOpenCharacter={(sp) => stack.open(characterPanel(stack, {
+                  id: sp.character_id,
+                  name: sp.name,
+                  work: {
+                    kind: f.kind === 'book' ? 'book' : 'movie',
+                    id: f.workId,
+                    title: f.workTitle,
+                    media_type: f.media_type,
+                    castId: sp.cast_id,
+                  },
+                }))}
               />
             ))}
           </Masonry>
@@ -926,7 +964,7 @@ function FavouriteTile({
   f, variant, clampLines = 3, open, editing, onToggle, onOpen,
   onEditStart, onEditCancel, onSave, onPatch, onDelete, onCopy, onShare,
   tagSuggestions, stickers, reloadStickers,
-  authorMap = {}, actorMap = {}, speakerMap = {}, seps, onOpenPerson,
+  authorMap = {}, actorMap = {}, speakerMap = {}, seps, onOpenPerson, onOpenCharacter,
 }) {
   const meta = FAV_KINDS[f.kind]
   // From the registry (actions.jsx): a favourite is one of the three kinds of
@@ -956,12 +994,19 @@ function FavouriteTile({
   // §11) — bookFav/screenFav stored the joined author verbatim, so a book with
   // co-authors read as "Gaiman & Pratchett" instead of individual people.
   const authorText = peopleNames.join(' · ')
+  // THE LINE UNDER THE CARD STOPS REPEATING THE HEADER. It used to read
+  // "A Wednesday! · Sambhu (Electric Baba)" — the work, then the character —
+  // and both halves are now drawn better elsewhere: the work in the header
+  // beside its poster, the character on its own pill with a face. What is left
+  // for a film line is nothing, so the line goes; for a book the AUTHOR is left,
+  // which no pill carries; for a standalone quote the occasion is left, which is
+  // the whole of what that kind has. One rule, three outcomes.
   let collapsedSource = f.source
   let expandedMeta = f.meta
   if (isBook) {
     const chLabel = chapterMeta(f.raw)
     const locLabel = f.raw.location ? t('common.locator.page.label', { n: f.raw.location }) : ''
-    collapsedSource = [f.raw.book_title, authorText].filter(Boolean).join(' · ')
+    collapsedSource = authorText
     // No author in the EXPANDED line: the PersonCredit chips below carry the
     // same names with their portraits and their way in, so repeating them here
     // was the same person on the card twice, one line apart.
@@ -1014,9 +1059,60 @@ function FavouriteTile({
               affordance (no "show more"); the quote clamps to a per-card 3–5. */}
           <Tooltip label={t(open ? 'home.favourites.collapse.tip' : 'quiz.option.expand.tip')} className="flex w-full">
             <button type="button" className="clampable is-clickable block w-full text-left" style={{ background: 'none', border: 'none', padding: 0 }} onClick={onToggle} aria-expanded={open}>
-              <MonoLabel className="mb-1.5 block" style={{ fontSize: 'var(--type-ui-9)', color: meta.labelColor }}>
-                {meta.label(f)}
-              </MonoLabel>
+              {/* THE WORK, AT THE TOP OF THE CARD — the owner's ruling: "we can add
+                  a movie poster there, at the top of the card where it says
+                  film/book/show/game now. Now it will be small poster, workkind,
+                  title." The kind badge was alone on that line and the title sat
+                  underneath the quote in small caps, which put the two halves of
+                  one fact at opposite ends of the card.
+
+                  NO PLACEHOLDER WHERE THERE IS NO WORK. A standalone quote has
+                  no work behind it and a hatched rectangle there would claim a
+                  cover nobody has supplied, so the row falls back to what it was:
+                  the badge alone. */}
+              <span className="mb-1.5 flex items-center gap-2" style={{ minWidth: 0 }}>
+                {/* THE COVER IS EXPANDED-ONLY, and Home-only — the owner's
+                    ruling: "the top line cover image will only show in home
+                    favourites section and only when the card is expanded." A
+                    collapsed tile is a wall of them, and a thumbnail on every one
+                    turns the wall into a shelf of covers with the words between;
+                    opened, the tile is about one line and the work it came from
+                    is worth a picture. The work-detail cards never had one and do
+                    not gain one: you are already inside that work. */}
+                {open && f.cover ? (
+                  <img
+                    src={coverImgURL(f.cover)}
+                    alt=""
+                    loading="lazy"
+                    className="block flex-none object-cover"
+                    style={{ width: 'max(22px, 1.7em)', aspectRatio: '2 / 3', borderRadius: 3, border: '1px solid var(--line)' }}
+                  />
+                ) : null}
+                {/* TWO LINES BESIDE THE POSTER, ONE WITHOUT IT — the owner's
+                    ruling: "on expansion, make the header two lines. otherwise
+                    the poster/cover looks weird." A 2:3 thumbnail is taller than
+                    one line of small caps, so a single row leaves it sticking out
+                    of a line it does not fit; stacked, the kind and the title fill
+                    the height the picture already takes. Collapsed there is no
+                    picture, so there is nothing to fill and the row stays one. */}
+                <span
+                  className={open && f.cover ? 'flex flex-col items-start' : 'flex items-center gap-2'}
+                  style={{ minWidth: 0 }}
+                >
+                  <MonoLabel style={{ fontSize: 'var(--type-ui-9)', color: meta.labelColor, flex: 'none' }}>
+                    {meta.label(f)}
+                  </MonoLabel>
+                  {/* THE TITLE SCROLLS UNDER A FADE RATHER THAN CLIPPING — the
+                      standing rule, and the owner's own note: "long titles will
+                      get edgemasked as usual". A shortened title and a short one
+                      look alike. */}
+                  {f.workTitle ? (
+                    <NameScroll className="tp-fav-work" style={{ fontSize: 'var(--type-ui-11)', color: 'var(--soft)' }}>
+                      {f.workTitle}
+                    </NameScroll>
+                  ) : null}
+                </span>
+              </span>
               <p
                 style={{
                   fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)',
@@ -1030,40 +1126,41 @@ function FavouriteTile({
               >
                 {meta.quoted ? `“${f.text}”` : f.text}
               </p>
-              {/* Faces ride the COLLAPSED line only. Expanded, the same people
-                  are PersonCredit chips a few lines down — portrait, name and a
-                  way into their panel — and drawing the face here as well put
-                  one person on the tile twice. */}
-              <span className="mt-1.5 flex items-center gap-1.5">
-                {/* A SCREEN TILE WEARS THE CHARACTER, everything else the person
-                    (2.2.0). A film line is spoken by a character, so the face on
-                    it is the one in costume; a book quote's author and a standalone
-                    quote's speaker are people and keep their portraits.
-
-                    Falls back to the person when the role has no stored picture,
-                    which is most roles — so a library with no character art looks
-                    exactly as it did. */}
-                {/* THE SAME CHIPS THE CARDS DRAW, on the owner's ruling, and for
-                    the reason the discs were replaced everywhere else: a stack of
-                    faceless discs says how MANY characters a line names and not
-                    one of their names. A favourite is a line the reader chose to
-                    keep, so who is in it is the last thing to leave unlabelled.
-                    NO DOOR HERE. This tile is itself the press — it opens the
-                    quote — and Home owns no panel stack to open a character into,
-                    which is the third of the three conditions the chip already
-                    kept. So the chips are faces and names, and the tile stays one
-                    target rather than becoming a row of competing ones. */}
-                {!open &&
-                  (f.raw?.character_images?.length ? (
-                    <SpeakerChips images={f.raw.character_images} speaker={f.raw.speaker_cast} />
-                  ) : (
-                    <CreditFaces names={peopleNames} map={peopleMap} size={18} ring="var(--card)" />
-                  ))}
-                <MonoLabel style={{ fontSize: 'var(--type-ui-11)' }}>{open ? expandedMeta : collapsedSource}</MonoLabel>
-              </span>
               <ClampMore open={open} />
             </button>
           </Tooltip>
+          {/* THE PILL ROW SITS OUTSIDE THE TILE'S BUTTON, and that is structural
+              rather than cosmetic: every chip is a button (the owner's ruling),
+              and a <button> inside a <button> is invalid markup the parser hoists
+              out — the chips escape their row and lay out as loose text. Outside
+              it, both presses work: the head opens the quote, a pill opens who is
+              in it.
+
+              Pills ride the COLLAPSED tile only. Expanded, the same people are
+              PersonCredit chips a few lines down — portrait, name and a way into
+              their panel — and drawing them here as well put one person on the
+              tile twice. */}
+          <span className="mt-1.5 flex items-center gap-1.5">
+            {/* A SCREEN TILE WEARS THE CHARACTERS, everything else the PEOPLE
+                (2.2.0). A film line is spoken by a character, so the pill on it
+                is the one in costume; a book quote's author and a standalone
+                quote's speaker are people, and the owner's ruling put them in
+                pills too — "not needed in work details because we are already
+                reading the works of a specific author there". Both were a row of
+                faceless discs, which says how MANY people are behind a line and
+                not one of their names. */}
+            {!open &&
+              (f.raw?.character_images?.length ? (
+                <SpeakerChips
+                  images={f.raw.character_images}
+                  speaker={f.raw.speaker_cast}
+                  onOpenCharacter={onOpenCharacter}
+                />
+              ) : (
+                <PeopleChips names={peopleNames} map={peopleMap} kind={meta.personKind} onOpen={onOpenPerson} />
+              ))}
+            <MonoLabel style={{ fontSize: 'var(--type-ui-11)' }}>{open ? expandedMeta : collapsedSource}</MonoLabel>
+          </span>
           {/* COPY AND SHARE ON THE COLLAPSED TILE (1.15.3). They were inside the
               expanded branch below, so the two things you most often do WITH a
               favourite — send it to somebody, paste it somewhere — cost a tap to

@@ -25,9 +25,12 @@
 //   "same character pills should be there in the favourite section of the
 //   homepage" — Home owns no panel stack, so the no-opener state draws them too.
 //
-// WHAT SURVIVES OF THE RULE IS THE PRESS: a chip with no record, or on a surface
-// with nowhere to open, is drawn and is not a button — a span, so the keyboard
-// walks past it. The one state that still draws nothing is a line naming nobody.
+// WHAT SURVIVES OF THE RULE IS SMALLER STILL, after a third ruling: "all chips
+// will be buttons as well! that's their function." A chip with no record, or on a
+// surface with nowhere to open, is drawn AND is a button — it simply carries
+// aria-disabled, because the answer to a control with no destination is to give
+// it one rather than to demote it to a span. The one state that draws nothing at
+// all is a line naming nobody.
 //
 // `speaker-chips-row.test.jsx` holds the ROW; what this file holds is what the two
 // CARDS do around it — the meta line that must stop repeating the name, the
@@ -129,20 +132,24 @@ describe('a book quote’s speaker', () => {
     const c = chip()
     expect(c, 'the name went out with the door').toBeTruthy()
     expect(within(c).getByText('Woland')).toBeTruthy()
-    expect(c.tagName, 'a chip that opens nothing is announced as a button').toBe('SPAN')
+    // STILL A BUTTON, and it says it has nowhere to go rather than looking like a
+    // different kind of thing — the owner's ruling.
+    expect(c.tagName).toBe('BUTTON')
+    expect(c.getAttribute('aria-disabled')).toBe('true')
     fireEvent.click(c)
     expect(opened, 'pressed a chip with no page behind it').toHaveLength(0)
   })
 
   it('keeps the name and drops the press on a surface with nowhere to open it', async () => {
-    // Home, Search and the standalone board render this card and own no panel
-    // stack, so they pass no opener. The owner's ruling put these pills on Home's
-    // favourites, so what is withheld there is the press and not the chip.
+    // Search and the standalone board render this card and own no panel stack, so
+    // they pass no opener. Home DOES own one now, which is what let its pills
+    // become doors; these two are what is left of the state.
     book({}, { onOpenCharacter: undefined })
     const c = chip()
-    expect(c, 'the favourites tile lost its pill').toBeTruthy()
+    expect(c, 'the card lost its pill').toBeTruthy()
     expect(within(c).getByText('Woland')).toBeTruthy()
-    expect(c.tagName).toBe('SPAN')
+    expect(c.tagName).toBe('BUTTON')
+    expect(c.getAttribute('aria-disabled')).toBe('true')
   })
 })
 

@@ -172,7 +172,7 @@ func (s *Server) fillLineFaces(uid int64, lines []store.QuoteLine) {
 		}
 		byKind[k] = append(byKind[k], characterImageRef{WorkID: l.WorkID, Character: l.Characters})
 	}
-	found := map[string]map[string]string{}
+	found := map[string]map[string]castFace{}
 	for k, refs := range byKind {
 		found[k] = s.loadCharacterImages(uid, k, refs)
 	}
