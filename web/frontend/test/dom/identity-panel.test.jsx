@@ -121,11 +121,15 @@ describe('a person panel says which scope you are in', () => {
   it('names the work, and says the change stops there', async () => {
     const stack = { push: vi.fn(), open: vi.fn() }
     render(body(personPanel(stack, { id: 7, name: 'Mikhail Bulgakov', work: { kind: 'book', id: 1, title: 'The Master and Margarita', role: 'author' } })))
-    await screen.findByText('on this work')
-    // THE SENTENCE, not just the heading. Without it a reader believes the field
-    // below renames the author everywhere.
-    expect(screen.getByText(/no other work/i)).toBeTruthy()
-    expect(screen.getByText(/reaches every work/i)).toBeTruthy()
+    // THE SENTENCE, not just the heading — this is the assertion, and only its
+    // wording moved. The pack's local sheet names the work in a crumb rather than
+    // in a section heading, and puts the blast radius on the row that has one.
+    // Without both a reader believes the field below renames the author on
+    // thirty-one other books.
+    await screen.findByText(/^in The Master and Margarita/)
+    expect(screen.getByText(/every other work keeps its own/i)).toBeTruthy()
+    // And the opposite radius, on the door up to the record every work shares.
+    expect(screen.getByText(/reach every work/i)).toBeTruthy()
   })
 
   // OPENED FROM A LIST THERE IS NO WORK TO BE ON, so the section is absent rather
@@ -151,18 +155,30 @@ describe('a person panel says which scope you are in', () => {
   })
 
   it('writes the work spelling to /credits and the record to /people/id', async () => {
+    // THE TWO WRITES ARE TWO ENDPOINTS, and that is still the assertion. What
+    // changed is that they are now two SCREENS as well: the credit spelling is
+    // the only editable thing on the local sheet, and the record's own fields
+    // live on people-global, one door away. The pair is therefore checked across
+    // both sheets rather than from two Save buttons stacked on one — which is a
+    // stronger form of the same guarantee, since a reader on the work sheet can
+    // no longer reach the record's writer at all.
     const stack = { push: vi.fn(), open: vi.fn() }
     render(body(personPanel(stack, { id: 7, name: 'Mikhail Bulgakov', work: { kind: 'book', id: 1, title: 'The Master and Margarita', role: 'author' } })))
-    await screen.findByText('on this work')
+    await screen.findByText(/^in The Master and Margarita/)
 
-    const saves = screen.getAllByText('Save').map((n) => n.closest('button'))
-    act(() => saves[0].click())
+    act(() => screen.getByText('Save').closest('button').click())
     await waitFor(() => expect(CALLS.some(([m, p]) => m === 'PUT' && p === '/credits')).toBe(true))
-    // THE TWO WRITES ARE TWO ENDPOINTS. One handler taking both would be one
-    // request away from the mistake the whole panel is shaped to prevent.
-    expect(CALLS.some(([m, p]) => m === 'PUT' && p === '/people/id/7')).toBe(false)
+    expect(
+      CALLS.some(([m, p]) => m === 'PUT' && p === '/people/id/7'),
+      'the work sheet reached the record writer',
+    ).toBe(false)
 
-    act(() => saves[1].click())
+    cleanup()
+    render(body(personPanel(stack, { id: 7, name: 'Mikhail Bulgakov' })))
+    // The name appears twice on the global sheet — the head's title and the
+    // canonical-name row's value — so wait on the section that only it has.
+    await screen.findByText(/^The person$/i)
+    act(() => screen.getAllByText('Save')[0].closest('button').click())
     await waitFor(() => expect(CALLS.some(([m, p]) => m === 'PUT' && p === '/people/id/7')).toBe(true))
   })
 

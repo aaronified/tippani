@@ -295,3 +295,81 @@ export function CharacterLocal({
     </ScreenBody>
   )
 }
+
+// PersonLocal — one PERSON seen from inside one work, and the pack does not draw
+// it.
+//
+// THE DEPARTURE, NAMED RATHER THAN DISCOVERED. identityScope.js has called this
+// `people-work` since it was written and said why: the pack has char-book,
+// char-film, char-game and people-global, and no people-book. But the app has
+// somewhere the pack does not — a credit's own SPELLING, which is a fact about
+// the work-person link and about nothing else. Bulgakov is "Mikhail Bulgakov" on
+// the Penguin, "M. Bulgakov" on the Vintage and "Михаил Булгаков" on the Азбука;
+// person-instructions.md calls that `creditAs` and calls it the field that lets
+// one record wear four jackets.
+//
+// SO IT CARRIES THAT AND ALMOST NOTHING ELSE. Every other fact about a person —
+// their name, how they file, when they were born, their links, their works — is
+// the same on every work they are credited on, so it belongs on people-global,
+// one door away. A sheet that repeated them here would be four screens offering
+// to rename somebody everywhere, which is the exact confusion the credit
+// spelling exists to prevent, and why its own sub-line has to say "on this work
+// only" in words.
+export function PersonLocal({
+  record, work, here, portraitActions,
+  onCreditAs, onOpenGlobal, children,
+}) {
+  return (
+    <ScreenBody>
+      <ScreenHead
+        title={record.name}
+        crumb={t('identity.crumb.in', { title: work.title || here?.work_title || '' })}
+        glyph={GLYPH[work.kind === 'book' ? 'book' : 'film']}
+        art={here?.cover || work.cover_path || work.poster_path || ''}
+        artKind={work.kind === 'book' ? 'book' : ''}
+        scopeTitle={t('identity.scope.work.title')}
+      />
+      <PortraitBlock
+        src={record.image_path ? coverImgURL(record.image_path) : ''}
+        name={record.name}
+        px={t('identity.portrait.global')}
+        actions={portraitActions}
+      />
+
+      {/* WHAT THIS WORK PRINTS. The row's value is the credit where the work has
+          one and the record's name where it does not, because the name IS what
+          prints then — an empty row would read as a work that credits nobody. */}
+      <ScreenRow
+        label={t('identity.row.printed.label')}
+        sub={t('identity.row.printed.sub')}
+        meta={here?.credit_as || record.name}
+        onClick={onCreditAs}
+      />
+      {/* The role is a fact of the link too, but it is not editable here: it is
+          what the work's own cast list is FOR, and two places to change one field
+          is how the two disagree. */}
+      {here?.role ? (
+        <ScreenRow
+          label={t('identity.row.role.label')}
+          sub={t('identity.row.role.sub')}
+          meta={t(`unit.role.${here.role}`, { count: 1 })}
+        />
+      ) : null}
+
+      <SectionHead label={t('identity.section.person.label')} note={t('identity.section.identity.note')} />
+      <ScreenRow
+        label={t('identity.row.globalperson.label')}
+        sub={t('identity.row.globalperson.sub')}
+        face={record.image_path ? coverImgURL(record.image_path) : ''}
+        faceName={record.name}
+        badge={t('identity.badge.global')}
+        meta={t('identity.row.global.works', {
+          n: (record.credits || []).length,
+          count: (record.credits || []).length,
+        })}
+        onClick={onOpenGlobal}
+      />
+      {children}
+    </ScreenBody>
+  )
+}

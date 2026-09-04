@@ -31,7 +31,7 @@ import { useCharacterPicture, usePicturePicker } from './cast.jsx'
 import { movieState } from './Movies.jsx'
 import { CharacterGlobal, PersonGlobal } from './identityGlobal.jsx'
 import { identityScope } from './identityScope.js'
-import { CharacterLocal } from './identityLocal.jsx'
+import { CharacterLocal, PersonLocal } from './identityLocal.jsx'
 import { personImgURL, ProviderChips, SpeakerChips } from './people.jsx'
 import { Silhouette } from './silhouette.jsx'
 import {
@@ -623,6 +623,47 @@ function PersonBody({ stack, id, work }) {
             <MergeControl into={data} onMerged={load} onError={setErr} />
           </div>
         </PersonGlobal>
+      </div>
+    )
+  }
+
+  // people-work, the departure identityScope.js names. Everything else about a
+  // person is the same on every work they are credited on, so this sheet carries
+  // the credit spelling and a door up, and PersonGlobal keeps the rest.
+  const personHere = work ? (data.credits || []).find((c) => c.kind === work.kind && c.work_id === work.id) : null
+  if (work) {
+    return (
+      <div style={{ display: 'grid', gap: 'calc(var(--row) * 1.6)' }}>
+        <ErrorText>{err}</ErrorText>
+        <PersonLocal
+          record={data}
+          work={work}
+          here={personHere}
+          portraitActions={
+            data.image_path ? (
+              <GhostButton onClick={() => setPortrait('')} disabled={busy}>
+                {t('identity.person.portrait.clear.label')}
+              </GhostButton>
+            ) : null
+          }
+          onCreditAs={() => focusField('person-creditas')}
+          onOpenGlobal={() => stack.open(personPanel(stack, { id, name: data.name }))}
+        >
+          <div style={FIELDS}>
+            <Field
+              inputId="person-creditas"
+              label={t('identity.credit.as.label')}
+              value={creditAs}
+              onChange={setCreditAs}
+            />
+            <p className="microcopy" style={{ color: 'var(--faint)' }}>
+              {t('identity.credit.as.hint', { name: data.name })}
+            </p>
+            <div className="flex justify-end">
+              <GhostButton disabled={busy} onClick={saveCreditAs}>{t('common.action.save.label')}</GhostButton>
+            </div>
+          </div>
+        </PersonLocal>
       </div>
     )
   }

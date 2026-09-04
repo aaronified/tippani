@@ -6349,6 +6349,14 @@ identity.credit.pick.tip = কে সেটা বদলান
 identity.credit.open.tip = তাঁর রেকর্ড খুলুন
 identity.credit.note.tip = এই কাস্টিংয়ে বিশেষ কী আছে
 identity.credit.remove.tip = এই কৃতিত্ব সরিয়ে দিন
+# ---- people-work, প্যাকে যে পর্দা আঁকা নেই -------------------------
+identity.row.printed.label = এই কাজে যে নামে ছাপা হয়
+identity.row.printed.sub = কেবল এই কাজে — বাকি সব কাজ নিজের নাম রাখে
+identity.row.role.label = যে ভূমিকায়
+identity.row.role.sub = এই কাজের নিজের কাস্ট তালিকায় বদলান
+identity.row.globalperson.label = মানুষটির রেকর্ড খুলুন
+identity.row.globalperson.sub = মানুষটি, কোনো একটা কাজের বাইরে
+
 
 
 identity.section.identity.label = পরিচয়

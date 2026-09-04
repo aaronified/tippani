@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **A character's page, seen from inside one work, is now about that work.** It used to
+  stack three things at once — this work, the whole library, the record — so standing on
+  one book you were offered the alias list, the merge control and every other work the
+  character turns up in, none of which is a fact about the book you were in. Those live
+  on the character's own record now, one press away, and the page you land on says what
+  this work calls them, what part they play, where they first appear, how old they are
+  in it, your own private note on the casting, and how many of their lines this work
+  holds. A film or a show also lists who plays them — including a credit you have not
+  put a name to yet — with dubbing credits under it, and the Played by / Voiced by
+  heading is a control, because an animated film is a film whose cast is voiced. The two
+  counts are doors: press one and search opens on that character in that work, as chips
+  you can remove.
+- **A person's page, seen from inside one work, keeps only the spelling that work
+  prints.** Everything else about somebody is the same on every work they are credited
+  on, so it belongs on their record — and a page that repeated it was four pages
+  offering to rename them everywhere.
+
 ### Fixed
 
 - **The spaces down a work's header are even now, and the shelf row is one line.** The

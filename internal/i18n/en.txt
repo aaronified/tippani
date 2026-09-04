@@ -6365,6 +6365,17 @@ identity.credit.pick.tip = Change who this is
 identity.credit.open.tip = Open their record
 identity.credit.note.tip = What is peculiar about this casting
 identity.credit.remove.tip = Take this credit off
+# ---- people-work, the sheet the pack does not draw -------------------------
+# A DEPARTURE, named in identityScope.js rather than discovered. The pack has no
+# people-book, but the app has somewhere the pack does not: a credit's own
+# SPELLING, which is a fact about the work-person link and about nothing else.
+identity.row.printed.label = Printed on this work as
+identity.row.printed.sub = This work only — every other work keeps its own
+identity.row.role.label = Credited as
+identity.row.role.sub = Change it in this work's own cast list
+identity.row.globalperson.label = Open the person's record
+identity.row.globalperson.sub = The person, out of any one work
+
 
 
 identity.section.identity.label = The identity
