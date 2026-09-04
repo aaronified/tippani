@@ -1,4 +1,4 @@
-# The codebase audit — duplications, latent defects, and what the tests do not guard
+# The codebase audit — duplications, latent defects, what the tests do not guard, and where the screens depart from the pack
 
 Not a feature. This is the same shape as `screen-audit.md`: the **found-and-unfixed**
 half of an adversarial pass, written down because that is the one artefact which
@@ -274,8 +274,60 @@ now fixed).
 
 ---
 
+---
+
+## 4. Fidelity to the design pack
+
+The owner's words: *"i don't want a single line deviating from the prototype unless it is
+expounded upon in detail."* This section is that list. It exists at all because
+`scripts/screenshots/proto.mjs` can now render the prototypes offline — until it could,
+every claim about fidelity was a reading of the source rather than a comparison of two
+pictures.
+
+### 4.1 The character sheet, `char-film`
+
+Against `docs/design/prototypes/character-popup.dc.html`. **The first row is the one that
+matters**; the rest are smaller and independent.
+
+| Element | Prototype | App | Verdict |
+| --- | --- | --- | --- |
+| **What a row press does** | opens a small titled picker over the sheet — `openPicker` at lines 522, 529, 1032, 1047, 1077, with titles like "Add a performer to this film" | scrolls to a `<details>` form at the FOOT of the sheet, 600–1000px down, and focuses a bare input | **Deviation, architectural** |
+| Portrait verbs | `Fetch` · `Upload` · `Paste URL` as three named buttons, then `Set for the identity` outlined red and dashed | one small tile button and `use this one` | **Deviation** |
+| Picture size | `1280 × 720 px` above the verbs, inked `--error` under the floor | absent on this sheet | **Deviation** |
+| Header | glyph + name + `in Deathly Hallows – Part 2 · film` + ✕ on one header line | centred name + ✕; the glyph, name and crumb in a separate boxed row beneath | **Deviation** |
+| Qualifier chip (`CHAR-FILM`) | present | absent | **Justified** — PLAN.md's eight rulings, #4: "Drop it — the crumb and the cover-with-glyph already say the scope" |
+| Credit row | name plus a sub-line — `age 17 · and the epilogue at 36` | name only | **Deviation.** `part` and `age_here` are stored per cast row and not drawn |
+| Credited as · the Played by / Voiced by pair · Part / First appears / Age here · the Note row · the two count tiles · The identity · Open the global record · Remove | — | — | Match |
+
+**Why the first row is the whole of the "polish" complaint.** The prototype's rows *are*
+the editors: press one, a picker opens over the sheet carrying that field alone. The app's
+rows are read-only displays and the editors are a form appended at the end, so pressing
+"Part" throws the reader most of a screen away from what they pressed and leaves them in
+an unlabelled box. `identity.jsx`'s own comment defends this as "this panel's own
+established shape… the pack's screens print a saved value as a row and let you press it;
+the editor is one field further down" — the second half of that sentence is a claim about
+the pack that the pack does not support. There is no editor form anywhere in the
+prototype.
+
+Fixing it is a build, not a restyle: a picker overlay in the prototype's shape (its
+`pickerInput`, a search-or-type field with a title) and eight rows rewired to it. The
+`<details>` block then goes, and with it the reason `focusField` had to learn to open a
+closed disclosure.
+
+### 4.2 Not yet compared
+
+`char-global`, `char-book`, `char-game` and `people-global` (the other four artboards in
+the same prototype), the work-detail surfaces in `work-details-popup.dc.html` — including
+the Match Picker and Fetch Results built this session but **not yet held against their
+artboards** — and `book-detail.dc.html` / `book-detail-wide.dc.html`. The pair of probes
+is in place; the comparisons are not done.
+
+---
+
 ## How to retire this file
 
 Per `README.md`'s rule: when the list is empty, delete it. Sections 1 and 3 empty by
 being fixed or by the owner ruling them intentional; section 2 empties as each hollow
-assertion is replaced by the observable named beside it.
+assertion is replaced by the observable named beside it; section 4 empties as each
+deviation is either built to the prototype or given its reason in PLAN.md, which is where
+a departure the owner has ruled on belongs.
