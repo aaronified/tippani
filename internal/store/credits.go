@@ -14,7 +14,7 @@ import (
 // 0056 made work_person the truth and books.author / translator / editor and
 // movies.director a cache of it. A cache with twenty-one writers is not a cache,
 // it is twenty-one chances to disagree — so every one of them comes through
-// SetCredits, and nothing else writes those four columns. CreditsAgree walks the
+// SetCredits, and nothing else writes those five columns. CreditsAgree walks the
 // whole library asserting it, and the test that calls it is what turns "nothing
 // else writes them" from a comment into a fact.
 //
@@ -24,8 +24,8 @@ import (
 // write-through problem into the search index and cost the one-line rebuild that
 // repairs it.
 
-// CreditRole is one of the four roles a work_person row can hold. They are the
-// four credit COLUMNS — the roles that have somewhere to be cached — and not the
+// CreditRole is one of the five roles a work_person row can hold. They are the
+// five credit COLUMNS — the roles that have somewhere to be cached — and not the
 // whole vocabulary of a credit: a narrator or an illustrator is a work_person
 // row with its own role string and no column, which is exactly why the link
 // table exists.
@@ -36,6 +36,13 @@ const (
 	RoleTranslator CreditRole = "translator"
 	RoleEditor     CreditRole = "editor"
 	RoleDirector   CreditRole = "director"
+	// RolePublisher is the fifth, and 0042 wrote the condition it has just met:
+	// "If a publisher ever gets a logo and a page, it can become a kind then; the
+	// column is what a plain fact costs." It has one now — an IGDB company logo,
+	// a chip on the game's header and a record of its own — so the name in
+	// movies.publisher stops being a caption and becomes a credit like the
+	// studio beside it.
+	RolePublisher CreditRole = "publisher"
 )
 
 // creditColumn maps a role to the column it is cached in. A role with no entry
@@ -49,6 +56,14 @@ var creditColumn = map[CreditRole]struct {
 	RoleTranslator: {"books", "translator"},
 	RoleEditor:     {"books", "editor"},
 	RoleDirector:   {"movies", "director"},
+	// movies.publisher ONLY. books.publisher (0061) holds the same kind of fact
+	// under the same name, and it is deliberately not cached here: this map is
+	// what SetCredits recomposes, and one role may name one column. Folding both
+	// in would mean a rename scanning two tables and writing back by an id that
+	// does not say which — the one hazard personCreditSQL's header is written
+	// about. A book's publisher stays the plain fact 0061 made it until somebody
+	// decides that trade is worth making.
+	RolePublisher: {"movies", "publisher"},
 }
 
 // CreditSep is what a recomposed column joins with WHEN IT HAS TO BE REWRITTEN.
@@ -350,16 +365,27 @@ func SyncCreditsFromColumns(tx *sql.Tx, uid int64, kind string, workID int64, se
 		}
 		return nil
 	case "movie":
-		var director sql.NullString
+		var director, publisher sql.NullString
 		err := tx.QueryRow(
-			`SELECT director FROM movies WHERE id = ? AND user_id = ?`, workID, uid).Scan(&director)
+			`SELECT director, publisher FROM movies WHERE id = ? AND user_id = ?`, workID, uid).Scan(&director, &publisher)
 		if err == sql.ErrNoRows {
 			return nil
 		}
 		if err != nil {
 			return fmt.Errorf("read movie credits: %w", err)
 		}
-		return SetCredits(tx, uid, kind, workID, RoleDirector, metadata.SplitCredits(director.String, seps), seps)
+		for _, c := range []struct {
+			role CreditRole
+			raw  sql.NullString
+		}{
+			{RoleDirector, director},
+			{RolePublisher, publisher},
+		} {
+			if err := SetCredits(tx, uid, kind, workID, c.role, metadata.SplitCredits(c.raw.String, seps), seps); err != nil {
+				return err
+			}
+		}
+		return nil
 	}
 	return fmt.Errorf("sync credits: unknown kind %q", kind)
 }

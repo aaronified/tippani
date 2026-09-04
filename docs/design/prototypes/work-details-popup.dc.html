@@ -1,0 +1,1433 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&family=Hanken+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Caveat:wght@400;600&family=Tiro+Bangla&display=swap" rel="stylesheet">
+  <script src="icons.js"></script>
+  <script src="assets/glyphs/providers.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; }
+    a { color: inherit; text-underline-offset: 3px; }
+    a:hover { color: var(--accent-ui); }
+    button:focus:not(:focus-visible) { outline: none !important; }
+    [data-strip] { cursor: grab; scrollbar-width: none; }
+    [data-strip]::-webkit-scrollbar { display: none; }
+  </style>
+</helmet>
+
+<div style="{{ stage }}" ref="{{ stageRef }}">
+  <div style="{{ rowStyle }}">
+  <sc-for list="{{ sheets }}" as="s" hint-placeholder-count="6">
+    <div id="{{ s.id }}" data-work-scope="{{ s.scope }}" data-screen-label="{{ s.qualifier }}" role="dialog" aria-label="{{ s.aria }}" style="{{ sheet }}">
+
+      <div style="{{ headerStyle }}">
+        <sc-if value="{{ s.hasBack }}" hint-placeholder-val="{{ false }}">
+          <button type="button" aria-label="Back to the fields" title="Back to the fields" style="{{ keyStyle }}" style-hover="background:var(--ihg);color:var(--ihc)" style-active="background:var(--iag);transform:var(--iat)" style-focus="outline:2px solid var(--ink-border);outline-offset:2px" onClick="{{ s.backClick }}">{{ backGlyph }}</button>
+        </sc-if>
+        <sc-if value="{{ s.hasArt }}" hint-placeholder-val="{{ true }}">
+          <span style="{{ s.scopeSlot }}" title="{{ s.scopeTitle }}">
+            <span style="{{ s.scopeArt }}"><span style="{{ s.scopeOverlay }}">{{ s.scopeGlyph }}</span></span>
+          </span>
+        </sc-if>
+        <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+          <span style="{{ titleStyle }}">{{ s.title }}</span>
+          <span style="{{ crumbStyle }}">{{ s.crumb }}</span>
+        </span>
+        <sc-if value="{{ s.hasFetch }}" hint-placeholder-val="{{ true }}">
+          <button type="button" aria-label="Fetch metadata" title="Fetch metadata" style="{{ keyStyle }}" style-hover="background:var(--ihg);color:var(--ihc)" style-active="background:var(--iag);transform:var(--iat)" style-focus="outline:2px solid var(--ink-border);outline-offset:2px" onClick="{{ s.fetchClick }}">{{ fetchGlyph }}</button>
+        </sc-if>
+        <sc-if value="{{ s.hasDone }}" hint-placeholder-val="{{ true }}">
+          <button type="button" aria-label="{{ s.doneTitle }}" title="{{ s.doneTitle }}" style="{{ s.doneStyle }}" style-hover="background:var(--ihg);color:var(--ihc)" style-active="background:var(--iag);transform:var(--iat)" style-focus="outline:2px solid var(--ink-border);outline-offset:2px" onClick="{{ s.doneClick }}">
+            {{ checkGlyph }}
+            <sc-if value="{{ s.openCount }}" hint-placeholder-val="{{ false }}">
+              <span style="{{ s.openDot }}">{{ s.openCount }}</span>
+            </sc-if>
+          </button>
+        </sc-if>
+        <button type="button" aria-label="Close" title="Close" style="{{ closeKeyStyle }}" style-hover="background:var(--ihg);color:var(--ihc)" style-active="background:var(--iag);transform:var(--iat)" style-focus="outline:2px solid var(--ink-border);outline-offset:2px" onClick="{{ s.closeClick }}">{{ closeGlyph }}</button>
+      </div>
+
+      <div style="display:flex;flex-wrap:wrap;align-items:stretch;padding:12px 6px 16px">
+
+        <sc-if value="{{ s.hasArtwork }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;align-items:flex-start;gap:14px;padding:2px 10px 6px">
+          <span style="{{ s.artBox }}"><span style="{{ s.artOverlay }}">{{ s.artBadge }}</span></span>
+          <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:9px">
+            <span style="{{ s.pxStyle }}">{{ s.pxText }}</span>
+            <!-- THE REPO'S 2×2 GRID: four ways a picture arrives, two to a line, so no row
+                 of them can wrap unevenly against the artwork's height. -->
+            <span style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+              <sc-for list="{{ s.artActions }}" as="a" hint-placeholder-count="4">
+                <button type="button" title="{{ a.title }}" style="{{ a.style }}" style-hover="filter:var(--ihf);box-shadow:var(--ihs);border-color:var(--ihb)" style-active="filter:var(--iaf);box-shadow:var(--ias);border-color:var(--iab);transform:var(--iat)" style-focus="outline:2px solid var(--ink-border);outline-offset:2px" onClick="{{ a.onClick }}">
+                  <span style="{{ a.iconStyle }}">{{ a.icon }}</span>
+                  <span>{{ a.label }}</span>
+                </button>
+              </sc-for>
+            </span>
+          </span>
+        </div>
+        </sc-if>
+
+        <sc-for list="{{ s.rows }}" as="r" hint-placeholder-count="12">
+          <div style="{{ r.wrap }}">
+
+            <sc-if value="{{ r.isHead }}" hint-placeholder-val="{{ false }}">
+              <span style="{{ r.headStyle }}">{{ r.label }}</span>
+              <sc-for list="{{ r.actions }}" as="a" hint-placeholder-count="0">
+                <button type="button" title="{{ a.title }}" style="{{ a.style }}" style-hover="filter:var(--ihf);box-shadow:var(--ihs);border-color:var(--ihb)" style-active="filter:var(--iaf);transform:var(--iat)" style-focus="outline:2px solid var(--ink-border);outline-offset:2px" onClick="{{ a.onClick }}">
+                  <span style="{{ a.iconStyle }}">{{ a.icon }}</span>
+                  <span>{{ a.label }}</span>
+                </button>
+              </sc-for>
+            </sc-if>
+
+            <sc-if value="{{ r.isField }}" hint-placeholder-val="{{ false }}">
+              <div style="{{ r.labelRow }}">
+                <span style="{{ r.flabelStyle }}">{{ r.label }}</span>
+                <sc-if value="{{ r.fkey }}" hint-placeholder-val="{{ false }}">
+                  <span style="{{ r.fkeyStyle }}">{{ r.fkey }}</span>
+                </sc-if>
+                <sc-if value="{{ r.hasSrc }}" hint-placeholder-val="{{ true }}">
+                  <button type="button" aria-label="{{ r.srcTitle }}" title="{{ r.srcTitle }}" style="{{ r.srcStyle }}" style-hover="filter:var(--ihf);border-color:var(--ihb);color:var(--ink)" style-active="transform:var(--iat)" style-focus="outline:2px solid var(--ink-border);outline-offset:2px" onClick="{{ r.onSrc }}"><span style="{{ r.markStyle }}"></span></button>
+                </sc-if>
+                <span style="flex:1;min-width:0"></span>
+                <sc-if value="{{ r.closed }}" hint-placeholder-val="{{ true }}">
+                  <button type="button" aria-label="{{ r.editTitle }}" title="{{ r.editTitle }}" style="{{ r.smallKey }}" style-hover="background:var(--ihg);color:var(--ihc)" style-active="background:var(--iag);transform:var(--iat)" style-focus="outline:2px solid var(--ink-border);outline-offset:2px" onClick="{{ r.onEdit }}">{{ pencilGlyph }}</button>
+                </sc-if>
+                <sc-if value="{{ r.open }}" hint-placeholder-val="{{ false }}">
+                  <button type="button" aria-label="{{ r.saveTitle }}" title="{{ r.saveTitle }}" style="{{ r.okKey }}" style-hover="filter:var(--ihf)" style-active="filter:var(--iaf);transform:var(--iat)" style-focus="outline:2px solid var(--ink-border);outline-offset:2px" onClick="{{ r.onSave }}">{{ checkGlyph }}</button>
+                  <button type="button" aria-label="Leave it as it was" title="Leave it as it was" style="{{ r.smallKey }}" style-hover="background:var(--ihg);color:var(--ihc)" style-active="background:var(--iag);transform:var(--iat)" style-focus="outline:2px solid var(--ink-border);outline-offset:2px" onClick="{{ r.onCancel }}">{{ closeSmallGlyph }}</button>
+                </sc-if>
+              </div>
+
+              <sc-if value="{{ r.closed }}" hint-placeholder-val="{{ true }}">
+                <button type="button" title="{{ r.editTitle }}" style="{{ r.valueBtn }}" style-hover="background:var(--ihg)" style-active="background:var(--iag)" style-focus="outline:2px solid var(--ink-border);outline-offset:2px" onClick="{{ r.onEdit }}">
+                  <sc-if value="{{ r.hasChip }}" hint-placeholder-val="{{ false }}">
+                    <span style="{{ r.chipStyle }}"><span style="{{ r.chipInner }}"></span></span>
+                  </sc-if>
+                  <span style="{{ r.valueStyle }}">{{ r.value }}</span>
+                </button>
+              </sc-if>
+
+              <sc-if value="{{ r.open }}" hint-placeholder-val="{{ false }}">
+                <sc-if value="{{ r.isText }}" hint-placeholder-val="{{ true }}">
+                  <input style="{{ r.inputStyle }}" value="{{ r.draft }}" aria-label="{{ r.label }}" placeholder="{{ r.placeholder }}" onChange="{{ r.onInput }}" onKeyDown="{{ r.onKey }}" />
+                </sc-if>
+                <sc-if value="{{ r.isLong }}" hint-placeholder-val="{{ false }}">
+                  <textarea style="{{ r.areaStyle }}" value="{{ r.draft }}" aria-label="{{ r.label }}" placeholder="{{ r.placeholder }}" onChange="{{ r.onInput }}"></textarea>
+                </sc-if>
+                <!-- SUGGESTED OUT OF THE APP'S OWN PEOPLE, so a credit joins an existing
+                     record rather than founding a second spelling of it. -->
+                <sc-if value="{{ r.hasSugg }}" hint-placeholder-val="{{ false }}">
+                  <div style="{{ r.chipRow }}">
+                    <sc-for list="{{ r.sugg }}" as="g" hint-placeholder-count="3">
+                      <button type="button" title="{{ g.label }}" style="{{ g.style }}" style-hover="filter:var(--ihf);border-color:var(--ihb)" style-active="transform:var(--iat)" style-focus="outline:2px solid var(--ink-border);outline-offset:2px" onClick="{{ g.onClick }}">
+                        <span style="{{ g.faceStyle }}"><span style="{{ g.faceInner }}"></span></span>
+                        <span style="{{ g.nameStyle }}">{{ g.label }}</span>
+                      </button>
+                    </sc-for>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ r.isChips }}" hint-placeholder-val="{{ false }}">
+                  <div style="{{ r.chipRow }}">
+                    <sc-for list="{{ r.chips }}" as="c" hint-placeholder-count="3">
+                      <button type="button" aria-pressed="{{ c.on }}" style="{{ c.style }}" style-hover="filter:var(--ihf);border-color:var(--ihb)" style-active="transform:var(--iat)" style-focus="outline:2px solid var(--ink-border);outline-offset:2px" onClick="{{ c.onClick }}">{{ c.label }}</button>
+                    </sc-for>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ r.isTokens }}" hint-placeholder-val="{{ false }}">
+                  <div style="{{ r.chipRow }}">
+                    <sc-for list="{{ r.tokens }}" as="t" hint-placeholder-count="3">
+                      <span style="{{ t.style }}">
+                        <span>{{ t.label }}</span>
+                        <button type="button" aria-label="{{ t.dropTitle }}" title="{{ t.dropTitle }}" style="{{ t.dropStyle }}" style-hover="color:var(--error)" style-focus="outline:2px solid var(--ink-border);outline-offset:2px" onClick="{{ t.onDrop }}">{{ closeSmallGlyph }}</button>
+                      </span>
+                    </sc-for>
+                  </div>
+                  <input style="{{ r.inputStyle }}" value="{{ r.tokenDraft }}" aria-label="Add a genre" placeholder="{{ r.placeholder }}" onChange="{{ r.onTokenInput }}" onKeyDown="{{ r.onTokenKey }}" />
+                </sc-if>
+              </sc-if>
+            </sc-if>
+
+            <!-- THE ID ROW: a link per provider, wearing that provider's mark, scrolling
+                 under the 26px fade; one control at the end opens all the ids together in a
+                 popup of fields, because they are edited on the same errand.
+
+                 THE CONTROL IS A PILL DRAWN RATHER THAN FILLED — dashed outline, no
+                 background — since the ids are links and it is not one. It is 38px inside
+                 the row's 40px, inset a pixel top and bottom: a dashed edge reads a hair
+                 TALLER than a solid one at the same height, because the broken line lets the
+                 background through and the eye takes the gaps as part of the shape. The
+                 pixel it gives up is what makes it look equal, which is the measurement that
+                 matters; the tap target keeps the row's own height via the margin. -->
+            <sc-if value="{{ r.isPills }}" hint-placeholder-val="{{ false }}">
+              <div style="{{ r.stripStyle }}" data-strip="1" ref="{{ r.stripRef }}" onPointerDown="{{ r.onStripDown }}" onClickCapture="{{ swallowClick }}">
+                <sc-for list="{{ r.pills }}" as="p" hint-placeholder-count="3">
+                  <a href="{{ p.href }}" target="_blank" rel="noopener noreferrer" title="{{ p.title }}" style="{{ p.style }}" style-hover="filter:var(--ihf);box-shadow:var(--ihs);border-color:var(--ihb)" style-active="filter:var(--iaf);transform:var(--iat)" style-focus="outline:2px solid var(--ink-border);outline-offset:2px">
+                    <span style="{{ p.markStyle }}"></span>
+                    <span style="{{ p.labelStyle }}">{{ p.label }}</span>
+                  </a>
+                </sc-for>
+                <button type="button" title="{{ r.editTitle }}" style="{{ r.editStyle }}" style-hover="background:var(--ihg);color:var(--ihc)" style-active="background:var(--iag);transform:var(--iat)" style-focus="outline:2px solid var(--ink-border);outline-offset:2px" onClick="{{ r.onEdit }}">
+                  <span style="{{ r.editIconStyle }}">{{ pencilGlyph }}</span>
+                  <span>{{ r.editLabel }}</span>
+                </button>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ r.isStrip }}" hint-placeholder-val="{{ false }}">
+              <div style="{{ r.stripStyle }}" data-strip="1" ref="{{ r.stripRef }}" onPointerDown="{{ r.onStripDown }}" onClickCapture="{{ swallowClick }}">
+                <sc-for list="{{ r.tiles }}" as="t" hint-placeholder-count="6">
+                  <button type="button" title="{{ t.title }}" style="{{ t.style }}" style-hover="color:var(--accent-ui)" style-focus="outline:2px solid var(--ink-border);outline-offset:2px" onClick="{{ t.onClick }}">
+                    <span style="{{ t.faceStyle }}"><span style="{{ t.faceInner }}"></span></span>
+                    <span style="{{ t.charStyle }}">{{ t.char }}</span>
+                    <span style="{{ t.byStyle }}">{{ t.by }}</span>
+                  </button>
+                </sc-for>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ r.isCand }}" hint-placeholder-val="{{ false }}">
+              <button type="button" title="{{ r.pickTitle }}" style="{{ r.candStyle }}" style-hover="filter:var(--ihf);box-shadow:var(--ihs);border-color:var(--ihb)" style-active="filter:var(--iaf);transform:var(--iat)" style-focus="outline:2px solid var(--ink-border);outline-offset:2px" onClick="{{ r.onPick }}">
+                <span style="{{ r.candArt }}"></span>
+                <span style="{{ r.candWrap }}">
+                  <span style="{{ r.candTitle }}">{{ r.label }}</span>
+                  <span style="{{ r.candMeta }}">{{ r.meta }}</span>
+                  <span style="{{ r.pxStyle }}">{{ r.px }}</span>
+                </span>
+                <span style="{{ r.candSrc }}"><span style="{{ r.markStyle }}"></span></span>
+              </button>
+            </sc-if>
+
+            <sc-if value="{{ r.isTake }}" hint-placeholder-val="{{ false }}">
+              <button type="button" aria-pressed="{{ r.take }}" title="{{ r.rowTitle }}" style="{{ r.takeStyle }}" style-hover="filter:var(--ihf);border-color:var(--ihb)" style-active="transform:var(--iat)" style-focus="outline:2px solid var(--ink-border);outline-offset:2px" onClick="{{ r.onToggle }}">
+                <span style="{{ r.boxStyle }}">{{ r.tick }}</span>
+                <span style="{{ r.takeWrap }}">
+                  <span style="{{ r.tlabelStyle }}">{{ r.label }}</span>
+                  <sc-if value="{{ r.isArt }}" hint-placeholder-val="{{ false }}">
+                    <span style="{{ r.artPair }}">
+                      <span style="{{ r.sideWrap }}">
+                        <span style="{{ r.yoursArt }}"></span>
+                        <span style="{{ r.yoursPxStyle }}">{{ r.yoursPx }}</span>
+                      </span>
+                      <span style="{{ r.sideWrap }}">
+                        <span style="{{ r.theirsArt }}"></span>
+                        <span style="{{ r.theirsPxStyle }}">{{ r.theirsPx }}</span>
+                      </span>
+                    </span>
+                  </sc-if>
+                  <sc-if value="{{ r.isValues }}" hint-placeholder-val="{{ true }}">
+                    <span style="{{ r.oldStyle }}">{{ r.yours }}</span>
+                    <span style="{{ r.newStyle }}">{{ r.theirs }}</span>
+                  </sc-if>
+                </span>
+              </button>
+            </sc-if>
+
+            <sc-if value="{{ r.isFoot }}" hint-placeholder-val="{{ false }}">
+              <button type="button" style="{{ r.primaryStyle }}" style-hover="filter:var(--ihf)" style-active="filter:var(--iaf);transform:var(--iat)" style-focus="outline:2px solid var(--ink-border);outline-offset:2px" onClick="{{ r.onPrimary }}">{{ r.primaryLabel }}</button>
+              <sc-if value="{{ r.ghostLabel }}" hint-placeholder-val="{{ false }}">
+                <button type="button" title="{{ r.ghostTitle }}" style="{{ r.ghostStyle }}" style-hover="filter:var(--ihf);box-shadow:var(--ihs);border-color:var(--ihb)" style-active="filter:var(--iaf);transform:var(--iat)" style-focus="outline:2px solid var(--ink-border);outline-offset:2px" onClick="{{ r.onGhost }}">{{ r.ghostLabel }}</button>
+              </sc-if>
+            </sc-if>
+
+            <sc-if value="{{ r.isTools }}" hint-placeholder-val="{{ false }}">
+              <sc-for list="{{ r.tools }}" as="t" hint-placeholder-count="2">
+                <button type="button" title="{{ t.title }}" style="{{ t.style }}" style-hover="filter:var(--ihf);box-shadow:var(--ihs);border-color:var(--ihb)" style-active="filter:var(--iaf);transform:var(--iat)" style-focus="outline:2px solid var(--ink-border);outline-offset:2px" onClick="{{ t.onClick }}">
+                  <span style="{{ t.iconStyle }}">{{ t.icon }}</span>
+                  <span>{{ t.label }}</span>
+                </button>
+              </sc-for>
+            </sc-if>
+
+            <sc-if value="{{ r.isEmpty }}" hint-placeholder-val="{{ false }}">
+              <span style="{{ r.emptyStyle }}">{{ r.label }}</span>
+            </sc-if>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-for>
+  </div>
+
+  <sc-if value="{{ pickerOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="{{ scrim }}" onClick="{{ closePicker }}">
+      <div role="dialog" aria-modal="true" aria-label="{{ pickerTitle }}" style="{{ pickerBox }}" onClick="{{ stopBubble }}">
+        <span style="{{ dialogTitleStyle }}">{{ pickerTitle }}</span>
+        <sc-if value="{{ pickerHasFields }}" hint-placeholder-val="{{ false }}">
+          <div style="{{ pickerFieldsWrap }}">
+            <sc-for list="{{ pickerFields }}" as="fd" hint-placeholder-count="3">
+              <label style="{{ fd.wrap }}">
+                <span style="{{ fd.labelRow }}">
+                  <span style="{{ fd.markStyle }}"></span>
+                  <span style="{{ fd.labelStyle }}">{{ fd.label }}</span>
+                </span>
+                <input style="{{ fd.inputStyle }}" value="{{ fd.value }}" placeholder="{{ fd.placeholder }}" aria-label="{{ fd.label }}" onChange="{{ fd.onInput }}" />
+              </label>
+            </sc-for>
+          </div>
+        </sc-if>
+        <div style="{{ pickerRows }}">
+          <sc-for list="{{ pickerOptions }}" as="o" hint-placeholder-count="3">
+            <button type="button" style="{{ o.style }}" style-hover="filter:var(--ihf);box-shadow:var(--ihs);border-color:var(--ihb)" style-active="filter:var(--iaf);transform:var(--iat)" style-focus="outline:2px solid var(--ink-border);outline-offset:2px" onClick="{{ o.onClick }}">
+              <sc-if value="{{ o.hasMark }}" hint-placeholder-val="{{ true }}">
+                <span style="{{ o.markStyle }}"></span>
+              </sc-if>
+              <sc-if value="{{ o.icon }}" hint-placeholder-val="{{ false }}">
+                <span style="{{ o.iconStyle }}">{{ o.icon }}</span>
+              </sc-if>
+              <span style="{{ o.nameStyle }}">{{ o.label }}</span>
+              <sc-if value="{{ o.meta }}" hint-placeholder-val="{{ false }}">
+                <span style="{{ o.metaStyle }}">{{ o.meta }}</span>
+              </sc-if>
+            </button>
+          </sc-for>
+        </div>
+        <div style="{{ pickerFoot }}">
+          <sc-if value="{{ pickerHasFields }}" hint-placeholder-val="{{ false }}">
+            <button type="button" style="{{ pickerSaveStyle }}" style-hover="filter:var(--ihf)" style-active="filter:var(--iaf);transform:var(--iat)" style-focus="outline:2px solid var(--ink-border);outline-offset:2px" onClick="{{ pickerSaveClick }}">Save</button>
+          </sc-if>
+          <button type="button" style="{{ cancelStyle }}" style-hover="filter:var(--ihf);box-shadow:var(--ihs);border-color:var(--ihb)" style-active="filter:var(--iaf);transform:var(--iat)" style-focus="outline:2px solid var(--ink-border);outline-offset:2px" onClick="{{ closePicker }}">Close</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <div style="{{ toastStyle }}">{{ toastMsg }}</div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1728,&quot;height&quot;:2400},&quot;mode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Light&quot;,&quot;Dark&quot;],&quot;default&quot;:&quot;Dark&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Appearance&quot;},&quot;accent&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;options&quot;:[&quot;#B4482D&quot;,&quot;#C8992B&quot;,&quot;#3F7D5A&quot;,&quot;#2F6D8F&quot;],&quot;default&quot;:&quot;#B4482D&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Appearance&quot;},&quot;typeSize&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;16&quot;,&quot;18&quot;,&quot;20&quot;,&quot;24&quot;],&quot;default&quot;:&quot;16&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Type&quot;},&quot;fieldKeys&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Checking&quot;}}">
+class Component extends DCLogic {
+  // ═══ THE WORK'S DETAILS PANEL — WorkDetails.jsx, redesigned on the shipped stylesheet.
+  //
+  // Six columns: the four media field lists, then the panel's two other surfaces — the
+  // MATCH PICKER (work-picker) and what the fetch came back with (work-fetched), approved
+  // one field at a time.
+  //
+  //   · THE MEDIUM DECIDES THE FIELD LIST (specsFor): a game carries IGDB and a publisher
+  //     and none of the three film ids; MEDIA_LABELS puts STUDIO on a game where a show says
+  //     CREATOR and a film says DIRECTOR.
+  //   · A FIELD SAVES ITSELF: read at rest, pencil to edit, ✓ writes that one field.
+  //   · THE SOURCE IS PER FIELD and wears the provider's own mark. NO MARK MEANS YOU TYPED
+  //     IT — the absence is the signal, so a screen of your own values carries no badges.
+  //   · THE ✓ MEANS DONE, never inert: it commits whatever is open, in one request, and
+  //     leaves. The dot is the count of open rows.
+  //   · NO PROSE. Every paragraph on this screen was a caption for a control that can say it
+  //     itself; the labels, the marks and the two words on a button carry the meaning.
+  //   · DELETING A WORK IS NOT AN EDIT TO IT — that verb belongs to the ⋯ menu and the
+  //     selection bar, not to the panel you opened to fix a year in.
+  state = { toast: null, W: 0, edits: {}, tdraft: {}, take: {}, picker: null, idr: {} }
+
+  say = (msg) => () => {
+    clearTimeout(this._t)
+    this.setState({ toast: msg })
+    this._t = setTimeout(() => this.setState({ toast: null }), 2800)
+  }
+  flash = (msg) => {
+    clearTimeout(this._t)
+    this._t = setTimeout(() => this.setState({ toast: null }), 2800)
+    return msg
+  }
+
+  edit = (id, value) => () => this.setState((s) => ({ edits: { ...s.edits, [id]: value } }))
+  drop = (id) => () => this.setState((s) => {
+    const e = { ...s.edits }; delete e[id]
+    const t = { ...s.tdraft }; delete t[id]
+    return { edits: e, tdraft: t }
+  })
+  type = (id) => (e) => {
+    const v = e.target.value
+    this.setState((s) => ({ edits: { ...s.edits, [id]: v } }))
+  }
+  commit = (id, msg) => () => this.setState((s) => {
+    const e = { ...s.edits }; delete e[id]
+    const t = { ...s.tdraft }; delete t[id]
+    return { edits: e, tdraft: t, toast: this.flash(msg) }
+  })
+  // ENTER COMMITS THE ROW, ESCAPE LEAVES IT — on the input itself, never on a form. A
+  // default submit button plus an inner form is how Enter in a cast row used to close the
+  // whole panel without adding the character.
+  keyRow = (id, msg) => (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); this.commit(id, msg)() }
+    else if (e.key === 'Escape') { e.preventDefault(); this.drop(id)() }
+  }
+  setToken = (id) => (e) => {
+    const v = e.target.value
+    this.setState((s) => ({ tdraft: { ...s.tdraft, [id]: v } }))
+  }
+  addToken = (id) => (e) => {
+    if (e.key !== 'Enter') return
+    e.preventDefault()
+    const raw = (this.state.tdraft[id] || '').trim()
+    if (!raw) return
+    this.setState((s) => ({
+      edits: { ...s.edits, [id]: [...(s.edits[id] || []), raw] },
+      tdraft: { ...s.tdraft, [id]: '' },
+    }))
+  }
+  dropToken = (id, i) => () => this.setState((s) => ({
+    edits: { ...s.edits, [id]: (s.edits[id] || []).filter((_, n) => n !== i) },
+  }))
+  setChip = (id, v) => () => this.setState((s) => ({ edits: { ...s.edits, [id]: v } }))
+
+  toggleTake = (k) => () => this.setState((s) => ({ take: { ...s.take, [k]: !s.take[k] } }))
+  setAll = (keys, v) => () => this.setState((s) => {
+    const t = { ...s.take }
+    keys.forEach((k) => { t[k] = v })
+    return { take: t }
+  })
+
+  openPicker = (cfg) => () => {
+    const idr = {}
+    ;(cfg.fields || []).forEach((fd) => { idr[fd.key] = fd.value || '' })
+    this.setState({ picker: cfg, idr })
+  }
+  setId = (key) => (e) => {
+    const v = e.target.value
+    this.setState((s) => ({ idr: { ...s.idr, [key]: v } }))
+  }
+  closePicker = () => this.setState({ picker: null })
+  stopBubble = (e) => e.stopPropagation()
+
+  doneClick = (screen, n) => () => this.setState((s) => {
+    const e = { ...s.edits }
+    const t = { ...s.tdraft }
+    Object.keys(e).forEach((k) => {
+      if (k.indexOf(screen + '.') === 0) { delete e[k]; delete t[k] }
+    })
+    return { edits: e, tdraft: t,
+      toast: this.flash(n
+        ? `${n} field${n > 1 ? 's' : ''} saved in one request — and the panel closes`
+        : 'Closed — every row had already saved itself') }
+  })
+
+  stageRef = (el) => {
+    this._el = el
+    if (!el || this._ro) return
+    this._ro = new ResizeObserver(() => {
+      const w = this._el ? this._el.clientWidth : 0
+      if (w && Math.abs(w - this.state.W) > 1) this.setState({ W: w })
+    })
+    this._ro.observe(el)
+    this.setState({ W: el.clientWidth })
+  }
+  stripRef = (m) => (el) => { this._strips = this._strips || {}; this._strips[m] = el }
+  // A SCROLLING ROW MUST BE REACHABLE BY POINTER — overflow-x alone is a touch-only
+  // affordance, and these are phones drawn on a desk. Past 3px the click is swallowed, so
+  // dragging the cast row never opens the face you dragged past.
+  stripDown = (m) => (e) => {
+    if (e.button != null && e.button !== 0) return
+    const el = (this._strips || {})[m]
+    if (!el) return
+    this._drag = { el, x0: e.clientX, sl0: el.scrollLeft, moved: false }
+    window.addEventListener('pointermove', this.dragMove)
+    window.addEventListener('pointerup', this.dragUp)
+    window.addEventListener('pointercancel', this.dragUp)
+  }
+  dragMove = (e) => {
+    const d = this._drag; if (!d) return
+    const dx = (e.clientX - d.x0) / (this._zoom || 1)
+    if (!d.moved && Math.abs(dx) < 3) return
+    d.moved = true
+    d.el.scrollLeft = d.sl0 - dx
+  }
+  dragUp = () => {
+    const d = this._drag
+    window.removeEventListener('pointermove', this.dragMove)
+    window.removeEventListener('pointerup', this.dragUp)
+    window.removeEventListener('pointercancel', this.dragUp)
+    this._drag = null
+    if (!d) return
+    this._swallow = d.moved
+    setTimeout(() => { this._swallow = false }, 0)
+  }
+  swallowClick = (e) => { if (this._swallow) { e.preventDefault(); e.stopPropagation() } }
+
+  componentWillUnmount() { clearTimeout(this._t); if (this._ro) this._ro.disconnect() }
+
+  renderVals() {
+    const LIB = window.TippaniIcons || { ICONS: {}, HATCH: '', SILHOUETTE: '', icon: null }
+    const ico = (n, s) => (LIB.icon && LIB.ICONS[n] ? LIB.icon(React, n, s || 19) : null)
+    // A SERIES IS A TELEVISION — the one shape nothing else in the set claims. Drawn to the
+    // pack's conventions (24 box, 1.85 stroke, round caps) because ui.jsx has no glyph for a
+    // show; `nowPlaying` is the controller and is used verbatim, since the repo's icon test
+    // fails near-duplicates.
+    const tv = (size) => React.createElement('svg', { width: size, height: size,
+      viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.85,
+      strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': 'true' }, [
+      React.createElement('rect', { key: 'b', x: 2.5, y: 7.5, width: 19, height: 13, rx: 2 }),
+      React.createElement('path', { key: 'a', d: 'M8 3.2 12 7.5l4-4.3' }),
+    ])
+    const controller = (size) => ico('nowPlaying', size) || tv(size)
+    const glyph = (name, size) => (name === 'controller' ? controller(size)
+      : name === 'tv' ? tv(size) : ico(name, size))
+
+    const dark = (this.props.mode || 'Dark') !== 'Light'
+    const accent = this.props.accent || '#B4482D'
+    const rootPx = parseFloat(this.props.typeSize) || 16
+    const showKeys = this.props.fieldKeys === true
+
+    const P = dark
+      ? { bg: '#262019', raised: '#2A231C', card: '#2F2820', cardTop: '#352D23',
+          ink: '#EFE6D4', soft: '#B3A48C', faint: '#9A8C74', line: '#453B2D',
+          inkBorder: 'rgba(239,230,212,.4)', error: '#C96B5B', sh: '0,0,0',
+          bevelHi: 'rgba(255,255,255,.07)', bevelMid: 'rgba(255,255,255,.05)' }
+      : { bg: '#F4EDDE', raised: '#FBF6EA', card: '#FFFEF9', cardTop: '#FFFFFC',
+          ink: '#221C16', soft: '#6A5F50', faint: '#8A7C68', line: '#E4DAC7',
+          inkBorder: 'rgba(41,38,29,.6)', error: '#A93B26', sh: '41,38,29',
+          bevelHi: 'rgba(255,255,255,.75)', bevelMid: 'rgba(255,255,255,.35)' }
+
+    const lum = (hex) => {
+      const m = /^#?([0-9a-f]{6})$/i.exec(hex); if (!m) return .3
+      const n = parseInt(m[1], 16)
+      const ch = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => {
+        const c = v / 255; return c <= .04045 ? c / 12.92 : ((c + .055) / 1.055) ** 2.4
+      })
+      return .2126 * ch[0] + .7152 * ch[1] + .0722 * ch[2]
+    }
+    const accentUI = dark && lum(accent) <= .32
+      ? `color-mix(in oklab,${accent},white 42%)` : accent
+
+    const tokens =
+      `--u:${(rootPx / 16).toFixed(4)};--bg:${P.bg};--raised:${P.raised};--card:${P.card};` +
+      `--card-top:${P.cardTop};--ink:${P.ink};--soft:${P.soft};--faint:${P.faint};` +
+      `--line:${P.line};--ink-border:${P.inkBorder};--error:${P.error};--sh:${P.sh};` +
+      `--bevel-hi:${P.bevelHi};--bevel-mid:${P.bevelMid};--accent:${accent};` +
+      `--accent-ui:${accentUI};` +
+      `--font-display:'Newsreader','Tiro Bangla',Georgia,serif;` +
+      `--font-ui:'Hanken Grotesk','Tiro Bangla',system-ui,sans-serif;` +
+      `--font-mono:'IBM Plex Mono',ui-monospace,monospace;` +
+      `--font-hand:'Caveat','Tiro Bangla',cursive;`
+
+    const mono = (px, col) => `font-family:var(--font-mono);font-size:calc(${px}px*var(--u,1));` +
+      `color:${col};letter-spacing:.08em;font-weight:500`
+    const btnReset = 'background:0 0;border:0;padding:0;cursor:pointer;font:inherit'
+    const TR = 'transition:background .12s ease,color .12s ease,border-color .12s ease,' +
+      'box-shadow .12s ease,filter .12s ease,transform .09s ease;'
+    const GHOST = '--ihg:color-mix(in oklab,var(--ink),transparent 94%);--ihc:var(--ink);' +
+      '--iag:color-mix(in oklab,var(--ink),transparent 88%);--iat:scale(.99);'
+    const RAISED = '--ihf:brightness(.955);--ihb:var(--ink-border);' +
+      '--ihs:0 11px 20px -12px rgba(var(--sh),.7),inset 0 1px var(--bevel-mid);' +
+      '--iaf:brightness(.9);--iab:var(--ink-border);--iat:translateY(1.5px);' +
+      '--ias:inset 0 2px 5px -1px rgba(0,0,0,.3);'
+    const HATCH = LIB.HATCH || 'background:var(--raised)'
+    const SILH = LIB.SILHOUETTE || 'background:var(--faint)'
+    const BOOK_R = 'border-radius:3px 7px 4px 6px'
+    const FLAT_R = 'border-radius:4px'
+    // SPACING IS A CONSTANT: one horizontal margin, named once.
+    const EDGE = 10
+    // ARTWORK IS 2:3 WHATEVER THE MEDIUM. Box art arrives square from IGDB and a square tile
+    // beside three portraits reads as a cropping bug; the frame is the shelf's shape and the
+    // picture fills it (background-size:cover), which is what every board already does.
+    const ART_W = 96
+    const ART_H = 144
+    const img = (url, pos) => `background-image:url("${url}");background-size:cover;` +
+      `background-position:${pos};background-repeat:no-repeat;`
+
+    // ── THE PROVIDER MARKS, vendored from Simple Icons and inlined as data-URI masks, so
+    // each takes the theme's ink rather than its brand colour. Open Library has no mark in
+    // the pack and the Internet Archive runs it, so that is the honest one to wear.
+    const MARKS = window.SiteMarks || {}
+    const SRC = {
+      OL: ['internetarchive', 'Open Library'],
+      GB: ['google', 'Google Books'],
+      AZ: ['amazon', 'Amazon'],
+      TMDB: ['themoviedatabase', 'TMDB'],
+      TVDB: ['thetvdb', 'TheTVDB'],
+      IGDB: ['igdb', 'IGDB'],
+      IMDB: ['imdb', 'IMDb'],
+    }
+    const markCss = (key, size) => {
+      const url = MARKS[key]
+      return `width:${size}px;height:${size}px;display:block;flex:none;background:currentColor;` +
+        (url
+          ? `-webkit-mask:url("${url}") center/100% 100% no-repeat;` +
+            `mask:url("${url}") center/100% 100% no-repeat;`
+          : '')
+    }
+
+    const BOOK_ART = img('https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Fmedia.harrypotterfanzone.com%2Fdeathly-hallows-us-childrens-edition-2013.jpg&f=1&nofb=1&ipt=a16d21a6022d749e616a1ad146ea708c3439b9d1bf81fa4c89610a14b47f8dbb', '50% 50%')
+    const FILM_ART = img('https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Fwww.themoviedb.org%2Ft%2Fp%2Foriginal%2FgboH1EjQOtkMK8i9FTsTvY2iCOc.jpg&f=1&nofb=1&ipt=f18387368f4c111ac82089b581b63f94e04f58f52aaf48347c0cf37d5abad275', '50% 50%')
+    const FILM_ALT = img('https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Fi.ytimg.com%2Fvi%2F_ihVsEYQP8E%2Fmaxresdefault.jpg&f=1&nofb=1&ipt=0d4103034f59bf4f6b721fd33d7cdbe5b6703562ccaf314e5b9848a045e0b1fb', '60% 40%')
+    const GAME_ART = img('https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Fimages.squarespace-cdn.com%2Fcontent%2Fv1%2F5c71c7d8aadd342945360ba1%2F1573857413480-QFN13VQTB6PT8YKMXE93%2FPC.jpg&f=1&nofb=1&ipt=d2b818cfde1541c6f2c6bf2b966c9686ed1c314edcc2592cb1b44cd7477ddf56', '50% 40%')
+    const ACTOR_FACE = img('https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Fresize.elle.fr%2Fportrait%2Fvar%2Fplain_site%2Fstorage%2Fimages%2Fpersonnalites%2Fdaniel-radcliffe%2F103506767-1-fre-FR%2FDaniel-Radcliffe.jpg&f=1&nofb=1&ipt=c5fc1ae56fe18e0cd0cb3c533f21e5b7d6c15880b20ad39c6aafa62159061a6e', '50% 18%')
+    const VOICE_FACE = img('https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Fstatic.wikia.nocookie.net%2Fharrypotter%2Fimages%2F8%2F8d%2FAdam_Sopp_1.jpg%2Frevision%2Flatest%2Fscale-to-width-down%2F1200%3Fcb%3D20230322001018&f=1&nofb=1&ipt=3cff0838b51d0d6ddda114a584e29484e646a406ca7d0bc72c5c1695e0ed7106', '50% 20%')
+    const BOOK_FACE = img('https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Fw7.pngwing.com%2Fpngs%2F586%2F651%2Fpng-transparent-harry-potter-and-the-deathly-hallows-fan-art-harry-potter-fictional-character-cartoon-painting.png&f=1&nofb=1&ipt=2a9880303cefa4cbc2280325a02cf1da223470ab03f107151211215508087815', '50% 22%')
+
+    // ── THE PEOPLE THE APP ALREADY KNOWS. Two have photographs and the rest do not, which
+    // is the normal state of a library — every credit chip has to look right with a
+    // silhouette in it, since that is what most of them will wear.
+    const PEOPLE = [
+      ['J. K. Rowling', ''],
+      ['Joanne Rowling', ''],
+      ['Mary GrandPré', ''],
+      ['David Yates', ''],
+      ['Basu Chatterjee', ''],
+      ['Daniel Radcliffe', ACTOR_FACE],
+      ['Adam Sopp', VOICE_FACE],
+      ['শঙ্খ ঘোষ চট্টোপাধ্যায়', ''],
+    ]
+    // AN ORGANISATION IS NOT A PERSON, so it does not wear the round chip: a studio or a
+    // publisher takes the square-cut tile and the .ph hatch, because a silhouette where a
+    // company belongs claims a person nobody has named.
+    const ORGS = ['EA Bright Light', 'Electronic Arts', 'Bloomsbury', 'Scholastic',
+      'Warner Bros. Pictures', 'Doordarshan']
+    const faceOf = (name) => {
+      const hit = PEOPLE.find((p) => p[0] === name)
+      return hit ? hit[1] : ''
+    }
+
+    const BLANK = { isHead: false, isField: false, isStrip: false, isCand: false, isTake: false,
+      isFoot: false, isTools: false, isEmpty: false, isPills: false }
+
+    // ── TWO FIELDS THAT ANSWER ONE QUESTION SHARE A ROW. A type and a year, a series and its
+    // number: neither is a sentence on its own, and a row each gave them 104px of height to
+    // say four words. The rows container wraps, so a `half` is a 50% row rather than a
+    // nested grid — which keeps every row a sibling and the reading order the source order.
+    // Basis rather than a hard 50%: at a fractional zoom two 50% siblings round to more than
+    // their container and the second one wraps, which is how a pair silently becomes a stack.
+    const HALF = 'flex:1 1 42%;min-width:0;'
+    const FULL = 'flex:0 0 100%;min-width:0;'
+
+    // ── A SECTION'S OWN VERB SITS IN ITS HEADING, right-aligned.
+    // ── A SECTION'S OWN VERBS SIT IN ITS HEADING, right-aligned. Two of them where a
+    // section has two: FETCHING THE CAST IS NOT DISCOVERABLE INSIDE ANOTHER BUTTON. A verb
+    // the app owns and never shows is a verb nobody has, so the fetch is printed beside Add
+    // rather than being a second choice one level down — the popup behind Add keeps both, for
+    // whoever arrives there first.
+    const head = (label, actions) => {
+      const list = !actions ? [] : (Array.isArray(actions) ? actions : [actions])
+      return { ...BLANK, isHead: true, label,
+        wrap: FULL + `display:flex;align-items:center;gap:8px;padding:18px ${EDGE}px 8px`,
+        headStyle: mono(11, 'var(--faint)') + ';letter-spacing:.14em;text-transform:uppercase;' +
+          'flex:1;min-width:0',
+        actions: list.map((a) => ({
+          label: a.label, title: a.title || a.label,
+          icon: glyph(a.icon, 16),
+          onClick: a.onClick || this.say(a.say || a.label),
+          iconStyle: 'display:inline-flex;flex:none;color:var(--soft)',
+          style: btnReset + ';flex:none;display:inline-flex;align-items:center;gap:7px;' +
+            'min-height:44px;padding:0 13px;border-radius:9px;white-space:nowrap;' +
+            'font-size:calc(13px*var(--u,1));color:var(--ink);background:var(--raised);' +
+            'border:1.4px solid var(--ink-border);' + RAISED + TR,
+        })) }
+    }
+
+    const empty = (label) => ({ ...BLANK, isEmpty: true, label,
+      wrap: FULL + `display:flex;padding:0 ${EDGE}px 4px`,
+      emptyStyle: 'font-family:var(--font-ui);font-size:calc(13px*var(--u,1));' +
+        'color:var(--faint);font-style:italic' })
+
+    // ── A FIELD IS A ROW THAT SAVES ITSELF.
+    //
+    // Rest: label · provider mark · value · pencil. Open: the editor, a ✓ that writes THIS
+    // field and a ✕ that leaves it. The value box is measured in `em` and folds by LINE
+    // COUNT, never by height.
+    const field = (screen, key, label, o = {}) => {
+      const id = screen + '.' + key
+      const open = Object.prototype.hasOwnProperty.call(this.state.edits, id)
+      const kind = o.kind || 'text'
+      const stored = o.value == null ? '' : o.value
+      const draft = open ? this.state.edits[id] : stored
+      const isTokens = kind === 'tokens'
+      const isChips = kind === 'chips'
+      const isLong = kind === 'long'
+      const blank = isTokens ? !(stored || []).length : !String(stored).trim()
+      const shown = isTokens ? (stored || []).join(' · ') : String(stored)
+      const src = SRC[o.src] ? o.src : ''
+      // A CREDIT IS A PERSON, NOT A STRING. Printed as bare text an author read like a year,
+      // so at rest a credit field wears that person's chip out of the app's own people, and
+      // the editor suggests from the same list rather than letting a second spelling in
+      // beside the first.
+      const isPerson = o.credit === 'person'
+      const isOrg = o.credit === 'org'
+      const face = isPerson ? faceOf(String(stored)) : ''
+      const pool = isPerson ? PEOPLE.map((p) => p[0]) : isOrg ? ORGS : []
+      const q = String(open ? draft : '').trim().toLowerCase()
+      const sugg = !open ? [] : pool
+        .filter((nm) => nm !== String(stored) &&
+          (!q || nm.toLowerCase().indexOf(q) > -1)).slice(0, 4)
+      return { ...BLANK, isField: true, label,
+        hasChip: !!(o.credit && !blank),
+        chipStyle: (isOrg
+          ? 'width:30px;height:30px;flex:none;border-radius:9px;'
+          : 'width:30px;height:30px;flex:none;border-radius:50%;') +
+          'overflow:hidden;display:flex;align-items:flex-end;justify-content:center;' +
+          'border:1px solid var(--line);background:var(--raised)',
+        chipInner: isOrg ? 'width:100%;height:100%;' + HATCH
+          : face ? 'width:100%;height:100%;' + face
+            : 'width:88%;height:92%;' + SILH,
+        hasSugg: sugg.length > 0,
+        sugg: sugg.map((nm) => ({
+          label: nm,
+          onClick: this.setChip(id, nm),
+          faceStyle: (isOrg
+            ? 'width:26px;height:26px;border-radius:8px;'
+            : 'width:26px;height:26px;border-radius:50%;') +
+            'flex:none;overflow:hidden;display:flex;align-items:flex-end;' +
+            'justify-content:center;border:1px solid var(--line);background:var(--card)',
+          faceInner: isOrg ? 'width:100%;height:100%;' + HATCH
+            : faceOf(nm) ? 'width:100%;height:100%;' + faceOf(nm)
+              : 'width:88%;height:92%;' + SILH,
+          style: btnReset + ';display:inline-flex;align-items:center;gap:8px;min-height:40px;' +
+            'padding:0 13px 0 5px;border-radius:999px;white-space:nowrap;color:var(--ink);' +
+            'font-size:calc(12.5px*var(--u,1));background:var(--raised);' +
+            'border:1px solid var(--line);' + RAISED + TR,
+          nameStyle: 'line-height:1',
+        })),
+        open, closed: !open,
+        isText: open && (kind === 'text' || kind === 'year' || kind === 'number' || kind === 'id'),
+        isLong: open && isLong, isTokens: open && isTokens, isChips: open && isChips,
+        draft: isTokens || isChips ? '' : String(draft),
+        tokenDraft: this.state.tdraft[id] || '',
+        placeholder: o.placeholder || (isTokens ? 'A genre, then Enter' : ''),
+        fkey: showKeys ? key : '',
+        hasSrc: !!src,
+        srcTitle: src ? `${label} — from ${SRC[src][1]}` : '',
+        markStyle: src ? markCss(SRC[src][0], 14) : '',
+        onSrc: this.openPicker({
+          title: `${label} — every source`,
+          options: (o.candidates || []).map(([s, val]) => ({
+            label: val, mark: SRC[s] ? SRC[s][0] : '',
+            meta: s === 'you' ? 'yours' : (SRC[s] ? SRC[s][1] : s),
+            done: `${label} — ${s === 'you' ? 'kept yours' : 'taken from ' + SRC[s][1]}` })),
+        }),
+        value: blank ? '—' : (o.display || shown) + (o.href ? '  ↗' : ''),
+        editTitle: `Edit ${label.toLowerCase()}`,
+        saveTitle: `Save ${label.toLowerCase()}`,
+        onEdit: this.edit(id, isTokens ? (stored || []).slice() : String(stored)),
+        onCancel: this.drop(id),
+        onSave: this.commit(id, `${label} saved`),
+        onInput: this.type(id),
+        onKey: this.keyRow(id, `${label} saved`),
+        onTokenInput: this.setToken(id),
+        onTokenKey: this.addToken(id),
+        tokens: (open && isTokens ? (this.state.edits[id] || []) : []).map((t, i) => ({
+          label: t, dropTitle: `Drop ${t}`, onDrop: this.dropToken(id, i),
+          style: 'display:inline-flex;align-items:center;gap:4px;min-height:34px;' +
+            'padding:0 6px 0 12px;border-radius:999px;font-size:calc(12.5px*var(--u,1));' +
+            'color:var(--ink);border:1px solid var(--line);background:var(--raised)',
+          dropStyle: btnReset + ';width:26px;height:26px;display:inline-flex;' +
+            'align-items:center;justify-content:center;color:var(--faint);' + TR,
+        })),
+        chips: (open && isChips ? o.options : []).map((label2) => {
+          const on = String(draft) === label2
+          return { label: label2, on, onClick: this.setChip(id, label2),
+            style: btnReset + ';min-height:38px;padding:0 14px;border-radius:999px;' +
+              'font-size:calc(12.5px*var(--u,1));white-space:nowrap;border:1px solid ' +
+              (on ? 'var(--ink-border)' : 'var(--line)') + ';' +
+              (on ? `background:color-mix(in oklab,${accent},transparent 84%);color:var(--ink);`
+                : 'background:var(--raised);color:var(--soft);') + RAISED + TR }
+        }),
+        wrap: (o.half ? HALF : FULL) +
+          `display:flex;flex-direction:column;gap:5px;padding:7px ${EDGE}px 8px;` +
+          (open
+            ? 'border-radius:11px;background:color-mix(in oklab,var(--raised),transparent 30%);' +
+              'border:1px solid var(--line);margin:2px 4px;'
+            : 'border-bottom:1px solid color-mix(in oklab,var(--line),transparent 55%);'),
+        labelRow: 'display:flex;align-items:center;gap:8px;min-height:26px',
+        flabelStyle: mono(10.5, 'var(--faint)') + ';letter-spacing:.13em;text-transform:uppercase;' +
+          'white-space:nowrap',
+        fkeyStyle: mono(9.5, 'var(--soft)') + ';letter-spacing:.05em;opacity:.75',
+        // A MARK IS A CONTROL, so it takes a real target — 28px inside the label row, which
+        // is neither a bar nor a card face.
+        srcStyle: btnReset + ';width:28px;height:28px;flex:none;border-radius:7px;' +
+          'display:inline-flex;align-items:center;justify-content:center;color:var(--soft);' +
+          'background:var(--raised);border:1px solid var(--line);' + RAISED + TR,
+        smallKey: btnReset + ';width:36px;height:36px;flex:none;border-radius:9px;' +
+          'display:inline-flex;align-items:center;justify-content:center;color:var(--soft);' +
+          GHOST + TR,
+        okKey: btnReset + ';min-width:44px;height:36px;flex:none;border-radius:9px;' +
+          'display:inline-flex;align-items:center;justify-content:center;color:#FBF6EA;' +
+          `background:${accent};border:1px solid ${accent};` +
+          '--ihf:brightness(1.06);--iaf:brightness(.94);--iat:translateY(1px);' + TR,
+        valueBtn: btnReset + ';display:flex;align-items:center;gap:9px;width:100%;' +
+          'text-align:left;border-radius:8px;padding:2px 4px 4px;' + GHOST + TR,
+        // flex:1;min-width:0 — the value now sits beside a chip in a flex row, and without
+        // these two a shrink-wrapped span resolves from min-content and ellipsises a value
+        // that had room to spare.
+        valueStyle: 'flex:1;min-width:0;' +
+          'font-family:' + (o.serif ? 'var(--font-display)' : 'var(--font-ui)') + ';' +
+          `font-size:calc(${o.serif ? 15 : 14.5}px*var(--u,1));line-height:1.5;` +
+          (blank ? 'color:var(--faint);'
+            : o.href ? 'color:var(--accent-ui);'
+              : o.mono ? mono(13, 'var(--ink)') + ';' : 'color:var(--ink);') +
+          'display:block;text-wrap:pretty;' +
+          (isLong
+            ? 'max-height:calc(3 * 1.5em);overflow:hidden;' +
+              '-webkit-mask-image:linear-gradient(180deg,#000 calc(100% - 1.1em),transparent);' +
+              'mask-image:linear-gradient(180deg,#000 calc(100% - 1.1em),transparent);'
+            : 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;'),
+        inputStyle: 'width:100%;min-height:46px;padding:0 13px;border-radius:9px;font:inherit;' +
+          'font-size:calc(14.5px*var(--u,1));color:var(--ink);border:1px solid var(--ink-border);' +
+          'background:var(--card-top)',
+        areaStyle: 'width:100%;min-height:8.4em;padding:11px 13px;border-radius:9px;font:inherit;' +
+          'font-size:calc(14px*var(--u,1));line-height:1.55;color:var(--ink);' +
+          'border:1px solid var(--ink-border);background:var(--card-top);resize:vertical',
+        chipRow: 'display:flex;flex-wrap:wrap;gap:7px',
+      }
+    }
+
+    // ── THE CAST, WHERE THE READER IS ALREADY EDITING THE RECORD. A face per member,
+    // scrolling under the 26px fade; round means a person, so a silhouette reads as "named,
+    // no picture" rather than as a broken tile.
+    const cast = (id, members) => ({ ...BLANK, isStrip: true,
+      wrap: FULL + 'display:flex;flex-direction:column;gap:6px;padding:2px 0 6px',
+      stripRef: this.stripRef(id), onStripDown: this.stripDown(id),
+      stripStyle: 'display:flex;gap:12px;align-items:flex-start;overflow-x:auto;' +
+        `padding:2px ${EDGE}px 4px;` +
+        (members.length >= 5
+          ? '-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 26px,' +
+            '#000 calc(100% - 26px),transparent 100%);' +
+            'mask-image:linear-gradient(90deg,transparent 0,#000 26px,' +
+            '#000 calc(100% - 26px),transparent 100%);'
+          : ''),
+      tiles: members.map(([char, by, faceCss, opens]) => ({
+        char, by, title: `${char}${by ? ' · ' + by : ''}`,
+        onClick: this.say(opens || `${char} — opens char-${id}`),
+        style: btnReset + ';width:78px;flex:none;display:flex;flex-direction:column;gap:6px;' +
+          'align-items:center;color:var(--ink);' + TR,
+        faceStyle: 'width:60px;height:60px;border-radius:50%;overflow:hidden;flex:none;' +
+          'border:1.4px solid var(--ink-border);background:var(--raised);display:flex;' +
+          'align-items:flex-end;justify-content:center;' +
+          'box-shadow:0 8px 16px -12px rgba(var(--sh),.8)',
+        faceInner: faceCss ? 'width:100%;height:100%;' + faceCss : 'width:88%;height:92%;' + SILH,
+        charStyle: 'font-family:var(--font-ui);font-size:calc(12px*var(--u,1));line-height:1.3;' +
+          'text-align:center;max-height:calc(2 * 1.3em);overflow:hidden',
+        byStyle: mono(9, 'var(--faint)') + ';letter-spacing:.08em;line-height:1.35;' +
+          'text-align:center;max-height:calc(2 * 1.35em);overflow:hidden',
+      })) })
+
+    // ── THE IDS ARE ONE ROW OF LINKS, NOT THREE FIELDS.
+    //
+    // A supplier id is not a value you read: it is a door. Printed as three editable rows it
+    // took the height of three real facts to show three numbers nobody checks by eye — and
+    // the number itself is only worth looking at while you are verifying it, which is exactly
+    // when you want to open the page. So the row is a pill per provider, wearing that
+    // provider's mark, and ONE pencil opens all of them together in a popup of fields: they
+    // are edited on the same errand, and IGDB's has no link to follow because IGDB addresses
+    // its pages by slug — a link built from the numeric id would 404, and a link that goes
+    // nowhere is worse than none.
+    const idRow = (items) => ({ ...BLANK, isPills: true,
+      wrap: FULL + 'display:flex;flex-direction:column;gap:6px;padding:2px 0 8px',
+      stripRef: this.stripRef('ids'), onStripDown: this.stripDown('ids'),
+      scrolls: true,
+      stripStyle: 'display:flex;align-items:center;gap:8px;overflow-x:auto;' +
+        `padding:2px ${EDGE}px 4px;` +
+        (items.filter((it) => it[1]).length >= 3
+          ? '-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 26px,' +
+            '#000 calc(100% - 26px),transparent 100%);' +
+            'mask-image:linear-gradient(90deg,transparent 0,#000 26px,' +
+            '#000 calc(100% - 26px),transparent 100%);'
+          : ''),
+      pills: items.filter((it) => it[1]).map(([src, val, href]) => ({
+        label: val, href: href || undefined,
+        title: href ? `Open on ${SRC[src] ? SRC[src][1] : src}` : `${SRC[src][1]} — no page to open`,
+        markStyle: markCss(SRC[src] ? SRC[src][0] : '', 15) + ';color:var(--soft)',
+        style: 'display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:0 14px;' +
+          'flex:none;border-radius:999px;text-decoration:none;white-space:nowrap;color:var(--ink);' +
+          'background:var(--raised);border:1px solid var(--line);' + RAISED + TR,
+        labelStyle: mono(12, href ? 'var(--accent-ui)' : 'var(--soft)') + ';letter-spacing:.06em',
+      })),
+      editLabel: items.filter((it) => it[1]).length ? 'Edit' : 'Add an id',
+      editTitle: 'Edit every id',
+      editIconStyle: 'display:inline-flex;flex:none;color:var(--soft)',
+      // ROUND MEANS A VALUE, 9px MEANS A CONTROL — so the pencil cannot read as a fourth id.
+      // A PILL, BUT DRAWN RATHER THAN FILLED. The ids are links and this is not one, so it
+      // keeps the row's shape and height and gives up the fill: a dashed outline with nothing
+      // behind it reads as a slot for something rather than as a value you can follow.
+      // 38px INSIDE A 40px ROW. A dashed edge reads a hair larger than a solid one at the
+      // same height — the broken line lets the background through and the eye takes the gaps
+      // as part of the shape — so the pill is inset a pixel top and bottom to LOOK equal,
+      // which is the measurement that matters. Its tap target keeps the row's own height.
+      editStyle: btnReset + ';display:inline-flex;align-items:center;gap:7px;min-height:38px;' +
+        'margin:1px 0;flex:none;padding:0 16px;border-radius:999px;white-space:nowrap;' +
+        'color:var(--soft);' +
+        'font-size:calc(12.5px*var(--u,1));background:0 0;' +
+        'border:1px dashed var(--ink-border);' + GHOST + TR,
+      onEdit: this.openPicker({ title: 'Ids', fields: items.map(([src, val, href, ph]) => ({
+        key: src, label: SRC[src] ? SRC[src][1] : src, mark: SRC[src] ? SRC[src][0] : '',
+        value: val, placeholder: ph || '' })) }),
+    })
+
+    const tools = (items) => ({ ...BLANK, isTools: true,
+      wrap: FULL + `display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:4px ${EDGE}px 4px`,
+      tools: items.map((t) => ({
+        label: t.label, title: t.title || t.label,
+        icon: glyph(t.icon, 17),
+        onClick: t.onClick || this.say(t.say || t.label),
+        iconStyle: 'display:inline-flex;flex:none;color:var(--soft)',
+        style: btnReset + ';display:inline-flex;align-items:center;gap:8px;min-height:44px;' +
+          'padding:0 15px;border-radius:9px;white-space:nowrap;' +
+          'font-size:calc(13.5px*var(--u,1));background:var(--raised);color:var(--ink);' +
+          'border:1.4px solid var(--ink-border);' + RAISED + TR,
+      })) })
+
+    // ── A CANDIDATE IS A PROPOSAL, NOT AN OVERWRITE. The year and the medium tell two
+    // same-titled matches apart; the supplier wears its own mark rather than a lettered pill.
+    // A PICTURE OFFERED IS A PICTURE MEASURED. The reason to prefer one match over another
+    // is often only its artwork, and 342 × 513 is the difference between a share card and a
+    // blur — so the size rides on every proposed image, inked --error under the floor,
+    // exactly as it does on the record's own.
+    const pxLine = (w, h) => (!w ? 'no picture'
+      : w + ' × ' + h + ' px' + (w >= 400 && h >= 600 ? '' : ' · soft on a share card'))
+    const pxInk = (w, h) => (!w || (w >= 400 && h >= 600) ? 'var(--faint)' : 'var(--error)')
+    const cand = (label, o) => ({ ...BLANK, isCand: true, label, meta: o.meta,
+      px: pxLine(o.px[0], o.px[1]),
+      pxStyle: mono(9.5, pxInk(o.px[0], o.px[1])) + ';letter-spacing:.1em;line-height:1.4',
+      markStyle: markCss(SRC[o.src] ? SRC[o.src][0] : '', 16),
+      pickTitle: `${label} — from ${SRC[o.src] ? SRC[o.src][1] : o.src}`,
+      onPick: this.say(`${label} — opens work-fetched, approved field by field`),
+      wrap: FULL + `display:flex;padding:3px ${EDGE - 4}px`,
+      candStyle: btnReset + ';flex:1;min-width:0;display:flex;align-items:center;gap:12px;' +
+        'padding:9px 12px;border-radius:11px;text-align:left;color:var(--ink);' +
+        'border:1px solid var(--line);background:var(--raised);' + RAISED + TR,
+      candArt: `width:44px;height:64px;flex:none;${FLAT_R};overflow:hidden;` +
+        'border:1px solid var(--line);' + (o.art || HATCH),
+      candWrap: 'flex:1;min-width:0;display:flex;flex-direction:column;gap:3px',
+      candTitle: 'font-family:var(--font-display);font-size:calc(15px*var(--u,1));' +
+        'line-height:1.25;text-wrap:pretty',
+      candMeta: mono(10, 'var(--faint)') + ';letter-spacing:.1em',
+      candSrc: 'width:34px;height:34px;flex:none;border-radius:8px;display:inline-flex;' +
+        'align-items:center;justify-content:center;color:var(--soft);background:var(--card);' +
+        'border:1px solid var(--line)' })
+
+    // ── WHAT CAME BACK, ONE TOGGLE PER FIELD.
+    //
+    // Ticked already where the record is blank — filling a blank is never a loss, and
+    // overwriting a value you typed is, so the second one asks first. Yours is struck
+    // through when theirs is taken, so the row states its own outcome.
+    const MK = 'take.'
+    const TDEF = { title: false, year: true, collection: true, director: false,
+      description: false, poster: false }
+    const TKEYS = Object.keys(TDEF).map((k) => MK + k)
+    const nTake = Object.keys(TDEF).filter((k) => {
+      const v = this.state.take[MK + k]
+      return v === undefined ? TDEF[k] : v
+    }).length
+    const take = (key, label, o) => {
+      const k = MK + key
+      const on = this.state.take[k] === undefined ? !!TDEF[key] : this.state.take[k]
+      return { ...BLANK, isTake: true, label, take: on,
+        isArt: !!o.art, isValues: !o.art,
+        yours: o.yours || 'nothing yet', theirs: o.theirs || '',
+        rowTitle: on ? 'Taking theirs — tap to keep yours' : 'Keeping yours — tap to take theirs',
+        onToggle: this.toggleTake(k),
+        tick: on ? ico('check', 15) : null,
+        wrap: FULL + `display:flex;padding:3px ${EDGE - 4}px`,
+        takeStyle: btnReset + ';flex:1;min-width:0;display:flex;align-items:flex-start;gap:11px;' +
+          'padding:10px 12px;border-radius:11px;text-align:left;color:var(--ink);border:1px solid ' +
+          (on ? 'color-mix(in oklab,var(--accent-ui),transparent 55%);' +
+            `background:color-mix(in oklab,${accent},transparent 92%);`
+            : 'var(--line);background:var(--raised);') + RAISED + TR,
+        boxStyle: 'width:22px;height:22px;flex:none;margin-top:2px;border-radius:6px;' +
+          'display:inline-flex;align-items:center;justify-content:center;border:1.4px solid ' +
+          (on ? `${accent};background:${accent};color:#FBF6EA;`
+            : 'var(--ink-border);color:transparent;'),
+        takeWrap: 'flex:1;min-width:0;display:flex;flex-direction:column;gap:4px',
+        tlabelStyle: mono(10, 'var(--faint)') + ';letter-spacing:.13em;text-transform:uppercase',
+        oldStyle: 'font-family:var(--font-ui);font-size:calc(13px*var(--u,1));line-height:1.45;' +
+          'color:var(--faint);text-decoration:' + (on ? 'line-through' : 'none') + ';' +
+          'max-height:calc(2 * 1.45em);overflow:hidden;text-wrap:pretty',
+        newStyle: 'font-family:var(--font-ui);font-size:calc(13.5px*var(--u,1));line-height:1.5;' +
+          'color:' + (on ? 'var(--ink)' : 'var(--soft)') + ';' +
+          'max-height:calc(3 * 1.5em);overflow:hidden;text-wrap:pretty',
+        artPair: 'display:flex;gap:14px;padding-top:2px',
+        sideWrap: 'display:flex;flex-direction:column;gap:4px',
+        yoursPx: pxLine((o.yoursPx || [0, 0])[0], (o.yoursPx || [0, 0])[1]),
+        theirsPx: pxLine((o.theirsPx || [0, 0])[0], (o.theirsPx || [0, 0])[1]),
+        yoursPxStyle: mono(9, pxInk((o.yoursPx || [0, 0])[0], (o.yoursPx || [0, 0])[1])) +
+          ';letter-spacing:.08em;line-height:1.35;max-width:8em;text-wrap:pretty',
+        theirsPxStyle: mono(9, pxInk((o.theirsPx || [0, 0])[0], (o.theirsPx || [0, 0])[1])) +
+          ';letter-spacing:.08em;line-height:1.35;max-width:8em;text-wrap:pretty',
+        yoursArt: `width:44px;height:64px;${FLAT_R};overflow:hidden;` +
+          'border:1px solid var(--line);' + (o.yoursArt || HATCH) +
+          (on ? ';opacity:.45' : ''),
+        theirsArt: `width:44px;height:64px;${FLAT_R};overflow:hidden;border:1.4px solid ` +
+          (on ? 'var(--accent-ui);' : 'var(--line);') + (o.theirsArt || HATCH),
+      }
+    }
+
+    const foot = (o) => ({ ...BLANK, isFoot: true,
+      wrap: FULL + `display:flex;align-items:center;flex-wrap:wrap;gap:9px;padding:12px ${EDGE}px 4px`,
+      primaryLabel: o.primary, onPrimary: o.onPrimary || this.say(o.primarySay || o.primary),
+      ghostLabel: o.ghost || '', ghostTitle: o.ghostTitle || o.ghost || '',
+      onGhost: o.onGhost || this.say(o.ghostSay || o.ghost),
+      primaryStyle: btnReset + ';min-height:44px;padding:0 18px;border-radius:9px;' +
+        'font-size:calc(14px*var(--u,1));font-weight:600;color:#FBF6EA;' +
+        `background:${accent};border:1.4px solid ${accent};` +
+        '--ihf:brightness(1.06);--iaf:brightness(.94);--iat:translateY(1.5px);' + TR,
+      ghostStyle: btnReset + ';min-height:44px;padding:0 16px;border-radius:9px;' +
+        'font-size:calc(13.5px*var(--u,1));color:var(--ink);border:1.4px solid var(--ink-border);' +
+        'background:linear-gradient(180deg,var(--card-top),transparent);' + RAISED + TR })
+
+    // A book has no cast source — TheTVDB has no books and IMDb has no books — so a book's
+    // heading carries Add alone rather than a Fetch that would go nowhere.
+    const addByHand = { label: 'Add', title: 'Add a character', icon: 'userPlus',
+      say: 'Opens the cast editor' }
+    const fetchCast = (src) => ({ label: 'Fetch', title: `Fetch the cast from ${src}`,
+      icon: 'users', say: `Cast filled from ${src} — members you typed were left alone` })
+    const addTo = (src) => [addByHand, fetchCast(src)]
+
+
+    const bookRows = [
+      field('work-book', 'title', 'Title', { value: 'Harry Potter and the Deathly Hallows',
+        serif: true }),
+      field('work-book', 'author', 'Author', { value: 'J. K. Rowling', src: 'GB',
+        credit: 'person',
+        candidates: [['GB', 'J. K. Rowling'], ['OL', 'Joanne Rowling'],
+          ['AZ', 'J.K. Rowling, Mary GrandPré']] }),
+      field('work-book', 'translator', 'Translator', { value: '', half: true,
+        credit: 'person' }),
+      field('work-book', 'editor', 'Editor', { value: '', half: true, credit: 'person' }),
+      field('work-book', 'published_year', 'Year', { value: '2007', src: 'OL', kind: 'year',
+        mono: true, placeholder: '2007 · c. 1930 · 380 BCE',
+        candidates: [['OL', '2007'], ['GB', '2007'], ['AZ', '2009']] }),
+      field('work-book', 'series', 'Series', { value: 'Harry Potter', src: 'GB', half: true,
+        candidates: [['GB', 'Harry Potter'], ['OL', 'Harry Potter Series']] }),
+      field('work-book', 'series_index', 'Series no', { value: '7', kind: 'number', mono: true,
+        half: true }),
+      field('work-book', 'genres', 'Genres', { value: ['Fantasy', 'Young adult', 'Adventure'],
+        src: 'GB', kind: 'tokens',
+        candidates: [['GB', 'Fantasy · Young adult · Adventure'], ['OL', 'Juvenile fiction']] }),
+      field('work-book', 'description', 'Description', { src: 'GB', kind: 'long', serif: true,
+        value: 'Harry, Ron and Hermione leave school behind and set out to find and destroy ' +
+          'the Horcruxes, the secret to Voldemort’s immortality.',
+        candidates: [['GB', 'Harry, Ron and Hermione leave school behind…'],
+          ['OL', 'The seventh and final novel of the series.']] }),
+    ]
+
+    const filmRows = [
+      field('work-film', 'title', 'Title', { value: 'Deathly Hallows – Part 2', src: 'TMDB',
+        serif: true,
+        candidates: [['TMDB', 'Harry Potter and the Deathly Hallows: Part 2'],
+          ['you', 'Deathly Hallows – Part 2']] }),
+      field('work-film', 'media_type', 'Type', { value: 'Film', kind: 'chips', half: true,
+        options: ['Film', 'Show', 'Game'] }),
+      field('work-film', 'release_year', 'Year', { value: '2011', src: 'TMDB', kind: 'year',
+        mono: true, half: true, candidates: [['TMDB', '2011'], ['TVDB', '2011']] }),
+      field('work-film', 'director', 'Director', { value: 'David Yates', src: 'TMDB',
+        credit: 'person',
+        candidates: [['TMDB', 'David Yates']] }),
+      field('work-film', 'studio', 'Studio', { value: 'Warner Bros. Pictures', src: 'TMDB',
+        credit: 'org', candidates: [['TMDB', 'Warner Bros. Pictures'], ['TMDB', 'Heyday Films']] }),
+      field('work-film', 'series', 'Collection', { value: 'Harry Potter', src: 'TMDB',
+        half: true, candidates: [['TMDB', 'Harry Potter Collection']] }),
+      field('work-film', 'series_index', 'Collection no', { value: '8', kind: 'number',
+        mono: true, half: true }),
+      field('work-film', 'genres', 'Genres', { value: ['Fantasy', 'Adventure'], src: 'TMDB',
+        kind: 'tokens', candidates: [['TMDB', 'Fantasy · Adventure']] }),
+      field('work-film', 'description', 'Description', { src: 'TMDB', kind: 'long', serif: true,
+        value: 'The second of two parts. Harry, Ron and Hermione return to Hogwarts for the ' +
+          'last Horcrux, and the school becomes the battlefield.',
+        candidates: [['TMDB', 'Harry, Ron and Hermione search for Voldemort’s remaining ' +
+          'Horcruxes…']] }),
+    ]
+
+    const showRows = [
+      field('work-show', 'title', 'Title', { value: 'ব্যোমকেশ বক্সী', serif: true }),
+      field('work-show', 'media_type', 'Type', { value: 'Show', kind: 'chips', half: true,
+        options: ['Film', 'Show', 'Game'] }),
+      field('work-show', 'release_year', 'Year', { value: 'c. 1993', kind: 'year', mono: true,
+        half: true, placeholder: '1993 · c. 1993' }),
+      field('work-show', 'director', 'Creator', { value: 'Basu Chatterjee', src: 'TVDB',
+        credit: 'person',
+        candidates: [['TVDB', 'Basu Chatterjee']] }),
+      field('work-show', 'studio', 'Studio', { value: 'Doordarshan', src: 'TVDB',
+        credit: 'org', candidates: [['TVDB', 'Doordarshan']] }),
+      field('work-show', 'series', 'Collection', { value: '', half: true }),
+      field('work-show', 'series_index', 'Collection no', { value: '', kind: 'number',
+        mono: true, half: true }),
+      field('work-show', 'genres', 'Genres', { value: ['Mystery'], kind: 'tokens' }),
+      field('work-show', 'description', 'Description', { value: '', kind: 'long', serif: true,
+        placeholder: 'In your words or theirs' }),
+    ]
+
+    const gameRows = [
+      field('work-game', 'title', 'Title', { value: 'Deathly Hallows – Part 2', src: 'IGDB',
+        serif: true, candidates: [['IGDB', 'Harry Potter and the Deathly Hallows – Part 2']] }),
+      field('work-game', 'media_type', 'Type', { value: 'Game', kind: 'chips', half: true,
+        options: ['Film', 'Show', 'Game'] }),
+      field('work-game', 'release_year', 'Year', { value: '2011', src: 'IGDB', kind: 'year',
+        mono: true, half: true, candidates: [['IGDB', '2011']] }),
+      field('work-game', 'director', 'Studio', { value: 'EA Bright Light', src: 'IGDB',
+        credit: 'org',
+        candidates: [['IGDB', 'EA Bright Light']] }),
+      field('work-game', 'publisher', 'Publisher', { value: 'Electronic Arts', src: 'IGDB',
+        credit: 'org',
+        candidates: [['IGDB', 'Electronic Arts']] }),
+      field('work-game', 'series', 'Series', { value: 'Harry Potter', half: true }),
+      field('work-game', 'series_index', 'Series no', { value: '', kind: 'number', mono: true,
+        half: true }),
+      field('work-game', 'genres', 'Genres', { value: ['Action-adventure', 'Shooter'],
+        src: 'IGDB', kind: 'tokens', candidates: [['IGDB', 'Action-adventure · Shooter']] }),
+      field('work-game', 'description', 'Description', { src: 'IGDB', kind: 'long', serif: true,
+        value: 'A cover shooter following the last film, played through Hogwarts and the ' +
+          'Forbidden Forest.', candidates: [['IGDB', 'A cover shooter following the last film…']] }),
+    ]
+
+    const openOn = (screen) => Object.keys(this.state.edits)
+      .filter((k) => k.indexOf(screen + '.') === 0).length
+
+    const SCREENS = [
+      {
+        id: 'work-book', qualifier: 'work-book', scope: 'book', art: 'book', artCss: BOOK_ART,
+        glyph: 'books', px: [1400, 2100], artNoun: 'Cover',
+        aria: 'Details — Harry Potter and the Deathly Hallows',
+        scopeTitle: 'A book — eleven stored fields, each saving on its own',
+        title: 'Harry Potter and the Deathly Hallows', crumb: 'book · 37 quotes kept',
+        rows: [
+          ...bookRows,
+          head('Cast · 5', addByHand),
+          cast('book', [
+            ['Harry Potter', 'no performer', BOOK_FACE],
+            ['Hermione Granger', 'no performer', ''],
+            ['Ron Weasley', 'no performer', ''],
+            ['Severus Snape', 'no performer', ''],
+            ['Dobby', 'no performer', ''],
+          ]),
+          head('Ids'),
+          idRow([
+            ['OL', 'OL7826570M', 'https://openlibrary.org/books/OL7826570M', 'OL id'],
+            ['GB', '9780545010221', 'https://books.google.com/books?vid=ISBN9780545010221', 'ISBN 13'],
+            ['AZ', '', '', 'ASIN'],
+          ]),
+        ],
+      },
+      {
+        id: 'work-film', qualifier: 'work-film', scope: 'film', art: 'film', artCss: FILM_ART,
+        glyph: 'play', px: [2000, 3000], artNoun: 'Poster',
+        aria: 'Details — Deathly Hallows – Part 2',
+        scopeTitle: 'A film — the supplier ids it is actually looked up by',
+        title: 'Deathly Hallows – Part 2', crumb: 'film · 2011 · 12 quotes kept',
+        rows: [
+          ...filmRows,
+          head('Cast · 6', addTo('TMDB')),
+          cast('film', [
+            ['Harry Potter', 'D. Radcliffe', BOOK_FACE],
+            ['Daniel Radcliffe', 'Daniel Radcliffe', ACTOR_FACE,
+              'Daniel Radcliffe — opens people-global'],
+            ['Hermione Granger', 'E. Watson', ''],
+            ['Ron Weasley', 'R. Grint', ''],
+            ['Severus Snape', 'A. Rickman', ''],
+            ['হ্যারি (Bengali dub)', 'not named', ''],
+          ]),
+          head('Ids'),
+          idRow([
+            ['TMDB', '#12445', 'https://www.themoviedb.org/movie/12445', 'TMDB id'],
+            ['TVDB', '', '', 'TVDB id'],
+            ['IMDB', 'tt1201607', 'https://www.imdb.com/title/tt1201607/', 'IMDb id'],
+          ]),
+        ],
+      },
+      {
+        id: 'work-show', qualifier: 'work-show', scope: 'show', art: 'tv', artCss: '',
+        glyph: 'tv', px: [0, 0], artNoun: 'Poster',
+        aria: 'Details — ব্যোমকেশ বক্সী',
+        scopeTitle: 'A show — CREATOR where a film says director',
+        title: 'ব্যোমকেশ বক্সী', crumb: 'show · c. 1993 · 3 quotes kept',
+        rows: [
+          ...showRows,
+          head('Cast · none', addTo('TheTVDB')),
+          empty('Nobody named yet'),
+          head('Ids'),
+          idRow([
+            ['TMDB', '', '', 'TMDB id'],
+            ['TVDB', '#78814', 'https://thetvdb.com/dereferrer/series/78814', 'TVDB id'],
+            ['IMDB', '', '', 'IMDb id'],
+          ]),
+        ],
+      },
+      {
+        id: 'work-game', qualifier: 'work-game', scope: 'game', art: 'game', artCss: GAME_ART,
+        glyph: 'controller', px: [1200, 1600], artNoun: 'Box art',
+        aria: 'Details — Deathly Hallows – Part 2, the game',
+        scopeTitle: 'A game — IGDB, a publisher, and none of the three film ids',
+        title: 'Deathly Hallows – Part 2', crumb: 'game · 2011 · 4 quotes kept',
+        rows: [
+          ...gameRows,
+          head('Cast · 2', addTo('IGDB')),
+          cast('game', [
+            ['Harry Potter', 'A. Sopp', VOICE_FACE],
+            ['Adam Sopp', 'Adam Sopp', VOICE_FACE, 'Adam Sopp — opens people-global'],
+          ]),
+          head('Ids'),
+          idRow([['IGDB', '#22345', '', 'IGDB id']]),
+        ],
+      },
+      {
+        // ── SECOND SURFACE: THE MATCH PICKER. A back key rather than a cover, because you
+        // are one level inside the panel you opened — and no ✓, since nothing here writes.
+        id: 'work-picker', qualifier: 'work-picker', scope: 'picker', art: null,
+        glyph: 'search', noArtwork: true, back: true, noDone: true, noFetch: true,
+        aria: 'Fetch metadata — pick the match',
+        scopeTitle: 'The picker — a match is proposed, never applied',
+        title: 'Pick the match', crumb: 'searched by title · year · TMDB id',
+        rows: [
+          head('Matches · 3'),
+          cand('Harry Potter and the Deathly Hallows: Part 2',
+            { meta: '2011 · film · David Yates', src: 'TMDB', art: FILM_ART, px: [2000, 3000] }),
+          cand('Harry Potter and the Deathly Hallows: Part 2',
+            { meta: '2011 · film', src: 'TVDB', art: FILM_ALT, px: [342, 513] }),
+          cand('Harry Potter and the Deathly Hallows – Part 2',
+            { meta: '2011 · game', src: 'IGDB', art: GAME_ART, px: [1200, 1600] }),
+          head('Search again'),
+          tools([
+            { label: 'By title', icon: 'search', say: 'Types over the query' },
+            { label: 'By id', icon: 'metadata', say: 'TMDB, TVDB or IGDB id' },
+          ]),
+        ],
+      },
+      {
+        // ── THIRD SURFACE: WHAT CAME BACK. Stacked, not columned — two 150px columns of
+        // prose are unreadable on the phone this is designed for first.
+        id: 'work-fetched', qualifier: 'work-fetched', scope: 'fetched', art: null,
+        glyph: 'refresh', noArtwork: true, back: true, noDone: true, noFetch: true,
+        aria: 'What the fetch came back with',
+        scopeTitle: 'Yours and theirs, one toggle per field',
+        title: 'What came back', crumb: 'TMDB #12445 · 5 fields differ',
+        rows: [
+          head('Take', { label: 'All', title: 'Tick every field', icon: 'check',
+            onClick: this.setAll(TKEYS, true) }),
+          take('title', 'Title', { yours: 'Deathly Hallows – Part 2',
+            theirs: 'Harry Potter and the Deathly Hallows: Part 2' }),
+          take('year', 'Year', { yours: '', theirs: '2011' }),
+          take('collection', 'Collection', { yours: '', theirs: 'Harry Potter Collection' }),
+          take('description', 'Description', {
+            yours: 'The second of two parts. Harry, Ron and Hermione return to Hogwarts for ' +
+              'the last Horcrux.',
+            theirs: 'Harry, Ron and Hermione search for Voldemort’s remaining Horcruxes in ' +
+              'their effort to destroy the Dark Lord as the final battle rages on at Hogwarts.' }),
+          take('poster', 'Poster', { art: true, yoursArt: FILM_ART, theirsArt: FILM_ALT,
+            yoursPx: [2000, 3000], theirsPx: [342, 513] }),
+          foot({ primary: nTake
+            ? `Take ${nTake} field${nTake > 1 ? 's' : ''}`
+            : 'Nothing ticked',
+            primarySay: nTake
+              ? `${nTake} field${nTake > 1 ? 's' : ''} written in one request`
+              : 'Nothing is ticked, so there is nothing to write',
+            ghost: 'Re-sync everything',
+            ghostTitle: 'Poster, cast, genres and details, re-pulled from TMDB',
+            ghostSay: 'Re-synced from TMDB — the cast came with it' }),
+        ],
+      },
+    ]
+
+    const COL = 470
+    const GAP = 16
+    const rowW = COL * SCREENS.length + GAP * (SCREENS.length - 1)
+    const avail = (this.state.W || rowW + 40) - 40
+    // A ZOOM FLOOR, BECAUSE UNREADABLE IS NOT FITTED. Below .55 a 14.5px label renders under
+    // 8px; past that the row keeps its size and the stage scrolls sideways instead.
+    const zoom = Math.max(.55, Math.min(1, avail / rowW))
+    this._zoom = zoom
+
+    return {
+      stageRef: this.stageRef,
+      swallowClick: this.swallowClick,
+      stage: `${tokens}min-height:100vh;background:var(--bg);color:var(--ink);` +
+        'font-family:var(--font-ui);padding:24px 20px 90px;position:relative;overflow-x:auto',
+      rowStyle: `display:flex;align-items:flex-start;gap:${GAP}px;width:${rowW}px;` +
+        `zoom:${zoom.toFixed(4)}`,
+      sheet: `width:${COL}px;flex:none;display:flex;flex-direction:column;border-radius:16px;` +
+        'overflow:hidden;border:1px solid var(--line);background:var(--card);' +
+        'box-shadow:0 30px 64px -28px rgba(var(--sh),.8),inset 0 1px var(--bevel-hi)',
+      // THE BAR ABOVE THE PAGE CASTS A SHADOW, so the sheet reads as beneath it.
+      headerStyle: 'display:flex;align-items:center;gap:10px;padding:8px;flex:none;' +
+        'border-bottom:1px solid var(--line);background:var(--card-top);' +
+        'box-shadow:0 6px 14px -12px rgba(var(--sh),.9)',
+      titleStyle: 'font-family:var(--font-display);font-size:calc(19px*var(--u,1));' +
+        'color:var(--ink);line-height:1.25;white-space:nowrap;overflow:hidden;' +
+        'text-overflow:ellipsis',
+      // A CRUMB WRAPS, IT DOES NOT ELLIPSIZE — two lines at any type size, measured in em.
+      crumbStyle: mono(10.5, 'var(--faint)') + ';letter-spacing:.1em;line-height:1.4;' +
+        'max-height:calc(2 * 1.4em);overflow:hidden;text-wrap:pretty',
+      closeGlyph: ico('close', 21),
+      closeSmallGlyph: ico('close', 15),
+      checkGlyph: ico('check', 19),
+      backGlyph: ico('back', 20),
+      pencilGlyph: ico('edit', 17),
+      // FETCHING IS A PULL, so it wears the circular arrow. The lined card (`metadata`) is
+      // this app's word for the metadata SCREEN, and a glyph cannot mean a destination in
+      // the rail and an action in a bar.
+      fetchGlyph: ico('refresh', 20),
+      keyStyle: btnReset + ';width:44px;height:44px;flex:none;border-radius:9px;' +
+        'display:inline-flex;align-items:center;justify-content:center;color:var(--soft);' +
+        GHOST + TR,
+      // THE CROSS WEARS --error, the repo's own red for a leaving verb — it is the one key in
+      // the bar that discards rather than does, and at rest it stays --soft like every other
+      // glyph so the bar carries one ink until you reach for it.
+      closeKeyStyle: btnReset + ';width:44px;height:44px;flex:none;border-radius:9px;' +
+        'display:inline-flex;align-items:center;justify-content:center;color:var(--error);' +
+        '--ihg:color-mix(in oklab,var(--error),transparent 88%);--ihc:var(--error);' +
+        '--iag:color-mix(in oklab,var(--error),transparent 78%);--iat:scale(.97);' + TR,
+      sheets: SCREENS.map((s) => {
+        const n = openOn(s.id)
+        const [w, h] = s.px || [0, 0]
+        return {
+          id: s.id, scope: s.scope, qualifier: s.qualifier, aria: s.aria,
+          title: s.title, crumb: s.crumb, scopeTitle: s.scopeTitle,
+          hasBack: !!s.back, hasArt: !s.back, hasDone: !s.noDone, hasArtwork: !s.noArtwork,
+          hasFetch: !s.noFetch,
+          backClick: this.say(`${s.qualifier} — back to the fields, nothing written`),
+          closeClick: this.say(`${s.qualifier} — closes back to the work’s own page`),
+          fetchClick: this.say('Opens work-picker — matches are proposed, never applied'),
+          scopeGlyph: glyph(s.glyph, s.art ? 17 : 21),
+          scopeSlot: 'width:44px;flex:none;display:inline-flex;align-items:center;' +
+            'justify-content:center',
+          // THE HEADER'S GLYPH SITS ON THE WORK'S OWN ARTWORK: the medium first, the work
+          // second, both in the slot a back key would otherwise hold.
+          scopeArt: s.art
+            ? 'width:32px;height:44px;position:relative;overflow:hidden;display:flex;' +
+              'align-items:center;justify-content:center;border:1px solid var(--line);' +
+              (s.art === 'book' ? BOOK_R : FLAT_R) + ';' + (s.artCss || HATCH) + ';' +
+              'box-shadow:0 6px 12px -9px rgba(var(--sh),.8)'
+            : 'width:44px;height:44px;display:inline-flex;align-items:center;' +
+              'justify-content:center;color:var(--soft)',
+          scopeOverlay: s.art
+            ? 'width:24px;height:24px;border-radius:7px;display:inline-flex;align-items:center;' +
+              'justify-content:center;color:var(--ink);' +
+              'background:color-mix(in oklab,var(--card),transparent 8%);border:1px solid var(--line)'
+            : 'display:inline-flex;align-items:center;justify-content:center',
+          // ── THE ✓ IS NEVER GREYED AND IT CLOSES THE PANEL. It used to be blocked with
+          // "Nothing to save" whenever no row was open, which is the state the panel is in
+          // most of the time it is on screen. So it means DONE: commit what is open — in ONE
+          // request, since six full-state PUTs over each other is five edits lost behind
+          // five toasts saying they saved — then leave.
+          openCount: n ? String(n) : '',
+          doneTitle: n
+            ? `Save ${n} open field${n > 1 ? 's' : ''} and close`
+            : 'Done — every row has already saved itself',
+          doneClick: this.doneClick(s.id, n),
+          doneStyle: btnReset + ';position:relative;width:44px;height:44px;flex:none;' +
+            'border-radius:9px;display:inline-flex;align-items:center;justify-content:center;' +
+            (n ? `color:#FBF6EA;background:${accent};border:1px solid ${accent};` +
+              '--ihf:brightness(1.06);--iat:translateY(1px);'
+              : 'color:var(--soft);' + GHOST) + TR,
+          openDot: mono(9, '#FBF6EA') + ';position:absolute;right:1px;top:1px;min-width:15px;' +
+            'height:15px;padding:0 3px;border-radius:8px;display:inline-flex;align-items:center;' +
+            'justify-content:center;background:var(--error);letter-spacing:0',
+          artBox: `width:${ART_W}px;height:${ART_H}px;flex:none;position:relative;` +
+            'overflow:hidden;display:flex;align-items:flex-end;justify-content:flex-start;' +
+            'padding:6px;border:1px solid var(--line);' +
+            (s.art === 'book' ? BOOK_R : FLAT_R) + ';' + (s.artCss || HATCH) + ';' +
+            'box-shadow:0 14px 26px -18px rgba(var(--sh),.8)',
+          artOverlay: 'width:26px;height:26px;border-radius:7px;display:inline-flex;' +
+            'align-items:center;justify-content:center;color:var(--ink);' +
+            'background:color-mix(in oklab,var(--card),transparent 10%);border:1px solid var(--line)',
+          artBadge: glyph(s.glyph, 15),
+          // A PICTURE IS NOT A FIELD — its own block, its own three ways in, and its size
+          // stated, inked --error under the floor.
+          pxText: !w ? 'no picture' : `${s.artNoun} · ${w} × ${h} px` +
+            (w >= 400 && h >= 600 ? '' : ' · soft on a share card'),
+          pxStyle: mono(10.5, !w ? 'var(--faint)' : (w >= 400 && h >= 600)
+            ? 'var(--faint)' : 'var(--error)') + ';letter-spacing:.1em;line-height:1.5;' +
+            'text-wrap:pretty',
+          artActions: [
+            ['Fetch', 'refresh'],
+            ['Upload', 'upload'],
+            ['Paste URL', 'open'],
+            // CLEAR IS LAST AND IT IS RED. Three of these bring a picture and one takes it
+            // away, and the one that removes wears --error so it cannot be reached for by
+            // rhythm — it also sits after the other three, never among them.
+            ...(w ? [['Clear', 'close', true]] : []),
+          ].map(([label, icon, danger]) => ({ label, title: label,
+            icon: glyph(icon, 15),
+            iconStyle: 'display:inline-flex;flex:none;color:' +
+              (danger ? 'var(--error)' : 'var(--soft)'),
+            onClick: this.say(`${label} — saves immediately, like every row here`),
+            // 44px, LIKE EVERY OTHER CONTROL ON THE SCREEN. These four sat at 38px because
+            // they are small words beside a picture, which is not one of the exceptions —
+            // the 36px allowance is gated on a `touch: false` setting this prototype has
+            // not got, and a fingertip does not get smaller because the button is a caption.
+            style: btnReset + ';display:inline-flex;align-items:center;gap:7px;min-height:44px;' +
+              'padding:0 14px;border-radius:9px;white-space:nowrap;' +
+              'font-size:calc(13px*var(--u,1));background:var(--raised);' +
+              (danger
+                ? 'color:var(--error);border:1.4px solid ' +
+                  'color-mix(in oklab,var(--error),transparent 55%);'
+                : 'color:var(--ink);border:1.4px solid var(--ink-border);') +
+              RAISED + TR })),
+          rows: s.rows,
+        }
+      }),
+
+      pickerHasFields: !!(this.state.picker && this.state.picker.fields),
+      pickerFieldsWrap: 'display:flex;flex-direction:column;gap:12px',
+      pickerFields: ((this.state.picker || {}).fields || []).map((fd) => ({
+        label: fd.label, placeholder: fd.placeholder || '',
+        value: this.state.idr[fd.key] || '',
+        onInput: this.setId(fd.key),
+        markStyle: markCss(fd.mark, 15) + ';color:var(--soft)',
+        wrap: 'display:flex;flex-direction:column;gap:6px',
+        labelRow: 'display:flex;align-items:center;gap:8px',
+        labelStyle: mono(10.5, 'var(--faint)') + ';letter-spacing:.13em;text-transform:uppercase',
+        inputStyle: 'width:100%;min-height:46px;padding:0 13px;border-radius:9px;font:inherit;' +
+          mono(13.5, 'var(--ink)') + ';border:1px solid var(--ink-border);' +
+          'background:var(--card-top)',
+      })),
+      pickerSaveStyle: btnReset + ';min-height:44px;padding:0 18px;border-radius:9px;' +
+        'font-size:calc(13.5px*var(--u,1));font-weight:600;color:#FBF6EA;' +
+        'background:' + accent + ';border:1.4px solid ' + accent + ';' +
+        '--ihf:brightness(1.06);--iaf:brightness(.94);--iat:translateY(1.5px);' + TR,
+      pickerSaveClick: () => this.setState({ picker: null,
+        toast: this.flash('Ids saved — every one in a single request') }),
+      pickerOpen: !!this.state.picker,
+      pickerTitle: (this.state.picker || {}).title || '',
+      closePicker: this.closePicker,
+      pickerRows: 'display:flex;flex-direction:column;gap:8px',
+      pickerOptions: (((this.state.picker || {}).options) || []).map((o) => ({
+        label: o.label, meta: o.meta || '',
+        hasMark: !!o.mark,
+        markStyle: o.mark ? markCss(o.mark, 17) + ';color:var(--soft)' : '',
+        icon: o.icon ? glyph(o.icon, 18) : null,
+        onClick: () => this.setState({ picker: null, toast: this.flash(o.done || o.label) }),
+        style: btnReset + ';display:flex;align-items:center;gap:11px;min-height:52px;' +
+          'padding:8px 14px;border-radius:11px;text-align:left;color:var(--ink);' +
+          'border:1px solid var(--line);background:var(--raised);' + RAISED + TR,
+        iconStyle: 'width:20px;flex:none;display:inline-flex;align-items:center;' +
+          'justify-content:center;color:var(--soft)',
+        nameStyle: 'flex:1;min-width:0;font-size:calc(14px*var(--u,1));line-height:1.4;' +
+          'text-wrap:pretty',
+        metaStyle: mono(9.5, 'var(--faint)') + ';letter-spacing:.12em;flex:none;' +
+          'white-space:nowrap',
+      })),
+      pickerFoot: 'display:flex;align-items:center;justify-content:flex-end;gap:10px;' +
+        'padding-top:4px',
+      // AN EMPTY OPTION LIST IS A LEGITIMATE DIALOG — the id editor has fields and no rows.
+      pickerBox: 'width:min(460px,100%);max-height:82vh;overflow-y:auto;display:flex;' +
+        'flex-direction:column;gap:10px;padding:20px;border-radius:14px;' +
+        'border:1px solid var(--line);background:var(--card);' +
+        'box-shadow:0 34px 70px -30px rgba(var(--sh),.9),inset 0 1px var(--bevel-hi)',
+      dialogTitleStyle: 'font-family:var(--font-display);font-size:calc(19px*var(--u,1));' +
+        'line-height:1.25;color:var(--ink);text-wrap:pretty',
+      cancelStyle: btnReset + ';min-height:44px;padding:0 16px;border-radius:9px;' +
+        'font-size:calc(13.5px*var(--u,1));white-space:nowrap;color:var(--ink);' +
+        'border:1px solid var(--line);background:var(--raised);' + RAISED + TR,
+      scrim: 'position:fixed;inset:0;z-index:120;display:flex;align-items:center;' +
+        'justify-content:center;padding:24px;background:rgba(21,16,12,.5)',
+      stopBubble: this.stopBubble,
+      toastMsg: this.state.toast || '',
+      toastStyle: 'position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:90;' +
+        'max-width:min(560px,86vw);padding:11px 16px;border-radius:10px;' +
+        'border:1px solid var(--line);background:var(--card-top);color:var(--ink);' +
+        'font-size:calc(13px*var(--u,1));line-height:1.4;text-align:center;' +
+        'box-shadow:0 20px 40px -22px rgba(var(--sh),.8);transition:opacity .18s ease;' +
+        (this.state.toast ? 'opacity:1' : 'opacity:0;pointer-events:none'),
+    }
+  }
+}
+
+</script>
+</body>
+</html>

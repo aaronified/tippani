@@ -48,12 +48,19 @@ import {
   SectionHead,
 } from './characterRows.jsx'
 import { t } from './i18n.js'
+import { IconGlobe } from './ui.jsx'
 import { PROVIDERS, parseLinks } from './people.jsx'
 
 // THE GLOBE IS THE ART A GLOBAL SCOPE HAS, and its absence is the information:
 // every local scope wears the work's own cover in that slot, so a screen with no
 // cover is a screen that belongs to no one work.
-const GLOBE = '🌐'
+//
+// THE APP'S OWN GLOBE, not the emoji this was. An emoji is the platform's
+// drawing, not the app's — it changes with the reader's font, sits on a different
+// baseline from every other glyph on the screen, and is the one picture the UI
+// glossary cannot document. IconGlobe is in ui.jsx and is what the rest of the
+// app already uses for "everywhere".
+const GLOBE = <IconGlobe />
 
 // mediumCrumb — "1 book · 1 film · 1 game", which is the pack's own crumb and a
 // better answer than "3 works": a character in three books and a character in a
@@ -79,8 +86,13 @@ function mediumCrumb(works) {
 function linkPills(text) {
   const { known, extra } = parseLinks(text)
   const out = []
-  for (const [slug, name] of PROVIDERS) {
-    if (known[slug]) out.push({ url: known[slug], slug, name })
+  // t(labelKey), NOT the key. PROVIDERS' middle column is the locale key that
+  // names the provider — its own header says so — and this read it as the name,
+  // so every recognised link drew a pill reading "vocab.source.tmdb.label".
+  // Visible only once a link existed to draw, which is why it survived the screen
+  // being built: the fixture had none.
+  for (const [slug, labelKey] of PROVIDERS) {
+    if (known[slug]) out.push({ url: known[slug], slug, name: t(labelKey) })
   }
   for (const url of extra) {
     let host = url
@@ -258,7 +270,7 @@ export function CharacterGlobal({
 // ---- one person, shared by every work ---------------------------------------
 
 export function PersonGlobal({
-  record, credits, roles, kinds, portrait, portraitActions, onNames, onSort, onBorn,
+  record, credits, roles, kinds, org = false, portrait, portraitActions, onNames, onSort, onBorn,
   onLinkAdd, onOpenWork, onOpenRole, onAddWork, onMerge, onDelete, children,
 }) {
   // TWO SOURCES, ONE STRIP, and the pack's own tiles say so: "as Harry
@@ -306,7 +318,17 @@ export function PersonGlobal({
           and this sentence is the only thing standing between a reader and
           renaming an author across thirty-one books. Same string, because it is
           the same fact. */}
-      <SectionHead label={t('identity.section.person.label')} note={t('identity.section.identity.note')} />
+      {/* THE HEADING NAMES WHAT THE RECORD IS. A studio and a publisher are
+          `people` rows and share every one of these controls, but they are not
+          people, and "The person" over Electronic Arts is the same small lie
+          the legacy form was fixed for: it is not born and it does not die, it
+          is founded and it closes. One predicate decides it — see
+          isOrganisation in people.jsx — so the popup's id spaces and this
+          screen's nouns cannot come to different conclusions. */}
+      <SectionHead
+        label={org ? t('identity.section.company.label') : t('identity.section.person.label')}
+        note={t('identity.section.identity.note')}
+      />
       <NamesRow
         label={t('identity.row.name.label')}
         lines={[record.name, ...(record.aliases || [])]}
@@ -316,19 +338,25 @@ export function PersonGlobal({
       <ScreenRow
         label={t('identity.row.sort.label')}
         meta={record.sort_name || t('identity.row.sort.none')}
-        sub={t('identity.row.sort.sub.person')}
+        sub={org ? t('identity.row.sort.sub.company') : t('identity.row.sort.sub.person')}
         onClick={onSort}
       />
       {/* NO IN-WORLD CAVEAT HERE, which is the one row differing from the
           character's by more than a word: a person's birth is a fact about the
-          world, so it needs no sentence saying whose claim it is. */}
+          world, so it needs no sentence saying whose claim it is.
+          A COMPANY IS FOUNDED, and the word comes from people.form.founded.label
+          rather than a second spelling of its own: the legacy form already draws
+          this field for a studio and a thing has one name wherever it is drawn. */}
       <ScreenRow
-        label={t('identity.field.born')}
+        label={org ? t('people.form.founded.label') : t('identity.field.born')}
         meta={record.born || t('identity.row.born.none')}
         onClick={onBorn}
       />
 
-      <SectionHead label={t('identity.section.links.label')} note={t('identity.section.links.note.person')} />
+      <SectionHead
+        label={t('identity.section.links.label')}
+        note={org ? t('identity.section.links.note.company') : t('identity.section.links.note.person')}
+      />
       <PillRow
         pills={pills}
         onAdd={onLinkAdd}
@@ -342,23 +370,28 @@ export function PersonGlobal({
         tiles={tiles}
         hint={tiles.length > 1 ? t('identity.strip.order.hint') : ''}
         onAdd={onAddWork}
-        addTitle={t('identity.works.add.person.tip')}
+        addTitle={org ? t('identity.works.add.company.tip') : t('identity.works.add.person.tip')}
       />
 
       {children}
 
-      <SectionHead label={t('identity.section.itself.label.person')} />
+      {/* EVERY NOUN ON THIS SCREEN FOLLOWS THE ONE PREDICATE. Half a translation
+          is worse than none: a page headed "The company" whose closing rows offer
+          to merge "another person" and delete "this person" reads as two screens
+          spliced together, and the reader cannot tell which of the two words is
+          the one the app means. */}
+      <SectionHead label={org ? t('identity.section.itself.label.company') : t('identity.section.itself.label.person')} />
       <ScreenRow
-        label={t('identity.row.merge.label.person')}
-        sub={t('identity.row.merge.sub.person')}
+        label={org ? t('identity.row.merge.label.company') : t('identity.row.merge.label.person')}
+        sub={org ? t('identity.row.merge.sub.company') : t('identity.row.merge.sub.person')}
         icon="⇢"
         onClick={onMerge}
       />
       {/* Same rule as the character screen's removal row. */}
       {onDelete ? (
         <ScreenRow
-          label={t('identity.row.delete.label.person')}
-          sub={t('identity.row.delete.sub.person')}
+          label={org ? t('identity.row.delete.label.company') : t('identity.row.delete.label.person')}
+          sub={org ? t('identity.row.delete.sub.company') : t('identity.row.delete.sub.person')}
           icon="🗑"
           danger
           onClick={onDelete}

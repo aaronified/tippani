@@ -116,6 +116,47 @@ func TestDirectorAndStudioQueriesAreDisjoint(t *testing.T) {
 	}
 }
 
+// The other half of the same hazard, and the reason it needs stating: the
+// PUBLISHER's queries must NOT carry a media_type predicate.
+//
+// The rule the test above enforces is easy to over-apply. movies.director holds
+// two facts split by media type — a film's director and a game's studio — so a
+// query on it that forgets to say which is answering the wrong question.
+// movies.publisher holds ONE: the company that put the work out, which 0042 left
+// open to every media type on purpose, because a film's distributor and a show's
+// network are the same fact under a different word.
+//
+// So a `media_type = 'game'` added here in the name of consistency would strand
+// every publisher on anything but a game: the console would not list them, the
+// rename would not reach them, and the orphan sweep would delete their record
+// and unlink their logo. That is the same class of loss the studio filter
+// prevents, running the other way, and it would look like tidying up.
+func TestPublisherQueriesAreNotNarrowedByMediaType(t *testing.T) {
+	scan, update, ok := personCreditSQL("publisher")
+	if !ok {
+		t.Fatal(`personCreditSQL("publisher") not mapped`)
+	}
+	for _, c := range []struct{ name, sql string }{
+		{"orphanRefQuery(publisher)", orphanRefQuery("publisher")},
+		{"personCreditSQL(publisher).scan", scan},
+		{"personCreditSQL(publisher).update", update},
+	} {
+		if c.sql == "" {
+			t.Errorf("%s is empty", c.name)
+			continue
+		}
+		if strings.Contains(c.sql, "media_type") {
+			t.Errorf("%s narrows by media type.\n"+
+				"movies.publisher holds one fact for every medium (0042), so a filter here\n"+
+				"strands every publisher outside it — the console loses them, the rename\n"+
+				"misses them, and the orphan sweep deletes them.\ngot: %s", c.name, c.sql)
+		}
+		if !strings.Contains(c.sql, "publisher") {
+			t.Errorf("%s does not name the publisher column: %s", c.name, c.sql)
+		}
+	}
+}
+
 // personCreditSQL is the rename's half of the same hazard, with a bigger blast
 // radius: metadata.ReplaceCredit matches a name as a COMPONENT inside a joined
 // credit, so a speaker renamed from "Bose" under an inherited books arm would
@@ -136,18 +177,20 @@ func TestPersonCreditSQLHasNoDefault(t *testing.T) {
 // books arm — they could disagree with each other, scanning every book's author
 // and stamping the rewritten strings onto dialogue rows by matching id.
 func TestPersonCreditSQLScanAndUpdateAgreeOnTheTable(t *testing.T) {
-	// author, translator and editor all read and write `books`, and director and
-	// studio both read and write `movies` — which is exactly what this test
-	// exists to check: five of the seven arms share a table with another arm, so
-	// "did the scan and the update agree" stops being obvious by inspection.
+	// author, translator and editor all read and write `books`, and director,
+	// studio and publisher all read and write `movies` — which is exactly what
+	// this test exists to check: six of the eight arms share a table with another
+	// arm, so "did the scan and the update agree" stops being obvious by
+	// inspection.
 	table := map[string]string{
 		"author": "books", "actor": "dialogues", "director": "movies",
 		"translator": "books", "editor": "books",
-		"speaker": "utterances", "studio": "movies",
+		"speaker": "utterances", "studio": "movies", "publisher": "movies",
 	}
 	// The map is a hand-written copy of the vocabulary, so it needs a guard that
 	// it has not fallen behind it — 'speaker' and 'studio' were both missing here
-	// while the test read as though it covered everything.
+	// while the test read as though it covered everything, and 'publisher' was
+	// caught by this guard rather than by review.
 	for _, k := range personKinds {
 		if _, ok := table[k]; !ok {
 			t.Errorf("personKinds has %q but this test's table does not name its table", k)

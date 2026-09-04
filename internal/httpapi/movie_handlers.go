@@ -383,8 +383,8 @@ func (s *Server) handleCreateMovie(w http.ResponseWriter, r *http.Request) {
 		internalError(w, r, "create movie: set genres", err)
 		return
 	}
-	// 0056: the director column is the input; the link rows are the record.
-	if err := s.syncMovieCredits(tx, uid, id, req.Director); err != nil {
+	// 0056: the two company columns are the input; the link rows are the record.
+	if err := s.syncMovieCredits(tx, uid, id, req.Director, req.Publisher); err != nil {
 		internalError(w, r, "create movie: credits", err)
 		return
 	}
@@ -486,7 +486,7 @@ func (s *Server) createMovieFromSource(w http.ResponseWriter, r *http.Request, s
 		return
 	}
 	// 0056, as in the hand-made create path above.
-	if err := s.syncMovieCredits(tx, uid, id, d.Director); err != nil {
+	if err := s.syncMovieCredits(tx, uid, id, d.Director, d.Publisher); err != nil {
 		s.removeCoverFile(posterPath)
 		internalError(w, r, "create movie: credits", err)
 		return
@@ -1049,8 +1049,8 @@ func (s *Server) handleUpdateMovie(w http.ResponseWriter, r *http.Request) {
 		failErr("update movie: set genres", err)
 		return
 	}
-	// 0056: the director column is the input; the link rows are the record.
-	if err := s.syncMovieCredits(tx, uid, id, req.Director); err != nil {
+	// 0056: the two company columns are the input; the link rows are the record.
+	if err := s.syncMovieCredits(tx, uid, id, req.Director, req.Publisher); err != nil {
 		failErr("update movie: credits", err)
 		return
 	}
@@ -1179,7 +1179,7 @@ func (s *Server) resyncMovieFromSource(w http.ResponseWriter, r *http.Request, i
 	// 0056. A re-sync is the path most likely to bring a DIFFERENT spelling of a
 	// director the library already has — which is the case aliases exist for, and
 	// the reason this cannot be skipped just because the string may be unchanged.
-	if err := s.syncMovieCredits(tx, uid, id, d.Director); err != nil {
+	if err := s.syncMovieCredits(tx, uid, id, d.Director, d.Publisher); err != nil {
 		failErr("resync movie: credits", err)
 		return
 	}

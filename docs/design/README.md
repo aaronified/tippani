@@ -19,6 +19,7 @@ Self-contained HTML. Open one in a browser — every component is pressable, and
 | `prototypes/book-detail.dc.html` | The same on a phone |
 | `prototypes/character-popup.dc.html` | The five character/people scopes (task 16) |
 | `prototypes/ui-glossary.dc.html` | Every component and material, pressable |
+| `prototypes/work-details-popup.dc.html` | The work's own details panel — the next area |
 
 **Not here:** `Icon Candidates.dc.html`, named by `handoff/handoff.md` as the glyph
 proposal. It has not been sent; ask before working from memory on icons.

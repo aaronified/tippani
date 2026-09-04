@@ -8334,6 +8334,44 @@ html[data-theme="dark"] .board-cover {
     color: var(--soft); cursor: pointer;
   }
   .cs-credit-key:hover, .cs-credit-key:focus-visible { background: color-mix(in oklab, var(--ink), transparent 94%); color: var(--ink); }
+  /* ---- THE STANDING TICK/CROSS PAIR ---------------------------------------
+     CLAUDE.md's rule, and the accent is the whole of it: a tick lights only once
+     the substance differs from what is stored, so a reader can tell a form with
+     pending changes from one they have merely opened. The badge counts what the
+     press will change, because "save" over a five-field form does not say
+     whether it is about to write one field or five.
+
+     THE SLOT IS RELATIVE AND THE BADGE HANGS OFF IT rather than sitting inside
+     the button: the button is a 34px square hit target and a number inside it
+     would either shrink the tick or grow the target. */
+  .tp-tick-slot { position: relative; display: inline-flex; flex: none; }
+  .tp-tick-slot.is-armed button {
+    background: var(--accent-ui);
+    border-color: var(--accent-ui);
+    /* The tick itself goes to the accent's own ink rather than staying the
+       body's, which on a filled ground is the difference between a mark and a
+       smudge. */
+    color: #fff;
+  }
+  .tp-tick-count {
+    position: absolute;
+    top: -3px;
+    right: -3px;
+    min-width: max(15px, 1.1em);
+    padding: 0 3px;
+    border-radius: 999px;
+    background: var(--accent-ui);
+    color: #fff;
+    font-family: var(--font-mono);
+    font-size: var(--type-mono-9);
+    line-height: max(15px, 1.1em);
+    text-align: center;
+    /* A ring in the surface colour cuts the badge out of the button beneath, the
+       same trick FaceStack uses so an overlap reads as stacked. */
+    box-shadow: 0 0 0 1.5px var(--card);
+    pointer-events: none;
+  }
+
   .cs-credit-key.is-danger { color: var(--faint); }
   .cs-credit-key.is-danger:hover { background: color-mix(in oklab, var(--error), transparent 90%); color: var(--error); }
 

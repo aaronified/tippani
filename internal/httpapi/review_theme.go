@@ -30,7 +30,7 @@ import (
 type reviewTheme struct {
 	tag    string
 	colour string
-	person string // author, actor, speaker or director — matched across all of them
+	person string // author, actor, speaker, director or publisher — matched across all of them
 	book   int64
 	movie  int64
 	// anthology (0043) is the SIXTH theme and the first one that is not a predicate
@@ -135,8 +135,14 @@ func (t reviewTheme) clause(rs reviewSource) (string, []any, bool) {
 			sql.WriteString(" AND lower(COALESCE(p.author,'')) LIKE lower(?)")
 			args = append(args, "%"+t.person+"%")
 		case kindScreen:
-			sql.WriteString(" AND (lower(COALESCE(x.actor,'')) LIKE lower(?) OR lower(COALESCE(p.director,'')) LIKE lower(?))")
-			args = append(args, "%"+t.person+"%", "%"+t.person+"%")
+			// THE PUBLISHER IS THE THIRD COLUMN HERE since it became a credit with
+			// a record of its own. Its page carries the same Practise button every
+			// other person's does, and without this term that button was a control
+			// that could only ever come back empty — which is the one thing this
+			// app refuses to draw.
+			sql.WriteString(" AND (lower(COALESCE(x.actor,'')) LIKE lower(?) OR lower(COALESCE(p.director,'')) LIKE lower(?)" +
+				" OR lower(COALESCE(p.publisher,'')) LIKE lower(?))")
+			args = append(args, "%"+t.person+"%", "%"+t.person+"%", "%"+t.person+"%")
 		case kindUtterance:
 			sql.WriteString(" AND lower(COALESCE(x.speaker,'')) LIKE lower(?)")
 			args = append(args, "%"+t.person+"%")

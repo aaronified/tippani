@@ -22,19 +22,26 @@ const GO = readFileSync(
   'utf8',
 )
 
-describe('the six scopes', () => {
-  it('are the pack’s five, plus the one it does not draw', () => {
+describe('the five scopes', () => {
+  it('are the pack’s own five, and no sixth', () => {
     expect(identityScope({ table: 'character' }).id).toBe('char-global')
     expect(identityScope({ table: 'person' }).id).toBe('people-global')
     expect(identityScope({ table: 'character', work: { kind: 'book' } }).id).toBe('char-book')
     expect(identityScope({ table: 'character', work: { kind: 'movie' } }).id).toBe('char-film')
     expect(identityScope({ table: 'character', work: { kind: 'movie', media_type: 'game' } }).id)
       .toBe('char-game')
-    // THE DEPARTURE, NAMED. The pack has no person-on-a-work screen; the panel has
-    // offered one since it landed, because that is where a credit's own spelling
-    // is edited. It is a scope rather than an exception so the renderer has one
-    // switch and not a switch plus a special case.
-    expect(identityScope({ table: 'person', work: { kind: 'book' } }).id).toBe('people-work')
+    // A PERSON IS ALWAYS GLOBAL — the owner's ruling, and the reason there is no
+    // sixth. A `work` handed in with a person is IGNORED rather than honoured:
+    // a person is one record however many works credit them, and the place to
+    // change what one work prints is that work's own cast list. This file used to
+    // return `people-work` here and argue for it as a departure; the sheet it
+    // produced was a screen the pack never drew.
+    for (const work of [{ kind: 'book' }, { kind: 'movie' }, { kind: 'movie', media_type: 'game' }]) {
+      const sc = identityScope({ table: 'person', work })
+      expect(sc.id, 'a person on a work is still the person').toBe('people-global')
+      expect(sc.local, 'a person scope claimed to be local to a work').toBe(false)
+      expect(sc.medium, 'a person scope kept the work’s medium').toBe('')
+    }
   })
 
   it('reads a show as film-like rather than as a fourth medium', () => {

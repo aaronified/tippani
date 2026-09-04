@@ -4051,7 +4051,18 @@ export function PanelHost({ stack }) {
 // "Save" undersells it by half. A PROP rather than a second channel through the
 // form-host context: the dialog and the form that registers with it are written
 // in the same file at every call site, so the caller always knows.
-export function FormModal({ open = true, onClose, title, maxWidth = 560, saveTip, children }) {
+// `dirty` and `closeDanger` ARE THE STANDING TICK/CROSS RULE, arriving one caller
+// at a time. CLAUDE.md now states it: a tick lights — accent fill, and a badge
+// counting what the press will change — only once the substance differs from
+// what is stored, and the cross is red because it is the discarding half. Both
+// are OPTIONAL and default to the behaviour every existing modal already has, so
+// this commit changes no screen but the one it adds. Flipping the defaults is the
+// sweep the owner has deferred, and it belongs here rather than in each caller:
+// this component draws the pair for every form in the app.
+//
+// `dirty` is a COUNT, not a boolean, because the badge shows it. undefined means
+// "the caller does not track it" and the tick behaves as it always did.
+export function FormModal({ open = true, onClose, title, maxWidth = 560, saveTip, dirty, closeDanger = false, children }) {
   const mobile = useIsMobileScreen();
   useBodyScrollLock(open);
   // Desktop only: the mobile branch below renders MobileSheet, which takes the
@@ -4067,21 +4078,27 @@ export function FormModal({ open = true, onClose, title, maxWidth = 560, saveTip
   // into the next thing opened under the same instance.
   useEffect(() => { if (!open) setBlocked(null); }, [open]);
   if (!open) return null;
+  // A tick that looks armed when nothing has changed teaches the reader to stop
+  // reading it, so the accent and the badge both wait for a real change.
+  const armed = typeof dirty === 'number' && dirty > 0;
   const save = blocked === null ? null : (
-    <IconButton
-      icon={<IconCheck />}
-      type="submit"
-      form={formId}
-      ariaLabel={t("common.action.save.label")}
-      tooltip={blocked || saveTip || t("common.action.save.label")}
-      disabled={!!blocked}
-      style={{ width: 34, height: 34, padding: 0, flexShrink: 0 }}
-      wrapClassName="shrink-0"
-    />
+    <span className={'tp-tick-slot' + (armed ? ' is-armed' : '')}>
+      <IconButton
+        icon={<IconCheck />}
+        type="submit"
+        form={formId}
+        ariaLabel={t("common.action.save.label")}
+        tooltip={blocked || saveTip || t("common.action.save.label")}
+        disabled={!!blocked}
+        style={{ width: 34, height: 34, padding: 0, flexShrink: 0 }}
+        wrapClassName="shrink-0"
+      />
+      {armed ? <span className="tp-tick-count" aria-hidden="true">{dirty}</span> : null}
+    </span>
   );
   if (mobile) {
     return createPortal(
-      <MobileSheet open={open} onClose={onClose} title={title} actions={save}>
+      <MobileSheet open={open} onClose={onClose} title={title} actions={save} closeDanger={closeDanger}>
         <FormHostContext.Provider value={host}>{children}</FormHostContext.Provider>
       </MobileSheet>,
       document.body,
@@ -4115,7 +4132,10 @@ export function FormModal({ open = true, onClose, title, maxWidth = 560, saveTip
             ariaLabel={t("common.action.close.label")}
             tooltip={t("common.form.close.tip")}
             onClick={onClose}
-            style={{ width: 34, height: 34, padding: 0, flexShrink: 0 }}
+            style={{
+              width: 34, height: 34, padding: 0, flexShrink: 0,
+              ...(closeDanger ? { color: 'var(--error)' } : null),
+            }}
             wrapClassName="shrink-0"
           />
         </div>
@@ -7299,6 +7319,15 @@ export function NavIcon({ name }) {
     case 'anthologies': return <IconNavAnthologies />
     case 'library': return <IconNavLibrary />
     case 'movies': return <IconNavCatalogue />
+    // A SHOW AND A GAME REUSE THE PICTURES THE APP ALREADY HAS, and the icon
+    // suite is why: a monitor-play glyph and a controller were added here as
+    // IconNavShow/IconNavGame and came back as exact duplicates of IconWatching
+    // and IconPlaying. Two pictures of one thing is the defect the test exists
+    // for — and the reuse is not a compromise, it is the better reading: a show
+    // is the thing you watch and a game the thing you play, which is what those
+    // two glyphs have always meant.
+    case 'show': return <IconWatching />
+    case 'game': return <IconPlaying />
     case 'metadata': return <IconRecords />
     case 'import': return <IconImport />
     case 'search': return <IconNavSearch />
@@ -8151,7 +8180,14 @@ export function QuoteActions({ actions = [] }) {
 //
 // `dismissOnScrim` is off for forms: a filter sheet loses nothing to a stray tap
 // beside the card, and a half-written quote loses everything.
-export function MobileSheet({ open, onClose, title, actions, children, footer, dismissOnScrim = true }) {
+// `closeDanger` makes the dismiss the DISCARDING half of the standing pair, and
+// it changes the glyph as well as the colour. A sheet's default exit is a back
+// arrow, which is right for a filter sheet — nothing is lost by leaving — and
+// wrong for a form, where leaving throws away what was typed. The repo's rule is
+// that the cross is red and the tick is not, and a rule that held on a desk and
+// not on a phone would be two rules; the desk branch of FormModal has drawn this
+// pair since the rule was written, and this is the same pair.
+export function MobileSheet({ open, onClose, title, actions, children, footer, dismissOnScrim = true, closeDanger = false }) {
   useBackToClose(open, onClose);
   useBodyScrollLock(open);
   if (!open) return null;
@@ -8160,8 +8196,14 @@ export function MobileSheet({ open, onClose, title, actions, children, footer, d
       <div className="mobile-sheet-card" onClick={(e) => e.stopPropagation()}>
         <div className="mobile-sheet-header">
           <Tooltip label={t("common.sheet.close.tip")} side="bottom" className="shrink-0">
-            <button type="button" className="mobile-sheet-close" onClick={onClose} aria-label={t("common.action.close.label")}>
-              <IconBack />
+            <button
+              type="button"
+              className="mobile-sheet-close"
+              onClick={onClose}
+              aria-label={t("common.action.close.label")}
+              style={closeDanger ? { color: "var(--error)" } : undefined}
+            >
+              {closeDanger ? <IconClose /> : <IconBack />}
             </button>
           </Tooltip>
           <h2 className="mobile-sheet-title">{title}</h2>

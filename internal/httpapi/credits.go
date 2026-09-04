@@ -57,14 +57,35 @@ func (s *Server) syncBookCredits(tx *sql.Tx, uid, id int64, author, translator, 
 	return nil
 }
 
-// syncMovieCredits is the same for a film, show or game's one credit column.
+// syncMovieCredits is the same for a film, show or game's two credit columns.
 //
 // A GAME'S "DIRECTOR" IS ITS STUDIO, which the app already stores in this column
 // and displays under its own label. It splits and resolves like any other credit
 // — a studio is a name that appears on many works, which is exactly what a
 // person record is for here, whatever the word above it says.
-func (s *Server) syncMovieCredits(tx *sql.Tx, uid, id int64, director string) error {
+//
+// AND THE PUBLISHER BESIDE IT, since the release it became a credit rather than a
+// caption. It is the same argument one column over: "Ninefold Games" is a name
+// that appears on many works, and 0042 left the column open to every media type
+// on purpose — a film's distributor and a show's network are the same fact — so
+// this is not scoped to games either. A film that has never had one syncs an
+// empty string, which writes no link rows and leaves the column alone.
+//
+// BOTH, EVEN WHEN ONE CHANGED, for the reason syncBookCredits gives above: a
+// caller that syncs only what it believes it touched leaves the other half of
+// the cache pointing at people the reader has just removed.
+func (s *Server) syncMovieCredits(tx *sql.Tx, uid, id int64, director, publisher string) error {
 	seps := s.creditSeps(uid)
-	return store.SetCredits(tx, uid, "movie", id, store.RoleDirector,
-		metadata.SplitCredits(director, seps), seps)
+	for _, c := range []struct {
+		role store.CreditRole
+		raw  string
+	}{
+		{store.RoleDirector, director},
+		{store.RolePublisher, publisher},
+	} {
+		if err := store.SetCredits(tx, uid, "movie", id, c.role, metadata.SplitCredits(c.raw, seps), seps); err != nil {
+			return err
+		}
+	}
+	return nil
 }

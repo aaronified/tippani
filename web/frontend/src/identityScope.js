@@ -16,13 +16,16 @@
 // comparing them would not guess that from two separate files. One table makes a
 // new medium a row rather than a screen.
 //
-// THE SIXTH STATE, WHICH THE PACK DOES NOT DRAW. A person can also be seen from
-// inside one work — that is where a credit's own spelling is edited ("Printed on
-// this work as"), and `PersonBody` has offered it since the panel landed. The
-// pack has no `people-book`, so this is a DEPARTURE and is named here rather than
-// discovered: `people-work` is the sixth scope, it carries the credit spelling
-// and nothing else, and it is the only scope whose sections the pack cannot be
-// checked against.
+// A PERSON IS ALWAYS GLOBAL — the owner's ruling, and it settles a scope this
+// file used to invent. There were five ids here and a sixth called `people-work`,
+// argued for as a departure on the grounds that a credit's own spelling is a fact
+// about one work. The spelling is, and the SHEET is not: a person is one record
+// however many works credit them, and the place to change what one work prints is
+// that work's own cast list, which is the only screen holding the row. The
+// person's sheet shows every credit as a tile that already says "as Harry".
+//
+// So there are FIVE scopes, and a work handed in with a person is ignored rather
+// than honoured.
 
 // THE LOCATOR NOUN IS THE SERVER'S, restated. `locatorNoun` in
 // internal/httpapi/whos_in_it.go maps the same three ways — a book counts
@@ -65,9 +68,12 @@ export function identityScope({ table, work = null } = {}) {
   }
   const medium = mediumOf(work)
   if (person) {
-    // The departure named in the header. It carries the credit spelling and does
-    // not pretend to the pack's other sections.
-    return { id: 'people-work', table: 'person', local: true, medium, locator: '', performer: 'none', dubs: false }
+    // A PERSON HANDED A WORK IS STILL THE PERSON. Returning a local scope here is
+    // what produced a sheet the pack never drew; the work is dropped on purpose.
+    return {
+      id: 'people-global', table: 'person', local: false, medium: '',
+      locator: '', performer: 'none', dubs: false,
+    }
   }
   return {
     id: medium === 'book' ? 'char-book' : medium === 'game' ? 'char-game' : 'char-film',

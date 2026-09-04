@@ -168,8 +168,15 @@ func (s *Server) resolvePersonPortrait(ctx context.Context, uid int64, kind, nam
 	case "director":
 		source, sourceID, imageURL, bio, born, died = s.resolveDirectorMeta(ctx, uid, name)
 		return source, sourceID, imageURL, bio, born, died, links, nil
-	case "studio":
+	case "studio", "publisher":
 		// A STUDIO IS NOT A PERSON, AND THIS IS THE PATH THAT WROTE THE ROW.
+		//
+		// A PUBLISHER SHARES THIS ARM because IGDB's /companies endpoint does not
+		// distinguish them: "Ninefold Games" is one company record whether it
+		// developed the game or put it out, and which of the two it was is a fact
+		// about the CREDIT rather than about the company. That is why the same
+		// lookup answers both and why a publisher needed no second resolver — it
+		// is also the behaviour that earned it a kind, on 0042's own terms.
 		//
 		// Everything below falls to the Open Library AUTHOR lookup, which was a
 		// complete description of the world until 0040 added a seventh person
@@ -192,7 +199,7 @@ func (s *Server) resolvePersonPortrait(ctx context.Context, uid int64, kind, nam
 		if cerr != nil {
 			// Best-effort, like the actor and director paths. A studio whose
 			// logo could not be fetched is still a studio.
-			olog.Warnf(olog.CodePeopleLookupFailed, "[people] studio %q: %v", name, cerr)
+			olog.Warnf(olog.CodePeopleLookupFailed, "[people] company %q (%s): %v", name, kind, cerr)
 			return "", "", "", "", "", "", links, nil
 		}
 		if l != nil {

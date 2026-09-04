@@ -3508,7 +3508,7 @@ film.practise.tip = Quiz me on this title
 film.details.tip = Details and metadata
 film.toast.deleted = title deleted
 # The mono credit line under a title. ⚠ SMALL CAPS IN A NARROW SLOT.
-film.credit.publisher.label = PUB. {name}
+film.credit.publisher.label = PUB.
 film.credit.actor.label = PLAYED BY
 # The date-confirm dialog's word for what just happened to the shelf.
 film.shelf.started.label = Started
@@ -4045,9 +4045,6 @@ cast.picture.pick.use = Use this picture from {source}
 # The same strip on a cast row, where the picture is of a ROLE — an actor in
 # costume — rather than of a person. Only shown when a picture source is
 # configured; without one the button opens a web search in a tab as before.
-cast.picture.pick.prose = Pick one, or paste an address
-cast.picture.pick.none = Nothing came back — try the actor's name, or paste an address
-cast.picture.pick.use = Use this picture from {source}
 people.form.image-url.placeholder = https://… paste an image link
 # Two lines of example, joined by the code — the file format is one value per
 # line, so a two-line placeholder is two keys. URLs, so unchanged in any
@@ -4653,7 +4650,7 @@ metadata.characters.summary.one = {n} character, {unpaired} in no work
 metadata.characters.summary.other = {n} characters, {unpaired} in no work
 
 metadata.people.title = People
-metadata.people.info.body = Photos and reference pages, matched to the right person — an author by their books, an actor or director from a film's credits, a studio from a game's. Actor and director photos need a TMDB key; the rest come from Wikidata.
+metadata.people.info.body = Photos and reference pages, matched to the right person — an author by their books, an actor or director from a film's credits, a studio or publisher from a game's. Actor photos need a TMDB key, a company logo IGDB; the rest, Wikidata.
 # The five toggles. Studios are their own row rather than folded in with
 # directors: the two share one stored column and are told apart only by media
 # type, so listing them together would offer a studio for renaming as a director.
@@ -4662,6 +4659,7 @@ metadata.people.kind.all.label = All
 metadata.people.kind.actor.label = Actors
 metadata.people.kind.director.label = Directors
 metadata.people.kind.studio.label = Studios
+metadata.people.kind.publisher.label = Publishers
 metadata.people.kind.speaker.label = Speakers
 metadata.people.fetch.label = Fetch missing
 metadata.people.fetch.count.label = Fetch missing ({n})
@@ -4683,6 +4681,7 @@ metadata.people.empty.author = no authors in the library yet
 metadata.people.empty.actor = no actors on any dialogue yet
 metadata.people.empty.director = no directors on any film yet
 metadata.people.empty.studio = no studios on any game yet
+metadata.people.empty.publisher = nothing in the library names a publisher yet
 metadata.people.empty.speaker = nobody has said anything yet
 metadata.people.empty.all = no people in the library yet
 # The table. Name and Links are shared field names; the middle column's head
@@ -5061,6 +5060,8 @@ unit.director.one = director
 unit.director.other = directors
 unit.studio.one = studio
 unit.studio.other = studios
+unit.publisher.one = publisher
+unit.publisher.other = publishers
 unit.speaker.one = speaker
 unit.speaker.other = speakers
 unit.person.one = person
@@ -5170,7 +5171,6 @@ common.field.portrait.label = Portrait
 common.field.bio.label = Bio
 common.field.born.label = Born
 common.field.died.label = Died
-common.field.links.label = Links
 common.field.identity.label = Identity
 # Identifiers, which appear as themselves in every language.
 common.field.tmdb-id.label = TMDB id
@@ -6215,33 +6215,17 @@ identity.credit.saved = Saved on {title}
 
 # Scope 1: the credit link, and nothing else.
 identity.scope.work.title = on this work
-identity.scope.work.body = Changes here touch {title} and no other work.
-identity.scope.work.role = Credited as the {role}.
-identity.scope.work.hint.character = One row in one work's cast. The name it is billed under, its picture and its description belong to this work and travel nowhere.
-identity.credit.as.label = Printed on this work as
-identity.credit.as.hint = Leave it empty to print {name}, the name on the record.
 identity.credit.as.on = as {as}
 
 # Scope 2: what the record is in, and what finds it.
-identity.scope.library.title = across the library
 identity.scope.library.body = Everything this person is on, and every spelling that finds them.
 identity.scope.library.character = Every work this character appears in, and every spelling that finds them.
-identity.scope.library.hint.character = One record, however many works. What is listed here is the same character seen from each work it turns up in.
-identity.person.credits.title.one = credited on {n} work
-identity.person.credits.title.other = credited on {n} works
-identity.person.credits.empty = Not credited on anything yet.
-identity.person.roles.title.one = played {n} character
-identity.person.roles.title.other = played {n} characters
 identity.person.portrait.none = No picture yet. Search for one, or paste an address.
 identity.person.portrait.aria = Portrait for {name}
 identity.person.portrait.url.aria = Picture address for {name}
 identity.person.portrait.clear.label = remove the picture
 identity.character.appearances.title.one = in {n} work
 identity.character.appearances.title.other = in {n} works
-identity.character.appearances.others.one = and {n} other work
-identity.character.appearances.others.other = and {n} other works
-identity.character.appearances.empty = In no work yet. It appears once a work's cast points at it.
-identity.character.appearances.only = Only the work above, so far.
 identity.works.add.label = Add a work
 # The five character/people screens (task 16), in the design pack's own order.
 # `identity.crumb.*` is the header's second line; `identity.section.*` its
@@ -6369,25 +6353,22 @@ identity.credit.remove.tip = Take this credit off
 # A DEPARTURE, named in identityScope.js rather than discovered. The pack has no
 # people-book, but the app has somewhere the pack does not: a credit's own
 # SPELLING, which is a fact about the work-person link and about nothing else.
-identity.row.printed.label = Printed on this work as
-identity.row.printed.sub = This work only — every other work keeps its own
-identity.row.role.label = Credited as
-identity.row.role.sub = Change it in this work's own cast list
-identity.row.globalperson.label = Open the person's record
-identity.row.globalperson.sub = The person, out of any one work
 
 
 
 identity.section.identity.label = The identity
 identity.section.identity.note = Edits here reach every work.
 identity.section.person.label = The person
+identity.section.company.label = The company
 identity.section.links.label = Links
 identity.section.links.note.character = Where this character is written up outside the app.
 identity.section.links.note.person = Where this person is written up outside the app.
+identity.section.links.note.company = Where this company is written up outside the app.
 identity.section.works.label.one = Works · {n}
 identity.section.works.label.other = Works · {n}
 identity.section.itself.label.character = The identity itself
 identity.section.itself.label.person = This person
+identity.section.itself.label.company = This company
 identity.row.canonical.label = Canonical name
 identity.row.canonical.empty = No name yet
 identity.row.name.label = Name
@@ -6395,22 +6376,49 @@ identity.row.sort.label = Sort name
 identity.row.sort.none = same as the name
 identity.row.sort.sub.character = How the identity files in a list
 identity.row.sort.sub.person = How the person files in a list
+identity.row.sort.sub.company = How the company files in a list
 identity.row.born.none = not said
 identity.row.born.sub.character = In-world, where a work states it
 identity.row.link.add.label = Add link
 identity.row.link.add.tip = Paste an address for this record
+# ---- add a link from a provider id ----------------------------------------
+# "Add a link" used to focus the free-text field, so a reader holding a person's
+# IMDb id had to know the page is /name/<id>/ — not /person/ or /people/ —
+# before they could type anything. Every pattern the popup writes is the one
+# internal/metadata/people.go already builds when it fetches a portrait, so a
+# link typed by hand and a link fetched from TMDB are the same string.
+identity.link.id.title = Add a link from an ID
+identity.link.id.provider.label = Which site
+identity.link.id.field.label = The ID
+identity.link.id.save.tip = Add this link
+# Shown on the ✓ while there is nothing to write. Inside the five-word rule.
+identity.link.id.save.blocked = Type an ID first
+# THE HINT IS THE PROVIDER'S OWN SHAPE, because that is what a reader is
+# checking: an IMDb id starts nm, a TMDB one is a number, and getting it wrong
+# gives a pill that opens nothing.
+identity.link.id.hint.imdb = Starts with nm — from the address of their IMDb page
+identity.link.id.hint.tmdb = The number in their TMDB address
+identity.link.id.hint.tvdb = The number or slug in their TheTVDB address
+identity.link.id.hint.amazon = Their Amazon author id, starting B0
+identity.link.id.hint.igdb = The company's IGDB slug, as it appears in the address
+
 identity.strip.order.hint = the order is the release order
 identity.tile.face.played = {name} — played by {actor}
 identity.row.merge.label.character = Merge with another character
 identity.row.merge.sub.character = Two identities become one; their work records come across untouched
 identity.row.merge.label.person = Merge with another person
+identity.row.merge.label.company = Merge with another company
 identity.row.merge.sub.person = Their credits and spellings come across into one record
+identity.row.merge.sub.company = Its credits and spellings come across into one record
 identity.row.remove-all.label = Remove from all works
 identity.row.remove-all.sub = Unlinked one work at a time — nothing is removed in bulk
 identity.row.delete.label.person = Delete this person
+identity.row.delete.label.company = Delete this company
 identity.row.delete.sub.person = The credits go; the works and the characters stay
+identity.row.delete.sub.company = The credits go; the works stay
 identity.works.add.character.tip = Add a work this character appears in
 identity.works.add.person.tip = Add a work this person is credited on
+identity.works.add.company.tip = Add a work this company is credited on
 identity.lines.title.one = {n} quote
 identity.lines.title.other = {n} quotes
 identity.lines.empty.person = Nothing in the library is credited to them yet.
@@ -6419,7 +6427,6 @@ identity.lines.shared.one = And {n} more names them alongside somebody else, so 
 identity.lines.shared.other = And {n} more name them alongside somebody else, so they are not filed under either.
 
 # Aliases.
-identity.links.title = links out
 identity.alias.title = also spelled
 identity.alias.body = A credit typed any of these ways lands on this record instead of making a second one. Nothing here is ever printed.
 identity.alias.none = No other spellings.
@@ -6431,6 +6438,7 @@ identity.alias.split.tip = Give this spelling a record of its own. The works sta
 identity.alias.split.done = {alias} has its own record now. Its works stayed where they were.
 identity.merge.title = merge another record into this one
 identity.merge.body = Two records for one human being become one, and this one — {name} — is what survives.
+identity.merge.body.company = Two records for one company become one, and this one — {name} — is what survives.
 identity.merge.search.placeholder = find the other record…
 identity.merge.hit.works.one = {n} work
 identity.merge.hit.works.other = {n} works
@@ -6442,10 +6450,6 @@ identity.merge.confirm.action = Merge them
 identity.merge.done = {name} is part of {into} now
 
 # Scope 3: the record itself.
-identity.scope.record.title = the record
-identity.scope.record.person = A change here reaches every work this person is on.
-identity.scope.record.character = A change here reaches every work this character is in. A picture or a description for one particular work belongs to that work's cast row.
-identity.scope.record.hint.character = The character itself, with no work attached — the name every appearance falls back to.
 identity.field.sort = Sorts as
 identity.field.born = Born
 identity.field.died = Died
@@ -6453,9 +6457,6 @@ identity.field.note = Your note
 identity.field.description = Description
 identity.field.links = Links, one per line
 identity.merge.body.character = Two records for one character become one, and this one — {name} — is what survives.
-identity.character.head.aliases.one = {n} other spelling
-identity.character.head.aliases.other = {n} other spellings
-identity.character.face.none = No picture chosen yet. Promote one from a work below.
 identity.character.promote.label = use this one
 identity.character.promote.current = their face
 identity.character.promote.clear.label = clear their picture
@@ -6492,6 +6493,7 @@ unit.role.editor = editor
 unit.role.director = director
 unit.role.actor = actor
 unit.role.studio = studio
+unit.role.publisher = publisher
 unit.role.speaker = speaker
 
 # A work's links out (0062). See workLinks.jsx.

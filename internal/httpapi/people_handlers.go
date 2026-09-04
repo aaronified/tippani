@@ -173,6 +173,20 @@ func (s *Server) personKindsOf(personID int64) []string {
 // directors, split by media_type — which is exactly why every query keyed on this
 // vocabulary has to name the media type rather than just the column.
 //
+// "publisher" is the eighth, and it is here on the terms 0042 wrote for it: "If a
+// publisher ever gets a logo and a page, it can become a kind then; the column is
+// what a plain fact costs." It has both now — the IGDB company lookup that
+// resolves a studio's logo resolves a publisher's, and the name on a game's header
+// is a chip with a record behind it rather than a caption.
+//
+// IT NEEDS NO MEDIA-TYPE FILTER, and that is the difference from the studio above
+// rather than an omission. movies.director holds TWO facts split by media type —
+// a film's director and a game's studio — so a query that forgets to say which is
+// answering the wrong question. movies.publisher holds ONE: the company that put
+// the work out, which 0042 deliberately left open to every media type because a
+// film's distributor and a show's network are the same fact. Filtering it to games
+// would strand a publisher the day the UI shows the column on anything else.
+//
 // A SLICE RATHER THAN A CHAIN OF ||, so the vocabulary can be ENUMERATED. The
 // invariant tests in people_gc_test.go assert that every accepted kind has a
 // reference query and a rename pair, and their comment claimed they were "kept
@@ -180,7 +194,7 @@ func (s *Server) personKindsOf(personID int64) []string {
 // hand-written list — so adding this seventh kind would have passed them
 // vacuously, which is the exact shape of the parity test that skipped embedded
 // structs. Ranging over this makes the claim true.
-var personKinds = []string{"author", "actor", "director", "speaker", "translator", "editor", "studio"}
+var personKinds = []string{"author", "actor", "director", "speaker", "translator", "editor", "studio", "publisher"}
 
 func validPersonKind(k string) bool {
 	return slices.Contains(personKinds, k)
@@ -249,6 +263,20 @@ func orphanRefQuery(kind string) string {
 		return `SELECT TRIM(director) FROM movies
 		        WHERE user_id = ? AND media_type = 'game'
 		          AND director IS NOT NULL AND TRIM(director) <> ''`
+	case "publisher":
+		// NOT NULL DEFAULT '' (0042), hence no IS NOT NULL term — and no media_type
+		// filter, for the reason personKinds gives: this column holds one fact for
+		// every medium, where movies.director holds two.
+		//
+		// books.publisher (0061) is NOT read here even though it holds the same
+		// kind of fact. A publisher named only on books would then be swept away
+		// by this query, which is the precise failure this function's header is
+		// written about — so the omission is safe in the direction that matters:
+		// it keeps rows alive rather than deleting them. Reading both columns is
+		// the change that makes a book's publisher a credit, and it is not this
+		// one; see internal/store/credits.go's creditColumn for the cost.
+		return `SELECT TRIM(publisher) FROM movies
+		        WHERE user_id = ? AND TRIM(publisher) <> ''`
 	case "speaker":
 		// No parent join: an utterance carries its own user_id (0026).
 		return `SELECT TRIM(speaker) FROM utterances
@@ -315,6 +343,12 @@ func personCreditSQL(kind string) (scan, update string, ok bool) {
 		          AND director IS NOT NULL AND TRIM(director) <> ''`,
 			`UPDATE movies SET director = ?, updated_at = datetime('now')
 			 WHERE id = ? AND media_type = 'game'`, true
+	case "publisher":
+		// One column, every medium, and no FTS index to re-sync: 0042 left
+		// movies.publisher out of movies_fts on purpose and said why.
+		return `SELECT id, TRIM(publisher) FROM movies
+		        WHERE user_id = ? AND TRIM(publisher) <> ''`,
+			`UPDATE movies SET publisher = ?, updated_at = datetime('now') WHERE id = ?`, true
 	case "speaker":
 		// The utterances_fts triggers re-index the speaker column automatically.
 		// The DEDUPE HASH does not follow, and cannot: it is a SHA over
@@ -764,6 +798,12 @@ func (s *Server) handlePeopleNames(w http.ResponseWriter, r *http.Request) {
 			WHERE user_id = ? AND media_type = 'game'
 			  AND director IS NOT NULL AND TRIM(director) != ''
 			GROUP BY TRIM(director)`
+	case "publisher":
+		// COUNT(*) is the number of works this company put out. No media_type
+		// term, for the reason personKinds gives — one column, one fact.
+		q = `SELECT TRIM(publisher), COUNT(*) FROM movies
+			WHERE user_id = ? AND TRIM(publisher) != ''
+			GROUP BY TRIM(publisher)`
 	case "speaker":
 		// The count is QUOTES, not works: a speaker has no works, and two lines
 		// from one speech are two quotes rather than one source. utterances
@@ -974,7 +1014,7 @@ func (s *Server) handlePersonLookup(w http.ResponseWriter, r *http.Request) {
 	switch req.Kind {
 	case "author", "translator", "editor":
 		links, err = s.authorLinks(r.Context(), req.Name)
-	case "studio":
+	case "studio", "publisher":
 		// A STUDIO IS NOT A PERSON, and neither of the other two branches can
 		// say so. Sent to Open Library it comes back as an AUTHOR page —
 		// "Electronic Arts" resolves to an openlibrary.org/authors/ record,
@@ -984,10 +1024,17 @@ func (s *Server) handlePersonLookup(w http.ResponseWriter, r *http.Request) {
 		// Games are IGDB's from end to end (0040), and companies are one of its
 		// endpoints, so this is the same key answering the same question about
 		// the same catalogue.
+		//
+		// A PUBLISHER SHARES THIS ARM, and the day it became a kind it did not:
+		// it fell through to `default` and told the reader to add a TMDB key for
+		// a company TMDB has no person page for. IGDB's /companies endpoint does
+		// not distinguish a developer from a publisher — one company record, and
+		// which of the two it was is a fact about the credit — so one arm answers
+		// both, exactly as resolvePersonPortrait does.
 		igdb, _ := s.resolveIGDB()
 		if igdb == nil {
 			writeErr(w, http.StatusServiceUnavailable,
-				"studio links come from IGDB — add the IGDB client id and secret in Settings first")
+				"company links come from IGDB — add the IGDB client id and secret in Settings first")
 			return
 		}
 		var logo string

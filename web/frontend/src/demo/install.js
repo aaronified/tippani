@@ -1046,6 +1046,10 @@ export function route(method, path, params, body) {
         ? [...new Set(MOVIES.filter((m) => m.media_type !== 'game').map((m) => m.director).filter(Boolean))]
         : kind === 'studio'
         ? [...new Set(MOVIES.filter((m) => m.media_type === 'game').map((m) => m.director).filter(Boolean))]
+        // The publisher takes NO media_type filter, matching the server: its
+        // column holds one fact for every medium where `director` holds two.
+        : kind === 'publisher'
+        ? [...new Set(MOVIES.map((m) => m.publisher).filter(Boolean))]
         : [...new Set(BOOKS.map((b) => b.author).filter((a) => a && a !== '(unknown)'))]
       const rows = new Map()
       for (const n of referenced) rows.set(n.toLowerCase(), { name: n, saved: false, links: '' })

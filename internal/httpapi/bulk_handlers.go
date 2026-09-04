@@ -711,15 +711,6 @@ func (s *Server) handleBulkUpdateMovies(w http.ResponseWriter, r *http.Request) 
 			internalError(w, r, "bulk movies: director", err)
 			return
 		}
-		// 0056: the link rows follow, read back per row rather than handed the
-		// value, so they cannot disagree with what the UPDATE stored.
-		seps := s.creditSeps(uid)
-		for _, id := range owned {
-			if err := store.SyncCreditsFromColumns(tx, uid, "movie", id, seps); err != nil {
-				internalError(w, r, "bulk movies: credits", err)
-				return
-			}
-		}
 	}
 	if req.Series != nil {
 		if err := set("series", nullable(*req.Series)); err != nil {
@@ -769,6 +760,25 @@ func (s *Server) handleBulkUpdateMovies(w http.ResponseWriter, r *http.Request) 
 		if err := set(f.col, f.val); err != nil {
 			internalError(w, r, "bulk movies: "+f.col, err)
 			return
+		}
+	}
+	// 0056: the link rows follow, read back per row rather than handed the value,
+	// so they cannot disagree with what the UPDATE stored.
+	//
+	// AFTER BOTH COMPANY COLUMNS, not inside the director branch where it used to
+	// sit. The publisher is written by the loop above — later in this handler than
+	// the director — so a sync that ran with the director would have re-derived the
+	// link rows from a publisher column it had not reached yet, and a bulk edit
+	// that set ONLY the publisher would have synced nothing at all: the column
+	// changed, the link rows kept the old company, and CreditsAgree would report
+	// the drift on the next check with nothing here to blame.
+	if req.Director != nil || req.Publisher != nil {
+		seps := s.creditSeps(uid)
+		for _, id := range owned {
+			if err := store.SyncCreditsFromColumns(tx, uid, "movie", id, seps); err != nil {
+				internalError(w, r, "bulk movies: credits", err)
+				return
+			}
 		}
 	}
 	if req.Review != nil {

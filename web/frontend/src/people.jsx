@@ -47,6 +47,131 @@ export const PROVIDERS = [
   ['amazon', 'vocab.source.amazon.label', /(^|\.)amazon\.[a-z.]+$/i],
 ]
 
+// ---- an id, and the page it names ----------------------------------------
+//
+// PROVIDERS ABOVE RECOGNISES A URL; THIS ONE BUILDS ONE. A reader holding a
+// person's IMDb id has to know that the page is /name/<id>/ and not /person/ or
+// /people/ before they can paste anything, which is a thing the app already
+// knows and was making them look up. So the popup takes the id and the provider
+// and writes the address itself.
+//
+// EVERY PATTERN HERE IS THE SERVER'S, copied rather than derived:
+// internal/metadata/people.go builds exactly these three when it resolves a
+// portrait, so a link typed in by hand and a link fetched from TMDB are the same
+// string. A second spelling of the same page would give one person two pills.
+//
+// AMAZON IS THE AUTHOR PAGE, on the owner's ruling, and it is the one Amazon URL
+// that is about a PERSON. An ASIN names a product, so /dp/<asin> would file a
+// book under the person whose sheet the link is on — which is a lie about what
+// the link is, the same argument PROVIDERS makes for filing a Google result
+// under `books.google` and not `google`.
+//
+// IGDB IS DELIBERATELY ABSENT, also the owner's call. The repo knows
+// igdb.com/companies/<slug> and nothing about a person page there; a guessed
+// pattern is worse than no entry, because a pasted IGDB URL is still recognised
+// by PROVIDERS and still draws its own pill.
+export const PROVIDER_ID_LINKS = [
+  // ---- a PERSON's own pages ----
+  ['person', 'imdb', 'vocab.source.imdb.label', 'identity.link.id.hint.imdb',
+    (id) => `https://www.imdb.com/name/${encodeURIComponent(id)}/`],
+  ['person', 'tmdb', 'vocab.source.tmdb.label', 'identity.link.id.hint.tmdb',
+    (id) => `https://www.themoviedb.org/person/${encodeURIComponent(id)}`],
+  ['person', 'tvdb', 'vocab.source.tvdb.label', 'identity.link.id.hint.tvdb',
+    (id) => `https://thetvdb.com/people/${encodeURIComponent(id)}`],
+  ['person', 'amazon', 'vocab.source.amazon.label', 'identity.link.id.hint.amazon',
+    (id) => `https://www.amazon.com/stores/author/${encodeURIComponent(id)}`],
+  // ---- an ORGANISATION's ----
+  //
+  // A STUDIO AND A PUBLISHER ARE CREDITED THE WAY A PERSON IS — `unit.role.studio`
+  // has been in the role vocabulary since it existed, and person_kinds lets one
+  // record hold it — so they get the same sheet and the same popup. What differs
+  // is the id space: nobody has an IMDb /name/ page for Electronic Arts.
+  //
+  // IGDB IS THE ONE PATTERN THE REPO VERIFIES for an organisation
+  // (internal/metadata/igdb_company_test.go), which is why it is the only entry
+  // here and why it is absent from the person list above. TMDB and IMDb both
+  // have company pages and the repo knows neither shape; a guessed one is worse
+  // than no entry, because a pasted URL is still recognised by PROVIDERS and
+  // still draws its own pill.
+  ['company', 'igdb', 'vocab.source.igdb.label', 'identity.link.id.hint.igdb',
+    (slug) => `https://www.igdb.com/companies/${encodeURIComponent(slug)}`],
+]
+
+// ORGANISATION_ROLES are the credits that name a company rather than a human.
+// The role vocabulary is the app's own (work_person.role), so this is a filter
+// over it and not a second list of nouns to keep in step.
+const ORGANISATION_ROLES = new Set(['studio', 'publisher'])
+
+// isOrganisationKind — is this PERSON KIND a company? The kind vocabulary is the
+// server's (`personKinds` in people_handlers.go), where a studio and a publisher
+// are kinds of their own.
+export function isOrganisationKind(kind) {
+  return ORGANISATION_ROLES.has(String(kind || '').trim().toLowerCase())
+}
+
+// creditKind — which person kind ONE CREDIT ROW names.
+//
+// THE MEDIA TYPE IS LOAD-BEARING HERE, and leaving it out is the whole reason
+// this function exists rather than a `.role` read. `work_person.role` is
+// `director` for BOTH a film's director and a game's studio, because
+// movies.director holds both facts and media_type is the only thing telling them
+// apart — the split every query in people_handlers.go carries, and there is no
+// `RoleStudio` for it to carry instead.
+//
+// So a predicate reading the role alone answers "person" for Electronic Arts,
+// which is precisely the sentence this app keeps recording as its own bug: a
+// screen asking a studio when it was born. A publisher is the easy half — its
+// column is its own, so its role really is `publisher`.
+export function creditKind(credit) {
+  const role = String(credit?.role || '').trim().toLowerCase()
+  if (role === 'director' && String(credit?.media_type || '').trim().toLowerCase() === 'game') {
+    return 'studio'
+  }
+  return role
+}
+
+// isOrganisation — does this record name a company rather than a person?
+//
+// ONE ANSWER, THREE READERS: which id spaces the link popup offers, whether a
+// record is founded or born, and which noun its page is headed by. Those were
+// three separate `kind === 'studio'` tests before the publisher arrived, which is
+// three places to forget the second company role.
+//
+// IT TAKES THE CREDIT ROWS, not their roles, and that is not a convenience: the
+// rows are what carry the media type, and without it a studio is indistinguishable
+// from a director. `person_kinds` is NOT the source either, tempting as the
+// `kinds` field on the record looks — a record created by a credit sync has
+// nothing in that table, so it arrives empty for exactly the companies this
+// question is about.
+//
+// A record with no credits yet reads as a person, and that is the safer default
+// rather than an oversight: it is the overwhelming majority, and a company
+// nobody has credited yet is a page with one wrong word on it, where an author
+// offered a company's id space is a list that cannot work.
+export function isOrganisation(credits = []) {
+  return (credits || []).some((c) => isOrganisationKind(creditKind(c)))
+}
+
+// providerLinksFor — which of the entries above this record can use, from the
+// credits it actually holds. A record with no credits yet is treated as a person,
+// which is the overwhelming majority and the safer default: offering a company
+// id space to an author is a wrong list, where offering a person's to a studio
+// that has not been credited yet is a list they will not use.
+export function providerLinksFor(credits = []) {
+  const org = isOrganisation(credits)
+  return PROVIDER_ID_LINKS.filter(([forKind]) => forKind === (org ? 'company' : 'person'))
+}
+
+// buildProviderLink — the address for one (provider, id), or '' when there is no
+// such provider or nothing has been typed. Trimmed, because a copied id arrives
+// with whitespace on it more often than not.
+export function buildProviderLink(slug, id) {
+  const clean = String(id || '').trim()
+  if (!clean) return ''
+  const row = PROVIDER_ID_LINKS.find(([, sl]) => sl === slug)
+  return row ? row[4](clean) : ''
+}
+
 // parseLinks splits the stored free-text links field into recognised provider
 // pages (slug → url, first hit per provider wins) plus the unrecognised rest.
 export function parseLinks(text) {
@@ -572,7 +697,7 @@ function PersonForm({ kind, name, initial, onCancel, onSaved, onRenamed }) {
     ? 'unit.book'
     : kind === 'speaker'
       ? 'unit.quote'
-      : kind === 'studio'
+      : isOrganisationKind(kind)
         ? 'unit.game'
         : 'unit.film'
   const noun = t(nounKey, { count: 2 })
@@ -588,7 +713,7 @@ function PersonForm({ kind, name, initial, onCancel, onSaved, onRenamed }) {
       ? 'unit.dialogue'
       : kind === 'speaker'
         ? 'unit.quote'
-        : kind === 'studio'
+        : isOrganisationKind(kind)
           ? 'unit.game'
           : 'unit.film'
   const entity = t(entityKey, { count: 1 })
@@ -597,7 +722,13 @@ function PersonForm({ kind, name, initial, onCancel, onSaved, onRenamed }) {
   // is not born and it does not die; it is founded, and it closes. Its picture
   // is a logo rather than a photograph. Small words, but they are the ones on
   // screen when somebody opens Electronic Arts and is asked when it died.
-  const isOrg = kind === 'studio'
+  //
+  // NOR IS A PUBLISHER, so the test is the ROLE SET rather than the one word it
+  // used to be. ORGANISATION_ROLES is the same list the link popup filters its
+  // provider list by — a company has company id spaces and company words, and
+  // both answers come from one place so they cannot disagree about what a
+  // company is.
+  const isOrg = isOrganisationKind(kind)
 
   // rename rewrites this name across every book/film that uses it (and folds the
   // saved metadata onto the new spelling) — the fix for two transliterations of

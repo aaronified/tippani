@@ -149,16 +149,16 @@ AI-written code fails differently from hand-written code. It compiles, it reads
 well, it is plausibly commented, and it can still be wrong — so plausibility is
 worth nothing here and only execution counts. What the repo actually runs:
 
-- **1,391 Go test functions and 2,366 frontend tests, across 419 test files** — the
+- **1,466 Go test functions and 2,772 frontend tests, across 471 test files** — the
   Go half over real HTTP handlers against a real SQLite database, not mocks.
   Counted, not estimated, and every number here has a command that reproduces it:
 
   ```bash
   grep -rhoE '^func Test[A-Za-z0-9_]+' --include='*_test.go' . | wc -l   # Go functions
   cd web/frontend && npm test                                            # frontend tests
-  find . -name '*_test.go' -not -path './node_modules/*' | wc -l         # 227 Go files
+  find . -name '*_test.go' -not -path './node_modules/*' | wc -l         # 240 Go files
   find ./web/frontend -path '*/node_modules' -prune -o \
-       -type f \( -name '*.test.*' -o -name '*.spec.*' \) -print | wc -l # 192 frontend
+       -type f \( -name '*.test.*' -o -name '*.spec.*' \) -print | wc -l # 231 frontend
   ```
 
   A number in a file like this one is stale the moment it is written, so recount
@@ -168,7 +168,8 @@ worth nothing here and only execution counts. What the repo actually runs:
   233 by 2.1.1, from 924 / 1,771 / 284 by 2.2.0, from 1,085 / 1,844 / 320
   by 2.3.0, from 1,100 / 1,853 / 323 when they were recounted for 2.2.3, and most
   recently from 1,153 / 1,977 / 338, from 1,336 / 2,218 / 394, from
-  1,357 / 2,223 / 398, from 1,360 / 2,245 / 401, and from 1,380 / 2,358 / 418 before
+  1,357 / 2,223 / 398, from 1,360 / 2,245 / 401, from 1,380 / 2,358 / 418, and from
+  1,391 / 2,366 / 419 before
   this recount — which is why each one now sits beside the command that produces it.
   The last of those drifts is worth naming because it was one work session: a number
   recounted honestly at the start of a stretch is stale by the end of it.
@@ -208,6 +209,34 @@ worth nothing here and only execution counts. What the repo actually runs:
   neutered to confirm seventeen tests noticed, and again to confirm two more
   noticed a subtler reversal. A test written after the code, by the thing that
   wrote the code, is worth exactly what its failure proves.
+
+  A FOURTH HABIT, and the newest: **open the thing in a browser before saying it
+  works.** The "add a link from an id" popup shipped its logic with thirteen unit
+  tests over the URL it builds, every provider pattern pinned against the server's
+  own — and the popup, rendered, had three defects at once. It drew no ✓ to press,
+  because the form registered with the surface OUTSIDE the dialog rather than the
+  dialog itself, and a modal with nothing registered draws no tick at all. Its four
+  provider pills all looked identical, the chosen one included, because the class
+  the click set (`is-on`) is not the class the stylesheet styles (`active`). And the
+  link it saved drew a pill reading `vocab.source.tmdb.label`, because the provider
+  table's middle column is a locale key and the pill builder used it as a name. All
+  three passed 2,745 tests. None of them is subtle in a screenshot, and none of them
+  is visible to a test that asks a function what it returns: a helper can be right
+  in every case while the component that calls it renders a control that does
+  nothing. The three DOM tests that now cover them were each watched to fail against
+  the broken code before being kept, per the habit above.
+
+  A FIFTH, from the same feature: **a fixture that invents its input invents the
+  answer.** The publisher's record page came with a DOM test asserting a studio gets a
+  company's page and a company's id spaces — passing on a record shaped
+  `role: 'studio'`, which the server cannot send. `work_person.role` for a studio is
+  `director`: `movies.director` holds a film's director AND a game's studio, and
+  `media_type` is the only thing separating them, a split six comments in this repo are
+  written about. So the screen said "The person" over Electronic Arts and offered it an
+  IMDb `/name/` page while its own test went green. The fixtures carry the wire's shape
+  now, and seven cases fail if the media-type arm is removed. **Where a test hand-writes
+  a payload, check the payload against the handler that builds it** — an assertion is
+  only as true as the shape it asserts on.
 
   1.15.0 added a third habit, for a case the other two cannot reach. Seven
   features in that release all rewrote the same two functions, so instead of

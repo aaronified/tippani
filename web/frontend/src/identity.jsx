@@ -31,11 +31,13 @@ import { useCharacterPicture, usePicturePicker } from './cast.jsx'
 import { movieState } from './Movies.jsx'
 import { CharacterGlobal, PersonGlobal } from './identityGlobal.jsx'
 import { identityScope } from './identityScope.js'
-import { CharacterLocal, PersonLocal } from './identityLocal.jsx'
-import { personImgURL, ProviderChips, SpeakerChips } from './people.jsx'
+import { CharacterLocal } from './identityLocal.jsx'
+import { buildProviderLink, isOrganisation, personImgURL, providerLinksFor, ProviderChips, SpeakerChips } from './people.jsx'
 import { Silhouette } from './silhouette.jsx'
 import {
   ConfirmDialog,
+  FormModal,
+  useFormHost,
   EmptyState,
   ErrorText,
   ExpandableText,
@@ -95,31 +97,6 @@ export function characterPanel(stack, { id, name, work = null, onSearch = null }
 
 // ---- shared pieces ---------------------------------------------------------
 
-// Scope — a section with its blast radius written above it.
-//
-// THE SENTENCE IS THE POINT. A heading alone ("On this work") is a label a reader
-// skims; the line under it is what stops them believing they renamed somebody
-// everywhere. It is not optional and there is no variant without one.
-function Scope({ title, scope, hint, tone, children }) {
-  return (
-    <section style={STACK} className={tone ? `identity-scope is-${tone}` : 'identity-scope'}>
-      <div>
-        <span className="identity-scope-head">
-          <MonoLabel>{title}</MonoLabel>
-          {/* THE DOT IS FOR THE GRAIN, and the sentence under it for the blast
-              radius. They are two different questions — "what IS this section
-              about" and "what does saving here change" — and the second read
-              alone leaves a reader who has not yet worked out that a character
-              exists twice: once on a cast row and once as a record. */}
-          {hint ? <InfoDot text={hint} title={title} /> : null}
-        </span>
-        <p className="microcopy" style={{ color: 'var(--soft)', marginTop: 2 }}>{scope}</p>
-      </div>
-      {children}
-    </section>
-  )
-}
-
 // `inputId` EXISTS FOR THE ROWS ABOVE IT. The pack's screens print a saved value
 // as a row and let you press it; the editor is one field further down. Rather
 // than a second copy of the value inside the row, the row is a shortcut — press
@@ -145,30 +122,6 @@ function focusField(id) {
   if (!el) return
   el.scrollIntoView({ block: 'center', behavior: 'smooth' })
   el.focus()
-}
-
-// WorkList — the works a record is in, as rows that open nothing.
-//
-// DELIBERATELY NOT LINKS, for now. A row that looks pressable and is not is worse
-// than a row that does not, and opening a work from here means closing the panel
-// stack and navigating the shell — which is the work detail screen's job and does
-// not exist yet. The rows say what they say; the doors arrive with that screen.
-function WorkList({ items, empty, line }) {
-  // A LINE, NOT AN EmptyState. That component is sized for a page — it centres and
-  // reserves height — and inside a panel section it reads as a hole where a list
-  // should be. What is needed here is one sentence saying the list is genuinely
-  // empty rather than still loading.
-  if (!items.length) return <p className="microcopy" style={{ color: 'var(--faint)' }}>{empty}</p>
-  return (
-    <ul style={FIELDS}>
-      {items.map((w, i) => (
-        <li key={`${w.kind}-${w.work_id ?? w.cast_id}-${i}`} className="flex items-baseline gap-2">
-          <span style={{ fontWeight: 600 }}>{w.title || w.work_title}</span>
-          <span className="microcopy" style={{ color: 'var(--soft)' }}>{line(w)}</span>
-        </li>
-      ))}
-    </ul>
-  )
 }
 
 // AliasRow — the spellings that FIND this record, with the acts that add one,
@@ -264,7 +217,7 @@ function AliasRow({ aliases, onAdd, onRemove, onSplit }) {
 // AND IT SAYS THE BIN HOLDS IT. The pack stops at "asks first"; this app's promise
 // is stronger, and a reader who knows the way back is a reader who will actually
 // tidy their library.
-function MergeControl({ into, onMerged, onError, table = 'people' }) {
+function MergeControl({ into, onMerged, onError, table = 'people', org = false }) {
   const [q, setQ] = useState('')
   const [hits, setHits] = useState([])
   const [pick, setPick] = useState(null)
@@ -274,7 +227,16 @@ function MergeControl({ into, onMerged, onError, table = 'people' }) {
   // for is the loudest one in the app: the backfill makes a record PER WORK, so
   // eight films of one wizard are eight Harry Potters. A second copy of this
   // control for them would be a second place the confirm's promise is worded.
-  const body = table === 'people' ? 'identity.merge.body' : 'identity.merge.body.character'
+  //
+  // A COMPANY IS NOT A HUMAN BEING, and this sentence said so in as many words —
+  // "two records for one human being become one" over Atari. The record it is
+  // written about decides which noun it takes, from the same predicate the rest
+  // of the screen reads.
+  const body = table !== 'people'
+    ? 'identity.merge.body.character'
+    : org
+      ? 'identity.merge.body.company'
+      : 'identity.merge.body'
 
   useEffect(() => {
     if (!q.trim()) return setHits([])
@@ -346,6 +308,115 @@ function MergeControl({ into, onMerged, onError, table = 'people' }) {
 }
 
 // useRecord — load one record and keep it, with the reload every write needs.
+// ProviderLinkDialog — an id, a provider, and the address the app writes itself.
+//
+// WHAT THIS REPLACES. "Add a link" focused the free-text links field, so a reader
+// holding a person's IMDb id had to know the page is /name/<id>/ — not /person/
+// or /people/ — before they could type anything. The app has known those three
+// patterns since it started fetching portraits (internal/metadata/people.go);
+// the reader was looking up something the app could have written.
+//
+// THE PROVIDER IS A CHOICE AND THE ID IS TYPED, in that order, because the id's
+// shape depends on the provider: `nm0000123` is an IMDb id and `1234` a TMDB
+// one, and one box would have to guess between them. The hint under the field is
+// the chosen provider's own example.
+//
+// THE LIST IS THE RECORD'S, not a constant: a studio has no IMDb /name/ page and
+// a person has no IGDB company page, so providerLinksFor filters by the credits
+// the record actually holds.
+//
+// THE ADDRESS IS SHOWN BEFORE IT IS SAVED. A reader who picked the wrong provider
+// sees /person/nm0000123 and fixes it here rather than finding a dead pill later.
+// A CHARACTER PASSES NO CREDITS, and gets the person list, which is right: a
+// character is written up on IMDb, TMDB and a fandom wiki, and never has a
+// company id space.
+function ProviderLinkDialog({ open, onClose, onAdd, busy, credits = [] }) {
+  const choices = providerLinksFor(credits)
+  const [slug, setSlug] = useState(choices[0]?.[1] || '')
+  const [id, setId] = useState('')
+  useEffect(() => {
+    if (!open) return
+    setSlug(choices[0]?.[1] || '')
+    setId('')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
+  const url = buildProviderLink(slug, id)
+  return (
+    <FormModal
+      open={open}
+      onClose={onClose}
+      title={t('identity.link.id.title')}
+      maxWidth={460}
+      // THE STANDING PAIR: the tick lights, and counts, only once there is an
+      // address to write; the cross is red because it discards.
+      dirty={url ? 1 : 0}
+      closeDanger
+      saveTip={t('identity.link.id.save.tip')}
+    >
+      {/* THE FORM IS A CHILD, and it has to be. useFormHost reads the context
+          FormModal puts around its CHILDREN, so calling it in the component that
+          renders the modal reads whatever surface is further out — which left
+          `blocked` null inside this dialog, and a null blocked means FormModal
+          draws no ✓ at all. The popup rendered with a red ✕ and nothing to
+          confirm with, which is half the standing pair and the wrong half. */}
+      <ProviderLinkForm
+        choices={choices}
+        slug={slug}
+        onSlug={setSlug}
+        id={id}
+        onId={setId}
+        url={url}
+        busy={busy}
+        onAdd={onAdd}
+      />
+    </FormModal>
+  )
+}
+
+// The body of the dialog above, split out for the one reason its comment gives.
+function ProviderLinkForm({ choices, slug, onSlug, id, onId, url, busy, onAdd }) {
+  const row = choices.find(([, sl]) => sl === slug)
+  const blocked = busy
+    ? t('common.action.save.busy')
+    : url ? '' : t('identity.link.id.save.blocked')
+  // Joins the dialog's header ✓ and tells it why it cannot save yet — the same
+  // contract every other form in the app uses.
+  const host = useFormHost(blocked)
+  return (
+    <form
+      id={host?.formId}
+      style={STACK}
+      onSubmit={(e) => { e.preventDefault(); if (url) onAdd(url) }}
+    >
+      {/* ROUND MEANS A VALUE — the pack's rule, which is why the providers are
+          pills and the field under them is not. */}
+      <div className="cs-pills" role="radiogroup" aria-label={t('identity.link.id.provider.label')}>
+        {choices.map(([, sl, labelKey]) => (
+          <button
+            key={sl}
+            type="button"
+            role="radio"
+            aria-checked={sl === slug}
+            // `active`, which is the class the stylesheet actually styles.
+            // This said `is-on` and matched nothing: four providers drew
+            // identically, the chosen one included, so the only thing saying
+            // which id space you were about to use was the hint underneath.
+            className={'tp-filter-chip' + (sl === slug ? ' active' : '')}
+            onClick={() => onSlug(sl)}
+          >
+            {t(labelKey)}
+          </button>
+        ))}
+      </div>
+      <Field inputId="link-id" label={t('identity.link.id.field.label')} value={id} onChange={onId} />
+      {row ? <p className="microcopy" style={{ color: 'var(--faint)' }}>{t(row[3])}</p> : null}
+      {/* The address, as it will be stored. Never truncated — it is a name of a
+          sort — so it wraps, which is what .work-link-url already does. */}
+      {url ? <p className="microcopy work-link-url" style={{ color: 'var(--soft)' }}>{url}</p> : null}
+    </form>
+  )
+}
+
 function useRecord(path) {
   const [data, setData] = useState(null)
   const [err, setErr] = useState('')
@@ -463,11 +534,11 @@ function Portrait({ person, busy, onPicked, onClear }) {
 
 function PersonBody({ stack, id, work }) {
   const { data, err, setErr, load } = useRecord(`/people/id/${id}`)
-  const [creditAs, setCreditAs] = useState('')
   // Same disclosure as the character screen, for the same reason. See there.
   const [names, setNames] = useState(false)
   const [form, setForm] = useState(null)
   const [busy, setBusy] = useState(false)
+  const [linkDialog, setLinkDialog] = useState(false)
 
   useEffect(() => {
     if (!data) return
@@ -481,14 +552,22 @@ function PersonBody({ stack, id, work }) {
       links: data.links || '',
       note: data.note || '',
     })
-    if (work) {
-      const here = (data.credits || []).find((c) => c.kind === work.kind && c.work_id === work.id)
-      setCreditAs(here?.credit_as || '')
-    }
   }, [data, work])
 
   if (err) return <ErrorText>{err}</ErrorText>
   if (!data || !form) return <EmptyState>{t('common.state.loading')}</EmptyState>
+
+  // A COMPANY OR A PERSON, decided once and read three times below — the heading,
+  // the founded/born rows, and the id spaces the link popup offers. Derived from
+  // the record's own credit ROWS rather than passed in, because a `people` row
+  // does not carry a kind: what it IS is what the library credits it as.
+  //
+  // THE ROWS AND NOT THEIR ROLES. This read `.map(c => c.role)` and got a studio
+  // wrong every time: a studio's role is `director`, since movies.director holds
+  // both facts and only media_type separates them. `data.kinds` looks like the
+  // better source and is worse — person_kinds is empty for a record a credit sync
+  // created, which is every studio and publisher in a seeded library.
+  const org = isOrganisation(data.credits || [])
 
   const save = async () => {
     setBusy(true)
@@ -512,14 +591,30 @@ function PersonBody({ stack, id, work }) {
     load()
   }
 
-  const saveCreditAs = async () => {
+  // NOTHING WRITES credit_as FROM HERE ANY MORE, and that is a capability the app
+  // has lost rather than moved — recorded here because a deleted handler leaves
+  // no other trace. `PUT /credits` (handleCreditAs) is still the server's route
+  // and `work_person.credit_as` is still the column a work prints a name from;
+  // the only UI that ever set it was the person's per-work scope, which the
+  // owner's ruling retires ("people is always global"). The cast list is not a
+  // substitute: it edits work_CAST — characters and performers — and credit_as
+  // lives on work_PERSON. So this needs a home, and the two candidates are the
+  // work's own credit list and the tile on the person's record that already
+  // prints "as Harry". It is the owner's call, not a thing to guess at.
+
+  // APPENDED TO THE FREE-TEXT FIELD, not written to a column of its own. `links`
+  // has been one whitespace-separated list since the table had the column, and
+  // parseLinks reads it that way — so a link built from an id and a link pasted
+  // by hand are the same kind of thing, and the pills below cannot tell them
+  // apart. Which is the point: the popup is a typing aid, not a second store.
+  const addProviderLink = async (url) => {
+    const next = [String(form.links || '').trim(), url].filter(Boolean).join('\n')
     setBusy(true)
-    const r = await json('PUT', '/credits', {
-      kind: work.kind, work_id: work.id, role: work.role, person_id: id, credit_as: creditAs,
-    })
+    const r = await json('PUT', `/people/id/${id}`, { ...form, links: next })
     setBusy(false)
     if (!r.ok) return setErr(errText(r))
-    toast(t('identity.credit.saved', { title: work.title }))
+    setErr('')
+    setLinkDialog(false)
     load()
   }
 
@@ -545,12 +640,13 @@ function PersonBody({ stack, id, work }) {
     load()
   }
 
-  // ---- people-global, the pack's own screen --------------------------------
+  // ---- people-global, and it is the ONLY person screen ---------------------
   //
-  // Same split as the character side: no work means this is `people-global`, and
-  // the pack's vocabulary draws it. `people-work` — the credit spelling, which
-  // the pack does not draw at all — keeps the panel's older presentation below.
-  if (!work) {
+  // A PERSON IS ALWAYS GLOBAL — the owner's ruling. A `work` handed in here is
+  // ignored rather than honoured: a person is one record however many works
+  // credit them, and the place to change what one work PRINTS is that work's own
+  // cast list, which is the screen that holds the row. Every credit is a tile on
+  // the strip below and each already says "as Harry".
     return (
       <div style={{ display: 'grid', gap: 'calc(var(--row) * 1.6)' }}>
         <ErrorText>{err}</ErrorText>
@@ -558,6 +654,7 @@ function PersonBody({ stack, id, work }) {
           record={data}
           credits={data.credits || []}
           roles={data.roles || []}
+          org={org}
           // WHAT THEY DO BEFORE HOW MUCH OF IT, which is the pack's crumb —
           // "performer · author · 3 works". `roles` is what they PLAYED (cast
           // rows, so its `kind` is the shelf and not a role name, which is the
@@ -581,7 +678,7 @@ function PersonBody({ stack, id, work }) {
           onNames={() => setNames((v) => !v)}
           onSort={() => focusField('person-sort')}
           onBorn={() => focusField('person-born')}
-          onLinkAdd={() => focusField('person-links')}
+          onLinkAdd={() => setLinkDialog(true)}
           onOpenWork={(c) => stack.push(personPanel(stack, {
             id, name: data.name, work: { kind: c.kind, id: c.work_id, title: c.title, role: c.role },
           }))}
@@ -609,8 +706,11 @@ function PersonBody({ stack, id, work }) {
             <Portrait person={data} busy={busy} onPicked={setPortrait} onClear={() => setPortrait('')} />
             <Field inputId="person-name" label={t('common.field.name.label')} value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
             <Field inputId="person-sort" label={t('identity.field.sort')} value={form.sort_name} onChange={(v) => setForm({ ...form, sort_name: v })} />
-            <Field inputId="person-born" label={t('identity.field.born')} value={form.born} onChange={(v) => setForm({ ...form, born: v })} />
-            <Field inputId="person-died" label={t('identity.field.died')} value={form.died} onChange={(v) => setForm({ ...form, died: v })} />
+            {/* Founded/Closed for a company, born/died for a person — the same
+                predicate the screen above is headed by, so the row and the field
+                it focuses cannot disagree about what this record is. */}
+            <Field inputId="person-born" label={org ? t('people.form.founded.label') : t('identity.field.born')} value={form.born} onChange={(v) => setForm({ ...form, born: v })} />
+            <Field inputId="person-died" label={org ? t('people.form.closed.label') : t('identity.field.died')} value={form.died} onChange={(v) => setForm({ ...form, died: v })} />
             <Field inputId="person-links" label={t('identity.field.links')} value={form.links} onChange={(v) => setForm({ ...form, links: v })} rows={2} />
             <Field inputId="person-note" label={t('identity.field.note')} value={form.note} onChange={(v) => setForm({ ...form, note: v })} rows={2} />
             <div className="flex justify-end">
@@ -620,169 +720,27 @@ function PersonBody({ stack, id, work }) {
             </div>
           </div>
           <div id="person-merge">
-            <MergeControl into={data} onMerged={load} onError={setErr} />
+            <MergeControl into={data} onMerged={load} onError={setErr} org={org} />
           </div>
         </PersonGlobal>
+        <ProviderLinkDialog
+          open={linkDialog}
+          onClose={() => setLinkDialog(false)}
+          onAdd={addProviderLink}
+          busy={busy}
+          // THE CREDITS DECIDE THE LIST. A studio or a publisher credited on a
+          // game gets IGDB's company id space; an author gets IMDb, TMDB, TVDB and
+          // the Amazon author page. Same source as `org` above, and the same
+          // answer — one predicate, so the popup and the heading cannot disagree.
+          credits={data.credits || []}
+        />
       </div>
     )
-  }
 
-  // people-work, the departure identityScope.js names. Everything else about a
-  // person is the same on every work they are credited on, so this sheet carries
-  // the credit spelling and a door up, and PersonGlobal keeps the rest.
-  const personHere = work ? (data.credits || []).find((c) => c.kind === work.kind && c.work_id === work.id) : null
-  if (work) {
-    return (
-      <div style={{ display: 'grid', gap: 'calc(var(--row) * 1.6)' }}>
-        <ErrorText>{err}</ErrorText>
-        <PersonLocal
-          record={data}
-          work={work}
-          here={personHere}
-          portraitActions={
-            data.image_path ? (
-              <GhostButton onClick={() => setPortrait('')} disabled={busy}>
-                {t('identity.person.portrait.clear.label')}
-              </GhostButton>
-            ) : null
-          }
-          onCreditAs={() => focusField('person-creditas')}
-          onOpenGlobal={() => stack.open(personPanel(stack, { id, name: data.name }))}
-        >
-          <div style={FIELDS}>
-            <Field
-              inputId="person-creditas"
-              label={t('identity.credit.as.label')}
-              value={creditAs}
-              onChange={setCreditAs}
-            />
-            <p className="microcopy" style={{ color: 'var(--faint)' }}>
-              {t('identity.credit.as.hint', { name: data.name })}
-            </p>
-            <div className="flex justify-end">
-              <GhostButton disabled={busy} onClick={saveCreditAs}>{t('common.action.save.label')}</GhostButton>
-            </div>
-          </div>
-        </PersonLocal>
-      </div>
-    )
-  }
-
-  return (
-    <div style={{ display: 'grid', gap: 'calc(var(--row) * 1.6)' }}>
-      <ErrorText>{err}</ErrorText>
-
-      {/* SCOPE 1, and only when there is a work to be on. */}
-      {work && (
-        <Scope title={t('identity.scope.work.title')} scope={t('identity.scope.work.body', { title: work.title })}>
-          <div style={FIELDS}>
-            <p className="microcopy" style={{ color: 'var(--soft)' }}>
-              {t('identity.scope.work.role', { role: t(`unit.role.${work.role}`, { count: 1 }) })}
-            </p>
-            <Field label={t('identity.credit.as.label')} value={creditAs} onChange={setCreditAs} />
-            <p className="microcopy" style={{ color: 'var(--faint)' }}>
-              {t('identity.credit.as.hint', { name: data.name })}
-            </p>
-            <div className="flex justify-end">
-              <GhostButton disabled={busy} onClick={saveCreditAs}>{t('common.action.save.label')}</GhostButton>
-            </div>
-          </div>
-        </Scope>
-      )}
-
-      {/* SCOPE 2 — what the record is in, and what finds it. */}
-      <Scope title={t('identity.scope.library.title')} scope={t('identity.scope.library.body')}>
-        <div style={FIELDS}>
-          <MonoLabel>{t('identity.person.credits.title', { n: (data.credits || []).length, count: (data.credits || []).length })}</MonoLabel>
-          <WorkList
-            items={data.credits || []}
-            empty={t('identity.person.credits.empty')}
-            line={(w) => [t(`unit.role.${w.role}`, { count: 1 }), w.credit_as && t('identity.credit.as.on', { as: w.credit_as })].filter(Boolean).join(' · ')}
-          />
-          {/* THE OTHER DIRECTION OF THE CAST — every character this performer has
-              been linked to, which is the owner's own ruling for this page. */}
-          {(data.roles || []).length > 0 && (
-            <>
-              <MonoLabel>{t('identity.person.roles.title', { n: data.roles.length, count: data.roles.length })}</MonoLabel>
-              <ul style={FIELDS}>
-                {data.roles.map((r) => (
-                  <li key={r.cast_id} className="flex items-baseline gap-2">
-                    {r.character_id ? (
-                      <button
-                        type="button"
-                        className="tp-link"
-                        // WITH THE WORK, because the row names one. "Woland ·
-                        // The Master and Margarita (2005)" is a question about
-                        // that role on that work, and a page that opened on a
-                        // grid of eight would make the reader find again the row
-                        // they had just pressed.
-                        onClick={() => stack.push(characterPanel(stack, {
-                          id: r.character_id,
-                          name: r.character,
-                          // `cast_id` rather than the work alone: this row IS a
-                          // cast row, and a performer's roles list is exactly
-                          // where a twice-billed character shows up as two rows.
-                          work: { kind: r.kind, id: r.work_id, title: r.work_title, castId: r.cast_id },
-                        }))}
-                      >
-                        {r.character}
-                      </button>
-                    ) : (
-                      <span style={{ fontWeight: 600 }}>{r.character}</span>
-                    )}
-                    <span className="microcopy" style={{ color: 'var(--soft)' }}>{r.work_title}</span>
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
-          {/* LINKS OUT, READ-ONLY HERE AND ON PURPOSE. The reference pages are
-              fetched and merged by the person modal, which owns the lookup, the
-              portrait and the rollback of a half-fetched image. Drawing an editor
-              for them here would be the second place that machinery lives; showing
-              what is stored costs nothing and is the half the panel is missing
-              without it. */}
-          {/* WHAT THEY SAID, which the record has carried since the link landed
-              and nothing has ever drawn. */}
-          <MonoLabel>{t('identity.lines.title', { n: (data.lines || []).length, count: (data.lines || []).length })}</MonoLabel>
-          <Lines lines={data.lines || []} shared={data.shared_lines || 0} empty={t('identity.lines.empty.person')} />
-          <MonoLabel>{t('identity.links.title')}</MonoLabel>
-          <ProviderChips links={data.links} />
-          <MonoLabel>{t('identity.alias.title')}</MonoLabel>
-          <p className="microcopy" style={{ color: 'var(--soft)' }}>{t('identity.alias.body')}</p>
-          <AliasRow aliases={data.aliases || []} onAdd={addAlias} onRemove={removeAlias} onSplit={splitAlias} />
-          {/* MERGE IS THE ONE DESTRUCTIVE ACT HERE, so it sits at the bottom of the
-              section that is about identity, and it asks before it runs. */}
-          <MergeControl into={data} onMerged={load} onError={setErr} />
-        </div>
-      </Scope>
-
-      {/* SCOPE 3 — the record. A change here reaches every work. */}
-      <Scope title={t('identity.scope.record.title')} scope={t('identity.scope.record.person')}>
-        <div style={FIELDS}>
-          {/* THE PORTRAIT, AT LAST ON THE RECORD. It has only ever been settable
-              through the enrichment modal, which writes by (kind, name) and lands
-              on the LOWEST id where two records share a name — so a picture chosen
-              for the second of two namesakes went onto the first, and the panel
-              that knows exactly which record it is looking at could not offer one.
-              Same control as a character's, because it is the same act. */}
-          <Portrait person={data} busy={busy} onPicked={setPortrait} onClear={() => setPortrait('')} />
-          <Field label={t('common.field.name.label')} value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
-          <Field label={t('identity.field.sort')} value={form.sort_name} onChange={(v) => setForm({ ...form, sort_name: v })} />
-          <div className="flex gap-3">
-            <Field label={t('identity.field.born')} value={form.born} onChange={(v) => setForm({ ...form, born: v })} />
-            <Field label={t('identity.field.died')} value={form.died} onChange={(v) => setForm({ ...form, died: v })} />
-          </div>
-          <Field label={t('identity.field.note')} value={form.note} onChange={(v) => setForm({ ...form, note: v })} rows={2} />
-          <div className="flex justify-end">
-            <GhostButton className="tp-btn-primary" disabled={busy || !form.name.trim()} onClick={save}>
-              {t('common.action.save.label')}
-            </GhostButton>
-          </div>
-        </div>
-      </Scope>
-    </div>
-  )
+  // NO FALL-THROUGH HERE EITHER. A person is on a work or they are not, and the
+  // two branches above are those two answers — the three-scope presentation that
+  // stood here repeated the record's own fields inside a work, which is the
+  // confusion the credit spelling exists to prevent.
 }
 
 // ---- the character ---------------------------------------------------------
@@ -809,6 +767,7 @@ function PersonBody({ stack, id, work }) {
 // that offers the two ways forward.
 
 function CharacterBody({ stack, id, work, onSearch = null }) {
+  const [linkDialog, setLinkDialog] = useState(false)
   const { data, err, setErr, load } = useRecord(`/characters/${id}`)
   // THE PACK'S TWO COUNTS, from the route that has served them since it was
   // written and that nothing had ever called. /whos-in-it answers per cast row —
@@ -919,6 +878,19 @@ function CharacterBody({ stack, id, work, onSearch = null }) {
 
   // A picture for ONE work, fetched and stored against that work's cast row. The
   // record's own picture is a separate act — see promote.
+  // The character side of the same verb — see PersonBody's for why it appends to
+  // the free-text field rather than writing a column.
+  const addProviderLink = async (url) => {
+    const next = [String(form.links || '').trim(), url].filter(Boolean).join('\n')
+    setBusy(true)
+    const r = await json('PUT', `/characters/${id}`, { ...form, links: next })
+    setBusy(false)
+    if (!r.ok) return setErr(errText(r))
+    setErr('')
+    setLinkDialog(false)
+    load()
+  }
+
   const setWorkImage = async (castID, url) => {
     setBusy(true)
     const r = await json('POST', `/cast/${castID}/image`, url ? { image_url: url } : undefined)
@@ -997,7 +969,13 @@ function CharacterBody({ stack, id, work, onSearch = null }) {
   // dub can be credited — sat unused beside screens that needed them. It is live
   // from here: the sheets below read `scope.id`, and a new medium stays a row in
   // that table rather than a branch in this file.
-  const scope = identityScope({ table: 'character', work: here ? { ...work, ...here } : work })
+  // RESOLVED FROM THE ROW, NOT FROM THE ARGUMENT, and that is what makes the six
+  // scopes total. A caller can name a work the character has no cast row on —
+  // stale data, or a row removed since the press — and keying the scope off
+  // `work` alone called that a local sheet with nothing local to show. It is the
+  // global record: the honest answer to "this character, on a work they are not
+  // in" is the character.
+  const scope = identityScope({ table: 'character', work: here ? { ...work, ...here } : null })
 
   // THE LOCAL SHEET'S PORTRAIT CONTROLS, hoisted here for the rules of hooks
   // rather than for tidiness: this component used to bail out on a missing record
@@ -1138,7 +1116,7 @@ function CharacterBody({ stack, id, work, onSearch = null }) {
   // differs — a book has no performer block at all, a game's facts row has two
   // cells rather than three because a playable character has no single age, and
   // only a film or a show can credit a dub. None of that is a branch here.
-  if ((scope.id === 'char-book' || scope.id === 'char-film' || scope.id === 'char-game') && here) {
+  if (scope.local) {
     return (
       <div style={{ display: 'grid', gap: 'calc(var(--row) * 1.6)' }}>
         <ErrorText>{err}</ErrorText>
@@ -1197,7 +1175,7 @@ function CharacterBody({ stack, id, work, onSearch = null }) {
           onNames={() => setNames((v) => !v)}
           onSort={() => focusField('char-sort')}
           onBorn={() => focusField('char-born')}
-          onLinkAdd={() => focusField('char-links')}
+          onLinkAdd={() => setLinkDialog(true)}
           // THE TILE OPENS ITS OWN CARD — see `openWork` above for why that
           // rather than pushing the work's screen. The pack opens an exhaustive
           // chooser here (the owner's widening: every character in the work,
@@ -1254,6 +1232,15 @@ function CharacterBody({ stack, id, work, onSearch = null }) {
             <MergeControl into={data} table="characters" onMerged={load} onError={setErr} />
           </div>
         </CharacterGlobal>
+        {/* A CHARACTER IS NEVER AN ORGANISATION, so its list is the person one —
+            which is right: a character has an IMDb page under /name/ the way a
+            performer does, and no company id space at all. */}
+        <ProviderLinkDialog
+          open={linkDialog}
+          onClose={() => setLinkDialog(false)}
+          onAdd={addProviderLink}
+          busy={busy}
+        />
         {/* THE REFUSAL'S DIALOG BELONGS TO EVERY SCREEN THAT CAN REMOVE, and this
             one can: leaving it to the branch below meant a removal the server
             refused — the character still speaks on twelve lines — showed nothing
@@ -1270,163 +1257,13 @@ function CharacterBody({ stack, id, work, onSearch = null }) {
     )
   }
 
-  return (
-    <div style={{ display: 'grid', gap: 'calc(var(--row) * 1.6)' }}>
-      <ErrorText>{err}</ErrorText>
-
-      {/* WHO THEY ARE, ABOVE THE SCOPES. The face and the two numbers are facts
-          about the record rather than a change with a blast radius, so they sit
-          above the first Scope rather than inside one — a heading that says "across
-          the library" over a portrait would be claiming the portrait is a library
-          fact, and it is the opposite. */}
-      <CharacterHead record={data} works={works} onClear={() => promote(0, '')} />
-
-      {/* SCOPE 0 — this character ON THE WORK THE READER CAME FROM, and only when
-          they came from one. It is the same card the grid below draws, because it
-          is the same row and a second layout for it would be a second place the
-          picture ladder and the per-work description have to agree. What differs
-          is where it sits and what it wears: first, alone, and inked — see
-          `.identity-scope.is-work` in the CSS for why the ink rather than a box. */}
-      {here && (
-        <Scope
-          tone="work"
-          title={t('identity.scope.work.title')}
-          hint={t('identity.scope.work.hint.character')}
-          scope={t('identity.scope.work.body', { title: here.work_title })}
-        >
-          <div className="char-works is-one">
-            <AppearanceCard
-              a={here}
-              busy={busy}
-              isFace={!!data.image_path && data.image_path === here.image}
-              onImage={(url) => setWorkImage(here.cast_id, url)}
-              onSave={(fields) => saveAppearance(here, fields)}
-              onPromote={() => promote(here.cast_id, here.work_title)}
-              onRemove={() => removeWork(here)}
-              onOpenPerson={here.actor_id ? () => stack.push(personPanel(stack, { id: here.actor_id, name: here.actor })) : null}
-            />
-          </div>
-        </Scope>
-      )}
-
-      <Scope
-        tone="library"
-        title={t('identity.scope.library.title')}
-        hint={t('identity.scope.library.hint.character')}
-        scope={t('identity.scope.library.character')}
-      >
-        <div style={FIELDS}>
-          {/* THE COUNT COUNTS EVERY WORK, including the one lifted out above — a
-              character in eight films is in eight films whichever one you opened
-              it from. The heading changes to say which set is DRAWN below it. */}
-          <MonoLabel>
-            {here
-              ? t('identity.character.appearances.others', { n: elsewhere.length, count: elsewhere.length })
-              : t('identity.character.appearances.title', { n: works.length, count: works.length })}
-          </MonoLabel>
-          {elsewhere.length === 0 ? (
-            <p className="microcopy" style={{ color: 'var(--faint)' }}>
-              {here ? t('identity.character.appearances.only') : t('identity.character.appearances.empty')}
-            </p>
-          ) : (
-            <div className="char-works">
-              {elsewhere.map((a) => (
-                <AppearanceCard
-                  key={a.cast_id}
-                  a={a}
-                  busy={busy}
-                  isFace={!!data.image_path && data.image_path === a.image}
-                  onImage={(url) => setWorkImage(a.cast_id, url)}
-                  onSave={(fields) => saveAppearance(a, fields)}
-                  onPromote={() => promote(a.cast_id, a.work_title)}
-                  onRemove={() => removeWork(a)}
-                  onOpenPerson={a.actor_id ? () => stack.push(personPanel(stack, { id: a.actor_id, name: a.actor })) : null}
-                />
-              ))}
-            </div>
-          )}
-          <AddWork busy={busy} have={works} onAdd={addWork} />
-          {/* THE QUESTION THE FOLD COULD NEVER ANSWER. "Which quotes are this
-              role's" has no honest answer over a text column, and this list is the
-              whole reason the speaker link is a column rather than a match. */}
-          <MonoLabel>{t('identity.lines.title', { n: (data.lines || []).length, count: (data.lines || []).length })}</MonoLabel>
-          <Lines lines={data.lines || []} shared={data.shared_lines || 0} empty={t('identity.lines.empty.character')} />
-          <MonoLabel>{t('identity.alias.title')}</MonoLabel>
-          <p className="microcopy" style={{ color: 'var(--soft)' }}>{t('identity.alias.body')}</p>
-          <AliasRow aliases={data.aliases || []} onAdd={addAlias} onRemove={removeAlias} onSplit={splitAlias} />
-          {/* MERGE IS THE ONE DESTRUCTIVE ACT HERE, so it sits at the bottom of the
-              section about identity and it asks before it runs — and this is the
-              table where it is needed most: the 3.1.0 backfill deliberately makes a
-              record per work, so eight films of one wizard are eight records
-              waiting to be welded by somebody who has decided they are one. */}
-          <MergeControl into={data} table="characters" onMerged={load} onError={setErr} />
-        </div>
-      </Scope>
-
-      <Scope
-        tone="record"
-        title={t('identity.scope.record.title')}
-        hint={t('identity.scope.record.hint.character')}
-        scope={t('identity.scope.record.character')}
-      >
-        <div style={FIELDS}>
-          <Field label={t('common.field.name.label')} value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
-          <Field label={t('identity.field.sort')} value={form.sort_name} onChange={(v) => setForm({ ...form, sort_name: v })} />
-          <Field label={t('identity.field.description')} value={form.description} onChange={(v) => setForm({ ...form, description: v })} rows={3} />
-          <Field label={t('identity.field.note')} value={form.note} onChange={(v) => setForm({ ...form, note: v })} rows={2} />
-          <div className="flex justify-end">
-            <GhostButton className="tp-btn-primary" disabled={busy || !form.name.trim()} onClick={save}>
-              {t('common.action.save.label')}
-            </GhostButton>
-          </div>
-        </div>
-      </Scope>
-
-      <DropWorkDialog
-        drop={drop}
-        name={data.name}
-        busy={busy}
-        onCancel={() => setDrop(null)}
-        onClear={() => removeWork(drop.appearance, '?quotes=clear')}
-        onReplace={(to) => removeWork(drop.appearance, `?quotes=replace&to=${encodeURIComponent(to)}`)}
-      />
-    </div>
-  )
-}
-
-// CharacterHead — the face, the name and how much hangs off the record.
-//
-// THE FACE IS NOT EDITED HERE, and that is the design rather than an omission.
-// Every picture a character has belongs to a WORK — one cast row's costume photo —
-// and this slot only says which of them the record wears. Choosing is done on the
-// card that holds the picture, where the reader can see what they are choosing
-// between; a second picker here would be a picture with no work attached, which
-// the schema has nowhere to put.
-function CharacterHead({ record, works, onClear }) {
-  const face = record.image_path ? coverImgURL(record.image_path) : ''
-  return (
-    <div className="char-head">
-      <div className={'char-head-face' + (face ? '' : ' is-empty')}>
-        {face ? <img src={face} alt="" /> : <Silhouette name={record.name} />}
-      </div>
-      <div className="char-head-facts">
-        <h2 className="char-head-name">{record.name}</h2>
-        <p className="microcopy" style={{ color: 'var(--soft)' }}>
-          {t('identity.character.appearances.title', { n: works.length, count: works.length })}
-          {(record.aliases || []).length > 0 && (
-            <> · {t('identity.character.head.aliases', { n: record.aliases.length, count: record.aliases.length })}</>
-          )}
-        </p>
-        {face ? (
-          <button type="button" className="tp-link" style={{ fontSize: 'var(--type-ui-12)' }} onClick={onClear}>
-            {t('identity.character.promote.clear.label')}
-          </button>
-        ) : (
-          <p className="microcopy" style={{ color: 'var(--faint)' }}>{t('identity.character.face.none')}</p>
-        )}
-      </div>
-    </div>
-  )
+  // NO FALL-THROUGH, AND THAT IS PROVABLE RATHER THAN HOPED. identityScope
+  // returns exactly six ids — the two tables crossed with no-work, and the four
+  // media collapsing to three character sheets because a show is film-like — and
+  // the two branches above take all five a character can be in. The three-scope
+  // presentation that used to stand here is gone: it was reachable only when a
+  // work was named that the character had no cast row on, which the scope now
+  // resolves to the global record instead, because that is the honest answer.
 }
 
 // AppearanceCard — one work this character is in.

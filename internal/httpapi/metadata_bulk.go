@@ -613,8 +613,12 @@ func (s *Server) handleMergeMovies(w http.ResponseWriter, r *http.Request) {
 		internalError(w, r, "merge: commit", err)
 		return
 	}
-	// Both kinds — see the header. A merged-away game can orphan a studio.
+	// Every company and person the two columns can name — see the header. A
+	// merged-away game can orphan a studio, and since the publisher became a kind
+	// of its own it can orphan one of those too: the row that named it is gone,
+	// so nothing in the library credits it and its logo file would be left behind.
 	s.gcOrphanPeople(uid, "director")
 	s.gcOrphanPeople(uid, "studio")
+	s.gcOrphanPeople(uid, "publisher")
 	writeJSON(w, http.StatusOK, map[string]any{"into": req.Into, "merged": len(from)})
 }

@@ -385,9 +385,13 @@ export const KINDS = {
     capWords: { one: 'unit.game.one', other: 'unit.game.other', past: 'common.shelf.move.completed.played.label' },
     credits: [
       { field: 'director', personKind: 'studio', labelKey: 'common.badge.studio' },
-      // Not a person. A publisher has no people row, no portrait and no panel,
-      // so a clickable name here would promise a page that does not exist.
-      { field: 'publisher', personKind: null, labelKey: 'film.credit.publisher.label' },
+      // A PERSON ROW NOW, and the comment here used to say the opposite: "not a
+      // person — a publisher has no people row, no portrait and no panel, so a
+      // clickable name here would promise a page that does not exist." It has all
+      // three since the release that gave the publisher its own kind, resolved by
+      // the same IGDB company lookup a studio uses, so the chip is a door like
+      // every other credit on this row.
+      { field: 'publisher', personKind: 'publisher', labelKey: 'film.credit.publisher.label' },
     ],
     defaultSort: { col: 'act', dir: 'asc' },
     sortDims: ['default', 'date', 'act', 'quest', 'character', 'length', 'category'],

@@ -118,6 +118,30 @@ describe('specFor', () => {
     specFor('movie', { media_type: 'show' }).kind = 'tampered'
     expect(KINDS.movie.kind).toBe('movie')
   })
+
+  // EVERY CREDIT IS A DOOR, and this is the assertion that keeps it one.
+  //
+  // A game's publisher was the sole exception for four releases: personKind null,
+  // drawn as mono text, because it had no record to open. It has one now, and the
+  // failure this guards is the quiet one — a spec whose personKind is dropped
+  // draws a name that looks exactly like its neighbours and opens nothing, and
+  // the only place that shows is a screenshot nobody is comparing.
+  it('gives every credit on every kind a record to open', () => {
+    for (const [name, spec] of Object.entries(KINDS)) {
+      for (const credit of spec.credits || []) {
+        expect(credit.personKind, `${name}.${credit.field} has no person kind`).toBeTruthy()
+      }
+    }
+  })
+
+  it("names the game's two companies apart", () => {
+    // The studio lands in `director` (0040) and the publisher in its own column
+    // (0042); they are told apart by the KIND, not by the field, which is what
+    // stops the People console offering one for renaming as the other.
+    const game = specFor('movie', { media_type: 'game' })
+    const byField = Object.fromEntries(game.credits.map((c) => [c.field, c.personKind]))
+    expect(byField).toEqual({ director: 'studio', publisher: 'publisher' })
+  })
 })
 
 describe('the locale keys the table names', () => {

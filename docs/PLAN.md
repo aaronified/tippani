@@ -10269,10 +10269,34 @@ strings. `locatorNoun` in `whos_in_it.go` answers the same question for the numb
 server computes, and the two disagreeing would print the server's count under the client's
 word — a lie no test of either side alone can see.
 
-**THE SIXTH SCOPE THE PACK DOES NOT DRAW.** A person seen from inside one work is where a
-credit's own spelling is edited, and the panel has offered it since it landed. `people-work`
-is named in the table rather than handled as an exception, so the renderer has one switch
-and not a switch plus a special case.
+**THERE ARE FIVE SCOPES, AND THERE WERE SIX.** The sixth was `people-work` — a person seen
+from inside one work, where a credit's own spelling was edited — argued for here as a
+departure the pack does not draw. The owner's ruling retired it: *"people is always
+global!"* A person is one record however many works credit them, and the place to change
+what one work PRINTS is that work's own credit list, not a fourth screen offering to rename
+them everywhere. `identityScope` now returns `people-global` for a person handed a work and
+drops the work; the table still has one switch and no special case.
+
+**WHAT WENT WITH IT, and it is a capability rather than a screen.** `work_person.credit_as`
+— Bulgakov as "M. Bulgakov" on the Vintage — has no editor anywhere in the app now. The
+column and `PUT /credits` both remain, and every credit tile on a person's record still
+prints "as Harry", so nothing is lost from the data; there is simply nowhere to type it.
+The work's cast list is NOT the substitute: it edits `work_cast`, which is characters and
+performers. Its home is an open question, and the two candidates are the work's own credit
+list and the tile that already prints the spelling.
+
+**A COMPANY IS A `people` ROW WITH DIFFERENT WORDS.** A studio (0040) and a publisher both
+get these screens — every control on them is right for a company — and what differs is the
+vocabulary: founded rather than born, "The company", "Merge with another company". One
+predicate answers it (`isOrganisation` in people.jsx), read by the heading, the rows and the
+link popup's id spaces so they cannot disagree.
+
+It reads the credit ROWS, and the reason is the split this repo keeps rediscovering:
+`work_person.role` is `director` for BOTH a film's director and a game's studio, because
+`movies.director` holds both and `media_type` is the only thing telling them apart. There is
+no `RoleStudio` for a role read to find. `person_kinds` looks like the better source and is
+worse — it is empty for a record a credit sync created, which is every studio and publisher
+in a library nobody has fetched portraits for.
 
 **THE DEPARTURES, each reasoned:**
 

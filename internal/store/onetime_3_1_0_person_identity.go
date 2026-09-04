@@ -72,6 +72,11 @@ var creditBackfill = []struct {
 	{"books", "book", "translator", RoleTranslator},
 	{"books", "book", "editor", RoleEditor},
 	{"movies", "movie", "director", RoleDirector},
+	// movies.publisher (0042) joins the list the release a publisher stops being
+	// a caption and becomes a credit. Without this row an existing library's
+	// publishers would have a record page with no works on it until each game
+	// was saved again by hand — the backfill exists precisely so nobody has to.
+	{"movies", "movie", "publisher", RolePublisher},
 }
 
 func runPersonIdentity(tx *sql.Tx, env OneTimeEnv) error {

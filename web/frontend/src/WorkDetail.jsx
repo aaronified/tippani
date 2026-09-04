@@ -30,9 +30,11 @@
 //      WITHOUT unmounting this screen, so React would throw "rendered fewer
 //      hooks than expected" on navigation rather than on mount. usePeople('')
 //      is a documented no-op; cast.jsx already relies on it.
-//   2. A credit whose personKind is null is plain text rather than a chip. That
-//      is a game's publisher: it has no people row, no portrait and no panel, so
-//      a clickable name would promise a page that does not exist.
+//   2. A credit whose personKind is null is plain text rather than a chip. NO
+//      SPEC HAS ONE TODAY — a game's publisher was the example and it has its own
+//      record since the release that gave it a kind — and the branch stays as the
+//      guard it is: workKinds.js is data, and a role that arrives here with no
+//      kind would otherwise draw a chip whose door opens nothing.
 
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { DEMO, errText, json } from './api.js'
@@ -340,8 +342,9 @@ export default function WorkDetail({
         .map((role, i) => {
           const value = item[role.field]
           if (!value) return null
-          // A credit that is not a person: a game's publisher. Plain text,
-          // because a chip is a door and there is nothing behind this one.
+          // A credit with no person kind: plain text, because a chip is a door
+          // and there would be nothing behind this one. Unreached by every spec
+          // in workKinds.js — see this file's header, clause 2.
           if (!role.personKind) {
             return (
               <span key={role.field} style={labelStyle}>

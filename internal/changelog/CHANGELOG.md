@@ -21,10 +21,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   heading is a control, because an animated film is a film whose cast is voiced. The two
   counts are doors: press one and search opens on that character in that work, as chips
   you can remove.
-- **A person's page, seen from inside one work, keeps only the spelling that work
-  prints.** Everything else about somebody is the same on every work they are credited
-  on, so it belongs on their record — and a page that repeated it was four pages
-  offering to rename them everywhere.
+- **A person has one page, wherever you reach it from.** Everything about somebody is the
+  same on every work they are credited on, so opening a name from inside a book and
+  opening it from the people list now land on the same record rather than on two pages
+  offering to rename them everywhere. One thing does go with the second page: how a
+  single work *prints* a name — Bulgakov as "M. Bulgakov" on one edition — can no longer
+  be typed anywhere. It is still stored and still shown on every credit; there is just
+  nowhere to change it until it is given a home.
 
 ### Fixed
 
@@ -38,6 +41,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   percentage, and the whole reading history is one tap away where it always was.
 
 ### Added
+
+- **A publisher has a page of its own.** A game credits two companies — who made it and
+  who put it out — and only the first of them was anything you could open: the studio had a
+  logo, a chip and a record, and the publisher was mono text you could read and nothing
+  else. Both are records now, resolved from the same company source, so pressing either
+  name opens its founding, its links and every work it is credited on, and the People list
+  under Metadata has a Publishers row beside Studios. A company's page says *founded*
+  rather than *born* wherever it says anything — one answer, so the page and the fields on
+  it cannot disagree about what the record is. Publishers already typed into your library
+  arrive with their games on them — no re-saving — with one caveat worth stating: a name
+  is split on commas the way every credit in the app is, so *Nintendo Co., Ltd.* files as
+  two records, exactly as it already did in the studio column. Merge the two, or switch
+  the comma off under Settings → separators.
+
+- **A link can be added by its id, without knowing the address.** IMDb files a person under
+  `/name/`, TMDB under `/person/` and TheTVDB under `/people/` — three words for one idea,
+  and until now you had to know which before you could paste anything. Press add on a
+  record's links, choose the provider, type the id, and the address is written for you and
+  shown before you keep it. An Amazon id goes to the author's page, not to a product. A
+  studio or a publisher is offered the company id space instead, because nobody has an
+  IMDb `/name/` page for Electronic Arts.
 
 - **A favourite on the homepage says which work it came from, and shows it.** The kind badge
   (film, book, show, game) sat alone at the top of the tile and the work's title sat under

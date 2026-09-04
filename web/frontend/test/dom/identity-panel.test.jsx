@@ -118,18 +118,34 @@ beforeEach(() => {
 afterEach(() => cleanup())
 
 describe('a person panel says which scope you are in', () => {
-  it('names the work, and says the change stops there', async () => {
+  // A PERSON IS ALWAYS GLOBAL — the owner's ruling, and it retired the two cases
+  // that stood here. They asserted a person-on-a-work sheet: that it named the
+  // work, that it said the change stopped there, and that its Save reached
+  // /credits while the record's reached /people/id. There is no such sheet now.
+  // What replaces them is the assertion that makes the ruling real — a work
+  // handed in is IGNORED, so there is no second screen to reach the record's
+  // writer from by mistake.
+  it('ignores a work it is handed, because a person is one record', async () => {
     const stack = { push: vi.fn(), open: vi.fn() }
     render(body(personPanel(stack, { id: 7, name: 'Mikhail Bulgakov', work: { kind: 'book', id: 1, title: 'The Master and Margarita', role: 'author' } })))
-    // THE SENTENCE, not just the heading — this is the assertion, and only its
-    // wording moved. The pack's local sheet names the work in a crumb rather than
-    // in a section heading, and puts the blast radius on the row that has one.
-    // Without both a reader believes the field below renames the author on
-    // thirty-one other books.
-    await screen.findByText(/^in The Master and Margarita/)
-    expect(screen.getByText(/every other work keeps its own/i)).toBeTruthy()
-    // And the opposite radius, on the door up to the record every work shares.
-    expect(screen.getByText(/reach every work/i)).toBeTruthy()
+    await screen.findByText(/^The person$/i)
+    // No crumb naming one work, because the sheet is not about one.
+    expect(screen.queryByText(/^in The Master and Margarita/), 'a work crumb on the record').toBeNull()
+    // And the place a credit's own spelling is changed is the work's cast list,
+    // so nothing here offers to change it.
+    expect(screen.queryByText(/printed on this work/i), 'the retired credit-spelling row').toBeNull()
+  })
+
+  it('writes the record to /people/id, and that is the only writer it has', async () => {
+    const stack = { push: vi.fn(), open: vi.fn() }
+    render(body(personPanel(stack, { id: 7, name: 'Mikhail Bulgakov' })))
+    await screen.findByText(/^The person$/i)
+    act(() => screen.getAllByText('Save')[0].closest('button').click())
+    await waitFor(() => expect(CALLS.some(([m, p]) => m === 'PUT' && p === '/people/id/7')).toBe(true))
+    expect(
+      CALLS.some(([m, p]) => m === 'PUT' && p === '/credits'),
+      'the record sheet reached the per-work credit writer',
+    ).toBe(false)
   })
 
   // OPENED FROM A LIST THERE IS NO WORK TO BE ON, so the section is absent rather
@@ -154,34 +170,6 @@ describe('a person panel says which scope you are in', () => {
     expect(screen.getByText(/reach every work/i), 'the blast radius went unsaid').toBeTruthy()
   })
 
-  it('writes the work spelling to /credits and the record to /people/id', async () => {
-    // THE TWO WRITES ARE TWO ENDPOINTS, and that is still the assertion. What
-    // changed is that they are now two SCREENS as well: the credit spelling is
-    // the only editable thing on the local sheet, and the record's own fields
-    // live on people-global, one door away. The pair is therefore checked across
-    // both sheets rather than from two Save buttons stacked on one — which is a
-    // stronger form of the same guarantee, since a reader on the work sheet can
-    // no longer reach the record's writer at all.
-    const stack = { push: vi.fn(), open: vi.fn() }
-    render(body(personPanel(stack, { id: 7, name: 'Mikhail Bulgakov', work: { kind: 'book', id: 1, title: 'The Master and Margarita', role: 'author' } })))
-    await screen.findByText(/^in The Master and Margarita/)
-
-    act(() => screen.getByText('Save').closest('button').click())
-    await waitFor(() => expect(CALLS.some(([m, p]) => m === 'PUT' && p === '/credits')).toBe(true))
-    expect(
-      CALLS.some(([m, p]) => m === 'PUT' && p === '/people/id/7'),
-      'the work sheet reached the record writer',
-    ).toBe(false)
-
-    cleanup()
-    render(body(personPanel(stack, { id: 7, name: 'Mikhail Bulgakov' })))
-    // The name appears twice on the global sheet — the head's title and the
-    // canonical-name row's value — so wait on the section that only it has.
-    await screen.findByText(/^The person$/i)
-    act(() => screen.getAllByText('Save')[0].closest('button').click())
-    await waitFor(() => expect(CALLS.some(([m, p]) => m === 'PUT' && p === '/people/id/7')).toBe(true))
-  })
-
   it('lists every work the record is credited on, with the spelling each one prints', async () => {
     const stack = { push: vi.fn(), open: vi.fn() }
     render(body(personPanel(stack, { id: 7, name: 'Mikhail Bulgakov' })))
@@ -190,6 +178,174 @@ describe('a person panel says which scope you are in', () => {
     // The second book prints a different spelling, which is credit_as doing the
     // thing that makes one record and two covers possible at once.
     expect(screen.getByText(/as M\. Bulgakov/)).toBeTruthy()
+  })
+})
+
+describe('a company gets the same page and different words', () => {
+  // A STUDIO AND A PUBLISHER ARE `people` ROWS, so they get this screen — every
+  // control on it is right for a company. What is wrong for one is the VOCABULARY:
+  // Electronic Arts is not born and it does not die, and the legacy people form
+  // was fixed for exactly that before this screen existed. So the fix is here too,
+  // and it is one predicate rather than three tests, because three is how a
+  // second company role gets forgotten.
+  //
+  // DERIVED FROM THE CREDITS, which is the part worth a test: a `people` row
+  // carries no kind of its own, so what the record IS is what the library
+  // credits it as. A fixture that passed the kind in would prove nothing about
+  // the screen a reader actually reaches.
+  // THE FIXTURE IS THE WIRE'S SHAPE, and an earlier version of this test was not:
+  // it passed `role: 'studio'`, which the server cannot send. work_person.role for
+  // a studio is `director` — movies.director holds a film's director and a game's
+  // studio, and media_type is the only thing separating them — so a fixture that
+  // invents the role invents the pass. `kinds` is deliberately EMPTY here, because
+  // that is what /people/id/{id} returns for a record a credit sync created:
+  // person_kinds is written by the portrait and ?kind= paths, not by a credit.
+  const company = (role, mediaType) => ({
+    id: 12,
+    name: 'Ninefold Games',
+    sort_name: '',
+    born: '',
+    died: '',
+    note: '',
+    aliases: [],
+    kinds: [],
+    credits: [{ kind: 'movie', work_id: 5, title: 'Hollow Reach', role, media_type: mediaType, credit_as: '' }],
+    roles: [],
+    lines: [],
+    shared_lines: 0,
+  })
+
+  it.each([
+    ['a studio', 'director', 'game'],
+    ['a publisher', 'publisher', 'game'],
+  ])('heads %s as a company, founded not born', async (_what, role, mediaType) => {
+    PERSON = company(role, mediaType)
+    const stack = { push: vi.fn(), open: vi.fn() }
+    render(body(personPanel(stack, { id: 12, name: 'Ninefold Games' })))
+    await screen.findByText(/^The company$/i)
+    expect(screen.queryByText(/^The person$/i), 'a company headed as a person').toBeNull()
+    // The row and the field it focuses both take the company word, so pressing
+    // one cannot land on a field labelled the other thing.
+    expect(screen.getAllByText(/^Founded$/i).length).toBeGreaterThan(0)
+    expect(screen.queryByText(/^Born$/i), 'a company asked when it was born').toBeNull()
+    expect(screen.getAllByText(/^Closed$/i).length).toBeGreaterThan(0)
+    expect(screen.queryByText(/^Died$/i), 'a company asked when it died').toBeNull()
+    // EVERY NOUN, not just the heading. Half a translation reads as two screens
+    // spliced together, and the reader cannot tell which word the app means.
+    expect(screen.getByText(/^This company$/i)).toBeTruthy()
+    expect(screen.getByText(/Merge with another company/i)).toBeTruthy()
+    expect(screen.queryByText(/another person/i), 'a company offered to merge with a person').toBeNull()
+    expect(screen.getByText(/Where this company is written up/i)).toBeTruthy()
+    expect(screen.getByText(/How the company files in a list/i)).toBeTruthy()
+    expect(screen.queryByText(/one human being/i), 'a company called a human being').toBeNull()
+    expect(screen.getByText(/Two records for one company/i)).toBeTruthy()
+  })
+
+  it('still calls a person a person', async () => {
+    const stack = { push: vi.fn(), open: vi.fn() }
+    render(body(personPanel(stack, { id: 7, name: 'Mikhail Bulgakov' })))
+    await screen.findByText(/^The person$/i)
+    expect(screen.queryByText(/^The company$/i)).toBeNull()
+    expect(screen.getAllByText(/^Born$/i).length).toBeGreaterThan(0)
+  })
+})
+
+describe('adding a link from an id', () => {
+  // EVERY ONE OF THESE FAILED IN THE BROWSER AND PASSED IN THE SUITE, which is
+  // why they are here as one block. The dialog was built, its unit tests covered
+  // the URL patterns, and then the rendered popup had no ✓ to press, drew four
+  // providers with no visible selection, and wrote a pill labelled
+  // "vocab.source.tmdb.label". Three separate mistakes, all of the same kind: a
+  // control that reads as working and is not, invisible to a test that only
+  // checks the strings a function returns.
+  const open = async (id) => {
+    const stack = { push: vi.fn(), open: vi.fn() }
+    render(body(personPanel(stack, { id, name: PERSON.name })))
+    await screen.findByText(/^Add link$/i)
+    fireEvent.click(screen.getByText(/^Add link$/i))
+    return screen.findByRole('dialog')
+  }
+
+  it('shows which provider is chosen, and follows the choice', async () => {
+    const dlg = await open(7)
+    const radios = within(dlg).getAllByRole('radio')
+    expect(radios.map((r) => r.textContent)).toEqual(['IMDb', 'TMDB', 'TheTVDB', 'Amazon'])
+    // THE CLASS THE STYLESHEET STYLES. `is-on` matched nothing here, so the
+    // chosen provider drew exactly like the three it was chosen over.
+    expect(radios[0].className, 'the first provider is not marked chosen').toContain('active')
+    expect(radios[1].className).not.toContain('active')
+    fireEvent.click(radios[1])
+    expect(within(dlg).getAllByRole('radio')[1].className).toContain('active')
+    expect(within(dlg).getByText(/The number in their TMDB address/i)).toBeTruthy()
+  })
+
+  it('has a tick to press, armed only once there is an address', async () => {
+    const dlg = await open(7)
+    // A NULL `blocked` MEANS NO ✓ AT ALL, and that is what a form registering
+    // with an ancestor FormModal instead of its own produces: a popup with a red
+    // cross and nothing to confirm with.
+    const tick = within(dlg).getByRole('button', { name: /save/i })
+    expect(tick).toBeTruthy()
+    expect(tick.closest('.tp-tick-slot')?.className, 'armed with nothing typed').not.toContain('is-armed')
+    fireEvent.change(within(dlg).getByLabelText(/^the id$/i), { target: { value: 'nm0000123' } })
+    const armedTick = within(dlg).getByRole('button', { name: /save/i })
+    expect(armedTick.closest('.tp-tick-slot').className, 'not armed with an address ready').toContain('is-armed')
+    // The count is how many fields the press will change — one link.
+    expect(within(dlg).getByText('1')).toBeTruthy()
+    // And the address is shown before it is kept.
+    expect(within(dlg).getByText('https://www.imdb.com/name/nm0000123/')).toBeTruthy()
+  })
+
+  it('writes the address into the record’s links, appended', async () => {
+    const dlg = await open(7)
+    fireEvent.change(within(dlg).getByLabelText(/^the id$/i), { target: { value: 'nm0000123' } })
+    fireEvent.click(within(dlg).getByRole('button', { name: /save/i }))
+    await waitFor(() => {
+      const put = CALLS.find(([m, p]) => m === 'PUT' && p === '/people/id/7')
+      expect(put, 'the tick wrote nothing').toBeTruthy()
+      expect(put[2].links).toContain('https://www.imdb.com/name/nm0000123/')
+    })
+  })
+
+  it('names a saved provider in words, not by its locale key', async () => {
+    // The pill read "vocab.source.tmdb.label" on screen: PROVIDERS' middle column
+    // is the KEY, and the pill builder used it as the name. Invisible until a
+    // record actually had a link on it.
+    PERSON = { ...PERSON, links: 'https://www.themoviedb.org/person/5026' }
+    const stack = { push: vi.fn(), open: vi.fn() }
+    render(body(personPanel(stack, { id: 7, name: PERSON.name })))
+    await screen.findByText(/^The person$/i)
+    expect(screen.getByText('TMDB')).toBeTruthy()
+    expect(screen.queryByText(/vocab\.source\./), 'a locale key drawn as a label').toBeNull()
+  })
+
+  it.each([
+    ['a studio', 'director', 'game'],
+    ['a publisher', 'publisher', 'game'],
+  ])('offers %s the company id space and nothing else', async (_what, role, mediaType) => {
+    // The studio case is the one that used to pass on an invented fixture while
+    // the app offered Electronic Arts an IMDb /name/ page. See `company` above.
+    PERSON = {
+      ...PERSON,
+      name: 'Ninefold Games',
+      kinds: [],
+      credits: [{ kind: 'movie', work_id: 5, title: 'Hollow Reach', role, media_type: mediaType, credit_as: '' }],
+    }
+    const dlg = await open(12)
+    expect(within(dlg).getAllByRole('radio').map((r) => r.textContent)).toEqual(['IGDB'])
+    fireEvent.change(within(dlg).getByLabelText(/^the id$/i), { target: { value: 'ninefold' } })
+    expect(within(dlg).getByText('https://www.igdb.com/companies/ninefold')).toBeTruthy()
+  })
+
+  it('leaves a film director on the person id spaces', async () => {
+    // The other side of the same split, and the reason creditKind cannot simply
+    // call every `director` a company.
+    PERSON = {
+      ...PERSON,
+      credits: [{ kind: 'movie', work_id: 5, title: 'Rashomon', role: 'director', media_type: 'movie', credit_as: '' }],
+    }
+    const dlg = await open(7)
+    expect(within(dlg).getAllByRole('radio').map((r) => r.textContent)).toEqual(['IMDb', 'TMDB', 'TheTVDB', 'Amazon'])
   })
 })
 

@@ -201,7 +201,13 @@ func TestPeopleNames(t *testing.T) {
 	if len(empty.People) != 0 {
 		t.Fatalf("bob should see nothing: %+v", empty.People)
 	}
-	admin.mustDo("GET", "/people/names?kind=publisher", nil, 400)
+	// "publisher" USED TO BE THE EXAMPLE HERE and became a real kind, which is
+	// the third time this has happened to this line (speaker, then translator)
+	// and the reason it is worth a sentence: the invalid-kind example must be a
+	// credit nobody has added yet, or the test stops checking anything the day
+	// the vocabulary grows. "narrator" is the next plausible one, and
+	// people_gc_test.go names it too.
+	admin.mustDo("GET", "/people/names?kind=narrator", nil, 400)
 }
 
 // Multi-author separation (ROADMAP §11): a joined credit lists as split

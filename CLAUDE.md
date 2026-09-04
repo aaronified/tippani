@@ -99,6 +99,20 @@ old work, so a screen that breaks one is a bug and not a variation.
   a px. Verify with `make typescale`, not by eye.
 - **Every font size answers the type dials** (`typescale.test.js`). If text clips, grow
   the box; freezing the text is the wrong repair and the suite says so.
+- **A tick confirms, a cross discards, and the tick lights only when something
+  actually changed.** Every editable field and every form wears the pair. The tick takes
+  the accent fill *and* a small count badge — how many fields this press will change —
+  the moment the substance differs from what is stored; before that it is plain, because
+  a control that looks armed when nothing has changed teaches the reader to stop reading
+  it. Focus is not a change and neither is retyping the same value.
+- **The cross is red.** It is the discarding half of the pair, and the repo's danger
+  colour is how the app says so everywhere else. The tick is never red — the accent is
+  not a warning.
+- **A screen's glyphs are the app's own, never an emoji.** `NavIcon`, `Icon*` in
+  `ui.jsx`, and nothing hand-picked beside them. An emoji is the platform's drawing: it
+  changes with the reader's font, sits off the baseline every other glyph shares, and is
+  the one picture `docs/ui-glossary.html` cannot document. A lookalike next to the real
+  glyph is two pictures of one thing.
 - **A rest state may not depend on anything firing.** Disable every animation and the
   content is still there — see `entrance-rule.test.js`.
 
@@ -120,6 +134,14 @@ old work, so a screen that breaks one is a bug and not a variation.
 
 ## Gotchas
 
+- **A chip's on-state class is `active`.** `.tp-filter-chip.active` is what the
+  stylesheet styles; `is-on` belongs to other things (`.cat-swatch`, `.meta-rail-item`,
+  `.to-top`) and on a filter chip matches nothing — so the chosen one draws exactly like
+  the ones it was chosen over, and only a render shows it.
+- **`useFormHost` must be called by a CHILD of the `FormModal` it means to join.** It
+  reads the context `FormModal` puts around its children, so calling it in the component
+  that renders the modal registers with whatever surface is further out — and a modal with
+  nothing registered draws no ✓ at all.
 - `git diff --exit-code -- web/dist` failing on a whitespace-only diff is line endings —
   read `.gitattributes` before touching `core.eol`/`core.autocrlf`.
 - A Go test that passes suspiciously fast: check the `-run` filter actually matched.

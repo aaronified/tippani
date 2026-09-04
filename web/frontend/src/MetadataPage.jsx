@@ -1841,10 +1841,22 @@ export function CharactersConsole({ rows = null, onReload = null }) {
                       Where there is none the slot is absent rather than a grey
                       rectangle: an empty box in every row of a list is noise, and
                       the works column already says which rows need work. */}
+                  {/* THE NAME IS THE DOOR, as it is one list over. A person's
+                      name in the People table opens their record; a character's
+                      was plain text, and the only way to the character's own
+                      screen was the pencil at the far right of the row — which is
+                      how a screen that exists comes to be reported as missing.
+                      Same control, same class, same panel the pencil opens. */}
                   <td>
                     <span className="char-name">
                       {c.image_path && <img className="char-name-face" src={coverImgURL(c.image_path)} alt="" loading="lazy" />}
-                      <span>{c.name}</span>
+                      <button
+                        type="button"
+                        className="tp-link"
+                        onClick={() => stack.open(characterPanel(stack, { id: c.id, name: c.name }))}
+                      >
+                        {c.name}
+                      </button>
                     </span>
                   </td>
                   {/* A count of zero is stated rather than left blank: blank reads
@@ -2006,12 +2018,18 @@ function DupCard({ group, onMerged }) {
 // movies.director and are told apart only by media_type — listing them together
 // would offer a studio for renaming as a director, which rewrites the wrong half
 // of the catalogue.
+//
+// PUBLISHERS ARE THEIR OWN CHIP FOR THE OPPOSITE REASON: movies.publisher is a
+// column of its own, so there is nothing to tell apart. It is a separate row
+// because it is a separate question — who made this, and who put it out — and a
+// game credits both.
 const PEOPLE_ROLES = [
   ['all', 'metadata.people.kind.all.label'],
   ['author', 'metadata.people.kind.author.label'],
   ['actor', 'metadata.people.kind.actor.label'],
   ['director', 'metadata.people.kind.director.label'],
   ['studio', 'metadata.people.kind.studio.label'],
+  ['publisher', 'metadata.people.kind.publisher.label'],
   ['speaker', 'metadata.people.kind.speaker.label'],
 ]
 
@@ -2032,6 +2050,13 @@ const PEOPLE_ROLE_ICON = {
   actor: IconPerson, // they appear in them
   director: IconReel, // they made them
   studio: IconUsers, // an organisation rather than a person, which is the whole distinction
+  // A COMPANY WEARS THE COMPANY GLYPH, and the publisher shares the studio's
+  // deliberately: both are organisations, which is the distinction this column
+  // draws, and the vendored set has no second company mark to spend on the
+  // difference between making a thing and putting it out. The word is what tells
+  // them apart — every glyph here carries it in a tooltip and an sr-only span,
+  // which is the rule stated above and is doing real work in this one row.
+  publisher: IconUsers,
   speaker: IconQuote, // a quote's speaker
 }
 
@@ -2042,6 +2067,7 @@ const PEOPLE_ROLE_NOUN = {
   actor: 'unit.actor',
   director: 'unit.director',
   studio: 'unit.studio',
+  publisher: 'unit.publisher',
   speaker: 'unit.speaker',
   translator: 'unit.translator',
   editor: 'unit.editor',
@@ -2054,6 +2080,7 @@ const PEOPLE_EMPTY = {
   actor: 'metadata.people.empty.actor',
   director: 'metadata.people.empty.director',
   studio: 'metadata.people.empty.studio',
+  publisher: 'metadata.people.empty.publisher',
   speaker: 'metadata.people.empty.speaker',
 }
 

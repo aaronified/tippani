@@ -225,9 +225,10 @@ func backfillImportMovie(tx *sql.Tx, uid, movieID int64, m importer.MovieHeader,
 			}
 		}
 	}
-	// 0056. The director above is fill-empty-only, so whether it changed is not
-	// something this function knows — it reads the column back rather than
-	// guessing, which is also what makes a repeated import a no-op here.
+	// 0056. The director and the publisher above are both fill-empty-only, so
+	// whether either changed is not something this function knows — it reads the
+	// columns back rather than guessing, which is also what makes a repeated
+	// import a no-op here.
 	if err := store.SyncCreditsFromColumns(tx, uid, "movie", movieID, seps); err != nil {
 		return err
 	}

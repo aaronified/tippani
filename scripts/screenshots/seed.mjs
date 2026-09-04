@@ -397,14 +397,22 @@ const CATALOGUE = [
     status: { status: 'paused', progress: 55, started_at: '2025-09-08' },
   },
   // ---- games ----
+  //
+  // BOTH CARRY A PUBLISHER, and it is the fixture's job rather than a detail: a
+  // game is the only kind with two company credits, they are drawn as two chips
+  // with two labels, and a seeded library with the field empty captures a screen
+  // that cannot show the difference between who made a thing and who put it out.
+  // These are the real pairs — Alcorn built Pong at Atari, Bushnell's Computer
+  // Space went out through Nutting Associates — so the two columns hold two
+  // different names on one row, which is the case worth having.
   {
-    title: 'Pong', director: 'Allan Alcorn', release_year: 1972, media_type: 'game',
+    title: 'Pong', director: 'Allan Alcorn', publisher: 'Atari', release_year: 1972, media_type: 'game',
     genres: ['Arcade'], artwork: 'File:Pong Flyer.jpg',
     description: 'Two paddles, one square, and the start of an industry.',
     status: { status: 'completed', progress: 100, started_at: '2025-01-20', finished_at: '2025-01-20' },
   },
   {
-    title: 'Computer Space', director: 'Nolan Bushnell', release_year: 1971, media_type: 'game',
+    title: 'Computer Space', director: 'Nolan Bushnell', publisher: 'Nutting Associates', release_year: 1971, media_type: 'game',
     genres: ['Arcade'], artwork: 'File:Computer Space (1971) - Promotional flyer (cropped).jpg',
   },
 ]
