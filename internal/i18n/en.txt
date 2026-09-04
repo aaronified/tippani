@@ -2855,6 +2855,10 @@ book.field.subtitle.info = The line under the title on the cover — "A Novel", 
 book.field.publisher.info = The house that put out the copy you have. Open Library answers for the work and lists every publisher it has ever had; Google answers for the edition, so its answer wins where there is one.
 book.field.pages.info = How long the book is, as its publisher states it. Not the same as the page you are on — that lives with the reading progress, and it is counted against whichever edition you are actually holding.
 book.field.asin.info = Amazon’s own identifier, on the product page of anything you bought or read on a Kindle. A cover can be fetched from it with no key or cookie at all.
+book.field.openlibrary-id.label = Open Library id
+book.field.openlibrary-id.info = Open Library's key for this book — the /works/OL…W or /books/OL…M in its URL. It answers for the work rather than one printing, so it is the id a cover or a first-published year is fetched with. Empty the field to clear it.
+book.field.google-id.label = Google Books id
+book.field.google-id.info = Google Books' volume id — the string after ?id= in its URL. It names one edition, so a description or a page count taken from it matches the copy you have. Empty the field to clear it.
 book.fetch.info.body = Searches Google Books, Open Library and Amazon for this book, then lets you compare each field against what you already have and take only what you want.
 
 # THE INFO DOT ON EACH CATALOGUE FIELD. A Catalogue row is a film, a show or a

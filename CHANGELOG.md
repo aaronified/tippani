@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **A book's Open Library and Google Books ids can be typed in.** Both have been stored
+  since the first release and neither was ever shown or editable: the only way to get one
+  was to adopt a looked-up match, and there was no way to see or correct what that had
+  stored. They join the Ids strip at the foot of the Details panel, each a pill that
+  opens the catalogue page it names — a bare Open Library key resolves as well as a
+  pasted `/works/OL…W` path — and the strip's one editor writes them with the rest.
 - **A character's page, seen from inside one work, is now about that work.** It used to
   stack three things at once — this work, the whole library, the record — so standing on
   one book you were offered the alias list, the merge control and every other work the
@@ -31,6 +37,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The heart sits on the title's line on a work's page.** It is a 44-pixel target beside
+  a 25-pixel line of text, and the two were aligned by their top edges — so beside a
+  one-line title the heart drew ten pixels low, and the row it shares with the title grew
+  nineteen pixels taller than the title needed, opening a gap above the genres. A title
+  that wrapped to two lines hid both, which is why the header looked right on some books
+  and wrong on others.
+- **A film's cast pills open again.** Every character on a work's cast list is meant to
+  be a door to that character's page, and three of the four ways a cast row gets created
+  — a metadata fetch, a name adopted off a quote line, and a row added by hand — never
+  gave the row the character record the press needs. So a fetched cast looked complete
+  and did nothing at all when touched, which was the whole of the report. The three write
+  paths set it now, and an existing library has its dead rows repaired on first start:
+  one record per character per work, so a name two unrelated works both bill stays two
+  characters, and a cast row you had deleted is left deleted.
+- **A favourite on Home no longer prints its credit twice.** A film line showed the
+  speaker on the collapsed card and again in the expanded meta line, and a book highlight
+  did the same with its chapter — one fact, two places, and the second one arrived only
+  once the card was open.
 - **The buttons beside a cover look like buttons.** Fetch, Upload, Paste URL and Clear
   were four unlabelled squares in a corner of the Details panel, and they read as
   decoration — the report that ended it said exactly that. They wear their words now, at

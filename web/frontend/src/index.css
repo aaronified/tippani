@@ -4871,6 +4871,14 @@
     --row: 18px;
     --hero-block: calc(var(--row) * 0.6); /* 11 */
     --hero-fact: calc(var(--row) * 0.5); /* 9 */
+    /* THE TITLE'S LEADING, HERE RATHER THAN INLINE, because two things have to
+       agree about it: the h1 that sets it and the heart that is centred on the
+       line it makes. It was a number typed into `WorkDetail.jsx`'s titleStyle,
+       which the stylesheet could not see — so the heart's own box had nothing to
+       measure itself against and was left to the flex box's default. */
+    --hero-title-lh: 1.15;
+    /* The first line's box, which is what the heart is aligned to. */
+    --hero-title-line: calc(var(--hero-title, var(--type-display-30)) * var(--hero-title-lh));
     display: grid;
     gap: var(--hero-block);
     align-content: start;
@@ -5079,12 +5087,37 @@
   .work-hero-metalink-flat { text-decoration: none; cursor: default; }
 
   /* The title and the heart share a line, and the heart never moves: it is the
-     one control here whose position a reader learns. `align-items: start` keeps
-     it on the title's FIRST line when the title wraps to three. */
+     one control here whose position a reader learns.
+     
+     THE REPORT THIS ANSWERS: "headers with two rows look fine now, but not
+     headers with one row". Measured at 390px, a one-line title's box is 25px and
+     the heart is a 44px tap target — so `align-items: start` aligned the two
+     BOXES at the top and spent all 19px of the difference below the line. The
+     heart's glyph drew 10px under the name it belongs to, and the row carried
+     19px of paper a one-line title never asked for, which is the gap that opened
+     under the title. Two lines hid both: the title's box is then 51px, the taller
+     of the two, so the heart landed within 3px of centre by arithmetic accident
+     and the row grew not at all. One defect, visible in exactly one of the two
+     cases — which is why the report reads as a difference between them.
+     
+     TWO DECLARATIONS FIX IT AND EACH DOES HALF. `center` puts the heart's glyph
+     on the title's optical centre whatever the title's height is, so one row and
+     two rows now agree rather than one of them being right. The negative margin
+     takes the target's 19px of overhang OUT of the row: the heart's outer box
+     becomes exactly one line, so the 44px a thumb needs bleeds above and below
+     the line instead of pushing the genres down. The margin is derived from the
+     same two properties the h1 resolves its own line box from — there is no
+     number here that can fall out of step with the type dial. */
   .work-hero-title {
     display: flex;
-    align-items: start;
+    align-items: center;
     gap: calc(var(--row) * 0.45);
+  }
+  /* A DESCENDANT SELECTOR, NOT A CHILD ONE: `Hearts` wraps its button in a
+     Tooltip, so the heart is a grandchild of this row and `>` matched nothing at
+     all — a rule that computed to `margin: 0px` and looked exactly like no rule. */
+  .work-hero-title .heart {
+    margin-block: calc((var(--hero-title-line) - 44px) / 2);
   }
   /* overflow-wrap, not truncation: at 175% on the type dial a single long word in
      a 320px screen has to break somewhere, and the standing rule says grow the

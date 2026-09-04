@@ -551,13 +551,34 @@ func mergeProviderCast(tx *sql.Tx, uid int64, kind string, workID int64, source 
 			}
 		}
 		if !ok {
+			// EVERY CAST ROW GETS A CHARACTER RECORD, and three of the four writers
+			// of this table did not give it one — this was the loudest of them.
+			//
+			// A row without one has a performer, a picture and a billing, and no
+			// door: the chip on a quote card draws the name and the face and does
+			// nothing when pressed, because `chipRows` gates the press on
+			// `character_id` and `characterImagesFor` can only pass on what the row
+			// holds. So a film whose cast came from TMDB — which is every film
+			// anybody fetched — had a row of pills that opened nothing. 0056 gave
+			// characters their own table precisely so this could not happen.
+			//
+			// A NAME IS ENOUGH TO RESOLVE ONE, and no more than that is claimed:
+			// ResolveCharacter matches this account's own records by name or alias
+			// and creates one when neither answers. It never welds two works
+			// together on its own — its header takes that trap seriously — because
+			// the match is exact within one account and "Narrator" in two unrelated
+			// books is two rows until a reader merges them.
+			charID, cerr := store.CharacterForCast(tx, uid, kind, workID, character)
+			if cerr != nil {
+				return cerr
+			}
 			res, err := tx.Exec(
 				`INSERT INTO work_cast (user_id, kind, work_id, character, character_key, actor, actor_key,
 				                        provider_key, person_id, image_url, character_image_url,
-				                        billing, origin, source)
-				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				                        billing, origin, source, character_id)
+				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 				uid, kind, workID, character, store.CastKey(character), actor, store.CastKey(actor),
-				key, p.PersonID, p.ImageURL, p.CharacterImageURL, i, castProvider, source)
+				key, p.PersonID, p.ImageURL, p.CharacterImageURL, i, castProvider, source, charID)
 			if err != nil {
 				return err
 			}

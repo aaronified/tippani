@@ -143,15 +143,15 @@ const BOOK_FIELDS = [
   // `mark` is the provider whose glyph the pill wears, and `href` the page it
   // opens. Both are optional: an id with no address keeps its pill and gives up
   // the following, which is what an IGDB numeric id has always had to do.
-  // NOT HERE YET: `openlibrary_id` AND `google_id`. The pack draws a book's Ids
-  // strip with an OL pill, and field-model.md's §4 names their absence as a
-  // work-page gap — but both columns are WRITE-ONLY-BY-NOBODY. They exist (0001)
-  // and are served (book_handlers.go), and `UPDATE books SET …` names neither, so
-  // there is no path that stores what a reader typed. Giving them one means adding
-  // two columns to that statement, and every other writer of it — bulk edit,
-  // import approval, metadata backfill — would then have to send them or clear
-  // them, which is the trap 0047 and 0061 each record. That audit is the owner's
-  // call, not a guess to make while adding a strip.
+  // AND THE TWO THE STRIP WAS MISSING, on the owner's instruction ("ol id: add
+  // them back"). The audit this comment used to defer is done and it came out
+  // smaller than it read: only ONE writer of `UPDATE books SET …` names the
+  // ordinary fields, and the two supplier ids do not join it. They write on their
+  // own from a nil-able pointer, which is the contract `movieReq.TMDBID` has
+  // always had — nil means the body said nothing and the column stands, a present
+  // empty string clears it. So bulk edit, import approval and the metadata
+  // backfill need no change at all: each of them writes named columns and simply
+  // never mentions these two.
   {
     key: 'isbn',
     ids: true,
@@ -177,6 +177,34 @@ const BOOK_FIELDS = [
     // file a book under the author. The difference is what the id names.
     href: (it) => (String(it.asin || '').trim()
       ? `https://www.amazon.com/dp/${encodeURIComponent(String(it.asin).trim())}`
+      : ''),
+  },
+  {
+    key: 'openlibrary_id',
+    ids: true,
+    mark: 'openlibrary',
+    get label() { return t('book.field.openlibrary-id.label') },
+    get hint() { return t('book.field.openlibrary-id.info') },
+    // AN OL KEY IS ALREADY A PATH, which is why this one is not a template with a
+    // number dropped in it. The column stores what the API returns — `/works/OL1W`
+    // for a work, `/books/OL1M` for an edition — and both resolve under the site
+    // root as they stand. A reader who pastes the bare key gets the slash added
+    // rather than a 404, because "OL82563W" is what the page's own title bar shows.
+    href: (it) => {
+      const v = String(it.openlibrary_id || '').trim()
+      if (!v) return ''
+      const path = v.startsWith('/') ? v : `/works/${v}`
+      return `https://openlibrary.org${path}`
+    },
+  },
+  {
+    key: 'google_id',
+    ids: true,
+    mark: 'google',
+    get label() { return t('book.field.google-id.label') },
+    get hint() { return t('book.field.google-id.info') },
+    href: (it) => (String(it.google_id || '').trim()
+      ? `https://books.google.com/books?id=${encodeURIComponent(String(it.google_id).trim())}`
       : ''),
   },
   // LAST, which is the handoff's own position for it: a link is where you go
@@ -390,6 +418,15 @@ export function fullState(kind, it) {
       publisher: it.publisher || '',
       pages: it.pages || 0,
       links: it.links || '',
+      // THE TWO SUPPLIER IDS, which the server treats as optional rather than
+      // full-state — the same pair `movieReq`'s tmdb/tvdb/igdb make. Carrying them
+      // anyway keeps this function honest to its name, and `|| ''` is safe HERE and
+      // nowhere else: a present empty string clears the column, so this line is
+      // only correct because GET /books/:id now returns both. It did not until
+      // this pass, and sending them before it did would have wiped an id on every
+      // save of any other field.
+      google_id: it.google_id || '',
+      openlibrary_id: it.openlibrary_id || '',
       genres: it.genres || [],
       series: it.series || '',
       series_index: it.series_index || 0,

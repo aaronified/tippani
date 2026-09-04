@@ -320,6 +320,53 @@ func ResolveCharacter(tx *sql.Tx, uid int64, name string) (int64, error) {
 	return res.LastInsertId()
 }
 
+// CharacterForCast is what a CAST ROW needs, and it is deliberately not
+// ResolveCharacter.
+//
+// THE DIFFERENCE IS THE SCOPE OF THE MATCH, and it is the whole design.
+// ResolveCharacter matches a name across the account, which is right when a
+// READER picked it — they chose an existing character on purpose. A cast row's
+// name usually arrives on its own: a provider's cast list, or a name typed on a
+// quote line. ResolveCharacter's own header says what happens if those are
+// matched by name: "'Narrator', 'Mother' and 'The Doctor' recur across unrelated
+// works and are not one character, so automatic name matching would silently
+// weld forty books together."
+//
+// SO THE KEY IS (kind, work, folded name), exactly as the 3.1.0 backfill's
+// `backfillCast` keys it, and for the reason stated there: "one work's two rows
+// for one character share a record and two works' rows never do." A work billing
+// one character twice — child and adult casting — is two cast rows about one
+// character, which is what a per-row actor is for. Two works are two characters
+// until a reader merges them, and merge is a verb the character screen has.
+//
+// It looks for a sibling row on the SAME work whose folded name matches and which
+// already has a record, so a second row for one character joins the first rather
+// than making a twin. Nothing else is matched, and nothing is merged.
+func CharacterForCast(tx *sql.Tx, uid int64, kind string, workID int64, name string) (int64, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return 0, fmt.Errorf("character for cast: empty name")
+	}
+	var id int64
+	err := tx.QueryRow(
+		`SELECT wc.character_id FROM work_cast wc
+		  WHERE wc.user_id = ? AND wc.kind = ? AND wc.work_id = ? AND wc.character_key = ?
+		    AND wc.character_id IS NOT NULL AND wc.character_id <> 0
+		  ORDER BY wc.id LIMIT 1`,
+		uid, kind, workID, CastKey(name)).Scan(&id)
+	if err == nil && id != 0 {
+		return id, nil
+	}
+	if err != nil && err != sql.ErrNoRows {
+		return 0, fmt.Errorf("find this work's character: %w", err)
+	}
+	res, err := tx.Exec(`INSERT INTO characters (user_id, name) VALUES (?, ?)`, uid, name)
+	if err != nil {
+		return 0, fmt.Errorf("create character: %w", err)
+	}
+	return res.LastInsertId()
+}
+
 // SyncCreditsFromColumns rebuilds a work's link rows from the columns as they
 // currently stand, then recomposes those columns from the result.
 //

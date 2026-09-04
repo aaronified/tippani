@@ -249,7 +249,8 @@ func creditPeople(tx *sql.Tx, uid int64, kind string, workID int64, role CreditR
 // character, which is exactly what actor_id being per row is for.
 func backfillCast(tx *sql.Tx, uid int64) (int, int, error) {
 	rows, err := tx.Query(
-		`SELECT id, kind, work_id, COALESCE(character, ''), COALESCE(actor, '')
+		`SELECT id, kind, work_id, COALESCE(character, ''), COALESCE(actor, ''),
+		        COALESCE(character_id, 0), COALESCE(actor_id, 0)
 		   FROM work_cast
 		  WHERE user_id = ? AND origin <> 'removed'
 		  ORDER BY id`, uid)
@@ -262,11 +263,13 @@ func backfillCast(tx *sql.Tx, uid int64) (int, int, error) {
 		workID    int64
 		character string
 		actor     string
+		charID    int64
+		actorID   int64
 	}
 	var all []row
 	for rows.Next() {
 		var r row
-		if err := rows.Scan(&r.id, &r.kind, &r.workID, &r.character, &r.actor); err != nil {
+		if err := rows.Scan(&r.id, &r.kind, &r.workID, &r.character, &r.actor, &r.charID, &r.actorID); err != nil {
 			rows.Close()
 			return 0, 0, err
 		}
@@ -282,6 +285,25 @@ func backfillCast(tx *sql.Tx, uid int64) (int, int, error) {
 	// character share a record and two works' rows never do.
 	byWork := map[string]int64{}
 	chars := 0
+	// A ROW THAT ALREADY POINTS AT A CHARACTER KEEPS IT, and its record seeds the
+	// map so the row's siblings join it rather than getting a twin. Two writers
+	// set `character_id` before this pass can run — "add a work to this character"
+	// always has, and the four cast writers do since 3.1.0 — so a library
+	// upgrading today arrives with some rows already linked. Reading them was the
+	// whole omission: the loop below INSERTs per (kind, work, name) it has not
+	// seen IN THIS RUN, so an already-linked row produced a second `characters`
+	// row and the UPDATE then pointed the cast at the twin, throwing away a link
+	// a reader may have made by hand. Seeding the map is also what makes the pass
+	// idempotent against 3.1.0-cast-records, which repairs the same column and
+	// sorts ahead of this one.
+	for _, r := range all {
+		if r.charID != 0 && r.character != "" {
+			key := fmt.Sprintf("%s\x1f%d\x1f%s", r.kind, r.workID, CastKey(r.character))
+			if _, ok := byWork[key]; !ok {
+				byWork[key] = r.charID
+			}
+		}
+	}
 	for _, r := range all {
 		var cid, aid sql.NullInt64
 		if r.character != "" {
@@ -301,11 +323,18 @@ func backfillCast(tx *sql.Tx, uid int64) (int, int, error) {
 			cid = sql.NullInt64{Int64: byWork[key], Valid: true}
 		}
 		if r.actor != "" {
-			id, err := ResolvePerson(tx, uid, r.actor)
-			if err != nil {
-				return 0, 0, err
+			// An actor already resolved is left alone for the same reason:
+			// ResolvePerson would find the same record, but a row the reader
+			// re-pointed at somebody else must not be dragged back by a name.
+			if r.actorID != 0 {
+				aid = sql.NullInt64{Int64: r.actorID, Valid: true}
+			} else {
+				id, err := ResolvePerson(tx, uid, r.actor)
+				if err != nil {
+					return 0, 0, err
+				}
+				aid = sql.NullInt64{Int64: id, Valid: true}
 			}
-			aid = sql.NullInt64{Int64: id, Valid: true}
 		}
 		if !cid.Valid && !aid.Valid {
 			continue

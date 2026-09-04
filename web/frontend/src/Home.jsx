@@ -12,7 +12,7 @@ import { AnnotationForm, annotationState, annDate, fmtDate } from './Library.jsx
 import { DialogueForm, dialogueState } from './Movies.jsx'
 import { UtteranceForm, utteranceState } from './Quotes.jsx'
 import { t, tNodes } from './i18n.js'
-import { characterPanel } from './identity.jsx'
+import { characterPanel, personPanel } from './identity.jsx'
 import { quoteKindMeta } from './quoteKind.js'
 import { PendingImportCard } from './StagingPage.jsx'
 import { QuizRunner, tzOffsetMinutes } from './review.jsx'
@@ -576,7 +576,24 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
   const { map: authorMap } = usePeople('author') // author faces: favourite chips + share payloads
   const { map: actorMap } = usePeople('actor') // actor faces: favourite chips + share payloads
   const { map: speakerMap } = usePeople('speaker') // speaker faces on standalone-quote favourites
-  const [person, setPerson] = useState(null) // {kind, name} open in the metadata panel
+  const [person, setPerson] = useState(null) // {kind, name} open in the LEGACY metadata panel
+
+  // A PILL OPENS THE PACK'S PERSON SCREEN, not the panel that predates it.
+  //
+  // Two surfaces exist and they are reached differently. `personPanel` is the
+  // pack's — the name and every spelling of it, how it files, when it was born or
+  // founded, its links, every work it is credited on — and it is reached BY ID.
+  // `PersonModal` is the older one, reached by kind+name, and it is the only
+  // surface that can create a `people` row for a credited name nobody has saved:
+  // it fetches a portrait and a bio on open and writes the row.
+  //
+  // So the id decides. A name with a record opens the record; a name without one
+  // opens the thing that can make it, and once it has, the next press lands on
+  // the pack's screen. Nothing to choose and nothing lost.
+  const openPerson = (p) => {
+    if (p?.person?.id) stack.open(personPanel(stack, { id: p.person.id, name: p.name }))
+    else setPerson({ kind: p.kind, name: p.name })
+  }
   const seps = parseCreditSeps(user?.preferences?.creditSeparators)
   // "Where you stand" lives in the Daily Quiz card but is fed by BOTH cards —
   // every /review/answer response carries fresh counts, so the row ticks live.
@@ -853,7 +870,7 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
         onGoQuotes={onGoQuotes}
         people={{ author: authorMap, actor: actorMap, speaker: speakerMap }}
         seps={seps}
-        onOpenPerson={setPerson}
+        onOpenPerson={openPerson}
         actions={serendipityActions}
       />
 
@@ -910,7 +927,7 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
                 authorMap={authorMap}
                 actorMap={actorMap}
                 seps={seps}
-                onOpenPerson={setPerson}
+                onOpenPerson={openPerson}
                 // A CHARACTER PILL OPENS THE WORK-LEVEL CHARACTER POPUP — the
                 // owner's ruling. `castId` names the screen rather than the
                 // record id alone: a work can bill one character twice.
@@ -982,6 +999,10 @@ function FavouriteTile({
   })
   const { cardProps, menuClass, menu } = useCardMenu(acts.map((x) => ({ ...x, onClick: x.run })))
   const isBook = f.kind === 'book'
+  // A STANDALONE QUOTE IS THE ONE KIND WITH NO WORK, so the occasion it was said
+  // on is the only thing its card can say about where it came from — and the one
+  // line the header cannot carry, because there is no work to name.
+  const isUtterance = f.kind === 'quote'
   // The credited people: a book's author(s), a dialogue's actor(s), or a
   // standalone quote's speaker(s) — ALL split per the user's separator prefs
   // (ROADMAP §11), so a multi-speaker line ("Sinéad Cusack, Hugo Weaving")
@@ -994,24 +1015,32 @@ function FavouriteTile({
   // §11) — bookFav/screenFav stored the joined author verbatim, so a book with
   // co-authors read as "Gaiman & Pratchett" instead of individual people.
   const authorText = peopleNames.join(' · ')
-  // THE LINE UNDER THE CARD STOPS REPEATING THE HEADER. It used to read
-  // "A Wednesday! · Sambhu (Electric Baba)" — the work, then the character —
-  // and both halves are now drawn better elsewhere: the work in the header
-  // beside its poster, the character on its own pill with a face. What is left
-  // for a film line is nothing, so the line goes; for a book the AUTHOR is left,
-  // which no pill carries; for a standalone quote the occasion is left, which is
-  // the whole of what that kind has. One rule, three outcomes.
-  let collapsedSource = f.source
-  let expandedMeta = f.meta
-  if (isBook) {
-    const chLabel = chapterMeta(f.raw)
-    const locLabel = f.raw.location ? t('common.locator.page.label', { n: f.raw.location }) : ''
-    collapsedSource = authorText
-    // No author in the EXPANDED line: the PersonCredit chips below carry the
-    // same names with their portraits and their way in, so repeating them here
-    // was the same person on the card twice, one line apart.
-    expandedMeta = [f.raw.book_title, chLabel, locLabel].filter(Boolean).join(' · ')
-  }
+  // THE LINE UNDER THE CARD STOPS REPEATING THE HEADER, and this is the pass that
+  // actually makes it stop. The comment here already said it — "What is left for a
+  // film line is nothing, so the line goes; for a book the AUTHOR is left, which no
+  // pill carries" — and then the code left `f.source` standing for a film and set
+  // the book's line to the author. Two things happened to make both wrong:
+  //
+  //   THE HEADER GAINED THE WORK. The tile's first row is the poster, the kind and
+  //   the title now, so "V FOR VENDETTA · V / WILLIAM ROOKWOOD" beside the pills
+  //   was the work said twice and the character said twice.
+  //
+  //   THE AUTHOR GAINED A PILL. The owner's later ruling put a book's author and a
+  //   quote's speaker in pills like everything else, so "which no pill carries"
+  //   stopped being true the moment PeopleChips landed — and a card read
+  //   "[Steven Erikson] STEVEN ERIKSON".
+  //
+  // So the collapsed line is now the ONE thing no pill and no header carries: a
+  // standalone quote's occasion. Everything else has somewhere better to be.
+  const chLabel = isBook ? chapterMeta(f.raw) : ''
+  const locLabel = isBook && f.raw.location ? t('common.locator.page.label', { n: f.raw.location }) : ''
+  let collapsedSource = isUtterance ? f.source : ''
+  // The EXPANDED line keeps the locator, which is the fact the open tile is open
+  // FOR — where in the work this came from. Never the people: the chips below
+  // carry the same names with their portraits and their way in.
+  let expandedMeta = isBook
+    ? [chLabel, locLabel].filter(Boolean).join(' · ')
+    : f.meta
   // Optimistic colour, the same trick AnnotationCard uses: onPatch refetches the
   // whole favourites list before the row comes back changed, so the quick-pick
   // paints the bar (and its own picked dot) the instant it is tapped, and rolls
@@ -1159,7 +1188,12 @@ function FavouriteTile({
               ) : (
                 <PeopleChips names={peopleNames} map={peopleMap} kind={meta.personKind} onOpen={onOpenPerson} />
               ))}
-            <MonoLabel style={{ fontSize: 'var(--type-ui-11)' }}>{open ? expandedMeta : collapsedSource}</MonoLabel>
+            {/* AND NOTHING WHERE THERE IS NOTHING TO SAY. An empty MonoLabel is
+                still a flex child with a gap before it, so a film tile drew the
+                pills and then a 1.5px column of air pretending to be a line. */}
+            {(open ? expandedMeta : collapsedSource) ? (
+              <MonoLabel style={{ fontSize: 'var(--type-ui-11)' }}>{open ? expandedMeta : collapsedSource}</MonoLabel>
+            ) : null}
           </span>
           {/* COPY AND SHARE ON THE COLLAPSED TILE (1.15.3). They were inside the
               expanded branch below, so the two things you most often do WITH a

@@ -524,10 +524,12 @@ export default function WorkDetail({
         cover={<Cover path={item[spec.coverField]} title={item.title} badge={spec.coverBadge} hero zoomable />}
         shadow={spec.coverShadow || undefined}
         title={item.title}
-        // Both sides now, and it was the books side's alone: a title is a title,
-        // and two work pages disagreeing about its leading is not a type
-        // difference, it is one of them having been tuned and the other not.
-        titleStyle={{ lineHeight: 1.15 }}
+        // THE LEADING IS THE STYLESHEET'S NOW (`--hero-title-lh`), and it had to
+        // move: the heart beside the title is centred on the line the leading
+        // makes, and a number typed here is a number the stylesheet cannot read.
+        // It was 1.15 on both sides already — a title is a title, and two work
+        // pages disagreeing about its leading is not a type difference but one of
+        // them having been tuned and the other not.
         kindRow={kindRow}
         miniSub={detailSub || null}
         // The progress strip, welded to the foot of the artwork rather than drawn

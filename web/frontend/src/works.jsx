@@ -1803,7 +1803,7 @@ export function WorkHero({
         <div className="work-hero-facts">
           {kindRow && <div className="work-hero-kind">{kindRow}</div>}
           <div className="work-hero-title">
-            <h1 className="display-title" style={{ fontSize: titleSize, lineHeight: 1.12, ...titleStyle }}>
+            <h1 className="display-title" style={{ fontSize: titleSize, lineHeight: 'var(--hero-title-lh)', ...titleStyle }}>
               {title}
             </h1>
             <Hearts value={!!favorite} onChange={onFavorite} />

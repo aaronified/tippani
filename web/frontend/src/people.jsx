@@ -352,7 +352,12 @@ export function PersonChip({ kind, name, person, onOpen, onPress, title, faceNam
       onClick={(e) => {
         e.stopPropagation()
         if (onPress) onPress()
-        else onOpen?.({ kind, name })
+        // `person` RIDES ALONG, because a name is not enough to open the record.
+        // The pack's person screen is reached by id (`/people/id/{id}`); the
+        // legacy modal is reached by kind+name and is the only surface that can
+        // CREATE a row for a credited name nobody has saved yet. The caller needs
+        // to know which of the two it can offer, and only the row says.
+        else onOpen?.({ kind, name, person })
       }}
       // A chip with no destination is still a chip, and says so rather than
       // looking identical to one that opens.

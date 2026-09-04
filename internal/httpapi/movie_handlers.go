@@ -123,6 +123,17 @@ func idOrZero(p *int64) int64 {
 	return *p
 }
 
+// strOrEmpty is idOrZero for a string-valued supplier id — an omitted field and
+// a present empty string both read as "no id" at the point of USE. The
+// distinction the pointer exists for is made by the caller that WRITES, which
+// skips a nil rather than storing the empty string this returns.
+func strOrEmpty(p *string) string {
+	if p == nil {
+		return ""
+	}
+	return *p
+}
+
 // normaliseIMDb accepts what a reader actually has in their hand.
 //
 // An IMDb id is reached by copying a URL, so a pasted

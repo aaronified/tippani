@@ -57,8 +57,18 @@ type bookReq struct {
 	// Both provider ids, for a candidate assembled from both of them. Source and
 	// SourceID still carry the primary, so a client that sends only those keeps
 	// working exactly as before.
-	GoogleID      string `json:"google_id"`
-	OpenLibraryID string `json:"openlibrary_id"`
+	//
+	// AND THEY ARE POINTERS, on the contract movieReq's TMDBID/TVDBID states and
+	// for its reason: nil means "the body did not mention it, leave the column
+	// alone" and a present empty string clears it. PUT is full-state for every
+	// other field here, but a supplier id is not one a reader retypes each save —
+	// it is what a re-sync pulls from, so a client that has never heard of it must
+	// not be able to wipe it by omission. That is the trap this file's own comment
+	// named as the reason the two columns had no writer at all: making them
+	// full-state would have handed every other client of this endpoint the power
+	// to clear them, and there are several. A pointer costs nobody anything.
+	GoogleID      *string `json:"google_id"`
+	OpenLibraryID *string `json:"openlibrary_id"`
 	// 0047 — the two languages a book has and, oddly, has never carried. A
 	// standalone quote has had one since 1.14 and the shelf it sits on has a whole
 	// LIST of them, while the book of a translated novel could not say which
@@ -154,14 +164,14 @@ type bookDetail struct {
 	Author       string              `json:"author"`
 	// Present HERE and absent from the list row on purpose — see the list
 	// handler's own note. This is the shape the work's own page reads.
-	Translator string `json:"translator"`
-	Editor     string `json:"editor"`
-	Subtitle   string `json:"subtitle"`
-	Publisher  string `json:"publisher"`
-	Pages      int    `json:"pages"`
-	Links      string `json:"links"`
-	ISBN       string `json:"isbn"`
-	ASIN       string `json:"asin"`
+	Translator     string `json:"translator"`
+	Editor         string `json:"editor"`
+	Subtitle       string `json:"subtitle"`
+	Publisher      string `json:"publisher"`
+	Pages          int    `json:"pages"`
+	Links          string `json:"links"`
+	ISBN           string `json:"isbn"`
+	ASIN           string `json:"asin"`
 	Description    string `json:"description"`
 	PublishedYear  int    `json:"published_year"`
 	PublishedCirca bool   `json:"published_circa"`
@@ -169,18 +179,26 @@ type bookDetail struct {
 	// Translator and Editor made above, for the same reason: the library board draws
 	// a cover, a title and a progress bar, and a language on every row would be a
 	// column the shelf never renders and every list response would carry.
-	Language     string    `json:"language"`
-	OrigLanguage string    `json:"orig_language"`
-	CoverPath    string    `json:"cover_path"`
-	Genres       []string  `json:"genres"`
-	Series       string    `json:"series"`
-	SeriesIndex  float64   `json:"series_index"`
-	Favorite     bool      `json:"favorite"`
-	Status       string    `json:"status"`   // "" | reading | paused | abandoned | completed
-	Progress     int       `json:"progress"` // 0-100, derived from the position when one is set
-	position               // pos_unit ('' | page) · pos · pos_total
-	Reads        []readRow `json:"reads"` // oldest first
-	CreatedAt    string    `json:"created_at"`
+	Language     string `json:"language"`
+	OrigLanguage string `json:"orig_language"`
+	// THE TWO SUPPLIER IDS, DETAIL ONLY, and served at last. They have been
+	// storable since 0001 and no response has ever carried them, which is why the
+	// Ids strip could not draw an OL pill for a book that has one — the client
+	// never saw the id. They are also what makes the strip's editor safe: PUT
+	// re-states the record, so a field the form can edit and the GET cannot return
+	// is a field the next save writes back as empty.
+	GoogleID      string    `json:"google_id"`
+	OpenLibraryID string    `json:"openlibrary_id"`
+	CoverPath     string    `json:"cover_path"`
+	Genres        []string  `json:"genres"`
+	Series        string    `json:"series"`
+	SeriesIndex   float64   `json:"series_index"`
+	Favorite      bool      `json:"favorite"`
+	Status        string    `json:"status"`   // "" | reading | paused | abandoned | completed
+	Progress      int       `json:"progress"` // 0-100, derived from the position when one is set
+	position                // pos_unit ('' | page) · pos · pos_total
+	Reads         []readRow `json:"reads"` // oldest first
+	CreatedAt     string    `json:"created_at"`
 }
 
 func (s *Server) fetchBook(uid, id int64) (*bookDetail, error) {
@@ -188,14 +206,16 @@ func (s *Server) fetchBook(uid, id int64) (*bookDetail, error) {
 	err := s.Store.DB.QueryRow(`
 		SELECT id, title, COALESCE(author, ''), translator, editor, COALESCE(isbn, ''), COALESCE(asin, ''),
 		       COALESCE(description, ''), COALESCE(published_year, 0), published_circa,
-		       language, orig_language, subtitle, publisher, pages, links, COALESCE(cover_path, ''),
+		       language, orig_language, subtitle, publisher, pages, links,
+		       COALESCE(google_id, ''), COALESCE(openlibrary_id, ''), COALESCE(cover_path, ''),
 		       COALESCE(series, ''), COALESCE(series_index, 0), favorite, status, progress,
 		       pos_unit, pos, pos_total, created_at
 		FROM books WHERE id = ? AND user_id = ?`, id, uid).
 		Scan(&b.ID, &b.Title, &b.Author, &b.Translator, &b.Editor, &b.ISBN, &b.ASIN,
 			&b.Description, &b.PublishedYear, &b.PublishedCirca,
 			// No COALESCE on any of these: NOT NULL DEFAULT (0047, 0061).
-			&b.Language, &b.OrigLanguage, &b.Subtitle, &b.Publisher, &b.Pages, &b.Links, &b.CoverPath,
+			&b.Language, &b.OrigLanguage, &b.Subtitle, &b.Publisher, &b.Pages, &b.Links,
+			&b.GoogleID, &b.OpenLibraryID, &b.CoverPath,
 			&b.Series, &b.SeriesIndex, &b.Favorite, &b.Status, &b.Progress,
 			&b.Unit, &b.Pos, &b.PosTotal, &b.CreatedAt)
 	if err != nil {
@@ -276,11 +296,11 @@ func (s *Server) handleCreateBook(w http.ResponseWriter, r *http.Request) {
 	// switch above can only record one of them. Keeping both is what lets
 	// re-verify re-check either supplier later; pinning only the primary would
 	// half-orphan a record the moment it was created.
-	if req.GoogleID != "" {
-		googleID = req.GoogleID
+	if strOrEmpty(req.GoogleID) != "" {
+		googleID = strOrEmpty(req.GoogleID)
 	}
-	if req.OpenLibraryID != "" {
-		openlibraryID = req.OpenLibraryID
+	if strOrEmpty(req.OpenLibraryID) != "" {
+		openlibraryID = strOrEmpty(req.OpenLibraryID)
 	}
 
 	uid := userID(r)
@@ -687,22 +707,40 @@ func (s *Server) handleUpdateBook(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	// Adopting a looked-up candidate links the book to its source, so the
-	// "no source" gap actually clears (the create path does this; update didn't).
+	// THE TWO SUPPLIER IDS WRITE ON THEIR OWN rather than joining the SET above,
+	// exactly as the movie handler's do and for the same reason: they are the only
+	// columns here a body is allowed to stay silent about, so a nil pointer has to
+	// mean "no statement" and that cannot be expressed inside a statement that
+	// writes every column it names.
+	//
+	// AN ADOPTED CANDIDATE STILL WINS. `source`/`source_id` name the provider a
+	// lookup was taken from, and applying them last means adopting a match
+	// re-pins the id even when the body also carried the stale one it is
+	// replacing — which is the order the create path uses and the order the merge
+	// screen needs, since its body is assembled from the record and the candidate
+	// both.
+	bookIDCols := []struct {
+		column string
+		value  *string
+	}{{"google_id", req.GoogleID}, {"openlibrary_id", req.OpenLibraryID}}
 	switch req.Source {
 	case "google":
 		if req.SourceID != "" {
-			if _, err := tx.Exec(`UPDATE books SET google_id = ?, updated_at = datetime('now') WHERE id = ? AND user_id = ?`, req.SourceID, id, uid); err != nil {
-				failErr("update book", err)
-				return
-			}
+			bookIDCols[0].value = &req.SourceID
 		}
 	case "openlibrary":
 		if req.SourceID != "" {
-			if _, err := tx.Exec(`UPDATE books SET openlibrary_id = ?, updated_at = datetime('now') WHERE id = ? AND user_id = ?`, req.SourceID, id, uid); err != nil {
-				failErr("update book", err)
-				return
-			}
+			bookIDCols[1].value = &req.SourceID
+		}
+	}
+	for _, c := range bookIDCols {
+		if c.value == nil {
+			continue
+		}
+		if _, err := tx.Exec(`UPDATE books SET `+c.column+` = ?, updated_at = datetime('now')
+			WHERE id = ? AND user_id = ?`, strings.TrimSpace(*c.value), id, uid); err != nil {
+			failErr("update book: set "+c.column, err)
+			return
 		}
 	}
 	if err := tx.Commit(); err != nil {

@@ -393,15 +393,24 @@ func (s *Server) handleAddCast(kind string) http.HandlerFunc {
 		// it, PUT honours it, and a POST that dropped it made "add the character,
 		// then describe it" two requests where the caller had sent one — silently,
 		// with a 201 carrying the empty description back.
+		// A CHARACTER RECORD FOR THE ROW — the same rule as every other writer of
+		// this table, and see cast.go's insert for why a row without one is a chip
+		// that opens nothing. A hand-added cast row is the path where the reader is
+		// most obviously naming somebody they mean to be able to open.
+		charID, cerr := store.CharacterForCast(tx, uid, kind, workID, req.Character)
+		if cerr != nil {
+			internalError(w, r, "add cast: character record", cerr)
+			return
+		}
 		desc := ""
 		if req.Description != nil {
 			desc = *req.Description
 		}
 		res, err := tx.Exec(
 			`INSERT INTO work_cast (user_id, kind, work_id, character, character_key, actor, actor_key,
-			                        billing, origin, description)
-			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			uid, kind, workID, req.Character, charKey, req.Actor, actorKey, billing, castReader, desc)
+			                        billing, origin, description, character_id)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			uid, kind, workID, req.Character, charKey, req.Actor, actorKey, billing, castReader, desc, charID)
 		if err != nil {
 			internalError(w, r, "add cast", err)
 			return

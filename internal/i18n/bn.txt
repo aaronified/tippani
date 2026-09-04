@@ -2903,6 +2903,10 @@ book.field.subtitle.info = প্রচ্ছদে নামের নিচে
 book.field.publisher.info = আপনার হাতের কপিটা যে প্রকাশনা থেকে বেরিয়েছে। Open Library গোটা রচনার হিসেব দেয় এবং তার সব প্রকাশকের নাম রাখে; Google দেয় এই সংস্করণের হিসেব, তাই তার উত্তরই আগে।
 book.field.pages.info = প্রকাশক অনুযায়ী বইটা কত পৃষ্ঠার। আপনি কোন পৃষ্ঠায় আছেন সেটা আলাদা — তা পড়ার অগ্রগতির সঙ্গে থাকে, এবং আপনার হাতের সংস্করণ ধরে গোনা হয়।
 book.field.asin.info = Amazon-এর নিজের নম্বর, Kindle-এ কেনা বা পড়া যে কোনও বইয়ের পাতায় থাকে। কোনও চাবি বা কুকি ছাড়াই এটা দিয়ে কভার আনা যায়।
+book.field.openlibrary-id.label = Open Library id
+book.field.openlibrary-id.info = এই বইয়ের Open Library চাবি — URL-এ যে /works/OL…W বা /books/OL…M থাকে। এটা এক ছাপার নয়, গোটা রচনার হিসেব দেয়; তাই কভার বা প্রথম প্রকাশের সাল এই id দিয়েই আনা হয়। ঘর ফাঁকা করলে মুছে যায়।
+book.field.google-id.label = Google Books id
+book.field.google-id.info = Google Books-এর ভলিউম id — URL-এ ?id=-এর পরের অংশটা। এটা একটা সংস্করণকেই চেনায়, তাই এর থেকে আনা বিবরণ বা পৃষ্ঠাসংখ্যা আপনার হাতের কপির সঙ্গেই মেলে। ঘর ফাঁকা করলে মুছে যায়।
 book.fetch.info.body = বইটা খোঁজে Google Books, Open Library আর Amazon-এ, তারপর প্রতিটা ঘর আপনার কাছে যা আছে তার পাশে রেখে দেখায় — যেটুকু চান, সেটুকুই নিন।
 
 # THE INFO DOT ON EACH CATALOGUE FIELD. A Catalogue row is a film, a show or a
