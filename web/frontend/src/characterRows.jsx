@@ -28,6 +28,7 @@
 //   THE STRIP'S FADE IS MEASURED, not counted. The pack fades at four tiles or
 //   more; Scroller fades when the row actually overflows, which is right in both
 //   cases a count gets wrong, and is the app's standing rule.
+import { useEffect, useState } from 'react'
 import { coverImgURL } from './api.js'
 import { t } from './i18n.js'
 import { Silhouette } from './silhouette.jsx'
@@ -83,18 +84,55 @@ export function Face({ src, name, className = 'cs-face' }) {
   )
 }
 
-// PortraitBlock — the face, the stated pixel size, and the ways a picture arrives.
+// PortraitBlock — the face, its REAL pixel size, and the ways a picture arrives.
 //
 // THE PIXELS ARE STATED BECAUSE A PICTURE FIELD CANNOT BE JUDGED FROM A
 // THUMBNAIL. A 266-wide portrait is not "a portrait", it is a portrait that will
 // look soft on a share card, and the app says so rather than letting the reader
-// find out on the card. `soft` is the caller's measurement, not a guess here.
+// find out on the card. The pack prints "266 × 350 px · under 400 × 400, soft on
+// a share card" and the second half only when the first earns it.
+//
+// MEASURED HERE, WHICH REVERSES THIS COMPONENT'S OWN EARLIER NOTE. It used to say
+// `soft` was "the caller's measurement, not a guess here" — correct in principle
+// and the reason the feature was never built: no caller had a measurement to
+// give, so both global sheets passed a constant string and `soft` unconditionally,
+// and every portrait in the app claimed to be too small for a share card whatever
+// its size. The picture is the only thing that knows, this component owns the
+// picture, and `naturalWidth` is a measurement rather than a guess. A caller may
+// still override `px` for a slot where the file is not the subject.
+//
+// SOFT_FLOOR is the pack's own 400 × 400. It is a share-card threshold and not a
+// type measurement, so it stays a number in px.
+const SOFT_FLOOR = 400
+
 export function PortraitBlock({ src, name, px, soft, actions }) {
+  const [dim, setDim] = useState(null)
+  // A new src is a new measurement — without this the previous picture's numbers
+  // stay under the new one, which is worse than showing none.
+  useEffect(() => { setDim(null) }, [src])
+  const measured = dim
+    ? t('identity.portrait.px', { w: dim.w, h: dim.h })
+      + (dim.w < SOFT_FLOOR || dim.h < SOFT_FLOOR
+        ? ' · ' + t('identity.portrait.soft', { n: SOFT_FLOOR })
+        : '')
+    : px
+  const isSoft = dim ? dim.w < SOFT_FLOOR || dim.h < SOFT_FLOOR : !!soft
   return (
     <div className="cs-portrait">
-      <Face src={src} name={name} />
+      <span className="cs-face">
+        {src
+          ? (
+            <img
+              src={src}
+              alt=""
+              loading="lazy"
+              onLoad={(e) => setDim({ w: e.target.naturalWidth, h: e.target.naturalHeight })}
+            />
+          )
+          : <Silhouette name={name} />}
+      </span>
       <span className="cs-portrait-side">
-        <span className={'cs-px' + (soft ? ' is-soft' : '')}>{px}</span>
+        <span className={'cs-px' + (isSoft ? ' is-soft' : '')}>{measured}</span>
         <span className="cs-face-actions">{actions}</span>
       </span>
     </div>

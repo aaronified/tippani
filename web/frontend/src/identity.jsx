@@ -27,6 +27,7 @@ import { coverImgURL, errText, json } from './api.js'
 import { t } from './i18n.js'
 import { useCharacterPicture, usePicturePicker } from './cast.jsx'
 import { CharacterGlobal, PersonGlobal } from './identityGlobal.jsx'
+import { identityScope } from './identityScope.js'
 import { personImgURL, ProviderChips, SpeakerChips } from './people.jsx'
 import { Silhouette } from './silhouette.jsx'
 import {
@@ -921,6 +922,14 @@ function CharacterBody({ stack, id, work }) {
       || works.find((a) => a.kind === work.kind && a.work_id === work.id)
       || null
   const elsewhere = here ? works.filter((a) => a.cast_id !== here.cast_id) : works
+  // WHICH OF THE FIVE SHEETS THIS IS, from the resolver rather than from a chain
+  // of questions asked again per section. identityScope.js was written with the
+  // local sheets in mind and nothing had imported it, so its answers — the
+  // locator noun, whether there is a performer to pair with the part, whether a
+  // dub can be credited — sat unused beside screens that needed them. It is live
+  // from here: the sheets below read `scope.id`, and a new medium stays a row in
+  // that table rather than a branch in this file.
+  const scope = identityScope({ table: 'character', work: here ? { ...work, ...here } : work })
 
   // ---- char-global, the pack's own screen ----------------------------------
   //
@@ -933,7 +942,7 @@ function CharacterBody({ stack, id, work }) {
   // EVERY HANDLER STAYS ABOVE THIS LINE. The screen fetches nothing and saves
   // nothing; it is handed finished functions, which is why it can be rendered
   // from a fixture in a test.
-  if (!here) {
+  if (scope.id === 'char-global') {
     return (
       <div style={{ display: 'grid', gap: 'calc(var(--row) * 1.6)' }}>
         <ErrorText>{err}</ErrorText>

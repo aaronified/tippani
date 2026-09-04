@@ -178,8 +178,11 @@ export function CharacterGlobal({
       <PortraitBlock
         src={record.image_path ? coverImgURL(record.image_path) : ''}
         name={record.name}
+        // `soft` is NOT passed any more: PortraitBlock measures the file and
+        // decides. Hardcoding it here made every portrait in the app claim to
+        // be too small for a share card, whatever its size. `px` stays as the
+        // line shown before a measurement exists.
         px={t('identity.portrait.global')}
-        soft
         actions={portraitActions}
       />
 
@@ -287,8 +290,11 @@ export function PersonGlobal({
       <PortraitBlock
         src={portrait}
         name={record.name}
+        // `soft` is NOT passed any more: PortraitBlock measures the file and
+        // decides. Hardcoding it here made every portrait in the app claim to
+        // be too small for a share card, whatever its size. `px` stays as the
+        // line shown before a measurement exists.
         px={t('identity.portrait.global')}
-        soft
         actions={portraitActions}
       />
 

@@ -6263,6 +6263,16 @@ identity.crumb.badge.book = book
 identity.crumb.badge.film = film
 identity.crumb.badge.show = show
 identity.crumb.badge.game = game
+# THE PICTURE'S REAL SIZE, measured off the file rather than described. The pack
+# prints "266 × 350 px" under every portrait, because a picture field cannot be
+# judged from a thumbnail: a reader who uploads a 266-wide portrait finds out it
+# was too small when a share card goes out soft, which is too late.
+identity.portrait.px = {w} × {h} px
+# AND THE WARNING ONLY WHERE IT IS EARNED. Shown beside the size when either side
+# is under the floor. It said this of every portrait before it was measured.
+identity.portrait.soft = under {n} × {n}, soft on a share card
+# The fallback where nothing has been measured yet — no picture, or one still
+# loading. Never printed beside a size.
 identity.portrait.global = the record's own picture
 identity.section.identity.label = The identity
 identity.section.identity.note = Edits here reach every work.

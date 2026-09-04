@@ -292,6 +292,36 @@ type CastOf struct {
 	// above, for the same reason: a value substituted here cannot be told apart
 	// from one the work actually holds.
 	Description string `json:"description,omitempty"`
+	// ---- what the pack's LOCAL sheets print, and nothing else had asked for ----
+	//
+	// 0063 added these six columns and cast.go has served them to the cast editor
+	// since, but CastOf — the shape the identity panels read — carried none of
+	// them. So `char-book`, `char-film` and `char-game` could not draw the three
+	// facts the prototype puts under the name, the note beside them, or tell a
+	// dubbing credit from a performing one, because the row they render from did
+	// not have the words in it. The columns existed and the screen could not see
+	// them, which is the quietest kind of half-built.
+	//
+	// EVERY ONE IS PER (WORK, CHARACTER), not per character: Harry is a
+	// Protagonist in the novel and a Lead in the film, and he is 17 in one scene
+	// and 11 in a flashback the same film credits separately. That is why they
+	// ride here and not on the character record.
+	Part         string `json:"part,omitempty"`
+	FirstAppears string `json:"first_appears,omitempty"`
+	AgeHere      string `json:"age_here,omitempty"`
+	// CreditNote is the reader's own note on ONE casting — "and the epilogue at
+	// 36", "Godric's Hollow flashback". Private, this work only.
+	CreditNote string `json:"credit_note,omitempty"`
+	// CreditLang IS THE DUB, and no second table is needed for one. The pack gives
+	// film and show a "Dubbed by" heading under the performers; a credit carrying
+	// a language is what belongs in it, and a credit with none is the original
+	// cast. A game's localisation is its voice cast rather than a layer over it,
+	// so its languages stay on the voice credits themselves — see identityScope's
+	// `dubs`, which says the same thing for the client.
+	CreditLang string `json:"credit_lang,omitempty"`
+	// Aliases is what this work calls them BESIDES the printing name — the pack's
+	// sub-line under "Called here": "Undesirable No. 1 · The Boy Who Lived".
+	Aliases string `json:"aliases,omitempty"`
 }
 
 // castWhere is the shared tail of the two cast reads: both halves of the union,
@@ -313,7 +343,9 @@ func castWhere(pred string) string {
 	return `
 		SELECT wc.id, 'book', b.id, b.title, wc.character_id, wc.character,
 		       COALESCE(wc.actor_id, 0), COALESCE(p.name, wc.actor), COALESCE(wc.character_image_path, ''),
-		       COALESCE(b.cover_path, ''), '', COALESCE(wc.description, '')
+		       COALESCE(b.cover_path, ''), '', COALESCE(wc.description, ''),
+		       COALESCE(wc.part, ''), COALESCE(wc.first_appears, ''), COALESCE(wc.age_here, ''),
+		       COALESCE(wc.credit_note, ''), COALESCE(wc.credit_lang, ''), COALESCE(wc.aliases, '')
 		  FROM work_cast wc
 		  JOIN books b ON b.id = wc.work_id
 		  LEFT JOIN people p ON p.id = wc.actor_id
@@ -321,7 +353,9 @@ func castWhere(pred string) string {
 		UNION ALL
 		SELECT wc.id, 'movie', m.id, m.title, wc.character_id, wc.character,
 		       COALESCE(wc.actor_id, 0), COALESCE(p.name, wc.actor), COALESCE(wc.character_image_path, ''),
-		       COALESCE(m.poster_path, ''), COALESCE(m.media_type, 'movie'), COALESCE(wc.description, '')
+		       COALESCE(m.poster_path, ''), COALESCE(m.media_type, 'movie'), COALESCE(wc.description, ''),
+		       COALESCE(wc.part, ''), COALESCE(wc.first_appears, ''), COALESCE(wc.age_here, ''),
+		       COALESCE(wc.credit_note, ''), COALESCE(wc.credit_lang, ''), COALESCE(wc.aliases, '')
 		  FROM work_cast wc
 		  JOIN movies m ON m.id = wc.work_id
 		  LEFT JOIN people p ON p.id = wc.actor_id
@@ -356,7 +390,8 @@ func castRows(db Queryer, q string, args ...any) ([]CastOf, error) {
 		var c CastOf
 		var charID, actorID sql.NullInt64
 		if err := rows.Scan(&c.CastID, &c.Kind, &c.WorkID, &c.WorkTitle, &charID, &c.Character,
-			&actorID, &c.Actor, &c.Image, &c.Cover, &c.MediaType, &c.Description); err != nil {
+			&actorID, &c.Actor, &c.Image, &c.Cover, &c.MediaType, &c.Description,
+			&c.Part, &c.FirstAppears, &c.AgeHere, &c.CreditNote, &c.CreditLang, &c.Aliases); err != nil {
 			return nil, err
 		}
 		c.CharacterID, c.ActorID = charID.Int64, actorID.Int64
