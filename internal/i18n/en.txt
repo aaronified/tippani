@@ -6274,6 +6274,74 @@ identity.portrait.soft = under {n} × {n}, soft on a share card
 # The fallback where nothing has been measured yet — no picture, or one still
 # loading. Never printed beside a size.
 identity.portrait.global = the record's own picture
+# ---- the pack's LOCAL character sheets (char-book, char-film, char-game) ----
+# One character seen from inside one work. Everything here is true of THIS work
+# and of no other; what is true of the identity lives on the global sheet, one
+# door away.
+
+# The crumb under the name. Never "Harry Potter · Deathly Hallows" — the sheet is
+# about a character IN a work, and the preposition is the whole of that fact.
+identity.crumb.in = in {title}
+# Shown under the portrait until the file has been measured. See identity.portrait.px.
+identity.portrait.local = this work's own picture
+
+# WHAT THE WORK CALLS THEM, and the label differs by medium on purpose: a novel
+# NAMES a character in its text, a film CREDITS a performance. The reader editing
+# one is not editing the other kind of thing.
+identity.row.called.label = Called here
+identity.row.credited.label = Credited as
+# The sub-line when the work has no second name for them. Not "none": the row's
+# value is the name, which is present — what is absent is any OTHER name.
+identity.row.called.sub = The only name this work uses
+
+# THE THREE FACTS UNDER THE NAME. A game draws two of them: "age here" is a fact
+# about a performance, and a playable character has no single one.
+identity.facts.part = Part
+identity.facts.first = First appears
+identity.facts.age = Age here
+identity.facts.none = not set
+
+# The reader's own note on ONE casting. The sub-line has to say "this work only",
+# because the record's own description is the field that reaches every work and
+# the two look alike in a list.
+identity.row.note.label = Note
+identity.row.note.sub = Yours, private, this work only
+identity.row.note.none = none
+
+# THE COUNTS, WHICH ARE DOORS INTO SEARCH. Pressing one lands on search with this
+# character and this work already up as chips. The second noun is the medium's,
+# and internal/httpapi/whos_in_it.go maps it the same three ways.
+identity.count.quotes.one = quote
+identity.count.quotes.other = quotes
+identity.count.chapter.one = chapter
+identity.count.chapter.other = chapters
+identity.count.scene.one = scene
+identity.count.scene.other = scenes
+identity.count.quest.one = quest
+identity.count.quest.other = quests
+identity.count.quotes.tip = Search this character's lines in this work
+identity.count.locator.tip = Search this work for where they appear
+
+# THE WAY UP, to the character out of any one work.
+identity.row.global.label = Open the global record
+identity.row.global.sub = The character, out of any one work
+identity.badge.global = global
+identity.row.global.works.one = {n} work
+identity.row.global.works.other = {n} works
+
+# AND THE WAY OUT, which is not a delete — hence a whole section rather than a
+# key beside the others. A book's reassurance is shorter than a film's because a
+# book has nobody playing anybody: there are no people's records to speak for.
+identity.section.remove.label = Remove
+identity.row.unlink.label.book = Remove from this book
+identity.row.unlink.label.film = Remove from this film
+identity.row.unlink.label.show = Remove from this show
+identity.row.unlink.label.game = Remove from this game
+identity.row.unlink.sub.book = Other works retain the global character
+identity.row.unlink.sub.cast = Other works retain the global character; people keep their records
+identity.local.fields.summary = Edit what this work says
+identity.local.fields.aliases = Also called here
+
 identity.section.identity.label = The identity
 identity.section.identity.note = Edits here reach every work.
 identity.section.person.label = The person

@@ -2053,6 +2053,12 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
               creditSeparators={user.preferences?.creditSeparators}
               onAdd={openAdd}
               onSearch={openSearch}
+              // THE CHIP-SEEDING VERB, threaded explicitly because the one above
+              // is a different question. `openSearch` opens the search screen
+              // scoped to where you are and takes no argument; the character
+              // sheet's counts need "this character, in this work" as removable
+              // chips, which only searchScoped can express.
+              onSeedSearch={searchScoped}
               dataNonce={dataNonce}
             />
           </div>
@@ -2066,6 +2072,12 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
               creditSeparators={user.preferences?.creditSeparators}
               onAdd={openAdd}
               onSearch={openSearch}
+              // THE CHIP-SEEDING VERB, threaded explicitly because the one above
+              // is a different question. `openSearch` opens the search screen
+              // scoped to where you are and takes no argument; the character
+              // sheet's counts need "this character, in this work" as removable
+              // chips, which only searchScoped can express.
+              onSeedSearch={searchScoped}
               dataNonce={dataNonce}
             />
           </div>

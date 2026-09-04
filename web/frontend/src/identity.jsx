@@ -28,6 +28,7 @@ import { t } from './i18n.js'
 import { useCharacterPicture, usePicturePicker } from './cast.jsx'
 import { CharacterGlobal, PersonGlobal } from './identityGlobal.jsx'
 import { identityScope } from './identityScope.js'
+import { CharacterLocal } from './identityLocal.jsx'
 import { personImgURL, ProviderChips, SpeakerChips } from './people.jsx'
 import { Silhouette } from './silhouette.jsx'
 import {
@@ -74,11 +75,18 @@ export function personPanel(stack, { id, name, work = null }) {
 // are two rows on one film, both pointing at one `characters` record — and a
 // lookup by work alone cannot tell them apart. It returns the first, so pressing
 // the second row lifted the first and then counted its sibling among "the others".
-export function characterPanel(stack, { id, name, work = null }) {
+// `onSearch` IS THE COUNTS' DOOR, and it is threaded rather than reached for.
+// The pack's local sheet makes both counts pressable — "37 quotes" lands on the
+// search screen with this character and this work already up as chips, which is
+// the question the number summarises. Only the shell can navigate, so the screen
+// that opens this panel hands the verb down. A caller without one gets the counts
+// as figures, which is the honest degradation: a number nobody can open is still
+// the number.
+export function characterPanel(stack, { id, name, work = null, onSearch = null }) {
   return {
     title: name || t('identity.character.title'),
     wide: true,
-    render: () => <CharacterBody stack={stack} id={id} work={work} />,
+    render: () => <CharacterBody stack={stack} id={id} work={work} onSearch={onSearch} />,
   }
 }
 
@@ -756,8 +764,15 @@ function PersonBody({ stack, id, work }) {
 // name the character — see character_works.go — and the refusal opens the dialog
 // that offers the two ways forward.
 
-function CharacterBody({ stack, id, work }) {
+function CharacterBody({ stack, id, work, onSearch = null }) {
   const { data, err, setErr, load } = useRecord(`/characters/${id}`)
+  // THE PACK'S TWO COUNTS, from the route that has served them since it was
+  // written and that nothing had ever called. /whos-in-it answers per cast row —
+  // how many of this character's lines this work holds, and how many distinct
+  // places in it they speak from — which is exactly the pair the local sheet
+  // prints and a question the character record cannot answer, because it is a
+  // fact about one work.
+  const [counts, setCounts] = useState(null)
   const [form, setForm] = useState(null)
   const [busy, setBusy] = useState(false)
   // The removal a work refused, with the number of quotes standing in its way.
@@ -837,6 +852,16 @@ function CharacterBody({ stack, id, work }) {
       // the API follows), so the field is absent for one — not empty.
       ...(a.kind === 'book' ? {} : { actor: fields.actor }),
       description: fields.description,
+      // THE PACK'S LOCAL FACTS, sent only when the caller has them. The cast
+      // editor has accepted all six since 0063 and this panel never offered
+      // them; `undefined` is left out of the body, so the older callers here
+      // (AppearanceCard's inline form) still send exactly what they always did.
+      ...(fields.part === undefined ? {} : { part: fields.part }),
+      ...(fields.first_appears === undefined ? {} : { first_appears: fields.first_appears }),
+      ...(fields.age_here === undefined ? {} : { age_here: fields.age_here }),
+      ...(fields.credit_note === undefined ? {} : { credit_note: fields.credit_note }),
+      ...(fields.credit_lang === undefined ? {} : { credit_lang: fields.credit_lang }),
+      ...(fields.aliases === undefined ? {} : { aliases: fields.aliases }),
     })
     setBusy(false)
     if (!r.ok) {
@@ -897,8 +922,7 @@ function CharacterBody({ stack, id, work }) {
   }
 
   if (err && !data) return <ErrorText>{err}</ErrorText>
-  if (!data || !form) return <EmptyState>{t('common.state.loading')}</EmptyState>
-  const works = data.appearances || []
+  const works = data?.appearances || []
   // THE APPEARANCE THE READER CAME IN THROUGH, when they came in through one.
   //
   // A character record is a library-wide thing and this panel has always drawn it
@@ -931,6 +955,39 @@ function CharacterBody({ stack, id, work }) {
   // that table rather than a branch in this file.
   const scope = identityScope({ table: 'character', work: here ? { ...work, ...here } : work })
 
+  // THE LOCAL SHEET'S PORTRAIT CONTROLS, hoisted here for the rules of hooks
+  // rather than for tidiness: this component used to bail out on a missing record
+  // before `here` was derived, so any hook that needs the cast row could only be
+  // called from a child — which is why the per-work picture has always lived
+  // inside AppearanceCard. The pack's local sheet puts it at the top of the
+  // screen, so the row is derived first and the guard follows.
+  const localPicture = useCharacterPicture({
+    row: here
+      ? { id: here.cast_id, character: here.character, actor: here.actor, character_image_path: here.image }
+      : { id: 0, character: '', actor: '', character_image_path: '' },
+    workTitle: here?.work_title || '',
+    mediaType: here?.media_type || '',
+    busy,
+    onImage: (url) => here && setWorkImage(here.cast_id, url),
+  })
+
+  // /whos-in-it, once per work, for the two counts the sheet prints. Guarded on
+  // `here`: a global sheet has no work to ask about, and asking anyway would be a
+  // request whose answer is discarded.
+  useEffect(() => {
+    if (!here) { setCounts(null); return }
+    let alive = true
+    const path = here.kind === 'book' ? 'books' : 'movies'
+    json('GET', `/${path}/${here.work_id}/whos-in-it`).then((r) => {
+      if (!alive || !r.ok) return
+      const row = (r.data?.characters || []).find((c) => c.cast_id === here.cast_id)
+      setCounts(row ? { quotes: row.quotes || 0, locators: row.locators || 0 } : { quotes: 0, locators: 0 })
+    })
+    return () => { alive = false }
+  }, [here?.cast_id, here?.work_id, here?.kind])
+
+  if (!data || !form) return <EmptyState>{t('common.state.loading')}</EmptyState>
+
   // ---- char-global, the pack's own screen ----------------------------------
   //
   // OPENED WITH NO WORK, this is `char-global` and it is drawn by the pack's
@@ -942,6 +999,110 @@ function CharacterBody({ stack, id, work }) {
   // EVERY HANDLER STAYS ABOVE THIS LINE. The screen fetches nothing and saves
   // nothing; it is handed finished functions, which is why it can be rendered
   // from a fixture in a test.
+  // THE COUNTS ARE DOORS INTO SEARCH — the owner's instruction. Both cells land
+  // on the same query, because both numbers are summaries of it: this character,
+  // in this work. The chips are seeded rather than the text, so the reader can
+  // widen by removing one instead of retyping.
+  const openQuoteSearch = !onSearch || !here ? undefined : () => {
+    onSearch(here.kind === 'book' ? 'annotations' : 'dialogues', [
+      { field: 'character', value: here.character || data.name, label: here.character || data.name },
+      { field: here.kind === 'book' ? 'book' : 'movie', value: here.work_title, label: here.work_title },
+    ])
+  }
+
+  // The portrait's controls: the picture picker this work already had, plus the
+  // pack's "Set for the identity" — which is `promote`, the verb that makes one
+  // work's picture the record's own.
+  const localPortraitActions = here ? (
+    <>
+      {localPicture.faceButton}
+      <GhostButton
+        onClick={() => promote(here.cast_id, here.work_title)}
+        disabled={busy || !here.image}
+        title={t('identity.character.promote.label')}
+      >
+        {t('identity.character.promote.label')}
+      </GhostButton>
+    </>
+  ) : null
+
+  // THE ROWS ARE DISPLAYS AND THEIR EDITORS ARE BEHIND THEM, which is this
+  // panel's own established shape: a row states the value and pressing it focuses
+  // the field that changes it. The fields are one block under the sheet so a
+  // reader who opened one can see the rest.
+  const localFields = here ? (
+    <details className="cs-local-fields">
+      <summary className="mono-label">{t('identity.local.fields.summary')}</summary>
+      <div style={STACK}>
+        <Field inputId="char-called" label={t('identity.row.called.label')} value={form.here_character ?? (here.character || '')} onChange={(v) => setForm({ ...form, here_character: v })} />
+        <Field inputId="char-part" label={t('identity.facts.part')} value={form.here_part ?? (here.part || '')} onChange={(v) => setForm({ ...form, here_part: v })} />
+        <Field inputId="char-first" label={t('identity.facts.first')} value={form.here_first ?? (here.first_appears || '')} onChange={(v) => setForm({ ...form, here_first: v })} />
+        <Field inputId="char-age" label={t('identity.facts.age')} value={form.here_age ?? (here.age_here || '')} onChange={(v) => setForm({ ...form, here_age: v })} />
+        <Field inputId="char-crednote" label={t('identity.row.note.label')} value={form.here_note ?? (here.credit_note || '')} onChange={(v) => setForm({ ...form, here_note: v })} rows={2} />
+        <Field inputId="char-aliases" label={t('identity.local.fields.aliases')} value={form.here_aliases ?? (here.aliases || '')} onChange={(v) => setForm({ ...form, here_aliases: v })} />
+        <GhostButton
+          disabled={busy}
+          onClick={async () => {
+            if (await saveAppearance(here, {
+              character: (form.here_character ?? here.character ?? '').trim() || here.character,
+              actor: here.actor || '',
+              description: here.description || '',
+              part: form.here_part ?? here.part ?? '',
+              first_appears: form.here_first ?? here.first_appears ?? '',
+              age_here: form.here_age ?? here.age_here ?? '',
+              credit_note: form.here_note ?? here.credit_note ?? '',
+              aliases: form.here_aliases ?? here.aliases ?? '',
+            })) toast(t('identity.credit.saved', { title: here.work_title }))
+          }}
+        >
+          {t('common.action.save.label')}
+        </GhostButton>
+      </div>
+    </details>
+  ) : null
+
+  // ---- char-book, the first of the pack's local sheets ---------------------
+  //
+  // ONE MEDIUM AT A TIME, and film and game deliberately still fall through to
+  // the older presentation below. Their sheets carry the performer list, the
+  // "Not named yet" credit and the dubbing section, and switching them over
+  // before those exist would be a screen that lost its cast to gain a rhythm.
+  if (scope.id === 'char-book' && here) {
+    return (
+      <div style={{ display: 'grid', gap: 'calc(var(--row) * 1.6)' }}>
+        <ErrorText>{err}</ErrorText>
+        <CharacterLocal
+          record={data}
+          work={work}
+          here={here}
+          scope={scope}
+          counts={counts}
+          works={works}
+          portraitActions={localPortraitActions}
+          onCalled={() => focusField('char-called')}
+          onPart={() => focusField('char-part')}
+          onFirst={() => focusField('char-first')}
+          onAge={() => focusField('char-age')}
+          onNote={() => focusField('char-crednote')}
+          onQuotes={openQuoteSearch}
+          onLocator={openQuoteSearch}
+          onOpenGlobal={() => stack.open(characterPanel(stack, { id, name: data.name, onSearch }))}
+          onRemove={() => removeWork(here)}
+        >
+          {localFields}
+        </CharacterLocal>
+        <DropWorkDialog
+          drop={drop}
+          name={data.name}
+          busy={busy}
+          onCancel={() => setDrop(null)}
+          onClear={() => removeWork(drop.appearance, '?quotes=clear')}
+          onReplace={(to) => removeWork(drop.appearance, `?quotes=move&to=${encodeURIComponent(to)}`)}
+        />
+      </div>
+    )
+  }
+
   if (scope.id === 'char-global') {
     return (
       <div style={{ display: 'grid', gap: 'calc(var(--row) * 1.6)' }}>

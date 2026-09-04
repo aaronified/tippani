@@ -116,6 +116,7 @@ export default function WorkDetail({
   creditSeparators,
   onAdd,
   onSearch,
+  onSeedSearch,
   dataNonce,
   // (item, fields) => full-state PUT body. bookState / movieState.
   stateBuilder,
@@ -655,6 +656,11 @@ export default function WorkDetail({
     id: sp.character_id,
     name: sp.name,
     work: { kind: spec.side, id: item.id, title: item.title, castId: sp.cast_id },
+    // The pack makes the sheet's two counts pressable, and only the shell can
+    // navigate — see characterPanel on why this is threaded rather than reached
+    // for. NOT `onSearch`: that one opens the search screen scoped to where you
+    // are and ignores its arguments, which is a different question.
+    onSearch: onSeedSearch,
   }))
 
   const streamBlock = item && renderBoard({

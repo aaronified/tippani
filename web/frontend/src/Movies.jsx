@@ -110,7 +110,7 @@ const capWordsFor = (capKey) => (KINDS[capKey] || KINDS.movie).capWords
 // shell's one ＋ Add surface (`onAdd`), which since 1.4.1 opens on the right
 // thing for the page it is on; `dataNonce` is how anything saved there tells
 // whichever list it changed — the poster grid or a title's lines — to refetch.
-export default function Movies({ openId, onOpen, onClose, creditSeparators, onAdd, onSearch, dataNonce }) {
+export default function Movies({ openId, onOpen, onClose, creditSeparators, onAdd, onSearch, onSeedSearch, dataNonce }) {
   if (openId) {
     return (
       <MovieDetail
@@ -118,7 +118,7 @@ export default function Movies({ openId, onOpen, onClose, creditSeparators, onAd
         onClose={onClose}
         creditSeparators={creditSeparators}
         onAdd={onAdd}
-        dataNonce={dataNonce} onSearch={onSearch} />
+        dataNonce={dataNonce} onSearch={onSearch} onSeedSearch={onSeedSearch} />
     )
   }
   return <MovieList onOpen={onOpen} creditSeparators={creditSeparators} dataNonce={dataNonce} />

@@ -6289,6 +6289,53 @@ identity.crumb.badge.game = গেম
 identity.portrait.px = {w} × {h} পিক্সেল
 identity.portrait.soft = {n} × {n}-এর কম, শেয়ার কার্ডে ঘোলা দেখাবে
 identity.portrait.global = রেকর্ডের নিজের ছবি
+# ---- প্যাকের স্থানীয় চরিত্র-পর্দা (char-book, char-film, char-game) ----
+# একটা কাজের ভিতর থেকে দেখা একটা চরিত্র। এখানে যা আছে তা এই কাজেরই সত্য, অন্য
+# কোনো কাজের নয়; পরিচয়ের নিজের সত্য থাকে বিশ্বজনীন পর্দায়, এক ধাপ দূরে।
+
+identity.crumb.in = {title}-এ
+identity.portrait.local = এই কাজের নিজের ছবি
+
+identity.row.called.label = এখানে ডাকা হয়
+identity.row.credited.label = কৃতিত্ব দেওয়া হয়েছে
+identity.row.called.sub = এই কাজ কেবল এই নামটাই ব্যবহার করে
+
+identity.facts.part = ভূমিকা
+identity.facts.first = প্রথম আসে
+identity.facts.age = এখানে বয়স
+identity.facts.none = দেওয়া হয়নি
+
+identity.row.note.label = নোট
+identity.row.note.sub = আপনার নিজের, কেবল এই কাজে
+identity.row.note.none = নেই
+
+identity.count.quotes.one = উদ্ধৃতি
+identity.count.quotes.other = উদ্ধৃতি
+identity.count.chapter.one = অধ্যায়
+identity.count.chapter.other = অধ্যায়
+identity.count.scene.one = দৃশ্য
+identity.count.scene.other = দৃশ্য
+identity.count.quest.one = কোয়েস্ট
+identity.count.quest.other = কোয়েস্ট
+identity.count.quotes.tip = এই কাজে এই চরিত্রের বলা লাইন খুঁজুন
+identity.count.locator.tip = এই কাজে কোথায় আসে খুঁজুন
+
+identity.row.global.label = বিশ্বজনীন রেকর্ড খুলুন
+identity.row.global.sub = চরিত্রটি, কোনো একটা কাজের বাইরে
+identity.badge.global = বিশ্বজনীন
+identity.row.global.works.one = {n}টা কাজ
+identity.row.global.works.other = {n}টা কাজ
+
+identity.section.remove.label = সরান
+identity.row.unlink.label.book = এই বই থেকে সরান
+identity.row.unlink.label.film = এই ছবি থেকে সরান
+identity.row.unlink.label.show = এই ধারাবাহিক থেকে সরান
+identity.row.unlink.label.game = এই খেলা থেকে সরান
+identity.row.unlink.sub.book = অন্য কাজে বিশ্বজনীন চরিত্রটি থেকে যায়
+identity.row.unlink.sub.cast = অন্য কাজে বিশ্বজনীন চরিত্রটি থেকে যায়; মানুষের রেকর্ডও থাকে
+identity.local.fields.summary = এই কাজ যা বলে তা বদলান
+identity.local.fields.aliases = এখানে আরও যে নামে ডাকা হয়
+
 identity.section.identity.label = পরিচয়
 identity.section.identity.note = এখানে বদলালে সব কাজে বদলাবে।
 identity.section.person.label = মানুষটি

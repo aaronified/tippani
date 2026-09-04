@@ -95,7 +95,7 @@ const QUOTE_STYLE = { fontFamily: 'var(--font-display)', fontWeight: 'var(--font
 // shell's one ＋ Add surface (`onAdd`), which since 1.4.1 knows it is on this
 // page and opens on the right thing; `dataNonce` is how anything saved there
 // tells whichever list it changed — the book grid or a book's quotes — to refetch.
-export default function Library({ openId, onOpen, onClose, onOpenMovie, creditSeparators, onAdd, onSearch, dataNonce }) {
+export default function Library({ openId, onOpen, onClose, onOpenMovie, creditSeparators, onAdd, onSearch, onSeedSearch, dataNonce }) {
   if (openId) {
     return (
       <BookDetail
@@ -103,7 +103,7 @@ export default function Library({ openId, onOpen, onClose, onOpenMovie, creditSe
         onClose={onClose}
         creditSeparators={creditSeparators}
         onAdd={onAdd}
-        dataNonce={dataNonce} onSearch={onSearch} />
+        dataNonce={dataNonce} onSearch={onSearch} onSeedSearch={onSeedSearch} />
     )
   }
   return <BookList onOpen={onOpen} onOpenMovie={onOpenMovie} creditSeparators={creditSeparators} dataNonce={dataNonce} />
