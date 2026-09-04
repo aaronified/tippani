@@ -12,7 +12,7 @@
 // that reaches the server as a string is a save that does nothing visible until
 // someone reads the database.
 
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { workDetailsPanel } from '../../src/WorkDetails.jsx'
@@ -66,12 +66,40 @@ beforeEach(() => {
   resetPanelHistory()
 })
 
-describe('the supplier id rows are editable', () => {
-  it('offers a pencil on both ids, not a disabled row', async () => {
+// THEY ARE NO LONGER ROWS, and every case below moved with them rather than
+// being deleted. The pack collapses a work's ids into a strip at the foot of the
+// Details panel — one pill per id the record holds, and one dialog behind Edit
+// that writes the lot in a single request — because an id is not a fact about the
+// work but how one catalogue files it, and five labelled rows of them read as the
+// record's subject.
+//
+// WHAT THAT CHANGES ABOUT THESE TESTS IS THE SURFACE AND NOTHING ELSE. The value
+// still has to leave as a NUMBER, the untouched id still has to survive a
+// full-state PUT, an emptied field still has to send 0, and a fraction still has
+// to be refused — those are the four silent-when-wrong properties this file was
+// written for, and they are worth more now than they were as rows, because one
+// press can write three ids at once.
+const openIds = async (user) => {
+  await user.click(document.querySelector('.cs-pill.is-add'))
+  return waitFor(() => {
+    const all = [...document.querySelectorAll('[role="dialog"]')]
+    const last = all[all.length - 1]
+    expect(last.getAttribute('aria-modal')).toBe('true')
+    return last
+  })
+}
+
+describe('the supplier ids are editable', () => {
+  it('offers one editor for every id, filled or not', async () => {
+    const user = userEvent.setup()
     await open()
-    // The whole point of the change: an edit control that was not there before.
-    expect(screen.getByLabelText(/edit tmdb id/i)).toBeTruthy()
-    expect(screen.getByLabelText(/edit thetvdb id/i)).toBeTruthy()
+    const dlg = await openIds(user)
+    // EVERY ID THIS MEDIUM HAS. The strip outside draws only the filled ones —
+    // a slot per catalogue would tell the reader which ones their film ought to
+    // be in — so this is the place the missing ones are missing from.
+    expect(within(dlg).getByLabelText(/^tmdb id$/i)).toBeTruthy()
+    expect(within(dlg).getByLabelText(/^thetvdb id$/i)).toBeTruthy()
+    expect(within(dlg).getByLabelText(/^imdb id$/i)).toBeTruthy()
   })
 
   it('still reads as a link to the record when one is set', async () => {
@@ -83,9 +111,9 @@ describe('the supplier id rows are editable', () => {
   it('sends a typed id as a number, not the string the field holds', async () => {
     const user = userEvent.setup()
     await open()
-    await user.click(screen.getByLabelText(/edit thetvdb id/i))
-    await user.type(screen.getByRole('textbox'), '11111')
-    await user.click(screen.getByLabelText(/save thetvdb id/i))
+    const dlg = await openIds(user)
+    await user.type(within(dlg).getByLabelText(/^thetvdb id$/i), '11111')
+    await user.click(within(dlg).getByRole('button', { name: /save/i }))
     await waitFor(() => expect(puts()).toHaveLength(1))
     expect(puts()[0][2].tvdb_id).toBe(11111)
   })
@@ -93,9 +121,9 @@ describe('the supplier id rows are editable', () => {
   it('carries the other id through untouched on a one-field save', async () => {
     const user = userEvent.setup()
     await open()
-    await user.click(screen.getByLabelText(/edit thetvdb id/i))
-    await user.type(screen.getByRole('textbox'), '11111')
-    await user.click(screen.getByLabelText(/save thetvdb id/i))
+    const dlg = await openIds(user)
+    await user.type(within(dlg).getByLabelText(/^thetvdb id$/i), '11111')
+    await user.click(within(dlg).getByRole('button', { name: /save/i }))
     await waitFor(() => expect(puts()).toHaveLength(1))
     // PUT is full-state; editing one id must not blank the other.
     expect(puts()[0][2].tmdb_id).toBe(65754)
@@ -104,9 +132,9 @@ describe('the supplier id rows are editable', () => {
   it('sends 0 — the API spelling of "clear it" — for an emptied field', async () => {
     const user = userEvent.setup()
     await open()
-    await user.click(screen.getByLabelText(/edit tmdb id/i))
-    await user.clear(screen.getByRole('textbox'))
-    await user.click(screen.getByLabelText(/save tmdb id/i))
+    const dlg = await openIds(user)
+    await user.clear(within(dlg).getByLabelText(/^tmdb id$/i))
+    await user.click(within(dlg).getByRole('button', { name: /save/i }))
     await waitFor(() => expect(puts()).toHaveLength(1))
     expect(puts()[0][2].tmdb_id).toBe(0)
   })
@@ -114,12 +142,27 @@ describe('the supplier id rows are editable', () => {
   it('refuses to send a value that is not a whole positive id', async () => {
     const user = userEvent.setup()
     await open()
-    await user.click(screen.getByLabelText(/edit tmdb id/i))
-    await user.clear(screen.getByRole('textbox'))
-    await user.type(screen.getByRole('textbox'), '-4.5')
-    await user.click(screen.getByLabelText(/save tmdb id/i))
+    const dlg = await openIds(user)
+    await user.clear(within(dlg).getByLabelText(/^tmdb id$/i))
+    await user.type(within(dlg).getByLabelText(/^tmdb id$/i), '-4.5')
+    await user.click(within(dlg).getByRole('button', { name: /save/i }))
     await waitFor(() => expect(puts()).toHaveLength(1))
     expect(puts()[0][2].tmdb_id).toBe(0)
+  })
+
+  it('writes two ids in ONE request, which is what the strip is for', async () => {
+    const user = userEvent.setup()
+    await open()
+    const dlg = await openIds(user)
+    await user.type(within(dlg).getByLabelText(/^thetvdb id$/i), '11111')
+    await user.type(within(dlg).getByLabelText(/^imdb id$/i), 'tt0114117')
+    await user.click(within(dlg).getByRole('button', { name: /save/i }))
+    await waitFor(() => expect(puts()).toHaveLength(1))
+    // Two rows saving themselves would have been two full-state writes over the
+    // top of each other: in parallel the last reply wins, and in sequence each
+    // reads the record as it was before the previous reply landed.
+    expect(puts()[0][2].tvdb_id).toBe(11111)
+    expect(puts()[0][2].imdb_id).toBe('tt0114117')
   })
 })
 

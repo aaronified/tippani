@@ -2850,6 +2850,15 @@ common.work.id.open.tip = {source} সাইটে খুলুন
 # The id as it reads when it is not being edited. The arrow means "opens away".
 common.work.id.display.label = #{n} ↗
 
+work.ids.label = আইডি
+work.ids.edit.label = বদলান
+work.ids.add.label = একটা আইডি দিন
+work.ids.edit.tip = সব আইডি বদলান
+work.ids.no-page.tip = {source} — খোলার মতো কোনও পাতা নেই
+work.ids.save.tip = সব আইডি একসঙ্গে সেভ করুন
+work.ids.save.blocked = কোনও আইডি বদলায়নি
+work.ids.form.hint = এই ধরনের কাজ যে যে আইডি দিয়ে খোঁজা হয়। ফাঁকা থাকলে সেটা দিয়ে খোঁজা হবে না।
+
 # Saving. {field} is a field name, already lower-cased by the caller.
 common.work.field-saved.toast = {field} সেভ হয়েছে
 common.work.fields-saved.toast.one = 1টা ঘর সেভ হয়েছে
@@ -4171,6 +4180,11 @@ cover.search.books.tip = Google Books, Open Library আর Amazon-এ খুঁ�
 cover.search.screen.tip = TMDB আর TheTVDB-তে খুঁজুন
 cover.search.game.tip = IGDB আর Wikidata-য় খুঁজুন
 cover.remove.aria = {noun} সরান
+cover.verb.edition.label = সংস্করণ
+cover.verb.fetch.label = আনুন
+cover.verb.upload.label = আপলোড
+cover.verb.url.label = লিংক বসান
+cover.verb.clear.label = মুছুন
 cover.pick.prose = একটা {noun} বাছুন — মাপ দেখানো আছে; বড় হলে ছবি বেশি স্পষ্ট
 cover.pick.none = কোনও {nouns} পাওয়া গেল না
 # One candidate in the strip. {res} is its measured pixel size, or the wait.

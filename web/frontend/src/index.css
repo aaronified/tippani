@@ -2973,6 +2973,24 @@
      the section tall. */
   .inline-field { padding: 6px 0; border-bottom: 1px solid var(--line); }
   .inline-field:last-child { border-bottom: none; }
+  /* ---- TWO FIELDS TO A LINE ----
+     A YEAR IS FOUR CHARACTERS AND A SERIES NUMBER IS ONE, and each of them was
+     taking a full row of a panel whose rows are otherwise a title and a
+     description. The pack pairs them: the short facts sit two to a line, so the
+     form is as tall as it has anything to say rather than as tall as it has
+     fields. It is the same instruction the hero got — pack the screen.
+     `flex: 1 1 42%` and not 50%, which is the pack's own number: 42 lets two
+     pair on a wide panel and drop to one each the moment the label or the value
+     needs the room, without a media query deciding it. A row with no partner
+     grows to the line, which is what a lone Year at the end of a list should do.
+     THE HAIRLINE IS THE ROW'S, so a pair draws two of them at the same height
+     and the line still reads across. */
+  .inline-field-rows { display: flex; flex-wrap: wrap; column-gap: var(--edge); }
+  .inline-field-rows > .inline-field { flex: 0 0 100%; min-width: 0; }
+  .inline-field-rows > .inline-field.is-half { flex: 1 1 42%; }
+  /* `:last-child` cannot find the last row once they wrap, so the flush edge is
+     the container's job. */
+  .inline-field-rows > .inline-field:last-child { border-bottom: none; }
   .inline-field-head { display: flex; align-items: center; gap: 7px; margin-bottom: 5px; min-height: 26px; }
   /* Nothing below the row: the gap it was leaving is for a value line or an
      editor that is not there, and a settings card is mostly rows like this. */
@@ -3449,10 +3467,19 @@
   .tp-media-dims.is-low { color: var(--error); font-weight: 600; }
   /* Two columns is what makes the canonical four verbs a 2x2. A caller with a
      fifth (Remove, which is not an acquire verb and so is not one of the four)
-     gets a third row rather than a cramped one. */
-  .tp-media-verbs { display: grid; grid-template-columns: repeat(2, minmax(36px, max-content)); gap: 8px; }
+     gets a third row rather than a cramped one.
+     THE CELLS ARE 44px BECAUSE THE VERBS ARE NAMED. These four are `IconButton`s
+     with a `label` — the 44px family, the one that honours the Button labels
+     preference — and not the 34px nameless control: four dense glyph boxes alone
+     beside a picture were reported as not looking like buttons at all, which is
+     the case FieldIconButton's own rule excludes ("34px exists because it sits in
+     a row that has already spent its width"). This row has not spent its width;
+     the artwork's height is what limits it, and that is a height for two rows of
+     44. With labels off the preference shrinks them back to squares and the grid
+     still holds. */
+  .tp-media-verbs { display: grid; grid-template-columns: repeat(2, minmax(44px, max-content)); gap: 8px; }
   .tp-media-verb { display: flex; }
-  .tp-media-verb > * { flex: 1; min-width: 36px; min-height: 36px; }
+  .tp-media-verb > * { flex: 1; min-width: 44px; min-height: 44px; }
   /* The note a pasted remote URL gets instead of a picture: the page's img-src
      is 'self', so the only place that address can be fetched is the server. */
   .tp-media-blocked {
@@ -8290,6 +8317,20 @@ html[data-theme="dark"] .board-cover {
   .cs-pill:hover, .cs-pill:focus-visible { border-color: var(--ink-border); }
   .cs-pill.is-add {
     border-radius: 9px; border-style: dashed; background: transparent; color: var(--soft);
+  }
+  /* AN ID WITH NO PAGE TO OPEN. It is still a value the record holds, so it keeps
+     the pill's shape and its mark; what it gives up is the pointer and the ink,
+     because there is nothing to follow. Not dashed — dashed is the ADD slot, and
+     a stored value drawn as a slot reads as missing. */
+  .cs-pill.is-flat { cursor: default; color: var(--soft); }
+  .cs-pill.is-flat:hover, .cs-pill.is-flat:focus-visible { border-color: var(--line); }
+  /* An id is a string you check character by character, so it takes the mono
+     voice wherever it is drawn — the field row does the same. */
+  .cs-pill-id > span:last-child {
+    font-family: var(--font-mono);
+    font-variant-numeric: var(--font-mono-figures);
+    font-size: var(--type-mono-12);
+    letter-spacing: .04em;
   }
   .cs-pill-mark { display: inline-flex; align-items: center; justify-content: center; flex: none; color: var(--soft); }
 

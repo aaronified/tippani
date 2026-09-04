@@ -250,24 +250,51 @@ export function PairRow({ cells }) {
 //
 // ROUND MEANS A VALUE HERE, so the add control takes the 9px corner and a dashed
 // border and cannot be mistaken for a fifth link.
+// A PILL WITHOUT A URL IS STILL A PILL, and that is why the anchor is
+// conditional. A work's ids row draws one per id the record HOLDS, and not every
+// id names a page the app can build an address for — an ASIN does, an IGDB
+// numeric id does not — so the pill without one keeps its mark and its value and
+// gives up only the following. An `<a>` with no href is not a link with nothing
+// behind it; it is a span the keyboard still stops on.
+//
+// `title` is per pill rather than always the address, because the address is the
+// wrong sentence for an id: "Open on Open Library" says what pressing it does,
+// where a raw URL says what it is. It falls back to the url, which is what every
+// caller that has only that still wants.
 export function PillRow({ pills, addLabel, addIcon, addTitle, onAdd }) {
   return (
     <div className="cs-pills">
-      {pills.map((p) => (
-        <a
-          key={p.url}
-          className="cs-pill tactile"
-          href={p.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          title={p.url}
-        >
-          <span className="cs-pill-mark">
-            {p.slug ? <ProviderMark source={p.slug} /> : p.fallbackIcon}
+      {pills.map((p) => {
+        const inner = (
+          <>
+            <span className="cs-pill-mark">
+              {p.slug ? <ProviderMark source={p.slug} /> : p.fallbackIcon}
+            </span>
+            <span>{p.name}</span>
+          </>
+        )
+        // `mono` for a pill whose label is a NUMBER rather than a name — an
+        // ISBN, an ASIN, a TMDB id. Those are read character by character when
+        // they are read at all, and the mono voice is what the app uses wherever
+        // it prints one.
+        const cls = 'cs-pill tactile' + (p.mono ? ' cs-pill-id' : '')
+        return p.url ? (
+          <a
+            key={p.key || p.url}
+            className={cls}
+            href={p.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={p.title || p.url}
+          >
+            {inner}
+          </a>
+        ) : (
+          <span key={p.key || p.name} className={cls + ' is-flat'} title={p.title || ''}>
+            {inner}
           </span>
-          <span>{p.name}</span>
-        </a>
-      ))}
+        )
+      })}
       {onAdd ? (
         <button type="button" className="cs-pill is-add tactile" title={addTitle} onClick={onAdd}>
           <span className="cs-pill-mark">{addIcon}</span>

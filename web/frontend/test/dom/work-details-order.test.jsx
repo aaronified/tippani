@@ -12,7 +12,7 @@
 // the document.
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 
 let PUTS
 // A SERVER THAT REMEMBERS. The read-back is the whole mechanism under test, so a
@@ -47,7 +47,10 @@ const { PanelHarness, resetPanelHistory } = await import('../panel-harness.jsx')
 const BOOK = {
   id: 7, title: 'The Master and Margarita', author: 'Mikhail Bulgakov',
   translator: 'Richard Pevear, Larissa Volokhonsky', editor: '',
-  isbn: '', asin: '', description: 'A novel of Moscow, the devil, and a manuscript.',
+  // AN ISBN THE STRIP CAN DRAW. It used to be empty here, which was fine while
+  // every id was a row; the pills are drawn only for the ids a record HOLDS, so a
+  // fixture with none of them tests the empty strip and nothing else.
+  isbn: '9780099470787', asin: '', description: 'A novel of Moscow, the devil, and a manuscript.',
   published_year: 1967, published_circa: false,
   language: 'English', orig_language: 'Russian',
   subtitle: '', publisher: 'Penguin Classics', pages: 503,
@@ -166,18 +169,101 @@ describe('the Details form', () => {
     const order = rowOrder()
     const at = (name) => order.indexOf(name)
     // Identity, then who made it, then what it is about, then the edition's
-    // facts, then the catalogue numbers.
+    // facts. The catalogue numbers are no longer among them at all — see below.
     expect(at('title')).toBe(0)
     expect(at('subtitle')).toBe(1)
     expect(at('people')).toBe(2)
     expect(at('description')).toBe(3)
     expect(at('genres')).toBe(4)
-    // The two that were buried are now above the numbers that buried them.
-    expect(at('people')).toBeLessThan(at('isbn'))
-    expect(at('description')).toBeLessThan(at('asin'))
+    // The two that were buried are still above the edition's facts.
+    expect(at('description')).toBeLessThan(at('publisher'))
     expect(at('year')).toBeLessThan(at('publisher'))
     expect(at('publisher')).toBeLessThan(at('pages'))
-    expect(at('pages')).toBeLessThan(at('isbn'))
+  })
+
+  // THE IDS LEFT THE FORM, which is what these three assertions used to pin the
+  // other way round — `people` above `isbn`, `description` above `asin`, `pages`
+  // above `isbn`. The pack collapses a work's catalogue numbers into a strip at
+  // the foot of the panel: one pill per id the record holds and one editor for
+  // the lot, because an id is not a fact about the work but how one catalogue
+  // happens to file it, and five of them in a row read as the record's subject.
+  // "Above the numbers that buried them" is now true by their absence.
+  it('keeps the catalogue numbers out of the rows', async () => {
+    panel()
+    await shown()
+    const order = rowOrder()
+    expect(order).not.toContain('isbn')
+    expect(order).not.toContain('asin')
+  })
+
+  it('draws them as a strip of pills, one per id the record holds', async () => {
+    panel()
+    await shown()
+    // ONLY THE FILLED ONES. An empty slot per catalogue tells the reader which
+    // ones their book OUGHT to be in and is wrong about it — the same
+    // roster-of-absences workLinks.jsx refuses. What is missing is behind Edit.
+    const pills = [...document.querySelectorAll('.cs-pills .cs-pill')]
+      .map((el) => el.textContent.trim())
+    expect(pills).toContain('9780099470787')
+    // The ASIN is unset on this record, so it has no pill.
+    expect(pills.some((p) => p.startsWith('B0'))).toBe(false)
+    // And the strip's own control is the editor for the lot, not a third id.
+    expect(document.querySelector('.cs-pill.is-add').textContent).toMatch(/Edit/i)
+  })
+
+  it('gives an id that has a page a link, and one that has none a flat pill', async () => {
+    panel()
+    await shown()
+    const isbn = [...document.querySelectorAll('.cs-pills .cs-pill')]
+      .find((el) => el.textContent.includes('9780099470787'))
+    // Google Books addresses a book by its ISBN, which is the pack's own pill.
+    expect(isbn.tagName).toBe('A')
+    expect(isbn.getAttribute('href')).toBe('https://books.google.com/books?vid=ISBN9780099470787')
+  })
+
+  it('writes every changed id in ONE request', async () => {
+    panel()
+    await shown()
+    PUTS.length = 0
+    fireEvent.click(document.querySelector('.cs-pill.is-add'))
+    // THE TOPMOST DIALOG. The panel host is a dialog too, so `findByRole` is
+    // ambiguous here — the modal this opened is the last one in the document.
+    const dlg = await waitFor(() => {
+      const all = [...document.querySelectorAll('[role="dialog"]')]
+      const last = all[all.length - 1]
+      expect(last.getAttribute('aria-modal')).toBe('true')
+      return last
+    })
+    // The dialog offers every id this medium has, filled or not — it is the
+    // place the missing ones are missing from.
+    fireEvent.change(within(dlg).getByLabelText(/^asin$/i), { target: { value: 'B000FC1PWA' } })
+    fireEvent.change(within(dlg).getByLabelText(/^isbn$/i), { target: { value: '9780099470794' } })
+    // TWO IDS, ONE WRITE. Two rows saving themselves would have been two
+    // full-state PUTs over the top of each other.
+    fireEvent.click(within(dlg).getByRole('button', { name: /save/i }))
+    await waitFor(() => expect(PUTS.length).toBe(1))
+    expect(PUTS[0].body.asin).toBe('B000FC1PWA')
+    expect(PUTS[0].body.isbn).toBe('9780099470794')
+  })
+
+  it('arms the dialog’s tick only once an id has actually changed', async () => {
+    panel()
+    await shown()
+    fireEvent.click(document.querySelector('.cs-pill.is-add'))
+    const dlg = await waitFor(() => {
+      const all = [...document.querySelectorAll('[role="dialog"]')]
+      const last = all[all.length - 1]
+      expect(last.getAttribute('aria-modal')).toBe('true')
+      return last
+    })
+    const slot = () => within(dlg).getByRole('button', { name: /save/i }).closest('.tp-tick-slot')
+    expect(slot().className, 'armed with nothing typed').not.toContain('is-armed')
+    // Retyping what is stored is not a change — the standing rule.
+    fireEvent.change(within(dlg).getByLabelText(/^isbn$/i), { target: { value: '9780099470787' } })
+    expect(slot().className, 'armed by retyping the stored value').not.toContain('is-armed')
+    fireEvent.change(within(dlg).getByLabelText(/^isbn$/i), { target: { value: '9780099470794' } })
+    expect(slot().className).toContain('is-armed')
+    expect(within(dlg).getByText('1')).toBeTruthy()
   })
 
   it('prints the people behind the door rather than a count of them', async () => {

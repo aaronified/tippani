@@ -147,17 +147,24 @@ describe('the class belongs to the primitive', () => {
     expect(wearers).toEqual(['ui.jsx'])
   })
 
-  // The one non-button that wears it, named so the count above cannot be met by
-  // quietly turning a button into something else. A file picker HAS to be a
-  // <label> wrapping an <input type="file"> — a button cannot open the dialog —
-  // so it borrows the look on purpose and is not a candidate for the primitive.
-  it('is worn by one <label>, the file picker, and nothing else', () => {
+  // NOTHING BUT A BUTTON WEARS IT, and this list is empty rather than absent so
+  // that a second wearer has to be argued for here.
+  //
+  // It named one: the cover's file picker, which has to be a <label> wrapping an
+  // <input type="file"> because a button cannot open the chooser, and so borrowed
+  // the dense look rather than being the primitive. It has since moved to the 44px
+  // named family with the three verbs it sits beside — the artwork's four are
+  // `IconButton`s with labels now, for the reason this file's own header excludes
+  // them from 34px: that row has NOT already spent its width, and four unnamed
+  // glyph boxes beside a picture were reported as not reading as buttons at all.
+  // The label still borrows a look; it is just no longer this one.
+  it('is worn by nothing but a <button>', () => {
     const others = sources.flatMap(([file, src]) =>
       [...src.matchAll(/<(\w+)[^>]*?field-icon-btn/g)]
         .map((m) => `${file}:${m[1]}`)
         .filter((x) => !x.endsWith(':button')),
     )
-    expect(others).toEqual(['CoverPicker.jsx:label'])
+    expect(others).toEqual([])
   })
 })
 

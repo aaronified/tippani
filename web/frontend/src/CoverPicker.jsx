@@ -10,6 +10,7 @@ import {
   ErrorText,
   FieldIconButton,
   GhostButton,
+  IconButton,
   IconCheck,
   IconChevron,
   IconClose,
@@ -277,20 +278,33 @@ export function CoverControls({
   // is not a way of ACQUIRING a picture, and a destructive verb sitting in a
   // 2x2 of constructive ones is where a mis-click costs a cover. It appears
   // only when there is something to remove, so the common case is the 2x2.
+  //
+  // AND THEY WEAR THEIR WORDS. Four boxed glyphs beside a picture was the shape
+  // the pack redrew, and the report that ended it was "i dont see the buttons
+  // beside the hero images" — which is what four 34px wireframe squares in a
+  // corner of a form look like. The words are short because the grid is two
+  // columns and the artwork's height decides how tall it may be; the tooltip
+  // keeps the sentence.
+  //
+  // THE DETAILS PANEL'S SET IS EXACTLY THE PACK'S FOUR. It passes no
+  // `onFetchMeta` — that verb is the panel header's own key there — so what this
+  // draws is Fetch · Upload · Paste URL and, once there is a picture, Clear: the
+  // 2x2 the pack shows, with the destructive one last and red.
   const verbs = [
     onFetchMeta && (
-      <FieldIconButton
+      <IconButton
         icon={<IconMetadata />}
+        label={t('cover.verb.edition.label')}
         ariaLabel={t('cover.fetch-meta.aria')}
         aria-pressed={!!fetchMetaOpen}
         onClick={onFetchMeta}
         tooltip={t('cover.fetch-meta.tip')}
-        boxed
-        active={!!fetchMetaOpen}
+        className={fetchMetaOpen ? 'is-active' : ''}
       />
     ),
-    <FieldIconButton
+    <IconButton
       icon={<IconSearch />}
+      label={t('cover.verb.fetch.label')}
       ariaLabel={t('cover.search.aria', { nouns })}
       onClick={searchCovers}
       disabled={searching}
@@ -299,30 +313,37 @@ export function CoverControls({
       // the button said "Search TMDB & TheTVDB", which is a promise about a
       // supplier that is never asked.
       tooltip={kind === 'movies' ? coverSourceLabel(search?.mediaType) : t('cover.search.books.tip')}
-      boxed
-      busy={searching}
     />,
     <Tooltip label={busy ? t('common.action.upload.busy') : t('cover.upload.tip', { noun })}>
-      <label className={'field-icon-btn field-icon-btn-boxed tactile' + (busy ? ' is-busy' : '')} aria-label={t('cover.upload.aria', { noun })}>
-        <IconUpload />
+      {/* A FILE PICKER IS A <label>, NOT A BUTTON — the input has to be inside it
+          for a press to open the chooser, so this one wears IconButton's classes by
+          hand rather than being one. `has-btn-icon` is what the Button labels
+          preference hides the word with, so it opts in like its three neighbours. */}
+      <label
+        className={'tp-btn tp-btn-ghost tactile flex items-center justify-center rounded-full has-btn-icon' + (busy ? ' is-busy' : '')}
+        style={{ height: 44, flexShrink: 0 }}
+        aria-label={t('cover.upload.aria', { noun })}
+      >
+        <span className="btn-icon"><IconUpload /></span>
+        <span className="btn-label">{t('cover.verb.upload.label')}</span>
         <input type="file" accept="image/*" className="hidden" onChange={onFile} disabled={busy} />
       </label>
     </Tooltip>,
-    <FieldIconButton
+    <IconButton
       icon={<IconLink />}
+      label={t('cover.verb.url.label')}
       ariaLabel={t('cover.url.aria')}
       aria-pressed={urlOpen}
       onClick={() => setUrlOpen((v) => !v)}
       tooltip={t('cover.url.tip')}
-      boxed
-      active={urlOpen}
+      className={urlOpen ? 'is-active' : ''}
     />,
     (currentPath || coverUrl) && !clearCover && (
-      <FieldIconButton
+      <IconButton
         icon={<IconDelete />}
+        label={t('cover.verb.clear.label')}
         ariaLabel={t('cover.remove.aria', { noun })}
         onClick={onClear}
-        boxed
         danger
       />
     ),

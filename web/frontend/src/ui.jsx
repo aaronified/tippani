@@ -5293,6 +5293,10 @@ export function InlineField({
   // row outside the Details panel — and the row behaves exactly as it always
   // has: it saves itself and nothing collects it.
   fieldKey,
+  // `half` asks to share its line with the next row like it. Honoured only
+  // inside `.inline-field-rows` — a row on its own is always full width, so the
+  // flag costs nothing where nobody paired it.
+  half = false,
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
@@ -5367,7 +5371,7 @@ export function InlineField({
 
   const filled = Array.isArray(value) ? value.length > 0 : String(value ?? "").trim() !== "";
   return (
-    <div className="inline-field">
+    <div className={"inline-field" + (half ? " is-half" : "")}>
       <div className="inline-field-head">
         <MonoLabel>{label}</MonoLabel>
         {hint && <InfoDot text={hint} title={label} />}
@@ -5460,10 +5464,10 @@ export function InlineField({
 // only what the pencil OPENS differs. A reader is not being asked to learn which
 // rows are cheap; the size of the thing decides where it opens and says nothing
 // about it beforehand.
-export function BigField({ label, display, placeholder, hint, source, sourceAt, sourceOpen, onOpen, disabled = false, editLabel }) {
+export function BigField({ label, display, placeholder, hint, source, sourceAt, sourceOpen, onOpen, disabled = false, editLabel, half = false }) {
   const filled = display != null && display !== "" && !(Array.isArray(display) && display.length === 0);
   return (
-    <div className="inline-field">
+    <div className={"inline-field" + (half ? " is-half" : "")}>
       <div className="inline-field-head">
         <MonoLabel>{label}</MonoLabel>
         {hint && <InfoDot text={hint} title={label} />}

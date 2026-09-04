@@ -31,6 +31,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The buttons beside a cover look like buttons.** Fetch, Upload, Paste URL and Clear
+  were four unlabelled squares in a corner of the Details panel, and they read as
+  decoration — the report that ended it said exactly that. They wear their words now, at
+  the size every other control on the screen is, with Clear last and red because it is
+  the one that takes a picture away. Turn Button labels off in Settings and they go back
+  to squares with the rest of the app.
+
+- **Two short facts share a line.** A series number is one character and a language is
+  two, and each was taking a whole row of the Details form. Language sits beside Original
+  language, Series beside its number, and a film's Type beside its Year — so the form is
+  as tall as it has something to say rather than as tall as it has fields.
+
 - **The spaces down a work's header are even now, and the shelf row is one line.** The
   gaps were correct as declared and wrong as seen: every one-line fact in the header
   carried the leading a paragraph gets, so a 9px step read as 11. The facts are set
@@ -41,6 +53,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   percentage, and the whole reading history is one tap away where it always was.
 
 ### Added
+
+- **A work's catalogue numbers are a strip, not five rows.** The ISBN and the ASIN on a
+  book, the TMDB, TheTVDB and IMDb ids on a film, the IGDB id on a game — each of them
+  was a labelled row, and together they filled a third of a panel whose other rows are
+  the title and the description. They are now a line of small pills at the foot of it,
+  one for each id the record actually holds, each wearing its site's mark and opening
+  that site's page; press *Edit* and every id this kind is looked up by is in one form,
+  saved in one go. An id with no page to open — an IGDB number, which addresses by name
+  rather than by number — keeps its pill and simply does not follow.
 
 - **A publisher has a page of its own.** A game credits two companies — who made it and
   who put it out — and only the first of them was anything you could open: the studio had a

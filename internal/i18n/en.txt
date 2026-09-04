@@ -2798,6 +2798,19 @@ common.work.id.open.tip = Open on {source}
 # The id as it reads when it is not being edited. The arrow means "opens away".
 common.work.id.display.label = #{n} ↗
 
+# ---- the ids strip ----
+# AN ID IS NOT A FACT ABOUT THE WORK, it is how one catalogue files it — so the
+# pack takes all of them out of the form and gives them a strip at its foot: one
+# pill per id the record holds, and one editor for the lot.
+work.ids.label = Ids
+work.ids.edit.label = Edit
+work.ids.add.label = Add an id
+work.ids.edit.tip = Edit every id
+work.ids.no-page.tip = {source} — no page to open
+work.ids.save.tip = Save every id in one go
+work.ids.save.blocked = no id has changed
+work.ids.form.hint = Every id this kind is looked up by. An empty one is not searched for.
+
 # Saving. {field} is a field name, already lower-cased by the caller.
 common.work.field-saved.toast = {field} saved
 common.work.fields-saved.toast.one = 1 field saved
@@ -4114,6 +4127,15 @@ cover.search.books.tip = Search Books, Library & Amazon
 cover.search.screen.tip = Search TMDB & TheTVDB
 cover.search.game.tip = Search IGDB & Wikidata
 cover.remove.aria = Remove {noun}
+# THE FOUR VERBS BESIDE THE PICTURE, as words rather than as four bare squares.
+# The pack draws them 2×2 at 44px with their names on them, and the reason is
+# what a reader reported: icon-only boxes beside a cover do not read as buttons
+# at all. Short because they sit in a 2×2 grid the artwork's height decides.
+cover.verb.edition.label = Edition
+cover.verb.fetch.label = Fetch
+cover.verb.upload.label = Upload
+cover.verb.url.label = Paste URL
+cover.verb.clear.label = Clear
 cover.pick.prose = pick a {noun} — resolution shown; larger is sharper
 cover.pick.none = no {nouns} found
 # One candidate in the strip. {res} is its measured pixel size, or the wait.

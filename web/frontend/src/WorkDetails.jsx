@@ -23,6 +23,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { coverImgURL, errText, json } from './api.js'
 import { CastFills, CastSection } from './cast.jsx'
+import { PillRow, SectionHead } from './characterRows.jsx'
 import { DEFAULT_CREDIT_SEPS, splitCredits } from './credits.jsx'
 import { characterPanel } from './identity.jsx'
 import { OFFERED_FIELDS, fieldOffersPanel } from './fieldOffers.jsx'
@@ -39,6 +40,7 @@ import {
   IconCheck,
   IconClose,
   IconDelete,
+  IconEdit,
   IconButton,
   IconMetadata,
   IconPlus,
@@ -57,6 +59,7 @@ import {
   toast,
   useFormHost,
   useUnsavedFields,
+  FormModal,
 } from './ui.jsx'
 
 // ---- field specs -----------------------------------------------------------
@@ -97,36 +100,84 @@ const BOOK_FIELDS = [
   // THE TWO LANGUAGES, storable since 0047 and never once editable from a screen.
   // The hero has printed them for releases and the only way to put one there was
   // an import file — a field the app can show, can search by and cannot be told.
-  { key: 'language', get label() { return t('common.field.language.label') } },
-  { key: 'orig_language', get label() { return t('common.field.orig-language.label') } },
+  // Two language codes, paired for the reason the series pair is: neither has
+  // ever needed a line of its own, and side by side they read as the one fact
+  // they are — what it is in, and what it was written in.
+  { key: 'language', half: true, get label() { return t('common.field.language.label') } },
+  { key: 'orig_language', half: true, get label() { return t('common.field.orig-language.label') } },
   {
     key: 'publisher',
     get label() { return t('common.field.publisher.label') },
     nameCase: true,
     get hint() { return t('book.field.publisher.info') },
   },
+  // ── PAIRED, and the pack pairs exactly these ──
+  // A series number is one character and a series name is a few words; each of
+  // them was taking a whole row of a panel whose other rows are a title and a
+  // description. `half` asks to share a line with the row after it (see
+  // .inline-field-rows), so the form is as tall as it has something to say.
   {
     key: 'series',
+    half: true,
     get label() { return t('common.field.series.label') },
     nameCase: true,
     get hint() { return t('book.field.series.info') },
   },
-  { key: 'series_index', get label() { return t('common.field.series-no.label') }, kind: 'number' },
+  { key: 'series_index', half: true, get label() { return t('common.field.series-no.label') }, kind: 'number' },
   {
     key: 'pages',
     get label() { return t('common.field.pages.label') },
     kind: 'count',
     get hint() { return t('book.field.pages.info') },
   },
+  // ── THE IDS, WHICH ARE A SECTION AND NOT ROWS ──
+  //
+  // `ids: true` takes a spec out of the form's row list and into the Ids strip at
+  // the foot of the panel: a pill per id the record HOLDS, and one editor for the
+  // lot. The pack's reason is what the rows looked like — five or six of them in a
+  // row, each a label and a number, filling the bottom third of a form whose other
+  // rows are the title and the author. An id is not a fact about the work; it is
+  // how one catalogue happens to file it, and six of them read as the record's
+  // subject rather than as its footnotes.
+  //
+  // `mark` is the provider whose glyph the pill wears, and `href` the page it
+  // opens. Both are optional: an id with no address keeps its pill and gives up
+  // the following, which is what an IGDB numeric id has always had to do.
+  // NOT HERE YET: `openlibrary_id` AND `google_id`. The pack draws a book's Ids
+  // strip with an OL pill, and field-model.md's §4 names their absence as a
+  // work-page gap — but both columns are WRITE-ONLY-BY-NOBODY. They exist (0001)
+  // and are served (book_handlers.go), and `UPDATE books SET …` names neither, so
+  // there is no path that stores what a reader typed. Giving them one means adding
+  // two columns to that statement, and every other writer of it — bulk edit,
+  // import approval, metadata backfill — would then have to send them or clear
+  // them, which is the trap 0047 and 0061 each record. That audit is the owner's
+  // call, not a guess to make while adding a strip.
   {
     key: 'isbn',
+    ids: true,
+    // GOOGLE BOOKS ADDRESSES A BOOK BY ITS ISBN, which is why the number wears
+    // that mark rather than a barcode of its own: `?vid=ISBN<n>` resolves to the
+    // edition, so the one number every back cover carries is also a page. It is
+    // the pack's own pill for this row.
+    mark: 'google',
     get label() { return t('common.field.isbn.label') },
     get hint() { return t('book.field.isbn.info') },
+    href: (it) => (String(it.isbn || '').replace(/[^0-9Xx]/g, '')
+      ? `https://books.google.com/books?vid=ISBN${String(it.isbn).replace(/[^0-9Xx]/g, '')}`
+      : ''),
   },
   {
     key: 'asin',
+    ids: true,
+    mark: 'amazon',
     get label() { return t('common.field.asin.label') },
     get hint() { return t('book.field.asin.info') },
+    // A BOOK'S ASIN IS ITS PRODUCT PAGE, and /dp/ is the right address for it —
+    // which is the opposite of the ruling on a PERSON's ASIN, where /dp/ would
+    // file a book under the author. The difference is what the id names.
+    href: (it) => (String(it.asin || '').trim()
+      ? `https://www.amazon.com/dp/${encodeURIComponent(String(it.asin).trim())}`
+      : ''),
   },
   // LAST, which is the handoff's own position for it: a link is where you go
   // NEXT, so it sits under the record rather than in it.
@@ -227,18 +278,24 @@ export function specsFor(specs, mediaType) {
 
 export const MOVIE_FIELDS = [
   { key: 'title', get label() { return t('common.field.title.label') }, nameCase: true },
+  // ── THE MEDIUM AND THE YEAR SHARE A LINE, which is the pack's own pairing and
+  // the reason the year moved up here from below the genres. Two facts of four
+  // characters each, and neither has ever filled a row: side by side they are the
+  // line that says what this is and when, which is what a reader checks first
+  // after the title. Adjacency is what pairs them — see .inline-field-rows.
   {
     key: 'media_type',
+    half: true,
     get label() { return t('common.field.media-type.label') },
     kind: 'mediaType',
     get hint() { return t('film.field.media-type.info') },
   },
+  { key: 'release_year', half: true, get label() { return t('common.field.year.label') }, kind: 'year', circaKey: 'release_circa' },
   // The same door a book has, holding the same two halves: the credits and the
   // cast. A film's cast pairs a character with a performer; a book's does not.
   { key: 'people', kind: 'people', get label() { return t('common.field.people.label') } },
   { key: 'description', get label() { return t('common.field.description.label') }, kind: 'long', sheet: true },
   { key: 'genres', get label() { return t('common.field.genres.label') }, kind: 'tokens', sheet: true },
-  { key: 'release_year', get label() { return t('common.field.year.label') }, kind: 'year', circaKey: 'release_circa' },
   {
     key: 'publisher',
     get label() { return t('common.field.publisher.label') },
@@ -248,16 +305,19 @@ export const MOVIE_FIELDS = [
   },
   {
     key: 'series',
+    half: true,
     get label() { return t('common.field.collection.label') },
     nameCase: true,
     get hint() { return t('film.field.series.info') },
   },
-  { key: 'series_index', get label() { return t('common.field.collection-no.label') }, kind: 'number' },
+  { key: 'series_index', half: true, get label() { return t('common.field.collection-no.label') }, kind: 'number' },
   {
     key: 'tmdb_id',
     get label() { return t('film.field.tmdb-id.label') },
     sourceKey: 'vocab.source.tmdb.label',
     kind: 'id',
+    ids: true,
+    mark: 'tmdb',
     media: ['movie', 'show'],
     get hint() { return t('film.field.tmdb-id.info') },
     href: (it) => providerURL('tmdb', it),
@@ -267,6 +327,8 @@ export const MOVIE_FIELDS = [
     get label() { return t('film.field.tvdb-id.label') },
     sourceKey: 'vocab.source.tvdb.label',
     kind: 'id',
+    ids: true,
+    mark: 'tvdb',
     media: ['movie', 'show'],
     get hint() { return t('film.field.tvdb-id.info') },
     // The dereferrer resolves a bare numeric id to the right series/movie page.
@@ -276,6 +338,8 @@ export const MOVIE_FIELDS = [
     key: 'imdb_id',
     get label() { return t('film.field.imdb-id.label') },
     sourceKey: 'vocab.source.imdb.label',
+    ids: true,
+    mark: 'imdb',
     media: ['movie', 'show'],
     get hint() { return t('film.field.imdb-id.info') },
     href: (it) => providerURL('imdb', it),
@@ -285,6 +349,8 @@ export const MOVIE_FIELDS = [
     get label() { return t('film.field.igdb-id.label') },
     sourceKey: 'vocab.source.igdb.label',
     kind: 'id',
+    ids: true,
+    mark: 'igdb',
     media: ['game'],
     // NO href. IGDB addresses its pages by SLUG and this is the numeric id, so a
     // link built from it would 404 — and a link that goes nowhere is worse than
@@ -711,6 +777,11 @@ export function WorkDetails({ onClose, kind, item: seed, onChanged, onDelete, st
           genreSuggestions={genreSuggestions}
           onSaveField={saveField}
           onSaveAll={saveAll}
+          // EVERY ID IN ONE REQUEST, which is the pack's own note on that dialog.
+          // `save` already PUTs the full record with a patch over it, so a patch
+          // naming three ids writes three ids once — where three rows saving
+          // themselves would have been three full-state writes over each other.
+          onSaveIds={(patch) => save(patch, 'ids')}
           onClose={onClose}
           onCover={(patch) => save(patch, 'cover')}
           onChanged={emit}
@@ -1124,7 +1195,7 @@ export function workDetailsPanel(stack, { kind, item, onChanged, onDelete }) {
 
 // ---- the resting view ------------------------------------------------------
 
-function FieldList({ kind, item, stack, specs, creditSpecs, mediaType, busy, genreSuggestions, onSaveField, onSaveAll, onCover, onChanged, onFetch, onDelete, onClose }) {
+function FieldList({ kind, item, stack, specs, creditSpecs, mediaType, busy, genreSuggestions, onSaveField, onSaveAll, onSaveIds, onCover, onChanged, onFetch, onDelete, onClose }) {
   const artPath = kind === 'book' ? item.cover_path : item.poster_path
   // field_sources[] -> { field: { source, at } }, so a row is one lookup rather than a
   // scan. Empty when the record has none, which is every record until something
@@ -1134,6 +1205,14 @@ function FieldList({ kind, item, stack, specs, creditSpecs, mediaType, busy, gen
     for (const fs of item?.field_sources || []) if (fs?.field) out[fs.field] = fs
     return out
   }, [item])
+
+  // ── THE FORM'S ROWS, AND THE IDS THAT ARE NOT ROWS ──
+  //
+  // `ids: true` takes a spec out of this list and into the strip at the foot of
+  // the panel. Split here rather than at the table, so both halves are derived
+  // from one ordered list and a spec cannot end up in neither.
+  const rows = useMemo(() => specs.filter((sp) => !sp.ids), [specs])
+  const idSpecs = useMemo(() => specs.filter((sp) => sp.ids), [specs])
 
   // THE DOOR BEHIND EVERY TAG — handoff §1.2's last clause. One opener rather
   // than a prop per row: the panel needs the field name, its label and the
@@ -1274,8 +1353,11 @@ function FieldList({ kind, item, stack, specs, creditSpecs, mediaType, busy, gen
         )}
       </div>
 
-      <div>
-        {specs.map((spec) => {
+      {/* A FLEX WRAP, so a spec marked `half` can share its line with the row after
+          it. Every row is full width in here unless it asks otherwise, which is
+          why this cost nothing to the twelve that did not ask. */}
+      <div className="inline-field-rows">
+        {rows.map((spec) => {
           const label = labelFor(spec, mediaType)
           const value = resting(spec, item)
           const prov0 = fieldSources[spec.key]
@@ -1286,6 +1368,7 @@ function FieldList({ kind, item, stack, specs, creditSpecs, mediaType, busy, gen
             return (
               <BigField
                 key={spec.key}
+                half={!!spec.half}
                 label={label}
                 display={peopleSummary(item, creditSpecs)}
                 onOpen={() => stack?.push(workPeoplePanel(stack, {
@@ -1298,6 +1381,7 @@ function FieldList({ kind, item, stack, specs, creditSpecs, mediaType, busy, gen
             return (
               <BigField
                 key={spec.key}
+                half={!!spec.half}
                 label={label}
                 hint={spec.hint}
                 // NO SOURCE TAG, and the handoff says why: the links under this
@@ -1313,6 +1397,7 @@ function FieldList({ kind, item, stack, specs, creditSpecs, mediaType, busy, gen
             return (
               <BigField
                 key={spec.key}
+                half={!!spec.half}
                 label={label}
                 source={prov0?.source}
                 sourceAt={prov0?.at}
@@ -1339,6 +1424,7 @@ function FieldList({ kind, item, stack, specs, creditSpecs, mediaType, busy, gen
             return (
               <InlineField
                 key={spec.key}
+                half={!!spec.half}
                 fieldKey={spec.key}
                 source={prov?.source}
                 sourceAt={prov?.at}
@@ -1369,6 +1455,7 @@ function FieldList({ kind, item, stack, specs, creditSpecs, mediaType, busy, gen
             return (
               <InlineField
                 key={spec.key}
+                half={!!spec.half}
                 fieldKey={spec.key}
                 source={prov?.source}
                 sourceAt={prov?.at}
@@ -1389,6 +1476,7 @@ function FieldList({ kind, item, stack, specs, creditSpecs, mediaType, busy, gen
             return (
               <InlineField
                 key={spec.key}
+                half={!!spec.half}
                 fieldKey={spec.key}
                 source={prov?.source}
                 sourceAt={prov?.at}
@@ -1426,6 +1514,7 @@ function FieldList({ kind, item, stack, specs, creditSpecs, mediaType, busy, gen
           return (
             <InlineField
               key={spec.key}
+                half={!!spec.half}
               fieldKey={spec.key}
               source={prov?.source}
               sourceAt={prov?.at}
@@ -1453,7 +1542,175 @@ function FieldList({ kind, item, stack, specs, creditSpecs, mediaType, busy, gen
           )
         })}
       </div>
+
+      {/* ── THE IDS, AS A STRIP AND NOT AS ROWS ──
+          A pill per id the record HOLDS, and one editor for the lot. The rows it
+          replaces were five or six of a form whose other rows are the title and
+          the description, each a label and a number, and together they read as
+          what the record is ABOUT rather than as its footnotes. */}
+      {idSpecs.length > 0 && (
+        <WorkIds
+          item={item}
+          specs={idSpecs}
+          mediaType={mediaType}
+          busy={!!busy}
+          onSave={onSaveIds}
+        />
+      )}
       </UnsavedFieldsContext.Provider>
+    </form>
+  )
+}
+
+// ---- the ids ---------------------------------------------------------------
+//
+// WorkIds — the strip at the foot of the panel, and the one dialog behind it.
+//
+// AN ID IS NOT A FACT ABOUT THE WORK. It is how one catalogue files it, which is
+// why the pack takes all of them out of the form: a book's ISBN and ASIN, a
+// film's TMDB, TheTVDB and IMDb ids, a game's IGDB id. As rows they were a third
+// of the panel's height saying nothing a reader came to read; as a strip they are
+// the record's footnotes, which is what they are.
+//
+// ONLY THE ONES WITH A VALUE GET A PILL. The alternative is the roster of
+// absences workLinks.jsx argues against at length — six slots with four of them
+// reading "not linked" tells the reader which catalogues their book OUGHT to be
+// in, and is wrong about it. What is missing is behind the editor, where every id
+// this medium has is offered whether it is filled or not.
+//
+// A PILL WITHOUT AN ADDRESS KEEPS ITS PILL. An IGDB numeric id names no page the
+// app can build — IGDB addresses by slug — so that one draws flat rather than as
+// a link, which PillRow does by itself when handed no url.
+function WorkIds({ item, specs, mediaType, busy, onSave }) {
+  const [open, setOpen] = useState(false)
+  const pills = specs
+    .map((sp) => {
+      const raw = item[sp.key]
+      const value = raw === 0 || raw === '0' ? '' : String(raw ?? '').trim()
+      if (!value) return null
+      const url = sp.href ? sp.href(item) : ''
+      const name = sp.sourceKey ? t(sp.sourceKey) : labelFor(sp, mediaType)
+      return {
+        key: sp.key,
+        slug: sp.mark || '',
+        name: value,
+        mono: true,
+        url,
+        title: url ? t('common.work.id.open.tip', { source: name }) : t('work.ids.no-page.tip', { source: name }),
+      }
+    })
+    .filter(Boolean)
+  return (
+    <>
+      <SectionHead label={t('work.ids.label')} />
+      <PillRow
+        pills={pills}
+        onAdd={() => setOpen(true)}
+        addLabel={pills.length ? t('work.ids.edit.label') : t('work.ids.add.label')}
+        addIcon={pills.length ? <IconEdit /> : <IconPlus />}
+        addTitle={t('work.ids.edit.tip')}
+      />
+      <WorkIdsDialog
+        open={open}
+        item={item}
+        specs={specs}
+        mediaType={mediaType}
+        busy={busy}
+        onClose={() => setOpen(false)}
+        onSave={async (patch) => {
+          const ok = await onSave(patch)
+          if (ok !== false) setOpen(false)
+          return ok
+        }}
+      />
+    </>
+  )
+}
+
+// WorkIdsDialog — every id this medium has, in one form, saved in one request.
+//
+// ONE REQUEST IS THE WHOLE POINT. Editing three of a film's ids as three rows was
+// three PUTs of the whole record, and the pack's own note on this screen is "Ids
+// saved — every one in a single request". They are also the fields most often
+// filled together, because they arrive together: a reader pinning a record to its
+// supplier pastes two or three ids off two or three tabs in one sitting.
+//
+// EVERY ID, FILLED OR NOT, unlike the strip outside — this is the place the
+// missing ones are missing FROM, so an empty box here is the offer the strip
+// deliberately does not make.
+//
+// The header pair is the app's standing one: the ✓ takes the accent and a count
+// of how many ids this press will change, and the ✕ is red because it discards.
+function WorkIdsDialog({ open, item, specs, mediaType, busy, onClose, onSave }) {
+  const [draft, setDraft] = useState({})
+  useEffect(() => {
+    if (!open) return
+    const next = {}
+    for (const sp of specs) {
+      const raw = item[sp.key]
+      next[sp.key] = raw === 0 || raw === '0' ? '' : String(raw ?? '')
+    }
+    setDraft(next)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, item])
+  const stored = (sp) => {
+    const raw = item[sp.key]
+    return raw === 0 || raw === '0' ? '' : String(raw ?? '')
+  }
+  // WHAT THE TICK COUNTS: ids whose SUBSTANCE differs from what is stored.
+  // Trimmed, because a trailing space is not a change to an id, and retyping the
+  // same number is not one either — the standing rule is that a tick which looks
+  // armed when nothing has changed teaches the reader to stop reading it.
+  const changed = specs.filter((sp) => String(draft[sp.key] ?? '').trim() !== stored(sp).trim())
+  return (
+    <FormModal
+      open={open}
+      onClose={onClose}
+      title={t('work.ids.label')}
+      maxWidth={460}
+      dirty={changed.length}
+      closeDanger
+      saveTip={t('work.ids.save.tip')}
+    >
+      <WorkIdsForm
+        specs={specs}
+        mediaType={mediaType}
+        draft={draft}
+        onDraft={(key, v) => setDraft((d) => ({ ...d, [key]: v }))}
+        busy={busy}
+        blocked={changed.length === 0 ? t('work.ids.save.blocked') : ''}
+        onSubmit={() => onSave(Object.fromEntries(changed.map((sp) => [sp.key, coerce(sp, draft[sp.key])])))}
+      />
+    </FormModal>
+  )
+}
+
+// The form body, a child of the modal for the reason identity.jsx's link dialog
+// states: useFormHost reads the context FormModal puts around its CHILDREN, so a
+// call in the component that renders the modal registers with the surface outside
+// it and the modal draws no ✓ at all.
+function WorkIdsForm({ specs, mediaType, draft, onDraft, busy, blocked, onSubmit }) {
+  const host = useFormHost(busy ? t('common.action.save.busy') : blocked)
+  return (
+    <form
+      id={host?.formId}
+      style={{ display: 'grid', gap: 'var(--row)' }}
+      onSubmit={(e) => { e.preventDefault(); onSubmit() }}
+    >
+      {specs.map((sp) => (
+        <Field
+          key={sp.key}
+          id={`work-id-${sp.key}`}
+          label={labelFor(sp, mediaType)}
+          value={draft[sp.key] ?? ''}
+          // THE EVENT, NOT THE VALUE. `Field` passes its input's onChange
+          // straight through, so a handler written for a value receives the
+          // event and stores "[object Object]" — which is exactly what the id
+          // this dialog wrote turned out to be until a test read the body.
+          onChange={(e) => onDraft(sp.key, e.target.value)}
+        />
+      ))}
+      <p className="microcopy" style={{ color: 'var(--faint)' }}>{t('work.ids.form.hint')}</p>
     </form>
   )
 }
