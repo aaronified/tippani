@@ -13,8 +13,8 @@
     "web/frontend/vite.config.js"
   ],
   "sha256": {
-    "internal/i18n/bn.txt": "19b4198acad5bdde0b2c3ac024bdf69676bd37ec8e6b8c421a5cf10c4ecfca87",
-    "internal/i18n/en.txt": "b147082173c8519d57d51f862cee82ed49e1d17524b0987d737c0789fd4e7ba0",
+    "internal/i18n/bn.txt": "a5350d33b38131aaa8c07d493e8fec140db94384a192aa3fd614d69a81c1939c",
+    "internal/i18n/en.txt": "fc5782aae951119f8882585a83719c584d951986ceae4fc3ca21bd20373ac797",
     "web/frontend/index.html": "faa8bb6fc81705b9d9d395a62a9d474414a029c571723bf099f84cb624ce906c",
     "web/frontend/package-lock.json": "d7afffc5b73c431c604bfaff5760d6ef244d1f74b187575d213f3ad353c18715",
     "web/frontend/package.json": "21c5acbd140400ead3efd99595afe0510ae0d6e84099621f9c39d34195a30ed6",
@@ -68,9 +68,9 @@
     "web/frontend/src/help.jsx": "b23e024457ad943971b596606d249d128bb7da85669bdc48668e3e4964584644",
     "web/frontend/src/history.js": "13604d919e7e8f7cdd3f637895907b2ff30425282e3049c6a3fa5524f2f3be19",
     "web/frontend/src/i18n.js": "6056197526bb55ee44f4a4c3be19304e9c48bf83af8e98f6c44dfa80fd82afe5",
-    "web/frontend/src/identity.jsx": "9d4201fc4408365fb4681941d89638fc9887024ba645054d5bfbf1eec60913af",
+    "web/frontend/src/identity.jsx": "7154d4e134112dac5452edc2dbbb993fb0f9cbe7ace45b07d7bcce943b6a4c55",
     "web/frontend/src/identityGlobal.jsx": "7e304cf3ebba51304e1df4b83d667885c70a3a97135ca84ea06613492d88e31c",
-    "web/frontend/src/identityLocal.jsx": "801140e76db1b6c2b59ec7646c82058a87949f1d95f2c64e8f15daaa6c3f0c4a",
+    "web/frontend/src/identityLocal.jsx": "3e78a5f94f34b042c4346be3b8ea98b56336fcb613ec7bd02bf9929386475af6",
     "web/frontend/src/identityScope.js": "c48e54c7b3f7fa53ebfe1d2758f98cacb7a0be34ca8582e2ef45ae2b65be2821",
     "web/frontend/src/index.css": "da2c53f1d6f4b0f4a00aa8d0eaf981feeef4f88359660d679808aeed4cae6379",
     "web/frontend/src/keys.js": "75e1fd35adf3747681c0ddd7aff0b71d01d8961cd890e5525be6d4dd85d5fd9a",

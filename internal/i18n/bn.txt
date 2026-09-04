@@ -6335,6 +6335,21 @@ identity.row.unlink.sub.book = অন্য কাজে বিশ্বজন�
 identity.row.unlink.sub.cast = অন্য কাজে বিশ্বজনীন চরিত্রটি থেকে যায়; মানুষের রেকর্ডও থাকে
 identity.local.fields.summary = এই কাজ যা বলে তা বদলান
 identity.local.fields.aliases = এখানে আরও যে নামে ডাকা হয়
+# ---- অভিনেতার ব্লক, char-film আর char-game-এ -----------------------
+identity.section.actorby = অভিনয়ে
+identity.section.voiceby = কণ্ঠে
+identity.seg.played = অভিনয়ে
+identity.seg.voiced = কণ্ঠে
+identity.section.dubbedby = ডাবিংয়ে
+identity.credit.unnamed = এখনও নাম দেওয়া হয়নি
+identity.credit.add.performer = আরও একজন অভিনেতা যোগ করুন
+identity.credit.add.voice = আরও একটা কণ্ঠ যোগ করুন
+identity.credit.add.dub = ডাবিংয়ের কৃতিত্ব যোগ করুন
+identity.credit.pick.tip = কে সেটা বদলান
+identity.credit.open.tip = তাঁর রেকর্ড খুলুন
+identity.credit.note.tip = এই কাস্টিংয়ে বিশেষ কী আছে
+identity.credit.remove.tip = এই কৃতিত্ব সরিয়ে দিন
+
 
 identity.section.identity.label = পরিচয়
 identity.section.identity.note = এখানে বদলালে সব কাজে বদলাবে।

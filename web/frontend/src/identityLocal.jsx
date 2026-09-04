@@ -22,6 +22,7 @@
 // through the global record, or out of this work altogether.
 import { coverImgURL } from './api.js'
 import {
+  CreditRow,
   FactsRow,
   PairRow,
   PortraitBlock,
@@ -29,8 +30,10 @@ import {
   ScreenHead,
   ScreenRow,
   SectionHead,
+  SegHead,
 } from './characterRows.jsx'
 import { t } from './i18n.js'
+import { leadingRole } from './identityScope.js'
 
 // The glyph laid over the work's own cover, per medium. A local sheet always has
 // a cover to sit on — that is what makes it local — so there is no globe here.
@@ -53,6 +56,53 @@ function factCells(scope, here, onPart, onFirst, onAge) {
   return cells
 }
 
+// THE PERFORMERS AND THE DUBS ARE THE SAME LIST, split by one field.
+//
+// A character billed twice in one work is TWO CAST ROWS — 0063 re-cut
+// idx_work_cast_pair to allow it, and the pack draws exactly that: Daniel
+// Radcliffe at 17, and a second row for the Godric's Hollow flashback with
+// nobody named yet. So the rows for a work are the credits for it, and no new
+// shape is needed to list them.
+//
+// credit_lang IS THE SPLIT. A credit carrying a language is a dub and belongs
+// under the pack's "Dubbed by"; one with none is the original cast. That is why
+// there is no `is_dub` column and no second table: the language was always the
+// fact, and a dub with no language recorded is not a dub anybody can name.
+function creditsFor(works, here) {
+  const rows = (works || []).filter((a) => a.kind === here.kind && a.work_id === here.work_id)
+  return {
+    cast: rows.filter((a) => !String(a.credit_lang || '').trim()),
+    dubs: rows.filter((a) => String(a.credit_lang || '').trim()),
+  }
+}
+
+// A CREDIT WITH NOBODY IN IT IS A REAL STATE, drawn faint rather than hidden —
+// the pack's "Not named yet". A film credits a de-aged shot, a stunt double or a
+// second voice that the reader has not put a name to, and hiding the row would
+// lose the note beside it, which is the only record that the casting exists.
+function creditRows(rows, { onOpen, onNote, onRemove, noteIcon, removeIcon, caret, noteTip, removeTip, pickTip, openTip }) {
+  return rows.map((a) => (
+    <CreditRow
+      key={a.cast_id}
+      name={a.actor || t('identity.credit.unnamed')}
+      empty={!a.actor}
+      note={a.credit_note || (a.credit_lang ? a.credit_lang : '')}
+      face={a.actor_image || ''}
+      pickTitle={pickTip}
+      openTitle={openTip}
+      noteTitle={noteTip}
+      removeTitle={removeTip}
+      noteIcon={noteIcon}
+      removeIcon={removeIcon}
+      caret={caret}
+      onPick={() => onOpen(a)}
+      onOpen={() => onOpen(a)}
+      onNote={() => onNote(a)}
+      onRemove={() => onRemove(a)}
+    />
+  ))
+}
+
 // CharacterLocal — the sheet itself.
 //
 // EVERY HANDLER IS THE CALLER'S, as on the global sheets: this screen fetches
@@ -64,6 +114,11 @@ export function CharacterLocal({
   record, work, here, scope, portraitActions,
   onCalled, onPart, onFirst, onAge, onNote,
   onQuotes, onLocator, onOpenGlobal, onRemove,
+  // The performer block's verbs. Absent on a book, where the whole block is —
+  // nobody plays a novel's character, so an empty "Played by" would claim the
+  // reader had not filled something in where the truth is that there is nothing
+  // to fill.
+  onRole, onOpenCredit, onCreditNote, onCreditRemove, onAddCredit, onAddDub,
   // THE COUNTS COME FROM /whos-in-it, which has served them per cast row since
   // it was written and which nothing had ever called. Its `locators` is a
   // DISTINCT over this character's own quotes rather than a stored total of the
@@ -77,6 +132,20 @@ export function CharacterLocal({
 }) {
   // The sub-line under the name: what else this work calls them. Stored as the
   // reader typed it, so it is split on the same separator the pack prints.
+  const role = leadingRole(scope, work)
+  const { cast, dubs } = creditsFor(works, here)
+  const creditVerbs = {
+    onOpen: (a) => onOpenCredit?.(a),
+    onNote: (a) => onCreditNote?.(a),
+    onRemove: (a) => onCreditRemove?.(a),
+    noteIcon: '✎',
+    removeIcon: '✕',
+    caret: '▾',
+    pickTip: t('identity.credit.pick.tip'),
+    openTip: t('identity.credit.open.tip'),
+    noteTip: t('identity.credit.note.tip'),
+    removeTip: t('identity.credit.remove.tip'),
+  }
   const quotes = counts ? counts.quotes : 0
   const locators = counts ? counts.locators : 0
   const alsoHere = String(here.aliases || '')
@@ -112,6 +181,44 @@ export function CharacterLocal({
         meta={here.character || record.name}
         onClick={onCalled}
       />
+
+      {/* THE PERFORMER BLOCK, and the heading is a CONTROL because there are
+          exactly two answers. A film's cast is played and a game's is voiced —
+          usually — but an animated feature is a film whose cast is voiced and a
+          medium cannot know that, which is why movies.cast_role exists and why
+          this segmented pair sets it. leadingRole reads the override first and
+          falls back to the medium, exactly as the server's actorRoleOr does. */}
+      {scope.performer !== 'none' && (
+        <>
+          <SegHead
+            label={t(`identity.section.${role}by`)}
+            options={[
+              ['actor', t('identity.seg.played')],
+              ['voice', t('identity.seg.voiced')],
+            ]}
+            value={role}
+            onPick={onRole}
+          />
+          {creditRows(cast, creditVerbs)}
+          <ScreenRow
+            label={t(role === 'voice' ? 'identity.credit.add.voice' : 'identity.credit.add.performer')}
+            icon="+"
+            onClick={onAddCredit}
+          />
+        </>
+      )}
+
+      {/* AND THE DUBS, ON A FILM OR A SHOW ONLY. A game's localisation IS its
+          voice cast rather than a layer over it, so its languages stay on the
+          voice credits themselves — identityScope says so with `dubs`, and this
+          reads that answer rather than asking the medium again. */}
+      {scope.dubs && (
+        <>
+          <SectionHead label={t('identity.section.dubbedby')} />
+          {creditRows(dubs, creditVerbs)}
+          <ScreenRow label={t('identity.credit.add.dub')} icon="+" onClick={onAddDub} />
+        </>
+      )}
 
       <FactsRow cells={factCells(scope, here, onPart, onFirst, onAge)} />
 

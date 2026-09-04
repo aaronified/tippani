@@ -6341,6 +6341,31 @@ identity.row.unlink.sub.book = Other works retain the global character
 identity.row.unlink.sub.cast = Other works retain the global character; people keep their records
 identity.local.fields.summary = Edit what this work says
 identity.local.fields.aliases = Also called here
+# ---- the performer block, on char-film and char-game -----------------------
+# THE HEADING IS THE CONTROL, because there are exactly two answers. A film's
+# cast is played and a game's is voiced — usually. An animated feature is a film
+# whose cast is voiced and a medium cannot know that, so movies.cast_role holds
+# the work's own answer and this pair sets it.
+identity.section.actorby = Played by
+identity.section.voiceby = Voiced by
+identity.seg.played = Played by
+identity.seg.voiced = Voiced by
+# A DUB IS A SECOND CAST IN ANOTHER LANGUAGE. Film and show only: a game's
+# localisation is its voice cast rather than a layer over it, so its languages
+# ride on the voice credits themselves.
+identity.section.dubbedby = Dubbed by
+# A CREDIT WITH NOBODY IN IT IS A REAL STATE, not a blank to be hidden: a film
+# credits a de-aged shot or a second voice the reader has not named, and hiding
+# the row would lose the note beside it — the only record the casting exists.
+identity.credit.unnamed = Not named yet
+identity.credit.add.performer = Add another performer
+identity.credit.add.voice = Add another voice
+identity.credit.add.dub = Add a dubbing credit
+identity.credit.pick.tip = Change who this is
+identity.credit.open.tip = Open their record
+identity.credit.note.tip = What is peculiar about this casting
+identity.credit.remove.tip = Take this credit off
+
 
 identity.section.identity.label = The identity
 identity.section.identity.note = Edits here reach every work.

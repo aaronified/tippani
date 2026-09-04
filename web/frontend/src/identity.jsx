@@ -26,6 +26,9 @@ import { useCallback, useEffect, useState } from 'react'
 import { coverImgURL, errText, json } from './api.js'
 import { t } from './i18n.js'
 import { useCharacterPicture, usePicturePicker } from './cast.jsx'
+// movieState shapes the full-state PUT body — see setRole. Movies.jsx does not
+// import this file, so the pair is not a cycle.
+import { movieState } from './Movies.jsx'
 import { CharacterGlobal, PersonGlobal } from './identityGlobal.jsx'
 import { identityScope } from './identityScope.js'
 import { CharacterLocal } from './identityLocal.jsx'
@@ -1061,13 +1064,40 @@ function CharacterBody({ stack, id, work, onSearch = null }) {
     </details>
   ) : null
 
+  // THE PERFORMER BLOCK'S VERBS. A credit is a cast ROW, so every one of these
+  // acts on `a.cast_id` — which is what lets a character billed twice in one
+  // work (0063 re-cut the pair index for exactly that) have two of them.
+  // PUT /movies/{id} IS FULL-STATE, so the body starts from the record and the
+  // one field overrides on top. Sending `{ cast_role }` alone cleared every
+  // field it did not mention — work-put-shape.test.js exists for exactly that
+  // mistake and caught this one, which is the whole argument for keeping it.
+  const setRole = async (next) => {
+    if (!here || here.kind === 'book') return
+    setBusy(true)
+    const cur = await json('GET', `/movies/${here.work_id}`)
+    if (!cur.ok) { setBusy(false); setErr(errText(cur)); return }
+    const r = await json('PUT', `/movies/${here.work_id}`, { ...movieState(cur.data), cast_role: next })
+    setBusy(false)
+    if (!r.ok) { setErr(errText(r)); return }
+    setErr('')
+    load()
+  }
+  const removeCredit = async (a) => {
+    setBusy(true)
+    const r = await json('DELETE', `/cast/${a.cast_id}`)
+    setBusy(false)
+    if (!r.ok) { setErr(errText(r)); return }
+    setErr('')
+    load()
+  }
+
   // ---- char-book, the first of the pack's local sheets ---------------------
   //
-  // ONE MEDIUM AT A TIME, and film and game deliberately still fall through to
-  // the older presentation below. Their sheets carry the performer list, the
-  // "Not named yet" credit and the dubbing section, and switching them over
-  // before those exist would be a screen that lost its cast to gain a rhythm.
-  if (scope.id === 'char-book' && here) {
+  // ALL THREE MEDIA NOW. What differs between them is what identityScope says
+  // differs — a book has no performer block at all, a game's facts row has two
+  // cells rather than three because a playable character has no single age, and
+  // only a film or a show can credit a dub. None of that is a branch here.
+  if ((scope.id === 'char-book' || scope.id === 'char-film' || scope.id === 'char-game') && here) {
     return (
       <div style={{ display: 'grid', gap: 'calc(var(--row) * 1.6)' }}>
         <ErrorText>{err}</ErrorText>
@@ -1088,6 +1118,12 @@ function CharacterBody({ stack, id, work, onSearch = null }) {
           onLocator={openQuoteSearch}
           onOpenGlobal={() => stack.open(characterPanel(stack, { id, name: data.name, onSearch }))}
           onRemove={() => removeWork(here)}
+          onRole={setRole}
+          onOpenCredit={(a) => a.actor_id && stack.open(personPanel(stack, { id: a.actor_id, name: a.actor }))}
+          onCreditNote={() => focusField('char-crednote')}
+          onCreditRemove={removeCredit}
+          onAddCredit={() => focusField('char-addcredit')}
+          onAddDub={() => focusField('char-addcredit')}
         >
           {localFields}
         </CharacterLocal>

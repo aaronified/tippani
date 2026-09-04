@@ -133,78 +133,89 @@ describe('the character name on a cast row', () => {
 // ---- the arrival -----------------------------------------------------------
 
 const stack = () => ({ push: vi.fn(), open: vi.fn() })
+// AWAITS THE NAME, NOT THE WORK TITLE. On the pack's local sheet the title is
+// inside the crumb ("in The Master and Margarita"), so waiting for it as plain
+// text waits for something no longer rendered — which is a timeout dressed up as
+// a missing element.
 const openPage = async (work) => {
   render(characterPanel(stack(), { id: 3, name: 'Woland', work }).render())
-  await screen.findByText('The Master and Margarita')
+  await screen.findAllByText('Woland')
 }
-const scope = (tone) => document.querySelector(`.identity-scope.is-${tone}`)
-const card = (title) => screen.getByText(title).closest('.char-work')
+// THE OLD HELPERS WENT WITH THE OLD ARRANGEMENT. `.identity-scope.is-work` was
+// a section on a page that stacked three grains at once; the pack's local sheet
+// IS the narrow grain, so there is no inked section to look for — the whole
+// screen is the answer. What is still worth holding is WHICH ROW it opened on,
+// and that is read off the sheet's own rows.
+const sheet = () => document.querySelector('.cs-body') || document.body
+const rowValue = (label) => {
+  const row = [...document.querySelectorAll('.cs-row')]
+    .find((r) => (r.textContent || '').includes(label))
+  return row ? row.textContent : ''
+}
 
 describe('the character page, opened from a work', () => {
   const FROM_FILM = { kind: 'movie', id: 5, title: 'The Master and Margarita (2005)', castId: 11 }
 
-  it('leads with that work, in a scope of its own', async () => {
+  it('is the work it was opened from, and says so in the crumb', async () => {
     await openPage(FROM_FILM)
-    const here = scope('work')
-    expect(here, 'no work scope, so the page opened library-wide').toBeTruthy()
-    expect(within(here).getByText('The Master and Margarita (2005)')).toBeTruthy()
+    // The pack's local sheet does not stack the grains — it IS the narrow one,
+    // and the crumb under the name is what says which work. "in <title>", never
+    // "<name> · <title>": the sheet is about a character IN a work, and the
+    // preposition is the whole of that fact.
+    expect(screen.getByText(/^in The Master and Margarita/), 'no crumb naming the work').toBeTruthy()
   })
 
-  it('does not draw the row it lifted twice', async () => {
-    await openPage(FROM_FILM)
-    // A card in both sections invites the reader to edit the wrong one, and the
-    // two edit the same row. Counted by the BILLING rather than the work title,
-    // because the sibling row is on the same film and legitimately still listed
-    // below — it is a different cast row and a different thing to edit.
-    expect(screen.getAllByText('Oleg Basilashvili')).toHaveLength(1)
-    expect(within(scope('library')).queryByText('Oleg Basilashvili')).toBeNull()
-    expect(within(scope('library')).getByText('The Master and Margarita')).toBeTruthy()
-  })
-
-  it('lifts the row it was given, not the first one on that work', async () => {
-    // THE BUG THIS CASE EXISTS FOR. Matching on (kind, work_id) alone finds the
-    // first billing on the film, so pressing the second row opened the panel on
-    // its sibling — the reader lands on a card naming a performer they did not
-    // press, with the one they did press listed below as another work.
+  it('opens on the row it was given, not the first one on that work', async () => {
+    // THE BUG THIS CASE EXISTS FOR, and it survived the rearrangement because it
+    // was never about the arrangement: matching on (kind, work_id) alone finds
+    // the first billing on the film, so pressing the second row opened the sheet
+    // on its sibling — the reader lands on a screen naming a performer they did
+    // not press.
     await openPage({ ...FROM_FILM, castId: 31 })
-    const here = scope('work')
-    expect(within(here).getByText('Woland (voice)'), 'lifted the wrong billing').toBeTruthy()
-    expect(within(here).queryByText('Oleg Basilashvili'), 'lifted the sibling row').toBeNull()
-    // And the one that was not pressed is still reachable, below.
-    expect(within(scope('library')).getByText('Oleg Basilashvili')).toBeTruthy()
+    expect(rowValue('Credited as'), 'opened on the wrong billing').toMatch(/Woland \(voice\)/)
   })
 
   it('still finds the work when the caller knows no row', async () => {
     // The fallback is not dead code: a caller may know the work and not the row.
     await openPage({ kind: 'movie', id: 5, title: 'The Master and Margarita (2005)' })
-    expect(scope('work'), 'no work scope without a cast id').toBeTruthy()
+    expect(screen.getByText(/^in The Master and Margarita/), 'no sheet without a cast id').toBeTruthy()
   })
 
-  it('counts what is left below it, rather than the whole record', async () => {
+  it('offers one door up, carrying how many works the identity spans', async () => {
     await openPage(FROM_FILM)
-    // "in 2 works" over a grid of one is a heading that contradicts what is under
-    // it. The record's own total is on the head above, where it belongs.
-    expect(within(scope('library')).getByText(/other work/i)).toBeTruthy()
+    // The whole appearance strip, the alias list and the merge control live on
+    // char-global now. What stands in their place is this row — and the count
+    // beside it is the fact that makes the door worth opening.
+    expect(rowValue('Open the global record'), 'no door to the identity').toMatch(/work/)
   })
 
-  it('says what each grain is, in a dot rather than a paragraph', async () => {
+  it('says what saving here changes, and what saving up there changes', async () => {
     await openPage(FROM_FILM)
-    // The subtext under each heading says what saving there CHANGES; the dot says
-    // what the section IS. Both, because a reader who has not worked out that a
-    // character exists twice cannot read the first one correctly.
-    for (const tone of ['work', 'library', 'record']) {
-      expect(
-        within(scope(tone)).getByRole('button', { name: /more|info|about/i }),
-        `the ${tone} scope has no dot explaining which grain it is`,
-      ).toBeTruthy()
-    }
+    // The note under "The identity" is what stops a reader believing they
+    // renamed the character on every work by editing this one.
+    expect(screen.getByText(/reach every work/i), 'the identity section explains nothing').toBeTruthy()
+    // And the note's opposite, on the row that is this work's alone.
+    expect(rowValue('Note'), 'the private note does not say it is per-work').toMatch(/this work only/i)
   })
 
-  it('marks only the narrow scope, so the ink means narrow and not important', async () => {
+  it('names the way out for this medium, and reassures about the rest', async () => {
     await openPage(FROM_FILM)
-    expect(scope('work')).toBeTruthy()
-    expect(scope('library').className).not.toMatch(/is-work/)
-    expect(scope('record').className).not.toMatch(/is-work/)
+    // THE FIXTURE IS A SHOW, which is the point of reading it rather than the
+    // variable name: mediumOf answers from media_type, so the wording follows the
+    // record and not the word "film" in this file. A show and a film share the
+    // rest of the sheet — identityScope gives both `dubs` and a performer block.
+    expect(screen.getByText('Remove from this show'), 'no way out of the one work').toBeTruthy()
+    // A film's reassurance carries one clause more than a book's, because a film
+    // has people whose records could be thought at risk.
+    expect(screen.getByText(/people keep their records/i)).toBeTruthy()
+  })
+
+  it('draws the performer block on a screen work, with the dubs under it', async () => {
+    await openPage(FROM_FILM)
+    // Played by / Voiced by is a CONTROL because there are two answers, and an
+    // animated feature is a film whose cast is voiced.
+    expect(screen.getAllByText('Played by').length, 'no performer heading').toBeGreaterThan(0)
+    expect(screen.getByText('Dubbed by'), 'a screen work that cannot credit a dub').toBeTruthy()
   })
 })
 
@@ -213,7 +224,10 @@ describe('the same page, opened from the console', () => {
     await openPage(undefined)
     // Absent rather than present and empty: there is no work to be on, and a
     // heading claiming otherwise is a heading about nothing.
-    expect(scope('work'), 'a work scope with no work to scope to').toBeNull()
+    // The global sheet HAS a crumb — "1 book · 1 film · 1 game", the pack's own
+    // and a better answer than "3 works". What it must not have is the local
+    // sheet's, which names one work.
+    expect(screen.queryByText(/^in The Master and Margarita/), 'a work crumb with no work to be in').toBeNull()
     // ALL THREE APPEARANCES, ON THE STRIP, including both of the film's two
     // billings — nothing has been lifted, so nothing is missing from the shelf.
     // The grid this replaces is now each tile's own editor; see identityGlobal.jsx.
@@ -256,11 +270,8 @@ describe('pressing a character in a work’s People panel', () => {
     expect(s.push, 'the People panel pushed nothing').toHaveBeenCalledTimes(1)
     cleanup()
     render(s.push.mock.calls[0][0].render())
-    await screen.findByText('The Master and Margarita')
+    await screen.findAllByText(/Woland/)
 
-    const here = scope('work')
-    expect(here, 'the pushed panel had no work scope, so no row was named').toBeTruthy()
-    expect(within(here).getByText('Woland (voice)'), 'opened on the wrong billing').toBeTruthy()
-    expect(within(here).queryByText('Oleg Basilashvili')).toBeNull()
+    expect(rowValue('Credited as'), 'opened on the wrong billing').toMatch(/Woland \(voice\)/)
   })
 })
