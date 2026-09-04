@@ -1474,7 +1474,11 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
   // so that a book's and a film's cannot drift apart — they did once, and that
   // divergence is how the missing-face bug survived.
   const sp = a.speaker_cast
-  const speaker = sp ? { ...sp, onOpen: onOpenCharacter } : null
+  // NO `onOpen` SPREAD ONTO THE SPEAKER. `chipRows` reads the handler it is
+  // passed now, as its named rows always did, so attaching it to the object was
+  // one contract kept in two places — and Home keeping only one of them is what
+  // left its stacked chip dead.
+  const speaker = sp || null
   const chipCount = chipRows(a.character_images, speaker).length
   const chips = (
     <SpeakerChips

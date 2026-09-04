@@ -871,8 +871,12 @@ export function MovieLookupPicker({ title, year, mediaType = 'movie', tmdbId, tv
           title search cannot tell two films apart, which is the whole reason the
           fields are editable. */}
       <SearchAgain>
+        {/* NO LABEL ON THE SEG. `SearchAgain` above already prints "Search
+            again" — passing it here too stacked the same heading twice on the
+            one surface whose polish was being complained about. The seg is the
+            HOW, and its two words are the whole of it. */}
         <SegHead
-          label={t('lookup.again.how.label')}
+          label=""
           options={[['title', t('lookup.again.by-title.label')], ['id', t('lookup.again.by-id.label')]]}
           value={mode}
           onPick={setMode}

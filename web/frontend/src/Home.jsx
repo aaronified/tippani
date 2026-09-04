@@ -1155,10 +1155,13 @@ function FavouriteTile({
               it, both presses work: the head opens the quote, a pill opens who is
               in it.
 
-              Pills ride the COLLAPSED tile only. Expanded, the same people are
-              PersonCredit chips a few lines down — portrait, name and a way into
-              their panel — and drawing them here as well put one person on the
-              tile twice. */}
+              THE PERSON pills ride the collapsed tile only, because expanded the
+              same people are PersonCredit chips a few lines down — portrait, name
+              and a way into their panel — and drawing them twice put one person
+              on the tile twice. THE CHARACTER pills are drawn in BOTH states, and
+              that asymmetry is the point: no PersonCredit below carries a
+              character, so gating them on `!open` like the people made a film
+              line's character vanish when the tile opened. */}
           <span className="mt-1.5 flex items-center gap-1.5">
             {/* A SCREEN TILE WEARS THE CHARACTERS, everything else the PEOPLE
                 (2.2.0). A film line is spoken by a character, so the pill on it
@@ -1208,6 +1211,31 @@ function FavouriteTile({
           {open && (
             <div className="mt-2.5 space-y-2">
               {f.note && <HandNote>{f.note}</HandNote>}
+              {/* THE CHARACTERS SURVIVE OPENING THE TILE, and until this block
+                  they did not. The pills above are gated on `!open`, and the
+                  expanded branch draws `PersonCredit` for the PEOPLE only — so a
+                  film line's character, which is the pill a reader presses first
+                  and the only one that opens the work-level character screen,
+                  disappeared the moment the tile was opened. The comment above
+                  even promised the opposite: "the same people are PersonCredit
+                  chips a few lines down". The characters are not people and were
+                  nowhere.
+                  
+                  Reported twice before it was fixed, which is the part worth
+                  recording: "the expanded quotes don't even have a pill".
+                  
+                  NOT A DUPLICATE OF THE PERSON CREDITS BELOW. A character and the
+                  performer who plays them are two records with two screens; the
+                  row below carries the performer, this one carries the part. On a
+                  book quote or a standalone one there are no characters at all and
+                  this draws nothing. */}
+              {f.raw?.character_images?.length > 0 && (
+                <SpeakerChips
+                  images={f.raw.character_images}
+                  speaker={f.raw.speaker_cast}
+                  onOpenCharacter={onOpenCharacter}
+                />
+              )}
               {peopleNames.length > 0 && (
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                   {peopleNames.map((n) => (

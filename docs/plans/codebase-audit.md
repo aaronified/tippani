@@ -17,7 +17,7 @@ Every one of these shipped green, compiled, and passed the suite:
 
 | What was wrong | What a reader saw |
 | --- | --- |
-| `chipRows` read its handler from `speaker.onOpen`, a key **no production caller sets** — all three pass `onOpenCharacter` instead | The stacked character chip, the first one a reader presses, was dead on Home, the Library's book cards and the film frame |
+| `chipRows` read its handler from `speaker.onOpen`, a key **Home did not set** — the Library's card and the film frame both spread it on, so one contract was kept in two places and Home kept neither | The stacked character chip, the first one a reader presses, was dead on the favourites wall and live on the other two — which is why it read as "some pills work and some don't" rather than as one broken component. *An earlier version of this row claimed no caller set it; that was wrong in scope and is corrected here rather than dropped.* |
 | `PersonName` handed back `{kind, name}` after `PersonChip` began handing back `{kind, name, person}` | Every credit drawn as a `PersonCredit` opened the legacy modal, so the pack's person screen looked absent rather than unreachable |
 | The person router existed in **one** screen's own closure; eighteen other call sites passed `setPerson` raw | Same as above, from twelve more places |
 | `usePicturePicker` returns a pair; the character sheet rendered only the trigger | The portrait toggled a block that was not on the page |
@@ -210,7 +210,7 @@ medium second, but `work` is an object each caller builds by hand and none carri
 now rides on `store.CastOf` (`internal/store/identity.go`) and `identityLocal.jsx` reads
 the **served** appearance row rather than the caller's object.
 
-### 3.5 OPEN — `onCreditNote` edits the wrong cast row
+### 3.5 FIXED — `onCreditNote` edited the wrong cast row
 
 `identity.jsx` discards the credit it is handed: `identityLocal.jsx:169` passes
 `onNote: (a) => onCreditNote?.(a)` and `creditRows` binds it per credit, but
@@ -218,9 +218,34 @@ the **served** appearance row rather than the caller's object.
 `saveAppearance(here, …)` — always `here`, the row the panel was opened on.
 
 **Failure:** a character with two credits on one film — an on-screen performer and a dub,
-the case 0063 exists for — pressing the **dub's** ✎ edits the **performer's** note. This
-was invisible while 3.1 made the field unreachable; **fixing 3.1 makes it live.** It is the
-highest-priority item in this document.
+the case 0063 exists for — pressing the **dub's** ✎ edited the **performer's** note. It was
+invisible while 3.1 made the field unreachable, so fixing 3.1 is what made it live.
+
+The note is now the only field on that form which belongs to a **credit** rather than to
+the casting the sheet is about: `noteCredit` holds whichever pencil was pressed, the box is
+labelled for that performer, and the save goes to that row rather than riding along with
+`here`'s part and age. Verified in Chromium against a character billed twice on one film —
+pressing the dub's ✎ labels the box "Note on Ranjit Sinha's credit" and loads the dub's own
+note.
+
+### 3.5b FIXED — the cast POST validated six fields and wrote none
+
+`cast_handlers.go`'s INSERT named `description` and nothing else, and its revive branch
+built its `set` from `req.Description` alone — while `castEdit` declares all six of 0063's
+fields and `validate` checks and caps all six. So a POST carrying `credit_lang` was
+validated, answered **201**, and dropped it. `handleUpdateCast` walks `creditFields()` and
+writes them; the add path never learned to.
+
+**It was live in a control that shipped an hour before it was found.** "Add a dubbing
+credit" sends `credit_lang`, and that field is the *only* thing that makes a credit a dub —
+`creditsFor` on the client splits on it — so a language typed there vanished and the row
+came back filed under the original cast.
+
+**Why the suite missed it.** `TestTheSixCreditFieldsRoundTrip` POSTs `{character, actor}`
+only, then asserts the six survive a **PUT**. Its own header names the risk — "six columns,
+one validator loop, one set-builder" — and there are **two** set-builders. Both now append
+from `creditFields()` so a seventh field cannot reach the validator and miss a writer, and
+`TestTheSixCreditFieldsSurviveTheADDPathToo` fails on all six without the fix.
 
 ### 3.6 OPEN — `LinkCastRow` leaves a stale `actor_id` when a performer is cleared
 
@@ -296,7 +321,7 @@ matters**; the rest are smaller and independent.
 | Picture size | `1280 × 720 px` above the verbs, inked `--error` under the floor | absent on this sheet | **Deviation** |
 | Header | glyph + name + `in Deathly Hallows – Part 2 · film` + ✕ on one header line | centred name + ✕; the glyph, name and crumb in a separate boxed row beneath | **Deviation** |
 | Qualifier chip (`CHAR-FILM`) | present | absent | **Justified** — PLAN.md's eight rulings, #4: "Drop it — the crumb and the cover-with-glyph already say the scope" |
-| Credit row | name plus a sub-line — `age 17 · and the epilogue at 36` | name only | **Deviation.** `part` and `age_here` are stored per cast row and not drawn |
+| Credit row | name plus a sub-line — `age 17 · and the epilogue at 36` | name plus its `credit_note` as a sub-line | **Match** — an earlier reading of this called it a deviation on the evidence of a row whose note was empty. With a note stored the app draws `Ranjit Sinha` over `the dub`, which is the prototype's shape and the prototype's field |
 | Credited as · the Played by / Voiced by pair · Part / First appears / Age here · the Note row · the two count tiles · The identity · Open the global record · Remove | — | — | Match |
 
 **Why the first row is the whole of the "polish" complaint.** The prototype's rows *are*

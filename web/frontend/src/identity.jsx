@@ -795,6 +795,11 @@ function CharacterBody({ stack, id, work, onSearch = null }) {
   const [counts, setCounts] = useState(null)
   const [form, setForm] = useState(null)
   const [busy, setBusy] = useState(false)
+  // WHOSE NOTE THE NOTE BOX IS, because the note is the one field on this form
+  // that belongs to a CREDIT rather than to the casting the sheet is about. A
+  // character billed twice on one work — the case 0063 re-cut its pair index for
+  // — has a note per credit, and null means "the sheet's own".
+  const [noteCredit, setNoteCredit] = useState(null)
   // The removal a work refused, with the number of quotes standing in its way.
   const [drop, setDrop] = useState(null)
   // THE NAME ROW IS A DISPLAY AND ITS EDITOR IS BEHIND IT, which is the pack's
@@ -1079,6 +1084,7 @@ function CharacterBody({ stack, id, work, onSearch = null }) {
   // panel's own established shape: a row states the value and pressing it focuses
   // the field that changes it. The fields are one block under the sheet so a
   // reader who opened one can see the rest.
+  const noteFor = noteCredit && here && noteCredit.cast_id !== here.cast_id ? noteCredit : (here || {})
   const localFields = here ? (
     <details className="cs-local-fields">
       <summary className="mono-label">{t('identity.local.fields.summary')}</summary>
@@ -1087,7 +1093,27 @@ function CharacterBody({ stack, id, work, onSearch = null }) {
         <Field inputId="char-part" label={t('identity.facts.part')} value={form.here_part ?? (here.part || '')} onChange={(v) => setForm({ ...form, here_part: v })} />
         <Field inputId="char-first" label={t('identity.facts.first')} value={form.here_first ?? (here.first_appears || '')} onChange={(v) => setForm({ ...form, here_first: v })} />
         <Field inputId="char-age" label={t('identity.facts.age')} value={form.here_age ?? (here.age_here || '')} onChange={(v) => setForm({ ...form, here_age: v })} />
-        <Field inputId="char-crednote" label={t('identity.row.note.label')} value={form.here_note ?? (here.credit_note || '')} onChange={(v) => setForm({ ...form, here_note: v })} rows={2} />
+        {/* THE NOTE BELONGS TO A CREDIT, NOT TO THE SHEET, and until `noteFor` it
+            was always the sheet's. `onCreditNote` was `() => focusField(…)` — an
+            arrow taking NO parameter, so the credit `identityLocal` hands it was
+            discarded — and this field was bound to `here`, the row the panel was
+            opened on. A character with two credits on one film, which is the case
+            0063 re-cut `idx_work_cast_pair` for, therefore had ONE note box: an
+            on-screen performer and a dub, and pressing the dub's ✎ opened and
+            saved the performer's note.
+            
+            It was invisible while the field was unreachable — the fold above it
+            was never opened — so fixing the fold is what made this live. That is
+            why it is a defect and not a nit: the press now looks like it worked. */}
+        <Field
+          inputId="char-crednote"
+          label={noteFor.cast_id === here.cast_id
+            ? t('identity.row.note.label')
+            : t('identity.row.note.for', { name: noteFor.actor || t('identity.credit.unnamed') })}
+          value={form.here_note ?? (noteFor.credit_note || '')}
+          onChange={(v) => setForm({ ...form, here_note: v })}
+          rows={2}
+        />
         <Field inputId="char-aliases" label={t('identity.local.fields.aliases')} value={form.here_aliases ?? (here.aliases || '')} onChange={(v) => setForm({ ...form, here_aliases: v })} />
         {/* THE TWO ADD ROWS HAD NOWHERE TO GO, and these are the fields they were
             always meant to reach. `onAddCredit` and `onAddDub` both focused
@@ -1127,6 +1153,25 @@ function CharacterBody({ stack, id, work, onSearch = null }) {
         <GhostButton
           disabled={busy}
           onClick={async () => {
+            // THE NOTE GOES TO ITS OWN ROW. Every other field on this form is a
+            // fact about the casting the sheet is about (`here`); the note is a
+            // fact about ONE credit, and which one is whichever pencil was
+            // pressed. Sending both in one PUT would make the note travel with
+            // `here`'s part and age, which is how it came to overwrite the wrong
+            // row in the first place.
+            const noteChanged = (form.here_note ?? noteFor.credit_note ?? '') !== (noteFor.credit_note ?? '')
+            if (noteChanged && noteFor.cast_id !== here.cast_id) {
+              if (!(await saveAppearance(noteFor, {
+                character: noteFor.character || '',
+                actor: noteFor.actor || '',
+                description: noteFor.description || '',
+                part: noteFor.part || '',
+                first_appears: noteFor.first_appears || '',
+                age_here: noteFor.age_here || '',
+                credit_note: form.here_note ?? '',
+                aliases: noteFor.aliases || '',
+              }))) return
+            }
             if (await saveAppearance(here, {
               character: (form.here_character ?? here.character ?? '').trim() || here.character,
               actor: here.actor || '',
@@ -1134,7 +1179,9 @@ function CharacterBody({ stack, id, work, onSearch = null }) {
               part: form.here_part ?? here.part ?? '',
               first_appears: form.here_first ?? here.first_appears ?? '',
               age_here: form.here_age ?? here.age_here ?? '',
-              credit_note: form.here_note ?? here.credit_note ?? '',
+              credit_note: noteFor.cast_id === here.cast_id
+                ? (form.here_note ?? here.credit_note ?? '')
+                : (here.credit_note ?? ''),
               aliases: form.here_aliases ?? here.aliases ?? '',
             })) toast(t('identity.credit.saved', { title: here.work_title }))
           }}
@@ -1228,7 +1275,7 @@ function CharacterBody({ stack, id, work, onSearch = null }) {
           onRemove={() => removeWork(here)}
           onRole={setRole}
           onOpenCredit={(a) => a.actor_id && stack.open(personPanel(stack, { id: a.actor_id, name: a.actor }))}
-          onCreditNote={() => focusField('char-crednote')}
+          onCreditNote={(a) => { setNoteCredit(a); setForm((f) => ({ ...f, here_note: undefined })); focusField('char-crednote') }}
           onCreditRemove={removeCredit}
           onAddCredit={() => focusField('char-addcredit')}
           onAddDub={() => focusField('char-adddub')}

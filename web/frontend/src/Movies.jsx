@@ -1738,7 +1738,8 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
         image: sp.image || '',
         actor_image: !sp.image && spActor?.image_path ? spActor.image_path : sp.actor_image || '',
         actor: sp.actor || d.actor || '',
-        onOpen: onOpenCharacter,
+        // `onOpen` is no longer spread here: chipRows reads the handler it is
+        // given, which is the prop below, so the object carries data only.
       }
     : null
   const chipCount = chipRows(d.character_images, speaker).length

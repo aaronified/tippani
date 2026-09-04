@@ -298,3 +298,64 @@ func TestAFilmKeepsSeveralUnnamedCreditsWhileABookRevives(t *testing.T) {
 		t.Fatal("the second unnamed credit revived the first instead of being its own row")
 	}
 }
+
+// AND ON THE WAY IN, NOT ONLY ON THE WAY THROUGH — which the case above does not
+// check, and its own header says why that matters: "six columns, one validator
+// loop, one set-builder". There are TWO set-builders. It POSTs `{character,
+// actor}` and asserts the six survive a PUT, so the add path was free to accept
+// all six, validate all six and store none, and did.
+//
+// WHAT IT COST. "Add a dubbing credit" on the character sheet sends `credit_lang`
+// and nothing else makes a credit a dub — `creditsFor` on the client splits on
+// exactly that field — so a language typed into it was validated, answered 201,
+// dropped, and the row came back filed under the original cast. A write that
+// succeeds while the screen denies it, with nothing anywhere reporting a fault.
+func TestTheSixCreditFieldsSurviveTheADDPathToo(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	m := decode[struct{ ID int64 }](t, c.mustDo("POST", "/movies",
+		map[string]any{"title": "Part 2", "media_type": "movie"}, http.StatusCreated))
+
+	// Every one of the six, on the POST itself.
+	row := decode[wireCastRow](t, c.mustDo("POST", "/movies/"+itoa(m.ID)+"/cast", map[string]any{
+		"character":     "Harry",
+		"actor":         "Rajesh Kava",
+		"credit_note":   "the Hindi dub, all releases",
+		"credit_lang":   "Hindi",
+		"part":          "Lead",
+		"first_appears": "00:02:14",
+		"age_here":      "17",
+		"aliases":       "Harry Potter",
+	}, http.StatusCreated))
+
+	for field, got := range map[string]string{
+		"credit_note":   row.CreditNote,
+		"credit_lang":   row.CreditLang,
+		"part":          row.Part,
+		"first_appears": row.FirstAppears,
+		"age_here":      row.AgeHere,
+		"aliases":       row.Aliases,
+	} {
+		if got == "" {
+			t.Errorf("POST /movies/{id}/cast accepted %s and stored nothing", field)
+		}
+	}
+	// THE LANGUAGE IS THE ONE THAT DECIDES A SCREEN, so it is asserted by value
+	// rather than by emptiness: a dub filed under the original cast is what the
+	// reader actually sees when this is wrong.
+	if row.CreditLang != "Hindi" {
+		t.Errorf("credit_lang = %q, want %q — a dub whose language is gone is not a dub", row.CreditLang, "Hindi")
+	}
+
+	// AND ON THE REVIVE BRANCH, the other way a POST creates a visible credit.
+	// Re-adding a dub somebody removed is exactly when a language is lost twice.
+	c.mustDo("DELETE", "/cast/"+itoa(row.ID), nil, http.StatusNoContent)
+	again := decode[wireCastRow](t, c.mustDo("POST", "/movies/"+itoa(m.ID)+"/cast", map[string]any{
+		"character": "Harry", "actor": "Rajesh Kava", "credit_lang": "Bengali",
+	}, http.StatusCreated))
+	if again.CreditLang != "Bengali" {
+		t.Errorf("reviving a tombstoned credit dropped its language: %q", again.CreditLang)
+	}
+}

@@ -2786,7 +2786,7 @@ common.work.details.done.tip = Save and close
 common.work.people.done.tip = Done
 common.work.fetch.label = Fetch metadata
 common.work.lookup.back.aria = Back to the fields
-common.work.lookup.pick.label = pick the closest match
+common.work.lookup.pick.label = Pick the match
 common.work.lookup.info.title = Fetch metadata
 common.work.lookup.info.body = Nothing is applied yet. Choosing a match opens a comparison of what you have against what it offers, and you tick the fields worth taking.
 # {noun} is a book or a title, from unit.*.
@@ -4183,7 +4183,6 @@ cover.editions.use.exact = Use: {title}
 cover.movie.search.aria = Search
 lookup.matches.label = Matches · {n}
 lookup.again.label = Search again
-lookup.again.how.label = Search again
 lookup.again.by-title.label = By title
 lookup.again.by-id.label = By id
 lookup.again.by-id.pinned = Pinned to {ids}. Change it in the Ids strip on the Details panel — one editor for every id, so two screens cannot disagree about one.
@@ -4195,8 +4194,6 @@ lookup.searched-by.nothing = nothing to search by yet
 common.work.merge.differ = {n} fields differ
 common.work.merge.take.none = Nothing ticked
 cover.movie.none = no matches found
-# Says why a match you did not search for is sitting at the top. {ids} is a list
-# of supplier ids, which are Latin in every language.
 
 error.validate.lookup-fields = enter a title, ISBN, or ASIN first
 
@@ -6323,6 +6320,7 @@ identity.facts.none = not set
 # The reader's own note on ONE casting. The sub-line has to say "this work only",
 # because the record's own description is the field that reaches every work and
 # the two look alike in a list.
+identity.row.note.for = Note on {name}’s credit
 identity.row.note.label = Note
 identity.row.note.sub = Yours, private, this work only
 identity.row.note.none = none

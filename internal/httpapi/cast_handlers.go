@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"net/http"
+	"strings"
 
 	"tippani/internal/olog"
 	"tippani/internal/store"
@@ -341,6 +342,17 @@ func (s *Server) handleAddCast(kind string) http.HandlerFunc {
 				set += `, description = ?`
 				args = append(args, *req.Description)
 			}
+			// AND THE SIX ON THIS BRANCH AS WELL, for the insert's reason. Reviving a
+			// tombstoned row is the other way a POST creates a visible credit, so a
+			// language dropped here is the same silent loss by a different door — and
+			// re-adding a dub somebody had removed is exactly when it happens.
+			for _, f := range req.creditFields() {
+				if *f.val == nil {
+					continue
+				}
+				set += ", " + f.col + " = ?"
+				args = append(args, **f.val)
+			}
 			args = append(args, id, uid)
 			if _, err := tx.Exec(
 				`UPDATE work_cast SET `+set+`, updated_at = datetime('now')
@@ -406,11 +418,35 @@ func (s *Server) handleAddCast(kind string) http.HandlerFunc {
 		if req.Description != nil {
 			desc = *req.Description
 		}
+		// 0063'S SIX ARE WRITTEN HERE TOO, and until this line they were not.
+		//
+		// `castEdit` declares all six, `validate` checks and caps all six, and the
+		// PUT path writes all six by walking `creditFields()` — but this INSERT
+		// named `description` and nothing else. So a POST carrying a language was
+		// validated, accepted, answered 201, and silently dropped it. That is worse
+		// than a rejection: the "Add a dubbing credit" row on the character sheet
+		// sends `credit_lang`, and `credit_lang` is the ONLY thing that makes a
+		// credit a dub — `creditsFor` splits on it — so the row came back filed
+		// under the original cast with the language gone, and nothing anywhere said
+		// so. A write that succeeds while the screen denies it.
+		//
+		// The columns are appended rather than listed inline because the set is
+		// `creditFields()`'s to define: a seventh field added there must not be
+		// able to arrive in the validator and miss the writer, which is exactly
+		// how these six did.
+		cols := []string{"user_id", "kind", "work_id", "character", "character_key", "actor", "actor_key",
+			"billing", "origin", "description", "character_id"}
+		vals := []any{uid, kind, workID, req.Character, charKey, req.Actor, actorKey, billing, castReader, desc, charID}
+		for _, f := range req.creditFields() {
+			if *f.val == nil {
+				continue
+			}
+			cols = append(cols, f.col)
+			vals = append(vals, **f.val)
+		}
 		res, err := tx.Exec(
-			`INSERT INTO work_cast (user_id, kind, work_id, character, character_key, actor, actor_key,
-			                        billing, origin, description, character_id)
-			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			uid, kind, workID, req.Character, charKey, req.Actor, actorKey, billing, castReader, desc, charID)
+			`INSERT INTO work_cast (`+strings.Join(cols, ", ")+`)
+			 VALUES (`+inClause(len(vals))+`)`, vals...)
 		if err != nil {
 			internalError(w, r, "add cast", err)
 			return

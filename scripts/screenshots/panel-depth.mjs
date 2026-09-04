@@ -17,6 +17,15 @@
 // WHAT IT PRESSES. The character sheet's "Open the global record", which is a
 // panel opening a panel from inside itself, and the shortest real path to it: a
 // film page, a cast chip, then that row.
+//
+// IT FAILS RATHER THAN SKIPS WHEN IT CANNOT FIND ITS SUBJECT, and the first
+// version did the opposite: three `process.exit(0)` skips, so `make panel-depth`
+// printed "SKIP no chip on this fixture opens a panel" and reported success —
+// while three separate places in the repo called this file the guard for the
+// race. A probe that cannot see its subject has learned nothing, and reporting
+// nothing as ok is how a guard becomes decoration. The fixture is the caller's
+// to get right: `--movie-id` must name a work whose cast row carries a character
+// record, and if it does not, that is a failure of the run and not a pass.
 import puppeteer from 'puppeteer-core'
 
 import { HARNESS_ACCOUNT, emulateEngineMedia, ensureSession, findBrowser, launchOptions } from './capture.mjs'
@@ -65,8 +74,9 @@ try {
     .map((x, i) => ({ i, dead: x.getAttribute('aria-disabled') === 'true', text: x.textContent.trim().slice(0, 30) }))
     .filter((x) => !x.dead))
   if (live.length === 0) {
-    console.log('SKIP  no live cast chip on this fixture — seed a work whose cast row has a character record')
-    process.exit(0)
+    console.log('FAIL  no live cast chip on movie ' + opts.movieId + ' — this probe cannot see its subject, ' +
+      'which is not the same as the subject being well')
+    process.exit(1)
   }
   let panelUp = false
   for (const c of live) {
@@ -81,8 +91,9 @@ try {
     }
   }
   if (!panelUp) {
-    console.log('SKIP  no chip on this fixture opens a panel — every live one is a person with no saved record')
-    process.exit(0)
+    console.log('FAIL  no chip on movie ' + opts.movieId + ' opens a panel — every live one is a person with ' +
+      'no saved record, so the door this probe exists to press is not on the page')
+    process.exit(1)
   }
 
   // Now the door the panel itself offers. `.cs-row` is the pack's row; the one
@@ -96,8 +107,8 @@ try {
     return before
   })
   if (pressed === null) {
-    console.log('SKIP  this sheet offers no panel-opening row')
-    process.exit(0)
+    console.log('FAIL  this sheet offers no panel-opening row, so the race cannot be exercised')
+    process.exit(1)
   }
 
   await new Promise((r) => setTimeout(r, 1200))

@@ -835,11 +835,15 @@ export function WorkDetails({ onClose, kind, item: seed, onChanged, onDelete, st
               ariaLabel={t('common.work.lookup.back.aria')}
               onClick={() => setView('fields')}
             />
-            {/* "PICK THE MATCH", which is the pack's title for this surface —
-                it read "pick the closest match", and "closest" is the word that
-                made a reader think one of them had to be taken. Nothing here
-                writes; the crumb saying what the search used is the picker's own,
-                because only it knows what it sent. */}
+            {/* "PICK THE MATCH", which is the pack's own title for this surface
+                (character-popup's sibling, work-details-popup.dc.html: `title:
+                'Pick the match'`). It read "pick the closest match" until the
+                string was renamed to match — an earlier version of this comment
+                described the rename before it had been done, which is the kind of
+                claim that makes a comment worse than none. "Closest" was also the
+                word that made a reader think one of them had to be taken;
+                nothing on this surface writes. The crumb saying what the search
+                used is the picker's own, because only it knows what it sent. */}
             <MonoLabel>{t('common.work.lookup.pick.label')}</MonoLabel>
             <InfoDot title={t('common.work.lookup.info.title')} text={t('common.work.lookup.info.body')} />
           </div>

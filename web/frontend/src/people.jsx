@@ -520,14 +520,19 @@ export function chipRows(images, speaker, onOpen) {
       // speaker object instead is the whole of a report: "the character pills
       // still don't open anything".
       //
-      // `speaker.onOpen` is a key no caller sets. All three of them — Home's
-      // favourite tile, the Library's book card, the film frame — pass the RAW
-      // API object (`speaker_cast`, straight off the wire) plus an
-      // `onOpenCharacter` prop, exactly as the named rows below do. So the
-      // speaker row's guard was false on every screen in the app, and the
-      // stacked chip a reader presses first — the character with its performer
-      // under it — was the one chip that could never open. The named rows worked,
-      // which is why it read as "some pills work and some don't".
+      // `speaker.onOpen` was a key HOME did not set, and Home alone — an earlier
+      // note here claimed no caller set it and that was wrong in scope, which is
+      // worth correcting rather than quietly dropping. The Library's book card
+      // and the film frame both spread it onto their speaker object
+      // (`Library.jsx`, `Movies.jsx`); Home passed `speaker_cast` straight off
+      // the wire. So the stacked chip — the character with its performer under
+      // it, the one a reader presses first — was dead on the favourites wall and
+      // live on the other two, which is why it read as "some pills work and some
+      // don't" rather than as one broken component.
+      //
+      // Reading the parameter is still the right shape: it is what the named rows
+      // below already use, so one handler now serves the whole row and the two
+      // callers that were compensating no longer have to.
       //
       // `sp` already carries what the caller needs: quoteSpeakerCast serves
       // cast_id, character_id, name and record_name. The named rows below build

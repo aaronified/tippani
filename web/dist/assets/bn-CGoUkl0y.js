@@ -2836,7 +2836,7 @@ common.work.details.done.tip = সেভ করে বন্ধ করুন
 common.work.people.done.tip = হয়ে গেছে
 common.work.fetch.label = মেটাডেটা আনুন
 common.work.lookup.back.aria = ঘরগুলোয় ফিরুন
-common.work.lookup.pick.label = সবচেয়ে কাছের মিলটা বাছুন
+common.work.lookup.pick.label = মিলটা বাছুন
 common.work.lookup.info.title = মেটাডেটা আনুন
 common.work.lookup.info.body = এখনও কিছুই বসেনি। একটা মিল বাছলে আপনার কাছে যা আছে আর সে যা দিচ্ছে, পাশাপাশি খোলে — যে ঘরগুলো নেওয়ার মতো, টিক দিন।
 # {noun} is a book or a title, from unit.*.
@@ -4226,7 +4226,6 @@ cover.editions.use.exact = নিন: {title}
 cover.movie.search.aria = খুঁজুন
 lookup.matches.label = মিল · {n}
 lookup.again.label = আবার খুঁজুন
-lookup.again.how.label = আবার খুঁজুন
 lookup.again.by-title.label = নাম ধরে
 lookup.again.by-id.label = id ধরে
 lookup.again.by-id.pinned = {ids}-এ বাঁধা। বদলাতে হলে বিবরণ প্যানেলের id-র সারিতে যান — সব id-র একটাই ঘর, তাই দুই পর্দার হিসেব আলাদা হয় না।
@@ -4238,8 +4237,6 @@ lookup.searched-by.nothing = এখনও খোঁজার কিছু নে
 common.work.merge.differ = {n}টা ঘরে অমিল
 common.work.merge.take.none = কিছুই টিক করা নেই
 cover.movie.none = কিছু মিলল না
-# Says why a match you did not search for is sitting at the top. {ids} is a list
-# of supplier ids, which are Latin in every language.
 
 error.validate.lookup-fields = আগে নাম, ISBN বা ASIN দিন
 
@@ -6320,6 +6317,7 @@ identity.facts.first = প্রথম আসে
 identity.facts.age = এখানে বয়স
 identity.facts.none = দেওয়া হয়নি
 
+identity.row.note.for = {name}-এর ক্রেডিটের নোট
 identity.row.note.label = নোট
 identity.row.note.sub = আপনার নিজের, কেবল এই কাজে
 identity.row.note.none = নেই

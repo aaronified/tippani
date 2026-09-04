@@ -37,6 +37,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The match picker reads as a list of matches.** Choosing between two records that share
+  a title was a grid of cards, one poster wide each, so on a phone you scrolled past three
+  posters and had to remember them. It is a row per match now — a small piece of artwork,
+  the title, the year and the medium, and the supplier's own mark rather than a lettered
+  pill — under a count that says how many came back. What the search actually used is
+  printed above them, and the controls to run it again sit below the results rather than
+  above, because you arrive here from a search that has already run. A game match finally
+  wears IGDB's own glyph instead of a question mark.
+- **The comparison after a fetch says how much is at stake.** Its heading carried the
+  supplier and not the size of the decision; it now says how many fields differ. The button
+  reads "Nothing ticked" rather than a greyed "Take 0 fields", and both pictures in the
+  poster row are measured, so a 342×513 poster offered against a 2000×3000 one says so.
+- **A character keeps its pill when you open a favourite.** Expanding a film line dropped
+  the character — the one chip that opens the character's page — and left only the
+  performer's credit, so the fact the line is *about* vanished at the moment you asked for
+  more detail.
+- **A cast credit keeps the details you give it when you add it.** Adding a performer or a
+  dubbing credit accepted a language, a part, a first appearance, an age and a note, said
+  it had saved, and stored none of them — only an edit made afterwards kept them. A dub is
+  a dub *because* of its language, so a dubbing credit added this way came back filed under
+  the original cast with the language gone.
+- **The note on a credit belongs to that credit.** A character played by one person and
+  dubbed by another has a note for each, and there was one box for both: pressing the dub's
+  pencil opened, and saved over, the performer's note. The box now says whose credit it is.
 - **The rows on a character's page do what they say.** Six of them — Credited as, Part,
   First appears, Age here and both notes — did nothing when pressed, because the fields
   they reach live in a fold that was never opened, and a field inside a closed fold cannot

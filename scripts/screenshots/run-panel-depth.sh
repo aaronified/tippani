@@ -37,7 +37,13 @@ fi
 
 node seed.mjs --base-url "http://$BIND"
 
+# AND THE CAST ROW THE PROBE'S SUBJECT NEEDS. seed.mjs gives the library its works
+# and quotes; a chip only becomes a DOOR when the work's cast knows the name the
+# line puts on it, which is a second seeding step. Without it this probe finds
+# only correctly-dead chips and now fails rather than reporting a hollow pass.
+node seed-cast.mjs --base-url "http://$BIND" --movie-id 2
+
 # Firefox refuses to start as root inside another user's X session, and this
 # harness has no use for a display either way.
 env -u XAUTHORITY -u DISPLAY -u WAYLAND_DISPLAY \
-  node panel-depth.mjs --base-url "http://$BIND" "$@"
+  node panel-depth.mjs --base-url "http://$BIND" --movie-id 2 "$@"
