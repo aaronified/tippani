@@ -267,9 +267,11 @@ worth nothing here and only execution counts. What the repo actually runs:
   every way it can break is silent: a greeting rendering `{name}` literally, a
   commemoration wishing you a happy one, or a country resolving to its neighbour's
   time zone. None of those throw, and none of them fail a build.
-- **Two harnesses run a real browser rather than a DOM emulator**, because the two
-  things they measure do not exist in jsdom. `make perf` measures how long the app
-  holds the main thread per action; `make typescale` turns every type dial to 200%,
+- **Six harnesses run a real browser rather than a DOM emulator**, because what they
+  measure does not exist in jsdom: `make perf`, `make typescale`, `make frame-scroll`,
+  `make panel-depth`, `make hero-control` and `make controls`. `make perf` measures how
+  long the app holds the main thread per action; `make typescale` turns every type dial
+  to 200%,
   sets the root font size to 24px, and fails when a screen clips something it did not
   clip before. The second is a DIFFERENCE and not a threshold on purpose: plenty of
   this app clips deliberately — a line-clamped intro, an ellipsised path — so a check
@@ -286,6 +288,33 @@ worth nothing here and only execution counts. What the repo actually runs:
   nothing. Tippani never sets a root font size — `applyTypeScale` writes finished
   pixels into `--type-*` — so setting the root to 24px alone leaves the app untouched
   and would have returned a clean bill of health for a stylesheet full of px boxes.
+- **`make controls` asks a question of every control instead of asserting a fix.** It
+  presses everything a reader can press on twelve surfaces and asks two things of each:
+  did anything at all change — a dialog, a panel, the route, focus, the scroll position,
+  the surface's own text — and if not, did the control SAY it was disabled. A control
+  that answers no to both is a lie to the reader whatever the reason, and the reason is
+  never visible from the outside. It also counts a menu's rows, and flags one that opens
+  empty.
+
+  It is written that way because the alternative does not work. A test that knows the
+  fix can be written to fail without it and still guard nothing — assert the exact
+  handler that was repaired and the next dead control beside it passes. This asks the
+  property, so a control nobody has looked at has to answer too. Its first run found the
+  ⋯ menu opening an EMPTY floating card on six of twelve screens: the desktop bar drops
+  its own Help row because a ? stands two controls away, and Home, Quotes, Search,
+  People, Stats and Settings publish no actions on a desktop at all — their
+  `useScreenBar` rows are `mobile &&` gated. Every screen rendered, the button opened,
+  and the defect was the ABSENCE of rows in a box one line tall. No screenshot review
+  and no unit test in this repo was ever going to see that.
+
+  Three of its own failure modes are failures rather than notes, which took three
+  separate lessons in one session to get right: a surface that draws almost nothing did
+  not render and is reported instead of scoring "0 controls, 0 dead"; a control that
+  moved between enumeration and the press was not tested and is reported instead of
+  skipped; and the run exits non-zero on any of the five lists. `panel-depth.mjs` and
+  `hero-control.mjs` each shipped with a silent SKIP that exited 0, and each was cited
+  in prose as a guard while a run of it could prove nothing at all.
+
 - **Two guards added in 2.2.0 were each watched to fail before being kept**, which
   is the same standard the rest of this list is held to and is worth naming because
   both protect something invisible. `CASE WHEN ? <> ''` in the cast merge is what

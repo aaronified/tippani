@@ -30,7 +30,7 @@
 // cast.jsx itself. A dynamic import has no static edge at all, so this module
 // stays a leaf and every screen can use it. The chunk is the one the panel is
 // about to render anyway.
-import { useCallback } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 
 // usePersonOpener — hand it the screen's panel stack and its legacy-modal setter,
 // get back the one handler every `onOpenPerson` should be given.
@@ -40,17 +40,31 @@ import { useCallback } from 'react'
 // that screen already had. It is not the goal — a screen that draws credits
 // should mount a `PanelHost` — but a missing stack must not be a dead press.
 export function usePersonOpener(stack, openLegacy) {
-  return useCallback(
-    (p) => {
-      const id = p?.person?.id
-      if (!id || !stack) {
-        openLegacy({ kind: p?.kind, name: p?.name })
-        return
-      }
-      import('./identity.jsx').then(({ personPanel }) => {
-        stack.open(personPanel(stack, { id, name: p.name }))
-      })
-    },
-    [stack, openLegacy],
-  )
+  // WHY THE ARGUMENTS ARE READ THROUGH A REF and not listed as deps, which is
+  // what this did first: `usePanelStack()` returns a FRESH OBJECT LITERAL every
+  // render — `{ stack, top, open, push, back, close }` — so `[stack, openLegacy]`
+  // differs on every render and the `useCallback` memoised nothing at all. It
+  // only bought a comparison and the appearance of a stable handler.
+  //
+  // The distinction matters because this handler's whole job is to be handed
+  // down: a film's PLAYED BY line, twelve credit sites on Search, the Library's
+  // author groups. A caller is entitled to assume the `onOpenPerson` it received
+  // is stable — `React.memo` on any chip that takes it depends on exactly that —
+  // and a dep list that changes every render quietly withdraws the guarantee
+  // while the code still reads as though it were given. The methods inside the
+  // object are themselves stable; only the wrapper is new, so the ref costs
+  // nothing and the handler becomes what it claims to be.
+  const latest = useRef({ stack, openLegacy })
+  useEffect(() => { latest.current = { stack, openLegacy } })
+  return useCallback((p) => {
+    const { stack: s, openLegacy: legacy } = latest.current
+    const id = p?.person?.id
+    if (!id || !s) {
+      legacy({ kind: p?.kind, name: p?.name })
+      return
+    }
+    import('./identity.jsx').then(({ personPanel }) => {
+      s.open(personPanel(s, { id, name: p.name }))
+    })
+  }, [])
 }

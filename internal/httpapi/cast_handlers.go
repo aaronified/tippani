@@ -409,11 +409,6 @@ func (s *Server) handleAddCast(kind string) http.HandlerFunc {
 		// this table, and see cast.go's insert for why a row without one is a chip
 		// that opens nothing. A hand-added cast row is the path where the reader is
 		// most obviously naming somebody they mean to be able to open.
-		charID, cerr := store.CharacterForCast(tx, uid, kind, workID, req.Character)
-		if cerr != nil {
-			internalError(w, r, "add cast: character record", cerr)
-			return
-		}
 		desc := ""
 		if req.Description != nil {
 			desc = *req.Description
@@ -435,8 +430,8 @@ func (s *Server) handleAddCast(kind string) http.HandlerFunc {
 		// able to arrive in the validator and miss the writer, which is exactly
 		// how these six did.
 		cols := []string{"user_id", "kind", "work_id", "character", "character_key", "actor", "actor_key",
-			"billing", "origin", "description", "character_id"}
-		vals := []any{uid, kind, workID, req.Character, charKey, req.Actor, actorKey, billing, castReader, desc, charID}
+			"billing", "origin", "description"}
+		vals := []any{uid, kind, workID, req.Character, charKey, req.Actor, actorKey, billing, castReader, desc}
 		for _, f := range req.creditFields() {
 			if *f.val == nil {
 				continue

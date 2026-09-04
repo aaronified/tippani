@@ -734,10 +734,26 @@ function ScreenMenu({ screen, className, glyph = 22, withHelp = true }) {
   // the screen published. It is the one action that is never the screen's to
   // offer — and a menu claiming to be complete that omitted it would be wrong on
   // the several screens where the screen itself publishes nothing at all.
+  //
+  // WHICH IS WHY `withHelp: false` IS A PREFERENCE AND NOT A VETO, and reading it
+  // as a veto is what left this menu EMPTY on six screens. The desktop bar passes
+  // false because it draws its own ? two controls away, which is right while the
+  // screen has published something: listing the same door twice in one corner of
+  // one bar is clutter. But Home, Quotes, Search, People, Stats and Settings
+  // publish NOTHING on a desktop — their `useScreenBar` rows are `mobile &&`
+  // gated, or they only set `sub` — so on half the app the ⋯ opened a floating
+  // card with no rows in it at all. An empty menu is worse than the same door
+  // twice: the reader pressed a control and got a blank.
+  //
+  // Found by pressing every control on every screen and asking what changed
+  // (`scripts/screenshots/controls.mjs`), which is the only way this was ever
+  // going to show up — every screen renders, the button opens, and the defect is
+  // the ABSENCE of rows in a card that is one line tall.
+  const published = open ? buildScreenActions() : []
   const items = open
     ? [
-        ...buildScreenActions(),
-        ...(withHelp
+        ...published,
+        ...(withHelp || !published.length
           ? [{ id: 'help', icon: <IconHelp size={24} />, label: t('shell.help.menu.label'), onClick: () => setHelpOpen(true) }]
           : []),
       ]

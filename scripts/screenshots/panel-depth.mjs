@@ -9,10 +9,21 @@
 // that had just been opened. Pressing a panel's own door therefore closed
 // everything and opened nothing.
 //
-// IT IS BROWSER-ONLY. jsdom dispatches popstate on a schedule that does not lose
-// to a frame callback, so `test/dom/panel-opens-panel.test.jsx` passes against
-// the broken implementation as readily as the fixed one — which is exactly why
-// that file says so and this one exists. Chromium is where the ordering is real.
+// IT IS BROWSER-ONLY, AND IT DOES CATCH THE RACE. Reverted to the shipped
+// `requestAnimationFrame(() => push(panel))` on a freshly rebuilt binary — the
+// embed verified by asset hash, because a stale one has produced a false reading
+// here before — it prints `FAIL … left NOTHING open (depth 0)` and exits 1, five
+// runs out of five. Against the fix: `ok … depth 1`. jsdom cannot do this;
+// `test/dom/panel-opens-panel.test.jsx` passes either way and says so.
+//
+// A RETRACTION THAT WAS ITSELF WRONG, recorded because it nearly shipped. One
+// run of this probe against the broken version came back `ok`, and that single
+// observation was generalised into "the probe does not discriminate" and written
+// into four places, this header among them. Five controlled runs then failed
+// five times. The anomaly was almost certainly a seeding gap in that one attempt
+// — the chip it pressed reached a different surface — and the lesson is the
+// obvious one: a single pass is not evidence of a negative, and a probe that
+// depends on a seeded fixture must be run with the seed verified.
 //
 // WHAT IT PRESSES. The character sheet's "Open the global record", which is a
 // panel opening a panel from inside itself, and the shortest real path to it: a

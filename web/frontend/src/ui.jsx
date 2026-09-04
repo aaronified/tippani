@@ -3841,9 +3841,17 @@ export function usePanelStack() {
   //
   // A one-shot popstate listener is the fix: the stack's own handler is
   // registered first, so it has already truncated by the time this one pushes.
-  // The timeout is a belt: a `go` that cannot move (a history the app does not
-  // own) would otherwise leave the press dead, and a late push onto an empty
-  // stack is exactly what was wanted anyway.
+  //
+  // AND THERE IS NO TIMEOUT BEHIND IT, though there was — a 250ms
+  // `setTimeout(land, 250)` "belt" whose own comment claimed it saved a press
+  // when `go` could not move. It could not, and the discriminator below is why:
+  // `land` pushes only onto an EMPTY stack, so the one case the timer was
+  // supposed to cover — no pop arrived, stack still n deep — is the case where
+  // it abandons. When the pop did arrive the listener had already settled it.
+  // Dead on both branches, and not harmlessly: its firing was the one path by
+  // which a stack emptied by something else (a ✕ pressed in the window) could be
+  // handed back the panel the reader had just dismissed. `go(-n)` cannot fail to
+  // move here anyway — reaching this branch means `push` wrote n entries.
   const open = useCallback((panel) => {
     const n = depthRef.current;
     if (n === 0) {
@@ -3872,7 +3880,6 @@ export function usePanelStack() {
     const stop = () => {
       settled = true;
       window.removeEventListener("popstate", land);
-      clearTimeout(timer);
       if (pendingOpen.current === cancel) pendingOpen.current = null;
     };
     const cancel = () => {
@@ -3887,9 +3894,9 @@ export function usePanelStack() {
       // the depth from before the pop, and testing it here rejected every pop
       // including ours. The functional setter sees the truncation that actually
       // happened: our `go(-n)` empties the stack, and a pop somebody else caused
-      // (a Back press inside the 250ms window, another stack's close) leaves
-      // something on it. Where it does, their intent wins and this open is
-      // abandoned rather than pushed on top of wherever they went.
+      // (a Back press between the `go` and its pop, another stack's close)
+      // leaves something on it. Where it does, their intent wins and this open
+      // is abandoned rather than pushed on top of wherever they went.
       setStack((cur) => {
         if (cur.length !== 0) return cur;
         window.history.pushState(
@@ -3898,7 +3905,6 @@ export function usePanelStack() {
         return [panel];
       });
     }
-    const timer = setTimeout(land, 250);
     window.addEventListener("popstate", land);
     pendingOpen.current = cancel;
     window.history.go(-n);

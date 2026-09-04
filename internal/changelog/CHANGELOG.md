@@ -35,8 +35,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   be typed anywhere. It is still stored and still shown on every credit; there is just
   nowhere to change it until it is given a home.
 
+- **Changing a fact on a character's page happens where you pressed.** Every row on those
+  pages states a value; pressing one used to jump you most of a screen down into an
+  unlabelled box inside a fold, and on the character-in-a-work page that fold was closed,
+  so six rows did nothing at all. A press now opens a small sheet carrying that one field,
+  with the app's ✓ and ✕ on it — the ✓ counting what the press will change. The name row
+  went with it: what a work calls a character and what else it calls them were two boxes
+  editing one fact, and they are now one, a name per line, the first line being the one
+  that prints on quotes and credits.
+- **The two record pages commit with the ✓ in their header**, like every other panel in
+  the app, instead of a Save button halfway down their own body — so the tick lights and
+  counts once something has actually changed, and closing with unsaved typing asks first
+  rather than discarding it silently.
+
 ### Fixed
 
+- **Every screen's ⋯ has something in it.** On a desktop, Home, Quotes, Search, People,
+  Stats and Settings opened an empty card: the menu drops its own Help row when the ?
+  beside it is already on the bar, and those six screens contribute no actions of their
+  own there. Help stays whenever the screen has nothing else to offer.
 - **The match picker reads as a list of matches.** Choosing between two records that share
   a title was a grid of cards, one poster wide each, so on a phone you scrolled past three
   posters and had to remember them. It is a row per match now — a small piece of artwork,

@@ -30,11 +30,13 @@
 // But it does NOT guard the race, and saying so is the point. Written against the
 // shipped `requestAnimationFrame` version these three cases still pass, because
 // jsdom's `history.go` dispatches popstate on a schedule that does not lose to a
-// frame callback. The ordering that breaks is Chromium's. A test that passes on
-// the broken code is not a guard however carefully it is worded, and the honest
-// place for this one is the browser: `scripts/screenshots/panel-depth.mjs`
-// presses a panel's own door in Chromium and fails when the second panel is not
-// there afterwards. That probe is the guard; this file is the contract.
+// frame callback. The ordering that breaks is Chromium's.
+//
+// THE BROWSER PROBE DOES GUARD IT. `scripts/screenshots/panel-depth.mjs`
+// presses a panel's own door in Chromium and, against the rAF version on a
+// freshly rebuilt binary, fails five runs out of five with "left NOTHING open
+// (depth 0)". So this file pins the replace-not-deepen contract and that one
+// pins the ordering; neither stands in for the other.
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it } from 'vitest'

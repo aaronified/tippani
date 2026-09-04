@@ -12,7 +12,7 @@ TVDB_TOKEN ?=
 LDFLAGS := -s -w -X tippani/internal/buildinfo.Version=$(VERSION) \
 	-X main.defaultTMDBKey=$(TMDB_TOKEN) -X main.defaultTVDBKey=$(TVDB_TOKEN)
 
-.PHONY: build frontend glossary changelog test run clean typescale frame-scroll panel-depth hero-control
+.PHONY: build frontend glossary changelog test run clean typescale frame-scroll panel-depth hero-control controls
 
 ## build: static binary with the currently built (or placeholder) frontend embedded
 build:
@@ -60,6 +60,15 @@ panel-depth:
 ## that because the title's box is then the taller of the two.
 hero-control:
 	bash scripts/screenshots/run-hero-control.sh
+
+## controls: press every control on every screen and fail on any that does nothing
+## without saying it is disabled, on any menu that opens with no rows in it, and on
+## any control under the 44px touch floor at phone width. A property rather than a
+## regression: it knows about no particular defect, which is how it found six screens
+## whose ⋯ opened an empty card — every screen rendered, the button opened, and the
+## defect was the ABSENCE of rows in a one-line box.
+controls:
+	bash scripts/screenshots/run-controls.sh
 
 ## perf: measure main-thread blocking per action against a scratch server, and fail
 ## when any action crosses the budget. See scripts/perf/README.md for what the number

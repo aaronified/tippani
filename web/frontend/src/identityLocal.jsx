@@ -145,7 +145,6 @@ export function CharacterLocal({
   // agree by construction rather than by one trusting the other's English.
   counts = null,
   works = [],
-  children,
 }) {
   // The sub-line under the name: what else this work calls them. Stored as the
   // reader typed it, so it is split on the same separator the pack prints.
@@ -327,7 +326,6 @@ export function CharacterLocal({
         danger
         onClick={onRemove}
       />
-      {children}
     </ScreenBody>
   )
 }

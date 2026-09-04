@@ -133,14 +133,26 @@ describe('components used in JSX are imported', () => {
     'usePersistedState', 'useScreenBar', 'usePanelStack',
   ]
 
+  // COMMENTS ARE NOT CODE, and this scan read them as code until a header
+  // explaining why `usePanelStack()` hands back a fresh object every render
+  // reported personOpen.jsx as calling a helper it does not import. Explaining
+  // itself in prose is what every file in this repo does, and naming the call it
+  // is talking about is how that prose reads — so a checker that cannot tell the
+  // two apart cries wolf on good comments, and a checker that cries wolf gets
+  // switched off. The `[^:]` guard leaves `https://` alone.
+  const stripComments = (src) => src
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/(^|[^:])\/\/.*$/gm, '$1')
+
   it('has no undefined helper CALL in any screen', () => {
     // The same rule as above with the same shape of answer, over calls rather than
     // tags. `t(` is deliberately absent from the list: it is in every file and its
     // single letter matches too much to be read this way.
     const missing = []
     for (const file of FILES) {
-      const src = readFileSync(join(SRC, file), 'utf8')
-      const have = declaredIn(src)
+      const raw = readFileSync(join(SRC, file), 'utf8')
+      const src = stripComments(raw)
+      const have = declaredIn(raw)
       for (const name of HELPERS) {
         if (have.has(name)) continue
         // A call, not a mention: the name followed by an opening bracket, with a

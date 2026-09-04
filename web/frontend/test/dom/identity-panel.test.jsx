@@ -9,6 +9,7 @@
 // lost the distinction — which is the failure worth guarding.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { useEffect } from 'react'
 
 let PERSON
 let CHARACTER
@@ -45,10 +46,30 @@ vi.mock('../../src/api.js', async (orig) => ({
 }))
 
 const { personPanel, characterPanel } = await import('../../src/identity.jsx')
+// The panel chrome, so the one case that presses commit presses the ✓ the app
+// actually draws — see inPanel below.
+const { PanelHost, usePanelStack } = await import('../../src/ui.jsx')
 
 // The panel machinery renders through a portal from a descriptor; the body is
 // what this file is about, so it is rendered directly.
 const body = (panel) => panel.render()
+
+// inPanel — the same panel, mounted the way the app mounts it.
+//
+// WHY IT EXISTS. `body()` renders a panel's contents with nothing around them,
+// which is right for the twenty-five cases that only READ the sheet. It is not
+// right for the one that presses commit, because the commit is the panel's — the
+// sheet's form joins the head's ✓ through `useFormHost`, exactly as the standing
+// tick/cross rule requires, and a body rendered outside a `PanelHost` has no head
+// and therefore no ✓. The old spelling of that case pressed a `GhostButton`
+// reading "Save" inside the body; that button was the rule's violation, so a test
+// that requires it to exist would pin the defect in place.
+function InPanel({ panel }) {
+  const stack = usePanelStack()
+  useEffect(() => { stack.open(panel) }, [])
+  return <PanelHost stack={stack} />
+}
+const inPanel = (panel) => <InPanel panel={panel} />
 
 // openSpellings — press the name row, which is what reveals the chips.
 //
@@ -138,9 +159,14 @@ describe('a person panel says which scope you are in', () => {
 
   it('writes the record to /people/id, and that is the only writer it has', async () => {
     const stack = { push: vi.fn(), open: vi.fn() }
-    render(body(personPanel(stack, { id: 7, name: 'Mikhail Bulgakov' })))
+    render(inPanel(personPanel(stack, { id: 7, name: 'Mikhail Bulgakov' })))
     await screen.findByText(/^The person$/i)
-    act(() => screen.getAllByText('Save')[0].closest('button').click())
+    // BY ROLE AND NAME, not by text node: the commit is the panel head's ✓, whose
+    // name is on an aria-label rather than between its tags. Asking for "the
+    // control called Save" is also the question a reader asks, so this survives
+    // the verb moving again.
+    const tick = await screen.findByRole('button', { name: /^Save$/i })
+    act(() => tick.click())
     await waitFor(() => expect(CALLS.some(([m, p]) => m === 'PUT' && p === '/people/id/7')).toBe(true))
     expect(
       CALLS.some(([m, p]) => m === 'PUT' && p === '/credits'),

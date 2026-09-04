@@ -154,16 +154,11 @@ func (s *Server) adoptQuoteCharacters(uid int64, kind string, workID int64) {
 		// insert for the whole argument. A failure here skips the one row rather
 		// than abandoning the adoption: this whole function is best-effort, and a
 		// name on a quote is a weaker claim than a provider's cast list.
-		charID, cerr := store.CharacterForCast(tx, uid, kind, workID, c.name)
-		if cerr != nil {
-			olog.Warnf(olog.CodeCastRowScan, "[cast] adopt %q: no character record: %v", c.name, cerr)
-			continue
-		}
 		res, err := tx.Exec(
 			`INSERT INTO work_cast (user_id, kind, work_id, character, character_key, actor, actor_key,
-			                        billing, origin, character_id)
-			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			uid, kind, workID, c.name, c.key, c.actor, store.CastKey(c.actor), billing, castReader, charID)
+			                        billing, origin)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			uid, kind, workID, c.name, c.key, c.actor, store.CastKey(c.actor), billing, castReader)
 		if err != nil {
 			olog.Warnf(olog.CodeCastRowScan, "[cast] adopt %q on %s %d: %v", c.name, kind, workID, err)
 			return

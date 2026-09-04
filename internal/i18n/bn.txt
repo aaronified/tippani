@@ -6346,8 +6346,12 @@ identity.row.unlink.label.show = এই ধারাবাহিক থেকে
 identity.row.unlink.label.game = এই খেলা থেকে সরান
 identity.row.unlink.sub.book = অন্য কাজে বিশ্বজনীন চরিত্রটি থেকে যায়
 identity.row.unlink.sub.cast = অন্য কাজে বিশ্বজনীন চরিত্রটি থেকে যায়; মানুষের রেকর্ডও থাকে
-identity.local.fields.summary = এই কাজ যা বলে তা বদলান
-identity.local.fields.aliases = এখানে আরও যে নামে ডাকা হয়
+identity.picker.blocked = আগে কিছু লিখুন
+identity.picker.save.tip = শুধু এই একটা ঘর লেখে
+identity.local.names.hint = এক লাইনে একটা নাম। প্রথম লাইনের নামটাই উদ্ধৃতি আর কৃতিত্বে ছাপা হয়; বাকিগুলো খোঁজে পাওয়া যাবে।
+identity.local.names.placeholder = যে নামটা ছাপা হবে\nআরেকটা বানান
+identity.local.names.saved = নাম সেভ হয়েছে — প্রথম লাইনটা ছাপা হবে
+identity.credit.add.blocked = আগে অভিনেতার নাম দিন
 # ---- অভিনেতার ব্লক, char-film আর char-game-এ -----------------------
 identity.section.actorby = অভিনয়ে
 identity.section.voiceby = কণ্ঠে

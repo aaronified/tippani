@@ -6356,8 +6356,21 @@ identity.row.unlink.label.show = Remove from this show
 identity.row.unlink.label.game = Remove from this game
 identity.row.unlink.sub.book = Other works retain the global character
 identity.row.unlink.sub.cast = Other works retain the global character; people keep their records
-identity.local.fields.summary = Edit what this work says
-identity.local.fields.aliases = Also called here
+# ---- the picker, which is how every row above is changed --------------------
+# THE PACK'S `openPicker`, and the reason it is one sheet rather than nine. A row
+# on an identity screen states its value and opens this to change it; the sheet
+# asks one question, wears the app's ✓ / ✕ pair, and counts what the press will
+# write. What it replaces is a block of plain inputs behind one "Save" button,
+# which is neither half of that pair.
+identity.picker.blocked = Type something first
+identity.picker.save.tip = Writes this one field
+# ONE FIELD FOR THE NAME AND EVERY OTHER NAME — the pack's ruling, and its
+# reasoning: two rows editing one fact made the printing name look like a
+# different KIND of thing from its spellings, when it is only the first of them.
+identity.local.names.hint = One name per line. The first line is the name that prints on quotes and credits; the rest are spellings search will find.
+identity.local.names.placeholder = The name that prints\nAnother spelling
+identity.local.names.saved = Names saved — the first line prints
+identity.credit.add.blocked = Name the performer first
 # ---- the performer block, on char-film and char-game -----------------------
 # THE HEADING IS THE CONTROL, because there are exactly two answers. A film's
 # cast is played and a game's is voiced — usually. An animated feature is a film

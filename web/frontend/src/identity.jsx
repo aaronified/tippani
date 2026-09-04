@@ -32,6 +32,7 @@ import { movieState } from './Movies.jsx'
 import { CharacterGlobal, PersonGlobal } from './identityGlobal.jsx'
 import { identityScope } from './identityScope.js'
 import { CharacterLocal } from './identityLocal.jsx'
+import { FieldPicker } from './identityPicker.jsx'
 import { buildProviderLink, isOrganisation, personImgURL, providerLinksFor, ProviderChips, SpeakerChips } from './people.jsx'
 import { Silhouette } from './silhouette.jsx'
 import {
@@ -118,19 +119,21 @@ function Field({ label, value, onChange, rows = 0, inputId }) {
 // focusField — the shortcut a pack row performs. Scrolled into view first,
 // because a caret that lands off-screen reads as a press that did nothing.
 //
-// IT OPENS WHATEVER THE FIELD IS FOLDED INSIDE, and without that it did nothing
-// at all on this panel's local sheet. The six per-work fields live in a
-// `<details className="cs-local-fields">` with no `open` attribute and no
-// stylesheet rule to force one — so `getElementById` found them and neither
-// `scrollIntoView` nor `focus()` could act, because a closed disclosure does not
-// render its children and an unrendered element is not a focusable area. Pressing
-// "Credited as", Part, First appears, Age here or either Note row therefore did
-// NOTHING, on a panel whose whole shape is "the row states the value, press it to
-// change it". Six of that sheet's rows read as unbuilt from one missing attribute.
+// THE LOCAL SHEET NO LONGER USES THIS, and the reason is worth keeping because it
+// is why the mechanism is the wrong one wherever it can be avoided. Its six
+// per-work fields sat in a `<details className="cs-local-fields">` with no `open`
+// attribute and no stylesheet rule to force one, so `getElementById` found the
+// element and neither `scrollIntoView` nor `focus()` could act: a closed
+// disclosure does not render its children, and an unrendered element is not a
+// focusable area. Six rows on a panel whose whole shape is "the row states the
+// value, press it to change it" therefore did nothing. Teaching this function to
+// open the fold made them work; giving those rows the pack's picker instead
+// (`identityPicker.jsx`) means there is no fold, no caret and no id to get wrong.
 //
-// Every closed ancestor is opened rather than just the nearest, because nesting
-// one disclosure in another is a thing this file may do later and a half-opened
-// chain is the same dead press with a harder cause.
+// The two GLOBAL scopes still call it, and until their blocks get the same
+// treatment the fold-opening walk stays: every closed ancestor rather than just
+// the nearest, because a half-opened chain is the same dead press with a harder
+// cause.
 function focusField(id) {
   const el = typeof document === 'undefined' ? null : document.getElementById(id)
   if (!el) return
@@ -139,6 +142,59 @@ function focusField(id) {
   }
   el.scrollIntoView({ block: 'center', behavior: 'smooth' })
   el.focus()
+}
+
+// GlobalFields — the identity's own fields, wearing the panel's own tick and cross.
+//
+// WHAT IT REPLACES. The two global sheets each carried this block with a
+// `GhostButton` reading "Save" under it, and that button is neither half of the
+// standing pair: it cannot go red, it carries no count, and the panel's ✓ — which
+// `PanelHost` draws from whatever its body registers — stayed absent, because
+// nothing registered. So a panel that is entirely a form had a commit verb in its
+// body and an empty slot in its head, and its ✕ threw away typing without asking.
+//
+// WHY IT IS A COMPONENT AND NOT A BLOCK, which is the whole reason this is fifteen
+// lines rather than three. `useFormHost` must be called by a CHILD of the surface
+// it joins — CLAUDE.md lists that under Gotchas — and it has no way to say "there
+// is no form here": `setBlocked(reason || "")` registers a ✓ whatever it is
+// passed. A hook called at the top of a body that renders three scopes would
+// therefore draw a ✓ on all three, and on the two holding no form that ✓ would
+// submit nothing. A dead control in the panel's head is the exact defect this file
+// has spent the session clearing. Mounting the form as its own component is what
+// makes "there is a form here" and "there is a ✓ here" one fact instead of two.
+function GlobalFields({ fields, form, onForm, stored, busy, blocked, onSave }) {
+  // WHAT THIS PRESS WILL CHANGE, field by field against what is stored — not
+  // "the form has been touched". Retyping a value is not a change and neither is
+  // focus, which is the half of the rule that keeps a lit tick worth reading.
+  const changed = fields.filter(
+    (f) => String(form?.[f.key] ?? '').trim() !== String(stored?.[f.key] ?? '').trim(),
+  ).length
+  const host = useFormHost(busy ? t('common.action.save.busy') : (blocked || ''))
+  useEffect(() => {
+    host?.setDirty?.(changed)
+    return () => host?.setDirty?.(0)
+  }, [host, changed])
+  return (
+    <form
+      id={host?.formId}
+      style={FIELDS}
+      onSubmit={(e) => {
+        e.preventDefault()
+        if (!busy && !blocked) onSave()
+      }}
+    >
+      {fields.map((f) => (
+        <Field
+          key={f.key}
+          inputId={f.id}
+          label={f.label}
+          value={form?.[f.key] ?? ''}
+          rows={f.rows || 0}
+          onChange={(v) => onForm({ ...form, [f.key]: v })}
+        />
+      ))}
+    </form>
+  )
 }
 
 // AliasRow — the spellings that FIND this record, with the acts that add one,
@@ -719,23 +775,28 @@ function PersonBody({ stack, id, work }) {
               <AliasRow aliases={data.aliases || []} onAdd={addAlias} onRemove={removeAlias} onSplit={splitAlias} />
             </>
           ) : null}
-          <div style={FIELDS}>
-            <Portrait person={data} busy={busy} onPicked={setPortrait} onClear={() => setPortrait('')} />
-            <Field inputId="person-name" label={t('common.field.name.label')} value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
-            <Field inputId="person-sort" label={t('identity.field.sort')} value={form.sort_name} onChange={(v) => setForm({ ...form, sort_name: v })} />
-            {/* Founded/Closed for a company, born/died for a person — the same
-                predicate the screen above is headed by, so the row and the field
-                it focuses cannot disagree about what this record is. */}
-            <Field inputId="person-born" label={org ? t('people.form.founded.label') : t('identity.field.born')} value={form.born} onChange={(v) => setForm({ ...form, born: v })} />
-            <Field inputId="person-died" label={org ? t('people.form.closed.label') : t('identity.field.died')} value={form.died} onChange={(v) => setForm({ ...form, died: v })} />
-            <Field inputId="person-links" label={t('identity.field.links')} value={form.links} onChange={(v) => setForm({ ...form, links: v })} rows={2} />
-            <Field inputId="person-note" label={t('identity.field.note')} value={form.note} onChange={(v) => setForm({ ...form, note: v })} rows={2} />
-            <div className="flex justify-end">
-              <GhostButton className="tp-btn-primary" disabled={busy || !form.name.trim()} onClick={save}>
-                {t('common.action.save.label')}
-              </GhostButton>
-            </div>
-          </div>
+          {/* THE PORTRAIT SAVES ITSELF and is not part of the form — see
+              setPortrait. It stays outside so the ✓'s count means fields. */}
+          <Portrait person={data} busy={busy} onPicked={setPortrait} onClear={() => setPortrait('')} />
+          <GlobalFields
+            /* Founded/Closed for a company, born/died for a person — the same
+               predicate the screen above is headed by, so a row and the field it
+               opens cannot disagree about what this record is. */
+            fields={[
+              { key: 'name', id: 'person-name', label: t('common.field.name.label') },
+              { key: 'sort_name', id: 'person-sort', label: t('identity.field.sort') },
+              { key: 'born', id: 'person-born', label: org ? t('people.form.founded.label') : t('identity.field.born') },
+              { key: 'died', id: 'person-died', label: org ? t('people.form.closed.label') : t('identity.field.died') },
+              { key: 'links', id: 'person-links', label: t('identity.field.links'), rows: 2 },
+              { key: 'note', id: 'person-note', label: t('identity.field.note'), rows: 2 },
+            ]}
+            form={form}
+            onForm={setForm}
+            stored={data}
+            busy={busy}
+            blocked={form.name.trim() ? '' : t('error.validate.name-required')}
+            onSave={save}
+          />
           <div id="person-merge">
             <MergeControl into={data} onMerged={load} onError={setErr} org={org} />
           </div>
@@ -800,6 +861,8 @@ function CharacterBody({ stack, id, work, onSearch = null }) {
   // character billed twice on one work — the case 0063 re-cut its pair index for
   // — has a note per credit, and null means "the sheet's own".
   const [noteCredit, setNoteCredit] = useState(null)
+  // The pack's one sheet, as a spec. null = closed. See the picker block below.
+  const [picker, setPicker] = useState(null)
   // The removal a work refused, with the number of quotes standing in its way.
   const [drop, setDrop] = useState(null)
   // THE NAME ROW IS A DISPLAY AND ITS EDITOR IS BEHIND IT, which is the pack's
@@ -1082,115 +1145,118 @@ function CharacterBody({ stack, id, work, onSearch = null }) {
 
   // THE ROWS ARE DISPLAYS AND THEIR EDITORS ARE BEHIND THEM, which is this
   // panel's own established shape: a row states the value and pressing it focuses
-  // the field that changes it. The fields are one block under the sheet so a
-  // reader who opened one can see the rest.
+  // the field that changes it. Which credit the note belongs to is whichever ✎
+  // was pressed — see `noteCredit` above.
   const noteFor = noteCredit && here && noteCredit.cast_id !== here.cast_id ? noteCredit : (here || {})
-  const localFields = here ? (
-    <details className="cs-local-fields">
-      <summary className="mono-label">{t('identity.local.fields.summary')}</summary>
-      <div style={STACK}>
-        <Field inputId="char-called" label={t('identity.row.called.label')} value={form.here_character ?? (here.character || '')} onChange={(v) => setForm({ ...form, here_character: v })} />
-        <Field inputId="char-part" label={t('identity.facts.part')} value={form.here_part ?? (here.part || '')} onChange={(v) => setForm({ ...form, here_part: v })} />
-        <Field inputId="char-first" label={t('identity.facts.first')} value={form.here_first ?? (here.first_appears || '')} onChange={(v) => setForm({ ...form, here_first: v })} />
-        <Field inputId="char-age" label={t('identity.facts.age')} value={form.here_age ?? (here.age_here || '')} onChange={(v) => setForm({ ...form, here_age: v })} />
-        {/* THE NOTE BELONGS TO A CREDIT, NOT TO THE SHEET, and until `noteFor` it
-            was always the sheet's. `onCreditNote` was `() => focusField(…)` — an
-            arrow taking NO parameter, so the credit `identityLocal` hands it was
-            discarded — and this field was bound to `here`, the row the panel was
-            opened on. A character with two credits on one film, which is the case
-            0063 re-cut `idx_work_cast_pair` for, therefore had ONE note box: an
-            on-screen performer and a dub, and pressing the dub's ✎ opened and
-            saved the performer's note.
-            
-            It was invisible while the field was unreachable — the fold above it
-            was never opened — so fixing the fold is what made this live. That is
-            why it is a defect and not a nit: the press now looks like it worked. */}
-        <Field
-          inputId="char-crednote"
-          label={noteFor.cast_id === here.cast_id
-            ? t('identity.row.note.label')
-            : t('identity.row.note.for', { name: noteFor.actor || t('identity.credit.unnamed') })}
-          value={form.here_note ?? (noteFor.credit_note || '')}
-          onChange={(v) => setForm({ ...form, here_note: v })}
-          rows={2}
-        />
-        <Field inputId="char-aliases" label={t('identity.local.fields.aliases')} value={form.here_aliases ?? (here.aliases || '')} onChange={(v) => setForm({ ...form, here_aliases: v })} />
-        {/* THE TWO ADD ROWS HAD NOWHERE TO GO, and these are the fields they were
-            always meant to reach. `onAddCredit` and `onAddDub` both focused
-            `char-addcredit`, an id NOTHING in the repo carried — so "Add another
-            performer" and "Add a dubbing credit" were pressable, focusable and
-            did nothing at all, on a sheet where three other rows were dead for a
-            different reason. Two rows promising an editor that did not exist.
-            
-            A DUB IS A LANGUAGE, which is the whole of the distinction: credit_lang
-            carries it and creditsFor splits on it, so there is no is_dub column
-            and no second table. That is why the dub field is a language box and
-            not a second name box — a dub with no language recorded is not a dub
-            anybody can name. */}
-        {here.kind !== 'book' && (
-          <>
-            <Field
-              inputId="char-addcredit"
-              label={t('identity.credit.add.performer')}
-              value={form.add_actor ?? ''}
-              onChange={(v) => setForm({ ...form, add_actor: v })}
-            />
-            <Field
-              inputId="char-adddub"
-              label={t('identity.credit.add.dub.lang.label')}
-              value={form.add_lang ?? ''}
-              onChange={(v) => setForm({ ...form, add_lang: v })}
-            />
-            <GhostButton
-              disabled={busy || !String(form.add_actor || '').trim()}
-              onClick={() => addCredit(here, form.add_actor, form.add_lang)}
-              title={t('identity.credit.add.save.tip')}
-            >
-              {t('identity.credit.add.save.label')}
-            </GhostButton>
-          </>
-        )}
-        <GhostButton
-          disabled={busy}
-          onClick={async () => {
-            // THE NOTE GOES TO ITS OWN ROW. Every other field on this form is a
-            // fact about the casting the sheet is about (`here`); the note is a
-            // fact about ONE credit, and which one is whichever pencil was
-            // pressed. Sending both in one PUT would make the note travel with
-            // `here`'s part and age, which is how it came to overwrite the wrong
-            // row in the first place.
-            const noteChanged = (form.here_note ?? noteFor.credit_note ?? '') !== (noteFor.credit_note ?? '')
-            if (noteChanged && noteFor.cast_id !== here.cast_id) {
-              if (!(await saveAppearance(noteFor, {
-                character: noteFor.character || '',
-                actor: noteFor.actor || '',
-                description: noteFor.description || '',
-                part: noteFor.part || '',
-                first_appears: noteFor.first_appears || '',
-                age_here: noteFor.age_here || '',
-                credit_note: form.here_note ?? '',
-                aliases: noteFor.aliases || '',
-              }))) return
-            }
-            if (await saveAppearance(here, {
-              character: (form.here_character ?? here.character ?? '').trim() || here.character,
-              actor: here.actor || '',
-              description: here.description || '',
-              part: form.here_part ?? here.part ?? '',
-              first_appears: form.here_first ?? here.first_appears ?? '',
-              age_here: form.here_age ?? here.age_here ?? '',
-              credit_note: noteFor.cast_id === here.cast_id
-                ? (form.here_note ?? here.credit_note ?? '')
-                : (here.credit_note ?? ''),
-              aliases: form.here_aliases ?? here.aliases ?? '',
-            })) toast(t('identity.credit.saved', { title: here.work_title }))
-          }}
-        >
-          {t('common.action.save.label')}
-        </GhostButton>
-      </div>
-    </details>
-  ) : null
+
+  // ---- the pack's picker, and what it replaced -----------------------------
+  //
+  // A ROW STATES ITS VALUE AND OPENS A SHEET TO CHANGE IT. That is the whole
+  // shape of these screens in `character-popup.dc.html`, where every editable
+  // thing routes through one `openPicker` — "both answer one question about one
+  // credit, and two dialogs for that would drift apart".
+  //
+  // WHAT WAS HERE INSTEAD, and why it was a defect and not a variation: a
+  // `<details className="cs-local-fields">` holding seven plain inputs and one
+  // `GhostButton` reading "Save". Three things wrong with it at once.
+  //   - `cs-local-fields` matches NOTHING in the stylesheet, so it drew as the
+  //     browser's own disclosure triangle in the middle of a designed panel.
+  //   - A "Save" button is neither half of the standing tick/cross pair: it
+  //     cannot go red, carries no count, and the panel's own ✓ stayed absent
+  //     because nothing had registered with the host. `InlineField`'s own header
+  //     names this exact arrangement as the thing it was written to replace.
+  //   - Reaching a field meant `focusField` opening a fold and moving a caret,
+  //     which is how six of these rows came to be dead in the first place: the
+  //     fold was closed, so the element was unrendered and unfocusable.
+  // Routing to `FormModal` gets the pair, the count, the red ✕ and the "you have
+  // unsaved changes" ask for free, and none of it can drift from the rest of the
+  // app, because it IS the rest of the app.
+  //
+  // A full-state PUT needs the row's other columns, so each spec sends the three
+  // `saveAppearance` always writes (`character`, `actor`, `description`) from the
+  // record and overrides the one field the sheet asked about. Sending `{ part }`
+  // alone cleared every column it did not mention — the mistake
+  // work-put-shape.test.js exists for.
+  const localRow = (a, patch) => ({
+    character: a.character || '',
+    actor: a.actor || '',
+    description: a.description || '',
+    ...patch,
+  })
+  // ONE FIELD FOR THE NAME AND EVERY OTHER NAME — the pack's ruling, in its own
+  // words: "'Called here' and 'Also called here' were two rows editing one fact:
+  // what this work calls the character. Splitting them made the canonical name
+  // look like a different KIND of thing from its aliases, when it is only the
+  // first of them." So one multi-line value, and THE FIRST LINE IS THE ONE THAT
+  // PRINTS — promoting a spelling is a line move rather than a two-field dance.
+  //
+  // The storage stays as it was: `character` is the printing name and `aliases`
+  // is the `·`-joined rest, which is the separator identityLocal.jsx already
+  // splits the sub-line on. The merge is in the sheet, not in the column.
+  const ALIAS_SPLIT = /[·,;\n]/
+  const namesValue = (a) => [
+    a.character || '',
+    ...String(a.aliases || '').split(ALIAS_SPLIT).map((x) => x.trim()).filter(Boolean),
+  ].join('\n')
+  const openNames = (a) => setPicker({
+    id: `names-${a.cast_id}`,
+    title: t('identity.row.called.label'),
+    hint: t('identity.local.names.hint'),
+    saveTip: t('identity.picker.save.tip'),
+    fields: [{ key: 'names', label: t('identity.row.called.label'), value: namesValue(a), rows: 4,
+      placeholder: t('identity.local.names.placeholder'), required: true }],
+    save: async (d) => {
+      const lines = String(d.names || '').split('\n').map((x) => x.trim()).filter(Boolean)
+      if (!lines.length) return
+      if (await saveAppearance(a, localRow(a, {
+        character: lines[0],
+        aliases: lines.slice(1).join(' · '),
+      }))) { setPicker(null); toast(t('identity.local.names.saved')) }
+    },
+  })
+  // The three facts, and the note. One shape, because they are one question.
+  const openFact = (a, key, label) => setPicker({
+    id: `${key}-${a.cast_id}`,
+    title: label,
+    saveTip: t('identity.picker.save.tip'),
+    fields: [{ key, label, value: a[key] || '', rows: key === 'credit_note' ? 3 : 0 }],
+    save: async (d) => {
+      if (await saveAppearance(a, localRow(a, { [key]: d[key] ?? '' }))) {
+        setPicker(null)
+        toast(t('identity.credit.saved', { title: a.work_title || here?.work_title || '' }))
+      }
+    },
+  })
+  // THE NOTE BELONGS TO A CREDIT, NOT TO THE SHEET, and `noteCredit` is recorded
+  // as well as opened because the sub-line the sheet prints names whose note it is
+  // showing. A character with two credits on one film — the case 0063 re-cut
+  // `idx_work_cast_pair` for, an on-screen performer and a dub — has two notes,
+  // and the ✎ that was pressed says which. Before `noteFor`, `onCreditNote` was
+  // `() => focusField(…)`, an arrow taking NO parameter, so the credit the sheet
+  // handed it was discarded and the dub's ✎ saved the performer's note.
+  const openCreditNote = (a) => {
+    setNoteCredit(a)
+    openFact(a, 'credit_note', t('identity.row.note.for', {
+      name: a.actor || t('identity.credit.unnamed'),
+    }))
+  }
+  // AND THE ONE THAT CREATES A ROW RATHER THAN EDITING ONE. Two fields, because a
+  // dub is a language: `credit_lang` is the only thing that makes a credit a dub —
+  // `creditsFor` splits on it — so "add a performer" and "add a dub" are one sheet
+  // with the language pre-focused or not, exactly as the pack's picker carries its
+  // `langValue`. The performer is required; the language is what sorts it.
+  const openAddCredit = (a, dub) => setPicker({
+    id: `add-${a.cast_id}-${dub ? 'dub' : 'cast'}`,
+    title: t(dub ? 'identity.credit.add.dub' : 'identity.credit.add.performer'),
+    hint: t('identity.credit.add.save.tip'),
+    saveTip: t('identity.credit.add.save.label'),
+    blocked: t('identity.credit.add.blocked'),
+    fields: [
+      { key: 'actor', label: t('identity.credit.add.performer'), value: '', required: true },
+      { key: 'lang', label: t('identity.credit.add.dub.lang.label'), value: '' },
+    ],
+    save: async (d) => { if (await addCredit(a, d.actor, d.lang)) setPicker(null) },
+  })
 
   // THE PERFORMER BLOCK'S VERBS. A credit is a cast ROW, so every one of these
   // acts on `a.cast_id` — which is what lets a character billed twice in one
@@ -1231,11 +1297,14 @@ function CharacterBody({ stack, id, work, onSearch = null }) {
     if (String(lang || '').trim()) body.credit_lang = String(lang).trim()
     const r = await json('POST', path, body)
     setBusy(false)
-    if (!r.ok) { setErr(errText(r)); return }
+    if (!r.ok) { setErr(errText(r)); return false }
     setErr('')
-    // The boxes empty so the next name does not arrive on top of the last one.
-    setForm((f) => ({ ...f, add_actor: '', add_lang: '' }))
     load()
+    // TRUE SO THE SHEET CAN CLOSE ITSELF, and false so it stays open with the
+    // reason showing. `saveAppearance` has answered this way since it was
+    // written; this one returned nothing, so a failed POST left the picker open
+    // with no error and a successful one left it open too.
+    return true
   }
   const removeCredit = async (a) => {
     setBusy(true)
@@ -1264,24 +1333,33 @@ function CharacterBody({ stack, id, work, onSearch = null }) {
           counts={counts}
           works={works}
           portraitActions={localPortraitActions}
-          onCalled={() => focusField('char-called')}
-          onPart={() => focusField('char-part')}
-          onFirst={() => focusField('char-first')}
-          onAge={() => focusField('char-age')}
-          onNote={() => focusField('char-crednote')}
+          onCalled={() => openNames(here)}
+          onPart={() => openFact(here, 'part', t('identity.facts.part'))}
+          onFirst={() => openFact(here, 'first_appears', t('identity.facts.first'))}
+          onAge={() => openFact(here, 'age_here', t('identity.facts.age'))}
+          onNote={() => openFact(here, 'credit_note', t('identity.row.note.label'))}
           onQuotes={openQuoteSearch}
           onLocator={openQuoteSearch}
           onOpenGlobal={() => stack.open(characterPanel(stack, { id, name: data.name, onSearch }))}
           onRemove={() => removeWork(here)}
           onRole={setRole}
           onOpenCredit={(a) => a.actor_id && stack.open(personPanel(stack, { id: a.actor_id, name: a.actor }))}
-          onCreditNote={(a) => { setNoteCredit(a); setForm((f) => ({ ...f, here_note: undefined })); focusField('char-crednote') }}
+          onCreditNote={openCreditNote}
           onCreditRemove={removeCredit}
-          onAddCredit={() => focusField('char-addcredit')}
-          onAddDub={() => focusField('char-adddub')}
-        >
-          {localFields}
-        </CharacterLocal>
+          onAddCredit={() => openAddCredit(here, false)}
+          onAddDub={() => openAddCredit(here, true)}
+        />
+        {/* KEYED ON THE SPEC so a new question is a new instance — see FieldPicker's
+            header for why seeding the draft in an effect flashes an armed tick. */}
+        {picker ? (
+          <FieldPicker
+            key={picker.id}
+            spec={picker}
+            busy={busy}
+            onClose={() => setPicker(null)}
+            onSave={picker.save}
+          />
+        ) : null}
         <DropWorkDialog
           drop={drop}
           name={data.name}
@@ -1351,19 +1429,22 @@ function CharacterBody({ stack, id, work, onSearch = null }) {
             </div>
           ))}
           <div id="char-add-work"><AddWork busy={busy} have={works} onAdd={addWork} /></div>
-          <div style={FIELDS}>
-            <Field inputId="char-name" label={t('common.field.name.label')} value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
-            <Field inputId="char-sort" label={t('identity.field.sort')} value={form.sort_name} onChange={(v) => setForm({ ...form, sort_name: v })} />
-            <Field inputId="char-born" label={t('identity.field.born')} value={form.born} onChange={(v) => setForm({ ...form, born: v })} />
-            <Field inputId="char-links" label={t('identity.field.links')} value={form.links} onChange={(v) => setForm({ ...form, links: v })} rows={2} />
-            <Field inputId="char-desc" label={t('identity.field.description')} value={form.description} onChange={(v) => setForm({ ...form, description: v })} rows={3} />
-            <Field inputId="char-note" label={t('identity.field.note')} value={form.note} onChange={(v) => setForm({ ...form, note: v })} rows={2} />
-            <div className="flex justify-end">
-              <GhostButton className="tp-btn-primary" disabled={busy || !form.name.trim()} onClick={save}>
-                {t('common.action.save.label')}
-              </GhostButton>
-            </div>
-          </div>
+          <GlobalFields
+            fields={[
+              { key: 'name', id: 'char-name', label: t('common.field.name.label') },
+              { key: 'sort_name', id: 'char-sort', label: t('identity.field.sort') },
+              { key: 'born', id: 'char-born', label: t('identity.field.born') },
+              { key: 'links', id: 'char-links', label: t('identity.field.links'), rows: 2 },
+              { key: 'description', id: 'char-desc', label: t('identity.field.description'), rows: 3 },
+              { key: 'note', id: 'char-note', label: t('identity.field.note'), rows: 2 },
+            ]}
+            form={form}
+            onForm={setForm}
+            stored={data}
+            busy={busy}
+            blocked={form.name.trim() ? '' : t('error.validate.name-required')}
+            onSave={save}
+          />
           <div id="char-merge">
             <MergeControl into={data} table="characters" onMerged={load} onError={setErr} />
           </div>

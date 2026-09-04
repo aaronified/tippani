@@ -568,17 +568,13 @@ func mergeProviderCast(tx *sql.Tx, uid int64, kind string, workID int64, source 
 			// together on its own — its header takes that trap seriously — because
 			// the match is exact within one account and "Narrator" in two unrelated
 			// books is two rows until a reader merges them.
-			charID, cerr := store.CharacterForCast(tx, uid, kind, workID, character)
-			if cerr != nil {
-				return cerr
-			}
 			res, err := tx.Exec(
 				`INSERT INTO work_cast (user_id, kind, work_id, character, character_key, actor, actor_key,
 				                        provider_key, person_id, image_url, character_image_url,
-				                        billing, origin, source, character_id)
-				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				                        billing, origin, source)
+				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 				uid, kind, workID, character, store.CastKey(character), actor, store.CastKey(actor),
-				key, p.PersonID, p.ImageURL, p.CharacterImageURL, i, castProvider, source, charID)
+				key, p.PersonID, p.ImageURL, p.CharacterImageURL, i, castProvider, source)
 			if err != nil {
 				return err
 			}

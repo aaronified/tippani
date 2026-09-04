@@ -114,15 +114,26 @@ try {
     if (!seen[slot]) seen[slot] = { id, ...m }
   }
 
-  for (const [slot, m] of Object.entries(seen)) {
-    const what = slot === '1' ? 'a one-line title' : `a ${m ? m.lines : '?'}-line title`
+  // A MISSING CASE IS A FAILURE OF THIS PROBE, not a note in its output. The
+  // header says "both cases or neither" and a `SKIP` that exits 0 says the
+  // opposite: the fix under test — centring the glyph on the title's own box —
+  // is exactly the kind that passes on one sample and not the other, so a run
+  // that saw only one sample has not tested it. `panel-depth.mjs` had the same
+  // hole and it is the same answer here: if the fixture cannot produce a wrapped
+  // title at 390px, the fixture is what needs changing, and staying silent about
+  // it is how a probe comes to be cited as a guard it never was.
+  for (const slot of ['1', 'many']) {
+    const m = seen[slot]
+    const what = slot === '1' ? 'a one-line title' : 'a wrapped title'
     if (!m) {
-      console.log(`SKIP  no book in the fixture has ${what}`)
+      console.log(`FAIL  no book in books 1-12 draws ${what} at 390px — this run proved nothing about it`)
+      failures++
       continue
     }
     const off = Math.abs(m.heartCentre - m.titleCentre)
     if (off > CENTRE_TOLERANCE) {
-      console.log(`FAIL  ${what} (${JSON.stringify(m.titleText)}): the heart sits ${off.toFixed(1)}px off the title's centre`)
+      console.log(`FAIL  ${what} (${m.lines} lines, ${JSON.stringify(m.titleText)}): ` +
+        `the heart sits ${off.toFixed(1)}px off the title's centre`)
       failures++
     } else {
       console.log(`ok    ${what}: the heart is on the title's centre (${off.toFixed(1)}px)`)

@@ -55,6 +55,50 @@ did not, and the difference is silent. Cost is a real feature rather than a refa
 a `similarBooksByTitle` helper plus a `needs_confirm` arm the add-book flow does not
 currently expect.
 
+### 1.1a REVERTED — a second fold beside the one already running, and a commit message that was wrong about why
+
+`0d84411`'s subject line says a cast pill opens, and its body says why: "three of the four
+writers of that table never set it", so "a fetched cast drew a name, a face and a performer
+under it and did nothing at all when touched." **That reason was false.** All four writers
+of `work_cast` already called `store.LinkCastRow` immediately after their INSERT, and
+`LinkCastRow` fills `character_id` whenever it is NULL — `git show 0d84411^` has the calls
+at `cast.go:577`, `cast_from_quotes.go:165`, `cast_handlers.go` (the add path) and
+`character_works.go`. The column was being set on every route before that commit touched
+anything.
+
+So the `store.CharacterForCast` call the commit added to three of them was a **second
+implementation of the same fold, one line before the first one runs** — the plainest kind
+of duplication, and the kind this section exists to name. It is reverted:
+`TestEveryRouteThatCreatesACastRowMakesItADoor`, `TestOneWorkFoldsANameAndTwoWorksDoNot`
+and the whole of `./internal/httpapi` and `./internal/store` pass without it.
+
+**HOW THE MISTAKE SURVIVED A MUTATION TEST**, which is the part worth keeping. Neutering
+`CharacterForCast` to return `0` did make the property test fail, and that was read as
+proof the route needed it. It is not: an INSERT writing `character_id = 0` leaves
+`cid.Valid` **true** in `LinkCastRow`, so the repair is skipped and the row stays dead. The
+mutation was detecting damage the addition itself made possible. The honest experiment is
+to remove the addition and re-run — which passes — and then to neuter the mechanism that
+is actually load-bearing:
+
+```
+=== LinkCastRow's character branch neutered ===
+--- FAIL: TestEveryRouteThatCreatesACastRowMakesItADoor
+    a cast row added by hand to a film has no character record — its chip opens nothing
+    a cast row added by hand to a book has no character record
+    a cast row adopted from a quote line has no character record — its chip opens nothing
+    cast row 1 ("Rick Blaine") is drawn as a door and opens nothing
+    cast row 3 ("Ilsa Lund") is drawn as a door and opens nothing
+--- FAIL: TestOneWorkFoldsANameAndTwoWorksDoNot
+    a cast row has no character record: 0 / 0
+```
+
+A mutation that only breaks code the change added proves the change tests itself. Mutate
+the mechanism, not the patch.
+
+The six fields of 0063 that the same commit added to that INSERT are a real fix and stay:
+a POST carrying `credit_lang` was validated, answered 201 and silently dropped, and
+`credit_lang` is the only thing that makes a credit a dub.
+
 ### 1.2 Worth confirming, not fixing
 
 `fandom_wiki` and `cast_role` are films-only by nature, so #2 is probably correct — but
@@ -106,11 +150,27 @@ own line box. Against the shipped CSS it reports 10.0px and a 44px row for a 25.
 line; against the fix, four passes. It fails on the broken code, which the deleted file
 never did.
 
-`test/dom/panel-opens-panel.test.jsx` is the companion honest case: it pins that
-`open()` **replaces** rather than deepens, and its header states plainly that it does
-**not** guard the race that motivated it — those three cases pass against the broken
-implementation, because jsdom dispatches `popstate` on a schedule that does not lose to
-a frame callback. The race is guarded by `scripts/screenshots/panel-depth.mjs` instead.
+`test/dom/panel-opens-panel.test.jsx` pins that `open()` **replaces** rather than
+deepens, and says in its header that it does not guard the race that motivated it — those
+three cases pass against the broken implementation, because jsdom dispatches `popstate` on
+a schedule that does not lose to a frame callback.
+
+### 2.1a A retraction that was itself wrong, kept as the record
+
+`scripts/screenshots/panel-depth.mjs` was described as the guard for the panel race.
+One run of it against the broken `requestAnimationFrame` version came back `ok`, and that
+single observation was generalised into "it does not discriminate" and written into four
+places — the probe's header, the jsdom test's header, `DEVELOPMENT.md` and this document.
+
+**Five controlled runs then failed five times**, with the embed verified by asset hash:
+`FAIL … left NOTHING open (depth 0)`, exit 1. Against the fix, `ok … depth 1`. So the
+probe **is** the guard, the retraction was false, and it came within one commit of
+demoting a working check in four places at once.
+
+The anomaly was almost certainly a seeding gap in that one attempt — a probe whose subject
+must be seeded will press whatever chip it can find, and reach a different surface. The
+lesson is plain enough to write down: **a single pass is not evidence of a negative**, and
+a fixture-dependent probe is only trustworthy with its seed and its embed both verified.
 
 ### 2.2 Tautology sections inside good files — not acted on
 
@@ -247,6 +307,31 @@ one validator loop, one set-builder" — and there are **two** set-builders. Bot
 from `creditFields()` so a seventh field cannot reach the validator and miss a writer, and
 `TestTheSixCreditFieldsSurviveTheADDPathToo` fails on all six without the fix.
 
+### 3.5c FIXED — the ⋯ opened an EMPTY card on six of twelve screens
+
+Found by `make controls`, which presses every control on every screen and asks whether
+anything changed. Nothing here was invisible to a reader; it was invisible to every kind
+of check this repo had.
+
+`ScreenMenu` builds its rows when it opens: whatever the screen published through
+`useScreenBar`, plus a Help row when `withHelp`. The desktop bar passes `withHelp={false}`
+because it draws its own ? two controls away, and the reasoning for that is sound while
+the screen has published something. But Home, Quotes, Search, People, Stats and Settings
+publish NOTHING on a desktop — their `useScreenBar` rows are `mobile &&` gated, or they
+set only `sub` — so on half the app the ⋯ opened a floating card with no rows in it at
+all. The component's own comment had already reached the right conclusion and the code did
+not follow it: "a menu claiming to be complete that omitted it would be wrong on the
+several screens where the screen itself publishes nothing at all."
+
+`withHelp` is now a preference rather than a veto: false while the screen published
+something, ignored when it published nothing. An empty menu is worse than the same door
+twice.
+
+**Why no existing check could have seen it.** Every screen rendered, the button opened, the
+menu appeared, and the defect was the ABSENCE of rows in a box one line tall. A screenshot
+review would have to notice a small empty card; a unit test would have to know to ask.
+`controls.mjs` asks of everything, which is the only reason this surfaced.
+
 ### 3.6 OPEN — `LinkCastRow` leaves a stale `actor_id` when a performer is cleared
 
 `internal/store/identity.go:614-626` guards the re-link with `if !aid.Valid && actor != ""`
@@ -255,11 +340,20 @@ and writes the scanned `aid` back regardless. Clearing a credit's performer via
 draws "Not named yet" while `/whos-in-it` (`whos_in_it.go:218`) still lists that person.
 `character_works.go:288` does undo the link on removal and is the model.
 
-### 3.7 OPEN — the new `open()`'s 250 ms window is narrow but not closed
+### 3.7 PART-FIXED — the `open()` window, minus the timer that could not help
 
-The listener and timer are cancelled on unmount and a second `open()` cancels the first,
-and the functional setter refuses a pop that did not empty the stack — so an unmount, a
-double-tap and a foreign Back are all handled. What remains: `usePersonOpener`
+The 250 ms `setTimeout(land, 250)` behind the popstate listener is **deleted**. It was dead
+on both branches: `land` pushes only onto an EMPTY stack, so the one case the timer named —
+no pop arrived, stack still `n` deep — is the case where it abandons, and when the pop did
+arrive the listener had already settled it. Not harmlessly dead, either: its firing was the
+one path by which a stack emptied by something else, a ✕ pressed inside the window, could be
+handed back the panel the reader had just dismissed. Its comment claimed "a late push onto
+an empty stack is exactly what was wanted anyway", which describes a case the code cannot
+reach. `go(-n)` cannot fail to move here in any event — reaching that branch means `push`
+wrote `n` entries.
+
+The listener and its cancellation stay: unmount cancels, a second `open()` cancels the
+first, and the functional setter refuses a pop that did not empty the stack. What remains: `usePersonOpener`
 (`personOpen.jsx`) routes seven screens' credit chips through `stack.open()` inside a
 dynamic `import().then()`, an **unbounded** async delay before the `go(-n)` with no
 pending state on the control. On a cold chunk fetch the press has no feedback.
@@ -316,7 +410,7 @@ matters**; the rest are smaller and independent.
 
 | Element | Prototype | App | Verdict |
 | --- | --- | --- | --- |
-| **What a row press does** | opens a small titled picker over the sheet — `openPicker` at lines 522, 529, 1032, 1047, 1077, with titles like "Add a performer to this film" | scrolls to a `<details>` form at the FOOT of the sheet, 600–1000px down, and focuses a bare input | **Deviation, architectural** |
+| **What a row press does** | opens a small titled picker over the sheet — `openPicker` at lines 522, 529, 1032, 1047, 1077, with titles like "Add a performer to this film" | opens `FieldPicker`, a titled sheet carrying that field alone | **FIXED** — was a `<details>` form at the FOOT of the sheet, 600–1000px down, focusing a bare input |
 | Portrait verbs | `Fetch` · `Upload` · `Paste URL` as three named buttons, then `Set for the identity` outlined red and dashed | one small tile button and `use this one` | **Deviation** |
 | Picture size | `1280 × 720 px` above the verbs, inked `--error` under the floor | absent on this sheet | **Deviation** |
 | Header | glyph + name + `in Deathly Hallows – Part 2 · film` + ✕ on one header line | centred name + ✕; the glyph, name and crumb in a separate boxed row beneath | **Deviation** |
@@ -334,10 +428,36 @@ the editor is one field further down" — the second half of that sentence is a 
 the pack that the pack does not support. There is no editor form anywhere in the
 prototype.
 
-Fixing it is a build, not a restyle: a picker overlay in the prototype's shape (its
-`pickerInput`, a search-or-type field with a title) and eight rows rewired to it. The
-`<details>` block then goes, and with it the reason `focusField` had to learn to open a
-closed disclosure.
+**FIXED.** `web/frontend/src/identityPicker.jsx` is the pack's sheet, and the local
+sheet's eight rows open it: Credited as, Part, First appears, Age here, the sheet's note,
+a credit's note, and the two add-a-performer rows. The `<details>` is gone, and with it the
+reason `focusField` had to learn to open a closed disclosure.
+
+Three things came out of building it that reading had not shown:
+
+- **`cs-local-fields` matched nothing.** No rule for it exists in `index.css` or in the
+  built stylesheet, so the fold drew as the browser's own disclosure triangle in the
+  middle of a designed panel. That is most of what "the page only resembles the
+  prototype" was pointing at.
+- **The pack merges two rows this app splits.** Its own words, at
+  `character-popup.dc.html:595`: "'Called here' and 'Also called here' were two rows
+  editing one fact… Splitting them made the canonical name look like a different KIND of
+  thing from its aliases, when it is only the first of them." So the local sheet's name
+  row is now ONE multi-line value whose first line prints; `character` and the `·`-joined
+  `aliases` are still the two columns underneath, which is a merge in the sheet and not
+  in the schema. The GLOBAL alias list keeps its chips, because `split` is a verb per
+  spelling and a line in a box cannot carry one — a departure the file already argues.
+- **A "Save" button is not half of a pair.** The two GLOBAL sheets carried the same
+  block, and there the fix is smaller and different: the fields become a `<form>` that
+  joins the panel's head through `useFormHost`, so the ✓ that `PanelHost` already draws
+  arms with a count and the red ✕ asks before discarding. `GlobalFields` in
+  `identity.jsx` carries the argument for why that has to be a component rather than a
+  hook call at the top of the body.
+
+What is NOT done here: the pack's picker is a search-or-type field offering people the
+app already knows (`pickerPeople`, `PEOPLE` at line 921), and this one is a plain box.
+Adding a person to a credit still means typing the name. That is the next increment and
+it is a real difference, not a styling gap.
 
 ### 4.2 Not yet compared
 
