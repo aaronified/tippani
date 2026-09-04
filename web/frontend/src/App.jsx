@@ -797,7 +797,19 @@ function Breadcrumb({ tab, detail, title, onRoot }) {
   if (!leaf) return null
   return (
     <nav className="topbar-crumbs" aria-label={t('shell.crumbs.aria')}>
-      <button type="button" className="crumb" onClick={() => onRoot(rootKey)}>{rootLabel}</button>
+      {/* AND THE ROOT CRUMB SAYS WHEN IT IS WHERE YOU ARE, for the same reason the
+          rail's brand does. Standing on a screen with no work open, this crumb's
+          destination IS this screen — `onRoot(null)` resolves to 'home' — so the
+          press correctly changes nothing, and without the attribute nothing
+          distinguishes that from a crumb that has stopped working. */}
+      <button
+        type="button"
+        className="crumb"
+        aria-current={!detail && (rootKey || 'home') === tab ? 'page' : undefined}
+        onClick={() => onRoot(rootKey)}
+      >
+        {rootLabel}
+      </button>
       <span className="crumb-sep" aria-hidden="true">/</span>
       <span className="crumb-here" title={leaf}>{leaf}</span>
     </nav>
@@ -896,7 +908,20 @@ export function NavRail({ tab, onChange, sections, user, onAccount, onBin, onChe
         {/* Two files rather than one recoloured: a logo is not a glyph that takes
             currentColor, and tinting the light mark for dark mode is the kind of
             "close enough" a brand notices first. */}
-        <button type="button" className="rail-brand" onClick={() => onChange('home')} title={t('nav.bottom.home.aria')}>
+        {/* THE BRAND IS A DOOR TO HOME, so on Home it says so — the same
+            `aria-current` every row below it has carried since the rail was
+            written, on the one control in it that goes somewhere and did not.
+            Pressing it there changes nothing, correctly; without the attribute
+            there was no way to tell that apart from a control that does nothing,
+            which is what the control probe reported and what a screen reader had
+            no way to say either. */}
+        <button
+          type="button"
+          className="rail-brand"
+          aria-current={tab === 'home' ? 'page' : undefined}
+          onClick={() => onChange('home')}
+          title={t('nav.bottom.home.aria')}
+        >
           <img src={dark ? '/mark-dark.svg' : '/mark.svg'} alt="" width="34" height="34" />
           <span className="rail-wordmark">{t('shell.wordmark.label')}</span>
           {/* The pending-review dot rode the brand in the top bar. The brand moved, so

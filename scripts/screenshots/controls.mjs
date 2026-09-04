@@ -264,7 +264,7 @@ try {
       // for that reason alone, none of them actually gone. The accessible name
       // plus which one of that name it is survives a re-render, which is also how
       // a person would say which control they meant.
-      const ok = await page.evaluate(({ key, nth }) => {
+      const ok = await page.evaluate(async ({ key, nth }) => {
         const scope = document.querySelector('.tp-panel') || document.querySelector('[role=dialog]') || document.body
         // AND THE PAGE IS WALKED TO THE BOTTOM FIRST. A list that renders as you
         // reach it has not rendered anything below the fold on a fresh load, so a
@@ -276,7 +276,14 @@ try {
         const find = () => [...scope.querySelectorAll('button, [role=button], a[href], summary')]
           .filter((x) => x.offsetParent !== null || x.tagName === 'SUMMARY')
           .filter((x) => ((x.getAttribute('aria-label') || x.textContent.replace(/\s+/g, ' ').trim() || x.title || '(unnamed)').slice(0, 40)).replace(/\d+/g, '#') === key)
-        const b = find()[nth]
+        // A FRAME FOR WHAT THE SCROLL ASKED FOR. Setting scrollTop is synchronous
+        // and rendering the rows it brought into view is not, so looking in the
+        // same tick finds the same twelve missing tiles it did before the scroll.
+        let b = find()[nth]
+        if (!b) {
+          await new Promise((r) => requestAnimationFrame(() => setTimeout(r, 250)))
+          b = find()[nth]
+        }
         if (!b) return false
         b.scrollIntoView({ block: 'center' })
         b.click()
