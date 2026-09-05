@@ -70,10 +70,93 @@ type characterImageRef struct {
 // for it — empty map when there is nothing to find, never an error the caller has
 // to care about. A missing picture is the normal case, so this is best-effort:
 // the chip falls back to the actor and the page renders either way.
+// ADOPT_WORK_CAP bounds the write this read may do. A library opened for the
+// first time can have a name on every line and a cast row for none of them, and
+// one request is not the place to reconcile four hundred works. Past the cap the
+// rest are left for the next read, which is a page the reader is going to turn
+// anyway — and the number is said out loud in the log rather than truncated in
+// silence, the same as the cast cap in cast_from_quotes.go.
+const adoptWorkCap = 12
+
 func (s *Server) loadCharacterImages(uid int64, kind string, refs []characterImageRef) map[string]castFace {
 	if len(refs) == 0 {
 		return nil
 	}
+	out := s.characterFaces(uid, kind, refs)
+	// A NAME ON A LINE WITH NO CAST ROW IS A CHIP THAT CANNOT OPEN, and that was
+	// the state of most of them.
+	//
+	// `character_id` is what makes a chip a door — `chipRows` gates the press on
+	// it — and a character only gets one when `adoptQuoteCharacters` puts them on
+	// the work's cast. That function had exactly ONE caller: the cast-list read.
+	// So a character named on a quote was openable if and only if somebody had
+	// happened to open that work's cast list, and on the two screens where a
+	// reader actually meets a character — Quotes, and Home's favourites — the
+	// pills drew a name and a face and did nothing at all.
+	//
+	// Measured against a running server before this line existed: "Charles Foster
+	// Kane" came back as `{"name":…,"path":""}`; one GET of that film's cast list
+	// later, the same request returned `{"name":…,"cast_id":9,"character_id":6}`.
+	// Nothing about the line had changed. It is also not about the actor, which is
+	// how the report reached me — that row has one, and so do most of the dead
+	// ones.
+	//
+	// SO THE READ THAT DRAWS THE CHIPS ADOPTS, and it costs nothing once there is
+	// nothing to adopt: `missing` is empty on every subsequent load, and this
+	// returns before touching the database a second time. Doing it at write time
+	// instead would leave every quote saved before today dead forever, and a
+	// one-time pass would leave every quote imported after it dead until the next
+	// release.
+	missing := s.worksMissingCast(out, refs)
+	if len(missing) == 0 {
+		return out
+	}
+	if len(missing) > adoptWorkCap {
+		olog.Printf("[cast] %d work(s) have quoted characters with no cast row; adopting %d this read",
+			len(missing), adoptWorkCap)
+		missing = missing[:adoptWorkCap]
+	}
+	for _, workID := range missing {
+		s.adoptQuoteCharacters(uid, kind, workID)
+	}
+	// Read back rather than patched up: adoption writes rows this map has no way
+	// to construct — a cast id, a character id, and the record's default picture
+	// through the same LEFT JOIN — and a hand-built entry would be a second
+	// implementation of the query above.
+	return s.characterFaces(uid, kind, refs)
+}
+
+// worksMissingCast — the works in this result set that name a character the
+// work's cast has never heard of. In folded-name order per work so the adoption
+// below is deterministic, and deduplicated because a name on nine lines is one
+// work with one gap.
+func (s *Server) worksMissingCast(found map[string]castFace, refs []characterImageRef) []int64 {
+	seen := map[int64]bool{}
+	var out []int64
+	for _, r := range refs {
+		if seen[r.WorkID] || strings.TrimSpace(r.Character) == "" {
+			continue
+		}
+		// THE WIDEST SEPARATOR SET, and deliberately not the account's. Being
+		// generous here can only over-split, which at worst asks a work to adopt
+		// on a read where it had nothing to adopt — and `adoptQuoteCharacters`
+		// does its own splitting with the account's own set, so nothing wrong can
+		// be WRITTEN from a guess made here. Being narrow would leave a chip dead.
+		for _, name := range metadata.SplitCredits(r.Character, metadata.DefaultCreditSeps) {
+			if _, ok := found[characterImageKey(r.WorkID, store.CastKey(name))]; ok {
+				continue
+			}
+			seen[r.WorkID] = true
+			out = append(out, r.WorkID)
+			break
+		}
+	}
+	return out
+}
+
+// characterFaces is the query itself, split out so the adoption above can run it
+// twice without repeating it.
+func (s *Server) characterFaces(uid int64, kind string, refs []characterImageRef) map[string]castFace {
 	ids := map[int64]bool{}
 	for _, r := range refs {
 		ids[r.WorkID] = true
