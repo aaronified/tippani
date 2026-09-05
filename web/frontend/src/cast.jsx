@@ -509,12 +509,15 @@ export function usePicturePicker({
   // draws. Only the danger variant needs a class, because nothing else in the app
   // is dashed.
   //
-  // keepLabel, WHICH IS THE OPT-OUT AND NOT AN OVERSIGHT. `[data-labels]` resolves
-  // to "off" on a phone and strips the words off ordinary buttons; the pack draws
-  // these NAMED, and a picture verb is exactly the case the opt-out exists for —
-  // "the app's own defaults about which words are worth the room". A reader who
-  // has asked for glyphs only still gets glyphs only: `[data-labels-mode="off"]`
-  // outranks keepLabel, which is the one thing that does.
+  // NO keepLabel, AND THAT WAS THE OWNER'S CORRECTION. It was argued here as the
+  // opt-out working as designed — the pack draws these named, so keep the words —
+  // and the argument ignored where they are drawn: a column beside a 96px face on
+  // a 390px phone. Four labelled buttons at ~176px each stack four rows deep,
+  // squeeze the face, push the sheet's first real row below the fold, and the
+  // widest of them overflows the panel outright. `auto` already means exactly
+  // what is wanted — words where they fit, glyphs where they do not — and
+  // keepLabel was overriding the reader's own setting to keep a desktop drawing
+  // intact on a screen it was never drawn for. The tooltip carries the word.
   const verbs = !named ? null : (
     <>
       <GhostButton
@@ -523,7 +526,6 @@ export function usePicturePicker({
         disabled={busy || picsBusy}
         title={t('identity.picture.fetch.tip')}
         icon={<IconRefresh />}
-        keepLabel
         onClick={findPicture}
       >
         {picsBusy ? t('common.state.loading') : t('identity.picture.fetch.label')}
@@ -536,8 +538,7 @@ export function usePicturePicker({
             disabled={busy}
             title={t('identity.picture.upload.tip')}
             icon={<IconUpload />}
-            keepLabel
-            onClick={() => fileRef.current?.click()}
+                onClick={() => fileRef.current?.click()}
           >
             {t('identity.picture.upload.label')}
           </GhostButton>
@@ -572,7 +573,6 @@ export function usePicturePicker({
         aria-expanded={urlOpen}
         title={t('identity.picture.paste.tip')}
         icon={<IconOpen />}
-        keepLabel
         onClick={() => setUrlOpen((v) => !v)}
       >
         {t('identity.picture.paste.label')}
@@ -594,7 +594,7 @@ export function usePicturePicker({
 // REACHES TheTVDB: the server reads the row back scoped to the reader, follows it
 // to the work's TheTVDB id and asks for the character's own art — the picture of
 // the role, which no search engine has.
-export function useCharacterPicture({ row, actor, workTitle, mediaType, busy, onImage, named = false, onUpload = null }) {
+export function useCharacterPicture({ row, actor, workTitle, mediaType, busy, onImage, named = false, onUpload = null, actorFace = true }) {
   // THREE RUNGS, AND THE MIDDLE ONE IS NEW. What this work stores for the role,
   // then what the RECORD says the character looks like, then the performer's
   // headshot.
@@ -606,11 +606,19 @@ export function useCharacterPicture({ row, actor, workTitle, mediaType, busy, on
   // one of their appearances, so it outranks the actor's headshot: the headshot
   // answers "who plays them", which is a different question and the one a book
   // cannot ask at all.
+  // AND THE THIRD RUNG IS FOR A PILL, NOT FOR A PORTRAIT — the owner's ruling,
+  // and it is about what a screen can be asked. On a chip 22px across, the
+  // performer's face is a better guess than a silhouette and nothing is claimed
+  // by it. On a sheet whose whole subject is this character's picture, it is a
+  // lie the reader cannot see through: the page shows a photograph, so the
+  // reader concludes the character has one, and the fact they actually needed —
+  // that nobody has set a picture for the role — is the one the substitution
+  // hides. `actorFace: false` is how the sheets ask for the honest answer.
   const face = row.character_image_path
     ? coverImgURL(row.character_image_path)
     : row.character_record_image
       ? coverImgURL(row.character_record_image)
-      : actor?.image_path
+      : actorFace && actor?.image_path
         ? personImgURL(actor.image_path)
         : ''
   // WHICH RUNG ANSWERED, because a screen that shows the identity's picture where
@@ -624,7 +632,7 @@ export function useCharacterPicture({ row, actor, workTitle, mediaType, busy, on
     ? 'work'
     : row.character_record_image
       ? 'identity'
-      : actor?.image_path ? 'actor' : ''
+      : actorFace && actor?.image_path ? 'actor' : 'none'
   const picker = usePicturePicker({
     face,
     faceName: row.character || '',

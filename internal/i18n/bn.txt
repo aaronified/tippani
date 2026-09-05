@@ -6314,8 +6314,9 @@ identity.picture.promote.tip = সব জায়গায় এইটাই �
 identity.picture.promote.ask.title = এই ছবিটাই পরিচয়ের ছবি করে দেব?
 identity.picture.promote.ask.body = এটাই হয়ে যাবে চরিত্রটার সব জায়গার ছবি — যে কাজগুলো নিজের ছবি বসায়নি তাদের সবকটায়, আর যত তালিকা, চিপ আর শেয়ার ছবি পরিচয়ের ছবির উপর নির্ভর করে তাদের সবকটায়। এই কাজটার নিজের ছবি যা ছিল তাই থাকবে।
 identity.picture.promote.ask.verb = হ্যাঁ, সব জায়গায় বসান
-identity.portrait.from.identity = চরিত্রের নিজের ছবি — এই কাজের কোনো ছবি নেই
-identity.portrait.from.actor = {name}-এর ছবি — চরিত্রটার জন্য কেউ ছবি বসায়নি
+identity.portrait.from.identity = চরিত্রের নিজের ছবি
+identity.portrait.from.actor = {name}-এর ছবি
+identity.portrait.from.none = এই চরিত্রের ছবি নেই
 # ---- প্যাকের স্থানীয় চরিত্র-পর্দা (char-book, char-film, char-game) ----
 # একটা কাজের ভিতর থেকে দেখা একটা চরিত্র। এখানে যা আছে তা এই কাজেরই সত্য, অন্য
 # কোনো কাজের নয়; পরিচয়ের নিজের সত্য থাকে বিশ্বজনীন পর্দায়, এক ধাপ দূরে।
@@ -6349,7 +6350,7 @@ identity.count.quotes.tip = এই কাজে এই চরিত্রের 
 identity.count.locator.tip = এই কাজে কোথায় আসে খুঁজুন
 
 identity.row.global.label = বিশ্বজনীন রেকর্ড খুলুন
-identity.row.global.sub = চরিত্রটি, কোনো একটা কাজের বাইরে
+identity.row.global.sub = সব কাজ জুড়ে
 identity.badge.global = বিশ্বজনীন
 identity.row.global.works.one = {n}টা কাজ
 identity.row.global.works.other = {n}টা কাজ
@@ -6359,8 +6360,8 @@ identity.row.unlink.label.book = এই বই থেকে সরান
 identity.row.unlink.label.film = এই ছবি থেকে সরান
 identity.row.unlink.label.show = এই ধারাবাহিক থেকে সরান
 identity.row.unlink.label.game = এই খেলা থেকে সরান
-identity.row.unlink.sub.book = অন্য কাজে বিশ্বজনীন চরিত্রটি থেকে যায়
-identity.row.unlink.sub.cast = অন্য কাজে বিশ্বজনীন চরিত্রটি থেকে যায়; মানুষের রেকর্ডও থাকে
+identity.row.unlink.sub.book = অন্য কাজে চরিত্রটা থাকে
+identity.row.unlink.sub.cast = অন্য কাজে চরিত্রটা থাকে
 identity.picker.blocked = আগে কিছু লিখুন
 identity.picker.save.tip = শুধু এই একটা ঘর লেখে
 identity.picker.person.label = কে
@@ -6371,7 +6372,7 @@ identity.picker.lang.suggestions = English · हिन्दी · বাংল
 identity.local.names.hint = এক লাইনে একটা নাম। প্রথম লাইনের নামটাই উদ্ধৃতি আর কৃতিত্বে ছাপা হয়; বাকিগুলো খোঁজে পাওয়া যাবে।
 identity.local.names.placeholder = যে নামটা ছাপা হবে\nআরেকটা বানান
 identity.row.local-desc.label = এই কাজে
-identity.row.local-desc.sub = এই কাজটা তার সম্পর্কে যা বলে। রেকর্ডের নিজের বিবরণ এক ধাপ দূরে, আর সেটা সব কাজে এক।
+identity.row.local-desc.sub = শুধু এই কাজে
 identity.row.local-desc.none = এই কাজের জন্য কিছু লেখা হয়নি
 identity.local.names.saved = নাম সেভ হয়েছে — প্রথম লাইনটা ছাপা হবে
 identity.credit.add.blocked = আগে অভিনেতার নাম দিন
@@ -6398,7 +6399,7 @@ identity.credit.remove.tip = এই কৃতিত্ব সরিয়ে দ
 
 
 identity.section.identity.label = পরিচয়
-identity.section.identity.note = এখানে বদলালে সব কাজে বদলাবে।
+identity.section.identity.note = সব কাজে পৌঁছয়।
 identity.section.person.label = মানুষটি
 identity.section.company.label = সংস্থাটি
 identity.section.links.label = লিংক
@@ -6443,7 +6444,7 @@ identity.row.merge.label.company = আরেকটা সংস্থার স�
 identity.row.merge.sub.person = তাঁর নাম আর বানানগুলো এক রেকর্ডে চলে আসে
 identity.row.merge.sub.company = এর নাম আর বানানগুলো এক রেকর্ডে চলে আসে
 identity.row.remove-all.label = সব কাজ থেকে সরান
-identity.row.remove-all.sub = একটা একটা কাজ থেকে আলাদা করা হয় — একসঙ্গে কিছু মুছে যায় না
+identity.row.remove-all.sub = একটা করে কাজ
 
 identity.choose.work.hint = এর পিছনে একাধিক জিনিস আছে। আপনি কোনটা চাইছেন?
 identity.choose.work.sub = কাজটার নিজের পাতা

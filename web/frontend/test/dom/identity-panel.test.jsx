@@ -49,6 +49,7 @@ const { personPanel, characterPanel } = await import('../../src/identity.jsx')
 // The panel chrome, so the one case that presses commit presses the ✓ the app
 // actually draws — see inPanel below.
 const { PanelHost, usePanelStack } = await import('../../src/ui.jsx')
+const { t } = await import('../../src/i18n.js')
 
 // The panel machinery renders through a portal from a descriptor; the body is
 // what this file is about, so it is rendered directly.
@@ -193,7 +194,8 @@ describe('a person panel says which scope you are in', () => {
     const stack = { push: vi.fn(), open: vi.fn() }
     render(body(personPanel(stack, { id: 7, name: 'Mikhail Bulgakov' })))
     await screen.findByText('The person')
-    expect(screen.getByText(/reach every work/i), 'the blast radius went unsaid').toBeTruthy()
+    expect(screen.getByText(t('identity.section.identity.note')),
+      'the blast radius went unsaid').toBeTruthy()
   })
 
   it('lists every work the record is credited on, with the spelling each one prints', async () => {

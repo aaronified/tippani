@@ -276,12 +276,44 @@ describe('a work with no picture of its own', () => {
       'the picture is not this work\'s and the screen says exactly what it says when it is').not.toBe(own)
   })
 
-  it("falls back to the performer's face where the character has none either", async () => {
+  it("does NOT fall back to the performer, and says there is no picture", async () => {
+    // THE OWNER'S RULING, reversing what this case used to assert. "when i said
+    // that actor image is the fallback for the character, i meant it strictly
+    // for the pills, not the character menus. how will i know then that the
+    // character has some other image?"
+    //
+    // On a 22px chip the performer's face is a better guess than a silhouette
+    // and claims nothing. On a sheet whose whole subject is this character's
+    // picture, it is a lie the reader cannot see through: the page shows a
+    // photograph, so the reader concludes the character has one — and the fact
+    // they actually needed, that nobody has set a picture for the role, is the
+    // one the substitution hides. `store.CastOf`'s own comment has said this
+    // about the server for as long as it has existed: "a panel that shows the
+    // global picture where the work has none must be able to SAY so."
     RECORD.image_path = ''
     RECORD.appearances = [{ ...APPEARANCE, image: '' }]
     await open({ id: 4, name: 'Andy Dufresne', work: FILM })
-    const face = document.querySelector('.cs-portrait .cs-face img')
-    expect(face, 'no picture at all, though the performer has a photograph').toBeTruthy()
-    expect(document.querySelector('.cs-portrait').textContent).toMatch(/Tim Robbins/)
+    const block = document.querySelector('.cs-portrait')
+    expect(block.querySelector('.cs-face img'),
+      "the performer's photograph is standing in for the character's").toBeFalsy()
+    expect(block.querySelector('.cs-face svg') || block.querySelector('.cs-face'),
+      'the slot drew nothing at all, not even a silhouette').toBeTruthy()
+    // And it SAYS so, in whatever words the locale uses.
+    expect(block.textContent.trim().length,
+      'the sheet shows no picture and does not say why').toBeGreaterThan(0)
+    expect(block.textContent, "it names the performer, which is the substitution the ruling forbids")
+      .not.toMatch(/Tim Robbins/)
+  })
+
+  it('while a credit row — a pill — still shows the performer, which is what the ruling keeps', async () => {
+    // The other half of the same ruling, so this file holds both and neither can
+    // be "fixed" by breaking the other. A cast row's small face is a pill.
+    RECORD.image_path = ''
+    RECORD.appearances = [{ ...APPEARANCE, image: '' }]
+    await open({ id: 4, name: 'Andy Dufresne', work: FILM })
+    const credit = document.querySelector('.cs-credit')
+    expect(credit, 'no credit row on a film').toBeTruthy()
+    expect(credit.querySelector('img'),
+      "the credit row lost the performer's face, which the ruling keeps").toBeTruthy()
   })
 })

@@ -232,15 +232,28 @@ export function CharacterLocal({
       <PortraitBlock
         src={portrait || (here.image ? coverImgURL(here.image) : '')}
         name={record.name}
-        px={t('identity.portrait.local')}
+        // NOTHING TO SAY ABOUT A PICTURE THAT IS NOT THERE. `px` is the line the
+        // block prints until it has measured the file, and it read "this work's
+        // own picture" whether or not there was one — so an empty slot said "this
+        // work's own picture" over a silhouette, with the line below it saying
+        // there was no picture for the role. One claim contradicting the next.
+        px={portraitFrom === 'work' ? t('identity.portrait.local') : ''}
         // A FALLBACK THAT DOES NOT SAY SO IS THE SCREEN CLAIMING THIS WORK HOLDS
         // A PICTURE IT DOES NOT — and the reader who then presses "Set for the
         // identity" is promoting a picture that is already the identity's.
+        /* WHOSE PICTURE IS ON SCREEN, in as few words as it takes. It said
+           "the character's own picture — this work has none", which is the row
+           above it repeated: the block is already headed "this work's own
+           picture" when it IS one. And `none` is a state this sheet now has to
+           be able to state, because the performer's headshot no longer stands in
+           here — see useCharacterPicture's `actorFace`. */
         from={portraitFrom === 'identity'
           ? t('identity.portrait.from.identity')
           : portraitFrom === 'actor'
             ? t('identity.portrait.from.actor', { name: here.actor || '' })
-            : ''}
+            : portraitFrom === 'none'
+              ? t('identity.portrait.from.none')
+              : ''}
         actions={portraitActions}
         editor={portraitEditor}
       />

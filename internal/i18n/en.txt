@@ -6319,8 +6319,9 @@ identity.picture.promote.ask.verb = Yes, set it everywhere
 # work holds a picture it does not, which is the one thing store.CastOf's own
 # comment forbids: "a panel that shows the global picture where the work has none
 # must be able to SAY so".
-identity.portrait.from.identity = the character's own picture — this work has none
-identity.portrait.from.actor = {name}'s photograph — nobody has set one for the role
+identity.portrait.from.identity = the character's own picture
+identity.portrait.from.actor = {name}'s photograph
+identity.portrait.from.none = no picture for the role
 # ---- the pack's LOCAL character sheets (char-book, char-film, char-game) ----
 # One character seen from inside one work. Everything here is true of THIS work
 # and of no other; what is true of the identity lives on the global sheet, one
@@ -6372,7 +6373,7 @@ identity.count.locator.tip = Search this work for where they appear
 
 # THE WAY UP, to the character out of any one work.
 identity.row.global.label = Open the global record
-identity.row.global.sub = The character, out of any one work
+identity.row.global.sub = Across every work
 identity.badge.global = global
 identity.row.global.works.one = {n} work
 identity.row.global.works.other = {n} works
@@ -6385,8 +6386,8 @@ identity.row.unlink.label.book = Remove from this book
 identity.row.unlink.label.film = Remove from this film
 identity.row.unlink.label.show = Remove from this show
 identity.row.unlink.label.game = Remove from this game
-identity.row.unlink.sub.book = Other works retain the global character
-identity.row.unlink.sub.cast = Other works retain the global character; people keep their records
+identity.row.unlink.sub.book = Other works keep the character
+identity.row.unlink.sub.cast = Other works keep the character
 # ---- the picker, which is how every row above is changed --------------------
 # THE PACK'S `openPicker`, and the reason it is one sheet rather than nine. A row
 # on an identity screen states its value and opens this to change it; the sheet
@@ -6421,7 +6422,7 @@ identity.local.names.placeholder = The name that prints\nAnother spelling
 # record's own. The sub-line states the scope for the same reason the note's does:
 # the two fields look alike and reach very different distances.
 identity.row.local-desc.label = In this work
-identity.row.local-desc.sub = What this work says about them. The record's own description is one door away, and every work shares it.
+identity.row.local-desc.sub = This work only
 identity.row.local-desc.none = nothing written for this work
 identity.local.names.saved = Names saved — the first line prints
 identity.credit.add.blocked = Name the performer first
@@ -6464,7 +6465,7 @@ identity.credit.remove.tip = Take this credit off
 
 
 identity.section.identity.label = The identity
-identity.section.identity.note = Edits here reach every work.
+identity.section.identity.note = Reaches every work.
 identity.section.person.label = The person
 identity.section.company.label = The company
 identity.section.links.label = Links
@@ -6518,7 +6519,7 @@ identity.row.merge.label.company = Merge with another company
 identity.row.merge.sub.person = Their credits and spellings come across into one record
 identity.row.merge.sub.company = Its credits and spellings come across into one record
 identity.row.remove-all.label = Remove from all works
-identity.row.remove-all.sub = Unlinked one work at a time — nothing is removed in bulk
+identity.row.remove-all.sub = One work at a time
 
 # ---- THE CHOOSE SHEET, for a press with more than one right answer -----------
 # A tile stands for a work, and there is more than one thing behind a work: the

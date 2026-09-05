@@ -47,6 +47,7 @@ vi.mock('../../src/api.js', async (orig) => ({
 const { CastSection } = await import('../../src/cast.jsx')
 const { characterPanel } = await import('../../src/identity.jsx')
 const { workPeoplePanel } = await import('../../src/WorkDetails.jsx')
+const { t } = await import('../../src/i18n.js')
 
 const FILM = { id: 5, title: 'The Master and Margarita (2005)', media_type: 'show' }
 
@@ -193,7 +194,10 @@ describe('the character page, opened from a work', () => {
     await openPage(FROM_FILM)
     // The note under "The identity" is what stops a reader believing they
     // renamed the character on every work by editing this one.
-    expect(screen.getByText(/reach every work/i), 'the identity section explains nothing').toBeTruthy()
+    // The locale's own sentence for the section note — see character-destination
+    // for why this is not a regex over the English.
+    expect(screen.getByText(t('identity.section.identity.note')),
+      'the identity section explains nothing').toBeTruthy()
     // And the note's opposite, on the row that is this work's alone.
     expect(rowValue('Note'), 'the private note does not say it is per-work').toMatch(/this work only/i)
   })
@@ -207,7 +211,9 @@ describe('the character page, opened from a work', () => {
     expect(screen.getByText('Remove from this show'), 'no way out of the one work').toBeTruthy()
     // A film's reassurance carries one clause more than a book's, because a film
     // has people whose records could be thought at risk.
-    expect(screen.getByText(/people keep their records/i)).toBeTruthy()
+    const kept = t('identity.row.unlink.sub.cast')
+    expect(kept.length, 'the removal row reassures about nothing').toBeGreaterThan(3)
+    expect(screen.getByText(kept)).toBeTruthy()
   })
 
   it('draws the performer block on a screen work, with the dubs under it', async () => {

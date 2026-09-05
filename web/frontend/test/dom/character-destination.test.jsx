@@ -55,6 +55,7 @@ vi.mock('../../src/api.js', async (orig) => ({
 }))
 
 const { characterPanel } = await import('../../src/identity.jsx')
+const { t } = await import('../../src/i18n.js')
 const body = (panel) => panel.render()
 const stack = () => ({ push: vi.fn(), open: vi.fn() })
 
@@ -379,7 +380,13 @@ describe('what this character is on ONE work', () => {
     // door away and reach one row instead of every work — a reader who cannot
     // tell them apart renames a character everywhere by accident.
     const dialog = await open_(/In this work/, BOOK())
-    expect(within(dialog).getByText(/every work shares it|one door away/i),
+    // THE LOCALE'S SENTENCE, NOT A SENTENCE. What the reader is owed is that the
+    // editor SAYS how far it reaches; which words it uses is the locale's, and a
+    // regex over the English fails on the Bengali build while the feature stands
+    // — and passes over a screen saying the wrong thing in the right words.
+    const said = t('identity.row.local-desc.sub')
+    expect(said.length, 'the scope line is empty, so the editor says nothing').toBeGreaterThan(3)
+    expect(within(dialog).getByText(said),
       'the editor does not say how far it reaches').toBeTruthy()
   })
 

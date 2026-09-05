@@ -101,7 +101,7 @@ const SURFACES = [
 
 const engine = findBrowser(null, 'chrome')
 const browser = await puppeteer.launch(launchOptions(engine, { viewport: { width: opts.width, height: opts.height } }))
-const findings = { dead: [], small: [], empty: [], blank: [], unreachable: [], sideways: [], notaroute: [] }
+const findings = { dead: [], small: [], empty: [], blank: [], unreachable: [], sideways: [], notaroute: [], labelled: [], head: [] }
 let pressed = 0
 
 try {
@@ -209,6 +209,45 @@ try {
     return out
   })
 
+  // THE PACK'S PANEL HEADER IS ONE LEFT-ALIGNED BLOCK BESIDE THE COVER, and the
+  // app drew a centred three-slot bar. `character-popup.dc.html:33`: the work's
+  // cover with the medium glyph laid OVER it in the slot a back key would
+  // otherwise hold, the name with its crumb beneath, the ✕. Two things that are
+  // geometry and nothing else, so neither can be checked anywhere but here —
+  // jsdom reports every width as zero.
+  //
+  //   THE NAME STARTS WHERE THE COVER ENDS. With `flex: 1 1 0` on both slots the
+  //   two 44px controls took a third of the bar each and the name floated in the
+  //   middle, wrapping inside the third that was left while the head had room to
+  //   spare. The owner: "the problem here lies in the fact that it is not left
+  //   aligned right beside the cover image, rather middle aligned, AGAINST THE
+  //   PROTOTYPE DESIGN."
+  //
+  //   AND THE GLYPH SITS ON THE COVER. Written `position: relative` inside a flex
+  //   box it is a flex ITEM, so the badge and the poster shared one 32px box side
+  //   by side. Reported three times before it was measured.
+  const headShape = () => page.evaluate(() => {
+    const out = []
+    const head = document.querySelector('.tp-panel-head.has-scope')
+    if (!head) return out
+    const names = head.querySelector('.tp-panel-names')
+    const slot = head.querySelector('.tp-panel-slot')
+    if (names && slot) {
+      const gap = Math.round(names.getBoundingClientRect().left - slot.getBoundingClientRect().right)
+      // One gap of the head's own, not a third of the bar.
+      if (gap > 24) out.push(`the name starts ${gap}px after the cover — it is centred, not beside it`)
+    }
+    const art = head.querySelector('.cs-scope-art')
+    const badge = head.querySelector('.cs-scope-overlay')
+    if (art && badge) {
+      const a = art.getBoundingClientRect()
+      const b = badge.getBoundingClientRect()
+      const over = b.left < a.right - 1 && b.right > a.left + 1 && b.top < a.bottom - 1 && b.bottom > a.top + 1
+      if (!over) out.push('the medium glyph sits beside the cover, not over it')
+    }
+    return out
+  })
+
   const differs = (a, b) => a.url !== b.url || a.panels !== b.panels || a.dialogs !== b.dialogs
     || a.inputs !== b.inputs || a.focus !== b.focus || a.scroll !== b.scroll
     || a.text !== b.text || a.toasts !== b.toasts || a.expanded !== b.expanded
@@ -291,6 +330,17 @@ try {
             || (b.classList.contains('is-on')
               && (b.classList.contains('cat-swatch') || b.classList.contains('meta-rail-item'))),
           href: b.getAttribute('href') || '',
+          // A GLYPH AND WORDS TOGETHER. Read off the rendered box rather than off
+          // a class name: `keepLabel` is one way to get here and a hand-built
+          // button with an <svg> beside a <span> is another, and the reader
+          // cannot tell them apart.
+          iconWords: !!b.querySelector('svg') && (() => {
+            const words = [...b.childNodes].map((n) => n.nodeType === 3
+              ? n.textContent
+              : (n.nodeType === 1 && getComputedStyle(n).display !== 'none' && n.getBoundingClientRect().width > 0
+                ? n.textContent : '')).join('').replace(/\s+/g, ' ').trim()
+            return words.length > 1
+          })(),
           w: Math.round(r.width),
           h: Math.round(r.height),
         }
@@ -343,12 +393,22 @@ try {
       await page.goto(opts.baseUrl + surface.route, { waitUntil: 'networkidle2' }).catch(() => {})
       await settled()
       if (!surface.door) return true
+      // A DETACHED FRAME IS A RETRY, NOT A CRASH. Pressing a door navigates, and
+      // an in-page navigation that lands while an `evaluate` is in flight throws
+      // "Attempted to use detached Frame" out of puppeteer — which took down the
+      // whole run on its LAST surface and took every finding of both passes with
+      // it, because the summary prints after the loop. Fifty minutes of measuring
+      // discarded by a race in the measuring.
       const opened = await page.evaluate((d) => {
         const b = [...document.querySelectorAll(d.selector)].find((x) => x.textContent.includes(d.text))
         if (!b) return false
         b.click()
         return true
-      }, surface.door)
+      }, surface.door).catch(() => 'detached')
+      if (opened === 'detached') {
+        await new Promise((r) => setTimeout(r, 800))
+        return await waitFor(() => page.evaluate(() => !!document.querySelector('.tp-panel')).catch(() => false))
+      }
       // THE DOOR HAS TO HAVE OPENED. Without this the surface degrades silently
       // to the screen the door is on, and the probe reports the film page's
       // controls under the character panel's name — the same "tested something
@@ -363,7 +423,7 @@ try {
       // that reports a defect that is not there gets switched off exactly as fast
       // as one that misses a defect that is.
       if (!opened) return false
-      return await waitFor(() => page.evaluate(() => !!document.querySelector('.tp-panel')))
+      return await waitFor(() => page.evaluate(() => !!document.querySelector('.tp-panel')).catch(() => false))
     }
     if (!await reopen()) {
       findings.unreachable.push(`${surface.name}: the door it is reached through (${surface.door.selector} "${surface.door.text}") did not open a panel`)
@@ -398,11 +458,27 @@ try {
       continue
     }
     for (const w of await sideways()) findings.sideways.push(`${surface.name}: ${w}`)
+    for (const h of await headShape()) findings.head.push(`${surface.name}: ${h}`)
     let dead = 0
     for (const c of controls) {
       // The touch floor is a property of the control, not of pressing it.
       if (opts.width <= 480 && (c.w < TOUCH_FLOOR - SLACK || c.h < TOUCH_FLOOR - SLACK) && !c.says) {
         findings.small.push(`${surface.name}: ${JSON.stringify(c.name)} is ${c.w}x${c.h}`)
+      }
+      // A GLYPH AND ITS WORD DO NOT BOTH FIT ON A PHONE, which is the whole of
+      // what the labels preference is for: `auto` resolves to "off" under 768px
+      // and clips `.btn-label`. A button that carries an icon AND still prints
+      // its words there has opted out of the reader's own setting with
+      // `keepLabel` — and every opt-out is a claim that THIS button's word is
+      // worth more room than the app's own rule allows.
+      //
+      // Reported rather than allow-listed, because the report is the review. The
+      // owner's case was four picture verbs in the column beside a 96px face:
+      // "there is not enough space beside the hero image for icons and texts. i
+      // am on phone, and the settings for labels is set at auto. under that,
+      // these should have been icon only."
+      if (opts.width <= 480 && c.iconWords) {
+        findings.labelled.push(`${surface.name}: ${JSON.stringify(c.name)} draws a glyph AND its words at ${c.w}px`)
       }
       if (c.says) continue                          // it said so; that is honest
       if (DESTRUCTIVE.test(c.name) || LEAVES.test(c.href)) continue
@@ -486,6 +562,13 @@ try {
     }
     console.log(`${dead ? 'FAIL' : 'ok  '}  ${surface.name.padEnd(14)} ${String(controls.length).padStart(3)} controls, ${dead} that do nothing and do not say so`)
   }
+} catch (err) {
+  // WHATEVER KILLED THE LOOP, THE FINDINGS SURVIVE IT. They are the run's whole
+  // product and they are printed after the loop, so an exception anywhere in it
+  // used to discard every one of them — including a crash on the last surface of
+  // the second pass, which is the most expensive place to lose them.
+  findings.blank.push(`the run stopped early: ${String(err && err.message ? err.message : err).split('\n')[0]}`)
+  console.log(`\nFAIL  the run stopped early — ${String(err && err.message ? err.message : err).split('\n')[0]}`)
 } finally {
   await browser.close()
 }
@@ -502,6 +585,14 @@ if (findings.small.length) {
 if (findings.empty.length) {
   console.log(`\n${findings.empty.length} MENU(S) THAT OPEN EMPTY:`)
   for (const d of findings.empty) console.log('  ' + d)
+}
+if (findings.head.length) {
+  console.log(`\n${findings.head.length} PANEL HEADER(S) THAT ARE NOT THE PACK'S:`)
+  for (const d of findings.head) console.log('  ' + d)
+}
+if (findings.labelled.length) {
+  console.log(`\n${findings.labelled.length} CONTROL(S) DRAWING A GLYPH AND ITS WORDS ON A PHONE:`)
+  for (const d of findings.labelled) console.log('  ' + d)
 }
 if (findings.sideways.length) {
   console.log(`\n${findings.sideways.length} SURFACE(S) THAT SCROLL SIDEWAYS:`)

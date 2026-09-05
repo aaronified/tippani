@@ -1254,6 +1254,10 @@ function CharacterBody({ stack, id, work, onSearch = null, onOpenWork: given = n
       }
       : { id: 0, character: '', actor: '', character_image_path: '', character_record_image: '' },
     actor: here ? { name: here.actor || '', image_path: here.actor_image || '' } : null,
+    // The performer is still handed over — the picture SEARCH needs their name
+    // to find the role — but their headshot does not stand in for the
+    // character's here. See useCharacterPicture.
+    actorFace: false,
     workTitle: here?.work_title || '',
     mediaType: here?.media_type || '',
     busy,
@@ -1344,10 +1348,13 @@ function CharacterBody({ stack, id, work, onSearch = null, onOpenWork: given = n
   const localPortraitActions = here ? (
     <>
       {localPicture.verbs}
+      {/* NO keepLabel — see useCharacterPicture's verbs, which this stands beside
+          and must collapse with. It was the widest of the four (176px of label
+          against a column about 167px wide at 320px), so it was also the one that
+          pushed the panel body into scrolling sideways. */}
       <GhostButton
         className="cs-verb cs-verb-wide"
         icon={<IconGlobe />}
-        keepLabel
         onClick={() => setPromoteAsk(here)}
         disabled={busy || !here.image}
         title={t('identity.picture.promote.tip')}

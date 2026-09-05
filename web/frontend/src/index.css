@@ -923,13 +923,28 @@
      `.tp-panel-title` keeps its size and family; only its centring is dropped,
      because the pack sets the same type on the same line. */
   .tp-panel-names { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-  .tp-panel-title.is-scoped { text-align: left; flex: none; }
+  /* `flex: 0 1 auto`, NOT `flex: none`. The base rule two blocks down gives
+     this box `min-width: 0` and `overflow-x: auto` precisely so a long name
+     scrolls under the fade instead of truncating — and `flex: none` is
+     `flex: 0 0 auto`, which forbids the shrink that makes the box narrower
+     than its content in the first place. So the name did not scroll: it ran
+     out of the head and under the ✕, which is the one thing the standing
+     rule about names forbids. Only the CENTRING is dropped here. */
+  .tp-panel-title.is-scoped { text-align: left; flex: 0 1 auto; min-width: 0; }
   .tp-panel-crumb {
     font-family: var(--font-mono), monospace;
     font-size: var(--type-ui-11);
     letter-spacing: .06em;
     color: var(--soft);
+    /* ONE LINE. It carries a WORK's title — "in V for Vendetta" — and a title
+       broken across two lines in a 60px header bar pushes the name off its own
+       row. It scrolls under the fade like the name above it. */
+    white-space: nowrap;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
   }
+  .tp-panel-crumb::-webkit-scrollbar { display: none; }
   .tp-panel-head {
     flex: none;
     position: relative;
@@ -955,6 +970,12 @@
     gap: 4px;
   }
   .tp-panel-slot-r { justify-content: flex-end; }
+  /* EQUAL SLOTS ARE FOR A CENTRED TITLE, and a scoped head's title is not
+     centred — it starts where the cover ends. With `flex: 1 1 0` on both
+     sides the two 44px slots took a third of the bar each, so "Delia
+     Surridge" and "in V for Vendetta" wrapped and clipped inside the
+     third that was left while the head had room to spare. */
+  .tp-panel-head.has-scope .tp-panel-slot { flex: 0 0 auto; }
   /* THE PANEL IS NAMED AFTER WHAT IT IS ABOUT — a person, a character, a work —
      so this is a name and it does not truncate either. Same treatment as the back
      key beside it and as .cast-character: it scrolls under the fade. */
@@ -8237,14 +8258,22 @@ html[data-theme="dark"] .board-cover {
      as well as in the badge. */
   .cs-scope-art.is-book { border-radius: 3px 7px 4px 6px; }
   .cs-scope-art img { width: 100%; height: 100%; object-fit: cover; }
+  /* OVER THE COVER, NOT BESIDE IT — the owner's report, three times. This was
+     `position: relative` inside a `display: flex` `.cs-scope-art`, which makes it
+     a flex ITEM: the 24px badge and the poster shared a 32px box side by side and
+     each was squeezed to a sliver. The pack lays the medium glyph ON the artwork,
+     in the slot a back key would otherwise hold. Absolute, inside the box's own
+     `overflow: hidden`, at the corner the artwork can spare. */
   .cs-scope-overlay {
-    position: relative;
-    width: 24px; height: 24px; border-radius: 7px;
+    position: absolute;
+    right: 1px; bottom: 1px;
+    width: 17px; height: 17px; border-radius: 5px;
     display: inline-flex; align-items: center; justify-content: center;
     color: var(--ink);
     background: color-mix(in oklab, var(--card), transparent 8%);
     border: 1px solid var(--line);
   }
+  .cs-scope-overlay svg { width: 11px; height: 11px; }
   .cs-scope-globe {
     width: 44px; height: 44px;
     display: inline-flex; align-items: center; justify-content: center;

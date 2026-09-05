@@ -178,6 +178,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the size every other control on the screen is, with Clear last and red because it is
   the one that takes a picture away. Turn Button labels off in Settings and they go back
   to squares with the rest of the app.
+- **A character's page no longer shows the performer's photograph as the character's.**
+  It is a good guess on a small chip beside a quote and a false one on the page whose
+  whole subject is what this character looks like: the page showed a photograph, so it
+  read as a picture somebody had set for the role. It says there is none, and the chips
+  keep their fallback.
+- **The medium glyph sits on the cover in a panel's header**, not beside it — where the
+  two shared one 32px box and each was squeezed to a sliver.
+- **A panel's header reads left to right: the cover, then the name.** The name was
+  centred on the bar with a gap on its left, so it wrapped inside the third of the bar it
+  had been left while the header had room to spare.
+- **The picture verbs are glyphs on a phone**, like every other button, instead of four
+  labelled buttons stacked down the column beside the picture. Set button labels to Show
+  in Settings and they keep their words at every width.
+- **Shorter lines under the rows on a character's page.** The one under "In this work"
+  ran to three lines of explanation under a row that had already said what it was.
 - **A credit row's portrait and its name go to different places.** The portrait's own
   tooltip said "Change who this is" and it opened the performer's record instead, which
   is what the name beside it does — so the one control for putting a different person on

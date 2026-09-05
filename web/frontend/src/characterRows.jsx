@@ -151,7 +151,10 @@ export function PortraitBlock({ src, name, px, soft, from = '', actions, editor 
           : <Silhouette name={name} />}
       </span>
       <span className="cs-portrait-side">
-        <span className={'cs-px' + (isSoft ? ' is-soft' : '')}>{measured}</span>
+        {/* AND NOTHING WHERE THERE IS NOTHING TO MEASURE. An empty span is still a
+            child of an 8px-gap column, so a slot with no picture drew a line of
+            air above the caption that explains why. */}
+        {measured ? <span className={'cs-px' + (isSoft ? ' is-soft' : '')}>{measured}</span> : null}
         {/* WHOSE PICTURE THIS IS, when it is not the one this slot is about. Only
             drawn when the caller has something to say: a picture that IS the
             slot's own needs no caption, and a caption under every portrait is a
