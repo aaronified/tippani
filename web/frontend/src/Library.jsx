@@ -1404,6 +1404,12 @@ function ActionRow({ acts, a, color, onColor, patch, actionsAlwaysVisible }) {
   // shows is its ♥ and one quiet overflow glyph.
   return (
     <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 pt-1.5">
+      {/* FIRST, AND IT IS THE ONE CONTROL HERE THAT IS NOT ONE. Everything else
+          in this row does something to the quote; this says what the quote's
+          recall is. It leads because it is the card's state — the same position
+          the shelf chip takes on a work — and because a state read after four
+          verbs reads as a fifth verb. */}
+      <ReviewDot item={a} />
       <Hearts value={!!a.favorite} onChange={(v) => patch(a, { favorite: v })} />
       <QuoteTools actions={atRow(acts)} alwaysVisible={actionsAlwaysVisible} />
       {/* shrink-0: the colour dots are one atomic control — the row wraps the ⋯
@@ -1680,11 +1686,14 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
                 line names and not one of their names, which is the one thing a
                 reader wants from it — so those lines get a chip each now, above,
                 and there is nothing left for the discs to cover. */}
-            <ReviewDot item={a} />
-            {/* Beside the dot, because the two answer one question between them:
-                the dot says how the recall stands, the mark says the quiz is not
-                going to ask. Without it the dot on an excluded quote reads "due
-                now" about a card the deck will never serve.
+            {/* THE RECALL MARK IS NOT HERE ANY MORE — it is the first glyph of
+                the action row below, on the owner's ruling ("put in the bottom
+                row (where the icons are) as the first icon"). It had been the
+                only thing on a line of its own on a card with no credits, which
+                is what an orphan row is. What stays here is the quiz mark, which
+                belongs to the CREDIT line rather than to the actions: it says
+                this quote is out of the deck, which is a fact about the quote and
+                not something you can do to it.
 
                 This card serves annotations AND standalone quotes; only the
                 first has a work to inherit from, so only it names one. */}

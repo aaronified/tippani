@@ -5978,25 +5978,109 @@ export function reviewStatus(item = {}) {
   return { key, ...meta, tip: t("common.status.tip", { name: t(meta.label), detail: due }) };
 }
 
-// ReviewDot — the coloured repetition-status dot shown on every quote/dialogue
-// card. Hover/focus reveals the status + half-life (a Tooltip, same as InfoDot).
+// IconRecall — the repetition status as a DRAWING with four states, not a dot
+// with four colours.
+//
+// THE OWNER'S REPORT: "the spaced repetition dot is now on an orphan row. make
+// it a four way wireframe icon (remembered, forgetting, probably forgotten, and
+// not tested) and put in the bottom row (where the icons are) as the first
+// icon." Both halves are the same complaint. A 7px disc has no shape to read, so
+// the only thing separating its four states was hue — which is the one channel a
+// reader may not have, and which the app spends elsewhere on the six quote
+// colours sitting two controls away in the same row. And a mark with no shape
+// cannot join a row of glyphs, so it had been left on a line of its own with
+// nothing else on it.
+//
+// THE DRAWING IS ONE RING AND HOW MUCH OF IT IS STILL THERE, which is what a
+// half-life IS: full circle holding, three-quarters slipping, a quarter left,
+// and a dashed outline for a card the quiz has never asked about. The colour
+// stays, because it agrees with the shape rather than carrying it alone.
+export function IconRecall({ state = "unseen", size = ICON_SIZE }) {
+  // A CIRCLE DRAWN AS AN ARC, so "how much is left" is one number. The dash
+  // array is the ring's circumference (2πr, r = 8.25) split into the drawn part
+  // and the gap after it; `unseen` is the one state that is not an amount, so it
+  // is the only one drawn as a broken line rather than a partial one.
+  const C = 2 * Math.PI * 8.25;
+  const arc = { remembered: 1, forgetting: 0.72, "probably-forgotten": 0.25 }[state];
+  return (
+    <svg {...iconStroke} width={size} height={size} aria-hidden="true">
+      {arc === undefined ? (
+        <circle cx="12" cy="12" r="8.25" strokeDasharray="2.6 3.2" opacity=".85" />
+      ) : (
+        <circle
+          cx="12"
+          cy="12"
+          r="8.25"
+          strokeDasharray={`${C * arc} ${C}`}
+          // FROM THE TOP, CLOCKWISE. An SVG arc starts at three o'clock, so a
+          // ring that empties would drain from the side rather than from the top
+          // and two adjacent states would look like two different glyphs.
+          transform="rotate(-90 12 12)"
+        />
+      )}
+      {/* THE CENTRE MARK IS THE STATE AGAIN, at a size the ring cannot hold: a
+          card that is holding has a dot, one that is slipping has none, and one
+          that is probably gone has a cross. Redundant on purpose — the ring's
+          length is a fine distinction at 18px and this is not. */}
+      {state === "remembered" ? <circle cx="12" cy="12" r="2.1" fill="currentColor" stroke="none" /> : null}
+      {state === "probably-forgotten" ? (
+        <>
+          <path d="M9.6 9.6l4.8 4.8" />
+          <path d="M14.4 9.6l-4.8 4.8" />
+        </>
+      ) : null}
+    </svg>
+  );
+}
+
+// ReviewDot — the repetition status on every quote/dialogue card, drawn by
+// IconRecall and named by its tooltip. Kept under its old name because eleven
+// call sites and the glossary know it by that name, and what it draws is the
+// component's business rather than its callers'.
 export function ReviewDot({ item, side = "top" }) {
   const st = reviewStatus(item);
   return (
     <Tooltip label={st.tip} side={side}>
       <span
         tabIndex={0}
-        className="status-dot"
+        className="status-mark"
         aria-label={st.tip}
-        style={{
-          background: st.filled ? st.color : "transparent",
-          // Always ring in the status colour (unseen = a visible hollow grey);
-          // using --line here made the unseen dot invisible against the card.
-          borderColor: st.color,
-        }}
-      />
+        style={{ color: st.color }}
+      >
+        <IconRecall state={st.key} size={17} />
+      </span>
     </Tooltip>
   );
+}
+
+// FOUR STATES SIDE BY SIDE, because the whole claim is that they can be told
+// apart — and a glossary showing one of them proves nothing about the other
+// three. Rendered from IconRecall itself rather than from carried markup, so a
+// change to the drawing reaches the page on the next build.
+if (import.meta.env.DEV) {
+  ReviewDot.glossary = {
+    demo: (h, ui) =>
+      h(
+        "span",
+        { style: { display: "inline-flex", alignItems: "center", gap: 18 } },
+        ...[
+          ["remembered", "var(--ok)", "REMEMBERED"],
+          ["forgetting", "var(--amber)", "FORGETTING"],
+          ["probably-forgotten", "var(--error)", "PROBABLY GONE"],
+          ["unseen", "var(--faint)", "NOT TESTED"],
+        ].map(([state, color, word]) =>
+          h(
+            "span",
+            {
+              key: state,
+              style: { display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 5, color },
+            },
+            h(ui.IconRecall, { state, size: 20 }),
+            h("span", { className: "mono-label" }, word),
+          ),
+        ),
+      ),
+  };
 }
 
 // ---- "the quiz will not ask about this" (0033) ----

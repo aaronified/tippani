@@ -138,9 +138,20 @@ type castRow struct {
 	// The fallback is the CALLER's to apply, like Description below — a row states
 	// what is stored at each grain and the surface decides which to draw.
 	CharacterRecordImage string `json:"character_record_image,omitempty"`
-	Billing            int    `json:"billing"`
-	Origin             string `json:"origin"`
-	Source             string `json:"source"`
+	// ActorImage is the PERFORMER's own headshot — `people.image_path`, reached
+	// through actor_id.
+	//
+	// It is here because the pack's cast strip leads with a face and this row is
+	// where a cast face has to come from. NOT a fallback for the two character
+	// pictures above it, and not their fallback either: they are different
+	// pictures of different things — the role in costume against the person — and
+	// which one a surface prefers is the surface's business. Same rule, same
+	// wording, as store.CastOf.ActorImage, which serves the identity sheets from
+	// the same column.
+	ActorImage string `json:"actor_image,omitempty"`
+	Billing    int    `json:"billing"`
+	Origin     string `json:"origin"`
+	Source     string `json:"source"`
 	// The two identity links 0056 added, and the reason a cast row can be a DOOR
 	// rather than only a pair of strings: character_id names the record in
 	// `characters`, actor_id the record in `people`.
@@ -201,7 +212,9 @@ const castCols = `id, character, actor, person_id, image_url, character_image_ur
 	character_image_path, billing, origin, source, character_id, actor_id, description,
 	credit_note, credit_lang, part, first_appears, age_here, aliases,
 	COALESCE((SELECT ch.image_path FROM characters ch
-	           WHERE ch.id = work_cast.character_id AND ch.user_id = work_cast.user_id), '')`
+	           WHERE ch.id = work_cast.character_id AND ch.user_id = work_cast.user_id), ''),
+	COALESCE((SELECT p.image_path FROM people p
+	           WHERE p.id = work_cast.actor_id AND p.user_id = work_cast.user_id), '')`
 
 func scanCastRow(sc interface{ Scan(...any) error }) (castRow, error) {
 	var c castRow
@@ -214,7 +227,7 @@ func scanCastRow(sc interface{ Scan(...any) error }) (castRow, error) {
 		&c.CharacterImageURL, &c.CharacterImagePath, &c.Billing, &c.Origin, &c.Source,
 		&cid, &aid, &c.Description,
 		&c.CreditNote, &c.CreditLang, &c.Part, &c.FirstAppears, &c.AgeHere, &c.Aliases,
-		&c.CharacterRecordImage)
+		&c.CharacterRecordImage, &c.ActorImage)
 	c.CharacterID, c.ActorID = cid.Int64, aid.Int64
 	return c, err
 }

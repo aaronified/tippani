@@ -140,11 +140,17 @@ func TestAQuotedCharacterAlreadyOnTheListIsNotAddedAgain(t *testing.T) {
 	}
 }
 
-// A TOMBSTONE STAYS DEAD, and this is the case that is most obviously wrong when
-// it breaks: deleting a character you have also quoted would undelete it on the
-// next read, for ever, and the delete button would look broken rather than
-// declined. The existing-keys query reads EVERY origin for this reason.
-func TestADeletedCharacterIsNotReadoptedFromItsOwnQuotes(t *testing.T) {
+// A DELETION THAT WAS A DEDUPE STAYS A DELETION.
+//
+// THE SPECIFICATION. Two rows for one character is the commonest reason anybody
+// presses ✕ on this list at all — a provider spelling it one way and the reader
+// another. The survivor is on the list, so the character is not missing from
+// anywhere, and putting the twin back would undo the tidying on the next read
+// and every read after it.
+//
+// This is the half of the tombstone rule that is not negotiable, and it is what
+// distinguishes it from the case below.
+func TestADeletionThatWasADedupeStaysDeleted(t *testing.T) {
 	srv := newTestServer(t)
 	h := srv.Handler()
 	c := signupAdmin(t, h)
@@ -153,15 +159,56 @@ func TestADeletedCharacterIsNotReadoptedFromItsOwnQuotes(t *testing.T) {
 	c.mustDo("POST", "/annotations", map[string]any{
 		"book_id": book, "quote": "Fear is the mind-killer.", "character": "Paul Atreides",
 	}, http.StatusCreated)
+	// The second spelling, which the reader is about to decide against.
+	c.mustDo("POST", "/books/"+itoa(book)+"/cast",
+		map[string]any{"character": "Paul Muad'Dib Atreides"}, http.StatusCreated)
 
 	rows := castList(t, c, "books", book)
-	if len(rows) != 1 {
-		t.Fatalf("expected the character to be adopted first, got %v", castNames(rows))
+	if len(rows) != 2 {
+		t.Fatalf("expected both spellings on the list first, got %v", castNames(rows))
 	}
-	c.mustDo("DELETE", "/cast/"+itoa(rows[0].ID), nil, http.StatusNoContent)
+	var dupe int64
+	for _, r := range rows {
+		if r.Character == "Paul Muad'Dib Atreides" {
+			dupe = r.ID
+		}
+	}
+	c.mustDo("DELETE", "/cast/"+itoa(dupe), nil, http.StatusNoContent)
 
-	if got := castNames(castList(t, c, "books", book)); len(got) != 0 {
-		t.Fatalf("cast = %v after a delete — the tombstone was ignored and the row came back", got)
+	for i := 0; i < 3; i++ {
+		if got := castNames(castList(t, c, "books", book)); len(got) != 1 || got[0] != "Paul Atreides" {
+			t.Fatalf("cast = %v on read %d — the tidied-away spelling came back", got, i+1)
+		}
+	}
+}
+
+// AND A DELETED CHARACTER NOBODY HAS QUOTED STAYS DELETED, which is the other
+// half: the reader's own lines are the only thing that speaks for a row here, and
+// a work with none of them has nothing to say.
+func TestADeletedCharacterNoLineNamesStaysDeleted(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	book := createBook(t, c, "Dune")
+	c.mustDo("POST", "/annotations", map[string]any{
+		"book_id": book, "quote": "Fear is the mind-killer.", "character": "Paul Atreides",
+	}, http.StatusCreated)
+	c.mustDo("POST", "/books/"+itoa(book)+"/cast",
+		map[string]any{"character": "Duncan Idaho"}, http.StatusCreated)
+
+	var unquoted int64
+	for _, r := range castList(t, c, "books", book) {
+		if r.Character == "Duncan Idaho" {
+			unquoted = r.ID
+		}
+	}
+	c.mustDo("DELETE", "/cast/"+itoa(unquoted), nil, http.StatusNoContent)
+
+	for i := 0; i < 3; i++ {
+		if got := castNames(castList(t, c, "books", book)); len(got) != 1 || got[0] != "Paul Atreides" {
+			t.Fatalf("cast = %v on read %d — a character no line names came back", got, i+1)
+		}
 	}
 }
 

@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A film's Details page shows its cast, as faces.** A row of round portraits under
+  `Cast · N`, each naming the character and who played them, between the work's own
+  fields and its catalogue numbers — the arrangement the design pack has always drawn.
+  Pressing one opens that character on that work. Opening the page is also what gives a
+  work's quoted characters the records their chips hang off, so a book or a game whose
+  cast list you have never opened stops having pills that do nothing.
+
 - **Settings → Updates says when the version you are running came out.** The version
   number told you which build you have and nothing about how old it is, which is the
   question that card is usually opened to answer. The date comes from the changelog
@@ -20,6 +27,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **A film shows its director on its Details page again.** The credits — a film's
+  director, a book's author, translator and editor — had been folded into one row headed
+  *People* that printed the names and not which of them was which, so a film's Details
+  read "Hrishikesh Mukherjee — 4 characters" and never said he directed it. Each credit
+  is a labelled row of its own once more, and the cast keeps its own door, from the head
+  over the faces.
+- **Deleting a character from a work's cast no longer breaks the quotes that name them.**
+  A deleted row is kept so that re-fetching the cast from a supplier cannot bring it back
+  — but it was also outranking the reader's own lines, so a character you had quoted and
+  then tidied off the list became a name on a card that opened nothing, and the performer's
+  own page said the film was not one of their works while that film's quote credited them.
+  A deleted character named on one of that work's own quotes comes back to the list; a
+  supplier still cannot bring one back, and neither can anything if a live row already
+  carries that name, which is what keeps a de-duplication deleted.
+- **A performer named on a cast list has a page, and that page has the work on it.** Cast
+  rows written by a fetch in one window of 3.1.0's development carried the performer's
+  name and no record behind it, so their face opened nothing and their own page claimed
+  no films at all. A one-time upgrade gives every such row the record it names.
+- **How well a quote is remembered is a drawing now, not a coloured dot.** Four states —
+  remembered, forgetting, probably forgotten, and not yet asked about — told apart by the
+  shape of a ring rather than by hue alone, which is the one channel a reader may not
+  have and one the card already spends on its six colours. It has moved off a line of its
+  own into the card's row of controls, where it leads.
+- **The panels have depth.** Fields, rows and the strips they hold are drawn as surfaces —
+  a lit top edge on the things that stand proud, a recess under the things that hold
+  something — rather than as text between hairlines.
 - **A form opened from inside a character's or a person's page stays inside it.** Every
   sheet those pages open — a field, the works picker, the merge search, "Add a link" —
   used to take over the whole screen on a phone, so the record you were editing vanished

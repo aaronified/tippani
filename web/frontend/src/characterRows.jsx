@@ -178,11 +178,30 @@ export function PortraitBlock({ src, name, px, soft, from = '', actions, editor 
 
 // ---- the rows ---------------------------------------------------------------
 
-// SectionHead — a heading, and the prose that sometimes belongs under it.
-export function SectionHead({ label, note }) {
+// SectionHead — a heading, the prose that sometimes belongs under it, and the one
+// control that belongs BESIDE it.
+//
+// `action` IS THE PACK'S OWN SLOT, not an extension of it: every `head()` in
+// `work-details-popup.dc.html` takes a second argument, and the cast's is
+// `addTo('TMDB')`. A section whose whole content is a list has nowhere else to
+// put "and here is how you change this list" — a row under the list reads as a
+// member of it, and a control above the heading belongs to the screen rather
+// than to the section.
+export function SectionHead({ label, note, action, actionLabel, actionTitle }) {
   return (
     <div className="cs-head-row">
-      <span className="cs-section">{label}</span>
+      {/* THE HEADING AND ITS CONTROL SHARE A LINE; the prose keeps its own. The
+          row is a column so that a note sits under the heading rather than
+          beside it, which is why the two that DO sit side by side are wrapped. */}
+      <div className="cs-head-top">
+        <span className="cs-section">{label}</span>
+        {action ? (
+          <button type="button" className="cs-section-action" title={actionTitle} onClick={action}>
+            <IconEdit size={13} />
+            <span>{actionLabel}</span>
+          </button>
+        ) : null}
+      </div>
       {note ? <span className="cs-section-note">{note}</span> : null}
     </div>
   )
@@ -538,6 +557,66 @@ export function AppearanceStrip({ tiles, hint, onAdd, addLabel, addTitle, addIco
             <span className="cs-tile-add-label">{addLabel || t('identity.works.add.label')}</span>
           </button>
         ) : null}
+      </Scroller>
+      {hint ? <span className="cs-strip-hint">{hint}</span> : null}
+    </div>
+  )
+}
+
+// FaceStrip — the pack's cast carousel: a circular face per member of a work's
+// cast, the character's name under it and the performer's under that.
+// `work-details-popup.dc.html:784-800`, drawn at `:1092`, `:1116` and `:1160`
+// under a `Cast · N` head, between the work's fields and its ids.
+//
+// WHY A SECOND STRIP AND NOT AppearanceStrip. They answer opposite questions.
+// AppearanceStrip is one CHARACTER across many works, so its tile is a cover —
+// the thing a reader recognises a work by — with the face as a corner chip. This
+// is one WORK across many people, where the cover is the same for every tile and
+// therefore says nothing, and the face is the whole of what tells them apart.
+// Round means a person everywhere in this app; the pack draws it at 60px.
+//
+// TWO PACK DEPARTURES, both the standing rules' rather than this component's:
+//
+//   THE NAMES WRAP. The pack clamps each caption to two lines with
+//   `max-height: calc(2 * 1.3em); overflow: hidden`, which cuts a long name
+//   without even an ellipsis to say it was cut — and the app's rule is that a
+//   name is never shortened, because a shortened name and a short name look
+//   alike. A third line is cheap here: the tile is in a row that scrolls
+//   sideways, so a taller tile costs nothing that a reader has to scroll past.
+//
+//   THE FADE IS MEASURED. The pack masks the strip's edges when it holds five
+//   tiles or more; Scroller masks when the row actually overflows, which is the
+//   app's standing rule and is right in both cases a count gets wrong — four
+//   long names that do overflow, and six short ones that do not.
+export function FaceStrip({ tiles, hint }) {
+  return (
+    <div className="cs-strip">
+      <Scroller className="cs-faces">
+        {tiles.map((m) => (
+          <button
+            type="button"
+            key={m.key}
+            className="cs-face-tile"
+            title={m.title}
+            /* A TILE WITH NOWHERE TO GO SAYS SO, AppearanceStrip's rule: the face
+               and both names are worth seeing on a row that cannot open them, so
+               the tile stays readable and only the press is declined. */
+            aria-disabled={m.onOpen ? undefined : true}
+            onClick={m.onOpen || undefined}
+          >
+            <span className="cs-face-round">
+              {m.face
+                ? <img src={coverImgURL(m.face)} alt="" loading="lazy" />
+                : <Silhouette name={m.faceName || m.name} />}
+            </span>
+            <span className="cs-face-name">{m.name}</span>
+            {/* NOT AN EMPTY LINE WHERE THERE IS NO PERFORMER. A book's cast has
+                nobody playing anybody and a game's voice credits are often thin,
+                so a blank second line under half the tiles would read as a
+                rendering fault rather than as an absence. */}
+            {m.by ? <span className="cs-face-by">{m.by}</span> : null}
+          </button>
+        ))}
       </Scroller>
       {hint ? <span className="cs-strip-hint">{hint}</span> : null}
     </div>

@@ -319,15 +319,20 @@ describe('a submit from somewhere else', () => {
 // page was reloaded by hand. Neither failure is visible from inside the panel, and
 // asserting the argument at the panel cannot see either.
 describe('a cast change reaches the record', () => {
-  // BEHIND THE PEOPLE DOOR, which is one press and not a collapsed section. The
-  // cast spent a release hidden behind a "People" button *inside* the form and
-  // the owner could not find it at all; then it sat above the form, twenty rows
-  // deep, between the cover and the first field. It is a row of the form now, in
-  // the handoff's own order, and the row says what is behind it.
+  // BEHIND ONE PRESS, and not a collapsed section. The cast spent a release
+  // hidden behind a "People" button *inside* the form and the owner could not
+  // find it at all; then it sat above the form, twenty rows deep, between the
+  // cover and the first field. It is now the pack's arrangement: the faces are on
+  // the form, under a `Cast · N` head, and that head carries the way in.
   const openPeople = async () => {
     panel()
     await shown()
-    fireEvent.click(screen.getByRole('button', { name: /Edit people/i }))
+    const door = await waitFor(() => {
+      const b = document.querySelector('.cs-section-action')
+      expect(b, 'the Cast head carries no way into the list').toBeTruthy()
+      return b
+    })
+    fireEvent.click(door)
     await screen.findByText('Ahab')
   }
 
@@ -398,7 +403,7 @@ describe('the fetch screen carries the cast fetches', () => {
     // positive-only test misses. Opened here on purpose: the cast list is
     // genuinely inside it (the panel's own row, from the mocked /cast read
     // above), and the two fetches are genuinely not.
-    fireEvent.click(screen.getByRole('button', { name: /Edit people/i }))
+    fireEvent.click(document.querySelector('.cs-section-action'))
     expect(await screen.findByText('Ahab')).toBeTruthy()
     expect(screen.queryByRole('button', { name: /Cast from TheTVDB/ })).toBeNull()
     // Back to the form, where the fetch actually lives.

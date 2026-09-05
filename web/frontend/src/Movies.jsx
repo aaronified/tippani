@@ -1865,7 +1865,9 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
           {chipCount === 0 && (
             <CreditFaces names={actorNames} map={actorMap} size={24} ring="var(--card)" />
           )}
-          <ReviewDot item={d} />
+          {/* THE RECALL MARK MOVED TO THE ACTION ROW — see AnnotationCard's note
+              at the same place. What stays is the quiz mark, which is a fact
+              about the line rather than something you do to it. */}
           {/* The library's twin — see AnnotationCard. `show` is already the prop
               that tells this frame which kind of thing it is inside, so the mark
               can say "its show" rather than calling every episode a film. */}
@@ -1903,6 +1905,9 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
           dialogue is an annotation with different credits, and the two cards
           should not put the same control in two different places. */}
       <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+        {/* FIRST — the card's state before the things you can do to it. See
+            AnnotationCard's note at the same place. */}
+        <ReviewDot item={d} />
         <Hearts value={!!d.favorite} onChange={(v) => onPatch({ favorite: v })} />
         <QuoteTools actions={atRow(acts)} alwaysVisible={actionsAlwaysVisible} />
         {/* shrink-0: the colour dots are one atomic control — the row wraps the

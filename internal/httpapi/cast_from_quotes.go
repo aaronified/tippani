@@ -61,12 +61,38 @@ import (
 //
 // ------------------------------------------------------------- what it respects
 //
-// A TOMBSTONE STAYS DEAD. Deleting a character from the People panel leaves an
-// `origin = 'removed'` row precisely so a refetch cannot bring it back, and this
-// obeys the same rule: the existing-keys query reads EVERY origin, tombstones
-// included. Without that, deleting a character the reader had also quoted would
-// undelete it on the next read, forever, and the delete button would look broken
-// rather than declined.
+// A TOMBSTONE ANSWERS THE PROVIDER, NOT THE READER. Deleting a character from
+// the People panel leaves an `origin = 'removed'` row precisely so a refetch
+// cannot bring it back, and that still holds — a refetch reaches these rows in
+// mergeProviderCast and writes nothing onto one. What used to hold here as well
+// was stronger, and wrong: the existing-keys query read every origin, so a
+// character the reader had deleted could never be adopted from their own lines
+// again.
+//
+// THE RULE THAT PRODUCED WAS NOT THE ONE IT CLAIMED. It was not "a tombstone
+// stays dead" — it was "a tombstone stays dead unless you spell the name
+// differently", because a quote naming the same character with any other
+// spelling folds to another key and is adopted freely. The owner's library holds
+// both halves of that on one film: a provider row deleted as
+// "Dr. Bhaskar K. Bannerjee / Babu Moshai" came straight back when a line named
+// "Dr. Bhaskar K. Bannerjee", while "Anand", deleted and then typed exactly,
+// stayed gone. So the card printed a speaker the app then refused to show
+// anywhere: the chip opened nothing, and Rajesh Khanna's own page said the film
+// was not one of his works, with that film's quote crediting him three lines
+// above it.
+//
+// SO A DELETED ROW COMES BACK WHEN, AND ONLY WHEN, THIS WORK'S OWN QUOTES NAME
+// IT AND NO LIVE ROW ALREADY CARRIES THAT NAME. Both halves matter. The reader's
+// line is a fresh claim made by hand, which is more than the provider ever had;
+// and the second half is what keeps a deletion that was a DEDUPE deleted —
+// deleting one of two rows for one character leaves the survivor holding the key,
+// and reviving the other would put the duplicate back on the list.
+//
+// The cost is stated rather than hidden: a character you have quoted cannot be
+// taken off the work's list while the line still names them. That is the smaller
+// wrong. The alternative is the state above — a name on a card that opens
+// nothing — and between a row you can see and delete again and a pill that does
+// nothing, only one of them can be diagnosed by the person looking at it.
 //
 // THE FOLD IS store.CastKey, the table's own, so "Eowyn" typed on a line and
 // "eowyn " on a cast row are one character — which is the same comparison the
@@ -107,23 +133,30 @@ func (s *Server) adoptQuoteCharacters(uid int64, kind string, workID int64) {
 	}
 	room := maxWorkCast - len(have)
 	var add []quoteCharacter
+	var revive []int64
 	for _, c := range named {
-		if have[c.key] {
+		h := have[c.key]
+		if h.live {
 			continue
 		}
-		if len(add) >= room {
+		if len(add)+len(revive) >= room {
 			// SAID OUT LOUD RATHER THAN TRUNCATED IN SILENCE. A reader whose work has
 			// more distinct quoted characters than the list can hold gets the first
 			// two hundred and a line in the log saying so, which is the only place
 			// that fact can be found later.
 			olog.Printf("[cast] %s %d: %d quoted character(s) past the %d-row cast cap, not added",
-				kind, workID, len(named)-len(add), maxWorkCast)
+				kind, workID, len(named)-len(add)-len(revive), maxWorkCast)
 			break
 		}
-		have[c.key] = true // a name repeated on two lines is one row
+		h.live = true // a name repeated on two lines is one row
+		have[c.key] = h
+		if h.tombstone != 0 {
+			revive = append(revive, h.tombstone)
+			continue
+		}
 		add = append(add, c)
 	}
-	if len(add) == 0 {
+	if len(add) == 0 && len(revive) == 0 {
 		// NOTHING NEW TO ADOPT IS NOT NOTHING TO DO. The link from a quote to its
 		// cast row still has to be reconciled — a library that was in use before
 		// that column was written has thousands of quotes no save path will touch
@@ -173,11 +206,41 @@ func (s *Server) adoptQuoteCharacters(uid int64, kind string, workID int64) {
 		}
 		billing++
 	}
+	for _, id := range revive {
+		// THE ROW COMES BACK AS THE READER'S, not as the provider's. `reader` is the
+		// origin a refetch cannot overwrite the names on, which is what this row now
+		// is: the provider's spelling of it was deleted, and what brought it back is
+		// a line the reader typed. It keeps its provider key, so a later fetch
+		// re-matches this row instead of billing a second one beside it.
+		//
+		// NOTHING ELSE ON THE ROW IS TOUCHED — not the character, not the actor, not
+		// the billing, not the pictures. The reader deleted this exact row and named
+		// this exact character again; respelling either half here would hand them
+		// back something they did not put down.
+		if _, err := tx.Exec(
+			`UPDATE work_cast SET origin = ? WHERE id = ? AND user_id = ? AND origin = ?`,
+			castReader, id, uid, castRemoved); err != nil {
+			olog.Warnf(olog.CodeCastRowScan, "[cast] revive %d on %s %d: %v", id, kind, workID, err)
+			return
+		}
+		// A tombstone from before characters had records has no `character_id`, and a
+		// row without one is a chip that draws and does not open — the very thing the
+		// revival is for.
+		if lerr := store.LinkCastRow(tx, uid, id); lerr != nil {
+			olog.Warnf(olog.CodeCastRowScan, "[cast] link revived %d on %s %d: %v", id, kind, workID, lerr)
+		}
+	}
 	if err := tx.Commit(); err != nil {
 		olog.Warnf(olog.CodeCastRowScan, "[cast] adopt commit for %s %d: %v", kind, workID, err)
 		return
 	}
-	olog.Printf("[cast] %s %d: %d character(s) adopted from its own quotes", kind, workID, len(add))
+	if len(add) > 0 {
+		olog.Printf("[cast] %s %d: %d character(s) adopted from its own quotes", kind, workID, len(add))
+	}
+	if len(revive) > 0 {
+		olog.Printf("[cast] %s %d: %d deleted character(s) named again on its own quotes, back on the list",
+			kind, workID, len(revive))
+	}
 	s.linkQuotes(uid, kind, workID)
 }
 
@@ -275,24 +338,50 @@ func (s *Server) quoteCharacters(uid int64, kind string, workID int64) ([]quoteC
 	return out, rows.Err()
 }
 
+// castKeyHolder is what a work's list already has under one folded character
+// key: a row anybody can see, a tombstone, or both.
+//
+// THE TWO ARE SEPARATE BECAUSE THE ANSWER IS. A live row means the character is
+// on the list and there is nothing to adopt. A tombstone ALONE means the reader
+// deleted this character and has since typed the same name onto one of this
+// work's own lines — which is not the same question, and the header above says
+// what is done about it.
+type castKeyHolder struct {
+	live      bool
+	tombstone int64 // the deleted row's id, 0 when none
+}
+
 // castKeysOnWork returns every folded character key already on a work's list,
 // TOMBSTONES INCLUDED — see the header for why the deleted ones have to be in
 // here.
-func (s *Server) castKeysOnWork(uid int64, kind string, workID int64) (map[string]bool, error) {
+func (s *Server) castKeysOnWork(uid int64, kind string, workID int64) (map[string]castKeyHolder, error) {
 	rows, err := s.Store.DB.Query(
-		`SELECT character_key FROM work_cast WHERE user_id = ? AND kind = ? AND work_id = ?`,
+		`SELECT id, character_key, origin FROM work_cast WHERE user_id = ? AND kind = ? AND work_id = ?`,
 		uid, kind, workID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	out := map[string]bool{}
+	out := map[string]castKeyHolder{}
 	for rows.Next() {
-		var k string
-		if err := rows.Scan(&k); err != nil {
+		var id int64
+		var k, origin string
+		if err := rows.Scan(&id, &k, &origin); err != nil {
 			return nil, err
 		}
-		out[k] = true
+		h := out[k]
+		if origin == castRemoved {
+			// The LOWEST id, so two deletions of one name settle on the row the
+			// reader made first — the same tie-break LinkCastRow uses on characters,
+			// and for the same reason: whichever ran last is not a decision anybody
+			// made.
+			if h.tombstone == 0 || id < h.tombstone {
+				h.tombstone = id
+			}
+		} else {
+			h.live = true
+		}
+		out[k] = h
 	}
 	return out, rows.Err()
 }

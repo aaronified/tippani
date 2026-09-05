@@ -23,7 +23,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { coverImgURL, errText, json } from './api.js'
 import { CastFills, CastSection } from './cast.jsx'
-import { PillRow, SectionHead } from './characterRows.jsx'
+import { FaceStrip, PillRow, SectionHead } from './characterRows.jsx'
 import { DEFAULT_CREDIT_SEPS, splitCredits } from './credits.jsx'
 import { characterPanel } from './identity.jsx'
 import { OFFERED_FIELDS, fieldOffersPanel } from './fieldOffers.jsx'
@@ -92,9 +92,29 @@ const BOOK_FIELDS = [
     get hint() { return t('book.field.subtitle.info') },
   },
   // NOT A VALUE, so not a row that edits one: a work's people are a list with
-  // roles, faces and their own actions, and the three credit boxes plus the cast
-  // live behind this one door. See workPeoplePanel.
-  { key: 'people', kind: 'people', get label() { return t('common.field.people.label') } },
+  // WHO MADE IT, AS ROWS OF THEIR OWN — the pack's `bookRows`. See the CREDITS
+  // ARE FIELDS note above the tables.
+  {
+    key: 'author',
+    credit: true,
+    get label() { return t('common.field.author.label') },
+    nameCase: true,
+    get hint() { return t('book.field.author.info') },
+  },
+  {
+    key: 'translator',
+    credit: true,
+    get label() { return t('common.field.translator.label') },
+    nameCase: true,
+    get hint() { return t('book.field.translator.info') },
+  },
+  {
+    key: 'editor',
+    credit: true,
+    get label() { return t('common.field.editor.label') },
+    nameCase: true,
+    get hint() { return t('book.field.editor.info') },
+  },
   { key: 'description', get label() { return t('common.field.description.label') }, kind: 'long', sheet: true },
   { key: 'genres', get label() { return t('common.field.genres.label') }, kind: 'tokens', sheet: true },
   { key: 'published_year', get label() { return t('common.field.year.label') }, kind: 'year', circaKey: 'published_circa' },
@@ -213,38 +233,27 @@ const BOOK_FIELDS = [
   { key: 'links', kind: 'links', get label() { return t('common.field.links.label') }, get hint() { return t('links.info') } },
 ]
 
-// THE CREDIT ROWS, WHICH ARE NOT ROWS OF THE FORM. They live behind the People
-// door with the cast, because "who made this" and "who is in it" are one question
-// and the reader asks it in one place. They are still SPECS — same shape, same
-// coercion, same provenance tag, and the merge screen reads this list beside the
-// other so that a lookup match can still propose an author.
-const BOOK_CREDIT_FIELDS = [
-  {
-    key: 'author',
-    get label() { return t('common.field.author.label') },
-    nameCase: true,
-    get hint() { return t('book.field.author.info') },
-  },
-  {
-    key: 'translator',
-    get label() { return t('common.field.translator.label') },
-    nameCase: true,
-    get hint() { return t('book.field.translator.info') },
-  },
-  {
-    key: 'editor',
-    get label() { return t('common.field.editor.label') },
-    nameCase: true,
-    get hint() { return t('book.field.editor.info') },
-  },
-]
-
-const MOVIE_CREDIT_FIELDS = [
-  { key: 'director', get label() { return t('common.field.director.label') }, nameCase: true },
-]
-
+// CREDITS ARE FIELDS, and this is a return rather than a new idea.
+//
+// They were rows of the form; they were moved behind the People door on the
+// argument that "who made this" and "who is in it" are one question and a reader
+// asks it in one place. That argument was about the CAST, and it took the credits
+// with it — and what a reader then saw on the Details screen of a film was a row
+// headed People reading "Hrishikesh Mukherjee — 4 characters": the director's
+// name on the screen with nothing saying he directed it. The owner's report was
+// "the movie doesn't show director", and read against the screen it was exactly
+// right. A name is not a credit until something says which credit it is.
+//
+// So the pack's arrangement stands as drawn: `work-details-popup.dc.html`'s
+// `filmRows` gives Director a labelled row under Year, and `bookRows` gives
+// Author, Translator and Editor theirs. The cast keeps its own door, reached from
+// the `Cast · N` head over the strip — which is where the pack puts it too.
+//
+// THEY ARE STILL FLAGGED, because two readers want them as a set rather than as
+// part of the form: the merge screen, which proposes a matched record's author
+// beside its title, and the work page's credit chips.
 export function creditSpecsFor(kind) {
-  return kind === 'book' ? BOOK_CREDIT_FIELDS : MOVIE_CREDIT_FIELDS
+  return (kind === 'book' ? BOOK_FIELDS : MOVIE_FIELDS).filter((sp) => sp.credit)
 }
 
 // MEDIA_LABELS — the words that change with the MEDIUM rather than with the kind.
@@ -320,9 +329,10 @@ export const MOVIE_FIELDS = [
     get hint() { return t('film.field.media-type.info') },
   },
   { key: 'release_year', half: true, get label() { return t('common.field.year.label') }, kind: 'year', circaKey: 'release_circa' },
-  // The same door a book has, holding the same two halves: the credits and the
-  // cast. A film's cast pairs a character with a performer; a book's does not.
-  { key: 'people', kind: 'people', get label() { return t('common.field.people.label') } },
+  // WHO MADE IT, AS A ROW OF ITS OWN — `work-details-popup.dc.html`'s `filmRows`,
+  // where Director sits directly under Year. See the CREDITS ARE FIELDS note above
+  // the tables for why it is here rather than behind a door.
+  { key: 'director', credit: true, get label() { return t('common.field.director.label') }, nameCase: true },
   { key: 'description', get label() { return t('common.field.description.label') }, kind: 'long', sheet: true },
   { key: 'genres', get label() { return t('common.field.genres.label') }, kind: 'tokens', sheet: true },
   {
@@ -637,9 +647,10 @@ export function WorkDetails({ onClose, kind, item: seed, onChanged, onDelete, st
   // `book` has no media type of its own, so it is its own answer.
   const mediaType = kind === 'book' ? 'book' : seed?.media_type || 'movie'
   const specs = specsFor(kind === 'book' ? BOOK_FIELDS : MOVIE_FIELDS, mediaType)
-  // The credits are edited behind the People door, and the merge screen reads
-  // them beside the form's own list — a match proposing an author must still be
-  // offerable, and a spec that left the form must not leave the proposal.
+  // THE CREDITS ARE ROWS OF `specs` NOW, so this is the same objects filtered out
+  // again rather than a second list beside it — which is why nothing concatenates
+  // the two any more. It is still resolved, because the work page's credit chips
+  // and the merge screen both want the credits AS A SET.
   const creditSpecs = creditSpecsFor(kind)
   const { rec: item, path, busy, setBusy, error, setError, emit, save, saveField, saveAll } =
     useWorkRecord({ kind, initial: seed, onChanged, specs, creditSpecs })
@@ -712,7 +723,7 @@ export function WorkDetails({ onClose, kind, item: seed, onChanged, onDelete, st
   // is noise on a phone screen.
   function buildRows(cand, artUrl) {
     const rows = []
-    for (const spec of specs.concat(creditSpecs)) {
+    for (const spec of specs) {
       // A match proposes the fields it actually carries — including, since the
       // mixing change, the id of the record it IS (see proposeMovie). The OTHER
       // suppliers' ids are still deliberately absent: adopting one without the
@@ -1053,36 +1064,12 @@ function WorkPeople({ kind, item, creditSpecs, mediaType, stack, onChanged, onDo
     <form id={host?.formId} onSubmit={submit} onKeyDown={swallowEnter} style={{ display: 'grid', gap: 'var(--row)' }}>
       <UnsavedFieldsContext.Provider value={unsaved.host}>
         <ErrorText>{error}</ErrorText>
-        <div>
-          {creditSpecs.map((spec) => {
-            const prov = fieldSources[spec.key]
-            const label = labelFor(spec, mediaType)
-            // THE SAME DOOR THE DETAILS LIST HAS. An author and a director are
-            // fields the suppliers disagree about as readily as a year, and this
-            // panel is where those two rows live — leaving them out would make the
-            // door a property of which panel a field happens to be drawn in.
-            const offers = stack && prov?.source && OFFERED_FIELDS.has(spec.key)
-              ? () => stack.push(fieldOffersPanel(stack, {
-                  kind, item, field: spec.key, label, storedSource: prov.source, onChanged,
-                }))
-              : undefined
-            return (
-              <InlineField
-                key={spec.key}
-                fieldKey={spec.key}
-                source={prov?.source}
-                sourceAt={prov?.at}
-                sourceOpen={offers}
-                label={label}
-                value={resting(spec, rec)}
-                hint={spec.hint}
-                busy={!!busy}
-                nameCase={!!spec.nameCase}
-                onSave={(d) => saveField(spec, d)}
-              />
-            )
-          })}
-        </div>
+        {/* ONE EDITOR PER FACT, which is why the credits are no longer drawn here.
+            They are rows of the Details form again (see creditSpecsFor), and a
+            field with two editors is a field whose two editors will disagree the
+            first time one of them learns something the other does not. What is
+            left is what this panel is FOR: the cast, which is a list of people
+            with roles, faces and actions of their own rather than a value. */}
         {/* THE WORK'S CHARACTERS, who plays them, and both of their pictures.
             Books included: a book's cast is the characters the reader names, and
             0048 has stored them for as long as a film's. What is film-only is the
@@ -1273,6 +1260,46 @@ function FieldList({ kind, item, stack, specs, creditSpecs, mediaType, busy, gen
         }))
       : undefined
 
+  // ── THE CAST THE STRIP DRAWS ──
+  //
+  // FETCHED HERE RATHER THAN TAKEN OFF `item`. The record already carries `cast`,
+  // and using it would have been one fewer request and the wrong list: the work
+  // read does not adopt, so a work whose People panel has never been opened
+  // serves a cast that is missing every character its own quotes name. The cast
+  // endpoint is the one place adoption happens, and this is a surface that draws
+  // the cast — so it asks the question at the address that answers it.
+  const [castRows, setCastRows] = useState(null)
+  useEffect(() => {
+    let live = true
+    setCastRows(null)
+    json('GET', `/${kind === 'book' ? 'books' : 'movies'}/${item.id}/cast`).then((r) => {
+      if (live && r.ok) setCastRows(r.data?.cast || [])
+    })
+    return () => { live = false }
+  }, [kind, item.id])
+
+  const castTiles = useMemo(() => (castRows || []).map((row) => ({
+    key: String(row.id),
+    name: row.character,
+    by: row.actor || '',
+    // THREE PICTURES, IN THE ORDER OF HOW MUCH THEY KNOW ABOUT THIS TILE: the
+    // still this work holds of this character, then the character record's own
+    // default, then the performer's headshot. The last is a real fallback and not
+    // a confusion — a face under a character's name that belongs to the person
+    // playing them is what a cast list has always looked like — but it is the
+    // last, because a role in costume is what the tile is about.
+    face: row.character_image_path || row.character_record_image || row.actor_image || '',
+    faceName: row.character || row.actor,
+    title: row.actor ? `${row.character} · ${row.actor}` : row.character,
+    onOpen: row.character_id && stack
+      ? () => stack.push(characterPanel(stack, {
+          id: row.character_id,
+          name: row.character,
+          work: { kind, id: item.id, title: item.title, castId: row.id },
+        }))
+      : undefined,
+  })), [castRows, kind, item.id, item.title, stack])
+
   // THE MASTER SAVE. Every row still saves itself — that is what the panel is
   // for, and changing one field should not cost more than one press. What it
   // did cost was six presses for six fields, so the header offers one.
@@ -1411,19 +1438,6 @@ function FieldList({ kind, item, stack, specs, creditSpecs, mediaType, busy, gen
           // THE FOUR THAT KEEP A SHEET, each for its own stated reason (BigField).
           // The row is InlineField's resting row to the pixel; only what the
           // pencil opens is different.
-          if (spec.kind === 'people') {
-            return (
-              <BigField
-                key={spec.key}
-                half={!!spec.half}
-                label={label}
-                display={peopleSummary(item, creditSpecs)}
-                onOpen={() => stack?.push(workPeoplePanel(stack, {
-                  kind, item, creditSpecs, mediaType, onChanged,
-                }))}
-              />
-            )
-          }
           if (spec.kind === 'links') {
             return (
               <BigField
@@ -1597,6 +1611,32 @@ function FieldList({ kind, item, stack, specs, creditSpecs, mediaType, busy, gen
           )
         })}
       </div>
+
+      {/* ── THE CAST, AS FACES ──
+          The pack's `cast(id, members)` strip, between the work's fields and its
+          ids exactly as `work-details-popup.dc.html` bills it: `Cast · N`, then a
+          face per member. It is the answer to "who is in this" at a glance, which
+          the People row above states as a number and the People panel states as a
+          list of rows — neither of which is a picture, and a cast is recognised
+          before it is read.
+
+          THE READ IS ALSO WHAT MAKES A QUOTED CHARACTER OPENABLE. `item.cast`
+          comes from `GET /{kind}/{id}`, which does not adopt; this asks the cast
+          endpoint, which does — so opening Details on a work whose People panel
+          has never been visited is now enough to give its quoted characters the
+          rows their chips hang off. See `cast_from_quotes.go`. */}
+      <SectionHead
+        label={t('cast.strip.heading.label', { n: castTiles.length })}
+        action={stack ? () => stack.push(workPeoplePanel(stack, { kind, item, creditSpecs, mediaType, onChanged })) : undefined}
+        actionLabel={t('cast.strip.edit.label')}
+        actionTitle={t('cast.strip.edit.tip')}
+        /* AND THE HEAD IS DRAWN WITH NOTHING UNDER IT. A work with no cast still
+           has to have somewhere to add one — the head IS the door — so the
+           section says "Cast · 0" and the prose under it says what to do, rather
+           than the section disappearing and taking the only way in with it. */
+        note={castRows && castTiles.length === 0 ? t('cast.empty.prose') : undefined}
+      />
+      {castTiles.length > 0 ? <FaceStrip tiles={castTiles} /> : null}
 
       {/* ── THE IDS, AS A STRIP AND NOT AS ROWS ──
           A pill per id the record HOLDS, and one editor for the lot. The rows it

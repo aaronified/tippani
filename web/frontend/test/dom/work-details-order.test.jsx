@@ -170,11 +170,18 @@ describe('the Details form', () => {
     const at = (name) => order.indexOf(name)
     // Identity, then who made it, then what it is about, then the edition's
     // facts. The catalogue numbers are no longer among them at all — see below.
+    //
+    // WHO MADE IT IS NAMED ROLE BY ROLE, which is the pack's `bookRows` and the
+    // correction of a real report: one row headed People reading three names told
+    // the reader nothing about which of them wrote the book. A name is not a
+    // credit until something says which credit it is.
     expect(at('title')).toBe(0)
     expect(at('subtitle')).toBe(1)
-    expect(at('people')).toBe(2)
-    expect(at('description')).toBe(3)
-    expect(at('genres')).toBe(4)
+    expect(at('author')).toBe(2)
+    expect(at('translator')).toBe(3)
+    expect(at('editor')).toBe(4)
+    expect(at('description')).toBe(5)
+    expect(at('genres')).toBe(6)
     // The two that were buried are still above the edition's facts.
     expect(at('description')).toBeLessThan(at('publisher'))
     expect(at('year')).toBeLessThan(at('publisher'))
@@ -266,30 +273,46 @@ describe('the Details form', () => {
     expect(within(dlg).getByText('1')).toBeTruthy()
   })
 
-  it('prints the people behind the door rather than a count of them', async () => {
+  it('prints each credit under the name of the credit it is', async () => {
+    // "3 people" is a number you have to open a panel to understand, and three
+    // names under one heading is barely better: the reader can see WHO but not
+    // which of them did what. The pack gives each role its own row, and this is
+    // the assertion that the name and its role are on the same row.
     panel()
     await shown()
-    // THE NAMES. "3 people" is a number you have to open the panel to
-    // understand; the cast is a count because twenty names at rest would be the
-    // panel drawn twice.
-    const row = [...document.querySelectorAll('.inline-field')]
-      .find((el) => el.querySelector('[aria-label="Edit people"]'))
-    expect(row.textContent).toContain('Mikhail Bulgakov')
-    expect(row.textContent).toContain('Richard Pevear')
-    expect(row.textContent).toContain('Larissa Volokhonsky')
-    expect(row.textContent).toContain('1 character')
+    const rowFor = (field) => [...document.querySelectorAll('.inline-field')]
+      .find((el) => el.querySelector(`[aria-label="Edit ${field}"]`))
+    expect(rowFor('author').textContent).toContain('Mikhail Bulgakov')
+    expect(rowFor('translator').textContent).toContain('Richard Pevear')
+    expect(rowFor('translator').textContent).toContain('Larissa Volokhonsky')
   })
 
-  it('keeps the cast out of the form and behind that door', async () => {
+  it('draws the cast as faces on the form, and keeps the EDITABLE list behind the door', async () => {
+    // THE PACK PUTS BOTH SOMEWHERE, and they are not the same thing.
+    // `work-details-popup.dc.html` bills `Cast · N` and a strip of round faces
+    // between the fields and the ids: a cast is recognised before it is read, and
+    // a face is the only thing that tells one tile from the next when every tile
+    // shares a cover. What the earlier arrangement was right to refuse is the
+    // cast as TWENTY FORM ROWS — the panel drawn twice — and that is still where
+    // it is not: editing a credit is behind the People door with the rest of the
+    // credits.
     panel()
     await shown()
-    // Not on the form…
-    expect(screen.queryByText('Woland')).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: /^Edit people$/i }))
-    // …and there when the door is opened, with the credits beside it.
-    expect(await screen.findByText('Woland')).toBeTruthy()
-    expect(screen.getByRole('button', { name: /^Edit author$/i })).toBeTruthy()
-    expect(screen.getByRole('button', { name: /^Edit translator$/i })).toBeTruthy()
+    // On the form, as a face rather than as a row.
+    const tile = await waitFor(() => {
+      const el = [...document.querySelectorAll('.cs-face-tile')].find((x) => x.textContent.includes('Woland'))
+      expect(el, 'the cast strip draws no tile for this work’s character').toBeTruthy()
+      return el
+    })
+    expect(tile.querySelector('.cs-face-round'), 'the tile has no face').toBeTruthy()
+    expect(tile.closest('.inline-field'), 'the cast was drawn as a form field after all').toBeNull()
+    // And the editing is still one press away, from the section's own head —
+    // which is where the pack puts it (`head('Cast · 6', addTo('TMDB'))`) and
+    // the only place it can go on a section whose whole content is a list.
+    const door = [...document.querySelectorAll('.cs-section-action')]
+    expect(door.length, 'the Cast head carries no way into the list').toBe(1)
+    fireEvent.click(door[0])
+    expect(await screen.findByText('Woland'), 'the door opened onto no cast').toBeTruthy()
   })
 
   it('opens description on its own surface and saves it there', async () => {
