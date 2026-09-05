@@ -1294,14 +1294,40 @@ export function groupAnnotations(rows, dim) {
     }
     g.items.push(row)
   }
+  // A CHAPTER'S NAME, BY ITS NUMBER, so that one chapter is one group even when
+  // only some of its quotes were saved with the name typed in. Without it the
+  // heading is whatever the first row of that chapter happened to carry, and a
+  // chapter half-named splits into two groups a reader cannot tell apart.
+  const chapterNames = new Map()
+  if (dim === 'chapter') {
+    for (const a of rows) {
+      const nm = (a.chapter || '').trim()
+      if (a.chapter_no != null && nm && !chapterNames.has(a.chapter_no)) chapterNames.set(a.chapter_no, nm)
+    }
+  }
   for (const a of rows) {
     if (dim === 'chapter') {
-      const name = (a.chapter || '').trim()
       const n = a.chapter_no
+      const name = n != null ? (chapterNames.get(n) || '') : (a.chapter || '').trim()
       if (name || n != null) {
-        const label = name || t('book.group.chapter.numbered.label', { n })
+        // THE PACK'S THREE CASES, and the app had two of them (`book-detail.dc.html`
+        // :2566). A chapter with a number AND a name printed the name alone, so the
+        // heading lost the one thing that puts the groups in the order they are in:
+        // a board grouped by chapter came out sorted by a number it never showed.
+        //
+        // A SECTION WITH NO NUMBER IS NOT A CHAPTER — it is a named part of the book,
+        // an Epilogue or an Afterword — so it is called by its name alone. The pack
+        // says it in those words, and "Ch Epilogue" says nothing true.
+        const label = n == null
+          ? name
+          : name
+            ? t('book.group.chapter.named.label', { n, name })
+            : t('book.group.chapter.numbered.label', { n })
+        // KEYED ON THE NUMBER, not on the label, for the reason the name map above
+        // exists: the group is the chapter, and two spellings of one chapter's name
+        // are one chapter.
         // Numbered chapters in reading order; named ones after them, alphabetical.
-        add(label, label, a, n != null ? n : Number.MAX_SAFE_INTEGER, false)
+        add(n != null ? `ch#${n}` : `ch:${label}`, label, a, n != null ? n : Number.MAX_SAFE_INTEGER, false)
       } else add('~none', t('book.group.chapter.none.label'), a, Infinity, true)
     } else if (dim === 'color') {
       const tok = a.color || 'yellow'

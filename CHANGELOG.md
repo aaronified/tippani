@@ -27,6 +27,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **A chapter heading says which chapter it is.** A board grouped by chapter headed each
+  section with the chapter's name and dropped its number, so the sections were ordered by
+  something the reader could not see and the order read as arbitrary. The heading carries
+  both now — and one chapter is one section even when only some of its quotes were saved
+  with the name typed in. A named part with no number, an Epilogue or an Afterword, keeps
+  its name alone: it is not chapter anything.
 - **A film shows its director on its Details page again.** The credits — a film's
   director, a book's author, translator and editor — had been folded into one row headed
   *People* that printed the names and not which of them was which, so a film's Details

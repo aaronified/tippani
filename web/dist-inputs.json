@@ -13,8 +13,8 @@
     "web/frontend/vite.config.js"
   ],
   "sha256": {
-    "internal/i18n/bn.txt": "308db7864feb7d28855ae84ff41222f3ce0f1bb6bd576553829de2999bc6a925",
-    "internal/i18n/en.txt": "a30fcf3c01c0c0a4a24d138aadc9d2e190d8ed31bb22b08073111804e6b3058e",
+    "internal/i18n/bn.txt": "25d77db9e014ce865db14d87706210b23651eea35154b158307d27a9ec12d032",
+    "internal/i18n/en.txt": "c140248d58d906fab868228dc27dded8c06af461810a02dd4c6212f2fac02264",
     "web/frontend/index.html": "faa8bb6fc81705b9d9d395a62a9d474414a029c571723bf099f84cb624ce906c",
     "web/frontend/package-lock.json": "d7afffc5b73c431c604bfaff5760d6ef244d1f74b187575d213f3ad353c18715",
     "web/frontend/package.json": "21c5acbd140400ead3efd99595afe0510ae0d6e84099621f9c39d34195a30ed6",
@@ -34,7 +34,7 @@
     "web/frontend/src/CoverPicker.jsx": "a2bde6095dc725240d79336323020a11be99e024ccd720b5d0a20f429ab0e412",
     "web/frontend/src/Home.jsx": "7e394d814dc0896ec7f459d690e6e2aa6d31ee27f1335b430038f694ebd25196",
     "web/frontend/src/ImportPage.jsx": "b7f9e742ac3c4b4768b57033bf10752291450ce09e9d9773bb86980c0fdabce3",
-    "web/frontend/src/Library.jsx": "6cc77b9e62e94340342f9a86242aa8a1e6f39629b82223bf50039b43a48e4fcd",
+    "web/frontend/src/Library.jsx": "e91a67aaf717e77de8146834cf3b773989ccb5d5c57ff42371a7bedafdf2a7c8",
     "web/frontend/src/MetadataPage.jsx": "0ae5a58e2b2c7f8348d017539151ab8328976334bd5fc15642da8b6fd82db352",
     "web/frontend/src/MetadataSources.jsx": "098604f6168ca1fa4770526a1f38082016559dac6c45f49c91c6c6184d6dc90f",
     "web/frontend/src/Movies.jsx": "9e0c824a6da11cf75a7007089977a1b4860e5d74a63792aac2d14809247719a6",

@@ -85,8 +85,12 @@ describe('grouping a board', () => {
   })
 
   it('buckets chapters in reading order, with the unchaptered last', () => {
+    // THE HEADING CARRIES THE NUMBER AS WELL AS THE NAME — the pack's three
+    // cases (`book-detail.dc.html:2566`), and the number is what puts these
+    // buckets in the order they are in. A named section with no number keeps its
+    // name alone: an Epilogue is not chapter anything.
     const g = groupAnnotations(rows, 'chapter')
-    expect(g.map((x) => x.label)).toEqual(['Two', 'Ten', 'Preface', 'No chapter'])
+    expect(g.map((x) => x.label)).toEqual(['Ch 2: Two', 'Ch 10: Ten', 'Preface', 'No chapter'])
     expect(g[g.length - 1].residual).toBe(true)
     expect(ids(g[0].items)).toEqual([2])
   })

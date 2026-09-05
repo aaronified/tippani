@@ -193,9 +193,13 @@ describe('the board can be put in order', () => {
       expect(document.querySelectorAll('.ann-groups > section').length).toBe(3)
     })
     // The headings are the shelf's headings — a reader who has grouped a library
-    // by author and a book by chapter has met one control, not two.
-    expect(screen.getByText('Two')).toBeTruthy()
-    expect(screen.getByText('Ten')).toBeTruthy()
+    // by author and a book by chapter has met one control, not two — and each
+    // carries its chapter's NUMBER as well as its name, which is what puts the
+    // sections in the order they are in (`book-detail.dc.html:2566`).
+    const heading = (re) => [...document.querySelectorAll('.ann-groups > section')]
+      .some((el) => re.test(el.textContent))
+    expect(heading(/\b2\b[^\n]*Two/), 'the chapter 2 heading does not carry its number').toBe(true)
+    expect(heading(/\b10\b[^\n]*Ten/), 'the chapter 10 heading does not carry its number').toBe(true)
     expect(screen.getByText('No chapter')).toBeTruthy()
     // And every quote is still on the board, in one section or another.
     for (const q of ['Call me Ishmael', 'The whale.', 'driving off the spleen']) {

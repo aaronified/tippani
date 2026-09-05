@@ -6568,6 +6568,7 @@ book.group.color.label = শ্রেণি অনুযায়ী
 book.group.tag.label = ট্যাগ অনুযায়ী
 book.group.date.label = যোগ করার তারিখ অনুযায়ী
 book.group.chapter.numbered.label = অধ্যায় {n}
+book.group.chapter.named.label = অধ্যা {n}: {name}
 book.group.chapter.none.label = অধ্যায় নেই
 book.group.tag.none.label = ট্যাগ নেই
 book.group.date.none.label = তারিখ নেই

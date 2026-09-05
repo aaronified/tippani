@@ -6699,6 +6699,7 @@ book.group.color.label = by category
 book.group.tag.label = by tag
 book.group.date.label = by date added
 book.group.chapter.numbered.label = Chapter {n}
+book.group.chapter.named.label = Ch {n}: {name}
 book.group.chapter.none.label = No chapter
 book.group.tag.none.label = No tags
 book.group.date.none.label = No date

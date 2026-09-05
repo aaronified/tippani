@@ -668,12 +668,12 @@ words. Compared, and it is where this section found real work:
 
 | Part | Pack | App before | Now |
 | --- | --- | --- | --- |
-| Role | `alertdialog` | `dialog` | **Departure, open** |
+| Role | `alertdialog` | `dialog` | **Built** in `fdfeb2e` — and only where it belongs: `alertdialog` interrupts a screen reader rather than waiting its turn, so a role that also interrupted for "discard three unsaved fields?" would teach the reader to ignore it |
 | Rule across the top | 4px, `--error` or `--amber` | absent | **Built** |
 | Tag | "Can be undone" / "Cannot be undone", mono | absent | **Built** |
 | Title | serif 20px | `display-title` | Match |
 | Body | 14px | `--type-ui-15` | Match |
-| Note | reversibility, 12.5px faint | absent | **Departure, open** — the tag carries the same fact in fewer words |
+| Note | reversibility, 12.5px faint | absent | **Built** in `fdfeb2e`. The tag is the verdict and the note is the instructions — where it goes, and whether anything offers it back — and it is THREE-VALUED: several dozen confirms are neither destructive nor undoable, and a default would put "Cannot be undone" in every one of their mouths |
 | Footer | Cancel · verb | Cancel · verb | Match |
 | Destructive verb | filled `--error` | accent fill | **Built** |
 
@@ -691,6 +691,28 @@ effect is on screen readers only and wants a pass over every dialog in the app r
 this one, and the second says what the tag says.
 
 ---
+
+### 4.5 `book-detail-wide.dc.html` — the wide twin
+
+The last of E8, and it is a comparison of a LAYOUT rather than of a list of rows: the wide
+file is the same screen at four frames (1440, 1180, 820, 390), and it mounts the phone
+prototype for the fourth rather than redrawing it (`:1579-1596`). So what there is to
+compare is the numbers the frames turn on and what each frame does with them.
+
+| Claim | Pack | App | Verdict |
+| --- | --- | --- | --- |
+| Two columns from | `twoCol = W >= 1180` (`:1616`) | `TWO_COLUMN_QUERY` and `.tp-detail-hero { display: block }` at `min-width: 1180px` (`index.css:5390`) | Match, and the app states the number in both places on purpose — which hero COMPONENT renders cannot be a stylesheet decision, because rendering both and hiding one puts two `<h1>`s in the document |
+| Rail with words from | `railWide = W >= 1180`, 236px (`:1612`) | `--rail: 236px` at `min-width: 1180px` (`index.css:3895`) | Match |
+| Rail as glyphs | 68px below 1180 (`:1614`) | the glyph mode below 1180 | Match |
+| No rail at all below | `phone = W < 700` (`:1597`) | below `769px` (`index.css:3915`) | **Departure — NOT A DEFECT, and moving it would be one.** 768 is this app's mobile boundary everywhere: `useIsMobileScreen`, the phone dock, the sheets that bottom-hug instead of centring. Taking the rail alone down to 700 would draw a rail AND a phone dock together between 700 and 768 — two navigations at once, which neither document asks for. The pack never renders that band: its four frames are 1440, 1180, 820 and 390, so `< 700` is the boundary between ITS frames rather than a claim about the app's |
+| Reading measure | stream capped at 880 (`:1665`), "display italic past ~90 characters stops being a measure" | `max-width: 880px` (`index.css:4754`) | Match, with the app's own exception argued in place: the TABLE is scanned rather than read, so it is not held to a measure |
+| Hero column | `HERO` 300 | `--hero-w: 300px`, `340px` at `min-width: 1440px` (`index.css:4724`, `:5394`) | Match |
+| Rail destinations | nine, with a divider after Anthologies (`:2011-2018`) | `CONTENT_TABS` + `UTILITY_TABS`, `DRAWER_TABS` carrying `null` as the divider in the same place | Match |
+| A tablet's surfaces | bottom-hugging sheets rather than centred dialogs; 1440 keeps the dialog (`:1620`) | `MobileSheet` below the breakpoint, centred dialog above | Match |
+
+**Nothing was built out of this section**, and that is the finding rather than the absence
+of one: the wide layout was built to these numbers already, and the one place the two files
+disagree is a number the app cannot take without breaking something the pack does not draw.
 
 ## How to retire this file
 
