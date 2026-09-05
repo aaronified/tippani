@@ -764,17 +764,27 @@ try {
 const key = String(opts.width)
 const bar = baseline[key] || {}
 
-const failed = FAILS.filter((k) => findings[k].length)
-const risen = RATCHETS
-  .map((k) => ({ k, n: findings[k].length, was: bar[k] }))
-  .filter((r) => r.was === undefined || r.n > r.was)
-
+// THE BASELINE IS WRITTEN AND THE RUN IS STILL JUDGED. `--update-baseline` used
+// to write and exit 0, which made recording a ceiling and checking the app two
+// separate half-hour runs against a real library — so in practice the recording
+// run was the only one anybody had the patience for, and it reported nothing.
+// The flag now only decides where the ratchet's ceiling comes from; every FAIL
+// bucket is judged either way.
 if (opts.updateBaseline) {
   baseline[key] = Object.fromEntries(RATCHETS.map((k) => [k, findings[k].length]))
   writeFileSync(baselineFile, JSON.stringify(baseline, null, 2) + '\n')
   console.log(`\nbaseline for ${key}px written: ${RATCHETS.map((k) => `${k} ${findings[k].length}`).join(', ')}`)
-  process.exit(0)
+  Object.assign(bar, baseline[key])
 }
+
+const failed = FAILS.filter((k) => findings[k].length)
+// A MISSING CEILING IS NOT A REGRESSION. There is nothing to have risen from, and
+// failing there would mean a width nobody has recorded yet can never be run —
+// which is how the ratchet would get deleted rather than filled in. It is said
+// loudly instead, every run, until somebody records it.
+const risen = RATCHETS
+  .map((k) => ({ k, n: findings[k].length, was: bar[k] }))
+  .filter((r) => r.was !== undefined && r.n > r.was)
 
 console.log('')
 for (const k of RATCHETS) {
