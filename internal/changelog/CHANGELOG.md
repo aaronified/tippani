@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Settings → Updates says when the version you are running came out.** The version
+  number told you which build you have and nothing about how old it is, which is the
+  question that card is usually opened to answer. The date comes from the changelog
+  already built into the binary, so it is right with no network, right after restoring
+  somebody else's backup, and right after a downgrade — it describes the build, not this
+  machine's history. A build that is not a finished release — a development build, a
+  branch image, a release candidate — says it has no release date rather than inventing
+  one.
+
 ### Changed
 
 - **A form opened from inside a character's or a person's page stays inside it.** Every

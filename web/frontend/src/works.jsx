@@ -1973,21 +1973,21 @@ export function WorkListScaffold({
     <>
       {setFav && (
         <Tooltip label={t('common.filters.favourites.tip')}>
-          <button onClick={() => setFav(!fav)} className={filterChipClass(fav)}>
+          <button type="button" aria-pressed={!!fav} onClick={() => setFav(!fav)} className={filterChipClass(fav)}>
             {t('common.filters.favourites.label')}
           </button>
         </Tooltip>
       )}
       {setTagged && (
         <Tooltip label={t('common.filters.tagged.tip', { noun: nounPlural })}>
-          <button onClick={() => setTagged(!tagged)} className={filterChipClass(tagged)}>
+          <button type="button" aria-pressed={!!tagged} onClick={() => setTagged(!tagged)} className={filterChipClass(tagged)}>
             {t('common.filters.tagged.label')}
           </button>
         </Tooltip>
       )}
       {setNoted && (
         <Tooltip label={t('common.filters.noted.tip', { noun: nounPlural })}>
-          <button onClick={() => setNoted(!noted)} className={filterChipClass(noted)}>
+          <button type="button" aria-pressed={!!noted} onClick={() => setNoted(!noted)} className={filterChipClass(noted)}>
             {t('common.filters.noted.label')}
           </button>
         </Tooltip>
@@ -1998,13 +1998,28 @@ export function WorkListScaffold({
   // annotated is "on the wishlist", and you either ignore that (all), browse only
   // those (wishlist), or hide them to see just what you have actually quoted
   // (annotated). Same chip-triplet shape as the Catalogue's movie/show control.
+  // A CHIP'S CHOSEN-NESS IS A STATE, AND A CLASS IS NOT ONE. `filterChipClass`
+  // returns `active`, which is what the stylesheet paints — and nothing else. A
+  // reader on a screen reader was told "annotated, button" whether it was the
+  // chosen scope or not, and `make controls` reported the chip as a control that
+  // does nothing and does not say so on a library where every work is annotated,
+  // because the list it filters to is the list that was already there and no
+  // attribute moved. Both are the same omission.
+  //
+  // `aria-pressed` AND NOT A RADIOGROUP, though these three are one question with
+  // three answers: `ChipSwitches` and `FilterChip` are the app's two chip
+  // mechanisms and both say `aria-pressed`, and this file's own comment on
+  // FilterChip is that a second answer to a question the app has already asked
+  // drifts from the first the day either is touched. A radiogroup here would need
+  // a wrapper element in two layouts to be valid ARIA, which is a layout change
+  // for a semantic gain the app does not use anywhere else.
   const wishChips = [
     ['', t('common.filters.wish.all.label'), t('common.filters.wish.all.tip', { noun })],
     ['wishlist', t('common.filters.wish.only.label'), t('common.filters.wish.only.tip', { noun: nounPlural })],
     ['annotated', t('common.filters.wish.annotated.label'), t('common.filters.wish.annotated.tip', { noun: nounPlural })],
   ].map(([k, label, hint]) => (
     <Tooltip key={k || 'all'} label={hint}>
-      <button className={filterChipClass(wish === k)} onClick={() => setWish(k)}>
+      <button type="button" aria-pressed={wish === k} className={filterChipClass(wish === k)} onClick={() => setWish(k)}>
         {label}
       </button>
     </Tooltip>

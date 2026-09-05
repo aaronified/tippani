@@ -13,8 +13,8 @@
     "web/frontend/vite.config.js"
   ],
   "sha256": {
-    "internal/i18n/bn.txt": "4bf997099249b9960614f9169f61873c9cd3f28e1dc5142cff0b9f71ee87bc00",
-    "internal/i18n/en.txt": "676dbf626d003740b66be78d310cf7a2e26ea8affc8dde19a0f7cc79f66b33db",
+    "internal/i18n/bn.txt": "8e0e06572aef3bf4dfac06293d63fcebe3df1fb1f84b4449b2c0313cb8ae0014",
+    "internal/i18n/en.txt": "5d747459601f4f55356b2801e2a29d54e3cd6022145777d0374be2e6c8d4f347",
     "web/frontend/index.html": "faa8bb6fc81705b9d9d395a62a9d474414a029c571723bf099f84cb624ce906c",
     "web/frontend/package-lock.json": "d7afffc5b73c431c604bfaff5760d6ef244d1f74b187575d213f3ad353c18715",
     "web/frontend/package.json": "21c5acbd140400ead3efd99595afe0510ae0d6e84099621f9c39d34195a30ed6",
@@ -37,12 +37,12 @@
     "web/frontend/src/Library.jsx": "0e1efe6480f5f183b56a18adcb1f5af6d5d64f3dd3b5fd276462effb2a426869",
     "web/frontend/src/MetadataPage.jsx": "0ae5a58e2b2c7f8348d017539151ab8328976334bd5fc15642da8b6fd82db352",
     "web/frontend/src/MetadataSources.jsx": "098604f6168ca1fa4770526a1f38082016559dac6c45f49c91c6c6184d6dc90f",
-    "web/frontend/src/Movies.jsx": "2fef4220718065225a87715d1ba15677c0dd6227bb9a4df3bb558567e5f01aca",
+    "web/frontend/src/Movies.jsx": "50f30136c35c6838e04412c37933c3d8986ea3a8ac757025a43e5a2c7bff3c1f",
     "web/frontend/src/Quotes.jsx": "a02d0b8d1eebb4a7e7f57ad9825ee66788ff74854382b78fd0b1efbb12f4e5da",
     "web/frontend/src/ReverifyReview.jsx": "d1a29dbfb89bb6f3adcfdbf9ddc2bc517a07cc38f35bfdd84845c5df1a4dcbe8",
     "web/frontend/src/SearchPage.jsx": "22ef0bcf36eb698120b363b946c6b4f7e90cd10bae18b31f9293edd9dd510820",
     "web/frontend/src/SelectionBar.jsx": "dfdbeb3f784ebe324beb3b8087e18d6f375eca004503bdd19092b7335e528c1c",
-    "web/frontend/src/Settings.jsx": "7cb4f8448c76afad0239f4831c65053777ccff5aad0d298970c208a72210f64d",
+    "web/frontend/src/Settings.jsx": "84ec9aeee8a11f1a436345c708ab24ca67aea8079a9d6f05bedebe2e513f2ed5",
     "web/frontend/src/StagingPage.jsx": "73904803a4cdea709576606375bbaf81b858513cbd49f032c46f5d54938e9db0",
     "web/frontend/src/StatsPage.jsx": "1a63a64ade5bf0d1c6512aac991e693e035c4ff55063b4a218923b0ee63ba9f5",
     "web/frontend/src/TagsPage.jsx": "264ef804ed4de55e666e8c69e9d793e627bf71bbf1177da34338e4454d6749b2",
@@ -132,7 +132,7 @@
     "web/frontend/src/update.js": "cac7b1e2a4b8bfce7d2658505ebd0bcbb6b1bb4aef9e7422cf5826949c69b8a4",
     "web/frontend/src/workKinds.js": "b4ff197ee32b2d0134a16c898c80aa5bdbb37b1d901f893d5eabe9f6ba6cde1f",
     "web/frontend/src/workLinks.jsx": "b0d3c8f4b47b136ec830dab977e20d32f5f087e5404fb05fd85076841133e363",
-    "web/frontend/src/works.jsx": "8967ea87d2af62d2348d543c616152b51a13d30c2433c00d92e4fa330bdb2335",
+    "web/frontend/src/works.jsx": "246597800c9bf8d9c1d0c6eedc89c9dc3e0e8a5cb69e9a16477c902d0fc7aa8f",
     "web/frontend/vite.config.js": "e68566c44bb7553c2567ffeb6da9c308065ed32bebe1b2a625148cbd387c55d8"
   }
 }

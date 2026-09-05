@@ -4849,6 +4849,8 @@ settings.appearance.preset.specimen.label = মার্জিন, লেখা�
 settings.updates.title = আপডেট
 settings.updates.version.label = ভার্সন
 settings.updates.releases.tip = GitHub-এ রিলিজ নোট
+settings.updates.released.label = প্রকাশিত
+settings.updates.released.unknown.label = প্রকাশের তারিখ নেই
 # The roadmap line. {roadmap} is the link — markup never goes in a value.
 # bn: {roadmap} is a link node; it sits after a colon rather than taking a case marker (§5.4).
 settings.updates.roadmap.prose = সামনে কী আসছে, তার তালিকা এখানে: {roadmap} — যে বাগগুলো আমি জানি সেগুলোও ওখানে; কিছু জানানোর আগে একবার দেখে নেওয়া ভালো। নতুন কিছু চাওয়া আর বাগ জানানো, দুটোই ওখান থেকেই শুরু।

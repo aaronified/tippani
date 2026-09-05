@@ -4805,6 +4805,22 @@ settings.appearance.preset.specimen.label = the margins, wider than the text…
 settings.updates.title = Updates
 settings.updates.version.label = version
 settings.updates.releases.tip = Release notes on GitHub
+# WHEN THE RUNNING BUILD WAS RELEASED, out of the changelog embedded in the
+# binary. The date itself is composed by formatPartialDate from common.month.*
+# and common.date.full.label, so this key is only the label.
+#
+# "released" AND NOT "updated". The row must not read as "the day I pressed the
+# button": the server cannot know when this box was last updated — the setting
+# that would record it travels inside a backup, a dev build's version never
+# moves, a dead clock writes 1970 and keeps it, and a downgrade would be called
+# an update. The release date is a fact about the build.
+settings.updates.released.label = released
+# What the value reads on a build the history has no date for: a dev build, a
+# branch image, a release candidate, or a heading whose date did not parse. It
+# says what the app does NOT have rather than classifying the build, because
+# "not a published release" is false about a release candidate and about a real
+# release whose heading somebody mistyped.
+settings.updates.released.unknown.label = no release date
 # The roadmap line. {roadmap} is the link — markup never goes in a value.
 settings.updates.roadmap.prose = What is still ahead is on the {roadmap} — including the bugs I already know about, which is worth a look before you report one. Requests and bug reports both start there too.
 settings.updates.roadmap.link.label = roadmap ↗

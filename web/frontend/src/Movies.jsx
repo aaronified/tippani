@@ -471,7 +471,7 @@ function MovieList({ onOpen, creditSeparators, dataNonce }) {
       leading={
         showTypeRow &&
         typeChips.map(([k, label]) => (
-          <button key={k} className={filterChipClass(mediaType === k)} onClick={() => setMediaType(k)}>
+          <button key={k} type="button" aria-pressed={mediaType === k} className={filterChipClass(mediaType === k)} onClick={() => setMediaType(k)}>
             {label}
           </button>
         ))
@@ -482,7 +482,7 @@ function MovieList({ onOpen, creditSeparators, dataNonce }) {
             <MonoLabel className="mb-2 block">type</MonoLabel>
             <div className="flex flex-wrap items-center gap-2">
               {typeChips.map(([k, label]) => (
-                <button key={k} className={filterChipClass(mediaType === k)} onClick={() => setMediaType(k)}>
+                <button key={k} type="button" aria-pressed={mediaType === k} className={filterChipClass(mediaType === k)} onClick={() => setMediaType(k)}>
                   {label}
                 </button>
               ))}
@@ -1285,7 +1285,7 @@ function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen
             <div>
               <MonoLabel className="mb-2 block">show only</MonoLabel>
               <div className="flex flex-wrap items-center gap-2">
-                <button onClick={() => setFav(!fav)} className={filterChipClass(fav)} title={t('common.favourite.filter.tip')}>
+                <button type="button" aria-pressed={!!fav} onClick={() => setFav(!fav)} className={filterChipClass(fav)} title={t('common.favourite.filter.tip')}>
                   <IconHeartOn size={14} /> favourites
                 </button>
                   </div>
@@ -1308,7 +1308,7 @@ function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen
         <div className="flex flex-wrap items-center gap-2">
           <MonoLabel>Dialogues{items ? ` · ${items.length}` : ''}</MonoLabel>
           <div className="ml-auto flex flex-wrap items-center gap-2">
-            <button onClick={() => setFav(!fav)} className={filterChipClass(fav)} title={t('common.favourite.filter.tip')}>
+            <button type="button" aria-pressed={!!fav} onClick={() => setFav(!fav)} className={filterChipClass(fav)} title={t('common.favourite.filter.tip')}>
               <IconHeartOn size={14} /> Favourites
             </button>
             <ColorSwatches value={color} onChange={(c) => setColor(c === color ? '' : c)} />

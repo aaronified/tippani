@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"net/http"
+	"time"
 
 	"tippani/internal/buildinfo"
 	"tippani/internal/changelog"
@@ -44,4 +45,46 @@ func listed(rs []changelog.Release, version string) bool {
 		}
 	}
 	return false
+}
+
+// releaseDate is the day the embedded history gives for one version, or "" when
+// it does not know one.
+//
+// WHAT IT IS FOR. The Updates card said which build you are running and nothing
+// about how old it is, and "how old is this" is the question somebody opens that
+// card to answer. The history is already in the binary, so the answer costs no
+// network and is the same offline, after a restore from somebody else's backup,
+// and after a downgrade — because it is a fact about the BUILD rather than about
+// this machine's history. Nothing is stored, so there is nothing for any of those
+// to make confidently wrong.
+//
+// THE SAME EXACT-MATCH RULE `listed` USES, and for its reason: a build that is not
+// a finished release — "dev", "3.0.0-edge.v3.a66ff6c", a release candidate —
+// matches no heading and gets no date rather than the nearest one.
+//
+// THE SHAPE CHECK IS THIS LAYER'S, NOT THE CHANGELOG PACKAGE'S. `Release.Date` is
+// verbatim on purpose — the file is the only thing that knows its own format —
+// but a field a client is going to FORMAT needs a shape the client can parse. So
+// a heading that lost its date, or wrote it another way, reads here as "no date"
+// rather than as a string the card would print raw or render as NaN. The field's
+// contract is exactly `"YYYY-MM-DD"` or `""`, and the card has one branch.
+//
+// TAKES ITS RELEASES AS AN ARGUMENT so it is testable without the embed.
+func releaseDate(rs []changelog.Release, version string) string {
+	for _, r := range rs {
+		if r.Version != version {
+			continue
+		}
+		if _, err := time.Parse("2006-01-02", r.Date); err != nil {
+			return ""
+		}
+		return r.Date
+	}
+	return ""
+}
+
+// ReleaseDateOf is releaseDate against the history built into this binary — the
+// one caller outside this file is /auth/me, which sends it to the Updates card.
+func ReleaseDateOf(version string) string {
+	return releaseDate(changelog.Releases(), version)
 }

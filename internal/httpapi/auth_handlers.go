@@ -202,6 +202,11 @@ func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 		"preferences": p,
 		"avatar_path": avatar,
 		"version":     buildinfo.Version, // running build, for the Settings → Updates card
+		// WHEN THAT BUILD CAME OUT, from the history embedded in the binary — see
+		// releaseDate. "" for anything that is not a finished release, which the
+		// card says in words rather than hiding the row: a missing row is
+		// indistinguishable from a field that failed to arrive.
+		"version_date": ReleaseDateOf(buildinfo.Version),
 		// releases_url points at the GitHub releases page for the configured repo
 		// (honours TIPPANI_REPO) — the "version → changelog" link in Settings and
 		// the mobile drawer. Pure string, no network call.

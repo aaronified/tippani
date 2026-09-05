@@ -28,6 +28,7 @@ import {
   ErrorText,
   FieldIconButton,
   FormModal,
+  formatPartialDate,
   IconChevron,
   frameCode,
   GhostButton,
@@ -70,6 +71,7 @@ import {
   backdropClose,
   IconArrow,
   IconOpen,
+  isPartialDate,
 } from './ui.jsx'
 
 // Settings (§8.11): Appearance, Metadata sources, review/credits prefs, and
@@ -1142,7 +1144,10 @@ function SRDeepControls({ p, set, onClose }) {
 // queries GitHub on demand (never automatically); if a newer release exists it
 // offers a one-click update when the Docker socket is mounted (pull + recreate
 // via a one-shot Watchtower), and otherwise shows the manual command to run.
-function UpdatesCard({ user, update, onUpdateInfo, asking = false, onAsking }) {
+// Exported for `update-released.test.jsx`, which drives the card from the fields
+// /auth/me actually sends. Mounting the whole Settings screen to read one row
+// would make the case fail for a dozen reasons that are not this row.
+export function UpdatesCard({ user, update, onUpdateInfo, asking = false, onAsking }) {
   const current = user?.version || t('settings.updates.version.dev')
   const [logOpen, setLogOpen] = useState(false)
   const [info, setInfo] = useState(update || null) // check result (seeded from the shared session cache)
@@ -1391,6 +1396,38 @@ function UpdatesCard({ user, update, onUpdateInfo, asking = false, onAsking }) {
           ) : (
             <span style={{ fontFamily: 'var(--font-mono)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontWeight: 600 }}>{current}</span>
           )}
+        </div>
+
+        {/* WHEN THAT BUILD CAME OUT. The version number says WHICH build you have
+            and nothing about how old it is, which is the question somebody opens
+            this card to answer.
+
+            "RELEASED", NOT "UPDATED", and the whole row turns on that word. The
+            server cannot know when THIS BOX was last updated — the settings row
+            that would record it travels inside a backup archive, so a restore
+            would print the date of the machine the archive came from; a local
+            build's version is `dev` for ever, so the stamp would never advance;
+            a NAS with a dead clock would write 1970 and keep it; and a downgrade
+            would be called an update. The release date is a fact about the BUILD,
+            so it is right offline, right after a restore, and right after a
+            downgrade, and nothing is stored for any of those to corrupt.
+
+            THE ROW IS ALWAYS DRAWN, including on a build with no date — a dev
+            build, a branch image, a release candidate. A missing row is
+            indistinguishable from a field that failed to arrive, and every render
+            a developer or CI ever sees is the dev build, so hiding it would mean
+            the shipped shape is the one nobody looks at. The same reasoning the
+            server already applies to `current_listed`. */}
+        <div className="flex items-baseline gap-2">
+          <MonoLabel>{t('settings.updates.released.label')}</MonoLabel>
+          <span style={{ fontFamily: 'var(--font-mono)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)' }}>
+            {/* Guarded here as well as on the server: the field's contract is
+                `YYYY-MM-DD` or empty, and a client that formats whatever arrives
+                is one bad heading away from printing NaN. */}
+            {isPartialDate(user?.version_date || '')
+              ? formatPartialDate(user.version_date)
+              : t('settings.updates.released.unknown.label')}
+          </span>
         </div>
 
         {/* What shipped is in the release notes above; what is still ahead — and where to
