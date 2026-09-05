@@ -44,10 +44,10 @@ polish." Everything in this section is that report, itemised.
 
 | # | Defect | Source | State |
 |---|---|---|---|
-| B1 | **The speaker's name is printed twice** — once in the chip with their portrait, once in the attribution line. `Home.jsx:471` builds `source: [speaker, occasion]` while the comment three lines below it says "No speaker in `meta` — the expanded tile chips them." The intent was applied to one field and not the other. | owner | OPEN |
-| B2 | **The attribution overlaps the chip**, clipping it to "Albert Ein…". | owner | OPEN |
-| B3 | **The occasion belongs on its own line**, above or below the chip row, the way a note or a translation sits. | owner | OPEN |
-| B4 | **The Quotes screen's cards have no chip at all**, where the same quote in Home's favourites has one. Two screens render one fact two ways. | owner | OPEN |
+| B1 | **The speaker's name is printed twice** — once in the chip with their portrait, once in the attribution line. `Home.jsx:471` builds `source: [speaker, occasion]` while the comment three lines below it says "No speaker in `meta` — the expanded tile chips them." The intent was applied to one field and not the other. | owner | **FIXED — `Home.jsx` collapsed line is the OCCASION alone; the comment three lines above it already said so and the value it read did not** |
+| B2 | **The attribution overlaps the chip**, clipping it to "Albert Ein…". | owner | **FIXED — the chip row wraps and the occasion takes the next row (`basis-full`); they were flex siblings competing for one line** |
+| B3 | **The occasion belongs on its own line**, above or below the chip row, the way a note or a translation sits. | owner | **FIXED — same change; the occasion sits under the chips, where the owner asked for it** |
+| B4 | **The Quotes screen's cards have no chip at all**, where the same quote in Home's favourites has one. Two screens render one fact two ways. | owner | **FIXED — `AnnotationCard` gains the chip ladder Home has carried since its tiles were written; `speaker-chip-ladder.test.jsx`, 3 of whose 4 cases fail without it** |
 
 ## C. Things that are dead or missing
 
@@ -55,7 +55,7 @@ polish." Everything in this section is that report, itemised.
 |---|---|---|---|
 | C1 | **FIXED in `961dd8c`.** A character chip was dead until somebody opened that work's cast list. ROOT CAUSE, and it is behind every "the pills don't open" report. `adoptQuoteCharacters` gives a quoted character the cast row that carries `character_id`, and the press is gated on that id — but the function has exactly ONE caller, `cast_handlers.go:244`, the cast-list read. Nothing calls it when a quote is saved, and nothing calls it when Quotes or Home draw their chips. Measured against the running app: "Charles Foster Kane" served `{"name":…,"path":""}` with no id; after one GET of that film's cast it served `{"name":…,"cast_id":9,"character_id":6}`. It is not about the actor — that row has one. | owner, self | OPEN |
 | C2 | **No metadata source icons** in the Details panel or the metadata fetch sections. | owner | OPEN |
-| C3 | **`Quotes.jsx:965` passes `onOpenPerson: setPerson`**, bypassing the person router added in `e4e02b2`, which that screen uses at line 1188 only. | rater | OPEN |
+| C3 | **`Quotes.jsx:965` passes `onOpenPerson: setPerson`**, bypassing the person router added in `e4e02b2`, which that screen uses at line 1188 only. | rater | **FIXED — `Quotes.jsx:965` routes through `openPerson`, which the same file already used 200 lines below** |
 
 ## D. Checks that do not check
 
@@ -64,7 +64,7 @@ The owner's standard, stated once and binding: "you need to check the feature/sp
 
 | # | Defect | Source | State |
 |---|---|---|---|
-| D1 | **`person-router.test.jsx`'s inventory regex matches JSX attribute form only**, so it passes green over C3 — the exact defect it was written to prevent. | rater | OPEN |
+| D1 | **`person-router.test.jsx`'s inventory regex matches JSX attribute form only**, so it passes green over C3 — the exact defect it was written to prevent. | rater | **FIXED — the inventory now matches the options-object form as well as the JSX attribute; widened FIRST, and it caught C3 live before the fix landed** |
 | D2 | **`make controls` fails at phone width** — 2 controls that do nothing and 20 under the 44px touch floor. Every number I reported (44 → 19 → 1 → 0) was the DESKTOP pass; I never ran the phone one and did not say so. | rater | OPEN |
 | D3 | **`audit-panel.mjs` always exits 0 and resolves controls by position** — the two faults `panel-depth.mjs`, `hero-control.mjs` and `controls.mjs` were each hardened against. It is the only probe that covers the character panel. | rater | OPEN |
 | D4 | **`controls.mjs` exempts `is-on`** while quoting the CLAUDE.md line that says `is-on` is *not* a chip's on-state. `.to-top.is-on` is therefore never pressed. | rater | OPEN |

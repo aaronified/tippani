@@ -1024,7 +1024,13 @@ function FavouriteTile({
   // standalone quote's occasion. Everything else has somewhere better to be.
   const chLabel = isBook ? chapterMeta(f.raw) : ''
   const locLabel = isBook && f.raw.location ? t('common.locator.page.label', { n: f.raw.location }) : ''
-  let collapsedSource = isUtterance ? f.source : ''
+  // THE OCCASION ALONE, which is what the paragraph above says it should be and
+  // what `f.source` is not: `quoteFav` builds that as `[speaker, occasion]`, so
+  // the line printed the speaker the chip beside it was already showing, with
+  // their portrait on. "ALBERT EINSTEIN · WRITING TO CARL SEELIG" next to a chip
+  // reading Albert Einstein. The reasoning here was right and the value it read
+  // was wrong — three lines apart.
+  let collapsedSource = isUtterance ? (f.raw?.occasion || '') : ''
   // The EXPANDED line keeps the locator, which is the fact the open tile is open
   // FOR — where in the work this came from. Never the people: the chips below
   // carry the same names with their portraits and their way in.
@@ -1162,7 +1168,17 @@ function FavouriteTile({
               that asymmetry is the point: no PersonCredit below carries a
               character, so gating them on `!open` like the people made a film
               line's character vanish when the tile opened. */}
-          <span className="mt-1.5 flex items-center gap-1.5">
+          {/* WRAPS, so the line under a chip is a LINE. This was
+              `flex items-center` with no wrap: the chips and the occasion were
+              siblings competing for one row, and the occasion — being text with
+              nothing to stop it — ran over the chip and clipped it to
+              "Albert Ein…". A name cut in half is the thing the standing rule
+              forbids outright, and here it was a layout doing the cutting rather
+              than an ellipsis. The occasion takes the full width of the next row
+              (`basis-full`), which is where the owner asked for it: "the part
+              about the later could be placed below/above the chip row, like
+              notes or translation". */}
+          <span className="mt-1.5 flex flex-wrap items-center gap-1.5">
             {/* A SCREEN TILE WEARS THE CHARACTERS, everything else the PEOPLE
                 (2.2.0). A film line is spoken by a character, so the pill on it
                 is the one in costume; a book quote's author and a standalone
@@ -1185,7 +1201,9 @@ function FavouriteTile({
                 still a flex child with a gap before it, so a film tile drew the
                 pills and then a 1.5px column of air pretending to be a line. */}
             {(open ? expandedMeta : collapsedSource) ? (
-              <MonoLabel style={{ fontSize: 'var(--type-ui-11)' }}>{open ? expandedMeta : collapsedSource}</MonoLabel>
+              <MonoLabel className="basis-full" style={{ fontSize: 'var(--type-ui-11)' }}>
+                {open ? expandedMeta : collapsedSource}
+              </MonoLabel>
             ) : null}
           </span>
           {/* COPY AND SHARE ON THE COLLAPSED TILE (1.15.3). They were inside the

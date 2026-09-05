@@ -12,7 +12,7 @@ import { actionsFor, atOverflow, atRow } from './actions.jsx'
 import { selectionClick, selectionMenuItems, useSelection } from './selection.jsx'
 import { facetValue, facetValues, publishSearchSeed, seedableChips, withFacet, withFacetValues } from './facets.js'
 import { SelectionBar } from './SelectionBar.jsx'
-import { PersonModal, SpeakerChips, chipRows, parseCreditSeps, usePeople } from './people.jsx'
+import { PeopleChips, PersonModal, SpeakerChips, chipRows, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
 import { categoryHidden, categoryName } from './theme.js'
 import {
   GroupHeading,
@@ -1437,7 +1437,7 @@ function ActionRow({ acts, a, color, onColor, patch, actionsAlwaysVisible }) {
 // colour dots are keyed to the same two selectors. A bespoke wrapper would look
 // right on a desktop screenshot and silently lose the aesthetic toggle, the
 // hover affordances and the 320px layout all at once.
-export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, setEditingId, save, patch, remove, onCopy, onShare, quoteLines = 6, tagSuggestions = [], actionsAlwaysVisible = false, editInline = false, expanded, onToggleExpand, meta, form: Form = AnnotationForm, selection, selectKind = 'annotation', onMoveBoard, onDuplicate, tview = 'both', onOpenCharacter }) {
+export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, setEditingId, save, patch, remove, onCopy, onShare, quoteLines = 6, tagSuggestions = [], actionsAlwaysVisible = false, editInline = false, expanded, onToggleExpand, meta, form: Form = AnnotationForm, selection, selectKind = 'annotation', onMoveBoard, onDuplicate, tview = 'both', onOpenCharacter, people = {}, onOpenPerson = null, seps }) {
   const sticker = a.sticker_id != null ? stickerMap[a.sticker_id] : null
   const body = quoteBody(a, tview)
   // Accordion mode (tiles board): the parent owns which quote is open, so one
@@ -1480,12 +1480,27 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
   // left its stacked chip dead.
   const speaker = sp || null
   const chipCount = chipRows(a.character_images, speaker).length
-  const chips = (
+  // AND A STANDALONE QUOTE FALLS BACK TO ITS SPEAKER, which is the whole reason
+  // the Quotes screen drew no chip at all where Home drew one for the same line.
+  //
+  // `SpeakerChips` is built from `character_images` — the work's CAST — and a
+  // letter, an essay or a speech has no cast: the person who said it is a
+  // `people` record and nothing else. So `chipRows` returned nothing, the card
+  // rendered an empty row, and the speaker survived only as text in the meta
+  // line. Home has carried the ladder since its tiles were written (chips from
+  // the cast, else `PeopleChips` from the names) and this card never learned it.
+  //
+  // The fallback is gated on there being no cast chips at all, so a film line
+  // keeps exactly what it had.
+  const fallbackNames = !chipCount && a.speaker ? splitCredits(a.speaker, seps) : []
+  const chips = chipCount || !fallbackNames.length ? (
     <SpeakerChips
       images={a.character_images}
       speaker={speaker}
       onOpenCharacter={onOpenCharacter}
     />
+  ) : (
+    <PeopleChips names={fallbackNames} map={people} kind="speaker" onOpen={onOpenPerson} />
   )
   // `meta` undefined falls back to the book locator; '' means "no line at all",
   // which is why the test is against undefined rather than falsiness.

@@ -962,7 +962,15 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
       selectKind="quote"
       a={u}
       variant={i}
-      meta={utteranceMeta(u, { people: speakerMap, seps, onOpenPerson: setPerson })}
+      // THE ROUTER, NOT THE MODAL SETTER: `openPerson`, which this file already
+      // uses correctly on its speaker groups. The raw `setPerson` went straight
+      // through here, so a speaker on a quote card opened the older by-name panel
+      // however complete their record was. The id decides — see personOpen.jsx.
+      meta={utteranceMeta(u, { people: speakerMap, seps, onOpenPerson: openPerson })}
+      // The card's chip ladder needs the same two things the meta line does.
+      people={speakerMap}
+      seps={seps}
+      onOpenPerson={openPerson}
       form={QuoteForm}
       tagMap={tagMap}
       stickerMap={stickerMap}

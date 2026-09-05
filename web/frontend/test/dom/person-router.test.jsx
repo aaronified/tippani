@@ -113,7 +113,16 @@ describe('every screen routes a credit through the one opener', () => {
       // any capital — which flagged three `onOpen={setQuote}` on quote hits, a
       // prop that opens a QUOTE. A guard that cries wolf gets switched off, and
       // this file criticises other tests for exactly that shape.
-      for (const m of src.matchAll(/onOpenPerson=\{set[A-Z]\w*\}|onOpen=\{setPerson\}/g)) {
+      //
+      // BOTH FORMS, and the first version had only one. It matched the JSX
+      // attribute `onOpenPerson={setPerson}` and nothing else — but a credit is
+      // just as often wired through an options OBJECT, `onOpenPerson: setPerson`,
+      // which is how `utteranceMeta` takes it. `Quotes.jsx` did exactly that,
+      // three hundred lines above the same file's correct use of the router, and
+      // this test passed green over it: an inventory that knows one spelling is
+      // an inventory of one spelling. The defect it was written to prevent was
+      // live in the tree the whole time it was passing.
+      for (const m of src.matchAll(/onOpenPerson\s*(?:=\{|:\s*)set[A-Z]\w*|onOpen\s*(?:=\{|:\s*)setPerson\b/g)) {
         const line = src.slice(0, m.index).split('\n').length
         offenders.push(`${f}:${line} ${m[0]}`)
       }
