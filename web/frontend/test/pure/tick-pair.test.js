@@ -94,8 +94,17 @@ describe('a dialog tells its tick what is at stake', () => {
   // ✓ to arm, and inventing a `dirty` for it would be answering a test rather
   // than a reader. Verified rather than assumed: it registers no form, so the
   // dialog draws no tick.
+  //
+  // `MergeSheet` IS THE SAME SHAPE. Merge is a SEARCH — you type a name, the hits
+  // are rows, and pressing one opens the confirmation that states what will
+  // happen. There is no draft to count and no field to commit, so a ✓ in its head
+  // would be a second way to fire an act that must be confirmed, which is the one
+  // place a second way is worse than none. It is its own component precisely so
+  // this exemption can be keyed on a name rather than on `PersonBody`, which
+  // holds several dialogs that ARE on the standing pair.
   const NO_FORM = [
     ['identityPicker.jsx', 'ChoosePicker'],
+    ['identity.jsx', 'MergeSheet'],
   ]
   const exempt = (f, src, at) => NO_FORM.some(([file, comp]) => {
     if (file !== f) return false

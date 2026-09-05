@@ -48,7 +48,9 @@ import {
   SectionHead,
 } from './characterRows.jsx'
 import { t } from './i18n.js'
-import { IconGlobe, IconDelete, IconMerge } from './ui.jsx'
+import { IconGlobe, IconDelete, IconMerge, NavIcon } from './ui.jsx'
+import { GLYPH_NAME } from './identityLocal.jsx'
+import { mediumOf } from './identityScope.js'
 import { PROVIDERS, parseLinks } from './people.jsx'
 
 // THE GLOBE IS THE ART A GLOBAL SCOPE HAS, and its absence is the information:
@@ -126,7 +128,13 @@ function workTiles(works, recordImage, onOpen) {
     key: String(a.cast_id),
     kind: a.kind,
     cover: a.cover || '',
-    badge: t(`identity.crumb.badge.${a.kind === 'book' ? 'book' : mediaBadge(a)}`),
+    // THE APP'S OWN DRAWING, NOT THE WORD. `identity.crumb.badge.*` is a word —
+    // "film", "book" — and `.cs-tile-badge` is a 26px circle, so the word
+    // overflowed it and sat as loose text across the poster with no chip behind
+    // it. The medium is a glyph everywhere else in this app; the word stays as
+    // the button's title, where it is read rather than looked at.
+    badge: <NavIcon name={GLYPH_NAME[mediumOf(a)] || 'movies'} />,
+    badgeWord: t(`identity.crumb.badge.${a.kind === 'book' ? 'book' : mediaBadge(a)}`),
     title: a.work_title,
     // THIS WORK'S BILLING, which is the fact the tile adds to the title: a novel's
     // "the professor" and a film's "Woland" are one record and two tiles.
@@ -156,7 +164,8 @@ function creditTiles(credits, onOpen) {
     key: `${c.kind}-${c.work_id}`,
     kind: c.kind,
     cover: c.cover || '',
-    badge: t(`identity.crumb.badge.${c.kind === 'book' ? 'book' : mediaBadge(c)}`),
+    badge: <NavIcon name={GLYPH_NAME[mediumOf(c)] || 'movies'} />,
+    badgeWord: t(`identity.crumb.badge.${c.kind === 'book' ? 'book' : mediaBadge(c)}`),
     title: c.title,
     // WHAT THEY DID ON IT, AND THE SPELLING IT PRINTS — both, because the tile's
     // title is the work and neither of these is in it. The pack's own tiles read
@@ -219,7 +228,7 @@ export function CharacterGlobal({
       <NamesRow
         label={t('identity.row.canonical.label')}
         lines={[record.name, ...(record.aliases || [])]}
-        empty={t('identity.row.canonical.empty')}
+        empty={t('identity.row.canonical.alone')}
         onOpen={onNames}
       />
       <ScreenRow
@@ -288,6 +297,11 @@ export function CharacterGlobal({
 
 export function PersonGlobal({
   record, credits, roles, kinds, org = false, portrait, portraitActions, portraitEditor = null, onNames, onSort, onBorn,
+  // THE FACTS THE FORM UNDER THIS SCREEN USED TO CARRY. They were on screen
+  // twice — once as a row, once as a field in a form below it — and the row
+  // "edited" by scrolling you down to its twin. Each is a row with its own sheet
+  // now, which is the shape the local sheet has used since 3.1.
+  onDied = null, onBio = null, onNote = null,
   onLinkAdd, onOpenWork, onOpenRole, onAddWork, onMerge, onDelete, children,
 }) {
   // TWO SOURCES, ONE STRIP, and the pack's own tiles say so: "as Harry
@@ -350,7 +364,7 @@ export function PersonGlobal({
       <NamesRow
         label={t('identity.row.name.label')}
         lines={[record.name, ...(record.aliases || [])]}
-        empty={t('identity.row.canonical.empty')}
+        empty={t('identity.row.canonical.alone')}
         onOpen={onNames}
       />
       <ScreenRow
@@ -370,6 +384,31 @@ export function PersonGlobal({
         meta={record.born || t('identity.row.born.none')}
         onClick={onBorn}
       />
+      {onDied ? (
+        <ScreenRow
+          label={org ? t('people.form.closed.label') : t('identity.field.died')}
+          meta={record.died || t('identity.row.born.none')}
+          onClick={onDied}
+        />
+      ) : null}
+      {/* THE BIO IS THE PERSON'S, THE NOTE IS THE READER'S — two different
+          people's writing, so two rows rather than one box called "about". */}
+      {onBio ? (
+        <ScreenRow
+          label={t('common.field.bio.label')}
+          meta={record.bio ? '' : t('identity.row.born.none')}
+          sub={record.bio || ''}
+          onClick={onBio}
+        />
+      ) : null}
+      {onNote ? (
+        <ScreenRow
+          label={t('identity.field.note')}
+          meta={record.note ? '' : t('identity.row.born.none')}
+          sub={record.note || ''}
+          onClick={onNote}
+        />
+      ) : null}
 
       <SectionHead
         label={t('identity.section.links.label')}

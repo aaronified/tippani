@@ -308,7 +308,28 @@ function AliasRow({ aliases, onAdd, onRemove, onSplit }) {
 // AND IT SAYS THE BIN HOLDS IT. The pack stops at "asks first"; this app's promise
 // is stronger, and a reader who knows the way back is a reader who will actually
 // tidy their library.
-function MergeControl({ into, onMerged, onError, table = 'people', org = false }) {
+// MergeSheet — MergeControl over the screen, behind the row that offers it.
+//
+// A SHEET WITH NO TICK, and that is not an oversight. Merge is a SEARCH: you type
+// a name, the hits are rows, and pressing one opens the confirmation that states
+// what will happen. There is no draft to count and no field to commit, so a ✓ in
+// this head would be a second way to fire an act that must be confirmed — which
+// is the one place a second way is worse than none. `ChoosePicker` is exempt from
+// the tick ratchet for exactly this reason and this is the same shape.
+//
+// Its own component so the exemption can be keyed on a NAME rather than on
+// `PersonBody`, which holds several other dialogs that are on the standing pair.
+function MergeSheet({ into, org, onClose, onMerged, onError }) {
+  return (
+    <FormModal open onClose={onClose} title={t(org ? 'identity.row.merge.label.company' : 'identity.row.merge.label.person')} maxWidth={520}>
+      <div id="person-merge">
+        <MergeControl into={into} onMerged={onMerged} onError={onError} org={org} inSheet />
+      </div>
+    </FormModal>
+  )
+}
+
+function MergeControl({ into, onMerged, onError, table = 'people', org = false, inSheet = false }) {
   const [q, setQ] = useState('')
   const [hits, setHits] = useState([])
   const [pick, setPick] = useState(null)
@@ -356,11 +377,20 @@ function MergeControl({ into, onMerged, onError, table = 'people', org = false }
 
   return (
     <div style={FIELDS}>
-      <MonoLabel>{t('identity.merge.title')}</MonoLabel>
-      <p className="microcopy" style={{ color: 'var(--soft)' }}>{t(body, { name: into.name })}</p>
+      {/* NO HEADING AND NO PARAGRAPH. Inside `MergeSheet` the sheet's own title
+          already says "Merge with another person" and the row that opened it said
+          it a third time with its sub — so the tail of this screen carried the
+          same act in three sentences, one of them a mono heading repeating the
+          title above it. The one fact worth a line is which record SURVIVES, and
+          it goes on the field the reader is about to type into. Rendered inline
+          (a character's global sheet still does) the heading stays. */}
+      {inSheet ? null : <MonoLabel>{t('identity.merge.title')}</MonoLabel>}
+      {inSheet ? null : (
+        <p className="microcopy" style={{ color: 'var(--soft)' }}>{t(body, { name: into.name })}</p>
+      )}
       <input
         className="tp-input"
-        placeholder={t('identity.merge.search.placeholder')}
+        placeholder={inSheet ? t('identity.merge.search.into', { name: into.name }) : t('identity.merge.search.placeholder')}
         value={q}
         onChange={(e) => setQ(e.target.value)}
       />
@@ -642,6 +672,11 @@ function PersonBody({ stack, id, work, onOpenWork: given = null }) {
   const [form, setForm] = useState(null)
   const [busy, setBusy] = useState(false)
   const [linkDialog, setLinkDialog] = useState(false)
+  // The one-field sheet a row opens — the shape the local character sheet has
+  // used since 3.1, and what replaces the form this screen used to carry under
+  // its own rows. null = closed.
+  const [picker, setPicker] = useState(null)
+  const [merging, setMerging] = useState(false)
 
   useEffect(() => {
     if (!data) return
@@ -706,14 +741,29 @@ function PersonBody({ stack, id, work, onOpenWork: given = null }) {
   // created, which is every studio and publisher in a seeded library.
   const org = isOrganisation(data.credits || [])
 
-  const save = async () => {
+  const save = async (over = null) => {
     setBusy(true)
-    const r = await json('PUT', `/people/id/${id}`, form)
+    const r = await json('PUT', `/people/id/${id}`, over || form)
     setBusy(false)
-    if (!r.ok) return setErr(errText(r))
+    if (!r.ok) { setErr(errText(r)); return false }
     toast(t('identity.person.saved'))
     load()
+    return true
   }
+
+  // ONE FIELD, IN A SHEET THE ROW OPENS — the local sheet's shape since 3.1, and
+  // what replaces the form this screen used to carry under its rows. `rows`
+  // makes a textarea; `required` is the name, because a record with no name is a
+  // record nobody can find again.
+  const openPersonFact = (key, label, { rows = 0, required = false } = {}) => setPicker({
+    id: `person-${key}`,
+    title: label,
+    saveTip: t('identity.picker.save.tip'),
+    fields: [{ key, label, value: data?.[key] || '', rows, required }],
+    save: async (d) => {
+      if (await save({ ...form, [key]: d[key] ?? '' })) setPicker(null)
+    },
+  })
 
   // THE PICTURE SAVES ON ITS OWN, unlike the fields below it. A reader who picks a
   // face out of a strip has finished an act; making them find Save afterwards is
@@ -840,8 +890,12 @@ function PersonBody({ stack, id, work, onOpenWork: given = null }) {
           }
           portraitEditor={personPicture.pictureEditor}
           onNames={() => setNames((v) => !v)}
-          onSort={() => focusField('person-sort')}
-          onBorn={() => focusField('person-born')}
+          onSort={() => openPersonFact('sort_name', t('identity.field.sort'))}
+          onBorn={() => openPersonFact('born', org ? t('people.form.founded.label') : t('identity.field.born'))}
+          onDied={() => openPersonFact('died', org ? t('people.form.closed.label') : t('identity.field.died'))}
+          onBio={() => openPersonFact('bio', t('common.field.bio.label'), { rows: 5 })}
+          onNote={() => openPersonFact('note', t('identity.field.note'), { rows: 3 })}
+          onRename={() => openPersonFact('name', t('common.field.name.label'), { required: true })}
           onLinkAdd={() => setLinkDialog(true)}
           // THE WORK, NOT THE PERSON AGAIN. See usePersonOpener for what this
           // used to do and why the press produced a copy of the screen it was
@@ -880,9 +934,14 @@ function PersonBody({ stack, id, work, onOpenWork: given = null }) {
               ],
             })
           }}
-          onMerge={() => focusField('person-merge')}
+          onMerge={() => setMerging(true)}
         >
-          <MonoLabel>{t('identity.lines.title', { n: (data.lines || []).length, count: (data.lines || []).length })}</MonoLabel>
+          {/* THE COUNT OR THE SENTENCE, NOT BOTH. With nothing to list, "0 QUOTES"
+              and "Nothing in the library is credited to them yet" are one fact
+              in two lines, the first of them a heading over an empty section. */}
+          {(data.lines || []).length ? (
+            <MonoLabel>{t('identity.lines.title', { n: data.lines.length, count: data.lines.length })}</MonoLabel>
+          ) : null}
           <Lines lines={data.lines || []} shared={data.shared_lines || 0} empty={t('identity.lines.empty.person')} />
           {names ? (
             <>
@@ -891,36 +950,46 @@ function PersonBody({ stack, id, work, onOpenWork: given = null }) {
               <AliasRow aliases={data.aliases || []} onAdd={addAlias} onRemove={removeAlias} onSplit={splitAlias} />
             </>
           ) : null}
-          {/* THE PORTRAIT SAVES ITSELF and is not part of the form — see
-              setPortrait. It stays outside so the ✓'s count means fields. */}
-          <Portrait person={data} busy={busy} onPicked={setPortrait} onClear={() => setPortrait('')} />
-          <GlobalFields
-            /* Founded/Closed for a company, born/died for a person — the same
-               predicate the screen above is headed by, so a row and the field it
-               opens cannot disagree about what this record is. */
-            fields={[
-              { key: 'name', id: 'person-name', label: t('common.field.name.label') },
-              { key: 'sort_name', id: 'person-sort', label: t('identity.field.sort') },
-              { key: 'born', id: 'person-born', label: org ? t('people.form.founded.label') : t('identity.field.born') },
-              { key: 'died', id: 'person-died', label: org ? t('people.form.closed.label') : t('identity.field.died') },
-              { key: 'links', id: 'person-links', label: t('identity.field.links'), rows: 2 },
-              /* ABOVE THE NOTE, because they are two different people's writing:
-                 the bio is about the person and is shown on their card, the note
-                 is the reader's own and is not. */
-              { key: 'bio', id: 'person-bio', label: t('common.field.bio.label'), rows: 3 },
-              { key: 'note', id: 'person-note', label: t('identity.field.note'), rows: 2 },
-            ]}
-            form={form}
-            onForm={setForm}
-            stored={data}
-            busy={busy}
-            blocked={form.name.trim() ? '' : t('error.validate.name-required')}
-            onSave={save}
-          />
-          <div id="person-merge">
-            <MergeControl into={data} onMerged={load} onError={setErr} org={org} />
-          </div>
+          {/* ONE EDITOR, NOT TWO. This screen drew the pack's rows — Name, Sort
+              name, Born, the links — AND, underneath them, a form carrying the
+              same six fields again, plus a SECOND picture block under the one in
+              the header. Every fact on the record was on screen twice, and the
+              rows "edited" by scrolling you down to their twin. §3.1 of the audit
+              fixed exactly this on the local sheet; the two global sheets kept
+              the shape, and were merely doubled rather than broken, which is why
+              nobody had looked at them.
+
+              A row opens a sheet carrying its one field now, the way the local
+              sheet's rows have since 3.1 — so the row IS the editor's door and
+              the screen states each fact once. */}
+          {/* BEHIND ITS ROW, not beside it. This block sat inline at the foot of
+              the screen AND the section above offered "Merge with another
+              person" as a row — two doors to one act, and the row's was
+              `focusField('person-merge')`, which scrolled you down to the other
+              one. The same "a row states a value, pressing it opens the editor"
+              rule the fields follow, applied to the one control that was still
+              exempt. */}
+          {merging ? (
+            <MergeSheet
+              into={data}
+              org={org}
+              onClose={() => setMerging(false)}
+              onMerged={() => { setMerging(false); load() }}
+              onError={setErr}
+            />
+          ) : null}
         </PersonGlobal>
+        {/* KEYED ON THE SPEC so a new question is a new instance — see FieldPicker's
+            header for why seeding the draft in an effect flashes an armed tick. */}
+        {picker ? (
+          <FieldPicker
+            key={picker.id}
+            spec={picker}
+            busy={busy}
+            onClose={() => setPicker(null)}
+            onSave={picker.save}
+          />
+        ) : null}
         {choose ? (
           <ChoosePicker spec={choose} busy={busy} onClose={() => setChoose(null)} />
         ) : null}
@@ -1778,7 +1847,10 @@ function CharacterBody({ stack, id, work, onSearch = null, onOpenWork: given = n
         >
           {/* THE SECTIONS THE PACK DOES NOT DRAW, and the editors its rows are
               shortcuts into. Both are argued in identityGlobal.jsx's header. */}
-          <MonoLabel>{t('identity.lines.title', { n: (data.lines || []).length, count: (data.lines || []).length })}</MonoLabel>
+          {/* See PersonBody: the count or the sentence, never both. */}
+          {(data.lines || []).length ? (
+            <MonoLabel>{t('identity.lines.title', { n: data.lines.length, count: data.lines.length })}</MonoLabel>
+          ) : null}
           <Lines lines={data.lines || []} shared={data.shared_lines || 0} empty={t('identity.lines.empty.character')} />
           {/* SPLIT HAS NOWHERE TO LIVE IN A ROW OF NAMES — it is a verb per
               spelling, and the row is one line of them — so the chips stay, as

@@ -139,6 +139,17 @@ beforeEach(() => {
 })
 afterEach(() => cleanup())
 
+// MERGE IS BEHIND ITS ROW NOW. It used to sit inline at the foot of the screen
+// while the section above ALSO offered it as a row — two doors to one act, the
+// row's being a scroll down to the other. Pressing the row is what a reader
+// does, so it is what these cases do.
+const openMerge = async () => {
+  const row = [...document.querySelectorAll('button')]
+    .find((b) => /Merge with another/i.test(b.textContent))
+  expect(row, 'no row to merge through').toBeTruthy()
+  await act(async () => { row.click() })
+}
+
 describe('a person panel says which scope you are in', () => {
   // A PERSON IS ALWAYS GLOBAL — the owner's ruling, and it retired the two cases
   // that stood here. They asserted a person-on-a-work sheet: that it named the
@@ -166,8 +177,30 @@ describe('a person panel says which scope you are in', () => {
     // name is on an aria-label rather than between its tags. Asking for "the
     // control called Save" is also the question a reader asks, so this survives
     // the verb moving again.
+    // THROUGH A ROW'S OWN SHEET, which is where this screen commits now. It used
+    // to carry a whole form under its rows — every fact on screen twice, the row
+    // "editing" by scrolling you down to its twin — and the panel head's ✓ was
+    // that form's. A row opens a sheet carrying its one field, the way the local
+    // sheet's rows have since 3.1, and the sheet's own ✓ writes. The destination
+    // is what this case is about and it has not moved.
+    const row = [...document.querySelectorAll('button')].find((b) => /Sort name/i.test(b.textContent))
+    expect(row, 'no row to edit the record through').toBeTruthy()
+    await act(async () => { row.click() })
+    // The sheet's own field, found in the sheet rather than by a label string —
+    // the row's words and the field's are two different keys, and neither is what
+    // this case is about.
+    const sheet = await waitFor(() => {
+      const d = [...document.querySelectorAll('[role=dialog]')]
+        .find((x) => x.querySelector('input[type=text], input:not([type]), textarea'))
+      if (!d) throw new Error('the row opened no editor')
+      return d
+    })
+    // NOT the picture picker's hidden file input, which is the first `input` in
+    // the panel and accepts only a filename.
+    const field = sheet.querySelector('input[type=text], input:not([type]), textarea')
+    fireEvent.change(field, { target: { value: 'Bulgakov, Mikhail' } })
     const tick = await screen.findByRole('button', { name: /^Save$/i })
-    act(() => tick.click())
+    await act(async () => { tick.click() })
     await waitFor(() => expect(CALLS.some(([m, p]) => m === 'PUT' && p === '/people/id/7')).toBe(true))
     expect(
       CALLS.some(([m, p]) => m === 'PUT' && p === '/credits'),
@@ -266,7 +299,16 @@ describe('a company gets the same page and different words', () => {
     expect(screen.getByText(/Where this company is written up/i)).toBeTruthy()
     expect(screen.getByText(/How the company files in a list/i)).toBeTruthy()
     expect(screen.queryByText(/one human being/i), 'a company called a human being').toBeNull()
-    expect(screen.getByText(/Two records for one company/i)).toBeTruthy()
+    // THE NOUN, WHEREVER IT IS SAID. The sheet used to open with a mono heading
+    // and a paragraph repeating its own title — three printings of one act at
+    // the tail of the screen — and both are gone. What this case is about is
+    // that a company is never called a human being, so it reads whatever the
+    // sheet DOES say.
+    await openMerge()
+    const sheet = [...document.querySelectorAll('[role=dialog]')].pop()
+    expect(sheet.textContent, 'the merge sheet does not name what it is merging')
+      .toMatch(/company/i)
+    expect(sheet.textContent, 'a company called a human being').not.toMatch(/human being/i)
   })
 
   it('still calls a person a person', async () => {
@@ -484,7 +526,8 @@ describe('merging two records into one', () => {
     render(body(personPanel(stack, { id: 7, name: 'Mikhail Bulgakov' })))
     await screen.findByText('The person')
 
-    fireEvent.change(screen.getByPlaceholderText('find the other record…'), { target: { value: 'Welles' } })
+    await openMerge()
+    fireEvent.change([...document.querySelectorAll('[role=dialog] input')].find((i) => i.type !== 'file'), { target: { value: 'Welles' } })
     const hit = await screen.findByText('Orson Welles Jr')
     // A NAME ALONE CANNOT TELL TWO RECORDS APART, which is the case this control
     // exists to resolve, so each hit says how much hangs off it.
@@ -512,7 +555,8 @@ describe('merging two records into one', () => {
     render(body(personPanel(stack, { id: 7, name: 'Mikhail Bulgakov' })))
     await screen.findByText('The person')
 
-    fireEvent.change(screen.getByPlaceholderText('find the other record…'), { target: { value: 'Bulgakov' } })
+    await openMerge()
+    fireEvent.change([...document.querySelectorAll('[role=dialog] input')].find((i) => i.type !== 'file'), { target: { value: 'Bulgakov' } })
     await screen.findByText('M. Bulgakov')
     // Merging a record into itself is refused by the server, so a row for it here
     // would be a control whose only possible outcome is an error.

@@ -446,7 +446,10 @@ export function AppearanceStrip({ tiles, hint, onAdd, addLabel, addTitle, addIco
             <button
               type="button"
               className={'cs-tile-art' + (w.kind === 'book' ? ' is-book' : '')}
-              title={w.artTitle}
+              /* THE MEDIUM'S WORD LIVES HERE NOW. The badge holds the app's own
+                 drawing, which a reader looks at; the word is what they get when
+                 they ask, and it is the one place a glyph cannot answer. */
+              title={w.badgeWord ? `${w.artTitle} · ${w.badgeWord}` : w.artTitle}
               aria-disabled={w.onOpen ? undefined : true}
               onClick={w.onOpen || undefined}
             >
@@ -501,6 +504,12 @@ export function AppearanceStrip({ tiles, hint, onAdd, addLabel, addTitle, addIco
 // SHOWN AS THE SPLIT IT PRODUCES so the reader can see what saving did: the name
 // on the right where a value goes, the spellings underneath. A single joined
 // string would leave them guessing which line was the one that prints.
+// `empty` IS "NO OTHER SPELLINGS", NOT "NO NAME". The component was right and the
+// string was wrong: the global sheets passed `identity.row.canonical.empty` —
+// "No name yet" — into this slot, so a record with exactly one name, which is
+// nearly all of them, printed "No name yet" directly under its own name. The
+// local sheet has always passed the right sentence here ("The only name this
+// work uses"); the two globals were the odd ones out.
 export function NamesRow({ label, lines, empty, onOpen }) {
   const [first, ...rest] = lines.length ? lines : ['']
   return (

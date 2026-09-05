@@ -153,10 +153,23 @@ describe('every work they are in, as a shelf rather than a list', () => {
 
   it('says which kind of work each one is', async () => {
     await open()
-    // A series is not a film, and the badge says so from media_type rather than
+    // A series is not a film, and the tile says so from media_type rather than
     // calling everything on the movies table a film.
-    expect(within(tile('The Master and Margarita (2005)')).getByText(/show|series/i)).toBeTruthy()
-    expect(within(tile('The Master and Margarita')).getByText(/book/i)).toBeTruthy()
+    //
+    // DRAWN, AND SAID IN WORDS WHEN ASKED. The badge held the WORD — "film",
+    // "show" — in a 26px circle, so it overflowed and sat as loose text across
+    // the poster with no chip behind it. The medium is a glyph everywhere else
+    // in this app; the word moved to the tile's own `title`, which is where a
+    // reader gets it when a picture is not enough. Both halves are checked,
+    // because a glyph with no word is a picture nobody can name and a word with
+    // no glyph is what shipped.
+    const shown = tile('The Master and Margarita (2005)')
+    expect(shown.querySelector('.cs-tile-badge svg'), 'the medium is not drawn').toBeTruthy()
+    const art = shown.querySelector('.cs-tile-art')
+    expect(art.getAttribute('title'), 'the medium cannot be read anywhere').toMatch(/show|series/i)
+    const book = tile('The Master and Margarita')
+    expect(book.querySelector('.cs-tile-badge svg')).toBeTruthy()
+    expect(book.querySelector('.cs-tile-art').getAttribute('title')).toMatch(/book/i)
   })
 
   it('carries the performer for the work that has one, as a door to their record', async () => {

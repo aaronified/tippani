@@ -8696,6 +8696,11 @@ html[data-theme="dark"] .board-cover {
     background: color-mix(in oklab, var(--card), transparent 12%);
     border: 1px solid var(--line);
   }
+  /* IT HOLDS A DRAWING, NOT A WORD. It was given `identity.crumb.badge.*` — the
+     words "film", "book", "show" — and a 26px circle cannot hold one, so the
+     word sat as loose text across the poster with no chip behind it. The medium
+     is a glyph everywhere else in this app. */
+  .cs-tile-badge svg { width: 15px; height: 15px; }
   /* THE LOCAL FACE, ON THE WORK'S OWN COVER. The strip is about ONE character, so
      the cover alone is the wrong picture: it says which work and nothing about who
      they are in it. Round means a person everywhere in this app, so a chip in the
