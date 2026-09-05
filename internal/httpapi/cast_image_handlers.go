@@ -150,11 +150,16 @@ func (s *Server) handleCastImage(w http.ResponseWriter, r *http.Request) {
 // castImageReq is the optional body: a picture the reader has chosen for this
 // role, given as a URL the way a person's portrait is given one.
 //
-// A URL AND NOT AN UPLOAD, to match how every other image a reader supplies here
-// arrives — the person form takes `image_url` and the server fetches it — so the
-// fetch, the size cap and the format check are one code path for provider art and
-// reader art alike. That shared path is most of what "work the exact same way"
-// means in practice.
+// A URL, WHICH IS ONE OF THE TWO WAYS A READER'S PICTURE ARRIVES. The person form
+// takes `image_url` and the server fetches it, so the fetch, the size cap and the
+// format check are one code path for provider art and reader art alike — and that
+// shared path is most of what "work the exact same way" means in practice.
+//
+// The other way is a file from the reader's machine, which this route does not
+// take: `POST /cast/{id}/image/upload` does (picture_upload.go), because a
+// multipart body and a JSON body cannot share a decoder. Both end at the same
+// column, which is the property that matters downstream — nothing that draws a
+// chip can tell a fetched picture from an uploaded one.
 type castImageReq struct {
 	ImageURL string `json:"image_url"`
 }

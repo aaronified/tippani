@@ -8296,7 +8296,34 @@ html[data-theme="dark"] .board-cover {
     color: var(--faint); letter-spacing: .1em;
   }
   .cs-px.is-soft { color: var(--error); }
-  .cs-face-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+  .cs-face-actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  /* THE PACK'S PICTURE VERBS. `.tp-btn-ghost` already draws the shape the pack
+     asks for — raised ground, --ink-border, 9px radius, 44px floor — so these
+     only tighten the padding a labelled button carries by default, because four
+     of them share one row beside a 96px face.
+
+     THE PADDING IS THE PACK'S 12px AND THE HEIGHT IS NOT ITS 38px. The prototype
+     styles these inline at 38px; the pack's own design system says 44 twice
+     (handoff/design-system.md:11 and :180, "44px touch targets"), and `make
+     controls` fails a control under that floor at 390px. The drawing is at
+     desktop width; the floor binds everywhere. */
+  .cs-face-actions .cs-verb { padding-left: 12px; padding-right: 12px; gap: 6px; }
+  /* THE FOURTH VERB IS THE ONE THAT LEAVES THE WORK, and it is drawn as the pack
+     draws it: dashed, in the danger colour, at a border that reads as provisional
+     rather than solid. Nothing else in this app is dashed, which is the point —
+     the reader has never seen this border on a press whose effect stayed put. */
+  .cs-face-actions .cs-verb-wide {
+    border-style: dashed;
+    border-color: color-mix(in oklab, var(--error), transparent 55%);
+    color: var(--error);
+  }
+  .cs-face-actions .cs-verb-wide:hover:not(:disabled) {
+    background: color-mix(in oklab, var(--error) 8%, transparent);
+  }
+  /* WHOSE PICTURE THIS ACTUALLY IS, when it is not this work's. Printed under the
+     size in the same mono as the size, because it is the same kind of statement
+     about the file on screen. */
+  .cs-px-from { display: block; font-family: var(--font-mono); font-size: var(--type-mono-11); color: var(--faint); letter-spacing: .06em; }
 
   /* A section heading, and the prose that sometimes goes under it. */
   .cs-head-row { display: flex; flex-direction: column; gap: 3px; padding: 16px 10px 6px; }

@@ -144,6 +144,15 @@ function creditRows(rows, { onPick, onOpen, onNote, onRemove, noteTip, removeTip
 // all facts about THIS casting, and 0063 gave each of them a column there.
 export function CharacterLocal({
   record, work, here, scope, portraitActions,
+  // WHOSE PICTURE IS ON SCREEN, and it is the caller's answer rather than
+  // `here.image` because `here.image` is only the first of three rungs. This sheet
+  // used to read that column directly, so a character whose IDENTITY carries a
+  // portrait — the commonest case after a merge, since only one appearance keeps
+  // the still — drew a silhouette here and the picture one door away on the global
+  // card. store.CastOf refuses to substitute the fallback server-side precisely so
+  // that a screen can tell the two apart and SAY which it drew; this sheet took
+  // the un-substituted value and then said nothing.
+  portrait = '', portraitFrom = '',
   onCalled, onPart, onFirst, onAge, onNote,
   onQuotes, onLocator, onOpenGlobal, onRemove,
   // The performer block's verbs. Absent on a book, where the whole block is —
@@ -219,9 +228,17 @@ export function CharacterLocal({
         scopeTitle={t('identity.scope.work.title')}
       />
       <PortraitBlock
-        src={here.image ? coverImgURL(here.image) : ''}
+        src={portrait || (here.image ? coverImgURL(here.image) : '')}
         name={record.name}
         px={t('identity.portrait.local')}
+        // A FALLBACK THAT DOES NOT SAY SO IS THE SCREEN CLAIMING THIS WORK HOLDS
+        // A PICTURE IT DOES NOT — and the reader who then presses "Set for the
+        // identity" is promoting a picture that is already the identity's.
+        from={portraitFrom === 'identity'
+          ? t('identity.portrait.from.identity')
+          : portraitFrom === 'actor'
+            ? t('identity.portrait.from.actor', { name: here.actor || '' })
+            : ''}
         actions={portraitActions}
       />
 

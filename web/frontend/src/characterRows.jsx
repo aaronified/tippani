@@ -124,7 +124,7 @@ export function Face({ src, name, className = 'cs-face' }) {
 // type measurement, so it stays a number in px.
 const SOFT_FLOOR = 400
 
-export function PortraitBlock({ src, name, px, soft, actions }) {
+export function PortraitBlock({ src, name, px, soft, from = '', actions }) {
   const [dim, setDim] = useState(null)
   // A new src is a new measurement — without this the previous picture's numbers
   // stay under the new one, which is worse than showing none.
@@ -152,6 +152,11 @@ export function PortraitBlock({ src, name, px, soft, actions }) {
       </span>
       <span className="cs-portrait-side">
         <span className={'cs-px' + (isSoft ? ' is-soft' : '')}>{measured}</span>
+        {/* WHOSE PICTURE THIS IS, when it is not the one this slot is about. Only
+            drawn when the caller has something to say: a picture that IS the
+            slot's own needs no caption, and a caption under every portrait is a
+            caption nobody reads. */}
+        {from ? <span className="cs-px-from">{from}</span> : null}
         <span className="cs-face-actions">{actions}</span>
       </span>
     </div>

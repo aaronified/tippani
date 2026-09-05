@@ -255,6 +255,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("PUT /people/id/{id}", s.requireAuth(s.handleUpdatePersonByID))
 	mux.Handle("POST /people/id/{id}/aliases", s.requireAuth(s.handlePersonAlias))
 	mux.Handle("PUT /people/id/{id}/names", s.requireAuth(s.handlePersonNames))
+	mux.Handle("POST /people/id/{id}/portrait", s.requireAuth(s.handlePersonImageUpload))
 	mux.Handle("DELETE /people/id/{id}/aliases", s.requireAuth(s.handlePersonAliasDelete))
 	mux.Handle("GET /characters", s.requireAuth(s.handleCharacters))
 	mux.Handle("POST /characters", s.requireAuth(s.handleCreateCharacter))
@@ -268,6 +269,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /characters/{id}/works", s.requireAuth(s.handleCharacterAddWork))
 	mux.Handle("DELETE /characters/{id}/works/{cast}", s.requireAuth(s.handleCharacterDropWork))
 	mux.Handle("PUT /characters/{id}/image", s.requireAuth(s.handleCharacterImage))
+	mux.Handle("POST /characters/{id}/image/upload", s.requireAuth(s.handleCharacterImageUpload))
 	mux.Handle("POST /characters/{id}/aliases", s.requireAuth(s.handleCharacterAlias))
 	// The whole name field at once (0063): line one prints, the rest are the
 	// ordered spellings. The per-alias verbs above stay for the console's chips.
@@ -355,6 +357,8 @@ func (s *Server) Handler() http.Handler {
 	// (0050). A POST because it may write — idempotent, so a client may call it for
 	// every chip it is about to draw. See cast_image_handlers.go.
 	mux.Handle("POST /cast/{id}/image", s.requireAuth(s.handleCastImage))
+	// The pack's third picture verb — a file from this machine. See picture_upload.go.
+	mux.Handle("POST /cast/{id}/image/upload", s.requireAuth(s.handleCastImageUpload))
 	// The cleanup sweep (Settings): read every quote, report what a page left
 	// behind in it, change nothing. See cleanup.go for the rules and why there is
 	// no companion write.

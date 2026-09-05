@@ -50,6 +50,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A picture can be uploaded from your own machine.** The picture block on a character
+  or a person offers Fetch, Upload and Paste URL — and Upload had nothing behind it
+  anywhere, so a role, a character and a person could only ever wear a picture that was
+  already on the web. All three take a file now, kept and served from your own install
+  like every other image here, into the same field the other two write.
+- **A character's page shows a picture where there is one to show.** Seen from inside a
+  work it drew only that work's own still, so a character whose record carries a portrait
+  — the usual state after merging two of them, since only one appearance keeps the still
+  — showed a silhouette on the work's page and the picture one press away on the record.
+  It now falls back the way every chip does, to the character's own picture and then to
+  the performer's photograph, and says which of the three you are looking at.
+- **The performer's face is back on a credit.** Every credit row on a character's or a
+  person's page drew the blank silhouette, though the same performer's photograph drew
+  correctly on a quote card: the list those pages read had never carried it.
+- **Setting a picture for the whole identity asks first.** It changes what a character
+  looks like on every work that has not set its own, and none of those works is visible
+  from the page you press it on.
+- **Uploading a picture for a board no longer reports a failure.** The picture was saved
+  and the reply described some other row entirely, so the board kept showing its old
+  picture — or the upload reported an error for something that had worked.
+- **A character's page says what went wrong instead of going blank.** A record that
+  failed to load took the whole panel down with it.
 - **Every screen's ⋯ has something in it.** On a desktop, Home, Quotes, Search, People,
   Stats and Settings opened an empty card: the menu drops its own Help row when the ?
   beside it is already on the bar, and those six screens contribute no actions of their

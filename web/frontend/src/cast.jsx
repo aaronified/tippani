@@ -40,9 +40,12 @@ import {
   IconClose,
   IconDelete,
   IconEdit,
+  IconOpen,
   IconPicture,
   IconPlus,
+  IconRefresh,
   IconSearch,
+  IconUpload,
   IconUsers,
   InfoDot,
   MonoLabel,
@@ -339,7 +342,32 @@ export function CastSection({ kind, item, onCastChanged, onOpenCharacter }) {
 // portrait — and it exists only to pick one of the six silhouettes (§1.8). It is
 // NOT `label`: that is a sentence for a screen reader, and hashing a sentence
 // would give one character two faces the day its aria-label was reworded.
-export function usePicturePicker({ face, faceName = '', label, urlLabel, busy, search, fallbackQuery, onPicked }) {
+export function usePicturePicker({
+  face, faceName = '', label, urlLabel, busy, search, fallbackQuery, onPicked,
+  // ---- the pack's NAMED verb row, and why it is an option rather than the
+  // only shape ----------------------------------------------------------------
+  //
+  // Two callers want two different affordances over the same three mechanisms. A
+  // CAST ROW is a table: it leads with the face, the face is the control, and a
+  // row of three labelled buttons per cast member would be sixty buttons on a
+  // film. An IDENTITY SHEET has one picture and a whole block for it, and the
+  // pack draws that block with `Fetch · Upload · Paste URL` spelled out
+  // (`character-popup.dc.html:1257-1260`) — because a picture verb that goes
+  // wrong is expensive to undo and an unlabelled glyph is a guess.
+  //
+  // So `named` turns the row on, and it also takes the inline "find a picture"
+  // link OUT of the editor: with the verbs drawn, that link is Fetch a second
+  // time, in a different shape, three pixels lower. Two controls for one
+  // mechanism is the thing the credit row was just fixed for.
+  named = false,
+  // onUpload is the caller's, because the route differs per table — a cast row's
+  // picture, a character record's, a person's. Absent means the screen has no
+  // upload path and the verb is not drawn, which is the honest answer and not a
+  // disabled button: a control greyed out with no way to un-grey it tells the
+  // reader they have done something wrong.
+  onUpload = null,
+}) {
+  const fileRef = useRef(null)
   const [urlOpen, setUrlOpen] = useState(false)
   const [url, setUrl] = useState('')
   const [pics, setPics] = useState(null) // null = never asked; [] = asked, nothing found
@@ -405,17 +433,20 @@ export function usePicturePicker({ face, faceName = '', label, urlLabel, busy, s
     <span className="cast-row-url">
       {/* THE SAME OFFER THE PERSON EDITOR MAKES, and for the same reason: asking
           somebody to go and find a picture without helping them look is the
-          difference between a field and a chore. */}
-      <button
-        type="button"
-        className="tp-link tp-link-icon"
-        style={{ fontSize: 'var(--type-ui-11)' }}
-        disabled={picsBusy}
-        onClick={findPicture}
-      >
-        <IconSearch />
-        <span>{picsBusy ? t('common.state.loading') : t('people.form.image-search')}</span>
-      </button>
+          difference between a field and a chore. Not drawn where the named verb
+          row is: there it is Fetch a second time, in a second shape. */}
+      {named ? null : (
+        <button
+          type="button"
+          className="tp-link tp-link-icon"
+          style={{ fontSize: 'var(--type-ui-11)' }}
+          disabled={picsBusy}
+          onClick={findPicture}
+        >
+          <IconSearch />
+          <span>{picsBusy ? t('common.state.loading') : t('people.form.image-search')}</span>
+        </button>
+      )}
       <input
         className="tp-input"
         placeholder={t('cast.picture.placeholder')}
@@ -462,7 +493,94 @@ export function usePicturePicker({ face, faceName = '', label, urlLabel, busy, s
     </span>
   )
 
-  return { faceButton, pictureEditor, open: urlOpen, setOpen: setUrlOpen }
+  // THE PACK'S VERB ROW. Three buttons, in the pack's order, each with its icon,
+  // its word and the sentence the pack gives it as a title.
+  //
+  // 44px AND NOT THE PROTOTYPE'S 38, WHICH IS THE ONE MEASUREMENT HERE THAT
+  // DEPARTS FROM IT. `character-popup.dc.html` styles these inline at
+  // `min-height:38px; font-size:calc(12.5px*var(--u,1))`; the pack's OWN design
+  // system says a button is `.tp-btn` — "min-height 44px, radius 9px, 1.4px
+  // border" (`handoff/design-system.md:11`, restated at :134) and "44px touch
+  // targets" is a hard line at :180. The prototype is a drawing at desktop width
+  // and the design system is what binds; `make controls` fails a control under
+  // that floor at 390px, so 38 could not ship. `GhostButton` IS that shape
+  // already, which is why these are GhostButtons and not a new class: the pack's
+  // raised ground, its `--line` border and its 9px radius are what `.tp-btn-ghost`
+  // draws. Only the danger variant needs a class, because nothing else in the app
+  // is dashed.
+  //
+  // keepLabel, WHICH IS THE OPT-OUT AND NOT AN OVERSIGHT. `[data-labels]` resolves
+  // to "off" on a phone and strips the words off ordinary buttons; the pack draws
+  // these NAMED, and a picture verb is exactly the case the opt-out exists for —
+  // "the app's own defaults about which words are worth the room". A reader who
+  // has asked for glyphs only still gets glyphs only: `[data-labels-mode="off"]`
+  // outranks keepLabel, which is the one thing that does.
+  const verbs = !named ? null : (
+    <>
+      <GhostButton
+        type="button"
+        className="cs-verb"
+        disabled={busy || picsBusy}
+        title={t('identity.picture.fetch.tip')}
+        icon={<IconRefresh />}
+        keepLabel
+        onClick={findPicture}
+      >
+        {picsBusy ? t('common.state.loading') : t('identity.picture.fetch.label')}
+      </GhostButton>
+      {onUpload ? (
+        <>
+          <GhostButton
+            type="button"
+            className="cs-verb"
+            disabled={busy}
+            title={t('identity.picture.upload.tip')}
+            icon={<IconUpload />}
+            keepLabel
+            onClick={() => fileRef.current?.click()}
+          >
+            {t('identity.picture.upload.label')}
+          </GhostButton>
+          {/* THE FILE INPUT IS THE CONTROL AND THE BUTTON IS ITS FACE. A bare
+              `<input type=file>` cannot be styled to the pack's button and cannot
+              carry the icon, so the app does what every other upload here does:
+              hide the input and press it from a real button. `hidden` rather than
+              `display:none` in a style — the reset in this page gives `[hidden]`
+              that already, and one way to hide a thing is enough. */}
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            hidden
+            aria-label={t('identity.picture.upload.aria', { name: faceName })}
+            onChange={async (e) => {
+              const file = e.target.files?.[0]
+              // CLEARED BEFORE THE AWAIT, so choosing the same file twice fires
+              // twice. Without it a failed upload cannot be retried with the same
+              // picture: the input still holds it, `change` never fires again, and
+              // the reader presses a live button that does nothing.
+              e.target.value = ''
+              if (file) await onUpload(file)
+            }}
+          />
+        </>
+      ) : null}
+      <GhostButton
+        type="button"
+        className="cs-verb"
+        disabled={busy}
+        aria-expanded={urlOpen}
+        title={t('identity.picture.paste.tip')}
+        icon={<IconOpen />}
+        keepLabel
+        onClick={() => setUrlOpen((v) => !v)}
+      >
+        {t('identity.picture.paste.label')}
+      </GhostButton>
+    </>
+  )
+
+  return { faceButton, pictureEditor, verbs, open: urlOpen, setOpen: setUrlOpen }
 }
 
 // useCharacterPicture — the picker, wearing what a CHARACTER needs.
@@ -476,7 +594,7 @@ export function usePicturePicker({ face, faceName = '', label, urlLabel, busy, s
 // REACHES TheTVDB: the server reads the row back scoped to the reader, follows it
 // to the work's TheTVDB id and asks for the character's own art — the picture of
 // the role, which no search engine has.
-export function useCharacterPicture({ row, actor, workTitle, mediaType, busy, onImage }) {
+export function useCharacterPicture({ row, actor, workTitle, mediaType, busy, onImage, named = false, onUpload = null }) {
   // THREE RUNGS, AND THE MIDDLE ONE IS NEW. What this work stores for the role,
   // then what the RECORD says the character looks like, then the performer's
   // headshot.
@@ -495,7 +613,19 @@ export function useCharacterPicture({ row, actor, workTitle, mediaType, busy, on
       : actor?.image_path
         ? personImgURL(actor.image_path)
         : ''
-  return usePicturePicker({
+  // WHICH RUNG ANSWERED, because a screen that shows the identity's picture where
+  // the work has none has to be able to SAY so. store.CastOf's own comment is
+  // emphatic about it — it refuses to substitute the fallback server-side for
+  // exactly this reason, "a value already substituted here cannot be told apart
+  // from one the work actually holds" — and then the one screen that draws a big
+  // portrait went and substituted it silently anyway. A caller that does not care
+  // ignores this; a caller drawing a portrait block prints it.
+  const from = row.character_image_path
+    ? 'work'
+    : row.character_record_image
+      ? 'identity'
+      : actor?.image_path ? 'actor' : ''
+  const picker = usePicturePicker({
     face,
     faceName: row.character || '',
     label: t('cast.picture.aria', { name: row.character || '' }),
@@ -511,7 +641,10 @@ export function useCharacterPicture({ row, actor, workTitle, mediaType, busy, on
       media_type: mediaType || '',
       cast_id: row.id || 0,
     }),
+    named,
+    onUpload,
   })
+  return { ...picker, face, from }
 }
 
 // A row's provenance, from `work_cast.origin` and `work_cast.source`.

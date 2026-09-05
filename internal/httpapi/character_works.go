@@ -489,20 +489,47 @@ func containsKey(names []string, key string) bool {
 //   not yet decided is one character or eight.
 //
 // An empty `path` clears it, which is the only other thing a reader can want.
+//
+// AND `image_url` IS THE THIRD THING, added because the pack draws Fetch and
+// Paste URL on the global card as well as the local one and the record had no way
+// to take either. Promoting an appearance is still the ordinary path — a
+// character's face usually IS one of their stills — but a reader who has a
+// picture of the character that no work of theirs holds could not use it: the
+// only door in was through a cast row, so the record could only ever look like
+// something one of its works already looked like.
+//
+// THE BYTES ARE FETCHED AND STORED, unlike the cast_id path above which stores a
+// reference to a file the cast row owns. `fetchUserImage` is the no-allowlist
+// fetcher, for the same reason `POST /cast/{id}/image` picks it for a pasted
+// address: the reader's picture is wherever they found it, and a provider host
+// allowlist would refuse it with a message about a fetch failure.
 func (s *Server) handleCharacterImage(w http.ResponseWriter, r *http.Request) {
 	uid, id, ok := s.identityTarget(w, r, "characters")
 	if !ok {
 		return
 	}
 	var req struct {
-		CastID int64   `json:"cast_id"`
-		Path   *string `json:"path"`
+		CastID   int64   `json:"cast_id"`
+		ImageURL string  `json:"image_url"`
+		Path     *string `json:"path"`
 	}
 	if !decodeBody(w, r, &req) {
 		return
 	}
 	path := ""
-	if req.CastID > 0 {
+	// The reader's own address, fetched once and served from here afterwards — the
+	// same bargain every other picture in this app strikes, and the reason none of
+	// them hotlink.
+	if req.ImageURL != "" {
+		name, ferr := s.fetchUserImage(r.Context(), req.ImageURL, s.coversDir())
+		if ferr != nil {
+			olog.Errorf(olog.CodeCoverFetch,
+				"[characters] portrait id=%d url=%q failed: %v", id, req.ImageURL, ferr)
+			writeErr(w, http.StatusBadGateway, "that picture could not be fetched")
+			return
+		}
+		path = name
+	} else if req.CastID > 0 {
 		// SCOPED TWICE: the row is the caller's, and it is THIS character's. The
 		// second half is what stops a reader pointing one character's record at
 		// another character's still — their own data either way, and still not what
@@ -527,7 +554,7 @@ func (s *Server) handleCharacterImage(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else if req.Path == nil || *req.Path != "" {
-		writeErr(w, http.StatusBadRequest, "send a cast_id to promote, or an empty path to clear")
+		writeErr(w, http.StatusBadRequest, "send a cast_id or an image_url to set one, or an empty path to clear")
 		return
 	}
 	if _, err := s.Store.DB.Exec(

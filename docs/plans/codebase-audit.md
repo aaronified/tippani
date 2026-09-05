@@ -411,11 +411,11 @@ matters**; the rest are smaller and independent.
 | Element | Prototype | App | Verdict |
 | --- | --- | --- | --- |
 | **What a row press does** | opens a small titled picker over the sheet — `openPicker` at lines 522, 529, 1032, 1047, 1077, with titles like "Add a performer to this film" | opens `FieldPicker`, a titled sheet carrying that field alone | **FIXED** — was a `<details>` form at the FOOT of the sheet, 600–1000px down, focusing a bare input |
-| Portrait verbs | `Fetch` · `Upload` · `Paste URL` as three named buttons, then `Set for the identity` outlined red and dashed | one small tile button and `use this one` | **Deviation** |
-| Picture size | `1280 × 720 px` above the verbs, inked `--error` under the floor | absent on this sheet | **Deviation** |
-| Header | glyph + name + `in Deathly Hallows – Part 2 · film` + ✕ on one header line | centred name + ✕; the glyph, name and crumb in a separate boxed row beneath | **Deviation** |
+| Portrait verbs | `Fetch` · `Upload` · `Paste URL` as three named buttons, then `Set for the identity` outlined red and dashed | all four, on this sheet and on both global cards; the fourth behind the pack's own confirmation | **FIXED** — and `Upload` had no backend anywhere in the app, so three routes were built for it. One measurement departs: the prototype's inline `min-height:38px` against the pack's own design system, which states 44 twice (`handoff/design-system.md:11`, `:180`). The floor wins and the code says why |
+| Picture size | `1280 × 720 px` above the verbs, inked `--error` under the floor | measured off the file itself, inked under 400 × 400 | **FIXED** — `PortraitBlock`, and the number is a measurement rather than the constant string two callers used to pass |
+| Header | glyph + name + `in Deathly Hallows – Part 2 · film` + ✕ on one header line | one line: the cover with the medium glyph over it, name above crumb, ✕ | **FIXED** — `ScreenHead` publishes upward through `usePanelHead` and draws nothing itself; `one-header.test.jsx` counts the bars |
 | Qualifier chip (`CHAR-FILM`) | present | absent | **Justified** — PLAN.md's eight rulings, #4: "Drop it — the crumb and the cover-with-glyph already say the scope" |
-| Credit row | name plus a sub-line — `age 17 · and the epilogue at 36` | name plus its `credit_note` as a sub-line | **Match** — an earlier reading of this called it a deviation on the evidence of a row whose note was empty. With a note stored the app draws `Ranjit Sinha` over `the dub`, which is the prototype's shape and the prototype's field |
+| Credit row | a portrait that opens the person picker, a name that opens their record, `[lang, note].join(' · ')` beneath, a ✎ and a ✕ | was: both controls opening the record, `note \|\| lang` so a dub with a note stopped naming its language, three literal characters for the glyphs, and two silent no-ops on a credit with nobody in it | **WAS WRONG HERE, NOW FIXED** — this row read **Match** on the strength of one detail (the sub-line renders) while three others were broken. The reading looked at what the row DREW and not at what its controls DID, which is the whole difference between a screenshot and a press. `credit-row.test.jsx`, 4 of whose 8 cases fail against the row as it shipped |
 | Credited as · the Played by / Voiced by pair · Part / First appears / Age here · the Note row · the two count tiles · The identity · Open the global record · Remove | — | — | Match |
 
 **Why the first row is the whole of the "polish" complaint.** The prototype's rows *are*
@@ -467,18 +467,21 @@ Three things came out of building it that reading had not shown:
   PASS a `dirty` prop, so a surface that takes the count and draws nothing with it passes
   every case it has. A test that reads source cannot see an absence in a render.
 
-What is NOT done here: the pack's picker is a search-or-type field offering people the
-app already knows (`pickerPeople`, `PEOPLE` at line 921), and this one is a plain box.
-Adding a person to a credit still means typing the name. That is the next increment and
-it is a real difference, not a styling gap.
+**FIXED since**: the pack's picker is a search-or-type field offering people the app
+already knows (`pickerPeople`, `PEOPLE` at line 921) and this one was a plain box.
+`identityPicker.jsx`'s `PersonPickerBody` is that field — search over `usePeople(kind)`,
+faces or silhouettes, an "is new" row, the language chips — and `person-picker.test.jsx`
+fails all eight of its cases against the box it replaced.
+
+What is NOT done here, and is the honest remainder: the picker's `choose` mode. The pack
+has four (`person`, `choose`, `note`, and the language variant) and three are built.
 
 ### 4.2 Not yet compared
 
-`char-global`, `char-book`, `char-game` and `people-global` (the other four artboards in
-the same prototype), the work-detail surfaces in `work-details-popup.dc.html` — including
-the Match Picker and Fetch Results built this session but **not yet held against their
-artboards** — and `book-detail.dc.html` / `book-detail-wide.dc.html`. The pair of probes
-is in place; the comparisons are not done.
+`char-global`, `char-book`, `char-game`, `people-global`, and `book-detail.dc.html` /
+`book-detail-wide.dc.html`. The Match Picker and Fetch Results HAVE now been held against
+their artboards in `work-details-popup.dc.html` and match. The pair of probes is in place;
+the remaining comparisons are not done, and the register carries this as **E3**.
 
 ---
 

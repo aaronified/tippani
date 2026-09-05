@@ -123,21 +123,37 @@ func (s *Server) uploadCover(w http.ResponseWriter, r *http.Request, table, colu
 	if old.String != name {
 		s.removeCoverFile(old.String)
 	}
-	if table == "books" {
+	// THE REPLY IS THE ROW THE UPLOAD CHANGED, and the default branch is why this
+	// is a switch and not an `if books else movies`. The two-branch form answered
+	// every non-book table with `fetchMovie(uid, id)` — so a board's picture came
+	// back as whatever MOVIE happened to share the board's id, and as a 500 when
+	// no movie did. The reader saw "upload failed" for an upload that had
+	// succeeded, and the picture they had just chosen did not appear until a
+	// reload, because `boards.jsx` reads `image_path` off a reply that carried
+	// `poster_path`. Every table added here since would have inherited that.
+	//
+	// The default answers with the stored name under the column that now holds it
+	// and under a plain `path`, which is what a caller that only wants to redraw
+	// the picture needs — and it cannot go stale the way naming a fetch per table
+	// does.
+	switch table {
+	case "books":
 		b, err := s.fetchBook(uid, id)
 		if err != nil {
 			codedError(w, r, olog.CodeCoverFetch, "refetch cover", err)
 			return
 		}
 		writeJSON(w, http.StatusOK, b)
-		return
+	case "movies":
+		m, err := s.fetchMovie(uid, id)
+		if err != nil {
+			codedError(w, r, olog.CodeCoverFetch, "refetch cover", err)
+			return
+		}
+		writeJSON(w, http.StatusOK, m)
+	default:
+		writeJSON(w, http.StatusOK, map[string]any{"id": id, column: name, "path": name})
 	}
-	m, err := s.fetchMovie(uid, id)
-	if err != nil {
-		codedError(w, r, olog.CodeCoverFetch, "refetch cover", err)
-		return
-	}
-	writeJSON(w, http.StatusOK, m)
 }
 
 // removeCoverFile best-effort deletes a stored cover/poster (row delete, or

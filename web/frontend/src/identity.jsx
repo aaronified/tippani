@@ -23,7 +23,7 @@
 // character; the character panel pushes the performer. Neither knows how deep it
 // is, and Back is the browser's.
 import { useCallback, useEffect, useState } from 'react'
-import { coverImgURL, errText, json } from './api.js'
+import { coverImgURL, errText, json, uploadWithProgress } from './api.js'
 import { t } from './i18n.js'
 import { useCharacterPicture, usePicturePicker } from './cast.jsx'
 // movieState shapes the full-state PUT body — see setRole. Movies.jsx does not
@@ -45,6 +45,7 @@ import {
   FieldIconButton,
   GhostButton,
   IconDelete,
+  IconGlobe,
   IconPlus,
   InfoDot,
   MonoLabel,
@@ -634,6 +635,33 @@ function PersonBody({ stack, id, work, onOpenWork = null }) {
     })
   }, [data, work])
 
+  // THE SAME THREE VERBS ON THE PERSON'S CARD. `Portrait` below already builds a
+  // picker for the panel's own form; this is the RECORD card's, which had one
+  // control — "remove the picture" — and no way to put one there. The fourth verb
+  // is absent by the pack's own rule: `s.scope === 'person' ? [] : [...]`, because
+  // a person IS the identity and there is no wider scope to set a picture for.
+  //
+  // ABOVE THE EARLY RETURNS, and that is the rules of hooks rather than tidiness.
+  // Placed below them this hook ran on a loaded render and not on a loading or a
+  // failed one, which is a different hook count between two renders of one
+  // component — React throws over the whole panel and the reader gets a blank
+  // screen. `data` is null until the record lands, so every read of it is
+  // optional; the handlers are reached through arrows because they are `const`
+  // declarations further down and naming one directly here would read it before
+  // it exists.
+  const personPicture = usePicturePicker({
+    face: data?.image_path ? personImgURL(data.image_path) : '',
+    faceName: data?.name || '',
+    label: t('identity.person.portrait.aria', { name: data?.name || '' }),
+    urlLabel: t('identity.person.portrait.url.aria', { name: data?.name || '' }),
+    busy,
+    named: true,
+    onPicked: (url) => setPortrait(url),
+    onUpload: (file) => uploadPortrait(file),
+    fallbackQuery: data?.name || '',
+    search: () => ({ kind: 'portrait', name: data?.name || '', person_id: id }),
+  })
+
   if (err) return <ErrorText>{err}</ErrorText>
   if (!data || !form) return <EmptyState>{t('common.state.loading')}</EmptyState>
 
@@ -662,6 +690,17 @@ function PersonBody({ stack, id, work, onOpenWork = null }) {
   // face out of a strip has finished an act; making them find Save afterwards is
   // the difference between choosing a portrait and filling in a form, and it is
   // also how the character page and the cast row already behave.
+  const uploadPortrait = async (file) => {
+    setBusy(true)
+    const body = new FormData()
+    body.append('file', file)
+    const r = await uploadWithProgress(`/people/id/${id}/portrait`, body)
+    setBusy(false)
+    if (!r.ok) return setErr(errText(r, t('error.upload.generic')))
+    setErr('')
+    load()
+  }
+
   const setPortrait = async (url) => {
     setBusy(true)
     const r = await json('PUT', `/people/id/${id}`, url ? { image_url: url } : { clear_image: true })
@@ -749,11 +788,15 @@ function PersonBody({ stack, id, work, onOpenWork = null }) {
           ]}
           portrait={data.image_path ? personImgURL(data.image_path) : ''}
           portraitActions={
-            data.image_path ? (
-              <GhostButton onClick={() => setPortrait('')} disabled={busy}>
-                {t('identity.person.portrait.clear.label')}
-              </GhostButton>
-            ) : null
+            <>
+              {personPicture.verbs}
+              {data.image_path ? (
+                <GhostButton className="cs-verb" onClick={() => setPortrait('')} disabled={busy}>
+                  {t('identity.person.portrait.clear.label')}
+                </GhostButton>
+              ) : null}
+              {personPicture.pictureEditor}
+            </>
           }
           onNames={() => setNames((v) => !v)}
           onSort={() => focusField('person-sort')}
@@ -874,6 +917,15 @@ function CharacterBody({ stack, id, work, onSearch = null }) {
   const [picker, setPicker] = useState(null)
   // The removal a work refused, with the number of quotes standing in its way.
   const [drop, setDrop] = useState(null)
+  // THE ONE PRESS ON A LOCAL SHEET WHOSE EFFECT LEAVES THE WORK, so it asks
+  // first — the pack draws the verb dashed and in the danger colour and hangs its
+  // own confirmation off it (`character-popup.dc.html:1265-1274`). Every other
+  // verb on that strip changes one work's picture and is undone by choosing
+  // another; this one changes what the character looks like on every work that has
+  // not set its own, and the reader cannot see those works from here to know what
+  // they just changed. Holding the appearance rather than a boolean because the
+  // body names the work it came from.
+  const [promoteAsk, setPromoteAsk] = useState(null)
   // THE NAME ROW IS A DISPLAY AND ITS EDITOR IS BEHIND IT, which is the pack's
   // model for every row it draws. It is also the only way the two can coexist:
   // the row lists every spelling as its second line, so an always-open chip list
@@ -993,6 +1045,34 @@ function CharacterBody({ stack, id, work, onSearch = null }) {
     setErr('')
     load()
   }
+  // THE UPLOAD HALF OF THE PACK'S THIRD VERB, shared by both scopes of this
+  // panel: the work's own picture and the identity's are two routes and one
+  // shape. `uploadWithProgress` rather than `json` because a picture is a
+  // multipart body and `json` sends JSON — the same call every other upload in
+  // this app makes.
+  const uploadPicture = async (path, file) => {
+    setBusy(true)
+    const form = new FormData()
+    form.append('file', file)
+    const r = await uploadWithProgress(path, form)
+    setBusy(false)
+    if (!r.ok) return setErr(errText(r, t('error.upload.generic')))
+    setErr('')
+    load()
+  }
+  // A PASTED ADDRESS FOR THE RECORD ITSELF, which `PUT /characters/{id}/image`
+  // grew for this: `promote` sends a cast_id and points the record at a picture
+  // one of its works already holds, and that is the ordinary path — but a reader
+  // with a picture of the character that none of their works has could not use it
+  // at all before.
+  const setRecordImage = async (url) => {
+    setBusy(true)
+    const r = await json('PUT', `/characters/${id}/image`, { image_url: url })
+    setBusy(false)
+    if (!r.ok) return setErr(errText(r))
+    setErr('')
+    load()
+  }
   const promote = async (castID, title) => {
     setBusy(true)
     const r = await json('PUT', `/characters/${id}/image`, castID ? { cast_id: castID } : { path: '' })
@@ -1031,7 +1111,15 @@ function CharacterBody({ stack, id, work, onSearch = null }) {
     load()
   }
 
-  if (err && !data) return <ErrorText>{err}</ErrorText>
+  // NO EARLY RETURN ABOVE THE REMAINING HOOKS. There was one here — `if (err &&
+  // !data) return <ErrorText/>` — and three hooks below it: the two pickers and
+  // the /whos-in-it effect. A load that FAILS goes render-1 (no data, no error,
+  // every hook runs) → render-2 (an error, still no data, return before the
+  // hooks), which is fewer hooks than the render before it, and React throws
+  // "Rendered more hooks than during the previous render" over the whole panel.
+  // So the reader who most needs to be told what went wrong got a blank screen
+  // instead. The error now renders BELOW, beside the loading state, where every
+  // hook has already run.
   const works = data?.appearances || []
   // THE APPEARANCE THE READER CAME IN THROUGH, when they came in through one.
   //
@@ -1077,14 +1165,50 @@ function CharacterBody({ stack, id, work, onSearch = null }) {
   // called from a child — which is why the per-work picture has always lived
   // inside AppearanceCard. The pack's local sheet puts it at the top of the
   // screen, so the row is derived first and the guard follows.
+  //
+  // AND THE LADDER IS FED, which is the half this call left out. `useCharacterPicture`
+  // has resolved three rungs since it was written — this work's picture of the
+  // role, then the RECORD's, then the performer's headshot — and this call handed
+  // it the first rung only, so a character whose identity carries a portrait drew
+  // a silhouette on every local sheet while the same character's global card drew
+  // the picture. The owner reported it as two screens disagreeing about one fact.
   const localPicture = useCharacterPicture({
     row: here
-      ? { id: here.cast_id, character: here.character, actor: here.actor, character_image_path: here.image }
-      : { id: 0, character: '', actor: '', character_image_path: '' },
+      ? {
+        id: here.cast_id,
+        character: here.character,
+        actor: here.actor,
+        character_image_path: here.image,
+        character_record_image: data.image_path || '',
+      }
+      : { id: 0, character: '', actor: '', character_image_path: '', character_record_image: '' },
+    actor: here ? { name: here.actor || '', image_path: here.actor_image || '' } : null,
     workTitle: here?.work_title || '',
     mediaType: here?.media_type || '',
     busy,
     onImage: (url) => here && setWorkImage(here.cast_id, url),
+    named: true,
+    onUpload: here ? (file) => uploadPicture(`/cast/${here.cast_id}/image/upload`, file) : null,
+  })
+
+  // AND THE RECORD'S OWN PICTURE GETS THE SAME THREE VERBS. The pack draws the
+  // media block on all five artboards and drops only the FOURTH verb on a global
+  // one — `s.scope === 'global' || s.scope === 'person' ? [] : [['Set for the
+  // identity', …]]` — because on the identity there is no wider scope to set it
+  // for. Fetch, Upload and Paste URL are the same three everywhere, and the
+  // global card had none of them: its only control was "clear their picture",
+  // which is an undo for a thing there was no way to do from that screen.
+  const globalPicture = usePicturePicker({
+    face: data?.image_path ? coverImgURL(data.image_path) : '',
+    faceName: data?.name || '',
+    label: t('cast.picture.aria', { name: data?.name || '' }),
+    urlLabel: t('cast.picture.url.aria', { name: data?.name || '' }),
+    busy,
+    named: true,
+    onPicked: (url) => setRecordImage(url),
+    onUpload: (file) => uploadPicture(`/characters/${id}/image/upload`, file),
+    fallbackQuery: data?.name || '',
+    search: () => ({ kind: 'character', name: data?.name || '' }),
   })
 
   // /whos-in-it, once per work, for the two counts the sheet prints. Guarded on
@@ -1102,6 +1226,7 @@ function CharacterBody({ stack, id, work, onSearch = null }) {
     return () => { alive = false }
   }, [here?.cast_id, here?.work_id, here?.kind])
 
+  if (err && !data) return <ErrorText>{err}</ErrorText>
   if (!data || !form) return <EmptyState>{t('common.state.loading')}</EmptyState>
 
   // ---- char-global, the pack's own screen ----------------------------------
@@ -1138,15 +1263,25 @@ function CharacterBody({ stack, id, work, onSearch = null }) {
   // every control on this panel is how it was found, and it was indistinguishable
   // from a feature nobody had built. The person sheet above destructures both,
   // which is why the same picker works there and not here.
+  //
+  // THE FACE BUTTON IS GONE FROM THIS STRIP, and its absence is the fix rather
+  // than a loss. `PortraitBlock` draws the face itself, a 96px disc at the head of
+  // the block; `faceButton` is the CAST ROW's small pressable face. Putting it in
+  // the actions slot drew a second, smaller face of the same person beside the
+  // first, which is the "two pictures of one thing" the glyph rule names. The
+  // trigger it provided is now the pack's own `Paste URL`.
   const localPortraitActions = here ? (
     <>
-      {localPicture.faceButton}
+      {localPicture.verbs}
       <GhostButton
-        onClick={() => promote(here.cast_id, here.work_title)}
+        className="cs-verb cs-verb-wide"
+        icon={<IconGlobe />}
+        keepLabel
+        onClick={() => setPromoteAsk(here)}
         disabled={busy || !here.image}
-        title={t('identity.character.promote.label')}
+        title={t('identity.picture.promote.tip')}
       >
-        {t('identity.character.promote.label')}
+        {t('identity.picture.promote.label')}
       </GhostButton>
       {localPicture.pictureEditor}
     </>
@@ -1376,6 +1511,8 @@ function CharacterBody({ stack, id, work, onSearch = null }) {
           scope={scope}
           counts={counts}
           works={works}
+          portrait={localPicture.face}
+          portraitFrom={localPicture.from}
           portraitActions={localPortraitActions}
           onCalled={() => openNames(here)}
           onPart={() => openFact(here, 'part', t('identity.facts.part'))}
@@ -1413,6 +1550,23 @@ function CharacterBody({ stack, id, work, onSearch = null }) {
           onClear={() => removeWork(drop.appearance, '?quotes=clear')}
           onReplace={(to) => removeWork(drop.appearance, `?quotes=move&to=${encodeURIComponent(to)}`)}
         />
+        {/* THE PACK'S OWN CONFIRMATION, word for word from its `ask` block: what
+            it becomes, everywhere it reaches, and the one reassurance a reader
+            needs before pressing — "This work keeps its own picture either way."
+            A dashed red button with no question behind it would be a warning
+            colour on a press that never warns. */}
+        <ConfirmDialog
+          open={!!promoteAsk}
+          title={t('identity.picture.promote.ask.title')}
+          body={<p className="microcopy">{t('identity.picture.promote.ask.body')}</p>}
+          confirmLabel={t('identity.picture.promote.ask.verb')}
+          onCancel={() => setPromoteAsk(null)}
+          onConfirm={() => {
+            const a = promoteAsk
+            setPromoteAsk(null)
+            if (a) promote(a.cast_id, a.work_title)
+          }}
+        />
       </div>
     )
   }
@@ -1425,11 +1579,20 @@ function CharacterBody({ stack, id, work, onSearch = null }) {
           record={data}
           works={works}
           portraitActions={
-            data.image_path ? (
-              <GhostButton onClick={() => promote(0, '')} disabled={busy}>
-                {t('identity.character.promote.clear.label')}
-              </GhostButton>
-            ) : null
+            <>
+              {globalPicture.verbs}
+              {/* THE CLEAR IS THE APP'S AND NOT THE PACK'S, and it stays. The pack
+                  has no clear on any artboard because the prototype never had a
+                  picture to remove; the app does, and a picture a reader can set
+                  three ways and un-set none is a one-way door. Drawn last, after
+                  the three that put a picture there. */}
+              {data.image_path ? (
+                <GhostButton className="cs-verb" onClick={() => promote(0, '')} disabled={busy}>
+                  {t('identity.character.promote.clear.label')}
+                </GhostButton>
+              ) : null}
+              {globalPicture.pictureEditor}
+            </>
           }
           onNames={() => setNames((v) => !v)}
           onSort={() => focusField('char-sort')}

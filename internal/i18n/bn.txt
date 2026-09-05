@@ -6301,6 +6301,21 @@ identity.crumb.badge.game = গেম
 identity.portrait.px = {w} × {h} পিক্সেল
 identity.portrait.soft = {n} × {n}-এর কম, শেয়ার কার্ডে ঘোলা দেখাবে
 identity.portrait.global = রেকর্ডের নিজের ছবি
+
+identity.picture.fetch.label = খুঁজে আনুন
+identity.picture.fetch.tip = সোর্সগুলোতে আরও ভালো ছবি আছে কিনা দেখুন
+identity.picture.upload.label = আপলোড
+identity.picture.upload.tip = এই মেশিনের একটা ফাইল
+identity.picture.upload.aria = {name}-এর জন্য ছবির ফাইল বাছুন
+identity.picture.paste.label = URL বসান
+identity.picture.paste.tip = ওয়েব থেকে, ঠিকানা দিয়ে
+identity.picture.promote.label = পরিচয়ের ছবি করে দিন
+identity.picture.promote.tip = সব জায়গায় এইটাই চলুক
+identity.picture.promote.ask.title = এই ছবিটাই পরিচয়ের ছবি করে দেব?
+identity.picture.promote.ask.body = এটাই হয়ে যাবে চরিত্রটার সব জায়গার ছবি — যে কাজগুলো নিজের ছবি বসায়নি তাদের সবকটায়, আর যত তালিকা, চিপ আর শেয়ার ছবি পরিচয়ের ছবির উপর নির্ভর করে তাদের সবকটায়। এই কাজটার নিজের ছবি যা ছিল তাই থাকবে।
+identity.picture.promote.ask.verb = হ্যাঁ, সব জায়গায় বসান
+identity.portrait.from.identity = চরিত্রের নিজের ছবি — এই কাজের কোনো ছবি নেই
+identity.portrait.from.actor = {name}-এর ছবি — চরিত্রটার জন্য কেউ ছবি বসায়নি
 # ---- প্যাকের স্থানীয় চরিত্র-পর্দা (char-book, char-film, char-game) ----
 # একটা কাজের ভিতর থেকে দেখা একটা চরিত্র। এখানে যা আছে তা এই কাজেরই সত্য, অন্য
 # কোনো কাজের নয়; পরিচয়ের নিজের সত্য থাকে বিশ্বজনীন পর্দায়, এক ধাপ দূরে।

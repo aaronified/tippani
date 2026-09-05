@@ -6290,6 +6290,37 @@ identity.portrait.soft = under {n} × {n}, soft on a share card
 # The fallback where nothing has been measured yet — no picture, or one still
 # loading. Never printed beside a size.
 identity.portrait.global = the record's own picture
+
+# ---- THE FOUR WAYS A PICTURE ARRIVES -----------------------------------------
+# The design pack names three and calls them "the repo's order" — ask the
+# suppliers, take a file from this machine, paste an address — and adds a fourth
+# on a work's own sheet that is the only one that leaves the work. They are NAMED
+# buttons rather than icons because a picture verb that goes wrong is expensive to
+# undo and an unlabelled glyph is a guess.
+identity.picture.fetch.label = Fetch
+identity.picture.fetch.tip = Look for a better one at the sources
+identity.picture.upload.label = Upload
+identity.picture.upload.tip = A file from this machine
+identity.picture.upload.aria = Choose a picture file for {name}
+identity.picture.paste.label = Paste URL
+identity.picture.paste.tip = From the web, by address
+# The fourth, and the reason it is drawn dashed and in the danger colour: it is
+# the one press on these screens whose effect is not confined to the work being
+# looked at.
+identity.picture.promote.label = Set for the identity
+identity.picture.promote.tip = Use this everywhere
+identity.picture.promote.ask.title = Use this picture for the identity?
+identity.picture.promote.ask.body = It becomes the character's portrait everywhere — every work that has not set one of its own, and every list, chip and share image that falls back to the identity. This work keeps its own picture either way.
+identity.picture.promote.ask.verb = Yes, set it everywhere
+# ---- WHOSE PICTURE IS ACTUALLY ON THE SCREEN ---------------------------------
+# A local sheet draws THIS work's picture of the character when it has one and
+# falls back the way every chip in the app does — the identity's own, then the
+# performer's headshot. A fallback that does not say so is a screen claiming the
+# work holds a picture it does not, which is the one thing store.CastOf's own
+# comment forbids: "a panel that shows the global picture where the work has none
+# must be able to SAY so".
+identity.portrait.from.identity = the character's own picture — this work has none
+identity.portrait.from.actor = {name}'s photograph — nobody has set one for the role
 # ---- the pack's LOCAL character sheets (char-book, char-film, char-game) ----
 # One character seen from inside one work. Everything here is true of THIS work
 # and of no other; what is true of the identity lives on the global sheet, one

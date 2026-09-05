@@ -272,6 +272,21 @@ type CastOf struct {
 	Character   string `json:"character"`
 	ActorID     int64  `json:"actor_id,omitempty"`
 	Actor       string `json:"actor,omitempty"`
+	// ActorImage is the PERFORMER's own headshot — `people.image_path`, reached
+	// through the join this query already makes to resolve their name.
+	//
+	// It is here because the pack's credit row leads with the performer's face
+	// and the identity sheets had no way to draw one: `identityLocal.jsx` asked
+	// each row for `actor_image` and this shape has never carried it, so every
+	// credit on every character and person sheet drew the silhouette — while the
+	// same performer's face drew perfectly on a quote card, which reads
+	// `quote_speaker.go`'s own shape and has served the column since it was
+	// written. Two screens, one fact, and only one of them could see it.
+	//
+	// NOT A FALLBACK FOR Image. They are different pictures of different things —
+	// the role in costume against the person — and which one a screen prefers is
+	// the screen's business. Same rule as Image's own comment above.
+	ActorImage string `json:"actor_image,omitempty"`
 	// Image is THIS work's picture of the character, empty when the work has none
 	// and the global record's is what should be drawn instead. The fallback is the
 	// caller's to apply, deliberately: a panel that shows the global picture where
@@ -357,7 +372,8 @@ type CastOf struct {
 func castWhere(pred string) string {
 	return `
 		SELECT wc.id, 'book', b.id, b.title, wc.character_id, wc.character,
-		       COALESCE(wc.actor_id, 0), COALESCE(p.name, wc.actor), COALESCE(wc.character_image_path, ''),
+		       COALESCE(wc.actor_id, 0), COALESCE(p.name, wc.actor), COALESCE(p.image_path, ''),
+		       COALESCE(wc.character_image_path, ''),
 		       COALESCE(b.cover_path, ''), '', '', COALESCE(wc.description, ''),
 		       COALESCE(wc.part, ''), COALESCE(wc.first_appears, ''), COALESCE(wc.age_here, ''),
 		       COALESCE(wc.credit_note, ''), COALESCE(wc.credit_lang, ''), COALESCE(wc.aliases, '')
@@ -367,7 +383,8 @@ func castWhere(pred string) string {
 		 WHERE wc.user_id = ? AND wc.kind = 'book' AND wc.origin <> 'removed' AND ` + pred + `
 		UNION ALL
 		SELECT wc.id, 'movie', m.id, m.title, wc.character_id, wc.character,
-		       COALESCE(wc.actor_id, 0), COALESCE(p.name, wc.actor), COALESCE(wc.character_image_path, ''),
+		       COALESCE(wc.actor_id, 0), COALESCE(p.name, wc.actor), COALESCE(p.image_path, ''),
+		       COALESCE(wc.character_image_path, ''),
 		       COALESCE(m.poster_path, ''), COALESCE(m.media_type, 'movie'),
 		       COALESCE(m.cast_role, ''), COALESCE(wc.description, ''),
 		       COALESCE(wc.part, ''), COALESCE(wc.first_appears, ''), COALESCE(wc.age_here, ''),
@@ -406,7 +423,7 @@ func castRows(db Queryer, q string, args ...any) ([]CastOf, error) {
 		var c CastOf
 		var charID, actorID sql.NullInt64
 		if err := rows.Scan(&c.CastID, &c.Kind, &c.WorkID, &c.WorkTitle, &charID, &c.Character,
-			&actorID, &c.Actor, &c.Image, &c.Cover, &c.MediaType, &c.CastRole, &c.Description,
+			&actorID, &c.Actor, &c.ActorImage, &c.Image, &c.Cover, &c.MediaType, &c.CastRole, &c.Description,
 			&c.Part, &c.FirstAppears, &c.AgeHere, &c.CreditNote, &c.CreditLang, &c.Aliases); err != nil {
 			return nil, err
 		}
