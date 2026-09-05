@@ -30,12 +30,15 @@
 // route changing, focus moving, the surface scrolling, or the surface's own text
 // changing. Deliberately broad — the point is to find controls that do NOTHING,
 // not to judge what they did.
+import { readFileSync, writeFileSync } from 'node:fs'
+
 import puppeteer from 'puppeteer-core'
 
 import { HARNESS_ACCOUNT, emulateEngineMedia, ensureSession, findBrowser, launchOptions } from './capture.mjs'
 
 const opts = {
   baseUrl: 'http://127.0.0.1:8080', timeoutMs: 30000, width: 1280, height: 1000, only: '',
+  updateBaseline: false,
   username: process.env.TIPPANI_USER || HARNESS_ACCOUNT.username,
   password: process.env.TIPPANI_PASS || HARNESS_ACCOUNT.password,
 }
@@ -51,6 +54,10 @@ for (let i = 2; i < process.argv.length; i++) {
   // "did not render" — a run that measures the login screen twenty times.
   else if (process.argv[i] === '--username') opts.username = next()
   else if (process.argv[i] === '--password') opts.password = next()
+  // Records the ratcheted counts for this width instead of judging them. Run it
+  // deliberately, after reading the lists — a baseline written to make a run
+  // green is a ceiling nobody chose.
+  else if (process.argv[i] === '--update-baseline') opts.updateBaseline = true
   else if (process.argv[i] === '--help' || process.argv[i] === '-h') {
     console.log('usage: node controls.mjs [--base-url URL] [--only substring] [--width N]\n\n' +
       'Presses every control on every screen and panel it can reach, and fails on\n' +
@@ -279,6 +286,19 @@ try {
       const gap = Math.round(names.getBoundingClientRect().left - slot.getBoundingClientRect().right)
       // One gap of the head's own, not a third of the bar.
       if (gap > 24) out.push(`the name starts ${gap}px after the cover — it is centred, not beside it`)
+    }
+    // AND THE NAME AND ITS CRUMB ARE ONE BLOCK, which is the other half of the
+    // same report — "the header vertical gaps look weird", twice. The pack sets
+    // them as a column at `gap:2px` (`character-popup.dc.html:37-39`); the app's
+    // title carried a 44px floor meant for a title sitting ALONE beside the 44px
+    // keys, so stacked over a crumb it wedged ~22px of nothing between the two
+    // lines. Measured rather than eyeballed, because that is the only way anybody
+    // was going to notice it a third time.
+    const crumb = head.querySelector('.tp-panel-crumb')
+    const title = head.querySelector('.tp-panel-title')
+    if (crumb && title) {
+      const v = Math.round(crumb.getBoundingClientRect().top - title.getBoundingClientRect().bottom)
+      if (v > 8) out.push(`the crumb sits ${v}px under the name — they are not one block`)
     }
     const art = head.querySelector('.cs-scope-art')
     const badge = head.querySelector('.cs-scope-overlay')
@@ -669,4 +689,63 @@ if (findings.unreachable.length) {
   console.log(`\n${findings.unreachable.length} CONTROL(S) THAT COULD NOT BE PRESSED:`)
   for (const d of findings.unreachable) console.log('  ' + d)
 }
-process.exit(Object.values(findings).some((l) => l.length) ? 1 : 0)
+// ---- WHAT FAILS A RUN, AND WHAT IS ONLY REPORTED ---------------------------
+//
+// THIS USED TO BE `Object.values(findings).some(l => l.length)`, and that made
+// the gate unreachable BY DESIGN. `labelled` is a report bucket — its own comment
+// says it is "reported rather than allow-listed, because the report is the
+// review" — so a run could never exit 0 while any control anywhere drew a glyph
+// beside its words, which is a design question and not a defect. A gate that
+// cannot go green is a gate nobody can act on: every run reads FAIL, so the FAILs
+// that matter stop being read.
+//
+// A BUCKET FAILS WHEN THE APP IS LYING TO THE READER: a control that does nothing
+// and does not say so, a menu that opens empty, a header that is not the pack's,
+// a screen that scrolls sideways, a route that is not a screen, a surface that
+// did not render. Each of those is wrong on its face and has one right answer.
+const FAILS = ['dead', 'empty', 'head', 'sideways', 'notaroute', 'blank']
+
+// A BUCKET RATCHETS WHEN IT IS DEBT: real, worth paying down, and not something
+// one commit can zero. The number is recorded per width and may fall and never
+// rise — the same idiom as `typescale-baseline.json` and `spacing-debt.test.js`,
+// for the same reason: a count that is allowed to grow is a count nobody reads,
+// and a count that must be zero tomorrow is a count somebody suppresses.
+const RATCHETS = ['small', 'labelled']
+
+// AND ONE BUCKET IS A REPORT ONLY. `unreachable` is as often a fact about the
+// PROBE as about the app — a control behind a scroller the harness did not reach,
+// one covered by a layer this run happened to leave open — so failing on it would
+// make the gate a measure of the harness's luck. It is printed in full, every
+// run, which is what it is for.
+const baselineFile = new URL('./controls-baseline.json', import.meta.url)
+let baseline = {}
+try {
+  baseline = JSON.parse(readFileSync(baselineFile, 'utf8'))
+} catch { /* no baseline yet: the first run writes one with --update-baseline */ }
+const key = String(opts.width)
+const bar = baseline[key] || {}
+
+const failed = FAILS.filter((k) => findings[k].length)
+const risen = RATCHETS
+  .map((k) => ({ k, n: findings[k].length, was: bar[k] }))
+  .filter((r) => r.was === undefined || r.n > r.was)
+
+if (opts.updateBaseline) {
+  baseline[key] = Object.fromEntries(RATCHETS.map((k) => [k, findings[k].length]))
+  writeFileSync(baselineFile, JSON.stringify(baseline, null, 2) + '\n')
+  console.log(`\nbaseline for ${key}px written: ${RATCHETS.map((k) => `${k} ${findings[k].length}`).join(', ')}`)
+  process.exit(0)
+}
+
+console.log('')
+for (const k of RATCHETS) {
+  const was = bar[k]
+  const n = findings[k].length
+  if (was === undefined) console.log(`RATCHET  ${k.padEnd(9)} ${n} — no baseline at ${key}px; run with --update-baseline`)
+  else console.log(`${n > was ? 'FAIL   ' : 'ok     '} ${k.padEnd(9)} ${n} against a ceiling of ${was} at ${key}px`)
+}
+for (const r of risen) {
+  console.log(`\n${r.k} ROSE${r.was === undefined ? '' : ` from ${r.was} to ${r.n}`} — the number may fall and never rise.`)
+}
+if (failed.length) console.log(`\nFAIL  ${failed.join(', ')}`)
+process.exit(failed.length || risen.length ? 1 : 0)
