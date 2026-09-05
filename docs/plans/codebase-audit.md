@@ -557,6 +557,40 @@ strips under them. That is a different area from the character and people screen
 register is about, and comparing it properly is its own piece of work rather than a line
 here. Carried in the register as **E8** rather than folded into a "compared" claim.
 
+### 4.3 `book-detail.dc.html` — the hero and the quote card
+
+The board is 4,504 lines and its wide twin 5,957: a whole screen, not a popup. Two
+parts of it are what a reader actually looks at, and those are compared here row
+by row; the rest is named at the end rather than claimed.
+
+**The hero.** The pack builds it as `heroTop` (cover + `shelfBar` | facts) →
+`creditsWrap` → `descRow` → `heroActions`, and the facts column as `kindRow` →
+`titleRow` → `genreWrap` → `stateRow`.
+
+| Element | Pack | App (`WorkHero`) | Verdict |
+| --- | --- | --- | --- |
+| Cover with the shelf bar under it | `cover` + `shelfBar` in one 96px column | `work-hero-cover-wrap` + `work-hero-shelfbar` | **Match** |
+| Kind · year · language, each a link | `kindRow` | `work-hero-kind`, from the caller's `kindRow` | **Match** |
+| Title and the ♥ on ONE row | `titleRow` + `heartBtn` | `work-hero-title` + `Hearts` | **Match** |
+| Genres as links under the title | `genreWrap` | `HeroGenres` | **Match** |
+| The count | *absent* | `work-hero-counts`, between genres and the shelf | **Departure, argued** — `work-hero.test.jsx`'s header states the order as four questions in turn, "what it is / what it is about / what it holds / where you are", and the count is the third |
+| Shelf state and last read | `stateRow` | `work-hero-state`, from `tags` | **Match** |
+| Credits scroller with an "others" door | `creditsWrap` + `openPeople` | `work-hero-credits` + `onPeople` | **Match** |
+| Description with a toggle | `descRow` + `toggleDesc` | `ExpandableDescription` | **Match** |
+| The hero's verbs | `heroActions` | `work-hero-actions` | **Match** |
+
+**The quote card's tool row.** The pack: ♥ → share (`aria-label="Share · hold to
+copy"`) → colour → ⋯. The app: ♥ → **copy · share** → colour → ⋯.
+
+That is the second departure, and `Library.jsx` argues it in place: "the two
+things you do WITH a quote — copy it, send it". A hold-to-copy is a gesture a
+reader has to be told about; two buttons is discoverable, and the app has the
+room because the ⋯ takes only edit and delete.
+
+**NOT COMPARED, and named rather than implied**: the sticky bar the board grows on
+scroll, the chapter grouping and its filter strip, the drawer, and every dialog
+the board opens. The wide twin is untouched. Carried in the register as **E8**.
+
 ---
 
 ## How to retire this file
