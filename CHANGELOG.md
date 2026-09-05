@@ -27,6 +27,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **A control that says "show me this" shows it, and not on the first press only.**
+  Opening a performer's page from a character's, or a character's from a person's,
+  worked once in a tab and then put you two panels down from where you asked to be —
+  on the film's Details, with the page you pressed for never drawn. It happened from
+  the second time you went through those screens onward, which is why it read as
+  intermittent.
 - **A chapter heading says which chapter it is.** A board grouped by chapter headed each
   section with the chapter's name and dropped its number, so the sections were ordered by
   something the reader could not see and the order read as arbitrary. The heading carries

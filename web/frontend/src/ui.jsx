@@ -3907,15 +3907,6 @@ export function usePanelStack() {
   // The handler is registered once and must not close over a stale stack.
   const depthRef = useRef(0);
   depthRef.current = stack.length;
-  // The cancel function for an open() that is waiting for its pop. See open().
-  const pendingOpen = useRef(null);
-
-  // A PENDING OPEN DOES NOT SURVIVE THE SCREEN. Leaving mid-flight would
-  // otherwise push a panel into a host that is gone.
-  useEffect(() => () => {
-    if (pendingOpen.current) pendingOpen.current();
-  }, []);
-
   useEffect(() => {
     const onPop = (e) => {
       const want = e.state?.tpPanelDepth || 0;
@@ -3944,95 +3935,59 @@ export function usePanelStack() {
     });
   }, []);
 
-  // open() is push() onto an empty stack — the prototype's openPanel, which
-  // REPLACES rather than deepens, so a control that means "show me this" cannot
-  // accidentally bury whatever a previous one left open.
+  // open() REPLACES the stack — the prototype's openPanel, so a control that
+  // means "show me this" cannot bury whatever a previous one left open.
   //
-  // IT WAITS FOR THE POP RATHER THAN GUESSING AT IT, and the previous line —
-  // `requestAnimationFrame(() => push(panel))` — is the bug this replaces. Its
-  // own comment said "the push waits for the pop to land", which a frame callback
-  // does not do: rAF fires before the next paint, `popstate` is dispatched by the
-  // browser on its own schedule, and in Chromium the frame wins. So the push
-  // landed first, the pop arrived second with `want = 0`, and the handler above
-  // truncated away the panel that had just been opened.
+  // IT DOES NOT WALK HISTORY TO GET THERE ANY MORE, and that is the fix for a
+  // defect a reader meets on their second pass through a screen. The previous
+  // version asked the browser to `go(-n)` and pushed the panel on the pop it got
+  // back, with `land` refusing to push unless the stack had emptied — the
+  // discriminator that tells our own traversal from somebody's Back press.
   //
-  // WHAT THAT COST, measured by pressing every control on the character panel:
-  // "Open the global record", the performer's name and the person picker all
-  // CLOSED the panel and opened nothing — three controls that read as unbuilt,
-  // from one line. Every open() from inside a panel had it; only an open() from a
-  // screen with nothing already open was unaffected, which is why the surfaces
-  // reached straight off a card always worked and the ones a panel offers never
-  // did.
+  // MEASURED, on the owner's library at 1280, opening the same character sheet
+  // three times in one tab and pressing the performer's name each time:
   //
-  // A one-shot popstate listener is the fix: the stack's own handler is
-  // registered first, so it has already truncated by the time this one pushes.
+  //   cycle 1  → "Max von Sydow · actor · 1 work"      the person's page
+  //   cycle 2  → "Details … POSTER … Fetch metadata"   two panels down
+  //   cycle 3  → the same
   //
-  // AND THERE IS NO TIMEOUT BEHIND IT, though there was — a 250ms
-  // `setTimeout(land, 250)` "belt" whose own comment claimed it saved a press
-  // when `go` could not move. It could not, and the discriminator below is why:
-  // `land` pushes only onto an EMPTY stack, so the one case the timer was
-  // supposed to cover — no pop arrived, stack still n deep — is the case where
-  // it abandons. When the pop did arrive the listener had already settled it.
-  // Dead on both branches, and not harmlessly: its firing was the one path by
-  // which a stack emptied by something else (a ✕ pressed in the window) could be
-  // handed back the panel the reader had just dismissed. `go(-n)` cannot fail to
-  // move here anyway — reaching this branch means `push` wrote n entries.
+  // The reason is that `go(-n)` lands wherever the entries actually are, and by
+  // the second pass the n entries below are the PREVIOUS pass's panels — which
+  // carry a `tpPanelDepth` of their own. The pop arrived with the stack
+  // truncated to 2 rather than to 0, `land` correctly decided the pop was not
+  // ours, and the open was abandoned: the reader pressed a name and was dropped
+  // onto the panel that walk had exposed. From the outside that is H12 again —
+  // "the pill still does not open" — and it is worse than a dead control,
+  // because it moves the reader somewhere they did not ask to go.
+  //
+  // SO THE STACK IS SET DIRECTLY, which is `leaveTo`'s exception taken a second
+  // time and for the same reason: history is the stack's mutator everywhere it
+  // CAN be, and this is a case where it demonstrably cannot. `replaceState`
+  // keeps the current entry's depth honest at 1.
+  //
+  // THE COST, STATED RATHER THAN HIDDEN: the entries the replaced panels pushed
+  // are still in history, so leaving a panel opened this way can take one more
+  // Back press than the depth on screen suggests. `leaveTo` accepts exactly that
+  // trade and argues it there. A spare Back against a control that dumps the
+  // reader two panels down is not a close call.
+  //
+  // THE HISTORY CALL IS OUTSIDE THE SETTER, which the first cut got wrong: a
+  // state updater has to be pure, React may invoke it twice, and it did — the
+  // panel never appeared at all in five tests. `leaveTo` below writes history
+  // beside `setStack` for the same reason.
+  //
+  // AND AN EMPTY STACK STILL GOES THROUGH push(), unchanged. That case was never
+  // the defect — it is the one open() has always got right — and it is the case
+  // that owes history an entry, because the panel is arriving over a screen that
+  // has none. Only the REPLACING case is rewritten, which is what keeps this a
+  // fix rather than a rewrite of the whole mechanism.
   const open = useCallback((panel) => {
-    const n = depthRef.current;
-    if (n === 0) {
+    if (depthRef.current === 0) {
       push(panel);
       return;
     }
-    // ONE PENDING OPEN AT A TIME, CANCELLED ON UNMOUNT, AND ONLY THE POP WE
-    // ASKED FOR COUNTS. Three failures come from getting any of those wrong, and
-    // the first version of this fix had all three:
-    //
-    //   UNMOUNTED IN THE WINDOW. `land` still fired, pushed, and wrote a
-    //   tpPanelDepth into history with no host mounted — the URL unchanged, so
-    //   the reader gained a phantom entry whose Back press changes nothing they
-    //   can see. `cancel` on unmount is what stops it.
-    //
-    //   A BACK PRESS IN THE WINDOW. `land` ran on the FIRST popstate to arrive,
-    //   whoever caused it, so pressing Back opened a panel instead of closing
-    //   one. The depth test below is the discriminator: our own `go(-n)` lands
-    //   with the stack empty, and any other pop does not.
-    //
-    //   A DOUBLE TAP. Two opens each registered a lander and one pop satisfied
-    //   both, giving depth 2 where open() promises 1 — the property this
-    //   function exists for. The second call cancels the first.
-    if (pendingOpen.current) pendingOpen.current();
-    let settled = false;
-    const stop = () => {
-      settled = true;
-      window.removeEventListener("popstate", land);
-      if (pendingOpen.current === cancel) pendingOpen.current = null;
-    };
-    const cancel = () => {
-      if (!settled) stop();
-    };
-    function land() {
-      if (settled) return;
-      stop();
-      // THE STATE DECIDES WHETHER THIS POP WAS OURS, not the ref. `depthRef` is
-      // assigned during RENDER, and the stack's own popstate handler runs before
-      // this one and only calls setStack — so at this moment the ref still holds
-      // the depth from before the pop, and testing it here rejected every pop
-      // including ours. The functional setter sees the truncation that actually
-      // happened: our `go(-n)` empties the stack, and a pop somebody else caused
-      // (a Back press between the `go` and its pop, another stack's close)
-      // leaves something on it. Where it does, their intent wins and this open
-      // is abandoned rather than pushed on top of wherever they went.
-      setStack((cur) => {
-        if (cur.length !== 0) return cur;
-        window.history.pushState(
-          { ...window.history.state, tpPanelDepth: 1 }, "",
-        );
-        return [panel];
-      });
-    }
-    window.addEventListener("popstate", land);
-    pendingOpen.current = cancel;
-    window.history.go(-n);
+    window.history.replaceState({ ...window.history.state, tpPanelDepth: 1 }, "");
+    setStack([panel]);
   }, [push]);
 
   const back = useCallback(() => {
