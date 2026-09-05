@@ -31,6 +31,7 @@ import {
   TokenInput,
   Tooltip,
   useIsMobileScreen,
+  IconHeartOn,
 } from './ui.jsx'
 
 // Pending import — the staging queue (ROADMAP 1.2.0). A bulk import no longer
@@ -561,7 +562,7 @@ function StagedRow({ quote, selected, onToggle, onEdit }) {
                 {t('staging.row.shifted.label')}
               </MonoLabel>
             )}
-            {quote.favorite && <span style={{ color: 'var(--accent)' }}>♥</span>}
+            {quote.favorite && <span style={{ color: 'var(--accent)', display: 'inline-flex' }}><IconHeartOn size={13} /></span>}
             {(quote.tags || []).map((tag) => (
               <TagChip key={tag}>{tag}</TagChip>
             ))}

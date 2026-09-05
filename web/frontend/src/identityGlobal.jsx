@@ -48,7 +48,7 @@ import {
   SectionHead,
 } from './characterRows.jsx'
 import { t } from './i18n.js'
-import { IconGlobe } from './ui.jsx'
+import { IconGlobe, IconDelete, IconMerge } from './ui.jsx'
 import { PROVIDERS, parseLinks } from './people.jsx'
 
 // THE GLOBE IS THE ART A GLOBAL SCOPE HAS, and its absence is the information:
@@ -256,7 +256,7 @@ export function CharacterGlobal({
       <ScreenRow
         label={t('identity.row.merge.label.character')}
         sub={t('identity.row.merge.sub.character')}
-        icon="⇢"
+        icon={<IconMerge size={16} />}
         onClick={onMerge}
       />
       {/* DRAWN ONLY WHERE IT ACTS. The pack's "Remove from all works" opens a
@@ -267,7 +267,7 @@ export function CharacterGlobal({
         <ScreenRow
           label={t('identity.row.remove-all.label')}
           sub={t('identity.row.remove-all.sub')}
-          icon="🗑"
+          icon={<IconDelete size={16} />}
           danger
           onClick={onRemoveAll}
         />
@@ -393,7 +393,7 @@ export function PersonGlobal({
       <ScreenRow
         label={org ? t('identity.row.merge.label.company') : t('identity.row.merge.label.person')}
         sub={org ? t('identity.row.merge.sub.company') : t('identity.row.merge.sub.person')}
-        icon="⇢"
+        icon={<IconMerge size={16} />}
         onClick={onMerge}
       />
       {/* Same rule as the character screen's removal row. */}
@@ -401,7 +401,7 @@ export function PersonGlobal({
         <ScreenRow
           label={org ? t('identity.row.delete.label.company') : t('identity.row.delete.label.person')}
           sub={org ? t('identity.row.delete.sub.company') : t('identity.row.delete.sub.person')}
-          icon="🗑"
+          icon={<IconDelete size={16} />}
           danger
           onClick={onDelete}
         />

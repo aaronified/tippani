@@ -111,8 +111,14 @@ describe('the menu draws a group, a choice and a verb differently', () => {
     expect(rows).toHaveLength(2)
     expect(rows[0].getAttribute('aria-checked')).toBe('true')
     expect(rows[1].getAttribute('aria-checked')).toBe('false')
-    expect(within(rows[0]).getByText('✓')).toBeTruthy()
-    expect(within(rows[1]).queryByText('✓')).toBeNull()
+    // AND IT IS DRAWN, so a sighted reader sees it too — the announcement above
+    // is for a screen reader and this is the other half. Asserted as "a mark is
+    // present on the chosen row and absent on the other", NOT as the character
+    // `✓`: that was the app's typed tick, it is an SVG now, and a test keyed to
+    // the glyph goes red on a change no reader can see. `.menu-tick` is what the
+    // row puts the mark in either way.
+    expect(rows[0].querySelector('.menu-tick'), 'the chosen row wears no mark').toBeTruthy()
+    expect(rows[1].querySelector('.menu-tick'), 'a row that is not chosen wears one').toBeNull()
   })
 
   it('a verb is a plain menuitem, with no checked state to announce', () => {

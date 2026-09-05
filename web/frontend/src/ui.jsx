@@ -1673,7 +1673,7 @@ export function MultiSelect({ values = [], onChange, options, ariaLabel, allLabe
       >
         <span className={picked.length ? "" : "tp-select-ph"}>{label}</span>
         <span className="tp-select-chev" aria-hidden="true">
-          ▾
+          <IconChevron size={16} />
         </span>
       </button>
       {open && createPortal(
@@ -1689,8 +1689,8 @@ export function MultiSelect({ values = [], onChange, options, ariaLabel, allLabe
                 className={`menu-item${on ? " active" : ""}`}
                 onClick={() => toggle(v)}
               >
-                <span aria-hidden="true" style={{ width: 14, flex: "none", textAlign: "center" }}>
-                  {on ? "✓" : ""}
+                <span aria-hidden="true" style={{ width: 14, flex: "none", display: "inline-flex", justifyContent: "center" }}>
+                  {on ? <IconCheck size={13} /> : null}
                 </span>
                 {swatch && (
                   <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: 2, background: swatch, flex: "none" }} />
@@ -1875,7 +1875,7 @@ export function FavBadge() {
         transform: "rotate(var(--grot)) scale(var(--gscale))",
       }}
     >
-      ♥
+      <IconHeartOn size={16} />
     </span>
   );
 }
@@ -2113,7 +2113,7 @@ export function Hearts({ value, onChange }) {
             : undefined
         }
       >
-        {value ? "♥" : "♡"}
+        {value ? <IconHeartOn size={18} /> : <IconHeart size={18} />}
       </button>
     </Tooltip>
   );
@@ -4187,16 +4187,27 @@ export function PanelHost({ stack }) {
                  everywhere else" — but only where there is a pair to be half of.
                  A panel holding no form has no ✓ beside it and its ✕ is a plain
                  way out, so painting that one red would warn about closing a list
-                 of rows; a panel with a registered form and unsaved substance in
-                 it is a press away from losing work, and says so. `FormModal`
-                 takes the same thing as `closeDanger`, from callers that know
-                 they hold a form. */
+                 of rows.
+
+                 NOT GATED ON `dirty`, AND IT WAS. Two surfaces drew this pair by
+                 two rules: here the ✕ went red only once something had been
+                 typed, while `FormModal` and `MobileSheet` red it for any caller
+                 passing `closeDanger` — and all three of those callers pass it
+                 unconditionally. So one form's ✕ answered a different question
+                 from another's, on adjacent screens.
+
+                 THE `dirty` GATE BELONGS TO THE TICK AND ONLY TO IT. The tick's
+                 arming says SOMETHING HAS CHANGED; the cross's colour says WHAT
+                 THIS PRESS DOES. Making both depend on the same fact gives the
+                 reader one signal twice and no signal at all for the second
+                 question — and it means a reader who has typed nothing cannot
+                 tell a form they may leave freely from a form at all. */
               <IconButton
                 icon={<IconClose />}
                 ariaLabel={t("common.action.close.label")}
                 tooltip={t("common.form.close.tip")}
                 onClick={guard(close)}
-                style={blocked !== null && dirty > 0 ? { color: 'var(--error)' } : undefined}
+                style={blocked !== null ? { color: 'var(--error)' } : undefined}
               />
             )}
           </div>
@@ -5891,7 +5902,12 @@ export function EdgeRow({ left, code }) {
   return (
     <div className="edge-row" aria-hidden="true">
       <span>{left || t("common.filmstrip.edge.label")}</span>
-      {code != null && <span>{code} ▸</span>}
+      {code != null && (
+        <span className="inline-flex items-center gap-1">
+          {code}
+          <IconArrow size={12} />
+        </span>
+      )}
     </div>
   );
 }
@@ -6403,7 +6419,12 @@ export function useSort(defaultCol, defaultDir = "asc") {
 
 // SortableTh — a clickable table header that shows the active sort arrow.
 export function SortableTh({ col, label, sort, onSort, className = "" }) {
-  const arrow = sort.col === col ? (sort.dir === "asc" ? " ▲" : " ▼") : "";
+  // THE ARROW IS DRAWN, NOT TYPED. `▲`/`▼` are the reader's font's triangles —
+  // solid on one platform, hollow on another, and sitting off the baseline the
+  // header's own letters share. IconSortAsc/IconSortDesc are the app's, and they
+  // are the same pair every other sort control in this app already uses.
+  const arrow = sort.col !== col ? null
+    : sort.dir === "asc" ? <IconSortAsc size={13} /> : <IconSortDesc size={13} />;
   return (
     <th
       className={"sortable " + className}
@@ -6417,7 +6438,7 @@ export function SortableTh({ col, label, sort, onSort, className = "" }) {
       }
     >
       <Tooltip label={t("common.table.sort.tip")} side="bottom">
-        <span>
+        <span className="inline-flex items-center gap-1">
           {label}
           {arrow}
         </span>
@@ -7284,6 +7305,29 @@ export function IconOpen({ size = ICON_SIZE }) { return <svg {...iconStroke} wid
 // IconMerge — two lines becoming one, for the duplicate finder's "merge into
 // keeper". The quotes of the losing rows move onto the survivor, which is
 // exactly what the picture says.
+// IconArrow — "this becomes that". The import previews, the cleanup rows and the
+// metadata console all draw a step from one value to another, and all three drew
+// it as the character `→`: the reader's font's arrow, at the reader's font's
+// weight, sitting off the baseline every other glyph on the row shares. Same
+// argument as the credit row's `✎`, and the same fix.
+//
+// `dir` because two of those rows point the other way and one points up: a second
+// icon per direction would be four drawings of one idea.
+export function IconArrow({ size = ICON_SIZE, dir = 'right' }) {
+  const turn = { right: 0, left: 180, up: -90, down: 90 }[dir] || 0
+  return (
+    <svg {...iconStroke} width={size} height={size} style={turn ? { transform: `rotate(${turn}deg)` } : undefined}>
+      <path d="M4 12h15" /><path d="m13 6 6 6-6 6" />
+    </svg>
+  )
+}
+// IconWarning — a caveat, not an error. The import screens print one beside a row
+// the parser could read but not vouch for, and printed it as `⚠`, which renders
+// as a full-colour emoji on most platforms and as a hollow outline on the rest —
+// two pictures of one thing, and neither of them the app's.
+export function IconWarning({ size = ICON_SIZE }) {
+  return <svg {...iconStroke} width={size} height={size}><path d="M12 4.2 21 19.5H3z" /><path d="M12 10v4" /><path d="M12 16.6v.1" /></svg>
+}
 export function IconMerge({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><path d="M5 3.5v3c0 3 2.5 5.5 5.5 5.5H19"/><path d="M5 20.5v-3c0-3 2.5-5.5 5.5-5.5"/><path d="m15.5 8.5 3.5 3.5-3.5 3.5"/></svg> }
 // IconUsers — two people. The cast, and the admin user list, and "fill actors
 // from cast" — all three are the same idea and now the same drawing.
@@ -7905,7 +7949,7 @@ export function ActionMenu({ open, items = [], anchorRef, at = null, onClose, re
           {/* The tick sits at the END of the row rather than in the icon slot: the
               icon says what the row IS and the tick says whether it is on, and
               putting the second where the first goes loses the first. */}
-          {it.checked ? <span className="menu-tick" aria-hidden="true">✓</span> : null}
+          {it.checked ? <span className="menu-tick" aria-hidden="true"><IconCheck size={14} /></span> : null}
         </button>
         ),
       )}

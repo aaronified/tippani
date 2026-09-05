@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { json, errText, coverImgURL, upload } from './api.js'
-import { Card, ErrorText, Field, FieldIconButton, GhostButton, IconDelete, IconKey, IconLogout, IconSwitchUser, IconUserPlus, InfoDot, MonoLabel, NameInput, StickerButton, Tooltip, useConfirm } from './ui.jsx'
+import { Card, ErrorText, Field, FieldIconButton, GhostButton, IconDelete, IconKey, IconLogout, IconSwitchUser, IconUserPlus, InfoDot, MonoLabel, NameInput, StickerButton, Tooltip, useConfirm, IconClose } from './ui.jsx'
 import { PASSWORD_MAX, PASSWORD_MIN, passwordProblem } from './secret.js'
 import { t, tNodes } from './i18n.js'
 
@@ -562,9 +562,13 @@ export function UserManagement({ me }) {
                       type="button"
                       onClick={() => removeUser(u)}
                       aria-label={t('account.users.delete.aria', { name: u.username })}
-                      style={{ background: 'none', border: 'none', color: 'var(--error)', fontSize: 'var(--type-ui-17)', padding: 4, lineHeight: 1, cursor: 'pointer' }}
+                      style={{ background: 'none', border: 'none', color: 'var(--error)', display: 'inline-flex', padding: 4, lineHeight: 1, cursor: 'pointer' }}
                     >
-                      ✕
+                      {/* The app's cross, not the character. A typed ✕ is the
+                          reader's font's — it changes weight with their font and
+                          sits off the baseline every other glyph in this row
+                          shares. Same rule, same fix, as the credit row's. */}
+                      <IconClose size={17} />
                     </button>
                   </Tooltip>
                 )}

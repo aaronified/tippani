@@ -29,6 +29,7 @@ import {
   useBackToClose,
   SCRIM,
   backdropClose,
+  IconChevron,
 } from './ui.jsx'
 
 const CHUNK = 10 // items per preview call (server caps at 15)
@@ -246,7 +247,7 @@ function ReverifyItemCard({ item, open, onToggleOpen, approvals, onToggleField, 
           <MonoLabel style={{ fontSize: 'var(--type-display-9)', flex: 'none' }}>{kindChip}{item.source ? ` · ${item.source}` : ''}</MonoLabel>
           <MonoLabel className="ml-auto" style={{ fontSize: 'var(--type-ui-11)', color: 'var(--accent-ui)', flex: 'none' }}>
             {t('reverify.item.approved', { n: approvedCount, total: item.diffs.length })}{' '}
-            {open ? '▾' : '▸'}
+            <IconChevron open={open} size={13} />
           </MonoLabel>
         </button>
       </Tooltip>

@@ -21,6 +21,7 @@ import {
   toast,
   useIsMobileScreen,
   useScreenBar,
+  IconArrow,
 } from './ui.jsx'
 
 // Stray marks — every quote in the library, read once, and what a page left
@@ -356,7 +357,7 @@ export default function CleanupPage({ onOpenBook, onOpenMovie, onOpenQuotes, emb
                               nothing to accept. */}
                           {f.after_snippet && (
                             <p className="cleanup-after">
-                              <span className="cleanup-arrow" aria-hidden="true">→</span>
+                              <span className="cleanup-arrow" aria-hidden="true"><IconArrow size={14} /></span>
                               {f.after_snippet}
                             </p>
                           )}

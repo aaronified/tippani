@@ -68,13 +68,31 @@ const SURFACES = [
   { route: '/catalogue', name: 'Catalogue' },
   { route: '/quotes', name: 'Quotes' },
   { route: '/search', name: 'Search' },
-  { route: '/people', name: 'People' },
+  // NOT `/people`: it is not a route — `routes.js`'s ROUTE_TABS does not list it
+  // and the parser falls through to `{ tab: 'home' }`, so this line probed Home a
+  // second time under another name for as long as it stood here. The screen that
+  // actually lists the library's people is the metadata console.
+  { route: '/metadata', name: 'Metadata' },
+  { route: '/anthologies', name: 'Anthologies' },
+  { route: '/bin', name: 'Bin' },
   { route: '/tags', name: 'Tags' },
   { route: '/stats', name: 'Stats' },
   { route: '/checks', name: 'Checks' },
   { route: '/settings', name: 'Settings' },
   { route: '/books/1', name: 'Book detail' },
   { route: '/movies/2', name: 'Film detail' },
+  // THE PANELS, REACHED THE WAY A READER REACHES THEM. A panel has no route of
+  // its own — it is a door on a screen — so a surface may name the door, and this
+  // probe presses it before enumerating. `list()` already scopes to `.tp-panel`
+  // when one is open, so everything downstream works unchanged.
+  //
+  // THEY WERE COVERED BY A SECOND SCRIPT, `audit-panel.mjs`, which pressed the
+  // character panel's controls and which this replaces. It carried both faults
+  // this file was hardened against — it re-resolved controls BY INDEX after
+  // re-opening, and it exited 0 whatever it found, so `make` could not fail on
+  // it. A weaker copy of a probe is worse than none: it is the one somebody
+  // reads.
+  { route: '/movies/2', name: 'Character panel', door: { selector: '.person-chip', text: 'Rick Blaine' } },
 ]
 
 const engine = findBrowser(null, 'chrome')
@@ -205,8 +223,26 @@ try {
   const list = () => page.evaluate(() => {
     const scope = document.querySelector('.tp-panel') || document.querySelector('[role=dialog]') || document.body
     const seen = new Map()
+    // ON SCREEN, AND `offsetParent` CANNOT ANSWER THAT. It is null for anything
+    // `position: fixed` — which is the to-top button, the phone dock, and every
+    // floating bar in this app — so the filter that was meant to skip hidden
+    // controls was silently skipping the ENTIRE class of controls that float. A
+    // probe whose coverage gap is invisible is worse than no probe.
+    //
+    // What "on screen" actually means: it has a box, and nothing in its own style
+    // has taken it out of the flow or faded it away. `.to-top` without `is-on` is
+    // `opacity: 0; pointer-events: none` and must still be skipped — but by what
+    // its style says, not by an accident of where its offset parent is.
+    const onScreen = (b) => {
+      if (b.tagName === 'SUMMARY') return true
+      const r = b.getBoundingClientRect()
+      if (!r.width || !r.height) return false
+      const cs = getComputedStyle(b)
+      return cs.display !== 'none' && cs.visibility !== 'hidden'
+        && parseFloat(cs.opacity) > 0.01 && cs.pointerEvents !== 'none'
+    }
     return [...scope.querySelectorAll('button, [role=button], a[href], summary')]
-      .filter((b) => b.offsetParent !== null || b.tagName === 'SUMMARY')
+      .filter(onScreen)
       .map((b, i) => {
         const r = b.getBoundingClientRect()
         const name = (b.getAttribute('aria-label') || b.textContent.replace(/\s+/g, ' ').trim() || b.title || '(unnamed)').slice(0, 40)
@@ -233,13 +269,23 @@ try {
           // the destination is simply the current one. Without this the probe
           // reports every "All" chip in the app, which is how a checker earns a
           // reputation for crying wolf and then gets switched off.
+          //
+          // `is-on` IS NOT A GENERIC ON-STATE, and this list used to treat it as
+          // one while quoting the line that says it is not. CLAUDE.md names the
+          // three things that wear it — `.cat-swatch`, `.meta-rail-item`,
+          // `.to-top` — and only the first two mean "chosen". On `.to-top` it
+          // means VISIBLE (`opacity: 1; pointer-events: auto`), so exempting it
+          // excused the app's one scroll-to-top button from ever being pressed:
+          // the state that makes it pressable was being read as the state that
+          // makes it pointless to press.
           current: b.getAttribute('aria-current') === 'page'
             || b.getAttribute('aria-pressed') === 'true'
             || b.getAttribute('aria-selected') === 'true'
             || b.getAttribute('aria-checked') === 'true'
             || b.classList.contains('is-current')
             || b.classList.contains('active')
-            || b.classList.contains('is-on'),
+            || (b.classList.contains('is-on')
+              && (b.classList.contains('cat-swatch') || b.classList.contains('meta-rail-item'))),
           href: b.getAttribute('href') || '',
           w: Math.round(r.width),
           h: Math.round(r.height),
@@ -252,14 +298,35 @@ try {
     const reopen = async () => {
       await page.goto(opts.baseUrl + surface.route, { waitUntil: 'networkidle2' }).catch(() => {})
       await new Promise((r) => setTimeout(r, 1800))
+      if (!surface.door) return true
+      const opened = await page.evaluate((d) => {
+        const b = [...document.querySelectorAll(d.selector)].find((x) => x.textContent.includes(d.text))
+        if (!b) return false
+        b.click()
+        return true
+      }, surface.door)
+      await new Promise((r) => setTimeout(r, 1600))
+      // THE DOOR HAS TO HAVE OPENED. Without this the surface degrades silently
+      // to the screen the door is on, and the probe reports the film page's
+      // controls under the character panel's name — the same "tested something
+      // other than what it said" failure the route check below exists for.
+      return opened && await page.evaluate(() => !!document.querySelector('.tp-panel'))
     }
-    await reopen()
+    if (!await reopen()) {
+      findings.unreachable.push(`${surface.name}: the door it is reached through (${surface.door.selector} "${surface.door.text}") did not open a panel`)
+      console.log(`FAIL  ${surface.name.padEnd(14)} door did not open`)
+      continue
+    }
     // AND THE ROUTE HAS TO BE THE ROUTE. `/people` is not one — `routes.js` falls
     // through to `{ tab: 'home' }` — so this list quietly probed Home twice under
     // two names and reported "People" as a screen with its own findings. A probe
     // that tests something other than what it says it tested is worse than one
     // that skips: its output is wrong rather than short.
-    const landed = await page.evaluate(() => location.pathname)
+    // A DOOR SURFACE HAS ALREADY PROVED ITSELF: `reopen()` refused to continue
+    // unless a panel opened. Its route is checked by whichever surface names that
+    // route on its own, and opening a panel writes to history, so asking about
+    // the path here would ask the wrong question.
+    const landed = surface.door ? surface.route : await page.evaluate(() => location.pathname)
     if (landed !== surface.route && !landed.startsWith(surface.route)) {
       findings.notaroute.push(`${surface.name}: /${surface.route.replace(/^\//, '')} resolves to ${landed} — it is not a screen of its own`)
       console.log(`FAIL  ${surface.name.padEnd(14)} ${surface.route} is not a route (landed on ${landed})`)

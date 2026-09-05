@@ -88,6 +88,7 @@ import {
   ViewToggle,
   PanelHost,
   usePanelStack,
+  IconHeartOn,
 } from './ui.jsx'
 
 const PRIMARY = 'tp-btn tp-btn-primary' // aesthetic-aware primary (§6)
@@ -1727,7 +1728,12 @@ const TABLE_COLS = KINDS.book.tableCols.map((c) => ({
 }))
 
 function AnnotationTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSort, editingId, setEditingId, save, remove, onCopy, onShare, tview = 'both' }) {
-  const arrow = (k) => (sort.col === k ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : '')
+  // DRAWN, NOT TYPED. `▲`/`▼` render in the reader's font — solid on one platform,
+  // hollow on another, off the baseline the header's letters share — and are the
+  // one picture docs/ui-glossary.html cannot document. IconSortAsc/IconSortDesc
+  // are the pair every other sort control in this app uses.
+  const arrow = (k) => (sort.col !== k ? null
+    : sort.dir === 'asc' ? <IconSortAsc size={13} /> : <IconSortDesc size={13} />)
   const editingRow = rows.find((a) => a.id === editingId)
   return (
     <Scroller className="ann-table-wrap">
@@ -1770,7 +1776,7 @@ function AnnotationTable({ rows, tagMap, stickers = [], reloadStickers, sort, on
               <td className="col-mono">{chapterLabel(a) || '—'}</td>
               <td className="col-mono">{a.location || '—'}</td>
               <td className="col-mono">{fmtDate(annDate(a)) || '—'}</td>
-              <td className="col-center">{a.favorite ? '♥' : '—'}</td>
+              <td className="col-center">{a.favorite ? <IconHeartOn size={14} /> : '—'}</td>
               <td className="col-actions">
                 <TableActions
                   noun={t('unit.quote.one')}

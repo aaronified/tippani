@@ -33,7 +33,7 @@ import {
   SegHead,
 } from './characterRows.jsx'
 import { t } from './i18n.js'
-import { NavIcon } from './ui.jsx'
+import { NavIcon, IconDetails, IconEdit, IconQuote } from './ui.jsx'
 import { leadingRole } from './identityScope.js'
 
 // THE APP'S OWN ART, NOT AN EMOJI. The first version of this line invented four
@@ -302,7 +302,7 @@ export function CharacterLocal({
         label={t('identity.row.note.label')}
         sub={t('identity.row.note.sub')}
         meta={here.credit_note || t('identity.row.note.none')}
-        icon="✎"
+        icon={<IconEdit size={16} />}
         onClick={onNote}
       />
 
@@ -320,14 +320,14 @@ export function CharacterLocal({
             // the noun were resolved apart.
             label: t('identity.count.quotes', { n: quotes, count: quotes }),
             figure: quotes,
-            icon: '❞',
+            icon: <IconQuote size={15} />,
             onClick: onQuotes,
             title: t('identity.count.quotes.tip'),
           },
           {
             label: t(`identity.count.${scope.locator}`, { n: locators, count: locators }),
             figure: locators,
-            icon: '❑',
+            icon: <IconDetails size={15} />,
             onClick: onLocator,
             title: t('identity.count.locator.tip'),
           },

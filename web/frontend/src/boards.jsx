@@ -36,6 +36,7 @@ import {
   Select,
   Toggle,
   toast,
+  IconCheck,
 } from './ui.jsx'
 
 // The six the whole app names in Settings, so a board sits in the same palette
@@ -385,7 +386,7 @@ export function BoardForm({ initial, onSubmit, onCancel, submitLabel = t('common
                   }
                 >
                   {s.name}
-                  {taken.has(s.name.toLowerCase()) ? ' ✓' : ''}
+                  {taken.has(s.name.toLowerCase()) ? <IconCheck size={12} /> : null}
                 </button>
               ))}
             </div>

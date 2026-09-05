@@ -73,8 +73,20 @@ describe("a panel's head, with a form registered and nothing changed", () => {
       'a count badge over zero changes').toBeNull()
   })
 
-  it('and a cross that is not the danger colour', () => {
-    expect(cross().style.color, 'the ✕ warns about discarding nothing').not.toMatch(/error/)
+  it('and a cross that IS the danger colour, because it is still a form', () => {
+    // THIS CASE USED TO ASSERT THE OPPOSITE, and the rule it read was this
+    // surface's alone. `FormModal` and `MobileSheet` red the ✕ for any caller
+    // holding a form — all three of their callers pass `closeDanger` outright —
+    // while this one waited for something to be typed, so one form's ✕ answered a
+    // different question from the next screen's.
+    //
+    // The `dirty` gate belongs to the TICK and only to it: the tick's arming says
+    // something has changed, the cross's colour says what the press does. Asking
+    // both the same question signals one fact twice and leaves the second
+    // unanswered — and leaves a reader who has typed nothing unable to tell a form
+    // they may leave freely from a form at all. `dom/cross-is-red.test.jsx` holds
+    // the whole rule, both surfaces side by side; this is its case here.
+    expect(cross().style.color, 'the ✕ on a form does not say it discards').toMatch(/error/)
   })
 })
 

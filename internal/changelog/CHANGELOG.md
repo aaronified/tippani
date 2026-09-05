@@ -72,6 +72,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   picture — or the upload reported an error for something that had worked.
 - **A character's page says what went wrong instead of going blank.** A record that
   failed to load took the whole panel down with it.
+- **Every glyph on every screen is the app's own drawing.** Forty-three of them were
+  typed characters — the sort arrows on the three tables, the heart on a favourite,
+  the arrow between an import's before and after, the tick in a menu — which meant
+  they changed shape with your font, sat off the baseline every other mark shares,
+  and looked like two different pictures of the same thing beside a real one.
 - **The drawer's account row says which key opens it.** Every other destination on
   the drawer prints its shortcut; `g p` reaches your profile and the one row that
   does it kept quiet, while the shortcuts sheet listed it.

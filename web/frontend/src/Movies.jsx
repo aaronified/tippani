@@ -87,6 +87,9 @@ import {
   ViewToggle,
   PanelHost,
   usePanelStack,
+  IconHeartOn,
+  IconSortAsc,
+  IconSortDesc,
 } from './ui.jsx'
 
 // The in-progress cap dialog's nouns now come from the kind table's `capWords`,
@@ -1283,7 +1286,7 @@ function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen
               <MonoLabel className="mb-2 block">show only</MonoLabel>
               <div className="flex flex-wrap items-center gap-2">
                 <button onClick={() => setFav(!fav)} className={filterChipClass(fav)} title={t('common.favourite.filter.tip')}>
-                  ♥ favourites
+                  <IconHeartOn size={14} /> favourites
                 </button>
                   </div>
             </div>
@@ -1306,7 +1309,7 @@ function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen
           <MonoLabel>Dialogues{items ? ` · ${items.length}` : ''}</MonoLabel>
           <div className="ml-auto flex flex-wrap items-center gap-2">
             <button onClick={() => setFav(!fav)} className={filterChipClass(fav)} title={t('common.favourite.filter.tip')}>
-              ♥ Favourites
+              <IconHeartOn size={14} /> Favourites
             </button>
             <ColorSwatches value={color} onChange={(c) => setColor(c === color ? '' : c)} />
             {tags.length > 0 && (
@@ -1534,7 +1537,12 @@ function sortDialogues(rows, sort) {
 // annotation table (shared .ann-table styles): sortable columns + inline edit;
 // ♥ is shown read-only here and toggled from the tiles/list views.
 function DialogueTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSort, editingId, setEditingId, save, remove, show = false, game = false, cast = [], actorMap = {}, onCopy, onShare }) {
-  const arrow = (k) => (sort.col === k ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : '')
+  // DRAWN, NOT TYPED. `▲`/`▼` render in the reader's font — solid on one platform,
+  // hollow on another, off the baseline the header's letters share — and are the
+  // one picture docs/ui-glossary.html cannot document. IconSortAsc/IconSortDesc
+  // are the pair every other sort control in this app uses.
+  const arrow = (k) => (sort.col !== k ? null
+    : sort.dir === 'asc' ? <IconSortAsc size={13} /> : <IconSortDesc size={13} />)
   const editingRow = rows.find((d) => d.id === editingId)
   return (
     <Scroller className="ann-table-wrap">
@@ -1580,7 +1588,7 @@ function DialogueTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSo
               <td className="col-mono">{[d.character, d.actor && `(${d.actor})`].filter(Boolean).join(' ') || '—'}</td>
               {show && <td className="col-mono">{episodeLabel(d) || '—'}</td>}
               <td className="col-mono">{d.timestamp || '—'}</td>
-              <td className="col-center">{d.favorite ? '♥' : '—'}</td>
+              <td className="col-center">{d.favorite ? <IconHeartOn size={14} /> : '—'}</td>
               <td className="col-actions">
                 <TableActions
                   noun={t('unit.line.one')}

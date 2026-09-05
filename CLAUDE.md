@@ -105,9 +105,14 @@ old work, so a screen that breaks one is a bug and not a variation.
   the moment the substance differs from what is stored; before that it is plain, because
   a control that looks armed when nothing has changed teaches the reader to stop reading
   it. Focus is not a change and neither is retyping the same value.
-- **The cross is red.** It is the discarding half of the pair, and the repo's danger
-  colour is how the app says so everywhere else. The tick is never red — the accent is
-  not a warning.
+- **The cross is red wherever there is a pair for it to be half of.** It is the
+  discarding half, and the repo's danger colour is how the app says so everywhere else.
+  A surface with no form registered draws no tick, so its ✕ is a plain way out and stays
+  plain — painting that one red would warn about closing a list of rows. **The colour is
+  not gated on whether anything has changed**: the tick's arming answers "has something
+  changed", the cross's colour answers "what does this press do", and one fact signalled
+  twice leaves the second question unanswered. The tick is never red — the accent is not
+  a warning.
 - **A screen's glyphs are the app's own, never an emoji.** `NavIcon`, `Icon*` in
   `ui.jsx`, and nothing hand-picked beside them. An emoji is the platform's drawing: it
   changes with the reader's font, sits off the baseline every other glyph shares, and is

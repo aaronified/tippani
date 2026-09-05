@@ -12,6 +12,8 @@ import {
   useReveal,
   useAnchoredPosition,
   useDismiss,
+  IconArrow,
+  IconWarning,
 } from './ui.jsx'
 
 // Import page (§8.8, mockups 17–19): source cards with bulk multi-select and
@@ -316,7 +318,10 @@ function SourceCard({ variant, src, busy, onFiles, color }) {
         {sourceDesc(src.kind)}
       </p>
       {caveat && (
-        <p className="microcopy" style={{ color: 'var(--amber, var(--accent-ui))' }}>⚠ {caveat}</p>
+        <p className="microcopy inline-flex items-center gap-1.5" style={{ color: 'var(--amber, var(--accent-ui))' }}>
+          <IconWarning size={13} />
+          {caveat}
+        </p>
       )}
       <div className="mt-auto">
         <label
@@ -359,7 +364,7 @@ function BatchResults({ results, summary, staged, onReviewImport }) {
       {results.map((r, i) => (
         <div key={i}>
           <p className="microcopy">
-            {r.name} →{' '}
+            {r.name}{' '}<IconArrow size={12} />{' '}
             {r.pending ? (
               '…'
             ) : r.ok ? (
@@ -404,7 +409,7 @@ function StagedWorkNotice({ work }) {
   return (
     <div className="microcopy" style={{ color: 'var(--soft)' }}>
       <span>
-        {work.title} ({work.staged}) →{' '}
+        {work.title} ({work.staged}){' '}<IconArrow size={12} />{' '}
         {work.target_id
           ? work.target_year
             ? t('import.work.joins-year', {
@@ -449,7 +454,8 @@ function ClippingsNotice({ row }) {
   if (parts.length === 0) return null
   return (
     <p className="microcopy" style={{ color: row.blocks_malformed ? 'var(--amber, var(--accent-ui))' : 'var(--soft)' }}>
-      {row.blocks_malformed ? '⚠ ' : ''}
+      {row.blocks_malformed ? <IconWarning size={12} /> : null}
+      {row.blocks_malformed ? ' ' : ''}
       {parts.join(' · ')}
     </p>
   )

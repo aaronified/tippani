@@ -60,6 +60,7 @@ import {
   useFormHost,
   useUnsavedFields,
   FormModal,
+  IconOpen,
 } from './ui.jsx'
 
 // ---- field specs -----------------------------------------------------------
@@ -1580,7 +1581,7 @@ function FieldList({ kind, item, stack, specs, creditSpecs, mediaType, busy, gen
               display={spec.href && value ? (
                 <Tooltip label={`Open on ${label.replace(/ id$/, '')}`}>
                   <a href={spec.href(item)} target="_blank" rel="noopener noreferrer" className="tp-link">
-                    {String(value)} ↗
+                    {String(value)} <IconOpen size={12} />
                   </a>
                 </Tooltip>
               ) : undefined}

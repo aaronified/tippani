@@ -250,8 +250,13 @@ describe('a film’s facts, which were flat text until the two screens became on
     // It read "← Movies" for a release after the board was renamed, because the
     // word was typed into the screen instead of read from the one place that
     // holds it. Now the link and the tab cannot disagree.
+    // FOUND BY WHAT IT IS, not by the character it used to start with. It led
+    // with a typed `←`; it leads with the app's own back glyph now, and a test
+    // keyed to the character would go red on a change no reader can see. What
+    // makes this button the back link is that it names a nav tab.
     const back = await waitFor(() => {
-      const el = [...document.querySelectorAll('button')].find((b) => /^←/.test(b.textContent.trim()))
+      const el = [...document.querySelectorAll('button')]
+        .find((b) => b.querySelector('svg') && /Catalogue|Movies/.test(b.textContent))
       expect(el, 'no back link').toBeTruthy()
       return el
     })

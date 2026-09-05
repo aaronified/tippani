@@ -68,6 +68,8 @@ import {
   useBackToClose,
   SCRIM_CENTERED,
   backdropClose,
+  IconArrow,
+  IconOpen,
 } from './ui.jsx'
 
 // Settings (§8.11): Appearance, Metadata sources, review/credits prefs, and
@@ -1383,7 +1385,7 @@ function UpdatesCard({ user, update, onUpdateInfo, asking = false, onAsking }) {
                 className="tp-link"
                 style={{ fontFamily: 'var(--font-mono)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontWeight: 600 }}
               >
-                {current} ↗
+                {current} <IconOpen size={12} />
               </a>
             </Tooltip>
           ) : (
@@ -2666,7 +2668,7 @@ function MaterialCard({ name, dark, accentHex, code, selected, onClick }) {
       >
         <div className="flex items-center justify-end" style={{ height: 12, marginBottom: 6 }} aria-hidden="true">
           <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 'var(--type-mono-9)', letterSpacing: '.2em', color: 'color-mix(in srgb, var(--faint) 70%, transparent)' }}>
-            {code} ▸
+            {code} <IconArrow size={10} />
           </span>
         </div>
         <div
@@ -2692,7 +2694,7 @@ function MaterialCard({ name, dark, accentHex, code, selected, onClick }) {
             aria-hidden="true"
             style={{ position: 'absolute', top: -9, right: -9, width: 22, height: 22, borderRadius: 999, background: accent, color: 'var(--on-accent)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 'var(--type-ui-12)', fontWeight: 700, boxShadow: '0 1px 3px rgba(0,0,0,.45)' }}
           >
-            ✓
+            <IconCheck size={13} />
           </span>
         )}
       </div>

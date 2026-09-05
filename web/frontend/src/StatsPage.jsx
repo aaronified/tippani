@@ -4,7 +4,7 @@ import { tzOffsetMinutes, usePractice } from './review.jsx'
 import { coverImgURL, errText, json } from './api.js'
 import { t, tNodes } from './i18n.js'
 import { PersonPortrait, useCharacterFaces, usePeople } from './people.jsx'
-import { ANNOTATION_COLORS, ANNOTATION_HEX, Card, ErrorText, FieldIconButton, fmtHalfLife, IconPractise, IconQuiz, MonoLabel, MONTH_KEYS, mulberry32, NameScroll, PageHeader, Scroller, STATUS_META, toast, Toggle, Tooltip, useEdgeScroll, useIsMobileScreen, usePersistedState, useScreenBar } from './ui.jsx'
+import { ANNOTATION_COLORS, ANNOTATION_HEX, Card, ErrorText, FieldIconButton, fmtHalfLife, IconPractise, IconQuiz, MonoLabel, MONTH_KEYS, mulberry32, NameScroll, PageHeader, Scroller, STATUS_META, toast, Toggle, Tooltip, useEdgeScroll, useIsMobileScreen, usePersistedState, useScreenBar, IconHeartOn } from './ui.jsx'
 
 // StatsPage (§ insights) — a dedicated library-analytics screen, the richer
 // successor to the old Settings "Library stats" card and the intended basis for
@@ -61,7 +61,7 @@ function StatTile({ n, label, heart, dot, sub }) {
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, fontFamily: 'var(--font-mono)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 'var(--type-mono-26)', fontWeight: 500, lineHeight: 1, color: 'var(--ink)' }}>
         {dot && <span aria-hidden="true" style={{ width: 10, height: 10, borderRadius: 999, flex: '0 0 auto', background: dot.filled ? dot.color : 'transparent', border: `1.5px solid ${dot.color}` }} />}
         <span style={{ fontVariantNumeric: 'tabular-nums' }}>{n ?? 0}</span>
-        {heart && <span style={{ color: 'var(--accent-ui)', fontSize: 'var(--type-mono-13)', lineHeight: 1 }}>♥</span>}
+        {heart && <span style={{ color: 'var(--accent-ui)', display: 'inline-flex', lineHeight: 1 }}><IconHeartOn size={13} /></span>}
       </div>
       <MonoLabel className="mt-2 block">{label}</MonoLabel>
       {/* A SECOND NUMBER UNDER THE FIRST, for the one tile where the headline

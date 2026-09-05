@@ -70,6 +70,7 @@ import {
   useScreenBar,
   useScreenOwnsScroll,
   useTwoColumn,
+  IconBack,
 } from './ui.jsx'
 import { workDetailsPanel } from './WorkDetails.jsx'
 import { characterPanel } from './identity.jsx'
@@ -705,7 +706,7 @@ export default function WorkDetail({
               "← Movies" for a release after the board was renamed, because the
               word was typed here in English rather than read from the one place
               that already holds it. */}
-          ← {t(spec.backTab)}
+          <IconBack size={15} /> {t(spec.backTab)}
         </button>
       )}
       <ErrorText>{error}</ErrorText>

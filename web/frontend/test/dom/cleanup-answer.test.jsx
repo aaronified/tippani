@@ -103,8 +103,15 @@ describe('answering a cleanup finding', () => {
     const exact = (want) => (_, el) => el?.textContent === want
     await waitFor(() => expect(screen.getByText(exact('call»  «me Ishmael'))).toBeTruthy())
     // THE ASSERTION THE WHOLE FEATURE RESTS ON: the result is on screen before
-    // anything is pressed.
-    expect(screen.getByText(exact('→call» «me Ishmael'))).toBeTruthy()
+    // anything is pressed. Read off `.cleanup-after`'s own text rather than the
+    // whole row's — the row leads with a mark saying "becomes", and that mark was
+    // the character `→` and is the app's drawn arrow now. A test keyed to the
+    // character would go red on a change no reader can see; what it must hold is
+    // that the RESULT is printed, whitespace and all.
+    const after = document.querySelector('.cleanup-after')
+    expect(after, 'the finding shows no result at all').toBeTruthy()
+    expect(after.textContent).toBe('call» «me Ishmael')
+    expect(after.querySelector('svg'), 'nothing marks it as the result').toBeTruthy()
   })
 
   it('accepts exactly the finding it was showing', async () => {

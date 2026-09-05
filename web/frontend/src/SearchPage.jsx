@@ -81,6 +81,7 @@ import {
   usePanelStack,
   SCRIM,
   backdropClose,
+  IconChevron,
 } from './ui.jsx'
 
 // ---- the vocabulary, fetched once and held for the session ------------------
@@ -2130,7 +2131,7 @@ function MatchWindow({ text, terms, style }) {
   const after = end < s.length
   const chev = (dir) => (
     <span aria-hidden="true" style={{ display: 'block', textAlign: 'center', lineHeight: 1, fontSize: 'var(--type-ui-11)', color: 'var(--faint)' }}>
-      {dir === 'up' ? '⌃' : '⌄'}
+      <IconChevron open={dir === 'up'} size={13} />
     </span>
   )
   return (
