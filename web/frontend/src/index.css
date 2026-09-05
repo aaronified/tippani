@@ -917,6 +917,19 @@
   /* THE HEAD CASTS, UNCONDITIONALLY. A 1px rule alone made the body look like it
      passed THROUGH the head; a shadow that arrives on scroll is a layer changing
      depth while you read. */
+  /* THE PACK'S HEADER, WHEN A PANEL PUBLISHES ONE. Title and crumb as one block
+     that starts where the cover ends — a centred title over a 32px thumbnail
+     reads as a caption for the thumbnail rather than as the screen's name.
+     `.tp-panel-title` keeps its size and family; only its centring is dropped,
+     because the pack sets the same type on the same line. */
+  .tp-panel-names { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .tp-panel-title.is-scoped { text-align: left; flex: none; }
+  .tp-panel-crumb {
+    font-family: var(--font-mono), monospace;
+    font-size: var(--type-ui-11);
+    letter-spacing: .06em;
+    color: var(--soft);
+  }
   .tp-panel-head {
     flex: none;
     position: relative;

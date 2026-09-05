@@ -70,11 +70,11 @@ const FIELDS = { display: 'grid', gap: 'calc(var(--row) * 0.9)' }
 // personPanel — open a person by id. `work` puts the first scope on screen; open
 // it from a list and there is no work to be on, so that section is simply absent
 // rather than present and inert.
-export function personPanel(stack, { id, name, work = null }) {
+export function personPanel(stack, { id, name, work = null, onOpenWork = null }) {
   return {
     title: name || t('identity.person.title'),
     wide: true,
-    render: () => <PersonBody stack={stack} id={id} work={work} />,
+    render: () => <PersonBody stack={stack} id={id} work={work} onOpenWork={onOpenWork} />,
   }
 }
 
@@ -612,7 +612,7 @@ function Portrait({ person, busy, onPicked, onClear }) {
   )
 }
 
-function PersonBody({ stack, id, work }) {
+function PersonBody({ stack, id, work, onOpenWork = null }) {
   const { data, err, setErr, load } = useRecord(`/people/id/${id}`)
   // Same disclosure as the character screen, for the same reason. See there.
   const [names, setNames] = useState(false)
@@ -759,9 +759,11 @@ function PersonBody({ stack, id, work }) {
           onSort={() => focusField('person-sort')}
           onBorn={() => focusField('person-born')}
           onLinkAdd={() => setLinkDialog(true)}
-          onOpenWork={(c) => stack.push(personPanel(stack, {
-            id, name: data.name, work: { kind: c.kind, id: c.work_id, title: c.title, role: c.role },
-          }))}
+          // THE WORK, NOT THE PERSON AGAIN. See usePersonOpener for what this
+          // used to do and why the press produced a copy of the screen it was
+          // pressed on. Null where no screen threaded a door, and the tile then
+          // says it cannot be opened rather than pretending.
+          onOpenWork={onOpenWork ? (c) => onOpenWork(c.kind, c.work_id) : null}
           // A ROLE TILE OPENS THE CHARACTER — the owner's ruling read in the
           // direction a reader travels. Where the cast row points at no record
           // there is nothing to open, so it opens that work's credit instead.
@@ -1241,6 +1243,30 @@ function CharacterBody({ stack, id, work, onSearch = null }) {
   // and the ✎ that was pressed says which. Before `noteFor`, `onCreditNote` was
   // `() => focusField(…)`, an arrow taking NO parameter, so the credit the sheet
   // handed it was discarded and the dub's ✎ saved the performer's note.
+  // REASSIGN WHO IS ON THIS CREDIT — the door the face has promised since the
+  // tooltip was written ("Change who this is") and never had. It is the pack's
+  // `mode:'person'` picker, which is now the same sheet "Add another performer"
+  // opens, so choosing an existing person is a press rather than a spelling test
+  // — and re-typing a name that is nearly one you have is exactly how a second
+  // record for one person gets made.
+  //
+  // A PUT ON THE ROW, not a delete and an add: the credit keeps its note, its
+  // language and its billing, all of which are facts about the CASTING rather
+  // than about who is in it.
+  const openCreditPick = (a) => setPicker({
+    id: `pick-${a.cast_id}`,
+    title: t('identity.credit.pick.tip'),
+    saveTip: t('identity.picker.save.tip'),
+    blocked: t('identity.credit.add.blocked'),
+    personKind: 'actor',
+    fields: [{ key: 'actor', label: t('identity.picker.person.label'), value: a.actor || '', required: true }],
+    save: async (d) => {
+      if (await saveAppearance(a, localRow(a, { actor: String(d.actor || '').trim() }))) {
+        setPicker(null)
+        toast(t('identity.credit.saved', { title: a.work_title || here?.work_title || '' }))
+      }
+    },
+  })
   const openCreditNote = (a) => {
     setNoteCredit(a)
     openFact(a, 'credit_note', t('identity.row.note.for', {
@@ -1362,6 +1388,7 @@ function CharacterBody({ stack, id, work, onSearch = null }) {
           onRemove={() => removeWork(here)}
           onRole={setRole}
           onOpenCredit={(a) => a.actor_id && stack.open(personPanel(stack, { id: a.actor_id, name: a.actor }))}
+          onCreditPick={openCreditPick}
           onCreditNote={openCreditNote}
           onCreditRemove={removeCredit}
           onAddCredit={() => openAddCredit(here, false)}

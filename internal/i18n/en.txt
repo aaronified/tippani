@@ -6412,6 +6412,10 @@ identity.credit.add.voice = Add another voice
 identity.credit.add.dub = Add a dubbing credit
 identity.credit.pick.tip = Change who this is
 identity.credit.open.tip = Open their record
+# The pack's own words for a credit nobody is named on. It is a real state — a
+# de-aged shot, a stunt double, a second voice — so the row stays and says why
+# it cannot be opened, rather than going quiet when pressed.
+identity.credit.unnamed.tip = Nobody named on this credit yet
 identity.credit.note.tip = What is peculiar about this casting
 identity.credit.remove.tip = Take this credit off
 # ---- people-work, the sheet the pack does not draw -------------------------

@@ -32,11 +32,19 @@ import { useEffect, useState } from 'react'
 import { coverImgURL } from './api.js'
 import { t } from './i18n.js'
 import { Silhouette } from './silhouette.jsx'
-import { NameScroll, ProviderMark, Scroller, Tooltip } from './ui.jsx'
+import { IconChevron, IconClose, IconEdit, NameScroll, ProviderMark, Scroller, Tooltip, usePanelHead } from './ui.jsx'
 
 // ---- the header -------------------------------------------------------------
 
-// ScreenHead — the scope's art, the name, and the crumb under it.
+// ScreenHead — the scope's art, the name, and the crumb under it. It renders
+// NOTHING; it hands the panel its header.
+//
+// WHY IT DRAWS NOTHING NOW. It used to draw a header bar as the first thing in a
+// panel BODY — its own `border-bottom`, its own `--card-top` ground, and the
+// record's name — directly beneath a panel head that had already drawn that name
+// and a ✕. Two header bars, stacked, one of them repeating the other's only word.
+// The pack has ONE (`character-popup.dc.html:33`), and it is the panel's: cover,
+// name over crumb, ✕. So this publishes upward and the head draws it.
 //
 // THE GLYPH SITS ON THE WORK'S OWN COVER on a local scope. The medium is the
 // first thing a reader needs and the work is the second, and one 32×44 thumbnail
@@ -48,8 +56,7 @@ import { NameScroll, ProviderMark, Scroller, Tooltip } from './ui.jsx'
 // its four sheets sit side by side. In the app you see one, and the crumb plus
 // the cover already say the scope.
 export function ScreenHead({ title, crumb, glyph, art, artKind, scopeTitle }) {
-  return (
-    <div className="cs-head">
+  const slot = (
       <span className="cs-scope-slot" title={scopeTitle}>
         {art ? (
           <span className={'cs-scope-art' + (artKind === 'book' ? ' is-book' : '')}>
@@ -60,6 +67,18 @@ export function ScreenHead({ title, crumb, glyph, art, artKind, scopeTitle }) {
           <span className="cs-scope-globe">{glyph}</span>
         )}
       </span>
+  )
+  // INSIDE A PANEL IT PUBLISHES; OUTSIDE ONE IT DRAWS. `usePanelHead` returns
+  // false when there is no host, which is the same "rendered inline" case
+  // `useFormHost` has always recognised — a sheet rendered on its own still needs
+  // a header, and a sheet rendered in a panel must not add a second one. Making
+  // the fix conditional on the host rather than unconditional is also what keeps
+  // every test that renders a body bare asserting the same things it always did.
+  const published = usePanelHead({ title, crumb, art, artKind, slot })
+  if (published) return null
+  return (
+    <div className="cs-head">
+      {slot}
       <span className="cs-head-names">
         {/* THE TITLE SCROLLS RATHER THAN CLIPPING. A character's name is the one
             thing this screen exists to show. */}
@@ -319,17 +338,30 @@ export function PillRow({ pills, addLabel, addIcon, addTitle, onAdd }) {
 // person's own record, the pencil notes what is peculiar about this credit, and
 // the ✕ takes it off. A credit with nobody named is a legitimate state — a mute
 // animated short performs nobody — so it draws in faint rather than being hidden.
+// THE GLYPHS ARE THE APP'S, drawn here rather than taken as props. They arrived
+// as `'✎'`, `'✕'` and `'▾'` — three literal characters from the caller, which the
+// standing rule forbids in as many words: "A screen's glyphs are the app's own,
+// never an emoji. NavIcon, Icon* in ui.jsx, and nothing hand-picked beside them."
+// A character renders in whatever font the reader has, sits off the baseline the
+// real glyphs share, and cannot be documented by the generated glossary. Taking
+// them as props is what made passing the wrong thing possible, so the props go.
 export function CreditRow({
   name, note, face, empty, pickTitle, openTitle, noteTitle, removeTitle,
-  noteIcon, removeIcon, caret, onPick, onOpen, onNote, onRemove,
+  onPick, onOpen, onNote, onRemove,
 }) {
   return (
     <div className="cs-credit">
       <button type="button" className="cs-credit-pick tactile" title={pickTitle} onClick={onPick}>
         <Face src={face} name={name} className="cs-credit-face" />
-        <span className="cs-credit-caret">{caret}</span>
+        <span className="cs-credit-caret" aria-hidden="true"><IconChevron size={14} /></span>
       </button>
-      <button type="button" className="cs-credit-name tactile" title={openTitle} onClick={onOpen}>
+      <button
+        type="button"
+        className="cs-credit-name tactile"
+        title={openTitle}
+        aria-disabled={onOpen ? undefined : true}
+        onClick={onOpen || undefined}
+      >
         <NameScroll className={'cs-credit-text' + (empty ? ' is-empty' : '')}>{name}</NameScroll>
         {note ? <span className="cs-credit-note">{note}</span> : null}
       </button>
@@ -340,7 +372,7 @@ export function CreditRow({
           aria-label={noteTitle}
           onClick={onNote}
         >
-          {noteIcon}
+          <IconEdit size={16} />
         </button>
       </Tooltip>
       <Tooltip label={removeTitle} side="top">
@@ -350,7 +382,7 @@ export function CreditRow({
           aria-label={removeTitle}
           onClick={onRemove}
         >
-          {removeIcon}
+          <IconClose size={16} />
         </button>
       </Tooltip>
     </div>
@@ -387,11 +419,18 @@ export function AppearanceStrip({ tiles, hint, onAdd, addLabel, addTitle, addIco
       <Scroller className="cs-tiles">
         {tiles.map((w) => (
           <div className="cs-tile" key={w.key}>
+            {/* A TILE WITH NOWHERE TO GO SAYS SO. `aria-disabled` rather than
+                `disabled`, so the cover stays readable and the tooltip still
+                explains — a work you are credited on is worth seeing even on a
+                screen that cannot open it. Silence here is the defect class the
+                control probe exists for: a press that changes nothing and gives
+                no reason. */}
             <button
               type="button"
               className={'cs-tile-art' + (w.kind === 'book' ? ' is-book' : '')}
               title={w.artTitle}
-              onClick={w.onOpen}
+              aria-disabled={w.onOpen ? undefined : true}
+              onClick={w.onOpen || undefined}
             >
               {w.cover ? <img src={coverImgURL(w.cover)} alt="" loading="lazy" /> : null}
               <span className="cs-tile-badge">{w.badge}</span>
@@ -404,7 +443,12 @@ export function AppearanceStrip({ tiles, hint, onAdd, addLabel, addTitle, addIco
                 </span>
               ) : null}
             </button>
-            <button type="button" className="cs-tile-cap" onClick={w.onOpen}>
+            <button
+              type="button"
+              className="cs-tile-cap"
+              aria-disabled={w.onOpen ? undefined : true}
+              onClick={w.onOpen || undefined}
+            >
               <span className="cs-tile-title">{w.title}</span>
               {w.meta ? <span className="cs-tile-meta">{w.meta}</span> : null}
               {w.count ? <span className="cs-tile-count">{w.count}</span> : null}

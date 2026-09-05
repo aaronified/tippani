@@ -97,23 +97,38 @@ function creditsFor(works, here) {
 // the pack's "Not named yet". A film credits a de-aged shot, a stunt double or a
 // second voice that the reader has not put a name to, and hiding the row would
 // lose the note beside it, which is the only record that the casting exists.
-function creditRows(rows, { onOpen, onNote, onRemove, noteIcon, removeIcon, caret, noteTip, removeTip, pickTip, openTip }) {
+function creditRows(rows, { onPick, onOpen, onNote, onRemove, noteTip, removeTip, pickTip, openTip, unnamedTip }) {
   return rows.map((a) => (
     <CreditRow
       key={a.cast_id}
       name={a.actor || t('identity.credit.unnamed')}
       empty={!a.actor}
-      note={a.credit_note || (a.credit_lang ? a.credit_lang : '')}
+      // BOTH, JOINED — the pack's own line is `[o.lang, o.note].filter(Boolean)
+      // .join(' · ')`, and it shows the language FIRST because "Hindi" is the
+      // thing that tells two dubs apart and the note is the gloss on it. Written
+      // as `note || lang` this printed whichever it found first, so a dub with a
+      // note on it silently stopped saying which language it was in — on the one
+      // row where the language is the whole point.
+      note={[a.credit_lang, a.credit_note].filter(Boolean).join(' · ')}
       face={a.actor_image || ''}
+      // THE FACE REASSIGNS AND THE NAME OPENS, which is the pack's split
+      // (`mode:'person'` at line 522 against `onOpen` at 529) and was collapsed
+      // here into one handler. `en.txt` promises "Change who this is" on the
+      // face; it went to the performer's record instead, so the app shipped a
+      // tooltip that lied about what its control does. `CreditRow`'s own header
+      // documents the split its only caller was flattening.
+      onPick={() => onPick(a)}
+      // A CREDIT WITH NOBODY IN IT HAS NOWHERE TO OPEN, and says so rather than
+      // going quiet: without a record there is no page, and a press that does
+      // nothing without explaining is the defect class `make controls` exists to
+      // find. The pack's own words for the state are "Nobody named on this
+      // credit yet". Reassigning is still live — that is how it stops being
+      // nobody.
+      onOpen={a.actor_id ? () => onOpen(a) : null}
+      openTitle={a.actor_id ? openTip : unnamedTip}
       pickTitle={pickTip}
-      openTitle={openTip}
       noteTitle={noteTip}
       removeTitle={removeTip}
-      noteIcon={noteIcon}
-      removeIcon={removeIcon}
-      caret={caret}
-      onPick={() => onOpen(a)}
-      onOpen={() => onOpen(a)}
       onNote={() => onNote(a)}
       onRemove={() => onRemove(a)}
     />
@@ -135,7 +150,7 @@ export function CharacterLocal({
   // nobody plays a novel's character, so an empty "Played by" would claim the
   // reader had not filled something in where the truth is that there is nothing
   // to fill.
-  onRole, onOpenCredit, onCreditNote, onCreditRemove, onAddCredit, onAddDub,
+  onRole, onCreditPick, onOpenCredit, onCreditNote, onCreditRemove, onAddCredit, onAddDub,
   // THE COUNTS COME FROM /whos-in-it, which has served them per cast row since
   // it was written and which nothing had ever called. Its `locators` is a
   // DISTINCT over this character's own quotes rather than a stored total of the
@@ -163,15 +178,21 @@ export function CharacterLocal({
   const servedWork = works.find((w) => w.work_id === work?.id && w.kind === work?.kind)
   const role = leadingRole(scope, servedWork || work)
   const { cast, dubs } = creditsFor(works, here)
+  // NO GLYPHS IN THIS OBJECT ANY MORE. It carried `'✎'`, `'✕'` and `'▾'` — three
+  // literal characters where the standing rule is "A screen's glyphs are the
+  // app's own, never an emoji… it changes with the reader's font, sits off the
+  // baseline every other glyph shares, and is the one picture
+  // docs/ui-glossary.html cannot document". `CreditRow` draws IconEdit,
+  // IconClose and IconChevron itself now, so there is no prop to pass the wrong
+  // thing through.
   const creditVerbs = {
+    onPick: (a) => onCreditPick?.(a),
     onOpen: (a) => onOpenCredit?.(a),
     onNote: (a) => onCreditNote?.(a),
     onRemove: (a) => onCreditRemove?.(a),
-    noteIcon: '✎',
-    removeIcon: '✕',
-    caret: '▾',
     pickTip: t('identity.credit.pick.tip'),
     openTip: t('identity.credit.open.tip'),
+    unnamedTip: t('identity.credit.unnamed.tip'),
     noteTip: t('identity.credit.note.tip'),
     removeTip: t('identity.credit.remove.tip'),
   }

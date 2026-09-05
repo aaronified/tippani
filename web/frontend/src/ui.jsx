@@ -3740,6 +3740,33 @@ export function useUnsavedFields() {
 
 export const FormHostContext = createContext(null);
 
+// usePanelHead — a body hands its panel the header the pack draws: the cover with
+// its medium glyph, the crumb under the name, and the record's own name.
+//
+// IT PUBLISHES RATHER THAN RENDERS, which is the whole point. Drawn in the body,
+// this is a second header bar under the panel's own — two `border-bottom`s, two
+// backgrounds, and the name printed twice — which is what every identity screen
+// did. Handed up, it IS the panel's header.
+//
+// Null on unmount, so walking back to a parent does not leave a cover and a crumb
+// naming the screen you just left.
+export function usePanelHead(head) {
+  const host = useContext(FormHostContext);
+  const setHead = host?.setHead;
+  const key = JSON.stringify([head?.crumb, head?.title, head?.art, head?.artKind]);
+  useEffect(() => {
+    if (!setHead) return;
+    setHead(head);
+    return () => setHead(null);
+    // The identity of `head.slot` is a fresh element every render, so the deps are
+    // the VALUES that decide what it draws — otherwise this republishes forever.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [setHead, key]);
+  // Whether it landed anywhere, so a caller can draw the bar itself when it did
+  // not — see ScreenHead.
+  return !!setHead;
+}
+
 // useFormHost — what a form calls to join its dialog's header. Returns the host
 // (or null when rendered inline) and reports why saving is blocked, if it is.
 // `reason` is shown on the disabled ✓, so it stays inside the five-word rule;
@@ -3993,9 +4020,23 @@ export function PanelHost({ stack }) {
   // from "one".
   const [dirty, setDirty] = useState(0);
   const [asking, setAsking] = useState(false);
-  const host = useMemo(() => ({ formId, setBlocked, setDirty }), [formId]);
+  // THE PACK'S HEADER IS THE PANEL'S OWN, and publishing it works the way the
+  // dirty count already does: the body knows the record, the head draws it.
+  //
+  // WHAT THIS ENDS. Every identity screen drew `ScreenHead` — cover, name, crumb,
+  // its own `border-bottom` — as the first thing in a panel BODY whose head had
+  // already drawn the name and a ✕ above it. Two styled header bars, stacked, one
+  // of them repeating the other's only word. The pack has one
+  // (`character-popup.dc.html:33`) and it is this one: the cover with the medium
+  // glyph laid over it in the slot a back key would otherwise hold, the title with
+  // the crumb under it, and the ✕.
+  const [head, setHead] = useState(null);
+  const host = useMemo(() => ({ formId, setBlocked, setDirty, setHead }), [formId]);
   // guarded wraps a close route. Nothing to lose → it just runs.
   const guard = useCallback((run) => () => (dirty > 0 ? setAsking(() => run) : run()), [dirty]);
+  // AND SO DOES A HEAD. Walking back to a parent leaves the child's cover and
+  // crumb in the bar otherwise, which is worse than none: it names a screen you
+  // have left.
   // A reason belongs to the panel that reported it. Walking back to a parent that
   // holds no form must not leave the child's ✓ — or its disabled tooltip — behind.
   //
@@ -4010,6 +4051,8 @@ export function PanelHost({ stack }) {
   if (seenDepth !== depth) {
     setSeenDepth(depth);
     setBlocked(null);
+    // The head goes with it, for the same reason and by the same clock.
+    setHead(null);
     // DIRT IS NOT RESET HERE, and the first version's attempt to is worth the
     // sentence. `blocked` belongs to whichever panel is on top, so it is cleared
     // whenever the depth moves. Dirt belongs to the CONTENT — and the content
@@ -4055,9 +4098,9 @@ export function PanelHost({ stack }) {
         style={panel.wide ? { width: "min(900px, 100%)" } : undefined}
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <div className="tp-panel-head">
+        <div className={"tp-panel-head" + (head ? " has-scope" : "")}>
           <div className="tp-panel-slot">
-            {nested && (
+            {nested ? (
               <button
                 type="button"
                 className="tp-panel-back tactile"
@@ -4067,9 +4110,23 @@ export function PanelHost({ stack }) {
                 <IconBack />
                 <span className="tp-panel-back-word" ref={backWord}>{parent.title}</span>
               </button>
-            )}
+            ) : head?.slot || null}
           </div>
-          <h2 className="tp-panel-title" ref={titleRef}>{panel.title}</h2>
+          {head ? (
+            /* LEFT-ALIGNED BESIDE THE COVER, not centred. A centred title over a
+               32px thumbnail reads as a caption for the thumbnail; the pack sets
+               the pair as one block that starts where the cover ends. */
+            <span className="tp-panel-names">
+              {/* THE RECORD'S NAME WINS over the one the opener passed. A panel is
+                  opened with the name printed on whatever was pressed, and a
+                  record renamed since — on its own global screen, one panel
+                  back — would leave the header saying what it used to be. */}
+              <NameScroll as="h2" className="tp-panel-title is-scoped">{head.title || panel.title}</NameScroll>
+              {head.crumb ? <span className="tp-panel-crumb">{head.crumb}</span> : null}
+            </span>
+          ) : (
+            <h2 className="tp-panel-title" ref={titleRef}>{panel.title}</h2>
+          )}
           <div className="tp-panel-slot tp-panel-slot-r">
             {/* Before the panel's own verb and before the ✕: the order is
                 commit, then add, then leave.

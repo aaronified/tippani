@@ -6372,6 +6372,7 @@ identity.credit.add.voice = আরও একটা কণ্ঠ যোগ কর
 identity.credit.add.dub = ডাবিংয়ের কৃতিত্ব যোগ করুন
 identity.credit.pick.tip = কে সেটা বদলান
 identity.credit.open.tip = তাঁর রেকর্ড খুলুন
+identity.credit.unnamed.tip = এই কৃতিত্বে এখনও কারও নাম নেই
 identity.credit.note.tip = এই কাস্টিংয়ে বিশেষ কী আছে
 identity.credit.remove.tip = এই কৃতিত্ব সরিয়ে দিন
 # ---- people-work, প্যাকে যে পর্দা আঁকা নেই -------------------------

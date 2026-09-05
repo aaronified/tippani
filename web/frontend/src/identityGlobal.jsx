@@ -144,7 +144,7 @@ function workTiles(works, recordImage, onOpen) {
 // person is on one through `work_person`, which names a ROLE (author, director,
 // performer) and has no picture of its own — the portrait on the tile is the
 // person's, because there is only ever one of them.
-function creditTiles(credits, portrait, onOpen) {
+function creditTiles(credits, onOpen) {
   return (credits || []).map((c) => ({
     key: `${c.kind}-${c.work_id}`,
     kind: c.kind,
@@ -160,9 +160,18 @@ function creditTiles(credits, portrait, onOpen) {
       t(`unit.role.${c.role}`, { count: 1 }),
       c.credit_as && t('identity.credit.as.on', { as: c.credit_as }),
     ].filter(Boolean).join(' · '),
-    face: portrait,
-    faceName: c.credit_as || '',
-    faceTitle: c.credit_as || '',
+    // NO CHIP ON A WORK THEY MADE, which is `AppearanceStrip`'s own rule and was
+    // being broken by the one caller that most obviously should not: "On a work
+    // somebody WROTE they are the maker, not somebody inside it, and a silhouette
+    // there would claim a character nobody has named."
+    //
+    // This passed `portrait` — the person's own face — so every book an author
+    // wrote wore a disc in its corner holding a picture of the author. Worse than
+    // wrong: `portrait` is a PERSON's path and the chip renders it through
+    // `coverImgURL`, which builds a work's address, so the disc held a broken
+    // image on nine covers at once. An author has no per-work face to draw and
+    // the pack gives their tiles none.
+    face: false,
     artTitle: c.title,
     onOpen: () => onOpen(c),
   }))
@@ -286,7 +295,7 @@ export function PersonGlobal({
   const tiles = useMemo(
     () => [
       ...workTiles(roles, portrait, onOpenRole),
-      ...creditTiles(credits, portrait, onOpenWork),
+      ...creditTiles(credits, onOpenWork),
     ],
     [roles, credits, portrait, onOpenRole, onOpenWork],
   )

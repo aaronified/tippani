@@ -14,7 +14,7 @@ screenshot. `rater` is the independent work-rating subagent. `probe` is
 working — which is the column to be most suspicious of, because it is the one where I
 grade myself.
 
-Last updated: 2026-09-05.
+Last updated: 2026-09-05 (A1 fixed, C1 fixed).
 
 ---
 
@@ -26,17 +26,17 @@ polish." Everything in this section is that report, itemised.
 
 | # | Defect | Source | State |
 |---|---|---|---|
-| A1 | **Two header bars.** The panel's own head draws the title, and `ScreenHead` draws the title, cover and crumb again below it. The pack has ONE header row: cover with the medium glyph laid over it, title above crumb, ✕, and a `border-bottom` divider (`character-popup.dc.html:33-43`). | owner | OPEN |
+| A1 | **Two header bars.** The panel's own head draws the title, and `ScreenHead` draws the title, cover and crumb again below it. The pack has ONE header row: cover with the medium glyph laid over it, title above crumb, ✕, and a `border-bottom` divider (`character-popup.dc.html:33-43`). | owner | **FIXED** — `ScreenHead` publishes to the panel's head through `usePanelHead` and draws nothing; `one-header.test.jsx` counts the bars and the printings of the name, and three of its seven cases fail against the stacked arrangement |
 | A2 | **The sheet is flat.** The pack separates its blocks; the app runs them together. The header's `border-bottom` is one instance, and the owner reports "other subtle things" beyond it. | owner | OPEN |
 | A3 | **The picture verbs are not the pack's.** It specifies `Fetch` · `Upload` · `Paste URL` as three named buttons plus `Set for the identity` outlined red and dashed on a local scope only (`character-popup.dc.html:1257-1280`). The app draws one small tile and "use this one". Recorded in `codebase-audit.md` §4.1 as a deviation and then not acted on. | owner | OPEN |
-| A4 | **The face chip cannot reassign the performer.** The pack splits the credit row: the face opens the person picker (`mode:'person'`, line 522), the name opens their record (line 529). `identityLocal.jsx:115` wires `onPick` to `onOpen`, so both go to the record — and `en.txt:6397` promises "Change who this is", which is a shipped tooltip that lies. | owner, rater | OPEN |
-| A5 | **A credit with no `actor_id` has two silent no-ops.** Neither button is `disabled` and neither does anything. The pack's own copy for that state is "Nobody named on this credit yet". | rater | OPEN |
+| A4 | **FIXED.** The face chip could not reassign the performer. The pack splits the credit row: the face opens the person picker (`mode:'person'`, line 522), the name opens their record (line 529). `identityLocal.jsx:115` wires `onPick` to `onOpen`, so both go to the record — and `en.txt:6397` promises "Change who this is", which is a shipped tooltip that lies. | owner, rater | **FIXED** — see `credit-row.test.jsx`, 4 of whose 8 cases fail against the row as it shipped |
+| A5 | **FIXED.** A credit with no `actor_id` had two silent no-ops. Neither button is `disabled` and neither does anything. The pack's own copy for that state is "Nobody named on this credit yet". | rater | **FIXED** — see `credit-row.test.jsx`, 4 of whose 8 cases fail against the row as it shipped |
 | A6 | **The performer's face is missing on the local sheet** although the same person's face draws on the quote card. | owner | OPEN |
 | A7 | **The character's picture shows on the global card and not on the local one**, for the same character. | owner | OPEN |
 | A8 | **The global card lists quotes; the prototype has no such list** on either the character or the person global screen. | owner | OPEN |
 | A9 | **"Open the global reco…" is clipped.** A row's label is cut off mid-word, which the standing rule forbids outright: "Never truncate a name." | owner | OPEN |
-| A10 | **Emoji stand in for the app's glyphs.** `identityLocal.jsx` passes `noteIcon: '✎'`, `removeIcon: '✕'`, `caret: '▾'` — literal characters. CLAUDE.md: "A screen's glyphs are the app's own, never an emoji." | self | OPEN |
-| A11 | **The credit row shows the note or the language, never both.** `identityLocal.jsx:107`; the pack joins them (`[o.lang, o.note].filter(Boolean).join(' · ')`, line 518). | rater | OPEN |
+| A10 | **FIXED.** Emoji stood in for the app's glyphs on the credit row. `identityLocal.jsx` passes `noteIcon: '✎'`, `removeIcon: '✕'`, `caret: '▾'` — literal characters. CLAUDE.md: "A screen's glyphs are the app's own, never an emoji." | self | **FIXED** — see `credit-row.test.jsx`, 4 of whose 8 cases fail against the row as it shipped |
+| A11 | **FIXED.** The credit row showed the note or the language, never both. `identityLocal.jsx:107`; the pack joins them (`[o.lang, o.note].filter(Boolean).join(' · ')`, line 518). | rater | **FIXED** — see `credit-row.test.jsx`, 4 of whose 8 cases fail against the row as it shipped |
 | A12 | **Both global sheets still reach their fields with `focusField`** rather than the pack's picker (`identity.jsx:752, 767, 1390-1400`). The picker exists and is used only by the local sheet. | rater | OPEN |
 | A13 | **The picker's `choose` mode is unbuilt.** The pack has four modes — person, choose, note, and the language variant. Three exist. | rater | OPEN |
 
@@ -53,7 +53,7 @@ polish." Everything in this section is that report, itemised.
 
 | # | Defect | Source | State |
 |---|---|---|---|
-| C1 | **A character chip is dead until somebody opens that work's cast list.** ROOT CAUSE, and it is behind every "the pills don't open" report. `adoptQuoteCharacters` gives a quoted character the cast row that carries `character_id`, and the press is gated on that id — but the function has exactly ONE caller, `cast_handlers.go:244`, the cast-list read. Nothing calls it when a quote is saved, and nothing calls it when Quotes or Home draw their chips. Measured against the running app: "Charles Foster Kane" served `{"name":…,"path":""}` with no id; after one GET of that film's cast it served `{"name":…,"cast_id":9,"character_id":6}`. It is not about the actor — that row has one. | owner, self | OPEN |
+| C1 | **FIXED in `961dd8c`.** A character chip was dead until somebody opened that work's cast list. ROOT CAUSE, and it is behind every "the pills don't open" report. `adoptQuoteCharacters` gives a quoted character the cast row that carries `character_id`, and the press is gated on that id — but the function has exactly ONE caller, `cast_handlers.go:244`, the cast-list read. Nothing calls it when a quote is saved, and nothing calls it when Quotes or Home draw their chips. Measured against the running app: "Charles Foster Kane" served `{"name":…,"path":""}` with no id; after one GET of that film's cast it served `{"name":…,"cast_id":9,"character_id":6}`. It is not about the actor — that row has one. | owner, self | OPEN |
 | C2 | **No metadata source icons** in the Details panel or the metadata fetch sections. | owner | OPEN |
 | C3 | **`Quotes.jsx:965` passes `onOpenPerson: setPerson`**, bypassing the person router added in `e4e02b2`, which that screen uses at line 1188 only. | rater | OPEN |
 
