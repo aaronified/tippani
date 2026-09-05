@@ -78,4 +78,10 @@ esac
 
 cd "$HERE"
 [ -d node_modules ] || npm ci
-exec env -u XAUTHORITY -u DISPLAY -u WAYLAND_DISPLAY "$@"
+# NOT `exec`. It replaces this shell, so the EXIT trap above never fires — the
+# scratch server outlives the run and the mktemp data dir, holding somebody's
+# restored library, is never removed. Four orphaned servers accumulated before
+# this was noticed.
+rc=0
+env -u XAUTHORITY -u DISPLAY -u WAYLAND_DISPLAY "$@" || rc=$?
+exit "$rc"

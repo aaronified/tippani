@@ -34,12 +34,23 @@ import puppeteer from 'puppeteer-core'
 
 import { HARNESS_ACCOUNT, emulateEngineMedia, ensureSession, findBrowser, launchOptions } from './capture.mjs'
 
-const opts = { baseUrl: 'http://127.0.0.1:8080', timeoutMs: 30000, width: 1280, height: 1000, only: '' }
+const opts = {
+  baseUrl: 'http://127.0.0.1:8080', timeoutMs: 30000, width: 1280, height: 1000, only: '',
+  username: process.env.TIPPANI_USER || HARNESS_ACCOUNT.username,
+  password: process.env.TIPPANI_PASS || HARNESS_ACCOUNT.password,
+}
 for (let i = 2; i < process.argv.length; i++) {
   const next = () => process.argv[++i]
   if (process.argv[i] === '--base-url') opts.baseUrl = next()
   else if (process.argv[i] === '--only') opts.only = next()
   else if (process.argv[i] === '--width') opts.width = Number(next())
+  // WHOSE LIBRARY THIS IS. The seeded fixture's account is the harness's own, and
+  // that is the default; a run against a RESTORED backup is somebody's real
+  // library and signs in as them. Without this the probe typed the harness's
+  // username into a login that has never heard of it and every surface reported
+  // "did not render" — a run that measures the login screen twenty times.
+  else if (process.argv[i] === '--username') opts.username = next()
+  else if (process.argv[i] === '--password') opts.password = next()
   else if (process.argv[i] === '--help' || process.argv[i] === '-h') {
     console.log('usage: node controls.mjs [--base-url URL] [--only substring] [--width N]\n\n' +
       'Presses every control on every screen and panel it can reach, and fails on\n' +
@@ -143,8 +154,8 @@ try {
   await emulateEngineMedia(page, engine.browser, 'light')
   await ensureSession(page, {
     baseUrl: opts.baseUrl,
-    username: HARNESS_ACCOUNT.username,
-    password: HARNESS_ACCOUNT.password,
+    username: opts.username,
+    password: opts.password,
     timeoutMs: opts.timeoutMs,
   })
 
