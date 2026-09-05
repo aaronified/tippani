@@ -179,7 +179,13 @@ describe('every dismissible overlay owns a back entry', () => {
       const src = readFileSync(join(SRC, f), 'utf8')
       // `tp-scrim-deep` is a BADGE over artwork, not an overlay — works.jsx
       // carries two and neither is dismissible.
-      if (/["'`][^"'`]*\btp-scrim\b(?!-)/.test(src)) stray.push(f)
+      //
+      // TWO SPELLINGS, BECAUSE THE CLASS LIST IS SHARED NOW. Nine files used to
+      // write `tp-scrim fixed inset-0 …` out in full; they take `SCRIM` /
+      // `SCRIM_CENTERED` from ui.jsx instead, and a scan looking only for the
+      // literal would have found NOTHING outside ui.jsx and passed for the reason
+      // a test must never pass. An overlay is either spelling.
+      if (/["'`][^"'`]*\btp-scrim\b(?!-)/.test(src) || /\bSCRIM(_CENTERED)?\b/.test(src)) stray.push(f)
     }
     expect(stray, `these draw a scrim and are not on the roll above: ${stray.join(', ')}`).toEqual([])
   })

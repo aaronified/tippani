@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useBodyScrollLock, ANNOTATION_HEX, CloseButton, FieldIconButton, GhostButton, IconShare, InfoDot, MonoLabel, Select, Toggle, toast, usePersistedState, useIsMobileScreen, useEscape, useBackToClose } from "./ui.jsx";
+import { useBodyScrollLock, ANNOTATION_HEX, CloseButton, FieldIconButton, GhostButton, IconShare, InfoDot, MonoLabel, Select, Toggle, toast, usePersistedState, useIsMobileScreen, useEscape, useBackToClose, SCRIM, backdropClose } from "./ui.jsx";
 import { buildModel, drawQuoteCard, ensureFonts, loadFaceImages, loadTileImage, readTheme, tileImage } from "./quoteImage.js";
 import { t } from "./i18n.js";
 import { DEFAULT_CREDIT_SEPS, splitCredits } from "./people.jsx";
@@ -1052,10 +1052,8 @@ export function ShareDialog({ share, seen, onClose }) {
 
   return (
     <div
-      className="tp-scrim fixed inset-0 z-50 overflow-y-auto px-4 py-10"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
+      className={SCRIM}
+      onMouseDown={backdropClose(onClose)}
     >
       <div
         role="dialog"

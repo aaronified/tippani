@@ -66,6 +66,8 @@ import {
   useScreenBar,
   SectionTitle,
   useBackToClose,
+  SCRIM_CENTERED,
+  backdropClose,
 } from './ui.jsx'
 
 // Settings (§8.11): Appearance, Metadata sources, review/credits prefs, and
@@ -1704,11 +1706,11 @@ function PromptFrame({ title, closeLabel, closeTip, busy = false, maxWidth = 460
   }
   return createPortal(
     <div
-      className="tp-scrim fixed inset-0 z-50 flex items-start justify-center overflow-y-auto px-4 py-10"
+      className={SCRIM_CENTERED}
       role="dialog"
       aria-modal="true"
       aria-label={title}
-      onMouseDown={(e) => { if (e.target === e.currentTarget && !busy) onClose() }}
+      onMouseDown={backdropClose(onClose, !busy)}
     >
       <div className="hand-card hc-r2 w-full" style={{ maxWidth, padding: '18px 20px 20px' }}>
         <div className="mb-3 flex items-center gap-2">

@@ -79,6 +79,8 @@ import {
   useBackToClose,
   PanelHost,
   usePanelStack,
+  SCRIM,
+  backdropClose,
 } from './ui.jsx'
 
 // ---- the vocabulary, fetched once and held for the session ------------------
@@ -1180,8 +1182,8 @@ function QuoteModal({ kind, hit, authorMap = {}, actorMap = {}, speakerMap = {},
 
   return (
     <div
-      className="tp-scrim fixed inset-0 z-50 overflow-y-auto px-4 py-10"
-      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}
+      className={SCRIM}
+      onMouseDown={backdropClose(onClose)}
     >
       {/* Portalled to <body> by ConfirmDialog itself, so it is above this scrim
           rather than inside it — a question about deleting the thing this modal

@@ -41,6 +41,8 @@ import {
   useAnchoredPosition,
   useDismiss,
   useBackToClose,
+  SCRIM_CENTERED,
+  backdropClose,
 } from './ui.jsx'
 
 // One card, four kinds. "Film", "Show" and "Game" all map to the movies flow
@@ -459,12 +461,13 @@ function ManualPopup({ kind, onClose, onAdded }) {
   const canSave = !busy && !!title.trim()
   return createPortal(
     <div
-      className="tp-scrim fixed inset-0 flex items-start justify-center overflow-y-auto px-4 py-10"
+      // Above the ordinary z-50: this one opens FROM a dialog.
+      className={SCRIM_CENTERED}
       style={{ zIndex: 60 }}
       role="dialog"
       aria-modal="true"
       aria-label={heading}
-      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}
+      onMouseDown={backdropClose(onClose)}
     >
       <HandCard variant={1} className="w-full max-w-lg px-6 py-6">
         <div className="mb-4 flex items-center gap-2">
@@ -1391,13 +1394,11 @@ export default function AddSurface({
 
   return (
     <div
-      className="tp-scrim fixed inset-0 z-50 flex items-start justify-center overflow-y-auto px-4 py-10"
+      className={SCRIM_CENTERED}
       role="dialog"
       aria-modal="true"
       aria-label={t('capture.dialog.aria')}
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose()
-      }}
+      onMouseDown={backdropClose(onClose)}
     >
       <HandCard variant={2} className="w-full max-w-2xl px-6 py-6">
         <div className="mb-4 flex items-center gap-2">

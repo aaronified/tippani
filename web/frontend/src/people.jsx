@@ -4,7 +4,7 @@ import { t } from './i18n.js'
 import { personImgURL, PersonPortrait, usePeople } from './credits.jsx'
 import { usePractice } from './review.jsx'
 import { Silhouette } from './silhouette.jsx'
-import { useBodyScrollLock, CloseButton, ErrorText, ExpandableDescription, Field, GhostButton, IconCheck, IconClose, IconDelete, IconEdit, IconMerge, IconPlus, IconQuiz, IconPractise, IconRefresh, IconSearch, isPartialDate, Lightbox, MonoLabel, NameInput, NameScroll, PartialDateField, Placeholder, Scroller, Tooltip, useConfirm, useEscape, useBackToClose } from './ui.jsx'
+import { useBodyScrollLock, CloseButton, ErrorText, ExpandableDescription, Field, GhostButton, IconCheck, IconClose, IconDelete, IconEdit, IconMerge, IconPlus, IconQuiz, IconPractise, IconRefresh, IconSearch, isPartialDate, Lightbox, MonoLabel, NameInput, NameScroll, PartialDateField, Placeholder, Scroller, Tooltip, useConfirm, useEscape, useBackToClose, SCRIM, backdropClose} from './ui.jsx'
 
 const PRIMARY = 'tp-btn tp-btn-primary'
 
@@ -1147,10 +1147,8 @@ export function PersonModal({ kind, name, onClose, onSaved }) {
 
   return (
     <div
-      className="tp-scrim fixed inset-0 z-50 overflow-y-auto px-4 py-10"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose()
-      }}
+      className={SCRIM}
+      onMouseDown={backdropClose(onClose)}
     >
       {/* Portalled to <body> by ConfirmDialog itself, so it lands above this
           scrim: the question is about the record this modal is showing, and the

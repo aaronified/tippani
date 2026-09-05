@@ -99,6 +99,34 @@ The six fields of 0063 that the same commit added to that INSERT are a real fix 
 a POST carrying `credit_lang` was validated, answered 201 and silently dropped, and
 `credit_lang` is the only thing that makes a credit a dub.
 
+### 1.1b THE ONE THE AUDIT MISSED — nine copies of the scrim, two of the clamp chevron, two of a media subscription
+
+A rater found "verbatim duplication in `ui.jsx`" and cited two line ranges that are
+not duplicates of each other. The claim was right and the citation was wrong, which
+is worth recording because it is the shape of most false findings: a real smell,
+located by eye.
+
+Located instead by sweeping the file for repeated eight-line blocks:
+
+| What | Where | Why it mattered |
+| --- | --- | --- |
+| The scrim class list | **nine** sites in seven files | `.tp-scrim` is the class carrying `overscroll-behavior: contain`. A copy that drifts does not look broken — it scrolls the page you cannot see, and you find out when you close the dialog |
+| The backdrop dismiss | the same nine | `e.target === e.currentTarget` written nine times is nine chances to write it wrong, and a press that starts on the card and drifts onto the scrim must not dismiss |
+| The clamp chevron | `HandNote`, `ExpandableText` | Two copies of the app's ONE expand affordance, each with its own pair of locale keys |
+| The matchMedia subscription | `useIsMobileScreen`, `useHideOnScrollDown` | Two copies of a subscription is two places a leak lives, and the legacy `addListener` fallback is exactly what gets remembered in one of them |
+
+Now `SCRIM` / `SCRIM_CENTERED` / `backdropClose` / `ClampToggle` / `useMediaMatch`.
+`ConfirmDialog`'s scrim stays its own string and says why in place: a question box
+is centred vertically and does not scroll.
+
+**AND FOLDING THEM BROKE TWO SWEEPS, both of which said so.**
+`nested-dismiss.test.jsx` scans for a `tp-scrim` string literal outside `ui.jsx` to
+notice a new overlay; with nine literals gone it would have found nothing and
+passed. `scroll-containment.test.js` looked for `className="… overflow-y-auto …"`
+and reported zero, which its own "there are some" case caught. Both now follow the
+constant. That is what those guards are for, and it is the argument for writing
+them.
+
 ### 1.2 Worth confirming, not fixing
 
 `fandom_wiki` and `cast_role` are films-only by nature, so #2 is probably correct — but

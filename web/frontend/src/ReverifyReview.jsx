@@ -27,6 +27,8 @@ import {
   useBodyScrollLock,
   useIsMobileScreen,
   useBackToClose,
+  SCRIM,
+  backdropClose,
 } from './ui.jsx'
 
 const CHUNK = 10 // items per preview call (server caps at 15)
@@ -556,13 +558,11 @@ export function ReverifyFlow({ selection, onClose, onFlash, onDone }) {
   }
   return (
     <div
-      className="tp-scrim fixed inset-0 z-50 overflow-y-auto px-4 py-10"
+      className={SCRIM}
       role="dialog"
       aria-modal="true"
       aria-label={t('reverify.title')}
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose()
-      }}
+      onMouseDown={backdropClose(onClose)}
     >
       <HandCard variant={1} className="mx-auto w-full max-w-3xl px-6 py-5">
         <div className="mb-3 flex items-center justify-between gap-3">

@@ -75,24 +75,52 @@ function containingClasses() {
   return out
 }
 
-function jsxScrollers() {
+// EVERY CLASS LIST, WHEREVER IT IS WRITTEN — a `className="…"` on an element, or
+// a shared constant like ui.jsx's `SCRIM`. The first draft looked only at
+// `className="…"` and went blind the day nine of those literals moved into one
+// exported constant: it found nothing and said so, which is the one thing the
+// "there are some" case above is for. A class list is a quoted string containing
+// an overflow utility, and it does not matter which side of an `=` it sits on.
+function classListsWithOverflow() {
   const out = []
-  for (const file of readdirSync(SRC).filter((f) => f.endsWith('.jsx'))) {
+  const files = readdirSync(SRC).filter((f) => f.endsWith('.jsx') || f.endsWith('.js'))
+  for (const file of files) {
     const text = readFileSync(join(SRC, file), 'utf8')
     text.split('\n').forEach((line, i) => {
-      const m = line.match(/className="([^"]*)"/)
-      if (!m || !OVERFLOW_UTIL.test(m[1])) return
-      out.push({ where: `${file}:${i + 1}`, classes: m[1].split(/\s+/) })
+      for (const m of line.matchAll(/["'`]([^"'`\n]*)["'`]/g)) {
+        if (!OVERFLOW_UTIL.test(m[1])) continue
+        out.push({ where: `${file}:${i + 1}`, classes: m[1].split(/\s+/).filter(Boolean) })
+      }
     })
   }
   return out
 }
 
 describe('a scroll container written as a utility class', () => {
-  const found = jsxScrollers()
+  const found = classListsWithOverflow()
 
   it('there are some, so this test is testing something', () => {
-    expect(found.length, 'the extraction found no utility scrollers at all').toBeGreaterThan(5)
+    // ONE, AND THAT IS THE POINT OF IT BEING ONE. Nine files wrote this class
+    // list out in full until they were folded into ui.jsx's `SCRIM` /
+    // `SCRIM_CENTERED`; the sweep follows the constant, so the number it finds
+    // fell from nine to one WITHOUT the coverage falling — every overlay still
+    // wears the list this checks. What the case guards is the extraction itself:
+    // a regex that stops matching reports zero and asserts nothing about it.
+    expect(found.length, 'the extraction found no utility scrollers at all').toBeGreaterThan(0)
+  })
+
+  it('and the shared one is what the overlays actually wear', () => {
+    // The count above can only stay honest while the constant is the thing the
+    // overlays use. `nested-dismiss.test.jsx` keeps the roll of who draws a
+    // scrim; this is the other half — that the roll's members take the class
+    // from here rather than writing their own.
+    const ui = readFileSync(join(SRC, 'ui.jsx'), 'utf8')
+    expect(ui, 'ui.jsx no longer exports a shared scrim class').toMatch(/export const SCRIM\b/)
+    const users = readdirSync(SRC)
+      .filter((f) => f.endsWith('.jsx') && f !== 'ui.jsx')
+      .filter((f) => /\bSCRIM(_CENTERED)?\b/.test(readFileSync(join(SRC, f), 'utf8')))
+    expect(users.length, 'no screen takes the scrim from ui.jsx — they have gone back to their own')
+      .toBeGreaterThan(3)
   })
 
   it('stops its scroll at its own edge too', () => {

@@ -150,21 +150,37 @@ export function isMobileScreen() {
   );
 }
 
-export function useIsMobileScreen() {
-  const [mobile, setMobile] = useState(isMobileScreen);
+// useMediaMatch — does this media query hold, and re-render when it stops.
+//
+// TWO COPIES OF THIS EXISTED, verbatim, eight lines each: `useIsMobileScreen`
+// and `useHideOnScrollDown` both wrote the same subscribe/sync/unsubscribe with
+// the same legacy `addListener` fallback. Two copies of a subscription is two
+// places a leak has to be fixed, and the fallback branch — for Safari before
+// 14 — is exactly the kind of thing that gets remembered in one of them.
+//
+// `initial` is separate from the query because the two callers seed differently:
+// one has a module-level reader it shares with non-React code, the other reads
+// the query. Both are evaluated before the effect runs, so neither can flash.
+function useMediaMatch(query, initial) {
+  const [on, setOn] = useState(initial);
   useEffect(() => {
     if (typeof window === "undefined" || !window.matchMedia) return;
-    const media = window.matchMedia(MOBILE_SCREEN_QUERY);
-    const sync = () => setMobile(media.matches);
+    const media = window.matchMedia(query);
+    const sync = () => setOn(media.matches);
     sync();
     if (media.addEventListener) {
       media.addEventListener("change", sync);
       return () => media.removeEventListener("change", sync);
     }
+    // Safari before 14, which has matchMedia and not its event target.
     media.addListener?.(sync);
     return () => media.removeListener?.(sync);
-  }, []);
-  return mobile;
+  }, [query]);
+  return on;
+}
+
+export function useIsMobileScreen() {
+  return useMediaMatch(MOBILE_SCREEN_QUERY, isMobileScreen);
 }
 
 // TWO_COLUMN_QUERY is the width at which the work detail becomes two columns —
@@ -224,24 +240,10 @@ export function useHideOnScrollDown({
   topZone = 24, // px from the top where the bar is unconditionally shown
 } = {}) {
   const [hidden, setHidden] = useState(false);
-  const [reduced, setReduced] = useState(
-    () =>
-      typeof window !== "undefined" &&
-      !!window.matchMedia?.(REDUCED_MOTION_QUERY).matches,
+  const reduced = useMediaMatch(
+    REDUCED_MOTION_QUERY,
+    typeof window !== "undefined" && !!window.matchMedia?.(REDUCED_MOTION_QUERY).matches,
   );
-
-  useEffect(() => {
-    if (typeof window === "undefined" || !window.matchMedia) return;
-    const media = window.matchMedia(REDUCED_MOTION_QUERY);
-    const sync = () => setReduced(media.matches);
-    sync();
-    if (media.addEventListener) {
-      media.addEventListener("change", sync);
-      return () => media.removeEventListener("change", sync);
-    }
-    media.addListener?.(sync);
-    return () => media.removeListener?.(sync);
-  }, []);
 
   const active = enabled && !reduced && !forceShow;
 
@@ -1740,6 +1742,29 @@ export function HighlightSpan({ children }) {
 //
 // `lines` is a prop because one caller genuinely differs: the quiz card's note is
 // the thing being read rather than a remark beside it.
+// ClampToggle — the chevron under a clamped block, with the sentence that says
+// which way it goes.
+//
+// FOUR LINES, WRITTEN TWICE, VERBATIM. `HandNote` and `ExpandableText` both ended
+// with the same guard, the same Tooltip with the same two locale keys and the
+// same layout classes, and the app has exactly one affordance for expanding a
+// clamped block — "a small chevron; there are no 'show more / show less' text
+// buttons anywhere". Two copies of one affordance is two places its label has to
+// stay right, and only one of them would have been found the day the wording
+// changed.
+function ClampToggle({ canToggle, open }) {
+  if (!canToggle) return null;
+  return (
+    <Tooltip
+      label={t(open ? "common.action.show-less.label" : "common.clamp.text.more.tip")}
+      side="bottom"
+      className="flex w-full justify-center"
+    >
+      <ClampMore open={open} />
+    </Tooltip>
+  );
+}
+
 export function HandNote({ className = "", lines = 2, children }) {
   const [open, setOpen] = useState(false)
   const { ref, canToggle, clamp } = useClamped({ lines, open, watch: children })
@@ -1766,11 +1791,7 @@ export function HandNote({ className = "", lines = 2, children }) {
       <span className="tick" aria-hidden="true" />
       {children}
     </p>
-      {canToggle && (
-        <Tooltip label={t(open ? "common.action.show-less.label" : "common.clamp.text.more.tip")} side="bottom" className="flex w-full justify-center">
-          <ClampMore open={open} />
-        </Tooltip>
-      )}
+      <ClampToggle canToggle={canToggle} open={open} />
     </div>
   );
 }
@@ -2439,11 +2460,7 @@ export function ExpandableText({ text, lines = 5, style, className = "", open: o
       >
         {text}
       </p>
-      {canToggle && (
-        <Tooltip label={t(open ? "common.action.show-less.label" : "common.clamp.text.more.tip")} side="bottom" className="flex w-full justify-center">
-          <ClampMore open={open} />
-        </Tooltip>
-      )}
+      <ClampToggle canToggle={canToggle} open={open} />
     </div>
   );
 }
@@ -3627,10 +3644,12 @@ export function ConfirmDialog({
   // at the top of a page; useConfirm exists so that no longer has to be true.
   return createPortal(
     <div
+      // NOT `SCRIM`: a question box is centred VERTICALLY and does not scroll —
+      // it is two sentences and two buttons, and a sheet's `items-start` would
+      // pin it to the top of an otherwise empty screen. The dismiss is the same
+      // dismiss.
       className="tp-scrim fixed inset-0 z-50 flex items-center justify-center px-4 py-10"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget && onCancel) onCancel();
-      }}
+      onMouseDown={backdropClose(onCancel)}
     >
       <div
         role="dialog"
@@ -4081,7 +4100,7 @@ export function PanelHost({ stack }) {
   return createPortal(
     <div
       className="tp-scrim tp-panel-scrim fixed inset-0 z-50 flex justify-center"
-      onMouseDown={(e) => { if (e.target === e.currentTarget) guard(close)(); }}
+      onMouseDown={backdropClose(() => guard(close)())}
     >
       <div
         // HOW MUCH IS AT STAKE, on the element, because there is no other way to
@@ -4236,6 +4255,30 @@ export function PanelHost({ stack }) {
 //
 // `dirty` is a COUNT, not a boolean, because the badge shows it. undefined means
 // "the caller does not track it" and the tick behaves as it always did.
+// ---- the scrim every dialog in this app sits on ----------------------------
+//
+// NINE COPIES OF ONE CLASS LIST, in seven files, and the list is not decorative:
+// `.tp-scrim` is what carries `overscroll-behavior: contain`, so a wheel that
+// runs past the end of a dialog stops there instead of moving the page behind
+// it, and `px-4 py-10` is the room a dialog gets on a phone. A copy that drifts
+// does not look broken — it scrolls the page you cannot see, and you find out
+// when you close it.
+//
+// TWO SHAPES, BECAUSE THERE ARE GENUINELY TWO. A dialog that centres its card
+// horizontally and one that lets the card fill the width are different layouts,
+// not a variant of one. Everything else about the nine was identical.
+export const SCRIM = "tp-scrim fixed inset-0 z-50 overflow-y-auto px-4 py-10";
+export const SCRIM_CENTERED = `${SCRIM} flex items-start justify-center`;
+
+// backdropClose — dismiss when the press lands on the scrim ITSELF, never on a
+// press that started inside the card and drifted out. `e.target === e.currentTarget`
+// is the whole of that, and writing it nine times is nine chances to write
+// `e.target === e.target`. `when` is for the callers that refuse to close while
+// a save is in flight.
+export const backdropClose = (onClose, when = true) => (e) => {
+  if (when && e.target === e.currentTarget) onClose?.();
+};
+
 export function FormModal({ open = true, onClose, title, maxWidth = 560, saveTip, dirty, closeDanger = false, children }) {
   const mobile = useIsMobileScreen();
   useBodyScrollLock(open);
@@ -4283,12 +4326,7 @@ export function FormModal({ open = true, onClose, title, maxWidth = 560, saveTip
   // (a .hand-card is `isolation: isolate`, so an in-tree modal is trapped and
   // later tiles paint over it).
   return createPortal(
-    <div
-      className="tp-scrim fixed inset-0 z-50 flex items-start justify-center overflow-y-auto px-4 py-10"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget && onClose) onClose();
-      }}
-    >
+    <div className={SCRIM_CENTERED} onMouseDown={backdropClose(onClose)}>
       <div
         role="dialog"
         aria-modal="true"
@@ -5188,12 +5226,7 @@ export function HelpSheet({ open, title, wide = false, onClose, children }) {
     );
   }
   return createPortal(
-    <div
-      className="tp-scrim fixed inset-0 z-50 flex items-start justify-center overflow-y-auto px-4 py-10"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget && onClose) onClose();
-      }}
-    >
+    <div className={SCRIM_CENTERED} onMouseDown={backdropClose(onClose)}>
       <div
         role="dialog"
         aria-modal="true"
