@@ -187,6 +187,14 @@ export function PortraitBlock({ src, name, px, soft, from = '', actions, editor 
 // put "and here is how you change this list" — a row under the list reads as a
 // member of it, and a control above the heading belongs to the screen rather
 // than to the section.
+//
+// ONE ACTION WHERE THE PACK HAS TWO, and the departure is the app's own earlier
+// decision rather than a shortcut. `addTo(src)` is `[Add, Fetch]`; the app puts
+// its cast fetches on the FETCH screen with the metadata fetch, deliberately —
+// "offers them where the other fetch is, not inside the People panel", which is
+// a test — so a second key here would be a door to a screen two presses away
+// wearing the word for something that happens in one. Add lives in the cast
+// editor, which is what this one key opens.
 export function SectionHead({ label, note, action, actionLabel, actionTitle }) {
   return (
     <div className="cs-head-row">

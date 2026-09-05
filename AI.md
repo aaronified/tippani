@@ -289,7 +289,9 @@ worth nothing here and only execution counts. What the repo actually runs:
   pixels into `--type-*` — so setting the root to 24px alone leaves the app untouched
   and would have returned a clean bill of health for a stylesheet full of px boxes.
 - **`make controls` asks a question of every control instead of asserting a fix.** It
-  presses everything a reader can press on twelve surfaces and asks two things of each:
+  presses everything a reader can press on fifteen surfaces — nine screens, two work
+  details, and four surfaces reached through a DOOR the run has to open first, refusing
+  to continue unless one actually opened — and asks two things of each:
   did anything at all change — a dialog, a panel, the route, focus, the scroll position,
   the surface's own text — and if not, did the control SAY it was disabled. A control
   that answers no to both is a lie to the reader whatever the reason, and the reason is
@@ -311,7 +313,20 @@ worth nothing here and only execution counts. What the repo actually runs:
   separate lessons in one session to get right: a surface that draws almost nothing did
   not render and is reported instead of scoring "0 controls, 0 dead"; a control that
   moved between enumeration and the press was not tested and is reported instead of
-  skipped; and the run exits non-zero on any of the five lists. `panel-depth.mjs` and
+  skipped; and the run exits non-zero on a finding rather than on a warning.
+
+  **Its buckets are split three ways, and that is what makes the gate reachable.** Six
+  FAIL, because each is the app lying to a reader and each has one right answer: a
+  control that does nothing and does not say so, a menu that opens empty, a header that
+  is not the pack's, a screen that scrolls sideways, a route that is not a screen, a
+  surface that did not render. Two RATCHET against `controls-baseline.json` PER WIDTH —
+  controls under the 44px touch floor, and controls drawing a glyph beside their words on
+  a phone — because both are real debt that no one commit can zero, and a count allowed
+  to grow is a count nobody reads. One is a report only: a control the harness could not
+  reach is as often a fact about the harness as about the app, and failing on it would
+  make the gate a measure of the run's luck. It used to fail on ANY non-empty bucket,
+  which made a green run impossible by construction — every run read FAIL, so the FAILs
+  that mattered stopped being read. `panel-depth.mjs` and
   `hero-control.mjs` each shipped with a silent SKIP that exited 0, and each was cited
   in prose as a guard while a run of it could prove nothing at all.
 

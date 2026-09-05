@@ -3069,20 +3069,23 @@
      carried a heading and its own margin. With the headings gone the rows
      are a single list and the air between them is the only thing keeping
      the section tall. */
-  /* A FIELD IS A CARD, not a line between two hairlines. Same report as .cs-row
-     above: a panel of a dozen of these was a flat sheet with rules across it,
-     against an app whose every other surface has a body. The hairline goes with
-     the change — a card's own edge is what separates it from the next one, and
-     keeping both would draw the boundary twice. */
-  .inline-field {
+  .inline-field { padding: 6px 0; border-bottom: 1px solid var(--line); }
+  .inline-field:last-child { border-bottom: none; }
+  /* A FIELD ON A SHEET IS A CARD; A FIELD INSIDE A CARD IS A ROW.
+     The report was the work Details panel — a dozen fields on a flat sheet with
+     rules across them, in an app whose every other surface has a body. So the
+     card treatment goes on `.inline-field-rows`, which is that form and only
+     that form: the same class inside a Settings card would be a card drawn
+     inside a card at one elevation, which is muddier than the flatness it was
+     meant to fix. The hairline goes where the card comes, because a card's own
+     edge separates it from the next one and keeping both draws the boundary
+     twice. */
+  .inline-field-rows > .inline-field {
     padding: 6px 10px;
-    border: 1px solid var(--line); border-radius: 10px;
+    border: 1px solid var(--line); border-radius: 10px; border-bottom: 1px solid var(--line);
     background: var(--raised);
     box-shadow: 0 1px 2px rgba(var(--sh), .09), inset 0 1px var(--bevel-mid);
   }
-  /* THE ROWS NEED A GAP NOW THEY HAVE EDGES. `--row` is the app's own step, so
-     this is not a number typed into a row — see the spacing rule. */
-  .inline-field + .inline-field { margin-top: 7px; }
   /* ---- TWO FIELDS TO A LINE ----
      A YEAR IS FOUR CHARACTERS AND A SERIES NUMBER IS ONE, and each of them was
      taking a full row of a panel whose rows are otherwise a title and a
@@ -3098,10 +3101,9 @@
   .inline-field-rows { display: flex; flex-wrap: wrap; column-gap: var(--edge); row-gap: 7px; }
   .inline-field-rows > .inline-field { flex: 0 0 100%; min-width: 0; }
   .inline-field-rows > .inline-field.is-half { flex: 1 1 42%; }
-  /* THE HAIRLINE IS GONE, so is the rule that had to suppress it on the last row.
-     What the pair needs now is that neither of them takes the stacking margin —
-     the row gap above does that job once they have edges of their own. */
-  .inline-field-rows > .inline-field + .inline-field { margin-top: 0; }
+  /* THE ROW GAP IS WHAT SEPARATES THEM NOW, so the rule that used to flush the
+     last row's hairline has nothing left to suppress. */
+  .inline-field-rows > .inline-field:last-child { border-bottom: 1px solid var(--line); }
   .inline-field-head { display: flex; align-items: center; gap: 7px; margin-bottom: 5px; min-height: 26px; }
   /* Nothing below the row: the gap it was leaving is for a value line or an
      editor that is not there, and a settings card is mostly rows like this. */
@@ -8881,14 +8883,18 @@ html[data-theme="dark"] .board-cover {
      list — a row under a list reads as a member of it. It sits at the far end so
      the heading still reads first. */
   .cs-head-top { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  /* THE PACK'S OWN GEOMETRY for a head's action (`work-details-popup.dc.html:619`):
+     a 44px floor, 9px corners, 13px, the ink border and the raised fill. It was
+     written here at 30px and 11px first, which put a control the reader presses
+     on a phone under the touch floor — the one rule this app counts every run. */
   .cs-section-action {
     margin-left: auto; flex: none;
-    display: inline-flex; align-items: center; gap: 5px;
-    min-height: max(30px, 2em); padding: 0 9px;
-    border: 1px solid var(--line); border-radius: 9px;
-    background: var(--raised); color: var(--soft);
-    font-size: var(--type-ui-11); cursor: pointer;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .5);
+    display: inline-flex; align-items: center; gap: 7px;
+    min-height: max(44px, 2.8em); padding: 0 13px;
+    border: 1.4px solid var(--ink-border); border-radius: 9px;
+    background: var(--raised); color: var(--ink);
+    font-size: var(--type-ui-13); cursor: pointer;
+    box-shadow: inset 0 1px var(--bevel-hi);
   }
   .cs-section-action:hover, .cs-section-action:focus-visible { border-color: var(--accent-ui); color: var(--ink); }
 

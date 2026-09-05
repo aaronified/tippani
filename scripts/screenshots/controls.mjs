@@ -140,15 +140,21 @@ const SURFACES = [
     route: '/catalogue/{cast}',
     name: 'Character panel',
     needs: 'cast',
-    // THREE PRESSES, WHICH IS HOW MANY IT TAKES A READER. A film page draws no
-    // cast at all — measured, `.cast-character` is present zero times on
-    // `/catalogue/{id}` — because the cast lives in the Details panel, and there
-    // it is folded behind its own opener. A door written as one selector reported
-    // this surface unreachable while every press worked by hand.
+    // TWO PRESSES, WHICH IS HOW MANY IT NOW TAKES A READER — and the change is
+    // the point rather than an adjustment. A film page draws no cast (measured:
+    // `.cast-character` is present zero times on `/catalogue/{id}`), so this used
+    // to be three: Details, then the People row's pencil, then the cast row's
+    // character. The Details panel draws the cast AS FACES now, under its own
+    // `Cast · N` head, and a face is the character's door — so the middle press
+    // is gone from the app and has to go from here.
+    //
+    // A TILE WITH NO RECORD BEHIND IT OPENS NOTHING, and says so with
+    // `aria-disabled`; picking one of those would report this surface broken on a
+    // library whose first cast row happens to be unlinked. The selector takes a
+    // tile that has a door.
     door: [
       { selector: '.tp-btn', text: 'Details' },
-      { selector: 'button[aria-label*="people" i]' },
-      { selector: '.cast-character button:not([aria-expanded])' },
+      { selector: '.cs-face-tile:not([aria-disabled])' },
     ],
   },
 ]

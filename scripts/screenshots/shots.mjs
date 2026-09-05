@@ -57,15 +57,29 @@ if (filmId) {
   // draws person chips too and the director's is usually first, so this captured
   // the DIRECTOR's page and filed it as character-panel.png — a screenshot of the
   // wrong screen under the right name, which is worse than a missing one because
-  // it is the picture somebody then reviews. `.cast-character`'s button is the
-  // character's door (cast.jsx:812-818); `aria-expanded` marks the fallback that
-  // only toggles a URL, so a row with no character record behind it is skipped.
+  // it is the picture somebody then reviews.
+  //
+  // AND THE FILM PAGE HAS NO CAST ON IT, which is why fixing the selector alone
+  // was not enough: `.cast-character` is present zero times on `/catalogue/{id}`,
+  // so this evaluate returned false every run and the shot was skipped in
+  // silence. A capture that skips itself and reports nothing is the same failure
+  // as the wrong picture, one step quieter. The cast is in Details, drawn as
+  // faces under its own `Cast · N` head, and a face is the character's door.
   const opened = await page.evaluate(() => {
-    const b = document.querySelector('.cast-character button:not([aria-expanded])')
-    if (!b) return false
-    b.click(); return true
+    const press = (el) => { if (!el) return false; el.click(); return true }
+    return press([...document.querySelectorAll('.tp-btn')].find((b) => /details/i.test(b.textContent)))
   })
-  if (opened) { await settle(3400); await shot('character-panel') }
+  if (opened) {
+    await settle(2600)
+    const onCharacter = await page.evaluate(() => {
+      // A tile with no record behind it opens nothing and says so.
+      const b = document.querySelector('.cs-face-tile:not([aria-disabled])')
+      if (!b) return false
+      b.click(); return true
+    })
+    if (onCharacter) { await settle(3400); await shot('character-panel') }
+    else console.log('character-panel: no cast tile with a record behind it — not captured')
+  } else console.log('character-panel: no Details button on the film page — not captured')
 }
 await page.goto(opts.baseUrl + '/quotes', { waitUntil: 'networkidle2' }); await settle(3000)
 console.log('quotes sideways:', await wide() || 'none')
