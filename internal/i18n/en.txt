@@ -6364,6 +6364,22 @@ identity.row.unlink.sub.cast = Other works retain the global character; people k
 # which is neither half of that pair.
 identity.picker.blocked = Type something first
 identity.picker.save.tip = Writes this one field
+# ---- the person mode, which is a LIST and not a box -------------------------
+# The pack's caption for it is "Everyone the app already knows", and the reason
+# it matters is that ResolvePerson folds on the name: typing a name that is
+# nearly one you have makes a SECOND record, with its own portrait fetch and its
+# own page, and you find out when a face is missing from a credit you were sure
+# you filled in.
+identity.picker.person.label = Who
+identity.picker.person.placeholder = Search or type a name
+identity.picker.person.new = “{name}” is new — saving adds them
+identity.picker.lang.other = Or type a language
+# THE SAME FIVE IN BOTH LOCALES, on purpose. A dubbing credit names the language
+# it is IN, so "বাংলা" is what a Bengali dub is called on an English screen too —
+# translating these would make one credit read differently depending on who was
+# looking at it. They live here rather than in the component because that is
+# where copy lives (no-hardcoded-bengali.test.js), not because they vary.
+identity.picker.lang.suggestions = English · हिन्दी · বাংলা · 日本語 · Français
 # ONE FIELD FOR THE NAME AND EVERY OTHER NAME — the pack's ruling, and its
 # reasoning: two rows editing one fact made the printing name look like a
 # different KIND of thing from its spellings, when it is only the first of them.

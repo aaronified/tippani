@@ -56,6 +56,13 @@ import {
 // A section's stack, from the app's own spacing constant rather than a typed step
 // — see the standing rule, and spacing-debt.test.js, which counts the typed ones.
 const STACK = { display: 'grid', gap: 'var(--row)' }
+// THE PACK'S FIVE, FROM THE LOCALE, and the first draft of this had them as a
+// literal here with a paragraph arguing that language names should not be
+// translated — a Bengali dub reads "বাংলা" whoever is looking. The reasoning is
+// fine and the placement was not: `no-hardcoded-bengali.test.js` failed it, and
+// that rule is not about translation but about where copy lives. So the list is
+// one key, carrying the same five names in both locales — the argument survives
+// as identical values rather than as a literal in a component.
 const FIELDS = { display: 'grid', gap: 'calc(var(--row) * 0.9)' }
 
 // ---- the panels, as descriptors --------------------------------------------
@@ -1251,6 +1258,17 @@ function CharacterBody({ stack, id, work, onSearch = null }) {
     hint: t('identity.credit.add.save.tip'),
     saveTip: t('identity.credit.add.save.label'),
     blocked: t('identity.credit.add.blocked'),
+    // `personKind` IS WHAT MAKES THIS THE PACK'S LIST rather than a box — see
+    // identityPicker.jsx. 'actor' is the kind because that is the role this row
+    // credits somebody in; the list is the account's, not this work's, which is
+    // the point of it: the performer you are adding is usually somebody the
+    // library already knows, and typing their name again slightly differently
+    // makes a second record with its own portrait and its own page.
+    personKind: 'actor',
+    // THE LANGUAGES ARE A SHORTCUT, NOT A SET. The pack lists five and an
+    // "Other…"; this offers the five as chips over a box that takes anything,
+    // because "Other…" opening nothing is the shape of a control that lies.
+    langs: dub ? t('identity.picker.lang.suggestions').split('·').map((x) => x.trim()).filter(Boolean) : null,
     fields: [
       { key: 'actor', label: t('identity.credit.add.performer'), value: '', required: true },
       { key: 'lang', label: t('identity.credit.add.dub.lang.label'), value: '' },

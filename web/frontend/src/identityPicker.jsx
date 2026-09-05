@@ -33,9 +33,11 @@
 // two of them ask for two values at once (a performer and the language that makes
 // the credit a dub). A `fields` array covers both without a mode enum, and a
 // tenth row costs a line at the call site rather than a component.
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 
 import { t } from './i18n.js'
+import { personImgURL, usePeople } from './credits.jsx'
+import { Silhouette } from './silhouette.jsx'
 import { FormModal, MonoLabel, useFormHost } from './ui.jsx'
 
 const STACK = { display: 'grid', gap: 'var(--row)' }
@@ -66,6 +68,128 @@ function PickerField({ label, value, rows, placeholder, onChange, autoFocus }) {
         />
       )}
     </label>
+  )
+}
+
+// ---- the person mode ---------------------------------------------------------
+//
+// "EVERYONE THE APP ALREADY KNOWS", which is the pack's own caption for this list
+// and the reason it is not a text box. `character-popup.dc.html` draws a
+// search-or-type field over a list of people with their faces on it, and its
+// fixture is chosen to make the point: "Two have photographs and four do not,
+// which is the normal state of a library — the picker has to look right with a
+// row of silhouettes."
+//
+// WHAT A PLAIN BOX COSTS, and it is not tidiness. Typing "Humphrey Bogart" a
+// second time, one letter different, makes a SECOND person: `ResolvePerson` folds
+// on the name, so "H. Bogart" and "Humphrey Bogart" are two records, two portrait
+// fetches and two pages, and the reader finds out when a face they filled in is
+// missing from a credit they were sure they had filled in. Offering the list is
+// what makes the common answer — somebody already in the library — a press
+// instead of a spelling test.
+//
+// A NAME THE APP DOES NOT KNOW IS A NORMAL ANSWER, in the pack's words, "not an
+// error state — most casts arrive one unknown person at a time". So the typed
+// name stays live under the list as its own row rather than being refused.
+const fold = (x) => String(x || '').trim().toLowerCase()
+
+function PersonRow({ person, name, meta, onPick }) {
+  const src = person?.image_path ? personImgURL(person.image_path) : ''
+  return (
+    <button type="button" className="cs-pick-row tactile" onClick={onPick}>
+      <span className="cs-pick-face">
+        {src
+          ? <img src={src} alt="" loading="lazy" />
+          : <Silhouette name={name} />}
+      </span>
+      <span className="cs-pick-label">
+        <span className="cs-pick-name">{name}</span>
+        {meta ? <span className="cs-pick-meta">{meta}</span> : null}
+      </span>
+    </button>
+  )
+}
+
+// PersonPickerBody — the child, for the reason every form in this file is one.
+function PersonPickerBody({ spec, draft, onDraft, blocked, onSubmit }) {
+  const host = useFormHost(blocked)
+  const { map } = usePeople(spec.personKind || 'actor')
+  const typed = draft.actor ?? ''
+  const q = fold(typed)
+  // A SUBSTRING MATCH, NOT A PREFIX, which is the rule `CastCombo` already
+  // follows in this app: "quinn" finds "Harley Quinn", the half of a name people
+  // actually remember. Capped, because a list of four hundred is not a list.
+  const hits = useMemo(() => {
+    const all = Object.values(map || {})
+    return all
+      .filter((p) => !q || fold(p.name).includes(q))
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .slice(0, 8)
+  }, [map, q])
+  // Exactly what it says: no row here IS this name. The pack's `pickerCanAdd`.
+  const isNew = !!q && !Object.values(map || {}).some((p) => fold(p.name) === q)
+  return (
+    <form
+      id={host?.formId}
+      style={STACK}
+      onSubmit={(e) => { e.preventDefault(); if (!blocked) onSubmit() }}
+    >
+      {spec.hint ? <p className="microcopy" style={{ color: 'var(--soft)' }}>{spec.hint}</p> : null}
+      <PickerField
+        label={spec.personLabel || t('identity.picker.person.label')}
+        value={typed}
+        placeholder={t('identity.picker.person.placeholder')}
+        autoFocus
+        onChange={(v) => onDraft({ ...draft, actor: v })}
+      />
+      {hits.length ? (
+        <div className="cs-pick-list">
+          {hits.map((p) => (
+            <PersonRow
+              key={p.id}
+              person={p}
+              name={p.name}
+              meta={(p.kinds || []).join(' · ')}
+              onPick={() => onDraft({ ...draft, actor: p.name })}
+            />
+          ))}
+        </div>
+      ) : null}
+      {isNew ? (
+        <p className="microcopy" style={{ color: 'var(--faint)' }}>
+          {t('identity.picker.person.new', { name: typed.trim() })}
+        </p>
+      ) : null}
+      {/* THE LANGUAGE IS WHAT MAKES IT A DUB, so it rides on the same sheet the
+          pack puts it on rather than being a second dialog: `credit_lang` is the
+          only thing `creditsFor` splits on. The chips are a shortcut and not a
+          closed set — the box under them takes anything, because a library is
+          not limited to five languages and a picker that pretends otherwise is
+          worse than no picker. */}
+      {spec.langs ? (
+        <>
+          <MonoLabel>{t('identity.credit.add.dub.lang.label')}</MonoLabel>
+          <div className="cs-pills">
+            {spec.langs.map((l) => (
+              <button
+                key={l}
+                type="button"
+                className={'tp-chip tp-chip-btn' + (fold(draft.lang) === fold(l) ? ' active' : '')}
+                aria-pressed={fold(draft.lang) === fold(l)}
+                onClick={() => onDraft({ ...draft, lang: fold(draft.lang) === fold(l) ? '' : l })}
+              >
+                {l}
+              </button>
+            ))}
+          </div>
+          <PickerField
+            label={t('identity.picker.lang.other')}
+            value={draft.lang ?? ''}
+            onChange={(v) => onDraft({ ...draft, lang: v })}
+          />
+        </>
+      ) : null}
+    </form>
   )
 }
 
@@ -145,13 +269,23 @@ export function FieldPicker({ spec, busy = false, onClose, onSave }) {
       closeDanger
       saveTip={spec.saveTip}
     >
-      <PickerForm
-        spec={spec}
-        draft={draft}
-        onDraft={setDraft}
-        blocked={blocked}
-        onSubmit={() => onSave(draft)}
-      />
+      {spec.personKind ? (
+        <PersonPickerBody
+          spec={spec}
+          draft={draft}
+          onDraft={setDraft}
+          blocked={blocked}
+          onSubmit={() => onSave(draft)}
+        />
+      ) : (
+        <PickerForm
+          spec={spec}
+          draft={draft}
+          onDraft={setDraft}
+          blocked={blocked}
+          onSubmit={() => onSave(draft)}
+        />
+      )}
     </FormModal>
   )
 }
