@@ -3563,6 +3563,8 @@ export function useConfirm() {
       title={state?.title || ""}
       body={state?.body}
       confirmLabel={state?.confirmLabel}
+      reversible={state?.reversible}
+      danger={!!state?.danger}
       onConfirm={() => answer(true)}
       onCancel={() => answer(false)}
     />
@@ -3620,6 +3622,23 @@ export function ConfirmDialog({
   title,
   body,
   confirmLabel,
+  // FINALITY IS DRAWN, NOT ONLY WORDED — the pack's own words over this dialog
+  // (`book-detail.dc.html:4135`): "An error-coloured rule across the top, the
+  // warning set in mono above the title, and a filled destructive button — three
+  // signals, because the one thing this dialog must not look like is the ordinary
+  // Cancel/Save pair two sheets away from it." The app drew none of the three, so
+  // "Empty the bin" and "Rename this tag" were the same picture.
+  //
+  // `reversible` IS THREE-VALUED ON PURPOSE. `true` says it waits in the bin,
+  // `false` says nothing here can be restored, and LEAVING IT OUT says neither —
+  // which is the honest default for the several dozen confirms that are neither
+  // destructive nor undoable, and keeps this change from putting "Cannot be
+  // undone" into the mouth of every caller that has not been read yet.
+  reversible,
+  // The verb destroys something. Independent of `reversible`: a move to the bin
+  // is destructive AND undoable, which is exactly the pair the pack's own bin
+  // dialogs draw.
+  danger = false,
   // Greyed until the dialog's own condition is met — a typed confirmation phrase,
   // for the one action that asks for one. The button says so first rather than
   // refusing after the click, which is the rule every Save in this app follows.
@@ -3657,6 +3676,14 @@ export function ConfirmDialog({
         aria-label={title}
         className="hand-card hc-r2 w-full max-w-md px-6 py-6"
       >
+        {reversible === undefined ? null : (
+          <span className={'confirm-rule' + (reversible ? ' is-soft' : '')} aria-hidden="true" />
+        )}
+        {reversible === undefined ? null : (
+          <MonoLabel className={'confirm-tag' + (reversible ? ' is-soft' : '')}>
+            {t(reversible ? 'common.confirm.undoable.tag' : 'common.confirm.final.tag')}
+          </MonoLabel>
+        )}
         <h2 className="display-title mb-2" style={{ fontSize: 'var(--type-ui-19)' }}>
           {title}
         </h2>
@@ -3670,7 +3697,7 @@ export function ConfirmDialog({
         )}
         <div className="flex justify-end gap-2">
           <GhostButton onClick={onCancel}>{t("common.action.cancel.label")}</GhostButton>
-          <StickerButton onClick={onConfirm} disabled={confirmDisabled}>{confirmLabel || t("common.action.confirm.label")}</StickerButton>
+          <StickerButton className={danger ? 'tp-btn-danger-fill' : undefined} onClick={onConfirm} disabled={confirmDisabled}>{confirmLabel || t("common.action.confirm.label")}</StickerButton>
         </div>
       </div>
     </div>,

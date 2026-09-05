@@ -1821,6 +1821,12 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
         speaker={speaker}
         onOpenCharacter={onOpenCharacter}
         className="mt-1.5"
+        // NO PERFORMER UNDER THE CHARACTER HERE. The credit line four elements
+        // down names them, with the door to their page on it, so the chip's
+        // subtitle was the same name a second time on the same card — and only on
+        // the lines whose speaker resolved, so two cards on one screen drew the
+        // chip two different ways. See SpeakerChips.
+        withActor={false}
       />
       <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
         <span className="inline-flex items-center gap-2">

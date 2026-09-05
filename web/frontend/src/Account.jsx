@@ -494,7 +494,7 @@ export function UserManagement({ me }) {
   }
 
   async function removeUser(u) {
-    if (!(await ask(t('account.users.delete.confirm', { name: u.username })))) return
+    if (!(await ask(t('account.users.delete.confirm', { name: u.username }), { danger: true, reversible: false }))) return
     setError('')
     const r = await json('DELETE', `/admin/users/${u.id}`)
     if (r.ok) load()

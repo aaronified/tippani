@@ -8395,6 +8395,27 @@ html[data-theme="dark"] .board-cover {
     background: color-mix(in oklab, var(--accent), transparent 84%);
   }
 
+
+  /* THE THREE SIGNALS A QUESTION THAT DESTROYS SOMETHING OWES ITS READER, from
+     the pack (`book-detail.dc.html:4135`): a rule across the top, the warning in
+     mono above the title, and a filled destructive button. Drawn only where a
+     caller has said which kind of question this is — see ConfirmDialog. */
+  .confirm-rule {
+    display: block; height: 4px; margin: -24px -24px 14px; border-radius: 12px 12px 0 0;
+    background: var(--error);
+  }
+  .confirm-rule.is-soft { background: var(--hl-4); }
+  .confirm-tag { display: block; margin-bottom: 6px; color: var(--error); }
+  .confirm-tag.is-soft { color: var(--hl-4); }
+  .tp-btn.tp-btn-danger-fill {
+    border-color: var(--error);
+    background: var(--error);
+    color: var(--on-accent);
+  }
+  .tp-btn.tp-btn-danger-fill:hover:not(:disabled) {
+    background: color-mix(in oklab, var(--error), black 10%);
+  }
+
   /* An ordinary row: 52px, an icon or a face, a label over a subtitle, and a
      badge or a count at the far end. */
   .cs-row-wrap { display: flex; align-items: stretch; gap: 4px; padding: 0 4px; }

@@ -35,6 +35,32 @@ prototypes for what a screen should look like. They live in the repo because an 
 does not survive a session reset: read them there rather than asking for them again.
 `docs/design/README.md` indexes the lot.
 
+## Testing against a real library
+
+**The seeded fixture hides a whole class of defect.** `scripts/screenshots/seed.mjs`
+builds a library of public-domain titles with **no cover artwork** (this container cannot
+fetch one — every image request comes back 403) and a cast of three. So a probe run
+against it cannot see a poster behind a medium glyph, a name long enough to truncate, or a
+card whose chip and whose credit line print the same performer. Every one of those was
+reported by the owner from their own phone and not one of them reproduced here.
+
+So **screenshots and probe runs go against a real backup**:
+
+```bash
+export TIPPANI_BACKUP=/path/to/tippanibackup*.tpbk
+export TIPPANI_BACKUP_PASSWORD=…            # the archive is sealed
+TIPPANI_BROWSER=chrome TIPPANI_BIND=127.0.0.1:8128   scripts/screenshots/run-with-backup.sh node scripts/screenshots/controls.mjs     --base-url http://127.0.0.1:8128 --width 390
+```
+
+`run-with-backup.sh` boots a scratch server on a fresh data dir and restores through
+`POST /auth/restore/upload`, the onboarding path — it is gated on the users table being
+empty, which a fresh mktemp dir is, and needs no session.
+
+**The archive is somebody's library and never leaves this machine.** The server binds to
+127.0.0.1, the data dir is a mktemp the trap removes, and the archive is NOT committed —
+`.gitignore` covers `*.tpbk`. Ask the owner for it, or fall back to `seed.mjs` and say in
+the report which fixture the run used.
+
 ## Commands
 
 ```bash

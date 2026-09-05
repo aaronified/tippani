@@ -386,6 +386,10 @@ export function PersonChip({ kind, name, person, onOpen, onPress, title, faceNam
           ? <img src={faceSrc || personImgURL(person.image_path)} alt="" />
           : <Silhouette name={faceName || name} />}
       </span>
+      {/* THE CLIP STAYS. It is the app's one deliberate truncation and the owner
+          ruled on it — the reason is in `.person-chip-name`'s own comment: chips
+          here must not wrap, because a reflow moves every other chip when one
+          name is long, and the whole name is on the button's `title`. */}
       {sub ? (
         <span className="person-chip-lines">
           <span className="person-chip-name">{clip(name)}</span>
@@ -427,8 +431,16 @@ export function PersonChip({ kind, name, person, onOpen, onPress, title, faceNam
 // quote, and a row that wraps to three lines pushes the words a reader came for
 // down the card — so it is a Scroller, measured, which is the app's standing rule
 // for anything that might not fit.
-export function SpeakerChips({ images = [], speaker = null, onOpenCharacter = null, className = '' }) {
-  const rows = chipRows(images, speaker, onOpenCharacter)
+// `withActor` — WHETHER THE CHIP CARRIES THE PERFORMER UNDER THE CHARACTER, and
+// it is the caller's answer because only the caller knows what else its card
+// prints. The film frame names the performer on its own credit line, a few
+// millimetres below, with the door to their page on it — so the chip's subtitle
+// was the same name a second time on the same card, which is the owner's
+// standing rule broken ("why is albert einstein repeated in the prose?"). On a
+// favourites tile there is no credit line and the chip is the only place the
+// performer appears, so there it stays.
+export function SpeakerChips({ images = [], speaker = null, onOpenCharacter = null, className = '', withActor = true }) {
+  const rows = chipRows(images, speaker, onOpenCharacter, { withActor })
   if (rows.length === 0) return null
   return (
     // A SPAN, because this row draws inside the favourite tile's button on Home
@@ -502,7 +514,7 @@ export function PeopleChips({ names = [], map = {}, kind = 'author', onOpen = nu
   )
 }
 
-export function chipRows(images, speaker, onOpen) {
+export function chipRows(images, speaker, onOpen, { withActor = true } = {}) {
   const sp = speaker && speaker.name ? speaker : null
   const spKey = sp ? creditKey(sp.name) : ''
   const out = []
@@ -514,7 +526,7 @@ export function chipRows(images, speaker, onOpen) {
       // THE FACE FALLS BACK TO THE ACTOR'S: a character with no picture of their
       // own wears the face of whoever played them rather than no face at all.
       faceSrc: sp.image ? coverImgURL(sp.image) : sp.actor_image ? coverImgURL(sp.actor_image) : '',
-      sub: sp.actor || '',
+      sub: withActor ? (sp.actor || '') : '',
       title: t('common.quote.speaker.tip', { name: sp.name }),
       // THE HANDLER IS THE ONE THIS FUNCTION WAS HANDED, and reading it off the
       // speaker object instead is the whole of a report: "the character pills
@@ -1137,7 +1149,7 @@ export function PersonModal({ kind, name, onClose, onSaved }) {
 
   async function remove() {
     if (!person) return
-    if (!(await ask(t('people.delete.confirm', { kind: t(`common.field.${kind}.label`), name })))) return
+    if (!(await ask(t('people.delete.confirm', { kind: t(`common.field.${kind}.label`), name }), { danger: true, reversible: false }))) return
     const r = await json('DELETE', `/people/${person.id}`)
     if (r.ok) {
       onSaved && onSaved()

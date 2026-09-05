@@ -305,6 +305,8 @@ common.action.save.busy = Saving…
 common.action.save.field.aria = Save {field}
 common.action.cancel.label = Cancel
 common.action.confirm.label = Confirm
+common.confirm.undoable.tag = Can be undone
+common.confirm.final.tag = Cannot be undone
 common.action.delete.label = Delete
 common.action.close.label = Close
 # The × on a window that sits over the screen. {name} is the word above — Close,

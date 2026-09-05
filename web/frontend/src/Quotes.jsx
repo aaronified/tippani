@@ -227,10 +227,18 @@ export function utteranceMeta(u, { people, seps, onOpenPerson, omitSpeaker } = {
   const rest = [u.occasion, formatPartialDate(u.occasion_date), u.place, quoteKindMeta(u), u.language].filter(Boolean)
   // The string forms feed the share image and the group headings, where a second
   // line has nowhere to go. They stay one line; only the rich form below grows.
-  if (omitSpeaker) return rest.join(' · ')
+  // THE STRING FORMS, for the share image and the group headings — a second line
+  // has nowhere to go there, so they stay flat.
+  if (omitSpeaker && !onOpenPerson) return rest.join(' · ')
   if (!onOpenPerson) return [u.speaker, ...rest].filter(Boolean).join(' · ')
 
-  const names = u.speaker ? splitCredits(u.speaker, seps || DEFAULT_CREDIT_SEPS) : []
+  // `omitSpeaker` DROPS THE NAMES, NOT THE LINE. It used to return the flat
+  // string, which threw away the leading mark as well — and the mark is not a
+  // duplicate of anything: on a quote with no speaker it is the only thing
+  // standing where every other card in the app begins with a face. What is a
+  // duplicate is the name and the portrait beside it, on a card whose chip row
+  // has just drawn both.
+  const names = omitSpeaker || !u.speaker ? [] : splitCredits(u.speaker, seps || DEFAULT_CREDIT_SEPS)
   if (names.length === 0 && rest.length === 0) return ''
   return (
     <>
@@ -910,7 +918,7 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
     return true
   }
   async function remove(u) {
-    if (!(await ask(t('quotes.delete.confirm')))) return
+    if (!(await ask(t('quotes.delete.confirm'), { danger: true, reversible: true }))) return
     const r = await deleteWithUndo(`/quotes/${u.id}`, { reload: load })
     if (r.ok) load()
     else setError(errText(r))
@@ -966,7 +974,14 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
       // uses correctly on its speaker groups. The raw `setPerson` went straight
       // through here, so a speaker on a quote card opened the older by-name panel
       // however complete their record was. The id decides — see personOpen.jsx.
-      meta={utteranceMeta(u, { people: speakerMap, seps, onOpenPerson: openPerson })}
+      // OMIT THE SPEAKER: this card's chip row draws them, with their portrait and
+      // the door to their page on it, and the meta line was drawing the same name
+      // and the same portrait again two millimetres below. The owner, of this
+      // exact screen: "this ask has been botched as well." The card's own
+      // `metaLine` has omitted the speaker whenever a chip draws it since the
+      // ladder landed; this call site passes an explicit `meta` and so never
+      // reached that branch.
+      meta={utteranceMeta(u, { people: speakerMap, seps, onOpenPerson: openPerson, omitSpeaker: true })}
       // The card's chip ladder needs the same two things the meta line does.
       people={speakerMap}
       seps={seps}

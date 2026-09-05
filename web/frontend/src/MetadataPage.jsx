@@ -840,7 +840,7 @@ function CatalogueConsole({ books, movies, type, setType, filter, setFilter, onO
   async function del() {
     const total = selectedKeys.length
     // A real plural family in place of the "item(s)" hedge.
-    if (!(await ask(t('metadata.delete.confirm', { count: total, n: total })))) return
+    if (!(await ask(t('metadata.delete.confirm', { count: total, n: total }), { danger: true, reversible: true }))) return
     setBusy(true)
     setErr('')
     try {

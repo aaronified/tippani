@@ -691,7 +691,7 @@ function TypeSettings({ prefs, onSaved }) {
   }
 
   async function removeFont(f) {
-    if (!(await ask(t('settings.type.font.remove.confirm', { name: t(f.name) })))) return
+    if (!(await ask(t('settings.type.font.remove.confirm', { name: t(f.name) }), { danger: true, reversible: false }))) return
     const r = await json('DELETE', `/fonts/${f.id}`)
     if (!r.ok) return setErr(errText(r, t('error.delete.font')))
     await reloadUploads()
@@ -1969,7 +1969,7 @@ function DevicesCard() {
   }
 
   async function revoke(d) {
-    if (!(await ask(t('settings.devices.revoke.confirm', { name: d.name })))) return
+    if (!(await ask(t('settings.devices.revoke.confirm', { name: d.name }), { danger: true, reversible: false }))) return
     const r = await json('DELETE', `/auth/devices/${d.id}`)
     if (!r.ok) return setErr(errText(r, t('error.revoke.device')))
     setErr('')
@@ -1978,7 +1978,7 @@ function DevicesCard() {
   }
 
   async function revokeAll() {
-    if (!(await ask(t('settings.devices.revoke-all.confirm')))) return
+    if (!(await ask(t('settings.devices.revoke-all.confirm'), { danger: true, reversible: false }))) return
     const r = await json('POST', '/auth/devices/revoke-all')
     if (!r.ok) return setErr(errText(r, t('error.revoke.devices')))
     setErr('')

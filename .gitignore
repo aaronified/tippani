@@ -28,3 +28,6 @@ internal/importer/testdata/*_real.*
 # A _real fixture that is a directory of exports, not a single file — the glob
 # above needs the dot, so it does not cover bookcision_real/.
 internal/importer/testdata/*_real/
+
+# A restored library is somebody's data. Never committed.
+*.tpbk

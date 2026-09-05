@@ -326,6 +326,8 @@ common.action.save.busy = সেভ হচ্ছে…
 common.action.save.field.aria = {field} সেভ করুন
 common.action.cancel.label = বাতিল
 common.action.confirm.label = নিশ্চিত করুন
+common.confirm.undoable.tag = ফেরানো যাবে
+common.confirm.final.tag = ফেরানো যাবে না
 common.action.delete.label = মুছুন
 common.action.close.label = বন্ধ করুন
 # The × on a window that sits over the screen. {name} is the word above — Close,

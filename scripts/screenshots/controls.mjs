@@ -334,12 +334,20 @@ try {
           // a class name: `keepLabel` is one way to get here and a hand-built
           // button with an <svg> beside a <span> is another, and the reader
           // cannot tell them apart.
-          iconWords: !!b.querySelector('svg') && (() => {
-            const words = [...b.childNodes].map((n) => n.nodeType === 3
-              ? n.textContent
-              : (n.nodeType === 1 && getComputedStyle(n).display !== 'none' && n.getBoundingClientRect().width > 0
-                ? n.textContent : '')).join('').replace(/\s+/g, ' ').trim()
-            return words.length > 1
+          // THE APP'S OWN LABEL SPAN, and the first cut of this was wrong twice
+          // over: it read `textContent`, which `[data-labels="off"]` CLIPS rather
+          // than removes — so a correctly collapsed 44px square still counted —
+          // and it treated any `<svg>` inside any pressable thing as an icon, so
+          // every cover tile and every person chip was reported. A cover is
+          // content, not a glyph beside a word. `.btn-label` / `.btn-label-fixed`
+          // is precisely the span the preference clips, and a rendered width is
+          // the only honest test of whether the reader can see it.
+          iconWords: (() => {
+            if (!b.querySelector('svg')) return false
+            const label = b.querySelector('.btn-label, .btn-label-fixed')
+            if (!label) return false
+            const lr = label.getBoundingClientRect()
+            return lr.width > 1 && lr.height > 1
           })(),
           w: Math.round(r.width),
           h: Math.round(r.height),
@@ -423,7 +431,14 @@ try {
       // that reports a defect that is not there gets switched off exactly as fast
       // as one that misses a defect that is.
       if (!opened) return false
-      return await waitFor(() => page.evaluate(() => !!document.querySelector('.tp-panel')).catch(() => false))
+      if (!await waitFor(() => page.evaluate(() => !!document.querySelector('.tp-panel')).catch(() => false))) return false
+      // AND THEN THE PANEL'S OWN CONTENT. A panel appears the instant it is
+      // opened and fetches its record afterwards, so enumerating on the frame it
+      // mounted found ONE control — its ✕ — and the surface was reported as
+      // "did not render". `settled` scopes to `.tp-panel` when one is open, which
+      // is exactly the count that has to stop moving here.
+      await settled()
+      return true
     }
     if (!await reopen()) {
       findings.unreachable.push(`${surface.name}: the door it is reached through (${surface.door.selector} "${surface.door.text}") did not open a panel`)
