@@ -6416,6 +6416,13 @@ identity.picker.lang.suggestions = English · हिन्दी · বাংল
 # different KIND of thing from its spellings, when it is only the first of them.
 identity.local.names.hint = One name per line. The first line is the name that prints on quotes and credits; the rest are spellings search will find.
 identity.local.names.placeholder = The name that prints\nAnother spelling
+# ---- WHAT THIS WORK SAYS ABOUT THEM ------------------------------------------
+# `work_cast.description`, the per-work half of a pair whose other half is the
+# record's own. The sub-line states the scope for the same reason the note's does:
+# the two fields look alike and reach very different distances.
+identity.row.local-desc.label = In this work
+identity.row.local-desc.sub = What this work says about them. The record's own description is one door away, and every work shares it.
+identity.row.local-desc.none = nothing written for this work
 identity.local.names.saved = Names saved — the first line prints
 identity.credit.add.blocked = Name the performer first
 # ---- the performer block, on char-film and char-game -----------------------
@@ -6512,6 +6519,29 @@ identity.row.merge.sub.person = Their credits and spellings come across into one
 identity.row.merge.sub.company = Its credits and spellings come across into one record
 identity.row.remove-all.label = Remove from all works
 identity.row.remove-all.sub = Unlinked one work at a time — nothing is removed in bulk
+
+# ---- THE CHOOSE SHEET, for a press with more than one right answer -----------
+# A tile stands for a work, and there is more than one thing behind a work: the
+# work itself, this character as that work has them, and whoever played them.
+# The pack is emphatic that guessing is not an option here — picking wrong opens
+# the wrong record, and the reader then edits it.
+identity.choose.work.hint = More than one thing sits behind this. Which did you mean?
+identity.choose.work.sub = the work's own page
+identity.choose.work.unreachable = This screen has no way back to the work
+identity.choose.local.sub = this character, as this work has them
+identity.choose.actor.sub = the performer's own record
+# And the same question asked the other way round: one performer, two roles in one
+# work. Only asked where there IS a second role — one role behind a tile opens.
+identity.choose.roles.hint = They have more than one role in this. Which did you mean?
+identity.choose.role.sub = the character, as this work has them
+# ---- REMOVING THE IDENTITY FROM EVERY WORK -----------------------------------
+# Not a bulk verb, deliberately: the reach is stated and then the list is handed
+# back, so each work is unlinked by its own press. Slower on purpose, and the
+# slowness is the safety — this is the one act on the screen whose damage could
+# not be seen before it happened.
+identity.remove-all.ask.title = This removes the character from every work
+identity.remove-all.ask.body = Nothing is done in bulk: unlink each work yourself. Each unlink leaves that work's own record, its quotes and its pictures exactly where they are.
+identity.remove-all.unlink.sub = unlink this work
 identity.row.delete.label.person = Delete this person
 identity.row.delete.label.company = Delete this company
 identity.row.delete.sub.person = The credits go; the works and the characters stay
@@ -6557,8 +6587,6 @@ identity.field.note = Your note
 identity.field.description = Description
 identity.field.links = Links, one per line
 identity.merge.body.character = Two records for one character become one, and this one — {name} — is what survives.
-identity.character.promote.label = use this one
-identity.character.promote.current = their face
 identity.character.promote.clear.label = clear their picture
 identity.character.promote.done = {title}'s picture is what this character looks like now
 identity.character.promote.cleared = The character has no picture of their own again
@@ -6568,13 +6596,7 @@ identity.character.works.add.none = Nothing matches, or they are already in ever
 identity.character.works.add.actor.label = Played by (films and shows only)
 identity.character.works.add.actor.placeholder = leave empty if you do not know yet
 identity.character.works.add.done = Added to {title}
-identity.character.works.remove.label = Take off this work
-identity.character.works.remove.aria = Take this character off {title}
-identity.character.works.remove.confirm = Take them off {title}?
 identity.character.works.remove.done = Taken off {title}
-identity.character.appearance.scope = On {title} only. The record itself is further down.
-identity.character.appearance.name = Billed on this work as
-identity.character.appearance.description.hint = Left empty, the record's own description is what shows.
 identity.character.drop.title.one = {n} quote on {title} still names {name}
 identity.character.drop.title.other = {n} quotes on {title} still name {name}
 identity.character.drop.body.one = A character named on a work's own quote is put back on its cast every time the work is opened, so the line has to say somebody else first.

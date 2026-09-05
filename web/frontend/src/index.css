@@ -8095,36 +8095,12 @@ html[data-theme="dark"] .board-cover {
 /* ONE CARD, NOT A GRID OF ONE. The appearance lifted into the work scope is a
    single row and the auto-fill below would stretch it across the panel, which
    reads as a card that lost its neighbours rather than one singled out. */
-.char-works.is-one { grid-template-columns: minmax(0, 22rem); }
-
-/* auto-fill rather than a column count: the panel is `wide` on a desk and full
-   width on a phone, and the same rule has to hold both without a breakpoint. */
-.char-works {
-  display: grid; gap: var(--row);
-  grid-template-columns: repeat(auto-fill, minmax(max(9.5rem, 150px), 1fr));
-}
-.char-work {
-  display: flex; flex-wrap: wrap; gap: calc(var(--row) * 0.55);
-  align-items: flex-start;
-}
-.char-work-art { position: relative; flex: none; }
-.char-work-cover {
-  display: block; width: max(56px, 3.9em); aspect-ratio: 2 / 3; object-fit: cover;
-  border-radius: 6px; border: 1px solid var(--ink-border);
-}
-.char-work-cover.is-empty { background: color-mix(in srgb, var(--soft) 14%, transparent); }
-/* The character's own picture, over the corner of the work's. Half off the cover
-   so both are readable at this size — a face inset inside a 56px spine would be
-   two pictures neither of which can be made out. */
-.char-work-face { position: absolute; right: -10px; bottom: -8px; }
-.char-work-facts { display: grid; gap: 2px; min-width: 0; flex: 1 1 7rem; align-content: start; }
-.char-work-title { font-size: var(--type-ui-13); font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }
-.char-work-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 3px; }
-.char-work-acts .tp-link { font-size: var(--type-ui-11); }
-.char-work-confirm {
-  flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
-  margin-top: 4px;
-}
+/* THE STRIP'S INLINE CARD IS GONE. `.char-work*` styled a per-work editor the
+   global sheet opened under its works strip — a stopgap whose own comment said it
+   stood only until the local screens were built. They are, and a tile opens the
+   pack's choose sheet into them, so the card and its thirteen rules went with it.
+   `.char-picks` below is a different thing and stays: the list of works a
+   character can be ADDED to. */
 
 /* The work picker under "Add to a work". Same auto-fill as the cards above, one
    size down: these are being scanned rather than worked on. */
@@ -8184,14 +8160,6 @@ html[data-theme="dark"] .board-cover {
 .person-dup-face {
   width: max(20px, 1.5em); aspect-ratio: 3 / 4; object-fit: cover;
   border-radius: 3px; border: 1px solid var(--ink-border);
-}
-/* The per-work editor on an appearance card, and the description it writes. Both
-   full-width inside the card so the fields are not squeezed beside the cover. */
-.char-work-desc { flex-basis: 100%; color: var(--soft); margin-top: 2px; }
-.char-work-form {
-  flex-basis: 100%; display: grid; gap: calc(var(--row) * 0.6);
-  margin-top: calc(var(--row) * 0.4); padding-top: calc(var(--row) * 0.4);
-  border-top: 1px solid var(--line);
 }
 /* One quote on a person's or a character's record. The text leads; who said it
    and where sit under it a tier down. */
@@ -8324,6 +8292,28 @@ html[data-theme="dark"] .board-cover {
      size in the same mono as the size, because it is the same kind of statement
      about the file on screen. */
   .cs-px-from { display: block; font-family: var(--font-mono); font-size: var(--type-mono-11); color: var(--faint); letter-spacing: .06em; }
+
+  /* THE CHOOSE SHEET'S ROWS. A press with more than one right answer becomes a
+     list, and each row IS its own commit — so the row is a row, not a radio: no
+     chosen state to draw, nothing to confirm afterwards. Same 52px the pack gives
+     `row()`, raised to the app's touch floor. */
+  .cs-choose {
+    display: flex; align-items: center; gap: 11px; width: 100%;
+    min-height: max(52px, 3.4em); padding: 9px 12px; border-radius: 9px;
+    text-align: left; border: 1px solid var(--line); background: var(--raised);
+    color: var(--ink);
+  }
+  .cs-choose:hover:not(:disabled) { background: color-mix(in oklab, var(--ink) 6%, var(--raised)); }
+  .cs-choose[aria-disabled="true"] { color: var(--faint); cursor: default; }
+  .cs-choose.is-danger { color: var(--error); border-color: color-mix(in oklab, var(--error), transparent 62%); }
+  .cs-choose-icon { width: 20px; flex: none; display: inline-flex; align-items: center; justify-content: center; color: var(--soft); }
+  .cs-choose.is-danger .cs-choose-icon { color: var(--error); }
+  .cs-choose-face { width: max(34px, 2.2em); height: max(34px, 2.2em); border-radius: 50%; flex: none; overflow: hidden; border: 1px solid var(--ink-border); background: var(--card); display: flex; align-items: flex-end; justify-content: center; }
+  .cs-choose-face img { width: 100%; height: 100%; object-fit: cover; }
+  .cs-choose-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .cs-choose-label { font-size: var(--type-ui-15); line-height: 1.3; }
+  .cs-choose-sub { font-size: var(--type-ui-11); color: var(--soft); }
+  .cs-choose-meta { font-family: var(--font-mono); font-size: var(--type-mono-11); color: var(--faint); flex: none; }
 
   /* A section heading, and the prose that sometimes goes under it. */
   .cs-head-row { display: flex; flex-direction: column; gap: 3px; padding: 16px 10px 6px; }

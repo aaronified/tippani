@@ -72,6 +72,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   picture — or the upload reported an error for something that had worked.
 - **A character's page says what went wrong instead of going blank.** A record that
   failed to load took the whole panel down with it.
+- **Pressing a work on a character's page asks what you meant.** A work holds more
+  than one thing — the work itself, the character as that work has them, whoever
+  played them — and the page used to guess by opening a small card under the
+  strip. It offers the three now, and where there is only one thing behind a work
+  it still just opens it. The card is gone: everything that was on it lives on the
+  character's page for that one work, which is one of the three doors.
+- **A character's page can say what one work says about them.** The field has
+  existed since the per-work records were added and the only place to type it was
+  that card.
+- **"Remove from all works" is on a character's page at last.** It does not remove
+  anything in bulk: it lists the works and unlinks them one press at a time, so
+  you can see the reach before you take it.
 - **Every glyph on every screen is the app's own drawing.** Forty-three of them were
   typed characters — the sort arrows on the three tables, the heart on a favourite,
   the arrow between an import's before and after, the tick in a menu — which meant

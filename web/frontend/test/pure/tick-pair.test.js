@@ -36,7 +36,14 @@ import { describe, expect, it } from 'vitest'
 
 const SRC = process.env.TIPPANI_SRC || join(process.cwd(), 'src')
 const FILES = readdirSync(SRC).filter((f) => /\.jsx$/.test(f))
+// COMMENTS ARE NOT CODE, and a scanner that forgets it finds tags nobody wrote.
+// `ui.jsx` explains its own `open` prop with the words "`{cond && <FormModal …>}`"
+// in a paragraph of prose, and that sentence was being counted as a call site —
+// the last one left after the rule below was corrected, so the whole guard would
+// have come to rest on a comment.
 const read = (f) => readFileSync(join(SRC, f), 'utf8')
+  .replace(/\/\*[\s\S]*?\*\//g, '')
+  .replace(/^\s*\/\/.*$/gm, '')
 
 // The opening tag of every <Name ...>, from the name to the '>' that closes the
 // tag rather than the first '>' in an expression — `dirty={a > b}` and a nested
@@ -67,19 +74,56 @@ function openTags(src, name) {
 }
 
 describe('a dialog tells its tick what is at stake', () => {
-  // A `FormModal` with no `dirty` still draws a ✓ — `blocked === null` is the only
-  // thing that hides it — so the tick is there, plain, and identical whether the
-  // reader has changed everything or nothing. That is precisely the state the rule
-  // names as teaching the reader to stop reading it.
+  // WHAT THIS NUMBER IS, stated correctly at last. The prose here used to read:
+  // "A FormModal with no `dirty` still draws a ✓ — `blocked === null` is the only
+  // thing that hides it." The second half refutes the first, and checking it
+  // settled the matter: `blocked` starts at null and only a CHILD calling
+  // `useFormHost` sets it, so a FormModal whose children never register draws NO
+  // TICK AT ALL. Twenty-five of the twenty-six counted here are exactly that.
+  //
+  // So the count is not "ticks that cannot arm". It is DIALOGS THAT ARE NOT ON
+  // THE STANDING PAIR — each one either commits through a button in its own body
+  // or draws a tick with nothing behind it, and both are the same debt seen from
+  // two sides. The owner deferred the sweep; the number may only fall, which is
+  // what keeps the deferral from becoming a direction of travel.
+  //
+  // AND ONE DIALOG IS EXEMPT, BY NAME AND WITH ITS REASON. A blanket rule that
+  // cannot be argued with is a rule people work around; an exemption somebody has
+  // to read is one they can refuse. `ChoosePicker` is a list of things a press
+  // could mean, where every ROW is its own commit — there is no draft to count, no
+  // ✓ to arm, and inventing a `dirty` for it would be answering a test rather
+  // than a reader. Verified rather than assumed: it registers no form, so the
+  // dialog draws no tick.
+  const NO_FORM = [
+    ['identityPicker.jsx', 'ChoosePicker'],
+  ]
+  const exempt = (f, src, at) => NO_FORM.some(([file, comp]) => {
+    if (file !== f) return false
+    const i = src.indexOf(`function ${comp}(`)
+    if (i === -1) return false
+    const after = src.indexOf('\nexport function ', i + 1)
+    const plain = src.indexOf('\nfunction ', i + 1)
+    const end2 = Math.min(after === -1 ? src.length : after, plain === -1 ? src.length : plain)
+    return at > i && at < end2
+  })
   const missing = []
   for (const f of FILES) {
-    for (const t of openTags(read(f), 'FormModal')) {
-      if (!/\bdirty\s*=/.test(t.attrs)) missing.push(`${f}:${t.line}`)
+    const src = read(f)
+    for (const t of openTags(src, 'FormModal')) {
+      if (/\bdirty\s*=/.test(t.attrs)) continue
+      const at = src.split('\n').slice(0, t.line).join('\n').length
+      if (exempt(f, src, at)) continue
+      missing.push(`${f}:${t.line}`)
     }
   }
 
   it('and the number that do not may only fall', () => {
-    expect(missing.length, `no dirty count: ${missing.join(', ')}`).toBeLessThanOrEqual(26)
+    // 25 AND NOT 26. Two of the twenty-six left in the same pass and one arrived:
+    // `ui.jsx`'s was a `<FormModal …>` written inside a PARAGRAPH OF PROSE — the
+    // scanner did not skip comments, so the guard's last case was a sentence —
+    // and `ChoosePicker` is exempt above with its reason. A ceiling is only worth
+    // the count under it being real.
+    expect(missing.length, `no dirty count: ${missing.join(", ")}`).toBeLessThanOrEqual(25)
   })
 
   it('is a debt and not the whole app — some callers do pass one', () => {

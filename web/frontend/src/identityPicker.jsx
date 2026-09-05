@@ -38,7 +38,8 @@ import { useMemo, useState } from 'react'
 import { t } from './i18n.js'
 import { personImgURL, usePeople } from './credits.jsx'
 import { Silhouette } from './silhouette.jsx'
-import { FormModal, MonoLabel, useFormHost } from './ui.jsx'
+import { Face } from './characterRows.jsx'
+import { FormModal, MonoLabel, NameScroll, useFormHost } from './ui.jsx'
 
 const STACK = { display: 'grid', gap: 'var(--row)' }
 
@@ -235,6 +236,73 @@ function PickerForm({ spec, draft, onDraft, blocked, onSubmit }) {
 // everything — a control that looks armed when nothing has changed is precisely
 // what the standing rule exists to stop. A new spec is a new instance, and the
 // initialiser below is then simply correct.
+// ---- the choose mode ---------------------------------------------------------
+//
+// A LIST OF THINGS THE PRESS COULD MEAN, and the reader says which.
+//
+// THE PACK'S FOURTH MODE, and the one that was not built. It uses it for two
+// jobs, and both are the same shape: a question with more than one right answer,
+// asked instead of guessed.
+//
+//   A TILE THAT IS AMBIGUOUS. "A WORK CAN HOLD MORE THAN ONE OF HIS ROLES, so a
+//   tile on a performer's strip cannot assume what you meant by tapping it: two
+//   characters in one film, or the film itself. When there is a choice, it asks;
+//   when there is only one thing behind the tile, it just opens it."
+//   (`character-popup.dc.html:754-758`.) Guessing here is not a small error — it
+//   opens the wrong record and the reader edits it.
+//
+//   AND A REACH THE READER CANNOT SEE. "'Delete' here would reach into three works
+//   at once and quietly strip a name off each — the one edit on this screen whose
+//   damage you could not see before it happened. So the verb states the reach and
+//   then hands back the list: each work is unlinked by its own tap… Slower on
+//   purpose, and the slowness is the safety." (line 957.)
+//
+// NOT A FORM, WHICH IS WHY IT IS NOT `FieldPicker`. Nothing is typed and nothing
+// is committed: every row IS its own commit, so there is no draft to hold, no
+// count to arm a tick with, and no ✓ at all. Drawing one would be a control with
+// nothing to confirm — the defect this file has spent the session removing.
+//
+// THE SHEET STAYS OPEN AFTER A ROW THAT DOES NOT LEAVE, because the removal case
+// is a list you work through: unlink one work, the row goes, three become two.
+// `stay` is the option's own answer to that; a door closes, a removal does not.
+export function ChoosePicker({ spec, busy = false, onClose }) {
+  const options = spec.options || []
+  return (
+    <FormModal open onClose={onClose} title={spec.title} maxWidth={460}>
+      <div style={{ display: 'grid', gap: 8 }}>
+        {spec.hint ? <p className="microcopy">{spec.hint}</p> : null}
+        {options.map((o, i) => (
+          <button
+            key={o.key || `${o.label}-${i}`}
+            type="button"
+            className={'cs-choose tactile' + (o.danger ? ' is-danger' : '')}
+            disabled={busy || !o.onPick}
+            // A ROW WITH NOTHING BEHIND IT SAYS SO. The pack's own list carries
+            // one — "Delete the identity · Available once no work is linked" —
+            // and a row that presses and does nothing is the thing `make
+            // controls` exists to find.
+            aria-disabled={o.onPick ? undefined : 'true'}
+            title={o.title || undefined}
+            onClick={() => {
+              if (!o.onPick) return
+              o.onPick()
+              if (!o.stay) onClose()
+            }}
+          >
+            {o.face !== undefined ? <Face src={o.face} name={o.label} className="cs-choose-face" /> : null}
+            {o.icon ? <span className="cs-choose-icon">{o.icon}</span> : null}
+            <span className="cs-choose-body">
+              <NameScroll className="cs-choose-label">{o.label}</NameScroll>
+              {o.sub ? <span className="cs-choose-sub">{o.sub}</span> : null}
+            </span>
+            {o.meta ? <span className="cs-choose-meta">{o.meta}</span> : null}
+          </button>
+        ))}
+      </div>
+    </FormModal>
+  )
+}
+
 export function FieldPicker({ spec, busy = false, onClose, onSave }) {
   const [draft, setDraft] = useState(() => {
     const d = {}

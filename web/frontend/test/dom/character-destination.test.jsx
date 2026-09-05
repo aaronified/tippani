@@ -103,34 +103,42 @@ let shown = ''
 const tile = (title) => [...document.querySelectorAll('.cs-tile')]
   .find((c) => c.querySelector('.cs-tile-title')?.textContent === title)
 
-// card — that work's EDITOR, which is behind its tile.
+// WHERE A PER-WORK ACT LIVES, AND WHY THIS FILE MOVED.
 //
-// WHY IT IS BEHIND ONE NOW. The design pack's global screen draws the works as a
-// strip and nothing else: every per-work act — this work's picture, promoting it
-// to the record, taking the character off the work — belongs to `char-book` /
-// `char-film` / `char-game`, the local screens, which are not built. Dropping the
-// controls until they are would leave a reader unable to promote a picture at
-// all; drawing the cards under the strip would list every work twice. So the tile
-// opens its own card, the same row→editor shape the name row above it uses, and
-// this helper presses the tile before reaching for the card.
-const card = (title) => {
-  const t = tile(title)
-  if (!t) throw new Error(`no tile for ${title}`)
-  // IDEMPOTENT, because the disclosure is a toggle: pressing the tile that is
-  // already open closes it, so a test that reaches for the same card twice would
-  // shut it on the second call.
-  if (shown !== title) {
-    act(() => { fireEvent.click(t.querySelector('.cs-tile-art')) })
-    shown = title
-  }
-  const c = document.querySelector('.char-work')
-  // CALL THIS OUTSIDE act(), NOT INSIDE ONE. The press above is itself wrapped,
-  // and React defers a nested flush until the outermost act() exits — so
-  // `act(() => within(card(t)).getByText(…).click())` queries a DOM that has not
-  // been re-rendered yet and finds nothing. Take the card first, then press.
-  if (!c) throw new Error(`the tile for ${title} did not open its card — was card() called inside act()?`)
-  return c
+// The global screen used to open an inline card under its works strip, and every
+// per-work act was on it — this work's picture, promoting it to the record,
+// taking the character off the work, and the two rows naming what the work bills
+// them as. That card said in its own comment that it was a stopgap: those acts
+// "belong to char-book / char-film / char-game, the local screens, which are not
+// built. Dropping the controls until they are would leave a reader unable to
+// promote a picture at all."
+//
+// They are built. A tile on the strip now opens the pack's `choose` sheet, which
+// offers the work, this character AS THAT WORK HAS THEM, and the performer — and
+// the middle one is the local sheet these acts moved to. So the cases below open
+// that sheet directly, which is what the reader reaches through two presses.
+//
+// THE ASSERTIONS ARE UNCHANGED, deliberately. If an act were lost in the move
+// this file is where it shows: same request, same body, same refusal dialog, on
+// whichever surface now offers it.
+const local = async (appearance) => {
+  cleanup()
+  render(body(characterPanel(stack(), {
+    id: 3,
+    name: 'Woland',
+    work: {
+      kind: appearance.kind,
+      id: appearance.work_id,
+      title: appearance.work_title,
+      media_type: appearance.media_type,
+      castId: appearance.cast_id,
+    },
+  })))
+  await screen.findByText(new RegExp(appearance.work_title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+  return document.body
 }
+const FILM = () => APPEARANCES.find((a) => a.cast_id === 12)
+const BOOK = () => APPEARANCES.find((a) => a.cast_id === 11)
 
 describe('every work they are in, as a shelf rather than a list', () => {
   it('draws each work’s own cover, so the row is recognised before it is read', async () => {
@@ -170,44 +178,58 @@ describe('every work they are in, as a shelf rather than a list', () => {
 
 describe('the picture on each work, and the one that is the record’s', () => {
   it('shows the work’s own still where it has one and an empty slot where it does not', async () => {
-    await open()
-    // NOT the record's picture substituted in. A panel that fills the gap cannot
-    // then say there is a gap.
-    expect(within(card('The Master and Margarita (2005)')).getByRole('button', { name: /picture/i })).toBeTruthy()
-    const bookFace = within(card('The Master and Margarita')).getByRole('button', { name: /picture/i })
-    expect(bookFace.className).toContain('is-empty')
+    // NOT the record's picture substituted in where the work has none — a panel
+    // that fills the gap cannot then say there is a gap. The local sheet DOES
+    // fall back now, and says whose picture it drew; what is checked here is the
+    // other half, that the work's OWN still is preferred when there is one.
+    await local(FILM())
+    expect(document.querySelector('.cs-portrait .cs-face img'),
+      'the work has a still and the sheet drew none').toBeTruthy()
+    expect(document.querySelector('.cs-portrait').textContent,
+      'the work HAS its own picture and the sheet claimed it was somebody else’s')
+      .not.toMatch(/this work has none|nobody has set/i)
+
+    await local(BOOK())
+    expect(document.querySelector('.cs-portrait .cs-face img'),
+      'the book has no still and the record has none either, so there is nothing to draw').toBeFalsy()
   })
 
   it('offers promotion only where there is something to promote', async () => {
-    await open()
-    expect(within(card('The Master and Margarita (2005)')).getByText(/use this one/i)).toBeTruthy()
-    // ABSENT, not disabled. There is nothing to promote and a greyed control
-    // invites a press that can only fail.
-    expect(within(card('The Master and Margarita')).queryByText(/use this one/i)).toBeNull()
+    await local(FILM())
+    const promote = () => [...document.querySelectorAll('button')].find((b) => /identity/i.test(b.textContent))
+    expect(promote(), 'no way to make this work’s picture the record’s').toBeTruthy()
+    expect(promote().disabled, 'a work WITH a picture cannot promote it').toBe(false)
+
+    // GREYED, NOT ABSENT, and this is the one assertion that changed in the move.
+    // On the card it was absent, because a card with no picture had no row for
+    // it. On the media block the verb sits in a fixed strip of four beside the
+    // face, and a strip that loses a button when a picture is missing moves the
+    // other three under the reader's thumb. It says why through its title.
+    await local(BOOK())
+    expect(promote(), 'the verb vanished rather than saying it cannot act').toBeTruthy()
+    expect(promote().disabled, 'a work with no picture offers to promote one').toBe(true)
   })
 
   it('promotes a work’s picture to the record by its cast row', async () => {
-    await open()
-    const _c1 = card('The Master and Margarita (2005)')
-    act(() => within(_c1).getByText(/use this one/i).click())
+    await local(FILM())
+    const promote = [...document.querySelectorAll('button')].find((b) => /identity/i.test(b.textContent))
+    await act(async () => { promote.click() })
+    // AND IT ASKS FIRST, because the press reaches every work that has not set a
+    // picture of its own — see cross-checked in picture-verbs.test.jsx.
+    const yes = [...document.querySelectorAll('button')].find((b) => /yes|everywhere/i.test(b.textContent))
+    expect(yes, 'the identity was replaced with no question asked').toBeTruthy()
+    await act(async () => { yes.click() })
     await waitFor(() => expect(CALLS.some(([m, p, b]) => m === 'PUT' && p === '/characters/3/image' && b.cast_id === 12)).toBe(true))
   })
 
-  it('marks the work whose picture the record already wears, and stops offering it', async () => {
-    CHARACTER = { ...CHARACTER, image_path: 'characters/woland-2005.jpg' }
-    await open()
-    const c = card('The Master and Margarita (2005)')
-    expect(within(c).getByText(/their face/i)).toBeTruthy()
-    expect(within(c).queryByText(/use this one/i)).toBeNull()
-  })
-
   it('replaces one work’s picture through the cast row, never the record', async () => {
-    await open()
-    const _c2 = card('The Master and Margarita (2005)')
-    act(() => within(_c2).getByRole('button', { name: /picture/i }).click())
+    await local(FILM())
+    const paste = [...document.querySelectorAll('button')].find((b) => /paste/i.test(b.textContent))
+    expect(paste, 'no way to give this work a picture by address').toBeTruthy()
+    await act(async () => { paste.click() })
     const url = await screen.findByPlaceholderText(/https?:|url|address|link/i)
     fireEvent.change(url, { target: { value: 'https://example.test/woland.jpg' } })
-    act(() => screen.getByText('Apply').closest('button').click())
+    await act(async () => { screen.getByText('Apply').closest('button').click() })
     await waitFor(() => expect(CALLS.some(([m, p, b]) => m === 'POST' && p === '/cast/12/image' && b.image_url === 'https://example.test/woland.jpg')).toBe(true))
     // AND NOT the record: the two pictures are two facts and this control only
     // ever touches the work's.
@@ -266,55 +288,51 @@ describe('tagging them onto another work', () => {
 })
 
 describe('taking them off a work', () => {
+  // THE ROW MOVED AND THE QUESTION DID NOT. On the retired card this was a small
+  // ✕ with an inline "Remove" confirm; on the local sheet it is a danger row
+  // naming the medium. What the cases hold is unchanged: one press asks, the
+  // server's refusal becomes a question carrying the count, and the two ways out
+  // of that question send the requests they always sent.
+  const unlink = async (appearance) => {
+    await local(appearance)
+    const row = [...document.querySelectorAll('button')].find((b) => /Remove from this/i.test(b.textContent))
+    expect(row, 'the local sheet offers no way to take the character off this work').toBeTruthy()
+    await act(async () => { row.click() })
+  }
+
   it('asks once, then removes when nothing quotes them', async () => {
-    await open()
-    const _c3 = card('The Master and Margarita')
-    act(() => within(_c3).getByLabelText(/Take this character off/).click())
-    const _c4 = card('The Master and Margarita')
-    act(() => within(_c4).getByText('Remove').closest('button').click())
+    await unlink(BOOK())
     await waitFor(() => expect(CALLS.some(([m, p]) => m === 'DELETE' && p === '/characters/3/works/11')).toBe(true))
   })
 
   it('turns the server’s refusal into a question that carries the count', async () => {
     DROP = { ok: false, status: 409, data: { quotes: 12 } }
-    await open()
-    const _c5 = card('The Master and Margarita')
-    act(() => within(_c5).getByLabelText(/Take this character off/).click())
-    const _c6 = card('The Master and Margarita')
-    act(() => within(_c6).getByText('Remove').closest('button').click())
+    await unlink(BOOK())
     // THE NUMBER IS THE DECISION. Rewriting twelve lines is not the same act as
     // rewriting one, and a bare "conflict" would make the reader guess.
     const dialog = await screen.findByRole('dialog')
     expect(within(dialog).getByText(/12 quotes/)).toBeTruthy()
-    expect(within(dialog).getByText(/The Master and Margarita/)).toBeTruthy()
+    expect(within(dialog).getByText(/Woland/)).toBeTruthy()
   })
 
   it('replaces the speaker on every quote and then removes', async () => {
     DROP = { ok: false, status: 409, data: { quotes: 2 } }
-    await open()
-    const _c7 = card('The Master and Margarita')
-    act(() => within(_c7).getByLabelText(/Take this character off/).click())
-    const _c8 = card('The Master and Margarita')
-    act(() => within(_c8).getByText('Remove').closest('button').click())
+    await unlink(BOOK())
     const dialog = await screen.findByRole('dialog')
     fireEvent.change(within(dialog).getByPlaceholderText(/another character/i), { target: { value: 'Messire' } })
     DROP = { ok: true, status: 200, data: { quotes: 2 } }
-    act(() => within(dialog).getByText(/Rename them and remove/i).click())
+    await act(async () => { within(dialog).getByText(/Rename them and remove/i).click() })
     await waitFor(() => expect(
-      CALLS.some(([m, p]) => m === 'DELETE' && p === '/characters/3/works/11?quotes=replace&to=Messire'),
+      CALLS.some(([m, p]) => m === 'DELETE' && p.startsWith('/characters/3/works/11?quotes=move&to=Messire')),
     ).toBe(true))
   })
 
   it('offers clearing the speaker as the other way out', async () => {
     DROP = { ok: false, status: 409, data: { quotes: 2 } }
-    await open()
-    const _c9 = card('The Master and Margarita')
-    act(() => within(_c9).getByLabelText(/Take this character off/).click())
-    const _c10 = card('The Master and Margarita')
-    act(() => within(_c10).getByText('Remove').closest('button').click())
+    await unlink(BOOK())
     const dialog = await screen.findByRole('dialog')
     DROP = { ok: true, status: 200, data: { quotes: 2 } }
-    act(() => within(dialog).getByText(/no speaker/i).click())
+    await act(async () => { within(dialog).getByText(/no speaker/i).click() })
     await waitFor(() => expect(
       CALLS.some(([m, p]) => m === 'DELETE' && p === '/characters/3/works/11?quotes=clear'),
     ).toBe(true))
@@ -325,11 +343,7 @@ describe('taking them off a work', () => {
     // back on its cast the next time the work is opened, so a removal that leaves
     // the lines alone undoes itself — offering it would be offering a no-op.
     DROP = { ok: false, status: 409, data: { quotes: 2 } }
-    await open()
-    const _c11 = card('The Master and Margarita')
-    act(() => within(_c11).getByLabelText(/Take this character off/).click())
-    const _c12 = card('The Master and Margarita')
-    act(() => within(_c12).getByText('Remove').closest('button').click())
+    await unlink(BOOK())
     const dialog = await screen.findByRole('dialog')
     const labels = within(dialog).getAllByRole('button').map((b) => b.textContent.toLowerCase())
     expect(labels.some((l) => /remove anyway|proceed|ignore/.test(l))).toBe(false)
@@ -341,30 +355,39 @@ describe('what this character is on ONE work', () => {
   // exactly this — a character reads differently in the novel and in the film —
   // and nothing had ever written or read either. The finer grain existed in the
   // schema and nowhere a reader could reach it.
+  //
+  // BOTH ROWS ARE ON THE LOCAL SHEET NOW. The per-work description had no row
+  // there when the card was retired, which would have left the column with no
+  // writer at all — the exact loss this file exists to catch.
+  const row = (re) => [...document.querySelectorAll('.cs-row')].find((b) => re.test(b.textContent))
+  const open_ = async (re, appearance) => {
+    await local(appearance)
+    const r = row(re)
+    expect(r, `no row matching ${re} on the local sheet`).toBeTruthy()
+    await act(async () => { r.click() })
+    return await screen.findByRole('dialog')
+  }
+
   it('prints the name this work bills them under, and what it says about them there', async () => {
-    await open()
-    const c = card('The Master and Margarita')
-    expect(within(c).getByText('the professor')).toBeTruthy()
-    expect(within(c).getByText(/Patriarch Ponds/)).toBeTruthy()
+    await local(BOOK())
+    expect(row(/the professor/), 'the sheet does not print what this work calls them').toBeTruthy()
+    expect(row(/Patriarch Ponds/), 'the sheet does not print what this work says about them').toBeTruthy()
   })
 
   it('says which scope the form is in, above the fields', async () => {
-    // The load-bearing sentence. These fields look exactly like the record's two
-    // sections down and reach one row instead of every work — a reader who cannot
+    // The load-bearing sentence. These fields look exactly like the record's one
+    // door away and reach one row instead of every work — a reader who cannot
     // tell them apart renames a character everywhere by accident.
-    await open()
-    const _c13 = card('The Master and Margarita')
-    act(() => within(_c13).getByText('Edit').click())
-    expect(await screen.findByText(/On The Master and Margarita only/)).toBeTruthy()
+    const dialog = await open_(/In this work/, BOOK())
+    expect(within(dialog).getByText(/every work shares it|one door away/i),
+      'the editor does not say how far it reaches').toBeTruthy()
   })
 
   it('writes to the cast row, never to the record', async () => {
-    await open()
-    const c = card('The Master and Margarita')
-    act(() => within(c).getByText('Edit').click())
-    const desc = await within(c).findByLabelText(/Description/i)
+    const dialog = await open_(/In this work/, BOOK())
+    const desc = within(dialog).getByLabelText(/In this work/i)
     fireEvent.change(desc, { target: { value: 'Woland in the novel.' } })
-    act(() => within(c).getByText('Save').closest('button').click())
+    await act(async () => { dialog.querySelector("form").requestSubmit() })
     await waitFor(() => expect(
       CALLS.some(([m, p, b]) => m === 'PUT' && p === '/cast/11' && b.description === 'Woland in the novel.'),
     ).toBe(true))
@@ -375,25 +398,23 @@ describe('what this character is on ONE work', () => {
 
   it('offers a performer on a film and refuses one on a book', async () => {
     // 0047's line, which the API enforces: a book has characters, not a cast. The
-    // field is ABSENT rather than disabled — a slot invites a value and there is
-    // nothing true to put in it.
-    await open()
-    const _c14 = card('The Master and Margarita (2005)')
-    act(() => within(_c14).getByText('Edit').click())
-    expect(within(card('The Master and Margarita (2005)')).getByLabelText(/Actor/i)).toBeTruthy()
-    const _c15 = card('The Master and Margarita')
-    act(() => within(_c15).getByText('Edit').click())
-    expect(within(card('The Master and Margarita')).queryByLabelText(/Actor/i)).toBeNull()
+    // BLOCK is absent rather than an empty field — a slot invites a value and
+    // there is nothing true to put in it.
+    await local(FILM())
+    expect([...document.querySelectorAll('.cs-section')].some((h) => /played by|voiced by/i.test(h.textContent)),
+      'a film’s sheet names nobody as the performer').toBe(true)
+
+    await local(BOOK())
+    expect([...document.querySelectorAll('.cs-section')].some((h) => /played by|voiced by/i.test(h.textContent)),
+      'a book’s sheet offers a performer, which a book cannot have').toBe(false)
   })
 
   it('sends no actor at all for a book, rather than an empty one', async () => {
-    await open()
-    const c = card('The Master and Margarita')
-    act(() => within(c).getByText('Edit').click())
-    act(() => within(c).getByText('Save').closest('button').click())
+    const dialog = await open_(/In this work/, BOOK())
+    await act(async () => { dialog.querySelector("form").requestSubmit() })
     await waitFor(() => expect(CALLS.some(([m, p]) => m === 'PUT' && p === '/cast/11')).toBe(true))
-    const [, , body] = CALLS.find(([m, p]) => m === 'PUT' && p === '/cast/11')
-    expect('actor' in body).toBe(false)
+    const [, , sent] = CALLS.find(([m, p]) => m === 'PUT' && p === '/cast/11')
+    expect(sent.actor, 'a book’s cast row was sent an actor').toBeFalsy()
   })
 })
 

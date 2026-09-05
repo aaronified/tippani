@@ -30,9 +30,9 @@ import { useCharacterPicture, usePicturePicker } from './cast.jsx'
 // import this file, so the pair is not a cycle.
 import { movieState } from './Movies.jsx'
 import { CharacterGlobal, PersonGlobal } from './identityGlobal.jsx'
-import { identityScope } from './identityScope.js'
-import { CharacterLocal } from './identityLocal.jsx'
-import { FieldPicker } from './identityPicker.jsx'
+import { identityScope, mediumOf } from './identityScope.js'
+import { CharacterLocal, GLYPH_NAME } from './identityLocal.jsx'
+import { ChoosePicker, FieldPicker } from './identityPicker.jsx'
 import { buildProviderLink, isOrganisation, personImgURL, providerLinksFor, ProviderChips, SpeakerChips } from './people.jsx'
 import { Silhouette } from './silhouette.jsx'
 import {
@@ -47,6 +47,7 @@ import {
   IconDelete,
   IconGlobe,
   IconPlus,
+  NavIcon,
   InfoDot,
   MonoLabel,
   Scroller,
@@ -96,11 +97,11 @@ export function personPanel(stack, { id, name, work = null, onOpenWork = null })
 // that opens this panel hands the verb down. A caller without one gets the counts
 // as figures, which is the honest degradation: a number nobody can open is still
 // the number.
-export function characterPanel(stack, { id, name, work = null, onSearch = null }) {
+export function characterPanel(stack, { id, name, work = null, onSearch = null, onOpenWork = null }) {
   return {
     title: name || t('identity.character.title'),
     wide: true,
-    render: () => <CharacterBody stack={stack} id={id} work={work} onSearch={onSearch} />,
+    render: () => <CharacterBody stack={stack} id={id} work={work} onSearch={onSearch} onOpenWork={onOpenWork} />,
   }
 }
 
@@ -614,6 +615,12 @@ function Portrait({ person, busy, onPicked, onClear }) {
 }
 
 function PersonBody({ stack, id, work, onOpenWork = null }) {
+  // THE PACK'S CHOOSE SHEET. A tile on a performer's strip stands for one work,
+  // and "A WORK CAN HOLD MORE THAN ONE OF HIS ROLES, so a tile… cannot assume
+  // what you meant by tapping it: two characters in one film, or the film itself.
+  // When there is a choice, it asks; when there is only one thing behind the
+  // tile, it just opens it." null = closed.
+  const [choose, setChoose] = useState(null)
   const { data, err, setErr, load } = useRecord(`/people/id/${id}`)
   // Same disclosure as the character screen, for the same reason. See there.
   const [names, setNames] = useState(false)
@@ -709,6 +716,18 @@ function PersonBody({ stack, id, work, onOpenWork = null }) {
     setErr('')
     load()
   }
+
+  // WHERE ONE ROLE TILE GOES, factored out because the choose sheet opens the
+  // same door from a list. Where the cast row points at no character record there
+  // is nothing to open, so it opens that work's credit instead.
+  const roleDoor = (a) => (a.character_id
+    ? characterPanel(stack, {
+      id: a.character_id,
+      name: a.character,
+      onOpenWork,
+      work: { kind: a.kind, id: a.work_id, title: a.work_title, media_type: a.media_type, castId: a.cast_id },
+    })
+    : personPanel(stack, { id, name: data?.name || '', work: { kind: a.kind, id: a.work_id, title: a.work_title, role: 'performer' } }))
 
   // NOTHING WRITES credit_as FROM HERE ANY MORE, and that is a capability the app
   // has lost rather than moved — recorded here because a deleted handler leaves
@@ -808,14 +827,37 @@ function PersonBody({ stack, id, work, onOpenWork = null }) {
           // says it cannot be opened rather than pretending.
           onOpenWork={onOpenWork ? (c) => onOpenWork(c.kind, c.work_id) : null}
           // A ROLE TILE OPENS THE CHARACTER — the owner's ruling read in the
-          // direction a reader travels. Where the cast row points at no record
-          // there is nothing to open, so it opens that work's credit instead.
-          onOpenRole={(a) => stack.push(a.character_id
-            ? characterPanel(stack, {
-              id: a.character_id, name: a.character,
-              work: { kind: a.kind, id: a.work_id, title: a.work_title, media_type: a.media_type, castId: a.cast_id },
+          // direction a reader travels.
+          //
+          // UNLESS THE WORK HOLDS MORE THAN ONE OF THEM, which is the pack's own
+          // reason for the choose sheet: a performer with two roles in one film
+          // has two things behind that film, and picking either silently means
+          // opening the wrong record and editing it. Asked only where there IS a
+          // choice — one role behind a tile still just opens.
+          onOpenRole={(a) => {
+            const sameWork = (data.roles || []).filter((r) => r.kind === a.kind && r.work_id === a.work_id)
+            if (sameWork.length < 2) return stack.push(roleDoor(a))
+            return setChoose({
+              title: a.work_title,
+              hint: t('identity.choose.roles.hint'),
+              options: [
+                ...(onOpenWork ? [{
+                  key: 'work',
+                  label: a.work_title,
+                  sub: t('identity.choose.work.sub'),
+                  icon: <NavIcon name={GLYPH_NAME[mediumOf(a)] || 'movies'} />,
+                  onPick: () => onOpenWork(a.kind, a.work_id),
+                }] : []),
+                ...sameWork.map((r) => ({
+                  key: `r${r.cast_id}`,
+                  label: r.character || t('identity.credit.unnamed'),
+                  sub: t('identity.choose.role.sub'),
+                  face: r.image || '',
+                  onPick: () => stack.push(roleDoor(r)),
+                })),
+              ],
             })
-            : personPanel(stack, { id, name: data.name, work: { kind: a.kind, id: a.work_id, title: a.work_title, role: 'performer' } }))}
+          }}
           onMerge={() => focusField('person-merge')}
         >
           <MonoLabel>{t('identity.lines.title', { n: (data.lines || []).length, count: (data.lines || []).length })}</MonoLabel>
@@ -853,6 +895,9 @@ function PersonBody({ stack, id, work, onOpenWork = null }) {
             <MergeControl into={data} onMerged={load} onError={setErr} org={org} />
           </div>
         </PersonGlobal>
+        {choose ? (
+          <ChoosePicker spec={choose} busy={busy} onClose={() => setChoose(null)} />
+        ) : null}
         <ProviderLinkDialog
           open={linkDialog}
           onClose={() => setLinkDialog(false)}
@@ -896,7 +941,7 @@ function PersonBody({ stack, id, work, onOpenWork = null }) {
 // name the character — see character_works.go — and the refusal opens the dialog
 // that offers the two ways forward.
 
-function CharacterBody({ stack, id, work, onSearch = null }) {
+function CharacterBody({ stack, id, work, onSearch = null, onOpenWork = null }) {
   const [linkDialog, setLinkDialog] = useState(false)
   const { data, err, setErr, load } = useRecord(`/characters/${id}`)
   // THE PACK'S TWO COUNTS, from the route that has served them since it was
@@ -932,17 +977,13 @@ function CharacterBody({ stack, id, work, onSearch = null }) {
   // under it printed each alias twice and a reader had to work out whether the
   // two lists were the same thing.
   const [names, setNames] = useState(false)
-  // WHICH APPEARANCE'S CARD IS OPEN, by cast row.
-  //
-  // THE STRIP IS THE SHELF AND THE CARD IS ITS EDITOR. The pack's global screen
-  // draws the works as a strip of tiles and nothing else: every per-work act —
-  // this work's picture, promoting it to the record, taking the character off the
-  // work — belongs to `char-book` / `char-film` / `char-game`, which are the
-  // local screens and are not built yet. Dropping the controls now would leave a
-  // reader unable to promote a picture at all, and drawing the cards under the
-  // strip would list every work twice. So the tile opens its own card, which is
-  // the same row→editor shape the name row above it uses.
-  const [openWork, setOpenWork] = useState(0)
+  // THE PACK'S CHOOSE SHEET, which the strip's tiles open. This was a disclosure
+  // holding an inline card, and the card's own comment set the condition for its
+  // retirement: "every per-work act — this work's picture, promoting it to the
+  // record, taking the character off the work — belongs to char-book / char-film
+  // / char-game, which are the local screens and are not built yet." They are,
+  // and the sheet reaches them. null = closed.
+  const [choose, setChoose] = useState(null)
 
   useEffect(() => {
     if (!data) return
@@ -1004,7 +1045,7 @@ function CharacterBody({ stack, id, work, onSearch = null }) {
       // THE PACK'S LOCAL FACTS, sent only when the caller has them. The cast
       // editor has accepted all six since 0063 and this panel never offered
       // them; `undefined` is left out of the body, so the older callers here
-      // (AppearanceCard's inline form) still send exactly what they always did.
+      // (the local sheet's own rows) still send exactly what they always did.
       ...(fields.part === undefined ? {} : { part: fields.part }),
       ...(fields.first_appears === undefined ? {} : { first_appears: fields.first_appears }),
       ...(fields.age_here === undefined ? {} : { age_here: fields.age_here }),
@@ -1163,7 +1204,8 @@ function CharacterBody({ stack, id, work, onSearch = null }) {
   // rather than for tidiness: this component used to bail out on a missing record
   // before `here` was derived, so any hook that needs the cast row could only be
   // called from a child — which is why the per-work picture has always lived
-  // inside AppearanceCard. The pack's local sheet puts it at the top of the
+  // inside the strip's inline card, which is retired. The pack's local sheet
+  // puts the picture at the top of the
   // screen, so the row is derived first and the guard follows.
   //
   // AND THE LADDER IS FED, which is the half this call left out. `useCharacterPicture`
@@ -1359,9 +1401,16 @@ function CharacterBody({ stack, id, work, onSearch = null }) {
     },
   })
   // The three facts, and the note. One shape, because they are one question.
-  const openFact = (a, key, label) => setPicker({
+  // `hint` IS THE SCOPE SENTENCE, and it belongs in the editor rather than only on
+  // the row that opens it. Two of these fields — the per-work description and the
+  // credit note — look exactly like the record's own one door away, and a reader
+  // who cannot tell them apart renames a character on thirty-one other works by
+  // accident. The row's sub-line says it before the press; this says it while
+  // they are typing, which is when it matters.
+  const openFact = (a, key, label, hint = '') => setPicker({
     id: `${key}-${a.cast_id}`,
     title: label,
+    hint,
     saveTip: t('identity.picker.save.tip'),
     fields: [{ key, label, value: a[key] || '', rows: key === 'credit_note' ? 3 : 0 }],
     save: async (d) => {
@@ -1518,7 +1567,8 @@ function CharacterBody({ stack, id, work, onSearch = null }) {
           onPart={() => openFact(here, 'part', t('identity.facts.part'))}
           onFirst={() => openFact(here, 'first_appears', t('identity.facts.first'))}
           onAge={() => openFact(here, 'age_here', t('identity.facts.age'))}
-          onNote={() => openFact(here, 'credit_note', t('identity.row.note.label'))}
+          onNote={() => openFact(here, 'credit_note', t('identity.row.note.label'), t('identity.row.note.sub'))}
+          onDescription={() => openFact(here, 'description', t('identity.row.local-desc.label'), t('identity.row.local-desc.sub'))}
           onQuotes={openQuoteSearch}
           onLocator={openQuoteSearch}
           onOpenGlobal={() => stack.open(characterPanel(stack, { id, name: data.name, onSearch }))}
@@ -1571,6 +1621,59 @@ function CharacterBody({ stack, id, work, onSearch = null }) {
     )
   }
 
+  // WHAT A WORK TILE COULD MEAN, as the pack's list. A row with nothing behind it
+  // is still DRAWN and says so — the pack's own list carries one ("Available once
+  // no work is linked") — but it does not make the press ambiguous.
+  const workChoice = (a) => ({
+    title: a.work_title,
+    hint: t('identity.choose.work.hint'),
+    options: [
+      {
+        key: 'work',
+        label: a.work_title,
+        sub: t('identity.choose.work.sub'),
+        icon: <NavIcon name={GLYPH_NAME[mediumOf(a)] || 'movies'} />,
+        onPick: onOpenWork ? () => onOpenWork(a.kind, a.work_id) : null,
+        title: onOpenWork ? undefined : t('identity.choose.work.unreachable'),
+      },
+      {
+        key: 'local',
+        label: data.name,
+        sub: t('identity.choose.local.sub'),
+        face: a.image || '',
+        meta: a.character && a.character !== data.name ? a.character : '',
+        onPick: () => stack.push(characterPanel(stack, {
+          id,
+          name: data.name,
+          onSearch,
+          onOpenWork,
+          work: { kind: a.kind, id: a.work_id, title: a.work_title, media_type: a.media_type, castId: a.cast_id },
+        })),
+      },
+      ...(a.actor ? [{
+        key: 'actor',
+        label: a.actor,
+        sub: t('identity.choose.actor.sub'),
+        face: a.actor_image || '',
+        onPick: a.actor_id
+          ? () => stack.push(personPanel(stack, { id: a.actor_id, name: a.actor, onOpenWork }))
+          : null,
+        title: a.actor_id ? undefined : t('identity.credit.unnamed.tip'),
+      }] : []),
+    ],
+  })
+
+  // "WHEN THERE IS A CHOICE, IT ASKS; WHEN THERE IS ONLY ONE THING BEHIND THE
+  // TILE, IT JUST OPENS IT." A sheet offering one answer is a sheet the reader
+  // has to dismiss to reach the thing they already asked for, and it teaches them
+  // to dismiss the ones that matter.
+  const openWorkTile = (a) => {
+    const spec = workChoice(a)
+    const live = spec.options.filter((o) => o.onPick)
+    if (live.length > 1) return setChoose(spec)
+    return live[0]?.onPick?.()
+  }
+
   if (scope.id === 'char-global') {
     return (
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 'calc(var(--row) * 1.6)' }}>
@@ -1598,14 +1701,44 @@ function CharacterBody({ stack, id, work, onSearch = null }) {
           onSort={() => focusField('char-sort')}
           onBorn={() => focusField('char-born')}
           onLinkAdd={() => setLinkDialog(true)}
-          // THE TILE OPENS ITS OWN CARD — see `openWork` above for why that
-          // rather than pushing the work's screen. The pack opens an exhaustive
-          // chooser here (the owner's widening: every character in the work,
-          // every person credited on it, and the work itself); that chooser and
-          // the local screens are the next increment.
-          onOpenWork={(a) => setOpenWork((cur) => (cur === a.cast_id ? 0 : a.cast_id))}
+          // THE TILE ASKS WHAT YOU MEANT — the pack's `choose` sheet, offering the
+          // work, this character as that work has them, and the performer
+          // (`character-popup.dc.html:885-897`). "A tile cannot assume what you
+          // meant by tapping it… When there is a choice, it asks; when there is
+          // only one thing behind the tile, it just opens it."
+          //
+          // AND THE INLINE CARD THIS USED TO OPEN IS GONE, on the condition its
+          // own comment set: "every per-work act — this work's picture, promoting
+          // it to the record, taking the character off the work — belongs to
+          // char-book / char-film / char-game, which are the local screens and
+          // are not built yet. Dropping the controls now would leave a reader
+          // unable to promote a picture at all." They are built, the chooser
+          // reaches them, and every act the card held is on them — so the card
+          // was the stopgap it always said it was.
+          onOpenWork={(a) => openWorkTile(a)}
           onAddWork={() => focusField('char-add-work')}
           onMerge={() => focusField('char-merge')}
+          // THE PACK'S REMOVAL ROW, drawn now because the sheet it opens exists.
+          // Its whole design is that it does NOT act in bulk — "'Delete' here
+          // would reach into three works at once and quietly strip a name off
+          // each — the one edit on this screen whose damage you could not see
+          // before it happened. So the verb states the reach and then hands back
+          // the list… Slower on purpose, and the slowness is the safety." Each row
+          // unlinks one work and the sheet stays open, so three become two under
+          // the reader's hand.
+          onRemoveAll={works.length ? () => setChoose({
+            title: t('identity.remove-all.ask.title'),
+            hint: t('identity.remove-all.ask.body'),
+            options: works.map((a) => ({
+              key: `w${a.cast_id}`,
+              label: a.work_title,
+              sub: t('identity.remove-all.unlink.sub'),
+              icon: <NavIcon name={GLYPH_NAME[mediumOf(a)] || 'movies'} />,
+              danger: true,
+              stay: true,
+              onPick: () => removeWork(a),
+            })),
+          }) : null}
         >
           {/* THE SECTIONS THE PACK DOES NOT DRAW, and the editors its rows are
               shortcuts into. Both are argued in identityGlobal.jsx's header. */}
@@ -1621,21 +1754,6 @@ function CharacterBody({ stack, id, work, onSearch = null }) {
               <AliasRow aliases={data.aliases || []} onAdd={addAlias} onRemove={removeAlias} onSplit={splitAlias} />
             </>
           ) : null}
-          {/* The opened tile's card, with every per-work act on it. */}
-          {works.filter((a) => a.cast_id === openWork).map((a) => (
-            <div className="char-works is-one" key={a.cast_id}>
-              <AppearanceCard
-                a={a}
-                busy={busy}
-                isFace={!!data.image_path && data.image_path === a.image}
-                onImage={(url) => setWorkImage(a.cast_id, url)}
-                onSave={(fields) => saveAppearance(a, fields)}
-                onPromote={() => promote(a.cast_id, a.work_title)}
-                onRemove={() => removeWork(a)}
-                onOpenPerson={a.actor_id ? () => stack.push(personPanel(stack, { id: a.actor_id, name: a.actor })) : null}
-              />
-            </div>
-          ))}
           <div id="char-add-work"><AddWork busy={busy} have={works} onAdd={addWork} /></div>
           <GlobalFields
             fields={[
@@ -1660,6 +1778,9 @@ function CharacterBody({ stack, id, work, onSearch = null }) {
         {/* A CHARACTER IS NEVER AN ORGANISATION, so its list is the person one —
             which is right: a character has an IMDb page under /name/ the way a
             performer does, and no company id space at all. */}
+        {choose ? (
+          <ChoosePicker spec={choose} busy={busy} onClose={() => setChoose(null)} />
+        ) : null}
         <ProviderLinkDialog
           open={linkDialog}
           onClose={() => setLinkDialog(false)}
@@ -1689,141 +1810,6 @@ function CharacterBody({ stack, id, work, onSearch = null }) {
   // presentation that used to stand here is gone: it was reachable only when a
   // work was named that the character had no cast row on, which the scope now
   // resolves to the global record instead, because that is the honest answer.
-}
-
-// AppearanceCard — one work this character is in.
-//
-// THE WORK'S COVER IS THE CARD and the character's own picture sits on it, which
-// is the same stacking a film still has on a poster wall. Where a work holds no
-// picture of the character the slot is EMPTY rather than filled with the record's
-// own: a panel that silently substitutes cannot then say "this work has none", and
-// "has none" is the state the reader is here to fix.
-//
-// SO THIS ROW IS BUILT BY HAND AND MUST STAY THAT WAY. useCharacterPicture grew a
-// middle rung — the record's own default, under the per-work picture — for the
-// benefit of a WORK's cast panel, where a merged character should show a face.
-// Here that rung is exactly wrong, and the reason it is absent is that this
-// object never carries `character_record_image`. Spreading the appearance row in
-// to "simplify" this would turn every empty slot on this panel into the record's
-// face and take away the one thing the panel is for.
-function AppearanceCard({ a, busy, isFace, onImage, onSave, onPromote, onRemove, onOpenPerson }) {
-  const [confirming, setConfirming] = useState(false)
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(null)
-  const { faceButton, pictureEditor } = useCharacterPicture({
-    row: { id: a.cast_id, character: a.character, actor: a.actor, character_image_path: a.image },
-    workTitle: a.work_title,
-    mediaType: a.media_type,
-    busy,
-    onImage,
-  })
-  const cover = a.cover ? coverImgURL(a.cover) : ''
-  const open = () => {
-    setDraft({ character: a.character || '', actor: a.actor || '', description: a.description || '' })
-    setEditing(true)
-  }
-  const commit = async () => {
-    if (!draft.character.trim()) return
-    if (await onSave({ ...draft, character: draft.character.trim(), actor: draft.actor.trim() })) setEditing(false)
-  }
-  return (
-    <div className="char-work">
-      <div className="char-work-art">
-        {cover ? <img className="char-work-cover" src={cover} alt="" loading="lazy" /> : <span className="char-work-cover is-empty" aria-hidden="true" />}
-        <span className="char-work-face">{faceButton}</span>
-      </div>
-      <div className="char-work-facts">
-        {/* NEVER TRUNCATED — the standing rule, and a title is a name. It wraps. */}
-        <span className="char-work-title">{a.work_title}</span>
-        <span className="mono-label">{t(`unit.${workNoun(a)}`, { count: 1 })}</span>
-        {/* THE NAME THIS WORK BILLS THEM UNDER, where it differs from the record's.
-            One character legitimately reads differently on each work — a novel's
-            "the professor" is a film's "Woland" — and a card that printed only the
-            record's name would hide the thing the reader came to check. Silent
-            where the two agree, because repeating a name under itself is noise. */}
-        {a.character && a.character !== '' && (
-          <span className="microcopy" style={{ color: 'var(--soft)' }}>{a.character}</span>
-        )}
-        {/* THE PERFORMER, WHERE THERE IS ONE. A book character has none, and the
-            card says nothing rather than drawing an empty slot — a slot invites a
-            value and there is nothing true to put in it. */}
-        {a.actor ? (
-          <span className="microcopy" style={{ color: 'var(--soft)' }}>
-            {onOpenPerson ? (
-              <button type="button" className="tp-link" onClick={onOpenPerson}>{a.actor}</button>
-            ) : (
-              a.actor
-            )}
-          </span>
-        ) : null}
-        {a.description && !editing && (
-          <p className="microcopy char-work-desc">{a.description}</p>
-        )}
-        <div className="char-work-acts">
-          <button type="button" className="tp-link" disabled={busy} onClick={editing ? () => setEditing(false) : open}>
-            {editing ? t('common.action.cancel.label') : t('common.action.edit.label')}
-          </button>
-          {/* PROMOTE IS A JUDGEMENT AND SAYS SO, which is why it is a word rather
-              than a glyph: there is no picture of "and this one is what they look
-              like". It is absent, not disabled, on a work holding no picture —
-              there is nothing to promote and a greyed control invites a press. */}
-          {a.image && (
-            isFace ? (
-              <span className="mono-label" style={{ color: 'var(--accent-ui)' }}>{t('identity.character.promote.current')}</span>
-            ) : (
-              <button type="button" className="tp-link" disabled={busy} onClick={onPromote}>
-                {t('identity.character.promote.label')}
-              </button>
-            )
-          )}
-          <Tooltip label={t('identity.character.works.remove.label')}>
-            <FieldIconButton
-              icon={<IconDelete />}
-              ariaLabel={t('identity.character.works.remove.aria', { title: a.work_title })}
-              disabled={busy}
-              danger
-              onClick={() => setConfirming(true)}
-            />
-          </Tooltip>
-        </div>
-        {/* THE PER-WORK FIELDS, and the scope line above them is not optional. This
-            form writes to one cast row; the identical-looking fields two sections
-            down write to the record and reach every work it is on. A reader who
-            cannot tell those apart will rename a character everywhere by accident,
-            which is the whole reason this file is shaped in scopes. */}
-        {editing && draft && (
-          <div className="char-work-form">
-            <p className="microcopy" style={{ color: 'var(--soft)' }}>
-              {t('identity.character.appearance.scope', { title: a.work_title })}
-            </p>
-            <Field label={t('identity.character.appearance.name')} value={draft.character} onChange={(v) => setDraft({ ...draft, character: v })} />
-            {a.kind !== 'book' && (
-              <Field label={t('common.field.actor.label')} value={draft.actor} onChange={(v) => setDraft({ ...draft, actor: v })} />
-            )}
-            <Field label={t('identity.field.description')} value={draft.description} onChange={(v) => setDraft({ ...draft, description: v })} rows={3} />
-            <p className="microcopy" style={{ color: 'var(--faint)' }}>{t('identity.character.appearance.description.hint')}</p>
-            <div className="flex justify-end">
-              <GhostButton className="tp-btn-primary" disabled={busy || !draft.character.trim()} onClick={commit}>
-                {t('common.action.save.label')}
-              </GhostButton>
-            </div>
-          </div>
-        )}
-        {confirming && (
-          // An inline confirm rather than a dialog, matching the cast row's: this
-          // is one card of several and a modal for one of them would be worse. The
-          // dialog above it is for the case that is genuinely a question — quotes
-          // still naming the character — and this is only the press.
-          <div className="char-work-confirm">
-            <span className="microcopy">{t('identity.character.works.remove.confirm', { title: a.work_title })}</span>
-            <GhostButton type="button" disabled={busy} onClick={onRemove}>{t('common.action.remove.label')}</GhostButton>
-            <GhostButton type="button" onClick={() => setConfirming(false)}>{t('common.action.cancel.label')}</GhostButton>
-          </div>
-        )}
-      </div>
-      {pictureEditor}
-    </div>
-  )
 }
 
 // workNoun names what a row is, from the two fields that say so. A book is a book;

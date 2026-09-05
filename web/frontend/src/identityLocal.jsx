@@ -54,7 +54,9 @@ import { leadingRole } from './identityScope.js'
 // IconWatching and IconPlaying, and reusing those two is also the better reading —
 // a show is what you watch and a game is what you play. NavIcon maps 'show' and
 // 'game' onto them.
-const GLYPH_NAME = { book: 'library', film: 'movies', show: 'show', game: 'game' }
+// THE MEDIUM'S OWN GLYPH, shared with the global sheet's work chooser so a film
+// wears one drawing wherever it is named.
+export const GLYPH_NAME = { book: 'library', film: 'movies', show: 'show', game: 'game' }
 
 // The three facts under the name, and the reason FactsRow takes a list rather
 // than three props: a game has TWO of them. Nobody has an age in a game whose
@@ -153,7 +155,7 @@ export function CharacterLocal({
   // that a screen can tell the two apart and SAY which it drew; this sheet took
   // the un-substituted value and then said nothing.
   portrait = '', portraitFrom = '',
-  onCalled, onPart, onFirst, onAge, onNote,
+  onCalled, onPart, onFirst, onAge, onNote, onDescription,
   onQuotes, onLocator, onOpenGlobal, onRemove,
   // The performer block's verbs. Absent on a book, where the whole block is —
   // nobody plays a novel's character, so an empty "Played by" would claim the
@@ -294,6 +296,25 @@ export function CharacterLocal({
       )}
 
       <FactsRow cells={factCells(scope, here, onPart, onFirst, onAge)} />
+
+      {/* WHAT THIS WORK SAYS ABOUT THEM, which is `work_cast.description` — the
+          per-work half of the pair whose other half is the record's own. 0056
+          added the column for exactly this ("a character reads differently in the
+          novel and in the film") and the only place it could ever be typed was
+          the global sheet's inline card, which is retired: the acts on that card
+          moved here and this one had nowhere to land. A column with no writer is
+          a column that quietly empties.
+
+          THE SUB-LINE IS THE SCOPE, for the same reason the note's is: these
+          fields look exactly like the record's one door away and reach one row
+          instead of every work. */}
+      <ScreenRow
+        label={t('identity.row.local-desc.label')}
+        sub={t('identity.row.local-desc.sub')}
+        meta={here.description || t('identity.row.local-desc.none')}
+        icon={<IconDetails size={16} />}
+        onClick={onDescription}
+      />
 
       {/* THE NOTE IS PRIVATE AND PER-WORK, and its sub-line says so because the
           reader cannot otherwise tell it from the record's own description —
