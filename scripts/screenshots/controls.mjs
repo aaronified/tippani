@@ -79,7 +79,7 @@ const SURFACES = [
 
 const engine = findBrowser(null, 'chrome')
 const browser = await puppeteer.launch(launchOptions(engine, { viewport: { width: opts.width, height: opts.height } }))
-const findings = { dead: [], small: [], empty: [], blank: [], unreachable: [] }
+const findings = { dead: [], small: [], empty: [], blank: [], unreachable: [], sideways: [], notaroute: [] }
 let pressed = 0
 
 try {
@@ -161,6 +161,32 @@ try {
     }
   })
 
+  // A SURFACE MUST NOT SCROLL SIDEWAYS; ITS SCROLLERS DO. Content wider than the
+  // screen belongs inside something with `overflow-x`, and the app has one —
+  // `Scroller`, which writes `data-scroll-x` so a fade says it moves. When the
+  // container instead STRETCHES, three things go wrong at once and none of them
+  // looks like the same bug: the row does not scroll (it is never narrower than
+  // its contents), it wears no fade (`useEdgeScroll` measures no overflow, quite
+  // correctly), and every sibling is dragged out with it so their labels run past
+  // the edge and are cut mid-word.
+  //
+  // That is one missing `min-width: 0` on a flex item, whose default is `auto` —
+  // "do not shrink below your content". Measured on the author sheet at 390px
+  // before the fix: body scrollWidth 1266 against clientWidth 364, and a works
+  // strip 1248px wide reporting `scrollWidth === clientWidth`.
+  //
+  // The check is here rather than in vitest because jsdom has no layout: every
+  // width it reports is zero, so this class of defect is invisible to the entire
+  // unit suite by construction.
+  const sideways = () => page.evaluate(() => {
+    const out = []
+    const scope = document.querySelector('.tp-panel-body') || document.scrollingElement
+    if (scope && scope.scrollWidth > scope.clientWidth + 1) {
+      out.push(`${scope.className || 'the page'} scrolls sideways: ${scope.scrollWidth}px of content in ${scope.clientWidth}px`)
+    }
+    return out
+  })
+
   const differs = (a, b) => a.url !== b.url || a.panels !== b.panels || a.dialogs !== b.dialogs
     || a.inputs !== b.inputs || a.focus !== b.focus || a.scroll !== b.scroll
     || a.text !== b.text || a.toasts !== b.toasts || a.expanded !== b.expanded
@@ -228,6 +254,17 @@ try {
       await new Promise((r) => setTimeout(r, 1800))
     }
     await reopen()
+    // AND THE ROUTE HAS TO BE THE ROUTE. `/people` is not one — `routes.js` falls
+    // through to `{ tab: 'home' }` — so this list quietly probed Home twice under
+    // two names and reported "People" as a screen with its own findings. A probe
+    // that tests something other than what it says it tested is worse than one
+    // that skips: its output is wrong rather than short.
+    const landed = await page.evaluate(() => location.pathname)
+    if (landed !== surface.route && !landed.startsWith(surface.route)) {
+      findings.notaroute.push(`${surface.name}: /${surface.route.replace(/^\//, '')} resolves to ${landed} — it is not a screen of its own`)
+      console.log(`FAIL  ${surface.name.padEnd(14)} ${surface.route} is not a route (landed on ${landed})`)
+      continue
+    }
     const controls = await list()
     // A SURFACE THAT DREW NOTHING IS A FAILED RUN, NOT A CLEAN ONE. A route that
     // 404s, a fixture without the row the route names, a login that did not take:
@@ -240,6 +277,7 @@ try {
       console.log(`FAIL  ${surface.name.padEnd(14)} did not render (${controls.length} controls)`)
       continue
     }
+    for (const w of await sideways()) findings.sideways.push(`${surface.name}: ${w}`)
     let dead = 0
     for (const c of controls) {
       // The touch floor is a property of the control, not of pressing it.
@@ -302,6 +340,15 @@ try {
       pressed++
       await new Promise((r) => setTimeout(r, 900))
       const after = await shot()
+      // AND WHATEVER THE PRESS OPENED, which is where this class of defect
+      // actually lives: a panel is the surface whose body has to hold a strip of
+      // covers, and the sheet that stretched was one a press opens.
+      if (after.panels > before.panels || after.dialogs > before.dialogs) {
+        for (const w of await sideways()) {
+          const line = `${surface.name} → ${JSON.stringify(c.name)}: ${w}`
+          if (!findings.sideways.includes(line)) findings.sideways.push(line)
+        }
+      }
       if (!differs(before, after)) {
         dead++
         findings.dead.push(`${surface.name}: ${JSON.stringify(c.name)}`)
@@ -327,6 +374,14 @@ if (findings.small.length) {
 if (findings.empty.length) {
   console.log(`\n${findings.empty.length} MENU(S) THAT OPEN EMPTY:`)
   for (const d of findings.empty) console.log('  ' + d)
+}
+if (findings.sideways.length) {
+  console.log(`\n${findings.sideways.length} SURFACE(S) THAT SCROLL SIDEWAYS:`)
+  for (const d of findings.sideways) console.log('  ' + d)
+}
+if (findings.notaroute.length) {
+  console.log(`\n${findings.notaroute.length} ROUTE(S) THAT ARE NOT SCREENS:`)
+  for (const d of findings.notaroute) console.log('  ' + d)
 }
 if (findings.blank.length) {
   console.log(`\n${findings.blank.length} SURFACE(S) THAT DID NOT RENDER:`)

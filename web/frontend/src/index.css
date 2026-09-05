@@ -8564,7 +8564,19 @@ html[data-theme="dark"] .board-cover {
      also holds the identity. So each medium is one strip: covers at 112px, the
      caption under the art, and the fade is the whole signal that there is more —
      measured by Scroller rather than counted, on the owner's ruling. */
-  .cs-strip { display: flex; flex-direction: column; gap: 6px; padding: 2px 0 6px; }
+  /* MIN-WIDTH: 0, AND WITHOUT IT THE STRIP DOES NOT SCROLL — it STRETCHES.
+     A flex item's default `min-width: auto` refuses to shrink below its own
+     content, so `overflow-x: auto` on `.cs-tiles` never engaged: nine covers
+     made the row 1248px wide inside a 364px panel, and because the row grew
+     rather than scrolled, `useEdgeScroll` measured `scrollWidth === clientWidth`
+     and correctly wrote no `data-scroll-x` — no fade, because by its own
+     measurement there was nothing to fade.
+     WHAT THAT DID TO EVERYTHING ELSE. The over-wide row set the panel body's
+     scroll width, so every sibling stretched with it: the portrait block, the
+     section heads, and each `.cs-row` — whose label then ran past the panel's
+     edge and was cut mid-word ("Open the global reco…"), which the standing rule
+     forbids outright. Three separate-looking reports, one missing line. */
+  .cs-strip { display: flex; flex-direction: column; gap: 6px; padding: 2px 0 6px; min-width: 0; }
   /* THE STRIP STOPS ITS SCROLL AT ITS OWN EDGE. Without this, dragging the last
      tile past the end scrolls the panel behind it — the reader reaches the end of
      the works and the screen moves instead. `overscroll-behavior` is the rule
@@ -8574,6 +8586,7 @@ html[data-theme="dark"] .board-cover {
     display: flex; gap: 12px; align-items: flex-start;
     overflow-x: auto; overscroll-behavior-x: contain;
     padding: 2px 10px 4px;
+    min-width: 0;
   }
   .cs-tile { width: max(112px, 7em); flex: none; display: flex; flex-direction: column; gap: 7px; }
   .cs-tile-art {

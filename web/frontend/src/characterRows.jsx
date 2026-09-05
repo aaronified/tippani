@@ -497,6 +497,18 @@ export function NamesRow({ label, lines, empty, onOpen }) {
 
 // ScreenBody is the column every scope is drawn into, so the padding is stated
 // once rather than per screen.
+// `minWidth: 0` IS LOad-BEARING, and its absence is what made a nine-work strip
+// stretch the whole sheet. A flex item defaults to `min-width: auto`, which
+// refuses to shrink below its content — so the works row, 1248px of covers,
+// sized this box, this box sized the grid above it (whose single column resolved
+// to 1260px), and every row on the sheet was dragged out to match. The strip
+// never scrolled because it was never narrower than its contents; `useEdgeScroll`
+// measured `scrollWidth === clientWidth` and correctly drew no fade. Measured, at
+// 390px: body scrollWidth 1266 against clientWidth 364.
 export function ScreenBody({ children }) {
-  return <div style={{ display: 'flex', flexDirection: 'column', padding: '14px 6px 16px' }}>{children}</div>
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, padding: '14px 6px 16px' }}>
+      {children}
+    </div>
+  )
 }

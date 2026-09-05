@@ -728,7 +728,7 @@ function PersonBody({ stack, id, work, onOpenWork = null }) {
   // cast list, which is the screen that holds the row. Every credit is a tile on
   // the strip below and each already says "as Harry".
     return (
-      <div style={{ display: 'grid', gap: 'calc(var(--row) * 1.6)' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 'calc(var(--row) * 1.6)' }}>
         <ErrorText>{err}</ErrorText>
         <PersonGlobal
           record={data}
@@ -1367,7 +1367,7 @@ function CharacterBody({ stack, id, work, onSearch = null }) {
   // only a film or a show can credit a dub. None of that is a branch here.
   if (scope.local) {
     return (
-      <div style={{ display: 'grid', gap: 'calc(var(--row) * 1.6)' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 'calc(var(--row) * 1.6)' }}>
         <ErrorText>{err}</ErrorText>
         <CharacterLocal
           record={data}
@@ -1419,7 +1419,7 @@ function CharacterBody({ stack, id, work, onSearch = null }) {
 
   if (scope.id === 'char-global') {
     return (
-      <div style={{ display: 'grid', gap: 'calc(var(--row) * 1.6)' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 'calc(var(--row) * 1.6)' }}>
         <ErrorText>{err}</ErrorText>
         <CharacterGlobal
           record={data}
