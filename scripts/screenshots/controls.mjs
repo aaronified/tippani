@@ -514,7 +514,13 @@ try {
       return true
     }
     if (!await reopen()) {
-      findings.unreachable.push(`${surface.name}: the door it is reached through (${surface.door.selector} "${surface.door.text}") did not open a panel`)
+      // A NAMED SURFACE THAT NEVER OPENED IS A FAILED RUN, not a note. It was
+      // filed under `unreachable`, which is report-only — so the one surface in
+      // this file that is reached by pressing something could go untested on
+      // every run and the exit code would never say so. It belongs with the
+      // screens that did not render, for the same reason: nothing on it was
+      // tested, and "0 findings" reads as a pass.
+      findings.blank.push(`${surface.name}: the door it is reached through (${surface.door.selector}) did not open a panel — nothing on this surface was tested`)
       console.log(`FAIL  ${surface.name.padEnd(14)} door did not open`)
       continue
     }
@@ -616,9 +622,33 @@ try {
         }
         if (!b) return false
         b.scrollIntoView({ block: 'center' })
+        // IT MAY SAY SO NOW EVEN IF IT DID NOT WHEN IT WAS ENUMERATED, and this
+        // is not hypothetical: `reopen()` is a fresh navigation, so the dock's
+        // Back key — enabled while the probe was walking from surface to surface
+        // — is correctly `disabled` on a page opened directly, which is where
+        // every press is actually made. Both detail screens reported their Back
+        // key as a control that does nothing and does not say so, and it says so.
+        // The honest answer is the rule's own escape, read at the moment of the
+        // press rather than a screen earlier.
+        if (b.disabled || b.getAttribute('aria-disabled') === 'true') return 'says'
+        // AND SOMETHING MAY BE OVER IT. A click on a covered control lands on the
+        // cover, so nothing happens and the control is blamed for it — which is a
+        // fact about the layer, not about the button. Reported as unreachable,
+        // with what was in the way.
+        const r = b.getBoundingClientRect()
+        const hit = document.elementFromPoint(Math.round(r.left + r.width / 2), Math.round(r.top + r.height / 2))
+        if (hit && hit !== b && !b.contains(hit) && !hit.contains(b)) {
+          return `covered:${(hit.className && String(hit.className).slice(0, 40)) || hit.tagName}`
+        }
         b.click()
         return true
       }, { key: c.key, nth: c.nth })
+      // It says it cannot act, which is honest, and the run moves on.
+      if (ok === 'says') continue
+      if (typeof ok === 'string' && ok.startsWith('covered:')) {
+        findings.unreachable.push(`${surface.name}: ${JSON.stringify(c.name)} is covered by ${ok.slice(8)} — the press would land on that`)
+        continue
+      }
       // NOT PRESSED IS NOT PASSED. The index is re-resolved after `reopen`, so a
       // control that has moved or gone leaves the press unmade — and a `continue`
       // there quietly drops it from a run whose whole claim is "every control".

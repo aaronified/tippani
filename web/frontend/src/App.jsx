@@ -2276,7 +2276,21 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
         keys={dockKeys}
         hidden={navHidden}
         canBack={canGoBack}
-        onBack={() => window.history.back()}
+        // THE SHELL'S OWN BACK, NOT THE BROWSER'S. `canBack` is
+        // `tpDepth > 0 || !!detail`, so on a page opened DIRECTLY at a detail
+        // route — a shared link to a book, a phone reopening the app where it
+        // left off — the key is enabled with `tpDepth` at 0, and a raw
+        // `history.back()` there walks out of the app or does nothing at all.
+        // Measured: `make controls` at 390 reported the Back key on both detail
+        // screens as a control that does nothing and does not say so.
+        //
+        // `goBack` is the function that already knows better — it hands the press
+        // to the browser when there IS an in-app entry, and falls back to the tab
+        // when there is not, which is how every in-page back arrow behaves. The
+        // fallback is the CURRENT tab because a detail route carries it: /books/5
+        // is the library, /catalogue/5 is the catalogue, and landing there is
+        // what "back" means from a work you arrived at cold.
+        onBack={() => goBack(tab)}
         onSearch={openSearch}
         searchLabel={t(globalSearch ? 'shell.search.global.aria' : 'nav.tab.search.label')}
         // The Search key lands on the Search screen, so on the Search screen it

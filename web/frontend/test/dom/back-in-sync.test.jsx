@@ -139,6 +139,26 @@ describe('every back arrow in App is wired to goBack', () => {
     ).toEqual([])
   })
 
+  it('and so is the dock’s, which is the one that had its own', () => {
+    // THE SHELL HAS ONE BACK, and the dock's key was the exception. It read
+    // `onBack={() => window.history.back()}` while the key beside it is enabled
+    // whenever `tpDepth > 0 || !!detail` — so on a page opened DIRECTLY at a
+    // detail route (a shared link to a book, a phone reopening the app where it
+    // left off) the key was live with no in-app entry behind it and the press
+    // walked out of the app or did nothing at all.
+    //
+    // ASSERTED AS "ONE FUNCTION", not as the absence of a string: the fault is
+    // two controls named Back doing different things to one stack, which is this
+    // file's whole subject, and `goBack` is the only one that answers both
+    // states. A raw traversal anywhere in the shell is that split coming back.
+    const backs = [...src.matchAll(/onBack=\{\(\) => ([A-Za-z.]+)\(/g)].map((m) => m[1])
+    expect(backs.length, 'no onBack found — the dock has been renamed and this case is stale').toBeGreaterThan(0)
+    expect(
+      [...new Set(backs)].filter((fn) => fn !== 'goBack'),
+      'a Back key that traverses on its own — it is enabled on a detail route with no in-app entry behind it',
+    ).toEqual([])
+  })
+
   it('and every close arrow in the file goes through it', () => {
     // THE RULE, NOT A CENSUS. This used to assert the exact five destinations —
     // `['anthologies', 'library', 'movies', 'quotes', 'settings']` — and a count
