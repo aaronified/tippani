@@ -72,6 +72,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   picture — or the upload reported an error for something that had worked.
 - **A character's page says what went wrong instead of going blank.** A record that
   failed to load took the whole panel down with it.
+- **Every metadata supplier wears its own mark where you give it a key.** The app
+  draws one per supplier and showed them on the match rows and on the tag saying
+  where a field came from — but not on the settings screen where you meet a
+  supplier and decide whether to give it a key, so the first mark you ever saw was
+  a picture nobody had introduced.
 - **Pressing a work on a character's page asks what you meant.** A work holds more
   than one thing — the work itself, the character as that work has them, whoever
   played them — and the page used to guess by opening a small card under the

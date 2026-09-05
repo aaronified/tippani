@@ -80,7 +80,11 @@ const SURFACES = [
   { route: '/checks', name: 'Checks' },
   { route: '/settings', name: 'Settings' },
   { route: '/books/1', name: 'Book detail' },
-  { route: '/movies/2', name: 'Film detail' },
+  // `/catalogue/2` AND NOT `/movies/2`. Both resolve — routes.js takes either —
+  // but the app CANONICALISES to /catalogue, so a probe naming the other lands
+  // somewhere with a different path and the route check calls it not-a-route.
+  // The check is right; the list was naming the alias.
+  { route: '/catalogue/2', name: 'Film detail' },
   // THE PANELS, REACHED THE WAY A READER REACHES THEM. A panel has no route of
   // its own — it is a door on a screen — so a surface may name the door, and this
   // probe presses it before enumerating. `list()` already scopes to `.tp-panel`
@@ -92,7 +96,7 @@ const SURFACES = [
   // re-opening, and it exited 0 whatever it found, so `make` could not fail on
   // it. A weaker copy of a probe is worse than none: it is the one somebody
   // reads.
-  { route: '/movies/2', name: 'Character panel', door: { selector: '.person-chip', text: 'Rick Blaine' } },
+  { route: '/catalogue/2', name: 'Character panel', door: { selector: '.person-chip', text: 'Rick Blaine' } },
 ]
 
 const engine = findBrowser(null, 'chrome')

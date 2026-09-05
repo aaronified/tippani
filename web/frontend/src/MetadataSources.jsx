@@ -42,6 +42,7 @@ import {
   toast,
   Toggle,
   Tooltip,
+  SourceIcon,
 } from './ui.jsx'
 import {
   applyLanguageMarks,
@@ -125,7 +126,7 @@ const NEED_LABEL = {
   closed: 'settings.keys.need.closed.label',
 }
 
-function KeyField({ label, hint, set, placeholder, secret = true, value = '', onSave, busy, need }) {
+function KeyField({ label, hint, set, placeholder, secret = true, value = '', onSave, busy, need, source }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(secret ? '' : value)
   useEffect(() => { if (!editing) setDraft(secret ? '' : value) }, [value, editing, secret])
@@ -140,6 +141,17 @@ function KeyField({ label, hint, set, placeholder, secret = true, value = '', on
   return (
     <div className="inline-field">
       <div className={'inline-field-head' + (editing ? '' : ' is-flush')}>
+        {/* THE SUPPLIER'S OWN MARK, beside the key it unlocks.
+            
+            The app draws one per supplier and has since they were added — a match
+            row wears it, and so does the tag saying which supplier wrote a field.
+            THIS screen, which is where a reader meets a supplier for the first
+            time and decides whether to give it a key, wore none: so the mark on
+            that later match row was a picture nobody had been introduced to, and
+            the owner's report was that the marks were missing from "the metadata
+            fetch sections". They were missing from the place that names the
+            fetchers. */}
+        {source ? <SourceIcon source={source} side="right" /> : null}
         <MonoLabel>{label}</MonoLabel>
         {/* WHAT FILLING THIS IN ACTUALLY BUYS, said before the reader goes and
             registers for anything.
@@ -367,6 +379,7 @@ export function MetadataSources({ user, onPreferences }) {
         <div className="mt-3">
           <KeyField
             label={keyLabel('google', 'key')}
+            source="google"
             hint={t('settings.keys.google.hint')}
               need="optional"
             set={keys?.google_books_key_set}
@@ -376,6 +389,7 @@ export function MetadataSources({ user, onPreferences }) {
           />
           <KeyField
             label={keyLabel('tmdb', 'key')}
+            source="tmdb"
             hint={t('settings.keys.tmdb.hint')}
               need={keys?.tmdb_builtin ? 'bundled' : 'required'}
             set={keys?.tmdb_key_set}
@@ -399,6 +413,7 @@ export function MetadataSources({ user, onPreferences }) {
               the fields were the thing that was wrong. */}
           <KeyField
             label={keyLabel('tvdb', 'key')}
+            source="tvdb"
             hint={t('settings.keys.tvdb.hint')}
               need={keys?.tvdb_builtin ? 'bundled' : 'required'}
             set={keys?.tvdb_key_set}
@@ -408,6 +423,7 @@ export function MetadataSources({ user, onPreferences }) {
           />
           <KeyField
             label={keyLabel('tvdb', 'pin')}
+            source="tvdb"
             hint={t('settings.keys.tvdb-pin.hint')}
               need="optional"
             set={keys?.tvdb_pin_set}
@@ -429,6 +445,7 @@ export function MetadataSources({ user, onPreferences }) {
               is no value to pre-fill and the saved badge is the whole answer. */}
           <KeyField
             label={keyLabel('igdb', 'client-id')}
+            source="igdb"
             hint={t('settings.keys.igdb-id.hint')}
               need="required"
             set={keys?.igdb_client_id_set}
@@ -438,6 +455,7 @@ export function MetadataSources({ user, onPreferences }) {
           />
           <KeyField
             label={keyLabel('igdb', 'secret')}
+            source="igdb"
             hint={t('settings.keys.igdb-secret.hint')}
               need="required"
             set={keys?.igdb_secret_set}
@@ -475,6 +493,7 @@ export function MetadataSources({ user, onPreferences }) {
                 to fit a cap. So it is named for what it is. */}
             <KeyField
               label={keyLabel('amazon', 'cookie')}
+              source="amazon"
               hint={t('settings.keys.amazon-cookie.caveat')}
               need="optional"
               set={keys?.amazon_cookie_set}
@@ -524,6 +543,7 @@ export function MetadataSources({ user, onPreferences }) {
             </div>
             <KeyField
               label={keyLabel('amazon', 'domain')}
+              source="amazon"
               hint={t('settings.keys.amazon-domain.hint')}
               need="optional"
               secret={false}

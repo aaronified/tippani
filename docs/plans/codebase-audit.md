@@ -536,12 +536,26 @@ fails all eight of its cases against the box it replaced.
 What is NOT done here, and is the honest remainder: the picker's `choose` mode. The pack
 has four (`person`, `choose`, `note`, and the language variant) and three are built.
 
-### 4.2 Not yet compared
+### 4.2 The other four artboards, compared
 
-`char-global`, `char-book`, `char-game`, `people-global`, and `book-detail.dc.html` /
-`book-detail-wide.dc.html`. The Match Picker and Fetch Results HAVE now been held against
-their artboards in `work-details-popup.dc.html` and match. The pair of probes is in place;
-the remaining comparisons are not done, and the register carries this as **E3**.
+`character-popup.dc.html` holds five boards and §4.1 read one. Here are the other four,
+row by row, against what the app draws. The pack builds each board as an ordered `rows: []`
+of `head` / `names` / `row` / `facts` / `pair` / `seg` / `strip` / `pills` calls, so the
+comparison is an ordered list against an ordered list rather than an impression.
+
+| Board | The pack's order | The app | Verdict |
+| --- | --- | --- | --- |
+| `char-global` | `head('The identity')` → names, Sort name, Born → `head('Links')` → pills → `head('Appearances · 3 works')` → strip → `head('The identity itself')` → Merge → Remove from all works | the same, in the same order | **Match.** Three departures, all named in `identityGlobal.jsx`'s header before this was read: the Lines list, the description field and the alias section, each with its reason |
+| `char-book` | names('Called here') → facts → Note → pair → `idBlock()` → `head('Remove')` → Remove from this book. No performer block | the same | **Match, plus one insertion.** "In this work" — `work_cast.description` — sits between facts and Note. The pack's local boards have no row for it and 0056 added the column for exactly this; when the global sheet's inline card retired, it was the only place it could be typed |
+| `char-film` | names('Credited as') → `seg('Played by' / 'Voiced by')` → credits → Add another performer → `head('Dubbed by')` → dub credits → Add a dubbing credit → facts → Note → pair → `idBlock()` → Remove | the same, plus the insertion above | **Match** |
+| `char-game` | names('Called here') → `seg(… 'Voiced by')` → credits → Add another voice → facts → Note → pair → `idBlock()` → Remove. **No Dubbed by** | the same; `identityScope`'s `dubs: medium === 'film' \|\| medium === 'show'` is that rule | **Match** |
+| `people-global` | `head('The person')` → names('Name'), Sort name, Born → `head('Links')` → pills → `head('Works · 3')` → strip → `head('This person')` → Merge → Delete this person | the same; the delete row is drawn where the caller supplies the handler | **Match** |
+
+**What that leaves.** `book-detail.dc.html` and `book-detail-wide.dc.html` — 4,504 and 5,957
+lines — are the whole work-detail screen: hero, tabs, quote board, and the artwork and id
+strips under them. That is a different area from the character and people screens this
+register is about, and comparing it properly is its own piece of work rather than a line
+here. Carried in the register as **E8** rather than folded into a "compared" claim.
 
 ---
 
