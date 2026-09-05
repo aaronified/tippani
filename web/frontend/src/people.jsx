@@ -71,15 +71,40 @@ export const PROVIDERS = [
 // pattern is worse than no entry, because a pasted IGDB URL is still recognised
 // by PROVIDERS and still draws its own pill.
 export const PROVIDER_ID_LINKS = [
+  // ---- ANYWHERE ON THE WEB, AND IT IS THE ONE THE SHEET OPENS ON ----
+  //
+  // "the add links doesn't let me enter any link i want. there should be a custom
+  // option" — and there was not one: four curated id spaces and no way to add a
+  // Wikipedia page, a fandom wiki or somebody's own site from the sheet whose
+  // title is "Add a link". THE DEFAULT, on the owner's instruction, because it is
+  // the choice that cannot be wrong: a curated address pasted here is RECOGNISED
+  // and filed under its own provider (see `detectProviderLink`), so the reader
+  // never has to know which pill their link belongs to before they can paste it.
+  ['any', 'custom', 'identity.link.id.provider.custom', 'identity.link.id.hint.custom',
+    (url) => url,
+    { accept: acceptWebAddress, example: 'identity.link.id.example.custom', inputMode: 'url' }],
   // ---- a PERSON's own pages ----
+  //
+  // EVERY RULE BELOW WAS CHECKED BEFORE IT WAS ENFORCED, which the owner asked
+  // for in those words — a validator that rejects a valid id is worse than none,
+  // because the reader has a correct answer and no way to give it.
   ['person', 'imdb', 'vocab.source.imdb.label', 'identity.link.id.hint.imdb',
-    (id) => `https://www.imdb.com/name/${encodeURIComponent(id)}/`],
+    (id) => `https://www.imdb.com/name/${encodeURIComponent(id)}/`,
+    { accept: acceptIMDbName, example: 'identity.link.id.example.imdb' }],
   ['person', 'tmdb', 'vocab.source.tmdb.label', 'identity.link.id.hint.tmdb',
-    (id) => `https://www.themoviedb.org/person/${encodeURIComponent(id)}`],
+    (id) => `https://www.themoviedb.org/person/${encodeURIComponent(id)}`,
+    { accept: acceptDigits, example: 'identity.link.id.example.tmdb', inputMode: 'numeric' }],
+  // NOT NUMERIC, and this is the one the "check before you enforce" caught.
+  // TheTVDB's modern person pages are `/people/<slug>` — `/people/rajesh-khanna`
+  // — and the numeric form is the older one; the app's own hint has said "the
+  // number OR slug" since the popup was written. A numeric-only rule here would
+  // reject the address the site actually gives you today.
   ['person', 'tvdb', 'vocab.source.tvdb.label', 'identity.link.id.hint.tvdb',
-    (id) => `https://thetvdb.com/people/${encodeURIComponent(id)}`],
+    (id) => `https://thetvdb.com/people/${encodeURIComponent(id)}`,
+    { accept: acceptSlug, example: 'identity.link.id.example.tvdb' }],
   ['person', 'amazon', 'vocab.source.amazon.label', 'identity.link.id.hint.amazon',
-    (id) => `https://www.amazon.com/stores/author/${encodeURIComponent(id)}`],
+    (id) => `https://www.amazon.com/stores/author/${encodeURIComponent(id)}`,
+    { accept: acceptASIN, example: 'identity.link.id.example.amazon' }],
   // ---- an ORGANISATION's ----
   //
   // A STUDIO AND A PUBLISHER ARE CREDITED THE WAY A PERSON IS — `unit.role.studio`
@@ -94,8 +119,114 @@ export const PROVIDER_ID_LINKS = [
   // than no entry, because a pasted URL is still recognised by PROVIDERS and
   // still draws its own pill.
   ['company', 'igdb', 'vocab.source.igdb.label', 'identity.link.id.hint.igdb',
-    (slug) => `https://www.igdb.com/companies/${encodeURIComponent(slug)}`],
+    (slug) => `https://www.igdb.com/companies/${encodeURIComponent(slug)}`,
+    { accept: acceptSlug, example: 'identity.link.id.example.igdb' }],
 ]
+
+// ---- WHAT EACH ID SPACE ACTUALLY LOOKS LIKE ---------------------------------
+//
+// Each `accept` takes whatever the reader typed or pasted and returns THE ID, or
+// '' if that is not one. Two jobs in one function, deliberately: the reader who
+// pastes `https://www.imdb.com/name/nm0000007/` and the reader who types
+// `nm0000007` mean the same thing, and a validator that takes the second and
+// rejects the first is a rule the reader has to work around by hand.
+
+// An IMDb person is `nm` and then digits — seven historically, eight on anything
+// catalogued this decade. The repo's own title rule is `^tt[0-9]{7,9}$`
+// (internal/metadata/imdb.go:71) and names grow the same way, so the ceiling is
+// set one wider than that rather than at today's longest.
+function acceptIMDbName(raw) {
+  const m = String(raw).match(/nm(\d{7,10})\b/i)
+  return m ? `nm${m[1]}` : ''
+}
+
+// TMDB people are numbered, and their addresses carry an optional slug tail
+// (`/person/10859-ryan-reynolds`). The number alone resolves, so the tail is read
+// and dropped rather than stored — one id for one person however it was pasted.
+function acceptDigits(raw) {
+  const m = String(raw).trim().match(/^(?:.*\/person\/)?(\d+)/)
+  return m ? m[1] : ''
+}
+
+// A slug id: letters, digits and the separators a URL path segment may hold. Used
+// for TheTVDB (see the note at its row) and for IGDB companies, both of which
+// name their pages rather than numbering them.
+function acceptSlug(raw) {
+  const m = String(raw).trim().match(/^(?:.*\/(?:people|companies)\/)?([A-Za-z0-9][A-Za-z0-9._-]*)\/?$/)
+  return m ? m[1] : ''
+}
+
+// An Amazon author store is keyed by an ASIN: ten characters of digits and
+// capitals. Lower case is accepted and raised, because a hand-typed id arrives
+// however the reader's keyboard left it.
+function acceptASIN(raw) {
+  const m = String(raw).trim().match(/(?:^|\/)([A-Za-z0-9]{10})(?:$|[/?#])/)
+  return m ? m[1].toUpperCase() : ''
+}
+
+// The custom row: an absolute web address and nothing else. A bare host is the
+// common paste, so `example.com/x` is read as https rather than refused — but a
+// `javascript:` or `data:` URL is not a link to somewhere and is rejected here
+// rather than stored and drawn as a pill.
+function acceptWebAddress(raw) {
+  const s = String(raw).trim()
+  if (!s || /\s/.test(s)) return ''
+  for (const cand of [s, `https://${s}`]) {
+    try {
+      const u = new URL(cand)
+      if (u.protocol === 'http:' || u.protocol === 'https:') return u.href
+    } catch { /* not a URL in this shape; try the next */ }
+  }
+  return ''
+}
+
+// providerRule — the options object for one slug, or an empty one. Callers read
+// `accept`, `example` and `inputMode` off it.
+export function providerRule(slug) {
+  const row = PROVIDER_ID_LINKS.find(([, sl]) => sl === slug)
+  return (row && row[5]) || {}
+}
+
+// acceptProviderID — the id one provider will take from what the reader typed, or
+// '' if it will take none of it.
+export function acceptProviderID(slug, raw) {
+  const rule = providerRule(slug)
+  const clean = String(raw || '').trim()
+  if (!clean) return ''
+  return rule.accept ? rule.accept(clean) : clean
+}
+
+// detectProviderLink — "if i paste a curated link in the custom input, the app
+// should recognise it and file accordingly."
+//
+// THE HOST DECIDES, not the id's shape. `10859` is a TMDB person and a TVDB
+// person and an IGDB company, so a bare id can only be what the chosen pill says
+// it is — but a PASTED ADDRESS names its own site, and filing it under `custom`
+// when the app has a row for that site would store a second spelling of a link it
+// already knows how to draw a mark for.
+//
+// It answers `null` for anything that is not one of the curated addresses, which
+// is the ordinary case: the custom row keeps it verbatim.
+const PROVIDER_LINK_HOSTS = [
+  [/(^|\.)imdb\.com$/i, /\/name\//, 'imdb'],
+  [/(^|\.)themoviedb\.org$/i, /\/person\//, 'tmdb'],
+  [/(^|\.)thetvdb\.com$/i, /\/people\//, 'tvdb'],
+  [/(^|\.)amazon\.[a-z.]+$/i, /\/author\//, 'amazon'],
+  [/(^|\.)igdb\.com$/i, /\/companies\//, 'igdb'],
+]
+
+export function detectProviderLink(raw) {
+  const s = String(raw || '').trim()
+  if (!s || !/^https?:\/\//i.test(s)) return null
+  let u
+  try { u = new URL(s) } catch { return null }
+  for (const [host, path, slug] of PROVIDER_LINK_HOSTS) {
+    if (!host.test(u.hostname) || !path.test(u.pathname)) continue
+    const id = acceptProviderID(slug, u.pathname)
+    if (id) return { slug, id }
+  }
+  return null
+}
 
 // ORGANISATION_ROLES are the credits that name a company rather than a human.
 // The role vocabulary is the app's own (work_person.role), so this is a filter
@@ -159,17 +290,27 @@ export function isOrganisation(credits = []) {
 // that has not been credited yet is a list they will not use.
 export function providerLinksFor(credits = []) {
   const org = isOrganisation(credits)
-  return PROVIDER_ID_LINKS.filter(([forKind]) => forKind === (org ? 'company' : 'person'))
+  // `any` is on every list: the custom row is a link to the open web and has no
+  // id space to be wrong about.
+  return PROVIDER_ID_LINKS.filter(
+    ([forKind]) => forKind === 'any' || forKind === (org ? 'company' : 'person'),
+  )
 }
 
 // buildProviderLink — the address for one (provider, id), or '' when there is no
-// such provider or nothing has been typed. Trimmed, because a copied id arrives
-// with whitespace on it more often than not.
+// such provider, nothing has been typed, or what was typed is NOT AN ID OF THAT
+// SPACE.
+//
+// The last clause is the enforcement the owner asked for, and it lives here
+// rather than in the form so that every caller gets it: an address is built out
+// of the id the provider will accept, so `nm0000007` typed under TMDB now
+// produces no address at all rather than `/person/nm0000007`, which is a page
+// that does not exist and a pill the reader only finds is dead by pressing it.
 export function buildProviderLink(slug, id) {
-  const clean = String(id || '').trim()
-  if (!clean) return ''
+  const ok = acceptProviderID(slug, id)
+  if (!ok) return ''
   const row = PROVIDER_ID_LINKS.find(([, sl]) => sl === slug)
-  return row ? row[4](clean) : ''
+  return row ? row[4](ok) : ''
 }
 
 // parseLinks splits the stored free-text links field into recognised provider

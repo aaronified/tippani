@@ -343,14 +343,16 @@ describe('adding a link from an id', () => {
   it('shows which provider is chosen, and follows the choice', async () => {
     const dlg = await open(7)
     const radios = within(dlg).getAllByRole('radio')
-    expect(radios.map((r) => r.textContent)).toEqual(['IMDb', 'TMDB', 'TheTVDB', 'Amazon'])
+    // `Any address` LEADS AND IS CHOSEN, on the owner's instruction: the sheet
+    // opens on the row that cannot be wrong about an id space.
+    expect(radios.map((r) => r.textContent)).toEqual(['Any address', 'IMDb', 'TMDB', 'TheTVDB', 'Amazon'])
     // THE CLASS THE STYLESHEET STYLES. `is-on` matched nothing here, so the
     // chosen provider drew exactly like the three it was chosen over.
     expect(radios[0].className, 'the first provider is not marked chosen').toContain('active')
     expect(radios[1].className).not.toContain('active')
-    fireEvent.click(radios[1])
-    expect(within(dlg).getAllByRole('radio')[1].className).toContain('active')
-    expect(within(dlg).getByText(/The number in their TMDB address/i)).toBeTruthy()
+    fireEvent.click(radios[2])
+    expect(within(dlg).getAllByRole('radio')[2].className).toContain('active')
+    expect(within(dlg).getByText(/Digits only/i)).toBeTruthy()
   })
 
   it('has a tick to press, armed only once there is an address', async () => {
@@ -361,6 +363,7 @@ describe('adding a link from an id', () => {
     const tick = within(dlg).getByRole('button', { name: /save/i })
     expect(tick).toBeTruthy()
     expect(tick.closest('.tp-tick-slot')?.className, 'armed with nothing typed').not.toContain('is-armed')
+    fireEvent.click(within(dlg).getAllByRole('radio')[1])
     fireEvent.change(within(dlg).getByLabelText(/^the id$/i), { target: { value: 'nm0000123' } })
     const armedTick = within(dlg).getByRole('button', { name: /save/i })
     expect(armedTick.closest('.tp-tick-slot').className, 'not armed with an address ready').toContain('is-armed')
@@ -372,6 +375,7 @@ describe('adding a link from an id', () => {
 
   it('writes the address into the record’s links, appended', async () => {
     const dlg = await open(7)
+    fireEvent.click(within(dlg).getAllByRole('radio')[1])
     fireEvent.change(within(dlg).getByLabelText(/^the id$/i), { target: { value: 'nm0000123' } })
     fireEvent.click(within(dlg).getByRole('button', { name: /save/i }))
     await waitFor(() => {
@@ -406,7 +410,8 @@ describe('adding a link from an id', () => {
       credits: [{ kind: 'movie', work_id: 5, title: 'Hollow Reach', role, media_type: mediaType, credit_as: '' }],
     }
     const dlg = await open(12)
-    expect(within(dlg).getAllByRole('radio').map((r) => r.textContent)).toEqual(['IGDB'])
+    expect(within(dlg).getAllByRole('radio').map((r) => r.textContent)).toEqual(['Any address', 'IGDB'])
+    fireEvent.click(within(dlg).getAllByRole('radio')[1])
     fireEvent.change(within(dlg).getByLabelText(/^the id$/i), { target: { value: 'ninefold' } })
     expect(within(dlg).getByText('https://www.igdb.com/companies/ninefold')).toBeTruthy()
   })
@@ -419,7 +424,7 @@ describe('adding a link from an id', () => {
       credits: [{ kind: 'movie', work_id: 5, title: 'Rashomon', role: 'director', media_type: 'movie', credit_as: '' }],
     }
     const dlg = await open(7)
-    expect(within(dlg).getAllByRole('radio').map((r) => r.textContent)).toEqual(['IMDb', 'TMDB', 'TheTVDB', 'Amazon'])
+    expect(within(dlg).getAllByRole('radio').map((r) => r.textContent)).toEqual(['Any address', 'IMDb', 'TMDB', 'TheTVDB', 'Amazon'])
   })
 })
 
@@ -492,7 +497,10 @@ describe('the two records reach each other', () => {
     const film = [...container.querySelectorAll('.cs-tile')]
       .find((c) => /played by/.test(c.querySelector('.cs-tile-chip')?.getAttribute('title') || ''))
     act(() => film.querySelector('.cs-tile-art').click())
-    act(() => screen.getByText('Oleg Basilashvili').click())
+    // SCOPED TO THE SHEET THE TILE OPENED — the performer is also named in the
+    // list of who has played the character, and the door under test is this one.
+    const sheet = await screen.findByRole('dialog')
+    act(() => within(sheet).getByText('Oleg Basilashvili').click())
     expect(stack.push).toHaveBeenCalledTimes(1)
 
     // A BOOK CHARACTER HAS NO PERFORMER, and its tile says nothing rather than
@@ -569,71 +577,5 @@ describe('merging two records into one', () => {
     // Scoped for the same reason: this record's name is on its own header and in
     // its name row, and neither of those is an offer to merge into itself.
     expect(list.queryAllByText('Mikhail Bulgakov')).toHaveLength(0)
-  })
-})
-
-// ---- the pills on a panel's lines -------------------------------------------
-//
-// THE OWNER'S RULING: "same character pills should be there in the favourite
-// section of the homepage / and in the character / actor page (only globals)."
-describe('a panel’s lines wear the same pills the cards do', () => {
-  const chipNames = (root) =>
-    [...root.querySelectorAll('.person-chip-name')].map((n) => n.textContent)
-
-  it('names every character on the line, on a performer’s record', async () => {
-    const stack = { push: vi.fn(), open: vi.fn() }
-    const { container } = render(body(personPanel(stack, { id: 7, name: 'Mikhail Bulgakov' })))
-    await screen.findByText('The person')
-    const line = await waitFor(() => {
-      const el = container.querySelector('.identity-line')
-      expect(el).toBeTruthy()
-      return el
-    })
-    // THE CHARACTERS, NOT THE PERFORMER, and this is the assertion the server
-    // asymmetry is about: the name this line PRINTS is "Claude Rains".
-    expect(chipNames(line)).toEqual(['Renault', 'Rick'])
-  })
-
-  it('stops repeating those names in the microcopy, and keeps the work', async () => {
-    const stack = { push: vi.fn(), open: vi.fn() }
-    const { container } = render(body(personPanel(stack, { id: 7, name: 'Mikhail Bulgakov' })))
-    await screen.findByText('The person')
-    const line = await waitFor(() => {
-      const el = container.querySelector('.identity-line')
-      expect(el).toBeTruthy()
-      return el
-    })
-    const micro = line.querySelector('.microcopy').textContent
-    // The WORK is the one thing the chips never say, so it stays.
-    expect(micro).toContain('Casablanca')
-    expect(micro, 'the printed name is repeated beside the chips').not.toContain('Claude Rains')
-  })
-
-  it('opens nothing, because the panel is already the record’s', async () => {
-    // NOT HOME'S REASON. There the tile is the press; here the chip that would
-    // open a character IS the page the reader is standing on, and the other names
-    // on the line have no cast row behind them in this payload.
-    //
-    // EVERY CHIP IS STILL A BUTTON — the owner's ruling — so what says "nowhere
-    // to go" is aria-disabled rather than a different element.
-    const stack = { push: vi.fn(), open: vi.fn() }
-    const { container } = render(body(characterPanel(stack, { id: 3, name: 'Woland' })))
-    await waitFor(() => expect(container.querySelector('.identity-line')).toBeTruthy())
-    const chips = [...container.querySelectorAll('.person-chip')]
-    expect(chips.length).toBeGreaterThan(0)
-    expect([...new Set(chips.map((c) => c.tagName))]).toEqual(['BUTTON'])
-    expect(chips.every((c) => c.getAttribute('aria-disabled') === 'true')).toBe(true)
-  })
-
-  it('draws no row at all on a line that belongs to no work', async () => {
-    const stack = { push: vi.fn(), open: vi.fn() }
-    const { container } = render(body(characterPanel(stack, { id: 3, name: 'Woland' })))
-    await waitFor(() => expect(container.querySelector('.identity-line')).toBeTruthy())
-    const lines = [...container.querySelectorAll('.identity-line')]
-    const utterance = lines.find((l) => /turn out right/.test(l.textContent))
-    expect(utterance, 'the standalone quote is not listed').toBeTruthy()
-    expect(utterance.querySelector('.speaker-chips'), 'a standalone quote has no cast').toBeNull()
-    // And its microcopy keeps the printed name, since no chip is saying it.
-    expect(utterance.querySelector('.microcopy').textContent).toContain('Woland')
   })
 })

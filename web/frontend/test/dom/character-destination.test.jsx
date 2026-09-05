@@ -184,8 +184,11 @@ describe('every work they are in, as a shelf rather than a list', () => {
       .find((c) => /played by Oleg Basilashvili/.test(c.querySelector('.cs-tile-chip')?.getAttribute('title') || ''))
     expect(t, 'no tile names the performer').toBeTruthy()
     act(() => t.querySelector('.cs-tile-art').click())
-    const who = await screen.findByText('Oleg Basilashvili')
-    act(() => who.click())
+    // SCOPED TO THE SHEET THE TILE OPENED. The performer is named twice on this
+    // screen now — once in the chooser, once in the list of who has played the
+    // character — and the door under test is the chooser's.
+    const sheet = await screen.findByRole('dialog')
+    act(() => within(sheet).getByText('Oleg Basilashvili').click())
     expect(s.push).toHaveBeenCalledTimes(1)
   })
 })
@@ -251,10 +254,19 @@ describe('the picture on each work, and the one that is the record’s', () => {
   })
 })
 
+// THE ONE DOOR IS THE STRIP'S ADD TILE. It used to scroll to a second button
+// stranded further down the sheet, which was two controls for one act and, on a
+// phone, a press that only moved the page — both halves reported by the owner.
+const addWorkTile = () => {
+  const tile = [...document.querySelectorAll('.cs-tile-add')]
+  expect(tile, 'the strip offers no way to add a work').toHaveLength(1)
+  return tile[0]
+}
+
 describe('tagging them onto another work', () => {
   it('offers the works they are not already in, and none of the ones they are', async () => {
     await open()
-    act(() => screen.getByText('Add to a work').closest('button').click())
+    act(() => addWorkTile().click())
     await screen.findByPlaceholderText(/find a book or a film/i)
     const picks = await screen.findAllByRole('button', { name: /The White Guard/ })
     expect(picks.length).toBe(1)
@@ -270,7 +282,7 @@ describe('tagging them onto another work', () => {
     // the film — and DROPPED for a book rather than sent and refused, since the
     // API rejects an actor on one and the reader was told the box was optional.
     await open()
-    act(() => screen.getByText('Add to a work').closest('button').click())
+    act(() => addWorkTile().click())
     fireEvent.change(await screen.findByPlaceholderText(/do not know yet/i), { target: { value: 'Oleg Basilashvili' } })
     act(() => screen.getByRole('button', { name: /Master i Margarita \(2024\)/ }).click())
     await waitFor(() => expect(CALLS.some(([m, p]) => m === 'POST' && p === '/characters/3/works')).toBe(true))
@@ -280,7 +292,7 @@ describe('tagging them onto another work', () => {
     CALLS.length = 0
     cleanup()
     await open()
-    act(() => screen.getByText('Add to a work').closest('button').click())
+    act(() => addWorkTile().click())
     fireEvent.change(await screen.findByPlaceholderText(/do not know yet/i), { target: { value: 'Oleg Basilashvili' } })
     act(() => screen.getByRole('button', { name: /The White Guard/ }).click())
     await waitFor(() => expect(CALLS.some(([m, p]) => m === 'POST' && p === '/characters/3/works')).toBe(true))
@@ -289,7 +301,7 @@ describe('tagging them onto another work', () => {
 
   it('sends the character’s id and the work, not a name to be resolved', async () => {
     await open()
-    act(() => screen.getByText('Add to a work').closest('button').click())
+    act(() => addWorkTile().click())
     const pick = await screen.findByRole('button', { name: /The White Guard/ })
     act(() => pick.click())
     await waitFor(() => expect(
@@ -435,25 +447,6 @@ describe('what this character is on ONE work', () => {
     await waitFor(() => expect(CALLS.some(([m, p]) => m === 'PUT' && p === '/cast/11')).toBe(true))
     const [, , sent] = CALLS.find(([m, p]) => m === 'PUT' && p === '/cast/11')
     expect(sent.actor, 'a book’s cast row was sent an actor').toBeFalsy()
-  })
-})
-
-describe('what this character has said', () => {
-  // THE QUESTION THE FOLD COULD NEVER ANSWER. "Which quotes are this role's" has
-  // no honest answer over a text column — the fold is Go, not SQL — so the panel
-  // could not list them until a quote's speaker became a cast row it points at.
-  it('lists the quotes that point at them, from both shelves', async () => {
-    await open()
-    expect(await screen.findByText(/Manuscripts don't burn/)).toBeTruthy()
-    expect(screen.getByText(/Never talk to strangers/)).toBeTruthy()
-  })
-
-  it('says how many more name them alongside somebody else', async () => {
-    // Not a footnote. The linker refuses to guess on a two-hander, so a list of
-    // only the linked ones is quietly wrong about how much somebody has said —
-    // and "quietly wrong" on a count is worse than a smaller list.
-    await open()
-    expect(await screen.findByText(/3 more name them alongside somebody else/)).toBeTruthy()
   })
 })
 

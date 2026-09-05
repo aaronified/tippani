@@ -9,6 +9,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **A form opened from inside a character's or a person's page stays inside it.** Every
+  sheet those pages open — a field, the works picker, the merge search, "Add a link" —
+  used to take over the whole screen on a phone, so the record you were editing vanished
+  along with the header saying whose it was. They are drawn inside the page now, with the
+  name of the screen you came from on the key that takes you back.
+- **"Add a link" takes any address, and checks the ones it knows.** It opens on a plain
+  address box, so a Wikipedia page, a fandom wiki or somebody's own site can be added
+  without hunting for a matching site first — and pasting an IMDb, TMDB, TheTVDB, Amazon
+  or IGDB page into it files the link under that site by itself. Choosing a site instead
+  asks for its id and now says what one looks like, with a worked example of which part
+  of a full address to keep; an id that site could not use is refused before it is saved
+  rather than becoming a link that opens nothing.
+- **Every row you can edit says so.** The fields on a character's and a person's page
+  carry an edit mark, and the acts that end the page — merge, remove — do not, so the two
+  kinds of row can be told apart without pressing them.
+- **A character's page lists who has played them.** One row per performer, with the works
+  they did it in, opening that performer's own record. The list of their quotes has gone
+  from that page and from a person's: search is where a list of quotes belongs.
+
+### Fixed
+
+- **Four rows on a character's own record did nothing when pressed.** Sort name, Born,
+  Description and the private note set an editor the page never drew.
+- **"Add a work" beside the covers only scrolled**, to a second button lower down the
+  page; the tile opens the picker now and the stray second button is gone.
+- **A character's or person's name and the line under it no longer sit apart** at the top
+  of the page.
+- **The edit pencil on a credit drew at the wrong size**, and the plus on "Add link",
+  "Add a work" and "Add a performer" was a typed character rather than the app's own
+  drawing.
+
 - **A book's Open Library and Google Books ids can be typed in.** Both have been stored
   since the first release and neither was ever shown or editable: the only way to get one
   was to adopt a looked-up match, and there was no way to see or correct what that had

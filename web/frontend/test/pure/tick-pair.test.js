@@ -102,9 +102,16 @@ describe('a dialog tells its tick what is at stake', () => {
   // place a second way is worse than none. It is its own component precisely so
   // this exemption can be keyed on a name rather than on `PersonBody`, which
   // holds several dialogs that ARE on the standing pair.
+  // `AddWork` IS THE SAME SHAPE AGAIN. It is a grid of works and pressing one IS
+  // the commit — the character is tagged onto that work by the press, and the
+  // sheet closes. The search box above it and the optional performer beside it
+  // are not a draft: nothing is held, so there is nothing for a count to count
+  // and a ✓ would be a control with no act behind it. Verified rather than
+  // assumed: it registers no form, so the sheet draws no tick.
   const NO_FORM = [
     ['identityPicker.jsx', 'ChoosePicker'],
     ['identity.jsx', 'MergeSheet'],
+    ['identity.jsx', 'AddWork'],
   ]
   const exempt = (f, src, at) => NO_FORM.some(([file, comp]) => {
     if (file !== f) return false

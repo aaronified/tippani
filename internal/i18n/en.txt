@@ -6494,21 +6494,45 @@ identity.row.link.add.tip = Paste an address for this record
 # before they could type anything. Every pattern the popup writes is the one
 # internal/metadata/people.go already builds when it fetches a portrait, so a
 # link typed by hand and a link fetched from TMDB are the same string.
-identity.link.id.title = Add a link from an ID
+# NOT "FROM AN ID" ANY MORE. The sheet opens on the custom row, where an ordinary
+# address is pasted, so naming it after the id space would name the case it is
+# NOT in by default.
+identity.link.id.title = Add a link
 identity.link.id.provider.label = Which site
 identity.link.id.field.label = The ID
+# The custom row asks for an address, not an id, and a field labelled "The ID"
+# over a box you paste a URL into is the wrong noun.
+identity.link.id.field.label.url = The address
+identity.link.id.provider.custom = Any address
 identity.link.id.save.tip = Add this link
 # Shown on the ✓ while there is nothing to write. Inside the five-word rule.
 identity.link.id.save.blocked = Type an ID first
-# THE HINT IS THE PROVIDER'S OWN SHAPE, because that is what a reader is
-# checking: an IMDb id starts nm, a TMDB one is a number, and getting it wrong
-# gives a pill that opens nothing.
-identity.link.id.hint.imdb = Starts with nm — from the address of their IMDb page
-identity.link.id.hint.tmdb = The number in their TMDB address
-identity.link.id.hint.tvdb = The number or slug in their TheTVDB address
-identity.link.id.hint.amazon = Their Amazon author id, starting B0
-identity.link.id.hint.igdb = The company's IGDB slug, as it appears in the address
+identity.link.id.save.blocked.url = Paste an address first
+# Shown on the ✓ when something IS typed and it is not an id of the chosen space —
+# the enforcement, said before the press rather than discovered by pressing a dead
+# pill later.
+identity.link.id.save.wrong = Not a {site} ID
+identity.link.id.example.label = For example
+# THE HINT IS THE RULE and the example is how to get there from a page you are
+# looking at. Both, because the rule alone leaves a reader holding a full address
+# with nothing telling them which part of it to keep.
+identity.link.id.hint.custom = Any page on the web. Paste one of the sites below and it files itself.
+identity.link.id.hint.imdb = nm and then seven or eight digits
+identity.link.id.hint.tmdb = Digits only
+identity.link.id.hint.tvdb = The number, or the name as the address spells it
+identity.link.id.hint.amazon = Ten letters and digits — the author-store ASIN
+identity.link.id.hint.igdb = The name as the address spells it
+identity.link.id.example.custom = en.wikipedia.org/wiki/Rajesh_Khanna
+identity.link.id.example.imdb = imdb.com/name/nm0000123/ → nm0000123
+identity.link.id.example.tmdb = themoviedb.org/person/10859-ryan-reynolds → 10859
+identity.link.id.example.tvdb = thetvdb.com/people/rajesh-khanna → rajesh-khanna
+identity.link.id.example.amazon = amazon.com/stores/author/B001H6TVXK → B001H6TVXK
+identity.link.id.example.igdb = igdb.com/companies/electronic-arts → electronic-arts
 
+# WHO HAS PLAYED THEM — the owner's own addition to the pack, on the character's
+# global screen. One row per performer however many works they did it in.
+identity.section.performers.title = Played by · {n}
+identity.performers.unlinked.tip = No record for this performer yet
 identity.strip.order.hint = the order is the release order
 identity.tile.face.played = {name} — played by {actor}
 identity.row.merge.label.character = Merge with another character
@@ -6549,10 +6573,6 @@ identity.row.delete.sub.company = The credits go; the works stay
 identity.works.add.character.tip = Add a work this character appears in
 identity.works.add.person.tip = Add a work this person is credited on
 identity.works.add.company.tip = Add a work this company is credited on
-identity.lines.title.one = {n} quote
-identity.lines.title.other = {n} quotes
-identity.lines.shared.one = And {n} more names them alongside somebody else, so it is not filed under either.
-identity.lines.shared.other = And {n} more name them alongside somebody else, so they are not filed under either.
 
 # Aliases.
 identity.alias.title = also spelled

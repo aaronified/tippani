@@ -106,6 +106,25 @@ The owner's standard, stated once and binding: "you need to check the feature/sp
 | G16 | **Three printings of one act at the tail of a person's screen** — a mono heading, a paragraph, then the row and its sub, all saying "merge". Plus "0 QUOTES" over "Nothing in the library is credited to them yet." "can you see the useless prose in the tail bottom?" | owner | **FIXED** — inside the sheet the heading and the paragraph are gone (the sheet's own title says it, and the row said it again); the one fact worth keeping, which record SURVIVES, moved onto the field the reader is about to type into. The count heading is drawn only when there is a count to give |
 | G17 | **The IMDb mark carried its own frame** — the upstream glyph is the four letters inside a rounded rectangle, so at 24px in a pill that already has a border it read as a second box drawn inside the first. "remove the borders from the svg." | owner | **FIXED** — only the letters are kept and the viewBox is refitted to them, so `mask-size: contain` gives the wordmark the whole slot instead of letterboxing it inside the margin the frame used to fill |
 
+## H. The links sheet and the field rows
+
+Reported 2026-09-05, from the owner's own phone, on the person popup opened out of a
+character card.
+
+| # | Defect | Source | State |
+|---|---|---|---|
+| H1 | **"there are no edit pencils on the fields."** Name, Sort name, Born, Description and Note are rows that open an editor and say so with nothing at all — no glyph, no chevron, no affordance. A row that reads as a printed fact and is actually a door is a door nobody opens. | owner | OPEN |
+| H2 | **"the add links doesn't let me enter any link i want. there should be a custom option."** The sheet offers four curated id spaces and no way to paste an ordinary address, so a fandom wiki, a personal site or a Wikipedia page cannot be added from the sheet whose title is "Add a link". | owner | OPEN |
+| H3 | **"the editor should enforce the respective rules for each of the curated link sources (like numeric for TMDB/TVDB, tt and then numeric for IMDB, etc, do check before you enforce)."** The field takes anything and builds an address out of it, so `nm0000007` typed under TMDB writes a dead page and the reader finds out by pressing the pill later. | owner | OPEN |
+| H4 | **"if the actor/char page is a popup, why is the sub entry of add links a separate screen altogether? that's an escalation. it should work within the popup (the breadcrumb back option works)."** `FormModal` swaps to a full-bleed `MobileSheet` below the mobile breakpoint, so every sub-sheet of a panel — the field pickers as well as this one — replaced the panel it belongs to. The pack's own picker is `width:min(460px,100%)` on a scrim at every width (`character-popup.dc.html:1356`, `:1387`), and that file is the PHONE prototype. | owner | OPEN |
+| H5 | **The field rows on the character's GLOBAL sheet were four dead presses.** `openCharFact` set the picker state and `<FieldPicker>` was mounted on the character's LOCAL branch only, so Sort name, Born, Description and Note did nothing at all on the screen the owner has been photographing. | self, from the test written for H4 | OPEN |
+| H6 | **The strip's "Add a work" tile only scrolled**, to a second `+ Add a work` button stranded under the quote list — "the add work (beside the cover doesn't work) but the add button below the quote works (that should not even exist)". | owner | OPEN |
+| H7 | **The quote list on the global sheets** — A8, overruled for the third time: "there is still a quote list on the character card. please check the prototype, and i am saying this for the 100th time." The pack's char-global has four blocks and this is not one of them; its people-global has none either. | owner | OPEN |
+| H8 | **NEW, and the owner's own addition to the pack:** "a list of actors assigned to the character in various different works." | owner | OPEN |
+| H9 | **The header's two lines sat apart.** "the header vertical gaps look weird", twice. `.tp-panel-title`'s 44px floor aligns a title that is ALONE with the 44px keys either side of it; stacked over a crumb it became 22px of empty space between the name and the crumb. | owner | OPEN |
+| H10 | **`IconEdit` dropped the `size` prop two callers were already passing**, so every credit row's pencil drew at 24px beside a 15px word — the exact thing A18 added sizes to `IconClose`/`IconPlus` to stop. `size={16}` written at the call site made it look answered. | self | OPEN |
+| H11 | **A typed `+` stood in for the app's plus** on the links row's add pill, the works strip's add tile and the two "add a performer" rows. Not an emoji, so `glyphs-are-drawn.test.js` reads it as an ordinary letter — but it is the platform's font drawing a plus beside the app's own drawings of everything else. | self | OPEN |
+
 ## E. Duplication and documents
 
 | # | Defect | Source | State |

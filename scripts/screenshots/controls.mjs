@@ -90,12 +90,16 @@ const SURFACES = [
   { route: '/stats', name: 'Stats' },
   { route: '/checks', name: 'Checks' },
   { route: '/settings', name: 'Settings' },
-  { route: '/books/1', name: 'Book detail' },
-  // `/catalogue/2` AND NOT `/movies/2`. Both resolve — routes.js takes either —
-  // but the app CANONICALISES to /catalogue, so a probe naming the other lands
-  // somewhere with a different path and the route check calls it not-a-route.
-  // The check is right; the list was naming the alias.
-  { route: '/catalogue/2', name: 'Film detail' },
+  // THE IDS ARE THE LIBRARY'S, NOT THE FIXTURE'S. These were `/books/1` and
+  // `/catalogue/2` — the ids `seed.mjs` happens to produce — so a run against a
+  // RESTORED backup, which is what this probe is now supposed to use, asked for
+  // works that library does not have: `GET /api/movies/2` came back 404, the film
+  // page reported "not a route", and the character panel behind it was never
+  // reached at all. A probe whose surfaces only exist in one fixture is a probe
+  // that measures that fixture. `resolveSurfaces` below fills them in from the
+  // API before the run, and a library with no film simply has no film surface.
+  { route: '/books/{book}', name: 'Book detail', needs: 'book' },
+  { route: '/catalogue/{movie}', name: 'Film detail', needs: 'movie' },
   // THE PANELS, REACHED THE WAY A READER REACHES THEM. A panel has no route of
   // its own — it is a door on a screen — so a surface may name the door, and this
   // probe presses it before enumerating. `list()` already scopes to `.tp-panel`
@@ -107,8 +111,36 @@ const SURFACES = [
   // re-opening, and it exited 0 whatever it found, so `make` could not fail on
   // it. A weaker copy of a probe is worse than none: it is the one somebody
   // reads.
-  { route: '/catalogue/2', name: 'Character panel', door: { selector: '.person-chip', text: 'Rick Blaine' } },
+  //
+  // AND THE DOOR IS WHICHEVER CHARACTER THAT WORK HAS. It named "Rick Blaine",
+  // which is the fixture's; on any other library the chip was never found and the
+  // one panel surface in this file went untested while the run still reported a
+  // failure it could not act on.
+  { route: '/catalogue/{movie}', name: 'Character panel', needs: 'movie', door: { selector: '.person-chip' } },
 ]
+
+// resolveSurfaces — turn `{book}` / `{movie}` into ids this library actually has.
+//
+// Asked of the API rather than scraped off a card: a card's class is the app's
+// business and a probe that guesses one fails silently, which is exactly how the
+// film capture in `shots.mjs` skipped itself and reported success.
+async function resolveSurfaces(page, baseUrl) {
+  const ids = await page.evaluate(async () => {
+    const one = async (path, key) => {
+      try {
+        const r = await fetch(path, { credentials: 'same-origin' })
+        const d = await r.json()
+        const list = d[key] || []
+        return list.length ? list[0].id : 0
+      } catch { return 0 }
+    }
+    return { book: await one('/api/books?limit=1', 'books'), movie: await one('/api/movies?limit=1', 'movies') }
+  })
+  return SURFACES.filter((s) => !s.needs || ids[s.needs]).map((s) => ({
+    ...s,
+    route: s.route.replace(/\{(book|movie)\}/g, (_, k) => String(ids[k])),
+  }))
+}
 
 const engine = findBrowser(null, 'chrome')
 const browser = await puppeteer.launch(launchOptions(engine, { viewport: { width: opts.width, height: opts.height } }))
@@ -406,7 +438,8 @@ try {
     }
   }
 
-  for (const surface of SURFACES) {
+  const surfaces = await resolveSurfaces(page, opts.baseUrl)
+  for (const surface of surfaces) {
     if (opts.only && !surface.name.toLowerCase().includes(opts.only.toLowerCase())) continue
     const reopen = async () => {
       await page.goto(opts.baseUrl + surface.route, { waitUntil: 'networkidle2' }).catch(() => {})

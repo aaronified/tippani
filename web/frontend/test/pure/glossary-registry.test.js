@@ -117,16 +117,22 @@ describe('component coverage', () => {
     .map((m) => m[1])
     // ANNOTATION_COLORS and BOARD_COLUMNS start with a capital and are not components.
     .filter((n) => !/^[A-Z0-9_]+$/.test(n))
+    // NEITHER IS A REACT CONTEXT. `createContext` returns an object that is
+    // PascalCase by convention and draws nothing: `FormHostContext` is how a form
+    // finds the chrome that will commit it and `PanelSurfaceContext` is how a
+    // sheet finds the panel it belongs inside. A glossary of the INTERFACE has
+    // nothing to say about either, so counting them as undocumented elements
+    // pushed the debt number up for a thing no entry could ever pay down.
   const mentioned = (n) => {
     const re = new RegExp(`\\b${n}\\b`)
     return entries.some((e) => re.test(`${e.src || ''} ${e.name || ''} ${e.desc || ''}`))
   }
-  const undocumented = components.filter((n) => !mentioned(n))
+  const undocumented = components.filter((n) => !/Context$/.test(n)).filter((n) => !mentioned(n))
   const icons = undocumented.filter((n) => /^Icon/.test(n))
   const rest = undocumented.filter((n) => !/^Icon/.test(n))
 
   it('does not get worse for ordinary components', () => {
-    expect(rest.length, `undocumented: ${rest.join(', ')}`).toBeLessThanOrEqual(20)
+    expect(rest.length, `undocumented: ${rest.join(', ')}`).toBeLessThanOrEqual(19)
   })
 
   it('does not get worse for icon glyphs', () => {
@@ -136,7 +142,7 @@ describe('component coverage', () => {
   it('and a new component cannot arrive undocumented without moving one of those numbers', () => {
     // The guard on the guard: if someone raises a ceiling above, this states the total
     // the two are allowed to add up to, so raising one means lowering the other.
-    expect(rest.length + icons.length).toBeLessThanOrEqual(57)
+    expect(rest.length + icons.length).toBeLessThanOrEqual(56)
   })
 })
 

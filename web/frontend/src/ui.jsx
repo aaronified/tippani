@@ -3786,6 +3786,31 @@ export function useUnsavedFields() {
 
 export const FormHostContext = createContext(null);
 
+// PanelSurfaceContext — the panel BOX a descendant may draw inside, and its name.
+//
+// THE REPORT: "if the actor/char page is a popup, why is the sub entry of add
+// links a separate screen altogether? that's an escalation. it should work
+// within the popup (the breadcrumb back option works)."
+//
+// Every sub-surface of an identity panel — the nine field pickers, the choose
+// sheet, the merge sheet, the link sheet — is a `FormModal`, and below the mobile
+// breakpoint a FormModal became a full-bleed MobileSheet. So pressing a row
+// inside the popup REPLACED the popup: the record you were editing was gone, the
+// header naming whose record it was went with it, and the only way out looked
+// like it closed everything.
+//
+// THE PACK NEVER ESCALATES EITHER. Its picker is `width:min(460px,100%)` on a
+// scrim with 24px of padding (`character-popup.dc.html:1356`, `:1387`) — and that
+// file IS the phone prototype. The sheet was the deviation.
+//
+// SO THE PANEL LENDS ITS BOX. A form opened from inside a panel portals INTO the
+// panel rectangle and wears the panel's own back key: `← Rajesh Khanna` on the
+// left, the question's title in the middle, the ✓ on the right, and no ✕ — which
+// is the nested panel's own rule, "its two exits are answer and back". The parent
+// stays mounted underneath, so answering the question and stepping back lands on
+// the screen you left, scrolled where you left it.
+export const PanelSurfaceContext = createContext(null);
+
 // usePanelHead — a body hands its panel the header the pack draws: the cover with
 // its medium glyph, the crumb under the name, and the record's own name.
 //
@@ -3992,7 +4017,53 @@ export function usePanelStack() {
     if (n > 0) window.history.go(-n);
   }, []);
 
-  return { stack, top: stack[stack.length - 1] || null, open, push, back, close };
+  // leaveTo — hand over to the shell, and take the overlay off the screen doing it.
+  //
+  // WHAT THIS IS FOR, and it is the last mile of the work door. A person's or a
+  // character's screen lists the works they are on, and pressing one has to open
+  // that work — which only the shell can do. But the shell's `go` moves the tab
+  // and the detail UNDERNEATH a panel that is still on screen: the reader presses
+  // the cover, the sheet that asked what they meant closes, and they are looking
+  // at the same character panel again, now floating over a screen they cannot
+  // see. Reported as "the Anand pill still does not open", three times, because
+  // from the outside a press that changes nothing visible and a press that is not
+  // wired look exactly alike.
+  //
+  // THE ONE PLACE THE STACK IS EMPTIED WITHOUT HISTORY, and the exception is
+  // argued rather than taken. Everywhere else "history is the stack's only
+  // mutator" is what keeps the Back gesture and the ✕ from disagreeing. Here the
+  // press is not a dismissal at all — it is a hand-off, and the shell owns
+  // history from the moment it takes over.
+  //
+  // WALKING BACK WAS TRIED FIRST AND IS A RACE. The press that leaves is nearly
+  // always made INSIDE a dialog, since that is where the tile's question is
+  // answered, and that dialog pops its own entry as it closes (`useBackToClose`).
+  // Two traversals asked for in one turn are not two traversals: the second is
+  // issued while the first is still queued, and both the browsers' history
+  // queue and jsdom's drop it. Measured: the walk stopped one entry in, the
+  // dialog closed, and the panel stayed exactly where it was — the whole defect
+  // again with one fewer layer. Any fix for that is a timer racing a traversal,
+  // which is the kind of guess this file has already paid for once.
+  //
+  // WHAT IT COSTS, stated rather than hidden: the entries this panel pushed stay
+  // below the shell's new one, so Back out of the work you just opened may need a
+  // second press to leave the screen the panel was over. Nothing re-opens — a pop
+  // can only truncate, and the stack is already empty — so the cost is a press,
+  // where the alternative was a door that did not work.
+  const leaveTo = useCallback((go) => {
+    setStack([]);
+    // The entry we are standing on no longer holds a panel, so it must not claim
+    // one: the unmount walk-back reads this, and a stale depth here would send a
+    // reader backwards out of the work they just opened.
+    if (window.history.state?.tpPanelDepth) {
+      window.history.replaceState(
+        { ...window.history.state, tpPanelDepth: 0 }, "",
+      );
+    }
+    go();
+  }, []);
+
+  return { stack, top: stack[stack.length - 1] || null, open, push, back, close, leaveTo };
 }
 
 // PanelHost — the chrome every panel wears. Scrim, three-slot header, one
@@ -4078,6 +4149,14 @@ export function PanelHost({ stack }) {
   // the crumb under it, and the ✕.
   const [head, setHead] = useState(null);
   const host = useMemo(() => ({ formId, setBlocked, setDirty, setHead }), [formId]);
+  // THE BOX A SUB-SURFACE DRAWS INSIDE — see PanelSurfaceContext. State and not a
+  // ref, because the value has to reach the children on a render: a ref set
+  // during commit is still null in the render that mounted it.
+  const [box, setBox] = useState(null);
+  const surface = useMemo(
+    () => (box && panel ? { node: box, title: head?.title || panel.title } : null),
+    [box, panel, head],
+  );
   // guarded wraps a close route. Nothing to lose → it just runs.
   const guard = useCallback((run) => () => (dirty > 0 ? setAsking(() => run) : run()), [dirty]);
   // AND SO DOES A HEAD. Walking back to a parent leaves the child's cover and
@@ -4141,6 +4220,7 @@ export function PanelHost({ stack }) {
         aria-modal="true"
         aria-label={panel.title}
         className="tp-panel"
+        ref={setBox}
         style={panel.wide ? { width: "min(900px, 100%)" } : undefined}
         onMouseDown={(e) => e.stopPropagation()}
       >
@@ -4240,9 +4320,11 @@ export function PanelHost({ stack }) {
           </div>
         </div>
         <Scroller axis="v" className="tp-panel-body">
-          <FormHostContext.Provider value={host}>
-            {typeof panel.render === "function" ? panel.render() : panel.render}
-          </FormHostContext.Provider>
+          <PanelSurfaceContext.Provider value={surface}>
+            <FormHostContext.Provider value={host}>
+              {typeof panel.render === "function" ? panel.render() : panel.render}
+            </FormHostContext.Provider>
+          </PanelSurfaceContext.Provider>
         </Scroller>
       </div>
       {/* THE QUESTION, asked only when there is something to lose. It renders
@@ -4319,10 +4401,35 @@ export const backdropClose = (onClose, when = true) => (e) => {
 
 export function FormModal({ open = true, onClose, title, maxWidth = 560, saveTip, dirty, closeDanger = false, children }) {
   const mobile = useIsMobileScreen();
+  // A FORM OPENED FROM INSIDE A PANEL DOES NOT ESCALATE TO A SCREEN.
+  //
+  // The owner's report is one word: "if the actor/char page is a popup, why is
+  // the sub entry of add links a separate screen altogether? that's an
+  // escalation." On a phone every FormModal became a full-bleed MobileSheet —
+  // including the ones a PANEL opens, which are the field pickers on all five
+  // identity screens and the link sheet. So pressing a row inside a popup
+  // REPLACED the popup: the record you were editing vanished, the header naming
+  // whose record it was went with it, and the way back was a ✕ that looked like
+  // it closed the lot.
+  //
+  // THE PACK DRAWS ITS PICKER AS A CARD AT EVERY WIDTH — `width:min(460px,100%)`
+  // on a scrim with 24px of padding (`character-popup.dc.html:1356`, `:1387`) —
+  // and it is the phone prototype. So the sheet was the deviation, not the fix.
+  //
+  // NESTING IS READ FROM THE FORM HOST, which is the honest question: the only
+  // two things that provide one are PanelHost and this component, so a host
+  // already in scope means some chrome above is holding a form and this dialog
+  // is INSIDE something. A dialog opened from a screen finds none and keeps the
+  // sheet, which is what a full-screen form should be when it is the whole of
+  // what you are doing.
+  // THE PANEL LENDS ITS BOX to anything opened from inside it — see
+  // PanelSurfaceContext for the report and the pack's own answer.
+  const surface = useContext(PanelSurfaceContext);
+  const sheet = mobile && !surface;
   useBodyScrollLock(open);
-  // Desktop only: the mobile branch below renders MobileSheet, which takes the
+  // Desktop only: the sheet branch below renders MobileSheet, which takes the
   // Back entry for itself. Two markers for one dialog is two presses to close it.
-  useBackToClose(open && !mobile, onClose);
+  useBackToClose(open && !sheet, onClose);
   const formId = useId();
   // null = no form has registered, so there is nothing to commit and no ✓.
   const [blocked, setBlocked] = useState(null);
@@ -4351,7 +4458,38 @@ export function FormModal({ open = true, onClose, title, maxWidth = 560, saveTip
       {armed ? <span className="tp-tick-count" aria-hidden="true">{dirty}</span> : null}
     </span>
   );
-  if (mobile) {
+  // INSIDE THE PANEL, WITH THE PANEL'S OWN BACK KEY. Not a scrim over the
+  // viewport and not a screen of its own: the popup keeps its frame, its body is
+  // covered by this one question, and the left slot says which screen the back
+  // key returns to. No ✕ — a nested surface's two exits are "answer" and "back",
+  // and a third key that closes the lot is a destructive control wearing a
+  // dismiss key's clothes (`PanelHost`'s own rule, applied here).
+  if (surface) {
+    return createPortal(
+      <div className="tp-subsheet" role="dialog" aria-modal="true" aria-label={title}>
+        <div className="tp-panel-head">
+          <div className="tp-panel-slot">
+            <button
+              type="button"
+              className="tp-panel-back tactile"
+              aria-label={t("common.panel.back.aria", { title: surface.title })}
+              onClick={onClose}
+            >
+              <IconBack />
+              <span className="tp-panel-back-word">{surface.title}</span>
+            </button>
+          </div>
+          <h2 className="tp-panel-title">{title}</h2>
+          <div className="tp-panel-slot tp-panel-slot-r">{save}</div>
+        </div>
+        <Scroller axis="v" className="tp-panel-body">
+          <FormHostContext.Provider value={host}>{children}</FormHostContext.Provider>
+        </Scroller>
+      </div>,
+      surface.node,
+    );
+  }
+  if (sheet) {
     return createPortal(
       <MobileSheet open={open} onClose={onClose} title={title} actions={save} closeDanger={closeDanger}>
         <FormHostContext.Provider value={host}>{children}</FormHostContext.Provider>
@@ -7106,7 +7244,11 @@ export function IconFilter() { return <svg {...iconStroke}><path d="M22 3H2l9 9v
 // four exceptions do not cover a control.
 export function IconSort() { return <svg {...iconStroke}><path d="M4 6h11"/><path d="M4 12h7"/><path d="M4 18h4"/><path d="M18 5v14"/><path d="M15 16l3 3 3-3"/></svg> }
 export function IconExport() { return <svg {...iconStroke}><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 18h16"/></svg> }
-export function IconEdit() { return <svg {...iconStroke}><path d="M17 3l4 4L7 19H3v-4z"/></svg> }
+// TAKES A SIZE, like IconClose and IconPlus and for the same reason: two callers
+// already asked for one and got 24px anyway, because this signature dropped the
+// prop on the floor. A 24px pencil beside a 15px word is the wrong picture, and
+// `size={16}` written at the call site made it look answered.
+export function IconEdit({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><path d="M17 3l4 4L7 19H3v-4z"/></svg> }
 export function IconDelete() { return <svg {...iconStroke}><path d="M3 6h18"/><path d="M8 3V2h8v1"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg> }
 // SIZED BY THE CALLER, and "1em" is a size. A chip's remove key and a dashed add
 // key are drawn at the scale of the words beside them, not at the 24px an icon

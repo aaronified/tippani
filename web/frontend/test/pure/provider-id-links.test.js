@@ -50,12 +50,14 @@ describe('the address a provider id builds', () => {
     expect(url, 'an ASIN pointed at a product page').not.toContain('/dp/')
   })
 
-  it('trims what was pasted, and escapes what would break the address', () => {
+  it('trims what was pasted, and refuses what would break the address', () => {
     expect(buildProviderLink('tmdb', '  1234 ')).toBe('https://www.themoviedb.org/person/1234')
-    // A slug with a space or a slash in it must not be able to reach a different
-    // path than the one it names.
-    expect(buildProviderLink('igdb', 'ea seattle')).toBe('https://www.igdb.com/companies/ea%20seattle')
-    expect(buildProviderLink('igdb', '../admin')).not.toContain('/admin')
+    // STRONGER THAN THE ESCAPING THIS USED TO ASSERT. A slug id may hold letters,
+    // digits and a URL path segment's own separators and nothing else, so a space
+    // or a traversal is not an id of that space at all — it is refused rather
+    // than percent-encoded into a page that does not exist.
+    expect(buildProviderLink('igdb', 'ea seattle')).toBe('')
+    expect(buildProviderLink('igdb', '../admin')).toBe('')
   })
 
   it('answers nothing for an empty id or an unknown provider', () => {
@@ -137,7 +139,9 @@ describe('which providers a record is offered', () => {
   const slugs = (credits) => providerLinksFor(credits).map(([, slug]) => slug)
 
   it('offers a person their own id spaces and no company one', () => {
-    expect(slugs([bookCredit('author')])).toEqual(['imdb', 'tmdb', 'tvdb', 'amazon'])
+    // `custom` leads every list — the owner's ruling, and it is the sheet's
+    // default choice: an address the app has no id space for is still a link.
+    expect(slugs([bookCredit('author')])).toEqual(['custom', 'imdb', 'tmdb', 'tvdb', 'amazon'])
     expect(slugs([credit('actor', 'movie')])).not.toContain('igdb')
     expect(slugs([credit('director', 'movie')]), 'a film director is a person').not.toContain('igdb')
   })
@@ -147,8 +151,8 @@ describe('which providers a record is offered', () => {
     // role vocabulary since it existed — so it gets the same sheet and the same
     // popup. What differs is the id space: nobody has an IMDb /name/ page for a
     // games studio.
-    expect(slugs([credit('director', 'game')])).toEqual(['igdb'])
-    expect(slugs([credit('publisher', 'game')])).toEqual(['igdb'])
+    expect(slugs([credit('director', 'game')])).toEqual(['custom', 'igdb'])
+    expect(slugs([credit('publisher', 'game')])).toEqual(['custom', 'igdb'])
     expect(slugs([credit('director', 'game')])).not.toContain('imdb')
   })
 
@@ -166,19 +170,34 @@ describe('which providers a record is offered', () => {
     ]) {
       const wantKind = isOrganisation(credits) ? 'company' : 'person'
       for (const [forKind] of providerLinksFor(credits)) {
+        // `any` is the custom row, which belongs to neither and is offered to both.
+        if (forKind === 'any') continue
         expect(forKind, `${JSON.stringify(credits)} offered a ${forKind} id space`).toBe(wantKind)
       }
     }
   })
 })
 
+// One id PER SPACE that its own rule accepts. `abc123` used to stand in for all
+// of them, and it is not an IMDb name, a TMDB number or an ASIN — which is
+// exactly what the rules now say, so a single fixture would only prove the rules
+// reject it.
+const ID_THE_RULE_TAKES = {
+  imdb: 'nm0000123', tmdb: '1234', tvdb: 'rajesh-khanna',
+  amazon: 'B001H6TVXK', igdb: 'electronic-arts',
+}
+
 describe('what the link becomes once it is stored', () => {
   it('is recognised by the same table that reads a pasted URL', () => {
     // THE POPUP IS A TYPING AID, NOT A SECOND STORE. Every address it writes goes
     // into the same free-text `links` field, so the pills cannot tell a built
     // link from a pasted one — which is the whole reason to build it this way.
-    for (const [, slug] of PROVIDER_ID_LINKS) {
-      const url = buildProviderLink(slug, 'abc123')
+    for (const [kind, slug] of PROVIDER_ID_LINKS) {
+      // The custom row builds no provider address at all — it stores the reader's
+      // own, and which mark that draws is the pasted host's business.
+      if (kind === 'any') continue
+      const url = buildProviderLink(slug, ID_THE_RULE_TAKES[slug])
+      expect(url, `${slug} refused its own example id`).not.toBe('')
       const { known } = parseLinks(url)
       expect(known[slug], `${slug} built an address its own matcher misses`).toBe(url)
     }
@@ -188,7 +207,8 @@ describe('what the link becomes once it is stored', () => {
     // A builder for a provider PROVIDERS cannot match would produce a link that
     // draws no mark and files under nothing.
     const recognised = new Set(PROVIDERS.map(([slug]) => slug))
-    for (const [, slug] of PROVIDER_ID_LINKS) {
+    for (const [kind, slug] of PROVIDER_ID_LINKS) {
+      if (kind === 'any') continue
       expect(recognised.has(slug), `${slug} builds links nothing recognises`).toBe(true)
     }
   })

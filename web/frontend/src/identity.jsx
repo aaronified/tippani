@@ -33,7 +33,7 @@ import { CharacterGlobal, PersonGlobal } from './identityGlobal.jsx'
 import { identityScope, mediumOf } from './identityScope.js'
 import { CharacterLocal, GLYPH_NAME } from './identityLocal.jsx'
 import { ChoosePicker, FieldPicker } from './identityPicker.jsx'
-import { buildProviderLink, isOrganisation, personImgURL, providerLinksFor, ProviderChips, SpeakerChips } from './people.jsx'
+import { buildProviderLink, detectProviderLink, isOrganisation, personImgURL, providerLinksFor, providerRule, ProviderChips, SpeakerChips } from './people.jsx'
 // A STATIC EDGE THAT CLOSES NO CYCLE: personOpen.jsx imports THIS file
 // dynamically and nothing else at all, which is the reason its header gives for
 // the dynamic import. It stays a leaf; this is allowed to lean on it.
@@ -117,14 +117,25 @@ export function characterPanel(stack, { id, name, work = null, onSearch = null, 
 // than a second copy of the value inside the row, the row is a shortcut — press
 // it and the caret lands in the field that owns it — so there is one place the
 // value is typed and one place it is read.
-function Field({ label, value, onChange, rows = 0, inputId }) {
+function Field({ label, value, onChange, rows = 0, inputId, inputMode }) {
   return (
     <label className="block">
       <MonoLabel className="mb-1.5 block">{label}</MonoLabel>
       {rows > 0 ? (
         <textarea id={inputId} className="tp-input" rows={rows} value={value} onChange={(e) => onChange(e.target.value)} />
       ) : (
-        <input id={inputId} className="tp-input" value={value} onChange={(e) => onChange(e.target.value)} />
+        // `inputMode` IS THE KEYBOARD THE ID SPACE NEEDS — digits for a TMDB
+        // number, the URL row for a pasted address. On a phone it is the
+        // difference between typing an id and hunting for the number key.
+        <input
+          id={inputId}
+          className="tp-input"
+          value={value}
+          inputMode={inputMode}
+          autoComplete="off"
+          spellCheck={false}
+          onChange={(e) => onChange(e.target.value)}
+        />
       )}
     </label>
   )
@@ -459,15 +470,33 @@ function MergeControl({ into, onMerged, onError, table = 'people', org = false, 
 // company id space.
 function ProviderLinkDialog({ open, onClose, onAdd, busy, credits = [] }) {
   const choices = providerLinksFor(credits)
-  const [slug, setSlug] = useState(choices[0]?.[1] || '')
+  // THE CUSTOM ROW IS THE DEFAULT, on the owner's instruction: "custom shall be
+  // the default when opening this screen". It is the only choice that cannot be
+  // wrong — a curated address pasted into it is recognised and re-filed under its
+  // own provider — where opening on IMDb asks the reader to answer "which site"
+  // before they have looked at what they are holding.
+  const [slug, setSlug] = useState('custom')
   const [id, setId] = useState('')
   useEffect(() => {
     if (!open) return
-    setSlug(choices[0]?.[1] || '')
+    setSlug('custom')
     setId('')
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
   const url = buildProviderLink(slug, id)
+  // "IF I PASTE A CURATED LINK IN THE CUSTOM INPUT, THE APP SHOULD RECOGNISE IT
+  // AND FILE ACCORDINGLY." The host names the site, so the pill moves to it and
+  // the box keeps only the id — which is also what makes the address preview
+  // underneath the canonical one rather than whatever tracking tail was on the
+  // pasted URL.
+  //
+  // ONLY FROM THE CUSTOM ROW. A reader who has chosen IMDb and pastes a TMDB
+  // address has contradicted themselves, and the honest answer there is the
+  // blocked reason under the ✓ rather than silently moving the pill they set.
+  const type = (v) => {
+    const hit = slug === 'custom' ? detectProviderLink(v) : null
+    if (hit) { setSlug(hit.slug); setId(hit.id); return }
+    setId(v)
+  }
   return (
     <FormModal
       open={open}
@@ -491,7 +520,7 @@ function ProviderLinkDialog({ open, onClose, onAdd, busy, credits = [] }) {
         slug={slug}
         onSlug={setSlug}
         id={id}
-        onId={setId}
+        onId={type}
         url={url}
         busy={busy}
         onAdd={onAdd}
@@ -503,9 +532,19 @@ function ProviderLinkDialog({ open, onClose, onAdd, busy, credits = [] }) {
 // The body of the dialog above, split out for the one reason its comment gives.
 function ProviderLinkForm({ choices, slug, onSlug, id, onId, url, busy, onAdd }) {
   const row = choices.find(([, sl]) => sl === slug)
+  const rule = providerRule(slug)
+  const custom = slug === 'custom'
+  const typed = String(id || '').trim()
+  // THREE STATES, NOT TWO, and the third is the enforcement the owner asked for:
+  // nothing typed, something typed that this id space will not take, and an
+  // address. The middle one used to build `/person/nm0000007` and store it — a
+  // pill the reader could only discover was dead by pressing it.
   const blocked = busy
     ? t('common.action.save.busy')
-    : url ? '' : t('identity.link.id.save.blocked')
+    : !typed
+      ? t(custom ? 'identity.link.id.save.blocked.url' : 'identity.link.id.save.blocked')
+      : url ? '' : t('identity.link.id.save.wrong', { site: row ? t(row[2]) : '' })
+  const wrong = !!typed && !url
   // Joins the dialog's header ✓ and tells it why it cannot save yet — the same
   // contract every other form in the app uses.
   const host = useFormHost(blocked)
@@ -535,8 +574,31 @@ function ProviderLinkForm({ choices, slug, onSlug, id, onId, url, busy, onAdd })
           </button>
         ))}
       </div>
-      <Field inputId="link-id" label={t('identity.link.id.field.label')} value={id} onChange={onId} />
-      {row ? <p className="microcopy" style={{ color: 'var(--faint)' }}>{t(row[3])}</p> : null}
+      <Field
+        label={t(custom ? 'identity.link.id.field.label.url' : 'identity.link.id.field.label')}
+        inputId="link-id"
+        value={id}
+        onChange={onId}
+        // The keyboard the id space actually needs: digits for TMDB, a URL row
+        // for the custom address, letters for the rest.
+        inputMode={rule.inputMode || 'text'}
+      />
+      {/* THE RULE, AND THEN HOW TO GET THERE FROM A PAGE YOU ARE LOOKING AT —
+          both, on the owner's instruction. The rule alone leaves a reader holding
+          a full address with nothing telling them which part of it to keep, and
+          the example alone is a fact about one person rather than about the id
+          space. The rule turns red when what is typed is not one of these,
+          because the ✓'s reason is under a press and this is under the eye. */}
+      {row ? (
+        <p className="microcopy" style={{ color: wrong ? 'var(--error)' : 'var(--faint)' }}>{t(row[3])}</p>
+      ) : null}
+      {rule.example ? (
+        <p className="microcopy work-link-url" style={{ color: 'var(--faint)' }}>
+          <MonoLabel>{t('identity.link.id.example.label')}</MonoLabel>
+          {' '}
+          {t(rule.example)}
+        </p>
+      ) : null}
       {/* The address, as it will be stored. Never truncated — it is a name of a
           sort — so it wraps, which is what .work-link-url already does. */}
       {url ? <p className="microcopy work-link-url" style={{ color: 'var(--soft)' }}>{url}</p> : null}
@@ -556,72 +618,6 @@ function useRecord(path) {
     load()
   }, [load])
   return { data, err, setErr, load }
-}
-
-// Lines — the quotes that point at this record.
-//
-// THE HALF THE PANEL HAS BEEN MISSING. The person record has carried its linked
-// lines since the day the link landed and nothing drew them; the character record
-// could not carry them at all until the cast link was written. Both do now, and
-// they are the same list with the same two caveats, so they are one component.
-//
-// THE SHARED COUNT IS NOT A FOOTNOTE. The linker refuses to guess on a line that
-// names two speakers — there is no honest single answer — so a list of only the
-// linked ones is quietly wrong about how much somebody has said. The sentence says
-// how many are missing and why, which is the difference between a list a reader
-// can trust and one they cannot.
-//
-// A QUOTE IS NEVER TRUNCATED WITH AN ELLIPSIS. It wraps and it clamps, and the
-// clamp is the app's own ExpandableText rather than an overflow — a cut sentence
-// and a short sentence look alike, which is the same failure the name rule names.
-// THE COUNT SAYS IT, AND THE SENTENCE SAID SOMETHING FALSE. "Nothing in the
-// library is credited to them yet" sat directly under a strip of the works this
-// person IS credited on — the sentence is about QUOTES and it used the word
-// "credited", which the strip above had just contradicted. The owner: "it is
-// wrong to say 'nothing is credited' when we can already see an work having been
-// credited to him! better to just write 0 quotes."
-//
-// So the heading carries it: `0 quotes` is the whole of the fact, it is true, and
-// it is the same shape the count takes when there are some.
-function Lines({ lines, shared }) {
-  if (!lines.length && !shared) return null
-  return (
-    <div style={FIELDS}>
-      <ul style={FIELDS}>
-        {lines.map((l) => (
-          <li key={`${l.kind}-${l.id}`} className="identity-line">
-            <ExpandableText className="identity-line-text" lines={2} text={l.text} />
-            {/* THE SAME PILLS THE CARDS AND HOME WEAR, on the owner's ruling. The
-                line's own microcopy stops repeating the names once the chips
-                carry them and keeps the WORK, which the chips never say.
-
-                NO DOOR, and here the reason is not Home's: this panel is already
-                about the record whose lines these are, so the chip that would
-                open a character is the page the reader is standing on. The other
-                names on the line have no record behind them at all — the linker
-                refuses to guess on an ensemble line, which is why they are chips
-                rather than links in the first place.
-
-                An utterance wears none: a standalone quote has a speaker and no
-                cast, so there is nobody else on the line to name. */}
-            {/* Its own air: `.identity-line` is a grid whose other children are
-                single lines of text at a 2px gap, and a 38px pill row in that
-                rhythm reads cramped. The row's spacing to its neighbours is the
-                caller's, which is why it comes in as a class. */}
-            <SpeakerChips images={l.character_images} className="my-1" />
-            <span className="microcopy" style={{ color: 'var(--soft)' }}>
-              {[l.character_images?.length ? null : l.name, l.work_title].filter(Boolean).join(' · ')}
-            </span>
-          </li>
-        ))}
-      </ul>
-      {shared > 0 && (
-        <p className="microcopy" style={{ color: 'var(--faint)' }}>
-          {t('identity.lines.shared', { n: shared, count: shared })}
-        </p>
-      )}
-    </div>
-  )
 }
 
 // ---- the person ------------------------------------------------------------
@@ -768,6 +764,18 @@ function PersonBody({ stack, id, work, onOpenWork: given = null }) {
   // what replaces the form this screen used to carry under its rows. `rows`
   // makes a textarea; `required` is the name, because a record with no name is a
   // record nobody can find again.
+  // THE PANEL GETS OUT OF THE WAY BEFORE THE SHELL MOVES — see `leaveTo`.
+  // `onOpenWork` changes the tab and the detail UNDERNEATH this panel, which is
+  // still a fixed overlay on top of them: the reader presses a cover, the sheet
+  // that asked what they meant closes, and they are looking at this screen again
+  // over a screen they cannot see. "the Anand pill still does not open", three
+  // times, for a press that was wired the whole way.
+  const goToWork = (kind, workId) => {
+    if (!onOpenWork) return
+    if (stack?.leaveTo) stack.leaveTo(() => onOpenWork(kind, workId))
+    else onOpenWork(kind, workId)
+  }
+
   const openPersonFact = (key, label, { rows = 0, required = false } = {}) => setPicker({
     id: `person-${key}`,
     title: label,
@@ -914,7 +922,7 @@ function PersonBody({ stack, id, work, onOpenWork: given = null }) {
           // used to do and why the press produced a copy of the screen it was
           // pressed on. Null where no screen threaded a door, and the tile then
           // says it cannot be opened rather than pretending.
-          onOpenWork={onOpenWork ? (c) => onOpenWork(c.kind, c.work_id) : null}
+          onOpenWork={onOpenWork ? (c) => goToWork(c.kind, c.work_id) : null}
           // A ROLE TILE OPENS THE CHARACTER — the owner's ruling read in the
           // direction a reader travels.
           //
@@ -935,7 +943,7 @@ function PersonBody({ stack, id, work, onOpenWork: given = null }) {
                   label: a.work_title,
                   sub: t('identity.choose.work.sub'),
                   icon: <NavIcon name={GLYPH_NAME[mediumOf(a)] || 'movies'} />,
-                  onPick: () => onOpenWork(a.kind, a.work_id),
+                  onPick: () => goToWork(a.kind, a.work_id),
                 }] : []),
                 ...sameWork.map((r) => ({
                   key: `r${r.cast_id}`,
@@ -949,10 +957,11 @@ function PersonBody({ stack, id, work, onOpenWork: given = null }) {
           }}
           onMerge={() => setMerging(true)}
         >
-          {/* ALWAYS, INCLUDING ZERO — see `Lines`. "0 quotes" is true and complete;
-              the sentence it replaces was neither. */}
-          <MonoLabel>{t('identity.lines.title', { n: (data.lines || []).length, count: (data.lines || []).length })}</MonoLabel>
-          <Lines lines={data.lines || []} shared={data.shared_lines || 0} />
+          {/* NO QUOTE LIST HERE EITHER, and for the same reason it left the
+              character's: the pack's people-global is the person, their links,
+              their works and the two acts that end the screen
+              (`character-popup.dc.html:1109-1168`), and a list of lines is none of
+              those. Search is where a list of quotes belongs. */}
           {names ? (
             <>
               <MonoLabel>{t('identity.alias.title')}</MonoLabel>
@@ -1070,6 +1079,8 @@ function CharacterBody({ stack, id, work, onSearch = null, onOpenWork: given = n
   const [picker, setPicker] = useState(null)
   // Merge, behind its row — see MergeSheet.
   const [merging, setMerging] = useState(false)
+  // The works picker, behind the strip's own add tile — see AddWork.
+  const [adding, setAdding] = useState(false)
   // The removal a work refused, with the number of quotes standing in its way.
   const [drop, setDrop] = useState(null)
   // THE ONE PRESS ON A LOCAL SHEET WHOSE EFFECT LEAVES THE WORK, so it asks
@@ -1123,6 +1134,18 @@ function CharacterBody({ stack, id, work, onSearch = null, onOpenWork: given = n
   // commit earlier and the local sheet has had since 3.1. What it replaces is a
   // form carrying all six fields under rows that already stated them, with the
   // rows "editing" by scrolling you down to their twin.
+  // THE PANEL GETS OUT OF THE WAY BEFORE THE SHELL MOVES — see `leaveTo`.
+  // `onOpenWork` changes the tab and the detail UNDERNEATH this panel, which is
+  // still a fixed overlay on top of them: the reader presses a cover, the sheet
+  // that asked what they meant closes, and they are looking at this screen again
+  // over a screen they cannot see. "the Anand pill still does not open", three
+  // times, for a press that was wired the whole way.
+  const goToWork = (kind, workId) => {
+    if (!onOpenWork) return
+    if (stack?.leaveTo) stack.leaveTo(() => onOpenWork(kind, workId))
+    else onOpenWork(kind, workId)
+  }
+
   const openCharFact = (key, label, { rows = 0, required = false } = {}) => setPicker({
     id: `char-${key}`,
     title: label,
@@ -1773,7 +1796,7 @@ function CharacterBody({ stack, id, work, onSearch = null, onOpenWork: given = n
         label: a.work_title,
         sub: t('identity.choose.work.sub'),
         icon: <NavIcon name={GLYPH_NAME[mediumOf(a)] || 'movies'} />,
-        onPick: onOpenWork ? () => onOpenWork(a.kind, a.work_id) : null,
+        onPick: onOpenWork ? () => goToWork(a.kind, a.work_id) : null,
         title: onOpenWork ? undefined : t('identity.choose.work.unreachable'),
       },
       {
@@ -1858,7 +1881,11 @@ function CharacterBody({ stack, id, work, onSearch = null, onOpenWork: given = n
           // reaches them, and every act the card held is on them — so the card
           // was the stopgap it always said it was.
           onOpenWork={(a) => openWorkTile(a)}
-          onAddWork={() => focusField('char-add-work')}
+          onAddWork={() => setAdding(true)}
+          // THE OWNER'S ADDITION TO THE PACK — who has played this character —
+          // and its door is the performer's own record, which is the only thing a
+          // reader can want from a name on that list.
+          onOpenPerformer={(p) => stack.push(personPanel(stack, { id: p.id, name: p.name, onOpenWork }))}
           onMerge={() => setMerging(true)}
           // THE PACK'S REMOVAL ROW, drawn now because the sheet it opens exists.
           // Its whole design is that it does NOT act in bulk — "'Delete' here
@@ -1882,11 +1909,19 @@ function CharacterBody({ stack, id, work, onSearch = null, onOpenWork: given = n
             })),
           }) : null}
         >
-          {/* THE SECTIONS THE PACK DOES NOT DRAW, and the editors its rows are
-              shortcuts into. Both are argued in identityGlobal.jsx's header. */}
-          {/* See PersonBody: the count says it, including zero. */}
-          <MonoLabel>{t('identity.lines.title', { n: (data.lines || []).length, count: (data.lines || []).length })}</MonoLabel>
-          <Lines lines={data.lines || []} shared={data.shared_lines || 0} />
+          {/* NO QUOTE LIST. It was argued here for three rounds — "which quotes are
+              this character's" is what `speaker_cast_id` exists to answer — and
+              the owner has now overruled it three times, the last of them: "there
+              is still a quote list on the character card. please check the
+              prototype, and i am saying this for the 100th time". The pack's
+              char-global has four blocks and this is not one of them
+              (`character-popup.dc.html:942-984`). The lines are not lost: the
+              appearance counts are doors into search, which is the screen built to
+              hold a list of quotes.
+
+              WHAT STANDS IN ITS PLACE IS THE OWNER'S OWN ADDITION — "a list of
+              actors assigned to the character in various different works" — drawn
+              by `CharacterGlobal` from the appearances it already holds. */}
           {/* SPLIT HAS NOWHERE TO LIVE IN A ROW OF NAMES — it is a verb per
               spelling, and the row is one line of them — so the chips stay, as
               the row's editor rather than as a section of their own. */}
@@ -1897,7 +1932,6 @@ function CharacterBody({ stack, id, work, onSearch = null, onOpenWork: given = n
               <AliasRow aliases={data.aliases || []} onAdd={addAlias} onRemove={removeAlias} onSplit={splitAlias} />
             </>
           ) : null}
-          <div id="char-add-work"><AddWork busy={busy} have={works} onAdd={addWork} /></div>
           {/* ONE EDITOR, NOT TWO — the same fix `PersonBody` took one commit
               earlier, and this screen is why the commit that claimed both was
               wrong about one of them. A form carrying six fields sat under rows
@@ -1916,9 +1950,27 @@ function CharacterBody({ stack, id, work, onSearch = null, onOpenWork: given = n
         {/* A CHARACTER IS NEVER AN ORGANISATION, so its list is the person one —
             which is right: a character has an IMDb page under /name/ the way a
             performer does, and no company id space at all. */}
+        {/* THE FIELD SHEET, MOUNTED ON THIS BRANCH TOO. It was rendered only on the
+            character's LOCAL branch, so every field row on the global screen —
+            sort name, born, description, the note — set a picker nothing drew:
+            four dead presses on the screen the owner has been photographing. The
+            state and the rows were shared and the sheet was not. */}
+        {/* KEYED ON THE SPEC so a new question is a new instance — see
+            FieldPicker's header for why seeding the draft in an effect flashes an
+            armed tick. */}
+        {picker ? (
+          <FieldPicker
+            key={picker.id}
+            spec={picker}
+            busy={busy}
+            onClose={() => setPicker(null)}
+            onSave={picker.save}
+          />
+        ) : null}
         {choose ? (
           <ChoosePicker spec={choose} busy={busy} onClose={() => setChoose(null)} />
         ) : null}
+        <AddWork open={adding} busy={busy} have={works} onAdd={addWork} onClose={() => setAdding(false)} />
         <ProviderLinkDialog
           open={linkDialog}
           onClose={() => setLinkDialog(false)}
@@ -1967,8 +2019,18 @@ function workNoun(a) {
 //
 // WORKS THIS CHARACTER IS ALREADY IN ARE NOT OFFERED. The server answers 409 and
 // the reader would have learned it by pressing.
-function AddWork({ busy, have, onAdd }) {
-  const [open, setOpen] = useState(false)
+// AddWork — the works picker, in a sheet the strip's own add tile opens.
+//
+// WHAT IT REPLACES, and both halves were reported: the strip's "Add a work" tile
+// called `focusField('char-add-work')`, which SCROLLED to a collapsed block
+// further down the sheet — so on a phone the press moved the page and nothing
+// opened ("the add work beside the cover doesn't work"). And that block drew its
+// own `+ Add a work` button, stranded under the quote list, which is a second
+// control for one act in a place the pack has no control at all ("the add button
+// below the quote works — that should not even exist").
+//
+// One door, on the tile, opening the thing the tile promises.
+function AddWork({ open, busy, have, onAdd, onClose }) {
   const [q, setQ] = useState('')
   const [all, setAll] = useState(null)
   // WHO PLAYED THEM, OPTIONALLY, AT THE MOMENT OF TAGGING — the owner's own
@@ -2005,16 +2067,15 @@ function AddWork({ busy, have, onAdd }) {
     .filter((w) => !term || w.title.toLowerCase().includes(term))
     .slice(0, 24)
 
-  if (!open) {
-    return (
-      <div>
-        <GhostButton icon={<IconPlus />} onClick={() => setOpen(true)}>
-          {t('identity.character.works.add.label')}
-        </GhostButton>
-      </div>
-    )
-  }
+  if (!open) return null
   return (
+    <FormModal
+      open
+      onClose={onClose}
+      title={t('identity.character.works.add.label')}
+      maxWidth={460}
+      closeDanger
+    >
     <div style={FIELDS}>
       <input
         className="tp-input"
@@ -2050,9 +2111,9 @@ function AddWork({ busy, have, onAdd }) {
               disabled={busy}
               onClick={async () => {
                 await onAdd(w, w.kind === 'book' ? '' : actor.trim())
-                setOpen(false)
                 setQ('')
                 setActor('')
+                onClose()
               }}
             >
               {w.cover ? <img src={coverImgURL(w.cover)} alt="" loading="lazy" /> : <span className="char-pick-blank" aria-hidden="true" />}
@@ -2061,10 +2122,11 @@ function AddWork({ busy, have, onAdd }) {
           ))}
         </Scroller>
       )}
-      <div>
-        <GhostButton onClick={() => setOpen(false)}>{t('common.action.cancel.label')}</GhostButton>
-      </div>
+      {/* NO CANCEL BUTTON. The sheet's own head carries the way out — the back
+          key inside a panel, the ✕ outside one — and a third control saying the
+          same thing is the duplication this screen keeps being reported for. */}
     </div>
+    </FormModal>
   )
 }
 

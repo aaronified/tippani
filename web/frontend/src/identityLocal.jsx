@@ -33,7 +33,7 @@ import {
   SegHead,
 } from './characterRows.jsx'
 import { t } from './i18n.js'
-import { NavIcon, IconDetails, IconEdit, IconQuote } from './ui.jsx'
+import { NavIcon, IconDetails, IconEdit, IconPlus, IconQuote } from './ui.jsx'
 import { leadingRole } from './identityScope.js'
 
 // THE APP'S OWN ART, NOT AN EMOJI. The first version of this line invented four
@@ -269,6 +269,7 @@ export function CharacterLocal({
         sub={alsoHere.length ? alsoHere.join(' · ') : t('identity.row.called.sub')}
         meta={here.character || record.name}
         onClick={onCalled}
+        edit
       />
 
       {/* THE PERFORMER BLOCK, and the heading is a CONTROL because there are
@@ -291,7 +292,7 @@ export function CharacterLocal({
           {creditRows(cast, creditVerbs)}
           <ScreenRow
             label={t(role === 'voice' ? 'identity.credit.add.voice' : 'identity.credit.add.performer')}
-            icon="+"
+            icon={<IconPlus size={16} />}
             onClick={onAddCredit}
           />
         </>
@@ -305,7 +306,7 @@ export function CharacterLocal({
         <>
           <SectionHead label={t('identity.section.dubbedby')} />
           {creditRows(dubs, creditVerbs)}
-          <ScreenRow label={t('identity.credit.add.dub')} icon="+" onClick={onAddDub} />
+          <ScreenRow label={t('identity.credit.add.dub')} icon={<IconPlus size={16} />} onClick={onAddDub} />
         </>
       )}
 
@@ -328,6 +329,7 @@ export function CharacterLocal({
         meta={here.description || t('identity.row.local-desc.none')}
         icon={<IconDetails size={16} />}
         onClick={onDescription}
+        edit
       />
 
       {/* THE NOTE IS PRIVATE AND PER-WORK, and its sub-line says so because the

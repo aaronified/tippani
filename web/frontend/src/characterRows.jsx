@@ -32,7 +32,7 @@ import { useEffect, useState } from 'react'
 import { coverImgURL } from './api.js'
 import { t } from './i18n.js'
 import { Silhouette } from './silhouette.jsx'
-import { IconChevron, IconClose, IconEdit, NameScroll, ProviderMark, Scroller, Tooltip, usePanelHead } from './ui.jsx'
+import { IconChevron, IconClose, IconEdit, IconPlus, NameScroll, ProviderMark, Scroller, Tooltip, usePanelHead } from './ui.jsx'
 
 // ---- the header -------------------------------------------------------------
 
@@ -217,8 +217,28 @@ export function SegHead({ label, options, value, onPick }) {
 // remove — which sit OUTSIDE the row's own button rather than inside it, because
 // a button inside a button is not a thing and a reader who meant the pencil must
 // not open the row.
+//
+// `edit` MARKS A ROW AS A DOOR TO AN EDITOR, and it is the owner's ruling: "there
+// are no edit pencils on the fields." A row printing `Born  1942` with nothing
+// else on it reads as a stated fact, and it is a control — the reader has no way
+// to know the value is theirs to change short of pressing every row to find out.
+//
+// A DEPARTURE FROM THE PACK, argued here rather than found later. The pack's
+// `row()` puts a glyph in a LEFT slot and uses it for a row's subject (`Note` is
+// `icon:'edit'`, merge is `icon:'merge'`, remove is `icon:'trash'`) — the
+// identity rows pass none, so their labels start at the edge. Three identical
+// pencils stacked in that slot would push `Name`, `Sort name` and `Born` right to
+// make room for a glyph that says the same thing three times, and would collide
+// with the rows whose left glyph is their subject. At the trailing edge it reads
+// as what it is: a mark on the rows that open something, absent from the rows
+// that do not — which is the distinction the owner is asking to see.
+//
+// INSIDE THE BUTTON AND `aria-hidden`, unlike `trailing`. It is not a second
+// target: the whole row already opens the editor, and a pencil beside it that
+// does the same thing is two controls for one act. Screen readers get the row's
+// own label and title, which already say what pressing it does.
 export function ScreenRow({
-  label, sub, meta, monoMeta, badge, icon, face, faceName, danger, tinted, onClick, trailing, title,
+  label, sub, meta, monoMeta, badge, icon, face, faceName, danger, tinted, onClick, trailing, title, edit,
 }) {
   return (
     <div className="cs-row-wrap">
@@ -226,6 +246,13 @@ export function ScreenRow({
         type="button"
         className={'cs-row tactile' + (danger ? ' is-danger' : '') + (tinted ? ' is-tinted' : '')}
         title={title}
+        // A ROW WITH NOWHERE TO GO SAYS SO — `AppearanceStrip`'s rule, which a row
+        // needs for the same reason a tile does. `aria-disabled` rather than
+        // `disabled`, so the row stays readable and its title still explains: a
+        // performer the library has no record for is worth listing on the
+        // character they played, and a press that changes nothing and gives no
+        // reason is the defect class the control probe exists for.
+        aria-disabled={onClick ? undefined : 'true'}
         onClick={onClick}
       >
         {icon ? <span className="cs-row-icon">{icon}</span> : null}
@@ -237,6 +264,9 @@ export function ScreenRow({
         </span>
         {badge ? <span className="cs-row-badge">{badge}</span> : null}
         {meta ? <span className={'cs-row-meta' + (monoMeta ? ' is-mono' : '')}>{meta}</span> : null}
+        {edit ? (
+          <span className="cs-row-pencil" aria-hidden="true"><IconEdit size={15} /></span>
+        ) : null}
       </button>
       {trailing}
     </div>
@@ -431,7 +461,13 @@ export function CreditRow({
 // order and a control at the front would claim a place in it. It is the last
 // thing you reach, which is where you are when you have looked at all of them and
 // found the one you wanted missing.
-export function AppearanceStrip({ tiles, hint, onAdd, addLabel, addTitle, addIcon = '+' }) {
+// `addIcon` DEFAULTS TO THE APP'S OWN DRAWING, not to a typed `+`. CLAUDE.md:
+// "A screen's glyphs are the app's own, never an emoji… it changes with the
+// reader's font, sits off the baseline every other glyph shares, and is the one
+// picture docs/ui-glossary.html cannot document." U+002B is not an emoji, but it
+// is the platform's font drawing a plus beside the app's own drawings of
+// everything else — two pictures of one thing, which is the same defect.
+export function AppearanceStrip({ tiles, hint, onAdd, addLabel, addTitle, addIcon = <IconPlus size={18} /> }) {
   return (
     <div className="cs-strip">
       <Scroller className="cs-tiles">
@@ -518,6 +554,7 @@ export function NamesRow({ label, lines, empty, onOpen }) {
       meta={first}
       sub={rest.length ? rest.join(' · ') : empty}
       onClick={onOpen}
+      edit
     />
   )
 }

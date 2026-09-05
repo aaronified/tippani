@@ -900,6 +900,11 @@
   }
   .tp-panel {
     width: min(460px, 100%);
+    /* A SUB-SURFACE DRAWS INSIDE THIS BOX, not over the viewport — see
+       PanelSurfaceContext. Without a positioned ancestor `.tp-subsheet` would
+       take the nearest one, which is the scrim, and cover the whole screen: the
+       escalation it exists to end. */
+    position: relative;
     /* A cap, not a height: a two-row panel is two rows tall. The viewport unit
        is dvh so a phone's collapsing address bar cannot crop the last row. */
     max-height: min(720px, calc(100dvh - 64px));
@@ -930,7 +935,15 @@
      than its content in the first place. So the name did not scroll: it ran
      out of the head and under the ✕, which is the one thing the standing
      rule about names forbids. Only the CENTRING is dropped here. */
-  .tp-panel-title.is-scoped { text-align: left; flex: 0 1 auto; min-width: 0; }
+  /* `min-height: 0` — the third fix this one rule has needed, and the owner
+     reported it twice as "the header vertical gaps look weird". The base rule
+     gives every panel title a 44px floor so a title ALONE sits on the same line
+     box as the 44px keys either side of it. In a scoped head the title is not
+     alone: it is the first of two stacked lines inside `.tp-panel-names`, so the
+     floor stopped being an alignment and became 22px of empty space wedged
+     between the name and its crumb. The head's own `min-height: 60px` and the
+     key slots still set the bar's height; the names block no longer fights them. */
+  .tp-panel-title.is-scoped { text-align: left; flex: 0 1 auto; min-width: 0; min-height: 0; }
   .tp-panel-crumb {
     font-family: var(--font-mono), monospace;
     font-size: var(--type-ui-11);
@@ -1061,6 +1074,21 @@
   }
   .tp-panel-back-word::-webkit-scrollbar,
   .tp-panel-title::-webkit-scrollbar { display: none; }
+  /* ONE QUESTION, OVER THE SCREEN THAT ASKED IT. The panel keeps its frame and
+     its rounded corners; this layer covers its body and head with a head of its
+     own, whose left slot is the way back. `inherit` on the radius so the corners
+     match whatever the panel is wearing, and the ground is opaque because the
+     rows underneath must not read through a form. */
+  .tp-subsheet {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    border-radius: inherit;
+    overflow: hidden;
+    background: linear-gradient(180deg, color-mix(in srgb, var(--card), white 6%), color-mix(in srgb, var(--card), black 4%));
+  }
   .tp-panel-body {
     flex: 1;
     min-height: 0;
@@ -8455,6 +8483,16 @@ html[data-theme="dark"] .board-cover {
   .cs-row-meta { flex: none; font-size: var(--type-ui-13); color: var(--soft); }
   .cs-row-meta.is-mono {
     font-family: var(--font-mono); font-size: var(--type-mono-12); letter-spacing: .08em;
+  }
+  /* THE MARK ON A ROW THAT OPENS AN EDITOR — see ScreenRow's `edit`. Fainter than
+     the value it follows, because it is the row's grammar and not its content:
+     what the reader came to read is the name or the year, and the pencil only has
+     to answer "is this mine to change" at a glance across the column. */
+  .cs-row-pencil {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    color: var(--faint);
   }
 
   /* THREE SHORT ANSWERS ON ONE LINE. A part, a locator and an age given a row

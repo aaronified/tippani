@@ -48,7 +48,7 @@ import {
   SectionHead,
 } from './characterRows.jsx'
 import { t } from './i18n.js'
-import { IconGlobe, IconDelete, IconMerge, NavIcon } from './ui.jsx'
+import { IconGlobe, IconDelete, IconMerge, IconPlus, NavIcon } from './ui.jsx'
 import { GLYPH_NAME } from './identityLocal.jsx'
 import { mediumOf } from './identityScope.js'
 import { PROVIDERS, parseLinks } from './people.jsx'
@@ -153,6 +153,36 @@ function workTiles(works, recordImage, onOpen) {
   }))
 }
 
+// castOf — the people who have played this character, one row each, from the
+// appearances the screen already has.
+//
+// ONE ROW PER PERFORMER AND NOT PER APPEARANCE, which is the whole point of
+// putting the list on the GLOBAL screen: a performer who played the part in three
+// films is one fact about the character, and three rows saying their name would
+// be the duplication this screen keeps being reported for. Their works become the
+// row's subtitle instead.
+//
+// FOLDED ON THE RECORD FIRST, THE NAME SECOND. `actor_id` is the identity where
+// there is one; a credit that names somebody the library has no record for still
+// has to collapse with its own repeats, and the name is all there is to fold on.
+// Case and surrounding space only — a deeper folding is `store.CastKey`'s job and
+// it is not the client's to guess at.
+function castOf(works) {
+  const by = new Map()
+  for (const a of works || []) {
+    const name = String(a.actor || '').trim()
+    if (!name) continue
+    const key = a.actor_id ? `id:${a.actor_id}` : `n:${name.toLowerCase()}`
+    const row = by.get(key) || { key, id: a.actor_id || 0, name, image: a.actor_image || '', works: [] }
+    // The first face wins rather than the last: the rows arrive in release order,
+    // so this is the earliest picture the library holds of them in the part.
+    if (!row.image && a.actor_image) row.image = a.actor_image
+    if (a.work_title && !row.works.includes(a.work_title)) row.works.push(a.work_title)
+    by.set(key, row)
+  }
+  return [...by.values()]
+}
+
 // creditTiles — a PERSON'S works, which arrive in a different shape from a
 // character's and have to. A character is in a work through `work_cast`, so its
 // row already names the character and carries this work's picture of them; a
@@ -201,12 +231,13 @@ export function CharacterGlobal({
   // had exactly this and was fixed one commit ahead of it. Every fact on screen
   // twice, and the row "edited" by scrolling you down to its twin.
   onDescription = null, onNote = null,
-  onOpenWork, onAddWork, onMerge, onRemoveAll, children,
+  onOpenWork, onAddWork, onMerge, onRemoveAll, onOpenPerformer = null, children,
 }) {
   const tiles = useMemo(
     () => workTiles(works, record.image_path, onOpenWork),
     [works, record.image_path, onOpenWork],
   )
+  const performers = useMemo(() => castOf(works), [works])
   const pills = useMemo(() => linkPills(record.links), [record.links])
   return (
     <ScreenBody>
@@ -240,6 +271,7 @@ export function CharacterGlobal({
         meta={record.sort_name || t('identity.row.sort.none')}
         sub={t('identity.row.sort.sub.character')}
         onClick={onSort}
+        edit
       />
       <ScreenRow
         label={t('identity.field.born')}
@@ -249,6 +281,7 @@ export function CharacterGlobal({
         // states. Sherlock Holmes has a birth year because a story says so.
         sub={t('identity.row.born.sub.character')}
         onClick={onBorn}
+        edit
       />
 
       {/* WHAT THE WORKS SAY ABOUT THEM, and the reader's own note. Two different
@@ -259,6 +292,7 @@ export function CharacterGlobal({
           meta={record.description ? '' : t('identity.row.born.none')}
           sub={record.description || ''}
           onClick={onDescription}
+          edit
         />
       ) : null}
       {onNote ? (
@@ -267,6 +301,7 @@ export function CharacterGlobal({
           meta={record.note ? '' : t('identity.row.born.none')}
           sub={record.note || ''}
           onClick={onNote}
+          edit
         />
       ) : null}
 
@@ -277,7 +312,7 @@ export function CharacterGlobal({
         pills={pills}
         onAdd={onLinkAdd}
         addLabel={t('identity.row.link.add.label')}
-        addIcon="+"
+        addIcon={<IconPlus size={13} />}
         addTitle={t('identity.row.link.add.tip')}
       />
 
@@ -288,6 +323,35 @@ export function CharacterGlobal({
         onAdd={onAddWork}
         addTitle={t('identity.works.add.character.tip')}
       />
+
+      {/* WHO HAS PLAYED THEM, AND IN WHAT — the owner's own addition to the pack:
+          "a list of actors assigned to the character in various different works".
+          It is the question a character record can answer and no single work can,
+          which is what earns it a place on the global screen where a list of
+          quotes did not: one row per performer, however many works they did it
+          in, so a character played by three people over four films reads as three
+          people rather than as four rows.
+
+          DRAWN ONLY WHERE THERE IS A CAST. A novel's characters are not
+          performed, and a heading over nothing is a section that looks broken. */}
+      {performers.length ? (
+        <>
+          <SectionHead label={t('identity.section.performers.title', { n: performers.length, count: performers.length })} />
+          {performers.map((p) => (
+            <ScreenRow
+              key={p.key}
+              label={p.name}
+              face={p.image}
+              faceName={p.name}
+              sub={p.works.join(' · ')}
+              // A performer the library has no record for still belongs on this
+              // list — they played the part — but the row says it cannot open one.
+              title={p.id || !onOpenPerformer ? undefined : t('identity.performers.unlinked.tip')}
+              onClick={p.id && onOpenPerformer ? () => onOpenPerformer(p) : undefined}
+            />
+          ))}
+        </>
+      ) : null}
 
       {/* The two sections the pack does not draw — see this file's header for why
           each is kept. They sit between the works and the acts that end the
@@ -397,6 +461,7 @@ export function PersonGlobal({
         meta={record.sort_name || t('identity.row.sort.none')}
         sub={org ? t('identity.row.sort.sub.company') : t('identity.row.sort.sub.person')}
         onClick={onSort}
+        edit
       />
       {/* NO IN-WORLD CAVEAT HERE, which is the one row differing from the
           character's by more than a word: a person's birth is a fact about the
@@ -408,12 +473,14 @@ export function PersonGlobal({
         label={org ? t('people.form.founded.label') : t('identity.field.born')}
         meta={record.born || t('identity.row.born.none')}
         onClick={onBorn}
+        edit
       />
       {onDied ? (
         <ScreenRow
           label={org ? t('people.form.closed.label') : t('identity.field.died')}
           meta={record.died || t('identity.row.born.none')}
           onClick={onDied}
+          edit
         />
       ) : null}
       {/* THE BIO IS THE PERSON'S, THE NOTE IS THE READER'S — two different
@@ -424,6 +491,7 @@ export function PersonGlobal({
           meta={record.bio ? '' : t('identity.row.born.none')}
           sub={record.bio || ''}
           onClick={onBio}
+          edit
         />
       ) : null}
       {onNote ? (
@@ -432,6 +500,7 @@ export function PersonGlobal({
           meta={record.note ? '' : t('identity.row.born.none')}
           sub={record.note || ''}
           onClick={onNote}
+          edit
         />
       ) : null}
 
@@ -441,7 +510,7 @@ export function PersonGlobal({
         pills={pills}
         onAdd={onLinkAdd}
         addLabel={t('identity.row.link.add.label')}
-        addIcon="+"
+        addIcon={<IconPlus size={13} />}
         addTitle={t('identity.row.link.add.tip')}
       />
 
