@@ -12,11 +12,12 @@
 // value", it is "someone adds `overflow-y: auto` next year and never thinks
 // about chaining at all", and only a sweep catches that.
 
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-const CSS = readFileSync(join(process.env.TIPPANI_SRC, 'index.css'), 'utf8')
+const SRC = process.env.TIPPANI_SRC
+const CSS = readFileSync(join(SRC, 'index.css'), 'utf8')
 
 // Every rule block, as { selector, body }. A hand-rolled split rather than a
 // parser: the file is nested only one level deep (@layer / @media around plain
@@ -42,6 +43,66 @@ const CONTAINS = /overscroll-behavior(-x|-y)?:\s*(contain|none)/
 // ones, where chaining is the browser's back gesture and a trackpad swipe off
 // the end of a wide table would navigate away from what you were reading.
 const EXEMPT = ['html', 'body', ':root']
+
+// ---- and the scroll containers the stylesheet cannot see ------------------
+//
+// A `className="… overflow-y-auto …"` is a scroll container the sweep above has
+// no way to reach: the declaration is never written in `index.css` at all, it is
+// assembled by the utility framework from a word in a JSX attribute. Nine of them
+// exist across seven files, and the sweep's own header names this exact failure —
+// "someone adds `overflow-y: auto` next year and never thinks about chaining" —
+// which is precisely what typing the word into a className does.
+//
+// THE RULE IS THE SAME RULE, so the answer is not a second list of exceptions: an
+// element that scrolls must ALSO carry something that contains the scroll. That
+// can be a utility (`overscroll-contain`) or one of this app's own classes whose
+// stylesheet rule sets `overscroll-behavior` — which is how all nine currently
+// pass, every one of them wearing `.tp-scrim`. Resolving it through the stylesheet
+// rather than naming `.tp-scrim` is what keeps this honest: rename the class or
+// drop the property from it and this fails, where a hard-coded allowance would
+// not.
+const OVERFLOW_UTIL = /\boverflow(-[xy])?-(auto|scroll)\b/
+const CONTAIN_UTIL = /\boverscroll-(contain|none)\b/
+
+// Every class the stylesheet gives an `overscroll-behavior`, from the same parse
+// the sweep above uses. A selector like `.a, .b` contributes both.
+function containingClasses() {
+  const out = new Set()
+  for (const r of rules()) {
+    if (!CONTAINS.test(r.body)) continue
+    for (const m of r.sel.matchAll(/\.([A-Za-z][\w-]*)/g)) out.add(m[1])
+  }
+  return out
+}
+
+function jsxScrollers() {
+  const out = []
+  for (const file of readdirSync(SRC).filter((f) => f.endsWith('.jsx'))) {
+    const text = readFileSync(join(SRC, file), 'utf8')
+    text.split('\n').forEach((line, i) => {
+      const m = line.match(/className="([^"]*)"/)
+      if (!m || !OVERFLOW_UTIL.test(m[1])) return
+      out.push({ where: `${file}:${i + 1}`, classes: m[1].split(/\s+/) })
+    })
+  }
+  return out
+}
+
+describe('a scroll container written as a utility class', () => {
+  const found = jsxScrollers()
+
+  it('there are some, so this test is testing something', () => {
+    expect(found.length, 'the extraction found no utility scrollers at all').toBeGreaterThan(5)
+  })
+
+  it('stops its scroll at its own edge too', () => {
+    const contains = containingClasses()
+    const chaining = found
+      .filter(({ classes }) => !classes.some((c) => CONTAIN_UTIL.test(c) || contains.has(c)))
+      .map(({ where }) => where)
+    expect(chaining, 'these scroll the page behind them').toEqual([])
+  })
+})
 
 describe('every scroll container', () => {
   const scrollers = rules().filter((r) => SCROLLS.test(r.body) && !EXEMPT.includes(r.sel))

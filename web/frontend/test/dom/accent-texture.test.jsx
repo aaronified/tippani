@@ -30,213 +30,17 @@
 // entire trick), then specificity, then source order. Then it asserts the resolved
 // value, because the resolved value is the only thing a reader can see.
 
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-const SRC = process.env.TIPPANI_SRC
-const css = readFileSync(join(SRC, 'index.css'), 'utf8')
+import { CSS_TEXT as css, resolveOn as resolve, rightmost, rules } from '../css-cascade.js'
 
-// ---------------------------------------------------------------------------
-// A cascade resolver, small enough to read
-// ---------------------------------------------------------------------------
-
-// Layer order, lowest priority first for NORMAL declarations. Tailwind's own
-// `@import "tailwindcss"` declares `theme, base, components, utilities`, and this
-// file's `@layer base` / `@layer components` blocks append into two of them.
-// Unlayered sits at the end of this list because unlayered normal declarations beat
-// layered ones — and, for important declarations, the order reverses and unlayered
-// loses to every layer. That reversal is why `prefers-reduced-motion` has always
-// worked (it is `!important` in `@layer base`) and why nothing else did.
-const LAYERS = ['theme', 'base', 'components', 'utilities', null]
-
-const stripComments = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '')
-
-// Split a comma list at paren depth zero, so `:is(a, b)` survives intact.
-function splitList(s) {
-  const out = []
-  let depth = 0
-  let cur = ''
-  for (const ch of s) {
-    if (ch === '(') depth++
-    else if (ch === ')') depth--
-    if (ch === ',' && depth === 0) { out.push(cur.trim()); cur = '' } else cur += ch
-  }
-  if (cur.trim()) out.push(cur.trim())
-  return out
-}
-
-// Selector specificity as [ids, classes, types]. `:is()`, `:not()` and `:has()`
-// contribute the specificity of their most specific argument, per the spec.
-function specificity(sel) {
-  let a = 0
-  let b = 0
-  let c = 0
-  let s = ` ${sel} `
-  s = s.replace(/:(?:is|not|has|matches)\(([^()]*)\)/g, (_, inner) => {
-    let best = [0, 0, 0]
-    for (const arg of splitList(inner)) {
-      const sp = specificity(arg)
-      if (sp[0] !== best[0] ? sp[0] > best[0] : sp[1] !== best[1] ? sp[1] > best[1] : sp[2] > best[2]) best = sp
-    }
-    a += best[0]; b += best[1]; c += best[2]
-    return ' '
-  })
-  s = s.replace(/:where\([^()]*\)/g, ' ')
-  s = s.replace(/::[\w-]+(?:\([^()]*\))?/g, () => { c++; return ' ' })
-  s = s.replace(/#[\w-]+/g, () => { a++; return ' ' })
-  s = s.replace(/\[[^\]]*\]/g, () => { b++; return ' ' })
-  s = s.replace(/\.[\w-]+/g, () => { b++; return ' ' })
-  s = s.replace(/:[\w-]+(?:\([^()]*\))?/g, () => { b++; return ' ' })
-  s.replace(/[A-Za-z][\w-]*/g, () => { c++; return ' ' })
-  return [a, b, c]
-}
-
-// Everything after the last combinator: the compound that decides what element the
-// rule lands on. `html[data-aesthetic="paper"] .film-frame::before` reduces to
-// `.film-frame::before`.
-const rightmost = (sel) => sel.trim().split(/\s*[>+~]\s*|\s+/).filter(Boolean).pop() || ''
-
-// The simple selectors of a compound, as a set, so containment can be tested.
-const simples = (compound) => new Set(compound.match(/::?[\w-]+(?:\([^()]*\))?|\.[\w-]+|#[\w-]+|\[[^\]]*\]|^[A-Za-z][\w-]*/g) || [])
-
-// Two rules land on the same element when one compound refines the other — so the
-// test is containment in EITHER direction, not one. `.preset-callout::before` and
-// `.preset-callout.tex-paper::before` compete both ways round, which matters
-// because the off switch is written as the general one and the texture as the
-// specific one. Two compounds where neither contains the other (`.tex-paper`
-// against `.tex-film`) share no element and are correctly left out.
-//
-// Any ancestor prefix is accepted: a rule narrowed to one theme or one aesthetic
-// still applies in some reader's state, and the off switch has to win in every
-// state, not the convenient one.
-function competes(sel, target) {
-  const mine = simples(rightmost(sel))
-  const theirs = simples(target)
-  const covers = (a, b) => { for (const s of b) if (!a.has(s)) return false; return true }
-  return covers(mine, theirs) || covers(theirs, mine)
-}
-
-function parse(src) {
-  const rules = []
-  const stack = []
-  let buf = ''
-  let order = 0
-  let i = 0
-
-  const layerOf = () => {
-    for (let k = stack.length - 1; k >= 0; k--) if (stack[k].layer) return stack[k].layer
-    return null
-  }
-  const rule = () => {
-    for (let k = stack.length - 1; k >= 0; k--) if (stack[k].decls) return stack[k]
-    return null
-  }
-  const flush = () => {
-    const r = rule()
-    const at = buf.indexOf(':')
-    if (r && at > 0) {
-      const prop = buf.slice(0, at).trim()
-      let value = buf.slice(at + 1).trim()
-      const important = /!\s*important$/i.test(value)
-      if (important) value = value.replace(/!\s*important$/i, '').trim()
-      if (prop && !prop.startsWith('@')) r.decls[prop] = { value, important }
-    }
-    buf = ''
-  }
-
-  while (i < src.length) {
-    const ch = src[i]
-    if (ch === '"' || ch === "'") {
-      // A quoted string can hold braces and semicolons; the SVG grain tile is one.
-      const end = src.indexOf(ch, i + 1)
-      const stop = end < 0 ? src.length : end + 1
-      buf += src.slice(i, stop)
-      i = stop
-      continue
-    }
-    if (ch === '{') {
-      const prelude = buf.trim()
-      buf = ''
-      i++
-      if (prelude.startsWith('@')) {
-        const name = prelude.slice(1).split(/[\s({]/)[0].toLowerCase()
-        if (name === 'keyframes' || name === 'font-face' || name === 'property') {
-          // No selectors inside, and `from {}` / `to {}` would parse as ones.
-          let depth = 1
-          while (i < src.length && depth > 0) {
-            if (src[i] === '{') depth++
-            else if (src[i] === '}') depth--
-            i++
-          }
-          continue
-        }
-        stack.push({
-          layer: name === 'layer' ? prelude.slice(6).replace(/\{$/, '').trim() || null : null,
-          media: name === 'media' ? prelude : null,
-        })
-        continue
-      }
-      const entry = {
-        selectors: splitList(prelude),
-        decls: {},
-        layer: layerOf(),
-        media: stack.map((s) => s.media).filter(Boolean),
-        order: order++,
-      }
-      rules.push(entry)
-      stack.push(entry)
-      continue
-    }
-    if (ch === '}') { flush(); stack.pop(); i++; continue }
-    if (ch === ';') { flush(); i++; continue }
-    buf += ch
-    i++
-  }
-  return rules
-}
-
-const rules = parse(stripComments(css))
-
-// True when `a` wins over `b` on the same element, both in the author origin.
-function wins(a, b) {
-  if (a.important !== b.important) return a.important
-  const la = LAYERS.indexOf(a.layer)
-  const lb = LAYERS.indexOf(b.layer)
-  // Later layer wins for normal declarations; earlier layer wins for important
-  // ones, and unlayered — last in LAYERS — flips from best to worst with it.
-  if (la !== lb) return a.important ? la < lb : la > lb
-  for (let k = 0; k < 3; k++) if (a.spec[k] !== b.spec[k]) return a.spec[k] > b.spec[k]
-  return a.order > b.order
-}
-
-// The declaration a reader ends up with for `prop` on `target`, across every media
-// context in the file. Media conditions are not evaluated: a rule inside
-// `@media (max-width: 768px)` competes because a phone in high-contrast mode is a
-// real reader, and the off switch must beat it there too.
-//
-// `skipContrast` is how a caller asks the OTHER question. The off switch is
-// `!important` in the first layer, so it wins every resolution it takes part in —
-// which is the point, and which would make "is this surface textured at all?"
-// unanswerable, because the answer would always be the stripped value. Excluding
-// that one block resolves the ordinary reader's screen; including it resolves the
-// screen of a reader who asked for more contrast. Both are real and they are
-// different questions.
-function resolve(target, prop, { skipContrast = false } = {}) {
-  let best = null
-  for (const r of rules) {
-    const d = r.decls[prop]
-    if (!d) continue
-    if (skipContrast && r.media.some((m) => m.includes('prefers-contrast: more'))) continue
-    for (const sel of r.selectors) {
-      if (!competes(sel, target)) continue
-      const cand = { ...d, layer: r.layer, order: r.order, spec: specificity(sel), sel, media: r.media }
-      if (!best || wins(cand, best)) best = cand
-    }
-  }
-  return best
-}
-
+// THE CASCADE RESOLVER MOVED, and this file is where it was written. It reads the
+// stylesheet, tracks which layer and which media context every declaration is in,
+// and resolves importance → layer order (reversed for important declarations,
+// which is the whole trick) → specificity → source order, so an assertion can be
+// about the value a reader actually sees. Three other suites were matching exact
+// bytes for the same kind of fact, so it now lives in `test/css-cascade.js` where
+// all four can reach one copy of it.
 // A TEXTURE IS NOW NAMED BY SLOT, NOT BY FILE. index.css declares every tile once
 // as --tile-<material> and theme.js aliases --tile-card to whichever of them the
 // chosen material set puts on the page, so a stylesheet rule says
@@ -416,6 +220,16 @@ describe('a selected thing wears the selected material', () => {
   it('keeps the drawer review dot visible on the selected row', () => {
     // accent-on-accent would be a waiting deck announcing itself in the one place
     // you cannot see it.
-    expect(css).toMatch(/\.drawer-item\.active \.review-dot \{[^}]*var\(--on-accent\)/)
+    //
+    // RESOLVED, NOT MATCHED. `\{[^}]*var\(--on-accent\)/` asserted that the ink
+    // appears somewhere inside that one block — which says nothing about whether
+    // that block wins, and goes red the day the declaration moves to a rule that
+    // also wins. The dot's colour is what a reader sees, so ask for the colour.
+    const ink = resolve('.drawer-item.active .review-dot', 'background')
+      || resolve('.drawer-item.active .review-dot', 'background-color')
+      || resolve('.drawer-item.active .review-dot', 'color')
+    expect(ink, 'the dot on the selected row takes no colour of its own').toBeTruthy()
+    expect(ink.value, 'the dot is drawn in the accent, on the accent')
+      .toContain('var(--on-accent)')
   })
 })

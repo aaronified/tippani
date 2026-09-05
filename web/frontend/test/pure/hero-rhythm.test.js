@@ -107,8 +107,21 @@ describe('the touch-sized state row', () => {
     // chip and a track on three lines — 59.8px measured, against the rendered
     // prototype's 44px on one line, the largest single departure from its
     // density. A width-conditional here is that regression.
-    expect(workDetail).not.toMatch(/compact=\{mobile\}/)
-    expect(workDetail, 'the hero no longer asks for the one-line shelf row')
-      .toMatch(/<ShelfControl[\s\S]{0,900}?\n\s*compact\n/)
+    // WHAT compact DRAWS is checked where it is drawn — `dom/work-tile-marks
+    // .test.jsx` renders both forms and looks for the track. What is left here is
+    // the one thing a render cannot see: that the hero asks for it UNCONDITIONALLY.
+    //
+    // Written as `\n\s*compact\n` this failed on `compact={true}`, which is the
+    // same interface to every reader and to React — a test that goes red on a
+    // correct change is a test people learn to edit rather than read. So the shape
+    // is accepted in any spelling and only a WIDTH CONDITION is refused, which is
+    // the regression the rule is about.
+    const shelf = workDetail.slice(workDetail.indexOf('<ShelfControl'))
+    const tag = shelf.slice(0, shelf.indexOf('/>') + 2)
+    expect(tag, 'the hero no longer asks for the one-line shelf row')
+      .toMatch(/\bcompact\b(?!\s*=\s*\{(?!true\}))/)
+    const conditional = tag.match(/\bcompact\s*=\s*\{([^}]*)\}/)
+    expect(conditional && conditional[1].trim() === 'true' ? null : conditional?.[1] ?? null,
+      'the one-line shelf row is conditional on something').toBeNull()
   })
 })

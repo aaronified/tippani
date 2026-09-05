@@ -17,6 +17,7 @@ import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { AnnotationCard } from '../../src/Library.jsx'
 import { Frame } from '../../src/Movies.jsx'
 import { useSelection } from '../../src/selection.jsx'
+import { resolveOn } from '../css-cascade.js'
 
 const QUOTES = [
   { id: 1, quote: 'the first line', color: 'yellow', tags: [], favorite: false },
@@ -177,7 +178,20 @@ describe('the tickmark', () => {
     expect(reveal).toMatch(/:focus-within \.card-pick/)
     // And the mode's own reveal is NOT gated — it has to work on every device,
     // because on a phone it is the only one there is.
-    expect(css).toMatch(/\.is-selecting \.card-pick,\s*\n\s*\.is-picked \.card-pick \{ opacity: 1; \}/)
+    //
+    // ASKED OF THE RESOLVED VALUE, not of the file's bytes. This used to match the
+    // two selectors with the NEWLINE between them, so re-wrapping the rule — which
+    // changes nothing a reader sees — turned it red, and an `opacity` overridden
+    // by a later rule would have left it green. What the rule says is that a card
+    // in either mode shows its tick, on every device.
+    for (const sel of ['.is-selecting .card-pick', '.is-picked .card-pick']) {
+      // ON A DEVICE WITH NO HOVER, which is the whole question: `without` drops
+      // every `@media (hover: hover)` rule before resolving, so this is what a
+      // phone computes rather than what a desktop does.
+      const d = resolveOn(sel, 'opacity', { without: 'hover' })
+      expect(d, `${sel} gets no opacity at all outside a hover query`).toBeTruthy()
+      expect(parseFloat(d.value), `${sel} does not reveal the tick on a phone`).toBe(1)
+    }
   })
 })
 

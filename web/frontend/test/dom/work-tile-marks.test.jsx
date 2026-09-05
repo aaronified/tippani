@@ -90,6 +90,33 @@ describe('the colour bar under the artwork', () => {
     expect(barName()).toBe('Completed')
   })
 
+  // ---- and the one-line form the work-detail hero asks for -----------------
+  //
+  // `compact` is ShelfControl minus the full-width progress track: the pack's
+  // header draws the shelf state on ONE line at every width, and the app's own
+  // measurement of the three-line form was 59.8px against the prototype's 44 —
+  // "the largest single departure from its density", per hero-rhythm.test.js,
+  // which owns the rule and used to assert it by looking for the word `compact`
+  // alone on its own line in `WorkDetail.jsx`. That passed if the prop was
+  // ignored and failed on `compact={true}`, which is the same interface. What the
+  // rule actually says is what the control DRAWS, so that is what is checked here.
+  it('draws no separate progress track in its one-line form', () => {
+    const { unmount } = render(
+      <ShelfControl kind="movie" item={{ id: 1, media_type: 'movie' }} status="watching" progress={55} onSelect={() => {}} compact />,
+    )
+    const tracks = document.querySelectorAll('[role="img"][aria-label*="%"]')
+    expect(tracks.length, 'the one-line form still draws the full-width track').toBe(0)
+    unmount()
+  })
+
+  it('and does draw one in the ordinary form, so the two really differ', () => {
+    render(
+      <ShelfControl kind="movie" item={{ id: 1, media_type: 'movie' }} status="watching" progress={55} onSelect={() => {}} />,
+    )
+    expect(document.querySelectorAll('[role="img"][aria-label*="%"]').length,
+      'the ordinary form draws no track either, so the case above proves nothing').toBeGreaterThan(0)
+  })
+
   it('carries the same word onto the track on a detail page', () => {
     // ShelfProgress draws the same bar under the state chip, and it was dropping
     // the kind one frame above the bug — the shape shelf-menu.test.jsx exists to

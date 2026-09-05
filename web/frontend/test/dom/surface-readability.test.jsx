@@ -31,6 +31,7 @@ import { createCanvas, loadImage } from '@napi-rs/canvas'
 import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { MAT_SETS, ACCENTS, applyTheme } from '../../src/theme.js'
+import { resolveOn, splitList } from '../css-cascade.js'
 
 // ---- what the browser would do ---------------------------------------------
 
@@ -207,10 +208,34 @@ describe('the stack this measures is the stack that ships', () => {
     // If somebody re-orders or drops a layer, the arithmetic above is measuring a
     // fill nobody sees — which is the failure mode that makes a passing contrast
     // test worthless.
-    expect(CSS).toContain('background-blend-mode: normal, normal, overlay, normal;')
+    // THE VALUES, PARSED. These were three exact strings — the blend list with
+    // its spaces and its semicolon among them — so re-spacing the declaration
+    // broke a test that had checked nothing, and a fourth layer added with
+    // different spacing would have slipped past. What the rule says is the ORDER
+    // of the layers, so that is what is compared.
+    const layers = (v) => splitList(String(v)).map((x) => x.trim())
+    // The thumbs are the surfaces that carry the four-layer stack — an accent
+    // fill with the grain tile blended into it — and they are what the numbers at
+    // the top of this file were measured against.
+    //
+    // skipContrast, BECAUSE THE NUMBERS AT THE TOP ARE THE ORDINARY READER'S.
+    // A `prefers-contrast: more` block replaces this stack with a flat fill on
+    // purpose — that is the accessibility override working — and resolving without
+    // saying so answers for a reader who asked for more contrast, which is not the
+    // stack these contrast ratios were computed against.
+    const asShipped = { skipContrast: true }
+    const blend = resolveOn('html .tp-toggle-thumb', 'background-blend-mode', asShipped)
+      || resolveOn('html .tp-select-thumb', 'background-blend-mode', asShipped)
+    expect(blend, 'nothing declares a blend stack at all').toBeTruthy()
+    expect(layers(blend.value),
+      'the blended overlay is no longer third of four flat layers')
+      .toEqual(['normal', 'normal', 'overlay', 'normal'])
     expect(CSS).toContain('var(--sel-veil)')
     // and the sizes name the tile layer in third place
-    expect(CSS).toMatch(/background-size: auto, auto, var\(--grain-(accent|shell-sm)\), auto;/)
+    const size = resolveOn(blend.sel, 'background-size', asShipped)
+    expect(size, 'the stack has no sizes, so its third layer names nothing').toBeTruthy()
+    expect(layers(size.value)[2], 'the third layer is not the grain tile')
+      .toMatch(/^var\(--grain-(accent|shell-sm)\)$/)
   })
 })
 

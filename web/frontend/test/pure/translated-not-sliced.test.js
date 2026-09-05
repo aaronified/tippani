@@ -36,8 +36,16 @@ describe('the stats calendar axis', () => {
   const stats = read('StatsPage.jsx')
 
   it('takes its month names from the shared table, not from a cut', () => {
-    expect(stats, 'StatsPage should import MONTH_KEYS from ui.jsx').toContain('MONTH_KEYS')
+    // `toContain('MONTH_KEYS')` used to stand here and was satisfied by this
+    // file's own COMMENT about MONTH_KEYS — so the guard would have survived the
+    // import being deleted. `dom/month-axis.test.jsx` renders the calendar IN
+    // BENGALI and looks at the labels, which is where the damage is: in English a
+    // cut and the table produce the same "Jan" and no render can tell them apart.
+    // What is left here is the narrower thing a render cannot state — that the cut
+    // is not written anywhere in this file at all, in any of its spellings.
     expect(stats).not.toMatch(/monthName\([^)]*\)\s*\.\s*(?:slice|substring|substr)/)
+    expect(stats, 'a month name is being cut to a fixed number of code units')
+      .not.toMatch(/month[A-Za-z]*\([^)]*\)[^\n]{0,40}\.(?:slice|substring|substr)\(/)
   })
 
   it('and ui.jsx still owns that table, so there is one of it', () => {

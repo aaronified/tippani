@@ -303,10 +303,17 @@ describe('the shell filters every list it draws', () => {
     // The legend is generated from the key table so it cannot fall behind it, which
     // is why it needs telling: without the prop it advertises a destination whose
     // tab is not on screen.
-    // Not `[^>]*`: the element's other props contain arrow functions, so the first
-    // `>` is inside `() =>` rather than at the end of the tag.
-    expect(body).toContain('<ShortcutSheet')
-    expect(body).toMatch(/ShortcutSheet[\s\S]{0,240}?omit=\{/)
+    //
+    // THE PROXIMITY WINDOW IS GONE. This read `/ShortcutSheet[\s\S]{0,240}?omit=\{/`
+    // — 240 characters of hope — which breaks on adding a prop and passes on an
+    // `omit` belonging to a different element further down. What the rule needs is
+    // that THIS element carries it, so the element is cut out and looked at.
+    // `dom/hidden-section.test.jsx` owns the consequence: what a hidden section
+    // takes off the drawer and off the sheet.
+    const at = body.indexOf('<ShortcutSheet')
+    expect(at, 'the shortcut sheet is not rendered here at all').toBeGreaterThan(-1)
+    const tag = body.slice(at, body.indexOf('/>', at) + 2)
+    expect(tag, 'the shortcut sheet is not told which rows to leave out').toMatch(/\bomit=\{/)
   })
 
   it('gates the three doors Home draws, and neither of the two links', () => {

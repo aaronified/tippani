@@ -26,6 +26,7 @@ import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { FilterChip, IconBooks, filterChipClass } from '../../src/ui.jsx'
+import { valueOf } from '../css-cascade.js'
 
 const css = readFileSync(join(process.env.TIPPANI_SRC, 'index.css'), 'utf8')
 
@@ -129,7 +130,11 @@ describe('the stylesheet holds up its end', () => {
   it('raises that to a thumb’s 44px on a phone, where the chips already are', () => {
     // The phone block sets .tp-filter-chip to 44 tall; a 34-wide, 44-tall glyph
     // chip is not square, and squares are what a row of glyphs has to be.
-    const phone = css.slice(css.indexOf('@media (max-width: 768px)'))
-    expect(phone).toMatch(/html\[data-labels="off"\] \.tp-filter-chip\.has-btn-icon \{ width: 44px; \}/)
+    // THE VALUE, NOT ITS BYTES. This matched the rule with its spaces and its
+    // semicolon in place — reformat the stylesheet and it goes red having caught
+    // nothing, and a width that changed inside a differently-spelled rule would
+    // leave it green. `test/css-cascade.js` resolves what actually wins.
+    expect(valueOf('html[data-labels="off"] .tp-filter-chip.has-btn-icon', 'width'),
+      'a glyph-only filter chip is not a thumb wide').toBe('44px')
   })
 })

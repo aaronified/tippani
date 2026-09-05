@@ -223,52 +223,25 @@ import { join } from 'node:path'
 const SRC = process.env.TIPPANI_SRC || join(process.cwd(), 'src')
 const read = (f) => readFileSync(join(SRC, f), 'utf8')
 
-describe('the shortcut sheet', () => {
-  const ui = read('ui.jsx')
-
-  it('is built from the registry, not from a list of its own', () => {
-    expect(ui).toMatch(/function ShortcutSheet\(/)
-    expect(ui).toMatch(/groupedShortcuts\(\)/)
-  })
-
-  // Every key cap in the app goes through one component, so a sequence renders
-  // as two caps and a joining word everywhere rather than in whichever places
-  // somebody remembered.
-  it('draws its caps with the shared Kbd', () => {
-    expect(ui).toMatch(/export function Kbd\(/)
-    expect(ui).toMatch(/<Kbd keys=/)
-  })
-})
-
-describe('legends sit on the controls that share the job', () => {
-  it('on the drawer’s destinations', () => {
-    const app = read('App.jsx')
-    expect(app).toMatch(/DRAWER_SHORTCUTS/)
-    // `row[0]`, not `t[0]`: the drawer's map callback used to bind `t`, and a local
-    // `t` shadows the imported resolver silently (see locale-shadow.test.js). The
-    // fix was always going to be renaming the local, and this is the line that
-    // knows what it was renamed to.
-    expect(app).toMatch(/<Kbd keys=\{shortcutFor\(DRAWER_SHORTCUTS\[row\[0\]\]\)\}/)
-    // Every destination it maps must be a real action, or the row renders a
-    // blank cap and teaches nothing.
-    const ids = [...app.matchAll(/^\s+\w+: '([a-z-]+)',$/gm)].map((m) => m[1])
-    const known = new Set(SHORTCUTS.map((s) => s.id))
-    for (const id of ids.filter((x) => known.has(x) || x.startsWith('go-'))) {
-      expect(known.has(id), `${id} is not a registered action`).toBe(true)
-    }
-  })
-
-  it('and on the quiz’s own buttons, in the mode’s own form', () => {
-    const review = read('review.jsx')
-    for (const id of ['grade-forgot', 'grade-got', 'reveal', 'focus-blank']) {
-      // The second argument is the mode: a legend that always printed the daily
-      // key would be wrong for half the app.
-      expect(review, id).toContain("shortcutFor('" + id + "', mode === 'practice')")
-    }
-    // And the MCQ options number themselves from the same table.
-    expect(review).toMatch(/shortcutFor\(`pick-\$\{idx \+ 1\}`, mode === 'practice'\)/)
-  })
-})
+// WHERE THE LEGENDS THEMSELVES ARE CHECKED, and why not here.
+//
+// This file used to assert that `ui.jsx`, `App.jsx` and `review.jsx` CONTAIN
+// certain expressions — `/<Kbd keys=\{shortcutFor\(DRAWER_SHORTCUTS\[row\[0\]\]\)\}/`
+// among them. Every one of those passed if `Kbd` rendered nothing, and every one
+// failed on renaming a local that no reader can see. The repo's own audit lists
+// them (`docs/plans/codebase-audit.md` §2.2) and the owner's standard settles it:
+// "a test writer shouldn't even know about the fix."
+//
+// `test/dom/key-legends.test.jsx` asserts the same rule as a CONSEQUENCE instead:
+// it mounts the real drawer, the real quiz and the real sheet, and reads the caps
+// off them. It catches a blank legend, an unregistered action and a component that
+// draws nothing — none of which a regex over source can see. It found one live gap
+// the regexes had passed over: the drawer's account row reaches the profile with
+// `g p` and printed no key at all.
+//
+// What stays HERE is what is genuinely about the registry as data — every binding
+// spells out, every listed key is wired, nothing collides — because those are facts
+// about a table and need no DOM.
 
 // EVERY LISTED KEY IS ACTUALLY WIRED. The table feeds the tooltips and the
 // sheet, so an entry is a PROMISE printed on a button — and the first draft of

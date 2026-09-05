@@ -1255,6 +1255,12 @@ export function Drawer({ open, onClose, tab, selectTab, onSearch, onAdd, onAccou
               {t(user.is_admin ? 'shell.drawer.role.admin.label' : 'shell.drawer.role.user.label')}
             </span>
           </span>
+          {/* THE ONE DESTINATION ON THIS DRAWER THAT DID NOT SPELL ITS KEY OUT.
+              `g p` reaches the profile and has since the registry was written;
+              every other row here wears its legend and this one did not, so the
+              sheet listed a shortcut the surface whose whole job is listing
+              destinations kept quiet about. */}
+          <Kbd keys={shortcutFor('go-profile')} />
         </button>
       </nav>
     </>

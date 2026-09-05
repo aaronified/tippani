@@ -72,6 +72,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   picture — or the upload reported an error for something that had worked.
 - **A character's page says what went wrong instead of going blank.** A record that
   failed to load took the whole panel down with it.
+- **The drawer's account row says which key opens it.** Every other destination on
+  the drawer prints its shortcut; `g p` reaches your profile and the one row that
+  does it kept quiet, while the shortcuts sheet listed it.
 - **Every screen's ⋯ has something in it.** On a desktop, Home, Quotes, Search, People,
   Stats and Settings opened an empty card: the menu drops its own Help row when the ?
   beside it is already on the bar, and those six screens contribute no actions of their

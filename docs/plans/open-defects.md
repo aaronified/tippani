@@ -83,10 +83,11 @@ The owner's standard, stated once and binding: "you need to check the feature/sp
 | # | Defect | Source | State |
 |---|---|---|---|
 | E1 | **`ui.jsx:4093-4105` duplicates `4202-4214` verbatim** and is absent from the duplication audit that was supposed to find exactly this. | rater | OPEN |
-| E2 | **`codebase-audit.md` §4.1 records the credit row as "Match"** when three of its details deviate (A4, A5, A11). | rater | OPEN |
+| E2 | **`codebase-audit.md` §4.1 records the credit row as "Match"** when three of its details deviate (A4, A5, A11). | rater | **FIXED** — the row now records what it got wrong and why: the reading looked at what the row DREW and not at what its controls DID. Three other verdicts in the same table went stale as this session fixed them (portrait verbs, picture size, header) and are updated with the commits |
 | E3 | **§4.2's artboards are still uncompared** — `char-global`, `char-book`, `char-game`, `people-global`, and `book-detail*.dc.html`. The Match Picker and Fetch Results have now been compared and match. | rater, self | OPEN |
-| E4 | **§2.2 and §2.3's tautology sections remain unfixed**, which was half of the owner's sixth instruction. | rater | OPEN |
+| E4 | **§2.2 and §2.3's tautology sections remain unfixed**, which was half of the owner's sixth instruction. | rater | **FIXED** — all six of §2.2 and §2.3's hole. Each replacement is a render or a resolved value: `dom/key-legends.test.jsx`, `dom/hidden-section.test.jsx`, `dom/month-axis.test.jsx` (in Bengali, because in English a cut and the table both produce "Jan"), two cases in `dom/work-tile-marks.test.jsx`, an extended `scroll-containment.test.js`, and `test/css-cascade.js` — the resolver lifted out of `accent-texture.test.jsx` so the four byte-level matchers can ask for a value. Two live gaps fell out of it: the drawer's account row printed no key for `g p`, and E6 below |
 | E5 | **The ✕ rule contradicts itself.** `PanelHost` reds it only when `dirty > 0`; `identityPicker.jsx` passes `closeDanger` unconditionally; CLAUDE.md states it flatly. One of the three has to give. | rater | OPEN |
+| E6 | **The shared cascade resolver answered with an ANCESTOR's declaration.** `competes(sel, target)` reduced the CANDIDATE to its rightmost compound and then compared it against the whole TARGET, ancestors included — so `.drawer-item.active .review-dot`'s background resolved to `.drawer-item.active`'s fill. Every target it had been asked about was a single compound, where the two readings coincide. | self | **FIXED** — the target is reduced the same way as the candidate |
 
 ---
 

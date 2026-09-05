@@ -172,7 +172,7 @@ must be seeded will press whatever chip it can find, and reach a different surfa
 lesson is plain enough to write down: **a single pass is not evidence of a negative**, and
 a fixture-dependent probe is only trustworthy with its seed and its embed both verified.
 
-### 2.2 Tautology sections inside good files — not acted on
+### 2.2 Tautology sections inside good files — ALL SIX ACTED ON
 
 | Where | The assertion | Why it is hollow |
 | --- | --- | --- |
@@ -182,6 +182,30 @@ a fixture-dependent probe is only trustworthy with its seed and its embed both v
 | `test/pure/translated-not-sliced.test.js:39,45` | `toContain('MONTH_KEYS')` | Passes on a comment mentioning the name. The rest of the file is a real guard |
 | `dom/filter-chip.test.jsx:133`, `dom/selection-cards.test.jsx:180`, `dom/surface-readability.test.jsx:210`, `dom/accent-texture.test.jsx:419` | exact byte-level CSS formatting, one including a newline | The *value* is what matters. Three of these four files already own a cascade resolver — route the assertion through it and check the resolved value |
 
+**What replaced each one**, and every replacement is a render or a resolved value
+rather than a second regex:
+
+| Was | Now |
+| --- | --- |
+| `keys.test.js`'s four source matches | `dom/key-legends.test.jsx` mounts the real drawer, the real quiz and the real sheet and reads the caps off them. It found a live gap the regexes had passed over: the drawer's account row reaches the profile with `g p` and printed no key at all |
+| `features-nav.test.js`'s 240-character window | The `<ShortcutSheet` element is cut out and looked at, so an `omit` further down the file cannot satisfy it and a new prop cannot break it. `dom/hidden-section.test.jsx` owns the consequence — what a hidden section takes off the drawer and off the sheet |
+| `hero-rhythm.test.js`'s `compact` alone on its own line | Any spelling of the prop is accepted and only a WIDTH CONDITION is refused; `dom/work-tile-marks.test.jsx` renders both forms and looks for the track, which is what `compact` means |
+| `translated-not-sliced.test.js`'s `toContain('MONTH_KEYS')` | `dom/month-axis.test.jsx` renders the calendar **in Bengali** and checks no label is a cut of a month name. In English a cut and the shared table both produce "Jan", so an English render proves nothing — the first draft of it passed with the slice put back |
+| the four byte-level CSS matches | `test/css-cascade.js`, the resolver lifted out of `accent-texture.test.jsx` so all four can reach one copy. Each now asks for a resolved VALUE |
+
+Two things came out of doing it that reading had not shown:
+
+- **The audit was wrong that "three of these four files already own a cascade
+  resolver."** Exactly one did. The other three were matching bytes because there
+  was nothing else to reach for.
+- **The resolver answered with an ANCESTOR's declaration.** `competes(sel, target)`
+  reduced the candidate to its rightmost compound and then compared it against
+  `simples(target)` — the whole target, ancestors included — so asking for
+  `.drawer-item.active .review-dot`'s background got `.drawer-item.active`'s fill.
+  Every target it had been asked about until now was a single compound, where the
+  two readings coincide, so nothing showed it. Fixed with the target reduced the
+  same way as the candidate.
+
 `test/pure/tokens.test.js:34-42` is borderline and listed for completeness: `css.includes(token.proof)`
 is literally "assert a line exists", but its job is keeping the generated glossary honest
 and `:48-55` closes the loop. Worth knowing what it does *not* guard: `min-height: 44px`
@@ -189,15 +213,23 @@ in the stylesheet says nothing about whether a tappable element wears the class.
 a harness measurement — `getBoundingClientRect()` over every `button` and `[role=button]`
 on each captured screen — and belongs beside `make typescale`.
 
-### 2.3 The coverage hole
+### 2.3 The coverage hole — CLOSED
 
-`test/pure/scroll-containment.test.js` sweeps `index.css` only. **Nine `overflow-y-auto`
+`test/pure/scroll-containment.test.js` swept `index.css` only. **Nine `overflow-y-auto`
 Tailwind classes across seven files** — `ui.jsx` (2), `AddSurface.jsx` (2), `share.jsx`,
-`people.jsx`, `Settings.jsx`, `SearchPage.jsx`, `ReverifyReview.jsx` — are scroll
-containers the sweep cannot see, so none is checked for `overscroll-behavior`. The file's
-own header says the failure mode is "someone adds `overflow-y: auto` next year and never
-thinks about chaining", which is precisely what a `className` does.
-`scroller-boxes.test.js` already reads JSX attributes and could lend its extraction.
+`people.jsx`, `Settings.jsx`, `SearchPage.jsx`, `ReverifyReview.jsx` — were scroll
+containers the sweep could not see, so none was checked for `overscroll-behavior`. The
+file's own header says the failure mode is "someone adds `overflow-y: auto` next year and
+never thinks about chaining", which is precisely what a `className` does.
+
+**FIXED.** The sweep now reads every `.jsx` in `src/` for a `className` carrying an
+overflow utility and requires each to carry something that CONTAINS the scroll — either
+the utility (`overscroll-contain`) or a class the stylesheet gives an
+`overscroll-behavior`, resolved from the same parse. All nine pass today, every one of
+them through `.tp-scrim`; resolving it rather than allowing `.tp-scrim` by name is what
+keeps that honest — drop the property from that class and the sweep goes red. Verified by
+adding one unguarded `overflow-y-auto` to a component: the sweep named the file and the
+line.
 
 ### 2.4 Two patterns to copy
 
