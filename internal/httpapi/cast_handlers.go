@@ -674,3 +674,127 @@ func (s *Server) characterIsQuoted(uid int64, kind string, workID, castID int64)
 	}
 	return false
 }
+
+// handleDeleteCastActor: DELETE /cast/{id}/actor — take the PERFORMER off a
+// credit, which is what the ✕ on a credit row has always said it does.
+//
+// IT CALLED `DELETE /cast/{id}` INSTEAD, and that removes the whole casting. The
+// owner found it by accident: "this was created by accidentally deleting the
+// actor within the character card… that should not make the character card
+// inaccessible. and that should also remove the actor from the quote (not the
+// work, because that is via a different route)." Three symptoms, one cause —
+// the character left the work, so its chip on every quote of that work went
+// dead, while the quote's own `actor` text went on naming a performer the
+// casting no longer had.
+//
+// SO THE ROW SURVIVES AND THE PERSON LEAVES IT. `actor`, `actor_key` and
+// `actor_id` are cleared and nothing else is touched: the character keeps its
+// billing, its picture, its part and its note, and its chip keeps opening.
+//
+// A DUB IS THE EXCEPTION AND IT IS THE ROW ITSELF. A dubbing credit exists
+// BECAUSE of its language and its performer — take the performer off and what is
+// left is a language nobody speaks — so there the row goes, through the same
+// delete-or-tombstone rule the whole casting uses.
+//
+// AND THE QUOTE LOSES THEM TOO, which is the owner's second sentence. A film
+// line stores the performer as text beside the character (`dialogues.actor`,
+// with 0059's `actor_id` beside it), and it is a copy of the casting's answer —
+// so a casting that no longer names anybody must not leave the line naming
+// somebody. Only the lines of THIS work whose character is this one: the same
+// person on another film is another casting and is not this delete's business.
+func (s *Server) handleDeleteCastActor(w http.ResponseWriter, r *http.Request) {
+	castID, ok := pathID(r)
+	if !ok {
+		writeErr(w, http.StatusBadRequest, "invalid id")
+		return
+	}
+	uid := userID(r)
+	var kind, charKey, lang string
+	var workID int64
+	var origin string
+	err := s.Store.DB.QueryRow(
+		`SELECT kind, work_id, COALESCE(character_key, ''), COALESCE(credit_lang, ''), origin
+		   FROM work_cast WHERE id = ? AND user_id = ?`, castID, uid).
+		Scan(&kind, &workID, &charKey, &lang, &origin)
+	switch {
+	case errors.Is(err, sql.ErrNoRows), origin == castRemoved:
+		writeErr(w, http.StatusNotFound, "cast row not found")
+		return
+	case err != nil:
+		internalError(w, r, "load cast row", err)
+		return
+	}
+	// A dub with nobody in it is not a credit; it goes the way the casting goes.
+	if strings.TrimSpace(lang) != "" {
+		s.handleDeleteCast(w, r)
+		return
+	}
+
+	tx, err := s.Store.DB.Begin()
+	if err != nil {
+		internalError(w, r, "take performer off credit: begin", err)
+		return
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.Exec(
+		`UPDATE work_cast SET actor = '', actor_key = '', actor_id = NULL, updated_at = datetime('now')
+		  WHERE id = ? AND user_id = ?`, castID, uid); err != nil {
+		internalError(w, r, "clear credit performer", err)
+		return
+	}
+	// THE LINES OF THIS WORK THAT NAME THIS CHARACTER. Folded, because a quote's
+	// character is typed and the casting's is stored — the same fold the linker
+	// uses, so the two agree on spelling rather than by luck.
+	//
+	// FOLDED IN GO, NOT IN SQL. `store.CastKey` is `normalizeQuoteText` — curly
+	// punctuation folded, whitespace collapsed, case dropped — and SQLite's
+	// `lower()` has no Unicode tables, so a WHERE clause could not compute the
+	// same answer. `ProviderKey`'s own header says exactly this about why it
+	// refuses to fold. So the rows are read, folded here, and updated by id.
+	if kind == "movie" && charKey != "" {
+		// SCOPED THROUGH `movies`, because `dialogues` has no `user_id` of its own —
+		// a line belongs to whoever owns the film. The cast row above was already
+		// read with `user_id = ?`, so this work is this reader's; the join says so
+		// in the query rather than relying on that having been checked.
+		rows, err := tx.Query(
+			`SELECT d.id, COALESCE(d.character, '') FROM dialogues d
+			   JOIN movies m ON m.id = d.movie_id
+			  WHERE d.movie_id = ? AND m.user_id = ?`, workID, uid)
+		if err != nil {
+			internalError(w, r, "read the work's lines", err)
+			return
+		}
+		var hit []int64
+		for rows.Next() {
+			var id int64
+			var name string
+			if err := rows.Scan(&id, &name); err != nil {
+				rows.Close()
+				internalError(w, r, "read a line", err)
+				return
+			}
+			if store.CastKey(name) == charKey {
+				hit = append(hit, id)
+			}
+		}
+		if err := rows.Err(); err != nil {
+			rows.Close()
+			internalError(w, r, "read the work's lines", err)
+			return
+		}
+		rows.Close()
+		for _, id := range hit {
+			if _, err := tx.Exec(
+				`UPDATE dialogues SET actor = '', actor_id = NULL WHERE id = ?`, id); err != nil {
+				internalError(w, r, "clear the line's performer", err)
+				return
+			}
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		internalError(w, r, "take performer off credit: commit", err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}

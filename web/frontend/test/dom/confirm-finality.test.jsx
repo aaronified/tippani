@@ -90,11 +90,21 @@ describe('the destructive verbs in the app', () => {
     const { readdirSync, readFileSync } = require('node:fs')
     const { join } = require('node:path')
     const SRC = process.env.TIPPANI_SRC
+    // WIDER THAN THE LITERAL. The first cut matched `await ask(t('…delete…'))`
+    // and nothing else — so four call sites that build their question into a
+    // variable first, which is what every one with a used/unused pair does, were
+    // green over the same gap. What makes a confirm destructive is what the code
+    // AROUND it does, so the window either side of the press is what is read.
     const bare = []
+    const DESTROYS = /'DELETE'|deleteWithUndo|\.delete\.|\.remove\.|revoke|empty-the-bin/
     for (const f of readdirSync(SRC).filter((x) => x.endsWith('.jsx'))) {
       const src = readFileSync(join(SRC, f), 'utf8')
-      for (const m of src.matchAll(/await ask\(\s*t\('([^']*(?:delete|revoke|remove|empty)[^']*)'[\s\S]{0,160}?\)\)/g)) {
-        if (!/danger\s*:/.test(m[0])) bare.push(`${f}: ${m[1]}`)
+      for (const m of src.matchAll(/await ask\([\s\S]{0,200}?\)\)/g)) {
+        if (/danger\s*:/.test(m[0])) continue
+        const window = src.slice(Math.max(0, m.index - 700), m.index + 700)
+        if (!DESTROYS.test(window)) continue
+        const line = src.slice(0, m.index).split('\n').length
+        bare.push(`${f}:${line}`)
       }
     }
     expect(bare, 'these destroy something and ask like an ordinary question:\n  ' + bare.join('\n  '))

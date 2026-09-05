@@ -463,7 +463,17 @@ describe('merging a duplicate in', () => {
   // — on the promise that a wrongly-split record is visible and mergeable.
   it('searches the character table and merges through the character endpoint', async () => {
     await open()
-    fireEvent.change(screen.getByPlaceholderText('find the other record…'), { target: { value: 'Woland' } })
+    // MERGE IS BEHIND ITS ROW NOW. It sat inline at the foot of the screen while
+    // the section above ALSO offered it as a row — two doors to one act, the
+    // row's being a scroll down to the other. Pressing the row is what a reader
+    // does, so it is what this case does.
+    const row = [...document.querySelectorAll('button')]
+      .find((b) => /Merge with another/i.test(b.textContent))
+    expect(row, 'no row to merge through').toBeTruthy()
+    await act(async () => { row.click() })
+    const field = [...document.querySelectorAll('[role=dialog] input')].find((i) => i.type !== 'file')
+    expect(field, 'the row opened no editor').toBeTruthy()
+    fireEvent.change(field, { target: { value: 'Woland' } })
     const hit = await screen.findByText('4 works')
     expect(hit).toBeTruthy()
     expect(CALLS.some(([m, p]) => m === 'GET' && p.startsWith('/characters/search'))).toBe(true)

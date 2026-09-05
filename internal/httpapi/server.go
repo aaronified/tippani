@@ -277,6 +277,10 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("DELETE /characters/{id}/aliases", s.requireAuth(s.handleCharacterAliasDelete))
 	// The pairing itself: who a role is, and who played it. Never automatic.
 	mux.Handle("PUT /cast/{id}/link", s.requireAuth(s.handleCastLink))
+	// TAKE THE PERFORMER OFF A CREDIT, which is what the ✕ on a credit row says
+	// it does. It called DELETE /cast/{id} — the whole casting — so the
+	// character left the work and every quote chip of that work went dead.
+	mux.Handle("DELETE /cast/{id}/actor", s.requireAuth(s.handleDeleteCastActor))
 	// "On this work only" — the narrowest write in the identity model, and its own
 	// endpoint so it can never be confused with renaming the record.
 	mux.Handle("PUT /credits", s.requireAuth(s.handleCreditAs))

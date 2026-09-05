@@ -248,9 +248,12 @@ export function utteranceMeta(u, { people, seps, onOpenPerson, omitSpeaker } = {
           with somebody's portrait. Its language takes that slot: the reader's own
           mark if they set one, else a letter from the script.
 
-          Only when there is no face to show. A quote that HAS a speaker gets the
-          speaker, because a person outranks a language for the one slot going —
-          and the language is still named a few words along, in `rest`. */}
+          Only when there is no face to show — and under `omitSpeaker` that is
+          every line, because the card's chip has taken the face and the name.
+          The slot is still owed something: a line that begins with nothing while
+          every other line in the app begins with a mark is the ragged edge this
+          was written to remove, and the language is not a second printing of
+          anything the chip says. */}
       {names.length === 0 && u.language && (
         <LanguageMark languages={[u.language]} size={20} ring="var(--card)" className="mr-1.5" />
       )}

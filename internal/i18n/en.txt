@@ -6285,10 +6285,10 @@ identity.crumb.badge.game = game
 # prints "266 × 350 px" under every portrait, because a picture field cannot be
 # judged from a thumbnail: a reader who uploads a 266-wide portrait finds out it
 # was too small when a share card goes out soft, which is too late.
-identity.portrait.px = {w} × {h} px
+identity.portrait.px = {w}×{h}px
 # AND THE WARNING ONLY WHERE IT IS EARNED. Shown beside the size when either side
 # is under the floor. It said this of every portrait before it was measured.
-identity.portrait.soft = under {n} × {n}, soft on a share card
+identity.portrait.soft = low contrast
 # The fallback where nothing has been measured yet — no picture, or one still
 # loading. Never printed beside a size.
 identity.portrait.global = the record's own picture
@@ -6471,9 +6471,6 @@ identity.section.identity.note = Reaches every work.
 identity.section.person.label = The person
 identity.section.company.label = The company
 identity.section.links.label = Links
-identity.section.links.note.character = Where this character is written up outside the app.
-identity.section.links.note.person = Where this person is written up outside the app.
-identity.section.links.note.company = Where this company is written up outside the app.
 identity.section.works.label.one = Works · {n}
 identity.section.works.label.other = Works · {n}
 identity.section.itself.label.character = The identity itself
@@ -6587,7 +6584,6 @@ identity.field.born = Born
 identity.field.died = Died
 identity.field.note = Your note
 identity.field.description = Description
-identity.field.links = Links, one per line
 identity.merge.body.character = Two records for one character become one, and this one — {name} — is what survives.
 identity.character.promote.clear.label = clear their picture
 identity.character.promote.done = {title}'s picture is what this character looks like now

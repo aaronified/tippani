@@ -319,11 +319,17 @@ function AliasRow({ aliases, onAdd, onRemove, onSplit }) {
 //
 // Its own component so the exemption can be keyed on a NAME rather than on
 // `PersonBody`, which holds several other dialogs that are on the standing pair.
-function MergeSheet({ into, org, onClose, onMerged, onError }) {
+function MergeSheet({ into, org = false, table = 'people', onClose, onMerged, onError }) {
+  const title = table !== 'people'
+    ? 'identity.row.merge.label.character'
+    : org ? 'identity.row.merge.label.company' : 'identity.row.merge.label.person'
   return (
-    <FormModal open onClose={onClose} title={t(org ? 'identity.row.merge.label.company' : 'identity.row.merge.label.person')} maxWidth={520}>
+    <FormModal open onClose={onClose} title={t(title)} maxWidth={520}>
+      {/* THE ID IS THE PERSON SHEET'S AND IT STAYS, because `identity-panel`'s
+          merge cases scope their reads to it — one id for one control, whichever
+          table it is merging. */}
       <div id="person-merge">
-        <MergeControl into={into} onMerged={onMerged} onError={onError} org={org} inSheet />
+        <MergeControl into={into} table={table} onMerged={onMerged} onError={onError} org={org} inSheet />
       </div>
     </FormModal>
   )
@@ -1062,6 +1068,8 @@ function CharacterBody({ stack, id, work, onSearch = null, onOpenWork: given = n
   const [noteCredit, setNoteCredit] = useState(null)
   // The pack's one sheet, as a spec. null = closed. See the picker block below.
   const [picker, setPicker] = useState(null)
+  // Merge, behind its row — see MergeSheet.
+  const [merging, setMerging] = useState(false)
   // The removal a work refused, with the number of quotes standing in its way.
   const [drop, setDrop] = useState(null)
   // THE ONE PRESS ON A LOCAL SHEET WHOSE EFFECT LEAVES THE WORK, so it asks
@@ -1101,14 +1109,29 @@ function CharacterBody({ stack, id, work, onSearch = null, onOpenWork: given = n
     })
   }, [data])
 
-  const save = async () => {
+  const save = async (over = null) => {
     setBusy(true)
-    const r = await json('PUT', `/characters/${id}`, form)
+    const r = await json('PUT', `/characters/${id}`, over || form)
     setBusy(false)
-    if (!r.ok) return setErr(errText(r))
+    if (!r.ok) { setErr(errText(r)); return false }
     toast(t('identity.character.saved'))
     load()
+    return true
   }
+
+  // ONE FIELD, IN A SHEET THE ROW OPENS — the same shape `PersonBody` took one
+  // commit earlier and the local sheet has had since 3.1. What it replaces is a
+  // form carrying all six fields under rows that already stated them, with the
+  // rows "editing" by scrolling you down to their twin.
+  const openCharFact = (key, label, { rows = 0, required = false } = {}) => setPicker({
+    id: `char-${key}`,
+    title: label,
+    saveTip: t('identity.picker.save.tip'),
+    fields: [{ key, label, value: data?.[key] || '', rows, required }],
+    save: async (d) => {
+      if (await save({ ...form, [key]: d[key] ?? '' })) setPicker(null)
+    },
+  })
   const addAlias = async (alias) => {
     const r = await json('POST', `/characters/${id}/aliases`, { alias })
     if (!r.ok) return setErr(errText(r))
@@ -1642,9 +1665,17 @@ function CharacterBody({ stack, id, work, onSearch = null, onOpenWork: given = n
     // with no error and a successful one left it open too.
     return true
   }
+  // THE PERFORMER, NOT THE CASTING. This called `DELETE /cast/{id}`, which
+  // removes the whole cast row — so pressing the ✕ on a credit took the CHARACTER
+  // off the work, its chip on every quote of that work went dead, and the quote
+  // went on printing "played by" a performer the casting no longer had. The
+  // owner found it by accident: "that should not make the character card
+  // inaccessible. and that should also remove the actor from the quote (not the
+  // work, because that is via a different route)." Removing the character from
+  // the work IS a different route — `removeWork`, the sheet's own dashed verb.
   const removeCredit = async (a) => {
     setBusy(true)
-    const r = await json('DELETE', `/cast/${a.cast_id}`)
+    const r = await json('DELETE', `/cast/${a.cast_id}/actor`)
     setBusy(false)
     if (!r.ok) { setErr(errText(r)); return }
     setErr('')
@@ -1807,8 +1838,10 @@ function CharacterBody({ stack, id, work, onSearch = null, onOpenWork: given = n
           }
           portraitEditor={globalPicture.pictureEditor}
           onNames={() => setNames((v) => !v)}
-          onSort={() => focusField('char-sort')}
-          onBorn={() => focusField('char-born')}
+          onSort={() => openCharFact('sort_name', t('identity.field.sort'))}
+          onBorn={() => openCharFact('born', t('identity.field.born'))}
+          onDescription={() => openCharFact('description', t('identity.field.description'), { rows: 5 })}
+          onNote={() => openCharFact('note', t('identity.field.note'), { rows: 3 })}
           onLinkAdd={() => setLinkDialog(true)}
           // THE TILE ASKS WHAT YOU MEANT — the pack's `choose` sheet, offering the
           // work, this character as that work has them, and the performer
@@ -1826,7 +1859,7 @@ function CharacterBody({ stack, id, work, onSearch = null, onOpenWork: given = n
           // was the stopgap it always said it was.
           onOpenWork={(a) => openWorkTile(a)}
           onAddWork={() => focusField('char-add-work')}
-          onMerge={() => focusField('char-merge')}
+          onMerge={() => setMerging(true)}
           // THE PACK'S REMOVAL ROW, drawn now because the sheet it opens exists.
           // Its whole design is that it does NOT act in bulk — "'Delete' here
           // would reach into three works at once and quietly strip a name off
@@ -1865,25 +1898,20 @@ function CharacterBody({ stack, id, work, onSearch = null, onOpenWork: given = n
             </>
           ) : null}
           <div id="char-add-work"><AddWork busy={busy} have={works} onAdd={addWork} /></div>
-          <GlobalFields
-            fields={[
-              { key: 'name', id: 'char-name', label: t('common.field.name.label') },
-              { key: 'sort_name', id: 'char-sort', label: t('identity.field.sort') },
-              { key: 'born', id: 'char-born', label: t('identity.field.born') },
-              { key: 'links', id: 'char-links', label: t('identity.field.links'), rows: 2 },
-              { key: 'description', id: 'char-desc', label: t('identity.field.description'), rows: 3 },
-              { key: 'note', id: 'char-note', label: t('identity.field.note'), rows: 2 },
-            ]}
-            form={form}
-            onForm={setForm}
-            stored={data}
-            busy={busy}
-            blocked={form.name.trim() ? '' : t('error.validate.name-required')}
-            onSave={save}
-          />
-          <div id="char-merge">
-            <MergeControl into={data} table="characters" onMerged={load} onError={setErr} />
-          </div>
+          {/* ONE EDITOR, NOT TWO — the same fix `PersonBody` took one commit
+              earlier, and this screen is why the commit that claimed both was
+              wrong about one of them. A form carrying six fields sat under rows
+              that already stated every one, plus an inline merge the row above it
+              scrolled to. A row opens a sheet carrying its one field now. */}
+          {merging ? (
+            <MergeSheet
+              into={data}
+              table="characters"
+              onClose={() => setMerging(false)}
+              onMerged={() => { setMerging(false); load() }}
+              onError={setErr}
+            />
+          ) : null}
         </CharacterGlobal>
         {/* A CHARACTER IS NEVER AN ORGANISATION, so its list is the person one —
             which is right: a character has an IMDb page under /name/ the way a

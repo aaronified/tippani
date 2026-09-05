@@ -178,6 +178,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the size every other control on the screen is, with Clear last and red because it is
   the one that takes a picture away. Turn Button labels off in Settings and they go back
   to squares with the rest of the app.
+- **Taking the performer off a credit no longer takes the character off the work.** The ✕
+  on a credit row removed the whole casting: the character left the film, so its pill on
+  every quote of that film stopped opening, while the quote itself went on naming a
+  performer the casting no longer had. It clears the performer now, on the credit and on
+  the film's own lines; leaving the work is the sheet's separate verb, as it always was.
+- **A person's and a character's own page state each fact once.** Both drew the app's rows
+  and then, underneath them, a form carrying the same six fields again — plus a second
+  picture block under the one in the header — and pressing a row scrolled you down to its
+  twin. A row opens a small sheet carrying its one field, the way the per-work page has
+  since 3.1. A person's biography, their death and your own note gain rows of their own;
+  the biography had nowhere to be edited on that page at all.
+- **A question that destroys something no longer looks like one that does not.** A rule
+  across the top, a line saying whether it can be undone, and a filled red verb — three
+  signals, so "Delete this person" and "Rename this tag" stop being one picture. A move to
+  the bin says it can be undone; a delete says it cannot; an ordinary question says
+  neither, because it has nothing to say.
+- **The medium is drawn on a work's cover** in a person's or character's list of works,
+  instead of the word "film" spilling out of a 26-pixel circle across the artwork.
+- **Shorter lines throughout the identity pages**, and two that were wrong rather than
+  long: "Nothing in the library is credited to them yet" sat under a list of the works
+  they are credited on, and "No name yet" printed directly under the record's own name.
+- **The IMDb mark loses its frame**, which drew a second box inside the pill it sits in.
 - **A character's page no longer shows the performer's photograph as the character's.**
   It is a good guess on a small chip beside a quote and a false one on the page whose
   whole subject is what this character looks like: the page showed a photograph, so it

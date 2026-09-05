@@ -296,7 +296,11 @@ describe('a company gets the same page and different words', () => {
     expect(screen.getByText(/^This company$/i)).toBeTruthy()
     expect(screen.getByText(/Merge with another company/i)).toBeTruthy()
     expect(screen.queryByText(/another person/i), 'a company offered to merge with a person').toBeNull()
-    expect(screen.getByText(/Where this company is written up/i)).toBeTruthy()
+    // THE LINKS NOTE IS GONE — "Where this company is written up outside the app"
+    // over a row of IMDb and TMDB pills said what the pills say. What this case is
+    // about is the NOUN, and the noun is still on the heading and the rows.
+    expect(screen.queryByText(/written up outside the app/i),
+      'the links section explains what its own pills show').toBeNull()
     expect(screen.getByText(/How the company files in a list/i)).toBeTruthy()
     expect(screen.queryByText(/one human being/i), 'a company called a human being').toBeNull()
     // THE NOUN, WHEREVER IT IS SAID. The sheet used to open with a mono heading

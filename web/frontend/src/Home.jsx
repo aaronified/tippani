@@ -699,7 +699,8 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
     loadFavs()
   }
   async function removeFav(f) {
-    if (!(await ask(FAV_KINDS[f.kind].confirm))) return
+    // To the bin with an Undo — see SearchPage's twin.
+    if (!(await ask(FAV_KINDS[f.kind].confirm, { danger: true, reversible: true }))) return
     const r = await deleteWithUndo(`${itemPath(f)}/${f.raw.id}`, { reload: loadFavs })
     if (!r.ok) return toast(errText(r, t('error.delete.generic')))
     if (openFav === f.key) setOpenFav(null)

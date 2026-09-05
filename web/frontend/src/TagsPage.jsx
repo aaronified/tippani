@@ -122,7 +122,9 @@ async function deleteTag(tag, ask, onChanged, setError) {
   const question = uses > 0
     ? t('tags.delete.confirm.body-used', { count: uses, n: uses, name: tag.name, noun: t('unit.item', { count: uses }) })
     : t('tags.delete.confirm.body', { name: tag.name })
-  if (!(await ask(question))) return
+  // A tag is deleted outright — it does not go to the bin — so the question says
+  // so, and its verb is drawn as the destructive one. See ConfirmDialog.
+  if (!(await ask(question, { danger: true, reversible: false }))) return
   const r = await json('DELETE', `/tags/${tag.id}`)
   if (r.ok) onChanged()
   else setError(errText(r, t('error.delete.tag')))

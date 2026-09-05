@@ -204,7 +204,8 @@ async function deleteSticker(sticker, ask, onChanged, setError) {
   const question = uses > 0
     ? t('tags.sticker.delete.confirm.body-used', { count: uses, n: uses, noun: t('unit.quote', { count: uses }) })
     : t('tags.sticker.delete.confirm.body')
-  if (!(await ask(question))) return
+  // Deleted outright, like a tag: nothing here goes to the bin.
+  if (!(await ask(question, { danger: true, reversible: false }))) return
   const r = await json('DELETE', `/stickers/${sticker.id}`)
   if (r.ok) onChanged()
   else setError(errText(r, t('error.delete.sticker')))

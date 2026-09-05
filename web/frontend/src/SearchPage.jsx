@@ -1152,7 +1152,10 @@ function QuoteModal({ kind, hit, authorMap = {}, actorMap = {}, speakerMap = {},
           ? 'home.favourites.delete.annotation.confirm'
           : 'home.favourites.delete.dialogue.confirm',
     )
-    if (!(await ask(question))) return
+    // TO THE BIN, WITH AN UNDO — `deleteWithUndo` below — so the question says it
+    // can be undone rather than that it cannot. Destructive and reversible are
+    // two different facts and the dialog draws both. See ConfirmDialog.
+    if (!(await ask(question, { danger: true, reversible: true }))) return
     // The modal closes on success, so the Undo refreshes the RESULTS behind it
     // rather than this view — which is where the row would reappear.
     const r = await deleteWithUndo(`${itemPath}/${x.id}`, { reload: onChanged })

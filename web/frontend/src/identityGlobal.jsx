@@ -197,6 +197,10 @@ function creditTiles(credits, onOpen) {
 
 export function CharacterGlobal({
   record, works, portraitActions, portraitEditor = null, onNames, onSort, onBorn, onLinkAdd,
+  // THE FACTS THE FORM UNDER THIS SCREEN USED TO CARRY — see PersonGlobal, which
+  // had exactly this and was fixed one commit ahead of it. Every fact on screen
+  // twice, and the row "edited" by scrolling you down to its twin.
+  onDescription = null, onNote = null,
   onOpenWork, onAddWork, onMerge, onRemoveAll, children,
 }) {
   const tiles = useMemo(
@@ -247,7 +251,28 @@ export function CharacterGlobal({
         onClick={onBorn}
       />
 
-      <SectionHead label={t('identity.section.links.label')} note={t('identity.section.links.note.character')} />
+      {/* WHAT THE WORKS SAY ABOUT THEM, and the reader's own note. Two different
+          people's writing, so two rows rather than one box called "about". */}
+      {onDescription ? (
+        <ScreenRow
+          label={t('identity.field.description')}
+          meta={record.description ? '' : t('identity.row.born.none')}
+          sub={record.description || ''}
+          onClick={onDescription}
+        />
+      ) : null}
+      {onNote ? (
+        <ScreenRow
+          label={t('identity.field.note')}
+          meta={record.note ? '' : t('identity.row.born.none')}
+          sub={record.note || ''}
+          onClick={onNote}
+        />
+      ) : null}
+
+      {/* NO NOTE. "Where this character is written up outside the app" over a row
+          of IMDb, TMDB and Wikipedia pills says what the pills say. */}
+      <SectionHead label={t('identity.section.links.label')} />
       <PillRow
         pills={pills}
         onAdd={onLinkAdd}
@@ -410,10 +435,8 @@ export function PersonGlobal({
         />
       ) : null}
 
-      <SectionHead
-        label={t('identity.section.links.label')}
-        note={org ? t('identity.section.links.note.company') : t('identity.section.links.note.person')}
-      />
+      {/* See CharacterGlobal: the pills are the sentence. */}
+      <SectionHead label={t('identity.section.links.label')} />
       <PillRow
         pills={pills}
         onAdd={onLinkAdd}

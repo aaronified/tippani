@@ -8307,8 +8307,15 @@ html[data-theme="dark"] .board-cover {
      overflowed its column and the panel body scrolled sideways, 325px of content
      in 294px. Flexbox wraps on the basis before it shrinks anything, so a basis
      the strip actually needs is what makes the wrap happen at the right width and
-     not before it — at 390px and up the face and the column still share a line. */
-  .cs-portrait-side { flex: 1 1 12rem; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+     not before it.
+
+     9rem AND NOT 12rem, which the first cut used. The owner's report on that cut:
+     "the buttons for image are below, not at the right" — 12rem is wide enough to
+     wrap the whole column off the face's line on a phone, which is not what the
+     overflow needed fixing. The verbs are 44px squares now (they lost their words
+     with `keepLabel`), so 9rem is what the strip actually asks for: from 320px up
+     the face and the column share a line and the verbs wrap WITHIN the column. */
+  .cs-portrait-side { flex: 1 1 9rem; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
   /* A PICTURE FIELD CANNOT BE JUDGED FROM A THUMBNAIL, so the app states the
      pixels and inks the statement when they are under the floor — the part of the
      pack most easily faked. */
@@ -8549,8 +8556,14 @@ html[data-theme="dark"] .board-cover {
     background: var(--raised); color: var(--ink); cursor: pointer;
   }
   .cs-pill:hover, .cs-pill:focus-visible { border-color: var(--ink-border); }
+  /* A PILL, LIKE THE ONES IT ADDS TO. This carried `border-radius: 9px` on the
+     app's own "round means a value, 9px means something that acts" rule — but the
+     rule is about a control that stands ON ITS OWN, and this one sits in a row of
+     pills as the last of them. The owner: "the add link button is not pill shaped
+     (the outline and no fill is fine) like we established". The dash and the
+     absent fill are what say it is a slot; the shape says which row it is in. */
   .cs-pill.is-add {
-    border-radius: 9px; border-style: dashed; background: transparent; color: var(--soft);
+    border-style: dashed; background: transparent; color: var(--soft);
   }
   /* AN ID WITH NO PAGE TO OPEN. It is still a value the record holds, so it keeps
      the pill's shape and its mark; what it gives up is the pointer and the ink,
