@@ -568,10 +568,17 @@ function useRecord(path) {
 // A QUOTE IS NEVER TRUNCATED WITH AN ELLIPSIS. It wraps and it clamps, and the
 // clamp is the app's own ExpandableText rather than an overflow — a cut sentence
 // and a short sentence look alike, which is the same failure the name rule names.
-function Lines({ lines, shared, empty }) {
-  if (!lines.length && !shared) {
-    return <p className="microcopy" style={{ color: 'var(--faint)' }}>{empty}</p>
-  }
+// THE COUNT SAYS IT, AND THE SENTENCE SAID SOMETHING FALSE. "Nothing in the
+// library is credited to them yet" sat directly under a strip of the works this
+// person IS credited on — the sentence is about QUOTES and it used the word
+// "credited", which the strip above had just contradicted. The owner: "it is
+// wrong to say 'nothing is credited' when we can already see an work having been
+// credited to him! better to just write 0 quotes."
+//
+// So the heading carries it: `0 quotes` is the whole of the fact, it is true, and
+// it is the same shape the count takes when there are some.
+function Lines({ lines, shared }) {
+  if (!lines.length && !shared) return null
   return (
     <div style={FIELDS}>
       <ul style={FIELDS}>
@@ -936,13 +943,10 @@ function PersonBody({ stack, id, work, onOpenWork: given = null }) {
           }}
           onMerge={() => setMerging(true)}
         >
-          {/* THE COUNT OR THE SENTENCE, NOT BOTH. With nothing to list, "0 QUOTES"
-              and "Nothing in the library is credited to them yet" are one fact
-              in two lines, the first of them a heading over an empty section. */}
-          {(data.lines || []).length ? (
-            <MonoLabel>{t('identity.lines.title', { n: data.lines.length, count: data.lines.length })}</MonoLabel>
-          ) : null}
-          <Lines lines={data.lines || []} shared={data.shared_lines || 0} empty={t('identity.lines.empty.person')} />
+          {/* ALWAYS, INCLUDING ZERO — see `Lines`. "0 quotes" is true and complete;
+              the sentence it replaces was neither. */}
+          <MonoLabel>{t('identity.lines.title', { n: (data.lines || []).length, count: (data.lines || []).length })}</MonoLabel>
+          <Lines lines={data.lines || []} shared={data.shared_lines || 0} />
           {names ? (
             <>
               <MonoLabel>{t('identity.alias.title')}</MonoLabel>
@@ -1847,11 +1851,9 @@ function CharacterBody({ stack, id, work, onSearch = null, onOpenWork: given = n
         >
           {/* THE SECTIONS THE PACK DOES NOT DRAW, and the editors its rows are
               shortcuts into. Both are argued in identityGlobal.jsx's header. */}
-          {/* See PersonBody: the count or the sentence, never both. */}
-          {(data.lines || []).length ? (
-            <MonoLabel>{t('identity.lines.title', { n: data.lines.length, count: data.lines.length })}</MonoLabel>
-          ) : null}
-          <Lines lines={data.lines || []} shared={data.shared_lines || 0} empty={t('identity.lines.empty.character')} />
+          {/* See PersonBody: the count says it, including zero. */}
+          <MonoLabel>{t('identity.lines.title', { n: (data.lines || []).length, count: (data.lines || []).length })}</MonoLabel>
+          <Lines lines={data.lines || []} shared={data.shared_lines || 0} />
           {/* SPLIT HAS NOWHERE TO LIVE IN A ROW OF NAMES — it is a verb per
               spelling, and the row is one line of them — so the chips stay, as
               the row's editor rather than as a section of their own. */}

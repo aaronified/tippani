@@ -6554,8 +6554,6 @@ identity.works.add.person.tip = Add a work this person is credited on
 identity.works.add.company.tip = Add a work this company is credited on
 identity.lines.title.one = {n} quote
 identity.lines.title.other = {n} quotes
-identity.lines.empty.person = Nothing in the library is credited to them yet.
-identity.lines.empty.character = Nothing in the library is attributed to them yet.
 identity.lines.shared.one = And {n} more names them alongside somebody else, so it is not filed under either.
 identity.lines.shared.other = And {n} more name them alongside somebody else, so they are not filed under either.
 
