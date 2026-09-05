@@ -37,7 +37,7 @@ import { buildProviderLink, detectProviderLink, isOrganisation, personImgURL, pr
 // A STATIC EDGE THAT CLOSES NO CYCLE: personOpen.jsx imports THIS file
 // dynamically and nothing else at all, which is the reason its header gives for
 // the dynamic import. It stays a leaf; this is allowed to lean on it.
-import { useWorkDoor } from './personOpen.jsx'
+import { useSearchDoor, useWorkDoor } from './personOpen.jsx'
 import { Silhouette } from './silhouette.jsx'
 import {
   ConfirmDialog,
@@ -1055,10 +1055,14 @@ function PersonBody({ stack, id, work, onOpenWork: given = null }) {
 // name the character — see character_works.go — and the refusal opens the dialog
 // that offers the two ways forward.
 
-function CharacterBody({ stack, id, work, onSearch = null, onOpenWork: given = null }) {
+function CharacterBody({ stack, id, work, onSearch: givenSearch = null, onOpenWork: given = null }) {
   // See PersonBody above, and personOpen.jsx's `WorkDoor` for why this is read
   // from the shell rather than threaded through every screen that opens a panel.
   const onOpenWork = useWorkDoor(given)
+  // AND THE SEARCH DOOR FOR THE SAME REASON, and it had the same fate: not one
+  // caller in the app passed `onSearch`, so the pack's two pressable counts were
+  // live buttons with no handler on every route into this screen.
+  const onSearch = useSearchDoor(givenSearch)
   const [linkDialog, setLinkDialog] = useState(false)
   const { data, err, setErr, load } = useRecord(`/characters/${id}`)
   // THE PACK'S TWO COUNTS, from the route that has served them since it was
@@ -1438,11 +1442,18 @@ function CharacterBody({ stack, id, work, onSearch = null, onOpenWork: given = n
   // on the same query, because both numbers are summaries of it: this character,
   // in this work. The chips are seeded rather than the text, so the reader can
   // widen by removing one instead of retyping.
+  // THE COUNT IS A DOOR INTO SEARCH — the pack's own design, and the panel has to
+  // get off the screen for the reader to see where it went: `onSearch` moves the
+  // shell's tab UNDERNEATH this panel, which is a fixed overlay still on top of
+  // it. Same fault and same fix as the work tile above; see `usePanelStack`'s
+  // `leaveTo`.
   const openQuoteSearch = !onSearch || !here ? undefined : () => {
-    onSearch(here.kind === 'book' ? 'annotations' : 'dialogues', [
+    const go = () => onSearch(here.kind === 'book' ? 'annotations' : 'dialogues', [
       { field: 'character', value: here.character || data.name, label: here.character || data.name },
       { field: here.kind === 'book' ? 'book' : 'movie', value: here.work_title, label: here.work_title },
     ])
+    if (stack?.leaveTo) stack.leaveTo(go)
+    else go()
   }
 
   // The portrait's controls: the picture picker this work already had, plus the

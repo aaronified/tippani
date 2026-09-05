@@ -281,7 +281,11 @@ export function FactsRow({ cells }) {
   return (
     <div className="cs-facts">
       {cells.map((c) => (
-        <button key={c.label} type="button" className="cs-fact tactile" onClick={c.onClick}>
+        // A CELL WITH NOWHERE TO GO SAYS SO — `AppearanceStrip`'s rule, applied
+        // here for the reason `PairRow` below records: these are drawn from a
+        // handler the caller may not have, and a button given `onClick={undefined}`
+        // is a live control that does nothing.
+        <button key={c.label} type="button" className="cs-fact tactile" aria-disabled={c.onClick ? undefined : 'true'} onClick={c.onClick}>
           <span className="cs-fact-label">{c.label}</span>
           <NameScroll className="cs-fact-value">{c.value}</NameScroll>
         </button>
@@ -297,7 +301,14 @@ export function PairRow({ cells }) {
   return (
     <div className="cs-pair">
       {cells.map((c) => (
-        <button key={c.label} type="button" className="cs-count tactile" onClick={c.onClick} title={c.title}>
+        // THE COUNTS ARE DOORS INTO SEARCH AND THE CALLER MAY NOT HAVE ONE. The
+        // panel's own comment already promised the honest degradation — "a caller
+        // without one gets the counts as figures, which is the honest degradation:
+        // a number nobody can open is still the number" — and nothing implemented
+        // it: `onClick={undefined}` draws a button that presses and does nothing,
+        // which is the one outcome the promise was written to avoid. Measured on a
+        // real library: two of the three dead controls on this screen were these.
+        <button key={c.label} type="button" className="cs-count tactile" aria-disabled={c.onClick ? undefined : 'true'} onClick={c.onClick} title={c.title}>
           {c.icon ? <span className="cs-count-icon">{c.icon}</span> : null}
           <span className="cs-count-fig">{c.figure}</span>
           <span className="cs-count-cap">{c.label}</span>

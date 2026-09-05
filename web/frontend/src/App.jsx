@@ -32,7 +32,7 @@ const QuotesPage = lazy(() => import('./Quotes.jsx'))
 import AnthologiesPage from './anthologies.jsx'
 // The shell's own door to a work, provided to everything under it — see
 // personOpen.jsx. A leaf module, so this is not a lazy chunk.
-import { WorkDoor } from './personOpen.jsx'
+import { SearchDoor, WorkDoor } from './personOpen.jsx'
 const TagsPage = lazy(() => import('./TagsPage.jsx'))
 const SearchPage = lazy(() => import('./SearchPage.jsx'))
 const StagingPage = lazy(() => import('./StagingPage.jsx'))
@@ -1989,6 +1989,7 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
 
   return (
     <WorkDoor open={openWork}>
+    <SearchDoor open={searchScoped}>
     <div className="min-h-screen has-mobile-topbar">
       {/* THE RAIL OWNS THE BRAND, THE DESTINATIONS AND THE ACCOUNT now; the bar keeps
           the four verbs that act on the screen you are looking at. Neither list is
@@ -2379,6 +2380,7 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
         />
       )}
     </div>
+    </SearchDoor>
     </WorkDoor>
   )
 }

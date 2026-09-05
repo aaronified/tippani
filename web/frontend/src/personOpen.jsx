@@ -65,6 +65,42 @@ export function useWorkDoor(explicit = null) {
   return explicit || provided || null
 }
 
+// THE SHELL'S DOOR TO A SEARCH, PROVIDED ONCE FOR THE SAME REASON THE WORK DOOR IS.
+//
+// THE PACK MAKES A COUNT A DOOR: "the pack's local sheet makes both counts
+// pressable — '37 quotes' lands on the search screen with this character and this
+// work already up as chips, which is the question the number summarises." The
+// panel takes that verb as `onSearch`, and it is passed by NOBODY: Home, the
+// work-details cast row, both metadata call sites and the panels' own internal
+// pushes all leave it out. So `openQuoteSearch` resolved to `undefined` on every
+// route into the screen, and `PairRow` drew a live button with no handler — two
+// controls on the character sheet that press and do nothing, found by pressing
+// every control on a real library.
+//
+// THIS IS A17 AGAIN, WORD FOR WORD: "A capability that has to be re-threaded at
+// each call site is a capability that is absent at most of them, and
+// absent-by-omission looks exactly like absent-on-purpose from the outside." The
+// work door was fixed by providing it once; the search door was left threaded,
+// and it was absent everywhere within one release.
+//
+// THE SHAPE IS THE SHELL'S OWN `searchScoped(scope, chips)`. `annotations` and
+// `dialogues` are real scopes (`SearchPage`'s SCOPES table), so the panel's call
+// needs no translation — which is why this is a door and not an adapter.
+const OpenSearchContext = createContext(null)
+
+export function SearchDoor({ open, children }) {
+  return <OpenSearchContext.Provider value={open || null}>{children}</OpenSearchContext.Provider>
+}
+
+// useSearchDoor — the search the panel should use: its own prop where one was
+// given, otherwise the shell's. Null outside a SearchDoor and with no prop, which
+// is the honest answer for a panel rendered bare in a test: the counts are then
+// figures rather than doors, and they say so.
+export function useSearchDoor(explicit = null) {
+  const provided = useContext(OpenSearchContext)
+  return explicit || provided || null
+}
+
 // usePersonOpener — hand it the screen's panel stack and its legacy-modal setter,
 // get back the one handler every `onOpenPerson` should be given.
 //

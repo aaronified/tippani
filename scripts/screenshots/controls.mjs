@@ -736,7 +736,17 @@ try {
         continue
       }
       pressed++
+      // WAITED OUT, NOT SLEPT THROUGH — the same lesson the door already learned
+      // one screen up. 900ms alone is a guess at how long an effect takes, and
+      // the effects on these screens are not fast: `stack.open` from inside a
+      // nested panel asks the browser to traverse history and pushes on the pop,
+      // and the panel it then draws arrives behind a dynamic import and a fetch.
+      // Under this probe's own load that ran past the sleep, and "Open the global
+      // record" — a control that works every time by hand — was reported as one
+      // that does nothing and does not say so. The flat wait stays as a floor for
+      // effects too small to move the control count; the settle is the ceiling.
       await new Promise((r) => setTimeout(r, 900))
+      await settled(4000)
       const after = await shot()
       // AND WHATEVER THE PRESS OPENED, which is where this class of defect
       // actually lives: a panel is the surface whose body has to hold a strip of
