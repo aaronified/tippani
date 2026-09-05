@@ -66,20 +66,44 @@ describe('a control that means "show me this"', () => {
       .toContain('Max von Sydow')
   })
 
-  it('and leaves exactly one panel behind it, not the ones it replaced', async () => {
-    // The other half of the promise: open() REPLACES, so a control pressed twice
-    // cannot bury the first answer under the second.
+  it('does not deepen, however many times it is pressed', async () => {
+    // The other half of the promise, and the one open() exists for: a control
+    // meaning "show me this" must not BURY what a previous one left open. Pressed
+    // twice it swaps twice; it does not stack two answers.
     let stack
     await act(async () => { render(<Harness take={(s) => { stack = s }} />) })
     await act(async () => { stack.push(panelNamed('Details')) })
     await act(async () => { stack.push(panelNamed('Esbern')) })
     await act(async () => { stack.open(panelNamed('Max von Sydow')) })
+    const after1 = document.querySelectorAll('.tp-panel').length
     await act(async () => { stack.open(panelNamed('Michael Hogan')) })
     expect(onScreen()).toContain('Michael Hogan')
-    expect(document.querySelectorAll('.tp-panel').length, 'the replaced panels are still on screen').toBe(1)
-    // One press of Back leaves the panels altogether, which is what a stack of
-    // one means.
-    await act(async () => { stack.close() })
+    expect(document.querySelectorAll('.tp-panel').length,
+      'a second "show me this" stacked on top of the first').toBe(after1)
+  })
+
+  it('and leaves history able to describe what is on screen', async () => {
+    // THE WAY OUT DEPENDS ON THIS, which is what the first fix broke. Emptying
+    // the stack to `[panel]` from a depth of two leaves two panel entries in
+    // history under a stack of one, and the ✕ then walks back onto an entry
+    // recording a depth of 2 — where the truncation guard (`want < depth`)
+    // declines, because 2 is not less than 1. The reader presses ✕ and the panel
+    // stays. So the property is not "the stack is one" but "history and the
+    // stack still agree", and it is asserted as that.
+    //
+    // ASSERTED ON THE RECORDED DEPTH rather than by pressing Back, because jsdom
+    // delivers no popstate for a traversal: a Back here would change nothing and
+    // the case would pass on both the working version and the broken one.
+    let stack
+    await act(async () => { render(<Harness take={(s) => { stack = s }} />) })
+    await act(async () => { stack.push(panelNamed('Details')) })
+    await act(async () => { stack.push(panelNamed('Esbern')) })
+    const deep = window.history.state?.tpPanelDepth
+    expect(deep, 'two pushes did not record a depth of two').toBe(2)
+    await act(async () => { stack.open(panelNamed('Max von Sydow')) })
+    expect(window.history.state?.tpPanelDepth,
+      'the replacing open changed the depth history has recorded, so the way out now walks to the wrong place')
+      .toBe(deep)
   })
 
   it('and still works from a screen with nothing open', async () => {

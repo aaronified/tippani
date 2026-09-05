@@ -3960,34 +3960,36 @@ export function usePanelStack() {
   // "the pill still does not open" — and it is worse than a dead control,
   // because it moves the reader somewhere they did not ask to go.
   //
-  // SO THE STACK IS SET DIRECTLY, which is `leaveTo`'s exception taken a second
-  // time and for the same reason: history is the stack's mutator everywhere it
-  // CAN be, and this is a case where it demonstrably cannot. `replaceState`
-  // keeps the current entry's depth honest at 1.
+  // SO IT REPLACES THE TOP OF THE STACK AND TOUCHES HISTORY NOT AT ALL. The depth
+  // does not change, so every entry's recorded `tpPanelDepth` stays true, and
+  // Back, ✕ and the unmount walk keep working exactly as they did.
   //
-  // THE COST, STATED RATHER THAN HIDDEN: the entries the replaced panels pushed
-  // are still in history, so leaving a panel opened this way can take one more
-  // Back press than the depth on screen suggests. `leaveTo` accepts exactly that
-  // trade and argues it there. A spare Back against a control that dumps the
-  // reader two panels down is not a close call.
+  // EMPTYING THE STACK WAS TRIED FIRST AND IS WRONG, recorded because it looks
+  // like the more faithful reading of "replaces". Setting the stack to `[panel]`
+  // from a depth of two leaves TWO panel entries in history under a stack of one:
+  // `close()` walks back one, lands on an entry recording a depth of 2, and the
+  // truncation guard — `want < depthRef.current` — declines, because 2 is not
+  // less than 1. The reader presses ✕ and the panel stays. Trading one broken
+  // control for another is not a fix. (That version also wrote history from
+  // inside a state updater, which has to be pure: React invoked it twice and no
+  // panel appeared at all in five tests.)
   //
-  // THE HISTORY CALL IS OUTSIDE THE SETTER, which the first cut got wrong: a
-  // state updater has to be pure, React may invoke it twice, and it did — the
-  // panel never appeared at all in five tests. `leaveTo` below writes history
-  // beside `setStack` for the same reason.
+  // AND REPLACING THE TOP IS WHAT THE PROMISE ACTUALLY IS. The rule open() exists
+  // for is that a control meaning "show me this" must not DEEPEN — must not bury
+  // what a previous one left open. Swapping the top does that, and it keeps the
+  // better Back: from a character opened inside Details, the person replaces the
+  // character and Back still returns to Details, which is where the reader came
+  // from.
   //
-  // AND AN EMPTY STACK STILL GOES THROUGH push(), unchanged. That case was never
-  // the defect — it is the one open() has always got right — and it is the case
-  // that owes history an entry, because the panel is arriving over a screen that
-  // has none. Only the REPLACING case is rewritten, which is what keeps this a
-  // fix rather than a rewrite of the whole mechanism.
+  // AN EMPTY STACK STILL GOES THROUGH push(), unchanged. That case was never the
+  // defect, and it is the one that owes history an entry — the panel is arriving
+  // over a screen that has none.
   const open = useCallback((panel) => {
     if (depthRef.current === 0) {
       push(panel);
       return;
     }
-    window.history.replaceState({ ...window.history.state, tpPanelDepth: 1 }, "");
-    setStack([panel]);
+    setStack((s) => s.slice(0, -1).concat(panel));
   }, [push]);
 
   const back = useCallback(() => {
