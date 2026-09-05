@@ -1304,7 +1304,7 @@ export function Drawer({ open, onClose, tab, selectTab, onSearch, onAdd, onAccou
 // BACK IS RENDERED EVEN WHERE IT IS DEAD. On a top-level screen there is nothing
 // behind it, so it is disabled rather than absent: dropping it would slide Search
 // into the first seat and break the one promise this row makes.
-function MobileDock({ keys, hidden, canBack, onBack, onSearch, onAdd, addLabel, addBadge, searchLabel, searchIcon }) {
+function MobileDock({ keys, hidden, canBack, onBack, onSearch, onAdd, addLabel, addBadge, searchLabel, searchIcon, searchIsHere = false }) {
   const [focused, setFocused] = useState(false)
   // The bar stays focusable while slid away, so focusing a key must bring it
   // back rather than leave focus on something off-screen.
@@ -1319,6 +1319,15 @@ function MobileDock({ keys, hidden, canBack, onBack, onSearch, onAdd, addLabel, 
         className="mobile-dock-btn"
         aria-label={k.label}
         aria-pressed={k.on === undefined ? undefined : !!k.on}
+        // WHERE YOU ALREADY ARE, said the way the rail says it. The dock's
+        // Search key on the Search screen calls `selectTab('search')`, which is
+        // the tab you are on — so the press changes nothing, and a press that
+        // changes nothing without saying why is the defect class `make controls`
+        // exists to find. It reported this key on every phone run. The rail's
+        // rows have carried `aria-current` since they were written; the dock's
+        // keys never did, so the same fact was announced on one nav and not the
+        // other.
+        aria-current={k.current ? 'page' : undefined}
         disabled={!!k.disabled}
         onClick={k.onClick}
       >
@@ -1340,7 +1349,7 @@ function MobileDock({ keys, hidden, canBack, onBack, onSearch, onAdd, addLabel, 
         disabled: !canBack,
         onClick: onBack,
       })}
-      {key({ id: 'search', label: searchLabel, icon: searchIcon, onClick: onSearch })}
+      {key({ id: 'search', label: searchLabel, icon: searchIcon, onClick: onSearch, current: searchIsHere })}
       <Tooltip label={addLabel} side="top">
         <button
           type="button"
@@ -2270,6 +2279,9 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
         onBack={() => window.history.back()}
         onSearch={openSearch}
         searchLabel={t(globalSearch ? 'shell.search.global.aria' : 'nav.tab.search.label')}
+        // The Search key lands on the Search screen, so on the Search screen it
+        // is where you already are — see the key builder.
+        searchIsHere={tab === 'search'}
         searchIcon={globalSearch ? <IconSearchGlobe /> : <IconSearch />}
         onAdd={() => openAdd(addKind, addFor)}
         addLabel={addLabel}
