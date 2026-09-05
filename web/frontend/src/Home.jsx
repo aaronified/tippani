@@ -456,7 +456,13 @@ function screenFav(d, movieMap) {
 // which is what the open glyph does here, wearing that screen's own nav glyph. It
 // used to have no open button at all, on the reasoning that a quote has nothing
 // behind it. True of a parent record, false of a destination.
-function quoteFav(u) {
+// EXPORTED FOR THE TEST THAT RENDERS THE TILE FROM A STORED ROW, and the export
+// is the point rather than a convenience: the two facts under test — that a
+// speaker is printed once, and that the occasion has its own line — are decided
+// HERE, in what the card's shape carries, and a test handed the finished shape
+// would assert only that the tile prints what it was given. See
+// `credit-row.test.jsx`'s header for the same lesson learned the other way.
+export function quoteFav(u) {
   // 0053. The kind's word, falling back to the old free-text medium — the same
   // rule utteranceMeta follows, spelled through the same helper.
   const rest = [u.occasion, formatPartialDate(u.occasion_date), u.place, quoteKindMeta(u)].filter(Boolean)
@@ -967,7 +973,7 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
 // the same inline form the detail screens use. The colour bar is the highlight
 // colour for books, amber for screen quotes (the film voice). Tapping again
 // collapses.
-function FavouriteTile({
+export function FavouriteTile({
   f, variant, clampLines = 3, open, editing, onToggle, onOpen,
   onEditStart, onEditCancel, onSave, onPatch, onDelete, onCopy, onShare,
   tagSuggestions, stickers, reloadStickers,

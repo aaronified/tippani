@@ -31,7 +31,15 @@ const SRC = process.env.TIPPANI_SRC
 
 // Symbols that stand in for a picture. Emoji proper, plus the dingbats, arrows and
 // geometric shapes an interface reaches for when it has no icon to hand.
-const DRAWN_AS_TEXT = /[\u{1F000}-\u{1FAFF}\u{2190}-\u{21FF}\u{2300}-\u{23FF}\u{25A0}-\u{27BF}\u{2B00}-\u{2BFF}\u2665\u2661\u2764\u2713\u2714\u2715\u2716\u2717\u2718]/u
+//
+// AND THE LOOKALIKES OUTSIDE THOSE BLOCKS, which is how five of them survived a
+// sweep that reported forty-three. `×` is U+00D7 MULTIPLICATION SIGN and `＋` is
+// U+FF0B FULLWIDTH PLUS: both sit in Latin-1 and Halfwidth-and-Fullwidth Forms
+// rather than in any of the symbol blocks above, so a class built out of those
+// blocks reads them as ordinary letters. A reader cannot tell U+00D7 from U+2715
+// on screen — which is the entire point of the rule — so the class has to be
+// drawn around what the character LOOKS LIKE, not around where Unicode files it.
+const DRAWN_AS_TEXT = /[\u{1F000}-\u{1FAFF}\u{2190}-\u{21FF}\u{2300}-\u{23FF}\u{25A0}-\u{27BF}\u{2B00}-\u{2BFF}\u2665\u2661\u2764\u2713\u2714\u2715\u2716\u2717\u2718\u00D7\u00F7\u2212\uFF0B\uFF0D\uFF1C\uFF1E]/u
 
 // Comments are prose about the code and may name the character they replaced —
 // several of the fixes explain themselves by quoting it, and a dozen `name→metadata`
@@ -87,6 +95,21 @@ describe('every glyph on a screen', () => {
     expect(files.length, 'no source files found — TIPPANI_SRC is wrong').toBeGreaterThan(20)
   })
 
+  it('and the two a chip needs can be drawn at the chip\'s own scale', () => {
+    // THE REASON THE FIVE STAYED TYPED. A remove key on a token pill and an add
+    // key on a dashed sticker card are sized by the words around them, and the
+    // app's drawings were fixed at 24px — so replacing the character with the
+    // drawing would have put a 24px glyph beside a 15px word. Both now take a
+    // size, which is what makes the sweep possible rather than merely required.
+    const ui = readFileSync(join(SRC, 'ui.jsx'), 'utf8')
+    for (const icon of ['IconClose', 'IconPlus']) {
+      const decl = ui.match(new RegExp(`export function ${icon}\\(([^)]*)\\)`))
+      expect(decl, `${icon} is gone`).toBeTruthy()
+      expect(decl[1], `${icon} cannot be drawn at a chip's scale — it takes no size`)
+        .toMatch(/size/)
+    }
+  })
+
   it('and the app has a drawing for each of the jobs those characters were doing', () => {
     // The other half of "never a character": there has to be something to use
     // instead. These are the ones the sweep replaced.
@@ -94,7 +117,7 @@ describe('every glyph on a screen', () => {
     for (const icon of [
       'IconArrow', 'IconWarning', 'IconHeart', 'IconHeartOn', 'IconCheck', 'IconClose',
       'IconChevron', 'IconSortAsc', 'IconSortDesc', 'IconOpen', 'IconBack', 'IconEdit',
-      'IconDelete', 'IconMerge', 'IconQuote', 'IconDetails',
+      'IconDelete', 'IconMerge', 'IconQuote', 'IconDetails', 'IconPlus',
     ]) {
       expect(ui, `${icon} is gone, and something was drawn with it`)
         .toMatch(new RegExp(`export function ${icon}\\b`))

@@ -19,30 +19,59 @@
 // pressable right up until it isn't. The app shipped all three at once, with a
 // tooltip reading "Change who this is" over a control that could not.
 //
-// WHAT A TEST WRITER NEEDS TO KNOW: the two paragraphs above. Nothing about how
-// the handlers are wired.
+// IT RENDERS THE SHEET, NOT THE ROW, and the difference is the whole reason this
+// file was rewritten. Every one of those three defects lived in `creditRows()` —
+// the function that BUILDS a row out of a served cast record — and the first
+// version of this file rendered `CreditRow` with the finished props typed in by
+// hand. So it asserted that a component calls the handler it was handed, which
+// no version of the app has ever got wrong, and all eight cases stayed green
+// while `note || lang` and a face wired to `onOpen` were live in the tree. A test
+// that feeds in the answer cannot see the step that computes it.
+//
+// WHAT A TEST WRITER NEEDS TO KNOW: the paragraphs above, and that the sheet is
+// handed a work, the cast row it is showing (`here`), and the server's list of
+// this character's appearances. Nothing about how the handlers are wired.
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { CreditRow } from '../../src/characterRows.jsx'
+import { CharacterLocal } from '../../src/identityLocal.jsx'
+import { identityScope } from '../../src/identityScope.js'
 
-const verbs = () => ({
-  onPick: vi.fn(), onOpen: vi.fn(), onNote: vi.fn(), onRemove: vi.fn(),
+const WORK = { kind: 'movie', id: 3, title: 'The Shawshank Redemption', media_type: 'movie' }
+
+// One served cast row — `store.CastOf`'s shape, which is what the sheet reads.
+const cast = (over = {}) => ({
+  cast_id: 9,
+  kind: 'movie',
+  work_id: 3,
+  work_title: 'The Shawshank Redemption',
+  media_type: 'movie',
+  character: 'Andy Dufresne',
+  character_id: 4,
+  actor: 'Tim Robbins',
+  actor_id: 11,
+  actor_image: 'tim.jpg',
+  credit_lang: '',
+  credit_note: '',
+  ...over,
 })
 
-const row = (over = {}, v = verbs()) => {
+const verbs = () => ({
+  onCreditPick: vi.fn(), onOpenCredit: vi.fn(), onCreditNote: vi.fn(), onCreditRemove: vi.fn(),
+})
+
+// `works` is the server's list and `here` names the row the sheet is on; the
+// credit block is built from the two, which is the step under test.
+const sheet = (over = {}, v = verbs()) => {
+  const here = cast(over)
   render(
-    <CreditRow
-      name="Tim Robbins"
-      note=""
-      face=""
-      empty={false}
-      pickTitle="Change who this is"
-      openTitle="Open their record"
-      noteTitle="Note on this credit"
-      removeTitle="Take this credit off"
+    <CharacterLocal
+      record={{ id: 4, name: 'Andy Dufresne', image_path: '' }}
+      work={WORK}
+      here={here}
+      works={[here]}
+      scope={identityScope({ table: 'character', work: WORK })}
       {...v}
-      {...over}
     />,
   )
   return v
@@ -55,45 +84,60 @@ afterEach(() => cleanup())
 
 describe('the portrait and the name', () => {
   it('are two different doors', () => {
-    const v = row()
+    const v = sheet()
     face().click()
-    expect(v.onPick, 'the portrait did not reach the picker').toHaveBeenCalledTimes(1)
-    expect(v.onOpen, 'the portrait opened the record instead of changing who it is').not.toHaveBeenCalled()
+    expect(v.onCreditPick, 'the portrait did not reach the picker').toHaveBeenCalledTimes(1)
+    expect(v.onOpenCredit, 'the portrait opened the record instead of changing who it is').not.toHaveBeenCalled()
   })
 
   it('and the name opens the record, not the picker', () => {
-    const v = row()
+    const v = sheet()
     nameBtn().click()
-    expect(v.onOpen).toHaveBeenCalledTimes(1)
-    expect(v.onPick, 'the name went to the picker').not.toHaveBeenCalled()
+    expect(v.onOpenCredit).toHaveBeenCalledTimes(1)
+    expect(v.onCreditPick, 'the name went to the picker').not.toHaveBeenCalled()
+  })
+
+  it('and each is given the row it was pressed on', () => {
+    // Not just "a handler fired": the sheet can show more than one credit, so a
+    // door that fires with the wrong row edits somebody else's casting.
+    const v = sheet()
+    nameBtn().click()
+    expect(v.onOpenCredit.mock.calls[0][0]).toMatchObject({ cast_id: 9, actor_id: 11 })
   })
 })
 
 describe('a credit nobody is named on', () => {
   it('says the name cannot be opened rather than going quiet', () => {
-    row({ name: 'Not named yet', empty: true, onOpen: null, openTitle: 'Nobody named on this credit yet' })
+    sheet({ actor: '', actor_id: 0, actor_image: '' })
     expect(nameBtn().getAttribute('aria-disabled'),
       'a press that does nothing, with nothing saying why').toBe('true')
     expect(nameBtn().getAttribute('title')).toMatch(/nobody named/i)
   })
 
   it('but can still be reassigned, because that is how it stops being nobody', () => {
-    const v = row({ name: 'Not named yet', empty: true, onOpen: null })
+    const v = sheet({ actor: '', actor_id: 0, actor_image: '' })
     face().click()
-    expect(v.onPick, 'the one door out of the unnamed state was shut too').toHaveBeenCalledTimes(1)
+    expect(v.onCreditPick, 'the one door out of the unnamed state was shut too').toHaveBeenCalledTimes(1)
   })
 })
 
 describe("the row's second line", () => {
   it('carries the language and the note together, language first', () => {
-    row({ note: 'Hindi · dub · all releases' })
+    // A dub with a note on it. `note || lang` printed the note alone, so the one
+    // row where the language is the whole point stopped saying which one it is.
+    sheet({ credit_lang: 'Hindi', credit_note: 'all releases' })
     const line = document.querySelector('.cs-credit-note')
     expect(line, 'no second line at all').toBeTruthy()
-    expect(line.textContent).toBe('Hindi · dub · all releases')
+    expect(line.textContent).toBe('Hindi · all releases')
+  })
+
+  it('and the language alone where there is no note', () => {
+    sheet({ credit_lang: 'Hindi' })
+    expect(document.querySelector('.cs-credit-note').textContent).toBe('Hindi')
   })
 
   it('and draws nothing when there is neither', () => {
-    row({ note: '' })
+    sheet()
     expect(document.querySelector('.cs-credit-note'),
       'an empty second line claims there is something to read').toBeNull()
   })
@@ -105,15 +149,15 @@ describe("the row's glyphs", () => {
   // reader's font, sits off the shared baseline, and is the one picture the
   // generated glossary cannot document. The row shipped three: ✎, ✕ and ▾.
   it('are drawn, not typed', () => {
-    row({ note: 'Hindi' })
-    const text = document.body.textContent
-    for (const ch of ['✎', '✕', '▾', '✓', '⋯']) {
+    sheet({ credit_lang: 'Hindi' })
+    const text = document.querySelector('.cs-credit').textContent
+    for (const ch of ['✎', '✕', '▾', '✓', '⋯', '×']) {
       expect(text.includes(ch), `the row prints the character ${ch} instead of drawing a glyph`).toBe(false)
     }
   })
 
   it('and there is one for every verb the row offers', () => {
-    row()
+    sheet()
     // Four controls, each with a drawing in it: reassign, open, note, remove.
     const svgs = document.querySelectorAll('.cs-credit svg')
     expect(svgs.length, 'a control on this row has no glyph at all').toBeGreaterThanOrEqual(3)

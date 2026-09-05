@@ -2534,7 +2534,10 @@
     border: 1px solid color-mix(in srgb, var(--accent) 42%, transparent);
     border-radius: 7px; padding: 4px 5px 4px 9px;
   }
-  .token-x { border: none; background: none; color: inherit; font-size: var(--type-ui-15); line-height: 1; cursor: pointer; padding: 0 2px; opacity: .65; }
+  /* inline-flex because the glyph inside is now the app's SVG rather than a
+     typed ×, and an inline SVG sits on the text baseline with the line box's
+     descender space under it — which put the pill's remove key a pixel low. */
+  .token-x { border: none; background: none; color: inherit; font-size: var(--type-ui-15); line-height: 1; cursor: pointer; padding: 0 2px; opacity: .65; display: inline-flex; align-items: center; }
   .token-x:hover { opacity: 1; }
 
   /* ---- the Filters panel: one pill per value a facet can take ----
@@ -5549,17 +5552,21 @@
   html[data-theme="dark"] .tp-filter-chip.active {
     background-image: linear-gradient(rgba(0,0,0,var(--sel-scrim,.12)), rgba(0,0,0,var(--sel-scrim,.12))), linear-gradient(180deg, color-mix(in srgb, color-mix(in oklab, var(--accent-dark), white 12%) var(--sel-veil), transparent), color-mix(in srgb, var(--accent-dark) var(--sel-veil), transparent)), var(--tile-shell), linear-gradient(180deg, color-mix(in oklab, var(--accent-dark), white 12%), var(--accent-dark));
   }
-  /* One-line filter row. It holds only selects and short chips now — the
-     measured genre chip strip (and its .genre-chips rule) went with GenreFilter
-     in 1.4.2, so nothing on this row has to be sized against the row's leftover
-     width any more, which is what used to clip a chip mid-word. */
-  .filter-row { display: flex; align-items: center; gap: 10px; }
-  /* On phones the right-hand filter cluster (favourites/series/group/
-     sort) is wider than the screen; let it wrap instead of forcing the page
-     wider. Scoped to .filter-row's own ml-auto cluster only. */
+  /* The filter row WRAPS AT EVERY WIDTH, and the word "one-line" that stood here
+     is why it did not. It holds only selects and short chips now — the measured
+     genre chip strip went with GenreFilter in 1.4.2 — but the cluster of them is
+     still 1140px on the library and 1309px on the catalogue, and 1309 does not
+     fit in a 1280 desk window. It was allowed to wrap below 768px only, so
+     between a phone and a wide desk the row simply pushed the PAGE wider: 1670px
+     of content in 1280px, every screen behind it dragged out with it, and no
+     fade or gesture to say anything had moved. A row that does not fit wraps; it
+     never widens the page it sits on. */
+  .filter-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; row-gap: 8px; }
+  .filter-row > .ml-auto { flex-wrap: wrap; row-gap: 8px; }
+  /* On a phone the cluster takes the whole line rather than trailing the genre
+     select, because at 390px there is no leftover width for it to trail into. */
   @media (max-width: 768px) {
-    .filter-row { flex-wrap: wrap; row-gap: 8px; }
-    .filter-row > .ml-auto { flex: 1 1 100%; flex-wrap: wrap; row-gap: 8px; margin-left: 0; }
+    .filter-row > .ml-auto { flex: 1 1 100%; margin-left: 0; }
     .view-toggle-row { flex: 1 1 100%; flex-wrap: wrap; row-gap: 8px; margin-left: 0; }
   }
   .dot-yellow { background: var(--hl-1); }
@@ -5760,12 +5767,18 @@
   .share-preview a.share-link { color: var(--accent-ui); text-decoration: underline; }
 }
 
-/* Mobile overflow fixes that must beat Tailwind utility classes (shrink-0 etc.
-   live in its "utilities" layer, which outranks our @layer components rules
-   above regardless of specificity) — left unlayered so they always win. */
-@media (max-width: 768px) {
-  .filter-row > .ml-auto { flex-shrink: 1; }
+/* Overflow fixes that must beat Tailwind utility classes (shrink-0 etc. live in
+   its "utilities" layer, which outranks our @layer components rules above
+   regardless of specificity) — left unlayered so they always win.
 
+   The filter cluster's is NOT inside the phone media query, because the page it
+   was widening was the 1280px desk one. `shrink-0` on that div says "never fall
+   below your content", so the flex line grew to the content and the document
+   with it; wrapping cannot start until the item is allowed to shrink to the line
+   in the first place. */
+.filter-row > .ml-auto { flex-shrink: 1; }
+
+@media (max-width: 768px) {
   .share-source,
   .share-preview { min-height: 10rem; }
 

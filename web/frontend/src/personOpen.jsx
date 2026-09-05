@@ -30,7 +30,40 @@
 // cast.jsx itself. A dynamic import has no static edge at all, so this module
 // stays a leaf and every screen can use it. The chunk is the one the panel is
 // about to render anyway.
-import { useCallback, useEffect, useRef } from 'react'
+import { createContext, useCallback, useContext, useEffect, useRef } from 'react'
+
+// THE SHELL'S DOOR TO A WORK, PROVIDED ONCE INSTEAD OF THREADED SEVEN TIMES.
+//
+// It began as a third argument to `usePersonOpener` and a prop on two panels, and
+// in that shape NOT ONE of the app's seven callers passed it. So every work tile
+// on every person and character panel drew itself `aria-disabled` with a tooltip
+// saying it could not be opened — in an app whose shell can open any of them, and
+// whose register recorded the door as landed. A capability that has to be
+// re-threaded at each call site is a capability that is absent at most of them,
+// and absent-by-omission looks exactly like absent-on-purpose from the outside:
+// the tile says the same thing either way.
+//
+// Only the shell can navigate — `pushRoute` moves the URL and the shell reads its
+// tab from its own state, so a panel calling it changes the address bar and
+// nothing else — so the shell PROVIDES the door once, and anything under it reads
+// it. An explicit prop still wins where one is given, which is how a test hands
+// in its own door and how a screen could deliberately point a panel elsewhere.
+const OpenWorkContext = createContext(null)
+
+// WorkDoor — wrap the app once. `open(kind, id)` takes the panel's own vocabulary
+// ('book' | 'movie'), not the shell's two separate functions.
+export function WorkDoor({ open, children }) {
+  return <OpenWorkContext.Provider value={open || null}>{children}</OpenWorkContext.Provider>
+}
+
+// useWorkDoor — the door a panel should use: its own prop where it was given one,
+// otherwise the shell's. Null outside a WorkDoor and with no prop, which is the
+// honest answer for a panel rendered bare in a test — the tile then says it
+// cannot be opened, which is true.
+export function useWorkDoor(explicit = null) {
+  const provided = useContext(OpenWorkContext)
+  return explicit || provided || null
+}
 
 // usePersonOpener — hand it the screen's panel stack and its legacy-modal setter,
 // get back the one handler every `onOpenPerson` should be given.
@@ -39,20 +72,23 @@ import { useCallback, useEffect, useRef } from 'react'
 // always falls to the legacy modal rather than throwing, which is the behaviour
 // that screen already had. It is not the goal — a screen that draws credits
 // should mount a `PanelHost` — but a missing stack must not be a dead press.
-// `onOpenWork(kind, id)` IS THE THIRD DOOR, and it is threaded rather than
-// reached for, exactly as `onSearch` is on the character panel. A person's screen
-// lists the works they are credited on, and pressing one has to open THAT WORK —
-// which a panel cannot do on its own: `pushRoute` moves the URL and the shell
-// reads its tab and detail from its own state, so a panel calling it changes the
-// address bar and nothing else. The screens that open a person all already hold a
-// work opener (`onOpen` / `onOpenMovie`); this passes it the last two feet.
+// `onOpenWork(kind, id)` IS THE THIRD DOOR, and it now comes from `WorkDoor`
+// above rather than from an argument each caller has to remember — see that
+// header for what the argument shape actually cost. A person's screen lists the
+// works they are credited on, and pressing one has to open THAT WORK, which a
+// panel cannot do on its own: `pushRoute` moves the URL and the shell reads its
+// tab and detail from its own state, so a panel calling it changes the address
+// bar and nothing else. The third parameter survives as an override.
 //
 // WHAT IT REPLACES: `stack.push(personPanel(…, { work }))`. `identityScope` drops
 // a work handed to a person on purpose — "A PERSON HANDED A WORK IS STILL THE
 // PERSON" — so that press pushed a byte-identical copy of the screen you were
 // already on, with a back arrow. The owner's report: "clicking on the work cover
 // brings us to the same exact page, but now with a back breadcrumb".
-export function usePersonOpener(stack, openLegacy, onOpenWork = null) {
+export function usePersonOpener(stack, openLegacy, explicitOpenWork = null) {
+  // Read here rather than at the seven call sites: see WorkDoor above for what
+  // asking each of them to remember cost.
+  const onOpenWork = useWorkDoor(explicitOpenWork)
   // WHY THE ARGUMENTS ARE READ THROUGH A REF and not listed as deps, which is
   // what this did first: `usePanelStack()` returns a FRESH OBJECT LITERAL every
   // render — `{ stack, top, open, push, back, close }` — so `[stack, openLegacy]`

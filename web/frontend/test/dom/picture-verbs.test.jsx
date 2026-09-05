@@ -204,8 +204,13 @@ describe('the verb that leaves the work', () => {
     await act(async () => { byWord(/identity/i).click() })
     expect(CALLS.some(([m, p]) => m === 'PUT' && /\/characters\/4\/image/.test(p)),
       'the identity portrait was replaced on one press, with no question asked').toBe(false)
-    expect(document.body.textContent,
-      'no question was asked either — the press did nothing at all').toMatch(/identity\?|everywhere/i)
+    // A QUESTION, NOT ITS WORDING. What the reader is owed is a surface that
+    // stops the press and offers a way to answer it; which sentence it uses is
+    // the locale's business, and a test that pins the English fails on the
+    // Bengali build while the feature is intact. The next case presses the yes.
+    const asked = [...document.querySelectorAll('[role=dialog], .tp-panel, .tp-modal')]
+      .some((el) => [...el.querySelectorAll('button')].length >= 2)
+    expect(asked, 'no question was asked either — the press did nothing at all').toBe(true)
   })
 
   it('and does it once the question is answered', async () => {
@@ -253,11 +258,22 @@ describe('a work with no picture of its own', () => {
   })
 
   it('and says whose picture it is', async () => {
+    // A DIFFERENCE, NOT A SENTENCE. The rule is that a borrowed picture is
+    // announced as borrowed; the words are the locale's. So the block is read
+    // twice — once where the work HAS its own still, once where it is showing
+    // the identity's — and the two have to differ. Pinning the English here made
+    // the case a spell-check of one string: it would pass over a screen that
+    // said the wrong thing in the right words, and fail on a working screen in
+    // any other language.
+    RECORD.appearances = [{ ...APPEARANCE }]
+    await open({ id: 4, name: 'Andy Dufresne', work: FILM })
+    const own = document.querySelector('.cs-portrait').textContent
+    cleanup()
     RECORD.appearances = [{ ...APPEARANCE, image: '' }]
     await open({ id: 4, name: 'Andy Dufresne', work: FILM })
-    const block = document.querySelector('.cs-portrait')
-    expect(block.textContent,
-      'the picture is not this work\'s and the screen does not say so').toMatch(/this work has none|nobody has set/i)
+    const borrowed = document.querySelector('.cs-portrait').textContent
+    expect(borrowed,
+      'the picture is not this work\'s and the screen says exactly what it says when it is').not.toBe(own)
   })
 
   it("falls back to the performer's face where the character has none either", async () => {

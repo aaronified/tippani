@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { coverImgURL, json, upload, errText } from './api.js'
 import { t } from './i18n.js'
-import { EmptyState, ErrorText, GhostButton, HandCard, MonoLabel, Scroller, SortableTh, TableActions, Tooltip, useConfirm, useSort } from './ui.jsx'
+import { EmptyState, ErrorText, GhostButton, HandCard, IconPlus, MonoLabel, Scroller, SortableTh, TableActions, Tooltip, useConfirm, useSort } from './ui.jsx'
 
 // Stored sticker files are served from the shared cover route (built directly,
 // like Cover in ui.jsx — these don't go through the json/upload helpers).
@@ -103,7 +103,7 @@ export function StickerPicker({ value, onChange, stickers, reload }) {
             onClick={() => fileRef.current && fileRef.current.click()}
             disabled={busy}
           >
-            {busy ? '…' : '＋'}
+            {busy ? '…' : <IconPlus size="1em" />}
           </button>
         </Tooltip>
         <input ref={fileRef} type="file" accept={STICKER_ACCEPT} hidden onChange={onFile} />

@@ -114,6 +114,13 @@ const mediaBadge = (a) => {
 // workTiles — one tile per appearance, in the order the API sent them, which is
 // the release order. The badge is the medium; the face is this work's picture of
 // the character, falling back to the record's.
+// A NULL OPENER HAS TO REACH THE TILE, and for a while it did not. Both builders
+// wrapped the handler unconditionally — `onOpen: () => onOpen(a)` — so a strip
+// given no door still handed every tile a function, and `AppearanceStrip`'s rule
+// two files over ("A TILE WITH NOWHERE TO GO SAYS SO", by `aria-disabled` on a
+// falsy `onOpen`) could never fire. The tile drew as live and the press threw
+// `onOpen is not a function`, which is the one outcome worse than a dead control:
+// it looks like the app broke rather than like the screen has nothing to offer.
 function workTiles(works, recordImage, onOpen) {
   return (works || []).map((a) => ({
     key: String(a.cast_id),
@@ -134,7 +141,7 @@ function workTiles(works, recordImage, onOpen) {
     // work's screen → the credit); the fact stayed.
     faceTitle: a.actor ? t('identity.tile.face.played', { name: a.character || '', actor: a.actor }) : a.character || '',
     artTitle: a.work_title,
-    onOpen: () => onOpen(a),
+    onOpen: onOpen ? () => onOpen(a) : null,
   }))
 }
 
@@ -173,7 +180,7 @@ function creditTiles(credits, onOpen) {
     // the pack gives their tiles none.
     face: false,
     artTitle: c.title,
-    onOpen: () => onOpen(c),
+    onOpen: onOpen ? () => onOpen(c) : null,
   }))
 }
 

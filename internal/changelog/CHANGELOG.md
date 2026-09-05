@@ -178,6 +178,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the size every other control on the screen is, with Clear last and red because it is
   the one that takes a picture away. Turn Button labels off in Settings and they go back
   to squares with the rest of the app.
+- **A credit row's portrait and its name go to different places.** The portrait's own
+  tooltip said "Change who this is" and it opened the performer's record instead, which
+  is what the name beside it does — so the one control for putting a different person on
+  a credit did not exist, and a credit with nobody named on it had two buttons that
+  pressed and did nothing without saying why. The portrait opens the person picker now;
+  the name opens the record when there is one and says there is nobody named yet when
+  there is not; and reassigning stays available there, because that is how a credit stops
+  being nobody's.
+- **A dubbing credit says which language it is in, and its note as well.** The line under
+  the name printed whichever of the two it found first, so writing a note on a dub
+  silently took the language off the one row where the language is the whole point.
+- **The works on a person's page scroll, and wear the fade that says so.** An author with
+  nine books had them in a strip that stretched instead of scrolling, so it ran off the
+  side of the page and took every other row with it — the panel scrolled sideways and the
+  names beside it were cut mid-word.
+- **A book on its author's page no longer wears the author's face.** Every cover carried
+  a small disc in its corner holding a broken image: the disc is for who is *in* a work,
+  an author is its maker, and the picture being put there was the person's portrait
+  rendered as though it were a cover.
+- **Pressing a work on a person's page opens that work.** It re-opened the page you were
+  already on, with a back arrow, on every screen in the app — the door those tiles need
+  is the shell's, and no screen was handing it down. The shell offers it to every panel
+  now; where there genuinely is nowhere to go the tile says so instead of pretending.
+- **A favourite quote prints its speaker once.** The chip under the quote carries the
+  name and the face, and the line beneath printed the same name again in small caps —
+  which also left the two competing for one row, clipping the chip to "Albert Ein…". The
+  line now carries the one thing no chip and no header does: where the line was said, on
+  a row of its own.
+- **A quote on the Quotes screen wears the same chip it wears on Home.** The card for the
+  same quote had a row of faceless names on one screen and portraits that open the person
+  on the other.
+- **The Library and the Catalogue no longer scroll sideways on a desk.** The filter row
+  was allowed to wrap only on a phone, so between a phone and a wide window the shelf,
+  series, credit and sort controls pushed the whole page wider than the window — 1670
+  pixels of page in a 1280-pixel window on the Catalogue — and every screen behind it was
+  dragged out with it.
 
 - **Two short facts share a line.** A series number is one character and a language is
   two, and each was taking a whole row of the Details form. Language sits beside Original

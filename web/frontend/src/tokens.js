@@ -110,7 +110,7 @@ export const INK_ROLES = [
   ['--ink', 'Body text, a person’s name, a row label, a work title — and any glyph under the pointer.'],
   ['--soft', 'Every glyph at rest, everywhere. A chip’s label. Secondary prose.'],
   ['--faint', 'A mono label, a locator, a drawer badge, a role line.'],
-  ['--accent-ui', 'A chapter heading, a link, a MORE, the ＋ Add row.'],
+  ['--accent-ui', 'A chapter heading, a link, a MORE, the Add row.'],
   ['--on-accent', 'Anything riding on a lit row, key, tab or chip.'],
   ['--error', 'Destruction only. Not a warning, and not a subtractive half.'],
   ['--ok', 'Commit. The tick in a sheet head is the only green on that surface.'],

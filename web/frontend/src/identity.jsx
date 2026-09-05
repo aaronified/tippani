@@ -34,6 +34,10 @@ import { identityScope, mediumOf } from './identityScope.js'
 import { CharacterLocal, GLYPH_NAME } from './identityLocal.jsx'
 import { ChoosePicker, FieldPicker } from './identityPicker.jsx'
 import { buildProviderLink, isOrganisation, personImgURL, providerLinksFor, ProviderChips, SpeakerChips } from './people.jsx'
+// A STATIC EDGE THAT CLOSES NO CYCLE: personOpen.jsx imports THIS file
+// dynamically and nothing else at all, which is the reason its header gives for
+// the dynamic import. It stays a leaf; this is allowed to lean on it.
+import { useWorkDoor } from './personOpen.jsx'
 import { Silhouette } from './silhouette.jsx'
 import {
   ConfirmDialog,
@@ -46,6 +50,7 @@ import {
   GhostButton,
   IconDelete,
   IconGlobe,
+  IconClose,
   IconPlus,
   NavIcon,
   InfoDot,
@@ -243,9 +248,13 @@ function AliasRow({ aliases, onAdd, onRemove, onSplit }) {
                 {t('identity.alias.split.label')}
               </button>
             )}
-            {/* AN × AT THE CHIP'S OWN SCALE. The first cut used IconDelete, which is
-                a 22px trash can — the same visual weight as the word beside it, on a
-                control whose whole job is to be smaller than what it removes. */}
+            {/* THE APP'S ✕ AT THE CHIP'S OWN SCALE. The first cut used IconDelete,
+                which is a 22px trash can — the same visual weight as the word beside
+                it, on a control whose whole job is to be smaller than what it
+                removes. The second cut answered that with a typed ×, which fixed the
+                size and broke the rule: a character renders in the reader's own face,
+                off the baseline every other glyph shares. `IconClose` takes a size,
+                so the drawing can be small without stopping being the app's. */}
             <button
               type="button"
               aria-label={t('identity.alias.remove.aria', { alias: a })}
@@ -255,7 +264,7 @@ function AliasRow({ aliases, onAdd, onRemove, onSplit }) {
               }}
               onClick={() => onRemove(a)}
             >
-              ×
+              <IconClose size="1em" />
             </button>
           </span>
         ))}
@@ -614,7 +623,13 @@ function Portrait({ person, busy, onPicked, onClear }) {
   )
 }
 
-function PersonBody({ stack, id, work, onOpenWork = null }) {
+function PersonBody({ stack, id, work, onOpenWork: given = null }) {
+  // THE SHELL'S DOOR, read rather than demanded. See personOpen.jsx's `WorkDoor`:
+  // as a prop this was passed by none of the app's callers, so every tile below
+  // said it could not be opened. FIRST, ahead of every other hook and every early
+  // return, because a hook that moves is a hook that renders a different number
+  // of them on the second pass.
+  const onOpenWork = useWorkDoor(given)
   // THE PACK'S CHOOSE SHEET. A tile on a performer's strip stands for one work,
   // and "A WORK CAN HOLD MORE THAN ONE OF HIS ROLES, so a tile… cannot assume
   // what you meant by tapping it: two characters in one film, or the film itself.
@@ -941,7 +956,10 @@ function PersonBody({ stack, id, work, onOpenWork = null }) {
 // name the character — see character_works.go — and the refusal opens the dialog
 // that offers the two ways forward.
 
-function CharacterBody({ stack, id, work, onSearch = null, onOpenWork = null }) {
+function CharacterBody({ stack, id, work, onSearch = null, onOpenWork: given = null }) {
+  // See PersonBody above, and personOpen.jsx's `WorkDoor` for why this is read
+  // from the shell rather than threaded through every screen that opens a panel.
+  const onOpenWork = useWorkDoor(given)
   const [linkDialog, setLinkDialog] = useState(false)
   const { data, err, setErr, load } = useRecord(`/characters/${id}`)
   // THE PACK'S TWO COUNTS, from the route that has served them since it was

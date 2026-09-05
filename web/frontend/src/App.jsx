@@ -30,6 +30,9 @@ const MetadataPage = lazy(() => import('./MetadataPage.jsx'))
 const Movies = lazy(() => import('./Movies.jsx'))
 const QuotesPage = lazy(() => import('./Quotes.jsx'))
 import AnthologiesPage from './anthologies.jsx'
+// The shell's own door to a work, provided to everything under it — see
+// personOpen.jsx. A leaf module, so this is not a lazy chunk.
+import { WorkDoor } from './personOpen.jsx'
 const TagsPage = lazy(() => import('./TagsPage.jsx'))
 const SearchPage = lazy(() => import('./SearchPage.jsx'))
 const StagingPage = lazy(() => import('./StagingPage.jsx'))
@@ -73,6 +76,7 @@ import {
   IconChevron,
   IconChecks,
   IconMenu,
+  IconClose,
   IconPlus,
   IconSearch,
   IconSearchGlobe,
@@ -847,7 +851,7 @@ function TopBarSearch({ scope, scopeLabel, onSearch, onDropScope }) {
         >
           <span className="scope-key">{t('shell.search.scope.key')}</span>
           <span className="scope-val">{scopeLabel}</span>
-          <span className="scope-x" aria-hidden="true">×</span>
+          <span className="scope-x" aria-hidden="true"><IconClose size="1em" /></span>
         </button>
       )}
       <input
@@ -1732,6 +1736,12 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
   function selectTab(key) { go(key, null) }
   function openBook(id) { go('library', { type: 'book', id }) }
   function openMovie(id) { go('movies', { type: 'movie', id }) }
+  // THE SAME TWO DOORS IN THE PANELS' OWN VOCABULARY. A person's screen and a
+  // character's list the works they are on and call them `kind` + `work_id`;
+  // nothing below the shell can navigate on its own. Provided once through
+  // `WorkDoor` rather than passed to each screen — see personOpen.jsx for what
+  // the per-screen shape cost.
+  function openWork(kind, id) { return kind === 'book' ? openBook(id) : openMovie(id) }
 
   // searchFor seeds the search screen's persisted state before it mounts (it
   // reads localStorage once) and jumps there — used by Metadata drill-downs and
@@ -1963,6 +1973,7 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
   }
 
   return (
+    <WorkDoor open={openWork}>
     <div className="min-h-screen has-mobile-topbar">
       {/* THE RAIL OWNS THE BRAND, THE DESTINATIONS AND THE ACCOUNT now; the bar keeps
           the four verbs that act on the screen you are looking at. Neither list is
@@ -2336,5 +2347,6 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
         />
       )}
     </div>
+    </WorkDoor>
   )
 }

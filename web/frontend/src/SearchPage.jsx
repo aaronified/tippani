@@ -368,7 +368,7 @@ export function SearchBox({ q, setQ, chips, setChips, mobile, draft, options, on
                   onClick={() => setChips((cs) => removeChipAt(cs, i))}
                   aria-label={t('search.chip.remove.aria', { name: chipText(c) })}
                 >
-                  ×
+                  <IconClose size="1em" />
                 </button>
               </Tooltip>
             </span>

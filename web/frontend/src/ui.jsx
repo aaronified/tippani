@@ -3107,7 +3107,7 @@ export function TokenInput({
                 onClick={() => removeAt(i)}
                 aria-label={t("common.action.remove.aria", { name: tok })}
               >
-                ×
+                <IconClose size="1em" />
               </button>
             </Tooltip>
           </span>
@@ -7081,7 +7081,13 @@ export function IconSort() { return <svg {...iconStroke}><path d="M4 6h11"/><pat
 export function IconExport() { return <svg {...iconStroke}><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 18h16"/></svg> }
 export function IconEdit() { return <svg {...iconStroke}><path d="M17 3l4 4L7 19H3v-4z"/></svg> }
 export function IconDelete() { return <svg {...iconStroke}><path d="M3 6h18"/><path d="M8 3V2h8v1"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg> }
-export function IconPlus() { return <svg {...iconStroke}><path d="M12 5v14"/><path d="M5 12h14"/></svg> }
+// SIZED BY THE CALLER, and "1em" is a size. A chip's remove key and a dashed add
+// key are drawn at the scale of the words beside them, not at the 24px an icon
+// button uses — which is the whole reason five of these were still typed
+// characters after the sweep of forty-three: a 24px trash can beside a 15px word
+// is the wrong picture, so the character stayed. The answer is the app's drawing
+// at the chip's own scale, not the platform's drawing at any scale.
+export function IconPlus({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><path d="M12 5v14"/><path d="M5 12h14"/></svg> }
 export function IconSearch() { return <svg {...iconStroke}><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg> }
 // ---- the phone dock's two menu keys -----------------------------------------
 //
@@ -7240,7 +7246,7 @@ export function IconLink() { return <svg {...iconStroke}><path d="M10 13.5a3.5 3
 export function IconMetadata() { return <svg {...iconStroke}><rect x="3.5" y="11" width="17" height="9.5" rx="2.5"/><path d="M12 3v5.6"/><path d="m9 5.8 3 3 3-3"/><path d="M7.5 15h9"/><path d="M7.5 18h5"/></svg> }
 export function IconMenu() { return <svg {...iconStroke}><path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h12"/></svg> }
 export function IconCheck() { return <svg {...iconStroke}><path d="M5 13l4 4L19 7"/></svg> }
-export function IconClose() { return <svg {...iconStroke}><path d="M6 6l12 12M18 6 6 18"/></svg> }
+export function IconClose({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><path d="M6 6l12 12M18 6 6 18"/></svg> }
 // The two in-progress marks, drawn in the same ink-stroke hand as the rest: an
 // open book for a book on the go, a play triangle for a film or show. These are
 // the ONLY icons the shelf lifecycle puts on artwork — every other state is
