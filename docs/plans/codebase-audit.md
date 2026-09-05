@@ -622,6 +622,74 @@ room because the ⋯ takes only edit and delete.
 scroll, the chapter grouping and its filter strip, the drawer, and every dialog
 the board opens. The wide twin is untouched. Carried in the register as **E8**.
 
+### 4.4 `book-detail.dc.html` — the four parts E8 named as uncompared
+
+Read from the prototype first, then against the code. Where a row says **Departure**
+the reason is stated; where it says **Not checked** it is not implied to match.
+
+**The sticky bar the board grows on scroll** (`book-detail.dc.html:51-58`). The pack:
+a Menu key (opens the drawer), the work's title over its count line ("142 quotes"), and
+the ACCOUNT chip. The app's phone bar (`App.jsx`'s `.mobile-topbar`) is the drawer key,
+the title over `barSub`, and the screen's ⋯ menu.
+
+| Element | Pack | App | Verdict |
+| --- | --- | --- | --- |
+| Left key | Menu → drawer | Menu → drawer | Match |
+| Middle | title over count | title over `barSub` | Match |
+| Right key | the account chip | the screen's ⋯ | **Departure** |
+
+The departure is the app's and it is deliberate elsewhere: the ⋯ is the only route to a
+screen's own actions on a phone, and the account is two presses away in the drawer, which
+the left key opens. Recorded rather than argued — nobody has ruled on it.
+
+**The chapter grouping and its filter strip** (`:164-167`, `:154-160`). The pack's group
+head is *label · rule · count*; its strip is *count · a grouping button reading
+"Chapter · Loc" · a direction key labelled "Ascending"*. **Not checked** against the app:
+the board's grouping lives in `Library.jsx`'s filter row and the reading needs the screen
+rendered with a grouped board, which the seeded fixture cannot produce (no book in it has
+chapters). Named here so the next session knows it is still open rather than assumed.
+
+**The drawer** (`:231-269`).
+
+| Row | Pack | App | Verdict |
+| --- | --- | --- | --- |
+| Head | mark, "tippani", the Bengali wordmark | same | Match |
+| Add | "+ Add", badge "book · film · quote" | `drawer-add` with `shell.drawer.add.badge.label` | Match |
+| Nav | Search, Home, Library, Catalogue, Quotes, Anthologies, Tags (rule above), Metadata, Stats, Settings | `DRAWER_TABS` through `visibleTabs`, with a `drawer-divider` | Match, and the app's is the shorter claim: the pack's list is fixed and the app's is the reader's own sections |
+| Footer | account chip · name · "Admin", **then "Log out"**, then "v1.6.0 · changelog" | one button: chip · name · role · the `g p` legend | **Departure** — no log-out and no version line on the drawer |
+
+Log out lives on the account screen the footer opens, which is one press further and is
+where the confirmation lives; the version and changelog are on Settings. Both are the
+app's own arrangement, and both are places the pack put a thing on the drawer.
+
+**Every dialog the board can open** (`:560-575`). There is exactly one dialog in the whole
+prototype — `role="alertdialog"` — and every confirmation is that one shape with different
+words. Compared, and it is where this section found real work:
+
+| Part | Pack | App before | Now |
+| --- | --- | --- | --- |
+| Role | `alertdialog` | `dialog` | **Departure, open** |
+| Rule across the top | 4px, `--error` or `--amber` | absent | **Built** |
+| Tag | "Can be undone" / "Cannot be undone", mono | absent | **Built** |
+| Title | serif 20px | `display-title` | Match |
+| Body | 14px | `--type-ui-15` | Match |
+| Note | reversibility, 12.5px faint | absent | **Departure, open** — the tag carries the same fact in fewer words |
+| Footer | Cancel · verb | Cancel · verb | Match |
+| Destructive verb | filled `--error` | accent fill | **Built** |
+
+The pack's own reasoning is why this was worth building rather than recording: "FINALITY IS
+DRAWN, NOT JUST WORDED… three signals, because the one thing this dialog must not look like
+is the ordinary Cancel/Save pair two sheets away from it." The app drew none of the three,
+so "Delete this person" and "Rename this tag" were one picture. `confirm-finality.test.jsx`
+holds the three states apart — destructive-and-undoable, destructive-and-final, and neither
+— and its last case is an inventory over every `ask()` whose key names a delete, a revoke
+or an emptying, because the dialog being right is worth nothing while the callers ask it
+the old way.
+
+`role="alertdialog"` and the note are left open: the first is a one-word change whose
+effect is on screen readers only and wants a pass over every dialog in the app rather than
+this one, and the second says what the tag says.
+
 ---
 
 ## How to retire this file
