@@ -62,31 +62,13 @@ describe('the recall mark', () => {
 
 // ── AND IT LEADS THE ROW OF THINGS YOU CAN DO ─────────────────────────────────
 //
-// Asserted on the source, and the reason is worth stating rather than hiding: a
-// quote card is assembled from a screen's worth of context — tag maps, people
-// maps, a menu host, a selection — and a DOM test that stood one up would be
-// testing the harness. What "first icon of the bottom row" means is a fact about
-// the JSX: the mark is inside the element that holds the card's actions, and it
-// comes before the first of them.
-describe('where the mark sits on a card', () => {
-  const CARDS = [
-    ['Library.jsx', 'a book highlight'],
-    ['Movies.jsx', 'a film line'],
-  ]
-
-  for (const [file, what] of CARDS) {
-    it(`leads the action row on ${what}, and is not on a line of its own`, () => {
-      const src = readFileSync(join(process.env.TIPPANI_SRC, file), 'utf8')
-      const heart = src.indexOf('<Hearts ')
-      expect(heart, `${file} has no action row to lead`).toBeGreaterThan(0)
-      const mark = src.indexOf('<ReviewDot ')
-      expect(mark, `${file} draws no recall mark at all`).toBeGreaterThan(0)
-      expect(mark, `the recall mark comes after the row's first control`).toBeLessThan(heart)
-      // WITHIN THE SAME ELEMENT, which is what stops this passing on a mark that
-      // is merely earlier in the file — where it used to be, up on the credit
-      // line. The row opens at the last element start before the heart.
-      const rowStart = src.lastIndexOf('<div', heart)
-      expect(mark, `the recall mark is outside the row it is supposed to lead`).toBeGreaterThan(rowStart)
-    })
-  }
-})
+// Asserted on a real card in `card-actions.test.jsx`, which already mounts both
+// of them and reads DOCUMENT order — the only place the row's order exists. It is
+// there rather than here because that file is where the row's order is stated,
+// and one row asserted in two files is two answers waiting to disagree.
+//
+// The first cut of this asserted the POSITION OF THE JSX in the source, on the
+// argument that mounting a card would be testing the harness. That argument was
+// wrong and checkable: the harness was fifteen lines away, already written, with
+// a `compareDocumentPosition` helper whose own comment says "the JSX can say
+// anything".

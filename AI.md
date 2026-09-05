@@ -289,9 +289,10 @@ worth nothing here and only execution counts. What the repo actually runs:
   pixels into `--type-*` — so setting the root to 24px alone leaves the app untouched
   and would have returned a clean bill of health for a stylesheet full of px boxes.
 - **`make controls` asks a question of every control instead of asserting a fix.** It
-  presses everything a reader can press on fifteen surfaces — nine screens, two work
-  details, and four surfaces reached through a DOOR the run has to open first, refusing
-  to continue unless one actually opened — and asks two things of each:
+  presses everything a reader can press on fifteen surfaces — twelve screens, both work
+  details, and the character panel, which is reached through a DOOR the run opens first
+  and refuses to continue past unless a panel actually opened — and asks two things of
+  each:
   did anything at all change — a dialog, a panel, the route, focus, the scroll position,
   the surface's own text — and if not, did the control SAY it was disabled. A control
   that answers no to both is a lie to the reader whatever the reason, and the reason is

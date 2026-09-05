@@ -105,6 +105,10 @@ const precedes = (a, b) => {
   return !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
 }
 const heart = () => document.querySelector('button.heart')
+// The recall mark is found by class for the ♥'s reason: it is named by its
+// tooltip, which changes with the quote's state, so an accessible-name lookup
+// would be a lookup on the state under test.
+const recall = () => document.querySelector('.status-mark')
 const colours = () => document.querySelector('.card-colors')
 
 describe.each([
@@ -131,16 +135,39 @@ describe.each([
     expect(within(menu()).getByText('Delete')).toBeTruthy()
   })
 
-  it('reads favourite · copy · share · colour, then the overflow', () => {
-    // Order is the whole request. The ♥ leads because it is the card's resting
-    // mark, copy and share follow because they are what you do with a quote, the
-    // colour dots come after because they are a note to yourself, and the ⋯ is
-    // alone on the right where a destructive action belongs.
+  it('reads recall · favourite · copy · share · colour, then the overflow', () => {
+    // Order is the whole request. The recall mark leads because it is the one
+    // thing here that is not a control — it says how well the quote is held, and
+    // a state read after four verbs reads as a fifth verb. Then the ♥, the card's
+    // resting mark; copy and share, which are what you do with a quote; the
+    // colour dots, which are a note to yourself; and the ⋯ alone on the right
+    // where a destructive action belongs.
+    //
+    // THE OWNER'S RULING put the recall mark here: "the spaced repitition dot is
+    // now on an orphan row … put in the bottom row (where the icons are) as the
+    // first icon."
     mount()
+    expect(precedes(recall(), heart()), 'the recall mark before the ♥').toBe(true)
     expect(precedes(heart(), btn('Copy')), '♥ before copy').toBe(true)
     expect(precedes(btn('Copy'), btn('Share')), 'copy before share').toBe(true)
     expect(precedes(btn('Share'), colours()), 'share before the colour dots').toBe(true)
     expect(precedes(colours(), btn('More actions')), 'colours before the ⋯').toBe(true)
+  })
+
+  it('and the recall mark is IN that row rather than on a line of its own', () => {
+    // The other half of the same report — it had been the only thing on a row,
+    // which on a card with no credits is an empty row with a dot in it. Asserted
+    // as a shared parent, because "first in the row" is satisfied by a mark
+    // sitting above the row as well.
+    mount()
+    // THE ROW IS FOUND, NOT NAMED. Every control here is wrapped by its own
+    // Tooltip, so a parent comparison asserts a wrapper; and the row's class is a
+    // string of utilities, so naming it asserts today's layout. What the row IS
+    // is the nearest ancestor of the ♥ that also holds the rest of the actions.
+    let row = heart()
+    while (row && !(row.contains(btn('Copy')) && row.contains(colours()))) row = row.parentElement
+    expect(row, 'no element holds the ♥, copy and the colours together').toBeTruthy()
+    expect(row.contains(recall()), 'the recall mark is outside the row it is supposed to lead').toBe(true)
   })
 
   it('fires the handlers it was given', () => {

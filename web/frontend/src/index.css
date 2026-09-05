@@ -3122,6 +3122,22 @@
     min-width: 0;
   }
   .inline-field-inline.is-empty { color: var(--faint); font-style: italic; }
+  /* A CREDIT'S PORTRAIT, the pack's own (`work-details-popup.dc.html:661-669`):
+     a 30px round face beside the name, one per name the field holds. A name with
+     a face is a record and a name alone is a string, which is the difference the
+     identity tables exist for — and the face is drawn even where there is no
+     photograph, because a column of credits should be a run of equal shapes
+     rather than a ragged mix of two designs. */
+  .cred-line { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; min-width: 0; }
+  .cred-one { display: inline-flex; align-items: center; gap: 8px; min-width: 0; overflow-wrap: anywhere; }
+  .cred-face {
+    width: max(30px, 1.9em); height: max(30px, 1.9em); flex: none;
+    border-radius: 50%; overflow: hidden;
+    display: flex; align-items: flex-end; justify-content: center;
+    border: 1px solid var(--line); background: var(--raised);
+    box-shadow: inset 0 1px var(--bevel-mid);
+  }
+  .cred-face img { width: 100%; height: 100%; object-fit: cover; }
   /* field-badge — a field-icon-btn's footprint with none of its affordances, so
      a reported state lines up with the controls beside it without pretending to
      be one. No hover, no border, no cursor: there is nothing to press. */

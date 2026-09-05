@@ -24,9 +24,10 @@ import { useEffect, useMemo, useState } from 'react'
 import { coverImgURL, errText, json } from './api.js'
 import { CastFills, CastSection } from './cast.jsx'
 import { FaceStrip, PillRow, SectionHead } from './characterRows.jsx'
-import { DEFAULT_CREDIT_SEPS, splitCredits } from './credits.jsx'
 import { characterPanel } from './identity.jsx'
 import { OFFERED_FIELDS, fieldOffersPanel } from './fieldOffers.jsx'
+import { DEFAULT_CREDIT_SEPS, splitCredits, personImgURL, usePeople } from './credits.jsx'
+import { Silhouette } from './silhouette.jsx'
 import { PasteLink, WorkLinks, linksSummary, providerURL } from './workLinks.jsx'
 import { t } from './i18n.js'
 import { BookLookupPicker, CoverControls, CoverPreview, MovieLookupPicker, hiResPoster, idNum } from './CoverPicker.jsx'
@@ -91,19 +92,25 @@ const BOOK_FIELDS = [
     get label() { return t('common.field.subtitle.label') },
     get hint() { return t('book.field.subtitle.info') },
   },
-  // NOT A VALUE, so not a row that edits one: a work's people are a list with
   // WHO MADE IT, AS ROWS OF THEIR OWN — the pack's `bookRows`. See the CREDITS
   // ARE FIELDS note above the tables.
   {
     key: 'author',
     credit: true,
+    personKind: 'author',
     get label() { return t('common.field.author.label') },
     nameCase: true,
     get hint() { return t('book.field.author.info') },
   },
+  // PAIRED, BECAUSE THE PACK PAIRS THEM (`work-details-popup.dc.html:991-992`).
+  // Most books have neither; the two that do have one short name each, and a full
+  // row apiece for two usually-empty fields is the height the pack spends on the
+  // description.
   {
     key: 'translator',
     credit: true,
+    half: true,
+    personKind: 'translator',
     get label() { return t('common.field.translator.label') },
     nameCase: true,
     get hint() { return t('book.field.translator.info') },
@@ -111,6 +118,8 @@ const BOOK_FIELDS = [
   {
     key: 'editor',
     credit: true,
+    half: true,
+    personKind: 'editor',
     get label() { return t('common.field.editor.label') },
     nameCase: true,
     get hint() { return t('book.field.editor.info') },
@@ -332,7 +341,16 @@ export const MOVIE_FIELDS = [
   // WHO MADE IT, AS A ROW OF ITS OWN — `work-details-popup.dc.html`'s `filmRows`,
   // where Director sits directly under Year. See the CREDITS ARE FIELDS note above
   // the tables for why it is here rather than behind a door.
-  { key: 'director', credit: true, get label() { return t('common.field.director.label') }, nameCase: true },
+  {
+    key: 'director',
+    credit: true,
+    // A GAME'S STUDIO IS IN THIS COLUMN (0040), and it is not a person — so the
+    // face is asked for under the kind the medium makes it. `labelFor` already
+    // renames the row; this renames who it is a picture of.
+    personKind: 'director',
+    get label() { return t('common.field.director.label') },
+    nameCase: true,
+  },
   { key: 'description', get label() { return t('common.field.description.label') }, kind: 'long', sheet: true },
   { key: 'genres', get label() { return t('common.field.genres.label') }, kind: 'tokens', sheet: true },
   {
@@ -1178,30 +1196,6 @@ export function workLinksPanel(stack, props) {
   }
 }
 
-// peopleSummary — what the People row reads at rest.
-//
-// THE NAMES, NOT A COUNT. "6 people" is a number a reader has to open the panel
-// to understand; the names are the answer they came for, and a work with four
-// credits has four short strings. The character count follows because a cast is
-// genuinely a quantity at that point — twenty names on a resting row would be the
-// panel drawn twice.
-//
-// NOTHING IS TRUNCATED: the row wraps. A shortened name and a short name look
-// alike, which is the one failure a reader cannot detect.
-export function peopleSummary(item, creditSpecs, seps = DEFAULT_CREDIT_SEPS) {
-  const names = []
-  for (const spec of creditSpecs) {
-    for (const n of splitCredits(String(item?.[spec.key] || ''), seps)) {
-      if (n && !names.includes(n)) names.push(n)
-    }
-  }
-  const cast = (item?.cast || []).filter((c) => c && c.origin !== 'removed').length
-  const parts = []
-  if (names.length) parts.push(names.join(' · '))
-  if (cast) parts.push(t('common.field.people.characters.summary', { n: cast, count: cast }))
-  return parts.join(' — ')
-}
-
 // workDetailsPanel — the descriptor a screen opens, in identity.jsx's idiom.
 //
 // `wide` because this is a form of a dozen rows rather than a list of links, and
@@ -1259,6 +1253,29 @@ function FieldList({ kind, item, stack, specs, creditSpecs, mediaType, busy, gen
           kind, item, field: spec.key, label, storedSource: prov.source, onChanged,
         }))
       : undefined
+
+  // ── THE FACE ON A CREDIT ──
+  //
+  // The pack draws a 30px round portrait beside every credit field's value
+  // (`work-details-popup.dc.html:661-669`) — the same picture the credit chips on
+  // the work page wear, at the same size, from the same `usePeople` map. A name
+  // with a face beside it is a RECORD; a name on its own is a string, and the
+  // whole of 0056 was the difference.
+  //
+  // THREE HOOKS AND NOT A LOOP, which `WorkDetail.jsx` states the reason for at
+  // its own three: a hook count that varies with a spec list is a hook count that
+  // changes between renders the first time a medium has fewer credits. Three is
+  // the most any kind has (a book's author, translator, editor); a film has one.
+  // THE DEFAULT SEPARATORS, and this is a real limitation stated rather than
+  // hidden: whether `&` means two people is the READER's setting, and it is
+  // threaded to the screens as a prop that does not reach a panel. A wrong split
+  // here costs one face — the row still prints exactly what is stored, because
+  // the split is used for the PICTURES and never for the value.
+  const seps = DEFAULT_CREDIT_SEPS
+  const credit0 = usePeople(creditSpecs[0]?.personKind || '')
+  const credit1 = usePeople(creditSpecs[1]?.personKind || '')
+  const credit2 = usePeople(creditSpecs[2]?.personKind || '')
+  const creditMaps = [credit0.map, credit1.map, credit2.map]
 
   // ── THE CAST THE STRIP DRAWS ──
   //
@@ -1572,10 +1589,36 @@ function FieldList({ kind, item, stack, specs, creditSpecs, mediaType, busy, gen
               />
             )
           }
+          // THE PACK'S PORTRAIT BESIDE A CREDIT. A name with a face is a record;
+          // a name alone is a string, which is the difference 0056 exists for.
+          // One chip per name the field holds, split on the reader's own
+          // separators, because "Pevear, Volokhonsky" is two people and one of
+          // them may have a picture.
+          const creditIndex = creditSpecs.indexOf(spec)
+          const creditNames = creditIndex >= 0 ? splitCredits(String(value || ''), seps) : []
           return (
             <InlineField
               key={spec.key}
                 half={!!spec.half}
+              display={creditNames.length ? (
+                <span className="cred-line">
+                  {creditNames.map((n) => {
+                    const src = creditMaps[creditIndex]?.[n]?.image_path
+                    return (
+                      <span className="cred-one" key={n}>
+                        {/* ALWAYS A FACE, silhouette when there is no
+                            photograph — the pack's rule, and what keeps a
+                            column of credits a run of equal shapes rather
+                            than a ragged mix of two designs. */}
+                        <span className="cred-face">
+                          {src ? <img src={personImgURL(src)} alt="" loading="lazy" /> : <Silhouette name={n} />}
+                        </span>
+                        <span>{n}</span>
+                      </span>
+                    )
+                  })}
+                </span>
+              ) : undefined}
               fieldKey={spec.key}
               source={prov?.source}
               sourceAt={prov?.at}
@@ -1625,17 +1668,26 @@ function FieldList({ kind, item, stack, specs, creditSpecs, mediaType, busy, gen
           endpoint, which does — so opening Details on a work whose People panel
           has never been visited is now enough to give its quoted characters the
           rows their chips hang off. See `cast_from_quotes.go`. */}
-      <SectionHead
-        label={t('cast.strip.heading.label', { n: castTiles.length })}
-        action={stack ? () => stack.push(workPeoplePanel(stack, { kind, item, creditSpecs, mediaType, onChanged })) : undefined}
-        actionLabel={t('cast.strip.edit.label')}
-        actionTitle={t('cast.strip.edit.tip')}
-        /* AND THE HEAD IS DRAWN WITH NOTHING UNDER IT. A work with no cast still
-           has to have somewhere to add one — the head IS the door — so the
-           section says "Cast · 0" and the prose under it says what to do, rather
-           than the section disappearing and taking the only way in with it. */
-        note={castRows && castTiles.length === 0 ? t('cast.empty.prose') : undefined}
-      />
+      {/* NOT WHILE THE ANSWER IS STILL COMING. `castRows` is null until the read
+          lands, and a head that counts what it has not been told yet says
+          "Cast · 0" for a moment on every work that has one — a number that is
+          wrong, drawn confidently, and then corrected, which is worse than a
+          section that arrives a beat later.
+
+          AND THE HEAD IS DRAWN WITH NOTHING UNDER IT once the answer is in. A
+          work with no cast still has to have somewhere to add one — the head IS
+          the door — so the section says "Cast · 0" then and the prose under it
+          says what to do, rather than the section disappearing and taking the
+          only way in with it. */}
+      {castRows ? (
+        <SectionHead
+          label={t('cast.strip.heading.label', { n: castTiles.length })}
+          action={stack ? () => stack.push(workPeoplePanel(stack, { kind, item, creditSpecs, mediaType, onChanged })) : undefined}
+          actionLabel={t('cast.strip.edit.label')}
+          actionTitle={t('cast.strip.edit.tip')}
+          note={castTiles.length === 0 ? t('cast.empty.prose') : undefined}
+        />
+      ) : null}
       {castTiles.length > 0 ? <FaceStrip tiles={castTiles} /> : null}
 
       {/* ── THE IDS, AS A STRIP AND NOT AS ROWS ──

@@ -714,6 +714,22 @@ compare is the numbers the frames turn on and what each frame does with them.
 of one: the wide layout was built to these numbers already, and the one place the two files
 disagree is a number the app cannot take without breaking something the pack does not draw.
 
+### 4.6 `work-details-popup.dc.html` — the credit field, read line by line
+
+The credits went back into the Details form on the owner's report ("the movie
+doesn't show director"), and moving a row is not the same as drawing it as the pack
+draws it. So the pack's `field(..., { credit: 'person' })` was read against what the
+app renders, rather than the move being called a match.
+
+| Part | Pack | App | Verdict |
+| --- | --- | --- | --- |
+| A row of its own, per role | `filmRows` gives Director and Studio one each; `bookRows` gives Author, Translator, Editor (`:986-992`, `:1019-1023`) | one spec per role in `BOOK_FIELDS` / `MOVIE_FIELDS`, flagged `credit` | Match |
+| Translator and Editor share a line | `half: true` on both (`:991-992`) | `half: true` on both | Match (built here) |
+| A 30px round portrait beside the value | `chipStyle` (`:661-669`), silhouette where there is no photograph | `.cred-face`, one per name the field holds, silhouette fallback | Match (built here) |
+| An organisation's chip is a 9px square, not a circle | `isOrg ? 'border-radius:9px'` (`:662`) | always round | **Departure, open** — a game's studio goes in the `director` column (0040) and wears a person's circle. The app has no `org` flag on a credit spec; adding one is a spec change and a second picture source, and it is named here rather than implied |
+| A typeahead over the library's people while editing | up to four suggestions, each a pill with its own face (`:670-682`) | a plain text field | **Departure, open** — this is a feature rather than a detail, and building it inside a fix for "the movie doesn't show director" would be scope the report did not ask for. It is named so the next reader does not have to find it |
+| Provenance tag, and the candidates door behind it | `hasSrc` / `onSrc` opens "every source" (`:695-700`) | `source` / `sourceOpen` → `fieldOffersPanel` | Match |
+
 ## How to retire this file
 
 Per `README.md`'s rule: when the list is empty, delete it. Sections 1 and 3 empty by

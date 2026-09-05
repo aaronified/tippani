@@ -5238,8 +5238,6 @@ common.field.bio.label = জীবনী
 common.field.born.label = জন্ম
 common.field.died.label = মৃত্যু
 common.field.links.label = লিংক
-common.field.people.characters.summary.one = {n}টা চরিত্র
-common.field.people.characters.summary.other = {n}টা চরিত্র
 common.field.identity.label = পরিচয়
 # Identifiers, which appear as themselves in every language.
 common.field.tmdb-id.label = TMDB id
@@ -6568,7 +6566,7 @@ book.group.color.label = শ্রেণি অনুযায়ী
 book.group.tag.label = ট্যাগ অনুযায়ী
 book.group.date.label = যোগ করার তারিখ অনুযায়ী
 book.group.chapter.numbered.label = অধ্যায় {n}
-book.group.chapter.named.label = অধ্যা {n}: {name}
+book.group.chapter.named.label = অধ্যা. {n}: {name}
 book.group.chapter.none.label = অধ্যায় নেই
 book.group.tag.none.label = ট্যাগ নেই
 book.group.date.none.label = তারিখ নেই

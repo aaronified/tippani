@@ -5175,8 +5175,6 @@ common.field.links.label = Links
 # holding `one|other` is not a plural to this app: it is a string with a pipe in
 # it, and it was printed exactly that way — "Hrishikesh Mukherjee — 3
 # character|3 characters" on the film's People row.
-common.field.people.characters.summary.one = {n} character
-common.field.people.characters.summary.other = {n} characters
 common.field.author.label = Author
 common.field.translator.label = Translator
 common.field.editor.label = Editor

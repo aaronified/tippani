@@ -89,8 +89,18 @@ describe('grouping a board', () => {
     // cases (`book-detail.dc.html:2566`), and the number is what puts these
     // buckets in the order they are in. A named section with no number keeps its
     // name alone: an Epilogue is not chapter anything.
+    // ASSERTED AS FACTS IN THE HEADING, NOT AS THE HEADING. The label is a locale
+    // string, and a test that spells it out is green on a screen saying the wrong
+    // thing in the right words and red on a working screen in Bengali — the same
+    // defect this suite has already been through once. What the heading has to
+    // carry is the chapter's NUMBER (which is what puts the buckets in this
+    // order) and its NAME; a named section with no number carries its name alone.
     const g = groupAnnotations(rows, 'chapter')
-    expect(g.map((x) => x.label)).toEqual(['Ch 2: Two', 'Ch 10: Ten', 'Preface', 'No chapter'])
+    const labels = g.map((x) => x.label)
+    expect(labels[0], 'the first heading loses its number or its name').toMatch(/\b2\b.*Two/)
+    expect(labels[1]).toMatch(/\b10\b.*Ten/)
+    expect(labels[2], 'a section with no number was called a chapter').toBe('Preface')
+    expect(labels).toHaveLength(4)
     expect(g[g.length - 1].residual).toBe(true)
     expect(ids(g[0].items)).toEqual([2])
   })

@@ -31,14 +31,28 @@ PASSWORD="${TIPPANI_BACKUP_PASSWORD:-}"
 # SIGKILL, so the only way a restored library never accumulates is for the NEXT
 # run to remove what the last one could not. A directory is one of ours if it is a
 # mktemp holding a `tippani.db`; anything still being served is left alone, which
-# is what the `fuser` guard is for — a concurrent run at another port is a normal
+# is what the in-use guard is for — a concurrent run at another port is a normal
 # thing to be doing.
-for d in /tmp/tmp.*; do
-  [ -f "$d/tippani.db" ] || continue
-  if command -v fuser >/dev/null 2>&1 && fuser "$d/tippani.db" >/dev/null 2>&1; then continue; fi
-  echo "removing a data dir a killed run left behind: $d"
-  rm -rf "$d"
-done
+#
+# AND WITH NO WAY TO ASK, IT SWEEPS NOTHING. The first cut read
+# `command -v fuser && fuser …` and deleted whenever `fuser` was missing, which
+# is the guard inverted: on a machine without it, every concurrent run's live
+# library was fair game. A sweep that cannot tell a dead dir from a live one has
+# to decline, and say so — the dir it leaves is the one thing this whole block
+# exists to remove, so its absence has to be visible rather than assumed.
+if command -v fuser >/dev/null 2>&1; then
+  for d in /tmp/tmp.*; do
+    [ -f "$d/tippani.db" ] || continue
+    fuser "$d/tippani.db" >/dev/null 2>&1 && continue
+    echo "removing a data dir a killed run left behind: $d"
+    rm -rf "$d"
+  done
+else
+  for d in /tmp/tmp.*; do
+    [ -f "$d/tippani.db" ] || continue
+    echo "WARNING: $d holds a restored library and no fuser here to say whether it is in use — remove it by hand" >&2
+  done
+fi
 
 echo "building $BIN"
 (cd "$ROOT" && go build -o "$BIN" ./cmd/tippani)
