@@ -53,8 +53,15 @@ if (filmId) {
   await settle(3400)
   console.log('film sideways:', await wide() || 'none')
   await shot('film-detail')
+  // THE CAST ROW'S CHARACTER, NOT THE FIRST PERSON CHIP. A film's credits row
+  // draws person chips too and the director's is usually first, so this captured
+  // the DIRECTOR's page and filed it as character-panel.png — a screenshot of the
+  // wrong screen under the right name, which is worse than a missing one because
+  // it is the picture somebody then reviews. `.cast-character`'s button is the
+  // character's door (cast.jsx:812-818); `aria-expanded` marks the fallback that
+  // only toggles a URL, so a row with no character record behind it is skipped.
   const opened = await page.evaluate(() => {
-    const b = [...document.querySelectorAll('.person-chip')].find((x) => !x.hasAttribute('aria-disabled'))
+    const b = document.querySelector('.cast-character button:not([aria-expanded])')
     if (!b) return false
     b.click(); return true
   })

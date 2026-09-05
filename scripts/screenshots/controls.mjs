@@ -123,7 +123,16 @@ const SURFACES = [
   // which is the fixture's; on any other library the chip was never found and the
   // one panel surface in this file went untested while the run still reported a
   // failure it could not act on.
-  { route: '/catalogue/{movie}', name: 'Character panel', needs: 'movie', door: { selector: '.person-chip' } },
+  // AND THE DOOR IS THE CAST ROW'S CHARACTER, NOT THE FIRST `.person-chip` ON THE
+  // PAGE. A film's credits row draws person chips too — the director's is
+  // usually the first — so this surface opened a PERSON panel and reported it
+  // under the name "Character panel" for as long as it said `.person-chip`. The
+  // same mistake put the director's page in `shots.mjs` as character-panel.png.
+  // `.cast-character`'s button is the character's own door (cast.jsx:812-818),
+  // and `aria-expanded` is exactly what distinguishes it: the row sets it only on
+  // the fallback that toggles a URL, i.e. on a cast row with no character record
+  // behind it.
+  { route: '/catalogue/{movie}', name: 'Character panel', needs: 'movie', door: { selector: '.cast-character button:not([aria-expanded])' } },
 ]
 
 // resolveSurfaces — turn `{book}` / `{movie}` into ids this library actually has.
