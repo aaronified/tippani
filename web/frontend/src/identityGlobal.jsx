@@ -187,7 +187,7 @@ function creditTiles(credits, onOpen) {
 // ---- the character, out of any one work -------------------------------------
 
 export function CharacterGlobal({
-  record, works, portraitActions, onNames, onSort, onBorn, onLinkAdd,
+  record, works, portraitActions, portraitEditor = null, onNames, onSort, onBorn, onLinkAdd,
   onOpenWork, onAddWork, onMerge, onRemoveAll, children,
 }) {
   const tiles = useMemo(
@@ -212,6 +212,7 @@ export function CharacterGlobal({
         // line shown before a measurement exists.
         px={t('identity.portrait.global')}
         actions={portraitActions}
+        editor={portraitEditor}
       />
 
       <SectionHead label={t('identity.section.identity.label')} note={t('identity.section.identity.note')} />
@@ -286,7 +287,7 @@ export function CharacterGlobal({
 // ---- one person, shared by every work ---------------------------------------
 
 export function PersonGlobal({
-  record, credits, roles, kinds, org = false, portrait, portraitActions, onNames, onSort, onBorn,
+  record, credits, roles, kinds, org = false, portrait, portraitActions, portraitEditor = null, onNames, onSort, onBorn,
   onLinkAdd, onOpenWork, onOpenRole, onAddWork, onMerge, onDelete, children,
 }) {
   // TWO SOURCES, ONE STRIP, and the pack's own tiles say so: "as Harry
@@ -324,6 +325,7 @@ export function PersonGlobal({
         // line shown before a measurement exists.
         px={t('identity.portrait.global')}
         actions={portraitActions}
+        editor={portraitEditor}
       />
 
       {/* THE NOTE IS A DEPARTURE, and the pack is the thing being departed from:

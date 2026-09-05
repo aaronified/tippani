@@ -124,7 +124,7 @@ export function Face({ src, name, className = 'cs-face' }) {
 // type measurement, so it stays a number in px.
 const SOFT_FLOOR = 400
 
-export function PortraitBlock({ src, name, px, soft, from = '', actions }) {
+export function PortraitBlock({ src, name, px, soft, from = '', actions, editor = null }) {
   const [dim, setDim] = useState(null)
   // A new src is a new measurement — without this the previous picture's numbers
   // stay under the new one, which is worse than showing none.
@@ -159,6 +159,16 @@ export function PortraitBlock({ src, name, px, soft, from = '', actions }) {
         {from ? <span className="cs-px-from">{from}</span> : null}
         <span className="cs-face-actions">{actions}</span>
       </span>
+      {/* THE EDITOR IS NOT A VERB, and putting it among them cost it its width.
+          `usePicturePicker` returns a pair — the verbs are the trigger, the editor
+          is the URL field, the upload and the provider strip the trigger reveals —
+          and every caller passed both through `actions`, which lands inside
+          `.cs-portrait-side`: the column left over beside a `max(96px, 7.4em)`
+          face. Measured at 320px on a character sheet, the URL input was **45px
+          wide** and the panel body scrolled sideways, 325px of content in 294px.
+          A field for a URL that fits eight characters is a field nobody can read
+          what they typed into. On its own line, at the block's full width. */}
+      {editor ? <span className="cs-portrait-editor">{editor}</span> : null}
     </div>
   )
 }

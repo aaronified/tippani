@@ -668,6 +668,66 @@ func TestANewCastRowIsGivenItsRecords(t *testing.T) {
 	}
 }
 
+// A NAME TAKEN OFF A CREDIT TAKES ITS LINK WITH IT.
+//
+// THE RULE, and it is about two screens agreeing rather than about a column. A
+// cast row prints `actor` and every people-facing list reads `actor_id`. Clearing
+// the performer's name is how a reader says "I do not know who played this" — the
+// row is meant to draw the pack's "Not named yet" — and if the id survives that,
+// the person goes on being listed under the credit by /whos-in-it and by their own
+// page, which now says they played a part the work does not say they played.
+//
+// WHAT A TEST WRITER NEEDS TO KNOW: the paragraph above. Asserted through the
+// reader the person's screen actually uses, not by looking at the column.
+func TestClearingAPerformerUnlistsThem(t *testing.T) {
+	s := openIdentity(t)
+	exec := func(q string, args ...any) {
+		t.Helper()
+		if _, err := s.DB.Exec(q, args...); err != nil {
+			t.Fatalf("seed: %v", err)
+		}
+	}
+	exec(`INSERT INTO movies (id, user_id, title) VALUES (1, 1, 'Ran')`)
+	exec(`INSERT INTO work_cast (id, user_id, kind, work_id, character, character_key, actor, actor_key)
+	      VALUES (1, 1, 'movie', 1, 'Hidetora Ichimonji', ?, 'Tatsuya Nakadai', ?)`,
+		CastKey("Hidetora Ichimonji"), CastKey("Tatsuya Nakadai"))
+	mustTx(t, s, func(tx *sql.Tx) error { return LinkCastRow(tx, 1, 1) })
+
+	var personID int64
+	if err := s.DB.QueryRow(`SELECT actor_id FROM work_cast WHERE id = 1`).Scan(&personID); err != nil {
+		t.Fatal(err)
+	}
+	roles, err := PersonRoles(s.DB, 1, personID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(roles) != 1 {
+		t.Fatalf("before clearing, the performer should hold the one part: %+v", roles)
+	}
+
+	// The reader clears the name — what `PUT /cast/{id}` writes — and the row is
+	// re-linked, which is what every writer of this table does after an edit.
+	exec(`UPDATE work_cast SET actor = '', actor_key = '' WHERE id = 1`)
+	mustTx(t, s, func(tx *sql.Tx) error { return LinkCastRow(tx, 1, 1) })
+
+	roles, err = PersonRoles(s.DB, 1, personID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(roles) != 0 {
+		t.Fatalf("the credit names nobody and the performer is still listed under it: %+v", roles)
+	}
+	// And the character it names is untouched: clearing one half of a row is not
+	// clearing the row.
+	var charID int64
+	if err := s.DB.QueryRow(`SELECT COALESCE(character_id, 0) FROM work_cast WHERE id = 1`).Scan(&charID); err != nil {
+		t.Fatal(err)
+	}
+	if charID == 0 {
+		t.Fatal("clearing the performer took the character's own link with it")
+	}
+}
+
 // PER WORK, NOT PER LIBRARY. The rule the backfill argued for, now enforced where
 // rows are actually written: two works naming a Narrator are two Narrators, which
 // a reader can see and merge; one Narrator across both would hide a person and

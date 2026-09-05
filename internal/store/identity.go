@@ -597,6 +597,10 @@ func LinkCastRow(tx *sql.Tx, uid, castID int64) error {
 	if errors.Is(err, sql.ErrNoRows) {
 		return fmt.Errorf("cast row not found")
 	}
+	// WHAT THE ROW HELD BEFORE, so the write at the foot can be skipped when
+	// nothing moved — and, more to the point, NOT skipped when a link has to be
+	// taken away. See the clearing rule below.
+	wasCID, wasAID := cid, aid
 	if err != nil {
 		return fmt.Errorf("read cast row: %w", err)
 	}
@@ -636,7 +640,28 @@ func LinkCastRow(tx *sql.Tx, uid, castID int64) error {
 		aid = sql.NullInt64{Int64: id, Valid: true}
 	}
 
-	if !cid.Valid && !aid.Valid {
+	// A NAME CLEARED CLEARS ITS ID, and this function only ever ADDED links. Both
+	// guards above are `if !id.Valid && name != ""`, and the UPDATE below writes
+	// both columns back whatever they hold — so clearing a credit's performer
+	// through `PUT /cast/{id}` left `actor_id` still pointing at the person while
+	// `actor` was `''`. The row then drew "Not named yet" and `/whos-in-it` went on
+	// listing that person under it: one fact with two answers, and the screen and
+	// the search each confident in a different one. `character_works.go`'s removal
+	// path has undone its link since it was written; this is the same rule at the
+	// other end.
+	if actor == "" {
+		aid = sql.NullInt64{}
+	}
+	if character == "" {
+		cid = sql.NullInt64{}
+	}
+	// NOTHING MOVED, RATHER THAN NOTHING TO LINK. The test here was
+	// `!cid.Valid && !aid.Valid` — "there is no link to write" — which is true of
+	// a row that never had one AND of a row whose last link has just been taken
+	// away, and returning early on the second leaves the stale id in place. Both
+	// are `sql.NullInt64`, which is comparable, so the honest question is whether
+	// the row's answer has changed.
+	if cid == wasCID && aid == wasAID {
 		return nil
 	}
 	if _, err := tx.Exec(

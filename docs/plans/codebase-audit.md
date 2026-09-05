@@ -392,13 +392,24 @@ menu appeared, and the defect was the ABSENCE of rows in a box one line tall. A 
 review would have to notice a small empty card; a unit test would have to know to ask.
 `controls.mjs` asks of everything, which is the only reason this surfaced.
 
-### 3.6 OPEN — `LinkCastRow` leaves a stale `actor_id` when a performer is cleared
+### 3.6 FIXED — `LinkCastRow` left a stale `actor_id` when a performer was cleared
 
-`internal/store/identity.go:614-626` guards the re-link with `if !aid.Valid && actor != ""`
-and writes the scanned `aid` back regardless. Clearing a credit's performer via
-`PUT /cast/{id}` leaves `actor_id` pointing at the person while `actor` is `''`, so the row
-draws "Not named yet" while `/whos-in-it` (`whos_in_it.go:218`) still lists that person.
-`character_works.go:288` does undo the link on removal and is the model.
+`internal/store/identity.go` guarded the re-link with `if !aid.Valid && actor != ""` and
+wrote the scanned `aid` back regardless, so clearing a credit's performer through
+`PUT /cast/{id}` left `actor_id` pointing at the person while `actor` was `''`: the row
+drew "Not named yet" and `/whos-in-it` went on listing them under it — one fact with two
+answers, each screen confident in a different one.
+
+**A name cleared clears its id**, both halves, and the early return changed with it. The
+test was `!cid.Valid && !aid.Valid` — "there is no link to write" — which is true of a row
+that never had one *and* of a row whose last link has just been taken away, so returning
+early on the second put the stale id straight back. It now compares against what the row
+held on entry: nothing moved, rather than nothing to link.
+
+`TestClearingAPerformerUnlistsThem` asserts through `PersonRoles` — the reader the
+person's own screen uses — and fails against the shipped code with exactly the symptom
+above. It also checks the character's link survives, because clearing one half of a row is
+not clearing the row.
 
 ### 3.7 PART-FIXED — the `open()` window, minus the timer that could not help
 
@@ -418,24 +429,44 @@ first, and the functional setter refuses a pop that did not empty the stack. Wha
 dynamic `import().then()`, an **unbounded** async delay before the `go(-n)` with no
 pending state on the control. On a cold chunk fetch the press has no feedback.
 
-### 3.8 OPEN — columns and fields with only one end wired
+### 3.8 FOUR FIXED, ONE STATED — columns and fields with only one end wired
 
-| Where | What |
-| --- | --- |
-| `internal/store/migrations/0056_person_identity.sql:133` | `characters.image_url` has no writer and no reader — the `cast_role` shape with neither half |
-| `App.jsx:938` | reads `user.display_name`, which `handleMe` does not serve. Always falls through |
-| `identity.jsx:545-553` | the person form omits `bio`, though `PersonGlobal` prints it and the server accepts it. Now that every credit routes to `personPanel`, the only bio editor is reachable solely via the People console's portrait button |
-| `WorkDetails.jsx` | builds `` `Open on ${label…}` `` — hardcoded English and an English-only regex. Unreachable today, since every spec with an `href` also has `ids: true` |
-| `identity.jsx:986` | `useCharacterPicture` is passed no `actor`, so the third rung of the face ladder (character image → record image → **performer headshot**) never fires on the local sheet |
+| Where | What | Now |
+| --- | --- | --- |
+| `internal/store/migrations/0056_person_identity.sql:133` | `characters.image_url` has no writer and no reader — the `cast_role` shape with neither half | **STATED, NOT WIRED.** It is carried by `characterMergeFillable`, so a merge does not drop it, and nothing else in the app touches it. Giving it a writer no reader consults would make the list longer and the app no more honest; the column is the place a future "where did this picture come from" reads, and until there is one it stays empty. A shipped migration is forward-only, so it cannot be taken out |
+| `App.jsx` | reads `user.display_name`, which `handleMe` does not serve. Always falls through | **FIXED** — the read is gone. There is no `display_name` in the schema or the API, and `handleUpdateMe` renames the username itself, so the `\|\|` fell through on every render since it was written while claiming the app had a display name apart from the username |
+| `identity.jsx` | the person form omits `bio`, though the server accepts it. Now that every credit routes to `personPanel`, the only bio editor is reachable solely via the People console's portrait button | **FIXED** — `bio` joins the record's own form, above the note, because the two are different people's writing: the bio is about the person, the note is the reader's. The audit's claim that `PersonGlobal` prints it was wrong — it does not, and adding a ROW for it would be a departure from `people-global`, which is compared and matching in §4.2. The form behind the rows is the app's own surface, so the field lands there |
+| `WorkDetails.jsx` | builds `` `Open on ${label…}` `` — hardcoded English and an English-only regex | **FIXED** — `common.work.id.open.tip` with the spec's own source name, which the numeric-id branch a hundred lines above already used. The old form cut an English word off the end of a TRANSLATED label, so in any other language it printed an English verb over a label it had failed to trim |
+| `identity.jsx` | `useCharacterPicture` is passed no `actor`, so the third rung of the face ladder never fires on the local sheet | **ALREADY FIXED**, by the picture-ladder pass earlier in the session — `identity.jsx:1245` passes `actor`, and `picture-verbs.test.jsx`'s "falls back to the performer's face where the character has none either" is the guard. The row was stale |
 
-### 3.9 OPEN — the layout of the restored picture editor
+### 3.9 FIXED — the restored picture editor was 45px wide, and the panel scrolled sideways
 
-`identity.jsx` puts `pictureEditor` in `localPortraitActions`, which `PortraitBlock`
-renders inside `.cs-face-actions` inside `.cs-portrait-side` — beside a `max(96px, 7.4em)`
-face. `.cast-row-url { flex: 1 1 100% }` wraps it to its own line but confined to the side
-column, so the search link, input and Apply share roughly (container − 96px − 16px), less
-at 175% on the type dial. The person sheet puts the same node full-width at the foot of
-its grid. Needs a render at 320px to judge.
+Judged by rendering it, which is what the row asked for. All four sheets passed
+`pictureEditor` through `portraitActions`, so `PortraitBlock` drew it inside
+`.cs-face-actions` inside `.cs-portrait-side` — the column left over beside a
+`max(96px, 7.4em)` face. Measured on a character sheet at 320px:
+
+| | before | after |
+| --- | --- | --- |
+| the URL row | 123px | 250px |
+| **the URL input itself** | **45px** | **172px** |
+| the panel body | **scrolled sideways: 325px in 294px** | 294 in 294 |
+
+A field for a URL that fits eight characters is a field nobody can read what they typed
+into. Two changes, and each fixes a different half:
+
+**The editor is not a verb.** `PortraitBlock` takes it as its own slot now and draws it on
+its own full-width line under the face and the column. The verbs are the trigger; the
+editor is what the trigger reveals, and passing both through one prop put the second
+inside the first's box.
+
+**And the column drops below the face when it must.** The sideways scroll was not the
+editor at all: it was the pack's fourth verb, "Set for the identity" — 176px of label that
+cannot shrink — in a column about 167px wide. `.cs-portrait-side` now carries a basis
+(`flex: 1 1 12rem`) rather than a bare `flex: 1`, and flexbox wraps on the basis before it
+shrinks anything, so the strip drops to its own line exactly when it stops fitting. Checked
+at 320 / 360 / 390 / 768 / 1280: `scrollWidth === clientWidth` at all five, and no element
+past the body's right edge.
 
 ### Checks that came back clean
 

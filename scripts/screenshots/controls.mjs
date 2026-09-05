@@ -297,11 +297,51 @@ try {
       })
   })
 
+  // ---- waiting for the app rather than for the clock ------------------------
+  //
+  // Every fixed sleep in this file was a guess at how long a screen takes to
+  // render, made on an idle machine and then run on one saturated by this very
+  // probe. Both of the run that prompted this were wrong in the same direction:
+  // a control enumerated on a fast load was "vanished" on a slow one, and a panel
+  // that opens in 400ms idle was declared not to have opened. So: poll for the
+  // condition, with a ceiling — the ceiling is what keeps a genuinely dead
+  // control from costing the whole budget.
+  const waitFor = async (fn, ms = 6000, every = 100) => {
+    const until = Date.now() + ms
+    for (;;) {
+      if (await fn()) return true
+      if (Date.now() > until) return false
+      await new Promise((r) => setTimeout(r, every))
+    }
+  }
+
+  // SETTLED = the control count has stopped changing. A screen that fetches its
+  // rows adds controls as they land, and enumerating mid-flight silently tests a
+  // fraction of the surface — a coverage gap that leaves no trace, which is the
+  // failure D4 is on the register for. Two identical samples 300ms apart, and a
+  // ceiling for a screen that genuinely never stops (a ticking clock; there is
+  // none here, but the probe must not hang if one appears).
+  const countControls = () => page.evaluate(() => {
+    const scope = document.querySelector('.tp-panel') || document.querySelector('[role=dialog]') || document.body
+    return scope.querySelectorAll('button, [role=button], a[href], summary').length
+  })
+  const settled = async (ms = 8000) => {
+    const until = Date.now() + ms
+    let last = -1
+    for (;;) {
+      await new Promise((r) => setTimeout(r, 300))
+      const now = await countControls().catch(() => -1)
+      if (now >= 0 && now === last) return true
+      last = now
+      if (Date.now() > until) return false
+    }
+  }
+
   for (const surface of SURFACES) {
     if (opts.only && !surface.name.toLowerCase().includes(opts.only.toLowerCase())) continue
     const reopen = async () => {
       await page.goto(opts.baseUrl + surface.route, { waitUntil: 'networkidle2' }).catch(() => {})
-      await new Promise((r) => setTimeout(r, 1800))
+      await settled()
       if (!surface.door) return true
       const opened = await page.evaluate((d) => {
         const b = [...document.querySelectorAll(d.selector)].find((x) => x.textContent.includes(d.text))
@@ -309,12 +349,21 @@ try {
         b.click()
         return true
       }, surface.door)
-      await new Promise((r) => setTimeout(r, 1600))
       // THE DOOR HAS TO HAVE OPENED. Without this the surface degrades silently
       // to the screen the door is on, and the probe reports the film page's
       // controls under the character panel's name — the same "tested something
       // other than what it said" failure the route check below exists for.
-      return opened && await page.evaluate(() => !!document.querySelector('.tp-panel'))
+      //
+      // WAITED FOR, NOT SLEPT THROUGH. This was a flat 1600ms, and the panel it
+      // waits for arrives behind a dynamic import (`identity.jsx`, which pulls in
+      // Movies.jsx and cast.jsx) plus the record's own fetch — so under the load
+      // this run itself creates, the chip opened the panel a beat after the probe
+      // had already decided it had not. It reported the app's one character door
+      // as broken on a run where pressing it by hand opens it every time. A gate
+      // that reports a defect that is not there gets switched off exactly as fast
+      // as one that misses a defect that is.
+      if (!opened) return false
+      return await waitFor(() => page.evaluate(() => !!document.querySelector('.tp-panel')))
     }
     if (!await reopen()) {
       findings.unreachable.push(`${surface.name}: the door it is reached through (${surface.door.selector} "${surface.door.text}") did not open a panel`)
@@ -388,9 +437,17 @@ try {
         // A FRAME FOR WHAT THE SCROLL ASKED FOR. Setting scrollTop is synchronous
         // and rendering the rows it brought into view is not, so looking in the
         // same tick finds the same twelve missing tiles it did before the scroll.
+        //
+        // AND THEN AS LONG AS IT TAKES, up to a ceiling. The single 250ms retry
+        // was another guess at a render: on a film page under this probe's own
+        // load, a cast chip that is on screen when you look by hand was reported
+        // "moved or vanished" because the second look was still too early. Every
+        // such report is a false finding in a run whose whole value is that its
+        // findings are real.
         let b = find()[nth]
-        if (!b) {
-          await new Promise((r) => requestAnimationFrame(() => setTimeout(r, 250)))
+        const until = Date.now() + 4000
+        while (!b && Date.now() < until) {
+          await new Promise((r) => requestAnimationFrame(() => setTimeout(r, 120)))
           b = find()[nth]
         }
         if (!b) return false

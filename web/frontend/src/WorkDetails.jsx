@@ -1578,8 +1578,16 @@ function FieldList({ kind, item, stack, specs, creditSpecs, mediaType, busy, gen
               // A text field can carry a link too — the IMDb id is a string
               // rather than a number, so it takes this branch rather than the
               // numeric-id one above, and it is still worth being able to open.
+              //
+              // THE LOCALE'S SENTENCE AND THE SPEC'S OWN NAME. This tooltip was
+              // `` `Open on ${label.replace(/ id$/, '')}` `` — an English sentence
+              // built by cutting an English word off the end of a TRANSLATED
+              // label, so in any other language it printed an English verb over a
+              // label it had failed to trim. The numeric branch a hundred lines
+              // above already had both the key and the source's own name; this one
+              // was written beside it and took neither.
               display={spec.href && value ? (
-                <Tooltip label={`Open on ${label.replace(/ id$/, '')}`}>
+                <Tooltip label={t('common.work.id.open.tip', { source: spec.sourceKey ? t(spec.sourceKey) : label })}>
                   <a href={spec.href(item)} target="_blank" rel="noopener noreferrer" className="tp-link">
                     {String(value)} <IconOpen size={12} />
                   </a>

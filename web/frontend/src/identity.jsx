@@ -653,6 +653,13 @@ function PersonBody({ stack, id, work, onOpenWork: given = null }) {
       // The pack's screen shows the links as a pill strip, and there was nowhere
       // to type one: the panel drew ProviderChips off the same column read-only.
       links: data.links || '',
+      // THE ONE FIELD THIS FORM HAD NOTHING FOR, and it stopped being a small gap
+      // the moment every credit in the app started opening this panel: `bio` is
+      // stored, served, printed by `PersonModal`, and accepted by
+      // `PUT /people/id/{id}` — and the only editor for it was on the older panel,
+      // which is now reachable from one screen. So a fact the app holds became a
+      // fact the app could show and not change.
+      bio: data.bio || '',
       note: data.note || '',
     })
   }, [data, work])
@@ -829,9 +836,9 @@ function PersonBody({ stack, id, work, onOpenWork: given = null }) {
                   {t('identity.person.portrait.clear.label')}
                 </GhostButton>
               ) : null}
-              {personPicture.pictureEditor}
             </>
           }
+          portraitEditor={personPicture.pictureEditor}
           onNames={() => setNames((v) => !v)}
           onSort={() => focusField('person-sort')}
           onBorn={() => focusField('person-born')}
@@ -897,6 +904,10 @@ function PersonBody({ stack, id, work, onOpenWork: given = null }) {
               { key: 'born', id: 'person-born', label: org ? t('people.form.founded.label') : t('identity.field.born') },
               { key: 'died', id: 'person-died', label: org ? t('people.form.closed.label') : t('identity.field.died') },
               { key: 'links', id: 'person-links', label: t('identity.field.links'), rows: 2 },
+              /* ABOVE THE NOTE, because they are two different people's writing:
+                 the bio is about the person and is shown on their card, the note
+                 is the reader's own and is not. */
+              { key: 'bio', id: 'person-bio', label: t('common.field.bio.label'), rows: 3 },
               { key: 'note', id: 'person-note', label: t('identity.field.note'), rows: 2 },
             ]}
             form={form}
@@ -1343,7 +1354,6 @@ function CharacterBody({ stack, id, work, onSearch = null, onOpenWork: given = n
       >
         {t('identity.picture.promote.label')}
       </GhostButton>
-      {localPicture.pictureEditor}
     </>
   ) : null
 
@@ -1581,6 +1591,7 @@ function CharacterBody({ stack, id, work, onSearch = null, onOpenWork: given = n
           portrait={localPicture.face}
           portraitFrom={localPicture.from}
           portraitActions={localPortraitActions}
+          portraitEditor={here ? localPicture.pictureEditor : null}
           onCalled={() => openNames(here)}
           onPart={() => openFact(here, 'part', t('identity.facts.part'))}
           onFirst={() => openFact(here, 'first_appears', t('identity.facts.first'))}
@@ -1712,9 +1723,9 @@ function CharacterBody({ stack, id, work, onSearch = null, onOpenWork: given = n
                   {t('identity.character.promote.clear.label')}
                 </GhostButton>
               ) : null}
-              {globalPicture.pictureEditor}
             </>
           }
+          portraitEditor={globalPicture.pictureEditor}
           onNames={() => setNames((v) => !v)}
           onSort={() => focusField('char-sort')}
           onBorn={() => focusField('char-born')}

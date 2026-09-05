@@ -980,7 +980,13 @@ export function NavRail({ tab, onChange, sections, user, onAccount, onBin, onChe
           onClick={onAccount}
         >
           <span className="user-chip" aria-hidden="true"><UserAvatar user={user} /></span>
-          <span className="rail-acct-name">{user.display_name || user.username}</span>
+          {/* `user.display_name` was read here and `handleMe` has never served it —
+              nothing in the schema or the API has that name, so the `||` fell
+              through on every render since it was written. A read of a field
+              nobody writes is a claim that the app has a display name apart from
+              the username; it does not, and `handleUpdateMe` renames the username
+              itself. */}
+          <span className="rail-acct-name">{user.username}</span>
         </button>
       </div>
     </aside>

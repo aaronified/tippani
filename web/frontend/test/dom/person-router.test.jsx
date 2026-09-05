@@ -130,6 +130,24 @@ describe('every screen routes a credit through the one opener', () => {
     expect(offenders, 'a credit wired straight to a setter opens the older panel whatever the record says').toEqual([])
   })
 
+  it('and the shell hands down the door those panels need', () => {
+    // AN INVENTORY, FOR THE REASON THIS DESCRIBE BLOCK EXISTS. `work-door.test
+    // .jsx` proves that a panel under the door opens the work; nothing in a
+    // jsdom suite can prove the APP puts a door there, because that is one line
+    // in the shell's own render and mounting the shell means mounting auth, the
+    // router and eleven lazy screens.
+    //
+    // It is worth a line because of what it replaces. The door was a third
+    // argument to `usePersonOpener`, and all seven callers passed two — so every
+    // work tile in the app said it could not be opened while the register
+    // recorded the door as landed. The provider makes that impossible to forget
+    // at seven sites; this makes it impossible to forget at the one that is left.
+    const app = readFileSync(join(SRC, 'App.jsx'), 'utf8')
+    expect(app, 'the shell does not provide a work door, so every panel below it has none')
+      .toMatch(/<WorkDoor\s/)
+    expect(app, 'the shell provides a door with nothing behind it').toMatch(/<WorkDoor\s+open=\{/)
+  })
+
   it('is imported by every screen that draws a credit', () => {
     // A screen rendering PersonCredit / PersonChip / PeopleChips is drawing a
     // credit, and a credit is a door.

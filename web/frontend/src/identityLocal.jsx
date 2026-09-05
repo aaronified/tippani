@@ -145,7 +145,7 @@ function creditRows(rows, { onPick, onOpen, onNote, onRemove, noteTip, removeTip
 // than the record on purpose — the part, the locator, the age and the note are
 // all facts about THIS casting, and 0063 gave each of them a column there.
 export function CharacterLocal({
-  record, work, here, scope, portraitActions,
+  record, work, here, scope, portraitActions, portraitEditor = null,
   // WHOSE PICTURE IS ON SCREEN, and it is the caller's answer rather than
   // `here.image` because `here.image` is only the first of three rungs. This sheet
   // used to read that column directly, so a character whose IDENTITY carries a
@@ -242,6 +242,7 @@ export function CharacterLocal({
             ? t('identity.portrait.from.actor', { name: here.actor || '' })
             : ''}
         actions={portraitActions}
+        editor={portraitEditor}
       />
 
       {/* WHAT THE WORK CALLS THEM. "Called here" on a book and a game, "Credited

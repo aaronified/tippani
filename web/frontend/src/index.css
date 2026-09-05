@@ -8259,7 +8259,10 @@ html[data-theme="dark"] .board-cover {
 
   /* The portrait block: the face, the stated pixel size, and the four ways a
      picture arrives. The fourth is the only one that leaves this work. */
-  .cs-portrait { display: flex; align-items: center; gap: 16px; padding: 0 10px 4px; }
+  /* WRAPS, so the picture editor below can take a line of its own rather than
+     the leftover beside a 96px face — see PortraitBlock's `editor` slot. */
+  .cs-portrait { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 0 10px 4px; }
+  .cs-portrait-editor { flex: 1 1 100%; min-width: 0; }
   .cs-face {
     width: max(96px, 7.4em); height: max(96px, 7.4em);
     border-radius: 50%; flex: none; overflow: hidden;
@@ -8268,7 +8271,15 @@ html[data-theme="dark"] .board-cover {
     box-shadow: 0 14px 26px -18px rgba(var(--sh), .7);
   }
   .cs-face img { width: 100%; height: 100%; object-fit: cover; }
-  .cs-portrait-side { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+  /* A BASIS, NOT JUST `flex: 1`, so the column DROPS BELOW THE FACE rather than
+     being squeezed to nothing beside it. The pack's fourth verb — "Set for the
+     identity", the dashed one — is 176px of label that cannot shrink, and at
+     320px the leftover beside a `max(96px, 7.4em)` face is about 167: the button
+     overflowed its column and the panel body scrolled sideways, 325px of content
+     in 294px. Flexbox wraps on the basis before it shrinks anything, so a basis
+     the strip actually needs is what makes the wrap happen at the right width and
+     not before it — at 390px and up the face and the column still share a line. */
+  .cs-portrait-side { flex: 1 1 12rem; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
   /* A PICTURE FIELD CANNOT BE JUDGED FROM A THUMBNAIL, so the app states the
      pixels and inks the statement when they are under the floor — the part of the
      pack most easily faked. */
