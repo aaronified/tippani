@@ -328,6 +328,8 @@ common.action.cancel.label = বাতিল
 common.action.confirm.label = নিশ্চিত করুন
 common.confirm.undoable.tag = ফেরানো যাবে
 common.confirm.final.tag = ফেরানো যাবে না
+common.confirm.undoable.note = এটা বিনে থাকবে, যতক্ষণ না আপনি বিন খালি করছেন — আর টোস্টে সঙ্গে সঙ্গে ফিরিয়ে আনার সুযোগ থাকবে।
+common.confirm.final.note = এটা বিনে যাচ্ছে না। এখান থেকে কিছুই আর ফেরানো যাবে না।
 common.action.delete.label = মুছুন
 common.action.close.label = বন্ধ করুন
 # The × on a window that sits over the screen. {name} is the word above — Close,
@@ -5236,7 +5238,8 @@ common.field.bio.label = জীবনী
 common.field.born.label = জন্ম
 common.field.died.label = মৃত্যু
 common.field.links.label = লিংক
-common.field.people.characters.summary = {n}টা চরিত্র|{n}টা চরিত্র
+common.field.people.characters.summary.one = {n}টা চরিত্র
+common.field.people.characters.summary.other = {n}টা চরিত্র
 common.field.identity.label = পরিচয়
 # Identifiers, which appear as themselves in every language.
 common.field.tmdb-id.label = TMDB id
@@ -6466,6 +6469,7 @@ identity.choose.work.sub = কাজটার নিজের পাতা
 identity.choose.work.unreachable = এই স্ক্রিন থেকে কাজটায় ফেরার কোনো পথ নেই
 identity.choose.local.sub = এই চরিত্র, এই কাজটা যেভাবে তাকে দেখায়
 identity.choose.actor.sub = অভিনেতার নিজের রেকর্ড
+identity.choose.global.sub = সব কাজ মিলিয়ে চরিত্রটা
 identity.choose.roles.hint = এটায় তার একাধিক ভূমিকা আছে। আপনি কোনটা চাইছেন?
 identity.choose.role.sub = চরিত্রটা, এই কাজটা যেভাবে তাকে দেখায়
 identity.remove-all.ask.title = এতে চরিত্রটা সব কাজ থেকেই সরে যাবে
@@ -6535,7 +6539,8 @@ unit.role.publisher = প্রকাশক
 unit.role.speaker = বক্তা
 # A work's links out (0062). See workLinks.jsx.
 links.web.label = একটা ওয়েবপেজ
-links.web.count = {n}টা ওয়েবপেজ|{n}টা ওয়েবপেজ
+links.web.count.one = {n}টা ওয়েবপেজ
+links.web.count.other = {n}টা ওয়েবপেজ
 links.empty = এখনও কোনও লিংক নেই। একটা যোগ করুন — এই রেকর্ডের যে পাতা আছে, নয়তো যে কোনও সাইটের যে কোনও ঠিকানা।
 links.paste.label = লিংক যোগ করুন
 # The derived list at the top of the add panel: the pages this record's own

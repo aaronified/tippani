@@ -209,12 +209,106 @@ func TestBranchHead(t *testing.T) {
 	}))
 	defer ts.Close()
 
+	// THE WHOLE SHA, not an abbreviation of somebody's choosing. The caller
+	// compares by prefix and abbreviates for display, because the width on the
+	// other side of that comparison is git's to change.
 	got, err := BranchHead(context.Background(), ts.URL, "owner/repo", "v3")
-	if err != nil || got != "a66ff6c" {
-		t.Fatalf("BranchHead = (%q, %v), want the short sha", got, err)
+	if err != nil || got != "a66ff6c1234567890abcdef" {
+		t.Fatalf("BranchHead = (%q, %v), want the sha as GitHub gave it", got, err)
 	}
 	// A branch that has been merged and tidied away is a 404, not a panic.
 	if _, err := BranchHead(context.Background(), ts.URL, "owner/repo", "v9"); err == nil {
 		t.Fatal("expected an error for a branch that is not there")
+	}
+}
+
+// TWO ABBREVIATIONS OF ONE COMMIT ARE ONE COMMIT.
+//
+// THE DEFECT THIS IS FOR, reported as "this is now checking one letter short in
+// update and finding ghost updates": the version CI stamps carries
+// `git rev-parse --short HEAD`, and `--short` is not a fixed width — git derives
+// it from `core.abbrev`, which grows with the object count. This repository
+// crossed that boundary and began stamping eight characters, while the head was
+// truncated to seven. The two could never be equal, so every check offered an
+// update to the commit already running, for ever.
+//
+// A test that pinned either width would be the same bet in a new place, so what
+// is asserted is the RELATION: an abbreviation and its full sha name one commit,
+// and two different commits do not, whatever their lengths.
+func TestAnAbbreviationAndItsShaAreTheSameCommit(t *testing.T) {
+	const full = "cff9ae6e1f2c3d4e5a6b7c8d9e0f1a2b3c4d5e6f"
+
+	for _, c := range []struct {
+		name string
+		a, b string
+		want bool
+	}{
+		// The exact pair from the report: eight characters against the forty.
+		{"the eight CI stamped, against the full sha", "cff9ae6e", full, true},
+		{"the seven it used to stamp, against the full sha", "cff9ae6", full, true},
+		{"seven against eight — one image rebuilt, one not", "cff9ae6", "cff9ae6e", true},
+		{"the same width, the same commit", "cff9ae6e", "cff9ae6e", true},
+		{"either way round", full, "cff9ae6e", true},
+		// Hex is case-insensitive and a hand-typed sha may be either.
+		{"cased differently", "CFF9AE6E", full, true},
+		{"padded", " cff9ae6e ", full, true},
+
+		{"a different commit of the same length", "cff9ae6e", "a66ff6c1", false},
+		{"a different commit, differently abbreviated", "cff9ae6", "a66ff6c1234567890", false},
+		// THE FLOOR. Without it an empty or near-empty string is a prefix of
+		// everything, and every box in the world reports itself up to date — the
+		// failure nobody would report, because it looks like nothing happening.
+		{"nothing at all", "", full, false},
+		{"one character", "c", full, false},
+		{"six characters", "cff9ae", full, false},
+		{"two empties", "", "", false},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			if got := SameCommit(c.a, c.b); got != c.want {
+				t.Errorf("SameCommit(%q, %q) = %v, want %v", c.a, c.b, got, c.want)
+			}
+		})
+	}
+}
+
+// AND THE ONE SHOWN BESIDE A VERSION IS CUT TO THAT VERSION'S OWN WIDTH, so
+// "v3 @ cff9ae6e" and "you are on 3.0.0-edge.v3.cff9ae6e" read as one fact
+// rather than as two shas that differ by a character.
+func TestTheOfferedCommitIsAbbreviatedLikeTheRunningOne(t *testing.T) {
+	const full = "cff9ae6e1f2c3d4e5a6b7c8d9e0f1a2b3c4d5e6f"
+	for _, c := range []struct{ like, want string }{
+		{"cff9ae6e", "cff9ae6e"},
+		{"cff9ae6", "cff9ae6"},
+		{"cff9ae6e1f2", "cff9ae6e1f2"},
+		// Never shorter than a usable abbreviation, and never longer than what
+		// there is to abbreviate.
+		{"", "cff9ae6"},
+		{"abc", "cff9ae6"},
+		{full + "extra", full},
+	} {
+		if got := AbbrevCommit(full, c.like); got != c.want {
+			t.Errorf("AbbrevCommit(full, %q) = %q, want %q", c.like, got, c.want)
+		}
+	}
+}
+
+// THE VERSION SHAPES CI ACTUALLY PRODUCES, end to end: what BranchBuild reads out
+// of them has to be something SameCommit can match against a real head. This is
+// the join the defect fell through — each half was right and the pair was not.
+func TestAStampedVersionMatchesItsOwnBranchHead(t *testing.T) {
+	const full = "cff9ae6e1f2c3d4e5a6b7c8d9e0f1a2b3c4d5e6f"
+	for _, version := range []string{
+		"3.0.0-edge.v3.cff9ae6e", // a release branch, eight characters
+		"3.0.0-edge.v3.cff9ae6",  // the same branch, built when git said seven
+		"edge.main.cff9ae6e",     // the default branch
+		"3.0.0-edge.cff9ae6e",    // the two-identifier form that shipped first
+	} {
+		_, commit, ok := BranchBuild(version)
+		if !ok {
+			t.Fatalf("BranchBuild(%q) did not read a branch build", version)
+		}
+		if !SameCommit(commit, full) {
+			t.Errorf("%q reports an update to the commit it is already running", version)
+		}
 	}
 }

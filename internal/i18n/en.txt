@@ -307,6 +307,11 @@ common.action.cancel.label = Cancel
 common.action.confirm.label = Confirm
 common.confirm.undoable.tag = Can be undone
 common.confirm.final.tag = Cannot be undone
+# WHAT HAPPENS TO THE THING, under the question — the pack's fourth line. The tag
+# above says WHETHER it can be undone; these say HOW, which is the half a verdict
+# with no instructions leaves out.
+common.confirm.undoable.note = It waits in the bin until you empty it, and the toast offers an immediate undo.
+common.confirm.final.note = This is not moved to the bin. Nothing here can be restored.
 common.action.delete.label = Delete
 common.action.close.label = Close
 # The × on a window that sits over the screen. {name} is the word above — Close,
@@ -5165,7 +5170,13 @@ common.field.title.label = Title
 common.field.subtitle.label = Subtitle
 common.field.people.label = People
 common.field.links.label = Links
-common.field.people.characters.summary = {n} character|{n} characters
+# ONE FORM PER PLURAL CATEGORY, in `.one`/`.other` keys — the app's ONE plural
+# mechanism (`resolveText` in i18n.js looks up `<key>.<category>`). A value
+# holding `one|other` is not a plural to this app: it is a string with a pipe in
+# it, and it was printed exactly that way — "Hrishikesh Mukherjee — 3
+# character|3 characters" on the film's People row.
+common.field.people.characters.summary.one = {n} character
+common.field.people.characters.summary.other = {n} characters
 common.field.author.label = Author
 common.field.translator.label = Translator
 common.field.editor.label = Editor
@@ -6570,6 +6581,10 @@ identity.choose.work.sub = the work's own page
 identity.choose.work.unreachable = This screen has no way back to the work
 identity.choose.local.sub = this character, as this work has them
 identity.choose.actor.sub = the performer's own record
+# THE THIRD DESTINATION BEHIND A SPEAKER CHIP, offered ONLY where the identity
+# holds more than one work — with one work the local record IS the identity, and
+# a door to it would lead back to the screen you are standing on.
+identity.choose.global.sub = the character, across every work
 # And the same question asked the other way round: one performer, two roles in one
 # work. Only asked where there IS a second role — one role behind a tile opens.
 identity.choose.roles.hint = They have more than one role in this. Which did you mean?
@@ -6654,7 +6669,8 @@ unit.role.speaker = speaker
 
 # A work's links out (0062). See workLinks.jsx.
 links.web.label = A web page
-links.web.count = {n} web page|{n} web pages
+links.web.count.one = {n} web page
+links.web.count.other = {n} web pages
 links.empty = No links yet. Add one — a page this record already has, or any address from any site.
 links.paste.label = Add a link
 # The derived list at the top of the add panel: the pages this record's own

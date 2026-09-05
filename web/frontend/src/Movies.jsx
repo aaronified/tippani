@@ -12,7 +12,7 @@ import { selectionClick, selectionMenuItems, useSelection } from './selection.js
 import { facetValue, facetValues, publishSearchSeed, seedableChips, withFacet, withFacetValues } from './facets.js'
 import { SelectionBar } from './SelectionBar.jsx'
 import { useCharacterArt } from './cast.jsx'
-import { CreditFaces, PersonModal, PersonName, SpeakerChips, chipRows, parseCreditSeps, personImgURL, splitCredits, usePeople, usePortraitFill } from './people.jsx'
+import { CreditFaces, PersonModal, PersonName, SpeakerChips, chipRows, creditKey, parseCreditSeps, personImgURL, splitCredits, usePeople, usePortraitFill } from './people.jsx'
 import {
   GroupHeading,
   WorkCard,
@@ -1757,10 +1757,24 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
   // different people — the role and the performer — which is 0056's whole point,
   // and this frame has always drawn both. What the chip replaces is the character
   // TEXT, because that is the one thing it now says better.
+  // WHAT THE CHIP ALREADY SAYS DOES NOT GET A LINE OF ITS OWN. The chip carries
+  // the character and the performer under it, so both the character text and the
+  // PLAYED BY line are the same two names a second time — "still 2 lines
+  // everywhere instead of the actor in the pill".
+  //
+  // ONLY WHERE THE CHIPS REALLY DO COVER IT, which is why this is a subset test
+  // and not `chipCount ? null`. A line may name several performers — they are
+  // entered like genres — while the chip's subtitle carries the one the cast row
+  // resolved. Dropping the line there would lose the other names, so the line
+  // stays whenever it has anything the chips do not.
+  const chipped = new Set(chipRows(d.character_images, speaker).flatMap(
+    (c) => (c.sub ? splitCredits(c.sub, seps) : []),
+  ).map(creditKey))
+  const actorsCovered = actorNames.length > 0 && actorNames.every((n) => chipped.has(creditKey(n)))
   const creditParts = [
     episodeLabel(d) || null,
     chipCount ? null : d.character || null,
-    actorCredit,
+    actorsCovered ? null : actorCredit,
     d.timestamp || null,
   ].filter(Boolean)
   // Attached sticker → corner seal the line flows around (same as book
@@ -1821,12 +1835,12 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
         speaker={speaker}
         onOpenCharacter={onOpenCharacter}
         className="mt-1.5"
-        // NO PERFORMER UNDER THE CHARACTER HERE. The credit line four elements
-        // down names them, with the door to their page on it, so the chip's
-        // subtitle was the same name a second time on the same card — and only on
-        // the lines whose speaker resolved, so two cards on one screen drew the
-        // chip two different ways. See SpeakerChips.
-        withActor={false}
+        // THE PERFORMER GOES UNDER THE CHARACTER, IN THE CHIP. The owner has now
+        // said this twice — "the actor is named below, not in the pill", and then
+        // "still 2 lines everywhere instead of the actor in the pill" — and the
+        // first time I read it the other way round and took the performer OUT of
+        // the chip, which is the opposite of what was asked. The duplication was
+        // real; the half that had to go was the LINE, not the subtitle.
       />
       <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
         <span className="inline-flex items-center gap-2">

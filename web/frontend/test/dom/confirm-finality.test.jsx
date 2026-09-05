@@ -32,12 +32,53 @@ import { t } from '../../src/i18n.js'
 const ask = (props) => render(
   <ConfirmDialog open title="Delete this person?" body="They leave the library." confirmLabel="Delete" onConfirm={() => {}} onCancel={() => {}} {...props} />,
 )
-const dialog = () => document.querySelector('[role=dialog]')
-const verb = () => [...document.querySelectorAll('[role=dialog] button')].find((b) => /delete/i.test(b.textContent))
+// EITHER ROLE, because the role is itself one of the things under test: a
+// destructive or final confirm is an `alertdialog` and an ordinary one is a
+// `dialog`. A helper pinned to one of them would make every case about the other
+// fail for a reason that has nothing to do with what it asserts.
+const DIALOG = '[role=dialog], [role=alertdialog]'
+const dialog = () => document.querySelector(DIALOG)
+const verb = () => [...document.querySelectorAll(`${DIALOG} button`)].find((b) => /delete/i.test(b.textContent))
 
 afterEach(() => cleanup())
 
 describe('a confirm that destroys something', () => {
+  it('is announced as an alert, where an ordinary question is not', () => {
+    // The pack's own role on this dialog (`book-detail.dc.html:562`), and the case
+    // the role exists for: it tells a screen reader to interrupt rather than wait
+    // its turn. The distinction is the point — a role that interrupts for "discard
+    // three unsaved fields?" as well teaches the reader to ignore it.
+    ask({ danger: true, reversible: false })
+    expect(document.querySelector('[role=alertdialog]'), 'a deletion asks like an ordinary question').toBeTruthy()
+    cleanup()
+    ask({})
+    expect(document.querySelector('[role=alertdialog]'), 'an ordinary confirm interrupts like an alarm').toBeNull()
+    expect(document.querySelector('[role=dialog]')).toBeTruthy()
+  })
+
+  it('says what happens to the thing, not only whether it can be undone', () => {
+    // The pack's fourth line (`:568`, `:4128-4131`). The tag above is the verdict;
+    // this is the instructions — where it goes, and whether anything offers it
+    // back. Asserted as a DIFFERENCE between the two answers rather than as a
+    // sentence, so the copy can change and the rule cannot quietly go.
+    ask({ danger: true, reversible: false })
+    const final = dialog().querySelector('.confirm-note')?.textContent || ''
+    cleanup()
+    ask({ danger: true, reversible: true })
+    const undoable = dialog().querySelector('.confirm-note')?.textContent || ''
+    expect(final, 'a final act says nothing about what happens to it').not.toBe('')
+    expect(undoable, 'an undoable act says nothing about where it goes').not.toBe('')
+    expect(final, 'both kinds of finality are given the same sentence').not.toBe(undoable)
+  })
+
+  it('and stays silent about a bin the caller never mentioned', () => {
+    // `reversible` is three-valued on purpose: leaving it out is the honest
+    // default for the several dozen confirms that are neither destructive nor
+    // undoable, and this note must not put "it waits in the bin" into their mouth.
+    ask({})
+    expect(dialog().querySelector('.confirm-note'), 'a confirm that stated no reversibility was given one').toBeNull()
+  })
+
   it('draws a rule the ordinary one does not', () => {
     ask({ danger: true, reversible: false })
     expect(dialog().querySelector('.confirm-rule'), 'no rule across the top').toBeTruthy()

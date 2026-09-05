@@ -85,7 +85,11 @@ describe('deleting a selection of works', () => {
     await selectAll()
     await press(screen.getByText('Delete').closest('button'))
 
-    const dialog = screen.getByRole('dialog')
+    // ALERTDIALOG, because this one destroys something. `ConfirmDialog` takes
+    // the role the pack gives it (`book-detail.dc.html:562`) whenever the act
+    // is destructive or final, so a screen reader interrupts rather than waits —
+    // and asking for it by name here is what keeps this question in that class.
+    const dialog = screen.getByRole('alertdialog')
     expect(within(dialog).getByText(/Delete 2 items/)).toBeTruthy()
     expect(CALLS.some(([m]) => m === 'DELETE')).toBe(false)
   })

@@ -8442,6 +8442,11 @@ html[data-theme="dark"] .board-cover {
   .confirm-rule.is-soft { background: var(--hl-4); }
   .confirm-tag { display: block; margin-bottom: 6px; color: var(--error); }
   .confirm-tag.is-soft { color: var(--hl-4); }
+  /* The sentence under the question — the pack's `dialogNote`, faint and set
+     below the body rather than beside the tag, because it is instructions and
+     the tag is the verdict. `.microcopy` carries the size; only the room it
+     needs above the buttons is stated here. */
+  .confirm-note { margin: 0 0 18px; color: var(--faint); }
   .tp-btn.tp-btn-danger-fill {
     border-color: var(--error);
     background: var(--error);

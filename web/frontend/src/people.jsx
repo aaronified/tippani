@@ -738,7 +738,11 @@ export function chipRows(images, speaker, onOpen, { withActor = true } = {}) {
 // strings on ONE line are the same name, where both came from the same reader
 // typing. Lowercase and collapsed whitespace answers that, and a miss costs one
 // duplicate chip rather than a wrong lookup.
-function creditKey(s) {
+// EXPORTED, so the film card can ask the same question about the same names.
+// A second fold written next to a caller is how two answers to "are these the
+// same name" come to disagree — which the paragraph above already says about the
+// Go one, and applies just as well inside this file's own language.
+export function creditKey(s) {
   return String(s || '').trim().toLowerCase().replace(/\s+/g, ' ')
 }
 

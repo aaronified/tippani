@@ -3635,6 +3635,9 @@ export function ConfirmDialog({
   // destructive nor undoable, and keeps this change from putting "Cannot be
   // undone" into the mouth of every caller that has not been read yet.
   reversible,
+  // The sentence under the question, where the caller has one of its own. The
+  // two defaults are the pack's; see the note below.
+  note,
   // The verb destroys something. Independent of `reversible`: a move to the bin
   // is destructive AND undoable, which is exactly the pair the pack's own bin
   // dialogs draw.
@@ -3671,7 +3674,14 @@ export function ConfirmDialog({
       onMouseDown={backdropClose(onCancel)}
     >
       <div
-        role="dialog"
+        // ALERTDIALOG WHERE THE ACT DESTROYS SOMETHING OR CANNOT BE TAKEN BACK —
+        // the pack's own role on this dialog (`book-detail.dc.html:562`), and the
+        // case the role exists for: it tells a screen reader to interrupt rather
+        // than wait its turn. NOT on every confirm, though the pack draws only
+        // the one: this component also asks "discard three unsaved fields?" and a
+        // dozen other reversible questions, and a role that interrupts for all of
+        // them teaches the reader to ignore the interruption.
+        role={danger || reversible === false ? 'alertdialog' : 'dialog'}
         aria-modal="true"
         aria-label={title}
         className="hand-card hc-r2 w-full max-w-md px-6 py-6"
@@ -3694,6 +3704,23 @@ export function ConfirmDialog({
           >
             {body}
           </div>
+        )}
+        {/* WHAT HAPPENS TO THE THING, under the question. The pack's fourth line
+            (`book-detail.dc.html:568`, `:4128-4131`) and the half of its finality
+            the app had not built: the tag above says WHETHER this can be undone
+            and this says HOW — it waits in the bin and the toast offers an
+            immediate Undo, or nothing here is recoverable. A tag alone is a
+            verdict with no instructions.
+
+            DRAWN ONLY WHERE THE CALLER STATED REVERSIBILITY, exactly as the rule
+            and the tag are, so a confirm that has not been read yet gains no
+            sentence about a bin it may not use. `note` overrides it for the
+            callers whose answer is neither of the two — the pack allows that too
+            (`confirm.note ||`). */}
+        {reversible === undefined ? null : (
+          <p className="microcopy confirm-note">
+            {note || t(reversible ? 'common.confirm.undoable.note' : 'common.confirm.final.note')}
+          </p>
         )}
         <div className="flex justify-end gap-2">
           <GhostButton onClick={onCancel}>{t("common.action.cancel.label")}</GhostButton>

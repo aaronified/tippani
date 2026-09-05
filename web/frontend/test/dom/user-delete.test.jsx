@@ -56,7 +56,11 @@ describe('deleting another account', () => {
     render(<UserManagement me={ME} />)
     await pressDelete(await rowFor('bob'))
 
-    const dialog = screen.getByRole('dialog')
+    // ALERTDIALOG, because this one destroys something. `ConfirmDialog` takes
+    // the role the pack gives it (`book-detail.dc.html:562`) whenever the act
+    // is destructive or final, so a screen reader interrupts rather than waits —
+    // and asking for it by name here is what keeps this question in that class.
+    const dialog = screen.getByRole('alertdialog')
     expect(within(dialog).getByText(/Delete user "bob"\?/)).toBeTruthy()
     expect(within(dialog).getByText(/books and annotations are removed too/)).toBeTruthy()
     // The dialog is a question, not a receipt.

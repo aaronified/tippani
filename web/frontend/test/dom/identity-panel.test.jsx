@@ -569,10 +569,17 @@ describe('merging two records into one', () => {
 
     await openMerge()
     fireEvent.change([...document.querySelectorAll('[role=dialog] input')].find((i) => i.type !== 'file'), { target: { value: 'Bulgakov' } })
-    await screen.findByText('M. Bulgakov')
+    // WAITED FOR INSIDE THE SHEET, and that is the whole of a flake this file
+    // carried: `M. Bulgakov` is also one of this record's own ALIASES, printed on
+    // the panel before the search has returned anything — so a bare
+    // `findByText('M. Bulgakov')` was satisfied by the alias, the wait ended
+    // early, and the row's second line was read before the hits had rendered. It
+    // passed alone and failed under a loaded full run, which is the shape of a
+    // race and not of a defect in the app.
+    const list = within(document.getElementById('person-merge'))
+    await waitFor(() => expect(list.queryByText('M. Bulgakov')).toBeTruthy())
     // Merging a record into itself is refused by the server, so a row for it here
     // would be a control whose only possible outcome is an error.
-    const list = within(document.getElementById('person-merge'))
     expect(list.queryByText('1 work')).toBeTruthy()
     // Scoped for the same reason: this record's name is on its own header and in
     // its name row, and neither of those is an offer to merge into itself.

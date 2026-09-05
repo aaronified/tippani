@@ -87,18 +87,23 @@ describe('the row builder', () => {
 })
 
 describe('the film frame', () => {
-  it('asks for chips without the performer, because its credit line has them', async () => {
-    // AN INVENTORY, and the half that would have caught this: the component
-    // taking an answer is worth nothing while the one screen that duplicates
-    // still asks the old way. Read off the source, because rendering the whole
-    // film frame needs a work, a cast, a people map and four fetches.
+  it('keeps the performer IN the chip, and drops the line instead', async () => {
+    // THE OWNER'S RULING, given twice and read backwards the first time: "the
+    // actor is named below, not in the pill", then "still 2 lines everywhere
+    // instead of the actor in the pill". The duplication was real and the half
+    // that goes is the LINE. This case used to require the opposite, which is how
+    // the wrong reading survived a green suite.
+    //
+    // The count itself is measured on a rendered card in
+    // `dom/one-name-one-place.test.jsx`; what is read here is that the film frame
+    // has not gone back to asking for a chip with no performer on it.
     const { readFileSync } = await import('node:fs')
     const { join } = await import('node:path')
     const src = readFileSync(join(process.env.TIPPANI_SRC, 'Movies.jsx'), 'utf8')
-    const chip = src.match(/<SpeakerChips[\s\S]{0,600}?\/>/)
+    const chip = src.match(/<SpeakerChips[\s\S]{0,1600}?\/>/)
     expect(chip, 'the film frame draws no chips at all').toBeTruthy()
-    expect(chip[0], 'the film frame prints the performer on its credit line AND under the character')
-      .toMatch(/withActor=\{false\}/)
+    expect(chip[0], 'the film frame asks for a chip with no performer under the character')
+      .not.toMatch(/withActor=\{false\}/)
   })
 })
 

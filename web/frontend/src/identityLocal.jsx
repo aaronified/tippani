@@ -371,20 +371,33 @@ export function CharacterLocal({
         ]}
       />
 
-      {/* THE WAY UP. One row, and it carries the record's own face so the reader
-          can see it is the same character before pressing. The count beside it is
-          the works the identity spans, which is the fact that makes the door
-          worth opening. */}
-      <SectionHead label={t('identity.section.identity.label')} note={t('identity.section.identity.note')} />
-      <ScreenRow
-        label={t('identity.row.global.label')}
-        sub={t('identity.row.global.sub')}
-        face={record.image_path ? coverImgURL(record.image_path) : ''}
-        faceName={record.name}
-        badge={t('identity.badge.global')}
-        meta={t('identity.row.global.works', { n: workCount, count: workCount })}
-        onClick={onOpenGlobal}
-      />
+      {/* THE WAY UP, AND ONLY WHERE IT LEADS SOMEWHERE ELSE. One row, carrying the
+          record's own face so the reader can see it is the same character before
+          pressing, and the count of works the identity spans beside it — which is
+          the fact that makes the door worth opening.
+
+          NOT DRAWN ON A CHARACTER WITH ONE WORK. The owner's ruling: "all
+          work-character will also work as global character if their global
+          character only contains them (single work). in that case, no need to
+          show the global-character link anywhere." The two records really are the
+          same thing there — the global holds this appearance and nothing else —
+          so the row offered a door back to the screen you are standing on, with a
+          badge saying it was somewhere different. A count of one is the whole
+          test, and it is a fact this sheet already has. */}
+      {workCount > 1 ? (
+        <>
+          <SectionHead label={t('identity.section.identity.label')} note={t('identity.section.identity.note')} />
+          <ScreenRow
+            label={t('identity.row.global.label')}
+            sub={t('identity.row.global.sub')}
+            face={record.image_path ? coverImgURL(record.image_path) : ''}
+            faceName={record.name}
+            badge={t('identity.badge.global')}
+            meta={t('identity.row.global.works', { n: workCount, count: workCount })}
+            onClick={onOpenGlobal}
+          />
+        </>
+      ) : null}
 
       {/* AND THE WAY OUT, which is not a delete. Unlinking one work leaves the
           identity and every other work alone, and the sub-line says which,

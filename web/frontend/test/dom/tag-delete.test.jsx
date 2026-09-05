@@ -63,7 +63,11 @@ describe('deleting a tag', () => {
     // is being asked at all. Read INSIDE the dialog: the chip on the card behind
     // it says "memory · 11" too, and a page-wide match would pass with an empty
     // dialog on screen.
-    const dialog = screen.getByRole('dialog')
+    // ALERTDIALOG, because this one destroys something. `ConfirmDialog` takes
+    // the role the pack gives it (`book-detail.dc.html:562`) whenever the act
+    // is destructive or final, so a screen reader interrupts rather than waits —
+    // and asking for it by name here is what keeps this question in that class.
+    const dialog = screen.getByRole('alertdialog')
     expect(within(dialog).getByText(/11/)).toBeTruthy()
     // AND NOTHING HAS GONE YET. The dialog is a question, not a receipt.
     expect(CALLS.some(([m]) => m === 'DELETE')).toBe(false)
@@ -96,7 +100,11 @@ describe('deleting a tag', () => {
     render(<TagsPage />)
     const card = await cardFor('unused')
     await pressIn(card, 'delete')
-    const dialog = screen.getByRole('dialog')
+    // ALERTDIALOG, because this one destroys something. `ConfirmDialog` takes
+    // the role the pack gives it (`book-detail.dc.html:562`) whenever the act
+    // is destructive or final, so a screen reader interrupts rather than waits —
+    // and asking for it by name here is what keeps this question in that class.
+    const dialog = screen.getByRole('alertdialog')
     expect(within(dialog).queryByText(/11/)).toBeNull()
     // Just the question, with no clause about quotes that do not exist.
     expect(within(dialog).getByText(/Delete tag "unused"\?/)).toBeTruthy()

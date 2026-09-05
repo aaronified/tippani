@@ -260,11 +260,29 @@ func BranchBuild(version string) (branch, commit string, ok bool) {
 	return fmt.Sprintf("v%d", nums[0]), pre[1], true
 }
 
-// BranchHead is the short commit sha at the tip of a branch. Used by the update
-// check for a build that tracks a moving IMAGE TAG rather than a release: `:v3`
-// is rebuilt on every push, and no GitHub release is created for any of them, so
-// the release list — which is all the pre-release channel could see — reports
-// nothing new while the image the box would pull has moved several times.
+// BranchHead is the commit sha at the tip of a branch, AS GITHUB GIVES IT — all
+// forty characters. Used by the update check for a build that tracks a moving
+// IMAGE TAG rather than a release: `:v3` is rebuilt on every push, and no GitHub
+// release is created for any of them, so the release list — which is all the
+// pre-release channel could see — reports nothing new while the image the box
+// would pull has moved several times.
+//
+// IT USED TO RETURN `out.SHA[:7]`, AND THAT WAS A GHOST-UPDATE MACHINE. The
+// version CI stamps carries `git rev-parse --short HEAD`, and `--short` is NOT a
+// fixed width: git derives it from `core.abbrev`, which grows with the object
+// count to keep abbreviations unambiguous. This repository crossed that boundary
+// and started stamping EIGHT characters, so the running build said
+// `3.0.0-edge.v3.cff9ae6e` while the head read back as `cff9ae6` — never equal,
+// so every check offered an update to the commit already installed. The owner's
+// report is the diagnosis: "this is now checking one letter short in update and
+// finding ghost updates."
+//
+// SO THE TRUNCATION LEFT ENTIRELY, rather than moving to eight. A fixed width
+// here is a bet on a number git is free to change again, and on every image
+// already published carrying the width it happened to be built with. The caller
+// compares with SameCommit, which asks the question that is actually being asked
+// — are these two abbreviations of one commit — and abbreviates for display
+// afterwards.
 func BranchHead(ctx context.Context, apiBase, repo, branch string) (string, error) {
 	var out struct {
 		SHA string `json:"sha"`
@@ -276,7 +294,44 @@ func BranchHead(ctx context.Context, apiBase, repo, branch string) (string, erro
 	if len(out.SHA) < 7 {
 		return "", fmt.Errorf("branch %s has no commit", branch)
 	}
-	return out.SHA[:7], nil
+	return out.SHA, nil
+}
+
+// SameCommit reports whether two commit shas name the same commit, given that
+// either may be an abbreviation of the other.
+//
+// A PREFIX MATCH IS THE HONEST TEST and an equality is not: one side is what CI
+// stamped into a version at whatever width git chose that day, and the other is
+// GitHub's full forty. Neither length is a fact about the commit. Case-folded
+// because a sha is hex and a hand-typed one may be either case.
+//
+// SEVEN IS THE FLOOR, so an empty string or a stray character cannot match every
+// commit in the repository — which would silently report every box as up to date
+// and is the failure worth guarding against, being the one nobody would report.
+func SameCommit(a, b string) bool {
+	a, b = strings.ToLower(strings.TrimSpace(a)), strings.ToLower(strings.TrimSpace(b))
+	if len(a) < 7 || len(b) < 7 {
+		return false
+	}
+	if len(a) > len(b) {
+		a, b = b, a
+	}
+	return strings.HasPrefix(b, a)
+}
+
+// AbbrevCommit shortens a sha to the width of the one it will be shown beside, so
+// "v3 @ cff9ae6e" and "you're on 3.0.0-edge.v3.cff9ae6e" read as the same kind of
+// thing. Bounded at seven so it stays a usable abbreviation, and never grown past
+// what it was given.
+func AbbrevCommit(sha string, like string) string {
+	n := len(strings.TrimSpace(like))
+	if n < 7 {
+		n = 7
+	}
+	if n > len(sha) {
+		n = len(sha)
+	}
+	return sha[:n]
 }
 
 // IsPrerelease reports whether a version string is a semver pre-release —

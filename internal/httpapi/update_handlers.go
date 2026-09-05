@@ -152,11 +152,18 @@ func (s *Server) handleUpdateCheck(w http.ResponseWriter, r *http.Request) {
 				// version, and a branch that has been deleted (merged and tidied
 				// away) is a 404 rather than a reason to fail the request.
 				olog.Printf("[update] branch head for user %d (%s): %v", userID(r), username(r), herr)
-			case head != running:
-				out["latest"] = branch + " @ " + head
-				out["latest_commit"] = head
+			// BY PREFIX, NOT BY EQUALITY. `running` is however many characters
+			// git abbreviated to on the day CI stamped it — seven once, eight
+			// since this repository grew — and `head` is GitHub's full forty.
+			// Comparing them as strings offered an update to the commit already
+			// installed, on every check, for ever: "this is now checking one
+			// letter short in update and finding ghost updates."
+			case !updater.SameCommit(head, running):
+				short := updater.AbbrevCommit(head, running)
+				out["latest"] = branch + " @ " + short
+				out["latest_commit"] = short
 				out["update_available"] = true
-				out["notes_url"] = "https://github.com/" + buildinfo.Repo() + "/compare/" + running + "..." + head
+				out["notes_url"] = "https://github.com/" + buildinfo.Repo() + "/compare/" + running + "..." + short
 			}
 		}
 	}

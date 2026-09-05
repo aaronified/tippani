@@ -86,7 +86,7 @@ const book = (over = {}, props = {}) =>
 const film = (over = {}, props = {}) =>
   render(
     <Frame
-      d={{ id: 1, quote: 'Let everything come true.', tags: [], character: 'the Stalker', actor: 'Aleksandr Kaydanovskiy', speaker_cast: { ...SPEAKER, name: 'the Stalker' }, ...over }}
+      d={{ id: 1, quote: 'Let everything come true.', tags: [], character: 'the Stalker', actor: 'Aleksandr Kaydanovskiy', speaker_cast: { ...SPEAKER, name: 'the Stalker', actor: 'Aleksandr Kaydanovskiy' }, ...over }}
       editing={false}
       tagMap={{}}
       onOpenCharacter={(sp) => opened.push(sp)}
@@ -159,10 +159,18 @@ describe('a film line’s speaker', () => {
     const c = chip()
     expect(c, 'no chip on a film line').toBeTruthy()
     expect(within(c).getByText('the Stalker')).toBeTruthy()
-    // THE ACTOR IS NOT THE CHARACTER. The chip replaces the character TEXT and
-    // nothing else; a line that stopped naming its performer would have lost the
-    // fact the cast table exists to keep.
-    expect(screen.getByText(/Aleksandr Kaydanovskiy/)).toBeTruthy()
+    // THE ACTOR IS NOT THE CHARACTER, and both are on the chip — the character as
+    // its name, the performer under it. A line that stopped naming its performer
+    // would have lost the fact the cast table exists to keep; a line that names
+    // them twice is what the owner reported. Once, in the pill.
+    // ON THE CHIP'S OWN SUB-LINE, read off the element rather than by text:
+    // `clip` shortens a long name there — the app's one deliberate truncation,
+    // ruled on by the owner — so a match against the full string would fail for a
+    // reason that has nothing to do with where the name is.
+    const sub = c.querySelector('.person-chip-sub')
+    expect(sub, 'the chip carries no performer under the character').toBeTruthy()
+    expect('Aleksandr Kaydanovskiy'.startsWith(sub.textContent.replace(/…$/, '')),
+      `the chip's sub-line is ${sub.textContent}, not the performer`).toBe(true)
     expect(screen.getAllByText(/the Stalker/)).toHaveLength(1)
   })
 
