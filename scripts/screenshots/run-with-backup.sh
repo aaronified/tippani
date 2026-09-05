@@ -27,13 +27,41 @@ PASSWORD="${TIPPANI_BACKUP_PASSWORD:-}"
 [ -n "$ARCHIVE" ] || { echo "set TIPPANI_BACKUP to a .tpbk archive" >&2; exit 2; }
 [ -f "$ARCHIVE" ] || { echo "no archive at $ARCHIVE" >&2; exit 2; }
 
+# AND SWEEP UP AFTER A RUN THAT WAS KILLED OUTRIGHT. A trap cannot answer
+# SIGKILL, so the only way a restored library never accumulates is for the NEXT
+# run to remove what the last one could not. A directory is one of ours if it is a
+# mktemp holding a `tippani.db`; anything still being served is left alone, which
+# is what the `fuser` guard is for — a concurrent run at another port is a normal
+# thing to be doing.
+for d in /tmp/tmp.*; do
+  [ -f "$d/tippani.db" ] || continue
+  if command -v fuser >/dev/null 2>&1 && fuser "$d/tippani.db" >/dev/null 2>&1; then continue; fi
+  echo "removing a data dir a killed run left behind: $d"
+  rm -rf "$d"
+done
+
 echo "building $BIN"
 (cd "$ROOT" && go build -o "$BIN" ./cmd/tippani)
 
 echo "starting tippani against $DATA on $BIND"
 TIPPANI_DATA="$DATA" TIPPANI_BIND="$BIND" "$BIN" serve &
 PID=$!
-trap 'kill "$PID" 2>/dev/null || true; wait "$PID" 2>/dev/null || true; rm -rf "$DATA" "$(dirname "$BIN")"' EXIT
+# ON EVERY SIGNAL, NOT ONLY ON EXIT — and this was found the way these things are
+# found: nine directories, each holding a full restored copy of the owner's
+# library, left on disk by runs that were interrupted. `trap … EXIT` fires when
+# the shell RETURNS; a run stopped with a TERM (which is what a harness, a Ctrl-C
+# or a supervisor sends) never gets there, so the server kept running and its data
+# dir stayed. The whole point of the mktemp is that somebody's library does not
+# outlive the run that needed it, and a cleanup that only covers the tidy case
+# does not do that.
+#
+# SIGKILL still cannot be trapped, by construction. What answers that is the
+# sweep at the head of this script, which removes any data dir a previous run
+# left behind before this one starts.
+cleanup() { kill "$PID" 2>/dev/null || true; wait "$PID" 2>/dev/null || true; rm -rf "$DATA" "$(dirname "$BIN")"; }
+trap cleanup EXIT
+trap 'cleanup; exit 130' INT
+trap 'cleanup; exit 143' TERM HUP
 
 ok=0
 for _ in $(seq 1 40); do
