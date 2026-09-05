@@ -132,7 +132,25 @@ const SURFACES = [
   // and `aria-expanded` is exactly what distinguishes it: the row sets it only on
   // the fallback that toggles a URL, i.e. on a cast row with no character record
   // behind it.
-  { route: '/catalogue/{movie}', name: 'Character panel', needs: 'movie', door: { selector: '.cast-character button:not([aria-expanded])' } },
+  {
+    // THE FILM THIS ONE NEEDS IS ONE WITH A CAST, which is not the same film as
+    // `Film detail`'s: the first film in a library often has an empty cast, and
+    // then there is no character to open and the surface reports itself broken
+    // when nothing is.
+    route: '/catalogue/{cast}',
+    name: 'Character panel',
+    needs: 'cast',
+    // THREE PRESSES, WHICH IS HOW MANY IT TAKES A READER. A film page draws no
+    // cast at all — measured, `.cast-character` is present zero times on
+    // `/catalogue/{id}` — because the cast lives in the Details panel, and there
+    // it is folded behind its own opener. A door written as one selector reported
+    // this surface unreachable while every press worked by hand.
+    door: [
+      { selector: '.tp-btn', text: 'Details' },
+      { selector: 'button[aria-label*="people" i]' },
+      { selector: '.cast-character button:not([aria-expanded])' },
+    ],
+  },
 ]
 
 // resolveSurfaces — turn `{book}` / `{movie}` into ids this library actually has.
@@ -150,11 +168,38 @@ async function resolveSurfaces(page, baseUrl) {
         return list.length ? list[0].id : 0
       } catch { return 0 }
     }
-    return { book: await one('/api/books?limit=1', 'books'), movie: await one('/api/movies?limit=1', 'movies') }
+    // A FILM WITH A CAST, for the surface that is reached through one. The first
+    // film in the library is whichever one sorts first, and a library's first
+    // film very often has no cast at all — the one this run met had none, so the
+    // character panel reported itself unreachable while the app was fine. Asked
+    // of the record rather than guessed from the list, because `cast` is not on
+    // the list payload; bounded, because this is a probe's setup and not a
+    // search.
+    const withCast = async () => {
+      try {
+        const r = await fetch('/api/movies?limit=30', { credentials: 'same-origin' })
+        const list = (await r.json()).movies || []
+        // THE FULLEST CAST, not the first non-empty one. A film with a single
+        // cast row can have that row be an actor nobody has linked to a
+        // character, and then the door is missing for a reason that is about
+        // that film rather than about the app.
+        let best = 0
+        let most = 0
+        for (const m of list.slice(0, 12)) {
+          const d = await (await fetch(`/api/movies/${m.id}`, { credentials: 'same-origin' })).json()
+          const n = (d.cast || d.movie?.cast || []).length
+          if (n > most) { most = n; best = m.id }
+        }
+        if (best) return best
+      } catch { /* fall through to the first film */ }
+      return 0
+    }
+    const movie = await one('/api/movies?limit=1', 'movies')
+    return { book: await one('/api/books?limit=1', 'books'), movie, cast: (await withCast()) || movie }
   })
   return SURFACES.filter((s) => !s.needs || ids[s.needs]).map((s) => ({
     ...s,
-    route: s.route.replace(/\{(book|movie)\}/g, (_, k) => String(ids[k])),
+    route: s.route.replace(/\{(book|movie|cast)\}/g, (_, k) => String(ids[k])),
   }))
 }
 
@@ -219,6 +264,17 @@ try {
       focus: a && a !== document.body ? `${a.tagName}#${a.id}.${(a.className || '').toString().slice(0, 24)}` : '',
       scroll: Math.round((document.querySelector('.tp-panel-body') || document.scrollingElement).scrollTop),
       text: top.textContent.replace(/\s+/g, ' ').trim().slice(0, 600),
+      // AND THE WHOLE PAGE'S LENGTH, because `text` above is the first 600
+      // characters of the top surface and a great deal happens outside it. The
+      // phone drawer is the case that proved it: pressing Menu on a film page
+      // opened the drawer — measured, 1216 characters of body text became 1449 —
+      // and NOTHING in this fingerprint moved, because the drawer is not a
+      // `.tp-panel`, carries no `role=dialog`, and appends its content past the
+      // 600th character. The probe reported a working control as one that does
+      // nothing and does not say so, which is the failure this file's own comment
+      // warns is fatal to a gate: "a gate that reports a defect that is not there
+      // gets switched off exactly as fast as one that misses a defect that is".
+      body: document.body.textContent.replace(/\s+/g, ' ').trim().length,
       toasts: document.querySelectorAll('[class*=toast]').length,
       // The four effects that never reach the document — see the hooks above.
       fx: JSON.stringify(window.__tpFx || {}),
@@ -322,7 +378,7 @@ try {
 
   const differs = (a, b) => a.url !== b.url || a.panels !== b.panels || a.dialogs !== b.dialogs
     || a.inputs !== b.inputs || a.focus !== b.focus || a.scroll !== b.scroll
-    || a.text !== b.text || a.toasts !== b.toasts || a.expanded !== b.expanded
+    || a.text !== b.text || a.body !== b.body || a.toasts !== b.toasts || a.expanded !== b.expanded
     || a.fx !== b.fx
     // COLLECTED AND NEVER COMPARED, which is its own small lesson: both of these
     // were read on every press so an EMPTY menu could be reported, and neither was
@@ -480,12 +536,32 @@ try {
       // whole run on its LAST surface and took every finding of both passes with
       // it, because the summary prints after the loop. Fifty minutes of measuring
       // discarded by a race in the measuring.
-      const opened = await page.evaluate((d) => {
-        const b = [...document.querySelectorAll(d.selector)].find((x) => x.textContent.includes(d.text))
-        if (!b) return false
-        b.click()
-        return true
-      }, surface.door).catch(() => 'detached')
+      // A DOOR MAY TAKE MORE THAN ONE PRESS, and the character panel's does: a
+      // film page draws no cast at all — its cast lives in the Details panel — so
+      // reaching a character means opening Details first and pressing the
+      // character's name inside it. Measured: `.cast-character` is present zero
+      // times on `/catalogue/{id}` and the surface reported itself unreachable
+      // for as long as the door was one selector.
+      //
+      // `text` IS OPTIONAL, and its absence used to be a silent miss: this read
+      // `x.textContent.includes(d.text)` with `d.text` undefined, and
+      // `includes(undefined)` searches for the literal string "undefined" — so a
+      // door with no text matched nothing at all and the surface was reported as
+      // never opening. A defaulted argument that changes what a predicate MEANS
+      // is worse than a missing one.
+      const steps = Array.isArray(surface.door) ? surface.door : [surface.door]
+      let opened = true
+      for (const step of steps) {
+        opened = await page.evaluate((d) => {
+          const all = [...document.querySelectorAll(d.selector)]
+          const b = d.text ? all.find((x) => x.textContent.includes(d.text)) : all[0]
+          if (!b) return false
+          b.click()
+          return true
+        }, step).catch(() => 'detached')
+        if (opened !== true) break
+        await settled()
+      }
       if (opened === 'detached') {
         await new Promise((r) => setTimeout(r, 800))
         return await waitFor(() => page.evaluate(() => !!document.querySelector('.tp-panel')).catch(() => false))
@@ -520,7 +596,7 @@ try {
       // every run and the exit code would never say so. It belongs with the
       // screens that did not render, for the same reason: nothing on it was
       // tested, and "0 findings" reads as a pass.
-      findings.blank.push(`${surface.name}: the door it is reached through (${surface.door.selector}) did not open a panel — nothing on this surface was tested`)
+      findings.blank.push(`${surface.name}: the door it is reached through (${(Array.isArray(surface.door) ? surface.door : [surface.door]).map((d) => d.selector).join(' → ')}) did not open a panel — nothing on this surface was tested`)
       console.log(`FAIL  ${surface.name.padEnd(14)} door did not open`)
       continue
     }
