@@ -290,7 +290,18 @@ export function ScreenRow({
           {sub ? <span className="cs-row-sub">{sub}</span> : null}
         </span>
         {badge ? <span className="cs-row-badge">{badge}</span> : null}
-        {meta ? <span className={'cs-row-meta' + (monoMeta ? ' is-mono' : '')}>{meta}</span> : null}
+        {/* THE VALUE SCROLLS TOO, AND IT HAS TO GIVE WAY. It was `flex: none` with
+            no scroller, so a long one — a per-work description is free text — took
+            its whole width out of the row and squeezed the LABEL's scroller until
+            "In this work" clipped to "In this wor". The reported clip was fixed by
+            shortening the string beside it, which is the repair CLAUDE.md names as
+            wrong: "If text clips, grow the box." The box gives way now, and what
+            does not fit scrolls under the fade rather than being cut — this value
+            is a NAME on some rows (the character a work bills) and the standing
+            rule binds it. */}
+        {meta ? (
+          <NameScroll className={'cs-row-meta' + (monoMeta ? ' is-mono' : '')}>{meta}</NameScroll>
+        ) : null}
         {edit ? (
           <span className="cs-row-pencil" aria-hidden="true"><IconEdit size={15} /></span>
         ) : null}

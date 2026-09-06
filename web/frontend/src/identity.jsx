@@ -114,10 +114,24 @@ export function characterPanel(stack, { id, name, work = null, onSearch = null, 
 //
 // SEE `ChooseList` for why this is a panel rather than a modal. In short: the
 // question and every answer to it now wear the same chrome.
-export function choosePanel(stack, spec) {
+//
+// AND ANSWERING IT DISMISSES NOTHING, which is the whole difference between the
+// two surfaces and the thing the first cut got wrong. A modal is a layer OVER
+// the screen, so its rows close it on the way out; this panel IS the top of the
+// stack, and every row here answers with `stack.open(...)`, which REPLACES the
+// top. There is nothing left to dismiss — and dismissing anyway walked one entry
+// past the answer: `back()` popped the chooser's own history entry, the popstate
+// guard truncated the stack to nothing, and pressing a row closed the lot.
+// Measured after the press: `history.state` null, zero panels on screen. On Home
+// that was a REGRESSION — before this change the pill opened a panel and kept it.
+//
+// So the contract is stated rather than assumed: a row on THIS surface navigates,
+// and a row that merely acts belongs in `ChoosePicker`, where the removal lists
+// already are.
+export function choosePanel(_stack, spec) {
   return {
     title: spec.title,
-    render: () => <ChooseList spec={spec} onDone={() => stack.back()} />,
+    render: () => <ChooseList spec={spec} onDone={() => {}} />,
   }
 }
 

@@ -193,11 +193,34 @@ describe('a row on the character sheet', () => {
     expect(sub, `the row says its scope twice: "In this work" then "${sub}"`).toBe('')
   })
 
-  it('and says the absence of a value in a word, not a sentence', () => {
+  it('and says the absence of a value in the same word the row beside it uses', () => {
+    // A LENGTH TEST WAS TOOTHLESS AND SHIPPED. The first version of this case
+    // allowed anything under 40 characters, and the string it was written against
+    // — "nothing written for this work" — is 29: it passed on the code it was
+    // meant to fail. What is actually being asked is that two rows on one sheet,
+    // both saying "there is nothing here", say it the same way. The Note row's
+    // word is the one to match, because it was already right.
     sheet()
+    const empty = (label) => (rowFor(label)?.querySelector('.cs-row-meta')?.textContent || '').trim()
+    const note = empty('Note')
+    expect(note, 'the Note row no longer prints an empty value to compare against').toBeTruthy()
+    expect(empty('In this work'),
+      `the two empty values on one sheet read differently: "${empty('In this work')}" and "${note}"`)
+      .toBe(note)
+  })
+
+  it('and the value gives way rather than squeezing the label into a clip', () => {
+    // THE CLIP WAS A LAYOUT, NOT A STRING. "In this wor" happened because the
+    // value beside it could not shrink, so shortening the value fixed the symptom
+    // for one value and left the next long one to do it again. A real description
+    // is free text; the row has to hold it without cutting the label.
+    sheet({ description: 'A prison librarian, a rock hammer, and nineteen years of patience — the part as this film has it.' })
     const row = rowFor('In this work')
-    const value = (row.querySelector('.cs-row-meta, .cs-row-value')?.textContent || row.textContent).trim()
-    expect(value.length, `the empty value is a sentence: "${value}"`).toBeLessThan(40)
+    const label = row.querySelector('.cs-row-label')
+    expect(label.textContent, 'the label is not the one under test').toBe('In this work')
+    const meta = row.querySelector('.cs-row-meta')
+    expect(meta.className, 'the value cannot scroll, so what does not fit is simply gone')
+      .toMatch(/name-scroll/)
   })
 
   it('and says nothing at all where a character has no other name', () => {

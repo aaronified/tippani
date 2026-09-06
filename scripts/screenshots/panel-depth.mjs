@@ -142,6 +142,72 @@ try {
     console.log(`ok    a panel opened from inside a panel — depth 2, showing ${JSON.stringify(after.text)}`)
   }
 
+  // ── AND ANSWERING A QUESTION LANDS ON THE ANSWER, which is the third thing
+  // only a browser can answer and the one that cost a working door.
+  //
+  // A character chip on a quote card asks which record you meant, and the sheet
+  // it asks in is a PANEL: every row answers with `open()`, which REPLACES the
+  // top. The first cut had the rows dismiss the question afterwards — right for
+  // the modal it used to be, one entry too far for a panel — so the press popped
+  // the entry UNDER the answer, the popstate guard truncated the stack, and
+  // pressing an answer closed everything. jsdom cannot see it: `history.back()`
+  // there delivers no popstate, so four cases in `speaker-destinations.test.jsx`
+  // passed against the broken version. This is where it is visible.
+  //
+  // FROM THE FILM PAGE, not from the panel that is currently up: the chips this
+  // presses are on the quote cards behind it.
+  await page.goto(`${opts.baseUrl}/catalogue/${opts.movieId}`, { waitUntil: 'networkidle2' })
+  await new Promise((r) => setTimeout(r, 1800))
+  const asked = await page.evaluate(() => {
+    const c = [...document.querySelectorAll('article .person-chip, .film-frame .person-chip')]
+      .find((x) => x.getAttribute('aria-disabled') !== 'true')
+    if (!c) return null
+    c.click()
+    return c.textContent.replace(/\s+/g, ' ').trim().slice(0, 40)
+  })
+  if (asked === null) {
+    console.log('note  no live character chip on a quote card here, so the answering case did not run')
+  } else {
+    await new Promise((r) => setTimeout(r, 1800))
+    const answered = await page.evaluate(() => {
+      const rows = [...document.querySelectorAll('.cs-choose')].filter((b) => b.getAttribute('aria-disabled') !== 'true')
+      if (rows.length < 2) return { asked: rows.length }
+      const label = rows[rows.length - 1].querySelector('.cs-choose-label')?.textContent || ''
+      rows[rows.length - 1].click()
+      return { asked: rows.length, label }
+    })
+    if (answered.asked < 2) {
+      console.log(`note  the chip ${JSON.stringify(asked)} offered ${answered.asked} live answer(s), so nothing was pressed`)
+    } else {
+      await new Promise((r) => setTimeout(r, 1600))
+      const landed = await page.evaluate(() => ({
+        panels: document.querySelectorAll('.tp-panel').length,
+        title: (document.querySelector('.tp-panel-title, .tp-panel-names')?.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 50),
+        stillAsking: !!document.querySelector('.cs-choose'),
+      }))
+      if (landed.panels === 0) {
+        console.log(`FAIL  answering "${answered.label}" closed everything — the question dismissed a surface its own answer had replaced`)
+        failures++
+      } else if (landed.stillAsking) {
+        console.log('FAIL  the question is still on screen after an answer was pressed')
+        failures++
+      } else if (!landed.title.includes(answered.label.split(' ')[0])) {
+        console.log(`FAIL  answering "${answered.label}" landed on ${JSON.stringify(landed.title)}`)
+        failures++
+      } else {
+        console.log(`ok    answering "${answered.label}" lands on ${JSON.stringify(landed.title)}`)
+      }
+    }
+  }
+
+  // Back to a nested panel for the crumb measurement below.
+  await page.goto(`${opts.baseUrl}/catalogue/${opts.movieId}`, { waitUntil: 'networkidle2' })
+  await new Promise((r) => setTimeout(r, 1400))
+  await page.evaluate(() => [...document.querySelectorAll('.tp-btn')].find((x) => x.textContent.trim() === 'Details')?.click())
+  await new Promise((r) => setTimeout(r, 1400))
+  await page.evaluate(() => document.querySelector('.cs-face-tile:not([aria-disabled])')?.click())
+  await new Promise((r) => setTimeout(r, 1600))
+
   // ── AND THE BACK CRUMB STAYS OUT OF THE TITLE, which is the other thing only a
   // browser can answer.
   //

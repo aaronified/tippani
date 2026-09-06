@@ -8595,7 +8595,16 @@ html[data-theme="dark"] .board-cover {
     flex: none; padding: 3px 7px; border-radius: 6px; white-space: nowrap;
     border: 1px solid color-mix(in oklab, var(--accent-ui), transparent 62%);
   }
-  .cs-row-meta { flex: none; font-size: var(--type-ui-13); color: var(--soft); }
+  /* `flex: 0 1 auto` AND A CEILING, not `flex: none`. A value that cannot shrink
+     takes its whole width out of the row and squeezes the label's scroller until
+     the label clips — which is what "In this wor" was. The ceiling keeps a long
+     value from taking the row even while it CAN shrink: a share of the container,
+     not a px, because the row scales with the type dials. `.name-scroll` supplies
+     the overflow and the fade (NameScroll writes the measurement). */
+  .cs-row-meta {
+    flex: 0 1 auto; min-width: 0; max-width: 58%;
+    font-size: var(--type-ui-13); color: var(--soft);
+  }
   .cs-row-meta.is-mono {
     font-family: var(--font-mono); font-size: var(--type-mono-12); letter-spacing: .08em;
   }

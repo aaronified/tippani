@@ -209,41 +209,153 @@ describe('pressing a chip for a character the line does not link to', () => {
 // right name": a second copy called `openCharacterDoor` would pass an import
 // check and fail this one.
 
-describe('the same pill on two different boards', () => {
-  const source = async (file) => {
-    const { readFileSync } = await import('node:fs')
+describe('the same pill on every board that draws it', () => {
+  // EVERY BOARD, DERIVED — not two files named here. The first cut read a
+  // 700-character window in `Home.jsx` and `WorkDetail.jsx`, which is a directive
+  // written repo-wide and enforced on the two screens that already obeyed it.
+  //
+  // AND SCOPED TO THE PILL, which the second cut was not: widening it to every
+  // `onOpenCharacter` flagged the cast EDITOR's row and the cast strip's tile,
+  // and those are not the control the owner was talking about. A row in a work's
+  // own cast list means "open this billing", has one destination by construction,
+  // and pushes on purpose so Back returns to the list. A pill on a quote card
+  // carries two people and up to three records, which is why it asks.
+  //
+  // So the rule is: A COMPONENT THAT DRAWS CHARACTER PILLS GETS THE SHARED DOOR.
+  // Which components those are is read from the source — they are the ones that
+  // render `SpeakerChips` — so a fourth card that starts drawing pills joins the
+  // rule by drawing them, not by being added to a list here.
+  const read = async () => {
+    const { readFileSync, readdirSync } = await import('node:fs')
     const { join } = await import('node:path')
-    return readFileSync(join(process.env.TIPPANI_SRC, file), 'utf8')
-  }
-  // The prop as each board hands it over, from `onOpenCharacter={` to the line
-  // that closes it.
-  const handler = (src) => {
-    const at = src.indexOf('onOpenCharacter={(sp)')
-    return at === -1 ? '' : src.slice(at, at + 700)
+    return readdirSync(process.env.TIPPANI_SRC)
+      .filter((f) => /\.jsx?$/.test(f))
+      .map((f) => [f, readFileSync(join(process.env.TIPPANI_SRC, f), 'utf8')])
   }
 
-  it('sends Home’s pill through the same door, rather than opening a panel itself', async () => {
-    const h = handler(await source('Home.jsx'))
-    expect(h, 'the favourites tile no longer hands a character handler down at all').toBeTruthy()
-    expect(h, 'Home opens a panel from the pill itself — one control, two behaviours')
-      .not.toMatch(/characterPanel\s*\(/)
-    expect(h).toMatch(/openCharacterDoor\s*\(/)
-  })
-
-  it('and the work page too, for the same reason', async () => {
-    const src = await source('WorkDetail.jsx')
-    expect(src, 'the work page kept its own copy of the chooser').not.toMatch(/setSpeakerChoice/)
-    expect(src).toMatch(/openCharacterDoor\s*\(/)
-  })
-
-  it('and the door itself is written once', async () => {
-    const files = ['Home.jsx', 'WorkDetail.jsx', 'identity.jsx']
-    const defs = []
-    for (const f of files) {
-      if (/function openCharacterDoor/.test(await source(f))) defs.push(f)
+  // From an index, the balanced run of braces starting at the first `{`.
+  // A REGEX FOR A FUNCTION BODY IS A REGEX FOR THE WRONG THING: the first cut
+  // stopped at the first `}` in column 0, which is a function's end only when
+  // nothing inside it is written that way — and `FavouriteTile` is, so the one
+  // card the owner reported was silently left out of its own guard.
+  const balanced = (src, from) => {
+    let i = src.indexOf('{', from)
+    if (i === -1) return ''
+    let depth = 0
+    const at = i
+    for (; i < src.length; i++) {
+      if (src[i] === '{') depth++
+      else if (src[i] === '}') { depth--; if (depth === 0) return src.slice(at, i + 1) }
     }
+    return src.slice(at)
+  }
+
+  // The components that draw a character pill: the ones whose own body renders
+  // <SpeakerChips>. Derived, so a fourth card joins by drawing them.
+  // PAST THE PARAMETERS FIRST. A destructured parameter list is itself a `{…}`,
+  // so taking the first brace after `function Name(` balances the props object
+  // and reads none of the body — which returned an empty set and made the cases
+  // below pass on nothing.
+  const afterParams = (src, from) => {
+    let depth = 0
+    for (let i = from; i < src.length; i++) {
+      if (src[i] === '(') depth++
+      else if (src[i] === ')') { depth--; if (depth < 0) return i + 1 }
+    }
+    return from
+  }
+
+  const pillDrawers = async () => {
+    const names = new Set()
+    for (const [, src] of await read()) {
+      for (const m of src.matchAll(/(?:export\s+)?function ([A-Z][A-Za-z0-9]*)\s*\(/g)) {
+        const body = balanced(src, afterParams(src, m.index + m[0].length))
+        if (/<SpeakerChips/.test(body)) names.add(m[1])
+      }
+    }
+    return names
+  }
+
+  // Every place one of those cards is handed its handler, with the whole
+  // expression — and, where that expression is a NAME, what the name resolves to
+  // in the same file. A handler threaded down from `WorkDetail`'s render prop
+  // resolves to nothing here, and is covered by that screen's own case below.
+  const pillHandlers = async () => {
+    const drawers = await pillDrawers()
+    const out = []
+    for (const [file, src] of await read()) {
+      for (const m of src.matchAll(/onOpenCharacter=\{/g)) {
+        const before = src.slice(0, m.index)
+        const open = [...before.matchAll(/<([A-Z][A-Za-z0-9]*)/g)]
+        const owner = open.length ? open[open.length - 1][1] : ''
+        if (!drawers.has(owner)) continue
+        const body = balanced(src, m.index + 'onOpenCharacter='.length - 1)
+        const bare = body.replace(/[{}\s]/g, '')
+        const local = /^[a-zA-Z_$][\w$]*$/.test(bare)
+          ? (src.match(new RegExp(`const ${bare}\\s*=`)) ? balanced(src, src.indexOf(`const ${bare} =`)) : null)
+          : null
+        out.push({ file, owner, body, decides: /=>/.test(body) || !!local, expr: local || body })
+      }
+    }
+    return out
+  }
+
+  it('knows which components draw a pill, and finds handlers on them', async () => {
+    const drawers = await pillDrawers()
+    expect([...drawers].length, 'no component draws character pills — the derivation has drifted')
+      .toBeGreaterThan(1)
+    const all = await pillHandlers()
+    expect(all.length, `no pill-drawing card is handed a character handler (drawers: ${[...drawers].join(', ')})`)
+      .toBeGreaterThan(1)
+  })
+
+  it('and not one of those handlers opens a record itself', async () => {
+    for (const h of await pillHandlers()) {
+      // A handler that merely passes the prop along is not a behaviour; only one
+      // that DECIDES is.
+      if (!h.decides) continue
+      expect(h.expr, `${h.file} opens a panel from <${h.owner}>'s pill itself — one control, two behaviours`)
+        .not.toMatch(/characterPanel\s*\(|personPanel\s*\(/)
+    }
+  })
+
+  it('and every one that decides goes through the door', async () => {
+    const deciders = (await pillHandlers()).filter((h) => h.decides)
+    expect(deciders.length, 'no board decides what the pill does, so nothing is being checked')
+      .toBeGreaterThan(0)
+    for (const h of deciders) {
+      expect(h.expr, `${h.file} decides what <${h.owner}>'s pill does without going through openCharacterDoor`)
+        .toMatch(/openCharacterDoor\s*\(/)
+    }
+  })
+
+  it('and the door is defined in exactly one file', async () => {
+    const defs = (await read())
+      .filter(([, src]) => /function openCharacterDoor/.test(src))
+      .map(([f]) => f)
     expect(defs, 'more than one file defines the door, which is the drift this directive is about')
       .toEqual(['identity.jsx'])
+  })
+
+  it('and the handler the work screen threads down to its boards goes through it too', async () => {
+    // THE ONE THE DERIVATION ABOVE CANNOT SEE. `WorkDetail` hands `openCharacter`
+    // to a render prop, and the board passes it to the card — so the card's own
+    // handler is a bare name and the DECIDING expression is two files away. It is
+    // named here because it is the last link in that chain, and because a
+    // regression there would reach both a book's board and a film's at once.
+    const [, src] = (await read()).find(([f]) => f === 'WorkDetail.jsx')
+    const decl = src.indexOf('const openCharacter =')
+    expect(decl, 'the work screen no longer names a character handler').toBeGreaterThan(-1)
+    const expr = src.slice(decl, src.indexOf('\n\n', decl))
+    expect(expr, 'the work screen opens a record from the pill itself')
+      .not.toMatch(/characterPanel\s*\(|personPanel\s*\(/)
+    expect(expr, 'the work screen decides what the pill does without going through the door')
+      .toMatch(/openCharacterDoor\s*\(/)
+  })
+
+  it('and the work page kept no chooser of its own', async () => {
+    const [, src] = (await read()).find(([f]) => f === 'WorkDetail.jsx')
+    expect(src, 'the work page still holds its own copy of the question').not.toMatch(/setSpeakerChoice/)
   })
 })
 
@@ -284,6 +396,87 @@ describe('the sheet that asks', () => {
     for (const src of srcs) {
       expect(src.match(/covers/g)?.length || 0,
         `the picker resolved a path twice: ${src}`).toBeLessThan(2)
+    }
+  })
+})
+
+// ---- and answering it lands on the answer -----------------------------------
+//
+// THE HALF THAT WAS MISSING, and it cost a working door. Every case above
+// presses the CHIP and reads the question; none pressed a ROW. So when the
+// chooser became a panel, `onDone` went on calling `stack.back()` — right for a
+// modal, which is a layer over the screen — and on a panel that is one entry too
+// far: the row's own `open()` had already REPLACED the question with the answer,
+// so `back()` popped the entry underneath and the popstate guard truncated the
+// stack to nothing. Pressing an answer closed everything, the suite stayed green,
+// and the changelog said "going back works the way it looks like it should".
+//
+// THE PROPERTY: after pressing a row, the thing it names is ON SCREEN. Not "a
+// panel exists" — the first draft of this file's sibling made that mistake and
+// `PanelHost` renders only the top, so the count is 1 whatever the stack holds.
+// The panel's TITLE is what says which record you landed on.
+//
+// AND jsdom CANNOT SEE THE CLOSING, which is why the last case here is shaped
+// the way it is. `history.back()` in jsdom delivers no popstate, so the stack is
+// never truncated and the four cases above pass against the broken version as
+// well as the fixed one — the third time this repo has been caught by that hole
+// (`panel-open-replaces.test.jsx` carries the first two). What jsdom CAN see is
+// the CALL: answering a question that has already been replaced must not ask the
+// browser to go back at all. The rectangles are `run-panel-depth.sh`'s, which
+// presses an answer in a real browser and fails when nothing is left on screen.
+
+describe('answering the question', () => {
+  const answer = async (label) => {
+    APPEARANCES = TWO_WORKS
+    mount()
+    await press()
+    const row = [...document.querySelectorAll('.cs-choose')].find(
+      (b) => b.querySelector('.cs-choose-label')?.textContent === label,
+    )
+    expect(row, `no row offered for ${label}`).toBeTruthy()
+    await act(async () => { fireEvent.click(row) })
+    await new Promise((r) => setTimeout(r, 0))
+  }
+
+  const onScreen = () => (document.querySelector('.tp-panel-title, .tp-panel-names')?.textContent || '')
+
+  it('lands on the character when the character is chosen', async () => {
+    await answer('Anand')
+    expect(document.querySelectorAll('.tp-panel').length,
+      'pressing an answer closed everything — the question dismissed a surface that had already been replaced')
+      .toBe(1)
+    expect(onScreen(), 'a panel is open and it is not the one that was asked for').toContain('Anand')
+  })
+
+  it('and on the performer when the performer is chosen', async () => {
+    await answer('Rajesh Khanna')
+    expect(document.querySelectorAll('.tp-panel').length, 'pressing an answer closed everything').toBe(1)
+    expect(onScreen()).toContain('Rajesh Khanna')
+  })
+
+  it('and the question is gone, not buried under the answer', async () => {
+    // `open()` replaces rather than deepens, so the reader who came from a card
+    // gets back to the card in one press — not to a question they have already
+    // answered.
+    await answer('Anand')
+    expect(document.querySelector('.cs-choose'),
+      'the question is still on the stack under its own answer').toBeNull()
+  })
+
+  it('and does not ask the browser to go back on the way', async () => {
+    // THE ONE ASSERTION THAT DISCRIMINATES HERE. A row's own `open()` has already
+    // replaced the question with the answer, so there is nothing left to dismiss
+    // — and dismissing anyway pops the entry UNDER the answer and truncates the
+    // stack to nothing. In a browser that closes everything; in jsdom the pop
+    // never arrives and every other case in this describe passes either way.
+    const spy = vi.spyOn(window.history, 'back')
+    try {
+      await answer('Anand')
+      expect(spy.mock.calls.length,
+        'answering walks history back — one entry past the answer it just opened')
+        .toBe(0)
+    } finally {
+      spy.mockRestore()
     }
   })
 })
