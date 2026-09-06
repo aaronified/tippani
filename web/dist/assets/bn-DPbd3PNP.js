@@ -6544,6 +6544,8 @@ unit.role.speaker = বক্তা
 links.web.label = একটা ওয়েবপেজ
 links.empty = এখনও কোনও লিংক নেই। একটা যোগ করুন — এই রেকর্ডের যে পাতা আছে, নয়তো যে কোনও সাইটের যে কোনও ঠিকানা।
 links.paste.label = লিংক যোগ করুন
+links.name.label = কী নামে ডাকবেন (ঐচ্ছিক)
+links.name.placeholder = ওঁর প্রবন্ধ
 # The derived list at the top of the add panel: the pages this record's own
 # pinned ids can already address. Absent when there are none left to add.
 links.suggest.heading = এই রেকর্ডের যে পাতাগুলো আছে

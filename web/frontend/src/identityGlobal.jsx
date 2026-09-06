@@ -86,7 +86,7 @@ function mediumCrumb(works) {
 // site's own mark. A link to a site the app knows keeps that mark; anything else
 // keeps its hostname, which is the only honest name for it.
 function linkPills(text) {
-  const { known, extra } = parseLinks(text)
+  const { known, extra, labels } = parseLinks(text)
   const out = []
   // t(labelKey), NOT the key. PROVIDERS' middle column is the locale key that
   // names the provider — its own header says so — and this read it as the name,
@@ -94,7 +94,9 @@ function linkPills(text) {
   // Visible only once a link existed to draw, which is why it survived the screen
   // being built: the fixture had none.
   for (const [slug, labelKey] of PROVIDERS) {
-    if (known[slug]) out.push({ url: known[slug], slug, name: t(labelKey) })
+    // THE READER'S NAME OUTRANKS THE PROVIDER'S. They typed it about this link;
+    // the provider's name is what the app knows when nobody has said.
+    if (known[slug]) out.push({ url: known[slug], slug, name: labels[known[slug]] || t(labelKey) })
   }
   for (const url of extra) {
     let host = url
@@ -103,7 +105,7 @@ function linkPills(text) {
     } catch {
       /* not a URL at all — show it as typed rather than dropping it */
     }
-    out.push({ url, slug: '', name: host, fallbackIcon: GLOBE })
+    out.push({ url, slug: '', name: labels[url] || host, fallbackIcon: GLOBE })
   }
   return out
 }

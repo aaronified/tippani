@@ -313,36 +313,79 @@ export function buildProviderLink(slug, id) {
   return row ? row[4](ok) : ''
 }
 
+// A LINK MAY CARRY A NAME, AND THE PIPE IS WHERE IT STARTS.
+//
+// The owner chose "'Add a link' takes a URL with an optional label". A record's
+// links are ONE free-text field of newline-separated URLs — the same field on a
+// work, a person and a character — so a label per link needs somewhere to live
+// that does not make a second thing to store, a second column to migrate, and a
+// third meaning for a field two other screens already read.
+//
+// A PIPE CANNOT APPEAR IN A URL. Neither can a space, but a space already means
+// something here: this field has always whitespace-split, so `a.com b.com` on one
+// line is TWO links and always was. Reading the second half as a label would
+// quietly rename somebody's link. `|` has never been legal in an address and has
+// never been written into this field, so a line that has one is unambiguously
+// new and a line that has none reads exactly as it always did — which is the
+// whole of the migration.
+export const LINK_LABEL_SEP = '|'
+
+// linkLine writes one back. The one writer, so a label cannot be stored two ways.
+export function linkLine(url, label) {
+  const name = String(label || '').trim()
+  return name ? `${url} ${LINK_LABEL_SEP} ${name}` : String(url)
+}
+
 // parseLinks splits the stored free-text links field into recognised provider
-// pages (slug → url, first hit per provider wins) plus the unrecognised rest.
+// pages (slug → url, first hit per provider wins), the unrecognised rest, and the
+// names the reader gave any of them (url → label, absent where they gave none).
 export function parseLinks(text) {
   const known = {}
   const extra = []
-  for (const tok of String(text || '').split(/[\s\n]+/).filter(Boolean)) {
+  const labels = {}
+  const take = (tok, label) => {
     let host = ''
     try {
       host = new URL(tok).hostname
     } catch {
+      // Not an address at all. Kept rather than dropped — see linkPills — but it
+      // gets no label, because a label names a link and this is not one.
       extra.push(tok)
-      continue
+      return
     }
     const p = PROVIDERS.find(([, , re]) => re.test(host))
     if (p && !known[p[0]]) known[p[0]] = tok
     else extra.push(tok)
+    if (label) labels[tok] = label
   }
-  return { known, extra }
+  for (const line of String(text || '').split('\n')) {
+    const cut = line.indexOf(LINK_LABEL_SEP)
+    if (cut < 0) {
+      for (const tok of line.split(/\s+/).filter(Boolean)) take(tok, '')
+      continue
+    }
+    const url = line.slice(0, cut).trim()
+    if (url) take(url, line.slice(cut + 1).trim())
+  }
+  return { known, extra, labels }
 }
 
 // mergeLinks folds freshly-fetched provider links into the stored free-text
 // field without disturbing anything the user added by hand: providers land in
 // canonical order, existing URLs win, extras keep their place at the end.
 export function mergeLinks(text, fetched) {
-  const { known, extra } = parseLinks(text)
+  const { known, extra, labels } = parseLinks(text)
   const merged = { ...known }
   for (const [slug, url] of Object.entries(fetched || {})) {
     if (url && !merged[slug]) merged[slug] = url
   }
-  return [...PROVIDERS.map(([slug]) => merged[slug]).filter(Boolean), ...extra].join('\n')
+  // THE NAMES SURVIVE THE FOLD. This function rewrites the whole field, so a
+  // fetch that did not touch a link would still erase the name the reader gave
+  // it — the same class of loss the "existing URLs win" rule above exists to
+  // stop, one column over.
+  return [...PROVIDERS.map(([slug]) => merged[slug]).filter(Boolean), ...extra]
+    .map((url) => linkLine(url, labels[url]))
+    .join('\n')
 }
 
 // ProviderChips — the compact inline form of the link set (Metadata console

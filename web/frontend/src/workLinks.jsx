@@ -36,7 +36,7 @@
 // is the same free text a person's is and the tag can be told apart then.
 import { useState } from 'react'
 import { t } from './i18n.js'
-import { PROVIDERS, parseLinks } from './people.jsx'
+import { PROVIDERS, linkLine, parseLinks } from './people.jsx'
 import { FieldIconButton, GhostButton, IconClose, IconGlobe, IconPlus, MonoLabel, ProviderMark, useFormHost } from './ui.jsx'
 
 // hostOf is `new URL().hostname`, and the try is the whole of it: a reader pastes
@@ -241,12 +241,20 @@ export function WorkLinks({ value, busy, onSave, onEmptyAdd }) {
 // linkRows is the stored column as a list: the recognised providers in the app's
 // own display order, then whatever else is there, kept whole.
 export function linkRows(value) {
-  const { known, extra } = parseLinks(value)
+  const { known, extra, labels } = parseLinks(value)
+  // `label` AND `name` ARE NOT THE SAME FIELD, and collapsing them is how a
+  // rewrite of this field turns a provider's own name into a stored label. `name`
+  // is what to DRAW — the reader's name where they gave one, the provider's
+  // otherwise. `label` is only ever what is stored, so a caller that rejoins the
+  // field writes back what was there.
   return [
     ...PROVIDERS.filter(([slug]) => known[slug]).map(([slug, labelKey]) => ({
-      url: known[slug], slug, name: t(labelKey),
+      url: known[slug], slug, label: labels[known[slug]] || '',
+      name: labels[known[slug]] || t(labelKey),
     })),
-    ...extra.map((url) => ({ url, slug: '', name: t('links.web.label') })),
+    ...extra.map((url) => ({
+      url, slug: '', label: labels[url] || '', name: labels[url] || t('links.web.label'),
+    })),
   ]
 }
 
@@ -261,6 +269,7 @@ export function linkRows(value) {
 // unchanged for the site the record cannot address, which is most sites.
 export function PasteLink({ item, value, busy, onSave, onDone }) {
   const [draft, setDraft] = useState('')
+  const [name, setName] = useState('')
   const reading = readLink(draft)
   const rows = linkRows(value)
   const suggested = derivedLinks(item || {}, value)
@@ -268,9 +277,12 @@ export function PasteLink({ item, value, busy, onSave, onDone }) {
 
   // append is the one writer, so the button and the box cannot disagree about
   // what adding means — the de-dupe, the join and the failure are all here.
-  async function append(url) {
+  async function append(url, label = '') {
     if (!rows.some((r) => r.url === url)) {
-      if (await onSave([...rows.map((r) => r.url), url].join('\n')) === false) return false
+      // `linkLine` on every row and not only the new one: this rewrites the whole
+      // field, so a row whose name is dropped here loses it for good.
+      const lines = [...rows.map((r) => linkLine(r.url, r.label)), linkLine(url, label)]
+      if (await onSave(lines.join('\n')) === false) return false
     }
     return true
   }
@@ -283,7 +295,7 @@ export function PasteLink({ item, value, busy, onSave, onDone }) {
     // provider: two different Wikipedia pages on one record is a legitimate thing
     // — an author and their book — and refusing the second would be this panel
     // deciding what a record may say.
-    if (!(await append(reading.url))) return
+    if (!(await append(reading.url, name))) return
     onDone()
   }
 
@@ -320,6 +332,21 @@ export function PasteLink({ item, value, busy, onSave, onDone }) {
         autoFocus
         disabled={!!busy}
         onChange={(e) => setDraft(e.target.value)}
+      />
+      {/* THE NAME IS OPTIONAL AND SAYS SO, and it sits under the address rather
+          than beside it: it is a second thought about the first box, and a row of
+          two boxes reads as two things to fill in. Left empty, a recognised link
+          keeps its provider's name and anything else keeps its hostname — which
+          is what every link in the library already does, so nothing about this
+          field changes what is there. */}
+      <input
+        className="tp-input"
+        value={name}
+        aria-label={t('links.name.label')}
+        placeholder={t('links.name.placeholder')}
+        autoComplete="off"
+        disabled={!!busy}
+        onChange={(e) => setName(e.target.value)}
       />
       {/* THE READING, BEFORE IT IS COMMITTED. A key and a URL are one fact written
           twice, and a box that decides silently which one you meant is a box you

@@ -187,6 +187,71 @@ describe('the Links panel', () => {
     expect(rows[1].textContent).toContain('example.org/a-review')
   })
 
+  // A NAME IS OPTIONAL, AND GIVING ONE IS THE OWNER'S CHOSEN SHAPE FOR THIS
+  // PANEL: "'Add a link' takes a URL with an optional label."
+  //
+  // WHAT IS PINNED HERE is that the name reaches storage and comes back as what
+  // the row is CALLED. Where it is stored — after a pipe, in the same field —
+  // is `link-names.test.js`'s subject and deliberately not asked here: this case
+  // should survive somebody moving it to a column.
+  it('takes a name for the link, and the row is called by it', async () => {
+    const box = await openPaste()
+    fireEvent.change(box, { target: { value: 'example.net/talks' } })
+    fireEvent.change(screen.getByLabelText(/What to call it/i), { target: { value: 'Their talks' } })
+    fireEvent.click(screen.getByLabelText('Save'))
+    await waitFor(() => expect(PUTS).toHaveLength(1))
+    expect(PUTS[0].body.links, 'the name never reached the record').toContain('Their talks')
+    await waitFor(() => {
+      const rows = [...document.querySelectorAll('.work-link-row')].map((el) => el.textContent)
+      expect(rows.join(' | '), 'the link was named and the row it made does not say so')
+        .toContain('Their talks')
+    })
+  })
+
+  it('and leaving the name empty changes nothing about how a link is stored', async () => {
+    // EVERY LINK IN EVERY LIBRARY TODAY HAS NO NAME. A field that gained a
+    // separator, or a trailing space, on a link nobody named would be this change
+    // rewriting data it was told not to touch.
+    const box = await openPaste()
+    fireEvent.change(box, { target: { value: 'example.net/talks' } })
+    fireEvent.click(screen.getByLabelText('Save'))
+    await waitFor(() => expect(PUTS).toHaveLength(1))
+    const lines = PUTS[0].body.links.split('\n')
+    expect(lines).toContain('https://example.net/talks')
+    for (const line of lines) {
+      expect(line, `a link nobody named was stored as ${JSON.stringify(line)}`).toBe(line.trim())
+      expect(line, 'a link nobody named gained a separator').not.toContain('|')
+    }
+  })
+
+  // AND THE SECOND LINK DOES NOT COST THE FIRST ITS NAME.
+  //
+  // THE GAP THIS FILLS, found by mutation rather than by reading: dropping the
+  // names of the OTHER rows while appending left every case here green, because
+  // nothing in the fixture had a name to lose. Adding a link rewrites the whole
+  // field — that is what makes it the place a name goes missing, silently and for
+  // good.
+  it('and naming one link does not erase the name on another', async () => {
+    const box = await openPaste()
+    fireEvent.change(box, { target: { value: 'example.net/talks' } })
+    fireEvent.change(screen.getByLabelText(/What to call it/i), { target: { value: 'Their talks' } })
+    fireEvent.click(screen.getByLabelText('Save'))
+    await waitFor(() => expect(PUTS).toHaveLength(1))
+    await waitFor(() => expect(document.querySelectorAll('.work-link-row')).toHaveLength(3))
+
+    const again = await waitFor(() => {
+      fireEvent.click(screen.getByRole('button', { name: /^Add a link$/i }))
+      const el = document.querySelector('.tp-panel input.tp-input')
+      expect(el).toBeTruthy()
+      return el
+    })
+    fireEvent.change(again, { target: { value: 'letterboxd.com/film/stalker/' } })
+    fireEvent.click(screen.getByLabelText('Save'))
+    await waitFor(() => expect(PUTS).toHaveLength(2))
+    expect(PUTS[1].body.links, 'the second link was added and the first lost its name')
+      .toContain('Their talks')
+  })
+
   it('says what a pasted address will be read as before it is stored', async () => {
     const box = await openPaste()
     fireEvent.change(box, { target: { value: 'letterboxd.com/film/stalker/' } })

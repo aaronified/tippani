@@ -6674,6 +6674,8 @@ unit.role.speaker = speaker
 links.web.label = A web page
 links.empty = No links yet. Add one — a page this record already has, or any address from any site.
 links.paste.label = Add a link
+links.name.label = What to call it (optional)
+links.name.placeholder = Their essays
 # The derived list at the top of the add panel: the pages this record's own
 # pinned ids can already address. Absent when there are none left to add.
 links.suggest.heading = PAGES THIS RECORD HAS
