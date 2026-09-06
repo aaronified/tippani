@@ -128,16 +128,22 @@ const REFS = SOURCES.flatMap(referencesIn)
 // reformat, a different quote — would leave every case vacuously passing.
 describe('the pack citations in this repo', () => {
   it('are still being found at all', () => {
-    expect(ALL.length, 'no citation of the shape `literal` (`:N`) was found anywhere — the pattern has drifted')
+    expect(ALL.length, `no citation of the shape \`literal\` (\`:N\`) resolved to an artboard — the pattern or the resolver has drifted (${skipped} citations named a source file instead, which is not this guard's business)`)
       .toBeGreaterThan(5)
     // The loose tier must be the larger of the two, or it has stopped being the
     // one that scales and this file is back to reading a tenth of the pack.
     expect(REFS.length, `only ${REFS.length} pack references found in total — fewer than the ${ALL.length} tight ones`)
       .toBeGreaterThanOrEqual(ALL.length)
-    // Said out loud so a resolver that quietly stopped resolving is visible: a
-    // rule that skips everything passes everything.
-    expect(skipped, `every citation resolved to a source file rather than an artboard (${skipped} skipped)`)
-      .toBeLessThan(ALL.length)
+    // AND `skipped` IS REPORTED, NOT RATIONED. It used to be asserted below
+    // `ALL.length`, on the reasoning that a resolver which skips everything
+    // passes everything — but that is a ceiling on how many SOURCE lines the
+    // plans in `docs/plans/` may cite, which is nobody's rule and not what the
+    // sentence meant. Two plans landed citing Go and JSX lines in the same
+    // shape, the count crossed, and a correct set of citations failed. The fear
+    // is a resolver that resolves NOTHING, and `ALL.length > 5` above is that
+    // fear stated directly: if the `.dc.html` test ever stopped returning true,
+    // ALL would be empty and this case would say so. The number rides along in
+    // that message so a jump is still visible to a reader.
   })
 
   it.each(ALL.map((c) => [`${c.where}: \`${c.literal}\` at ${c.file || '(no artboard named)'}:${c.from}`, c]))(

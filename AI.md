@@ -149,7 +149,7 @@ AI-written code fails differently from hand-written code. It compiles, it reads
 well, it is plausibly commented, and it can still be wrong — so plausibility is
 worth nothing here and only execution counts. What the repo actually runs:
 
-- **1,494 Go test functions and 3,367 frontend tests, across 536 test files** — the
+- **1,494 Go test functions and 3,368 frontend tests, across 536 test files** — the
   Go half over real HTTP handlers against a real SQLite database, not mocks.
   Counted, not estimated, and every number here has a command that reproduces it:
 
@@ -360,6 +360,16 @@ worth nothing here and only execution counts. What the repo actually runs:
   something, and the surface re-opened so the controls after it are still pressed. Not a
   skip list keyed to the control's name: this file has twice learned that a probe keyed
   to a spelling stops guarding the class the moment the spelling changes.
+
+  **And the fingerprint had no geometry, so one control's whole effect was invisible.**
+  A phone sheet's grab bar moves the sheet between its anchors and does nothing else —
+  same panel, same rows, same text, same scroll — so the probe pressed it, saw every
+  field it reads unchanged, and reported it dead. That press was ALSO genuinely dead for
+  a reader, for an unrelated reason, and the two hid each other: fixing the bar would
+  have left the probe still reporting it, and trusting the probe would have hidden that
+  there was anything to fix. The fingerprint now carries the sheet's height — the sheet's
+  and not the body's, because a body grows when a lazy cover arrives and a dead control
+  must not be able to borrow a change it had nothing to do with.
 
   **Its buckets are split three ways, and that is what makes the gate reachable.** Six
   FAIL, because each is the app lying to a reader and each has one right answer: a

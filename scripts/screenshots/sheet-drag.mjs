@@ -39,7 +39,8 @@ function parseArgs(argv) {
       console.log('usage: node sheet-drag.mjs [--base-url URL] [--movie-id N]\n\n' +
         'Opens a panel at phone width and checks that it is a sheet with a handle,\n' +
         'that it rests at one of its anchors, that a drag up grows it to the next\n' +
-        'one, and that a drag off the bottom of the screen closes it.')
+        'one, that a plain press on the handle moves it too, and that a drag off the\n' +
+        'bottom of the screen closes it.')
       process.exit(0)
     }
   }
@@ -186,7 +187,37 @@ try {
     }
   }
 
-  // 5. AND A PULL OFF THE BOTTOM CLOSES IT. Twice the viewport, which is past the
+  // 5. AND A PLAIN PRESS ON THE BAR MOVES IT. The bar is a BUTTON, and a button
+  //    that answers a drag and the arrow keys and does nothing when you press it
+  //    is exactly the dead control `make controls` exists to catch. A mouse
+  //    cannot discover a gesture, and a reader who taps where the app drew
+  //    something pressable is owed an answer.
+  //
+  //    THE PRESS IS A REAL ONE — `mouse.click`, which is pointerdown, pointerup
+  //    and click at one point — because that is the sequence the hook has to tell
+  //    apart from a drag, and a synthetic `element.click()` skips the two events
+  //    that make it hard.
+  s = await readSheet(page)
+  if (s?.grip) {
+    const was = s.height
+    await page.mouse.click(s.grip.mid, s.grip.y)
+    await settle(450)
+    s = await readSheet(page)
+    if (!s) {
+      console.log('FAIL  pressing the handle closed the sheet')
+      failures++
+    } else if (Math.abs(s.height - was) <= SLACK) {
+      console.log(`FAIL  pressing the handle left the sheet at ${s.height.toFixed(0)}px, exactly where it was`)
+      failures++
+    } else if (!atAnchor(s.height)) {
+      console.log(`FAIL  pressing the handle put the sheet at ${s.height.toFixed(0)}px, between anchors (${anchors.join(', ')})`)
+      failures++
+    } else {
+      console.log(`ok    a press on the handle took the sheet from ${was.toFixed(0)}px to ${s.height.toFixed(0)}px, an anchor`)
+    }
+  }
+
+  // 6. AND A PULL OFF THE BOTTOM CLOSES IT. Twice the viewport, which is past the
   //    smallest anchor by any fraction.
   s = await readSheet(page)
   if (s?.grip) {

@@ -1235,6 +1235,8 @@ export function useOverlayOpen() {
 // screen.
 // The shortest interval a velocity may be measured over. See the note at its use.
 const MIN_SAMPLE_MS = 4;
+// How far a pointer travels before it is a drag rather than a press. See its uses.
+const SLOP = 4;
 
 export function useSheetDrag({ sheet, body, handle, enabled = true, onDismiss } = {}) {
   const bye = useRef(onDismiss);
@@ -1284,9 +1286,10 @@ export function useSheetDrag({ sheet, body, handle, enabled = true, onDismiss } 
       if (inBody && !onGrip && body.current.scrollTop > 0) return;
       measure();
       if (!anchors.length) return;
+      dragged = false;
       drag = {
         from: e.clientY, at: e.clientY, when: e.timeStamp,
-        height: el.getBoundingClientRect().height, v: 0, live: onGrip, id: e.pointerId,
+        height: el.getBoundingClientRect().height, v: 0, live: onGrip, moved: false, id: e.pointerId,
       };
       if (onGrip) el.style.transition = "none";
     };
@@ -1295,9 +1298,13 @@ export function useSheetDrag({ sheet, body, handle, enabled = true, onDismiss } 
       if (!drag || e.pointerId !== drag.id) return;
       const dy = e.clientY - drag.from;
       // FOUR PIXELS OF SLOP before a touch in the body becomes a drag, so a tap on
-      // a row is never one. The handle needs none: it has nothing else to be.
+      // a row is never one. The handle needs none to START — it has nothing else
+      // to be — but it needs the same four to have BEEN a drag rather than a
+      // press, which is what `moved` below records and the bar's click handler
+      // reads.
+      if (Math.abs(dy) >= SLOP) drag.moved = true;
       if (!drag.live) {
-        if (Math.abs(dy) < 4) return;
+        if (Math.abs(dy) < SLOP) return;
         drag.live = true;
         el.style.transition = "none";
         try { el.setPointerCapture(drag.id); } catch { /* an engine without capture */ }
@@ -1325,7 +1332,7 @@ export function useSheetDrag({ sheet, body, handle, enabled = true, onDismiss } 
       drag = null;
       if (body?.current) body.current.style.touchAction = "";
       if (!was.live) return;
-      dragged = true;
+      dragged = was.moved;
       const out = landing({ height: el.getBoundingClientRect().height, velocity: was.v, anchors });
       settle(out.dismiss ? anchors[0] : out.height);
       if (out.dismiss) bye.current?.();
@@ -1357,8 +1364,16 @@ export function useSheetDrag({ sheet, body, handle, enabled = true, onDismiss } 
     // AND IT SWALLOWS THE CLICK A DRAG LEAVES BEHIND. A pointer sequence that
     // ends on the element it started on fires `click` after `pointerup`, so
     // dragging the bar and letting go would step the sheet again, past where the
-    // reader put it. The flag is set where the drag is known to have happened
-    // rather than guessed at from distance.
+    // reader put it.
+    //
+    // WHAT THE FLAG MAY NOT MEAN IS "the drag was live". The bar is live from the
+    // first pointerdown by design, so reading liveness here made EVERY press a
+    // drag: the release settled at the anchor it was already resting on, the
+    // click was swallowed as its leftover, and the bar did nothing at all —
+    // `make controls` found it dead on the character panel and `make sheet-drag`
+    // reproduced it in a browser. The flag has to mean the pointer actually went
+    // somewhere, which is the same four pixels that make a touch in the body a
+    // drag rather than a tap.
     const press = () => {
       if (dragged) { dragged = false; return; }
       if (!anchors.length) return;

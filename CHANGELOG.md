@@ -50,7 +50,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   quarters of the screen, then almost all of it — so a long list and a short form no
   longer share one ceiling. Pull it down past the smallest of those and it closes,
   asking about unsaved typing exactly as the ✕ does. Tapping the page above it still
-  closes it too.
+  closes it too. You need not drag at all: pressing the bar steps to the next height
+  and back round to the smallest, and the arrow keys do the same, so the sheet answers
+  a mouse and a keyboard as well as a thumb.
 
 - **A control that ticks a whole list no longer wears the tick that saves.** The
   metadata merge screen's "take everything" and "take nothing", and the row that starts

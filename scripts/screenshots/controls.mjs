@@ -308,6 +308,20 @@ try {
       // warns is fatal to a gate: "a gate that reports a defect that is not there
       // gets switched off exactly as fast as one that misses a defect that is".
       body: document.body.textContent.replace(/\s+/g, ' ').trim().length,
+      // AND HOW TALL THE SHEET IS, because one control's whole effect is that
+      // number. A phone panel's grab bar moves the sheet between its anchors and
+      // does nothing else: same panel, same rows, same text, same scroll — every
+      // field above it identical before and after. It was reported dead on the
+      // character panel while a browser watching the same press measured the
+      // sheet going 793px → 641px. Geometry was the only place the change
+      // existed, so the fingerprint carries the one number it lives in.
+      //
+      // THE SHEET AND NOT THE BODY. `document.body`'s height moves when a lazy
+      // cover finally arrives, which would let a dead control borrow a change it
+      // had nothing to do with — the opposite mistake and the more expensive one,
+      // because a gate that passes a defect is not read again. A panel on a phone
+      // is held at an anchor by `--tp-sheet-h` and does not drift.
+      sheetH: Math.round(document.querySelector('.tp-panel')?.getBoundingClientRect().height || 0),
       toasts: document.querySelectorAll('[class*=toast]').length,
       // The four effects that never reach the document — see the hooks above.
       fx: JSON.stringify(window.__tpFx || {}),
@@ -412,7 +426,7 @@ try {
   const differs = (a, b) => a.url !== b.url || a.panels !== b.panels || a.dialogs !== b.dialogs
     || a.inputs !== b.inputs || a.focus !== b.focus || a.scroll !== b.scroll
     || a.text !== b.text || a.body !== b.body || a.toasts !== b.toasts || a.expanded !== b.expanded
-    || a.fx !== b.fx
+    || a.fx !== b.fx || a.sheetH !== b.sheetH
     // COLLECTED AND NEVER COMPARED, which is its own small lesson: both of these
     // were read on every press so an EMPTY menu could be reported, and neither was
     // in this list — so a control whose only effect was opening a menu depended on

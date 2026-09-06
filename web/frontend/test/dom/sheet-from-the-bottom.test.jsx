@@ -202,21 +202,57 @@ describe('what a drag does', () => {
 })
 
 describe('a plain press on the bar', () => {
+  // A PRESS IS THREE EVENTS AND NOT ONE, and that is the whole of this rule.
+  // A finger or a mouse delivers pointerdown, then pointerup, then click;
+  // `fireEvent.click` on its own delivers the third and skips the two that make
+  // the rule hard. The bar is deliberately live from the first pointerdown — it
+  // has nothing else to be — so its RELEASE is where the sheet finds out whether
+  // anything was actually dragged, and a press that asks only the click never
+  // reaches that question. These cases press it the way a reader does.
+  const press = (at = 400) => act(() => {
+    fireEvent.pointerDown(el('grip'), pointer(at))
+    fireEvent.pointerUp(window, pointer(at))
+    fireEvent.click(el('grip'))
+  })
+
   it('moves the sheet, because a button that does nothing is a dead control', () => {
     // A MOUSE HAS NO WAY TO DISCOVER A DRAG. The bar answers a drag and the arrow
-    // keys; a click that did nothing would be the defect `make controls` was
+    // keys; a press that did nothing would be the defect `make controls` was
     // written to catch, on the one control whose whole job is to say the sheet
     // moves.
     render(<Sheet onDismiss={vi.fn()} />)
     const start = heightOf(el('sheet'))
-    act(() => { fireEvent.click(el('grip')) })
-    expect(heightOf(el('sheet')), 'clicking the handle did nothing at all').toBeGreaterThan(start)
+    press()
+    expect(heightOf(el('sheet')), 'pressing the handle did nothing at all').toBeGreaterThan(start)
+  })
+
+  it('and a hand that is not perfectly still has still only pressed it', () => {
+    // NOBODY HOLDS A THUMB AT ONE PIXEL. A press that wanders a little is a press,
+    // and the line between one and a drag is the same four pixels that decide
+    // whether a touch in the BODY was a drag or a tap on a row — one number, so
+    // the sheet does not answer to two different ideas of "held still".
+    render(<Sheet onDismiss={vi.fn()} />)
+    const start = heightOf(el('sheet'))
+    act(() => {
+      fireEvent.pointerDown(el('grip'), pointer(400))
+      fireEvent.pointerMove(window, pointer(402))
+      fireEvent.pointerUp(window, pointer(402))
+      fireEvent.click(el('grip'))
+    })
+    expect(heightOf(el('sheet')), 'two pixels of hand shake cost the press its answer')
+      .toBeGreaterThan(start)
   })
 
   it('and comes back to the smallest anchor from the top rather than stopping there', () => {
     render(<Sheet onDismiss={vi.fn()} />)
-    act(() => { fireEvent.click(el('grip')) })
-    act(() => { fireEvent.click(el('grip')) })
+    press()
+    // THE WRAP IS ONLY TESTED FROM THE TOP. A first press that moved nothing
+    // leaves the sheet at the smallest anchor, where the second press's answer is
+    // indistinguishable from no answer at all — the case would pass on a bar that
+    // does nothing whatever.
+    expect(heightOf(el('sheet')), 'the first press did not reach the tallest anchor, so the wrap is untested')
+      .toBe(ANCHORS[ANCHORS.length - 1])
+    press()
     expect(heightOf(el('sheet')), 'the press stopped answering once the sheet was tallest')
       .toBe(ANCHORS[0])
   })
