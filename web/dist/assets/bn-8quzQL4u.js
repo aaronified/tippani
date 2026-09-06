@@ -6541,8 +6541,6 @@ unit.role.publisher = প্রকাশক
 unit.role.speaker = বক্তা
 # A work's links out (0062). See workLinks.jsx.
 links.web.label = একটা ওয়েবপেজ
-links.web.count.one = {n}টা ওয়েবপেজ
-links.web.count.other = {n}টা ওয়েবপেজ
 links.empty = এখনও কোনও লিংক নেই। একটা যোগ করুন — এই রেকর্ডের যে পাতা আছে, নয়তো যে কোনও সাইটের যে কোনও ঠিকানা।
 links.paste.label = লিংক যোগ করুন
 # The derived list at the top of the add panel: the pages this record's own

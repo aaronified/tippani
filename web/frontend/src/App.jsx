@@ -95,6 +95,7 @@ import {
   Toggle,
   Tooltip,
   useBackToClose,
+  BackToTop,
   useBackToTop,
   useBodyScrollLock,
   useCrumbTitle,
@@ -1412,41 +1413,6 @@ function DockMenu({ icon, label, items }) {
   )
 }
 
-// BackToTop — the phone's way back up a long board.
-//
-// PHONE ONLY, and that is the pack's scoping rather than an oversight: a desk has
-// a scrollbar to drag, a Home key, and a window that is usually showing a third
-// of the page at once. A thumb has none of those, which is why the key is drawn
-// where the thumb is.
-//
-// IT SITS ABOVE THE DOCK AND DROPS WHEN THE DOCK LEAVES — the pack's own reason:
-// "so the corner never holds two things and never sits empty". Both positions are
-// measured from the gesture inset, so the key clears a home bar on the hardware
-// that has one.
-//
-// NOT `display: none` WHEN IT IS AWAY. Opacity and pointer-events, so the button
-// keeps its place in the layout and its transition has something to animate
-// between — and, more to the point, so nothing can tab into a key that is not
-// there. A rest state that depended on the transition firing would be the rule
-// this repo tests for; disable every animation and the key is still exactly where
-// it is, visible or not, because its visibility is a boolean and not a cue.
-function BackToTop({ show, dockHidden, onClick }) {
-  return (
-    <Tooltip label={t('shell.totop.aria')} side="top">
-      <button
-        type="button"
-        className={'to-top' + (show ? ' is-on' : '')}
-        aria-label={t('shell.totop.aria')}
-        aria-hidden={show ? undefined : true}
-        tabIndex={show ? 0 : -1}
-        data-dock={dockHidden ? 'away' : 'here'}
-        onClick={onClick}
-      >
-        <IconChevron open size={20} />
-      </button>
-    </Tooltip>
-  )
-}
 
 // Shell is the logged-in frame (§7): on desktop a topbar with the (tappable)
 // mark + wordmark, tab strip and user-initial chip; on a phone a slim top bar

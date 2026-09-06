@@ -338,13 +338,3 @@ export function PasteLink({ item, value, busy, onSave, onDone }) {
     </form>
   )
 }
-
-// linksSummary — what the Links row reads at rest: how many, and which. Names
-// rather than a bare number: a count is something a reader has to open a panel
-// to understand, and the names are the answer they came for.
-export function linksSummary(value) {
-  const { known, extra } = parseLinks(value)
-  const names = PROVIDERS.filter(([slug]) => known[slug]).map(([, k]) => t(k))
-  if (extra.length) names.push(t('links.web.count', { count: extra.length, n: extra.length }))
-  return names.join(' · ')
-}

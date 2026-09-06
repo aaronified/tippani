@@ -6671,8 +6671,6 @@ unit.role.speaker = speaker
 
 # A work's links out (0062). See workLinks.jsx.
 links.web.label = A web page
-links.web.count.one = {n} web page
-links.web.count.other = {n} web pages
 links.empty = No links yet. Add one — a page this record already has, or any address from any site.
 links.paste.label = Add a link
 # The derived list at the top of the add panel: the pages this record's own

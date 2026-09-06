@@ -308,25 +308,79 @@ export function useHideOnScrollDown({
 // SMOOTH ONLY WHEN MOTION IS WANTED. A reader who has asked for less of it gets
 // the jump, which is the same answer every other transition in the app gives —
 // and a 4000px smooth scroll is the single longest animation this app can play.
-export function useBackToTop({ enabled = true } = {}) {
-  // NOT WHILE SOMETHING IS COVERING THE PAGE. The key answers to the DOCUMENT's
-  // scroll, and while a panel or a sheet is up the document is not what the
-  // reader is scrolling — so the key both drew over the sheet (it is fixed at a
-  // higher layer than the scrim) and offered to scroll a surface that is not in
-  // focus. The gate is here rather than at the two call sites so that a third
-  // screen cannot forget it.
+// THE KEY BELONGS TO WHATEVER IS SCROLLING, which is the pack's own correction
+// and worth quoting: "THE SCROLLER IS THE ELEMENT THAT SCROLLED, not a ref that
+// happens to exist… the key fired scrollTo on a panel that was closed and the
+// page never moved" (`book-detail.dc.html:1620-1622`). So `target` names the box
+// this instance answers to; without one it answers to the document.
+//
+// AND THE COVERED GATE IS THE DOCUMENT'S ALONE. While a panel is up the document
+// is not what the reader is scrolling, so the page's key both drew over the sheet
+// — it is fixed at a higher layer than the scrim — and offered to scroll a
+// surface out of focus. A key given a target IS the surface in focus, so the gate
+// would silence exactly the case the owner asked for: "the chevron will only
+// appear when a long scroll surface is in focus and has been scrolled
+// significantly down".
+// BackToTop — a way back up a long surface.
+//
+// ON THE PAGE IT IS PHONE ONLY, and that is the pack's scoping rather than an
+// oversight: a desk has
+// a scrollbar to drag, a Home key, and a window that is usually showing a third
+// of the page at once. A thumb has none of those, which is why the key is drawn
+// where the thumb is.
+//
+// IT SITS ABOVE THE DOCK AND DROPS WHEN THE DOCK LEAVES — the pack's own reason:
+// "so the corner never holds two things and never sits empty". Both positions are
+// measured from the gesture inset, so the key clears a home bar on the hardware
+// that has one.
+//
+// NOT `display: none` WHEN IT IS AWAY. Opacity and pointer-events, so the button
+// keeps its place in the layout and its transition has something to animate
+// between — and, more to the point, so nothing can tab into a key that is not
+// there. A rest state that depended on the transition firing would be the rule
+// this repo tests for; disable every animation and the key is still exactly where
+// it is, visible or not, because its visibility is a boolean and not a cue.
+export function BackToTop({ show, dockHidden, onClick }) {
+  return (
+    <Tooltip label={t('shell.totop.aria')} side="top">
+      <button
+        type="button"
+        className={'to-top' + (show ? ' is-on' : '')}
+        aria-label={t('shell.totop.aria')}
+        aria-hidden={show ? undefined : true}
+        tabIndex={show ? 0 : -1}
+        data-dock={dockHidden ? 'away' : 'here'}
+        onClick={onClick}
+      >
+        <IconChevron open size={20} />
+      </button>
+    </Tooltip>
+  )
+}
+
+export function useBackToTop({ enabled = true, target = null } = {}) {
   const covered = useOverlayOpen()
   const [show, setShow] = useState(false)
+  const hidden = !enabled || (!target && covered)
   useEffect(() => {
-    if (!enabled || covered) {
+    if (hidden) {
       setShow(false)
       return undefined
     }
+    const el = target ? target.current : null
+    if (target && !el) return undefined
+    const source = el || window
     let ticking = false
+    // The same measurement either way, and it is the pack's: against the
+    // scrollable DISTANCE rather than a px count, so a short screen never grows
+    // the key and a long one gets it a quarter down.
     const measure = () => {
       ticking = false
-      const max = document.documentElement.scrollHeight - window.innerHeight
-      setShow(max > 260 && window.scrollY > Math.max(200, max * 0.25))
+      const height = el ? el.scrollHeight : document.documentElement.scrollHeight
+      const view = el ? el.clientHeight : window.innerHeight
+      const at = el ? el.scrollTop : window.scrollY
+      const max = height - view
+      setShow(max > 260 && at > Math.max(200, max * 0.25))
     }
     const onScroll = () => {
       if (ticking) return
@@ -336,14 +390,16 @@ export function useBackToTop({ enabled = true } = {}) {
     // Measured once on mount as well as on scroll: arriving at a remembered
     // offset (the shell restores one per route) is a scroll that never fires.
     measure()
-    window.addEventListener('scroll', onScroll, { passive: true })
-    return () => window.removeEventListener('scroll', onScroll)
-  }, [enabled, covered])
+    source.addEventListener('scroll', onScroll, { passive: true })
+    return () => source.removeEventListener('scroll', onScroll)
+  }, [hidden, target])
   const toTop = useCallback(() => {
     const smooth = !window.matchMedia?.(REDUCED_MOTION_QUERY).matches
-    window.scrollTo({ top: 0, behavior: smooth ? 'smooth' : 'auto' })
+    const el = target ? target.current : null
+    if (el) el.scrollTo({ top: 0, behavior: smooth ? 'smooth' : 'auto' })
+    else window.scrollTo({ top: 0, behavior: smooth ? 'smooth' : 'auto' })
     setShow(false)
-  }, [])
+  }, [target])
   return { show, toTop }
 }
 
@@ -4290,6 +4346,10 @@ export function PanelHost({ stack }) {
   // middle of the screen and there is nothing to drag down.
   const bodyRef = useRef(null);
   useSwipeDown(bodyRef, guard(back), { enabled: !!panel && !asking && phone });
+  // AND THE WAY BACK UP THAT BODY. Given a target, the hook answers to that box
+  // rather than to the document — and is not silenced by the overlay gate, which
+  // is the page key's and would silence the surface actually in focus.
+  const { show: showUp, toTop: upToTop } = useBackToTop({ enabled: !!panel, target: bodyRef });
   if (!panel) return null;
   // A panel that declares its own verb carries it in the head — Links' ＋. Only
   // ever the panel's OWN verb: the list is what is already there, and adding to
@@ -4418,6 +4478,14 @@ export function PanelHost({ stack }) {
             </FormHostContext.Provider>
           </PanelSurfaceContext.Provider>
         </Scroller>
+        {/* THE KEY BELONGS TO THE SURFACE THAT SCROLLED, and a panel body is one:
+            the owner's rule is that the chevron appears "when a long scroll surface
+            is in focus and has been scrolled significantly down", and while a panel
+            is up the surface in focus is this one. Drawn INSIDE the panel rather than
+            at the viewport corner — the page's key is fixed there, and on a desk the
+            panel is a card in the middle of the screen with nothing of itself in that
+            corner to come back from. */}
+        <BackToTop show={showUp} dockHidden onClick={upToTop} />
       </div>
       {/* THE QUESTION, asked only when there is something to lose. It renders
           inside the panel's own scrim so it sits above it, and it registers with

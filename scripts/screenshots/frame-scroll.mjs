@@ -480,7 +480,18 @@ try {
   // THE PHONE CASE IS THE ONE WORTH MEASURING. A row of five that overflows and
   // does not scroll is a screen with two sections a reader cannot reach, and it
   // looks exactly like a screen with three sections.
-  for (const [w, h, want] of [[1280, 900, 'beside'], [980, 900, 'beside'], [860, 900, 'stacked'], [390, 780, 'stacked']]) {
+  // THE RAIL IS ABOVE THE BODY AT EVERY WIDTH, and this line used to want it
+  // BESIDE the body on a desk. It was, once: `.meta-frame` had a two-column track
+  // behind a min-width query. `a67f65d` — "the page fits a phone" — took it out
+  // deliberately, on the argument written at `.meta-rail`: one shape for the
+  // sections at every width, because a screen that invents a second way to draw
+  // "these are the sections" has two focus rings and two active states.
+  //
+  // THIS PROBE WAS NOT UPDATED WITH IT, so it has been failing two of its four
+  // widths ever since — asserting a design the app had left, which is the same
+  // shape as `panel-depth.mjs` pressing for a cast that had moved. A guard is
+  // only as current as the last time somebody ran it.
+  for (const [w, h, want] of [[1280, 900, 'stacked'], [980, 900, 'stacked'], [860, 900, 'stacked'], [390, 780, 'stacked']]) {
     await page.setViewport({ width: w, height: h })
     await page.goto(`${opts.baseUrl}/metadata`, { waitUntil: 'networkidle0' })
     await page.waitForSelector('.meta-rail', { timeout: opts.timeoutMs })

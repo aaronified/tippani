@@ -25,6 +25,7 @@
 // element's own overflow and not off a rectangle.
 
 import { act, cleanup, fireEvent, render } from '@testing-library/react'
+import { useRef } from 'react'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { useBackToTop, useBodyScrollLock } from '../../src/ui.jsx'
@@ -45,6 +46,34 @@ function Key() {
   const { show } = useBackToTop({ enabled: true })
   return <span data-testid="key">{show ? 'on' : 'off'}</span>
 }
+
+// A key given a surface of its own. The pack's rule is that the key belongs to
+// the element that scrolled — "not a ref that happens to exist", after a version
+// where it fired scrollTo on a panel that was closed and the page never moved.
+function BoxKey({ overlay = false }) {
+  const ref = useRef(null)
+  const { show } = useBackToTop({ enabled: true, target: ref })
+  useBodyScrollLock(overlay)
+  return (
+    <>
+      <div data-testid="box" ref={ref} />
+      <span data-testid="boxkey">{show ? 'on' : 'off'}</span>
+    </>
+  )
+}
+
+// jsdom lays nothing out, so the numbers a scroller reports are the ones a test
+// puts on it.
+const box = () => document.querySelector('[data-testid="box"]')
+const scrollBoxFarDown = async (at = 2000) => {
+  const el = box()
+  Object.defineProperty(el, 'scrollHeight', { value: 4000, configurable: true })
+  Object.defineProperty(el, 'clientHeight', { value: 800, configurable: true })
+  el.scrollTop = at
+  await act(async () => { fireEvent.scroll(el) })
+  await act(async () => { await new Promise((r) => setTimeout(r, 40)) })
+}
+const boxShowing = () => document.querySelector('[data-testid="boxkey"]').textContent
 
 const showing = () => document.querySelector('[data-testid="key"]').textContent
 
@@ -99,6 +128,32 @@ describe('the key back to the top', () => {
     expect(showing(),
       'the key draws over the sheet and offers to scroll a surface that is not in focus')
       .toBe('off')
+  })
+
+  // AND A SURFACE THAT IS NOT THE PAGE GETS ITS OWN. The owner's rule is about
+  // "a long scroll surface in focus", and while a panel is up the surface in
+  // focus is the panel's body — so silencing every key under an overlay would
+  // silence exactly the one the rule asks for.
+  it('is up for a scrolled panel body, which IS the surface in focus', async () => {
+    render(<BoxKey overlay />)
+    await scrollBoxFarDown()
+    expect(boxShowing(),
+      'a panel body scrolled a long way down offers no way back to its own top')
+      .toBe('on')
+  })
+
+  it('and stays down for a body nobody has scrolled far', async () => {
+    render(<BoxKey overlay />)
+    await scrollBoxFarDown(40)
+    expect(boxShowing(), 'the key is up on a body barely scrolled').toBe('off')
+  })
+
+  it('and the page\'s own key is still silent while that body is up', async () => {
+    render(<div><Key /><BoxKey overlay /></div>)
+    await scrollFarDown()
+    await scrollBoxFarDown()
+    expect(showing(), 'both keys are on screen at once, offering two surfaces').toBe('off')
+    expect(boxShowing()).toBe('on')
   })
 
   it('and comes back when the page is the reader\'s again', async () => {

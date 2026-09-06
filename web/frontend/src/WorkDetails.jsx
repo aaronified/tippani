@@ -42,7 +42,6 @@ import {
   IconCheck,
   IconClose,
   IconDelete,
-  IconEdit,
   IconGlobe,
   IconButton,
   IconMetadata,
