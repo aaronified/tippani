@@ -310,7 +310,13 @@ describe('on a phone', () => {
     // for the catalogue here, so a tile would be a button that appears to do
     // nothing. The numbers are the same numbers either way.
     await mount()
-    expect(screen.getByText(/coverage/i)).toBeTruthy()
+    // `find`, not `get`. `mount()` waits for the section field, which is drawn
+    // before the counts behind it arrive — so this line raced the fetch, and
+    // under a full suite's load it lost: the case failed with "Unable to find
+    // /coverage/i" over a screen that was still loading. That is a measurement
+    // of the machine rather than of the code, and it passed on its own every
+    // time, which is the shape of failure this config's own header warns about.
+    expect(await screen.findByText(/coverage/i)).toBeTruthy()
     expect(document.querySelector('.hand-card')).toBeTruthy() // the sweep cards
   })
 })

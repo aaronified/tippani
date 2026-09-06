@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { coverImgURL, json, errText } from './api.js'
 import { t } from './i18n.js'
-import { personImgURL, PersonPortrait, usePeople } from './credits.jsx'
+import { personImgURL, PersonPortrait, splitCredits, usePeople } from './credits.jsx'
 import { usePractice } from './review.jsx'
 import { Silhouette } from './silhouette.jsx'
 import { useBodyScrollLock, CloseButton, ErrorText, ExpandableDescription, Field, GhostButton, IconCheck, IconClose, IconDelete, IconEdit, IconMerge, IconPlus, IconQuiz, IconPractise, IconRefresh, IconSearch, isPartialDate, Lightbox, MonoLabel, NameInput, NameScroll, PartialDateField, Placeholder, Scroller, Tooltip, useConfirm, useEscape, useBackToClose, SCRIM, backdropClose} from './ui.jsx'
@@ -707,14 +707,24 @@ export function chipRows(images, speaker, onOpen, { withActor = true } = {}) {
       key: 'named:' + name,
       name,
       faceName: name,
-      faceSrc: c.path ? coverImgURL(c.path) : '',
+      // THE SAME LADDER THE SPEAKER CLIMBS: the still of the role, then the
+      // performer's headshot, then the hashed silhouette. It read differently on
+      // the two chips of one card — the speaker wore Audrey Hepburn's face and
+      // the character beside her a silhouette — for no reason except that the
+      // performer had not been carried this far.
+      faceSrc: c.path ? coverImgURL(c.path) : c.actor_image ? coverImgURL(c.actor_image) : '',
       castId: c.cast_id || 0,
       characterId: c.character_id || 0,
-      // NO SECOND LINE HERE, and its absence is information: the two-line chip
-      // means "this character, played by that person", which is a fact the app
-      // holds only for the stored speaker. A blank second line would claim the
-      // others had no performer rather than that nobody has said.
-      sub: '',
+      // WHO PLAYS THEM, under the name, exactly as on the speaker's chip.
+      //
+      // This line used to be blank on purpose, and the reasoning was that the app
+      // held the pairing for the stored speaker alone. That stopped being true
+      // when `work_cast.actor` started riding along with the picture — and while
+      // it was true, the cost was a card that drew two character chips and then
+      // named both performers AGAIN on a line beneath, which is the duplication
+      // the chip exists to end. A name the work's cast does not know still comes
+      // back empty and still draws one line.
+      sub: withActor ? (c.actor || '') : '',
       title: t('common.quote.named.tip', { name }),
       // THE WORK-LEVEL CHARACTER POPUP, which is what a character chip opens.
       // `cast_id` names the screen rather than `character_id` alone: a work can
@@ -727,6 +737,33 @@ export function chipRows(images, speaker, onOpen, { withActor = true } = {}) {
     })
   }
   return out
+}
+
+// creditsNotOnChips — of a card's credited people, the ones its chips do NOT
+// already print, in the order they were typed.
+//
+// ONE RULE, ONE IMPLEMENTATION. "What the chip already says does not get a line
+// of its own" is the owner's, and it was written twice: the film frame folded it
+// into a boolean of its own and the favourites tile never learned it at all, so
+// an expanded tile drew "V / William Rookwood · Hugo Weaving" as a chip and then
+// Hugo Weaving again underneath with his portrait on. Two readings of one rule is
+// how one screen goes on obeying it while the other stops.
+//
+// IT RETURNS THE LEFTOVERS RATHER THAN A YES/NO, because the honest answer is
+// per name. A line can credit two performers while the chips resolve one — the
+// names are typed like genres and only the cast rows fold — and dropping the
+// whole line there would lose the other name. What the chips cover goes; what
+// they do not stays.
+export function creditsNotOnChips(names, images, speaker, seps, { withActor = true } = {}) {
+  const list = names || []
+  if (list.length === 0) return []
+  const covered = new Set(
+    chipRows(images, speaker, undefined, { withActor })
+      .flatMap((c) => (c.sub ? splitCredits(c.sub, seps) : []))
+      .map(creditKey),
+  )
+  if (covered.size === 0) return list
+  return list.filter((n) => !covered.has(creditKey(n)))
 }
 
 // creditKey folds a typed name the way the server's store.CastKey does for the

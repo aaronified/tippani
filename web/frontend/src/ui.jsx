@@ -4072,18 +4072,13 @@ export function PanelHost({ stack }) {
   const panel = levels[levels.length - 1] || null;
   const nested = levels.length > 1;
   const parent = nested ? levels[levels.length - 2] : null;
-  // THE PARENT'S NAME SCROLLS RATHER THAN ENDING IN AN ELLIPSIS. It used to read
-  // "← Charles F…", and a shortened name and a short name look alike — which is
-  // the one failure a reader cannot detect, and the reason the cast row's
-  // character name works exactly this way (see .cast-character).
-  //
-  // A DRAG INSIDE A BUTTON IS SAFE HERE and was not always: useEdgeScroll takes
-  // its pointer capture only after 3px of movement, so a press-and-release still
-  // reaches the button and only a real drag scrolls — the same fix that stopped
-  // every scroller in the app eating its own clicks.
-  const backWord = useRef(null);
+  // THE PARENT'S NAME ELLIPSISES, AND NOTHING MEASURES IT ANY MORE. It scrolled
+  // under a measured fade until the owner ruled otherwise — "the back breadcrumbs
+  // sometimes do this. ellipsis them" — and the fade had to go with the scroller,
+  // because an edge fade in this app means "there is more this way" and a clipped
+  // word has nowhere to be dragged. The argument for the exception is at
+  // `.tp-panel-back-word` in index.css, where the rule it excepts is written.
   const titleRef = useRef(null);
-  useEdgeScroll(backWord, { axis: "x" });
   // The title is a name too — the panel is named after the person, character or
   // work it is about — so it gets the same treatment rather than an ellipsis.
   useEdgeScroll(titleRef, { axis: "x" });
@@ -4218,7 +4213,7 @@ export function PanelHost({ stack }) {
                 onClick={back}
               >
                 <IconBack />
-                <span className="tp-panel-back-word" ref={backWord}>{parent.title}</span>
+                <span className="tp-panel-back-word">{parent.title}</span>
               </button>
             ) : head?.slot || null}
           </div>

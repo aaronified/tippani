@@ -561,6 +561,22 @@ type QuoteLine struct {
 type LineFace struct {
 	Name string `json:"name"`
 	Path string `json:"path"`
+	// WHO PLAYS THEM, off the same cast row the picture comes from, and the
+	// performer's own headshot behind it.
+	//
+	// THE CHIP IS THE ONLY PLACE THE PAIR BELONGS. A card that names three
+	// characters used to print the characters as chips and then the performers
+	// again on a PLAYED BY line beneath, because the client held the performer
+	// for the stored SPEAKER alone and had to fall back to the line for the rest
+	// — "multi-character ones still has a separate actor line". The fact is one
+	// row of `work_cast`; carrying it per character is what lets the second line
+	// go.
+	//
+	// EMPTY IS THE HONEST ANSWER, not a claim. A book's cast has no actor and a
+	// character the reader typed off the cast has no row, so both come back blank
+	// and the chip draws one line, exactly as before.
+	Actor      string `json:"actor,omitempty"`
+	ActorImage string `json:"actor_image,omitempty"`
 	// THE TWO IDS A CHIP OPENS ON. The owner's ruling is that every chip is a
 	// button, and what it opens is the work-level character popup — which is
 	// keyed on the CAST ROW, not the record: a work can bill one character twice

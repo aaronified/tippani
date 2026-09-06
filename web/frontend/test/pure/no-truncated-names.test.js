@@ -14,6 +14,13 @@
 // THIS IS A LIST OF CLASSES THAT HOLD NAMES, not a ban on text-overflow. A count,
 // a path, a URL and a piece of prose may all ellipsise — none of them is a thing
 // whose whole point is being read exactly.
+//
+// AND THERE IS ONE EXCEPTION, WHICH IS KEPT HERE RATHER THAN BEING DELETED FROM
+// THE LIST. A class the owner has ruled may ellipsise moves to EXCEPTED below,
+// with the ruling beside it, and is still required to be a real clip — because
+// the way it was failing before the ruling was neither scrolling NOR clipping,
+// which is worse than either. A quietly shortened list would have lost both the
+// exception and the reason for it.
 
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -29,9 +36,20 @@ const NAME_CLASSES = [
   'cast-opt-name',
   'name-scroll',
   'trash-label',
-  'tp-panel-back-word',
   'tp-panel-title',
 ]
+
+// The exceptions, each with the ruling that granted it. Two entries would want
+// arguing; one is an exception, and this is how it stays visible as one.
+const EXCEPTED = {
+  // The owner, 6 September, over a screenshot of "← V / William Ro" printed
+  // across "Change who this is": "the back breadcrumbs sometimes do this.
+  // ellipsis them". The crumb is a signpost back to a screen the reader has just
+  // come from, whose own header printed that name in full — so it is the one
+  // place in the app where a name is not being READ, which is what the rule
+  // protects. See `crumb-stays-in-its-slot.test.js` for what it must do instead.
+  'tp-panel-back-word': 'the owner, 6 September',
+}
 
 // The subset that is ITSELF the scrolling box. The others are typography classes
 // worn alongside one — .trash-label sits on a NameScroll, which supplies the
@@ -57,6 +75,21 @@ describe('the classes that hold a name', () => {
     expect(block).not.toBeNull()
     expect(block, `.${cls} truncates a name — it must scroll under the fade or wrap`)
       .not.toMatch(/text-overflow\s*:\s*ellipsis/)
+  })
+})
+
+describe('the one class the owner has excepted', () => {
+  it.each(Object.keys(EXCEPTED))('%s is still a real clip, not an overflow', (cls) => {
+    // The exception is permission to SHORTEN a name, not permission to print it
+    // over whatever is beside it. Before the ruling this class did neither: it
+    // declared a scroller with no `min-width: 0`, so the word could not shrink,
+    // could not scroll, and simply overflowed its key onto the title.
+    const block = blockFor(cls)
+    expect(block, `.${cls} is not declared in index.css any more`).not.toBeNull()
+    expect(block, `.${cls} ellipsises with nothing to clip it — the rest of the name lands on its neighbour`)
+      .toMatch(/overflow\s*:\s*(hidden|clip)/)
+    expect(block, `.${cls} keeps its content width, so the clip never happens`)
+      .toMatch(/min-width\s*:\s*0/)
   })
 })
 

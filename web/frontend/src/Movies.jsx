@@ -12,7 +12,7 @@ import { selectionClick, selectionMenuItems, useSelection } from './selection.js
 import { facetValue, facetValues, publishSearchSeed, seedableChips, withFacet, withFacetValues } from './facets.js'
 import { SelectionBar } from './SelectionBar.jsx'
 import { useCharacterArt } from './cast.jsx'
-import { CreditFaces, PersonModal, PersonName, SpeakerChips, chipRows, creditKey, parseCreditSeps, personImgURL, splitCredits, usePeople, usePortraitFill } from './people.jsx'
+import { CreditFaces, PersonModal, PersonName, SpeakerChips, chipRows, creditsNotOnChips, parseCreditSeps, personImgURL, splitCredits, usePeople, usePortraitFill } from './people.jsx'
 import {
   GroupHeading,
   WorkCard,
@@ -1697,11 +1697,14 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
   // people-derived views (this list + the overlapping face chips below).
   const actorNames = d.actor ? splitCredits(d.actor, seps) : []
   const actorInherit = { font: 'inherit', color: 'inherit', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 2 }
-  const actorCredit =
-    actorNames.length > 0 ? (
+  // A BUILDER RATHER THAN A VALUE, because which names belong on this line is not
+  // known until the chips below have been folded — the line carries the ones the
+  // chips do NOT already print, and nothing when that is none.
+  const actorCreditFor = (names) =>
+    names.length > 0 ? (
       <span key="actor">
         {t('film.credit.actor.label')}{' '}
-        {actorNames.map((n, i) => (
+        {names.map((n, i) => (
           <Fragment key={n}>
             {i > 0 && ', '}
             {onOpenPerson ? (
@@ -1762,19 +1765,16 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
   // PLAYED BY line are the same two names a second time — "still 2 lines
   // everywhere instead of the actor in the pill".
   //
-  // ONLY WHERE THE CHIPS REALLY DO COVER IT, which is why this is a subset test
-  // and not `chipCount ? null`. A line may name several performers — they are
-  // entered like genres — while the chip's subtitle carries the one the cast row
-  // resolved. Dropping the line there would lose the other names, so the line
-  // stays whenever it has anything the chips do not.
-  const chipped = new Set(chipRows(d.character_images, speaker).flatMap(
-    (c) => (c.sub ? splitCredits(c.sub, seps) : []),
-  ).map(creditKey))
-  const actorsCovered = actorNames.length > 0 && actorNames.every((n) => chipped.has(creditKey(n)))
+  // NAME BY NAME, not line or no line. A line may credit several performers —
+  // they are typed like genres — while the chips resolve only the ones the work's
+  // cast knows, so an all-or-nothing test kept the whole line for one unmatched
+  // name and printed the other two performers twice. What the chips cover goes;
+  // what they do not stays, on a line with just those names on it.
+  const uncredited = creditsNotOnChips(actorNames, d.character_images, speaker, seps)
   const creditParts = [
     episodeLabel(d) || null,
     chipCount ? null : d.character || null,
-    actorsCovered ? null : actorCredit,
+    actorCreditFor(uncredited),
     d.timestamp || null,
   ].filter(Boolean)
   // Attached sticker → corner seal the line flows around (same as book

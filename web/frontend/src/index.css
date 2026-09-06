@@ -1042,9 +1042,17 @@
   }
   /* The back key names where it goes, not "Back" — walking a stack of five is
      five presses of a key that never says what it will show you. Capped in ch
-     because it holds text: a long parent title truncates, the slot does not. */
+     because it holds text: a long parent title truncates, the slot does not.
+
+     AND IT GIVES WAY WHEN THE HEAD IS TIGHT. `flex: none` at a hard 11ch made
+     the key wider than the third of the bar its slot had to give, so on a phone
+     the crumb ran out of its slot and under the title beside it — reported with
+     a screenshot of "← V / William Ro" printed over "Change who this is". It
+     shrinks now, down to a floor that is both the touch target and enough of the
+     name to read. */
   .tp-panel-back {
     min-height: 44px;
+    min-width: max(44px, 3em);
     max-width: 11ch;
     display: inline-flex;
     align-items: center;
@@ -1052,7 +1060,7 @@
     padding: 0 8px 0 4px;
     border-radius: 9px;
     color: var(--soft);
-    flex: none;
+    flex: 0 1 auto;
   }
   /* .name-scroll — the shared shape of a name that does not truncate. Written
      once here and worn by NameScroll (ui.jsx), which supplies the measurement:
@@ -1090,22 +1098,34 @@
   }
   .name-scroll::-webkit-scrollbar { display: none; }
 
-  /* A NAME IS NEVER TRUNCATED, and the panel you would go back to is named after
-     one. This ended in an ellipsis — "← Charles F…" — which is the failure a
-     reader cannot see, because a shortened name and a short name look alike. It
-     scrolls under the fade instead, exactly as .cast-character does; useEdgeScroll
-     in PanelHost is what writes data-scroll-x onto it. */
+  /* THE ONE NAME IN THE APP THAT ELLIPSISES, BY THE OWNER'S RULING: "the back
+     breadcrumbs sometimes do this. ellipsis them", over a screenshot of the crumb
+     printed across the title beside it.
+
+     THE STANDING RULE IS NOT REPEALED — this is an exception argued at the site,
+     the same shape as .person-chip-name's clip. It is granted because THIS TEXT
+     IS NOT WHERE THE NAME IS READ. The crumb is a signpost back to a screen the
+     reader has just come from and whose own header prints the name in full; every
+     other name in the app is on the row that exists to show it, and there a
+     shortened name and a short name look alike. Here the reader has already seen
+     the long one.
+
+     AND BECAUSE THE ALTERNATIVE WAS WORSE THAN AN ELLIPSIS. It scrolled under a
+     fade, which needs `min-width: 0` to be able to shrink at all — it never had
+     one, so the word simply overflowed its key and printed over the title. A name
+     with another screen's words laid across it is not readable either, and it does
+     not even admit that anything is missing.
+
+     THE FADE GOES WITH THE SCROLLER. `PanelHost` no longer measures this word,
+     because an edge fade means "it scrolls" and this no longer does. */
   .tp-panel-back-word {
+    min-width: 0;
     font-size: var(--type-ui-13);
     font-weight: 500;
     white-space: nowrap;
-    overflow-x: auto;
-    overscroll-behavior-x: contain;
-    /* A scrollbar under a 13px word in a 44px header is thicker than the word.
-       The fade is the signal. */
-    scrollbar-width: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
-  .tp-panel-back-word::-webkit-scrollbar,
   .tp-panel-title::-webkit-scrollbar { display: none; }
   /* ONE QUESTION, OVER THE SCREEN THAT ASKED IT. The panel keeps its frame and
      its rounded corners; this layer covers its body and head with a head of its

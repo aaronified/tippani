@@ -24,6 +24,7 @@ import {
   PersonModal,
   PeopleChips,
   SpeakerChips,
+  creditsNotOnChips,
   parseCreditSeps,
   splitCredits,
   usePeople,
@@ -408,7 +409,11 @@ function bookFav(a) {
   }
 }
 
-function screenFav(d, movieMap) {
+// EXPORTED FOR THE SAME REASON `quoteFav` IS. What an opened film tile prints —
+// and, just as much, what it does NOT print twice — is decided partly here and
+// partly in the tile, so a test handed a finished card shape would assert only
+// that the tile prints what it was given. See `favourite-occasion.test.jsx`.
+export function screenFav(d, movieMap) {
   const m = movieMap[d.movie_id] || {}
   // THREE MEDIA, NOT TWO. This asked `=== 'show'` and let everything else fall to
   // the film leg, so a game's line wore the FILM badge on the one screen that
@@ -1041,9 +1046,30 @@ export function FavouriteTile({
   // The EXPANDED line keeps the locator, which is the fact the open tile is open
   // FOR — where in the work this came from. Never the people: the chips below
   // carry the same names with their portraits and their way in.
+  //
+  // AND THE FILM BRANCH NOW OBEYS THAT PARAGRAPH, which for one release it did
+  // not: it printed `f.meta`, which is title · episode · character · timestamp —
+  // so an opened tile read "V FOR VENDETTA · V / WILLIAM ROOKWOOD" directly under
+  // a header naming the film and directly over a chip naming the character. The
+  // locator here is the episode and the timestamp; the title belongs to the
+  // header and the character to its chip.
+  //
+  // THE CHARACTER COMES BACK WHERE NO CHIP DRAWS. `character_images` carries an
+  // entry per name on the line whether or not a picture or a cast row was found,
+  // so chips cover every named character or there are none at all — and on a line
+  // that names one with the list absent, this text is the only place they appear.
+  const hasChips = f.raw?.character_images?.length > 0
+  // WHAT THE CHIPS DO NOT ALREADY SAY — see the expanded credit row below, and
+  // `creditsNotOnChips` for why the film frame and this tile ask it the same way.
+  const creditNames = creditsNotOnChips(peopleNames, f.raw?.character_images, f.raw?.speaker_cast, seps)
+  //
+  // AN UTTERANCE KEEPS `f.meta` UNTOUCHED: occasion, date, place and medium are
+  // its locator — there is no work behind it for a header to have named.
   let expandedMeta = isBook
     ? [chLabel, locLabel].filter(Boolean).join(' · ')
-    : f.meta
+    : isUtterance
+      ? f.meta
+      : [episodeLabel(f.raw), hasChips ? '' : f.raw?.character, f.raw?.timestamp].filter(Boolean).join(' · ')
   // Optimistic colour, the same trick AnnotationCard uses: onPatch refetches the
   // whole favourites list before the row comes back changed, so the quick-pick
   // paints the bar (and its own picked dot) the instant it is tapped, and rolls
@@ -1261,9 +1287,22 @@ export function FavouriteTile({
                   onOpenCharacter={onOpenCharacter}
                 />
               )}
-              {peopleNames.length > 0 && (
+              {/* AND ONLY THE ONES NO CHIP ABOVE ALREADY NAMES. A film line's chip
+                  carries the character with the performer under it, so an opened
+                  tile drew "V / William Rookwood · Hugo Weaving" as a chip and
+                  then Hugo Weaving a second time here with his portrait on —
+                  reported as "expanded favourite card is still duplicating actor.
+                  the collapsed card is fine", and fine collapsed for the one
+                  reason that this row is expanded-only.
+
+                  NAME BY NAME rather than all-or-nothing: a line can credit two
+                  performers while the chips resolve one, and the one they do not
+                  carry still needs a portrait and a door. A book's author and a
+                  quote's speaker are never a chip's subtitle, so nothing is
+                  dropped there and both read exactly as before. */}
+              {creditNames.length > 0 && (
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                  {peopleNames.map((n) => (
+                  {creditNames.map((n) => (
                     <PersonCredit
                       key={n}
                       kind={meta.personKind}

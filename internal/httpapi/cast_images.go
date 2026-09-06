@@ -54,7 +54,12 @@ type characterImage = store.LineFace
 // so the record id alone does not name a screen. Both ride along because the
 // query that finds the picture already has them.
 type castFace struct {
-	Path        string
+	Path string
+	// AND WHO PLAYS THEM, which is the other half of what a chip says. The row is
+	// already in hand; reading two more columns off it is what lets a card with
+	// three characters stop printing their performers a second time underneath.
+	Actor      string
+	ActorImage string
 	CastID      int64
 	CharacterID int64
 }
@@ -190,9 +195,11 @@ func (s *Server) characterFaces(uid int64, kind string, refs []characterImageRef
 		`SELECT wc.work_id, wc.character_key,
 		        CASE WHEN wc.character_image_path <> '' THEN wc.character_image_path
 		             ELSE COALESCE(c.image_path, '') END,
+		        wc.actor, COALESCE(p.image_path, ''),
 		        wc.id, COALESCE(wc.character_id, 0)
 		   FROM work_cast wc
 		   LEFT JOIN characters c ON c.id = wc.character_id AND c.user_id = wc.user_id
+		   LEFT JOIN people     p ON p.id = wc.actor_id     AND p.user_id = wc.user_id
 		  WHERE wc.user_id = ? AND wc.kind = ? AND wc.origin <> 'removed'
 		    AND wc.work_id IN (`+strings.Join(in, ",")+`)`, args...)
 	if err != nil {
@@ -204,7 +211,7 @@ func (s *Server) characterFaces(uid int64, kind string, refs []characterImageRef
 		var workID int64
 		var key string
 		var f castFace
-		if err := rows.Scan(&workID, &key, &f.Path, &f.CastID, &f.CharacterID); err != nil {
+		if err := rows.Scan(&workID, &key, &f.Path, &f.Actor, &f.ActorImage, &f.CastID, &f.CharacterID); err != nil {
 			olog.Warnf(olog.CodeCastRowScan, "[cast] character image row scan failed: %v", err)
 			continue
 		}
@@ -251,6 +258,8 @@ func characterImagesFor(found map[string]castFace, seps metadata.CreditSeps, wor
 		out = append(out, characterImage{
 			Name:        name,
 			Path:        f.Path,
+			Actor:       f.Actor,
+			ActorImage:  f.ActorImage,
 			CastID:      f.CastID,
 			CharacterID: f.CharacterID,
 		})
