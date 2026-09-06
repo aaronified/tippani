@@ -3,6 +3,7 @@ import { CAT_NAME_MAX, categoryName, categoryVar } from './theme.js'
 import { tzOffsetMinutes, usePractice } from './review.jsx'
 import { coverImgURL, errText, json } from './api.js'
 import { t, tNodes } from './i18n.js'
+import { Face } from './characterRows.jsx'
 import { PersonPortrait, useCharacterFaces, usePeople } from './people.jsx'
 import { ANNOTATION_COLORS, ANNOTATION_HEX, Card, ErrorText, FieldIconButton, fmtHalfLife, IconPractise, IconQuiz, MonoLabel, MONTH_KEYS, mulberry32, NameScroll, PageHeader, Scroller, STATUS_META, toast, Toggle, Tooltip, useEdgeScroll, useIsMobileScreen, usePersistedState, useScreenBar, IconHeartOn } from './ui.jsx'
 
@@ -468,11 +469,13 @@ function BreakdownRow({ r, rank, showWorks, art, personMap, characterMap, onSear
           ) : portrait ? (
             <PersonPortrait person={portrait} size={24} />
           ) : face ? (
-            <img
-              src={coverImgURL(face)}
-              alt=""
-              style={{ width: 24, height: 24, objectFit: 'cover', borderRadius: 999, border: '1px solid var(--ink-border)' }}
-            />
+            // A CHARACTER'S STILL, and it is the owner's reported picture: "the
+            // character chip … is a missing image glyph that looks like server
+            // has broke." A still is a WORK's art, so it is built by
+            // `coverImgURL` rather than `personImgURL` — which is how this row
+            // sat outside a rule written about people while drawing exactly the
+            // thing the rule was written for.
+            <Face src={face} name={label || ''} className="stat-face-round" style={{ width: 24, height: 24 }} />
           ) : null}
         </span>
       )}
@@ -1340,7 +1343,12 @@ function SuperTile({ label, title, count, amber, cover, person, onOpen }) {
           // rows and the People console use. A name alone in a grid of covers
           // reads as the one tile whose art failed to load.
           <span style={{ flex: '0 0 auto' }}>
-            <PersonPortrait person={person} size={30} />
+            {/* A SILHOUETTE HERE, not the gap an ornament leaves — this comment
+                two lines up is the reason: "a name alone in a grid of covers
+                reads as the one tile whose art failed to load", which is exactly
+                what drawing nothing produces. The tile is a record's face, not
+                an ornament, so it says so. */}
+            <PersonPortrait person={person} size={30} fallback={undefined} />
           </span>
         ) : null}
         <div className="min-w-0 flex-1">

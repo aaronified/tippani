@@ -114,7 +114,7 @@ export function ScreenHead({ title, crumb, glyph, art, artKind, scopeTitle }) {
 // `personImgURL`, a work's art under `coverImgURL`, and an already-built address
 // under neither. What they must NOT keep their own copy of is the fallback, which
 // is why it lives here.
-export function Face({ src, name, className = 'cs-face', url = coverImgURL, title, onLoad, onBroken, loading = 'lazy', fallback, style }) {
+export function Face({ src, name, className = 'cs-face', imgClass, url = coverImgURL, title, onLoad, onBroken, loading = 'lazy', fallback, style }) {
   const [broken, setBroken] = useState(false)
   const path = String(src || '')
   // A NEW PATH DESERVES ITS OWN CHANCE. Without this a row that fails once keeps
@@ -145,6 +145,11 @@ export function Face({ src, name, className = 'cs-face', url = coverImgURL, titl
         : (
           <img
             src={url(path)}
+            // SOME STYLESHEETS DRESS THE PICTURE AND NOT ITS BOX — a board's
+            // tile, a binned record's face — and those callers keep their class
+            // on the picture rather than being rewritten around this one. The
+            // wrapper then carries `display: contents` and adds nothing.
+            className={imgClass}
             alt=""
             loading={loading}
             // AND THE CALLER MAY NEED TO KNOW, not to decide. A slot whose whole

@@ -381,11 +381,11 @@ Scored **6/10**, and every one of its five findings held.
 
 | # | Finding | Status |
 |---|---|---|
-| V1 | U2's repair had **no behavioural guard**: reverting all three converted sites left 3,393 of 3,394 green, and the one failure was a DOM-shape assertion that would still pass with `onError` deleted — U1's own lesson, one item over | **FIXED**, and not by writing three more per-site cases. The rule is about the tree: only a component that ASKS the picture — through `onError` — may draw the thing that stands in for one, and there are two, each listed with its reason. A third site drawing a silhouette has its own idea of when a picture is missing, and that idea is the defect. Plus a render case on the screen the owner named as the model |
-| V2 | **"all six now" was a false denominator** — `PersonPortrait` (`credits.jsx`), the round face on Home, Quotes, film rows, search results and the quiz card, was still a bare `<img>`, with four more beside it | **FIXED.** Eleven sites, and the invariant above is what stops the twelfth. Reverting the widest of them fails it by name |
-| V3 | The sentence the commit calls false was still in the register — S4 still read "`Face` owns the fallback for all of them" | **FIXED.** S4 now says six of eleven, and names all three commits |
-| V4 | No U row named a commit, against the file's own rule | **FIXED** |
-| V5 | `b3f041f` copied the truth instead of moving it: `is-empty` was still computed from the stored path in two places, one of which nothing read any more; and `.cast-face-btn .cast-face` beat `.cast-face.is-empty` on source order, so the stand-in's centring was dead inside the button | **FIXED.** The dead class is gone from both callers and the tie is broken with `:not(.is-empty)` |
+| V1 | U2's repair had **no behavioural guard**: reverting all three converted sites left 3,393 of 3,394 green, and the one failure was a DOM-shape assertion that would still pass with `onError` deleted — U1's own lesson, one item over | **FIXED**, and not by writing three more per-site cases. The rule is about the tree: only a component that ASKS the picture — through `onError` — may draw the thing that stands in for one, and there are two, each listed with its reason. A third site drawing a silhouette has its own idea of when a picture is missing, and that idea is the defect. Plus a render case on the screen the owner named as the model `c742dab` |
+| V2 | **"all six now" was a false denominator** — `PersonPortrait` (`credits.jsx`), the round face on Home, Quotes, film rows, search results and the quiz card, was still a bare `<img>`, with four more beside it | **FIXED**, though "eleven" was wrong too — see W2. The invariant above is what stops the next one, and reverting the widest of them fails it by name `c742dab` |
+| V3 | The sentence the commit calls false was still in the register — S4 still read "`Face` owns the fallback for all of them" | **FIXED.** S4 now says six of eleven, and names all three commits `c742dab` |
+| V4 | No U row named a commit, against the file's own rule | **FIXED** `c742dab` |
+| V5 | `b3f041f` copied the truth instead of moving it: `is-empty` was still computed from the stored path in two places, one of which nothing read any more; and `.cast-face-btn .cast-face` beat `.cast-face.is-empty` on source order, so the stand-in's centring was dead inside the button | **FIXED.** The dead class is gone from both callers and the tie is broken with `:not(.is-empty)` `c742dab` |
 
 **And one it asked me to check rather than found:** whether `fallback={null}` hides
 something the reader needed. On four of the five slots nothing is right — they are
@@ -400,6 +400,33 @@ Two more things it found while reading, neither of them in its list: `identity.j
 `Silhouette` and never used it, and `PortraitBlock` — the one picture on the screen whose
 dimensions it prints — had inherited `loading="lazy"` from `Face`'s default, which defers
 the measurement the caption is waiting for. Both fixed.
+
+## W. The work-rater's fifth pass, 6 September
+
+Scored **5/10**, the lowest of the five, and it earned it: the first finding is the
+owner's reported symptom, live, on a screen the commit said was covered.
+
+| # | Finding | Status |
+|---|---|---|
+| W1 | **The Stats breakdown still drew a character's still as a bare `<img>`** — the owner's exact reported picture, unfixed — and the invariant written to stop it *could never catch it*: a still is a WORK's art, so `coverImgURL` builds it, and the rule policed `personImgURL` only | **FIXED.** The rule asks what a picture is OF now, read off the words this codebase uses for one, rather than which function built the address. Reverting the Stats row fails it by name |
+| W2 | The invariant matched only the inline `src={…personImgURL(…)}` shape — putting the address in a `const` one line up walked straight past it, which is the shape seven of eight call sites already use | **FIXED.** A bare identifier is resolved one step through its own declaration, and the rule is shown a picture of each shape it must catch, so a pattern that quietly stops matching fails rather than going green |
+| W3 | `fallback` shipped with no test — the same gap as U1, one commit later | **FIXED** in `ebea143`, which the rater saw uncommitted and called the right shape |
+| W4 | `fallback={null}` left the person record's zoom button a 104px control that does nothing, opening a lightbox on the same dead file | **FIXED** in `ebea143` |
+| W5 | `fallback={null}` is wrong on the Stats person tile, whose own comment says a name alone "reads as the one tile whose art failed to load" — which is exactly what a gap produces | **FIXED.** `PersonPortrait` takes the stand-in from its caller now: the default is the ornament's gap and a tile that is a record's FACE says so |
+| W6 | `cast.jsx` still computed `is-empty` from the stored path; V5's "gone from both callers" was inaccurate | **FIXED**, and the two rules that read it now ask the box rather than the caller, so the class is gone rather than shadowed |
+| W7 | No V row named a commit — the rule U4 was raised for, broken again one section later | **FIXED** |
+
+**And the widened rule immediately found two more of its own:** a binned record's face
+(`BinPage.jsx`) and a board's picture, in both places a board draws one (`boards.jsx`).
+Both are the same question asked wrong — is a path stored — and both are converted, each
+keeping its own stand-in, which is what `fallback` is for. Twelve sites, and the count is
+now the invariant's to keep rather than a commit message's.
+
+**One thing it named that is NOT this round's to change.** A person's record header draws
+the pack's `Placeholder` when there is no photograph and a character's draws a silhouette
+— two records, two answers. That is a difference between two EMPTY states, it predates
+every commit here, and picking one is a design call with a visible result. Raised rather
+than guessed at.
 
 ## Withdrawn claims
 

@@ -13,6 +13,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { coverImgURL, errText, json, uploadWithProgress } from './api.js'
 import { t, tNodes } from './i18n.js'
+import { Face } from './characterRows.jsx'
 import { categoryVar } from './theme.js'
 import { glyphFor, STARTER_LANGUAGES } from './languages.jsx'
 import {
@@ -474,11 +475,17 @@ export function BoardForm({ initial, onSubmit, onCancel, submitLabel = t('common
           next open, which is one tap and needs no second endpoint. */}
       {initial?.id ? (
         <div className="flex items-center gap-3">
-          {imagePath ? (
-            <img src={coverImgURL(imagePath)} alt="" className="board-form-img" />
-          ) : (
-            <span className="board-form-img is-empty" aria-hidden="true" />
-          )}
+          {/* The board's own picture. `imgClass` because this stylesheet dresses
+              the PICTURE, and `display: contents` on the slot keeps the box out
+              of the way — see `.face-slot`. */}
+          <Face
+            src={imagePath}
+            url={coverImgURL}
+            name=""
+            className="face-slot"
+            imgClass="board-form-img"
+            fallback={<span className="board-form-img is-empty" aria-hidden="true" />}
+          />
           <label className="tp-btn tp-btn-ghost tactile" style={{ cursor: 'pointer' }}>
             <IconUpload />
             <span className="btn-label">{t('quotes.board.form.picture.label')}</span>
@@ -583,11 +590,14 @@ function BoardTile({ board, onOpen, onEdit, onDelete, onToggleHidden }) {
   return (
     <div className={'board-tile' + (board.hidden ? ' is-hidden-board' : '')} style={{ '--board-color': categoryVar(board.color) }}>
       <button type="button" className="board-tile-face" onClick={() => onOpen(board.id)}>
-        {board.image_path ? (
-          <img src={coverImgURL(board.image_path)} alt="" className="board-tile-img" />
-        ) : (
-          <BoardCover board={board} />
-        )}
+        <Face
+          src={board.image_path}
+          url={coverImgURL}
+          name=""
+          className="face-slot"
+          imgClass="board-tile-img"
+          fallback={<BoardCover board={board} />}
+        />
         <span className="board-tile-name">{board.name}</span>
         <span className="board-tile-count">
           {t('common.count.phrase', { n: board.quotes, noun: t('unit.quote', { count: board.quotes }) })}

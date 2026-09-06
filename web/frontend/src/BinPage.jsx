@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { coverImgURL, errText, json } from './api.js'
 import { t } from './i18n.js'
+import { Face } from './characterRows.jsx'
 import {
   Card,
   ConfirmDialog,
@@ -541,11 +542,18 @@ export default function BinPage() {
                           show. Round, like every other portrait in the app. */}
                       {record[e.id] && (
                         <div className="trash-face">
-                          {record[e.id].image_path ? (
-                            <img src={coverImgURL(record[e.id].image_path)} alt="" />
-                          ) : (
-                            <span className="trash-face-blank" aria-hidden="true"><IconPerson /></span>
-                          )}
+                          {/* A BINNED RECORD'S FACE, and a path stored is not a
+                              picture arriving — the same question every other
+                              face in the app now asks once, in one place. The
+                              stand-in here is this screen's own mark rather than
+                              a silhouette, so it is passed in. */}
+                          <Face
+                            src={record[e.id].image_path}
+                            url={coverImgURL}
+                            name={record[e.id].name || ''}
+                            className="face-slot"
+                            fallback={<span className="trash-face-blank" aria-hidden="true"><IconPerson /></span>}
+                          />
                           <NameScroll text={record[e.id].name} />
                         </div>
                       )}

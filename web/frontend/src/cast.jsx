@@ -422,7 +422,10 @@ export function usePicturePicker({
   const faceButton = (
     <button
       type="button"
-      className={'cast-face-btn' + (face ? '' : ' is-empty')}
+      // NO `is-empty` FROM THE STORED PATH. What reads it is keyed on the box
+      // `Face` draws, because a picture that failed to arrive is a row with no
+      // picture and a class set from the path cannot know that.
+      className="cast-face-btn"
       aria-label={label}
       aria-expanded={urlOpen}
       disabled={busy}

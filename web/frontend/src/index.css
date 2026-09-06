@@ -2852,7 +2852,13 @@
      it replaced. The wrapper is the box; the picture fills it. Each of these
      draws NOTHING when there is no picture — they are ornaments, and the design
      gives them no glyph — so there is no `.is-empty` rule to write. */
-  .person-portrait-round { display: block; border-radius: 50%; overflow: hidden; border: 1px solid var(--ink-border); }
+  /* A SLOT THAT ADDS NOTHING. `Face` wraps the picture and its stand-in in one
+     span so it can tell them apart; a caller whose stylesheet already dresses the
+     picture — or the stand-in — keeps its rules and gives the wrapper this, which
+     generates no box at all. */
+  .face-slot { display: contents; }
+  .person-portrait-round, .stat-face-round { display: block; border-radius: 50%; overflow: hidden; border: 1px solid var(--ink-border); }
+  .stat-face-round img, .stat-face-round svg { width: 100%; height: 100%; object-fit: cover; display: block; }
   .person-portrait-round img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .person-photo-zoom { display: block; width: 100%; }
   .person-photo-zoom img {
@@ -2896,31 +2902,31 @@
     position: absolute; display: flex; align-items: center; justify-content: center;
     color: var(--soft); pointer-events: none;
   }
+  /* WHICH ROW HAS A PICTURE IS READ OFF THE BOX, once, for both rules below.
+     It used to be a class the CALLER set from the stored path, which cannot tell
+     an absent picture from one whose file has gone — so a row drawing a
+     silhouette wore the styling of a photographed one. `Face` puts the truth on
+     the box that draws it; `:has` is how the button reads it, and it is now the
+     only thing either rule asks. */
   /* A ROLE WITH A PICTURE keeps the picture and shows the affordance only on the
      way to using it — a permanent badge over twenty faces is twenty badges. */
-  .cast-face-btn:not(.is-empty) .cast-face-mark {
+  .cast-face-btn:not(:has(.cast-face.is-empty)) .cast-face-mark {
     inset: auto 0 0 0; height: 15px; opacity: 0;
     color: var(--bg); background: color-mix(in srgb, var(--ink) 62%, transparent);
     border-radius: 0 0 4px 4px; transition: opacity 120ms ease;
   }
-  .cast-face-btn:not(.is-empty):hover .cast-face-mark,
-  .cast-face-btn:not(.is-empty):focus-visible .cast-face-mark { opacity: 1; }
+  .cast-face-btn:not(:has(.cast-face.is-empty)):hover .cast-face-mark,
+  .cast-face-btn:not(:has(.cast-face.is-empty)):focus-visible .cast-face-mark { opacity: 1; }
   /* A ROLE WITHOUT ONE says so permanently, because there is nothing else in the
      row to say it and the blank box was the whole complaint. The box is no longer
      blank — it wears one of the six silhouettes — so the verb takes the same
      bottom strip a filled row uses on hover, kept always-on here: the affordance
      survives, and the face underneath is allowed to say whose it is. */
-  /* AND A PICTURE THAT FAILED TO ARRIVE IS A ROW WITH NO PICTURE. `is-empty` on
-     the BUTTON is set from the stored path, so it says "photographed" while the
-     box under it is drawing a silhouette. `Face` puts the truth on the box —
-     that is the whole of its job — and `:has` is how the button reads it. */
-  .cast-face-btn.is-empty .cast-face-mark,
   .cast-face-btn:has(.cast-face.is-empty) .cast-face-mark {
     inset: auto 0 0 0; height: 15px; opacity: 1;
     color: var(--bg); background: color-mix(in srgb, var(--ink) 62%, transparent);
     border-radius: 0 0 4px 4px;
   }
-  .cast-face-btn.is-empty:hover .cast-face-mark,
   .cast-face-btn:has(.cast-face.is-empty):hover .cast-face-mark { background: var(--ink); }
   .cast-names { display: flex; min-width: 0; flex: 1 1 auto; flex-direction: column; }
   /* A NAME IS NEVER TRUNCATED. This used to end in an ellipsis, and an ellipsis on
@@ -8454,9 +8460,15 @@ html[data-theme="dark"] .board-cover {
 /* The box, with the picture filling it — `Face` draws both halves inside a
    span of its own so a picture that fails to arrive can be told apart from
    one that is not there. */
-.char-name-face > img { display: block; width: 100%; height: 100%; object-fit: cover; border-radius: 2px; }
+/* `height: auto`, NOT `100%`. The wrapper's height comes from `aspect-ratio`,
+   and a percentage height against a height derived that way is the case the
+   repo's own rule says to verify rather than assume. The picture takes the box's
+   width and the same ratio, which is the thing that was wanted. */
+.char-name-face > img { display: block; width: 100%; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 2px; }
 .char-name-face {
-  flex: none; width: max(20px, 1.5em); aspect-ratio: 2 / 3; object-fit: cover;
+  /* No `object-fit` here: this is the BOX now, and object-fit on a span does
+     nothing. It is on the picture inside, where it always meant something. */
+  flex: none; width: max(20px, 1.5em); aspect-ratio: 2 / 3; overflow: hidden;
   border-radius: 3px; border: 1px solid var(--ink-border);
 }
 
@@ -8504,9 +8516,9 @@ html[data-theme="dark"] .board-cover {
 /* The box, with the picture filling it — `Face` draws both halves inside a
    span of its own so a picture that fails to arrive can be told apart from
    one that is not there. */
-.person-dup-face > img { display: block; width: 100%; height: 100%; object-fit: cover; border-radius: 2px; }
+.person-dup-face > img { display: block; width: 100%; aspect-ratio: 3 / 4; object-fit: cover; border-radius: 2px; }
 .person-dup-face {
-  width: max(20px, 1.5em); aspect-ratio: 3 / 4; object-fit: cover;
+  width: max(20px, 1.5em); aspect-ratio: 3 / 4; overflow: hidden;
   border-radius: 3px; border: 1px solid var(--ink-border);
 }
 /* One quote on a person's or a character's record. The text leads; who said it

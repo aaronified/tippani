@@ -266,7 +266,14 @@ export function usePortraitFill(kind, names, people, onFilled) {
 
 // PersonPortrait — the small round portrait for a group-by heading (renders
 // nothing when there's no saved image).
-export function PersonPortrait({ person, size = 30 }) {
+// `fallback` IS THE CALLER'S, because these callers are not one kind of thing.
+// Most are ORNAMENTS — the round face beside a group heading, in a search result
+// — where the design draws nothing without a picture and a glyph would put a face
+// where the pack gives none. But the Stats tile is a RECORD'S FACE, and its own
+// comment says why the gap is wrong there: "a name alone in a grid of covers
+// reads as the one tile whose art failed to load". So the default is the
+// ornament's `null` and a caller that is not one says so.
+export function PersonPortrait({ person, size = 30, fallback = null }) {
   // AN ORNAMENT DRAWS NOTHING WHERE THERE IS NOTHING, and a picture that fails to
   // arrive is nothing — so `fallback={null}` rather than a silhouette, which
   // would put a face beside a heading the design gives none. What this may NOT do
@@ -279,7 +286,7 @@ export function PersonPortrait({ person, size = 30 }) {
     <Face
       src={person.image_path}
       url={personImgURL}
-      fallback={null}
+      fallback={fallback}
       name={person.name || ''}
       className="person-portrait-round"
       // The size is the caller's — 24 in a stat row, 28 in a search result, 30
