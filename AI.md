@@ -318,6 +318,26 @@ worth nothing here and only execution counts. What the repo actually runs:
   nothing. Tippani never sets a root font size — `applyTypeScale` writes finished
   pixels into `--type-*` — so setting the root to 24px alone leaves the app untouched
   and would have returned a clean bill of health for a stylesheet full of px boxes.
+- **A BRANCH THAT ONLY RUNS WHEN A PICTURE EXISTS IS THE BLIND SPOT BOTH LAYERS SHARE**,
+  and it cost three shipped `ReferenceError`s in one session. `screens-mount.test.jsx`
+  mounts every screen with every request REFUSED — deliberately, and its own note argues
+  the case well: a refusal needs no invented payload shape, so the file cannot rot into
+  eleven guessed formats. `make controls` runs against `seed.mjs`, which has no artwork,
+  because this container cannot fetch any. Between them, no layer ever executes the arm of
+  a conditional that draws a picture.
+
+  So a free identifier inside one of those arms compiles, bundles, passes 3,400 tests and
+  throws the first time a reader with a real library opens the screen. Three of them
+  shipped in three consecutive commits, all in one span of `StatsPage.jsx`, each found by
+  a rater reading the diff rather than by anything that runs.
+
+  **The repair was per-branch and not systemic, deliberately.** A smoke pass that answers
+  every request with a plausible payload would catch the class, and would also become the
+  place eleven response shapes are guessed at — which is the cost the mount test's own
+  note refuses, and refuses correctly. What is guarded now is that each arm of the one
+  span that had them renders. **The general lesson stands and is not mechanised: when a
+  change touches an arm that only runs when data exists, render that arm.**
+
 - **`make controls` asks a question of every control instead of asserting a fix.** It
   presses everything a reader can press on fifteen surfaces — twelve screens, both work
   details, and the character panel, which is reached through a DOOR the run opens first
