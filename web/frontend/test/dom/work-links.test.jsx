@@ -189,6 +189,31 @@ describe('the Links panel', () => {
     await waitFor(() => expect(document.querySelectorAll('.work-link-row')).toHaveLength(3))
   })
 
+  // AND THE ROW SHOWS IT AFTERWARDS, which is the whole point of the merge: the
+  // section is the record's ways out, so a way out that has just been added is
+  // one of them. The old arrangement could not be wrong about this — the Links
+  // ROW printed a summary and the pills were the ids' — and the new one can, if
+  // the details panel goes on holding the record it was rendered with.
+  //
+  // WAITED ON, NOT SLEPT THROUGH. The first cut fired two Escapes back to back
+  // and failed: the save leaves the reader on the LIST, so the second press was
+  // closing the details panel rather than returning to it. Each step waits for
+  // the surface it is leaving to actually be there.
+  it('and the pill row behind the panel is showing it when you come back', async () => {
+    const box = await openPaste()
+    fireEvent.change(box, { target: { value: 'letterboxd.com/film/stalker/' } })
+    fireEvent.click(screen.getByLabelText('Save'))
+    await waitFor(() => expect(PUTS).toHaveLength(1))
+    // The save lands back on the list, with the new row on it.
+    await waitFor(() => expect(document.querySelectorAll('.work-link-row')).toHaveLength(3))
+    fireEvent.keyDown(document, { key: 'Escape' })
+    await waitFor(() => {
+      const text = [...document.querySelectorAll('.cs-pills .cs-pill')].map((el) => el.textContent).join(' | ')
+      expect(text, 'the link was saved and the row it was added to does not know')
+        .toMatch(/letterboxd/i)
+    })
+  })
+
   it('refuses to add the same address twice, and writes nothing doing it', async () => {
     const box = await openPaste()
     fireEvent.change(box, { target: { value: 'https://example.org/a-review' } })
