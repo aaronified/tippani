@@ -28,6 +28,22 @@
 # is fair game. A sweep that cannot tell a dead dir from a live one has to
 # decline, and say so.
 #
+# BUT "IN USE" WAS TOO BLUNT, AND THE THING IT MISSED IS THE ONE THAT MATTERS.
+# The leak this file was written for is a server that OUTLIVED its shell — a TERM
+# the shell never got to trap, or a SIGKILL. That server goes on holding
+# `tippani.db` open, so `fuser` answers yes, so the sweep steps over the very
+# directory it exists to remove, and somebody's restored library stays decrypted
+# on disk with nothing left that will ever clean it up. The `require_free` guard
+# only surfaces it when the NEXT run happens to want the same port; on any other
+# port it is invisible and permanent.
+#
+# A CONCURRENT RUN AND AN ORPHAN LOOK IDENTICAL FROM THE DIRECTORY, and are told
+# apart from above: a concurrent run's server has its `run-*.sh` shell as its
+# parent, and an orphan's shell is gone, so it has been reparented to init. So
+# the sweep removes a scratch dir whose only holders are OUR OWN servers with no
+# shell above them — a `<mktemp>/tippani serve`, PPID 1 — and still steps over a
+# directory anything else is in, which is what keeps a concurrent run safe.
+#
 # AND IT SWEEPS WHERE mktemp ACTUALLY PUTS THINGS. `mktemp -d` honours $TMPDIR, so
 # a hardcoded /tmp finds nothing on any machine that sets it.
 
@@ -38,7 +54,9 @@ scratch_sweep() {
   if command -v fuser >/dev/null 2>&1; then
     for d in "$root"/tmp.*; do
       [ -f "$d/tippani.db" ] || continue
-      fuser "$d/tippani.db" >/dev/null 2>&1 && continue
+      if fuser "$d/tippani.db" >/dev/null 2>&1; then
+        scratch_orphans "$d" || continue
+      fi
       echo "removing a data dir a killed run left behind: $d"
       rm -rf "$d"
     done
@@ -48,6 +66,41 @@ scratch_sweep() {
       echo "WARNING: $d holds a scratch library and no fuser here to say whether it is in use — remove it by hand" >&2
     done
   fi
+}
+
+# scratch_orphans <data-dir>
+#
+# Answers whether everything holding this directory's database is one of OUR
+# scratch servers with no shell above it, and stops them when so. Anything else
+# in there — a concurrent run, a shell sitting in the directory, sqlite3 — and it
+# declines, because a sweep that guesses is worse than one that leaves a stray
+# directory for the next run to report.
+scratch_orphans() {
+  local data="$1" tmp pids pid exe ppid
+  tmp="${TMPDIR:-/tmp}"; tmp="${tmp%/}"
+  pids="$(fuser "$data/tippani.db" 2>/dev/null | tr -s ' ' '\n' | grep -E '^[0-9]+$' || true)"
+  [ -n "$pids" ] || return 1
+  for pid in $pids; do
+    # The binary is its own mktemp, not the data dir's — see the run scripts.
+    exe="$(readlink -f "/proc/$pid/exe" 2>/dev/null || true)"
+    case "$exe" in "$tmp"/tmp.*/tippani) ;; *) return 1 ;; esac
+    # `status`, not `stat`: field 4 of stat is only the parent when nothing in
+    # the process name contains a space or a bracket, which is not ours to promise.
+    ppid="$(awk '/^PPid:/ {print $2}' "/proc/$pid/status" 2>/dev/null)"
+    [ "$ppid" = "1" ] || return 1
+  done
+  for pid in $pids; do
+    echo "stopping a scratch server its shell no longer owns: pid $pid serving $data"
+    kill "$pid" 2>/dev/null || true
+  done
+  # The database has to be released before the directory goes, or the removal
+  # races the server's own clean shutdown and leaves half of it behind.
+  for _ in 1 2 3 4 5 6 7 8 9 10; do
+    fuser "$data/tippani.db" >/dev/null 2>&1 || return 0
+    sleep 0.5
+  done
+  echo "WARNING: $data is still held after a TERM — left in place" >&2
+  return 1
 }
 
 # scratch_trap <server-pid> <data-dir> <binary-dir>
