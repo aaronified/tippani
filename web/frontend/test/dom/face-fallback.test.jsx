@@ -20,7 +20,7 @@
 // draws the address `url(src)` builds, and falls back to the app's six hashed
 // silhouettes — the same six a row with no picture has always drawn.
 
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render } from '@testing-library/react'
 
 import { Face, PortraitBlock } from '../../src/characterRows.jsx'
@@ -79,6 +79,31 @@ describe('a face whose picture fails to arrive', () => {
     fireEvent.error(shot)
     expect(container.querySelector('img'), 'the failed portrait is still on the screen').toBeNull()
     expect(container.querySelector('svg'), 'nothing stood in for the failed portrait').toBeTruthy()
+  })
+
+  it('and tells a caller whose whole reason was the picture', () => {
+    // A SLOT WHOSE PURPOSE IS THE PICTURE HAS NOTHING LEFT TO BE. The person
+    // record's photograph is a BUTTON that opens it full-screen; a file that has
+    // gone would leave a 104px control that does nothing, which is the defect
+    // `make controls` exists to catch arriving through the back door. `Face`
+    // still judges WHETHER the picture failed — that is the whole point of it —
+    // and what a screen does about it stays the screen's.
+    const told = vi.fn()
+    const c = draw({ src: 'gone.jpg', name: 'Delia', fallback: null, onBroken: told })
+    fireEvent.error(img(c))
+    expect(told, 'the picture failed and nothing told the control that depends on it')
+      .toHaveBeenCalled()
+  })
+
+  it('and draws nothing at all where the caller says nothing is right', () => {
+    // AN ORNAMENT DRAWS NOTHING WHERE THERE IS NOTHING — the round face beside a
+    // group heading, the thumbnail next to "remove the picture". A silhouette
+    // there would put a face where the design draws none, so a failed picture
+    // has to leave the same gap an absent one does.
+    const c = draw({ src: 'gone.jpg', name: 'Delia', fallback: null })
+    fireEvent.error(img(c))
+    expect(c.innerHTML, 'a slot that draws nothing without a picture drew something with a broken one')
+      .toBe('')
   })
 
   it('and a replacement picture gets its own chance', () => {

@@ -114,7 +114,7 @@ export function ScreenHead({ title, crumb, glyph, art, artKind, scopeTitle }) {
 // `personImgURL`, a work's art under `coverImgURL`, and an already-built address
 // under neither. What they must NOT keep their own copy of is the fallback, which
 // is why it lives here.
-export function Face({ src, name, className = 'cs-face', url = coverImgURL, title, onLoad, loading = 'lazy', fallback, style }) {
+export function Face({ src, name, className = 'cs-face', url = coverImgURL, title, onLoad, onBroken, loading = 'lazy', fallback, style }) {
   const [broken, setBroken] = useState(false)
   const path = String(src || '')
   // A NEW PATH DESERVES ITS OWN CHANCE. Without this a row that fails once keeps
@@ -142,7 +142,20 @@ export function Face({ src, name, className = 'cs-face', url = coverImgURL, titl
     <span className={empty ? `${className} is-empty` : className} title={title} style={style}>
       {empty
         ? stand
-        : <img src={url(path)} alt="" loading={loading} onError={() => setBroken(true)} onLoad={onLoad} />}
+        : (
+          <img
+            src={url(path)}
+            alt=""
+            loading={loading}
+            // AND THE CALLER MAY NEED TO KNOW, not to decide. A slot whose whole
+            // purpose is the picture — a button that zooms one — has nothing left
+            // to be once it has gone, and a control that does nothing is the
+            // defect `make controls` exists to catch. The judgement of WHETHER a
+            // picture failed stays here; what a screen does about it is its own.
+            onError={() => { setBroken(true); onBroken?.() }}
+            onLoad={onLoad}
+          />
+        )}
     </span>
   )
 }

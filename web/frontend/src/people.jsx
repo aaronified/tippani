@@ -929,9 +929,16 @@ function lifespanLabel(p) {
 
 function PersonView({ person, name, onEdit, onDelete, onPractise }) {
   const [zoom, setZoom] = useState(false)
+  // A PICTURE THAT NEVER ARRIVED LEAVES NOTHING TO ZOOM. The button below exists
+  // only to open this photograph full-screen, so a broken file would leave a
+  // 104px control that does nothing — the defect `make controls` was written to
+  // catch, arriving through the back door. The record falls back to the same
+  // "no photograph" block a record without one draws.
+  const [gone, setGone] = useState(false)
+  useEffect(() => { setGone(false) }, [person.image_path])
   // Passport-ratio photo (7:9) FLOATED so the bio + born + links wrap around it
   // and continue below — no dead space beside a short photo. Click → full screen.
-  const photo = person.image_path ? (
+  const photo = person.image_path && !gone ? (
     // The float rides the Tooltip's wrapper span, not the button inside it —
     // left on the button it would float within the span and the text would
     // stop wrapping around the photo.
@@ -942,12 +949,14 @@ function PersonView({ person, name, onEdit, onDelete, onPractise }) {
         aria-label={t('people.photo.zoom.aria', { name })}
         style={{ width: 104, padding: 0, background: 'none', border: 'none', cursor: 'zoom-in' }}
       >
-        {/* `fallback={null}`: this button exists to ZOOM a photograph, and a
-            silhouette that opens a lightbox of nothing is worse than the gap. */}
+        {/* `fallback={null}` AND `onBroken`: the fallback keeps the torn page off
+            the screen for the frame in which it is discovered, and `onBroken`
+            takes the whole button with it — see `gone` above. */}
         <Face
           src={person.image_path}
           url={personImgURL}
           fallback={null}
+          onBroken={() => setGone(true)}
           name={name}
           className="person-photo-zoom"
         />

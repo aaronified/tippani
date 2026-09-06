@@ -387,6 +387,15 @@ Scored **6/10**, and every one of its five findings held.
 | V4 | No U row named a commit, against the file's own rule | **FIXED** |
 | V5 | `b3f041f` copied the truth instead of moving it: `is-empty` was still computed from the stored path in two places, one of which nothing read any more; and `.cast-face-btn .cast-face` beat `.cast-face.is-empty` on source order, so the stand-in's centring was dead inside the button | **FIXED.** The dead class is gone from both callers and the tie is broken with `:not(.is-empty)` |
 
+**And one it asked me to check rather than found:** whether `fallback={null}` hides
+something the reader needed. On four of the five slots nothing is right — they are
+ornaments the design draws nothing for. On the fifth it was not: the person record's
+photograph is a BUTTON that opens it full-screen, so a file that had gone left a 104px
+control that does nothing, which is the defect `make controls` exists to catch arriving
+through the back door. `Face` tells the caller now (`onBroken`) and the record falls back
+to the same "no photograph" block a record without one draws. The judgement of whether a
+picture failed stays in the one place; what a screen does about it is the screen's.
+
 Two more things it found while reading, neither of them in its list: `identity.jsx` imported
 `Silhouette` and never used it, and `PortraitBlock` — the one picture on the screen whose
 dimensions it prints — had inherited `loading="lazy"` from `Face`'s default, which defers
