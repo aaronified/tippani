@@ -738,8 +738,15 @@ export function chipRows(images, speaker, onOpen, { withActor = true } = {}) {
       // bill one character twice and the record id does not tell the two apart.
       // A name the work's cast does not know has no row and so no door — the
       // chip is still drawn, since the line names them.
+      // AND THE PERFORMER RIDES WITH IT. The chooser this opens asks the owner's
+      // three questions — this work's character, the record behind it, "or the
+      // people" — and it reads them off the object it is handed. Handing it four
+      // fields meant the third question could only ever be answered no, which was
+      // survivable while the card printed a PLAYED BY line with a door on it, and
+      // is not now that the line goes wherever these chips already name them.
       onPress: c.character_id && onOpen ? () => onOpen({
         cast_id: c.cast_id, character_id: c.character_id, name, record_name: name,
+        actor: c.actor || '', actor_image: c.actor_image || '', actor_id: c.actor_id || 0,
       }) : undefined,
     })
   }

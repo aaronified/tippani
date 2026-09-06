@@ -27,7 +27,7 @@ import { UtteranceForm, utteranceMeta, utteranceState } from './Quotes.jsx'
 import { ShareDialog, bookShare, copyQuote, movieShare, quoteShare } from './share.jsx'
 import { deleteWithUndo } from './undo.jsx'
 import { BULK_FIELDS, BULK_TAGS, bulkActionsFor } from './actions.jsx'
-import { CharacterFaces, CreditFaces, PersonCredit, PersonModal, PersonPortrait, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
+import { CharacterFaces, CreditFaces, PersonCredit, PersonModal, PersonPortrait, creditsNotOnChips, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
 import { groupWorks } from './works.jsx'
 import { useStickers } from './stickers.jsx'
 import { categoryVar } from './theme.js'
@@ -1063,7 +1063,11 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators, 
 // attribution) + tags, then renders the SAME AnnotationCard / Frame used on the
 // detail pages, so share / edit / delete behave identically. Edits and deletes
 // re-run the search via onChanged.
-function QuoteModal({ kind, hit, authorMap = {}, actorMap = {}, speakerMap = {}, seps, onOpenBook, onOpenMovie, onOpenPerson, onClose, onChanged }) {
+// EXPORTED FOR THE SAME REASON `quoteFav` AND `screenFav` ARE. This modal is a
+// header and then a whole card, and what it must not do is print one person in
+// both — a fact decided partly here and partly inside the card, so a test handed
+// either half alone cannot see it.
+export function QuoteModal({ kind, hit, authorMap = {}, actorMap = {}, speakerMap = {}, seps, onOpenBook, onOpenMovie, onOpenPerson, onClose, onChanged }) {
   // ITS OWN BACK ENTRY — see PersonModal. A surface that pushes none is dismissed
   // by the press that was meant for it AND by whatever is underneath, because the
   // panel stack and the screen both keep entries and this one kept nothing.
@@ -1175,7 +1179,18 @@ function QuoteModal({ kind, hit, authorMap = {}, actorMap = {}, speakerMap = {},
   // the "image chips" the detail pages show but the search popup was missing.
   const creditKind = isQuote ? 'speaker' : isBook ? 'author' : 'actor'
   const creditMap = isBook ? authorMap : isQuote ? speakerMap : actorMap
-  const creditNames = splitCredits(isQuote ? row?.speaker || hit.speaker : isBook ? parent?.author : row?.actor, seps)
+  // AND ONLY THE ONES THE CARD BELOW DOES NOT ALREADY NAME. This modal is a
+  // header and then the card itself, and the card's character chips carry the
+  // performer under the character — so a film hit printed Rajesh Khanna up here
+  // with his portrait and again a few millimetres down inside the chip. It is the
+  // same rule the film frame and the favourites tile follow, asked the same way,
+  // because a fourth reading of one rule is a fourth place it can stop being
+  // obeyed. A book's author and a quote's speaker are never a chip's subtitle, so
+  // neither loses anything.
+  const creditNames = creditsNotOnChips(
+    splitCredits(isQuote ? row?.speaker || hit.speaker : isBook ? parent?.author : row?.actor, seps),
+    row?.character_images, row?.speaker_cast, seps,
+  )
   const sharePayload = () =>
     isQuote
       ? quoteShare({ quote: row.quote, translation: row.translation, note: row.note,
@@ -1261,6 +1276,13 @@ function QuoteModal({ kind, hit, authorMap = {}, actorMap = {}, speakerMap = {},
             onCopy={() => copyQuote(sharePayload())}
             onShare={() => setShareOpen(true)}
             quoteLines={40}
+            // THE READER'S OWN SEPARATORS, which this card was never given. Without
+            // them it fell back to the defaults while the header two elements above
+            // split with the account's — so on an account that has turned "and" off,
+            // the two halves of one modal disagreed about how many performers the
+            // line credits, and the rule that stops them repeating each other is
+            // decided by that split.
+            seps={seps}
             actionsAlwaysVisible
             editInline
           />

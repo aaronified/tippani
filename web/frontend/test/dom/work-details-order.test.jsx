@@ -70,6 +70,20 @@ const panel = () =>
       panel={(stack) => workDetailsPanel(stack, { kind: 'book', item: BOOK, onChanged: () => {}, onDelete: null })}
     />,
   )
+
+// A GAME, for the one row that only a game has. Its publisher is a separate
+// column from its studio (0042), and the pack draws it as a credit.
+const GAME = {
+  id: 9, title: 'Mass Effect', media_type: 'game', director: 'BioWare',
+  publisher: 'Electronic Arts', release_year: 2007, genres: ['RPG'], description: '',
+  series: '', series_index: 0, favorite: false, cast: [],
+}
+const gamePanel = () =>
+  render(
+    <PanelHarness
+      panel={(stack) => workDetailsPanel(stack, { kind: 'movie', item: GAME, onChanged: () => {}, onDelete: null })}
+    />,
+  )
 const shown = () => waitFor(() => expect(screen.getByRole('button', { name: /^Edit title$/i })).toBeTruthy())
 
 // The pencils, in document order, named by the field they open.
@@ -379,5 +393,49 @@ describe('the Details form', () => {
       return el
     })).toBeTruthy()
     expect(screen.queryByRole('button', { name: /^Edit title$/i })).toBeNull()
+  })
+})
+
+// ---- the one credit a game has that nothing else does -----------------------
+
+describe("a game's publisher", () => {
+  it('draws as a credit and not as a piece of text', async () => {
+    // `work-details-popup.dc.html:1174` marks it `credit: 'org'`. It was a plain
+    // field here, so a game's publisher printed as a string beside three credits
+    // that print as records — the one row on the screen where the reader could
+    // not tell whether the app knew who this was. The shape that fails when the
+    // drawing is dropped is the same one the translator row uses: one face per
+    // name the field holds.
+    STORED = { ...GAME }
+    gamePanel()
+    const row = await waitFor(() => {
+      const r = [...document.querySelectorAll('.inline-field')]
+        .find((el) => el.querySelector('[aria-label="Edit publisher"]'))
+      expect(r, 'no publisher row on a game at all').toBeTruthy()
+      return r
+    })
+    expect(row.querySelectorAll('.cred-face').length,
+      'the publisher prints as a bare string — no portrait beside it, so nothing says it is a record')
+      .toBe(1)
+    expect(row.textContent).toContain('Electronic Arts')
+  })
+
+  it('and is asked of the publishers, not of the directors', async () => {
+    // The face is looked up in a people list scoped by kind. A publisher asked
+    // for under `director` is a name looked up in the wrong table, which draws a
+    // silhouette for a record the library holds — the same class of bug as a
+    // game's studio being asked of a film database.
+    STORED = { ...GAME }
+    const { json } = await import('../../src/api.js')
+    json.mockClear?.()
+    gamePanel()
+    await waitFor(() => expect([...document.querySelectorAll('.inline-field')]
+      .some((el) => el.querySelector('[aria-label="Edit publisher"]'))).toBe(true))
+    const kinds = json.mock.calls
+      .filter(([m, p]) => m === 'GET' && String(p).startsWith('/people'))
+      .map(([, p]) => String(p))
+    expect(kinds.some((p) => p.includes('kind=publisher')),
+      'nothing asked for the publishers, so the row\'s face can only be a guess: ' + kinds.join(' | '))
+      .toBe(true)
   })
 })

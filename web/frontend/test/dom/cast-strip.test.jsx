@@ -17,11 +17,11 @@
 // edge fade is MEASURED rather than counted (so the strip is a Scroller).
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { cleanup, render, screen, waitFor } from '@testing-library/react'
 
 import { resolveOn } from '../css-cascade.js'
 
-const CAST = [
+let CAST = [
   { id: 11, character: 'Anand Sehgal', actor: 'Rajesh Khanna', character_id: 158, character_image_path: '', character_record_image: '', actor_image: 'face004.jpg' },
   { id: 12, character: 'Dr. Bhaskar K. Bannerjee', actor: 'Amitabh Bachchan', character_id: 182, character_image_path: 'still.jpg', character_record_image: '', actor_image: 'face6f9.jpg' },
   // A row with no record behind it: the tile still draws, and declines the press.
@@ -31,7 +31,12 @@ const CAST = [
 vi.mock('../../src/api.js', async (orig) => ({
   ...(await orig()),
   json: vi.fn(async (method, path) => {
-    if (method === 'GET' && path.endsWith('/cast')) return { ok: true, data: { cast: CAST, actor_role: 'actor' } }
+    if (method === 'GET' && path.endsWith('/cast')) {
+      // CAST_OK false is a read that FAILED — a 500, a dropped connection, a
+      // logged-out session — which is a different thing from a work with no cast
+      // and has to look different to the reader in exactly one way: not at all.
+      return CAST_OK ? { ok: true, data: { cast: CAST, actor_role: 'actor' } } : { ok: false, status: 500 }
+    }
     if (method === 'GET' && /^\/(books|movies)\/\d+$/.test(path)) return { ok: true, data: FILM }
     if (method === 'GET' && path.startsWith('/people')) return { ok: true, data: { people: [] } }
     return { ok: true, data: {} }
@@ -45,13 +50,22 @@ const FILM = {
   id: 11, title: 'Anand', media_type: 'movie', director: 'Hrishikesh Mukherjee',
   release_year: 1971, genres: ['Drama'], description: '', cast: [],
 }
+const BOOK = {
+  id: 4, title: 'Anand', author: 'Gulzar', published_year: 1971, genres: ['Drama'], description: '',
+}
 
-beforeEach(() => resetPanelHistory())
+const FULL_CAST = CAST
+let CAST_OK = true
+beforeEach(() => {
+  resetPanelHistory()
+  CAST = FULL_CAST
+  CAST_OK = true
+})
 
-const panel = () =>
+const panel = (kind = 'movie', item = FILM) =>
   render(
     <PanelHarness
-      panel={(stack) => workDetailsPanel(stack, { kind: 'movie', item: FILM, onChanged: () => {}, onDelete: null })}
+      panel={(stack) => workDetailsPanel(stack, { kind, item, onChanged: () => {}, onDelete: null })}
     />,
   )
 
@@ -136,5 +150,78 @@ describe('the cast strip', () => {
     const src = readFileSync(join(process.env.TIPPANI_SRC, 'characterRows.jsx'), 'utf8')
     expect(src, 'the cast strip is a bare overflow rather than a Scroller')
       .toMatch(/<Scroller\s+className="cs-faces"/)
+  })
+})
+
+// ---- the cast that is not there ---------------------------------------------
+//
+// THE PACK HAS A HEAD FOR IT: `Cast · none` (`work-details-popup.dc.html:1141`),
+// not `Cast · 0`. A zero is a measurement and "none" is an answer, and this is
+// the one head whose whole job is to say there is nothing here yet.
+//
+// AND THE HEAD IS THE DOOR. The way into the cast editor is the head's own key,
+// so a head that does not draw takes the only way to ADD a cast with it — which
+// is the state a reader with no cast is most likely to want.
+
+describe('a work whose cast is empty', () => {
+  it('says so in words rather than printing a zero', async () => {
+    CAST = []
+    panel()
+    await waitFor(() => expect(document.body.textContent).toMatch(/Cast · /))
+    expect(document.body.textContent, 'the head counts to zero instead of answering').not.toMatch(/Cast · 0/)
+    expect(screen.getByText(/Cast · none/i), 'no head at all on a work with no cast').toBeTruthy()
+  })
+
+  it('and still offers the way into the cast editor', async () => {
+    CAST = []
+    panel()
+    const head = await screen.findByText(/Cast · none/i)
+    const section = head.closest('.cs-head-top') || head.parentElement
+    expect(section.querySelector('button, .tp-btn, .cs-section-action'),
+      'the head is the only door to the cast editor and it draws no key')
+      .toBeTruthy()
+  })
+
+  it('and a read that FAILED draws the section too, rather than nothing at all', async () => {
+    // `castRows` is null while the asking is unfinished and the section waits for
+    // it; a failed read that left it null for ever took the whole strip, its head
+    // and the only door to the editor with it, silently. An empty list is the
+    // honest thing to show when the list could not be fetched.
+    CAST_OK = false
+    panel()
+    await waitFor(() => expect(screen.getByText(/Cast · none/i),
+      'a failed cast read takes the section and its door off the screen').toBeTruthy())
+  })
+})
+
+// ---- and a cast with nobody playing anybody ---------------------------------
+
+describe("a book's cast tiles", () => {
+  it('say that nobody plays them, which is what the pack prints', async () => {
+    // `work-details-popup.dc.html:1092-1097` prints `no performer` under all five
+    // tiles of its BOOK strip. A blank second line there leaves the reader to
+    // infer from a gap what the pack says outright — and the app has a different
+    // sentence for a FILM credit nobody has named yet, which is a different fact.
+    CAST = [{ id: 21, character: 'Anand Sehgal', actor: '', character_id: 158, character_image_path: '', character_record_image: '', actor_image: '' }]
+    panel('book', BOOK)
+    await waitFor(() => expect(tiles().length).toBe(1))
+    expect(tiles()[0].querySelector('.cs-face-by')?.textContent,
+      'a book tile leaves its second line blank, so nothing says a book has no performers')
+      .toBeTruthy()
+  })
+
+  it('and a film says something different, because it is a different fact', async () => {
+    // A film credit with no performer is one nobody has NAMED yet; a book's is one
+    // nobody can name. One sentence for both would be wrong about one of them.
+    CAST = [{ id: 22, character: 'Anand Sehgal', actor: '', character_id: 158, character_image_path: '', character_record_image: '', actor_image: '' }]
+    panel('book', BOOK)
+    await waitFor(() => expect(tiles().length).toBe(1))
+    const book = tiles()[0].querySelector('.cs-face-by')?.textContent
+    cleanup()
+    panel('movie', FILM)
+    await waitFor(() => expect(tiles().length).toBe(1))
+    const film = tiles()[0].querySelector('.cs-face-by')?.textContent
+    expect(film, 'a film tile says nothing where its performer is unnamed').toBeTruthy()
+    expect(film, 'a book and a film are told the same thing about two different facts').not.toBe(book)
   })
 })

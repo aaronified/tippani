@@ -17,7 +17,7 @@
 // it." A sheet offering a single answer is one the reader must dismiss to reach
 // what they already asked for.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 
 let APPEARANCES
 let CALLS
@@ -34,6 +34,7 @@ vi.mock('../../src/api.js', async (orig) => ({
 }))
 
 const WorkDetail = (await import('../../src/WorkDetail.jsx')).default
+const { SpeakerChips } = await import('../../src/people.jsx')
 
 // The chip's own row, as `quote_speaker.go` serves it.
 const SPEAKER = {
@@ -127,5 +128,62 @@ describe('pressing a speaker chip', () => {
     )
     expect(dead, 'the performer vanished from the list').toBeTruthy()
     expect(dead.getAttribute('aria-disabled'), 'a row that does nothing and says nothing').toBe('true')
+  })
+})
+
+// ---- and the same question from a chip that is NOT the stored speaker --------
+//
+// A LINE NAMES SEVERAL CHARACTERS AND STORES A LINK TO AT MOST ONE. The others
+// are chips too, and the owner's ruling does not have a clause exempting them:
+// pressing one asks the same three questions.
+//
+// WHY THIS PRESSES A REAL CHIP INSTEAD OF CALLING THE DOOR. Every case above
+// hands `door()` an object typed out by hand, which asks whether the CHOOSER
+// works and never whether anything gives it what it needs — and for the whole
+// life of that fixture nothing did: `actor_id` was in it, and neither the wire
+// nor `chipRows` ever put one there, so the performer's row drew disabled on
+// every real press while five green cases said the door was built. So this
+// renders the chips a card renders, presses one, and feeds the door exactly what
+// the press hands it.
+describe('pressing a chip for a character the line does not link to', () => {
+  const IMAGES = [
+    { name: 'Anand', path: '', cast_id: 11, character_id: 3, actor: 'Rajesh Khanna', actor_id: 9, actor_image: '' },
+    { name: 'Dr. Bhaskar', path: '', cast_id: 12, character_id: 4, actor: 'Amitabh Bachchan', actor_id: 10, actor_image: '' },
+  ]
+
+  // What the chip actually hands the door when a reader presses it.
+  const pressChip = async (which) => {
+    let got = null
+    render(<SpeakerChips images={IMAGES} speaker={null} onOpenCharacter={(sp) => { got = sp }} />)
+    const chip = [...document.querySelectorAll('.person-chip')].find((c) => c.textContent.includes(which))
+    expect(chip, `no chip for ${which}`).toBeTruthy()
+    await act(async () => { fireEvent.click(chip) })
+    expect(got, `pressing ${which}'s chip called nothing`).toBeTruthy()
+    return got
+  }
+
+  it('offers that character and their performer, the same as the speaker', async () => {
+    APPEARANCES = TWO_WORKS
+    const sp = await pressChip('Dr. Bhaskar')
+    cleanup()
+    mount()
+    await press(sp)
+    expect(offered(), 'the performer of a character the line does not link to is unreachable from the card')
+      .toContain('Amitabh Bachchan')
+  })
+
+  it('and the performer is a door, not a row that declines', async () => {
+    APPEARANCES = TWO_WORKS
+    const sp = await pressChip('Dr. Bhaskar')
+    cleanup()
+    mount()
+    await press(sp)
+    const row = [...document.querySelectorAll('.cs-choose')].find(
+      (b) => b.querySelector('.cs-choose-label')?.textContent === 'Amitabh Bachchan',
+    )
+    expect(row, 'the performer is not offered at all').toBeTruthy()
+    expect(row.getAttribute('aria-disabled'),
+      'the performer is offered and cannot be opened — the card lost its way to them when the credit line went')
+      .not.toBe('true')
   })
 })

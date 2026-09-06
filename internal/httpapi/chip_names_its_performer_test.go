@@ -39,12 +39,14 @@ type performerEntry struct {
 	Name       string `json:"name"`
 	Actor      string `json:"actor"`
 	ActorImage string `json:"actor_image"`
+	ActorID    int64  `json:"actor_id"`
 }
 
 type performerLine struct {
 	ID              int64            `json:"id"`
 	Quote           string           `json:"quote"`
 	CharacterImages []performerEntry `json:"character_images"`
+	SpeakerCast     *performerEntry  `json:"speaker_cast"`
 }
 
 func TestEveryCharacterOnALineCarriesItsOwnPerformer(t *testing.T) {
@@ -70,6 +72,15 @@ func TestEveryCharacterOnALineCarriesItsOwnPerformer(t *testing.T) {
 		"movie_id": film.ID, "quote": "Just wish that you'd stop sniping.",
 		"character": "Mark Wallace, Joanna Wallace", "actor": "Albert Finney, Audrey Hepburn",
 	}, http.StatusCreated)
+	// AND A LINE WITH ONE SPEAKER, because the stored-speaker chip is served by a
+	// different query in a different file (`quote_speaker.go`) with the same hole,
+	// and a two-hander gets no `speaker_cast` at all — the linker leaves it
+	// deliberately unlinked, so an assertion made only against the line above
+	// would be a branch that never runs.
+	c.mustDo("POST", "/dialogues", map[string]any{
+		"movie_id": film.ID, "quote": "You don't say much, do you.",
+		"character": "Mark Wallace", "actor": "Albert Finney",
+	}, http.StatusCreated)
 	c.mustDo("POST", "/annotations", map[string]any{
 		"book_id": book.ID, "quote": "Call me Ishmael.", "character": "Ishmael",
 	}, http.StatusCreated)
@@ -79,11 +90,21 @@ func TestEveryCharacterOnALineCarriesItsOwnPerformer(t *testing.T) {
 	}](t, c.mustDo("GET", "/dialogues", nil, http.StatusOK)).Dialogues
 
 	want := map[string]string{"Mark Wallace": "Albert Finney", "Joanna Wallace": "Audrey Hepburn"}
-	seen := map[string]string{}
+	seen := map[string]performerEntry{}
+	speakers := 0
 	for i := range lines {
 		for _, e := range lines[i].CharacterImages {
 			if _, ok := want[e.Name]; ok {
-				seen[e.Name] = e.Actor
+				seen[e.Name] = e
+			}
+		}
+		if sp := lines[i].SpeakerCast; sp != nil && sp.Name != "" {
+			speakers++
+			// ── AND THE STORED SPEAKER'S OWN ROW, which is served by a different
+			// query in a different file and had the same hole.
+			if sp.Actor != "" && sp.ActorID == 0 {
+				t.Errorf("the speaker chip names %q and carries no record for them, so the chooser's third question answers no",
+					sp.Actor)
 			}
 		}
 	}
@@ -93,10 +114,24 @@ func TestEveryCharacterOnALineCarriesItsOwnPerformer(t *testing.T) {
 			t.Errorf("%q is named on the line and gets no chip at all", name)
 			continue
 		}
-		if got != actor {
+		if got.Actor != actor {
 			t.Errorf("the chip for %q says its performer is %q, so the card has to print %q on a line of its own underneath",
-				name, got, actor)
+				name, got.Actor, actor)
 		}
+		// ── AND ENOUGH TO OPEN THEM. The owner's ruling on what a chip asks is
+		// "the work-character, global-character … or the people", and the chooser
+		// gates that third door on the performer's record id. Without it the row
+		// draws and declines, which is the state every chip was in — survivable
+		// while the card printed a PLAYED BY line with a door on it, and not now
+		// that the line goes wherever the chips already name them.
+		if got.ActorID == 0 {
+			t.Errorf("the chip for %q names %q and carries no record for them, so pressing it can never reach their page",
+				name, got.Actor)
+		}
+	}
+
+	if speakers == 0 {
+		t.Fatal("no line came back with a stored speaker, so the speaker half of this case never ran")
 	}
 
 	// ── AND A BOOK'S CHARACTER STAYS BARE. Nothing plays Ishmael.

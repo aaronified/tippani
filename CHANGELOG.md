@@ -83,24 +83,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **A character's page lists who has played them.** One row per performer, with the works
   they did it in, opening that performer's own record. The list of their quotes has gone
   from that page and from a person's: search is where a list of quotes belongs.
+- **A character pill can reach the performer's own page.** Pressing one asks which of
+  the records behind it you meant — this work's character, the character across every
+  work, or the person who played them — and the third of those could never be chosen,
+  because the pill was never told which record the performer has. It mattered less while
+  a card printed the performers on a line of their own with a link on it; that line is
+  gone wherever the pills already name them, so this is now the way through.
 - **A card names each person once.** A film line naming two characters drew a pill for
   each and then printed both performers again on a line of its own underneath, and an
   opened favourite drew the performer's portrait a second time under the pill already
   carrying them. Every character pill now says who plays that character — not only the
   one the line is linked to — and nothing repeats it below. A performer no pill names
   keeps their credit line. An opened favourite has also stopped repeating the film's
-  title under a header that has just named it.
+  title under a header that has just named it, and a line opened from search stops
+  printing its performers once in the header and again in the card below.
 
 ### Fixed
 
 - **Four rows on a character's own record did nothing when pressed.** Sort name, Born,
   Description and the private note set an editor the page never drew.
-- **The back key on a panel no longer prints over the title beside it.** A key naming a
-  long screen — "V / William Rookwood" — ran out of its corner of the header and across
-  the title of the sheet it had opened, so neither could be read. It gives way when the
-  header is tight, and what does not fit ends in an ellipsis: this is the one place in
-  the app where a name is shortened, because the screen it points back to has just
-  printed that name in full.
+- **The back key on a panel says when it has shortened a name.** A key naming a long
+  screen — "V / William Rookwood" — cut it off mid-word with nothing to show that
+  anything was missing, so a shortened name and a short one looked alike. It ends in an
+  ellipsis now: this is the one place in the app where a name is shortened, because the
+  screen it points back to has just printed that name in full. It also gives way when
+  the header is tight, instead of keeping a fixed width whatever room it has.
 - **"Add a work" beside the covers only scrolled**, to a second button lower down the
   page; the tile opens the picker now and the stray second button is gone.
 - **A character's or person's name and the line under it no longer sit apart** at the top

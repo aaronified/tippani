@@ -1044,12 +1044,15 @@
      five presses of a key that never says what it will show you. Capped in ch
      because it holds text: a long parent title truncates, the slot does not.
 
-     AND IT GIVES WAY WHEN THE HEAD IS TIGHT. `flex: none` at a hard 11ch made
-     the key wider than the third of the bar its slot had to give, so on a phone
-     the crumb ran out of its slot and under the title beside it — reported with
-     a screenshot of "← V / William Ro" printed over "Change who this is". It
-     shrinks now, down to a floor that is both the touch target and enough of the
-     name to read. */
+     AND IT GIVES WAY WHEN THE HEAD IS TIGHT, which is a HARDENING rather than
+     the reported defect, and the two were run together in the first telling of
+     this. `flex: none` at a hard 11ch cannot give up width, and `.tp-panel-slot`
+     clips nothing, so a slot narrower than the key leaves the key printing
+     outside it. Measured at 390 on the seeded fixture with a parent name far
+     longer than the key: it did NOT overlap there — the key stayed inside its
+     slot — so this closes a hazard the code allows and not a screenshot anybody
+     has. What the screenshot showed is at `.tp-panel-back-word` below. The floor
+     is both the touch target and enough of the name to read. */
   .tp-panel-back {
     min-height: 44px;
     min-width: max(44px, 3em);
@@ -1099,8 +1102,18 @@
   .name-scroll::-webkit-scrollbar { display: none; }
 
   /* THE ONE NAME IN THE APP THAT ELLIPSISES, BY THE OWNER'S RULING: "the back
-     breadcrumbs sometimes do this. ellipsis them", over a screenshot of the crumb
-     printed across the title beside it.
+     breadcrumbs sometimes do this. ellipsis them", over a screenshot of a crumb
+     reading "← V / William Ro".
+
+     WHAT "THIS" WAS, MEASURED RATHER THAN INFERRED. The word carried
+     `overflow-x: auto` for a fade, and a flex item whose overflow is not visible
+     has an automatic minimum size of 0 — so it shrank, and it CLIPPED, and it
+     clipped SILENTLY: the name stopped mid-word with nothing to say it had been
+     cut. `run-panel-depth.sh` forces a name far longer than the key and reads the
+     rectangles at 390: against the old rules the crumb clipped with no mark on
+     both heads that draw one, and did not overlap the title. An earlier version
+     of this note said the word could not shrink and printed over the title. That
+     was a reading of the screenshot, not a measurement, and it was wrong.
 
      THE STANDING RULE IS NOT REPEALED — this is an exception argued at the site,
      the same shape as .person-chip-name's clip. It is granted because THIS TEXT
@@ -1108,16 +1121,12 @@
      reader has just come from and whose own header prints the name in full; every
      other name in the app is on the row that exists to show it, and there a
      shortened name and a short name look alike. Here the reader has already seen
-     the long one.
-
-     AND BECAUSE THE ALTERNATIVE WAS WORSE THAN AN ELLIPSIS. It scrolled under a
-     fade, which needs `min-width: 0` to be able to shrink at all — it never had
-     one, so the word simply overflowed its key and printed over the title. A name
-     with another screen's words laid across it is not readable either, and it does
-     not even admit that anything is missing.
+     the long one — and was being shown a cut one that did not admit it.
 
      THE FADE GOES WITH THE SCROLLER. `PanelHost` no longer measures this word,
-     because an edge fade means "it scrolls" and this no longer does. */
+     because an edge fade means "it scrolls" and this no longer does. The fade was
+     also never the answer here: it is a 26px mask over a 13px word in a key
+     capped at 11ch, promising a drag inside a button. */
   .tp-panel-back-word {
     min-width: 0;
     font-size: var(--type-ui-13);

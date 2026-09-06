@@ -4074,10 +4074,13 @@ export function PanelHost({ stack }) {
   const parent = nested ? levels[levels.length - 2] : null;
   // THE PARENT'S NAME ELLIPSISES, AND NOTHING MEASURES IT ANY MORE. It scrolled
   // under a measured fade until the owner ruled otherwise — "the back breadcrumbs
-  // sometimes do this. ellipsis them" — and the fade had to go with the scroller,
-  // because an edge fade in this app means "there is more this way" and a clipped
-  // word has nowhere to be dragged. The argument for the exception is at
-  // `.tp-panel-back-word` in index.css, where the rule it excepts is written.
+  // sometimes do this. ellipsis them" — over a crumb that was clipping the name
+  // SILENTLY, which is the one failure the standing rule exists to prevent and
+  // the fade was not preventing. The fade had to go with the scroller, because an
+  // edge fade in this app means "there is more this way" and a clipped word has
+  // nowhere to be dragged. The argument for the exception is at
+  // `.tp-panel-back-word` in index.css, where the rule it excepts is written, and
+  // `run-panel-depth.sh` is what measures it in a browser.
   const titleRef = useRef(null);
   // The title is a name too — the panel is named after the person, character or
   // work it is about — so it gets the same treatment rather than an ellipsis.

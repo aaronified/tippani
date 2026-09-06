@@ -577,6 +577,10 @@ type LineFace struct {
 	// and the chip draws one line, exactly as before.
 	Actor      string `json:"actor,omitempty"`
 	ActorImage string `json:"actor_image,omitempty"`
+	// AND THE PERFORMER'S RECORD, so the chip's chooser can open them. See
+	// `quoteSpeakerCast.ActorID` for why an id that was never on the wire made
+	// the owner's third destination a row that could not be pressed.
+	ActorID int64 `json:"actor_id,omitempty"`
 	// THE TWO IDS A CHIP OPENS ON. The owner's ruling is that every chip is a
 	// button, and what it opens is the work-level character popup — which is
 	// keyed on the CAST ROW, not the record: a work can bill one character twice

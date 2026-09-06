@@ -14,18 +14,22 @@
 // on the line, or dropping the line loses it — which is the failure the obvious
 // fix ("no line when there is a chip") would have shipped.
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, render, screen } from '@testing-library/react'
 
 import { DEFAULT_CREDIT_SEPS } from '../../src/credits.jsx'
 
+// The search modal fetches the row it shows, its parent and the tag list; every
+// other card here renders from props and ignores this.
+let SERVED = {}
 vi.mock('../../src/api.js', async (orig) => ({
   ...(await orig()),
-  json: vi.fn(async () => ({ ok: true, data: {} })),
+  json: vi.fn(async (method, path) => ({ ok: true, data: SERVED[path] || {} })),
 }))
 
 // `Frame` is the film line's card — the component the screenshot is of.
 const { Frame } = await import('../../src/Movies.jsx')
 const { FavouriteTile, screenFav } = await import('../../src/Home.jsx')
+const { QuoteModal } = await import('../../src/SearchPage.jsx')
 
 // THE SEPARATORS THE APP ACTUALLY PASSES. `[',']` is not "a comma" — the splitter
 // reads `seps.comma`, and an array has no such key, so every flag is false and
@@ -230,5 +234,68 @@ describe('an opened favourite tile', () => {
     expect(hits.length,
       `the title is printed ${hits.length} times: ` + hits.map((h) => h.textContent.trim()).join(' | '))
       .toBe(1)
+  })
+})
+
+// ---- and on the search hit, which is a header ABOVE a whole card -------------
+
+describe('a film line opened from search', () => {
+  // The modal draws its own credit row — poster line, title, the performers with
+  // their portraits — and then renders the card itself underneath. The card's
+  // chips name those same performers, so the modal printed each of them twice
+  // with two different pictures a few millimetres apart.
+  const openHit = async () => {
+    SERVED = {
+      '/dialogues?movie_id=3': { dialogues: [{ ...TWO_HANDER, id: 9 }] },
+      '/movies/3': { id: 3, title: 'Two for the Road', media_type: 'movie' },
+      '/tags': { tags: [] },
+      '/stickers': { stickers: [] },
+    }
+    await act(async () => {
+      render(
+        <QuoteModal
+          kind="movie"
+          hit={{ id: 9, movie_id: 3 }}
+          seps={SEPS}
+          onOpenBook={() => {}}
+          onOpenMovie={() => {}}
+          onOpenPerson={() => {}}
+          onClose={() => {}}
+        />,
+      )
+    })
+  }
+
+  const inDialog = (name) => [...document.querySelectorAll('[role="dialog"] *')]
+    .filter((el) => el.children.length === 0 && el.textContent.includes(name))
+
+  it('prints each performer once across the header and the card', async () => {
+    await openHit()
+    for (const performer of ['Albert Finney', 'Audrey Hepburn']) {
+      const hits = inDialog(performer)
+      expect(hits.length,
+        `${performer} is printed ${hits.length} times: ` + hits.map((h) => h.textContent.trim()).join(' | '))
+        .toBe(1)
+    }
+  })
+
+  it('and still prints one the card does not name', async () => {
+    // A third performer no cast row folded to: the header is the only place they
+    // can appear, so filtering must not take them with the covered two.
+    SERVED = {
+      '/dialogues?movie_id=3': { dialogues: [{ ...TWO_HANDER, id: 9, actor: 'Albert Finney, Audrey Hepburn, William Daniels' }] },
+      '/movies/3': { id: 3, title: 'Two for the Road', media_type: 'movie' },
+      '/tags': { tags: [] },
+      '/stickers': { stickers: [] },
+    }
+    await act(async () => {
+      render(
+        <QuoteModal kind="movie" hit={{ id: 9, movie_id: 3 }} seps={SEPS}
+          onOpenBook={() => {}} onOpenMovie={() => {}} onOpenPerson={() => {}} onClose={() => {}} />,
+      )
+    })
+    expect(document.querySelector('[role="dialog"]').textContent,
+      'a performer the card does not name was dropped from the header too')
+      .toContain('William Daniels')
   })
 })

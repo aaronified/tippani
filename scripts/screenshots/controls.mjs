@@ -185,10 +185,11 @@ async function resolveSurfaces(page, baseUrl) {
       try {
         const r = await fetch('/api/movies?limit=40', { credentials: 'same-origin' })
         const list = (await r.json()).movies || []
-        // THE FULLEST CAST, not the first non-empty one. A film with a single
-        // cast row can have that row be an actor nobody has linked to a
-        // character, and then the door is missing for a reason that is about
-        // that film rather than about the app.
+        // THE FULLEST CAST OF THE ONES EXAMINED, not the first non-empty one. A
+        // film with a single cast row can have that row be an actor nobody has
+        // linked to a character, and then the door is missing for a reason that
+        // is about that film rather than about the app. Where the scan stops is
+        // the second paragraph below.
         //
         // ASKED OF THE CAST ENDPOINT, WHICH IS THE ONE THE DETAILS PANEL ASKS.
         // This read the RECORD (`GET /movies/{id}`) and took `d.cast`, and on a
@@ -201,11 +202,19 @@ async function resolveSurfaces(page, baseUrl) {
         // pressing it saw a face and a name. The panel under test reads this
         // endpoint; so does the picker that finds it.
         //
-        // AND THE WHOLE LIST, not its first twelve. The list comes back newest
+        // AND FAR ENOUGH DOWN THE LIST TO REACH ONE. The list comes back newest
         // first and the fixture seeds its films before its shows and games, so
-        // the twelve that were checked were exactly the ones with no cast. A
-        // window that happens to exclude every candidate is not a bound, it is a
-        // filter nobody wrote down.
+        // the first twelve — which is all this used to read — were exactly the
+        // works with no cast. A window that happens to exclude every candidate is
+        // not a bound, it is a filter nobody wrote down.
+        //
+        // IT IS STILL BOUNDED, in two ways, and they are not the same bound: the
+        // page is 40, and the scan stops at the first work billing TWO or more.
+        // Two is enough to open a door and to have a second tile behind it, which
+        // is all the surface needs — so "the fullest cast" above means the fullest
+        // of the ones examined, not of the library. Said out loud because a
+        // comment promising the maximum over a loop that breaks early is the kind
+        // of disagreement nobody re-reads.
         let best = 0
         let most = 0
         for (const m of list) {

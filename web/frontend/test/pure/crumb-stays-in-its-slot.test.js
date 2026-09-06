@@ -1,36 +1,39 @@
-// THE BACK CRUMB DOES NOT PRINT OVER THE TITLE BESIDE IT.
+// THE BACK CRUMB SAYS WHEN IT HAS CUT A NAME, AND STAYS INSIDE ITS OWN KEY.
 //
-// THE REPORT, the owner's, with a screenshot of a sub-sheet: "the back
-// breadcrumbs sometimes do this. ellipsis them". What the picture showed was
-// "← V / William Ro" laid across "Change who this is" — two screens' words in
-// one line box, neither readable.
+// THE REPORT, the owner's, over a screenshot of a sub-sheet whose crumb read
+// "← V / William Ro": "the back breadcrumbs sometimes do this. ellipsis them".
 //
-// THE SPECIFICATION. A panel head is a flex row of three: the way back, the
-// title, and whatever the right slot holds. A child of a flex row prints over its
-// neighbour when it can neither SHRINK nor CLIP, and the crumb could do neither —
-// `flex: none` at a hard `11ch` refused to give up width, and the word inside it
-// carried the default `min-width: auto`, so it declined to shrink below its own
-// content and simply overflowed the key. Both facts are needed: a key that
-// shrinks around a word that will not is the same overflow one level in.
+// WHAT "THIS" WAS, MEASURED. The word carried `overflow-x: auto` so a fade could
+// hang off it, and a flex item whose overflow is not visible has an automatic
+// minimum size of zero — so it shrank, and it clipped, and it clipped SILENTLY.
+// The name stopped mid-word with nothing to say it had been cut, which is the one
+// failure the app's "never truncate a name" rule exists to prevent, happening
+// under a rule written to prevent it. `run-panel-depth.sh` forces a name far
+// longer than the key and reads the rectangles at 390: against the old rules the
+// crumb clipped with no mark on both heads that draw one.
 //
-// "SOMETIMES" IS WHAT A LAYOUT DEFECT LOOKS LIKE FROM THE OUTSIDE. It happened on
-// the parent titles long enough to exceed the slot, on the widths where the slot
-// was a third of a narrow bar — which is a phone, which is where it was reported
-// from and not where it was built.
+// AN EARLIER VERSION OF THIS FILE SAID IT PRINTED OVER THE TITLE. That was a
+// reading of the screenshot rather than a measurement, and the browser probe
+// refuted it — the crumb stayed inside its slot. It is corrected here rather than
+// quietly dropped, because a test file that states the wrong failure teaches the
+// next reader to fix the wrong thing.
 //
-// AND THE CLIPPED END IS MARKED. That is the owner's ruling and it is an
-// exception to the app's own standing rule that a name is never truncated —
-// argued at `.tp-panel-back-word` in the stylesheet, and recorded in
-// `no-truncated-names.test.js`, which is where the rule lives. It is asserted
-// here too, because a clip with nothing to show for it is the failure the rule
-// was written about.
+// SO THERE ARE TWO PROPERTIES, and only the first is the report:
+//
+//   THE CLIPPED END IS MARKED. The owner's ruling, and an exception to the
+//   standing rule — argued at `.tp-panel-back-word` in the stylesheet and
+//   recorded in `no-truncated-names.test.js`, which is where the rule lives.
+//
+//   AND THE KEY CAN GIVE UP WIDTH. `flex: none` at a hard `11ch` cannot, and
+//   `.tp-panel-slot` clips nothing, so a slot narrower than the key would leave
+//   the key printing outside it. That did not reproduce at 390 on the seeded
+//   fixture; it is a hazard the code allows, closed here and labelled as such
+//   rather than as the reported defect.
 //
 // WHY THE STYLESHEET AND NOT THE SCREEN. jsdom has no layout: it will report a
-// zero-width box overlapping nothing, whatever the CSS says. The browser harness
-// sees an overlap only when the fixture happens to supply a long enough parent
-// title — the seeded fixture's names are short, which is one reason this reached
-// a phone before it reached a test. What can be checked exactly is the pair of
-// declarations that decides it.
+// zero-width box overlapping nothing, whatever the CSS says. What can be checked
+// exactly here is the set of declarations that decides it; the rectangles are
+// `run-panel-depth.sh`'s, in a real browser at 390.
 //
 // AND WHY `declaredIn` RATHER THAN `resolveOn`. The cascade resolver decides
 // whether a selector COMPETES by its rightmost compound, so `.work-hero-actions
@@ -63,6 +66,7 @@ const TOUCH = 44
 
 describe('the back crumb in a panel head', () => {
   it('can give up width when the head is tight', () => {
+    // The hazard, not the report — see the header.
     const flex = decl('.tp-panel-back', 'flex')
     const shrink = decl('.tp-panel-back', 'flex-shrink')
     const canShrink = (flex && !/^(none|0 0)\b/.test(flex.trim())) || (shrink && shrink.trim() !== '0')
