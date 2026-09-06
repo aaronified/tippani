@@ -49,11 +49,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **A picture that fails to arrive draws the person glyph, not a broken-image mark.**
   A stored path and a picture that loads are different things, and every list drew the
   first as though it settled the second — so a portrait whose file had gone showed the
-  browser's torn page, which reads as "the server is down". Wherever a face is filled in
-  for you, the stand-in is now the same silhouette a person with no picture already wears;
-  where the design draws nothing without a picture — the round face beside a heading, the
-  thumbnail next to "remove the picture" — a failed one leaves the same gap an absent one
-  does, rather than a torn page.
+  browser's torn page, which reads as "the server is down". Every face in the app asks the
+  same question now, and each slot keeps the answer it already had: a record's face falls
+  back to the same silhouette a person with no picture wears, your account chip to your
+  initial, a board to its own cover mark, and an ornament that draws nothing without a
+  picture — the round face beside a heading, the thumbnail next to "remove the picture" —
+  leaves the same gap an absent one leaves. A control that existed only to open a picture
+  goes with it, rather than staying to do nothing.
 
 - **A panel on a phone is a sheet you can drag.** It wears a grab bar, follows your
   finger, and settles at one of three heights — as tall as its content, then three

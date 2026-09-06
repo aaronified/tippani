@@ -65,12 +65,26 @@ const bodyOf = (f) => readFileSync(join(SRC, f), 'utf8')
 //
 // AND `still` IS HERE because the commit that widened this rule used that very
 // word for the picture it was widening the rule to catch, and left it out.
+// AND IT IS A VOCABULARY, WHICH IS A LIMIT WORTH STATING. A field this codebase
+// has never used for a face — `p.pic`, say — would pass, and no regex over
+// identifiers can close that. What it can do is know every word actually in use,
+// and fail loudly the day one of them stops being matched, which is the case
+// below. The Silhouette rule beside it is the belt to this brace: a new site
+// drawing a stand-in of its own is caught whatever it calls the field.
+//
+// AND IT IS ABOUT PICTURES THE LIBRARY HOLDS. The candidate strips in the image
+// pickers draw remote thumbnails a reader is choosing BETWEEN, and one that fails
+// there says something true about that candidate rather than about the library —
+// which is a different question with a different right answer, and not this
+// rule's. `thumb` was briefly in the vocabulary above and caught exactly those
+// two; it is out again, deliberately, rather than the pickers being converted to
+// hide a signal.
 const OF_A_PERSON = /(face|portrait|avatar|image_path|actor_image|character_image|characterImage|still|photo|headshot)/i
 
 // The src expression of every <img> in a source, with a bare identifier resolved
 // one step through its own declaration — which is as far as this needs to see,
 // and as far as a regex honestly can.
-function portraitSrcs(text) {
+function portraitTags(text) {
   const flat = text.replace(/\n\s*/g, ' ')
   const out = []
   // ANCHORED ON THE TAG, NOT ON `src=` AFTER A RUN OF NON-`>`. `[^>]*?` cannot
@@ -91,17 +105,26 @@ function portraitSrcs(text) {
     }
     const tag = flat.slice(at, end)
     const src = /\bsrc=\{([^}]*(?:\{[^}]*\}[^}]*)*)\}/.exec(tag)
-    if (!src) continue
-    let expr = src[1]
+    // NO `src={…}` MEANS THE WHOLE TAG IS THE EXPRESSION — a spread
+    // (`<img {...{ src: personImgURL(p) }} />`) puts the address somewhere this
+    // has no name for, and reading the tag entire is the only honest answer.
+    let expr = src ? src[1] : tag
     const bare = /^\s*([A-Za-z_$][\w$]*)\s*$/.exec(expr)
     if (bare) {
-      const decl = new RegExp(String.raw`\b(?:const|let|var)\s+` + bare[1] + String.raw`\s*=([^\n;]*)`).exec(text)
+      // OVER THE FLATTENED TEXT. `[^\n;]*` against the original stopped at the
+      // first newline, so `const u =` on one line and its value on the next was
+      // invisible — which is how most of this codebase writes a long call.
+      const decl = new RegExp(String.raw`\b(?:const|let|var)\s+` + bare[1] + String.raw`\s*=([^;]*)`).exec(flat)
       if (decl) expr += ' ' + decl[1]
     }
-    out.push(expr)
+    out.push({ tag, expr })
   }
   return out
 }
+
+// A tag that draws a face and never asks whether the picture arrived.
+const unguarded = (text) => portraitTags(text)
+  .filter(({ tag, expr }) => OF_A_PERSON.test(expr) && !/\bonError\b/.test(tag))
 
 describe('the stand-in for a picture', () => {
   it('is drawn only by the components that ask whether the picture arrived', () => {
@@ -122,9 +145,24 @@ describe('the stand-in for a picture', () => {
 })
 
 describe('a picture of a person or a character', () => {
-  it('is never drawn as a bare <img>, whichever builder made the address', () => {
-    const raw = FILES.filter((f) => !ASKERS[f] && portraitSrcs(bodyOf(f)).some((e) => OF_A_PERSON.test(e)))
-    expect(raw, `${raw.join(', ')} draws a face as a bare <img>, so a file that has gone shows the browser’s torn page`)
+  it('always asks whether the picture arrived, in every file including the two that answer', () => {
+    // NO FILE IS EXEMPT FROM THIS HALF, and the previous spelling of the rule
+    // exempted two — which meant a raw portrait added anywhere INSIDE
+    // `characterRows.jsx` or `ui.jsx` passed, and those are the two files most
+    // likely to grow another one. The exemption belongs to the SILHOUETTE rule,
+    // where it is about which component may decide; a tag that draws a face and
+    // does not listen for `error` is wrong wherever it is written.
+    const raw = FILES.filter((f) => unguarded(bodyOf(f)).length)
+    expect(raw, `${raw.join(', ')} draws a face and never asks whether the picture arrived, so a file that has gone shows the browser’s torn page`)
+      .toEqual([])
+  })
+
+  it('and nothing reaches for the element by hand to get around that', () => {
+    // `React.createElement('img', …)` is JSX with the sugar taken off, and the
+    // scan above reads tags. Cheap to say, and it closes the door rather than
+    // leaving it ajar behind a rule that looks thorough.
+    const sneaky = FILES.filter((f) => /createElement\(\s*['"]img['"]/.test(bodyOf(f)))
+    expect(sneaky, `${sneaky.join(', ')} builds an <img> by hand, where this rule cannot read its attributes`)
       .toEqual([])
   })
 
@@ -139,14 +177,18 @@ describe('a picture of a person or a character', () => {
       'an arrow function written before src': '<img onClick={() => go(1)} src={coverImgURL(c.image_path)} alt="" />',
       'a word that is part of a longer one': '<img src={coverImgURL(u.avatar_path)} alt="" />',
       'the word this rule was widened for': '<img src={coverImgURL(row.still)} alt="" />',
+      'a declaration broken across lines': 'const shot =\n  personImgURL(p.image_path)\n<img src={shot} alt="" />',
+      'an address arriving through a spread': '<img {...{ src: personImgURL(p.image_path) }} alt="" />',
     }
     for (const [what, code] of Object.entries(shapes)) {
-      expect(portraitSrcs(code).some((e) => OF_A_PERSON.test(e)), `${what} is invisible to the rule`)
-        .toBe(true)
+      expect(unguarded(code).length, `${what} is invisible to the rule`).toBeGreaterThan(0)
     }
     const cover = '<img src={coverImgURL(book.cover)} alt="" />'
-    expect(portraitSrcs(cover).some((e) => OF_A_PERSON.test(e)),
-      'a work’s cover is not a face, and this rule is not about covers').toBe(false)
+    expect(unguarded(cover).length,
+      'a work’s cover is not a face, and this rule is not about covers').toBe(0)
+    const asked = '<img src={coverImgURL(c.image_path)} onError={boom} alt="" />'
+    expect(unguarded(asked).length,
+      'a tag that DOES ask is reported anyway, which would make the rule unfixable').toBe(0)
   })
 })
 
@@ -168,10 +210,18 @@ describe('the box a shared face draws inside', () => {
   })
 
   it('and the Stats still is sized where it is drawn', () => {
-    // The inline width and height are on the slot; the picture inside has to be
-    // told to fill it, or a 24px box holds a full-size still.
-    expect(declaredIn('.stat-face-round img, .stat-face-round svg').length
-      + declaredIn('.stat-face-round img').length,
-      'nothing sizes the picture inside the Stats still’s box').toBeGreaterThan(0)
+    // ASKED OF THE VALUES, NOT OF THE RULE'S EXISTENCE. A presence check passes
+    // on `width: 4%; display: inline`, which `css-cascade.js`'s own header
+    // condemns in as many words. The inline width and height are on the slot; the
+    // picture inside has to be told to fill it, or a 24px box holds a full-size
+    // still.
+    // One selector at a time: `declaredIn` matches a rule's selectors as they
+    // are written, and this rule lists two.
+    const inner = '.stat-face-round img'
+    expect(declares(inner, 'width'), 'the picture does not fill its box').toContain('100%')
+    expect(declares(inner, 'height'), 'the picture does not fill its box').toContain('100%')
+    expect(declares(inner, 'object-fit'), 'the picture is stretched rather than cropped').toContain('cover')
+    expect(declares('.stat-face-round', 'border-radius'), 'the Stats still stopped being round')
+      .toContain('50%')
   })
 })

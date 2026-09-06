@@ -3,7 +3,7 @@ import { json, errText, coverImgURL, upload } from './api.js'
 import { Card, ErrorText, Field, FieldIconButton, GhostButton, IconDelete, IconKey, IconLogout, IconSwitchUser, IconUserPlus, InfoDot, MonoLabel, NameInput, StickerButton, Tooltip, useConfirm, IconClose } from './ui.jsx'
 import { PASSWORD_MAX, PASSWORD_MIN, passwordProblem } from './secret.js'
 import { t, tNodes } from './i18n.js'
-import { Face } from './characterRows.jsx'
+import { UserAvatar } from './avatar.jsx'
 
 // The display name's ceiling. Not a security bound — just the width the greeting
 // and the user list can lay out without wrapping into two lines.
@@ -32,6 +32,13 @@ function FieldLabel({ children }) {
 function AvatarRow({ user, onUser }) {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
+  // A PICTURE THAT NEVER ARRIVED IS NOT A PICTURE TO CHANGE OR REMOVE. Both
+  // controls below read the stored PATH, so an avatar whose file has gone said
+  // "Change photo" and offered a Remove key for something that is not there —
+  // the same mistake the chip beside them had just stopped making, one line up.
+  const [gone, setGone] = useState(false)
+  useEffect(() => { setGone(false) }, [user.avatar_path])
+  const has = !!user.avatar_path && !gone
   async function onFile(e) {
     const f = e.target.files && e.target.files[0]
     e.target.value = '' // allow re-picking the same file
@@ -51,23 +58,20 @@ function AvatarRow({ user, onUser }) {
   return (
     <div className="flex items-center gap-4">
       <span className="user-chip" style={{ width: 56, height: 56, fontSize: 'var(--type-ui-22)' }} aria-hidden="true">
-        {/* The initial is this chip's stand-in — an account is not a person in
-            the library — but whether there IS a picture is `Face`'s to say. */}
-        <Face src={user.avatar_path} url={coverImgURL} name={user.username || ''} className="face-slot"
-          fallback={<>{(user.username || '?').trim().charAt(0).toLowerCase()}</>} />
+        <UserAvatar user={user} onBroken={() => setGone(true)} />
       </span>
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <label className="tp-btn tp-btn-primary" style={{ cursor: 'pointer' }}>
             {busy
               ? t('common.action.upload.busy')
-              : user.avatar_path
+              : has
                 ? t('account.photo.change')
                 : t('account.photo.upload')}
             <input type="file" accept="image/*" className="hidden" onChange={onFile} disabled={busy} />
           </label>
           <InfoDot title={t('account.photo.info.title')} text={t('account.photo.info.body')} />
-          {user.avatar_path && (
+          {has && (
             <FieldIconButton
               icon={<IconDelete />}
               ariaLabel={t('account.photo.remove.aria')}
@@ -255,8 +259,7 @@ function SwitchAccount({ me }) {
               question about a thing you cannot see. */}
           <p className="switch-from">
             <span className="user-chip" style={{ width: 24, height: 24, fontSize: 'var(--type-ui-11)' }} aria-hidden="true">
-              <Face src={me?.avatar_path} url={coverImgURL} name={me?.username || ''} className="face-slot"
-                fallback={<>{(me?.username || '?').trim().charAt(0).toLowerCase()}</>} />
+              <UserAvatar user={me || {}} />
             </span>
             <span>
               {tNodes('account.switch.leaving', { name: <b>{me?.username}</b> })}
@@ -530,8 +533,7 @@ export function UserManagement({ me }) {
           return (
             <li key={u.id} className="flex flex-wrap items-center gap-x-3 gap-y-1.5 py-2" style={{ borderBottom: '1px solid var(--line)' }}>
               <span className="user-chip" style={{ width: 30, height: 30, fontSize: 'var(--type-ui-13)' }} aria-hidden="true">
-                <Face src={u.avatar_path} url={coverImgURL} name={u.username || ''} className="face-slot"
-                  fallback={<>{(u.username || '?').trim().charAt(0).toLowerCase()}</>} />
+                <UserAvatar user={u} />
               </span>
               <span style={{ fontWeight: 600 }}>{u.username}</span>
               {u.is_admin && (

@@ -446,6 +446,28 @@ drawn (`Account.jsx` ×3, `App.jsx`). Their stand-in is the username's initial r
 silhouette, which is right — an account is not a person in the library — and is exactly what
 `fallback` is for. Sixteen sites.
 
+## Y. The work-rater's seventh pass, 6 September
+
+Scored **5/10**. Its first finding is the sharpest of the whole loop: the crash the
+previous pass caught had **two live siblings two lines up**, in the same span, and the fix
+had been applied to one branch of three.
+
+| # | Finding | Status |
+|---|---|---|
+| Y1 | The other two art branches in the same span — a work's cover and a person's portrait — had never been rendered by anything. Replacing either argument with a free identifier left 3,405 tests green: **X1's defect, live, two lines up** | **FIXED.** All three branches render now, and a free identifier in either of the other two fails its own case with the `ReferenceError` |
+| Y2 | The headline fix's CALL SITE was unguarded — deleting `ornament={false}` left the suite green. The new case tested the component and never the caller, which is exactly the shape of the regression it was written for | **FIXED.** The Stats tile renders and its picture is failed, scoped to the tile because the breakdown rows draw the same component as an ORNAMENT — which is the distinction under test |
+| Y3 | Five more walk-arounds of the invariant: a raw portrait **inside** an asker file (the exemption was per-FILE), a declaration broken across lines, `React.createElement('img')`, a spread, and a field outside the vocabulary | **FIXED, except the last, which is stated rather than closed.** The exemption belongs to the silhouette rule — a tag that draws a face and never listens for `error` is wrong wherever it is written, including in the two files that answer for everyone else. The decl lookup reads flattened text; a tag with no `src={}` is read entire, which catches a spread; `createElement('img')` has its own case. A field this codebase has never used for a face cannot be caught by a vocabulary, and the note says so |
+| Y4 | The CSS assertion was a presence check — rewriting the rule to `width: 4%; display: inline` passed, which `css-cascade.js`'s own header condemns | **FIXED.** The values are asserted |
+| Y5 | Four copies of one verb: the account chips duplicated `UserAvatar`'s body instead of calling it | **FIXED.** `avatar.jsx` is a leaf module because of where `Face` lives — `App.jsx` already imports `Account.jsx`, so importing back is a cycle, and `ui.jsx` cannot hold it either |
+| Y6 | The profile card still read the stored path: a gone avatar said "Change photo" and offered a Remove key for a picture that is not there | **FIXED**, through the same `onBroken` the person record already used |
+| Y7 | `credits.jsx` still described a `fallback` prop that no longer exists | **FIXED** |
+| Y8 | `CHANGELOG.md` stated one behaviour for sixteen sites that have four | **FIXED.** It says what each kind of slot falls back to |
+
+**The vocabulary's boundary, stated rather than widened.** `thumb` was briefly added and
+caught the two image PICKERS — remote candidates a reader is choosing between, where a
+broken thumbnail says something true about that candidate rather than about the library.
+Out again, deliberately, rather than converting those to hide a signal.
+
 ## Withdrawn claims
 
 Kept because the pattern matters more than any one of them.

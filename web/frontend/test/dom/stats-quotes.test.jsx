@@ -16,12 +16,13 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 
 let STATS
 let CHARACTERS
+let PEOPLE
 
 vi.mock('../../src/api.js', async (orig) => ({
   ...(await orig()),
   json: vi.fn(async (method, path) => {
     if (path.startsWith('/stats')) return { ok: true, data: STATS } // the page sends ?offset= for the streak
-    if (path.startsWith('/people')) return { ok: true, data: { people: [] } }
+    if (path.startsWith('/people')) return { ok: true, data: { people: PEOPLE } }
     if (path.startsWith('/characters')) return { ok: true, data: { characters: CHARACTERS } }
     return { ok: true, data: {} }
   }),
@@ -33,6 +34,7 @@ const kind = (over = {}) => ({ count: 0, top: [], most_remembered: null, most_fo
 
 beforeEach(() => {
   CHARACTERS = []
+  PEOPLE = []
   STATS = {
     books: 4, annotations: 30, movies: 3, dialogues: 20, quotes: 7,
     tags: 5, favorites: 2, genres: 6,
@@ -41,7 +43,9 @@ beforeEach(() => {
     colors: {}, top_tags: [], first_saved: null,
     recall: { states: {}, reviewed: 0, avg_half_life: 0 },
     breakdown: {
-      authors: kind(), books: kind(), series: kind(), films: kind(),
+      authors: kind(),
+      books: kind({ count: 1, top: [{ name: 'Ice', cover_path: 'covers/ice.jpg', quotes: 6, remembered: 2, forgetting: 0, probably_forgotten: 0, unseen: 4 }] }),
+      series: kind(), films: kind(),
       shows: kind(), directors: kind(), actors: kind(),
       speakers: kind({ count: 2, top: [{ name: 'Bose', works: 3, quotes: 5, remembered: 1, forgetting: 0, probably_forgotten: 0, unseen: 4 }] }),
       // Occasions is gone as a breakdown — an occasion is a locator, not
@@ -49,6 +53,7 @@ beforeEach(() => {
       // row each, whatever role they were credited in.
       people: kind({ count: 4, top: [{ name: 'Bose', works: 3, quotes: 5, remembered: 1, forgetting: 0, probably_forgotten: 0, unseen: 4 }] }),
       characters: kind({ count: 1, top: [{ name: 'Delia Surridge', works: 1, quotes: 3, remembered: 1, forgetting: 0, probably_forgotten: 0, unseen: 2 }] }),
+      authors: kind({ count: 1, top: [{ name: 'Anna Kavan', works: 2, quotes: 4, remembered: 1, forgetting: 0, probably_forgotten: 0, unseen: 3 }] }),
     },
   }
 })
@@ -137,6 +142,42 @@ describe('the superlatives', () => {
     fireEvent.change(screen.getByLabelText(/breakdown/i), { target: { value: 'characters' } })
     expect(await screen.findByText('Delia Surridge'), 'the character row did not render').toBeTruthy()
     await waitFor(() => expect(document.querySelector('.stat-face-round img')).toBeTruthy())
+  })
+
+  it.each([
+    ['a work’s cover', 'books', () => {}, 'Ice'],
+    ['a person’s portrait', 'authors', () => { PEOPLE = [{ id: 2, name: 'Anna Kavan', image_path: 'people/kavan.jpg' }] }, 'Anna Kavan'],
+  ])('draws %s in a breakdown row without falling over', async (_what, kindKey, arrange, who) => {
+    // THE SAME BLIND SPOT AS THE CHARACTER STILL, two lines up in the same span.
+    // Three branches draw a picture in that column and only one of them had ever
+    // been rendered — so a free identifier in either of the other two would ship
+    // exactly as the first one did, and 3,405 tests would say nothing.
+    arrange()
+    await page()
+    fireEvent.change(screen.getByLabelText(/breakdown/i), { target: { value: kindKey } })
+    expect(await screen.findByText(who), 'the row did not render at all').toBeTruthy()
+    await waitFor(() => expect(document.querySelector('.stats-breakdown img, .breakdown-row img, img')).toBeTruthy())
+  })
+
+  it('and a person tile in the works grid draws a face rather than a gap', async () => {
+    // THE CALL SITE OF THE HEADLINE FIX. `PersonPortrait` having two kinds of
+    // stand-in says nothing about whether this caller asked for the right one —
+    // and the regression it is guarding against was exactly a call site passing
+    // the wrong thing while the component was correct.
+    PEOPLE = [{ id: 3, name: 'Bose', image_path: 'people/bose.jpg' }]
+    await page()
+    // Scoped to the tile, because the breakdown rows draw the same component as
+    // an ORNAMENT — which is the distinction under test, so a bare query would
+    // find whichever came first and prove nothing.
+    const tile = (await screen.findByText('Most quoted person')).closest('div').parentElement
+    const pic = await waitFor(() => {
+      const el = tile.querySelector('.person-portrait-round img')
+      expect(el, 'the tile drew no picture at all').toBeTruthy()
+      return el
+    })
+    fireEvent.error(pic)
+    expect(tile.querySelector('.person-portrait-round svg'),
+      'a record’s face fell back to the gap an ornament leaves').toBeTruthy()
   })
 
   it('offers the superlatives that were asked for', async () => {

@@ -266,13 +266,13 @@ export function usePortraitFill(kind, names, people, onFilled) {
 
 // PersonPortrait — the small round portrait for a group-by heading (renders
 // nothing when there's no saved image).
-// `fallback` IS THE CALLER'S, because these callers are not one kind of thing.
+// `ornament` IS THE CALLER'S, because these callers are not one kind of thing.
 // Most are ORNAMENTS — the round face beside a group heading, in a search result
 // — where the design draws nothing without a picture and a glyph would put a face
 // where the pack gives none. But the Stats tile is a RECORD'S FACE, and its own
 // comment says why the gap is wrong there: "a name alone in a grid of covers
 // reads as the one tile whose art failed to load". So the default is the
-// ornament's `null` and a caller that is not one says so.
+// ornament's gap and a caller that is not one says `ornament={false}`.
 // `ornament` AND NOT `fallback`, and the difference is a bug this already had.
 // A caller that wanted the silhouette wrote `fallback={undefined}` — and a
 // destructuring default fires on `undefined`, so it got `null` and the gap it was
