@@ -115,6 +115,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the words all sat at different places. Four drawings across the app were ignoring the
   size they were given; they all take it now. The number sits in a column three figures
   wide, so the two captions stay put whether a character has 1 quote or 999.
+- **A panel takes the screen it is on.** Opening one used to leave the page under it
+  live: a drag meant for the sheet scrolled the list behind it, the key back to the top
+  of that list drew over the sheet and offered to scroll a page nobody was looking at,
+  and what showed around the edges was dimmed but sharp. The page is frozen while a
+  panel is up, the key waits until the page is yours again, and everything behind any
+  overlay — a panel, a form, a picker, the add sheet, search — is softened, so the thing
+  you opened is the thing in focus.
+- **On a phone, a panel comes up from the bottom and fills the width.** It was a card
+  inset from three edges, which reads as a dialog that did not quite land. It is a sheet
+  now, with the top corners rounded and a strip of the page left visible above it, and a
+  drag back down closes it — the gesture every other sheet on the device answers to.
+  Anything you have typed and not saved still asks before it goes.
+- **A row of covers or faces sits in its shelf rather than against the top of it.** The
+  cast on a work's details and the works on a person's page both showed twice as much
+  space under the artwork as over it.
 - **A work's catalogue numbers and its links are one list.** Details drew a *Links*
   row whose value was a count, and under it a separate *Ids* strip — two headings for
   one question, when a catalogue number is simply a link the app can write for you. They
