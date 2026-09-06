@@ -2892,12 +2892,18 @@
      blank — it wears one of the six silhouettes — so the verb takes the same
      bottom strip a filled row uses on hover, kept always-on here: the affordance
      survives, and the face underneath is allowed to say whose it is. */
-  .cast-face-btn.is-empty .cast-face-mark {
+  /* AND A PICTURE THAT FAILED TO ARRIVE IS A ROW WITH NO PICTURE. `is-empty` on
+     the BUTTON is set from the stored path, so it says "photographed" while the
+     box under it is drawing a silhouette. `Face` puts the truth on the box —
+     that is the whole of its job — and `:has` is how the button reads it. */
+  .cast-face-btn.is-empty .cast-face-mark,
+  .cast-face-btn:has(.cast-face.is-empty) .cast-face-mark {
     inset: auto 0 0 0; height: 15px; opacity: 1;
     color: var(--bg); background: color-mix(in srgb, var(--ink) 62%, transparent);
     border-radius: 0 0 4px 4px;
   }
-  .cast-face-btn.is-empty:hover .cast-face-mark { background: var(--ink); }
+  .cast-face-btn.is-empty:hover .cast-face-mark,
+  .cast-face-btn:has(.cast-face.is-empty):hover .cast-face-mark { background: var(--ink); }
   .cast-names { display: flex; min-width: 0; flex: 1 1 auto; flex-direction: column; }
   /* A NAME IS NEVER TRUNCATED. This used to end in an ellipsis, and an ellipsis on
      a name is the one failure a reader cannot detect: "Alexander Hamilto…" and
@@ -8463,7 +8469,9 @@ html[data-theme="dark"] .board-cover {
   background: color-mix(in srgb, var(--soft) 16%, transparent);
   color: var(--faint);
 }
-.person-face-btn:hover img, .person-face-btn:hover > svg { border-color: var(--accent-ui); }
+/* DESCENDANT HERE TOO — `Face` puts both halves inside a span of its own, so
+   `> svg` stopped matching the moment the stand-in moved inside it. */
+.person-face-btn:hover img, .person-face-btn:hover svg { border-color: var(--accent-ui); }
 /* THE ROLE MARKS. A row of small glyphs that must not wrap the cell open: three
    roles is the most any record has, and three 18px marks are narrower than the
    shortest of the three words they stand for. */
