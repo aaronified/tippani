@@ -1189,6 +1189,34 @@
     }
   }
 
+  /* ON A PHONE IT IS NOT A CARD NEAR THE BOTTOM, IT IS THE BOTTOM. The tablet
+     rule above hugs the edge and still keeps 12px of scrim down each side and 30
+     beneath, so a sheet on a 390px screen is an inset card with a hairline of
+     page showing round three of its edges — which reads as a dialog that did not
+     quite land. The owner asked for the other thing: "in mobile, make the popups
+     fill the entire width and start from the bottom", after the pack's own
+     mobile sheets (`position:absolute;left:0;right:0;bottom:…` and
+     `border-radius:20px 20px 0 0`, `book-detail.dc.html:4207-4211`).
+
+     THE STRIP OF PAGE AT THE TOP STAYS, and is the one thing kept from the
+     tablet rule. It is what tells the reader they are on top of something rather
+     than on a new screen, and it is what the scrim's blur is drawn on. The pack
+     keeps a quarter of the screen for a list; a panel here holds forms as often
+     as lists, so it takes what it needs up to that strip.
+
+     The bottom corners square off because there is no longer an edge for them to
+     be round against, and the bottom border goes with them — a 1.6px line across
+     the foot of the screen is a rule, not an edge. */
+  @media (max-width: 768px) {
+    .tp-panel-scrim { padding: 0; }
+    .tp-panel {
+      width: 100%;
+      border-radius: 20px 20px 0 0;
+      border-bottom: 0;
+      max-height: calc(100dvh - 56px);
+    }
+  }
+
   /* A rule between two sections of one page. Named because it was hand-typed in
      three files with three different borders — solid, dashed, and a third with
      its own margins — which is the drift a constant exists to stop. */

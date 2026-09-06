@@ -31,20 +31,28 @@ describe('the library', () => {
     }
   })
 
-  it('names only the two the app actually binds as implemented', () => {
+  it('names only the ones the app actually binds as implemented', () => {
     // long-press: ui.jsx's 500ms hold, and every card's menu.
     // swipe-left: App.jsx's drawer close, and only leftward — swipe-to-open is
     // deliberately absent because the left screen edge is the OS back gesture.
-    expect(IMPLEMENTED).toEqual(['long-press', 'swipe-left'])
+    // swipe-down: ui.jsx's useSwipeDown, dismissing a panel that is a bottom sheet.
+    expect(IMPLEMENTED).toEqual(['long-press', 'swipe-left', 'swipe-down'])
     for (const k of IMPLEMENTED) expect(GESTURES).toContain(k)
   })
 
   // The claim above, checked against the tree rather than trusted. If a pinch
   // handler ever lands, this fails and asks for the clip to be promoted — which is
   // the right direction for this test to break in.
+  //
+  // IT USED TO READ `onTouchStart|touchmove` TOO, and that was the wrong net: those
+  // are how ANY touch gesture is bound, so the first one the app added — the
+  // sheet's swipe-down — tripped a case whose sentence is about pinching. It broke
+  // in the right direction and said the wrong thing, which is worse than either.
+  // What is pinch-specific is `gesturechange` (Safari's own pinch event) and the
+  // word itself; the rest of the claim is carried by IMPLEMENTED above.
   it('and the app really does not handle a pinch', () => {
     const shell = src('App.jsx') + src('ui.jsx')
-    expect(shell).not.toMatch(/onTouchStart|touchmove|gesturechange/i)
+    expect(shell).not.toMatch(/gesturechange|onGestureStart/i)
     expect(shell.toLowerCase()).not.toContain('pinch')
   })
 

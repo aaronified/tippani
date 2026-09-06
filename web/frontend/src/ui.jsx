@@ -768,8 +768,13 @@ export function useEdgeScroll(ref, { axis = "x", drag = true } = {}) {
 // phrasing only, and a div there is invalid markup. A span with `display: flex`
 // lays out identically, so the caller picks the element and the behaviour is the
 // same either way.
-export function Scroller({ as: Tag = "div", axis = "x", drag = true, className = "", children, ...rest }) {
-  const ref = useRef(null);
+export function Scroller({ as: Tag = "div", axis = "x", drag = true, className = "", innerRef = null, children, ...rest }) {
+  // `innerRef` — for a caller that needs the scrolling element itself, not a
+  // second one wrapped around it. The panel body wants it so a drag DOWN from
+  // the top can close a bottom sheet, and that gesture has to know the scroll
+  // offset to tell itself apart from an ordinary scroll.
+  const own = useRef(null);
+  const ref = innerRef || own;
   useEdgeScroll(ref, { axis, drag });
   return (
     <Tag ref={ref} className={className} {...rest}>
@@ -1136,6 +1141,54 @@ export function useOverlayOpen() {
     return () => { overlayWatchers.delete(f); };
   }, []);
   return up;
+}
+
+// useSwipeDown — a sheet that starts at the bottom of the screen closes when you
+// drag it back down, which is what every other sheet on the device does.
+//
+// THE OWNER ASKED FOR IT WITH THE BOTTOM SHEET, in one sentence: "scrolling down
+// will close the popup now (which becomes an intuitive thing). any edits pending
+// save will trigger the same warning as it does now." So the dismissal goes
+// through the SAME guarded way out as the ✕ and Escape — it is another way to
+// leave, not a way around the question.
+//
+// FROM THE TOP ONLY, which is the whole of telling the gesture apart from a
+// scroll. A downward drag anywhere else in a scrolled body is the reader reading;
+// at offset zero there is nothing above to reveal, so it can only be a dismissal.
+//
+// TOUCH ONLY, and not because a mouse cannot do it: a wheel or a trackpad emits
+// the same downward delta while reading a body that has been scrolled to the top
+// by anything at all, and closing a sheet under a reader who scrolled one notch
+// too far is worse than not having the gesture.
+export function useSwipeDown(ref, onDismiss, { enabled = true, threshold = 90 } = {}) {
+  const latest = useRef(onDismiss);
+  latest.current = onDismiss;
+  useEffect(() => {
+    const el = ref?.current;
+    if (!el || !enabled) return undefined;
+    let from = null;
+    const start = (e) => {
+      from = el.scrollTop <= 0 && e.touches.length === 1 ? e.touches[0].clientY : null;
+    };
+    const move = (e) => {
+      if (from === null) return;
+      if (e.touches[0].clientY - from > threshold) {
+        from = null;
+        latest.current?.();
+      }
+    };
+    const end = () => { from = null; };
+    el.addEventListener("touchstart", start, { passive: true });
+    el.addEventListener("touchmove", move, { passive: true });
+    el.addEventListener("touchend", end, { passive: true });
+    el.addEventListener("touchcancel", end, { passive: true });
+    return () => {
+      el.removeEventListener("touchstart", start);
+      el.removeEventListener("touchmove", move);
+      el.removeEventListener("touchend", end);
+      el.removeEventListener("touchcancel", end);
+    };
+  }, [ref, enabled, threshold]);
 }
 
 // useBackToClose — an open overlay answers the hardware/gesture Back by closing
@@ -4228,7 +4281,15 @@ export function PanelHost({ stack }) {
   //
   // GUARDED, like every other way out. Escape is the fastest of them and the one
   // most likely to be pressed by reflex.
+  const phone = useIsMobileScreen();
   useEscape(!!panel && !asking, guard(back));
+  // AND A DRAG BACK DOWN, which is what a sheet at the bottom of a phone
+  // screen means everywhere else on the device. `guard(back)` is the same way
+  // out Escape and the ✕ take, so unsaved typing asks its question here too.
+  // Only where the panel IS a bottom sheet: on a desk it is a card in the
+  // middle of the screen and there is nothing to drag down.
+  const bodyRef = useRef(null);
+  useSwipeDown(bodyRef, guard(back), { enabled: !!panel && !asking && phone });
   if (!panel) return null;
   // A panel that declares its own verb carries it in the head — Links' ＋. Only
   // ever the panel's OWN verb: the list is what is already there, and adding to
@@ -4350,7 +4411,7 @@ export function PanelHost({ stack }) {
             )}
           </div>
         </div>
-        <Scroller axis="v" className="tp-panel-body">
+        <Scroller axis="v" className="tp-panel-body" innerRef={bodyRef}>
           <PanelSurfaceContext.Provider value={surface}>
             <FormHostContext.Provider value={host}>
               {typeof panel.render === "function" ? panel.render() : panel.render}

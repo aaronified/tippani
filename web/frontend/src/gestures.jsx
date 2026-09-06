@@ -39,9 +39,13 @@ const VB = 72 // one square viewBox for every clip, so they line up in a row
 //   long-press   ui.jsx (500ms, three outcomes by target) and every card's menu
 //   swipe-left   App.jsx's drawer, and ONLY leftward: swipe-to-open is deliberately
 //                absent because the left screen edge belongs to the OS back gesture
+//   swipe-down   ui.jsx's `useSwipeDown`, on a panel that is a bottom sheet — from
+//                the TOP of its body only, because a downward drag anywhere else is
+//                the reader scrolling. It takes the same guarded exit as the ✕, so
+//                unsaved typing asks its question before the sheet goes
 //
 // A clip's presence in GESTURES is not permission to show it. This is.
-export const IMPLEMENTED = ['long-press', 'swipe-left']
+export const IMPLEMENTED = ['long-press', 'swipe-left', 'swipe-down']
 
 // The eleven. `label` is what the gesture is called, never an instruction.
 export const GESTURES = [

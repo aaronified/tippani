@@ -15,7 +15,7 @@
 // asks first — including Escape, which is the fastest of them and the one most
 // likely to be pressed by reflex.
 
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { FormHostContext, PanelHost, useFormHost, usePanelStack } from '../../src/ui.jsx'
 import { resetPanelHistory } from '../panel-harness.jsx'
@@ -53,9 +53,33 @@ const panel = () => document.querySelector('.tp-panel')
 const esc = () => fireEvent.keyDown(document, { key: 'Escape' })
 const clickAway = () => fireEvent.mouseDown(scrim(), { target: scrim() })
 
+// AND THE FOURTH WAY OUT, added when the panel became a bottom sheet on a phone:
+// "scrolling down will close the popup now (which becomes an intuitive thing).
+// any edits pending save will trigger the same warning as it does now." A second
+// exit that skips the question is not a convenience, it is a way to lose typing,
+// so it belongs in this file rather than beside the gesture that implements it.
+//
+// The gesture only exists where the panel IS a sheet, so the phone query has to
+// hold; the setup's matchMedia answers false to everything.
+const phone = () => { window.matchMedia = (media) => ({
+  matches: media.includes('768'), media, onchange: null,
+  addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {},
+  dispatchEvent: () => false,
+}) }
+const body = () => document.querySelector('.tp-panel-body')
+const dragDown = (by = 160) => {
+  const el = body()
+  const at = (y) => ({ touches: [{ clientY: y, identifier: 1, target: el }] })
+  fireEvent.touchStart(el, at(120))
+  fireEvent.touchMove(el, at(120 + by))
+}
+
+const realMatchMedia = window.matchMedia
+beforeEach(() => { window.matchMedia = realMatchMedia })
 afterEach(() => {
   cleanup()
   resetPanelHistory()
+  window.matchMedia = realMatchMedia
 })
 
 describe('with nothing unsaved', () => {
@@ -66,6 +90,15 @@ describe('with nothing unsaved', () => {
     // NO QUESTION IS THE CLAIM. The close itself is history-driven — the stack
     // walks `window.history` back exactly as far as it pushed — so its absence
     // arrives a frame later and is awaited rather than asserted on the spot.
+    expect(screen.queryByText(/Leave without saving/), 'it asked about nothing').toBeNull()
+    await waitFor(() => expect(screen.queryByText('the panel body')).toBeNull())
+  })
+
+  it('closes on a drag back down, with no question', async () => {
+    phone()
+    render(<Harness dirty={0} />)
+    await screen.findByText('the panel body')
+    dragDown()
     expect(screen.queryByText(/Leave without saving/), 'it asked about nothing').toBeNull()
     await waitFor(() => expect(screen.queryByText('the panel body')).toBeNull())
   })
@@ -109,6 +142,17 @@ describe('with work at stake', () => {
     esc()
     expect(await screen.findByText(/Leave without saving/)).toBeTruthy()
     expect(screen.getByText('the panel body')).toBeTruthy()
+  })
+
+  it('asks on a drag back down, which is the phone\'s ✕', async () => {
+    phone()
+    render(<Harness dirty={2} />)
+    await settled(2)
+    dragDown()
+    expect(await screen.findByText(/Leave without saving/),
+      'the sheet slid away and took two typed fields with it — a gesture is not a cheaper way out than the ✕')
+      .toBeTruthy()
+    expect(screen.getByText('the panel body'), 'the question appeared over a panel that had already gone').toBeTruthy()
   })
 
   it('asks on the ✕ as well, so no route is the cheap way out', async () => {
