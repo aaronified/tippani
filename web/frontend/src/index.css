@@ -8496,7 +8496,16 @@ html[data-theme="dark"] .board-cover {
   .cs-choose-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
   .cs-choose-label { font-size: var(--type-ui-15); line-height: 1.3; }
   .cs-choose-sub { font-size: var(--type-ui-11); color: var(--soft); }
-  .cs-choose-meta { font-family: var(--font-mono); font-size: var(--type-mono-11); color: var(--faint); flex: none; }
+  /* `flex: 0 1 auto` AND A CEILING, for `.cs-row-meta`'s reason one surface over:
+     this slot carries a CHARACTER NAME on the door a chip opens, and `flex: none`
+     takes its whole width out of the row before the label gets any — which is
+     what turned "In this work" into "In this wor". The ceiling is a share of the
+     container rather than a px, because the row grows with the type dials.
+     `.name-scroll` supplies the overflow and the fade. */
+  .cs-choose-meta {
+    font-family: var(--font-mono); font-size: var(--type-mono-11); color: var(--faint);
+    flex: 0 1 auto; min-width: 0; max-width: 46%;
+  }
 
   /* A section heading, and the prose that sometimes goes under it. */
   .cs-head-row { display: flex; flex-direction: column; gap: 3px; padding: 16px 10px 6px; }

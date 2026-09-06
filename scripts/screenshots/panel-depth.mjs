@@ -38,7 +38,7 @@
 // The path now is the reader's: a film page, Details, a face in its cast strip —
 // the same two presses `controls.mjs` had to learn for the same reason.
 //
-// AND WHAT IT CAN SEE. Three things, all browser-only:
+// AND WHAT IT CAN SEE. Four things, all browser-only:
 //
 //   THE STACK AND HISTORY AGREE. A panel opened from inside a panel is on screen
 //   and `history.state.tpPanelDepth` counts it. The race left nothing open; the
@@ -50,6 +50,11 @@
 //   row that also dismisses the question pops the entry UNDER its own answer and
 //   closes everything. Four cases in `speaker-destinations.test.jsx` passed
 //   against exactly that, because `history.back()` in jsdom delivers no popstate.
+//
+//   A ROW'S VALUE GIVES WAY RATHER THAN TAKING THE ROW. A long name in the slot
+//   beside a label is what turned "In this work" into "In this wor"; a
+//   stylesheet that declares a ceiling and a cascade that overrides it are the
+//   same document to jsdom, which lays nothing out.
 //
 //   THE BACK CRUMB STAYS OUT OF THE TITLE, which jsdom cannot answer at all.
 //
@@ -203,6 +208,60 @@ try {
       'subject being well')
     failures++
   } else {
+    // ── AND A ROW'S VALUE GIVES WAY RATHER THAN TAKING THE ROW, measured on the
+    // chooser while it is still up.
+    //
+    // THE FAILURE, one surface over from where it was reported. `.cs-row-meta` was
+    // `flex: none`, so a long value took its whole width out of the row before the
+    // label got any and "In this work" arrived as "In this wor". The same slot on
+    // the door a chip opens holds a CHARACTER's name (`a.character`) and had the
+    // same declaration. `counts-align.test.js` reads the declarations; this reads
+    // what they produce, which is the half jsdom cannot do at all — a stylesheet
+    // that declares a ceiling and a cascade that overrides it look identical there.
+    //
+    // THE CONTENT IS THE PROBE'S, THE BOX IS THE APP'S. A fixture's own values are
+    // short, so measuring what happens to be on screen measures the fixture; a name
+    // far longer than the row is written in first. Where a row draws no value slot
+    // at all, one is created wearing the classes the app writes — the question is
+    // what the STYLESHEET does with a long name, and a row that has no long name
+    // today gets one tomorrow.
+    const values = await page.evaluate(() => {
+      const LONG = 'Ekalavya Chandrashekhar Vishwanathan-Raghunathan the Younger'
+      return [...document.querySelectorAll('.cs-choose')].map((row) => {
+        let meta = row.querySelector('.cs-choose-meta')
+        if (!meta) {
+          meta = document.createElement('span')
+          meta.className = 'name-scroll cs-choose-meta'
+          row.appendChild(meta)
+        }
+        meta.textContent = LONG
+        const label = row.querySelector('.cs-choose-label')
+        const w = (e) => (e ? Math.round(e.getBoundingClientRect().width) : 0)
+        return {
+          row: w(row), meta: w(meta), label: w(label),
+          overflows: row.scrollWidth > row.clientWidth + 1,
+        }
+      })
+    })
+    if (values.length === 0) {
+      console.log('FAIL  the chooser drew no rows to measure a long value in')
+      failures++
+    }
+    for (const v of values) {
+      if (v.overflows) {
+        console.log(`FAIL  a long value pushed a chooser row past its own box (${v.row}px holding ${v.meta}px of value)`)
+        failures++
+      } else if (v.meta > v.row * 0.5) {
+        console.log(`FAIL  the value took ${v.meta}px of a ${v.row}px row — its ceiling is not holding`)
+        failures++
+      } else if (v.label <= 0) {
+        console.log('FAIL  a long value squeezed the label out of the row entirely')
+        failures++
+      } else {
+        console.log(`ok    a long value takes ${v.meta}px of a ${v.row}px row and leaves the label ${v.label}px`)
+      }
+    }
+
     // The question is on screen from the search above. Press its LAST answer:
     // the first is the one the chip already points at, so answering with it
     // cannot tell a landing apart from a no-op.

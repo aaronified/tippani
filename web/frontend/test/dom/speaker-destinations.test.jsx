@@ -172,6 +172,51 @@ describe('pressing a chip for a character the line does not link to', () => {
       .toContain('Amitabh Bachchan')
   })
 
+  // THE ROLE'S OWN STILL REACHES THE SHEET, which is the second half of "the
+  // picker doesn't show any images".
+  //
+  // The first half was a resolver applied twice. This half is a field that never
+  // left the card: the chip's own face climbs still-then-headshot, and the door
+  // was handed the headshot alone — so a character photographed IN THE ROLE, with
+  // no separate portrait of whoever played them, had a face on the card and a
+  // silhouette on the sheet the card opened. Half the library is silhouettes by
+  // design, so the sheet looked exactly like a sheet that is working.
+  //
+  // PRESSED, NOT HANDED. Every earlier case here fed the door an object typed in
+  // this file, which is the "test writes the answer down and reads it back" hole
+  // this suite's own header warns about — and it is why the field being absent
+  // from the chip's payload went unnoticed while five cases passed. This one
+  // renders a chip, clicks it, and takes whatever the component produced.
+  const STILL = [{
+    name: 'Anand', path: 'roles/anand-in-the-role.jpg', cast_id: 11, character_id: 3,
+    actor: 'Rajesh Khanna', actor_id: 9, actor_image: '',
+  }]
+
+  it('carries the role\'s own still to the sheet, not only the performer\'s headshot', async () => {
+    APPEARANCES = ONE_WORK
+    let got = null
+    render(<SpeakerChips images={STILL} speaker={null} onOpenCharacter={(sp) => { got = sp }} />)
+    const chip = [...document.querySelectorAll('.person-chip')].find((c) => c.textContent.includes('Anand'))
+    await act(async () => { fireEvent.click(chip) })
+    cleanup()
+    mount()
+    await press(got)
+    const row = [...document.querySelectorAll('.cs-choose')].find(
+      (b) => b.querySelector('.cs-choose-label')?.textContent === 'Anand',
+    )
+    expect(row, 'the character was not offered at all').toBeTruthy()
+    const img = row.querySelector('img')
+    expect(img, 'the row drew a silhouette for a character the card had a picture of')
+      .toBeTruthy()
+    expect(img.getAttribute('src'), 'the sheet drew some other picture than the role\'s still')
+      .toContain('roles/anand-in-the-role.jpg')
+    // AND EXACTLY ONCE. `Face` resolves a stored path itself; a caller that
+    // resolves it first produces `/api/covers//api/covers/…`, which is the other
+    // half of the same report and drew the broken-image glyph on every row.
+    expect((img.getAttribute('src').match(/\/api\/covers\//g) || []).length,
+      'the path was resolved twice on its way to the sheet').toBe(1)
+  })
+
   it('and the performer is a door, not a row that declines', async () => {
     APPEARANCES = TWO_WORKS
     const sp = await pressChip('Dr. Bhaskar')

@@ -744,8 +744,16 @@ export function chipRows(images, speaker, onOpen, { withActor = true } = {}) {
       // fields meant the third question could only ever be answered no, which was
       // survivable while the card printed a PLAYED BY line with a door on it, and
       // is not now that the line goes wherever these chips already name them.
+      // AND THE ROLE'S OWN STILL RIDES WITH IT TOO. `faceSrc` above climbs the
+      // ladder still-then-headshot; the door was handed only the headshot, so a
+      // character photographed IN THE ROLE and with no separate portrait of their
+      // performer had a face on the card and a silhouette on the sheet the card
+      // opened. That is the second half of "the picker doesn't show any images" —
+      // the first half was a resolver applied twice. RAW, not resolved: `Face`
+      // calls `coverImgURL` itself, which is what produced `/api/covers//api/…`.
       onPress: c.character_id && onOpen ? () => onOpen({
         cast_id: c.cast_id, character_id: c.character_id, name, record_name: name,
+        image: c.path || '',
         actor: c.actor || '', actor_image: c.actor_image || '', actor_id: c.actor_id || 0,
       }) : undefined,
     })

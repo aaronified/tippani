@@ -56,6 +56,21 @@ const SOURCES = [
 // ``literal` (`[file.dc.html]:N[-M]`)` — the convention, with the file optional.
 const CITE = /`([^`\n]{1,80})`\s*\(`?((?:[a-z0-9-]+\.dc\.html)?):(\d+)(?:-(\d+))?`?\)/g
 
+// AND EVERY BACKTICKED REFERENCE, whether or not a literal sits beside it. The
+// convention above is the tight form and it is the minority: most references
+// separate the words from the line with a clause of prose —
+//
+//   `Cast · none`, not `Cast · 0` — the pack's own head on the work with
+//   an empty cast (`work-details-popup.dc.html:1141`)
+//
+// which CITE cannot pair, because `\s*` between the two is exactly what stops it
+// pairing a citation with some unrelated literal fifteen lines up. So there are
+// two tiers, and the looser one is the one that scales: EVERY reference must
+// point at a line that exists, and only the tight ones are also asked whether
+// the words are there. Reading a tenth of the references and calling the
+// convention guarded is how the wrong-line citation got in.
+const REF = /`((?:[a-z0-9-]+\.dc\.html)?):(\d+)(?:-(\d+))?`/g
+
 // WHAT A BARE `:N` MEANS is whatever file was named last, and that is not always
 // an artboard: `entry-helpers.md` writes ``AddSurface.jsx:718-732`` and then
 // ``(`:943`)`` of the same file, which is a source citation and none of this
@@ -81,7 +96,24 @@ function citationsIn(rel) {
   return out
 }
 
+// The same resolver, over the looser pattern.
+function referencesIn(rel) {
+  const text = readFileSync(join(REPO, rel), 'utf8')
+  const out = []
+  for (const m of text.matchAll(REF)) {
+    let file = m[1]
+    if (!file) {
+      const names = [...text.slice(0, m.index).matchAll(FILE_MENTION)]
+      file = names.length ? names[names.length - 1][1] : ''
+    }
+    if (!file.endsWith('.dc.html')) continue
+    out.push({ where: rel, file, from: Number(m[2]), to: Number(m[3] || m[2]) })
+  }
+  return out
+}
+
 const ALL = SOURCES.flatMap(citationsIn)
+const REFS = SOURCES.flatMap(referencesIn)
 
 // A CITATION SET THAT EMPTIES ITSELF IS A GUARD THAT STOPPED GUARDING. The
 // convention is a handful of sites, so a regex that stops matching them — a
@@ -90,6 +122,10 @@ describe('the pack citations in this repo', () => {
   it('are still being found at all', () => {
     expect(ALL.length, 'no citation of the shape `literal` (`:N`) was found anywhere — the pattern has drifted')
       .toBeGreaterThan(5)
+    // The loose tier must be the larger of the two, or it has stopped being the
+    // one that scales and this file is back to reading a tenth of the pack.
+    expect(REFS.length, `only ${REFS.length} pack references found in total — fewer than the ${ALL.length} tight ones`)
+      .toBeGreaterThanOrEqual(ALL.length)
     // Said out loud so a resolver that quietly stopped resolving is visible: a
     // rule that skips everything passes everything.
     expect(skipped, `every citation resolved to a source file rather than an artboard (${skipped} skipped)`)
@@ -104,6 +140,17 @@ describe('the pack citations in this repo', () => {
       expect(existsSync(path), `${c.file} is not in docs/design/prototypes`).toBe(true)
       const lines = readFileSync(path, 'utf8').split('\n')
       expect(c.to, `${c.file} has ${lines.length} lines`).toBeLessThanOrEqual(lines.length)
+    },
+  )
+
+  it.each(REFS.map((c) => [`${c.where}: ${c.file}:${c.from}`, c]))(
+    '%s is a line the artboard has',
+    (_label, c) => {
+      const path = join(PACK, c.file)
+      expect(existsSync(path), `${c.file} is not in docs/design/prototypes`).toBe(true)
+      const lines = readFileSync(path, 'utf8').split('\n')
+      expect(c.to, `${c.file} has ${lines.length} lines, and this cites ${c.to}`)
+        .toBeLessThanOrEqual(lines.length)
     },
   )
 

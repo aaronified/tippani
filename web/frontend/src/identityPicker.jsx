@@ -320,7 +320,14 @@ export function ChooseList({ spec, busy = false, onDone }) {
             <NameScroll className="cs-choose-label">{o.label}</NameScroll>
             {o.sub ? <span className="cs-choose-sub">{o.sub}</span> : null}
           </span>
-          {o.meta ? <span className="cs-choose-meta">{o.meta}</span> : null}
+          {/* THROUGH THE SCROLLER, because this slot holds a CHARACTER NAME on
+              the door a chip opens — `a.character` — as well as a short count
+              phrase. A name that cannot shrink takes its width out of the row
+              before the label gets any, which is the defect the owner reported
+              on the row beside it ("In this wor"); a name that is merely cut
+              looks like a short name. It gives way, and scrolls under the fade
+              when it has to. */}
+          {o.meta ? <NameScroll className="cs-choose-meta">{o.meta}</NameScroll> : null}
         </button>
       ))}
     </div>

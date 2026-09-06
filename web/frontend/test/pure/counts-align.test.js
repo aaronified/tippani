@@ -58,19 +58,34 @@ describe('the pair of counts', () => {
       .toBeGreaterThanOrEqual(3)
   })
 
-  it('and the value beside a row can give way rather than squeezing its label', () => {
-    // K10's OWN FIX WAS UNGUARDED, which is this round's headline lesson repeated
-    // one file over: `credit-row.test.jsx` asserts the `name-scroll` CLASS, which
-    // is a shape, so reverting `.cs-row-meta` to `flex: none` left every one of
-    // 3,147 cases green. What decides it is the declaration, and this file was
-    // already the place that reads declarations.
-    const f = decl('.cs-row-meta', 'flex')
-    expect(f, '.cs-row-meta declares no flex at all').toBeTruthy()
-    expect(f, `.cs-row-meta is \`flex: ${f}\` — a value that cannot shrink takes its width out of the row and clips the label`)
+  // A VALUE BESIDE A LABEL GIVES WAY — the rule, not the instance.
+  //
+  // K10's OWN FIX WAS UNGUARDED, which is this round's headline lesson: reverting
+  // `.cs-row-meta` to `flex: none` left every one of 3,147 cases green, because
+  // the nearest guard asserted the `name-scroll` CLASS — a shape. And the rule
+  // was landed on ONE class while a second slot on the same family of screens
+  // still held a character's name in a box that could not shrink, which is how a
+  // fix becomes a special case. Both are here; a third joins by being listed.
+  const GIVES_WAY = [
+    // The value on a character sheet's row: "In this work", the note, the year.
+    '.cs-row-meta',
+    // The right-hand slot on the door a chip opens: a count phrase on one row and
+    // the CHARACTER's name on another (`a.character`, identity.jsx).
+    '.cs-choose-meta',
+  ]
+
+  it.each(GIVES_WAY)('%s can give way rather than squeezing the label beside it', (cls) => {
+    const f = decl(cls, 'flex')
+    expect(f, `${cls} declares no flex at all`).toBeTruthy()
+    expect(f, `${cls} is \`flex: ${f}\` — a value that cannot shrink takes its width out of the row and clips the label`)
       .not.toMatch(/^none\b|^0 0\b/)
-    expect(decl('.cs-row-meta', 'min-width'),
+    expect(decl(cls, 'min-width'),
       'the value keeps its content width, so it cannot shrink however its flex is written')
       .toBe('0')
+    const cap = decl(cls, 'max-width')
+    expect(cap, `${cls} has no ceiling, so a long value can still take the whole row`).toBeTruthy()
+    expect(cap, `${cls}'s ceiling is \`${cap}\` — a share of the container, not a px, because the row scales`)
+      .not.toMatch(/px/)
   })
 
   it('and the boxes themselves stay equal', () => {
