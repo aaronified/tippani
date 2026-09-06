@@ -350,39 +350,81 @@ try {
   // book with a paragraph of description and six genres clears it on any laptop;
   // the fixture does not, and a check that only ever asserted "no bar" would be
   // half a check. So one height is chosen to make it fire.
-  for (const [w, h] of [[1440, 900], [1440, 520], [1440, 380], [1440, 340]]) {
+  // AND AT THE WIDTHS WHERE THE HERO CAN ACTUALLY SCROLL AWAY, which this list
+  // did not include and is the whole reason the bar "never appeared at any
+  // height". Measured on the seeded library:
+  //
+  //   1000x700  scroller=(window)          extent 433px  bar yes
+  //    900x600  scroller=(window)          extent 748px  bar yes
+  //   1280x700  scroller=.tp-detail-hero   extent   0px  bar no
+  //   1440x700  scroller=.tp-detail-hero   extent   0px  bar no
+  //
+  // Below 1180 the hero shares the WINDOW's scroll, so the title leaves the top
+  // and the bar arrives. At 1180 and up the pack's two-column frame gives the
+  // hero its own column (`heroSplit: twoCol || phone`,
+  // `book-detail-wide.dc.html:4644-4646`), and that column does not overflow at a
+  // real window height — so the hero never goes away, there is nothing to repeat,
+  // and the bar's absence is correct rather than missing.
+  //
+  // FOUR 1440 ROWS WAS THEREFORE A LIST OF THE ONE WIDTH IT CANNOT HAPPEN AT.
+  // The invariant below is the same in both directions; what changes is that the
+  // run now visits a width where the "arrives" half can fire, so the run can
+  // report having seen it rather than only having failed to see it.
+  for (const [w, h] of [[1000, 700], [900, 600], [1440, 900], [1440, 520]]) {
     await page.setViewport({ width: w, height: h })
     await page.goto(`${opts.baseUrl}/books/${opts.bookId}`, { waitUntil: 'networkidle0' })
     await page.waitForSelector('[data-screen-label="book-detail"] h1', { timeout: opts.timeoutMs })
     await new Promise((r) => setTimeout(r, 1200))
     const mini = await page.evaluate(async () => {
-      const col = document.querySelector('.tp-detail-hero')
       const mark = document.querySelector('.work-hero-mark')
-      if (!col || !mark) return { why: !col ? 'no hero column' : 'no marker in the header' }
+      if (!mark) return { why: 'no marker in the header' }
+      // THE SCROLLER IS WHATEVER THE MARKER IS ACTUALLY IN, resolved the way the
+      // app's own hook resolves it — nearest scrolling ancestor, else the window.
+      // Reading `.tp-detail-hero` and nothing else was why this block reported
+      // "no hero column" below 1180: there is no column there, the hero shares
+      // the window's scroll, and that is exactly where the bar can be seen
+      // arriving. The pack states the same rule about its own key: "the scroller
+      // is the element that scrolled, not a ref that happens to exist".
+      let root = mark.parentElement
+      while (root && root !== document.body) {
+        const oy = getComputedStyle(root).overflowY
+        if (oy === 'auto' || oy === 'scroll') break
+        root = root.parentElement
+      }
+      const col = root && root !== document.body ? root : null
+      const topOf = () => (col ? col.getBoundingClientRect().top : 0)
       const read = () => {
         const bar = document.querySelector('.work-hero-mini')
         return {
           bar: !!bar && bar.getBoundingClientRect().height > 0,
-          above: mark.getBoundingClientRect().top < col.getBoundingClientRect().top,
+          above: mark.getBoundingClientRect().top < topOf(),
         }
       }
       // A second copy of the name in the document is the cost of this bar, so it
       // may not be paid until it is wanted.
       const rest = { ...read(), titles: document.querySelectorAll('[data-screen-label="book-detail"] h1, .work-hero-mini-title').length }
-      col.scrollTop = col.scrollHeight
+      const scrollToEnd = () => {
+        if (col) col.scrollTop = col.scrollHeight
+        else window.scrollTo(0, document.documentElement.scrollHeight)
+      }
+      const offset = () => (col ? col.scrollTop : window.scrollY)
+      const extent = () => (col
+        ? col.scrollHeight - col.clientHeight
+        : document.documentElement.scrollHeight - window.innerHeight)
+      scrollToEnd()
       await new Promise((r) => setTimeout(r, 450))
-      const at = col.scrollTop
+      const at = offset()
       const bottom = read()
       await new Promise((r) => setTimeout(r, 250))
       return {
         rest,
         bottom,
-        room: Math.round(col.scrollHeight - col.clientHeight),
+        scroller: col ? col.className : '(the window)',
+        room: Math.round(extent()),
         // How far the marker sits below the top of the column at rest. The bar
         // can only ever appear when the column has more scroll room than this.
-        markOffset: Math.round(mark.getBoundingClientRect().top - col.getBoundingClientRect().top + col.scrollTop),
-
-        moved: Math.abs(col.scrollTop - at),
+        markOffset: Math.round(mark.getBoundingClientRect().top - topOf() + offset()),
+        moved: Math.abs(offset() - at),
         hasCover: !!document.querySelector('.work-hero-mini-cover'),
       }
     })
@@ -391,7 +433,7 @@ try {
       continue
     }
     console.log(
-      `${w}x${h}   compact bar: ${mini.room}px of room, marker ${mini.markOffset}px down · at rest bar=${mini.rest.bar} above=${mini.rest.above} ` +
+      `${w}x${h}   compact bar in ${mini.scroller}: ${mini.room}px of room, marker ${mini.markOffset}px down · at rest bar=${mini.rest.bar} above=${mini.rest.above} ` +
         `titles=${mini.rest.titles} · scrolled bar=${mini.bottom.bar} above=${mini.bottom.above} · moved ${mini.moved}px`,
     )
     for (const [when, r] of [['at rest', mini.rest], ['scrolled to the end', mini.bottom]]) {

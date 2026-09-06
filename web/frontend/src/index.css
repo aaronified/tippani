@@ -3047,7 +3047,10 @@
     align-items: center;
     justify-content: center;
     padding: 22px;
-    background: rgba(21, 16, 12, .5);
+    /* The wash and the blur are `.tp-scrim`'s — see the note at `.account-scrim`. */
+    background: rgba(21, 16, 12, .42);
+    -webkit-backdrop-filter: blur(10px) saturate(.78);
+    backdrop-filter: blur(10px) saturate(.78);
     animation: drawer-fade .16s ease;
   }
   .info-pop-centred {
@@ -4616,12 +4619,21 @@
  font-variant-numeric: var(--font-mono-figures); font-size: var(--type-mono-11); color: var(--faint); flex: none; }
   .read-log .read-open { color: var(--soft); font-style: italic; }
   /* Account surfaces (§7): a centered pop-up on desktop, a full page on phones. */
+  /* THE SAME WASH AND THE SAME BLUR AS `.tp-scrim`, because this is the same
+     thing: something covering the page. It was declared once, on the panel's
+     scrim, and the owner's "introduce focus blur, on desktop and mobile both"
+     was answered by moving it to `.tp-scrim` — which reached every modal and
+     picker and missed the two scrims that do not wear that class. A rule landed
+     on one site while its twin stands beside it unchanged is this round's most
+     repeated mistake. `every-scrim-blurs.test.js` now derives the list. */
   .account-scrim {
     overscroll-behavior: contain;
     position: fixed; inset: 0; z-index: 70;
     display: flex; align-items: flex-start; justify-content: center;
     padding: 8vh 16px 16px;
-    background: color-mix(in srgb, #0b0906 55%, transparent);
+    background: rgba(21, 16, 12, .42);
+    -webkit-backdrop-filter: blur(10px) saturate(.78);
+    backdrop-filter: blur(10px) saturate(.78);
     overflow-y: auto;
   }
   /* Only what is this dialog's own. The face, the border, the radius, the lift
@@ -6158,11 +6170,14 @@ html[data-theme="dark"] .mobile-topbar {
 }
 
 /* ---- drawer (hamburger nav) ---- */
+/* The wash and the blur are `.tp-scrim`'s — see the note at `.account-scrim`. */
 .drawer-scrim {
   position: fixed;
   inset: 0;
   z-index: 50;
-  background: rgba(21, 16, 12, .55);
+  background: rgba(21, 16, 12, .42);
+  -webkit-backdrop-filter: blur(10px) saturate(.78);
+  backdrop-filter: blur(10px) saturate(.78);
   border: none;
   padding: 0;
   animation: drawer-fade .22s ease;
