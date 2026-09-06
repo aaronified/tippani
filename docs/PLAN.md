@@ -10496,3 +10496,53 @@ without being expounded upon, and this is the largest deviation in the app.*
 
 <sub>Unreleased — `web/frontend/src/identityPicker.jsx` · `identity.jsx` ·
 `identityLocal.jsx` · `docs/design/prototypes/character-popup.dc.html`</sub>
+
+### A card names each person once, and the crumb is the one name allowed an ellipsis
+
+**Decided.** The character/performer pairing lives on the chip, and nothing on the card
+repeats what a chip already says. `work_cast.actor` and the performer's headshot now ride
+along with the character's picture through `loadCharacterImages`, so every entry in a
+line's `character_images` carries who plays that character — not just the stored speaker.
+`creditsNotOnChips(names, images, speaker, seps)` is the rule as one function: it returns
+the credited names the chips do NOT print, and both the film frame and Home's favourite
+tile build their credit from it.
+
+**Why it had to be the server.** The pairing is one row of `work_cast`, found by the fold
+`store.CastKey` performs — which `cast_images.go` says in capitals cannot be redone in SQL
+or in JavaScript. The client had the pairing for the stored speaker because
+`quoteSpeakerCast` serves it, and for nobody else; so a card naming one character obeyed
+the rule and a card naming two could not, and had to fall back to a `PLAYED BY` line
+naming both performers a second time. The owner reported exactly that shape: "single
+character cards are fine. multi-character ones still has a separate actor line."
+
+**Name by name, not line or no line.** A line credits performers typed like genres and the
+chips resolve only the ones the work's cast knows, so an all-or-nothing test kept a whole
+line for one unmatched name and printed the other two performers twice. The line now
+carries the leftovers and nothing else, and disappears when there are none.
+
+**Instead of** teaching each card its own version of the rule, which is what was there:
+the film frame had folded it into a local boolean and the favourites tile had never
+learned it at all, so one screen went on obeying a rule while the other stopped. One
+function, two callers, one answer.
+
+**A DEPARTURE FROM A STANDING RULE, granted by the owner and argued at the site.** "Never
+truncate a name" is the design pack's, landed in `CLAUDE.md` and enforced by
+`no-truncated-names.test.js`. The panel's back crumb now ends in an ellipsis — "the back
+breadcrumbs sometimes do this. ellipsis them", over a screenshot of `← V / William Ro`
+printed across `Change who this is`.
+
+The exception is granted because **the crumb is not where the name is read**: it is a
+signpost back to a screen the reader has just come from, whose own header printed that
+name in full. Every other name the rule protects is on the row that exists to show it.
+
+And because what it replaced was worse than an ellipsis. The crumb scrolled under a
+measured fade — which needs `min-width: 0` to shrink at all, and never had one — so the
+word overflowed its key and printed over the title beside it. A name with another screen's
+words laid across it is not readable either, and does not even admit that anything is
+missing. The fade went with the scroller: an edge fade in this app promises a drag, and a
+clipped box has nothing to drag. `no-truncated-names.test.js` keeps the class in its list
+with the ruling beside it and requires a real clip; `crumb-stays-in-its-slot.test.js` asks
+the four declarations that decide whether a flex child can print over its neighbour.
+
+<sub>Unreleased — `internal/httpapi/cast_images.go` · `internal/store/quote_person.go` ·
+`web/frontend/src/people.jsx` · `Movies.jsx` · `Home.jsx` · `index.css` · `ui.jsx`</sub>

@@ -149,16 +149,16 @@ AI-written code fails differently from hand-written code. It compiles, it reads
 well, it is plausibly commented, and it can still be wrong — so plausibility is
 worth nothing here and only execution counts. What the repo actually runs:
 
-- **1,466 Go test functions and 2,772 frontend tests, across 471 test files** — the
+- **1,493 Go test functions and 3,041 frontend tests, across 520 test files** — the
   Go half over real HTTP handlers against a real SQLite database, not mocks.
   Counted, not estimated, and every number here has a command that reproduces it:
 
   ```bash
   grep -rhoE '^func Test[A-Za-z0-9_]+' --include='*_test.go' . | wc -l   # Go functions
   cd web/frontend && npm test                                            # frontend tests
-  find . -name '*_test.go' -not -path './node_modules/*' | wc -l         # 240 Go files
+  find . -name '*_test.go' -not -path './node_modules/*' | wc -l         # 249 Go files
   find ./web/frontend -path '*/node_modules' -prune -o \
-       -type f \( -name '*.test.*' -o -name '*.spec.*' \) -print | wc -l # 231 frontend
+       -type f \( -name '*.test.*' -o -name '*.spec.*' \) -print | wc -l # 271 frontend
   ```
 
   A number in a file like this one is stale the moment it is written, so recount
@@ -168,8 +168,8 @@ worth nothing here and only execution counts. What the repo actually runs:
   233 by 2.1.1, from 924 / 1,771 / 284 by 2.2.0, from 1,085 / 1,844 / 320
   by 2.3.0, from 1,100 / 1,853 / 323 when they were recounted for 2.2.3, and most
   recently from 1,153 / 1,977 / 338, from 1,336 / 2,218 / 394, from
-  1,357 / 2,223 / 398, from 1,360 / 2,245 / 401, from 1,380 / 2,358 / 418, and from
-  1,391 / 2,366 / 419 before
+  1,357 / 2,223 / 398, from 1,360 / 2,245 / 401, from 1,380 / 2,358 / 418, from
+  1,391 / 2,366 / 419, and from 1,466 / 2,772 / 471 before
   this recount — which is why each one now sits beside the command that produces it.
   The last of those drifts is worth naming because it was one work session: a number
   recounted honestly at the start of a stretch is stale by the end of it.
