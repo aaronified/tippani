@@ -6372,7 +6372,6 @@ identity.row.called.label = Called here
 identity.row.credited.label = Credited as
 # The sub-line when the work has no second name for them. Not "none": the row's
 # value is the name, which is present — what is absent is any OTHER name.
-identity.row.called.sub = The only name this work uses
 
 # THE THREE FACTS UNDER THE NAME. A game draws two of them: "age here" is a fact
 # about a performance, and a playable character has no single one.
@@ -6455,7 +6454,7 @@ identity.local.names.placeholder = The name that prints\nAnother spelling
 # the two fields look alike and reach very different distances.
 identity.row.local-desc.label = In this work
 identity.row.local-desc.sub = This work only
-identity.row.local-desc.none = nothing written for this work
+identity.row.local-desc.none = none
 identity.local.names.saved = Names saved — the first line prints
 identity.credit.add.blocked = Name the performer first
 # ---- the performer block, on char-film and char-game -----------------------

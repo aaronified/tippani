@@ -73,8 +73,7 @@ import {
   IconBack,
 } from './ui.jsx'
 import { workDetailsPanel } from './WorkDetails.jsx'
-import { characterPanel, personPanel } from './identity.jsx'
-import { ChoosePicker } from './identityPicker.jsx'
+import { openCharacterDoor } from './identity.jsx'
 import { usePersonOpener } from './personOpen.jsx'
 import {
   ACTIVE_STATUS,
@@ -142,9 +141,6 @@ export default function WorkDetail({
   // THE DETAILS SURFACE IS A PANEL, so what used to be a boolean is the stack
   // itself. Its own effect closes it when the id changes.
   const detailsStack = usePanelStack()
-  // The question a speaker chip asks when more than one record sits behind it —
-  // see openCharacter. null = nothing asked.
-  const [speakerChoice, setSpeakerChoice] = useState(null)
   // Every door into Details — the ⋯ menu, the header key, the phone dock — opens
   // the same descriptor. `open` rather than `push`: this is "show me this", so it
   // replaces whatever a previous control left open instead of burying it.
@@ -661,93 +657,23 @@ export default function WorkDetail({
   // board's side of the tree that can reach a panel stack — `detailsStack` above,
   // whose PanelHost is already mounted as a body-level sibling below.
   //
-  // `open` rather than `push`, matching openDetails: the chip means "show me
-  // this", so it replaces whatever a previous control left open instead of burying
-  // it under a stack the reader has to walk back out of.
+  // WHAT IT DOES IS `openCharacterDoor`'s, NOT THIS SCREEN'S, and that is the
+  // point: Home drew the same pill and opened the character outright, so one
+  // control did two things depending on which board it was on. This hands over
+  // the two facts only this screen has — which work the pill was pressed on, and
+  // how to reach search — and nothing else.
   //
-  // `castId` is not optional. A work may bill one character twice — two performers
-  // for one part — and both rows point at one record, so a panel told only the
-  // work lifts whichever appearance comes first. That was a real bug; see
-  // characterPanel, which now takes the row.
-  const local = (sp) => characterPanel(detailsStack, {
-    id: sp.character_id,
-    name: sp.name,
-    work: { kind: spec.side, id: item.id, title: item.title, castId: sp.cast_id },
+  // `castId` is not optional, and the door adds it: a work may bill one character
+  // twice — two performers for one part — and both rows point at one record, so a
+  // panel told only the work lifts whichever appearance comes first.
+  const openCharacter = (sp) => openCharacterDoor(detailsStack, sp, {
+    work: { kind: spec.side, id: item.id, title: item.title },
     // The pack makes the sheet's two counts pressable, and only the shell can
     // navigate — see characterPanel on why this is threaded rather than reached
     // for. NOT `onSearch`: that one opens the search screen scoped to where you
     // are and ignores its arguments, which is a different question.
     onSearch: onSeedSearch,
   })
-
-  // A CHIP CARRIES TWO PEOPLE AND UP TO THREE RECORDS, so it asks which was
-  // meant — the owner's ruling, in their words: "clicking it should ask whether i
-  // want to open the work-character, global-character (only if the global
-  // character has more than 1 work), or the people."
-  //
-  // THE GLOBAL IS GATED ON THE COUNT, and that is the clause that matters: "all
-  // work-character will also work as global character if their global character
-  // only contains them (single work). in that case, no need to show the
-  // global-character link anywhere." With one work the two records are the same
-  // thing, so offering both is offering the screen you are standing on twice.
-  //
-  // THE COUNT IS ASKED FOR AT THE PRESS, not carried on the card. It is one
-  // request, made when a reader has deliberately pressed something, and it is the
-  // truth at that moment — where a count stamped onto every chip in a list would
-  // be a column on the quote query and stale the instant a work is linked. A
-  // request that fails leaves the global out rather than guessing: the sheet it
-  // would open is one press further on from the local one either way.
-  //
-  // AND ONE LIVE ANSWER OPENS STRAIGHT AWAY. The pack's own rule — "when there is
-  // only one thing behind the tile, it just opens it" — because a sheet offering
-  // a single answer is a sheet the reader has to dismiss to reach the thing they
-  // already asked for, and it teaches them to dismiss the ones that matter.
-  const openCharacter = async (sp) => {
-    const options = [{
-      key: 'local',
-      label: sp.name,
-      sub: t('identity.choose.local.sub'),
-      face: sp.image ? coverImgURL(sp.image) : (sp.actor_image ? coverImgURL(sp.actor_image) : ''),
-      onPick: () => detailsStack.open(local(sp)),
-    }]
-    let works = 0
-    if (sp.character_id) {
-      const r = await json('GET', `/characters/${sp.character_id}`)
-      if (r.ok) {
-        works = new Set((r.data?.appearances || []).map((a) => `${a.kind}:${a.work_id}`)).size
-      }
-    }
-    if (works > 1) {
-      options.push({
-        key: 'global',
-        label: sp.record_name || sp.name,
-        sub: t('identity.choose.global.sub'),
-        meta: t('identity.row.global.works', { n: works, count: works }),
-        face: sp.image ? coverImgURL(sp.image) : '',
-        onPick: () => detailsStack.open(characterPanel(detailsStack, {
-          id: sp.character_id, name: sp.record_name || sp.name, onSearch: onSeedSearch,
-        })),
-      })
-    }
-    if (sp.actor) {
-      options.push({
-        key: 'actor',
-        label: sp.actor,
-        sub: t('identity.choose.actor.sub'),
-        face: sp.actor_image ? coverImgURL(sp.actor_image) : '',
-        onPick: sp.actor_id
-          ? () => detailsStack.open(personPanel(detailsStack, { id: sp.actor_id, name: sp.actor }))
-          : null,
-        title: sp.actor_id ? undefined : t('identity.credit.unnamed.tip'),
-      })
-    }
-    const live = options.filter((o) => o.onPick)
-    if (live.length < 2) {
-      live[0]?.onPick?.()
-      return
-    }
-    setSpeakerChoice({ title: sp.name, hint: t('identity.choose.work.hint'), options })
-  }
 
   const streamBlock = item && renderBoard({
     item,
@@ -795,9 +721,6 @@ export default function WorkDetail({
       {/* THE CHIP'S QUESTION. Rendered beside the panel host rather than inside a
           card, so it is the same sheet whether a panel is already open (it draws
           inside that panel, with its back key) or not. */}
-      {speakerChoice ? (
-        <ChoosePicker spec={speakerChoice} onClose={() => setSpeakerChoice(null)} />
-      ) : null}
       <InProgressCapDialog
         open={!!capPool}
         items={(capPool || []).map((w) => ({

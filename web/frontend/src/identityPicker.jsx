@@ -266,40 +266,64 @@ function PickerForm({ spec, draft, onDraft, blocked, onSubmit }) {
 // is a list you work through: unlink one work, the row goes, three become two.
 // `stay` is the option's own answer to that; a door closes, a removal does not.
 export function ChoosePicker({ spec, busy = false, onClose }) {
-  const options = spec.options || []
   return (
     <FormModal open onClose={onClose} title={spec.title} maxWidth={460}>
-      <div style={{ display: 'grid', gap: 8 }}>
-        {spec.hint ? <p className="microcopy">{spec.hint}</p> : null}
-        {options.map((o, i) => (
-          <button
-            key={o.key || `${o.label}-${i}`}
-            type="button"
-            className={'cs-choose tactile' + (o.danger ? ' is-danger' : '')}
-            disabled={busy || !o.onPick}
-            // A ROW WITH NOTHING BEHIND IT SAYS SO. The pack's own list carries
-            // one — "Delete the identity · Available once no work is linked" —
-            // and a row that presses and does nothing is the thing `make
-            // controls` exists to find.
-            aria-disabled={o.onPick ? undefined : 'true'}
-            title={o.title || undefined}
-            onClick={() => {
-              if (!o.onPick) return
-              o.onPick()
-              if (!o.stay) onClose()
-            }}
-          >
-            {o.face !== undefined ? <Face src={o.face} name={o.label} className="cs-choose-face" /> : null}
-            {o.icon ? <span className="cs-choose-icon">{o.icon}</span> : null}
-            <span className="cs-choose-body">
-              <NameScroll className="cs-choose-label">{o.label}</NameScroll>
-              {o.sub ? <span className="cs-choose-sub">{o.sub}</span> : null}
-            </span>
-            {o.meta ? <span className="cs-choose-meta">{o.meta}</span> : null}
-          </button>
-        ))}
-      </div>
+      <ChooseList spec={spec} busy={busy} onDone={onClose} />
     </FormModal>
+  )
+}
+
+// ChooseList — the rows themselves, WITHOUT a surface around them.
+//
+// TWO SURFACES ASK THIS QUESTION AND THEY ARE NOT THE SAME KIND OF QUESTION. A
+// removal list is asked from INSIDE a sheet and answers back into it, so it is a
+// modal over that sheet (ChoosePicker above). A chip's "which of these did you
+// mean" is asked from a CARD and every answer opens a panel — so on a phone the
+// question arrived as a full-screen sheet and its answer as a bottom-hugging
+// popup, which the owner read as the two swapping weights: "the picker is full
+// screen but then the menu that is opened is a popup… still feels weird". That
+// one is a PANEL now, on the same stack as its answers, so the question and the
+// answer wear the same chrome and Back walks the way the reader expects.
+//
+// The rows are identical either way, which is why they are one component.
+export function ChooseList({ spec, busy = false, onDone }) {
+  const options = spec.options || []
+  return (
+    <div style={{ display: 'grid', gap: 8 }}>
+      {spec.hint ? <p className="microcopy">{spec.hint}</p> : null}
+      {options.map((o, i) => (
+        <button
+          key={o.key || `${o.label}-${i}`}
+          type="button"
+          className={'cs-choose tactile' + (o.danger ? ' is-danger' : '')}
+          disabled={busy || !o.onPick}
+          // A ROW WITH NOTHING BEHIND IT SAYS SO. The pack's own list carries
+          // one — "Delete the identity · Available once no work is linked" —
+          // and a row that presses and does nothing is the thing `make
+          // controls` exists to find.
+          aria-disabled={o.onPick ? undefined : 'true'}
+          title={o.title || undefined}
+          onClick={() => {
+            if (!o.onPick) return
+            o.onPick()
+            if (!o.stay) onDone()
+          }}
+        >
+          {/* THE STORED PATH, NOT A URL. `Face` resolves it with `coverImgURL`,
+              so a caller that resolved it first produced `/api/covers//api/covers/…`
+              — a 404, drawn as the browser's broken-image glyph on every row of
+              this list. Reported as "the picker doesn't show any images", and it
+              was two of them: a resolver applied twice. */}
+          {o.face !== undefined ? <Face src={o.face} name={o.label} className="cs-choose-face" /> : null}
+          {o.icon ? <span className="cs-choose-icon">{o.icon}</span> : null}
+          <span className="cs-choose-body">
+            <NameScroll className="cs-choose-label">{o.label}</NameScroll>
+            {o.sub ? <span className="cs-choose-sub">{o.sub}</span> : null}
+          </span>
+          {o.meta ? <span className="cs-choose-meta">{o.meta}</span> : null}
+        </button>
+      ))}
+    </div>
   )
 }
 

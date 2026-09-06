@@ -12,7 +12,7 @@ import { AnnotationForm, annotationState, annDate, fmtDate } from './Library.jsx
 import { DialogueForm, dialogueState } from './Movies.jsx'
 import { UtteranceForm, utteranceState } from './Quotes.jsx'
 import { t, tNodes } from './i18n.js'
-import { characterPanel } from './identity.jsx'
+import { openCharacterDoor } from './identity.jsx'
 import { usePersonOpener } from './personOpen.jsx'
 import { quoteKindMeta } from './quoteKind.js'
 import { PendingImportCard } from './StagingPage.jsx'
@@ -930,20 +930,26 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
                 actorMap={actorMap}
                 seps={seps}
                 onOpenPerson={openPerson}
-                // A CHARACTER PILL OPENS THE WORK-LEVEL CHARACTER POPUP — the
-                // owner's ruling. `castId` names the screen rather than the
-                // record id alone: a work can bill one character twice.
-                onOpenCharacter={(sp) => stack.open(characterPanel(stack, {
-                  id: sp.character_id,
-                  name: sp.name,
+                // A CHARACTER PILL ASKS WHAT THE PRESS MEANT, exactly as it does
+                // on a work's page, and this line is why the owner had to say so:
+                // "the home favourite chips directly opens the character. the
+                // work page chips gives the option. both should behave similarly.
+                // in fact this should be a repo directive." This opened the
+                // character outright — written before the chooser existed and
+                // never swept — so one pill did two different things depending on
+                // which board it was drawn on.
+                //
+                // `openCharacterDoor` is that one behaviour. What this hands it is
+                // the one fact only this tile has: which work the pill was pressed
+                // on, so the sheet lands on the right appearance.
+                onOpenCharacter={(sp) => openCharacterDoor(stack, sp, {
                   work: {
                     kind: f.kind === 'book' ? 'book' : 'movie',
                     id: f.workId,
                     title: f.workTitle,
                     media_type: f.media_type,
-                    castId: sp.cast_id,
                   },
-                }))}
+                })}
               />
             ))}
           </Masonry>

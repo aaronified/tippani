@@ -187,3 +187,103 @@ describe('pressing a chip for a character the line does not link to', () => {
       .not.toBe('true')
   })
 })
+
+// ---- one pill, one behaviour, wherever it is drawn --------------------------
+//
+// THE OWNER MADE THIS A REPO DIRECTIVE: "the home favourite chips directly opens
+// the character. the work page chips gives the option. both should behave
+// similarly. in fact this should be a repo directive. similar things should act
+// similarly." Home opened the character outright — a line written before the
+// chooser existed and never swept — so one pill did two different things
+// depending on which board it was drawn on, and neither screen was wrong on its
+// own terms.
+//
+// WHAT THE BEHAVIOUR IS, is asserted above: press a chip, get the question, with
+// the global gated on the count. What is left to check is that the OTHER board
+// goes through that and does not keep a second copy of the verb — and that is a
+// fact about the wiring, which is read from the source. A DOM test could only
+// prove it by supplying the handler itself, which is the test writing the answer
+// down and then reading it back.
+//
+// The shape is deliberately "does not build its own panel", not "imports the
+// right name": a second copy called `openCharacterDoor` would pass an import
+// check and fail this one.
+
+describe('the same pill on two different boards', () => {
+  const source = async (file) => {
+    const { readFileSync } = await import('node:fs')
+    const { join } = await import('node:path')
+    return readFileSync(join(process.env.TIPPANI_SRC, file), 'utf8')
+  }
+  // The prop as each board hands it over, from `onOpenCharacter={` to the line
+  // that closes it.
+  const handler = (src) => {
+    const at = src.indexOf('onOpenCharacter={(sp)')
+    return at === -1 ? '' : src.slice(at, at + 700)
+  }
+
+  it('sends Home’s pill through the same door, rather than opening a panel itself', async () => {
+    const h = handler(await source('Home.jsx'))
+    expect(h, 'the favourites tile no longer hands a character handler down at all').toBeTruthy()
+    expect(h, 'Home opens a panel from the pill itself — one control, two behaviours')
+      .not.toMatch(/characterPanel\s*\(/)
+    expect(h).toMatch(/openCharacterDoor\s*\(/)
+  })
+
+  it('and the work page too, for the same reason', async () => {
+    const src = await source('WorkDetail.jsx')
+    expect(src, 'the work page kept its own copy of the chooser').not.toMatch(/setSpeakerChoice/)
+    expect(src).toMatch(/openCharacterDoor\s*\(/)
+  })
+
+  it('and the door itself is written once', async () => {
+    const files = ['Home.jsx', 'WorkDetail.jsx', 'identity.jsx']
+    const defs = []
+    for (const f of files) {
+      if (/function openCharacterDoor/.test(await source(f))) defs.push(f)
+    }
+    expect(defs, 'more than one file defines the door, which is the drift this directive is about')
+      .toEqual(['identity.jsx'])
+  })
+})
+
+// ---- and the question wears the same chrome as its answers ------------------
+
+describe('the sheet that asks', () => {
+  it('is a panel, like everything it can open', async () => {
+    // "the picker is full screen but then the menu that is opened is a popup.
+    // this is not escalation, but still feels weird." A modal question over a
+    // panel answer is the two swapping weights, and on a phone the modal is a
+    // full-screen sheet while the panel hugs the bottom.
+    APPEARANCES = TWO_WORKS
+    mount()
+    await press()
+    const row = document.querySelector('.cs-choose')
+    expect(row, 'nothing was offered at all').toBeTruthy()
+    expect(row.closest('.tp-panel'),
+      'the question is drawn outside the panel stack its answers live on').toBeTruthy()
+    // AND IT ADDS NO SURFACE OF ITS OWN, which is the half that discriminates: a
+    // modal rendered INSIDE the panel still satisfies the line above, and is
+    // exactly what this replaced — a dialog within a dialog, full-screen on a
+    // phone, over answers that hug the bottom. One dialog on screen, not two.
+    expect(document.querySelectorAll('[role="dialog"]').length,
+      'the question draws a second dialog inside the panel — the surface this was meant to remove')
+      .toBe(1)
+  })
+
+  it('and hands its rows a stored path, not a resolved one', async () => {
+    // `Face` resolves with `coverImgURL`; a caller that resolved first produced
+    // `/api/covers//api/covers/…` — a 404 drawn as the browser's broken-image
+    // glyph on every row. "the picker (when a chip is pressed) doesn't show any
+    // images."
+    APPEARANCES = TWO_WORKS
+    mount()
+    await press({ ...SPEAKER, image: 'still.jpg', actor_image: 'face.jpg' })
+    const srcs = [...document.querySelectorAll('.cs-choose-face img')].map((i) => i.getAttribute('src'))
+    expect(srcs.length, 'no row drew a picture at all').toBeGreaterThan(0)
+    for (const src of srcs) {
+      expect(src.match(/covers/g)?.length || 0,
+        `the picker resolved a path twice: ${src}`).toBeLessThan(2)
+    }
+  })
+})

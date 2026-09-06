@@ -262,11 +262,16 @@ export function CharacterLocal({
           as" on a film or a show, and the difference is not decoration: a novel
           NAMES a character in its text, a film CREDITS a performance, and the
           reader editing this is editing two different kinds of fact. */}
+      {/* AND THE SUB-LINE IS THE ALIASES OR NOTHING. It used to fall back to
+          "The only name this work uses", which the owner struck: "we don't need
+          to write overly long proses… it is obvious from there not being any
+          alias." A row whose second line restates the absence of its own second
+          line is a row that has learned to talk. */}
       <ScreenRow
         label={t(scope.medium === 'book' || scope.medium === 'game'
           ? 'identity.row.called.label'
           : 'identity.row.credited.label')}
-        sub={alsoHere.length ? alsoHere.join(' · ') : t('identity.row.called.sub')}
+        sub={alsoHere.length ? alsoHere.join(' · ') : ''}
         meta={here.character || record.name}
         onClick={onCalled}
         edit
@@ -323,9 +328,15 @@ export function CharacterLocal({
           THE SUB-LINE IS THE SCOPE, for the same reason the note's is: these
           fields look exactly like the record's one door away and reach one row
           instead of every work. */}
+      {/* ONE SCOPE, SAID ONCE. This drew "In this work" as its label, "This work
+          only" under it and "nothing written for this work" as its value — the
+          same fact three times in one row, and long enough that the label itself
+          wrapped and clipped to "In this wor". The label already says the scope;
+          the value says whether anything is there, in the word the Note row
+          beside it uses. Reported as "the 'in this work' section has duplicate
+          and unnecessary prose". */}
       <ScreenRow
         label={t('identity.row.local-desc.label')}
-        sub={t('identity.row.local-desc.sub')}
         meta={here.description || t('identity.row.local-desc.none')}
         icon={<IconDetails size={16} />}
         onClick={onDescription}

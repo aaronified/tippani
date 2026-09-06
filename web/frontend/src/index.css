@@ -8637,9 +8637,18 @@ html[data-theme="dark"] .board-cover {
   /* Two counts, side by side. ONE LINE AND NOT A STACKED CARD: a glyph, a number
      and its unit stacked into 78px read as a tile with something missing. */
   .cs-pair { display: flex; gap: 8px; padding: 2px 10px; }
+  /* THE TWO BOXES ALIGN WITH EACH OTHER, and centring is what stopped them.
+     Each box centred its own [glyph][number][caption] group, so "11 QUOTES" and
+     "1 SCENE" — different widths in equal boxes — put their glyphs, their
+     numbers and their captions at three different offsets each. Reported as "the
+     quotes and scene counts are a little misaligned", which is exactly what it
+     was: two rows of the same three things, none of them lining up.
+     Anchored to the start instead, with the figure given a two-character column
+     so a 1 and an 11 leave their captions in the same place. `ch` rather than a
+     px, because the figure is display type and grows with the dials. */
   .cs-count {
     flex: 1; min-width: 0;
-    display: flex; align-items: center; justify-content: center; gap: 9px;
+    display: flex; align-items: center; justify-content: flex-start; gap: 9px;
     min-height: max(44px, 2.9em); padding: 0 13px; border-radius: 9px;
     border: 1px solid var(--line); background: var(--raised);
     color: var(--ink); cursor: pointer;
@@ -8649,6 +8658,7 @@ html[data-theme="dark"] .board-cover {
   .cs-count-fig {
     font-family: var(--font-display); font-size: var(--type-display-19);
     line-height: 1; flex: none;
+    min-width: 2ch; text-align: right;
   }
   .cs-count-cap {
     font-family: var(--font-mono); font-size: var(--type-mono-9);

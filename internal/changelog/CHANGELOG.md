@@ -83,6 +83,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **A character's page lists who has played them.** One row per performer, with the works
   they did it in, opening that performer's own record. The list of their quotes has gone
   from that page and from a person's: search is where a list of quotes belongs.
+- **A character pill asks the same question wherever it is drawn.** On a work's page
+  it asked which record you meant — this work's character, the character across every
+  work, or the performer — and on the favourites board the same pill opened the
+  character outright. One behaviour now, on both.
+- **And the question is drawn like its answers.** It arrived as a full-screen sheet on
+  a phone and opened a panel that hugs the bottom, which read as the two swapping
+  weights. It is a panel too, on the same stack, so going back works the way it looks
+  like it should.
+- **The pictures in that list are there.** Every row drew a broken-image mark: the
+  portrait's address was being built twice, and the second build pointed nowhere.
 - **A character pill can reach the performer's own page.** Pressing one asks which of
   the records behind it you meant — this work's character, the character across every
   work, or the person who played them — and the third of those could never be chosen,
@@ -99,6 +109,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   printing its performers once in the header and again in the card below.
 
 ### Fixed
+- **The two counts on a character's page line up with each other.** `11 QUOTES` and
+  `1 SCENE` each centred itself inside its own box, so the glyphs, the numbers and the
+  words all sat at different places.
+- **A row on that page says a thing once.** The per-work description had its scope in
+  the label, again underneath it, and a third time in place of its value — long enough
+  that the label itself was cut mid-word. And a character with no second name no longer
+  gets a sentence explaining that they have no second name.
 
 - **Four rows on a character's own record did nothing when pressed.** Sort name, Born,
   Description and the private note set an editor the page never drew.

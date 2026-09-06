@@ -32,7 +32,7 @@ import { movieState } from './Movies.jsx'
 import { CharacterGlobal, PersonGlobal } from './identityGlobal.jsx'
 import { identityScope, mediumOf } from './identityScope.js'
 import { CharacterLocal, GLYPH_NAME } from './identityLocal.jsx'
-import { ChoosePicker, FieldPicker } from './identityPicker.jsx'
+import { ChooseList, ChoosePicker, FieldPicker } from './identityPicker.jsx'
 import { buildProviderLink, detectProviderLink, isOrganisation, personImgURL, providerLinksFor, providerRule, ProviderChips, SpeakerChips } from './people.jsx'
 // A STATIC EDGE THAT CLOSES NO CYCLE: personOpen.jsx imports THIS file
 // dynamically and nothing else at all, which is the reason its header gives for
@@ -108,6 +108,104 @@ export function characterPanel(stack, { id, name, work = null, onSearch = null, 
     wide: true,
     render: () => <CharacterBody stack={stack} id={id} work={work} onSearch={onSearch} onOpenWork={onOpenWork} />,
   }
+}
+
+// choosePanel — the question, as a panel on the same stack as its answers.
+//
+// SEE `ChooseList` for why this is a panel rather than a modal. In short: the
+// question and every answer to it now wear the same chrome.
+export function choosePanel(stack, spec) {
+  return {
+    title: spec.title,
+    render: () => <ChooseList spec={spec} onDone={() => stack.back()} />,
+  }
+}
+
+// openCharacterDoor — what pressing a character chip does, ANYWHERE.
+//
+// THE OWNER'S RULING ON WHAT IT ASKS: "clicking it should ask whether i want to
+// open the work-character, global-character (only if the global character has
+// more than 1 work), or the people."
+//
+// AND THE RULING THAT PUT IT HERE, which is the more general one: "the home
+// favourite chips directly opens the character. the work page chips gives the
+// option. both should behave similarly. in fact this should be a repo directive.
+// similar things should act similarly." Home was opening the character panel
+// outright — one line, written before the chooser existed and never swept — so
+// the same pill did two different things depending on which board it was drawn
+// on, and neither screen was wrong on its own terms. One function now, and the
+// callers hand it only what they alone know: which work they are on, and how to
+// reach search.
+//
+// THE GLOBAL IS GATED ON THE COUNT, and that is the clause that matters: "all
+// work-character will also work as global character if their global character
+// only contains them (single work). in that case, no need to show the
+// global-character link anywhere." With one work the two records are the same
+// thing, so offering both is offering the screen you are standing on twice.
+//
+// THE COUNT IS ASKED FOR AT THE PRESS, not carried on the card. One request,
+// made when a reader has deliberately pressed something, true at that moment —
+// where a count stamped onto every chip in a list would be a column on the quote
+// query and stale the instant a work is linked. A request that fails leaves the
+// global out rather than guessing.
+//
+// AND ONE LIVE ANSWER OPENS STRAIGHT AWAY. The pack's rule — "when there is only
+// one thing behind the tile, it just opens it" — because a sheet offering a
+// single answer is one the reader must dismiss to reach what they already asked
+// for, and it teaches them to dismiss the ones that matter.
+//
+// EVERY `face` HERE IS A STORED PATH. `Face` resolves it; resolving it twice
+// gives `/api/covers//api/covers/…` and the browser's broken-image glyph, which
+// is what "the picker doesn't show any images" was.
+export async function openCharacterDoor(stack, sp, { work = null, onSearch = null } = {}) {
+  const local = () => characterPanel(stack, {
+    id: sp.character_id,
+    name: sp.name,
+    work: work ? { ...work, castId: sp.cast_id } : null,
+    onSearch,
+  })
+  const options = [{
+    key: 'local',
+    label: sp.name,
+    sub: t('identity.choose.local.sub'),
+    face: sp.image || sp.actor_image || '',
+    onPick: () => stack.open(local()),
+  }]
+  let works = 0
+  if (sp.character_id) {
+    const r = await json('GET', `/characters/${sp.character_id}`)
+    if (r.ok) works = new Set((r.data?.appearances || []).map((a) => `${a.kind}:${a.work_id}`)).size
+  }
+  if (works > 1) {
+    options.push({
+      key: 'global',
+      label: sp.record_name || sp.name,
+      sub: t('identity.choose.global.sub'),
+      meta: t('identity.row.global.works', { n: works, count: works }),
+      face: sp.image || '',
+      onPick: () => stack.open(characterPanel(stack, {
+        id: sp.character_id, name: sp.record_name || sp.name, onSearch,
+      })),
+    })
+  }
+  if (sp.actor) {
+    options.push({
+      key: 'actor',
+      label: sp.actor,
+      sub: t('identity.choose.actor.sub'),
+      face: sp.actor_image || '',
+      onPick: sp.actor_id
+        ? () => stack.open(personPanel(stack, { id: sp.actor_id, name: sp.actor }))
+        : null,
+      title: sp.actor_id ? undefined : t('identity.credit.unnamed.tip'),
+    })
+  }
+  const live = options.filter((o) => o.onPick)
+  if (live.length < 2) {
+    live[0]?.onPick?.()
+    return
+  }
+  stack.open(choosePanel(stack, { title: sp.name, hint: t('identity.choose.work.hint'), options }))
 }
 
 // ---- shared pieces ---------------------------------------------------------

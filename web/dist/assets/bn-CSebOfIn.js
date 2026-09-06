@@ -6336,7 +6336,6 @@ identity.portrait.local = এই কাজের নিজের ছবি
 
 identity.row.called.label = এখানে ডাকা হয়
 identity.row.credited.label = কৃতিত্ব দেওয়া হয়েছে
-identity.row.called.sub = এই কাজ কেবল এই নামটাই ব্যবহার করে
 
 identity.facts.part = ভূমিকা
 identity.facts.first = প্রথম আসে
@@ -6383,7 +6382,7 @@ identity.local.names.hint = এক লাইনে একটা নাম। প
 identity.local.names.placeholder = যে নামটা ছাপা হবে\\nআরেকটা বানান
 identity.row.local-desc.label = এই কাজে
 identity.row.local-desc.sub = শুধু এই কাজে
-identity.row.local-desc.none = এই কাজের জন্য কিছু লেখা হয়নি
+identity.row.local-desc.none = নেই
 identity.local.names.saved = নাম সেভ হয়েছে — প্রথম লাইনটা ছাপা হবে
 identity.credit.add.blocked = আগে অভিনেতার নাম দিন
 # ---- অভিনেতার ব্লক, char-film আর char-game-এ -----------------------

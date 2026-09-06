@@ -144,6 +144,24 @@ old work, so a screen that breaks one is a bug and not a variation.
   changes with the reader's font, sits off the baseline every other glyph shares, and is
   the one picture `docs/ui-glossary.html` cannot document. A lookalike next to the real
   glyph is two pictures of one thing.
+- **Two things that look the same behave the same.** The owner's, made a
+  directive: "the home favourite chips directly opens the character. the work page
+  chips gives the option. both should behave similarly. in fact this should be a
+  repo directive. similar things should act similarly." A control drawn by one
+  component on two screens has ONE behaviour, and it lives in one function that
+  both screens call — not in a line each, which is how one of them goes on being
+  right while the other quietly stops. Where a screen genuinely needs something
+  the other does not, it passes that fact IN; it does not keep its own copy of
+  the verb. `openCharacterDoor` is the worked example.
+- **A question wears the same chrome as its answer.** A chooser that opens
+  full-screen and then opens a popup reads as the two swapping weights — "the
+  picker is full screen but then the menu that is opened is a popup… still feels
+  weird". If every answer is a panel, the question is a panel, on the same stack.
+- **A row says a thing once.** A label, a sub-line and a value that all state the
+  same scope is prose, and the reader stops reading rows that talk. A sub-line
+  earns its place by carrying something the label does not — "Yours, private,
+  this work only" does; "This work only" under "In this work" does not. The
+  absence of a thing is not worth a sentence: no alias needs no line saying so.
 - **A rest state may not depend on anything firing.** Disable every animation and the
   content is still there — see `entrance-rule.test.js`.
 

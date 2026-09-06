@@ -163,3 +163,55 @@ describe("the row's glyphs", () => {
     expect(svgs.length, 'a control on this row has no glyph at all').toBeGreaterThanOrEqual(3)
   })
 })
+
+// ---- and the rows around it say a thing once --------------------------------
+//
+// THE OWNER'S RULING, on this sheet: "the 'in this work' section has duplicate
+// and unnecessary prose" and "we don't need to write overly long proses like
+// 'the only name this work uses'. it is obvious from there not being any alias."
+//
+// WHAT WAS THERE. The description row drew "In this work" as its label, "This
+// work only" under it and "nothing written for this work" as its value — one
+// scope stated three times, and long enough that the label itself wrapped and
+// clipped to "In this wor". And the name row's sub-line, when a character has no
+// aliases, said so in a sentence.
+//
+// THE PROPERTY, which is CLAUDE.md's now: a sub-line earns its place by carrying
+// something the label does not. "Yours, private, this work only" under "Note"
+// does — private and per-work are two facts the word Note has neither of. "This
+// work only" under "In this work" does not.
+
+const rowFor = (label) => [...document.querySelectorAll('.cs-row')]
+  .find((r) => (r.querySelector('.cs-row-label')?.textContent || '').trim() === label)
+
+describe('a row on the character sheet', () => {
+  it('does not restate its own label underneath itself', () => {
+    sheet()
+    const row = rowFor('In this work')
+    expect(row, 'the per-work description row is gone from the sheet').toBeTruthy()
+    const sub = (row.querySelector('.cs-row-sub')?.textContent || '').trim()
+    expect(sub, `the row says its scope twice: "In this work" then "${sub}"`).toBe('')
+  })
+
+  it('and says the absence of a value in a word, not a sentence', () => {
+    sheet()
+    const row = rowFor('In this work')
+    const value = (row.querySelector('.cs-row-meta, .cs-row-value')?.textContent || row.textContent).trim()
+    expect(value.length, `the empty value is a sentence: "${value}"`).toBeLessThan(40)
+  })
+
+  it('and says nothing at all where a character has no other name', () => {
+    sheet()
+    const row = rowFor('Credited as') || rowFor('Called here')
+    expect(row, 'the name row is gone from the sheet').toBeTruthy()
+    const sub = (row.querySelector('.cs-row-sub')?.textContent || '').trim()
+    expect(sub, `no aliases, and the row explains that in prose: "${sub}"`).toBe('')
+  })
+
+  it('but prints the other names when there are some, which is what that line is for', () => {
+    sheet({ aliases: 'Andy · Red' })
+    const row = rowFor('Credited as') || rowFor('Called here')
+    const sub = (row.querySelector('.cs-row-sub')?.textContent || '').trim()
+    expect(sub, 'the aliases vanished with the sentence that used to stand in for them').toContain('Andy')
+  })
+})
