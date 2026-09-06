@@ -27,9 +27,9 @@
 import { useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { coverImgURL, errText, json } from './api.js'
 import { t } from './i18n.js'
+import { Face } from './characterRows.jsx'
 import { usePersonOpener } from './personOpen.jsx'
 import { PersonModal, personImgURL, usePeople, usePortraitFill } from './people.jsx'
-import { Silhouette } from './silhouette.jsx'
 import {
   ErrorText,
   Field,
@@ -428,18 +428,16 @@ export function usePicturePicker({
       disabled={busy}
       onClick={() => setUrlOpen((v) => !v)}
     >
-      {face ? (
-        <img className="cast-face" src={face} alt="" />
-      ) : (
-        // NOT A BLANK PLATE ANY MORE. An empty face used to be a grey rectangle
-        // under a full-size picture icon, which said "press me" and said nothing
-        // about what the row is; §1.8's silhouette says "a person, unphotographed"
-        // and the verb moves to the strip the filled rows already use — so the
-        // affordance is still permanent for an empty row without owning the box.
-        <span className="cast-face is-empty" aria-hidden="true">
-          <Silhouette name={faceName} />
-        </span>
-      )}
+      {/* NOT A BLANK PLATE. An empty face used to be a grey rectangle under a
+          full-size picture icon, which said "press me" and said nothing about
+          what the row is; §1.8's silhouette says "a person, unphotographed" and
+          the verb moves to the strip the filled rows already use — so the
+          affordance is still permanent for an empty row without owning the box.
+
+          AND `Face` DECIDES WHEN THAT PLATE IS DRAWN, which this line used to do
+          from the stored path: a portrait whose file has gone is a row with no
+          picture, and it was drawing the browser's torn page instead. */}
+      <Face src={face} name={faceName} url={(x) => x} className="cast-face" />
       <span className="cast-face-mark" aria-hidden="true"><IconPicture size={16} /></span>
     </button>
   )

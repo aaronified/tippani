@@ -172,6 +172,22 @@ describe('what starts a drag', () => {
       .toBeGreaterThan(start)
   })
 
+  it('and a press on the bar itself steps the sheet, like a press on the mark', async () => {
+    // HALF AN AFFORDANCE IS THE HALF A MOUSE CANNOT FIND. The bar drags; the
+    // press that steps through the anchors was left on an 18px mark that is
+    // deliberately too small to be a target. "the whole header bar should act as
+    // the bar" is about both.
+    render(<Sheet onDismiss={vi.fn()} head />)
+    const start = heightOf(el('sheet'))
+    await act(async () => {
+      fireEvent.pointerDown(el('head'), pointer(400))
+      fireEvent.pointerUp(window, pointer(400))
+      fireEvent.click(el('head'))
+    })
+    expect(heightOf(el('sheet')), 'a press on the header bar did nothing at all')
+      .toBeGreaterThan(start)
+  })
+
   it('but a tap on that bar is a tap, because it carries the way out', async () => {
     // THE ✕ IS IN THERE. Making the bar draggable may not cost the key inside it
     // its press, and the rule that keeps both is the one already written down: a
@@ -220,6 +236,27 @@ describe('what a drag costs', () => {
     expect(writes, 'twelve moves inside one frame wrote the height more than once')
       .toBe(1)
   })
+
+  it('says so on the element while it happens, so the blur behind it can stand down', async () => {
+    // A 10px BACKDROP BLUR IS RECOMPUTED WHENEVER WHAT IS IN FRONT OF IT CHANGES
+    // SHAPE, and the sheet changes shape every frame of a drag. The stylesheet
+    // stands the blur down for the length of the gesture, and the only way it can
+    // know is this class — on the scrim as well as the sheet, because the
+    // expensive half is behind the sheet and CSS cannot reach a parent.
+    render(<Sheet onDismiss={vi.fn()} />)
+    const sheet = el('sheet')
+    expect(sheet.classList.contains('is-dragging'), 'a sheet at rest says it is being dragged').toBe(false)
+    await act(async () => {
+      fireEvent.pointerDown(el('grip'), pointer(400))
+      fireEvent.pointerMove(window, pointer(340))
+    })
+    expect(sheet.classList.contains('is-dragging'), 'nothing on the page says a drag is under way').toBe(true)
+    expect(sheet.parentElement.classList.contains('is-dragging'), 'the surface behind the sheet was not told').toBe(true)
+    await frame()
+    await act(async () => { fireEvent.pointerUp(window, pointer(340)) })
+    expect(sheet.classList.contains('is-dragging'), 'the drag class outlived the drag').toBe(false)
+    expect(sheet.parentElement.classList.contains('is-dragging'), 'the surface behind it kept the class').toBe(false)
+  })
 })
 
 describe('a sheet whose content changes under it', () => {
@@ -243,13 +280,16 @@ describe('a sheet whose content changes under it', () => {
     // A SHEET THE READER HAS DRAGGED HAS BEEN PLACED. Following the content from
     // there would be the app overruling the gesture it just invited.
     const { rerender } = render(<Sheet onDismiss={vi.fn()} content={80} />)
-    await drag('grip', -400)
+    await drag('grip', -700)
     const put = heightOf(el('sheet'))
-    // OFF THE HEIGHT ITS CONTENT ASKED FOR, which is the whole precondition: a
-    // sheet still sitting at its natural anchor has not been placed by anybody,
-    // and this case would then be asserting the rule above it instead.
-    expect(ANCHORS, 'the drag did not reach one of the pack\'s stops, so nothing here is tested')
-      .toContain(put)
+    // NOT WHERE THE NEW CONTENT WOULD PUT IT EITHER, which is the whole
+    // precondition and was missing: the reader placed the sheet at 608, the long
+    // content's own first anchor is 608, and a sheet that never moved passed this
+    // case. It has to be somewhere the rule under test would MOVE it away from.
+    expect(put, 'the drag did not reach the tallest stop, so nothing here is tested')
+      .toBe(ANCHORS[ANCHORS.length - 1])
+    expect(put, 'the reader was placed exactly where the new content would put them anyway')
+      .not.toBe(ANCHORS[0])
     await act(async () => { rerender(<Sheet onDismiss={vi.fn()} content={LONG} />) })
     expect(heightOf(el('sheet')), 'the app moved a sheet the reader had placed').toBe(put)
   })

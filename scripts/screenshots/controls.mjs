@@ -588,6 +588,12 @@ try {
     // `blank`, the same file as a screen that never rendered, because "nothing on
     // it was tested" is the same fact and a zero-finding surface must never read
     // as a pass — and the loop carries on to the next one.
+    // WHERE THIS SURFACE'S FINDINGS START, so a re-walk can undo its own first,
+    // partial attempt. Without this the second pass APPENDS to what the first
+    // pushed before it threw, and a control under the touch floor is counted
+    // twice on the one surface that lost its page — which walks a ratchet upward
+    // for a reason that is not about the app at all.
+    const mark = Object.fromEntries(Object.entries(findings).map(([k, v]) => [k, v.length]))
     try {
       await runSurface(surface)
     } catch (err) {
@@ -609,6 +615,7 @@ try {
       let done = false
       if (stray) {
         console.log(`note  ${surface.name.padEnd(14)} lost the page mid-pass — ${why}; walking it again`)
+        for (const [k, n] of Object.entries(mark)) findings[k].length = n
         try {
           await page.goto(opts.baseUrl + surface.route, { waitUntil: 'networkidle2' }).catch(() => {})
           await settled()

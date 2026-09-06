@@ -121,7 +121,13 @@ describe('the people panel', () => {
     // would mean "replace it with this", which is a different thing.
     expect(posted(/^\/cast\/11\/image$/)[0][2]).toBeUndefined()
     // And the row it fetched now draws the stored file rather than the fallback.
-    await waitFor(() => expect(document.querySelector('img.cast-face')).toBeTruthy())
+    // ASKED OF WHICH HALF IS ON THE SCREEN, not of which element carries a class:
+    // the picture and its stand-in are drawn by one component now, so the box
+    // wears the class either way and `img.cast-face` stopped matching a row that
+    // is drawing a picture perfectly well.
+    // Not "no row anywhere is drawing the stand-in" — the second row of this
+    // fixture legitimately has no art and legitimately draws one.
+    await waitFor(() => expect(document.querySelector('.cast-face img')).toBeTruthy())
   })
 
   it('does not ask for a picture the provider does not have', async () => {

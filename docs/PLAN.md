@@ -9674,7 +9674,7 @@ can check the verdict rather than trust it.*
 | 1.9 | the person panel is three scopes | **built**, and the character panel now matches it |
 | 1.10 | Metadata, Stats and Settings are real screens | **built.** All three carry phone branches; the prototype's own Part 4 still lists them as desk-only there |
 | 1.11 | a pick closes its panel | **not verified.** The only `stack.back()` calls found are `onDone` after a save, not after a pick — suggestive, not conclusive, and this needs a render rather than a grep |
-| 1.12 | shell corrections | **the panel header is built verbatim** — `.tp-panel-slot` is two flexible slots reserving 44px with the title on the box, and `.tp-panel-head` casts unconditionally, both for the pack's stated reasons. **Help's placement differs:** it is a row in the ⋯ and a button of its own rather than against the search field. Whether that is a recorded departure or a drift, I did not establish |
+| 1.12 | shell corrections | **the panel header follows the pack's structure** — `.tp-panel-slot` is two flexible slots reserving 44px with the title on the box, and `.tp-panel-head` casts unconditionally, both for the pack's stated reasons. **Its HEIGHT is a departure since the sheet round:** 60px to 48px, on the owner's "make it slimmer. by at least 30-40%" — argued in the phone-sheet entry, and it reaches the DESK panel too, deliberately. One component may not be two heights by width: that is the drift "similar things should act similarly" exists to stop, and the room being removed was room around a 44px key rather than anything the pack draws. **Help's placement differs:** it is a row in the ⋯ and a button of its own rather than against the search field. Whether that is a recorded departure or a drift, I did not establish |
 
 **Three named gaps come out of this, in the order I would take them.** §1.5's chip is
 first and is the one worth doing next: the storage is done, the merge and trash already
@@ -10724,6 +10724,12 @@ cleared the 44px floor and was the only thing a thumb could grab. The header dra
 already states. `touch-action: pan-x` rather than `none`, because the title and the crumb
 scroll SIDEWAYS under their fade, which is this app's standing answer to a long name;
 taking every gesture would freeze the one thing it does instead of truncating.
+
+**And it reaches the desk panel too, which is a choice and not an oversight.** The header
+is one component; giving it two heights by viewport would be exactly the drift the
+"similar things should act similarly" directive exists to stop, and what is being removed
+is room around a 44px key rather than anything the pack draws. A desk panel is a card in
+the middle of the screen with the same head on it, and it gets the same 48px.
 
 **Which is what let the bar get slim.** *"the header bar is too thick (vertically). make it
 slimmer. by at least 30-40%."* The mark's strip existed to be hit, and nothing has to hit

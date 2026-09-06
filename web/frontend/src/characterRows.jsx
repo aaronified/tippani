@@ -114,18 +114,25 @@ export function ScreenHead({ title, crumb, glyph, art, artKind, scopeTitle }) {
 // `personImgURL`, a work's art under `coverImgURL`, and an already-built address
 // under neither. What they must NOT keep their own copy of is the fallback, which
 // is why it lives here.
-export function Face({ src, name, className = 'cs-face', url = coverImgURL, title }) {
+export function Face({ src, name, className = 'cs-face', url = coverImgURL, title, onLoad }) {
   const [broken, setBroken] = useState(false)
   const path = String(src || '')
   // A NEW PATH DESERVES ITS OWN CHANCE. Without this a row that fails once keeps
   // the glyph after the picture is replaced, because React reuses the component
   // and the flag outlives the src it was set for.
   useEffect(() => { setBroken(false) }, [path])
+  const empty = !path || broken
+  // `is-empty` IS DRAWN FROM WHAT IS DRAWN, not from what is stored. Three
+  // stylesheets set that class from the presence of a PATH — the grey plate a
+  // silhouette sits on, its padding, its colour — so a picture that failed to
+  // arrive drew an unstyled glyph in a row of styled ones, which is a second
+  // way of saying the same thing the fallback exists to stop. The one place
+  // that knows whether a stand-in is on the screen is the thing drawing it.
   return (
-    <span className={className} title={title}>
-      {path && !broken
-        ? <img src={url(path)} alt="" loading="lazy" onError={() => setBroken(true)} />
-        : <Silhouette name={name} />}
+    <span className={empty ? `${className} is-empty` : className} title={title}>
+      {empty
+        ? <Silhouette name={name} />
+        : <img src={url(path)} alt="" loading="lazy" onError={() => setBroken(true)} onLoad={onLoad} />}
     </span>
   )
 }
@@ -165,18 +172,16 @@ export function PortraitBlock({ src, name, px, soft, from = '', actions, editor 
   const isSoft = dim ? dim.w < SOFT_FLOOR || dim.h < SOFT_FLOOR : !!soft
   return (
     <div className="cs-portrait">
-      <span className="cs-face">
-        {src
-          ? (
-            <img
-              src={src}
-              alt=""
-              loading="lazy"
-              onLoad={(e) => setDim({ w: e.target.naturalWidth, h: e.target.naturalHeight })}
-            />
-          )
-          : <Silhouette name={name} />}
-      </span>
+      {/* THE SCREEN THE OWNER NAMED AS THE MODEL — "a random person glyph, as used
+          in the actual delia sturridge character page" — and it was branching on
+          the stored path like the rest. `Face` owns the fallback; the measurement
+          is this block's own and rides along on the load. */}
+      <Face
+        src={src}
+        name={name}
+        url={(x) => x}
+        onLoad={(e) => setDim({ w: e.target.naturalWidth, h: e.target.naturalHeight })}
+      />
       <span className="cs-portrait-side">
         {/* AND NOTHING WHERE THERE IS NOTHING TO MEASURE. An empty span is still a
             child of an 8px-gap column, so a slot with no picture drew a line of

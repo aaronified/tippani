@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { coverImgURL, json, errText } from './api.js'
 import { t } from './i18n.js'
+import { Face } from './characterRows.jsx'
 import { personImgURL, PersonPortrait, splitCredits, usePeople } from './credits.jsx'
 import { usePractice } from './review.jsx'
-import { Silhouette } from './silhouette.jsx'
 import { useBodyScrollLock, CloseButton, ErrorText, ExpandableDescription, Field, GhostButton, IconCheck, IconClose, IconDelete, IconEdit, IconMerge, IconPlus, IconQuiz, IconPractise, IconRefresh, IconSearch, isPartialDate, Lightbox, MonoLabel, NameInput, NameScroll, PartialDateField, Placeholder, Scroller, Tooltip, useConfirm, useEscape, useBackToClose, SCRIM, backdropClose} from './ui.jsx'
 
 const PRIMARY = 'tp-btn tp-btn-primary'
@@ -626,11 +626,12 @@ export function PersonChip({ kind, name, person, onOpen, onPress, title, faceNam
       // looking identical to one that opens.
       aria-disabled={opens ? undefined : true}
     >
-      <span className="person-chip-face" aria-hidden="true">
-        {faceSrc || person?.image_path
-          ? <img src={faceSrc || personImgURL(person.image_path)} alt="" />
-          : <Silhouette name={faceName || name} />}
-      </span>
+      <Face
+        src={faceSrc || (person?.image_path ? personImgURL(person.image_path) : '')}
+        name={faceName || name}
+        url={(x) => x}
+        className="person-chip-face"
+      />
       {/* THE CLIP STAYS. It is the app's one deliberate truncation and the owner
           ruled on it — the reason is in `.person-chip-name`'s own comment: chips
           here must not wrap, because a reflow moves every other chip when one

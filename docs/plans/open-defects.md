@@ -359,6 +359,22 @@ this one were concurrent, which it says itself ("two Chrome probes were resident
 390 pass then found no server at all). The class is real even so, and the fence now
 re-walks a surface that loses its document once before failing the run.
 
+## U. The work-rater's third pass, 6 September
+
+A fresh pass over the sheet round scored it **6/10** and named eight things. Six were
+live, and one of them was an overclaim in a commit message of mine.
+
+| # | Finding | Status |
+|---|---|---|
+| U1 | S4 shipped with **no guard at all** — deleting `onError` left 3,388 tests green, on the one item of that round the owner had photographed | **FIXED.** `face-fallback.test.jsx`: a fired `error` must replace the picture with the glyph, with the SAME glyph an absent picture draws — the owner's own words — and the plate that goes with it. The rater's mutation fails all four cases |
+| U2 | **"`Face` owns the fallback for all of them" was false.** Three sites still branched on the stored path, one of them the character page the owner named as the model; and `.is-empty` was computed from the path, so a broken picture drew an unstyled glyph | **FIXED.** All six sites now, and `is-empty` is drawn from what is on the SCREEN rather than from what is stored — the one place that knows is the thing drawing it |
+| U3 | `npm run glossary:check` exited 1 at the tip — a shipped gate, red | **FIXED.** `make glossary`, and the check is in the closing gate list from here |
+| U4 | The "not once the reader has placed it" guard survived its own mutation: the fixture placed the sheet at exactly the new content's first anchor | **FIXED.** The reader is placed at the TALLEST stop now, which is somewhere the rule under test would move them away from. Removing the rank check fails it |
+| U5 | The blur stand-down had no test anywhere — half of S6 was assertion only | **FIXED.** The class is asserted on the sheet AND on the surface behind it, across a whole gesture |
+| U6 | S5's press verb never moved: it stayed on the mark, now 18px — the affordance Q1 exists to give a mouse, stranded on something deliberately too small to hit | **FIXED.** The bar answers a press too. A press that lands on a control INSIDE the bar belongs to that control, which is how the ✕ keeps its own |
+| U7 | The probe's re-walk appended to the findings its first, partial attempt had already pushed — double-counting a ratchet for a reason that is not about the app | **FIXED.** The surface's findings are truncated back to their mark before the second walk |
+| U8 | The header slimming reaches the DESK panel too, and neither commit nor the departure entry said so | **NOT A DEFECT, and now recorded.** One component may not be two heights by viewport — that is the drift "similar things should act similarly" exists to stop — and what was removed is room around a 44px key rather than anything the pack draws. `docs/PLAN.md` §1.12 no longer says the header is built verbatim |
+
 ## Withdrawn claims
 
 Kept because the pattern matters more than any one of them.

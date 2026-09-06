@@ -1479,14 +1479,29 @@ export function useSheetDrag({ sheet, body, handle, head, enabled = true, onDism
     // reproduced it in a browser. The flag has to mean the pointer actually went
     // somewhere, which is the same four pixels that make a touch in the body a
     // drag rather than a tap.
-    const press = () => {
+    const press = (e) => {
       if (dragged) { dragged = false; return; }
+      // A KEY IN THE BAR IS NOT THE BAR. The header carries the ✕ and, on a
+      // nested panel, the way back — and the bar is a drag surface now, so this
+      // listener sits on it as well as on the mark. A press that lands on a
+      // control inside it belongs to that control; a press on the bar itself is
+      // the bar's. `currentTarget` is the surface the listener is on, so the mark
+      // — which IS a button — still answers its own press.
+      const control = e?.target?.closest?.('button, a[href], input, select, textarea, [role="button"]');
+      if (control && control !== e.currentTarget) return;
       if (!anchors.length) return;
       const i = anchors.indexOf(resting);
       settle(anchors[i < 0 || i >= anchors.length - 1 ? 0 : i + 1]);
     };
+    // ON BOTH SURFACES, because the owner's ruling was about both: "the whole
+    // header bar should act as the bar". A bar that drags but cannot be pressed
+    // is half the affordance, and the half it keeps is the one a mouse cannot
+    // find — which leaves the press stranded on an 18px mark that is deliberately
+    // too small to be a target.
     const grip = handle?.current;
+    const bar = head?.current;
     if (grip) grip.addEventListener("click", press);
+    if (bar) bar.addEventListener("click", press);
 
     el.addEventListener("pointerdown", down);
     window.addEventListener("pointermove", move);
@@ -1495,6 +1510,7 @@ export function useSheetDrag({ sheet, body, handle, head, enabled = true, onDism
     window.addEventListener("resize", remeasure);
     return () => {
       if (grip) grip.removeEventListener("click", press);
+      if (bar) bar.removeEventListener("click", press);
       el.removeEventListener("pointerdown", down);
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
