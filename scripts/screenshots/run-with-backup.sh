@@ -40,15 +40,21 @@ PASSWORD="${TIPPANI_BACKUP_PASSWORD:-}"
 # library was fair game. A sweep that cannot tell a dead dir from a live one has
 # to decline, and say so — the dir it leaves is the one thing this whole block
 # exists to remove, so its absence has to be visible rather than assumed.
+# AND IT SWEEPS WHERE mktemp ACTUALLY PUTS THINGS. `mktemp -d` honours $TMPDIR,
+# so a hardcoded /tmp finds nothing on any machine that sets it — a sweep that
+# reports nothing and cleans nothing, which is the shape of a guard that is not
+# there.
+TMPROOT="${TMPDIR:-/tmp}"
+TMPROOT="${TMPROOT%/}"
 if command -v fuser >/dev/null 2>&1; then
-  for d in /tmp/tmp.*; do
+  for d in "$TMPROOT"/tmp.*; do
     [ -f "$d/tippani.db" ] || continue
     fuser "$d/tippani.db" >/dev/null 2>&1 && continue
     echo "removing a data dir a killed run left behind: $d"
     rm -rf "$d"
   done
 else
-  for d in /tmp/tmp.*; do
+  for d in "$TMPROOT"/tmp.*; do
     [ -f "$d/tippani.db" ] || continue
     echo "WARNING: $d holds a restored library and no fuser here to say whether it is in use — remove it by hand" >&2
   done

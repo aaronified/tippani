@@ -205,11 +205,26 @@ export function CastSection({ kind, item, onCastChanged, onOpenCharacter }) {
 
   async function remove(id) {
     setBusy('row')
+    // WHAT WAS THERE BEFORE, so the reload can be compared with it. See below.
+    const gone = (rows || []).find((x) => x.id === id)
     const r = await json('DELETE', `/cast/${id}`)
     setBusy('')
     if (!r.ok) return setErr(errText(r, t('error.delete.generic')))
-    setErr('')
-    onCastChanged?.(await load())
+    const after = await load()
+    // A DELETE THAT DOES NOT STICK SAYS SO, at the moment it does not stick. A
+    // character this work's own quotes name is put back on the list by the read
+    // that follows — the reader's own line is a claim they made by hand, and
+    // honouring it is deliberate — but pressing ✕, watching the row go and
+    // finding it there again is indistinguishable from a delete that is broken,
+    // which is the report this area has already produced four times.
+    //
+    // READ OFF THE RELOAD RATHER THAN ASKED OF THE SERVER. The reload happens
+    // either way, and the server already answers 204 on every deletion: a second
+    // shape of answer would be a protocol change to carry a fact the client can
+    // see for itself, and three existing tests would have had to learn it.
+    const back = !!gone && (after || []).some((x) => x.character === gone.character)
+    setErr(back ? t('cast.delete.returns.note') : '')
+    onCastChanged?.(after)
   }
 
   // A picture the reader chose, through the same route the provider's goes

@@ -273,6 +273,27 @@ describe('the Details form', () => {
     expect(within(dlg).getByText('1')).toBeTruthy()
   })
 
+  it('draws the pack\u2019s portrait beside every credit it prints', async () => {
+    // `work-details-popup.dc.html:661-669`: a 30px round face beside the value,
+    // one per name the field holds, silhouette where there is no photograph. A
+    // name with a face is a record; a name alone is a string.
+    //
+    // THIS IS THE CASE THAT WAS MISSING, and its absence cost a whole feature:
+    // the portrait was added as a SECOND `display` prop on the same element, so
+    // JSX kept the later one and no face ever drew — while the commit said they
+    // had, the audit recorded the row as a match, and three people fetches ran
+    // for nothing. Asserted as "one face per name", which is the only shape that
+    // fails when the drawing is dropped rather than merely restyled.
+    panel()
+    await shown()
+    const row = [...document.querySelectorAll('.inline-field')]
+      .find((el) => el.querySelector('[aria-label="Edit translator"]'))
+    expect(row, 'no translator row to look at').toBeTruthy()
+    // The fixture credits two translators on this book.
+    expect(row.querySelectorAll('.cred-face').length,
+      'the credits print as bare strings — no portrait beside any of them').toBe(2)
+  })
+
   it('prints each credit under the name of the credit it is', async () => {
     // "3 people" is a number you have to open a panel to understand, and three
     // names under one heading is barely better: the reader can see WHO but not

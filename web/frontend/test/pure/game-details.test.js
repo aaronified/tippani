@@ -116,3 +116,26 @@ describe('covers', () => {
     expect(coverSourceLabel('show')).toMatch(/TheTVDB/)
   })
 })
+
+// A GAME'S STUDIO IS NOT A PERSON, AND ITS FACE MUST NOT BE LOOKED UP AS ONE.
+//
+// 0040 puts a game's developer in `movies.director`, so one column holds a
+// film's director, a show's creator and a studio. The row's LABEL has changed
+// with the medium for three releases (MEDIA_LABELS); the face beside it did not
+// — it was asked for under a constant `director`, which sends "Bethesda Game
+// Studios" to a film database and gets back whatever human shares the name.
+//
+// `workKinds.js` already carries the mapping, because the work page's own credit
+// chips read it. This asserts the Details panel reads the same one rather than a
+// second copy of it.
+describe('whose picture a credit row draws', () => {
+  it('asks for a studio on a game and a director on a film', async () => {
+    const { personKindFor, creditSpecsFor } = await import('../../src/WorkDetails.jsx')
+    const director = creditSpecsFor('movie').find((s) => s.key === 'director')
+    expect(director, 'the film side has no director credit spec').toBeTruthy()
+    expect(personKindFor(director, 'movie')).toBe('director')
+    expect(personKindFor(director, 'show'), 'a show credits a creator, who is still a person').toBe('director')
+    expect(personKindFor(director, 'game'),
+      'a game’s studio is looked up as a person, in a film database').toBe('studio')
+  })
+})

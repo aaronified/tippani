@@ -618,10 +618,15 @@ export function FaceStrip({ tiles, hint }) {
                 : <Silhouette name={m.faceName || m.name} />}
             </span>
             <span className="cs-face-name">{m.name}</span>
-            {/* NOT AN EMPTY LINE WHERE THERE IS NO PERFORMER. A book's cast has
-                nobody playing anybody and a game's voice credits are often thin,
-                so a blank second line under half the tiles would read as a
-                rendering fault rather than as an absence. */}
+            {/* THE PACK SAYS SO RATHER THAN LEAVING A GAP. Its own film strip
+                bills a dub as `['হ্যারি (Bengali dub)', 'not named', '']`
+                (`:1123`) — the second line is printed, and what it prints is
+                that nobody is named. An earlier note here argued against "a
+                blank second line", which nobody was proposing; the choice is
+                between the pack's words and nothing, and the pack's words win.
+                WHOSE line it is, and whether there is one at all, is the
+                caller's: a book's cast has nobody playing anybody, so `by` is
+                empty there and no line is drawn. */}
             {m.by ? <span className="cs-face-by">{m.by}</span> : null}
           </button>
         ))}

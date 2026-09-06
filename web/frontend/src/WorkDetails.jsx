@@ -30,6 +30,7 @@ import { DEFAULT_CREDIT_SEPS, splitCredits, personImgURL, usePeople } from './cr
 import { Silhouette } from './silhouette.jsx'
 import { PasteLink, WorkLinks, linksSummary, providerURL } from './workLinks.jsx'
 import { t } from './i18n.js'
+import { KINDS } from './workKinds.js'
 import { BookLookupPicker, CoverControls, CoverPreview, MovieLookupPicker, hiResPoster, idNum } from './CoverPicker.jsx'
 import {
   BigField,
@@ -265,6 +266,21 @@ export function creditSpecsFor(kind) {
   return (kind === 'book' ? BOOK_FIELDS : MOVIE_FIELDS).filter((sp) => sp.credit)
 }
 
+// personKindFor — WHOSE PICTURE A CREDIT ROW DRAWS, which is not always what the
+// column is called. `movies.director` holds a film's director, a show's creator
+// and a GAME'S STUDIO (0040), and a studio is not a person: asked for under
+// `director` the face map comes back from a film database and answers with
+// whatever human shares the name.
+//
+// `workKinds.js` already states the mapping per medium — it is what the work
+// page's own credit chips read — so this reads it rather than restating it. A
+// second table of the same fact is a second table to forget to update.
+export function personKindFor(spec, mediaType) {
+  if (!spec?.personKind) return ''
+  const row = (KINDS[mediaType] || {}).credits?.find((c) => c.field === spec.key)
+  return row?.personKind || spec.personKind
+}
+
 // MEDIA_LABELS — the words that change with the MEDIUM rather than with the kind.
 //
 // One table, and it exists because the ad-hoc version had already gone wrong.
@@ -344,9 +360,12 @@ export const MOVIE_FIELDS = [
   {
     key: 'director',
     credit: true,
-    // A GAME'S STUDIO IS IN THIS COLUMN (0040), and it is not a person — so the
-    // face is asked for under the kind the medium makes it. `labelFor` already
-    // renames the row; this renames who it is a picture of.
+    // A GAME'S STUDIO IS IN THIS COLUMN (0040), and it is not a person. This
+    // field's default kind is the film's; the medium's own answer comes from
+    // `workKinds.js`, which already maps `director` to `studio` on a game and to
+    // `director` on a show — see `personKindFor` below. The comment here used to
+    // claim the constant adapted, which it does not: it is a default and the
+    // resolution happens where the media type is known.
     personKind: 'director',
     get label() { return t('common.field.director.label') },
     nameCase: true,
@@ -1272,9 +1291,9 @@ function FieldList({ kind, item, stack, specs, creditSpecs, mediaType, busy, gen
   // here costs one face — the row still prints exactly what is stored, because
   // the split is used for the PICTURES and never for the value.
   const seps = DEFAULT_CREDIT_SEPS
-  const credit0 = usePeople(creditSpecs[0]?.personKind || '')
-  const credit1 = usePeople(creditSpecs[1]?.personKind || '')
-  const credit2 = usePeople(creditSpecs[2]?.personKind || '')
+  const credit0 = usePeople(personKindFor(creditSpecs[0], mediaType))
+  const credit1 = usePeople(personKindFor(creditSpecs[1], mediaType))
+  const credit2 = usePeople(personKindFor(creditSpecs[2], mediaType))
   const creditMaps = [credit0.map, credit1.map, credit2.map]
 
   // ── THE CAST THE STRIP DRAWS ──
@@ -1298,7 +1317,12 @@ function FieldList({ kind, item, stack, specs, creditSpecs, mediaType, busy, gen
   const castTiles = useMemo(() => (castRows || []).map((row) => ({
     key: String(row.id),
     name: row.character,
-    by: row.actor || '',
+    // THE PACK PRINTS "not named" RATHER THAN LEAVING THE LINE OUT
+    // (`work-details-popup.dc.html:1123`), because on a medium that HAS
+    // performers, nobody named is a fact about the credit. A book's cast has
+    // nobody playing anybody at all, so there the second line would be a
+    // sentence repeated under every tile and it is left off.
+    by: row.actor || (kind === 'book' ? '' : t('identity.credit.unnamed')),
     // THREE PICTURES, IN THE ORDER OF HOW MUCH THEY KNOW ABOUT THIS TILE: the
     // still this work holds of this character, then the character record's own
     // default, then the performer's headshot. The last is a real fallback and not
@@ -1600,25 +1624,6 @@ function FieldList({ kind, item, stack, specs, creditSpecs, mediaType, busy, gen
             <InlineField
               key={spec.key}
                 half={!!spec.half}
-              display={creditNames.length ? (
-                <span className="cred-line">
-                  {creditNames.map((n) => {
-                    const src = creditMaps[creditIndex]?.[n]?.image_path
-                    return (
-                      <span className="cred-one" key={n}>
-                        {/* ALWAYS A FACE, silhouette when there is no
-                            photograph — the pack's rule, and what keeps a
-                            column of credits a run of equal shapes rather
-                            than a ragged mix of two designs. */}
-                        <span className="cred-face">
-                          {src ? <img src={personImgURL(src)} alt="" loading="lazy" /> : <Silhouette name={n} />}
-                        </span>
-                        <span>{n}</span>
-                      </span>
-                    )
-                  })}
-                </span>
-              ) : undefined}
               fieldKey={spec.key}
               source={prov?.source}
               sourceAt={prov?.at}
@@ -1643,13 +1648,41 @@ function FieldList({ kind, item, stack, specs, creditSpecs, mediaType, busy, gen
               // label it had failed to trim. The numeric branch a hundred lines
               // above already had both the key and the source's own name; this one
               // was written beside it and took neither.
-              display={spec.href && value ? (
-                <Tooltip label={t('common.work.id.open.tip', { source: spec.sourceKey ? t(spec.sourceKey) : label })}>
-                  <a href={spec.href(item)} target="_blank" rel="noopener noreferrer" className="tp-link">
-                    {String(value)} <IconOpen size={12} />
-                  </a>
-                </Tooltip>
-              ) : undefined}
+              // ONE `display`, AND IT WAS TWO. The credit portrait was added as a
+              // second `display` on this same element, so JSX kept the later one
+              // and the faces never drew at all — while the commit that added
+              // them said they had, the audit recorded the row as a match, and
+              // three `usePeople` fetches ran for nothing. Vitest printed
+              // `Duplicate "display" attribute` on every run of the suite and I
+              // did not read it. A prop that can be passed twice is a prop that
+              // will be, so the branches are one expression now.
+              display={
+                creditNames.length ? (
+                  <span className="cred-line">
+                    {creditNames.map((n) => {
+                      const src = creditMaps[creditIndex]?.[n]?.image_path
+                      return (
+                        <span className="cred-one" key={n}>
+                          {/* ALWAYS A FACE, silhouette when there is no
+                              photograph — the pack's rule, and what keeps a
+                              column of credits a run of equal shapes rather than
+                              a ragged mix of two designs. */}
+                          <span className="cred-face">
+                            {src ? <img src={personImgURL(src)} alt="" loading="lazy" /> : <Silhouette name={n} />}
+                          </span>
+                          <span>{n}</span>
+                        </span>
+                      )
+                    })}
+                  </span>
+                ) : spec.href && value ? (
+                  <Tooltip label={t('common.work.id.open.tip', { source: spec.sourceKey ? t(spec.sourceKey) : label })}>
+                    <a href={spec.href(item)} target="_blank" rel="noopener noreferrer" className="tp-link">
+                      {String(value)} <IconOpen size={12} />
+                    </a>
+                  </Tooltip>
+                ) : undefined
+              }
             />
           )
         })}

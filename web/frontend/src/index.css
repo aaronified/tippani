@@ -3378,22 +3378,8 @@
   @media (max-width: 768px) {
     .reading-badge { width: 24px; height: 24px; }
   }
-  /* .status-dot — the spaced-repetition repetition-status dot on quote cards
-     (remembered/forgetting/probably-forgotten; hollow when unseen). Colour is
-     set inline per status; hover reveals a Tooltip with the half-life. */
-  .status-dot {
-    width: 9px;
-    height: 9px;
-    border-radius: 999px;
-    border: 1.5px solid var(--line);
-    display: inline-flex;
-    flex-shrink: 0;
-    cursor: help;
-    transition: transform .12s ease;
-  }
-  .status-dot:hover, .status-dot:focus-visible { transform: scale(1.25); }
-  /* .status-mark — the same status as a GLYPH, which is what lets it stand in a
-     row of glyphs. It replaces the 9px disc on a quote card: a disc that small
+  /* .status-mark — the recall status as a GLYPH, which is what lets it stand in a
+     row of glyphs. It replaced a 9px disc (`.status-dot`, deleted with it): a disc that small
      has no shape, so its four states were told apart by hue alone — and hue is
      the one channel a reader may not have, spent two controls away in the same
      row on the six quote colours. The colour is set inline per status and the

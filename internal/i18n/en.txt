@@ -5315,8 +5315,8 @@ home.help.language-mark.what = A proverb has nobody to credit, so its card leads
 home.help.language-mark.more = The built-in is a letter from that language’s own script; Settings offers flags and anything else you can type. No language arrives wearing a flag — a flag is a country, and a language is not.
 
 # The memory dot every quote card wears.
-home.help.status-dot.term = Status dot
-home.help.status-dot.what = Every quote wears one: remembered, forgetting, probably forgotten, or not yet reviewed. Hover or tap it for the memory half-life.
+home.help.status-dot.term = Recall mark
+home.help.status-dot.what = A ring, and how much of it is left: remembered, forgetting, probably forgotten, or not yet asked about. Tap it for the half-life.
 
 home.help.favourites.term = Favourites
 home.help.favourites.what = The lines you marked with ♥ — book highlights, film dialogue and standalone quotes together, reshuffled on every visit.
@@ -6201,6 +6201,7 @@ cast.heading.label = people
 cast.strip.heading.label = Cast · {n}
 cast.strip.edit.label = Edit
 cast.strip.edit.tip = Add, fetch or correct this cast
+cast.delete.returns.note = Your own quotes on this work name them, so they are back on the list. Change the line to take them off.
 cast.role.voice.label = Voice actor
 cast.add.aria = Add a character
 cast.empty.prose = No cast on file yet. Fetch one, or add a character.
