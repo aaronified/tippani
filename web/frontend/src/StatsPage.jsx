@@ -475,7 +475,7 @@ function BreakdownRow({ r, rank, showWorks, art, personMap, characterMap, onSear
             // `coverImgURL` rather than `personImgURL` — which is how this row
             // sat outside a rule written about people while drawing exactly the
             // thing the rule was written for.
-            <Face src={face} name={label || ''} className="stat-face-round" style={{ width: 24, height: 24 }} />
+            <Face src={face} name={r.name} className="stat-face-round" style={{ width: 24, height: 24 }} />
           ) : null}
         </span>
       )}
@@ -1348,7 +1348,7 @@ function SuperTile({ label, title, count, amber, cover, person, onOpen }) {
                 reads as the one tile whose art failed to load", which is exactly
                 what drawing nothing produces. The tile is a record's face, not
                 an ornament, so it says so. */}
-            <PersonPortrait person={person} size={30} fallback={undefined} />
+            <PersonPortrait person={person} size={30} ornament={false} />
           </span>
         ) : null}
         <div className="min-w-0 flex-1">

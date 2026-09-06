@@ -273,7 +273,11 @@ export function usePortraitFill(kind, names, people, onFilled) {
 // comment says why the gap is wrong there: "a name alone in a grid of covers
 // reads as the one tile whose art failed to load". So the default is the
 // ornament's `null` and a caller that is not one says so.
-export function PersonPortrait({ person, size = 30, fallback = null }) {
+// `ornament` AND NOT `fallback`, and the difference is a bug this already had.
+// A caller that wanted the silhouette wrote `fallback={undefined}` — and a
+// destructuring default fires on `undefined`, so it got `null` and the gap it was
+// trying to avoid. A boolean cannot be defaulted out from under its caller.
+export function PersonPortrait({ person, size = 30, ornament = true }) {
   // AN ORNAMENT DRAWS NOTHING WHERE THERE IS NOTHING, and a picture that fails to
   // arrive is nothing — so `fallback={null}` rather than a silhouette, which
   // would put a face beside a heading the design gives none. What this may NOT do
@@ -286,7 +290,9 @@ export function PersonPortrait({ person, size = 30, fallback = null }) {
     <Face
       src={person.image_path}
       url={personImgURL}
-      fallback={fallback}
+      // `undefined` is how `Face` is asked for its own stand-in; `null` is how it
+      // is asked to draw nothing.
+      fallback={ornament ? null : undefined}
       name={person.name || ''}
       className="person-portrait-round"
       // The size is the caller's — 24 in a stat row, 28 in a search result, 30

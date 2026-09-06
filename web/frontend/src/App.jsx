@@ -112,6 +112,7 @@ import { takeSearchSeed } from './facets.js'
 import { Profile } from './Account.jsx'
 import { PageHelp, ScreenHelpSheet } from './help.jsx'
 import { t, tNodes } from './i18n.js'
+import { Face } from './characterRows.jsx'
 import { PASSPHRASE_MAX, PASSWORD_MAX, PASSWORD_MIN, passwordProblem, sniffArchiveKey } from './secret.js'
 import { FeatureTour } from './tour.jsx'
 
@@ -1076,9 +1077,20 @@ function rememberScroll(key) {
 
 // UserAvatar — the squircle chip content, shared by the top bars and drawer.
 function UserAvatar({ user }) {
-  return user.avatar_path
-    ? <img src={coverImgURL(user.avatar_path)} alt="" />
-    : (user.username || '?').trim().charAt(0).toLowerCase()
+  // A LETTER IS THIS CHIP'S STAND-IN, not a silhouette — an account is not a
+  // person in the library, and the initial is what the chip has always drawn.
+  // What it may not do is decide for itself that a stored path means a picture:
+  // an avatar whose file has gone drew the browser's torn page inside a 24px
+  // squircle, which is the report this rule comes from, one screen over.
+  return (
+    <Face
+      src={user.avatar_path}
+      url={coverImgURL}
+      name={user.username || ''}
+      className="face-slot"
+      fallback={<>{(user.username || '?').trim().charAt(0).toLowerCase()}</>}
+    />
+  )
 }
 
 // Drawer — the hamburger nav (§7 redesign): primary nav on mobile, opened by

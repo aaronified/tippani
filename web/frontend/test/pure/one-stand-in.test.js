@@ -29,8 +29,22 @@ import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
+import { declaredIn } from '../css-cascade.js'
+
 const SRC = process.env.TIPPANI_SRC
-const FILES = readdirSync(SRC).filter((f) => /\.jsx$/.test(f))
+
+// EVERY .jsx UNDER src, not the top level of it. `readdirSync` without recursion
+// answers a question about one directory, and the rule is about the tree — a
+// screen moved into a folder would leave it silently.
+function jsxUnder(dir, base = '', out = []) {
+  for (const e of readdirSync(dir, { withFileTypes: true })) {
+    const rel = base ? `${base}/${e.name}` : e.name
+    if (e.isDirectory()) jsxUnder(join(dir, e.name), rel, out)
+    else if (/\.jsx$/.test(e.name)) out.push(rel)
+  }
+  return out
+}
+const FILES = jsxUnder(SRC)
 
 // The two that ask the picture whether it arrived, and may therefore answer for
 // everyone else.
@@ -42,7 +56,16 @@ const ASKERS = {
 const bodyOf = (f) => readFileSync(join(SRC, f), 'utf8')
 
 // What a picture is OF, read off the words this codebase uses for one.
-const OF_A_PERSON = /\b(face|portrait|avatar|image_path|actor_image|character_image)\b/i
+//
+// NO WORD BOUNDARIES. `\bavatar\b` does not match `avatar_path`, and four live
+// raw portraits sat behind exactly that — a boundary is a claim that the word
+// stands alone, and in this codebase these words are nearly always part of a
+// longer one. Substrings, so `still`, `avatar_path` and `characterImage` all
+// answer.
+//
+// AND `still` IS HERE because the commit that widened this rule used that very
+// word for the picture it was widening the rule to catch, and left it out.
+const OF_A_PERSON = /(face|portrait|avatar|image_path|actor_image|character_image|characterImage|still|photo|headshot)/i
 
 // The src expression of every <img> in a source, with a bare identifier resolved
 // one step through its own declaration — which is as far as this needs to see,
@@ -50,8 +73,26 @@ const OF_A_PERSON = /\b(face|portrait|avatar|image_path|actor_image|character_im
 function portraitSrcs(text) {
   const flat = text.replace(/\n\s*/g, ' ')
   const out = []
-  for (const m of flat.matchAll(/<img\b[^>]*?\bsrc=\{([^}]*(?:\{[^}]*\}[^}]*)*)\}/g)) {
-    let expr = m[1]
+  // ANCHORED ON THE TAG, NOT ON `src=` AFTER A RUN OF NON-`>`. `[^>]*?` cannot
+  // cross a `>`, and one `onClick={() => …}` written before `src` puts a `>`
+  // between them — so the reverted defect passed with an arrow function in front
+  // of it. The tag is read to its own end instead, with `>` inside braces not
+  // counting as that end, which is the only way an arrow can be told from a
+  // closing bracket.
+  for (const at of [...flat.matchAll(/<img\b/g)].map((m) => m.index)) {
+    let depth = 0
+    let end = at
+    while (end < flat.length) {
+      const ch = flat[end]
+      if (ch === '{') depth++
+      else if (ch === '}') depth--
+      else if (ch === '>' && depth === 0) break
+      end++
+    }
+    const tag = flat.slice(at, end)
+    const src = /\bsrc=\{([^}]*(?:\{[^}]*\}[^}]*)*)\}/.exec(tag)
+    if (!src) continue
+    let expr = src[1]
     const bare = /^\s*([A-Za-z_$][\w$]*)\s*$/.exec(expr)
     if (bare) {
       const decl = new RegExp(String.raw`\b(?:const|let|var)\s+` + bare[1] + String.raw`\s*=([^\n;]*)`).exec(text)
@@ -92,14 +133,45 @@ describe('a picture of a person or a character', () => {
     // walked around twice already. It is shown a picture of each shape it must
     // catch — the inline call, and the address put in a `const` first — so a
     // pattern that quietly stopped matching fails here rather than going green.
-    const inline = '<img src={coverImgURL(c.image_path)} alt="" />'
-    const viaConst = 'const face = personImgURL(p.image_path)\n<img src={face} alt="" />'
+    const shapes = {
+      'the inline call': '<img src={coverImgURL(c.image_path)} alt="" />',
+      'an address held in a const': 'const face = personImgURL(p.image_path)\n<img src={face} alt="" />',
+      'an arrow function written before src': '<img onClick={() => go(1)} src={coverImgURL(c.image_path)} alt="" />',
+      'a word that is part of a longer one': '<img src={coverImgURL(u.avatar_path)} alt="" />',
+      'the word this rule was widened for': '<img src={coverImgURL(row.still)} alt="" />',
+    }
+    for (const [what, code] of Object.entries(shapes)) {
+      expect(portraitSrcs(code).some((e) => OF_A_PERSON.test(e)), `${what} is invisible to the rule`)
+        .toBe(true)
+    }
     const cover = '<img src={coverImgURL(book.cover)} alt="" />'
-    expect(portraitSrcs(inline).some((e) => OF_A_PERSON.test(e)),
-      'the inline shape is invisible to the rule').toBe(true)
-    expect(portraitSrcs(viaConst).some((e) => OF_A_PERSON.test(e)),
-      'an address held in a const is invisible to the rule').toBe(true)
     expect(portraitSrcs(cover).some((e) => OF_A_PERSON.test(e)),
       'a work’s cover is not a face, and this rule is not about covers').toBe(false)
+  })
+})
+
+// THE RULES THE CONVERSION DEPENDS ON, which nothing was watching: deleting all
+// three left the whole suite green. `Face` puts a span between a class and its
+// picture, and three screens rely on that span generating no box at all — take
+// `display: contents` away and a bin row, a board tile and a board form each get
+// an unstyled block where a flex item was.
+describe('the box a shared face draws inside', () => {
+  const declares = (sel, prop) => declaredIn(sel)
+    .map((r) => r.decls?.[prop]?.value)
+    .filter(Boolean)
+    .map((v) => String(v).trim())
+
+  it('generates no box where a screen already had one', () => {
+    expect(declares('.face-slot', 'display'),
+      'the slot became a box, so three screens gained a layer they do not style')
+      .toContain('contents')
+  })
+
+  it('and the Stats still is sized where it is drawn', () => {
+    // The inline width and height are on the slot; the picture inside has to be
+    // told to fill it, or a 24px box holds a full-size still.
+    expect(declaredIn('.stat-face-round img, .stat-face-round svg').length
+      + declaredIn('.stat-face-round img').length,
+      'nothing sizes the picture inside the Stats still’s box').toBeGreaterThan(0)
   })
 })

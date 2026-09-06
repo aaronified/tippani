@@ -412,7 +412,7 @@ owner's reported symptom, live, on a screen the commit said was covered.
 | W2 | The invariant matched only the inline `src={…personImgURL(…)}` shape — putting the address in a `const` one line up walked straight past it, which is the shape seven of eight call sites already use | **FIXED.** A bare identifier is resolved one step through its own declaration, and the rule is shown a picture of each shape it must catch, so a pattern that quietly stops matching fails rather than going green |
 | W3 | `fallback` shipped with no test — the same gap as U1, one commit later | **FIXED** in `ebea143`, which the rater saw uncommitted and called the right shape |
 | W4 | `fallback={null}` left the person record's zoom button a 104px control that does nothing, opening a lightbox on the same dead file | **FIXED** in `ebea143` |
-| W5 | `fallback={null}` is wrong on the Stats person tile, whose own comment says a name alone "reads as the one tile whose art failed to load" — which is exactly what a gap produces | **FIXED.** `PersonPortrait` takes the stand-in from its caller now: the default is the ornament's gap and a tile that is a record's FACE says so |
+| W5 | `fallback={null}` is wrong on the Stats person tile, whose own comment says a name alone "reads as the one tile whose art failed to load" — which is exactly what a gap produces | **FIXED at the second attempt, and the first was marked FIXED while broken** — see X2. The caller asked for the silhouette with `fallback={undefined}`, and a destructuring default fires on `undefined`, so it got back the very `null` it was avoiding. It is a boolean now, which cannot be defaulted out from under its caller |
 | W6 | `cast.jsx` still computed `is-empty` from the stored path; V5's "gone from both callers" was inaccurate | **FIXED**, and the two rules that read it now ask the box rather than the caller, so the class is gone rather than shadowed |
 | W7 | No V row named a commit — the rule U4 was raised for, broken again one section later | **FIXED** |
 
@@ -427,6 +427,24 @@ the pack's `Placeholder` when there is no photograph and a character's draws a s
 — two records, two answers. That is a difference between two EMPTY states, it predates
 every commit here, and picking one is a design call with a visible result. Raised rather
 than guessed at.
+
+## X. The work-rater's sixth pass, 6 September
+
+Scored **3/10**, the lowest yet, and rightly: its first finding is a crash I introduced
+into the very row the round exists to fix.
+
+| # | Finding | Status |
+|---|---|---|
+| X1 | **`StatsPage` referred to an identifier that does not exist in its scope** — `name={label \|\| ''}` in a row that had no `label`. It threw `ReferenceError` the moment a breakdown character had a stored still, which is precisely the case the change was made for, and worse than the torn page it replaced. It was in the committed bundle | **FIXED.** `r.name`, which is also the name the silhouette hashes on — `''` would have given every character the same face. **And the branch is rendered now**: nothing had ever drawn a breakdown row WITH a picture, because the fixture this suite runs on has no artwork. Restoring the crash fails that case with the ReferenceError itself |
+| X2 | W5 was marked FIXED and was not: `fallback={undefined}` hits a destructuring default of `null`, so the Stats tile still drew the gap | **FIXED.** A boolean (`ornament`) cannot be defaulted out from under its caller. Two cases, one per kind of slot |
+| X3 | Three more escapes from the invariant: `\bavatar\b` cannot match `avatar_path` (four live raw portraits behind it), `[^>]*?` cannot cross the `>` in an arrow function written before `src`, and `still` — the word the last commit used for the picture it was widening the rule to catch — was not in the list. `readdirSync` was also non-recursive | **FIXED.** The tag is read to its own end with `>` inside braces not counting; the vocabulary dropped its word boundaries and gained `still`; the walk recurses. Each shape it must catch is now shown to it, so a pattern that stops matching fails rather than passing |
+| X4 | Deleting `.face-slot { display: contents }` and both `.stat-face-round` rules left the suite green | **FIXED.** Both are asserted, and deleting either fails its own case |
+| X5 | `imgClass` is a leak, and `display: contents` silently voids `Face`'s `title` and `style` | **NOT A DEFECT here, and worth the note.** `imgClass` exists because two stylesheets dress the PICTURE rather than its box, which is a real difference and is what passing a fact in means; the stand-in is a whole element the caller supplies, with its own classes, so it neither needs nor wants that class. `title` and `style` on a `contents` slot: no `face-slot` caller passes either, and the four that pass `style` do not pass `face-slot` |
+
+**And four more raw portraits it found:** the account avatar chips, in all four places one is
+drawn (`Account.jsx` ×3, `App.jsx`). Their stand-in is the username's initial rather than a
+silhouette, which is right — an account is not a person in the library — and is exactly what
+`fallback` is for. Sixteen sites.
 
 ## Withdrawn claims
 

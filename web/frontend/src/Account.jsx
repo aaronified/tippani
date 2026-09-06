@@ -3,6 +3,7 @@ import { json, errText, coverImgURL, upload } from './api.js'
 import { Card, ErrorText, Field, FieldIconButton, GhostButton, IconDelete, IconKey, IconLogout, IconSwitchUser, IconUserPlus, InfoDot, MonoLabel, NameInput, StickerButton, Tooltip, useConfirm, IconClose } from './ui.jsx'
 import { PASSWORD_MAX, PASSWORD_MIN, passwordProblem } from './secret.js'
 import { t, tNodes } from './i18n.js'
+import { Face } from './characterRows.jsx'
 
 // The display name's ceiling. Not a security bound — just the width the greeting
 // and the user list can lay out without wrapping into two lines.
@@ -50,7 +51,10 @@ function AvatarRow({ user, onUser }) {
   return (
     <div className="flex items-center gap-4">
       <span className="user-chip" style={{ width: 56, height: 56, fontSize: 'var(--type-ui-22)' }} aria-hidden="true">
-        {user.avatar_path ? <img src={coverImgURL(user.avatar_path)} alt="" /> : (user.username || '?').trim().charAt(0).toLowerCase()}
+        {/* The initial is this chip's stand-in — an account is not a person in
+            the library — but whether there IS a picture is `Face`'s to say. */}
+        <Face src={user.avatar_path} url={coverImgURL} name={user.username || ''} className="face-slot"
+          fallback={<>{(user.username || '?').trim().charAt(0).toLowerCase()}</>} />
       </span>
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-2">
@@ -251,7 +255,8 @@ function SwitchAccount({ me }) {
               question about a thing you cannot see. */}
           <p className="switch-from">
             <span className="user-chip" style={{ width: 24, height: 24, fontSize: 'var(--type-ui-11)' }} aria-hidden="true">
-              {me?.avatar_path ? <img src={coverImgURL(me.avatar_path)} alt="" /> : (me?.username || '?').trim().charAt(0).toLowerCase()}
+              <Face src={me?.avatar_path} url={coverImgURL} name={me?.username || ''} className="face-slot"
+                fallback={<>{(me?.username || '?').trim().charAt(0).toLowerCase()}</>} />
             </span>
             <span>
               {tNodes('account.switch.leaving', { name: <b>{me?.username}</b> })}
@@ -525,7 +530,8 @@ export function UserManagement({ me }) {
           return (
             <li key={u.id} className="flex flex-wrap items-center gap-x-3 gap-y-1.5 py-2" style={{ borderBottom: '1px solid var(--line)' }}>
               <span className="user-chip" style={{ width: 30, height: 30, fontSize: 'var(--type-ui-13)' }} aria-hidden="true">
-                {u.avatar_path ? <img src={coverImgURL(u.avatar_path)} alt="" /> : (u.username || '?').trim().charAt(0).toLowerCase()}
+                <Face src={u.avatar_path} url={coverImgURL} name={u.username || ''} className="face-slot"
+                  fallback={<>{(u.username || '?').trim().charAt(0).toLowerCase()}</>} />
               </span>
               <span style={{ fontWeight: 600 }}>{u.username}</span>
               {u.is_admin && (

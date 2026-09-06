@@ -24,6 +24,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render } from '@testing-library/react'
 
 import { Face, PortraitBlock } from '../../src/characterRows.jsx'
+import { PersonPortrait } from '../../src/credits.jsx'
 
 afterEach(() => cleanup())
 
@@ -104,6 +105,28 @@ describe('a face whose picture fails to arrive', () => {
     fireEvent.error(img(c))
     expect(c.innerHTML, 'a slot that draws nothing without a picture drew something with a broken one')
       .toBe('')
+  })
+
+  it('and a slot that is a record’s FACE says so, where an ornament does not', () => {
+    // TWO KINDS OF SLOT, ONE COMPONENT. The round portrait is an ornament beside
+    // a heading and a RECORD'S FACE on a Stats tile, whose own comment says why
+    // the gap is wrong there: "a name alone in a grid of covers reads as the one
+    // tile whose art failed to load".
+    //
+    // AND THE FIRST ATTEMPT AT THIS DID NOT WORK. The caller asked for the
+    // silhouette by passing `fallback={undefined}` — and a destructuring default
+    // fires on `undefined`, so it got the `null` it was trying to avoid and the
+    // tile drew the gap anyway, under a row marked FIXED. A boolean cannot be
+    // defaulted out from under its caller, which is why this is one.
+    const person = { image_path: 'gone.jpg', name: 'Delia Surridge' }
+    const orn = render(<PersonPortrait person={person} />).container
+    fireEvent.error(orn.querySelector('img'))
+    expect(orn.innerHTML, 'an ornament drew something where the design draws nothing').toBe('')
+
+    const facing = render(<PersonPortrait person={person} ornament={false} />).container
+    fireEvent.error(facing.querySelector('img'))
+    expect(facing.querySelector('svg'), 'a record’s face drew the gap an ornament leaves')
+      .toBeTruthy()
   })
 
   it('and a replacement picture gets its own chance', () => {

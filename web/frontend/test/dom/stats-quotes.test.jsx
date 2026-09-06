@@ -12,15 +12,17 @@
 // renders — a render test passed throughout.
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 
 let STATS
+let CHARACTERS
 
 vi.mock('../../src/api.js', async (orig) => ({
   ...(await orig()),
   json: vi.fn(async (method, path) => {
     if (path.startsWith('/stats')) return { ok: true, data: STATS } // the page sends ?offset= for the streak
     if (path.startsWith('/people')) return { ok: true, data: { people: [] } }
+    if (path.startsWith('/characters')) return { ok: true, data: { characters: CHARACTERS } }
     return { ok: true, data: {} }
   }),
 }))
@@ -30,6 +32,7 @@ const { default: StatsPage } = await import('../../src/StatsPage.jsx')
 const kind = (over = {}) => ({ count: 0, top: [], most_remembered: null, most_forgotten: null, ...over })
 
 beforeEach(() => {
+  CHARACTERS = []
   STATS = {
     books: 4, annotations: 30, movies: 3, dialogues: 20, quotes: 7,
     tags: 5, favorites: 2, genres: 6,
@@ -45,6 +48,7 @@ beforeEach(() => {
       // somebody you quote. `people` replaces it: every credited human in one
       // row each, whatever role they were credited in.
       people: kind({ count: 4, top: [{ name: 'Bose', works: 3, quotes: 5, remembered: 1, forgetting: 0, probably_forgotten: 0, unseen: 4 }] }),
+      characters: kind({ count: 1, top: [{ name: 'Delia Surridge', works: 1, quotes: 3, remembered: 1, forgetting: 0, probably_forgotten: 0, unseen: 2 }] }),
     },
   }
 })
@@ -114,6 +118,25 @@ describe('the superlatives', () => {
     await page()
     expect(screen.getByText('Most quoted person')).toBeTruthy()
     expect(screen.queryByText('Bose')).toBeNull()
+  })
+
+  it('draws a character’s still without falling over', async () => {
+    // A ROW WITH A PICTURE IS A DIFFERENT BRANCH FROM A ROW WITHOUT ONE, and
+    // nothing had ever rendered it: the fixture this suite runs on has no
+    // artwork, so the branch that draws a still went untested and shipped
+    // referring to an identifier that does not exist in its scope. It threw the
+    // moment a character had one — which is the very case the change was made
+    // for, and worse than the torn page it replaced.
+    //
+    // ASKED OF THE ROW, NOT OF THE PICTURE: what would have caught it is
+    // rendering the branch at all.
+    CHARACTERS = [{ id: 1, name: 'Delia Surridge', image_path: 'chars/delia.jpg' }]
+    await page()
+    // The card shows one breakdown at a time and opens on authors, so the kind
+    // has to be chosen the way a reader chooses it.
+    fireEvent.change(screen.getByLabelText(/breakdown/i), { target: { value: 'characters' } })
+    expect(await screen.findByText('Delia Surridge'), 'the character row did not render').toBeTruthy()
+    await waitFor(() => expect(document.querySelector('.stat-face-round img')).toBeTruthy())
   })
 
   it('offers the superlatives that were asked for', async () => {
