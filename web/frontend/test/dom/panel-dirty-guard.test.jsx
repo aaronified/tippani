@@ -112,6 +112,31 @@ describe('with nothing unsaved', () => {
   })
 })
 
+// AND THE PANEL DRAWS ITS OWN WAY BACK UP, which is a fact about the RENDER and
+// not about the hook. The hook's own cases live in `focus-owns-the-scroll`; this
+// one exists because the element went missing from `PanelHost` in the commit that
+// described it, and every one of those hook cases stayed green — a rule tested
+// only where it is decided is a rule nobody checks is wired.
+describe('a panel that can be scrolled', () => {
+  it('carries a key back to its own top', async () => {
+    render(<Harness dirty={0} />)
+    await screen.findByText('the panel body')
+    expect(panel().querySelector('.to-top'),
+      'the panel draws no way back up, so a long sheet is a one-way flick')
+      .toBeTruthy()
+  })
+
+  it('and it is the panel\'s own, not the page\'s', async () => {
+    render(<Harness dirty={0} />)
+    await screen.findByText('the panel body')
+    // The page's key is fixed to the viewport corner; this one belongs to the
+    // card, so it has to be inside it.
+    const keys = [...document.querySelectorAll('.to-top')]
+    expect(keys.length, 'more than one key is on screen, offering two surfaces').toBe(1)
+    expect(panel().contains(keys[0]), 'the key is outside the panel it answers to').toBe(true)
+  })
+})
+
 describe('with work at stake', () => {
   it('asks instead of closing when you click outside', async () => {
     render(<Harness dirty={2} />)

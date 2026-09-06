@@ -127,6 +127,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   now, with the top corners rounded and a strip of the page left visible above it, and a
   drag back down closes it — the gesture every other sheet on the device answers to.
   Anything you have typed and not saved still asks before it goes.
+- **A long sheet on a phone has a way back to its top.** The key that does that answered
+  to the page and drew over the sheet; it belongs to whatever you are actually scrolling,
+  so a panel now carries its own and the page's waits until the page is yours again.
 - **A row of covers or faces sits in its shelf rather than against the top of it.** The
   cast on a work's details and the works on a person's page both showed twice as much
   space under the artwork as over it.

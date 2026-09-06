@@ -240,9 +240,25 @@ try {
   // A film is therefore `beside` at 1440 where a book is `stacked`: same
   // component, same markup, different container — which is the whole claim the
   // collapse makes, measured rather than asserted.
+  // THE PACK'S OWN RULE, READ RATHER THAN REMEMBERED, because this table had two
+  // rows wrong and has never once passed. The wide artboard branches on the
+  // width and on nothing else:
+  //
+  //   `heroSplit: twoCol || phone` (`book-detail-wide.dc.html:4644-4646`) — a
+  //   column when either holds, a row otherwise — with `const phone = W < 700`
+  //   (`:1596`) and `twoCol = W >= 1180`.
+  //
+  // So stacked at 1440, beside at 900, and the KIND has nothing to do with it:
+  // "a film is beside at 1440 where a book is stacked" was this file's own
+  // sentence and the artboard does not say it.
+  //
+  // AND THE PHONE IS THE PHONE ARTBOARD'S, which draws the board BESIDE the facts
+  // rather than above them — a 96px cover (`book-detail.dc.html:97`) in a 13px
+  // flex row (`:3268`). The two artboards genuinely differ below 700 and the one
+  // drawn for a phone wins there; `index.css` already says so at `.work-hero`.
   const ARRANGEMENTS = [
-    ['books', 1440, 'stacked'], ['books', 900, 'beside'], ['books', 390, 'stacked'],
-    ['movies', 1440, 'beside'], ['movies', 900, 'beside'], ['movies', 390, 'stacked'],
+    ['books', 1440, 'stacked'], ['books', 900, 'beside'], ['books', 390, 'beside'],
+    ['movies', 1440, 'stacked'], ['movies', 900, 'beside'], ['movies', 390, 'beside'],
   ]
   for (const [kind, w, want] of ARRANGEMENTS) {
     const label = kind === 'books' ? 'book-detail' : 'movie-detail'
@@ -282,8 +298,15 @@ try {
     if (a.arrangement !== want) {
       failures.push(`${kind} ${w}x900: the cover is ${a.arrangement} its facts, and here it should be ${want}`)
     }
-    if (a.coverW < 120 || a.coverW > 180) {
-      failures.push(`${kind} ${w}x900: the cover is ${a.coverW}px — the pack draws 132 and the frame derives at most 150`)
+    // TWO NUMBERS, BECAUSE THE PACK DRAWS TWO. 132 in its 300px column
+    // (`book-detail-wide.dc.html:4648`) and 96 on a phone
+    // (`book-detail.dc.html:97`) — "the board is an object beside the facts here,
+    // not the header itself", which is the reasoning `index.css` carries. The
+    // band round each is what the frame derives at the widths between.
+    const [floor, ceiling] = w < 700 ? [88, 110] : [120, 180]
+    if (a.coverW < floor || a.coverW > ceiling) {
+      failures.push(`${kind} ${w}x900: the cover is ${a.coverW}px, outside ${floor}-${ceiling} — ` +
+        `the pack draws ${w < 700 ? 96 : 132} at this width`)
     }
     if (a.overflowX > 0) {
       failures.push(`${kind} ${w}x900: the page scrolls ${a.overflowX}px sideways — something in the hero is wider than the window`)

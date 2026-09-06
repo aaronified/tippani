@@ -4349,7 +4349,7 @@ export function PanelHost({ stack }) {
   // AND THE WAY BACK UP THAT BODY. Given a target, the hook answers to that box
   // rather than to the document — and is not silenced by the overlay gate, which
   // is the page key's and would silence the surface actually in focus.
-  const { show: showUp, toTop: upToTop } = useBackToTop({ enabled: !!panel, target: bodyRef });
+  const { show: showUp, toTop: upToTop } = useBackToTop({ enabled: !!panel && phone, target: bodyRef });
   if (!panel) return null;
   // A panel that declares its own verb carries it in the head — Links' ＋. Only
   // ever the panel's OWN verb: the list is what is already there, and adding to
@@ -4481,10 +4481,14 @@ export function PanelHost({ stack }) {
         {/* THE KEY BELONGS TO THE SURFACE THAT SCROLLED, and a panel body is one:
             the owner's rule is that the chevron appears "when a long scroll surface
             is in focus and has been scrolled significantly down", and while a panel
-            is up the surface in focus is this one. Drawn INSIDE the panel rather than
-            at the viewport corner — the page's key is fixed there, and on a desk the
-            panel is a card in the middle of the screen with nothing of itself in that
-            corner to come back from. */}
+            is up the surface in focus is this one.
+
+            PHONE ONLY, exactly as the page's key is, and the first cut of this got
+            it wrong in a way worth recording: it rendered at every width and wrote
+            a paragraph about where it sits on a desk, where `.to-top` is
+            `display: none` and it has never drawn. A control argued into existence
+            at a width it cannot appear at is a comment, not a control. */}
+        <BackToTop show={showUp} dockHidden onClick={upToTop} />
       </div>
       {/* THE QUESTION, asked only when there is something to lose. It renders
           inside the panel's own scrim so it sits above it, and it registers with

@@ -51,6 +51,14 @@ const SOURCES = [
     .filter((f) => f.endsWith('.md'))
     .map((f) => join('docs/plans', f)),
   'docs/PLAN.md',
+  // AND THE BROWSER PROBES, which cite the pack more than any source file does:
+  // they exist to measure what an artboard draws, so their expectations ARE
+  // citations. `frame-scroll.mjs` had two of its six hero rows asserting a rule
+  // no artboard states, and the file that could have caught that was reading
+  // every directory but this one — K19 again, one directory over.
+  ...readdirSync(join(REPO, 'scripts', 'screenshots'))
+    .filter((f) => f.endsWith('.mjs'))
+    .map((f) => join('scripts/screenshots', f)),
 ]
 
 // ``literal` (`[file.dc.html]:N[-M]`)` — the convention, with the file optional.

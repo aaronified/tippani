@@ -118,6 +118,28 @@ describe('the ways out of a record', () => {
     expect(text, 'the record\'s IMDb link is not in the row').toMatch(/imdb/i)
   })
 
+  // ONE PILL PER DESTINATION. An id's pill opens the address the app BUILDS from
+  // it, and the reader can paste that same address into the links panel — so the
+  // two halves of the merged row can name one page twice, which is the standing
+  // rule ("a row says a thing once") broken by the merge that was meant to serve
+  // it. The ID wins: its pill carries the record's own number under the
+  // provider's mark, where the link's would carry a host.
+  it('draws one pill per destination, not one per way of storing it', async () => {
+    STORED = { ...BOOK, links: `${BOOK.links}\nhttps://books.google.com/books?vid=ISBN9780143108276` }
+    render(
+      <PanelHarness
+        panel={(stack) => workDetailsPanel(stack, { kind: 'book', item: STORED, onChanged: () => {}, onDelete: null })}
+      />,
+    )
+    await shown()
+    const urls = pills().map((el) => el.getAttribute('href')).filter(Boolean)
+    const dupes = urls.filter((u, i) => urls.indexOf(u) !== i)
+    expect(dupes, `the row draws ${dupes.length} address twice — the id and the link name one page`).toEqual([])
+    // And the survivor is the id, which is the half that carries the number.
+    const isbn = pills().find((el) => el.textContent.includes('9780143108276'))
+    expect(isbn, 'deduping took the id rather than the link').toBeTruthy()
+  })
+
   it('and an id still reads as an id — the mono voice, and the provider it opens', async () => {
     panel()
     await shown()

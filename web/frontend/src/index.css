@@ -6548,13 +6548,16 @@ html[data-theme="dark"] .mobile-dock-btn.is-accent {
   bottom: calc(env(safe-area-inset-bottom, 0px) + 62px);
 }
 .to-top[data-dock="away"] { bottom: calc(env(safe-area-inset-bottom, 0px) + 8px); }
-/* THE PANEL'S OWN KEY SITS IN THE PANEL. The page's is fixed to the viewport
-   corner, which is right for the page and wrong for a card in the middle of a
-   desk-sized screen: the corner then belongs to the scrim, and a key floating
-   there offers to scroll something that is not under it. `.tp-panel` is
-   positioned already — a sub-sheet draws inside it — so absolute is measured
-   from the panel's own foot. */
-.tp-panel > .to-top { position: absolute; right: 12px; }
+/* NO PLACEMENT OF ITS OWN FOR THE PANEL'S KEY, and the rule that used to be here
+   is worth the correction. It set `position: absolute` so the key would sit in
+   the panel rather than at the viewport corner, and argued the desk case at
+   length — on a desk the panel is a card in the middle of the screen, so the
+   corner belongs to the scrim. Every word of that was about a width where this
+   key does not draw at all: `.to-top` is `display: none` until the phone query
+   below, which is the pack's scoping and the page key's ("a desk has a scrollbar
+   to drag, a Home key, and a window that is usually showing a third of the page
+   at once"). On a phone the panel IS the bottom of the screen, so the viewport
+   corner is the panel's corner and fixed is already right. */
 .to-top.is-on { opacity: 1; transform: none; pointer-events: auto; }
 @media (hover: hover) {
   .to-top:hover { color: var(--ink); background: color-mix(in oklab, var(--ink) 8%, var(--card)); }

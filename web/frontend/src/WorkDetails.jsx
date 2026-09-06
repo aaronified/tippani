@@ -1809,14 +1809,26 @@ function WorkIds({ item, specs, mediaType, busy, onSave, onOpenLinks }) {
   // THE LINKS THE READER ADDED, after the ids the app knows — the app's own
   // provider order first, then whatever was pasted, which is exactly the order
   // `linkRows` already puts them in on the panel behind the ＋.
-  const linked = linkRows(item.links).map((r) => ({
-    key: 'link:' + r.url,
-    slug: r.slug,
-    name: r.name,
-    url: r.url,
-    fallbackIcon: <IconGlobe size={13} />,
-    title: r.url,
-  }))
+  // ONE PILL PER DESTINATION, which is the row's whole claim. An id's pill opens
+  // the address the app BUILDS from it — `imdb_id`'s href is `providerURL('imdb',
+  // item)` — and a reader who pastes that same address into the links panel gets
+  // a stored link with the identical URL. Concatenated, the row then draws the
+  // page twice and says a thing twice, which is the standing rule this section
+  // was merged to serve.
+  //
+  // THE ID WINS, because it is the one carrying the record's own number: its pill
+  // reads `28677` under the provider's mark where the link's would read the host.
+  const taken = new Set(pills.map((x) => x.url).filter(Boolean))
+  const linked = linkRows(item.links)
+    .filter((r) => !taken.has(r.url))
+    .map((r) => ({
+      key: 'link:' + r.url,
+      slug: r.slug,
+      name: r.name,
+      url: r.url,
+      fallbackIcon: <IconGlobe size={13} />,
+      title: r.url,
+    }))
   return (
     <>
       {/* THE PENCIL IS ON THE HEAD, not a second control in the row. `Cast · N`
