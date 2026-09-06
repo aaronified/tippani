@@ -1043,6 +1043,15 @@ export function FavouriteTile({
   // reading Albert Einstein. The reasoning here was right and the value it read
   // was wrong — three lines apart.
   let collapsedSource = isUtterance ? (f.raw?.occasion || '') : ''
+  // WHETHER ANY CHIP DRAWS, which two things below depend on: `character_images`
+  // carries an entry per name on the line whether or not a picture or a cast row
+  // was found, so the chips cover every character the line names, or there are
+  // none at all.
+  const hasChips = f.raw?.character_images?.length > 0
+  // AND WHAT THE CHIPS DO NOT ALREADY SAY — see the expanded credit row below,
+  // and `creditsNotOnChips` for why the film frame and this tile ask it the same
+  // way rather than each keeping its own reading of one rule.
+  const creditNames = creditsNotOnChips(peopleNames, f.raw?.character_images, f.raw?.speaker_cast, seps)
   // The EXPANDED line keeps the locator, which is the fact the open tile is open
   // FOR — where in the work this came from. Never the people: the chips below
   // carry the same names with their portraits and their way in.
@@ -1052,16 +1061,8 @@ export function FavouriteTile({
   // so an opened tile read "V FOR VENDETTA · V / WILLIAM ROOKWOOD" directly under
   // a header naming the film and directly over a chip naming the character. The
   // locator here is the episode and the timestamp; the title belongs to the
-  // header and the character to its chip.
-  //
-  // THE CHARACTER COMES BACK WHERE NO CHIP DRAWS. `character_images` carries an
-  // entry per name on the line whether or not a picture or a cast row was found,
-  // so chips cover every named character or there are none at all — and on a line
-  // that names one with the list absent, this text is the only place they appear.
-  const hasChips = f.raw?.character_images?.length > 0
-  // WHAT THE CHIPS DO NOT ALREADY SAY — see the expanded credit row below, and
-  // `creditsNotOnChips` for why the film frame and this tile ask it the same way.
-  const creditNames = creditsNotOnChips(peopleNames, f.raw?.character_images, f.raw?.speaker_cast, seps)
+  // header and the character to its chip — which comes back where no chip draws,
+  // because then this text is the only place that character appears.
   //
   // AN UTTERANCE KEEPS `f.meta` UNTOUCHED: occasion, date, place and medium are
   // its locator — there is no work behind it for a header to have named.
