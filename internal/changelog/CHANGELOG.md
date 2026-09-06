@@ -110,8 +110,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - **The two counts on a character's page line up with each other.** `11 QUOTES` and
-  `1 SCENE` each centred itself inside its own box, so the glyphs, the numbers and the
-  words all sat at different places.
+  `1 SCENE` each centred itself inside its own box, and one of the two glyphs was
+  drawing half again the size it had been asked for — so the glyphs, the numbers and
+  the words all sat at different places. Four drawings across the app were ignoring the
+  size they were given; they all take it now.
 - **A row on that page says a thing once.** The per-work description had its scope in
   the label, again underneath it, and a third time in place of its value — long enough
   that the label itself was cut mid-word. And a character with no second name no longer

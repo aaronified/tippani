@@ -7302,7 +7302,7 @@ const iconStroke = { width: ICON_SIZE, height: ICON_SIZE, viewBox: "0 0 24 24", 
 // drawing stays the pack's, and icons.test.jsx holds the 0.82 for the whole rail.
 const iconFill = { width: ICON_SIZE, height: ICON_SIZE, viewBox: "0 0 256 256", fill: "currentColor", stroke: "none", "aria-hidden": "true" }
 
-export function IconBack() { return <svg {...iconStroke}><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg> }
+export function IconBack({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg> }
 export function IconFilter() { return <svg {...iconStroke}><path d="M22 3H2l9 9v9l4-2v-7z"/></svg> }
 // IconSort — three rules of falling length with a down arrow beside them: the order
 // of a list, and the direction it runs in. An OUTLINE, because it names a job rather
@@ -7315,7 +7315,7 @@ export function IconExport() { return <svg {...iconStroke}><path d="M12 3v12"/><
 // prop on the floor. A 24px pencil beside a 15px word is the wrong picture, and
 // `size={16}` written at the call site made it look answered.
 export function IconEdit({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><path d="M17 3l4 4L7 19H3v-4z"/></svg> }
-export function IconDelete() { return <svg {...iconStroke}><path d="M3 6h18"/><path d="M8 3V2h8v1"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg> }
+export function IconDelete({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><path d="M3 6h18"/><path d="M8 3V2h8v1"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg> }
 // SIZED BY THE CALLER, and "1em" is a size. A chip's remove key and a dashed add
 // key are drawn at the scale of the words beside them, not at the 24px an icon
 // button uses — which is the whole reason five of these were still typed
@@ -7421,9 +7421,9 @@ export function IconSearchGlobe() {
 // the digits "66", which is why they were filled to begin with; the bubble is
 // stroked like every other glyph, so the icon carries one weight and one fill in
 // the places each belongs.
-export function IconQuote() {
+export function IconQuote({ size = ICON_SIZE }) {
   return (
-    <svg {...iconStroke}>
+    <svg {...iconStroke} width={size} height={size}>
       <path d="M6.5 4.5h11a3 3 0 0 1 3 3v7a3 3 0 0 1-3 3h-6.2L7 20.9v-3.4h-.5a3 3 0 0 1-3-3v-7a3 3 0 0 1 3-3z" />
       <path d="M8.3 14h1.9l1.2-2.6V8H7.4v3.4h1.8L8.3 14Z" fill="currentColor" stroke="none" />
       <path d="M13.5 14h1.9l1.2-2.6V8h-4v3.4h1.8L13.5 14Z" fill="currentColor" stroke="none" />
@@ -7480,7 +7480,7 @@ export function IconLink() { return <svg {...iconStroke}><path d="M10 13.5a3.5 3
 // somewhere to arrive.
 export function IconMetadata() { return <svg {...iconStroke}><rect x="3.5" y="11" width="17" height="9.5" rx="2.5"/><path d="M12 3v5.6"/><path d="m9 5.8 3 3 3-3"/><path d="M7.5 15h9"/><path d="M7.5 18h5"/></svg> }
 export function IconMenu() { return <svg {...iconStroke}><path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h12"/></svg> }
-export function IconCheck() { return <svg {...iconStroke}><path d="M5 13l4 4L19 7"/></svg> }
+export function IconCheck({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><path d="M5 13l4 4L19 7"/></svg> }
 export function IconClose({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><path d="M6 6l12 12M18 6 6 18"/></svg> }
 // The two in-progress marks, drawn in the same ink-stroke hand as the rest: an
 // open book for a book on the go, a play triangle for a film or show. These are
