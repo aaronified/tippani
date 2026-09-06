@@ -23,7 +23,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, fireEvent, render } from '@testing-library/react'
 
-import { Face } from '../../src/characterRows.jsx'
+import { Face, PortraitBlock } from '../../src/characterRows.jsx'
 
 afterEach(() => cleanup())
 
@@ -65,6 +65,20 @@ describe('a face whose picture fails to arrive', () => {
     fireEvent.error(img(c))
     expect(c.firstChild.className, 'the stand-in is drawn without the plate every other one has')
       .toContain('is-empty')
+  })
+
+  it('and the character page the owner named draws it too', () => {
+    // NOT A TEST OF `Face` BUT OF THE SITE. `Face` having the fallback says
+    // nothing about whether a screen CALLS it — reverting three converted sites
+    // once left the whole suite green but for one assertion about a class name.
+    // This is the screen the owner named as the model: "as used in the actual
+    // delia sturridge character page".
+    const { container } = render(<PortraitBlock src="gone.jpg" name="Delia Surridge" px="" from="" actions={null} />)
+    const shot = container.querySelector('img')
+    expect(shot, 'the portrait block drew no picture at all').toBeTruthy()
+    fireEvent.error(shot)
+    expect(container.querySelector('img'), 'the failed portrait is still on the screen').toBeNull()
+    expect(container.querySelector('svg'), 'nothing stood in for the failed portrait').toBeTruthy()
   })
 
   it('and a replacement picture gets its own chance', () => {

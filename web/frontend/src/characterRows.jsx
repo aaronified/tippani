@@ -114,7 +114,7 @@ export function ScreenHead({ title, crumb, glyph, art, artKind, scopeTitle }) {
 // `personImgURL`, a work's art under `coverImgURL`, and an already-built address
 // under neither. What they must NOT keep their own copy of is the fallback, which
 // is why it lives here.
-export function Face({ src, name, className = 'cs-face', url = coverImgURL, title, onLoad }) {
+export function Face({ src, name, className = 'cs-face', url = coverImgURL, title, onLoad, loading = 'lazy', fallback, style }) {
   const [broken, setBroken] = useState(false)
   const path = String(src || '')
   // A NEW PATH DESERVES ITS OWN CHANCE. Without this a row that fails once keeps
@@ -128,11 +128,21 @@ export function Face({ src, name, className = 'cs-face', url = coverImgURL, titl
   // arrive drew an unstyled glyph in a row of styled ones, which is a second
   // way of saying the same thing the fallback exists to stop. The one place
   // that knows whether a stand-in is on the screen is the thing drawing it.
+  // WHAT STANDS IN IS THE CALLER'S, WHERE IT GENUINELY DIFFERS. Most slots want
+  // the silhouette — a person, unphotographed — and that is the default. A few
+  // are ORNAMENTS that draw nothing when there is no picture: a portrait beside a
+  // group heading, the thumbnail next to "remove the picture". Giving those a
+  // glyph would put a face where the design draws none, so they pass `null` and
+  // a failed picture leaves the same gap an absent one does. What they may NOT do
+  // is keep their own idea of when a picture has failed, which is the whole point
+  // of this function.
+  const stand = fallback === undefined ? <Silhouette name={name} /> : fallback
+  if (empty && stand === null) return null
   return (
-    <span className={empty ? `${className} is-empty` : className} title={title}>
+    <span className={empty ? `${className} is-empty` : className} title={title} style={style}>
       {empty
-        ? <Silhouette name={name} />
-        : <img src={url(path)} alt="" loading="lazy" onError={() => setBroken(true)} onLoad={onLoad} />}
+        ? stand
+        : <img src={url(path)} alt="" loading={loading} onError={() => setBroken(true)} onLoad={onLoad} />}
     </span>
   )
 }
@@ -180,6 +190,12 @@ export function PortraitBlock({ src, name, px, soft, from = '', actions, editor 
         src={src}
         name={name}
         url={(x) => x}
+        // EAGER, BECAUSE THIS ONE IS MEASURED. `loading="lazy"` is right for a
+        // face in a list of ninety and wrong for the one picture on the screen
+        // whose dimensions the block prints: a deferred load defers the
+        // measurement, and the caption sits on the caller's guess until the
+        // reader scrolls something that is already in view.
+        loading="eager"
         onLoad={(e) => setDim({ w: e.target.naturalWidth, h: e.target.naturalHeight })}
       />
       <span className="cs-portrait-side">

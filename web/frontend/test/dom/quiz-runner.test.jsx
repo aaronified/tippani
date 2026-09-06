@@ -640,7 +640,17 @@ describe('an option that is more than one person', () => {
     render(<QuizRunner mode="daily" cards={[who()]} />)
     await waitFor(() => expect(facesIn(/Le Guin & Stanisław Lem/).length).toBe(2))
     const btn = screen.getAllByText(/Le Guin & Stanisław Lem/).map((el) => el.closest('button')).find(Boolean)
-    const discs = [...btn.querySelectorAll('img')].map((img) => img.parentElement)
+    // THE DISC IS WHATEVER CARRIES THE STACKING, found by walking up from the
+    // picture rather than by counting wrappers. A portrait is drawn by a shared
+    // component now, which put one more span between the img and the disc — and
+    // an assertion pinned to `parentElement` reported a layout regression where
+    // there was none, on a cluster that draws exactly as it did.
+    const disc = (img) => {
+      let n = img
+      while (n && !n.style?.zIndex) n = n.parentElement
+      return n
+    }
+    const discs = [...btn.querySelectorAll('img')].map(disc)
     // The cluster the rest of the app draws: the second disc is pulled back over
     // the first, and the first keeps the higher z-index.
     expect(discs[0].style.marginLeft).toBe('0px')

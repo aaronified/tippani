@@ -1849,7 +1849,7 @@ export function CharactersConsole({ rows = null, onReload = null }) {
                       Same control, same class, same panel the pencil opens. */}
                   <td>
                     <span className="char-name">
-                      {c.image_path && <img className="char-name-face" src={coverImgURL(c.image_path)} alt="" loading="lazy" />}
+                      <Face src={c.image_path} url={coverImgURL} fallback={null} name={c.name || ''} className="char-name-face" />
                       <button
                         type="button"
                         className="tp-link"
@@ -1983,7 +1983,7 @@ function DupCard({ group, onMerged }) {
         {group.map((p) => (
           <label key={p.id} className="flex items-center gap-2" style={{ cursor: 'pointer' }}>
             <input type="radio" name={`dup-${group.map((x) => x.id).join('-')}`} checked={keep === p.id} onChange={() => setKeep(p.id)} />
-            {p.image_path && <img className="person-dup-face" src={personImgURL(p.image_path)} alt="" loading="lazy" />}
+            <Face src={p.image_path} url={personImgURL} fallback={null} name={p.name || ''} className="person-dup-face" />
             <span>{p.name}</span>
             {/* HOW MUCH HANGS OFF EACH, because that is what the choice is about:
                 folding the record with 12 books into the one with none loses
@@ -2392,7 +2392,11 @@ function PersonRow({ p, busy, onOpen, onPortrait, onSearch, onFetch, mobile = fa
         <span className="person-name-cell">
           <button
             type="button"
-            className={'person-face-btn' + (face ? '' : ' is-empty')}
+            // NO `is-empty` FROM THE PATH. Nothing reads it any more: the plate
+            // and the colour are keyed on the stand-in itself, because a picture
+            // that failed to arrive is a row with no picture and a class set from
+            // the stored path cannot know that.
+            className="person-face-btn"
             aria-label={t('metadata.people.portrait.aria', { name: p.name })}
             onClick={onPortrait}
           >

@@ -134,7 +134,14 @@ describe('the two doors on a row', () => {
     expect(face.querySelector('img')).toBeTruthy()
     // A record with no portrait still has the control — that is the row that needs
     // it — and it says so by being empty rather than by disappearing.
-    expect(within(row('Oleg Basilashvili')).getByLabelText(/Portrait for Oleg/).className).toContain('is-empty')
+    //
+    // ASKED OF WHAT IS DRAWN, not of a class the caller sets from the stored
+    // path: that class could not tell an absent picture from one whose file has
+    // gone, which is the whole reason it stopped being set. A stand-in on the
+    // screen is a silhouette, and a silhouette is an svg.
+    const empty = within(row('Oleg Basilashvili')).getByLabelText(/Portrait for Oleg/)
+    expect(empty.querySelector('svg'), 'the empty portrait draws no stand-in').toBeTruthy()
+    expect(empty.querySelector('img'), 'the empty portrait drew a picture').toBeNull()
   })
 })
 

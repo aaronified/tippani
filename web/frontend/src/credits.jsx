@@ -18,6 +18,7 @@
 // panel.
 import { useEffect, useRef, useState } from 'react'
 import { coverImgURL, json } from './api.js'
+import { Face } from './characterRows.jsx'
 
 export function personImgURL(path) {
   return coverImgURL(path)
@@ -266,12 +267,25 @@ export function usePortraitFill(kind, names, people, onFilled) {
 // PersonPortrait — the small round portrait for a group-by heading (renders
 // nothing when there's no saved image).
 export function PersonPortrait({ person, size = 30 }) {
+  // AN ORNAMENT DRAWS NOTHING WHERE THERE IS NOTHING, and a picture that fails to
+  // arrive is nothing — so `fallback={null}` rather than a silhouette, which
+  // would put a face beside a heading the design gives none. What this may NOT do
+  // is decide for itself when a picture has failed: that is `Face`'s, once, for
+  // every slot in the app. This is the widest of them — the round face on Home,
+  // on Quotes, on a film's rows, in search results and in the quiz card — and it
+  // was the site the claim "all six now" was wrong about.
   if (!person?.image_path) return null
   return (
-    <img
-      src={personImgURL(person.image_path)}
-      alt=""
-      style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--ink-border)', flex: 'none' }}
+    <Face
+      src={person.image_path}
+      url={personImgURL}
+      fallback={null}
+      name={person.name || ''}
+      className="person-portrait-round"
+      // The size is the caller's — 24 in a stat row, 28 in a search result, 30
+      // beside a heading — so it stays on the element rather than becoming three
+      // classes for one measurement.
+      style={{ width: size, height: size, flex: 'none' }}
     />
   )
 }

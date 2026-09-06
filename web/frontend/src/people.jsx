@@ -942,10 +942,14 @@ function PersonView({ person, name, onEdit, onDelete, onPractise }) {
         aria-label={t('people.photo.zoom.aria', { name })}
         style={{ width: 104, padding: 0, background: 'none', border: 'none', cursor: 'zoom-in' }}
       >
-        <img
-          src={personImgURL(person.image_path)}
-          alt={name}
-          style={{ display: 'block', width: '100%', aspectRatio: '7 / 9', objectFit: 'cover', borderRadius: 8, border: '1px solid var(--ink-border)' }}
+        {/* `fallback={null}`: this button exists to ZOOM a photograph, and a
+            silhouette that opens a lightbox of nothing is worse than the gap. */}
+        <Face
+          src={person.image_path}
+          url={personImgURL}
+          fallback={null}
+          name={name}
+          className="person-photo-zoom"
         />
       </button>
     </Tooltip>
@@ -1184,7 +1188,9 @@ function PersonForm({ kind, name, initial, onCancel, onSaved, onRenamed }) {
       {confirmDialog}
       {initial?.image_path && !clearImage && (
         <div className="flex items-center gap-3">
-          <img src={personImgURL(initial.image_path)} alt="" className="w-16 rounded object-cover" style={{ aspectRatio: '3 / 4' }} />
+          {/* The thumbnail beside "remove the picture" — an ornament, so a
+              picture that is not there leaves the same gap either way. */}
+          <Face src={initial.image_path} url={personImgURL} fallback={null} name="" className="person-form-thumb" />
           <button
             type="button"
             className="tp-link tp-link-danger tp-link-icon"

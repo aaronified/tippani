@@ -2848,6 +2848,20 @@
     padding: 6px 4px; border-bottom: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
   }
   .cast-row:last-child { border-bottom: none; }
+  /* THE PORTRAIT SLOTS `Face` DRAWS, whose sizing used to sit inline on the img
+     it replaced. The wrapper is the box; the picture fills it. Each of these
+     draws NOTHING when there is no picture — they are ornaments, and the design
+     gives them no glyph — so there is no `.is-empty` rule to write. */
+  .person-portrait-round { display: block; border-radius: 50%; overflow: hidden; border: 1px solid var(--ink-border); }
+  .person-portrait-round img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .person-photo-zoom { display: block; width: 100%; }
+  .person-photo-zoom img {
+    display: block; width: 100%; aspect-ratio: 7 / 9; object-fit: cover;
+    border-radius: 8px; border: 1px solid var(--ink-border);
+  }
+  .person-form-thumb { display: block; width: 4rem; }
+  .person-form-thumb img { display: block; width: 100%; aspect-ratio: 3 / 4; object-fit: cover; border-radius: 4px; }
+
   .cast-face {
     width: 34px; height: 42px; flex: none; object-fit: cover;
     border-radius: 5px; border: 1px solid var(--ink-border);
@@ -2873,7 +2887,11 @@
     line-height: 0; border-radius: 5px; cursor: pointer;
   }
   .cast-face-btn:disabled { cursor: default; opacity: 0.55; }
-  .cast-face-btn .cast-face { display: block; }
+  /* NOT `.cast-face` FLATLY. `.cast-face-btn .cast-face` and `.cast-face.is-empty`
+     tie on specificity, so whichever is written second wins — and this one was,
+     which silently killed the `display: grid` that centres the stand-in inside
+     its plate. Scoped to the half that actually needs it. */
+  .cast-face-btn .cast-face:not(.is-empty) { display: block; }
   .cast-face-mark {
     position: absolute; display: flex; align-items: center; justify-content: center;
     color: var(--soft); pointer-events: none;
@@ -8433,6 +8451,10 @@ html[data-theme="dark"] .board-cover {
 /* A character's chosen face beside their name in the metadata list. Small, and
    only where the record has one — see the call site. */
 .char-name { display: inline-flex; align-items: center; gap: 7px; min-width: 0; }
+/* The box, with the picture filling it — `Face` draws both halves inside a
+   span of its own so a picture that fails to arrive can be told apart from
+   one that is not there. */
+.char-name-face > img { display: block; width: 100%; height: 100%; object-fit: cover; border-radius: 2px; }
 .char-name-face {
   flex: none; width: max(20px, 1.5em); aspect-ratio: 2 / 3; object-fit: cover;
   border-radius: 3px; border: 1px solid var(--ink-border);
@@ -8479,6 +8501,10 @@ html[data-theme="dark"] .board-cover {
 .person-role-mark { display: inline-flex; align-items: center; color: var(--soft); margin-right: 6px; }
 .person-role-mark:last-child { margin-right: 0; }
 .person-role-mark svg { display: block; }
+/* The box, with the picture filling it — `Face` draws both halves inside a
+   span of its own so a picture that fails to arrive can be told apart from
+   one that is not there. */
+.person-dup-face > img { display: block; width: 100%; height: 100%; object-fit: cover; border-radius: 2px; }
 .person-dup-face {
   width: max(20px, 1.5em); aspect-ratio: 3 / 4; object-fit: cover;
   border-radius: 3px; border: 1px solid var(--ink-border);

@@ -38,7 +38,6 @@ import { buildProviderLink, detectProviderLink, isOrganisation, linkLine, person
 // dynamically and nothing else at all, which is the reason its header gives for
 // the dynamic import. It stays a leaf; this is allowed to lean on it.
 import { useSearchDoor, useWorkDoor } from './personOpen.jsx'
-import { Silhouette } from './silhouette.jsx'
 import {
   ConfirmDialog,
   FormModal,
