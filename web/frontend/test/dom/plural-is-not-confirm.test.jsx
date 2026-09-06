@@ -75,19 +75,70 @@ const LIST_WIDE = [
   ['Library.jsx', "book.select.menu.label"],
 ]
 
+// matchEnd — where the thing that opens at `i` closes.
+//
+// `{` balances against `}`. `<` is a JSX opening tag, which ends at the first `>`
+// OUTSIDE any braces — so an arrow function in an `onClick={() => …}` cannot end
+// it, which is the only `>` that turns up inside one of these.
+function matchEnd(text, i) {
+  if (text[i] === '{') {
+    let depth = 0
+    for (let j = i; j < text.length; j++) {
+      if (text[j] === '{') depth++
+      else if (text[j] === '}' && --depth === 0) return j
+    }
+    return -1
+  }
+  let depth = 0
+  for (let j = i + 1; j < text.length; j++) {
+    if (text[j] === '{') depth++
+    else if (text[j] === '}') depth--
+    else if (text[j] === '>' && depth === 0) return j
+  }
+  return -1
+}
+
+// declarationAround — the control a name belongs to, taken by balancing outward
+// from the name until a span is reached that also DRAWS something.
+//
+// WHY NOT A WINDOW. This read 400 characters either side of the key, which is a
+// guess at how these three controls happen to be written today: a prop reordered
+// or a comment added moves the glyph out of range and the case passes on a
+// control it stopped reading. Balancing outward asks for the declaration itself,
+// and stopping at the first span that names a glyph is what makes it the
+// CONTROL's declaration rather than the `{t(…)}` immediately around the key.
+function declarationAround(text, at) {
+  for (let i = at; i >= 0; i--) {
+    if (text[i] !== '<' && text[i] !== '{') continue
+    const end = matchEnd(text, i)
+    if (end <= at) continue
+    const span = text.slice(i, end + 1)
+    if (/<Icon[A-Za-z]*\b/.test(span)) return span
+  }
+  return ''
+}
+
 describe('the controls that act on a whole list', () => {
-  it.each(LIST_WIDE)('%s: %s does not draw the confirming tick or the way out', (file, key) => {
+  it.each(LIST_WIDE)('%s: %s draws the plural mark and not the confirming one', (file, key) => {
     const text = src(file)
     const at = text.indexOf(key)
     expect(at, `${key} is not in ${file} any more — this row needs re-pointing, not deleting`)
       .toBeGreaterThan(-1)
-    // The glyph and the name of a control are written within a few lines of each
-    // other in every one of these — an `icon=` prop beside its `ariaLabel`, or one
-    // menu-item object literal on one line.
-    const near = text.slice(Math.max(0, at - 400), at + 400)
-    expect(near, `${key} still draws <IconCheck />, which is what a form's Save draws`)
+    const decl = declarationAround(text, at)
+    // A CASE THAT CANNOT FIND ITS SUBJECT MUST SAY SO. An empty span passes every
+    // `not.toMatch` below it, which is how a guard goes on reporting green over a
+    // control it has stopped reading at all.
+    expect(decl, `no declaration drawing a glyph was found around ${key} in ${file}`)
+      .not.toBe('')
+    expect(decl, `${key} still draws <IconCheck />, which is what a form's Save draws`)
       .not.toMatch(/<IconCheck\s*\/>|<IconCheck\s+size/)
-    expect(near, `${key} still draws <IconClose />, which is what closing a screen draws`)
+    expect(decl, `${key} still draws <IconClose />, which is what closing a screen draws`)
       .not.toMatch(/<IconClose\s*\/>|<IconClose\s+size/)
+    // AND THE HALF THAT WAS MISSING. Every assertion here was a NOT, so a
+    // list-wide control that drew no glyph at all — or drew some third mark
+    // nobody has ruled on — passed as though it had been fixed. The rule is that
+    // it wears a plural mark, so that is what is asked.
+    expect(decl, `${key} draws no plural mark, so nothing says the press is about every row`)
+      .toMatch(/<IconCheckAll\b|<IconCloseAll\b/)
   })
 })

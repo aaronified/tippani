@@ -51,7 +51,7 @@ import { t } from './i18n.js'
 import { IconGlobe, IconDelete, IconMerge, IconPlus, NavIcon } from './ui.jsx'
 import { GLYPH_NAME } from './identityLocal.jsx'
 import { mediumOf } from './identityScope.js'
-import { PROVIDERS, parseLinks } from './people.jsx'
+import { namedLinks } from './people.jsx'
 
 // THE GLOBE IS THE ART A GLOBAL SCOPE HAS, and its absence is the information:
 // every local scope wears the work's own cover in that slot, so a screen with no
@@ -86,28 +86,12 @@ function mediumCrumb(works) {
 // site's own mark. A link to a site the app knows keeps that mark; anything else
 // keeps its hostname, which is the only honest name for it.
 function linkPills(text) {
-  const { known, extra, labels } = parseLinks(text)
-  const out = []
-  // t(labelKey), NOT the key. PROVIDERS' middle column is the locale key that
-  // names the provider — its own header says so — and this read it as the name,
-  // so every recognised link drew a pill reading "vocab.source.tmdb.label".
-  // Visible only once a link existed to draw, which is why it survived the screen
-  // being built: the fixture had none.
-  for (const [slug, labelKey] of PROVIDERS) {
-    // THE READER'S NAME OUTRANKS THE PROVIDER'S. They typed it about this link;
-    // the provider's name is what the app knows when nobody has said.
-    if (known[slug]) out.push({ url: known[slug], slug, name: labels[known[slug]] || t(labelKey) })
-  }
-  for (const url of extra) {
-    let host = url
-    try {
-      host = new URL(url).hostname.replace(/^www\./, '')
-    } catch {
-      /* not a URL at all — show it as typed rather than dropping it */
-    }
-    out.push({ url, slug: '', name: labels[url] || host, fallbackIcon: GLOBE })
-  }
-  return out
+  // THE NAME IS `namedLinks`' TO DECIDE — one function for every screen that
+  // draws a link, per the directive in its own note. It answers the reader's name
+  // where they gave one, the provider's where the app knows the site, and the
+  // host otherwise, which is what pills want and is its default. All this screen
+  // adds is the mark a foreign site is drawn with.
+  return namedLinks(text).map((r) => (r.slug ? r : { ...r, fallbackIcon: GLOBE }))
 }
 
 const mediaBadge = (a) => {

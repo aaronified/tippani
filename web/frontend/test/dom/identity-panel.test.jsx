@@ -46,6 +46,7 @@ vi.mock('../../src/api.js', async (orig) => ({
 }))
 
 const { personPanel, characterPanel } = await import('../../src/identity.jsx')
+const { parseLinks } = await import('../../src/people.jsx')
 // The panel chrome, so the one case that presses commit presses the ✓ the app
 // actually draws — see inPanel below.
 const { PanelHost, usePanelStack } = await import('../../src/ui.jsx')
@@ -324,6 +325,33 @@ describe('a company gets the same page and different words', () => {
   })
 })
 
+describe("a person's works strip", () => {
+  it('places a work by the year it came out, not by the order the payload arrived', async () => {
+    // THE OTHER HALF OF THE JOINT. A person's strip is built by a DIFFERENT map
+    // from a character's — two shapes, two functions — so a guard on one of them
+    // says nothing about the other, which is the "similar things" directive's own
+    // failure case. `release-order.test.jsx` states the rule against hand-made
+    // tiles and the Go suite states that both reads carry a year; this asks the
+    // map between them, from the rendered screen, with a payload shaped like the
+    // server's.
+    PERSON = {
+      ...PERSON,
+      credits: [
+        { kind: 'book', work_id: 1, title: 'Deadhouse Gates', role: 'author', credit_as: '', year: 2000 },
+        { kind: 'book', work_id: 2, title: 'Dust of Dreams', role: 'author', credit_as: '', year: 2009 },
+        { kind: 'book', work_id: 3, title: 'Gardens of the Moon', role: 'author', credit_as: '', year: 1999 },
+      ],
+    }
+    const stack = { push: vi.fn(), open: vi.fn() }
+    render(body(personPanel(stack, { id: 7, name: PERSON.name })))
+    await screen.findByText(/^Gardens of the Moon$/)
+    const titles = [...document.querySelectorAll('.cs-tile-title')].map((n) => n.textContent)
+    expect(titles, 'the strip is in the order the payload arrived in').toEqual(
+      ['Gardens of the Moon', 'Deadhouse Gates', 'Dust of Dreams'],
+    )
+  })
+})
+
 describe('adding a link from an id', () => {
   // EVERY ONE OF THESE FAILED IN THE BROWSER AND PASSED IN THE SUITE, which is
   // why they are here as one block. The dialog was built, its unit tests covered
@@ -339,6 +367,51 @@ describe('adding a link from an id', () => {
     fireEvent.click(screen.getByText(/^Add link$/i))
     return screen.findByRole('dialog')
   }
+
+  // WHAT THE ＋ WRITES, on both records that have one.
+  //
+  // THE DIRECTIVE: "similar things should act similarly … A control drawn by one
+  // component on two screens has ONE behaviour." The ＋ on a work's Links took an
+  // optional name for the link; these two ＋s add to the SAME stored field on the
+  // same kind of record and did not. A name typed on the person screen was
+  // stored by a fetch and by the work's ＋, and there was no way to type one here
+  // — so the two controls disagreed about what adding a link means.
+  //
+  // ASKED OF THE WRITE AND NOT OF THE MARKUP: what reaches the server is the
+  // thing that lasts, and a box that collects a name nobody stores is the defect
+  // this is guarding against.
+  const addLink = async (panel, id, { url, name }) => {
+    const stack = { push: vi.fn(), open: vi.fn() }
+    render(body(panel(stack, { id, name: 'x' })))
+    await screen.findByText(/^Add link$/i)
+    fireEvent.click(screen.getByText(/^Add link$/i))
+    const dlg = await screen.findByRole('dialog')
+    fireEvent.change(within(dlg).getByLabelText(/^the address$/i), { target: { value: url } })
+    if (name) fireEvent.change(within(dlg).getByLabelText(/what to call it/i), { target: { value: name } })
+    await act(async () => { fireEvent.submit(dlg.querySelector('form')) })
+    const put = CALLS.filter(([m]) => m === 'PUT').pop()
+    return put?.[2]?.links || ''
+  }
+
+  it.each([
+    ['a person', () => personPanel, 7],
+    ['a character', () => characterPanel, 3],
+  ])('lets %s name the link it is adding, and stores the name beside it', async (_who, pick, id) => {
+    const links = await addLink(pick(), id, { url: 'https://example.org/essays', name: 'Their essays' })
+    expect(links, 'the address did not reach the record').toContain('https://example.org/essays')
+    expect(links, 'the name the reader typed was not stored').toContain('Their essays')
+    // Through the ONE writer of a stored link, so this screen and the work's ＋
+    // cannot disagree about the shape of the field they both read.
+    expect(parseLinks(links).labels['https://example.org/essays']).toBe('Their essays')
+  })
+
+  it.each([
+    ['a person', () => personPanel, 7],
+    ['a character', () => characterPanel, 3],
+  ])('and %s adding an unnamed link stores exactly the address, as it always did', async (_who, pick, id) => {
+    const links = await addLink(pick(), id, { url: 'https://example.org/essays', name: '' })
+    expect(links.trim().endsWith('https://example.org/essays'), `stored ${JSON.stringify(links)}`).toBe(true)
+  })
 
   it('shows which provider is chosen, and follows the choice', async () => {
     const dlg = await open(7)

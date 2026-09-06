@@ -360,14 +360,75 @@ export function parseLinks(text) {
   }
   for (const line of String(text || '').split('\n')) {
     const cut = line.indexOf(LINK_LABEL_SEP)
-    if (cut < 0) {
-      for (const tok of line.split(/\s+/).filter(Boolean)) take(tok, '')
-      continue
-    }
-    const url = line.slice(0, cut).trim()
-    if (url) take(url, line.slice(cut + 1).trim())
+    const head = cut < 0 ? line : line.slice(0, cut)
+    const label = cut < 0 ? '' : line.slice(cut + 1).trim()
+    // A LINE IS EVERY ADDRESS ON IT, WHETHER OR NOT A NAME FOLLOWS. `linkLine`
+    // writes one address per line, but this field is free text somebody types
+    // into and `a.com b.com` on one line has ALWAYS been two links — the reason
+    // the separator is a pipe and not a space, argued in the note above. Reading
+    // the whole head as one address turned both of them into a single token that
+    // is not a URL: two working links became one dead chip, and the name went
+    // with them. Split first, always; the name is what comes after.
+    const tokens = head.split(/\s+/).filter(Boolean)
+    // AND A NAME BELONGS TO THE ADDRESS IT SITS BESIDE. Spreading it over every
+    // token on the line would put one name on two different links, which is the
+    // renaming this design exists to prevent; dropping it would lose what the
+    // reader typed. The last token is the one the ` | Name` was written against.
+    tokens.forEach((tok, i) => take(tok, i === tokens.length - 1 ? label : ''))
   }
   return { known, extra, labels }
+}
+
+// hostOf — the only honest name for an address nobody has named. Falls back to
+// the token as typed, because a line that is not an address is still something
+// the reader put there.
+export function hostOf(url) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '')
+  } catch {
+    return String(url)
+  }
+}
+
+// namedLinks — WHAT A LINK IS CALLED, answered once for every screen that draws
+// one.
+//
+// THE REPO DIRECTIVE THIS EXISTS UNDER: "similar things should act similarly …
+// A control drawn by one component on two screens has ONE behaviour, and it
+// lives in one function that both screens call — not in a line each, which is
+// how one of them goes on being right while the other quietly stops." That is
+// exactly what happened here. Three screens drew a record's links and each
+// worked out the name itself: the work's Links rows and the global record's
+// pills both learned to prefer the reader's name, and a person's Details chips
+// never did — so a name typed on the person screen was stored, kept through a
+// fetch, and then not shown on the screen it was typed on.
+//
+// WHAT IS THE SAME EVERYWHERE, and is therefore in here: the reader's name
+// outranks whatever the app would have called it. They typed it about this link;
+// a provider's name is only what the app knows when nobody has said.
+//
+// WHAT GENUINELY DIFFERS IS PASSED IN. A screen drawing rows in a list calls an
+// unnamed foreign link "Web"; a screen drawing pills calls it by its host. That
+// is a real difference between the two surfaces, so it arrives as `web` rather
+// than as a second copy of the rule.
+//
+// `label` AND `name` ARE NOT THE SAME FIELD, and collapsing them is how a
+// rewrite of this field turns a provider's own name into a stored label. `name`
+// is what to DRAW. `label` is only ever what is STORED, so a caller that rejoins
+// the field writes back what was there.
+export function namedLinks(text, { web = hostOf } = {}) {
+  const { known, extra, labels } = parseLinks(text)
+  return [
+    ...PROVIDERS.filter(([slug]) => known[slug]).map(([slug, labelKey]) => ({
+      url: known[slug],
+      slug,
+      label: labels[known[slug]] || '',
+      name: labels[known[slug]] || t(labelKey),
+    })),
+    ...extra.map((url) => ({
+      url, slug: '', label: labels[url] || '', name: labels[url] || web(url),
+    })),
+  ]
 }
 
 // mergeLinks folds freshly-fetched provider links into the stored free-text
@@ -949,26 +1010,24 @@ function PersonView({ person, name, onEdit, onDelete, onPractise }) {
 // chip showing the bare link text — "wrapping like Open Library for known
 // links, for unknown just show the link text".
 function PersonLinksDetail({ links }) {
-  const { known, extra } = parseLinks(links)
-  const items = PROVIDERS.filter(([slug]) => known[slug])
-  if (items.length === 0 && extra.length === 0) return <span className="microcopy">—</span>
+  // THE NAME IS `namedLinks`' TO DECIDE, and this screen used to decide it alone
+  // — which is why a name typed here was stored, survived a fetch, and was then
+  // not shown on the very screen it was typed on. The chips draw a foreign link
+  // by its host, which is this surface's own answer and its default.
+  const rows = namedLinks(links)
+  if (rows.length === 0) return <span className="microcopy">—</span>
   return (
     <span className="flex flex-wrap items-center gap-1.5">
-      {items.map(([slug, labelKey]) => (
-        <a key={slug} className="tp-chip tp-chip-btn" href={known[slug]} target="_blank" rel="noopener noreferrer">
-          {t(labelKey)}
-        </a>
-      ))}
-      {/* `tok`, not `t` — a local t here would shadow the resolver imported
-          above, silently and legally. locale-shadow.test.js fails the build over
-          exactly this, and the name parseLinks already uses is the right one. */}
-      {extra.map((tok) =>
-        /^https?:\/\//i.test(tok) ? (
-          <a key={tok} className="tp-chip tp-chip-btn" href={tok} target="_blank" rel="noopener noreferrer">
-            {tok.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')}
+      {rows.map((row) =>
+        /^https?:\/\//i.test(row.url) ? (
+          <a key={row.url} className="tp-chip tp-chip-btn" href={row.url} target="_blank" rel="noopener noreferrer">
+            {row.name}
           </a>
         ) : (
-          <span key={tok} className="tp-chip">{tok}</span>
+          // NOT AN ADDRESS AT ALL, so it is not a link and gets no href — kept
+          // rather than dropped, because it is still something the reader put
+          // there. Shown as typed.
+          <span key={row.url} className="tp-chip">{row.url}</span>
         ),
       )}
     </span>

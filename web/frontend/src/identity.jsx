@@ -33,7 +33,7 @@ import { CharacterGlobal, PersonGlobal } from './identityGlobal.jsx'
 import { identityScope, mediumOf } from './identityScope.js'
 import { CharacterLocal, GLYPH_NAME } from './identityLocal.jsx'
 import { ChooseList, ChoosePicker, FieldPicker } from './identityPicker.jsx'
-import { buildProviderLink, detectProviderLink, isOrganisation, personImgURL, providerLinksFor, providerRule, ProviderChips, SpeakerChips } from './people.jsx'
+import { buildProviderLink, detectProviderLink, isOrganisation, linkLine, personImgURL, providerLinksFor, providerRule, ProviderChips, SpeakerChips } from './people.jsx'
 // A STATIC EDGE THAT CLOSES NO CYCLE: personOpen.jsx imports THIS file
 // dynamically and nothing else at all, which is the reason its header gives for
 // the dynamic import. It stays a leaf; this is allowed to lean on it.
@@ -597,10 +597,17 @@ function ProviderLinkDialog({ open, onClose, onAdd, busy, credits = [] }) {
   // before they have looked at what they are holding.
   const [slug, setSlug] = useState('custom')
   const [id, setId] = useState('')
+  // A LINK MAY BE GIVEN A NAME HERE TOO. The ＋ on a work's Links takes one and
+  // this ＋ did not, which is the directive's own failure case: two controls that
+  // look the same and add the same thing to the same field, one of them able to
+  // name it. Optional, exactly as it is there — left empty, a recognised link
+  // keeps its provider's name and anything else keeps its host.
+  const [name, setName] = useState('')
   useEffect(() => {
     if (!open) return
     setSlug('custom')
     setId('')
+    setName('')
   }, [open])
   const url = buildProviderLink(slug, id)
   // "IF I PASTE A CURATED LINK IN THE CUSTOM INPUT, THE APP SHOULD RECOGNISE IT
@@ -641,6 +648,8 @@ function ProviderLinkDialog({ open, onClose, onAdd, busy, credits = [] }) {
         onSlug={setSlug}
         id={id}
         onId={type}
+        name={name}
+        onName={setName}
         url={url}
         busy={busy}
         onAdd={onAdd}
@@ -650,7 +659,7 @@ function ProviderLinkDialog({ open, onClose, onAdd, busy, credits = [] }) {
 }
 
 // The body of the dialog above, split out for the one reason its comment gives.
-function ProviderLinkForm({ choices, slug, onSlug, id, onId, url, busy, onAdd }) {
+function ProviderLinkForm({ choices, slug, onSlug, id, onId, name, onName, url, busy, onAdd }) {
   const row = choices.find(([, sl]) => sl === slug)
   const rule = providerRule(slug)
   const custom = slug === 'custom'
@@ -672,7 +681,7 @@ function ProviderLinkForm({ choices, slug, onSlug, id, onId, url, busy, onAdd })
     <form
       id={host?.formId}
       style={STACK}
-      onSubmit={(e) => { e.preventDefault(); if (url) onAdd(url) }}
+      onSubmit={(e) => { e.preventDefault(); if (url) onAdd(url, name) }}
     >
       {/* ROUND MEANS A VALUE — the pack's rule, which is why the providers are
           pills and the field under them is not. */}
@@ -702,6 +711,18 @@ function ProviderLinkForm({ choices, slug, onSlug, id, onId, url, busy, onAdd })
         // The keyboard the id space actually needs: digits for TMDB, a URL row
         // for the custom address, letters for the rest.
         inputMode={rule.inputMode || 'text'}
+      />
+      {/* THE NAME UNDER THE ADDRESS AND NOT BESIDE IT, which is where the work's
+          ＋ puts it and for the reason given there: it is a second thought about
+          the first box, and a row of two boxes reads as two things to fill in. */}
+      <input
+        className="tp-input"
+        value={name || ''}
+        aria-label={t('links.name.label')}
+        placeholder={t('links.name.placeholder')}
+        autoComplete="off"
+        disabled={!!busy}
+        onChange={(e) => onName(e.target.value)}
       />
       {/* THE RULE, AND THEN HOW TO GET THERE FROM A PAGE YOU ARE LOOKING AT —
           both, on the owner's instruction. The rule alone leaves a reader holding
@@ -958,8 +979,11 @@ function PersonBody({ stack, id, work, onOpenWork: given = null }) {
   // parseLinks reads it that way — so a link built from an id and a link pasted
   // by hand are the same kind of thing, and the pills below cannot tell them
   // apart. Which is the point: the popup is a typing aid, not a second store.
-  const addProviderLink = async (url) => {
-    const next = [String(form.links || '').trim(), url].filter(Boolean).join('\n')
+  // `linkLine`, NOT a bare url: it is the ONE writer of a stored link, so this
+  // screen and the work's ＋ cannot disagree about what a named link looks like
+  // in the field they both read.
+  const addProviderLink = async (url, label = '') => {
+    const next = [String(form.links || '').trim(), linkLine(url, label)].filter(Boolean).join('\n')
     setBusy(true)
     const r = await json('PUT', `/people/id/${id}`, { ...form, links: next })
     setBusy(false)
@@ -1339,8 +1363,8 @@ function CharacterBody({ stack, id, work, onSearch: givenSearch = null, onOpenWo
   // record's own picture is a separate act — see promote.
   // The character side of the same verb — see PersonBody's for why it appends to
   // the free-text field rather than writing a column.
-  const addProviderLink = async (url) => {
-    const next = [String(form.links || '').trim(), url].filter(Boolean).join('\n')
+  const addProviderLink = async (url, label = '') => {
+    const next = [String(form.links || '').trim(), linkLine(url, label)].filter(Boolean).join('\n')
     setBusy(true)
     const r = await json('PUT', `/characters/${id}`, { ...form, links: next })
     setBusy(false)

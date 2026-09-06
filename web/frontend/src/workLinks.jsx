@@ -36,7 +36,7 @@
 // is the same free text a person's is and the tag can be told apart then.
 import { useState } from 'react'
 import { t } from './i18n.js'
-import { PROVIDERS, linkLine, parseLinks } from './people.jsx'
+import { PROVIDERS, linkLine, namedLinks } from './people.jsx'
 import { FieldIconButton, GhostButton, IconClose, IconGlobe, IconPlus, MonoLabel, ProviderMark, useFormHost } from './ui.jsx'
 
 // hostOf is `new URL().hostname`, and the try is the whole of it: a reader pastes
@@ -241,21 +241,11 @@ export function WorkLinks({ value, busy, onSave, onEmptyAdd }) {
 // linkRows is the stored column as a list: the recognised providers in the app's
 // own display order, then whatever else is there, kept whole.
 export function linkRows(value) {
-  const { known, extra, labels } = parseLinks(value)
-  // `label` AND `name` ARE NOT THE SAME FIELD, and collapsing them is how a
-  // rewrite of this field turns a provider's own name into a stored label. `name`
-  // is what to DRAW — the reader's name where they gave one, the provider's
-  // otherwise. `label` is only ever what is stored, so a caller that rejoins the
-  // field writes back what was there.
-  return [
-    ...PROVIDERS.filter(([slug]) => known[slug]).map(([slug, labelKey]) => ({
-      url: known[slug], slug, label: labels[known[slug]] || '',
-      name: labels[known[slug]] || t(labelKey),
-    })),
-    ...extra.map((url) => ({
-      url, slug: '', label: labels[url] || '', name: labels[url] || t('links.web.label'),
-    })),
-  ]
+  // THE NAME IS `namedLinks`' TO DECIDE, for every screen at once — see the
+  // directive in its own note. What this screen passes IN is the only thing that
+  // is its own: a row in a list calls an unnamed foreign link "Web", where the
+  // pills on a record's page call it by its host.
+  return namedLinks(value, { web: () => t('links.web.label') })
 }
 
 // PasteLink — the + panel: the pages this record can already address, and a box

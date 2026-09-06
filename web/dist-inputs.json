@@ -68,8 +68,8 @@
     "web/frontend/src/help.jsx": "b23e024457ad943971b596606d249d128bb7da85669bdc48668e3e4964584644",
     "web/frontend/src/history.js": "13604d919e7e8f7cdd3f637895907b2ff30425282e3049c6a3fa5524f2f3be19",
     "web/frontend/src/i18n.js": "6056197526bb55ee44f4a4c3be19304e9c48bf83af8e98f6c44dfa80fd82afe5",
-    "web/frontend/src/identity.jsx": "ba725af5136b722f73f0191aafe1bf35cd4e1c8de33fc14dd6d0484295fac72a",
-    "web/frontend/src/identityGlobal.jsx": "effa2a4b76dd1923a482164d6cc5594e876d617f2cc0998315fb87bb2cc4e6bb",
+    "web/frontend/src/identity.jsx": "6a8db793c9a9ff26e3e2aa928f57f7524fe921180bb7e4256c25369b2d67632f",
+    "web/frontend/src/identityGlobal.jsx": "abd9fa1aad3dc4ab8f87d116bd23507758524e588f4c38d7b1113279830b97a2",
     "web/frontend/src/identityLocal.jsx": "797431ce15c9d2fbcaed8694092e0e2ae9889d04eb2fdaca1ec53b6ba4cb26d0",
     "web/frontend/src/identityPicker.jsx": "79e02528a5254a155247a308f85b507ec56707e8d09157df0a85cbfae633016b",
     "web/frontend/src/identityScope.js": "9997bf9511e4c375e67d212b993f47c96a80c8325b208550ed82785c6b1c775d",
@@ -78,7 +78,7 @@
     "web/frontend/src/languages.jsx": "869532cdca1124db41a7447cd9a05588698bb37dd78c230af38f0de3a3af7b12",
     "web/frontend/src/locale.jsx": "3c27a6f83604ccbaa173750f33fbd08ea2add93b6239ef1627af1969ea56b174",
     "web/frontend/src/main.jsx": "14bf46694a446095a4e664b0adca68e83f1b49e63302e33a85b86fc9b31b01b7",
-    "web/frontend/src/people.jsx": "bb34fa81be352e5157e75dfb0374b13fe04b630117a7feba3064c9affc3d09c9",
+    "web/frontend/src/people.jsx": "fdbe9e6fd7b548b85e834e65bffc2b9cf5a88354d125a7b255d004b7f4523db7",
     "web/frontend/src/personOpen.jsx": "3c608544cbd08f989268c57305a40404b5f6f2078f9ed63f3e1b3dd9db097bb4",
     "web/frontend/src/providerMarks.js": "4858dc86ddf396ff710c4622ca35e2c53248c2c8d658a3d5508789bf47f1aea4",
     "web/frontend/src/quiz.js": "7b8406f50186cfe842c0d4c5f1c48407576edb2d4346659290d435c84824521a",
@@ -132,7 +132,7 @@
     "web/frontend/src/undo.jsx": "27dd04ac24e09c8b53b5caee551b7ecd575ae012aa087fa87e3d31ed767e0834",
     "web/frontend/src/update.js": "cac7b1e2a4b8bfce7d2658505ebd0bcbb6b1bb4aef9e7422cf5826949c69b8a4",
     "web/frontend/src/workKinds.js": "b4ff197ee32b2d0134a16c898c80aa5bdbb37b1d901f893d5eabe9f6ba6cde1f",
-    "web/frontend/src/workLinks.jsx": "fa8fdf5ceac0d194f46caf57f4875c146e1556bc6f4ff7c30ae34f814ab6419f",
+    "web/frontend/src/workLinks.jsx": "3444a8a26e1b8e0bdd0f34bd865e7e791044739f49765c7f13c623b7d1a568d6",
     "web/frontend/src/works.jsx": "246597800c9bf8d9c1d0c6eedc89c9dc3e0e8a5cb69e9a16477c902d0fc7aa8f",
     "web/frontend/vite.config.js": "e68566c44bb7553c2567ffeb6da9c308065ed32bebe1b2a625148cbd387c55d8"
   }

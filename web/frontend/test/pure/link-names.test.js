@@ -110,3 +110,29 @@ describe('a fetch that rewrites the whole field', () => {
     expect(mergeLinks(`${MINE}`, {})).toBe(MINE)
   })
 })
+
+describe('a line that holds more than one address', () => {
+  // THE FIELD HAS ALWAYS WHITESPACE-SPLIT, which is the whole reason the
+  // separator is a pipe: `a.com b.com` on one line is two links and naming
+  // something on that line may not change that. It did — the head was read as a
+  // single address, `new URL` refused it, and both links were replaced by one
+  // dead token with no name on it. Two working links lost to typing a name.
+  it('is still every address on it, even when a name follows', () => {
+    const { known, extra, labels } = parseLinks(`${MINE} ${OTHER} | Their talks`)
+    const all = [...Object.values(known), ...extra]
+    expect(all, 'an address on the line was lost or mangled').toContain(MINE)
+    expect(all, 'an address on the line was lost or mangled').toContain(OTHER)
+    expect(all.some((x) => x.includes(' ')), 'two addresses were joined into one token')
+      .toBe(false)
+    expect(labels[OTHER], 'the name did not reach the address it was written against')
+      .toBe('Their talks')
+    expect(labels[MINE], 'one name was spread onto a link it was not written against')
+      .toBeUndefined()
+  })
+
+  it('and reads the same when no name follows, exactly as it always did', () => {
+    const { extra, labels } = parseLinks(`${MINE} ${OTHER}`)
+    expect(extra).toEqual([MINE, OTHER])
+    expect(labels).toEqual({})
+  })
+})

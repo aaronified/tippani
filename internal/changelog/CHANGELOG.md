@@ -27,10 +27,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **A link you add can be given a name.** "Add a link" takes an optional name under the
-  address, and the pill says what you called it rather than the site's hostname. Leave it
-  empty and nothing changes: a recognised site keeps its own name, anything else keeps its
-  host, exactly as before.
+- **A link you add can be given a name.** Every ＋ that adds a link — on a work, on a
+  person, on a character — takes an optional name under the address, and every screen that
+  draws the link says what you called it rather than the site's hostname. Leave it empty
+  and nothing changes: a recognised site keeps its own name, anything else keeps its host,
+  exactly as before.
 
 - **A person's or a character's works are in release order, which is what the line under
   them has always said.** They were in alphabetical order, and correcting a book's year

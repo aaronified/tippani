@@ -103,6 +103,26 @@ describe('what the screen is made of', () => {
     expect(screen.queryByText(/आनंद मरा नहीं/)).toBeNull()
   })
 
+  it('places the appearances by the year they came out, not by the order they arrived', async () => {
+    // THE JOINT THIS GUARDS, and it was the one nobody was watching.
+    // `release-order.test.jsx` states the rule against hand-made tiles; the Go
+    // suite states that both reads carry a year. Between them sits the map from
+    // the row the SERVER sends to the tile the strip places — and deleting the
+    // year from that map left both of those green while the reader's strip went
+    // back to being alphabetical. This case is that map, asked from the rendered
+    // screen with a payload shaped like the server's.
+    CHARACTER.appearances = [
+      { cast_id: 21, kind: 'movie', work_id: 31, media_type: 'movie', work_title: 'Deadhouse Gates', character: 'x', year: 2000, actor: '', actor_id: 0 },
+      { cast_id: 22, kind: 'movie', work_id: 32, media_type: 'movie', work_title: 'Dust of Dreams', character: 'x', year: 2009, actor: '', actor_id: 0 },
+      { cast_id: 23, kind: 'movie', work_id: 33, media_type: 'movie', work_title: 'Gardens of the Moon', character: 'x', year: 1999, actor: '', actor_id: 0 },
+    ]
+    await openPanel()
+    const titles = [...document.querySelectorAll('.cs-tile-title')].map((n) => n.textContent)
+    expect(titles, 'the strip is in the order the payload arrived in').toEqual(
+      ['Gardens of the Moon', 'Deadhouse Gates', 'Dust of Dreams'],
+    )
+  })
+
   it('lists every performer who has played the character, once each', async () => {
     // The owner's own addition to the pack: "a list of actors assigned to the
     // character in various different works". One row per PERSON — the fixture has
