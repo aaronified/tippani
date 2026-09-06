@@ -104,7 +104,15 @@ const tile = (over = {}, open = true) => {
 
 // The card's own body — the edit modal renders the same names into hidden
 // inputs, and a form field is not a printing.
-const card = () => document.querySelector('.tp-hand-card, article') || document.body
+//
+// THE CLASSES ARE THE REAL ONES, MEASURED. `.tp-hand-card` does not exist in this
+// app — `HandCard` writes `hand-card` — so a selector naming it falls through to
+// `document.body` and the scope this line claims to apply is not applied. It
+// happened to make no difference here (nothing else renders), which is exactly
+// how a wrong selector survives: the assertions pass and the scope is a comment.
+// `.film-frame` is the film card's own class (Movies.jsx) and `.hand-card` the
+// favourite tile's (ui.jsx).
+const card = () => document.querySelector('.film-frame, .hand-card') || document.body
 
 // How many times a name is PRINTED: leaf elements only, so a name is not counted
 // once for itself and again for every wrapper around it.

@@ -59,7 +59,14 @@ const tile = (over = {}) => {
 
 // The card's own body, so the edit modal's hidden copy of the same strings
 // cannot answer for the resting card.
-const card = () => document.querySelector('.tp-hand-card') || document.body
+//
+// AND THE CLASS IS THE ONE THE APP WRITES. This named `.tp-hand-card`, which no
+// component in this app has ever had — `HandCard` writes `hand-card` — so every
+// case here has been measuring `document.body` and the scope in the sentence
+// above was not in force. It changed no verdict, because the tile is the only
+// thing rendered; it would have changed one the moment a case rendered the edit
+// modal it names, which is what the scope was written for.
+const card = () => document.querySelector('.hand-card') || document.body
 
 afterEach(() => cleanup())
 

@@ -183,18 +183,36 @@ async function resolveSurfaces(page, baseUrl) {
     // search.
     const withCast = async () => {
       try {
-        const r = await fetch('/api/movies?limit=30', { credentials: 'same-origin' })
+        const r = await fetch('/api/movies?limit=40', { credentials: 'same-origin' })
         const list = (await r.json()).movies || []
         // THE FULLEST CAST, not the first non-empty one. A film with a single
         // cast row can have that row be an actor nobody has linked to a
         // character, and then the door is missing for a reason that is about
         // that film rather than about the app.
+        //
+        // ASKED OF THE CAST ENDPOINT, WHICH IS THE ONE THE DETAILS PANEL ASKS.
+        // This read the RECORD (`GET /movies/{id}`) and took `d.cast`, and on a
+        // freshly seeded library every film answered zero — because a work whose
+        // characters exist only as names on its quotes has no `work_cast` row
+        // until something ADOPTS them, and only `GET /movies/{id}/cast` does
+        // (cast_images.go, cast_from_quotes.go). So the probe fell through to the
+        // first film in the list, which on the fixture is a game with no cast at
+        // all, and reported the app's one character door as broken while a reader
+        // pressing it saw a face and a name. The panel under test reads this
+        // endpoint; so does the picker that finds it.
+        //
+        // AND THE WHOLE LIST, not its first twelve. The list comes back newest
+        // first and the fixture seeds its films before its shows and games, so
+        // the twelve that were checked were exactly the ones with no cast. A
+        // window that happens to exclude every candidate is not a bound, it is a
+        // filter nobody wrote down.
         let best = 0
         let most = 0
-        for (const m of list.slice(0, 12)) {
-          const d = await (await fetch(`/api/movies/${m.id}`, { credentials: 'same-origin' })).json()
-          const n = (d.cast || d.movie?.cast || []).length
+        for (const m of list) {
+          const d = await (await fetch(`/api/movies/${m.id}/cast`, { credentials: 'same-origin' })).json()
+          const n = (d.cast || []).length
           if (n > most) { most = n; best = m.id }
+          if (most > 1) break // enough to open a door; the rest is setup cost
         }
         if (best) return best
       } catch { /* fall through to the first film */ }
