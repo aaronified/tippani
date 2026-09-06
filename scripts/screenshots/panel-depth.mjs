@@ -38,14 +38,28 @@
 // The path now is the reader's: a film page, Details, a face in its cast strip —
 // the same two presses `controls.mjs` had to learn for the same reason.
 //
-// AND WHAT IT CAN SEE. Two things, both browser-only:
+// AND WHAT IT CAN SEE. Three things, all browser-only:
 //
 //   THE STACK AND HISTORY AGREE. A panel opened from inside a panel is on screen
 //   and `history.state.tpPanelDepth` counts it. The race left nothing open; the
 //   first repair for the race left the depth disagreeing with the stack, which is
 //   what makes the ✕ stop working (`panel-open-replaces.test.jsx` has that story).
 //
+//   ANSWERING A QUESTION LANDS ON THE ANSWER. The chooser a chip opens is itself
+//   a panel and every row answers with `open()`, which replaces the top — so a
+//   row that also dismisses the question pops the entry UNDER its own answer and
+//   closes everything. Four cases in `speaker-destinations.test.jsx` passed
+//   against exactly that, because `history.back()` in jsdom delivers no popstate.
+//
 //   THE BACK CRUMB STAYS OUT OF THE TITLE, which jsdom cannot answer at all.
+//
+// NONE OF THE THREE MAY REPORT NOTHING AS OK. Every case here either presses its
+// subject or fails: a fixture that has drifted out from under a probe leaves the
+// probe knowing less than before it ran, and a `note` in the log is how that
+// reads as a pass to whoever is looking at the exit code. Two of them used to do
+// exactly that. Proven by mutation rather than asserted: with the search below
+// asked for 99 answers instead of 2 — a fixture that cannot show the subject —
+// the run prints the FAIL and exits 1, and prints the ok and exits 0 as shipped.
 //
 import puppeteer from 'puppeteer-core'
 
@@ -61,8 +75,9 @@ function parseArgs(argv) {
     else if (argv[i] === '--help' || argv[i] === '-h') {
       console.log('usage: node panel-depth.mjs [--base-url URL] [--movie-id N]\n\n' +
         'Opens a film page, its Details panel and a character from the cast strip,\n' +
-        'then checks that history counted both panels and that the back crumb does\n' +
-        'not print over the title beside it.')
+        'then checks that history counted both panels, that answering a chip\'s\n' +
+        'question lands on the answer, and that the back crumb does not print\n' +
+        'over the title beside it.')
       process.exit(0)
     }
   }
@@ -156,47 +171,65 @@ try {
   //
   // FROM THE FILM PAGE, not from the panel that is currently up: the chips this
   // presses are on the quote cards behind it.
-  await page.goto(`${opts.baseUrl}/catalogue/${opts.movieId}`, { waitUntil: 'networkidle2' })
-  await new Promise((r) => setTimeout(r, 1800))
-  const asked = await page.evaluate(() => {
-    const c = [...document.querySelectorAll('article .person-chip, .film-frame .person-chip')]
-      .find((x) => x.getAttribute('aria-disabled') !== 'true')
-    if (!c) return null
-    c.click()
-    return c.textContent.replace(/\s+/g, ' ').trim().slice(0, 40)
-  })
+  //
+  // AND THE CHIP IS FOUND, NOT ASSUMED. A character with a single live candidate
+  // opens that record directly — that is the design, not a fault — so pressing
+  // whichever chip happens to come first and logging "nothing was pressed"
+  // measures the ORDER of the fixture and calls it a run. Both of the branches
+  // that used to do that are gone: this walks the live chips until one of them
+  // ASKS, and only when none of them does has the probe failed to see its
+  // subject, which is a failure and not a note.
+  let asked = null
+  for (let i = 0; i < 12 && asked === null; i++) {
+    await page.goto(`${opts.baseUrl}/catalogue/${opts.movieId}`, { waitUntil: 'networkidle2' })
+    await new Promise((r) => setTimeout(r, 1600))
+    const chip = await page.evaluate((n) => {
+      const live = [...document.querySelectorAll('article .person-chip, .film-frame .person-chip')]
+        .filter((x) => x.getAttribute('aria-disabled') !== 'true')
+      if (n >= live.length) return null
+      live[n].click()
+      return live[n].textContent.replace(/\s+/g, ' ').trim().slice(0, 40)
+    }, i)
+    if (chip === null) break
+    await new Promise((r) => setTimeout(r, 1600))
+    const rows = await page.evaluate(() =>
+      [...document.querySelectorAll('.cs-choose')].filter((b) => b.getAttribute('aria-disabled') !== 'true').length)
+    if (rows >= 2) asked = { chip, rows }
+  }
+
   if (asked === null) {
-    console.log('note  no live character chip on a quote card here, so the answering case did not run')
+    console.log('FAIL  no live character chip on this film page opens a question with two answers, so the ' +
+      'answering case could not run — this probe cannot see its subject, which is not the same as the ' +
+      'subject being well')
+    failures++
   } else {
-    await new Promise((r) => setTimeout(r, 1800))
+    // The question is on screen from the search above. Press its LAST answer:
+    // the first is the one the chip already points at, so answering with it
+    // cannot tell a landing apart from a no-op.
     const answered = await page.evaluate(() => {
       const rows = [...document.querySelectorAll('.cs-choose')].filter((b) => b.getAttribute('aria-disabled') !== 'true')
-      if (rows.length < 2) return { asked: rows.length }
       const label = rows[rows.length - 1].querySelector('.cs-choose-label')?.textContent || ''
       rows[rows.length - 1].click()
-      return { asked: rows.length, label }
+      return { label }
     })
-    if (answered.asked < 2) {
-      console.log(`note  the chip ${JSON.stringify(asked)} offered ${answered.asked} live answer(s), so nothing was pressed`)
+    await new Promise((r) => setTimeout(r, 1600))
+    const landed = await page.evaluate(() => ({
+      panels: document.querySelectorAll('.tp-panel').length,
+      title: (document.querySelector('.tp-panel-title, .tp-panel-names')?.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 50),
+      stillAsking: !!document.querySelector('.cs-choose'),
+    }))
+    if (landed.panels === 0) {
+      console.log(`FAIL  answering "${answered.label}" closed everything — the question dismissed a surface its own answer had replaced`)
+      failures++
+    } else if (landed.stillAsking) {
+      console.log('FAIL  the question is still on screen after an answer was pressed')
+      failures++
+    } else if (!landed.title.includes(answered.label.split(' ')[0])) {
+      console.log(`FAIL  answering "${answered.label}" landed on ${JSON.stringify(landed.title)}`)
+      failures++
     } else {
-      await new Promise((r) => setTimeout(r, 1600))
-      const landed = await page.evaluate(() => ({
-        panels: document.querySelectorAll('.tp-panel').length,
-        title: (document.querySelector('.tp-panel-title, .tp-panel-names')?.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 50),
-        stillAsking: !!document.querySelector('.cs-choose'),
-      }))
-      if (landed.panels === 0) {
-        console.log(`FAIL  answering "${answered.label}" closed everything — the question dismissed a surface its own answer had replaced`)
-        failures++
-      } else if (landed.stillAsking) {
-        console.log('FAIL  the question is still on screen after an answer was pressed')
-        failures++
-      } else if (!landed.title.includes(answered.label.split(' ')[0])) {
-        console.log(`FAIL  answering "${answered.label}" landed on ${JSON.stringify(landed.title)}`)
-        failures++
-      } else {
-        console.log(`ok    answering "${answered.label}" lands on ${JSON.stringify(landed.title)}`)
-      }
+      console.log(`ok    the chip ${JSON.stringify(asked.chip)} asked with ${asked.rows} answers; ` +
+        `"${answered.label}" lands on ${JSON.stringify(landed.title)}`)
     }
   }
 

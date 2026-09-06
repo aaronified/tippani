@@ -43,11 +43,34 @@ describe('the pair of counts', () => {
       .not.toBe('center')
   })
 
-  it('and gives the number a column, so a 1 and an 11 leave the caption in one place', () => {
+  it('and gives the number a column wide enough for the counts a library reaches', () => {
+    // THE UNIT WAS ALL THIS CHECKED, and a unit is not a width: `min-width: 1ch`
+    // would have passed while a 1 and an 11 still moved their captions apart.
+    // Three characters is where a character's quote count stops in practice;
+    // beyond that the column grows and the two boxes disagree again, which is
+    // said out loud in the stylesheet rather than pretended away.
     const w = decl('.cs-count-fig', 'min-width')
     expect(w, 'the figure is shrink-wrapped, so its caption moves with the digit count').toBeTruthy()
     expect(w, `the figure's column is \`${w}\` — a box that holds text is measured in ch or em`)
       .toMatch(/ch|em/)
+    const n = Number((w.match(/([\d.]+)\s*(?:ch|em)/) || [])[1])
+    expect(n, `the column is ${w}, so a three-digit count still pushes its caption along`)
+      .toBeGreaterThanOrEqual(3)
+  })
+
+  it('and the value beside a row can give way rather than squeezing its label', () => {
+    // K10's OWN FIX WAS UNGUARDED, which is this round's headline lesson repeated
+    // one file over: `credit-row.test.jsx` asserts the `name-scroll` CLASS, which
+    // is a shape, so reverting `.cs-row-meta` to `flex: none` left every one of
+    // 3,147 cases green. What decides it is the declaration, and this file was
+    // already the place that reads declarations.
+    const f = decl('.cs-row-meta', 'flex')
+    expect(f, '.cs-row-meta declares no flex at all').toBeTruthy()
+    expect(f, `.cs-row-meta is \`flex: ${f}\` — a value that cannot shrink takes its width out of the row and clips the label`)
+      .not.toMatch(/^none\b|^0 0\b/)
+    expect(decl('.cs-row-meta', 'min-width'),
+      'the value keeps its content width, so it cannot shrink however its flex is written')
+      .toBe('0')
   })
 
   it('and the boxes themselves stay equal', () => {
