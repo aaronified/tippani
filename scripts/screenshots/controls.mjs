@@ -559,6 +559,33 @@ try {
   const surfaces = await resolveSurfaces(page, opts.baseUrl)
   for (const surface of surfaces) {
     if (opts.only && !surface.name.toLowerCase().includes(opts.only.toLowerCase())) continue
+    // ONE SURFACE MAY NOT COST THE REST OF THE RUN.
+    //
+    // A control that navigates — Settings has several — can land an in-page
+    // navigation while an `evaluate` is in flight, and puppeteer throws
+    // "Attempted to use detached Frame". `reopen` above already survives that on
+    // a DOOR; nothing survived it while PRESSING, so the throw reached the
+    // outer catch, ended the loop, and took every surface after it with it. On a
+    // run of both widths that means the whole phone pass, which is the half this
+    // probe was extended to cover: 412 presses recorded, 0 at 390, and the exit
+    // code says only "stopped early".
+    //
+    // So each surface is fenced. A surface that throws is recorded as untested —
+    // `blank`, the same file as a screen that never rendered, because "nothing on
+    // it was tested" is the same fact and a zero-finding surface must never read
+    // as a pass — and the loop carries on to the next one.
+    try {
+      await runSurface(surface)
+    } catch (err) {
+      const why = String(err && err.message ? err.message : err).split('\n')[0]
+      findings.blank.push(`${surface.name}: the pass over it stopped early — ${why}`)
+      console.log(`FAIL  ${surface.name.padEnd(14)} stopped early — ${why}`)
+      // The page is in whatever state the throw left it; the next surface's own
+      // `reopen` navigates, so nothing else has to be undone here.
+    }
+  }
+
+  async function runSurface(surface) {
     const reopen = async () => {
       await page.goto(opts.baseUrl + surface.route, { waitUntil: 'networkidle2' }).catch(() => {})
       await settled()
@@ -631,7 +658,7 @@ try {
       // tested, and "0 findings" reads as a pass.
       findings.blank.push(`${surface.name}: the door it is reached through (${(Array.isArray(surface.door) ? surface.door : [surface.door]).map((d) => d.selector).join(' → ')}) did not open a panel — nothing on this surface was tested`)
       console.log(`FAIL  ${surface.name.padEnd(14)} door did not open`)
-      continue
+      return
     }
     // AND THE ROUTE HAS TO BE THE ROUTE. `/people` is not one — `routes.js` falls
     // through to `{ tab: 'home' }` — so this list quietly probed Home twice under
@@ -646,7 +673,7 @@ try {
     if (landed !== surface.route && !landed.startsWith(surface.route)) {
       findings.notaroute.push(`${surface.name}: /${surface.route.replace(/^\//, '')} resolves to ${landed} — it is not a screen of its own`)
       console.log(`FAIL  ${surface.name.padEnd(14)} ${surface.route} is not a route (landed on ${landed})`)
-      continue
+      return
     }
     const controls = await list()
     // A SURFACE THAT DREW NOTHING IS A FAILED RUN, NOT A CLEAN ONE. A route that
@@ -658,7 +685,7 @@ try {
     if (controls.length < MIN_CONTROLS) {
       findings.blank.push(`${surface.name} (${surface.route}) drew ${controls.length} controls — it did not render, so nothing on it was tested`)
       console.log(`FAIL  ${surface.name.padEnd(14)} did not render (${controls.length} controls)`)
-      continue
+      return
     }
     for (const w of await sideways()) findings.sideways.push(`${surface.name}: ${w}`)
     for (const h of await headShape()) findings.head.push(`${surface.name}: ${h}`)
@@ -751,7 +778,30 @@ try {
         }
         b.click()
         return true
-      }, { key: c.key, nth: c.nth })
+      }, { key: c.key, nth: c.nth }).catch((err) => (
+        /detached|Target closed|Execution context/i.test(String(err && err.message)) ? 'left' : Promise.reject(err)
+      ))
+      // A PRESS MAY TAKE THE WHOLE DOCUMENT WITH IT, and that is not a defect in
+      // the control. `LEAVES` above catches an anchor to another origin by its
+      // href; it cannot catch a BUTTON whose handler assigns `location.href`, and
+      // Settings has one — Download, which streams an archive when there is one
+      // and navigates to the server's answer when there is not. The press lands,
+      // the frame detaches, and every `evaluate` after it throws.
+      //
+      // WHY THIS IS NOT A SKIP LIST. Naming the control would work until the next
+      // one, and this file has already learned twice that a probe keyed to a
+      // spelling stops guarding the class. What is observable is the navigation
+      // itself, at the moment it happens.
+      //
+      // The control DID something — it changed the page it was on, which is the
+      // question this probe asks — so it is not dead. It is recorded and the
+      // surface is re-opened so the controls after it are still pressed.
+      if (ok === 'left') {
+        pressed++
+        findings.unreachable.push(`${surface.name}: ${JSON.stringify(c.name)} navigated the whole page, so the presses after it were made on a fresh copy of the screen`)
+        if (!await reopen()) return
+        continue
+      }
       // It says it cannot act, which is honest, and the run moves on.
       if (ok === 'says') continue
       if (typeof ok === 'string' && ok.startsWith('covered:')) {
