@@ -182,7 +182,15 @@ export async function openCharacterDoor(stack, sp, { work = null, onSearch = nul
     key: 'local',
     label: sp.name,
     sub: t('identity.choose.local.sub'),
-    face: sp.image || sp.actor_image || '',
+    // THE CHARACTER'S OWN PICTURE OR NONE, and the performer's is NOT a fallback
+    // here. On a chip it is — "a character with no picture of their own wears the
+    // face of whoever played them rather than no face at all" — and the owner
+    // granted that for chips and only for chips: "a character does inherit the
+    // image of the actor, but that is valid only for the chips on display.
+    // nowhere else." This list is the one place the two are side by side, so the
+    // borrowed face made "this character" and "the performer's own record" two
+    // rows showing one man, which is the question drawing its own answer.
+    face: sp.image || '',
     onPick: () => stack.open(local()),
   }]
   let works = 0

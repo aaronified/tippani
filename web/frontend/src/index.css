@@ -46,6 +46,15 @@
        fall. */
     --edge: 20px;
     --row: 12px;
+    /* THE SHEET'S OWN INSET, and it is a constant because it was three. Inside a
+       panel the rows, the facts and the counts each sit in a wrapper of their
+       own, and those wrappers padded 4, 6 and 10 — so at 390px the rows drew
+       356px wide, the facts 352 and the counts 344, and the counts also added
+       2px above and below where the rows add none. Reported as "the quote and
+       scene are not taking the same width as other fields. and also the gap
+       between fields are not equal (should be equal)", which is exactly what
+       three insets and two rhythms look like. One token, read by all three. */
+    --cs-inset: 4px;
 
     /* ---- the nav rail's width, and why it is a token ----------------------
        THREE READERS, none of which can measure the others: the rail itself, the
@@ -8630,7 +8639,7 @@ html[data-theme="dark"] .board-cover {
 
   /* An ordinary row: 52px, an icon or a face, a label over a subtitle, and a
      badge or a count at the far end. */
-  .cs-row-wrap { display: flex; align-items: stretch; gap: 4px; padding: 0 4px; }
+  .cs-row-wrap { display: flex; align-items: stretch; gap: var(--cs-inset); padding: 0 var(--cs-inset); }
   /* A ROW YOU CAN PRESS IS AN OBJECT, and it was drawn as nothing: transparent,
      with a tint on hover as its only body. That is what "the details, cast
      screens are too flat" was about — a screen made entirely of these had no
@@ -8699,7 +8708,7 @@ html[data-theme="dark"] .board-cover {
   /* THREE SHORT ANSWERS ON ONE LINE. A part, a locator and an age given a row
      each took 150px of height and read as three unrelated decisions; side by side
      they are what they are — the facts of this character in this work. */
-  .cs-facts { display: flex; gap: 6px; padding: 2px 6px; }
+  .cs-facts { display: flex; gap: var(--cs-inset); padding: 0 var(--cs-inset); }
   .cs-fact {
     flex: 1; min-width: 0;
     display: flex; flex-direction: column; gap: 3px;
@@ -8722,7 +8731,7 @@ html[data-theme="dark"] .board-cover {
 
   /* Two counts, side by side. ONE LINE AND NOT A STACKED CARD: a glyph, a number
      and its unit stacked into 78px read as a tile with something missing. */
-  .cs-pair { display: flex; gap: 8px; padding: 2px 10px; }
+  .cs-pair { display: flex; gap: var(--cs-inset); padding: 0 var(--cs-inset); }
   /* THE TWO BOXES ALIGN WITH EACH OTHER, and centring is what stopped them.
      Each box centred its own [glyph][number][caption] group, so "11 QUOTES" and
      "1 SCENE" — different widths in equal boxes — put their glyphs, their

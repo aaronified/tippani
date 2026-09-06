@@ -217,6 +217,44 @@ describe('pressing a chip for a character the line does not link to', () => {
       'the path was resolved twice on its way to the sheet').toBe(1)
   })
 
+  // AND THE PERFORMER'S FACE IS NOT LENT TO THE CHARACTER HERE.
+  //
+  // THE OWNER'S RULING: "a character does inherit the image of the actor, but
+  // that is valid only for the chips on display. nowhere else. here bhaskar
+  // bannerjee does not have his image, Amitabh bachchan has. so the picker should
+  // respect that." On a chip the borrowed face is right and is argued at
+  // `chipRows`; this list is the one place the character and the performer are
+  // side by side, and there the loan makes two rows show one man — the question
+  // drawing its own answer.
+  const BORROWED = [{
+    name: 'Dr. Bhaskar', path: '', cast_id: 12, character_id: 4,
+    actor: 'Amitabh Bachchan', actor_id: 10, actor_image: 'people/bachchan.jpg',
+  }]
+
+  it('shows the character\'s own picture or none, never the performer\'s', async () => {
+    APPEARANCES = ONE_WORK
+    let got = null
+    render(<SpeakerChips images={BORROWED} speaker={null} onOpenCharacter={(sp) => { got = sp }} />)
+    const chip = [...document.querySelectorAll('.person-chip')].find((c) => c.textContent.includes('Dr. Bhaskar'))
+    await act(async () => { fireEvent.click(chip) })
+    cleanup()
+    mount()
+    await press(got)
+    const row = (label) => [...document.querySelectorAll('.cs-choose')].find(
+      (b) => b.querySelector('.cs-choose-label')?.textContent === label,
+    )
+    const character = row('Dr. Bhaskar')
+    const performer = row('Amitabh Bachchan')
+    expect(character, 'the character was not offered').toBeTruthy()
+    expect(performer, 'the performer was not offered').toBeTruthy()
+    expect(character.querySelector('img'),
+      'the character borrowed the performer\'s face, so both rows draw one man')
+      .toBeNull()
+    expect(performer.querySelector('img')?.getAttribute('src'),
+      'the performer lost their own face, which they DO have')
+      .toContain('people/bachchan.jpg')
+  })
+
   it('and the performer is a door, not a row that declines', async () => {
     APPEARANCES = TWO_WORKS
     const sp = await pressChip('Dr. Bhaskar')
