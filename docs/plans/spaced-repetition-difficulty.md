@@ -61,8 +61,9 @@ That is a legitimate setting and a defensible one (a harder retrieval that
 *succeeds* is worth more — Bjork's desirable difficulties), but it is far below the
 0.90 that FSRS and Anki take as the usual aim, and it was never chosen out loud. It
 matters twice over now: an "overall retention" readout of ~50% would look like a
-failing grade when it is in fact the schedule working exactly as built. **This is
-the one thing in the plan I have not decided** — see *Open, for the owner*.
+failing grade when it is in fact the schedule working exactly as built. **The
+target makes it a choice rather than a constant**, and the score is read against it
+— see *The target, and the score against it*.
 
 **`docs/PLAN.md` already approved most of the difficulty work, unshipped.** The
 entry *"Measured difficulty feeds the schedule"* says the deck should count its own
@@ -170,6 +171,23 @@ property of the round, applied when the pool is built.
      will always be thin, and thin coverage means the feature works on some cards
      and not others with no way for the reader to tell why.
 - **Four options.** Chips shown for the work, not for the speaker.
+- **Which language is this proverb?** A new direction, medium only. It shows the
+  **English translation alone** and asks which language the proverb is in.
+  - Eligible rows are `utterances` with `kind = 'proverb'` (0053's fixed list, with
+    its own `CHECK`), a non-empty `translation` and a non-empty `language` — both
+    columns landed in 0035.
+  - Options are the distinct `language` values across the reader's own proverbs, so
+    the lures are always languages they actually keep.
+  - **Offered only when at least two languages exist** among them, which is the
+    owner's rule and the honest one: a question with one possible answer is not a
+    question.
+  - **With exactly two languages it is a coin-flip**, and that matters now that a
+    retention figure is being reported: a direction with a 50% floor inflates it.
+    Prefer three options where the library allows, and where only two exist the
+    card should be asked and **not counted** toward the figure — the same
+    separation Daily already makes for self-marked flip cards.
+  - `region` (0047) is the obvious sibling question and is deliberately not being
+    asked for. It stays out until it is.
 
 ### Hard — recall, series, and people
 
@@ -183,6 +201,29 @@ property of the round, applied when the pool is built.
   data): *which chapter/act*, *which season and episode*, *who is being addressed*
   (the `recipient` column), *which of these two lines comes first in the work*
   (position is already stored), and *which year* for a film or a book.
+- **Names in the line are blanked too.** Every character and actor name that
+  appears in the quote's own text is masked, on top of the chosen content-word
+  span. Two reasons, and the second is a defect fix:
+  1. **A name is often the line.** Blanking the longest content-word run and
+     leaving the character's name standing asks the easier half of the question.
+  2. **A quote that names its own speaker answers the speaker card before it is
+     asked.** That leak exists today at *every* tier, on any line whose text
+     contains the character's name — so the masking belongs to the `speaker` and
+     `author` directions at all tiers, not only to hard.
+- **Matching reuses what the cast already stores.** `work_cast` holds
+  `character_key` and `actor_key`, both `store.CastKey(...)` folds (0048); the
+  quote's own `character`, `actor`, `speaker` and `recipient` fold the same way.
+  Fold the quote's tokens and compare — no second normalisation, which is the rule
+  this repo keeps writing entries about.
+  - Longest match wins, so a name inside a longer one masks the whole of it.
+  - Possessives and inflections come free from the existing stem fold in
+    `cloze.go`.
+  - **Name masking need not be gated on script.** The cloze *span* selection
+    requires ≥75% Latin because the stopword list is English; a name match needs no
+    stopword list, so a Devanagari or Bengali line naming its speaker can still have
+    the name blanked. That is a small widening of where hard cards can be asked.
+  - A line that is **only** a name has nothing left to ask: refuse the card, the way
+    `TestClozeRefusesWhatItCannotAsk` already refuses a quote that is all stopwords.
 - **Feedback stays** exactly as built. Hard means no options, not no answer.
 
 ### Random
@@ -263,20 +304,51 @@ Three cautions the schema has to answer, all of which this repo has met before:
 - **It must not slow the answer path.** One `INSERT` inside the transaction that
   already updates `item_reviews`.
 
-### The retention figure
+### The target, and the score against it
 
-**True retention** = `got / (got + forgot)` over a window, from the log. Reported
-three ways, because one number hides the thing that matters:
+The due point stops being a constant. `srTargetRetention` is a preference — the
+share of cards the reader expects to recall *when one comes back* — and the due
+rule derives from it:
 
-- **Overall**, last 30 days.
-- **Young** (stability below the second rung, 30) and **mature** (at or above it).
-  Anki's convention is 21 days; the app's own rung is 30, and using the app's own
-  number keeps one vocabulary.
-- **Against the target.** The schedule currently asks at `p = 0.5`, so ~50% is the
-  design. The readout must show the target beside the figure or it is unreadable.
+```
+due when  p <= target,  i.e.  elapsed >= stability × log2(1 / target)
+```
 
-Skips are excluded. Same-day repeats are already idempotent in Daily and must be
-excluded here too, or a device retry inflates the figure.
+- **The default is 0.5, which is exactly today's rule.** `log2(1/0.5) = 1`, so the
+  multiplier is 1 and `elapsed >= stability` survives untouched. Nothing any reader
+  has is rescheduled unless they move the dial themselves — no migration, no
+  surprise.
+- **Range 0.5 to 0.95.** The upper end is where the usual guidance stops (FSRS/Anki
+  call 0.80–0.95 reasonable, ~0.90 the common aim); the lower end is today's
+  behaviour, kept rather than deprecated because it is defensible on
+  desirable-difficulty grounds.
+- **RAISING THE TARGET MAKES ALMOST EVERYTHING DUE AT ONCE**, and this is the hazard
+  to write down rather than discover. At 0.9 the multiplier is 0.152, so every card
+  past about 15% of its half-life becomes due — which on a settled library is nearly
+  all of it. The daily quota is what saves this: the deck drains at 8 a day in
+  most-overdue-first order rather than flooding. The control still has to say so
+  before it is moved, because the backlog count will jump and nothing else on the
+  screen would explain it.
+
+**True retention** = `got / (got + forgot)` over a window, from the log. Skips are
+excluded, and same-day repeats — already idempotent in Daily — must be excluded here
+too, or a device retry inflates it. So must any direction whose guessing floor is
+50%, which today means a two-option proverb-language card.
+
+**The score is the delta.** Both numbers, and the signed difference:
+
+```
+target 90%   ·   recalling 86%   ·   4 points under
+```
+
+- **Young** (stability below the second rung, 30) and **mature** (at or above it),
+  because one figure hides which half is drifting. Anki's convention is 21 days; the
+  app's own rung is 30, and using the app's own number keeps one vocabulary.
+- **The delta is a reading, not a verdict**, and the wording has to carry that.
+  *Above* target means the schedule is asking sooner than it needs to and the gaps
+  could lengthen; *below* means it is asking too late. That is the FSRS framing, and
+  it makes the number actionable instead of judgmental — which is the same reason
+  the title does not come from it.
 
 ### The title
 
@@ -311,6 +383,8 @@ pairing is not.
 | The Hard tier / series lures | Recalling one line from a set can push its neighbours further out of reach (Anderson, Bjork & Bjork, 1994). When a hard card borrows from a series, those neighbours are queued soon after. |
 | The ladder | Expanding gaps win a test ten minutes later; equal gaps win two days later (Karpicke & Roediger, 2007). The ladder is a compromise, not a law. |
 | The retention figure | How often you recall at review says where the schedule is set, not how well you read. Around nine in ten is the usual aim (FSRS/Anki); lower means longer gaps, not worse memory. |
+| The target dial | Your target is the share you expect to recall when a card returns. A higher one means shorter gaps and more reviews; a lower one means longer gaps and more misses, on purpose (Cepeda et al., 2008; Bjork). |
+| The proverb-language card | Offered only once your proverbs hold more than one language, because a question with one possible answer is not a question. |
 | A wrong answer / the streak | Getting it wrong feels like failure and is not: practice that feels harder often remembers better, and easy practice flatters the moment (Bjork, desirable difficulties). |
 
 `help-budget.test.js` and `infodot-copy.test.js` both measure these; the builder
@@ -318,17 +392,13 @@ runs them rather than counting by hand.
 
 ---
 
-## Open, for the owner
+## Settled
 
-**The app asks at 50% recall. Should it?** Due at `elapsed >= stability` is
-`p = 0.5`. FSRS and Anki take ~0.90 as the usual aim. Moving to 0.90 would make
-every card due at about 0.15 × stability — six times more often at the same
-stability — so it is not a tuning change, it is a different app: far more reviews,
-far higher success rate, and a retention readout that looks like 90%. Staying at
-0.5 keeps the workload and is defensible on desirable-difficulty grounds, but it
-means the retention figure will read ~50% and must be framed so that does not look
-like failure. **Choosing this is the one thing that most changes how the loop feels,
-and I have not chosen it.**
+**The 50% due point was the open question, and the target answers it.** Rather than
+choosing a number for every reader, the number becomes the reader's, defaults to
+what the app already does, and is the thing the score is measured against. That also
+dissolves the framing problem the retention figure had on its own: a bare 50% reads
+as failure, `target 50% · recalling 51%` does not.
 
 ---
 
@@ -340,17 +410,27 @@ and I have not chosen it.**
    — `review_handlers.go`, `review_tuning.go`
 3. **Adaptive as the default**, ladder kept as the opt-in. — `review_handlers.go`,
    `review_tuning.go`, and the `PLAN.md` reversal entry
-4. **The tiers** — direction sets, the inverted scorer for Easy, the same-author
+4. **The target dial** — `srTargetRetention`, defaulting to 0.5 so nothing moves,
+   and the due rule derived from it. Ships before the tiers because the retention
+   figure is unreadable without it. — `review_handlers.go`, `review_tuning.go`,
+   `auth_handlers.go`, `Settings.jsx`
+5. **Name masking**, and the speaker/author leak it closes at every tier. Folding
+   through `store.CastKey` against `work_cast` and the quote's own credit columns.
+   — `cloze.go`, `speaker.go`, `review_handlers.go`
+6. **The tiers** — direction sets, the inverted scorer for Easy, the same-author
    quota for Medium, the wider blank and series lures for Hard, Random by seeded
    hash. — `review_handlers.go`, `review_questions.go`, `cloze.go`, `speaker.go`
-5. **The sibling interleave**, reading `lure_of` from the log in the deck ordering.
+7. **The proverb-language direction**, with its two-language gate and its exclusion
+   from the retention figure while it has only two options.
+   — `review_questions.go`, `review_handlers.go`
+8. **The sibling interleave**, reading `lure_of` from the log in the deck ordering.
    — `review_handlers.go`
-6. **The new hard directions** — chapter/act, season/episode, recipient, which came
+9. **The new hard directions** — chapter/act, season/episode, recipient, which came
    first, which year. — `review_questions.go`
-7. **The retention figure and the title** — computed from the log, shown with its
+10. **The score and the title** — computed from the log, shown with its
    target. — `review_handlers.go`, `StatsPage.jsx`, `review.jsx`
-8. **The infodots**, in `en.txt` and `bn.txt`.
-9. **Docs** — `docs/PLAN.md` §8 (the ceiling, the default switch as a reversal, the
+11. **The infodots**, in `en.txt` and `bn.txt`.
+12. **Docs** — `docs/PLAN.md` §8 (the ceiling, the default switch as a reversal, the
    tiers, and the measured-difficulty entry this half-satisfies), `CHANGELOG.md`,
    `docs/ui-glossary.html` if the tier picker is documented, `AI.md` if verification
    changes.
@@ -376,6 +456,14 @@ New guards worth naming:
   inflates.
 - **No title band is derogatory** — a list check against a named vocabulary, in both
   locales, because this is the one string in the app that describes the reader.
+- **The default target changes nothing.** With `srTargetRetention` at 0.5, the set
+  of due cards is byte-identical to today's. This is the migration test, and it is
+  the reason the default is 0.5 rather than 0.9.
+- **A quote never shows a name it is about to ask for.** Build a speaker card from a
+  line containing its own character's name and assert the name is masked — the
+  leak that exists today at every tier.
+- **A line that is only a name is refused**, the way an all-stopword quote already is.
+- **The proverb card is absent at one language and present at two.**
 
 By hand, against a real backup rather than `seed.mjs`: run a Daily at each tier and
 read every infodot on the way past.
