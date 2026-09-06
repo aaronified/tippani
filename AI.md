@@ -346,6 +346,21 @@ worth nothing here and only execution counts. What the repo actually runs:
   moved between enumeration and the press was not tested and is reported instead of
   skipped; and the run exits non-zero on a finding rather than on a warning.
 
+  **And one surface may not cost the other fourteen.** The run stopped on Settings with
+  a detached frame and reported 412 presses: every surface after it, and the whole 390
+  pass, went untested while the exit code said only "stopped early". A probe one screen
+  can silence does not guard the rest. Each surface now runs behind its own fence, and
+  one that throws is filed as a surface that did not render — a FAIL, because "nothing
+  on it was tested" is the same fact whether the screen came up blank or the run fell
+  over on it. What threw was a class the probe could not see: a button whose handler
+  assigns `location.href` (`Settings.jsx:2407`, Download, which streams the archive when
+  there is one and navigates to the server's answer when there is not), where the check
+  for a control that leaves the app reads an anchor's href and this is a button. That
+  press is caught where it happens, recorded report-only because the control DID
+  something, and the surface re-opened so the controls after it are still pressed. Not a
+  skip list keyed to the control's name: this file has twice learned that a probe keyed
+  to a spelling stops guarding the class the moment the spelling changes.
+
   **Its buckets are split three ways, and that is what makes the gate reachable.** Six
   FAIL, because each is the app lying to a reader and each has one right answer: a
   control that does nothing and does not say so, a menu that opens empty, a header that
