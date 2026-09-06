@@ -38,12 +38,16 @@
 // The path now is the reader's: a film page, Details, a face in its cast strip —
 // the same two presses `controls.mjs` had to learn for the same reason.
 //
-// AND WHAT IT CAN SEE. Four things, all browser-only:
+// AND WHAT IT CAN SEE. Five things, all browser-only:
 //
 //   THE STACK AND HISTORY AGREE. A panel opened from inside a panel is on screen
 //   and `history.state.tpPanelDepth` counts it. The race left nothing open; the
 //   first repair for the race left the depth disagreeing with the stack, which is
 //   what makes the ✕ stop working (`panel-open-replaces.test.jsx` has that story).
+//
+//   THE PAGE BEHIND IS FROZEN AND BLURRED. Both were written and neither
+//   reached a screen — one locked the wrong element, one was dropped by the
+//   build — and a stylesheet says nothing about either.
 //
 //   ANSWERING A QUESTION LANDS ON THE ANSWER. The chooser a chip opens is itself
 //   a panel and every row answers with `open()`, which replaces the top — so a
@@ -160,6 +164,34 @@ try {
     failures++
   } else {
     console.log(`ok    a panel opened from inside a panel — depth 2, showing ${JSON.stringify(after.text)}`)
+  }
+
+  // ── AND THE PAGE BEHIND IT IS OUT OF PLAY, which is the pair the owner
+  // reported together: "stop scrolling screens that are not in focus… also
+  // introduce focus blur, on desktop and mobile both."
+  //
+  // BOTH ARE ASKED OF THE BROWSER AND NOT OF THE STYLESHEET, because both had
+  // already been WRITTEN and neither was reaching a screen. The scroll lock hid
+  // the overflow of `<body>` while the element that scrolls is `<html>`; the blur
+  // was declared and the build dropped the standard property, shipping only its
+  // `-webkit-` twin. Two different mechanisms, one shape: a source that looks
+  // right and a screen that is not. `getComputedStyle` is where the two meet.
+  const behind = await page.evaluate(() => {
+    const scrim = document.querySelector('.tp-panel-scrim')
+    const cs = scrim ? getComputedStyle(scrim) : null
+    return {
+      blur: cs ? (cs.backdropFilter || cs.webkitBackdropFilter || 'none') : 'no scrim',
+      locked: getComputedStyle(document.scrollingElement || document.documentElement).overflow,
+    }
+  })
+  if (!/blur\(/.test(behind.blur)) {
+    console.log(`FAIL  the scrim behind an open panel blurs nothing — computed backdrop-filter is ${JSON.stringify(behind.blur)}`)
+    failures++
+  } else if (behind.locked !== 'hidden') {
+    console.log(`FAIL  the page behind an open panel can still scroll — its overflow computes to ${JSON.stringify(behind.locked)}`)
+    failures++
+  } else {
+    console.log(`ok    the page behind is frozen and blurred (${behind.blur})`)
   }
 
   // ── AND ANSWERING A QUESTION LANDS ON THE ANSWER, which is the third thing

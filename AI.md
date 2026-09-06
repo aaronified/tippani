@@ -235,6 +235,27 @@ worth nothing here and only execution counts. What the repo actually runs:
   nothing. The three DOM tests that now cover them were each watched to fail against
   the broken code before being kept, per the habit above.
 
+  A SIXTH, and it is the fourth habit sharpened: **the stylesheet a guard reads is
+  not the stylesheet a reader gets.** Every CSS guard in this repo reads
+  `web/frontend/src/index.css`, which is the author's intent;
+  `web/dist/assets/*.css` is what a browser is served. `.tp-scrim` declared
+  `backdrop-filter` and its `-webkit-` twin, the minifier's collapse kept only the
+  twin, and the focus blur the owner had asked for was in the source and had never
+  once reached a screen — with every guard green, because every guard was reading
+  the wrong file. It was found by `getComputedStyle` in a real browser on a real
+  library and is now held by `prefixed-pairs-survive.test.js`, which asks the
+  BUILT file whether each twin's standard property survived, and by
+  `panel-depth.mjs`, which asks the browser whether the scrim actually blurs. The
+  class is silent by construction: nothing errors, nothing warns, and the rule is
+  simply absent.
+
+  A SEVENTH, from the same measurement: **"the hook is called" is not "the thing
+  happens".** `PanelHost` had called `useBodyScrollLock` since it was written, and
+  the page behind a panel went on scrolling, because the lock hid the overflow of
+  `<body>` and the element that scrolls a standards-mode document is `<html>`. A
+  grep for the call site said the rule was obeyed. Reading `getComputedStyle(
+  document.scrollingElement).overflow` said it was not.
+
   A FIFTH, from the same feature: **a fixture that invents its input invents the
   answer.** The publisher's record page came with a DOM test asserting a studio gets a
   company's page and a company's id spaces — passing on a record shaped
