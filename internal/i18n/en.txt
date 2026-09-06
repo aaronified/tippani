@@ -311,7 +311,7 @@ common.confirm.final.tag = Cannot be undone
 # above says WHETHER it can be undone; these say HOW, which is the half a verdict
 # with no instructions leaves out.
 common.confirm.undoable.note = It waits in the bin until you empty it, and the toast offers an immediate undo.
-common.confirm.final.note = This is not moved to the bin. Nothing here can be restored.
+common.confirm.final.note = This is not moved to the bin.
 common.action.delete.label = Delete
 common.action.close.label = Close
 # The × on a window that sits over the screen. {name} is the word above — Close,
@@ -1084,6 +1084,7 @@ shell.add.film.label = Add a film or show
 shell.add.quote.label = Capture a quote
 shell.dock.boards.label = Boards
 shell.dock.tools.label = Tools
+shell.sheet.grip.aria = Resize this sheet
 shell.totop.aria = Back to the top
 # The same button when an import is waiting in the pending queue.
 shell.add.pending.tip = {n} imports awaiting review
@@ -2197,7 +2198,7 @@ quotes.board.delete.only.body = This is your only board and it holds {n} {noun}.
 quotes.board.delete.holds.body.one = {n} quote is filed here. They move to another board rather than being deleted.
 quotes.board.delete.holds.body.other = {n} quotes are filed here. They move to another board rather than being deleted.
 quotes.board.delete.move.aria = Move the quotes to
-quotes.board.delete.empty.body = Nothing is filed here, so nothing is lost.
+quotes.board.delete.empty.body = Nothing is filed here.
 
 # THE MOVE-TO-BOARD SHEET, opened from a card's ⋯ and from the selection bar,
 # so common.* rather than quotes.*.
@@ -2826,7 +2827,7 @@ common.work.fields-saved.toast.other = {n} fields saved
 # already filled starts unticked, so a match can never quietly overwrite you.
 common.work.merge.back.aria = Back to the matches
 common.work.merge.info.title = Choose what to keep
-common.work.merge.info.body = Fields you have nothing in are ticked for you — filling a blank costs nothing. Anything already filled starts unticked, so a match can never quietly overwrite something you typed.
+common.work.merge.info.body = Fields you have nothing in are ticked for you. Anything already filled starts unticked, so a match can never overwrite something you typed.
 common.work.merge.all.aria = Take every field
 common.work.merge.all.tip = Take everything
 common.work.merge.none.aria = Take no fields
@@ -3787,7 +3788,7 @@ offers.column.stored = KEPT
 offers.take.tip = Take {source}'s answer for this field
 offers.taken.toast = {field} now comes from {source}
 offers.none.prose = No source has another answer for this field.
-offers.unpinned.prose = This record is not pinned to a source, so there is nothing to ask. Use Look up to pin it first.
+offers.unpinned.prose = This record is not pinned to a source. Use Look up to pin it first.
 
 # ---------------------------------------------------------------------------
 # IMPORT — ImportPage.jsx. Seven source formats, each a card with a how-to, and
@@ -4445,8 +4446,8 @@ staging.form.timestamp.placeholder = 01:02:03
 # is lower case where staging.title is not — the two are different roles, not two
 # spellings of one.
 staging.card.label = pending import
-staging.card.body.one = {n} imported quote is waiting for you to okay it — nothing has entered your library yet.
-staging.card.body.other = {n} imported quotes are waiting for you to okay them — nothing has entered your library yet.
+staging.card.body.one = {n} imported quote is waiting for you to okay it.
+staging.card.body.other = {n} imported quotes are waiting for you to okay them.
 staging.card.review.label = Review {n}
 
 # ---------------------------------------------------------------------------
@@ -5523,13 +5524,13 @@ search.help.escaped-colon.more = Put a backslash before the colon — note\: to 
 
 # Whether a second chip of one field narrows or widens.
 search.help.two-chips.term = Two chips of one field
-search.help.two-chips.what = Two tags narrow: tag:stoicism tag:death finds the quotes wearing both, because narrowing by a second tag is what pressing a second chip is for.
+search.help.two-chips.what = Two tags narrow: tag:stoicism tag:death finds the quotes wearing both.
 search.help.two-chips.more = Two colours widen: a quote has one colour, so asking for two would be asking for something nothing is, and that query would come back empty forever and look broken. The same goes for a shelf, a series, a year and any credit — one each, so a second means "or". It depends on the field because one rule cannot serve both.
 
 # A colour chip carries the reader’s own name for the slot.
 search.help.colour-names.term = Colours by their names
 search.help.colour-names.what = A colour chip reads the word you gave the slot — colour:doubt, not colour:blue — and searching runs on that word too.
-search.help.colour-names.more = The stored colour is not what is on screen, so it is not what you type.
+search.help.colour-names.more = The stored colour is not what is on screen.
 
 # Searching from an already-filtered board.
 search.help.arriving-narrowed.term = Arriving already narrowed
@@ -5590,7 +5591,7 @@ quotes.help.board-kind.more = A proverb board puts the language and the English 
 
 # The language short-list a proverb board offers its quote form.
 quotes.help.languages.term = Languages on a proverb board
-quotes.help.languages.what = Chosen when you make it and editable after: the short list the quote form offers instead of a box you have to spell the same way twice.
+quotes.help.languages.what = Chosen when you make it and editable after: the short list the quote form offers instead of a box you have to spell the same way each time.
 quotes.help.languages.more = Any language, not only the three the starter proverbs come in. Group by Language then breaks the board into a section per language, which is a way of reading the shelf rather than a set of folders — nothing moves, and every other view still shows the whole board.
 
 # The pinned row above the boards.
@@ -5751,7 +5752,7 @@ metadata.help.bulk-edit.what = Applies an author, series or set of genres to eve
 
 stats.help.calendar.term = Calendar
 stats.help.calendar.what = A dot per day you captured something. Tapping a day opens exactly those captures in Search.
-stats.help.calendar.more = Switch it to Quiz or Practice and it counts answers instead — those days report how many you got right as well as how many you answered, because a dot shaded by volume alone reads a day you got everything wrong exactly like a day you got everything right. Resetting your practice score empties that stream outright, so nothing stale is left behind to hover over.
+stats.help.calendar.more = Switch it to Quiz or Practice and it counts answers instead — those days report how many you got right as well as how many you answered, because a dot shaded by volume alone looks the same on a day you got everything wrong as on a day you got everything right. Resetting your practice score empties that stream outright, so nothing stale is left behind to hover over.
 
 stats.help.memory.term = Memory
 stats.help.memory.what = Health straight from the quiz: how many quotes are remembered, slipping, or probably gone, and your streak.
@@ -5913,12 +5914,12 @@ settings.help.button-labels.more = It governs the filter chips as well as the bu
 # Which sections of the app are switched on.
 settings.help.features.term = Features
 settings.help.features.what = Which sections of the app you want to see — the Library, the Catalogue, Quotes.
-settings.help.features.more = Turn one off and its tab goes from the strip, the drawer and the phone bar, its tile goes from Home, its chip goes from Search’s scope row, and ＋ stops offering that kind. Nothing else changes: every book, film and quote stays exactly where it is, the review deck still draws on it, and a link or a bookmark still opens it — so turning it back on finds everything where you left it.
+settings.help.features.more = Turn one off and its tab goes from the strip, the drawer and the phone bar, its tile goes from Home, its chip goes from Search’s scope row, and ＋ stops offering that kind. Nothing else changes: every book, film and quote stays exactly where it is, the review deck still draws on it, and a link or a bookmark still opens it.
 
 # The guided tour card.
 settings.help.onboarding.term = Onboarding
 settings.help.onboarding.what = The guided tour of every feature.
-settings.help.onboarding.more = Start, replay or resume the whole thing, or pick one section and replay only that — the tour opens on that screen and carries on from there. It used to list every section on the card itself; a list you cannot press answers "is this covered?", which is not the question anybody arrives here with.
+settings.help.onboarding.more = Start, replay or resume the whole thing, or pick one section and replay only that — the tour opens on that screen and carries on from there. It used to list every section on the card itself; a list you cannot press only tells you whether something is covered, which is not the question anybody arrives here with.
 
 settings.help.users.term = Users
 settings.help.users.what = Everyone on this instance, admin only.
@@ -5930,7 +5931,7 @@ settings.help.metadata-sources.more = Each field edits and saves on its own, and
 
 # The two IGDB fields, which only work as a pair.
 settings.help.igdb.term = IGDB client id & secret
-settings.help.igdb.what = The games pair, and it is a pair — IGDB authenticates through Twitch, so one field on its own cannot look anything up.
+settings.help.igdb.what = The games pair — IGDB authenticates through Twitch, so one field on its own cannot look anything up.
 settings.help.igdb.more = Register an application at dev.twitch.tv/console for the client id, then press “New Secret” on it for the other half. Unlike films there is no shared built-in to fall back on: the credentials are per-application and rate-limited, so a key shipped with the app would be a queue everybody stands in.
 
 # The typography section — the faces the app draws with, not a media type.
@@ -6627,7 +6628,7 @@ identity.merge.hit.works.other = {n} works
 identity.merge.confirm.title = Merge {name} into {into}?
 identity.merge.confirm.body = {name} stops being a record. Everything it is credited on moves to {into}, and its name becomes a spelling that finds it — so the next import will not make it again.
 identity.merge.confirm.covers = No cover changes. Every work goes on printing exactly the name it prints today.
-identity.merge.confirm.undo = The bin holds the way back for as long as it holds anything else.
+identity.merge.confirm.undo = Undo it from the bin, for as long as the bin keeps anything else.
 identity.merge.confirm.action = Merge them
 identity.merge.done = {name} is part of {into} now
 

@@ -9,6 +9,7 @@ import { groupedShortcuts, withShortcut } from "./keys.js";
 // Cover/Placeholder resolve stored cover/poster paths to the local /covers URL.
 import { coverImgURL } from "./api.js";
 import { t, tNodes } from "./i18n.js";
+import { anchorsFor, clampDrag, landing } from "./sheetAnchors.js";
 import { PROVIDER_MARKS } from "./providerMarks.js";
 import { Silhouette } from "./silhouette.jsx";
 
@@ -1199,52 +1200,193 @@ export function useOverlayOpen() {
   return up;
 }
 
-// useSwipeDown — a sheet that starts at the bottom of the screen closes when you
-// drag it back down, which is what every other sheet on the device does.
+// useSheetDrag — a phone sheet you can drag, with anchors to land on.
 //
-// THE OWNER ASKED FOR IT WITH THE BOTTOM SHEET, in one sentence: "scrolling down
-// will close the popup now (which becomes an intuitive thing). any edits pending
-// save will trigger the same warning as it does now." So the dismissal goes
-// through the SAME guarded way out as the ✕ and Escape — it is another way to
-// leave, not a way around the question.
+// THE OWNER'S RULING, over a screenshot of a bottom sheet with a grab handle:
+// "the small bar on top ensures that this is intuitively draggable. the whole
+// thing is responsive to drag, and has predefined anchors." Then, asked: natural
+// height → 76% → 94%, a pull down from the smallest dismisses, the handle and the
+// header always drag and the body only when it is scrolled to its own top.
 //
-// FROM THE TOP ONLY, which is the whole of telling the gesture apart from a
-// scroll. A downward drag anywhere else in a scrolled body is the reader reading;
-// at offset zero there is nothing above to reveal, so it can only be a dismissal.
+// WHAT IT REPLACES. `useSwipeDown` watched for a 90px downward touch and then
+// dismissed — a threshold, not a drag: the sheet stood still until it vanished,
+// so nothing on screen ever said the gesture existed or was working.
 //
-// TOUCH ONLY, and not because a mouse cannot do it: a wheel or a trackpad emits
-// the same downward delta while reading a body that has been scrolled to the top
-// by anything at all, and closing a sheet under a reader who scrolled one notch
-// too far is worse than not having the gesture.
-export function useSwipeDown(ref, onDismiss, { enabled = true, threshold = 90 } = {}) {
-  const latest = useRef(onDismiss);
-  latest.current = onDismiss;
+// WHAT A DRAG MEANS lives in `sheetAnchors.js`, with no React in it and eighteen
+// cases stating the rule — which anchor a release lands on, and when a release is
+// a dismissal instead. Everything here is wiring, which is the half only a
+// browser can watch.
+//
+// HEIGHT, NOT A TRANSFORM. A sheet that slides is a sheet leaving; a sheet being
+// resized has to reflow, because the reader is dragging to SEE MORE and a
+// translated sheet shows the same rows further up. So the drag writes
+// `--tp-sheet-h` and the stylesheet reads it.
+//
+// AND THE BODY'S OWN SCROLL IS NOT STOLEN. A drag that starts in the body while
+// it is scrolled is the reader reading; only at `scrollTop <= 0` is there nothing
+// above to reveal and a downward pull can only be a dismissal. Once a drag is
+// genuinely under way the pointer is captured and the body's `touch-action` goes
+// to `none`, or the browser scrolls the body at the same time and the sheet
+// judders between two owners.
+//
+// A DISMISSAL GOES THROUGH THE SAME GUARDED EXIT AS THE ✕, and the sheet settles
+// back to its smallest anchor on the way: if unsaved typing makes that exit ask a
+// question, the sheet is there to be answered about rather than halfway off the
+// screen.
+// The shortest interval a velocity may be measured over. See the note at its use.
+const MIN_SAMPLE_MS = 4;
+
+export function useSheetDrag({ sheet, body, handle, enabled = true, onDismiss } = {}) {
+  const bye = useRef(onDismiss);
+  bye.current = onDismiss;
+  // THE SAME MOVE FOR A READER WHO CANNOT MAKE THE GESTURE. The handle answers
+  // the arrow keys, and it has to reach the anchors the drag uses rather than a
+  // second set of its own — so the effect publishes its stepper here.
+  const step = useRef(() => {});
   useEffect(() => {
-    const el = ref?.current;
+    const el = sheet?.current;
     if (!el || !enabled) return undefined;
-    let from = null;
-    const start = (e) => {
-      from = el.scrollTop <= 0 && e.touches.length === 1 ? e.touches[0].clientY : null;
+    const reduced = () => !!window.matchMedia?.(REDUCED_MOTION_QUERY).matches;
+    const spring = () => { el.style.transition = reduced() ? "none" : "height .22s cubic-bezier(.22,.7,.2,1)"; };
+
+    let anchors = [];
+    let resting = 0;
+    // THE CONTENT'S OWN HEIGHT, measured by letting it have one. The custom
+    // property is removed rather than set to `auto`, so the stylesheet's own
+    // fallback applies while the tape measure is out.
+    const measure = () => {
+      const held = el.style.getPropertyValue("--tp-sheet-h");
+      el.style.removeProperty("--tp-sheet-h");
+      const natural = el.scrollHeight;
+      if (held) el.style.setProperty("--tp-sheet-h", held);
+      anchors = anchorsFor({ viewport: window.innerHeight, natural });
+      return anchors;
     };
+    const settle = (h) => {
+      resting = Math.round(h);
+      spring();
+      el.style.setProperty("--tp-sheet-h", `${resting}px`);
+    };
+
+    measure();
+    if (anchors.length) settle(anchors[0]);
+
+    let drag = null;
+    // Set on a release that was a real drag, and read by the bar's own click
+    // handler below — see the note there.
+    let dragged = false;
+    const down = (e) => {
+      if (e.pointerType === "mouse" && e.button !== 0) return;
+      const grip = handle?.current;
+      const onGrip = !!grip && (grip === e.target || grip.contains(e.target));
+      const inBody = !!body?.current && body.current.contains(e.target);
+      if (!onGrip && !inBody) return;
+      if (inBody && !onGrip && body.current.scrollTop > 0) return;
+      measure();
+      if (!anchors.length) return;
+      drag = {
+        from: e.clientY, at: e.clientY, when: e.timeStamp,
+        height: el.getBoundingClientRect().height, v: 0, live: onGrip, id: e.pointerId,
+      };
+      if (onGrip) el.style.transition = "none";
+    };
+
     const move = (e) => {
-      if (from === null) return;
-      if (e.touches[0].clientY - from > threshold) {
-        from = null;
-        latest.current?.();
+      if (!drag || e.pointerId !== drag.id) return;
+      const dy = e.clientY - drag.from;
+      // FOUR PIXELS OF SLOP before a touch in the body becomes a drag, so a tap on
+      // a row is never one. The handle needs none: it has nothing else to be.
+      if (!drag.live) {
+        if (Math.abs(dy) < 4) return;
+        drag.live = true;
+        el.style.transition = "none";
+        try { el.setPointerCapture(drag.id); } catch { /* an engine without capture */ }
+        if (body?.current) body.current.style.touchAction = "none";
       }
+      // A SAMPLE HAS TO SPAN LONG ENOUGH TO MEAN SOMETHING. `dy / dt` between two
+      // moves delivered in the same tick is a division, not a speed — and a
+      // pointer stream that arrives finer than a frame (coalesced events, a
+      // synthetic burst) would otherwise decide the release. A finger cannot
+      // travel a gesture in under four milliseconds, so a drag whose samples
+      // never span that has no measurable speed and is judged on where it
+      // actually is, which is what a slow deliberate drag wants anyway.
+      const dt = e.timeStamp - drag.when;
+      if (dt >= MIN_SAMPLE_MS) {
+        drag.v = (e.clientY - drag.at) / dt;
+        drag.at = e.clientY;
+        drag.when = e.timeStamp;
+      }
+      el.style.setProperty("--tp-sheet-h", `${Math.round(clampDrag({ height: drag.height - dy, anchors }))}px`);
     };
-    const end = () => { from = null; };
-    el.addEventListener("touchstart", start, { passive: true });
-    el.addEventListener("touchmove", move, { passive: true });
-    el.addEventListener("touchend", end, { passive: true });
-    el.addEventListener("touchcancel", end, { passive: true });
+
+    const up = (e) => {
+      if (!drag || (e && e.pointerId != null && e.pointerId !== drag.id)) return;
+      const was = drag;
+      drag = null;
+      if (body?.current) body.current.style.touchAction = "";
+      if (!was.live) return;
+      dragged = true;
+      const out = landing({ height: el.getBoundingClientRect().height, velocity: was.v, anchors });
+      settle(out.dismiss ? anchors[0] : out.height);
+      if (out.dismiss) bye.current?.();
+    };
+
+    // THE VIEWPORT MOVES WITHOUT A SCROLL — a phone's address bar collapsing, the
+    // keyboard arriving — and the anchors are shares of it, so they are remeasured
+    // and the sheet keeps the RANK it was at rather than the pixels.
+    const remeasure = () => {
+      const rank = anchors.indexOf(resting);
+      measure();
+      if (!anchors.length) return;
+      settle(anchors[Math.min(Math.max(rank, 0), anchors.length - 1)]);
+    };
+
+    step.current = (by) => {
+      if (!anchors.length) return;
+      const i = anchors.indexOf(resting);
+      const next = Math.min(Math.max((i < 0 ? 0 : i) + by, 0), anchors.length - 1);
+      settle(anchors[next]);
+    };
+
+    // A PLAIN PRESS ON THE BAR IS A CONTROL, NOT A REST. A button that answers a
+    // drag and a pair of arrow keys and does NOTHING when you click it is the
+    // dead control `make controls` exists to catch, and a mouse has no way to
+    // discover the gesture. So a press cycles UP through the anchors and returns
+    // to the smallest from the top — the same anchors, one more way in.
+    //
+    // AND IT SWALLOWS THE CLICK A DRAG LEAVES BEHIND. A pointer sequence that
+    // ends on the element it started on fires `click` after `pointerup`, so
+    // dragging the bar and letting go would step the sheet again, past where the
+    // reader put it. The flag is set where the drag is known to have happened
+    // rather than guessed at from distance.
+    const press = () => {
+      if (dragged) { dragged = false; return; }
+      if (!anchors.length) return;
+      const i = anchors.indexOf(resting);
+      settle(anchors[i < 0 || i >= anchors.length - 1 ? 0 : i + 1]);
+    };
+    const grip = handle?.current;
+    if (grip) grip.addEventListener("click", press);
+
+    el.addEventListener("pointerdown", down);
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
+    window.addEventListener("resize", remeasure);
     return () => {
-      el.removeEventListener("touchstart", start);
-      el.removeEventListener("touchmove", move);
-      el.removeEventListener("touchend", end);
-      el.removeEventListener("touchcancel", end);
+      if (grip) grip.removeEventListener("click", press);
+      el.removeEventListener("pointerdown", down);
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", up);
+      window.removeEventListener("resize", remeasure);
+      el.style.removeProperty("--tp-sheet-h");
+      el.style.transition = "";
+      if (body?.current) body.current.style.touchAction = "";
+      step.current = () => {};
     };
-  }, [ref, enabled, threshold]);
+  }, [sheet, body, handle, enabled]);
+  return useCallback((by) => step.current(by), []);
 }
 
 // useBackToClose — an open overlay answers the hardware/gesture Back by closing
@@ -4339,13 +4481,24 @@ export function PanelHost({ stack }) {
   // most likely to be pressed by reflex.
   const phone = useIsMobileScreen();
   useEscape(!!panel && !asking, guard(back));
-  // AND A DRAG BACK DOWN, which is what a sheet at the bottom of a phone
-  // screen means everywhere else on the device. `guard(back)` is the same way
-  // out Escape and the ✕ take, so unsaved typing asks its question here too.
-  // Only where the panel IS a bottom sheet: on a desk it is a card in the
-  // middle of the screen and there is nothing to drag down.
+  // AND THE SHEET ITSELF IS DRAGGABLE, with anchors to land on — the owner's:
+  // "the whole thing is responsive to drag, and has predefined anchors."
+  // `guard(back)` is the same way out Escape and the ✕ take, so unsaved typing
+  // asks its question here too, and the sheet settles back to its smallest
+  // anchor while it does rather than hanging half off the screen.
+  //
+  // Only where the panel IS a bottom sheet: on a desk it is a card in the middle
+  // of the screen with nothing to drag it against.
   const bodyRef = useRef(null);
-  useSwipeDown(bodyRef, guard(back), { enabled: !!panel && !asking && phone });
+  const sheetRef = useRef(null);
+  const gripRef = useRef(null);
+  const stepSheet = useSheetDrag({
+    sheet: sheetRef,
+    body: bodyRef,
+    handle: gripRef,
+    enabled: !!panel && !asking && phone,
+    onDismiss: guard(back),
+  });
   // AND THE WAY BACK UP THAT BODY. Given a target, the hook answers to that box
   // rather than to the document — and is not silenced by the overlay gate, which
   // is the page key's and would silence the surface actually in focus.
@@ -4372,10 +4525,44 @@ export function PanelHost({ stack }) {
         aria-modal="true"
         aria-label={panel.title}
         className="tp-panel"
-        ref={setBox}
+        // TWO REFS FOR ONE BOX: the state one a sub-sheet's portal needs, and a
+        // plain one the drag writes a height onto every frame. A `useState` ref
+        // re-renders on assignment, which is right for the first and wrong for
+        // the second.
+        ref={(el) => { setBox(el); sheetRef.current = el }}
         style={panel.wide ? { width: "min(900px, 100%)" } : undefined}
         onMouseDown={(e) => e.stopPropagation()}
       >
+        {/* THE BAR THAT SAYS IT MOVES. The owner's, over a sheet with one: "the
+            small bar on top ensures that this is intuitively draggable." A drag
+            with nothing on screen to grab is a gesture only somebody who already
+            knows finds — which is what the threshold this replaces was.
+
+            A BUTTON, NOT A PAINTED BAR, so it is not an affordance only a thumb
+            has: it takes a tab stop, says what it does, and answers the arrow
+            keys, which is the whole of the gesture for a reader who cannot make
+            one. Phone only, because on a desk the panel is a card in the middle
+            of the screen with nothing to drag it against.
+
+            THE GLYPH RULE IS NOT BROKEN HERE: this is a drawn bar and not a
+            picture of anything, so there is nothing for `docs/ui-glossary.html`
+            to fail to document. */}
+        {phone ? (
+          <button
+            type="button"
+            ref={gripRef}
+            className="tp-sheet-grip"
+            aria-label={t('shell.sheet.grip.aria')}
+            title={t('shell.sheet.grip.aria')}
+            onKeyDown={(e) => {
+              if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return
+              e.preventDefault()
+              stepSheet(e.key === 'ArrowUp' ? 1 : -1)
+            }}
+          >
+            <span aria-hidden="true" />
+          </button>
+        ) : null}
         <div className={"tp-panel-head" + (head ? " has-scope" : "")}>
           <div className="tp-panel-slot">
             {nested ? (
@@ -7663,6 +7850,40 @@ export function IconMetadata() { return <svg {...iconStroke}><rect x="3.5" y="11
 export function IconMenu() { return <svg {...iconStroke}><path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h12"/></svg> }
 export function IconCheck({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><path d="M5 13l4 4L19 7"/></svg> }
 export function IconClose({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><path d="M6 6l12 12M18 6 6 18"/></svg> }
+// THE PAIR THAT ACTS ON A WHOLE LIST, and they are two glyphs rather than the two
+// above because one picture may not hold two jobs.
+//
+// THE OWNER'S REPORT: "in metadata selections: replace the single tick at the top
+// with double tick. the single tick feels like 'ok' and not 'multi-select'. this
+// is a violation of 'similar things' repo directive."
+//
+// They are right about the direction of the violation. Everywhere else in this
+// app a single ✓ COMMITS — it is the confirming half of the tick-and-cross every
+// form wears, and its arming is what says something has changed. Over a list of
+// rows to choose between, the same drawing meant "tick all of them", which is not
+// a commit at all: pressing it writes nothing and leaves the reader still at the
+// decision. Two ticks say plural, and plural is the whole difference.
+//
+// AND THE CROSS BESIDE IT GOES WITH IT. Its job is "untick all of them", the
+// mirror of the tick's, and a double tick next to a single ✕ reads as "select all
+// / cancel" — which turns the honest half of the pair into a way out of the
+// screen. The pair is fixed together or the fix moves the confusion one control
+// along.
+//
+// THEY ARE DRAWN AS TWO WHOLE MARKS WITH DAYLIGHT BETWEEN THEM, not as the
+// overlapping "done_all" of the icon sets, whose second mark is a bare diagonal
+// that reads as a slash at 24px in a 1.85 stroke.
+export function IconCheckAll({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><path d="M2 12.8l3.4 3.4L12 8.6"/><path d="M11 12.8l3.4 3.4L21 8.6"/></svg> }
+export function IconCloseAll({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><path d="M2.5 8.5 9 15M9 8.5 2.5 15"/><path d="M12.5 8.5 19 15M19 8.5 12.5 15"/></svg> }
+// THE PAIR IS ONE ENTRY, because neither half means anything alone: the reader is
+// being shown the difference between these two and the ✓ and ✕ they sit beside.
+// See the note above them and `docs/ui-glossary.html`'s Marks section.
+if (import.meta.env.DEV) {
+  IconCheckAll.glossary = {
+    demo: (h, ui) => h("span", { style: { display: "inline-flex", gap: "18px", alignItems: "center" } },
+      h(ui.IconCheck), h(ui.IconCheckAll), h(ui.IconClose), h(ui.IconCloseAll)),
+  };
+}
 // The two in-progress marks, drawn in the same ink-stroke hand as the rest: an
 // open book for a book on the go, a play triangle for a film or show. These are
 // the ONLY icons the shelf lifecycle puts on artwork — every other state is

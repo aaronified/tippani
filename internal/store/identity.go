@@ -224,6 +224,20 @@ type CreditOf struct {
 	// to them badged "film" is simply wrong; books leave it empty, their kind
 	// already saying everything about them. Same field, same reason, as CastOf's.
 	MediaType string `json:"media_type,omitempty"`
+	// Year is when the work came out — `books.published_year` or
+	// `movies.release_year`, and 0 where the library does not know.
+	//
+	// IT IS HERE BECAUSE THE STRIP SAYS SO. Every works strip prints "the order is
+	// the release order" under it, and the shape it renders from carried no year
+	// at all — so the only order the client could produce was the one the query
+	// happened to hand it, which is the title. A reader who corrected a book's
+	// year from 2009 to 1999 saw it stay exactly where it was, between two books
+	// that came out after it, under a line promising otherwise.
+	//
+	// 0 IS "NOT KNOWN" AND NOT "YEAR ZERO". `AppearanceStrip` sorts an undated
+	// work to the END: sorting it numerically would open every strip with the
+	// works nobody has dated yet, and claim they are the earliest.
+	Year int `json:"year,omitempty"`
 }
 
 // PersonCredits lists every work crediting a person, both kinds, ordered by role
@@ -234,11 +248,13 @@ type CreditOf struct {
 // problem. The kind literal is what tells them apart afterwards.
 func PersonCredits(db Queryer, uid, personID int64) ([]CreditOf, error) {
 	rows, err := db.Query(`
-		SELECT 'book', b.id, b.title, wp.role, wp.credit_as, COALESCE(b.cover_path, ''), ''
+		SELECT 'book', b.id, b.title, wp.role, wp.credit_as, COALESCE(b.cover_path, ''), '',
+		       COALESCE(b.published_year, 0)
 		  FROM work_person wp JOIN books b ON b.id = wp.work_id
 		 WHERE wp.user_id = ? AND wp.kind = 'book' AND wp.person_id = ?
 		UNION ALL
-		SELECT 'movie', m.id, m.title, wp.role, wp.credit_as, COALESCE(m.poster_path, ''), COALESCE(m.media_type, '')
+		SELECT 'movie', m.id, m.title, wp.role, wp.credit_as, COALESCE(m.poster_path, ''), COALESCE(m.media_type, ''),
+		       COALESCE(m.release_year, 0)
 		  FROM work_person wp JOIN movies m ON m.id = wp.work_id
 		 WHERE wp.user_id = ? AND wp.kind = 'movie' AND wp.person_id = ?
 		 ORDER BY 4, 3`, uid, personID, uid, personID)
@@ -249,7 +265,7 @@ func PersonCredits(db Queryer, uid, personID int64) ([]CreditOf, error) {
 	out := []CreditOf{}
 	for rows.Next() {
 		var c CreditOf
-		if err := rows.Scan(&c.Kind, &c.WorkID, &c.Title, &c.Role, &c.CreditAs, &c.Cover, &c.MediaType); err != nil {
+		if err := rows.Scan(&c.Kind, &c.WorkID, &c.Title, &c.Role, &c.CreditAs, &c.Cover, &c.MediaType, &c.Year); err != nil {
 			return nil, err
 		}
 		out = append(out, c)
@@ -352,6 +368,12 @@ type CastOf struct {
 	// Aliases is what this work calls them BESIDES the printing name — the pack's
 	// sub-line under "Called here": "Undesirable No. 1 · The Boy Who Lived".
 	Aliases string `json:"aliases,omitempty"`
+	// Year is when the WORK came out, not when the character was in it. Same
+	// column and same 0-means-unknown rule as CreditOf.Year, and here for the same
+	// reason: a character's appearances wear the same "the order is the release
+	// order" line, and the shape they render from could not say what that order
+	// was.
+	Year int `json:"year,omitempty"`
 }
 
 // castWhere is the shared tail of the two cast reads: both halves of the union,
@@ -376,7 +398,8 @@ func castWhere(pred string) string {
 		       COALESCE(wc.character_image_path, ''),
 		       COALESCE(b.cover_path, ''), '', '', COALESCE(wc.description, ''),
 		       COALESCE(wc.part, ''), COALESCE(wc.first_appears, ''), COALESCE(wc.age_here, ''),
-		       COALESCE(wc.credit_note, ''), COALESCE(wc.credit_lang, ''), COALESCE(wc.aliases, '')
+		       COALESCE(wc.credit_note, ''), COALESCE(wc.credit_lang, ''), COALESCE(wc.aliases, ''),
+		       COALESCE(b.published_year, 0)
 		  FROM work_cast wc
 		  JOIN books b ON b.id = wc.work_id
 		  LEFT JOIN people p ON p.id = wc.actor_id
@@ -388,7 +411,8 @@ func castWhere(pred string) string {
 		       COALESCE(m.poster_path, ''), COALESCE(m.media_type, 'movie'),
 		       COALESCE(m.cast_role, ''), COALESCE(wc.description, ''),
 		       COALESCE(wc.part, ''), COALESCE(wc.first_appears, ''), COALESCE(wc.age_here, ''),
-		       COALESCE(wc.credit_note, ''), COALESCE(wc.credit_lang, ''), COALESCE(wc.aliases, '')
+		       COALESCE(wc.credit_note, ''), COALESCE(wc.credit_lang, ''), COALESCE(wc.aliases, ''),
+		       COALESCE(m.release_year, 0)
 		  FROM work_cast wc
 		  JOIN movies m ON m.id = wc.work_id
 		  LEFT JOIN people p ON p.id = wc.actor_id
@@ -424,7 +448,8 @@ func castRows(db Queryer, q string, args ...any) ([]CastOf, error) {
 		var charID, actorID sql.NullInt64
 		if err := rows.Scan(&c.CastID, &c.Kind, &c.WorkID, &c.WorkTitle, &charID, &c.Character,
 			&actorID, &c.Actor, &c.ActorImage, &c.Image, &c.Cover, &c.MediaType, &c.CastRole, &c.Description,
-			&c.Part, &c.FirstAppears, &c.AgeHere, &c.CreditNote, &c.CreditLang, &c.Aliases); err != nil {
+			&c.Part, &c.FirstAppears, &c.AgeHere, &c.CreditNote, &c.CreditLang, &c.Aliases,
+			&c.Year); err != nil {
 			return nil, err
 		}
 		c.CharacterID, c.ActorID = charID.Int64, actorID.Int64

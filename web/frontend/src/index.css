@@ -1222,8 +1222,38 @@
       width: 100%;
       border-radius: 20px 20px 0 0;
       border-bottom: 0;
-      max-height: calc(100dvh - 56px);
+      /* THE ANCHORS DECIDE THE HEIGHT, and `--tp-sheet-h` is where the drag
+         writes it. The ceiling is the pack's own taller stop (94%,
+         `book-detail.dc.html:4208`), which is also what the sheet is capped at
+         before any script has run — so a sheet that never gets a drag is still
+         the right size and the strip of page above it survives. */
+      height: var(--tp-sheet-h, auto);
+      max-height: 94dvh;
     }
+  }
+
+  /* THE BAR THAT SAYS THE SHEET MOVES — the owner's, over a screenshot of one:
+     "the small bar on top ensures that this is intuitively draggable."
+
+     A BIG TARGET AND A SMALL MARK. The bar a reader sees is 36 by 4; the thing a
+     thumb has to hit is the app's 44px floor, which is why the mark is a child
+     and the button is the strip. `touch-action: none` because the browser's own
+     answer to a drag here is to scroll the page, and the page is frozen. */
+  .tp-sheet-grip {
+    flex: none;
+    display: flex; align-items: center; justify-content: center;
+    width: 100%; min-height: 44px; padding: 0;
+    border: 0; background: transparent; cursor: grab;
+    touch-action: none;
+  }
+  .tp-sheet-grip:active { cursor: grabbing; }
+  .tp-sheet-grip > span {
+    display: block;
+    width: max(36px, 2.3em); height: 4px; border-radius: 999px;
+    background: color-mix(in oklab, var(--ink), transparent 76%);
+  }
+  .tp-sheet-grip:hover > span, .tp-sheet-grip:focus-visible > span {
+    background: color-mix(in oklab, var(--ink), transparent 58%);
   }
 
   /* A rule between two sections of one page. Named because it was hand-typed in

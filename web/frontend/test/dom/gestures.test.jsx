@@ -35,9 +35,36 @@ describe('the library', () => {
     // long-press: ui.jsx's 500ms hold, and every card's menu.
     // swipe-left: App.jsx's drawer close, and only leftward — swipe-to-open is
     // deliberately absent because the left screen edge is the OS back gesture.
-    // swipe-down: ui.jsx's useSwipeDown, dismissing a panel that is a bottom sheet.
-    expect(IMPLEMENTED).toEqual(['long-press', 'swipe-left', 'swipe-down'])
+    // swipe-up / swipe-down: ui.jsx's useSheetDrag, growing, shrinking and
+    // finally dismissing a phone sheet.
+    expect(IMPLEMENTED).toEqual(['long-press', 'swipe-left', 'swipe-up', 'swipe-down'])
     for (const k of IMPLEMENTED) expect(GESTURES).toContain(k)
+  })
+
+  // AND THE MANIFEST IS CHECKED AGAINST THE TREE, not just against itself. The
+  // list above is a claim about what the app binds, and a claim nobody verifies
+  // is how the shortcut sheet came to print five keys with no handler. When a
+  // binding is deleted its hook goes with it, so the hook's name is the evidence:
+  // the swipes are implemented BECAUSE something reads a pointer or a touch and
+  // acts on the direction.
+  it('and each named gesture has something in the source that binds it', () => {
+    const shell = src('App.jsx') + src('ui.jsx')
+    const BINDING = {
+      // The 500ms hold every control and every card answers.
+      'long-press': /\bLONG_PRESS_MS\b/,
+      // The drawer closes leftward past a threshold; swipe-to-open is
+      // deliberately absent, so the constant that names the distance is the
+      // binding — `pointermove` alone would now be satisfied by the sheet.
+      'swipe-left': /\bSWIPE_CLOSE\b/,
+      // The phone sheet's drag, in both directions.
+      'swipe-up': /\buseSheetDrag\b/,
+      'swipe-down': /\buseSheetDrag\b/,
+    }
+    for (const k of IMPLEMENTED) {
+      expect(BINDING[k], `${k} is called implemented and this file does not know what binds it`).toBeTruthy()
+      expect(shell, `${k} is named as implemented but nothing in App.jsx or ui.jsx binds it`)
+        .toMatch(BINDING[k])
+    }
   })
 
   // The claim above, checked against the tree rather than trusted. If a pinch

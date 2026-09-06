@@ -27,6 +27,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **A person's or a character's works are in release order, which is what the line under
+  them has always said.** They were in alphabetical order, and correcting a book's year
+  moved nothing — the list the strip is drawn from did not carry a year at all. An
+  undated work sits at the end rather than the front, because "not known" is not
+  "earliest".
+
+- **A panel on a phone is a sheet you can drag.** It wears a grab bar, follows your
+  finger, and settles at one of three heights — as tall as its content, then three
+  quarters of the screen, then almost all of it — so a long list and a short form no
+  longer share one ceiling. Pull it down past the smallest of those and it closes,
+  asking about unsaved typing exactly as the ✕ does. Tapping the page above it still
+  closes it too.
+
+- **A control that ticks a whole list no longer wears the tick that saves.** The
+  metadata merge screen's "take everything" and "take nothing", and the row that starts
+  selecting several cards, are drawn with a double mark: a single ✓ is what every form's
+  confirm looks like, and one picture cannot hold both jobs.
+
 - **A control that says "show me this" shows it, and not on the first press only.**
   Opening a performer's page from a character's, or a character's from a person's,
   worked once in a tab and then put you two panels down from where you asked to be —

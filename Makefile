@@ -12,7 +12,7 @@ TVDB_TOKEN ?=
 LDFLAGS := -s -w -X tippani/internal/buildinfo.Version=$(VERSION) \
 	-X main.defaultTMDBKey=$(TMDB_TOKEN) -X main.defaultTVDBKey=$(TVDB_TOKEN)
 
-.PHONY: build frontend glossary changelog test run clean typescale frame-scroll panel-depth hero-control controls
+.PHONY: build frontend glossary changelog test run clean typescale frame-scroll panel-depth hero-control controls sheet-drag
 
 ## build: static binary with the currently built (or placeholder) frontend embedded
 build:
@@ -60,6 +60,13 @@ panel-depth:
 ## that because the title's box is then the taller of the two.
 hero-control:
 	bash scripts/screenshots/run-hero-control.sh
+
+## sheet-drag: open a panel at phone width in a real browser and fail if it is not a
+## sheet a reader can drag — a handle a thumb can hit, a rest height that is one of the
+## anchors, a pull up that grows it and stays grown, a pull off the bottom that closes
+## it. jsdom reports every box at zero, so none of this can be asked there.
+sheet-drag:
+	bash scripts/screenshots/run-sheet-drag.sh
 
 ## controls: press every control on every screen and fail on any that does nothing
 ## without saying it is disabled, on any menu that opens with no rows in it, and on

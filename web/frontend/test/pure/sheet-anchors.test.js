@@ -18,7 +18,7 @@
 
 import { describe, expect, it } from 'vitest'
 
-import { DISMISS_FRACTION, PROJECT_MS, SHEET_STOPS, anchorsFor, clampDrag, landing } from '../../src/sheetAnchors.js'
+import { DISMISS_FRACTION, MAX_FLICK, PROJECT_MS, SHEET_STOPS, anchorsFor, clampDrag, landing } from '../../src/sheetAnchors.js'
 
 const VIEW = 844 // a phone, and the height the owner reports from
 
@@ -110,6 +110,39 @@ describe('where a release lands', () => {
 
   it('and answers with the height it was given rather than throwing when there are no anchors', () => {
     expect(landing({ height: 400, anchors: [] })).toEqual({ dismiss: false, height: 400 })
+  })
+
+  // A SPEED NO FINGER CAN PRODUCE IS NOT A DECISION THE READER MADE.
+  //
+  // Velocity is `dy / dt` between two pointer samples, and the denominator is the
+  // platform's rather than the reader's: two samples that arrive in the same tick
+  // turn a 40px nudge into hundreds of pixels a millisecond, which projects
+  // clean off the screen and dismisses a sheet nobody threw. The clamp is what
+  // makes the projection depend on the drag rather than on the sample rate — and
+  // it is asked HERE, on the arithmetic, because it is a fact about what a
+  // release means and not about how the events were wired.
+  it('and a speed no thumb can reach is read as the fastest one that can be', () => {
+    // FROM THE TOP OF THE SHEET, which is where the two readings differ: the
+    // clamped flick carries it down a stop, and the unclamped one carries it off
+    // the screen. A flick from lower down dismisses under either, and would say
+    // nothing about the clamp.
+    const top = anchors[anchors.length - 1]
+    expect(landing({ height: top, velocity: 400, anchors }).dismiss,
+      'a sample interval near zero threw the sheet away').toBe(false)
+    // AND THE CLAMP IS NOT A CEILING ON MEANING. A flick at the fastest speed a
+    // thumb reaches still carries the sheet down a stop.
+    expect(landing({ height: top, velocity: MAX_FLICK, anchors }).height,
+      'a real flick downward no longer moves the sheet at all').toBeLessThan(top)
+  })
+
+  it('and a garbled speed is read as no speed rather than as NaN', () => {
+    // `dy / 0` is Infinity and `undefined / n` is NaN; either one propagates
+    // through the projection and makes every comparison below it false, so the
+    // sheet would settle wherever `reduce` started.
+    for (const velocity of [Infinity, -Infinity, NaN, undefined, null]) {
+      expect(anchors, `a velocity of ${String(velocity)} left the sheet off its anchors`)
+        .toContain(landing({ height: anchors[anchors.length - 1], velocity, anchors }).height)
+    }
   })
 })
 

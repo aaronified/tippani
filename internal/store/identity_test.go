@@ -930,3 +930,80 @@ func TestUndoingAMergeGivesBackAnAliasItOverwrote(t *testing.T) {
 		t.Fatalf("the spelling now finds record %d; it belonged to %d", got, third)
 	}
 }
+
+// ---- the year a works strip is ordered by -----------------------------------
+
+// EVERY WORKS STRIP PRINTS "the order is the release order" UNDER IT, and for as
+// long as these two shapes carried no year the sentence was a claim nothing could
+// keep: `PersonCredits` ordered by role then title, `castWhere` by title alone,
+// and the client had nothing else to sort on. The owner corrected one book's year
+// from 2009 to 1999, watched it stay exactly where it was, and reported it.
+//
+// SO THE FACT HAS TO REACH THE SCREEN. This asks the two reads a strip is drawn
+// from for a work whose year is known and one whose year is not, and it asks
+// BOTH KINDS, because a book's year and a film's live in differently named
+// columns and a UNION that filled only one side would look right on half a
+// library.
+//
+// 0 MEANS NOT KNOWN and is asserted as such: the column is nullable, and a shape
+// that turned a missing year into something else — a NULL scan error, or a
+// sentinel — would take the client's "sort these last" rule away from it.
+func TestAWorksStripCanTellWhenEachWorkCameOut(t *testing.T) {
+	s := openIdentity(t)
+	exec := func(q string, args ...any) {
+		t.Helper()
+		if _, err := s.DB.Exec(q, args...); err != nil {
+			t.Fatalf("seed: %v", err)
+		}
+	}
+	exec(`INSERT INTO books (id, user_id, title, published_year) VALUES (1, 1, 'Gardens of the Moon', 1999)`)
+	exec(`INSERT INTO books (id, user_id, title) VALUES (2, 1, 'An Undated Book')`)
+	exec(`INSERT INTO movies (id, user_id, title, release_year) VALUES (1, 1, 'A Film', 1979)`)
+
+	var personID, charID int64
+	mustTx(t, s, func(tx *sql.Tx) error {
+		var err error
+		if personID, err = ResolvePerson(tx, 1, "Steven Erikson"); err != nil {
+			return err
+		}
+		charID, err = ResolveCharacter(tx, 1, "Anomander Rake")
+		return err
+	})
+	for _, w := range []struct {
+		kind string
+		id   int64
+	}{{"book", 1}, {"book", 2}, {"movie", 1}} {
+		exec(`INSERT INTO work_person (user_id, kind, work_id, role, ordering, person_id, credit_as)
+		      VALUES (1, ?, ?, 'author', 0, ?, '')`, w.kind, w.id, personID)
+		exec(`INSERT INTO work_cast (user_id, kind, work_id, character, character_key, character_id)
+		      VALUES (1, ?, ?, 'Anomander Rake', ?, ?)`, w.kind, w.id, CastKey("Anomander Rake"), charID)
+	}
+
+	want := map[string]int{"Gardens of the Moon": 1999, "An Undated Book": 0, "A Film": 1979}
+
+	credits, err := PersonCredits(s.DB, 1, personID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(credits) != len(want) {
+		t.Fatalf("PersonCredits returned %d works, want %d", len(credits), len(want))
+	}
+	for _, c := range credits {
+		if y, ok := want[c.Title]; !ok || c.Year != y {
+			t.Errorf("PersonCredits: %q came out in %d, want %d", c.Title, c.Year, y)
+		}
+	}
+
+	seen, err := CharacterAppearances(s.DB, 1, charID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(seen) != len(want) {
+		t.Fatalf("CharacterAppearances returned %d works, want %d", len(seen), len(want))
+	}
+	for _, a := range seen {
+		if y, ok := want[a.WorkTitle]; !ok || a.Year != y {
+			t.Errorf("CharacterAppearances: %q came out in %d, want %d", a.WorkTitle, a.Year, y)
+		}
+	}
+}

@@ -36,6 +36,20 @@ const onPhone = (sel, prop) => {
   return out
 }
 
+// How much of the viewport a ceiling leaves uncovered, in percent, for the two
+// ways a ceiling of this kind gets written: a share of the viewport (`94dvh`,
+// `94%`) or the whole thing less a strip (`calc(100dvh - 56px)`). Anything else
+// answers -1, which fails the assertion rather than passing it by accident.
+const strip = (value) => {
+  const share = /^([\d.]+)(?:d?vh|%)$/.exec(value)
+  if (share) return 100 - Number(share[1])
+  const less = /^calc\(\s*100(?:d?vh|%)\s*-\s*([\d.]+)([a-z%]*)\s*\)$/.exec(value)
+  // A subtrahend in px is a real strip at any viewport a phone has; one in a
+  // viewport unit is already a percentage.
+  if (less) return Number(less[1]) > 0 ? (less[2] === 'px' ? 100 * Number(less[1]) / 1000 : Number(less[1])) : 0
+  return -1
+}
+
 describe('a panel at phone width', () => {
   it('fills the width rather than sitting inset from it', () => {
     const w = onPhone('.tp-panel', 'width')
@@ -66,11 +80,33 @@ describe('a panel at phone width', () => {
       .toBeGreaterThan(0)
   })
 
+  // THE CEILING IS A RULE, NOT A SPELLING. This case asked for one form of the
+  // ceiling — `calc(100dvh - N)` — and the drag anchors then wrote the same rule
+  // the other way round, as a share of the viewport (the pack's own taller stop,
+  // 94%, `book-detail.dc.html:4208`). A guard that names one spelling fails a
+  // conforming rewrite and passes `calc(100dvh - 0px)`, which is the whole
+  // screen. So the question is what the reader is left with: does the ceiling
+  // keep any of the page uncovered, whichever way it is written.
   it('and still leaves a strip of the page above it', () => {
     const h = onPhone('.tp-panel', 'max-height')
     expect(h, '.tp-panel takes no ceiling at phone width, so a long sheet becomes the whole screen and reads as a route')
       .toBeTruthy()
-    expect(h, `\`max-height: ${h}\` leaves nothing of the page visible — the blur behind it has nothing to blur`)
-      .toMatch(/calc\(100dvh\s*-\s*[1-9]/)
+    expect(strip(h), `\`max-height: ${h}\` leaves nothing of the page visible — the blur behind it has nothing to blur`)
+      .toBeGreaterThan(0)
+  })
+
+  it('and the sheet takes its height from the drag rather than from the stylesheet', () => {
+    // THE ANCHORS OWN THE HEIGHT once a pointer has moved the sheet, and the
+    // custom property is the one channel between them and layout. Its FALLBACK
+    // is what the sheet is before any script runs: a sheet whose declared height
+    // were a fixed number would open at that number on a phone with JavaScript
+    // still parsing, and then jump.
+    const decl = onPhone('.tp-panel', 'height')
+    expect(decl, '.tp-panel declares no height at phone width, so nothing the drag writes can reach it')
+      .toBeTruthy()
+    const m = /^var\(\s*(--[\w-]+)\s*,\s*([^)]*)\)$/.exec(decl)
+    expect(m, `\`height: ${decl}\` — the drag writes a custom property, so the height must read one`).toBeTruthy()
+    expect(m[2].trim(), `the fallback is \`${m && m[2]}\`, so a sheet the drag has not touched is sized by the stylesheet and jumps on first paint`)
+      .toBe('auto')
   })
 })

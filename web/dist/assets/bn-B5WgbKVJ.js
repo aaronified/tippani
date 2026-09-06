@@ -329,7 +329,7 @@ common.action.confirm.label = নিশ্চিত করুন
 common.confirm.undoable.tag = ফেরানো যাবে
 common.confirm.final.tag = ফেরানো যাবে না
 common.confirm.undoable.note = এটা বিনে থাকবে, যতক্ষণ না আপনি বিন খালি করছেন — আর টোস্টে সঙ্গে সঙ্গে ফিরিয়ে আনার সুযোগ থাকবে।
-common.confirm.final.note = এটা বিনে যাচ্ছে না। এখান থেকে কিছুই আর ফেরানো যাবে না।
+common.confirm.final.note = এটা বিনে যাচ্ছে না।
 common.action.delete.label = মুছুন
 common.action.close.label = বন্ধ করুন
 # The × on a window that sits over the screen. {name} is the word above — Close,
@@ -1105,6 +1105,7 @@ shell.add.film.label = সিনেমা বা শো যোগ করুন
 shell.add.quote.label = উদ্ধৃতি তুলে রাখুন
 shell.dock.boards.label = বোর্ড
 shell.dock.tools.label = সরঞ্জাম
+shell.sheet.grip.aria = এই শিটের মাপ বদলান
 shell.totop.aria = উপরে ফিরুন
 # The same button when an import is waiting in the pending queue.
 shell.add.pending.tip = {n}টা ইমপোর্ট দেখে নেওয়া বাকি
@@ -2235,7 +2236,7 @@ quotes.board.delete.only.body = এটাই আপনার একমাত্�
 quotes.board.delete.holds.body.one = এখানে {n}টা উক্তি রাখা আছে। সেগুলো মুছবে না, অন্য বোর্ডে চলে যাবে।
 quotes.board.delete.holds.body.other = এখানে {n}টা উক্তি রাখা আছে। সেগুলো মুছবে না, অন্য বোর্ডে চলে যাবে।
 quotes.board.delete.move.aria = উক্তিগুলো কোন বোর্ডে যাবে
-quotes.board.delete.empty.body = এখানে কিছুই রাখা নেই, তাই হারানোরও কিছু নেই।
+quotes.board.delete.empty.body = এখানে কিছুই রাখা নেই।
 
 # THE MOVE-TO-BOARD SHEET, opened from a card's ⋯ and from the selection bar,
 # so common.* rather than quotes.*.
@@ -2871,7 +2872,7 @@ common.work.fields-saved.toast.other = {n}টা ঘর সেভ হয়ে�
 # already filled starts unticked, so a match can never quietly overwrite you.
 common.work.merge.back.aria = মিলগুলোয় ফিরুন
 common.work.merge.info.title = কী কী রাখবেন
-common.work.merge.info.body = যে ঘর ফাঁকা, তাতে টিক দেওয়াই থাকে — ফাঁকা ঘর ভরাতে কিছু হারায় না। ভরা ঘর টিক ছাড়া শুরু হয়, তাই আপনার লেখা কিছু চুপচাপ মুছে যেতে পারে না।
+common.work.merge.info.body = যে ঘর ফাঁকা, তাতে টিক দেওয়াই থাকে। ভরা ঘর টিক ছাড়া শুরু হয়, তাই আপনার লেখা কিছু মিল থেকে মুছে যেতে পারে না।
 common.work.merge.all.aria = সব ঘর নিন
 common.work.merge.all.tip = সবটাই নিন
 common.work.merge.none.aria = কোনও ঘর নয়
@@ -3834,7 +3835,7 @@ offers.column.stored = যা আছে
 offers.take.tip = এই ফিল্ডে {source}-এর বয়ান নিন
 offers.taken.toast = {field} এখন {source} থেকে আসছে
 offers.none.prose = এই ফিল্ড নিয়ে আর কোনও জোগানদারের আলাদা বয়ান নেই।
-offers.unpinned.prose = এই রেকর্ড কোনও জোগানদারের সঙ্গে বাঁধা নেই, তাই জিজ্ঞেস করার কিছু নেই। আগে খুঁজে নিয়ে বেঁধে ফেলুন।
+offers.unpinned.prose = এই রেকর্ড কোনও জোগানদারের সঙ্গে বাঁধা নেই। আগে খুঁজে নিয়ে বেঁধে ফেলুন।
 
 # ---------------------------------------------------------------------------
 # IMPORT — ImportPage.jsx. Seven source formats, each a card with a how-to, and
@@ -4491,8 +4492,8 @@ staging.form.timestamp.placeholder = 01:02:03
 # spellings of one.
 staging.card.label = যাচাই বাকি ইমপোর্ট
 # bn: আপনার stays here: it is your approval the queue is waiting on, and that is the whole sentence (§1.3).
-staging.card.body.one = ইমপোর্ট করা {n}টা উদ্ধৃতি আপনার সায় পাওয়া বাকি — গ্রন্থাগারে এখনও কিছুই ঢোকেনি।
-staging.card.body.other = ইমপোর্ট করা {n}টা উদ্ধৃতি আপনার সায় পাওয়া বাকি — গ্রন্থাগারে এখনও কিছুই ঢোকেনি।
+staging.card.body.one = ইমপোর্ট করা {n}টা উদ্ধৃতি আপনার সায় পাওয়া বাকি।
+staging.card.body.other = ইমপোর্ট করা {n}টা উদ্ধৃতি আপনার সায় পাওয়া বাকি।
 staging.card.review.label = {n}টা দেখে নিন
 
 # ---------------------------------------------------------------------------
@@ -5527,13 +5528,13 @@ search.help.escaped-colon.more = কোলনের আগে একটা ব�
 
 # Whether a second chip of one field narrows or widens.
 search.help.two-chips.term = এক ঘরের দুটো চিপ
-search.help.two-chips.what = দুটো ট্যাগে খোঁজ ছোট হয়: tag:stoicism tag:death দুটোই যার গায়ে, সেই উদ্ধৃতিগুলোই আনে — দ্বিতীয় চিপে ট্যাপ মানেই তো আরও ছেঁকে নেওয়া।
+search.help.two-chips.what = দুটো ট্যাগে খোঁজ ছোট হয়: tag:stoicism tag:death দুটোই যার গায়ে, সেই উদ্ধৃতিগুলোই আনে।
 search.help.two-chips.more = দুটো রঙে খোঁজ বড় হয়: একটা উদ্ধৃতির রং একটাই, তাই দুটো চাইলে এমন কিছু চাওয়া হত যা কিছুই নয় — খোঁজটা বরাবর খালি ফিরত, আর মনে হত ভেঙে গেছে। তাক, সিরিজ, সাল আর যে কোনও নামের ঘরেও তাই — একটাই থাকে, তাই দ্বিতীয়টার মানে “বা”। ঘর বুঝে বদলায়, কারণ একটা নিয়মে দুটো চলে না।
 
 # A colour chip carries the reader’s own name for the slot.
 search.help.colour-names.term = রং, তার নিজের নামে
 search.help.colour-names.what = রঙের চিপে আপনার দেওয়া নামটাই লেখা থাকে — colour:doubt, colour:blue নয় — আর খোঁজও ওই কথাটা ধরেই চলে।
-search.help.colour-names.more = জমা থাকা রংটা স্ক্রিনে যা দেখছেন তা নয়, তাই টাইপও ওটা করতে হয় না।
+search.help.colour-names.more = জমা থাকা রংটা স্ক্রিনে যা দেখছেন তা নয়।
 
 # Searching from an already-filtered board.
 search.help.arriving-narrowed.term = ছাঁকা অবস্থায় এসে পড়া
@@ -5594,7 +5595,7 @@ quotes.help.board-kind.more = প্রবাদের বোর্ডে ভা
 
 # The language short-list a proverb board offers its quote form.
 quotes.help.languages.term = প্রবাদের বোর্ডে ভাষা
-quotes.help.languages.what = বানানোর সময় বাছেন, পরেও বদলানো যায়: উক্তির ফর্ম এই ছোট তালিকাটাই সামনে রাখে, যাতে একই বানান দুবার লিখতে না হয়।
+quotes.help.languages.what = বানানোর সময় বাছেন, পরেও বদলানো যায়: উক্তির ফর্ম এই ছোট তালিকাটাই সামনে রাখে, যাতে প্রতিবার একই বানান লিখতে না হয়।
 quotes.help.languages.more = যে কোনও ভাষা, শুরুর প্রবাদগুলো যে তিনটেয় আসে শুধু সেগুলো নয়। ভাষা ধরে ভাগ করলে বোর্ডটা ভাষা-পিছু এক এক বিভাগে ভেঙে যায় — এটা তাক পড়ার একটা ধরন, ফোল্ডার নয়; কিছুই নড়ে না, আর বাকি সব ভিউতে গোটা বোর্ডই দেখা যায়।
 
 # The pinned row above the boards.
@@ -5918,12 +5919,12 @@ settings.help.button-labels.more = শুধু বোতাম নয়, ফ�
 # Which sections of the app are switched on.
 settings.help.features.term = ফিচার
 settings.help.features.what = অ্যাপের কোন বিভাগগুলো চোখের সামনে চান — গ্রন্থাগার, ক্যাটালগ, উক্তি।
-settings.help.features.more = একটা বন্ধ করলে তার ট্যাব যায় ট্যাব-সারি, ড্রয়ার আর ফোনের বার থেকে, হোমের টাইল যায়, খোঁজের চিপ যায়, আর ＋ ওই ধরনটা আর দেয় না। আর কিছুই বদলায় না: প্রতিটা বই, সিনেমা আর উক্তি ঠিক যেখানে আছে সেখানেই থাকে, অনুশীলনের ডেক আগের মতোই টানে, লিংক বা বুকমার্ক দিলে খোলেও — তাই আবার চালু করলে সব যেমন রেখেছিলেন তেমনই পাবেন।
+settings.help.features.more = একটা বন্ধ করলে তার ট্যাব যায় ট্যাব-সারি, ড্রয়ার আর ফোনের বার থেকে, হোমের টাইল যায়, খোঁজের চিপ যায়, আর ＋ ওই ধরনটা আর দেয় না। আর কিছুই বদলায় না: প্রতিটা বই, সিনেমা আর উক্তি ঠিক যেখানে আছে সেখানেই থাকে, অনুশীলনের ডেক আগের মতোই টানে, আর লিংক বা বুকমার্ক দিলে খোলেও।
 
 # The guided tour card.
 settings.help.onboarding.term = প্রথম পরিচয়
 settings.help.onboarding.what = প্রতিটা ফিচার ধরে ধরে দেখানো ট্যুর।
-settings.help.onboarding.more = গোটাটা শুরু করুন, আবার দেখুন, বা যেখানে ছেড়েছিলেন সেখান থেকে ধরুন — নয়তো একটা বিভাগ বেছে শুধু সেটাই দেখুন, ট্যুর ওই স্ক্রিনে খুলে সেখান থেকেই চলে। আগে কার্ডেই সব বিভাগের তালিকা থাকত; যে তালিকায় ট্যাপ করা যায় না সে “এটা কি এর মধ্যে আছে?” প্রশ্নের উত্তর দেয় — কেউ তো ওই প্রশ্ন নিয়ে এখানে আসে না।
+settings.help.onboarding.more = গোটাটা শুরু করুন, আবার দেখুন, বা যেখানে ছেড়েছিলেন সেখান থেকে ধরুন — নয়তো একটা বিভাগ বেছে শুধু সেটাই দেখুন, ট্যুর ওই স্ক্রিনে খুলে সেখান থেকেই চলে। আগে কার্ডেই সব বিভাগের তালিকা থাকত; যে তালিকায় ট্যাপ করা যায় না সে শুধু বলে কোনটা এর মধ্যে আছে — কেউ তো ওই প্রশ্ন নিয়ে এখানে আসে না।
 
 settings.help.users.term = ইউজার
 settings.help.users.what = এই সার্ভারে যে যে আছেন, শুধু অ্যাডমিনের জন্য।
@@ -5935,7 +5936,7 @@ settings.help.metadata-sources.more = প্রতিটা ঘর আলাদ�
 
 # The two IGDB fields, which only work as a pair.
 settings.help.igdb.term = IGDB client id আর secret
-settings.help.igdb.what = গেমের জোড়া, আর সত্যিই জোড়া — IGDB পরিচয় মেলায় Twitch দিয়ে, তাই একলা একটা ঘর দিয়ে কিছুই খোঁজা যায় না।
+settings.help.igdb.what = গেমের জোড়া — IGDB পরিচয় মেলায় Twitch দিয়ে, তাই একলা একটা ঘর দিয়ে কিছুই খোঁজা যায় না।
 settings.help.igdb.more = client id-র জন্য dev.twitch.tv/console-এ একটা অ্যাপ্লিকেশন রেজিস্টার করুন, তারপর তাতেই “New Secret” টিপে বাকি অর্ধেকটা নিন। সিনেমার মতো এখানে সবার জন্য সঙ্গে আসা কোনও চাবি নেই: এই পরিচয় অ্যাপ্লিকেশন-পিছু, আর তার উপর সীমা বাঁধা, তাই অ্যাপের সঙ্গে দেওয়া একটা চাবি হত সবার একসঙ্গে দাঁড়ানোর এক লম্বা লাইন।
 
 # The typography section — the faces the app draws with, not a media type.
@@ -6503,7 +6504,7 @@ identity.merge.hit.works.other = {n}টা কাজ
 identity.merge.confirm.title = {name}-কে {into}-এ মেলাবেন?
 identity.merge.confirm.body = {name} আর আলাদা রেকর্ড থাকবে না। এর নামে যা যা আছে সব {into}-এ চলে যাবে, আর এর নামটা এমন এক বানান হবে যা একে খুঁজে দেয় — তাই পরের ইমপোর্টে আবার তৈরি হবে না।
 identity.merge.confirm.covers = কোনও প্রচ্ছদ বদলাবে না। প্রতিটা কাজ আজ যে নাম ছাপে, তা-ই ছাপবে।
-identity.merge.confirm.undo = বিন ফেরার পথটা ধরে রাখবে, বাকি সবকিছুর মতোই।
+identity.merge.confirm.undo = বিন থেকে ফেরাতে পারবেন, যতদিন বিন বাকি সবকিছু রাখে।
 identity.merge.confirm.action = মিলিয়ে দিন
 identity.merge.done = {name} এখন {into}-এর অংশ
 identity.field.sort = যেভাবে সাজে

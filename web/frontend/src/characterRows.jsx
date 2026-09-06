@@ -516,11 +516,45 @@ export function CreditRow({
 // picture docs/ui-glossary.html cannot document." U+002B is not an emoji, but it
 // is the platform's font drawing a plus beside the app's own drawings of
 // everything else — two pictures of one thing, which is the same defect.
+// inReleaseOrder — the order the strip's own line promises, applied where the
+// promise is made.
+//
+// THE REPORT, the owner's: "the works say it is release order, and it was. but
+// then i rectified a metadata problem in gardens of the moon (which released in
+// 1999, not 2009 as my backup suggested). this should have automatically taken it
+// to the front. but it didn't."
+//
+// IT NEVER WAS. `PersonCredits` orders by role then TITLE and `castWhere` by
+// title alone, and neither shape carried a year at all — so a strip of Erikson's
+// nine novels opened with Deadhouse Gates, Dust of Dreams, Gardens of the Moon,
+// which is the alphabet reading like a series a reader half-remembers. Correcting
+// a year could not move a tile because no tile had ever been placed by one.
+//
+// HERE AND NOT IN THE TWO CALLERS. A person's strip is what they PLAYED
+// concatenated with what they MADE — two queries, two lists — so a sort in either
+// one leaves the join in neither order. And "similar things should act similarly"
+// is this repo's directive: the strip that prints the line is the thing that owns
+// the order, so a third caller cannot get the line without the order.
+//
+// AN UNDATED WORK GOES LAST, not first. 0 is the library saying it does not know,
+// and sorting it as a number opens the strip with everything nobody has dated —
+// asserting they are the earliest, which is the one thing the value cannot mean.
+//
+// THE SORT IS STABLE, which is how "what they played leads" survives inside a
+// single year: `Array.prototype.sort` has been required to be stable since ES2019
+// and the two lists arrive already concatenated in that order.
+export function inReleaseOrder(tiles) {
+  // `tile` and not `t`: this file imports the translator under that name, and a
+  // local binding of it is the shadow `locale-shadow.test.js` exists to stop.
+  const when = (tile) => (Number(tile?.year) > 0 ? Number(tile.year) : Infinity)
+  return [...(tiles || [])].sort((a, b) => when(a) - when(b))
+}
+
 export function AppearanceStrip({ tiles, hint, onAdd, addLabel, addTitle, addIcon = <IconPlus size={18} /> }) {
   return (
     <div className="cs-strip">
       <Scroller className="cs-tiles">
-        {tiles.map((w) => (
+        {inReleaseOrder(tiles).map((w) => (
           <div className="cs-tile" key={w.key}>
             {/* A TILE WITH NOWHERE TO GO SAYS SO. `aria-disabled` rather than
                 `disabled`, so the cover stays readable and the tooltip still

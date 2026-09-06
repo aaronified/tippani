@@ -149,6 +149,9 @@ function workTiles(works, recordImage, onOpen) {
     // work's screen → the credit); the fact stayed.
     faceTitle: a.actor ? t('identity.tile.face.played', { name: a.character || '', actor: a.actor }) : a.character || '',
     artTitle: a.work_title,
+    // WHEN THE WORK CAME OUT, which is what `AppearanceStrip` places the tile by.
+    // 0 where the library has no year, and the strip reads that as "not known".
+    year: Number(a.year) || 0,
     onOpen: onOpen ? () => onOpen(a) : null,
   }))
 }
@@ -219,6 +222,8 @@ function creditTiles(credits, onOpen) {
     // the pack gives their tiles none.
     face: false,
     artTitle: c.title,
+    // The other half of the strip's release order — see workTiles.
+    year: Number(c.year) || 0,
     onOpen: onOpen ? () => onOpen(c) : null,
   }))
 }

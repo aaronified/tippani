@@ -10655,4 +10655,69 @@ binds the short ones by moving them down the screen.
 N)` with N above zero — the rule (a strip of page survives) rather than the number, so a
 later hand may widen the band and may not take it to nothing.
 
+**Superseded, within the same release, by the entry below.** The owner asked for a sheet
+with anchors, and anchors answer the question this entry could not: a surface that is a
+list and a form at once does not have to CHOOSE a share of the screen if the reader can
+move it between them. The strip of page survives — it is now the smaller of the pack's own
+two numbers rather than a band in px — so the reasoning above still holds and only its
+conclusion is replaced.
+
 <sub>Unreleased — `web/frontend/src/index.css` · `web/frontend/test/pure/phone-sheet.test.js`</sub>
+
+
+### The phone sheet grows a handle and predefined anchors, where the pack has neither
+
+**Decided.** A panel at phone width is a sheet the reader can drag: a grab bar above its
+head, three heights it may rest at — its content's own, then the pack's 76% and 94% of the
+viewport — and a pull down from the smallest one closes it, through the same guarded exit
+as the ✕ and Escape. Tapping the scrim closes it too, as it always did.
+
+**The owner asked for it in those words**, over a screenshot of a bottom sheet with a grab
+handle: *"see your own design for the popup. this is ideal. the small bar on top ensures
+that this is intuitively draggable. the whole thing is responsive to drag, and has
+predefined anchors. can you do this for the popups in the app?"* Asked where the anchors
+should be, they chose natural → 76% → 94% and added *"But clicking or tapping outside
+dismisses as well."*; asked what may be grabbed, *"Handle, header, and body at its top."*
+
+**This is a departure and it is worth naming as one.** `book-detail.dc.html` draws no
+handle and binds no drag — its mobile sheet is a fixed ceiling and a ✕. So the app is
+taking a shape from somewhere else, which the repo's own standard ("i don't want a single
+line deviating from the prototype unless it is expounded upon in detail") requires an
+argument for. The argument is the entry above: the pack picks its ceiling BY KIND, this
+app has one panel that is every kind at once, and the choice the artboard makes at design
+time is one only the reader can make here. Anchors are that choice handed over.
+
+**What replaced what.** `useSwipeDown` watched for a 90px downward touch and then
+dismissed. That is a threshold, not a drag: the sheet stood still until it vanished, so
+nothing on screen ever said the gesture existed or that it was working, and the only two
+outcomes were "still here" and "gone". `useSheetDrag` moves the sheet under the finger.
+
+**Height, not a transform.** A sheet that slides is a sheet leaving; a sheet being resized
+has to reflow, because the reader is dragging to SEE MORE and a translated sheet shows the
+same rows further up the screen. So the drag writes `--tp-sheet-h` and the stylesheet
+reads it, with `auto` as the fallback so a sheet the drag has not touched is sized by its
+content rather than jumping on first paint.
+
+**And the body's own scroll is not stolen.** A drag that starts in the body while it is
+scrolled is the reader reading; only at `scrollTop <= 0` is there nothing above to reveal
+and a downward pull can only be a dismissal. The handle needs no such test and no slop —
+it has nothing else to be.
+
+**Instead of.** A fixed ceiling with no gesture, which is the entry above and what the
+pack draws — rejected because it makes the app pick, for every panel, the number that the
+artboard picks per kind. A drag that dismisses on a threshold with no movement, which is
+what was there — rejected as a control that never says it exists. A sheet that slides
+rather than resizes — rejected above.
+
+**What holds it, in three layers, because a drag has three separable halves.**
+`test/pure/sheet-anchors.test.js` states the arithmetic with no React in it: which anchor
+a release lands on, and when a release is a dismissal. `test/dom/sheet-from-the-bottom.test.jsx`
+states the wiring: which presses start a drag, that the sheet resizes rather than slides,
+that leaving takes the guarded exit. Both of those have to FAKE a height, because jsdom
+lays nothing out — so `make sheet-drag` runs the gesture in a real browser and fails if the
+handle is under 44px, if the sheet rests between anchors, if a pull up does not grow it, or
+if a pull off the bottom does not close it. With the drag's own `pointerdown` listener
+removed, the probe prints two FAILs and exits 1.
+
+<sub>Unreleased — `web/frontend/src/ui.jsx` · `web/frontend/src/sheetAnchors.js` ·
+`web/frontend/src/index.css` · `scripts/screenshots/sheet-drag.mjs`</sub>

@@ -550,7 +550,13 @@ describe('merging two records into one', () => {
     act(() => hit.click())
     await screen.findByText(/stops being a record/)
     expect(screen.getByText(/No cover changes/)).toBeTruthy()
-    expect(screen.getByText(/bin holds the way back/)).toBeTruthy()
+    // THE FACT, NOT THE SENTENCE. This read `/bin holds the way back/` and broke on
+    // a prose pass that changed nothing about the behaviour — the owner's rule for
+    // this repo is that a test checks the feature and never the wording. What the
+    // dialog owes the reader is that the merge is undoable and WHERE from; the
+    // place is the durable half of that.
+    expect(screen.getByText(/\bbin\b/i), 'the confirm no longer says the merge can be undone, or where from')
+      .toBeTruthy()
     // Nothing has been written yet — the dialog is a question, not a receipt.
     expect(MERGED).toBeNull()
 

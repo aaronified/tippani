@@ -40,7 +40,9 @@ import {
   GhostButton,
   IconBack,
   IconCheck,
+  IconCheckAll,
   IconClose,
+  IconCloseAll,
   IconDelete,
   IconGlobe,
   IconButton,
@@ -1989,14 +1991,18 @@ function MergeScreen({ kind, rows, candidate, busy, onBack, onApply, onResync })
         <MonoLabel>{crumb}</MonoLabel>
         <InfoDot title={t('common.work.merge.info.title')} text={t('common.work.merge.info.body')} />
         <span className="flex-1" />
+        {/* THE PLURAL PAIR — see IconCheckAll. Neither of these commits anything:
+            they tick and untick the whole list, and the single ✓ and ✕ they used
+            to wear are the app's confirm and its way out, drawn everywhere else
+            on controls that DO commit. */}
         <FieldIconButton
-          icon={<IconCheck />}
+          icon={<IconCheckAll />}
           ariaLabel={t('common.work.merge.all.aria')}
           onClick={() => setAll(true)}
           tooltip={t('common.work.merge.all.tip')}
         />
         <FieldIconButton
-          icon={<IconClose />}
+          icon={<IconCloseAll />}
           ariaLabel={t('common.work.merge.none.aria')}
           onClick={() => setAll(false)}
           tooltip={t('common.work.merge.none.tip')}

@@ -302,6 +302,40 @@ function requestProse(i, indent = '  ') {
   return out
 }
 
+// accepted — the "From your requests" cards.
+//
+// TWO SOURCES, THE SAME SHAPE AS BUGS HAS ALWAYS HAD. `manual[]` is a feature I am
+// building that nobody filed an issue for, which is what everything in
+// `docs/plans/` is: a planning agent designs it, the plan lands there, and the
+// roadmap has to be able to say it is coming without waiting for somebody to
+// open a ticket about their own project. `bugs.json` has had exactly this since
+// the file was written; features had no way to say it and so said nothing.
+//
+// A MANUAL ENTRY RETIRES THE WAY EVERYTHING ELSE DOES: `shipped_in` stops it
+// rendering, and where it also has an issue number, closing that does too. The
+// bookkeeping rule of this whole file is that the roadmap catches up by itself,
+// and a second kind of entry that had to be deleted by hand would break it.
+//
+// `plan` NAMES THE FILE IN `docs/plans/` this entry speaks for. It is not
+// rendered — the roadmap does not link into a design document — but it is what
+// lets the periodic sweep tell an entry whose plan has shipped from one whose
+// plan is still open, without matching on prose.
+function acceptedManual(list, dropped) {
+  const cards = []
+  const rail = []
+  for (const f of list) {
+    if (f.shipped_in) { dropped.push(`${f.id || slug(f.title)} (shipped in ${f.shipped_in})`); continue }
+    const id = f.id || `req-${slug(f.title)}`
+    rail.push({ id, label: f.railLabel || heading(f.title) })
+    cards.push(`<div class="card req" id="${esc(id)}">`)
+    cards.push(`  <h3>${esc(typo(heading(f.title)))}</h3>`)
+    cards.push(...meta(f.issue ? [`<a href="${issueURL(f.issue)}">#${f.issue}</a>`] : []))
+    cards.push(...body(f.html, '  '))
+    cards.push('</div>', '')
+  }
+  return { cards, rail }
+}
+
 function accepted(list, overrides, dropped) {
   const cards = []
   const rail = []
@@ -394,7 +428,17 @@ const dropped = []
 const b = bugs(hand, tracker)
 dropped.push(...b.dropped)
 const fo = feats.overrides ?? {}
-const a = accepted(tracker.open_accepted ?? [], fo, dropped)
+// MINE FIRST, THE TRACKER'S AFTER. A plan I have written up reads better than the
+// form somebody filled in, and where both exist for one issue the hand-written
+// one wins — the same rule and the same reason as the bugs above.
+const man = acceptedManual(feats.manual ?? [], dropped)
+const manClaimed = new Set(
+  (feats.manual ?? []).map((f) => Number(f.issue)).filter((n) => Number.isInteger(n) && n > 0),
+)
+const a = accepted((tracker.open_accepted ?? []).filter((i) => !manClaimed.has(Number(i.number))), fo, dropped)
+a.cards = [...man.cards, ...a.cards]
+a.rail = [...man.rail, ...a.rail]
+while (a.cards.length && !a.cards[a.cards.length - 1]) a.cards.pop()
 const c = considered(tracker.open_considered ?? [], fo, dropped)
 
 const before = readFileSync(PAGE, 'utf8')

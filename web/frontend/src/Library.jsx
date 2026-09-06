@@ -53,7 +53,7 @@ import {
   HandCard,
   HandNote,
   Hearts,
-  IconCheck,
+  IconCheckAll,
   IconSliders,
   IconSortAsc,
   IconSortDesc,
@@ -2028,7 +2028,10 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
       // started is the dead control the selection menu's own note argues against.
       ...(selection.active
         ? []
-        : [{ id: 'select', icon: <IconCheck />, label: t('book.select.menu.label'), onClick: () => selection.begin('annotation') }]),
+        // THE PLURAL TICK, not the confirming one — see IconCheckAll. This row
+        // starts multi-select; it commits nothing, and the ✓ beside it is the
+        // same drawing every form's Save wears.
+        : [{ id: 'select', icon: <IconCheckAll />, label: t('book.select.menu.label'), onClick: () => selection.begin('annotation') }]),
     ],
   })
 

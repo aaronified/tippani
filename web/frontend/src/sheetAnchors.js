@@ -33,6 +33,19 @@ export const SHEET_STOPS = [0.76, 0.94]
 // is short enough that a deliberate slow drag is judged on where it actually is.
 export const PROJECT_MS = 120
 
+// The fastest a release is allowed to be READ as, in px per ms.
+//
+// VELOCITY IS A QUOTIENT AND ITS DENOMINATOR IS THE PLATFORM'S. `dy / dt` between
+// two pointer samples is a fine estimate at the ~16ms a frame gives, and nonsense
+// when the two arrive in the same tick: a 40px pull sampled 0.1ms apart reads as
+// 400px/ms, which projects a fifth of a mile and dismisses a sheet the reader was
+// nudging. That is not a flick, it is a division.
+//
+// 4px/ms is 64px a frame — faster than a thumb travels and already enough to
+// cross every anchor — so clamping here cannot cost a real gesture its meaning,
+// and it makes the projection depend on the drag rather than on the sample rate.
+export const MAX_FLICK = 4
+
 // A pull below the smallest anchor by this much of it is a dismissal. Two fifths
 // rather than half: by the time a sheet is half gone the reader has already
 // decided, and asking for the other half is asking them to prove it.
@@ -58,7 +71,8 @@ export function anchorsFor({ viewport, natural = 0 }) {
 // the direction a dismissal is in.
 export function landing({ height, velocity = 0, anchors }) {
   if (!anchors || anchors.length === 0) return { dismiss: false, height }
-  const projected = height - velocity * PROJECT_MS
+  const v = Math.max(-MAX_FLICK, Math.min(MAX_FLICK, Number(velocity) || 0))
+  const projected = height - v * PROJECT_MS
   const smallest = anchors[0]
   if (projected < smallest - smallest * DISMISS_FRACTION) return { dismiss: true }
   // The nearest anchor to where it is going. `reduce` rather than a sort so a tie

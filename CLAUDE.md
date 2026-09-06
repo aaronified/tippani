@@ -61,6 +61,33 @@ empty, which a fresh mktemp dir is, and needs no session.
 `.gitignore` covers `*.tpbk`. Ask the owner for it, or fall back to `seed.mjs` and say in
 the report which fixture the run used.
 
+## The plan queue
+
+**A separate planning agent designs new features; its plans land in `docs/plans/`, one
+file per feature.** This session does not invent the queue and does not reorder it — work
+is fetched from there **one plan at a time** and finished before the next is started. The
+directory's own rule still holds (`docs/plans/README.md`): a plan describes something that
+is **not built yet**, and when it ships it is folded into `docs/PLAN.md` with a pass
+recording where the plan turned out to be wrong, and the file here is deleted.
+
+**The roadmap has to keep up with that directory, and a sonnet subagent sweeps it.** The
+sweep is periodic and its job is narrow: read every file in `docs/plans/`, and make
+`docs/roadmap.html` say what is actually coming. Concretely —
+
+- a plan with no roadmap entry gets one, as an entry in `docs/data/features.json`'s
+  `manual[]` (hand-written, no issue number needed — the same shape `bugs.json` has always
+  had for a bug nobody filed);
+- an entry whose plan file is **gone** has shipped, so it takes a `shipped_in` and stops
+  rendering;
+- an entry whose plan has changed shape gets its prose corrected.
+
+Then `node scripts/roadmap-data.mjs` re-renders the page and `--check` proves it is in
+step. Nothing else in `docs/data/` is the sweep's to touch: `tracker.json` is generated
+from the issue tracker and `overrides` answers to issue numbers.
+
+**The sweep reports; it does not decide.** Adding a plan to the roadmap is publishing a
+promise on a public page, so a sweep that is unsure says so rather than inventing a card.
+
 ## Commands
 
 ```bash

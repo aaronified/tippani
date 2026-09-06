@@ -67,11 +67,21 @@ const phone = () => { window.matchMedia = (media) => ({
   dispatchEvent: () => false,
 }) }
 const body = () => document.querySelector('.tp-panel-body')
+// THE GESTURE IS A DRAG NOW, NOT A SWIPE, and the difference matters to this
+// file: a swipe fired the exit the moment it passed a threshold, while a drag
+// resizes the sheet and decides only when the finger LIFTS. So a dismissal that
+// forgot to ask its question would now do it on pointerup — a different line of
+// the hook — and a harness still sending touchmove would watch the wrong one.
+//
+// It starts in the BODY, which is where the report puts it ("scrolling down"),
+// and the body is at its own top, which is the only place a downward pull can
+// mean leaving rather than reading.
 const dragDown = (by = 160) => {
   const el = body()
-  const at = (y) => ({ touches: [{ clientY: y, identifier: 1, target: el }] })
-  fireEvent.touchStart(el, at(120))
-  fireEvent.touchMove(el, at(120 + by))
+  const at = (y) => ({ pointerId: 1, pointerType: 'touch', button: 0, clientY: y })
+  fireEvent.pointerDown(el, at(120))
+  fireEvent.pointerMove(window, at(120 + by))
+  fireEvent.pointerUp(window, at(120 + by))
 }
 
 const realMatchMedia = window.matchMedia
