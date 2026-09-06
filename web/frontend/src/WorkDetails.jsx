@@ -374,6 +374,12 @@ export const MOVIE_FIELDS = [
   { key: 'genres', get label() { return t('common.field.genres.label') }, kind: 'tokens', sheet: true },
   {
     key: 'publisher',
+    // A CREDIT, WHICH THE PACK DRAWS AS ONE (`credit: 'org'`, `:1174`). It was a
+    // plain text field here, so a game's publisher printed as a string beside
+    // three credits that print as records — the one row on the screen where the
+    // reader could not tell whether the app knew who this was.
+    credit: true,
+    personKind: 'publisher',
     get label() { return t('common.field.publisher.label') },
     nameCase: true,
     media: ['game'],
@@ -1309,7 +1315,13 @@ function FieldList({ kind, item, stack, specs, creditSpecs, mediaType, busy, gen
     let live = true
     setCastRows(null)
     json('GET', `/${kind === 'book' ? 'books' : 'movies'}/${item.id}/cast`).then((r) => {
-      if (live && r.ok) setCastRows(r.data?.cast || [])
+      // AN ANSWER EITHER WAY, because `null` here means "still asking" and the
+      // head is drawn only once the asking is over. A failed read left it null
+      // for ever, so the section — whose own comment says "the head IS the door"
+      // — never drew at all, and the only way into the cast editor went with it.
+      // An empty list is the honest thing to show when the list could not be
+      // fetched: the strip draws nothing and the door is still there.
+      if (live) setCastRows(r.ok ? (r.data?.cast || []) : [])
     })
     return () => { live = false }
   }, [kind, item.id])
@@ -1317,12 +1329,15 @@ function FieldList({ kind, item, stack, specs, creditSpecs, mediaType, busy, gen
   const castTiles = useMemo(() => (castRows || []).map((row) => ({
     key: String(row.id),
     name: row.character,
-    // THE PACK PRINTS "not named" RATHER THAN LEAVING THE LINE OUT
-    // (`work-details-popup.dc.html:1123`), because on a medium that HAS
-    // performers, nobody named is a fact about the credit. A book's cast has
-    // nobody playing anybody at all, so there the second line would be a
-    // sentence repeated under every tile and it is left off.
-    by: row.actor || (kind === 'book' ? '' : t('identity.credit.unnamed')),
+    // THE PACK PRINTS THE LINE ON BOTH MEDIA, in two different words, and this
+    // note has now been wrong about it twice. Its film strip bills an unvoiced
+    // dub as `not named` (`work-details-popup.dc.html:1123`); its BOOK strip
+    // prints `no performer` under all five tiles (`:1092-1097`). The second is
+    // what the earlier version of this comment called "a sentence repeated under
+    // every tile" and dropped — which is exactly what the pack does, on purpose:
+    // a book's cast is characters and the line says so, once per tile, rather
+    // than leaving the reader to infer it from a gap.
+    by: row.actor || t(kind === 'book' ? 'identity.credit.no-performer' : 'identity.credit.unnamed'),
     // THREE PICTURES, IN THE ORDER OF HOW MUCH THEY KNOW ABOUT THIS TILE: the
     // still this work holds of this character, then the character record's own
     // default, then the performer's headshot. The last is a real fallback and not
@@ -1698,7 +1713,7 @@ function FieldList({ kind, item, stack, specs, creditSpecs, mediaType, busy, gen
 
           THE READ IS ALSO WHAT MAKES A QUOTED CHARACTER OPENABLE. `item.cast`
           comes from `GET /{kind}/{id}`, which does not adopt; this asks the cast
-          endpoint, which does — so opening Details on a work whose People panel
+          endpoint, which does — so opening Details on a work whose cast editor
           has never been visited is now enough to give its quoted characters the
           rows their chips hang off. See `cast_from_quotes.go`. */}
       {/* NOT WHILE THE ANSWER IS STILL COMING. `castRows` is null until the read
@@ -1714,7 +1729,13 @@ function FieldList({ kind, item, stack, specs, creditSpecs, mediaType, busy, gen
           only way in with it. */}
       {castRows ? (
         <SectionHead
-          label={t('cast.strip.heading.label', { n: castTiles.length })}
+          // `Cast · none`, not `Cast · 0` — the pack's own head on the work with
+          // an empty cast (`work-details-popup.dc.html:1141`). A zero is a
+          // measurement and "none" is an answer, and this is the one head whose
+          // whole job is to say there is nothing there yet.
+          label={castTiles.length
+            ? t('cast.strip.heading.label', { n: castTiles.length })
+            : t('cast.strip.heading.none.label')}
           action={stack ? () => stack.push(workPeoplePanel(stack, { kind, item, creditSpecs, mediaType, onChanged })) : undefined}
           actionLabel={t('cast.strip.edit.label')}
           actionTitle={t('cast.strip.edit.tip')}

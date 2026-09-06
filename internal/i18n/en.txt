@@ -6199,6 +6199,7 @@ film.imdb.done.prose = {title} — {n} in the cast now.
 cast.open.label = People
 cast.heading.label = people
 cast.strip.heading.label = Cast · {n}
+cast.strip.heading.none.label = Cast · none
 cast.strip.edit.label = Edit
 cast.strip.edit.tip = Add, fetch or correct this cast
 cast.delete.returns.note = Your own quotes on this work name them, so they are back on the list. Change the line to take them off.
@@ -6474,6 +6475,7 @@ identity.section.dubbedby = Dubbed by
 # credits a de-aged shot or a second voice the reader has not named, and hiding
 # the row would lose the note beside it — the only record the casting exists.
 identity.credit.unnamed = Not named yet
+identity.credit.no-performer = no performer
 identity.credit.add.dub.lang.label = Dubbed in which language
 identity.credit.add.save.label = Add the credit
 identity.credit.add.save.tip = Adds a second performer on this character in this work. A language makes it a dubbing credit.
