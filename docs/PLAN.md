@@ -10700,8 +10700,21 @@ content rather than jumping on first paint.
 
 **And the body's own scroll is not stolen.** A drag that starts in the body while it is
 scrolled is the reader reading; only at `scrollTop <= 0` is there nothing above to reveal
-and a downward pull can only be a dismissal. The handle needs no such test and no slop —
-it has nothing else to be.
+and a downward pull can only be a dismissal. The handle needs no such test and no slop to
+START a drag — it has nothing else to be.
+
+**But a press is not a drag, and reading it as one cost the handle its other half.** The
+bar is a button: it takes a tab stop, answers the arrow keys, and a plain press steps to
+the next anchor and back round to the smallest, because a mouse has no way to discover a
+gesture and a reader who taps where the app drew something pressable is owed an answer.
+That press did nothing at all for as long as it existed. Being live from the first
+`pointerdown` — the sentence above — meant the RELEASE also read as a completed drag, so
+it settled at the anchor the sheet was already on and swallowed the click that follows a
+pointer sequence, which is a guard that exists so a drag does not step the sheet a second
+time past where the reader just put it. The guard was right; what it read was wrong. A
+release is a drag only if the pointer travelled the same four pixels that make a touch in
+the body a drag rather than a tap on a row — so the handle needs no slop to begin one and
+the same slop to have made one.
 
 **Instead of.** A fixed ceiling with no gesture, which is the entry above and what the
 pack draws — rejected because it makes the app pick, for every panel, the number that the
@@ -10715,9 +10728,17 @@ a release lands on, and when a release is a dismissal. `test/dom/sheet-from-the-
 states the wiring: which presses start a drag, that the sheet resizes rather than slides,
 that leaving takes the guarded exit. Both of those have to FAKE a height, because jsdom
 lays nothing out — so `make sheet-drag` runs the gesture in a real browser and fails if the
-handle is under 44px, if the sheet rests between anchors, if a pull up does not grow it, or
-if a pull off the bottom does not close it. With the drag's own `pointerdown` listener
-removed, the probe prints two FAILs and exits 1.
+handle is under 44px, if the sheet rests between anchors, if a pull up does not grow it, if
+a press on it does not move it, or if a pull off the bottom does not close it. With the
+drag's own `pointerdown` listener removed, the probe prints two FAILs and exits 1.
+
+**And each of those three layers had to be shown what a press is.** All three passed over
+a bar that did nothing: the jsdom cases fired `click` alone, which is the third of a
+press's three events and skips the two that make the rule hard; the browser probe only
+dragged; and `make controls` pressed the bar and could not see the answer, because its
+fingerprint carried no geometry and the bar's whole effect is a height. Three guards, one
+blind spot each, and the same control invisible in all three — which is the argument for
+having three rather than the argument against.
 
 <sub>Unreleased — `web/frontend/src/ui.jsx` · `web/frontend/src/sheetAnchors.js` ·
 `web/frontend/src/index.css` · `scripts/screenshots/sheet-drag.mjs`</sub>
