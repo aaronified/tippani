@@ -4485,7 +4485,6 @@ export function PanelHost({ stack }) {
             at the viewport corner — the page's key is fixed there, and on a desk the
             panel is a card in the middle of the screen with nothing of itself in that
             corner to come back from. */}
-        <BackToTop show={showUp} dockHidden onClick={upToTop} />
       </div>
       {/* THE QUESTION, asked only when there is something to lose. It renders
           inside the panel's own scrim so it sits above it, and it registers with

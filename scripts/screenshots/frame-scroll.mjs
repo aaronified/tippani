@@ -477,9 +477,16 @@ try {
   // it is a column, that it stays put while the body scrolls, or that it scrolls
   // under a fade when five doors do not fit 390px.
   //
-  // THE PHONE CASE IS THE ONE WORTH MEASURING. A row of five that overflows and
-  // does not scroll is a screen with two sections a reader cannot reach, and it
-  // looks exactly like a screen with three sections.
+  // AND THE PHONE DRAWS NO RAIL AT ALL, which this block used to insist on. The
+  // same commit that took the two-column track out replaced the strip with a
+  // FIELD on a phone, and argued it at `SectionRail`: "a scrolling strip of five
+  // tabs on a 390px screen shows two and a half of them, so the section you are
+  // not in is behind a gesture with no arrow — which is the edge-fade rule
+  // working exactly as designed and still being the wrong control for this."
+  //
+  // So the phone case is checked below, for the control the app actually draws.
+  // Waiting for `.meta-rail` at 390 was a 30-second timeout that killed the run
+  // before it could report the two widths it had already failed.
   // THE RAIL IS ABOVE THE BODY AT EVERY WIDTH, and this line used to want it
   // BESIDE the body on a desk. It was, once: `.meta-frame` had a two-column track
   // behind a min-width query. `a67f65d` — "the page fits a phone" — took it out
@@ -491,7 +498,7 @@ try {
   // widths ever since — asserting a design the app had left, which is the same
   // shape as `panel-depth.mjs` pressing for a cast that had moved. A guard is
   // only as current as the last time somebody ran it.
-  for (const [w, h, want] of [[1280, 900, 'stacked'], [980, 900, 'stacked'], [860, 900, 'stacked'], [390, 780, 'stacked']]) {
+  for (const [w, h, want] of [[1280, 900, 'stacked'], [980, 900, 'stacked'], [860, 900, 'stacked']]) {
     await page.setViewport({ width: w, height: h })
     await page.goto(`${opts.baseUrl}/metadata`, { waitUntil: 'networkidle0' })
     await page.waitForSelector('.meta-rail', { timeout: opts.timeoutMs })
@@ -542,6 +549,46 @@ try {
       failures.push(`${w}x${h}: the last door ends at ${m.lastRight}px, past the ${m.scrollW}px it can scroll to`)
     }
   }
+
+  // ---- and the same five sections on a phone, as a field -------------------
+  //
+  // THE RULE IS THE SAME EITHER WAY: every section is reachable, and the control
+  // says which one you are in. What changes is the control, and the reason is
+  // written at `SectionRail` — five tabs on 390px show two and a half, so the
+  // ones you are not in sit behind a gesture with no arrow.
+  //
+  // ASKED OF THE PHONE'S CONTROL RATHER THAN SKIPPED. A width this probe declines
+  // to visit is a width nothing measures, and the phone is the width the owner
+  // reports from.
+  await page.setViewport({ width: 390, height: 780 })
+  await page.goto(`${opts.baseUrl}/metadata`, { waitUntil: 'networkidle0' })
+  //
+  // `Select` IS THE APP'S OWN, not a native `<select>`: a trigger that names the
+  // choice and a listbox behind it, so the options are counted by opening it.
+  const phone = await page
+    .waitForSelector('.tp-select-trigger', { timeout: opts.timeoutMs })
+    .then(async () => {
+      await page.click('.tp-select-trigger')
+      await new Promise((r) => setTimeout(r, 400))
+      return page.evaluate(() => {
+        const trigger = document.querySelector('.tp-select-trigger')
+        return {
+          options: document.querySelectorAll('.tp-select-panel [role="option"]').length,
+          chosen: trigger.textContent.replace(/\s+/g, ' ').trim(),
+          rail: !!document.querySelector('.meta-rail'),
+          width: Math.round(trigger.getBoundingClientRect().width),
+        }
+      })
+    })
+    .catch(() => null)
+  if (!phone) {
+    failures.push('390x780: the metadata sections drew no field — nothing on this screen names them')
+  } else {
+    console.log(`390x780   metadata field ${phone.options} section(s), showing "${phone.chosen}", ${phone.width}px`)
+    if (phone.options !== 5) failures.push(`390x780: the field offers ${phone.options} section(s), want 5`)
+    if (!phone.chosen) failures.push('390x780: the field names no section, so nothing says where you are')
+    if (phone.rail) failures.push('390x780: the strip of tabs is drawn as well as the field — two controls for one choice')
+  }
 } finally {
   await browser.close()
 }
@@ -551,4 +598,4 @@ if (failures.length) {
   for (const f of failures) console.error('  - ' + f)
   process.exit(1)
 }
-console.log('\nframe-scroll: the frame is bounded, both columns scroll, the name is whole at every width, and the metadata rail is reachable at each')
+console.log('\nframe-scroll: the frame is bounded, both columns scroll, the name is whole at every width, and the metadata sections are reachable at every width')
