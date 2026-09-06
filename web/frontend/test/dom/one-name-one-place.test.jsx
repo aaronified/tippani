@@ -16,6 +16,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 
+import { DEFAULT_CREDIT_SEPS } from '../../src/credits.jsx'
+
 vi.mock('../../src/api.js', async (orig) => ({
   ...(await orig()),
   json: vi.fn(async () => ({ ok: true, data: {} })),
@@ -23,6 +25,15 @@ vi.mock('../../src/api.js', async (orig) => ({
 
 // `Frame` is the film line's card — the component the screenshot is of.
 const { Frame } = await import('../../src/Movies.jsx')
+const { FavouriteTile, screenFav } = await import('../../src/Home.jsx')
+
+// THE SEPARATORS THE APP ACTUALLY PASSES. `[',']` is not "a comma" — the splitter
+// reads `seps.comma`, and an array has no such key, so every flag is false and
+// `splitCredits` hands back the joined string as ONE name. A two-hander then looks
+// like one performer called "Rajesh Khanna, Amitabh Bachchan", and the case below
+// that keeps an uncovered performer passed on a substring match rather than on the
+// behaviour. A fixture no screen supplies proves nothing about the screens.
+const SEPS = DEFAULT_CREDIT_SEPS
 
 const LINE = {
   id: 1,
@@ -34,7 +45,7 @@ const LINE = {
 }
 
 const card = (over) => render(
-  <Frame d={{ ...LINE, ...over }} tagMap={{}} stickerMap={{}} seps={[',']} />,
+  <Frame d={{ ...LINE, ...over }} tagMap={{}} stickerMap={{}} seps={SEPS} />,
 )
 
 // How many times a name is printed anywhere on the card.
@@ -70,5 +81,154 @@ describe('the performer on a film line', () => {
     // can be, and it has to be there.
     card({ speaker_cast: null })
     expect(screen.queryAllByText(/Rajesh Khanna/).length, 'a line with no pill names nobody').toBeGreaterThan(0)
+  })
+})
+
+// ---- the same rule, on the two shapes it kept being broken on ----------------
+
+// The two-hander from the report: both characters on the work's cast, both
+// performers credited on the line.
+const TWO_HANDER = {
+  id: 9,
+  movie_id: 3,
+  quote: "Mark Wallace: Just wish that you'd stop sniping.",
+  character: 'Mark Wallace, Joanna Wallace',
+  actor: 'Albert Finney, Audrey Hepburn',
+  character_images: [
+    { name: 'Mark Wallace', path: '', actor: 'Albert Finney', cast_id: 1, character_id: 1 },
+    { name: 'Joanna Wallace', path: '', actor: 'Audrey Hepburn', cast_id: 2, character_id: 2 },
+  ],
+  speaker_cast: { cast_id: 1, character_id: 1, name: 'Mark Wallace', record_name: 'Mark Wallace', actor: 'Albert Finney' },
+  color: 'yellow',
+  tags: [],
+  favorite: true,
+  created_at: '2024-01-01T00:00:00Z',
+}
+
+const frame = (over = {}) =>
+  render(
+    <Frame
+      d={{ ...TWO_HANDER, ...over }}
+      tagMap={{}}
+      editing={false}
+      onEdit={() => {}}
+      onCancelEdit={() => {}}
+      onSave={() => {}}
+      onPatch={() => {}}
+      onDelete={() => {}}
+      onOpenPerson={() => {}}
+      onOpenCharacter={() => {}}
+      seps={SEPS}
+      actionsAlwaysVisible
+    />,
+  )
+
+const tile = (over = {}, open = true) => {
+  const f = screenFav({ ...TWO_HANDER, ...over }, { 3: { title: 'Two for the Road', media_type: 'movie' } })
+  render(
+    <FavouriteTile
+      f={f}
+      variant="a"
+      open={open}
+      editing={false}
+      onToggle={() => {}}
+      onOpen={() => {}}
+      onOpenPerson={() => {}}
+      onOpenCharacter={() => {}}
+      actorMap={{}}
+      seps={SEPS}
+    />,
+  )
+}
+
+// The card's own body — the edit modal renders the same names into hidden
+// inputs, and a form field is not a printing. Named `cardBody` because `card()`
+// above already means "render one" in this file.
+//
+// THE CLASSES ARE THE REAL ONES, MEASURED. `.tp-hand-card` does not exist in this
+// app — `HandCard` writes `hand-card` — so a selector naming it falls through to
+// `document.body` and the scope this line claims to apply is not applied. It
+// happened to make no difference here (nothing else renders), which is exactly
+// how a wrong selector survives: the assertions pass and the scope is a comment.
+// `.film-frame` is the film card's own class (Movies.jsx) and `.hand-card` the
+// favourite tile's (ui.jsx).
+const cardBody = () => document.querySelector('.film-frame, .hand-card') || document.body
+
+// How many times a name is PRINTED: leaf elements only, so a name is not counted
+// once for itself and again for every wrapper around it.
+const printings = (name) =>
+  [...cardBody().querySelectorAll('*')]
+    .filter((el) => el.children.length === 0 && el.textContent.includes(name))
+
+const chipFor = (character) =>
+  [...cardBody().querySelectorAll('.person-chip, .tp-person-chip, .speaker-chips > *')]
+    .find((el) => el.textContent.includes(character))
+
+describe('a film card that names two characters', () => {
+  it('says who plays each of them on that character’s own chip', () => {
+    frame()
+    for (const [character, performer] of [['Mark Wallace', 'Albert Finney'], ['Joanna Wallace', 'Audrey Hepburn']]) {
+      const chip = chipFor(character)
+      expect(chip, `${character} has no chip at all`).toBeTruthy()
+      expect(chip.textContent,
+        `the chip for ${character} does not name ${performer}, so the card must print the performers on a line of their own`)
+        .toContain(performer)
+    }
+  })
+
+  it('and prints neither performer a second time underneath', () => {
+    frame()
+    for (const performer of ['Albert Finney', 'Audrey Hepburn']) {
+      const hits = printings(performer)
+      expect(hits.length,
+        `${performer} is printed ${hits.length} times: ` + hits.map((h) => h.textContent.trim()).join(' | '))
+        .toBe(1)
+    }
+  })
+
+  it('but keeps a credit the chips do not carry', () => {
+    // The line credits a third performer no cast row folded to — a dub, a
+    // second-unit voice, a name typed with a different spelling. Dropping the
+    // whole line because two of the three were covered loses them outright.
+    frame({ actor: 'Albert Finney, Audrey Hepburn, William Daniels' })
+    expect(cardBody().textContent,
+      'a performer no chip names vanished with the line that was carrying them')
+      .toContain('William Daniels')
+    expect(printings('Albert Finney').length,
+      'the covered performer came back with the line').toBe(1)
+  })
+})
+
+describe('an opened favourite tile', () => {
+  it('prints the performer once, on the chip, not again in the credit row', () => {
+    tile()
+    const hits = printings('Albert Finney')
+    expect(hits.length,
+      `the performer is printed ${hits.length} times: ` + hits.map((h) => h.textContent.trim()).join(' | '))
+      .toBe(1)
+  })
+
+  it('and the printing that survives is the one with the character on it', () => {
+    tile()
+    const chip = chipFor('Mark Wallace')
+    expect(chip, 'the character chip is gone from the opened tile').toBeTruthy()
+    expect(chip.textContent,
+      'the surviving printing is the bare credit, not the chip that pairs the two')
+      .toContain('Albert Finney')
+  })
+
+  it('and still prints a credit no chip carries', () => {
+    tile({ actor: 'Albert Finney, William Daniels' })
+    expect(cardBody().textContent,
+      'a performer no chip names was dropped along with the ones that were covered')
+      .toContain('William Daniels')
+  })
+
+  it('does not repeat the film’s title under a header already naming it', () => {
+    tile()
+    const hits = printings('Two for the Road')
+    expect(hits.length,
+      `the title is printed ${hits.length} times: ` + hits.map((h) => h.textContent.trim()).join(' | '))
+      .toBe(1)
   })
 })
