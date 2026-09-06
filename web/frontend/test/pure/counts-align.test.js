@@ -11,9 +11,9 @@
 // misaligned" looks like when you cannot see the boxes.
 //
 // THE PROPERTY. Anchor both groups to the same edge, and give the figure a
-// column wide enough for two digits so a `1` and an `11` leave their captions in
-// the same place. Then the two rows read as one pair rather than as two tiles
-// that happen to be adjacent.
+// column wide enough for the counts a library actually reaches, so a `1` and an
+// `11` and a `100` all leave their captions in the same place. Then the two rows
+// read as one pair rather than as two tiles that happen to be adjacent.
 //
 // AND THE COLUMN IS IN `ch`, NOT PX. The figure is display type and grows with
 // the type dials; a px column would clip it at the top of the dial, which is the

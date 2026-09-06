@@ -36,6 +36,13 @@ const PACK = join(REPO, 'docs', 'design', 'prototypes')
 
 // Every file that carries citations: the app's own source, and the planning
 // documents that argue departures.
+//
+// AND docs/PLAN.md ABOVE ALL, which this list left out for a while. CLAUDE.md
+// names it as WHERE a design departure goes, so it is the document whose
+// citations most need to be right — and three were written into it in a shape
+// the resolver could not even see, which passed as "no citations here" rather
+// than as a miss. A guard that skips the file it exists for is the wrong half of
+// the tree.
 const SOURCES = [
   ...readdirSync(join(REPO, 'web', 'frontend', 'src'))
     .filter((f) => /\.(jsx?|css)$/.test(f))
@@ -43,6 +50,7 @@ const SOURCES = [
   ...readdirSync(join(REPO, 'docs', 'plans'))
     .filter((f) => f.endsWith('.md'))
     .map((f) => join('docs/plans', f)),
+  'docs/PLAN.md',
 ]
 
 // ``literal` (`[file.dc.html]:N[-M]`)` — the convention, with the file optional.

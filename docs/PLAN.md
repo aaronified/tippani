@@ -10570,8 +10570,8 @@ the three had landed with the argument only in a CSS comment — which is the ri
 for the reader of that rule and the wrong place for anyone asking what the app owes the
 pack.*
 
-**The counts row stops centring itself** (`justify-content:center` at
-`character-popup.dc.html:688`; `.cs-count` is now `flex-start`). The artboard draws two
+**The counts row stops centring itself** — `justify-content:center;gap:9px;`
+(`character-popup.dc.html:688`), where `.cs-count` is now `flex-start`. The artboard draws two
 equal boxes side by side, each centring its own `[glyph][number][caption]` group. Equal
 boxes with unequal contents centre to unequal offsets: "11 QUOTES" and "1 SCENE" put their
 glyphs at two different x, their numbers at two more, and their captions at two more
@@ -10583,8 +10583,8 @@ one box's padding, which fixes one pair of numbers and breaks the next: anchor b
 to the start, where a shared left edge is a property of the layout rather than of the
 data.
 
-**The figure takes a three-character column** (`figStyle: …flex:none` at `:692-693`;
-`.cs-count-fig` keeps `flex: none` and adds `min-width: 3ch; text-align: right`). Start-
+**The figure takes a three-character column** — `line-height:1;color:var(--ink);flex:none`
+(`:692-693`), where `.cs-count-fig` keeps `flex: none` and adds `min-width: 3ch; text-align: right`. Start-
 anchoring alone only moves the problem one element along: the glyphs line up and then a
 `1` and an `11` push their captions to two different offsets. A right-aligned column three
 characters wide is the units place holding still, which is what makes the two captions a
@@ -10596,8 +10596,8 @@ buys permanence with row width the names need. `ch` and not px, because the figu
 display type and grows with the type dials — the repo's own rule about boxes that hold
 text.
 
-**A row's value can shrink** (`metaStyle: …flex:none;white-space:nowrap` at `:496`;
-`.cs-row-meta` is now `flex: 0 1 auto; min-width: 0; max-width: 58%`). `flex: none` on the
+**A row's value can shrink** — `;flex:none;white-space:nowrap` (`:496`), where
+`.cs-row-meta` is now `flex: 0 1 auto; min-width: 0; max-width: 58%`. `flex: none` on the
 value takes its full width out of the row before the label gets any, so a long value
 squeezes the label's scroller until the label itself clips — "In this work" arriving as
 "In this wor". The artboard is right for the artboard: its values are short. The app's are
