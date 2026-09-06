@@ -574,12 +574,19 @@ export function PersonChip({ kind, name, person, onOpen, onPress, title, faceNam
 // for anything that might not fit.
 // `withActor` — WHETHER THE CHIP CARRIES THE PERFORMER UNDER THE CHARACTER, and
 // it is the caller's answer because only the caller knows what else its card
-// prints. The film frame names the performer on its own credit line, a few
-// millimetres below, with the door to their page on it — so the chip's subtitle
-// was the same name a second time on the same card, which is the owner's
-// standing rule broken ("why is albert einstein repeated in the prose?"). On a
-// favourites tile there is no credit line and the chip is the only place the
-// performer appears, so there it stays.
+// prints. The rule it serves is "a fact appears once per card".
+//
+// NO CALLER SAYS `false` TODAY, AND THAT IS THE ANSWER RATHER THAN AN OVERSIGHT.
+// This paragraph used to argue the opposite — that the film frame names the
+// performer on a credit line below, so the subtitle was the same name twice —
+// and the owner reversed it twice over: "the actor is named below, not in the
+// pill", then "still 2 lines everywhere instead of the actor in the pill". The
+// duplication was real and the half that goes is the LINE. Every card that draws
+// these chips now drops what they already say (`creditsNotOnChips`), so the chip
+// is where the pairing lives and the flag's `false` leg is kept for a caller that
+// genuinely prints the performer somewhere the chips cannot cover.
+// `one-fact-per-card.test.jsx` holds both legs, and asserts the film frame has
+// not gone back to asking for a chip with no performer on it.
 export function SpeakerChips({ images = [], speaker = null, onOpenCharacter = null, className = '', withActor = true }) {
   const rows = chipRows(images, speaker, onOpenCharacter, { withActor })
   if (rows.length === 0) return null
