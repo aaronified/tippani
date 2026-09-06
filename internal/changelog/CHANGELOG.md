@@ -38,6 +38,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   undated work sits at the end rather than the front, because "not known" is not
   "earliest".
 
+- **Fourteen help strings stopped saying the same thing twice.** A tooltip whose first
+  line repeated its own heading, and a second line reaching for an uncommon word where a
+  plain one was to hand, read as filler and taught the reader to skip the next one. Every
+  English string over five words was read for it. What changed says the same fact in
+  fewer words; nothing that carried a real consequence — losing a passphrase loses the
+  archive — was trimmed away as repetition.
+
 - **A panel on a phone is a sheet you can drag.** It wears a grab bar, follows your
   finger, and settles at one of three heights — as tall as its content, then three
   quarters of the screen, then almost all of it — so a long list and a short form no
