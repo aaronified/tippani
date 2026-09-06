@@ -9,6 +9,13 @@
 # pointer does not need it, so checking it at 1280 would be inventing a rule.
 set -euo pipefail
 
+# The scratch server's cleanup, shared: a trap that covers every signal a shell
+# can be sent, and a sweep of what a SIGKILL left behind. See scratch-server.sh
+# for the run this cost.
+# shellcheck source=scratch-server.sh
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/scratch-server.sh"
+scratch_sweep
+
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BIN="$(mktemp -d)/tippani"
@@ -18,10 +25,11 @@ BIND="${TIPPANI_BIND:-127.0.0.1:8128}"
 echo "building $BIN"
 (cd "$ROOT" && go build -o "$BIN" ./cmd/tippani)
 
+scratch_require_free "$BIN" "$BIND"
 echo "starting tippani against $DATA on $BIND"
 TIPPANI_DATA="$DATA" TIPPANI_BIND="$BIND" "$BIN" serve &
 PID=$!
-trap 'kill "$PID" 2>/dev/null || true; wait "$PID" 2>/dev/null || true; rm -rf "$DATA" "$(dirname "$BIN")"' EXIT
+scratch_trap "$PID" "$DATA" "$(dirname "$BIN")"
 
 ok=0
 for _ in $(seq 1 40); do

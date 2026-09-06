@@ -16,6 +16,16 @@
 # removes, and nothing here uploads, copies or prints its contents.
 set -euo pipefail
 
+# The scratch server's cleanup, shared with the other six harnesses in this
+# directory: a trap that covers every signal a shell can be sent, and a sweep of
+# what a SIGKILL left behind. This file is where that was first written, after
+# nine data dirs holding a restored copy of somebody's library were found on
+# disk; it lives in scratch-server.sh now because the same reasoning applies to
+# every one of them and only this one had it.
+# shellcheck source=scratch-server.sh
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/scratch-server.sh"
+scratch_sweep
+
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BIN="$(mktemp -d)/tippani"
@@ -27,61 +37,14 @@ PASSWORD="${TIPPANI_BACKUP_PASSWORD:-}"
 [ -n "$ARCHIVE" ] || { echo "set TIPPANI_BACKUP to a .tpbk archive" >&2; exit 2; }
 [ -f "$ARCHIVE" ] || { echo "no archive at $ARCHIVE" >&2; exit 2; }
 
-# AND SWEEP UP AFTER A RUN THAT WAS KILLED OUTRIGHT. A trap cannot answer
-# SIGKILL, so the only way a restored library never accumulates is for the NEXT
-# run to remove what the last one could not. A directory is one of ours if it is a
-# mktemp holding a `tippani.db`; anything still being served is left alone, which
-# is what the in-use guard is for — a concurrent run at another port is a normal
-# thing to be doing.
-#
-# AND WITH NO WAY TO ASK, IT SWEEPS NOTHING. The first cut read
-# `command -v fuser && fuser …` and deleted whenever `fuser` was missing, which
-# is the guard inverted: on a machine without it, every concurrent run's live
-# library was fair game. A sweep that cannot tell a dead dir from a live one has
-# to decline, and say so — the dir it leaves is the one thing this whole block
-# exists to remove, so its absence has to be visible rather than assumed.
-# AND IT SWEEPS WHERE mktemp ACTUALLY PUTS THINGS. `mktemp -d` honours $TMPDIR,
-# so a hardcoded /tmp finds nothing on any machine that sets it — a sweep that
-# reports nothing and cleans nothing, which is the shape of a guard that is not
-# there.
-TMPROOT="${TMPDIR:-/tmp}"
-TMPROOT="${TMPROOT%/}"
-if command -v fuser >/dev/null 2>&1; then
-  for d in "$TMPROOT"/tmp.*; do
-    [ -f "$d/tippani.db" ] || continue
-    fuser "$d/tippani.db" >/dev/null 2>&1 && continue
-    echo "removing a data dir a killed run left behind: $d"
-    rm -rf "$d"
-  done
-else
-  for d in "$TMPROOT"/tmp.*; do
-    [ -f "$d/tippani.db" ] || continue
-    echo "WARNING: $d holds a restored library and no fuser here to say whether it is in use — remove it by hand" >&2
-  done
-fi
-
 echo "building $BIN"
 (cd "$ROOT" && go build -o "$BIN" ./cmd/tippani)
 
+scratch_require_free "$BIN" "$BIND"
 echo "starting tippani against $DATA on $BIND"
 TIPPANI_DATA="$DATA" TIPPANI_BIND="$BIND" "$BIN" serve &
 PID=$!
-# ON EVERY SIGNAL, NOT ONLY ON EXIT — and this was found the way these things are
-# found: nine directories, each holding a full restored copy of the owner's
-# library, left on disk by runs that were interrupted. `trap … EXIT` fires when
-# the shell RETURNS; a run stopped with a TERM (which is what a harness, a Ctrl-C
-# or a supervisor sends) never gets there, so the server kept running and its data
-# dir stayed. The whole point of the mktemp is that somebody's library does not
-# outlive the run that needed it, and a cleanup that only covers the tidy case
-# does not do that.
-#
-# SIGKILL still cannot be trapped, by construction. What answers that is the
-# sweep at the head of this script, which removes any data dir a previous run
-# left behind before this one starts.
-cleanup() { kill "$PID" 2>/dev/null || true; wait "$PID" 2>/dev/null || true; rm -rf "$DATA" "$(dirname "$BIN")"; }
-trap cleanup EXIT
-trap 'cleanup; exit 130' INT
-trap 'cleanup; exit 143' TERM HUP
+scratch_trap "$PID" "$DATA" "$(dirname "$BIN")"
 
 ok=0
 for _ in $(seq 1 40); do

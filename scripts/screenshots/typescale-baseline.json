@@ -15,5 +15,6 @@
     "checks": 0,
     "settings": 0,
     "bin": 0
-  }
+  },
+  "_notCovered": "WHAT THIS RATCHET CANNOT SEE, said here because a floor of zero reads as 'nothing in this app truncates' and that is not what it measures. typescale.mjs visits ROUTES: it goes to each screen at rest and looks at what is on it. Nothing behind a press — a panel, a sub-sheet, a menu, a dialog — is ever opened, so a clip there is outside this file's reach in both directions. There is exactly one deliberate clip in the app, the panel's back crumb (.tp-panel-back-word), granted by the owner on 2026-09-06 and argued at the declaration in index.css; it lives on a nested panel head and this ratchet has never counted it. It is checked by no-truncated-names.test.js (which holds the exception with its ruling), crumb-stays-in-its-slot.test.js (the declarations) and run-panel-depth.sh (the rectangles, in a browser at 390)."
 }

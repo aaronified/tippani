@@ -374,10 +374,16 @@ export const MOVIE_FIELDS = [
   { key: 'genres', get label() { return t('common.field.genres.label') }, kind: 'tokens', sheet: true },
   {
     key: 'publisher',
-    // A CREDIT, WHICH THE PACK DRAWS AS ONE (`credit: 'org'`, `:1174`). It was a
+    // A CREDIT, WHICH THE PACK DRAWS AS ONE (`credit: 'org'`, `:1067`). It was a
     // plain text field here, so a game's publisher printed as a string beside
     // three credits that print as records — the one row on the screen where the
     // reader could not tell whether the app knew who this was.
+    //
+    // THE LINE NUMBER WAS WRONG THE FIRST TIME — `:1174` is `scopeTitle: 'The
+    // picker — a match is proposed, never applied'`, a different artboard. A
+    // citation to the wrong line reads as evidence and is checkable only by
+    // opening a six-thousand-line file, so `pack-citations.test.js` now checks
+    // that a cited line contains the words quoted beside it.
     credit: true,
     personKind: 'publisher',
     get label() { return t('common.field.publisher.label') },
