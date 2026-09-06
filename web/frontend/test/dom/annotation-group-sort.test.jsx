@@ -290,8 +290,14 @@ describe('the phone’s arrangement strip', () => {
     await screen.findByLabelText(/^Group quotes by$/i)
     const strip = () => document.querySelector('.board-strip .mono-label')
     // At rest: a plain count of what is on the board.
-    await waitFor(() => expect(strip()).toBeTruthy())
-    expect(strip().textContent).toMatch(/^3 quotes$/i)
+    //
+    // WAITED ON THE COUNT AND NOT ON THE BOX. The strip renders before the rows
+    // arrive, so waiting for the element and then reading its text is a race the
+    // machine wins on a quiet run and loses under load — it read "0 quotes" once,
+    // in a full suite competing with two browser probes, and passed alone
+    // immediately after. A guard that depends on how busy the machine is
+    // reports nothing about the app.
+    await waitFor(() => expect(strip()?.textContent || '').toMatch(/^3 quotes$/i))
     // Narrowed: how many of how many, which is the fact with nowhere else to go
     // now that the hero no longer carries either number. The chips live in the
     // phone's filter sheet, and its door is a key published to the dock — which

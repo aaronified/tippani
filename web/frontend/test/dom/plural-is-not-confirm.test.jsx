@@ -29,11 +29,12 @@
 // `ui.jsx` are stroke SVGs whose whole content is their `<path>` data.
 
 import { describe, expect, it } from 'vitest'
-import { render } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { IconCheck, IconCheckAll, IconClose, IconCloseAll } from '../../src/ui.jsx'
+import { MergeScreen } from '../../src/WorkDetails.jsx'
 
 const SRC = process.env.TIPPANI_SRC || join(process.cwd(), 'src')
 const src = (f) => readFileSync(join(SRC, f), 'utf8')
@@ -59,6 +60,68 @@ describe('the plural glyphs', () => {
     // TWO MARKS, NOT ONE HEAVIER ONE. The reader is being told "this applies to
     // every row", and a single mark cannot say that however it is styled.
     expect(drawing(el).length).toBeGreaterThanOrEqual(2)
+  })
+})
+
+// THE SCREEN THE OWNER WAS LOOKING AT, RENDERED.
+//
+// Everything below this block reads a source file as text, which is what the
+// reported control was held by — and a source scan passes on a screen that has
+// stopped drawing the control at all. Taking the pair off the merge screen
+// entirely left every case here green. So the reported one is asked of the
+// rendered screen: that the control is there, that it wears the plural mark, and
+// that pressing it does what its name says.
+describe('the merge screen the report was about', () => {
+  const ROWS = [
+    { key: 'title', label: 'Title', take: false, current: 'Old', next: 'New' },
+    { key: 'year', label: 'Year', take: false, current: 1999, next: 2001 },
+  ]
+  const open = () => render(
+    <MergeScreen
+      kind="book"
+      rows={ROWS}
+      candidate={{ source: 'openlibrary', source_id: 'OL1M' }}
+      busy=""
+      onBack={() => {}}
+      onApply={() => {}}
+      onResync={() => {}}
+    />,
+  )
+  const key = (name) => screen.getByRole('button', { name })
+  // queryAll, not getAll: none taken is the fixture's STARTING state and the
+  // precondition of the case, and getAll throws on an empty match.
+  const taken = () => screen.queryAllByRole('button', { pressed: true }).length
+  const rows = () => screen.getAllByRole('button').filter((b) => b.className.includes('merge-row')).length
+
+  it('draws the pair at all, which a source scan cannot tell you', () => {
+    open()
+    expect(key(/take every field/i), 'the list-wide tick is not on the screen').toBeTruthy()
+    expect(key(/take no fields/i), 'the list-wide cross is not on the screen').toBeTruthy()
+    cleanup()
+  })
+
+  it('and ticks the whole list with one press, which is what its name says', () => {
+    open()
+    expect(taken(), 'the fixture starts with something already taken').toBe(0)
+    fireEvent.click(key(/take every field/i))
+    expect(taken(), 'pressing "take every field" did not take every field').toBe(rows())
+    fireEvent.click(key(/take no fields/i))
+    expect(taken(), 'pressing "take no fields" left fields taken').toBe(0)
+    cleanup()
+  })
+
+  it('and neither half wears the mark a form\'s Save wears', () => {
+    open()
+    const single = drawing(<IconCheck key="s" />).join(' ')
+    const singleX = drawing(<IconClose key="x" />).join(' ')
+    for (const [name, one] of [[/take every field/i, single], [/take no fields/i, singleX]]) {
+      const marks = [...key(name).querySelectorAll('path')].map((n) => n.getAttribute('d'))
+      expect(marks.length, `${name} draws fewer than two marks, so it reads as emphasis`)
+        .toBeGreaterThanOrEqual(2)
+      expect(marks.join(' '), `${name} draws the singular mark, which is what commits`)
+        .not.toBe(one)
+    }
+    cleanup()
   })
 })
 

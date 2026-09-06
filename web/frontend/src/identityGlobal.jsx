@@ -162,10 +162,24 @@ function castOf(works) {
     const name = String(a.actor || '').trim()
     if (!name) continue
     const key = a.actor_id ? `id:${a.actor_id}` : `n:${name.toLowerCase()}`
-    const row = by.get(key) || { key, id: a.actor_id || 0, name, image: a.actor_image || '', works: [] }
-    // The first face wins rather than the last: the rows arrive in release order,
-    // so this is the earliest picture the library holds of them in the part.
-    if (!row.image && a.actor_image) row.image = a.actor_image
+    const row = by.get(key) || { key, id: a.actor_id || 0, name, image: '', imageYear: 0, works: [] }
+    // THE EARLIEST PICTURE OF THEM IN THE PART, and this used to say so while
+    // taking the first row it was handed instead. The note claimed "the rows
+    // arrive in release order"; they do not and never did — `castWhere` orders by
+    // TITLE, which is the same query P3 found sorting a works strip
+    // alphabetically under a line promising otherwise. So the face was whichever
+    // work came first in the alphabet, and correcting a year moved it no more
+    // than it moved the strip.
+    //
+    // ASKED OF THE YEAR RATHER THAN OF THE ORDER, because an order this function
+    // does not control is not something it can rely on: the caller could sort,
+    // the query could change, and either way this would go on being quietly wrong.
+    // An undated appearance loses to a dated one and wins against nothing.
+    const year = Number(a.year) > 0 ? Number(a.year) : Infinity
+    if (a.actor_image && (!row.image || year < row.imageYear)) {
+      row.image = a.actor_image
+      row.imageYear = year
+    }
     if (a.work_title && !row.works.includes(a.work_title)) row.works.push(a.work_title)
     by.set(key, row)
   }

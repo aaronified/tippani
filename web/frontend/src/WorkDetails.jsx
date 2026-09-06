@@ -1965,7 +1965,13 @@ function WorkIdsForm({ specs, mediaType, draft, onDraft, busy, blocked, onSubmit
 // every field the match would change, yours on the left and theirs on the right,
 // with a toggle you own. Stacked rather than columned, because the phone is the
 // first target and two 150px columns of prose are unreadable there.
-function MergeScreen({ kind, rows, candidate, busy, onBack, onApply, onResync }) {
+// EXPORTED FOR ITS GUARD, and the guard is why. The rule this screen carries —
+// that a control acting on a whole list wears the PLURAL mark and never the ✓ a
+// form's Save wears — was held by reading this file as text, and a source scan
+// passes on a screen that has stopped drawing the control at all: the control was
+// taken off the screen entirely and the guard stayed green. A component nobody
+// can render is a component nobody can test.
+export function MergeScreen({ kind, rows, candidate, busy, onBack, onApply, onResync }) {
   const [state, setState] = useState(rows)
   useEffect(() => setState(rows), [rows])
   const chosen = useMemo(() => state.filter((r) => r.take).length, [state])

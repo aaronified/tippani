@@ -65,6 +65,30 @@ async function open(props = {}) {
 // rather than reporting "no icon".
 const glyph = (name) => !!screen.getByRole('button', { name }).querySelector('svg')
 
+describe("the saved person's links", () => {
+  // ONE FUNCTION DECIDES WHAT A LINK IS CALLED, for every screen that draws one —
+  // the work's rows, the record's pills, and these chips. These chips were the
+  // one that never learned: a name typed on this very screen was stored, kept
+  // through a metadata fetch, and then not shown here. A guard on the screen that
+  // already worked says nothing about the two that did not.
+  it('call a link what the reader called it, not what the site is called', async () => {
+    SAVED.links = 'https://en.wikipedia.org/wiki/Anna_Kavan | Her page'
+    await open()
+    expect(screen.getByText('Her page'), 'the chip kept the provider\'s name').toBeTruthy()
+    expect(screen.queryByText(/^Wikipedia$/), "the provider's name is drawn as well as the reader's")
+      .toBeNull()
+    cleanup()
+  })
+
+  it('and fall back to the provider where the reader has named nothing', async () => {
+    SAVED.links = 'https://en.wikipedia.org/wiki/Anna_Kavan'
+    await open()
+    expect(screen.getByText(/^Wikipedia$/), 'an unnamed link lost the name the app knows for it')
+      .toBeTruthy()
+    cleanup()
+  })
+})
+
 describe('the saved-person view', () => {
   it('draws a glyph on Delete and on Edit', async () => {
     await open()

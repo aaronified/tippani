@@ -123,6 +123,38 @@ describe('what the screen is made of', () => {
     )
   })
 
+  it('shows the earliest picture of a performer in the part, not the alphabetically first', async () => {
+    // THE COMMENT ON THIS FOLD SAID "the rows arrive in release order" AND THEY
+    // DO NOT. `castWhere` orders by title — the same query P3 caught sorting a
+    // works strip alphabetically under a line promising release order — so the
+    // face on a performer's row was whichever work came first in the alphabet.
+    // Asked of the year, because an order this fold does not control is not
+    // something it can rely on.
+    CHARACTER.appearances = [
+      { cast_id: 31, kind: 'movie', work_id: 41, media_type: 'movie', work_title: 'Anand', character: 'x',
+        year: 1990, actor_id: 9, actor: 'Amitabh Bachchan', actor_image: 'later.jpg' },
+      { cast_id: 32, kind: 'movie', work_id: 42, media_type: 'movie', work_title: 'Zanjeer', character: 'x',
+        year: 1971, actor_id: 9, actor: 'Amitabh Bachchan', actor_image: 'earlier.jpg' },
+    ]
+    await openPanel()
+    const row = (await screen.findByText('Amitabh Bachchan')).closest('.cs-row')
+    const img = row.querySelector('img')
+    expect(img, 'the performer row drew no picture at all').toBeTruthy()
+    expect(img.getAttribute('src'), 'the row wears the later work\'s picture')
+      .toContain('earlier.jpg')
+  })
+
+  it('and names a link what the reader called it, not what the site is called', async () => {
+    // ONE FUNCTION DECIDES WHAT A LINK IS CALLED — `namedLinks` — and this screen
+    // is one of the three that draw one. A guard on the screen that already
+    // worked says nothing about the two that did not, which is the same unwatched
+    // joint one row over.
+    CHARACTER.links = 'https://www.imdb.com/name/nm0000123/ | The good profile'
+    await openPanel()
+    expect(screen.getByText('The good profile'), 'the pill kept the provider\'s name').toBeTruthy()
+    expect(screen.queryByText(/^IMDb$/), 'the provider\'s name is drawn as well as the reader\'s').toBeNull()
+  })
+
   it('lists every performer who has played the character, once each', async () => {
     // The owner's own addition to the pack: "a list of actors assigned to the
     // character in various different works". One row per PERSON — the fixture has

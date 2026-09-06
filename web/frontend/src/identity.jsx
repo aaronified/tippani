@@ -566,6 +566,35 @@ function MergeControl({ into, onMerged, onError, table = 'people', org = false, 
 }
 
 // useRecord — load one record and keep it, with the reload every write needs.
+// addLinkTo — appending a link to a record's free-text `links` field, written
+// once for the two screens that do it.
+//
+// THE DIRECTIVE: "similar things should act similarly … A control drawn by one
+// component on two screens has ONE behaviour, and it lives in one function that
+// both screens call — not in a line each, which is how one of them goes on being
+// right while the other quietly stops." The person's ＋ and the character's ＋
+// were a line each, byte-identical but for the endpoint, and the round that gave
+// a link a name had to edit both — which is the moment one of them stops.
+//
+// APPENDED TO THE FREE-TEXT FIELD, not written to a column of its own: `links`
+// has been one whitespace-separated list since the table had the column, and
+// `linkLine` is its ONE writer, so this screen and the work's ＋ cannot disagree
+// about what a named link looks like in the field they both read.
+//
+// THE ENDPOINT IS WHAT DIFFERS, so the endpoint is what is passed in.
+function useLinkAdder({ form, setBusy, setErr, setDialog, load }) {
+  return (path) => async (url, label = '') => {
+    const next = [String(form.links || '').trim(), linkLine(url, label)].filter(Boolean).join('\n')
+    setBusy(true)
+    const r = await json('PUT', path, { ...form, links: next })
+    setBusy(false)
+    if (!r.ok) return setErr(errText(r))
+    setErr('')
+    setDialog(false)
+    load()
+  }
+}
+
 // ProviderLinkDialog — an id, a provider, and the address the app writes itself.
 //
 // WHAT THIS REPLACES. "Add a link" focused the free-text links field, so a reader
@@ -982,16 +1011,10 @@ function PersonBody({ stack, id, work, onOpenWork: given = null }) {
   // `linkLine`, NOT a bare url: it is the ONE writer of a stored link, so this
   // screen and the work's ＋ cannot disagree about what a named link looks like
   // in the field they both read.
-  const addProviderLink = async (url, label = '') => {
-    const next = [String(form.links || '').trim(), linkLine(url, label)].filter(Boolean).join('\n')
-    setBusy(true)
-    const r = await json('PUT', `/people/id/${id}`, { ...form, links: next })
-    setBusy(false)
-    if (!r.ok) return setErr(errText(r))
-    setErr('')
-    setLinkDialog(false)
-    load()
-  }
+  // ONE WRITER FOR BOTH ＋s — see useLinkAdder. Only the endpoint is this
+  // screen's own.
+  const linkAdder = useLinkAdder({ form, setBusy, setErr, setDialog: setLinkDialog, load })
+  const addProviderLink = linkAdder(`/people/id/${id}`)
 
   const addAlias = async (alias) => {
     const r = await json('POST', `/people/id/${id}/aliases`, { alias })
@@ -1363,16 +1386,10 @@ function CharacterBody({ stack, id, work, onSearch: givenSearch = null, onOpenWo
   // record's own picture is a separate act — see promote.
   // The character side of the same verb — see PersonBody's for why it appends to
   // the free-text field rather than writing a column.
-  const addProviderLink = async (url, label = '') => {
-    const next = [String(form.links || '').trim(), linkLine(url, label)].filter(Boolean).join('\n')
-    setBusy(true)
-    const r = await json('PUT', `/characters/${id}`, { ...form, links: next })
-    setBusy(false)
-    if (!r.ok) return setErr(errText(r))
-    setErr('')
-    setLinkDialog(false)
-    load()
-  }
+  // ONE WRITER FOR BOTH ＋s — see useLinkAdder. Only the endpoint is this
+  // screen's own.
+  const linkAdder = useLinkAdder({ form, setBusy, setErr, setDialog: setLinkDialog, load })
+  const addProviderLink = linkAdder(`/characters/${id}`)
 
   const setWorkImage = async (castID, url) => {
     setBusy(true)

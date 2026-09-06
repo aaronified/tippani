@@ -93,3 +93,26 @@ no single spec owned and no test would have reached. It was also right where the
 implementation was wrong: it specified cloze grading token by token, said why in
 as many words, and the code that shipped banded the budget across the whole
 string until a docs pass three commits later compared the two.
+
+
+## What is not a plan, and never gets a roadmap card
+
+The periodic sweep (`CLAUDE.md`, "The plan queue") reads every file here and gives
+each one an entry in `docs/data/features.json`'s `manual[]` so the roadmap says what
+is coming. **Adding a card publishes a promise on a public page**, so the files
+below are named here rather than judged again each night — a sweep that re-decides
+the same six exclusions daily will eventually decide one of them differently.
+
+| File | Why it is not a plan |
+|---|---|
+| `README.md` | This file |
+| `open-defects.md` | A defect register: the owner's reports and what was done about each. Nothing in it is a promise about the future |
+| `screen-audit.md` | The found-and-unfixed half of an adversarial pass over every screen. Its own text: "It is not a feature plan, which is what the rest of this directory holds" |
+| `codebase-audit.md` | The same shape, over the code. Its own first line: "**Not a feature.**" |
+| `bengali-style.md` | A translator's style sheet — the appendix to `multilingual.md`. "This document is the decision, not a survey" |
+| `multilingual.md` | Shipped (2.1.0/2.1.1). What is left in it is a punch-list, one item of which is explicitly out of scope and the other an unreachable code wart |
+| `anthologies.md` | Its one remaining item was taken over by `anthology-update.md`, which says so. A card here would either restate shipped work as upcoming or duplicate that one |
+
+A file that belongs on this list is added to it in the same change that adds the
+file. **The sweep reports; it does not decide** — anything not listed here and not
+obviously a plan is left alone and raised, rather than carded.

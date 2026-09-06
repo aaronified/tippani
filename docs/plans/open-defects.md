@@ -334,6 +334,31 @@ record with a broken-image mark on a work tile.
 | S5 | **"the bar is too small to drag. the whole header bar should act as the bar. the bar is there just to make it intuitive."** | owner | **FIXED.** The mark is a sign and the header is the target: 67px of draggable top against the 44px a thumb needs. The keys inside the bar keep their press, by the rule that already let the mark itself be pressed — a pointer sequence that never travels four pixels is a press. `touch-action: pan-x` and not `none`, because the title and crumb scroll sideways under their fade and taking every gesture would freeze that |
 | S6 | **"the animation is not just not-smooth. it introduces screen tears!!"** | owner | **FIXED.** The height was written once per POINTER EVENT, and a pointer stream arrives finer than a frame — so the browser was laying out the sheet and re-blurring the whole screen behind it several times inside one frame, and presenting halves of two of them. One write per animation frame now; the scrim's 10px backdrop blur stands down for the length of the gesture, because nobody is reading a blur while the thing in front of it is moving |
 
+## T. The work-rater's second pass, 6 September
+
+A fresh `claude-kit:work-rater` pass over the ten commits of the round scored it **7/10**,
+up from the first pass's 6. Six findings; four were live.
+
+| # | Finding | Status |
+|---|---|---|
+| T1 | The owner's own P1 report had no behavioural guard — the rater took the control off the merge screen entirely and the source scan stayed green | **FIXED.** `MergeScreen` is exported and rendered: the pair is asked to BE there, to wear two marks and not the singular one, and to tick the whole list when pressed. All three of the rater's mutations fail it now, including its own. `25a3dd8`'s successor |
+| T2 | `namedLinks` had no test on two of the three screens that call it — mutating it so the reader's name never wins failed exactly one case, on the screen that already worked | **FIXED.** A case on the person's chips (`person-modal-icons`) and one on the global record's pills (`character-global`); the mutation fails both |
+| T3 | A claim this round disproved was still in the code it edited: `castOf` says "the rows arrive in release order" and they arrive by TITLE, so a performer's face was the alphabetically-first work's | **FIXED.** Asked of the year rather than of an order this fold does not control. `a.year` was already on the row and unused |
+| T4 | No recorded `make controls` 390 result after the grab-bar fix | **FIXED** by recording it — see the run below |
+| T5 | Two byte-identical copies of the link writer (`identity.jsx`, person and character) | **FIXED.** `useLinkAdder` is the one copy; the endpoint is what each screen passes in |
+| T6 | Sweep bookkeeping: the count in `2853594`'s message was wrong, and the exclusions lived only in that message — so the daily sweep re-litigates six files every night | **FIXED.** `docs/plans/README.md` names them, and the Routine reads that list first. 14 files, 7 carded, 7 skipped |
+
+**The run T4 asked for**, `make controls` after `5bde71b`, both widths, exit 0:
+
+- **1280** — 15 surfaces, 518 presses, 0 dead on each; `small` 0/0, `labelled` 0/0.
+- **390** — 15 surfaces, 342 presses, 0 dead on each; `small` 187/326, `labelled` 9/56.
+- **Character panel at 390: 23 controls, 0 dead** — the surface and the width that found Q1.
+
+A note on the first rater's contrary report of a detached frame on Metadata: its run and
+this one were concurrent, which it says itself ("two Chrome probes were resident", and its
+390 pass then found no server at all). The class is real even so, and the fence now
+re-walks a surface that loses its document once before failing the run.
+
 ## Withdrawn claims
 
 Kept because the pattern matters more than any one of them.
