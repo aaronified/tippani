@@ -304,6 +304,22 @@ this for the popups in the app?"*
 |---|---|---|---|
 | Q1 | The grab bar on a phone sheet did nothing when you pressed it | `make controls` at 390 | **FIXED.** The bar is a button, and N1 gave it a press that cycles the anchors precisely so a mouse could reach the gesture. It never ran. The bar is live from the FIRST pointerdown by design — it has nothing else to be — and the release read that liveness as "a drag happened", so every press settled at the anchor it was already on and the click that followed was swallowed as the drag's leftover. A release is a drag now only if the pointer travelled the same four pixels that make a touch in the body a drag rather than a tap on a row. **Why three layers all missed it:** the jsdom case fired `fireEvent.click` alone, which is the third of a press's three events and skips the two that make the rule hard; `make sheet-drag` had no press case at all; and `make controls` DID press it and could not see the answer, because its fingerprint carries no geometry and the bar's entire effect is a height. All three are repaired — the jsdom cases press the way a reader does, the browser probe presses the bar, and the fingerprint carries the sheet's height. `5bde71b` |
 
+## R. Found by the work-rater, 6 September
+
+A `claude-kit:work-rater` pass over `619eb05`, `feef70f` and `9b39771` scored the round
+**6/10** and named seven things. Its score is recorded as given; the rows are what it
+found.
+
+| # | Finding | Status |
+|---|---|---|
+| R1 | `parseLinks` lost BOTH links on a line holding two addresses and a name — `a.com b.com \| Shop` became one dead non-URL chip, and the name went with it | **FIXED.** The head splits on whitespace first, always: that this field whitespace-splits is the invariant the pipe was chosen to protect, and reading the whole head as one address broke it. A name belongs to the last token on the line — the one the ` \| Name` was written against. `2853594` |
+| R2 | `npm test` was red at the tip: `pack-citations.test.js` failed 14 skipped ≥ 14 found | **FIXED**, and it was never this work's failure — two of the planner's plan documents cite Go and JSX lines in the citation shape, and the guard asserted that such citations stay FEWER than pack ones, which is a ceiling on nobody's rule. The fear it names is a resolver that resolves nothing, and the case above it already says that. `5bde71b` |
+| R3 | P4's roadmap was never updated: `features.json` had no `manual[]` key at all, so twelve plans were invisible to the page | **FIXED.** The route was built and the key was not added — the code read it, the file's own `_` block documented it, and it was not there. A sonnet sweep carded seven plans and left five out with reasons; `node scripts/roadmap-data.mjs --check` exits 0. `2853594` |
+| R4 | The store→strip wiring for release order was unguarded — deleting the year from either map left the whole suite green | **FIXED.** Two cases render the actual screens from payloads shaped like the server's, one per map, and each fails when its own map drops the year. A person's strip and a character's are two shapes and two functions, so one guard says nothing about the other. `2853594` |
+| R5 | A link's name reached one screen out of three: `PersonLinksDetail` ignored it, and the person/character ＋ had no name box | **FIXED.** `namedLinks` is the one function every screen calls; what genuinely differs per screen is passed in. `2853594` |
+| R6 | Weak guards: the list-wide control case read 400 characters either side of a key and asserted only absences | **FIXED.** It balances outward to the declaration that draws something, and asks for the plural mark rather than only for the absence of the singular — a control drawing no glyph at all used to pass. `identity-panel.test.jsx`'s loosening stands: it was a wording test, which the owner ruled out. `2853594` |
+| R7 | Gate misses inside the commits: no CHANGELOG for the prose sweep, no AI.md for the probe change, and the 390 half of `make controls` unreported | **FIXED**, each in its own commit rather than retroactively: `484a76e` (changelog), `0aaf2e7` (AI.md). The 390 pass then ran and found a real defect — see Q1 |
+
 ## Withdrawn claims
 
 Kept because the pattern matters more than any one of them.
