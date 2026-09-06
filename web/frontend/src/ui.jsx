@@ -1238,13 +1238,16 @@ const MIN_SAMPLE_MS = 4;
 // How far a pointer travels before it is a drag rather than a press. See its uses.
 const SLOP = 4;
 
-export function useSheetDrag({ sheet, body, handle, enabled = true, onDismiss } = {}) {
+export function useSheetDrag({ sheet, body, handle, head, enabled = true, onDismiss } = {}) {
   const bye = useRef(onDismiss);
   bye.current = onDismiss;
   // THE SAME MOVE FOR A READER WHO CANNOT MAKE THE GESTURE. The handle answers
   // the arrow keys, and it has to reach the anchors the drag uses rather than a
   // second set of its own — so the effect publishes its stepper here.
   const step = useRef(() => {});
+  // Re-measured after every render of the surface, because the content can change
+  // without this element changing — see the note at `refit.current` below.
+  const refit = useRef(() => {});
   useEffect(() => {
     const el = sheet?.current;
     if (!el || !enabled) return undefined;
@@ -1253,18 +1256,75 @@ export function useSheetDrag({ sheet, body, handle, enabled = true, onDismiss } 
 
     let anchors = [];
     let resting = 0;
-    // THE CONTENT'S OWN HEIGHT, measured by letting it have one. The custom
-    // property is removed rather than set to `auto`, so the stylesheet's own
-    // fallback applies while the tape measure is out.
+    // THE CONTENT'S OWN HEIGHT, COMPUTED RATHER THAN PROVOKED.
+    //
+    // This used to remove the custom property, read `scrollHeight` off the sheet,
+    // and put the property back — which asks the browser to lay the sheet out
+    // twice for one measurement, and answers the wrong question anyway:
+    // `.tp-panel` carries `max-height` in the stylesheet, so a sheet whose
+    // content is longer than the cap measures as exactly the cap and never as
+    // what it wants.
+    //
+    // The body is the part that scrolls, so ITS `scrollHeight` is what the
+    // content asked for; everything above it is chrome already laid out, and the
+    // difference between the two boxes is that chrome without having to name it.
     const measure = () => {
-      const held = el.style.getPropertyValue("--tp-sheet-h");
-      el.style.removeProperty("--tp-sheet-h");
-      const natural = el.scrollHeight;
-      if (held) el.style.setProperty("--tp-sheet-h", held);
+      const box = body?.current;
+      let natural = 0;
+      let chrome = 0;
+      if (box) {
+        // THE CHROME IS SUMMED FROM THE CHROME, not taken as the difference
+        // between the sheet and its body. That difference LOOKS like the same
+        // number and is not: the sheet's own height is the thing being decided,
+        // so feeding it back in makes every measurement depend on the last one —
+        // and a measurement that depends on its own answer walks. It shrank the
+        // sheet by the height of its body on every render, once, before this
+        // note existed. The head and the grab bar do not change with the sheet's
+        // height, so they are what chrome means here.
+        for (const kid of el.children) {
+          if (kid !== box) chrome += kid.getBoundingClientRect().height;
+        }
+        natural = Math.ceil(chrome + box.scrollHeight);
+      } else {
+        const held = el.style.getPropertyValue("--tp-sheet-h");
+        el.style.removeProperty("--tp-sheet-h");
+        natural = el.scrollHeight;
+        if (held) el.style.setProperty("--tp-sheet-h", held);
+      }
       anchors = anchorsFor({ viewport: window.innerHeight, natural });
       return anchors;
     };
+    // ONE WRITE A FRAME, NOT ONE A POINTER EVENT.
+    //
+    // THE OWNER'S REPORT, and it is stronger than jank: "the animation is not
+    // just not-smooth. it introduces screen tears!!" A pointer stream arrives
+    // finer than a frame — coalesced moves, a high-rate digitiser — and every one
+    // of them was setting the height. Each write invalidates layout for the whole
+    // sheet AND for the blur behind it, so the browser was laying out and
+    // compositing several times per frame and presenting halves of two of them.
+    // That is the tear.
+    //
+    // A frame is the only rate a screen can show, so it is the rate this writes
+    // at. The last position before the frame is the one that lands, which is also
+    // the only one a reader could have seen.
+    let frame = 0;
+    let want = null;
+    const paint = () => {
+      frame = 0;
+      if (want == null) return;
+      el.style.setProperty("--tp-sheet-h", `${want}px`);
+      want = null;
+    };
+    const put = (h) => {
+      want = Math.round(h);
+      if (!frame) frame = requestAnimationFrame(paint);
+    };
     const settle = (h) => {
+      // A PENDING FRAME OUTLIVES THE DRAG THAT QUEUED IT. Landing it after the
+      // settle would put the sheet back where the finger was and then leave it
+      // there, with the transition already spent — so it is dropped, not raced.
+      want = null;
+      if (frame) { cancelAnimationFrame(frame); frame = 0; }
       resting = Math.round(h);
       spring();
       el.style.setProperty("--tp-sheet-h", `${resting}px`);
@@ -1277,10 +1337,22 @@ export function useSheetDrag({ sheet, body, handle, enabled = true, onDismiss } 
     // Set on a release that was a real drag, and read by the bar's own click
     // handler below — see the note there.
     let dragged = false;
+    // WHAT DRAGS IMMEDIATELY. The owner's ruling: "the bar is too small to drag.
+    // the whole header bar should act as the bar. the bar is there just to make
+    // it intuitive." So the mark is a SIGN and the head is the TARGET — 36 by 4
+    // was never a thumb's worth of anything, and the strip around it barely
+    // cleared the 44px floor. The head carries the ✕ and the title, and neither
+    // loses its press: a pointer sequence that never travels four pixels is a
+    // press, which is the same rule that lets the mark itself be pressed.
+    const dragSurface = (target) => {
+      const grip = handle?.current;
+      const bar = head?.current;
+      if (grip && (grip === target || grip.contains(target))) return true;
+      return !!bar && (bar === target || bar.contains(target));
+    };
     const down = (e) => {
       if (e.pointerType === "mouse" && e.button !== 0) return;
-      const grip = handle?.current;
-      const onGrip = !!grip && (grip === e.target || grip.contains(e.target));
+      const onGrip = dragSurface(e.target);
       const inBody = !!body?.current && body.current.contains(e.target);
       if (!onGrip && !inBody) return;
       if (inBody && !onGrip && body.current.scrollTop > 0) return;
@@ -1310,6 +1382,12 @@ export function useSheetDrag({ sheet, body, handle, enabled = true, onDismiss } 
         try { el.setPointerCapture(drag.id); } catch { /* an engine without capture */ }
         if (body?.current) body.current.style.touchAction = "none";
       }
+      // A DRAG SAYS SO, so the stylesheet can stop asking the compositor for work
+      // nobody can see during one — see `.tp-scrim.is-dragging`. On the scrim as
+      // well as the sheet, because the expensive half is the blur BEHIND the
+      // sheet and a class on the sheet cannot reach its own parent in CSS.
+      el.classList.add("is-dragging");
+      el.parentElement?.classList.add("is-dragging");
       // A SAMPLE HAS TO SPAN LONG ENOUGH TO MEAN SOMETHING. `dy / dt` between two
       // moves delivered in the same tick is a division, not a speed — and a
       // pointer stream that arrives finer than a frame (coalesced events, a
@@ -1323,7 +1401,7 @@ export function useSheetDrag({ sheet, body, handle, enabled = true, onDismiss } 
         drag.at = e.clientY;
         drag.when = e.timeStamp;
       }
-      el.style.setProperty("--tp-sheet-h", `${Math.round(clampDrag({ height: drag.height - dy, anchors }))}px`);
+      put(clampDrag({ height: drag.height - dy, anchors }));
     };
 
     const up = (e) => {
@@ -1331,6 +1409,8 @@ export function useSheetDrag({ sheet, body, handle, enabled = true, onDismiss } 
       const was = drag;
       drag = null;
       if (body?.current) body.current.style.touchAction = "";
+      el.classList.remove("is-dragging");
+      el.parentElement?.classList.remove("is-dragging");
       if (!was.live) return;
       dragged = was.moved;
       const out = landing({ height: el.getBoundingClientRect().height, velocity: was.v, anchors });
@@ -1346,6 +1426,31 @@ export function useSheetDrag({ sheet, body, handle, enabled = true, onDismiss } 
       measure();
       if (!anchors.length) return;
       settle(anchors[Math.min(Math.max(rank, 0), anchors.length - 1)]);
+    };
+
+    // AND THE CONTENT CHANGES UNDER A SHEET THAT IS ALREADY OPEN.
+    //
+    // THE OWNER'S REPORT: "this is a long popup, but it has a very low starting
+    // position. this is probably because it is inheriting the positioning of the
+    // picker. which is understandable, and is fine. but when there is no picker
+    // (only one available option), it makes no sense." Exactly that: a sub-surface
+    // opens INSIDE this same box — `.tp-subsheet`, by design, so it cannot
+    // escalate to the viewport — so the panel element never changes, this effect
+    // never re-runs, and the sheet keeps the height measured for whatever was in
+    // it first. A record's page opened behind a short picker stayed the picker's
+    // size.
+    //
+    // ONLY WHERE THE READER HAS NOT DECIDED. A sheet sitting at the height its
+    // content asked for should follow its content; one the reader has dragged to
+    // 76% or 94% has been PUT there, and moving it would be the app overruling a
+    // gesture it just invited.
+    refit.current = () => {
+      if (drag || !anchors.length) return;
+      const was = anchors[0];
+      const rank = anchors.indexOf(resting);
+      measure();
+      if (!anchors.length) return;
+      if (rank === 0 && anchors[0] !== was) settle(anchors[0]);
     };
 
     step.current = (by) => {
@@ -1395,12 +1500,21 @@ export function useSheetDrag({ sheet, body, handle, enabled = true, onDismiss } 
       window.removeEventListener("pointerup", up);
       window.removeEventListener("pointercancel", up);
       window.removeEventListener("resize", remeasure);
+      if (frame) cancelAnimationFrame(frame);
+      el.classList.remove("is-dragging");
+      el.parentElement?.classList.remove("is-dragging");
       el.style.removeProperty("--tp-sheet-h");
       el.style.transition = "";
       if (body?.current) body.current.style.touchAction = "";
       step.current = () => {};
+      refit.current = () => {};
     };
-  }, [sheet, body, handle, enabled]);
+  }, [sheet, body, handle, head, enabled]);
+  // NO DEPENDENCY LIST, deliberately: what this watches for is a change this
+  // component cannot see — a sub-surface opening inside the sheet, a picture
+  // arriving, a list that finished loading. Every one of them re-renders the
+  // surface, and none of them changes a value that could sit in a list here.
+  useEffect(() => { refit.current(); });
   return useCallback((by) => step.current(by), []);
 }
 
@@ -4507,10 +4621,15 @@ export function PanelHost({ stack }) {
   const bodyRef = useRef(null);
   const sheetRef = useRef(null);
   const gripRef = useRef(null);
+  // THE WHOLE BAR IS THE TARGET, the mark on it only the sign — the owner's:
+  // "the bar is too small to drag. the whole header bar should act as the bar.
+  // the bar is there just to make it intuitive."
+  const headRef = useRef(null);
   const stepSheet = useSheetDrag({
     sheet: sheetRef,
     body: bodyRef,
     handle: gripRef,
+    head: headRef,
     enabled: !!panel && !asking && phone,
     onDismiss: guard(back),
   });
@@ -4578,7 +4697,7 @@ export function PanelHost({ stack }) {
             <span aria-hidden="true" />
           </button>
         ) : null}
-        <div className={"tp-panel-head" + (head ? " has-scope" : "")}>
+        <div ref={headRef} className={"tp-panel-head" + (head ? " has-scope" : "")}>
           <div className="tp-panel-slot">
             {nested ? (
               <button

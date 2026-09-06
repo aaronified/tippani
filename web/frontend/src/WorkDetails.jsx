@@ -23,11 +23,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { coverImgURL, errText, json } from './api.js'
 import { CastFills, CastSection } from './cast.jsx'
-import { FaceStrip, PillRow, SectionHead } from './characterRows.jsx'
+import { Face, FaceStrip, PillRow, SectionHead } from './characterRows.jsx'
 import { characterPanel } from './identity.jsx'
 import { OFFERED_FIELDS, fieldOffersPanel } from './fieldOffers.jsx'
 import { DEFAULT_CREDIT_SEPS, splitCredits, personImgURL, usePeople } from './credits.jsx'
-import { Silhouette } from './silhouette.jsx'
 import { PasteLink, WorkLinks, linkRows, providerURL } from './workLinks.jsx'
 import { t } from './i18n.js'
 import { KINDS } from './workKinds.js'
@@ -1672,9 +1671,13 @@ function FieldList({ kind, item, stack, specs, creditSpecs, mediaType, busy, gen
                               photograph — the pack's rule, and what keeps a
                               column of credits a run of equal shapes rather than
                               a ragged mix of two designs. */}
-                          <span className="cred-face">
-                            {src ? <img src={personImgURL(src)} alt="" loading="lazy" /> : <Silhouette name={n} />}
-                          </span>
+                          {/* THE FALLBACK IS `Face`'s AND NOT THIS LINE'S. A path
+                              stored and a picture arriving are two questions, and
+                              only the second one the reader can see — a portrait
+                              whose file has gone drew the browser's torn page
+                              here too. `personImgURL` because a performer's
+                              portrait is not a work's art. */}
+                          <Face src={src} name={n} url={personImgURL} className="cred-face" />
                           <span>{n}</span>
                         </span>
                       )

@@ -55,11 +55,20 @@ function heightOf(el) {
 
 let stepper = null
 
-function Sheet({ onDismiss, enabled = true, at = 0 }) {
+// HOW TALL THE CONTENT IS, which the hook asks the BODY and not the sheet: the
+// sheet's own height is the thing being decided, so a measurement taken from it
+// would depend on its own last answer. The default is taller than the largest
+// anchor — a long sheet — because that is what every case here but two is about.
+// jsdom gives every box 40px (see test/setup-dom.js), so the chrome above the
+// body measures 40 and the sum is 40 + this.
+const LONG = 2000
+
+function Sheet({ onDismiss, enabled = true, at = 0, content = LONG, head = false }) {
   const sheet = useRef(null)
   const body = useRef(null)
   const handle = useRef(null)
-  stepper = useSheetDrag({ sheet, body, handle, enabled, onDismiss })
+  const bar = useRef(null)
+  stepper = useSheetDrag({ sheet, body, handle, head: head ? bar : undefined, enabled, onDismiss })
   return (
     <div
       data-testid="sheet"
@@ -71,7 +80,19 @@ function Sheet({ onDismiss, enabled = true, at = 0 }) {
       }}
     >
       <button type="button" data-testid="grip" ref={handle} />
-      <div data-testid="body" ref={(el) => { body.current = el; if (el) el.scrollTop = at }} />
+      <div data-testid="head" ref={bar}>
+        <button type="button" data-testid="close" />
+      </div>
+      <div
+        data-testid="body"
+        ref={(el) => {
+          body.current = el
+          if (el) {
+            el.scrollTop = at
+            Object.defineProperty(el, 'scrollHeight', { value: content, configurable: true })
+          }
+        }}
+      />
     </div>
   )
 }
@@ -79,13 +100,25 @@ function Sheet({ onDismiss, enabled = true, at = 0 }) {
 const el = (id) => document.querySelector(`[data-testid="${id}"]`)
 const pointer = (y) => ({ pointerId: 7, pointerType: 'touch', button: 0, clientY: y })
 
+// A DRAG'S EFFECT LANDS ON THE NEXT FRAME, not on the event that caused it.
+//
+// The hook writes the height once per animation frame rather than once per
+// pointer event, because a pointer stream arrives finer than a frame and every
+// write costs a layout of the sheet and a re-blur of everything behind it — which
+// is what the owner saw: "the animation is not just not-smooth. it introduces
+// screen tears!!" So a case that moves the finger and looks immediately is
+// looking before the browser would have drawn anything, and this is the wait a
+// reader's eye already does for free.
+const frame = () => act(async () => { await new Promise((r) => requestAnimationFrame(() => r())) })
+
 // A whole gesture: press on `from`, move by `by`, let go.
 const drag = async (from, by) => {
   await act(async () => {
     fireEvent.pointerDown(el(from), pointer(400))
     fireEvent.pointerMove(window, pointer(400 + by))
-    fireEvent.pointerUp(window, pointer(400 + by))
   })
+  await frame()
+  await act(async () => { fireEvent.pointerUp(window, pointer(400 + by)) })
 }
 
 describe('what starts a drag', () => {
@@ -111,6 +144,7 @@ describe('what starts a drag', () => {
     expect(heightOf(el('sheet')), 'a 2px wobble on a row moved the sheet, so no tap can land')
       .toBe(start)
     await act(async () => { fireEvent.pointerMove(window, pointer(410)) })
+    await frame()
     expect(heightOf(el('sheet')), 'a committed drag in the body did nothing').toBeLessThan(start)
   })
 
@@ -123,6 +157,36 @@ describe('what starts a drag', () => {
     expect(out, 'scrolling back up inside a long sheet closed it').not.toHaveBeenCalled()
   })
 
+  it('and so does the whole header bar, because the mark is a sign and not a target', async () => {
+    // THE OWNER'S RULING: "the bar is too small to drag. the whole header bar
+    // should act as the bar. the bar is there just to make it intuitive."
+    // 36 by 4 is a mark, not a thumb's worth of anything.
+    render(<Sheet onDismiss={vi.fn()} head />)
+    const start = heightOf(el('sheet'))
+    await act(async () => {
+      fireEvent.pointerDown(el('head'), pointer(400))
+      fireEvent.pointerMove(window, pointer(340))
+    })
+    await frame()
+    expect(heightOf(el('sheet')), 'a drag from the header bar moved nothing')
+      .toBeGreaterThan(start)
+  })
+
+  it('but a tap on that bar is a tap, because it carries the way out', async () => {
+    // THE ✕ IS IN THERE. Making the bar draggable may not cost the key inside it
+    // its press, and the rule that keeps both is the one already written down: a
+    // pointer sequence that never travels four pixels is a press.
+    render(<Sheet onDismiss={vi.fn()} head />)
+    const start = heightOf(el('sheet'))
+    await act(async () => {
+      fireEvent.pointerDown(el('close'), pointer(400))
+      fireEvent.pointerUp(window, pointer(400))
+      fireEvent.click(el('close'))
+    })
+    expect(heightOf(el('sheet')), 'a tap on a key in the header bar resized the sheet')
+      .toBe(start)
+  })
+
   it('and nothing does where the panel is not a sheet', async () => {
     const out = vi.fn()
     render(<Sheet onDismiss={out} enabled={false} />)
@@ -130,6 +194,64 @@ describe('what starts a drag', () => {
     expect(el('sheet').style.getPropertyValue('--tp-sheet-h'),
       'the gesture ran on a desk, where the panel is a card in the middle of the screen').toBe('')
     expect(out).not.toHaveBeenCalled()
+  })
+})
+
+describe('what a drag costs', () => {
+  it('writes the height once a frame, however fast the finger reports', async () => {
+    // THE OWNER'S REPORT, and it is stronger than jank: "the animation is not
+    // just not-smooth. it introduces screen tears!!" Every write invalidates the
+    // sheet's layout AND the blur behind it, so writing per pointer event asks
+    // the browser to lay out and composite several times inside one frame — and
+    // present halves of two of them. A frame is the only rate a screen can show.
+    render(<Sheet onDismiss={vi.fn()} />)
+    const sheet = el('sheet')
+    let writes = 0
+    const real = sheet.style.setProperty.bind(sheet.style)
+    sheet.style.setProperty = (...args) => {
+      if (args[0] === '--tp-sheet-h') writes++
+      return real(...args)
+    }
+    await act(async () => {
+      fireEvent.pointerDown(el('grip'), pointer(400))
+      for (let i = 1; i <= 12; i++) fireEvent.pointerMove(window, pointer(400 - i * 5))
+    })
+    await frame()
+    expect(writes, 'twelve moves inside one frame wrote the height more than once')
+      .toBe(1)
+  })
+})
+
+describe('a sheet whose content changes under it', () => {
+  it('follows its content rather than keeping the height the last thing needed', async () => {
+    // THE OWNER'S REPORT: "this is a long popup, but it has a very low starting
+    // position. this is probably because it is inheriting the positioning of the
+    // picker … when there is no picker (only one available option), it makes no
+    // sense." A sub-surface opens inside this same box by design, so the element
+    // never changes and nothing re-measures — the record's page kept the picker's
+    // height.
+    const short = <Sheet onDismiss={vi.fn()} content={80} />
+    const { rerender } = render(short)
+    const small = heightOf(el('sheet'))
+    expect(small, 'a short sheet did not open at its own height').toBeLessThan(ANCHORS[0])
+    await act(async () => { rerender(<Sheet onDismiss={vi.fn()} content={LONG} />) })
+    expect(heightOf(el('sheet')), 'the sheet kept the height the previous content asked for')
+      .toBe(ANCHORS[0])
+  })
+
+  it('but not once the reader has put it somewhere', async () => {
+    // A SHEET THE READER HAS DRAGGED HAS BEEN PLACED. Following the content from
+    // there would be the app overruling the gesture it just invited.
+    const { rerender } = render(<Sheet onDismiss={vi.fn()} content={80} />)
+    await drag('grip', -400)
+    const put = heightOf(el('sheet'))
+    // OFF THE HEIGHT ITS CONTENT ASKED FOR, which is the whole precondition: a
+    // sheet still sitting at its natural anchor has not been placed by anybody,
+    // and this case would then be asserting the rule above it instead.
+    expect(ANCHORS, 'the drag did not reach one of the pack\'s stops, so nothing here is tested')
+      .toContain(put)
+    await act(async () => { rerender(<Sheet onDismiss={vi.fn()} content={LONG} />) })
+    expect(heightOf(el('sheet')), 'the app moved a sheet the reader had placed').toBe(put)
   })
 })
 
@@ -178,8 +300,9 @@ describe('what a drag does', () => {
       fireEvent.pointerDown(el('grip'), pointer(400))
       fireEvent.pointerMove(window, pointer(600))
       fireEvent.pointerMove(window, pointer(900))
-      fireEvent.pointerUp(window, pointer(900))
     })
+    await frame()
+    await act(async () => { fireEvent.pointerUp(window, pointer(900)) })
     expect(out, 'a pull far past the smallest stop did not close the sheet').toHaveBeenCalledTimes(1)
   })
 
@@ -257,7 +380,7 @@ describe('a plain press on the bar', () => {
       .toBe(ANCHORS[0])
   })
 
-  it('and a drag that ends on the bar does not also count as a press', () => {
+  it('and a drag that ends on the bar does not also count as a press', async () => {
     // A POINTER SEQUENCE THAT ENDS WHERE IT STARTED FIRES `click` AFTER
     // `pointerup`. Without the guard, letting go of the bar steps the sheet again
     // — past wherever the reader just put it, every single drag.
@@ -266,11 +389,12 @@ describe('a plain press on the bar', () => {
     // moves in one tick, which leaves the release with no measurable speed — so a
     // drag that stops between two stops would settle by a hair and this case
     // would be reading the coin toss rather than the guard.
-    act(() => {
+    await act(async () => {
       fireEvent.pointerDown(el('grip'), pointer(400))
       fireEvent.pointerMove(window, pointer(280))
-      fireEvent.pointerUp(window, pointer(280))
     })
+    await frame()
+    await act(async () => { fireEvent.pointerUp(window, pointer(280)) })
     const landed = heightOf(el('sheet'))
     expect(landed, 'the drag did not reach the taller anchor, so the guard is untested')
       .toBe(ANCHORS[ANCHORS.length - 1])

@@ -998,7 +998,7 @@
      box as the 44px keys either side of it. In a scoped head the title is not
      alone: it is the first of two stacked lines inside `.tp-panel-names`, so the
      floor stopped being an alignment and became 22px of empty space wedged
-     between the name and its crumb. The head's own `min-height: 60px` and the
+     between the name and its crumb. The head's own `min-height` and the
      key slots still set the bar's height; the names block no longer fights them. */
   .tp-panel-title.is-scoped { text-align: left; flex: 0 1 auto; min-width: 0; min-height: 0; }
   .tp-panel-crumb {
@@ -1007,7 +1007,7 @@
     letter-spacing: .06em;
     color: var(--soft);
     /* ONE LINE. It carries a WORK's title — "in V for Vendetta" — and a title
-       broken across two lines in a 60px header bar pushes the name off its own
+       broken across two lines in a header bar this slim pushes the name off its own
        row. It scrolls under the fade like the name above it. */
     white-space: nowrap;
     overflow-x: auto;
@@ -1022,8 +1022,15 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 8px;
-    min-height: 60px;
+    /* THE BAR IS AS TALL AS THE KEY IN IT AND NOT A PIXEL MORE. The owner:
+       "the header bar is too thick (vertically). make it slimmer. by at least
+       30-40%." It was 44px of key inside 16px of padding, and the padding was
+       doing nothing a gap between the key and the edge could not do in half the
+       room. The 44px floor under the key itself is untouched — that is the
+       pack's, it is what a thumb needs, and `make controls` counts every control
+       that falls under it. */
+    padding: 2px 6px;
+    min-height: 48px;
     border-bottom: 1px solid var(--line);
     box-shadow: 0 6px 14px -8px rgba(var(--sh), .55);
   }
@@ -1242,7 +1249,13 @@
   .tp-sheet-grip {
     flex: none;
     display: flex; align-items: center; justify-content: center;
-    width: 100%; min-height: 44px; padding: 0;
+    /* A SIGN, NOT A TARGET — which is what let it get thin. It used to reserve
+       the app's whole 44px touch floor, because it WAS the only thing a thumb
+       could drag from; the owner's ruling moved the target to the whole header
+       bar ("the bar is there just to make it intuitive"), and a mark that nobody
+       has to hit needs only enough room to be seen. 18px against 44 is most of
+       the header's slimming, and none of it comes out of anything readable. */
+    width: 100%; min-height: 0; padding: 7px 0;
     border: 0; background: transparent; cursor: grab;
     touch-action: none;
   }
@@ -1255,6 +1268,27 @@
   .tp-sheet-grip:hover > span, .tp-sheet-grip:focus-visible > span {
     background: color-mix(in oklab, var(--ink), transparent 58%);
   }
+  /* THE WHOLE BAR DRAGS, and the browser has to be told which axis is ours.
+     `none` would be wrong here: the head's title and crumb scroll SIDEWAYS under
+     their fade, which is this app's standing answer to a long name, and taking
+     every gesture would freeze that. `pan-x` leaves the horizontal one with the
+     browser — where it is smooth for free — and gives us the vertical. */
+  .tp-panel-head { touch-action: pan-x; }
+  /* WHILE A DRAG IS ON, NOBODY IS READING THE BLUR.
+     A 10px backdrop blur is recomputed whenever what is in front of it changes
+     shape, and the sheet changes shape every frame of a drag — so the compositor
+     was re-blurring the whole screen at the same time the sheet was being laid
+     out, which is what the owner saw as a tear. The wash stays, so the layers
+     still read as layers; only the blur is stood down for the length of the
+     gesture, and it comes back the moment the finger lifts.
+     `will-change` tells the compositor the height is about to move repeatedly —
+     on the sheet only, and only while it is true, because a permanent
+     `will-change` is a permanent cost. */
+  .tp-scrim.is-dragging {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  .tp-panel.is-dragging { will-change: height; }
 
   /* A rule between two sections of one page. Named because it was hand-typed in
      three files with three different borders — solid, dashed, and a third with
@@ -8404,11 +8438,18 @@ html[data-theme="dark"] .board-cover {
   flex: none; padding: 0; border: 0; background: none; line-height: 0; cursor: pointer;
   border-radius: 4px;
 }
-.person-face-btn img, .person-face-btn > svg {
+/* DESCENDANT, NOT DIRECT CHILD. The picture and its stand-in are drawn by
+   `Face` now — one function for every site, so a file that fails to arrive falls
+   back to the person glyph rather than to the browser's torn page — and `Face`
+   puts them inside a span of its own. `> svg` stopped matching the day that
+   happened, which would have left an unsized silhouette in a table of sized
+   ones. The span itself carries no layout; these rules still size the picture. */
+.person-face-inner { display: contents; }
+.person-face-btn img, .person-face-btn svg {
   display: block; width: max(24px, 1.8em); aspect-ratio: 3 / 4; object-fit: cover;
   border-radius: 4px; border: 1px solid var(--ink-border);
 }
-.person-face-btn.is-empty > svg {
+.person-face-btn.is-empty svg {
   padding: 8% 14% 0;
   background: color-mix(in srgb, var(--soft) 16%, transparent);
   color: var(--faint);

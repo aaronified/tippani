@@ -591,9 +591,40 @@ try {
     try {
       await runSurface(surface)
     } catch (err) {
+      // A DETACHED FRAME IS A NAVIGATION, AND A NAVIGATION IS RECOVERABLE.
+      //
+      // The press site already catches this where it can see it happen, but a
+      // press can land its navigation LATE — after the press evaluate has
+      // returned — and then the next `evaluate` on this surface throws instead,
+      // somewhere the press site cannot reach. Filing that as a surface that did
+      // not render is true of the run and false of the app: nothing is wrong with
+      // the screen, the probe simply lost the document it was holding.
+      //
+      // So it is re-opened and re-walked ONCE. `runSurface` re-enumerates from
+      // the route, so it is idempotent — the second pass is a fresh, honest test
+      // of the same screen. If it throws again, that is not a stray navigation
+      // and it is filed as untested, which fails the run.
       const why = String(err && err.message ? err.message : err).split('\n')[0]
-      findings.blank.push(`${surface.name}: the pass over it stopped early — ${why}`)
-      console.log(`FAIL  ${surface.name.padEnd(14)} stopped early — ${why}`)
+      const stray = /detached|Target closed|Execution context|Session closed/i.test(why)
+      let done = false
+      if (stray) {
+        console.log(`note  ${surface.name.padEnd(14)} lost the page mid-pass — ${why}; walking it again`)
+        try {
+          await page.goto(opts.baseUrl + surface.route, { waitUntil: 'networkidle2' }).catch(() => {})
+          await settled()
+          await runSurface(surface)
+          done = true
+        } catch (again) {
+          const twice = String(again && again.message ? again.message : again).split('\n')[0]
+          findings.blank.push(`${surface.name}: the pass over it stopped early twice — ${twice}`)
+          console.log(`FAIL  ${surface.name.padEnd(14)} stopped early twice — ${twice}`)
+          done = true
+        }
+      }
+      if (!done) {
+        findings.blank.push(`${surface.name}: the pass over it stopped early — ${why}`)
+        console.log(`FAIL  ${surface.name.padEnd(14)} stopped early — ${why}`)
+      }
       // The page is in whatever state the throw left it; the next surface's own
       // `reopen` navigates, so nothing else has to be undone here.
     }

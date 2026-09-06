@@ -46,6 +46,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   fewer words; nothing that carried a real consequence — losing a passphrase loses the
   archive — was trimmed away as repetition.
 
+- **A picture that fails to arrive draws the person glyph, not a broken-image mark.**
+  A stored path and a picture that loads are different things, and every list drew the
+  first as though it settled the second — so a portrait whose file had gone showed the
+  browser's torn page, which reads as "the server is down". The stand-in is the same
+  silhouette a person with no picture already wears.
+
 - **A panel on a phone is a sheet you can drag.** It wears a grab bar, follows your
   finger, and settles at one of three heights — as tall as its content, then three
   quarters of the screen, then almost all of it — so a long list and a short form no
@@ -53,7 +59,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   asking about unsaved typing exactly as the ✕ does. Tapping the page above it still
   closes it too. You need not drag at all: pressing the bar steps to the next height
   and back round to the smallest, and the arrow keys do the same, so the sheet answers
-  a mouse and a keyboard as well as a thumb.
+  a mouse and a keyboard as well as a thumb. The whole header bar drags, not only the
+  bar drawn on it — the mark says the sheet moves and the header is what you grab — and
+  that header is a third slimmer, because the room around its one key was doing nothing.
+  The drag itself writes once per frame rather than once per touch report, so the sheet
+  no longer tears as it resizes, and a sheet whose content changes underneath it grows to
+  fit instead of keeping the height whatever was in it first.
 
 - **A control that ticks a whole list no longer wears the tick that saves.** The
   metadata merge screen's "take everything" and "take nothing", and the row that starts

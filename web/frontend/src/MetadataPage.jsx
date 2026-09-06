@@ -8,7 +8,7 @@ import { BulkBar, EmptyState, ErrorText, FieldIconButton, GhostButton, HandCard,
 import { PersonModal, personImgURL, ProviderChips, mergeLinks, parseCreditSeps, parseLinks, splitCredits } from './people.jsx'
 import { characterPanel, personPanel } from './identity.jsx'
 import { MetadataSources } from './MetadataSources.jsx'
-import { Silhouette } from './silhouette.jsx'
+import { Face } from './characterRows.jsx'
 import { ReverifyFlow } from './ReverifyReview.jsx'
 import { editDistance } from './text.js'
 
@@ -2396,7 +2396,7 @@ function PersonRow({ p, busy, onOpen, onPortrait, onSearch, onFetch, mobile = fa
             aria-label={t('metadata.people.portrait.aria', { name: p.name })}
             onClick={onPortrait}
           >
-            {face ? <img src={face} alt="" loading="lazy" /> : <Silhouette name={p.name} />}
+            <Face src={face} name={p.name} url={(x) => x} className="person-face-inner" />
           </button>
           <span className="person-name-text">
             <button type="button" className="tp-link" onClick={onOpen}>{p.name}</button>

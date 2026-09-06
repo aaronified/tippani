@@ -70,6 +70,8 @@ const readSheet = (page) => page.evaluate((floor) => {
   const r = el.getBoundingClientRect()
   const grip = el.querySelector('.tp-sheet-grip')
   const g = grip?.getBoundingClientRect()
+  const bar = el.querySelector('.tp-panel-head')
+  const b = bar?.getBoundingClientRect()
   return {
     top: r.top,
     height: r.height,
@@ -77,6 +79,16 @@ const readSheet = (page) => page.evaluate((floor) => {
     grip: grip ? { top: g.top, height: g.height, mid: g.left + g.width / 2, y: g.top + g.height / 2,
                    touchAction: getComputedStyle(grip).touchAction,
                    tall: g.height + 0.5 >= floor } : null,
+    // THE HEADER BAR — the drag target since the owner's ruling, and the thing
+    // they asked to be slimmer. Its own height, and the tallest key inside it,
+    // because the bar may only be as tall as what it has to hold.
+    head: bar ? { height: b.height, mid: b.left + b.width / 2, y: b.top + b.height / 2,
+                  touchAction: getComputedStyle(bar).touchAction,
+                  key: Math.max(0, ...[...bar.querySelectorAll('button')]
+                    .map((k) => k.getBoundingClientRect().height)) } : null,
+    // What a thumb has to hit before the sheet moves: the mark and the bar are
+    // one surface now, so the floor is asked of the two together.
+    dragHeight: (g ? g.height : 0) + (b ? b.height : 0),
   }
 }, TAP_FLOOR)
 
@@ -127,21 +139,45 @@ try {
     process.exit(1)
   }
 
-  // 1. THERE IS A BAR, AND A THUMB CAN HIT IT. The bar a reader sees is 36 by 4;
-  //    the thing they press is the strip around it, and the app's floor for
-  //    anything pressed is 44.
+  // 1. THERE IS A MARK, AND A THUMB CAN HIT THE SURFACE IT SITS ON.
+  //
+  //    THE RULING THAT CHANGED THIS CASE: "the bar is too small to drag. the
+  //    whole header bar should act as the bar. the bar is there just to make it
+  //    intuitive." So the 44px floor is asked of the DRAG SURFACE — the mark's
+  //    strip plus the header bar — and not of the mark, which is now a sign and
+  //    is deliberately thin.
   if (!s.grip) {
-    console.log('FAIL  the sheet draws no handle, so nothing says it moves')
+    console.log('FAIL  the sheet draws no mark, so nothing says it moves')
     failures++
-  } else if (!s.grip.tall) {
-    console.log(`FAIL  the handle is ${s.grip.height.toFixed(1)}px tall, under the ${TAP_FLOOR}px a thumb needs`)
+  } else if (!s.head) {
+    console.log('FAIL  the sheet draws no header bar, so there is nothing to drag it by')
+    failures++
+  } else if (s.dragHeight + 0.5 < TAP_FLOOR) {
+    console.log(`FAIL  the draggable top is ${s.dragHeight.toFixed(1)}px tall, under the ${TAP_FLOOR}px a thumb needs`)
     failures++
   } else if (s.grip.touchAction !== 'none') {
     // The browser's own answer to a drag here is to scroll, and the page is frozen.
-    console.log(`FAIL  the handle's touch-action is ${JSON.stringify(s.grip.touchAction)}, so the browser fights the drag`)
+    console.log(`FAIL  the mark's touch-action is ${JSON.stringify(s.grip.touchAction)}, so the browser fights the drag`)
+    failures++
+  } else if (s.head.touchAction === 'auto' || s.head.touchAction === 'manipulation') {
+    console.log(`FAIL  the header bar's touch-action is ${JSON.stringify(s.head.touchAction)}, so the browser fights a drag from it`)
     failures++
   } else {
-    console.log(`ok    the sheet wears a handle ${s.grip.height.toFixed(0)}px tall that the browser leaves alone`)
+    console.log(`ok    ${s.dragHeight.toFixed(0)}px of draggable top (${s.grip.height.toFixed(0)}px mark + ${s.head.height.toFixed(0)}px bar) that the browser leaves alone`)
+  }
+
+  // 1b. AND THE BAR IS NO TALLER THAN WHAT IT HOLDS. The owner: "the header bar
+  //     is too thick (vertically). make it slimmer. by at least 30-40%." The
+  //     floor under the KEY inside it is the pack's 44 and is not what was
+  //     thick; the room around the key was. Asked as a rule rather than as a
+  //     number: the bar may exceed its tallest key by the padding a rule needs
+  //     and no more.
+  const SURROUND = 8
+  if (s.head && s.head.key > 0 && s.head.height > s.head.key + SURROUND) {
+    console.log(`FAIL  the header bar is ${s.head.height.toFixed(0)}px around a ${s.head.key.toFixed(0)}px key — ${(s.head.height - s.head.key).toFixed(0)}px of it is room around nothing`)
+    failures++
+  } else if (s.head) {
+    console.log(`ok    the header bar is ${s.head.height.toFixed(0)}px around a ${s.head.key.toFixed(0)}px key`)
   }
 
   // 2. IT OPENS AT AN ANCHOR, and not at whatever its content happened to want.
@@ -214,6 +250,25 @@ try {
       failures++
     } else {
       console.log(`ok    a press on the handle took the sheet from ${was.toFixed(0)}px to ${s.height.toFixed(0)}px, an anchor`)
+    }
+  }
+
+  // 5b. AND THE WHOLE BAR DRAGS, not only the mark. This is the ruling itself: a
+  //     reader who grabs the header — which is most of them, because it is the
+  //     big obvious thing at the top — must move the sheet.
+  s = await readSheet(page)
+  if (s?.head) {
+    const was = s.height
+    await pull(page, { x: s.head.mid, y: s.head.y }, -160)
+    s = await readSheet(page)
+    if (!s) {
+      console.log('FAIL  pulling the header bar UP closed the sheet')
+      failures++
+    } else if (Math.abs(s.height - was) <= SLACK) {
+      console.log(`FAIL  a drag from the header bar left the sheet at ${s.height.toFixed(0)}px, exactly where it was`)
+      failures++
+    } else {
+      console.log(`ok    a drag from the header bar took the sheet from ${was.toFixed(0)}px to ${s.height.toFixed(0)}px`)
     }
   }
 

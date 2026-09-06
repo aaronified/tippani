@@ -95,10 +95,37 @@ export function ScreenHead({ title, crumb, glyph, art, artKind, scopeTitle }) {
 // gives it. A missing one is the silhouette — hashed by name, so one character
 // keeps one face across every screen — and never the cover hatch, which means a
 // picture nobody has supplied for a WORK.
-export function Face({ src, name, className = 'cs-face' }) {
+// Face — a person's picture, or the glyph that stands in for one.
+//
+// A PICTURE THAT DOES NOT ARRIVE IS NOT A PICTURE, and the browser's own answer
+// to that is a torn-page mark that reads as "the server is broken". The owner
+// photographed one on a work tile: "the character chip (delia sturridge) on the V
+// for vendetta poster is a missing image glyph that looks like server has broke.
+// it should be simply a random person glyph, as used in the actual delia
+// sturridge character page." A row that HAS no picture already draws that glyph;
+// a row whose picture failed drew something worse than nothing.
+//
+// A PATH IS NOT A PICTURE — that is the whole of the confusion. The record stores
+// a path, so every one of these sites branched on whether a path was stored and
+// none of them on whether the file behind it arrived. The two are different
+// questions and only the second one the reader can see.
+//
+// `url` IS PASSED IN because the sites genuinely differ: a portrait under
+// `personImgURL`, a work's art under `coverImgURL`, and an already-built address
+// under neither. What they must NOT keep their own copy of is the fallback, which
+// is why it lives here.
+export function Face({ src, name, className = 'cs-face', url = coverImgURL, title }) {
+  const [broken, setBroken] = useState(false)
+  const path = String(src || '')
+  // A NEW PATH DESERVES ITS OWN CHANCE. Without this a row that fails once keeps
+  // the glyph after the picture is replaced, because React reuses the component
+  // and the flag outlives the src it was set for.
+  useEffect(() => { setBroken(false) }, [path])
   return (
-    <span className={className}>
-      {src ? <img src={coverImgURL(src)} alt="" loading="lazy" /> : <Silhouette name={name} />}
+    <span className={className} title={title}>
+      {path && !broken
+        ? <img src={url(path)} alt="" loading="lazy" onError={() => setBroken(true)} />
+        : <Silhouette name={name} />}
     </span>
   )
 }
@@ -578,9 +605,7 @@ export function AppearanceStrip({ tiles, hint, onAdd, addLabel, addTitle, addIco
                   WROTE they are the maker, not somebody inside it, and a
                   silhouette there would claim a character nobody has named. */}
               {w.face !== false ? (
-                <span className="cs-tile-chip" title={w.faceTitle}>
-                  {w.face ? <img src={coverImgURL(w.face)} alt="" loading="lazy" /> : <Silhouette name={w.faceName} />}
-                </span>
+                <Face src={w.face} name={w.faceName} className="cs-tile-chip" title={w.faceTitle} />
               ) : null}
             </button>
             <button
@@ -657,11 +682,7 @@ export function FaceStrip({ tiles, hint }) {
             aria-disabled={m.onOpen ? undefined : true}
             onClick={m.onOpen || undefined}
           >
-            <span className="cs-face-round">
-              {m.face
-                ? <img src={coverImgURL(m.face)} alt="" loading="lazy" />
-                : <Silhouette name={m.faceName || m.name} />}
-            </span>
+            <Face src={m.face} name={m.faceName || m.name} className="cs-face-round" />
             <span className="cs-face-name">{m.name}</span>
             {/* THE PACK SAYS SO RATHER THAN LEAVING A GAP, on both media and in
                 two different words: a film's unvoiced dub is `not named`

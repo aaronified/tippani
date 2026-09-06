@@ -37,7 +37,6 @@ import { useMemo, useState } from 'react'
 
 import { t } from './i18n.js'
 import { personImgURL, usePeople } from './credits.jsx'
-import { Silhouette } from './silhouette.jsx'
 import { Face } from './characterRows.jsx'
 import { FormModal, MonoLabel, NameScroll, useFormHost } from './ui.jsx'
 
@@ -98,11 +97,10 @@ function PersonRow({ person, name, meta, onPick }) {
   const src = person?.image_path ? personImgURL(person.image_path) : ''
   return (
     <button type="button" className="cs-pick-row tactile" onClick={onPick}>
-      <span className="cs-pick-face">
-        {src
-          ? <img src={src} alt="" loading="lazy" />
-          : <Silhouette name={name} />}
-      </span>
+      {/* `Face` owns what a picture that does not arrive falls back to. The
+          address is already built here, so the identity function is what this
+          screen passes in. */}
+      <Face src={src} name={name} url={(x) => x} className="cs-pick-face" />
       <span className="cs-pick-label">
         <span className="cs-pick-name">{name}</span>
         {meta ? <span className="cs-pick-meta">{meta}</span> : null}
