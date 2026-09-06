@@ -61,7 +61,10 @@ const open = async (rec, kind) => {
     />,
   )
   await waitFor(() => expect(screen.getByRole('button', { name: /^Edit title$/i })).toBeTruthy())
-  fireEvent.click(screen.getByRole('button', { name: /^Edit links$/i }))
+// THE LINKS PANEL IS BEHIND THE ＋ AT THE END OF THE PILL ROW. It was behind an
+// `Edit links` row of the form until the ids and the links became one section on
+// the owner's ruling; the row is gone and its door is the row's add control.
+  fireEvent.click(document.querySelector('.cs-pills .cs-pill.is-add'))
   // TWO BUTTONS SAY IT ON AN EMPTY COLUMN — the header verb and the empty state's
   // own labelled one, deliberately (a panel whose only affordance is a 34px key in
   // the corner is a panel a reader leaves again). Either opens this panel; the

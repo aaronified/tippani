@@ -2856,7 +2856,6 @@ common.work.id.display.label = #{n} ↗
 
 work.ids.label = আইডি
 work.ids.edit.label = বদলান
-work.ids.add.label = একটা আইডি দিন
 work.ids.edit.tip = সব আইডি বদলান
 work.ids.no-page.tip = {source} — খোলার মতো কোনও পাতা নেই
 work.ids.save.tip = সব আইডি একসঙ্গে সেভ করুন
@@ -6558,7 +6557,6 @@ links.reading.none = এটা এখনও কোনও ঠিকানা ন�
 links.already = এটা ইতিমধ্যেই এই রেকর্ডে আছে।
 links.add.aria = এই লিংকটা যোগ করুন
 links.remove.aria = {name} লিংকটা সরান
-links.info = যে কোনও সাইটের যে কোনও ঠিকানা। অ্যাপের চেনা সাইট হলে সেই সাইটের চিহ্ন দিয়ে আঁকা হয়; বাকিগুলো গ্লোবের নিচে গোটা রাখা হয় — সেটা ভুল নয়, এক ধরনের লিংক। যোগ করার সঙ্গে সঙ্গেই সেভ হয়।
 # Ordering and grouping a book's board of quotes. See Library.jsx.
 book.category.any.label = যে কোনও শ্রেণি
 book.group.aria = উদ্ধৃতি সাজান

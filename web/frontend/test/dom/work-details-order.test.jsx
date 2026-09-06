@@ -176,6 +176,16 @@ describe('what the panel is looking at', () => {
   })
 })
 
+// THE IDS EDITOR MOVED TO THE SECTION HEAD when the ids and the links became one
+// section (the owner: "IDs can merge with links with option for a custom link").
+// The ＋ at the end of the pill row adds a LINK now; the head carries the verb
+// that edits the ids, which is the arrangement `Cast · N` on this same screen
+// already uses.
+const headAction = (name) => {
+  const head = [...document.querySelectorAll('.cs-head-row')]
+    .find((h) => name.test(h.querySelector('.cs-section')?.textContent?.trim() || ''))
+  return head?.querySelector('.cs-section-action')
+}
 describe('the Details form', () => {
   it('lists its fields in relevance order, not editor order', async () => {
     panel()
@@ -228,8 +238,10 @@ describe('the Details form', () => {
     expect(pills).toContain('9780099470787')
     // The ASIN is unset on this record, so it has no pill.
     expect(pills.some((p) => p.startsWith('B0'))).toBe(false)
-    // And the strip's own control is the editor for the lot, not a third id.
-    expect(document.querySelector('.cs-pill.is-add').textContent).toMatch(/Edit/i)
+    // And the row's own control adds a LINK, while the editor for every id sits
+    // on the head — one section, two verbs, neither of them a third pill.
+    expect(document.querySelector('.cs-pills .cs-pill.is-add').textContent).toMatch(/link/i)
+    expect(headAction(/^links$/i), 'the ids have no editor any more').toBeTruthy()
   })
 
   it('gives an id that has a page a link, and one that has none a flat pill', async () => {
@@ -246,7 +258,7 @@ describe('the Details form', () => {
     panel()
     await shown()
     PUTS.length = 0
-    fireEvent.click(document.querySelector('.cs-pill.is-add'))
+    fireEvent.click(headAction(/^links$/i))
     // THE TOPMOST DIALOG. The panel host is a dialog too, so `findByRole` is
     // ambiguous here — the modal this opened is the last one in the document.
     const dlg = await waitFor(() => {
@@ -270,7 +282,7 @@ describe('the Details form', () => {
   it('arms the dialog’s tick only once an id has actually changed', async () => {
     panel()
     await shown()
-    fireEvent.click(document.querySelector('.cs-pill.is-add'))
+    fireEvent.click(headAction(/^links$/i))
     const dlg = await waitFor(() => {
       const all = [...document.querySelectorAll('[role="dialog"]')]
       const last = all[all.length - 1]
@@ -344,9 +356,11 @@ describe('the Details form', () => {
     // And the editing is still one press away, from the section's own head —
     // which is where the pack puts it (`head('Cast · 6', addTo('TMDB'))`) and
     // the only place it can go on a section whose whole content is a list.
-    const door = [...document.querySelectorAll('.cs-section-action')]
-    expect(door.length, 'the Cast head carries no way into the list').toBe(1)
-    fireEvent.click(door[0])
+    // TWO HEADS CARRY A VERB NOW — Cast's, and Links' (which edits the ids) — so
+    // this asks for the Cast one by name rather than for the only one there is.
+    const door = headAction(/^cast/i)
+    expect(door, 'the Cast head carries no way into the list').toBeTruthy()
+    fireEvent.click(door)
     expect(await screen.findByText('Woland'), 'the door opened onto no cast').toBeTruthy()
   })
 

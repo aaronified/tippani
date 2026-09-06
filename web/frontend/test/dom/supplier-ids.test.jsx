@@ -79,8 +79,18 @@ beforeEach(() => {
 // to be refused — those are the four silent-when-wrong properties this file was
 // written for, and they are worth more now than they were as rows, because one
 // press can write three ids at once.
+// THE IDS EDITOR IS BEHIND THE SECTION HEAD'S PENCIL, not the row's ＋. The ids
+// and the links became one section on the owner's ruling ("IDs can merge with
+// links with option for a custom link"), so the ＋ at the end of the pill row
+// adds a LINK and the head carries the verb that edits the ids — the same
+// arrangement `Cast · N` on this screen already uses.
+const idsPencil = () => {
+  const head = [...document.querySelectorAll('.cs-head-row')]
+    .find((h) => /links/i.test(h.querySelector('.cs-section')?.textContent || ''))
+  return head?.querySelector('.cs-section-action')
+}
 const openIds = async (user) => {
-  await user.click(document.querySelector('.cs-pill.is-add'))
+  await user.click(idsPencil())
   return waitFor(() => {
     const all = [...document.querySelectorAll('[role="dialog"]')]
     const last = all[all.length - 1]

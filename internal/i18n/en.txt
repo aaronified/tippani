@@ -2811,7 +2811,6 @@ common.work.id.display.label = #{n} ↗
 # pill per id the record holds, and one editor for the lot.
 work.ids.label = Ids
 work.ids.edit.label = Edit
-work.ids.add.label = Add an id
 work.ids.edit.tip = Edit every id
 work.ids.no-page.tip = {source} — no page to open
 work.ids.save.tip = Save every id in one go
@@ -6688,7 +6687,6 @@ links.reading.none = That is not an address yet.
 links.already = Already on this record.
 links.add.aria = Add this link
 links.remove.aria = Remove the {name} link
-links.info = Any address, from any site. One that matches a site the app knows is drawn with that site’s mark; anything else is kept whole under a globe, which is a kind of link rather than a mistake. Links are saved as you add them.
 
 # Ordering and grouping a book's board of quotes. See Library.jsx.
 book.category.any.label = Any category

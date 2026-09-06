@@ -32,7 +32,7 @@ const { PanelHarness, resetPanelHistory } = await import('../panel-harness.jsx')
 
 const BOOK = {
   id: 7, title: 'The Master and Margarita', author: '', translator: '', editor: '',
-  isbn: '', asin: '', description: '', published_year: 1967, published_circa: false,
+  isbn: '9780143108276', asin: '', description: '', published_year: 1967, published_circa: false,
   language: '', orig_language: '', subtitle: '', publisher: '', pages: 0,
   links: 'https://www.imdb.com/title/tt0084787/ https://example.org/a-review',
   genres: [], series: '', series_index: 0, favorite: false,
@@ -51,10 +51,13 @@ const panel = () =>
     />,
   )
 const shown = () => waitFor(() => expect(screen.getByRole('button', { name: /^Edit title$/i })).toBeTruthy())
+// THE LINKS PANEL IS BEHIND THE ＋ AT THE END OF THE PILL ROW. It was behind an
+// `Edit links` row of the form until the ids and the links became one section on
+// the owner's ruling; the row is gone and its door is the row's add control.
 const openLinks = async () => {
   panel()
   await shown()
-  fireEvent.click(screen.getByRole('button', { name: /^Edit links$/i }))
+  fireEvent.click(document.querySelector('.cs-pills .cs-pill.is-add'))
   return waitFor(() => {
     const el = document.querySelector('.work-link-row')
     expect(el).toBeTruthy()
@@ -78,26 +81,73 @@ const openPaste = async () => {
   })
 }
 
-describe('the Links row', () => {
-  it('names the sites rather than counting them', async () => {
+// THE IDS AND THE LINKS ARE ONE SECTION, which replaces the row this block used
+// to describe.
+//
+// THE OWNER'S RULING: "IDs can merge with links with option for a custom link…
+// for the user, this will be equivalent to the people screen links." A person's
+// page has ONE section — a strip of pills, each a way out of the record, and a ＋
+// that adds another. A work had two, headed `LINKS` and `IDS`, stacked on the
+// same screen and saying the same kind of thing: a provider id IS a link to that
+// provider, and the only difference is that the app writes the address.
+//
+// WHAT IS PINNED HERE is the merge, not the arrangement of its parts: one
+// heading, both kinds of pill under it, and the two doors — the ＋ adds a link,
+// the head's pencil edits the ids AS IDS, because the columns are what re-verify
+// and the metadata fetch read.
+describe('the ways out of a record', () => {
+  const heads = () => [...document.querySelectorAll('.cs-head-row .cs-section')].map((el) => el.textContent.trim())
+  const pills = () => [...document.querySelectorAll('.cs-pills .cs-pill')]
+    .filter((el) => !el.classList.contains('is-add'))
+
+  it('sit under one heading, not two', async () => {
     panel()
     await shown()
-    const row = [...document.querySelectorAll('.inline-field')]
-      .find((el) => el.querySelector('[aria-label="Edit links"]'))
-    expect(row.textContent).toContain('IMDb')
-    expect(row.textContent).toContain('web page')
-    // NO SOURCE TAG on the summary row: the links under it come from a dozen
-    // places and one of them is a pasted address, so one tag over the lot would
-    // be describing none of them.
-    expect(row.querySelector('.field-src')).toBeNull()
+    expect(heads().filter((h) => /^links$/i.test(h)), 'the links section is gone or is named something else')
+      .toHaveLength(1)
+    expect(heads().some((h) => /^ids$/i.test(h)),
+      'a second heading still separates the ids from the links, which is the thing the merge undoes')
+      .toBe(false)
   })
 
-  it('is last, because a link is where you go next', async () => {
+  it('and both kinds of pill are in the one row', async () => {
     panel()
     await shown()
-    const order = [...document.querySelectorAll('.inline-field .field-icon-btn[aria-label^="Edit "]')]
-      .map((b) => b.getAttribute('aria-label').replace(/^Edit /, ''))
-    expect(order[order.length - 1]).toBe('links')
+    const text = pills().map((el) => el.textContent).join(' | ')
+    expect(text, 'the record\'s ISBN is not in the row').toContain('9780143108276')
+    expect(text, 'the record\'s IMDb link is not in the row').toMatch(/imdb/i)
+  })
+
+  it('and an id still reads as an id — the mono voice, and the provider it opens', async () => {
+    panel()
+    await shown()
+    const id = pills().find((el) => el.textContent.includes('9780143108276'))
+    expect(id, 'no pill for the ISBN').toBeTruthy()
+    expect(id.classList.contains('cs-pill-id'),
+      'the id lost the mono voice the app uses for a number read character by character').toBe(true)
+    expect(id.getAttribute('href'), 'the id pill no longer opens the catalogue that files it')
+      .toContain('9780143108276')
+  })
+
+  it('and the two doors are the head\'s pencil and the row\'s ＋', async () => {
+    panel()
+    await shown()
+    const head = [...document.querySelectorAll('.cs-head-row')]
+      .find((h) => /^links$/i.test(h.querySelector('.cs-section')?.textContent?.trim() || ''))
+    expect(head.querySelector('.cs-section-action'),
+      'the ids have no editor: the head carries the verb that changes them, the way Cast does on this screen')
+      .toBeTruthy()
+    expect(document.querySelector('.cs-pills .cs-pill.is-add'),
+      'the row has no way to add a link').toBeTruthy()
+  })
+
+  it('and there is no separate Links row left in the form', async () => {
+    panel()
+    await shown()
+    const rows = [...document.querySelectorAll('.inline-field .field-icon-btn[aria-label^="Edit "]')]
+      .map((b) => b.getAttribute('aria-label'))
+    expect(rows, 'the form still carries a Links row, so the reader is offered the same thing twice')
+      .not.toContain('Edit links')
   })
 })
 

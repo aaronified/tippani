@@ -115,6 +115,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the words all sat at different places. Four drawings across the app were ignoring the
   size they were given; they all take it now. The number sits in a column three figures
   wide, so the two captions stay put whether a character has 1 quote or 999.
+- **A work's catalogue numbers and its links are one list.** Details drew a *Links*
+  row whose value was a count, and under it a separate *Ids* strip — two headings for
+  one question, when a catalogue number is simply a link the app can write for you. They
+  are one section now: a pill for every id the record holds and every address you have
+  added, each opening the page it names. The ＋ at the end adds a link, from a paste box
+  or from the pages the record can already address; the pencil on the heading still edits
+  every id, as an id.
 - **A row on that page says a thing once.** The per-work description had its scope in
   the label, again underneath it, and a third time in place of its value — long enough
   that the label itself was cut mid-word. And a character with no second name no longer

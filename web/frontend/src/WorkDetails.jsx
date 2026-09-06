@@ -28,7 +28,7 @@ import { characterPanel } from './identity.jsx'
 import { OFFERED_FIELDS, fieldOffersPanel } from './fieldOffers.jsx'
 import { DEFAULT_CREDIT_SEPS, splitCredits, personImgURL, usePeople } from './credits.jsx'
 import { Silhouette } from './silhouette.jsx'
-import { PasteLink, WorkLinks, linksSummary, providerURL } from './workLinks.jsx'
+import { PasteLink, WorkLinks, linkRows, providerURL } from './workLinks.jsx'
 import { t } from './i18n.js'
 import { KINDS } from './workKinds.js'
 import { BookLookupPicker, CoverControls, CoverPreview, MovieLookupPicker, hiResPoster, idNum } from './CoverPicker.jsx'
@@ -43,6 +43,7 @@ import {
   IconClose,
   IconDelete,
   IconEdit,
+  IconGlobe,
   IconButton,
   IconMetadata,
   IconPlus,
@@ -240,7 +241,6 @@ const BOOK_FIELDS = [
   },
   // LAST, which is the handoff's own position for it: a link is where you go
   // NEXT, so it sits under the record rather than in it.
-  { key: 'links', kind: 'links', get label() { return t('common.field.links.label') }, get hint() { return t('links.info') } },
 ]
 
 // CREDITS ARE FIELDS, and this is a return rather than a new idea.
@@ -445,7 +445,6 @@ export const MOVIE_FIELDS = [
     // no link, because it invites the one click that proves it broken.
     get hint() { return t('film.field.igdb-id.info') },
   },
-  { key: 'links', kind: 'links', get label() { return t('common.field.links.label') }, get hint() { return t('links.info') } },
 ]
 
 // fullState mirrors bookState / movieState on the pages: PUT is full-state, so a
@@ -1500,22 +1499,6 @@ function FieldList({ kind, item, stack, specs, creditSpecs, mediaType, busy, gen
           // THE FOUR THAT KEEP A SHEET, each for its own stated reason (BigField).
           // The row is InlineField's resting row to the pixel; only what the
           // pencil opens is different.
-          if (spec.kind === 'links') {
-            return (
-              <BigField
-                key={spec.key}
-                half={!!spec.half}
-                label={label}
-                hint={spec.hint}
-                // NO SOURCE TAG, and the handoff says why: the links under this
-                // row come from a dozen places and one of them is a pasted
-                // address, so one tag over the lot would be describing none of
-                // them. The answers are one level down, one per link.
-                display={linksSummary(item.links)}
-                onOpen={() => stack?.push(workLinksPanel(stack, { kind, item, onChanged }))}
-              />
-            )
-          }
           if (spec.sheet) {
             return (
               <BigField
@@ -1750,18 +1733,21 @@ function FieldList({ kind, item, stack, specs, creditSpecs, mediaType, busy, gen
       ) : null}
       {castTiles.length > 0 ? <FaceStrip tiles={castTiles} /> : null}
 
-      {/* ── THE IDS, AS A STRIP AND NOT AS ROWS ──
-          A pill per id the record HOLDS, and one editor for the lot. The rows it
-          replaces were five or six of a form whose other rows are the title and
-          the description, each a label and a number, and together they read as
-          what the record is ABOUT rather than as its footnotes. */}
-      {idSpecs.length > 0 && (
+      {/* ── THE WAYS OUT OF THIS RECORD, IN ONE SECTION ──
+          A pill per id the record holds and a pill per link the reader added, one
+          editor for the ids behind the head's pencil and the paste box behind the
+          ＋. The rows this replaces were five or six ids in a form whose other
+          rows are the title and the description — reading as what the record is
+          ABOUT rather than as its footnotes — and, above them, a `Links` row
+          whose value was a count. Two headings for one question. */}
+      {(idSpecs.length > 0 || String(item.links || '').trim()) && (
         <WorkIds
           item={item}
           specs={idSpecs}
           mediaType={mediaType}
           busy={!!busy}
           onSave={onSaveIds}
+          onOpenLinks={stack ? () => stack.push(workLinksPanel(stack, { kind, item, onChanged })) : undefined}
         />
       )}
       </UnsavedFieldsContext.Provider>
@@ -1788,7 +1774,21 @@ function FieldList({ kind, item, stack, specs, creditSpecs, mediaType, busy, gen
 // A PILL WITHOUT AN ADDRESS KEEPS ITS PILL. An IGDB numeric id names no page the
 // app can build — IGDB addresses by slug — so that one draws flat rather than as
 // a link, which PillRow does by itself when handed no url.
-function WorkIds({ item, specs, mediaType, busy, onSave }) {
+//
+// AND THE IDS SIT WITH THE LINKS, which is the owner's ruling: "IDs can merge
+// with links with option for a custom link… for the user, this will be
+// equivalent to the people screen links." A person's page has ONE section — a
+// strip of pills, each a way out of the record, and a ＋ that adds another — and
+// a work had two, headed `LINKS` and `IDS`, sitting one above the other and
+// saying the same kind of thing. A provider id IS a link to that provider; the
+// only difference is that the app writes the address rather than the reader.
+//
+// AN ID STAYS AN ID, which is the other half of the ruling. Its pill wears the
+// provider's mark and its number in the mono voice, it opens that provider's
+// page, and the pencil on the section head still edits it AS AN ID — the columns
+// are what re-verify and the metadata fetch read, so nothing about the storage
+// joins the merge. Only the reading does.
+function WorkIds({ item, specs, mediaType, busy, onSave, onOpenLinks }) {
   const [open, setOpen] = useState(false)
   const pills = specs
     .map((sp) => {
@@ -1807,15 +1807,36 @@ function WorkIds({ item, specs, mediaType, busy, onSave }) {
       }
     })
     .filter(Boolean)
+  // THE LINKS THE READER ADDED, after the ids the app knows — the app's own
+  // provider order first, then whatever was pasted, which is exactly the order
+  // `linkRows` already puts them in on the panel behind the ＋.
+  const linked = linkRows(item.links).map((r) => ({
+    key: 'link:' + r.url,
+    slug: r.slug,
+    name: r.name,
+    url: r.url,
+    fallbackIcon: <IconGlobe size={13} />,
+    title: r.url,
+  }))
   return (
     <>
-      <SectionHead label={t('work.ids.label')} />
+      {/* THE PENCIL IS ON THE HEAD, not a second control in the row. `Cast · N`
+          on this same screen sets the precedent: the row is the content and the
+          head carries the verb that changes it. The ＋ at the end of the row adds
+          a LINK — the paste box and the addresses this record can already build
+          — and the pencil opens every id this medium has, filled or not. */}
+      <SectionHead
+        label={t('common.field.links.label')}
+        action={specs.length ? () => setOpen(true) : undefined}
+        actionLabel={t('work.ids.edit.label')}
+        actionTitle={t('work.ids.edit.tip')}
+      />
       <PillRow
-        pills={pills}
-        onAdd={() => setOpen(true)}
-        addLabel={pills.length ? t('work.ids.edit.label') : t('work.ids.add.label')}
-        addIcon={pills.length ? <IconEdit /> : <IconPlus />}
-        addTitle={t('work.ids.edit.tip')}
+        pills={[...pills, ...linked]}
+        onAdd={onOpenLinks}
+        addLabel={t('links.paste.label')}
+        addIcon={<IconPlus />}
+        addTitle={t('links.paste.label')}
       />
       <WorkIdsDialog
         open={open}
