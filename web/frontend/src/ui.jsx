@@ -309,9 +309,16 @@ export function useHideOnScrollDown({
 // the jump, which is the same answer every other transition in the app gives —
 // and a 4000px smooth scroll is the single longest animation this app can play.
 export function useBackToTop({ enabled = true } = {}) {
+  // NOT WHILE SOMETHING IS COVERING THE PAGE. The key answers to the DOCUMENT's
+  // scroll, and while a panel or a sheet is up the document is not what the
+  // reader is scrolling — so the key both drew over the sheet (it is fixed at a
+  // higher layer than the scrim) and offered to scroll a surface that is not in
+  // focus. The gate is here rather than at the two call sites so that a third
+  // screen cannot forget it.
+  const covered = useOverlayOpen()
   const [show, setShow] = useState(false)
   useEffect(() => {
-    if (!enabled) {
+    if (!enabled || covered) {
       setShow(false)
       return undefined
     }
@@ -331,7 +338,7 @@ export function useBackToTop({ enabled = true } = {}) {
     measure()
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => window.removeEventListener('scroll', onScroll)
-  }, [enabled])
+  }, [enabled, covered])
   const toTop = useCallback(() => {
     const smooth = !window.matchMedia?.(REDUCED_MOTION_QUERY).matches
     window.scrollTo({ top: 0, behavior: smooth ? 'smooth' : 'auto' })
@@ -1079,14 +1086,56 @@ export function useColumnsAt(ladder) {
 // unlock early. If iOS rubber-banding ever gets reported, position:fixed with
 // a stored scroll offset is the upgrade path.
 let bodyScrollLocks = 0;
+// AND THE COUNT IS SUBSCRIBABLE, because two things depend on "is something
+// covering the page", not one. The owner reported the pair together: "stop
+// scrolling screens that are not in focus" and "the chevron from bottom
+// locations is visible above the popup as well". One is the lock; the other is
+// a control that answers to the document while the reader is looking at a
+// sheet. Deriving the second from the first means an overlay joins BOTH rules
+// by locking, and cannot join one and forget the other — which is exactly what
+// `PanelHost` did, in a file where six other overlays already locked.
+const overlayWatchers = new Set();
+const overlayIsUp = () => bodyScrollLocks > 0;
+const notifyOverlay = () => { for (const f of [...overlayWatchers]) f(overlayIsUp()); };
+
+// AND IT LOCKS THE ELEMENT THAT ACTUALLY SCROLLS, which body alone is not.
+// `document.scrollingElement` is `<html>` in every standards-mode document here,
+// so hiding BODY's overflow hid the overflow of a box that was not the scroller
+// and the page went on moving under an open sheet. The owner reported it as
+// "stop scrolling screens that are not in focus", over a screenshot of a quote
+// list that had scrolled behind a character panel — and the hook had been called
+// on that panel the whole time, which is why nothing looked missing. The
+// prototype locks both (`book-detail.dc.html:15`); so does this.
 export function useBodyScrollLock(active) {
   useEffect(() => {
     if (!active) return;
-    if (++bodyScrollLocks === 1) document.body.style.overflow = "hidden";
+    if (++bodyScrollLocks === 1) {
+      document.documentElement.style.overflow = "hidden";
+      document.body.style.overflow = "hidden";
+    }
+    notifyOverlay();
     return () => {
-      if (--bodyScrollLocks === 0) document.body.style.overflow = "";
+      if (--bodyScrollLocks === 0) {
+        document.documentElement.style.overflow = "";
+        document.body.style.overflow = "";
+      }
+      notifyOverlay();
     };
   }, [active]);
+}
+
+// useOverlayOpen — whether anything is covering the page right now.
+export function useOverlayOpen() {
+  const [up, setUp] = useState(overlayIsUp);
+  useEffect(() => {
+    const f = (v) => setUp(v);
+    overlayWatchers.add(f);
+    // Read once on subscribe: an overlay that opened before this mounted has
+    // already fired its notification and will not fire another.
+    f(overlayIsUp());
+    return () => { overlayWatchers.delete(f); };
+  }, []);
+  return up;
 }
 
 // useBackToClose — an open overlay answers the hardware/gesture Back by closing

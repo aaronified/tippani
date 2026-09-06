@@ -476,7 +476,23 @@
      it — the page you cannot see, moving under the thing you are reading, and
      still moved when you close it. `contain` is the whole fix for the pointer
      and the finger alike: chaining stops at this box's boundary. */
-  .tp-scrim { background: rgba(21, 16, 12, .55); overscroll-behavior: contain; }
+  /* EVERY OVERLAY BLURS WHAT IS BEHIND IT, and until now exactly one did. The
+     blur was written on `.tp-panel-scrim` alone, so a panel dimmed and softened
+     the page while a modal, a picker, the add sheet and the search overlay left
+     it sharp under a heavier wash — one app with two answers to "what happens to
+     the screen you are not looking at". The owner asked for the blur "on desktop
+     and mobile both"; this is where every scrim in the app is declared, so this
+     is where it goes.
+
+     THE ALPHA COMES DOWN WITH IT, because the pair is the point: the blur is what
+     buys the lower alpha. .55 over a blurred backdrop is a page that has gone
+     rather than a page you are working on top of. */
+  .tp-scrim {
+    background: rgba(21, 16, 12, .42);
+    backdrop-filter: blur(10px) saturate(.78);
+    -webkit-backdrop-filter: blur(10px) saturate(.78);
+    overscroll-behavior: contain;
+  }
   /* Deeper, for a chip or overlay that sits ON artwork rather than over a page —
      a poster has no predictable ground, so the mark needs its own. --on-scrim is
      the ink that rides on either: white, and deliberately not --on-accent, which
@@ -920,14 +936,13 @@
      One surface for anything that opens another surface. See usePanelStack in
      ui.jsx for why history owns the stack; this file only draws it.
 
-     THE SCRIM IS LIGHTER THAN .tp-scrim AND BLURRED, and the pair is the point:
-     the blur is what buys the lower alpha. A reader mid-panel can still see the
-     work they are editing behind it, which is the difference between a modal
-     that admits it is one and a modal that pretends the page has gone. */
+     THE WASH AND THE BLUR ARE `.tp-scrim`'S NOW, not this class's. They were
+     written here, which made a panel the only overlay in the app that softened
+     what it stood on; a reader mid-panel could see the work they were editing
+     behind it and a reader mid-modal could not. What is left here is what is
+     genuinely a PANEL's: where it sits in the scrim and how much room it keeps
+     around itself. */
   .tp-panel-scrim {
-    background: rgba(21, 16, 12, .42);
-    backdrop-filter: blur(10px) saturate(.78);
-    -webkit-backdrop-filter: blur(10px) saturate(.78);
     align-items: center;
     padding: 32px;
   }
@@ -8883,10 +8898,18 @@ html[data-theme="dark"] .board-cover {
      the works and the screen moves instead. `overscroll-behavior` is the rule
      scroll-containment.test.js keeps, and a strip is exactly the shape it exists
      for: a sideways scroller inside a vertical one. */
+  /* THE ROW SITS IN THE WELL, not against its top edge. `.cs-strip` pads 2 above
+     and 6 below; a row that then pads 2 and 4 leaves 4px of shelf over the
+     artwork and 10px under it, so the covers read as having been pushed up
+     against the lid. Reported as "the cast (and also the works page in
+     actor/character pages) images hug the top of the well, needs slightly more
+     breathing room". 8 above makes the two sides 10 and 10 — an object with a
+     shadow needs the same shelf on both sides of it, which is what the well is
+     for. */
   .cs-tiles {
     display: flex; gap: 12px; align-items: flex-start;
     overflow-x: auto; overscroll-behavior-x: contain;
-    padding: 2px 10px 4px;
+    padding: 8px 10px 4px;
     min-width: 0;
   }
   .cs-tile { width: max(112px, 7em); flex: none; display: flex; flex-direction: column; gap: 7px; }
@@ -8968,10 +8991,12 @@ html[data-theme="dark"] .board-cover {
      way round: there, one character across many covers; here, one cover's worth
      of people, where the cover is the same for all of them and the face is the
      only thing that tells them apart. */
+  /* The same shelf as `.cs-tiles` above, for the same reason and in the same
+     numbers: the owner named both rows in one sentence. */
   .cs-faces {
     display: flex; gap: 12px; align-items: flex-start;
     overflow-x: auto; overscroll-behavior-x: contain;
-    padding: 2px 10px 4px;
+    padding: 8px 10px 4px;
     min-width: 0;
   }
   /* THE TILE HOLDS TEXT, SO ITS WIDTH IS NOT A PX. The pack's 78px is the floor
