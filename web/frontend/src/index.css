@@ -489,8 +489,8 @@
      rather than a page you are working on top of. */
   .tp-scrim {
     background: rgba(21, 16, 12, .42);
-    backdrop-filter: blur(10px) saturate(.78);
     -webkit-backdrop-filter: blur(10px) saturate(.78);
+    backdrop-filter: blur(10px) saturate(.78);
     overscroll-behavior: contain;
   }
   /* Deeper, for a chip or overlay that sits ON artwork rather than over a page —
