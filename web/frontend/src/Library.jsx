@@ -1813,13 +1813,22 @@ function AnnotationTable({ rows, tagMap, stickers = [], reloadStickers, sort, on
               <td className="col-mono">{fmtDate(annDate(a)) || '—'}</td>
               <td className="col-center">{a.favorite ? <IconHeartOn size={14} /> : '—'}</td>
               <td className="col-actions">
+                {/* `remove` IS THIS SCREEN'S ASK, not its deletion: the parent
+                    binds the prop to `setAsking` (`remove: setAsking`), so the
+                    card and the row put the same question — which is what the
+                    directive requires of one control drawn twice.
+
+                    THIS LINE REACHED FOR THE PARENT'S OWN NAME. `setAsking` has
+                    no binding in this component, so Delete on a table row threw
+                    the moment it was pressed; the bundler resolved it as a global
+                    and said nothing, and nothing renders this table under test. */}
                 <TableActions
                   noun={t('unit.quote.one')}
                   nounPlural={t('unit.quote.other')}
                   onCopy={onCopy && (() => onCopy(a))}
                   onShare={onShare && (() => onShare(a))}
                   onEdit={() => setEditingId(a.id)}
-                  onDelete={() => setAsking(a)}
+                  onDelete={() => remove(a)}
                 />
               </td>
             </tr>

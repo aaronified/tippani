@@ -43,7 +43,6 @@ beforeEach(() => {
     colors: {}, top_tags: [], first_saved: null,
     recall: { states: {}, reviewed: 0, avg_half_life: 0 },
     breakdown: {
-      authors: kind(),
       books: kind({ count: 1, top: [{ name: 'Ice', cover_path: 'covers/ice.jpg', quotes: 6, remembered: 2, forgetting: 0, probably_forgotten: 0, unseen: 4 }] }),
       series: kind(), films: kind(),
       shows: kind(), directors: kind(), actors: kind(),

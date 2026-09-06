@@ -1590,13 +1590,17 @@ function DialogueTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSo
               <td className="col-mono">{d.timestamp || '—'}</td>
               <td className="col-center">{d.favorite ? <IconHeartOn size={14} /> : '—'}</td>
               <td className="col-actions">
+                {/* `remove` is this screen's ASK — the parent binds the prop to
+                    `setAsking`, so a row puts the same question a card does. This
+                    line reached for `setAsking` itself, which has no binding
+                    here, and Delete on a row threw when pressed. */}
                 <TableActions
                   noun={t('unit.line.one')}
                   nounPlural={t('unit.line.other')}
                   onCopy={onCopy && (() => onCopy(d))}
                   onShare={onShare && (() => onShare(d))}
                   onEdit={() => setEditingId(d.id)}
-                  onDelete={() => setAsking(d)}
+                  onDelete={() => remove(d)}
                 />
               </td>
             </tr>

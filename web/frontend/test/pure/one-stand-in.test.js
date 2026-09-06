@@ -103,12 +103,23 @@ function portraitTags(text) {
       else if (ch === '>' && depth === 0) break
       end++
     }
-    const tag = flat.slice(at, end)
+    // COMMENTS ARE NOT ATTRIBUTES. `/* onError */` written inside a tag would
+    // otherwise satisfy the check for one, which is a way of passing this rule by
+    // typing its own name at it.
+    const tag = flat.slice(at, end).replace(/\/\*[\s\S]*?\*\//g, ' ')
     const src = /\bsrc=\{([^}]*(?:\{[^}]*\}[^}]*)*)\}/.exec(tag)
     // NO `src={…}` MEANS THE WHOLE TAG IS THE EXPRESSION — a spread
     // (`<img {...{ src: personImgURL(p) }} />`) puts the address somewhere this
     // has no name for, and reading the tag entire is the only honest answer.
     let expr = src ? src[1] : tag
+    // A SPREAD OF A VARIABLE hides the address one name away — `const shot = {
+    // src: … }` and then `<img {...shot} />`. The object it spreads is looked up
+    // the same way a bare `src` identifier is, because it is the same evasion
+    // written in a different place.
+    for (const sp of tag.matchAll(/\{\s*\.\.\.\s*([A-Za-z_$][\w$]*)\s*\}/g)) {
+      const decl = new RegExp(String.raw`\b(?:const|let|var)\s+` + sp[1] + String.raw`\s*=([^;]*)`).exec(flat)
+      if (decl) expr += ' ' + decl[1]
+    }
     const bare = /^\s*([A-Za-z_$][\w$]*)\s*$/.exec(expr)
     if (bare) {
       // OVER THE FLATTENED TEXT. `[^\n;]*` against the original stopped at the
@@ -123,8 +134,11 @@ function portraitTags(text) {
 }
 
 // A tag that draws a face and never asks whether the picture arrived.
+// `onError={undefined}` IS NOT ASKING. It satisfies the word and does nothing,
+// which is the difference between a guard and the shape of one.
+const ASKS = /\bonError\s*=\s*\{(?!\s*(?:undefined|null)\s*\})/
 const unguarded = (text) => portraitTags(text)
-  .filter(({ tag, expr }) => OF_A_PERSON.test(expr) && !/\bonError\b/.test(tag))
+  .filter(({ tag, expr }) => OF_A_PERSON.test(expr) && !ASKS.test(tag))
 
 describe('the stand-in for a picture', () => {
   it('is drawn only by the components that ask whether the picture arrived', () => {
@@ -179,6 +193,9 @@ describe('a picture of a person or a character', () => {
       'the word this rule was widened for': '<img src={coverImgURL(row.still)} alt="" />',
       'a declaration broken across lines': 'const shot =\n  personImgURL(p.image_path)\n<img src={shot} alt="" />',
       'an address arriving through a spread': '<img {...{ src: personImgURL(p.image_path) }} alt="" />',
+      'a spread of a variable built elsewhere': 'const shot = { src: coverImgURL(p.image_path) }\n<img {...shot} alt="" />',
+      'an onError that does nothing': '<img src={coverImgURL(c.image_path)} onError={undefined} alt="" />',
+      'the word onError typed in a comment': '<img src={coverImgURL(c.image_path)} /* onError */ alt="" />',
     }
     for (const [what, code] of Object.entries(shapes)) {
       expect(unguarded(code).length, `${what} is invisible to the rule`).toBeGreaterThan(0)
@@ -223,5 +240,10 @@ describe('the box a shared face draws inside', () => {
     expect(declares(inner, 'object-fit'), 'the picture is stretched rather than cropped').toContain('cover')
     expect(declares('.stat-face-round', 'border-radius'), 'the Stats still stopped being round')
       .toContain('50%')
+    // AND THE STAND-IN IS SIZED TOO. The rule lists the picture and the glyph
+    // together, and only the picture was asked for — so deleting the glyph's half
+    // passed, which is a silhouette at its natural size inside a 24px circle.
+    expect(declares('.stat-face-round svg', 'width'), 'the stand-in is not sized to its box')
+      .toContain('100%')
   })
 })

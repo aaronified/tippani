@@ -149,7 +149,7 @@ AI-written code fails differently from hand-written code. It compiles, it reads
 well, it is plausibly commented, and it can still be wrong — so plausibility is
 worth nothing here and only execution counts. What the repo actually runs:
 
-- **1,494 Go test functions and 3,409 frontend tests, across 538 test files** — the
+- **1,494 Go test functions and 3,416 frontend tests, across 540 test files** — the
   Go half over real HTTP handlers against a real SQLite database, not mocks.
   Counted, not estimated, and every number here has a command that reproduces it:
 
@@ -158,7 +158,7 @@ worth nothing here and only execution counts. What the repo actually runs:
   cd web/frontend && npm test                                            # frontend tests
   find . -name '*_test.go' -not -path './node_modules/*' | wc -l         # 249 Go files
   find ./web/frontend -path '*/node_modules' -prune -o \
-       -type f \( -name '*.test.*' -o -name '*.spec.*' \) -print | wc -l # 289 frontend
+       -type f \( -name '*.test.*' -o -name '*.spec.*' \) -print | wc -l # 291 frontend
   ```
 
   THREE OF THE FOUR ARE NOW CHECKED RATHER THAN TRUSTED. This paragraph has said
@@ -318,25 +318,36 @@ worth nothing here and only execution counts. What the repo actually runs:
   nothing. Tippani never sets a root font size — `applyTypeScale` writes finished
   pixels into `--type-*` — so setting the root to 24px alone leaves the app untouched
   and would have returned a clean bill of health for a stylesheet full of px boxes.
-- **A BRANCH THAT ONLY RUNS WHEN A PICTURE EXISTS IS THE BLIND SPOT BOTH LAYERS SHARE**,
-  and it cost three shipped `ReferenceError`s in one session. `screens-mount.test.jsx`
-  mounts every screen with every request REFUSED — deliberately, and its own note argues
-  the case well: a refusal needs no invented payload shape, so the file cannot rot into
-  eleven guessed formats. `make controls` runs against `seed.mjs`, which has no artwork,
-  because this container cannot fetch any. Between them, no layer ever executes the arm of
-  a conditional that draws a picture.
+- **A BRANCH THAT ONLY RUNS WHEN A PICTURE EXISTS IS THE BLIND SPOT BOTH LAYERS SHARE.**
+  `screens-mount.test.jsx` mounts every screen with every request REFUSED —
+  deliberately, and its own note argues the case well: a refusal needs no invented payload
+  shape, so the file cannot rot into eleven guessed formats. `make controls` runs against
+  `seed.mjs`, which has no artwork, because this container cannot fetch any. Between them,
+  no layer ever executes the arm of a conditional that draws a picture.
 
   So a free identifier inside one of those arms compiles, bundles, passes 3,400 tests and
-  throws the first time a reader with a real library opens the screen. Three of them
-  shipped in three consecutive commits, all in one span of `StatsPage.jsx`, each found by
-  a rater reading the diff rather than by anything that runs.
+  throws the first time a reader with a real library opens the screen. Three shipped in
+  three consecutive commits, all in one span of `StatsPage.jsx`, each found by a rater
+  reading the diff rather than by anything that runs.
 
-  **The repair was per-branch and not systemic, deliberately.** A smoke pass that answers
-  every request with a plausible payload would catch the class, and would also become the
-  place eleven response shapes are guessed at — which is the cost the mount test's own
-  note refuses, and refuses correctly. What is guarded now is that each arm of the one
-  span that had them renders. **The general lesson stands and is not mechanised: when a
-  change touches an arm that only runs when data exists, render that arm.**
+  **This note used to end by saying the class could not be mechanised, and that was
+  wrong** — wrong in the one direction the owner's standing instruction forbids ("create
+  mechanical controls … don't depend on your prompting"). It weighed two ways of RUNNING
+  the code, a smoke pass against per-branch rendering, and never considered READING it.
+  The next rater pass found two more of the same defect live, in code nobody had touched:
+  the Delete key on a row of the annotations table and of the dialogue table each called a
+  setter bound in their parent. Both were reachable buttons; both threw when pressed.
+
+  `test/pure/no-free-names.test.js` is the mechanical control. Babel is already in this
+  project's `node_modules` — Vite's React plugin brings it — so the scope analysis costs a
+  dependency of zero and about a second, and it names the file and the line. It asks one
+  question and is not a type checker: whether every identifier a module reads is bound
+  somewhere it can see. It catches both the shipped `StatsPage` crash and the two the
+  rater found, each by name.
+
+  The per-branch rendering stayed as well, because the two answer different questions: the
+  scope check knows a name is missing, and only a render knows the arm draws the right
+  thing.
 
 - **`make controls` asks a question of every control instead of asserting a fix.** It
   presses everything a reader can press on fifteen surfaces — twelve screens, both work

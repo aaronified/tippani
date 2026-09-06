@@ -468,6 +468,25 @@ caught the two image PICKERS — remote candidates a reader is choosing between,
 broken thumbnail says something true about that candidate rather than about the library.
 Out again, deliberately, rather than converting those to hide a signal.
 
+## Z. The work-rater's eighth pass, 6 September
+
+Scored **6/10**. Its first finding overturns a conclusion I had just written into `AI.md`,
+and it is right.
+
+| # | Finding | Status |
+|---|---|---|
+| Z1 | **The class `afd3c33` declared unmechanisable was live in two screens.** `Library.jsx` and `Movies.jsx` each had a row's Delete key calling `setAsking`, which is bound in their PARENT — reachable buttons, both throwing when pressed. And Babel is already in `node_modules`, so a scope check finds them in a second | **FIXED, and the note is corrected.** Both call the `remove` prop the parent binds to `setAsking`, so a row puts the same question a card does. `test/pure/no-free-names.test.js` is the mechanical control: it catches both of these AND the shipped `StatsPage` crash, each by file and line. My argument had weighed two ways of RUNNING the code and never considered reading it — wrong in the one direction the standing instruction forbids |
+| Z2 | The avatar extraction and the profile card's `gone` state shipped with no test: dropping `onBroken`, swapping the initial for a silhouette, or reverting the Remove key each left 3,409 green | **FIXED.** `account-avatar.test.jsx`, five cases; both mutations fail |
+| Z3 | Y3's spread claim was broader than the code — only the inline object was closed, and `onError={undefined}` or the word in a comment passed | **FIXED.** A spread of a variable is resolved like a bare `src`; comments are stripped from the tag before it is read; an `onError` bound to `undefined` or `null` is not asking |
+| Z4 | Every `<img>` in `src/` scores zero on the vocabulary today, so the file scan is carried entirely by the synthetic shapes | **NOT A DEFECT — that is the rule working.** No site draws a raw face any more, which is the point; the synthetic shapes are what keep the pattern honest, and each is a shape that actually escaped once |
+| Z5 | A duplicate `authors` key in the stats fixture, warned on by esbuild every run | **FIXED** |
+| Z6 | `.stat-face-round svg` was unasserted — the rule listed the picture and the glyph together and only the picture was asked for | **FIXED.** Split into a block each, so a guard naming one is not silently asserting the other |
+
+**The syntax error this pass also caught, before any rater did.** The first version of the
+`Library.jsx` fix put its explanation in JSX ATTRIBUTE position, where `{/* … */}` is not
+legal. The new scope check failed with the parse error and named the line — which is a
+better argument for it than any of the above.
+
 ## Withdrawn claims
 
 Kept because the pattern matters more than any one of them.
