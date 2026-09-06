@@ -149,7 +149,7 @@ AI-written code fails differently from hand-written code. It compiles, it reads
 well, it is plausibly commented, and it can still be wrong — so plausibility is
 worth nothing here and only execution counts. What the repo actually runs:
 
-- **1,494 Go test functions and 3,416 frontend tests, across 540 test files** — the
+- **1,494 Go test functions and 3,420 frontend tests, across 541 test files** — the
   Go half over real HTTP handlers against a real SQLite database, not mocks.
   Counted, not estimated, and every number here has a command that reproduces it:
 
@@ -158,7 +158,7 @@ worth nothing here and only execution counts. What the repo actually runs:
   cd web/frontend && npm test                                            # frontend tests
   find . -name '*_test.go' -not -path './node_modules/*' | wc -l         # 249 Go files
   find ./web/frontend -path '*/node_modules' -prune -o \
-       -type f \( -name '*.test.*' -o -name '*.spec.*' \) -print | wc -l # 291 frontend
+       -type f \( -name '*.test.*' -o -name '*.spec.*' \) -print | wc -l # 292 frontend
   ```
 
   THREE OF THE FOUR ARE NOW CHECKED RATHER THAN TRUSTED. This paragraph has said
@@ -178,7 +178,7 @@ worth nothing here and only execution counts. What the repo actually runs:
   by 2.3.0, from 1,100 / 1,853 / 323 when they were recounted for 2.2.3, and most
   recently from 1,153 / 1,977 / 338, from 1,336 / 2,218 / 394, from
   1,357 / 2,223 / 398, from 1,360 / 2,245 / 401, from 1,380 / 2,358 / 418, from
-  1,391 / 2,366 / 419, from 1,466 / 2,772 / 471, from 1,493 / 3,041 / 520, from 1,493 / 3,071 / 521, from 1,493 / 3,083 / 522, from 1,493 / 3,111 / 523, from 1,493 / 3,324 / 533, and from 1,494 / 3,350 / 535 before
+  1,391 / 2,366 / 419, from 1,466 / 2,772 / 471, from 1,493 / 3,041 / 520, from 1,493 / 3,071 / 521, from 1,493 / 3,083 / 522, from 1,493 / 3,111 / 523, from 1,493 / 3,324 / 533, from 1,494 / 3,350 / 535, and from 1,494 / 3,416 / 540 before
   this recount — which is why each one now sits beside the command that produces it.
   The last of those drifts is worth naming because it was one work session: a number
   recounted honestly at the start of a stretch is stale by the end of it.
@@ -347,7 +347,13 @@ worth nothing here and only execution counts. What the repo actually runs:
 
   The per-branch rendering stayed as well, because the two answer different questions: the
   scope check knows a name is missing, and only a render knows the arm draws the right
-  thing.
+  thing. **Neither presses anything**, and the owner's standard for a test is "is the
+  button clickable (for all buttons)?" — so `test/dom/table-row-delete.test.jsx` renders
+  both tables and presses the Delete key on a row. It also asserts the half that would be
+  easy to break while fixing the first half: the press ASKS rather than deletes, the same
+  question the card view puts. Note that a throw inside a React handler does not come back
+  out of `fireEvent` — the synthetic event system reports it to the window — so a case
+  that only presses asserts nothing, and this one listens for the error event.
 
 - **`make controls` asks a question of every control instead of asserting a fix.** It
   presses everything a reader can press on fifteen surfaces — twelve screens, both work

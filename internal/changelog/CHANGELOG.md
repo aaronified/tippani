@@ -158,6 +158,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   printing its performers once in the header and again in the card below.
 
 ### Fixed
+- **Delete on a row of a table asks, the way Delete on a card asks.** In the table view
+  of a book's quotes and of a film's lines, the Delete key on a row did nothing at all
+  when it was pressed — no dialog, no deletion, no message. It now puts the same
+  question the card view puts, naming the row it is about to take.
 - **The two counts on a character's page line up with each other.** `11 QUOTES` and
   `1 SCENE` each centred itself inside its own box, and one of the two glyphs was
   drawing half again the size it had been asked for — so the glyphs, the numbers and
