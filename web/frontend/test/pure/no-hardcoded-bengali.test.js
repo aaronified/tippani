@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
-import { sourcesUnder } from '../src-files.js'
+import { SRC, sourcesUnder } from '../src-files.js'
 
 // NO BENGALI IN THE SOURCE THAT ISN'T DATA, for the same reason there is no
 // English: copy belongs in internal/i18n/*.txt where a translator — or an
@@ -37,15 +36,16 @@ const ALLOWED = [
 ]
 
 const BENGALI = /[ঀ-৿]/
-// fileURLToPath, NOT `.pathname`, and this is a bug this file shipped with. A file
-// URL's pathname is percent-encoded and keeps its leading slash, so on Windows —
-// where this repository actually lives, in a directory with a space in its name —
-// `new URL(...).pathname` resolved to `/D:/Code%20Projects/...`, readdirSync threw
-// ENOENT, and BOTH cases in this file failed for a reason that had nothing to do
-// with Bengali. It passed in CI, which is Linux with no space in the path, so the
-// gate looked green while it had never once read a source file on the machine the
-// code is written on.
-const SRC = fileURLToPath(new URL('../../src/', import.meta.url))
+// THE ROOT COMES FROM THE RUNNER, not from this file's own URL — and the bug this
+// file shipped with is why. A file URL's pathname is percent-encoded and keeps its
+// leading slash, so on Windows, where this repository actually lives in a
+// directory with a space in its name, `new URL(...).pathname` resolved to
+// `/D:/Code%20Projects/...`, the read threw ENOENT, and BOTH cases here failed for
+// a reason that had nothing to do with Bengali. It passed in CI, which is Linux
+// with no space in the path, so the gate looked green while it had never once read
+// a source file on the machine the code is written on. `fileURLToPath` fixed that;
+// taking the root from `src-files.js` means there is one root rather than a
+// correct one and a nearly-correct one, which is the same argument as the walk.
 
 // THE SHARED WALK, which throws rather than returning a short list — this file's
 // own note above is about a gate that "had never once read a source file", and a

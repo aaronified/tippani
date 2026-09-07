@@ -14,7 +14,6 @@
 // all four lists at once rather than as four cases, and the failure names the list
 // that kept the row.
 
-import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import {
   addSection,
@@ -29,6 +28,8 @@ import {
   visibleSections,
   visibleTabs,
 } from '../../src/routes.js'
+
+import { readSource } from '../src-files.js'
 
 const keys = (list) => list.filter(Boolean).map(([key]) => key)
 const off = (tab) => ({ ...visibleSections({}), [tab]: false })
@@ -274,7 +275,7 @@ describe('hiding a section does not move the routing', () => {
 // is a tab that is still there rather than an exception.
 
 describe('the shell filters every list it draws', () => {
-  const app = readFileSync(new URL('../../src/App.jsx', import.meta.url), 'utf8')
+  const app = readSource('App.jsx')
   // Everything after the import block, so the import itself is not counted as a use.
   //
   // AND WITHOUT COMMENTS. A COMMENT IS NOT A DRAW — typescale.test.js decomments for

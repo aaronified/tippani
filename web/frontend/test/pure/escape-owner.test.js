@@ -18,9 +18,12 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { sourcesUnder } from '../src-files.js'
+import { SRC, sourcesUnder } from '../src-files.js'
 
-const SRC = new URL('../../src/', import.meta.url).pathname
+// THE ROOT COMES FROM THE RUNNER. This was `new URL(...).pathname`, which is the
+// exact bug `no-hardcoded-bengali.test.js` documents at length: percent-encoded,
+// leading-slash, ENOENT on any path with a space in it — green in CI and broken on
+// the machine the code is written on.
 
 const sources = () =>
   sourcesUnder((n) => /\.jsx?$/.test(n), 60)
