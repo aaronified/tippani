@@ -1,6 +1,7 @@
 package changelog
 
 import (
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -168,4 +169,171 @@ func TestThePreambleIsNotMistakenForARelease(t *testing.T) {
 			t.Fatalf("the preamble was parsed as a release: %+v", r)
 		}
 	}
+}
+
+// EVERY BULLET THE FILE DECLARES REACHES THE SCREEN.
+//
+// THE DEFECT THIS PINS, and it shipped twice in one afternoon. An entry written
+// with a stray extra hyphen — `-- **Signing out no longer...` — is not a bullet to
+// this parser: the `- ` case does not match, so it falls to `default`, which calls
+// `flushEntry()` and drops it. And because the malformed line ATE the hyphen off
+// the entry below it, a second, unrelated release note went with it. Nothing threw,
+// `go test ./...` stayed green, and two user-visible entries were simply absent
+// from the app's own Changelog screen — one of them the note for the very fix that
+// commit was shipping.
+//
+// WHY IT IS THE PARSER'S TEST AND NOT A LINT. The rule is not "the markdown is
+// tidy" — it is that the file and the screen agree. So the file is read as a
+// READER would count it (a line beginning with a dash under a section heading is an
+// entry) and compared against what `parse` produced. A parser change that started
+// dropping entries fails here too, which a markdown lint would not catch.
+//
+// AND IT COUNTS THE WHOLE FILE. The temptation is to check only the newest release,
+// which is where a hand-edit lands — but the defect above destroyed an entry in a
+// release three versions old, because the damage is to the line ABOVE, and the
+// hand-edit's neighbour can be anything.
+func TestEveryBulletSurvivesTheParse(t *testing.T) {
+	md, err := os.ReadFile("CHANGELOG.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := strings.ReplaceAll(string(md), "\r\n", "\n")
+
+	// HOW A READER COUNTS. Inside a release, under a section heading, any line
+	// starting at column zero with a dash and then anything is meant to be an
+	// entry. `- ` is what the parser accepts; `-- `, `-**` and a bare `-` are all
+	// somebody's typo, and this is the one place that says so.
+	// HOW A READER COUNTS. Inside a release, under a section heading, any line
+	// starting at column zero with a dash and then anything is meant to be an entry.
+	// `- ` is what the parser accepts; `-- `, `-**` and a bare `-` are all somebody's
+	// typo, and this is the one place that says so.
+	//
+	// SECTIONS ARE COUNTED BY POSITION, NOT BY TITLE, because a release can hold
+	// several `### Fixed` blocks — the Unreleased section has one per pass, sixteen of
+	// them at the time of writing. Keying by title collapses them into one bucket and
+	// then compares that bucket against the parser's LAST block, which reports 160
+	// missing entries and finds nothing. (Written that way first; it failed loudly,
+	// which is the only reason this note exists.)
+	type block struct {
+		release string
+		title   string
+		count   int
+	}
+	var blocks []block
+	var malformed []string
+	for i, line := range strings.Split(text, "\n") {
+		switch {
+		case strings.HasPrefix(line, "## "):
+			v, _ := splitHeading(strings.TrimPrefix(line, "## "))
+			blocks = append(blocks, block{release: v, title: ""})
+		case strings.HasPrefix(line, "### "):
+			if len(blocks) == 0 {
+				continue // a section before any release belongs to nothing
+			}
+			blocks = append(blocks, block{
+				release: blocks[len(blocks)-1].release,
+				title:   strings.TrimSpace(strings.TrimPrefix(line, "### ")),
+			})
+		case strings.HasPrefix(line, "-"):
+			if len(blocks) == 0 || blocks[len(blocks)-1].title == "" {
+				continue // the file's own preamble, or a release's lead paragraph
+			}
+			blocks[len(blocks)-1].count++
+			if !strings.HasPrefix(line, "- ") {
+				malformed = append(malformed, fmt.Sprintf("CHANGELOG.md:%d %q", i+1, trunc(line)))
+			}
+		}
+	}
+	// Only the blocks that are sections, and only those with entries — the parser
+	// drops an empty section, so an empty one here is not a disagreement.
+	var want []block
+	for _, b := range blocks {
+		if b.title != "" && b.count > 0 {
+			want = append(want, b)
+		}
+	}
+	if len(want) < 20 {
+		t.Fatalf("the file reads as %d sections with entries, which is far too few — this test is counting the wrong thing", len(want))
+	}
+
+	// AND AN ENTRY THAT LOST ITS BULLET ENTIRELY, which is the half the count above
+	// cannot see. When the stray `--` ate the hyphen off the note below it, that note
+	// became ` **A portrait's caption…` — a line the parser drops AND a line this
+	// test's own counter does not count, so both sides agreed it had never existed
+	// and the comparison passed. Two entries were gone and every number matched.
+	//
+	// SO THE SHAPE IS THE SIGNAL. An entry in this file opens bold; a line inside a
+	// section that opens bold and is not a bullet is an entry whose bullet is
+	// missing, whatever whitespace is in front of it. Nothing legitimate in this
+	// file does that, so it fails outright rather than ratcheting.
+	//
+	// ANYTHING ELSE ODD AT COLUMN ZERO IS DEBT WITH A CEILING. Two prose blocks
+	// deliberately sit inside a section and are deliberately dropped — a `<sub>`
+	// verification note in 2.1.1 and a closing paragraph in 2.0.0 — so a rule that
+	// banned them would be switched off within a week. The number may fall and never
+	// rise, the same idiom as `typescale-baseline.json` and `spacing-debt.test.js`:
+	// an eighth such line is a lost note, and the count is what says so.
+	const strayProseLines = 7
+	var lostBullet, strayProse []string
+	{
+		release, title := "", ""
+		for i, line := range strings.Split(text, "\n") {
+			switch {
+			case strings.HasPrefix(line, "## "):
+				release, _ = splitHeading(strings.TrimPrefix(line, "## "))
+				title = ""
+			case strings.HasPrefix(line, "### "):
+				title = strings.TrimSpace(strings.TrimPrefix(line, "### "))
+			case title == "" || strings.TrimSpace(line) == "":
+			case strings.HasPrefix(line, "- ") || strings.HasPrefix(line, "  "):
+			case strings.HasPrefix(strings.TrimLeft(line, " \t"), "**"):
+				lostBullet = append(lostBullet, fmt.Sprintf("CHANGELOG.md:%d [%s/%s] %q", i+1, release, title, trunc(line)))
+			default:
+				strayProse = append(strayProse, fmt.Sprintf("CHANGELOG.md:%d %q", i+1, trunc(line)))
+			}
+		}
+	}
+	if len(lostBullet) > 0 {
+		t.Errorf("these open an entry and carry no bullet, so the app's Changelog screen never draws them:\n  %s",
+			strings.Join(lostBullet, "\n  "))
+	}
+	if len(strayProse) > strayProseLines {
+		t.Errorf("%d lines inside a section are neither a bullet nor a continuation, against a ceiling of %d — "+
+			"the parser drops every one of them, so the newest is a note nobody will read:\n  %s",
+			len(strayProse), strayProseLines, strings.Join(strayProse[strayProseLines:], "\n  "))
+	}
+
+	// A LINE THAT IS NOT A BULLET IS THE DEFECT ITSELF, named with its line number so
+	// the fix is one edit rather than a hunt.
+	if len(malformed) > 0 {
+		t.Errorf("these lines read as entries and are not bullets, so the app's Changelog screen drops them "+
+			"(and a malformed line can eat the hyphen off the entry below it):\n  %s",
+			strings.Join(malformed, "\n  "))
+	}
+
+	// AND THE PARSER AGREES, block for block in order. A total would let one section
+	// lose an entry while another gained one.
+	var got []block
+	for _, r := range parse(text) {
+		for _, sec := range r.Sections {
+			got = append(got, block{r.Version, sec.Title, len(sec.Entries)})
+		}
+	}
+	if len(got) != len(want) {
+		t.Fatalf("the file declares %d sections with entries and the parser produced %d", len(want), len(got))
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("%s / %s (block %d): the file declares %d entries and the parser produced %s %s with %d — %d note(s) never reach the screen",
+				want[i].release, want[i].title, i, want[i].count, got[i].release, got[i].title, got[i].count,
+				want[i].count-got[i].count)
+		}
+	}
+}
+
+func trunc(s string) string {
+	if len(s) > 64 {
+		return s[:64] + "…"
+	}
+	return s
 }

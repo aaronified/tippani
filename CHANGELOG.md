@@ -183,7 +183,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   printing its performers once in the header and again in the card below.
 
 ### Fixed
--- **Signing out no longer leaves your library in the search box for the next person.**
+- **Signing out no longer leaves your library in the search box for the next person.**
   On a shared browser, the account that signed in after you was offered your authors,
   performers, tags and shelf names — the search vocabulary was fetched once and kept for
   as long as the tab was open, and signing out does not reload the page. Every cache the
@@ -197,7 +197,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the chip that opened it, which the browser scrolls into view. Only on a phone or a narrow
   window, where the page itself is what scrolls.
 
- **A portrait's caption says the picture's size, whether it is washed out, and whether
+- **A portrait's caption says the picture's size, whether it is washed out, and whether
   it is being cropped.** The size only ever appeared the first time you opened a sheet —
   on any later visit the picture came from the cache, and the caption fell back to the
   line it shows before anything has been measured. "Low contrast" was worse than

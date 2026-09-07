@@ -9424,9 +9424,18 @@ export function ActionMenu({ open, items = [], anchorRef, at = null, onClose, re
     if (e.key === "Tab") {
       // A menu is a mode. Tabbing out of it is a way to leave it open behind you,
       // with focus in the page and a floating panel nobody can see the state of.
+      //
+      // AND THIS ONE SCROLLS, unlike the Escape above it. Both put focus back on
+      // the anchor and they are not the same act: Escape is a reader saying "put
+      // this away", and moving the page under them is the defect
+      // `focus-does-not-scroll.test.js` exists for. Tab is a reader NAVIGATING —
+      // they are asking where focus goes next, and keyboard focus landing
+      // somewhere off screen is worse than a scroll, because there is nothing on
+      // the page to say where the caret went. So this is a destination and takes
+      // the platform's default.
       e.preventDefault()
       close()
-      returnFocus(returnFocusTo?.current)
+      returnFocusTo?.current?.focus()
     }
   }
 

@@ -40,26 +40,69 @@ const code = (t) => t.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\
 
 const files = () => sourcesUnder((n) => n.endsWith('.jsx') || n.endsWith('.js'), 40)
 
-// A MODULE-SCOPE BINDING, which is the whole hazard: `let` or `var` at column zero
-// lives as long as the tab. A cache inside a hook or a component dies with it and
-// is nobody's problem.
-const AT_MODULE_SCOPE = /^(?:let|var)\s+([A-Za-z_$][\w$]*)\s*=/
-// What people call one. Not exhaustive and not meant to be — it is the shape of
-// the two that went wrong, so the next one written in the same idiom is caught.
-const REMEMBERS = /cache|inflight|pending|primed|memo|store/i
+// WHAT MAKES SOMETHING A CACHE OF A READER'S DATA. Not its name, and not its
+// type — that it is WRITTEN FROM A RESPONSE, at module scope.
+//
+// The first version of this file looked for `let|var` whose NAME matched a
+// six-word list, and a rater beat it twice over in the shapes most likely to be
+// written next: `let vocabulary = null` refilled from a GET (outside the list) and
+// `const personCache = new Map()` (a `const`, but a Map is filled by mutation and
+// is exactly as long-lived). Both passed. A sweep whose reach is a vocabulary list
+// reaches the words somebody already thought of.
+//
+// The second version asked instead whether a module-scope binding is assigned
+// again anywhere below, which caught those two and thirty other things: every
+// subscriber `Set`, the scroll memory, the toast sink, six pieces of locale state.
+// A rule that demands a subscriber list be emptied on sign-out is worse than no
+// rule — it would be switched off, or answered with a twenty-seven-entry
+// allow-list, which is the vocabulary list again wearing a different hat.
+//
+// So the discriminator is the WRITE: a module-scope binding assigned — or a
+// module-scope collection filled — from a value that came back from the server. A
+// subscriber Set is filled from a component; a cache is filled from a response,
+// and that is the difference that matters, because it is exactly the values that
+// belong to one reader.
+const AT_MODULE_SCOPE = /^(?:let|var|const)\s+([A-Za-z_$][\w$]*)\s*=/
+// A response, however this tree spells it: inside a `.then(`, after an
+// `await json(`, or from a `.data` off a result.
+const FROM_A_RESPONSE = /\.then\s*\(|await\s+json\s*\(|json\s*\(\s*['"]GET['"]/
+const LOOKBACK = 12
+
+// LOCALE TABLES ARE NOT A READER'S DATA, and this is the one exemption, argued
+// rather than listed. `i18n.js` holds the app's own translation files — the same
+// bytes for every account, fetched from `/locales` and keyed by language, with
+// nothing in them scoped by `user_id`. Emptying them on sign-out would re-fetch
+// every string to no purpose, and the module already clears them when the
+// LANGUAGE changes, which is the thing they actually depend on. If a future
+// version of that module starts holding anything a reader owns, this line is what
+// has to be argued away.
+const NOT_A_READER_S = new Set(['i18n.js'])
 
 function held() {
   const out = []
   for (const f of files()) {
+    if (NOT_A_READER_S.has(f)) continue
     const body = code(read(f))
     // Only a module that talks to the server can be caching a response.
     if (!/json\(\s*['"]GET['"]/.test(body)) continue
-    const names = body.split('\n')
-      .map((l) => l.match(AT_MODULE_SCOPE))
-      .filter(Boolean)
-      .map((m) => m[1])
-      .filter((n) => REMEMBERS.test(n))
-    if (names.length) out.push({ file: f, names, enrolled: /registerSessionCache\s*\(/.test(body) })
+    const lines = body.split('\n')
+    const declared = lines.map((l) => l.match(AT_MODULE_SCOPE)).filter(Boolean).map((m) => m[1])
+    const remembers = []
+    for (const name of new Set(declared)) {
+      // Assigned, or filled: `x = …` for a binding, `x.set(…)` / `x.add(…)` for a
+      // collection that is never reassigned at all.
+      const writes = new RegExp(`(?:^|[^.\\w$])${name}\\s*(?:=[^=]|\\.(?:set|add)\\s*\\()`)
+      const fedByServer = lines.some((line, i) => {
+        if (!writes.test(line)) return false
+        if (AT_MODULE_SCOPE.test(line)) return false // the declaration itself
+        const near = lines.slice(Math.max(0, i - LOOKBACK), i + 1).join('\n')
+        return FROM_A_RESPONSE.test(near) || /\.data\b/.test(line)
+      })
+      if (fedByServer) remembers.push(name)
+    }
+    if (remembers.length) {
+      out.push({ file: f, names: remembers, enrolled: /registerSessionCache\s*\(/.test(body) })
+    }
   }
   return out
 }

@@ -51,11 +51,12 @@ in your claude.md to use it for all tests."*
 **`scripts/screenshots/backup.env` is where it lives, and it is gitignored.**
 `backup-env.sh` reads it and `scratch-server.sh` sources that, so every harness in the
 directory picks the archive up with no flags at all — `make controls`, `make sheet-drag`,
-`make typescale`, `make panel-depth`, `make frame-scroll`, `make hero-control`, and
-`run-with-server.sh --seed`. Each says which library it is against on its first line. The
-WIRING is checked by `test/pure/harness-archive.test.js`; the WORKING was checked by
-running them — **all seven now exit 0 against a restored archive** (`sheet-drag`,
-`panel-depth`, `typescale`, `frame-scroll`, `hero-control`, a capture from
+`make typescale`, `make panel-depth`, `make frame-scroll`, `make hero-control`,
+`make overlay-scroll`, and `run-with-server.sh --seed`. Each says which library it is
+against on its first line. The WIRING is checked by
+`test/pure/harness-archive.test.js`; the WORKING was checked by running them — **all
+eight now exit 0 against a restored archive** (`sheet-drag`, `panel-depth`, `typescale`,
+`frame-scroll`, `hero-control`, `overlay-scroll`, a capture from
 `run-with-server.sh --seed`, and `make controls`). `make controls` was the last of them:
 it exited 3 while the backup shelf had no ceiling recorded — the app came back clean and
 the touch floor was measured against nothing, which is exactly what 3 says. Both ceilings

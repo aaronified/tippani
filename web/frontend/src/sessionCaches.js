@@ -52,14 +52,16 @@ export function registerSessionCache(forget) {
   return forget
 }
 
-// forgetSessionCaches — called when the reader changes. Every enrolled cache is
-// emptied; a `forget` that throws does not stop the others, because a cache left
-// full is the failure this exists to prevent and one broken module must not cause
-// it in the rest.
+// sessionEra — which reader the caches currently belong to. Captured by a cache
+// before it starts a request; compared when the answer lands.
 export function sessionEra() {
   return era
 }
 
+// forgetSessionCaches — called when the reader changes. Every enrolled cache is
+// emptied; a `forget` that throws does not stop the others, because a cache left
+// full is the failure this exists to prevent and one broken module must not cause
+// it in the rest.
 export function forgetSessionCaches() {
   era++
   for (const forget of forgets) {
