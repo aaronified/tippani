@@ -13,8 +13,8 @@
     "web/frontend/vite.config.js"
   ],
   "sha256": {
-    "internal/i18n/bn.txt": "e013d8dd01812ce8195a492ff89571bac3b1a64406a9cac0575b0aa074407717",
-    "internal/i18n/en.txt": "b376e32056aee26a50fbb80613fe7b209077544af4e8f32ef8fec88b4d154390",
+    "internal/i18n/bn.txt": "dc6afe30d6af74385ce2788bb33bdcc889a69aec2a576ca2ddd0a7f4da225822",
+    "internal/i18n/en.txt": "84aa7ef67fc95aa1dfd723cb4effc382b8dcc0c32391416a9b013b59a53e0bee",
     "web/frontend/index.html": "faa8bb6fc81705b9d9d395a62a9d474414a029c571723bf099f84cb624ce906c",
     "web/frontend/package-lock.json": "ae52734844923282963a5acdd6bfe710196fdfcf5bed06e944c9f4c638a24547",
     "web/frontend/package.json": "d985ed193616c275ad40b9788fd8dffc1d774ce4a59c2c1836a45effde06162e",
@@ -82,7 +82,7 @@
     "web/frontend/src/people.jsx": "d21b2c46a0da7b4c6789a6a4e571eae1f3f7d72234ea18c70922c574cf46d91c",
     "web/frontend/src/personOpen.jsx": "3c608544cbd08f989268c57305a40404b5f6f2078f9ed63f3e1b3dd9db097bb4",
     "web/frontend/src/providerMarks.js": "4858dc86ddf396ff710c4622ca35e2c53248c2c8d658a3d5508789bf47f1aea4",
-    "web/frontend/src/quiz.js": "7b8406f50186cfe842c0d4c5f1c48407576edb2d4346659290d435c84824521a",
+    "web/frontend/src/quiz.js": "89e57404d28b0b2573cef336cb70522da5098f7e8f43f5c40dddf05028b86626",
     "web/frontend/src/quoteImage.js": "5ee995c0c8ad9f058efa5fce89b0714384dc5ae8d83be32894ccbf62002ca801",
     "web/frontend/src/quoteKind.js": "db7e80e0acaaa63ea1558b84da24a5fe66308296ecac1b3e9ed2200e79837123",
     "web/frontend/src/review.jsx": "0e77d1e530174c5dcc580660c1b28ca66ae7b3f6d3bed7c5aa1bde986be09450",

@@ -130,7 +130,7 @@ func TestRecallStatus(t *testing.T) {
 		// by something other than a boundary case: p = 2^(-0.5) = 0.7071.
 		{"half a half-life is squarely forgetting", true, 100, 50, oldItemDays, "got", "forgetting"},
 		// The ceiling rung is not clamped downward the way the floor clamps up.
-		{"a top-rung card holds for weeks", true, reviewMaxStability, 14, oldItemDays, "got", "remembered"}, // p = 0.907519
+		{"a top-rung card holds for weeks", true, reviewMaxStability, 14, oldItemDays, "got", "remembered"}, // p = 2^(-14/365) = 0.973772
 
 		// ---- the lapse override ----
 		//

@@ -202,19 +202,54 @@ describe('the tuning defaults agree with Go', () => {
     // and splitting it on its own punctuation is both shorter and impossible to
     // get subtly wrong in a way that silently matches nothing — which is how a
     // parity test passes while comparing two empty lists.
+    //
+    // A BOUND CAN BE A NAME RATHER THAN A NUMBER, and for four fields it is:
+    // the ladder rungs and the multi-word threshold clamp against
+    // reviewMinStability/reviewMaxStability. This test used to skip a bound it
+    // could not parse as a literal, which meant the ladder sliders — the ones
+    // whose maximum had to move when the ceiling went from 100 to 365 — were
+    // checked against nothing at all. A named bound is now looked up where it is
+    // declared, and a bound this cannot resolve either way FAILS rather than
+    // passing quietly.
+    const resolve = (tok) => {
+      if (/^[0-9.]+$/.test(tok)) return Number(tok)
+      const m = goHandlers.match(new RegExp('\\b' + tok + '\\s*=\\s*([0-9.]+)'))
+      return m ? Number(m[1]) : null
+    }
     const goRange = (name) => {
       const line = goTuning.split('\n').find((l) => l.includes('t.' + name + ' = pick('))
       if (!line) return null
       const args = line.slice(line.indexOf('pick(') + 5, line.lastIndexOf(')')).split(',').map((x) => x.trim())
-      return [Number(args[1]), args[2]]
+      return [resolve(args[1]), resolve(args[2])]
     }
-    for (const [field, name] of [['grow', 'Grow'], ['shrink', 'Shrink'], ['clozeGrow', 'ClozeGrow'], ['clozeShrink', 'ClozeShrink']]) {
+    const pairs = [
+      ['grow', 'Grow'], ['shrink', 'Shrink'], ['clozeGrow', 'ClozeGrow'], ['clozeShrink', 'ClozeShrink'],
+      ['clozeSynonym', 'ClozeSynonym'], ['clozeWords', 'ClozeWords'],
+      ['ladder1', 'Ladder1'], ['ladder2', 'Ladder2'], ['ladder3', 'Ladder3'], ['ladder4', 'Ladder4'],
+    ]
+    // Every slider the panel draws is in that list, so a field added to one side
+    // without the other is caught here rather than by nobody.
+    expect(pairs.map(([k]) => k).sort()).toEqual(TUNING_FIELDS.map((f) => f.key).sort())
+    for (const [field, name] of pairs) {
       const r = goRange(name)
       const f = TUNING_FIELDS.find((x) => x.key === field)
       expect(r, `${name} has a clamp in Go`).not.toBeNull()
+      expect(r[0], `${name}'s low bound resolves to a number`).not.toBeNull()
+      expect(r[1], `${name}'s high bound resolves to a number`).not.toBeNull()
       expect(f.min, `${field} min`).toBeGreaterThanOrEqual(r[0])
-      if (/^[0-9.]+$/.test(r[1])) expect(f.max, `${field} max`).toBeLessThanOrEqual(Number(r[1]))
+      expect(f.max, `${field} max`).toBeLessThanOrEqual(r[1])
     }
+  })
+
+  // THE LADDER'S TOP RUNG HAS TO BE REACHABLE. Its default is the ceiling, so a
+  // slider whose maximum stopped short would leave the app's own default outside
+  // the range the reader can set — a control that cannot express where it starts.
+  it('and the top rung slider reaches the ceiling', () => {
+    const ceiling = Number(goHandlers.match(/\breviewMaxStability\s*=\s*([0-9.]+)/)[1])
+    const top = TUNING_FIELDS.find((f) => f.key === 'ladder4')
+    expect(ceiling).toBe(365)
+    expect(top.max).toBe(ceiling)
+    expect(DEFAULT_TUNING.ladder4).toBe(ceiling)
   })
 })
 
@@ -225,6 +260,37 @@ describe('the ladder', () => {
     expect(tuningProblem(DEFAULT_TUNING)).toBe('')
     expect(tuningProblem({ ...DEFAULT_TUNING, ladder2: 5 })).toMatch(/climb/)
     expect(tuningProblem({ ...DEFAULT_TUNING, ladder3: 2 })).toMatch(/climb/)
+    // The rung added with the year ceiling. The panel refused nothing about it
+    // for as long as this check counted to three, so a reader could set a fourth
+    // rung below the third and watch the server discard the whole ladder.
+    expect(tuningProblem({ ...DEFAULT_TUNING, ladder4: 50 })).toMatch(/climb/)
+    expect(tuningProblem({ ...DEFAULT_TUNING, ladder4: 100 })).toMatch(/climb/)
+    expect(tuningProblem({ ...DEFAULT_TUNING, ladder3: 200, ladder4: 150 })).toMatch(/climb/)
+    expect(tuningProblem({ ...DEFAULT_TUNING, ladder3: 200, ladder4: 300 })).toBe('')
+  })
+
+  // EVERY ADJACENT PAIR THE PANEL DRAWS IS ONE THE CHECK GUARDS, and the pairs
+  // are counted off the fields rather than written down here. That pairing is
+  // exactly what went wrong when the fourth rung landed: a slider existed for it
+  // and nothing refused a value that made the last step go downwards. A fifth
+  // rung cannot arrive unguarded either — this walks whatever rungs exist.
+  //
+  // The rule is STRICT ascent, so each pair is broken both ways: equal is as
+  // wrong as descending, because two rungs of the same length are one rung and a
+  // card would climb straight past it.
+  it('and every adjacent pair of rungs is inside the check', () => {
+    const rungs = TUNING_FIELDS.filter((f) => /^ladder\d+$/.test(f.key))
+      .map((f) => f.key)
+      .sort((a, b) => Number(a.slice(6)) - Number(b.slice(6)))
+    expect(rungs.length).toBeGreaterThanOrEqual(4)
+    for (let i = 1; i < rungs.length; i++) {
+      const [below, above] = [rungs[i - 1], rungs[i]]
+      const at = DEFAULT_TUNING[below]
+      expect(tuningProblem({ ...DEFAULT_TUNING, [above]: at }), `${above} equal to ${below}`)
+        .toMatch(/climb/)
+      expect(tuningProblem({ ...DEFAULT_TUNING, [above]: at - 1 }), `${above} below ${below}`)
+        .toMatch(/climb/)
+    }
   })
 })
 

@@ -44,6 +44,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   one.
 
 ### Changed
+- **The quiz can now space a quote a year apart, not just a hundred days.** The interval ladder
+  gains a fourth rung — 7, 30, 100, then 365 days — and a quote you keep getting right climbs
+  onto it. The old ceiling quietly capped how large a library the quiz could keep current: a
+  card comes back once per half-life, so eight cards a day against a hundred-day ceiling covers
+  about eight hundred quotes and no more. Past that the deck ran permanently behind, still
+  serving the most-overdue first, and nothing said so. A year is as far as the spacing research
+  measures, so that is where it stops. Settings gains the fourth rung as a slider beside the
+  other three, and every rung now runs to 365.
+
 - **A panel's title is shortened with an ellipsis instead of scrolling sideways.** Every
   other name in the app scrolls under a fade rather than being cut, because a shortened
   name and a short name look alike. A panel's header is the exception the owner asked

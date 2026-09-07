@@ -1255,7 +1255,7 @@ settings.languages.name.label = ভাষার নাম
 settings.languages.name.placeholder = ইওরুবা, সোয়াহিলি, তামিল…
 
 # --- the quiz panel.
-settings.quiz.info.body = এগুলো দৈনিক অনুশীলনী আর ঝালাই — দুটোকেই চালায়। কার্ড ফিরে আসার ফাঁকটা বাঁধা সিঁড়ি বেয়ে ওঠে — 7, 30, তারপর 100 দিন — ঠিক মনে করতে পারলে এক ধাপ, আর একবার ভুললেই সোজা 7-এ নেমে যায়।
+settings.quiz.info.body = এগুলো দৈনিক অনুশীলনী আর ঝালাই — দুটোকেই চালায়। কার্ড ফিরে আসার ফাঁকটা বাঁধা সিঁড়ি বেয়ে ওঠে — 7, 30, 100, তারপর 365 দিন — ঠিক মনে করতে পারলে এক ধাপ, আর একবার ভুললেই সোজা 7-এ নেমে যায়।
 settings.quiz.per-day.label = দৈনিক অনুশীলনীতে দিনে কটা কার্ড
 settings.quiz.in-depth.label = খুঁটিনাটি সেটিংস
 settings.quiz.in-depth.tip = দুই ডেকের প্রতিটা প্রশ্ন-ধরন
@@ -1274,7 +1274,7 @@ settings.quiz.submit.info.body = এমনিতে একবার ট্যা
 # the coinages (মানানসই, অভিযোজী) need decoding first.
 settings.quiz.adaptive.title = অ্যাডাপ্টিভ ফাঁক
 settings.quiz.adaptive.aria = অ্যাডাপ্টিভ ফাঁক
-settings.quiz.adaptive.info.body = সিঁড়িতে ধাপ 7 → 30 → 100 দিন, আর একবার ভুললেই সোজা 7-এ। অ্যাডাপ্টিভ তার বদলে 2.5 দিয়ে গুণ করে, আর ভুলে গোড়ায় না ফিরিয়ে অর্ধেক করে — তাই চেনা উদ্ধৃতিতে একবার হোঁচট খেলে গোটা চড়াইটা আর হারায় না।
+settings.quiz.adaptive.info.body = সিঁড়িতে ধাপ 7 → 30 → 100 → 365 দিন, আর একবার ভুললেই সোজা 7-এ। অ্যাডাপ্টিভ তার বদলে 2.5 দিয়ে গুণ করে, আর ভুলে গোড়ায় না ফিরিয়ে অর্ধেক করে — তাই চেনা উদ্ধৃতিতে একবার হোঁচট খেলে গোটা চড়াইটা আর হারায় না।
 settings.quiz.adaptive.ladder.label = সিঁড়ি
 settings.quiz.adaptive.on.label = অ্যাডাপ্টিভ
 settings.quiz.seen.title = চোখে পড়লে অর্ধায়ু বাড়ে
@@ -1769,11 +1769,13 @@ quiz.tuning.ladder-1.hint = বাঁধা সিঁড়ির প্রথ�
 quiz.tuning.ladder-2.label = সিঁড়ির ধাপ 2
 quiz.tuning.ladder-2.hint = মাঝের ধাপ।
 quiz.tuning.ladder-3.label = সিঁড়ির ধাপ 3
-quiz.tuning.ladder-3.hint = সবচেয়ে উপরের ধাপ। ঠিক উত্তর আসতে থাকলে কার্ড এখানেই থেকে যায়।
+quiz.tuning.ladder-3.hint = তিন নম্বর ধাপ, তিন মাসের একটু বেশি।
+quiz.tuning.ladder-4.label = সিঁড়ির ধাপ 4
+quiz.tuning.ladder-4.hint = সবচেয়ে উপরের ধাপ। ঠিক উত্তর আসতে থাকলে কার্ড এখানেই থেকে যায়। ফাঁক নিয়ে যত গবেষণা আছে তা এক বছর পর্যন্তই মেপেছে, তাই এখানেই থামে।
 
 # Under the three ladder sliders when they are not in ascending order. The
 # panel refuses rather than letting the server silently revert them.
-quiz.tuning.ladder.error = তিনটে ধাপ উপরে উঠতে হবে — প্রতিটা আগেরটার চেয়ে লম্বা।
+quiz.tuning.ladder.error = চারটে ধাপ উপরে উঠতে হবে — প্রতিটা আগেরটার চেয়ে লম্বা।
 
 # ---------------------------------------------------------------------------
 # THE FACET GRAMMAR (facets.js)

@@ -223,6 +223,12 @@ func TestReviewTuningRequiresALadderThatClimbs(t *testing.T) {
 		`{"ladder1":7,"ladder2":7,"ladder3":100}`,
 		`{"ladder1":7,"ladder2":30,"ladder3":100000}`,
 		`{"ladder1":0,"ladder2":30,"ladder3":100}`,
+		// The year rung has to climb too, and it is the rung most likely to be
+		// left behind: a reader who raised ladder3 past their ladder4 has a ladder
+		// whose last step goes down.
+		`{"ladder1":7,"ladder2":30,"ladder3":100,"ladder4":50}`,
+		`{"ladder1":7,"ladder2":30,"ladder3":100,"ladder4":100}`,
+		`{"ladder1":7,"ladder2":30,"ladder3":100,"ladder4":4000}`,
 	} {
 		got := parseReviewTuning(blob)
 		if got.ladder() != d.ladder() {
@@ -232,8 +238,22 @@ func TestReviewTuningRequiresALadderThatClimbs(t *testing.T) {
 	// And a legal one is kept.
 	// Inside the bounds every due-ness query clamps to: reviewMinStability is the
 	// floor, so a rung below it is a rung the schedule would raise anyway.
-	if got := parseReviewTuning(`{"ladder1":10,"ladder2":20,"ladder3":60}`); got.ladder() != [3]float64{10, 20, 60} {
+	//
+	// A BLOB WITH NO ladder4 IS A BLOB WRITTEN BEFORE THE YEAR RUNG EXISTED, and
+	// it must read as "the reader chose these three and never spoke about the
+	// fourth" — so the fourth comes back as the default rather than as a zero
+	// that would fail the ascent and discard the three they did choose.
+	if got := parseReviewTuning(`{"ladder1":10,"ladder2":20,"ladder3":60}`); got.ladder() != [reviewRungs]float64{10, 20, 60, reviewMaxStability} {
 		t.Errorf("a climbing ladder inside the bounds must be kept: %v", got.ladder())
+	}
+	if got := parseReviewTuning(`{"ladder1":10,"ladder2":20,"ladder3":60,"ladder4":90}`); got.ladder() != [reviewRungs]float64{10, 20, 60, 90} {
+		t.Errorf("a four-rung ladder inside the bounds must be kept: %v", got.ladder())
+	}
+	// AND THE WHOLE LADDER FALLS BACK TOGETHER. Repairing only the rung that broke
+	// the ascent would hand back a ladder the reader never chose — three rungs
+	// theirs and one ours — which is worse than the default they can recognise.
+	if got := parseReviewTuning(`{"ladder1":10,"ladder2":20,"ladder3":60,"ladder4":30}`); got.ladder() != d.ladder() {
+		t.Errorf("a broken ascent must discard the whole ladder, not patch one rung: %v", got.ladder())
 	}
 }
 
@@ -255,7 +275,7 @@ func TestReviewTuningDefaultsStoreNothing(t *testing.T) {
 // effect — which is the failure a preference is most likely to have.
 func TestReviewTuningReachesTheSchedule(t *testing.T) {
 	slow := clampTuning(reviewTuning{Grow: 1.2, Shrink: 0.9, ClozeGrow: 1, ClozeShrink: 1,
-		ClozeWords: 30, Ladder1: 7, Ladder2: 30, Ladder3: 100})
+		ClozeWords: 30, Ladder1: 7, Ladder2: 30, Ladder3: 100, Ladder4: 365})
 	fast := defaultReviewTuning()
 	// Adaptive, correct answer, same card: a smaller grow must give a shorter
 	// half-life. If the tuning were ignored these would be equal.

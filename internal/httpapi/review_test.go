@@ -323,7 +323,7 @@ func TestDailyQuizScheduling(t *testing.T) {
 	if res.Stability != 30 {
 		t.Fatalf("rung climb: %+v", res)
 	}
-	// From the 30-day rung a success climbs straight to the 100-day top rung.
+	// From the 30-day rung a success climbs to the 100-day rung.
 	res = answer(t, c, kindBook, ids[0], "got", "daily")
 	if res.Stability != 100 {
 		t.Fatalf("30 → 100 climb: %+v", res)
@@ -339,16 +339,27 @@ func TestDailyQuizScheduling(t *testing.T) {
 	if res.Stability != 7 {
 		t.Fatalf("lapse: %+v", res)
 	}
-	// The top rung holds: a correct recall at 100 stays at 100. (The direct
-	// UPDATE leaves this row's review_count at 2 gots vs 0 lapses, so the
-	// climb gate lets it through.)
+	// The 100-day rung is no longer the top one: since the ceiling became a year
+	// a correct recall there climbs again, to 365. (The direct UPDATE leaves this
+	// row's review_count at 2 gots vs 0 lapses, so the climb gate lets it
+	// through.)
 	if _, err := srv.Store.DB.Exec(`UPDATE item_reviews
 		SET stability = 100, last_reviewed_at = datetime('now', '-120 days'),
 		    last_touched_at = datetime('now', '-120 days') WHERE kind='book' AND item_id=?`, ids[1]); err != nil {
 		t.Fatal(err)
 	}
 	res = answer(t, c, kindBook, ids[1], "got", "daily")
-	if res.Stability != 100 {
+	if res.Stability != 365 {
+		t.Fatalf("100 → 365 climb: %+v", res)
+	}
+	// And THAT rung holds: a correct recall at the ceiling stays at the ceiling.
+	if _, err := srv.Store.DB.Exec(`UPDATE item_reviews
+		SET stability = 365, last_reviewed_at = datetime('now', '-400 days'),
+		    last_touched_at = datetime('now', '-400 days') WHERE kind='book' AND item_id=?`, ids[1]); err != nil {
+		t.Fatal(err)
+	}
+	res = answer(t, c, kindBook, ids[1], "got", "daily")
+	if res.Stability != 365 {
 		t.Fatalf("top rung: %+v", res)
 	}
 }
@@ -359,11 +370,69 @@ func TestDailyQuizScheduling(t *testing.T) {
 func TestNextRung(t *testing.T) {
 	cases := []struct{ cur, want float64 }{
 		{3, 7}, {7, 30}, {8.4, 30}, {29.9, 30}, {30, 100},
-		{60, 100}, {99.9, 100}, {100, 100}, {365, 100},
+		{60, 100}, {99.9, 100}, {100, 365}, {137, 365}, {364.9, 365},
+		{365, 365}, {1000, 365},
 	}
 	for _, c := range cases {
 		if got := nextRung(c.cur, defaultReviewTuning().ladder()); got != c.want {
 			t.Fatalf("nextRung(%v) = %v, want %v", c.cur, got, c.want)
+		}
+	}
+}
+
+// THE LADDER'S SHAPE IS THE FEATURE, and it is asserted here rather than read
+// off the literal: four rungs, strictly ascending, starting at the floor every
+// due-ness query clamps to and ending exactly ON the ceiling. A ladder whose top
+// rung sat below the ceiling would leave a band of half-lives the fixed rule can
+// never reach, and one above it would promise a review the clamp then takes away.
+func TestTheLadderReachesTheCeilingAndStopsThere(t *testing.T) {
+	l := defaultReviewTuning().ladder()
+	if len(l) != reviewRungs {
+		t.Fatalf("ladder has %d rungs, want %d", len(l), reviewRungs)
+	}
+	if l[0] != reviewMinStability {
+		t.Errorf("first rung %g, want the floor %g", l[0], reviewMinStability)
+	}
+	if l[len(l)-1] != reviewMaxStability {
+		t.Errorf("top rung %g, want the ceiling %g", l[len(l)-1], reviewMaxStability)
+	}
+	for i := 1; i < len(l); i++ {
+		if l[i] <= l[i-1] {
+			t.Errorf("rung %d (%g) does not climb above rung %d (%g)", i, l[i], i-1, l[i-1])
+		}
+	}
+	if reviewLadder != l {
+		t.Errorf("reviewLadder %v and the default tuning's ladder %v disagree", reviewLadder, l)
+	}
+}
+
+// A READER WHO LOWERED THEIR TOP RUNG MEANT IT. nextRung's fallback is the
+// ladder's own last rung, not the package ceiling — otherwise a card that ran
+// off the end of a shortened ladder would be stepped up to 365, and only that
+// card, which is the shape of bug that takes months to notice.
+func TestNextRungStopsAtTheReadersOwnTopRung(t *testing.T) {
+	short := parseReviewTuning(`{"ladder1":7,"ladder2":14,"ladder3":21,"ladder4":28}`)
+	if got := short.ladder(); got != [reviewRungs]float64{7, 14, 21, 28} {
+		t.Fatalf("the short ladder was not kept: %v", got)
+	}
+	for _, cur := range []float64{28, 29, 100, 365, 1000} {
+		if got := nextRung(cur, short.ladder()); got != 28 {
+			t.Errorf("nextRung(%g) on a 7/14/21/28 ladder = %g, want its own top rung 28", cur, got)
+		}
+	}
+}
+
+// Capacity is quota × ceiling: at equilibrium a card is asked once per
+// half-life, so N cards owe N/ceiling reviews a day. This is the arithmetic the
+// ceiling was raised for and it is pinned so that changing either number without
+// re-reading the consequence fails here.
+func TestReviewCapacityIsQuotaTimesTheCeiling(t *testing.T) {
+	if got := reviewCapacity(reviewQuota); got != 2920 {
+		t.Errorf("reviewCapacity(%d) = %d, want 2920 (8 x 365)", reviewQuota, got)
+	}
+	for _, quota := range []int{2, 8, 10} {
+		if got, want := reviewCapacity(quota), quota*int(reviewMaxStability); got != want {
+			t.Errorf("reviewCapacity(%d) = %d, want %d", quota, got, want)
 		}
 	}
 }

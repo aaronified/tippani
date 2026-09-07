@@ -1234,7 +1234,7 @@ settings.languages.name.label = Language name
 settings.languages.name.placeholder = Yoruba, Swahili, Tamil…
 
 # --- the quiz panel.
-settings.quiz.info.body = These drive both the Daily Quiz and Practice. A card's interval climbs a fixed ladder — 7, 30, then 100 days — one step per correct recall, and one lapse drops it straight back to 7.
+settings.quiz.info.body = These drive both the Daily Quiz and Practice. A card's interval climbs a fixed ladder — 7, 30, 100, then 365 days — one step per correct recall, and one lapse drops it straight back to 7.
 settings.quiz.per-day.label = Daily quiz cards / day
 settings.quiz.in-depth.label = In-depth controls
 settings.quiz.in-depth.tip = Every question, both decks
@@ -1251,7 +1251,7 @@ settings.quiz.submit.aria = Confirm each answer
 settings.quiz.submit.info.body = Normally a tap answers straight away. Turn this on and a tap only chooses — you can change your mind, and a Submit button records it. Flip cards are unaffected: revealing and grading are already two steps.
 settings.quiz.adaptive.title = Adaptive intervals
 settings.quiz.adaptive.aria = Adaptive intervals
-settings.quiz.adaptive.info.body = The ladder steps 7 → 30 → 100 days, and any lapse drops you straight back to 7. Adaptive multiplies by 2.5 instead, and halves on a lapse rather than resetting — so one slip on a well-known quote no longer costs you the whole climb.
+settings.quiz.adaptive.info.body = The ladder steps 7 → 30 → 100 → 365 days, and any lapse drops you straight back to 7. Adaptive multiplies by 2.5 instead, and halves on a lapse rather than resetting — so one slip on a well-known quote no longer costs you the whole climb.
 settings.quiz.adaptive.ladder.label = Ladder
 settings.quiz.adaptive.on.label = Adaptive
 settings.quiz.seen.title = Seeing lengthens half-life by
@@ -1741,11 +1741,13 @@ quiz.tuning.ladder-1.hint = The fixed ladder’s first rung, and where any lapse
 quiz.tuning.ladder-2.label = Ladder rung 2
 quiz.tuning.ladder-2.hint = The middle rung.
 quiz.tuning.ladder-3.label = Ladder rung 3
-quiz.tuning.ladder-3.hint = The top rung. Cards sit here for as long as the correct answers keep coming.
+quiz.tuning.ladder-3.hint = The third rung, a little over three months.
+quiz.tuning.ladder-4.label = Ladder rung 4
+quiz.tuning.ladder-4.hint = The top rung. Cards sit here for as long as the correct answers keep coming. A year is as far as the spacing research measures, which is why it stops there.
 
-# Under the three ladder sliders when they are not in ascending order. The
+# Under the four ladder sliders when they are not in ascending order. The
 # panel refuses rather than letting the server silently revert them.
-quiz.tuning.ladder.error = The three rungs have to climb — each one longer than the one before it.
+quiz.tuning.ladder.error = The four rungs have to climb — each one longer than the one before it.
 
 # ---------------------------------------------------------------------------
 # THE FACET GRAMMAR (facets.js)

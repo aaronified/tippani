@@ -2742,17 +2742,31 @@ Spaced repetition is an exponential forgetting curve evaluated in SQL at query t
 
 <sub>0.4.3 — `CHANGELOG.md`</sub>
 
-### A fixed 7 → 30 → 100 ladder replaced the tunable rule
+### A fixed ladder replaced the tunable rule, at 7 → 30 → 100
 
-**Decided.** A correct recall climbs to the smallest rung strictly above the card's current half-life; a card's first-ever success starts at 7 whatever created its row; a single lapse falls straight back to 7 from any height; 100 is the ceiling. Migration 0019 clamps stored values above 100 down to it and lets off-ladder values climb onto the nearest rung at their next answer. Both preferences retire, dropped on read.
+**Decided.** A correct recall climbs to the smallest rung strictly above the card's current half-life; a card's first-ever success starts at 7 whatever created its row; a single lapse falls straight back to 7 from any height. Migration 0019 clamps stored values above 100 down to it and lets off-ladder values climb onto the nearest rung at their next answer. Both preferences retire, dropped on read.
 
 **Why.** Three intervals a person can hold in their head beat two multipliers nobody can evaluate. The rungs *are* the review intervals, because a card is due when `elapsed >= stability`.
 
-**Reversal.** Yes — of 0.4.3, entirely.
+**Reversal.** Yes — of 0.4.3, entirely. And **the 100-day ceiling in this entry is no longer current**: the ladder gained a fourth rung at 365 in 3.1.0, below. The ladder itself, and every rule in the paragraph above about how a card moves along it, still stands.
 
 **Approved.** My call and I stand by it; the ladder is the version I can explain in one sentence to somebody using the app.
 
 <sub>0.9.5 — `internal/store/migrations/0019_review_ladder.sql` · `internal/httpapi/review_handlers.go` · `CHANGELOG.md`</sub>
+
+### The ladder's ceiling is a year, and the fourth rung is where capacity comes from
+
+**Decided.** `reviewMaxStability` is **365 days** and the ladder is **7 → 30 → 100 → 365**. `reviewTuning` gains `Ladder4`, every rung slider runs to 365, and the whole ladder falls back to the defaults together when the ascent breaks rather than having the offending rung patched. `nextRung`'s fallback is the **ladder's own** top rung, not the package ceiling, so a reader who shortened their ladder is not stepped past it. No migration: 0019 already clamped every stored half-life to 100, so nothing sits above the old ceiling.
+
+**Why.** The ceiling was silently a capacity limit. At equilibrium a card is asked once per half-life, so a library of `N` owes `N / ceiling` reviews a day and the largest library a quota can keep current is `quota × ceiling` — 8 × 100, about **800 quotes**. Above that the deck runs permanently behind. Nothing breaks, because most-overdue-first means the reader still gets the stalest thing, but the tail of a growing library stops being reached and **no screen said so**. A year makes it about 2,900. It buys that at the cost of one more climb per admission — a new card now returns at +7, +37 and +137 before reaching the top — while steady-state maintenance falls by 3.65×, which is the trade in one line.
+
+Why 365 and not more: one year is the longest retention interval Cepeda, Vul, Rohrer, Wixted & Pashler (2008) measured, across 1,354 people. The best gap is about a fifth of the delay at a few weeks and a twentieth at a year, and performance rises then falls *gradually*, so erring long is cheaper than erring short. Their designs are study → gap → restudy → one test, so applying the ratios to a repeating schedule is already an extrapolation — which is the reason to stop at the edge of their data rather than to invent a number past it.
+
+**Instead of.** Tapering the adaptive multiplier as it approaches the ceiling — rejected. `grow 2.5` from 100 overshoots a year in one step and the clamp already handles it; a taper is a parameter nobody can evaluate, which is the argument that retired the sliders in the first place. Also rejected: raising the daily quota instead, which buys the same capacity by asking more of the reader every day rather than less of them over a year.
+
+**Approved.** Mine, with the ceiling named as the thing to argue about rather than the rungs.
+
+<sub>3.1.0 — `internal/httpapi/review_handlers.go` · `internal/httpapi/review_tuning.go` · `web/frontend/src/quiz.js` · `internal/i18n/en.txt` · `CHANGELOG.md`</sub>
 
 ### The half-life floor rose from 1 day to 7, with a grace week for a new quote
 

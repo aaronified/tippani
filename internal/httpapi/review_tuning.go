@@ -46,9 +46,15 @@ type reviewTuning struct {
 	// counts (the card does not lapse) and earns nothing.
 	ClozeSynonym float64 `json:"clozeSynonym"`
 	ClozeWords   float64 `json:"clozeWords"` // half-life (days) at which a blank may span several words
-	Ladder1      float64 `json:"ladder1"`    // the fixed ladder's three rungs, in days
+	Ladder1      float64 `json:"ladder1"`    // the fixed ladder's four rungs, in days
 	Ladder2      float64 `json:"ladder2"`
 	Ladder3      float64 `json:"ladder3"`
+	// Ladder4 is the year rung, added when the ceiling went from 100 to 365.
+	// A blob written before it exists has no `ladder4` key, so unmarshalling onto
+	// defaultReviewTuning() leaves it at 365 — which is what a reader who never
+	// touched the ladder wants, and what clampTuning's ascent check needs to see
+	// rather than a zero.
+	Ladder4 float64 `json:"ladder4"`
 }
 
 func defaultReviewTuning() reviewTuning {
@@ -57,7 +63,7 @@ func defaultReviewTuning() reviewTuning {
 		ClozeGrow: clozeGrowWeight, ClozeShrink: clozeShrinkWeight,
 		ClozeSynonym: clozeSynonymWeight,
 		ClozeWords:   clozeMultiWordFrom,
-		Ladder1:      reviewMinStability, Ladder2: 30, Ladder3: reviewMaxStability,
+		Ladder1:      reviewMinStability, Ladder2: 30, Ladder3: 100, Ladder4: reviewMaxStability,
 	}
 }
 
@@ -93,8 +99,13 @@ func clampTuning(t reviewTuning) reviewTuning {
 	t.Ladder1 = pick(t.Ladder1, reviewMinStability, reviewMaxStability, d.Ladder1)
 	t.Ladder2 = pick(t.Ladder2, reviewMinStability, reviewMaxStability, d.Ladder2)
 	t.Ladder3 = pick(t.Ladder3, reviewMinStability, reviewMaxStability, d.Ladder3)
-	if !(t.Ladder1 < t.Ladder2 && t.Ladder2 < t.Ladder3) {
-		t.Ladder1, t.Ladder2, t.Ladder3 = d.Ladder1, d.Ladder2, d.Ladder3
+	t.Ladder4 = pick(t.Ladder4, reviewMinStability, reviewMaxStability, d.Ladder4)
+	// THE WHOLE LADDER FALLS BACK TOGETHER, not the offending rung alone. A ladder
+	// is one shape: replacing just the rung that broke the ascent would hand back
+	// a ladder the reader never chose, whose remaining rungs came from them and
+	// whose repaired one came from here.
+	if !(t.Ladder1 < t.Ladder2 && t.Ladder2 < t.Ladder3 && t.Ladder3 < t.Ladder4) {
+		t.Ladder1, t.Ladder2, t.Ladder3, t.Ladder4 = d.Ladder1, d.Ladder2, d.Ladder3, d.Ladder4
 	}
 	return t
 }
@@ -129,12 +140,15 @@ func normalizeReviewTuning(blob string) string {
 	return parseReviewTuning(blob).blob()
 }
 
-// ladder renders the three rungs as the array nextRung walks.
-func (t reviewTuning) ladder() [3]float64 {
-	return [3]float64{t.Ladder1, t.Ladder2, t.Ladder3}
+// ladder renders the four rungs as the array nextRung walks. The length is the
+// array's own, so adding a rung is a change to this type and to nothing else —
+// nextRung takes what it is given rather than counting to three.
+func (t reviewTuning) ladder() [reviewRungs]float64 {
+	return [reviewRungs]float64{t.Ladder1, t.Ladder2, t.Ladder3, t.Ladder4}
 }
 
 func (t reviewTuning) String() string {
-	return fmt.Sprintf("grow=%.2f shrink=%.2f cloze=%.2f/%.2f syn=%.2f words@%.0f ladder=%.0f/%.0f/%.0f",
-		t.Grow, t.Shrink, t.ClozeGrow, t.ClozeShrink, t.ClozeSynonym, t.ClozeWords, t.Ladder1, t.Ladder2, t.Ladder3)
+	return fmt.Sprintf("grow=%.2f shrink=%.2f cloze=%.2f/%.2f syn=%.2f words@%.0f ladder=%.0f/%.0f/%.0f/%.0f",
+		t.Grow, t.Shrink, t.ClozeGrow, t.ClozeShrink, t.ClozeSynonym, t.ClozeWords,
+		t.Ladder1, t.Ladder2, t.Ladder3, t.Ladder4)
 }

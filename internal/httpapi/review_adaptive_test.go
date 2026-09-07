@@ -46,10 +46,12 @@ func TestNextStability(t *testing.T) {
 		// Then one rung per success, stopping at the cap.
 		{"ladder: second success climbs", false, "got", 7, 8, true, 30},
 		{"ladder: third success climbs", false, "got", 30, 31, true, 100},
-		{"ladder: top rung stays", false, "got", 100, 400, true, 100},
+		{"ladder: fourth success climbs to the year", false, "got", 100, 400, true, 365},
+		{"ladder: top rung stays", false, "got", 365, 400, true, 365},
 		// And any lapse falls all the way back. This is the behaviour adaptive
 		// exists to offer an alternative to, so it is pinned here deliberately.
-		{"ladder: lapse from the top resets", false, "forgot", 100, 120, true, 7},
+		{"ladder: lapse from the top resets", false, "forgot", 365, 400, true, 7},
+		{"ladder: lapse from the year rung's approach resets", false, "forgot", 100, 120, true, 7},
 		{"ladder: lapse from the middle resets", false, "forgot", 30, 31, true, 7},
 
 		// ---- adaptive ------------------------------------------------------
@@ -62,13 +64,20 @@ func TestNextStability(t *testing.T) {
 		{"adaptive: third success multiplies", true, "got", 17.5, 18, true, 43.75},
 		// Late recall is its own evidence: remembering it 90 days on says the
 		// half-life is around 90, not around cur*2.5.
-		{"adaptive: late recall beats the multiplier", true, "got", 10, 90, true, 100}, // 90*1.2 = 108, capped to 100
-		{"adaptive: late recall below the cap", true, "got", 10, 50, true, 60},         // 50*1.2 = 60 beats 10*2.5 = 25
-		// The cap holds — no stored half-life may promise a review past 100 days.
-		{"adaptive: cap holds", true, "got", 100, 0, true, 100},
-		{"adaptive: cap holds on a big multiply", true, "got", 80, 0, true, 100},
+		{"adaptive: late recall beats the multiplier", true, "got", 10, 90, true, 108}, // 90*1.2 = 108 beats 10*2.5 = 25
+		{"adaptive: late recall below the cap", true, "got", 10, 50, true, 60},        // 50*1.2 = 60 beats 10*2.5 = 25
+		// The cap holds — no stored half-life may promise a review past a year.
+		// AND IT IS THE CLAMP DOING IT, ON PURPOSE: grow 2.5 from 100 overshoots
+		// 365 in one step (250 does not, 200 does), and tapering growth near the
+		// ceiling would add a parameter nobody can evaluate. So a card in the last
+		// third of the ladder lands exactly on the ceiling rather than near it.
+		{"adaptive: below the cap it still multiplies", true, "got", 100, 0, true, 250},
+		{"adaptive: cap holds", true, "got", 200, 0, true, 365},
+		{"adaptive: cap holds on a big multiply", true, "got", 365, 0, true, 365},
+		{"adaptive: cap holds against a very late recall", true, "got", 10, 5000, true, 365},
 		// THE POINT OF THE FEATURE: a lapse halves instead of resetting.
-		{"adaptive: lapse from the top halves", true, "forgot", 100, 120, true, 50},
+		{"adaptive: lapse from the top halves", true, "forgot", 365, 400, true, 182.5},
+		{"adaptive: lapse from the third rung halves", true, "forgot", 100, 120, true, 50},
 		{"adaptive: lapse from the middle halves", true, "forgot", 30, 31, true, 15},
 		// ...but never below the floor every due-ness query already assumes.
 		{"adaptive: lapse floors at the minimum", true, "forgot", 7, 8, true, 7},
@@ -98,7 +107,7 @@ func TestNextStability(t *testing.T) {
 func TestNextStabilityStaysInBounds(t *testing.T) {
 	for _, adaptive := range []bool{false, true} {
 		for _, result := range []string{"got", "forgot"} {
-			for _, cur := range []float64{0, 1, 7, 30, 99, 100, 1000} {
+			for _, cur := range []float64{0, 1, 7, 30, 99, 100, 364, 365, 1000, 1e6} {
 				for _, elapsed := range []float64{0, 1, 500, 10000} {
 					for _, succeeded := range []bool{false, true} {
 						got := nextStability(adaptive, result, cur, elapsed, succeeded, defaultReviewTuning())

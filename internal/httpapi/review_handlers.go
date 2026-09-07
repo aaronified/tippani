@@ -35,9 +35,9 @@ package httpapi
 // The memory model is the exponential forgetting curve: recall probability
 // p = 2^(-elapsed_days / stability), stability being the per-card half-life in
 // days (item_reviews, migration 0015). The half-life climbs a fixed ladder,
-// reviewLadder (7 → 30 → 100 days): a card's first successful recall
+// reviewLadder (7 → 30 → 100 → 365 days): a card's first successful recall
 // starts it at the 7-day rung, every later success climbs to the next rung
-// above its current half-life, 100 days is the ceiling it then keeps — and a
+// above its current half-life, a year is the ceiling it then keeps — and a
 // single lapse falls straight back to the 7-day rung from any height. A card
 // is due when p <= 0.5 (elapsed >= stability), so the rungs ARE the review
 // intervals. Fresh items also get a grace week (reviewNewItemDays from the
@@ -66,9 +66,33 @@ import (
 )
 
 const (
-	reviewMinStability = 7.0   // days; the ladder's first rung, the half-life floor, and the unseen-card default
-	reviewMaxStability = 100.0 // days; the ladder's top rung — no half-life ever grows past it
-	reviewNewItemDays  = 7.0   // days; grace week after an item is added — reads "remembered", not yet due
+	reviewMinStability = 7.0 // days; the ladder's first rung, the half-life floor, and the unseen-card default
+	// reviewMaxStability is the ladder's top rung — no half-life ever grows past it.
+	//
+	// A YEAR, BECAUSE A YEAR IS WHERE THE MEASUREMENTS STOP. Cepeda, Vul, Rohrer,
+	// Wixted & Pashler (2008) tested retention intervals out to one year across
+	// 1,354 people: the best gap is about a fifth of the delay at a few weeks and
+	// about a twentieth at a year, and performance rises then falls GRADUALLY, so
+	// erring long is cheaper than erring short. Past a year there is no
+	// measurement, only extrapolation, and a ceiling invented past the evidence is
+	// exactly the kind of number this file writes comments about. Their designs
+	// are also study → gap → restudy → one test, so applying the ratios to a
+	// repeating schedule is already a stretch — which is the reason to stop at the
+	// edge of their data rather than at five years.
+	//
+	// AND IT WAS 100, WHICH GAVE THE SCHEDULE A CAPACITY OF 800 QUOTES. At
+	// equilibrium a card is asked once per half-life, so a library of N owes
+	// N/ceiling reviews a day and the largest library a quota can keep current is
+	// quota × ceiling — 8 × 100. Above that the deck runs permanently behind. It
+	// does not break (most-overdue-first means the reader still gets the stalest
+	// thing) but a growing library quietly stops being reviewed, and nothing said
+	// so. 365 makes it about 2,900, which is a real library. See reviewCapacity.
+	//
+	// RAISING IT NEEDED NO MIGRATION: 0019 clamped every stored half-life down to
+	// 100, so nothing sits above the old ceiling to rescue, and the off-rung climb
+	// rule in nextRung lets a value join the nearest rung above at its next answer.
+	reviewMaxStability = 365.0
+	reviewNewItemDays  = 7.0 // days; grace week after an item is added — reads "remembered", not yet due
 	reviewSeen         = 1.0   // default srSeen: "seeing" (practice/share/favourite) marginal lengthen; 1.0 = off
 	reviewQuota        = 8     // default srDaily deck size
 	// reviewLeechLapses is how many times a card has to be forgotten before the
@@ -92,7 +116,12 @@ const (
 //
 // The bounds do not change: adaptive still lives between reviewMinStability and
 // reviewMaxStability, so every query that floors or caps a half-life keeps
-// working unchanged and no stored value can promise a review past 100 days.
+// working unchanged and no stored value can promise a review past the ceiling.
+//
+// AGAINST A 365-DAY CEILING THE CLAMP IS THE WHOLE ANSWER, deliberately: grow
+// 2.5 from 100 overshoots a year in one step, and the alternative — tapering
+// growth as it nears the ceiling — would add a parameter nobody can evaluate,
+// which is the same argument that retired the sliders this file replaced.
 const (
 	reviewGrow   = 2.5 // successful recall multiplier (SM-2's classic ease)
 	reviewShrink = 0.5 // lapse multiplier — halve the half-life, never reset it
@@ -223,23 +252,55 @@ func nextStability(adaptive bool, result string, cur, elapsed float64, succeeded
 	return clamp(cur * t.Shrink) // lapse: shortened, not reset
 }
 
+// reviewRungs is how many rungs the ladder has. Named so that the tuning struct,
+// the array nextRung walks and every test that pins the shape all count to the
+// same number — a [3] left behind in one signature is how a fourth rung becomes
+// unreachable in exactly one code path.
+const reviewRungs = 4
+
 // reviewLadder is the fixed spaced-repetition ladder (days): a correct recall
 // climbs to the next rung above the card's current half-life, any lapse falls
 // straight back to the first rung, and cards sit on the top rung for as long
 // as the correct answers keep coming. Off-rung half-lives (pre-ladder rows,
 // srSeen bumps) climb to the nearest rung above, so every card converges onto
-// the ladder. Migration 0019 clamps stored values to the new 100-day cap.
-var reviewLadder = [...]float64{reviewMinStability, 30, reviewMaxStability}
+// the ladder.
+//
+// FOUR RUNGS, 7 → 30 → 100 → 365, since the ceiling became a year. The ladder
+// beat a tunable rule because four numbers are holdable in the head and each one
+// IS a review interval; a fifth would start to spend that. The gaps are not
+// claimed to be optimal — expanding intervals win a test ten minutes later and
+// EQUAL intervals win one two days later (Karpicke & Roediger, 2007), so the
+// expansion is a compromise and the infodot beside it says so rather than
+// defending it as settled.
+var reviewLadder = [reviewRungs]float64{reviewMinStability, 30, 100, reviewMaxStability}
 
 // nextRung is the half-life a successful recall earns: the smallest rung
 // strictly above the current one, or the top rung once there is none.
-func nextRung(cur float64, ladder [3]float64) float64 {
+//
+// The fallback is the LADDER's top rung and not reviewMaxStability, because a
+// reader who lowered their top rung meant it: returning the package ceiling
+// would step a card above the ladder they chose, and only for the cards that ran
+// off the end of it.
+func nextRung(cur float64, ladder [reviewRungs]float64) float64 {
 	for _, r := range ladder {
 		if r > cur {
 			return r
 		}
 	}
-	return reviewMaxStability
+	return ladder[len(ladder)-1]
+}
+
+// reviewCapacity is the largest library a daily quota can keep current, in
+// quotes: at equilibrium each card is asked once per half-life, so N cards owe
+// N/ceiling reviews a day and quota × ceiling is where that meets the quota.
+//
+// IT IS REPORTED RATHER THAN ENFORCED. Above capacity nothing breaks — the deck
+// still leads with the most overdue — but the tail of a growing library stops
+// being reached, and the only wrong thing about that today is that it happens in
+// silence. The number is derived here so the screen that says it and the test
+// that checks it are reading one definition.
+func reviewCapacity(quota int) int {
+	return quota * int(reviewMaxStability)
 }
 
 // reviewFloorSQL is reviewMinStability for splicing into due-ness SQL — the
@@ -1046,11 +1107,14 @@ const (
 	// This is a policy trade-off, not a derivation. Intake costs more than one
 	// answer each: a brand-new card takes the 7-day rung on its FIRST correct
 	// recall (found=false takes the max() branch, not nextRung), so it returns at
-	// +7 and again at +37 before reaching the 100-day rung. Two returns per
-	// admission, plus N/100 a day of maintenance once a library matures. Holding
-	// intake to a third keeps that within a default quota for a few hundred
-	// cards; past that the backlog grows and the quota (2..10, srDaily) is the
-	// user's lever. Deferring a due card doesn't make the schedule lie — the
+	// +7, +37 and +137 before reaching the 365-day rung. THREE returns per
+	// admission since the year rung was added, not two — the fourth rung buys
+	// capacity at the cost of one more climb — plus N/365 a day of maintenance
+	// once a library matures, which is where the capacity comes from: the
+	// maintenance bill fell by 3.65x and the intake bill rose by one answer.
+	// Holding intake to a third keeps both within a default quota up to
+	// reviewCapacity; past that the backlog grows and the quota (2..10, srDaily)
+	// is the user's lever. Deferring a due card doesn't make the schedule lie — the
 	// header promises a due STATE, and the seen bucket stays ordered
 	// most-overdue-first, so a backlog degrades into honest FIFO by overdue-ness
 	// and the status dots stay truthful.

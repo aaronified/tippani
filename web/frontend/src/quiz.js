@@ -265,24 +265,32 @@ export const TUNING_FIELDS = [
     get hint() { return t('quiz.tuning.cloze-synonym.hint') },
   },
   {
-    key: 'clozeWords', min: 1, max: 100, step: 1, format: 'common.slider.days.format', decimals: 0,
+    key: 'clozeWords', min: 1, max: 365, step: 1, format: 'common.slider.days.format', decimals: 0,
     get label() { return t('quiz.tuning.cloze-words.label') },
     get hint() { return t('quiz.tuning.cloze-words.hint') },
   },
-  { key: 'ladder1', min: 7, max: 100, step: 1, format: 'common.slider.days.format', decimals: 0,
+  // THE RUNGS RUN TO 365, not 100, since the ceiling became a year. Every one of
+  // these maxima mirrors reviewMaxStability in Go, which is where the number is
+  // decided — a slider that stopped at 100 could not reach the rung the ladder
+  // now has, and a slider that went past the ceiling would offer a value the
+  // server silently reverts.
+  { key: 'ladder1', min: 7, max: 365, step: 1, format: 'common.slider.days.format', decimals: 0,
     get label() { return t('quiz.tuning.ladder-1.label') },
     get hint() { return t('quiz.tuning.ladder-1.hint') } },
-  { key: 'ladder2', min: 7, max: 100, step: 1, format: 'common.slider.days.format', decimals: 0,
+  { key: 'ladder2', min: 7, max: 365, step: 1, format: 'common.slider.days.format', decimals: 0,
     get label() { return t('quiz.tuning.ladder-2.label') },
     get hint() { return t('quiz.tuning.ladder-2.hint') } },
-  { key: 'ladder3', min: 7, max: 100, step: 1, format: 'common.slider.days.format', decimals: 0,
+  { key: 'ladder3', min: 7, max: 365, step: 1, format: 'common.slider.days.format', decimals: 0,
     get label() { return t('quiz.tuning.ladder-3.label') },
     get hint() { return t('quiz.tuning.ladder-3.hint') } },
+  { key: 'ladder4', min: 7, max: 365, step: 1, format: 'common.slider.days.format', decimals: 0,
+    get label() { return t('quiz.tuning.ladder-4.label') },
+    get hint() { return t('quiz.tuning.ladder-4.hint') } },
 ]
 
 export const DEFAULT_TUNING = {
   grow: 2.5, shrink: 0.5, clozeGrow: 1.25, clozeShrink: 0.85, clozeSynonym: 0.5, clozeWords: 30,
-  ladder1: 7, ladder2: 30, ladder3: 100,
+  ladder1: 7, ladder2: 30, ladder3: 100, ladder4: 365,
 }
 
 export function parseTuning(blob) {
@@ -308,7 +316,7 @@ export function parseTuning(blob) {
 // which would be a slider that moves and then does nothing; the panel refuses
 // instead, the way the question toggles do.
 export function tuningProblem(tune) {
-  if (!(tune.ladder1 < tune.ladder2 && tune.ladder2 < tune.ladder3)) {
+  if (!(tune.ladder1 < tune.ladder2 && tune.ladder2 < tune.ladder3 && tune.ladder3 < tune.ladder4)) {
     return t('quiz.tuning.ladder.error')
   }
   return ''
