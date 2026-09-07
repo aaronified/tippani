@@ -60,7 +60,26 @@ export const AUTH_SCREENS = ['login', 'onboarding']
 // second harness reuses it instead of restating it — a third copy of a password is a
 // third thing to forget when it changes, and the failure is a 401 thirty seconds into
 // a run that already built a binary and seeded a library.
-export const HARNESS_ACCOUNT = { username: 'screenshot-bot', password: 'screenshot-bot-pw' }
+//
+// AND THE ENVIRONMENT WINS, WHICH IS WHAT MAKES A RESTORED ARCHIVE REACHABLE. A
+// restored library has never heard of `screenshot-bot`, so a probe holding this
+// constant gets a 401 and then thirty seconds of `waitForFunction` before dying
+// with a timeout that says nothing about accounts. `run-with-backup.sh` puts the
+// archive's own account into `TIPPANI_USER`/`TIPPANI_PASS` — and only after a
+// restore has actually happened, because a SEEDED run that read those names tried
+// to sign in to the fixture as somebody who does not exist there.
+//
+// IT WAS `controls.mjs`'s OWN LINE, and that is the whole reason this is here. The
+// override was written into that one probe, so `make controls` reached the archive
+// and the other six harnesses could not — they imported this constant and signed in
+// as the bot. The repo's directive covers exactly this: "a control drawn by one
+// component on two screens has ONE behaviour, and it lives in one function that both
+// screens call — not in a line each, which is how one of them goes on being right
+// while the other quietly stops."
+export const HARNESS_ACCOUNT = {
+  username: process.env.TIPPANI_USER || 'screenshot-bot',
+  password: process.env.TIPPANI_PASS || 'screenshot-bot-pw',
+}
 
 // THEME_PREF maps a theme name to layout.css.prefers-color-scheme.content-override,
 // the Firefox preference that forces what `prefers-color-scheme` reports to content.
@@ -402,6 +421,43 @@ export async function waitForScreenLabel(page, timeoutMs) {
 // only succeeds against a data directory with no admin yet; login only succeeds
 // against one where --username/--password already exist. Point --base-url at a
 // scratch server (see run-with-server.sh) to get the signup path on the first theme.
+// A FILM WITH A CAST, FOUND RATHER THAN ASSUMED.
+//
+// `run-panel-depth.sh` passed `--movie-id 2`, which is a fact about the SEEDED
+// fixture — `seed-cast.mjs --movie-id 2` is what puts a cast on it. Pointed at a
+// restored archive the same flag asks for `/catalogue/2`, which need not be a film
+// at all: measured, the probe sat on `waitForSelector('.tp-btn')` for thirty
+// seconds and died with "Waiting for selector `.tp-btn` failed" — a message about
+// a button, from a wrong id, on a screen that was never a film.
+//
+// A HARD-CODED ID IS A FACT ABOUT ONE LIBRARY, and every harness in this directory
+// now runs against two. So the subject is resolved from the library that is
+// actually loaded: the first film whose cast is not empty, asked of the API. The
+// seeded fixture answers 2 (the only one seeded with a cast) and the archive
+// answers whatever it has, and no runner carries a number.
+//
+// Returns the id as a string, or null — a caller with no film to work on should
+// SKIP and say so, not press on and time out.
+export async function filmWithCast(page, baseUrl, limit = 12) {
+  const list = await page.evaluate(async (base) => {
+    const r = await fetch(`${base}/api/movies`, { credentials: 'include' })
+    if (!r.ok) return null
+    const j = await r.json()
+    return (j.movies || []).map((m) => m.id)
+  }, baseUrl)
+  if (!list?.length) return null
+  for (const id of list.slice(0, limit)) {
+    const n = await page.evaluate(async (base, mid) => {
+      const r = await fetch(`${base}/api/movies/${mid}/cast`, { credentials: 'include' })
+      if (!r.ok) return 0
+      const j = await r.json()
+      return (j.cast || j.rows || []).length
+    }, baseUrl, id)
+    if (n > 0) return String(id)
+  }
+  return String(list[0])
+}
+
 export async function ensureSession(page, opts) {
   await page.goto(opts.baseUrl + '/', { waitUntil: 'networkidle0' })
   const label = await waitForScreenLabel(page, opts.timeoutMs)

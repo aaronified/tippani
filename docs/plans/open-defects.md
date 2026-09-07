@@ -661,7 +661,7 @@ the length of the gesture to make that cheaper, which traded the tear for a visi
 
 | # | Defect | Status |
 |---|---|---|
-| AH1 | **Every frame of a drag laid the sheet out again**, behind a backdrop blur | **FIXED.** The box takes the tallest anchor once, at the start of the gesture, and every frame after that is one `translateY` — a composite, with nothing behind the scrim changing. Measured in a real browser: **one layout for the whole drag and twelve positions of the top edge** |
+| AH1 | **Every frame of a drag laid the sheet out again**, behind a backdrop blur | **FIXED.** The box takes the tallest anchor once, at the start of the gesture, and every frame after that is one `translateY` — a composite, with nothing behind the scrim changing. Measured in a real browser against the owner's archive, and this is the probe's own line: **"one layout for the whole drag (793px box), 64px of travel for 64px of finger, and no leap on release"** |
 | AH2 | **The blur was switched off while dragging** | **FIXED.** `.tp-scrim.is-dragging` is gone. There is nothing left to stand down, because the blur is no longer being invalidated |
 | AH3 | **The gesture was left to the stylesheet's `touch-action`**, which says `pan-x` on the header — the title scrolls sideways under a fade — so the browser was free to answer the same vertical drag itself, and a gesture the browser claims is one this hook stops receiving | **FIXED.** The sheet takes `touch-action: none` for the length of the drag and hands it back, so the sideways scroll survives |
 | AH4 | `will-change: height` promoted a layer for a property that no longer moves | **FIXED**, and it names `transform`. The class is added at `pointerdown` rather than on the first move: promoting a layer on the first move promotes it at the worst moment of the gesture, the frame a reader is watching for a response |
@@ -696,8 +696,21 @@ box and is why the drag wrote heights. The rule is about what a READER sees, so 
 requires the box to be laid out for its full height first: more of the sheet appears as the
 finger rises, which is what the old rule was protecting, and the frame costs a composite.
 
-`make sheet-drag` exits 0, ten cases, including the new one that measures the mechanism
-rather than the outcome. Five new jsdom cases, each red without its own half of the fix.
+`make sheet-drag` exits 0 with **ten `ok` lines and no `FAIL`**, reproduced twice against
+the owner's archive on 7 September — including the case that measures the MECHANISM
+(`dragverdict.mjs`, whose arithmetic has its own tests) rather than the outcome. Four new
+jsdom cases in `sheet-from-the-bottom.test.jsx`, each red without its own half of the fix,
+and one of the old ones deleted with its rule restated below.
+
+**THREE NUMBERS IN THIS SECTION WERE WRONG WHEN IT WAS WRITTEN, and a rater found all
+three.** It said "ten cases" of a probe whose newest run in the workspace was eight cases
+and predated the script; "twelve positions of the top edge", which is not a line the probe
+prints and was left over from a version that pulled 140px in twelve steps; and "five new
+jsdom cases" where the range adds four and removes one. Every one of them is the same
+mistake: **a claim about a run, written from the change rather than from the run.** The
+numbers above are copied out of `/tmp/claude-0/sd-real2.log` and `sd-real3.log`, and the
+sentence names where they came from so the next reader can disagree with the evidence
+rather than with me.
 
 ## AI. The probe seeds when it could restore, 7 September
 
@@ -784,6 +797,52 @@ three is a defect the FIX introduced — AK1 by adding a clock, AK2 and AK3 by r
 size test with a real measurement. A fix is a change, and a change is a thing to press;
 what has repeatedly not been pressed in this session is the new code, because it is the
 code I have just convinced myself about.
+
+## AL. The work-rater's fifteenth pass, 7 September — 5/10
+
+Thirteen findings over the drag, the backup wiring and the portrait caption. **Two of them
+— the second drag inside the landing, and the contrast lying on alpha — were already fixed
+in `a36ded4`**, which the pass predates; they are AK1 and AK2 and are not repeated here.
+The other eleven are below, and the pass reproduced every one of them by mutation, which
+is the reason to take the score at face value: it also confirmed that five of the claimed
+fixes in the range *are* load-bearing.
+
+| # | Defect | Status |
+|---|---|---|
+| AL1 | **Five of the six harnesses seeded, while CLAUDE.md said all of them took the archive.** The owner's ruling was "use it for **all** tests"; the branch was written into `run-controls.sh` alone. `make sheet-drag`, `make typescale`, `make panel-depth`, `make frame-scroll`, `make hero-control` and `run-with-server.sh --seed` all called `seed.mjs` unconditionally | **FIXED as one function.** `scratch_prefer_archive` (`scratch-server.sh`) is the decision, called by all seven before anything is built or booted. `harness-archive.test.js` fails when a harness seeds without calling it, calls it after booting, or keeps its own copy of the branch |
+| AL2 | **And wiring them up would not have worked**, which the first run of the newly-wired `make sheet-drag` showed: `TimeoutError: Waiting failed: 30000ms exceeded`. `HARNESS_ACCOUNT` is a hard-coded `screenshot-bot`, and the `TIPPANI_USER` override was a line in **`controls.mjs`** — so that probe reached a restored archive and the other six got a 401 and then thirty seconds of `waitForFunction`. The same defect as AL1, one layer down | **FIXED.** The override is `HARNESS_ACCOUNT`'s, and `shots.mjs`'s second copy is gone. `make sheet-drag` against the owner's archive now exits 0 with ten `ok` lines |
+| AL3 | **`CLAUDE.md` documented `TIPPANI_USER` as a `backup.env` name.** It is `TIPPANI_BACKUP_USER`, deliberately — a `backup.env` written from that line loads the archive and signs in as the bot. Not the rater's finding; found while fixing AL2, in the document the rater had shown was lying about the layer above | **FIXED.** The block names the four real spellings and says what happens when the account one is wrong |
+| AL4 | **`backup.env` dropped its last line** when the file had no trailing newline, ignored an `export ` prefix and a leading indent, and kept the quotes on a quoted path or the carriage return on a CRLF file. **Every one of those fails towards seeding** — which prints the same first line a machine with no archive prints | **FIXED, and the parsing is its own file.** `backup-env.sh`, with eleven cases in `harness-archive.test.js` that run it in a real shell against a crafted file. Four of the cases go red on the four mutations |
+| AL5 | **The backup shelf had a 390 ceiling and no 1280 one, so `make controls` could not exit 0 at all** — an unrecorded width exits 3 — and `controls-ratchet.test.js` had been NARROWED to `baseline.seed`, so nothing said so. The narrowing's reasoning was right (a CI machine has no archive, so requiring that shelf would fail a check nobody can satisfy) and its consequence went unstated | **FIXED as a completeness rule.** Nobody has to record a shelf; anybody who records one records every width, because half a shelf is a gate with a hole in it. The 1280 ceiling is recorded from a full run |
+| AL6 | **A render mid-landing snapped the sheet.** `settle` assumed the transform was zero, which is true at rest and false for the 220ms a landing is animating — so a re-render (`refit`, which any sub-surface, picture or list triggers) or the arrow-key stepper cleared the offset mid-animation. Measured by the rater at 30px; the two new cases measure 114px and 236px | **FIXED at the choke point, not per caller.** `settle` MEASURES the offset on the element instead of trusting a flag about whether a landing is live — a belief goes stale, and a measurement answers zero at rest, which is the branch that was already right. `refit` needs no guard of its own |
+| AL7 | **The portrait measurement found the wrong picture.** `box.current.querySelector('img')` searched `.cs-portrait`, which holds the picture EDITOR — and its provider strip is a row of thumbnails. A slot with no portrait draws a silhouette and no `<img>`, so the caption measured a thumbnail: "180×270px · under 400px", about somebody else's file | **FIXED.** `Face` takes an `imgRef` and the block holds a ref to the picture itself. A ref cannot pick the wrong element: where there is no picture there is nothing to point at |
+| AL8 | **A flawless 2000×2000 portrait painted its whole caption `var(--error)`.** `isSoft` was `notes.length > 0`, and the crop note is a note | **FIXED.** A crop is not a fault: the slot will frame the picture, which is the app's doing and not the picture's. Only the size and contrast notes take the ink, and a case asserts the other half so the distinction is not just "never colour anything" |
+| AL9 | **The crop tolerance was on the raw ratio, which is not evenly generous.** 600×1000 is 0.6 against 0.667 — a difference of 0.067, under a slack of 0.08 — while `cover` was taking a TENTH off the top and bottom. And a 1×1 printed three notes, one of which was arithmetic: `drawImage` upscales it into the 32×32 grid, so 1,024 samples of one colour reported a spread of zero | **FIXED as two questions.** The tolerance is on the share of the picture that is cropped away (`croppedShare`, 2%), which is the reader's question; and a source smaller than the sample grid gets no contrast answer at all, because upscaling one pixel is an invention |
+| AL10 | **`sheet-drag.mjs`'s "too few readings" guard was unreachable.** `travel` dereferenced `live[live.length - 1]` above the `live.length < 6` arm, so the one case the guard exists for threw a TypeError out of the probe — losing every later case in the run, and reading as a broken harness rather than an unmeasurable sheet | **FIXED, and the judgement is now testable in a millisecond.** `dragverdict.mjs` holds the whole chain and `drag-verdict.test.js` has twelve cases, including every count below the floor and the ORDER of the arms — "held still" has to be asked before "did not keep up", because a sheet that never moved fails both and deserves the first sentence |
+| AL11 | **`typescale-baseline.json` still said "exactly one deliberate clip in the app."** There are two: the back crumb and, since the owner's ruling on 7 September, the panel title | **FIXED.** Both named, each with its ruling and its date |
+| AL12 | **`docs/PLAN.md` recorded no departure** for the portrait caption, which now prints three notes where the pack prints one clause, at one floor where the pack's two artboards give two. The owner's standing rule is that nothing deviates from the prototype unless it is expounded upon in detail | **FIXED.** A section in `docs/PLAN.md` sets the pack's code beside the app's, argues each of the three departures, names the rejected alternative for each, and says which of them I am least sure of and what would settle it |
+
+| AL13 | **And a hard-coded film id was a third copy of the same mistake.** `run-panel-depth.sh` passed `--movie-id 2`, which is a fact about the SEEDED fixture — `seed-cast.mjs --movie-id 2` is what puts a cast on it. Pointed at the archive the same flag asks for `/catalogue/2`, which need not be a film: the newly-wired `make panel-depth` sat on `waitForSelector('.tp-btn')` for thirty seconds and died with a message about a button. Not the rater's finding — found by RUNNING the harness I had just wired, which is the step AH skipped | **FIXED.** `filmWithCast` (`capture.mjs`) asks the loaded library for the first film whose cast is not empty; the seeded fixture answers 2 and the archive answers whatever it has, and no runner carries a number. Both probes resolve it once and write it back onto `opts`, so all three of `panel-depth.mjs`'s navigations and the message that names the film agree. `make panel-depth` against the archive now exits 0 with seven `ok` lines, having opened Geralt of Rivia in *The Witcher 3: Wild Hunt* |
+
+| AL14 | **And `make typescale` against the archive went OVER.** One element newly clipped on Home at 175% — the favourite tile's quote, a long one from the owner’s own library, not reproduced here, cut by 39px, against a recorded floor of zero. The seeded fixture has no quote long enough to reach it. Found by running the harness I had just wired, not by the rater | **NOT A DEFECT, and the probe now says so itself.** The tile clamps that quote when collapsed and puts a `ClampMore` chevron under it. A `-webkit-line-clamp` holds N LINES at every type size, so the type dial cannot break it — what changed at 175% is how many words fit on three lines, which is the clamp working. `typescale.mjs` exempts a clamped box and argues it at the predicate; recording `home: 1` would have been the one thing that baseline's own `_why` forbids. **AND THE QUESTION THE EXEMPTION DROPS GOT ITS OWN GUARD:** `clamp-has-a-way-out.test.js` inventories all nine clamps in the app and requires each to say where the reader gets the text back — three have a control in place and four give it back on another screen. **The inventory found a real one on the way**: `ReverifyReview`'s diff value clamped to four lines and put the whole string in `title` — a hover, which is not a way out on a phone, so a reader comparing what is stored against what a supplier says could not see the rest of either. It takes `ExpandableDescription`, the app's own fold, and the inventory fell from nine clamps to eight. A new clamp fails by name until somebody writes the answer down |
+
+**AND SECTION AH CARRIED THREE NUMBERS THAT NO RUN SUPPORTED**, which is the finding worth
+keeping. It claimed `make sheet-drag` exited 0 with "ten cases" when the newest run in the
+workspace was eight and predated the script; "twelve positions of the top edge", which is
+not a line the probe prints; and "five new jsdom cases" where the range adds four and
+deletes one. All three are the same mistake — **a claim about a run, written from the
+change rather than from the run** — and it is the mistake this register exists to stop. AH
+now quotes the probe's own line and names the log it came out of.
+
+**THE PATTERN, AND IT IS THE SEVENTH PASS TO FIND IT.** AL1, AL2 and AL10 are one shape:
+a rule written once, in one of the places that needs it. The repo has a directive about
+exactly this — *"a control drawn by one component on two screens has ONE behaviour, and it
+lives in one function that both screens call — not in a line each, which is how one of them
+goes on being right while the other quietly stops"* — and it was written about screens. It
+holds for a harness's decision about which library to use, for a probe's decision about
+which account to be, and for a guard's decision about whether it has enough data. In all
+three the copy that existed went on being right, and its absence everywhere else was
+invisible because nothing failed.
 
 ## Withdrawn claims
 

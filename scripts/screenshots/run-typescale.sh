@@ -13,13 +13,20 @@ set -euo pipefail
 # for the run this cost.
 # shellcheck source=scratch-server.sh
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/scratch-server.sh"
+# THE ARCHIVE FIRST, IF THERE IS ONE, and before anything is built or booted —
+# the restore path boots its own server. `scratch_prefer_archive` never returns
+# when it takes that path. The owner's ruling was "use it for all tests"; this
+# harness was one of the five that went on seeding while CLAUDE.md said otherwise.
+BIND="${TIPPANI_BIND:-127.0.0.1:8124}"
+export TIPPANI_BIND="$BIND"
+scratch_prefer_archive typescale node typescale.mjs --base-url "http://$BIND" "$@"
+
 scratch_sweep
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BIN="$(mktemp -d)/tippani"
 DATA="$(mktemp -d)"
-BIND="${TIPPANI_BIND:-127.0.0.1:8124}"
 
 echo "building $BIN"
 (cd "$ROOT" && go build -o "$BIN" ./cmd/tippani)

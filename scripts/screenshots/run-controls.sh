@@ -19,16 +19,16 @@ set -euo pipefail
 # anything is built or booted. It was in the Makefile, which runs before
 # `scratch-server.sh` has read `backup.env`, so `make controls` could not see the
 # archive it was configured with and seeded anyway while reporting the backup
-# shelf's ceiling. One entry point, one decision, after the configuration is
-# loaded.
+# shelf's ceiling.
+#
+# AND THE BRANCH ITSELF IS `scratch_prefer_archive`, shared with the other six
+# harnesses. It was written here alone, and CLAUDE.md described it as though every
+# harness had it — which is how five of them went on seeding while the document
+# said they did not.
+BIND="${TIPPANI_BIND:-127.0.0.1:8128}"
+export TIPPANI_BIND="$BIND"
 HERE_EARLY="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if [ -n "${TIPPANI_BACKUP:-}" ] && [ -f "${TIPPANI_BACKUP}" ]; then
-  echo "controls: against the archive at $TIPPANI_BACKUP"
-  rc=0
-  bash "$HERE_EARLY/run-with-backup.sh" bash "$HERE_EARLY/controls-both.sh" backup "$@" || rc=$?
-  exit "$rc"
-fi
-echo "controls: against the seeded fixture (no TIPPANI_BACKUP; see scripts/screenshots/backup.env)"
+scratch_prefer_archive controls bash "$HERE_EARLY/controls-both.sh" backup "$@"
 
 scratch_sweep
 
@@ -36,7 +36,6 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BIN="$(mktemp -d)/tippani"
 DATA="$(mktemp -d)"
-BIND="${TIPPANI_BIND:-127.0.0.1:8128}"
 
 echo "building $BIN"
 (cd "$ROOT" && go build -o "$BIN" ./cmd/tippani)

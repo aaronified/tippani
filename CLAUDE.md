@@ -49,16 +49,28 @@ owner's ruling, 7 September: *"why don't you use the backup instead for seeding?
 in your claude.md to use it for all tests."*
 
 **`scripts/screenshots/backup.env` is where it lives, and it is gitignored.**
-`scratch-server.sh` reads it, so every harness in that directory picks the archive up with
-no flags at all — `make controls`, `make sheet-drag`, `make typescale` and the rest. Four
-names, and only those four are read out of that file:
+`backup-env.sh` reads it and `scratch-server.sh` sources that, so every harness in the
+directory picks the archive up with no flags at all — `make controls`, `make sheet-drag`,
+`make typescale`, `make panel-depth`, `make frame-scroll`, `make hero-control`, and
+`run-with-server.sh --seed`. Each says which library it is against on its first line.
+**Exactly four names are read out of that file, and these are their spellings:**
 
 ```bash
 TIPPANI_BACKUP=/path/to/tippanibackup*.tpbk   # the archive
 TIPPANI_BACKUP_PASSWORD=…                     # it is sealed
-TIPPANI_USER=…                                # the account INSIDE it
-TIPPANI_PASS=…
+TIPPANI_BACKUP_USER=…                         # the account INSIDE it
+TIPPANI_BACKUP_PASS=…
 ```
+
+**THE ACCOUNT IS `TIPPANI_BACKUP_USER`, NOT `TIPPANI_USER`, and this file said
+`TIPPANI_USER` for a day.** A `backup.env` written from that line loads its archive and
+signs in as the harness bot: `ensureSession` gets a 401 and then thirty seconds of
+`waitForFunction` before dying with a timeout that mentions no account at all. The
+`_BACKUP_` prefix is deliberate — `run-with-backup.sh` maps it onto `TIPPANI_USER` only
+after a restore has actually happened, because when the file held `TIPPANI_USER` directly a
+SEEDED run picked it up and tried to sign in to the fixture as somebody who does not exist
+there. Thirty surfaces reported "did not render", which reads like thirty broken screens
+and is one wrong login.
 
 **THE PASSWORD IS NOT IN THIS FILE AND MUST NOT BE.** `CLAUDE.md` is committed; the
 archive is somebody's library and those credentials open it. The owner asked for the
@@ -66,24 +78,24 @@ archive to be saved here for all tests, and this is that — the mechanism, not 
 A machine without a `backup.env` has no `TIPPANI_BACKUP`, and every harness falls back to
 seeding and says so on its first line.
 
-**AND THE ACCOUNT MATTERS AS MUCH AS THE ARCHIVE.** The probe signs in, and a restored
-library has never heard of the harness's own username — the first backup run reported "did
-not render" on all thirty surfaces for exactly that reason, which reads like thirty broken
-screens and is one wrong login.
-
-**`make controls` takes the archive when `TIPPANI_BACKUP` is set** and the seeded
-fixture otherwise, and says which on its first line. It used to seed unconditionally, so
-the documented way to probe a real library was a hand-typed `run-with-backup.sh …
-controls.mjs …` line — and a line a person types is a line that gets typed wrong. Any
-other harness still takes the same shape:
-
-```bash
-TIPPANI_BROWSER=chrome scripts/screenshots/run-with-backup.sh node scripts/screenshots/sheet-drag.mjs --base-url http://127.0.0.1:8128
-```
+**AND THE PROMISE IN THIS PARAGRAPH WAS A PROMISE, NOT A CODE PATH, FOR A DAY.** The branch
+was written into `run-controls.sh` alone while these lines claimed all seven had it, and
+five went on calling `seed.mjs` unconditionally. It is now one function —
+`scratch_prefer_archive` in `scratch-server.sh` — and `test/pure/harness-archive.test.js`
+fails when a harness seeds without calling it, when it calls it after booting a server, or
+when it keeps its own copy of the branch. The account had the same shape of defect one
+layer down: the `TIPPANI_USER` override was a line in `controls.mjs`, so that probe reached
+the archive and the other six could not. It lives in `HARNESS_ACCOUNT` (`capture.mjs`) and
+the same test fails on a second copy.
 
 `run-with-backup.sh` boots a scratch server on a fresh data dir and restores through
 `POST /auth/restore/upload`, the onboarding path — it is gated on the users table being
-empty, which a fresh mktemp dir is, and needs no session.
+empty, which a fresh mktemp dir is, and needs no session. Calling it by hand still works
+and is what `scratch_prefer_archive` does:
+
+```bash
+TIPPANI_BROWSER=chrome scripts/screenshots/run-with-backup.sh node scripts/screenshots/sheet-drag.mjs --base-url http://127.0.0.1:8129
+```
 
 **`--fixture` names the shelf, and `controls.mjs` refuses to run without it.** The
 touch-floor ratchet counts controls, and a bigger library draws more of them — so a

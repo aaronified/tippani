@@ -72,10 +72,13 @@
 //
 import puppeteer from 'puppeteer-core'
 
-import { HARNESS_ACCOUNT, emulateEngineMedia, ensureSession, findBrowser, launchOptions } from './capture.mjs'
+import { HARNESS_ACCOUNT, emulateEngineMedia, ensureSession, filmWithCast, findBrowser, launchOptions } from './capture.mjs'
 
 function parseArgs(argv) {
-  const out = { baseUrl: 'http://127.0.0.1:8080', movieId: '1', timeoutMs: 30000 }
+  // NO DEFAULT ID. A number here is a fact about one library, and this probe
+  // runs against two — the seeded fixture and a restored archive. Left empty it
+  // is resolved from whichever library is loaded; see `filmWithCast`.
+  const out = { baseUrl: 'http://127.0.0.1:8080', movieId: '', timeoutMs: 30000 }
   for (let i = 0; i < argv.length; i++) {
     const next = () => argv[++i]
     if (argv[i] === '--base-url') out.baseUrl = next()
@@ -107,6 +110,21 @@ try {
     password: HARNESS_ACCOUNT.password,
     timeoutMs: opts.timeoutMs,
   })
+
+  // THE SUBJECT, ASKED OF THE LIBRARY THAT IS LOADED, and written back onto `opts`
+  // so every place that navigates gets the same answer — this file has three.
+  //
+  // `--movie-id 2` was a seeded-fixture fact (`seed-cast.mjs --movie-id 2` is what
+  // puts a cast on it) carried onto the archive path, where `/catalogue/2` need not
+  // be a film at all: measured, the probe spent thirty seconds on
+  // `waitForSelector('.tp-btn')` and died with "Waiting for selector `.tp-btn`
+  // failed" — a message about a button, from a wrong id, on a screen that was never
+  // a film.
+  opts.movieId = opts.movieId || await filmWithCast(page, opts.baseUrl)
+  if (!opts.movieId) {
+    console.log('SKIP  the library has no film to open, so there is no panel to measure')
+    process.exit(0)
+  }
 
   await page.goto(`${opts.baseUrl}/catalogue/${opts.movieId}`, { waitUntil: 'networkidle2' })
   await page.waitForSelector('.tp-btn', { timeout: opts.timeoutMs })

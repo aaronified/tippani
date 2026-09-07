@@ -84,6 +84,31 @@ function parseArgs(argv) {
 // at. An `overflow: auto` box that outruns its size is a scroller, and by now it wears
 // a fade saying so; an `overflow: visible` box that outruns its size spills rather
 // than clips, which is ugly but not lost.
+//
+// AND A LINE CLAMP IS NOT WHAT THIS RATCHET MEASURES, which is the third exemption
+// and the one that needed arguing.
+//
+// THE QUESTION THIS FILE ASKS is "does turning the type dial up break a box" — a
+// box sized in pixels stops holding its text when the text grows, and the repo's
+// rule is to grow the box rather than freeze the text. A `-webkit-line-clamp` box
+// answers that question with NO, by construction: it holds N LINES at every type
+// size, so the dial cannot break it. What changes at 175% is how many words fit on
+// those lines, and that is the clamp working, not a box failing.
+//
+// It came up as a real reading. Against the owner's archive, Home reported one new
+// clip at 175% — the favourite tile's quote, one long enough that the seeded fixture has nothing like it,
+// cut by 39px. The tile clamps that quote when collapsed and puts a `ClampMore`
+// chevron under it; at 100% the quote happened to fit the clamp and at 175% it did
+// not, so a ratchet whose floor is zero went to one with nothing wrong. Recording
+// `home: 1` would have been the one thing this baseline's own `_why` forbids —
+// "the answer is to fix it, not to write the number here" — and there was nothing
+// to fix.
+//
+// WHETHER A CLAMP IS ALLOWED AT ALL IS A DIFFERENT QUESTION and has its own guard:
+// `clamp-has-a-way-out.test.js` requires every clamp in the source to have a
+// control that opens it. This file would answer that question wrongly in both
+// directions — it never presses anything, so it cannot see the control, and it
+// visits routes at rest, so it cannot see a clamp behind one.
 const PROBE = `(() => {
   const KEY = (el) => {
     const parts = []
@@ -94,6 +119,11 @@ const PROBE = `(() => {
     return parts.join('>')
   }
   const CUTS = (v) => v === 'hidden' || v === 'clip'
+  // A line clamp is line-based, so the type dial cannot break it. See above.
+  const CLAMPED = (cs) => {
+    const n = cs.webkitLineClamp || cs.getPropertyValue('-webkit-line-clamp')
+    return !!n && n !== 'none' && n !== '0'
+  }
   const out = {}
   for (const el of document.body.querySelectorAll('*')) {
     if (!el.textContent || !el.textContent.trim()) continue
@@ -101,6 +131,7 @@ const PROBE = `(() => {
     if (!r.width || !r.height) continue
     const cs = getComputedStyle(el)
     if (cs.visibility === 'hidden' || cs.display === 'none') continue
+    if (CLAMPED(cs)) continue
     const wide = el.scrollWidth > el.clientWidth + 1 && CUTS(cs.overflowX)
     const tall = el.scrollHeight > el.clientHeight + 1 && CUTS(cs.overflowY)
     if (!wide && !tall) continue

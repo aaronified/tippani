@@ -47,8 +47,12 @@ const opts = {
   // better than being measured against somebody else's shelf.
   fixture: '',
   baseline: '',
-  username: process.env.TIPPANI_USER || HARNESS_ACCOUNT.username,
-  password: process.env.TIPPANI_PASS || HARNESS_ACCOUNT.password,
+  // THE ACCOUNT IS `HARNESS_ACCOUNT`'s, AND THE ENVIRONMENT OVERRIDE IS ITS TOO.
+  // These two lines read `TIPPANI_USER`/`TIPPANI_PASS` here and nowhere else, so
+  // this probe reached a restored archive and the other six signed in as the bot
+  // and timed out.
+  username: HARNESS_ACCOUNT.username,
+  password: HARNESS_ACCOUNT.password,
 }
 for (let i = 2; i < process.argv.length; i++) {
   const next = () => process.argv[++i]

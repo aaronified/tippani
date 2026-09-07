@@ -266,13 +266,37 @@ describe('the controls ratchet', () => {
     // width is the one nobody is watching.
     const widths = [...harness.matchAll(/--width\s+(\d+)/g)].map((m) => m[1])
     expect(widths.length, 'controls-both.sh runs no width this test can see').toBeGreaterThan(1)
-    // THE SEEDED SHELF ONLY. The backup shelf is measured against somebody's real
-    // library, which is not on this machine in CI — so requiring a ceiling at
-    // every width there would fail a check nobody can satisfy. The probe says so
-    // itself at run time: a width with no ceiling exits 3, "clean but unmeasured".
+    // THE SEEDED SHELF IS REQUIRED OUTRIGHT, because that fixture is a script and
+    // builds on any machine. A missing ceiling here is a gate somebody forgot to
+    // record, not a machine that lacks a library.
     for (const w of new Set(widths)) {
       expect(Object.keys(baseline.seed), `make controls runs the seeded fixture at ${w}px and nothing is recorded there, so that width is measured against nothing`)
         .toContain(w)
+    }
+  })
+
+  it('and a shelf that is recorded at all is recorded at every width', () => {
+    // HALF A SHELF IS WORSE THAN NONE, and this is the case that was missing.
+    //
+    // The backup shelf carried a 390 ceiling and no 1280 one. Requiring the
+    // BACKUP shelf to exist cannot be a rule — it is measured against somebody's
+    // real library, which is not on a CI machine, and demanding it would fail a
+    // check nobody can satisfy. That reasoning was right and this test was
+    // narrowed to `baseline.seed` on the strength of it. The consequence went
+    // unstated: `make controls` on the machine that HAS the archive could not
+    // exit 0 at all, because an unrecorded width exits 3 — and the one case that
+    // would have said so had just been narrowed away.
+    //
+    // SO THE RULE IS ABOUT COMPLETENESS RATHER THAN EXISTENCE. Nobody has to
+    // record a shelf. Anybody who records one records both widths, because a
+    // shelf with one width reads as a gate that is on and has a hole in it, and
+    // it never stops exiting 3 to say so.
+    const widths = [...new Set([...harness.matchAll(/--width\s+(\d+)/g)].map((m) => m[1]))]
+    for (const [shelf, recorded] of Object.entries(baseline)) {
+      for (const w of widths) {
+        expect(Object.keys(recorded), `the ${shelf} shelf is recorded at ${Object.keys(recorded).join(', ')} but make controls runs ${w}px too — that width is judged against nothing and the run can only ever exit 3`)
+          .toContain(w)
+      }
     }
   })
 })

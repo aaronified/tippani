@@ -1304,6 +1304,14 @@
      the sheet only and only while it is true, because a permanent `will-change` is
      a permanent cost. */
   .tp-panel.is-dragging { will-change: transform; }
+  /* AND NOTHING HERE MAY GIVE `.tp-panel` A TRANSFORM OR AN ANIMATION.
+     `useSheetDrag` reads the offset back off the element to tell a landing from a
+     rest — `getComputedStyle(el).transform`, which answers with whatever is on the
+     element from any source, a running animation's interpolated frame included. So
+     the hook has to be the only writer: an entrance animation on `transform` would
+     be read by the first `settle` as a landing offset and compensated for. A panel
+     that wants an entrance animates opacity, or animates a child.
+     `sheet-from-the-bottom.test.jsx` fails if a rule here breaks that. */
 
   /* A rule between two sections of one page. Named because it was hand-typed in
      three files with three different borders — solid, dashed, and a third with

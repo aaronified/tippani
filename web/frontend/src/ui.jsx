@@ -1352,6 +1352,27 @@ export function useSheetDrag({ sheet, body, handle, head, enabled = true, onDism
       el.style.transform = `translateY(${Math.max(0, span - want)}px)`;
       want = null;
     };
+    // WHERE THE OFFSET IS RIGHT NOW, which is not what was written to it.
+    // `el.style.transform` is the TARGET a transition is heading for; the painted
+    // value is the interpolation between the two, and only the computed style
+    // knows it. A browser answers with a matrix mid-transition and with the
+    // authored function otherwise; jsdom, which animates nothing, always answers
+    // with what was written — and that is the right answer there for the same
+    // reason.
+    const offsetNow = () => {
+      const v = getComputedStyle(el).transform || "";
+      // `matrix3d` AS WELL AS `matrix`, because a promoted layer can be reported
+      // either way and the cost of guessing wrong is silence: this function would
+      // answer zero, `settle` would take the at-rest branch, and the snap would be
+      // back with nothing saying so. ty is the 6th value of a matrix and the 14th
+      // of a matrix3d.
+      const m3 = /^matrix3d\((?:\s*[-\d.e+]+\s*,){13}\s*(-?[\d.e+]+)/.exec(v);
+      if (m3) return Math.round(parseFloat(m3[1])) || 0;
+      const m = /^matrix\((?:\s*[-\d.e+]+\s*,){5}\s*(-?[\d.e+]+)/.exec(v);
+      if (m) return Math.round(parseFloat(m[1])) || 0;
+      const y = /translateY\(\s*(-?[\d.e+]+)px/.exec(v);
+      return y ? Math.round(parseFloat(y[1])) || 0 : 0;
+    };
     const put = (h) => {
       want = Math.round(h);
       showing = want;
@@ -1400,12 +1421,28 @@ export function useSheetDrag({ sheet, body, handle, head, enabled = true, onDism
       want = null;
       if (frame) { cancelAnimationFrame(frame); frame = 0; }
       if (landingTimer) { clearTimeout(landingTimer); landingTimer = 0; }
-      const hold = span ? showing : h;
+      // AND A LANDING IS A THIRD STATE, between a gesture and a rest.
+      //
+      // After a release the box is already its landing height and an OFFSET is
+      // being animated away — so for those 220ms the sheet is not where its box
+      // says it is, and `settle` running in that window took the rest branch
+      // below and cleared the offset. Measured: a 30px snap. Two ordinary things
+      // land there. A re-render calls `refit`, which is guarded against a live
+      // DRAG and was not against a live landing — and any of a sub-surface
+      // opening, a picture arriving or a list finishing is a re-render. The
+      // arrow-key stepper is the other, and it does it with no gesture at all.
+      //
+      // MEASURED RATHER THAN FLAGGED. "Is a landing in flight" is a belief that
+      // can go stale; "is there an offset on this element" is a fact, and it
+      // answers zero at rest, which is the branch that was already right.
+      const offset = span ? 0 : offsetNow();
+      const hold = span ? showing : resting - offset;
       resting = Math.round(h);
       showing = resting;
-      // NOT MID-GESTURE: the box is its own height, so the spring on `height` is
-      // the animation and there is no offset to reconcile.
-      if (!span) {
+      // NOT MID-GESTURE AND NOT MID-LANDING: the box is its own height with
+      // nothing on it, so the spring on `height` is the animation and there is
+      // no offset to reconcile.
+      if (!span && !offset) {
         spring();
         el.style.transform = "";
         el.style.setProperty("--tp-sheet-h", `${resting}px`);

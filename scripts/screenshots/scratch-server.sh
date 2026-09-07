@@ -63,25 +63,56 @@
 # after a restore has actually happened — because loaded straight, a SEEDED run
 # picked the archive's credentials up and tried to sign in to the fixture as
 # somebody who does not exist there. Every surface reported "did not render".
-scratch_backup_env() {
-  local here env_file
+# THE PARSING IS `backup-env.sh`, WHICH HAS ITS OWN TESTS. It was here, and it
+# dropped a variable from a file with no trailing newline, ignored an `export `
+# prefix, and kept the quotes on a quoted path — all silently, and all falling
+# back to seeding, which looks exactly like a machine that has no archive.
+# shellcheck source=scripts/screenshots/backup-env.sh
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/backup-env.sh"
+backup_env_load
+
+# THE ARCHIVE IS THE DEFAULT FOR EVERY HARNESS, AND THE DECISION IS ONE
+# FUNCTION'S.
+#
+# THE OWNER'S RULING, 7 September: "why don't you use the backup instead for
+# seeding? … save it in your claude.md to use it for all tests." ALL tests. The
+# branch was written into `run-controls.sh` alone and CLAUDE.md was written as
+# though every harness had it — "every harness in that directory picks the archive
+# up with no flags at all — `make controls`, `make sheet-drag`, `make typescale`"
+# — while five of the six went on calling `seed.mjs` unconditionally. A promise in
+# a document is not a code path.
+#
+# AND IT IS ONE FUNCTION BECAUSE THE REPO SAYS SO: "a control drawn by one
+# component on two screens has ONE behaviour, and it lives in one function that
+# both screens call — not in a line each, which is how one of them goes on being
+# right while the other quietly stops." Six copies of this branch is six chances
+# for exactly that.
+#
+# CALL IT AT THE TOP, before anything is built or booted — the archive path boots
+# its own server, so a runner that has already started one would leave it behind.
+# If an archive is configured this re-enters through `run-with-backup.sh` with the
+# command given and NEVER RETURNS; otherwise it says the run is seeded and returns
+# so the caller can seed.
+#
+#   scratch_prefer_archive sheet-drag node sheet-drag.mjs --base-url "http://$BIND"
+#
+# `TIPPANI_BIND` has to be exported first, because the restore path boots the
+# server itself and the probe is given a URL built from the same variable.
+scratch_prefer_archive() {
+  local label here rc
+  label="$1"; shift
   here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  env_file="$here/backup.env"
-  [ -f "$env_file" ] || return 0
-  # Only the two names this is for, so a stray line in that file cannot set
-  # anything else in a shell that is about to run a browser as root.
-  local line key value
-  while IFS= read -r line; do
-    case "$line" in
-      TIPPANI_BACKUP=*|TIPPANI_BACKUP_PASSWORD=*|TIPPANI_BACKUP_USER=*|TIPPANI_BACKUP_PASS=*) ;;
-      *) continue ;;
-    esac
-    key="${line%%=*}"; value="${line#*=}"
-    # An environment already set wins, so a one-off run can override the file.
-    [ -n "${!key:-}" ] || export "$key=$value"
-  done < "$env_file"
+  if [ -n "${TIPPANI_BACKUP:-}" ] && [ -f "${TIPPANI_BACKUP}" ]; then
+    echo "$label: against the archive at $TIPPANI_BACKUP"
+    rc=0
+    # NOT `exec`: it replaces this shell, so the EXIT trap never fires and the
+    # scratch server outlives the run with somebody's restored library in its
+    # data dir. Four orphaned servers accumulated before that was noticed.
+    bash "$here/run-with-backup.sh" "$@" || rc=$?
+    exit "$rc"
+  fi
+  echo "$label: against the seeded fixture (no TIPPANI_BACKUP; see scripts/screenshots/backup.env)"
 }
-scratch_backup_env
 
 scratch_sweep() {
   local root d

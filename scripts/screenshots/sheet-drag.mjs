@@ -26,10 +26,14 @@
 import puppeteer from 'puppeteer-core'
 
 import { anchorsFor } from '../../web/frontend/src/sheetAnchors.js'
-import { HARNESS_ACCOUNT, emulateEngineMedia, ensureSession, findBrowser, launchOptions } from './capture.mjs'
+import { HARNESS_ACCOUNT, emulateEngineMedia, ensureSession, filmWithCast, findBrowser, launchOptions } from './capture.mjs'
+import { judgeDrag } from './dragverdict.mjs'
 
 function parseArgs(argv) {
-  const out = { baseUrl: 'http://127.0.0.1:8080', movieId: '1', timeoutMs: 30000 }
+  // NO DEFAULT ID. A number here is a fact about one library, and this probe
+  // runs against two — the seeded fixture and a restored archive. Left empty it
+  // is resolved from whichever library is loaded; see `filmWithCast`.
+  const out = { baseUrl: 'http://127.0.0.1:8080', movieId: '', timeoutMs: 30000 }
   for (let i = 0; i < argv.length; i++) {
     const next = () => argv[++i]
     if (argv[i] === '--base-url') out.baseUrl = next()
@@ -94,10 +98,18 @@ const readSheet = (page) => page.evaluate((floor) => {
 
 // One whole gesture with the pointer, in steps, so the hook sees a drag rather
 // than a teleport.
+// HOW MANY STEPS A PULL IS MADE OF, and how far case 5c pulls. Both were
+// literals — a `12` in the helper and a `70` at the call, with a comment beside
+// the verdict that said "12 steps of 140px" long after the 140 became 70. The
+// slack the verdict allows is one step's worth, so it is arithmetic over these
+// two and not a number typed next to them.
+const STEPS = 12
+const PULL = 70
+
 async function pull(page, from, by, watch) {
   await page.mouse.move(from.x, from.y)
   await page.mouse.down()
-  const steps = 12
+  const steps = STEPS
   for (let i = 1; i <= steps; i++) {
     await page.mouse.move(from.x, from.y + (by * i) / steps)
     await settle(16)
@@ -140,14 +152,6 @@ const nearest = (h, anchors) => anchors.reduce((b, a) => (Math.abs(a - h) < Math
 // nearer to where the sheet ends up than to where the finger left it, or it has
 // covered most of the distance at once. 216px out of 216 is a leap; 12px out of
 // 100 is an ease that has started.
-function leapt(left, released, ends) {
-  const moved = Math.abs(released - left)
-  if (ends == null) return moved > 40
-  const landing = Math.abs(ends - left)
-  if (landing < 8) return moved > 20 // nothing to animate; anything is a jump
-  return moved > Math.max(20, landing * 0.5)
-}
-
 try {
   const page = await browser.newPage()
   await page.setViewport({ width: WIDTH, height: HEIGHT, deviceScaleFactor: 2, hasTouch: true })
@@ -158,6 +162,21 @@ try {
     password: HARNESS_ACCOUNT.password,
     timeoutMs: opts.timeoutMs,
   })
+
+  // THE SUBJECT, ASKED OF THE LIBRARY THAT IS LOADED, and written back onto `opts`
+  // so the one place that navigates and the messages that name it agree.
+  //
+  // `--movie-id 2` was a seeded-fixture fact (`seed-cast.mjs --movie-id 2` is what
+  // puts a cast on it) carried onto the archive path, where `/catalogue/2` need not
+  // be a film at all: measured, the probe spent thirty seconds on
+  // `waitForSelector('.tp-btn')` and died with "Waiting for selector `.tp-btn`
+  // failed" — a message about a button, from a wrong id, on a screen that was never
+  // a film.
+  opts.movieId = opts.movieId || await filmWithCast(page, opts.baseUrl)
+  if (!opts.movieId) {
+    console.log('SKIP  the library has no film to open, so there is no panel to measure')
+    process.exit(0)
+  }
 
   await page.goto(`${opts.baseUrl}/catalogue/${opts.movieId}`, { waitUntil: 'networkidle2' })
   await page.waitForSelector('.tp-btn', { timeout: opts.timeoutMs })
@@ -350,43 +369,32 @@ try {
       { name: 'prefers-reduced-motion', value: 'no-preference' },
     ])
     const seen = []
-    await pull(page, { x: s.head.mid, y: s.head.y }, 70, seen)
+    await pull(page, { x: s.head.mid, y: s.head.y }, PULL, seen)
     const all = seen.filter(Boolean)
     const live = all.filter((r) => !r.released)
     const let_go = all.find((r) => r.released)
-    const heights = [...new Set(live.map((r) => r.height))]
-    const tops = [...new Set(live.map((r) => r.top))]
     // THE TOP EDGE HAS TO KEEP UP WITH THE FINGER. "Three different positions"
     // passes on a drag that tracks at half speed or lags a frame behind, which is
     // what "extremely flaky" feels like — so the travel is compared to the
-    // pointer's. 12 steps of 140px, and the last reading is taken before the
+    // pointer's. Twelve steps of 70px, and the last reading is taken before the
     // final step's frame lands, so a step's worth of slack.
-    const travel = Math.abs(live[live.length - 1].top - live[0].top)
-    const asked = 70 - 70 / 12
+    const asked = PULL - PULL / STEPS
     const after = await page.evaluate(() => {
       const el = document.querySelector('.tp-panel')
       return el ? { top: Math.round(el.getBoundingClientRect().top) } : null
     })
-    if (live.length < 6) {
-      console.log(`FAIL  only ${live.length} of the drag's frames could be read, so the mechanism was not measured`)
-      failures++
-    } else if (heights.length > 1) {
-      console.log(`FAIL  the drag re-laid-out the sheet: its box took ${heights.length} heights (${heights.join(', ')}) across one gesture`)
-      failures++
-    } else if (tops.length < 3) {
-      console.log(`FAIL  the sheet's top edge held still at ${tops.join(', ')} — the drag moved nothing a reader can see`)
-      failures++
-    } else if (!live.every((r) => /translateY/.test(r.transform))) {
-      console.log('FAIL  the drag wrote no transform, so it is moving the sheet by laying it out')
-      failures++
-    } else if (travel < asked * 0.9) {
-      console.log(`FAIL  the sheet's top edge travelled ${travel}px while the finger travelled ${Math.round(asked)}px — it is not keeping up`)
-      failures++
-    } else if (let_go && leapt(live[live.length - 1].top, let_go.top, after?.top)) {
-      console.log(`FAIL  the release leapt: the top edge went from ${live[live.length - 1].top} to ${let_go.top} in the frame the finger lifted, on its way to ${after?.top}`)
+    // AND THE JUDGEMENT IS `dragverdict.mjs`, WHICH HAS ITS OWN TESTS. It was a
+    // chain of `else if`s here, and one of its arms was unreachable: `travel`
+    // dereferenced the last reading ABOVE the guard against there being none, so
+    // an unreadable drag threw out of the probe rather than reporting itself. The
+    // only way to ask whether the chain was right was to spend a run producing an
+    // input for it.
+    const verdict = judgeDrag({ live, let_go, after, asked })
+    if (verdict.fail) {
+      console.log(`FAIL  ${verdict.fail}`)
       failures++
     } else {
-      console.log(`ok    one layout for the whole drag (${heights[0]}px box), ${travel}px of travel for ${Math.round(asked)}px of finger, and no leap on release`)
+      console.log(`ok    ${verdict.ok}`)
     }
     await emulateEngineMedia(page, engine.browser, 'light')
     // And it hands the height back, so the resting sheet is its own size again.

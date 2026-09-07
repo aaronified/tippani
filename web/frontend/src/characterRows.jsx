@@ -114,7 +114,7 @@ export function ScreenHead({ title, crumb, glyph, art, artKind, scopeTitle }) {
 // `personImgURL`, a work's art under `coverImgURL`, and an already-built address
 // under neither. What they must NOT keep their own copy of is the fallback, which
 // is why it lives here.
-export function Face({ src, name, className = 'cs-face', imgClass, url = coverImgURL, title, onLoad, onBroken, loading = 'lazy', fallback, style }) {
+export function Face({ src, name, className = 'cs-face', imgClass, url = coverImgURL, title, onLoad, onBroken, loading = 'lazy', fallback, style, imgRef }) {
   const [broken, setBroken] = useState(false)
   const path = String(src || '')
   // A NEW PATH DESERVES ITS OWN CHANCE. Without this a row that fails once keeps
@@ -144,6 +144,16 @@ export function Face({ src, name, className = 'cs-face', imgClass, url = coverIm
         ? stand
         : (
           <img
+            // THE CALLER MAY NEED THE PICTURE, not a way to go looking for it.
+            // A block that MEASURES its portrait used to find it with
+            // `querySelector('img')` over its own subtree — and that subtree
+            // holds the picture editor, whose provider strip is a row of
+            // thumbnails. So a slot with no portrait (this function draws a
+            // silhouette, not an `<img>`) measured the first thumbnail in the
+            // editor instead and captioned somebody else's 180×270 as the
+            // record's own. A ref cannot pick the wrong element: where there is
+            // no picture there is nothing to point at.
+            ref={imgRef}
             src={url(path)}
             // SOME STYLESHEETS DRESS THE PICTURE AND NOT ITS BOX — a board's
             // tile, a binned record's face — and those callers keep their class
@@ -209,17 +219,33 @@ const SOFT_FLOOR = 400
 const CONTRAST_FLOOR = 0.32
 // THE SHAPE THE APP DRAWS PORTRAITS AT. The pack's slots are 2:3, and everything
 // wider or squarer is centre-cropped by `object-fit: cover` — silently, so half a
-// face can be outside the circle with nothing on the screen to say so. Eight
-// hundredths of tolerance so 2:3 and 0.66 and 1000×1500 all read as 2:3.
+// face can be outside the circle with nothing on the screen to say so.
 const PORTRAIT_RATIO = 2 / 3
-const RATIO_SLACK = 0.08
+// AND THE TOLERANCE IS ON WHAT IS LOST, not on the difference between two
+// ratios. Eight hundredths of raw `w/h` sounds generous and is not evenly
+// generous: 600×1000 is 0.6 against 0.667, a difference of 0.067, and passed —
+// while `cover` was taking TEN PER CENT off the top and bottom of it. The same
+// 0.067 nearer 1:1 is a couple of per cent. So the question asked here is the
+// reader's — how much of this picture is not on the screen — and two per cent is
+// where it stops being worth a word.
+const CROP_SLACK = 0.02
+// THE SAMPLE GRID, and the floor under the contrast measurement. A picture
+// smaller than the grid is UPSCALED into it, so a 1×1 file fills all 1,024
+// samples with one colour and reports a spread of zero: arithmetically true,
+// and an invention. A file with fewer pixels than the grid gets no answer.
+const SAMPLE = 32
 
 // The measured contrast, or null where it cannot be measured — a canvas tainted
 // by a remote file, or an engine without one. Null prints nothing: a guess about
 // somebody's portrait is worse than silence.
 function contrastOf(img) {
   try {
-    const n = 32
+    const n = SAMPLE
+    // A SOURCE SMALLER THAN THE GRID IS NOT MEASURED. `drawImage` will happily
+    // scale a 1×1 up to 32×32, and the spread of one colour is zero — so the
+    // caption called a one-pixel file low contrast, which is the sort of true
+    // sentence that teaches a reader to stop reading the line.
+    if (img.naturalWidth < n || img.naturalHeight < n) return null
     const c = document.createElement('canvas')
     c.width = n
     c.height = n
@@ -248,12 +274,21 @@ function contrastOf(img) {
   }
 }
 
-// The picture's shape, said as a ratio, only where it is not the one the app
-// draws. `gcd` so 1000×1500 reads as 2:3 and 1024×1024 as 1:1 rather than as
+// The share of the picture `object-fit: cover` will not show, filling a 2:3
+// slot. Whichever axis is long loses the overflow off both ends, so the visible
+// share is the smaller ratio over the larger and the loss is the rest.
+export function croppedShare({ w, h }) {
+  if (!w || !h) return 0
+  const r = w / h
+  return 1 - Math.min(r, PORTRAIT_RATIO) / Math.max(r, PORTRAIT_RATIO)
+}
+
+// The picture's shape, said as a ratio, only where enough of it is being cut to
+// matter. `gcd` so 1000×1500 reads as 2:3 and 1024×1024 as 1:1 rather than as
 // four digits a reader has to divide.
 function ratioOf({ w, h }) {
   if (!w || !h) return ''
-  if (Math.abs(w / h - PORTRAIT_RATIO) <= RATIO_SLACK) return ''
+  if (croppedShare({ w, h }) <= CROP_SLACK) return ''
   const gcd = (a, b) => (b ? gcd(b, a % b) : a)
   const d = gcd(w, h) || 1
   return t('identity.portrait.ratio', { a: Math.round(w / d), b: Math.round(h / d) })
@@ -262,7 +297,11 @@ function ratioOf({ w, h }) {
 export function PortraitBlock({ src, name, px, soft, from = '', actions, editor = null }) {
   const [dim, setDim] = useState(null)
   const [spread, setSpread] = useState(null)
-  const box = useRef(null)
+  // THE PICTURE ITSELF, not the first `<img>` under this block. The editor lands
+  // inside `.cs-portrait` and its provider strip is a row of thumbnails, so a
+  // subtree query measured one of those whenever the slot had no portrait of its
+  // own — captioning an editor thumbnail's 180×270 as the record's picture.
+  const pic = useRef(null)
   const read = (img) => {
     if (!img?.naturalWidth) return
     setDim({ w: img.naturalWidth, h: img.naturalHeight })
@@ -279,25 +318,37 @@ export function PortraitBlock({ src, name, px, soft, from = '', actions, editor 
   useEffect(() => {
     setDim(null)
     setSpread(null)
-    const img = box.current?.querySelector('img')
+    const img = pic.current
     if (img?.complete) read(img)
   }, [src])
   // THREE FACTS, EACH EARNED, and the size is the only one that is always true.
   // The others are problems, and a caption that lists a problem the picture does
   // not have is a caption a reader stops reading.
   const notes = []
+  // AND A CROP IS NOT A FAULT. The caption goes red on `is-soft`, which is the
+  // app's way of saying "this picture is not good enough" — and a flawless
+  // 2000×2000 studio portrait is not that, it is a portrait the slot will frame.
+  // Painting the whole line red for it warns about the one fact in it that is
+  // nobody's mistake, and the two facts that ARE lose their colour by sharing it.
+  let fault = false
   if (dim) {
-    if (dim.w < SOFT_FLOOR || dim.h < SOFT_FLOOR) notes.push(t('identity.portrait.small', { n: SOFT_FLOOR }))
-    if (spread != null && spread < CONTRAST_FLOOR) notes.push(t('identity.portrait.soft'))
+    if (dim.w < SOFT_FLOOR || dim.h < SOFT_FLOOR) {
+      notes.push(t('identity.portrait.small', { n: SOFT_FLOOR }))
+      fault = true
+    }
+    if (spread != null && spread < CONTRAST_FLOOR) {
+      notes.push(t('identity.portrait.soft'))
+      fault = true
+    }
     const shape = ratioOf(dim)
     if (shape) notes.push(shape)
   }
   const measured = dim
     ? [t('identity.portrait.px', { w: dim.w, h: dim.h }), ...notes].join(' · ')
     : px
-  const isSoft = dim ? notes.length > 0 : !!soft
+  const isSoft = dim ? fault : !!soft
   return (
-    <div className="cs-portrait" ref={box}>
+    <div className="cs-portrait">
       {/* THE SCREEN THE OWNER NAMED AS THE MODEL — "a random person glyph, as used
           in the actual delia sturridge character page" — and it was branching on
           the stored path like the rest. `Face` owns the fallback; the measurement
@@ -312,6 +363,7 @@ export function PortraitBlock({ src, name, px, soft, from = '', actions, editor 
         // measurement, and the caption sits on the caller's guess until the
         // reader scrolls something that is already in view.
         loading="eager"
+        imgRef={pic}
         onLoad={(e) => read(e.target)}
       />
       <span className="cs-portrait-side">

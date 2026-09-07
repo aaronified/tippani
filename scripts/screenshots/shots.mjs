@@ -6,8 +6,10 @@ import puppeteer from 'puppeteer-core'
 import { HARNESS_ACCOUNT, emulateEngineMedia, ensureSession, findBrowser, launchOptions } from './capture.mjs'
 
 const opts = { baseUrl: 'http://127.0.0.1:8080', timeoutMs: 30000, width: 390, out: '/tmp/claude-0/shots',
-  username: process.env.TIPPANI_USER || HARNESS_ACCOUNT.username,
-  password: process.env.TIPPANI_PASS || HARNESS_ACCOUNT.password }
+  // The account is HARNESS_ACCOUNT's, and so is the environment override it now
+  // carries — this was a second copy of that decision.
+  username: HARNESS_ACCOUNT.username,
+  password: HARNESS_ACCOUNT.password }
 for (let i = 2; i < process.argv.length; i++) {
   const n = () => process.argv[++i]
   if (process.argv[i] === '--base-url') opts.baseUrl = n()

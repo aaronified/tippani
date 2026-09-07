@@ -149,7 +149,7 @@ AI-written code fails differently from hand-written code. It compiles, it reads
 well, it is plausibly commented, and it can still be wrong — so plausibility is
 worth nothing here and only execution counts. What the repo actually runs:
 
-- **1,494 Go test functions and 3,462 frontend tests, across 544 test files** — the
+- **1,494 Go test functions and 3,509 frontend tests, across 547 test files** — the
   Go half over real HTTP handlers against a real SQLite database, not mocks.
   Counted, not estimated, and every number here has a command that reproduces it:
 
@@ -158,7 +158,7 @@ worth nothing here and only execution counts. What the repo actually runs:
   cd web/frontend && npm test                                            # frontend tests
   find . -name '*_test.go' -not -path './node_modules/*' | wc -l         # 249 Go files
   find ./web/frontend -path '*/node_modules' -prune -o \
-       -type f \( -name '*.test.*' -o -name '*.spec.*' \) -print | wc -l # 295 frontend
+       -type f \( -name '*.test.*' -o -name '*.spec.*' \) -print | wc -l # 298 frontend
   ```
 
   THREE OF THE FOUR ARE NOW CHECKED RATHER THAN TRUSTED. This paragraph has said
@@ -475,6 +475,41 @@ worth nothing here and only execution counts. What the repo actually runs:
   0. `test/pure/controls-ratchet.test.js` is the second control: it asserts, in 200ms,
   that the shelf the harness names has a ceiling at every width the harness runs. Two
   fifty-minute runs cannot notice what a file-shape check finds instantly.
+
+  **AND HALF A SHELF PASSES THAT CHECK, which is the version of it that shipped.** The
+  seeded shelf was required at every width and the backup shelf was exempted, on sound
+  reasoning — a CI machine has no archive, so demanding that shelf would fail a check
+  nobody can satisfy. The unstated consequence: the backup shelf had a 390 ceiling and no
+  1280 one, so `make controls` on the machine that HAS the archive could not exit 0 at
+  all, because an unrecorded width exits 3 — and the case that would have said so was the
+  one that had been narrowed away. The rule is about COMPLETENESS now: nobody has to
+  record a shelf, and anybody who records one records every width, because a shelf with
+  one width is a gate with a hole in it that never stops exiting 3 to say so.
+
+  **THE HARNESSES TAKE THE OWNER'S ARCHIVE BY DEFAULT, AND FOR A DAY ONLY ONE OF THEM
+  DID.** The owner's ruling was "use it for all tests"; the branch was written into
+  `run-controls.sh` and CLAUDE.md was written as though all seven had it, while five went
+  on calling `seed.mjs` unconditionally. Wiring them up then failed on the layer
+  underneath: `HARNESS_ACCOUNT` is a hard-coded `screenshot-bot` and the `TIPPANI_USER`
+  override was a line in `controls.mjs`, so that probe reached a restored library and the
+  other six got a 401 and thirty seconds of `waitForFunction` before dying with a timeout
+  that named no account. And under THAT, a hard-coded `--movie-id 2` — a fact about the
+  seeded fixture — asked the archive for a page that is not a film. Three layers, one
+  shape: **a rule written once, in one of the places that needs it.**
+
+  `test/pure/harness-archive.test.js` is the guard, and it checks the shape rather than
+  the run: every harness that seeds calls the one shared decision, calls it before
+  anything is built or booted, and keeps no copy of the branch; the account is decided in
+  exactly one file and that file lets the environment win; and the `backup.env` parser is
+  run in a real shell against a file with no trailing newline, an `export ` prefix, an
+  indent, quotes and CRLF — every one of which used to drop a variable silently and fall
+  back to seeding, which prints the same first line as a machine with no archive at all.
+
+  The proof that the wiring works is six runs rather than a claim: `make sheet-drag` (ten
+  `ok`), `make panel-depth` (seven, having opened Geralt of Rivia in *The Witcher 3*),
+  `make typescale` (no new clips), `make frame-scroll`, `make hero-control` and `make
+  controls`, each against the owner's restored archive, each exiting 0. Section AH of the
+  defect register is there because the previous pass claimed a run it had not done.
 
   The seeded ceilings are 0 / 0 at 1280 and 187 / 9 at 390, and they were measured twice:
   a second full run returned the same two numbers across all thirty surfaces. An exact

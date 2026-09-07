@@ -176,7 +176,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and until now nothing on the screen told you half a face was outside the circle. A
   cut-out portrait — a head on a transparent ground — is judged on the head rather than
   the emptiness around it, and a picture with almost nothing opaque in it says nothing
-  about contrast rather than guessing from a handful of pixels.
+  about contrast rather than guessing from a handful of pixels. A picture smaller than the
+  measurement's own grid is not called washed out either, because there is nothing there to
+  measure. The shape is judged on how much of the picture the slot will actually cut away,
+  so a portrait losing a tenth of its top and bottom now says so — it did not before,
+  because it was near enough 2:3 by the arithmetic and not by the eye. And a picture that
+  is only being cropped no longer paints the whole line red: the slot's framing is the
+  app's doing, not a fault in somebody's photograph, and warning about it drained the
+  colour from the two things that are faults. Finally, on a slot with no portrait of its
+  own, the caption no longer describes a thumbnail from the picker underneath it.
 - **Dragging a sheet on a phone follows your finger, and the blur behind it stays put.**
   The drag had become almost impossible to make — it would lose your finger part-way,
   and the page tore, with the frosted background dropping out for a moment each time.
@@ -186,7 +194,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   instead of being redrawn, so a drag costs the phone almost nothing and the blur never
   flickers. Going straight back in for a second pull works too — a sheet you overshot is
   adjusted with a quick second drag, and that one used to be dropped part-way by the
-  first one's own settling animation.
+  first one's own settling animation. So does anything else that happens while the sheet
+  is still settling: a picture arriving, a list finishing, a panel opening inside it, or
+  the arrow keys stepping it on. Each of those used to jump the sheet to wherever its box
+  had got to — up to a couple of hundred pixels — instead of carrying on from where it was.
+- **A long value in a re-verify comparison can be opened.** Settings → Re-verify shows
+  what you have stored beside what each supplier says, and a long one — a description, a
+  list of links — was cut to four lines with the rest available only by hovering it. There
+  is no hover on a phone, which is where the comparison is usually read, so the rest of
+  both values was simply gone. It now folds and unfolds, with the chevron every other
+  folded passage in the app uses, and appears only when something is actually hidden.
+
 - **Delete on a row of a table asks, the way Delete on a card asks.** In the table view
   of a book's quotes and of a film's lines, the Delete key on a row did nothing at all
   when it was pressed — no dialog, no deletion, no message. It now puts the same

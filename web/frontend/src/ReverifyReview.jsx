@@ -17,6 +17,7 @@ import {
   ErrorText,
   GhostButton,
   HandCard,
+  ExpandableDescription,
   MobileSheet,
   MonoLabel,
   NameScroll,
@@ -133,17 +134,18 @@ export function ValueCell({ field, value, fresh }) {
       </span>
     )
   }
-  // Long text (descriptions, link lists) clamps; the full value is in `title`.
+  // LONG TEXT FOLDS, AND THE FOLD OPENS. It clamped to four lines and put the
+  // whole string in `title` — which is a hover, and a hover is not a way out on a
+  // phone: a reader comparing what is stored against what a supplier says could
+  // not see the rest of either. `ExpandableDescription` is the app's fold and
+  // draws its chevron only when something is actually hidden, so a short value is
+  // unchanged. `clamp-has-a-way-out.test.js` is the guard that named this one.
   return (
-    <span
-      title={String(value)}
-      style={{
-        display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical',
-        overflow: 'hidden', fontSize: 'var(--type-ui-13)', lineHeight: 1.45, overflowWrap: 'anywhere', whiteSpace: 'pre-line',
-      }}
-    >
-      {String(value)}
-    </span>
+    <ExpandableDescription
+      text={String(value)}
+      lines={4}
+      style={{ color: 'var(--ink)', fontSize: 'var(--type-ui-13)', lineHeight: 1.45, overflowWrap: 'anywhere', whiteSpace: 'pre-line' }}
+    />
   )
 }
 

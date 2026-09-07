@@ -68,15 +68,26 @@ function handRolled(dir = TESTS, base = '', out = []) {
 }
 
 // WHAT IS LEFT, AND WHY EACH ONE IS LEFT. Twenty-eight files read a directory by
-// hand when the shared walk arrived; twenty-two converted. Every one of these six
+// hand when the shared walk arrived; twenty-two converted. Every one of these
 // reads a directory that is NOT the source tree, so `sourcesUnder` is the wrong
 // tool for it and converting them would be a worse guard, not a better one. That
 // is what makes the number a floor rather than a debt: it comes down again only
 // if one of these stops needing its own read.
+//
+// THE LIST GREW BY ONE ON 7 SEPTEMBER, and a list whose ceiling is its own length
+// has to say so out loud when that happens. `pure/harness-archive.test.js` walks
+// `scripts/screenshots/` — the shell runners and the puppeteer probes — asking
+// whether every harness that fills a library goes through the one shared decision
+// about which library to use. A HARD-CODED LIST OF HARNESSES WOULD BE THE DEFECT
+// IT IS CHECKING FOR: the failure it exists to catch is a NEW harness written
+// without the branch, and a new harness is exactly what a fixed list does not
+// contain. Six became seven; the rule that the count may not rise is about the
+// SOURCE tree being walked twice, and this walks somewhere else.
 const KNOWN = [
   'dom/surface-readability.test.jsx', // src/textures — the paper images, not source
   'pure/ai-counts.test.js',           // the whole REPO, counting Go and frontend test files
   'pure/glossary-registry.test.js',   // web/dist/assets — the BUILT stylesheet
+  'pure/harness-archive.test.js',     // scripts/screenshots — the harnesses, not source
   'pure/one-walk.test.js',            // test/ — this file counts itself, see above
   'pure/pack-citations.test.js',      // docs/plans (its src half uses the shared walk)
   'pure/prefixed-pairs-survive.test.js', // web/dist — the built CSS again

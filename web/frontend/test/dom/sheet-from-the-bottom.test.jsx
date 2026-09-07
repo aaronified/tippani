@@ -493,6 +493,81 @@ describe('what a drag costs', () => {
     }
   })
 
+  it('and the arrow keys mid-landing do not snap it', async () => {
+    // A LANDING IS A THIRD STATE, between a gesture and a rest: the box is
+    // already its landing height and an OFFSET is being animated away, so for
+    // those 220ms the sheet is not where its box says it is. `settle` running in
+    // that window took the at-rest branch and cleared the offset — measured as a
+    // 30px snap — and TWO ordinary things run `settle` there. The arrow-key
+    // stepper is one, and it needs no gesture at all. The other is `refit`, which
+    // any re-render calls: a sub-surface opening, a picture arriving, a list
+    // finishing.
+    //
+    // ONE FIX FOR BOTH, and deliberately not a guard per caller: the rule is
+    // `settle`'s, so `settle` measures the offset that is actually on the element
+    // rather than trusting a flag about whether a landing is in flight. A belief
+    // goes stale; a measurement answers zero at rest, which is the branch that
+    // was already right.
+    render(<Sheet onDismiss={vi.fn()} />)
+    fireEvent.pointerDown(el('grip'), pointer(400))
+    fireEvent.pointerMove(window, pointer(370))
+    await act(async () => { await frame() })
+    const held = shownOf(el('sheet'))
+    fireEvent.pointerUp(window, pointer(370))
+    // Straight into the stepper, before the landing's own frames have run.
+    await act(async () => { stepper(1) })
+    expect(shownOf(el('sheet')), 'the stepper cleared the landing’s offset, so the sheet jumped')
+      .toBeCloseTo(held, 0)
+    // AND IT STILL GETS THERE. A fix that froze the sheet where the finger left
+    // it would pass the line above and be worse than the snap.
+    await act(async () => { await frame(); await frame() })
+    await act(async () => { await frame(); await frame() })
+    expect(shownOf(el('sheet')), 'the stepped sheet never reached the anchor it was stepping to')
+      .toBeGreaterThan(held)
+  })
+
+  it('and a re-render mid-landing does not snap it either', async () => {
+    // THE SECOND CALLER. `refit` runs on every render and exists because a
+    // sub-surface opens INSIDE this box, so the panel element never changes and
+    // the effect that measured it never re-runs. It is guarded against a live
+    // DRAG and was not against a live landing.
+    const { rerender } = render(<Sheet onDismiss={vi.fn()} content={2000} />)
+    fireEvent.pointerDown(el('grip'), pointer(400))
+    fireEvent.pointerMove(window, pointer(392))
+    await act(async () => { await frame() })
+    const held = shownOf(el('sheet'))
+    fireEvent.pointerUp(window, pointer(392))
+    // A shorter body: the natural anchor moves, which is the one case `refit`
+    // acts on.
+    await act(async () => { rerender(<Sheet onDismiss={vi.fn()} content={300} />) })
+    expect(shownOf(el('sheet')), 'a re-render cleared the landing’s offset, so the sheet jumped')
+      .toBeCloseTo(held, 0)
+  })
+
+  it('and the sheet\u2019s transform is the hook\u2019s alone', () => {
+    // THE ASSUMPTION UNDER THE CASE ABOVE, made explicit because it is invisible.
+    //
+    // `settle` now READS the offset off the element — that is what lets it tell a
+    // landing from a rest without keeping a flag that can go stale. The reading is
+    // `getComputedStyle(el).transform`, which answers with whatever is on the
+    // element from ANY source: an inline write, a stylesheet rule, or a running
+    // animation's interpolated value.
+    //
+    // So the hook has to be the only writer. Give `.tp-panel` an entrance
+    // animation on `transform` and the first `settle` — which runs at mount —
+    // reads a frame of that animation as a landing offset, writes a compensating
+    // one, and fights it. Nothing would fail; the sheet would open a few pixels
+    // wrong and settle, which is the sort of defect that gets reported from a
+    // phone months later as "it feels off".
+    //
+    // A panel that wants an entrance animates OPACITY, or animates a child.
+    const owned = rules.filter((r) => r.selectors.some((sel) => /\.tp-panel(\b|[.:,\s])/.test(sel))
+      && (r.decls.transform || r.decls.animation || r.decls['animation-name']))
+    expect(owned.map((r) => r.selectors.join(', ')),
+      'the stylesheet gives the sheet a transform or an animation, so the hook is no longer the only thing that knows where the sheet is')
+      .toEqual([])
+  })
+
   it('and clears the offset once the landing is over', async () => {
     // Tidiness rather than correctness — the sheet is already the right height at
     // the right place — but an inline transform nothing owns is a trap for the

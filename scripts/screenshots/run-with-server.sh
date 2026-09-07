@@ -14,7 +14,6 @@ set -euo pipefail
 # for the run this cost.
 # shellcheck source=scratch-server.sh
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/scratch-server.sh"
-scratch_sweep
 
 SEED=0
 ARGS=()
@@ -22,10 +21,24 @@ for a in "$@"; do
   if [ "$a" = "--seed" ]; then SEED=1; else ARGS+=("$a"); fi
 done
 
+BIND="${TIPPANI_BIND:-127.0.0.1:8080}"
+export TIPPANI_BIND="$BIND"
+# THE ARCHIVE WHERE A LIBRARY WAS ASKED FOR, and not otherwise. This harness is
+# the only one of the seven where an EMPTY account is a legitimate subject — the
+# onboarding screens are captured against exactly that — so `--seed` is what says
+# "put something in it", and the owner's ruling ("use it for all tests") is about
+# what goes in it, not about whether. A restored archive is a filled account, so
+# the seeding step below is skipped on that path.
+if [ "$SEED" = 1 ]; then
+  scratch_prefer_archive screenshots \
+    node capture.mjs --base-url "http://$BIND" ${ARGS[@]+"${ARGS[@]}"}
+fi
+
+scratch_sweep
+
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 BIN="$(mktemp -d)/tippani"
 DATA="$(mktemp -d)"
-BIND="${TIPPANI_BIND:-127.0.0.1:8080}"
 
 echo "building $BIN"
 (cd "$ROOT" && go build -o "$BIN" ./cmd/tippani)
