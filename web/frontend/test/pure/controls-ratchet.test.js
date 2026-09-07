@@ -26,7 +26,7 @@
 // a restored backup is a different shelf and carries its own numbers.
 
 import { spawnSync } from 'node:child_process'
-import { copyFileSync, readFileSync, rmSync } from 'node:fs'
+import { chmodSync, copyFileSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -211,6 +211,42 @@ describe('the controls ratchet', () => {
         expect(Object.keys(counts).sort(), `${shelf} at ${width}px records ${Object.keys(counts).sort().join(', ')}; the probe counts ${RATCHETS.slice().sort().join(', ')}`)
           .toEqual(RATCHETS.slice().sort())
       }
+    }
+  })
+
+  it('and the harness reports the probe’s code instead of flattening it', () => {
+    // `run-controls.sh` ran each width with `|| rc=1`, so 2 (a refusal) and 3 (an
+    // unratcheted width) both arrived as 1 — the exit-3 rule could be written,
+    // tested and documented while nothing that runs the probe could ever report
+    // one.
+    //
+    // THE SCRIPT'S OWN TAIL IS RUN, with the probe stubbed. An earlier draft
+    // evaluated only its `worst()` helper, and changing one call site back to
+    // `|| rc=1` left that green — a test of a helper nothing had to call. And the
+    // stub answers ONE WIDTH at a time: a stub returning 3 for both hides a broken
+    // call site behind the working one, which is how the first version of THAT
+    // repair passed too. Both files rather than a `bash -c` string, because built
+    // as one it came back 2 — a quoting bug wearing a failing assertion's clothes.
+    const tail = /\nrc=0\n[\s\S]*?\nexit "\$rc"\n/.exec(harness)
+    expect(tail, 'run-controls.sh no longer ends in the exit block this reads').toBeTruthy()
+    const stub = join(tmpdir(), `controls-stub-${process.pid}.sh`)
+    const probe = join(tmpdir(), `controls-probe-${process.pid}.sh`)
+    const codeFor = (width, code) => {
+      writeFileSync(stub, `#!/bin/sh\ncase "$*" in *${width}*) exit ${code};; *) exit 0;; esac\n`)
+      chmodSync(stub, 0o755)
+      writeFileSync(probe, `RUN=("${stub}")\n${tail[0]}`)
+      return spawnSync('bash', [probe], { encoding: 'utf8' }).status
+    }
+    try {
+      for (const width of [1280, 390]) {
+        expect(codeFor(width, 3), `an unratcheted ${width} came back as an ordinary failure`).toBe(3)
+        expect(codeFor(width, 2), `a refusal at ${width} came back as an ordinary failure`).toBe(2)
+        expect(codeFor(width, 1), `a real failure at ${width} is no longer 1`).toBe(1)
+      }
+      expect(codeFor(1280, 0), 'a clean run is not 0').toBe(0)
+    } finally {
+      rmSync(stub, { force: true })
+      rmSync(probe, { force: true })
     }
   })
 
