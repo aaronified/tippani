@@ -10,11 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **The quiz has three difficulties now, and Random.** *Medium* is the quiz exactly as it has
   always been, and it is what you are on unless you say otherwise. *Easy* offers two choices
-  instead of four, keeps the wrong ones far apart rather than close, and never asks you to type
-  — it lowers the floor when a line will not come at all. *Hard* gives up recognition entirely:
-  no picking a cover out of four, just the words with a hole in them and the two questions about
+  instead of four, keeps the wrong ones far apart rather than close, and does not ask you to type
+  — it lowers the floor when a line will not come at all. *Hard* gives up recognition: no
+  picking a cover out of four, just the words with a hole in them and the two questions about
   who. *Random* picks per card rather than per round, so a mixed library is not all one
-  difficulty. It sits in Settings → Daily quiz, and Easy says out loud what it costs: close
+  difficulty. A tier narrows what you have already switched on and never empties it, so if the
+  only question you allow is one a tier would drop, you keep it. It sits in Settings → Daily quiz, and Easy says out loud what it costs: close
   wrong answers teach more than obvious ones, and giving that up is the trade you are making.
 
 - **Home says when your library has outgrown the schedule.** A quote comes back once per

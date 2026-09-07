@@ -103,6 +103,34 @@ func (c *nameCollector) add(name string) {
 // enough — as many distractors as the widest tier will use. Counted against the
 // ceiling rather than the tier in force, so a collector filled for one tier is
 // never short for another; choicesFrom takes what it needs from the top.
+// addWiderPool takes everyone else the library has heard speak — every work but
+// this one. It is the FALLBACK at medium and hard, where the answer's own cast is
+// the better ranking, and the FIRST choice at easy, where it is the far end of
+// the scale. One walk either way, because two copies of it are how the two orders
+// come to disagree about who is in the pool.
+func (c *nameCollector) addWiderPool(p quizPools, ownKey string, rng *rand.Rand) {
+	var wider []string
+	for _, w := range p.works {
+		if w.key == ownKey {
+			continue
+		}
+		switch w.kind {
+		case kindScreen:
+			wider = append(wider, w.cast...)
+			wider = append(wider, w.actorNames...)
+		case kindUtterance:
+			// A speech's workRef carries its speaker in `author` — see the field's
+			// comment. Other people who have given speeches are the natural wrong
+			// answers for one.
+			wider = append(wider, w.author)
+		}
+	}
+	shuffleN(rng, len(wider), func(i, j int) { wider[i], wider[j] = wider[j], wider[i] })
+	for _, a := range wider {
+		c.add(a)
+	}
+}
+
 func (c *nameCollector) enough() bool { return len(c.out) >= quizOptions-1 }
 
 // attachSpeaker fills a card's options with the people who might have said the
@@ -139,32 +167,29 @@ func attachSpeaker(card *reviewCard, ownKey string, p quizPools, seed int64, tie
 	}
 	rng := seededRand(seed)
 	c := newNameCollector(answer)
+	// EASY LOOKS AWAY FROM THIS FILM FIRST, which is the same inversion rankWorks
+	// makes and the reason it has to be made twice.
+	//
+	// This function does not rank at all — the own-work cast IS the ranking, and a
+	// good one: three actors from this film make it a question about the film
+	// rather than about familiarity. That is exactly what Easy gives up. Without
+	// this the tier drew its two options from the answer's own billing, so an easy
+	// speaker card carried the single closest lure in the library and was HARDER
+	// than medium, while five documents said it kept the wrong answers far apart.
+	//
+	// The fallback is unchanged in both directions: a tier that could not fill
+	// from its preferred pool takes the other, because a card that cannot be built
+	// is worse for the reader than one built from the wrong end of the scale.
+	if tierPrefersFarLures(tier) {
+		c.addWiderPool(p, ownKey, rng)
+	}
 	for _, a := range p.byKey[ownKey].cast {
 		c.add(a)
 	}
 	// Then everyone else the library has heard speak, so a film with a thin cast
 	// record — or a speech, which has no cast at all — still gets a question.
 	if !c.enough() {
-		var wider []string
-		for _, w := range p.works {
-			if w.key == ownKey {
-				continue
-			}
-			switch w.kind {
-			case kindScreen:
-				wider = append(wider, w.cast...)
-				wider = append(wider, w.actorNames...)
-			case kindUtterance:
-				// A speech's workRef carries its speaker in `author` — see the
-				// field's comment. Other people who have given speeches are the
-				// natural wrong answers for one.
-				wider = append(wider, w.author)
-			}
-		}
-		shuffleN(rng, len(wider), func(i, j int) { wider[i], wider[j] = wider[j], wider[i] })
-		for _, a := range wider {
-			c.add(a)
-		}
+		c.addWiderPool(p, ownKey, rng)
 	}
 	return personChoices(card, answer, c.out, kind, rng, tier)
 }

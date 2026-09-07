@@ -207,38 +207,143 @@ func TestTheTierPreferenceReachesTheDeck(t *testing.T) {
 
 // ---- the four things the third rater pass found ------------------------------
 
-// EASY'S DISTRACTORS ARE FAR, WHICH FIVE DOCUMENTS CLAIMED AND NOTHING DID.
+// EASY'S WRONG ANSWERS ARE THE FAR ONES, ASKED OF THE DECK RATHER THAN OF A
+// FUNCTION.
 //
-// distractorScore rewards a candidate for sharing a medium, an author, a series
-// or a genre, so the best distractor at medium is the one hardest to tell from
-// the answer. Easy is defined by the opposite, and the copy under the control
-// says so in as many words. It shipped ranking the same way medium does, which
-// made Easy a two-option card with the SINGLE HARDEST lure in the library — the
-// exact opposite of what the reader was promised, and harder than medium.
+// The first version of this called rankWorks directly — a function whose
+// signature the fix had just invented — which is precisely what the standing
+// test rule forbids: "a test writer shouldn't even know about the fix". It
+// passed while a WHOLE SECOND PATH stayed wrong, because attachSpeaker does not
+// rank by distractorScore at all: it fills from the answer's own cast, so an easy
+// speaker card carried the single closest lure in the library and was harder than
+// medium, under five documents saying the opposite.
 //
-// Asserted on the scale rather than on the sort: the closest work must come last
-// for easy and first for everything else.
-func TestEasyReachesForTheFarthestWrongAnswer(t *testing.T) {
-	own := workRef{key: "book:1", kind: kindBook, title: "Emma", author: "Austen", genres: map[string]bool{"novel": true}}
-	near := workRef{key: "book:2", kind: kindBook, title: "Persuasion", author: "Austen", genres: map[string]bool{"novel": true}}
-	far := workRef{key: "screen:9", kind: kindScreen, title: "Stalker", genres: map[string]bool{"science fiction": true}}
-	pool := []workRef{near, far}
+// So this asks the endpoint. The library is two clusters — one film and one
+// author whose works belong together, and a set of unrelated works — and the rule
+// is the same whichever direction the card turns out to be: at EASY no wrong
+// answer may come from the answer's own cluster, and at MEDIUM the close ones are
+// what the deck is for.
+func TestEasyOffersWrongAnswersFromOutsideTheAnswersOwnWork(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
 
-	if distractorScore(own, near) <= distractorScore(own, far) {
-		t.Fatal("the fixture is wrong: `near` must score above `far` or this measures nothing")
-	}
-	for _, tc := range []struct {
-		tier  string
-		first string
-	}{
-		{tierEasy, far.key},
-		{tierMedium, near.key},
-		{tierHard, near.key},
-	} {
-		got := rankWorks(own, pool, seededRand(7), tc.tier)
-		if got[0].key != tc.first {
-			t.Errorf("%s ranks %q first, want %q", tc.tier, got[0].key, tc.first)
+	// THE NEAR CLUSTER: two Austen books, so a same-author lure exists to be
+	// avoided or reached for.
+	near := map[string]bool{}
+	for _, w := range []struct{ title, author string }{{"Emma", "Austen"}, {"Persuasion", "Austen"}} {
+		near[w.title] = true
+		book := decode[bookDetail](t, c.mustDo("POST", "/books",
+			map[string]any{"title": w.title, "author": w.author}, http.StatusCreated))
+		for i := 0; i < 3; i++ {
+			c.mustDo("POST", "/annotations", map[string]any{"book_id": book.ID,
+				"quote": w.title + " line " + itoa(int64(i)) + ": the sleeper must awaken and the spice must flow"},
+				http.StatusCreated)
 		}
+	}
+	// THE FAR CLUSTER: unrelated works by other people.
+	for _, w := range []struct{ title, author string }{
+		{"Dune", "Herbert"}, {"Neuromancer", "Gibson"}, {"Villette", "Bronte"},
+	} {
+		book := decode[bookDetail](t, c.mustDo("POST", "/books",
+			map[string]any{"title": w.title, "author": w.author}, http.StatusCreated))
+		c.mustDo("POST", "/annotations", map[string]any{"book_id": book.ID,
+			"quote": w.title + " line: a different sentence entirely about other things"}, http.StatusCreated)
+	}
+	ageSeededItems(t, srv)
+
+	// "Which book is this from?" alone, so every card has options and the
+	// clusters are visible in them. A deck of typed blanks would measure nothing.
+	c.mustDo("PUT", "/auth/me/preferences",
+		map[string]any{"srQuestions": `{"daily":["source"]}`}, http.StatusOK)
+
+	offers := func(tier string) (fromNear, cards int) {
+		t.Helper()
+		c.mustDo("PUT", "/auth/me/preferences", map[string]any{"srTier": tier}, http.StatusOK)
+		deck := decode[reviewDeckResp](t, c.mustDo("GET", "/review/daily", nil, 200))
+		for _, it := range deck.Items {
+			if len(it.Options) == 0 {
+				continue
+			}
+			cards++
+			for i, o := range it.Options {
+				if i == it.Answer {
+					continue
+				}
+				if near[o] && near[it.Title] {
+					fromNear++
+				}
+			}
+		}
+		return
+	}
+
+	easyNear, easyCards := offers(tierEasy)
+	if easyCards == 0 {
+		t.Fatal("an easy deck with no option-bearing card measures nothing")
+	}
+	if easyNear != 0 {
+		t.Errorf("an easy round offered %d wrong answers from the answer's own cluster — "+
+			"easy is supposed to keep them far apart, which is what five documents say", easyNear)
+	}
+
+	medNear, medCards := offers(tierMedium)
+	if medCards == 0 {
+		t.Fatal("a medium deck with no option-bearing card measures nothing")
+	}
+	if medNear == 0 {
+		t.Error("a medium round offered no close wrong answer at all — competitive lures are " +
+			"what medium is, and a test where neither tier reaches them proves nothing about either")
+	}
+}
+
+// AND THE SAME RULE ON THE PATH THAT HAS NO SCORE TO INVERT. attachSpeaker ranks
+// by membership of the answer's own cast rather than by distractorScore, so
+// "far" there means looking outside the work first — a second place the same
+// inversion has to be made, and the one the endpoint test above would catch only
+// when the deck happened to serve a speaker card.
+func TestAnEasySpeakerCardLooksOutsideTheAnswersOwnFilm(t *testing.T) {
+	own := workRef{key: "screen:1", kind: kindScreen, title: "Heat", cast: heatCast}
+	others := []workRef{
+		{key: "screen:2", kind: kindScreen, title: "Stalker", cast: []string{"Alexander Kaidanovsky", "Anatoly Solonitsyn"}},
+		{key: "screen:3", kind: kindScreen, title: "Solaris", cast: []string{"Donatas Banionis", "Natalya Bondarchuk"}},
+	}
+	p := quizPools{byKey: map[string]workRef{own.key: own}, works: append([]workRef{own}, others...)}
+	inHeat := map[string]bool{}
+	for _, a := range heatCast {
+		inHeat[a] = true
+	}
+
+	build := func(tier string) []string {
+		t.Helper()
+		card := reviewCard{Kind: kindScreen, ID: 1, Direction: dirSpeaker,
+			Quote: "Don't let yourself get attached", Title: "Heat", Character: "Neil", Actor: "Robert De Niro"}
+		if !attachSpeaker(&card, "screen:1", p, 99, tier) {
+			t.Fatalf("%s: no speaker card from a five-strong cast", tier)
+		}
+		return card.Options
+	}
+
+	for i, o := range build(tierEasy) {
+		if o == "Robert De Niro" {
+			continue // the answer itself
+		}
+		if inHeat[o] {
+			t.Errorf("an easy speaker card offered %q (option %d) — a face from the answer's own "+
+				"billing is the closest lure in the library, not the farthest", o, i)
+		}
+	}
+	// And medium still reaches for the same film, which is what makes it a
+	// question about the film rather than about familiarity.
+	sameFilm := 0
+	for i, o := range build(tierMedium) {
+		if o != "Robert De Niro" && inHeat[o] {
+			sameFilm++
+			_ = i
+		}
+	}
+	if sameFilm == 0 {
+		t.Error("a medium speaker card offered nobody from the answer's own film — that is the ranking, " +
+			"and losing it would make medium easier than it has always been")
 	}
 }
 

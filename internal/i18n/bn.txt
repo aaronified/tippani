@@ -1780,7 +1780,7 @@ quiz.tuning.ladder-3.hint = তিন নম্বর ধাপ, তিন ম�
 quiz.tuning.ladder-4.label = সিঁড়ির ধাপ 4
 quiz.tuning.ladder-4.hint = সবচেয়ে উপরের ধাপ। ঠিক উত্তর আসতে থাকলে কার্ড এখানেই থেকে যায়। ফাঁক নিয়ে যত গবেষণা আছে তা এক বছর পর্যন্তই মেপেছে, তাই এখানেই থামে।
 
-# Under the three ladder sliders when they are not in ascending order. The
+# Under the four ladder sliders when they are not in ascending order. The
 # panel refuses rather than letting the server silently revert them.
 quiz.tuning.ladder.error = চারটে ধাপ উপরে উঠতে হবে — প্রতিটা আগেরটার চেয়ে লম্বা।
 

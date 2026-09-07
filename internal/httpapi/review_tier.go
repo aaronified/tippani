@@ -196,3 +196,13 @@ func tierPrefers(tier string) string {
 func tierMinOptions(tier string) int {
 	return min(speakerMinOptions, tierOptions(tier))
 }
+
+// tierPrefersFarLures — does this tier want the wrong answers OBVIOUSLY wrong?
+//
+// The same question rankWorks answers by inverting its comparator, asked where
+// there is no score to invert: attachSpeaker ranks by membership of the answer's
+// own cast rather than by distractorScore, so "far" there means looking outside
+// the work first. Named rather than spelled `tier == tierEasy` at each site,
+// because the two places that ask it must not drift apart — an Easy card that
+// drew far titles and close faces would be two tiers in one round.
+func tierPrefersFarLures(tier string) bool { return tier == tierEasy }
