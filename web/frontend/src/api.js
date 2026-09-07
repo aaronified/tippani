@@ -41,7 +41,7 @@ async function parse(r) {
 async function send(url, opts) {
   let res
   try {
-    res = await fetch(apiURL(url), opts)
+    res = await globalThis.fetch(apiURL(url), opts)
   } catch {
     return { ok: false, status: 0, data: null }
   }
@@ -113,7 +113,7 @@ export function uploadWithProgress(url, form, onProgress) {
 // export endpoints, which stream markdown rather than JSON). Same-origin, so the
 // browser adds Sec-Fetch-Site + cookies for the CSRF/auth checks.
 export async function downloadPost(url, body, filename) {
-  const r = await fetch(apiURL(url), {
+  const r = await globalThis.fetch(apiURL(url), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),

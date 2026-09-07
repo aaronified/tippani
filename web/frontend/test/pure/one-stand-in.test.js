@@ -28,6 +28,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { parse } from '@babel/parser'
+import traverseModule from '@babel/traverse'
 
 import { declaredIn } from '../css-cascade.js'
 import { readSource, sourcesUnder } from '../src-files.js'
@@ -245,12 +246,83 @@ function handlerIn(tag) {
   return '' // unbalanced — the tag was cut short, so it is not asking
 }
 
+const traverse = traverseModule.default || traverseModule
+
+// DOES THIS <img>'s onError ACT? Answered on the AST, with the file's real scope
+// chain, because the textual answer below was escapable three ways and a rater
+// walked out through all three:
+//
+//   AN ALIAS OF AN ALIAS. `const noop = () => {}` then `const onImgError = noop`
+//   — the textual resolution took one step and then had no text left to take the
+//   second with, so an unresolvable name was accepted.
+//
+//   A NAME BORROWED FROM ANOTHER SCOPE. A real handler called `onBroken` in one
+//   component launders an empty `onBroken` in another, because a search of the
+//   file's text has no idea which one is in scope where.
+//
+//   ITS OWN NAME IN A COMMENT. Only `/* */` was stripped from the tag, so a `//`
+//   line inside an expression container — legal JSX, and this codebase writes
+//   multi-line style objects — put the word `onError=` in the tag without an
+//   attribute behind it.
+//
+// `path.scope.getBinding` answers all three exactly, and the parser does not see
+// comments at all. Returns one boolean per <img>, in document order, or null when
+// the text does not parse — the synthetic fragments below do not, and those fall
+// back to the textual rule.
+function actsIn(node, scope, seen = new Set()) {
+  if (!node) return false
+  if (node.type === 'JSXExpressionContainer') return actsIn(node.expression, scope, seen)
+  if (node.type === 'ArrowFunctionExpression' || node.type === 'FunctionExpression') {
+    return anyNode(node.body, (n) => ACTS.has(n.type))
+  }
+  if (node.type === 'NullLiteral' || node.type === 'StringLiteral') return false
+  if (node.type === 'Identifier') {
+    if (node.name === 'undefined' || seen.has(node.name)) return false
+    seen.add(node.name)
+    const binding = scope?.getBinding(node.name)
+    // No binding, an import, or a parameter: the body is somewhere this rule
+    // cannot read, and refusing those would make it unsatisfiable.
+    if (!binding) return true
+    const p = binding.path
+    if (p.isVariableDeclarator()) return actsIn(p.node.init, p.scope, seen)
+    if (p.isFunctionDeclaration()) return anyNode(p.node.body, (n) => ACTS.has(n.type))
+    return true
+  }
+  return node.type === 'MemberExpression' || node.type === 'CallExpression'
+    || node.type === 'OptionalMemberExpression' || node.type === 'OptionalCallExpression'
+}
+
+function askingByAst(text) {
+  let ast
+  try {
+    ast = parse(text, { sourceType: 'module', plugins: ['jsx', 'classProperties'] })
+  } catch {
+    return null
+  }
+  const out = []
+  traverse(ast, {
+    JSXOpeningElement(path) {
+      if (path.node.name?.name !== 'img') return
+      const attr = path.node.attributes.find((a) => a.type === 'JSXAttribute' && a.name?.name === 'onError')
+      out.push(attr ? actsIn(attr.value, path.scope) : false)
+    },
+  })
+  return out
+}
+
 const ASKS = (tag, text = '') => {
   const body = handlerIn(tag)
   return body !== null && body !== '' && doesSomething(body, text)
 }
-const unguarded = (text) => portraitTags(text)
-  .filter(({ tag, expr }) => OF_A_PERSON.test(expr) && !ASKS(tag, text))
+const unguarded = (text) => {
+  const tags = portraitTags(text)
+  // THE AST WHERE THE TEXT PARSES, the textual rule where it does not. The two
+  // walk `<img>` in the same order, so they are zipped by index — and the count
+  // has to agree, or the AST is answering about different tags and is not used.
+  const asked = askingByAst(text)
+  const byAst = asked && asked.length === tags.length
+  return tags.filter(({ tag, expr }, i) => OF_A_PERSON.test(expr) && !(byAst ? asked[i] : ASKS(tag, text)))
+}
 
 describe('the stand-in for a picture', () => {
   it('is drawn only by the components that ask whether the picture arrived', () => {
@@ -328,6 +400,11 @@ describe('a picture of a person or a character', () => {
       'an empty handler behind a const': 'const noop = () => {}\nexport const A = () => <img src={coverImgURL(c.image_path)} onError={noop} alt="" />',
       'an empty handler behind a function declaration': 'function shrug() {}\nexport const A = () => <img src={coverImgURL(c.image_path)} onError={shrug} alt="" />',
       'a named handler that returns instead of acting': 'const swallow = (e) => null\nexport const A = () => <img src={coverImgURL(c.image_path)} onError={swallow} alt="" />',
+      // THE THREE A RATER WALKED OUT THROUGH, each of which passed the textual
+      // rule. They are the reason the question is asked on the AST.
+      'an alias of an alias': 'const noop = () => {}\nconst onImgError = noop\nexport const A = () => <img src={coverImgURL(c.image_path)} onError={onImgError} alt="" />',
+      'a name borrowed from another scope': 'function Other() { const onBroken = () => setBroken(true); return <b onClick={onBroken} /> }\nfunction Card() { const onBroken = () => {}; return <img src={coverImgURL(c.image_path)} onError={onBroken} alt="" /> }',
+      'its own name written in a line comment inside the tag': 'export const A = () => <img src={coverImgURL(c.image_path)} style={{\n  // onError={boom}\n  color: "red",\n}} alt="" />',
       'the word onError typed in a comment': '<img src={coverImgURL(c.image_path)} /* onError */ alt="" />',
     }
     for (const [what, code] of Object.entries(shapes)) {

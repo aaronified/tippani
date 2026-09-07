@@ -35,7 +35,7 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import puppeteer from 'puppeteer-core'
 
 import { HARNESS_ACCOUNT, emulateEngineMedia, ensureSession, findBrowser, launchOptions } from './capture.mjs'
-import { failing, judge, say } from './ratchet.mjs'
+import { exitCode, failing, judge, say } from './ratchet.mjs'
 
 const opts = {
   baseUrl: 'http://127.0.0.1:8080', timeoutMs: 30000, width: 1280, height: 1000, only: '',
@@ -73,6 +73,12 @@ for (let i = 2; i < process.argv.length; i++) {
   }
 }
 
+// AND THE NAME HAS TO BE ONE THIS FILE KNOWS. `--fixture bakcup` is a typo, and a
+// typo yields no ceiling, and no ceiling is not a failure — so the run reported
+// clean while guarding nothing, which is the same silence one letter further on.
+// Checked after the baseline is read, below; the refusal for a MISSING name is
+// here because it needs nothing.
+//
 // A RUN HAS TO NAME ITS SHELF. Without this the ratchet is simply OFF — a missing
 // ceiling is not a failure (see the baseline block), so a run with no `--fixture`
 // prints its counts, compares them to nothing, and exits 0. That is the same
@@ -88,6 +94,28 @@ if (!opts.fixture) {
     'The touch-floor ceiling is a fact about a library — a bigger one draws more\n' +
     'controls — so a run that does not say which is compared against nothing and\n' +
     'passes whatever it measures.')
+  process.exit(2)
+}
+
+const baselineFile = new URL('./controls-baseline.json', import.meta.url)
+let baseline = {}
+try {
+  baseline = JSON.parse(readFileSync(baselineFile, 'utf8'))
+} catch { /* no baseline yet: the first run writes one with --update-baseline */ }
+
+// A SHELF NOBODY HAS HEARD OF IS A TYPO, unless this run is the one recording it.
+// `--fixture bakcup` measured thirty surfaces against nothing and reported `ok`,
+// because a typo yields no ceiling and no ceiling is not a failure — the same
+// silence the per-library key was introduced to end, one letter further on.
+//
+// ASKED BEFORE THE BROWSER STARTS. The first version of this check sat beside the
+// baseline at the foot of the file, so a mistyped shelf still cost fifty minutes
+// before being told it was a typo.
+if (!opts.updateBaseline && !baseline[opts.fixture]) {
+  console.error(`controls.mjs: no ceiling has ever been recorded for "${opts.fixture}". ` +
+    `Known: ${Object.keys(baseline).join(', ') || '(none)'}.\n` +
+    'If that is a typo, fix it. If it is a new library, run it once with --update-baseline,\n' +
+    'which records AND judges in the same run.')
   process.exit(2)
 }
 
@@ -1015,11 +1043,6 @@ const RATCHETS = ['small', 'labelled']
 // no ceiling and says so on every line — the same loud-nothing this file already
 // does for a width nobody has recorded. `run-controls.sh` passes `--fixture seed`;
 // a run through `run-with-backup.sh` passes `--fixture backup`.
-const baselineFile = new URL('./controls-baseline.json', import.meta.url)
-let baseline = {}
-try {
-  baseline = JSON.parse(readFileSync(baselineFile, 'utf8'))
-} catch { /* no baseline yet: the first run writes one with --update-baseline */ }
 const key = String(opts.width)
 const shelf = opts.fixture || '(unnamed)'
 const bar = (baseline[opts.fixture] || {})[key] || {}
@@ -1037,7 +1060,15 @@ if (opts.updateBaseline && !opts.fixture) {
   console.log('\n--update-baseline needs --fixture: a ceiling is a fact about a library, and an unnamed one cannot be compared to anything')
   process.exit(1)
 }
-if (opts.updateBaseline) {
+// AND A CEILING IS NEVER RECORDED FROM A RUN THAT DID NOT MEASURE THE APP. A
+// surface that did not render measured less than there is, so its counts are a
+// floor of the harness rather than of the app — and recording those is how a
+// ceiling of 0 gets written by a run against a server that was not there, after
+// which every real run reads as slack or, worse, as clean. Found by a test of
+// this file writing a shelf called `bakcup` into the repository.
+if (opts.updateBaseline && findings.blank.length) {
+  console.log(`\nNOT RECORDING: ${findings.blank.length} surface(s) did not render, so this run measured the harness and not the app.`)
+} else if (opts.updateBaseline) {
   baseline[opts.fixture] = baseline[opts.fixture] || {}
   baseline[opts.fixture][key] = Object.fromEntries(RATCHETS.map((k) => [k, findings[k].length]))
   writeFileSync(baselineFile, JSON.stringify(baseline, null, 2) + '\n')
@@ -1059,4 +1090,15 @@ for (const r of failing(rows)) {
   else console.log(`\n${r.k} FELL to ${r.n} and the ceiling still says ${r.was}. Record it, or the ${r.was - r.n} controls you just won pay for the next ${r.was - r.n} lost.`)
 }
 if (failed.length) console.log(`\nFAIL  ${failed.join(', ')}`)
-process.exit(failed.length || failing(rows).length ? 1 : 0)
+
+// AND A RUN WHOSE RATCHET WAS NEVER JUDGED DOES NOT REPORT SUCCESS. An unrecorded
+// ceiling is deliberately not a REGRESSION — failing there is how a ratchet gets
+// deleted rather than filled in — but exiting 0 says "this width is guarded", and
+// it is not. Three is the difference: the app was clean AND the touch floor was
+// not measured against anything. One flag turns it into a recorded run.
+const unratcheted = rows.filter((r) => r.state === 'unrecorded')
+if (unratcheted.length && !failed.length && !failing(rows).length) {
+  console.log(`\nUNRATCHETED  ${unratcheted.map((r) => r.k).join(', ')} at ${key}px for ${shelf} — ` +
+    'nothing here was compared to anything. Re-run with --update-baseline to record it.')
+}
+process.exit(exitCode(failed.length > 0, rows))

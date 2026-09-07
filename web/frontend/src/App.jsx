@@ -154,11 +154,11 @@ export default function App() {
   const [checking, setChecking] = useState(true)
 
   useEffect(() => {
-    fetch(apiURL('/auth/me'))
+    globalThis.fetch(apiURL('/auth/me'))
       .then((r) => (r.ok ? r.json() : null))
       .then((u) => {
         if (u) return setUser(u)
-        return fetch(apiURL('/auth/status'))
+        return globalThis.fetch(apiURL('/auth/status'))
           .then((r) => r.json())
           .then((s) => {
             setNeedsOnboarding(s.needs_onboarding)
@@ -264,7 +264,7 @@ export default function App() {
 
 // refreshMe loads the full session user (including is_admin + preferences).
 async function refreshMe() {
-  const r = await fetch(apiURL('/auth/me'))
+  const r = await globalThis.fetch(apiURL('/auth/me'))
   return r.ok ? r.json() : null
 }
 
@@ -284,7 +284,7 @@ function CredentialForm({ header, action, cta, microcopy, film = false, onSucces
     setError('')
     setBusy(true)
     try {
-      const r = await fetch(apiURL(action), {
+      const r = await globalThis.fetch(apiURL(action), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password }),
@@ -1805,7 +1805,7 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
   }
 
   async function logout() {
-    await fetch(apiURL('/auth/logout'), { method: 'POST' })
+    await globalThis.fetch(apiURL('/auth/logout'), { method: 'POST' })
     onLogout()
   }
 

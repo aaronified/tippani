@@ -62,14 +62,19 @@ const traverse = traverseModule.default || traverseModule
 // all, so it is not a global here — it is the exact crash this file exists to
 // catch, whitelisted.
 //
-// TWO SURVIVED THE MECHANICAL PRUNE, because they were genuinely in use AND
-// genuinely app-shaped: `Image` and `File`. The prune answers "is this name read
-// anywhere", not "could this app bind it" — a rater proved the gap with
-// `function Parent({ Image, File })` read by a child, which stayed invisible. The
-// two sites now write `new window.Image()` and `new window.File(...)`, which is
-// what they mean, and both names are off the list. That is the rule stated
-// properly: a window API is written `window.X`, and then nothing app-shaped needs
-// excusing at all.
+// THREE SURVIVED THE MECHANICAL PRUNE, because they were genuinely in use AND
+// genuinely app-shaped: `Image`, `File` and `fetch`. The prune answers "is this
+// name read anywhere", not "could this app bind it" — a rater proved the gap
+// twice, with `function Parent({ Image, File })` and then with `{ fetch }`, both
+// invisible. Their sites write `new window.Image()`, `new window.File(...)` and
+// `window.fetch(...)`, which is what they mean.
+//
+// AND THE JUDGEMENT IS WRITTEN DOWN RATHER THAN REPEATED. `NEVER` below is the
+// set of window globals whose names this app could plausibly bind — a prop, a
+// state setter, a local — and no name in it may appear on the list above,
+// whatever the tree happens to read. That is a judgement, and it was got wrong
+// twice by being kept in somebody's head; as data it is checked on every run and
+// can be argued with by reading one line.
 //
 // AND THE PRUNING IS NOT A JUDGEMENT ANY MORE. Removing those eight by hand left
 // `location` behind, and a rater found it the same afternoon — so the rule is now
@@ -79,18 +84,31 @@ const traverse = traverseModule.default || traverseModule
 // which is the one line of upkeep the rule costs, and is the point: the name gets
 // on the list on the day the app can be checked against it, not years before.
 const PLATFORM = new Set([
-  'window', 'document', 'navigator', 'console', 'fetch', 'Response', 'FormData', 'URL',
-  'URLSearchParams', 'setTimeout', 'clearTimeout', 'requestAnimationFrame',
-  'cancelAnimationFrame', 'requestIdleCallback', 'localStorage', 'matchMedia',
-  'getComputedStyle', 'ResizeObserver', 'IntersectionObserver', 'MutationObserver', 'Intl',
-  'Math', 'JSON', 'Date', 'Number', 'String', 'Boolean', 'Object', 'Array', 'Map', 'Set',
-  'WeakMap', 'Promise', 'RegExp', 'parseInt', 'parseFloat', 'encodeURIComponent',
-  'undefined', 'Uint8Array', 'TextDecoder', 'CustomEvent', 'AbortSignal', 'Infinity',
-  'XMLHttpRequest', 'FontFace', 'DOMMatrix', 'HTMLInputElement',
+  'window', 'document', 'navigator', 'console', 'FormData', 'URL', 'URLSearchParams',
+  'setTimeout', 'clearTimeout', 'requestAnimationFrame', 'cancelAnimationFrame',
+  'requestIdleCallback', 'localStorage', 'matchMedia', 'getComputedStyle',
+  'ResizeObserver', 'IntersectionObserver', 'MutationObserver', 'Intl', 'Math', 'JSON',
+  'Date', 'Number', 'String', 'Boolean', 'Object', 'Array', 'Map', 'Set', 'WeakMap',
+  'Promise', 'RegExp', 'parseInt', 'parseFloat', 'encodeURIComponent', 'undefined',
+  'Uint8Array', 'TextDecoder', 'CustomEvent', 'AbortSignal', 'Infinity', 'XMLHttpRequest',
+  'FontFace', 'DOMMatrix', 'HTMLInputElement', 'globalThis',
 ])
 
 // EVERY unbound name in a file, before the allow-list is applied — because the
 // list itself has to be checked against them (see the third case).
+// The window globals this app could plausibly bind itself. Not "every English
+// word" — `document` and `console` are not names anyone gives a prop — but every
+// one that reads like a variable in an interface: a verb, a noun, a constructor
+// for a thing this app has its own idea of. A name here is written `window.X` at
+// its call sites, so a child reading a missing one throws or is caught instead of
+// silently taking the browser's.
+const NEVER = new Set([
+  'open', 'close', 'print', 'screen', 'name', 'status', 'top', 'parent', 'self', 'length',
+  'event', 'focus', 'blur', 'find', 'stop', 'scroll', 'origin', 'frames', 'closed',
+  'location', 'history', 'fetch', 'Image', 'File', 'Request', 'Response', 'Headers',
+  'Notification', 'Selection', 'Range', 'Text', 'Comment', 'Option', 'Audio', 'Worker',
+])
+
 function unboundIn(rel) {
   const code = readSource(rel)
   const ast = parse(code, {
@@ -141,9 +159,20 @@ describe('every name a module reads', () => {
       `,
       // The two that survived the mechanical prune by being in use — until the
       // sites that used them said `window.` and meant it.
-      'a parent’s prop named after a constructor': `
-        function Parent({ Image, File }) { return <Kid /> }
-        function Kid() { return <span>{new Image()}{new File([])}</span> }
+      // ONE SHAPE EACH, because a case that asserts "something was found" is
+      // satisfied by either name — so putting `Image` back on the list left it
+      // green, and the register said both were caught.
+      'a parent’s prop named Image': `
+        function Parent({ Image }) { return <Kid /> }
+        function Kid() { return <span>{new Image()}</span> }
+      `,
+      'a parent’s prop named File': `
+        function Parent({ File }) { return <Kid /> }
+        function Kid() { return <span>{new File([])}</span> }
+      `,
+      'a parent’s prop named fetch': `
+        function Parent({ fetch }) { return <Kid /> }
+        function Kid() { return <button onClick={() => fetch('/x')} /> }
       `,
     }
     for (const [what, code] of Object.entries(shapes)) {
@@ -152,6 +181,16 @@ describe('every name a module reads', () => {
       traverse(ast, { Program(path) { found = Object.keys(path.scope.globals).filter((n) => !PLATFORM.has(n)) } })
       expect(found.length, `${what} is invisible to the check`).toBeGreaterThan(0)
     }
+  })
+
+  it('and never excuses a name this app could bind itself', () => {
+    // THE JUDGEMENT AS DATA. Removing the idle names is mechanical and does not
+    // answer this question: `Image`, `File` and `fetch` were all genuinely read,
+    // and all three are names an interface gives its own things. A rater found
+    // each of them after a previous pass had declared the class closed.
+    const risky = [...PLATFORM].filter((n) => NEVER.has(n))
+    expect(risky, `the allow-list excuses ${risky.join(', ')} — names this app could bind itself, so a child reading a missing one takes the browser's instead of being caught. Write window.${risky[0] || 'X'} at the call sites and take the name off.`)
+      .toEqual([])
   })
 
   it('and every global the list excuses is one this app really reaches for', () => {

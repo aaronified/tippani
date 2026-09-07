@@ -37,7 +37,7 @@ const SHOTS = join(REPO, 'scripts', 'screenshots')
 // BY ABSOLUTE URL, because the probe lives outside the frontend's Vite root and a
 // relative specifier would be resolved against it. Same file the probe imports —
 // a copy of the arithmetic here would be a test of the copy.
-const { SLACK, failing, judge } = await import(pathToFileURL(join(SHOTS, 'ratchet.mjs')).href)
+const { SLACK, exitCode, failing, judge } = await import(pathToFileURL(join(SHOTS, 'ratchet.mjs')).href)
 
 const baseline = JSON.parse(readFileSync(join(SHOTS, 'controls-baseline.json'), 'utf8'))
 const harness = readFileSync(join(SHOTS, 'run-controls.sh'), 'utf8')
@@ -140,6 +140,47 @@ describe('the controls ratchet', () => {
     // filled in. Loud, every run, until somebody records it — but not a failure.
     expect(at({ small: 187 }, {}), 'a width nobody has recorded is judged as if it had').toEqual({ small: 'unrecorded' })
     expect(failing(judge({ small: 187 }, {})), 'an unrecorded ceiling fails the run, so the ratchet gets deleted rather than filled in').toEqual([])
+  })
+
+  it('and a run whose ratchet was never judged does not report success', () => {
+    // 0 SAYS "THIS WIDTH IS GUARDED", and an unrecorded ceiling means it is not.
+    // Failing (1) would make a width nobody has recorded impossible to run, which
+    // is how a ratchet gets deleted rather than filled in; 3 is the difference —
+    // the app came back clean AND nothing was compared to anything.
+    const rows = (counts, bar) => judge(counts, bar)
+    expect(exitCode(false, rows({ small: 187 }, { small: 187 })), 'a clean, ratcheted run is not 0').toBe(0)
+    expect(exitCode(false, rows({ small: 187 }, {})), 'an unratcheted run reported success').toBe(3)
+    expect(exitCode(true, rows({ small: 187 }, { small: 187 })), 'a dead control did not fail the run').toBe(1)
+    expect(exitCode(false, rows({ small: 188 }, { small: 187 })), 'a risen count did not fail the run').toBe(1)
+    // A REAL FAILURE OUTRANKS AN UNRECORDED ONE. Otherwise a width with no ceiling
+    // downgrades a dead control to "clean but unmeasured".
+    expect(exitCode(true, rows({ small: 187 }, {})), 'a dead control was downgraded by a missing ceiling').toBe(1)
+  })
+
+  it('and refuses a shelf it has never heard of, before the browser starts', () => {
+    // `--fixture bakcup` measured thirty surfaces against nothing and said `ok`,
+    // because a typo yields no ceiling and no ceiling is not a failure — the same
+    // silence one letter further on. The first version of the check sat beside the
+    // baseline at the foot of the file, so the typo still cost fifty minutes.
+    const dead = ['--base-url', 'http://127.0.0.1:1', '--width', '390']
+    const typo = spawnSync(process.execPath, [join(SHOTS, 'controls.mjs'), ...dead, '--fixture', 'bakcup'], { encoding: 'utf8' })
+    expect(typo.status, 'a shelf with no ceiling ran anyway').toBe(2)
+    expect(`${typo.stderr}${typo.stdout}`, 'it refused without naming the shelves it knows').toMatch(/seed/)
+    expect(typo.stdout, 'it walked the app before deciding the shelf was a typo').not.toMatch(/presses/)
+
+    // And recording a NEW shelf is still possible, or a first run could never
+    // happen and the ratchet could only ever shrink.
+    const fresh = spawnSync(process.execPath, [join(SHOTS, 'controls.mjs'), ...dead, '--fixture', 'bakcup', '--update-baseline'], { encoding: 'utf8' })
+    expect(fresh.status, 'a new shelf cannot be recorded, so the ratchet can only ever shrink').not.toBe(2)
+
+    // AND IT WROTE NOTHING, because that run measured a server that was not
+    // there. This case USED TO WRITE a shelf called `bakcup` into the committed
+    // baseline — a test dirtying the repository it guards — and the repair is the
+    // rule it exposed: a ceiling from a run where nothing rendered is a floor of
+    // the harness, not of the app, and recording one turns every later run into
+    // slack or, worse, into "clean".
+    expect(readFileSync(join(SHOTS, 'controls-baseline.json'), 'utf8'), 'a run that measured nothing recorded a ceiling anyway')
+      .not.toMatch(/bakcup/)
   })
 
   it('and has a ceiling at every width the harness actually runs', () => {

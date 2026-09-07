@@ -38,6 +38,19 @@ import { sourcesUnder } from '../src-files.js'
 
 const TESTS = join(process.env.TIPPANI_SRC, '..', 'test')
 
+// NOT `readdirSync\s*\(`, WHICH IS WHAT THIS FIRST LOOKED FOR. Requiring the
+// call parenthesis made `import { readdirSync as ls }` invisible — the name is
+// there, the call is not, and the guard that is meant to catch a NEW hand-rolled
+// walk was walked past by an alias. The name alone is enough, and the other ways
+// to list a directory are named beside it.
+const READS_A_DIRECTORY = /\b(?:readdirSync|readdir|opendirSync|opendir|globSync|readdirp)\b/
+
+// AND PROSE IS NOT CODE. Half the files in this suite explain in a comment what
+// `readdirSync` does and why they stopped calling it — `one-stand-in.test.js`
+// says so in the paragraph directly above the shared walk it now uses — so a
+// match against the raw text reported the very conversions this counts.
+const withoutComments = (src) => src.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1')
+
 // Every file under test/ that reads a directory itself. Named, not counted, so
 // the failure says WHICH one is new.
 //
@@ -49,7 +62,7 @@ function handRolled(dir = TESTS, base = '', out = []) {
     const rel = base ? `${base}/${e.name}` : e.name
     if (e.isDirectory()) handRolled(join(dir, e.name), rel, out)
     else if (/\.(js|jsx)$/.test(e.name) && rel !== 'src-files.js'
-      && /\breaddirSync\s*\(/.test(readFileSync(join(dir, e.name), 'utf8'))) out.push(rel)
+      && READS_A_DIRECTORY.test(withoutComments(readFileSync(join(dir, e.name), 'utf8')))) out.push(rel)
   }
   return out
 }

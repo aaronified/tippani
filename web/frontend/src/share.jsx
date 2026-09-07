@@ -827,7 +827,7 @@ function QuoteImagePanel({ share, selected, onShared, actionRef }) {
       try {
         const form = new FormData();
         form.append("file", blob, "tippani-quote.png");
-        const r = await fetch(apiURL("/share/image"), { method: "POST", body: form });
+        const r = await globalThis.fetch(apiURL("/share/image"), { method: "POST", body: form });
         if (r.ok) {
           const { url } = await r.json();
           const a = document.createElement("a");

@@ -20,9 +20,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { usePersonOpener } from '../../src/personOpen.jsx'
-import { sourcesUnder } from '../src-files.js'
-
-const SRC = join(process.cwd(), 'src')
+import { SRC, sourcesUnder } from '../src-files.js'
 
 // identity.jsx is heavy and pulls the world in; the router only needs to know
 // that `personPanel` was asked for, so the module is stubbed to say so.

@@ -489,6 +489,8 @@ better argument for it than any of the above.
 
 ## AA. The work-rater's ninth pass, 6 September
 
+Landed in `e0d56f3`.
+
 Scored **6/10**, against `b60c75c`. Two of its seven were already closed by `66a31a0`,
 which landed while it was reading; the other five were open and all five were real.
 
@@ -507,6 +509,8 @@ them used, every one of them a word this app also uses for its own things — a 
 had been made weaker by a list nobody was checking against the code it was excusing.
 
 ## AB. The gate that measured one library against another, 7 September
+
+Landed in `0cf9e0a`; the run that proved it in `a9acc85`.
 
 Not a rater's finding — this one came out of reading the run that was supposed to close
 the register. `make controls` exited 0 at both widths, and the number it printed at 390
@@ -539,6 +543,8 @@ ceiling stops the seeded run from drifting; only a backup run measures the app.
 
 ## AC. The work-rater's tenth pass, 7 September
 
+Landed in `0cf9e0a`, with the walk conversions in `fc4b720`, `a39c629` and `9f38573`.
+
 Scored **7/10**, against `66a31a0..e0d56f3`. It reached AB1 independently, from the
 committed baseline rather than from a run — which is the strongest thing that can be said
 for that finding. Four more, all real, all in the guards again.
@@ -548,7 +554,7 @@ for that finding. Four more, all real, all in the guards again.
 | AC1 | The 390 gate could not fail — the ceiling was the backup's, the run is the seed's | **See AB.** Found twice, from two directions, on the same afternoon |
 | AC2 | **`one-stand-in.test.js` passes green on an empty read** — narrowing its walk to `/\.zzz$/` leaves all seven cases passing. AA1's finding verbatim, in the sibling file the same commit edited, where the fix had been applied to one file and not the other | **FIXED, and not one file at a time.** The floor lives in the walk now: `test/src-files.js` is the one walk over `src/`, and it THROWS below its floor rather than returning a short list. Two floors — the tree's (a wrong `TIPPANI_SRC`) and the predicate's (an extension narrowed by a character). This is the repo's own directive applied to its tests: "it lives in one function that both screens call — not in a line each, which is how one of them goes on being right while the other quietly stops". **Twenty-two of the twenty-eight guards that walked by hand are converted** — most were a non-recursive `readdirSync(SRC).filter(...)` that had been skipping `src/demo/install.js`, and every one still passes with it in scope. The six that remain read a directory that is not the source tree (`web/dist`, `src/textures`, `docs/plans`, the repo), each named with its reason in `test/pure/one-walk.test.js`, which fails on any NEW guard that walks the tree by hand |
 | AC3 | **AA6's "burden the other way round" was false.** The new rule was a longer deny-list, not a judgement, and `async () => {}`, `() => false` and `() => {;}` all read as guards | **FIXED, and the claim was withdrawn before it was re-made.** The handler is PARSED and asked whether its body holds anything that can act — a call, an assignment, an increment, an await, a throw. All three of the rater's escapes fail it now, and four shapes this app really writes are shown to it too, because a rule that cannot be satisfied gets worked around instead of obeyed |
-| AC4 | **`location` survived AA2's own rule** — the app binds it at `Library.jsx:2548` and `share.jsx:150`, and removing it from the allow-list leaves the suite green. The same test that justified stripping the other eight | **FIXED, and the audit is mechanical now.** A third case asserts the list is EXACTLY the globals the tree reads. **57 of its 106 names were excusing nothing at all.** Doing it by hand removed eight and left the ninth; the mechanical rule needs no judgement about which names are risky. **It is not the whole claim, though**, and a later pass proved it: the prune answers "is this name read anywhere", not "could this app bind it", so `Image` and `File` survived by being genuinely in use and genuinely prop-shaped. Both sites say `new window.Image()` and `new window.File(...)` now — which is what they meant — and both names are off the list, so nothing app-shaped is excused at all. Its cost is one line of upkeep the first time the app uses `crypto` — which is the point: the name earns its place on the day there is something to check it against |
+| AC4 | **`location` survived AA2's own rule** — the app binds it at `Library.jsx:2548` and `share.jsx:150`, and removing it from the allow-list leaves the suite green. The same test that justified stripping the other eight | **FIXED, and the audit is mechanical now.** A third case asserts the list is EXACTLY the globals the tree reads. **57 of its 106 names were excusing nothing at all**, and four more came off later for being app-shaped, leaving 45. Doing it by hand removed eight and left the ninth; the mechanical rule needs no judgement about which names are risky. **It is not the whole claim, though**, and a later pass proved it: the prune answers "is this name read anywhere", not "could this app bind it", so `Image` and `File` survived by being genuinely in use and genuinely prop-shaped. Their sites say `window.` and mean it now, and the names are off the list. Its cost is one line of upkeep the first time the app uses `crypto` — which is the point: the name earns its place on the day there is something to check it against |
 | AC5 | **"all four red when either row is reverted" is wrong** — reverting one row fails that screen's two | **FIXED.** The sentence was written off a mutation run that reverted BOTH rows and read as if it had reverted one. Corrected in the register and in `AI.md`, with what actually happened |
 | AC6 | `object-fit: cover` on `.stat-face-round svg` is inert — the property is for a REPLACED element and `Silhouette` renders the markup itself | **FIXED.** The declaration is gone from the stylesheet with a comment saying why, and the assertion is replaced by one about what really decides the fit: the silhouette's own square `viewBox` under the default `preserveAspectRatio`. Making it 48×64 fails the case |
 
@@ -557,6 +563,8 @@ naming rather than smoothing over: the app's defects are being caught, and the t
 catching them are now the least-checked code in the repo.
 
 ## AD. The work-rater's eleventh pass, 7 September
+
+Landed in `bc4a70e`.
 
 Scored **6/10**, against `0cf9e0a`. Its first finding was already closed by two commits
 that landed while it was reading (`fc4b720`, `a39c629`); the other four were open, and one
@@ -567,7 +575,7 @@ matters.
 |---|---|---|
 | AD1 | The shared walk had two callers while the prose said the class was closed — and `AI.md`'s "every one is a list compared against `[]`" is false the other way: **thirteen of the seventeen carried floors of their own** | **ALREADY FIXED** by `fc4b720` and `a39c629` (28 → 6). The `AI.md` sentence is corrected: the habit existed and was simply not enforced, which is what made the two without it so easy to miss. The four with nothing at all are named |
 | AD2 | **An `onError` that does nothing still passed.** Any Identifier but `undefined` counted, so `onError={noop}` beside `const noop = () => {}` was a one-line escape — and `portraitTags` already resolves a bare `src` one step, so the handler was the half not given the same treatment | **FIXED.** A named handler is resolved one step through the file's own AST and then judged. Three new escapes fail; two real shapes stay green. **The first cut of the resolution was a regex over the flattened text and it reported a REAL handler as a no-op** — this codebase does not end its lines with semicolons, so `([^;]*?)(?:;\|$)` swallowed the `<img>` tag itself. That is the failure direction that gets a rule deleted |
-| AD3 | **The allow-list audit could not enforce its own rule.** It removes IDLE names; `Image` and `File` were app-shaped AND genuinely in use, so a child reading a parent's `Image` prop stayed invisible | **FIXED.** The three sites say `new window.Image()` and `new window.File(...)`, which is what they meant, and both names are off the list. A synthetic case shows the check `function Parent({ Image, File })` read by a child; putting either name back fails it. AC4's "cannot be got wrong" is corrected — the prune answers "is this read anywhere", not "could this app bind it" |
+| AD3 | **The allow-list audit could not enforce its own rule.** It removes IDLE names; `Image` and `File` were app-shaped AND genuinely in use, so a child reading a parent's `Image` prop stayed invisible | **FIXED.** The three sites say `new window.Image()` (twice) and `new window.File(...)`, which is what they meant, and both names are off the list. **One synthetic case per name**, because a case that asserts "something was found" is satisfied by either — so putting `Image` back left it green while the register said both were caught. AC4's "cannot be got wrong" is corrected: the prune answers "is this read anywhere", not "could this app bind it" |
 | AD4 | **The backup run was still silently unratcheted.** `run-with-backup.sh` passes `"$@"` through, so `--fixture` was carried only by a line in `CLAUDE.md` that a person types — and without it `controls.mjs` compares its counts to nothing and exits 0. AB2's exact failure, on the path AB itself calls the only one that measures the app | **FIXED.** `controls.mjs` REFUSES to run without `--fixture`, with exit 2 reserved for that refusal. Documenting the flag was what left the hole; a fifty-minute run that quietly guards nothing is worse than a refusal costing eight characters. **The first version of the test passed with the refusal deleted** — a probe with nowhere to connect exits 1 and prints "run with --fixture", the silent failure wearing the words of the fix — so the case pins exit 2 exactly and proves nothing else claims it |
 | AD5 | The `backup` shelf lost its 1280 ceiling in the re-key while AB asserted "0 / 0 under both shelves" | **FIXED, by correcting the sentence rather than the data.** The old `1280` entry does not say which library measured it, and copying a number into a shelf it was never measured on is the defect AB is about. A backup run at 1280 will say it has no ceiling until somebody records one |
 
@@ -576,6 +584,8 @@ seeded path, documented it on the backup path, and called the class fixed. A rul
 on one path and written down on the other is a rule enforced on one path.
 
 ## AE. The other half of a ratchet, 7 September
+
+Landed in `d0b8df0`.
 
 Not a rater's finding. `spacing-debt.test.js` has always carried two cases — the count may
 not rise, AND the ceiling may not be left behind by its own progress — and the controls
@@ -589,6 +599,29 @@ belonging to another library) without fixing the rule.
 
 **An unrecorded ceiling is deliberately not in the failing set**, and the case says so:
 failing there is how a ratchet gets deleted rather than filled in.
+
+## AF. The work-rater's twelfth pass, 7 September
+
+Scored **6/10**, against `0cf9e0a..bc4a70e`. Nine findings, every one real, and the first
+of them walks out of the previous pass's headline fix three separate ways.
+
+| # | Finding | Status |
+|---|---|---|
+| AF1 | **The `onError` rule was escapable three ways.** (a) An alias of an alias — the resolution took one step and then recursed with no text to take the second with. (b) A name borrowed from another scope: a real `onBroken` in one component launders an empty one in another, because a search of a file's TEXT has no idea what is in scope where. (c) Its own name in a `//` comment inside the tag, since only `/* */` was stripped | **FIXED, by asking the question on the AST.** `path.scope.getBinding` answers all three exactly and the parser does not see comments at all. Three new shapes, one per escape, and disabling the AST path fails them. The textual rule stays as the fallback for a fragment that does not parse, which is what the older synthetic shapes are |
+| AF2 | **AD3's correction named the wrong guard.** "Putting either name back fails it" was false: one case asserted that SOMETHING was found, so restoring `Image` alone left it green | **FIXED.** One shape per name — `Image`, `File`, and now `fetch` |
+| AF3 | **AC4's "nothing app-shaped is excused" was still an overclaim.** `fetch` is app-shaped by the file's own definition, and `function Parent({ fetch })` read by a child passed green | **FIXED, and the judgement is data now.** Nine `fetch(` calls say `globalThis.fetch(` — **not** `window.fetch(`, which is where the first attempt went and which broke `update-wait.test.js`: `api.js` is unit-tested in the `pure` project, where there is no `window` at all, and a call that only works in a browser is not the same claim as a call that names the global it means. `Response` went the same way. `NEVER` is the set of window globals this app could plausibly bind, asserted disjoint from the allow-list on every run — so the judgement that was got wrong three times in a row is checked rather than remembered |
+| AF4 | `person-router.test.jsx` kept `join(process.cwd(), 'src')` while taking its file list from the shared walk — the exact drift `9f38573` exists to end | **FIXED.** Its root is `src-files.js`'s |
+| AF5 | **`AI.md` said four guards stay green over an empty tree; the number is seven** | **FIXED, by measuring rather than by editing.** The floor was disabled and the suite run: `confirm-finality`, `nested-dismiss`, `person-router`, `infodot-copy`, `one-stand-in`, `pack-citations` and `typescale`. The earlier four was taken before the conversions and never re-measured |
+| AF6 | **`one-walk.test.js` matched `readdirSync\s*\(`**, so `import { readdirSync as ls }` was invisible — an alias walked past the guard against new hand-rolled walks | **FIXED.** The name alone is enough, five other directory readers are named beside it, and comments are stripped first — because half this suite explains in prose what it stopped calling, and the raw match reported the very conversions it counts |
+| AF7 | **`--fixture bakcup` measured thirty surfaces against nothing and said `ok`**, and a known shelf at an unrecorded width did the same | **FIXED, two ways.** An unknown shelf is refused before the browser starts (exit 2) unless the run is the one recording it. And a run whose ratchet was never judged exits **3** rather than 0: an unrecorded ceiling is still not a regression — failing there is how a ratchet gets deleted — but 0 says "this width is guarded", and it was not |
+| AF8 | `a9acc85` records a fifty-minute run in eleven doc lines with no artefact | **NOT A DEFECT, with the reason stated.** The artefact IS the baseline: the run's numbers are the file, and `make controls` reproduces them — twice now, at 187 and 9 both times. This repo does not commit run logs, and one would be a screenshot of a claim rather than the claim |
+| AF9 | Three counting slips: "twenty-eight" against a detector that exempts one file, "106" for a list that now holds 45, "both sites" for three | **FIXED**, each recounted |
+
+**And the test of AF7 wrote a shelf called `bakcup` into the committed baseline.** A test
+dirtying the repository it guards — found by reading `git status`, not by the test failing.
+The repair is the rule it exposed: `--update-baseline` now refuses to record from a run
+where any surface did not render, because those counts are a floor of the harness rather
+than of the app, and a ceiling of 0 recorded from a dead server reads as clean for ever.
 
 ## Withdrawn claims
 

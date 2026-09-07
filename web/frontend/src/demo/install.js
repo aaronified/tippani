@@ -1108,6 +1108,6 @@ export function installDemo() {
       try { body = JSON.parse(opts.body) } catch { /* multipart etc. — leave null */ }
     }
     const [status, respBody] = route(method, path, u.searchParams, body)
-    return new Response(JSON.stringify(respBody), { status, headers: { 'Content-Type': 'application/json' } })
+    return new window.Response(JSON.stringify(respBody), { status, headers: { 'Content-Type': 'application/json' } })
   }
 }

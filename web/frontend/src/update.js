@@ -15,7 +15,7 @@
 //      deadline and by the request context dying with the connection. Fixed
 //      server-side; it is why the symptom used to be "works on the box, not from
 //      my laptop".
-//   3. THE POLL COULD HANG FOR EVER. `await fetch(...)` has no timeout, and a
+//   3. THE POLL COULD HANG FOR EVER. `await globalThis.fetch(...)` has no timeout, and a
 //      connection that is ACCEPTED and never answered leaves the promise pending
 //      rather than rejecting — exactly what Docker's port proxy offers while the
 //      container behind it is being recreated. One poll landed in that window and

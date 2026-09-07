@@ -48,6 +48,19 @@ export function judge(counts, bar, slack = SLACK) {
 // The rows that must fail a run. `unrecorded` is not among them, on purpose.
 export const failing = (rows) => rows.filter((r) => r.state === 'rose' || r.state === 'slack')
 
+// WHAT THE RUN EXITS WITH, which is the only part of all this anybody reads.
+//
+// THREE IS THE ONE WORTH EXPLAINING. An unrecorded ceiling is deliberately not a
+// regression — failing there is how a ratchet gets deleted rather than filled in
+// — but exiting 0 tells a reader "this width is guarded", and it is not. Three
+// says the app came back clean AND the touch floor was measured against nothing.
+// One flag turns it into a recorded run.
+export function exitCode(anyFailingBucket, rows) {
+  if (anyFailingBucket || failing(rows).length) return 1
+  if (rows.some((r) => r.state === 'unrecorded')) return 3
+  return 0
+}
+
 export function say(row, width, shelf) {
   const { k, n, was } = row
   const at = `for ${shelf} at ${width}px`
