@@ -49,7 +49,13 @@ node seed-cast.mjs --base-url "http://$BIND" || true
 
 # Firefox refuses to start as root inside another user's X session, and this
 # harness has no use for a display either way.
-RUN=(env -u XAUTHORITY -u DISPLAY -u WAYLAND_DISPLAY node controls.mjs --base-url "http://$BIND")
+# `--fixture seed` NAMES THE SHELF THIS RUN IS AGAINST. The touch-floor count is a
+# fact about the library as much as about the app — a bigger library draws more
+# controls — so a ceiling recorded against the owner's backup says nothing about
+# this one. It was compared across the two for a while: the seeded run measures
+# 187 against a ceiling of 326, which is 139 controls of slack in a gate whose
+# whole job is to have none.
+RUN=(env -u XAUTHORITY -u DISPLAY -u WAYLAND_DISPLAY node controls.mjs --base-url "http://$BIND" --fixture seed)
 
 rc=0
 echo; echo "──── desktop (1280) ────"

@@ -25,26 +25,24 @@
 // `silhouette.jsx`; `Face` (characterRows.jsx) and `TpMedia` (ui.jsx) are the two
 // components that ask a picture whether it arrived.
 
-import { readFileSync, readdirSync } from 'node:fs'
-import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-import { declaredIn } from '../css-cascade.js'
+import { parse } from '@babel/parser'
 
-const SRC = process.env.TIPPANI_SRC
+import { declaredIn } from '../css-cascade.js'
+import { readSource, sourcesUnder } from '../src-files.js'
 
 // EVERY .jsx UNDER src, not the top level of it. `readdirSync` without recursion
 // answers a question about one directory, and the rule is about the tree — a
 // screen moved into a folder would leave it silently.
-function jsxUnder(dir, base = '', out = []) {
-  for (const e of readdirSync(dir, { withFileTypes: true })) {
-    const rel = base ? `${base}/${e.name}` : e.name
-    if (e.isDirectory()) jsxUnder(join(dir, e.name), rel, out)
-    else if (/\.jsx$/.test(e.name)) out.push(rel)
-  }
-  return out
-}
-const FILES = jsxUnder(SRC)
+//
+// AND THE WALK IS THE SHARED ONE, which throws rather than returning a short
+// list. This file had its own copy and a rater proved the copy silent: narrowing
+// the extension to `.zzz` left all seven cases green. The same hole had just been
+// closed in `no-free-names.test.js` with a per-file assertion, in the very commit
+// that edited this one — which is the argument for the floor living in the walk
+// rather than in a line each.
+const FILES = sourcesUnder((n) => /\.jsx$/.test(n), 40)
 
 // The two that ask the picture whether it arrived, and may therefore answer for
 // everyone else.
@@ -53,7 +51,7 @@ const ASKERS = {
   'ui.jsx': '`TpMedia` — the pack’s media block, which already had the `onError` this rule generalises',
 }
 
-const bodyOf = (f) => readFileSync(join(SRC, f), 'utf8')
+const bodyOf = (f) => readSource(f)
 
 // What a picture is OF, read off the words this codebase uses for one.
 //
@@ -139,12 +137,47 @@ function portraitTags(text) {
 // the shape of one — and the empty arrow is the likelier of the two to be
 // written, because it looks like code.
 //
-// READ BY MATCHING BRACES, NOT BY PATTERN. The first version was a negative
-// lookahead listing the values that do not count, which means a body it had not
-// thought of passed by being unfamiliar. This takes the whole value out of the
-// tag and then asks whether it says anything, so the burden is the other way
-// round.
-const NOTHING = /^(?:undefined|null|void 0|(?:\([^)]*\)|[\w$]+)\s*=>\s*(?:\{\s*\}|null|undefined|void 0)|function\s*[\w$]*\s*\([^)]*\)\s*\{\s*\})$/
+// PARSED, NOT PATTERN-MATCHED, and the second try at this is the point. The first
+// was a lookahead listing the values that do not count; the second was a longer
+// list of the same kind, and a rater walked around it in three tries —
+// `async () => {}`, `() => false`, `() => {;}` all read as guards. A deny-list of
+// no-ops can only ever name the no-ops somebody has already thought of.
+//
+// So the handler is PARSED and asked whether its body contains anything that can
+// have an effect: a call, an assignment, an increment, an await, a throw. That is
+// a property of the code rather than of its spelling, and it is why a
+// one-expression handler like `() => setBroken(true)` still counts — the rule has
+// to stay satisfiable or it gets worked around instead of obeyed.
+//
+// A HANDLER PASSED BY NAME COUNTS TOO. `onError={boom}` puts the body in another
+// function this rule cannot read, and refusing those would make it unsatisfiable
+// for every screen that names its handler. `undefined` is an Identifier like any
+// other, so it is the one name spelled out here.
+const ACTS = new Set([
+  'CallExpression', 'OptionalCallExpression', 'NewExpression', 'TaggedTemplateExpression',
+  'AssignmentExpression', 'UpdateExpression', 'AwaitExpression', 'ThrowStatement', 'YieldExpression',
+])
+
+function anyNode(node, seen) {
+  if (!node || typeof node !== 'object') return false
+  if (Array.isArray(node)) return node.some((n) => anyNode(n, seen))
+  if (typeof node.type === 'string' && seen(node)) return true
+  return Object.values(node).some((v) => v && typeof v === 'object' && anyNode(v, seen))
+}
+
+function doesSomething(src) {
+  let node
+  try {
+    node = parse(`(${src})`, { plugins: ['jsx'], errorRecovery: false }).program.body[0].expression
+  } catch {
+    return false // unparseable is not a guard
+  }
+  if (node.type !== 'ArrowFunctionExpression' && node.type !== 'FunctionExpression') {
+    if (node.type === 'Identifier') return node.name !== 'undefined'
+    return node.type === 'MemberExpression' || node.type === 'CallExpression'
+  }
+  return anyNode(node.body, (n) => ACTS.has(n.type))
+}
 
 function handlerIn(tag) {
   const at = tag.search(/\bonError\s*=\s*\{/)
@@ -160,7 +193,7 @@ function handlerIn(tag) {
 
 const ASKS = (tag) => {
   const body = handlerIn(tag)
-  return body !== null && body !== '' && !NOTHING.test(body)
+  return body !== null && body !== '' && doesSomething(body)
 }
 const unguarded = (text) => portraitTags(text)
   .filter(({ tag, expr }) => OF_A_PERSON.test(expr) && !ASKS(tag))
@@ -226,6 +259,10 @@ describe('a picture of a person or a character', () => {
       'an onError that is an empty arrow': '<img src={coverImgURL(c.image_path)} onError={() => {}} alt="" />',
       'an onError that swallows with a named parameter': '<img src={coverImgURL(c.image_path)} onError={e => null} alt="" />',
       'an onError that is an empty function': '<img src={coverImgURL(c.image_path)} onError={function (e) {}} alt="" />',
+      // The three a rater walked the deny-list around with, in three tries.
+      'an onError that is an empty async arrow': '<img src={coverImgURL(c.image_path)} onError={async () => {}} alt="" />',
+      'an onError that returns a value and does nothing': '<img src={coverImgURL(c.image_path)} onError={() => false} alt="" />',
+      'an onError whose body is a bare semicolon': '<img src={coverImgURL(c.image_path)} onError={() => {;}} alt="" />',
       'the word onError typed in a comment': '<img src={coverImgURL(c.image_path)} /* onError */ alt="" />',
     }
     for (const [what, code] of Object.entries(shapes)) {
@@ -243,6 +280,18 @@ describe('a picture of a person or a character', () => {
     const short = '<img src={coverImgURL(c.image_path)} onError={() => setBroken(true)} alt="" />'
     expect(unguarded(short).length,
       'a one-line handler is not an empty one, and the rule cannot say it is').toBe(0)
+    // AND THE SHAPES THIS APP ACTUALLY WRITES. A rule that cannot be satisfied is
+    // a rule that gets deleted, so the ways a handler really is written are shown
+    // to it beside the ways it is faked.
+    const real = {
+      'a block that sets state': '<img src={coverImgURL(c.image_path)} onError={() => { setBroken(true); onBroken?.() }} alt="" />',
+      'a method on an object': '<img src={coverImgURL(c.image_path)} onError={this.onBroken} alt="" />',
+      'an async handler with a body': '<img src={coverImgURL(c.image_path)} onError={async (e) => { await report(e) }} alt="" />',
+      'an assignment': '<img src={coverImgURL(c.image_path)} onError={(e) => { e.target.hidden = true }} alt="" />',
+    }
+    for (const [what, code] of Object.entries(real)) {
+      expect(unguarded(code).length, `${what} IS asking, and the rule calls it a defect`).toBe(0)
+    }
   })
 })
 
@@ -287,8 +336,15 @@ describe('the box a shared face draws inside', () => {
     const stand = '.stat-face-round svg'
     expect(declares(stand, 'width'), 'the stand-in is not sized to its box').toContain('100%')
     expect(declares(stand, 'height'), 'the stand-in is not sized to its box').toContain('100%')
-    expect(declares(stand, 'object-fit'), 'the stand-in is stretched rather than cropped').toContain('cover')
     expect(declares(stand, 'display'), 'the stand-in keeps a text baseline’s gap under it').toContain('block')
+    // NOT object-fit. It is inert on an inline <svg> — the property governs a
+    // REPLACED element, and `Silhouette` renders the markup itself — so asserting
+    // it was asserting nothing and would have gone on passing with the stand-in
+    // letterboxed. What actually makes it fill a square box is its own square
+    // viewBox under the default `preserveAspectRatio: xMidYMid meet`.
+    const box = /viewBox="0 0 (\d+) (\d+)"/.exec(readSource('silhouette.jsx'))
+    expect(box, 'the stand-in lost its viewBox, so nothing decides how it fits its box').toBeTruthy()
+    expect(box[1], 'the stand-in’s viewBox is not square, so it letterboxes inside a round one').toBe(box[2])
     expect(declares(inner, 'display'), 'the picture keeps a text baseline’s gap under it').toContain('block')
   })
 })

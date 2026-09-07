@@ -1,10 +1,18 @@
 {
-  "390": {
-    "small": 326,
-    "labelled": 56
+  "seed": {
+    "390": {
+      "small": 187,
+      "labelled": 9
+    },
+    "1280": {
+      "small": 0,
+      "labelled": 0
+    }
   },
-  "1280": {
-    "small": 0,
-    "labelled": 0
+  "backup": {
+    "390": {
+      "small": 326,
+      "labelled": 56
+    }
   }
 }

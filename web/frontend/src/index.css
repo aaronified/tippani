@@ -2861,7 +2861,11 @@
   /* TWO SELECTORS, ONE BLOCK EACH, so each can be asked for on its own: written
      as a list, a guard that names one of them was silently asserting the other. */
   .stat-face-round img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .stat-face-round svg { width: 100%; height: 100%; object-fit: cover; display: block; }
+  /* No object-fit: it does nothing to an INLINE <svg> — that property is for a
+     replaced element, and the silhouette's fit is its own square viewBox under the
+     default preserveAspectRatio. A declaration that cannot act is one a guard can
+     assert for ever while the thing it names is broken. */
+  .stat-face-round svg { width: 100%; height: 100%; display: block; }
   .person-portrait-round img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .person-photo-zoom { display: block; width: 100%; }
   .person-photo-zoom img {

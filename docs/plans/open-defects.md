@@ -475,7 +475,7 @@ and it is right.
 
 | # | Finding | Status |
 |---|---|---|
-| Z1 | **The class `afd3c33` declared unmechanisable was live in two screens.** `Library.jsx` and `Movies.jsx` each had a row's Delete key calling `setAsking`, which is bound in their PARENT — reachable buttons, both throwing when pressed. And Babel is already in `node_modules`, so a scope check finds them in a second | **FIXED, and the note is corrected.** Both call the `remove` prop the parent binds to `setAsking`, so a row puts the same question a card does. `test/pure/no-free-names.test.js` is the mechanical control: it catches both of these AND the shipped `StatsPage` crash, each by file and line. My argument had weighed two ways of RUNNING the code and never considered reading it — wrong in the one direction the standing instruction forbids. **And a scope check knows the NAME is missing, not that the button works** — the owner's standard is "is the button clickable (for all buttons)?" — so `test/dom/table-row-delete.test.jsx` renders both tables and presses the key: four cases, all four red when either row is reverted |
+| Z1 | **The class `afd3c33` declared unmechanisable was live in two screens.** `Library.jsx` and `Movies.jsx` each had a row's Delete key calling `setAsking`, which is bound in their PARENT — reachable buttons, both throwing when pressed. And Babel is already in `node_modules`, so a scope check finds them in a second | **FIXED, and the note is corrected.** Both call the `remove` prop the parent binds to `setAsking`, so a row puts the same question a card does. `test/pure/no-free-names.test.js` is the mechanical control: it catches both of these AND the shipped `StatsPage` crash, each by file and line. My argument had weighed two ways of RUNNING the code and never considered reading it — wrong in the one direction the standing instruction forbids. **And a scope check knows the NAME is missing, not that the button works** — the owner's standard is "is the button clickable (for all buttons)?" — so `test/dom/table-row-delete.test.jsx` renders both tables and presses the key: four cases, two per screen, and reverting one row fails that screen's two. (The first telling of this said "all four red when either row is reverted", which is wrong — the mutation run behind it reverted BOTH rows at once and the sentence was written off its output rather than off what it proved.) |
 | Z2 | The avatar extraction and the profile card's `gone` state shipped with no test: dropping `onBroken`, swapping the initial for a silhouette, or reverting the Remove key each left 3,409 green | **FIXED.** `account-avatar.test.jsx`, five cases; both mutations fail |
 | Z3 | Y3's spread claim was broader than the code — only the inline object was closed, and `onError={undefined}` or the word in a comment passed | **FIXED.** A spread of a variable is resolved like a bare `src`; comments are stripped from the tag before it is read; an `onError` bound to `undefined` or `null` is not asking |
 | Z4 | Every `<img>` in `src/` scores zero on the vocabulary today, so the file scan is carried entirely by the synthetic shapes | **NOT A DEFECT — that is the rule working.** No site draws a raw face any more, which is the point; the synthetic shapes are what keep the pattern honest, and each is a shape that actually escaped once |
@@ -505,6 +505,45 @@ which landed while it was reading; the other five were open and all five were re
 **The one that is worth reading twice is AA2.** Eight entries on an allow-list, none of
 them used, every one of them a word this app also uses for its own things — a guard that
 had been made weaker by a list nobody was checking against the code it was excusing.
+
+## AB. The gate that measured one library against another, 7 September
+
+Not a rater's finding — this one came out of reading the run that was supposed to close
+the register. `make controls` exited 0 at both widths, and the number it printed at 390
+was meaningless.
+
+| # | Defect | Status |
+|---|---|---|
+| AB1 | **`controls-baseline.json` was keyed by WIDTH alone, and its 390 ceiling was measured against the owner's library** (`7a26fe8`, whose own message says so) — while `make controls` runs `run-controls.sh`, which seeds public-domain titles and a cast of three. The seeded run measures 187 against a ceiling of 326: **139 controls of slack in a gate whose whole job is to have none**. A hundred new sub-44px controls could have landed under it | **FIXED.** The key is `[fixture][width]`. `run-controls.sh` passes `--fixture seed`; the backup command in `CLAUDE.md` passes `--fixture backup`. The seeded ceilings are this run's own measurement — 187 / 9 at 390, 0 / 0 at 1280 — and the backup's 326 / 56 is kept under its own name rather than thrown away |
+| AB2 | **And the failure was silent.** `controls.mjs` does not fail on a MISSING ceiling, deliberately and rightly — "a missing ceiling is not a regression", since failing there is how a ratchet gets deleted rather than filled in. That means a fixture name that does not match the baseline turns the ratchet off while the run still exits 0, and nothing separates "measured and under" from "never compared" but one word at the end of fifty minutes | **FIXED.** `test/pure/controls-ratchet.test.js`, four cases, in 200ms: the baseline may not be keyed by width at the top level; every ceiling is a number with both buckets; the shelf `run-controls.sh` names has a ceiling; and every width it runs has one. Reverting the file's shape, renaming the fixture, dropping a bucket and adding an unrecorded width each fail it by name |
+| AB3 | `--update-baseline` would have written a ceiling under whatever fixture was in scope, including none | **FIXED.** It refuses without `--fixture` and says why. A ceiling nobody can interpret is worse than no ceiling, and the guess is the thing the key exists to stop |
+
+**The 1280 ceiling is 0 / 0 under both shelves and always was**, so nothing was hiding
+there — the slack was all at phone width, which is the only width the touch floor means
+anything at.
+
+**What is NOT claimed:** that the seeded fixture's 187 is the app's real debt. It is not —
+the owner's library draws 326, and that is the number that matters to a reader. The seeded
+ceiling stops the seeded run from drifting; only a backup run measures the app.
+
+## AC. The work-rater's tenth pass, 7 September
+
+Scored **7/10**, against `66a31a0..e0d56f3`. It reached AB1 independently, from the
+committed baseline rather than from a run — which is the strongest thing that can be said
+for that finding. Four more, all real, all in the guards again.
+
+| # | Finding | Status |
+|---|---|---|
+| AC1 | The 390 gate could not fail — the ceiling was the backup's, the run is the seed's | **See AB.** Found twice, from two directions, on the same afternoon |
+| AC2 | **`one-stand-in.test.js` passes green on an empty read** — narrowing its walk to `/\.zzz$/` leaves all seven cases passing. AA1's finding verbatim, in the sibling file the same commit edited, where the fix had been applied to one file and not the other | **FIXED, and not one file at a time.** The floor lives in the walk now: `test/src-files.js` is the one walk over `src/`, and it THROWS below its floor rather than returning a short list. Two floors — the tree's (a wrong `TIPPANI_SRC`) and the predicate's (an extension narrowed by a character). This is the repo's own directive applied to its tests: "it lives in one function that both screens call — not in a line each, which is how one of them goes on being right while the other quietly stops" |
+| AC3 | **AA6's "burden the other way round" was false.** The new rule was a longer deny-list, not a judgement, and `async () => {}`, `() => false` and `() => {;}` all read as guards | **FIXED, and the claim was withdrawn before it was re-made.** The handler is PARSED and asked whether its body holds anything that can act — a call, an assignment, an increment, an await, a throw. All three of the rater's escapes fail it now, and four shapes this app really writes are shown to it too, because a rule that cannot be satisfied gets worked around instead of obeyed |
+| AC4 | **`location` survived AA2's own rule** — the app binds it at `Library.jsx:2548` and `share.jsx:150`, and removing it from the allow-list leaves the suite green. The same test that justified stripping the other eight | **FIXED, and the audit is mechanical now.** A third case asserts the list is EXACTLY the globals the tree reads. **57 of its 106 names were excusing nothing at all.** Doing it by hand removed eight and left the ninth; the rule needs no judgement and cannot be got wrong. Its cost is one line of upkeep the first time the app uses `crypto` — which is the point: the name earns its place on the day there is something to check it against |
+| AC5 | **"all four red when either row is reverted" is wrong** — reverting one row fails that screen's two | **FIXED.** The sentence was written off a mutation run that reverted BOTH rows and read as if it had reverted one. Corrected in the register and in `AI.md`, with what actually happened |
+| AC6 | `object-fit: cover` on `.stat-face-round svg` is inert — the property is for a REPLACED element and `Silhouette` renders the markup itself | **FIXED.** The declaration is gone from the stylesheet with a comment saying why, and the assertion is replaced by one about what really decides the fit: the silhouette's own square `viewBox` under the default `preserveAspectRatio`. Making it 48×64 fails the case |
+
+**Three passes in a row have found the guards wrong and the app right.** That is worth
+naming rather than smoothing over: the app's defects are being caught, and the things
+catching them are now the least-checked code in the repo.
 
 ## Withdrawn claims
 

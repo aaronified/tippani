@@ -149,7 +149,7 @@ AI-written code fails differently from hand-written code. It compiles, it reads
 well, it is plausibly commented, and it can still be wrong — so plausibility is
 worth nothing here and only execution counts. What the repo actually runs:
 
-- **1,494 Go test functions and 3,426 frontend tests, across 541 test files** — the
+- **1,494 Go test functions and 3,431 frontend tests, across 542 test files** — the
   Go half over real HTTP handlers against a real SQLite database, not mocks.
   Counted, not estimated, and every number here has a command that reproduces it:
 
@@ -158,7 +158,7 @@ worth nothing here and only execution counts. What the repo actually runs:
   cd web/frontend && npm test                                            # frontend tests
   find . -name '*_test.go' -not -path './node_modules/*' | wc -l         # 249 Go files
   find ./web/frontend -path '*/node_modules' -prune -o \
-       -type f \( -name '*.test.*' -o -name '*.spec.*' \) -print | wc -l # 292 frontend
+       -type f \( -name '*.test.*' -o -name '*.spec.*' \) -print | wc -l # 293 frontend
   ```
 
   THREE OF THE FOUR ARE NOW CHECKED RATHER THAN TRUSTED. This paragraph has said
@@ -178,7 +178,7 @@ worth nothing here and only execution counts. What the repo actually runs:
   by 2.3.0, from 1,100 / 1,853 / 323 when they were recounted for 2.2.3, and most
   recently from 1,153 / 1,977 / 338, from 1,336 / 2,218 / 394, from
   1,357 / 2,223 / 398, from 1,360 / 2,245 / 401, from 1,380 / 2,358 / 418, from
-  1,391 / 2,366 / 419, from 1,466 / 2,772 / 471, from 1,493 / 3,041 / 520, from 1,493 / 3,071 / 521, from 1,493 / 3,083 / 522, from 1,493 / 3,111 / 523, from 1,493 / 3,324 / 533, from 1,494 / 3,350 / 535, and from 1,494 / 3,416 / 540 before
+  1,391 / 2,366 / 419, from 1,466 / 2,772 / 471, from 1,493 / 3,041 / 520, from 1,493 / 3,071 / 521, from 1,493 / 3,083 / 522, from 1,493 / 3,111 / 523, from 1,493 / 3,324 / 533, from 1,494 / 3,350 / 535, from 1,494 / 3,416 / 540, and from 1,494 / 3,426 / 541 before
   this recount — which is why each one now sits beside the command that produces it.
   The last of those drifts is worth naming because it was one work session: a number
   recounted honestly at the start of a stretch is stale by the end of it.
@@ -355,11 +355,30 @@ worth nothing here and only execution counts. What the repo actually runs:
   them was carrying any code; they are off it, and a synthetic case now shows the check a
   child reading its parent's `open`. A window API is written `window.open`.
 
+  **And that pruning is no longer a judgement, because the judgement was wrong.** Removing
+  those eight by hand left `location` behind — the app binds it in two files — and a rater
+  found it the same afternoon. So a case asserts the list is EXACTLY the globals the tree
+  reads: **57 of its 106 names were excusing nothing at all.** The rule costs one line of
+  upkeep the first time this app uses `crypto`, and that is what it buys — the name gets
+  on the list on the day there is code to check it against, rather than years before.
+
+- **A GUARD THAT WALKS THE SOURCE TREE PASSES WHEN THE WALK FINDS NOTHING**, and two
+  dozen of them do. Every one is a list compared against `[]`, so an extension narrowed by
+  one character, a moved tree, or a wrong `TIPPANI_SRC` turns the guard green while it
+  checks nothing. Two were caught this way — by a rater, not by a run — and the second was
+  the sibling of the first, in the commit that fixed the first. A per-file assertion is
+  the wrong repair for exactly the reason this repo already states about screens: it is a
+  line each, and that is how one of them goes on being right while the other quietly
+  stops. `test/src-files.js` is the one walk, and it THROWS below its floor rather than
+  returning a short list — a tree floor for a wrong root, a per-guard floor for a
+  predicate that stopped matching.
+
   The per-branch rendering stayed as well, because the two answer different questions: the
   scope check knows a name is missing, and only a render knows the arm draws the right
   thing. **Neither presses anything**, and the owner's standard for a test is "is the
   button clickable (for all buttons)?" — so `test/dom/table-row-delete.test.jsx` renders
-  both tables and presses the Delete key on a row. It also asserts the half that would be
+  both tables and presses the Delete key on a row: two cases per screen, and reverting one
+  screen's row fails that screen's two. It also asserts the half that would be
   easy to break while fixing the first half: the press ASKS rather than deletes, the same
   question the card view puts. Note that a throw inside a React handler does not come back
   out of `fireEvent` — the synthetic event system reports it to the window — so a case
@@ -407,6 +426,22 @@ worth nothing here and only execution counts. What the repo actually runs:
   something, and the surface re-opened so the controls after it are still pressed. Not a
   skip list keyed to the control's name: this file has twice learned that a probe keyed
   to a spelling stops guarding the class the moment the spelling changes.
+
+  **AND THE TOUCH-FLOOR CEILING IS A FACT ABOUT A LIBRARY, NOT ONLY ABOUT A WIDTH.**
+  `controls-baseline.json` was keyed by width alone and its 390 number — 326 controls
+  under 44px — was measured against the owner's restored backup, while `make controls`
+  seeds public-domain titles and a cast of three. A bigger library draws more controls, so
+  the seeded run measured 187 against 326 and printed `ok` with 139 of slack: a hundred
+  new sub-44px controls could have landed under it. The key is `[fixture][width]` now, the
+  harness names its shelf, and `--update-baseline` refuses to write a ceiling under no
+  name at all.
+
+  The part worth keeping is WHY it was invisible. The probe deliberately does not fail on
+  a missing ceiling — failing there is how a ratchet gets deleted rather than filled in —
+  so a fixture name that misses the baseline turns the ratchet off and the run still exits
+  0. `test/pure/controls-ratchet.test.js` is the second control: it asserts, in 200ms,
+  that the shelf the harness names has a ceiling at every width the harness runs. Two
+  fifty-minute runs cannot notice what a file-shape check finds instantly.
 
   **And the fingerprint had no geometry, so one control's whole effect was invisible.**
   A phone sheet's grab bar moves the sheet between its anchors and does nothing else —

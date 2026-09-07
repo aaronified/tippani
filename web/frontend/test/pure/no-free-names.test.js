@@ -33,24 +33,14 @@
 // an AST; `path.scope.hasBinding(name)` answers the question, and
 // `Program.scope.globals` collects everything unbound in one pass.
 
-import { readFileSync, readdirSync } from 'node:fs'
-import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 import { parse } from '@babel/parser'
 import traverseModule from '@babel/traverse'
 
-const traverse = traverseModule.default || traverseModule
-const SRC = process.env.TIPPANI_SRC
+import { readSource, sourcesUnder } from '../src-files.js'
 
-function sourcesUnder(dir, base = '', out = []) {
-  for (const e of readdirSync(dir, { withFileTypes: true })) {
-    const rel = base ? `${base}/${e.name}` : e.name
-    if (e.isDirectory()) sourcesUnder(join(dir, e.name), rel, out)
-    else if (/\.jsx?$/.test(e.name)) out.push(rel)
-  }
-  return out
-}
+const traverse = traverseModule.default || traverseModule
 
 // The globals this code really runs against: a browser, with the bits of the
 // platform this app actually uses. Written out rather than pulled from a package,
@@ -71,53 +61,54 @@ function sourcesUnder(dir, base = '', out = []) {
 // `process` was the worst of them: Vite does not define it in a browser bundle at
 // all, so it is not a global here — it is the exact crash this file exists to
 // catch, whitelisted.
+//
+// AND THE PRUNING IS NOT A JUDGEMENT ANY MORE. Removing those eight by hand left
+// `location` behind, and a rater found it the same afternoon — so the rule is now
+// mechanical and the third case enforces it: THE LIST IS EXACTLY THE GLOBALS THE
+// TREE READS. 57 of the 106 names here were excusing nothing at all. If you add
+// the first use of `crypto.randomUUID()`, this file fails and you add `crypto` —
+// which is the one line of upkeep the rule costs, and is the point: the name gets
+// on the list on the day the app can be checked against it, not years before.
 const PLATFORM = new Set([
-  'window', 'document', 'navigator', 'location', 'history',
-  'console', 'fetch', 'Request', 'Response', 'Headers', 'AbortController', 'FormData',
-  'URL', 'URLSearchParams', 'Blob', 'File', 'FileReader', 'Image', 'Audio',
-  'setTimeout', 'clearTimeout', 'setInterval', 'clearInterval',
-  'requestAnimationFrame', 'cancelAnimationFrame', 'requestIdleCallback',
-  'localStorage', 'sessionStorage', 'matchMedia', 'getComputedStyle',
-  'ResizeObserver', 'IntersectionObserver', 'MutationObserver', 'PerformanceObserver',
-  'performance', 'crypto', 'structuredClone', 'queueMicrotask', 'reportError',
-  'Intl', 'Math', 'JSON', 'Date', 'Number', 'String', 'Boolean', 'Object', 'Array',
-  'Map', 'Set', 'WeakMap', 'WeakSet', 'Promise', 'Symbol', 'BigInt', 'Proxy', 'Reflect',
-  'Error', 'TypeError', 'RangeError', 'SyntaxError', 'RegExp', 'Function',
-  'parseInt', 'parseFloat', 'isNaN', 'isFinite', 'encodeURIComponent',
-  'decodeURIComponent', 'encodeURI', 'decodeURI', 'globalThis', 'undefined',
-  'Uint8Array', 'Int32Array', 'Float64Array', 'ArrayBuffer', 'DataView', 'TextEncoder',
-  'TextDecoder', 'CustomEvent', 'Event', 'KeyboardEvent', 'PointerEvent', 'DOMParser',
-  'HTMLElement', 'Element', 'Node', 'NodeList', 'CSS', 'AbortSignal', 'Worker',
-  'atob', 'btoa', 'scrollTo',
-  'Infinity', 'NaN', 'XMLHttpRequest', 'FontFace', 'DOMMatrix', 'HTMLInputElement',
-  'HTMLImageElement', 'HTMLCanvasElement', 'CanvasRenderingContext2D', 'OffscreenCanvas',
-  'import',
+  'window', 'document', 'navigator', 'console', 'fetch', 'Response', 'FormData', 'URL',
+  'URLSearchParams', 'File', 'Image', 'setTimeout', 'clearTimeout',
+  'requestAnimationFrame', 'cancelAnimationFrame', 'requestIdleCallback', 'localStorage',
+  'matchMedia', 'getComputedStyle', 'ResizeObserver', 'IntersectionObserver',
+  'MutationObserver', 'Intl', 'Math', 'JSON', 'Date', 'Number', 'String', 'Boolean',
+  'Object', 'Array', 'Map', 'Set', 'WeakMap', 'Promise', 'RegExp', 'parseInt',
+  'parseFloat', 'encodeURIComponent', 'undefined', 'Uint8Array', 'TextDecoder',
+  'CustomEvent', 'AbortSignal', 'Infinity', 'XMLHttpRequest', 'FontFace', 'DOMMatrix',
+  'HTMLInputElement',
 ])
 
-function freeNamesIn(rel) {
-  const code = readFileSync(join(SRC, rel), 'utf8')
+// EVERY unbound name in a file, before the allow-list is applied — because the
+// list itself has to be checked against them (see the third case).
+function unboundIn(rel) {
+  const code = readSource(rel)
   const ast = parse(code, {
     sourceType: 'module',
     plugins: ['jsx', 'classProperties', 'optionalChaining', 'nullishCoalescingOperator'],
   })
-  const free = []
+  const found = []
   traverse(ast, {
     Program(path) {
       for (const name of Object.keys(path.scope.globals)) {
-        if (PLATFORM.has(name)) continue
-        const node = path.scope.globals[name]
-        free.push(`${name} (${rel}:${node.loc?.start?.line ?? '?'})`)
+        found.push({ name, where: `${rel}:${path.scope.globals[name].loc?.start?.line ?? '?'}` })
       }
     },
   })
-  return free
+  return found
 }
+
+// One parse of the tree, read two ways.
+const UNBOUND = sourcesUnder().flatMap(unboundIn)
+const REACHED = new Set(UNBOUND.map((u) => u.name))
 
 describe('every name a module reads', () => {
   it('is bound somewhere it can see', () => {
     // ONE LIST, NOT ONE CASE PER FILE: a name that is not there is not a property
     // of the file it is in, and a reader wants every one of them at once.
-    const free = sourcesUnder(SRC).flatMap(freeNamesIn)
+    const free = UNBOUND.filter((u) => !PLATFORM.has(u.name)).map((u) => `${u.name} (${u.where})`)
     expect(free, `these names have no binding — the bundler resolves each as a global and the app throws where it is read:\n  ${free.join('\n  ')}`)
       .toEqual([])
   })
@@ -149,14 +140,25 @@ describe('every name a module reads', () => {
     }
   })
 
+  it('and every global the list excuses is one this app really reaches for', () => {
+    // THE AUDIT, MECHANISED, because doing it by hand left `location` behind — one
+    // pass removed eight app-shaped names and a rater found the ninth the same
+    // afternoon. An entry that excuses nothing is not a convenience: it is a word
+    // this app may bind tomorrow, silently un-guarded on the day it does. So the
+    // list is exactly the globals the tree reaches for, and adding a use of
+    // `structuredClone` is what earns `structuredClone` its line.
+    const idle = [...PLATFORM].filter((n) => !REACHED.has(n))
+    expect(idle, `the allow-list excuses names nothing reads — each is a hole waiting for the day this app binds that word:\n  ${idle.join('\n  ')}`)
+      .toEqual([])
+  })
+
   it('and it read the tree, so a green run is not an empty one', () => {
     // A WALK THAT FINDS NOTHING PASSES EVERYTHING, and this one is a walk over a
     // path from the environment: point `TIPPANI_SRC` somewhere else, or narrow
-    // the extension, and both cases above stay green while nothing is checked.
+    // the extension, and the cases above stay green while nothing is checked.
     // The case beside them proves the ANALYSER on strings; only this one ties it
-    // to the source tree. Same guard as `glyphs-are-drawn.test.js`.
-    const files = sourcesUnder(SRC)
-    expect(files.length, 'no source files found — TIPPANI_SRC is wrong or the walk stopped matching').toBeGreaterThan(60)
-    expect(files, 'the walk is not reaching the app itself').toContain('App.jsx')
+    // to the source tree. `sourcesUnder` throws below its floor, so this is the
+    // second lock rather than the only one.
+    expect(sourcesUnder(), 'the walk is not reaching the app itself').toContain('App.jsx')
   })
 })

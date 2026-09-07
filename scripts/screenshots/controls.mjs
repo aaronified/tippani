@@ -39,6 +39,11 @@ import { HARNESS_ACCOUNT, emulateEngineMedia, ensureSession, findBrowser, launch
 const opts = {
   baseUrl: 'http://127.0.0.1:8080', timeoutMs: 30000, width: 1280, height: 1000, only: '',
   updateBaseline: false,
+  // WHICH LIBRARY THIS RUN IS AGAINST, because the ratchet's number is a fact
+  // about the library and not only about the app. See the baseline block below.
+  // No default: a run that does not say gets no ceiling and says so, which is
+  // better than being measured against somebody else's shelf.
+  fixture: '',
   username: process.env.TIPPANI_USER || HARNESS_ACCOUNT.username,
   password: process.env.TIPPANI_PASS || HARNESS_ACCOUNT.password,
 }
@@ -47,6 +52,7 @@ for (let i = 2; i < process.argv.length; i++) {
   if (process.argv[i] === '--base-url') opts.baseUrl = next()
   else if (process.argv[i] === '--only') opts.only = next()
   else if (process.argv[i] === '--width') opts.width = Number(next())
+  else if (process.argv[i] === '--fixture') opts.fixture = next()
   // WHOSE LIBRARY THIS IS. The seeded fixture's account is the harness's own, and
   // that is the default; a run against a RESTORED backup is somebody's real
   // library and signs in as them. Without this the probe typed the harness's
@@ -59,7 +65,7 @@ for (let i = 2; i < process.argv.length; i++) {
   // green is a ceiling nobody chose.
   else if (process.argv[i] === '--update-baseline') opts.updateBaseline = true
   else if (process.argv[i] === '--help' || process.argv[i] === '-h') {
-    console.log('usage: node controls.mjs [--base-url URL] [--only substring] [--width N]\n\n' +
+    console.log('usage: node controls.mjs [--base-url URL] [--only substring] [--width N] [--fixture NAME]\n\n' +
       'Presses every control on every screen and panel it can reach, and fails on\n' +
       'any that does nothing without saying it is disabled, or that is under 44px.')
     process.exit(0)
@@ -977,13 +983,27 @@ const RATCHETS = ['small', 'labelled']
 // one covered by a layer this run happened to leave open — so failing on it would
 // make the gate a measure of the harness's luck. It is printed in full, every
 // run, which is what it is for.
+//
+// AND THE CEILING BELONGS TO A LIBRARY, NOT ONLY TO A WIDTH. This file was keyed
+// by width alone, and the number under `390` was measured against the OWNER'S
+// library — while `make controls` seeds a fixture of public-domain titles and a
+// cast of three. The seeded run measures 187 where the recorded ceiling is 326,
+// so the gate had 139 controls of slack in it and would have reported "ok" while
+// a hundred new sub-44px controls landed. A ratchet compared across two
+// different shelves is not a ratchet; it is a number that always passes.
+//
+// So the key is `[fixture][width]`, and a run that does not name its fixture gets
+// no ceiling and says so on every line — the same loud-nothing this file already
+// does for a width nobody has recorded. `run-controls.sh` passes `--fixture seed`;
+// a run through `run-with-backup.sh` passes `--fixture backup`.
 const baselineFile = new URL('./controls-baseline.json', import.meta.url)
 let baseline = {}
 try {
   baseline = JSON.parse(readFileSync(baselineFile, 'utf8'))
 } catch { /* no baseline yet: the first run writes one with --update-baseline */ }
 const key = String(opts.width)
-const bar = baseline[key] || {}
+const shelf = opts.fixture || '(unnamed)'
+const bar = (baseline[opts.fixture] || {})[key] || {}
 
 // THE BASELINE IS WRITTEN AND THE RUN IS STILL JUDGED. `--update-baseline` used
 // to write and exit 0, which made recording a ceiling and checking the app two
@@ -991,11 +1011,19 @@ const bar = baseline[key] || {}
 // run was the only one anybody had the patience for, and it reported nothing.
 // The flag now only decides where the ratchet's ceiling comes from; every FAIL
 // bucket is judged either way.
+if (opts.updateBaseline && !opts.fixture) {
+  // A CEILING NOBODY CAN INTERPRET IS WORSE THAN NONE. Refused rather than
+  // written under a guessed name, because the guess is what this key exists to
+  // stop.
+  console.log('\n--update-baseline needs --fixture: a ceiling is a fact about a library, and an unnamed one cannot be compared to anything')
+  process.exit(1)
+}
 if (opts.updateBaseline) {
-  baseline[key] = Object.fromEntries(RATCHETS.map((k) => [k, findings[k].length]))
+  baseline[opts.fixture] = baseline[opts.fixture] || {}
+  baseline[opts.fixture][key] = Object.fromEntries(RATCHETS.map((k) => [k, findings[k].length]))
   writeFileSync(baselineFile, JSON.stringify(baseline, null, 2) + '\n')
-  console.log(`\nbaseline for ${key}px written: ${RATCHETS.map((k) => `${k} ${findings[k].length}`).join(', ')}`)
-  Object.assign(bar, baseline[key])
+  console.log(`\nbaseline for ${shelf} at ${key}px written: ${RATCHETS.map((k) => `${k} ${findings[k].length}`).join(', ')}`)
+  Object.assign(bar, baseline[opts.fixture][key])
 }
 
 const failed = FAILS.filter((k) => findings[k].length)
@@ -1011,8 +1039,8 @@ console.log('')
 for (const k of RATCHETS) {
   const was = bar[k]
   const n = findings[k].length
-  if (was === undefined) console.log(`RATCHET  ${k.padEnd(9)} ${n} — no baseline at ${key}px; run with --update-baseline`)
-  else console.log(`${n > was ? 'FAIL   ' : 'ok     '} ${k.padEnd(9)} ${n} against a ceiling of ${was} at ${key}px`)
+  if (was === undefined) console.log(`RATCHET  ${k.padEnd(9)} ${n} — no baseline for ${shelf} at ${key}px; run with --fixture ${shelf} --update-baseline`)
+  else console.log(`${n > was ? 'FAIL   ' : 'ok     '} ${k.padEnd(9)} ${n} against a ceiling of ${was} for ${shelf} at ${key}px`)
 }
 for (const r of risen) {
   console.log(`\n${r.k} ROSE${r.was === undefined ? '' : ` from ${r.was} to ${r.n}`} — the number may fall and never rise.`)

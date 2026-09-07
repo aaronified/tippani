@@ -49,12 +49,19 @@ So **screenshots and probe runs go against a real backup**:
 ```bash
 export TIPPANI_BACKUP=/path/to/tippanibackup*.tpbk
 export TIPPANI_BACKUP_PASSWORD=…            # the archive is sealed
-TIPPANI_BROWSER=chrome TIPPANI_BIND=127.0.0.1:8128   scripts/screenshots/run-with-backup.sh node scripts/screenshots/controls.mjs     --base-url http://127.0.0.1:8128 --width 390
+TIPPANI_BROWSER=chrome TIPPANI_BIND=127.0.0.1:8128   scripts/screenshots/run-with-backup.sh node scripts/screenshots/controls.mjs     --base-url http://127.0.0.1:8128 --width 390 --fixture backup
 ```
 
 `run-with-backup.sh` boots a scratch server on a fresh data dir and restores through
 `POST /auth/restore/upload`, the onboarding path — it is gated on the users table being
 empty, which a fresh mktemp dir is, and needs no session.
+
+**`--fixture` names the shelf, and `controls.mjs` needs it.** The touch-floor ratchet
+counts controls, and a bigger library draws more of them — so a ceiling recorded against
+the backup says nothing about a seeded run and the two must not be compared. They were,
+for a while: the seeded run measured 187 against the backup's 326 and printed `ok` with
+139 controls of slack. `make controls` passes `--fixture seed` itself; a backup run passes
+`--fixture backup`, and a run that names neither gets no ceiling and says so.
 
 **The archive is somebody's library and never leaves this machine.** The server binds to
 127.0.0.1, the data dir is a mktemp the trap removes, and the archive is NOT committed —
