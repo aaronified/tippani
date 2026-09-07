@@ -1442,6 +1442,12 @@ export function useSheetDrag({ sheet, body, handle, head, enabled = true, onDism
       }
       el.style.touchAction = "none";
       if (body?.current) body.current.style.touchAction = "none";
+      // A DRAG SAYS SO HERE, not on its first move. `will-change: transform`
+      // promotes a layer, and promoting one on the first move is promoting it at
+      // the worst moment of the gesture — the frame the reader is watching for a
+      // response. At `down` there is a whole pointer event's worth of time.
+      el.classList.add("is-dragging");
+      el.parentElement?.classList.add("is-dragging");
     };
 
     const move = (e) => {
@@ -1457,12 +1463,6 @@ export function useSheetDrag({ sheet, body, handle, head, enabled = true, onDism
         if (Math.abs(dy) < SLOP) return;
         claim(true);
       }
-      // A DRAG SAYS SO, so the stylesheet can stop asking the compositor for work
-      // nobody can see during one — see `.tp-scrim.is-dragging`. On the scrim as
-      // well as the sheet, because the expensive half is the blur BEHIND the
-      // sheet and a class on the sheet cannot reach its own parent in CSS.
-      el.classList.add("is-dragging");
-      el.parentElement?.classList.add("is-dragging");
       // A SAMPLE HAS TO SPAN LONG ENOUGH TO MEAN SOMETHING. `dy / dt` between two
       // moves delivered in the same tick is a division, not a speed — and a
       // pointer stream that arrives finer than a frame (coalesced events, a
@@ -1502,6 +1502,20 @@ export function useSheetDrag({ sheet, body, handle, head, enabled = true, onDism
       const rank = anchors.indexOf(resting);
       measure();
       if (!anchors.length) return;
+      // A RESIZE DURING A DRAG IS NOT A REASON TO END ONE, and this settled.
+      //
+      // A PHONE'S ADDRESS BAR COLLAPSES THE MOMENT A GESTURE STARTS, which fires
+      // `resize` — so the common case was: finger down, bar collapses, the sheet
+      // settles to an anchor, `span` goes back to zero, and every frame after
+      // that writes `translateY(0)`. The sheet stops moving for the rest of the
+      // drag while the finger keeps going. That is a drag becoming impossible
+      // halfway through, on the gesture a reader makes most.
+      //
+      // The anchors are re-measured either way, because the clamp needs them; a
+      // live drag is then re-based on the new viewport at the position the finger
+      // has it, which is one layout for a viewport change rather than for a
+      // frame.
+      if (drag?.live) { liftOff(showing); return; }
       settle(anchors[Math.min(Math.max(rank, 0), anchors.length - 1)]);
     };
 

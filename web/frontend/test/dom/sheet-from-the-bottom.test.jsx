@@ -372,6 +372,33 @@ describe('what a drag costs', () => {
     expect(shownOf(el('sheet')), 'the sheet did not track the finger').toBeGreaterThan(ANCHORS[0])
   })
 
+  it('and survives the address bar collapsing under it', async () => {
+    // A PHONE COLLAPSES ITS ADDRESS BAR THE MOMENT A GESTURE STARTS, which fires
+    // `resize` — and the resize handler settled the sheet to an anchor, which
+    // clears the offset and puts the box back to a resting height. Every frame
+    // after that wrote an offset of zero, so the sheet stopped moving while the
+    // finger kept going: a drag becoming impossible halfway through, on the
+    // gesture a reader makes most.
+    render(<Sheet onDismiss={vi.fn()} />)
+    await act(async () => {
+      fireEvent.pointerDown(el('grip'), pointer(400))
+      fireEvent.pointerMove(window, pointer(340))
+    })
+    await frame()
+    const before = shownOf(el('sheet'))
+    await act(async () => {
+      window.innerHeight = VIEWPORT - 60
+      fireEvent(window, new Event('resize'))
+    })
+    await act(async () => { fireEvent.pointerMove(window, pointer(300) ) })
+    await frame()
+    expect(shownOf(el('sheet')), 'the sheet stopped following the finger when the viewport changed')
+      .toBeGreaterThan(before)
+    expect(el('sheet').style.transform, 'the drag lost its offset, so the rest of the gesture moved nothing')
+      .toMatch(/translateY/)
+    window.innerHeight = VIEWPORT
+  })
+
   it('and hands the height back when the finger lifts', async () => {
     // The resting sheet has to be its own size again: the body's scroll extent,
     // the edge fades and every screenshot read it. And no frame may carry both —
