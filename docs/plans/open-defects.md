@@ -730,6 +730,33 @@ code 0" to me while `make` had returned 127 — `bash scripts/screenshots/contro
 resolved against `run-with-backup.sh`'s own `cd`, so the file was not found. The log said
 so on the line above. A background wrapper that ends in a `grep` reports the grep.
 
+## AJ. What a portrait's caption says, 7 September
+
+The owner, over a person sheet showing a loaded photograph with no numbers under it:
+*"the character/actor cards do not say the size of the image or whether they are low
+contrast (for the images). and how do we tackle images that are not 2:3?"*
+
+| # | Defect | Status |
+|---|---|---|
+| AJ1 | **The size was measured on `load` alone, and a cached image never fires it.** So the size appeared on a FIRST visit and the caption fell back to "the record's own picture" on every visit after — a loaded portrait with nothing under it, which is the screen that was reported. The block was waiting for an event that had happened before it existed | **FIXED.** An image that is already `complete` is measured on mount instead of waited for. Removing that line fails the case by name |
+| AJ2 | **"Low contrast" was a size test.** `identity.portrait.soft` has read "low contrast" since it was written, and the code showed it when `w < 400 \|\| h < 400`. A small picture was labelled low contrast; a washed-out one said nothing. **The string's own comment in `en.txt` described the size test underneath the contrast wording** — the mislabel was documented and still shipped | **FIXED, as two facts.** `identity.portrait.small = under {n}px` says the size floor as a size, and `soft` now rides a real measurement: luminance over a 32×32 downsample, the spread between the 5th and 95th percentiles. Percentiles rather than min and max, because one white pixel of background decides a min/max range and neither is what a reader means by contrast |
+| AJ3 | **A picture that is not 2:3 said nothing**, while `object-fit: cover` centre-cropped it — so half a face can be outside the circle with nothing on the screen to say so | **FIXED as far as SAYING it goes.** The caption prints the reduced ratio and the word `cropped` where the shape departs from 2:3 by more than eight hundredths, so `1000×1500` reads as 2:3 and `1024×1024` as `1:1, cropped`. **FIXING it is not done and is not claimed:** see below |
+
+**Contrast is only shown where it can be measured.** A remote file taints the canvas and
+an engine may have none, and there the caption says nothing at all — a guess about
+somebody's portrait is worse than silence. jsdom has no canvas, so the suite's contrast
+cases hand the measurement its pixels rather than pretending.
+
+**AND THE ANSWER TO THE THIRD QUESTION IS THE PACK'S, NOT MINE.**
+`docs/design/prototypes/imageslot.js` already specifies it: *"cover starts the image
+filling the frame (overflow cropped)… the crop persists alongside the image in the
+sidecar"* — a framing the reader sets, stored with the picture. **None of it is built.**
+There is no crop column in any migration, and `.person-photo-zoom` is a zoom cursor
+rather than a framing control. So the recommendation, and it is a recommendation rather
+than a decision: say it now, frame it later. The note makes the crop visible today; the
+pack's stored framing is its own piece of work, and a note that tells a reader something
+is wrong without letting them fix it is only worth shipping if the framing follows.
+
 ## Withdrawn claims
 
 Kept because the pattern matters more than any one of them.

@@ -28,7 +28,7 @@
 //   THE STRIP'S FADE IS MEASURED, not counted. The pack fades at four tiles or
 //   more; Scroller fades when the row actually overflows, which is right in both
 //   cases a count gets wrong, and is the app's standing rule.
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { coverImgURL } from './api.js'
 import { t } from './i18n.js'
 import { Silhouette } from './silhouette.jsx'
@@ -185,21 +185,104 @@ export function Face({ src, name, className = 'cs-face', imgClass, url = coverIm
 // SOFT_FLOOR is the pack's own 400 × 400. It is a share-card threshold and not a
 // type measurement, so it stays a number in px.
 const SOFT_FLOOR = 400
+// LOW CONTRAST, MEASURED RATHER THAN ASSERTED. `identity.portrait.soft` has read
+// "low contrast" since it was written, and the code that showed it tested
+// `w < 400 || h < 400` — a SIZE. So a small picture was labelled low contrast and
+// a washed-out one said nothing, which the owner spotted from the screen: "the
+// character/actor cards do not say the size of the image or whether they are low
+// contrast". The words and the measurement now agree, and they are two facts
+// rather than one.
+//
+// THE MEASUREMENT: luminance over a 32×32 downsample, and the spread between the
+// 5th and 95th percentiles. Percentiles rather than min and max because one white
+// pixel of background or one black eyelash decides a min/max range and neither is what a
+// reader means by contrast. 0.32 of the 0–1 range is about where a portrait stops
+// having a readable face in it; a flat scan of a newspaper photograph sits near
+// 0.2 and a lit studio headshot near 0.7.
+const CONTRAST_FLOOR = 0.32
+// THE SHAPE THE APP DRAWS PORTRAITS AT. The pack's slots are 2:3, and everything
+// wider or squarer is centre-cropped by `object-fit: cover` — silently, so half a
+// face can be outside the circle with nothing on the screen to say so. Eight
+// hundredths of tolerance so 2:3 and 0.66 and 1000×1500 all read as 2:3.
+const PORTRAIT_RATIO = 2 / 3
+const RATIO_SLACK = 0.08
+
+// The measured contrast, or null where it cannot be measured — a canvas tainted
+// by a remote file, or an engine without one. Null prints nothing: a guess about
+// somebody's portrait is worse than silence.
+function contrastOf(img) {
+  try {
+    const n = 32
+    const c = document.createElement('canvas')
+    c.width = n
+    c.height = n
+    const g = c.getContext('2d')
+    if (!g) return null
+    g.drawImage(img, 0, 0, n, n)
+    const { data } = g.getImageData(0, 0, n, n)
+    const lum = []
+    for (let i = 0; i < data.length; i += 4) {
+      lum.push((0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2]) / 255)
+    }
+    if (!lum.length) return null
+    lum.sort((a, b) => a - b)
+    const at = (q) => lum[Math.min(lum.length - 1, Math.floor(q * lum.length))]
+    return at(0.95) - at(0.05)
+  } catch {
+    return null
+  }
+}
+
+// The picture's shape, said as a ratio, only where it is not the one the app
+// draws. `gcd` so 1000×1500 reads as 2:3 and 1024×1024 as 1:1 rather than as
+// four digits a reader has to divide.
+function ratioOf({ w, h }) {
+  if (!w || !h) return ''
+  if (Math.abs(w / h - PORTRAIT_RATIO) <= RATIO_SLACK) return ''
+  const gcd = (a, b) => (b ? gcd(b, a % b) : a)
+  const d = gcd(w, h) || 1
+  return t('identity.portrait.ratio', { a: Math.round(w / d), b: Math.round(h / d) })
+}
 
 export function PortraitBlock({ src, name, px, soft, from = '', actions, editor = null }) {
   const [dim, setDim] = useState(null)
+  const [spread, setSpread] = useState(null)
+  const box = useRef(null)
+  const read = (img) => {
+    if (!img?.naturalWidth) return
+    setDim({ w: img.naturalWidth, h: img.naturalHeight })
+    setSpread(contrastOf(img))
+  }
   // A new src is a new measurement — without this the previous picture's numbers
   // stay under the new one, which is worse than showing none.
-  useEffect(() => { setDim(null) }, [src])
+  //
+  // AND A CACHED PICTURE NEVER FIRES `load`. The measurement rode on that event
+  // alone, so the size appeared on a first visit and the caption fell back to
+  // "the record's own picture" on every visit after — which is the screen the
+  // owner sent, a loaded portrait with no size under it. An image that is already
+  // `complete` is measured here instead of waited for.
+  useEffect(() => {
+    setDim(null)
+    setSpread(null)
+    const img = box.current?.querySelector('img')
+    if (img?.complete) read(img)
+  }, [src])
+  // THREE FACTS, EACH EARNED, and the size is the only one that is always true.
+  // The others are problems, and a caption that lists a problem the picture does
+  // not have is a caption a reader stops reading.
+  const notes = []
+  if (dim) {
+    if (dim.w < SOFT_FLOOR || dim.h < SOFT_FLOOR) notes.push(t('identity.portrait.small', { n: SOFT_FLOOR }))
+    if (spread != null && spread < CONTRAST_FLOOR) notes.push(t('identity.portrait.soft'))
+    const shape = ratioOf(dim)
+    if (shape) notes.push(shape)
+  }
   const measured = dim
-    ? t('identity.portrait.px', { w: dim.w, h: dim.h })
-      + (dim.w < SOFT_FLOOR || dim.h < SOFT_FLOOR
-        ? ' · ' + t('identity.portrait.soft', { n: SOFT_FLOOR })
-        : '')
+    ? [t('identity.portrait.px', { w: dim.w, h: dim.h }), ...notes].join(' · ')
     : px
-  const isSoft = dim ? dim.w < SOFT_FLOOR || dim.h < SOFT_FLOOR : !!soft
+  const isSoft = dim ? notes.length > 0 : !!soft
   return (
-    <div className="cs-portrait">
+    <div className="cs-portrait" ref={box}>
       {/* THE SCREEN THE OWNER NAMED AS THE MODEL — "a random person glyph, as used
           in the actual delia sturridge character page" — and it was branching on
           the stored path like the rest. `Face` owns the fallback; the measurement
@@ -214,7 +297,7 @@ export function PortraitBlock({ src, name, px, soft, from = '', actions, editor 
         // measurement, and the caption sits on the caller's guess until the
         // reader scrolls something that is already in view.
         loading="eager"
-        onLoad={(e) => setDim({ w: e.target.naturalWidth, h: e.target.naturalHeight })}
+        onLoad={(e) => read(e.target)}
       />
       <span className="cs-portrait-side">
         {/* AND NOTHING WHERE THERE IS NOTHING TO MEASURE. An empty span is still a

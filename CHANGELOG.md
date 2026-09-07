@@ -165,6 +165,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   printing its performers once in the header and again in the card below.
 
 ### Fixed
+- **A portrait's caption says the picture's size, whether it is washed out, and whether
+  it is being cropped.** The size only ever appeared the first time you opened a sheet —
+  on any later visit the picture came from the cache, and the caption fell back to the
+  line it shows before anything has been measured. "Low contrast" was worse than
+  missing: it was shown whenever a picture was smaller than 400px, so a small photograph
+  was called washed out and an actually washed-out one said nothing. Those are two
+  different facts and they read as two now, with the contrast measured off the file. And
+  a picture that is not 2:3 says its shape, because everything else is cropped to fit
+  and until now nothing on the screen told you half a face was outside the circle.
 - **Dragging a sheet on a phone follows your finger, and the blur behind it stays put.**
   The drag had become almost impossible to make — it would lose your finger part-way,
   and the page tore, with the frosted background dropping out for a moment each time.

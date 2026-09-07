@@ -6309,7 +6309,9 @@ identity.crumb.badge.film = ছবি
 identity.crumb.badge.show = সিরিজ
 identity.crumb.badge.game = গেম
 identity.portrait.px = {w}×{h}px
+identity.portrait.small = {n}px-এর কম
 identity.portrait.soft = কম কনট্রাস্ট
+identity.portrait.ratio = {a}:{b}, ছেঁটে বসানো
 identity.portrait.global = রেকর্ডের নিজের ছবি
 
 identity.picture.fetch.label = খুঁজে আনুন

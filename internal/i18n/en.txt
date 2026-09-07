@@ -6316,9 +6316,20 @@ identity.crumb.badge.game = game
 # judged from a thumbnail: a reader who uploads a 266-wide portrait finds out it
 # was too small when a share card goes out soft, which is too late.
 identity.portrait.px = {w}×{h}px
-# AND THE WARNING ONLY WHERE IT IS EARNED. Shown beside the size when either side
-# is under the floor. It said this of every portrait before it was measured.
+# THE SIZE FLOOR, SAID AS A SIZE. This warning used to be spelled "low contrast"
+# while the code that showed it tested `w < 400 || h < 400` — so a small picture
+# was labelled low contrast and a washed-out one said nothing. The owner spotted
+# it from the screen. Two facts, two strings.
+identity.portrait.small = under {n}px
+# AND THE CONTRAST, NOW MEASURED: luminance over a downsample, the spread between
+# the 5th and 95th percentiles. Shown only where it can be measured — a remote
+# file taints the canvas, and a guess about somebody's portrait is worse than
+# silence.
 identity.portrait.soft = low contrast
+# THE SHAPE, only where it is not the 2:3 the app draws portraits at. Everything
+# else is centre-cropped by `object-fit: cover`, silently — so half a face can be
+# outside the circle with nothing on the screen to say so.
+identity.portrait.ratio = {a}:{b}, cropped
 # The fallback where nothing has been measured yet — no picture, or one still
 # loading. Never printed beside a size.
 identity.portrait.global = the record's own picture
