@@ -1,7 +1,7 @@
 # The review dot opens a popup: half-life, and the recall history behind it
 
-**Status: the table is built (migration 0064, and every answer is logged). The read
-endpoint and the popup are not.** The owner's request, verbatim:
+**Status: the table and the read endpoint are built. The popup is not.** The owner's
+request, verbatim:
 
 > when i click on the spaced repetition icon in the quote cards, it should show a popup for
 > the halflife status, and recall history (will need to create a recall history table),
@@ -24,12 +24,27 @@ scheduler that derives its state by replaying a log is a different design, and i
 overhaul wants that it can build it from this table without a migration to fill the
 history, because the history will already be there.
 
+`GET /review/card?kind=&id=` (`review_card.go`) reads it back: the schedule state in the
+same field names the list endpoints use, `due` and a signed `due_in_days`, and the last 30
+answers newest-first with `logged` saying how many there are. Scoped in its own WHERE
+rather than through `ownsItem` — another reader's card is no rows and leaves as a 404.
+
+Two things it settled that the plan had not asked:
+
+- **`due` is `dueSQL` AND a schedule row.** The deck's rule reads "no last review means
+  maximally due", which is every card the quiz has never asked about — those arrive
+  through `bucketUnseen` and its grace week instead. Spliced literally it would have the
+  panel announce a card is owed while the quiz deliberately leaves it alone.
+- **The log could not tell practice from the quiz** (migration 0066, `mode` + `counted`).
+  Practice moves nothing unless `srPracticeCounts` is on, so a reader who practises a card
+  twenty times saw twenty answers beside an unmoved half-life — which reads as the
+  scheduler being broken. And whether an answer counted is not recoverable later, because
+  it depended on a setting that can change: a log written without it can never be repaired.
+  Both columns are nullable with no default, because rows 0064 already wrote know neither
+  and no value stands in for that.
+
 ## What is left
 
-- **`GET /api/review/card?kind=&id=`** — the state and the history for one item: the
-  current half-life, when it is next due, the counts, and the last N answers. Scoped by
-  the item's own ownership check (`ownsItem`), which is how `item_reviews` is already
-  reached.
 - **The popup.** *Not* an infodot, on the owner's instruction — so it is not subject to
   `help-budget.test.js`'s caps and does not go through `infodot-copy`. It is a panel on
   the same stack as every other answer on that screen (the repo's rule: a question wears

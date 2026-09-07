@@ -1,0 +1,42 @@
+-- 0066 — WHAT THE READER WAS DOING WHEN THEY ANSWERED, AND WHETHER IT COUNTED.
+--
+-- 0064's log records the result, the half-life that stood after it, the gap
+-- before it and the time. Two answers that produced completely different
+-- consequences are indistinguishable in it, and the popup this log exists for
+-- would report them as the same thing.
+--
+-- `moveSchedule` in `review_handlers.go` is
+-- `(mode == "daily" || pf.SRPracticeCounts) && result != "skip"`. So:
+--
+--   * A Practice answer moves NOTHING by default — `srPracticeCounts` is off.
+--     Thirty-seven of them leave the half-life exactly where it started, and the
+--     log as 0064 wrote it shows thirty-seven answers beside a seven-day
+--     half-life. That reads as the scheduler being broken. It is not; those
+--     answers were practice.
+--   * `elapsed_days` is NULL for every one of them, because there is no previous
+--     REVIEW to measure from — which is the same NULL a genuine first answer
+--     carries. One field cannot mean two things and be read.
+--   * And whether an answer counted is not recoverable later even knowing the
+--     mode, because `srPracticeCounts` is a SETTING the reader can turn on
+--     tomorrow. A log written without it can never be repaired.
+--
+-- THE LAST POINT IS WHY THIS IS NOW AND NOT AFTER THE OVERHAUL. The owner has
+-- said the repetition system gets rebuilt ("we will also do a complete overhaul
+-- of the spaced repetition system after this"), and the whole argument for
+-- landing the log first was that the history would already be there when the
+-- new design wanted it. A history missing the one field that says whether an
+-- answer counted is a history the overhaul has to throw away.
+--
+-- BOTH COLUMNS ARE NULLABLE AND NEITHER HAS A DEFAULT, deliberately. Rows
+-- already written by 0064 — the branch is on the owner's phone — were written
+-- without these facts, and no value stands in for that: `mode = 'practice'` is a
+-- guess and `counted = 0` is false of every Daily Quiz answer already logged.
+-- NULL is "this row predates the question", which is the only true thing the
+-- migration can say about them, and it is a state the panel can draw as silence.
+--
+-- `counted` RATHER THAN A THIRD READING OF THE RULE. The panel's question is
+-- "why is the half-life what it is", and the answer is which answers moved it.
+-- Deriving that in the client would be a fourth spelling of `moveSchedule`, and
+-- the client does not know what `srPracticeCounts` was set to at the time.
+ALTER TABLE item_recalls ADD COLUMN mode TEXT;    -- 'daily' | 'practice'; NULL predates 0066
+ALTER TABLE item_recalls ADD COLUMN counted INTEGER; -- 1 when this answer moved the schedule

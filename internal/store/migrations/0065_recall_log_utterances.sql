@@ -1,0 +1,32 @@
+-- 0065 — THE THIRD KIND OF QUOTE TAKES ITS RECALL LOG WITH IT TOO.
+--
+-- 0064 GAVE `item_recalls` TWO DELETE TRIGGERS, for annotations and dialogues,
+-- copying the pair 0015 wrote for `item_reviews`. That pair is what `item_reviews`
+-- has, and it was the wrong thing to copy: the review deck has THREE sources.
+-- `utteranceSource()` in `review_handlers.go` returns `kind: kindUtterance`, and
+-- `reviewJoin` builds `item_reviews r ON r.kind = '<that kind>'` — so a standalone
+-- quote (a speech, a letter, a proverb) has a schedule row like any other card,
+-- and now a recall log too. `item_reviews.kind`'s own comment says `'book' |
+-- 'screen'` and has been out of date since 0026 added the third table.
+--
+-- WHY THIS IS ITS OWN MIGRATION AND NOT AN EDIT TO 0064. Migrations are
+-- forward-only. 0064 is already on the branch the owner runs on their phone, so
+-- their database has applied it — editing the file would leave the trigger out of
+-- every database that had already seen it, which is the failure mode the rule
+-- exists to prevent. One more file is the whole cost of getting this right.
+--
+-- AND `item_reviews` STILL HAS NO UTTERANCE TRIGGER, deliberately, on an argument
+-- worth restating rather than copying: 0026 gave utterances an id FLOOR, so a
+-- deleted one's rowid is never reused and an orphaned schedule row can never be
+-- inherited by a new quote. That makes it dead weight rather than a correctness
+-- problem, which is the line `anthology_entries` sits the other side of (an
+-- orphaned entry renders as a gap a reader cannot delete).
+--
+-- THE LOG IS DIFFERENT ON THE WEIGHT, WHICH IS WHY IT GETS THE TRIGGER. It is
+-- APPEND-ONLY and one row per answer, so a card answered weekly for two years is
+-- a hundred rows; and it ships in every backup, because it is in `accountTables`.
+-- Unreachable rows in a table that grows per answer and travels in every archive
+-- are worth a trigger, where one row per deleted card was not.
+CREATE TRIGGER item_recalls_utterance_del AFTER DELETE ON utterances BEGIN
+  DELETE FROM item_recalls WHERE kind = 'utterance' AND item_id = OLD.id;
+END;

@@ -1327,10 +1327,15 @@ func TestSchemaInvariants(t *testing.T) {
 	for _, tc := range []struct{ table, trigger string }{
 		{"annotations", "item_reviews_book_del"},
 		{"dialogues", "item_reviews_screen_del"},
-		// 0064's pair, for the log beside that state. Both kinds, because a recall
-		// history is worth the same to a film line as to a highlight.
+		// 0064's pair, for the log beside that state, and 0065's third — the review
+		// deck has THREE sources (`utteranceSource` returns `kind: kindUtterance`),
+		// so a standalone quote has a schedule row and a recall log like any other
+		// card. `item_reviews` still has no utterance trigger, on 0026's id-floor
+		// argument; the LOG gets one because it is append-only and travels in every
+		// backup, so unreachable rows there are weight rather than one stale row.
 		{"annotations", "item_recalls_book_del"},
 		{"dialogues", "item_recalls_screen_del"},
+		{"utterances", "item_recalls_utterance_del"},
 		{"annotations", "anthology_entries_book_del"},
 		{"dialogues", "anthology_entries_screen_del"},
 		{"utterances", "anthology_entries_utterance_del"},

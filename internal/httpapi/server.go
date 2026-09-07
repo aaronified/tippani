@@ -395,6 +395,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /review/answer", s.requireAuth(s.handleReviewAnswer))
 	mux.Handle("POST /review/seen", s.requireAuth(s.handleReviewSeen))
 	mux.Handle("GET /review/scores", s.requireAuth(s.handleReviewScores))
+	mux.Handle("GET /review/card", s.requireAuth(s.handleReviewCard))
 	mux.Handle("DELETE /review/practice", s.requireAuth(s.handlePracticeReset))
 
 	// Movies + dialogues (PLAN §3b, §6).

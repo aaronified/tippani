@@ -2375,12 +2375,18 @@ func (s *Server) handleReviewAnswer(w http.ResponseWriter, r *http.Request) {
 	// beside the state, not part of it: rolling the transaction back because a
 	// history row would not write would lose the grade that was earned. It is
 	// logged and carried on from.
+	// AND `mode`/`counted` (0066) SAY WHETHER IT MATTERED. A Practice answer moves
+	// nothing unless the reader has opted in, so a log without these two reports
+	// thirty-seven answers beside an unmoved half-life and reads as a fault. They
+	// are recorded rather than derived because `counted` depends on a SETTING as
+	// it stood at this moment, which nothing can recover afterwards.
 	if _, err := tx.Exec(
-		`INSERT INTO item_recalls (user_id, kind, item_id, result, stability, elapsed_days, answered_at)
+		`INSERT INTO item_recalls (user_id, kind, item_id, result, stability, elapsed_days, answered_at, mode, counted)
 		 VALUES (?, ?, ?, ?, ?,
 		         CASE WHEN ? IS NULL THEN NULL ELSE julianday('now') - julianday(?) END,
-		         datetime('now'))`,
+		         datetime('now'), ?, ?)`,
 		uid, req.Kind, req.ID, req.Result, stability, lastReviewed, lastReviewed,
+		req.Mode, boolToInt(moveSchedule),
 	); err != nil {
 		olog.Warnf(olog.CodeReviewRecallLog, "[review] recall log insert failed for %s/%d: %v", req.Kind, req.ID, err)
 	}
