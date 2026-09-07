@@ -149,7 +149,7 @@ AI-written code fails differently from hand-written code. It compiles, it reads
 well, it is plausibly commented, and it can still be wrong — so plausibility is
 worth nothing here and only execution counts. What the repo actually runs:
 
-- **1,494 Go test functions and 3,420 frontend tests, across 541 test files** — the
+- **1,494 Go test functions and 3,426 frontend tests, across 541 test files** — the
   Go half over real HTTP handlers against a real SQLite database, not mocks.
   Counted, not estimated, and every number here has a command that reproduces it:
 
@@ -339,11 +339,21 @@ worth nothing here and only execution counts. What the repo actually runs:
   setter bound in their parent. Both were reachable buttons; both threw when pressed.
 
   `test/pure/no-free-names.test.js` is the mechanical control. Babel is already in this
-  project's `node_modules` — Vite's React plugin brings it — so the scope analysis costs a
-  dependency of zero and about a second, and it names the file and the line. It asks one
+  project's `node_modules` — Vite's React plugin brings it — so the scope analysis costs no
+  download and about a second, and it names the file and the line. It is declared in
+  `devDependencies` anyway, because a transitive dependency is a fact about somebody else's
+  package.json rather than a promise. It asks one
   question and is not a type checker: whether every identifier a module reads is bound
   somewhere it can see. It catches both the shipped `StatsPage` crash and the two the
   rater found, each by name.
+
+  **Its allow-list is the part that can quietly stop working.** A browser's globals
+  include plain English words this app also uses for its own things — `open` is its
+  commonest prop name — and excusing one blinds the check to exactly the parent/child
+  shape it was written for, worse than a crash, because `window.open` is truthy and the
+  screen renders wrong instead of throwing. Eight such names were on the list and none of
+  them was carrying any code; they are off it, and a synthetic case now shows the check a
+  child reading its parent's `open`. A window API is written `window.open`.
 
   The per-branch rendering stayed as well, because the two answer different questions: the
   scope check knows a name is missing, and only a render knows the arm draws the right

@@ -487,6 +487,25 @@ and it is right.
 legal. The new scope check failed with the parse error and named the line — which is a
 better argument for it than any of the above.
 
+## AA. The work-rater's ninth pass, 6 September
+
+Scored **6/10**, against `b60c75c`. Two of its seven were already closed by `66a31a0`,
+which landed while it was reading; the other five were open and all five were real.
+
+| # | Finding | Status |
+|---|---|---|
+| AA1 | **The scope check passes green reading zero files.** Narrow the walk's extension and both cases stay green — the second tests the ANALYSER on strings, and nothing tied it to the tree | **FIXED.** A third case asserts the walk found more than 60 files and that `App.jsx` is among them. Blinding the walk fails it by name. Same guard `glyphs-are-drawn.test.js` has carried since it was written |
+| AA2 | **Eight names on the allow-list were app-shaped.** `open` is this app's commonest prop, and `window.open` is truthy — so a child reading a missing `open` renders WRONG rather than throwing, which is the parent/child shape the file exists for. `process` was worse: Vite does not define it in a browser bundle, so it is not a global here at all | **FIXED.** `open`, `close`, `print`, `screen`, `alert`, `confirm`, `prompt` and `process` are off the list, and removing all eight changed nothing — no file uses any of them bare, so they were carrying no code and hiding a class. A synthetic case shows the check a child reading its parent's `open`, and putting the name back fails it |
+| AA3 | **Z2 said FIXED for three mutations and covered two.** `Account.jsx`'s `gone` gate and the Remove key were untested — nothing referenced `AvatarRow` or `account.photo.remove` | **FIXED.** Five cases on the photo card, reached through `Profile` the way the screen reaches it. Four mutations fail it: dropping the `onBroken` wiring, `has` ignoring `gone`, the effect that resets `gone` per path, and `remove()` not asking the server |
+| AA4 | Nothing pressed either Delete key in the commit | **ALREADY FIXED** by `66a31a0`, which landed mid-rating |
+| AA5 | `CHANGELOG.md` untouched though the fix is user-visible | **ALREADY FIXED** by `66a31a0` |
+| AA6 | **`onError={() => {}}` passed the guard**, and `.stat-face-round svg` was asserted for `width` alone — `height`, `object-fit` and `display` were all deletable green | **FIXED.** The handler is now read by matching braces and then asked whether it says anything, so a no-op body this list has not thought of still has to argue its case; three empty shapes are shown to it, and a one-line handler is shown to it too, so the rule stays fixable. The glyph's block is asked for the same four the picture's is |
+| AA7 | `@babel/parser` and `@babel/traverse` were undeclared transitive imports, and `AI.md` called it "a dependency of zero" | **FIXED.** Both declared in `devDependencies` at `^7.29.7`; the note says the truth — no download, because Vite's React plugin already brings them, but declared anyway, since a transitive dependency is a fact about somebody else's package.json rather than a promise |
+
+**The one that is worth reading twice is AA2.** Eight entries on an allow-list, none of
+them used, every one of them a word this app also uses for its own things — a guard that
+had been made weaker by a list nobody was checking against the code it was excusing.
+
 ## Withdrawn claims
 
 Kept because the pattern matters more than any one of them.

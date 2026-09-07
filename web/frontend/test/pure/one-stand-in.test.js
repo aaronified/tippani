@@ -134,11 +134,36 @@ function portraitTags(text) {
 }
 
 // A tag that draws a face and never asks whether the picture arrived.
-// `onError={undefined}` IS NOT ASKING. It satisfies the word and does nothing,
-// which is the difference between a guard and the shape of one.
-const ASKS = /\bonError\s*=\s*\{(?!\s*(?:undefined|null)\s*\})/
+// `onError={undefined}` IS NOT ASKING, and neither is `onError={() => {}}`. Both
+// satisfy the word and do nothing, which is the difference between a guard and
+// the shape of one — and the empty arrow is the likelier of the two to be
+// written, because it looks like code.
+//
+// READ BY MATCHING BRACES, NOT BY PATTERN. The first version was a negative
+// lookahead listing the values that do not count, which means a body it had not
+// thought of passed by being unfamiliar. This takes the whole value out of the
+// tag and then asks whether it says anything, so the burden is the other way
+// round.
+const NOTHING = /^(?:undefined|null|void 0|(?:\([^)]*\)|[\w$]+)\s*=>\s*(?:\{\s*\}|null|undefined|void 0)|function\s*[\w$]*\s*\([^)]*\)\s*\{\s*\})$/
+
+function handlerIn(tag) {
+  const at = tag.search(/\bonError\s*=\s*\{/)
+  if (at < 0) return null
+  const open = tag.indexOf('{', at)
+  let depth = 0
+  for (let i = open; i < tag.length; i++) {
+    if (tag[i] === '{') depth++
+    else if (tag[i] === '}' && --depth === 0) return tag.slice(open + 1, i).trim()
+  }
+  return '' // unbalanced — the tag was cut short, so it is not asking
+}
+
+const ASKS = (tag) => {
+  const body = handlerIn(tag)
+  return body !== null && body !== '' && !NOTHING.test(body)
+}
 const unguarded = (text) => portraitTags(text)
-  .filter(({ tag, expr }) => OF_A_PERSON.test(expr) && !ASKS.test(tag))
+  .filter(({ tag, expr }) => OF_A_PERSON.test(expr) && !ASKS(tag))
 
 describe('the stand-in for a picture', () => {
   it('is drawn only by the components that ask whether the picture arrived', () => {
@@ -195,6 +220,12 @@ describe('a picture of a person or a character', () => {
       'an address arriving through a spread': '<img {...{ src: personImgURL(p.image_path) }} alt="" />',
       'a spread of a variable built elsewhere': 'const shot = { src: coverImgURL(p.image_path) }\n<img {...shot} alt="" />',
       'an onError that does nothing': '<img src={coverImgURL(c.image_path)} onError={undefined} alt="" />',
+      // THE ONE THAT LOOKS LIKE CODE. `onError={undefined}` reads as an
+      // oversight; an empty arrow reads as a handler, and is the shape somebody
+      // writes to make this rule go quiet.
+      'an onError that is an empty arrow': '<img src={coverImgURL(c.image_path)} onError={() => {}} alt="" />',
+      'an onError that swallows with a named parameter': '<img src={coverImgURL(c.image_path)} onError={e => null} alt="" />',
+      'an onError that is an empty function': '<img src={coverImgURL(c.image_path)} onError={function (e) {}} alt="" />',
       'the word onError typed in a comment': '<img src={coverImgURL(c.image_path)} /* onError */ alt="" />',
     }
     for (const [what, code] of Object.entries(shapes)) {
@@ -206,6 +237,12 @@ describe('a picture of a person or a character', () => {
     const asked = '<img src={coverImgURL(c.image_path)} onError={boom} alt="" />'
     expect(unguarded(asked).length,
       'a tag that DOES ask is reported anyway, which would make the rule unfixable').toBe(0)
+    // AND A HANDLER WITH A BODY IS ASKING, however short. The empty-body rule
+    // above must not become "an arrow is never a guard" — that is how a rule
+    // stops being fixable and starts being worked around.
+    const short = '<img src={coverImgURL(c.image_path)} onError={() => setBroken(true)} alt="" />'
+    expect(unguarded(short).length,
+      'a one-line handler is not an empty one, and the rule cannot say it is').toBe(0)
   })
 })
 
@@ -243,7 +280,15 @@ describe('the box a shared face draws inside', () => {
     // AND THE STAND-IN IS SIZED TOO. The rule lists the picture and the glyph
     // together, and only the picture was asked for — so deleting the glyph's half
     // passed, which is a silhouette at its natural size inside a 24px circle.
-    expect(declares('.stat-face-round svg', 'width'), 'the stand-in is not sized to its box')
-      .toContain('100%')
+    // ALL FOUR, THE SAME FOUR THE PICTURE IS ASKED FOR — which is the only thing
+    // the split bought. Asking the glyph's block for `width` alone left `height`,
+    // `object-fit` and `display` deletable green, and a silhouette at its natural
+    // height inside a 24px circle is exactly the defect the split was made for.
+    const stand = '.stat-face-round svg'
+    expect(declares(stand, 'width'), 'the stand-in is not sized to its box').toContain('100%')
+    expect(declares(stand, 'height'), 'the stand-in is not sized to its box').toContain('100%')
+    expect(declares(stand, 'object-fit'), 'the stand-in is stretched rather than cropped').toContain('cover')
+    expect(declares(stand, 'display'), 'the stand-in keeps a text baseline’s gap under it').toContain('block')
+    expect(declares(inner, 'display'), 'the picture keeps a text baseline’s gap under it').toContain('block')
   })
 })

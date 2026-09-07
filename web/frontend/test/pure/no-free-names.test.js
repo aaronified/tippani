@@ -19,7 +19,10 @@
 // forbids ("create mechanical controls … don't depend on your prompting"): it
 // weighed two ways of RUNNING the code and never considered reading it. Babel is
 // already in this project's `node_modules` — Vite's React plugin brings it — so
-// the scope analysis costs a devDependency of zero and about a second.
+// the scope analysis costs no download and about a second. It is DECLARED all the
+// same (`@babel/parser`, `@babel/traverse` in devDependencies): a transitive
+// dependency is a fact about somebody else's package.json, not a promise, and a
+// test that imports one breaks on the day that package drops it.
 //
 // WHAT IT DOES NOT DO. It is not a type checker and not a linter: it asks one
 // question, whether every identifier a module reads is bound somewhere it can see
@@ -52,8 +55,24 @@ function sourcesUnder(dir, base = '', out = []) {
 // The globals this code really runs against: a browser, with the bits of the
 // platform this app actually uses. Written out rather than pulled from a package,
 // because the list IS the claim — anything not on it is a name nobody declared.
+//
+// AND NOTHING APP-SHAPED MAY BE ON IT. A browser's global namespace is full of
+// ordinary English words — `open`, `close`, `print`, `screen`, `name`, `status`,
+// `top`, `find`, `focus` — and this app binds several of them as props: `open` is
+// its commonest one. Allow-listing such a word blinds the check to exactly the
+// parent/child shape it was written for, and worse than a crash: `window.open` is
+// truthy, so a child reading a missing `open` renders WRONG instead of throwing.
+// Eight were on this list — `open`, `close`, `print`, `screen`, `alert`,
+// `confirm`, `prompt` and `process` — and removing all eight changed nothing,
+// because no file uses any of them bare. They were carrying no code and hiding a
+// class. A window API is written `window.open`, which is what a reader wants to
+// see anyway.
+//
+// `process` was the worst of them: Vite does not define it in a browser bundle at
+// all, so it is not a global here — it is the exact crash this file exists to
+// catch, whitelisted.
 const PLATFORM = new Set([
-  'window', 'document', 'navigator', 'location', 'history', 'screen',
+  'window', 'document', 'navigator', 'location', 'history',
   'console', 'fetch', 'Request', 'Response', 'Headers', 'AbortController', 'FormData',
   'URL', 'URLSearchParams', 'Blob', 'File', 'FileReader', 'Image', 'Audio',
   'setTimeout', 'clearTimeout', 'setInterval', 'clearInterval',
@@ -69,10 +88,10 @@ const PLATFORM = new Set([
   'Uint8Array', 'Int32Array', 'Float64Array', 'ArrayBuffer', 'DataView', 'TextEncoder',
   'TextDecoder', 'CustomEvent', 'Event', 'KeyboardEvent', 'PointerEvent', 'DOMParser',
   'HTMLElement', 'Element', 'Node', 'NodeList', 'CSS', 'AbortSignal', 'Worker',
-  'atob', 'btoa', 'alert', 'confirm', 'prompt', 'print', 'open', 'close', 'scrollTo',
+  'atob', 'btoa', 'scrollTo',
   'Infinity', 'NaN', 'XMLHttpRequest', 'FontFace', 'DOMMatrix', 'HTMLInputElement',
   'HTMLImageElement', 'HTMLCanvasElement', 'CanvasRenderingContext2D', 'OffscreenCanvas',
-  'process', 'import',
+  'import',
 ])
 
 function freeNamesIn(rel) {
@@ -113,6 +132,14 @@ describe('every name a module reads', () => {
         function Parent() { const [x, setX] = useState(null); return <Kid /> }
         function Kid() { return <button onClick={() => setX(1)} /> }
       `,
+      // THE ONE THE ALLOW-LIST USED TO SWALLOW. `open` is a window method AND
+      // this app's commonest prop name, so a child that reads its parent's
+      // `open` looks exactly like a call to `window.open` — and passes review
+      // twice as easily, because it does not even throw.
+      'a parent’s prop that shares a window method’s name': `
+        function Parent({ open }) { return <Kid /> }
+        function Kid() { return <button onClick={() => open('x')} /> }
+      `,
     }
     for (const [what, code] of Object.entries(shapes)) {
       const ast = parse(code, { sourceType: 'module', plugins: ['jsx'] })
@@ -120,5 +147,16 @@ describe('every name a module reads', () => {
       traverse(ast, { Program(path) { found = Object.keys(path.scope.globals).filter((n) => !PLATFORM.has(n)) } })
       expect(found.length, `${what} is invisible to the check`).toBeGreaterThan(0)
     }
+  })
+
+  it('and it read the tree, so a green run is not an empty one', () => {
+    // A WALK THAT FINDS NOTHING PASSES EVERYTHING, and this one is a walk over a
+    // path from the environment: point `TIPPANI_SRC` somewhere else, or narrow
+    // the extension, and both cases above stay green while nothing is checked.
+    // The case beside them proves the ANALYSER on strings; only this one ties it
+    // to the source tree. Same guard as `glyphs-are-drawn.test.js`.
+    const files = sourcesUnder(SRC)
+    expect(files.length, 'no source files found — TIPPANI_SRC is wrong or the walk stopped matching').toBeGreaterThan(60)
+    expect(files, 'the walk is not reaching the app itself').toContain('App.jsx')
   })
 })
