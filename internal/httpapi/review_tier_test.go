@@ -204,3 +204,151 @@ func TestTheTierPreferenceReachesTheDeck(t *testing.T) {
 		t.Errorf("a medium round offered at most %d choices, want %d — medium must be exactly what the quiz has always done", got, quizOptions)
 	}
 }
+
+// ---- the four things the third rater pass found ------------------------------
+
+// EASY'S DISTRACTORS ARE FAR, WHICH FIVE DOCUMENTS CLAIMED AND NOTHING DID.
+//
+// distractorScore rewards a candidate for sharing a medium, an author, a series
+// or a genre, so the best distractor at medium is the one hardest to tell from
+// the answer. Easy is defined by the opposite, and the copy under the control
+// says so in as many words. It shipped ranking the same way medium does, which
+// made Easy a two-option card with the SINGLE HARDEST lure in the library — the
+// exact opposite of what the reader was promised, and harder than medium.
+//
+// Asserted on the scale rather than on the sort: the closest work must come last
+// for easy and first for everything else.
+func TestEasyReachesForTheFarthestWrongAnswer(t *testing.T) {
+	own := workRef{key: "book:1", kind: kindBook, title: "Emma", author: "Austen", genres: map[string]bool{"novel": true}}
+	near := workRef{key: "book:2", kind: kindBook, title: "Persuasion", author: "Austen", genres: map[string]bool{"novel": true}}
+	far := workRef{key: "screen:9", kind: kindScreen, title: "Stalker", genres: map[string]bool{"science fiction": true}}
+	pool := []workRef{near, far}
+
+	if distractorScore(own, near) <= distractorScore(own, far) {
+		t.Fatal("the fixture is wrong: `near` must score above `far` or this measures nothing")
+	}
+	for _, tc := range []struct {
+		tier  string
+		first string
+	}{
+		{tierEasy, far.key},
+		{tierMedium, near.key},
+		{tierHard, near.key},
+	} {
+		got := rankWorks(own, pool, seededRand(7), tc.tier)
+		if got[0].key != tc.first {
+			t.Errorf("%s ranks %q first, want %q", tc.tier, got[0].key, tc.first)
+		}
+	}
+}
+
+// AND THE HASH'S PICK GOES THROUGH THE TIER'S FILTER.
+//
+// `preferred` arrives from dailyDirection, which knows the reader's repertoire
+// and nothing about the tier. It was tried FIRST and unfiltered, so a Hard round
+// served a deck of nothing but recognition cards whenever the typed blank was
+// switched off: tierDirections had removed "which book?" and the next line asked
+// it anyway. Over HTTP, because that is the only place the two lists meet.
+func TestAHardRoundNeverServesRecognition(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	// AUTHORS, because with the typed blank switched off `author` is the only
+	// direction hard leaves a book — seedReviewBook posts no author, and a deck
+	// with nothing askable would make this test pass by serving nothing.
+	for _, w := range []struct{ title, author string }{
+		{"Emma", "Austen"}, {"Dune", "Herbert"}, {"Persuasion", "Austen"}, {"Villette", "Bronte"},
+	} {
+		book := decode[bookDetail](t, c.mustDo("POST", "/books",
+			map[string]any{"title": w.title, "author": w.author}, http.StatusCreated))
+		for i := 0; i < 2; i++ {
+			c.mustDo("POST", "/annotations", map[string]any{"book_id": book.ID,
+				"quote": w.title + " line " + itoa(int64(i)) + ": the sleeper must awaken and the spice must flow"},
+				http.StatusCreated)
+		}
+	}
+	ageSeededItems(t, srv)
+
+	// The typed blank OFF is the case that broke it: hard's own first choice is
+	// gone, so whatever the hash picked used to go through unexamined.
+	c.mustDo("PUT", "/auth/me/preferences", map[string]any{
+		"srTier":      tierHard,
+		"srQuestions": `{"daily":["source","quote","cloze-mcq","speaker","author"]}`,
+	}, http.StatusOK)
+
+	deck := decode[reviewDeckResp](t, c.mustDo("GET", "/review/daily", nil, 200))
+	if len(deck.Items) == 0 {
+		t.Fatal("an empty deck measures nothing")
+	}
+	for _, it := range deck.Items {
+		switch it.Direction {
+		case dirSource, dirQuote, dirClozeMCQ:
+			t.Errorf("a hard round served %q for card %d — recognition is what hard gives up, "+
+				"and the tier's filter is being bypassed", it.Direction, it.ID)
+		}
+	}
+}
+
+// PRACTICE IS THE OTHER DECK AND IT WAS UNGUARDED. Mutating the tier at the
+// practice call site left the whole suite green, because the reach test only ever
+// asked /review/daily — so half the feature could have been unwired.
+func TestTheTierReachesPracticeToo(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	seedReviewBook(t, c, "Emma", 6)
+	seedDistractorBook(t, srv, c, "Dune")
+	seedDistractorBook(t, srv, c, "Persuasion")
+	seedDistractorBook(t, srv, c, "Villette")
+	ageSeededItems(t, srv)
+
+	// ONE DIRECTION, AND ONE THAT HAS OPTIONS. A practice deck is mostly flip and
+	// typed-cloze cards, both of which carry no options at all, so measuring the
+	// widest card across a default practice round measures zero at every tier —
+	// which would have passed while proving nothing.
+	c.mustDo("PUT", "/auth/me/preferences",
+		map[string]any{"srQuestions": `{"practice":["source"]}`}, http.StatusOK)
+
+	widest := func(tier string) int {
+		t.Helper()
+		c.mustDo("PUT", "/auth/me/preferences", map[string]any{"srTier": tier}, http.StatusOK)
+		deck := decode[practiceDeckResp](t, c.mustDo("GET", "/review/practice", nil, 200))
+		if len(deck.Items) == 0 {
+			t.Fatalf("tier %q served an empty practice deck, so this measured nothing", tier)
+		}
+		n := 0
+		for _, it := range deck.Items {
+			if len(it.Options) > n {
+				n = len(it.Options)
+			}
+		}
+		return n
+	}
+	if got := widest(tierEasy); got > 2 {
+		t.Errorf("an easy practice round offered a card with %d choices, want at most 2 — "+
+			"the preference is not reaching buildQuestion on the practice path", got)
+	}
+	if got := widest(tierMedium); got != quizOptions {
+		t.Errorf("a medium practice round offered at most %d choices, want %d", got, quizOptions)
+	}
+}
+
+// AND THE PERSON CARDS COUNT THEIR OPTIONS THE SAME WAY. attachSpeaker and
+// attachAuthor go through personChoices rather than attachMCQ, so tierOptions
+// reaching one and not the other would leave "who said this?" at four choices in
+// an easy round with nothing to show it.
+func TestAPersonCardHonoursTheTiersOptionCount(t *testing.T) {
+	own := workRef{key: "screen:1", kind: kindScreen, title: "Heat", cast: heatCast}
+	p := quizPools{byKey: map[string]workRef{"screen:1": own}, works: []workRef{own}}
+	for _, tc := range []struct {
+		tier string
+		want int
+	}{{tierEasy, 2}, {tierMedium, quizOptions}, {tierHard, quizOptions}} {
+		card := reviewCard{Kind: kindScreen, ID: 1, Direction: dirSpeaker,
+			Quote: "Don't let yourself get attached", Title: "Heat", Character: "Neil", Actor: "Robert De Niro"}
+		if !attachSpeaker(&card, "screen:1", p, 99, tc.tier) {
+			t.Fatalf("%s: no speaker card from a five-strong cast", tc.tier)
+		}
+		if len(card.Options) != tc.want {
+			t.Errorf("%s speaker card offered %d faces, want %d", tc.tier, len(card.Options), tc.want)
+		}
+	}
+}

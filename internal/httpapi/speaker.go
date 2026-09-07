@@ -193,7 +193,7 @@ func attachAuthor(card *reviewCard, ownKey string, p quizPools, seed int64, tier
 	}
 	rng := seededRand(seed)
 	c := newNameCollector(answer)
-	for _, w := range rankWorks(p.byKey[ownKey], p.works, rng) {
+	for _, w := range rankWorks(p.byKey[ownKey], p.works, rng, tier) {
 		if w.kind != kindBook || w.key == ownKey {
 			continue
 		}

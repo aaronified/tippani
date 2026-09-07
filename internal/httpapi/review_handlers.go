@@ -1750,9 +1750,22 @@ func buildQuestion(c reviewCand, preferred string, p quizPools, seed int64, scor
 	if want := tierPrefers(at); want != "" && slices.Contains(dirs, want) {
 		preferred = want
 	}
+	// AND THE HASH'S PICK GOES THROUGH THE SAME FILTER. `preferred` arrives from
+	// dailyDirection, which knows the reader's repertoire and nothing about the
+	// tier — so trying it first, unfiltered, let a HARD round serve a deck of
+	// nothing but recognition cards whenever the typed blank was switched off:
+	// tierDirections had removed "which book?" and this line asked it anyway.
+	// Cleared rather than replaced, because the loop below already walks the
+	// tier's own list in order and picking a substitute here would be a second
+	// opinion about which direction leads.
+	if !slices.Contains(dirs, preferred) {
+		preferred = ""
+	}
 	// The preferred direction, then every other one this kind allows.
-	if card := finishCard(c, preferred); attachDirection(&card, c.workKey, p, cardSeed, clozeWords, at) {
-		return card, true
+	if preferred != "" {
+		if card := finishCard(c, preferred); attachDirection(&card, c.workKey, p, cardSeed, clozeWords, at) {
+			return card, true
+		}
 	}
 	for _, d := range dirs {
 		if d == preferred {
@@ -1829,7 +1842,7 @@ func attachMCQ(card *reviewCard, ownKey string, p quizPools, seed int64, tier st
 			answer = workRef{key: ownKey, kind: card.Kind, title: card.Title}
 		}
 		var distractors []workRef
-		for _, w := range rankWorks(own, p.works, rng) {
+		for _, w := range rankWorks(own, p.works, rng, tier) {
 			if w.title != card.Title {
 				distractors = append(distractors, w)
 			}
@@ -1867,7 +1880,7 @@ func attachMCQ(card *reviewCard, ownKey string, p quizPools, seed int64, tier st
 	// choicesFrom, which could quietly leave a card with fewer choices than it
 	// should have had.
 	var distractors []quoteRef
-	for _, q := range rankQuotes(own, p.quotes, rng) {
+	for _, q := range rankQuotes(own, p.quotes, rng, tier) {
 		if q.work.key == ownKey || q.work.title == card.Title {
 			continue // never a quote from the same work
 		}
@@ -1959,7 +1972,7 @@ func attachClozeMCQ(card *reviewCard, ownKey string, p quizPools, seed int64, mu
 	rng := seededRand(seed)
 	own := p.byKey[ownKey]
 	var distractors []string
-	for i, q := range rankQuotes(own, p.quotes, rng) {
+	for i, q := range rankQuotes(own, p.quotes, rng, tier) {
 		if q.work.key == ownKey {
 			continue // a phrase out of this same work could be this same phrase
 		}
@@ -2020,17 +2033,44 @@ func shuffleN(rng *rand.Rand, n int, swap func(i, j int)) {
 // rankWorks / rankQuotes order distractors most-similar-first, shuffling first
 // so equally-similar candidates vary (per `rng`: seeded ⇒ stable for the day,
 // nil ⇒ varied per round).
-func rankWorks(own workRef, works []workRef, rng *rand.Rand) []workRef {
+// EASY RANKS THE SAME SCALE DOWNWARDS, which is the whole of what makes it easy.
+//
+// distractorScore rewards a candidate for sharing a medium, an author, a series
+// or a genre — so the best distractor at medium is the one hardest to tell from
+// the answer. Easy wants the opposite: same-author and same-series AVOIDED,
+// cross-medium acceptable, the wrong answers obviously wrong.
+//
+// ONE PREDICATE, INVERTED, rather than a second ranking function. Two orderings
+// of one score written separately is how they come to disagree about what
+// "similar" means — and the tier is a property of the round, so the scale itself
+// must not change.
+//
+// AND IT COSTS SOMETHING, recorded here as well as under the control: Little,
+// Bjork, Bjork & Angello (2012) found competitive alternatives teach the
+// surrounding material better, because you retrieve why each wrong option is
+// wrong. Easy gives that up deliberately, to lower the floor.
+func tierCloser(tier string) func(a, b int) bool {
+	if tier == tierEasy {
+		return func(a, b int) bool { return a < b }
+	}
+	return func(a, b int) bool { return a > b }
+}
+
+func rankWorks(own workRef, works []workRef, rng *rand.Rand, tier string) []workRef {
 	out := append([]workRef(nil), works...)
 	shuffleN(rng, len(out), func(i, j int) { out[i], out[j] = out[j], out[i] })
-	sort.SliceStable(out, func(i, j int) bool { return distractorScore(own, out[i]) > distractorScore(own, out[j]) })
+	better := tierCloser(tier)
+	sort.SliceStable(out, func(i, j int) bool { return better(distractorScore(own, out[i]), distractorScore(own, out[j])) })
 	return out
 }
 
-func rankQuotes(own workRef, quotes []quoteRef, rng *rand.Rand) []quoteRef {
+func rankQuotes(own workRef, quotes []quoteRef, rng *rand.Rand, tier string) []quoteRef {
 	out := append([]quoteRef(nil), quotes...)
 	shuffleN(rng, len(out), func(i, j int) { out[i], out[j] = out[j], out[i] })
-	sort.SliceStable(out, func(i, j int) bool { return distractorScore(own, out[i].work) > distractorScore(own, out[j].work) })
+	better := tierCloser(tier)
+	sort.SliceStable(out, func(i, j int) bool {
+		return better(distractorScore(own, out[i].work), distractorScore(own, out[j].work))
+	})
 	return out
 }
 
