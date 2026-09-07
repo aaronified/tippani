@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Home says when your library has outgrown the schedule.** A quote comes back once per
+  half-life, so eight cards a day and a year-long ceiling keep about 2,900 quotes current — past
+  that the quiz runs permanently behind. It still leads with whatever you are closest to
+  forgetting, so nothing is skipped, but the far end of a big library waits, and until now
+  nothing said so. The note appears under *where you stand* with both numbers, and points at the
+  daily count in Settings. It is also the last place the schedule was still described as topping
+  out at 100 days: the two paragraphs that explain the ladder, and the Settings copy beside it,
+  now say a year.
+
 
 - **A character in one work can be given another, from the screen you are already on.** A
   character credited in a single work has a row — *Also in another work* — that opens the

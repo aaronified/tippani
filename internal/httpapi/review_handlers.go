@@ -2121,6 +2121,18 @@ func (s *Server) handleDailyQuiz(w http.ResponseWriter, r *http.Request) {
 		"quota":          pf.SRDaily,
 		"streak":         streak,
 		"states":         states,
+		// THE SCHEDULE HAS A SIZE, AND IT IS SENT SO A SCREEN CAN SAY SO. Above
+		// quota x ceiling the deck runs permanently behind — correctly, since it
+		// still leads with the stalest card, but silently, which is the part that
+		// was wrong. The reader has `states.total` beside this and the comparison
+		// is one function (`overCapacity` in quiz.js), because two screens
+		// spelling out the same inequality is how one of them stops agreeing.
+		//
+		// COMPUTED HERE rather than in the client: it depends on reviewMaxStability,
+		// which is the server's number, and a client that multiplied by its own
+		// idea of the ceiling would go quietly wrong on the next release that moved
+		// it. The quota is per reader, so this is per reader too.
+		"capacity": reviewCapacity(pf.SRDaily),
 	})
 }
 
@@ -2614,6 +2626,11 @@ func (s *Server) answerResponse(w http.ResponseWriter, r *http.Request, uid int6
 		"got":         got,
 		"forgot":      forgot,
 		"states":      states,
+		// BESIDE `states` EVERY TIME IT IS SENT. `states.total` is the library and
+		// this is what the schedule can hold; a response carrying one without the
+		// other leaves the reader's screen unable to decide whether to say so, and
+		// the note would blink out on the first answer of a session.
+		"capacity": reviewCapacity(pf.SRDaily),
 	}
 	// Only present on a graded cloze card, which is the only time the words are
 	// not the answer to an open question.
@@ -2903,7 +2920,8 @@ func (s *Server) handleReviewScores(w http.ResponseWriter, r *http.Request) {
 			"accuracy": accuracy(pGot, pAnswered),
 			"sessions": pSessions,
 		},
-		"states": states,
+		"states":   states,
+		"capacity": reviewCapacity(pf.SRDaily),
 	})
 }
 

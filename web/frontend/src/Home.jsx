@@ -4,7 +4,7 @@
 // on "/". One narrow column on every screen size — the ritual reads the same
 // on a phone and a desktop. Quote capture is NOT here any more — it's the
 // "Capture quote" tab of the single ＋ Add surface (top bar + drawer).
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { coverImgURL, errText, json } from './api.js'
 import { chapterLabel, chapterMeta, episodeLabel } from './text.js'
 import { dateLine, greetingFor } from './greetings.js'
@@ -16,6 +16,7 @@ import { openCharacterDoor } from './identity.jsx'
 import { usePersonOpener } from './personOpen.jsx'
 import { quoteKindMeta } from './quoteKind.js'
 import { PendingImportCard } from './StagingPage.jsx'
+import { overCapacity } from './quiz.js'
 import { QuizRunner, tzOffsetMinutes } from './review.jsx'
 import { dailyDeck } from './daily.js'
 import {
@@ -81,8 +82,14 @@ import {
 // whichever rule is actually in force. Describing the ladder to somebody who has
 // switched it off would make the one piece of copy that explains the schedule
 // the one piece of copy that lies about it.
-function StatesRow({ states, help, onToggleHelp, adaptive }) {
+function StatesRow({ states, capacity, help, onToggleHelp, adaptive }) {
   if (!states || states.total === 0) return null
+  // A LIBRARY CAN OUTGROW ITS SCHEDULE, and until now that happened in silence.
+  // See overCapacity in quiz.js: the deck goes on working and goes on leading
+  // with the stalest card, so this is a note about reach and not a warning about
+  // breakage — which is why it sits under the counts rather than behind the "how
+  // these work" fold, where a reader who never opens it would never learn it.
+  const outgrown = overCapacity(states, capacity)
   const pips = [
     ['remembered', states.remembered],
     ['forgetting', states.forgetting],
@@ -112,6 +119,15 @@ function StatesRow({ states, help, onToggleHelp, adaptive }) {
           {t('home.states.help.label')}
         </button>
       </div>
+      {/* TWO NUMBERS, BOTH THE SERVER'S. The capacity is quota x the interval
+          ceiling and the total is the library; dividing one by the other to
+          recover the daily count would put the ceiling in the client, where the
+          next release to move it would leave this sentence quietly wrong. */}
+      {outgrown && (
+        <p className="microcopy mt-2" style={{ lineHeight: 1.6 }} data-outgrown="">
+          {t('home.states.capacity.note', { total: states.total, n: capacity })}
+        </p>
+      )}
       {help && (
         <p className="microcopy mt-2" style={{ lineHeight: 1.6 }}>
           {/* ONE KEY PER RULE, holding the whole paragraph. It was five JSX
@@ -143,7 +159,7 @@ function StatesRow({ states, help, onToggleHelp, adaptive }) {
 // card due today, no skips, each grade folded into the schedule. Got it / Forgot
 // move the card's half-life; the deck drains as you go and the pending dot
 // follows. Records a permanent daily score + streak.
-function DailyQuizCard({ onPending, states, onStates, adaptive, submitStep }) {
+function DailyQuizCard({ onPending, states, capacity, onStates, adaptive, submitStep }) {
   const [data, setData] = useState(null)
   const [phase, setPhase] = useState('loading') // loading | active | done | error
   const [tally, setTally] = useState({ got: 0, forgot: 0 })
@@ -156,7 +172,7 @@ function DailyQuizCard({ onPending, states, onStates, adaptive, submitStep }) {
       if (!r.ok) return setPhase('error')
       setData(r.data)
       setTally({ got: r.data.got_today || 0, forgot: r.data.forgot_today || 0 })
-      onStates?.(r.data.states)
+      onStates?.(r.data.states, r.data.capacity)
       const n = (r.data.items || []).length
       onPending(n)
       setPhase(n ? 'active' : 'done')
@@ -171,7 +187,7 @@ function DailyQuizCard({ onPending, states, onStates, adaptive, submitStep }) {
     if (res && typeof res.remaining === 'number') onPending(res.remaining)
     // Every answer carries fresh library-wide status counts, so "where you
     // stand" ticks live instead of waiting for the next Home visit.
-    if (res?.states) onStates?.(res.states)
+    if (res?.states) onStates?.(res.states, res.capacity)
   }
 
   const streak = data?.streak || 0
@@ -218,7 +234,7 @@ function DailyQuizCard({ onPending, states, onStates, adaptive, submitStep }) {
       )}
 
       {states && (
-        <StatesRow states={states} help={help} onToggleHelp={() => setHelp((v) => !v)} adaptive={adaptive} />
+        <StatesRow states={states} capacity={capacity} help={help} onToggleHelp={() => setHelp((v) => !v)} adaptive={adaptive} />
       )}
     </HandCard>
   )
@@ -278,7 +294,7 @@ function PracticeCard({ onStates, userId, submitStep }) {
     // Practice answers refresh the Daily card's "where you stand" row too — the
     // server returns the counts on every answer (they move when practice is set
     // to touch the schedule, and stay honest either way).
-    if (res?.states) onStates?.(res.states)
+    if (res?.states) onStates?.(res.states, res.capacity)
   }
 
   async function reset() {
@@ -600,6 +616,18 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
   // "Where you stand" lives in the Daily Quiz card but is fed by BOTH cards —
   // every /review/answer response carries fresh counts, so the row ticks live.
   const [states, setStates] = useState(null)
+  // AND WHAT THE SCHEDULE CAN HOLD, which is quota x the interval ceiling and so
+  // is the server's number, not a product the client can work out for itself.
+  //
+  // A RESPONSE THAT OMITS IT LEAVES THE LAST ONE STANDING rather than clearing
+  // it. Every review response carries it today and a Go guard says so; the point
+  // of the check is what happens when one stops — a note that blinked out on the
+  // first answer of a session would read as a bug in the note.
+  const [capacity, setCapacity] = useState(0)
+  const takeStates = useCallback((s, cap) => {
+    setStates(s)
+    if (Number.isFinite(cap)) setCapacity(cap)
+  }, [])
   const { stickers, reload: reloadStickers } = useStickers()
   // Drawn once per mount, not per render: a greeting that reshuffled every time
   // a quiz card re-rendered would be a flicker, not a flourish. A reload picks
@@ -820,9 +848,9 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
           entered the library yet, and that is easy to forget. */}
       <PendingImportCard pending={pendingImport} onOpen={onReviewImport} />
 
-      <DailyQuizCard onPending={onPending} states={states} onStates={setStates} adaptive={!!user?.preferences?.srAdaptive} submitStep={!!user?.preferences?.srSubmit} />
+      <DailyQuizCard onPending={onPending} states={states} capacity={capacity} onStates={takeStates} adaptive={!!user?.preferences?.srAdaptive} submitStep={!!user?.preferences?.srSubmit} />
 
-      <PracticeCard onStates={setStates} userId={user?.id} submitStep={!!user?.preferences?.srSubmit} />
+      <PracticeCard onStates={takeStates} userId={user?.id} submitStep={!!user?.preferences?.srSubmit} />
 
       {/* THE TWO COUNT TILES ARE DOORS, and a reader who has switched a section
           off (Settings → Features) should not be looking at one. Gated on the

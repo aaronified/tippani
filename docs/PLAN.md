@@ -2756,7 +2756,7 @@ Spaced repetition is an exponential forgetting curve evaluated in SQL at query t
 
 ### The ladder's ceiling is a year, and the fourth rung is where capacity comes from
 
-**Decided.** `reviewMaxStability` is **365 days** and the ladder is **7 → 30 → 100 → 365**. `reviewTuning` gains `Ladder4`, every rung slider runs to 365, and the whole ladder falls back to the defaults together when the ascent breaks rather than having the offending rung patched. `nextRung`'s fallback is the **ladder's own** top rung, not the package ceiling, so a reader who shortened their ladder is not stepped past it. No migration: 0019 already clamped every stored half-life to 100, so nothing sits above the old ceiling.
+**Decided.** `reviewMaxStability` is **365 days** and the ladder is **7 → 30 → 100 → 365**. `reviewTuning` gains `Ladder4`, every rung slider runs to 365, and the whole ladder falls back to the defaults together when the ascent breaks rather than having the offending rung patched. `nextRung`'s fallback is the **ladder's own** top rung, not the package ceiling, so a reader who shortened their ladder is not stepped past it. No migration: 0019 already clamped every stored half-life to 100, so nothing sits above the old ceiling. **And the capacity is now reported.** `reviewCapacity(quota)` is `quota × reviewMaxStability`, sent beside `states` on every review response, and Home says so under *where you stand* once the library is past it — a note about reach, not a warning about breakage, so it is microcopy on the row rather than anything behind the help fold, where a reader who never opens it would never learn it. The comparison is one function (`overCapacity`) because two screens will want it; the capacity itself is the server's, since a client multiplying by its own idea of the ceiling would go quietly wrong on the next release that moved it.
 
 **Why.** The ceiling was silently a capacity limit. At equilibrium a card is asked once per half-life, so a library of `N` owes `N / ceiling` reviews a day and the largest library a quota can keep current is `quota × ceiling` — 8 × 100, about **800 quotes**. Above that the deck runs permanently behind. Nothing breaks, because most-overdue-first means the reader still gets the stalest thing, but the tail of a growing library stops being reached and **no screen said so**. A year makes it about 2,900. It buys that at the cost of one more climb per admission — a new card now returns at +7, +37 and +137 before reaching the top — while steady-state maintenance falls by 3.65×, which is the trade in one line.
 
@@ -2766,7 +2766,7 @@ Why 365 and not more: one year is the longest retention interval Cepeda, Vul, Ro
 
 **Approved.** Mine, with the ceiling named as the thing to argue about rather than the rungs.
 
-<sub>3.1.0 — `internal/httpapi/review_handlers.go` · `internal/httpapi/review_tuning.go` · `web/frontend/src/quiz.js` · `internal/i18n/en.txt` · `CHANGELOG.md`</sub>
+<sub>3.1.0 — `internal/httpapi/review_handlers.go` · `internal/httpapi/review_tuning.go` · `web/frontend/src/quiz.js` · `web/frontend/src/Home.jsx` · `internal/i18n/en.txt` · `CHANGELOG.md`</sub>
 
 ### The half-life floor rose from 1 day to 7, with a grace week for a new quote
 

@@ -327,3 +327,24 @@ export function tuningBlob(tune) {
   if (same) return ''
   return JSON.stringify(Object.fromEntries(Object.keys(DEFAULT_TUNING).map((k) => [k, Number(tune[k])])))
 }
+
+// ---- when the library outgrows the schedule ---------------------------------
+//
+// A card comes back once per half-life, so a library of N owes N/ceiling reviews
+// a day and the largest one a quota can keep current is quota x ceiling — the
+// `capacity` the daily response sends. Above it the deck runs permanently behind.
+//
+// NOTHING IS BROKEN ABOVE IT, which is why this is a note and not a warning: the
+// deck still leads with whatever is closest to being forgotten, so the reader
+// always gets the most useful card available. What was wrong is that it happened
+// in silence — a library could grow past the point where its far end was ever
+// asked about again and no screen mentioned it.
+//
+// ONE FUNCTION, because more than one screen wants this and an inequality
+// written twice is an inequality that comes to disagree with itself. The
+// capacity ITSELF is the server's — it depends on reviewMaxStability — and this
+// only compares.
+export function overCapacity(states, capacity) {
+  if (!states || !Number.isFinite(capacity) || capacity <= 0) return false
+  return Number(states.total) > capacity
+}

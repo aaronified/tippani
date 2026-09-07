@@ -311,3 +311,36 @@ describe('what gets stored for the tuning', () => {
     }
   })
 })
+
+// ---- when the library outgrows the schedule ---------------------------------
+
+import { overCapacity } from '../../src/quiz.js'
+
+describe('the schedule has a size and the screen can say so', () => {
+  // The rule, not the wording: a library above quota x ceiling is one the deck
+  // cannot keep current. `capacity` is the server's number, so every reading
+  // that is not a usable one has to come back false rather than draw a sentence
+  // about a schedule whose size nobody sent.
+  it('is over only when the library really is larger', () => {
+    expect(overCapacity({ total: 2921 }, 2920)).toBe(true)
+    expect(overCapacity({ total: 2920 }, 2920)).toBe(false)
+    expect(overCapacity({ total: 2919 }, 2920)).toBe(false)
+    expect(overCapacity({ total: 0 }, 2920)).toBe(false)
+  })
+
+  // EVERY UNUSABLE CAPACITY IS "NOT OVER", and each of these is a real state
+  // rather than a defensive flourish: 0 and undefined are what a response that
+  // did not send it decode to, and a screen that treated 0 as the capacity would
+  // tell every reader with one quote that they had outgrown the schedule.
+  it('and never over on a capacity nobody sent', () => {
+    for (const cap of [0, -1, undefined, null, NaN, Infinity, '2920']) {
+      expect(overCapacity({ total: 5000 }, cap), String(cap)).toBe(false)
+    }
+  })
+
+  it('and never over with no counts at all', () => {
+    for (const states of [null, undefined]) {
+      expect(overCapacity(states, 2920), String(states)).toBe(false)
+    }
+  })
+})

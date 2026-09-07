@@ -1123,3 +1123,53 @@ func TestSpreadByWork(t *testing.T) {
 		t.Fatalf("single-work list must keep its order: %+v", got)
 	}
 }
+
+
+// THE CAPACITY TRAVELS WITH THE COUNTS IT IS COMPARED AGAINST.
+//
+// `states.total` is the library and `capacity` is what the schedule can hold, so
+// a screen needs BOTH to decide whether to say the library has outgrown it. A
+// response carrying one without the other leaves the note unable to render — and
+// worse, makes it BLINK OUT partway through a session, because Home is fed by the
+// daily deck first and by every answer after that. A note that vanishes on the
+// first answer reads as a bug in the note.
+//
+// READ AS RAW JSON, not into the typed structs above, and that is the point: a
+// typed decode would silently give 0 for a field nobody sent, and adding a fourth
+// endpoint that returns `states` would not fail anything. This asserts the PAIR
+// over whatever the handler actually wrote.
+func TestEveryResponseWithStatesCarriesTheCapacity(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	_, ids := seedReviewBook(t, c, "Dune", 3)
+	seedDistractorBook(t, srv, c, "Neuromancer")
+	ageSeededItems(t, srv)
+
+	probes := []struct {
+		name string
+		body map[string]any
+	}{
+		{"GET /review/daily", decode[map[string]any](t, c.mustDo("GET", "/review/daily", nil, 200))},
+		{"GET /review/scores", decode[map[string]any](t, c.mustDo("GET", "/review/scores", nil, 200))},
+		{"POST /review/answer", decode[map[string]any](t, c.mustDo("POST", "/review/answer",
+			map[string]any{"kind": kindBook, "id": ids[0], "result": "got", "mode": "daily"}, 200))},
+	}
+	want := float64(reviewCapacity(reviewQuota))
+	for _, p := range probes {
+		if _, ok := p.body["states"]; !ok {
+			t.Errorf("%s: no `states` at all — this guard is reading the wrong response rather than passing", p.name)
+			continue
+		}
+		got, ok := p.body["capacity"]
+		if !ok {
+			t.Errorf("%s: sends `states` with no `capacity` beside it", p.name)
+			continue
+		}
+		// The VALUE too, from the same function the screen's sentence is written
+		// against — a key present but wrong is the harder failure to notice.
+		if got != want {
+			t.Errorf("%s: capacity = %v, want %v (the default quota %d x the ceiling %g)",
+				p.name, got, want, reviewQuota, reviewMaxStability)
+		}
+	}
+}

@@ -2734,14 +2734,20 @@ home.daily.empty.summary = add or review more quotes to build your schedule
 # "WHERE YOU STAND" — a count per memory status, with the explainer under it.
 home.states.title = where you stand
 home.states.help.label = how these work
+# Shown under the status counts only when the library is larger than the
+# schedule can keep current — quota x the interval ceiling. NOT a warning:
+# the deck still leads with whatever is closest to forgotten, so this says
+# what the reader is not reaching and what the lever is. {n} is the capacity,
+# {total} the library.
+home.states.capacity.note = Your library has outgrown the schedule: it can keep about {n} quotes current, and you have {total}. Nothing is skipped — the quiz always leads with whatever you are closest to forgetting — but the far end will wait. More cards a day, in Settings, reaches further.
 # THE EXPLAINER HAS TWO VERSIONS and the app shows whichever rule is actually in
 # force: describing the ladder to somebody who switched it off would make the one
 # piece of copy that explains the schedule the one piece that lies about it.
 # {curve} and {spaced} are links to Wikipedia; {remembered} {forgetting} and
 # {forgotten} are the three status words in bold, and they must match
 # common.status.*.label, which is what the dots on every card say.
-home.states.help.adaptive.prose = Each quote carries a memory “half-life” that stretches to two and a half times its length each time you recall it — up to 100 days — and is halved, not reset, when you forget: the classic {curve} behind {spaced}. A quote is {remembered} while your odds of recalling it stay high, {forgetting} as they slip, and {forgotten} once they fall past half — which is when the Daily Quiz brings it back. A quote you’ve just saved counts as remembered for its first week, then joins the rotation. Hover a quote’s dot anywhere to see its half-life.
-home.states.help.ladder.prose = Each quote carries a memory “half-life” that climbs a fixed ladder — a week, then 30 and 100 days — each time you recall it, and falls straight back to a week when you forget — the classic {curve} behind {spaced}. A quote is {remembered} while your odds of recalling it stay high, {forgetting} as they slip, and {forgotten} once they fall past half — which is when the Daily Quiz brings it back. A quote you’ve just saved counts as remembered for its first week, then joins the rotation. Hover a quote’s dot anywhere to see its half-life.
+home.states.help.adaptive.prose = Each quote carries a memory “half-life” that stretches to two and a half times its length each time you recall it — up to a year — and is halved, not reset, when you forget: the classic {curve} behind {spaced}. A quote is {remembered} while your odds of recalling it stay high, {forgetting} as they slip, and {forgotten} once they fall past half — which is when the Daily Quiz brings it back. A quote you’ve just saved counts as remembered for its first week, then joins the rotation. Hover a quote’s dot anywhere to see its half-life.
+home.states.help.ladder.prose = Each quote carries a memory “half-life” that climbs a fixed ladder — a week, then 30, 100 and 365 days — each time you recall it, and falls straight back to a week when you forget — the classic {curve} behind {spaced}. A quote is {remembered} while your odds of recalling it stay high, {forgetting} as they slip, and {forgotten} once they fall past half — which is when the Daily Quiz brings it back. A quote you’ve just saved counts as remembered for its first week, then joins the rotation. Hover a quote’s dot anywhere to see its half-life.
 # The two link texts inside those paragraphs.
 home.states.help.curve.label = forgetting curve
 home.states.help.spaced.label = spaced repetition
