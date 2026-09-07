@@ -30,6 +30,8 @@ import { fileURLToPath } from 'node:url'
 
 import puppeteer from 'puppeteer-core'
 
+import { clipOf } from './clipverdict.mjs'
+
 import { HARNESS_ACCOUNT, SCREENS, emulateEngineMedia, ensureSession, findBrowser, launchOptions } from './capture.mjs'
 
 function parseArgs(argv) {
@@ -129,12 +131,11 @@ const PROBE = `(() => {
     }
     return parts.join('>')
   }
-  const CUTS = (v) => v === 'hidden' || v === 'clip'
-  // A line clamp is line-based, so the type dial cannot break it. See above.
-  const CLAMPED = (cs) => {
-    const n = cs.webkitLineClamp || cs.getPropertyValue('-webkit-line-clamp')
-    return !!n && n !== 'none' && n !== '0'
-  }
+  // THE PREDICATE IS clipverdict.mjs, stringified in rather than copied — a copy is
+  // what let the exemption be wrong in one of them for half an hour. It has its own
+  // tests: test/pure/clip-verdict.test.js. (No backticks in here: this whole block
+  // is a template literal, and one would end it.)
+  const clipOf = ${clipOf.toString()}
   const out = {}
   for (const el of document.body.querySelectorAll('*')) {
     if (!el.textContent || !el.textContent.trim()) continue
@@ -142,10 +143,12 @@ const PROBE = `(() => {
     if (!r.width || !r.height) continue
     const cs = getComputedStyle(el)
     if (cs.visibility === 'hidden' || cs.display === 'none') continue
-    const wide = el.scrollWidth > el.clientWidth + 1 && CUTS(cs.overflowX)
-    // THE VERTICAL CLIP ONLY. A clamp holds N lines at every type size, so the
-    // dial cannot break it downwards; it promises nothing about the width.
-    const tall = el.scrollHeight > el.clientHeight + 1 && CUTS(cs.overflowY) && !CLAMPED(cs)
+    const { wide, tall } = clipOf({
+      scrollWidth: el.scrollWidth, clientWidth: el.clientWidth,
+      scrollHeight: el.scrollHeight, clientHeight: el.clientHeight,
+      overflowX: cs.overflowX, overflowY: cs.overflowY,
+      lineClamp: cs.webkitLineClamp || cs.getPropertyValue('-webkit-line-clamp'),
+    })
     if (!wide && !tall) continue
     out[KEY(el)] = {
       tag: el.tagName.toLowerCase(),

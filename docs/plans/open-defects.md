@@ -902,6 +902,27 @@ of a rating worth more than the number. The three that matter are below the tabl
 | AM8 | **`DEVELOPMENT.md` named `ratchet.mjs` and `scratch-server.sh` but not their siblings**, and `doc-map-check.mjs` passes either way — it checks that named paths resolve, not that new ones are named | **FIXED.** `dragverdict.mjs`, `pickfilm.mjs` and `backup-env.sh` have rows. That the gate cannot see the gap is worth its own note: the map is a promise the check does not enforce |
 | AM9 | Two counts of the clamps disagreed with the table under them — "nine" where there are eight, "three and four" where it is three and five | **FIXED** |
 
+**AM5's PREDICATE NOW HAS A TEST, because a rule that was wrong once and is guarded by
+nothing is the definition of what needs one.** The clip predicate lived inside
+`typescale.mjs`'s `page.evaluate` string, so asking whether it was right cost a build, a
+restore and thirteen screens — and it was wrong for half an hour with nothing failing. It
+is `clipverdict.mjs` now, **stringified into the probe rather than copied into it**, so the
+page runs the same function `test/pure/clip-verdict.test.js` drives; eleven cases, and one
+of them asserts that the probe still carries it rather than a second copy, because a copy
+is what let the two disagree. Reinstating the shipped defect — `if (clamped) return {wide:
+false, tall: false}` — fails two of them by name. `make typescale` re-run after the
+extraction: 0, no new clips.
+
+**AND MY OWN COMMIT SWALLOWED A SUBAGENT'S STAGED FILES.** The plan sweep and I were in one
+working directory, and `git add <two paths> && git commit` commits the INDEX — which held
+the three roadmap files the sweep had staged. Its change is correct and
+`roadmap-data.mjs --check` passes against the committed state, but `4d95730`'s message
+describes two files of five. The rule that follows, and it is cheap: **when anything else
+may be staging in this tree, commit with explicit pathspecs** — `git commit -- <paths>` —
+which ignores the index. I had told the sweep not to `git add -A` because a
+`--update-baseline` run was about to write `controls-baseline.json`; I did not think about
+the same hazard pointing the other way.
+
 **AND THE THREE HARNESSES THIS PASS TOUCHED WERE RE-RUN ON THE COMMIT.** AM5 narrowed the
 clamp exemption from skipping the element to skipping only its vertical check, which can
 newly count a clamped box clipping sideways; AM6 put `pickFilm` in the path both
