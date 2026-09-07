@@ -28,7 +28,7 @@ import puppeteer from 'puppeteer-core'
 import { anchorsFor } from '../../web/frontend/src/sheetAnchors.js'
 import { HARNESS_ACCOUNT, emulateEngineMedia, ensureSession, filmLookups, findBrowser, launchOptions } from './capture.mjs'
 import { pickFilm } from './pickfilm.mjs'
-import { judgeDrag } from './dragverdict.mjs'
+import { judgeDrag, judgeFrames } from './dragverdict.mjs'
 
 function parseArgs(argv) {
   // NO DEFAULT ID. A number here is a fact about one library, and this probe
@@ -505,6 +505,48 @@ try {
     } else {
       console.log(`ok    one gesture went up, down and up again (${trail})`)
     }
+  }
+
+  // 5e. AND HOW SMOOTH IT WAS, which every case above leaves out.
+  //
+  //     THE OWNER, four reports in: "it has reduced a lot with last updates, but
+  //     it is still not buttery smooth (that is the goal)." Case 5c judges the
+  //     MECHANISM — one layout, a transform a frame, the top edge keeping up, no
+  //     leap on release — and a drag can pass all of that while dropping every
+  //     third frame. Until there is a number, "buttery" is an argument nobody can
+  //     win.
+  //
+  //     WITH MOTION ON, and a real gesture. The frames are recorded in the page by
+  //     a `requestAnimationFrame` loop that runs for the length of the drag and
+  //     nothing else, so the measurement costs one callback a frame.
+  s = await readSheet(page)
+  if (s?.head) {
+    await page.emulateMediaFeatures([
+      { name: 'prefers-color-scheme', value: 'light' },
+      { name: 'prefers-reduced-motion', value: 'no-preference' },
+    ])
+    await page.evaluate(() => {
+      window.__tpFrames = []
+      window.__tpStop = false
+      const tick = (t) => { window.__tpFrames.push(t); if (!window.__tpStop) requestAnimationFrame(tick) }
+      requestAnimationFrame(tick)
+    })
+    await pull(page, { x: s.head.mid, y: s.head.y }, -PULL)
+    const stamps = await page.evaluate(() => { window.__tpStop = true; return window.__tpFrames })
+    const smooth = judgeFrames({ stamps })
+    if (smooth.fail) {
+      console.log(`FAIL  ${smooth.fail}`)
+      failures++
+    } else if (smooth.unmeasured) {
+      // NOT A FAILURE AND NOT AN `ok`. A run that could not read the frames has
+      // measured the harness, and saying `ok` about it is the silence this whole
+      // file was rewritten to stop.
+      console.log(`FRAMES  ${smooth.note}`)
+    } else {
+      console.log(`ok    ${smooth.ok}`)
+    }
+    await emulateEngineMedia(page, engine.browser, 'light')
+    await settle(420)
   }
 
   // 6. AND A PULL OFF THE BOTTOM CLOSES IT. Twice the viewport, which is past the

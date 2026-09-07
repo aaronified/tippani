@@ -1012,12 +1012,32 @@ apart and a whole day apart to debug.
 *"one gesture went up, down and up again (203px → 113px → 168px → 98px)"* — the offsets
 tracking both reversals, printed so the next reader can see it rather than trust it.
 
-**STILL OPEN, and named rather than implied:** the owner's *"not buttery smooth"* is not
-closed by this. Five specific defects are, and each was a real interruption or a real jump
-— which is most of what "flaky" describes — but nothing here measures FRAME TIMING, so
-nothing here can say the remaining motion is smooth. A probe that records
-`requestAnimationFrame` intervals through a drag and reports the worst one is the next
-piece of work, because "buttery" is a number and this file does not have it yet.
+**AND "BUTTERY" NOW HAS A NUMBER, which it did not when this section was written.** Every
+other case here judges a MECHANISM — one layout, a transform a frame, the top edge keeping
+up, no leap on release — and a drag can pass all of it while dropping every third frame.
+So `judgeFrames` (in `dragverdict.mjs`, with six cases of its own) reads
+`requestAnimationFrame` timestamps through a real gesture and reports the intervals. On
+this machine, against the owner's archive:
+
+```
+ok    52 frames: median 17ms, p95 17ms, worst 17ms, 0 over 33ms (0%)
+```
+
+**IT REPORTS AND IT IS NOT A RATCHET, deliberately.** This runs headless against a
+software compositor in a shared container, so a count of long frames is a fact about the
+machine as much as about the app; a gate on it would either fail constantly or be set so
+loose it guarded nothing. It fails only on a hitch no environment excuses — a single frame
+over 250ms, which is a blocked main thread rather than a busy compositor. And a run that
+recorded too few frames prints `FRAMES … not measured` rather than `ok`, because reporting
+`ok` about a run you never read is the silence this whole probe was rewritten to stop.
+
+**WHAT THE NUMBER DOES AND DOES NOT SETTLE.** It says no main-thread work in the drag path
+is blocking frames, which is what the layout-per-frame defect was. It does NOT say the
+owner's phone is smooth: swiftshader in a container is not a mobile GPU, and the cost this
+cannot see is the scrim's 10px `backdrop-filter` being composited under a moving layer.
+Measuring that needs the owner's device or a throttled profile, and until one of those says
+otherwise the honest position is that the mechanism is clean here and the remaining
+question is a hardware one.
 
 ## Withdrawn claims
 

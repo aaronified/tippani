@@ -69,3 +69,57 @@ export function judgeDrag({ live = [], let_go = null, after = null, asked = 0, f
   }
   return { ok: `one layout for the whole drag (${heights[0]}px box), ${travel}px of travel for ${Math.round(asked)}px of finger, and no leap on release` }
 }
+
+// HOW SMOOTH THE DRAG ACTUALLY WAS, which is the one thing every check above
+// leaves out.
+//
+// THE OWNER, four reports in: "it has reduced a lot with last updates, but it is
+// still not buttery smooth (that is the goal)." Everything else this file judges
+// is a MECHANISM — one layout, a transform, the top edge keeping up, no leap on
+// release — and a drag can pass all of it while dropping every third frame. A
+// mechanism is a thing you can reason about; smoothness is a measurement, and
+// until there is a number for it "buttery" is an argument nobody can win.
+//
+// WHAT THE NUMBER IS. `requestAnimationFrame` timestamps through the gesture, and
+// the INTERVALS between them. At 60Hz a frame is 16.7ms; a gap of two frames is
+// one dropped, which a reader sees as a stutter. So: the worst interval, and how
+// many were over budget.
+//
+// AND IT IS NOT A RATCHET, deliberately. This runs headless in a shared container
+// against a swiftshader compositor — nothing like the owner's phone — so a count
+// of long frames here is a fact about this machine as much as about the app.
+// Making it a gate would either fail constantly or be set so loose it guards
+// nothing. It REPORTS, every run, and fails only on a hitch no environment
+// excuses: a single frame long enough that a reader would call it a freeze.
+export const FRAME_MS = 1000 / 60
+// Two frames' worth. One interval this long is one dropped frame.
+export const LONG_FRAME = FRAME_MS * 2
+// A quarter of a second of nothing. No compositor is this slow because it is
+// busy; something blocked the main thread, and that is the app's to answer for.
+export const HITCH_MS = 250
+
+// stamps: rAF timestamps in ms, in order. Returns the reading plus a verdict.
+export function judgeFrames({ stamps = [], hitch = HITCH_MS, floor = 8 } = {}) {
+  const gaps = []
+  for (let i = 1; i < stamps.length; i++) gaps.push(stamps[i] - stamps[i - 1])
+  // TOO FEW FRAMES IS NOT A SMOOTH DRAG, it is an unmeasured one — and saying so
+  // is the whole lesson of this file's first defect, where the guard against
+  // having no readings sat below the line that dereferenced them.
+  if (gaps.length < floor) {
+    return { gaps, unmeasured: true, note: `only ${gaps.length} frame interval(s) were recorded, so smoothness was not measured` }
+  }
+  const sorted = [...gaps].sort((a, b) => a - b)
+  const at = (q) => sorted[Math.min(sorted.length - 1, Math.floor(q * sorted.length))]
+  const worst = sorted[sorted.length - 1]
+  const long = gaps.filter((g) => g > LONG_FRAME).length
+  const reading = {
+    gaps, frames: gaps.length + 1, worst: Math.round(worst),
+    median: Math.round(at(0.5)), p95: Math.round(at(0.95)), long,
+    share: Math.round((long / gaps.length) * 100),
+  }
+  if (worst > hitch) {
+    return { ...reading, fail: `one frame of the drag took ${Math.round(worst)}ms — a reader sees that as the sheet freezing` }
+  }
+  return { ...reading, ok: `${reading.frames} frames: median ${reading.median}ms, p95 ${reading.p95}ms, worst ${reading.worst}ms, `
+    + `${long} over ${Math.round(LONG_FRAME)}ms (${reading.share}%)` }
+}

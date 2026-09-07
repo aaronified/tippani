@@ -37,7 +37,7 @@ const SHOTS = join(REPO, 'scripts', 'screenshots')
 
 // BY ABSOLUTE URL, because the probe lives outside the frontend's Vite root — the
 // same file the probe imports, so this is not a test of a copy.
-const { judgeDrag, leapt } = await import(pathToFileURL(join(SHOTS, 'dragverdict.mjs')).href)
+const { HITCH_MS, LONG_FRAME, judgeDrag, judgeFrames, leapt } = await import(pathToFileURL(join(SHOTS, 'dragverdict.mjs')).href)
 
 // A drag that did everything right: one box height, a moving top edge, a
 // transform on every frame, and a release that eases.
@@ -126,5 +126,74 @@ describe('what counts as a leap', () => {
   it('and a sheet that was gone by the time it was read gets an absolute bar', () => {
     expect(leapt(300, 330, null)).toBe(false)
     expect(leapt(300, 400, null)).toBe(true)
+  })
+})
+
+// A run of frame timestamps: `n` frames at `ms` apart, with optional stalls
+// spliced in at the given indexes.
+const frames = (n, ms = 16.7, stalls = {}) => {
+  const out = [0]
+  for (let i = 1; i < n; i++) out.push(out[i - 1] + (stalls[i] ?? ms))
+  return out
+}
+
+describe('how smooth the drag was', () => {
+  it('reads a clean sixty-hertz drag as clean', () => {
+    const out = judgeFrames({ stamps: frames(30) })
+    expect(out.fail, out.fail).toBeUndefined()
+    expect(out.unmeasured).toBeUndefined()
+    expect(out.median, 'the median frame is not a frame').toBe(17)
+    expect(out.long, 'a steady 60Hz drag was reported as dropping frames').toBe(0)
+    expect(out.ok).toMatch(/30 frames/)
+  })
+
+  it('and counts the dropped ones without failing on them', () => {
+    // A DROPPED FRAME IS NOT A FAILURE HERE, and that is deliberate: this runs
+    // headless against a software compositor in a shared container, so a count of
+    // long frames is a fact about the machine as much as about the app. It is
+    // REPORTED every run. Making it a gate would either fail constantly or be set
+    // so loose that it guards nothing.
+    const out = judgeFrames({ stamps: frames(30, 16.7, { 5: 40, 12: 55, 20: 38 }) })
+    expect(out.fail, out.fail).toBeUndefined()
+    expect(out.long, 'three dropped frames were not counted').toBe(3)
+    expect(out.share, 'the share of long frames is wrong').toBe(10)
+    expect(out.worst).toBe(55)
+  })
+
+  it('and fails on a hitch no environment excuses', () => {
+    // A quarter of a second of nothing is not a busy compositor, it is a blocked
+    // main thread — and that is the app's to answer for on any machine.
+    const out = judgeFrames({ stamps: frames(30, 16.7, { 9: 400 }) })
+    expect(out.fail, 'a 400ms freeze mid-drag passed').toMatch(/400ms/)
+    expect(out.fail).toMatch(/freezing/)
+  })
+
+  it('and the line between the two is one number, not a mood', () => {
+    expect(judgeFrames({ stamps: frames(30, 16.7, { 4: HITCH_MS - 1 }) }).fail).toBeUndefined()
+    expect(judgeFrames({ stamps: frames(30, 16.7, { 4: HITCH_MS + 1 }) }).fail).toBeTruthy()
+    expect(LONG_FRAME, 'a long frame is two frames’ worth').toBeCloseTo(1000 / 30, 5)
+  })
+
+  it('and says so rather than passing when it could not measure', () => {
+    // THE SAME DEFECT THIS FILE OPENED WITH, in a new place: a guard that reports
+    // `ok` about a run it never read. Too few frames is an UNMEASURED drag, and
+    // it is neither a pass nor a failure — the probe prints it as its own word.
+    for (const n of [0, 1, 2, 8]) {
+      const out = judgeFrames({ stamps: frames(n) })
+      expect(out.unmeasured, `${n} stamps were taken for a measurement`).toBe(true)
+      expect(out.ok, `${n} stamps reported ok`).toBeUndefined()
+      expect(out.fail, `${n} stamps reported a failure`).toBeUndefined()
+      expect(out.note).toMatch(/not measured/)
+    }
+    expect(judgeFrames({ stamps: frames(9) }).unmeasured,
+      'nine stamps is eight intervals, which is the floor and should measure').toBeUndefined()
+  })
+
+  it('and never throws, whatever it is handed', () => {
+    // A probe that dies has measured nothing, which is this module's whole reason
+    // for existing.
+    expect(() => judgeFrames()).not.toThrow()
+    expect(() => judgeFrames({ stamps: [] })).not.toThrow()
+    expect(() => judgeFrames({ stamps: [5] })).not.toThrow()
   })
 })
