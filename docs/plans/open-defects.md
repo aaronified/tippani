@@ -1095,14 +1095,14 @@ is the code that has not been pressed, and reading my own new line back is not a
 (this is not an infodot, btw, so will not be restricted by the budget)", and both halves
 hold: it wears `InfoPopover` — anchored beside the mark on a desktop, a centred sheet on a
 phone — and nothing in it answers to `help-budget`'s caps. The mark is a `<button>` now and
-opens the panel ITSELF: it is drawn on FOUR screens (Library's `ActionRow`, Movies' `Frame`,
+opens the panel ITSELF: it is drawn by THREE files (Library's `ActionRow`, Movies' `Frame`,
 and the Quotes board and Search through `AnnotationCard`), and the repo's directive is one
 behaviour in one function. A handler threaded from each call site is the shape
 `personOpen.jsx` records two dead controls to — *"a capability that has to be re-threaded at
 each call site is a capability that is absent at most of them"* — so the screens pass
 nothing and `reviewKindOf` reads the kind off the row.
 
-**REJECTED: the screen's own `usePanelStack`.** Two of the four screens host one, so it
+**REJECTED: the screen's own `usePanelStack`.** Only some of those screens host one, so it
 would have been threaded after all; and `usePanelStack` writes `tpPanelDepth` into
 `window.history.state`, so one shell-level host serving all four would be two live stacks
 fighting over one key.
@@ -1122,7 +1122,7 @@ things; a rater that only reads them would have passed all three.
 | AR4 | **AQ1's claim was false for 0065.** `recall_log_test.go` deleted the utterance LAST, when its rows were the only ones left — so "a trigger took more than its own kind" had nothing to be true of, and dropping `kind = 'utterance'` from 0065 survived | **FIXED by reordering the deletes**, newest kind first, which leaves four rows of other kinds standing behind it. The mutation now fails on two lines. The order was the assertion and nothing said so |
 | AR5 | **The panel's clock was not floored under test.** Removing `MAX(r.stability, reviewFloorSQL)` from `due_in_days` survived every case, because no fixture in the file had a stability below seven — the only region where the floor does anything | **FIXED** by a case with a stored half-life of three, five days old: floored it reads two days LEFT, unfloored two days OVERDUE, and the deck is asked which it agrees with rather than the arithmetic being restated |
 | AR6 | **A comment describing the version before the change.** `Library.jsx` still read "IT IS THE ONE CONTROL HERE THAT IS NOT ONE" over a `<button>` that opens a panel | **FIXED**, and it keeps why the mark still LEADS: what it does is read rather than change. Movies' twin corrected with it |
-| AR7 | **Home's quote card was left behind.** The mark moved into the action row on Library and Movies and not on Home's favourite tile — so the history was reachable from four screens and not the fifth. Home's own comment already warns about exactly this: *"a reader who has learned the row on a book's page should not have to re-learn it here — which is exactly what shipped for one release"* | **FIXED.** `<ReviewDot item={f.raw} />` leads that row too, and a sweep now fails when a file drawing `Hearts` beside `QuoteActions` — which is that row and nothing else in the app — draws no mark. Also fixed with it: `aria-expanded` read `true` over a panel that could not open when a row carries no id, and the half-life column's comment claimed more than a pre-0066 row can know |
+| AR7 | **Home's quote card was left behind.** *(Closed only in part by `682b42f7` — see AS4.)* The mark moved into the action row on Library and Movies and not on Home's favourite tile — so the history was reachable from four screens and not the fifth. Home's own comment already warns about exactly this: *"a reader who has learned the row on a book's page should not have to re-learn it here — which is exactly what shipped for one release"* | **FIXED.** `<ReviewDot item={f.raw} />` leads that row too, and a sweep now fails when a file drawing `Hearts` beside `QuoteActions` — which is that row and nothing else in the app — draws no mark. Also fixed with it: `aria-expanded` read `true` over a panel that could not open when a row carries no id, and the half-life column's comment claimed more than a pre-0066 row can know |
 
 **WHAT THE RATER GOT RIGHT THAT A READER WOULD NOT.** AR1, AR3, AR4 and AR5 are all one
 failure wearing four faces: **a test whose fixture cannot reach the state it claims to
@@ -1131,6 +1131,41 @@ it. Deleted last, so nothing left to protect. Above the floor, so the floor does
 Every one passed against a broken implementation, and every one was written in the same
 hour as the code it checks — which is the countermeasure AP already recorded as the one
 that keeps failing.
+
+## AS. The work-rater's nineteenth pass, 7 September — 6/10
+
+**The score FELL, from 7, and that is the finding.** One of AP's fixes had made a guard
+weaker; this pass found that AR's had done it again, in the file written for exactly that
+purpose. Seven findings, six of them about the previous pass's own repairs.
+
+| # | Defect | Status |
+|---|---|---|
+| AS1 | **`fade-is-measured.test.js` was made STRICTLY WEAKER by the helper written to strengthen it.** `cssRules` hands over the whole selector list, and the sweep asked whether the LIST mentions a measured attribute — so `[data-scroll-v="end"], .recall-log { mask-image: linear-gradient(…) }` passed: one selector is measured, the other gets an unconditional fade. That is AQ6's exact defect, re-typed and waved through, in the guard whose whole subject it is. The rater showed the deleted `.pop()` version WOULD have flagged it | **FIXED per selector.** Each selector sharing a fade must carry the attribute itself, because a fade lands on each independently. Verified with the rater's own mutation: it now reports `.recall-log` |
+| AS2 | **AR4's hole moved rather than closed, and no ordering could close it.** The mutation keeps `item_id = OLD.id` and drops only `kind`, so it takes rows of other kinds SHARING that rowid — and with three separately-allocated ids nothing collides. Reordering only changed which kind was last, and whichever is last has no survivors left to be wrongly taken, so its total reads 0 either way. Both earlier shapes were untestable from one position | **FIXED by structure, not order: one database per kind, each deleted FIRST**, the three quotes given one id between them (independent `INTEGER PRIMARY KEY` spaces, which is the collision 0026's reuse argument describes), and the survivors named BY KIND rather than counted. All three mutations now fire two assertions each; before, `screen` fired none |
+| AS3 | **Two sweeps carried hard-coded file lists.** A new screen drawing `Hearts` beside `QuoteActions` with no mark passed, and the companion list named five files of which two draw no mark at all — so it was reading files in order to skip them | **FIXED by deriving both from `sourcesUnder`**, which throws when the walk comes back implausibly small, so an empty sweep cannot report a clean one. Verified by adding a file that does not exist in the app: it is named |
+| AS4 | **Home's COLLAPSED tile still had no door.** AR7 put the mark on the expanded row; the favourites board arrives collapsed, so on the one screen that exists to hold the lines you liked most the history took a tap no other surface asks for | **FIXED on the resting tile, by that row's own argument:** copy and share sit there because "every other quote surface puts them on the resting card", and ♥ and the colour dots stay behind the expander because un-hearting is destructive. The mark is a READ. The two branches are exclusive, so it still draws once |
+| AS5 | **Three places still said "four screens"** — `ui.jsx`, `docs/PLAN.md` §8 and this register — in the commit that fixed AR6, which was a stale comment | **FIXED, and counted rather than incremented:** three FILES draw it (`Library.jsx`, `Movies.jsx`, `Home.jsx`) and it reaches five screens through them. `fmtDate`'s own count was wrong the same way and is now stated as what it is |
+| AS6 | **"No branch can be written that forgets it" was three hand-typed copies and a hope.** `half` was spelled into each of `reviewStatus`'s three returns, one of which had already forgotten it — which is AR1 | **FIXED by one construction:** every way out is built by `verdict(key, detail)`, so a branch added below cannot omit the field because it does not spell the object. Each of the three mutated out of it in turn, and a new case asserts all four states answer with a finite half-life at or above the schedule's floor |
+| AS7 | **Nothing pressed the mark inside a real card** — every case mounted `ReviewDot` bare, which answers "does the component work" and not "can this be pressed on a quote card". Prompt 3 names this one: "is the button clickable (for all buttons)" | **FIXED.** The mark is pressed inside an actual `AnnotationCard` and an actual `Frame`, and each is checked to ask about its OWN kind and id. Dropping the mark from the card's row fails it, where the isolation cases stayed green |
+
+**AND ONE THE RATER DID NOT FIND, turned up by chasing AS2.** Migration 0065's comment
+justified itself with two false claims: that "0026 gave utterances an id FLOOR, so a
+deleted one's rowid is never reused", and that `item_reviews` therefore has no utterance
+trigger. 0026 says the opposite in as many words — *"id is a plain INTEGER PRIMARY KEY, so
+SQLite REUSES a rowid once the highest row is deleted"* — and then creates
+`item_reviews_utterance_del`, which the live schema carries. So 0064 was not making a
+judgement about weight; it set out to mirror that table's triggers and took two of the
+three. The comment is corrected (SQL byte-identical, asserted by the edit itself, because a
+shipped migration justifying itself with a falsehood is worse to leave than to touch), and
+`schema_test.go`'s pair loop now asserts `item_reviews_utterance_del` — its absence from
+that loop is how the set read as complete.
+
+**THE PATTERN, NAMED AGAIN BECAUSE IT HAS NOT STOPPED.** AK, AM, AP, AR and now AS each
+found a defect introduced by the previous fix. AS1 is the sharpest instance yet: a guard
+made weaker by the helper extracted to strengthen it, in the one file whose subject is that
+class of defect. What keeps working is a rater mutating my guards. What keeps failing is me
+writing the guard and the claim in the same hour — and, new here, me extracting a helper
+and not re-mutating the guards that now depend on it.
 
 ## Withdrawn claims
 

@@ -10,7 +10,7 @@ import { groupedShortcuts, withShortcut } from "./keys.js";
 // `json` FOR ONE COMPONENT, AND IT IS THE RECALL PANEL. Nothing else in this file
 // talks to the server, deliberately — these are primitives a screen composes. The
 // panel behind the repetition dot is the exception because the dot is drawn on
-// four screens and the reader's answer has to be the same on all of them: threaded
+// three files and the reader's answer has to be the same on all of them: threaded
 // as a loader prop it would be a capability absent wherever a call site forgot it,
 // which is the failure `personOpen.jsx` documents at length.
 import { coverImgURL, json } from "./api.js";
@@ -6816,7 +6816,8 @@ export const STATUS_META = {
 // fmtDate writes a stored "YYYY-MM-DD HH:MM:SS" (or a bare date) the way this
 // app writes dates everywhere: the reader's own locale, month by name.
 //
-// IT MOVED HERE FROM `Library.jsx`, where four screens imported it from. The
+// IT MOVED HERE FROM `Library.jsx`, which used it and re-exported it to three
+// more (Home, Quotes, Search). The
 // recall panel is the fifth caller and it lives in this file, and a date format
 // spelled twice is two answers to "when did I answer this" — the card under the
 // panel would print one and the panel the other, on the same row of the same log.
@@ -6878,18 +6879,30 @@ export function reviewStatus(item = {}) {
   // needs is computed once, above the first way out, so no branch can be written
   // that forgets it.
   const h = Math.max(Number(stability) || MIN_HALF_LIFE, MIN_HALF_LIFE);
+  // EVERY WAY OUT IS BUILT BY ONE FUNCTION, which is the actual guarantee. The
+  // three returns each carried a hand-typed `half: h`, and the paragraph above
+  // claimed "no branch can be written that forgets it" — which was three copies
+  // and a hope. A branch added below cannot omit the field now because it does
+  // not spell the object.
+  //
+  // `detail` EMPTY MEANS THE STATE NEEDS NO CLAUSE: an unseen card's label is
+  // the whole of what there is to say, and "Not yet reviewed · " with nothing
+  // after it is the shape a naive template would have produced.
+  const verdict = (key, detail) => {
+    const meta = STATUS_META[key];
+    return {
+      key,
+      ...meta,
+      half: h,
+      tip: detail ? t("common.status.tip", { name: t(meta.label), detail }) : t(meta.label),
+    };
+  };
   // New-item grace week (mirrors the server): remembered before any review,
   // and not yet in the Daily Quiz — unless a recorded lapse says otherwise.
   if (last_result !== "forgot" && utcDays(created_at, Infinity) < NEW_ITEM_DAYS) {
-    const meta = STATUS_META.remembered;
-    return {
-      key: "remembered",
-      ...meta,
-      half: h,
-      tip: t("common.status.tip", { name: t(meta.label), detail: t("common.status.new.detail") }),
-    };
+    return verdict("remembered", t("common.status.new.detail"));
   }
-  if (!reviewed) return { key: "unseen", ...STATUS_META.unseen, half: h, tip: t(STATUS_META.unseen.label) };
+  if (!reviewed) return verdict("unseen", "");
   const elapsed = utcDays(last_reviewed_at, 0);
   const p = Math.pow(2, -elapsed / h);
   const key =
@@ -6900,7 +6913,6 @@ export function reviewStatus(item = {}) {
         : p >= 0.5
           ? "forgetting"
           : "probably-forgotten";
-  const meta = STATUS_META[key];
   // Five words is the house ceiling for a label, so the dot names the state
   // and the ONE number that matters at that moment: how long it keeps if it is
   // holding, or that it is already owed a look if it is not.
@@ -6908,19 +6920,20 @@ export function reviewStatus(item = {}) {
     elapsed >= h
       ? t("common.status.due.detail")
       : t("common.status.half-life.detail", { span: fmtHalfLife(h) });
-  // `half` IS THE FLOORED HALF-LIFE THIS VERDICT WAS REACHED ON, published rather
-  // than left for the caller to re-derive: a second `Math.max(stability,
-  // MIN_HALF_LIFE)` in the panel is a second place for the floor to be forgotten,
-  // and a tooltip saying "half-life 7d" over a panel saying "3d" is one of the two
-  // lying with nothing on screen to say which.
-  return { key, ...meta, half: h, tip: t("common.status.tip", { name: t(meta.label), detail: due }) };
+  // `half` — the floored half-life this verdict was reached on — rides out with
+  // every other return, from `verdict` above. Published rather than left for the
+  // caller to re-derive: a second `Math.max(stability, MIN_HALF_LIFE)` in the
+  // panel is a second place for the floor to be forgotten, and a tooltip saying
+  // "half-life 7d" over a panel saying "3d" is one of the two lying with nothing
+  // on screen to say which.
+  return verdict(key, due);
 }
 
 // reviewKindOf — which review kind a quote row is, from the row itself.
 //
 // THE DOT NEEDS IT AND NO CALLER SHOULD HAVE TO SAY IT. `item_reviews` and
 // `item_recalls` are keyed by (kind, item_id), so the panel cannot ask for a
-// card without one — and the four screens that draw a quote card would each
+// card without one — and every screen that draws a quote card would each
 // have to pass it, which is four chances to pass the wrong one. The row already
 // knows: a highlight carries its book, a film line carries its film, and a
 // standalone quote has no parent at all, which IS its kind. Every list and

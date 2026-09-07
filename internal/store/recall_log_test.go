@@ -27,97 +27,112 @@ import (
 // that same string. A pair of triggers copied from `item_reviews` covered two of
 // them, which is how 0065 came to exist.
 func TestRecallLogLeavesWithItsQuote(t *testing.T) {
-	dir := t.TempDir()
-	st, err := Open(filepath.Join(dir, "t.db"))
+	// ONE DATABASE PER KIND, AND EACH KIND IS DELETED FIRST IN ITS OWN.
+	//
+	// THE MUTATION THIS HAS TO CATCH keeps `item_id = OLD.id` and drops only the
+	// `kind` — that is what a copied trigger gets wrong — so it takes rows of
+	// OTHER kinds that share the rowid. Two earlier shapes of this test could not
+	// see it:
+	//
+	//   THREE SEPARATELY-ALLOCATED IDS. Nothing collides, so the greedy trigger
+	//   deletes exactly the rows the correct one would.
+	//
+	//   THREE DELETES IN SEQUENCE, whatever the order. Whichever kind goes LAST
+	//   has no survivors left to be wrongly taken, so its total is 0 either way.
+	//   Reordering only moved which kind was invisible, which is what the second
+	//   version did — the register has it as AR4, twice.
+	//
+	// So the three kinds get one id BETWEEN them (independent `INTEGER PRIMARY
+	// KEY` spaces, so one number is a highlight and a film line and a standalone
+	// quote at once — the state 0026's rowid-reuse argument produces), and each
+	// case deletes ONE of them in a database of its own. Every kind is then the
+	// first delete, with the other two standing behind it as the witnesses.
+	for _, c := range []struct{ what, kind, table string }{
+		{"a highlight", "book", "annotations"},
+		{"a film line", "screen", "dialogues"},
+		{"a standalone quote", "utterance", "utterances"},
+	} {
+		t.Run(c.kind, func(t *testing.T) {
+			st, id := seedSharedIDRecalls(t)
+			if _, err := st.DB.Exec(`DELETE FROM `+c.table+` WHERE id = ?`, id); err != nil {
+				t.Fatal(err)
+			}
+			count := func(q string, args ...any) int {
+				t.Helper()
+				var n int
+				if err := st.DB.QueryRow(q, args...).Scan(&n); err != nil {
+					t.Fatal(err)
+				}
+				return n
+			}
+			// Its own history is gone: nothing can reach those rows, and the next
+			// quote handed that rowid inherits them.
+			if n := count(`SELECT count(*) FROM item_recalls WHERE kind = ?`, c.kind); n != 0 {
+				t.Errorf("deleting %s left %d of its own recall row(s) behind", c.what, n)
+			}
+			// AND BOTH OTHER KINDS ARE UNTOUCHED, named individually. They share the
+			// rowid, so a trigger that forgot its `kind` reaches them — and saying
+			// which kind survived is what a total cannot say once only one is left.
+			for _, other := range []struct{ what, kind string }{
+				{"a highlight", "book"}, {"a film line", "screen"}, {"a standalone quote", "utterance"},
+			} {
+				if other.kind == c.kind {
+					continue
+				}
+				if n := count(`SELECT count(*) FROM item_recalls WHERE kind = ?`, other.kind); n != 2 {
+					t.Errorf("deleting %s took %s's history too (%d of 2 rows left) — the trigger is not scoped to its own kind",
+						c.what, other.what, n)
+				}
+			}
+			if n := count(`SELECT count(*) FROM item_recalls`); n != 4 {
+				t.Errorf("deleting %s left %d rows in the whole log, want 4", c.what, n)
+			}
+		})
+	}
+}
+
+// seedSharedIDRecalls builds a library where a highlight, a film line and a
+// standalone quote all carry the SAME id, each with two logged answers, and
+// returns the store and that id.
+func seedSharedIDRecalls(t *testing.T) (*Store, int64) {
+	t.Helper()
+	st, err := Open(filepath.Join(t.TempDir(), "t.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer st.Close()
+	t.Cleanup(func() { st.Close() })
 	if err := st.Migrate(); err != nil {
 		t.Fatal(err)
 	}
-
 	must := func(q string, args ...any) {
 		t.Helper()
 		if _, err := st.DB.Exec(q, args...); err != nil {
 			t.Fatalf("%s: %v", q, err)
 		}
 	}
-	count := func(q string, args ...any) int {
-		t.Helper()
-		var n int
-		if err := st.DB.QueryRow(q, args...).Scan(&n); err != nil {
-			t.Fatal(err)
-		}
-		return n
-	}
-	id := func(q string, args ...any) int64 {
-		t.Helper()
-		var v int64
-		if err := st.DB.QueryRow(q, args...).Scan(&v); err != nil {
-			t.Fatal(err)
-		}
-		return v
-	}
-
+	const shared = 7
 	must(`INSERT INTO users (id, username, password_hash, is_admin) VALUES (1, 'aro', 'x', 1)`)
-	must(`INSERT INTO books (user_id, title) VALUES (1, 'The Master and Margarita')`)
-	must(`INSERT INTO movies (user_id, title) VALUES (1, 'V for Vendetta')`)
-	bid := id(`SELECT id FROM books WHERE title = 'The Master and Margarita'`)
-	mid := id(`SELECT id FROM movies WHERE title = 'V for Vendetta'`)
-
-	must(`INSERT INTO annotations (book_id, quote, source, dedupe_hash) VALUES (?, 'a highlight', 'manual', 'h-1')`, bid)
-	must(`INSERT INTO dialogues (movie_id, quote, source, dedupe_hash) VALUES (?, 'a line', 'manual', 'h-2')`, mid)
-	must(`INSERT INTO utterances (user_id, quote, source, dedupe_hash) VALUES (1, 'a speech', 'manual', 'h-3')`)
-	ann := id(`SELECT id FROM annotations WHERE dedupe_hash = 'h-1'`)
-	dlg := id(`SELECT id FROM dialogues WHERE dedupe_hash = 'h-2'`)
-	utt := id(`SELECT id FROM utterances WHERE dedupe_hash = 'h-3'`)
-
-	// Two answers each, because a log is a log: one row proves a trigger fires and
-	// two prove it does not stop at the first.
-	for _, c := range []struct {
-		kind string
-		id   int64
-	}{{"book", ann}, {"screen", dlg}, {"utterance", utt}} {
+	must(`INSERT INTO books (id, user_id, title) VALUES (1, 1, 'The Master and Margarita')`)
+	must(`INSERT INTO movies (id, user_id, title) VALUES (1, 1, 'V for Vendetta')`)
+	must(`INSERT INTO annotations (id, book_id, quote, source, dedupe_hash) VALUES (?, 1, 'a highlight', 'manual', 'h-1')`, shared)
+	must(`INSERT INTO dialogues (id, movie_id, quote, source, dedupe_hash) VALUES (?, 1, 'a line', 'manual', 'h-2')`, shared)
+	must(`INSERT INTO utterances (id, user_id, quote, source, dedupe_hash) VALUES (?, 1, 'a speech', 'manual', 'h-3')`, shared)
+	for _, kind := range []string{"book", "screen", "utterance"} {
+		// Two answers each: one proves a trigger fires, two prove it does not stop
+		// at the first.
 		for _, r := range []string{"got", "forgot"} {
 			must(`INSERT INTO item_recalls (user_id, kind, item_id, result, stability, elapsed_days, answered_at)
-			      VALUES (1, ?, ?, ?, 7.0, 3.5, datetime('now'))`, c.kind, c.id, r)
+			      VALUES (1, ?, ?, ?, 7.0, 3.5, datetime('now'))`, kind, shared, r)
 		}
 	}
-	if n := count(`SELECT count(*) FROM item_recalls`); n != 6 {
+	var n int
+	if err := st.DB.QueryRow(`SELECT count(*) FROM item_recalls`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if n != 6 {
 		t.Fatalf("the seed is wrong: %d rows, want 6", n)
 	}
-
-	// EACH KIND ON ITS OWN, and the others checked after every delete: a trigger
-	// with the wrong `kind` in its WHERE would take the whole table with it, and a
-	// test that deleted all three at once could not tell that from three correct
-	// triggers.
-	//
-	// THE UTTERANCE GOES FIRST, and the order is the assertion rather than a
-	// preference. It ran LAST while its rows were the only ones left, so "did this
-	// trigger take more than its own kind" had nothing to be true of: a rater
-	// dropped `kind = 'utterance'` from 0065 and the test stayed green, because a
-	// trigger that deletes the whole table and a trigger that deletes its own
-	// three rows are the same trigger when three rows are all there is. Deleting
-	// the newest kind first leaves four rows of other kinds standing behind it,
-	// which is what the second assertion needs to be a claim.
-	for _, c := range []struct {
-		what, kind, table string
-		id                int64
-		left              int
-	}{
-		{"a standalone quote", "utterance", "utterances", utt, 4},
-		{"a highlight", "book", "annotations", ann, 2},
-		{"a film line", "screen", "dialogues", dlg, 0},
-	} {
-		must(`DELETE FROM `+c.table+` WHERE id = ?`, c.id)
-		if n := count(`SELECT count(*) FROM item_recalls WHERE kind = ? AND item_id = ?`, c.kind, c.id); n != 0 {
-			t.Errorf("deleting %s left %d recall row(s) behind — nothing can reach them and the next quote given that rowid inherits them", c.what, n)
-		}
-		if n := count(`SELECT count(*) FROM item_recalls`); n != c.left {
-			t.Errorf("deleting %s left %d rows in the whole log, want %d — a trigger took more than its own kind", c.what, n, c.left)
-		}
-	}
+	return st, shared
 }
 
 // AND THE LOG IS IN THE ACCOUNT SNAPSHOT, which is a different question from the

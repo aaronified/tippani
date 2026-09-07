@@ -1327,12 +1327,17 @@ func TestSchemaInvariants(t *testing.T) {
 	for _, tc := range []struct{ table, trigger string }{
 		{"annotations", "item_reviews_book_del"},
 		{"dialogues", "item_reviews_screen_del"},
+		// AND `item_reviews`' THIRD, which has existed since 0026 and which nothing
+		// in this loop asserted. Its absence from here is how 0064 came to copy two
+		// of the three: the loop read as the complete set.
+		{"utterances", "item_reviews_utterance_del"},
 		// 0064's pair, for the log beside that state, and 0065's third — the review
 		// deck has THREE sources (`utteranceSource` returns `kind: kindUtterance`),
 		// so a standalone quote has a schedule row and a recall log like any other
-		// card. `item_reviews` still has no utterance trigger, on 0026's id-floor
-		// argument; the LOG gets one because it is append-only and travels in every
-		// backup, so unreachable rows there are weight rather than one stale row.
+		// card. All three kinds, for 0026's reason and not a new one: `id` is a
+		// plain INTEGER PRIMARY KEY, SQLite reuses a rowid once the highest row is
+		// deleted, and an orphaned row is adopted by the next quote created — which
+		// for the log means arriving with a stranger's answers.
 		{"annotations", "item_recalls_book_del"},
 		{"dialogues", "item_recalls_screen_del"},
 		{"utterances", "item_recalls_utterance_del"},

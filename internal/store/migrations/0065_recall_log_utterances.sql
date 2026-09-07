@@ -15,18 +15,30 @@
 -- every database that had already seen it, which is the failure mode the rule
 -- exists to prevent. One more file is the whole cost of getting this right.
 --
--- AND `item_reviews` STILL HAS NO UTTERANCE TRIGGER, deliberately, on an argument
--- worth restating rather than copying: 0026 gave utterances an id FLOOR, so a
--- deleted one's rowid is never reused and an orphaned schedule row can never be
--- inherited by a new quote. That makes it dead weight rather than a correctness
--- problem, which is the line `anthology_entries` sits the other side of (an
--- orphaned entry renders as a gap a reader cannot delete).
+-- CORRECTION, AND IT IS THE WHOLE REASON THIS FILE EXISTS. The paragraph that
+-- stood here claimed `item_reviews` has no utterance trigger, deliberately,
+-- because "0026 gave utterances an id FLOOR, so a deleted one's rowid is never
+-- reused". BOTH HALVES WERE FALSE, and 0026 says so in as many words:
 --
--- THE LOG IS DIFFERENT ON THE WEIGHT, WHICH IS WHY IT GETS THE TRIGGER. It is
--- APPEND-ONLY and one row per answer, so a card answered weekly for two years is
--- a hundred rows; and it ships in every backup, because it is in `accountTables`.
--- Unreachable rows in a table that grows per answer and travels in every archive
--- are worth a trigger, where one row per deleted card was not.
+--   "id is a plain INTEGER PRIMARY KEY, so SQLite REUSES a rowid once the
+--    highest row is deleted: an orphaned schedule row left behind by a deleted
+--    utterance would be silently adopted by the next one created, which would
+--    arrive carrying a stranger's stability, review count and lapse history."
+--
+-- — and then creates `item_reviews_utterance_del`. All THREE of that table's
+-- triggers have existed since 0026; the live schema carries them.
+--
+-- SO THIS IS NOT A JUDGEMENT CALL ABOUT WEIGHT, IT IS 0064 MISSING A COPY. 0064
+-- set out to mirror `item_reviews`' triggers and took two of the three that were
+-- there. The reason the third matters is 0026's own and needs no restating: a
+-- rowid IS reused, so an orphaned row is adopted by the next quote created — and
+-- for the log that means somebody else's answers, in a table that grows one row
+-- per answer and travels in every backup because it is in `accountTables`.
+--
+-- The SQL below is unchanged from the version that shipped. Only this comment was
+-- corrected, because a shipped migration justifying itself with a false statement
+-- about another migration is worse to leave than to touch: the next reader of this
+-- file would have believed it.
 CREATE TRIGGER item_recalls_utterance_del AFTER DELETE ON utterances BEGIN
   DELETE FROM item_recalls WHERE kind = 'utterance' AND item_id = OLD.id;
 END;

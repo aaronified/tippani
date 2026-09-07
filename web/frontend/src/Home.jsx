@@ -1261,6 +1261,22 @@ export function FavouriteTile({
               board and a mis-tap there is destructive in a way copy is not. */}
           {!open && (
             <div className="mt-1 flex items-center gap-x-3">
+              {/* THE RECALL MARK IS ON THE RESTING TILE, by this row's own
+                  argument. The note above keeps ♥ and the colour dots behind the
+                  expander because "un-hearting takes the tile off this board and
+                  a mis-tap there is destructive in a way copy is not" — and the
+                  mark is a READ. It says how the quote is held and opens its
+                  history; a mis-tap costs a panel you close. So it belongs with
+                  copy and share, on the same ground: "every other quote surface
+                  puts them on the resting card; this now does too."
+
+                  WITHOUT IT THE DOOR WAS ONLY IN THE EXPANDED BRANCH, which is
+                  not the state this board is in when you arrive — so on the one
+                  screen that exists to hold the lines you liked most, a quote's
+                  recall history took a tap to reach that no other surface asks
+                  for. The two branches are exclusive, so the mark still draws
+                  exactly once. */}
+              <ReviewDot item={f.raw} />
               <QuoteTools actions={atRow(acts)} />
               <span className="ml-auto flex items-center">
                 <QuoteActions actions={atOverflow(acts)} />

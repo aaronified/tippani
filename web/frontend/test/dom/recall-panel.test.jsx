@@ -26,6 +26,7 @@ import { join } from 'node:path'
 
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/react'
 import { rulesNaming } from '../css-rules.js'
+import { sourcesUnder } from '../src-files.js'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // Every path the panel asks for, in order, so a test can say which card was
@@ -41,7 +42,13 @@ vi.mock('../../src/api.js', async (orig) => ({
   }),
 }))
 
-const { ReviewDot, reviewKindOf } = await import('../../src/ui.jsx')
+const { ReviewDot, reviewKindOf, reviewStatus } = await import('../../src/ui.jsx')
+// THE REAL CARDS, because every case above renders the mark on its own and a mark
+// that works in isolation is not the claim. The owner presses it inside a card,
+// where it sits in a row of other controls, inside an <article> that is itself
+// pressable — see prompt 3: "is the button clickable (for all buttons)".
+const { AnnotationCard } = await import('../../src/Library.jsx')
+const { Frame } = await import('../../src/Movies.jsx')
 const { t } = await import('../../src/i18n.js')
 
 // The value beside a facts label, found BY THE LABEL FROM THE LOCALE rather than
@@ -180,6 +187,30 @@ describe('it asks about the card it is drawn on', () => {
     const path = asked[0]
     expect(path, `the panel asked about ${path} instead of ${kind}/${id}`).toContain(`kind=${kind}`)
     expect(path, `the panel asked about ${path} instead of ${kind}/${id}`).toContain(`id=${id}`)
+  })
+
+  // EVERY WAY OUT OF `reviewStatus` CARRIES THE HALF-LIFE, and this is the claim
+  // rather than the shape of the code. It had three hand-typed copies of the
+  // field and a comment asserting no branch could forget it; one of them had
+  // already forgotten it, which is how the panel printed NaN. The states below
+  // are the four the app knows, each reached by the input that produces it.
+  it('answers with a usable half-life whichever state it reaches', () => {
+    const days = (n) => new Date(Date.now() - n * 86400000).toISOString().slice(0, 19).replace('T', ' ')
+    const cases = {
+      'the grace week': { created_at: days(2), reviewed: true, stability: 12, last_reviewed_at: days(1), last_result: 'got' },
+      'never asked': { created_at: days(400), reviewed: false, stability: 0, last_reviewed_at: '', last_result: '' },
+      holding: { created_at: days(400), reviewed: true, stability: 40, last_reviewed_at: days(1), last_result: 'got' },
+      lapsed: { created_at: days(400), reviewed: true, stability: 8, last_reviewed_at: days(2), last_result: 'forgot' },
+      'below the floor': { created_at: days(400), reviewed: true, stability: 1, last_reviewed_at: days(1), last_result: 'got' },
+    }
+    for (const [what, item] of Object.entries(cases)) {
+      const st = reviewStatus(item)
+      expect(Number.isFinite(st.half), `${what}: half is ${st.half}, so anything printing it draws NaN`).toBe(true)
+      // AND IT IS FLOORED, in every state — the schedule never asks a card sooner
+      // than its floor, so a smaller number would be a promise nothing keeps.
+      expect(st.half, `${what}: half is ${st.half}, under the schedule's own floor`).toBeGreaterThanOrEqual(7)
+      expect(st.tip, `${what}: the state has no tooltip`).toBeTruthy()
+    }
   })
 
   it('reads the kind off the row and not off the screen', () => {
@@ -378,21 +409,25 @@ describe('what the panel says', () => {
 // of them goes on being right while the other quietly stops."
 //
 // Read off the source, because the failure this guards against is a call site
-// that opens the panel ITSELF: four screens draw this mark, and the fourth one
+// that opens the panel ITSELF: several screens draw this mark, and the one
 // written differently is a screen where the answer is different and nothing on
 // it says so.
 describe('the behaviour is the mark\'s', () => {
   const src = (f) => readFileSync(join(process.env.TIPPANI_SRC || 'src', f), 'utf8')
 
+  // THE FILES COME FROM THE TREE, NOT FROM A LIST HERE. A hard-coded five was
+  // both too many and too few: two of them draw no mark at all, so the loop was
+  // reading files to skip them, and a SIXTH screen added next year would not have
+  // been read at all. `sourcesUnder` walks the source and throws if the walk comes
+  // back implausibly small, so an empty sweep cannot report a clean one.
+  const jsx = () => sourcesUnder((n) => n.endsWith('.jsx'), 20)
+
   it('is handed nothing by any screen that draws it', () => {
     const offenders = []
-    for (const f of ['Library.jsx', 'Movies.jsx', 'Quotes.jsx', 'SearchPage.jsx', 'Home.jsx']) {
-      let body
-      try {
-        body = src(f)
-      } catch {
-        continue
-      }
+    const drawn = jsx().filter((f) => /<ReviewDot\b/.test(src(f)))
+    expect(drawn.length, 'no file in the tree draws the recall mark, so this sweep is passing over nothing').toBeGreaterThan(1)
+    for (const f of drawn) {
+      const body = src(f)
       for (const m of body.matchAll(/<ReviewDot\b([^>]*)>/g)) {
         // `item` says WHICH quote and `side` is where the tooltip points. Anything
         // else is a screen deciding what the mark does.
@@ -458,15 +493,16 @@ describe('the behaviour is the mark\'s', () => {
   // Read off the source, because rendering those three needs three screens' worth
   // of props and the claim is about which files draw the mark at all.
   it('is drawn on every action row that draws the rest of that row', () => {
-    const missing = []
-    for (const f of ['Library.jsx', 'Movies.jsx', 'Home.jsx']) {
+    // The row is identified by the two controls that have always been in it,
+    // rather than by a class: `Hearts` beside `QuoteActions` is that row and
+    // nothing else in the app is. Over the whole tree, so a screen added later is
+    // swept rather than needing to be remembered here.
+    const rows = jsx().filter((f) => {
       const body = src(f)
-      // The row is identified by the two controls that have always been in it,
-      // rather than by a class: `Hearts` beside `QuoteActions` is that row and
-      // nothing else in the app is.
-      if (!/<Hearts\b/.test(body) || !/<QuoteActions\b/.test(body)) continue
-      if (!/<ReviewDot\b/.test(body)) missing.push(f)
-    }
+      return /<Hearts\b/.test(body) && /<QuoteActions\b/.test(body)
+    })
+    expect(rows.length, 'no file draws that action row, so this sweep is measuring nothing').toBeGreaterThan(1)
+    const missing = rows.filter((f) => !/<ReviewDot\b/.test(src(f)))
     expect(missing,
       'these draw a quote card\'s action row without the recall mark, so the history is reachable from some screens and not others')
       .toEqual([])
@@ -490,5 +526,48 @@ describe('the behaviour is the mark\'s', () => {
     expect(pair, 'the recall mark has its own phone-width box instead of the one the heart beside it shares').toBe(true)
     // And it is a button's box: no border, no background of its own.
     expect(/\.status-mark\s*\{[^}]*border:\s*0/.test(css), 'the mark became a button and kept the browser\'s chrome').toBe(true)
+  })
+})
+
+// PRESSED WHERE THE READER PRESSES IT — inside a whole card, not on its own.
+//
+// Every case above mounts `ReviewDot` bare. That answers "does the component
+// work" and not "can this be pressed on a quote card", which is the question the
+// owner's request is about and the one prompt 3 names: "is the button clickable
+// (for all buttons)". A mark can be perfect in isolation and unreachable in
+// situ — covered by a sibling control, inside a parent that swallows the click,
+// or rendered with a row that never mounts.
+describe('inside a real quote card', () => {
+  const CARD_ROW = { id: 7, book_id: 3, quote: 'Only in silence the word', note: '', chapter: '1', location: '12', color: 'yellow', tags: [], favorite: false, created_at: '2026-01-01 09:00:00' }
+  const FILM_ROW = { id: 9, movie_id: 4, quote: 'Here is looking at you, kid.', character: 'Rick Blaine', actor: 'Humphrey Bogart', timestamp: '01:02:03', color: 'blue', tags: [], favorite: false, created_at: '2026-01-01 09:00:00' }
+
+  it('opens from a book highlight, and asks about that highlight', async () => {
+    render(
+      <AnnotationCard
+        a={CARD_ROW} variant={0} tagMap={{}} editing={false}
+        setEditingId={() => {}} save={() => {}} patch={async () => {}} remove={() => {}}
+        actionsAlwaysVisible
+      />,
+    )
+    expect(mark(), 'the recall mark is not on a rendered book card at all').toBeTruthy()
+    press()
+    await waitFor(() => expect(panel(), 'pressing the mark inside a real card opened nothing').toBeTruthy())
+    expect(asked[0], `the card asked ${asked[0]}`).toContain('kind=book')
+    expect(asked[0], `the card asked ${asked[0]}`).toContain('id=7')
+  })
+
+  it('opens from a film line, and asks about that line', async () => {
+    render(
+      <Frame
+        d={FILM_ROW} tagMap={{}} editing={false}
+        setEditingId={() => {}} save={() => {}} onPatch={async () => {}} remove={() => {}}
+        actionsAlwaysVisible
+      />,
+    )
+    expect(mark(), 'the recall mark is not on a rendered film card at all').toBeTruthy()
+    press()
+    await waitFor(() => expect(panel(), 'pressing the mark inside a real card opened nothing').toBeTruthy())
+    expect(asked[0], `the card asked ${asked[0]}`).toContain('kind=screen')
+    expect(asked[0], `the card asked ${asked[0]}`).toContain('id=9')
   })
 })

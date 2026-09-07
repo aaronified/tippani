@@ -49,10 +49,21 @@ const FADE = /mask-image:\s*[^;]*linear-gradient/i
 const MEASURED = /\[data-scroll-(x|v)\b/
 
 describe('every edge fade', () => {
+  // PER SELECTOR, NOT PER RULE, and the difference is a hole this file had for
+  // one commit. Asking whether the rule's whole selector LIST mentions a measured
+  // attribute passes `[data-scroll-v="end"], .recall-log { mask-image: … }`: the
+  // list contains a measured selector, so the test was satisfied, while
+  // `.recall-log` got an unconditional fade — the exact defect AQ6 recorded,
+  // re-typed and waved through. Every selector sharing a fade has to carry the
+  // attribute itself, because a fade lands on each of them independently.
   it('hangs off the attribute the hook measures, never off the rule', () => {
-    const typed = rules()
-      .filter((r) => FADE.test(r.body) && !MEASURED.test(r.sel))
-      .map((r) => r.sel)
+    const typed = []
+    for (const r of rules()) {
+      if (!FADE.test(r.body)) continue
+      for (const one of r.sel.split(',').map((x) => x.trim()).filter(Boolean)) {
+        if (!MEASURED.test(one)) typed.push(one)
+      }
+    }
     expect([...new Set(typed)],
       'these paint a fade whichever way the content falls, so a list that fits wears an edge promising rows that are not there — attach useEdgeScroll and let the fade hang off data-scroll-x / data-scroll-v')
       .toEqual([])
