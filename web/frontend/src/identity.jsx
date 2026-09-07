@@ -1452,6 +1452,15 @@ function CharacterBody({ stack, id, work, onSearch: givenSearch = null, onOpenWo
     toast(t('identity.character.works.remove.done', { title: a.work_title }))
     load()
   }
+  // OPENING THE WORK CHOOSER, AS ONE FUNCTION BOTH SHEETS REACH. It was written
+  // inline on the global sheet's works strip, and the local sheet is the second
+  // caller — so the repo's directive applies: "A control drawn by one component
+  // on two screens has ONE behaviour, and it lives in one function that both
+  // screens call — not in a line each, which is how one of them goes on being
+  // right while the other quietly stops." The chooser itself is already outside
+  // both sheets, so it serves either without moving.
+  const openAddWork = () => setAdding(true)
+
   const addWork = async (work, actor = '') => {
     setBusy(true)
     const r = await json('POST', `/characters/${id}/works`, {
@@ -1905,6 +1914,7 @@ function CharacterBody({ stack, id, work, onSearch: givenSearch = null, onOpenWo
           onQuotes={openQuoteSearch}
           onLocator={openQuoteSearch}
           onOpenGlobal={() => stack.open(characterPanel(stack, { id, name: data.name, onSearch }))}
+          onAddWork={openAddWork}
           onRemove={() => removeWork(here)}
           onRole={setRole}
           onOpenCredit={(a) => a.actor_id && stack.open(personPanel(stack, { id: a.actor_id, name: a.actor }))}
@@ -2051,7 +2061,7 @@ function CharacterBody({ stack, id, work, onSearch: givenSearch = null, onOpenWo
           // reaches them, and every act the card held is on them — so the card
           // was the stopgap it always said it was.
           onOpenWork={(a) => openWorkTile(a)}
-          onAddWork={() => setAdding(true)}
+          onAddWork={openAddWork}
           // THE OWNER'S ADDITION TO THE PACK — who has played this character —
           // and its door is the performer's own record, which is the only thing a
           // reader can want from a name on that list.

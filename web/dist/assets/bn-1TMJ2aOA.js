@@ -6392,6 +6392,14 @@ identity.count.locator.tip = এই কাজে কোথায় আসে �
 
 identity.row.global.label = বিশ্বজনীন রেকর্ড খুলুন
 identity.row.global.sub = সব কাজ জুড়ে
+
+# --- giving a work-level character a SECOND work (the owner's item 3). The label
+# names the door; the sub names the consequence, which is the half the owner
+# asked about — "that will get added to the global-character (which should in
+# turn enable global character for the character as well)". It is one credit
+# either way: the global screen is a consequence of the count, not a flag.
+identity.row.add-work.label = আরও একটা কাজেও আছেন
+identity.row.add-work.sub = দুটোতেই একই চরিত্র, আর নিজের আলাদা পাতাও পাবে
 identity.badge.global = বিশ্বজনীন
 identity.row.global.works.one = {n}টা কাজ
 identity.row.global.works.other = {n}টা কাজ

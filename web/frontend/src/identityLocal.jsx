@@ -157,6 +157,10 @@ export function CharacterLocal({
   portrait = '', portraitFrom = '',
   onCalled, onPart, onFirst, onAge, onDescription,
   onQuotes, onLocator, onOpenGlobal, onRemove,
+  // GIVING THIS CHARACTER A SECOND WORK, which is what turns the sheet you are
+  // on into one of several. Absent rather than dead where there is nothing to
+  // give a work TO — see the row itself.
+  onAddWork = null,
   // The performer block's verbs. Absent on a book, where the whole block is —
   // nobody plays a novel's character, so an empty "Played by" would claim the
   // reader had not filled something in where the truth is that there is nothing
@@ -405,18 +409,56 @@ export function CharacterLocal({
           so the row offered a door back to the screen you are standing on, with a
           badge saying it was somewhere different. A count of one is the whole
           test, and it is a fact this sheet already has. */}
-      {workCount > 1 ? (
+      {/* THE IDENTITY SECTION IS DRAWN FOR A CHARACTER WITH A RECORD, not only
+          for one already in several works — because the second row below is how a
+          character GETS to several, and gating the section on the count it exists
+          to change is what left the owner with no route at all.
+
+          THE OWNER'S ITEM 3: "this character only exist in one work (for now),
+          and thus the work-level screen is shown. but there is no easy way to add
+          him to another work from here. i will then need to add a separate
+          character and then merge." That route works and is three screens and an
+          undo away from what they meant. */}
+      {workCount > 1 || onAddWork ? (
         <>
           <SectionHead label={t('identity.section.identity.label')} note={t('identity.section.identity.note')} />
-          <ScreenRow
-            label={t('identity.row.global.label')}
-            sub={t('identity.row.global.sub')}
-            face={record.image_path ? coverImgURL(record.image_path) : ''}
-            faceName={record.name}
-            badge={t('identity.badge.global')}
-            meta={t('identity.row.global.works', { n: workCount, count: workCount })}
-            onClick={onOpenGlobal}
-          />
+          {workCount > 1 ? (
+            <ScreenRow
+              label={t('identity.row.global.label')}
+              sub={t('identity.row.global.sub')}
+              face={record.image_path ? coverImgURL(record.image_path) : ''}
+              faceName={record.name}
+              badge={t('identity.badge.global')}
+              meta={t('identity.row.global.works', { n: workCount, count: workCount })}
+              onClick={onOpenGlobal}
+            />
+          ) : null}
+          {/* AND NOTHING IS "PROMOTED" — the owner's framing suggests two steps
+              ("that will get added to the global-character, which should in turn
+              enable global character") and the data model has one. The global
+              screen is not a flag; it is a consequence of the credit count, which
+              `openCharacterDoor` tests at the press. So the second credit IS the
+              promotion, and this row writes exactly one row of `work_cast`.
+
+              AUTOMATIC, ON THE OWNER'S RULING when asked whether it should
+              confirm first: "Automatic. no point gating this. because the user can
+              easily remove works as well." The undo is the ✕ row at the foot of
+              this very sheet — "Remove from this film · Other works keep the
+              character" — so the door swings both ways from one screen.
+
+              DRAWN ONLY WHERE IT ACTS, which is the rule the works strip's own add
+              tile and the global sheet's "Remove from all works" both follow: a
+              credit with no character record behind it has nothing to give a
+              second work to, and a row that presses dead is worse than one that
+              is not there. */}
+          {onAddWork ? (
+            <ScreenRow
+              label={t('identity.row.add-work.label')}
+              sub={t('identity.row.add-work.sub')}
+              icon={<IconPlus size={16} />}
+              onClick={onAddWork}
+            />
+          ) : null}
         </>
       ) : null}
 

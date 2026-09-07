@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A character in one work can be given another, from the screen you are already on.** A
+  character credited in a single work has a row — *Also in another work* — that opens the
+  same work chooser its global screen uses. Choosing one adds the credit, and the character
+  now has its own screen across both. Before this the only route was to make a second
+  character on the other work and merge the two, which is three screens and an undo away
+  from what you meant. Removing it again is the row already at the foot of that screen, so
+  it swings both ways.
+
 - **The repetition mark on a quote opens its recall history.** Press the ring in a
   quote card's action row and it says how well the quote is held, how long the half-life
   is, when the quiz comes back to it, and every answer behind that — the date, what you
