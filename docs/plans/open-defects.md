@@ -522,6 +522,12 @@ was meaningless.
 there — the slack was all at phone width, which is the only width the touch floor means
 anything at.
 
+**And the tight ceiling reproduces.** A second full run against the seeded fixture measured
+187 and 9 again — exactly the numbers recorded from the first — across all thirty surfaces
+(fifteen at each width) with zero dead controls and zero failures. An exact ceiling is only
+worth having if the count is stable, and a run that had come back 186 or 188 would have
+meant recording a range instead.
+
 **What is NOT claimed:** that the seeded fixture's 187 is the app's real debt. It is not —
 the owner's library draws 326, and that is the number that matters to a reader. The seeded
 ceiling stops the seeded run from drifting; only a backup run measures the app.

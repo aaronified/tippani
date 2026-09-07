@@ -454,6 +454,11 @@ worth nothing here and only execution counts. What the repo actually runs:
   that the shelf the harness names has a ceiling at every width the harness runs. Two
   fifty-minute runs cannot notice what a file-shape check finds instantly.
 
+  The seeded ceilings are 0 / 0 at 1280 and 187 / 9 at 390, and they were measured twice:
+  a second full run returned the same two numbers across all thirty surfaces. An exact
+  ceiling is only worth having if the count is stable — a second run of 186 or 188 would
+  have meant recording a range and saying so.
+
   **And the fingerprint had no geometry, so one control's whole effect was invisible.**
   A phone sheet's grab bar moves the sheet between its anchors and does nothing else —
   same panel, same rows, same text, same scroll — so the probe pressed it, saw every
