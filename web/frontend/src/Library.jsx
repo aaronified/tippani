@@ -33,6 +33,7 @@ import { KINDS, bookGenres } from './workKinds.js'
 import WorkDetail from './WorkDetail.jsx'
 import { t } from './i18n.js'
 import {
+  fmtDate,
   ActionMenu,
   ANNOTATION_COLORS,
   QUOTE_COLUMNS_IN,
@@ -906,12 +907,12 @@ export function annotationState(a) {
 export function annDate(a) {
   return a.noted_at || a.created_at || ''
 }
-export function fmtDate(s) {
-  if (!s) return ''
-  const d = new Date(String(s).replace(' ', 'T'))
-  if (Number.isNaN(d.getTime())) return ''
-  return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
-}
+// RE-EXPORTED RATHER THAN MOVED AT EVERY CALL SITE. `fmtDate` now lives in
+// ui.jsx, beside the recall panel that is its fifth caller — see the note there.
+// Home, Quotes and Search import it from this file and there is no reason for
+// this change to touch their import lists: one definition is the point, not one
+// path to it.
+export { fmtDate }
 // locSortVal pulls the first number out of a location ("p.142" -> 142) so the
 // table sorts locations numerically; missing locations sink to the bottom.
 function locSortVal(a) {

@@ -498,6 +498,38 @@ common.half-life.days.label = {n}d
 common.half-life.weeks.label = {n}w
 common.half-life.months.label = {n}mo
 
+# --- the recall panel behind that dot. THE OWNER'S: "when i click on the spaced
+# repetition icon in the quote cards, it should show a popup for the halflife
+# status, and recall history". NOT an infodot, on the same instruction — "this is
+# not an infodot, btw, so will not be restricted by the budget" — so none of this
+# answers to help-budget's caps.
+common.recall.title = Recall
+common.recall.half-life.label = Half-life
+common.recall.due.label = Next review
+# A quote kept out of the quiz has no next review to name, and "in 12 days" would
+# be a promise nothing is going to keep.
+common.recall.due.excluded = out of the quiz
+common.recall.reviews.label = Reviews
+common.recall.lapses.label = Lapses
+common.recall.history.label = Recall history
+# When the log is longer than the panel shows. {n} of {total} answers.
+common.recall.history.window = last {n} of {total}
+common.recall.history.none = Not asked yet
+# The three answers in the past tense, because this column is a record rather
+# than a button — the quiz's own words for them are quiz.grade.*.
+common.recall.result.got.label = Got it
+common.recall.result.forgot.label = Forgot
+common.recall.result.skip.label = Skipped
+# Which deck the answer came from, short enough for a column.
+common.recall.mode.daily.label = quiz
+common.recall.mode.practice.label = practice
+# STANDS WHERE THE HALF-LIFE WOULD, on an answer that moved nothing: practice
+# with counting off, or a skip. Printing the number that still stood would say
+# the answer produced it.
+common.recall.uncounted.label = no change
+# Once, under a history that holds one of those.
+common.recall.uncounted.note = Kept here, but these answers did not move the half-life.
+
 # --- the number beside a slider, in the quiz panel. THE WHOLE READOUT IS ONE
 # STRING rather than a number with a unit glued to it: the unit used to be written
 # ' days', with a leading space no line in this file can carry, and the number does
@@ -5088,6 +5120,7 @@ error.load.import-queue = could not read the import queue
 error.load.bin = could not read the bin
 error.load.stats = could not load your statistics
 error.load.favourites = could not read your favourites
+error.load.recall = could not read this quote's answers
 error.load.shuffle = could not fetch a line
 error.apply.edit = could not apply the edit
 error.approve.generic = could not approve

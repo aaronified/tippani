@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The repetition mark on a quote opens its recall history.** Press the ring in a
+  quote card's action row and it says how well the quote is held, how long the half-life
+  is, when the quiz comes back to it, and every answer behind that — the date, what you
+  said, and the half-life it produced. Answers that moved nothing say so instead of
+  showing a number they did not earn: a practice run counts for nothing unless you have
+  asked it to, and a skip never counts, which is why a card you have practised twenty
+  times can still be sitting on the same seven days. The mark works this way on every
+  quote card in the app — a highlight, a film line, a standalone quote — on a shelf, a
+  film page, the Quotes board and a search result.
+
 - **A film's Details page shows its cast, as faces.** A row of round portraits under
   `Cast · N`, each naming the character and who played them, between the work's own
   fields and its catalogue numbers — the arrangement the design pack has always drawn.

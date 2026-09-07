@@ -7,7 +7,13 @@ import { createPortal } from "react-dom";
 import { isGestureClip } from "./gestures.jsx";
 import { groupedShortcuts, withShortcut } from "./keys.js";
 // Cover/Placeholder resolve stored cover/poster paths to the local /covers URL.
-import { coverImgURL } from "./api.js";
+// `json` FOR ONE COMPONENT, AND IT IS THE RECALL PANEL. Nothing else in this file
+// talks to the server, deliberately — these are primitives a screen composes. The
+// panel behind the repetition dot is the exception because the dot is drawn on
+// four screens and the reader's answer has to be the same on all of them: threaded
+// as a loader prop it would be a capability absent wherever a call site forgot it,
+// which is the failure `personOpen.jsx` documents at length.
+import { coverImgURL, json } from "./api.js";
 import { t, tNodes } from "./i18n.js";
 import { anchorsFor, clampDrag, landing } from "./sheetAnchors.js";
 import { PROVIDER_MARKS } from "./providerMarks.js";
@@ -6807,6 +6813,20 @@ export const STATUS_META = {
   unseen: { label: "common.status.unseen.label", color: "var(--faint)", filled: false },
 };
 
+// fmtDate writes a stored "YYYY-MM-DD HH:MM:SS" (or a bare date) the way this
+// app writes dates everywhere: the reader's own locale, month by name.
+//
+// IT MOVED HERE FROM `Library.jsx`, where four screens imported it from. The
+// recall panel is the fifth caller and it lives in this file, and a date format
+// spelled twice is two answers to "when did I answer this" — the card under the
+// panel would print one and the panel the other, on the same row of the same log.
+export function fmtDate(s) {
+  if (!s) return "";
+  const d = new Date(String(s).replace(" ", "T"));
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+}
+
 // fmtHalfLife renders a memory half-life (days) compactly: hours under a day,
 // then days, weeks, months. (Also used by the Stats page Memory card.)
 export function fmtHalfLife(h) {
@@ -6872,7 +6892,30 @@ export function reviewStatus(item = {}) {
     elapsed >= h
       ? t("common.status.due.detail")
       : t("common.status.half-life.detail", { span: fmtHalfLife(h) });
-  return { key, ...meta, tip: t("common.status.tip", { name: t(meta.label), detail: due }) };
+  // `half` IS THE FLOORED HALF-LIFE THIS VERDICT WAS REACHED ON, published rather
+  // than left for the caller to re-derive. The panel behind the dot prints it, and
+  // a second `Math.max(stability, MIN_HALF_LIFE)` there is a second place for the
+  // floor to be forgotten — a tooltip saying "half-life 7d" over a panel saying
+  // "3d" is one of the two lying and the reader cannot tell which.
+  return { key, ...meta, half: h, tip: t("common.status.tip", { name: t(meta.label), detail: due }) };
+}
+
+// reviewKindOf — which review kind a quote row is, from the row itself.
+//
+// THE DOT NEEDS IT AND NO CALLER SHOULD HAVE TO SAY IT. `item_reviews` and
+// `item_recalls` are keyed by (kind, item_id), so the panel cannot ask for a
+// card without one — and the four screens that draw a quote card would each
+// have to pass it, which is four chances to pass the wrong one. The row already
+// knows: a highlight carries its book, a film line carries its film, and a
+// standalone quote has no parent at all, which IS its kind. Every list and
+// search payload that feeds these cards sends both ids unconditionally
+// (`annotationRow.BookID`, `dialogueRow.MovieID`, `annotationHit`,
+// `dialogueHit`), so this reads the same on a shelf, a film page, the Quotes
+// board and a search result.
+export function reviewKindOf(item = {}) {
+  if (item.movie_id) return "screen";
+  if (item.book_id) return "book";
+  return "utterance";
 }
 
 // IconRecall — the repetition status as a DRAWING with four states, not a dot
@@ -6930,23 +6973,249 @@ export function IconRecall({ state = "unseen", size = ICON_SIZE }) {
   );
 }
 
+// RECALL_RESULT / RECALL_MODE — the log's two enums, in the reader's words.
+//
+// The server validates `result` to these three and `mode` to these two, so an
+// unrecognised value cannot arrive from the app; it prints raw if it ever does,
+// because a blank cell in a history is worse than a word nobody translated.
+const RECALL_RESULT = {
+  got: "common.recall.result.got.label",
+  forgot: "common.recall.result.forgot.label",
+  skip: "common.recall.result.skip.label",
+};
+const RECALL_MODE = {
+  daily: "common.recall.mode.daily.label",
+  practice: "common.recall.mode.practice.label",
+};
+
+// RecallLog — the answers, under a MEASURED fade.
+//
+// ITS OWN COMPONENT FOR ONE REASON: `useEdgeScroll`'s effect depends on the ref
+// object rather than on `ref.current`, so a scroller that mounts LATER than the
+// hook — this list appears when the fetch lands — never gets measured and never
+// gets its fade. Mounting the hook with the list is what makes the ref current by
+// the time the effect reads it.
+//
+// AND THE FADE IS THE APP'S, NOT A MASK TYPED IN HERE. The standing rule is that
+// an edge fade means it scrolls and that `Scroller`/`useEdgeScroll` is how you get
+// one, "never bare `overflow`, which gives no signal and no mouse gesture. The
+// fade is measured, so a row that fits wears none." A hand-rolled mask fades
+// unconditionally, which on a three-answer history promises rows that are not
+// there — the exact lie the measurement exists to prevent. It also brings the
+// press-and-drag, which is the only gesture a plain mouse has for a scroller.
+function RecallLog({ rows }) {
+  const el = useRef(null);
+  useEdgeScroll(el, { axis: "v" });
+  return (
+    <ul ref={el} className="recall-log">
+      {rows.map((a, i) => (
+        <li key={`${a.answered_at}-${i}`} className={a.counted === false ? "is-idle" : ""}>
+          <span className="recall-log-when">{fmtDate(a.answered_at)}</span>
+          <span className="recall-log-said">{RECALL_RESULT[a.result] ? t(RECALL_RESULT[a.result]) : a.result}</span>
+          {/* THE HALF-LIFE THIS ANSWER PRODUCED, or the word saying it produced
+              none. Printing the number that still stood would say this answer
+              arrived at it, which for a practice run with counting off — or for
+              any skip — is not true. */}
+          <span className="recall-log-span">
+            {a.counted === false ? t("common.recall.uncounted.label") : fmtHalfLife(a.stability)}
+          </span>
+          <span className="recall-log-deck mono-label">
+            {a.mode && RECALL_MODE[a.mode] ? t(RECALL_MODE[a.mode]) : ""}
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+// RecallPanel — what pressing the repetition dot opens.
+//
+// THE OWNER'S REQUEST: "when i click on the spaced repetition icon in the quote
+// cards, it should show a popup for the halflife status, and recall history (will
+// need to create a recall history table), like the infodots (this is not an
+// infodot, btw, so will not be restricted by the budget)."
+//
+// "LIKE THE INFODOTS" IS A CHROME AND NOT A CATEGORY, and both halves of that
+// sentence land here. It wears `InfoPopover` — anchored beside the mark on a
+// desktop, a centred sheet on a phone — because that is the chrome every other
+// answer in this app arrives in, and the repo's rule is that a question wears the
+// same one. And it is NOT an infodot: nothing in it answers to `help-budget`'s
+// caps, because what it prints is this quote's own record rather than prose about
+// a screen.
+//
+// IT ASKS THE SERVER RATHER THAN READING THE CARD IT OPENED FROM. The card
+// carries `reviewed / stability / last_reviewed_at / last_result` as they stood
+// when its list was fetched, and the Daily Quiz moves all four without the list
+// hearing about it. A panel whose whole subject is "when did I last remember
+// this" may not be the one surface in the app showing yesterday's answer.
+function RecallPanel({ kind, id, anchor, onClose, onRead }) {
+  const [card, setCard] = useState(null);
+  const [failed, setFailed] = useState(false);
+  // `onRead` is handed the fresh state so the MARK can stop saying the stale one.
+  // Kept in a ref: it is a closure the parent rebuilds every render, and in the
+  // dependency list it would re-run the fetch on each one.
+  const told = useRef(onRead);
+  told.current = onRead;
+  useEffect(() => {
+    let live = true;
+    setCard(null);
+    setFailed(false);
+    json("GET", `/review/card?kind=${encodeURIComponent(kind)}&id=${encodeURIComponent(id)}`)
+      .then((r) => {
+        if (!live) return;
+        if (r.ok) {
+          setCard(r.data);
+          told.current?.(r.data);
+        } else setFailed(true);
+      })
+      .catch(() => live && setFailed(true));
+    return () => {
+      live = false;
+    };
+  }, [kind, id]);
+
+  const st = card ? reviewStatus(card) : null;
+  // THE FACTS ROW IS DRAWN ONLY WHEN THERE ARE FACTS. A card the quiz has never
+  // asked about has no half-life, no next review and no counts — four labelled
+  // zeroes would be four sentences saying the same absent thing, and the status
+  // line above already says it in one.
+  const due = !card
+    ? ""
+    : card.excluded
+      ? t("common.recall.due.excluded")
+      : card.due
+        ? t("common.status.due.detail")
+        : card.due_in_days != null
+          ? fmtHalfLife(card.due_in_days)
+          : "";
+  const history = card?.history || [];
+  const hidden = card ? Math.max(0, (card.logged || 0) - history.length) : 0;
+  const anyUncounted = history.some((a) => a.counted === false);
+
+  return (
+    <InfoPopover anchor={anchor} title={t("common.recall.title")} onClose={onClose}>
+      {failed ? (
+        <ErrorText>{t("error.load.recall")}</ErrorText>
+      ) : !card ? (
+        <p className="recall-wait">{t("common.state.loading")}</p>
+      ) : (
+        <>
+          {/* THE SAME DRAWING THE CARD SHOWS, at the size a panel can hold. The
+              dot the reader pressed and the dot they are now looking at have to
+              be the same mark, or the panel reads as being about something else. */}
+          <p className="recall-state" style={{ color: st.color }}>
+            <IconRecall state={st.key} size={22} />
+            <span>{t(st.label)}</span>
+          </p>
+          {card.reviewed && (
+            <dl className="recall-facts">
+              <div>
+                <dt>{t("common.recall.half-life.label")}</dt>
+                <dd>{fmtHalfLife(st.half)}</dd>
+              </div>
+              {due && (
+                <div>
+                  <dt>{t("common.recall.due.label")}</dt>
+                  <dd>{due}</dd>
+                </div>
+              )}
+              <div>
+                <dt>{t("common.recall.reviews.label")}</dt>
+                <dd>{card.review_count}</dd>
+              </div>
+              <div>
+                <dt>{t("common.recall.lapses.label")}</dt>
+                <dd>{card.lapse_count}</dd>
+              </div>
+            </dl>
+          )}
+          <p className="recall-log-head">
+            <span>{t("common.recall.history.label")}</span>
+            {hidden > 0 && (
+              <span className="mono-label">
+                {t("common.recall.history.window", { n: history.length, total: card.logged })}
+              </span>
+            )}
+          </p>
+          {history.length === 0 ? (
+            <p className="recall-wait">{t("common.recall.history.none")}</p>
+          ) : (
+            <RecallLog rows={history} />
+          )}
+          {anyUncounted && <p className="recall-note">{t("common.recall.uncounted.note")}</p>}
+        </>
+      )}
+    </InfoPopover>
+  );
+}
+
 // ReviewDot — the repetition status on every quote/dialogue card, drawn by
 // IconRecall and named by its tooltip. Kept under its old name because eleven
 // call sites and the glossary know it by that name, and what it draws is the
 // component's business rather than its callers'.
+//
+// AND IT IS A CONTROL NOW, on the owner's request — the dot opens the panel above
+// it. THE VERB LIVES HERE and not in the screens, which is the repo's directive
+// applied to the letter: "similar things should act similarly… A control drawn by
+// one component on two screens has ONE behaviour, and it lives in one function
+// that both screens call — not in a line each." This mark is drawn on four
+// (Library's ActionRow, Movies' Frame, and the Quotes board and Search through
+// AnnotationCard), so a handler threaded in from each would be four places for
+// the behaviour to go missing — the shape `personOpen.jsx` records two dead
+// controls to. The screens pass nothing; the kind comes from the row.
 export function ReviewDot({ item, side = "top" }) {
-  const st = reviewStatus(item);
+  const [open, setOpen] = useState(false);
+  // WHAT THE SERVER SAID, ONCE IT HAS SAID IT, and the mark reads that in
+  // preference to the row it was handed. The row carries the schedule as it
+  // stood when its list was fetched and the Daily Quiz moves it without the
+  // list hearing about it — so with the panel open the mark would be drawing
+  // one state while the panel underneath it named another, which is the same
+  // fact contradicting itself a centimetre apart. It outlives the panel
+  // deliberately: having pressed the mark and been told the truth, the reader
+  // should not watch it revert to yesterday's answer when the panel shuts.
+  const [fresh, setFresh] = useState(null);
+  const st = reviewStatus(fresh || item);
+  const btn = useRef(null);
   return (
-    <Tooltip label={st.tip} side={side}>
-      <span
-        tabIndex={0}
-        className="status-mark"
-        aria-label={st.tip}
-        style={{ color: st.color }}
-      >
-        <IconRecall state={st.key} size={17} />
-      </span>
-    </Tooltip>
+    <>
+      {/* `is-open` ON THE TOOLTIP TOO, which is the mechanism it already has for
+          exactly this: "An open InfoDot / Help sheet suppresses its own
+          trigger's bubble: the tap that opened the panel also leaves the trigger
+          hovered or focused, and the bubble would repeat the same words over the
+          panel showing them." The bubble and this panel's first line are the
+          same sentence, and a row says a thing once. */}
+      <Tooltip label={st.tip} side={side} className={open ? "is-open" : ""}>
+        <button
+          ref={btn}
+          type="button"
+          className={"status-mark" + (open ? " is-open" : "")}
+          // The state, which is what the mark MEANS. `aria-expanded` is what says
+          // it opens — a label that described the press instead would leave a
+          // screen reader with no way to hear the status at all.
+          aria-label={st.tip}
+          aria-expanded={open}
+          style={{ color: st.color }}
+          onClick={(e) => {
+            // These sit inside cards that are themselves pressable, and asking
+            // about a quote's memory must not also open the quote.
+            e.preventDefault();
+            e.stopPropagation();
+            setOpen((o) => !o);
+          }}
+        >
+          <IconRecall state={st.key} size={17} />
+        </button>
+      </Tooltip>
+      {open && item?.id ? (
+        <RecallPanel
+          kind={reviewKindOf(item)}
+          id={item.id}
+          anchor={btn}
+          onClose={() => setOpen(false)}
+          onRead={setFresh}
+        />
+      ) : null}
+    </>
   );
 }
 

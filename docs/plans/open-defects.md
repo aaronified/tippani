@@ -1069,6 +1069,37 @@ that keeps failing is me writing the guard and the claim in the same hour. AP2 i
 sharpest version — a test written for a defect I had just reproduced, which did not
 reproduce it.
 
+## AQ. The recall popup, 7 September — the owner's request, closed
+
+Not a rater pass: the item the owner asked for, and the four things building it turned up
+that nothing had recorded.
+
+| # | Defect | Status |
+|---|---|---|
+| AQ1 | **The recall log was missing a third of its deletes.** 0064 copied `item_reviews`' pair of triggers, and the review deck has THREE sources — `utteranceSource()` returns `kind: kindUtterance`, and `reviewJoin` builds the schedule join from that same string. So deleting a standalone quote left its whole history unreachable, in a table that grows one row per answer and travels in every backup | **FIXED by migration 0065**, its own file rather than an edit to 0064: that one is already on the branch the owner runs, and editing it would leave the trigger out of every database that had applied it. `internal/store/recall_log_test.go` asks whether the triggers FIRE — it counts the OTHER kinds' rows after every delete too, so a trigger that ignores `kind` is caught taking the table with it. Hiding 0065 fails at *left 2 recall row(s) behind*; dropping `kind = 'book'` from 0064's line fails at *a trigger took more than its own kind* |
+| AQ2 | **The log could not tell practice from the quiz, and nothing could work it out later.** `moveSchedule` is `(daily \|\| srPracticeCounts) && result != "skip"`, so practice moves nothing by default: twenty practice answers leave the half-life where it started, and a history showing twenty answers beside seven days reads as the scheduler being broken. `elapsed_days` cannot carry the difference — it is NULL for an uncounted answer AND for a genuine first one, and one field cannot mean two things and be read | **FIXED by migration 0066** (`mode`, `counted`), written at answer time rather than derived, because `counted` depended on a SETTING as it stood and the reader can change it tomorrow — a log written without it can never be repaired, which is why this went in before the popup and not after. Both columns are nullable with no default: `counted = 0` is false of every Daily Quiz answer 0064 had already logged, so NULL is the only true thing to say about those rows and the panel draws it as silence |
+| AQ3 | **The deck's due rule, read literally, would have the panel lie.** `dueSQL` is true whenever `last_reviewed_at` is NULL — which on the panel's LEFT JOIN is every card the quiz has never asked about. Those arrive through `bucketUnseen` and its grace week, so the bare rule would announce a card is owed while the quiz deliberately leaves it alone | **FIXED without a second spelling of the rule:** `due` is `dueSQL` AND a schedule row. `TestRecallCardAgreesWithTheDeckAboutDue` checks the panel against `GET /review/daily` rather than against a number, so the two cannot drift apart while both stay internally consistent |
+| AQ4 | **`--type-ui-14` again.** This register already lists that token under **Withdrawn claims**, with the reason: *"I had grepped for the token's USE and read my own new line back."* I did the identical thing writing the panel's stylesheet — grepped `--type-ui-1[0-9]` in `index.css`, saw 14 in the output, and it was mine | **FIXED, and the lesson is the grep and not the token.** `typescale.test.js` caught it in one run. A token's existence is `TYPE_STEPS` in `type.js` (9 11 12 13 15 17 19 22 26 30) and never a search of the file you are editing — the file contains what you just typed, so the search confirms itself |
+| AQ5 | **The panel's log scrolled the board behind it**, which `scroll-containment.test.js` names as a rule and caught on the first run | **FIXED** with `overscroll-behavior: contain`, the same line every other scroller in the app carries |
+| AQ6 | **AND THE FADE WAS TYPED INTO THE RULE, which is the same rule broken the other way.** A `mask-image: linear-gradient(...)` on the log's own selector fades whichever way the content falls, so a three-answer history wore an edge promising rows that are not there — the standing rule is "the fade is measured, so a row that fits wears none", and nothing in the suite could see a hand-rolled one | **FIXED** by attaching `useEdgeScroll` (its own component, because the hook's effect depends on the ref OBJECT and this list mounts when the fetch lands — mounted with the panel it would measure a null). `test/pure/fade-is-measured.test.js` is the new sweep: every `linear-gradient` mask in `index.css` must hang off `data-scroll-x`/`data-scroll-v`. Third of a trio with `scroll-containment` and `scroller-boxes`, all three over the same file for a different half of one omission |
+| AQ7 | **The mark became a control, and a 34px control joins a ratchet that may not rise.** `controls-baseline.json` holds the backup shelf at **300** controls under the 44px floor at 390px — the narrowed in-card marks are most of them. Sharing the ♥'s narrowing looked like the right parity and would have added one flagged control per quote card across five surfaces, pushing the count past its ceiling on the run that measured it | **FIXED before the probe spent an hour proving it.** The mark takes the pair rule's 44×44 and skips the narrowing: 10px of reach the eye cannot see, in the direction the pack asks for, and the one mark in that row that meets the floor. Two cases in `recall-panel.test.jsx` hold it — no bare px box under the floor at any width, and no in-card narrowing on this selector — and both fail on the declaration that would raise the count |
+
+**WHAT THE POPUP IS AND WHERE ITS VERB LIVES.** The owner asked for it "like the infodots
+(this is not an infodot, btw, so will not be restricted by the budget)", and both halves
+hold: it wears `InfoPopover` — anchored beside the mark on a desktop, a centred sheet on a
+phone — and nothing in it answers to `help-budget`'s caps. The mark is a `<button>` now and
+opens the panel ITSELF: it is drawn on FOUR screens (Library's `ActionRow`, Movies' `Frame`,
+and the Quotes board and Search through `AnnotationCard`), and the repo's directive is one
+behaviour in one function. A handler threaded from each call site is the shape
+`personOpen.jsx` records two dead controls to — *"a capability that has to be re-threaded at
+each call site is a capability that is absent at most of them"* — so the screens pass
+nothing and `reviewKindOf` reads the kind off the row.
+
+**REJECTED: the screen's own `usePanelStack`.** Two of the four screens host one, so it
+would have been threaded after all; and `usePanelStack` writes `tpPanelDepth` into
+`window.history.state`, so one shell-level host serving all four would be two live stacks
+fighting over one key.
+
 ## Withdrawn claims
 
 Kept because the pattern matters more than any one of them.

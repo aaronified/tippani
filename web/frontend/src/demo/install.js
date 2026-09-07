@@ -494,6 +494,51 @@ function reviewScores() {
     states: demoStates(),
   }
 }
+
+// THE RECALL PANEL'S READ, and a canned history behind it. Answering it matters
+// as much as any list route: the shim's own note records what an unhandled path
+// costs — it falls through to `default: [200, {}]`, the component reads a list
+// field that is not there, and the screen goes down with it. Here that screen is
+// every quote card in the demo.
+//
+// THE HISTORY IS DERIVED FROM THE CANNED STATE rather than typed out beside it, so
+// a demo card's panel cannot contradict the dot on the card that opened it: the
+// half-life the last answer produced IS the half-life the state carries, and the
+// answers before it walk back down the ladder the same way the real one does.
+// `elapsed_days` is the gap each answer was earned over, and the oldest carries
+// none — there was no previous review to measure from.
+function recallCard(kind, id) {
+  const r = demoReview(kind, id)
+  const out = {
+    kind, id,
+    reviewed: !!r.reviewed,
+    stability: r.stability || 7,
+    review_count: 0, lapse_count: 0,
+    last_result: '', last_reviewed_at: r.last_reviewed_at || '',
+    created_at: daysAgo(120),
+    excluded: false, due: false, due_in_days: null,
+    logged: 0, history: [],
+  }
+  if (!r.reviewed) return out
+  const floor = Math.max(r.stability, 7)
+  const elapsed = (Date.now() - Date.parse(r.last_reviewed_at.replace(' ', 'T') + 'Z')) / 86400000
+  out.review_count = 3
+  out.lapse_count = 1
+  out.last_result = 'got'
+  out.due = elapsed >= floor
+  out.due_in_days = floor - elapsed
+  // Newest first, as the server sends it. The middle answer is the lapse the
+  // count above declares, and the ladder it knocked the half-life down from is
+  // why the oldest one is the largest.
+  out.history = [
+    { result: 'got', stability: r.stability, elapsed_days: 14, answered_at: r.last_reviewed_at, mode: 'daily', counted: true },
+    { result: 'forgot', stability: 7, elapsed_days: 9, answered_at: daysAgo(elapsed + 14), mode: 'daily', counted: true },
+    { result: 'skip', stability: 7, elapsed_days: null, answered_at: daysAgo(elapsed + 20), mode: 'practice', counted: false },
+  ]
+  out.logged = out.history.length
+  return out
+}
+
 function dlgRow(d) {
   const m = MOVIES.find((x) => x.id === d.movie_id) || {}
   return { sticker_id: null, sticker_x: null, sticker_y: null, work_review_excluded: !!m.review_excluded, ...d, ...demoReview('screen', d.id), created_at: '2026-06-01 09:00:00', updated_at: '2026-06-01 09:00:00' }
@@ -884,6 +929,7 @@ export function route(method, path, params, body) {
     case path === '/review/daily': return [200, reviewDeck()]
     case path === '/review/practice': return [200, practiceDeck()]
     case path === '/review/scores': return [200, reviewScores()]
+    case path === '/review/card': return [200, recallCard(params.get('kind') || 'book', Number(params.get('id') || 0))]
     case path === '/books': return [200, { books: BOOKS.map(bookListItem) }]
     case /^\/books\/\d+$/.test(path): { const b = BOOKS.find((x) => x.id === id('/books/')); return b ? [200, bookDetail(b)] : [404, { error: 'not found' }] }
     case path === '/annotations': {

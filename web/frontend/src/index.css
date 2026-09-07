@@ -3158,6 +3158,80 @@
   .info-pop-body { font-size: var(--type-ui-13); line-height: 1.6; color: var(--soft); }
 
   .info-pop-anchored { width: min(320px, calc(100vw - 24px)); }
+
+  /* ---- the recall panel behind the repetition mark ------------------------
+     The owner asked for it "like the infodots", so it arrives in the same
+     `.info-pop` chrome and only its CONTENT is styled here: a state line, four
+     facts, and the log.
+
+     NO BOX HERE IS MEASURED IN PX. Every one of these holds scaling text — the
+     state's name, a date in the reader's locale, a count — so the columns are
+     `ch` and `em` and the whole panel grows with the type dial. The one px
+     number is the hairline rule, which holds nothing. */
+  .recall-state {
+    display: flex; align-items: center; gap: .5em;
+    font-size: var(--type-ui-15); font-weight: 600;
+    margin: 0 0 var(--row);
+  }
+  .recall-facts {
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: calc(var(--row) * .5) var(--row);
+    margin: 0 0 var(--row);
+  }
+  .recall-facts dt {
+    font-family: var(--font-mono);
+    font-weight: var(--font-mono-weight);
+    font-style: var(--font-mono-style);
+    font-variant-caps: var(--font-mono-caps);
+    font-size: var(--type-ui-11);
+    letter-spacing: .04em;
+    color: var(--faint);
+  }
+  .recall-facts dd { margin: 0; font-size: var(--type-ui-15); color: var(--ink); }
+  .recall-log-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: var(--row);
+    margin: 0 0 calc(var(--row) * .5);
+    padding-top: calc(var(--row) * .5);
+    border-top: 1px solid var(--line);
+    font-size: var(--type-ui-13); font-weight: 600; color: var(--ink);
+  }
+  .recall-wait { margin: 0; font-size: var(--type-ui-13); color: var(--faint); }
+  /* THE LOG SCROLLS, AND THE FADE IS `useEdgeScroll`'S — no mask is typed here.
+     Thirty answers do not fit a popover, and the app's standing rule is that a
+     bare `overflow` gives no sign there is more and no gesture for a mouse. The
+     hook writes `data-scroll-v` when there really is something past the edge, so
+     a three-answer history wears nothing; a mask written into this rule would
+     fade unconditionally and promise rows that are not there.
+     `overscroll-behavior` because a popover over a board must not scroll the
+     board when its own list runs out. */
+  .recall-log {
+    list-style: none; margin: 0; padding: 0;
+    max-height: 14em; overflow-y: auto; overscroll-behavior: contain;
+  }
+  .recall-log li {
+    display: grid;
+    /* The date is the widest cell and the only one whose length is the reader's
+       locale's business, so it takes what it needs and the three fixed-meaning
+       cells take a measure each. */
+    grid-template-columns: minmax(0, 1fr) minmax(5ch, auto) minmax(5ch, auto) minmax(4ch, auto);
+    align-items: baseline;
+    gap: calc(var(--row) * .5);
+    padding: calc(var(--row) * .34) 0;
+    font-size: var(--type-ui-13);
+  }
+  .recall-log li + li { border-top: 1px solid var(--line); }
+  .recall-log-when { color: var(--soft); }
+  .recall-log-said { color: var(--ink); }
+  .recall-log-span, .recall-log-deck { color: var(--faint); text-align: right; }
+  /* `is-idle` — an answer that moved nothing. The WORD in the half-life cell is
+     what says so (`common.recall.uncounted.label`); this only quietens the row,
+     because a fact carried by weight alone is a fact a reader may not have. */
+  .recall-log li.is-idle .recall-log-said { color: var(--soft); }
+  .recall-note {
+    margin: calc(var(--row) * .66) 0 0;
+    font-size: var(--type-ui-11); line-height: 1.5; color: var(--faint);
+  }
   /* The caret sits at the dot's centre, which is handed in as --caret-x — a
      several-dots-in-a-row header is exactly where "which one was that?" gets
      asked, and a bubble with no tail cannot answer it. */
@@ -3603,10 +3677,11 @@
   .status-mark {
     display: inline-flex; align-items: center; justify-content: center;
     width: max(28px, 1.75em); height: max(28px, 1.75em);
-    flex-shrink: 0; cursor: help;
+    flex-shrink: 0; cursor: pointer;
+    padding: 0; border: 0; background: none; color: inherit;
     transition: transform .12s ease;
   }
-  .status-mark:hover, .status-mark:focus-visible { transform: scale(1.12); }
+  .status-mark:hover, .status-mark:focus-visible, .status-mark.is-open { transform: scale(1.12); }
   /* .quiz-skip-mark — the struck flash card on a row the Daily Quiz will not
      draw (0033), drawn beside the status dot it qualifies.
 
@@ -7115,7 +7190,13 @@ html[data-theme="dark"] .mobile-sheet-footer {
   }
   /* The read-history popover is text, not targets, so it keeps its own rhythm. */
   .read-log li { min-height: 0; }
-  .heart {
+  /* .status-mark TAKES THE HEART'S BOX, and takes it here rather than keeping a
+     rule of its own. It became a button when the owner asked the repetition mark
+     to open a panel, and it stands in the same card row as the ♥ — two marks a
+     thumb aims at, a gap apart. The pair is declared once so neither can drift
+     from the other by a copy nobody swept. */
+  .heart,
+  .status-mark {
     width: 44px;
     height: 44px;
     display: inline-flex;
@@ -7123,7 +7204,17 @@ html[data-theme="dark"] .mobile-sheet-footer {
     justify-content: center;
   }
   /* In-card marks keep the 44px hit height but narrow the boxes — a heart +
-     the links must fit a ~310px card column without spilling. */
+     the links must fit a ~310px card column without spilling.
+
+     `.status-mark` IS DELIBERATELY NOT ON THIS LIST, and the reason is a number:
+     `controls-baseline.json` holds the backup shelf at 300 controls under the
+     44px floor at 390px, and these narrowed marks are most of them. That count
+     is a ratchet — it may fall and never rise — so a control ADDED to this app
+     may not join the debt being held down. At 34px it would be flagged like its
+     neighbours and every quote card on five surfaces would push the number past
+     its ceiling; at 44 it is the one mark in the row that actually meets the
+     floor. The glyph inside it is unchanged, so nothing on screen grows: what
+     differs is 10px of reach, in the direction the pack asks for. */
   .hand-card .heart,
   .film-frame .heart {
     width: 34px;

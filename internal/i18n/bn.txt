@@ -517,6 +517,38 @@ common.half-life.days.label = {n}d
 common.half-life.weeks.label = {n}w
 common.half-life.months.label = {n}mo
 
+# --- the recall panel behind that dot. THE OWNER'S: "when i click on the spaced
+# repetition icon in the quote cards, it should show a popup for the halflife
+# status, and recall history". NOT an infodot, on the same instruction — "this is
+# not an infodot, btw, so will not be restricted by the budget" — so none of this
+# answers to help-budget's caps.
+common.recall.title = স্মৃতি
+common.recall.half-life.label = অর্ধায়ু
+common.recall.due.label = পরের বার
+# A quote kept out of the quiz has no next review to name, and "in 12 days" would
+# be a promise nothing is going to keep.
+common.recall.due.excluded = অনুশীলনীর বাইরে
+common.recall.reviews.label = দেখা হয়েছে
+common.recall.lapses.label = ভুল হয়েছে
+common.recall.history.label = আগের উত্তরগুলো
+# When the log is longer than the panel shows. {n} of {total} answers.
+common.recall.history.window = মোট {total}টির শেষ {n}টি
+common.recall.history.none = এখনও জিজ্ঞেস করা হয়নি
+# The three answers in the past tense, because this column is a record rather
+# than a button — the quiz's own words for them are quiz.grade.*.
+common.recall.result.got.label = পেরেছি
+common.recall.result.forgot.label = ভুলে গেছি
+common.recall.result.skip.label = বাদ দিয়েছি
+# Which deck the answer came from, short enough for a column.
+common.recall.mode.daily.label = অনুশীলনী
+common.recall.mode.practice.label = ঝালাই
+# STANDS WHERE THE HALF-LIFE WOULD, on an answer that moved nothing: practice
+# with counting off, or a skip. Printing the number that still stood would say
+# the answer produced it.
+common.recall.uncounted.label = বদলায়নি
+# Once, under a history that holds one of those.
+common.recall.uncounted.note = এগুলো রাখা থাকে, তবে এই উত্তরগুলোয় অর্ধায়ু বদলায় না।
+
 # --- the number beside a slider, in the quiz panel. THE WHOLE READOUT IS ONE
 # STRING rather than a number with a unit glued to it: the unit used to be written
 # ' days', with a leading space no line in this file can carry, and the number does
@@ -5101,6 +5133,7 @@ error.load.import-queue = ইমপোর্টের যাচাইয়ে�
 error.load.bin = রিসাইকল বিন পড়া গেল না
 error.load.stats = আপনার পরিসংখ্যান লোড করা গেল না
 error.load.favourites = আপনার পছন্দের লেখাগুলো পড়া গেল না
+error.load.recall = এই উদ্ধৃতির উত্তরগুলো পড়া গেল না
 error.load.shuffle = একটা বাক্য আনা গেল না
 error.apply.edit = এডিট বসানো গেল না
 error.approve.generic = মেনে নেওয়া গেল না
