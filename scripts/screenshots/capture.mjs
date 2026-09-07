@@ -421,41 +421,24 @@ export async function waitForScreenLabel(page, timeoutMs) {
 // only succeeds against a data directory with no admin yet; login only succeeds
 // against one where --username/--password already exist. Point --base-url at a
 // scratch server (see run-with-server.sh) to get the signup path on the first theme.
-// A FILM WITH A CAST, FOUND RATHER THAN ASSUMED.
-//
-// `run-panel-depth.sh` passed `--movie-id 2`, which is a fact about the SEEDED
-// fixture — `seed-cast.mjs --movie-id 2` is what puts a cast on it. Pointed at a
-// restored archive the same flag asks for `/catalogue/2`, which need not be a film
-// at all: measured, the probe sat on `waitForSelector('.tp-btn')` for thirty
-// seconds and died with "Waiting for selector `.tp-btn` failed" — a message about
-// a button, from a wrong id, on a screen that was never a film.
-//
-// A HARD-CODED ID IS A FACT ABOUT ONE LIBRARY, and every harness in this directory
-// now runs against two. So the subject is resolved from the library that is
-// actually loaded: the first film whose cast is not empty, asked of the API. The
-// seeded fixture answers 2 (the only one seeded with a cast) and the archive
-// answers whatever it has, and no runner carries a number.
-//
-// Returns the id as a string, or null — a caller with no film to work on should
-// SKIP and say so, not press on and time out.
-export async function filmWithCast(page, baseUrl, limit = 12) {
-  const list = await page.evaluate(async (base) => {
-    const r = await fetch(`${base}/api/movies`, { credentials: 'include' })
-    if (!r.ok) return null
-    const j = await r.json()
-    return (j.movies || []).map((m) => m.id)
-  }, baseUrl)
-  if (!list?.length) return null
-  for (const id of list.slice(0, limit)) {
-    const n = await page.evaluate(async (base, mid) => {
+// THE TWO LOOKUPS `pickFilm` NEEDS, against a live page. The decision itself is
+// `pickfilm.mjs`, so it can be asked without booting a server — see the argument
+// there, and `test/pure/pick-film.test.js`.
+export function filmLookups(page, baseUrl) {
+  return {
+    films: () => page.evaluate(async (base) => {
+      const r = await fetch(`${base}/api/movies`, { credentials: 'include' })
+      if (!r.ok) return []
+      const j = await r.json()
+      return (j.movies || []).map((m) => m.id)
+    }, baseUrl),
+    castCount: (id) => page.evaluate(async (base, mid) => {
       const r = await fetch(`${base}/api/movies/${mid}/cast`, { credentials: 'include' })
       if (!r.ok) return 0
       const j = await r.json()
-      return (j.cast || j.rows || []).length
-    }, baseUrl, id)
-    if (n > 0) return String(id)
+      return (j.cast || []).length
+    }, baseUrl, id),
   }
-  return String(list[0])
 }
 
 export async function ensureSession(page, opts) {

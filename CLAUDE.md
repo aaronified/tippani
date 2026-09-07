@@ -52,9 +52,13 @@ in your claude.md to use it for all tests."*
 `backup-env.sh` reads it and `scratch-server.sh` sources that, so every harness in the
 directory picks the archive up with no flags at all — `make controls`, `make sheet-drag`,
 `make typescale`, `make panel-depth`, `make frame-scroll`, `make hero-control`, and
-`run-with-server.sh --seed`. Each says which library it is against on its first line, and
-each has been run against a restored archive and exits 0 — the wiring is checked by
-`test/pure/harness-archive.test.js` and the working was checked by running all seven.
+`run-with-server.sh --seed`. Each says which library it is against on its first line. The
+WIRING is checked by `test/pure/harness-archive.test.js`; the WORKING was checked by
+running them — six of the seven exit 0 against a restored archive (`sheet-drag`,
+`panel-depth`, `typescale`, `frame-scroll`, `hero-control`, and a capture from
+`run-with-server.sh --seed`). **`make controls` is the seventh and exits 3 until the backup
+shelf's 1280 ceiling is recorded** — see `--fixture` below; the app comes back clean, the
+touch floor is measured against nothing, and 3 is the code that says exactly that.
 **Exactly four names are read out of that file, and these are their spellings:**
 
 ```bash

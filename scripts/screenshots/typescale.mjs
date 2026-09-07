@@ -96,18 +96,29 @@ function parseArgs(argv) {
 // those lines, and that is the clamp working, not a box failing.
 //
 // It came up as a real reading. Against the owner's archive, Home reported one new
-// clip at 175% — the favourite tile's quote, one long enough that the seeded fixture has nothing like it,
-// cut by 39px. The tile clamps that quote when collapsed and puts a `ClampMore`
+// clip at 175% — the favourite tile's quote, one long enough that the seeded fixture
+// has nothing like it, cut by 39px. The tile clamps that quote when collapsed and puts a `ClampMore`
 // chevron under it; at 100% the quote happened to fit the clamp and at 175% it did
 // not, so a ratchet whose floor is zero went to one with nothing wrong. Recording
 // `home: 1` would have been the one thing this baseline's own `_why` forbids —
 // "the answer is to fix it, not to write the number here" — and there was nothing
 // to fix.
 //
+// AND THE EXEMPTION IS ON THE VERTICAL CLIP ONLY. `-webkit-line-clamp` says how
+// many LINES a box holds; it says nothing about its width, and a clamped box whose
+// content is also cut off SIDEWAYS is cut off for the ordinary reason — a px box
+// that stopped holding its text. Skipping such an element outright, as the first
+// version of this did, quietly took every clamped box out of the horizontal
+// ratchet too, which the argument above does not cover.
+//
 // WHETHER A CLAMP IS ALLOWED AT ALL IS A DIFFERENT QUESTION and has its own guard:
-// `clamp-has-a-way-out.test.js` requires every clamp in the source to have a
-// control that opens it. This file would answer that question wrongly in both
-// directions — it never presses anything, so it cannot see the control, and it
+// `clamp-has-a-way-out.test.js` requires every clamp in the source to be listed
+// with the answer to "where does the reader get this text back". Three of the
+// app's eight have a control that opens them in place; the other five give the
+// text back on another screen — a tile that opens its own page, a top bar whose
+// title is the hero heading underneath — and for those a chevron would be wrong.
+// So it is not "every clamp has a button", and this file would answer either
+// version wrongly: it never presses anything, so it cannot see a control, and it
 // visits routes at rest, so it cannot see a clamp behind one.
 const PROBE = `(() => {
   const KEY = (el) => {
@@ -131,9 +142,10 @@ const PROBE = `(() => {
     if (!r.width || !r.height) continue
     const cs = getComputedStyle(el)
     if (cs.visibility === 'hidden' || cs.display === 'none') continue
-    if (CLAMPED(cs)) continue
     const wide = el.scrollWidth > el.clientWidth + 1 && CUTS(cs.overflowX)
-    const tall = el.scrollHeight > el.clientHeight + 1 && CUTS(cs.overflowY)
+    // THE VERTICAL CLIP ONLY. A clamp holds N lines at every type size, so the
+    // dial cannot break it downwards; it promises nothing about the width.
+    const tall = el.scrollHeight > el.clientHeight + 1 && CUTS(cs.overflowY) && !CLAMPED(cs)
     if (!wide && !tall) continue
     out[KEY(el)] = {
       tag: el.tagName.toLowerCase(),

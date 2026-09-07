@@ -701,19 +701,33 @@ against the owner's archive on 7 September — twice before `b53a030` and once *
 commit itself**, because the first two runs predated part of the change they were being
 quoted for (`offsetNow`'s `matrix3d` arm landed after them). A probe run is a claim about
 a build, and a build that has moved since is a different claim — including the case that measures the MECHANISM
-(`dragverdict.mjs`, whose arithmetic has its own tests) rather than the outcome. Four new
-jsdom cases in `sheet-from-the-bottom.test.jsx`, each red without its own half of the fix,
-and one of the old ones deleted with its rule restated below.
+(`dragverdict.mjs`, whose arithmetic has its own tests) rather than the outcome.
 
-**THREE NUMBERS IN THIS SECTION WERE WRONG WHEN IT WAS WRITTEN, and a rater found all
-three.** It said "ten cases" of a probe whose newest run in the workspace was eight cases
+**AND THE JSDOM SIDE, COUNTED RATHER THAN REMEMBERED.** `sheet-from-the-bottom.test.jsx`
+went from 16 cases to 35 across the drag work, per commit:
+
+```
+git log --format=%h -- web/frontend/test/dom/sheet-from-the-bottom.test.jsx \
+  | tac | while read c; do
+      printf '%s %s\n' "$c" "$(git show "$c:web/frontend/test/dom/sheet-from-the-bottom.test.jsx" | grep -cE '^  it\(')"
+    done
+```
+
+`5bde71b` 16 · `25a3dd8` 21 · `869c77c` 23 · `a3b9096` 28 · `6ad717f` 29 · `f1bbf18` 31 ·
+`a36ded4` 32 · `b53a030` 35. Net, so a commit that deleted one and added six reads as five
+— `a3b9096` is that one, and its deletion is the rule restated below.
+
+**FOUR NUMBERS IN THIS SECTION WERE WRONG WHEN IT WAS WRITTEN, and two raters found them
+between them.** It said "ten cases" of a probe whose newest run in the workspace was eight
 and predated the script; "twelve positions of the top edge", which is not a line the probe
-prints and was left over from a version that pulled 140px in twelve steps; and "five new
-jsdom cases" where the range adds four and removes one. Every one of them is the same
-mistake: **a claim about a run, written from the change rather than from the run.** The
-numbers above are copied out of `/tmp/claude-0/sd-real2.log` and `sd-real3.log`, and the
-sentence names where they came from so the next reader can disagree with the evidence
-rather than with me.
+prints and was left over from a version that pulled 140px in twelve steps; "five new jsdom
+cases" where the commit adds three; and then — after the first correction — "the range adds
+four and removes one", **which was itself wrong**, because I had counted the change I
+remembered making rather than the diff. Every one of them is the same mistake in two
+flavours: **a claim about a run or a diff, written from the change rather than from the
+thing.** The numbers here now come with the command that produced them, so the next reader
+can disagree with the evidence rather than with me. The probe figures are out of
+`/tmp/claude-0/sd-real2.log`, `sd-real3.log` and `sd-final.log`.
 
 ## AI. The probe seeds when it could restore, 7 September
 
@@ -827,7 +841,7 @@ fixes in the range *are* load-bearing.
 
 | AL13 | **And a hard-coded film id was a third copy of the same mistake.** `run-panel-depth.sh` passed `--movie-id 2`, which is a fact about the SEEDED fixture — `seed-cast.mjs --movie-id 2` is what puts a cast on it. Pointed at the archive the same flag asks for `/catalogue/2`, which need not be a film: the newly-wired `make panel-depth` sat on `waitForSelector('.tp-btn')` for thirty seconds and died with a message about a button. Not the rater's finding — found by RUNNING the harness I had just wired, which is the step AH skipped | **FIXED.** `filmWithCast` (`capture.mjs`) asks the loaded library for the first film whose cast is not empty; the seeded fixture answers 2 and the archive answers whatever it has, and no runner carries a number. Both probes resolve it once and write it back onto `opts`, so all three of `panel-depth.mjs`'s navigations and the message that names the film agree. `make panel-depth` against the archive now exits 0 with seven `ok` lines, having opened Geralt of Rivia in *The Witcher 3: Wild Hunt* |
 
-| AL14 | **And `make typescale` against the archive went OVER.** One element newly clipped on Home at 175% — the favourite tile's quote, a long one from the owner’s own library, not reproduced here, cut by 39px, against a recorded floor of zero. The seeded fixture has no quote long enough to reach it. Found by running the harness I had just wired, not by the rater | **NOT A DEFECT, and the probe now says so itself.** The tile clamps that quote when collapsed and puts a `ClampMore` chevron under it. A `-webkit-line-clamp` holds N LINES at every type size, so the type dial cannot break it — what changed at 175% is how many words fit on three lines, which is the clamp working. `typescale.mjs` exempts a clamped box and argues it at the predicate; recording `home: 1` would have been the one thing that baseline's own `_why` forbids. **AND THE QUESTION THE EXEMPTION DROPS GOT ITS OWN GUARD:** `clamp-has-a-way-out.test.js` inventories all nine clamps in the app and requires each to say where the reader gets the text back — three have a control in place and four give it back on another screen. **The inventory found a real one on the way**: `ReverifyReview`'s diff value clamped to four lines and put the whole string in `title` — a hover, which is not a way out on a phone, so a reader comparing what is stored against what a supplier says could not see the rest of either. It takes `ExpandableDescription`, the app's own fold, and the inventory fell from nine clamps to eight. A new clamp fails by name until somebody writes the answer down |
+| AL14 | **And `make typescale` against the archive went OVER.** One element newly clipped on Home at 175% — the favourite tile's quote — a long one from the owner's own library, not reproduced here — cut by 39px, against a recorded floor of zero. The seeded fixture has no quote long enough to reach it. Found by running the harness I had just wired, not by the rater | **NOT A DEFECT, and the probe now says so itself.** The tile clamps that quote when collapsed and puts a `ClampMore` chevron under it. A `-webkit-line-clamp` holds N LINES at every type size, so the type dial cannot break it — what changed at 175% is how many words fit on three lines, which is the clamp working. `typescale.mjs` exempts a clamped box and argues it at the predicate; recording `home: 1` would have been the one thing that baseline's own `_why` forbids. **AND THE QUESTION THE EXEMPTION DROPS GOT ITS OWN GUARD:** `clamp-has-a-way-out.test.js` inventories every clamp in the app and requires each to say where the reader gets the text back. There were nine; it is eight now, three with a control that opens them in place and five that give the text back on another screen. **The inventory found a real one on the way**: `ReverifyReview`'s diff value clamped to four lines and put the whole string in `title` — a hover, which is not a way out on a phone, so a reader comparing what is stored against what a supplier says could not see the rest of either. It takes `ExpandableDescription`, the app's own fold, and the inventory fell from nine clamps to eight. A new clamp fails by name until somebody writes the answer down |
 
 **AND SECTION AH CARRIED THREE NUMBERS THAT NO RUN SUPPORTED**, which is the finding worth
 keeping. It claimed `make sheet-drag` exited 0 with "ten cases" when the newest run in the
@@ -870,6 +884,38 @@ holds for a harness's decision about which library to use, for a probe's decisio
 which account to be, and for a guard's decision about whether it has enough data. In all
 three the copy that existed went on being right, and its absence everywhere else was
 invisible because nothing failed.
+
+## AM. The work-rater's sixteenth pass, 7 September — 7/10
+
+Nine findings. It mutated fourteen claims and reported that twelve held, which is the part
+of a rating worth more than the number. The three that matter are below the table.
+
+| # | Defect | Status |
+|---|---|---|
+| AM1 | **A verbatim excerpt of the owner's own highlight was committed.** Section AL14 and a comment in `typescale.mjs` both quoted the line the clamp had cut, to explain why the seeded fixture cannot reproduce the reading. The standing rule is that the archive never leaves this machine, and a sentence out of somebody's library in a public repository is the archive leaving it. **The worst finding of the pass and the least technical** | **FIXED IN THE TREE, AND THE OWNER HAS TO KNOW ABOUT THE HISTORY.** Both copies are gone; the reading is described without the words, which loses nothing — "a quote long enough that the seeded fixture has nothing like it" is the whole point. It is in `b53a030`, which is pushed. **Rewriting `v3`'s history is the owner's call and not mine**, so it is named here rather than force-pushed away, and the offer stands |
+| AM2 | **The claim that all seven harnesses "have been run against a restored archive and exit 0" was false, and `make controls` is the one it was false about.** `b53a030`'s own commit message says in as many words that it could not exit 0. The rater found it by reading the message next to the claim | **FIXED, and the count is now six with the seventh named.** `make controls` reaches the archive and walks every surface clean, and exits **3** — the code that means "clean, and the touch floor was measured against nothing" — because the backup shelf's 1280 ceiling has never been recorded. `CLAUDE.md` and `AI.md` say that instead. **This is the range's own signature defect committed one more time**: a claim about a run, written from the change |
+| AM3 | **And the CORRECTION of AH's numbers was itself uncounted.** AH now said "the range adds four and removes one", which is what I remembered doing rather than what the diff says | **FIXED by counting.** The section carries a per-commit table — 16 → 21 → 23 → 28 → 29 → 31 → 32 → 35 — and the shell line that produced it, so the next reader can disagree with the evidence |
+| AM4 | **`typescale.mjs` described the clamp guard as requiring "a control that opens it".** It requires an ENTRY, with an answer; five of the eight clamps have no control and are right not to | **FIXED.** The comment says what the guard actually asks and why "every clamp has a button" is the wrong rule |
+| AM5 | **The clamp exemption was too wide.** `if (CLAMPED(cs)) continue` skipped the element before both the horizontal and the vertical check, so a clamped box clipping SIDEWAYS became unratcheted — and the argument for the exemption is about line count only | **FIXED.** The exemption is on the `tall` check alone. A clamp promises N lines at every type size; it promises nothing about width |
+| AM6 | **`filmWithCast` documented "or null" and ended `return String(list[0])`** — a library whose first twelve films have no cast got one anyway, and `panel-depth.mjs` then dies on the selector timeout the function exists to prevent. **No test.** A defect introduced by the fix for AL13, in the same shape | **FIXED, and extracted so it can be asked.** `pickfilm.mjs` takes its two lookups as functions; `pick-film.test.js` has seven cases including that one, the limit, a throwing lookup, and the type of the answer. `wantCast` is passed IN, because `sheet-drag` reaches its sheet through any film and demanding a cast would make it skip a library it can measure |
+| AM7 | **`harness-archive.test.js` asserted a SPELLING.** The branch-duplication case matched the exact punctuation of the line it replaced, `if [ -n "${TIPPANI_BACKUP:-}" ]`; the rater put `if [ -n "$TIPPANI_BACKUP" ]` into `run-hero-control.sh` and watched it stay green, twice. It was also the one new guard missing from AL's mutation table | **FIXED as a property.** A runner may not MENTION the variable at all — the decision is `scratch_prefer_archive`'s and the restore is `run-with-backup.sh`'s, which is excepted by name and asserted to still read it, so a rename cannot empty the check. The rater's own mutation now fails |
+| AM8 | **`DEVELOPMENT.md` named `ratchet.mjs` and `scratch-server.sh` but not their siblings**, and `doc-map-check.mjs` passes either way — it checks that named paths resolve, not that new ones are named | **FIXED.** `dragverdict.mjs`, `pickfilm.mjs` and `backup-env.sh` have rows. That the gate cannot see the gap is worth its own note: the map is a promise the check does not enforce |
+| AM9 | Two counts of the clamps disagreed with the table under them — "nine" where there are eight, "three and four" where it is three and five | **FIXED** |
+
+**AM1 IS THE ONE TO TAKE AWAY, and it is not a coding mistake.** Every technical rule about
+the archive was kept — the server bound to 127.0.0.1, the data dir was a mktemp the trap
+removed, `*.tpbk` and `backup.env` are gitignored, no credential is in any commit — and
+then a defect report quoted the library in prose, because prose did not feel like data. A
+privacy boundary that only covers the mechanisms is not a boundary. **Nothing out of the
+archive goes into a committed file, including a sentence, including in an argument about
+why the archive is necessary.**
+
+**AND FOUR OF THE NINE ARE DEFECTS THE PREVIOUS FIX INTRODUCED** — AM3 in a correction,
+AM6 in the replacement for AL13, AM7 in a guard written that hour, AM2 in a document
+updated to describe work that had not finished. That is the third pass running where the
+new code is the code that has not been pressed. The countermeasure that actually worked
+this time was the rater mutating my guards rather than my app, which found AM7; the one
+that did not was me writing the document before the run finished.
 
 ## Withdrawn claims
 

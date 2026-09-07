@@ -72,7 +72,8 @@
 //
 import puppeteer from 'puppeteer-core'
 
-import { HARNESS_ACCOUNT, emulateEngineMedia, ensureSession, filmWithCast, findBrowser, launchOptions } from './capture.mjs'
+import { HARNESS_ACCOUNT, emulateEngineMedia, ensureSession, filmLookups, findBrowser, launchOptions } from './capture.mjs'
+import { pickFilm } from './pickfilm.mjs'
 
 function parseArgs(argv) {
   // NO DEFAULT ID. A number here is a fact about one library, and this probe
@@ -120,7 +121,7 @@ try {
   // `waitForSelector('.tp-btn')` and died with "Waiting for selector `.tp-btn`
   // failed" — a message about a button, from a wrong id, on a screen that was never
   // a film.
-  opts.movieId = opts.movieId || await filmWithCast(page, opts.baseUrl)
+  opts.movieId = opts.movieId || await pickFilm({ ...filmLookups(page, opts.baseUrl), wantCast: true })
   if (!opts.movieId) {
     console.log('SKIP  the library has no film to open, so there is no panel to measure')
     process.exit(0)

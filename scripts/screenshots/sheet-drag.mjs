@@ -26,7 +26,8 @@
 import puppeteer from 'puppeteer-core'
 
 import { anchorsFor } from '../../web/frontend/src/sheetAnchors.js'
-import { HARNESS_ACCOUNT, emulateEngineMedia, ensureSession, filmWithCast, findBrowser, launchOptions } from './capture.mjs'
+import { HARNESS_ACCOUNT, emulateEngineMedia, ensureSession, filmLookups, findBrowser, launchOptions } from './capture.mjs'
+import { pickFilm } from './pickfilm.mjs'
 import { judgeDrag } from './dragverdict.mjs'
 
 function parseArgs(argv) {
@@ -172,9 +173,9 @@ try {
   // `waitForSelector('.tp-btn')` and died with "Waiting for selector `.tp-btn`
   // failed" — a message about a button, from a wrong id, on a screen that was never
   // a film.
-  opts.movieId = opts.movieId || await filmWithCast(page, opts.baseUrl)
+  opts.movieId = opts.movieId || await pickFilm({ ...filmLookups(page, opts.baseUrl), wantCast: false })
   if (!opts.movieId) {
-    console.log('SKIP  the library has no film to open, so there is no panel to measure')
+    console.log('SKIP  the library has no film to open, so there is no sheet to measure')
     process.exit(0)
   }
 

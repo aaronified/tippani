@@ -149,7 +149,7 @@ AI-written code fails differently from hand-written code. It compiles, it reads
 well, it is plausibly commented, and it can still be wrong — so plausibility is
 worth nothing here and only execution counts. What the repo actually runs:
 
-- **1,494 Go test functions and 3,509 frontend tests, across 547 test files** — the
+- **1,494 Go test functions and 3,516 frontend tests, across 548 test files** — the
   Go half over real HTTP handlers against a real SQLite database, not mocks.
   Counted, not estimated, and every number here has a command that reproduces it:
 
@@ -158,7 +158,7 @@ worth nothing here and only execution counts. What the repo actually runs:
   cd web/frontend && npm test                                            # frontend tests
   find . -name '*_test.go' -not -path './node_modules/*' | wc -l         # 249 Go files
   find ./web/frontend -path '*/node_modules' -prune -o \
-       -type f \( -name '*.test.*' -o -name '*.spec.*' \) -print | wc -l # 298 frontend
+       -type f \( -name '*.test.*' -o -name '*.spec.*' \) -print | wc -l # 299 frontend
   ```
 
   THREE OF THE FOUR ARE NOW CHECKED RATHER THAN TRUSTED. This paragraph has said
@@ -505,13 +505,21 @@ worth nothing here and only execution counts. What the repo actually runs:
   indent, quotes and CRLF — every one of which used to drop a variable silently and fall
   back to seeding, which prints the same first line as a machine with no archive at all.
 
-  The proof that the wiring works is seven runs rather than a claim, one per harness, each
-  against the owner's restored archive and each exiting 0: `make sheet-drag` (ten `ok`),
-  `make panel-depth` (seven, having opened Geralt of Rivia in *The Witcher 3*), `make
-  typescale` (no new clips), `make frame-scroll`, `make hero-control`, `make controls`,
-  and `run-with-server.sh --seed --screens home` (one capture, of the owner's own Home).
-  Section AH of the defect register is there because the previous pass claimed a run it
-  had not done.
+  The proof that the wiring works is runs rather than a claim, and the count is exactly
+  six: `make sheet-drag` (ten `ok`), `make panel-depth` (seven, having opened Geralt of
+  Rivia in *The Witcher 3*), `make typescale` (no new clips), `make frame-scroll`, `make
+  hero-control`, and `run-with-server.sh --seed --screens home` (one capture, of the
+  owner's own Home). Each against the owner's restored archive, each exiting 0.
+
+  **`make controls` IS THE SEVENTH AND HAS NOT DONE SO YET**, and this paragraph said
+  "seven runs… each exiting 0" for half an hour while it hadn't. It reaches the archive
+  and walks every surface clean, and it exits **3** — "the app came back clean AND the
+  touch floor was measured against nothing" — because the backup shelf's 1280 ceiling has
+  never been recorded. A `--update-baseline` run is what records it, and that run takes
+  seventy minutes against a real library. Until it finishes and a plain run confirms the
+  numbers, the honest sentence is this one. A rater caught the earlier version by reading
+  the commit message next to it, which said in as many words that `make controls` could
+  not exit 0.
 
   AND A PROBE RUN IS A CLAIM ABOUT A BUILD. The first two `sheet-drag` runs quoted in the
   register predated part of the change they were quoted for — `offsetNow`'s `matrix3d` arm

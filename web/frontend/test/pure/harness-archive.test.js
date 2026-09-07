@@ -87,15 +87,34 @@ describe('every harness that fills a library prefers the archive', () => {
     }
   })
 
-  it('and none of them keeps its own copy of the branch', () => {
+  it('and none of them reads TIPPANI_BACKUP at all', () => {
     // The repo's directive: "a control drawn by one component on two screens has
     // ONE behaviour, and it lives in one function that both screens call — not in
     // a line each, which is how one of them goes on being right while the other
     // quietly stops." Six copies of this branch is six chances for that.
+    //
+    // THE PROPERTY, NOT THE SPELLING. The first version of this matched the exact
+    // punctuation of the branch it replaced — `if [ -n "${TIPPANI_BACKUP:-}" ]` —
+    // and a rater put `if [ -n "$TIPPANI_BACKUP" ]` into `run-hero-control.sh` and
+    // watched it stay green. There are a dozen ways to ask that question in shell
+    // and only one of them was forbidden, which is not a rule, it is a filter.
+    //
+    // So: a runner may not MENTION the variable. Deciding which library to use is
+    // `scratch_prefer_archive`'s and the restore is `run-with-backup.sh`'s; a
+    // runner that names it is either duplicating the decision or reading it for
+    // something the shared function should be doing. `run-with-backup.sh` is the
+    // restore itself and is excepted by name.
+    const RESTORER = 'run-with-backup.sh'
     for (const f of runners) {
-      const own = code(f).match(/if \[ -n "\$\{TIPPANI_BACKUP:?-?\}?" \]/g) || []
-      expect(own.length, `${f} tests TIPPANI_BACKUP itself instead of calling the shared decision`).toBe(0)
+      if (f === RESTORER) continue
+      const hits = (code(f).match(/TIPPANI_BACKUP\w*/g) || [])
+      expect(hits, `${f} reads ${hits.join(', ')} itself instead of leaving that to scratch_prefer_archive`)
+        .toEqual([])
     }
+    // AND THE EXCEPTION IS NOT VACUOUS: the restorer really does read it, so a
+    // rename that emptied this check would be caught here rather than passing.
+    expect(code(RESTORER).match(/TIPPANI_BACKUP\w*/g) || [],
+      `${RESTORER} no longer reads the archive it exists to restore`).not.toEqual([])
   })
 })
 

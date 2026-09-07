@@ -70,8 +70,10 @@ function clamps() {
   return out.sort()
 }
 
-// WHAT EACH ONE HID AND WHERE IT COMES BACK. Nine, and every one of them has an
-// answer — which is the point: the list is not a debt, it is the argument.
+// WHAT EACH ONE HID AND WHERE IT COMES BACK. Eight — it was nine until the
+// re-verify diff value took the shared fold — and every one of them has an answer,
+// which is the point: the list is not a debt, it is the argument. Three have a
+// control that opens them in place; five give the text back on another screen.
 const KNOWN = {
   // A CONTROL IN PLACE. The clamp collapses and a chevron beside it opens.
   'Home.jsx:clampLines':
