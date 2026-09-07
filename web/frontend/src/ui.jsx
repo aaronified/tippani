@@ -9387,9 +9387,22 @@ export function ActionMenu({ open, items = [], anchorRef, at = null, onClose, re
     at,
   })
   const close = onClose || (() => {})
-  useDismiss(open, close, [popRef, ...(anchorRef ? [anchorRef] : [])], {
-    onEscape: () => returnFocus(returnFocusTo?.current),
-  })
+  // EVERY WAY OUT PUTS FOCUS BACK, and it is one wrapper rather than a call at each
+  // exit. This menu has four: Escape, Tab, a press outside it, and picking a row.
+  // Two of them restored focus and two dropped it on the floor — a keyboard reader
+  // who chose a row landed on `<body>` with nothing left to arrow from, and a
+  // screen reader lost the menu without being told where it now was.
+  //
+  // WRAPPING THE CLOSE IS WHAT MAKES THEM AGREE. Adding the restore to the two that
+  // lacked it would have been four copies of one verb, which is the thing that made
+  // `returnFocus` a single function one commit ago; the exits are what needed
+  // unifying, not the call inside them. `keepOpen` rows do not dismiss and so do
+  // not restore, which is right: the menu is still there to arrow around in.
+  const dismiss = () => {
+    close()
+    returnFocus(returnFocusTo?.current)
+  }
+  useDismiss(open, dismiss, [popRef, ...(anchorRef ? [anchorRef] : [])])
 
   // Focus the first item on open. In a layout effect rather than an effect so it
   // happens before the browser paints — a menu that appears and then steals focus
@@ -9432,8 +9445,7 @@ export function ActionMenu({ open, items = [], anchorRef, at = null, onClose, re
       // means this Tab navigates NOWHERE, and focus lands on the same anchor
       // Escape puts it on. Two spellings of one act, and the act is a restore.
       e.preventDefault()
-      close()
-      returnFocus(returnFocusTo?.current)
+      dismiss()
     }
   }
 
@@ -9483,7 +9495,7 @@ export function ActionMenu({ open, items = [], anchorRef, at = null, onClose, re
             // "Sort by length" and "descending" are two decisions made in one
             // visit, and a menu that shuts between them makes the second one cost
             // two more presses than the first.
-            if (!it.keepOpen) close()
+            if (!it.keepOpen) dismiss()
             it.onClick()
           }}
         >

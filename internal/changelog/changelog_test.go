@@ -323,18 +323,33 @@ func TestEveryBulletSurvivesTheParse(t *testing.T) {
 	seenKnown := 0
 	{
 		release, title := "", ""
+		openEntry := false
 		for i, line := range strings.Split(text, "\n") {
 			switch {
 			case strings.HasPrefix(line, "## "):
 				release, _ = splitHeading(strings.TrimPrefix(line, "## "))
 				title = ""
+				openEntry = false
 			case strings.HasPrefix(line, "### "):
 				title = strings.TrimSpace(strings.TrimPrefix(line, "### "))
+				openEntry = false
 			case title == "" || strings.TrimSpace(line) == "":
-			case strings.HasPrefix(line, "- ") || strings.HasPrefix(line, "  "):
+				openEntry = openEntry && strings.TrimSpace(line) == "" // a blank line holds
+			case strings.HasPrefix(line, "- "):
+				openEntry = true
+			// AN INDENTED LINE CONTINUES AN ENTRY ONLY IF THERE IS ONE OPEN, which is
+			// the parser's rule and was not this test's. It skipped anything starting
+			// with two spaces unconditionally, so `  **A note…**` directly under a
+			// section heading — bullet gone, indent added — was dropped by the parser
+			// and skipped here, and the comment below claimed the check held
+			// "whatever whitespace is in front of it". A rater indented one and walked
+			// past.
+			case strings.HasPrefix(line, "  ") && openEntry:
 			case strings.HasPrefix(strings.TrimLeft(line, " \t"), "**"):
+				openEntry = false
 				lostBullet = append(lostBullet, fmt.Sprintf("CHANGELOG.md:%d [%s/%s] %q", i+1, release, title, trunc(line)))
 			default:
+				openEntry = false
 				if isKnown(line) {
 					seenKnown++
 					continue

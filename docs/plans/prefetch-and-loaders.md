@@ -50,37 +50,60 @@ future reader will quote back is the one that is already there.
 
 ## WHAT THE DESIGN PACK SAYS ABOUT WAITING
 
-**It says what the owner asked for, and this section said "Nothing" for one commit.** That
-was the whole error of the first draft repeated one page later — a document written to
-correct an over-reading of the repo's own decisions, over-reading the pack in the other
-direction. The sweep was run and the answer was read off the `.md` and `.dc.html` files
-without opening the one `.js` in the directory.
+**This section has been wrong three times, in three different directions, and the third
+time was in the paragraph correcting the second.** The sequence is worth keeping, because
+the shape of the error is the same every time — an answer summarised instead of read:
 
-`docs/design/prototypes/imageslot.js` is a complete image-loading spinner, and every rule
-in the owner's sentence is already in it:
+1. *"Nothing."* — the sweep was run and its result read off the `.md` and `.dc.html` files
+   without opening any of the four `.js` files in `docs/design/prototypes/`.
+2. *"It says exactly what the owner asked for."* — `imageslot.js` was then opened at its
+   stylesheet and its comments, and those do describe a spinner and a
+   `prefers-reduced-motion` fallback and a "placeholder (no spinner)" rule. What was not
+   read is the line that decides WHEN.
+3. **What it actually says**, from `imageslot.js`:
 
-| The owner asked for | The pack already has |
+```js
+// First fill (prev empty) keeps the existing placeholder-until-load behavior — no spinner.
+if (prev || this._hidShowing) this.setAttribute('data-swapping', '');
+```
+
+`:host([data-swapping]) .loading{display:flex}` is the only rule that shows the ring. So the
+pack's rule is:
+
+| Case | The pack |
 |---|---|
-| "some loading animation if there is an image and it is not loaded" | `:host([data-swapping]) .loading{display:flex}` — a 22px two-tone ring, shown ONLY while a swap is in flight, cleared by the image's own `load`/`error` |
-| "no loader if there is no image" | verbatim, in its own comment: *"An empty slot keeps its **placeholder (no spinner)** until the encode lands"* |
-| — (and this one the pack thought of first) | `@media (prefers-reduced-motion:reduce){.loading::after{animation:none}}`, with the reason: *"the static two-tone ring still reads as 'working'"* |
+| An image REPLACING one already on screen | spinner, degraded to a static two-tone ring under `prefers-reduced-motion` |
+| An image arriving into an EMPTY slot — a cover on a page you have just opened | **placeholder, and deliberately no spinner** |
+| No image at all | placeholder |
 
-So the reduced-motion degradation listed below as a constraint to be derived was already
-solved in the pack, in the same two lines, before this file was written.
+**The owner's request departs from that on the case that matters most.** "Some loading
+animation if there is an image and it is not loaded" describes a first fill — a cover on a
+work page you have just arrived at — and the pack withholds the spinner there on purpose.
+What the two agree on is the third row, "no loader if there is no image", and the
+reduced-motion degradation.
 
-**HOW BINDING IT IS, stated honestly rather than either way round.** `<image-slot>` is used
-by **zero** `.dc.html` prototypes and is named by neither `docs/design/README.md` nor the
-handoff — it is authoring tooling for the pack rather than a screen the pack draws. So it is
-not a prototype whose lines this app must not deviate from. It is something better for this
-purpose: **the owner's own working answer to the exact question**, which is what to copy
-rather than what to argue about. The three rules above are taken as settled.
+**So this is the standard's own situation rather than an obstacle to it.** *"I don't want a
+single line deviating from the prototype unless it is expounded upon in detail."* The
+request deviates, knowingly or not, and what it needs is the expounding — which is the
+owner's to accept or refuse, not mine to assume either way. The case for departing, stated
+so it can be argued with:
 
-The pack does also rule on one adjacent thing, and it constrains the loader's DRAWING: the
-`.ph` hatch and the silhouette mean **missing content**, and `CLAUDE-from-design.md` says
-they are not interchangeable with anything else. So *we never had a picture* and *your
-picture is coming* must not become one picture — which is the same distinction the owner drew
-unprompted, and the same one `imageslot.js` implements by keeping the placeholder and the
-spinner as separate elements.
+- The pack's slot is an EDITOR's control — you are picking a portrait and watching it swap,
+  and on the first fill there is nothing to hide, so a spinner over an empty box adds noise
+  to a state that is already legible.
+- A cover on a work page is not that. There the empty placeholder is indistinguishable from
+  *this work has no cover*, which is a real and common state in this library — so the reader
+  cannot tell "coming" from "there isn't one", which is precisely the distinction the
+  owner's sentence is drawing and the pack's `.ph` rule insists on elsewhere.
+
+If the owner accepts that, the departure is one sentence in `docs/PLAN.md` and the loader is
+the pack's, with its trigger widened to a first fill. If they do not, the pack's behaviour
+is already correct and there is nothing to build for the image half at all.
+
+The pack also rules on the loader's DRAWING, and this part is not in dispute: the `.ph`
+hatch and the silhouette mean **missing content**, and `CLAUDE-from-design.md` says they are
+not interchangeable with anything else — so *we never had a picture* and *your picture is
+coming* must stay two pictures.
 
 ## WHAT ACTUALLY CONSTRAINS THIS
 
@@ -111,9 +134,28 @@ the global row appears, so a hung socket means a press that draws nothing at all
 "chore" the owner felt, amplified by a slow link rather than caused by it. Needs no cache and
 no prefetch.
 
-**2. `pointerdown` prefetch on the character chip.** The smallest thing that attacks the
-same complaint: the request is merely already in flight, never stored, so it needs neither an
-invalidation table nor user-keying. Measure (2) above while doing it.
+**2. `pointerdown` prefetch — and NOT on the character chip, which is the endpoint the
+first draft of this file recommended.**
+
+`GET /characters/{id}` **writes.** `identity_handlers.go` → `fillLineFaces` →
+`loadCharacterImages` → `adoptQuoteCharacters`, which opens a transaction and runs
+`INSERT INTO work_cast` for up to `adoptWorkCap` (12) works per read — adopting characters
+that a work's own quotes name but its cast list does not. That is deliberate and useful on a
+deliberate press. **On a `pointerdown` it means a finger resting on a chip creates rows.**
+
+So the recommendation is narrower than it was: prefetch only a request proven to be a pure
+read, and the way to know is to have looked rather than to have assumed a GET is one. Two
+routes forward, and the first is cheaper:
+
+- **Prefetch nothing; stop the door blocking instead.** Step 1 already removes the wait the
+  owner actually felt, and it needs no new request at all.
+- **Or give the panel a read-only door** — the adoption moved to where a reader asks for it
+  — and prefetch that. That is a server change and a decision about when adoption should
+  happen, which is larger than the complaint that prompted it.
+
+The general lesson for the boundary sentence above: *"the reader's own data from their own
+server"* is not sufficient. It has to be **a read that is only a read**, and this codebase
+has at least one GET that is not.
 
 **3. The image loader.** Needs no ruling. Reserve the box first (an unreserved loader causes
 the layout shift it was meant to soften — and it is the same box question as the owner's
@@ -127,9 +169,9 @@ don't abort, let it settle into the cache. It needs a bound so a hung socket can
 (`api.js`'s `timeoutMs` exists for exactly that case), a cap on concurrent fills, and
 invalidation on write — which is the riskiest part of the whole request, because the panel
 payloads do not map onto the GETs they stale by URL prefix. `GET /characters/{id}` is
-assembled across **eight** tables — `characters` and `character_alias`, `work_cast`,
-`annotations` and `dialogues`, and `books`/`movies`/`people` through the cast join and
-`CharacterLines` — so `PUT /cast/{id}` and `PUT /annotations/{id}` both stale it while
+assembled across **nine** tables — `characters` and `character_alias`, `work_cast`,
+`annotations` and `dialogues`, `books`/`movies`/`people` through the cast join and
+`CharacterLines`, and `users` through `creditSeps` → `loadPrefs` — so `PUT /cast/{id}` and `PUT /annotations/{id}` both stale it while
 sharing no path segment with it. A prefix-invalidating cache misses precisely the writes
 readers make most.
 

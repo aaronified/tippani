@@ -21,12 +21,15 @@ shipped plans stayed here afterwards and reintroduced it one directory over —
 along with twenty-three entries in the log whose grey line still read *planned*
 for features that had been running for months.
 
-**Fifteen files sit here, and only some of them are plans** — the table at the foot of this
-file names the seven that are not, and the rest are features. That number has been wrong
-twice for the same reason: it said "Seven" and was incremented to "Eight" by a change that
-added a file without counting the directory. It is stated as a count of FILES now, which
-`ls docs/plans/*.md | wc -l` answers, rather than as a count of plans, which needs a
-judgement per file and so goes stale silently.
+**Sixteen files sit here, and only some of them are plans** — the table at the foot of this
+file names the eight that are not, and the rest are features.
+
+That count has now been wrong three times, and the third time is the instructive one. It
+said "Seven"; a change that added a file incremented it to "Eight" without counting the
+directory; and the change that fixed THAT wrote "Fifteen" while citing the command that
+answers sixteen, and said "seven" of a table with eight rows. Both numbers are now the ones
+the tree gives — `ls docs/plans/*.md | wc -l` and the row count below — and if you are
+editing this sentence, run them rather than adjusting them.
 
 Two of the non-plans are odd ones of the same kind:
 `screen-audit.md` and `codebase-audit.md` are not features but the unfixed halves

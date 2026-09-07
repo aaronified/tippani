@@ -1307,7 +1307,7 @@ opening the one `.js` in the directory.
 | AX10 | **`docs/plans/README.md`'s count was false**, and the commit incremented it 7→8 without counting the directory. Fifteen files sit there | **FIXED as a count of FILES**, which `ls docs/plans/*.md \| wc -l` answers, rather than of plans, which needs a judgement per file and goes stale silently |
 | AX11 | **The roadmap decline was argued in the wrong file.** `README.md` has a "What is not a plan, and never gets a roadmap card" table whose own preamble says a file belonging on it "is added to it in the same change that adds the file" — and the plan argued its exclusion only in itself, so the next sweep would find it unlisted and raise it every run | **FIXED: it is on the table**, with the condition for lifting the exclusion |
 | AX12 | **Two numbers in the plan were wrong or unverifiable.** `GET /characters/{id}` is assembled across **eight** tables, not four; and "72 mutating calls" had no method, in a section headed *found in the tree rather than assumed* | **FIXED.** Eight tables named, and the 72 replaced with the two commands that produce 163 and 151 — with the honest statement that which of those touch a panel's payload is the table nobody has built, which is why that step is last |
-| AX13 | Two dismissal paths in `ActionMenu` restore no focus at all — an outside press (`useDismiss`'s `mousedown`) and an item pick (`if (!it.keepOpen) close()`) — dropping focus to `<body>` | **NOT FIXED, and named rather than quietly widened.** It is a real accessibility gap and it is pre-existing, on every menu in the app, and outside what the owner reported. Fixing it changes behaviour everywhere a menu closes, which is a decision rather than a repair. Recorded here because an unfixed defect leaves no trace in the tree |
+| AX13 | Two dismissal paths in `ActionMenu` restore no focus at all — an outside press (`useDismiss`'s `mousedown`) and an item pick (`if (!it.keepOpen) close()`) — dropping focus to `<body>`. **A keyboard reader who chose a row landed on the document body with nothing left to arrow from**, which is the thing the menu exists to do | **FIXED, and the reason I first gave for not fixing it was weak.** I wrote that it "changes behaviour everywhere a menu closes, which is a decision rather than a repair" — and what it changes it from is LOSING focus, which is not a behaviour anybody chose, to keeping it; the restore uses `returnFocus`, so it cannot move a page either. Three of one component's four exits behaving differently is the exact directive AX7 was fixed against, one commit earlier. **The repair is a wrapper, not four calls:** `dismiss()` closes and restores, and all four exits go through it, because adding the restore to the two that lacked it would have been the copies-of-one-verb defect again — the exits needed unifying, not the call inside them. `keepOpen` rows do not dismiss and so do not restore, which is right and is its own case. `menu-gives-focus-back.test.jsx` presses all four ways out and reads `document.activeElement`; four mutations checked, including the OVER-fix that restores on a `keepOpen` row |
 
 **AND `make controls` EXITS 0 AT BOTH WIDTHS AGAINST THE RECORDED CEILINGS**, which is a
 stronger result than the run before it: that one passed `--update-baseline` and so wrote the
@@ -1318,19 +1318,59 @@ of 0. 390: `small 300` against a ceiling of **301**, `labelled 24` against 24. T
 change the library as it goes — and it is inside the ratchet's slack, which is why it reads
 `ok` rather than `slack`.
 
-**One honesty note about which tree that probe measured.** It was started against
-`f6ae3b77` and the app changed once while it ran: the Tab-out `preventScroll` revert
-(AX7). That cannot reach it — `controls.mjs` presses no Escape key anywhere, so the code
-path never runs during a probe, and a `preventScroll` flag cannot alter a control's count,
-its size or whether it is reachable. The earlier run WAS killed for this reason and this one
-was not, and the difference is that one had changed `App.jsx`'s route handling under it,
-which the probe does exercise.
+**One honesty note about which tree that probe measured, and the first version of this note
+verified the wrong thing.** It was started against `f6ae3b77` and the app changed once while
+it ran: the Tab-out revert (AX7). I wrote that this could not reach the probe because
+`controls.mjs` presses no **Escape** — which is true and beside the point, since the handler
+I changed is `if (e.key === "Tab")`. The real reason is better and covers every case:
+`run-with-backup.sh` **builds the binary once, before the browser starts**, so no edit made
+during a run reaches either width. That also voids the contrast I drew — the earlier run was
+killed for a reason that, on this mechanism, would not have applied either. Killing it cost
+seventy minutes and bought nothing; the honest lesson is that the harness was already
+immune and I had not read how.
 
 **The pattern, for the fifth time in one session, and this instance is the most instructive.**
 AX1 is not a guard that could not fail — it is a document that got the answer wrong in the
 same direction as the error it was written to correct, one page later. Reading the pack's
 `.md` files and calling that "the pack" is the same move as reading a decision's headline and
 calling that its scope.
+
+## AY. The changelog broke a third time, and the guard caught it, 7 September
+
+**The guard written in `bf2bad45` fired on the very next hand-edit of the file** — which is
+the strongest thing that could be said for it, and also the clearest evidence that the
+insertion METHOD was the defect rather than any one act of carelessness.
+
+| # | Defect | Status |
+|---|---|---|
+| AY1 | **A third identical `CHANGELOG.md` insertion, a third identical break.** `-- **Choosing something from a ⋯ menu` and the `-` stripped off `**Signing out no longer leaves your library`. The cause, now measured rather than guessed: `s.index('### Fixed') + len('### Fixed\n\n')` assumes a blank line after the heading, and this file has **none** — `repr` of that span is `'### Fixed\n- **Ch'` — so the insertion point lands one character INSIDE the bullet below it | **FIXED in both copies, and the guard is what found it.** `go test ./internal/changelog` named both lines by number before anything shipped, which is the whole of what AX2–AX4 were for |
+| AY2 | **Three failures out of three attempts is a tool's job, not a habit's.** `CLAUDE.md`'s own line about a different recurring slip says it: "A habit that fails that reliably is a guard's job" | **FIXED with `scripts/changelog-entry.mjs`.** Two properties, both about not trusting the author: the position is **found** — after the heading's own newline, wherever that is, with no assumption about what follows — and the result is **parsed before it is written**, so the tool refuses to write a file where the entry it just added does not come back out of the parser as it went in, or where any existing entry changed. A tool that can produce the defect it exists to prevent is not worth having. Proven by using it (the entry lands correctly, both copies written) and by pointing it at a section that does not exist (refused, exit 1) |
+| AY3 | The register recorded AX13 as **NOT FIXED** with the reason that fixing it "changes behaviour everywhere a menu closes, which is a decision rather than a repair" | **THE REASON WAS WEAK AND THE ROW IS NOW FIXED** — see AX13. What it changes is from LOSING focus, which nobody chose, to keeping it, and the restore cannot move a page. Three of one component's four exits behaving differently is the directive AX7 was fixed against one commit earlier. Recorded here because a stated reason that does not hold is worse than no reason: it reads as a decision when it was an omission |
+
+## AZ. The work-rater's twenty-third pass, 7 September — 4/10
+
+**The score is falling — 7, 6, 5, 6, 5, 4 — and this section says why rather than presenting
+it as progress.** Two of the four passes since AS found their worst defect in a DOCUMENT of
+mine, not in code, and both times the document was the one written to correct the previous
+document. The repairs are getting smaller and the errors in the repairs are not.
+
+| # | Defect | Status |
+|---|---|---|
+| AZ1 | **The design-pack claim was wrong for the THIRD consecutive pass**, each time in the paragraph correcting the last. First "the pack says nothing" (the `.js` files were never opened). Then "the pack says exactly what the owner asked for" (its stylesheet and comments were opened; the line that decides WHEN was not). The truth: `imageslot.js` sets `data-swapping` — the only thing that shows the ring — as `if (prev \|\| this._hidShowing)`, with the comment *"First fill (prev empty) keeps the existing placeholder-until-load behavior — no spinner."* **The pack spins on REPLACEMENT and deliberately not on first load, which is the case the owner's request is about** | **FIXED, and the sequence of three is kept in the file.** The two agree on "no loader if there is no image" and on the reduced-motion degradation; they differ on a cover arriving into an empty slot. That makes it the prototype standard's own situation — *"not a single line deviating unless expounded upon in detail"* — so the document now argues the departure and leaves it to the owner: the pack's slot is an EDITOR's control where an empty box is self-explanatory, and a work page's empty cover is indistinguishable from *this work has no cover*, which is the distinction the owner's sentence draws |
+| AZ2 | **`GET /characters/{id}` WRITES, and the plan recommended prefetching it on `pointerdown`.** `identity_handlers.go` → `fillLineFaces` → `loadCharacterImages` → `adoptQuoteCharacters`, which opens a transaction and runs `INSERT INTO work_cast` for up to `adoptWorkCap` (12) works per read. **A finger resting on a chip would have created rows** | **FIXED, and the recommendation changed rather than qualified.** Step 2 no longer names that endpoint: either prefetch nothing and just stop the door blocking (step 1 removes the wait the owner actually felt and needs no request at all), or give the panel a read-only door first, which is a server change and a decision about when adoption should happen. The boundary sentence gained the general lesson: *"the reader's own data from their own server"* is not sufficient — it has to be **a read that is only a read**, and this codebase has at least one GET that is not |
+| AZ3 | **Two more wrong counts of mine.** "Eight tables" is nine (`users`, through `creditSeps` → `loadPrefs`) — the second wrong count on the same claim. "The one `.js` in the directory" — there are four | **FIXED, both read off the tree** |
+| AZ4 | **`docs/plans/README.md`'s count was wrong a THIRD time**, and this one is the instructive one: the change that fixed "Eight" wrote "Fifteen" while citing the command that answers sixteen, and said "seven" of a table with eight rows | **FIXED to sixteen and eight**, with the instruction to RUN the two commands rather than adjust the sentence |
+| AZ5 | **My own guard crashed instead of failing.** Replacing the shared restore's body with a null guard made `SHARED` miss, and the case died on `Cannot read properties of null (reading 'name')` — a TypeError where the finding should have read "there is no shared restore" | **FIXED.** A guard that crashes sends its reader to the wrong file |
+| AZ6 | **"Whatever whitespace is in front of it" was false.** The changelog guard tested the two-space continuation case FIRST, so `  **A note…**` directly under a section heading — bullet gone, indent added — was dropped by the parser and skipped by the guard alike | **FIXED by tracking whether an entry is OPEN**, which is the parser's own rule and was not the guard's. An indented line continues an entry only when there is one to continue. Both shapes now caught |
+| AZ7 | **The probe-validity note verified the wrong key.** I argued the mid-run app change could not reach `make controls` because `controls.mjs` presses no **Escape** — true, and beside the point, since the handler I had changed is `if (e.key === "Tab")` | **FIXED with the real reason, which is better and general:** `run-with-backup.sh` builds the binary BEFORE the browser starts, so no edit made during a run reaches either width. That also voids the contrast I drew — the earlier run I killed was immune too, so killing it cost seventy minutes and bought nothing |
+| AZ8 | **Two sweeps of mine were beaten again** — `el["focus"]()` and three other bracket accesses; and a cache written by `structuredClone` thirteen lines below its read, by an XHR-only module, and through an imported helper | **PARTLY FIXED, and the rest is now stated rather than claimed away.** The cheap ones are closed: every read spelling this tree uses is in ONE gate (the previous two widenings each fixed one door and left another, which is why an XHR module walked past), and the proximity window is 40 rather than 12. The bracket accesses are NOT closed and will not be: a regex over source text is not a scope analysis, four revisions were each beaten by the next shape, and a fifth widening would be beaten by a sixth. **Both files now name what they do not see.** What earns them their place is the failure they do catch — every real instance in this app's history was the obvious spelling, `el.focus()` and a `let` assigned inside its own `.then` |
+| AZ9 | The rater judged AX13's outside-press exemption defensible and the item-pick one not | **Both are FIXED anyway** — one wrapper, four exits, and `keepOpen` its own case. See AX13 |
+
+**What I would tell the next reader.** The code fixes in this session have held; every rater
+pass has confirmed the previous pass's CODE repairs and found its DOCUMENT claims wrong. The
+lesson is narrow and repeatable: a claim about a file is worth exactly as much as the last
+line of that file somebody read. Three times running, the sentence "the pack says X" was
+written from the part of the pack that was open on screen.
 
 ## Withdrawn claims
 

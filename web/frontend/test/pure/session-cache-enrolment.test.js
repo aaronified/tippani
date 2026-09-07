@@ -62,6 +62,20 @@ const files = () => sourcesUnder((n) => n.endsWith('.jsx') || n.endsWith('.js'),
 // subscriber Set is filled from a component; a cache is filled from a response,
 // and that is the difference that matters, because it is exactly the values that
 // belong to one reader.
+//
+// WHAT THIS STILL DOES NOT SEE, and the list is here because every previous
+// revision of this file ended with a sentence claiming there was nothing:
+//
+//   * a module that reads through a helper imported from somewhere else, so no
+//     read spelling appears in it at all;
+//   * a write placed further from its read than `LOOKBACK`;
+//   * a bracket-assigned property — `caches['vocab'] = r.data` on an object this
+//     sweep judged as a whole.
+//
+// It is a text sweep, not a scope analysis, and a fifth widening would be beaten
+// by a sixth shape. What earns its place is the failure it DOES catch: both real
+// instances in this app's history were a module-scope `let` assigned inside the
+// `.then` that fetched it, and that is the spelling somebody reaches for next.
 const AT_MODULE_SCOPE = /^(?:let|var|const)\s+([A-Za-z_$][\w$]*)\s*=/
 // Every in-place method on Array, Map and Set. A closed set the language defines,
 // not a guess at what somebody will call a variable.
@@ -77,8 +91,23 @@ const MUTATORS = [
 // is still only recognised next to the `json` helper — a rater walked
 // `snapshot = await r.json()` past exactly that half-fix. Two doors have to be
 // widened, not one.
-const FROM_A_RESPONSE = /\.then\s*\(|await\s+(?:json|fetch)\s*\(|json\s*\(\s*['"]GET['"]|\.json\s*\(\s*\)/
-const LOOKBACK = 12
+const FROM_A_RESPONSE = /\.then\s*\(|await\s+(?:json|fetch|upload|uploadWithProgress)\s*\(|json\s*\(\s*['"]GET['"]|\.json\s*\(\s*\)|XMLHttpRequest|responseText|structuredClone/
+// HOW FAR BACK A READ COUNTS AS FEEDING A WRITE. This is a proximity heuristic and
+// nothing better: 12 lines was beaten by a `structuredClone` thirteen lines below its
+// request and by a plain assignment fourteen below. 40 covers any function body
+// anybody writes in this tree, and a write deliberately placed further from its
+// read than that still escapes — which is stated rather than papered over, because
+// four revisions of this file each claimed a completeness the next one disproved.
+//
+// The right instrument is a scope analysis, not a line window. What makes the
+// window worth keeping is the shape of the real failures: both caches this rule
+// exists for assigned their value inside the very `.then` that fetched it.
+const LOOKBACK = 40
+// EVERY WAY THIS TREE READS FROM ITS SERVER. The gate and `FROM_A_RESPONSE` have to
+// agree about this: admitting a module past one while the other still only knows
+// the `json` helper fixes nothing, which is exactly what happened when `fetch` was
+// added to the gate alone.
+const READS_FROM_SERVER = /json\s*\(\s*['"]GET['"]|\bfetch\s*\(|XMLHttpRequest|\bupload(?:WithProgress)?\s*\(/
 
 // `i18n.js` IS THE ONE EXEMPTION, and the reason is not the one this line first
 // gave.
@@ -107,11 +136,12 @@ function held() {
   for (const f of files()) {
     if (NOT_A_READER_S.has(f)) continue
     const body = code(read(f))
-    // ONLY A MODULE THAT READS FROM THE SERVER, and `json('GET'` was the whole of
-    // that test for one revision — so a module reading with a bare `fetch()` was
-    // skipped entirely, which a rater used to walk a cache straight past. Both
-    // doors now.
-    if (!/json\(\s*['"]GET['"]/.test(body) && !/\bfetch\s*\(/.test(body)) continue
+    // ONLY A MODULE THAT READS FROM THE SERVER — and this gate has been widened
+    // twice for the same reason. `json('GET'` was the whole of it once, so a module
+    // reading with a bare `fetch()` was skipped; then `fetch` was added and a module
+    // reading with `XMLHttpRequest` was skipped. Two widenings, two escapes, both
+    // found by mutation rather than by thinking harder about the list.
+    if (!READS_FROM_SERVER.test(body)) continue
     const lines = body.split('\n')
     const declared = lines.map((l) => l.match(AT_MODULE_SCOPE)).filter(Boolean).map((m) => m[1])
     const remembers = []

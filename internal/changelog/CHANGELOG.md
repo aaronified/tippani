@@ -183,6 +183,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   printing its performers once in the header and again in the card below.
 
 ### Fixed
+- **Choosing something from a ⋯ menu no longer strands the keyboard.** Every menu takes
+  focus when it opens, so the arrow keys work straight away — and on two of the four ways
+  out of it, focus was simply dropped, leaving nothing to arrow from and nothing for a
+  screen reader to announce. One of those two was picking a row, which is what the menu is
+  for. All four ways out now hand focus back to the control that opened it.
+
 - **Signing out no longer leaves your library in the search box for the next person.**
   On a shared browser, the account that signed in after you was offered your authors,
   performers, tags and shelf names — the search vocabulary was fetched once and kept for

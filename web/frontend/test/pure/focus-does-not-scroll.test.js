@@ -60,12 +60,23 @@ const code = (t) => t.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\
 const files = () => sourcesUnder((n) => n.endsWith('.jsx') || n.endsWith('.js'), 40)
 
 // EVERY MENTION OF `.focus`, AND NOT ONLY THE CALLS. `\.focus\s*\??\.?\s*\(` was the
-// pattern for one revision, and it wanted the parenthesis — so a rater walked
-// straight past it three times with `HTMLElement.prototype.focus.call(el)`,
-// `el.focus?.call(el)` and `const f = el.focus; f.call(el)`. None of those adds a
-// `.focus(` token, which is exactly what the note below this claimed none of them
-// could avoid. Counting the NAME instead of the call shape catches every one,
-// including a reference stashed in a variable to be invoked later.
+// pattern for one revision, and it wanted the parenthesis — so
+// `HTMLElement.prototype.focus.call(el)`, `el.focus?.call(el)` and
+// `const f = el.focus; f.call(el)` all walked past it. Counting the NAME catches
+// those, including a reference stashed in a variable to be invoked later.
+//
+// WHAT IT DOES NOT CATCH, said plainly rather than claimed away. A bracket access
+// — `el["focus"]()`, `el[someVar]()`, `Reflect.get(el, "focus")` — has no `.focus`
+// in it and this sweep cannot see it. Four revisions of this pattern were each
+// beaten by the next shape, and the fifth widening would be beaten too: a regex
+// over source text is not a type system, and pretending otherwise is how the
+// earlier versions came to carry a sentence saying nothing could avoid them.
+//
+// It is worth having anyway, because of what the failure it guards against
+// actually looks like. Nobody reintroduces a scrolling focus restore by writing
+// `Reflect.get`; they write `el.focus()`, which is what the four real instances in
+// this app's history were and what this catches. The claim is "the obvious
+// spelling of the mistake", not "the mistake".
 //
 // `(?!-)` because `shell.shortcut.focus-blank` is a translation key in `keys.js`,
 // and a sweep that reported a key as a focus call would be a sweep about nothing.
@@ -121,6 +132,12 @@ describe('focus', () => {
 
   it('goes through one function when it is being handed back', () => {
     const { shared } = counts()
+    // NAMED BEFORE IT IS USED. A rater replaced the shared restore's body with a
+    // null guard, `SHARED` stopped matching, and this case died on
+    // `Cannot read properties of null (reading 'name')` — a TypeError where the
+    // finding should have been "there is no shared restore". A guard that crashes
+    // instead of failing sends its reader to the wrong file.
+    expect(shared, 'no function in the tree hands focus back without scrolling — the restore has been inlined or renamed away').toBeTruthy()
     const users = files().filter((f) => new RegExp(`\\b${shared.name}\\s*\\(`).test(code(read(f))))
     expect(users.length,
       'nothing calls the shared restore, so the count above is measuring an app that does not hand focus back at all')
