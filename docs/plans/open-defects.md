@@ -1071,8 +1071,15 @@ reproduce it.
 
 ## AQ. The recall popup, 7 September — the owner's request, closed
 
-Not a rater pass: the item the owner asked for, and the four things building it turned up
-that nothing had recorded.
+Not a rater pass: the item the owner asked for, and the seven things building it turned up
+that nothing had recorded. Landed in `6b89d9fc` (the log's third trigger, `mode`/`counted`,
+and the read endpoint) and `71bb6f1b` (the panel, the mark, and the two sweeps below).
+
+**THREE OF THE SEVEN ARE MINE, and all three were caught by a guard rather than by me** —
+AQ4, AQ6 and AQ7. AQ4 is worse than the other two: this register already lists
+`--type-ui-14` under **Withdrawn claims**, with the reason spelled out, and I made it again
+the same way inside the same document's lifetime. The pattern AP named holds: the new code
+is the code that has not been pressed, and reading my own new line back is not a check.
 
 | # | Defect | Status |
 |---|---|---|
