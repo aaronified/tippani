@@ -30,10 +30,14 @@
 // shared function by name, so a SECOND helper doing the wrong thing passed —
 // which is exactly the failure the rule exists to prevent. A ceiling cannot be
 // slipped past by any of those, because all three ADD a `.focus(` to the tree.
-// The number may fall and never rise, the same idiom as
-// `scripts/screenshots/typescale-baseline.json` and `spacing-debt.test.js`: a new
-// one is either routed through the shared restore, which does not move the count,
-// or it is a destination and somebody says so here on purpose.
+// AND IT IS EXACT, NOT A CEILING, which is where it differs from
+// `spacing-debt.test.js` and `typescale-baseline.json` — both of those use
+// `toBeLessThanOrEqual`, because what they count is DEBT and debt falling is the
+// point. This is not debt. A destination is a legitimate thing the app does, so the
+// number falling means a control stopped focusing something it used to, which is a
+// change worth a line here either way. Exact in both directions: a new call is
+// routed through the shared restore, which does not move the count, or it is a
+// destination and somebody says so on purpose.
 //
 // A SWEEP RATHER THAN A RENDER, because jsdom does not scroll: `focus()` there
 // moves nothing whatever you pass it, so no rendered test in this suite can tell
@@ -55,28 +59,37 @@ const code = (t) => t.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\
 
 const files = () => sourcesUnder((n) => n.endsWith('.jsx') || n.endsWith('.js'), 40)
 
-// `el.focus()`, `ref.current?.focus()`, `x?.focus?.()` — every way the call is
-// spelled in this tree.
-const CALL = /\.focus\s*\??\.?\s*\(/g
+// EVERY MENTION OF `.focus`, AND NOT ONLY THE CALLS. `\.focus\s*\??\.?\s*\(` was the
+// pattern for one revision, and it wanted the parenthesis — so a rater walked
+// straight past it three times with `HTMLElement.prototype.focus.call(el)`,
+// `el.focus?.call(el)` and `const f = el.focus; f.call(el)`. None of those adds a
+// `.focus(` token, which is exactly what the note below this claimed none of them
+// could avoid. Counting the NAME instead of the call shape catches every one,
+// including a reference stashed in a variable to be invoked later.
+//
+// `(?!-)` because `shell.shortcut.focus-blank` is a translation key in `keys.js`,
+// and a sweep that reported a key as a focus call would be a sweep about nothing.
+const CALL = /\.focus\b(?!-)/g
 
 // THE SHARED RESTORE, found by what it does rather than by its name: the one
 // function whose whole body is a focus call that asks not to scroll. A rename
 // keeps this test working; a second helper does not, because the count catches it.
 const SHARED = /export function (\w+)\s*\([^)]*\)\s*\{\s*[^;{}]*\.focus\s*\??\.?\s*\(\s*\{[^}]*preventScroll[^}]*\}\s*\)\s*;?\s*\}/
 
-// EVERY FOCUS THAT IS A DESTINATION, counted. Twelve today: two search boxes, a
-// tag card's field, a jump-to-field on the identity screen, the cloze blank, the
-// tour card, a chip row's own input, an inline editor, three keyboard-roving calls
-// inside menus and button groups, and the action menu's TAB-OUT. Every one of them
-// SHOULD scroll its target into view — that is what a destination is.
+// EVERY FOCUS THAT IS A DESTINATION, counted. Eleven: two search boxes, a tag
+// card's field, a jump-to-field on the identity screen, the cloze blank, the tour
+// card, a chip row's own input, an inline editor, and three keyboard-roving calls
+// inside menus and button groups. Every one of them SHOULD scroll its target into
+// view — that is what a destination is.
 //
-// THE TAB-OUT IS THE INTERESTING ONE, and it is the same anchor as the Escape
-// beside it. Escape is a reader saying "put this away", so moving the page under
-// them is the defect this file is about. Tab is a reader NAVIGATING: they are
-// asking where focus goes next, and keyboard focus landing off screen is worse
-// than a scroll, because nothing on the page says where the caret went. One
-// element, two acts, and only one of them is a restore.
-const DESTINATIONS = 12
+// IT WAS TWELVE FOR ONE REVISION, and the twelfth was wrong. The action menu's
+// Tab-out was called a destination on the reasoning that Tab is a reader
+// navigating, and keyboard focus landing off screen is worse than a scroll. A rater
+// pointed at the line above it: that handler calls `preventDefault()`, so the Tab
+// navigates nowhere and focus lands on the same anchor Escape puts it on. Two
+// spellings of one act. The distinction was invented to explain a number, which is
+// the wrong direction to reason in.
+const DESTINATIONS = 11
 
 function counts() {
   let calls = 0

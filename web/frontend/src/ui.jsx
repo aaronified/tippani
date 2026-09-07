@@ -9425,17 +9425,15 @@ export function ActionMenu({ open, items = [], anchorRef, at = null, onClose, re
       // A menu is a mode. Tabbing out of it is a way to leave it open behind you,
       // with focus in the page and a floating panel nobody can see the state of.
       //
-      // AND THIS ONE SCROLLS, unlike the Escape above it. Both put focus back on
-      // the anchor and they are not the same act: Escape is a reader saying "put
-      // this away", and moving the page under them is the defect
-      // `focus-does-not-scroll.test.js` exists for. Tab is a reader NAVIGATING —
-      // they are asking where focus goes next, and keyboard focus landing
-      // somewhere off screen is worse than a scroll, because there is nothing on
-      // the page to say where the caret went. So this is a destination and takes
-      // the platform's default.
+      // AND IT IS A RESTORE, exactly like the Escape above it. A revision of this
+      // line called it a destination and scrolled — the reasoning being that Tab
+      // is a reader navigating and keyboard focus landing off screen is worse than
+      // a scroll. That reasoning does not survive the line above it: `preventDefault`
+      // means this Tab navigates NOWHERE, and focus lands on the same anchor
+      // Escape puts it on. Two spellings of one act, and the act is a restore.
       e.preventDefault()
       close()
-      returnFocusTo?.current?.focus()
+      returnFocus(returnFocusTo?.current)
     }
   }
 

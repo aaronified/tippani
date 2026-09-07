@@ -21,7 +21,14 @@ shipped plans stayed here afterwards and reintroduced it one directory over —
 along with twenty-three entries in the log whose grey line still read *planned*
 for features that had been running for months.
 
-Eight are open now, and two of them are odd ones of the same kind:
+**Fifteen files sit here, and only some of them are plans** — the table at the foot of this
+file names the seven that are not, and the rest are features. That number has been wrong
+twice for the same reason: it said "Seven" and was incremented to "Eight" by a change that
+added a file without counting the directory. It is stated as a count of FILES now, which
+`ls docs/plans/*.md | wc -l` answers, rather than as a count of plans, which needs a
+judgement per file and so goes stale silently.
+
+Two of the non-plans are odd ones of the same kind:
 `screen-audit.md` and `codebase-audit.md` are not features but the unfixed halves
 of adversarial passes — the first over every screen, the second over the code
 itself (duplications, latent defects, and what the tests do not guard). They are
@@ -31,10 +38,10 @@ no trace in the tree. A fixed defect leaves a commit, a test and a changelog ent
 an unfixed one leaves nothing. They retire the same way everything here does: when
 the list is empty, delete it.
 
-`prefetch-and-loaders.md` is a third odd one, and odd in a different way: it is a
+`prefetch-and-loaders.md` is a third of that kind and is on the table below for it: a
 DISCUSSION rather than a design. The owner asked for prefetch and a loader and ended with
 "discuss.", and the first thing that had to be established was what the repo's own written
-decisions actually forbid — I had put two of them to the owner as blockers and both were
+decisions actually forbid — two of them had been put to the owner as blockers and both were
 about something else. It carries a build order whose first two steps need no ruling, so it
 retires the same way everything here does: when the boundary sentence it proposes is in
 `PLAN.md` and the four steps have shipped or been dropped.
@@ -109,7 +116,7 @@ The periodic sweep (`CLAUDE.md`, "The plan queue") reads every file here and giv
 each one an entry in `docs/data/features.json`'s `manual[]` so the roadmap says what
 is coming. **Adding a card publishes a promise on a public page**, so the files
 below are named here rather than judged again each night — a sweep that re-decides
-the same six exclusions daily will eventually decide one of them differently.
+the same exclusions nightly will eventually decide one of them differently.
 
 | File | Why it is not a plan |
 |---|---|
@@ -120,6 +127,7 @@ the same six exclusions daily will eventually decide one of them differently.
 | `bengali-style.md` | A translator's style sheet — the appendix to `multilingual.md`. "This document is the decision, not a survey" |
 | `multilingual.md` | Shipped (2.1.0/2.1.1). What is left in it is a punch-list, one item of which is explicitly out of scope and the other an unreachable code wart |
 | `anthologies.md` | Its one remaining item was taken over by `anthology-update.md`, which says so. A card here would either restate shipped work as upcoming or duplicate that one |
+| `prefetch-and-loaders.md` | A discussion with a build order, not a committed feature. Its first two steps need no ruling and its last two wait on measurements nobody has taken, so a public card reading "prefetch and loaders" would promise the whole of it. It earns a card when the boundary sentence it proposes is in `PLAN.md` — then the sentence is the promise and the card can name it |
 
 A file that belongs on this list is added to it in the same change that adds the
 file. **The sweep reports; it does not decide** — anything not listed here and not

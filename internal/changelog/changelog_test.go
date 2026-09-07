@@ -220,7 +220,7 @@ func TestEveryBulletSurvivesTheParse(t *testing.T) {
 		count   int
 	}
 	var blocks []block
-	var malformed []string
+	var malformed, sectionless []string
 	for i, line := range strings.Split(text, "\n") {
 		switch {
 		case strings.HasPrefix(line, "## "):
@@ -235,8 +235,21 @@ func TestEveryBulletSurvivesTheParse(t *testing.T) {
 				title:   strings.TrimSpace(strings.TrimPrefix(line, "### ")),
 			})
 		case strings.HasPrefix(line, "-"):
-			if len(blocks) == 0 || blocks[len(blocks)-1].title == "" {
-				continue // the file's own preamble, or a release's lead paragraph
+			if len(blocks) == 0 {
+				continue // the file's own preamble, before any release
+			}
+			if blocks[len(blocks)-1].title == "" {
+				// A BULLET UNDER A RELEASE AND ABOVE ITS FIRST `### Section`. The
+				// parser drops it — `flushEntry` runs with `sec == nil` and keeps
+				// nothing — and the FIRST version of this test skipped it here,
+				// so both sides agreed it had never existed and every number
+				// matched. That is the exact failure this file was written to
+				// close, shipped inside the closing of it, for a missing section
+				// heading rather than a missing hyphen. It is its own list
+				// because there is no block to count it against.
+				sectionless = append(sectionless, fmt.Sprintf("CHANGELOG.md:%d [%s] %q",
+					i+1, blocks[len(blocks)-1].release, trunc(line)))
+				continue
 			}
 			blocks[len(blocks)-1].count++
 			if !strings.HasPrefix(line, "- ") {
@@ -244,11 +257,14 @@ func TestEveryBulletSurvivesTheParse(t *testing.T) {
 			}
 		}
 	}
-	// Only the blocks that are sections, and only those with entries — the parser
-	// drops an empty section, so an empty one here is not a disagreement.
+	// EVERY SECTION, INCLUDING AN EMPTY ONE. A comment here said "the parser drops an
+	// empty section, so an empty one here is not a disagreement" — which is the
+	// opposite of what `flushSection` does: it appends `*sec` unconditionally. So an
+	// empty `### Fixed` made the two lists differ in LENGTH and the test died in
+	// `Fatalf` naming no line at all. Kept in on both sides, they agree.
 	var want []block
 	for _, b := range blocks {
-		if b.title != "" && b.count > 0 {
+		if b.title != "" {
 			want = append(want, b)
 		}
 	}
@@ -267,14 +283,44 @@ func TestEveryBulletSurvivesTheParse(t *testing.T) {
 	// missing, whatever whitespace is in front of it. Nothing legitimate in this
 	// file does that, so it fails outright rather than ratcheting.
 	//
-	// ANYTHING ELSE ODD AT COLUMN ZERO IS DEBT WITH A CEILING. Two prose blocks
-	// deliberately sit inside a section and are deliberately dropped — a `<sub>`
-	// verification note in 2.1.1 and a closing paragraph in 2.0.0 — so a rule that
-	// banned them would be switched off within a week. The number may fall and never
-	// rise, the same idiom as `typescale-baseline.json` and `spacing-debt.test.js`:
-	// an eighth such line is a lost note, and the count is what says so.
-	const strayProseLines = 7
+	// ANYTHING ELSE ODD AT COLUMN ZERO IS RECORDED BY WHAT IT SAYS, not counted.
+	//
+	// Two prose blocks deliberately sit inside a section and are deliberately
+	// dropped by the parser — a `<sub>` verification note in 2.1.1 and a closing
+	// paragraph in 2.0.0 — so a rule that banned them outright would be switched off
+	// within a week.
+	//
+	// A COUNT WAS THE WRONG SHAPE FOR THEM, and the way it was wrong is worth the
+	// paragraph. It held a ceiling of seven and printed `strayProse[7:]` — the
+	// entries past the ceiling in FILE ORDER. New notes are written at the TOP of
+	// this file, so five of the six damage shapes failed while naming a line in the
+	// 2.0.0 block that nobody had touched: the test was right that something was
+	// wrong and pointed at the wrong thing, which is worse than a bare count.
+	//
+	// So the two known blocks are recorded by their opening words and anything else
+	// is named. The list may shrink and never grow, the same idiom as
+	// `scripts/screenshots/typescale-baseline.json` — but it names its members, so
+	// the report is always about the line somebody just wrote.
+	knownStray := []string{
+		"<sub>Verification:",
+		"database, 1,759 frontend tests.",
+		"watching the test fail.</sub>",
+		"Four defects in the above,",
+		"and all the same shape:",
+		"question. Every one is recorded here",
+		"because the reason they existed",
+	}
+	isKnown := func(line string) bool {
+		for _, k := range knownStray {
+			if strings.HasPrefix(strings.TrimSpace(line), k) {
+				return true
+			}
+		}
+		return false
+	}
+
 	var lostBullet, strayProse []string
+	seenKnown := 0
 	{
 		release, title := "", ""
 		for i, line := range strings.Split(text, "\n") {
@@ -289,18 +335,36 @@ func TestEveryBulletSurvivesTheParse(t *testing.T) {
 			case strings.HasPrefix(strings.TrimLeft(line, " \t"), "**"):
 				lostBullet = append(lostBullet, fmt.Sprintf("CHANGELOG.md:%d [%s/%s] %q", i+1, release, title, trunc(line)))
 			default:
+				if isKnown(line) {
+					seenKnown++
+					continue
+				}
 				strayProse = append(strayProse, fmt.Sprintf("CHANGELOG.md:%d %q", i+1, trunc(line)))
 			}
 		}
 	}
+
 	if len(lostBullet) > 0 {
 		t.Errorf("these open an entry and carry no bullet, so the app's Changelog screen never draws them:\n  %s",
 			strings.Join(lostBullet, "\n  "))
 	}
-	if len(strayProse) > strayProseLines {
-		t.Errorf("%d lines inside a section are neither a bullet nor a continuation, against a ceiling of %d — "+
-			"the parser drops every one of them, so the newest is a note nobody will read:\n  %s",
-			len(strayProse), strayProseLines, strings.Join(strayProse[strayProseLines:], "\n  "))
+	if len(strayProse) > 0 {
+		t.Errorf("these lines sit inside a section and are neither a bullet nor a continuation, so the parser "+
+			"drops every one — if one of them is a release note, it will never be read:\n  %s",
+			strings.Join(strayProse, "\n  "))
+	}
+	// AND THE RECORDED ONES ARE STILL THERE. If a rewrite removes them the list should
+	// shrink with it; a list naming lines that no longer exist would quietly stop
+	// covering anything.
+	if seenKnown != len(knownStray) {
+		t.Errorf("%d of the %d recorded stray-prose lines were found; the list names lines this file no longer has, "+
+			"so it is exempting nothing and hiding whatever replaces them", seenKnown, len(knownStray))
+	}
+
+	if len(sectionless) > 0 {
+		t.Errorf("these are entries under a release with no `### Section` heading above them, "+
+			"so the parser has nowhere to put them and drops every one:\n  %s",
+			strings.Join(sectionless, "\n  "))
 	}
 
 	// A LINE THAT IS NOT A BULLET IS THE DEFECT ITSELF, named with its line number so

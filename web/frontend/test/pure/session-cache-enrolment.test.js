@@ -63,19 +63,43 @@ const files = () => sourcesUnder((n) => n.endsWith('.jsx') || n.endsWith('.js'),
 // and that is the difference that matters, because it is exactly the values that
 // belong to one reader.
 const AT_MODULE_SCOPE = /^(?:let|var|const)\s+([A-Za-z_$][\w$]*)\s*=/
-// A response, however this tree spells it: inside a `.then(`, after an
-// `await json(`, or from a `.data` off a result.
-const FROM_A_RESPONSE = /\.then\s*\(|await\s+json\s*\(|json\s*\(\s*['"]GET['"]/
+// Every in-place method on Array, Map and Set. A closed set the language defines,
+// not a guess at what somebody will call a variable.
+const MUTATORS = [
+  'push', 'pop', 'shift', 'unshift', 'splice', 'sort', 'reverse', 'fill', 'copyWithin',
+  'set', 'add', 'delete', 'clear',
+].join('|')
+// A response, however it is reached: inside a `.then(`, after an `await` on either
+// helper, from a `.data` off a result, or from `await r.json()`.
+//
+// `fetch` AND `.json()` ARE HERE BECAUSE THE GATE ALONE WAS NOT ENOUGH. Admitting
+// a module that reads with a bare `fetch()` past the gate does nothing if the WRITE
+// is still only recognised next to the `json` helper — a rater walked
+// `snapshot = await r.json()` past exactly that half-fix. Two doors have to be
+// widened, not one.
+const FROM_A_RESPONSE = /\.then\s*\(|await\s+(?:json|fetch)\s*\(|json\s*\(\s*['"]GET['"]|\.json\s*\(\s*\)/
 const LOOKBACK = 12
 
-// LOCALE TABLES ARE NOT A READER'S DATA, and this is the one exemption, argued
-// rather than listed. `i18n.js` holds the app's own translation files — the same
-// bytes for every account, fetched from `/locales` and keyed by language, with
-// nothing in them scoped by `user_id`. Emptying them on sign-out would re-fetch
-// every string to no purpose, and the module already clears them when the
-// LANGUAGE changes, which is the thing they actually depend on. If a future
-// version of that module starts holding anything a reader owns, this line is what
-// has to be argued away.
+// `i18n.js` IS THE ONE EXEMPTION, and the reason is not the one this line first
+// gave.
+//
+// It said "the same bytes for every account… nothing in them scoped by `user_id`",
+// which is true of the tables and FALSE of the module: `i18n.js`'s `pref` and
+// `active` hold the reader's own stored language, written by
+// `applyLocale(user.preferences?.locale || '')` at `App.jsx:186` from the account
+// payload. A rater found that by reading the module the exemption invited it to
+// trust, which is what an exemption arguing the wrong thing gets you.
+//
+// WHY IT IS ACTUALLY SAFE: that same line re-runs on every change of `user`, so
+// signing in as somebody else overwrites the previous reader's language with the
+// new one. It is a forget, spelled as a re-apply — and it is stronger than a
+// forget, because the value is replaced rather than emptied and no screen ever
+// sees a blank one. The TABLES are exempt for the original reason (they are the
+// app's own translation files, and clearing them would re-fetch every string to no
+// purpose); the PREFERENCE is exempt because `App.jsx:186` already owns it.
+//
+// If `applyLocale` ever stops being called on login, this exemption is void — that
+// is the line to check, not the absence of `user_id` in a table.
 const NOT_A_READER_S = new Set(['i18n.js'])
 
 function held() {
@@ -83,15 +107,35 @@ function held() {
   for (const f of files()) {
     if (NOT_A_READER_S.has(f)) continue
     const body = code(read(f))
-    // Only a module that talks to the server can be caching a response.
-    if (!/json\(\s*['"]GET['"]/.test(body)) continue
+    // ONLY A MODULE THAT READS FROM THE SERVER, and `json('GET'` was the whole of
+    // that test for one revision — so a module reading with a bare `fetch()` was
+    // skipped entirely, which a rater used to walk a cache straight past. Both
+    // doors now.
+    if (!/json\(\s*['"]GET['"]/.test(body) && !/\bfetch\s*\(/.test(body)) continue
     const lines = body.split('\n')
     const declared = lines.map((l) => l.match(AT_MODULE_SCOPE)).filter(Boolean).map((m) => m[1])
     const remembers = []
     for (const name of new Set(declared)) {
-      // Assigned, or filled: `x = …` for a binding, `x.set(…)` / `x.add(…)` for a
-      // collection that is never reassigned at all.
-      const writes = new RegExp(`(?:^|[^.\\w$])${name}\\s*(?:=[^=]|\\.(?:set|add)\\s*\\()`)
+      // ASSIGNED, OR MUTATED. `set|add` was the whole list for one revision, which
+      // is the enumerate-and-miss shape that let `new Map()` past the version
+      // before it — a rater then walked an array filled by
+      // `vocab.push(...r.data.items)` past this one.
+      //
+      // THIS ENUMERATION IS A DIFFERENT KIND OF LIST, and the distinction is the
+      // point. `MUTATORS` is the platform's complete set of in-place methods on
+      // Array, Map and Set: it is closed, it is not going to grow, and nothing
+      // anybody writes can add to it. The list that kept failing was a list of
+      // NAMES somebody might choose for a variable, which is open by nature.
+      // `Object.assign(x, …)` is here too because it mutates its target without
+      // naming a method on it at all.
+      //
+      // Any method would have been simpler and is wrong: `BOOK_GAPS.map(...)` and
+      // `.reduce(...)` are reads, and a `const` array of literal strings was
+      // reported as an unenrolled cache the moment the pattern stopped caring
+      // which method it was.
+      const writes = new RegExp(
+        `(?:^|[^.\\w$])${name}\\s*(?:=[^=]|\\.(?:${MUTATORS})\\s*\\()` +
+        `|Object\\.assign\\s*\\(\\s*${name}\\b`)
       const fedByServer = lines.some((line, i) => {
         if (!writes.test(line)) return false
         if (AT_MODULE_SCOPE.test(line)) return false // the declaration itself

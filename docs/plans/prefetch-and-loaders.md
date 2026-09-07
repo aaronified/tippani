@@ -50,18 +50,37 @@ future reader will quote back is the one that is already there.
 
 ## WHAT THE DESIGN PACK SAYS ABOUT WAITING
 
-Nothing. `docs/design/` was swept for *loading, spinner, skeleton, shimmer, placeholder,
-prefetch, instant, wait, progress, pending* and has no rule about how the app behaves while
-it waits for data or an image. That is the answer rather than a gap in the search: the
-owner's standard is "not a single line deviating from the prototype unless it is expounded
-upon in detail", and a screen the pack does not draw is a screen this file has to argue for
-rather than inherit.
+**It says what the owner asked for, and this section said "Nothing" for one commit.** That
+was the whole error of the first draft repeated one page later — a document written to
+correct an over-reading of the repo's own decisions, over-reading the pack in the other
+direction. The sweep was run and the answer was read off the `.md` and `.dc.html` files
+without opening the one `.js` in the directory.
 
-The pack does rule on one adjacent thing, and it constrains the loader's DRAWING: the `.ph`
-hatch and the silhouette mean **missing content**, and `CLAUDE-from-design.md` says they are
-not interchangeable with anything else. So *we never had a picture* and *your picture is
-coming* must not end up as one picture — which is the same distinction the owner drew
-unprompted with "no loader if there is no image".
+`docs/design/prototypes/imageslot.js` is a complete image-loading spinner, and every rule
+in the owner's sentence is already in it:
+
+| The owner asked for | The pack already has |
+|---|---|
+| "some loading animation if there is an image and it is not loaded" | `:host([data-swapping]) .loading{display:flex}` — a 22px two-tone ring, shown ONLY while a swap is in flight, cleared by the image's own `load`/`error` |
+| "no loader if there is no image" | verbatim, in its own comment: *"An empty slot keeps its **placeholder (no spinner)** until the encode lands"* |
+| — (and this one the pack thought of first) | `@media (prefers-reduced-motion:reduce){.loading::after{animation:none}}`, with the reason: *"the static two-tone ring still reads as 'working'"* |
+
+So the reduced-motion degradation listed below as a constraint to be derived was already
+solved in the pack, in the same two lines, before this file was written.
+
+**HOW BINDING IT IS, stated honestly rather than either way round.** `<image-slot>` is used
+by **zero** `.dc.html` prototypes and is named by neither `docs/design/README.md` nor the
+handoff — it is authoring tooling for the pack rather than a screen the pack draws. So it is
+not a prototype whose lines this app must not deviate from. It is something better for this
+purpose: **the owner's own working answer to the exact question**, which is what to copy
+rather than what to argue about. The three rules above are taken as settled.
+
+The pack does also rule on one adjacent thing, and it constrains the loader's DRAWING: the
+`.ph` hatch and the silhouette mean **missing content**, and `CLAUDE-from-design.md` says
+they are not interchangeable with anything else. So *we never had a picture* and *your
+picture is coming* must not become one picture — which is the same distinction the owner drew
+unprompted, and the same one `imageslot.js` implements by keeping the placeholder and the
+spinner as separate elements.
 
 ## WHAT ACTUALLY CONSTRAINS THIS
 
@@ -69,7 +88,7 @@ Four things, all found in the tree rather than assumed.
 
 | Constraint | Where | What it forces |
 |---|---|---|
-| Every animation is killed with `!important` | `index.css`, in `@layer base`, and important declarations reverse layer order so it beats anything added later | A CSS-animated spinner is a **motionless arc** for a reduced-motion reader. Copy `.progress-indeterminate`, which already degrades to a static bar at 55% opacity: the loader's rest state must be legible with motion off, and motion is the flourish on top. `entrance-rule.test.jsx` would NOT catch this — it mounts one `.reveal` div — so the enforcement has to be widened in the same change or the rule ships as a comment. |
+| Every animation is killed with `!important` | `index.css`, in `@layer base`, and important declarations reverse layer order so it beats anything added later | A CSS-animated spinner is a **motionless arc** for a reduced-motion reader. **The pack already answered this** — `imageslot.js` makes the ring two-tone so the static state still reads as working — and the app's own `.progress-indeterminate` degrades to a static bar at 55% opacity. Either way the loader's rest state must be legible with motion off, and motion is the flourish. `entrance-rule.test.jsx` would NOT catch a failure here — it mounts one `.reveal` div — so the enforcement has to be widened in the same change or the rule ships as a comment. |
 | Signing out does not reload the document | `App.jsx`'s Log out is `setUser(null)` | Any cache is keyed by reader and enrolled with `registerSessionCache`. **Already built** — `sessionCaches.js`, after `GET /search/vocabulary` was found being kept for the whole tab with nothing clearing it. |
 | Waiting is already spelled about seven ways | `.tp-empty` does double duty as *empty* and *loading* at five sites; two independent progress bars; a bare `…` in `stickers.jsx` | An eighth spelling is the rule's failure mode, not its exception. One component and one hook, exported from `ui.jsx`, used by every screen and every image site — the loading verb lives in one function the way `openCharacterDoor` does. `screen-audit.md`'s open theme #2 is this exact observation, so it gets answered rather than added to. |
 | Never truncate a name | `CLAUDE.md`, with the remaining sites in `typescale-baseline.json`, "a number that may fall and never rise" | A skeleton row reserves **height only**, never a name's width — a fixed-width slot for a name it does not have yet is the site that will ellipsise that name when it arrives, and it would raise a ratchet that is only allowed to fall. A bare bar or dot holds no text, so the px rule does not bind it; a caption or a text-shaped skeleton line does, and then it is `max(<px floor>, <em>)` and verified with `make typescale`. |
@@ -106,12 +125,27 @@ motion off.
 is the garnish. "Back cancels the opening, not the fetch" is the right instinct and cheap:
 don't abort, let it settle into the cache. It needs a bound so a hung socket cannot leak
 (`api.js`'s `timeoutMs` exists for exactly that case), a cap on concurrent fills, and
-invalidation on write — which is the riskiest part of the whole request, because 72 mutating
-calls touch the records these panels show and they do not map onto the GETs they stale by URL
-prefix: `GET /characters/{id}` is assembled across `characters`, `work_cast`, `annotations`
-and `dialogues`, so `PUT /cast/{id}` and `PUT /annotations/{id}` both stale it while sharing
-no path segment with it. A prefix-invalidating cache misses precisely the writes readers make
-most.
+invalidation on write — which is the riskiest part of the whole request, because the panel
+payloads do not map onto the GETs they stale by URL prefix. `GET /characters/{id}` is
+assembled across **eight** tables — `characters` and `character_alias`, `work_cast`,
+`annotations` and `dialogues`, and `books`/`movies`/`people` through the cast join and
+`CharacterLines` — so `PUT /cast/{id}` and `PUT /annotations/{id}` both stale it while
+sharing no path segment with it. A prefix-invalidating cache misses precisely the writes
+readers make most.
+
+**How many writes that is, with the command rather than a number.** An earlier draft of this
+file said "72 mutating calls" with no method, in a section headed *found in the tree rather
+than assumed*, which is the same fault as the rest of this page. The reproducible figures:
+
+```bash
+# every mutating request the SPA makes
+grep -rhoE "json\('(POST|PUT|PATCH|DELETE)'" web/frontend/src | wc -l          # 163
+# every mutating route the server registers
+grep -rhoE '"(POST|PUT|PATCH|DELETE) /' internal/httpapi/server.go | wc -l      # 151
+```
+
+Which of those touch a panel's payload is the table the cache needs and nobody has built;
+that is the work, and it is why step 4 is last.
 
 ## WHAT IS STILL THE OWNER'S
 
@@ -127,5 +161,14 @@ a discussion with a build order, not a committed feature — its first two steps
 from anybody and its last two wait on measurements that have not been taken. A card reading
 "prefetch and loaders" on a public page would promise the whole of it.
 
-So the roadmap sweep should leave this alone until the boundary sentence above is in
-`docs/PLAN.md`. At that point the sentence is the promise and the card can name it.
+**And it is on the directory's own not-a-plan list rather than only argued here**, which is
+the half a first draft of this note missed. `docs/plans/README.md` has a table for exactly
+this — its preamble says the files on it are "named here rather than judged again each
+night — a sweep that re-decides the same exclusions nightly will eventually decide one of
+them differently" — and "a file that belongs on this list is added to it in the same change
+that adds the file". Arguing the exclusion in this file alone would have left the sweep
+finding it unlisted and raising it every run, which is the failure that table exists to
+prevent.
+
+The exclusion lifts when the boundary sentence above is in `docs/PLAN.md`. At that point the
+sentence is the promise and the card can name it.
