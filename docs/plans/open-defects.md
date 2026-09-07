@@ -902,6 +902,14 @@ of a rating worth more than the number. The three that matter are below the tabl
 | AM8 | **`DEVELOPMENT.md` named `ratchet.mjs` and `scratch-server.sh` but not their siblings**, and `doc-map-check.mjs` passes either way — it checks that named paths resolve, not that new ones are named | **FIXED.** `dragverdict.mjs`, `pickfilm.mjs` and `backup-env.sh` have rows. That the gate cannot see the gap is worth its own note: the map is a promise the check does not enforce |
 | AM9 | Two counts of the clamps disagreed with the table under them — "nine" where there are eight, "three and four" where it is three and five | **FIXED** |
 
+**AND THE THREE HARNESSES THIS PASS TOUCHED WERE RE-RUN ON THE COMMIT.** AM5 narrowed the
+clamp exemption from skipping the element to skipping only its vertical check, which can
+newly count a clamped box clipping sideways; AM6 put `pickFilm` in the path both
+`panel-depth` and `sheet-drag` use to choose a subject. So all three were run again on
+`e18837e`: `make typescale` 0 with no new clips, `make panel-depth` 0 with seven `ok`
+(having found *The Witcher 3* by asking the library), `make sheet-drag` 0 with ten and no
+`FAIL`. Quoting the earlier runs would have been AM2 a second time in the same hour.
+
 **AM1 IS THE ONE TO TAKE AWAY, and it is not a coding mistake.** Every technical rule about
 the archive was kept — the server bound to 127.0.0.1, the data dir was a mktemp the trap
 removed, `*.tpbk` and `backup.env` are gitignored, no credential is in any commit — and

@@ -223,6 +223,32 @@
       ],
       "id": "import-one-drop-target",
       "plan": "import-one-drop-target.md"
+    },
+    {
+      "title": "Spaced repetition — three difficulties and a longer ceiling",
+      "railLabel": "Review difficulty tiers",
+      "html": [
+        "<p>",
+        "  The 100-day ceiling goes to <strong>365</strong> — the longest interval the",
+        "  research actually measured — which raises the library size the review loop can",
+        "  keep current from about 800 quotes to about 2,900. Alongside it, three",
+        "  difficulty tiers plus <strong>Random</strong> change which directions are",
+        "  asked, how distractors are chosen and how wide the cloze blank is: Easy trades",
+        "  away the better-teaching close alternatives on purpose, to buy a lower floor;",
+        "  Hard leans on same-series lures and typed recall, and queues those lure",
+        "  siblings to be asked again soon so retrieving one does not bury the rest.",
+        "</p>",
+        "<p>",
+        "  Underneath both, the adaptive scheduler becomes the default (the fixed ladder",
+        "  stays as the opt-in), fed by a new append-only review log — the first record",
+        "  of what was actually answered. That makes a true <strong>retention</strong>",
+        "  figure possible, read against a target the reader sets rather than a hidden",
+        "  50%, and a title earned from how many quotes have reached the long rungs",
+        "  rather than from the retention number itself.",
+        "</p>"
+      ],
+      "id": "review-difficulty-tiers",
+      "plan": "spaced-repetition-difficulty.md"
     }
   ],
   "overrides": {

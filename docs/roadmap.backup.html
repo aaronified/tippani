@@ -377,6 +377,13 @@
       <summary>From your requests</summary>
       <!-- ROADMAP:RAIL_FEATURES:START -->
       <ul class="sub">
+        <li><a href="#access-reading-comfort">Reading comfort</a></li>
+        <li><a href="#anthology-fill-and-export">Automated anthologies</a></li>
+        <li><a href="#atrium-liquid-glass">Atrium (glass)</a></li>
+        <li><a href="#bulk-editors-one-table">Bulk editors, unified</a></li>
+        <li><a href="#entry-helpers">Entry helpers</a></li>
+        <li><a href="#episodes-name-and-order">Episode names &amp; order</a></li>
+        <li><a href="#import-one-drop-target">One import drop target</a></li>
         <li><a href="#req-7">Author portraits</a></li>
         <li><a href="#req-12">Audio review</a></li>
       </ul>
@@ -1020,6 +1027,137 @@
   `node scripts/roadmap-data.mjs`.
 -->
 <!-- ROADMAP:FEATURES:START -->
+<div class="card req" id="access-reading-comfort">
+  <h3>Reading comfort and a contrast switch</h3>
+  <p class="mono issue-meta"><a href="https://github.com/aaronified/tippani/issues/32">#32</a></p>
+  <p>
+    A contrast switch in Settings, and the palette work it needs: ink and hairline
+    contrast raised to WCAG AA in all four aesthetics, resolving to the same state
+    as the <code>prefers-contrast: more</code> media query rather than fighting it.
+  </p>
+  <p>
+    Alongside it, the reading-comfort controls the quote text itself has never had —
+    size, line height and <strong>measure</strong> — on top of the serif/sans choice
+    Settings → Type already offers. A dyslexia-friendly face, already reachable by
+    upload and never offered, gets bundled and named. And every gesture this app
+    ships gains a named, focusable equivalent, so a drag or a swipe is never the
+    only way to reach a thing.
+  </p>
+</div>
+
+<div class="card req" id="anthology-fill-and-export">
+  <h3>Anthologies that fill themselves, and export as a book</h3>
+  <p>
+    A rule — the same facets the search bar already speaks — fills an anthology
+    with matching quotes in one press. It only ever appends: a fill never removes
+    and never reorders, so your order and your commentary are never disturbed by
+    running it again, and it reports what it could not fit rather than dropping
+    quotes quietly.
+  </p>
+  <p>
+    Then a real shelf to put the result on: <strong>EPUB</strong>, a zip the
+    standard library already knows how to write, so the collection reads on the
+    same reader the highlights came off, and a proper print stylesheet for Print →
+    Save as PDF. Both read the same field registry the reading view does, widened
+    to reach the work's own record and an author's or character's own portrait and
+    dates — so an anthology can look like a small book instead of a list.
+  </p>
+</div>
+
+<div class="card req" id="atrium-liquid-glass">
+  <h3>Atrium, the glass material set</h3>
+  <p>
+    <code>atrium</code> is the eighth material set and the only one still a
+    placeholder — four flat tiles reserving a slot for something translucent and
+    lit from behind, built to Apple's own Liquid Glass guidance: a functional layer
+    for the rail, the top bar and sheets, never the cards a board scrolls past, with
+    a real edge that bends light rather than a faked rim.
+  </p>
+  <p>
+    Getting there starts by fixing a live defect the design pass found: choosing
+    Atrium today saves nothing, because the server does not yet know the name. From
+    there, the glass itself — a blur that actually turns off under reduced
+    transparency, an accent that stays a light rather than a colour, and a
+    performance budget measured on a real board before a line of CSS ships, not
+    assumed after.
+  </p>
+</div>
+
+<div class="card req" id="bulk-editors-one-table">
+  <h3>One field table for both bulk editors</h3>
+  <p>
+    The staged bulk editor and the live one read from two hand-written field lists
+    that have quietly drifted apart, and neither list is a superset of the other —
+    a season set before approval cannot be changed after, and a note added after
+    approval could never have been set before. One shared field table, in Go,
+    replaces both: every bulk-settable column named once, with the kinds it applies
+    to, its validation, and whether clearing it writes an empty value or leaves it
+    alone.
+  </p>
+  <p>
+    Both screens end up reading the <strong>same</strong> panel component, filtered
+    to the kinds actually selected in a mixed batch, long enough now to want a
+    scroller rather than a wall of checkboxes — and the tick still only lights, and
+    still only counts, the fields a press will actually change.
+  </p>
+</div>
+
+<div class="card req" id="entry-helpers">
+  <h3>The library remembers what you already typed</h3>
+  <p>
+    Every locator in this app is free text, and free text typed twice is typed
+    differently — "The Fall" beside "the fall", chapter 3 beside chapter 03. This
+    offers back your own prior values as you type — on the add form, the edit form,
+    import review and bulk edit — and where two fields are paired, picking one can
+    fill the other.
+  </p>
+  <p>
+    Filling is careful rather than eager: a blank field fills silently, a field
+    that already disagrees is offered as a chip and never overwritten without a
+    tap. Every offer chip carries its own <strong>Alt+1–9</strong>, so the keyboard
+    route never collides with the numeric field the chip sits beside.
+    Season-and-episode pairing waits on
+    <a href="#episodes-name-and-order">episode names</a> existing to pair with.
+  </p>
+</div>
+
+<div class="card req" id="episodes-name-and-order">
+  <h3>Episode names, and up to three orderings</h3>
+  <p>
+    A series episode has never had anywhere to hold a <strong>name</strong> — only
+    the season and episode numbers it airs under. This gives it one, plus up to
+    three orders to view it by: broadcast, a published DVD or streaming order, and
+    a hand-built custom one — because some shows, <em>Firefly</em> among them, were
+    never watched in the order they aired.
+  </p>
+  <p>
+    Names and the alternate order can be fetched from the same providers the
+    library already trusts, never automatically and never overwriting a name typed
+    by hand. Reordering gets a real drag control, built once and shared with the
+    anthology entry list, with a keyboard route from the outset rather than added
+    later. It splits off <a href="#entry-helpers">the entry-form work</a> that
+    discovered the gap, and either can ship first.
+  </p>
+</div>
+
+<div class="card req" id="import-one-drop-target">
+  <h3>Import: one drop target, however the file is typed</h3>
+  <p>
+    Replaces the wall of seven format cards with one row that is also a drop
+    target: drop a file, or choose one, and the server reads the bytes to work out
+    what it is — never the extension, never what the file picker was told to
+    expect. The list of what is supported moves into help, where a list belongs,
+    and a file dropped in the wrong place is named for what it actually is — a
+    backup archive, an EPUB, an image — rather than met with a bare "unrecognised".
+  </p>
+  <p>
+    Along the way, a Readest <strong>JSON</strong> export becomes a source of its
+    own — it carries the highlight colour and the reading progress the Markdown
+    export loses — and the Markdown parser gets back the notes and timestamps it
+    currently drops on the floor.
+  </p>
+</div>
+
 <div class="card req" id="req-7">
   <h3>Richer author portraits</h3>
   <p class="mono issue-meta"><a href="https://github.com/aaronified/tippani/issues/7">#7</a> · sits beside §12 Choose your metadata sources</p>

@@ -511,6 +511,14 @@ worth nothing here and only execution counts. What the repo actually runs:
   hero-control`, and `run-with-server.sh --seed --screens home` (one capture, of the
   owner's own Home). Each against the owner's restored archive, each exiting 0.
 
+  AND THREE OF THEM WERE RE-RUN ON `e18837e` rather than left quoted from an earlier
+  build, because that commit changed code they exercise: `typescale` because the clamp
+  exemption narrowed from skipping the element to skipping only its vertical check (which
+  can newly count a clamped box clipping SIDEWAYS), and `panel-depth` and `sheet-drag`
+  because both now choose their subject through `pickFilm`. `typescale` 0 with no new
+  clips, `panel-depth` 0 with seven, `sheet-drag` 0 with ten. Quoting the earlier runs
+  would have been the mistake this file has now recorded three times.
+
   **`make controls` IS THE SEVENTH AND HAS NOT DONE SO YET**, and this paragraph said
   "seven runs… each exiting 0" for half an hour while it hadn't. It reaches the archive
   and walks every surface clean, and it exits **3** — "the app came back clean AND the
