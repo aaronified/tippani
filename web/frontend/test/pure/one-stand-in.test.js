@@ -269,27 +269,99 @@ const traverse = traverseModule.default || traverseModule
 // comments at all. Returns one boolean per <img>, in document order, or null when
 // the text does not parse — the synthetic fragments below do not, and those fall
 // back to the textual rule.
-function actsIn(node, scope, seen = new Set()) {
+// The hooks that hand a function straight back. `useCallback(() => {}, [])` is an
+// empty handler with a hook wrapped round it, and a CallExpression was accepted
+// wholesale — so this was the shortest escape of the lot.
+const PASSES_THROUGH = new Set(['useCallback', 'useMemo'])
+const calleeName = (n) => (n?.type === 'Identifier' ? n.name
+  : n?.type === 'MemberExpression' && n.property?.type === 'Identifier' ? n.property.name : '')
+
+// A member of a locally-declared object literal, or of the enclosing class.
+// `onError={hs.broken}` beside `const hs = { broken() {} }` is an empty handler
+// one dot away, and `this.h` beside `h = () => {}` is the same thing in a class.
+function memberBody(node, scope, path) {
+  const key = node.property?.type === 'Identifier' ? node.property.name : null
+  if (!key) return undefined
+  if (node.object?.type === 'ThisExpression') {
+    const cls = path?.findParent((p) => p.isClassDeclaration() || p.isClassExpression())
+    const m = cls?.node.body?.body?.find((b) => b.key?.name === key)
+    if (!m) return undefined
+    return m.type === 'ClassMethod' ? m : m.value
+  }
+  if (node.object?.type !== 'Identifier') return undefined
+  const holder = scope?.getBinding(node.object.name)
+  const init = holder?.path?.isVariableDeclarator() ? holder.path.node.init : null
+  if (init?.type !== 'ObjectExpression') return undefined
+  const prop = init.properties.find((pr) => pr.key?.name === key)
+  if (!prop) return undefined
+  return prop.type === 'ObjectMethod' ? prop : prop.value
+}
+
+// A destructured parameter's default: `({ onErr = () => {} })`. The binding path
+// for a param is the PATTERN, not the function — measured, because the first cut
+// read `binding.path.node.params` and a pattern has none, so the one escape left
+// after the other four were closed was this one silently returning "accepted".
+function paramDefault(binding, name) {
+  let found
+  for (const n of nodesIn(binding.path.node)) {
+    if (n.type === 'AssignmentPattern' && n.left?.type === 'Identifier' && n.left.name === name) found = n.right
+  }
+  return found
+}
+
+function actsIn(node, scope, seen = new Set(), path = null) {
   if (!node) return false
-  if (node.type === 'JSXExpressionContainer') return actsIn(node.expression, scope, seen)
-  if (node.type === 'ArrowFunctionExpression' || node.type === 'FunctionExpression') {
+  if (node.type === 'JSXExpressionContainer') return actsIn(node.expression, scope, seen, path)
+  if (node.type === 'ArrowFunctionExpression' || node.type === 'FunctionExpression'
+    || node.type === 'ObjectMethod' || node.type === 'ClassMethod') {
     return anyNode(node.body, (n) => ACTS.has(n.type))
   }
   if (node.type === 'NullLiteral' || node.type === 'StringLiteral') return false
+  // BOTH BRANCHES, OR IT IS NOT A GUARD. `cond ? onBroken : noop` can be the
+  // no-op every time it matters, so a handler chosen at runtime is only asking
+  // when every arm of the choice asks. Same for `??`, `||` and `&&`.
+  if (node.type === 'ConditionalExpression') {
+    return actsIn(node.consequent, scope, seen, path) && actsIn(node.alternate, scope, seen, path)
+  }
+  if (node.type === 'LogicalExpression') {
+    return actsIn(node.left, scope, seen, path) && actsIn(node.right, scope, seen, path)
+  }
+  if (node.type === 'CallExpression' || node.type === 'OptionalCallExpression') {
+    // A hook that hands the function back is not a body this rule cannot see:
+    // it IS the body, one call away.
+    if (PASSES_THROUGH.has(calleeName(node.callee))) return actsIn(node.arguments?.[0], scope, seen, path)
+    return true
+  }
+  if (node.type === 'MemberExpression' || node.type === 'OptionalMemberExpression') {
+    const body = memberBody(node, scope, path)
+    // Not resolvable here — an import's namespace, a prop, a call's result — so
+    // accepted, because refusing it would make the rule unsatisfiable.
+    return body === undefined ? true : actsIn(body, scope, seen, path)
+  }
   if (node.type === 'Identifier') {
     if (node.name === 'undefined' || seen.has(node.name)) return false
     seen.add(node.name)
     const binding = scope?.getBinding(node.name)
-    // No binding, an import, or a parameter: the body is somewhere this rule
-    // cannot read, and refusing those would make it unsatisfiable.
+    // No binding at all: the body is somewhere this rule cannot read.
     if (!binding) return true
     const p = binding.path
-    if (p.isVariableDeclarator()) return actsIn(p.node.init, p.scope, seen)
+    // A NAME THAT IS LATER REASSIGNED IS ONLY ASKING IF EVERY VALUE IT TAKES
+    // ASKS. `let h = () => setBroken(true)` and then `h = () => {}` two lines on
+    // read as a real handler at the declaration and are a no-op by the time the
+    // picture fails. Babel records those writes; each one is judged.
+    const writes = (binding.constantViolations || [])
+      .map((v) => (v.isAssignmentExpression() ? v.node.right : null))
+      .filter(Boolean)
+    if (writes.length && !writes.every((w) => actsIn(w, p.scope, new Set(seen), path))) return false
+    if (p.isVariableDeclarator()) return actsIn(p.node.init, p.scope, seen, path)
     if (p.isFunctionDeclaration()) return anyNode(p.node.body, (n) => ACTS.has(n.type))
+    if (binding.kind === 'param') {
+      const dflt = paramDefault(binding, node.name)
+      return dflt === undefined ? true : actsIn(dflt, p.scope, seen, path)
+    }
     return true
   }
-  return node.type === 'MemberExpression' || node.type === 'CallExpression'
-    || node.type === 'OptionalMemberExpression' || node.type === 'OptionalCallExpression'
+  return false
 }
 
 function askingByAst(text) {
@@ -304,7 +376,7 @@ function askingByAst(text) {
     JSXOpeningElement(path) {
       if (path.node.name?.name !== 'img') return
       const attr = path.node.attributes.find((a) => a.type === 'JSXAttribute' && a.name?.name === 'onError')
-      out.push(attr ? actsIn(attr.value, path.scope) : false)
+      out.push(attr ? actsIn(attr.value, path.scope, new Set(), path) : false)
     },
   })
   return out
@@ -404,12 +476,24 @@ describe('a picture of a person or a character', () => {
       // rule. They are the reason the question is asked on the AST.
       'an alias of an alias': 'const noop = () => {}\nconst onImgError = noop\nexport const A = () => <img src={coverImgURL(c.image_path)} onError={onImgError} alt="" />',
       'a name borrowed from another scope': 'function Other() { const onBroken = () => setBroken(true); return <b onClick={onBroken} /> }\nfunction Card() { const onBroken = () => {}; return <img src={coverImgURL(c.image_path)} onError={onBroken} alt="" /> }',
+      // FIVE MORE, FROM THE LIST A RATER SAID IT WOULD TRY NEXT. Each one passed
+      // when it was written, and one probe found ONE of them because the loop
+      // below asserted per shape and stopped there.
+      'a handler reassigned to a no-op after it is declared': 'let h = () => setBroken(true)\nh = () => {}\nexport const A = () => <img src={coverImgURL(c.image_path)} onError={h} alt="" />',
+      'an empty default for a destructured prop': 'export const A = ({ onErr = () => {} }) => <img src={coverImgURL(c.image_path)} onError={onErr} alt="" />',
+      'an empty method on a local object': 'const hs = { broken() {} }\nexport const A = () => <img src={coverImgURL(c.image_path)} onError={hs.broken} alt="" />',
+      'an empty arrow inside useCallback': 'export const A = () => { const h = useCallback(() => {}, []); return <img src={coverImgURL(c.image_path)} onError={h} alt="" /> }',
+      'an empty class property': 'class A { h = () => {}; render() { return <img src={coverImgURL(c.image_path)} onError={this.h} alt="" /> } }',
+      'a no-op on one arm of a ternary': 'const noop = () => {}\nconst real = () => setBroken(true)\nexport const A = () => <img src={coverImgURL(c.image_path)} onError={ok ? real : noop} alt="" />',
       'its own name written in a line comment inside the tag': 'export const A = () => <img src={coverImgURL(c.image_path)} style={{\n  // onError={boom}\n  color: "red",\n}} alt="" />',
       'the word onError typed in a comment': '<img src={coverImgURL(c.image_path)} /* onError */ alt="" />',
     }
-    for (const [what, code] of Object.entries(shapes)) {
-      expect(unguarded(code).length, `${what} is invisible to the rule`).toBeGreaterThan(0)
-    }
+    // EVERY MISS, NOT THE FIRST. This loop asserted per shape, so it stopped at
+    // the first escape and the four behind it stayed hidden — I found one, fixed
+    // it, and only a second probe showed the rest. A table of shapes that reports
+    // one row at a time is a table read one row at a time.
+    const missed = Object.entries(shapes).filter(([, code]) => unguarded(code).length === 0).map(([w]) => w)
+    expect(missed, `invisible to the rule:\n  ${missed.join('\n  ')}`).toEqual([])
     const cover = '<img src={coverImgURL(book.cover)} alt="" />'
     expect(unguarded(cover).length,
       'a work’s cover is not a face, and this rule is not about covers').toBe(0)
@@ -432,6 +516,12 @@ describe('a picture of a person or a character', () => {
       'an assignment': '<img src={coverImgURL(c.image_path)} onError={(e) => { e.target.hidden = true }} alt="" />',
       'a named handler declared in the same file': 'const onBroken = () => setBroken(true)\nexport const A = () => <img src={coverImgURL(c.image_path)} onError={onBroken} alt="" />',
       'a handler this file cannot see the body of': 'import { boom } from "./x"\nexport const A = () => <img src={coverImgURL(c.image_path)} onError={boom} alt="" />',
+      'a real handler inside useCallback': 'export const A = () => { const h = useCallback(() => setBroken(true), []); return <img src={coverImgURL(c.image_path)} onError={h} alt="" /> }',
+      'a real method on a local object': 'const hs = { broken() { setBroken(true) } }\nexport const A = () => <img src={coverImgURL(c.image_path)} onError={hs.broken} alt="" />',
+      'a real class property': 'class A { h = () => this.setState({ broken: true }); render() { return <img src={coverImgURL(c.image_path)} onError={this.h} alt="" /> } }',
+      'a real default for a destructured prop': 'export const A = ({ onErr = () => setBroken(true) }) => <img src={coverImgURL(c.image_path)} onError={onErr} alt="" />',
+      'both arms of a ternary acting': 'const a = () => setBroken(true)\nconst b = () => report()\nexport const A = () => <img src={coverImgURL(c.image_path)} onError={ok ? a : b} alt="" />',
+      'a prop reached through an object this file cannot see': 'export const A = ({ handlers }) => <img src={coverImgURL(c.image_path)} onError={handlers.broken} alt="" />',
     }
     for (const [what, code] of Object.entries(real)) {
       expect(unguarded(code).length, `${what} IS asking, and the rule calls it a defect`).toBe(0)

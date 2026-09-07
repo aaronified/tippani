@@ -623,6 +623,28 @@ The repair is the rule it exposed: `--update-baseline` now refuses to record fro
 where any surface did not render, because those counts are a floor of the harness rather
 than of the app, and a ceiling of 0 recorded from a dead server reads as clean for ever.
 
+## AG. Five more ways round the same rule, 7 September
+
+Not a rater's finding — the twelfth pass's REPORT listed the shapes it said it would try
+next, so they were tried first. All five got through, and a sixth thing was wrong: the
+table of shapes asserted one row at a time and stopped at the first escape, so the probe
+that found one hid the other four behind it.
+
+| # | Defect | Status |
+|---|---|---|
+| AG1 | **The table of shapes reported one miss at a time.** `for (const … ) expect(…)` throws on the first row, so a probe of eight new shapes named one — I fixed that one, re-probed, and four more appeared | **FIXED.** Every shape is judged and the misses are reported together. A table read one row at a time is a table that takes five passes to read |
+| AG2 | **A handler reassigned to a no-op after it is declared.** `let h = () => setBroken(true)` and then `h = () => {}` two lines on reads as a real handler at its declaration and is a no-op by the time a picture fails | **FIXED.** Babel records those writes as `constantViolations`; a name is asking only if EVERY value it takes asks |
+| AG3 | **An empty default for a destructured prop** — `({ onErr = () => {} })` | **FIXED.** And the first cut of the fix read `binding.path.node.params`, which a PATTERN does not have — the binding path for a destructured param is the pattern, not the function — so it silently returned "accepted" and was the one escape left after the other four closed |
+| AG4 | **An empty method on a local object** (`hs.broken` beside `const hs = { broken() {} }`) **and an empty class property** (`this.h` beside `h = () => {}`). A MemberExpression was accepted wholesale | **FIXED.** A member of a locally-declared object literal, or of the enclosing class, is resolved and judged. One reached through something this file cannot see — `handlers.broken` off a prop — is still accepted, and a case says so |
+| AG5 | **An empty arrow inside `useCallback`.** A CallExpression was accepted wholesale, so a hook that hands the function straight back was the shortest escape of the lot | **FIXED.** `useCallback` and `useMemo` are judged by their first argument; any other call is still accepted, because a factory's body is somewhere this rule cannot read |
+| AG6 | **A no-op on one arm of a ternary.** `ok ? real : noop` is the no-op every time it matters | **FIXED.** A handler chosen at runtime asks only when every arm asks — the same for `??`, `\|\|` and `&&`. Both-arms-acting is shown to it too, so the rule stays satisfiable |
+
+Every one of the five resolutions is load-bearing: disabling it fails its own shape by
+name. And six real shapes are shown to the rule beside the fakes — a real `useCallback`, a
+real object method, a real class property, a real prop default, both arms acting, and a
+handler off an object this file cannot see — because a rule that cannot be satisfied gets
+worked around rather than obeyed.
+
 ## Withdrawn claims
 
 Kept because the pattern matters more than any one of them.
