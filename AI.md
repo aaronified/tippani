@@ -149,7 +149,7 @@ AI-written code fails differently from hand-written code. It compiles, it reads
 well, it is plausibly commented, and it can still be wrong — so plausibility is
 worth nothing here and only execution counts. What the repo actually runs:
 
-- **1,508 Go test functions and 3,610 frontend tests, across 558 test files** — the
+- **1,508 Go test functions and 3,616 frontend tests, across 559 test files** — the
   Go half over real HTTP handlers against a real SQLite database, not mocks.
   Counted, not estimated, and every number here has a command that reproduces it:
 
@@ -158,7 +158,7 @@ worth nothing here and only execution counts. What the repo actually runs:
   cd web/frontend && npm test                                            # frontend tests
   find . -name '*_test.go' -not -path './node_modules/*' | wc -l         # 251 Go files
   find ./web/frontend -path '*/node_modules' -prune -o \
-       -type f \( -name '*.test.*' -o -name '*.spec.*' \) -print | wc -l # 307 frontend
+       -type f \( -name '*.test.*' -o -name '*.spec.*' \) -print | wc -l # 308 frontend
   ```
 
   THREE OF THE FOUR ARE NOW CHECKED RATHER THAN TRUSTED. This paragraph has said
@@ -178,7 +178,7 @@ worth nothing here and only execution counts. What the repo actually runs:
   by 2.3.0, from 1,100 / 1,853 / 323 when they were recounted for 2.2.3, and most
   recently from 1,153 / 1,977 / 338, from 1,336 / 2,218 / 394, from
   1,357 / 2,223 / 398, from 1,360 / 2,245 / 401, from 1,380 / 2,358 / 418, from
-  1,391 / 2,366 / 419, from 1,466 / 2,772 / 471, from 1,493 / 3,041 / 520, from 1,493 / 3,071 / 521, from 1,493 / 3,083 / 522, from 1,493 / 3,111 / 523, from 1,493 / 3,324 / 533, from 1,494 / 3,350 / 535, from 1,494 / 3,416 / 540, from 1,494 / 3,426 / 541, from 1,494 / 3,431 / 542, from 1,494 / 3,434 / 543, from 1,494 / 3,435 / 543, from 1,494 / 3,436 / 543, from 1,494 / 3,439 / 543, from 1,494 / 3,448 / 543, from 1,494 / 3,449 / 543, from 1,494 / 3,450 / 543, from 1,494 / 3,562 / 551, from 1,508 / 3,590 / 555, and from 1,508 / 3,595 / 556 before
+  1,391 / 2,366 / 419, from 1,466 / 2,772 / 471, from 1,493 / 3,041 / 520, from 1,493 / 3,071 / 521, from 1,493 / 3,083 / 522, from 1,493 / 3,111 / 523, from 1,493 / 3,324 / 533, from 1,494 / 3,350 / 535, from 1,494 / 3,416 / 540, from 1,494 / 3,426 / 541, from 1,494 / 3,431 / 542, from 1,494 / 3,434 / 543, from 1,494 / 3,435 / 543, from 1,494 / 3,436 / 543, from 1,494 / 3,439 / 543, from 1,494 / 3,448 / 543, from 1,494 / 3,449 / 543, from 1,494 / 3,450 / 543, from 1,494 / 3,562 / 551, from 1,508 / 3,590 / 555, from 1,508 / 3,595 / 556, and from 1,508 / 3,610 / 558 before
   this recount — which is why each one now sits beside the command that produces it.
   The last of those drifts is worth naming because it was one work session: a number
   recounted honestly at the start of a stretch is stale by the end of it.
@@ -297,9 +297,16 @@ worth nothing here and only execution counts. What the repo actually runs:
   every way it can break is silent: a greeting rendering `{name}` literally, a
   commemoration wishing you a happy one, or a country resolving to its neighbour's
   time zone. None of those throw, and none of them fail a build.
-- **Six harnesses run a real browser rather than a DOM emulator**, because what they
+- **Eight harnesses run a real browser rather than a DOM emulator**, because what they
   measure does not exist in jsdom: `make perf`, `make typescale`, `make frame-scroll`,
-  `make panel-depth`, `make hero-control` and `make controls`. `make perf` measures how
+  `make panel-depth`, `make hero-control`, `make controls`, `make sheet-drag` and
+  `make overlay-scroll`. The last is the newest and the clearest case for the whole
+  category: it asks whether dismissing an overlay leaves the page where the reader left
+  it, and NEITHER of the two ways that broke is observable in jsdom — it has no layout,
+  and `focus()` there scrolls nothing whatever you pass it, so a restore that moves the
+  page and one that does not are the same call. It is also the harness that found the
+  second half of its own bug: the panel fix made those numbers right and the popover's
+  stayed at 0. `make perf` measures how
   long the app holds the main thread per action; `make typescale` turns every type dial
   to 200%,
   sets the root font size to 24px, and fails when a screen clips something it did not

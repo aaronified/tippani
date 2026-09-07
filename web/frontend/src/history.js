@@ -84,3 +84,34 @@ export function navigateBack(fallbackPath) {
   }
   return false
 }
+
+// popIsOverlay — was the pop that just arrived a panel or an overlay closing,
+// rather than the reader navigating?
+//
+// `showing` is the path the app currently believes it is on (`statePath(tab,
+// detail)`); the answer is read against the address the pop landed on.
+//
+// WHY THE PATH IS THE ONLY HONEST SIGNAL. A panel pushes its history entry with
+// pushState's url argument omitted (`usePanelStack.push`), so opening one does not
+// change the address, and closing one is a plain `history.back()`. That pop is
+// indistinguishable from a real Back by everything EXCEPT the address:
+//
+//   NOT THE POPPED STATE. A popstate carries the DESTINATION entry's state, and
+//   the destination of a single-panel dismissal is the entry the panel was pushed
+//   FROM — which has no panel depth on it at all. That is why `usePanelStack`
+//   keeps its own depth ref rather than reading the popped state, and it is why
+//   checking for a panel marker here cannot work for the depth-1 case, which is
+//   the only case that matters.
+//
+//   THE PATH, because `pushRoute` above refuses to push a path equal to the
+//   current address. The app therefore never creates two adjacent entries with one
+//   path, so a pop that leaves the address unchanged cannot be a screen the reader
+//   navigated to. It is an overlay — a panel, or any `useBackToClose` surface.
+//
+// WHAT IT IS FOR: a route handler that treats such a pop as a navigation re-derives
+// the same route, hands React a fresh detail object, and re-runs whatever depends
+// on the detail's identity. In this app that is the scroll memory, and it threw the
+// reader to the top of the page every time they closed a panel on it.
+export function popIsOverlay(showing) {
+  return showing === window.location.pathname
+}

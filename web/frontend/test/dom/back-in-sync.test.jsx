@@ -26,7 +26,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { canGoBack, historyDepth, navigateBack, pushRoute, seedRoute } from '../../src/history.js'
+import { canGoBack, historyDepth, navigateBack, popIsOverlay, pushRoute, seedRoute } from '../../src/history.js'
 
 // A fresh stack per case. jsdom keeps one history for the whole file, so a case
 // that pushes three entries would otherwise hand the next one a depth of three.
@@ -175,5 +175,84 @@ describe('every back arrow in App is wired to goBack', () => {
       [...new Set(closes)].filter((fn) => fn !== 'goBack'),
       'a close arrow that navigates FORWARDS — the reported bug',
     ).toEqual([])
+  })
+})
+
+// ---- CLOSING A PANEL IS NOT GOING BACK -------------------------------------
+//
+// THE OWNER'S REPORT, from their own phone: "when the popup is dismissed, it
+// resets the scroll level of the master page. that is unacceptable."
+//
+// WHAT A TEST WRITER NEEDS TO KNOW, and nothing about how it was repaired:
+//
+//  * A panel is an entry in the SAME session history the reader's Back button
+//    walks. That is deliberate — the phone's back gesture has to close a sheet —
+//    and it means one `popstate` handler sees both events.
+//  * A panel does not change the address. A screen does.
+//  * A route handler that mistakes a panel's pop for a navigation re-derives the
+//    screen it is already on, and anything keyed on the identity of that screen
+//    runs again. Here that is the scroll memory, and re-running it on a detail
+//    page means the top of the page.
+//
+// SO THE RULE IS: a pop that did not change the address is not a navigation. It
+// is only sound because of the case above — `pushRoute` refuses a path equal to
+// the address, so no two adjacent entries can share one — and that is why both
+// halves are asserted here rather than only the one that was reported.
+describe('a pop that did not change the address', () => {
+  // What the panel stack does, spelled out rather than imported, because what is
+  // under test is the CONTRACT and not that one caller honours it: two arguments
+  // to pushState, so the url is left alone.
+  const openAPanel = () => window.history.pushState(
+    { ...window.history.state, tpPanelDepth: 1 }, '',
+  )
+
+  it('is an overlay closing, not a screen the reader left', async () => {
+    seedRoute('/books/32')
+    openAPanel()
+    expect(window.location.pathname, 'opening a panel changed the address, so it is a navigation and not an overlay')
+      .toBe('/books/32')
+    const back = popped()
+    window.history.back()
+    await back
+    expect(popIsOverlay('/books/32'),
+      'a panel dismissal reads as a navigation, so the screen is rebuilt under the reader and loses its place')
+      .toBe(true)
+  })
+
+  it('cannot be confused with a real navigation, because no two entries share a path', async () => {
+    // The whole rule rests on this. If `pushRoute` ever pushed a duplicate, a
+    // genuine Back could land on the same address and be silently ignored — the
+    // reader would press Back and nothing would happen.
+    seedRoute('/library')
+    expect(pushRoute('/library'), 'the app pushed a second entry for the address it was already on').toBe(false)
+    pushRoute('/books/32')
+    const back = popped()
+    window.history.back()
+    await back
+    expect(window.location.pathname).toBe('/library')
+    expect(popIsOverlay('/books/32'),
+      'leaving a work page reads as an overlay closing, so the reader is left on a screen the app thinks it is not on')
+      .toBe(false)
+  })
+
+  it('is decided by the address and never by the entry it landed on', async () => {
+    // The trap this fell into once: a popstate carries the DESTINATION entry's
+    // state, and the entry a single panel was opened from knows nothing about
+    // panels. Asserted by reading that state at the moment of the pop — if a
+    // future repair reaches for a marker there, this says what is actually
+    // available.
+    seedRoute('/quotes/4')
+    openAPanel()
+    let stateAtPop
+    const back = new Promise((r) => window.addEventListener('popstate', (e) => {
+      stateAtPop = e.state
+      r()
+    }, { once: true }))
+    window.history.back()
+    await back
+    expect(stateAtPop?.tpPanelDepth,
+      'the popped entry carries a panel depth after all — then the decision could be read from it, and this test is stale')
+      .toBeUndefined()
+    expect(popIsOverlay('/quotes/4'), 'the address said overlay and the answer disagreed').toBe(true)
   })
 })

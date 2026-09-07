@@ -12,7 +12,7 @@ TVDB_TOKEN ?=
 LDFLAGS := -s -w -X tippani/internal/buildinfo.Version=$(VERSION) \
 	-X main.defaultTMDBKey=$(TMDB_TOKEN) -X main.defaultTVDBKey=$(TVDB_TOKEN)
 
-.PHONY: build frontend glossary changelog test run clean typescale frame-scroll panel-depth hero-control controls sheet-drag
+.PHONY: build frontend glossary changelog test run clean typescale frame-scroll panel-depth hero-control controls sheet-drag overlay-scroll
 
 ## build: static binary with the currently built (or placeholder) frontend embedded
 build:
@@ -60,6 +60,13 @@ panel-depth:
 ## that because the title's box is then the taller of the two.
 hero-control:
 	bash scripts/screenshots/run-hero-control.sh
+
+## overlay-scroll: dismiss a panel and each popover on a work page at phone width in
+## a real browser, and fail if the page is not where the reader left it. The one
+## place either claim is checkable — jsdom has no layout and does not scroll, so
+## `focus()` there moves nothing whatever you pass it.
+overlay-scroll:
+	bash scripts/screenshots/run-overlay-scroll.sh
 
 ## sheet-drag: open a panel at phone width in a real browser and fail if it is not a
 ## sheet a reader can drag — a handle a thumb can hit, a rest height that is one of the

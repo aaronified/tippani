@@ -2918,6 +2918,27 @@ export function ReadingBadge({ kind = "book", stacked = false }) {
 // hearts. Clicking opens a popover under it: the transitions menu for a state you
 // set, or a one-line explanation for the derived wishlist tag. `children` may be
 // a function receiving `close`, for popovers whose items dismiss it.
+// returnFocus — hand focus back to the control the reader pressed, WITHOUT moving
+// the page.
+//
+// `HTMLElement.focus()` scrolls its target into view. That is right when focus is
+// a destination — a field you are about to type in — and wrong every time focus is
+// being GIVEN BACK, because by then the reader may have scrolled somewhere else
+// and the page jumps to wherever the anchor now is. Measured in Chromium against a
+// real library at 390px: open the shelf chip's popover on a work page, scroll the
+// page behind it to 600px, press Escape — and the page lands at 0. The owner
+// reported it as "when the popup is dismissed, it resets the scroll level of the
+// master page. that is unacceptable."
+//
+// ONE FUNCTION BECAUSE IT WAS FOUR COPIES. `StateTag`, `ColorMenu` and `MoreMenu`
+// (twice) each spelled the same restore, and all four scrolled — which is the
+// repo's directive about two things that look the same, in its usual shape: the
+// verb lived in a line each rather than in one place. `tour.jsx` already knew the
+// answer and passed `preventScroll` on its own.
+export function returnFocus(el) {
+  el?.focus?.({ preventScroll: true });
+}
+
 export function StateTag({ state, label, tip, className = "", quiet = false, children }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
@@ -2927,7 +2948,7 @@ export function StateTag({ state, label, tip, className = "", quiet = false, chi
   const { popRef, style } = useAnchoredPosition(open, ref, { align: "start", minHeight: 160 });
   const close = () => setOpen(false);
   useDismiss(open, close, [ref, popRef], {
-    onEscape: () => ref.current?.querySelector("button")?.focus(),
+    onEscape: () => returnFocus(ref.current?.querySelector("button")),
   });
   // The chip is swatched in the same colour as the bar under the cover, so the
   // detail and the board are speaking about the same thing.
@@ -8327,7 +8348,7 @@ function ColorMenu({ value, offered, onChange, ariaLabel, disabled = false, fram
   const { popRef, style } = useAnchoredPosition(open, box, { prefer: "above", minHeight: 140 });
   const close = () => setOpen(false);
   useDismiss(open, close, [box, popRef], {
-    onEscape: () => box.current?.querySelector("button")?.focus(),
+    onEscape: () => returnFocus(box.current?.querySelector("button")),
   });
 
   return (
@@ -9367,7 +9388,7 @@ export function ActionMenu({ open, items = [], anchorRef, at = null, onClose, re
   })
   const close = onClose || (() => {})
   useDismiss(open, close, [popRef, ...(anchorRef ? [anchorRef] : [])], {
-    onEscape: () => returnFocusTo?.current?.focus(),
+    onEscape: () => returnFocus(returnFocusTo?.current),
   })
 
   // Focus the first item on open. In a layout effect rather than an effect so it
@@ -9405,7 +9426,7 @@ export function ActionMenu({ open, items = [], anchorRef, at = null, onClose, re
       // with focus in the page and a floating panel nobody can see the state of.
       e.preventDefault()
       close()
-      returnFocusTo?.current?.focus()
+      returnFocus(returnFocusTo?.current)
     }
   }
 

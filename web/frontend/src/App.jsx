@@ -58,7 +58,7 @@ import {
   searchScope,
   statePath,
 } from './routes.js'
-import { navigateBack, pushRoute, seedRoute } from './history.js'
+import { navigateBack, popIsOverlay, pushRoute, seedRoute } from './history.js'
 import { DEMO, apiURL, coverImgURL, json, uploadWithProgress } from './api.js'
 import {
   useEscape,
@@ -1635,6 +1635,33 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
     if (DEMO) return // no URL sync under the static subpath
     const onPop = () => {
       const cur = routeRef.current
+      // A PANEL DISMISSAL IS NOT A NAVIGATION, AND THIS LINE IS THE ONLY THING THAT
+      // TELLS THEM APART.
+      //
+      // `usePanelStack.push` writes its history entry with pushState's url argument
+      // omitted (ui.jsx), so the address does NOT change when a panel opens — and
+      // `back` / `close` are nothing but `history.back()` / `history.go(-n)`. The pop
+      // that closes a panel therefore arrives here at the same pathname, and
+      // everything below took it for a route restoration: `parsePath` mints a fresh
+      // detail object on every call, `setDetail` gives it a new identity, and the
+      // scroll-memory effect below re-runs on that identity. For a truthy `detail`
+      // that effect has no remembered position, so it scrolls to the top. Closing a
+      // panel on a work page threw the reader back to the top of it — reported from
+      // the owner's phone as "it resets the scroll level of the master page. that is
+      // unacceptable."
+      //
+      // THE PATH IS THE SIGNAL, NOT THE POPPED STATE. A popstate carries the
+      // DESTINATION entry's state, and the destination of a single-panel dismissal is
+      // the entry the panel was pushed FROM — whose state carries no `tpPanelDepth`
+      // at all, which is exactly why `usePanelStack` has to keep its own depth ref.
+      // So reading the state cannot work for the depth-1 case, which is the case that
+      // resets the scroll. `pushRoute` refuses to push a path equal to the current
+      // address (history.js), so the app never creates two adjacent entries with one
+      // path: a pop that leaves the pathname unchanged is always an overlay or a
+      // panel, and never a screen the reader navigated to. That covers the whole
+      // family at once, `useBackToClose`'s overlays included, rather than the panel
+      // stack alone.
+      if (popIsOverlay(statePath(cur.tab, cur.detail))) return
       if (!cur.detail) rememberScroll(statePath(cur.tab, null))
       const s = parsePath(window.location.pathname)
       // /import via back/forward opens the Add surface over Home (no import tab).

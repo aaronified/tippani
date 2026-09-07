@@ -1207,6 +1207,25 @@ changes (three "Open Early Indians" on Checks, a category toggle read back as "H
 the earlier run read "Offer"), and no control this work added appears in either list. That
 correction is in `CLAUDE.md`, which had claimed a restored archive does not drift at all.
 
+## AU. Dismissing an overlay threw the reader to the top, 7 September
+
+**The owner's report, verbatim: *"also when the popup is dismissed, it resets the scroll level
+of the master page. that is unacceptable."*** Two separate mechanisms, both real, both
+measured in Chromium against a restored archive at 390px — and the second was only found
+because the first was fixed and the number still read 0.
+
+| # | Defect | Status |
+|---|---|---|
+| AU1 | **A panel dismissal was mistaken for a navigation.** `usePanelStack.push` writes its history entry with pushState's url argument omitted (`ui.jsx`), so the address does not change when a panel opens, and `back`/`close` are plain `history.back()` / `history.go(-n)`. App's popstate handler re-parsed the unchanged path and called `setDetail(s.detail)`; `parsePath` mints a fresh object every call, so the identity changed, so the scroll-memory effect re-ran — and for a truthy `detail` it has no remembered position and scrolls to 0. Measured: `/books/32` at 600px → **0** after closing the Details panel, and the same for the credit chip's panel | **FIXED** by `popIsOverlay` (`history.js`), called from the handler. **The path is the signal, not the popped state** — a popstate carries the DESTINATION entry's state, and the destination of a single-panel dismissal is the entry the panel was pushed from, which has no panel depth on it at all; that is why `usePanelStack` keeps its own depth ref, and why reading a marker cannot work for the depth-1 case, which is the only one that resets. `pushRoute` refuses a path equal to the address, so no two adjacent entries share one. Covers every `useBackToClose` overlay too, not the panel stack alone. Measured after: 600 → 600 |
+| AU2 | **A popover dismissal scrolled to its anchor.** `HTMLElement.focus()` scrolls its target into view, and four sites handed focus back by calling it — `StateTag`, `ColorMenu`, and `ActionMenu` twice. Open the shelf chip's popover, scroll the page behind it (a menu locks nothing), press Escape, and the page leaps to wherever the chip now is. Measured: 600 → **0**. `tour.jsx` already passed `preventScroll` on its own, so the app knew the answer in one of five places | **FIXED as one verb, not four lines:** `returnFocus(el)` in `ui.jsx`, which every dismissal now calls. This is the repo's own directive about two things that look the same, in its usual shape — the restore lived in a line each, and three of the four were wrong while the fourth was right. Measured after: 600 → 600 on all three popovers a work page offers |
+| AU3 | **Neither claim was checkable anywhere in the suite**, and could not be made so: jsdom has no layout and does not scroll — `focus()` there moves nothing whatever you pass it — and `controls.mjs` presses with `element.click()` and never reads an offset | **FIXED with a probe, `make overlay-scroll`.** A work page at 390px (the configuration where the WINDOW is the scroller; above 1180px the detail takes the scroll into its own columns and there is nothing to lose, so a desktop run passes over both defects), `GET /characters/:id` held back to stand in for a mobile network, a panel and each popover pressed **on screen** — pressing an off-screen control by DOM query manufactures the scroll it then reports, which is how this probe's first run produced a finding a reader could not reach. Verified by rebuilding WITHOUT the App.jsx line: 600 → 0 on both panels and the popover; with it, 600 → 600 on all four |
+| AU4 | **The probe reported a pass over nothing, twice, and then a third time silently.** Run one aimed at `/quotes` and found no chips — the board draws board TILES, and the chips are on the cards inside a board. Run two walked every control looking for a panel-opener and pressed the phone drawer's Menu first, which covered everything after it, so it reported "nothing opens a panel" on a page where two things do. Then an edit of mine deleted the tap-timing half outright while its header went on describing it, and it printed no lines and raised no finding | **FIXED, and the probe now says what it does.** It stands on a work page, presses named openers that are verified to open (`Details`, the ⋯), and every case fails rather than notes when its subject is missing. The tap-TIMING half is gone rather than left hollow: how long a tap may go unanswered waits on the prefetch-and-loader decision, which is the owner's to make, and the header says so |
+
+**The lesson is the one this register keeps recording, one layer out.** AU1's fix made the
+panel numbers right and the popover number stayed 0 — so the second defect was visible only
+because the first had been measured rather than reasoned about. A fix verified by argument
+would have shipped with half the bug still in it and a probe reporting green.
+
 ## Withdrawn claims
 
 Kept because the pattern matters more than any one of them.

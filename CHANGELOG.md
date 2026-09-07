@@ -183,7 +183,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   printing its performers once in the header and again in the card below.
 
 ### Fixed
-- **A portrait's caption says the picture's size, whether it is washed out, and whether
+-- **Closing a popup no longer throws you back to the top of the page.** Whatever you were
+  reading, whatever you opened over it — a panel, the shelf chip's menu, the colour list —
+  dismissing it leaves the page exactly where you left it. Two separate causes: the app
+  mistook a panel's dismissal for you navigating back, and a menu handed keyboard focus to
+  the chip that opened it, which the browser scrolls into view. Only on a phone or a narrow
+  window, where the page itself is what scrolls.
+
+ **A portrait's caption says the picture's size, whether it is washed out, and whether
   it is being cropped.** The size only ever appeared the first time you opened a sheet —
   on any later visit the picture came from the cache, and the caption fell back to the
   line it shows before anything has been measured. "Low contrast" was worse than
