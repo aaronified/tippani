@@ -434,13 +434,43 @@ func TestNextRungStopsAtTheReadersOwnTopRung(t *testing.T) {
 // ceiling was raised for and it is pinned so that changing either number without
 // re-reading the consequence fails here.
 func TestReviewCapacityIsQuotaTimesTheCeiling(t *testing.T) {
-	if got := reviewCapacity(reviewQuota); got != 2920 {
-		t.Errorf("reviewCapacity(%d) = %d, want 2920 (8 x 365)", reviewQuota, got)
+	if got := reviewCapacity(reviewQuota, reviewMaxStability); got != 2920 {
+		t.Errorf("reviewCapacity(%d, %g) = %d, want 2920 (8 x 365)", reviewQuota, reviewMaxStability, got)
 	}
 	for _, quota := range []int{2, 8, 10} {
-		if got, want := reviewCapacity(quota), quota*int(reviewMaxStability); got != want {
+		if got, want := reviewCapacity(quota, reviewMaxStability), quota*int(reviewMaxStability); got != want {
 			t.Errorf("reviewCapacity(%d) = %d, want %d", quota, got, want)
 		}
+	}
+}
+
+// AND THE CEILING IS THE READER'S OWN, not the package's.
+//
+// Under adaptive — the default — a half-life grows to reviewMaxStability and the
+// two are the same. A reader on the fixed LADDER stops at their own top rung, and
+// one who lowered it to 30 days has a twelfth of the capacity: the note on Home
+// would have told them they had room for 2,920 quotes when the truth was 240.
+func TestCapacityFollowsTheReadersOwnCeiling(t *testing.T) {
+	adaptive := prefs{SRDaily: 8}
+	if !adaptive.adaptive() {
+		t.Fatal("the fixture is wrong: an unset srLadder is the adaptive default")
+	}
+	if got, want := reviewCeilingFor(adaptive), reviewMaxStability; got != want {
+		t.Errorf("an adaptive reader's ceiling = %g, want the package ceiling %g", got, want)
+	}
+
+	short := prefs{SRDaily: 8, SRLadder: true, SRTuning: `{"ladder1":7,"ladder2":14,"ladder3":21,"ladder4":30}`}
+	if got, want := reviewCeilingFor(short), 30.0; got != want {
+		t.Errorf("a ladder reader's ceiling = %g, want their own top rung %g", got, want)
+	}
+	if got, want := reviewCapacity(short.SRDaily, reviewCeilingFor(short)), 240; got != want {
+		t.Errorf("capacity on a 30-day ladder = %d, want %d — the note would overstate by 12x", got, want)
+	}
+	// A ladder reader who never touched the rungs is back at the package ceiling,
+	// because that IS their top rung.
+	def := prefs{SRDaily: 8, SRLadder: true}
+	if got, want := reviewCeilingFor(def), reviewMaxStability; got != want {
+		t.Errorf("an untouched ladder's ceiling = %g, want %g", got, want)
 	}
 }
 
@@ -1200,7 +1230,12 @@ func TestEveryResponseWithStatesCarriesTheCapacity(t *testing.T) {
 		probes = append(probes, probe{"POST " + p.path, decode[map[string]any](t, c.mustDo("POST", p.path, p.body, 200))})
 	}
 
-	want := float64(reviewCapacity(reviewQuota))
+	// A LITERAL, NOT reviewCapacity(...). Comparing the API against the very
+	// function that computes it is a tautology: mutating reviewCapacity moved both
+	// sides and this passed. 2920 is the default quota of 8 against the 365-day
+	// ceiling, written out so that changing either one has to be a decision here
+	// as well as there.
+	want := 2920.0
 	checked := 0
 	// `states` can sit at the top level or one map down (/stats nests it under
 	// "recall"), so the search is for the OBJECT rather than for a known path to it.

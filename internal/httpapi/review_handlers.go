@@ -307,8 +307,21 @@ func nextRung(cur float64, ladder [reviewRungs]float64) float64 {
 // being reached, and the only wrong thing about that today is that it happens in
 // silence. The number is derived here so the screen that says it and the test
 // that checks it are reading one definition.
-func reviewCapacity(quota int) int {
-	return quota * int(reviewMaxStability)
+// THE CEILING IS THE READER'S, NOT THE PACKAGE'S. Under adaptive — the default —
+// a half-life grows to reviewMaxStability, so the two are the same. A reader on
+// the fixed ladder stops at THEIR top rung, and one who lowered it to 30 days has
+// a twelfth of the capacity this used to report: the note on Home would have told
+// them they had room for 2,920 quotes when the truth was 240.
+func reviewCapacity(quota int, ceiling float64) int {
+	return quota * int(ceiling)
+}
+
+// reviewCeilingFor is the longest half-life this reader's schedule can reach.
+func reviewCeilingFor(pf prefs) float64 {
+	if pf.adaptive() {
+		return reviewMaxStability
+	}
+	return parseReviewTuning(pf.SRTuning).Ladder4
 }
 
 // ---- the two probabilities the schedule is drawn against ---------------------
@@ -1739,7 +1752,24 @@ func buildQuestion(c reviewCand, preferred string, p quizPools, seed int64, scor
 	// THE TIER IS RESOLVED PER CARD, because Random is. Everything below reads
 	// `at` rather than `tier`, so the two are never confused: `tier` is what the
 	// reader chose and `at` is what this card is asked at.
-	at := tierForCard(tier, c.card.Kind, c.card.ID, seed)
+	//
+	// `cardSeed` AND NOT `seed`, WHICH WAS FROZEN ON THE PRACTICE PATH. Practice
+	// passes seed 0 — its RNG is global and its shuffle is per request — so the day
+	// term vanished from the hash and Random gave a card the same tier for ever,
+	// the exact opposite of what tierForCard promises.
+	//
+	// DAILY KEEPS THE HASH and Practice DRAWS, which is not an inconsistency: it is
+	// the difference between the two decks. Daily must be stable, because a refresh
+	// that reshuffled a card's difficulty would change the question under the
+	// reader's hand and the day's score is permanent. Practice is the varied,
+	// unscored twin and already picks its DIRECTION with rand.IntN a few lines
+	// below; the tier follows the same rule, drawn once per card as the round is
+	// built.
+	tierSeed := cardSeed
+	if tierSeed == 0 {
+		tierSeed = rand.Int64N(reviewSeedRange) + 1
+	}
+	at := tierForCard(tier, c.card.Kind, c.card.ID, tierSeed)
 	clozeWords = tierClozeThreshold(at, clozeWords)
 	// A tier NARROWS the reader's own repertoire and never widens it, so a
 	// question they turned off stays off at every difficulty.
@@ -2035,10 +2065,17 @@ func shuffleN(rng *rand.Rand, n int, swap func(i, j int)) {
 // nil ⇒ varied per round).
 // EASY RANKS THE SAME SCALE DOWNWARDS, which is the whole of what makes it easy.
 //
-// distractorScore rewards a candidate for sharing a medium, an author, a series
-// or a genre — so the best distractor at medium is the one hardest to tell from
-// the answer. Easy wants the opposite: same-author and same-series AVOIDED,
-// cross-medium acceptable, the wrong answers obviously wrong.
+// distractorScore rewards a candidate for sharing a medium, an author or a genre
+// — and for a film, a cast member — so the best distractor at medium is the one
+// hardest to tell from the answer. Easy wants the opposite: same-author and
+// same-medium avoided, cross-medium acceptable, the wrong answers obviously
+// wrong.
+//
+// NOT A SERIES, THOUGH THE PLAN ASKED FOR ONE and an earlier version of this
+// comment claimed it. `distractorScore` has no series term and `workRef` has no
+// series field: books and films carry one in the database, and the quiz has never
+// loaded it. Advertising a thing the code cannot do is the defect this file has
+// now produced three times, so it is named here rather than quietly dropped.
 //
 // ONE PREDICATE, INVERTED, rather than a second ranking function. Two orderings
 // of one score written separately is how they come to disagree about what
@@ -2242,7 +2279,7 @@ func (s *Server) handleDailyQuiz(w http.ResponseWriter, r *http.Request) {
 		// which is the server's number, and a client that multiplied by its own
 		// idea of the ceiling would go quietly wrong on the next release that moved
 		// it. The quota is per reader, so this is per reader too.
-		"capacity": reviewCapacity(pf.SRDaily),
+		"capacity": reviewCapacity(pf.SRDaily, reviewCeilingFor(pf)),
 	})
 }
 
@@ -2740,7 +2777,7 @@ func (s *Server) answerResponse(w http.ResponseWriter, r *http.Request, uid int6
 		// this is what the schedule can hold; a response carrying one without the
 		// other leaves the reader's screen unable to decide whether to say so, and
 		// the note would blink out on the first answer of a session.
-		"capacity": reviewCapacity(pf.SRDaily),
+		"capacity": reviewCapacity(pf.SRDaily, reviewCeilingFor(pf)),
 	}
 	// Only present on a graded cloze card, which is the only time the words are
 	// not the answer to an open question.
@@ -3031,7 +3068,7 @@ func (s *Server) handleReviewScores(w http.ResponseWriter, r *http.Request) {
 			"sessions": pSessions,
 		},
 		"states":   states,
-		"capacity": reviewCapacity(pf.SRDaily),
+		"capacity": reviewCapacity(pf.SRDaily, reviewCeilingFor(pf)),
 	})
 }
 

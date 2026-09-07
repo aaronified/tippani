@@ -1000,7 +1000,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 			// has outgrown the schedule. Home already draws that note, and this is
 			// the fourth place `states` is sent — the guard in review_test.go
 			// walks every one of them rather than a list of three.
-			"capacity":      reviewCapacity(pf.SRDaily),
+			"capacity":      reviewCapacity(pf.SRDaily, reviewCeilingFor(pf)),
 			"reviewed":      reviewedN,
 			"avg_half_life": avgHalfLife,
 			// BOTH STREAKS, because the longest one is not derivable from the

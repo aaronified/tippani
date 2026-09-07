@@ -457,3 +457,67 @@ func TestAPersonCardHonoursTheTiersOptionCount(t *testing.T) {
 		}
 	}
 }
+
+// RANDOM ON PRACTICE WAS FROZEN FOR EVER, and its own documentation said the
+// opposite.
+//
+// Practice passes seed 0 to buildQuestion — its RNG is global and its shuffle is
+// per request — so the day term vanished from tierForCard's hash and a card drew
+// the same tier every time, for ever. Daily keeps the hash, because a refresh
+// that reshuffled a card's difficulty would change the question under the
+// reader's hand and the day's score is permanent; Practice draws, exactly as it
+// already draws its DIRECTION a few lines below the same call.
+//
+// Asserted over HTTP across several rounds, because the freeze is only visible
+// between them.
+func TestRandomVariesBetweenPracticeRounds(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	for _, w := range []struct{ title, author string }{
+		{"Emma", "Austen"}, {"Dune", "Herbert"}, {"Neuromancer", "Gibson"}, {"Villette", "Bronte"},
+	} {
+		book := decode[bookDetail](t, c.mustDo("POST", "/books",
+			map[string]any{"title": w.title, "author": w.author}, http.StatusCreated))
+		for i := 0; i < 4; i++ {
+			c.mustDo("POST", "/annotations", map[string]any{"book_id": book.ID,
+				"quote": w.title + " line " + itoa(int64(i)) + ": the sleeper must awaken and the spice must flow"},
+				http.StatusCreated)
+		}
+	}
+	ageSeededItems(t, srv)
+	// "Which book?" only, so every card carries options and the tier is legible in
+	// how many there are — two at easy, four otherwise.
+	c.mustDo("PUT", "/auth/me/preferences", map[string]any{
+		"srTier": tierRandom, "srQuestions": `{"practice":["source"]}`}, http.StatusOK)
+
+	// Per card, across rounds: how many distinct option-counts did it draw?
+	widths := map[int64]map[int]bool{}
+	for round := 0; round < 8; round++ {
+		deck := decode[practiceDeckResp](t, c.mustDo("GET", "/review/practice", nil, 200))
+		if len(deck.Items) == 0 {
+			t.Fatal("an empty practice deck measures nothing")
+		}
+		for _, it := range deck.Items {
+			if len(it.Options) == 0 {
+				continue
+			}
+			if widths[it.ID] == nil {
+				widths[it.ID] = map[int]bool{}
+			}
+			widths[it.ID][len(it.Options)] = true
+		}
+	}
+	if len(widths) == 0 {
+		t.Fatal("no option-bearing card in any round, so this measured nothing")
+	}
+	moved := 0
+	for _, seen := range widths {
+		if len(seen) > 1 {
+			moved++
+		}
+	}
+	if moved == 0 {
+		t.Errorf("across eight practice rounds not one of %d cards changed difficulty — "+
+			"Random is frozen per card on the practice path, which is the opposite of what it promises", len(widths))
+	}
+}

@@ -100,9 +100,6 @@ func (c *nameCollector) add(name string) {
 	c.out = append(c.out, n)
 }
 
-// enough — as many distractors as the widest tier will use. Counted against the
-// ceiling rather than the tier in force, so a collector filled for one tier is
-// never short for another; choicesFrom takes what it needs from the top.
 // addWiderPool takes everyone else the library has heard speak — every work but
 // this one. It is the FALLBACK at medium and hard, where the answer's own cast is
 // the better ranking, and the FIRST choice at easy, where it is the far end of
@@ -131,15 +128,22 @@ func (c *nameCollector) addWiderPool(p quizPools, ownKey string, rng *rand.Rand)
 	}
 }
 
+// enough — as many distractors as the widest tier will use. Counted against the
+// ceiling rather than the tier in force, so a collector filled for one tier is
+// never short for another; choicesFrom takes what it needs from the top.
 func (c *nameCollector) enough() bool { return len(c.out) >= quizOptions-1 }
 
 // attachSpeaker fills a card's options with the people who might have said the
 // line: a film's cast, or the speakers the library has heard from.
 //
-// DISTRACTORS COME FROM THIS FILM FIRST. Three actors the reader has quoted
-// elsewhere make the answer guessable from familiarity; three from this film's
-// own billing make it a question about the film. The wider pool is the fallback
-// for a title whose cast was never fetched.
+// DISTRACTORS COME FROM THIS FILM FIRST — AT EVERY TIER BUT EASY. Three actors
+// the reader has quoted elsewhere make the answer guessable from familiarity;
+// three from this film's own billing make it a question about the film. The wider
+// pool is the fallback for a title whose cast was never fetched.
+//
+// EASY REVERSES THAT ORDER, because the own-work cast IS this function's ranking
+// and looking away from it is the same inversion rankWorks makes with a score.
+// See tierPrefersFarLures, which is the one predicate both places ask.
 func attachSpeaker(card *reviewCard, ownKey string, p quizPools, seed int64, tier string) bool {
 	answer, kind := "", ""
 	switch card.Kind {

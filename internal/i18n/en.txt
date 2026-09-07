@@ -1257,7 +1257,7 @@ settings.quiz.adaptive.on.label = Adaptive
 # --- how hard the questions are. Three tiers plus Random; medium is what the
 # quiz has always done, so an account that never opens this sees no change.
 settings.quiz.tier.title = How hard the questions are
-settings.quiz.tier.info.body = Medium is the quiz as it has always been. Easy offers two choices instead of four and keeps the wrong ones far apart; Hard asks you to type the words back. Random picks per card.
+settings.quiz.tier.info.body = Medium is the quiz as it has always been. Easy offers two choices instead of four and keeps the wrong ones far apart; Hard leans on typing the words back; Random picks per card. A tier narrows what you allow, never empties it.
 settings.quiz.tier.easy.label = Easy
 settings.quiz.tier.medium.label = Medium
 settings.quiz.tier.hard.label = Hard
