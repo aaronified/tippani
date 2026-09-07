@@ -18,6 +18,7 @@ package httpapi
 
 import (
 	"fmt"
+	"math"
 	"net/http"
 	"slices"
 	"strings"
@@ -1215,5 +1216,97 @@ func TestEveryResponseWithStatesCarriesTheCapacity(t *testing.T) {
 	// reason — the four responses below are the whole subject.
 	if checked != len(probes) {
 		t.Errorf("found `states` in %d of %d responses; this guard is reading the wrong ones rather than passing", checked, len(probes))
+	}
+}
+
+// THE DOT AND THE DECK AGREE ABOUT WHEN A CARD COMES BACK.
+//
+// `dueSQL`'s comment has always made this a promise — "a card is due exactly
+// when its dot reads probably-forgotten" — and until the two were derived from
+// reviewDuePoint it was one number written twice in two languages: `elapsed >=
+// stability` in SQL, `case p >= 0.5` in Go. Either could have moved alone, and
+// the failure would have been a deck full of cards the app calls remembered, or
+// a dot that says forgotten about a card the quiz will not ask for a month.
+//
+// ASSERTED AT THE BOUNDARY, over HTTP, on cards placed either side of it by a
+// fraction — the only place the two definitions can disagree without being
+// wrong about everything else as well.
+func TestTheDotAndTheDeckAgreeOnDue(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	_, ids := seedReviewBook(t, c, "Emma", 3)
+	seedDistractorBook(t, srv, c, "Dune")
+	ageSeededItems(t, srv)
+
+	// elapsed = stability x dueMultiplier(target) is the boundary. At the default
+	// target the multiplier is 1, so a card at exactly its half-life is due.
+	edge := 30 * dueMultiplier(reviewDuePoint)
+	place := func(id int64, elapsed float64) {
+		t.Helper()
+		if _, err := srv.Store.DB.Exec(`INSERT INTO item_reviews
+			(kind, item_id, stability, review_count, lapse_count, last_result, last_reviewed_at, last_touched_at)
+			VALUES ('book', ?, 30, 2, 0, 'got', datetime('now', ?), datetime('now', ?))`,
+			id, fmt.Sprintf("-%f days", elapsed), fmt.Sprintf("-%f days", elapsed)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	place(ids[0], edge*1.02) // just past due
+	place(ids[1], edge*0.98) // just short of it
+	place(ids[2], edge*3)    // long overdue
+
+	deck := decode[reviewDeckResp](t, c.mustDo("GET", "/review/daily", nil, 200))
+	inDeck := map[int64]bool{}
+	dot := map[int64]string{}
+	for _, it := range deck.Items {
+		inDeck[it.ID] = true
+		dot[it.ID] = it.Status
+	}
+
+	// The two that are due are in the deck; the one that is not, is not.
+	for _, tc := range []struct {
+		id   int64
+		want bool
+		what string
+	}{
+		{ids[0], true, "just past its due point"},
+		{ids[1], false, "just short of its due point"},
+		{ids[2], true, "long overdue"},
+	} {
+		if inDeck[tc.id] != tc.want {
+			t.Errorf("a card %s: in the deck = %v, want %v", tc.what, inDeck[tc.id], tc.want)
+		}
+	}
+	// AND EVERY CARD THE DECK SERVES READS probably-forgotten. This is the half
+	// that ties the two definitions together: a card the SQL called due whose dot
+	// the Go code calls remembered means the two have parted company.
+	for _, it := range deck.Items {
+		if it.Status != "probably-forgotten" {
+			t.Errorf("the deck served card %d with its dot reading %q — dueSQL and recallStatus disagree about due",
+				it.ID, it.Status)
+		}
+	}
+	if len(deck.Items) == 0 {
+		t.Fatal("no cards in the deck at all, so this guard checked nothing")
+	}
+	_ = dot
+}
+
+// The multiplier is the whole of what a retention target would change, so its
+// arithmetic is pinned separately from anything that uses it.
+func TestDueMultiplier(t *testing.T) {
+	for _, c := range []struct{ target, want float64 }{
+		{0.5, 1},      // today's rule, exactly: elapsed >= stability
+		{1, 0},        // certainty is due immediately, which is why 1 is not offered
+		{0.25, 2},     // two half-lives
+		{0.9, 0.15200309344504997},
+		{0.95, 0.07400058144377693},
+	} {
+		if got := dueMultiplier(c.target); math.Abs(got-c.want) > 1e-12 {
+			t.Errorf("dueMultiplier(%g) = %v, want %v", c.target, got, c.want)
+		}
+	}
+	// And the SQL carries the same number the Go does.
+	if got, want := reviewDueFactorSQL, "1"; got != want {
+		t.Errorf("reviewDueFactorSQL = %q, want %q at the default due point", got, want)
 	}
 }

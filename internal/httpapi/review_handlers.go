@@ -310,6 +310,44 @@ func reviewCapacity(quota int) int {
 	return quota * int(reviewMaxStability)
 }
 
+// ---- the two probabilities the schedule is drawn against ---------------------
+//
+// THEY WERE ONE NUMBER WRITTEN TWICE, IN TWO LANGUAGES. `dueSQL` said
+// `elapsed >= stability`, which on p = 2^(-elapsed/stability) is exactly
+// p <= 0.5; `recallStatus` said `case p >= 0.5`. Neither mentioned the other,
+// and `dueSQL`'s own comment made their agreement a PROMISE — "a card is due
+// exactly when its dot reads probably-forgotten" — that nothing checked and
+// either one could have broken alone.
+//
+// AND 0.5 IS A CHOICE NOBODY MADE OUT LOUD. The loop waits for a coin flip
+// before asking. That is defensible — a retrieval that is harder and still
+// SUCCEEDS is worth more (Bjork's desirable difficulties) — and it is far below
+// the ~0.90 FSRS and Anki take as the usual aim. Naming it is what makes it
+// arguable, and is the prerequisite for srTargetRetention making it the
+// reader's.
+const (
+	// reviewDuePoint is the recall probability at which a card comes back round,
+	// and equally the point below which its dot reads probably-forgotten.
+	reviewDuePoint = 0.5
+	// reviewHeldPoint is where the dot reads "remembered". It is the top of the
+	// "forgetting" band, whose bottom is reviewDuePoint.
+	reviewHeldPoint = 0.9
+)
+
+// dueMultiplier is how many half-lives a card waits before it is due.
+//
+// p = 2^(-elapsed/stability), so p reaches `target` at
+// elapsed = stability x log2(1/target). At 0.5 that is exactly 1 — which is why
+// the rule can be written as `elapsed >= stability` and has been.
+func dueMultiplier(target float64) float64 { return math.Log2(1 / target) }
+
+// reviewDueFactorSQL is that multiplier as SQL. Spliced rather than bound
+// because dueSQL is a string every candidate query concatenates, and threading a
+// parameter through would put its position in the arg list of five callers —
+// which is five chances to get an offset wrong for a value that is derived from
+// a constant and never from user text. %g keeps "1" as "1".
+var reviewDueFactorSQL = fmt.Sprintf("%g", dueMultiplier(reviewDuePoint))
+
 // reviewFloorSQL is reviewMinStability for splicing into due-ness SQL — the
 // stored stability can predate a floor raise, so queries floor it the same way
 // recallStatus does (fmt %g keeps "7", not "7.000000").
@@ -623,9 +661,13 @@ func recallStatus(seen bool, stability, elapsedDays, ageDays float64, lastResult
 	}
 	p := math.Pow(2, -elapsedDays/stability)
 	switch {
-	case p >= 0.9:
+	case p >= reviewHeldPoint:
 		return "remembered"
-	case p >= 0.5:
+	case p >= reviewDuePoint:
+		// The SAME constant dueSQL waits for, so the dot and the deck cannot
+		// disagree about when a card comes back — which is a promise dueSQL's
+		// comment has always made and nothing checked until
+		// TestTheDotAndTheDeckAgreeOnDue.
 		return "forgetting"
 	default:
 		return "probably-forgotten"
@@ -912,7 +954,7 @@ func (rs reviewSource) where() string {
 //
 // The deck and the badge both splice this in. Spelling it twice is how they
 // come to disagree about how many cards are left.
-var dueSQL = `(r.last_reviewed_at IS NULL OR julianday('now') - julianday(r.last_reviewed_at) >= MAX(r.stability, ` + reviewFloorSQL + `))`
+var dueSQL = `(r.last_reviewed_at IS NULL OR julianday('now') - julianday(r.last_reviewed_at) >= ` + reviewDueFactorSQL + ` * MAX(r.stability, ` + reviewFloorSQL + `))`
 
 // bucketClause is the half of a candidate query that picks WHICH slice of the
 // pool comes back. Identical for every kind, so it lives here rather than once
