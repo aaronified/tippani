@@ -308,7 +308,7 @@ export function loadTileImage(url) {
   if (!url) return Promise.resolve(null)
   if (tileCache.has(url)) return Promise.resolve(tileCache.get(url))
   return new Promise((res) => {
-    const img = new Image()
+    const img = new window.Image()
     img.onload = () => {
       tileCache.set(url, img)
       res(img)
@@ -334,7 +334,7 @@ export function loadFaceImages(urls) {
     missing.map(
       (u) =>
         new Promise((res) => {
-          const img = new Image()
+          const img = new window.Image()
           img.onload = () => {
             faceCache.set(u, img)
             res()

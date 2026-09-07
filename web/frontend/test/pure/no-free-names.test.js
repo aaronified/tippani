@@ -62,6 +62,15 @@ const traverse = traverseModule.default || traverseModule
 // all, so it is not a global here — it is the exact crash this file exists to
 // catch, whitelisted.
 //
+// TWO SURVIVED THE MECHANICAL PRUNE, because they were genuinely in use AND
+// genuinely app-shaped: `Image` and `File`. The prune answers "is this name read
+// anywhere", not "could this app bind it" — a rater proved the gap with
+// `function Parent({ Image, File })` read by a child, which stayed invisible. The
+// two sites now write `new window.Image()` and `new window.File(...)`, which is
+// what they mean, and both names are off the list. That is the rule stated
+// properly: a window API is written `window.X`, and then nothing app-shaped needs
+// excusing at all.
+//
 // AND THE PRUNING IS NOT A JUDGEMENT ANY MORE. Removing those eight by hand left
 // `location` behind, and a rater found it the same afternoon — so the rule is now
 // mechanical and the third case enforces it: THE LIST IS EXACTLY THE GLOBALS THE
@@ -71,14 +80,13 @@ const traverse = traverseModule.default || traverseModule
 // on the list on the day the app can be checked against it, not years before.
 const PLATFORM = new Set([
   'window', 'document', 'navigator', 'console', 'fetch', 'Response', 'FormData', 'URL',
-  'URLSearchParams', 'File', 'Image', 'setTimeout', 'clearTimeout',
-  'requestAnimationFrame', 'cancelAnimationFrame', 'requestIdleCallback', 'localStorage',
-  'matchMedia', 'getComputedStyle', 'ResizeObserver', 'IntersectionObserver',
-  'MutationObserver', 'Intl', 'Math', 'JSON', 'Date', 'Number', 'String', 'Boolean',
-  'Object', 'Array', 'Map', 'Set', 'WeakMap', 'Promise', 'RegExp', 'parseInt',
-  'parseFloat', 'encodeURIComponent', 'undefined', 'Uint8Array', 'TextDecoder',
-  'CustomEvent', 'AbortSignal', 'Infinity', 'XMLHttpRequest', 'FontFace', 'DOMMatrix',
-  'HTMLInputElement',
+  'URLSearchParams', 'setTimeout', 'clearTimeout', 'requestAnimationFrame',
+  'cancelAnimationFrame', 'requestIdleCallback', 'localStorage', 'matchMedia',
+  'getComputedStyle', 'ResizeObserver', 'IntersectionObserver', 'MutationObserver', 'Intl',
+  'Math', 'JSON', 'Date', 'Number', 'String', 'Boolean', 'Object', 'Array', 'Map', 'Set',
+  'WeakMap', 'Promise', 'RegExp', 'parseInt', 'parseFloat', 'encodeURIComponent',
+  'undefined', 'Uint8Array', 'TextDecoder', 'CustomEvent', 'AbortSignal', 'Infinity',
+  'XMLHttpRequest', 'FontFace', 'DOMMatrix', 'HTMLInputElement',
 ])
 
 // EVERY unbound name in a file, before the allow-list is applied — because the
@@ -130,6 +138,12 @@ describe('every name a module reads', () => {
       'a parent’s prop that shares a window method’s name': `
         function Parent({ open }) { return <Kid /> }
         function Kid() { return <button onClick={() => open('x')} /> }
+      `,
+      // The two that survived the mechanical prune by being in use — until the
+      // sites that used them said `window.` and meant it.
+      'a parent’s prop named after a constructor': `
+        function Parent({ Image, File }) { return <Kid /> }
+        function Kid() { return <span>{new Image()}{new File([])}</span> }
       `,
     }
     for (const [what, code] of Object.entries(shapes)) {

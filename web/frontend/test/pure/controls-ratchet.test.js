@@ -25,6 +25,7 @@
 // controls` runs, and it passes `--fixture` and two `--width` flags. A run against
 // a restored backup is a different shelf and carries its own numbers.
 
+import { spawnSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -69,6 +70,40 @@ describe('the controls ratchet', () => {
       expect(Object.keys(baseline), `run-controls.sh runs against "${shelf}", which has no ceiling recorded — the ratchet passes whatever it measures`)
         .toContain(shelf)
     }
+  })
+
+  it('and refuses to run at all without being told which one it is against', () => {
+    // THE HOLE THIS CLOSES was on the one path that measures the app.
+    // `run-with-backup.sh` passes `"$@"` straight through, so a backup run carried
+    // `--fixture` only if a person typed the line in CLAUDE.md from memory — and
+    // without it the probe compares its counts to nothing and exits 0, which is
+    // precisely the silence the per-library key was introduced to end.
+    //
+    // A REFUSAL RATHER THAN A WARNING, because the run is fifty minutes long and
+    // its last line is where a warning would go. Asked by RUNNING it: a check that
+    // reads the source for the words would pass on a refusal that never fires.
+    //
+    // AND EXIT 2 EXACTLY, not merely non-zero. The first draft of this case
+    // asserted `not.toBe(0)` and a mention of `--fixture` in the output, and it
+    // PASSED with the refusal deleted: a probe with nowhere to connect exits 1 and
+    // prints "no baseline for (unnamed) … run with --fixture", which is the silent
+    // failure itself wearing the words of the fix. So 2 is reserved for this
+    // refusal, and the case below proves nothing else claims it.
+    const dead = ['--base-url', 'http://127.0.0.1:1', '--width', '390']
+    const run = spawnSync(process.execPath, [join(SHOTS, 'controls.mjs'), ...dead], { encoding: 'utf8' })
+    expect(run.status, 'the probe ran without being told which library it is against, so its ratchet was off').toBe(2)
+    expect(`${run.stderr}${run.stdout}`, 'it refused without saying what to pass').toMatch(/--fixture/)
+
+    // 2 MEANS THIS AND ONLY THIS. Given a shelf, the same unreachable server is a
+    // different failure — so the code above cannot be an accident of the run
+    // falling over for some other reason.
+    const named = spawnSync(process.execPath, [join(SHOTS, 'controls.mjs'), ...dead, '--fixture', 'seed'], { encoding: 'utf8' })
+    expect(named.status, 'exit 2 is not reserved for the refusal — a run that named its shelf produced it too').not.toBe(2)
+
+    // And it still answers for itself, so the refusal has not eaten the one
+    // invocation that must work without a library at all.
+    const help = spawnSync(process.execPath, [join(SHOTS, 'controls.mjs'), '--help'], { encoding: 'utf8' })
+    expect(help.status, '--help no longer works').toBe(0)
   })
 
   it('and has a ceiling at every width the harness actually runs', () => {

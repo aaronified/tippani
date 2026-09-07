@@ -806,7 +806,7 @@ function QuoteImagePanel({ share, selected, onShared, actionRef }) {
     // "hash" filename), and the async save races URL.revokeObjectURL (a
     // truncated, corrupt PNG). Desktop keeps the plain download it had.
     if (mobile && navigator.canShare && navigator.share) {
-      const file = new File([blob], "tippani-quote.png", { type: "image/png" });
+      const file = new window.File([blob], "tippani-quote.png", { type: "image/png" });
       if (navigator.canShare({ files: [file] })) {
         try {
           await navigator.share({ files: [file] });

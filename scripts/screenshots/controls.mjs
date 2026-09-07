@@ -72,6 +72,24 @@ for (let i = 2; i < process.argv.length; i++) {
   }
 }
 
+// A RUN HAS TO NAME ITS SHELF. Without this the ratchet is simply OFF — a missing
+// ceiling is not a failure (see the baseline block), so a run with no `--fixture`
+// prints its counts, compares them to nothing, and exits 0. That is the same
+// silence the `[fixture][width]` key was introduced to end, and it was still live
+// on the ONE path that measures the app: `run-with-backup.sh` passes `"$@"`
+// through, so the flag was carried only by a line in CLAUDE.md that a person
+// types. A fifty-minute run that quietly guards nothing is worse than a refusal
+// that costs eight characters.
+if (!opts.fixture) {
+  console.error('controls.mjs needs --fixture NAME: which library this run is against.\n' +
+    '  --fixture seed    the harness fixture `run-controls.sh` builds\n' +
+    '  --fixture backup  a restored archive, through run-with-backup.sh\n' +
+    'The touch-floor ceiling is a fact about a library — a bigger one draws more\n' +
+    'controls — so a run that does not say which is compared against nothing and\n' +
+    'passes whatever it measures.')
+  process.exit(2)
+}
+
 // THE TOUCH FLOOR IS CHECKED AT PHONE WIDTH ONLY, because that is what it is for
 // — and a desk pointer does not need it. 1px of slack for fractional layout.
 const TOUCH_FLOOR = 44

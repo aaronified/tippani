@@ -149,7 +149,7 @@ AI-written code fails differently from hand-written code. It compiles, it reads
 well, it is plausibly commented, and it can still be wrong — so plausibility is
 worth nothing here and only execution counts. What the repo actually runs:
 
-- **1,494 Go test functions and 3,434 frontend tests, across 543 test files** — the
+- **1,494 Go test functions and 3,435 frontend tests, across 543 test files** — the
   Go half over real HTTP handlers against a real SQLite database, not mocks.
   Counted, not estimated, and every number here has a command that reproduces it:
 
@@ -178,7 +178,7 @@ worth nothing here and only execution counts. What the repo actually runs:
   by 2.3.0, from 1,100 / 1,853 / 323 when they were recounted for 2.2.3, and most
   recently from 1,153 / 1,977 / 338, from 1,336 / 2,218 / 394, from
   1,357 / 2,223 / 398, from 1,360 / 2,245 / 401, from 1,380 / 2,358 / 418, from
-  1,391 / 2,366 / 419, from 1,466 / 2,772 / 471, from 1,493 / 3,041 / 520, from 1,493 / 3,071 / 521, from 1,493 / 3,083 / 522, from 1,493 / 3,111 / 523, from 1,493 / 3,324 / 533, from 1,494 / 3,350 / 535, from 1,494 / 3,416 / 540, from 1,494 / 3,426 / 541, and from 1,494 / 3,431 / 542 before
+  1,391 / 2,366 / 419, from 1,466 / 2,772 / 471, from 1,493 / 3,041 / 520, from 1,493 / 3,071 / 521, from 1,493 / 3,083 / 522, from 1,493 / 3,111 / 523, from 1,493 / 3,324 / 533, from 1,494 / 3,350 / 535, from 1,494 / 3,416 / 540, from 1,494 / 3,426 / 541, from 1,494 / 3,431 / 542, and from 1,494 / 3,434 / 543 before
   this recount — which is why each one now sits beside the command that produces it.
   The last of those drifts is worth naming because it was one work session: a number
   recounted honestly at the start of a stretch is stale by the end of it.
@@ -363,9 +363,13 @@ worth nothing here and only execution counts. What the repo actually runs:
   on the list on the day there is code to check it against, rather than years before.
 
 - **A GUARD THAT WALKS THE SOURCE TREE PASSES WHEN THE WALK FINDS NOTHING**, and two
-  dozen of them do. Every one is a list compared against `[]`, so an extension narrowed by
+  dozen of them do. Most are a list compared against `[]`, so an extension narrowed by
   one character, a moved tree, or a wrong `TIPPANI_SRC` turns the guard green while it
-  checks nothing. Two were caught this way — by a rater, not by a run — and the second was
+  checks nothing. **Not all of them, and an earlier version of this paragraph said "every
+  one", which is not true** — thirteen of them carried a floor of their own, which is what
+  made the two that did not so easy to miss: the habit existed, it was just not enforced.
+  The four with nothing at all were `infodot-copy`, `person-router`, `nested-dismiss` and
+  `confirm-finality`, each of which stayed green with its walk replaced by `[]`. Two were caught this way — by a rater, not by a run — and the second was
   the sibling of the first, in the commit that fixed the first. A per-file assertion is
   the wrong repair for exactly the reason this repo already states about screens: it is a
   line each, and that is how one of them goes on being right while the other quietly

@@ -149,10 +149,18 @@ function portraitTags(text) {
 // one-expression handler like `() => setBroken(true)` still counts — the rule has
 // to stay satisfiable or it gets worked around instead of obeyed.
 //
-// A HANDLER PASSED BY NAME COUNTS TOO. `onError={boom}` puts the body in another
-// function this rule cannot read, and refusing those would make it unsatisfiable
-// for every screen that names its handler. `undefined` is an Identifier like any
-// other, so it is the one name spelled out here.
+// A HANDLER PASSED BY NAME IS RESOLVED ONE STEP FIRST, the same way `portraitTags`
+// already resolves a bare `src`. `onError={noop}` beside `const noop = () => {}`
+// passed for as long as the name alone was enough — an empty handler wearing a
+// variable, which is the cheapest of all the escapes.
+//
+// AND WHAT IS NOT RESOLVED IS SAID PLAINLY. A name imported from another module,
+// or reached through an object (`props.onBroken`, `this.onBroken`), has its body
+// somewhere this rule cannot read, and it is ACCEPTED — because refusing it would
+// make the rule unsatisfiable for every screen that names its handler, and an
+// unsatisfiable rule gets worked around rather than obeyed. So the claim is: a
+// no-op this file can SEE is caught. `undefined` is an Identifier like any other,
+// so it is the one name spelled out here.
 const ACTS = new Set([
   'CallExpression', 'OptionalCallExpression', 'NewExpression', 'TaggedTemplateExpression',
   'AssignmentExpression', 'UpdateExpression', 'AwaitExpression', 'ThrowStatement', 'YieldExpression',
@@ -165,7 +173,46 @@ function anyNode(node, seen) {
   return Object.values(node).some((v) => v && typeof v === 'object' && anyNode(v, seen))
 }
 
-function doesSomething(src) {
+// The value a name holds, one step, in the same file: `const x = …`, `let`, `var`,
+// or `function x(…) {…}`.
+//
+// PARSED, NOT MATCHED. The first cut read it off the flattened text with
+// `([^;]*?)(?:;|$)`, the way the `src` resolution above does — and this codebase
+// mostly does not end its lines with semicolons, so the capture ran to the end of
+// the file and swallowed the `<img>` tag itself. It reported a REAL handler as a
+// no-op, which is the failure direction that gets a rule deleted. An AST knows
+// where a declaration stops.
+function nodesIn(node, out = []) {
+  if (!node || typeof node !== 'object') return out
+  if (Array.isArray(node)) { for (const n of node) nodesIn(n, out); return out }
+  if (typeof node.type === 'string') out.push(node)
+  for (const v of Object.values(node)) if (v && typeof v === 'object') nodesIn(v, out)
+  return out
+}
+
+function boundTo(name, text) {
+  let ast
+  try {
+    ast = parse(text, { sourceType: 'module', plugins: ['jsx', 'classProperties'] })
+  } catch {
+    // A file that does not parse has no declarations this can read, so the name
+    // is treated as declared elsewhere. That is not a hole in the tree: every
+    // `.jsx?` under src is parsed by `no-free-names.test.js`, which fails on the
+    // parse error itself rather than going quiet.
+    return null
+  }
+  for (const n of nodesIn(ast.program)) {
+    if (n.type === 'VariableDeclarator' && n.id?.name === name && n.init) {
+      return text.slice(n.init.start, n.init.end)
+    }
+    if (n.type === 'FunctionDeclaration' && n.id?.name === name) {
+      return text.slice(n.start, n.end).replace(/^function\s/, 'function ')
+    }
+  }
+  return null
+}
+
+function doesSomething(src, text = '') {
   let node
   try {
     node = parse(`(${src})`, { plugins: ['jsx'], errorRecovery: false }).program.body[0].expression
@@ -173,7 +220,14 @@ function doesSomething(src) {
     return false // unparseable is not a guard
   }
   if (node.type !== 'ArrowFunctionExpression' && node.type !== 'FunctionExpression') {
-    if (node.type === 'Identifier') return node.name !== 'undefined'
+    if (node.type === 'Identifier') {
+      if (node.name === 'undefined') return false
+      const held = boundTo(node.name, text)
+      // Declared here: judge what it holds. Declared elsewhere: accepted, and
+      // the note above says why that is the boundary rather than a hole nobody
+      // mentioned.
+      return held === null ? true : doesSomething(held, '')
+    }
     return node.type === 'MemberExpression' || node.type === 'CallExpression'
   }
   return anyNode(node.body, (n) => ACTS.has(n.type))
@@ -191,12 +245,12 @@ function handlerIn(tag) {
   return '' // unbalanced — the tag was cut short, so it is not asking
 }
 
-const ASKS = (tag) => {
+const ASKS = (tag, text = '') => {
   const body = handlerIn(tag)
-  return body !== null && body !== '' && doesSomething(body)
+  return body !== null && body !== '' && doesSomething(body, text)
 }
 const unguarded = (text) => portraitTags(text)
-  .filter(({ tag, expr }) => OF_A_PERSON.test(expr) && !ASKS(tag))
+  .filter(({ tag, expr }) => OF_A_PERSON.test(expr) && !ASKS(tag, text))
 
 describe('the stand-in for a picture', () => {
   it('is drawn only by the components that ask whether the picture arrived', () => {
@@ -263,6 +317,17 @@ describe('a picture of a person or a character', () => {
       'an onError that is an empty async arrow': '<img src={coverImgURL(c.image_path)} onError={async () => {}} alt="" />',
       'an onError that returns a value and does nothing': '<img src={coverImgURL(c.image_path)} onError={() => false} alt="" />',
       'an onError whose body is a bare semicolon': '<img src={coverImgURL(c.image_path)} onError={() => {;}} alt="" />',
+      // AN EMPTY HANDLER WEARING A NAME, which is what the parse alone missed:
+      // any identifier but `undefined` counted, so hiding the no-op behind a
+      // `const` was a one-line escape.
+      // WRITTEN AS A MODULE, not as two loose lines. `const swallow = (e) => null`
+      // followed by a bare `<img>` does not parse — `null <` reads as a
+      // comparison — and an unparseable fragment is ACCEPTED by the resolution
+      // below, so the first draft of these three passed for a reason that had
+      // nothing to do with the rule.
+      'an empty handler behind a const': 'const noop = () => {}\nexport const A = () => <img src={coverImgURL(c.image_path)} onError={noop} alt="" />',
+      'an empty handler behind a function declaration': 'function shrug() {}\nexport const A = () => <img src={coverImgURL(c.image_path)} onError={shrug} alt="" />',
+      'a named handler that returns instead of acting': 'const swallow = (e) => null\nexport const A = () => <img src={coverImgURL(c.image_path)} onError={swallow} alt="" />',
       'the word onError typed in a comment': '<img src={coverImgURL(c.image_path)} /* onError */ alt="" />',
     }
     for (const [what, code] of Object.entries(shapes)) {
@@ -288,6 +353,8 @@ describe('a picture of a person or a character', () => {
       'a method on an object': '<img src={coverImgURL(c.image_path)} onError={this.onBroken} alt="" />',
       'an async handler with a body': '<img src={coverImgURL(c.image_path)} onError={async (e) => { await report(e) }} alt="" />',
       'an assignment': '<img src={coverImgURL(c.image_path)} onError={(e) => { e.target.hidden = true }} alt="" />',
+      'a named handler declared in the same file': 'const onBroken = () => setBroken(true)\nexport const A = () => <img src={coverImgURL(c.image_path)} onError={onBroken} alt="" />',
+      'a handler this file cannot see the body of': 'import { boom } from "./x"\nexport const A = () => <img src={coverImgURL(c.image_path)} onError={boom} alt="" />',
     }
     for (const [what, code] of Object.entries(real)) {
       expect(unguarded(code).length, `${what} IS asking, and the rule calls it a defect`).toBe(0)
