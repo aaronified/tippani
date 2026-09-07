@@ -1309,6 +1309,23 @@ opening the one `.js` in the directory.
 | AX12 | **Two numbers in the plan were wrong or unverifiable.** `GET /characters/{id}` is assembled across **eight** tables, not four; and "72 mutating calls" had no method, in a section headed *found in the tree rather than assumed* | **FIXED.** Eight tables named, and the 72 replaced with the two commands that produce 163 and 151 — with the honest statement that which of those touch a panel's payload is the table nobody has built, which is why that step is last |
 | AX13 | Two dismissal paths in `ActionMenu` restore no focus at all — an outside press (`useDismiss`'s `mousedown`) and an item pick (`if (!it.keepOpen) close()`) — dropping focus to `<body>` | **NOT FIXED, and named rather than quietly widened.** It is a real accessibility gap and it is pre-existing, on every menu in the app, and outside what the owner reported. Fixing it changes behaviour everywhere a menu closes, which is a decision rather than a repair. Recorded here because an unfixed defect leaves no trace in the tree |
 
+**AND `make controls` EXITS 0 AT BOTH WIDTHS AGAINST THE RECORDED CEILINGS**, which is a
+stronger result than the run before it: that one passed `--update-baseline` and so wrote the
+number it then judged, where this one had no such flag and was judged against what was
+already recorded. 1280: fifteen surfaces `ok`, `small 0` and `labelled 0` against a ceiling
+of 0. 390: `small 300` against a ceiling of **301**, `labelled 24` against 24. The 300 where
+301 was recorded is the drift `CLAUDE.md` now describes — the probe presses controls that
+change the library as it goes — and it is inside the ratchet's slack, which is why it reads
+`ok` rather than `slack`.
+
+**One honesty note about which tree that probe measured.** It was started against
+`f6ae3b77` and the app changed once while it ran: the Tab-out `preventScroll` revert
+(AX7). That cannot reach it — `controls.mjs` presses no Escape key anywhere, so the code
+path never runs during a probe, and a `preventScroll` flag cannot alter a control's count,
+its size or whether it is reachable. The earlier run WAS killed for this reason and this one
+was not, and the difference is that one had changed `App.jsx`'s route handling under it,
+which the probe does exercise.
+
 **The pattern, for the fifth time in one session, and this instance is the most instructive.**
 AX1 is not a guard that could not fail — it is a document that got the answer wrong in the
 same direction as the error it was written to correct, one page later. Reading the pack's
